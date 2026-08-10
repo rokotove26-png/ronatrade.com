@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="#13171c" name="theme-color"/>
+<title>RONA Trade — География поставок v0.1.8</title>
+<style>
+:root{--red:#e10600;--red2:#ff352c;--ink:#f4f6f8;--muted:#b7bec6;--line:rgba(118,151,180,.34);--sapphire:#5a8fb5;--glass:rgba(13,18,24,.68);--glass2:rgba(21,27,34,.52);--header-h:68px}
+*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0}
+body{font-family:"Segoe UI",Inter,Arial,Helvetica,sans-serif;background:#11161b;color:var(--ink);overflow:hidden;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+a,button{font:inherit}
+.page{position:relative;width:100%;height:100svh;min-height:720px;overflow:hidden;isolation:isolate;background:#11161b}
+.bg{position:absolute;inset:0;z-index:-30;width:100%;height:100%;object-fit:cover;object-position:center;user-select:none;pointer-events:none}
+.vignette{position:absolute;inset:0;z-index:-29;pointer-events:none;background:radial-gradient(circle at 49% 48%,rgba(255,255,255,0) 34%,rgba(6,9,13,.05) 69%,rgba(3,6,9,.22) 100%),linear-gradient(180deg,rgba(3,6,9,.22),rgba(3,6,9,0) 24%,rgba(3,6,9,0) 72%,rgba(3,6,9,.18));}
+header{position:absolute;top:0;left:0;right:0;height:var(--header-h);z-index:30;display:flex;align-items:center;padding:0 clamp(34px,4vw,74px);border-bottom:1px solid rgba(255,255,255,.08);background:linear-gradient(180deg,rgba(12,15,19,.78),rgba(12,15,19,.34));backdrop-filter:blur(12px) saturate(120%)}
+.nav{margin-left:auto;display:flex;align-items:center;gap:clamp(18px,2vw,34px)}
+.nav a{position:relative;color:rgba(244,246,248,.76);text-decoration:none;font-size:clamp(13px,.88vw,16px);font-weight:670;white-space:nowrap;transition:.2s ease}
+.nav a::after{content:"";position:absolute;left:0;right:100%;bottom:-11px;height:2px;background:var(--red);box-shadow:0 0 10px rgba(225,6,0,.45);transition:right .22s ease}
+.nav a:hover,.nav a.active{color:white}
+.nav a:hover::after,.nav a.active::after{right:0}
+.portal-top{height:39px;margin-left:26px;padding:0 18px;border-radius:8px;border:1px solid rgba(255,255,255,.16);background:rgba(13,17,22,.44);color:#fff;font-weight:720;font-size:13px;backdrop-filter:blur(12px);cursor:pointer}
+main{position:absolute;inset:var(--header-h) 0 0;z-index:5;padding:0 clamp(42px,4.8vw,86px)}
+.shell{position:relative;width:100%;height:100%;max-width:1700px;margin:0 auto}
+.hero{position:fixed;top:calc(var(--header-h) + 40px);left:3px;width:min(1120px,calc(100vw - 510px))}
+.hero-main{display:grid;grid-template-columns:max-content 2px minmax(320px,1fr);align-items:center;column-gap:28px;width:100%}
+.hero-divider{width:2px;height:112px;background:linear-gradient(180deg,rgba(225,6,0,.08),var(--red) 18%,#ff3b34 52%,var(--red) 82%,rgba(225,6,0,.08));box-shadow:0 0 16px rgba(225,6,0,.38)}
+.kicker{display:flex;align-items:center;gap:12px;margin:0 0 10px;color:#c5cbd2;font-size:11px;font-weight:840;letter-spacing:.21em;text-transform:uppercase;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.kicker::before{content:"";width:52px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--red),#ff574f);box-shadow:0 0 18px rgba(225,6,0,.5)}
+h1{margin:0;font-size:clamp(56px,5.4vw,90px);line-height:.89;letter-spacing:-.06em;font-weight:800;color:#fff;text-shadow:0 4px 28px rgba(0,0,0,.55)}
+h1 span{color:var(--red)}
+.lead{margin:0;max-width:560px;font-size:clamp(18px,1.14vw,22px);line-height:1.46;color:#eef1f4;font-weight:500;text-shadow:0 2px 12px rgba(0,0,0,.75)}
+.lead strong{font-weight:780;color:#fff}
+.mode-row{display:flex;gap:9px;flex-wrap:wrap;margin-top:17px}
+.mode{height:35px;padding:0 13px 0 10px;display:flex;align-items:center;gap:9px;border:1px solid rgba(144,174,199,.28);background:linear-gradient(180deg,rgba(19,25,31,.58),rgba(12,17,22,.40));backdrop-filter:blur(12px);color:#e7edf2;font-size:10.5px;font-weight:820;letter-spacing:.08em;text-transform:uppercase;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.mode svg{width:23px;height:23px;stroke:#fff;opacity:.9}
+.glass{border:.6px solid rgba(116,157,190,.34);background:linear-gradient(145deg,rgba(10,14,19,.72),rgba(20,27,34,.53));backdrop-filter:blur(16px) saturate(132%);box-shadow:inset 0 1px 0 rgba(255,255,255,.10),inset 0 0 28px rgba(82,132,170,.05),0 18px 55px rgba(0,0,0,.16)}
+.rail-card{position:absolute;left:0;bottom:34px;width:min(880px,56vw);min-height:226px;padding:21px 23px 20px;overflow:hidden}
+.rail-card::before{content:"";position:absolute;left:0;top:0;width:4px;height:100%;background:linear-gradient(180deg,var(--red),rgba(225,6,0,.15));box-shadow:0 0 22px rgba(225,6,0,.36)}
+.card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.eyebrow{color:#9fb6c8;font-size:10px;font-weight:850;letter-spacing:.17em;text-transform:uppercase}
+.card-title{margin:4px 0 0;font-size:clamp(25px,2vw,34px);line-height:1.02;letter-spacing:-.035em;font-weight:780;color:#fff}
+.card-note{max-width:390px;margin:1px 0 0;color:#cbd3da;font-size:13.5px;line-height:1.45;text-align:right}
+.country-groups{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:17px;padding-top:15px;border-top:1px solid rgba(160,190,213,.15)}
+.group-label{margin-bottom:8px;color:#95a9ba;font-size:9.5px;font-weight:840;letter-spacing:.14em;text-transform:uppercase}
+.countries{display:flex;gap:7px;flex-wrap:wrap}
+.country{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border:.5px solid rgba(138,172,199,.25);background:rgba(20,27,34,.40);color:#f4f6f8;font-size:12px;font-weight:690;white-space:nowrap}
+.country::before{content:"";width:5px;height:5px;margin-right:7px;border-radius:50%;background:#e5352f;box-shadow:0 0 8px rgba(229,53,47,.75)}
+.sea-card{position:fixed;right:3px;top:calc(var(--header-h) + 43px);width:min(470px,32vw);min-height:300px;padding:22px 23px 21px;overflow:hidden}
+.sea-card::before{content:"";position:absolute;inset:0 0 auto;height:1px;background:linear-gradient(90deg,rgba(99,145,179,.05),rgba(163,196,218,.58),rgba(99,145,179,.05))}
+.sea-top{display:flex;align-items:center;gap:13px}
+.sea-icon{width:50px;height:50px;display:grid;place-items:center;border:.6px solid rgba(124,165,196,.38);background:rgba(14,21,27,.42);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.sea-icon svg{width:35px;height:35px;stroke:#fff}
+.sea-title{margin:0;font-size:29px;line-height:1.03;letter-spacing:-.035em;font-weight:790}
+.sea-copy{margin:13px 0 0;color:#d1d8de;font-size:14.5px;line-height:1.5}
+.seas{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:15px}
+.sea{padding:9px 7px;border:.5px solid rgba(133,168,194,.25);background:rgba(12,18,23,.35);text-align:center}
+.sea b{display:block;color:#fff;font-size:12px}
+.sea span{display:block;margin-top:2px;color:#91a8ba;font-size:9px;letter-spacing:.08em;text-transform:uppercase}
+.ports{margin-top:14px;padding-top:13px;border-top:1px solid rgba(160,190,213,.14)}
+.ports-label{color:#94a9b9;font-size:9.5px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}
+.port-list{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+.port{padding:7px 10px;background:linear-gradient(180deg,rgba(225,6,0,.16),rgba(225,6,0,.07));border:.5px solid rgba(255,88,78,.34);color:#fff;font-size:12px;font-weight:720}
+.thesis{position:absolute;right:0;bottom:38px;width:min(560px,37vw);padding:15px 19px 16px;border-left:3px solid var(--red);background:linear-gradient(90deg,rgba(11,15,20,.72),rgba(11,15,20,.30));backdrop-filter:blur(10px)}
+.thesis .mini{font-size:9.5px;color:#9fb0bf;font-weight:850;letter-spacing:.18em;text-transform:uppercase}
+.thesis strong{display:block;margin-top:5px;color:#fff;font-size:clamp(19px,1.55vw,26px);line-height:1.1;letter-spacing:-.025em}
+.thesis p{margin:7px 0 0;color:#cbd2d9;font-size:12.5px;line-height:1.42}
+.route-legend{position:absolute;left:min(900px,58vw);bottom:38px;display:flex;align-items:center;gap:11px;color:#dfe4e8;font-size:10px;font-weight:760;letter-spacing:.07em;text-transform:uppercase;text-shadow:0 2px 5px #000}
+.route-legend i{display:block;width:31px;height:2px;background:linear-gradient(90deg,#ff3a31,#ffb44d);box-shadow:0 0 12px rgba(255,74,55,.52)}
+@media(max-width:1180px){.sea-card{width:40vw}.rail-card{width:62vw}.thesis{display:none}.hero{width:min(880px,calc(100vw - 44vw))}.hero-main{grid-template-columns:max-content 2px minmax(250px,1fr);column-gap:20px}.lead{font-size:16px}}
+@media(max-width:900px){body{overflow:auto}.page{height:auto;min-height:100svh;overflow:hidden}.bg{object-position:center top}header{position:relative}main{position:relative;inset:auto;padding:26px 22px 34px}.shell{height:auto;display:flex;flex-direction:column;gap:18px}.hero,.rail-card,.sea-card,.thesis{position:relative;top:auto;right:auto;bottom:auto;left:auto;width:100%}.hero{margin-bottom:4px}.hero-main{display:block}.hero-divider{display:none}.lead{margin-top:15px;max-width:100%}.sea-card{order:2}.rail-card{order:3}.country-groups{grid-template-columns:1fr}.route-legend{display:none}.nav{gap:14px;overflow:auto}.portal-top{display:none}}
+
+/* v0.1.4: edge positioning + title/lead same-level composition */
+@media (min-width:901px){
+  .hero{position:fixed!important;left:3px!important;right:auto!important;top:calc(var(--header-h) + 40px)!important;margin:0!important;transform:none!important;}
+  .sea-card{position:fixed!important;right:3px!important;left:auto!important;top:calc(var(--header-h) + 43px)!important;margin:0!important;transform:none!important;}
+}
+
+
+/* v0.1.5 — composition: intact hero under header + three framed blocks in one lower line */
+@media (min-width:901px){
+  /* Entire “География поставок” block is preserved visually and moved as one unit */
+  .hero{
+    position:fixed!important;
+    top:calc(var(--header-h) + 8px)!important;
+    left:3px!important;
+    right:auto!important;
+    width:min(1180px,calc(100vw - 24px))!important;
+    margin:0!important;
+    transform:none!important;
+    z-index:18!important;
+  }
+
+  /* One calm lower horizon: three framed modules */
+  .rail-card,
+  .sea-card,
+  .thesis{
+    position:fixed!important;
+    top:auto!important;
+    bottom:22px!important;
+    height:252px!important;
+    min-height:252px!important;
+    margin:0!important;
+    transform:none!important;
+    overflow:hidden!important;
+    z-index:20!important;
+    border:.6px solid rgba(116,157,190,.34)!important;
+    background:linear-gradient(145deg,rgba(10,14,19,.70),rgba(20,27,34,.50))!important;
+    backdrop-filter:blur(16px) saturate(132%)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10),inset 0 0 28px rgba(82,132,170,.05),0 18px 55px rgba(0,0,0,.14)!important;
+  }
+
+  .rail-card{
+    left:3px!important;
+    right:auto!important;
+    width:39.2vw!important;
+    padding:20px 22px 18px!important;
+  }
+  .rail-card::before{width:3px!important;}
+  .rail-card .card-head{gap:16px!important;}
+  .rail-card .card-note{max-width:330px!important;font-size:12.7px!important;}
+  .rail-card .country-groups{gap:13px!important;margin-top:14px!important;padding-top:13px!important;}
+  .rail-card .country{min-height:28px!important;padding:0 9px!important;font-size:11.3px!important;}
+
+  .thesis{
+    left:calc(39.2vw + 11px)!important;
+    right:auto!important;
+    width:27.2vw!important;
+    padding:26px 24px 22px!important;
+    border-left:3px solid var(--red)!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+  }
+  .thesis .mini{font-size:9.5px!important;}
+  .thesis strong{font-size:clamp(22px,1.75vw,30px)!important;line-height:1.08!important;}
+  .thesis p{font-size:12.7px!important;line-height:1.48!important;}
+
+  .sea-card{
+    right:3px!important;
+    left:auto!important;
+    width:calc(33.6vw - 17px)!important;
+    padding:19px 21px 17px!important;
+  }
+  .sea-card .sea-icon{width:44px!important;height:44px!important;}
+  .sea-card .sea-icon svg{width:31px!important;height:31px!important;}
+  .sea-card .sea-title{font-size:26px!important;}
+  .sea-card .sea-copy{margin-top:10px!important;font-size:13.3px!important;line-height:1.42!important;}
+  .sea-card .seas{margin-top:11px!important;gap:6px!important;}
+  .sea-card .sea{padding:7px 6px!important;}
+  .sea-card .ports{margin-top:10px!important;padding-top:9px!important;}
+  .sea-card .port-list{margin-top:6px!important;gap:6px!important;}
+  .sea-card .port{padding:6px 8px!important;font-size:11.2px!important;}
+
+  .route-legend{
+    position:fixed!important;
+    left:50%!important;
+    bottom:286px!important;
+    transform:translateX(-50%)!important;
+    z-index:17!important;
+    white-space:nowrap!important;
+  }
+}
+
+
+/* v0.1.6 — rail & road module moved to upper-right beneath navigation */
+@media (min-width:901px){
+  .rail-card{
+    position:fixed!important;
+    top:calc(var(--header-h) + 22px)!important;
+    right:3px!important;
+    bottom:auto!important;
+    left:auto!important;
+    width:min(690px,36vw)!important;
+    height:auto!important;
+    min-height:232px!important;
+    max-height:270px!important;
+    padding:19px 21px 17px!important;
+    z-index:23!important;
+  }
+  .rail-card .card-head{gap:14px!important;}
+  .rail-card .card-title{font-size:clamp(23px,1.65vw,29px)!important;}
+  .rail-card .card-note{max-width:300px!important;font-size:12.1px!important;line-height:1.42!important;}
+  .rail-card .country-groups{gap:12px!important;margin-top:12px!important;padding-top:11px!important;}
+  .rail-card .country{min-height:26px!important;padding:0 8px!important;font-size:10.9px!important;}
+
+  /* lower composition now breathes: thesis left/centre, marine transfer right */
+  .thesis{
+    left:3px!important;
+    width:min(560px,31vw)!important;
+  }
+  .sea-card{
+    right:3px!important;
+    width:min(560px,34vw)!important;
+  }
+}
+@media (min-width:901px) and (max-width:1500px){
+  .rail-card{width:min(600px,38vw)!important;top:calc(var(--header-h) + 112px)!important;}
+}
+
+
+/* v0.1.7 — stacked transport modules + narrower Eurasia statement + technical icon system */
+@media (min-width:901px){
+  :root{--geo-stack-w:min(590px,36vw);--geo-stack-right:3px;--geo-stack-top:calc(var(--header-h) + 22px);--geo-stack-gap:12px;}
+
+  /* Two operational cards form one disciplined right-side column */
+  .rail-card,
+  .sea-card{
+    position:fixed!important;
+    right:var(--geo-stack-right)!important;
+    left:auto!important;
+    width:var(--geo-stack-w)!important;
+    margin:0!important;
+    transform:none!important;
+    z-index:24!important;
+  }
+  .rail-card{
+    top:var(--geo-stack-top)!important;
+    bottom:auto!important;
+    min-height:234px!important;
+    max-height:none!important;
+    height:auto!important;
+    padding:18px 20px 17px!important;
+  }
+  .sea-card{
+    top:calc(var(--geo-stack-top) + 246px + var(--geo-stack-gap))!important;
+    bottom:auto!important;
+    min-height:286px!important;
+    height:auto!important;
+    padding:18px 20px 17px!important;
+  }
+
+  /* Same optical geometry for both cards */
+  .rail-card,.sea-card{
+    border:.6px solid rgba(116,157,190,.34)!important;
+    background:linear-gradient(145deg,rgba(10,14,19,.72),rgba(20,27,34,.53))!important;
+    backdrop-filter:blur(16px) saturate(132%)!important;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.10),inset 0 0 28px rgba(82,132,170,.05),0 18px 55px rgba(0,0,0,.15)!important;
+  }
+
+  .rail-head-main{display:flex;align-items:center;gap:13px;min-width:0}
+  .rail-icon,.thesis-icon{
+    flex:0 0 auto;width:46px;height:46px;display:grid;place-items:center;
+    border:.6px solid rgba(124,165,196,.38);
+    background:linear-gradient(145deg,rgba(20,34,45,.54),rgba(7,12,17,.34));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 24px rgba(53,105,145,.07);
+  }
+  .rail-icon svg,.thesis-icon svg{width:31px;height:31px;stroke:#f7f9fb;fill:none;opacity:.94}
+  .rail-card .card-head{align-items:center!important;gap:14px!important}
+  .rail-card .card-note{max-width:245px!important;font-size:11.8px!important;line-height:1.38!important}
+  .rail-card .card-title{font-size:clamp(22px,1.55vw,28px)!important}
+  .rail-card .country-groups{margin-top:11px!important;padding-top:10px!important;gap:11px!important}
+  .rail-card .country{min-height:25px!important;padding:0 8px!important;font-size:10.6px!important}
+  .group-label{display:flex;align-items:center;gap:7px!important;margin-bottom:7px!important}
+  .group-label::before{content:"";width:13px;height:1px;background:linear-gradient(90deg,var(--red),rgba(255,79,70,.18));box-shadow:0 0 8px rgba(225,6,0,.22)}
+
+  .sea-card .sea-top{gap:13px!important}
+  .sea-card .sea-icon{width:46px!important;height:46px!important}
+  .sea-card .sea-icon svg{width:32px!important;height:32px!important}
+  .sea-card .sea-title{font-size:27px!important}
+  .sea-card .sea-copy{margin-top:10px!important;font-size:13.2px!important;line-height:1.42!important}
+  .sea-card .seas{margin-top:11px!important;gap:7px!important}
+  .sea-card .sea{position:relative;padding:9px 7px 8px!important}
+  .sea-card .sea::before{content:"≈";display:block;margin:0 auto 2px;color:#b9d0e1;font-size:14px;line-height:1;opacity:.78}
+  .sea-card .ports{margin-top:10px!important;padding-top:9px!important}
+  .ports-label{display:flex;align-items:center;gap:7px}
+  .ports-label::before{content:"";width:7px;height:7px;border:1px solid rgba(255,92,82,.75);border-radius:50%;box-shadow:0 0 9px rgba(225,6,0,.38)}
+
+  /* Eurasia thesis reduced so the dotted map ornament remains visible */
+  .thesis{
+    position:fixed!important;
+    left:3px!important;
+    right:auto!important;
+    bottom:24px!important;
+    top:auto!important;
+    width:min(390px,24vw)!important;
+    min-height:0!important;
+    height:auto!important;
+    padding:15px 17px 15px!important;
+    border:.6px solid rgba(116,157,190,.26)!important;
+    border-left:3px solid var(--red)!important;
+    background:linear-gradient(100deg,rgba(9,13,18,.70),rgba(12,18,24,.42))!important;
+    backdrop-filter:blur(12px) saturate(125%)!important;
+    z-index:21!important;
+  }
+  .thesis-head{display:flex;align-items:center;gap:11px}
+  .thesis-icon{width:40px;height:40px}
+  .thesis-icon svg{width:27px;height:27px}
+  .thesis .mini{font-size:9px!important}
+  .thesis strong{font-size:clamp(18px,1.28vw,23px)!important;line-height:1.08!important;margin-top:9px!important}
+  .thesis p{font-size:11.6px!important;line-height:1.42!important;margin-top:7px!important}
+
+  .route-legend{bottom:26px!important;left:50%!important;transform:translateX(-50%)!important}
+}
+@media (min-width:901px) and (max-width:1500px){
+  :root{--geo-stack-w:min(520px,38vw);}
+  .rail-card{top:calc(var(--header-h) + 96px)!important}
+  .sea-card{top:calc(var(--header-h) + 96px + 246px + var(--geo-stack-gap))!important}
+  .thesis{width:min(340px,24vw)!important}
+}
+
+
+/* v0.1.8 — wider framed modules + justified text blocks */
+@media (min-width:901px){
+  :root{
+    --geo-stack-w:min(660px,40vw);
+  }
+
+  /* Both operational frames stay exactly equal in width */
+  .rail-card,
+  .sea-card{
+    width:var(--geo-stack-w)!important;
+    padding-left:24px!important;
+    padding-right:24px!important;
+  }
+
+  /* Give the title / explanation row more horizontal breathing room */
+  .rail-card .card-head{
+    gap:22px!important;
+  }
+  .rail-card .card-note{
+    max-width:300px!important;
+    width:300px!important;
+    text-align:justify!important;
+    text-align-last:left!important;
+    text-justify:inter-word!important;
+    hyphens:auto;
+  }
+
+  .sea-card .sea-copy{
+    text-align:justify!important;
+    text-align-last:left!important;
+    text-justify:inter-word!important;
+    hyphens:auto;
+  }
+
+  /* Eurasia frame is wider, but remains substantially narrower than the right stack */
+  .thesis{
+    width:min(440px,27vw)!important;
+    padding-left:20px!important;
+    padding-right:20px!important;
+  }
+  .thesis p{
+    text-align:justify!important;
+    text-align-last:left!important;
+    text-justify:inter-word!important;
+    hyphens:auto;
+  }
+
+  /* Hero explanatory copy is also aligned to a clean editorial edge */
+  .hero .lead{
+    max-width:590px!important;
+    text-align:justify!important;
+    text-align-last:left!important;
+    text-justify:inter-word!important;
+    hyphens:auto;
+  }
+}
+
+@media (min-width:901px) and (max-width:1500px){
+  :root{--geo-stack-w:min(585px,41vw);}
+  .thesis{width:min(390px,28vw)!important;}
+  .rail-card .card-note{max-width:250px!important;width:250px!important;}
+}
+
+@media (max-width:900px){
+  .lead,.card-note,.sea-copy,.thesis p{
+    text-align:left!important;
+    text-align-last:auto!important;
+    hyphens:none!important;
+  }
+}
+</style>
+<style id="rona-final-corrections">
+/* Final correction pass: navigation consistency without new decorative layers */
+header{z-index:200!important}
+.nav a{outline-offset:5px}.nav a:focus-visible,.portal-top:focus-visible{outline:2px solid #e10600;outline-offset:4px}
+
+.rona-portal-host{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0;transform:translateY(-5px) scale(.99);transform-origin:top right;transition:opacity .18s ease,transform .22s ease}
+.rona-portal-host.open{opacity:1;transform:none}
+.rona-portal-host .portal-card{pointer-events:auto;position:absolute;right:clamp(48px,5vw,96px);top:clamp(180px,23vh,255px);width:clamp(350px,24vw,430px);border:1px solid rgba(255,255,255,.2);border-radius:18px;background:linear-gradient(145deg,rgba(25,25,27,.93),rgba(5,5,6,.84));box-shadow:0 30px 80px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.1);backdrop-filter:blur(15px) saturate(105%);-webkit-backdrop-filter:blur(15px) saturate(105%);padding:28px 28px 25px;color:#fff;overflow:hidden}
+.rona-portal-host .portal-card::before{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-72px;top:-88px;background:radial-gradient(circle,rgba(225,6,0,.42),rgba(225,6,0,0) 70%);pointer-events:none}
+.rona-portal-host .portal-title{font-size:26px;font-weight:620;letter-spacing:-.02em;margin:0 0 7px}
+.rona-portal-host .portal-sub{font-size:13px;line-height:1.45;color:rgba(255,255,255,.55);margin-bottom:21px}
+.rona-portal-host .field{margin-bottom:12px}
+.rona-portal-host .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.48);margin:0 0 7px 2px}
+.rona-portal-host .field input{width:100%;height:52px;border-radius:8px;border:1px solid rgba(255,255,255,.20);background:rgba(255,255,255,.055);color:white;outline:none;padding:0 15px;font-size:16px;transition:.2s ease;box-sizing:border-box}
+.rona-portal-host .field input::placeholder{color:rgba(255,255,255,.34)}
+.rona-portal-host .field input:focus{border-color:rgba(255,35,28,.8);box-shadow:0 0 0 3px rgba(225,6,0,.13);background:rgba(255,255,255,.075)}
+.rona-portal-host .login-btn{width:100%;height:53px;border:0;border-radius:8px;color:#fff;font-weight:700;font-size:16px;background:linear-gradient(180deg,#f5160e,#d80000);cursor:pointer;margin-top:5px;box-shadow:0 14px 28px rgba(225,6,0,.20),inset 0 1px 0 rgba(255,255,255,.22)}
+.rona-portal-host .login-btn:hover{filter:brightness(1.045)}
+.rona-portal-host .portal-note{margin:16px 0 0;text-align:center;font-size:12px;color:rgba(255,255,255,.46)}
+@media(prefers-reduced-motion:reduce){.rona-portal-host{transition:none!important}}
+
+html.rona-pre-reveal .bg,html.rona-pre-reveal .hero-bg{opacity:.92;transform:scale(1.015)}
+html.rona-pre-reveal .kicker,html.rona-pre-reveal h1,html.rona-pre-reveal .lead,html.rona-pre-reveal .story-block,html.rona-pre-reveal .product-row,html.rona-pre-reveal .network,html.rona-pre-reveal .flow-copy,html.rona-pre-reveal .mode,html.rona-pre-reveal .rail-card,html.rona-pre-reveal .sea-card,html.rona-pre-reveal .thesis,html.rona-pre-reveal .info,html.rona-pre-reveal .bank{opacity:0;transform:translateY(12px)}
+.bg,.hero-bg{transition:opacity .45s ease,transform .45s cubic-bezier(.16,1,.3,1)}
+.kicker,h1,.lead,.story-block,.product-row,.network,.flow-copy,.mode,.rail-card,.sea-card,.thesis,.info,.bank{transition:opacity .44s ease,transform .52s cubic-bezier(.16,1,.3,1)}
+html.rona-revealed .kicker,html.rona-revealed h1,html.rona-revealed .lead,html.rona-revealed .story-block,html.rona-revealed .product-row,html.rona-revealed .network,html.rona-revealed .flow-copy,html.rona-revealed .mode,html.rona-revealed .rail-card,html.rona-revealed .sea-card,html.rona-revealed .thesis,html.rona-revealed .info,html.rona-revealed .bank{opacity:1;transform:none}
+html.rona-revealed .story-block:nth-child(2),html.rona-revealed .product-row:nth-child(2),html.rona-revealed .mode:nth-child(2){transition-delay:.05s}
+html.rona-revealed .story-block:nth-child(3),html.rona-revealed .product-row:nth-child(3),html.rona-revealed .mode:nth-child(3){transition-delay:.10s}
+html.rona-revealed .product-row:nth-child(4),html.rona-revealed .mode:nth-child(4){transition-delay:.15s}
+html.rona-revealed .product-row:nth-child(5){transition-delay:.20s}html.rona-revealed .product-row:nth-child(6){transition-delay:.25s}html.rona-revealed .product-row:nth-child(7){transition-delay:.30s}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.bg,.hero-bg,.kicker,h1,.lead,.story-block,.product-row,.network,.flow-copy,.mode,.rail-card,.sea-card,.thesis,.info,.bank{transition:none!important;animation:none!important;opacity:1!important;transform:none!important;filter:none!important}}
+
+.shell{max-width:none!important;margin:0!important;width:100%!important;height:100%!important}.hero{position:absolute!important;top:88px!important;left:34px!important;width:620px!important}.hero-main{display:block!important}.hero-divider{display:none!important}.hero h1{font-size:70px!important;line-height:.9!important;max-width:600px!important}.hero .lead{font-size:18px!important;line-height:1.38!important;max-width:560px!important;margin-top:10px!important}.mode-row{margin-top:12px!important;gap:7px!important}.mode-row>*{font-size:9.5px!important;padding:6px 9px!important}.rail-card{position:absolute!important;top:88px!important;right:28px!important;left:auto!important;bottom:auto!important;width:430px!important;height:auto!important;min-height:0!important;padding:13px 15px!important;margin:0!important}.rail-card .card-title{font-size:25px!important}.card-note{font-size:10.5px!important;line-height:1.35!important}.country-groups{margin-top:8px!important;gap:8px!important}.group-label{font-size:8px!important}.countries{gap:5px!important}.countries>*{font-size:8.5px!important;padding:4px 6px!important}.sea-card{position:absolute!important;top:330px!important;right:28px!important;left:auto!important;bottom:auto!important;width:430px!important;height:auto!important;min-height:0!important;padding:13px 15px!important;margin:0!important}.sea-title{font-size:25px!important}.sea-copy{font-size:10.5px!important;line-height:1.35!important}.seas{gap:6px!important;margin-top:8px!important}.sea{padding:7px!important;font-size:9px!important}.ports{margin-top:8px!important}.ports-label{font-size:8px!important}.port-list{gap:5px!important}.port-list>*{font-size:8.5px!important;padding:4px 6px!important}.thesis{display:block!important;position:absolute!important;left:28px!important;right:auto!important;bottom:26px!important;width:380px!important;padding:12px 15px!important}.thesis strong{font-size:21px!important}.thesis p{font-size:10.5px!important;line-height:1.35!important}.route-legend{bottom:16px!important;font-size:8.5px!important}
+html[data-layout="compact"] .hero{top:74px!important;left:26px!important;width:520px!important}html[data-layout="compact"] .hero h1{font-size:54px!important}html[data-layout="compact"] .hero .lead{font-size:15px!important;max-width:470px!important}html[data-layout="compact"] .rail-card{top:74px!important;right:20px!important;width:310px!important;padding:9px 11px!important}html[data-layout="compact"] .sea-card{top:340px!important;right:20px!important;width:310px!important;padding:9px 11px!important}html[data-layout="compact"] .rail-card .card-title,html[data-layout="compact"] .sea-title{font-size:19px!important}html[data-layout="compact"] .card-note,html[data-layout="compact"] .sea-copy{display:none!important}html[data-layout="compact"] .country-groups{margin-top:5px!important;gap:5px!important}html[data-layout="compact"] .countries>* ,html[data-layout="compact"] .port-list>*{font-size:10px!important;padding:3px 5px!important}html[data-layout="compact"] .seas{margin-top:5px!important}html[data-layout="compact"] .sea{font-size:10px!important;padding:5px!important}html[data-layout="compact"] .thesis{left:20px!important;bottom:20px!important;width:285px!important;padding:10px 12px!important}html[data-layout="compact"] .thesis strong{font-size:18px!important}html[data-layout="compact"] .thesis p{display:none!important}
+</style><style id="rona-v1-1-patch">
+html,body,.page{background:transparent!important}.bg{visibility:hidden!important}
+.shell{width:100%!important;height:100%!important}.hero{top:74px!important;left:36px!important;width:650px!important}.hero h1{font-size:68px!important;line-height:.92!important}.hero .lead{font-size:17px!important;line-height:1.36!important;max-width:520px!important;margin-top:8px!important}.mode-row{margin-top:10px!important}.rail-card{top:78px!important;right:30px!important;width:405px!important;padding:12px 14px!important}.rail-card .card-title{font-size:24px!important}.card-note{font-size:10px!important}.country-groups{margin-top:7px!important}.countries>*{font-size:8.5px!important}.sea-card{top:auto!important;bottom:58px!important;right:30px!important;width:390px!important;padding:11px 13px!important}.sea-title{font-size:23px!important}.sea-copy{font-size:10px!important}.seas{margin-top:7px!important}.sea{padding:6px!important;font-size:8.8px!important}.ports{margin-top:7px!important}.port-list>*{font-size:8.2px!important}.thesis{left:30px!important;bottom:40px!important;width:350px!important;padding:10px 13px!important}.thesis strong{font-size:20px!important}.thesis p{font-size:10px!important}.route-legend{bottom:14px!important}
+html[data-layout="compact"] .hero{top:68px!important;left:24px!important;width:500px!important}html[data-layout="compact"] .hero h1{font-size:51px!important}html[data-layout="compact"] .hero .lead{font-size:14.5px!important;line-height:1.3!important;max-width:445px!important}html[data-layout="compact"] .mode-row{margin-top:8px!important}html[data-layout="compact"] .rail-card{top:68px!important;right:18px!important;width:300px!important;padding:8px 10px!important}html[data-layout="compact"] .rail-card .card-title{font-size:18.5px!important}html[data-layout="compact"] .country-groups{margin-top:4px!important}html[data-layout="compact"] .countries>*{font-size:9px!important;padding:3px 5px!important}html[data-layout="compact"] .sea-card{top:auto!important;bottom:46px!important;right:18px!important;width:286px!important;padding:8px 10px!important}html[data-layout="compact"] .sea-title{font-size:18px!important}html[data-layout="compact"] .seas{margin-top:4px!important}html[data-layout="compact"] .sea{font-size:9px!important;padding:4px!important}html[data-layout="compact"] .port-list>*{font-size:8.7px!important;padding:3px 4px!important}html[data-layout="compact"] .thesis{left:20px!important;bottom:42px!important;width:270px!important;padding:9px 10px!important}html[data-layout="compact"] .thesis strong{font-size:17px!important}html[data-layout="compact"] .thesis p{display:none!important}
+
+.story-block,.product-row{filter:none!important}
+@media(prefers-reduced-motion:reduce){.story-block,.product-row,.network,.flow-copy,.mode,.rail-card,.sea-card,.thesis,.info,.bank,h1,.lead,.kicker{transition:none!important;animation:none!important;filter:none!important}}
+</style><style id="rona-v1-1-pointer-fix">.rona-portal-host:not(.open) .portal-card{pointer-events:none!important}</style><style id="rona-v1-2-patch">
+/* v1.2: remove legacy grey film; do not alter the USER ASSET itself. */
+.vignette{display:none!important}
+main{padding-left:0!important;padding-right:0!important}
+.shell{width:100%!important;max-width:none!important;margin:0!important}
+/* One top hero composition on the live map, no added panel. */
+.hero{position:absolute!important;top:10px!important;left:18px!important;width:1130px!important;margin:0!important}
+.hero-main{display:grid!important;grid-template-columns:515px 2px 540px!important;align-items:center!important;column-gap:22px!important;width:100%!important}
+.hero-divider{display:block!important;width:2px!important;height:64px!important}
+.hero h1{font-size:63px!important;line-height:.92!important;white-space:nowrap!important}
+.hero .lead{margin:0!important;max-width:540px!important;font-size:15.5px!important;line-height:1.34!important;text-align:left!important}
+.mode-row{margin-top:9px!important;gap:7px!important;flex-wrap:nowrap!important}.mode{height:31px!important;padding:0 10px 0 8px!important;font-size:9.7px!important}.mode svg{width:20px!important;height:20px!important}
+/* Right-side information uses existing blocks only. */
+.rail-card{position:absolute!important;top:10px!important;right:18px!important;left:auto!important;bottom:auto!important;width:345px!important;min-height:0!important;padding:10px 11px!important}
+.rail-card .card-head{gap:10px!important}.rail-card .card-title{font-size:20px!important;line-height:1.02!important}.rail-card .card-note{font-size:9.3px!important;line-height:1.3!important;max-width:150px!important}.rail-card .country-groups{margin-top:6px!important;padding-top:6px!important;gap:7px!important}.rail-card .group-label{font-size:7.7px!important;margin-bottom:4px!important}.rail-card .countries{gap:4px!important}.rail-card .country{min-height:22px!important;padding:0 6px!important;font-size:8.2px!important}.rail-card .country::before{width:4px!important;height:4px!important;margin-right:5px!important}
+.sea-card{position:absolute!important;top:auto!important;right:18px!important;bottom:18px!important;left:auto!important;width:330px!important;min-height:0!important;padding:10px 11px!important}
+.sea-card .sea-icon{width:38px!important;height:38px!important}.sea-card .sea-icon svg{width:27px!important;height:27px!important}.sea-title{font-size:20px!important}.sea-copy{font-size:9.5px!important;line-height:1.34!important;margin-top:7px!important}.seas{margin-top:6px!important;gap:5px!important}.sea{padding:5px 4px!important}.sea b{font-size:9.4px!important}.sea span{font-size:7.3px!important}.ports{margin-top:6px!important;padding-top:6px!important}.ports-label{font-size:7.5px!important}.port-list{gap:4px!important;margin-top:5px!important}.port{padding:4px 5px!important;font-size:8px!important}
+.thesis{position:absolute!important;left:18px!important;right:auto!important;bottom:18px!important;width:315px!important;padding:9px 11px!important}.thesis strong{font-size:18px!important}.thesis p{font-size:9.2px!important;line-height:1.3!important;margin-top:4px!important}.route-legend{left:50%!important;transform:translateX(-50%)!important;bottom:10px!important}
+html[data-layout="compact"] .hero{top:8px!important;left:16px!important;width:1050px!important}
+html[data-layout="compact"] .hero-main{grid-template-columns:475px 2px 500px!important;column-gap:20px!important}
+html[data-layout="compact"] .hero-divider{height:56px!important}
+html[data-layout="compact"] .hero h1{font-size:50px!important;white-space:nowrap!important}
+html[data-layout="compact"] .hero .lead{font-size:13.6px!important;line-height:1.3!important;max-width:500px!important}
+html[data-layout="compact"] .mode-row{margin-top:7px!important;gap:6px!important}
+html[data-layout="compact"] .mode{height:28px!important;padding:0 8px 0 7px!important;font-size:8.8px!important}
+html[data-layout="compact"] .mode svg{width:18px!important;height:18px!important}
+html[data-layout="compact"] .rail-card{top:8px!important;right:16px!important;width:318px!important;padding:8px 9px!important}
+html[data-layout="compact"] .rail-card .card-title{font-size:18px!important}
+html[data-layout="compact"] .rail-card .card-note{font-size:8.4px!important;max-width:136px!important}
+html[data-layout="compact"] .rail-card .country{font-size:7.8px!important;min-height:20px!important;padding:0 5px!important}
+html[data-layout="compact"] .sea-card{right:16px!important;bottom:16px!important;width:310px!important;padding:8px 9px!important}
+html[data-layout="compact"] .sea-title{font-size:18px!important}
+html[data-layout="compact"] .sea-copy{font-size:8.8px!important}
+html[data-layout="compact"] .sea{font-size:8.5px!important;padding:4px!important}
+html[data-layout="compact"] .port-list>*{font-size:7.8px!important;padding:3px 4px!important}
+html[data-layout="compact"] .thesis{left:16px!important;bottom:16px!important;width:286px!important;padding:8px 9px!important}
+html[data-layout="compact"] .thesis strong{font-size:16.5px!important}
+html[data-layout="compact"] .thesis p{display:none!important}
+
+html:not([data-layout="compact"]) .hero{width:1230px!important}
+html:not([data-layout="compact"]) .hero-main{grid-template-columns:560px 2px 570px!important;column-gap:24px!important}
+html:not([data-layout="compact"]) .hero h1{font-size:58px!important;white-space:nowrap!important}
+html:not([data-layout="compact"]) .hero .lead{max-width:570px!important;font-size:15px!important}
+</style></head>
+<body>
+<div class="page">
+<img alt="Карта географии поставок RONA Trade" class="bg" src="../../assets/geography/5c2ddfaafe439a9f.png"/>
+<div class="vignette"></div>
+<header>
+<nav aria-label="Основная навигация" class="nav">
+<a href="#">Главная</a><a href="#">О компании</a><a href="#">Продукция</a><a href="#">Логистика</a><a class="active" href="#">География</a><a href="#">Контакты</a>
+</nav>
+<button class="portal-top" type="button">Личный кабинет</button>
+</header>
+<main>
+<div class="shell">
+<section class="hero">
+<div class="kicker">Supply geography · Eurasia</div>
+<div class="hero-main">
+<h1>География поставок</h1>
+<div aria-hidden="true" class="hero-divider"></div>
+<p class="lead"><strong>Связываем производителей, железнодорожные коридоры и морские терминалы</strong> в единую систему поставок нефтепродуктов по странам СНГ и сопредельным рынкам.</p>
+</div>
+<div class="mode-row">
+<span class="mode">
+<svg fill="none" viewbox="0 0 48 48"><path d="M7 31h34M10 26V13h19l8 8v5M15 13v13M29 13v13M36 21h-7M13 31l-4 10M35 31l4 10M18 31l-2 10M30 31l2 10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"></path></svg>
+        Железная дорога
+      </span>
+<span class="mode">
+<svg fill="none" viewbox="0 0 48 48"><path d="M6 28h22V15H12c-3.3 0-6 2.7-6 6v7Zm22-8h8l6 7v6H28V20ZM12 34a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm25 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM16 15v13" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"></path></svg>
+        Автотранспорт
+      </span>
+<span class="mode">
+<svg fill="none" viewbox="0 0 48 48"><path d="M4 31c6 0 7 4 13 4s7-4 13-4 7 4 14 4M8 28l6-14h20l6 14M17 14V9h14v5M21 9V5h6v4M11 27h26" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4"></path></svg>
+        Морская перевалка
+      </span>
+</div>
+</section>
+<aside class="sea-card glass">
+<div class="sea-top">
+<div class="sea-icon"><svg fill="none" viewbox="0 0 48 48"><path d="M5 31c5.5 0 6.5 3.5 12 3.5S23.5 31 29 31s6.5 3.5 14 3.5M8 27l6-13h20l6 13M17 14V9h14v5M21 9V5h6v4M12 27h25" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"></path></svg></div>
+<div><div class="eyebrow">Marine terminals</div><h2 class="sea-title">Морская перевалка</h2></div>
+</div>
+<p class="sea-copy">Организуем перевалку нефтепродуктов через терминалы <b>Черноморского, Азовского и Каспийского бассейнов</b> с дальнейшей морской или мультимодальной доставкой.</p>
+<div class="seas">
+<div class="sea"><b>Чёрное море</b><span>terminals</span></div>
+<div class="sea"><b>Азовское море</b><span>terminals</span></div>
+<div class="sea"><b>Каспийское море</b><span>terminals</span></div>
+</div>
+<div class="ports"><div class="ports-label">Ключевые узлы на карте</div><div class="port-list"><span class="port">Ейск</span><span class="port">Ростов-на-Дону</span><span class="port">Порт Кавказ</span></div></div>
+</aside>
+<section class="rail-card glass">
+<div class="card-head">
+<div class="rail-head-main">
+<div aria-hidden="true" class="rail-icon"><svg viewbox="0 0 48 48"><path d="M9 30V13h21c4.4 0 8 3.6 8 8v9M9 24h29M15 13v11M31 15v9M7 34h34M14 34l-4 8M34 34l4 8M19 34l-2 8M29 34l2 8" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"></path><circle cx="15" cy="29" r="2.2" stroke-width="1.8"></circle><circle cx="32" cy="29" r="2.2" stroke-width="1.8"></circle></svg></div>
+<div><div class="eyebrow">Rail &amp; road corridors</div><h2 class="card-title">ЖД и автомобильные поставки</h2></div>
+</div>
+<p class="card-note">Формируем прямые и транзитные маршруты с учётом станций, погранпереходов, подвижного состава и последней мили.</p>
+</div>
+<div class="country-groups">
+<div><div class="group-label">Запад · Кавказ</div><div class="countries"><span class="country">Беларусь</span><span class="country">Россия</span><span class="country">Молдова</span><span class="country">Грузия</span><span class="country">Армения</span><span class="country">Азербайджан</span></div></div>
+<div><div class="group-label">Центральная Азия</div><div class="countries"><span class="country">Казахстан</span><span class="country">Узбекистан</span><span class="country">Кыргызстан</span><span class="country">Таджикистан</span><span class="country">Туркменистан</span></div></div>
+</div>
+</section>
+<div class="route-legend"><i></i>топливные потоки · ключевые направления</div>
+<section class="thesis">
+<div class="thesis-head">
+<div aria-hidden="true" class="thesis-icon"><svg viewbox="0 0 48 48"><circle cx="24" cy="24" r="16" stroke-width="1.9"></circle><path d="M8 24h32M24 8c5 5.2 7.5 10.5 7.5 16S29 34.8 24 40M24 8c-5 5.2-7.5 10.5-7.5 16S19 34.8 24 40M13 15.5c7 3.3 15 3.3 22 0M13 32.5c7-3.3 15-3.3 22 0" stroke-linecap="round" stroke-width="1.7"></path><path d="M31 12l6-3-2 6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div>
+<div class="mini">RONA Trade network</div>
+</div>
+<strong>Евразия. Три моря. Единый маршрут.</strong>
+<p>От станции отправления и автоцистерны до морского терминала — одна управляемая логистическая архитектура для каждой партии.</p>
+</section>
+</div>
+</main>
+</div>
+<div aria-hidden="true" class="rona-portal-host" id="ronaPortalHost"><aside aria-label="Личный кабинет клиента" class="portal-card" id="portalCard"><h2 class="portal-title">Личный кабинет</h2><div class="portal-sub">Доступ к сделкам, статусам исполнения и разрешённым документам.</div><form id="loginForm"><div class="field"><label for="login">Логин</label><input autocomplete="username" id="login" name="login" placeholder="Введите логин" type="text"/></div><div class="field"><label for="password">Пароль</label><input autocomplete="current-password" id="password" name="password" placeholder="Введите пароль" type="password"/></div><button class="login-btn" type="submit">Войти</button></form><p class="portal-note">Доступ предоставляется RONA Trade</p></aside></div><script id="rona-v1-1-behavior">(()=>{'use strict';
+ const q=new URLSearchParams(location.search);const mode=q.get('layout')==='compact'?'compact':'large';document.documentElement.dataset.layout=mode;
+ const routes={'Главная':'HOME','О компании':'about','Продукция':'products','Логистика':'logistics','География':'geography','Контакты':'contacts'};
+ document.querySelectorAll('header a,.nav a').forEach(old=>{const t=(old.textContent||'').replace(/\s+/g,' ').trim();if(!routes[t])return;const a=old.cloneNode(true);a.href=routes[t]==='HOME'?('../home_'+mode+'.html?layout='+mode):('../'+routes[t]+'.html?layout='+mode);a.target='_top';old.replaceWith(a);});
+ const host=document.getElementById('ronaPortalHost'),btn=document.querySelector('.portal-top');
+ function openPortal(){if(!host)return;host.classList.add('open');host.setAttribute('aria-hidden','false');setTimeout(()=>host.querySelector('#login')?.focus(),180)}
+ function closePortal(){if(!host)return;host.classList.remove('open');host.setAttribute('aria-hidden','true')}
+ if(btn){const nb=btn.cloneNode(true);btn.replaceWith(nb);nb.style.setProperty('display','block','important');nb.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();host?.classList.contains('open')?closePortal():openPortal()});window.__RONA_PORTAL_BTN__=nb;}
+ document.addEventListener('click',e=>{const b=window.__RONA_PORTAL_BTN__;if(host?.classList.contains('open')&&!host.querySelector('.portal-card')?.contains(e.target)&&e.target!==b&&!b?.contains(e.target))closePortal()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')closePortal()});host?.querySelector('#loginForm')?.addEventListener('submit',e=>e.preventDefault());
+ document.documentElement.classList.add('rona-pre-reveal');requestAnimationFrame(()=>requestAnimationFrame(()=>{document.documentElement.classList.remove('rona-pre-reveal');document.documentElement.classList.add('rona-revealed')}));
+ window.__RONA_FINAL__={mode,portalOpen:openPortal,portalClose:closePortal};
+})();</script></body>
+</html>

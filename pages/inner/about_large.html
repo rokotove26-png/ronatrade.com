@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1,viewport-fit=cover" name="viewport"/>
+<meta content="#090b0f" name="theme-color"/>
+<title>RONA Trade — О компании v1.7</title>
+<style>
+:root{--red:#ef1110;--white:#fff;--header-h:68px;--sheet-w:min(93.75vw,1800px)}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;background:#07090c}
+body{font-family:"Segoe UI",Arial,Helvetica,sans-serif;color:#fff;overflow:hidden;-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+a,button{font:inherit}
+.page{position:relative;width:100%;height:100svh;min-height:760px;overflow:hidden;isolation:isolate;background:#080a0d}
+.bg{position:absolute;inset:0;z-index:-10;width:100%;height:100%;object-fit:cover;object-position:center center;user-select:none;pointer-events:none}
+.overlay{position:absolute;inset:0;z-index:-9;pointer-events:none;background:linear-gradient(90deg,rgba(3,5,8,.48) 0%,rgba(3,5,8,.30) 32%,rgba(3,5,8,.12) 58%,rgba(3,5,8,.00) 78%),linear-gradient(180deg,rgba(3,4,6,.54),rgba(3,4,6,.02) 28%,rgba(3,4,6,.06) 82%,rgba(3,4,6,.36) 100%)}
+.header-shade{position:absolute;top:0;left:0;right:0;height:98px;z-index:-8;background:linear-gradient(180deg,rgba(3,4,6,.80),rgba(3,4,6,.16),transparent);pointer-events:none}
+header{position:absolute;top:0;left:0;right:0;height:var(--header-h);z-index:20;display:flex;align-items:center;padding:6px clamp(34px,3.4vw,66px)}
+.nav{margin-left:auto;display:flex;align-items:center;gap:clamp(18px,2vw,36px)}
+.nav a{position:relative;color:rgba(255,255,255,.76);text-decoration:none;font-size:clamp(14px,.95vw,17px);font-weight:600;white-space:nowrap;text-shadow:0 2px 10px rgba(0,0,0,.38)}
+.nav a:after{content:"";position:absolute;left:0;right:100%;bottom:-9px;height:2px;background:var(--red);transition:.18s ease}
+.nav a:hover,.nav a.active{color:#fff}.nav a:hover:after,.nav a.active:after{right:0}
+.portal-top{height:42px;margin-left:28px;padding:0 20px;border-radius:10px;border:1px solid rgba(255,255,255,.20);background:rgba(11,14,18,.38);color:#fff;font-weight:650;font-size:14px;backdrop-filter:blur(10px);cursor:pointer;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+.portal-top:hover{border-color:rgba(239,17,16,.78);background:rgba(239,17,16,.10)}
+main{position:absolute;inset:0;z-index:5}
+.workspace{position:absolute;left:0;top:0;bottom:0;width:var(--sheet-w)}
+.glass-sheet{position:absolute;inset:0;overflow:hidden;border-radius:0 28px 28px 0;background:transparent;border:0;box-shadow:none;isolation:isolate}
+.glass-sheet:before{content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;background:linear-gradient(92deg,rgba(10,15,22,.52) 0%,rgba(13,20,30,.42) 20%,rgba(18,29,43,.30) 42%,rgba(25,42,62,.17) 62%,rgba(35,66,101,.075) 79%,rgba(35,74,120,.022) 91%,rgba(35,74,120,0) 100%);backdrop-filter:blur(8px) saturate(118%);-webkit-backdrop-filter:blur(8px) saturate(118%);-webkit-mask-image:linear-gradient(90deg,#000 0%,#000 56%,rgba(0,0,0,.84) 69%,rgba(0,0,0,.42) 84%,transparent 100%);mask-image:linear-gradient(90deg,#000 0%,#000 56%,rgba(0,0,0,.84) 69%,rgba(0,0,0,.42) 84%,transparent 100%)}
+.glass-sheet:after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(101deg,rgba(180,218,255,.11) 0%,rgba(102,157,221,.07) 17%,rgba(255,255,255,.035) 33%,transparent 47%),linear-gradient(110deg,transparent 7%,rgba(113,174,242,.035) 28%,rgba(212,235,255,.13) 42%,rgba(102,164,236,.05) 49%,transparent 58%),radial-gradient(ellipse at 25% 0%,rgba(105,167,235,.09),transparent 36%);-webkit-mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.92) 54%,rgba(0,0,0,.28) 82%,transparent 100%);mask-image:linear-gradient(90deg,#000 0%,rgba(0,0,0,.92) 54%,rgba(0,0,0,.28) 82%,transparent 100%)}
+.sheet-accent{position:absolute;left:0;top:3%;bottom:3%;width:1px;background:linear-gradient(180deg,transparent,rgba(164,208,255,.26) 15%,rgba(105,169,235,.16) 54%,rgba(255,255,255,.10) 76%,transparent);box-shadow:0 0 16px rgba(78,145,220,.10)}
+.sheet-content{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;padding:clamp(6px,.7vh,9px) clamp(18px,1.25vw,24px) clamp(12px,1.25vh,18px) clamp(46px,3.4vw,66px)}
+.hero-line{display:flex;align-items:flex-start;gap:22px;padding:0 0 clamp(6px,.65vh,9px);flex:0 0 auto}
+.hero-copy{max-width:100%}
+.hero-line h1{margin:0;font-size:clamp(70px,4.65vw,94px);line-height:.90;letter-spacing:-.052em;font-weight:775;text-wrap:balance;text-shadow:0 3px 26px rgba(0,0,0,.30)}
+.hero-line h1 span{color:var(--red)}
+.lead{margin:7px 0 0;max-width:88%;color:rgba(255,255,255,.82);font-size:clamp(17px,1.03vw,20px);line-height:1.30;font-weight:430;text-shadow:0 2px 16px rgba(0,0,0,.28)}
+.flow{position:relative;display:grid;grid-template-rows:repeat(3,minmax(0,1fr));flex:1 1 auto;min-height:0}
+.story-block{position:relative;display:grid;grid-template-columns:72px minmax(0,1fr) minmax(210px,.24fr);column-gap:22px;align-content:center;min-height:0;padding:clamp(5px,.58vh,8px) 0}
+.story-block + .story-block:before{content:"";position:absolute;left:0;right:7%;top:0;height:1px;background:linear-gradient(90deg,rgba(255,255,255,.20),rgba(255,255,255,.11) 52%,transparent 100%)}
+.icon{width:58px;height:58px;display:grid;place-items:center;margin-top:2px;opacity:.96;filter:drop-shadow(0 0 14px rgba(239,17,16,.14))}
+.icon svg{width:49px;height:49px;fill:none;stroke:#ff5551;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round}
+.block-copy{min-width:0;align-self:center}
+.eyebrow{margin:0 0 4px;color:#ff5a56;font-size:10.5px;font-weight:860;letter-spacing:.18em;text-transform:uppercase}
+.story-block h2{margin:0 0 6px;color:#fff;font-size:clamp(25px,1.52vw,31px);line-height:1.02;letter-spacing:-.03em;font-weight:735}
+.story-block p{margin:0;color:rgba(255,255,255,.88);font-size:clamp(15px,.90vw,17.4px);line-height:1.31;font-weight:430;text-align:justify;text-justify:inter-word;hyphens:auto;text-shadow:0 2px 14px rgba(0,0,0,.26)}
+.story-block p+p{margin-top:4px}
+.story-block strong{color:#fff;font-weight:700}
+.side-note{align-self:center;padding:2px 0 0 18px;border-left:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;justify-content:center;min-width:0}
+.side-note .big{display:block;color:#fff;font-size:clamp(34px,2.25vw,46px);line-height:.86;letter-spacing:-.055em;font-weight:820}
+.side-note .big.red{color:#ff504c}
+.side-note span{display:block;margin-top:6px;color:rgba(255,255,255,.48);font-size:9.5px;line-height:1.25;font-weight:760;text-transform:uppercase;letter-spacing:.10em}
+.side-note .countries{margin-top:7px;color:rgba(255,255,255,.73);font-size:10.5px;line-height:1.38;font-weight:650;text-transform:none;letter-spacing:0}
+.manifesto{margin:8px 0 9px!important;padding-left:13px;border-left:2px solid rgba(239,17,16,.70);color:rgba(255,255,255,.95)!important;font-weight:560!important;line-height:1.30!important}
+.block-tail{margin-top:4px!important;color:rgba(220,234,250,.72)!important;font-size:clamp(13px,.77vw,14.8px)!important;line-height:1.28!important;font-weight:520!important}
+
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,18px);z-index:100;padding:11px 17px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(9,12,16,.90);backdrop-filter:blur(14px);color:#fff;font-size:13px;opacity:0;pointer-events:none;transition:.22s ease}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+@media (max-width:1180px){:root{--sheet-w:98vw}.nav{gap:16px}.nav a{font-size:13px}.portal-top{margin-left:16px}.story-block{grid-template-columns:58px 1fr 180px;column-gap:14px}.icon{width:48px;height:48px}.icon svg{width:41px;height:41px}.story-block p{font-size:14.3px}.story-block h2{font-size:23px}}
+@media (max-height:920px){.sheet-content{padding-top:4px;padding-bottom:6px}.hero-line{padding-bottom:4px}.hero-line h1{font-size:58px}.lead{font-size:14.8px;line-height:1.25;margin-top:4px}.story-block{padding:3px 0;grid-template-columns:56px minmax(0,1fr) 172px;column-gap:14px}.story-block h2{font-size:22px;margin-bottom:3px}.story-block p{font-size:13.2px;line-height:1.22}.story-block p+p{margin-top:3px}.manifesto{margin:5px 0 6px!important;padding-left:10px}.block-tail{margin-top:3px!important;font-size:12.2px!important;line-height:1.19!important}.icon{width:46px;height:46px}.icon svg{width:39px;height:39px}.side-note .big{font-size:30px}.side-note span{font-size:8.7px}.side-note .countries{font-size:9.5px}}
+@media (max-width:900px){body{overflow:auto}.page{height:auto;min-height:100vh;overflow:visible}header{position:fixed;background:rgba(4,6,9,.86);backdrop-filter:blur(12px)}.nav a:nth-child(n+4):nth-child(-n+6){display:none}main{position:relative;inset:auto;padding:72px 0 36px}.workspace{position:relative;left:auto;top:auto;bottom:auto;width:100%;min-height:760px}.glass-sheet{position:relative;border-radius:0}.sheet-content{padding:30px 22px 28px}.hero-line h1{font-size:46px}.lead{font-size:16px}.story-block{grid-template-columns:52px 1fr;column-gap:12px}.side-note{grid-column:2;padding:10px 0 0;border-left:none;border-top:1px solid rgba(255,255,255,.08);margin-top:10px}}
+
+
+
+</style>
+<style id="rona-final-corrections">
+/* Final correction pass: navigation consistency without new decorative layers */
+header{z-index:200!important}
+.nav a{outline-offset:5px}.nav a:focus-visible,.portal-top:focus-visible{outline:2px solid #e10600;outline-offset:4px}
+
+.rona-portal-host{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:0;transform:translateY(-5px) scale(.99);transform-origin:top right;transition:opacity .18s ease,transform .22s ease}
+.rona-portal-host.open{opacity:1;transform:none}
+.rona-portal-host .portal-card{pointer-events:auto;position:absolute;right:clamp(48px,5vw,96px);top:clamp(180px,23vh,255px);width:clamp(350px,24vw,430px);border:1px solid rgba(255,255,255,.2);border-radius:18px;background:linear-gradient(145deg,rgba(25,25,27,.93),rgba(5,5,6,.84));box-shadow:0 30px 80px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.1);backdrop-filter:blur(15px) saturate(105%);-webkit-backdrop-filter:blur(15px) saturate(105%);padding:28px 28px 25px;color:#fff;overflow:hidden}
+.rona-portal-host .portal-card::before{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-72px;top:-88px;background:radial-gradient(circle,rgba(225,6,0,.42),rgba(225,6,0,0) 70%);pointer-events:none}
+.rona-portal-host .portal-title{font-size:26px;font-weight:620;letter-spacing:-.02em;margin:0 0 7px}
+.rona-portal-host .portal-sub{font-size:13px;line-height:1.45;color:rgba(255,255,255,.55);margin-bottom:21px}
+.rona-portal-host .field{margin-bottom:12px}
+.rona-portal-host .field label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:rgba(255,255,255,.48);margin:0 0 7px 2px}
+.rona-portal-host .field input{width:100%;height:52px;border-radius:8px;border:1px solid rgba(255,255,255,.20);background:rgba(255,255,255,.055);color:white;outline:none;padding:0 15px;font-size:16px;transition:.2s ease;box-sizing:border-box}
+.rona-portal-host .field input::placeholder{color:rgba(255,255,255,.34)}
+.rona-portal-host .field input:focus{border-color:rgba(255,35,28,.8);box-shadow:0 0 0 3px rgba(225,6,0,.13);background:rgba(255,255,255,.075)}
+.rona-portal-host .login-btn{width:100%;height:53px;border:0;border-radius:8px;color:#fff;font-weight:700;font-size:16px;background:linear-gradient(180deg,#f5160e,#d80000);cursor:pointer;margin-top:5px;box-shadow:0 14px 28px rgba(225,6,0,.20),inset 0 1px 0 rgba(255,255,255,.22)}
+.rona-portal-host .login-btn:hover{filter:brightness(1.045)}
+.rona-portal-host .portal-note{margin:16px 0 0;text-align:center;font-size:12px;color:rgba(255,255,255,.46)}
+@media(prefers-reduced-motion:reduce){.rona-portal-host{transition:none!important}}
+
+html.rona-pre-reveal .bg,html.rona-pre-reveal .hero-bg{opacity:.92;transform:scale(1.015)}
+html.rona-pre-reveal .kicker,html.rona-pre-reveal h1,html.rona-pre-reveal .lead,html.rona-pre-reveal .story-block,html.rona-pre-reveal .product-row,html.rona-pre-reveal .network,html.rona-pre-reveal .flow-copy,html.rona-pre-reveal .mode,html.rona-pre-reveal .rail-card,html.rona-pre-reveal .sea-card,html.rona-pre-reveal .thesis,html.rona-pre-reveal .info,html.rona-pre-reveal .bank{opacity:0;transform:translateY(12px)}
+.bg,.hero-bg{transition:opacity .45s ease,transform .45s cubic-bezier(.16,1,.3,1)}
+.kicker,h1,.lead,.story-block,.product-row,.network,.flow-copy,.mode,.rail-card,.sea-card,.thesis,.info,.bank{transition:opacity .44s ease,transform .52s cubic-bezier(.16,1,.3,1)}
+html.rona-revealed .kicker,html.rona-revealed h1,html.rona-revealed .lead,html.rona-revealed .story-block,html.rona-revealed .product-row,html.rona-revealed .network,html.rona-revealed .flow-copy,html.rona-revealed .mode,html.rona-revealed .rail-card,html.rona-revealed .sea-card,html.rona-revealed .thesis,html.rona-revealed .info,html.rona-revealed .bank{opacity:1;transform:none}
+html.rona-revealed .story-block:nth-child(2),html.rona-revealed .product-row:nth-child(2),html.rona-revealed .mode:nth-child(2){transition-delay:.05s}
+html.rona-revealed .story-block:nth-child(3),html.rona-revealed .product-row:nth-child(3),html.rona-revealed .mode:nth-child(3){transition-delay:.10s}
+html.rona-revealed .product-row:nth-child(4),html.rona-revealed .mode:nth-child(4){transition-delay:.15s}
+html.rona-revealed .product-row:nth-child(5){transition-delay:.20s}html.rona-revealed .product-row:nth-child(6){transition-delay:.25s}html.rona-revealed .product-row:nth-child(7){transition-delay:.30s}
+@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}.bg,.hero-bg,.kicker,h1,.lead,.story-block,.product-row,.network,.flow-copy,.mode,.rail-card,.sea-card,.thesis,.info,.bank{transition:none!important;animation:none!important;opacity:1!important;transform:none!important;filter:none!important}}
+
+.workspace{width:64%!important;max-width:1220px!important}.glass-sheet:before,.glass-sheet:after{opacity:.72!important}.sheet-content{padding:78px 34px 30px 54px!important}.hero-line{display:block!important;padding:0 0 12px!important}.hero-line h1{font-size:72px!important;line-height:.91!important;max-width:1120px!important;white-space:normal!important}.hero-line h1 span{display:block!important;margin-top:6px!important}.lead{max-width:930px!important;font-size:17px!important;line-height:1.38!important;margin-top:8px!important}.flow{gap:2px!important}.story-block{grid-template-columns:54px minmax(0,1fr) 120px!important;column-gap:16px!important;padding:7px 0!important;align-content:start!important}.story-block h2{font-size:23px!important;margin-bottom:5px!important}.story-block p{font-size:14.5px!important;line-height:1.34!important;text-align:left!important}.story-block .manifesto{margin-top:5px!important;padding-left:11px!important;border-left:2px solid var(--red)!important}.block-tail{display:none!important}.side-note{padding-left:12px!important}.side-note .big{font-size:30px!important}.side-note span{font-size:8.8px!important}.icon{width:44px!important;height:44px!important}.icon svg{width:38px!important;height:38px!important}
+html[data-layout="compact"] .workspace{width:70%!important;max-width:1120px!important}.sheet-content{padding-left:48px!important}html[data-layout="compact"] .hero-line h1{font-size:52px!important;max-width:900px!important}html[data-layout="compact"] .lead{font-size:15px!important;max-width:850px!important}html[data-layout="compact"] .story-block{grid-template-columns:44px minmax(0,1fr) 105px!important;column-gap:12px!important}html[data-layout="compact"] .story-block h2{font-size:19px!important}html[data-layout="compact"] .story-block p{font-size:13.5px!important;line-height:1.3!important}html[data-layout="compact"] .side-note .big{font-size:26px!important}
+</style><style id="rona-v1-1-patch">
+html,body,.page{background:transparent!important}.bg{visibility:hidden!important}
+/* Remove any remaining legacy About block animation effect. */
+.story-block{animation:none!important;filter:none!important;will-change:auto!important}
+.workspace{width:61.5%!important;max-width:1180px!important}.sheet-content{padding:74px 28px 34px 52px!important}.hero-line{padding-bottom:12px!important}.hero-copy{max-width:100%!important}.hero-line h1{font-size:70px!important;line-height:.92!important;letter-spacing:-.052em!important;max-width:1130px!important;white-space:normal!important}.hero-line h1 span{display:block!important;margin-top:7px!important}.lead{max-width:900px!important;font-size:17.5px!important;line-height:1.38!important;margin-top:9px!important}.flow{gap:4px!important}.story-block{grid-template-columns:52px minmax(0,820px) 112px!important;column-gap:15px!important;padding:9px 0!important;align-content:center!important}.block-copy{max-width:820px!important}.story-block h2{font-size:24px!important;line-height:1.05!important;margin-bottom:6px!important}.story-block p{font-size:15.2px!important;line-height:1.38!important;text-align:justify!important;text-justify:inter-word!important;hyphens:auto!important;overflow-wrap:normal!important}.story-block .manifesto{margin:6px 0 0!important;line-height:1.35!important}.side-note{padding-left:11px!important}.side-note .big{font-size:31px!important}.side-note span{font-size:9.2px!important}.side-note .countries{font-size:9.7px!important}
+html[data-layout="compact"] .workspace{width:62.5%!important;max-width:1000px!important}html[data-layout="compact"] .sheet-content{padding:70px 24px 26px 40px!important}html[data-layout="compact"] .hero-line h1{font-size:50px!important;max-width:940px!important}html[data-layout="compact"] .lead{max-width:800px!important;font-size:15.8px!important;line-height:1.34!important}html[data-layout="compact"] .story-block{grid-template-columns:42px minmax(0,1fr) 94px!important;column-gap:11px!important;padding:7px 0!important}html[data-layout="compact"] .block-copy{max-width:700px!important}html[data-layout="compact"] .story-block h2{font-size:20px!important}html[data-layout="compact"] .story-block p{font-size:13.9px!important;line-height:1.32!important}html[data-layout="compact"] .side-note .big{font-size:27px!important}html[data-layout="compact"] .side-note span{font-size:8.5px!important}
+
+.story-block,.product-row{filter:none!important}
+@media(prefers-reduced-motion:reduce){.story-block,.product-row,.network,.flow-copy,.mode,.rail-card,.sea-card,.thesis,.info,.bank,h1,.lead,.kicker{transition:none!important;animation:none!important;filter:none!important}}
+</style><style id="rona-v1-1-pointer-fix">.rona-portal-host:not(.open) .portal-card{pointer-events:none!important}</style><style id="rona-v1-2-patch">
+/* v1.2 exact composition correction: existing information surface is full-bleed at left edge. */
+.workspace,.glass-sheet{left:0!important;margin-left:0!important}
+.sheet-content{padding-left:52px!important}
+html[data-layout="compact"] .sheet-content{padding-left:40px!important}
+</style></head>
+<body>
+<section class="page">
+<img alt="" class="bg" src="../../assets/about/f427eb6f91e88d05.png"/>
+<div class="overlay"></div><div class="header-shade"></div>
+<header>
+<nav aria-label="Основная навигация" class="nav">
+<a data-pending="" href="#">Главная</a><a class="active" href="#">О компании</a><a data-pending="" href="#">Продукция</a><a data-pending="" href="#">Логистика</a><a data-pending="" href="#">География</a><a data-pending="" href="#">Контакты</a>
+</nav><button class="portal-top" id="portalTop" type="button">Личный кабинет</button>
+</header>
+<main>
+<section class="workspace">
+<article class="glass-sheet">
+<div class="sheet-accent"></div>
+<div class="sheet-content">
+<div class="hero-line">
+<div class="hero-copy">
+<h1>Международный нефтетрейдинг<span>Системное исполнение</span></h1>
+<p class="lead">RONA Trade соединяет ресурс, экономику, контракт, международную логистику и расчёты в единую управляемую цепочку поставки.</p>
+</div>
+</div>
+<div class="flow">
+<section class="story-block">
+<div aria-hidden="true" class="icon"><svg viewbox="0 0 24 24"><path d="M4 20V9l5-3v4l5-3v4l6-3v12H4Z"></path><path d="M7 20v-4h3v4M14 15h2M18 13h2"></path><circle cx="18.5" cy="5.5" r="2.5"></circle><path d="M18.5 3v5M16 5.5h5"></path></svg></div>
+<div class="block-copy">
+<div class="eyebrow">01 / История</div>
+<h2>Компания, построенная вокруг исполнения сделки</h2>
+<p>RONA Trade работает с 2025 года как международная торгово-операционная компания в нефтепродуктах и СУГ. Мы управляем экспортной сделкой целиком: от подтверждения ресурса и экономики до контракта, логистики, платежей и закрывающих документов.</p>
+<p class="manifesto">Единый центр ответственности объединяет коммерцию, происхождение товара, банки, ВЭД, качество и сроки.</p>
+</div>
+<aside class="side-note"><b class="big red">2025</b><span>начало работы<br/>RONA Trade</span></aside>
+</section>
+<section class="story-block">
+<div aria-hidden="true" class="icon"><svg viewbox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M4 12h16M12 4c2.5 2.2 3.8 4.9 3.8 8S14.5 17.8 12 20M12 4C9.5 6.2 8.2 8.9 8.2 12S9.5 17.8 12 20"></path><path d="M18 4l2 2-2 2"></path></svg></div>
+<div class="block-copy">
+<div class="eyebrow">02 / Ресурс и партнёрства</div>
+<h2>Международная ресурсная база</h2>
+<p>Мы работаем с производителями и ресурсодержателями Беларуси, России, Казахстана и Туркменистана, а также с перевозчиками, экспедиторами и финансовыми партнёрами.</p>
+<p class="manifesto">Ресурс оценивается по происхождению, доступности, качеству, документам, срокам и реальной логистической достижимости.</p>
+</div>
+<aside class="side-note"><b class="big">4</b><span>ключевых рынка<br/>производства</span><span class="countries">Беларусь · Россия<br/>Казахстан · Туркменистан</span></aside>
+</section>
+<section class="story-block">
+<div aria-hidden="true" class="icon"><svg viewbox="0 0 24 24"><circle cx="8" cy="8" r="3"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M2.5 20c.6-4 2.6-6 5.5-6s4.9 2 5.5 6M13.5 20c.4-3 1.9-4.7 4.3-4.7 2.1 0 3.4 1.4 3.7 4.7"></path></svg></div>
+<div class="block-copy">
+<div class="eyebrow">03 / Команда</div>
+<h2>Отраслевая экспертиза внутри одной сделки</h2>
+<p>В одном контуре объединены трейдинг, закупки, рынок, железнодорожная и мультимодальная логистика, ВЭД, международное право, финансы, Trade Finance, риски, качество и товарные операции.</p>
+<p class="manifesto">Каждое решение одновременно проверяется на прибыльность, юридическую защищённость, физическую исполнимость и контроль рисков.</p>
+</div>
+<aside class="side-note"><b class="big">15+</b><span>профильных<br/>компетенций</span></aside>
+</section>
+</div>
+</div>
+</article>
+</section>
+</main>
+</section>
+<div aria-hidden="true" class="rona-portal-host" id="ronaPortalHost"><aside aria-label="Личный кабинет клиента" class="portal-card" id="portalCard"><h2 class="portal-title">Личный кабинет</h2><div class="portal-sub">Доступ к сделкам, статусам исполнения и разрешённым документам.</div><form id="loginForm"><div class="field"><label for="login">Логин</label><input autocomplete="username" id="login" name="login" placeholder="Введите логин" type="text"/></div><div class="field"><label for="password">Пароль</label><input autocomplete="current-password" id="password" name="password" placeholder="Введите пароль" type="password"/></div><button class="login-btn" type="submit">Войти</button></form><p class="portal-note">Доступ предоставляется RONA Trade</p></aside></div><script id="rona-v1-1-behavior">(()=>{'use strict';
+ const q=new URLSearchParams(location.search);const mode=q.get('layout')==='compact'?'compact':'large';document.documentElement.dataset.layout=mode;
+ const routes={'Главная':'HOME','О компании':'about','Продукция':'products','Логистика':'logistics','География':'geography','Контакты':'contacts'};
+ document.querySelectorAll('header a,.nav a').forEach(old=>{const t=(old.textContent||'').replace(/\s+/g,' ').trim();if(!routes[t])return;const a=old.cloneNode(true);a.href=routes[t]==='HOME'?('../home_'+mode+'.html?layout='+mode):('../'+routes[t]+'.html?layout='+mode);a.target='_top';old.replaceWith(a);});
+ const host=document.getElementById('ronaPortalHost'),btn=document.querySelector('.portal-top');
+ function openPortal(){if(!host)return;host.classList.add('open');host.setAttribute('aria-hidden','false');setTimeout(()=>host.querySelector('#login')?.focus(),180)}
+ function closePortal(){if(!host)return;host.classList.remove('open');host.setAttribute('aria-hidden','true')}
+ if(btn){const nb=btn.cloneNode(true);btn.replaceWith(nb);nb.style.setProperty('display','block','important');nb.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();host?.classList.contains('open')?closePortal():openPortal()});window.__RONA_PORTAL_BTN__=nb;}
+ document.addEventListener('click',e=>{const b=window.__RONA_PORTAL_BTN__;if(host?.classList.contains('open')&&!host.querySelector('.portal-card')?.contains(e.target)&&e.target!==b&&!b?.contains(e.target))closePortal()});
+ document.addEventListener('keydown',e=>{if(e.key==='Escape')closePortal()});host?.querySelector('#loginForm')?.addEventListener('submit',e=>e.preventDefault());
+ document.documentElement.classList.add('rona-pre-reveal');requestAnimationFrame(()=>requestAnimationFrame(()=>{document.documentElement.classList.remove('rona-pre-reveal');document.documentElement.classList.add('rona-revealed')}));
+ window.__RONA_FINAL__={mode,portalOpen:openPortal,portalClose:closePortal};
+})();</script></body></html>
