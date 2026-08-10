@@ -1,16 +1,19 @@
-RONA TRADE / RONA INVESTMENTS — PUBLIC BILINGUAL PACKAGE
+RONA Trade + RONA Investments — Bilingual RU / EN Control Candidate v1.0.1
 
-SOURCE OF TRUTH:
-RONA_Trade_FULL_PUBLIC_BILINGUAL_CONTROL_CANDIDATE_v1_0_1_2026-08-11.zip
+Status: CONTROL REVIEW / NOT DEPLOYED
+Default language: RU
+English version: /en/
+RU Investments: /investments/
+EN Investments: /en/investments/
+Desktop: included
+Mobile: included
 
-STATUS:
-FINAL / APPROVED / FROZEN PUBLIC BASELINE
+Correction pass v1.0.1:
+- RU | EN remains available in both RU and EN on all routed public pages.
+- RONA Trade EN remains fully translated.
+- RONA Investments EN uses FULL translation for Home, Consultation and About.
+- Other Investments pages use TEXT-ONLY translation; graphic text inside locked USER ASSETS remains unchanged.
 
-Contains:
-- RONA Trade RU / EN
-- RONA Investments RU / EN
-- Desktop / Mobile
-
-DO NOT MIX WITH PREVIOUS VERSIONS.
-DO NOT MODIFY VISUAL BASELINE WITHOUT EXPLICIT APPROVAL.
-CLIENT PORTAL / ADMIN PORTAL ARE NOT PART OF THIS PUBLIC PACKAGE.
+Deployment: NOT PERFORMED
+Client Portal: NOT CONNECTED
+Backend: NOT CHANGED
