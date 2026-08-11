@@ -1,5 +1,13 @@
 {
   "version": 1,
-  "include": ["/api/forms/*"],
+  "include": [
+    "/api/forms/*",
+    "/pages/home_large.html",
+    "/pages/home_compact.html",
+    "/en/pages/home_large.html",
+    "/en/pages/home_compact.html",
+    "/investments/home.html",
+    "/en/investments/home.html"
+  ],
   "exclude": []
 }
