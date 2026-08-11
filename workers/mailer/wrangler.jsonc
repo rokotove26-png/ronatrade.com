@@ -1,0 +1,17 @@
+{
+  "name": "rona-public-mailer",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-11",
+  "send_email": [
+    {
+      "name": "EMAIL",
+      "allowed_destination_addresses": [
+        "office_kg@ronaoil.com",
+        "rokotove26@gmail.com"
+      ],
+      "allowed_sender_addresses": [
+        "forms@ronatrade.com"
+      ]
+    }
+  ]
+}
