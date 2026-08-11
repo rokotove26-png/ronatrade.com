@@ -1,5 +1,7 @@
 const MAX_BODY_BYTES = 32 * 1024;
 const DEDUPE_TTL_SECONDS = 120;
+const RATE_WINDOW_SECONDS = 600;
+const RATE_LIMIT = 6;
 
 const FIELD_ALIASES = {
   contact_name: ['Контактное лицо', 'Contact Person'],
@@ -82,9 +84,25 @@ function sameOrigin(request) {
   }
 }
 
+async function sha256(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function applyRateLimit(request, kv) {
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const now = Math.floor(Date.now() / 1000);
+  const bucket = Math.floor(now / RATE_WINDOW_SECONDS);
+  const key = `rate:trade:${await sha256(ip)}:${bucket}`;
+  const current = Number(await kv.get(key) || '0');
+  if (current >= RATE_LIMIT) return false;
+  await kv.put(key, String(current + 1), { expirationTtl: RATE_WINDOW_SECONDS * 2 });
+  return true;
+}
+
 async function fingerprint(request, fields) {
   const ip = request.headers.get('cf-connecting-ip') || '';
-  const material = JSON.stringify({
+  return sha256(JSON.stringify({
     ip,
     company: fields.company,
     contact_name: fields.contact_name,
@@ -93,9 +111,7 @@ async function fingerprint(request, fields) {
     product: fields.product,
     destination_country: fields.destination_country,
     volume_tonnes: fields.volume_tonnes
-  });
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(material));
-  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }));
 }
 
 export async function onRequestPost(context) {
@@ -107,6 +123,10 @@ export async function onRequestPost(context) {
 
   if (!env.MAILER || !env.FORM_DEDUPE) {
     return json({ success: false, code: 'SERVICE_NOT_CONFIGURED' }, 503);
+  }
+
+  if (!(await applyRateLimit(request, env.FORM_DEDUPE))) {
+    return json({ success: false, code: 'RATE_LIMITED' }, 429);
   }
 
   let data;
