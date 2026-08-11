@@ -1,3 +1,5 @@
+import { sendFormEmail } from '../../_lib/brevo.js';
+
 const MAX_BODY_BYTES = 32 * 1024;
 const DEDUPE_TTL_SECONDS = 120;
 const RATE_WINDOW_SECONDS = 600;
@@ -121,7 +123,7 @@ export async function onRequestPost(context) {
     return json({ success: false, code: 'ORIGIN_REJECTED' }, 403);
   }
 
-  if (!env.MAILER || !env.FORM_DEDUPE) {
+  if (!env.BREVO_API_KEY || !env.FORM_DEDUPE) {
     return json({ success: false, code: 'SERVICE_NOT_CONFIGURED' }, 503);
   }
 
@@ -181,32 +183,23 @@ export async function onRequestPost(context) {
   const submissionId = crypto.randomUUID();
   const receivedAt = new Date().toISOString();
 
-  try {
-    const mailResponse = await env.MAILER.fetch('https://mailer.internal/send', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({
-        channel: 'trade',
-        submission_id: submissionId,
-        received_at: receivedAt,
-        language: fields.language,
-        source_url: fields.page_url,
-        reply_to: fields.email || '',
-        fields
-      })
-    });
+  const delivered = await sendFormEmail(env, {
+    channel: 'trade',
+    submission_id: submissionId,
+    received_at: receivedAt,
+    language: fields.language,
+    source_url: fields.page_url,
+    reply_to: fields.email || '',
+    fields
+  });
 
-    if (!mailResponse.ok) {
-      await env.FORM_DEDUPE.delete(dedupeKey);
-      return json({ success: false, code: 'DELIVERY_FAILED' }, 502);
-    }
-
-    await env.FORM_DEDUPE.put(dedupeKey, submissionId, { expirationTtl: DEDUPE_TTL_SECONDS });
-    return json({ success: true, status: 'accepted', submission_id: submissionId }, 202);
-  } catch {
+  if (!delivered) {
     await env.FORM_DEDUPE.delete(dedupeKey);
     return json({ success: false, code: 'DELIVERY_FAILED' }, 502);
   }
+
+  await env.FORM_DEDUPE.put(dedupeKey, submissionId, { expirationTtl: DEDUPE_TTL_SECONDS });
+  return json({ success: true, status: 'accepted', submission_id: submissionId }, 202);
 }
 
 export function onRequest(context) {
