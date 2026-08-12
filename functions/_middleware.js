@@ -59,6 +59,13 @@ const MOBILE_CONTACTS_PAGES = new Set([
   '/en/pages/contacts'
 ]);
 
+const MOBILE_CONTACTS_INNER_PAGES = new Set([
+  '/pages/inner/contacts_compact.html',
+  '/pages/inner/contacts_compact',
+  '/en/pages/inner/contacts_compact.html',
+  '/en/pages/inner/contacts_compact'
+]);
+
 const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 (()=>{
   'use strict';
@@ -160,6 +167,12 @@ class MobileHeadInjector {
   }
 }
 
+class ContactsInnerHeadInjector {
+  element(element) {
+    element.prepend(MOBILE_CONTACTS_STYLE, { html: true });
+  }
+}
+
 class MobileViewportNormalizer {
   element(element) {
     element.setAttribute('content', 'width=device-width,initial-scale=1,viewport-fit=cover');
@@ -185,7 +198,8 @@ export async function onRequest(context) {
   const pathname = new URL(request.url).pathname;
   const needsFormBridge = FORM_PAGES.has(pathname);
   const needsMobileRuntime = MOBILE_REMEDIATION_PAGES.has(pathname);
-  if (!needsFormBridge && !needsMobileRuntime) return context.next();
+  const needsContactsInnerStyle = MOBILE_CONTACTS_INNER_PAGES.has(pathname);
+  if (!needsFormBridge && !needsMobileRuntime && !needsContactsInnerStyle) return context.next();
 
   const response = await context.next();
   const contentType = response.headers.get('content-type') || '';
@@ -197,6 +211,9 @@ export async function onRequest(context) {
     rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname), MOBILE_CONTACTS_PAGES.has(pathname)));
     rewriter = rewriter.on('meta[name="viewport"]', new MobileViewportNormalizer());
   }
+  if (needsContactsInnerStyle) {
+    rewriter = rewriter.on('head', new ContactsInnerHeadInjector());
+  }
   const transformed = rewriter.transform(response);
 
   const headers = new Headers(transformed.headers);
@@ -204,6 +221,7 @@ export async function onRequest(context) {
   headers.delete('etag');
   if (needsFormBridge) headers.set('x-rona-form-transport', 'controlled-v1.1');
   if (needsMobileRuntime) headers.set('x-rona-mobile-remediation', 'v2-design-lock-v2');
+  if (needsContactsInnerStyle) headers.set('x-rona-mobile-contacts-underlay', 'inner-v1');
 
   return new Response(transformed.body, {
     status: transformed.status,
