@@ -16,8 +16,24 @@
     "/en/pages/logistics.html",
     "/en/pages/geography.html",
     "/en/pages/contacts.html",
+    "/investments/index.html",
     "/investments/home.html",
-    "/en/investments/home.html"
+    "/investments/about.html",
+    "/investments/how-we-work.html",
+    "/investments/products.html",
+    "/investments/products-strategy-investments.html",
+    "/investments/products-business-projects-data-risks.html",
+    "/investments/industries.html",
+    "/investments/client-value.html",
+    "/en/investments/index.html",
+    "/en/investments/home.html",
+    "/en/investments/about.html",
+    "/en/investments/how-we-work.html",
+    "/en/investments/products.html",
+    "/en/investments/products-strategy-investments.html",
+    "/en/investments/products-business-projects-data-risks.html",
+    "/en/investments/industries.html",
+    "/en/investments/client-value.html"
   ],
   "exclude": []
 }
