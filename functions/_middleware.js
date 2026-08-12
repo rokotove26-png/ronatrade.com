@@ -5,31 +5,51 @@ const FORM_TRANSPORT_MAP = Object.freeze({
 
 const FORM_PAGES = new Set([
   '/pages/home_large.html',
+  '/pages/home_large',
   '/pages/home_compact.html',
+  '/pages/home_compact',
   '/en/pages/home_large.html',
+  '/en/pages/home_large',
   '/en/pages/home_compact.html',
+  '/en/pages/home_compact',
   '/investments/home.html',
-  '/en/investments/home.html'
+  '/investments/home',
+  '/en/investments/home.html',
+  '/en/investments/home'
 ]);
 
 const MOBILE_REMEDIATION_PAGES = new Set([
   '/pages/home_compact.html',
+  '/pages/home_compact',
   '/en/pages/home_compact.html',
+  '/en/pages/home_compact',
   '/pages/about.html',
+  '/pages/about',
   '/pages/products.html',
+  '/pages/products',
   '/pages/logistics.html',
+  '/pages/logistics',
   '/pages/geography.html',
+  '/pages/geography',
   '/pages/contacts.html',
+  '/pages/contacts',
   '/en/pages/about.html',
+  '/en/pages/about',
   '/en/pages/products.html',
+  '/en/pages/products',
   '/en/pages/logistics.html',
+  '/en/pages/logistics',
   '/en/pages/geography.html',
-  '/en/pages/contacts.html'
+  '/en/pages/geography',
+  '/en/pages/contacts.html',
+  '/en/pages/contacts'
 ]);
 
 const MOBILE_HOME_PAGES = new Set([
   '/pages/home_compact.html',
-  '/en/pages/home_compact.html'
+  '/pages/home_compact',
+  '/en/pages/home_compact.html',
+  '/en/pages/home_compact'
 ]);
 
 const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
