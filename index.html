@@ -2,10 +2,6 @@
 </head><body><script>(()=>{
   'use strict';
   const q=new URLSearchParams(location.search);
-  if(innerWidth<=900 && q.get('desktop')!=='1'){
-    location.replace('mobile/home.html');
-    return;
-  }
   const explicit=q.get('layout');
   const mode=(explicit==='large'||explicit==='compact')?explicit:(innerWidth>=1600?'large':'compact');
   try{sessionStorage.setItem('ronaDesktopLayout',mode)}catch(_){}
