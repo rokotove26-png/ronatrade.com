@@ -157,9 +157,21 @@ class MobileViewportNormalizer {
   }
 }
 
+function canonicalHostRedirect(request) {
+  const url = new URL(request.url);
+  if (url.hostname.toLowerCase() !== 'www.ronaoil.com') return null;
+  url.protocol = 'https:';
+  url.hostname = 'ronaoil.com';
+  url.port = '';
+  return Response.redirect(url.toString(), 308);
+}
+
 export async function onRequest(context) {
   const { request } = context;
   if (request.method !== 'GET') return context.next();
+
+  const hostRedirect = canonicalHostRedirect(request);
+  if (hostRedirect) return hostRedirect;
 
   const pathname = new URL(request.url).pathname;
   const needsFormBridge = FORM_PAGES.has(pathname);
