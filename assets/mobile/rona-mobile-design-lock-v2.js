@@ -86,6 +86,7 @@
     #rona-mobile-language{min-width:44px!important;height:44px!important}
     #rona-mobile-menu-button{all:unset;box-sizing:border-box!important;width:44px!important;height:44px!important;display:grid!important;place-items:center!important;cursor:pointer!important;color:inherit!important}
     #rona-mobile-menu-button span{display:block!important;width:auto!important;height:auto!important;opacity:1!important;color:inherit!important;font:700 28px/1 "Segoe UI Symbol","Segoe UI",Arial,sans-serif!important}
+    #rona-mobile-drawer a.active{font-weight:800!important;text-decoration:underline!important;text-underline-offset:5px!important;text-decoration-thickness:1px!important}
     #rona-mobile-drawer button.portal{all:unset;box-sizing:border-box!important;width:100%!important;min-height:52px!important;display:flex!important;align-items:center!important;padding:0 14px!important;cursor:pointer!important;color:inherit!important;font:800 17px/1.25 "Segoe UI",Arial,sans-serif!important;text-decoration:underline!important;text-underline-offset:5px!important}
     html.rona-mobile-menu-visible #stage,html.rona-mobile-menu-visible .compact-stage{visibility:hidden!important}
     @media(max-width:360px){#rona-mobile-menu-button span{font-size:26px!important}}
