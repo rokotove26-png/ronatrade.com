@@ -52,6 +52,13 @@ const MOBILE_HOME_PAGES = new Set([
   '/en/pages/home_compact'
 ]);
 
+const MOBILE_CONTACTS_PAGES = new Set([
+  '/pages/contacts.html',
+  '/pages/contacts',
+  '/en/pages/contacts.html',
+  '/en/pages/contacts'
+]);
+
 const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 (()=>{
   'use strict';
@@ -135,6 +142,7 @@ const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 
 const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/assets/mobile/rona-mobile-remediation-v2.js" defer></script><script id="rona-mobile-design-lock-loader-v2" src="/assets/mobile/rona-mobile-design-lock-v2.js" defer></script>`;
 const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v2.css">`;
+const MOBILE_CONTACTS_STYLE = `<link id="rona-mobile-contacts-underlay-style-v1" rel="stylesheet" href="/assets/mobile/rona-mobile-contacts-underlay-v1.css">`;
 
 class FormHeadInjector {
   element(element) {
@@ -143,11 +151,12 @@ class FormHeadInjector {
 }
 
 class MobileHeadInjector {
-  constructor(isHome) {
+  constructor(isHome, isContacts) {
     this.isHome = isHome;
+    this.isContacts = isContacts;
   }
   element(element) {
-    element.prepend(`${this.isHome ? MOBILE_HOME_STYLE : ''}${MOBILE_RUNTIME}`, { html: true });
+    element.prepend(`${this.isHome ? MOBILE_HOME_STYLE : ''}${this.isContacts ? MOBILE_CONTACTS_STYLE : ''}${MOBILE_RUNTIME}`, { html: true });
   }
 }
 
@@ -185,7 +194,7 @@ export async function onRequest(context) {
   let rewriter = new HTMLRewriter();
   if (needsFormBridge) rewriter = rewriter.on('head', new FormHeadInjector());
   if (needsMobileRuntime) {
-    rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname)));
+    rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname), MOBILE_CONTACTS_PAGES.has(pathname)));
     rewriter = rewriter.on('meta[name="viewport"]', new MobileViewportNormalizer());
   }
   const transformed = rewriter.transform(response);
