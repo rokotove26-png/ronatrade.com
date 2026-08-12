@@ -149,7 +149,7 @@ const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 
 const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/assets/mobile/rona-mobile-remediation-v2.js" defer></script><script id="rona-mobile-design-lock-loader-v2" src="/assets/mobile/rona-mobile-design-lock-v2.js" defer></script>`;
 const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v2.css">`;
-const MOBILE_CONTACTS_STYLE = `<link id="rona-mobile-contacts-underlay-style-v1" rel="stylesheet" href="/assets/mobile/rona-mobile-contacts-underlay-v1.css">`;
+const MOBILE_CONTACTS_STYLE = `<link id="rona-mobile-contacts-underlay-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-contacts-underlay-v2.css">`;
 
 class FormHeadInjector {
   element(element) {
@@ -221,7 +221,7 @@ export async function onRequest(context) {
   headers.delete('etag');
   if (needsFormBridge) headers.set('x-rona-form-transport', 'controlled-v1.1');
   if (needsMobileRuntime) headers.set('x-rona-mobile-remediation', 'v2-design-lock-v2');
-  if (needsContactsInnerStyle) headers.set('x-rona-mobile-contacts-underlay', 'inner-v1');
+  if (needsContactsInnerStyle) headers.set('x-rona-mobile-contacts-underlay', 'inner-v2');
 
   return new Response(transformed.body, {
     status: transformed.status,
