@@ -12,6 +12,26 @@ const FORM_PAGES = new Set([
   '/en/investments/home.html'
 ]);
 
+const MOBILE_REMEDIATION_PAGES = new Set([
+  '/pages/home_compact.html',
+  '/en/pages/home_compact.html',
+  '/pages/about.html',
+  '/pages/products.html',
+  '/pages/logistics.html',
+  '/pages/geography.html',
+  '/pages/contacts.html',
+  '/en/pages/about.html',
+  '/en/pages/products.html',
+  '/en/pages/logistics.html',
+  '/en/pages/geography.html',
+  '/en/pages/contacts.html'
+]);
+
+const MOBILE_HOME_PAGES = new Set([
+  '/pages/home_compact.html',
+  '/en/pages/home_compact.html'
+]);
+
 const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 (()=>{
   'use strict';
@@ -93,9 +113,21 @@ const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 })();
 </script>`;
 
-class HeadInjector {
+const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/assets/mobile/rona-mobile-remediation-v2.js" defer></script>`;
+const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v1" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v1.css">`;
+
+class FormHeadInjector {
   element(element) {
     element.prepend(BRIDGE_SCRIPT, { html: true });
+  }
+}
+
+class MobileHeadInjector {
+  constructor(isHome) {
+    this.isHome = isHome;
+  }
+  element(element) {
+    element.prepend(`${this.isHome ? MOBILE_HOME_STYLE : ''}${MOBILE_RUNTIME}`, { html: true });
   }
 }
 
@@ -104,20 +136,24 @@ export async function onRequest(context) {
   if (request.method !== 'GET') return context.next();
 
   const pathname = new URL(request.url).pathname;
-  if (!FORM_PAGES.has(pathname)) return context.next();
+  const needsFormBridge = FORM_PAGES.has(pathname);
+  const needsMobileRuntime = MOBILE_REMEDIATION_PAGES.has(pathname);
+  if (!needsFormBridge && !needsMobileRuntime) return context.next();
 
   const response = await context.next();
   const contentType = response.headers.get('content-type') || '';
   if (!response.ok || !contentType.toLowerCase().includes('text/html')) return response;
 
-  const transformed = new HTMLRewriter()
-    .on('head', new HeadInjector())
-    .transform(response);
+  let rewriter = new HTMLRewriter();
+  if (needsFormBridge) rewriter = rewriter.on('head', new FormHeadInjector());
+  if (needsMobileRuntime) rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname)));
+  const transformed = rewriter.transform(response);
 
   const headers = new Headers(transformed.headers);
   headers.delete('content-length');
   headers.delete('etag');
-  headers.set('x-rona-form-transport', 'controlled-v1.1');
+  if (needsFormBridge) headers.set('x-rona-form-transport', 'controlled-v1.1');
+  if (needsMobileRuntime) headers.set('x-rona-mobile-remediation', 'v2');
 
   return new Response(transformed.body, {
     status: transformed.status,
