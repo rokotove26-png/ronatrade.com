@@ -7,9 +7,7 @@
     "/en/investments/",
     "/api/forms/*",
     "/pages/*",
-    "/pages/inner/*",
     "/en/pages/*",
-    "/en/pages/inner/*",
     "/investments/home*",
     "/en/investments/home*"
   ],
