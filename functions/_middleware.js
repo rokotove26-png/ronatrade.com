@@ -131,6 +131,12 @@ class MobileHeadInjector {
   }
 }
 
+class MobileViewportNormalizer {
+  element(element) {
+    element.setAttribute('content', 'width=device-width,initial-scale=1,viewport-fit=cover');
+  }
+}
+
 export async function onRequest(context) {
   const { request } = context;
   if (request.method !== 'GET') return context.next();
@@ -146,7 +152,10 @@ export async function onRequest(context) {
 
   let rewriter = new HTMLRewriter();
   if (needsFormBridge) rewriter = rewriter.on('head', new FormHeadInjector());
-  if (needsMobileRuntime) rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname)));
+  if (needsMobileRuntime) {
+    rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname)));
+    rewriter = rewriter.on('meta[name="viewport"]', new MobileViewportNormalizer());
+  }
   const transformed = rewriter.transform(response);
 
   const headers = new Headers(transformed.headers);
