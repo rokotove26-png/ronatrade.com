@@ -32,27 +32,6 @@ const MOBILE_HOME_PAGES = new Set([
   '/en/pages/home_compact.html'
 ]);
 
-const INVESTMENTS_MOBILE_PAGES = new Set([
-  '/investments/index.html',
-  '/investments/home.html',
-  '/investments/about.html',
-  '/investments/how-we-work.html',
-  '/investments/products.html',
-  '/investments/products-strategy-investments.html',
-  '/investments/products-business-projects-data-risks.html',
-  '/investments/industries.html',
-  '/investments/client-value.html',
-  '/en/investments/index.html',
-  '/en/investments/home.html',
-  '/en/investments/about.html',
-  '/en/investments/how-we-work.html',
-  '/en/investments/products.html',
-  '/en/investments/products-strategy-investments.html',
-  '/en/investments/products-business-projects-data-risks.html',
-  '/en/investments/industries.html',
-  '/en/investments/client-value.html'
-]);
-
 const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 (()=>{
   'use strict';
@@ -136,7 +115,6 @@ const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 
 const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/assets/mobile/rona-mobile-remediation-v2.js" defer></script>`;
 const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v1" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v1.css">`;
-const INVESTMENTS_MOBILE_RUNTIME = `<script id="rona-investments-mobile-loader-v1" src="/assets/mobile/rona-investments-mobile-v1.js" defer></script>`;
 
 class FormHeadInjector {
   element(element) {
@@ -153,12 +131,6 @@ class MobileHeadInjector {
   }
 }
 
-class InvestmentsMobileHeadInjector {
-  element(element) {
-    element.prepend(INVESTMENTS_MOBILE_RUNTIME, { html: true });
-  }
-}
-
 export async function onRequest(context) {
   const { request } = context;
   if (request.method !== 'GET') return context.next();
@@ -166,8 +138,7 @@ export async function onRequest(context) {
   const pathname = new URL(request.url).pathname;
   const needsFormBridge = FORM_PAGES.has(pathname);
   const needsMobileRuntime = MOBILE_REMEDIATION_PAGES.has(pathname);
-  const needsInvestmentsMobile = INVESTMENTS_MOBILE_PAGES.has(pathname);
-  if (!needsFormBridge && !needsMobileRuntime && !needsInvestmentsMobile) return context.next();
+  if (!needsFormBridge && !needsMobileRuntime) return context.next();
 
   const response = await context.next();
   const contentType = response.headers.get('content-type') || '';
@@ -176,7 +147,6 @@ export async function onRequest(context) {
   let rewriter = new HTMLRewriter();
   if (needsFormBridge) rewriter = rewriter.on('head', new FormHeadInjector());
   if (needsMobileRuntime) rewriter = rewriter.on('head', new MobileHeadInjector(MOBILE_HOME_PAGES.has(pathname)));
-  if (needsInvestmentsMobile) rewriter = rewriter.on('head', new InvestmentsMobileHeadInjector());
   const transformed = rewriter.transform(response);
 
   const headers = new Headers(transformed.headers);
@@ -184,7 +154,6 @@ export async function onRequest(context) {
   headers.delete('etag');
   if (needsFormBridge) headers.set('x-rona-form-transport', 'controlled-v1.1');
   if (needsMobileRuntime) headers.set('x-rona-mobile-remediation', 'v2');
-  if (needsInvestmentsMobile) headers.set('x-rona-investments-mobile', 'v1');
 
   return new Response(transformed.body, {
     status: transformed.status,
