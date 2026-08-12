@@ -1,0 +1,68 @@
+@media (max-width:767px){
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .board{
+    display:block!important;
+    height:auto!important;
+    min-height:calc(100dvh - var(--rona-mobile-top))!important;
+    padding-bottom:calc(58px + env(safe-area-inset-bottom))!important;
+    overflow:visible!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .board::before,
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .board::after{
+    top:0!important;
+    bottom:0!important;
+    height:auto!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .info{
+    margin-bottom:18px!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .bank{
+    position:relative!important;
+    width:100%!important;
+    max-width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    display:block!important;
+    padding-top:18px!important;
+    padding-bottom:8px!important;
+    overflow:visible!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .routes{
+    width:100%!important;
+    max-width:100%!important;
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:14px!important;
+    margin:14px 0 20px!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .route{
+    width:100%!important;
+    max-width:100%!important;
+    height:auto!important;
+    min-height:164px!important;
+    margin:0!important;
+    padding:16px 15px 17px!important;
+    overflow:visible!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .legal-note{
+    position:relative!important;
+    width:100%!important;
+    max-width:100%!important;
+    margin:18px 0 0!important;
+    padding-bottom:12px!important;
+  }
+}
+
+@media (max-width:360px){
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .board{
+    padding-bottom:calc(64px + env(safe-area-inset-bottom))!important;
+  }
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .route{
+    min-height:172px!important;
+  }
+}
