@@ -3,6 +3,7 @@
     display:block!important;
     height:auto!important;
     min-height:calc(100dvh - var(--rona-mobile-top))!important;
+    max-height:none!important;
     padding-bottom:calc(58px + env(safe-area-inset-bottom))!important;
     overflow:visible!important;
     background:
