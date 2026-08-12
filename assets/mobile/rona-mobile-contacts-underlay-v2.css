@@ -1,0 +1,19 @@
+@media (max-width:767px){
+  /* Contacts mobile: remove the legacy desktop 804px cap so the approved
+     graphite board itself grows with the entire banking section. */
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .board{
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+  }
+
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .bank,
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .bank-base,
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .routes,
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .route,
+  html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .legal-note{
+    position:relative!important;
+    max-height:none!important;
+  }
+}
