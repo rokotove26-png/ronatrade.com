@@ -5,6 +5,11 @@
     min-height:calc(100dvh - var(--rona-mobile-top))!important;
     padding-bottom:calc(58px + env(safe-area-inset-bottom))!important;
     overflow:visible!important;
+    background:
+      radial-gradient(86% 58% at 4% -8%,rgba(255,255,255,.105) 0%,rgba(221,229,235,.040) 25%,rgba(255,255,255,0) 58%),
+      radial-gradient(64% 46% at 96% 16%,rgba(196,210,220,.070) 0%,rgba(135,153,167,.022) 34%,transparent 66%),
+      linear-gradient(116deg,transparent 0 34%,rgba(255,255,255,.018) 43%,rgba(184,199,210,.052) 49%,rgba(255,255,255,.014) 55%,transparent 64%),
+      linear-gradient(158deg,rgba(18,21,24,.91) 0%,rgba(7,9,11,.88) 43%,rgba(2,3,4,.92) 68%,rgba(12,15,17,.90) 100%)!important;
   }
 
   html[data-rona-mobile-v2][data-rona-mobile-page="contacts"] .board::before,
