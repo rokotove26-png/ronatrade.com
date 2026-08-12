@@ -50,13 +50,7 @@
     installCleanLayer(doc);
     doc.querySelectorAll('style[id],link[id][rel~="stylesheet"]').forEach(sanitizeOwner);
     doc.querySelectorAll('iframe').forEach(bindFrame);
-    if(seenDocs.has(doc))return;
     seenDocs.add(doc);
-    new MutationObserver(()=>{
-      installCleanLayer(doc);
-      doc.querySelectorAll('style[id],link[id][rel~="stylesheet"]').forEach(sanitizeOwner);
-      doc.querySelectorAll('iframe').forEach(bindFrame);
-    }).observe(doc.documentElement,{childList:true,subtree:true});
   }
 
   const structural=document.createElement('style');
@@ -92,7 +86,6 @@
 
   const apply=()=>{scan(document);bindMenu()};
   apply();
-  new MutationObserver(apply).observe(document.documentElement,{childList:true,subtree:true});
   addEventListener('load',apply,{once:true});
-  window.__RONA_MOBILE_DESIGN_LOCK_V2_STATE__={status:'active',scope:'mobile-wip-only',legacyOverlaySuppression:true};
+  window.__RONA_MOBILE_DESIGN_LOCK_V2_STATE__={status:'active',scope:'mobile-wip-only',legacyOverlaySuppression:true,observerLoopRemoved:true};
 })();
