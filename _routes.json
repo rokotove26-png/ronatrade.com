@@ -9,7 +9,8 @@
     "/pages/*",
     "/en/pages/*",
     "/investments/home*",
-    "/en/investments/home*"
+    "/en/investments/home*",
+    "/portal/*"
   ],
   "exclude": []
 }
