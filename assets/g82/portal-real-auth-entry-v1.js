@@ -10,17 +10,18 @@
   const bound = new WeakSet();
 
   const norm = v => String(v || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const isElement = node => !!node && node.nodeType === 1 && typeof node.closest === 'function';
   const isPortalText = v => {
     const t = norm(v);
     return !!t && t.length < 120 && LABELS.some(x => t === x || t.includes(x));
   };
   function portalControl(node) {
-    if (!(node instanceof Element)) return null;
+    if (!isElement(node)) return null;
     const direct = node.closest(DIRECT);
     if (direct) return direct;
     const control = node.closest('button,a,[role="button"],input[type="button"],input[type="submit"]');
     if (!control) return null;
-    const text = control instanceof HTMLInputElement ? control.value : control.textContent;
+    const text = String(control.tagName || '').toUpperCase() === 'INPUT' ? control.value : control.textContent;
     return isPortalText(text) ? control : null;
   }
   function go() {
@@ -61,7 +62,8 @@
       const path = typeof e.composedPath === 'function' ? e.composedPath() : [e.target];
       let ctl = null;
       for (const node of path) {
-        if (node instanceof Element && (ctl = portalControl(node))) break;
+        ctl = portalControl(node);
+        if (ctl) break;
       }
       if (!ctl) return;
       e.preventDefault();
@@ -71,9 +73,9 @@
     };
     const submit = e => {
       const form = e.target;
-      if (!(form instanceof HTMLFormElement)) return;
+      if (!form || String(form.tagName || '').toUpperCase() !== 'FORM') return;
       const text = norm(form.textContent);
-      const password = !!form.querySelector('input[type="password"],input[name*="pass" i]');
+      const password = !!form.querySelector?.('input[type="password"],input[name*="pass" i]');
       if (!password || !LABELS.some(x => text.includes(x))) return;
       e.preventDefault();
       e.stopPropagation();
