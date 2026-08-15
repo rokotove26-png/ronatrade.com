@@ -6,7 +6,7 @@
   const DEST = '/portal/login';
   const PLACEHOLDER = 'серверная авторизация будет подключена после утверждения дизайна';
   const LABELS = ['личный кабинет', 'personal account', 'client portal'];
-  const DIRECT = '.portal-top,[data-open-portal],[data-portal-open],#portalButton,#portalBtn,[data-rona-portal-overlay]';
+  const DIRECT = '.portal-top,[data-open-portal],[data-portal-open],#portalButton,#portalBtn';
   const bound = new WeakSet();
 
   const norm = v => String(v || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -28,6 +28,11 @@
     try { window.top.location.assign(DEST); }
     catch (_) { window.location.assign(DEST); }
   }
+  function purgeOldPortalShim(doc) {
+    try {
+      doc.querySelectorAll('#ronaPortalFallbackG82,a[data-rona-portal-overlay="g82"]').forEach(el => el.remove());
+    } catch (_) {}
+  }
   function findLegacyHost(el) {
     let cur = el;
     for (let i = 0; i < 9 && cur; i += 1, cur = cur.parentElement) {
@@ -36,6 +41,7 @@
     return null;
   }
   function purgeLegacy(doc) {
+    purgeOldPortalShim(doc);
     try {
       const nodes = doc.querySelectorAll('p,span,small,div,label');
       for (const el of nodes) {
