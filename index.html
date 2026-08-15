@@ -1,9 +1,10 @@
 <!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade</title><link rel="alternate" hreflang="ru" href="index.html"><link rel="alternate" hreflang="en" href="en/index.html"><link rel="alternate" hreflang="x-default" href="index.html">
-</head><body><script>(()=>{
+<style>#rona-portal-router-fallback{position:fixed;right:18px;top:16px;z-index:2147483000;padding:9px 13px;border:1px solid rgba(40,40,40,.25);border-radius:8px;background:rgba(255,255,255,.92);color:#202124;text-decoration:none;font:600 13px/1.2 Arial,sans-serif;box-shadow:0 4px 18px rgba(0,0,0,.12)}</style></head><body><a id="rona-portal-router-fallback" href="/portal/login">Личный кабинет</a><script>(()=>{
   'use strict';
   const q=new URLSearchParams(location.search);
   const explicit=q.get('layout');
   const mode=(explicit==='large'||explicit==='compact')?explicit:(innerWidth>=1600?'large':'compact');
   try{sessionStorage.setItem('ronaDesktopLayout',mode)}catch(_){}
   location.replace('pages/home_'+mode+'.html?layout='+mode);
-})()</script></body></html>
+})()
+</script></body></html>
