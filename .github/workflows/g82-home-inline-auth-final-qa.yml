@@ -10,12 +10,34 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TARGET_ORIGIN: https://55a1eef4.rona-trade-public.pages.dev
+      TARGET_ORIGIN: https://ronaoil.com
       OWNER_EMAIL: office_kg@ronaoil.com
       QA_HELPER: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
       OIDC_AUDIENCE: rona-g82-inline-auth-qa
     steps:
       - uses: actions/checkout@v4
+      - name: Wait for canonical production deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 48); do
+            H="$(curl -fsSI -H 'cache-control: no-cache' "${TARGET_ORIGIN}/pages/home_large?layout=large&_qa=$(date +%s)" 2>/dev/null || true)"
+            A="$(curl -fsS -H 'cache-control: no-cache' "${TARGET_ORIGIN}/assets/g82/portal-home-inline-auth-v2.js?_qa=$(date +%s)" 2>/dev/null || true)"
+            if printf '%s' "$H" | grep -qi 'x-rona-portal-entry: g8.2-home-inline-auth-v2' && printf '%s' "$A" | grep -q '__RONA_G82_HOME_INLINE_AUTH_V2__'; then
+              echo 'Canonical production inline-auth deployment observable'; exit 0
+            fi
+            sleep 5
+          done
+          echo 'Canonical production inline-auth deployment not observable' >&2; exit 1
+      - name: Verify www canonical redirect
+        shell: bash
+        run: |
+          set -euo pipefail
+          CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 https://www.ronaoil.com/)"
+          LOC="$(curl -sSI --max-redirs 0 https://www.ronaoil.com/ | awk 'BEGIN{IGNORECASE=1}/^location:/{sub(/\r$/,"",$2);print $2;exit}')"
+          case "$CODE" in 301|302|303|307|308) ;; *) echo "bad www redirect status $CODE" >&2; exit 1;; esac
+          case "$LOC" in https://ronaoil.com* ) ;; *) echo "bad www redirect location $LOC" >&2; exit 1;; esac
+          echo "www canonical redirect PASS: $CODE"
       - name: Set one-run owner QA credential
         shell: bash
         run: |
@@ -54,12 +76,12 @@ jobs:
           (async()=>{const b=await chromium.launch({headless:true}),ctx=await b.newContext({viewport:{width:1600,height:1000}}),page=await ctx.newPage();
             await page.goto(O+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});const q=await panel(page);if(q.f.url().includes('/portal/login'))throw new Error('homepage delegates to login page');
             const allText=(await Promise.all(page.frames().map(f=>f.locator('body').innerText().catch(()=>'')))).join('\n').toLowerCase();if(allText.includes('серверная авторизация будет подключена после утверждения дизайна'))throw new Error('obsolete auth placeholder visible');
-            await q.email.fill(E);await q.pass.fill('wrong-password-g82-20260816');await q.btn.click();const st=q.root.locator('[data-rona-inline-auth-status="g82-v2"]');await st.waitFor({state:'visible',timeout:15000});const et=(await st.innerText()).trim();if(!et.includes('Неверный логин или пароль')||!(await q.root.isVisible())||path(page).startsWith('/portal/'))throw new Error('wrong-password UX failed');console.log(JSON.stringify({wrongPassword:'PASS',panelVisible:true,error:et}));
+            await q.email.fill(E);await q.pass.fill('wrong-password-g82-20260816');await q.btn.click();const st=q.root.locator('[data-rona-inline-auth-status="g82-v2"]');await st.waitFor({state:'visible',timeout:15000});const et=(await st.innerText()).trim();if(!et.includes('Неверный логин или пароль')||!(await q.root.isVisible())||path(page).startsWith('/portal/'))throw new Error('wrong-password UX failed');console.log(JSON.stringify({wrongPassword:'PASS',panelVisible:true,error:et,url:page.url()}));
             await q.email.fill(E);await q.pass.fill(P);await q.btn.click();await page.waitForURL(u=>u.origin===O&&u.pathname==='/portal/select',{timeout:20000});const roles=[['/portal/admin','Кабинет администратора'],['/portal/staff','Внутренний офис'],['/portal/agent','Кабинет агента'],['/portal/client','Кабинет клиента']];for(const [href,label] of roles){const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});if(await a.count()!==1||!await a.isVisible())throw new Error('selector missing '+label)}if(await page.locator('a.choice').count()!==4)throw new Error('selector role count');console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',roles:4}));
             for(const r of roles){await route(page,...r);await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/select')throw new Error('selector return failed')}
             await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});await waitAdmin(page);await page.reload({waitUntil:'domcontentloaded'});await waitAdmin(page);if(path(page)!=='/portal/admin')throw new Error('refresh failed');
             await page.goto(O+'/portal/client',{waitUntil:'domcontentloaded'});const ct=(await page.locator('body').innerText()).toLowerCase();if(/deal-2026-|договор №|storage balance|остаток на хранении/.test(ct))throw new Error('client business data leaked');
-            await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');if(await logout.count()!==1)throw new Error('logout missing');await Promise.all([page.waitForURL(u=>['/portal/login','/'].includes(u.pathname),{timeout:15000}),logout.click()]);const lp=path(page);await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/login')throw new Error('post-logout protected route not fail closed');console.log(JSON.stringify({ok:true,homepageInlineAuth:'PASS',wrongPassword:'PASS',correctPassword:'PASS',selector:'PASS',routes:'4/4 PASS',refresh:'PASS',clientFailClosed:'PASS',logout:'PASS',logoutDestination:lp}));await ctx.close();await b.close()})().catch(e=>{console.error(e);process.exit(1)});
+            await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');if(await logout.count()!==1)throw new Error('logout missing');await Promise.all([page.waitForURL(u=>['/portal/login','/'].includes(u.pathname),{timeout:15000}),logout.click()]);const lp=path(page);await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/login')throw new Error('post-logout protected route not fail closed');console.log(JSON.stringify({ok:true,origin:O,homepageInlineAuth:'PASS',wrongPassword:'PASS',correctPassword:'PASS',selector:'PASS',routes:'4/4 PASS',refresh:'PASS',clientFailClosed:'PASS',logout:'PASS',logoutDestination:lp}));await ctx.close();await b.close()})().catch(e=>{console.error(e);process.exit(1)});
           NODE
       - name: Rotate away one-run owner QA credential
         if: always()
