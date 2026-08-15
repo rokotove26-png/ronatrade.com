@@ -15,7 +15,7 @@ const SECURITY_HEADERS = Object.freeze({
   'cross-origin-opener-policy': 'same-origin',
   'cross-origin-resource-policy': 'same-origin',
 });
-const CSP = "default-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
+const CSP = "default-src 'self' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
 
 function parseCookies(header) {
   const out = {};
@@ -49,6 +49,7 @@ function withSecurity(headers = new Headers(), htmlResponse = false) {
   for (const [k, v] of Object.entries(SECURITY_HEADERS)) out.set(k, v);
   out.delete('access-control-allow-origin');
   out.delete('access-control-allow-credentials');
+  out.delete('content-security-policy-report-only');
   if (htmlResponse) out.set('content-security-policy', CSP);
   return out;
 }
@@ -147,58 +148,76 @@ async function ensureSession(request) {
   return { access: next.data.access_token, refresh: next.data.refresh_token, me, setCookies: tokenCookies(next.data) };
 }
 function rolesOf(me) { return Array.isArray(me?.user?.roles) ? me.user.roles.map(String) : []; }
+function portalTargets(roles) {
+  const out = [];
+  if (roles.includes('ADMIN')) out.push({ path:'/portal/admin', label:'Кабинет администратора' });
+  if (roles.includes('RONA_OPERATOR')) out.push({ path:'/portal/staff', label:'Внутренний офис' });
+  if (roles.includes('AGENT')) out.push({ path:'/portal/agent', label:'Кабинет агента' });
+  if (roles.includes('CLIENT')) out.push({ path:'/portal/client', label:'Кабинет клиента' });
+  return out;
+}
 function defaultTarget(roles) {
-  if (roles.includes('ADMIN') || roles.includes('RONA_OPERATOR')) return '/portal/staff';
-  if (roles.includes('AGENT')) return '/portal/agent';
-  if (roles.includes('CLIENT')) return '/portal/client';
-  return null;
+  const targets = portalTargets(roles);
+  if (targets.length > 1) return '/portal/select';
+  return targets[0]?.path || null;
 }
 function canonicalProtectedPath(path) {
+  if (path === '/portal/admin.html') return '/portal/admin';
   if (path === '/portal/agent.html') return '/portal/agent';
   if (path === '/portal/client.html') return '/portal/client';
   return path;
 }
 function roleAllows(path, roles) {
   const p = canonicalProtectedPath(path);
-  if (p === '/portal/staff') return roles.includes('ADMIN') || roles.includes('RONA_OPERATOR');
+  if (p === '/portal/admin') return roles.includes('ADMIN');
+  if (p === '/portal/staff') return roles.includes('RONA_OPERATOR');
   if (p === '/portal/agent') return roles.includes('AGENT');
   if (p === '/portal/client') return roles.includes('CLIENT');
+  if (p === '/portal/select') return portalTargets(roles).length > 1;
   return false;
 }
-function safeNext(value, roles) {
-  if (!value) return defaultTarget(roles);
+function parseLocalNext(value) {
+  if (!value) return null;
   let path = '';
-  try { path = new URL(value, 'https://invalid.example').pathname; } catch { return defaultTarget(roles); }
-  path = canonicalProtectedPath(path);
-  return roleAllows(path, roles) ? path : defaultTarget(roles);
+  try {
+    const u = new URL(value, 'https://local.invalid');
+    if (u.origin !== 'https://local.invalid') return null;
+    path = canonicalProtectedPath(u.pathname);
+  } catch { return null; }
+  return ['/portal/admin','/portal/staff','/portal/agent','/portal/client','/portal/select'].includes(path) ? path : null;
 }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function loginPage(message = '') {
   const note = message ? `<div class="error">${escapeHtml(message)}</div>` : '';
-  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Вход</title><style>:root{font-family:Inter,Arial,sans-serif;color:#eef4f7;background:#05090d}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 80% 10%,#152633 0,#071018 42%,#05090d 75%)}.box{width:min(430px,calc(100vw - 32px));padding:28px;border:1px solid rgba(171,220,239,.24);border-radius:18px;background:rgba(8,15,22,.88);box-shadow:0 22px 80px rgba(0,0,0,.42)}h1{font-size:26px;margin:0 0 6px}.sub{color:#9db1bc;margin:0 0 24px}.field{display:grid;gap:7px;margin:14px 0}.field label{font-size:13px;color:#afc0c9}.field input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(171,220,239,.26);background:#09121a;color:#fff;font:inherit}.btn{width:100%;margin-top:10px;padding:12px;border:1px solid rgba(224,66,75,.45);border-radius:10px;background:rgba(224,66,75,.15);color:#fff;font-weight:800;cursor:pointer}.error{padding:10px 12px;border-radius:9px;background:#4b1e23;color:#ffdfe3;margin:12px 0;font-size:13px}.foot{margin-top:18px;color:#788d98;font-size:13px}</style></head><body><main class="box"><h1>RONA Trade</h1><p class="sub">Единый вход в защищённые кабинеты</p>${note}<form method="post" action="/portal/auth/login" autocomplete="on"><input type="hidden" name="next" id="next"><div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">Войти</button></form><p class="foot">После входа сервер автоматически откроет разрешённый кабинет. Повторный вход внутри Staff / Agent / Client не требуется.</p></main><script>const q=new URLSearchParams(location.search);document.getElementById('next').value=q.get('next')||'';</script></body></html>`;
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Вход</title><style>:root{font-family:Inter,Arial,sans-serif;color:#eef4f7;background:#05090d}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 80% 10%,#152633 0,#071018 42%,#05090d 75%)}.box{width:min(430px,calc(100vw - 32px));padding:28px;border:1px solid rgba(171,220,239,.24);border-radius:18px;background:rgba(8,15,22,.88);box-shadow:0 22px 80px rgba(0,0,0,.42)}h1{font-size:26px;margin:0 0 6px}.sub{color:#9db1bc;margin:0 0 24px}.field{display:grid;gap:7px;margin:14px 0}.field label{font-size:13px;color:#afc0c9}.field input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(171,220,239,.26);background:#09121a;color:#fff;font:inherit}.btn{width:100%;margin-top:10px;padding:12px;border:1px solid rgba(224,66,75,.45);border-radius:10px;background:rgba(224,66,75,.15);color:#fff;font-weight:800;cursor:pointer}.error{padding:10px 12px;border-radius:9px;background:#4b1e23;color:#ffdfe3;margin:12px 0;font-size:13px}.foot{margin-top:18px;color:#788d98;font-size:13px}</style></head><body><main class="box"><h1>RONA Trade</h1><p class="sub">Единый вход в защищённые кабинеты</p>${note}<form method="post" action="/portal/auth/login" autocomplete="on"><input type="hidden" name="next" id="next"><div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">Войти</button></form><p class="foot">Один вход открывает только разрешённые сервером контуры: Кабинет администратора, Внутренний офис, Кабинет агента или Кабинет клиента.</p></main><script>const q=new URLSearchParams(location.search);const n=q.get('next')||'';document.getElementById('next').value=n.startsWith('/portal/')?n:'';</script></body></html>`;
 }
 function deniedPage(code = 'ROLE_MISMATCH') {
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Доступ запрещён</title><style>body{margin:0;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif;min-height:100vh;display:grid;place-items:center}.box{max-width:620px;padding:28px;border:1px solid #50323a;border-radius:14px;background:#101820}a{color:#b7dbea}</style></head><body><div class="box"><h1>Доступ запрещён</h1><p>Сервер не подтвердил право на этот раздел.</p><p><code>${escapeHtml(code)}</code></p><p><a href="/portal/">Открыть разрешённый кабинет</a></p></div></body></html>`;
 }
-const STAFF_BRIDGE = `<script id="rona-g8-staff-same-origin-bridge">(()=>{'use strict';const f=window.fetch.bind(window);window.fetch=(input,init)=>{let u=typeof input==='string'?input:(input instanceof URL?input.href:(input&&input.url)||'');if(u.startsWith('/functions/v1/rona-portal-api/')){const next='/portal/api/'+u.slice('/functions/v1/rona-portal-api/'.length);return f(input instanceof Request?new Request(next,input):next,init)}return f(input,init)};addEventListener('DOMContentLoaded',()=>{const t=document.querySelector('.toolbar');if(t&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};t.appendChild(b)}})})();</script>`;
-const AGENT_BRIDGE = `<script id="rona-g8-agent-same-origin-bridge">(()=>{'use strict';async function boot(){try{const r=await fetch('/portal/api/v1/agent/bootstrap',{credentials:'same-origin',headers:{accept:'application/json'}});if(r.status===401){location.replace('/portal/login?next=%2Fportal%2Fagent');return}const j=await r.json();if(!r.ok||!j?.data){window.RONA_AGENT_PORTAL?.failClosed?.(j?.code||'Серверный доступ агента не подтверждён.');return}window.RONA_AGENT_PORTAL?.boot?.(j.data)}catch(_e){window.RONA_AGENT_PORTAL?.failClosed?.('Не удалось получить подтверждённый серверный контекст.')}}addEventListener('DOMContentLoaded',()=>{boot();const host=document.querySelector('.top-right,.topbar,.top');if(host&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.type='button';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};host.appendChild(b)}})})();</script>`;
+function selectorPage(roles) {
+  const targets = portalTargets(roles);
+  const links = targets.map(t => `<a class="choice" href="${t.path}">${escapeHtml(t.label)}</a>`).join('');
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Выбор кабинета</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif}.box{width:min(520px,calc(100vw - 32px));padding:26px;border:1px solid #29404e;border-radius:16px;background:#0b151d}.choice{display:block;margin:10px 0;padding:13px 15px;border:1px solid #365464;border-radius:10px;color:#eef4f7;text-decoration:none;background:#101f29}.choice:hover{background:#152a37}.muted{color:#93a8b3;font-size:13px}</style></head><body><main class="box"><h1>Выберите рабочий контур</h1><p class="muted">Список сформирован сервером только из ролей текущей защищённой сессии.</p>${links}<form method="post" action="/portal/auth/logout"><button class="choice" style="width:100%;text-align:left" type="submit">Выйти</button></form></main></body></html>`;
+}
+const STAFF_BRIDGE = `<script id="rona-g82-staff-same-origin-bridge">(()=>{'use strict';const f=window.fetch.bind(window);window.fetch=(input,init)=>{let u=typeof input==='string'?input:(input instanceof URL?input.href:(input&&input.url)||'');if(u.startsWith('/functions/v1/rona-portal-api/')){const next='/portal/api/'+u.slice('/functions/v1/rona-portal-api/'.length);return f(input instanceof Request?new Request(next,input):next,{...init,credentials:'same-origin'})}return f(input,{...init,credentials:init?.credentials||'same-origin'})};addEventListener('DOMContentLoaded',()=>{document.title='RONA Trade — Внутренний офис';const t=document.querySelector('.toolbar');if(t&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};t.appendChild(b)}})})();</script>`;
+const AGENT_BRIDGE = `<script id="rona-g82-agent-same-origin-bridge">(()=>{'use strict';async function boot(){try{const r=await fetch('/portal/api/v1/agent/bootstrap',{credentials:'same-origin',headers:{accept:'application/json'}});if(r.status===401){location.replace('/portal/login?next=%2Fportal%2Fagent');return}const j=await r.json();if(!r.ok||!j?.data){window.RONA_AGENT_PORTAL?.failClosed?.(j?.code||'Серверный доступ агента не подтверждён.');return}window.RONA_AGENT_PORTAL?.boot?.(j.data)}catch(_e){window.RONA_AGENT_PORTAL?.failClosed?.('Не удалось получить подтверждённый серверный контекст.')}}addEventListener('DOMContentLoaded',()=>{boot();const host=document.querySelector('.top-right,.topbar,.top');if(host&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.type='button';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};host.appendChild(b)}})})();</script>`;
 class BodyAppend { constructor(value) { this.value = value; } element(el) { el.append(this.value, { html: true }); } }
 
 async function serveStaticProtected(context, session, kind) {
   const roles = rolesOf(session.me);
-  const expected = kind === 'agent' ? '/portal/agent' : '/portal/client';
+  const expected = kind === 'admin' ? '/portal/admin' : kind === 'agent' ? '/portal/agent' : '/portal/client';
   if (!roleAllows(expected, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, session.setCookies);
   const response = await context.next();
   if (!response.ok) return secureResponse(response, session.setCookies, false);
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('text/html')) return secureResponse(response, session.setCookies, false);
-  if (kind === 'client') return secureResponse(response, session.setCookies, true);
+  if (kind === 'client' || kind === 'admin') return secureResponse(response, session.setCookies, true);
   const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE)).transform(response);
   return secureResponse(transformed, session.setCookies, true);
 }
 async function serveStaff(session) {
   const roles = rolesOf(session.me);
-  if (!(roles.includes('ADMIN') || roles.includes('RONA_OPERATOR'))) return html(deniedPage('ROLE_MISMATCH'), 403, session.setCookies);
+  if (!roles.includes('RONA_OPERATOR')) return html(deniedPage('ROLE_MISMATCH'), 403, session.setCookies);
   const r = await fetch(STAFF_WORKSPACE, { headers: { accept: 'text/html' } });
   if (!r.ok) return html(deniedPage('STAFF_WORKSPACE_UNAVAILABLE'), 503, session.setCookies);
   let source = await r.text();
@@ -206,6 +225,7 @@ async function serveStaff(session) {
   return html(source, 200, session.setCookies);
 }
 async function proxyApi(request) {
+  if (request.method !== 'GET' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
   const cookies = parseCookies(request.headers.get('cookie'));
   let access = cookies[ACCESS_COOKIE] || '';
   const refresh = cookies[REFRESH_COOKIE] || '';
@@ -248,7 +268,10 @@ export async function onRequest(context) {
     if (!login.ok || !login.data?.access_token || !login.data?.refresh_token) return html(loginPage('Неверные данные входа или доступ неактивен.'), 401, clearCookies());
     const me = await sessionMe(login.data.access_token);
     if (!me) { await authLogout(login.data.access_token); return html(loginPage('Доступ к порталу не активирован.'), 403, clearCookies()); }
-    const target = safeNext(next, rolesOf(me));
+    const roles = rolesOf(me);
+    const requested = parseLocalNext(next);
+    if (requested && !roleAllows(requested, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, tokenCookies(login.data));
+    const target = requested || defaultTarget(roles);
     if (!target) { await authLogout(login.data.access_token); return html(deniedPage('ROLE_NOT_PORTAL_ENABLED'), 403, clearCookies()); }
     return redirect(target, 303, tokenCookies(login.data));
   }
@@ -256,7 +279,7 @@ export async function onRequest(context) {
     if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403, clearCookies());
     const cookies = parseCookies(request.headers.get('cookie'));
     await authLogout(cookies[ACCESS_COOKIE] || '');
-    return json({ ok:true }, 200, clearCookies());
+    return redirect('/portal/login', 303, clearCookies());
   }
   if (path.startsWith('/portal/api/')) {
     if (!['GET','POST'].includes(request.method)) return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
@@ -278,8 +301,17 @@ export async function onRequest(context) {
     const target = defaultTarget(roles);
     return target ? redirect(target, 303, session.setCookies) : html(deniedPage('ROLE_NOT_PORTAL_ENABLED'), 403, session.setCookies);
   }
+  if (path === '/portal/select') {
+    if (portalTargets(roles).length <= 1) {
+      const target = defaultTarget(roles);
+      return target ? redirect(target, 303, session.setCookies) : html(deniedPage('ROLE_NOT_PORTAL_ENABLED'), 403, session.setCookies);
+    }
+    return html(selectorPage(roles), 200, session.setCookies);
+  }
+  if (path === '/portal/admin.html') return redirect('/portal/admin', 308, session.setCookies);
   if (path === '/portal/agent.html') return redirect('/portal/agent', 308, session.setCookies);
   if (path === '/portal/client.html') return redirect('/portal/client', 308, session.setCookies);
+  if (path === '/portal/admin') return serveStaticProtected(context, session, 'admin');
   if (path === '/portal/staff') return serveStaff(session);
   if (path === '/portal/agent') return serveStaticProtected(context, session, 'agent');
   if (path === '/portal/client') return serveStaticProtected(context, session, 'client');
