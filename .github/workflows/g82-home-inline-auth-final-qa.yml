@@ -127,8 +127,31 @@ jobs:
             return {colorBuckets:buckets.size,dominantFraction:samples?dominant/samples:1,samples,width:png.width,height:png.height};
           }
 
+          async function waitAdminBoot(page) {
+            try {
+              await page.waitForFunction(() => {
+                const st=window.__RONA_ADMIN_BOOT_STATE__;
+                const locked=document.body?.classList?.contains('admin-auth-locked');
+                return !locked || st?.failed || st?.ready;
+              }, null, {timeout:16000,polling:200});
+            } catch (_) {}
+            const state=await page.evaluate(() => ({
+              state: window.__RONA_ADMIN_BOOT_STATE__ || null,
+              locked: document.body?.classList?.contains('admin-auth-locked') || false,
+              deferred: document.querySelectorAll('script[type="application/rona-admin-deferred"]').length,
+              appDisplay: document.querySelector('.app') ? getComputedStyle(document.querySelector('.app')).display : null,
+              failText: (document.getElementById('ronaAdminServerFail')?.innerText || '').trim(),
+              appReadyDispatched: !!window.__RONA_ADMIN_APP_READY_DISPATCHED__,
+              russifyCompleted: !!window.__RONA_ADMIN_RUSSIFY_COMPLETED__,
+              renderAccessCompleted: !!window.__RONA_ADMIN_RENDER_ACCESS_COMPLETED__
+            }));
+            console.log(JSON.stringify({adminBoot:state}));
+            if(state.state?.failed) throw new Error('Admin boot failed: '+String(state.state.failureReason||state.failText||'unknown'));
+            if(state.locked || !state.state?.ready) throw new Error('Admin boot did not reach READY: '+JSON.stringify(state));
+          }
+
           async function visualMetrics(page,name) {
-            await sleep(2500);
+            if(name==='admin') await waitAdminBoot(page); else await sleep(2500);
             const dom=await page.evaluate(()=>{
               const body=document.body;
               const els=[...document.querySelectorAll('body *')];
@@ -166,6 +189,7 @@ jobs:
             await waitDeployment(ctx.request);
             const page=await ctx.newPage();
             page.on('pageerror',e=>console.log(JSON.stringify({event:'pageerror',text:String(e.message||e).slice(0,500)})));
+            page.on('console',m=>{if(m.type()==='error')console.log(JSON.stringify({event:'console-error',text:m.text().slice(0,700)}))});
 
             await page.goto(origin+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
             const panel=await waitPanel(page);
@@ -216,9 +240,9 @@ jobs:
             }
 
             await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
-            await sleep(2000);
+            await waitAdminBoot(page);
             await page.reload({waitUntil:'domcontentloaded',timeout:30000});
-            await sleep(2000);
+            await waitAdminBoot(page);
             if(asPath(page.url())!=='/portal/admin') throw new Error('session did not survive refresh');
             await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
             const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');
