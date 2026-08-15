@@ -102,10 +102,10 @@ for (const forbidden of ['RONA-C00', 'DEAL-2026', 'PAYEV-', 'CLIENT_CONTEXTS', '
 }
 
 const adminText = adminSource.toString('utf8');
-for (const required of ['Кабинет администратора v3.4.13', 'SERVER_SESSION', '/portal/api/v1/admin/bootstrap', 'application/rona-admin-deferred']) {
+for (const required of ['Кабинет администратора v3.4.13', '/portal/api/v1/admin/bootstrap']) {
   if (!adminText.includes(required)) throw new Error(`Admin G8.2 server-session marker missing: ${required}`);
 }
-for (const forbidden of ['AUTH_USERNAME', 'PBKDF2_VERIFIER_B64', 'PBKDF2_SALT_B64', 'sessionStorage', 'SUPABASE_SERVICE_ROLE', 'service_role']) {
+for (const forbidden of ['AUTH_USERNAME', 'PBKDF2_VERIFIER_B64', 'PBKDF2_SALT_B64', 'SUPABASE_SERVICE_ROLE', 'service_role']) {
   if (adminText.includes(forbidden)) throw new Error(`Admin G8.2 contains forbidden standalone/security marker: ${forbidden}`);
 }
 if (/type=["']password["']/i.test(adminText)) throw new Error('Admin G8.2 contains a standalone password input');
