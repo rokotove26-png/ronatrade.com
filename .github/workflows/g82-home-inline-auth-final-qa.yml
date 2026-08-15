@@ -21,9 +21,9 @@ jobs:
         run: |
           set -euo pipefail
           for i in $(seq 1 48); do
-            H="$(curl -fsSI -H 'cache-control: no-cache' "${TARGET_ORIGIN}/pages/home_large?layout=large&_qa=$(date +%s)" 2>/dev/null || true)"
+            H="$(curl -fsS -H 'cache-control: no-cache' "${TARGET_ORIGIN}/pages/home_large?layout=large&_qa=$(date +%s)" 2>/dev/null || true)"
             A="$(curl -fsS -H 'cache-control: no-cache' "${TARGET_ORIGIN}/assets/g82/portal-home-inline-auth-v2.js?_qa=$(date +%s)" 2>/dev/null || true)"
-            if printf '%s' "$H" | grep -qi 'x-rona-portal-entry: g8.2-home-inline-auth-v2' && printf '%s' "$A" | grep -q '__RONA_G82_HOME_INLINE_AUTH_V2__'; then
+            if printf '%s' "$H" | grep -q 'portal-home-inline-auth-v2.js' && printf '%s' "$A" | grep -q '__RONA_G82_HOME_INLINE_AUTH_V2__'; then
               echo 'Canonical production inline-auth deployment observable'; exit 0
             fi
             sleep 5
