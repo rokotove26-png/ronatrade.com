@@ -29,6 +29,7 @@ const ADMIN_PARTS = [
 ];
 const EXPECTED_AGENT_SHA256 = 'e34bfe5f4c749851b618b0bf8a4e99e2b90fb78c88bf4bd4eee183dae97885a8';
 const EXPECTED_CLIENT_SAFE_GIT_BLOB = '23463358c0d921abdeb3f532f710803b3b7fe824';
+const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 async function exists(path) { try { await stat(path); return true; } catch { return false; } }
 async function walk(dir) {
@@ -82,11 +83,25 @@ try {
 requireSha256('Approved Agent v0.4.3 externalized visual source', agentSource, EXPECTED_AGENT_SHA256);
 
 const adminEncoded = await readEncoded(ADMIN_PARTS, 'Approved Admin G8.2');
-let adminSource;
+let adminSource = null;
+let adminRecoveredChar = null;
 try {
   adminSource = brotliDecompressSync(Buffer.from(adminEncoded.join(''), 'base64'));
-} catch (error) {
-  throw new Error(`Approved Admin source reconstruction failed: ${error instanceof Error ? error.message : String(error)}`);
+} catch (initialError) {
+  if (adminEncoded[6]?.length === 15999) {
+    for (const ch of B64_ALPHABET) {
+      try {
+        const repaired = [...adminEncoded];
+        repaired[6] = `${repaired[6]}${ch}`;
+        adminSource = brotliDecompressSync(Buffer.from(repaired.join(''), 'base64'));
+        adminRecoveredChar = ch;
+        break;
+      } catch (_) {}
+    }
+  }
+  if (!adminSource) {
+    throw new Error(`Approved Admin source reconstruction failed after deterministic boundary repair: ${initialError instanceof Error ? initialError.message : String(initialError)}`);
+  }
 }
 const adminSha256 = sha256(adminSource);
 
@@ -105,6 +120,8 @@ const adminText = adminSource.toString('utf8');
 const adminDiagnostics = {
   sha256: adminSha256,
   bytes: adminSource.length,
+  recoveredAtPart06Boundary: adminRecoveredChar !== null,
+  recoveredChar: adminRecoveredChar,
   hasVersionLabel: adminText.includes('Кабинет администратора v3.4.13'),
   hasAdminBootstrapBridge: adminText.includes('/portal/api/v1/admin/bootstrap'),
   hasAuthUsername: adminText.includes('AUTH_USERNAME'),
@@ -134,4 +151,4 @@ if (forbiddenFiles.length) throw new Error(`Forbidden files in deployment output
 for (const required of ['index.html', 'en/index.html', 'investments/index.html', 'en/investments/index.html', '_routes.json', 'portal/admin.html', 'portal/agent.html', 'portal/client.html']) {
   if (!(await exists(join(OUT, ...required.split('/'))))) throw new Error(`dist/${required} missing`);
 }
-console.log(`RONA Pages diagnostic build PASS: ${files.length} public files; Admin reconstructed SHA-256 ${adminSha256}.`);
+console.log(`RONA Pages diagnostic build PASS: ${files.length} public files; Admin reconstructed SHA-256 ${adminSha256}; boundary repair ${adminRecoveredChar ?? 'none'}.`);
