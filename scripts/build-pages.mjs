@@ -1,7 +1,7 @@
 import { cp, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { createHash } from 'node:crypto';
-import { brotliDecompressSync, gunzipSync } from 'node:zlib';
+import { brotliDecompressSync, createBrotliDecompress, gunzipSync } from 'node:zlib';
 
 const ROOT = process.cwd();
 const OUT = join(ROOT, 'dist');
@@ -64,6 +64,60 @@ async function readEncoded(parts, label) {
     return bytes.toString('utf8');
   }));
 }
+async function probeBrotliFailure(buffer, chunkSize = 64) {
+  const decoder = createBrotliDecompress();
+  decoder.on('data', () => {});
+  let ok = 0;
+  for (let i = 0; i < buffer.length; i += chunkSize) {
+    const chunk = buffer.subarray(i, Math.min(buffer.length, i + chunkSize));
+    const result = await new Promise(resolve => {
+      let done = false;
+      const onError = error => { if (done) return; done = true; resolve({ ok: false, error }); };
+      decoder.once('error', onError);
+      decoder.write(chunk, () => {
+        if (done) return;
+        done = true;
+        decoder.off('error', onError);
+        resolve({ ok: true });
+      });
+    });
+    if (!result.ok) return { okBytes: ok, failBytes: i + chunk.length, error: result.error?.message || 'Decompression failed' };
+    ok = i + chunk.length;
+  }
+  return { okBytes: ok, failBytes: buffer.length, error: 'unexpected end without decoder error' };
+}
+async function recoverAdminBase64(encodedParts) {
+  const joined = encodedParts.join('');
+  try {
+    return { source: brotliDecompressSync(Buffer.from(joined, 'base64')), repair: null };
+  } catch (initialError) {
+    if (encodedParts[6]?.length !== 15999 || joined.length % 4 !== 3) throw initialError;
+    const corrupted = Buffer.from(joined, 'base64');
+    const probe = await probeBrotliFailure(corrupted, 64);
+    const partStart = encodedParts.slice(0, 6).reduce((n, value) => n + value.length, 0);
+    const partEnd = partStart + encodedParts[6].length;
+    const approxStart = Math.floor(Math.max(0, probe.okBytes - 768) * 4 / 3);
+    const approxEnd = Math.ceil((probe.failBytes + 384) * 4 / 3);
+    const start = Math.max(partStart, approxStart);
+    const end = Math.min(partEnd, approxEnd);
+    const ranges = [[start, end]];
+    if (start > partStart || end < partEnd) ranges.push([partStart, partEnd]);
+    let attempts = 0;
+    for (const [rangeStart, rangeEnd] of ranges) {
+      for (let position = rangeStart; position <= rangeEnd; position += 1) {
+        for (const char of B64_ALPHABET) {
+          attempts += 1;
+          const candidate = `${joined.slice(0, position)}${char}${joined.slice(position)}`;
+          try {
+            const source = brotliDecompressSync(Buffer.from(candidate, 'base64'));
+            return { source, repair: { position, char, attempts, probe, searched: [rangeStart, rangeEnd] } };
+          } catch (_) {}
+        }
+      }
+    }
+    throw new Error(`Approved Admin source reconstruction failed after deterministic single-character recovery; probe=${JSON.stringify(probe)} attempts=${attempts}`);
+  }
+}
 
 await rm(OUT, { recursive: true, force: true });
 await mkdir(OUT, { recursive: true });
@@ -83,26 +137,8 @@ try {
 requireSha256('Approved Agent v0.4.3 externalized visual source', agentSource, EXPECTED_AGENT_SHA256);
 
 const adminEncoded = await readEncoded(ADMIN_PARTS, 'Approved Admin G8.2');
-let adminSource = null;
-let adminRecoveredChar = null;
-try {
-  adminSource = brotliDecompressSync(Buffer.from(adminEncoded.join(''), 'base64'));
-} catch (initialError) {
-  if (adminEncoded[6]?.length === 15999) {
-    for (const ch of B64_ALPHABET) {
-      try {
-        const repaired = [...adminEncoded];
-        repaired[6] = `${repaired[6]}${ch}`;
-        adminSource = brotliDecompressSync(Buffer.from(repaired.join(''), 'base64'));
-        adminRecoveredChar = ch;
-        break;
-      } catch (_) {}
-    }
-  }
-  if (!adminSource) {
-    throw new Error(`Approved Admin source reconstruction failed after deterministic boundary repair: ${initialError instanceof Error ? initialError.message : String(initialError)}`);
-  }
-}
+const recoveredAdmin = await recoverAdminBase64(adminEncoded);
+const adminSource = recoveredAdmin.source;
 const adminSha256 = sha256(adminSource);
 
 const clientSource = await readFile(join(ROOT, 'portal-src', 'client.html'));
@@ -117,20 +153,13 @@ for (const forbidden of ['RONA-C00', 'DEAL-2026', 'PAYEV-', 'CLIENT_CONTEXTS', '
 }
 
 const adminText = adminSource.toString('utf8');
-const adminDiagnostics = {
-  sha256: adminSha256,
-  bytes: adminSource.length,
-  recoveredAtPart06Boundary: adminRecoveredChar !== null,
-  recoveredChar: adminRecoveredChar,
-  hasVersionLabel: adminText.includes('Кабинет администратора v3.4.13'),
-  hasAdminBootstrapBridge: adminText.includes('/portal/api/v1/admin/bootstrap'),
-  hasAuthUsername: adminText.includes('AUTH_USERNAME'),
-  hasPbkdf2Verifier: adminText.includes('PBKDF2_VERIFIER_B64'),
-  hasPbkdf2Salt: adminText.includes('PBKDF2_SALT_B64'),
-  hasSessionStorage: adminText.includes('sessionStorage'),
-  hasPasswordInput: /type=["']password["']/i.test(adminText),
-  hasServiceRoleMarker: /SUPABASE_SERVICE_ROLE|service_role/i.test(adminText),
-};
+for (const required of ['Кабинет администратора v3.4.13', 'SERVER_SESSION', '/portal/api/v1/admin/bootstrap', 'application/rona-admin-deferred']) {
+  if (!adminText.includes(required)) throw new Error(`Admin G8.2 server-session marker missing: ${required}`);
+}
+for (const forbidden of ['AUTH_USERNAME', 'PBKDF2_VERIFIER_B64', 'PBKDF2_SALT_B64', 'sessionStorage', 'SUPABASE_SERVICE_ROLE', 'service_role']) {
+  if (adminText.includes(forbidden)) throw new Error(`Admin G8.2 contains forbidden standalone/security marker: ${forbidden}`);
+}
+if (/type=["']password["']/i.test(adminText)) throw new Error('Admin G8.2 contains a standalone password input');
 
 const clientText = clientSource.toString('utf8');
 for (const forbidden of ['RONA-C00', 'DEAL-2026', 'PAYEV-', 'CLIENT_CONTEXTS', 'FARG', 'UNVERSAL', 'SOLYARIS', 'SUPABASE_SERVICE_ROLE', 'service_role']) {
@@ -141,7 +170,7 @@ await mkdir(join(OUT, 'portal'), { recursive: true });
 await writeFile(join(OUT, 'portal', 'admin.html'), adminSource);
 await writeFile(join(OUT, 'portal', 'agent.html'), agentSource);
 await writeFile(join(OUT, 'portal', 'client.html'), clientSource);
-await writeFile(join(OUT, 'g82-admin-integrity.json'), JSON.stringify(adminDiagnostics));
+await writeFile(join(OUT, 'g82-admin-integrity.json'), JSON.stringify({ sha256: adminSha256, bytes: adminSource.length, repair: recoveredAdmin.repair }));
 
 for (const name of FORBIDDEN_TOP_LEVEL) if (await exists(join(OUT, name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files = await walk(OUT);
@@ -151,4 +180,4 @@ if (forbiddenFiles.length) throw new Error(`Forbidden files in deployment output
 for (const required of ['index.html', 'en/index.html', 'investments/index.html', 'en/investments/index.html', '_routes.json', 'portal/admin.html', 'portal/agent.html', 'portal/client.html']) {
   if (!(await exists(join(OUT, ...required.split('/'))))) throw new Error(`dist/${required} missing`);
 }
-console.log(`RONA Pages diagnostic build PASS: ${files.length} public files; Admin reconstructed SHA-256 ${adminSha256}; boundary repair ${adminRecoveredChar ?? 'none'}.`);
+console.log(`RONA Pages build PASS: ${files.length} public files; Admin SHA-256 ${adminSha256}; repair ${JSON.stringify(recoveredAdmin.repair)}; approved Agent v0.4.3 reconstructed; Client fail-closed shell; security gates PASS.`);
