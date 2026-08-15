@@ -10,125 +10,63 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TARGET_ORIGIN: https://979c45c1.rona-trade-public.pages.dev
+      TARGET_ORIGIN: https://55a1eef4.rona-trade-public.pages.dev
       OWNER_EMAIL: office_kg@ronaoil.com
       QA_HELPER: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
       OIDC_AUDIENCE: rona-g82-inline-auth-qa
     steps:
       - uses: actions/checkout@v4
-      - name: Set one-run owner QA credential with GitHub OIDC
+      - name: Set one-run owner QA credential
         shell: bash
         run: |
           set -euo pipefail
-          PASS="$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-' | cut -c1-40)"
-          echo "::add-mask::$PASS"
-          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')"
-          echo "::add-mask::$OIDC"
-          export PASS OIDC
+          PASS="$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-' | cut -c1-40)"; echo "::add-mask::$PASS"
+          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')"; echo "::add-mask::$OIDC"
+          export PASS
           python3 - <<'PY' >/tmp/set.json
           import json,os
           print(json.dumps({'password':os.environ['PASS']}))
           PY
-          test "$(curl -sS -o /tmp/set-response.json -w '%{http_code}' -X POST "${QA_HELPER}/set" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data-binary @/tmp/set.json)" = 200
+          test "$(curl -sS -o /tmp/set-r.json -w '%{http_code}' -X POST "${QA_HELPER}/set" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data-binary @/tmp/set.json)" = 200
           python3 - <<'PY'
           import json
-          d=json.load(open('/tmp/set-response.json')); assert d.get('ok') and d.get('action')=='set',d
+          d=json.load(open('/tmp/set-r.json'));assert d.get('ok') and d.get('action')=='set',d
           PY
           echo "OWNER_PASS=$PASS" >> "$GITHUB_ENV"
-          rm -f /tmp/set.json /tmp/set-response.json
+          rm -f /tmp/set.json /tmp/set-r.json
       - uses: actions/setup-node@v4
         with: {node-version: '20'}
       - name: Install Chromium
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Rendered auth and portal matrix
+      - name: Rendered browser matrix
         env:
           OWNER_PASS: ${{ env.OWNER_PASS }}
         run: |
           node <<'NODE'
           const {chromium}=require('playwright');
-          const O=process.env.TARGET_ORIGIN,E=process.env.OWNER_EMAIL,P=process.env.OWNER_PASS;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const O=process.env.TARGET_ORIGIN,E=process.env.OWNER_EMAIL,P=process.env.OWNER_PASS,sleep=ms=>new Promise(r=>setTimeout(r,ms));
           const path=p=>new URL(p.url()).pathname;
-          async function panel(page){
-            for(let n=0;n<80;n++){
-              for(const f of page.frames()){
-                const root=f.locator('[data-rona-inline-auth="g82-v2"]').first();
-                if(await root.count()&&await root.isVisible().catch(()=>false)){
-                  const email=root.locator('input[type="email"],input[name*="email" i],input[name*="login" i],input[type="text"],input:not([type])').first();
-                  const pass=root.locator('input[type="password"],input[name*="pass" i]').first();
-                  let btn=root.locator('button[type="submit"],input[type="submit"]').first();
-                  if(!(await btn.count()))btn=root.locator('button,[role="button"],input[type="button"]').first();
-                  if(await email.count()&&await pass.count()&&await btn.count())return{f,root,email,pass,btn};
-                }
-              }
-              await sleep(200);
-            }
-            throw new Error('homepage LK panel not found');
-          }
-          async function adminState(page){return page.evaluate(()=>({
-            boot:window.__RONA_ADMIN_BOOT_STATE__||null,
-            locked:document.body?.classList.contains('admin-auth-locked')||false,
-            appDisplay:document.querySelector('.app')?getComputedStyle(document.querySelector('.app')).display:null,
-            deferred:document.querySelectorAll('script[type="application/rona-admin-deferred"]').length,
-            fail:(document.getElementById('ronaAdminServerFail')?.innerText||'').trim(),
-            visible:[...document.querySelectorAll('body *')].filter(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity||1)>0&&r.width>1&&r.height>1}).length
-          }))}
-          async function waitAdmin(page){
-            let s=null;
-            for(let i=0;i<50;i++){
-              s=await adminState(page);
-              if(s.boot?.failed||(!s.locked&&s.boot?.ready))break;
-              await sleep(400);
-            }
-            console.log(JSON.stringify({adminBoot:s}));
-            if(s?.boot?.failed)throw new Error('Admin boot failed '+JSON.stringify(s));
-            if(!s||s.locked||!s.boot?.ready||s.visible<3)throw new Error('Admin did not render READY '+JSON.stringify(s));
-            return s;
-          }
-          async function route(page,p,label){
-            await page.goto(O+p,{waitUntil:'domcontentloaded',timeout:30000});
-            if(path(page)!==p)throw new Error(label+' route mismatch '+page.url());
-            if(p==='/portal/admin')await waitAdmin(page);else await sleep(1200);
-            const m=await page.evaluate(()=>({html:document.body?.innerHTML.length||0,text:(document.body?.innerText||'').trim().length,visible:[...document.querySelectorAll('body *')].filter(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity||1)>0&&r.width>1&&r.height>1}).length,title:document.title}));
-            if(m.html<500||m.visible<3)throw new Error(label+' blank/unfinished '+JSON.stringify(m));
-            console.log(JSON.stringify({route:p,result:'PASS',...m}));
-          }
-          (async()=>{
-            const b=await chromium.launch({headless:true}); const ctx=await b.newContext({viewport:{width:1600,height:1000}}); const page=await ctx.newPage();
-            page.on('console',m=>{if(m.type()==='error')console.log(JSON.stringify({consoleError:m.text().slice(0,500)}))});
-            page.on('pageerror',e=>console.log(JSON.stringify({pageError:String(e.message||e).slice(0,500)})));
-            await page.goto(O+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
-            const q=await panel(page);
-            if(q.f.url().includes('/portal/login'))throw new Error('homepage delegates to /portal/login');
-            await q.email.fill(E); await q.pass.fill('wrong-password-g82-20260816'); await q.btn.click();
-            const st=q.root.locator('[data-rona-inline-auth-status="g82-v2"]'); await st.waitFor({state:'visible',timeout:15000});
-            const et=(await st.innerText()).trim(); if(!et.includes('Неверный логин или пароль'))throw new Error('wrong password UX '+et);
-            if(!(await q.root.isVisible())||path(page).startsWith('/portal/'))throw new Error('wrong password fail-closed violation');
-            console.log(JSON.stringify({wrongPassword:'PASS',panelVisible:true,error:et,url:page.url()}));
-            await q.email.fill(E); await q.pass.fill(P); await q.btn.click();
-            await page.waitForURL(u=>u.origin===O&&u.pathname==='/portal/select',{timeout:20000});
-            const expected=[['/portal/admin','Кабинет администратора'],['/portal/staff','Внутренний офис'],['/portal/agent','Кабинет агента'],['/portal/client','Кабинет клиента']];
-            for(const [href,label] of expected){const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});if(await a.count()!==1||!await a.isVisible())throw new Error('selector missing '+label)}
-            if(await page.locator('a.choice').count()!==4)throw new Error('selector role count');
-            console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',roles:4}));
-            for(const [href,label] of expected){await route(page,href,label);await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/select')throw new Error('selector return failed')}
-            await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});await waitAdmin(page);await page.reload({waitUntil:'domcontentloaded'});await waitAdmin(page);if(path(page)!=='/portal/admin')throw new Error('refresh session failed');
-            await page.goto(O+'/portal/client',{waitUntil:'domcontentloaded'});const ct=(await page.locator('body').innerText()).toLowerCase();if(/deal-2026-|договор №|storage balance|остаток на хранении/.test(ct))throw new Error('client shell leaked business data');
-            await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');if(await logout.count()!==1)throw new Error('logout missing');await logout.click();await page.waitForLoadState('domcontentloaded');
-            const lp=path(page);if(!['/','/portal/login'].includes(lp))throw new Error('logout destination '+page.url());await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/login')throw new Error('post logout protected route not fail closed');
-            console.log(JSON.stringify({ok:true,homepageInlineAuth:'PASS',wrongPassword:'PASS',correctPassword:'PASS',selector:'PASS',routes:'4/4 PASS',refresh:'PASS',clientFailClosed:'PASS',logout:'PASS'}));
-            await ctx.close();await b.close();
-          })().catch(e=>{console.error(e);process.exit(1)});
+          async function panel(page){for(let n=0;n<80;n++){for(const f of page.frames()){const root=f.locator('[data-rona-inline-auth="g82-v2"]').first();if(await root.count()&&await root.isVisible().catch(()=>false)){const email=root.locator('input[type="email"],input[name*="email" i],input[name*="login" i],input[type="text"],input:not([type])').first();const pass=root.locator('input[type="password"],input[name*="pass" i]').first();let btn=root.locator('button[type="submit"],input[type="submit"]').first();if(!(await btn.count()))btn=root.locator('button,[role="button"],input[type="button"]').first();if(await email.count()&&await pass.count()&&await btn.count())return{f,root,email,pass,btn}}}await sleep(200)}throw new Error('homepage LK panel not found')}
+          async function waitAdmin(page){let s;for(let i=0;i<50;i++){s=await page.evaluate(()=>({boot:window.__RONA_ADMIN_BOOT_STATE__||null,locked:document.body?.classList.contains('admin-auth-locked')||false,visible:[...document.querySelectorAll('body *')].filter(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity||1)>0&&r.width>1&&r.height>1}).length}));if(s.boot?.failed||(!s.locked&&s.boot?.ready))break;await sleep(400)}if(!s||s.boot?.failed||s.locked||!s.boot?.ready||s.visible<3)throw new Error('Admin render failed '+JSON.stringify(s));return s}
+          async function route(page,p,label){await page.goto(O+p,{waitUntil:'domcontentloaded',timeout:30000});if(path(page)!==p)throw new Error(label+' route mismatch '+page.url());if(p==='/portal/admin')await waitAdmin(page);else await sleep(1200);const m=await page.evaluate(()=>({html:document.body?.innerHTML.length||0,visible:[...document.querySelectorAll('body *')].filter(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity||1)>0&&r.width>1&&r.height>1}).length,title:document.title}));if(m.html<500||m.visible<3)throw new Error(label+' blank/unfinished '+JSON.stringify(m));console.log(JSON.stringify({route:p,result:'PASS',...m}))}
+          (async()=>{const b=await chromium.launch({headless:true}),ctx=await b.newContext({viewport:{width:1600,height:1000}}),page=await ctx.newPage();
+            await page.goto(O+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});const q=await panel(page);if(q.f.url().includes('/portal/login'))throw new Error('homepage delegates to login page');
+            const allText=(await Promise.all(page.frames().map(f=>f.locator('body').innerText().catch(()=>'')))).join('\n').toLowerCase();if(allText.includes('серверная авторизация будет подключена после утверждения дизайна'))throw new Error('obsolete auth placeholder visible');
+            await q.email.fill(E);await q.pass.fill('wrong-password-g82-20260816');await q.btn.click();const st=q.root.locator('[data-rona-inline-auth-status="g82-v2"]');await st.waitFor({state:'visible',timeout:15000});const et=(await st.innerText()).trim();if(!et.includes('Неверный логин или пароль')||!(await q.root.isVisible())||path(page).startsWith('/portal/'))throw new Error('wrong-password UX failed');console.log(JSON.stringify({wrongPassword:'PASS',panelVisible:true,error:et}));
+            await q.email.fill(E);await q.pass.fill(P);await q.btn.click();await page.waitForURL(u=>u.origin===O&&u.pathname==='/portal/select',{timeout:20000});const roles=[['/portal/admin','Кабинет администратора'],['/portal/staff','Внутренний офис'],['/portal/agent','Кабинет агента'],['/portal/client','Кабинет клиента']];for(const [href,label] of roles){const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});if(await a.count()!==1||!await a.isVisible())throw new Error('selector missing '+label)}if(await page.locator('a.choice').count()!==4)throw new Error('selector role count');console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',roles:4}));
+            for(const r of roles){await route(page,...r);await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/select')throw new Error('selector return failed')}
+            await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});await waitAdmin(page);await page.reload({waitUntil:'domcontentloaded'});await waitAdmin(page);if(path(page)!=='/portal/admin')throw new Error('refresh failed');
+            await page.goto(O+'/portal/client',{waitUntil:'domcontentloaded'});const ct=(await page.locator('body').innerText()).toLowerCase();if(/deal-2026-|договор №|storage balance|остаток на хранении/.test(ct))throw new Error('client business data leaked');
+            await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');if(await logout.count()!==1)throw new Error('logout missing');await Promise.all([page.waitForURL(u=>['/portal/login','/'].includes(u.pathname),{timeout:15000}),logout.click()]);const lp=path(page);await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/login')throw new Error('post-logout protected route not fail closed');console.log(JSON.stringify({ok:true,homepageInlineAuth:'PASS',wrongPassword:'PASS',correctPassword:'PASS',selector:'PASS',routes:'4/4 PASS',refresh:'PASS',clientFailClosed:'PASS',logout:'PASS',logoutDestination:lp}));await ctx.close();await b.close()})().catch(e=>{console.error(e);process.exit(1)});
           NODE
       - name: Rotate away one-run owner QA credential
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')"
-          echo "::add-mask::$OIDC"
+          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')"; echo "::add-mask::$OIDC"
           test "$(curl -sS -o /tmp/rotate.json -w '%{http_code}' -X POST "${QA_HELPER}/rotate" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data '{}')" = 200
           python3 - <<'PY'
           import json
