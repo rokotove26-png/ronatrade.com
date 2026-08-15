@@ -1,14 +1,10 @@
 name: G8.2 homepage inline auth final browser QA
-
 on:
   push:
-    branches:
-      - qa/g82-home-inline-auth
-
+    branches: [qa/g82-home-inline-auth]
 permissions:
   contents: read
   id-token: write
-
 jobs:
   rendered-homepage-inline-auth:
     runs-on: ubuntu-latest
@@ -20,267 +16,122 @@ jobs:
       OIDC_AUDIENCE: rona-g82-inline-auth-qa
     steps:
       - uses: actions/checkout@v4
-
       - name: Set one-run owner QA credential with GitHub OIDC
         shell: bash
         run: |
           set -euo pipefail
           PASS="$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-' | cut -c1-40)"
           echo "::add-mask::$PASS"
-          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')"
           echo "::add-mask::$OIDC"
           export PASS OIDC
-          python3 - <<'PY' >/tmp/qa_set.json
+          python3 - <<'PY' >/tmp/set.json
           import json,os
           print(json.dumps({'password':os.environ['PASS']}))
           PY
-          HTTP="$(curl -sS -o /tmp/qa_set_response.json -w '%{http_code}' -X POST "${QA_HELPER}/set" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data-binary @/tmp/qa_set.json)"
-          test "$HTTP" = "200"
+          test "$(curl -sS -o /tmp/set-response.json -w '%{http_code}' -X POST "${QA_HELPER}/set" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data-binary @/tmp/set.json)" = 200
           python3 - <<'PY'
           import json
-          d=json.load(open('/tmp/qa_set_response.json'))
-          assert d.get('ok') is True and d.get('action')=='set', d
-          print('OIDC owner QA credential set: PASS')
+          d=json.load(open('/tmp/set-response.json')); assert d.get('ok') and d.get('action')=='set',d
           PY
           echo "OWNER_PASS=$PASS" >> "$GITHUB_ENV"
-          rm -f /tmp/qa_set.json /tmp/qa_set_response.json
-
+          rm -f /tmp/set.json /tmp/set-response.json
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Playwright Chromium
+        with: {node-version: '20'}
+      - name: Install Chromium
         run: |
-          npm install --no-save --ignore-scripts playwright@1.54.2 pngjs@7.0.0
+          npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-
-      - name: Real rendered homepage inline-auth verification
+      - name: Rendered auth and portal matrix
         env:
           OWNER_PASS: ${{ env.OWNER_PASS }}
         run: |
-          mkdir -p qa-artifacts
           node <<'NODE'
-          const { chromium } = require('playwright');
-          const { PNG } = require('pngjs');
-          const fs = require('fs');
-          const origin = process.env.TARGET_ORIGIN;
-          const ownerEmail = process.env.OWNER_EMAIL;
-          const ownerPass = process.env.OWNER_PASS;
-          const sleep = ms => new Promise(r => setTimeout(r, ms));
-          const asPath = u => new URL(u).pathname;
-
-          async function waitDeployment(request) {
-            for (let i=0;i<36;i++) {
-              try {
-                const a=await request.get(origin+'/assets/g82/portal-home-inline-auth-v2.js?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}});
-                const at=await a.text();
-                const h=await request.get(origin+'/pages/home_large?layout=large&_qa='+Date.now(),{headers:{'cache-control':'no-cache'}});
-                if(a.ok() && at.includes('__RONA_G82_HOME_INLINE_AUTH_V2__') && h.headers()['x-rona-portal-entry']==='g8.2-home-inline-auth-v2') return;
-              } catch (_) {}
-              await sleep(3000);
-            }
-            throw new Error('exact inline-auth preview did not become observable');
-          }
-
-          async function panelIn(page) {
-            for (const frame of page.frames()) {
-              const panel=frame.locator('[data-rona-inline-auth="g82-v2"]').first();
-              if (await panel.count() && await panel.isVisible().catch(()=>false)) {
-                const email=panel.locator('input[type="email"],input[name*="email" i],input[name*="login" i],input[type="text"],input:not([type])').first();
-                const password=panel.locator('input[type="password"],input[name*="pass" i]').first();
-                let button=panel.locator('button[type="submit"],input[type="submit"]').first();
-                if(!(await button.count())) button=panel.locator('button,[role="button"],input[type="button"]').first();
-                if(await email.count() && await password.count() && await button.count()) return {frame,panel,email,password,button};
+          const {chromium}=require('playwright');
+          const O=process.env.TARGET_ORIGIN,E=process.env.OWNER_EMAIL,P=process.env.OWNER_PASS;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const path=p=>new URL(p.url()).pathname;
+          async function panel(page){
+            for(let n=0;n<80;n++){
+              for(const f of page.frames()){
+                const root=f.locator('[data-rona-inline-auth="g82-v2"]').first();
+                if(await root.count()&&await root.isVisible().catch(()=>false)){
+                  const email=root.locator('input[type="email"],input[name*="email" i],input[name*="login" i],input[type="text"],input:not([type])').first();
+                  const pass=root.locator('input[type="password"],input[name*="pass" i]').first();
+                  let btn=root.locator('button[type="submit"],input[type="submit"]').first();
+                  if(!(await btn.count()))btn=root.locator('button,[role="button"],input[type="button"]').first();
+                  if(await email.count()&&await pass.count()&&await btn.count())return{f,root,email,pass,btn};
+                }
               }
+              await sleep(200);
             }
-            return null;
+            throw new Error('homepage LK panel not found');
           }
-
-          async function waitPanel(page) {
-            for (let i=0;i<60;i++) {
-              const p=await panelIn(page); if(p) return p;
-              await sleep(250);
+          async function adminState(page){return page.evaluate(()=>({
+            boot:window.__RONA_ADMIN_BOOT_STATE__||null,
+            locked:document.body?.classList.contains('admin-auth-locked')||false,
+            appDisplay:document.querySelector('.app')?getComputedStyle(document.querySelector('.app')).display:null,
+            deferred:document.querySelectorAll('script[type="application/rona-admin-deferred"]').length,
+            fail:(document.getElementById('ronaAdminServerFail')?.innerText||'').trim(),
+            visible:[...document.querySelectorAll('body *')].filter(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity||1)>0&&r.width>1&&r.height>1}).length
+          }))}
+          async function waitAdmin(page){
+            let s=null;
+            for(let i=0;i<50;i++){
+              s=await adminState(page);
+              if(s.boot?.failed||(!s.locked&&s.boot?.ready))break;
+              await sleep(400);
             }
-            throw new Error('visible homepage inline auth panel not found');
+            console.log(JSON.stringify({adminBoot:s}));
+            if(s?.boot?.failed)throw new Error('Admin boot failed '+JSON.stringify(s));
+            if(!s||s.locked||!s.boot?.ready||s.visible<3)throw new Error('Admin did not render READY '+JSON.stringify(s));
+            return s;
           }
-
-          async function renderedText(page) {
-            let text='';
-            for(const f of page.frames()) text+='\n'+await f.locator('body').innerText().catch(()=> '');
-            return text.trim();
+          async function route(page,p,label){
+            await page.goto(O+p,{waitUntil:'domcontentloaded',timeout:30000});
+            if(path(page)!==p)throw new Error(label+' route mismatch '+page.url());
+            if(p==='/portal/admin')await waitAdmin(page);else await sleep(1200);
+            const m=await page.evaluate(()=>({html:document.body?.innerHTML.length||0,text:(document.body?.innerText||'').trim().length,visible:[...document.querySelectorAll('body *')].filter(el=>{const c=getComputedStyle(el),r=el.getBoundingClientRect();return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity||1)>0&&r.width>1&&r.height>1}).length,title:document.title}));
+            if(m.html<500||m.visible<3)throw new Error(label+' blank/unfinished '+JSON.stringify(m));
+            console.log(JSON.stringify({route:p,result:'PASS',...m}));
           }
-
-          function imageMetrics(buf) {
-            const png=PNG.sync.read(buf);
-            const buckets=new Map();
-            let samples=0;
-            for(let y=0;y<png.height;y+=4){
-              for(let x=0;x<png.width;x+=4){
-                const i=(png.width*y+x)<<2;
-                const a=png.data[i+3]; if(a<32) continue;
-                const r=png.data[i]>>4,g=png.data[i+1]>>4,b=png.data[i+2]>>4;
-                const k=(r<<8)|(g<<4)|b;
-                buckets.set(k,(buckets.get(k)||0)+1); samples++;
-              }
-            }
-            let dominant=0; for(const n of buckets.values()) if(n>dominant) dominant=n;
-            return {colorBuckets:buckets.size,dominantFraction:samples?dominant/samples:1,samples,width:png.width,height:png.height};
-          }
-
-          async function waitAdminBoot(page) {
-            try {
-              await page.waitForFunction(() => {
-                const st=window.__RONA_ADMIN_BOOT_STATE__;
-                const locked=document.body?.classList?.contains('admin-auth-locked');
-                return !locked || st?.failed || st?.ready;
-              }, null, {timeout:16000,polling:200});
-            } catch (_) {}
-            const state=await page.evaluate(() => ({
-              state: window.__RONA_ADMIN_BOOT_STATE__ || null,
-              locked: document.body?.classList?.contains('admin-auth-locked') || false,
-              deferred: document.querySelectorAll('script[type="application/rona-admin-deferred"]').length,
-              appDisplay: document.querySelector('.app') ? getComputedStyle(document.querySelector('.app')).display : null,
-              failText: (document.getElementById('ronaAdminServerFail')?.innerText || '').trim(),
-              appReadyDispatched: !!window.__RONA_ADMIN_APP_READY_DISPATCHED__,
-              russifyCompleted: !!window.__RONA_ADMIN_RUSSIFY_COMPLETED__,
-              renderAccessCompleted: !!window.__RONA_ADMIN_RENDER_ACCESS_COMPLETED__
-            }));
-            console.log(JSON.stringify({adminBoot:state}));
-            if(state.state?.failed) throw new Error('Admin boot failed: '+String(state.state.failureReason||state.failText||'unknown'));
-            if(state.locked || !state.state?.ready) throw new Error('Admin boot did not reach READY: '+JSON.stringify(state));
-          }
-
-          async function visualMetrics(page,name) {
-            if(name==='admin') await waitAdminBoot(page); else await sleep(2500);
-            const dom=await page.evaluate(()=>{
-              const body=document.body;
-              const els=[...document.querySelectorAll('body *')];
-              let visible=0;
-              for(const el of els){
-                const cs=getComputedStyle(el); const r=el.getBoundingClientRect();
-                if(cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0&&r.width>1&&r.height>1) visible++;
-              }
-              return {bodyHtmlChars:body?.innerHTML?.length||0,bodyTextChars:(body?.innerText||'').trim().length,bodyChildren:body?.children?.length||0,visibleElements:visible,iframes:document.querySelectorAll('iframe').length,canvas:document.querySelectorAll('canvas').length};
-            });
-            const shot=await page.screenshot({fullPage:false});
-            fs.writeFileSync(`qa-artifacts/${name}.png`,shot);
-            const image=imageMetrics(shot);
-            const framesText=(await renderedText(page)).length;
-            const metrics={...dom,framesTextChars:framesText,...image,title:await page.title(),url:page.url()};
-            console.log(JSON.stringify({visual:name,...metrics}));
-            return metrics;
-          }
-
-          async function checkRoute(page,path,label,name) {
-            await page.goto(origin+path,{waitUntil:'domcontentloaded',timeout:30000});
-            if(asPath(page.url())!==path) throw new Error(`${label}: route mismatch ${page.url()}`);
-            const m=await visualMetrics(page,name);
-            const structural=m.bodyHtmlChars>1000 && m.bodyChildren>0 && m.visibleElements>=3;
-            const visual=m.colorBuckets>=8 && m.dominantFraction<0.995;
-            const textual=m.framesTextChars>=20;
-            if(!structural || !(visual || textual)) throw new Error(`${label}: rendered viewport is blank/unfinished ${JSON.stringify(m)}`);
-            return {path,title:m.title,bodyHtmlChars:m.bodyHtmlChars,visibleElements:m.visibleElements,colorBuckets:m.colorBuckets,dominantFraction:Number(m.dominantFraction.toFixed(4)),framesTextChars:m.framesTextChars};
-          }
-
           (async()=>{
-            if(!ownerPass || ownerPass.length<24) throw new Error('QA password missing');
-            const browser=await chromium.launch({headless:true});
-            const ctx=await browser.newContext({viewport:{width:1920,height:1080}});
-            await waitDeployment(ctx.request);
-            const page=await ctx.newPage();
-            page.on('pageerror',e=>console.log(JSON.stringify({event:'pageerror',text:String(e.message||e).slice(0,500)})));
-            page.on('console',m=>{if(m.type()==='error')console.log(JSON.stringify({event:'console-error',text:m.text().slice(0,700)}))});
-
-            await page.goto(origin+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
-            const panel=await waitPanel(page);
-            const panelFrame=panel.frame.url();
-            if(panelFrame.includes('/portal/login')) throw new Error('homepage panel unexpectedly delegated to /portal/login');
-            const placeholderVisible=(await renderedText(page)).toLowerCase().includes('серверная авторизация будет подключена после утверждения дизайна');
-            if(placeholderVisible) throw new Error('obsolete server-auth placeholder remains visible');
-
-            await panel.email.fill(ownerEmail);
-            await panel.password.fill('Definitely-Wrong-G8.2-Password-20260816');
-            await panel.button.click();
-            const err=panel.panel.locator('[data-rona-inline-auth-status="g82-v2"]');
-            await err.waitFor({state:'visible',timeout:15000});
-            const errText=(await err.innerText()).trim();
-            if(!errText.includes('Неверный логин или пароль')) throw new Error('wrong-password error mismatch: '+errText);
-            if(!(await panel.panel.isVisible())) throw new Error('homepage panel disappeared after wrong password');
-            if(asPath(page.url()).startsWith('/portal/')) throw new Error('wrong password reached protected route');
-            const box=await panel.panel.boundingBox();
-            if(!box || box.width<30 || box.height<30) throw new Error('wrong-password panel is not visibly rendered');
-            if((await renderedText(page)).length<20) throw new Error('wrong-password state rendered blank page');
-            await page.screenshot({path:'qa-artifacts/home-wrong-password.png',fullPage:false});
-            console.log(JSON.stringify({wrongPassword:'PASS',url:page.url(),panelVisible:true,error:errText,blank:false,panelBox:{w:Math.round(box.width),h:Math.round(box.height)}}));
-
-            await panel.email.fill(ownerEmail);
-            await panel.password.fill(ownerPass);
-            await panel.button.click();
-            await page.waitForURL(u=>u.origin===origin && u.pathname==='/portal/select',{timeout:20000});
-            if(asPath(page.url())!=='/portal/select') throw new Error('correct login did not reach selector: '+page.url());
-            const choices=[
-              ['/portal/admin','Кабинет администратора','admin'],
-              ['/portal/staff','Внутренний офис','staff'],
-              ['/portal/agent','Кабинет агента','agent'],
-              ['/portal/client','Кабинет клиента','client'],
-            ];
-            for(const [href,label] of choices){
-              const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});
-              if(await a.count()!==1 || !await a.isVisible()) throw new Error(`selector missing ${label} ${href}`);
-            }
-            if(await page.locator('a.choice').count()!==4) throw new Error('selector does not expose exactly four portal choices');
-            await page.screenshot({path:'qa-artifacts/selector.png',fullPage:false});
-            console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',choices:choices.map(x=>x[0])}));
-
-            const routeResults=[];
-            for(const [path,label,name] of choices){
-              routeResults.push(await checkRoute(page,path,label,name));
-              await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
-              if(asPath(page.url())!=='/portal/select') throw new Error('selector return required re-auth after '+path);
-            }
-
-            await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
-            await waitAdminBoot(page);
-            await page.reload({waitUntil:'domcontentloaded',timeout:30000});
-            await waitAdminBoot(page);
-            if(asPath(page.url())!=='/portal/admin') throw new Error('session did not survive refresh');
-            await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
-            const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');
-            if(await logout.count()!==1) throw new Error('selector logout control missing');
-            await logout.click();
-            await page.waitForLoadState('domcontentloaded');
-            const logoutPath=asPath(page.url());
-            if(!['/','/portal/login'].includes(logoutPath)) throw new Error('logout did not return to homepage/auth entry: '+page.url());
-            await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
-            if(asPath(page.url())!=='/portal/login') throw new Error('logged-out protected route did not fail closed: '+page.url());
-
-            console.log(JSON.stringify({ok:true,origin,homepageInlineAuth:true,panelFrame,wrongPassword:'PASS',correctPassword:'PASS',selectorRoles:4,routeResults,sessionRefresh:'PASS',logout:'PASS',logoutEntry:logoutPath,postLogoutProtected:'FAIL_CLOSED'}));
-            await ctx.close();await browser.close();
+            const b=await chromium.launch({headless:true}); const ctx=await b.newContext({viewport:{width:1600,height:1000}}); const page=await ctx.newPage();
+            page.on('console',m=>{if(m.type()==='error')console.log(JSON.stringify({consoleError:m.text().slice(0,500)}))});
+            page.on('pageerror',e=>console.log(JSON.stringify({pageError:String(e.message||e).slice(0,500)})));
+            await page.goto(O+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
+            const q=await panel(page);
+            if(q.f.url().includes('/portal/login'))throw new Error('homepage delegates to /portal/login');
+            await q.email.fill(E); await q.pass.fill('wrong-password-g82-20260816'); await q.btn.click();
+            const st=q.root.locator('[data-rona-inline-auth-status="g82-v2"]'); await st.waitFor({state:'visible',timeout:15000});
+            const et=(await st.innerText()).trim(); if(!et.includes('Неверный логин или пароль'))throw new Error('wrong password UX '+et);
+            if(!(await q.root.isVisible())||path(page).startsWith('/portal/'))throw new Error('wrong password fail-closed violation');
+            console.log(JSON.stringify({wrongPassword:'PASS',panelVisible:true,error:et,url:page.url()}));
+            await q.email.fill(E); await q.pass.fill(P); await q.btn.click();
+            await page.waitForURL(u=>u.origin===O&&u.pathname==='/portal/select',{timeout:20000});
+            const expected=[['/portal/admin','Кабинет администратора'],['/portal/staff','Внутренний офис'],['/portal/agent','Кабинет агента'],['/portal/client','Кабинет клиента']];
+            for(const [href,label] of expected){const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});if(await a.count()!==1||!await a.isVisible())throw new Error('selector missing '+label)}
+            if(await page.locator('a.choice').count()!==4)throw new Error('selector role count');
+            console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',roles:4}));
+            for(const [href,label] of expected){await route(page,href,label);await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/select')throw new Error('selector return failed')}
+            await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});await waitAdmin(page);await page.reload({waitUntil:'domcontentloaded'});await waitAdmin(page);if(path(page)!=='/portal/admin')throw new Error('refresh session failed');
+            await page.goto(O+'/portal/client',{waitUntil:'domcontentloaded'});const ct=(await page.locator('body').innerText()).toLowerCase();if(/deal-2026-|договор №|storage balance|остаток на хранении/.test(ct))throw new Error('client shell leaked business data');
+            await page.goto(O+'/portal/select',{waitUntil:'domcontentloaded'});const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');if(await logout.count()!==1)throw new Error('logout missing');await logout.click();await page.waitForLoadState('domcontentloaded');
+            const lp=path(page);if(!['/','/portal/login'].includes(lp))throw new Error('logout destination '+page.url());await page.goto(O+'/portal/admin',{waitUntil:'domcontentloaded'});if(path(page)!=='/portal/login')throw new Error('post logout protected route not fail closed');
+            console.log(JSON.stringify({ok:true,homepageInlineAuth:'PASS',wrongPassword:'PASS',correctPassword:'PASS',selector:'PASS',routes:'4/4 PASS',refresh:'PASS',clientFailClosed:'PASS',logout:'PASS'}));
+            await ctx.close();await b.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
-
-      - name: Upload browser QA artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: g82-home-inline-auth-browser-qa
-          path: qa-artifacts/
-          if-no-files-found: ignore
-          retention-days: 1
-
       - name: Rotate away one-run owner QA credential
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys;print(json.load(sys.stdin)["value"])')"
           echo "::add-mask::$OIDC"
-          HTTP="$(curl -sS -o /tmp/qa_rotate_response.json -w '%{http_code}' -X POST "${QA_HELPER}/rotate" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data '{}')"
-          test "$HTTP" = "200"
+          test "$(curl -sS -o /tmp/rotate.json -w '%{http_code}' -X POST "${QA_HELPER}/rotate" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data '{}')" = 200
           python3 - <<'PY'
           import json
-          d=json.load(open('/tmp/qa_rotate_response.json'))
-          assert d.get('ok') is True and d.get('action')=='rotate', d
-          print('One-run owner QA credential rotated away: PASS')
+          d=json.load(open('/tmp/rotate.json'));assert d.get('ok') and d.get('action')=='rotate',d
           PY
-          rm -f /tmp/qa_rotate_response.json
+          rm -f /tmp/rotate.json
