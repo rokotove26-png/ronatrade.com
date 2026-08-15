@@ -33,10 +33,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-redirs 0 https://www.ronaoil.com/)"
-          LOC="$(curl -sSI --max-redirs 0 https://www.ronaoil.com/ | awk 'BEGIN{IGNORECASE=1}/^location:/{sub(/\r$/,"",$2);print $2;exit}')"
+          CODE="$(curl -sS -D /tmp/www-headers.txt -o /dev/null -w '%{http_code}' --max-redirs 0 https://www.ronaoil.com/)"
+          LOC="$(awk 'BEGIN{IGNORECASE=1}/^location:/{sub(/\r$/,"",$2);print $2;exit}' /tmp/www-headers.txt)"
           case "$CODE" in 301|302|303|307|308) ;; *) echo "bad www redirect status $CODE" >&2; exit 1;; esac
           case "$LOC" in https://ronaoil.com* ) ;; *) echo "bad www redirect location $LOC" >&2; exit 1;; esac
+          rm -f /tmp/www-headers.txt
           echo "www canonical redirect PASS: $CODE"
       - name: Set one-run owner QA credential
         shell: bash
