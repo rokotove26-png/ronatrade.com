@@ -51,15 +51,18 @@ jobs:
 
       - name: Install Playwright Chromium
         run: |
-          npm install --no-save --ignore-scripts playwright@1.54.2
+          npm install --no-save --ignore-scripts playwright@1.54.2 pngjs@7.0.0
           npx playwright install --with-deps chromium
 
       - name: Real rendered homepage inline-auth verification
         env:
           OWNER_PASS: ${{ env.OWNER_PASS }}
         run: |
+          mkdir -p qa-artifacts
           node <<'NODE'
           const { chromium } = require('playwright');
+          const { PNG } = require('pngjs');
+          const fs = require('fs');
           const origin = process.env.TARGET_ORIGIN;
           const ownerEmail = process.env.OWNER_EMAIL;
           const ownerPass = process.env.OWNER_PASS;
@@ -107,12 +110,53 @@ jobs:
             return text.trim();
           }
 
-          async function checkRoute(page,path,label) {
+          function imageMetrics(buf) {
+            const png=PNG.sync.read(buf);
+            const buckets=new Map();
+            let samples=0;
+            for(let y=0;y<png.height;y+=4){
+              for(let x=0;x<png.width;x+=4){
+                const i=(png.width*y+x)<<2;
+                const a=png.data[i+3]; if(a<32) continue;
+                const r=png.data[i]>>4,g=png.data[i+1]>>4,b=png.data[i+2]>>4;
+                const k=(r<<8)|(g<<4)|b;
+                buckets.set(k,(buckets.get(k)||0)+1); samples++;
+              }
+            }
+            let dominant=0; for(const n of buckets.values()) if(n>dominant) dominant=n;
+            return {colorBuckets:buckets.size,dominantFraction:samples?dominant/samples:1,samples,width:png.width,height:png.height};
+          }
+
+          async function visualMetrics(page,name) {
+            await sleep(2500);
+            const dom=await page.evaluate(()=>{
+              const body=document.body;
+              const els=[...document.querySelectorAll('body *')];
+              let visible=0;
+              for(const el of els){
+                const cs=getComputedStyle(el); const r=el.getBoundingClientRect();
+                if(cs.display!=='none'&&cs.visibility!=='hidden'&&Number(cs.opacity||1)>0&&r.width>1&&r.height>1) visible++;
+              }
+              return {bodyHtmlChars:body?.innerHTML?.length||0,bodyTextChars:(body?.innerText||'').trim().length,bodyChildren:body?.children?.length||0,visibleElements:visible,iframes:document.querySelectorAll('iframe').length,canvas:document.querySelectorAll('canvas').length};
+            });
+            const shot=await page.screenshot({fullPage:false});
+            fs.writeFileSync(`qa-artifacts/${name}.png`,shot);
+            const image=imageMetrics(shot);
+            const framesText=(await renderedText(page)).length;
+            const metrics={...dom,framesTextChars:framesText,...image,title:await page.title(),url:page.url()};
+            console.log(JSON.stringify({visual:name,...metrics}));
+            return metrics;
+          }
+
+          async function checkRoute(page,path,label,name) {
             await page.goto(origin+path,{waitUntil:'domcontentloaded',timeout:30000});
             if(asPath(page.url())!==path) throw new Error(`${label}: route mismatch ${page.url()}`);
-            const body=(await page.locator('body').innerText().catch(()=>'' )).trim();
-            if(body.length<20) throw new Error(`${label}: rendered body is blank/unfinished`);
-            return {path,bodyChars:body.length,title:await page.title()};
+            const m=await visualMetrics(page,name);
+            const structural=m.bodyHtmlChars>1000 && m.bodyChildren>0 && m.visibleElements>=3;
+            const visual=m.colorBuckets>=8 && m.dominantFraction<0.995;
+            const textual=m.framesTextChars>=20;
+            if(!structural || !(visual || textual)) throw new Error(`${label}: rendered viewport is blank/unfinished ${JSON.stringify(m)}`);
+            return {path,title:m.title,bodyHtmlChars:m.bodyHtmlChars,visibleElements:m.visibleElements,colorBuckets:m.colorBuckets,dominantFraction:Number(m.dominantFraction.toFixed(4)),framesTextChars:m.framesTextChars};
           }
 
           (async()=>{
@@ -142,6 +186,7 @@ jobs:
             const box=await panel.panel.boundingBox();
             if(!box || box.width<30 || box.height<30) throw new Error('wrong-password panel is not visibly rendered');
             if((await renderedText(page)).length<20) throw new Error('wrong-password state rendered blank page');
+            await page.screenshot({path:'qa-artifacts/home-wrong-password.png',fullPage:false});
             console.log(JSON.stringify({wrongPassword:'PASS',url:page.url(),panelVisible:true,error:errText,blank:false,panelBox:{w:Math.round(box.width),h:Math.round(box.height)}}));
 
             await panel.email.fill(ownerEmail);
@@ -150,27 +195,30 @@ jobs:
             await page.waitForURL(u=>u.origin===origin && u.pathname==='/portal/select',{timeout:20000});
             if(asPath(page.url())!=='/portal/select') throw new Error('correct login did not reach selector: '+page.url());
             const choices=[
-              ['/portal/admin','Кабинет администратора'],
-              ['/portal/staff','Внутренний офис'],
-              ['/portal/agent','Кабинет агента'],
-              ['/portal/client','Кабинет клиента'],
+              ['/portal/admin','Кабинет администратора','admin'],
+              ['/portal/staff','Внутренний офис','staff'],
+              ['/portal/agent','Кабинет агента','agent'],
+              ['/portal/client','Кабинет клиента','client'],
             ];
             for(const [href,label] of choices){
               const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});
               if(await a.count()!==1 || !await a.isVisible()) throw new Error(`selector missing ${label} ${href}`);
             }
             if(await page.locator('a.choice').count()!==4) throw new Error('selector does not expose exactly four portal choices');
+            await page.screenshot({path:'qa-artifacts/selector.png',fullPage:false});
             console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',choices:choices.map(x=>x[0])}));
 
             const routeResults=[];
-            for(const [path,label] of choices){
-              routeResults.push(await checkRoute(page,path,label));
+            for(const [path,label,name] of choices){
+              routeResults.push(await checkRoute(page,path,label,name));
               await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
               if(asPath(page.url())!=='/portal/select') throw new Error('selector return required re-auth after '+path);
             }
 
             await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
+            await sleep(2000);
             await page.reload({waitUntil:'domcontentloaded',timeout:30000});
+            await sleep(2000);
             if(asPath(page.url())!=='/portal/admin') throw new Error('session did not survive refresh');
             await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
             const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');
@@ -186,6 +234,15 @@ jobs:
             await ctx.close();await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
+
+      - name: Upload browser QA artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: g82-home-inline-auth-browser-qa
+          path: qa-artifacts/
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Rotate away one-run owner QA credential
         if: always()
