@@ -47,7 +47,11 @@ jobs:
             const action=await p.locator('form').getAttribute('action');
             if(action!=='/portal/auth/recovery-otp') throw new Error('wrong recovery form action: '+action);
             await p.locator('input[name="otp"]').fill('111111');
+            const responsePromise=p.waitForResponse(r=>r.url().includes('/portal/auth/recovery-otp'),{timeout:15000});
             await p.locator('button[type="submit"]').click();
+            const postResp=await responsePromise;
+            const postText=await postResp.text().catch(()=> '');
+            console.log(JSON.stringify({event:'invalid-otp-post',status:postResp.status(),url:postResp.url(),headers:postResp.headers(),body:postText.slice(0,1000)}));
             await p.waitForLoadState('domcontentloaded');
             const u=new URL(p.url());
             if(u.pathname!=='/portal/recovery'||u.searchParams.get('error')!=='invalid') throw new Error('invalid OTP did not fail closed: '+p.url());
