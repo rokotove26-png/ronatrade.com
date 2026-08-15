@@ -101,6 +101,12 @@ jobs:
             throw new Error('visible homepage inline auth panel not found');
           }
 
+          async function renderedText(page) {
+            let text='';
+            for(const f of page.frames()) text+='\n'+await f.locator('body').innerText().catch(()=> '');
+            return text.trim();
+          }
+
           async function checkRoute(page,path,label) {
             await page.goto(origin+path,{waitUntil:'domcontentloaded',timeout:30000});
             if(asPath(page.url())!==path) throw new Error(`${label}: route mismatch ${page.url()}`);
@@ -121,9 +127,7 @@ jobs:
             const panel=await waitPanel(page);
             const panelFrame=panel.frame.url();
             if(panelFrame.includes('/portal/login')) throw new Error('homepage panel unexpectedly delegated to /portal/login');
-            const placeholderVisible=await page.frames().reduce(async(accP,f)=>{
-              const acc=await accP;if(acc)return true;const t=await f.locator('body').innerText().catch(()=> '');return t.toLowerCase().includes('серверная авторизация будет подключена после утверждения дизайна');
-            },Promise.resolve(false));
+            const placeholderVisible=(await renderedText(page)).toLowerCase().includes('серверная авторизация будет подключена после утверждения дизайна');
             if(placeholderVisible) throw new Error('obsolete server-auth placeholder remains visible');
 
             await panel.email.fill(ownerEmail);
@@ -135,9 +139,10 @@ jobs:
             if(!errText.includes('Неверный логин или пароль')) throw new Error('wrong-password error mismatch: '+errText);
             if(!(await panel.panel.isVisible())) throw new Error('homepage panel disappeared after wrong password');
             if(asPath(page.url()).startsWith('/portal/')) throw new Error('wrong password reached protected route');
-            const wrongBody=(await page.locator('body').innerText().catch(()=> '')).trim();
-            if(wrongBody.length<20) throw new Error('wrong-password state rendered blank page');
-            console.log(JSON.stringify({wrongPassword:'PASS',url:page.url(),panelVisible:true,error:errText,blank:false}));
+            const box=await panel.panel.boundingBox();
+            if(!box || box.width<30 || box.height<30) throw new Error('wrong-password panel is not visibly rendered');
+            if((await renderedText(page)).length<20) throw new Error('wrong-password state rendered blank page');
+            console.log(JSON.stringify({wrongPassword:'PASS',url:page.url(),panelVisible:true,error:errText,blank:false,panelBox:{w:Math.round(box.width),h:Math.round(box.height)}}));
 
             await panel.email.fill(ownerEmail);
             await panel.password.fill(ownerPass);
