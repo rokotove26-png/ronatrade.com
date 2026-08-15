@@ -1,0 +1,35 @@
+name: G8.2 Admin static diagnostic
+
+on:
+  push:
+    branches:
+      - qa/g82-home-inline-auth
+
+permissions:
+  contents: read
+
+jobs:
+  export-admin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Reconstruct approved Admin
+        run: npm run build
+      - name: Static diagnostics
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const s=fs.readFileSync('dist/portal/admin.html','utf8');
+          const needles=['application/rona-admin-deferred','SERVER_SESSION','DOMContentLoaded','defer','display:none','visibility:hidden','opacity:0','boot','bootstrap'];
+          console.log(JSON.stringify({bytes:Buffer.byteLength(s),chars:s.length,title:(s.match(/<title>([^<]*)<\/title>/i)||[])[1]||null,scriptTags:(s.match(/<script\b/gi)||[]).length,styleTags:(s.match(/<style\b/gi)||[]).length,bodyTags:(s.match(/<body\b/gi)||[]).length}));
+          for(const n of needles){console.log('NEEDLE',n,'count',s.toLowerCase().split(n.toLowerCase()).length-1)}
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g82-admin-reconstructed
+          path: dist/portal/admin.html
+          retention-days: 1
