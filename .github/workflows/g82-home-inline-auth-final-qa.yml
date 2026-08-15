@@ -1,0 +1,200 @@
+name: G8.2 homepage inline auth final browser QA
+
+on:
+  push:
+    branches:
+      - qa/g82-home-inline-auth
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  rendered-homepage-inline-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_ORIGIN: https://979c45c1.rona-trade-public.pages.dev
+      OWNER_EMAIL: office_kg@ronaoil.com
+      QA_HELPER: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
+      OIDC_AUDIENCE: rona-g82-inline-auth-qa
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set one-run owner QA credential with GitHub OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          PASS="$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-' | cut -c1-40)"
+          echo "::add-mask::$PASS"
+          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC"
+          export PASS OIDC
+          python3 - <<'PY' >/tmp/qa_set.json
+          import json,os
+          print(json.dumps({'password':os.environ['PASS']}))
+          PY
+          HTTP="$(curl -sS -o /tmp/qa_set_response.json -w '%{http_code}' -X POST "${QA_HELPER}/set" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data-binary @/tmp/qa_set.json)"
+          test "$HTTP" = "200"
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/qa_set_response.json'))
+          assert d.get('ok') is True and d.get('action')=='set', d
+          print('OIDC owner QA credential set: PASS')
+          PY
+          echo "OWNER_PASS=$PASS" >> "$GITHUB_ENV"
+          rm -f /tmp/qa_set.json /tmp/qa_set_response.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Real rendered homepage inline-auth verification
+        env:
+          OWNER_PASS: ${{ env.OWNER_PASS }}
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const origin = process.env.TARGET_ORIGIN;
+          const ownerEmail = process.env.OWNER_EMAIL;
+          const ownerPass = process.env.OWNER_PASS;
+          const sleep = ms => new Promise(r => setTimeout(r, ms));
+          const asPath = u => new URL(u).pathname;
+
+          async function waitDeployment(request) {
+            for (let i=0;i<36;i++) {
+              try {
+                const a=await request.get(origin+'/assets/g82/portal-home-inline-auth-v2.js?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}});
+                const at=await a.text();
+                const h=await request.get(origin+'/pages/home_large?layout=large&_qa='+Date.now(),{headers:{'cache-control':'no-cache'}});
+                if(a.ok() && at.includes('__RONA_G82_HOME_INLINE_AUTH_V2__') && h.headers()['x-rona-portal-entry']==='g8.2-home-inline-auth-v2') return;
+              } catch (_) {}
+              await sleep(3000);
+            }
+            throw new Error('exact inline-auth preview did not become observable');
+          }
+
+          async function panelIn(page) {
+            for (const frame of page.frames()) {
+              const panel=frame.locator('[data-rona-inline-auth="g82-v2"]').first();
+              if (await panel.count() && await panel.isVisible().catch(()=>false)) {
+                const email=panel.locator('input[type="email"],input[name*="email" i],input[name*="login" i],input[type="text"],input:not([type])').first();
+                const password=panel.locator('input[type="password"],input[name*="pass" i]').first();
+                let button=panel.locator('button[type="submit"],input[type="submit"]').first();
+                if(!(await button.count())) button=panel.locator('button,[role="button"],input[type="button"]').first();
+                if(await email.count() && await password.count() && await button.count()) return {frame,panel,email,password,button};
+              }
+            }
+            return null;
+          }
+
+          async function waitPanel(page) {
+            for (let i=0;i<60;i++) {
+              const p=await panelIn(page); if(p) return p;
+              await sleep(250);
+            }
+            throw new Error('visible homepage inline auth panel not found');
+          }
+
+          async function checkRoute(page,path,label) {
+            await page.goto(origin+path,{waitUntil:'domcontentloaded',timeout:30000});
+            if(asPath(page.url())!==path) throw new Error(`${label}: route mismatch ${page.url()}`);
+            const body=(await page.locator('body').innerText().catch(()=>'' )).trim();
+            if(body.length<20) throw new Error(`${label}: rendered body is blank/unfinished`);
+            return {path,bodyChars:body.length,title:await page.title()};
+          }
+
+          (async()=>{
+            if(!ownerPass || ownerPass.length<24) throw new Error('QA password missing');
+            const browser=await chromium.launch({headless:true});
+            const ctx=await browser.newContext({viewport:{width:1920,height:1080}});
+            await waitDeployment(ctx.request);
+            const page=await ctx.newPage();
+            page.on('pageerror',e=>console.log(JSON.stringify({event:'pageerror',text:String(e.message||e).slice(0,500)})));
+
+            await page.goto(origin+'/?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
+            const panel=await waitPanel(page);
+            const panelFrame=panel.frame.url();
+            if(panelFrame.includes('/portal/login')) throw new Error('homepage panel unexpectedly delegated to /portal/login');
+            const placeholderVisible=await page.frames().reduce(async(accP,f)=>{
+              const acc=await accP;if(acc)return true;const t=await f.locator('body').innerText().catch(()=> '');return t.toLowerCase().includes('серверная авторизация будет подключена после утверждения дизайна');
+            },Promise.resolve(false));
+            if(placeholderVisible) throw new Error('obsolete server-auth placeholder remains visible');
+
+            await panel.email.fill(ownerEmail);
+            await panel.password.fill('Definitely-Wrong-G8.2-Password-20260816');
+            await panel.button.click();
+            const err=panel.panel.locator('[data-rona-inline-auth-status="g82-v2"]');
+            await err.waitFor({state:'visible',timeout:15000});
+            const errText=(await err.innerText()).trim();
+            if(!errText.includes('Неверный логин или пароль')) throw new Error('wrong-password error mismatch: '+errText);
+            if(!(await panel.panel.isVisible())) throw new Error('homepage panel disappeared after wrong password');
+            if(asPath(page.url()).startsWith('/portal/')) throw new Error('wrong password reached protected route');
+            const wrongBody=(await page.locator('body').innerText().catch(()=> '')).trim();
+            if(wrongBody.length<20) throw new Error('wrong-password state rendered blank page');
+            console.log(JSON.stringify({wrongPassword:'PASS',url:page.url(),panelVisible:true,error:errText,blank:false}));
+
+            await panel.email.fill(ownerEmail);
+            await panel.password.fill(ownerPass);
+            await panel.button.click();
+            await page.waitForURL(u=>u.origin===origin && u.pathname==='/portal/select',{timeout:20000});
+            if(asPath(page.url())!=='/portal/select') throw new Error('correct login did not reach selector: '+page.url());
+            const choices=[
+              ['/portal/admin','Кабинет администратора'],
+              ['/portal/staff','Внутренний офис'],
+              ['/portal/agent','Кабинет агента'],
+              ['/portal/client','Кабинет клиента'],
+            ];
+            for(const [href,label] of choices){
+              const a=page.locator(`a.choice[href="${href}"]`,{hasText:label});
+              if(await a.count()!==1 || !await a.isVisible()) throw new Error(`selector missing ${label} ${href}`);
+            }
+            if(await page.locator('a.choice').count()!==4) throw new Error('selector does not expose exactly four portal choices');
+            console.log(JSON.stringify({correctPassword:'PASS',secondLoginPageRequired:false,selector:'PASS',choices:choices.map(x=>x[0])}));
+
+            const routeResults=[];
+            for(const [path,label] of choices){
+              routeResults.push(await checkRoute(page,path,label));
+              await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
+              if(asPath(page.url())!=='/portal/select') throw new Error('selector return required re-auth after '+path);
+            }
+
+            await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
+            await page.reload({waitUntil:'domcontentloaded',timeout:30000});
+            if(asPath(page.url())!=='/portal/admin') throw new Error('session did not survive refresh');
+            await page.goto(origin+'/portal/select',{waitUntil:'domcontentloaded',timeout:30000});
+            const logout=page.locator('form[action="/portal/auth/logout"] button[type="submit"]');
+            if(await logout.count()!==1) throw new Error('selector logout control missing');
+            await logout.click();
+            await page.waitForLoadState('domcontentloaded');
+            const logoutPath=asPath(page.url());
+            if(!['/','/portal/login'].includes(logoutPath)) throw new Error('logout did not return to homepage/auth entry: '+page.url());
+            await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
+            if(asPath(page.url())!=='/portal/login') throw new Error('logged-out protected route did not fail closed: '+page.url());
+
+            console.log(JSON.stringify({ok:true,origin,homepageInlineAuth:true,panelFrame,wrongPassword:'PASS',correctPassword:'PASS',selectorRoles:4,routeResults,sessionRefresh:'PASS',logout:'PASS',logoutEntry:logoutPath,postLogoutProtected:'FAIL_CLOSED'}));
+            await ctx.close();await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Rotate away one-run owner QA credential
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OIDC="$(curl -fsS -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${OIDC_AUDIENCE}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          echo "::add-mask::$OIDC"
+          HTTP="$(curl -sS -o /tmp/qa_rotate_response.json -w '%{http_code}' -X POST "${QA_HELPER}/rotate" -H "Authorization: Bearer ${OIDC}" -H 'content-type: application/json' --data '{}')"
+          test "$HTTP" = "200"
+          python3 - <<'PY'
+          import json
+          d=json.load(open('/tmp/qa_rotate_response.json'))
+          assert d.get('ok') is True and d.get('action')=='rotate', d
+          print('One-run owner QA credential rotated away: PASS')
+          PY
+          rm -f /tmp/qa_rotate_response.json
