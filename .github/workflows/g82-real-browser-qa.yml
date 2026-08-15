@@ -33,13 +33,13 @@ jobs:
           const sleep = ms => new Promise(r => setTimeout(r, ms));
 
           async function waitForPatchedDeployment(request) {
-            for (let attempt = 0; attempt < 36; attempt++) {
+            for (let attempt = 0; attempt < 48; attempt++) {
               try {
-                const asset = await request.get(origin + '/assets/g82/portal-real-auth-entry-v1.js', { headers: { 'cache-control':'no-cache' } });
+                const asset = await request.get(origin + '/assets/g82/portal-real-auth-entry-v1.js?_g82=' + Date.now(), { headers: { 'cache-control':'no-cache' } });
                 const assetText = await asset.text();
                 const home = await request.get(origin + '/pages/home_large?layout=large&_g82=' + Date.now(), { headers: { 'cache-control':'no-cache' } });
                 const header = home.headers()['x-rona-real-auth-entry'] || '';
-                if (asset.ok() && assetText.includes('node.nodeType === 1') && header === 'g8.2-production-login-fix-v1') {
+                if (asset.ok() && assetText.includes('purgeOldPortalShim') && header === 'g8.2-production-login-fix-v1') {
                   console.log(JSON.stringify({deploymentReady:true,attempt:attempt+1,header,assetBytes:assetText.length}));
                   return;
                 }
@@ -76,7 +76,9 @@ jobs:
             const outer = await loc.evaluate(el => el.outerHTML.slice(0,1200)).catch(e => `EVAL_ERROR:${e.message}`);
             const topMarker = await page.evaluate(() => !!window.__RONA_G82_REAL_AUTH_ENTRY_V1__).catch(() => false);
             const frameMarker = await frame.evaluate(() => !!window.__RONA_G82_REAL_AUTH_ENTRY_V1__).catch(() => false);
-            console.log(JSON.stringify({label,beforeUrl:page.url(),controlFrameUrl:frame.url(),selector,topMarker,frameMarker,outer}));
+            const oldShimCount = await page.locator('#ronaPortalFallbackG82,[data-rona-portal-overlay="g82"]').count().catch(()=>-1);
+            console.log(JSON.stringify({label,beforeUrl:page.url(),controlFrameUrl:frame.url(),selector,topMarker,frameMarker,oldShimCount,outer}));
+            if (oldShimCount !== 0) throw new Error(`${label}: legacy portal shim still present`);
             page.on('framenavigated', f => console.log(JSON.stringify({label,event:'framenavigated',url:f.url(),isMain:f===page.mainFrame()})));
             await loc.click();
             await page.waitForTimeout(2500);
@@ -95,7 +97,7 @@ jobs:
             page.on('console', m => console.log(JSON.stringify({event:'console',type:m.type(),text:m.text().slice(0,1000)})));
             page.on('pageerror', e => console.log(JSON.stringify({event:'pageerror',text:String(e.message||e).slice(0,1500)})));
             await page.goto(origin + '/?_g82=' + Date.now(), { waitUntil: 'domcontentloaded', timeout: 30000 });
-            await page.waitForTimeout(1800);
+            await page.waitForTimeout(2200);
             if (await pageContainsPlaceholder(page)) throw new Error('legacy auth placeholder is visible before click');
             await clickPortalAndAssert(page, 'desktop');
             await page.locator('input[name="email"][type="email"]').waitFor({ state:'visible', timeout:10000 });
@@ -111,11 +113,13 @@ jobs:
             mobile.on('console', m => console.log(JSON.stringify({event:'mobile-console',type:m.type(),text:m.text().slice(0,1000)})));
             mobile.on('pageerror', e => console.log(JSON.stringify({event:'mobile-pageerror',text:String(e.message||e).slice(0,1500)})));
             await mobile.goto(origin + '/?_g82=' + Date.now(), { waitUntil:'domcontentloaded' });
-            await mobile.waitForTimeout(1800);
+            await mobile.waitForTimeout(2200);
             const menu = mobile.locator('#rona-mobile-menu-button');
             if (await menu.count() && await menu.isVisible().catch(()=>false)) await menu.click();
+            await mobile.waitForTimeout(400);
+            if (await pageContainsPlaceholder(mobile)) throw new Error('mobile legacy auth placeholder is visible before click');
             await clickPortalAndAssert(mobile, 'mobile');
-            console.log(JSON.stringify({ok:true,origin,desktopClick:'/portal/login',mobileClick:'/portal/login',unauthProtectedRoutes:4,legacyPlaceholderVisible:false}));
+            console.log(JSON.stringify({ok:true,origin,desktopClick:'/portal/login',mobileClick:'/portal/login',unauthProtectedRoutes:4,legacyPlaceholderVisible:false,legacyPortalShimPresent:false}));
             await mobileContext.close();
             await context.close();
             await browser.close();
