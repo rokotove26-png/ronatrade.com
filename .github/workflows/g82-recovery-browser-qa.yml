@@ -1,0 +1,60 @@
+name: G8.2 recovery browser QA
+
+on:
+  push:
+    branches:
+      - staging/public-go-live-v1.1
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-otp-no-url-token:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Verify rendered recovery flow
+        env:
+          TARGET_ORIGIN: ${{ github.ref_name == 'release/public-go-live-v1.1' && 'https://ronaoil.com' || 'https://staging-public-go-live-v1-1.rona-trade-public.pages.dev' }}
+        run: |
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const origin = process.env.TARGET_ORIGIN;
+          const sleep = ms => new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const ctx=await browser.newContext({viewport:{width:1280,height:800}});
+            const p=await ctx.newPage();
+            let ready=false;
+            for(let i=0;i<48;i++){
+              const r=await ctx.request.get(origin+'/portal/recovery?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}}).catch(()=>null);
+              if(r&&r.ok()&&(await r.text()).includes('Код не передаётся через URL')){ready=true;break}
+              await sleep(5000);
+            }
+            if(!ready) throw new Error('recovery deployment did not become observable');
+            await p.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
+            if(new URL(p.url()).search) throw new Error('recovery page unexpectedly has query parameters');
+            await p.locator('input[name="otp"][autocomplete="one-time-code"]').waitFor({state:'visible'});
+            const action=await p.locator('form').getAttribute('action');
+            if(action!=='/portal/auth/recovery-otp') throw new Error('wrong recovery form action: '+action);
+            await p.locator('input[name="otp"]').fill('111111');
+            await p.locator('button[type="submit"]').click();
+            await p.waitForLoadState('domcontentloaded');
+            const u=new URL(p.url());
+            if(u.pathname!=='/portal/recovery'||u.searchParams.get('error')!=='invalid') throw new Error('invalid OTP did not fail closed: '+p.url());
+            if(p.url().includes('token')||p.url().includes('otp=')) throw new Error('sensitive value leaked to URL');
+            const legacy=await ctx.request.get(origin+'/portal/auth/recovery?token_hash=not-a-real-token&type=recovery',{maxRedirects:0});
+            if(legacy.status()!==303||legacy.headers()['location']!=='/portal/recovery') throw new Error('legacy URL-token recovery route not retired');
+            console.log(JSON.stringify({ok:true,origin,recoveryPage:'/portal/recovery',otpForm:'/portal/auth/recovery-otp',invalidOtpFailClosed:true,urlTokenLeak:false,legacyTokenRouteRetired:true}));
+            await browser.close();
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
