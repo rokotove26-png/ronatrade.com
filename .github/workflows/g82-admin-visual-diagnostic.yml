@@ -21,25 +21,21 @@ jobs:
           node-version: '20'
       - name: Build reconstructed Admin artifact
         run: npm run build
-      - name: Print visual provenance diagnostics
+      - name: Locate canonical background and print current rule
         run: |
+          echo 'CANONICAL_PNG_SHA256=9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
+          echo '@@PNG_ASSET_HASHES@@'
+          find assets -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum
+          echo '@@PNG_DIMENSIONS@@'
+          python3 - <<'PY'
+          import glob,struct
+          for p in sorted(glob.glob('assets/**/*.png',recursive=True)):
+              with open(p,'rb') as f: h=f.read(24)
+              if h[:8]==b'\x89PNG\r\n\x1a\n':
+                  w,hh=struct.unpack('>II',h[16:24]); print(f'{w}x{hh} {p}')
+          PY
           node <<'NODE'
-          const fs=require('fs');const crypto=require('crypto');
-          const p='dist/portal/admin.html';const s=fs.readFileSync(p,'utf8');
-          const sha=crypto.createHash('sha256').update(s).digest('hex');
-          console.log(JSON.stringify({sha256:sha,bytes:Buffer.byteLength(s),hasServerSession:s.includes('SERVER_SESSION'),hasAdminBootstrap:s.includes('/portal/api/v1/admin/bootstrap'),hasDeferred:s.includes('application/rona-admin-deferred')}));
-          const styles=[...s.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m=>m[1]).join('\n');
-          console.log('@@ROOT_RULES@@');for(const m of styles.matchAll(/:root\s*\{[^}]*\}/gi))console.log(m[0]);
-          console.log('@@BACKGROUND_RULES@@');
-          for(const rule of styles.split('}')){if(/background|mask|filter|opacity/i.test(rule)&&rule.trim())console.log(rule.trim()+'}');}
-          console.log('@@SVG_CONTEXTS@@');
-          let i=0,n=0;while((i=s.toLowerCase().indexOf('<svg',i))>=0&&n<20){console.log(s.slice(Math.max(0,i-500),Math.min(s.length,i+6000)));i+=4;n++;}
-          if(!n)console.log('NOT_FOUND');
-          console.log('@@CANVAS_CONTEXTS@@');
-          i=0;n=0;while((i=s.toLowerCase().indexOf('<canvas',i))>=0&&n<20){console.log(s.slice(Math.max(0,i-500),Math.min(s.length,i+3000)));i+=7;n++;}
-          if(!n)console.log('NOT_FOUND');
-          console.log('@@VISUAL_CLASS_HINTS@@');
-          for(const term of ['hero','backdrop','underlay','background','network','globe','geo','route','map-layer','map-bg','world-map','topology','grid-bg']){
-            let j=0,c=0;console.log('@@TERM '+term+'@@');while((j=s.toLowerCase().indexOf(term,j))>=0&&c<6){console.log(s.slice(Math.max(0,j-300),Math.min(s.length,j+1200)));j+=term.length;c++;}if(!c)console.log('NOT_FOUND');
-          }
+          const fs=require('fs'),crypto=require('crypto');const s=fs.readFileSync('dist/portal/admin.html','utf8');
+          console.log('@@ADMIN@@',JSON.stringify({sha256:crypto.createHash('sha256').update(s).digest('hex'),bytes:Buffer.byteLength(s)}));
+          const m=s.match(/body:before\{[^}]*\}/i);console.log('@@BODY_BEFORE@@');console.log(m?m[0]:'NOT_FOUND');
           NODE
