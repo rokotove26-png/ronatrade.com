@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  recovery-otp-no-url-token:
+  recovery-link-fail-closed:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -22,7 +22,7 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Verify rendered recovery flow
+      - name: Verify rendered recovery and alias flow
         env:
           TARGET_ORIGIN: ${{ github.ref_name == 'release/public-go-live-v1.1' && 'https://ronaoil.com' || 'https://staging-public-go-live-v1-1.rona-trade-public.pages.dev' }}
         run: |
@@ -33,32 +33,50 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const ctx=await browser.newContext({viewport:{width:1280,height:800}});
-            const p=await ctx.newPage();
             let ready=false;
-            for(let i=0;i<48;i++){
+            for(let i=0;i<60;i++){
               const r=await ctx.request.get(origin+'/portal/recovery?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}}).catch(()=>null);
-              if(r&&r.ok()&&(await r.text()).includes('Код не передаётся через URL')){ready=true;break}
+              if(r&&r.ok()&&(await r.text()).includes('/portal/auth/recovery-session')){ready=true;break}
               await sleep(5000);
             }
             if(!ready) throw new Error('recovery deployment did not become observable');
-            await p.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
-            if(new URL(p.url()).search) throw new Error('recovery page unexpectedly has query parameters');
-            await p.locator('input[name="otp"][autocomplete="one-time-code"]').waitFor({state:'visible'});
-            const action=await p.locator('form').getAttribute('action');
-            if(action!=='/portal/auth/recovery-otp') throw new Error('wrong recovery form action: '+action);
-            await p.locator('input[name="otp"]').fill('111111');
-            const responsePromise=p.waitForResponse(r=>r.url().includes('/portal/auth/recovery-otp'),{timeout:15000});
-            await p.locator('button[type="submit"]').click();
-            const postResp=await responsePromise;
-            const postText=await postResp.text().catch(()=> '');
-            console.log(JSON.stringify({event:'invalid-otp-post',status:postResp.status(),url:postResp.url(),headers:postResp.headers(),body:postText.slice(0,1000)}));
-            await p.waitForLoadState('domcontentloaded');
-            const u=new URL(p.url());
-            if(u.pathname!=='/portal/recovery'||u.searchParams.get('error')!=='invalid') throw new Error('invalid OTP did not fail closed: '+p.url());
-            if(p.url().includes('token')||p.url().includes('otp=')) throw new Error('sensitive value leaked to URL');
+
+            const clean=await ctx.newPage();
+            await clean.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
+            await clean.locator('input[name="otp"]').waitFor({state:'visible'});
+            if(new URL(clean.url()).hash) throw new Error('unexpected fragment on clean recovery page');
+            await clean.close();
+
+            const expired=await ctx.newPage();
+            await expired.goto(origin+'/portal/recovery#type=recovery&error=access_denied&error_code=otp_expired&error_description=expired',{waitUntil:'domcontentloaded'});
+            await expired.waitForFunction(()=>location.hash==='',{timeout:5000});
+            const errorText=await expired.locator('#linkState').textContent();
+            if(!/недействительна|истекла/i.test(errorText||'')) throw new Error('controlled expired-link error not rendered');
+            await expired.close();
+
+            const badSession=await ctx.request.post(origin+'/portal/auth/recovery-session',{
+              headers:{origin,'content-type':'application/json',accept:'application/json'},
+              data:{access_token:'not-a-real-access-token',refresh_token:'not-a-real-refresh-token'}
+            });
+            if(![401,403].includes(badSession.status())) throw new Error('bogus recovery session did not fail closed: '+badSession.status());
+
+            const handoff=await ctx.newPage();
+            await handoff.goto(origin+'/#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
+            await handoff.waitForURL(u=>u.pathname==='/portal/recovery',{timeout:20000});
+            await handoff.waitForFunction(()=>location.hash==='',{timeout:5000});
+            await handoff.waitForFunction(()=>{const t=document.body.innerText.toLowerCase();return t.includes('recovery-сессия не подтверждена')||t.includes('ссылка восстановления недействительна')||t.includes('recovery-сессия не подтверждена или истекла')},{timeout:5000});
+            await handoff.close();
+
+            const alias=await ctx.request.post(origin+'/portal/auth/login',{
+              headers:{origin,'content-type':'application/json',accept:'application/json'},
+              data:{identifier:'rokotove',password:'Definitely-Wrong-QA-Password-1!'}
+            });
+            const aliasJson=await alias.json().catch(()=>({}));
+            if(alias.status()!==401||aliasJson.code!=='LOGIN_DENIED') throw new Error('rokotove alias was not accepted by canonical login parser');
+
             const legacy=await ctx.request.get(origin+'/portal/auth/recovery?token_hash=not-a-real-token&type=recovery',{maxRedirects:0});
-            if(legacy.status()!==303||legacy.headers()['location']!=='/portal/recovery') throw new Error('legacy URL-token recovery route not retired');
-            console.log(JSON.stringify({ok:true,origin,recoveryPage:'/portal/recovery',otpForm:'/portal/auth/recovery-otp',invalidOtpFailClosed:true,urlTokenLeak:false,legacyTokenRouteRetired:true}));
+            if(legacy.status()!==303||legacy.headers()['location']!=='/portal/recovery') throw new Error('legacy recovery route not controlled');
+            console.log(JSON.stringify({ok:true,origin,recoveryPage:true,errorFragmentScrubbed:true,recoverySessionFailClosed:true,siteRootRecoveryHandoff:true,ownerAliasAccepted:true,legacyRecoveryControlled:true}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
