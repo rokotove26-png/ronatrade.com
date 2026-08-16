@@ -2,7 +2,7 @@
 
 Date: 2026-08-16
 Branch: `staging/canonical-all-portals-visual-20260816`
-Current staging commit: `c58a0cd7dcf98363803270749a4453ed09e8473f`
+Direct-build gate commit: `c58a0cd7dcf98363803270749a4453ed09e8473f`
 Status: `LOCAL RENDERED EQUIVALENCE PASS / CLOUD PREVIEW HOLD`
 Production promotion: **NOT PERFORMED**
 Cost: **0 USD**
