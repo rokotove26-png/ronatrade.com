@@ -1,0 +1,45 @@
+name: Verify existing Agent canonical transfer
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/verify-existing-agent-canonical.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct and verify exact Agent v0.4.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat portal-src/agent-approved-v043.gz.b64.part-* | tr -d '\r\n' | base64 -d > /tmp/agent.gz
+          gzip -dc /tmp/agent.gz > /tmp/agent.html
+          bytes=$(wc -c < /tmp/agent.html)
+          sha=$(sha256sum /tmp/agent.html | awk '{print $1}')
+          echo "AGENT_CANONICAL_BYTES=$bytes"
+          echo "AGENT_CANONICAL_SHA256=$sha"
+          test "$bytes" = "4022017"
+          test "$sha" = "4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c"
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const s=fs.readFileSync('/tmp/agent.html','utf8');
+          for(const [mime,bytes,sha] of [
+            ['image/png',2627000,'9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'],
+            ['image/svg+xml',336904,'755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65']]){
+            const marker=`data:${mime};base64,`; const i=s.indexOf(marker); if(i<0) throw Error('missing '+mime);
+            let e=i+marker.length; while(e<s.length&&/[A-Za-z0-9+/=]/.test(s[e])) e++;
+            const b=Buffer.from(s.slice(i+marker.length,e),'base64');
+            const h=crypto.createHash('sha256').update(b).digest('hex');
+            console.log(`${mime} bytes=${b.length} sha256=${h}`);
+            if(b.length!==bytes||h!==sha) throw Error('asset mismatch '+mime);
+          }
+          NODE
+          echo 'AGENT_EXISTING_CANONICAL_TRANSFER=PASS'
