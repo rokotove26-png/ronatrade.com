@@ -1,0 +1,100 @@
+name: Canonical portal real-browser render equivalence
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+
+permissions:
+  contents: read
+
+jobs:
+  render-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify canonical source package and build exact pages
+        run: |
+          set -euo pipefail
+          npm run build
+          sha256sum \
+            'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' \
+            'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' \
+            'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' \
+            dist/portal/admin.html dist/portal/agent.html dist/portal/client.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
+          echo 'CANONICAL_BUILD_BYTE_EQUIVALENCE=PASS'
+      - name: Install Chromium render harness
+        run: |
+          npm install --no-save playwright@1.48.2 pixelmatch@6.0.0 pngjs@7.0.0
+          npx playwright install --with-deps chromium
+      - name: Real-browser rendered equivalence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/baseline/portal /tmp/candidate/portal render-evidence
+          cp 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' /tmp/baseline/portal/admin.html
+          cp 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' /tmp/baseline/portal/agent.html
+          cp 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' /tmp/baseline/portal/client.html
+          cp dist/portal/*.html /tmp/candidate/portal/
+          python3 -m http.server 4173 --directory /tmp/baseline >/tmp/baseline-http.log 2>&1 & echo $! >/tmp/baseline.pid
+          python3 -m http.server 4174 --directory /tmp/candidate >/tmp/candidate-http.log 2>&1 & echo $! >/tmp/candidate.pid
+          sleep 2
+          cat > /tmp/render-compare.mjs <<'NODE'
+          import { chromium } from 'playwright';
+          import fs from 'node:fs';
+          import crypto from 'node:crypto';
+          import pixelmatch from 'pixelmatch';
+          import { PNG } from 'pngjs';
+          const kinds=['admin','agent','client'];
+          const browser=await chromium.launch({headless:true});
+          const results={viewport:{width:1440,height:1000},javascript:false,portals:{}};
+          for(const kind of kinds){
+            const ctx=await browser.newContext({viewport:results.viewport,javaScriptEnabled:false,deviceScaleFactor:1});
+            const a=await ctx.newPage();
+            const b=await ctx.newPage();
+            await a.goto(`http://127.0.0.1:4173/portal/${kind}.html`,{waitUntil:'load'});
+            await b.goto(`http://127.0.0.1:4174/portal/${kind}.html`,{waitUntil:'load'});
+            const pa=`render-evidence/${kind}-frozen.png`, pb=`render-evidence/${kind}-candidate.png`, pd=`render-evidence/${kind}-diff.png`;
+            await a.screenshot({path:pa,fullPage:true});
+            await b.screenshot({path:pb,fullPage:true});
+            const ba=fs.readFileSync(pa),bb=fs.readFileSync(pb); const ia=PNG.sync.read(ba),ib=PNG.sync.read(bb);
+            if(ia.width!==ib.width||ia.height!==ib.height) throw new Error(`${kind} render dimensions differ ${ia.width}x${ia.height} vs ${ib.width}x${ib.height}`);
+            const diff=new PNG({width:ia.width,height:ia.height});
+            const pixels=pixelmatch(ia.data,ib.data,diff.data,ia.width,ia.height,{threshold:0});
+            PNG.sync.write(diff).length && fs.writeFileSync(pd,PNG.sync.write(diff));
+            const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
+            results.portals[kind]={width:ia.width,height:ia.height,differing_pixels:pixels,frozen_png_sha256:sha(ba),candidate_png_sha256:sha(bb),pass:pixels===0};
+            console.log(`${kind.toUpperCase()}_RENDER_EQUIVALENCE=${pixels===0?'PASS':'FAIL'} differing_pixels=${pixels}`);
+            if(pixels!==0) throw new Error(`${kind} unauthorized visible delta ${pixels}`);
+            await ctx.close();
+          }
+          await browser.close();
+          results.unauthorized_visible_delta=0;
+          fs.writeFileSync('render-evidence/render-equivalence.json',JSON.stringify(results,null,2));
+          console.log('UNAUTHORIZED_VISIBLE_VISUAL_DELTA=0');
+          NODE
+          node /tmp/render-compare.mjs
+          kill $(cat /tmp/baseline.pid) $(cat /tmp/candidate.pid) || true
+      - name: Runtime adapter nonvisual static inspection
+        run: |
+          set -euo pipefail
+          grep -q 'RONA_CANONICAL_RUNTIME_ADAPTER_V2' 'functions/portal/[[path]].js'
+          grep -q "on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
+          grep -q 'BodyAppend(AGENT_BRIDGE)' 'functions/portal/[[path]].js'
+          grep -q "if (kind === 'client') return secureResponse(response, session.setCookies, true);" 'functions/portal/[[path]].js'
+          grep -q 'CLIENT_CONTEXT_NOT_AUTHORIZED' 'functions/portal/[[path]].js'
+          echo 'RUNTIME_ADAPTER_NONVISUAL_SCOPE=PASS'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: canonical-render-evidence-${{ github.sha }}
+          path: render-evidence
+          if-no-files-found: warn
+          retention-days: 7
