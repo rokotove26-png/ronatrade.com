@@ -17,28 +17,28 @@ function redirect(location,cookies=[]){const h=new Headers(SECURITY);h.set('loca
 function denied(code,status=400){const h=new Headers(SECURITY);h.set('content-type','application/json; charset=utf-8');return new Response(JSON.stringify({ok:false,code}),{status,headers:h})}
 function strong(p){return p.length>=14&&p.length<=72&&/[a-z]/.test(p)&&/[A-Z]/.test(p)&&/[0-9]/.test(p)&&/[^A-Za-z0-9]/.test(p)}
 async function currentUser(token){if(!token)return null;try{const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,accept:'application/json'}});if(!r.ok)return null;return await r.json()}catch{return null}}
-async function changePassword(token,password){try{const r=await fetch(CONTROL,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({action:'change_password',password})});const j=await r.json().catch(()=>({}));return{ok:r.ok,data:j}}catch{return{ok:false,data:{code:'PASSWORD_GATE_UNAVAILABLE'}}}}
+async function changePassword(token,password){try{const r=await fetch(CONTROL,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({action:'recovery_change_password',password})});const j=await r.json().catch(()=>({}));return{ok:r.ok,data:j}}catch{return{ok:false,data:{code:'PASSWORD_GATE_UNAVAILABLE'}}}}
 async function logout(token){if(!token)return;try{await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`}})}catch(_){}}
 async function authPassword(password){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({email:OWNER_EMAIL,password})});return{ok:r.ok,data:await r.json().catch(()=>({}))}}
 async function sessionMe(token){try{const r=await fetch(`${PORTAL_API}/session/me`,{headers:{authorization:`Bearer ${token}`,accept:'application/json'}});if(!r.ok)return null;const j=await r.json();return j?.ok&&j?.user?j:null}catch{return null}}
 function target(roles){const r=Array.isArray(roles)?roles.map(String):[];const out=[];if(r.includes('ADMIN'))out.push('/portal/admin');if(r.includes('RONA_OPERATOR'))out.push('/portal/staff');if(r.includes('AGENT'))out.push('/portal/agent');if(r.includes('CLIENT'))out.push('/portal/client');return out.length>1?'/portal/select':out[0]||null}
 export async function onRequestPost({request}){
-  if(!sameOrigin(request))return denied('ORIGIN_DENIED',403);
-  const c=parseCookies(request.headers.get('cookie'));
-  if(c[RESET_COOKIE]!=='1'||!c[ACCESS_COOKIE])return denied('PASSWORD_CHANGE_SESSION_REQUIRED',403);
-  const user=await currentUser(c[ACCESS_COOKIE]);
-  if(!user||String(user.id||'')!==OWNER_ID||String(user.email||'').toLowerCase()!==OWNER_EMAIL)return denied('OWNER_PASSWORD_CHANGE_MISMATCH',403);
-  const form=await request.formData().catch(()=>null);if(!form)return denied('FORM_REQUIRED');
-  const p=String(form.get('password')||''),q=String(form.get('confirm')||'');
-  if(p!==q||!strong(p))return denied('PASSWORD_POLICY_FAILED');
-  const changed=await changePassword(c[ACCESS_COOKIE],p);
-  if(!changed.ok)return denied(String(changed.data?.code||'PASSWORD_UPDATE_FAILED'),500);
-  await logout(c[ACCESS_COOKIE]);
-  const login=await authPassword(p);
-  if(!login.ok||!login.data?.access_token||!login.data?.refresh_token)return redirect('/portal/login?passwordChanged=1',clearCookies());
-  const me=await sessionMe(login.data.access_token);
-  if(!me){await logout(login.data.access_token);return redirect('/portal/login?passwordChanged=1',clearCookies());}
-  const next=target(me.user.roles);
-  if(!next){await logout(login.data.access_token);return redirect('/portal/login?passwordChanged=1',clearCookies());}
-  return redirect(next,tokenCookies(login.data));
+ if(!sameOrigin(request))return denied('ORIGIN_DENIED',403);
+ const c=parseCookies(request.headers.get('cookie'));
+ if(c[RESET_COOKIE]!=='1'||!c[ACCESS_COOKIE])return denied('PASSWORD_CHANGE_SESSION_REQUIRED',403);
+ const user=await currentUser(c[ACCESS_COOKIE]);
+ if(!user||String(user.id||'')!==OWNER_ID||String(user.email||'').toLowerCase()!==OWNER_EMAIL)return denied('OWNER_PASSWORD_CHANGE_MISMATCH',403);
+ const form=await request.formData().catch(()=>null);if(!form)return denied('FORM_REQUIRED');
+ const p=String(form.get('password')||''),q=String(form.get('confirm')||'');
+ if(p!==q||!strong(p))return denied('PASSWORD_POLICY_FAILED');
+ const changed=await changePassword(c[ACCESS_COOKIE],p);
+ if(!changed.ok)return denied(String(changed.data?.code||'PASSWORD_UPDATE_FAILED'),changed.data?.code==='PASSWORD_POLICY_FAILED'?400:500);
+ await logout(c[ACCESS_COOKIE]);
+ const login=await authPassword(p);
+ if(!login.ok||!login.data?.access_token||!login.data?.refresh_token)return redirect('/portal/login?passwordChanged=1',clearCookies());
+ const me=await sessionMe(login.data.access_token);
+ if(!me){await logout(login.data.access_token);return redirect('/portal/login?passwordChanged=1',clearCookies());}
+ const next=target(me.user.roles);
+ if(!next){await logout(login.data.access_token);return redirect('/portal/login?passwordChanged=1',clearCookies());}
+ return redirect(next,tokenCookies(login.data));
 }
