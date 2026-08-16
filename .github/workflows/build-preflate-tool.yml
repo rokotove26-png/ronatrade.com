@@ -1,0 +1,36 @@
+name: Build preflate transfer tool
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/build-preflate-tool.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build official preflate v0.7.6 utility
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version
+          cargo --version
+          git clone --depth 1 --branch v0.7.6 https://github.com/microsoft/preflate-rs.git /tmp/preflate-rs
+          cd /tmp/preflate-rs
+          cargo build --release -p preflate_util
+          install -m 0755 target/release/preflate_util "$GITHUB_WORKSPACE/preflate_util"
+          sha256sum "$GITHUB_WORKSPACE/preflate_util"
+          "$GITHUB_WORKSPACE/preflate_util" --help | head -80
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preflate-util-linux-x64-v0.7.6
+          path: preflate_util
+          if-no-files-found: error
+          retention-days: 1
