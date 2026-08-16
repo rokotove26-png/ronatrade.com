@@ -13,7 +13,7 @@ permissions:
 jobs:
   inspect-admin-visual:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -21,6 +21,8 @@ jobs:
           node-version: '20'
       - name: Build reconstructed Admin artifact
         run: npm run build
+      - name: Install imaging tool
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq imagemagick
       - name: Compare canonical pixel fingerprint with repository PNGs
         run: |
           echo 'CANONICAL_FILE_SHA256=9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
@@ -28,13 +30,7 @@ jobs:
           echo '@@PNG_FILE_HASHES@@'
           find assets -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum
           echo '@@PNG_RGBA_HASHES@@'
-          if command -v convert >/dev/null 2>&1; then
-            while IFS= read -r p; do printf '%s  %s\n' "$(convert "$p" RGBA:- | sha256sum | cut -d' ' -f1)" "$p"; done < <(find assets -type f -name '*.png' | sort)
-          elif command -v magick >/dev/null 2>&1; then
-            while IFS= read -r p; do printf '%s  %s\n' "$(magick "$p" RGBA:- | sha256sum | cut -d' ' -f1)" "$p"; done < <(find assets -type f -name '*.png' | sort)
-          else
-            echo IMAGEMAGICK_NOT_AVAILABLE
-          fi
+          while IFS= read -r p; do printf '%s  %s\n' "$(convert "$p" RGBA:- | sha256sum | cut -d' ' -f1)" "$p"; done < <(find assets -type f -name '*.png' | sort)
           node <<'NODE'
           const fs=require('fs'),crypto=require('crypto');const s=fs.readFileSync('dist/portal/admin.html','utf8');
           console.log('@@ADMIN@@',JSON.stringify({sha256:crypto.createHash('sha256').update(s).digest('hex'),bytes:Buffer.byteLength(s)}));
