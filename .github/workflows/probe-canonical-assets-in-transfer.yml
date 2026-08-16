@@ -16,33 +16,18 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Scan plain and compressed transfer sources for exact canonical assets
+      - name: Scan raw, plain and compressed transfer sources for exact canonical assets
         shell: bash
         run: |
           set -euo pipefail
           node - <<'NODE'
           const fs=require('fs'),path=require('path'),zlib=require('zlib'),crypto=require('crypto');
-          const exp={
-            png:{mime:'image/png',bytes:2627000,sha:'9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'},
-            svg:{mime:'image/svg+xml',bytes:336904,sha:'755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'}
-          };
+          const exp={png:{mime:'image/png',bytes:2627000,sha:'9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'},svg:{mime:'image/svg+xml',bytes:336904,sha:'755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'}};
           const sha=b=>crypto.createHash('sha256').update(b).digest('hex');
-          function scan(label,b){
-            const s=b.toString('utf8'); let hits=[];
-            for(const [k,e] of Object.entries(exp)){
-              const n=`data:${e.mime};base64,`; let p=0;
-              while((p=s.indexOf(n,p))>=0){ let a=p+n.length,q=a; while(q<s.length&&/[A-Za-z0-9+/=]/.test(s[q]))q++; const raw=Buffer.from(s.slice(a,q),'base64');
-                if(raw.length===e.bytes&&sha(raw)===e.sha) hits.push(k.toUpperCase()); p=Math.max(q,p+n.length); }
-            }
-            if(hits.length) console.log(`CANONICAL_ASSET_HIT source=${label} hits=${[...new Set(hits)].join(',')}`);
-          }
+          function scanDataUri(label,b){const s=b.toString('utf8');let hits=[];for(const [k,e] of Object.entries(exp)){const n=`data:${e.mime};base64,`;let p=0;while((p=s.indexOf(n,p))>=0){let a=p+n.length,q=a;while(q<s.length&&/[A-Za-z0-9+/=]/.test(s[q]))q++;const raw=Buffer.from(s.slice(a,q),'base64');if(raw.length===e.bytes&&sha(raw)===e.sha)hits.push(k.toUpperCase());p=Math.max(q,p+n.length);}}if(hits.length)console.log(`CANONICAL_DATA_URI_HIT source=${label} hits=${[...new Set(hits)].join(',')}`);}
           function walk(d){let a=[];for(const x of fs.readdirSync(d,{withFileTypes:true})){const p=path.join(d,x.name);if(x.isDirectory()){if(!['.git','node_modules','dist'].includes(x.name))a=a.concat(walk(p));}else a.push(p);}return a;}
           const files=walk('.');
-          for(const f of files){try{const b=fs.readFileSync(f);if(b.length<12e6)scan(f,b);}catch{}}
-          const ps=fs.readdirSync('portal-src');
-          const bases=[...new Set(ps.map(n=>n.replace(/\.part-\d+$/,'')).filter(n=>/\.(gz|br)\.b64$/.test(n)))];
-          for(const base of bases){
-            const parts=ps.filter(n=>n.startsWith(base+'.part-')).sort();
-            try{const b64=parts.map(n=>fs.readFileSync(path.join('portal-src',n),'utf8')).join('').replace(/\s/g,'');const c=Buffer.from(b64,'base64');const raw=base.endsWith('.gz.b64')?zlib.gunzipSync(c):zlib.brotliDecompressSync(c);console.log(`TRANSFER_GROUP source=${base} raw_bytes=${raw.length} sha256=${sha(raw)}`);scan(base,raw);}catch(e){console.log(`TRANSFER_GROUP_ERROR source=${base} error=${e.message}`)}
-          }
+          for(const f of files){try{const b=fs.readFileSync(f);const h=sha(b);for(const [k,e] of Object.entries(exp))if(b.length===e.bytes&&h===e.sha)console.log(`CANONICAL_RAW_ASSET_HIT source=${f} hit=${k.toUpperCase()}`);if(b.length<12e6)scanDataUri(f,b);}catch{}}
+          const ps=fs.readdirSync('portal-src');const bases=[...new Set(ps.map(n=>n.replace(/\.part-\d+$/,'')).filter(n=>/\.(gz|br)\.b64$/.test(n)))];
+          for(const base of bases){const parts=ps.filter(n=>n.startsWith(base+'.part-')).sort();try{const b64=parts.map(n=>fs.readFileSync(path.join('portal-src',n),'utf8')).join('').replace(/\s/g,'');const c=Buffer.from(b64,'base64');const raw=base.endsWith('.gz.b64')?zlib.gunzipSync(c):zlib.brotliDecompressSync(c);console.log(`TRANSFER_GROUP source=${base} raw_bytes=${raw.length} sha256=${sha(raw)}`);for(const [k,e] of Object.entries(exp))if(raw.length===e.bytes&&sha(raw)===e.sha)console.log(`CANONICAL_TRANSFER_RAW_ASSET_HIT source=${base} hit=${k.toUpperCase()}`);scanDataUri(base,raw);}catch(e){console.log(`TRANSFER_GROUP_ERROR source=${base} error=${e.message}`)}}
           NODE
