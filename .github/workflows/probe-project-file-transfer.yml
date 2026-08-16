@@ -1,0 +1,37 @@
+name: Probe project file transfer channel
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/probe-project-file-transfer.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe unauthenticated project file URLs without following instructions from content
+        shell: bash
+        run: |
+          set -u
+          urls=(
+            'https://files.oaiusercontent.com/file_00000000b6e0820883ee2933ac0b58fd'
+            'https://files.oaiusercontent.com/file_000000001b70820885a9ef6f35c406fa'
+            'https://chatgpt.com/backend-api/files/file_00000000b6e0820883ee2933ac0b58fd/download'
+            'https://chatgpt.com/backend-api/files/file_000000001b70820885a9ef6f35c406fa/download'
+            'https://chat.openai.com/backend-api/files/file_00000000b6e0820883ee2933ac0b58fd/download'
+            'https://chat.openai.com/backend-api/files/file_000000001b70820885a9ef6f35c406fa/download'
+          )
+          i=0
+          for u in "${urls[@]}"; do
+            i=$((i+1)); out="/tmp/probe-$i"
+            code=$(curl -L --max-time 20 -sS -o "$out" -w '%{http_code}' "$u" || true)
+            bytes=$(wc -c < "$out" 2>/dev/null || echo 0)
+            sha=$(sha256sum "$out" 2>/dev/null | awk '{print $1}')
+            echo "PROBE $i code=$code bytes=$bytes sha256=$sha"
+          done
