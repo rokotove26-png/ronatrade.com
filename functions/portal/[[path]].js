@@ -202,16 +202,51 @@ function selectorPage(roles) {
 const STAFF_BRIDGE = `<script id="rona-g82-staff-same-origin-bridge">(()=>{'use strict';const f=window.fetch.bind(window);window.fetch=(input,init)=>{let u=typeof input==='string'?input:(input instanceof URL?input.href:(input&&input.url)||'');if(u.startsWith('/functions/v1/rona-portal-api/')){const next='/portal/api/'+u.slice('/functions/v1/rona-portal-api/'.length);return f(input instanceof Request?new Request(next,input):next,{...init,credentials:'same-origin'})}return f(input,{...init,credentials:init?.credentials||'same-origin'})};addEventListener('DOMContentLoaded',()=>{document.title='RONA Trade — Внутренний офис';const t=document.querySelector('.toolbar');if(t&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};t.appendChild(b)}})})();</script>`;
 const AGENT_BRIDGE = `<script id="rona-g82-agent-same-origin-bridge">(()=>{'use strict';async function boot(){try{const r=await fetch('/portal/api/v1/agent/bootstrap',{credentials:'same-origin',headers:{accept:'application/json'}});if(r.status===401){location.replace('/portal/login?next=%2Fportal%2Fagent');return}const j=await r.json();if(!r.ok||!j?.data){window.RONA_AGENT_PORTAL?.failClosed?.(j?.code||'Серверный доступ агента не подтверждён.');return}window.RONA_AGENT_PORTAL?.boot?.(j.data)}catch(_e){window.RONA_AGENT_PORTAL?.failClosed?.('Не удалось получить подтверждённый серверный контекст.')}}addEventListener('DOMContentLoaded',()=>{boot();const host=document.querySelector('.top-right,.topbar,.top');if(host&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.type='button';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};host.appendChild(b)}})})();</script>`;
 class BodyAppend { constructor(value) { this.value = value; } element(el) { el.append(this.value, { html: true }); } }
+// RONA_CANONICAL_RUNTIME_ADAPTER_V1: server-authenticated technical adapter only; no canonical visual redesign.
+class RemoveCanonicalLegacyAuthNode { element(el) { el.remove(); } }
+class UnlockCanonicalAdminBody {
+  element(el) {
+    const classes=String(el.getAttribute('class')||'').split(/\s+/).filter(Boolean).filter(x=>x!=='admin-auth-locked');
+    if(classes.length) el.setAttribute('class',classes.join(' ')); else el.removeAttribute('class');
+  }
+}
+async function requireRealClientContext(session) {
+  try {
+    const r=await upstream(session.access,'/v1/client/bootstrap');
+    const j=await r.json().catch(()=>null);
+    const contexts=Array.isArray(j?.data?.contexts)?j.data.contexts:[];
+    return { ok:r.ok && j?.ok===true && contexts.length>0, contexts };
+  } catch (_) { return { ok:false, contexts:[] }; }
+}
+
 
 async function serveStaticProtected(context, session, kind) {
   const roles = rolesOf(session.me);
   const expected = kind === 'admin' ? '/portal/admin' : kind === 'agent' ? '/portal/agent' : '/portal/client';
   if (!roleAllows(expected, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, session.setCookies);
+
+  // CLIENT is fail-closed before any canonical standalone snapshot can be served.
+  if (kind === 'client') {
+    const gate = await requireRealClientContext(session);
+    if (!gate.ok) return html(deniedPage('CLIENT_CONTEXT_NOT_AUTHORIZED'), 403, session.setCookies);
+  }
+
   const response = await context.next();
   if (!response.ok) return secureResponse(response, session.setCookies, false);
   const contentType = response.headers.get('content-type') || '';
   if (!contentType.toLowerCase().includes('text/html')) return secureResponse(response, session.setCookies, false);
-  if (kind === 'client' || kind === 'admin') return secureResponse(response, session.setCookies, true);
+
+  if (kind === 'admin') {
+    // Server session/role is authoritative. Remove only the frozen file's standalone legacy login mechanism.
+    const transformed = new HTMLRewriter()
+      .on('body', new UnlockCanonicalAdminBody())
+      .on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())
+      .on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())
+      .transform(response);
+    return secureResponse(transformed, session.setCookies, true);
+  }
+  if (kind === 'client') return secureResponse(response, session.setCookies, true);
+
   const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE)).transform(response);
   return secureResponse(transformed, session.setCookies, true);
 }
