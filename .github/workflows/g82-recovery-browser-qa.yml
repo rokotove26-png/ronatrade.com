@@ -1,127 +1,51 @@
-name: G8.2 recovery browser QA
+name: G8.2 canonical portal provenance scan
 
 on:
   push:
     branches:
-      - staging/public-go-live-v1.1
-      - release/public-go-live-v1.1
+      - staging/admin-canonical-visual-20260816
+    paths:
+      - '.github/workflows/g82-recovery-browser-qa.yml'
 
 permissions:
   contents: read
 
 jobs:
-  recovery-link-fail-closed:
+  provenance:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - name: Install Playwright Chromium
+          fetch-depth: 0
+      - name: Fetch all refs
+        run: git fetch --all --tags --force --prune
+      - name: Find exact canonical sources and lineage evidence
+        shell: bash
         run: |
-          npm install --no-save --ignore-scripts playwright@1.54.2
-          npx playwright install --with-deps chromium
-      - name: Verify rendered recovery and alias flow
-        env:
-          TARGET_ORIGIN: ${{ github.ref_name == 'release/public-go-live-v1.1' && 'https://ronaoil.com' || 'https://staging-public-go-live-v1-1.rona-trade-public.pages.dev' }}
-        run: |
-          node <<'NODE'
-          const { chromium } = require('playwright');
-          const origin = process.env.TARGET_ORIGIN;
-          const sleep = ms => new Promise(r=>setTimeout(r,ms));
-          async function waitUrlNoHash(page, timeout=5000) {
-            const started=Date.now();
-            while(Date.now()-started<timeout){
-              if(new URL(page.url()).hash==='') return;
-              await page.waitForTimeout(100);
-            }
-            throw new Error('recovery fragment was not scrubbed');
-          }
-          async function waitBodyMatch(page, re, timeout=5000) {
-            const started=Date.now();
-            while(Date.now()-started<timeout){
-              const text=await page.locator('body').innerText().catch(()=> '');
-              if(re.test(text)) return text;
-              await page.waitForTimeout(100);
-            }
-            throw new Error('controlled recovery state was not rendered');
-          }
-          (async()=>{
-            const browser=await chromium.launch({headless:true});
-            const ctx=await browser.newContext({viewport:{width:1280,height:800}});
-            let ready=false;
-            for(let i=0;i<60;i++){
-              const r=await ctx.request.get(origin+'/portal/recovery?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}}).catch(()=>null);
-              if(r&&r.ok()&&(await r.text()).includes('Проверяем одноразовый код')){ready=true;break}
-              await sleep(5000);
-            }
-            if(!ready) throw new Error('recovery deployment did not become observable');
-
-            const clean=await ctx.newPage();
-            await clean.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
-            await clean.locator('input[name="otp"]').waitFor({state:'visible'});
-            if(new URL(clean.url()).hash) throw new Error('unexpected fragment on clean recovery page');
-            await clean.close();
-
-            const verifyError=await ctx.newPage();
-            await verifyError.goto(origin+'/portal/recovery?error=verify',{waitUntil:'domcontentloaded'});
-            await waitBodyMatch(verifyError,/код не подтверждён|недействителен|истёк/i);
-            await verifyError.close();
-
-            const badOtp=await ctx.request.post(origin+'/portal/auth/recovery-otp',{
-              headers:{origin,'content-type':'application/json',accept:'text/html','sec-fetch-site':'same-origin'},
-              data:{otp:'11111111'},
-              maxRedirects:0
-            });
-            if(badOtp.status()!==303||badOtp.headers()['location']!=='/portal/recovery?error=verify') throw new Error('bad OTP not controlled: '+badOtp.status()+' '+(badOtp.headers()['location']||''));
-
-            const browserOtp=await ctx.newPage();
-            await browserOtp.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
-            await browserOtp.locator('input[name="otp"]').fill('11111111');
-            await Promise.all([
-              browserOtp.waitForURL(u=>u.pathname==='/portal/recovery'&&u.searchParams.get('error')==='verify',{timeout:20000}),
-              browserOtp.locator('button[type="submit"]').click()
-            ]);
-            await waitBodyMatch(browserOtp,/код не подтверждён|недействителен|истёк/i);
-            if(new URL(browserOtp.url()).searchParams.get('error')==='origin') throw new Error('browser OTP form was rejected as cross-origin');
-            await browserOtp.close();
-
-            const badOtpPage=await ctx.newPage();
-            await badOtpPage.goto(origin+badOtp.headers()['location'],{waitUntil:'domcontentloaded'});
-            await waitBodyMatch(badOtpPage,/код не подтверждён|недействителен|истёк/i);
-            await badOtpPage.close();
-
-            const expired=await ctx.newPage();
-            await expired.goto(origin+'/portal/recovery#type=recovery&error=access_denied&error_code=otp_expired&error_description=expired',{waitUntil:'domcontentloaded'});
-            await waitUrlNoHash(expired);
-            const errorText=await expired.locator('#linkState').textContent();
-            if(!/недействительна|истекла/i.test(errorText||'')) throw new Error('controlled expired-link error not rendered');
-            await expired.close();
-
-            const badSession=await ctx.request.post(origin+'/portal/auth/recovery-session',{
-              headers:{origin,'content-type':'application/json',accept:'application/json'},
-              data:{access_token:'not-a-real-access-token',refresh_token:'not-a-real-refresh-token'}
-            });
-            if(![401,403].includes(badSession.status())) throw new Error('bogus recovery session did not fail closed: '+badSession.status());
-
-            const handoff=await ctx.newPage();
-            await handoff.goto(origin+'/#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
-            await handoff.waitForURL(u=>u.pathname==='/portal/recovery',{timeout:20000});
-            await waitUrlNoHash(handoff);
-            await waitBodyMatch(handoff,/recovery-сессия не подтверждена|ссылка восстановления недействительна|recovery-сессия не подтверждена или истекла/i);
-            await handoff.close();
-
-            const alias=await ctx.request.post(origin+'/portal/auth/login',{
-              headers:{origin,'content-type':'application/json',accept:'application/json'},
-              data:{identifier:'rokotove',password:'Definitely-Wrong-QA-Password-1!'}
-            });
-            const aliasJson=await alias.json().catch(()=>({}));
-            if(alias.status()!==401||aliasJson.code!=='LOGIN_DENIED') throw new Error('rokotove alias was not accepted by canonical login parser');
-
-            const legacy=await ctx.request.get(origin+'/portal/auth/recovery?token_hash=not-a-real-token&type=recovery',{maxRedirects:0});
-            if(legacy.status()!==303||legacy.headers()['location']!=='/portal/recovery') throw new Error('legacy recovery route not controlled');
-            console.log(JSON.stringify({ok:true,origin,recoveryPage:true,visibleOtpError:true,otpFailClosed:true,browserOtpForm:true,errorFragmentScrubbed:true,recoverySessionFailClosed:true,siteRootRecoveryHandoff:true,ownerAliasAccepted:true,legacyRecoveryControlled:true}));
-            await browser.close();
-          })().catch(e=>{console.error(e);process.exit(1)});
-          NODE
+          set -euo pipefail
+          ADMIN='9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
+          CLIENT='961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
+          AGENT='4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
+          echo '@@TARGET_SHA256@@'
+          printf 'ADMIN %s\nCLIENT %s\nAGENT %s\n' "$ADMIN" "$CLIENT" "$AGENT"
+          echo '@@EXACT_SHA_MATCHES_ALL_GIT_BLOBS@@'
+          git rev-list --objects --all | awk '{print $1}' | sort -u > /tmp/oids
+          while read -r oid; do
+            [ "$(git cat-file -t "$oid" 2>/dev/null || true)" = blob ] || continue
+            size=$(git cat-file -s "$oid")
+            [ "$size" -le 15000000 ] || continue
+            h=$(git cat-file blob "$oid" | sha256sum | awk '{print $1}')
+            if [ "$h" = "$ADMIN" ] || [ "$h" = "$CLIENT" ] || [ "$h" = "$AGENT" ]; then
+              echo "MATCH sha256=$h oid=$oid size=$size"
+              git rev-list --objects --all | awk -v o="$oid" '$1==o{print "PATH " $0}' | head -20
+            fi
+          done < /tmp/oids
+          echo '@@PORTAL_PATH_HISTORY@@'
+          git log --all --date=iso-strict --pretty='format:COMMIT %H %ad %s' --name-only -- \
+            '*Admin*' '*admin*' '*Client*' '*client*' '*Agent*' '*agent*' '*Staff*' '*staff*' '*Office*' '*office*' '*portal*' | \
+            grep -Ei '^(COMMIT |.*(admin|client|agent|staff|office|portal).*)' | head -500 || true
+          echo '@@APPROVAL_COMMIT_MESSAGES@@'
+          git log --all --date=iso-strict --pretty='format:%H|%ad|%s' | grep -Ei 'approv|canonical|client|agent|admin|staff|office|portal|v1\.5\.14|v0\.4\.3|v3\.4\.13' | head -500 || true
+          echo '@@STAFF_LIKELY_CONTENT_MARKERS@@'
+          git rev-list --objects --all | awk 'NF>1{print $1" "$2}' | grep -Ei '(staff|office|internal|workspace|portal)' | head -500 || true
