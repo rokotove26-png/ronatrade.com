@@ -1,0 +1,37 @@
+name: G8.2 OTP production smoke
+
+on:
+  push:
+    branches:
+      - qa/g82-recovery-otp-production-smoke-20260816
+
+permissions:
+  contents: read
+
+jobs:
+  otp-fail-closed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify manual OTP reaches Auth verification path
+        run: |
+          node <<'NODE'
+          (async()=>{
+            const origin='https://ronaoil.com';
+            const r=await fetch(origin+'/portal/auth/recovery-otp',{
+              method:'POST',
+              redirect:'manual',
+              headers:{
+                origin,
+                'content-type':'application/json',
+                accept:'text/html',
+                'sec-fetch-site':'same-origin'
+              },
+              body:JSON.stringify({otp:'11111111'})
+            });
+            const location=r.headers.get('location')||'';
+            console.log(JSON.stringify({status:r.status,location}));
+            if(r.status!==303) throw new Error('expected 303, got '+r.status);
+            if(location!=='/portal/recovery?error=verify') throw new Error('manual OTP did not reach verify path: '+location);
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
