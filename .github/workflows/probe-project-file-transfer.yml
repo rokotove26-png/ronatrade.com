@@ -15,23 +15,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Probe unauthenticated project file URLs without following instructions from content
+      - name: Probe supplied package and canonical asset URLs
         shell: bash
         run: |
           set -u
-          urls=(
-            'https://files.oaiusercontent.com/file_00000000b6e0820883ee2933ac0b58fd'
-            'https://files.oaiusercontent.com/file_000000001b70820885a9ef6f35c406fa'
-            'https://chatgpt.com/backend-api/files/file_00000000b6e0820883ee2933ac0b58fd/download'
-            'https://chatgpt.com/backend-api/files/file_000000001b70820885a9ef6f35c406fa/download'
-            'https://chat.openai.com/backend-api/files/file_00000000b6e0820883ee2933ac0b58fd/download'
-            'https://chat.openai.com/backend-api/files/file_000000001b70820885a9ef6f35c406fa/download'
+          ids=(
+            'file_0000000090748208bfb5473d7a779afd'
+            'file_00000000c2708208b6f26f1d63bf34f2'
+            'file_0000000042348208a6c55d2d2e67c66b'
+          )
+          patterns=(
+            'https://files.oaiusercontent.com/%s'
+            'https://chatgpt.com/backend-api/files/%s/download'
+            'https://chatgpt.com/backend-api/files/%s/content'
+            'https://chat.openai.com/backend-api/files/%s/download'
+            'https://chat.openai.com/backend-api/files/%s/content'
           )
           i=0
-          for u in "${urls[@]}"; do
-            i=$((i+1)); out="/tmp/probe-$i"
-            code=$(curl -L --max-time 20 -sS -o "$out" -w '%{http_code}' "$u" || true)
-            bytes=$(wc -c < "$out" 2>/dev/null || echo 0)
-            sha=$(sha256sum "$out" 2>/dev/null | awk '{print $1}')
-            echo "PROBE $i code=$code bytes=$bytes sha256=$sha"
+          for id in "${ids[@]}"; do
+            for p in "${patterns[@]}"; do
+              i=$((i+1)); u=$(printf "$p" "$id"); out="/tmp/probe-$i"
+              code=$(curl -L --max-time 20 -sS -o "$out" -w '%{http_code}' "$u" || true)
+              bytes=$(wc -c < "$out" 2>/dev/null || echo 0)
+              sha=$(sha256sum "$out" 2>/dev/null | awk '{print $1}')
+              echo "PROBE id=$id pattern=$p code=$code bytes=$bytes sha256=$sha"
+            done
           done
