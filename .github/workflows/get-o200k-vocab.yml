@@ -1,0 +1,30 @@
+name: Fetch o200k tokenizer transfer alphabet
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/get-o200k-vocab.yml
+
+permissions:
+  contents: read
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch OpenAI o200k_base vocabulary and verify published hash
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL 'https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken' -o o200k_base.tiktoken
+          echo '446a9538cb6c348e3516120d7c08b09f57c36495e2acfffe59a5bf8b0cfb1a2d  o200k_base.tiktoken' | sha256sum -c -
+          wc -c o200k_base.tiktoken
+      - uses: actions/upload-artifact@v4
+        with:
+          name: o200k-base-vocab
+          path: o200k_base.tiktoken
+          if-no-files-found: error
+          retention-days: 1
