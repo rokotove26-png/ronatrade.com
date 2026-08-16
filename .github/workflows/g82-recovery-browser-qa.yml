@@ -30,6 +30,23 @@ jobs:
           const { chromium } = require('playwright');
           const origin = process.env.TARGET_ORIGIN;
           const sleep = ms => new Promise(r=>setTimeout(r,ms));
+          async function waitUrlNoHash(page, timeout=5000) {
+            const started=Date.now();
+            while(Date.now()-started<timeout){
+              if(new URL(page.url()).hash==='') return;
+              await page.waitForTimeout(100);
+            }
+            throw new Error('recovery fragment was not scrubbed');
+          }
+          async function waitBodyMatch(page, re, timeout=5000) {
+            const started=Date.now();
+            while(Date.now()-started<timeout){
+              const text=await page.locator('body').innerText().catch(()=> '');
+              if(re.test(text)) return text;
+              await page.waitForTimeout(100);
+            }
+            throw new Error('controlled recovery state was not rendered');
+          }
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const ctx=await browser.newContext({viewport:{width:1280,height:800}});
@@ -49,7 +66,7 @@ jobs:
 
             const expired=await ctx.newPage();
             await expired.goto(origin+'/portal/recovery#type=recovery&error=access_denied&error_code=otp_expired&error_description=expired',{waitUntil:'domcontentloaded'});
-            await expired.waitForFunction(()=>location.hash==='',{timeout:5000});
+            await waitUrlNoHash(expired);
             const errorText=await expired.locator('#linkState').textContent();
             if(!/недействительна|истекла/i.test(errorText||'')) throw new Error('controlled expired-link error not rendered');
             await expired.close();
@@ -63,8 +80,8 @@ jobs:
             const handoff=await ctx.newPage();
             await handoff.goto(origin+'/#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
             await handoff.waitForURL(u=>u.pathname==='/portal/recovery',{timeout:20000});
-            await handoff.waitForFunction(()=>location.hash==='',{timeout:5000});
-            await handoff.waitForFunction(()=>{const t=document.body.innerText.toLowerCase();return t.includes('recovery-сессия не подтверждена')||t.includes('ссылка восстановления недействительна')||t.includes('recovery-сессия не подтверждена или истекла')},{timeout:5000});
+            await waitUrlNoHash(handoff);
+            await waitBodyMatch(handoff,/recovery-сессия не подтверждена|ссылка восстановления недействительна|recovery-сессия не подтверждена или истекла/i);
             await handoff.close();
 
             const alias=await ctx.request.post(origin+'/portal/auth/login',{
