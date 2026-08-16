@@ -6,12 +6,26 @@ const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const RESET_COOKIE='rona_pwreset';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
+const CANONICAL_ORIGINS=new Set(['https://ronaoil.com','https://www.ronaoil.com']);
 function sameOrigin(request){
- const u=new URL(request.url);const o=request.headers.get('origin');
- if(o)return o===u.origin;
- const r=request.headers.get('referer');
- if(r){try{return new URL(r).origin===u.origin}catch{return false}}
- return String(request.headers.get('sec-fetch-site')||'').toLowerCase()==='same-origin';
+ const u=new URL(request.url);
+ const site=String(request.headers.get('sec-fetch-site')||'').toLowerCase();
+ if(site==='cross-site')return false;
+ const o=String(request.headers.get('origin')||'').trim();
+ if(o&&o!=='null'){
+  if(o===u.origin)return true;
+  if(CANONICAL_ORIGINS.has(o)&&CANONICAL_ORIGINS.has(u.origin))return true;
+  return false;
+ }
+ const r=String(request.headers.get('referer')||'').trim();
+ if(r){
+  try{
+   const ro=new URL(r).origin;
+   if(ro===u.origin)return true;
+   if(CANONICAL_ORIGINS.has(ro)&&CANONICAL_ORIGINS.has(u.origin))return true;
+  }catch{return false}
+ }
+ return site==='same-origin'&&CANONICAL_ORIGINS.has(u.origin);
 }
 function accessCookie(token,maxAge=3600){return `${ACCESS_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
 function refreshCookie(token){return `${REFRESH_COOKIE}=${token}; Max-Age=604800; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
