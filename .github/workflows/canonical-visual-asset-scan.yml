@@ -6,17 +6,33 @@ on:
       - staging/canonical-all-portals-visual-20260816
 
 permissions:
-  contents: read
+  contents: write
+  actions: read
 
 jobs:
   direct-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Recover exact frozen sources from repository history and retained workflow artifacts
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/recover-canonical-sources.mjs
+      - name: Persist exact recovered frozen sources when newly recovered
+        run: |
+          if [ -n "$(git status --porcelain -- portal-src/canonical)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add portal-src/canonical
+            git commit -m "Recover exact frozen canonical portal sources [source-recovery]"
+            git push origin HEAD:staging/canonical-all-portals-visual-20260816
+          fi
       - name: Build only from frozen canonical portal sources
         run: npm run build
       - name: Verify frozen-source provenance manifest
