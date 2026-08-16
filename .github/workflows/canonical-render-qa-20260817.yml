@@ -46,7 +46,7 @@ jobs:
           python3 -m http.server 4173 --directory /tmp/baseline >/tmp/baseline-http.log 2>&1 & echo $! >/tmp/baseline.pid
           python3 -m http.server 4174 --directory /tmp/candidate >/tmp/candidate-http.log 2>&1 & echo $! >/tmp/candidate.pid
           sleep 2
-          cat > /tmp/render-compare.mjs <<'NODE'
+          cat > render-compare.mjs <<'NODE'
           import { chromium } from 'playwright';
           import fs from 'node:fs';
           import crypto from 'node:crypto';
@@ -68,7 +68,7 @@ jobs:
             if(ia.width!==ib.width||ia.height!==ib.height) throw new Error(`${kind} render dimensions differ ${ia.width}x${ia.height} vs ${ib.width}x${ib.height}`);
             const diff=new PNG({width:ia.width,height:ia.height});
             const pixels=pixelmatch(ia.data,ib.data,diff.data,ia.width,ia.height,{threshold:0});
-            PNG.sync.write(diff).length && fs.writeFileSync(pd,PNG.sync.write(diff));
+            fs.writeFileSync(pd,PNG.sync.write(diff));
             const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
             results.portals[kind]={width:ia.width,height:ia.height,differing_pixels:pixels,frozen_png_sha256:sha(ba),candidate_png_sha256:sha(bb),pass:pixels===0};
             console.log(`${kind.toUpperCase()}_RENDER_EQUIVALENCE=${pixels===0?'PASS':'FAIL'} differing_pixels=${pixels}`);
@@ -80,7 +80,7 @@ jobs:
           fs.writeFileSync('render-evidence/render-equivalence.json',JSON.stringify(results,null,2));
           console.log('UNAUTHORIZED_VISIBLE_VISUAL_DELTA=0');
           NODE
-          node /tmp/render-compare.mjs
+          node ./render-compare.mjs
           kill $(cat /tmp/baseline.pid) $(cat /tmp/candidate.pid) || true
       - name: Runtime adapter nonvisual static inspection
         run: |
