@@ -1,0 +1,64 @@
+name: Build preflate analyzer
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/build-preflate-analyzer.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Build analyzer from microsoft/preflate-rs v0.7.6
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v0.7.6 https://github.com/microsoft/preflate-rs.git /tmp/preflate-rs
+          mkdir -p /tmp/preflate-rs/analyzer/src
+          cat > /tmp/preflate-rs/analyzer/Cargo.toml <<'TOML'
+          [package]
+          name = "preflate_analyzer"
+          version = "0.1.0"
+          edition = "2024"
+          rust-version = "1.89"
+          [dependencies]
+          preflate-container = { path = "../container" }
+          [workspace]
+          TOML
+          cat > /tmp/preflate-rs/analyzer/src/main.rs <<'RS'
+          use std::{env,fs,io::Cursor,process};
+          use preflate_container::{PreflateContainerConfig,PreflateContainerProcessor,ProcessBuffer,RecreateContainerProcessor};
+          fn main(){
+            let a:Vec<String>=env::args().collect();
+            if a.len()!=4 || (a[1]!="compress" && a[1]!="decompress") { eprintln!("usage: preflate_analyzer <compress|decompress> <input> <output>"); process::exit(2); }
+            let input=fs::read(&a[2]).expect("read input");
+            let config=PreflateContainerConfig{validate_compression:true,max_chain_length:4096,..PreflateContainerConfig::default()};
+            let mut out=Vec::new();
+            if a[1]=="compress" {
+              let mut p=PreflateContainerProcessor::new(&config,22,true);
+              p.copy_to_end_size(&mut Cursor::new(&input),&mut out,usize::MAX).expect("preflate compress");
+              let s=p.stats();
+              eprintln!("stats deflate_compressed={} zstd_compressed={} uncompressed={} overhead={} hash={:?} zstd_baseline={}",s.deflate_compressed_size,s.zstd_compressed_size,s.uncompressed_size,s.overhead_bytes,s.hash_algorithm,s.zstd_baseline_size);
+            } else {
+              let mut p=RecreateContainerProcessor::new(config.chunk_plain_text_limit);
+              p.copy_to_end_size(&mut Cursor::new(&input),&mut out,usize::MAX).expect("preflate decompress");
+            }
+            fs::write(&a[3],&out).expect("write output");
+            eprintln!("mode={} input_bytes={} output_bytes={}",a[1],input.len(),out.len());
+          }
+          RS
+          cargo build --release --manifest-path /tmp/preflate-rs/analyzer/Cargo.toml
+          install -m 0755 /tmp/preflate-rs/analyzer/target/release/preflate_analyzer "$GITHUB_WORKSPACE/preflate_analyzer"
+          sha256sum "$GITHUB_WORKSPACE/preflate_analyzer"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preflate-analyzer-linux-x64-v0.7.6
+          path: preflate_analyzer
+          if-no-files-found: error
+          retention-days: 1
