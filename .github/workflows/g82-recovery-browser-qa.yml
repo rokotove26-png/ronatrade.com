@@ -53,7 +53,7 @@ jobs:
             let ready=false;
             for(let i=0;i<60;i++){
               const r=await ctx.request.get(origin+'/portal/recovery?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}}).catch(()=>null);
-              if(r&&r.ok()&&(await r.text()).includes('/portal/auth/recovery-session')){ready=true;break}
+              if(r&&r.ok()&&(await r.text()).includes('Проверяем одноразовый код')){ready=true;break}
               await sleep(5000);
             }
             if(!ready) throw new Error('recovery deployment did not become observable');
@@ -63,6 +63,22 @@ jobs:
             await clean.locator('input[name="otp"]').waitFor({state:'visible'});
             if(new URL(clean.url()).hash) throw new Error('unexpected fragment on clean recovery page');
             await clean.close();
+
+            const verifyError=await ctx.newPage();
+            await verifyError.goto(origin+'/portal/recovery?error=verify',{waitUntil:'domcontentloaded'});
+            await waitBodyMatch(verifyError,/код не подтверждён|недействителен|истёк/i);
+            await verifyError.close();
+
+            const badOtp=await ctx.request.post(origin+'/portal/auth/recovery-otp',{
+              headers:{origin,'content-type':'application/json',accept:'text/html','sec-fetch-site':'same-origin'},
+              data:{otp:'11111111'},
+              maxRedirects:0
+            });
+            if(badOtp.status()!==303||badOtp.headers()['location']!=='/portal/recovery?error=verify') throw new Error('bad OTP not controlled: '+badOtp.status()+' '+(badOtp.headers()['location']||''));
+            const badOtpPage=await ctx.newPage();
+            await badOtpPage.goto(origin+badOtp.headers()['location'],{waitUntil:'domcontentloaded'});
+            await waitBodyMatch(badOtpPage,/код не подтверждён|недействителен|истёк/i);
+            await badOtpPage.close();
 
             const expired=await ctx.newPage();
             await expired.goto(origin+'/portal/recovery#type=recovery&error=access_denied&error_code=otp_expired&error_description=expired',{waitUntil:'domcontentloaded'});
@@ -93,7 +109,7 @@ jobs:
 
             const legacy=await ctx.request.get(origin+'/portal/auth/recovery?token_hash=not-a-real-token&type=recovery',{maxRedirects:0});
             if(legacy.status()!==303||legacy.headers()['location']!=='/portal/recovery') throw new Error('legacy recovery route not controlled');
-            console.log(JSON.stringify({ok:true,origin,recoveryPage:true,errorFragmentScrubbed:true,recoverySessionFailClosed:true,siteRootRecoveryHandoff:true,ownerAliasAccepted:true,legacyRecoveryControlled:true}));
+            console.log(JSON.stringify({ok:true,origin,recoveryPage:true,visibleOtpError:true,otpFailClosed:true,errorFragmentScrubbed:true,recoverySessionFailClosed:true,siteRootRecoveryHandoff:true,ownerAliasAccepted:true,legacyRecoveryControlled:true}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
