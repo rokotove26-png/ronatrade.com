@@ -1,0 +1,48 @@
+name: Scan exact canonical Git objects
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/scan-exact-canonical-git-objects.yml
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch all refs and scan exact blob content SHA-256
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --all --tags --prune
+          cat > /tmp/targets.txt <<'EOF'
+          9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea ADMIN_HTML
+          961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31 CLIENT_HTML
+          4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c AGENT_HTML
+          9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc BACKGROUND_PNG
+          755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65 LOGO_SVG
+          6fa2712a17a0d724a55b106a1d8badccc7c75352dbebef28520cc8ebea8f70bb ADMIN_EXTERNALIZED
+          2e187a2fca9028358bdfe63e68357d98faffa6ca8a43b04953c3e6e4cce49b68 CLIENT_EXTERNALIZED
+          f57c5ffb7d1e7a6064d7d8ba6c87e5eb165c3f87aaeb4660c73d6a5c5855f527 AGENT_EXTERNALIZED
+          EOF
+          declare -A wanted
+          while read -r h n; do wanted[$h]=$n; done < /tmp/targets.txt
+          found=0
+          while read -r oid type size; do
+            [ "$type" = blob ] || continue
+            [ "$size" -le 5000000 ] || continue
+            h=$(git cat-file blob "$oid" | sha256sum | awk '{print $1}')
+            if [ -n "${wanted[$h]:-}" ]; then
+              echo "EXACT_CANONICAL_GIT_OBJECT target=${wanted[$h]} sha256=$h git_blob=$oid bytes=$size"
+              found=$((found+1))
+            fi
+          done < <(git rev-list --objects --all | awk '{print $1}' | sort -u | git cat-file --batch-check='%(objectname) %(objecttype) %(objectsize)')
+          echo "EXACT_CANONICAL_GIT_OBJECT_COUNT=$found"
