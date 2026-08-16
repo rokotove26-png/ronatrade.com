@@ -33,7 +33,6 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const ctx=await browser.newContext({viewport:{width:1280,height:800}});
-            const p=await ctx.newPage();
             let ready=false;
             for(let i=0;i<60;i++){
               const r=await ctx.request.get(origin+'/portal/recovery?_qa='+Date.now(),{headers:{'cache-control':'no-cache'}}).catch(()=>null);
@@ -42,15 +41,18 @@ jobs:
             }
             if(!ready) throw new Error('recovery deployment did not become observable');
 
-            await p.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
-            await p.locator('input[name="otp"]').waitFor({state:'visible'});
-            if(new URL(p.url()).hash) throw new Error('unexpected fragment on clean recovery page');
+            const clean=await ctx.newPage();
+            await clean.goto(origin+'/portal/recovery',{waitUntil:'domcontentloaded'});
+            await clean.locator('input[name="otp"]').waitFor({state:'visible'});
+            if(new URL(clean.url()).hash) throw new Error('unexpected fragment on clean recovery page');
+            await clean.close();
 
-            await p.goto(origin+'/portal/recovery#type=recovery&error=access_denied&error_code=otp_expired&error_description=expired',{waitUntil:'domcontentloaded'});
-            await p.waitForTimeout(300);
-            if(new URL(p.url()).hash) throw new Error('recovery error fragment was not scrubbed');
-            const errorText=await p.locator('#linkState').textContent();
+            const expired=await ctx.newPage();
+            await expired.goto(origin+'/portal/recovery#type=recovery&error=access_denied&error_code=otp_expired&error_description=expired',{waitUntil:'domcontentloaded'});
+            await expired.waitForFunction(()=>location.hash==='',{timeout:5000});
+            const errorText=await expired.locator('#linkState').textContent();
             if(!/недействительна|истекла/i.test(errorText||'')) throw new Error('controlled expired-link error not rendered');
+            await expired.close();
 
             const badSession=await ctx.request.post(origin+'/portal/auth/recovery-session',{
               headers:{origin,'content-type':'application/json',accept:'application/json'},
@@ -58,12 +60,13 @@ jobs:
             });
             if(![401,403].includes(badSession.status())) throw new Error('bogus recovery session did not fail closed: '+badSession.status());
 
-            await p.goto(origin+'/pages/home_large?layout=large#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
-            await p.waitForURL(u=>u.pathname==='/portal/recovery',{timeout:20000});
-            await p.waitForTimeout(500);
-            if(new URL(p.url()).hash) throw new Error('homepage recovery handoff left tokens in fragment');
-            const handoffBody=(await p.locator('body').innerText()).toLowerCase();
+            const handoff=await ctx.newPage();
+            await handoff.goto(origin+'/pages/home_large?layout=large#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
+            await handoff.waitForURL(u=>u.pathname==='/portal/recovery',{timeout:20000});
+            await handoff.waitForFunction(()=>location.hash==='',{timeout:5000});
+            const handoffBody=(await handoff.locator('body').innerText()).toLowerCase();
             if(!handoffBody.includes('recovery-сессия не подтверждена')&&!handoffBody.includes('ссылка восстановления')) throw new Error('homepage recovery handoff did not end in controlled recovery state');
+            await handoff.close();
 
             const alias=await ctx.request.post(origin+'/portal/auth/login',{
               headers:{origin,'content-type':'application/json',accept:'application/json'},
