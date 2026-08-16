@@ -21,21 +21,22 @@ jobs:
           node-version: '20'
       - name: Build reconstructed Admin artifact
         run: npm run build
-      - name: Locate canonical background and print current rule
+      - name: Compare canonical pixel fingerprint with repository PNGs
         run: |
-          echo 'CANONICAL_PNG_SHA256=9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
-          echo '@@PNG_ASSET_HASHES@@'
+          echo 'CANONICAL_FILE_SHA256=9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
+          echo 'CANONICAL_RGBA_SHA256=5e2ce8aa62ca5c6b93624579d441090b73508d661bfd4efd5b54175802fe13ba'
+          echo '@@PNG_FILE_HASHES@@'
           find assets -type f -name '*.png' -print0 | sort -z | xargs -0 sha256sum
-          echo '@@PNG_DIMENSIONS@@'
-          python3 - <<'PY'
-          import glob,struct
-          for p in sorted(glob.glob('assets/**/*.png',recursive=True)):
-              with open(p,'rb') as f: h=f.read(24)
-              if h[:8]==b'\x89PNG\r\n\x1a\n':
-                  w,hh=struct.unpack('>II',h[16:24]); print(f'{w}x{hh} {p}')
-          PY
+          echo '@@PNG_RGBA_HASHES@@'
+          if command -v convert >/dev/null 2>&1; then
+            while IFS= read -r p; do printf '%s  %s\n' "$(convert "$p" RGBA:- | sha256sum | cut -d' ' -f1)" "$p"; done < <(find assets -type f -name '*.png' | sort)
+          elif command -v magick >/dev/null 2>&1; then
+            while IFS= read -r p; do printf '%s  %s\n' "$(magick "$p" RGBA:- | sha256sum | cut -d' ' -f1)" "$p"; done < <(find assets -type f -name '*.png' | sort)
+          else
+            echo IMAGEMAGICK_NOT_AVAILABLE
+          fi
           node <<'NODE'
           const fs=require('fs'),crypto=require('crypto');const s=fs.readFileSync('dist/portal/admin.html','utf8');
           console.log('@@ADMIN@@',JSON.stringify({sha256:crypto.createHash('sha256').update(s).digest('hex'),bytes:Buffer.byteLength(s)}));
-          const m=s.match(/body:before\{[^}]*\}/i);console.log('@@BODY_BEFORE@@');console.log(m?m[0]:'NOT_FOUND');
+          console.log('@@BODY_BEFORE@@');console.log(s.match(/body:before\{[^}]*\}/i)?.[0]||'NOT_FOUND');
           NODE
