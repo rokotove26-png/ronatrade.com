@@ -1,0 +1,97 @@
+name: Import exact canonical portal source package
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+    paths:
+      - .github/workflows/import-canonical-transfer-20260817.yml
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Download and verify exact transfer package
+        shell: bash
+        env:
+          TRANSFER_KEY: 0535a58f5947ba9852e1acdd94df20fb8a50639447f6a7f757ebefcac1425633
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$TRANSFER_KEY"
+          URL='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-canonical-transfer-20260817'
+          curl --fail --silent --show-error --retry 8 --retry-delay 5 -H "x-rona-transfer-key: $TRANSFER_KEY" "$URL" -o /tmp/canonical.zip
+          echo 'efc7040327d792d88bf1c912e74f8172953199c24ff8ed3088733df5e0e5046f  /tmp/canonical.zip' | sha256sum -c -
+          rm -rf /tmp/canonical && mkdir -p /tmp/canonical
+          unzip -q /tmp/canonical.zip -d /tmp/canonical
+          cd /tmp/canonical
+          test "$(stat -c%s admin_frozen.html)" = '4559763'
+          test "$(sha256sum admin_frozen.html | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
+          test "$(stat -c%s agent_frozen.html)" = '4022017'
+          test "$(sha256sum agent_frozen.html | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
+          test "$(stat -c%s client_frozen.html)" = '4239768'
+          test "$(sha256sum client_frozen.html | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
+          test "$(stat -c%s canonical_background.png)" = '2627000'
+          test "$(sha256sum canonical_background.png | awk '{print $1}')" = '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
+          test "$(stat -c%s canonical_logo.svg)" = '336904'
+          test "$(sha256sum canonical_logo.svg | awk '{print $1}')" = '755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'
+          node -e "const fs=require('fs'); JSON.parse(fs.readFileSync('MANIFEST.json','utf8')); console.log('MANIFEST_JSON=PASS')"
+      - name: Install exact canonical source bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p portal-src/canonical portal-src/canonical-transfer-v1_1
+          cp /tmp/canonical/admin_frozen.html 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html'
+          cp /tmp/canonical/agent_frozen.html 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html'
+          cp /tmp/canonical/client_frozen.html 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html'
+          cp /tmp/canonical/canonical_background.png portal-src/canonical/canonical_background.png
+          cp /tmp/canonical/canonical_logo.svg portal-src/canonical/canonical_logo.svg
+          cp /tmp/canonical/admin_externalized.html portal-src/canonical-transfer-v1_1/admin_externalized.html
+          cp /tmp/canonical/agent_externalized.html portal-src/canonical-transfer-v1_1/agent_externalized.html
+          cp /tmp/canonical/client_externalized.html portal-src/canonical-transfer-v1_1/client_externalized.html
+          cp /tmp/canonical/MANIFEST.json portal-src/canonical-transfer-v1_1/MANIFEST.json
+          cp /tmp/canonical/README_TRANSFER.md portal-src/canonical-transfer-v1_1/README_TRANSFER.md
+          printf '%s\n' 'efc7040327d792d88bf1c912e74f8172953199c24ff8ed3088733df5e0e5046f  RONA_CANONICAL_PORTAL_SOURCE_TRANSFER_v1_1_20260817.zip' > portal-src/canonical-transfer-v1_1/PACKAGE_SHA256.txt
+      - name: Reconstruct externalized sources and prove byte identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const dir='portal-src/canonical-transfer-v1_1';
+          const png=fs.readFileSync('portal-src/canonical/canonical_background.png');
+          const svg=fs.readFileSync('portal-src/canonical/canonical_logo.svg');
+          const bg='data:image/png;base64,'+png.toString('base64');
+          const logo='data:image/svg+xml;base64,'+svg.toString('base64');
+          const rows=[
+            ['admin','9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'],
+            ['agent','4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'],
+            ['client','961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31']
+          ];
+          for(const [name,exp] of rows){
+            let s=fs.readFileSync(`${dir}/${name}_externalized.html`,'utf8');
+            s=s.replaceAll('__RONA_CANONICAL_BACKGROUND_DATA_URI__',bg).replaceAll('__RONA_CANONICAL_LOGO_DATA_URI__',logo);
+            const h=crypto.createHash('sha256').update(Buffer.from(s,'utf8')).digest('hex');
+            if(h!==exp) throw new Error(`${name} reconstructed SHA mismatch ${h}`);
+            console.log(`${name.toUpperCase()}_RECONSTRUCTED_SOURCE=PASS sha256=${h}`);
+          }
+          NODE
+      - name: Commit exact canonical sources to staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add portal-src/canonical portal-src/canonical-transfer-v1_1
+          if git diff --cached --quiet; then
+            echo 'CANONICAL_SOURCE_IMPORT=ALREADY_PRESENT'
+          else
+            git commit -m 'Import exact frozen Admin Agent Client canonical sources [visual-source]'
+            git push origin HEAD:staging/canonical-all-portals-visual-20260816
+          fi
