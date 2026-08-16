@@ -27,14 +27,19 @@ jobs:
           const fs=require('fs');const crypto=require('crypto');
           const p='dist/portal/admin.html';const s=fs.readFileSync(p,'utf8');
           const sha=crypto.createHash('sha256').update(s).digest('hex');
-          const pick=(label,re)=>{const m=s.match(re);console.log('@@'+label+'@@');console.log(m?m[0]:'NOT_FOUND');};
           console.log(JSON.stringify({sha256:sha,bytes:Buffer.byteLength(s),hasServerSession:s.includes('SERVER_SESSION'),hasAdminBootstrap:s.includes('/portal/api/v1/admin/bootstrap'),hasDeferred:s.includes('application/rona-admin-deferred')}));
-          pick('BODY_RULE',/body\s*\{[^}]{0,4000}\}/i);
-          pick('SHELL_RULE',/\.shell\s*\{[^}]{0,4000}\}/i);
-          pick('SHELL_BEFORE_RULE',/\.shell::before\s*\{[^}]{0,8000}\}/i);
-          for(const term of ['world','map','route','logistics','background-image','data:image/svg+xml']){
-            let i=0,n=0;console.log('@@TERM '+term+'@@');
-            while((i=s.toLowerCase().indexOf(term.toLowerCase(),i))>=0&&n<8){console.log(s.slice(Math.max(0,i-500),Math.min(s.length,i+1500)));i+=term.length;n++;}
-            if(!n)console.log('NOT_FOUND');
+          const styles=[...s.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/gi)].map(m=>m[1]).join('\n');
+          console.log('@@ROOT_RULES@@');for(const m of styles.matchAll(/:root\s*\{[^}]*\}/gi))console.log(m[0]);
+          console.log('@@BACKGROUND_RULES@@');
+          for(const rule of styles.split('}')){if(/background|mask|filter|opacity/i.test(rule)&&rule.trim())console.log(rule.trim()+'}');}
+          console.log('@@SVG_CONTEXTS@@');
+          let i=0,n=0;while((i=s.toLowerCase().indexOf('<svg',i))>=0&&n<20){console.log(s.slice(Math.max(0,i-500),Math.min(s.length,i+6000)));i+=4;n++;}
+          if(!n)console.log('NOT_FOUND');
+          console.log('@@CANVAS_CONTEXTS@@');
+          i=0;n=0;while((i=s.toLowerCase().indexOf('<canvas',i))>=0&&n<20){console.log(s.slice(Math.max(0,i-500),Math.min(s.length,i+3000)));i+=7;n++;}
+          if(!n)console.log('NOT_FOUND');
+          console.log('@@VISUAL_CLASS_HINTS@@');
+          for(const term of ['hero','backdrop','underlay','background','network','globe','geo','route','map-layer','map-bg','world-map','topology','grid-bg']){
+            let j=0,c=0;console.log('@@TERM '+term+'@@');while((j=s.toLowerCase().indexOf(term,j))>=0&&c<6){console.log(s.slice(Math.max(0,j-300),Math.min(s.length,j+1200)));j+=term.length;c++;}if(!c)console.log('NOT_FOUND');
           }
           NODE
