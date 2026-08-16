@@ -15,16 +15,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Build analyzer from microsoft/preflate-rs v0.7.6
+      - name: Build exact PNG transport analyzer from microsoft/preflate-rs v0.7.6
         shell: bash
         run: |
           set -euo pipefail
           git clone --depth 1 --branch v0.7.6 https://github.com/microsoft/preflate-rs.git /tmp/preflate-rs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/preflate-rs/container/src/container_write.rs')
+          s=p.read_text()
+          s=s.replace('webpconfig.alpha_compression = 0;', 'webpconfig.alpha_compression = 1;')
+          s=s.replace('webpconfig.quality = 75.0;', 'webpconfig.quality = 100.0;')
+          s=s.replace('webpconfig.method = 4;', 'webpconfig.method = 6;')
+          p.write_text(s)
+          PY
           mkdir -p /tmp/preflate-rs/analyzer/src
           cat > /tmp/preflate-rs/analyzer/Cargo.toml <<'TOML'
           [package]
           name = "preflate_analyzer"
-          version = "0.1.0"
+          version = "0.2.0"
           edition = "2024"
           rust-version = "1.89"
           [dependencies]
