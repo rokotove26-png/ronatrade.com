@@ -29,6 +29,13 @@ const ADMIN_PARTS = [
 ];
 const EXPECTED_AGENT_SHA256 = 'e34bfe5f4c749851b618b0bf8a4e99e2b90fb78c88bf4bd4eee183dae97885a8';
 const EXPECTED_CLIENT_SAFE_GIT_BLOB = '23463358c0d921abdeb3f532f710803b3b7fe824';
+const CANONICAL_ADMIN_SOURCE_SHA256 = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea';
+const CANONICAL_ADMIN_BG_SOURCE = 'portal-src/admin-canonical-v3_4_13-background.png';
+const CANONICAL_ADMIN_BG_SHA256 = '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc';
+const CANONICAL_ADMIN_BG_BYTES = 2627000;
+const CANONICAL_ADMIN_BG_PUBLIC = '/assets/admin/canonical-v3_4_13-background.png';
+const UNAUTHORIZED_ADMIN_BG_RULE = 'body:before{content:"";position:fixed;inset:0;background:url("/assets/geography/5c2ddfaafe439a9f.png") center/cover no-repeat;z-index:0}';
+const CANONICAL_ADMIN_BG_RULE = `body:before{content:"";position:fixed;inset:0;background:url("${CANONICAL_ADMIN_BG_PUBLIC}") center/cover no-repeat;z-index:0}`;
 const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 async function exists(path) { try { await stat(path); return true; } catch { return false; } }
@@ -127,6 +134,12 @@ for (const entry of STATIC_ENTRIES) {
   await cp(source, join(OUT, entry), { recursive: true, force: true });
 }
 
+const canonicalAdminBgPath = join(ROOT, ...CANONICAL_ADMIN_BG_SOURCE.split('/'));
+if (!(await exists(canonicalAdminBgPath))) throw new Error(`Canonical Admin v3.4.13 background source missing: ${CANONICAL_ADMIN_BG_SOURCE}`);
+const canonicalAdminBg = await readFile(canonicalAdminBgPath);
+if (canonicalAdminBg.length !== CANONICAL_ADMIN_BG_BYTES) throw new Error(`Canonical Admin v3.4.13 background byte length mismatch: ${canonicalAdminBg.length}`);
+requireSha256(`Canonical Admin background extracted from ${CANONICAL_ADMIN_SOURCE_SHA256}`, canonicalAdminBg, CANONICAL_ADMIN_BG_SHA256);
+
 const agentEncoded = await readEncoded(AGENT_PARTS, 'Approved Agent');
 let agentSource;
 try {
@@ -138,7 +151,13 @@ requireSha256('Approved Agent v0.4.3 externalized visual source', agentSource, E
 
 const adminEncoded = await readEncoded(ADMIN_PARTS, 'Approved Admin G8.2');
 const recoveredAdmin = await recoverAdminBase64(adminEncoded);
-const adminSource = recoveredAdmin.source;
+const reconstructedAdminText = recoveredAdmin.source.toString('utf8');
+const offendingCount = reconstructedAdminText.split(UNAUTHORIZED_ADMIN_BG_RULE).length - 1;
+if (offendingCount !== 1) throw new Error(`Admin visual provenance gate failed: expected exactly one unauthorized geography background rule, found ${offendingCount}`);
+const adminText = reconstructedAdminText.replace(UNAUTHORIZED_ADMIN_BG_RULE, CANONICAL_ADMIN_BG_RULE);
+if (adminText.includes('/assets/geography/5c2ddfaafe439a9f.png')) throw new Error('Admin visual regression gate failed: unauthorized geography background still referenced');
+if (!adminText.includes(CANONICAL_ADMIN_BG_RULE)) throw new Error('Admin visual regression gate failed: canonical v3.4.13 background rule missing');
+const adminSource = Buffer.from(adminText, 'utf8');
 const adminSha256 = sha256(adminSource);
 
 const clientSource = await readFile(join(ROOT, 'portal-src', 'client.html'));
@@ -152,7 +171,6 @@ for (const forbidden of ['RONA-C00', 'DEAL-2026', 'PAYEV-', 'CLIENT_CONTEXTS', '
   if (agentText.toLowerCase().includes(forbidden.toLowerCase())) throw new Error(`Agent preview contains forbidden business/security marker: ${forbidden}`);
 }
 
-const adminText = adminSource.toString('utf8');
 for (const required of ['Кабинет администратора v3.4.13', 'SERVER_SESSION', '/portal/api/v1/admin/bootstrap', 'application/rona-admin-deferred']) {
   if (!adminText.includes(required)) throw new Error(`Admin G8.2 server-session marker missing: ${required}`);
 }
@@ -167,17 +185,27 @@ for (const forbidden of ['RONA-C00', 'DEAL-2026', 'PAYEV-', 'CLIENT_CONTEXTS', '
 }
 
 await mkdir(join(OUT, 'portal'), { recursive: true });
+await mkdir(join(OUT, 'assets', 'admin'), { recursive: true });
+await writeFile(join(OUT, 'assets', 'admin', 'canonical-v3_4_13-background.png'), canonicalAdminBg);
 await writeFile(join(OUT, 'portal', 'admin.html'), adminSource);
 await writeFile(join(OUT, 'portal', 'agent.html'), agentSource);
 await writeFile(join(OUT, 'portal', 'client.html'), clientSource);
-await writeFile(join(OUT, 'g82-admin-integrity.json'), JSON.stringify({ sha256: adminSha256, bytes: adminSource.length, repair: recoveredAdmin.repair }));
+await writeFile(join(OUT, 'g82-admin-integrity.json'), JSON.stringify({
+  sha256: adminSha256,
+  bytes: adminSource.length,
+  repair: recoveredAdmin.repair,
+  canonical_visual_source_sha256: CANONICAL_ADMIN_SOURCE_SHA256,
+  canonical_background_sha256: CANONICAL_ADMIN_BG_SHA256,
+  canonical_background_bytes: CANONICAL_ADMIN_BG_BYTES,
+  canonical_background_url: CANONICAL_ADMIN_BG_PUBLIC,
+}));
 
 for (const name of FORBIDDEN_TOP_LEVEL) if (await exists(join(OUT, name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files = await walk(OUT);
 const forbiddenExtensions = /\.(zip|tar|gz|7z|md|txt|log)$/i;
 const forbiddenFiles = files.map(file => relative(OUT, file).replaceAll('\\', '/')).filter(file => forbiddenExtensions.test(file));
 if (forbiddenFiles.length) throw new Error(`Forbidden files in deployment output: ${forbiddenFiles.join(', ')}`);
-for (const required of ['index.html', 'en/index.html', 'investments/index.html', 'en/investments/index.html', '_routes.json', 'portal/admin.html', 'portal/agent.html', 'portal/client.html']) {
+for (const required of ['index.html', 'en/index.html', 'investments/index.html', 'en/investments/index.html', '_routes.json', 'portal/admin.html', 'portal/agent.html', 'portal/client.html', 'assets/admin/canonical-v3_4_13-background.png']) {
   if (!(await exists(join(OUT, ...required.split('/'))))) throw new Error(`dist/${required} missing`);
 }
-console.log(`RONA Pages build PASS: ${files.length} public files; Admin SHA-256 ${adminSha256}; repair ${JSON.stringify(recoveredAdmin.repair)}; approved Agent v0.4.3 reconstructed; Client fail-closed shell; security gates PASS.`);
+console.log(`RONA Pages build PASS: ${files.length} public files; Admin SHA-256 ${adminSha256}; canonical Admin background ${CANONICAL_ADMIN_BG_SHA256}; repair ${JSON.stringify(recoveredAdmin.repair)}; approved Agent v0.4.3 reconstructed; Client fail-closed shell; security gates PASS.`);
