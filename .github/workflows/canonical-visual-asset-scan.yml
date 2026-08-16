@@ -1,4 +1,4 @@
-name: Canonical visual asset scan
+name: Canonical frozen source direct-build gate
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  scan:
+  direct-build:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -17,5 +17,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Scan repository for exact frozen portal assets
-        run: node scripts/find-canonical-visual-assets.mjs
+      - name: Build only from frozen canonical portal sources
+        run: npm run build
+      - name: Verify frozen-source provenance manifest
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const p='dist/canonical-visual-integrity.json';
+          const j=JSON.parse(fs.readFileSync(p,'utf8'));
+          const exp={admin:'9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea',agent:'4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c',client:'961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'};
+          if(j.architecture!=='FROZEN_CANONICAL_SOURCE_DIRECT_BUILD') throw new Error('wrong architecture');
+          if(j.visual_transform!=='NONE_AT_BUILD_TIME') throw new Error('visual transform detected');
+          if(j.binary_repository_asset_required!==false) throw new Error('binary repository prerequisite reintroduced');
+          for(const [k,v] of Object.entries(exp)) if(j.sources?.[k]?.sha256!==v) throw new Error(`${k} provenance mismatch`);
+          if(j.embedded_assets?.background_png?.sha256!=='9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'||j.embedded_assets?.background_png?.bytes!==2627000) throw new Error('canonical background mismatch');
+          if(j.embedded_assets?.logo_svg?.sha256!=='755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'||j.embedded_assets?.logo_svg?.bytes!==336904) throw new Error('canonical logo mismatch');
+          console.log('CANONICAL FROZEN SOURCE DIRECT BUILD PROVENANCE — PASS');
+          NODE
