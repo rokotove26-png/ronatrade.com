@@ -1,0 +1,21 @@
+name: Canonical visual asset scan
+
+on:
+  push:
+    branches:
+      - staging/canonical-all-portals-visual-20260816
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Scan repository for exact frozen portal assets
+        run: node scripts/find-canonical-visual-assets.mjs
