@@ -1,4 +1,4 @@
-name: G8.2 canonical portal provenance scan
+name: G8.2 canonical asset provenance scan
 
 on:
   push:
@@ -20,32 +20,26 @@ jobs:
           fetch-depth: 0
       - name: Fetch all refs
         run: git fetch --all --tags --force --prune
-      - name: Find exact canonical sources and lineage evidence
+      - name: Find exact canonical visual asset blobs
         shell: bash
         run: |
           set -euo pipefail
-          ADMIN='9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
-          CLIENT='961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
-          AGENT='4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
-          echo '@@TARGET_SHA256@@'
-          printf 'ADMIN %s\nCLIENT %s\nAGENT %s\n' "$ADMIN" "$CLIENT" "$AGENT"
-          echo '@@EXACT_SHA_MATCHES_ALL_GIT_BLOBS@@'
+          BG='9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
+          LOGO='755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'
+          echo "@@TARGETS@@ BG=$BG LOGO=$LOGO"
           git rev-list --objects --all | awk '{print $1}' | sort -u > /tmp/oids
           while read -r oid; do
             [ "$(git cat-file -t "$oid" 2>/dev/null || true)" = blob ] || continue
             size=$(git cat-file -s "$oid")
-            [ "$size" -le 15000000 ] || continue
+            [ "$size" -le 8000000 ] || continue
             h=$(git cat-file blob "$oid" | sha256sum | awk '{print $1}')
-            if [ "$h" = "$ADMIN" ] || [ "$h" = "$CLIENT" ] || [ "$h" = "$AGENT" ]; then
+            if [ "$h" = "$BG" ] || [ "$h" = "$LOGO" ]; then
               echo "MATCH sha256=$h oid=$oid size=$size"
-              git rev-list --objects --all | awk -v o="$oid" '$1==o{print "PATH " $0}' | head -20
+              git rev-list --objects --all | awk -v o="$oid" '$1==o{print "PATH " $0}' | head -50
+              echo '@@COMMITS_CONTAINING_BLOB@@'
+              for c in $(git rev-list --all --objects | awk -v o="$oid" '$1==o{print $1}' | head -1); do :; done
+              git log --all --find-object="$oid" --date=iso-strict --pretty='format:COMMIT %H %ad %s' --name-status | head -120 || true
             fi
           done < /tmp/oids
-          echo '@@PORTAL_PATH_HISTORY@@'
-          git log --all --date=iso-strict --pretty='format:COMMIT %H %ad %s' --name-only -- \
-            '*Admin*' '*admin*' '*Client*' '*client*' '*Agent*' '*agent*' '*Staff*' '*staff*' '*Office*' '*office*' '*portal*' | \
-            grep -Ei '^(COMMIT |.*(admin|client|agent|staff|office|portal).*)' | head -500 || true
-          echo '@@APPROVAL_COMMIT_MESSAGES@@'
-          git log --all --date=iso-strict --pretty='format:%H|%ad|%s' | grep -Ei 'approv|canonical|client|agent|admin|staff|office|portal|v1\.5\.14|v0\.4\.3|v3\.4\.13' | head -500 || true
-          echo '@@STAFF_LIKELY_CONTENT_MARKERS@@'
-          git rev-list --objects --all | awk 'NF>1{print $1" "$2}' | grep -Ei '(staff|office|internal|workspace|portal)' | head -500 || true
+          echo '@@CURRENT_RASTER_AND_VECTOR_ASSETS@@'
+          find assets -type f \( -iname '*.png' -o -iname '*.svg' -o -iname '*.webp' -o -iname '*.jpg' -o -iname '*.jpeg' \) -print | sort | head -500
