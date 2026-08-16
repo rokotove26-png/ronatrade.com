@@ -61,11 +61,10 @@ jobs:
             if(![401,403].includes(badSession.status())) throw new Error('bogus recovery session did not fail closed: '+badSession.status());
 
             const handoff=await ctx.newPage();
-            await handoff.goto(origin+'/pages/home_large?layout=large#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
+            await handoff.goto(origin+'/#type=recovery&access_token=bad-access&refresh_token=bad-refresh',{waitUntil:'domcontentloaded'});
             await handoff.waitForURL(u=>u.pathname==='/portal/recovery',{timeout:20000});
             await handoff.waitForFunction(()=>location.hash==='',{timeout:5000});
-            const handoffBody=(await handoff.locator('body').innerText()).toLowerCase();
-            if(!handoffBody.includes('recovery-сессия не подтверждена')&&!handoffBody.includes('ссылка восстановления')) throw new Error('homepage recovery handoff did not end in controlled recovery state');
+            await handoff.waitForFunction(()=>{const t=document.body.innerText.toLowerCase();return t.includes('recovery-сессия не подтверждена')||t.includes('ссылка восстановления недействительна')||t.includes('recovery-сессия не подтверждена или истекла')},{timeout:5000});
             await handoff.close();
 
             const alias=await ctx.request.post(origin+'/portal/auth/login',{
@@ -77,7 +76,7 @@ jobs:
 
             const legacy=await ctx.request.get(origin+'/portal/auth/recovery?token_hash=not-a-real-token&type=recovery',{maxRedirects:0});
             if(legacy.status()!==303||legacy.headers()['location']!=='/portal/recovery') throw new Error('legacy recovery route not controlled');
-            console.log(JSON.stringify({ok:true,origin,recoveryPage:true,errorFragmentScrubbed:true,recoverySessionFailClosed:true,homepageRecoveryHandoff:true,ownerAliasAccepted:true,legacyRecoveryControlled:true}));
+            console.log(JSON.stringify({ok:true,origin,recoveryPage:true,errorFragmentScrubbed:true,recoverySessionFailClosed:true,siteRootRecoveryHandoff:true,ownerAliasAccepted:true,legacyRecoveryControlled:true}));
             await browser.close();
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
