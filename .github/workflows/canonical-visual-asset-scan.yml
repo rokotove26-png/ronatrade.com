@@ -7,16 +7,13 @@ on:
 
 permissions:
   contents: write
-  actions: read
 
 jobs:
   direct-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -31,27 +28,31 @@ jobs:
             git commit -m "Attach server auth and fail-closed adapter to frozen portals [runtime-adapter]"
             git push origin HEAD:staging/canonical-all-portals-visual-20260816
           fi
-      - name: Recover exact frozen sources from repository history and retained workflow artifacts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: node scripts/recover-canonical-sources.mjs
-      - name: Persist exact recovered frozen sources when newly recovered
+      - name: Require exact frozen visual sources
         run: |
-          if [ -n "$(git status --porcelain -- portal-src/canonical)" ]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add portal-src/canonical
-            git commit -m "Recover exact frozen canonical portal sources [source-recovery]"
-            git push origin HEAD:staging/canonical-all-portals-visual-20260816
-          fi
+          node - <<'NODE'
+          const fs=require('fs');
+          const required=[
+            'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html',
+            'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html',
+            'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html'
+          ];
+          const missing=required.filter(p=>!fs.existsSync(p));
+          if(missing.length){
+            console.error('CANONICAL_SOURCE_TRANSFER_HOLD');
+            for(const p of missing) console.error('MISSING '+p);
+            console.error('NO SUBSTITUTE / NO OWNER BINARY UPLOAD / NO PRODUCTION PROMOTION');
+            process.exit(3);
+          }
+          console.log('CANONICAL_SOURCE_TRANSFER=PRESENT');
+          NODE
       - name: Build only from frozen canonical portal sources
         run: npm run build
       - name: Verify frozen-source provenance manifest
         run: |
           node - <<'NODE'
           const fs=require('fs');
-          const p='dist/canonical-visual-integrity.json';
-          const j=JSON.parse(fs.readFileSync(p,'utf8'));
+          const j=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const exp={admin:'9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea',agent:'4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c',client:'961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'};
           if(j.architecture!=='FROZEN_CANONICAL_SOURCE_DIRECT_BUILD') throw new Error('wrong architecture');
           if(j.visual_transform!=='NONE_AT_BUILD_TIME') throw new Error('visual transform detected');
