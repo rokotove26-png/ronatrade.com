@@ -6,20 +6,22 @@ on:
       - 'release/public-go-live-v1.1'
 
 permissions:
+  actions: read
+  checks: read
   contents: read
   statuses: write
 
 jobs:
   diagnose-agent-core:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: npm install --no-save --ignore-scripts acorn@8
-      - name: Parse frozen Agent core
+      - name: Compare frozen and production Agent core
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -29,43 +31,41 @@ jobs:
             const fs=require('fs');
             const cp=require('child_process');
             const acorn=require('acorn');
+            const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
+            const headers={authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-AGENT-DIAG'};
+            async function post(context,state,description){const r=await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({state,context,description:String(description).slice(0,140),target_url:`https://github.com/${repo}/actions/runs/${runId}`})});if(!r.ok)throw new Error('status '+r.status+' '+await r.text())}
             const path='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html';
-            const html=fs.readFileSync(path,'utf8');
-            const m=html.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
-            if(!m)throw new Error('AGENT_CORE_NOT_FOUND');
-            const src=m[1];
-            fs.writeFileSync('/tmp/agent-core.js',src);
-            const check=cp.spawnSync(process.execPath,['--check','/tmp/agent-core.js'],{encoding:'utf8'});
-            let parseError='';
-            try{acorn.parse(src,{ecmaVersion:'latest',locations:true})}catch(e){parseError=String(e.message||e)}
-            const stack=[];
-            const opens=new Set(['(', '[', '{', '${']);
-            const closeFor={')':'(',']':'[','}':'{'};
-            let tokenizerError='';
-            try{
-              const tokenizer=acorn.tokenizer(src,{ecmaVersion:'latest',locations:true,allowHashBang:true});
-              for(;;){
-                const t=tokenizer.getToken();
-                const label=t.type.label;
-                if(label==='eof')break;
-                if(opens.has(label))stack.push({label,line:t.loc.start.line,column:t.loc.start.column});
-                else if(closeFor[label]){
-                  if(label==='}'&&stack.at(-1)?.label==='${')stack.pop();
-                  else if(stack.at(-1)?.label===closeFor[label])stack.pop();
-                }
-              }
-            }catch(e){tokenizerError=String(e.message||e)}
-            console.log('NODE_CHECK_STATUS='+check.status);
-            console.log('ACORN_PARSE_ERROR='+parseError);
-            console.log('TOKENIZER_ERROR='+tokenizerError);
-            console.log('UNMATCHED_STACK='+JSON.stringify(stack.slice(-20)));
-            for(const x of stack.slice(-8))console.log('UNMATCHED_CONTEXT '+JSON.stringify(x)+' :: '+String(src.split('\n')[x.line-1]||''));
-            if(check.stderr)console.log(check.stderr);
-            const last=stack.slice(-4).map(x=>`${x.label}@${x.line}:${x.column}`).join(',');
-            const description=(parseError||tokenizerError||'syntax ok')+(last?` stack ${last}`:'');
-            const state=check.status===0?'success':'failure';
-            const r=await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/statuses/${process.env.GITHUB_SHA}`,{method:'POST',headers:{authorization:`Bearer ${process.env.GH_TOKEN}`,'content-type':'application/json',accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'},body:JSON.stringify({state,context:'rona/agent-core-syntax',description:description.slice(0,140),target_url:`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`})});
-            if(!r.ok)throw new Error('status '+r.status+' '+await r.text());
-            if(check.status!==0)process.exit(1);
-          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+            const frozenHtml=fs.readFileSync(path,'utf8');
+            const frozenMatch=frozenHtml.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
+            if(!frozenMatch)throw new Error('AGENT_CORE_NOT_FOUND');
+            const frozen=frozenMatch[1];
+            let frozenErr='';try{acorn.parse(frozen,{ecmaVersion:'latest'})}catch(e){frozenErr=String(e.message||e)}
+            await post('rona/agent-static-syntax',frozenErr?'failure':'success',frozenErr||`static syntax ok bytes=${Buffer.byteLength(frozen)}`);
+            if(frozenErr)throw new Error('frozen invalid '+frozenErr);
+            for(let i=0;i<120;i++){
+              const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers});
+              if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);break}}
+              if(i===119)throw new Error('Cloudflare timeout');
+              await new Promise(r=>setTimeout(r,2000));
+            }
+            await new Promise(r=>setTimeout(r,3000));
+            const broker=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});
+            const bj=await broker.json().catch(()=>({}));
+            if(!broker.ok||!bj.ok||!bj.session?.access_token||!bj.session?.refresh_token)throw new Error('broker '+JSON.stringify({status:broker.status,code:bj.code,proof:bj.proof||null}));
+            const rr=await fetch(`https://ronaoil.com/portal/agent?_diag=${Date.now()}`,{headers:{cookie:`rona_portal_at=${bj.session.access_token}; rona_portal_rt=${bj.session.refresh_token}`,accept:'text/html'}});
+            const runtimeHtml=await rr.text();
+            if(!rr.ok)throw new Error('agent response '+rr.status+' '+runtimeHtml.slice(0,300));
+            const runtimeMatch=runtimeHtml.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
+            if(!runtimeMatch)throw new Error('runtime core not found');
+            const runtime=runtimeMatch[1];
+            let runtimeErr='';try{acorn.parse(runtime,{ecmaVersion:'latest',locations:true})}catch(e){runtimeErr=String(e.message||e)}
+            let diff=-1;const min=Math.min(frozen.length,runtime.length);for(let i=0;i<min;i++){if(frozen.charCodeAt(i)!==runtime.charCodeAt(i)){diff=i;break}}if(diff<0&&frozen.length!==runtime.length)diff=min;
+            const before=runtime.slice(0,diff<0?runtime.length:diff);const line=before.split('\n').length;const col=before.length-before.lastIndexOf('\n')-1;
+            const detail={frozenLength:frozen.length,runtimeLength:runtime.length,diff,line,col,frozenContext:diff<0?'':frozen.slice(Math.max(0,diff-180),diff+260),runtimeContext:diff<0?'':runtime.slice(Math.max(0,diff-180),diff+260),runtimeErr};
+            console.log('AGENT_RUNTIME_DIFF='+JSON.stringify(detail));
+            const state=!runtimeErr&&diff<0?'success':'failure';
+            const desc=state==='success'?`runtime identical syntax ok len=${runtime.length}`:`runtimeErr=${runtimeErr||'none'} diff=${diff} ${line}:${col} len ${frozen.length}/${runtime.length}`;
+            await post('rona/agent-runtime-diff',state,desc);
+            if(state!=='success')process.exit(1);
+          })().catch(async e=>{console.error(e.stack||e);try{const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{authorization:`Bearer ${gh}`,'content-type':'application/json',accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'},body:JSON.stringify({state:'error',context:'rona/agent-runtime-diff',description:String(e.message||e).slice(0,140),target_url:`https://github.com/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`})})}catch(_){}process.exit(1)});
           NODE
