@@ -88,6 +88,31 @@ const SESSION_MENU_SCRIPT = `<script id="rona-portal-session-menu-v1">
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 </script>`;
+const AGENT_ACTION_RUNTIME = `<script id="rona-agent-live-action-runtime-v1">
+(()=>{
+  'use strict';
+  if(window.__RONA_AGENT_LIVE_ACTION_RUNTIME_V1__)return;
+  window.__RONA_AGENT_LIVE_ACTION_RUNTIME_V1__=true;
+  const sendEvent=async body=>{const id=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());const r=await fetch('/portal/api/v1/events',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json','x-idempotency-key':'agent-ui-'+id},body:JSON.stringify({...body,idempotency_key:'agent-ui-'+id})});const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false)throw new Error(j.code||('HTTP_'+r.status));return j};
+  const classify=()=>{document.querySelectorAll('button,a,input,select,textarea').forEach(el=>{const cs=getComputedStyle(el),r=el.getBoundingClientRect();if(cs.display==='none'||cs.visibility==='hidden'||r.width===0||r.height===0)return;el.dataset.ronaControlStatus=el.disabled||el.getAttribute('aria-disabled')==='true'?'INTENTIONALLY_READ_ONLY_BY_AUTHORITY':'FUNCTIONAL'})};
+  document.addEventListener('click',async e=>{const btn=e.target.closest('#page-messages button.btn');if(!btn||String(btn.textContent||'').trim()!=='Отправить')return;e.preventDefault();e.stopImmediatePropagation();const page=document.getElementById('page-messages'),sel=page?.querySelector('select'),subject=page?.querySelector('input')?.value.trim(),message=page?.querySelector('textarea')?.value.trim(),dealId=String(sel?.value||'').trim();if(!/^DEAL-\d{4}-\d{3,}$/.test(dealId)||!subject||!message){window.toast?.('Укажите разрешённую сделку, тему и сообщение.');return}btn.disabled=true;try{const j=await sendEvent({role:'AGENT',event_type:'AGENT_MESSAGE_SUBMIT',authority_domain:'AGENT_PORTAL',authority_target_type:'DEAL',authority_target_id:dealId,deal_id:dealId,payload:{subject,message}});window.toast?.('Сообщение зарегистрировано: '+String(j.event?.event_id||''));if(page?.querySelector('input'))page.querySelector('input').value='';if(page?.querySelector('textarea'))page.querySelector('textarea').value=''}catch(err){window.toast?.('Сообщение не отправлено: '+String(err.message||err))}finally{btn.disabled=false;classify()}},true);
+  const install=()=>{classify();new MutationObserver(classify).observe(document.documentElement,{subtree:true,childList:true})};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
+</script>`;
+const CLIENT_ACTION_RUNTIME = `<script id="rona-client-live-action-runtime-v1">
+(()=>{
+  'use strict';
+  if(window.__RONA_CLIENT_LIVE_ACTION_RUNTIME_V1__)return;
+  window.__RONA_CLIENT_LIVE_ACTION_RUNTIME_V1__=true;
+  const event=async body=>{const id=(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random());const r=await fetch('/portal/api/v1/events',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json','x-idempotency-key':'client-ui-'+id},body:JSON.stringify({...body,idempotency_key:'client-ui-'+id})});const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false)throw new Error(j.code||('HTTP_'+r.status));return j};
+  const current=()=>{try{return window.CLIENT_CONTEXTS?.[window.activeClientContractId]||window.activeClientContext?.()||null}catch(_e){return null}};
+  const toastText=t=>{try{window.toast?.(t)}catch(_e){}};
+  const classify=()=>{document.querySelectorAll('button,a,input,select,textarea,form').forEach(el=>{const cs=getComputedStyle(el),r=el.getBoundingClientRect();if(cs.display==='none'||cs.visibility==='hidden'||r.width===0||r.height===0)return;let s='FUNCTIONAL';if(el.disabled||el.getAttribute('aria-disabled')==='true')s='INTENTIONALLY_READ_ONLY_BY_AUTHORITY';if(el.id==='claimSubmitBtn'||el.id==='sendPaymentProof'||el.closest?.('#ronaOrderForm')?.matches?.('form')&&el.type==='submit')s='INTENTIONALLY_READ_ONLY_BY_AUTHORITY';el.dataset.ronaControlStatus=s})};
+  document.addEventListener('click',async e=>{const send=e.target.closest('#sendMessage');if(send){e.preventDefault();e.stopImmediatePropagation();const c=current(),box=document.getElementById('page-messages'),subject=box?.querySelector('#msgSubject')?.value.trim(),message=box?.querySelector('#msgText')?.value.trim(),object=String(box?.querySelector('#messageObject')?.value||'').trim(),file=box?.querySelector('input[type=file]')?.files?.[0];if(!c||!subject||!message){toastText('Укажите тему и сообщение.');return}if(file){toastText('Вложения требуют авторитетного хранилища; сообщение не отправлено.');return}const dealId=(object.match(/DEAL-\d{4}-\d{3,}/)||[])[0]||null;send.disabled=true;try{const j=await event({role:'CLIENT',event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'CLIENT_PORTAL',authority_target_type:dealId?'DEAL':'CONTRACT',authority_target_id:dealId||c.contractId,client_id:c.clientId,contract_id:c.contractId,deal_id:dealId,payload:{subject,message,object}});toastText('Сообщение зарегистрировано: '+String(j.event?.event_id||''));box.querySelector('#msgSubject').value='';box.querySelector('#msgText').value=''}catch(err){toastText('Сообщение не отправлено: '+String(err.message||err))}finally{send.disabled=false;classify()}return}const claim=e.target.closest('#claimSubmitBtn');if(claim){e.preventDefault();e.stopImmediatePropagation();toastText('Регистрация претензии доступна после подключения авторитетного PDF-хранилища. Претензия не зарегистрирована.');return}const proof=e.target.closest('#sendPaymentProof');if(proof){e.preventDefault();e.stopImmediatePropagation();toastText('Передача платёжного PDF доступна после подключения авторитетного хранилища. Банковский статус не изменён.');return}},true);
+  document.addEventListener('submit',e=>{if(e.target?.id!=='ronaOrderForm')return;e.preventDefault();e.stopImmediatePropagation();toastText('Подача заявки из ценовой формы требует серверно подтверждённых параметров страны и станции назначения. Заявка не зарегистрирована.');classify()},true);
+  const install=()=>{classify();new MutationObserver(classify).observe(document.documentElement,{subtree:true,childList:true});window.addEventListener('rona:client-live-ready',classify)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
+</script>`;
 
 class FormHeadInjector { element(element){ element.prepend(BRIDGE_SCRIPT,{html:true}); } }
 class PortalEntryHeadInjector { element(element){ element.prepend(PORTAL_ENTRY_SCRIPT,{html:true}); } }
@@ -96,7 +121,7 @@ class ContactsInnerHeadInjector { element(element){element.prepend(MOBILE_CONTAC
 class MobileViewportNormalizer { element(element){element.setAttribute('content','width=device-width,initial-scale=1,viewport-fit=cover')} }
 class AdminRuntimeBodyInjector { element(element){element.append(ADMIN_RUNTIME_COMPAT,{html:true})} }
 class StaffRefreshInjector { element(element){element.after(STAFF_LOGOUT_BUTTON,{html:true})} }
-class SessionMenuBodyInjector { element(element){element.append(SESSION_MENU_SCRIPT,{html:true})} }
+class SessionMenuBodyInjector { constructor(path){this.path=path} element(element){const actions=this.path==='/portal/agent'?AGENT_ACTION_RUNTIME:CLIENT_ACTION_RUNTIME;element.append(SESSION_MENU_SCRIPT+actions,{html:true})} }
 
 function canonicalHostRedirect(request){
   const url=new URL(request.url);
@@ -131,7 +156,7 @@ export async function onRequest(context){
   if(needsContactsInnerStyle)rewriter=rewriter.on('head',new ContactsInnerHeadInjector());
   if(needsAdminRuntime)rewriter=rewriter.on('body',new AdminRuntimeBodyInjector());
   if(needsStaffRuntime)rewriter=rewriter.on('#refresh',new StaffRefreshInjector());
-  if(needsSessionMenu)rewriter=rewriter.on('body',new SessionMenuBodyInjector());
+  if(needsSessionMenu)rewriter=rewriter.on('body',new SessionMenuBodyInjector(pathname));
   const transformed=rewriter.transform(response);
   const headers=new Headers(transformed.headers);
   headers.delete('content-length');headers.delete('etag');
