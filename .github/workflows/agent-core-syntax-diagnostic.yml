@@ -1,0 +1,69 @@
+name: Agent core syntax diagnostic
+
+on:
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-agent-core:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --no-save --ignore-scripts acorn@8
+      - name: Parse frozen Agent core
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const cp=require('child_process');
+          const acorn=require('acorn');
+          const path='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html';
+          const html=fs.readFileSync(path,'utf8');
+          const m=html.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
+          if(!m)throw new Error('AGENT_CORE_NOT_FOUND');
+          const src=m[1];
+          fs.writeFileSync('/tmp/agent-core.js',src);
+          const check=cp.spawnSync(process.execPath,['--check','/tmp/agent-core.js'],{encoding:'utf8'});
+          console.log('AGENT_CORE_BYTES='+Buffer.byteLength(src));
+          console.log('AGENT_CORE_LINES='+src.split('\n').length);
+          console.log('NODE_CHECK_STATUS='+check.status);
+          if(check.stdout)console.log(check.stdout);
+          if(check.stderr)console.log(check.stderr);
+          const stack=[];
+          const opens=new Set(['(', '[', '{', '${']);
+          const closeFor={')':'(',']':'[','}':'{'};
+          try{
+            const tokenizer=acorn.tokenizer(src,{ecmaVersion:'latest',locations:true,allowHashBang:true});
+            for(;;){
+              const t=tokenizer.getToken();
+              const label=t.type.label;
+              if(label==='eof')break;
+              if(opens.has(label))stack.push({label,start:t.start,line:t.loc.start.line,column:t.loc.start.column});
+              else if(closeFor[label]){
+                const expected=closeFor[label];
+                if(label==='}'&&stack.at(-1)?.label==='${')stack.pop();
+                else if(stack.at(-1)?.label===expected)stack.pop();
+                else console.log('MISMATCH_CLOSE='+JSON.stringify({label,line:t.loc.start.line,column:t.loc.start.column,top:stack.at(-1)||null}));
+              }
+            }
+            console.log('UNMATCHED_STACK='+JSON.stringify(stack.slice(-20)));
+            for(const x of stack.slice(-8)){
+              const lines=src.split('\n');
+              console.log('UNMATCHED_CONTEXT '+JSON.stringify(x)+' :: '+String(lines[x.line-1]||'').slice(Math.max(0,x.column-180),x.column+260));
+            }
+          }catch(e){
+            console.log('TOKENIZER_ERROR='+(e.stack||e));
+          }
+          console.log('TAIL_BEGIN');
+          console.log(src.split('\n').slice(-25).join('\n'));
+          console.log('TAIL_END');
+          if(check.status!==0)process.exit(1);
+          NODE
