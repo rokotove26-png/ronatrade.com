@@ -1,0 +1,37 @@
+name: Final Staff write audit and logout QA
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-final-functional-20260817']
+    paths: ['.github/workflows/final-functional-hotfix-write-logout.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  write-audit-logout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Verify real Staff write, Admin propagation, methods and logout
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const base='https://ronaoil.com',repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
+          function assert(x,m){if(!x)throw new Error(m)}
+          async function waitBool(p,fn,l){for(let i=0;i<300;i++){if(await p.evaluate(fn))return;await p.waitForTimeout(100)}throw new Error(l+' timeout')}
+          async function session(){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json();if(!r.ok||!j.ok)throw new Error(JSON.stringify({status:r.status,code:j.code,proof:j.proof}));return j.session}
+          async function ctxFor(b,s){const c=await b.newContext({viewport:{width:1920,height:1080}});await c.addCookies([{name:'rona_portal_at',value:s.access_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:s.refresh_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);return c}
+          (async()=>{const b=await chromium.launch({headless:true}),s=await session(),c=await ctxFor(b,s),taskId='TASK-SYS-OWNER-UAT-READINESS-20260816';
+            const sp=await c.newPage(),se=[];sp.on('pageerror',e=>se.push(String(e.message||e)));await sp.goto(base+'/portal/staff?_write='+Date.now(),{waitUntil:'domcontentloaded'});await waitBool(sp,()=>document.querySelector('#identity')&&!/Проверка сессии/.test(document.querySelector('#identity')?.textContent||''),'staff ready');await sp.locator('#nav button[data-view="tasks"]').click();await sp.waitForTimeout(150);const row=sp.locator(`tr[data-task="${taskId}"]`);assert(await row.count()===1,'real technical task absent');await row.click();const current=await sp.locator('#taskStatus').inputValue();assert(current==='IN_PROGRESS','unexpected task status '+current);await sp.locator('#taskNote').fill('Финальная production-проверка: подтверждение записи, серверного состояния, межкабинетного отражения и аудита.');await sp.locator('#saveTask').click();await waitBool(sp,()=>/подтверждён сервером/.test(document.querySelector('#taskResult')?.textContent||''),'staff save');assert(se.length===0,'staff JS '+JSON.stringify(se));const sb=await c.request.get(base+'/portal/api/v1/staff/bootstrap'),sj=await sb.json();assert(sj.data.tasks.find(x=>x.task_id===taskId)?.status==='IN_PROGRESS','write persist');
+            const ad=await c.newPage(),ae=[];ad.on('pageerror',e=>ae.push(String(e.message||e)));await ad.goto(base+'/portal/admin?_writeprop='+Date.now(),{waitUntil:'domcontentloaded'});await waitBool(ad,()=>window.__RONA_ADMIN_LIVE_READY__===true,'admin ready');const prop=await ad.evaluate(taskId=>({task:window.__RONA_ADMIN_LIVE__.staff.tasks.find(x=>x.task_id===taskId),audit:window.__RONA_ADMIN_LIVE__.admin.audit.find(x=>x.entity_id===taskId&&String(x.action).includes('STAFF_TASK'))}),taskId);assert(prop.task?.status==='IN_PROGRESS','Admin task propagation');assert(prop.audit,'Admin audit propagation');assert(ae.length===0,'Admin JS '+JSON.stringify(ae));for(const m of ['PUT','PATCH','DELETE'])assert((await c.request.fetch(base+'/portal/api/v1/admin/bootstrap',{method:m})).status()===405,m+' method opened');assert(!/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(await ad.content()),'JWT leak');
+            async function logout(path,kind){const ss=await session(),cc=await ctxFor(b,ss),p=await cc.newPage();await p.goto(base+path,{waitUntil:'domcontentloaded'});let x=kind==='admin'?p.locator('#adminLogoutBtn'):kind==='staff'?p.locator('#ronaLogout'):kind==='select'?p.locator('form[action="/portal/auth/logout"] button'):p.locator('button,a,[role="button"]').filter({hasText:'Выйти'}).first();await x.waitFor({state:'visible',timeout:15000});await x.click();await p.waitForURL(u=>new URL(u).pathname==='/',{timeout:15000});assert(!(await cc.cookies()).some(x=>['rona_portal_at','rona_portal_rt'].includes(x.name)),'cookies '+kind);const pr=await cc.request.get(base+'/portal/admin',{maxRedirects:0});assert([302,303,401,403].includes(pr.status()),'protected route '+kind);await cc.close()}
+            await logout('/portal/admin','admin');await logout('/portal/staff','staff');await logout('/portal/agent','agent');await logout('/portal/select','select');await c.close();await b.close();console.log('RONA_WRITE_AUDIT_LOGOUT_QA='+JSON.stringify({ok:true,task:taskId,writeBackendPortalAudit:'PASS',methods:['GET','POST'],tokenLeak:false,logoutRoot:'PASS'}));
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
