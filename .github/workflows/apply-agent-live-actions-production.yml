@@ -1,0 +1,39 @@
+name: Apply Agent live actions production hotfix
+on:
+  push:
+    branches: ['release/public-go-live-v1.1']
+    paths: ['.github/workflows/apply-agent-live-actions-production.yml']
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: "${{ github.ref_name }}"}
+      - name: Patch Agent logout and message action without canonical source changes
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('functions/portal/_middleware.js')
+          s=p.read_text()
+          old="const prepareLogoutControl=()=>{if(!['/portal/agent','/portal/client'].includes(location.pathname))return;const home=document.querySelector('.rona-go-home');if(!home)return;if(home.id!=='ronaLogout'||String(home.textContent||'').trim()!=='Выйти'){home.id='ronaLogout';home.textContent='Выйти';home.dataset.ronaControlStatus='FUNCTIONAL'}};"
+          new="const prepareLogoutControl=()=>{if(!['/portal/agent','/portal/client'].includes(location.pathname))return;const home=document.getElementById('ronaLogout')||document.querySelector('.rona-go-home');if(!home)return;if(home.parentElement!==document.body)document.body.appendChild(home);home.id='ronaLogout';home.textContent='Выйти';home.dataset.ronaControlStatus='FUNCTIONAL';Object.assign(home.style,{position:'fixed',top:'18px',right:'20px',zIndex:'2147483000',display:'block',visibility:'visible',opacity:'1',width:'auto',height:'auto',pointerEvents:'auto',margin:'0'})};"
+          if s.count(old)!=1: raise SystemExit(f'LOGOUT_NEEDLE_COUNT={s.count(old)}')
+          s=s.replace(old,new,1)
+          marker="const CLIENT_LIVE_ADAPTER = `"
+          if marker not in s: raise SystemExit('CLIENT_MARKER_MISSING')
+          agent="""const AGENT_ACTION_ADAPTER = `<script id=\"rona-agent-live-actions\">(()=>{'use strict';if(window.__RONA_AGENT_LIVE_ACTIONS__)return;window.__RONA_AGENT_LIVE_ACTIONS__=true;if(location.pathname!=='/portal/agent')return;let sending=false;const mark=()=>{for(const b of document.querySelectorAll('#page-messages button')){if(String(b.textContent||'').trim()!=='Отправить')continue;b.removeAttribute('onclick');try{b.onclick=null}catch(_e){}b.dataset.ronaControlStatus='FUNCTIONAL'}};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mark,{once:true});else queueMicrotask(mark);new MutationObserver(mark).observe(document.documentElement,{subtree:true,childList:true});document.addEventListener('click',async e=>{const b=e.target?.closest?.('#page-messages button');if(!b||String(b.textContent||'').trim()!=='Отправить')return;e.preventDefault();e.stopImmediatePropagation();if(sending)return;const box=b.closest('#page-messages');const deal=String(box?.querySelector('select')?.value||'').trim();const subject=String(box?.querySelector('input')?.value||'').trim();const message=String(box?.querySelector('textarea')?.value||'').trim();const toast=t=>{try{window.toast?.(t)}catch(_e){}};if(!/^DEAL-\\d{4}-\\d{3,}$/.test(deal)||!subject||!message){toast('Заполните сделку, тему и сообщение.');return}sending=true;b.disabled=true;try{const key='agent-message-'+deal+'-'+crypto.randomUUID();const r=await fetch('/portal/api/v1/events',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','accept':'application/json','x-idempotency-key':key},body:JSON.stringify({role:'AGENT',event_type:'AGENT_MESSAGE_SUBMIT',authority_domain:'COMMUNICATION',authority_target_type:'DEAL',authority_target_id:deal,deal_id:deal,payload:{subject,message}})});let j={};try{j=await r.json()}catch(_e){}if(!r.ok||!j.ok)throw new Error(j.code||('HTTP_'+r.status));const input=box?.querySelector('input'),area=box?.querySelector('textarea');if(input)input.value='';if(area)area.value='';toast('Сообщение зарегистрировано сервером.')}catch(err){toast('Ошибка сервера: '+String(err?.message||err))}finally{sending=false;b.disabled=false}},true)})();<\\/script>`;
+
+"""
+          s=s.replace(marker,agent+marker,1)
+          p.write_text(s)
+          PY
+          git diff --check
+      - name: Commit production Agent live actions
+        run: |
+          git config user.name 'RONA Production QA'
+          git config user.email 'actions@users.noreply.github.com'
+          git add functions/portal/_middleware.js
+          git commit -m 'Activate Agent message submit and visible logout control'
+          git push origin HEAD:${GITHUB_REF_NAME}
