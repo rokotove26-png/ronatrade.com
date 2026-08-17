@@ -28,8 +28,8 @@ jobs:
           npm run build
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
           cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
-          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' functions/portal/admin.js
-          grep -q 'RelockAndBootstrapAdmin' functions/portal/admin.js
+          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' 'functions/portal/[[path]].js'
+          grep -q 'BootServerAuthenticatedAdminBody' 'functions/portal/[[path]].js'
           grep -q "on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
           echo 'CANONICAL_ADMIN_SOURCE_HASH=PASS'
           echo 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP_SOURCE=PASS'
@@ -124,7 +124,7 @@ jobs:
               if(state?.failed===true||state?.timedOut===true)throw new Error('Admin boot failed before ready: '+JSON.stringify(state));
               await page.waitForTimeout(100);
             }
-            if(!ready){const state=await page.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__||null);throw new Error('Admin boot did not become ready: '+JSON.stringify(state));}
+            if(!ready){const state=await page.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__||null);const marker=await page.locator('#rona-server-authenticated-admin-bootstrap').count();throw new Error('Admin boot did not become ready: '+JSON.stringify({state,serverBootstrapMarker:marker}));}
             const boot=await page.evaluate(()=>({
               state:window.__RONA_ADMIN_BOOT_STATE__,
               deferredNodes:document.querySelectorAll('script[type="application/rona-admin-deferred"][data-rona-admin-deferred="true"]').length,
