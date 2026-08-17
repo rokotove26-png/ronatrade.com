@@ -31,6 +31,7 @@ jobs:
           grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' 'functions/portal/[[path]].js'
           grep -q 'BootServerAuthenticatedAdminBody' 'functions/portal/[[path]].js'
           grep -q "on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
+          grep -q 'rona-admin-external-resource-guard' 'functions/portal/_middleware.js'
           echo 'CANONICAL_ADMIN_SOURCE_HASH=PASS'
           echo 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP_SOURCE=PASS'
       - name: Install Playwright Chromium
@@ -113,8 +114,14 @@ jobs:
             ]);
             const page=await context.newPage();
             const errors=[];
+            const blockedExternalCspNoise=[];
             page.on('pageerror',e=>errors.push({type:'pageerror',message:String(e.message||e)}));
-            page.on('console',m=>{if(m.type()==='error')errors.push({type:'console',message:m.text()})});
+            page.on('console',m=>{
+              if(m.type()!=='error')return;
+              const text=m.text();
+              if(/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(text)&&/Content Security Policy directive/i.test(text)){blockedExternalCspNoise.push(text);return;}
+              errors.push({type:'console',message:text});
+            });
             await page.goto(origin+'/portal/admin?_admin_interactivity='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
             if(new URL(page.url()).pathname!=='/portal/admin')throw new Error('authenticated Admin route did not remain on /portal/admin');
             let ready=false;
@@ -133,6 +140,7 @@ jobs:
               publicationCore:!!window.RONA_ADMIN_PUBLICATION_CONTROL_V345,
               legacyGate:!!document.getElementById('adminLoginGate'),
               legacyAuthScript:!!document.getElementById('rona-admin-auth-v3413'),
+              externalResourceGuard:window.__RONA_ADMIN_EXTERNAL_RESOURCE_GUARD__===true,
               runtimeSourceHasLegacyAuthority:/PBKDF2_ITERATIONS|AUTH_USERNAME|PBKDF2_VERIFIER_B64/.test(document.documentElement.innerHTML),
               url:location.href,
             }));
@@ -142,6 +150,7 @@ jobs:
             if(!Array.isArray(s.modules)||s.modules.some(x=>x.status!=='EXECUTED'||x.executionCount!==1))throw new Error('deferred module execution invariant failed');
             if(s.readyEventCount!==1)throw new Error('rona:admin-app-ready did not fire exactly once');
             if(boot.renderAccess!=='function'||!boot.adminCore||!boot.publicationCore)throw new Error('required Admin runtime globals missing');
+            if(!boot.externalResourceGuard)throw new Error('Admin external resource guard missing');
             if(boot.legacyGate||boot.legacyAuthScript||boot.runtimeSourceHasLegacyAuthority)throw new Error('legacy local Admin auth authority remains in runtime DOM');
             if(/access_token=|refresh_token=|id_token=|eyJ[a-zA-Z0-9_-]{20,}\./.test(boot.url))throw new Error('token leaked into URL');
 
@@ -178,7 +187,7 @@ jobs:
             await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
             if(new URL(page.url()).pathname!=='/portal/login')throw new Error('logout did not invalidate working portal session');
             if(errors.length)throw new Error('JavaScript error count non-zero: '+JSON.stringify(errors.slice(0,10)));
-            console.log(JSON.stringify({ok:true,origin,navigation:`${actual.length}/${expectedPages.length}`,deferredModules:s.deferredScriptCount,readyEventCount:s.readyEventCount,consoleErrors:0,pageErrors:0,adminBootstrap:counts,unauthAdminFailClosed:true,logoutInvalidatedSession:true,legacyLocalAuthDisabled:true,tokenLeak:false}));
+            console.log(JSON.stringify({ok:true,origin,navigation:`${actual.length}/${expectedPages.length}`,deferredModules:s.deferredScriptCount,readyEventCount:s.readyEventCount,applicationConsoleErrors:0,pageErrors:0,blockedExternalCspNoise:blockedExternalCspNoise.length,adminBootstrap:counts,unauthAdminFailClosed:true,logoutInvalidatedSession:true,legacyLocalAuthDisabled:true,tokenLeak:false}));
             await context.close();await browser.close();
           })().catch(e=>{console.error(e.message);process.exit(1)});
           NODE
