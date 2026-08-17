@@ -46,6 +46,7 @@ jobs:
         run: |
           node <<'NODE'
           const {chromium}=require('playwright');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{
             const base='https://ce22adea.rona-trade-public.pages.dev';
             const browser=await chromium.launch({headless:true});
@@ -55,7 +56,8 @@ jobs:
             page.on('pageerror',e=>{const x={message:String(e.message||e),stack:String(e.stack||'')};errs.push(x);console.log('RONA_PAGEERROR='+JSON.stringify(x))});
             page.on('console',m=>{if(m.type()==='error'&&!/cloudflareinsights/.test(m.text()))console.log('RONA_CONSOLE_ERROR='+JSON.stringify({text:m.text()}))});
             await page.goto(base+'/portal/admin?_nulldiag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
-            await page.waitForFunction(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true&&window.__RONA_ADMIN_LIVE_READY__===true,{timeout:20000});
+            let ready=false;for(let i=0;i<200;i++){ready=await page.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true&&window.__RONA_ADMIN_LIVE_READY__===true);if(ready)break;await sleep(100)}
+            if(!ready)throw new Error('ADMIN_NOT_READY');
             const pages=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));
             for(const p of pages){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(250)}
             await page.waitForTimeout(1500);
