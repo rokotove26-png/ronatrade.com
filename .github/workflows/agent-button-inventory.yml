@@ -1,0 +1,22 @@
+name: Inventory frozen Agent button controls
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-agent-logout-inspect-20260817']
+    paths: ['.github/workflows/agent-button-inventory.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Print Agent buttons
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          s=Path('portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html').read_text(errors='replace')
+          for i,m in enumerate(re.finditer(r'<button\b[^>]*>[\s\S]*?</button>',s,re.I),1):
+              x=re.sub(r'\s+',' ',m.group(0))
+              print(f'AGENT_BUTTON_{i}={x[:1200]}')
+          PY
