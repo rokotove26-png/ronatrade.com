@@ -1,0 +1,21 @@
+name: Inspect frozen Agent header anchors
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-agent-logout-inspect-20260817']
+    paths: ['.github/workflows/agent-header-source-inspect.yml']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect header source
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          s=Path('portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html').read_text(errors='replace')
+          for needle in ['<header','class="topbar"','id="topbar"','class="user','id="user','class="header','id="header']:
+              i=s.find(needle)
+              if i>=0: print('RONA_HEADER_CONTEXT',needle,s[max(0,i-1400):i+3500].replace('\n',' ')[:5200])
+          PY
