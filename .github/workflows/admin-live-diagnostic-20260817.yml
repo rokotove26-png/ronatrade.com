@@ -1,0 +1,53 @@
+name: Temporary Admin live adapter diagnostic
+
+on:
+  push:
+    branches:
+      - 'hotfix/admin-interactivity-live-diagnostic-*'
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Obtain controlled Admin session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail --silent --show-error --request POST \
+            'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "x-github-repository: ${GITHUB_REPOSITORY}" \
+            --header "x-github-sha: ${GITHUB_SHA}" \
+            --header "x-github-ref: ${GITHUB_REF}" \
+            --header "x-github-run-id: ${GITHUB_RUN_ID}" \
+            --output /tmp/session.json
+          node <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/session.json','utf8'));if(!j.ok)throw new Error(JSON.stringify(j));console.log('::add-mask::'+j.session.access_token);console.log('::add-mask::'+j.session.refresh_token);fs.appendFileSync(process.env.GITHUB_ENV,`AT<<EOF\n${j.session.access_token}\nEOF\nRT<<EOF\n${j.session.refresh_token}\nEOF\n`);
+          NODE
+          rm -f /tmp/session.json
+      - name: Diagnose production live adapter
+        env:
+          AT: ${{ env.AT }}
+          RT: ${{ env.RT }}
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          (async()=>{const b=await chromium.launch({headless:true}),c=await b.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});await c.addCookies([{name:'rona_portal_at',value:process.env.AT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:process.env.RT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);const p=await c.newPage(),events=[];p.on('pageerror',e=>events.push({type:'pageerror',message:String(e.message||e),stack:String(e.stack||'').slice(0,1200)}));p.on('console',m=>{if(m.type()==='error')events.push({type:'console',message:m.text().slice(0,1200)})});await p.goto('https://ronaoil.com/portal/admin?_diag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await p.waitForTimeout(7000);const state=await p.evaluate(()=>({boot:window.__RONA_ADMIN_BOOT_STATE__||null,liveInstalled:window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__||false,liveReady:window.__RONA_ADMIN_LIVE_READY__,live:window.__RONA_ADMIN_LIVE__||null,marker:!!document.getElementById('rona-admin-live-authority-adapter'),logoutMarker:!!document.getElementById('rona-portal-root-logout'),middlewareGuard:!!document.getElementById('rona-admin-external-resource-guard')}));const paths=['/portal/api/session/me','/portal/api/v1/admin/bootstrap','/portal/api/v1/staff/bootstrap','/portal/api/v1/agent/bootstrap'];const apis=[];for(const path of paths){const r=await c.request.get('https://ronaoil.com'+path);let j={};try{j=await r.json()}catch{}apis.push({path,status:r.status(),ok:r.ok(),code:j?.code||null,topKeys:Object.keys(j||{}).slice(0,10)})}console.log('RONA_ADMIN_LIVE_DIAGNOSTIC='+JSON.stringify({state,apis,events}));await c.close();await b.close()})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+      - name: Clean secrets
+        if: always()
+        run: |
+          unset AT RT || true
+          rm -f /tmp/session.json || true
