@@ -1,0 +1,38 @@
+name: Agent production runtime diagnostic
+on:
+  push:
+    branches: ['release/public-go-live-v1.1']
+    paths: ['.github/workflows/agent-production-runtime-diagnostic.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Obtain controlled session
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --request POST 'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' --header "Authorization: Bearer ${GH_TOKEN}" --header "x-github-repository: ${GITHUB_REPOSITORY}" --header "x-github-sha: ${GITHUB_SHA}" --header "x-github-ref: ${GITHUB_REF}" --header "x-github-run-id: ${GITHUB_RUN_ID}" --output /tmp/session.json
+          node <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/session.json','utf8'));if(!j.ok)throw new Error(JSON.stringify({code:j.code,proof:j.proof}));console.log('::add-mask::'+j.session.access_token);console.log('::add-mask::'+j.session.refresh_token);fs.appendFileSync(process.env.GITHUB_ENV,`AT<<EOF\n${j.session.access_token}\nEOF\nRT<<EOF\n${j.session.refresh_token}\nEOF\n`);
+          NODE
+          rm -f /tmp/session.json
+      - name: Diagnose Agent page
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          (async()=>{const b=await chromium.launch({headless:true}),c=await b.newContext({viewport:{width:1920,height:1080}});await c.addCookies([{name:'rona_portal_at',value:process.env.AT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:process.env.RT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);const p=await c.newPage(),errs=[];p.on('pageerror',e=>errs.push({message:e.message,stack:e.stack}));await p.goto('https://ronaoil.com/portal/agent?_diag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await p.waitForTimeout(1500);const api=await c.request.get('https://ronaoil.com/portal/api/v1/agent/bootstrap');const aj=await api.json();const out=await p.evaluate(()=>({nav:[...document.querySelectorAll('.nav button[data-page]')].map(x=>({page:x.dataset.page,disabled:x.disabled,aria:x.getAttribute('aria-disabled'),title:x.title,className:x.className,text:x.textContent.trim()})),pages:[...document.querySelectorAll('.page[id^="page-"]')].map(x=>({id:x.id,active:x.classList.contains('active'),text:x.innerText.slice(0,180)})),ronaKeys:Object.keys(window).filter(k=>/^RONA|^__RONA/.test(k)).slice(0,80),resources:performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes('/portal/api/')||x.includes('/functions/v1/')).slice(-20)}));console.log('RONA_AGENT_DIAGNOSTIC='+JSON.stringify({apiStatus:api.status(),agent:{id:aj?.data?.agentPersonId,deals:(aj?.data?.deals||[]).map(x=>x.dealId)},out,errs}));for(const x of await p.locator('.nav button[data-page]').all()){await x.evaluate(el=>{el.disabled=false;el.removeAttribute('disabled');el.removeAttribute('aria-disabled')});await x.click();await p.waitForTimeout(80)}const after=await p.evaluate(()=>({active:document.querySelector('.page.active')?.id||null,nav:[...document.querySelectorAll('.nav button[data-page]')].map(x=>({page:x.dataset.page,disabled:x.disabled}))}));console.log('RONA_AGENT_AFTER_FORCE_ENABLE='+JSON.stringify(after));await c.close();await b.close()})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+      - name: Clean
+        if: always()
+        run: unset AT RT || true
