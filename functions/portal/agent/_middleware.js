@@ -5,6 +5,12 @@ if(window.__RONA_AGENT_PRODUCTION_ACTIONS__)return;
 window.__RONA_AGENT_PRODUCTION_ACTIONS__=true;
 let sending=false;
 const notify=t=>{try{window.toast?.(t)}catch(_e){}};
+window.addEventListener('error',e=>{
+  if(!String(e?.message||'').includes('Unexpected end of input'))return;
+  const active=document.querySelector('.page.active')?.id||'none';
+  const src=String(e?.filename||'inline')+':'+String(e?.lineno||0)+':'+String(e?.colno||0);
+  setTimeout(()=>{throw new Error('RONA_AGENT_PARSE_CONTEXT active='+active+' src='+src)},0);
+});
 function activateNav(raw){
   const p=String(raw||'');
   if(!p)return;
