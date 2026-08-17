@@ -1,0 +1,37 @@
+name: Agent production postpatch diagnostic
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-agent-logout-inspect-20260817']
+    paths: ['.github/workflows/agent-production-postpatch-diagnostic.yml']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Inspect production Agent runtime
+        env: {GH_TOKEN: "${{ github.token }}"}
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const base='https://ronaoil.com',repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
+          (async()=>{const sr=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}}),sj=await sr.json();if(!sr.ok||!sj.ok)throw new Error(JSON.stringify({status:sr.status,code:sj.code,proof:sj.proof}));const b=await chromium.launch({headless:true}),c=await b.newContext({viewport:{width:1920,height:1080}});await c.addCookies([{name:'rona_portal_at',value:sj.session.access_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:sj.session.refresh_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);const p=await c.newPage();await p.goto(base+'/portal/agent?_postpatch='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await p.waitForTimeout(1800);const out=await p.evaluate(()=>({url:location.href,home:[...document.querySelectorAll('.rona-go-home')].map(x=>({id:x.id,text:x.textContent.trim(),display:getComputedStyle(x).display,visibility:getComputedStyle(x).visibility,rect:[x.getBoundingClientRect().width,x.getBoundingClientRect().height],outer:x.outerHTML.slice(0,500)})),logout:[...document.querySelectorAll('#ronaLogout')].map(x=>({text:x.textContent.trim(),display:getComputedStyle(x).display,visibility:getComputedStyle(x).visibility,rect:[x.getBoundingClientRect().width,x.getBoundingClientRect().height],outer:x.outerHTML.slice(0,500)})),buttons:[...document.querySelectorAll('button')].map(x=>({text:x.textContent.trim(),id:x.id,className:x.className,display:getComputedStyle(x).display,visibility:getComputedStyle(x).visibility,rect:[x.getBoundingClientRect().width,x.getBoundingClientRect().height],onclick:x.getAttribute('onclick')})).filter(x=>/Выйти|На главную|Отправить/.test(x.text)),middleware:!!document.getElementById('rona-portal-root-logout')}));console.log('RONA_AGENT_POSTPATCH='+JSON.stringify(out));await c.close();await b.close()})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+      - name: Inspect source around legacy send control
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          s=Path('portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html').read_text(errors='replace')
+          needle="Фактическая отправка станет доступна после серверного подключения."
+          i=s.find(needle)
+          print('RONA_SEND_CONTEXT='+s[max(0,i-2500):i+2500].replace('\n',' ') if i>=0 else 'NOT_FOUND')
+          PY
