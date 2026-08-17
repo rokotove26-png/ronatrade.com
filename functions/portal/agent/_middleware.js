@@ -5,7 +5,10 @@ export async function onRequest(context){
   const type=String(response.headers.get('content-type')||'').toLowerCase();
   if(!type.includes('text/html'))return response;
   let html=await response.text();
-  if(!html.includes('rona-agent-production-actions'))html=html.includes('</body>')?html.replace('</body>',AGENT_RUNTIME+'</body>'):html+AGENT_RUNTIME;
+  if(!html.includes('rona-agent-production-actions')){
+    const bodyClose=html.toLowerCase().lastIndexOf('</body>');
+    html=bodyClose>=0?html.slice(0,bodyClose)+AGENT_RUNTIME+html.slice(bodyClose):html+AGENT_RUNTIME;
+  }
   const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-store, no-cache, must-revalidate');
   return new Response(html,{status:response.status,statusText:response.statusText,headers});
 }
