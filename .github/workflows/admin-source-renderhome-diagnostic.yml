@@ -1,0 +1,28 @@
+name: Admin renderHome source diagnostic
+
+on:
+  push:
+    branches:
+      - 'hotfix/admin-interactivity-*'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-render-home:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Inspect renderHome source
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const file='portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html';
+          const html=fs.readFileSync(file,'utf8');
+          const re=/<script\b[^>]*>([\s\S]*?)<\/script>/gi;let m,n=0,found=false;
+          while((m=re.exec(html))){const src=m[1];if(/\brenderHome\b/.test(src)){found=true;const lines=src.split('\n');const idx=lines.findIndex(x=>/\brenderHome\b/.test(x));console.log('RONA_RENDERHOME_SCRIPT_INDEX='+n);console.log('RONA_RENDERHOME_LINE='+(idx+1));for(let i=Math.max(0,idx-12);i<Math.min(lines.length,idx+32);i++)console.log(`${i+1}: ${lines[i]}`);break}n++}
+          if(!found)throw new Error('renderHome source not found');
+          NODE
