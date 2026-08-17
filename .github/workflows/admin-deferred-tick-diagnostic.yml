@@ -1,4 +1,4 @@
-name: Admin deferred ticker diagnostic
+name: Admin runtime null-target diagnostic
 
 on:
   push:
@@ -6,34 +6,66 @@ on:
       - 'hotfix/admin-interactivity-*'
 
 permissions:
+  actions: read
   contents: read
 
 jobs:
-  diagnose-deferred-tick:
+  diagnose-admin-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Inspect frozen Admin source ticker
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Obtain controlled Admin session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --request POST \
+            'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "x-github-repository: ${GITHUB_REPOSITORY}" \
+            --header "x-github-sha: ${GITHUB_SHA}" \
+            --header "x-github-ref: ${GITHUB_REF}" \
+            --header "x-github-run-id: ${GITHUB_RUN_ID}" \
+            --output /tmp/session.json
+          node <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/session.json','utf8'));
+          if(!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error(JSON.stringify({ok:j.ok,code:j.code,proof:j.proof||null}));
+          console.log('::add-mask::'+j.session.access_token);console.log('::add-mask::'+j.session.refresh_token);
+          fs.appendFileSync(process.env.GITHUB_ENV,`AT<<EOF\n${j.session.access_token}\nEOF\nRT<<EOF\n${j.session.refresh_token}\nEOF\n`);
+          NODE
+          rm -f /tmp/session.json
+      - name: Capture pageerror stack through all Admin sections
         run: |
           node <<'NODE'
-          const fs=require('fs');
-          const file='portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html';
-          const src=fs.readFileSync(file,'utf8');
-          const lines=src.split('\n');
-          const matches=[];
-          for(let i=0;i<lines.length;i++) if(/\b(?:function\s+tick|const\s+tick|let\s+tick|var\s+tick)\b/.test(lines[i])) matches.push(i);
-          console.log('RONA_TICK_MATCH_LINES='+JSON.stringify(matches.map(i=>i+1)));
-          for(const idx of matches){
-            const lo=Math.max(0,idx-15),hi=Math.min(lines.length,idx+30);
-            console.log('RONA_TICK_EXCERPT_START');
-            for(let i=lo;i<hi;i++) console.log(`${i+1}: ${lines[i]}`);
-            console.log('RONA_TICK_EXCERPT_END');
-          }
-          if(!matches.length){
-            for(let i=0;i<lines.length;i++) if(/setInterval|textContent/.test(lines[i])&&/clock|time|date|tick/i.test(lines.slice(Math.max(0,i-3),Math.min(lines.length,i+4)).join(' '))) console.log(`RONA_TIMER_CANDIDATE ${i+1}: ${lines[i]}`);
-          }
+          const {chromium}=require('playwright');
+          (async()=>{
+            const base='https://ce22adea.rona-trade-public.pages.dev';
+            const browser=await chromium.launch({headless:true});
+            const ctx=await browser.newContext({viewport:{width:1920,height:1080}});
+            await ctx.addCookies([{name:'rona_portal_at',value:process.env.AT,domain:new URL(base).hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:process.env.RT,domain:new URL(base).hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
+            const page=await ctx.newPage(),errs=[];
+            page.on('pageerror',e=>{const x={message:String(e.message||e),stack:String(e.stack||'')};errs.push(x);console.log('RONA_PAGEERROR='+JSON.stringify(x))});
+            page.on('console',m=>{if(m.type()==='error'&&!/cloudflareinsights/.test(m.text()))console.log('RONA_CONSOLE_ERROR='+JSON.stringify({text:m.text()}))});
+            await page.goto(base+'/portal/admin?_nulldiag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+            await page.waitForFunction(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true&&window.__RONA_ADMIN_LIVE_READY__===true,{timeout:20000});
+            const pages=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));
+            for(const p of pages){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(250)}
+            await page.waitForTimeout(1500);
+            console.log('RONA_NULL_DIAGNOSTIC_SUMMARY='+JSON.stringify({errors:errs.length,unique:[...new Set(errs.map(x=>x.message))]}));
+            await ctx.close();await browser.close();
+            if(!errs.length)throw new Error('EXPECTED_RUNTIME_ERROR_NOT_REPRODUCED');
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
+      - name: Clean session material
+        if: always()
+        run: |
+          unset AT RT || true
+          rm -f /tmp/session.json || true
