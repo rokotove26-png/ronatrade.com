@@ -1,0 +1,182 @@
+name: Admin authenticated interactivity gate
+
+on:
+  push:
+    branches:
+      - 'hotfix/admin-interactivity-*'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+  statuses: write
+
+jobs:
+  authenticated-admin-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify canonical source hashes and runtime hotfix source
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
+          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
+          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' functions/portal/admin.js
+          grep -q 'RelockAndBootstrapAdmin' functions/portal/admin.js
+          grep -q "on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
+          echo 'CANONICAL_ADMIN_SOURCE_HASH=PASS'
+          echo 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP_SOURCE=PASS'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Resolve deployed target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF_NAME}" = 'release/public-go-live-v1.1' ]; then
+            echo 'TARGET_ORIGIN=https://ronaoil.com' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          node <<'NODE'
+          const fs=require('fs');
+          const repo=process.env.GITHUB_REPOSITORY, sha=process.env.GITHUB_SHA, token=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            for(let i=0;i<60;i++){
+              const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${token}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-Trade-Admin-Interactivity-QA'}});
+              if(r.ok){
+                const j=await r.json();
+                const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages'&&x.status==='completed'&&x.conclusion==='success');
+                const summary=String(cf?.output?.summary||'');
+                const m=summary.match(/https:\/\/[a-z0-9-]+\.rona-trade-public\.pages\.dev/i);
+                if(m){fs.appendFileSync(process.env.GITHUB_ENV,`TARGET_ORIGIN=${m[0]}\n`);console.log(`Cloudflare preview resolved after ${i+1} checks`);return;}
+              }
+              await sleep(5000);
+            }
+            throw new Error('Cloudflare Pages preview URL not available');
+          })().catch(e=>{console.error(e.message);process.exit(1)});
+          NODE
+      - name: Obtain controlled server-authenticated Admin session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --request POST \
+            'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "x-github-repository: ${GITHUB_REPOSITORY}" \
+            --header "x-github-sha: ${GITHUB_SHA}" \
+            --header "x-github-ref: ${GITHUB_REF}" \
+            --header "x-github-run-id: ${GITHUB_RUN_ID}" \
+            --output /tmp/rona-admin-session.json
+          node <<'NODE'
+          const fs=require('fs');
+          const j=JSON.parse(fs.readFileSync('/tmp/rona-admin-session.json','utf8'));
+          if(!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error('controlled Admin session unavailable');
+          process.stdout.write(`::add-mask::${j.session.access_token}\n`);
+          process.stdout.write(`::add-mask::${j.session.refresh_token}\n`);
+          fs.appendFileSync(process.env.GITHUB_ENV,`RONA_ACCESS_TOKEN<<RONA_EOF\n${j.session.access_token}\nRONA_EOF\nRONA_REFRESH_TOKEN<<RONA_EOF\n${j.session.refresh_token}\nRONA_EOF\n`);
+          NODE
+          rm -f /tmp/rona-admin-session.json
+      - name: JavaScript-enabled authenticated Admin navigation and security regression
+        env:
+          TARGET_ORIGIN: ${{ env.TARGET_ORIGIN }}
+          RONA_ACCESS_TOKEN: ${{ env.RONA_ACCESS_TOKEN }}
+          RONA_REFRESH_TOKEN: ${{ env.RONA_REFRESH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const origin=process.env.TARGET_ORIGIN;
+          const access=process.env.RONA_ACCESS_TOKEN,refresh=process.env.RONA_REFRESH_TOKEN;
+          const expectedPages=['home','prices','applications','deals','documents','payments','monitoring','accounting','claims','access','messages','notifications','announcements','analytics','market-news','publication','agents','agent-settlements','portal-contour','exchange','datahub','archive','roles'];
+          if(!origin||!access||!refresh)throw new Error('runtime QA environment incomplete');
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const hostname=new URL(origin).hostname;
+            const context=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});
+            await context.addCookies([
+              {name:'rona_portal_at',value:access,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
+              {name:'rona_portal_rt',value:refresh,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
+            ]);
+            const page=await context.newPage();
+            const errors=[];
+            page.on('pageerror',e=>errors.push({type:'pageerror',message:String(e.message||e)}));
+            page.on('console',m=>{if(m.type()==='error')errors.push({type:'console',message:m.text()})});
+            await page.goto(origin+'/portal/admin?_admin_interactivity='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+            if(new URL(page.url()).pathname!=='/portal/admin')throw new Error('authenticated Admin route did not remain on /portal/admin');
+            await page.waitForFunction(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,{timeout:15000});
+            const boot=await page.evaluate(()=>({
+              state:window.__RONA_ADMIN_BOOT_STATE__,
+              deferredNodes:document.querySelectorAll('script[type="application/rona-admin-deferred"][data-rona-admin-deferred="true"]').length,
+              renderAccess:typeof window.renderAccess,
+              adminCore:!!window.RONA_ADMIN_V349,
+              publicationCore:!!window.RONA_ADMIN_PUBLICATION_CONTROL_V345,
+              legacyGate:!!document.getElementById('adminLoginGate'),
+              legacyAuthScript:!!document.getElementById('rona-admin-auth-v3413'),
+              runtimeSourceHasLegacyAuthority:/PBKDF2_ITERATIONS|AUTH_USERNAME|PBKDF2_VERIFIER_B64/.test(document.documentElement.innerHTML),
+              url:location.href,
+            }));
+            const s=boot.state||{};
+            if(!(s.started===true&&s.ready===true&&s.failed===false&&s.timedOut===false&&s.startCount===1&&s.errorCount===0))throw new Error('Admin boot-state invariant failed: '+JSON.stringify(s));
+            if(!(boot.deferredNodes>0&&boot.deferredNodes===s.deferredScriptCount))throw new Error('deferred module count invariant failed');
+            if(!Array.isArray(s.modules)||s.modules.some(x=>x.status!=='EXECUTED'||x.executionCount!==1))throw new Error('deferred module execution invariant failed');
+            if(s.readyEventCount!==1)throw new Error('rona:admin-app-ready did not fire exactly once');
+            if(boot.renderAccess!=='function'||!boot.adminCore||!boot.publicationCore)throw new Error('required Admin runtime globals missing');
+            if(boot.legacyGate||boot.legacyAuthScript||boot.runtimeSourceHasLegacyAuthority)throw new Error('legacy local Admin auth authority remains in runtime DOM');
+            if(/access_token=|refresh_token=|id_token=|eyJ[a-zA-Z0-9_-]{20,}\./.test(boot.url))throw new Error('token leaked into URL');
+
+            const actual=await page.locator('#nav button[data-page]').evaluateAll(btns=>btns.map(b=>b.dataset.page));
+            if(JSON.stringify(actual)!==JSON.stringify(expectedPages))throw new Error('Admin navigation contract mismatch: '+JSON.stringify(actual));
+            let previous=null;
+            for(const dataPage of actual){
+              const button=page.locator(`#nav button[data-page="${dataPage}"]`);
+              await button.click();
+              await page.waitForTimeout(40);
+              if(!(await button.evaluate(el=>el.classList.contains('active'))))throw new Error(`${dataPage}: clicked button not active`);
+              const target=page.locator(`#page-${dataPage}`);
+              if(await target.count()!==1)throw new Error(`${dataPage}: target page missing`);
+              const targetState=await target.evaluate(el=>{const r=el.getBoundingClientRect(),cs=getComputedStyle(el);return {active:el.classList.contains('page')&&el.classList.contains('active'),visible:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0&&r.height>0,width:r.width,height:r.height}});
+              if(!targetState.active||!targetState.visible)throw new Error(`${dataPage}: target page not active/visible ${JSON.stringify(targetState)}`);
+              if(previous&&previous!==dataPage){const prior=page.locator(`#page-${previous}`);if(await prior.count()&&await prior.evaluate(el=>el.classList.contains('active')))throw new Error(`${dataPage}: previous page ${previous} still active`);}
+              if(errors.length)throw new Error(`${dataPage}: JavaScript errors ${JSON.stringify(errors.slice(0,5))}`);
+              previous=dataPage;
+            }
+
+            const adminApi=await context.request.get(origin+'/portal/api/v1/admin/bootstrap',{headers:{accept:'application/json'}});
+            const adminJson=await adminApi.json();
+            if(!adminApi.ok()||adminJson?.ok!==true)throw new Error('Admin live bootstrap failed');
+            const counts={clients:adminJson.data?.clients?.length||0,contracts:adminJson.data?.contracts?.length||0,deals:adminJson.data?.deals?.length||0,documents:adminJson.data?.documents?.length||0,payments:adminJson.data?.payments?.length||0,shipments:adminJson.data?.shipments?.length||0,rail:adminJson.data?.rail?.length||0,publications:adminJson.data?.publications?.length||0,controls:adminJson.data?.controls?.length||0};
+            const html=await page.content();
+            if(/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(html))throw new Error('JWT leaked into frontend HTML');
+            const fresh=await browser.newContext({viewport:{width:1280,height:800},javaScriptEnabled:true});
+            const unauth=await fresh.newPage();
+            await unauth.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
+            if(new URL(unauth.url()).pathname!=='/portal/login')throw new Error('direct Admin route without session did not fail closed');
+            await fresh.close();
+            await page.locator('#adminLogoutBtn').click();
+            await page.waitForURL(u=>new URL(u).pathname==='/portal/login',{timeout:10000});
+            await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
+            if(new URL(page.url()).pathname!=='/portal/login')throw new Error('logout did not invalidate working portal session');
+            if(errors.length)throw new Error('JavaScript error count non-zero: '+JSON.stringify(errors.slice(0,10)));
+            console.log(JSON.stringify({ok:true,origin,navigation:`${actual.length}/${expectedPages.length}`,deferredModules:s.deferredScriptCount,readyEventCount:s.readyEventCount,consoleErrors:0,pageErrors:0,adminBootstrap:counts,unauthAdminFailClosed:true,logoutInvalidatedSession:true,legacyLocalAuthDisabled:true,tokenLeak:false}));
+            await context.close();await browser.close();
+          })().catch(e=>{console.error(e.message);process.exit(1)});
+          NODE
+      - name: Clean runtime secrets from runner
+        if: always()
+        run: |
+          unset RONA_ACCESS_TOKEN RONA_REFRESH_TOKEN || true
+          rm -f /tmp/rona-admin-session.json || true
