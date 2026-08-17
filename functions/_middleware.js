@@ -48,6 +48,11 @@ const ADMIN_RUNTIME_COMPAT = `<script id="rona-admin-runtime-compat-v1">
   'use strict';
   if(window.__RONA_ADMIN_RUNTIME_COMPAT_V1__)return;
   window.__RONA_ADMIN_RUNTIME_COMPAT_V1__=true;
+  const disableLegacySnapshotRenderer=()=>{
+    if(window.__RONA_ADMIN_LIVE_READY__!==true)return;
+    window.renderPage=()=>{};
+    window.__RONA_ADMIN_LEGACY_SNAPSHOT_RENDER_DISABLED__=true;
+  };
   const stamp=()=>{
     const home=document.getElementById('page-home');
     if(!home)return;
@@ -63,7 +68,8 @@ const ADMIN_RUNTIME_COMPAT = `<script id="rona-admin-runtime-compat-v1">
     if(clock)clock.textContent=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
     if(calendar)calendar.textContent=d.toLocaleDateString('ru-RU',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   };
-  const install=()=>{stamp();const home=document.getElementById('page-home');if(home)new MutationObserver(stamp).observe(home,{childList:true,subtree:true});document.addEventListener('rona:admin-live-ready',stamp);};
+  const onLive=()=>{disableLegacySnapshotRenderer();stamp()};
+  const install=()=>{stamp();disableLegacySnapshotRenderer();const home=document.getElementById('page-home');if(home)new MutationObserver(stamp).observe(home,{childList:true,subtree:true});document.addEventListener('rona:admin-live-ready',onLive);};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 </script>`;
