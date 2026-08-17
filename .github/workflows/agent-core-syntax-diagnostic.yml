@@ -25,45 +25,47 @@ jobs:
         shell: bash
         run: |
           node <<'NODE'
-          const fs=require('fs');
-          const cp=require('child_process');
-          const acorn=require('acorn');
-          const path='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html';
-          const html=fs.readFileSync(path,'utf8');
-          const m=html.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
-          if(!m)throw new Error('AGENT_CORE_NOT_FOUND');
-          const src=m[1];
-          fs.writeFileSync('/tmp/agent-core.js',src);
-          const check=cp.spawnSync(process.execPath,['--check','/tmp/agent-core.js'],{encoding:'utf8'});
-          let parseError='';
-          try{acorn.parse(src,{ecmaVersion:'latest',locations:true})}catch(e){parseError=String(e.message||e)}
-          const stack=[];
-          const opens=new Set(['(', '[', '{', '${']);
-          const closeFor={')':'(',']':'[','}':'{'};
-          let tokenizerError='';
-          try{
-            const tokenizer=acorn.tokenizer(src,{ecmaVersion:'latest',locations:true,allowHashBang:true});
-            for(;;){
-              const t=tokenizer.getToken();
-              const label=t.type.label;
-              if(label==='eof')break;
-              if(opens.has(label))stack.push({label,line:t.loc.start.line,column:t.loc.start.column});
-              else if(closeFor[label]){
-                if(label==='}'&&stack.at(-1)?.label==='${')stack.pop();
-                else if(stack.at(-1)?.label===closeFor[label])stack.pop();
+          (async()=>{
+            const fs=require('fs');
+            const cp=require('child_process');
+            const acorn=require('acorn');
+            const path='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html';
+            const html=fs.readFileSync(path,'utf8');
+            const m=html.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
+            if(!m)throw new Error('AGENT_CORE_NOT_FOUND');
+            const src=m[1];
+            fs.writeFileSync('/tmp/agent-core.js',src);
+            const check=cp.spawnSync(process.execPath,['--check','/tmp/agent-core.js'],{encoding:'utf8'});
+            let parseError='';
+            try{acorn.parse(src,{ecmaVersion:'latest',locations:true})}catch(e){parseError=String(e.message||e)}
+            const stack=[];
+            const opens=new Set(['(', '[', '{', '${']);
+            const closeFor={')':'(',']':'[','}':'{'};
+            let tokenizerError='';
+            try{
+              const tokenizer=acorn.tokenizer(src,{ecmaVersion:'latest',locations:true,allowHashBang:true});
+              for(;;){
+                const t=tokenizer.getToken();
+                const label=t.type.label;
+                if(label==='eof')break;
+                if(opens.has(label))stack.push({label,line:t.loc.start.line,column:t.loc.start.column});
+                else if(closeFor[label]){
+                  if(label==='}'&&stack.at(-1)?.label==='${')stack.pop();
+                  else if(stack.at(-1)?.label===closeFor[label])stack.pop();
+                }
               }
-            }
-          }catch(e){tokenizerError=String(e.message||e)}
-          console.log('NODE_CHECK_STATUS='+check.status);
-          console.log('ACORN_PARSE_ERROR='+parseError);
-          console.log('TOKENIZER_ERROR='+tokenizerError);
-          console.log('UNMATCHED_STACK='+JSON.stringify(stack.slice(-20)));
-          for(const x of stack.slice(-8))console.log('UNMATCHED_CONTEXT '+JSON.stringify(x)+' :: '+String(src.split('\n')[x.line-1]||''));
-          if(check.stderr)console.log(check.stderr);
-          const last=stack.slice(-4).map(x=>`${x.label}@${x.line}:${x.column}`).join(',');
-          const description=(parseError||tokenizerError||'syntax ok')+(last?` stack ${last}`:'');
-          const state=check.status===0?'success':'failure';
-          const r=await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/statuses/${process.env.GITHUB_SHA}`,{method:'POST',headers:{authorization:`Bearer ${process.env.GH_TOKEN}`,'content-type':'application/json',accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'},body:JSON.stringify({state,context:'rona/agent-core-syntax',description:description.slice(0,140),target_url:`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`})});
-          if(!r.ok)throw new Error('status '+r.status+' '+await r.text());
-          if(check.status!==0)process.exit(1);
+            }catch(e){tokenizerError=String(e.message||e)}
+            console.log('NODE_CHECK_STATUS='+check.status);
+            console.log('ACORN_PARSE_ERROR='+parseError);
+            console.log('TOKENIZER_ERROR='+tokenizerError);
+            console.log('UNMATCHED_STACK='+JSON.stringify(stack.slice(-20)));
+            for(const x of stack.slice(-8))console.log('UNMATCHED_CONTEXT '+JSON.stringify(x)+' :: '+String(src.split('\n')[x.line-1]||''));
+            if(check.stderr)console.log(check.stderr);
+            const last=stack.slice(-4).map(x=>`${x.label}@${x.line}:${x.column}`).join(',');
+            const description=(parseError||tokenizerError||'syntax ok')+(last?` stack ${last}`:'');
+            const state=check.status===0?'success':'failure';
+            const r=await fetch(`https://api.github.com/repos/${process.env.GITHUB_REPOSITORY}/statuses/${process.env.GITHUB_SHA}`,{method:'POST',headers:{authorization:`Bearer ${process.env.GH_TOKEN}`,'content-type':'application/json',accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'},body:JSON.stringify({state,context:'rona/agent-core-syntax',description:description.slice(0,140),target_url:`https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`})});
+            if(!r.ok)throw new Error('status '+r.status+' '+await r.text());
+            if(check.status!==0)process.exit(1);
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
