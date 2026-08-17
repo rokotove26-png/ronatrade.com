@@ -117,7 +117,14 @@ jobs:
             page.on('console',m=>{if(m.type()==='error')errors.push({type:'console',message:m.text()})});
             await page.goto(origin+'/portal/admin?_admin_interactivity='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
             if(new URL(page.url()).pathname!=='/portal/admin')throw new Error('authenticated Admin route did not remain on /portal/admin');
-            await page.waitForFunction(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,{timeout:15000});
+            let ready=false;
+            for(let i=0;i<150;i++){
+              const state=await page.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__||null);
+              if(state?.ready===true){ready=true;break;}
+              if(state?.failed===true||state?.timedOut===true)throw new Error('Admin boot failed before ready: '+JSON.stringify(state));
+              await page.waitForTimeout(100);
+            }
+            if(!ready){const state=await page.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__||null);throw new Error('Admin boot did not become ready: '+JSON.stringify(state));}
             const boot=await page.evaluate(()=>({
               state:window.__RONA_ADMIN_BOOT_STATE__,
               deferredNodes:document.querySelectorAll('script[type="application/rona-admin-deferred"][data-rona-admin-deferred="true"]').length,
