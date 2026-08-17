@@ -9,7 +9,7 @@ const PORTAL_ENTRY_PAGES = new Set([
 ]);
 const MOBILE_REMEDIATION_PAGES = new Set([
   '/pages/home_compact.html','/pages/home_compact','/en/pages/home_compact.html','/en/pages/home_compact',
-  '/pages/about.html','/pages/about','/pages/products.html','/pages/products','/pages/logistics.html','/pages/logistics',
+  '/pages/about.html','/pages/about','/pages/products.html','/pages/products.html','/pages/products','/pages/logistics.html','/pages/logistics',
   '/pages/geography.html','/pages/geography','/pages/contacts.html','/pages/contacts',
   '/en/pages/about.html','/en/pages/about','/en/pages/products.html','/en/pages/products','/en/pages/logistics.html','/en/pages/logistics',
   '/en/pages/geography.html','/en/pages/geography','/en/pages/contacts.html','/en/pages/contacts'
@@ -43,33 +43,56 @@ const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/ass
 const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v2.css">`;
 const MOBILE_CONTACTS_STYLE = `<link id="rona-mobile-contacts-underlay-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-contacts-underlay-v2.css">`;
 const STAFF_LOGOUT_BUTTON = `<button class="btn" id="ronaLogout" type="button">Выйти</button>`;
-const ADMIN_RUNTIME_COMPAT = `<script id="rona-admin-runtime-compat-v1">
+const ADMIN_RUNTIME_COMPAT = `<script id="rona-admin-legacy-anchor-compat-v2">
 (()=>{
   'use strict';
-  if(window.__RONA_ADMIN_RUNTIME_COMPAT_V1__)return;
-  window.__RONA_ADMIN_RUNTIME_COMPAT_V1__=true;
-  const disableLegacySnapshotRenderer=()=>{
-    if(window.__RONA_ADMIN_LIVE_READY__!==true)return;
-    window.renderPage=()=>{};
-    window.__RONA_ADMIN_LEGACY_SNAPSHOT_RENDER_DISABLED__=true;
+  if(window.__RONA_ADMIN_RUNTIME_COMPAT_V2__)return;
+  window.__RONA_ADMIN_RUNTIME_COMPAT_V2__=true;
+  let busy=false;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const ensureLegacySinks=()=>{
+    if(busy||window.__RONA_ADMIN_LIVE_READY__!==true)return;
+    busy=true;
+    try{
+      const home=document.getElementById('page-home');
+      if(home&&!home.querySelector('[data-rona-legacy-home-sinks]')){
+        const d=document.createElement('div');d.hidden=true;d.setAttribute('aria-hidden','true');d.dataset.ronaLegacyHomeSinks='true';
+        d.innerHTML='<div id="homeKpis"></div><span id="attentionCountLabel"></span><div id="attentionList"></div><div><div class="panel-head"><strong></strong></div><div id="homeDeal"></div></div><div id="homeSystems"></div>';
+        home.appendChild(d);
+      }
+      const deals=document.getElementById('page-deals');
+      if(deals&&!deals.querySelector('[data-rona-legacy-deal-sinks]')){
+        const d=document.createElement('div');d.hidden=true;d.setAttribute('aria-hidden','true');d.dataset.ronaLegacyDealSinks='true';
+        d.innerHTML='<div id="dealKpis"></div><table><tbody id="dealTable"></tbody></table>';
+        deals.appendChild(d);
+      }
+      window.__RONA_ADMIN_LEGACY_SNAPSHOT_RENDER_DISABLED__=true;
+    }finally{busy=false}
   };
   const stamp=()=>{
-    const home=document.getElementById('page-home');
-    if(!home)return;
+    const home=document.getElementById('page-home');if(!home)return;
     if(home.querySelector('#clock')&&home.querySelector('#calendar'))return;
-    const host=home.querySelector('.page-head')||home.querySelector('.title-row');
-    if(!host)return;
-    const wrap=document.createElement('div');
-    wrap.innerHTML='<div data-rona-admin-clock-compat="true"><div class="clock" id="clock">--:--</div><div class="calendar" id="calendar">--</div></div>';
-    const node=wrap.firstElementChild;
-    const slot=host.querySelector('.asof');
-    if(slot)slot.replaceWith(node);else host.appendChild(node);
+    const host=home.querySelector('.page-head')||home.querySelector('.title-row');if(!host)return;
+    const wrap=document.createElement('div');wrap.innerHTML='<div data-rona-admin-clock-compat="true"><div class="clock" id="clock">--:--</div><div class="calendar" id="calendar">--</div></div>';
+    const node=wrap.firstElementChild,slot=host.querySelector('.asof');if(slot)slot.replaceWith(node);else host.appendChild(node);
     const d=new Date(),clock=document.getElementById('clock'),calendar=document.getElementById('calendar');
     if(clock)clock.textContent=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
     if(calendar)calendar.textContent=d.toLocaleDateString('ru-RU',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
   };
-  const onLive=()=>{disableLegacySnapshotRenderer();stamp()};
-  const install=()=>{stamp();disableLegacySnapshotRenderer();const home=document.getElementById('page-home');if(home)new MutationObserver(stamp).observe(home,{childList:true,subtree:true});document.addEventListener('rona:admin-live-ready',onLive);};
+  async function openDocument(row){
+    const id=decodeURIComponent(row.dataset.ronaLiveDocument||'');if(!id)return;
+    try{
+      const r=await fetch('/portal/api/v1/admin/documents/'+encodeURIComponent(id),{credentials:'same-origin',headers:{accept:'application/json'}}),j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.document)throw new Error(j.code||('HTTP_'+r.status));
+      const d=j.document,title=document.getElementById('modalTitle'),sub=document.getElementById('modalSubtitle'),body=document.getElementById('modalBody'),mask=document.getElementById('modalMask');
+      if(!title||!sub||!body||!mask)throw new Error('ADMIN_MODAL_NOT_AVAILABLE');
+      title.textContent='Документ '+id;sub.textContent='Canonical backend';
+      body.innerHTML='<div class="kv"><div>Document ID</div><div>'+esc(d.documentId)+'</div><div>Тип</div><div>'+esc(d.documentType)+'</div><div>Client ID</div><div>'+esc(d.clientId)+'</div><div>Contract ID</div><div>'+esc(d.contractId)+'</div><div>Deal ID</div><div>'+esc(d.dealId||'—')+'</div><div>Файл</div><div>'+esc(d.authoritativeFilename||'—')+'</div><div>Authority</div><div>'+esc(d.authorityState||'—')+'</div><div>Lifecycle</div><div>'+esc(d.lifecycleState||'—')+'</div></div><div class="note subsection">Authoritative binary отсутствует в серверном Storage; скачивание и замена не имитируются.</div>';
+      mask.classList.add('open');
+    }catch(err){window.toast?.('Документ недоступен: '+String(err.message||err))}
+  }
+  const onLive=()=>{ensureLegacySinks();stamp()};
+  const install=()=>{onLive();document.addEventListener('rona:admin-live-ready',onLive);document.addEventListener('click',e=>{const nav=e.target?.closest?.('#nav button[data-page]');if(nav)ensureLegacySinks();const row=e.target?.closest?.('[data-rona-live-document]');if(row){e.preventDefault();e.stopImmediatePropagation();void openDocument(row)}},true);new MutationObserver(()=>queueMicrotask(()=>{ensureLegacySinks();stamp()})).observe(document.documentElement,{subtree:true,childList:true})};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 </script>`;
@@ -170,7 +193,7 @@ export async function onRequest(context){
   if(needsPortalEntry)headers.set('x-rona-portal-entry','g8.2-home-inline-auth-v2');
   if(needsMobileRuntime)headers.set('x-rona-mobile-remediation','v2-design-lock-v2');
   if(needsContactsInnerStyle)headers.set('x-rona-mobile-contacts-underlay','inner-v2');
-  if(needsAdminRuntime)headers.set('x-rona-admin-runtime-compat','v1');
+  if(needsAdminRuntime)headers.set('x-rona-admin-runtime-compat','v2');
   if(needsStaffRuntime)headers.set('x-rona-staff-root-logout','v1');
   if(needsSessionMenu)headers.set('x-rona-portal-session-menu','v1');
   return new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
