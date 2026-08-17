@@ -1,0 +1,28 @@
+name: Temporary Admin state diagnostic
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-live-compat-20260817']
+permissions: {contents: read, statuses: write}
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Session
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          curl -fsS -X POST https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker -H "Authorization: Bearer ${GH_TOKEN}" -H "x-github-repository: ${GITHUB_REPOSITORY}" -H "x-github-sha: ${GITHUB_SHA}" -H "x-github-ref: ${GITHUB_REF}" -H "x-github-run-id: ${GITHUB_RUN_ID}" -o /tmp/s.json
+          node <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/s.json'));if(!j.ok)throw Error('session');console.log('::add-mask::'+j.session.access_token);console.log('::add-mask::'+j.session.refresh_token);fs.appendFileSync(process.env.GITHUB_ENV,`AT<<EOF\n${j.session.access_token}\nEOF\nRT<<EOF\n${j.session.refresh_token}\nEOF\n`)
+          NODE
+      - name: Diagnose
+        env: {AT: '${{ env.AT }}', RT: '${{ env.RT }}'}
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');(async()=>{const origin='https://e6f41b61.rona-trade-public.pages.dev',b=await chromium.launch({headless:true}),c=await b.newContext({javaScriptEnabled:true});await c.addCookies([{name:'rona_portal_at',value:process.env.AT,domain:new URL(origin).hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:process.env.RT,domain:new URL(origin).hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);const p=await c.newPage(),ev=[];p.on('pageerror',e=>ev.push({type:'pageerror',message:String(e.message||e),stack:String(e.stack||'')}));p.on('console',m=>{if(m.type()==='error')ev.push({type:'console',message:m.text()})});const r=await p.goto(origin+'/portal/admin?diag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await p.waitForTimeout(5000);console.log('ADMIN_STATE='+JSON.stringify({status:r?.status(),url:p.url(),boot:await p.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__||null),markers:await p.evaluate(()=>({server:!!document.getElementById('rona-server-authenticated-admin-bootstrap'),kick:!!document.getElementById('rona-server-authenticated-admin-boot-kick'),live:!!document.getElementById('rona-admin-live-authority-adapter'),root:!!document.getElementById('rona-admin-legacy-anchor-compat-v2')})),events:ev}));await c.close();await b.close()})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
