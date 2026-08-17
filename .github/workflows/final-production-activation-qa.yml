@@ -1,0 +1,99 @@
+name: Final full production activation gate
+
+on:
+  push:
+    branches:
+      - 'final/full-production-*'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+  statuses: write
+
+jobs:
+  full-production-activation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify frozen sources and activation adapters
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
+          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
+          grep -q "return clearedResponse(303, '/')" functions/portal/logout.js
+          grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
+          grep -q 'rona-client-live-authority-adapter' functions/portal/_middleware.js
+          echo 'FROZEN_SOURCE_AND_ADAPTER_GATE=PASS'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Integrated portal production activation QA
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const expectedAdmin=['home','prices','applications','deals','documents','payments','monitoring','accounting','claims','access','messages','notifications','announcements','analytics','market-news','publication','agents','agent-settlements','portal-contour','exchange','datahub','archive','roles'];
+          const expectedAgent=['home','clients','prices','deals','economics','settlements','documents','messages'];
+          const expectedStaff=['inbox','tasks','clients','applications','deals','documents','payments','logistics','prices','analytics','events','deltas','audit'];
+          async function origin(){if(process.env.GITHUB_REF_NAME==='release/public-go-live-v1.1')return 'https://ronaoil.com';for(let i=0;i<60;i++){const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-FINAL-QA'}});if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages'&&x.status==='completed'&&x.conclusion==='success');const m=String(cf?.output?.summary||'').match(/https:\/\/[a-z0-9-]+\.rona-trade-public\.pages\.dev/i);if(m)return m[0]}await sleep(5000)}throw new Error('Cloudflare deployment URL unavailable')}
+          async function session(){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json();if(!r.ok||!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error('controlled session unavailable '+JSON.stringify({status:r.status,code:j.code}));return j.session}
+          async function authed(browser,base,s){const h=new URL(base).hostname;const c=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});await c.addCookies([{name:'rona_portal_at',value:s.access_token,domain:h,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:s.refresh_token,domain:h,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);return c}
+          async function waitBool(page,expr,label,tries=200){for(let i=0;i<tries;i++){if(await page.evaluate(expr))return;await page.waitForTimeout(100)}throw new Error(label+' timeout')}
+          function assert(x,m){if(!x)throw new Error(m)}
+          (async()=>{
+            const base=await origin(),browser=await chromium.launch({headless:true});
+            const s=await session(),ctx=await authed(browser,base,s),page=await ctx.newPage(),errors=[];
+            page.on('pageerror',e=>errors.push('pageerror:'+String(e.message||e)));
+            page.on('console',m=>{if(m.type()==='error'&&!/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(m.text()))errors.push('console:'+m.text())});
+            await page.goto(base+'/portal/admin?_final='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+            assert(new URL(page.url()).pathname==='/portal/admin','Admin route failed');
+            await waitBool(page,()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,'admin boot');
+            await waitBool(page,()=>window.__RONA_ADMIN_LIVE_READY__===true,'admin live');
+            const admin=await page.evaluate(()=>window.__RONA_ADMIN_LIVE__);
+            const counts={clients:admin.admin.clients.length,contracts:admin.admin.contracts.length,deals:admin.admin.deals.length,documents:admin.admin.documents.length,payments:admin.admin.payments.length,shipments:admin.admin.shipments.length,rail:admin.admin.rail.length,publications:admin.admin.publications.length,controls:admin.admin.controls.length};
+            assert(JSON.stringify(counts)===JSON.stringify({clients:3,contracts:2,deals:4,documents:14,payments:1,shipments:0,rail:1,publications:17,controls:12}),'production counts mismatch '+JSON.stringify(counts));
+            const d4=admin.admin.deals.find(x=>x.deal_id==='DEAL-2026-004');assert(d4&&d4.business_status==='EXECUTING'&&d4.finance_status==='PAID'&&d4.accounting_closure_status==='OPEN','DEAL-2026-004 state mismatch');
+            const cTypes=new Set(admin.admin.controls.map(x=>x.control_type));assert(cTypes.has('PAYMENT_ACCOUNTING_OPEN')&&cTypes.has('RAIL_SHIPMENT_AUTHORITY_MISSING'),'DEAL-2026-004 controls missing');
+            const rail=admin.admin.rail.find(x=>String(x.gu12_number)==='1308903120');assert(rail,'GU-12 missing');assert(admin.admin.shipments.length===0,'fictional shipment detected');
+            const nav=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(nav)===JSON.stringify(expectedAdmin),'Admin navigation contract mismatch');
+            for(const p of nav){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(120);const st=await page.locator('#page-'+p).evaluate(el=>({active:el.classList.contains('active'),visible:getComputedStyle(el).display!=='none'&&el.getBoundingClientRect().height>0,live:el.dataset.ronaLiveAuthority==='true'}));assert(st.active&&st.visible,p+' not visible');if(p!=='access')assert(st.live,p+' not live-backed')}
+            const inv=await page.evaluate(()=>{const out={FUNCTIONAL:0,INTENTIONALLY_READ_ONLY_BY_AUTHORITY:0,UNWIRED:0,total:0};for(const el of document.querySelectorAll('button,a,input,select,textarea,form')){const r=el.getBoundingClientRect(),cs=getComputedStyle(el);if(cs.display==='none'||cs.visibility==='hidden'||r.width===0||r.height===0)continue;out.total++;const s=el.dataset.ronaControlStatus;if(s==='FUNCTIONAL'||s==='INTENTIONALLY_READ_ONLY_BY_AUTHORITY')out[s]++;else out.UNWIRED++}return out});assert(inv.UNWIRED===0,'visible unwired controls '+JSON.stringify(inv));
+            await page.locator('#nav button[data-page="documents"]').click();await page.waitForTimeout(100);const firstDoc=page.locator('[data-rona-live-document]').first();assert(await firstDoc.count()===1,'live document row missing');await firstDoc.click();await page.waitForTimeout(250);assert(await page.locator('.modal,.drawer,[role="dialog"]').count()>0||/Document ID/.test(await page.locator('body').innerText()),'document detail did not open');
+            assert(errors.length===0,'Admin JS errors '+JSON.stringify(errors.slice(0,5)));
+
+            const agentApi=await ctx.request.get(base+'/portal/api/v1/agent/bootstrap');const agentJ=await agentApi.json();assert(agentApi.ok()&&agentJ.data?.agentPersonId==='AGP-2026-001','agent bootstrap failed');const agentDeals=(agentJ.data.deals||[]).map(x=>x.dealId).sort();assert(!agentDeals.includes('DEAL-2026-003')&&agentDeals.includes('DEAL-2026-004'),'agent scope mismatch '+JSON.stringify(agentDeals));
+            const deniedDeal=await ctx.request.get(base+'/portal/api/v1/agent/deals/DEAL-2026-003');assert(deniedDeal.status()===404,'agent IDOR foreign deal leaked');const allowedDeal=await ctx.request.get(base+'/portal/api/v1/agent/deals/DEAL-2026-004');assert(allowedDeal.ok(),'agent allowed deal failed');
+            const agentPage=await ctx.newPage();await agentPage.goto(base+'/portal/agent',{waitUntil:'domcontentloaded'});await agentPage.waitForTimeout(800);const an=await agentPage.locator('.nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(an)===JSON.stringify(expectedAgent),'agent UI nav mismatch');for(const p of an){const b=agentPage.locator(`.nav button[data-page="${p}"]`);assert(!(await b.isDisabled()),'agent page disabled '+p);await b.click();await agentPage.waitForTimeout(40);assert(await agentPage.locator('#page-'+p).evaluate(el=>el.classList.contains('active')),`agent ${p} inactive`)}
+
+            const clientApi=await ctx.request.get(base+'/portal/api/v1/client/bootstrap');const clientJ=await clientApi.json();assert(clientApi.ok()&&Array.isArray(clientJ.data?.contexts)&&clientJ.data.contexts.length===0,'client zero-binding bootstrap not empty');const clientRoute=await ctx.request.get(base+'/portal/client',{maxRedirects:0});assert(clientRoute.status()===403,'client route did not fail closed');assert((await clientRoute.text()).includes('CLIENT_CONTEXT_NOT_AUTHORIZED'),'client fail-closed code missing');
+
+            const staff=await ctx.newPage();await staff.goto(base+'/portal/staff',{waitUntil:'domcontentloaded'});await waitBool(staff,()=>document.querySelector('#identity')&&!/Проверка сессии/.test(document.querySelector('#identity').textContent),'staff bootstrap');const sn=await staff.locator('#nav button[data-view]').evaluateAll(xs=>xs.map(x=>x.dataset.view));assert(JSON.stringify(sn)===JSON.stringify(expectedStaff),'staff nav mismatch '+JSON.stringify(sn));for(const v of sn){await staff.locator(`#nav button[data-view="${v}"]`).click();await staff.waitForTimeout(40);assert(!/Загрузка…/.test(await staff.locator('#content').innerText()),'staff loading stuck '+v)}await staff.locator('#nav button[data-view="tasks"]').click();const qa=staff.locator('tr[data-task="QA-FINAL-ACTIVATION-20260817-001"]');assert(await qa.count()===1,'QA propagation task absent');await qa.click();await staff.locator('#taskStatus').selectOption('IN_PROGRESS');await staff.locator('#taskNote').fill('Final production activation QA');await staff.locator('#saveTask').click();await staff.waitForFunction(()=>/подтверждён сервером/.test(document.querySelector('#taskResult')?.textContent||''));
+            const sb=await ctx.request.get(base+'/portal/api/v1/staff/bootstrap');const sbj=await sb.json();const qt=sbj.data.tasks.find(x=>x.task_id==='QA-FINAL-ACTIVATION-20260817-001');assert(qt?.status==='IN_PROGRESS','staff write did not persist');await page.reload({waitUntil:'domcontentloaded'});await waitBool(page,()=>window.__RONA_ADMIN_LIVE_READY__===true,'admin reload live');const propagation=await page.evaluate(()=>({task:window.__RONA_ADMIN_LIVE__.staff.tasks.find(x=>x.task_id==='QA-FINAL-ACTIVATION-20260817-001'),audit:window.__RONA_ADMIN_LIVE__.admin.audit.find(x=>x.entity_id==='QA-FINAL-ACTIVATION-20260817-001')}));assert(propagation.task?.status==='IN_PROGRESS','write not reflected in related portal state');assert(propagation.audit&&String(propagation.audit.action).includes('STAFF_TASK'),'audit event missing');
+
+            const methods=['GET','POST'];const put=await ctx.request.fetch(base+'/portal/api/v1/admin/bootstrap',{method:'PUT'});const patch=await ctx.request.fetch(base+'/portal/api/v1/admin/bootstrap',{method:'PATCH'});const del=await ctx.request.fetch(base+'/portal/api/v1/admin/bootstrap',{method:'DELETE'});assert([put.status(),patch.status(),del.status()].every(x=>x===405),'proxy/backend method gate opened unexpectedly');
+            const html=await page.content();assert(!/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(html),'JWT leaked into frontend HTML');
+
+            async function logoutCheck(kind,clickSelector){const ss=await session(),cc=await authed(browser,base,ss),pp=await cc.newPage();const path=kind==='staff'?'/portal/staff':kind==='select'?'/portal/select':'/portal/admin';await pp.goto(base+path,{waitUntil:'domcontentloaded'});if(clickSelector){await pp.locator(clickSelector).waitFor({state:'visible',timeout:10000});await pp.locator(clickSelector).click();await pp.waitForURL(u=>new URL(u).pathname==='/',{timeout:10000})}else{const r=await cc.request.post(base+'/portal/auth/logout',{headers:{origin:base,referer:base+path},maxRedirects:0});assert(r.status()===303,'logout POST failed '+kind);assert(r.headers()['location']==='/'||r.headers()['location']===base+'/','logout location mismatch '+kind);await pp.goto(base+'/',{waitUntil:'domcontentloaded'})}const cookies=await cc.cookies();assert(!cookies.some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'logout cookies remain '+kind);const protectedReq=await cc.request.get(base+'/portal/admin',{maxRedirects:0});assert([302,303].includes(protectedReq.status())||protectedReq.status()===401||protectedReq.status()===403,'protected route remained open '+kind);await cc.close()}
+            await logoutCheck('admin','#adminLogoutBtn');await logoutCheck('staff','#ronaLogout');await logoutCheck('select','form[action="/portal/auth/logout"] button');
+            await ctx.close();await browser.close();
+            console.log('RONA_FINAL_ACTIVATION_QA='+JSON.stringify({ok:true,origin:base,adminSections:'23/23',interactive:inv,counts,staff:'PASS',agent:{agentPersonId:agentJ.data.agentPersonId,deals:agentDeals},client:'FAIL_CLOSED_ZERO_BINDING',writePropagation:'PASS',audit:'PASS',methods,logoutRoot:'PASS',tokenLeak:false,deal004:'PASS'}));
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
