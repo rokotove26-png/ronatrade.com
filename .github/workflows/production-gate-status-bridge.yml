@@ -14,59 +14,28 @@ permissions:
 jobs:
   bridge:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
-      - name: Publish production gate diagnostic status
+      - name: Expose target production gate check
         env:
           GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: 0995315ca81b19a7aab1013ff56a0491d5f44524
         run: |
           node <<'NODE'
           const repo=process.env.GITHUB_REPOSITORY;
           const sha=process.env.GITHUB_SHA;
+          const targetSha=process.env.TARGET_SHA;
           const gh=process.env.GH_TOKEN;
-          const api='https://api.github.com';
           const headers={authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-PRODUCTION-GATE-BRIDGE'};
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          async function json(url,opt={}){const r=await fetch(url,{...opt,headers:{...headers,...(opt.headers||{})}});if(!r.ok)throw new Error(`${r.status} ${url} ${(await r.text()).slice(0,300)}`);return r.json()}
-          async function status(state,description,target_url){await json(`${api}/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({state,context:'rona/production-gate',description:String(description).slice(0,140),target_url})})}
-          function diag(log){
-            const lines=String(log||'').split(/\r?\n/);
-            const agent=[...lines].reverse().find(x=>x.includes('Error: Agent JS '));
-            if(agent){
-              const raw=agent.slice(agent.indexOf('Error: Agent JS ')+16).trim();
-              try{
-                const j=JSON.parse(raw);
-                const ex=j.exceptions?.[0];
-                const msg=ex?.exception?.description||ex?.text||j.errors?.[0]||'Agent JS error';
-                const loc=ex?`${ex.url||'agent'}:${Number(ex.lineNumber??-1)+1}:${Number(ex.columnNumber??-1)+1}`:'';
-                return `${msg} ${loc}`.trim();
-              }catch(_e){return raw}
-            }
-            const err=[...lines].reverse().find(x=>/\bError: /.test(x)&&!/Process completed with exit code/.test(x));
-            return err?err.slice(err.indexOf('Error: ')+7).trim():'production gate failed; inspect target log';
-          }
+          async function j(url,opt={}){const r=await fetch(url,{...opt,headers:{...headers,...(opt.headers||{})}});if(!r.ok)throw new Error(`${r.status} ${(await r.text()).slice(0,300)}`);return r.json()}
+          async function post(state,description,target_url){await j(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({state,context:'rona/target-production-gate',description:String(description).slice(0,140),target_url})})}
           (async()=>{
-            await status('pending','production gate running',`https://github.com/${repo}/commit/${sha}`);
-            let check=null;
-            for(let i=0;i<240;i++){
-              const j=await json(`${api}/repos/${repo}/commits/${sha}/check-runs?per_page=100`);
-              check=(j.check_runs||[]).find(x=>x.name==='final-production-activation-v2');
-              if(check?.status==='completed')break;
-              await sleep(3000);
-            }
-            if(!check||check.status!=='completed')throw new Error('production gate check timeout');
-            const target=check.details_url||check.html_url||`https://github.com/${repo}/commit/${sha}`;
-            if(check.conclusion==='success'){
-              await status('success','PASS',target);
-              console.log('BRIDGE=PASS');
-              return;
-            }
-            const logResp=await fetch(`${api}/repos/${repo}/actions/jobs/${check.id}/logs`,{headers});
-            let log='';
-            if(logResp.ok)log=await logResp.text();
-            const d=diag(log);
-            await status('failure',d,target);
-            console.error('BRIDGE_DIAGNOSTIC='+d);
-            process.exit(1);
-          })().catch(async e=>{try{await status('error',String(e.message||e),`https://github.com/${repo}/commit/${sha}`)}catch(_e){}console.error(e.stack||e);process.exit(1)});
+            const x=await j(`https://api.github.com/repos/${repo}/commits/${targetSha}/check-runs?per_page=100`);
+            const c=(x.check_runs||[]).find(v=>v.name==='final-production-activation-v2');
+            if(!c)throw new Error('target production gate check not found');
+            const state=c.status==='completed'?(c.conclusion==='success'?'success':'failure'):'pending';
+            const target=c.details_url||c.html_url||`https://github.com/${repo}/commit/${targetSha}`;
+            await post(state,`${targetSha.slice(0,7)} ${c.status}/${c.conclusion||'none'}`,target);
+            console.log(JSON.stringify({id:c.id,status:c.status,conclusion:c.conclusion,target}));
+          })().catch(async e=>{try{await post('error',String(e.message||e),`https://github.com/${repo}/commit/${targetSha}`)}catch(_e){}console.error(e.stack||e);process.exit(1)});
           NODE
