@@ -1,0 +1,76 @@
+name: Admin production runtime stack diagnostic
+
+on:
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - '.github/workflows/admin-production-runtime-diagnostic.yml'
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Obtain controlled Admin session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --request POST \
+            'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "x-github-repository: ${GITHUB_REPOSITORY}" \
+            --header "x-github-sha: ${GITHUB_SHA}" \
+            --header "x-github-ref: ${GITHUB_REF}" \
+            --header "x-github-run-id: ${GITHUB_RUN_ID}" \
+            --output /tmp/session.json
+          node <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/session.json','utf8'));
+          if(!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error(JSON.stringify({status:j.code,proof:j.proof||null}));
+          console.log('::add-mask::'+j.session.access_token);console.log('::add-mask::'+j.session.refresh_token);
+          fs.appendFileSync(process.env.GITHUB_ENV,`AT<<EOF\n${j.session.access_token}\nEOF\nRT<<EOF\n${j.session.refresh_token}\nEOF\n`);
+          NODE
+          rm -f /tmp/session.json
+      - name: Capture production Admin pageerror stack
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            const base='https://ronaoil.com';
+            const browser=await chromium.launch({headless:true});
+            const ctx=await browser.newContext({viewport:{width:1920,height:1080}});
+            await ctx.addCookies([{name:'rona_portal_at',value:process.env.AT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:process.env.RT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
+            const page=await ctx.newPage(),errs=[];
+            page.on('pageerror',e=>{const x={message:String(e.message||e),stack:String(e.stack||'')};errs.push(x);console.log('RONA_PROD_PAGEERROR='+JSON.stringify(x))});
+            page.on('console',m=>{if(m.type()==='error'&&!/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(m.text()))console.log('RONA_PROD_CONSOLE_ERROR='+JSON.stringify({text:m.text()}))});
+            await page.goto(base+'/portal/admin?_stackdiag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+            let ready=false;for(let i=0;i<200;i++){ready=await page.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true&&window.__RONA_ADMIN_LIVE_READY__===true);if(ready)break;await sleep(100)}
+            if(!ready)throw new Error('ADMIN_NOT_READY');
+            const source=await page.evaluate(()=>({adapter:!!window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__,loaded:!!window.__RONA_ADMIN_LIVE__?.loaded,activateLivePage:typeof activateLivePage==='function'}));
+            console.log('RONA_PROD_ADAPTER='+JSON.stringify(source));
+            const nav=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));
+            for(const p of nav){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(160)}
+            await page.locator('#nav button[data-page="documents"]').click();await page.waitForTimeout(200);const d=page.locator('[data-rona-live-document]').first();if(await d.count())await d.click();await page.waitForTimeout(800);
+            console.log('RONA_PROD_STACK_SUMMARY='+JSON.stringify({count:errs.length,errors:errs}));
+            await ctx.close();await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+      - name: Clean session material
+        if: always()
+        run: |
+          unset AT RT || true
+          rm -f /tmp/session.json || true
