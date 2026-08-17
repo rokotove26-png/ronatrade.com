@@ -1,0 +1,75 @@
+name: Admin deferred ticker diagnostic
+
+on:
+  push:
+    branches:
+      - 'hotfix/admin-interactivity-*'
+
+permissions:
+  contents: read
+  checks: read
+  statuses: write
+
+jobs:
+  diagnose-deferred-tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Obtain controlled Admin session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --request POST \
+            'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "x-github-repository: ${GITHUB_REPOSITORY}" \
+            --header "x-github-sha: ${GITHUB_SHA}" \
+            --header "x-github-ref: ${GITHUB_REF}" \
+            --header "x-github-run-id: ${GITHUB_RUN_ID}" \
+            --output /tmp/session.json
+          node <<'NODE'
+          const fs=require('fs'),j=JSON.parse(fs.readFileSync('/tmp/session.json','utf8'));
+          if(!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error(JSON.stringify({ok:j.ok,code:j.code}));
+          console.log('::add-mask::'+j.session.access_token);console.log('::add-mask::'+j.session.refresh_token);
+          fs.appendFileSync(process.env.GITHUB_ENV,`AT<<EOF\n${j.session.access_token}\nEOF\nRT<<EOF\n${j.session.refresh_token}\nEOF\n`);
+          NODE
+          rm -f /tmp/session.json
+      - name: Inspect deferred ticker source
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          (async()=>{
+            const b=await chromium.launch({headless:true});
+            const c=await b.newContext({viewport:{width:1920,height:1080}});
+            await c.addCookies([{name:'rona_portal_at',value:process.env.AT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:process.env.RT,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
+            const p=await c.newPage();
+            await p.goto('https://ronaoil.com/portal/admin?_tickdiag='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+            await p.waitForFunction(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,{timeout:20000});
+            const out=await p.evaluate(()=>{
+              const n=document.querySelector('script[type="application/rona-admin-deferred"][data-rona-admin-deferred="true"][data-rona-order="0"]')||document.querySelector('script[type="application/rona-admin-deferred"][data-rona-admin-deferred="true"]');
+              const src=String(n?.textContent||'');
+              const lines=src.split('\n');
+              const idx=lines.findIndex(x=>/\b(?:function\s+tick|const\s+tick|let\s+tick|var\s+tick)\b/.test(x));
+              const lo=Math.max(0,idx-12),hi=Math.min(lines.length,idx+22);
+              const excerpt=lines.slice(lo,hi).map((x,i)=>`${lo+i+1}: ${x}`);
+              const refs=[...new Set((excerpt.join('\n').match(/getElementById\(['\"][^'\"]+['\"]\)|querySelector\(['\"][^'\"]+['\"]\)/g)||[]))];
+              return {nodeId:n?.id||null,order:n?.dataset?.ronaOrder||null,lineIndex:idx+1,excerpt,refs};
+            });
+            console.log('RONA_DEFERRED_TICK_DIAGNOSTIC='+JSON.stringify(out));
+            await c.close();await b.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+      - name: Clean session material
+        if: always()
+        run: |
+          unset AT RT || true
+          rm -f /tmp/session.json || true
