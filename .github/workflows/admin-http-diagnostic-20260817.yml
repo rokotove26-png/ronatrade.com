@@ -1,0 +1,27 @@
+name: Temporary Admin HTTP diagnostic
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-live-compat-20260817']
+permissions: {contents: read, checks: read, actions: read, statuses: write}
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve preview
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,t=process.env.GH_TOKEN,s=m=>new Promise(r=>setTimeout(r,m));(async()=>{for(let i=0;i<60;i++){let r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${t}`,accept:'application/vnd.github+json'}});if(r.ok){let j=await r.json(),c=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages'&&x.status==='completed'&&x.conclusion==='success'),m=String(c?.output?.summary||'').match(/https:\/\/[a-z0-9-]+\.rona-trade-public\.pages\.dev/i);if(m){fs.appendFileSync(process.env.GITHUB_ENV,`ORIGIN=${m[0]}\n`);return}}await s(3000)}throw Error('preview')})().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+      - name: Check public functions parse
+        run: |
+          set -x
+          curl -sS -D /tmp/h "$ORIGIN/portal/login" -o /tmp/b || true
+          head -50 /tmp/h
+          echo BODY_BYTES=$(wc -c </tmp/b)
+          head -c 500 /tmp/b
+          echo
+          curl -sS -D /tmp/h2 "$ORIGIN/portal/admin" -o /tmp/b2 || true
+          head -50 /tmp/h2
+          echo ADMIN_BODY_BYTES=$(wc -c </tmp/b2)
+          head -c 500 /tmp/b2
