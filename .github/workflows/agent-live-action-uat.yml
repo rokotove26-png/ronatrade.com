@@ -1,0 +1,31 @@
+name: Agent live action production UAT
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-agent-actions-uat-20260817']
+permissions:
+  actions: read
+  contents: read
+jobs:
+  agent-live-action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install Playwright
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Agent live action and logout visibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN,base='https://ronaoil.com';
+          const subject='QA_FINAL_AGENT_MESSAGE_20260817';
+          function assert(x,m){if(!x)throw new Error(m)}
+          async function session(){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json();if(!r.ok||!j.ok)throw new Error(JSON.stringify({status:r.status,code:j.code,proof:j.proof}));return j.session}
+          (async()=>{const s=await session(),b=await chromium.launch({headless:true}),c=await b.newContext({viewport:{width:1920,height:1080}});await c.addCookies([{name:'rona_portal_at',value:s.access_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:s.refresh_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e.message||e)));await p.goto(base+'/portal/agent?_agentlive='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await p.waitForTimeout(1800);const logout=p.locator('#ronaLogout');await logout.waitFor({state:'visible',timeout:10000});assert((await logout.innerText()).trim()==='Выйти','logout text');await p.locator('.nav button[data-page="messages"]').click();await p.waitForTimeout(150);const page=p.locator('#page-messages');const send=page.locator('button').filter({hasText:'Отправить'}).first();await send.waitFor({state:'visible',timeout:5000});assert(await send.getAttribute('data-rona-control-status')==='FUNCTIONAL','send not functional');await page.locator('select').selectOption({label:'DEAL-2026-004'}).catch(async()=>await page.locator('select').selectOption('DEAL-2026-004'));await page.locator('input').fill(subject);await page.locator('textarea').fill('Technical final activation QA message. Remove after validation.');await send.click();await p.waitForTimeout(900);assert((await page.locator('input').inputValue())==='','subject not cleared');assert((await page.locator('textarea').inputValue())==='','message not cleared');assert(errors.length===0,'page errors '+JSON.stringify(errors));console.log('RONA_AGENT_LIVE_ACTION_UAT='+JSON.stringify({ok:true,subject,logoutVisible:true,sendFunctional:true}));await c.close();await b.close()})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
