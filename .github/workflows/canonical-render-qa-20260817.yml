@@ -90,8 +90,8 @@ jobs:
           grep -q 'RONA_CANONICAL_RUNTIME_ADAPTER_V2' 'functions/portal/[[path]].js'
           grep -q "on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
           grep -q "on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
-          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' functions/portal/admin.js
-          grep -q 'RelockAndBootstrapAdmin' functions/portal/admin.js
+          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' 'functions/portal/[[path]].js'
+          grep -q 'BootServerAuthenticatedAdminBody' 'functions/portal/[[path]].js'
           grep -q 'BodyAppend(AGENT_BRIDGE)' 'functions/portal/[[path]].js'
           grep -q "if (kind === 'client') return secureResponse(response, session.setCookies, true);" 'functions/portal/[[path]].js'
           grep -q 'CLIENT_CONTEXT_NOT_AUTHORIZED' 'functions/portal/[[path]].js'
