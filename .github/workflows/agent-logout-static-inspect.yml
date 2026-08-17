@@ -1,0 +1,29 @@
+name: Inspect frozen Agent logout controls
+on:
+  push:
+    branches: ['hotfix/admin-interactivity-agent-logout-inspect-20260817']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect Agent logout-related source
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html')
+          s=p.read_text(errors='replace')
+          print('AGENT_SOURCE_BYTES',p.stat().st_size)
+          pats=['Выйти','выход','logout','sign out','exit','auth/logout']
+          for pat in pats:
+              print('PATTERN',pat,'COUNT',s.lower().count(pat.lower()))
+          for m in re.finditer(r'<(?:button|a)\b[^>]*>[\s\S]{0,240}?</(?:button|a)>',s,re.I):
+              x=m.group(0)
+              if re.search(r'вый|выход|logout|exit|sign|user|profile|account',x,re.I):
+                  print('CONTROL',re.sub(r'\s+',' ',x)[:500])
+          print('BUTTON_COUNT',len(re.findall(r'<button\b',s,re.I)))
+          print('LINK_COUNT',len(re.findall(r'<a\b',s,re.I)))
+          PY
