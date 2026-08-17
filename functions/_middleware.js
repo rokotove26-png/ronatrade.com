@@ -18,6 +18,8 @@ const MOBILE_HOME_PAGES = new Set(['/pages/home_compact.html','/pages/home_compa
 const MOBILE_CONTACTS_PAGES = new Set(['/pages/contacts.html','/pages/contacts','/en/pages/contacts.html','/en/pages/contacts']);
 const MOBILE_CONTACTS_INNER_PAGES = new Set(['/pages/inner/contacts_compact.html','/pages/inner/contacts_compact','/en/pages/inner/contacts_compact.html','/en/pages/inner/contacts_compact']);
 const ADMIN_RUNTIME_PAGES = new Set(['/portal/admin']);
+const STAFF_RUNTIME_PAGES = new Set(['/portal/staff']);
+const SESSION_MENU_PAGES = new Set(['/portal/agent','/portal/client']);
 
 const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 (()=>{
@@ -40,6 +42,7 @@ const PORTAL_ENTRY_SCRIPT = `<script id="rona-home-inline-auth-loader-g82-v2" sr
 const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/assets/mobile/rona-mobile-remediation-v2.js" defer></script><script id="rona-mobile-design-lock-loader-v2" src="/assets/mobile/rona-mobile-design-lock-v2.js" defer></script>`;
 const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v2.css">`;
 const MOBILE_CONTACTS_STYLE = `<link id="rona-mobile-contacts-underlay-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-contacts-underlay-v2.css">`;
+const STAFF_LOGOUT_BUTTON = `<button class="btn" id="ronaLogout" type="button">Выйти</button>`;
 const ADMIN_RUNTIME_COMPAT = `<script id="rona-admin-runtime-compat-v1">
 (()=>{
   'use strict';
@@ -64,6 +67,27 @@ const ADMIN_RUNTIME_COMPAT = `<script id="rona-admin-runtime-compat-v1">
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
 </script>`;
+const SESSION_MENU_SCRIPT = `<script id="rona-portal-session-menu-v1">
+(()=>{
+  'use strict';
+  if(window.__RONA_PORTAL_SESSION_MENU_V1__)return;
+  window.__RONA_PORTAL_SESSION_MENU_V1__=true;
+  const install=()=>{
+    const agent=document.getElementById('agentAuthState');
+    const client=document.querySelector('.top-right .pill.green');
+    const anchor=agent||client;
+    if(!anchor)return;
+    anchor.setAttribute('role','button');anchor.setAttribute('tabindex','0');anchor.setAttribute('aria-haspopup','menu');anchor.setAttribute('title','Меню сеанса');
+    let menu=null;
+    const close=()=>{if(menu){menu.remove();menu=null}anchor.setAttribute('aria-expanded','false')};
+    const open=()=>{if(menu){close();return}const r=anchor.getBoundingClientRect();menu=document.createElement('div');menu.id='ronaPortalSessionMenu';menu.setAttribute('role','menu');menu.style.cssText='position:fixed;z-index:2147483000;top:'+Math.min(innerHeight-58,r.bottom+8)+'px;right:'+Math.max(12,innerWidth-r.right)+'px;padding:6px;border:1px solid rgba(255,255,255,.18);border-radius:10px;background:#0b141b;box-shadow:0 12px 34px rgba(0,0,0,.36)';menu.innerHTML='<button id="ronaPortalLogoutMenuButton" type="button" role="menuitem" style="border:1px solid rgba(255,255,255,.16);background:#17232a;color:#fff;border-radius:8px;padding:8px 14px;font:inherit;font-size:13px;font-weight:700;cursor:pointer">Выйти</button>';document.body.appendChild(menu);anchor.setAttribute('aria-expanded','true');menu.querySelector('#ronaPortalLogoutMenuButton').focus()};
+    anchor.addEventListener('click',e=>{e.preventDefault();open()});
+    anchor.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}else if(e.key==='Escape')close()});
+    document.addEventListener('click',e=>{if(menu&&!menu.contains(e.target)&&e.target!==anchor)close()},true);
+  };
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
+})();
+</script>`;
 
 class FormHeadInjector { element(element){ element.prepend(BRIDGE_SCRIPT,{html:true}); } }
 class PortalEntryHeadInjector { element(element){ element.prepend(PORTAL_ENTRY_SCRIPT,{html:true}); } }
@@ -71,6 +95,8 @@ class MobileHeadInjector { constructor(isHome,isContacts){this.isHome=isHome;thi
 class ContactsInnerHeadInjector { element(element){element.prepend(MOBILE_CONTACTS_STYLE,{html:true})} }
 class MobileViewportNormalizer { element(element){element.setAttribute('content','width=device-width,initial-scale=1,viewport-fit=cover')} }
 class AdminRuntimeBodyInjector { element(element){element.append(ADMIN_RUNTIME_COMPAT,{html:true})} }
+class StaffRefreshInjector { element(element){element.after(STAFF_LOGOUT_BUTTON,{html:true})} }
+class SessionMenuBodyInjector { element(element){element.append(SESSION_MENU_SCRIPT,{html:true})} }
 
 function canonicalHostRedirect(request){
   const url=new URL(request.url);
@@ -89,7 +115,9 @@ export async function onRequest(context){
   const needsMobileRuntime=MOBILE_REMEDIATION_PAGES.has(pathname);
   const needsContactsInnerStyle=MOBILE_CONTACTS_INNER_PAGES.has(pathname);
   const needsAdminRuntime=ADMIN_RUNTIME_PAGES.has(pathname);
-  if(!needsFormBridge&&!needsPortalEntry&&!needsMobileRuntime&&!needsContactsInnerStyle&&!needsAdminRuntime)return context.next();
+  const needsStaffRuntime=STAFF_RUNTIME_PAGES.has(pathname);
+  const needsSessionMenu=SESSION_MENU_PAGES.has(pathname);
+  if(!needsFormBridge&&!needsPortalEntry&&!needsMobileRuntime&&!needsContactsInnerStyle&&!needsAdminRuntime&&!needsStaffRuntime&&!needsSessionMenu)return context.next();
   const response=await context.next();
   const contentType=response.headers.get('content-type')||'';
   if(!response.ok||!contentType.toLowerCase().includes('text/html'))return response;
@@ -102,6 +130,8 @@ export async function onRequest(context){
   }
   if(needsContactsInnerStyle)rewriter=rewriter.on('head',new ContactsInnerHeadInjector());
   if(needsAdminRuntime)rewriter=rewriter.on('body',new AdminRuntimeBodyInjector());
+  if(needsStaffRuntime)rewriter=rewriter.on('#refresh',new StaffRefreshInjector());
+  if(needsSessionMenu)rewriter=rewriter.on('body',new SessionMenuBodyInjector());
   const transformed=rewriter.transform(response);
   const headers=new Headers(transformed.headers);
   headers.delete('content-length');headers.delete('etag');
@@ -110,5 +140,7 @@ export async function onRequest(context){
   if(needsMobileRuntime)headers.set('x-rona-mobile-remediation','v2-design-lock-v2');
   if(needsContactsInnerStyle)headers.set('x-rona-mobile-contacts-underlay','inner-v2');
   if(needsAdminRuntime)headers.set('x-rona-admin-runtime-compat','v1');
+  if(needsStaffRuntime)headers.set('x-rona-staff-root-logout','v1');
+  if(needsSessionMenu)headers.set('x-rona-portal-session-menu','v1');
   return new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
 }
