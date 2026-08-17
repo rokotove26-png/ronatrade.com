@@ -16,6 +16,7 @@ function clearCookie(name) {
 function securityHeaders() {
   return {
     'cache-control': 'private, no-store',
+    'pragma': 'no-cache',
     'referrer-policy': 'no-referrer',
     'x-content-type-options': 'nosniff',
     'x-frame-options': 'DENY',
@@ -23,7 +24,25 @@ function securityHeaders() {
   };
 }
 
+function sameOrigin(request) {
+  const url = new URL(request.url);
+  const origin = request.headers.get('origin');
+  if (origin) return origin === url.origin;
+  const ref = request.headers.get('referer');
+  if (!ref) return false;
+  try { return new URL(ref).origin === url.origin; } catch { return false; }
+}
+
+function clearedResponse(status, location = null) {
+  const h = new Headers(securityHeaders());
+  h.append('set-cookie', clearCookie('rona_portal_at'));
+  h.append('set-cookie', clearCookie('rona_portal_rt'));
+  if (location) h.set('location', location);
+  return new Response(null, { status, headers: h });
+}
+
 export async function onRequestPost(context) {
+  if (!sameOrigin(context.request)) return clearedResponse(403);
   const accessToken = cookieValue(context.request, 'rona_portal_at');
   if (accessToken) {
     const headers = { Authorization: `Bearer ${accessToken}` };
@@ -35,16 +54,12 @@ export async function onRequestPost(context) {
         headers,
       });
     } catch (_) {
-      // Cookie invalidation remains mandatory even if upstream logout is temporarily unreachable.
+      // Browser session cookies are still invalidated fail-closed if upstream logout is unavailable.
     }
   }
-  const h = new Headers(securityHeaders());
-  h.append('set-cookie', clearCookie('rona_portal_at'));
-  h.append('set-cookie', clearCookie('rona_portal_rt'));
-  h.set('location', '/portal/login');
-  return new Response(null, { status: 303, headers: h });
+  return clearedResponse(303, '/');
 }
 
 export function onRequestGet() {
-  return Response.redirect('/portal/login', 303);
+  return Response.redirect('https://ronaoil.com/', 303);
 }
