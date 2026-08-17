@@ -16,26 +16,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Expose target production gate check
+      - name: Expose current production gate check
         env:
           GH_TOKEN: ${{ github.token }}
-          TARGET_SHA: 0995315ca81b19a7aab1013ff56a0491d5f44524
         run: |
           node <<'NODE'
           const repo=process.env.GITHUB_REPOSITORY;
           const sha=process.env.GITHUB_SHA;
-          const targetSha=process.env.TARGET_SHA;
           const gh=process.env.GH_TOKEN;
           const headers={authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-PRODUCTION-GATE-BRIDGE'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           async function j(url,opt={}){const r=await fetch(url,{...opt,headers:{...headers,...(opt.headers||{})}});if(!r.ok)throw new Error(`${r.status} ${(await r.text()).slice(0,300)}`);return r.json()}
           async function post(state,description,target_url){await j(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({state,context:'rona/target-production-gate',description:String(description).slice(0,140),target_url})})}
           (async()=>{
-            const x=await j(`https://api.github.com/repos/${repo}/commits/${targetSha}/check-runs?per_page=100`);
-            const c=(x.check_runs||[]).find(v=>v.name==='final-production-activation-v2');
-            if(!c)throw new Error('target production gate check not found');
-            const state=c.status==='completed'?(c.conclusion==='success'?'success':'failure'):'pending';
-            const target=c.details_url||c.html_url||`https://github.com/${repo}/commit/${targetSha}`;
-            await post(state,`${targetSha.slice(0,7)} ${c.status}/${c.conclusion||'none'}`,target);
-            console.log(JSON.stringify({id:c.id,status:c.status,conclusion:c.conclusion,target}));
-          })().catch(async e=>{try{await post('error',String(e.message||e),`https://github.com/${repo}/commit/${targetSha}`)}catch(_e){}console.error(e.stack||e);process.exit(1)});
+            await post('pending',`${sha.slice(0,7)} waiting for current production gate`,`https://github.com/${repo}/commit/${sha}`);
+            for(let i=0;i<180;i++){
+              const x=await j(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`);
+              const c=(x.check_runs||[]).find(v=>v.name==='final-production-activation-v2');
+              if(c){
+                const target=c.details_url||c.html_url||`https://github.com/${repo}/commit/${sha}`;
+                if(c.status==='completed'){
+                  const state=c.conclusion==='success'?'success':'failure';
+                  await post(state,`${sha.slice(0,7)} ${c.status}/${c.conclusion||'none'}`,target);
+                  console.log(JSON.stringify({id:c.id,status:c.status,conclusion:c.conclusion,target}));
+                  if(state!=='success')process.exit(1);
+                  return;
+                }
+              }
+              await sleep(3000);
+            }
+            throw new Error('current production gate timeout');
+          })().catch(async e=>{try{await post('error',String(e.message||e),`https://github.com/${repo}/commit/${sha}`)}catch(_e){}console.error(e.stack||e);process.exit(1)});
           NODE
