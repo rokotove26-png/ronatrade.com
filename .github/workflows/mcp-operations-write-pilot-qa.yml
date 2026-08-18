@@ -36,13 +36,13 @@ jobs:
           node --check supabase/functions/rona-mcp-oauth-token/index.js
           node --check supabase/functions/rona-mcp-consent-bridge/index.js
           grep -q "handleWellKnown" 'functions/.well-known/[[path]].js'
-          grep -q "const PILOT_SLUG='rona-mcp-operations-pilot'" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR']" supabase/functions/rona-mcp-gateway/index.js
           grep -q "coordinationEnabled(cfg)" supabase/functions/rona-mcp-gateway/index.js
           grep -q "COORDINATION_SERVER_NOT_ENABLED" supabase/functions/rona-mcp-gateway/index.js
           grep -q "operations-pilot" functions/_mcp_transport.js
           grep -q '"/operations-pilot/\*"' _routes.json
-          grep -q "slug===PILOT_SLUG?\['mcp:read','mcp:coordinate','offline_access'\]:\['mcp:read','offline_access'\]" supabase/functions/rona-mcp-gateway/index.js
-          grep -q "mcp_gateway_config_operations_pilot_binding_check" supabase/migrations/20260818194500_operations_write_pilot_connector.sql
+          grep -Fq "COORDINATE_PILOT_BINDINGS[slug]?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access']" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "mcp_gateway_config_coordinate_pilot_binding_check" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           test "$(grep -o "name:'functional_conclusion_submit'\|name:'task_acknowledge'\|name:'task_progress_submit'\|name:'handoff_request_submit'\|name:'business_change_proposal_submit'\|name:'operations_internal_decision'" supabase/functions/rona-mcp-gateway/index.js | sort -u | wc -l)" = '6'
           if grep -Eq "name:'(deal_status_write|payment_status_write|accounting_close|shipment_fact_create|rail_movement_fact_create|publication_publish|contract_mutate|document_mutate|client_binding_mutate)'" supabase/functions/rona-mcp-gateway/index.js; then exit 1; fi
           echo PILOT_SOURCE_ISOLATION=PASS
