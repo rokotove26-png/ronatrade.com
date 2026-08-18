@@ -1,6 +1,6 @@
 const UPSTREAM='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-mcp-consent-bridge';
 const PUBLIC_ORIGIN='https://ronaoil.com';
-const SEGMENTS=new Set(['operations','operations-pilot','finance','legal','market-analyst','rail-logistics','system-admin']);
+const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin']);
 const ALLOWED_POST_ORIGINS=new Set(['null','https://ronaoil.com','https://www.ronaoil.com']);
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NONCE_RE=/^[A-Za-z0-9_-]{43,128}$/;

@@ -14,9 +14,13 @@ const SEGMENT_ROLE=Object.freeze({
   'operations':'OPERATIONS_DIRECTOR',
   'operations-pilot':'OPERATIONS_DIRECTOR',
   'finance':'FINANCE',
+  'finance-pilot':'FINANCE',
   'legal':'LEGAL',
+  'legal-pilot':'LEGAL',
   'market-analyst':'MARKET_ANALYST',
+  'market-analyst-pilot':'MARKET_ANALYST',
   'rail-logistics':'RAIL_LOGISTICS',
+  'rail-logistics-pilot':'RAIL_LOGISTICS',
   'system-admin':'SYSTEM_ADMIN',
 });
 
