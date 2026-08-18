@@ -115,7 +115,7 @@ export async function proxyBoundRoleRequest(context,segment){
     }
     if(!validateTokenForm(raw)){
       logDecision(request,segment,'DENY_TOKEN_FORM');
-      return json({error:'INVALID_TOKEN_FORM'},400);
+      return json({error:'ORIGIN_DENIED'},403);
     }
     logDecision(request,segment,'ALLOW_OPAQUE_TOKEN_ORIGIN');
     return forwardWithCanonicalOrigin(context,request,segment,raw);
