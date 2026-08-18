@@ -1,0 +1,135 @@
+name: Operations write-pilot autonomous build
+
+on:
+  push:
+    branches:
+      - 'pilot/operations-write-20260818'
+
+permissions:
+  contents: write
+
+jobs:
+  build-pilot:
+    if: ${{ !contains(github.event.head_commit.message, '[pilot-generated]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply deterministic pilot patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          function load(p){return fs.readFileSync(p,'utf8')}
+          function save(p,s){fs.mkdirSync(require('path').dirname(p),{recursive:true});fs.writeFileSync(p,s)}
+          function replaceOnce(p,from,to){let s=load(p);if(!s.includes(from))throw new Error(`pattern missing in ${p}: ${from.slice(0,120)}`);s=s.replace(from,to);save(p,s)}
+          function replaceAllChecked(p,from,to,count){let s=load(p),n=s.split(from).length-1;if(n!==count)throw new Error(`expected ${count} matches in ${p}, got ${n}: ${from.slice(0,120)}`);s=s.split(from).join(to);save(p,s)}
+
+          const transport='functions/_mcp_transport.js';
+          replaceOnce(transport,
+            "const SEGMENTS=new Set(['operations','finance','legal','market-analyst','rail-logistics','system-admin']);",
+            "const SEGMENTS=new Set(['operations','operations-pilot','finance','legal','market-analyst','rail-logistics','system-admin']);");
+          replaceOnce(transport,
+            "function externalResource(segment){return `${externalBase(segment)}/mcp`;}",
+            "function externalResource(segment){return `${externalBase(segment)}/mcp`;}\nfunction scopesFor(segment){return segment==='operations-pilot'?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}\nfunction challengeScope(segment){return segment==='operations-pilot'?'mcp:read mcp:coordinate':'mcp:read';}");
+          replaceOnce(transport,
+            "headers.set('www-authenticate',`Bearer resource_metadata=\"${protectedMetadataUrl(segment)}\", scope=\"mcp:read\"`);",
+            "headers.set('www-authenticate',`Bearer resource_metadata=\"${protectedMetadataUrl(segment)}\", scope=\"${challengeScope(segment)}\"`);");
+          replaceAllChecked(transport,"scopes_supported:['mcp:read','offline_access'],","scopes_supported:scopesFor(segment),",2);
+          replaceAllChecked(transport,"operations|finance|legal|market-analyst|rail-logistics|system-admin","operations-pilot|operations|finance|legal|market-analyst|rail-logistics|system-admin",2);
+
+          for(const p of ['functions/_mcp_consent_bridge.js','functions/_mcp_oauth_token_bridge.js']){
+            replaceOnce(p,
+              "const SEGMENTS=new Set(['operations','finance','legal','market-analyst','rail-logistics','system-admin']);",
+              "const SEGMENTS=new Set(['operations','operations-pilot','finance','legal','market-analyst','rail-logistics','system-admin']);");
+          }
+
+          save('functions/operations-pilot/[[path]].js',
+            "import {proxyBoundRoleRequest} from '../_mcp_role_entry.js';\nimport {proxyOAuthTokenIfApplicable} from '../_mcp_oauth_token_bridge.js';\nexport async function onRequest(context){const oauth=await proxyOAuthTokenIfApplicable(context,'operations-pilot');return oauth||proxyBoundRoleRequest(context,'operations-pilot');}\n");
+
+          replaceOnce('_routes.json',
+            '    "/operations/*",',
+            '    "/operations/*",\n    "/operations-pilot/*",');
+
+          const gateway='supabase/functions/rona-mcp-gateway/index.js';
+          replaceOnce(gateway,
+            "const SEGMENT_BY_SLUG=Object.freeze({'rona-mcp-operations':'operations','rona-mcp-finance':'finance','rona-mcp-legal':'legal','rona-mcp-market-analyst':'market-analyst','rona-mcp-rail-logistics':'rail-logistics','rona-mcp-system-admin':'system-admin'});",
+            "const PILOT_SLUG='rona-mcp-operations-pilot';\nconst SEGMENT_BY_SLUG=Object.freeze({'rona-mcp-operations':'operations','rona-mcp-operations-pilot':'operations-pilot','rona-mcp-finance':'finance','rona-mcp-legal':'legal','rona-mcp-market-analyst':'market-analyst','rona-mcp-rail-logistics':'rail-logistics','rona-mcp-system-admin':'system-admin'});");
+          replaceOnce(gateway,
+            "function scopeHas(scope,value){return new Set(String(scope||'').split(/\\s+/).filter(Boolean)).has(value);}",
+            "function scopeHas(scope,value){return new Set(String(scope||'').split(/\\s+/).filter(Boolean)).has(value);}\nfunction coordinationEnabled(cfg){return cfg?.server_slug===PILOT_SLUG&&cfg?.business_role==='OPERATIONS_DIRECTOR'&&cfg?.identity_id==='AI-OPERATIONS-DIRECTOR';}\nfunction scopeAllowed(cfg,scope){return !scopeHas(scope,'mcp:coordinate')||coordinationEnabled(cfg);}\nfunction gatewayScopes(slug){return slug===PILOT_SLUG?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}");
+          replaceOnce(gateway,
+            "function protectedMetadata(slug){return{resource:publicMcpResource(slug),authorization_servers:[publicBaseFor(slug)],scopes_supported:['mcp:read','mcp:coordinate','offline_access'],bearer_methods_supported:['header'],resource_documentation:'https://ronaoil.com'};}",
+            "function protectedMetadata(slug){return{resource:publicMcpResource(slug),authorization_servers:[publicBaseFor(slug)],scopes_supported:gatewayScopes(slug),bearer_methods_supported:['header'],resource_documentation:'https://ronaoil.com'};}");
+          replaceOnce(gateway,
+            "function authMetadata(slug){const issuer=publicBaseFor(slug);return{issuer,authorization_endpoint:`${issuer}/authorize`,token_endpoint:`${issuer}/token`,registration_endpoint:`${issuer}/register`,revocation_endpoint:`${issuer}/revoke`,response_types_supported:['code'],grant_types_supported:['authorization_code','refresh_token'],token_endpoint_auth_methods_supported:['none'],code_challenge_methods_supported:['S256'],scopes_supported:['mcp:read','mcp:coordinate','offline_access'],service_documentation:'https://ronaoil.com'};}",
+            "function authMetadata(slug){const issuer=publicBaseFor(slug);return{issuer,authorization_endpoint:`${issuer}/authorize`,token_endpoint:`${issuer}/token`,registration_endpoint:`${issuer}/register`,revocation_endpoint:`${issuer}/revoke`,response_types_supported:['code'],grant_types_supported:['authorization_code','refresh_token'],token_endpoint_auth_methods_supported:['none'],code_challenge_methods_supported:['S256'],scopes_supported:gatewayScopes(slug),service_documentation:'https://ronaoil.com'};}");
+          replaceOnce(gateway,
+            "function unauthorized(slug,code='invalid_token'){return json({error:code},401,{'www-authenticate':`Bearer resource_metadata=\"${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segmentFor(slug)}/mcp\", scope=\"mcp:read\"`});}",
+            "function unauthorized(slug,code='invalid_token'){const scope=slug===PILOT_SLUG?'mcp:read mcp:coordinate':'mcp:read';return json({error:code},401,{'www-authenticate':`Bearer resource_metadata=\"${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segmentFor(slug)}/mcp\", scope=\"${scope}\"`});}");
+          replaceOnce(gateway,
+            "if(!client||responseType!=='code'||!scope||!resource||challengeMethod!=='S256'||!CODE_VERIFIER_RE.test(challenge)||!state||!Array.isArray(client.redirect_uris)||!client.redirect_uris.includes(redirectUri))return oauthError('invalid_request','invalid authorization request');",
+            "if(!client||responseType!=='code'||!scope||!scopeAllowed(cfg,scope)||!resource||challengeMethod!=='S256'||!CODE_VERIFIER_RE.test(challenge)||!state||!Array.isArray(client.redirect_uris)||!client.redirect_uris.includes(redirectUri))return oauthError(scope&&!scopeAllowed(cfg,scope)?'invalid_scope':'invalid_request',scope&&!scopeAllowed(cfg,scope)?'coordinate scope is enabled only on the Operations pilot connector':'invalid authorization request');");
+          replaceOnce(gateway,
+            "function toolsFor(cfg,auth){return [...readTools(cfg),...(auth&&scopeHas(auth.scope,'mcp:coordinate')?writeTools(cfg):[])];}",
+            "function toolsFor(cfg,auth){return [...readTools(cfg),...(auth&&coordinationEnabled(cfg)&&scopeHas(auth.scope,'mcp:coordinate')?writeTools(cfg):[])];}");
+          replaceOnce(gateway,
+            "async function callWriteTool(cfg,auth,name,args,ids){\nif(!scopeHas(auth.scope,'mcp:coordinate'))return deniedWrite(cfg,auth,ids,name,args,'COORDINATION_SCOPE_REQUIRED');",
+            "async function callWriteTool(cfg,auth,name,args,ids){\nif(!coordinationEnabled(cfg))return deniedWrite(cfg,auth,ids,name,args,'COORDINATION_SERVER_NOT_ENABLED');\nif(!scopeHas(auth.scope,'mcp:coordinate'))return deniedWrite(cfg,auth,ids,name,args,'COORDINATION_SCOPE_REQUIRED');");
+          replaceOnce(gateway,
+            "mode=scopeHas(auth.scope,'mcp:coordinate')?'read + controlled coordination':'read-only'",
+            "coordination=coordinationEnabled(cfg)&&scopeHas(auth.scope,'mcp:coordinate'),mode=coordination?'read + controlled coordination':'read-only'");
+          replaceOnce(gateway,
+            "{coordination_scope:scopeHas(auth.scope,'mcp:coordinate')}",
+            "{coordination_scope:coordination}");
+
+          const token='supabase/functions/rona-mcp-oauth-token/index.js';
+          replaceOnce(token,
+            "  operations:'rona-mcp-operations',",
+            "  operations:'rona-mcp-operations',\n  'operations-pilot':'rona-mcp-operations-pilot',");
+          replaceOnce(token,
+            "function segmentForSlug(slug){for(const [seg,s] of Object.entries(SEGMENT_TO_SLUG))if(s===slug)return seg;return null;}",
+            "const PILOT_SLUG='rona-mcp-operations-pilot';\nfunction scopeAllowed(cfg,scope){return !new Set(String(scope||'').split(/\\s+/).filter(Boolean)).has('mcp:coordinate')||cfg?.server_slug===PILOT_SLUG;}\nfunction segmentForSlug(slug){for(const [seg,s] of Object.entries(SEGMENT_TO_SLUG))if(s===slug)return seg;return null;}");
+          replaceOnce(token,
+            "  if(!boundScope)return oauthError('invalid_scope','authorization scope invalid');",
+            "  if(!boundScope)return oauthError('invalid_scope','authorization scope invalid');\n  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on the Operations pilot connector');");
+          replaceOnce(token,
+            "  if(!boundScope)return oauthError('invalid_scope','refresh scope invalid');",
+            "  if(!boundScope)return oauthError('invalid_scope','refresh scope invalid');\n  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on the Operations pilot connector');");
+
+          const consent='supabase/functions/rona-mcp-consent-bridge/index.js';
+          replaceOnce(consent,
+            "  'operations':'OPERATIONS_DIRECTOR',",
+            "  'operations':'OPERATIONS_DIRECTOR',\n  'operations-pilot':'OPERATIONS_DIRECTOR',");
+
+          save('supabase/migrations/20260818194500_operations_write_pilot_connector.sql',`-- Separate Operations controlled-write pilot connector. Existing six primary connectors remain unique/read-only.\n\nalter table portal_private.mcp_gateway_config\n  drop constraint if exists mcp_gateway_config_business_role_key;\n\nalter table portal_private.mcp_gateway_config\n  drop constraint if exists mcp_gateway_config_identity_id_key;\n\ncreate unique index if not exists uq_mcp_gateway_primary_business_role\n  on portal_private.mcp_gateway_config (business_role)\n  where server_slug <> 'rona-mcp-operations-pilot';\n\ncreate unique index if not exists uq_mcp_gateway_primary_identity\n  on portal_private.mcp_gateway_config (identity_id)\n  where server_slug <> 'rona-mcp-operations-pilot';\n\ndo $$\nbegin\n  if not exists (select 1 from pg_constraint where conname='mcp_gateway_config_operations_pilot_binding_check' and conrelid='portal_private.mcp_gateway_config'::regclass) then\n    alter table portal_private.mcp_gateway_config\n      add constraint mcp_gateway_config_operations_pilot_binding_check\n      check (server_slug <> 'rona-mcp-operations-pilot' or (business_role='OPERATIONS_DIRECTOR'::portal_private.ai_business_role_enum and identity_id='AI-OPERATIONS-DIRECTOR'));\n  end if;\nend $$;\n\ninsert into portal_private.mcp_gateway_config(server_slug,app_name,business_role,identity_id,enabled,max_requests_per_minute)\nvalues('rona-mcp-operations-pilot','RONA Operations Director Pilot','OPERATIONS_DIRECTOR'::portal_private.ai_business_role_enum,'AI-OPERATIONS-DIRECTOR',true,60)\non conflict (server_slug) do update set\n  app_name=excluded.app_name,\n  business_role=excluded.business_role,\n  identity_id=excluded.identity_id,\n  enabled=true,\n  max_requests_per_minute=excluded.max_requests_per_minute,\n  updated_at=now();\n`);
+
+          save('.github/workflows/mcp-operations-write-pilot-qa.yml',`name: MCP Operations Write Pilot QA\n\non:\n  push:\n    branches:\n      - 'pilot/operations-write-20260818'\n      - 'release/public-go-live-v1.1'\n  pull_request:\n    branches:\n      - 'release/public-go-live-v1.1'\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  pilot-source-and-public:\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - uses: actions/checkout@v4\n      - uses: actions/setup-node@v4\n        with:\n          node-version: '24'\n      - name: Static pilot isolation invariants\n        shell: bash\n        run: |\n          set -euo pipefail\n          node --check functions/_mcp_transport.js\n          node --check functions/_mcp_role_entry.js\n          node --check functions/_mcp_consent_bridge.js\n          node --check functions/_mcp_oauth_token_bridge.js\n          node --check 'functions/operations-pilot/[[path]].js'\n          node --check supabase/functions/rona-mcp-gateway/index.js\n          node --check supabase/functions/rona-mcp-oauth-token/index.js\n          node --check supabase/functions/rona-mcp-consent-bridge/index.js\n          grep -q \"rona-mcp-operations-pilot\" supabase/functions/rona-mcp-gateway/index.js\n          grep -q \"coordinationEnabled(cfg)\" supabase/functions/rona-mcp-gateway/index.js\n          grep -q \"COORDINATION_SERVER_NOT_ENABLED\" supabase/functions/rona-mcp-gateway/index.js\n          grep -q \"operations-pilot\" functions/_mcp_transport.js\n          grep -q '\"/operations-pilot/\\*\"' _routes.json\n          grep -q \"mcp:coordinate\" supabase/functions/rona-mcp-gateway/index.js\n          grep -q \"mcp_gateway_config_operations_pilot_binding_check\" supabase/migrations/20260818194500_operations_write_pilot_connector.sql\n          echo PILOT_SOURCE_ISOLATION=PASS\n      - name: Public discovery and read-only regression\n        if: github.ref == 'refs/heads/release/public-go-live-v1.1'\n        shell: bash\n        run: |\n          set -euo pipefail\n          p=$(curl -fsS https://ronaoil.com/.well-known/oauth-protected-resource/operations-pilot/mcp)\n          a=$(curl -fsS https://ronaoil.com/.well-known/oauth-authorization-server/operations-pilot)\n          echo \"$p\" | grep -q 'https://ronaoil.com/operations-pilot/mcp'\n          echo \"$p\" | grep -q 'mcp:coordinate'\n          echo \"$a\" | grep -q 'refresh_token'\n          echo \"$a\" | grep -q 'S256'\n          op=$(curl -fsS https://ronaoil.com/.well-known/oauth-protected-resource/operations/mcp)\n          if echo \"$op\" | grep -q 'mcp:coordinate'; then echo 'operations read-only regression'; exit 1; fi\n          code=$(curl -sS -o /tmp/pilot.mcp -D /tmp/pilot.headers -w '%{http_code}' -X POST https://ronaoil.com/operations-pilot/mcp -H 'content-type: application/json' --data '{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-11-25\",\"capabilities\":{},\"clientInfo\":{\"name\":\"RONA QA\",\"version\":\"1\"}}}')\n          test \"$code\" = '401'\n          grep -Fqi 'oauth-protected-resource/operations-pilot/mcp' /tmp/pilot.headers\n          grep -Fqi 'mcp:read mcp:coordinate' /tmp/pilot.headers\n          echo PILOT_PUBLIC_DISCOVERY=PASS\n`);
+
+          if(fs.existsSync('.github/workflows/operations-write-pilot-build.yml'))fs.unlinkSync('.github/workflows/operations-write-pilot-build.yml');
+          console.log('OPERATIONS_WRITE_PILOT_PATCH=PASS');
+          NODE
+      - name: Syntax and diff smoke
+        run: |
+          set -euo pipefail
+          node --check functions/_mcp_transport.js
+          node --check functions/_mcp_consent_bridge.js
+          node --check functions/_mcp_oauth_token_bridge.js
+          node --check 'functions/operations-pilot/[[path]].js'
+          node --check supabase/functions/rona-mcp-gateway/index.js
+          node --check supabase/functions/rona-mcp-oauth-token/index.js
+          node --check supabase/functions/rona-mcp-consent-bridge/index.js
+          git diff --check
+      - name: Commit generated pilot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'RONA System Admin Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Build isolated Operations write pilot [pilot-generated]'
+          git push origin HEAD:'pilot/operations-write-20260818'
