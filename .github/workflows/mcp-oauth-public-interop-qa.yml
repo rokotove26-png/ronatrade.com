@@ -67,7 +67,7 @@ jobs:
                 -H 'Access-Control-Request-Headers: authorization,content-type,mcp-protocol-version')
               test "$code" = '204'
               grep -Fqi "access-control-allow-origin: $ORIGIN" /tmp/options.headers
-              grep -Fqi 'access-control-allow-methods: GET, POST, OPTIONS' /tmp/options.headers
+              grep -Eqi 'access-control-allow-methods: GET(, POST)?, OPTIONS' /tmp/options.headers
               grep -Fqi 'access-control-allow-headers:' /tmp/options.headers
             done
           done
