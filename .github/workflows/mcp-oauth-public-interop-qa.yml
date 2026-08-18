@@ -1,0 +1,84 @@
+name: MCP OAuth Public Interop QA
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-interop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify RFC discovery, no-auth challenge, and CORS preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://ronaoil.com'
+          ORIGIN='https://chatgpt.com'
+          segments=(operations finance legal market-analyst rail-logistics system-admin)
+          for segment in "${segments[@]}"; do
+            prm="$BASE/.well-known/oauth-protected-resource/$segment/mcp"
+            asm="$BASE/.well-known/oauth-authorization-server/$segment"
+            resource="$BASE/$segment/mcp"
+            issuer="$BASE/$segment"
+
+            curl -fsS "$prm" -o /tmp/prm.json
+            jq -e --arg resource "$resource" --arg issuer "$issuer" '
+              .resource == $resource and
+              .authorization_servers[0] == $issuer and
+              (.scopes_supported | index("mcp:read")) != null and
+              (.scopes_supported | index("offline_access")) != null and
+              (.bearer_methods_supported | index("header")) != null
+            ' /tmp/prm.json >/dev/null
+
+            curl -fsS "$asm" -o /tmp/asm.json
+            jq -e --arg issuer "$issuer" '
+              .issuer == $issuer and
+              .authorization_endpoint == ($issuer + "/authorize") and
+              .token_endpoint == ($issuer + "/token") and
+              .registration_endpoint == ($issuer + "/register") and
+              .revocation_endpoint == ($issuer + "/revoke") and
+              (.grant_types_supported | index("authorization_code")) != null and
+              (.grant_types_supported | index("refresh_token")) != null and
+              (.token_endpoint_auth_methods_supported | index("none")) != null and
+              (.code_challenge_methods_supported | index("S256")) != null and
+              (.scopes_supported | index("offline_access")) != null
+            ' /tmp/asm.json >/dev/null
+
+            code=$(curl -sS -D /tmp/mcp.headers -o /tmp/mcp.body -w '%{http_code}' \
+              -X POST "$resource" \
+              -H "Origin: $ORIGIN" \
+              -H 'Content-Type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
+            test "$code" = '401'
+            grep -Fqi "www-authenticate: Bearer resource_metadata=\"$prm\", scope=\"mcp:read\"" /tmp/mcp.headers
+
+            for target in "$resource" "$BASE/$segment/register" "$prm" "$asm"; do
+              code=$(curl -sS -D /tmp/options.headers -o /dev/null -w '%{http_code}' \
+                -X OPTIONS "$target" \
+                -H "Origin: $ORIGIN" \
+                -H 'Access-Control-Request-Method: POST' \
+                -H 'Access-Control-Request-Headers: authorization,content-type,mcp-protocol-version')
+              test "$code" = '204'
+              grep -Fqi "access-control-allow-origin: $ORIGIN" /tmp/options.headers
+              grep -Fqi 'access-control-allow-methods: GET, POST, OPTIONS' /tmp/options.headers
+              grep -Fqi 'access-control-allow-headers:' /tmp/options.headers
+            done
+          done
+
+      - name: Verify invalid redirect remains rejected
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/dcr-invalid.json -w '%{http_code}' \
+            -X POST 'https://ronaoil.com/system-admin/register' \
+            -H 'Origin: https://chatgpt.com' \
+            -H 'Content-Type: application/json' \
+            --data '{"client_name":"RONA public interop invalid redirect QA","redirect_uris":["https://evil.example/callback"],"token_endpoint_auth_method":"none","grant_types":["authorization_code"],"response_types":["code"]}')
+          test "$code" = '400'
+          jq -e '.error == "invalid_redirect_uri"' /tmp/dcr-invalid.json >/dev/null

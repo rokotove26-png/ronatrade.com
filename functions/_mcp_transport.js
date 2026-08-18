@@ -23,7 +23,6 @@ function externalBase(segment){return `${PUBLIC_ORIGIN}/${segment}`;}
 function externalResource(segment){return `${externalBase(segment)}/mcp`;}
 function internalResource(segment){return `${UPSTREAM_BASE}/${segment}/mcp`;}
 function protectedMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;}
-function authMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-authorization-server/${segment}`;}
 function isAllowedOrigin(origin){return !origin||ALLOWED_ORIGINS.has(origin);}
 function corsFor(request){
   const origin=request.headers.get('origin');
@@ -85,6 +84,7 @@ function responseHeaders(upstream,request,segment,path){
   for(const name of ['content-type','location','content-security-policy','x-frame-options']){
     const value=upstream.headers.get(name);if(value)headers.set(name,value);
   }
+  if(path==='/authorize'&&upstream.status===200)headers.set('content-type','text/html; charset=utf-8');
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('referrer-policy','no-referrer');
