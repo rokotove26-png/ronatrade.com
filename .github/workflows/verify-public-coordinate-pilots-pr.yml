@@ -1,0 +1,44 @@
+name: Verify Public Coordinate Pilots PR
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Verify production public pilot OAuth discovery and primary isolation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for seg in operations finance legal market-analyst rail-logistics; do
+            p=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/${seg}-pilot/mcp")
+            a=$(curl -fsS "https://ronaoil.com/.well-known/oauth-authorization-server/${seg}-pilot")
+            echo "$p" | grep -q "https://ronaoil.com/${seg}-pilot/mcp"
+            echo "$p" | grep -q 'mcp:read'
+            echo "$p" | grep -q 'mcp:coordinate'
+            echo "$a" | grep -q 'refresh_token'
+            echo "$a" | grep -q 'S256'
+            code=$(curl -sS -o /tmp/${seg}.mcp -D /tmp/${seg}.headers -w '%{http_code}' \
+              -X POST "https://ronaoil.com/${seg}-pilot/mcp" \
+              -H 'content-type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"RONA Public QA","version":"1"}}}')
+            test "$code" = '401'
+            grep -Fqi "oauth-protected-resource/${seg}-pilot/mcp" /tmp/${seg}.headers
+            grep -Fqi 'mcp:read mcp:coordinate' /tmp/${seg}.headers
+          done
+          for seg in operations finance legal market-analyst rail-logistics system-admin; do
+            p=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/${seg}/mcp")
+            echo "$p" | grep -q 'mcp:read'
+            if echo "$p" | grep -q 'mcp:coordinate'; then
+              echo "PRIMARY_COORDINATE_REGRESSION=$seg"
+              exit 1
+            fi
+          done
+          echo PUBLIC_COORDINATE_PILOTS=PASS
