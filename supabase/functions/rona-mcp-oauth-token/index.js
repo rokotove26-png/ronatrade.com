@@ -10,6 +10,7 @@ const encoder=new TextEncoder();
 const CODE_VERIFIER_RE=/^[A-Za-z0-9\-._~]{43,128}$/;
 const SEGMENT_TO_SLUG=Object.freeze({
   operations:'rona-mcp-operations',
+  'operations-pilot':'rona-mcp-operations-pilot',
   finance:'rona-mcp-finance',
   legal:'rona-mcp-legal',
   'market-analyst':'rona-mcp-market-analyst',
@@ -53,6 +54,8 @@ function exactScope(scope){
   for(const s of values)if(!['mcp:read','mcp:coordinate','offline_access'].includes(s))return null;
   return ['mcp:read','mcp:coordinate','offline_access'].filter(s=>values.has(s)).join(' ');
 }
+const PILOT_SLUG='rona-mcp-operations-pilot';
+function scopeAllowed(cfg,scope){return !new Set(String(scope||'').split(/\s+/).filter(Boolean)).has('mcp:coordinate')||cfg?.server_slug===PILOT_SLUG;}
 function segmentForSlug(slug){for(const [seg,s] of Object.entries(SEGMENT_TO_SLUG))if(s===slug)return seg;return null;}
 function publicResource(slug){const segment=segmentForSlug(slug);return segment?`${PUBLIC_ORIGIN}/${segment}/mcp`:null;}
 function internalResource(slug){const segment=segmentForSlug(slug);return segment?`${String(SUPA_URL).replace(/\/$/,'')}/functions/v1/rona-mcp-gateway/${segment}/mcp`:null;}
@@ -97,6 +100,7 @@ async function authorizationCodeGrant(form,cfg,client,segment){
   if(!boundResource||!requestedResource||requestedResource!==boundResource)return oauthError('invalid_target','resource mismatch');
   const boundScope=exactScope(row.scope);
   if(!boundScope)return oauthError('invalid_scope','authorization scope invalid');
+  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on the Operations pilot connector');
   if(form.get('scope')){const requestedScope=exactScope(form.get('scope'));if(!requestedScope||requestedScope!==boundScope)return oauthError('invalid_scope','scope elevation denied');}
   if(await pkceS256(verifier)!==row.code_challenge)return oauthError('invalid_grant','PKCE verification failed');
   const withRefresh=clientAllowsRefresh(client),material=await makeTokenMaterial(withRefresh),familyId=crypto.randomUUID();
@@ -124,6 +128,7 @@ async function refreshGrant(form,cfg,client,segment){
   if(!boundResource||!requestedResource||requestedResource!==boundResource)return oauthError('invalid_target','resource mismatch');
   const boundScope=exactScope(p.scope);
   if(!boundScope)return oauthError('invalid_scope','refresh scope invalid');
+  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on the Operations pilot connector');
   if(form.get('scope')){const requestedScope=exactScope(form.get('scope'));if(!requestedScope||requestedScope!==boundScope)return oauthError('invalid_scope','scope elevation denied');}
   const ident=await sql`select status::text,revoked_at,business_role::text from portal_private.ai_service_identities where identity_id=${cfg.identity_id} limit 1`;
   if(ident.length!==1||ident[0].status!=='ACTIVE'||ident[0].revoked_at||ident[0].business_role!==cfg.business_role)return oauthError('invalid_grant','role identity disabled');

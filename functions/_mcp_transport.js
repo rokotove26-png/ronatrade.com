@@ -1,7 +1,7 @@
 const PUBLIC_ORIGIN='https://ronaoil.com';
 const UPSTREAM_ORIGIN='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const UPSTREAM_BASE=`${UPSTREAM_ORIGIN}/functions/v1/rona-mcp-gateway`;
-const SEGMENTS=new Set(['operations','finance','legal','market-analyst','rail-logistics','system-admin']);
+const SEGMENTS=new Set(['operations','operations-pilot','finance','legal','market-analyst','rail-logistics','system-admin']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
@@ -21,6 +21,8 @@ function json(body,status=200,headers={}){
 }
 function externalBase(segment){return `${PUBLIC_ORIGIN}/${segment}`;}
 function externalResource(segment){return `${externalBase(segment)}/mcp`;}
+function scopesFor(segment){return segment==='operations-pilot'?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}
+function challengeScope(segment){return segment==='operations-pilot'?'mcp:read mcp:coordinate':'mcp:read';}
 function protectedMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;}
 function isAllowedOrigin(origin){return !origin||ALLOWED_ORIGINS.has(origin);}
 function isAllowedCallbackLocation(value){
@@ -112,7 +114,7 @@ function responseHeaders(upstream,request,segment,path){
   headers.set('x-content-type-options','nosniff');
   for(const [k,v] of Object.entries(corsFor(request)))headers.set(k,v);
   if(path==='/mcp'&&upstream.status===401){
-    headers.set('www-authenticate',`Bearer resource_metadata="${protectedMetadataUrl(segment)}", scope="mcp:read"`);
+    headers.set('www-authenticate',`Bearer resource_metadata="${protectedMetadataUrl(segment)}", scope="${challengeScope(segment)}"`);
   }else{
     const www=upstream.headers.get('www-authenticate');if(www)headers.set('www-authenticate',www);
   }
@@ -137,7 +139,7 @@ export function protectedResourceMetadata(segment){
   return {
     resource:externalResource(segment),
     authorization_servers:[externalBase(segment)],
-    scopes_supported:['mcp:read','offline_access'],
+    scopes_supported:scopesFor(segment),
     bearer_methods_supported:['header'],
     resource_documentation:'https://ronaoil.com',
   };
@@ -155,7 +157,7 @@ export function authorizationServerMetadata(segment){
     grant_types_supported:['authorization_code','refresh_token'],
     token_endpoint_auth_methods_supported:['none'],
     code_challenge_methods_supported:['S256'],
-    scopes_supported:['mcp:read','offline_access'],
+    scopes_supported:scopesFor(segment),
     service_documentation:'https://ronaoil.com',
   };
 }
@@ -164,9 +166,9 @@ export async function handleWellKnown(context){
   if(request.method==='OPTIONS')return preflight(request);
   if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, OPTIONS',...corsFor(request)});
   const p=new URL(request.url).pathname;
-  let m=p.match(/^\/\.well-known\/oauth-protected-resource\/(operations|finance|legal|market-analyst|rail-logistics|system-admin)\/mcp\/?$/);
+  let m=p.match(/^\/\.well-known\/oauth-protected-resource\/(operations-pilot|operations|finance|legal|market-analyst|rail-logistics|system-admin)\/mcp\/?$/);
   if(m)return json(protectedResourceMetadata(m[1]),200,corsFor(request));
-  m=p.match(/^\/\.well-known\/oauth-authorization-server\/(operations|finance|legal|market-analyst|rail-logistics|system-admin)\/?$/);
+  m=p.match(/^\/\.well-known\/oauth-authorization-server\/(operations-pilot|operations|finance|legal|market-analyst|rail-logistics|system-admin)\/?$/);
   if(m)return json(authorizationServerMetadata(m[1]),200,corsFor(request));
   return json({error:'NOT_FOUND'},404,corsFor(request));
 }

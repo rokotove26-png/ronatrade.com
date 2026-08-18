@@ -13,6 +13,7 @@
     "/portal/*",
     "/.well-known/*",
     "/operations/*",
+    "/operations-pilot/*",
     "/finance/*",
     "/legal/*",
     "/market-analyst/*",

@@ -12,6 +12,7 @@ const NONCE_RE=/^[A-Za-z0-9_-]{43,128}$/;
 const FORM_FIELDS=new Set(['request_id','email','password','confirm','continuation_nonce']);
 const SEGMENT_ROLE=Object.freeze({
   'operations':'OPERATIONS_DIRECTOR',
+  'operations-pilot':'OPERATIONS_DIRECTOR',
   'finance':'FINANCE',
   'legal':'LEGAL',
   'market-analyst':'MARKET_ANALYST',
