@@ -1,7 +1,8 @@
 const PUBLIC_ORIGIN='https://ronaoil.com';
 const UPSTREAM_ORIGIN='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const UPSTREAM_BASE=`${UPSTREAM_ORIGIN}/functions/v1/rona-mcp-gateway`;
-const SEGMENTS=new Set(['operations','operations-pilot','finance','legal','market-analyst','rail-logistics','system-admin']);
+const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin']);
+const COORDINATE_PILOTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
@@ -21,8 +22,8 @@ function json(body,status=200,headers={}){
 }
 function externalBase(segment){return `${PUBLIC_ORIGIN}/${segment}`;}
 function externalResource(segment){return `${externalBase(segment)}/mcp`;}
-function scopesFor(segment){return segment==='operations-pilot'?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}
-function challengeScope(segment){return segment==='operations-pilot'?'mcp:read mcp:coordinate':'mcp:read';}
+function scopesFor(segment){return COORDINATE_PILOTS.has(segment)?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}
+function challengeScope(segment){return COORDINATE_PILOTS.has(segment)?'mcp:read mcp:coordinate':'mcp:read';}
 function protectedMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;}
 function isAllowedOrigin(origin){return !origin||ALLOWED_ORIGINS.has(origin);}
 function isAllowedCallbackLocation(value){
@@ -166,9 +167,9 @@ export async function handleWellKnown(context){
   if(request.method==='OPTIONS')return preflight(request);
   if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, OPTIONS',...corsFor(request)});
   const p=new URL(request.url).pathname;
-  let m=p.match(/^\/\.well-known\/oauth-protected-resource\/(operations-pilot|operations|finance|legal|market-analyst|rail-logistics|system-admin)\/mcp\/?$/);
+  let m=p.match(/^\/\.well-known\/oauth-protected-resource\/(operations-pilot|operations|finance-pilot|finance|legal-pilot|legal|market-analyst-pilot|market-analyst|rail-logistics-pilot|rail-logistics|system-admin)\/mcp\/?$/);
   if(m)return json(protectedResourceMetadata(m[1]),200,corsFor(request));
-  m=p.match(/^\/\.well-known\/oauth-authorization-server\/(operations-pilot|operations|finance|legal|market-analyst|rail-logistics|system-admin)\/?$/);
+  m=p.match(/^\/\.well-known\/oauth-authorization-server\/(operations-pilot|operations|finance-pilot|finance|legal-pilot|legal|market-analyst-pilot|market-analyst|rail-logistics-pilot|rail-logistics|system-admin)\/?$/);
   if(m)return json(authorizationServerMetadata(m[1]),200,corsFor(request));
   return json({error:'NOT_FOUND'},404,corsFor(request));
 }
