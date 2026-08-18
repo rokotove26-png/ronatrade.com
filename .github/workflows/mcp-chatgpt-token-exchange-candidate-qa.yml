@@ -45,7 +45,7 @@ jobs:
           assert(role.includes("return proxyRoleRequest(context,segment)"),'global policy remains default');
           assert(gateway.includes("function publicMcpResource"),'public resource canonicalizer');
           assert(gateway.includes("function normalizeResource"),'resource normalization');
-          assert(gateway.includes("const supplied=form.get('resource'),requestedResource=supplied?normalizeResource"),'authorization-code resource may be omitted');
+          assert(gateway.includes("supplied=form.get('resource'),requestedResource=supplied?normalizeResource"),'authorization-code resource may be omitted');
           assert(gateway.includes("state_match:redir.searchParams.get('state')===String(row.state)"),'callback state match diagnostic');
           assert(gateway.includes("tokenAudit('RONA_OAUTH_TOKEN_REQUEST_RECEIVED'"),'token safe audit');
           assert(gateway.includes("return role==='OPERATIONS_DIRECTOR'") && gateway.includes("['audit','tasks','sessions']"),'role history fixed');
