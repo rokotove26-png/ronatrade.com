@@ -104,7 +104,11 @@ function responseHeaders(upstream,request,segment,path){
   for(const name of ['content-type','location','content-security-policy','x-frame-options']){
     const value=upstream.headers.get(name);if(value)headers.set(name,value);
   }
-  if(path==='/authorize'&&upstream.status===200)headers.set('content-type','text/html; charset=utf-8');
+  if(path==='/authorize'&&upstream.status===200){
+    headers.set('content-type','text/html; charset=utf-8');
+    headers.set('content-security-policy',"default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+    headers.set('x-rona-oauth-consent-policy','same-origin-form-v1');
+  }
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('referrer-policy','no-referrer');
