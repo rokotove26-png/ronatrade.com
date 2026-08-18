@@ -1,0 +1,59 @@
+name: MCP all-role single-click continuation QA
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+      - hotfix/mcp-all-role-single-click-continuation-20260818
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  all-role-continuation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify shared source syntax and role coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/_mcp_role_entry.js
+          node --check functions/_mcp_consent_bridge.js
+          for segment in operations finance legal market-analyst rail-logistics system-admin; do
+            node --check "functions/$segment/[[path]].js"
+          done
+          grep -q "single-click-continuation-v1" functions/_mcp_role_entry.js
+          grep -q "prepareConsent(context,segment)" functions/_mcp_role_entry.js
+          grep -q "completeConsent(context,segment)" functions/_mcp_role_entry.js
+          grep -q "location.replace" functions/_mcp_role_entry.js
+          ! grep -q "OWNER_ADMIN" functions/_mcp_role_entry.js
+          ! grep -q "OWNER_ADMIN" functions/_mcp_consent_bridge.js
+      - name: Verify production continuation routes after release deployment
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://ronaoil.com'
+          segments=(operations finance legal market-analyst rail-logistics system-admin)
+          deadline=$((SECONDS+420))
+          while true; do
+            ok=1
+            for segment in "${segments[@]}"; do
+              code=$(curl -sS -o /tmp/prepare.json -w '%{http_code}' "$BASE/$segment/authorize/prepare")
+              if [ "$code" != '405' ]; then ok=0; break; fi
+              code=$(curl -sS -o /tmp/complete.json -w '%{http_code}' "$BASE/$segment/authorize/complete?nonce=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+              if [ "$code" != '400' ]; then ok=0; break; fi
+            done
+            if [ "$ok" = '1' ]; then break; fi
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo 'all-role continuation routes not deployed in time' >&2
+              exit 1
+            fi
+            sleep 10
+          done
