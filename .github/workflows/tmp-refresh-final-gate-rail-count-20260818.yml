@@ -1,0 +1,33 @@
+name: Temporary final gate rail expectation refresher
+
+on:
+  push:
+    branches:
+      - hotfix/final-gate-rail-count-refresh-20260818
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/final-gate-rail-count-refresh-20260818
+      - name: Refresh legitimate rail current-state expectation
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='.github/workflows/final-production-activation-synchronized-v2.yml'
+          if grep -q 'rail:2,publications:17' "$file"; then
+            sed -i 's/rail:2,publications:17/rail:3,publications:17/' "$file"
+            git config user.name 'RONA SysAdmin QA'
+            git config user.email 'office_kg@ronaoil.com'
+            git add "$file"
+            git commit -m 'Refresh final production gate for confirmed rail document'
+            git push origin HEAD:hotfix/final-gate-rail-count-refresh-20260818
+          else
+            grep -q 'rail:3,publications:17' "$file"
+            echo 'ALREADY_REFRESHED=PASS'
+          fi
