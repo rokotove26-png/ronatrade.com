@@ -5,6 +5,7 @@ on:
     branches:
       - staging/canonical-all-portals-visual-20260816
       - 'hotfix/admin-interactivity-*'
+      - 'hotfix/canonical-gate-align-*'
       - release/public-go-live-v1.1
 
 permissions:
@@ -32,6 +33,17 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
           echo 'CANONICAL_BUILD_BYTE_EQUIVALENCE=PASS'
+      - name: Freeze canonical portal runtime middleware
+        run: |
+          set -euo pipefail
+          f='functions/portal/_middleware.js'
+          grep -q 'return context.next();' "$f"
+          if grep -Eiq 'HTMLRewriter|innerHTML|outerHTML|textContent|insertAdjacent|MutationObserver|querySelector|\.append\(|\.prepend\(|replaceWith|rona-admin-live-authority-adapter|rona-client-live-authority-adapter|rona-portal-root-logout' "$f"; then
+            echo 'CANONICAL_RUNTIME_UI_MUTATION_DETECTED'
+            cat "$f"
+            exit 1
+          fi
+          echo 'CANONICAL_RUNTIME_UI_MUTATION=0'
       - name: Install Chromium render harness
         run: |
           npm install --no-save playwright@1.48.2 pixelmatch@6.0.0 pngjs@7.0.0
