@@ -84,6 +84,81 @@ jobs:
           test "$code" = '400'
           jq -e '.error == "invalid_redirect_uri"' /tmp/dcr-invalid.json >/dev/null
 
+      - name: Verify route-specific opaque browser origin policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://ronaoil.com'
+          UUID='11111111-1111-4111-8111-111111111111'
+          segments=(operations finance legal market-analyst rail-logistics system-admin)
+
+          for segment in "${segments[@]}"; do
+            code=$(curl -sS -o /tmp/null-mcp.json -w '%{http_code}' \
+              -X POST "$BASE/$segment/mcp" \
+              -H 'Origin: null' \
+              -H 'Content-Type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
+            test "$code" = '403'
+            jq -e '.error == "ORIGIN_DENIED"' /tmp/null-mcp.json >/dev/null
+
+            for path in token register revoke; do
+              code=$(curl -sS -o /tmp/null-other.json -w '%{http_code}' \
+                -X POST "$BASE/$segment/$path" \
+                -H 'Origin: null' \
+                -H 'Content-Type: application/x-www-form-urlencoded' \
+                --data 'x=1')
+              test "$code" = '403'
+              jq -e '.error == "ORIGIN_DENIED"' /tmp/null-other.json >/dev/null
+            done
+          done
+
+          code=$(curl -sS -o /tmp/evil-authorize.json -w '%{http_code}' \
+            -X POST "$BASE/system-admin/authorize" \
+            -H 'Origin: https://evil.example' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "request_id=$UUID" \
+            --data-urlencode 'email=invalid@example.invalid' \
+            --data-urlencode 'password=not-a-real-credential' \
+            --data-urlencode 'confirm=yes')
+          test "$code" = '403'
+          jq -e '.error == "ORIGIN_DENIED"' /tmp/evil-authorize.json >/dev/null
+
+          code=$(curl -sS -D /tmp/null-authorize.headers -o /tmp/null-authorize.json -w '%{http_code}' \
+            -X POST "$BASE/system-admin/authorize" \
+            -H 'Origin: null' \
+            -H 'Sec-Fetch-Site: cross-site' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "request_id=$UUID" \
+            --data-urlencode 'email=invalid@example.invalid' \
+            --data-urlencode 'password=not-a-real-credential' \
+            --data-urlencode 'confirm=yes')
+          test "$code" = '400'
+          jq -e '.error == "invalid_request"' /tmp/null-authorize.json >/dev/null
+
+          code=$(curl -sS -o /tmp/null-role.json -w '%{http_code}' \
+            -X POST "$BASE/system-admin/authorize" \
+            -H 'Origin: null' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "request_id=$UUID" \
+            --data-urlencode 'email=invalid@example.invalid' \
+            --data-urlencode 'password=not-a-real-credential' \
+            --data-urlencode 'confirm=yes' \
+            --data-urlencode 'role=OWNER_ADMIN')
+          test "$code" = '400'
+          jq -e '.error == "INVALID_AUTHORIZE_FORM"' /tmp/null-role.json >/dev/null
+
+          code=$(curl -sS -o /tmp/null-redirect.json -w '%{http_code}' \
+            -X POST "$BASE/system-admin/authorize" \
+            -H 'Origin: null' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode "request_id=$UUID" \
+            --data-urlencode 'email=invalid@example.invalid' \
+            --data-urlencode 'password=not-a-real-credential' \
+            --data-urlencode 'confirm=yes' \
+            --data-urlencode 'redirect_uri=https://evil.example/callback')
+          test "$code" = '400'
+          jq -e '.error == "INVALID_AUTHORIZE_FORM"' /tmp/null-redirect.json >/dev/null
+
       - name: Publish public interop commit status
         if: always()
         shell: bash
