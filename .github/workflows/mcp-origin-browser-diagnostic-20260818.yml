@@ -20,7 +20,7 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Reproduce browser opaque-origin consent POST
+      - name: Verify browser opaque-origin consent POST reaches Supabase
         shell: bash
         run: |
           set -euo pipefail
@@ -28,8 +28,8 @@ jobs:
           const { chromium } = require('playwright');
           const base='https://ronaoil.com';
           const segment='system-admin';
-          const callback='https://chatgpt.com/connector/oauth/RONA-ORIGIN-DIAG-20260818';
-          const state='RONA_ORIGIN_DIAG_20260818';
+          const callback='https://chatgpt.com/connector/oauth/RONA-ORIGIN-DIAG-POSTFIX-20260818';
+          const state='RONA_ORIGIN_DIAG_POSTFIX_20260818';
           const challenge='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
           function assert(x,m){ if(!x) throw new Error(m); }
           (async()=>{
@@ -37,7 +37,7 @@ jobs:
               method:'POST',
               headers:{'origin':'https://chatgpt.com','content-type':'application/json'},
               body:JSON.stringify({
-                client_name:'RONA ORIGIN DIAGNOSTIC 20260818',
+                client_name:'RONA ORIGIN DIAGNOSTIC POSTFIX 20260818',
                 redirect_uris:[callback],
                 token_endpoint_auth_method:'none',
                 grant_types:['authorization_code'],
@@ -68,31 +68,24 @@ jobs:
             page.on('request',async req=>{
               if(req.method()==='POST' && req.url()===`${base}/${segment}/authorize`){
                 const h=await req.allHeaders();
-                observed={
-                  path:new URL(req.url()).pathname,
-                  method:req.method(),
-                  origin:h.origin??null,
-                  sec_fetch_site:h['sec-fetch-site']??null,
-                  content_type:h['content-type']??null
-                };
+                observed={path:new URL(req.url()).pathname,method:req.method(),origin:h.origin??null,sec_fetch_site:h['sec-fetch-site']??null,content_type:h['content-type']??null};
               }
             });
             const [resp]=await Promise.all([
               page.waitForResponse(r=>r.url()===`${base}/${segment}/authorize` && r.request().method()==='POST',{timeout:30000}),
               page.click('#submit')
             ]);
+            const contentType=resp.headers()['content-type']||'';
             let errorCode=null;
             try{ const j=await resp.json(); errorCode=j?.error||null; }catch{}
-            await page.waitForTimeout(300);
+            console.log('RONA_ORIGIN_POSTFIX='+JSON.stringify({observed,response_status:resp.status(),response_content_type:contentType,response_error:errorCode,decision:(resp.status()===403&&contentType.includes('text/html')&&errorCode!=='ORIGIN_DENIED')?'REACHED_AUTHORIZE_POST':'UNEXPECTED'}));
             assert(observed,'POST headers not captured');
-            console.log('RONA_ORIGIN_DIAGNOSTIC='+JSON.stringify({
-              observed,
-              response_status:resp.status(),
-              response_error:errorCode,
-              decision:resp.status()===403&&errorCode==='ORIGIN_DENIED'?'DENY_ORIGIN':'OTHER'
-            }));
             assert(observed.origin==='null','Expected browser opaque Origin: null, got '+observed.origin);
-            assert(resp.status()===403 && errorCode==='ORIGIN_DENIED','Current production did not reproduce ORIGIN_DENIED');
+            assert(observed.sec_fetch_site==='cross-site','Expected cross-site fetch metadata');
+            assert(String(observed.content_type||'').startsWith('application/x-www-form-urlencoded'),'Expected form-urlencoded');
+            assert(resp.status()===403,'Expected invalid QA owner credentials to be rejected by authorizePost');
+            assert(contentType.includes('text/html'),'Expected Supabase owner-auth rejection HTML');
+            assert(errorCode!=='ORIGIN_DENIED','Opaque Origin was still denied by public transport');
             await browser.close();
           })().catch(e=>{ console.error(e.stack||e); process.exit(1); });
           NODE
