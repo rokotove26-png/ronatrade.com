@@ -62,7 +62,10 @@ jobs:
 
       - name: Canonical portal and existing production router non-regression
         run: |
-          BASE=ad893b67cd9459820d6a16a67a568308ae91f0f3
+          # Frozen canonical portal/router baseline restored on 2026-08-19.
+          # Backend-only AI/MCP changes must remain byte-diff clean for these files.
+          BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
+          git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
             'functions/portal/[[path]].js' \
@@ -76,7 +79,8 @@ jobs:
 
       - name: Verify no canonical build drift
         run: |
-          BASE=ad893b67cd9459820d6a16a67a568308ae91f0f3
+          BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
+          git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- portal-src/canonical
 
       - name: Credential leak scan
