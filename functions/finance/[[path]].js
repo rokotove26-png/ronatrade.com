@@ -1,2 +1,2 @@
-import {proxyRoleRequest} from '../_mcp_transport.js';
-export async function onRequest(context){return proxyRoleRequest(context,'finance');}
+import {proxyBoundRoleRequest} from '../_mcp_role_entry.js';
+export async function onRequest(context){return proxyBoundRoleRequest(context,'finance');}
