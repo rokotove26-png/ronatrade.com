@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - hotfix/mcp-single-click-consent-continuation-20260818
+      - hotfix/mcp-single-click-qa-shared-router-20260818
       - release/public-go-live-v1.1
   workflow_dispatch:
 
@@ -23,15 +24,19 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check functions/_mcp_role_entry.js
           node --check functions/_mcp_consent_bridge.js
           node --check 'functions/system-admin/[[path]].js'
           node --check functions/system-admin/authorize/prepare.js
           node --check functions/system-admin/authorize/complete.js
           node --check supabase/functions/rona-mcp-consent-bridge/index.js
-          grep -q "single-click-continuation-v1" 'functions/system-admin/[[path]].js'
-          grep -q "continuation_nonce" 'functions/system-admin/[[path]].js'
+          grep -q "single-click-continuation-v1" functions/_mcp_role_entry.js
+          grep -q "continuation_nonce" functions/_mcp_role_entry.js
+          grep -q "prepareConsent(context,segment)" functions/_mcp_role_entry.js
+          grep -q "completeConsent(context,segment)" functions/_mcp_role_entry.js
           grep -q "completion_used_at is null" supabase/functions/rona-mcp-consent-bridge/index.js
           grep -q "code_issued:false" supabase/functions/rona-mcp-consent-bridge/index.js
+          ! grep -q "OWNER_ADMIN" functions/_mcp_role_entry.js
           ! grep -q "OWNER_ADMIN" supabase/functions/rona-mcp-consent-bridge/index.js
       - name: Verify production negative continuation surface
         if: github.ref == 'refs/heads/release/public-go-live-v1.1'
