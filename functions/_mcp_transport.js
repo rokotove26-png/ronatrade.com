@@ -24,6 +24,14 @@ function externalResource(segment){return `${externalBase(segment)}/mcp`;}
 function internalResource(segment){return `${UPSTREAM_BASE}/${segment}/mcp`;}
 function protectedMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;}
 function isAllowedOrigin(origin){return !origin||ALLOWED_ORIGINS.has(origin);}
+function isAllowedCallbackLocation(value){
+  try{
+    const u=new URL(String(value||''));
+    if(u.protocol!=='https:'||u.username||u.password||u.hash)return false;
+    const h=u.hostname.toLowerCase();
+    return h==='chatgpt.com'||h.endsWith('.chatgpt.com')||h==='openai.com'||h.endsWith('.openai.com');
+  }catch{return false;}
+}
 function corsFor(request){
   const origin=request.headers.get('origin');
   if(!origin||!ALLOWED_ORIGINS.has(origin))return {};
@@ -78,6 +86,18 @@ async function rewriteFormBody(buffer,contentType,segment,path){
   const form=new URLSearchParams(text);
   if(form.get('resource')===externalResource(segment))form.set('resource',internalResource(segment));
   return new TextEncoder().encode(form.toString()).buffer;
+}
+function rewriteConsentHtml(html,segment){
+  const canonicalAction=`${externalBase(segment)}/authorize`;
+  let out=String(html||'');
+  const before=out;
+  out=out.replace(/<form\s+method=["']post["']\s+action=["']authorize["']>/i,
+    `<form method="POST" action="${canonicalAction}" enctype="application/x-www-form-urlencoded" accept-charset="UTF-8">`);
+  out=out.replace(/<button\s+type=["']submit["']([^>]*)>Разрешить<\/button>/i,'<button type="submit"$1>Разрешить</button>');
+  if(out===before||!out.includes(`action="${canonicalAction}"`)||!out.includes('name="request_id"')||!out.includes('name="email"')||!out.includes('name="password"')||!out.includes('name="confirm"')||!out.includes('value="yes"')||!out.includes('type="submit"')){
+    throw Object.assign(new Error('CONSENT_FORM_REWRITE_FAILED'),{status:502});
+  }
+  return out;
 }
 function responseHeaders(upstream,request,segment,path){
   const headers=new Headers();
@@ -152,6 +172,9 @@ export async function proxyRoleRequest(context,segment){
   }
   if(['/token','/register','/revoke'].includes(path)&&request.method!=='POST')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'POST, OPTIONS',...corsFor(request)});
   if(path==='/authorize'&&!['GET','POST'].includes(request.method))return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, POST, OPTIONS',...corsFor(request)});
+  if(path==='/authorize'&&request.method==='POST'){
+    console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_AUTHORIZE_POST_RECEIVED',segment,content_type:request.headers.get('content-type')||''}));
+  }
   let body;
   try{
     if(!['GET','HEAD'].includes(request.method)){
@@ -169,7 +192,22 @@ export async function proxyRoleRequest(context,segment){
       redirect:'manual',
       signal:ctrl.signal,
     });
+    if(path==='/authorize'&&request.method==='POST'){
+      console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_AUTHORIZE_POST_UPSTREAM_RESULT',segment,status:upstream.status,has_location:Boolean(upstream.headers.get('location'))}));
+    }
     const headers=responseHeaders(upstream,request,segment,path);
+    if(path==='/authorize'&&request.method==='GET'&&upstream.status===200){
+      const html=await upstream.text();
+      let rewritten;
+      try{rewritten=rewriteConsentHtml(html,segment);}catch(e){return json({error:String(e?.message||'CONSENT_FORM_REWRITE_FAILED')},Number(e?.status||502),corsFor(request));}
+      return new Response(rewritten,{status:200,statusText:'OK',headers});
+    }
+    if(path==='/authorize'&&request.method==='POST'&&upstream.status>=300&&upstream.status<400){
+      const location=upstream.headers.get('location')||'';
+      if(!isAllowedCallbackLocation(location))return json({error:'CALLBACK_LOCATION_DENIED'},502,corsFor(request));
+      headers.set('location',location);
+      return new Response(null,{status:303,statusText:'See Other',headers});
+    }
     return new Response(upstream.body,{status:upstream.status,statusText:upstream.statusText,headers});
   }catch(e){
     if(e?.name==='AbortError')return json({error:'UPSTREAM_TIMEOUT'},504,corsFor(request));
