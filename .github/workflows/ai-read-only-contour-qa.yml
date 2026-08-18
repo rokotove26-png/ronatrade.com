@@ -4,11 +4,14 @@ on:
   push:
     branches:
       - feature/ai-read-only-contour-2b1-20260818
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
   workflow_dispatch:
 
 permissions:
   contents: read
-  statuses: read
+  statuses: write
   checks: read
 
 jobs:
@@ -19,6 +22,18 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Publish pending QA status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA;
+          const headers={authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','content-type':'application/json'};
+          const body={state:'pending',context:'rona/ai-read-only-contour',description:'Step 2B-1 AI read-only QA running',target_url:`https://github.com/${repo}/actions`};
+          const r=await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers,body:JSON.stringify(body)});
+          if(!r.ok) throw new Error(`status pending ${r.status}`);
+          NODE
 
       - uses: actions/setup-node@v4
         with:
@@ -60,10 +75,20 @@ jobs:
 
       - name: Credential leak scan
         run: |
-          ! grep -RIE --exclude='ai-read-only-contour-qa.yml' \
-            '(RONA_AI_TOKEN_SIGNING_KEY|RONA_AI_BOOTSTRAP_PEPPER)[[:space:]]*=[[:space:]]*["'"'][^"'"']+["'"']' \
-            supabase functions scripts db
-          ! grep -RIE 'x-rona-ai-bootstrap-key[^\n]{0,80}(console\.|log\(|print\(|echo)' supabase functions scripts db
+          node <<'NODE'
+          const fs=require('fs'),path=require('path');
+          const roots=['supabase','functions','scripts','db'];
+          const skip=new Set(['node_modules','.git']);
+          const files=[];
+          function walk(p){if(!fs.existsSync(p))return;const s=fs.statSync(p);if(s.isDirectory()){if(skip.has(path.basename(p)))return;for(const n of fs.readdirSync(p))walk(path.join(p,n));}else files.push(p)}
+          roots.forEach(walk);
+          const literal=/(RONA_AI_TOKEN_SIGNING_KEY|RONA_AI_BOOTSTRAP_PEPPER)\s*=\s*["'][^"']+["']/;
+          const logged=/x-rona-ai-bootstrap-key[^\n]{0,100}(console\.|log\(|print\(|echo)/i;
+          const bad=[];
+          for(const f of files){const t=fs.readFileSync(f,'utf8');if(literal.test(t)||logged.test(t))bad.push(f)}
+          if(bad.length)throw new Error('credential leak pattern: '+bad.join(','));
+          console.log('AI_CREDENTIAL_LEAK_SCAN=PASS');
+          NODE
 
       - name: Verify production baseline gate remains successful
         env:
@@ -79,4 +104,19 @@ jobs:
           const c=(j.check_runs||[]).find(x=>x.name==='final-production-activation-v2');
           if(!c||c.status!=='completed'||c.conclusion!=='success') throw new Error(`production gate not success: ${JSON.stringify(c||null)}`);
           console.log(`PRODUCTION_BASELINE_GATE=PASS check_run_id=${c.id}`);
+          NODE
+
+      - name: Publish final QA status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA;
+          const ok=process.env.JOB_STATUS==='success';
+          const headers={authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','content-type':'application/json'};
+          const body={state:ok?'success':'failure',context:'rona/ai-read-only-contour',description:ok?'Step 2B-1 AI read-only QA PASS':'Step 2B-1 AI read-only QA FAILED',target_url:`https://github.com/${repo}/actions`};
+          const r=await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers,body:JSON.stringify(body)});
+          if(!r.ok) throw new Error(`status final ${r.status}`);
           NODE
