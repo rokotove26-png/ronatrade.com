@@ -1,0 +1,65 @@
+name: MCP OAuth Refresh Lifecycle QA
+
+on:
+  push:
+    branches:
+      - hotfix/phase-2b2-token-lifecycle-20260818
+      - release/public-go-live-v1.1
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-lifecycle-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Parse refresh lifecycle sources
+        run: |
+          node --check functions/_mcp_oauth_token_bridge.js
+          node --check supabase/functions/rona-mcp-oauth-token/index.js
+          for seg in operations finance legal market-analyst rail-logistics system-admin; do
+            node --check "functions/$seg/[[path]].js"
+          done
+      - name: Assert fixed binding and refresh safety invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const svc=fs.readFileSync('supabase/functions/rona-mcp-oauth-token/index.js','utf8');
+          const bridge=fs.readFileSync('functions/_mcp_oauth_token_bridge.js','utf8');
+          function assert(x,m){if(!x)throw new Error(m)}
+          assert(svc.includes("client.grant_types") && svc.includes("includes('refresh_token')"),'DCR refresh grant controls issuance');
+          assert(svc.includes('token_family_id') && svc.includes('parent_token_id') && svc.includes('rotated_to_token_id'),'refresh family lineage');
+          assert(svc.includes('REFRESH_REUSE_DETECTED'),'refresh replay family revocation');
+          assert(svc.includes("scope elevation denied"),'no refresh scope elevation');
+          assert(svc.includes("functional_role=${cfg.business_role}::portal_private.ai_business_role_enum") && svc.includes("client_id=${client.client_id}"),'role and client binding');
+          assert(svc.includes("OAUTH_REVOKE_FAMILY"),'family revoke');
+          assert(!svc.includes('console.log(raw)') && !svc.includes('console.log(code)') && !svc.includes('console.log(refresh)'),'no secret logging');
+          assert(bridge.includes("origin==='null'") && bridge.includes('tokenFormValid(raw)'),'opaque token origin narrowly validated');
+          assert(bridge.includes("path==='/revoke'&&origin==='null'"),'opaque revoke stays blocked');
+          for(const seg of ['operations','finance','legal','market-analyst','rail-logistics','system-admin']){
+            const src=fs.readFileSync(`functions/${seg}/[[path]].js`,'utf8');
+            assert(src.includes('proxyOAuthTokenIfApplicable'),'all role routes use refresh bridge');
+          }
+          console.log('MCP_OAUTH_REFRESH_LIFECYCLE_SOURCE_QA=PASS');
+          NODE
+      - name: Verify public OAuth metadata
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for seg in operations finance legal market-analyst rail-logistics system-admin; do
+            body=$(curl -fsS "https://ronaoil.com/.well-known/oauth-authorization-server/$seg")
+            echo "$body" | grep -q 'refresh_token'
+            echo "$body" | grep -q 'authorization_code'
+          done

@@ -1,2 +1,3 @@
 import {proxyBoundRoleRequest} from '../_mcp_role_entry.js';
-export async function onRequest(context){return proxyBoundRoleRequest(context,'system-admin');}
+import {proxyOAuthTokenIfApplicable} from '../_mcp_oauth_token_bridge.js';
+export async function onRequest(context){const oauth=await proxyOAuthTokenIfApplicable(context,'system-admin');return oauth||proxyBoundRoleRequest(context,'system-admin');}
