@@ -42,7 +42,7 @@ jobs:
           assert(transport.includes("RONA_OAUTH_PUBLIC_TOKEN_POST_RECEIVED"),'token safe diagnostic');
           assert(role.includes("pathname===tokenPath&&request.headers.get('origin')==='null'"),'opaque token route is exact');
           assert(role.includes("TOKEN_FORM_FIELDS"),'opaque token form allowlist');
-          assert(role.includes("return proxyRoleRequest(context,segment)"),'global policy remains default');
+          assert(role.includes("const response=await proxyRoleRequest(context,segment);") && role.includes("if(request.method==='GET'&&pathname===authorizePath)return enhanceConsent(response,segment);") && role.includes("return response;"),'global policy remains default with authorize GET post-processing');
           assert(gateway.includes("function publicMcpResource"),'public resource canonicalizer');
           assert(gateway.includes("function normalizeResource"),'resource normalization');
           assert(gateway.includes("supplied=form.get('resource'),requestedResource=supplied?normalizeResource"),'authorization-code resource may be omitted');
