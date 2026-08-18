@@ -1,0 +1,54 @@
+name: MCP single-click consent QA
+
+on:
+  push:
+    branches:
+      - hotfix/mcp-single-click-consent-continuation-20260818
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  consent-source-and-negative-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify source syntax and security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/_mcp_consent_bridge.js
+          node --check 'functions/system-admin/[[path]].js'
+          node --check functions/system-admin/authorize/prepare.js
+          node --check functions/system-admin/authorize/complete.js
+          node --check supabase/functions/rona-mcp-consent-bridge/index.js
+          grep -q "single-click-continuation-v1" 'functions/system-admin/[[path]].js'
+          grep -q "continuation_nonce" 'functions/system-admin/[[path]].js'
+          grep -q "completion_used_at is null" supabase/functions/rona-mcp-consent-bridge/index.js
+          grep -q "code_issued:false" supabase/functions/rona-mcp-consent-bridge/index.js
+          ! grep -q "OWNER_ADMIN" supabase/functions/rona-mcp-consent-bridge/index.js
+      - name: Verify production negative continuation surface
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://ronaoil.com/system-admin/authorize'
+          NONCE='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+          code=$(curl -sS -o /tmp/prepare.json -w '%{http_code}' \
+            -X POST "$BASE/prepare" \
+            -H 'Origin: null' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            --data-urlencode 'request_id=11111111-1111-4111-8111-111111111111' \
+            --data-urlencode 'email=invalid@example.invalid' \
+            --data-urlencode 'password=not-a-real-credential' \
+            --data-urlencode 'confirm=yes' \
+            --data-urlencode "continuation_nonce=$NONCE")
+          test "$code" = '400'
+          code=$(curl -sS -o /tmp/complete.json -w '%{http_code}' "$BASE/complete?nonce=$NONCE")
+          test "$code" = '400'
