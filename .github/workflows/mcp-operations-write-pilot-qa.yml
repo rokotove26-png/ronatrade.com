@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: read
+  checks: read
 
 jobs:
   pilot-isolation:
@@ -30,9 +31,11 @@ jobs:
           node --check functions/_mcp_consent_bridge.js
           node --check functions/_mcp_oauth_token_bridge.js
           node --check 'functions/operations-pilot/[[path]].js'
+          node --check 'functions/.well-known/[[path]].js'
           node --check supabase/functions/rona-mcp-gateway/index.js
           node --check supabase/functions/rona-mcp-oauth-token/index.js
           node --check supabase/functions/rona-mcp-consent-bridge/index.js
+          grep -q "handleWellKnown" 'functions/.well-known/[[path]].js'
           grep -q "const PILOT_SLUG='rona-mcp-operations-pilot'" supabase/functions/rona-mcp-gateway/index.js
           grep -q "coordinationEnabled(cfg)" supabase/functions/rona-mcp-gateway/index.js
           grep -q "COORDINATION_SERVER_NOT_ENABLED" supabase/functions/rona-mcp-gateway/index.js
@@ -43,6 +46,17 @@ jobs:
           test "$(grep -o "name:'functional_conclusion_submit'\|name:'task_acknowledge'\|name:'task_progress_submit'\|name:'handoff_request_submit'\|name:'business_change_proposal_submit'\|name:'operations_internal_decision'" supabase/functions/rona-mcp-gateway/index.js | sort -u | wc -l)" = '6'
           if grep -Eq "name:'(deal_status_write|payment_status_write|accounting_close|shipment_fact_create|rail_movement_fact_create|publication_publish|contract_mutate|document_mutate|client_binding_mutate)'" supabase/functions/rona-mcp-gateway/index.js; then exit 1; fi
           echo PILOT_SOURCE_ISOLATION=PASS
+      - name: Wait for this commit in Cloudflare production
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{for(let i=0;i<120;i++){const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-OPERATIONS-PILOT-QA'}});if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);await sleep(5000);console.log('PILOT_CLOUDFLARE_DEPLOYMENT=PASS');return}}await sleep(3000)}throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
       - name: Public pilot discovery and primary read-only regression
         if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
@@ -54,8 +68,11 @@ jobs:
           echo "$p" | grep -q 'mcp:coordinate'
           echo "$a" | grep -q 'refresh_token'
           echo "$a" | grep -q 'S256'
-          op=$(curl -fsS https://ronaoil.com/.well-known/oauth-protected-resource/operations/mcp)
-          if echo "$op" | grep -q 'mcp:coordinate'; then echo 'operations read-only regression'; exit 1; fi
+          for seg in operations finance legal market-analyst rail-logistics system-admin; do
+            m=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/$seg/mcp")
+            echo "$m" | grep -q 'mcp:read'
+            if echo "$m" | grep -q 'mcp:coordinate'; then echo "$seg coordinate scope regression"; exit 1; fi
+          done
           code=$(curl -sS -o /tmp/pilot.mcp -D /tmp/pilot.headers -w '%{http_code}' -X POST https://ronaoil.com/operations-pilot/mcp -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"RONA QA","version":"1"}}}')
           test "$code" = '401'
           grep -Fqi 'oauth-protected-resource/operations-pilot/mcp' /tmp/pilot.headers
