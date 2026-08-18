@@ -48,11 +48,17 @@ jobs:
       - name: AI read-only unit and route tests
         run: node scripts/test-ai-read-only-contour.mjs
 
+      - name: AI market and document read tests
+        run: node scripts/test-ai-read-extras.mjs
+
       - name: Syntax checks
         run: |
           node --check supabase/functions/rona-ai-read-only/core.js
           node --check supabase/functions/rona-ai-read-only/index.js
+          node --check supabase/functions/rona-ai-read-extras/index.js
           node --check 'functions/portal/api/v1/ai/[[path]].js'
+          node --check functions/portal/api/v1/ai/market-data.js
+          node --check 'functions/portal/api/v1/ai/documents/[[path]].js'
 
       - name: Canonical portal and existing production router non-regression
         run: |
