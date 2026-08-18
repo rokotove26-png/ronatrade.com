@@ -21,7 +21,6 @@ function json(body,status=200,headers={}){
 }
 function externalBase(segment){return `${PUBLIC_ORIGIN}/${segment}`;}
 function externalResource(segment){return `${externalBase(segment)}/mcp`;}
-function internalResource(segment){return `${UPSTREAM_BASE}/${segment}/mcp`;}
 function protectedMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;}
 function isAllowedOrigin(origin){return !origin||ALLOWED_ORIGINS.has(origin);}
 function isAllowedCallbackLocation(value){
@@ -72,20 +71,14 @@ function rewriteAuthorizeUrl(requestUrl,segment){
   const incoming=new URL(requestUrl);
   const upstream=new URL(`${UPSTREAM_BASE}/${segment}/authorize`);
   for(const [k,v] of incoming.searchParams.entries())upstream.searchParams.append(k,v);
-  if(upstream.searchParams.get('resource')===externalResource(segment))upstream.searchParams.set('resource',internalResource(segment));
   return upstream;
 }
 function upstreamUrl(segment,path,requestUrl){
   if(path==='/authorize'&&new URL(requestUrl).search)return rewriteAuthorizeUrl(requestUrl,segment);
   return new URL(`${UPSTREAM_BASE}/${segment}${path}`);
 }
-async function rewriteFormBody(buffer,contentType,segment,path){
-  if(path!=='/token')return buffer;
-  if(!String(contentType||'').toLowerCase().includes('application/x-www-form-urlencoded'))return buffer;
-  const text=new TextDecoder().decode(buffer);
-  const form=new URLSearchParams(text);
-  if(form.get('resource')===externalResource(segment))form.set('resource',internalResource(segment));
-  return new TextEncoder().encode(form.toString()).buffer;
+async function rewriteFormBody(buffer,_contentType,_segment,_path){
+  return buffer;
 }
 function rewriteConsentHtml(html,segment){
   const canonicalAction=`${externalBase(segment)}/authorize`;
@@ -109,6 +102,10 @@ function responseHeaders(upstream,request,segment,path){
     headers.set('content-security-policy',"default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
     headers.set('x-rona-oauth-consent-policy','same-origin-form-v1');
   }
+  if(path==='/authorize'&&upstream.status>=300&&upstream.status<400){
+    headers.delete('content-security-policy');
+    headers.delete('x-frame-options');
+  }
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('referrer-policy','no-referrer');
@@ -120,6 +117,20 @@ function responseHeaders(upstream,request,segment,path){
     const www=upstream.headers.get('www-authenticate');if(www)headers.set('www-authenticate',www);
   }
   return headers;
+}
+function safeTokenShape(buffer,contentType){
+  if(!String(contentType||'').toLowerCase().includes('application/x-www-form-urlencoded'))return null;
+  try{
+    const form=new URLSearchParams(new TextDecoder().decode(buffer));
+    const client=String(form.get('client_id')||'');
+    return {
+      grant_type:String(form.get('grant_type')||''),
+      client_suffix:client?client.slice(-12):'',
+      resource_present:Boolean(form.get('resource')),
+      redirect_uri_present:Boolean(form.get('redirect_uri')),
+      code_verifier_present:Boolean(form.get('code_verifier')),
+    };
+  }catch{return null;}
 }
 export function protectedResourceMetadata(segment){
   segment=normalizeSegment(segment);
@@ -179,13 +190,17 @@ export async function proxyRoleRequest(context,segment){
   if(path==='/authorize'&&request.method==='POST'){
     console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_AUTHORIZE_POST_RECEIVED',segment,content_type:request.headers.get('content-type')||''}));
   }
-  let body;
+  let body,tokenShape=null;
   try{
     if(!['GET','HEAD'].includes(request.method)){
       const raw=await readBodyLimited(request);
+      tokenShape=path==='/token'?safeTokenShape(raw,request.headers.get('content-type')):null;
       body=await rewriteFormBody(raw,request.headers.get('content-type'),segment,path);
     }
   }catch(e){return json({error:String(e?.message||'REQUEST_TOO_LARGE')},Number(e?.status||413),corsFor(request));}
+  if(path==='/token'&&request.method==='POST'){
+    console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_TOKEN_POST_RECEIVED',segment,...(tokenShape||{grant_type:'',client_suffix:'',resource_present:false,redirect_uri_present:false,code_verifier_present:false})}));
+  }
   const ctrl=new AbortController();
   const timer=setTimeout(()=>ctrl.abort(),UPSTREAM_TIMEOUT_MS);
   try{
@@ -199,6 +214,9 @@ export async function proxyRoleRequest(context,segment){
     if(path==='/authorize'&&request.method==='POST'){
       console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_AUTHORIZE_POST_UPSTREAM_RESULT',segment,status:upstream.status,has_location:Boolean(upstream.headers.get('location'))}));
     }
+    if(path==='/token'&&request.method==='POST'){
+      console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_TOKEN_POST_UPSTREAM_RESULT',segment,status:upstream.status,...(tokenShape||{})}));
+    }
     const headers=responseHeaders(upstream,request,segment,path);
     if(path==='/authorize'&&request.method==='GET'&&upstream.status===200){
       const html=await upstream.text();
@@ -209,6 +227,8 @@ export async function proxyRoleRequest(context,segment){
     if(path==='/authorize'&&request.method==='POST'&&upstream.status>=300&&upstream.status<400){
       const location=upstream.headers.get('location')||'';
       if(!isAllowedCallbackLocation(location))return json({error:'CALLBACK_LOCATION_DENIED'},502,corsFor(request));
+      const callback=new URL(location);
+      console.log(JSON.stringify({event:'RONA_OAUTH_PUBLIC_CALLBACK_303',segment,status:303,callback_host:callback.hostname,callback_path:callback.pathname,has_code:callback.searchParams.has('code'),has_state:callback.searchParams.has('state'),has_fragment:Boolean(callback.hash),internal_location:callback.hostname==='sxawrwzeobaqwwmlkzws.supabase.co'}));
       headers.set('location',location);
       return new Response(null,{status:303,statusText:'See Other',headers});
     }

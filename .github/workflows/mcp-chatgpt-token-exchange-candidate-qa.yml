@@ -1,0 +1,54 @@
+name: MCP ChatGPT Callback Token Exchange Candidate QA
+
+on:
+  push:
+    branches:
+      - hotfix/mcp-chatgpt-token-exchange-20260818
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  candidate-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Parse changed runtime sources
+        run: |
+          node --check functions/_mcp_transport.js
+          node --check functions/_mcp_role_entry.js
+          node --check supabase/functions/rona-mcp-gateway/index.js
+      - name: Assert canonical public OAuth transaction and optional token resource
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const transport=fs.readFileSync('functions/_mcp_transport.js','utf8');
+          const role=fs.readFileSync('functions/_mcp_role_entry.js','utf8');
+          const gateway=fs.readFileSync('supabase/functions/rona-mcp-gateway/index.js','utf8');
+          function assert(x,m){if(!x)throw new Error(m)}
+          assert(transport.includes("const PUBLIC_ORIGIN='https://ronaoil.com'"),'public origin');
+          assert(!transport.includes("searchParams.set('resource',internalResource"),'authorize must not persist internal resource');
+          assert(!transport.includes("form.set('resource',internalResource"),'token must not persist internal resource');
+          assert(transport.includes("RONA_OAUTH_PUBLIC_CALLBACK_303"),'callback safe diagnostic');
+          assert(transport.includes("RONA_OAUTH_PUBLIC_TOKEN_POST_RECEIVED"),'token safe diagnostic');
+          assert(role.includes("pathname===tokenPath&&request.headers.get('origin')==='null'"),'opaque token route is exact');
+          assert(role.includes("TOKEN_FORM_FIELDS"),'opaque token form allowlist');
+          assert(role.includes("return proxyRoleRequest(context,segment)"),'global policy remains default');
+          assert(gateway.includes("function publicMcpResource"),'public resource canonicalizer');
+          assert(gateway.includes("function normalizeResource"),'resource normalization');
+          assert(gateway.includes("supplied=form.get('resource'),requestedResource=supplied?normalizeResource"),'authorization-code resource may be omitted');
+          assert(gateway.includes("state_match:redir.searchParams.get('state')===String(row.state)"),'callback state match diagnostic');
+          assert(gateway.includes("tokenAudit('RONA_OAUTH_TOKEN_REQUEST_RECEIVED'"),'token safe audit');
+          assert(gateway.includes("return role==='OPERATIONS_DIRECTOR'") && gateway.includes("['audit','tasks','sessions']"),'role history fixed');
+          assert(!gateway.includes("name:'write'"),'no generic write tool');
+          console.log('MCP_CHATGPT_CALLBACK_TOKEN_EXCHANGE_CANDIDATE_QA=PASS');
+          NODE
