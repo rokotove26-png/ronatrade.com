@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 jobs:
   public-interop:
@@ -82,3 +83,27 @@ jobs:
             --data '{"client_name":"RONA public interop invalid redirect QA","redirect_uris":["https://evil.example/callback"],"token_endpoint_auth_method":"none","grant_types":["authorization_code"],"response_types":["code"]}')
           test "$code" = '400'
           jq -e '.error == "invalid_redirect_uri"' /tmp/dcr-invalid.json >/dev/null
+
+      - name: Publish public interop commit status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          state='failure'
+          description='MCP OAuth public interop QA failed'
+          if [ "$JOB_STATUS" = 'success' ]; then
+            state='success'
+            description='MCP OAuth public interop QA passed'
+          fi
+          payload=$(printf '{"state":"%s","context":"rona/mcp-oauth-public-interop","description":"%s"}' "$state" "$description")
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$REPO/statuses/$SHA" \
+            -d "$payload" >/dev/null
