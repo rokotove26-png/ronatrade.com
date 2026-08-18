@@ -10,7 +10,14 @@
     "/en/pages/*",
     "/investments/home*",
     "/en/investments/home*",
-    "/portal/*"
+    "/portal/*",
+    "/.well-known/*",
+    "/operations/*",
+    "/finance/*",
+    "/legal/*",
+    "/market-analyst/*",
+    "/rail-logistics/*",
+    "/system-admin/*"
   ],
   "exclude": []
 }
