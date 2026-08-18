@@ -1,0 +1,98 @@
+name: MCP Origin Browser Diagnostic 20260818
+
+on:
+  push:
+    branches:
+      - qa/mcp-origin-diagnostic-20260818
+
+permissions:
+  contents: read
+
+jobs:
+  origin-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Reproduce browser opaque-origin consent POST
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const base='https://ronaoil.com';
+          const segment='system-admin';
+          const callback='https://chatgpt.com/connector/oauth/RONA-ORIGIN-DIAG-20260818';
+          const state='RONA_ORIGIN_DIAG_20260818';
+          const challenge='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+          function assert(x,m){ if(!x) throw new Error(m); }
+          (async()=>{
+            const reg=await fetch(`${base}/${segment}/register`,{
+              method:'POST',
+              headers:{'origin':'https://chatgpt.com','content-type':'application/json'},
+              body:JSON.stringify({
+                client_name:'RONA ORIGIN DIAGNOSTIC 20260818',
+                redirect_uris:[callback],
+                token_endpoint_auth_method:'none',
+                grant_types:['authorization_code'],
+                response_types:['code']
+              })
+            });
+            const rj=await reg.json();
+            assert(reg.ok && rj.client_id,'DCR failed');
+            const authorize=new URL(`${base}/${segment}/authorize`);
+            authorize.searchParams.set('response_type','code');
+            authorize.searchParams.set('client_id',rj.client_id);
+            authorize.searchParams.set('redirect_uri',callback);
+            authorize.searchParams.set('scope','mcp:read');
+            authorize.searchParams.set('code_challenge',challenge);
+            authorize.searchParams.set('code_challenge_method','S256');
+            authorize.searchParams.set('resource',`${base}/${segment}/mcp`);
+            authorize.searchParams.set('state',state);
+
+            const browser=await chromium.launch({headless:true});
+            const page=await browser.newPage();
+            await page.goto(authorize.toString(),{waitUntil:'domcontentloaded',timeout:30000});
+            const requestId=await page.locator('input[name="request_id"]').inputValue();
+            assert(/^[0-9a-f-]{36}$/i.test(requestId),'request_id unavailable');
+
+            const dataHtml=`<!doctype html><meta charset="utf-8"><form id="f" method="POST" action="${base}/${segment}/authorize" enctype="application/x-www-form-urlencoded"><input type="hidden" name="request_id" value="${requestId}"><input name="email" value="origin-diag-invalid@example.invalid"><input name="password" value="not-a-real-credential"><input type="checkbox" name="confirm" value="yes" checked><button id="submit" type="submit">submit</button></form>`;
+            await page.goto('data:text/html,'+encodeURIComponent(dataHtml));
+            let observed=null;
+            page.on('request',async req=>{
+              if(req.method()==='POST' && req.url()===`${base}/${segment}/authorize`){
+                const h=await req.allHeaders();
+                observed={
+                  path:new URL(req.url()).pathname,
+                  method:req.method(),
+                  origin:h.origin??null,
+                  sec_fetch_site:h['sec-fetch-site']??null,
+                  content_type:h['content-type']??null
+                };
+              }
+            });
+            const [resp]=await Promise.all([
+              page.waitForResponse(r=>r.url()===`${base}/${segment}/authorize` && r.request().method()==='POST',{timeout:30000}),
+              page.click('#submit')
+            ]);
+            let errorCode=null;
+            try{ const j=await resp.json(); errorCode=j?.error||null; }catch{}
+            await page.waitForTimeout(300);
+            assert(observed,'POST headers not captured');
+            console.log('RONA_ORIGIN_DIAGNOSTIC='+JSON.stringify({
+              observed,
+              response_status:resp.status(),
+              response_error:errorCode,
+              decision:resp.status()===403&&errorCode==='ORIGIN_DENIED'?'DENY_ORIGIN':'OTHER'
+            }));
+            assert(observed.origin==='null','Expected browser opaque Origin: null, got '+observed.origin);
+            assert(resp.status()===403 && errorCode==='ORIGIN_DENIED','Current production did not reproduce ORIGIN_DENIED');
+            await browser.close();
+          })().catch(e=>{ console.error(e.stack||e); process.exit(1); });
+          NODE
