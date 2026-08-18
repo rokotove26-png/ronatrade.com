@@ -1,4 +1,5 @@
 import {proxyRoleRequest} from './_mcp_transport.js';
+import {prepareConsent,completeConsent} from './_mcp_consent_bridge.js';
 
 const CANONICAL_RONA_ORIGINS=new Set(['https://ronaoil.com','https://www.ronaoil.com']);
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -67,12 +68,33 @@ function forwardWithCanonicalOrigin(context,request,segment,raw){
   const forwarded=new Request(request.url,{method:'POST',headers,body:raw});
   return proxyRoleRequest({...context,request:forwarded},segment);
 }
+function consentScript(segment,nonce){
+  const authorize=`https://ronaoil.com/${segment}/authorize`;
+  return `<script nonce="${nonce}">(()=>{const form=document.querySelector('form[action="${authorize}"]');if(!form||!globalThis.crypto?.getRandomValues)return;const button=form.querySelector('button[type="submit"]');let busy=false;const encode=b=>{let s='';for(const x of b)s+=String.fromCharCode(x);return btoa(s).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'')};form.addEventListener('submit',async event=>{event.preventDefault();if(busy)return;busy=true;if(button)button.disabled=true;const bytes=crypto.getRandomValues(new Uint8Array(32)),continuation=encode(bytes),data=new URLSearchParams(new FormData(form));data.set('continuation_nonce',continuation);try{await fetch('${authorize}/prepare',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:data.toString(),mode:'no-cors',credentials:'omit',cache:'no-store'});}catch(_e){}location.replace('${authorize}/complete?nonce='+encodeURIComponent(continuation));});})();</script>`;
+}
+async function enhanceConsent(response,segment){
+  const type=String(response.headers.get('content-type')||'');
+  if(response.status!==200||!type.toLowerCase().includes('text/html'))return response;
+  const html=await response.text();
+  if(!html.includes('name="request_id"')||!html.includes('type="submit"'))return new Response(html,{status:response.status,statusText:response.statusText,headers:response.headers});
+  const nonce=crypto.randomUUID(),script=consentScript(segment,nonce),out=html.includes('</body>')?html.replace('</body>',`${script}</body>`):html+script;
+  const headers=new Headers(response.headers);
+  headers.delete('content-length');
+  headers.set('content-security-policy',`default-src 'none'; script-src 'nonce-${nonce}'; connect-src https://ronaoil.com; form-action https://ronaoil.com; base-uri 'none'; frame-ancestors 'none'`);
+  headers.set('x-rona-oauth-consent-policy','single-click-continuation-v1');
+  return new Response(out,{status:200,statusText:'OK',headers});
+}
 
 export async function proxyBoundRoleRequest(context,segment){
   const {request}=context;
   const pathname=new URL(request.url).pathname;
   const authorizePath=`/${segment}/authorize`;
+  const preparePath=`${authorizePath}/prepare`;
+  const completePath=`${authorizePath}/complete`;
   const tokenPath=`/${segment}/token`;
+
+  if(pathname===preparePath)return prepareConsent(context,segment);
+  if(pathname===completePath)return completeConsent(context,segment);
 
   if(request.method==='POST'&&pathname===authorizePath){
     const origin=request.headers.get('origin');
@@ -121,5 +143,7 @@ export async function proxyBoundRoleRequest(context,segment){
     return forwardWithCanonicalOrigin(context,request,segment,raw);
   }
 
-  return proxyRoleRequest(context,segment);
+  const response=await proxyRoleRequest(context,segment);
+  if(request.method==='GET'&&pathname===authorizePath)return enhanceConsent(response,segment);
+  return response;
 }
