@@ -1,0 +1,58 @@
+name: MCP Phase 2B2 Controlled Write QA
+
+on:
+  push:
+    branches:
+      - phase-2b2-controlled-write-20260818
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  controlled-write-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify Phase 2B-2 source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check supabase/functions/rona-mcp-gateway/index.js
+          node --check 'functions/.well-known/[[path]].js'
+          grep -q "mcp:coordinate" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "functional_conclusion_submit" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "task_acknowledge" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "task_progress_submit" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "handoff_request_submit" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "business_change_proposal_submit" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "operations_internal_decision" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "COORDINATION_SCOPE_REQUIRED" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "IDEMPOTENCY_CONFLICT" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "pg_advisory_xact_lock" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "ai_coordination_audit_events" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "ai_coordination_records" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "SYSTEM_ADMIN_BUSINESS_WRITE_BLOCKED" supabase/functions/rona-mcp-gateway/index.js
+          ! grep -q "OWNER_ADMIN.*AI_ROLES" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "prevent_ai_coordination_mutation" supabase/migrations/20260818160800_phase_2b2_controlled_write_interrole_foundation.sql
+      - name: Verify public metadata after production deployment
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for seg in operations finance legal market-analyst rail-logistics system-admin; do
+            pr="https://ronaoil.com/.well-known/oauth-protected-resource/$seg/mcp"
+            as="https://ronaoil.com/.well-known/oauth-authorization-server/$seg"
+            for i in $(seq 1 30); do
+              body=$(curl -fsS "$pr" || true)
+              echo "$body" | grep -q 'mcp:coordinate' && break
+              sleep 2
+            done
+            echo "$body" | grep -q 'mcp:coordinate'
+            curl -fsS "$as" | grep -q 'mcp:coordinate'
+          done
