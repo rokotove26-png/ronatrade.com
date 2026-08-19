@@ -57,10 +57,19 @@ jobs:
           echo 'ADMIN_EXCLUSIVE_CONTROL_PLANE_SOURCE=PASS'
           echo 'ADMIN_APPROVED_ACCESS_OVERLAY=PASS'
 
-      - name: Install Playwright Chromium
+      - name: Install Playwright runtime using preinstalled Chrome
+        shell: bash
         run: |
+          set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
-          npx playwright install --with-deps chromium
+          if command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+          elif command -v google-chrome-stable >/dev/null 2>&1; then
+            google-chrome-stable --version
+          else
+            echo 'PREINSTALLED_CHROME_NOT_FOUND'
+            exit 1
+          fi
 
       - name: Wait for this commit in Cloudflare production
         env:
@@ -92,7 +101,7 @@ jobs:
           async function session(){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json();if(!r.ok||!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error('controlled session unavailable '+JSON.stringify({status:r.status,code:j.code}));return j.session}
           async function context(browser,s){const c=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});await c.addCookies([{name:'rona_portal_at',value:s.access_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:s.refresh_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);return c}
           (async()=>{
-            const browser=await chromium.launch({headless:true}),s=await session(),ctx=await context(browser,s);
+            const browser=await chromium.launch({headless:true,channel:'chrome'}),s=await session(),ctx=await context(browser,s);
             const core=await ctx.request.get(base+'/portal/api/v1/admin/bootstrap'),cj=await core.json();assert(core.ok()&&cj?.ok===true&&cj.data,'admin bootstrap');
             const counts={clients:(cj.data.clients||[]).length,deals:(cj.data.deals||[]).length,documents:(cj.data.documents||[]).length,payments:(cj.data.payments||[]).length,shipments:(cj.data.shipments||[]).length,rail:(cj.data.rail||[]).length,publications:(cj.data.publications||[]).length};
             assert(counts.clients===3&&counts.deals===4&&counts.documents===14&&counts.payments===1&&counts.shipments===0&&counts.rail===3&&counts.publications===17,'backend counts '+JSON.stringify(counts));
@@ -109,7 +118,7 @@ jobs:
             assert(ui.openWithout===true,'open without contract option missing');assert(ui.companyChecks===3&&ui.disabledCompanyChecks===0,'company selection still blocked '+JSON.stringify(ui));assert(ui.agentEnabled===true,'agent option disabled');assert(JSON.stringify(ui.agentProfiles)===JSON.stringify(['AGP-2026-001','AGP-2026-002']),'agent selector '+JSON.stringify(ui.agentProfiles));await page.evaluate(()=>window.closeModal());
             const noPassword=await ctx.request.post(base+'/portal/admin-authority/access/users',{headers:{origin:base,referer:base+'/portal/admin','content-type':'application/json'},data:{role:'Клиент',name:'QA NO MUTATION',login:'rona_no_mutation_probe',email:'no-mutation@example.invalid',contractIds:[]}}),npj=await noPassword.json();assert(noPassword.status()===400&&npj?.code==='INVALID_INITIAL_PASSWORD','Admin password gate '+noPassword.status()+' '+JSON.stringify(npj));
             const badAgent=await ctx.request.post(base+'/portal/admin-authority/access/users',{headers:{origin:base,referer:base+'/portal/admin','content-type':'application/json'},data:{role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid',initialPassword:'Aa1!NoMutation'}}),baj=await badAgent.json();assert(badAgent.status()===409&&baj?.code==='AGENT_PROFILE_NOT_FOUND','agent route '+badAgent.status()+' '+JSON.stringify(baj));
-            const nav=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(nav)===JSON.stringify(expectedAdmin),'Admin nav '+JSON.stringify(nav));for(const p of nav){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(60);assert(await page.locator('#page-'+p).evaluate(el=>el.classList.contains('active')&&getComputedStyle(el).display!=='none'),p+' invisible')}
+            const nav=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(nav)===JSON.stringify(expectedAdmin),'Admin nav '+JSON.stringify(nav));for(const p of nav){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(60);assert(await page.locator('#page-'+p).evaluate(el=>el.classList.contains('active')&&getComputedStyle(el).display!=='none'),'Inactive page '+p)}
             assert(errors.length===0,'Admin JS '+JSON.stringify(errors.slice(0,4)));assert(!/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(await page.content()),'JWT leaked');
             await page.locator('#adminLogoutBtn').click();await page.waitForURL(u=>new URL(u).pathname==='/portal/login',{timeout:10000});assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Auth cookies remain after logout');
             console.log(JSON.stringify({ok:true,adminNavigation:'23/23',backendHooks:requiredAdminBackendMethods.length,adminExclusive:true,passwordOwner:'ADMINISTRATOR',accountCreationIndependentFromContract:true,openWithoutContractOption:true,companySelectionEnabled:true,agentProfiles:ids,canonicalSourceChanged:false,adminAccessOverlay:true,tokenLeak:false,applicationErrors:0,counts}));
