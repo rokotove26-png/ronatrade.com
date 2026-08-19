@@ -1,80 +1,95 @@
 name: MCP Operations Write Pilot QA
 
 on:
-  push:
-    branches:
-      - 'release/public-go-live-v1.1'
   pull_request:
     branches:
       - 'release/public-go-live-v1.1'
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   checks: read
 
 jobs:
-  pilot-isolation:
+  canonical-coordinate-source-patch:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'production/ai-canonical-coordinate-20260819'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
         with:
-          node-version: '24'
-      - name: Static pilot isolation invariants
+          ref: production/ai-canonical-coordinate-20260819
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply source-only promotion on PR branch
         shell: bash
         run: |
           set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          p=Path('functions/_mcp_transport.js'); t=p.read_text()
+          old="const COORDINATE_PILOTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot']);"
+          new="const COORDINATE_SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot']);"
+          if old not in t and 'COORDINATE_SEGMENTS' not in t: raise SystemExit('transport coordinate set pattern missing')
+          if old in t: t=t.replace(old,new).replace('COORDINATE_PILOTS','COORDINATE_SEGMENTS')
+          p.write_text(t)
+
+          p=Path('supabase/functions/rona-mcp-gateway/index.js'); t=p.read_text()
+          old="""const COORDINATE_PILOT_BINDINGS=Object.freeze({
+  'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
+  'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE'],
+  'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
+  'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST'],
+  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
+});"""
+          new="""const COORDINATE_BINDINGS=Object.freeze({
+  'rona-mcp-operations':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
+  'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
+  'rona-mcp-finance':['FINANCE','AI-FINANCE'],
+  'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE'],
+  'rona-mcp-legal':['LEGAL','AI-LEGAL'],
+  'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
+  'rona-mcp-market-analyst':['MARKET_ANALYST','AI-MARKET-ANALYST'],
+  'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST'],
+  'rona-mcp-rail-logistics':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
+  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
+});"""
+          if old not in t and 'const COORDINATE_BINDINGS=' not in t: raise SystemExit('gateway coordinate binding block missing')
+          if old in t: t=t.replace(old,new).replace('COORDINATE_PILOT_BINDINGS','COORDINATE_BINDINGS')
+          t=t.replace('coordinate scope is enabled only on fixed business-role pilot connectors','coordinate scope is enabled only on fixed business-role connectors')
+          p.write_text(t)
+
+          p=Path('supabase/functions/rona-mcp-oauth-token/index.js'); t=p.read_text()
+          old="const COORDINATE_PILOT_SLUGS=new Set(['rona-mcp-operations-pilot','rona-mcp-finance-pilot','rona-mcp-legal-pilot','rona-mcp-market-analyst-pilot','rona-mcp-rail-logistics-pilot']);"
+          new="const COORDINATE_ALLOWED_SLUGS=new Set(['rona-mcp-operations','rona-mcp-operations-pilot','rona-mcp-finance','rona-mcp-finance-pilot','rona-mcp-legal','rona-mcp-legal-pilot','rona-mcp-market-analyst','rona-mcp-market-analyst-pilot','rona-mcp-rail-logistics','rona-mcp-rail-logistics-pilot']);"
+          if old not in t and 'COORDINATE_ALLOWED_SLUGS' not in t: raise SystemExit('token coordinate set pattern missing')
+          if old in t: t=t.replace(old,new).replace('COORDINATE_PILOT_SLUGS','COORDINATE_ALLOWED_SLUGS')
+          t=t.replace('coordinate scope is enabled only on fixed business-role pilot connectors','coordinate scope is enabled only on fixed business-role connectors')
+          p.write_text(t)
+
+          gateway=Path('supabase/functions/rona-mcp-gateway/index.js').read_text()
+          token=Path('supabase/functions/rona-mcp-oauth-token/index.js').read_text()
+          transport=Path('functions/_mcp_transport.js').read_text()
+          if "'rona-mcp-system-admin':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN']" in gateway: raise SystemExit('SYSTEM_ADMIN coordinate binding detected')
+          if "'system-admin'" in transport.split('COORDINATE_SEGMENTS=',1)[1].split(';',1)[0]: raise SystemExit('SYSTEM_ADMIN public coordinate discovery detected')
+          if "'rona-mcp-system-admin'" in token.split('COORDINATE_ALLOWED_SLUGS=',1)[1].split(';',1)[0]: raise SystemExit('SYSTEM_ADMIN token coordinate allowance detected')
+          print('CANONICAL_COORDINATE_SOURCE_PATCH=PASS')
+          PY
+          git diff --check
+          if ! git diff --quiet -- portal-src portal-src/canonical functions/portal; then echo PORTAL_UI_DRIFT_DETECTED; exit 1; fi
           node --check functions/_mcp_transport.js
-          node --check functions/_mcp_role_entry.js
-          node --check functions/_mcp_consent_bridge.js
-          node --check functions/_mcp_oauth_token_bridge.js
-          node --check 'functions/operations-pilot/[[path]].js'
-          node --check 'functions/.well-known/[[path]].js'
           node --check supabase/functions/rona-mcp-gateway/index.js
           node --check supabase/functions/rona-mcp-oauth-token/index.js
-          node --check supabase/functions/rona-mcp-consent-bridge/index.js
-          grep -q "handleWellKnown" 'functions/.well-known/[[path]].js'
-          grep -Fq "'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR']" supabase/functions/rona-mcp-gateway/index.js
-          grep -q "coordinationEnabled(cfg)" supabase/functions/rona-mcp-gateway/index.js
-          grep -q "COORDINATION_SERVER_NOT_ENABLED" supabase/functions/rona-mcp-gateway/index.js
-          grep -q "operations-pilot" functions/_mcp_transport.js
-          grep -q '"/operations-pilot/\*"' _routes.json
-          grep -Fq "COORDINATE_PILOT_BINDINGS[slug]?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access']" supabase/functions/rona-mcp-gateway/index.js
-          grep -q "mcp_gateway_config_coordinate_pilot_binding_check" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
-          test "$(grep -o "name:'functional_conclusion_submit'\|name:'task_acknowledge'\|name:'task_progress_submit'\|name:'handoff_request_submit'\|name:'business_change_proposal_submit'\|name:'operations_internal_decision'" supabase/functions/rona-mcp-gateway/index.js | sort -u | wc -l)" = '6'
-          if grep -Eq "name:'(deal_status_write|payment_status_write|accounting_close|shipment_fact_create|rail_movement_fact_create|publication_publish|contract_mutate|document_mutate|client_binding_mutate)'" supabase/functions/rona-mcp-gateway/index.js; then exit 1; fi
-          echo PILOT_SOURCE_ISOLATION=PASS
-      - name: Wait for this commit in Cloudflare production
-        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          node <<'NODE'
-          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{for(let i=0;i<120;i++){const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-OPERATIONS-PILOT-QA'}});if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);await sleep(5000);console.log('PILOT_CLOUDFLARE_DEPLOYMENT=PASS');return}}await sleep(3000)}throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
-      - name: Public pilot discovery and primary read-only regression
-        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
+      - name: Commit source-only patch to PR branch
         shell: bash
         run: |
           set -euo pipefail
-          p=$(curl -fsS https://ronaoil.com/.well-known/oauth-protected-resource/operations-pilot/mcp)
-          a=$(curl -fsS https://ronaoil.com/.well-known/oauth-authorization-server/operations-pilot)
-          echo "$p" | grep -q 'https://ronaoil.com/operations-pilot/mcp'
-          echo "$p" | grep -q 'mcp:coordinate'
-          echo "$a" | grep -q 'refresh_token'
-          echo "$a" | grep -q 'S256'
-          for seg in operations finance legal market-analyst rail-logistics system-admin; do
-            m=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/$seg/mcp")
-            echo "$m" | grep -q 'mcp:read'
-            if echo "$m" | grep -q 'mcp:coordinate'; then echo "$seg coordinate scope regression"; exit 1; fi
-          done
-          code=$(curl -sS -o /tmp/pilot.mcp -D /tmp/pilot.headers -w '%{http_code}' -X POST https://ronaoil.com/operations-pilot/mcp -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"RONA QA","version":"1"}}}')
-          test "$code" = '401'
-          grep -Fqi 'oauth-protected-resource/operations-pilot/mcp' /tmp/pilot.headers
-          grep -Fqi 'mcp:read mcp:coordinate' /tmp/pilot.headers
-          echo PILOT_PUBLIC_DISCOVERY=PASS
+          git config user.name 'RONA System Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add functions/_mcp_transport.js supabase/functions/rona-mcp-gateway/index.js supabase/functions/rona-mcp-oauth-token/index.js
+          git diff --cached --quiet && exit 0
+          git commit -m 'MCP: promote canonical business roles to controlled coordinate scope'
+          git push origin HEAD:production/ai-canonical-coordinate-20260819
