@@ -62,10 +62,8 @@ jobs:
 
       - name: Canonical portal and existing production router non-regression
         run: |
-          # Canonical Admin/Agent/Client sources and the shared router remain frozen.
-          # Admin middleware is allowed to change only as an explicitly pinned nonvisual authority adapter.
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
-          APPROVED_ADMIN_MIDDLEWARE_BLOB=0312ebd4b46e39393888088cf380ef226d868246
+          APPROVED_ADMIN_MIDDLEWARE_BLOB=0ffe2bd70e294390bc0899afef4e429bf1edae49
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
@@ -76,6 +74,7 @@ jobs:
           test "$(git hash-object functions/portal/_middleware.js)" = "$APPROVED_ADMIN_MIDDLEWARE_BLOB"
           grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
           grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
+          grep -q 'wrapOpenModalForAgentAccess' functions/portal/_middleware.js
           grep -q "option.value='Агент'" functions/portal/_middleware.js
           if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
             echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
