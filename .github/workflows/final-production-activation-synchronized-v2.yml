@@ -65,8 +65,21 @@ jobs:
           const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{for(let i=0;i<120;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-FINAL-V2'}});
-            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);console.log('RONA_CLOUDFLARE_DEPLOYMENT='+JSON.stringify({id:cf.external_id||null,sha}));await sleep(6000);return}}
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-FINAL-V2'}});
+            if(r.ok){
+              const j=await r.json();
+              const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');
+              if(cf?.status==='completed'){
+                const proof={id:cf.id||null,external_id:cf.external_id||null,details_url:cf.details_url||null,status:cf.status,conclusion:cf.conclusion,output:cf.output||null,sha};
+                if(cf.conclusion!=='success'){
+                  console.error('CLOUDFLARE_PAGES_FAILURE='+JSON.stringify(proof));
+                  throw new Error('Cloudflare deployment '+cf.conclusion);
+                }
+                console.log('RONA_CLOUDFLARE_DEPLOYMENT='+JSON.stringify(proof));
+                await sleep(6000);
+                return;
+              }
+            }
             await sleep(3000);
           }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
