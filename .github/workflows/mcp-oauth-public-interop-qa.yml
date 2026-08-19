@@ -58,7 +58,12 @@ jobs:
               -H 'Content-Type: application/json' \
               --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}')
             test "$code" = '401'
-            grep -Fqi "www-authenticate: Bearer resource_metadata=\"$prm\", scope=\"mcp:read\"" /tmp/mcp.headers
+            challenge=$(tr -d '\r' < /tmp/mcp.headers | awk 'BEGIN{IGNORECASE=1} /^www-authenticate:/ {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}')
+            echo "RONA_WWW_AUTHENTICATE=$challenge"
+            test -n "$challenge"
+            printf '%s\n' "$challenge" | grep -Eqi '^Bearer([[:space:]]|$)'
+            printf '%s\n' "$challenge" | grep -Fqi "resource_metadata=\"$prm\""
+            printf '%s\n' "$challenge" | grep -Fqi 'scope="mcp:read"'
 
             for target in "$resource" "$BASE/$segment/register" "$prm" "$asm"; do
               code=$(curl -sS -D /tmp/options.headers -o /dev/null -w '%{http_code}' \
