@@ -2,7 +2,7 @@ const PUBLIC_ORIGIN='https://ronaoil.com';
 const UPSTREAM_ORIGIN='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const UPSTREAM_BASE=`${UPSTREAM_ORIGIN}/functions/v1/rona-mcp-gateway`;
 const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin']);
-const COORDINATE_PILOTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot']);
+const COORDINATE_SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
@@ -22,8 +22,8 @@ function json(body,status=200,headers={}){
 }
 function externalBase(segment){return `${PUBLIC_ORIGIN}/${segment}`;}
 function externalResource(segment){return `${externalBase(segment)}/mcp`;}
-function scopesFor(segment){return COORDINATE_PILOTS.has(segment)?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}
-function challengeScope(segment){return COORDINATE_PILOTS.has(segment)?'mcp:read mcp:coordinate':'mcp:read';}
+function scopesFor(segment){return COORDINATE_SEGMENTS.has(segment)?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}
+function challengeScope(segment){return COORDINATE_SEGMENTS.has(segment)?'mcp:read mcp:coordinate':'mcp:read';}
 function protectedMetadataUrl(segment){return `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;}
 function isAllowedOrigin(origin){return !origin||ALLOWED_ORIGINS.has(origin);}
 function isAllowedCallbackLocation(value){
