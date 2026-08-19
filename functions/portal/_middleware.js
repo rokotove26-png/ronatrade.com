@@ -1,7 +1,6 @@
-// Canonical portal interfaces are frozen. Agent and Client pass through byte-for-byte.
-// Admin receives nonvisual technical scripts required by the existing
-// server-authenticated canonical boot path. They do not rewrite canonical DOM,
-// CSS, navigation, controls, or permanent business interface structure.
+// Canonical Agent and Client interfaces pass through byte-for-byte.
+// Admin keeps the approved base layout and receives the Administrator-authorized
+// access-control runtime for client/agent account creation and contract handling.
 
 const ADMIN_EXTERNAL_RESOURCE_GUARD = `<script id="rona-admin-external-resource-guard">(()=>{'use strict';if(window.__RONA_ADMIN_EXTERNAL_RESOURCE_GUARD__)return;window.__RONA_ADMIN_EXTERNAL_RESOURCE_GUARD__=true;window.addEventListener('error',event=>{const target=event&&event.target;if(!target||target===window)return;const src=String(target.src||target.href||'');if(src.startsWith('https://static.cloudflareinsights.com/beacon.min.js/'))event.stopImmediatePropagation()},true)})();<\/script>`;
 
@@ -45,6 +44,7 @@ if(window.__RONA_ADMIN_BOOT_STATE__?.ready===true)boot();
 })();<\/script>`;
 
 const ADMIN_BOOT_KICK = `<script id="rona-server-authenticated-admin-boot-kick">(()=>{'use strict';if(window.__RONA_ADMIN_BOOT_KICK_INSTALLED__)return;window.__RONA_ADMIN_BOOT_KICK_INSTALLED__=true;const kick=()=>{try{window.RONA_ADMIN_SERVER_BOOTSTRAP?.start?.()}catch(_e){}};kick();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',kick,{once:true});queueMicrotask(kick);setTimeout(kick,0)})();<\/script>`;
+const ADMIN_ACCESS_UI_SCRIPT = `<script id="rona-admin-access-ui-loader" src="/portal/admin-access-ui" defer><\/script>`;
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
@@ -58,6 +58,7 @@ export async function onRequest(context) {
   if (!source.includes('rona-admin-external-resource-guard')) source = source.replace('</head>', `${ADMIN_EXTERNAL_RESOURCE_GUARD}${ADMIN_LIVE_AUTHORITY_ADAPTER}</head>`);
   if (!source.includes('rona-admin-live-authority-adapter')) source = source.replace('</head>', `${ADMIN_LIVE_AUTHORITY_ADAPTER}</head>`);
   if (!source.includes('rona-server-authenticated-admin-boot-kick')) source = source.replace('</body>', `${ADMIN_BOOT_KICK}</body>`);
+  if (!source.includes('rona-admin-access-ui-loader')) source = source.replace('</body>', `${ADMIN_ACCESS_UI_SCRIPT}</body>`);
 
   const headers = new Headers(response.headers);
   headers.delete('content-length');
