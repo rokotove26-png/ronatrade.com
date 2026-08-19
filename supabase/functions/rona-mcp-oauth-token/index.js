@@ -21,7 +21,7 @@ const SEGMENT_TO_SLUG=Object.freeze({
   'rail-logistics-pilot':'rona-mcp-rail-logistics-pilot',
   'system-admin':'rona-mcp-system-admin',
 });
-const COORDINATE_PILOT_SLUGS=new Set(['rona-mcp-operations-pilot','rona-mcp-finance-pilot','rona-mcp-legal-pilot','rona-mcp-market-analyst-pilot','rona-mcp-rail-logistics-pilot']);
+const COORDINATE_ALLOWED_SLUGS=new Set(['rona-mcp-operations','rona-mcp-operations-pilot','rona-mcp-finance','rona-mcp-finance-pilot','rona-mcp-legal','rona-mcp-legal-pilot','rona-mcp-market-analyst','rona-mcp-market-analyst-pilot','rona-mcp-rail-logistics','rona-mcp-rail-logistics-pilot']);
 const ORIGIN_ALLOWLIST=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
@@ -59,7 +59,7 @@ function exactScope(scope){
   for(const s of values)if(!['mcp:read','mcp:coordinate','offline_access'].includes(s))return null;
   return ['mcp:read','mcp:coordinate','offline_access'].filter(s=>values.has(s)).join(' ');
 }
-function scopeAllowed(cfg,scope){return !new Set(String(scope||'').split(/\s+/).filter(Boolean)).has('mcp:coordinate')||COORDINATE_PILOT_SLUGS.has(cfg?.server_slug);}
+function scopeAllowed(cfg,scope){return !new Set(String(scope||'').split(/\s+/).filter(Boolean)).has('mcp:coordinate')||COORDINATE_ALLOWED_SLUGS.has(cfg?.server_slug);}
 function segmentForSlug(slug){for(const [seg,s] of Object.entries(SEGMENT_TO_SLUG))if(s===slug)return seg;return null;}
 function publicResource(slug){const segment=segmentForSlug(slug);return segment?`${PUBLIC_ORIGIN}/${segment}/mcp`:null;}
 function internalResource(slug){const segment=segmentForSlug(slug);return segment?`${String(SUPA_URL).replace(/\/$/,'')}/functions/v1/rona-mcp-gateway/${segment}/mcp`:null;}
@@ -104,7 +104,7 @@ async function authorizationCodeGrant(form,cfg,client,segment){
   if(!boundResource||!requestedResource||requestedResource!==boundResource)return oauthError('invalid_target','resource mismatch');
   const boundScope=exactScope(row.scope);
   if(!boundScope)return oauthError('invalid_scope','authorization scope invalid');
-  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on fixed business-role pilot connectors');
+  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on fixed business-role connectors');
   if(form.get('scope')){const requestedScope=exactScope(form.get('scope'));if(!requestedScope||requestedScope!==boundScope)return oauthError('invalid_scope','scope elevation denied');}
   if(await pkceS256(verifier)!==row.code_challenge)return oauthError('invalid_grant','PKCE verification failed');
   const withRefresh=clientAllowsRefresh(client),material=await makeTokenMaterial(withRefresh),familyId=crypto.randomUUID();
@@ -132,7 +132,7 @@ async function refreshGrant(form,cfg,client,segment){
   if(!boundResource||!requestedResource||requestedResource!==boundResource)return oauthError('invalid_target','resource mismatch');
   const boundScope=exactScope(p.scope);
   if(!boundScope)return oauthError('invalid_scope','refresh scope invalid');
-  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on fixed business-role pilot connectors');
+  if(!scopeAllowed(cfg,boundScope))return oauthError('invalid_scope','coordinate scope is enabled only on fixed business-role connectors');
   if(form.get('scope')){const requestedScope=exactScope(form.get('scope'));if(!requestedScope||requestedScope!==boundScope)return oauthError('invalid_scope','scope elevation denied');}
   const ident=await sql`select status::text,revoked_at,business_role::text from portal_private.ai_service_identities where identity_id=${cfg.identity_id} limit 1`;
   if(ident.length!==1||ident[0].status!=='ACTIVE'||ident[0].revoked_at||ident[0].business_role!==cfg.business_role)return oauthError('invalid_grant','role identity disabled');
