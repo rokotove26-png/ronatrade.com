@@ -28,18 +28,21 @@ jobs:
             asm="$BASE/.well-known/oauth-authorization-server/$segment"
             resource="$BASE/$segment/mcp"
             issuer="$BASE/$segment"
+            coordinate='false'
+            if [ "$segment" != 'system-admin' ]; then coordinate='true'; fi
 
             curl -fsS "$prm" -o /tmp/prm.json
-            jq -e --arg resource "$resource" --arg issuer "$issuer" '
+            jq -e --arg resource "$resource" --arg issuer "$issuer" --argjson coordinate "$coordinate" '
               .resource == $resource and
               .authorization_servers[0] == $issuer and
               (.scopes_supported | index("mcp:read")) != null and
               (.scopes_supported | index("offline_access")) != null and
+              (if $coordinate then (.scopes_supported | index("mcp:coordinate")) != null else (.scopes_supported | index("mcp:coordinate")) == null end) and
               (.bearer_methods_supported | index("header")) != null
             ' /tmp/prm.json >/dev/null
 
             curl -fsS "$asm" -o /tmp/asm.json
-            jq -e --arg issuer "$issuer" '
+            jq -e --arg issuer "$issuer" --argjson coordinate "$coordinate" '
               .issuer == $issuer and
               .authorization_endpoint == ($issuer + "/authorize") and
               .token_endpoint == ($issuer + "/token") and
@@ -49,7 +52,9 @@ jobs:
               (.grant_types_supported | index("refresh_token")) != null and
               (.token_endpoint_auth_methods_supported | index("none")) != null and
               (.code_challenge_methods_supported | index("S256")) != null and
-              (.scopes_supported | index("offline_access")) != null
+              (.scopes_supported | index("mcp:read")) != null and
+              (.scopes_supported | index("offline_access")) != null and
+              (if $coordinate then (.scopes_supported | index("mcp:coordinate")) != null else (.scopes_supported | index("mcp:coordinate")) == null end)
             ' /tmp/asm.json >/dev/null
 
             code=$(curl -sS -D /tmp/mcp.headers -o /tmp/mcp.body -w '%{http_code}' \
@@ -63,7 +68,17 @@ jobs:
             test -n "$challenge"
             printf '%s\n' "$challenge" | grep -Eqi '^Bearer([[:space:]]|$)'
             printf '%s\n' "$challenge" | grep -Fqi "resource_metadata=\"$prm\""
-            printf '%s\n' "$challenge" | grep -Fqi 'scope="mcp:read"'
+            scope_value=$(printf '%s\n' "$challenge" | sed -n 's/.*scope="\([^"]*\)".*/\1/p')
+            test -n "$scope_value"
+            printf ' %s ' "$scope_value" | grep -Fq ' mcp:read '
+            if [ "$coordinate" = 'true' ]; then
+              printf ' %s ' "$scope_value" | grep -Fq ' mcp:coordinate '
+            else
+              if printf ' %s ' "$scope_value" | grep -Fq ' mcp:coordinate '; then
+                echo "SYSTEM_ADMIN_COORDINATE_SCOPE_FORBIDDEN"
+                exit 1
+              fi
+            fi
 
             for target in "$resource" "$BASE/$segment/register" "$prm" "$asm"; do
               code=$(curl -sS -D /tmp/options.headers -o /dev/null -w '%{http_code}' \
