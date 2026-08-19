@@ -62,17 +62,23 @@ jobs:
 
       - name: Canonical portal and existing production router non-regression
         run: |
-          # Frozen canonical portal/router baseline restored on 2026-08-19.
-          # Backend-only AI/MCP changes must remain byte-diff clean for these files.
+          # Frozen visual/canonical portal baseline restored on 2026-08-19.
+          # Admin middleware has one separately pinned nonvisual authority adapter,
+          # while canonical HTML/CSS, shared router, Agent and Client remain byte-diff clean.
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
+          ADMIN_MIDDLEWARE_PIN=e2b185bc71baaaa3eb05f69752c4b9853927c35f
           git cat-file -e "$BASE^{commit}"
+          git cat-file -e "$ADMIN_MIDDLEWARE_PIN^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
             'functions/portal/[[path]].js' \
-            functions/portal/_middleware.js \
             functions/portal/agent/_middleware.js \
             portal-src/agent.html \
             portal-src/client.html
+          git diff --exit-code "$ADMIN_MIDDLEWARE_PIN" -- functions/portal/_middleware.js
+          grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
+          echo 'CANONICAL_VISUAL_ROUTER_BASELINE=PASS'
+          echo 'ADMIN_NONVISUAL_MIDDLEWARE_PIN=PASS'
 
       - name: Production build regression
         run: npm run build
