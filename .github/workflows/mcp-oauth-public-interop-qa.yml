@@ -7,14 +7,32 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
+  checks: read
   contents: read
   statuses: write
 
 jobs:
   public-interop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
+      - name: Wait for this commit in Cloudflare production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{for(let i=0;i<180;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-OAUTH-INTEROP'}});
+            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);console.log('RONA_OAUTH_PRODUCTION_SHA='+sha);await sleep(5000);return}}
+            await sleep(3000);
+          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
       - name: Verify RFC discovery, no-auth challenge, and CORS preflight
         shell: bash
         run: |
@@ -28,21 +46,19 @@ jobs:
             asm="$BASE/.well-known/oauth-authorization-server/$segment"
             resource="$BASE/$segment/mcp"
             issuer="$BASE/$segment"
-            coordinate='false'
-            if [ "$segment" != 'system-admin' ]; then coordinate='true'; fi
 
             curl -fsS "$prm" -o /tmp/prm.json
-            jq -e --arg resource "$resource" --arg issuer "$issuer" --argjson coordinate "$coordinate" '
+            jq -e --arg resource "$resource" --arg issuer "$issuer" '
               .resource == $resource and
               .authorization_servers[0] == $issuer and
               (.scopes_supported | index("mcp:read")) != null and
+              (.scopes_supported | index("mcp:coordinate")) == null and
               (.scopes_supported | index("offline_access")) != null and
-              (if $coordinate then (.scopes_supported | index("mcp:coordinate")) != null else (.scopes_supported | index("mcp:coordinate")) == null end) and
               (.bearer_methods_supported | index("header")) != null
             ' /tmp/prm.json >/dev/null
 
             curl -fsS "$asm" -o /tmp/asm.json
-            jq -e --arg issuer "$issuer" --argjson coordinate "$coordinate" '
+            jq -e --arg issuer "$issuer" '
               .issuer == $issuer and
               .authorization_endpoint == ($issuer + "/authorize") and
               .token_endpoint == ($issuer + "/token") and
@@ -53,8 +69,8 @@ jobs:
               (.token_endpoint_auth_methods_supported | index("none")) != null and
               (.code_challenge_methods_supported | index("S256")) != null and
               (.scopes_supported | index("mcp:read")) != null and
-              (.scopes_supported | index("offline_access")) != null and
-              (if $coordinate then (.scopes_supported | index("mcp:coordinate")) != null else (.scopes_supported | index("mcp:coordinate")) == null end)
+              (.scopes_supported | index("mcp:coordinate")) == null and
+              (.scopes_supported | index("offline_access")) != null
             ' /tmp/asm.json >/dev/null
 
             code=$(curl -sS -D /tmp/mcp.headers -o /tmp/mcp.body -w '%{http_code}' \
@@ -69,16 +85,7 @@ jobs:
             printf '%s\n' "$challenge" | grep -Eqi '^Bearer([[:space:]]|$)'
             printf '%s\n' "$challenge" | grep -Fqi "resource_metadata=\"$prm\""
             scope_value=$(printf '%s\n' "$challenge" | sed -n 's/.*scope="\([^"]*\)".*/\1/p')
-            test -n "$scope_value"
-            printf ' %s ' "$scope_value" | grep -Fq ' mcp:read '
-            if [ "$coordinate" = 'true' ]; then
-              printf ' %s ' "$scope_value" | grep -Fq ' mcp:coordinate '
-            else
-              if printf ' %s ' "$scope_value" | grep -Fq ' mcp:coordinate '; then
-                echo "SYSTEM_ADMIN_COORDINATE_SCOPE_FORBIDDEN"
-                exit 1
-              fi
-            fi
+            test "$scope_value" = 'mcp:read'
 
             for target in "$resource" "$BASE/$segment/register" "$prm" "$asm"; do
               code=$(curl -sS -D /tmp/options.headers -o /dev/null -w '%{http_code}' \
