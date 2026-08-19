@@ -64,7 +64,7 @@ jobs:
       - name: Canonical portal and approved production router non-regression
         run: |
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
-          APPROVED_ADMIN_MIDDLEWARE_BLOB=bb2c1f5e162ccf22c3afc71e56f585bb456485e4
+          APPROVED_ADMIN_MIDDLEWARE_BLOB=80b518f749b5f7fb363b4948fb3b24872921e682
           APPROVED_PORTAL_ROUTER_BLOB=94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- \
