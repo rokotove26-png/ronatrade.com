@@ -62,21 +62,25 @@ jobs:
 
       - name: Canonical portal and existing production router non-regression
         run: |
-          # Frozen visual/canonical portal baseline restored on 2026-08-19.
-          # Admin middleware has one separately pinned nonvisual authority adapter,
-          # while canonical HTML/CSS, shared router, Agent and Client remain byte-diff clean.
+          # Canonical Admin/Agent/Client sources and the shared router remain frozen.
+          # Admin middleware is allowed to change only as an explicitly pinned nonvisual authority adapter.
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
-          ADMIN_MIDDLEWARE_PIN=e2b185bc71baaaa3eb05f69752c4b9853927c35f
+          APPROVED_ADMIN_MIDDLEWARE_BLOB=f90582df8c003957974e056c2f4e7b895d5dc037
           git cat-file -e "$BASE^{commit}"
-          git cat-file -e "$ADMIN_MIDDLEWARE_PIN^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
             'functions/portal/[[path]].js' \
             functions/portal/agent/_middleware.js \
             portal-src/agent.html \
             portal-src/client.html
-          git diff --exit-code "$ADMIN_MIDDLEWARE_PIN" -- functions/portal/_middleware.js
+          test "$(git hash-object functions/portal/_middleware.js)" = "$APPROVED_ADMIN_MIDDLEWARE_BLOB"
           grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
+          grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
+          grep -q "option.value='Агент'" functions/portal/_middleware.js
+          if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
+            echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
+            exit 1
+          fi
           echo 'CANONICAL_VISUAL_ROUTER_BASELINE=PASS'
           echo 'ADMIN_NONVISUAL_MIDDLEWARE_PIN=PASS'
 
