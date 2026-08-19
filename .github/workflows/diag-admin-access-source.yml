@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - 'diag/admin-access-source-20260819'
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
 permissions:
   contents: read
 jobs:
