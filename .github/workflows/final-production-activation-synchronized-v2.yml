@@ -32,10 +32,14 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
           grep -q "return clearedResponse(303, '/')" functions/portal/logout.js
-          test "$(git hash-object functions/portal/_middleware.js)" = 'f99f3621fa41733dd4ed235f91e73cffbfd95c20'
+          test "$(git hash-object functions/portal/_middleware.js)" = 'f90582df8c003957974e056c2f4e7b895d5dc037'
           grep -q "if (url.pathname !== '/portal/admin') return context.next();" functions/portal/_middleware.js
           grep -q 'ADMIN_LIVE_AUTHORITY_ADAPTER' functions/portal/_middleware.js
           grep -q 'RONA_ADMIN_SIGNED_CONTRACT_BOOTSTRAP' functions/portal/_middleware.js
+          grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
+          grep -q "option.value='Агент'" functions/portal/_middleware.js
+          grep -q 'ADMIN_AGENT_ACCESS_API' 'functions/portal/admin-authority/[[path]].js'
+          grep -q 'AGENT_PORTAL_USER_CREATED' supabase/functions/rona-admin-agent-access/index.ts
           if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
             echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
             exit 1
@@ -48,6 +52,7 @@ jobs:
           grep -q "if (kind === 'client') return secureResponse(response, session.setCookies, true);" 'functions/portal/[[path]].js'
           echo 'FROZEN_CANONICAL_UI_GATE=PASS'
           echo 'APPROVED_NONVISUAL_ADMIN_AUTHORITY_RUNTIME=PASS'
+          echo 'AGENT_ACCESS_ACTIVATION_STATIC_GATE=PASS'
 
       - name: Install Playwright Chromium
         run: |
@@ -103,6 +108,10 @@ jobs:
             const adminHooks=await page.evaluate(()=>Object.keys(window.__RONA_PORTAL_BACKEND__||{}));for(const name of requiredAdminBackendMethods)assert(adminHooks.includes(name),'missing Admin backend hook '+name);
             const authorityResponse=await ctx.request.get(base+'/portal/admin-authority/bootstrap'),authorityJson=await authorityResponse.json();assert(authorityResponse.ok()&&authorityJson?.ok===true,'admin authority bootstrap');assert(Array.isArray(authorityJson.data?.contracts)&&Array.isArray(authorityJson.data?.accessUsers),'admin authority shape');
             const c3=authorityJson.data.contracts.find(x=>x.contractId==='RONA-C003-CTR-2026-001');assert(c3&&c3.currentExternalContractNumber==null,'C003 legacy external number promoted');
+            const agentReadinessResponse=await ctx.request.get(base+'/portal/admin-authority/agent-readiness'),agentReadinessJson=await agentReadinessResponse.json();assert(agentReadinessResponse.ok()&&agentReadinessJson?.ok===true&&agentReadinessJson.data?.matrixReady===true,'agent access readiness');const agentProfiles=(agentReadinessJson.data.profiles||[]).map(x=>x.agentPersonId).sort();assert(JSON.stringify(agentProfiles)===JSON.stringify(['AGP-2026-001','AGP-2026-002']),'agent profile matrix '+JSON.stringify(agentProfiles));
+            const agentCreateProbe=await ctx.request.post(base+'/portal/admin-authority/access/users',{headers:{origin:base,referer:base+'/portal/admin','content-type':'application/json'},data:{role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid'}});const agentCreateProbeJson=await agentCreateProbe.json();assert(agentCreateProbe.status()===409&&agentCreateProbeJson?.code==='AGENT_PROFILE_NOT_FOUND','agent create routing '+agentCreateProbe.status()+' '+JSON.stringify(agentCreateProbeJson));
+            assert(await page.evaluate(()=>window.__RONA_ADMIN_AGENT_ACCESS_READY__===true),'agent access runtime not ready');
+            await page.evaluate(()=>openModal('create-access'));await waitBool(page,()=>{const s=document.getElementById('newRole');return !!s&&[...s.options].some(o=>String(o.textContent||'').trim().startsWith('Агент')&&!o.disabled&&o.value==='Агент')},'agent access option');const agentOption=await page.evaluate(()=>{const s=document.getElementById('newRole');const o=[...s.options].find(x=>String(x.textContent||'').trim().startsWith('Агент'));return o?{enabled:!o.disabled,value:o.value}:null});assert(agentOption?.enabled&&agentOption.value==='Агент','Agent option normalization failed '+JSON.stringify(agentOption));await page.evaluate(()=>closeModal());
             const nav=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(nav)===JSON.stringify(expectedAdmin),'Admin nav '+JSON.stringify(nav));let adminInv={FUNCTIONAL:0,INTENTIONALLY_READ_ONLY_BY_AUTHORITY:0,UNWIRED:0,total:0};for(const p of nav){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(80);const st=await page.locator('#page-'+p).evaluate(el=>({active:el.classList.contains('active'),visible:getComputedStyle(el).display!=='none'&&el.getBoundingClientRect().height>0}));assert(st.active&&st.visible,p+' invisible');add(adminInv,await inventory(page))}assert(adminErrors.length===0,'Admin JS '+JSON.stringify(adminErrors.slice(0,4)));
 
             // Agent keeps the frozen UI and receives data only through the canonical Agent boot API.
@@ -124,6 +133,6 @@ jobs:
             const lr=await ctx.request.post(base+'/portal/auth/logout',{headers:{origin:base,referer:base+'/portal/admin'}});assert([200,302,303].includes(lr.status()),'logout endpoint '+lr.status());
 
             const interactive={FUNCTIONAL:adminInv.FUNCTIONAL+agentInv.FUNCTIONAL+staffInv.FUNCTIONAL,INTENTIONALLY_READ_ONLY_BY_AUTHORITY:adminInv.INTENTIONALLY_READ_ONLY_BY_AUTHORITY+agentInv.INTENTIONALLY_READ_ONLY_BY_AUTHORITY+staffInv.INTENTIONALLY_READ_ONLY_BY_AUTHORITY,UNWIRED:adminInv.UNWIRED+agentInv.UNWIRED+staffInv.UNWIRED,total:adminInv.total+agentInv.total+staffInv.total,admin:adminInv,agent:agentInv,staff:staffInv};
-            await ctx.close();await browser.close();console.log('RONA_FINAL_V2='+JSON.stringify({ok:true,sha,canonicalFrozenUI:'PASS',approvedNonvisualAdminAuthorityRuntime:'PASS',middlewareVisualMutation:0,adminAuthorityHooks:requiredAdminBackendMethods.length,adminSections:'23/23',interactive,counts,staff:'PASS',agent:{status:'PASS',agentPersonId:aj.data.agentPersonId,deals:agentDeals},client:'FAIL_CLOSED_ZERO_BINDING',writeBackendAudit:'PASS',methods:['GET','POST'],deal004:'PASS',tokenLeak:false}));
+            await ctx.close();await browser.close();console.log('RONA_FINAL_V2='+JSON.stringify({ok:true,sha,canonicalFrozenUI:'PASS',approvedNonvisualAdminAuthorityRuntime:'PASS',middlewareVisualMutation:0,agentAccessCreationGate:'PASS',adminAuthorityHooks:requiredAdminBackendMethods.length,adminSections:'23/23',interactive,counts,staff:'PASS',agent:{status:'PASS',agentPersonId:aj.data.agentPersonId,deals:agentDeals},client:'FAIL_CLOSED_ZERO_BINDING',writeBackendAudit:'PASS',methods:['GET','POST'],deal004:'PASS',tokenLeak:false}));
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
