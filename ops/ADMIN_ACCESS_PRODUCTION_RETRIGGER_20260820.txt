@@ -1,0 +1,4 @@
+RONA Trade Admin access production gate retrigger
+UTC+03 date: 2026-08-20
+Purpose: retrigger push-based production activation for the already merged Administrator access-control implementation at 6da9932520ef97ebe2c859b6ee841e72dd222413.
+No canonical Admin/Agent/Client source file changes.
