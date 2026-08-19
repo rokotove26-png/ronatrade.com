@@ -32,11 +32,12 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
           grep -q "return clearedResponse(303, '/')" functions/portal/logout.js
-          test "$(git hash-object functions/portal/_middleware.js)" = '0312ebd4b46e39393888088cf380ef226d868246'
+          test "$(git hash-object functions/portal/_middleware.js)" = '0ffe2bd70e294390bc0899afef4e429bf1edae49'
           grep -q "if (url.pathname !== '/portal/admin') return context.next();" functions/portal/_middleware.js
           grep -q 'ADMIN_LIVE_AUTHORITY_ADAPTER' functions/portal/_middleware.js
           grep -q 'RONA_ADMIN_SIGNED_CONTRACT_BOOTSTRAP' functions/portal/_middleware.js
           grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
+          grep -q 'wrapOpenModalForAgentAccess' functions/portal/_middleware.js
           grep -q "option.value='Агент'" functions/portal/_middleware.js
           grep -q 'ADMIN_AGENT_ACCESS_API' 'functions/portal/admin-authority/[[path]].js'
           grep -q 'AGENT_PORTAL_USER_CREATED' supabase/functions/rona-admin-agent-access/index.ts
