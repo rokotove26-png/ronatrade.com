@@ -2,7 +2,7 @@ const PUBLIC_ORIGIN='https://ronaoil.com';
 const UPSTREAM_ORIGIN='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const UPSTREAM_BASE=`${UPSTREAM_ORIGIN}/functions/v1/rona-mcp-gateway`;
 const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin']);
-const COORDINATE_SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot']);
+const COORDINATE_SEGMENTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
