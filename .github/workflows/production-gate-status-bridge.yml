@@ -14,7 +14,7 @@ permissions:
 jobs:
   bridge:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     steps:
       - name: Expose current production gate check
         env:
@@ -30,7 +30,7 @@ jobs:
           async function post(state,description,target_url){await j(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({state,context:'rona/target-production-gate',description:String(description).slice(0,140),target_url})})}
           (async()=>{
             await post('pending',`${sha.slice(0,7)} waiting for current production gate`,`https://github.com/${repo}/commit/${sha}`);
-            for(let i=0;i<180;i++){
+            for(let i=0;i<660;i++){
               const x=await j(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`);
               const c=(x.check_runs||[]).find(v=>v.name==='final-production-activation-v2');
               if(c){
