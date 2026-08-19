@@ -59,32 +59,37 @@ jobs:
           node --check 'functions/portal/api/v1/ai/[[path]].js'
           node --check functions/portal/api/v1/ai/market-data.js
           node --check 'functions/portal/api/v1/ai/documents/[[path]].js'
+          node --check 'functions/portal/[[path]].js'
 
-      - name: Canonical portal and existing production router non-regression
+      - name: Canonical portal and approved production router non-regression
         run: |
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
           APPROVED_ADMIN_MIDDLEWARE_BLOB=bb2c1f5e162ccf22c3afc71e56f585bb456485e4
+          APPROVED_PORTAL_ROUTER_BLOB=94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
-            'functions/portal/[[path]].js' \
             functions/portal/agent/_middleware.js \
             portal-src/agent.html \
             portal-src/client.html
           test "$(git hash-object functions/portal/_middleware.js)" = "$APPROVED_ADMIN_MIDDLEWARE_BLOB"
+          test "$(git hash-object 'functions/portal/[[path]].js')" = "$APPROVED_PORTAL_ROUTER_BLOB"
           grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
           grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
           grep -q 'wrapOpenModalForAgentAccess' functions/portal/_middleware.js
           grep -q "option.value='Агент'" functions/portal/_middleware.js
           grep -q 'askAdminPassword' functions/portal/_middleware.js
           grep -q 'setAccessUserPassword' functions/portal/_middleware.js
-          grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/admin-authority/[[path]].js'
+          grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/[[path]].js'
+          grep -q 'proxyAdminAuthority' 'functions/portal/[[path]].js'
+          grep -q "path.startsWith('/portal/admin-authority')" 'functions/portal/[[path]].js'
           if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
             echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
             exit 1
           fi
           echo 'CANONICAL_VISUAL_ROUTER_BASELINE=PASS'
           echo 'ADMIN_NONVISUAL_MIDDLEWARE_PIN=PASS'
+          echo 'ADMIN_AUTHORITY_ROUTER_PIN=PASS'
           echo 'ADMIN_EXCLUSIVE_CONTROL_PLANE=PASS'
 
       - name: Production build regression
