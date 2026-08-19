@@ -5,9 +5,6 @@ on:
     branches:
       - 'hotfix/admin-interactivity-*'
       - 'release/public-go-live-v1.1'
-  pull_request:
-    branches:
-      - 'release/public-go-live-v1.1'
 
 permissions:
   contents: read
@@ -43,7 +40,6 @@ jobs:
       - name: Resolve deployed target
         env:
           GH_TOKEN: ${{ github.token }}
-          DEPLOY_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
@@ -52,7 +48,7 @@ jobs:
             exit 0
           fi
           node <<'NODE'
-          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.DEPLOY_SHA||process.env.GITHUB_SHA,token=process.env.GH_TOKEN;
+          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,token=process.env.GH_TOKEN;
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{for(let i=0;i<60;i++){const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${token}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-Trade-Admin-QA'}});if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages'&&x.status==='completed'&&x.conclusion==='success');const m=String(cf?.output?.summary||'').match(/https:\/\/[a-z0-9-]+\.rona-trade-public\.pages\.dev/i);if(m){fs.appendFileSync(process.env.GITHUB_ENV,`TARGET_ORIGIN=${m[0]}\n`);return}}await sleep(5000)}throw new Error('Cloudflare Pages target unavailable')})().catch(e=>{console.error(e.message);process.exit(1)});
           NODE
