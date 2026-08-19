@@ -7,14 +7,32 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
+  checks: read
   contents: read
   statuses: write
 
 jobs:
   public-interop:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
+      - name: Wait for this commit in Cloudflare production
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{for(let i=0;i<180;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-OAUTH-INTEROP'}});
+            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);console.log('RONA_OAUTH_PRODUCTION_SHA='+sha);await sleep(5000);return}}
+            await sleep(3000);
+          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
       - name: Verify RFC discovery, no-auth challenge, and CORS preflight
         shell: bash
         run: |
@@ -34,6 +52,7 @@ jobs:
               .resource == $resource and
               .authorization_servers[0] == $issuer and
               (.scopes_supported | index("mcp:read")) != null and
+              (.scopes_supported | index("mcp:coordinate")) == null and
               (.scopes_supported | index("offline_access")) != null and
               (.bearer_methods_supported | index("header")) != null
             ' /tmp/prm.json >/dev/null
@@ -49,6 +68,8 @@ jobs:
               (.grant_types_supported | index("refresh_token")) != null and
               (.token_endpoint_auth_methods_supported | index("none")) != null and
               (.code_challenge_methods_supported | index("S256")) != null and
+              (.scopes_supported | index("mcp:read")) != null and
+              (.scopes_supported | index("mcp:coordinate")) == null and
               (.scopes_supported | index("offline_access")) != null
             ' /tmp/asm.json >/dev/null
 
