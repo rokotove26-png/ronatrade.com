@@ -63,7 +63,7 @@ jobs:
       - name: Canonical portal and existing production router non-regression
         run: |
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
-          APPROVED_ADMIN_MIDDLEWARE_BLOB=0ffe2bd70e294390bc0899afef4e429bf1edae49
+          APPROVED_ADMIN_MIDDLEWARE_BLOB=bb2c1f5e162ccf22c3afc71e56f585bb456485e4
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
@@ -76,12 +76,16 @@ jobs:
           grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
           grep -q 'wrapOpenModalForAgentAccess' functions/portal/_middleware.js
           grep -q "option.value='Агент'" functions/portal/_middleware.js
+          grep -q 'askAdminPassword' functions/portal/_middleware.js
+          grep -q 'setAccessUserPassword' functions/portal/_middleware.js
+          grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/admin-authority/[[path]].js'
           if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
             echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
             exit 1
           fi
           echo 'CANONICAL_VISUAL_ROUTER_BASELINE=PASS'
           echo 'ADMIN_NONVISUAL_MIDDLEWARE_PIN=PASS'
+          echo 'ADMIN_EXCLUSIVE_CONTROL_PLANE=PASS'
 
       - name: Production build regression
         run: npm run build
