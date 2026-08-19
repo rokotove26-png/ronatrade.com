@@ -31,7 +31,7 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          test "$(git hash-object functions/portal/_middleware.js)" = 'bb2c1f5e162ccf22c3afc71e56f585bb456485e4'
+          test "$(git hash-object functions/portal/_middleware.js)" = '80b518f749b5f7fb363b4948fb3b24872921e682'
           test "$(git hash-object 'functions/portal/[[path]].js')" = '94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3'
           grep -q "if (url.pathname !== '/portal/admin') return context.next();" functions/portal/_middleware.js
           grep -q 'askAdminPassword' functions/portal/_middleware.js
