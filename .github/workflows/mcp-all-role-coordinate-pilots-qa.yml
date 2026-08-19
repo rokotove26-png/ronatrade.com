@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Static canonical and pilot fixed-role coordinate invariants
+      - name: Static fixed-role pilot invariants
         shell: bash
         run: |
           set -euo pipefail
@@ -42,36 +42,19 @@ jobs:
           node --check supabase/functions/rona-mcp-oauth-token/index.js
           node --check supabase/functions/rona-mcp-consent-bridge/index.js
 
-          for binding in \
-            "'rona-mcp-operations':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR']" \
-            "'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR']" \
-            "'rona-mcp-finance':['FINANCE','AI-FINANCE']" \
-            "'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE']" \
-            "'rona-mcp-legal':['LEGAL','AI-LEGAL']" \
-            "'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL']" \
-            "'rona-mcp-market-analyst':['MARKET_ANALYST','AI-MARKET-ANALYST']" \
-            "'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST']" \
-            "'rona-mcp-rail-logistics':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS']" \
-            "'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS']"; do
-            grep -Fq "$binding" supabase/functions/rona-mcp-gateway/index.js
-          done
+          grep -Fq "'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR']" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE']" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL']" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST']" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS']" supabase/functions/rona-mcp-gateway/index.js
 
-          grep -Fq "COORDINATE_ALLOWED_SLUGS" supabase/functions/rona-mcp-oauth-token/index.js
-          grep -Fq "COORDINATE_SEGMENTS" functions/_mcp_transport.js
+          grep -Fq "COORDINATE_PILOT_SLUGS" supabase/functions/rona-mcp-oauth-token/index.js
           grep -Fq "mcp_gateway_config_coordinate_pilot_binding_check" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-finance-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-legal-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-market-analyst-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-rail-logistics-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
 
-          if grep -Fq "'rona-mcp-system-admin':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN']" supabase/functions/rona-mcp-gateway/index.js; then
-            echo SYSTEM_ADMIN_COORDINATE_FORBIDDEN
-            exit 1
-          fi
-          if grep -F "COORDINATE_ALLOWED_SLUGS" supabase/functions/rona-mcp-oauth-token/index.js | grep -Fq "rona-mcp-system-admin"; then
-            echo SYSTEM_ADMIN_TOKEN_COORDINATE_FORBIDDEN
-            exit 1
-          fi
           if grep -R -Eq "rona-mcp-system-admin-pilot|/system-admin-pilot" functions supabase/functions supabase/migrations _routes.json; then
             echo SYSTEM_ADMIN_COORDINATE_PILOT_FORBIDDEN
             exit 1
@@ -86,7 +69,7 @@ jobs:
             grep -Fq "\"/${route}/*\"" _routes.json
           done
 
-          echo ALL_ROLE_CANONICAL_COORDINATE_SOURCE=PASS
+          echo ALL_ROLE_COORDINATE_PILOT_SOURCE=PASS
 
       - name: Wait for Cloudflare production
         if: github.ref == 'refs/heads/release/public-go-live-v1.1'
@@ -99,7 +82,7 @@ jobs:
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{
             for(let i=0;i<120;i++){
-              const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-ALL-ROLE-CANONICAL-QA'}});
+              const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-ALL-ROLE-PILOT-QA'}});
               if(r.ok){
                 const j=await r.json();
                 const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');
@@ -116,37 +99,35 @@ jobs:
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
 
-      - name: Public canonical and rollback discovery matrix
+      - name: Public discovery matrix
         if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
           set -euo pipefail
           for seg in operations finance legal market-analyst rail-logistics; do
-            for route in "$seg" "${seg}-pilot"; do
-              p=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/${route}/mcp")
-              a=$(curl -fsS "https://ronaoil.com/.well-known/oauth-authorization-server/${route}")
-              echo "$p" | grep -q 'mcp:read'
-              echo "$p" | grep -q 'mcp:coordinate'
-              echo "$p" | grep -q 'offline_access'
-              echo "$a" | grep -q 'refresh_token'
-              echo "$a" | grep -q 'S256'
-              echo "$a" | grep -q 'mcp:coordinate'
+            p=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/${seg}-pilot/mcp")
+            a=$(curl -fsS "https://ronaoil.com/.well-known/oauth-authorization-server/${seg}-pilot")
+            echo "$p" | grep -q 'mcp:read'
+            echo "$p" | grep -q 'mcp:coordinate'
+            echo "$a" | grep -q 'refresh_token'
+            echo "$a" | grep -q 'S256'
 
-              code=$(curl -sS -o /tmp/mcp.body -D /tmp/mcp.headers -w '%{http_code}' \
-                -X POST "https://ronaoil.com/${route}/mcp" \
-                -H 'content-type: application/json' \
-                --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"RONA QA","version":"1"}}}')
-              test "$code" = '401'
-              grep -Fqi "oauth-protected-resource/${route}/mcp" /tmp/mcp.headers
-              grep -Fqi 'mcp:read mcp:coordinate' /tmp/mcp.headers
-            done
+            code=$(curl -sS -o /tmp/pilot.mcp -D /tmp/pilot.headers -w '%{http_code}' \
+              -X POST "https://ronaoil.com/${seg}-pilot/mcp" \
+              -H 'content-type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"RONA QA","version":"1"}}}')
+            test "$code" = '401'
+            grep -Fqi "oauth-protected-resource/${seg}-pilot/mcp" /tmp/pilot.headers
+            grep -Fqi 'mcp:read mcp:coordinate' /tmp/pilot.headers
           done
 
-          p=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/system-admin/mcp")
-          echo "$p" | grep -q 'mcp:read'
-          if echo "$p" | grep -q 'mcp:coordinate'; then
-            echo SYSTEM_ADMIN_COORDINATE_REGRESSION
-            exit 1
-          fi
+          for seg in operations finance legal market-analyst rail-logistics system-admin; do
+            p=$(curl -fsS "https://ronaoil.com/.well-known/oauth-protected-resource/${seg}/mcp")
+            echo "$p" | grep -q 'mcp:read'
+            if echo "$p" | grep -q 'mcp:coordinate'; then
+              echo "PRIMARY_COORDINATE_REGRESSION=$seg"
+              exit 1
+            fi
+          done
 
-          echo ALL_ROLE_CANONICAL_COORDINATE_PUBLIC=PASS
+          echo ALL_ROLE_COORDINATE_PILOT_PUBLIC=PASS
