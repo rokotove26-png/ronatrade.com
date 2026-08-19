@@ -21,4 +21,3 @@ document.addEventListener('click',()=>queueMicrotask(tick),true);document.addEve
 })();`;
 
 export function onRequestGet(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}})}
-export function onRequest(){return new Response('Method Not Allowed',{status:405,headers:{allow:'GET'}})}
