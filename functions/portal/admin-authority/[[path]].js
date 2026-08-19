@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const ADMIN_AUTHORITY_API = `${SUPABASE_URL}/functions/v1/rona-admin-authority`;
+const ADMIN_AGENT_ACCESS_API = `${SUPABASE_URL}/functions/v1/rona-admin-agent-access`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
 
@@ -100,8 +101,22 @@ export async function onRequest(context) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  let bodyBytes = null;
+  if (!['GET','HEAD'].includes(request.method)) bodyBytes = await request.clone().arrayBuffer();
+  let upstreamBase = ADMIN_AUTHORITY_API;
+  let upstreamPath = path;
+  if (request.method === 'GET' && path === '/agent-readiness') {
+    upstreamBase = ADMIN_AGENT_ACCESS_API;
+    upstreamPath = '/readiness';
+  } else if (request.method === 'POST' && path === '/access/users' && bodyBytes) {
+    try {
+      const payload = JSON.parse(new TextDecoder().decode(bodyBytes));
+      const role = String(payload?.role || '').trim();
+      if (role === 'Агент' || role === 'AGENT') upstreamBase = ADMIN_AGENT_ACCESS_API;
+    } catch (_) {}
+  }
   const init = { method: request.method, headers };
-  if (!['GET','HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
-  const upstream = await fetch(`${ADMIN_AUTHORITY_API}${path}${url.search}`, init);
+  if (bodyBytes) init.body = bodyBytes;
+  const upstream = await fetch(`${upstreamBase}${upstreamPath}${url.search}`, init);
   return secureUpstream(upstream, session.setCookies);
 }
