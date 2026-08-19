@@ -1,96 +1,141 @@
 name: AI Read-Only Contour QA
 
 on:
+  push:
+    branches:
+      - feature/ai-read-only-contour-2b1-20260818
   pull_request:
     branches:
       - release/public-go-live-v1.1
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
   statuses: write
   checks: read
 
 jobs:
-  canonical-coordinate-source-patch:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'production/ai-canonical-coordinate-20260819'
+  ai-read-only-qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: production/ai-canonical-coordinate-20260819
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+
+      - name: Publish pending QA status
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA;
+          const headers={authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','content-type':'application/json'};
+          const body={state:'pending',context:'rona/ai-read-only-contour',description:'Step 2B-1 AI read-only QA running',target_url:`https://github.com/${repo}/actions`};
+          const r=await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers,body:JSON.stringify(body)});
+          if(!r.ok) throw new Error(`status pending ${r.status}`);
+          NODE
+
+      - uses: actions/setup-node@v4
         with:
-          python-version: '3.12'
-      - name: Apply source-only promotion on PR branch
-        shell: bash
+          node-version: '22'
+
+      - name: Verify branch parent baseline
         run: |
-          set -euo pipefail
-          python <<'PY'
-          from pathlib import Path
+          BASE=ad893b67cd9459820d6a16a67a568308ae91f0f3
+          git cat-file -e "$BASE^{commit}"
+          git merge-base --is-ancestor "$BASE" HEAD
 
-          p=Path('functions/_mcp_transport.js'); t=p.read_text()
-          old="const COORDINATE_PILOTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot']);"
-          new="const COORDINATE_SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot']);"
-          if old not in t and 'COORDINATE_SEGMENTS' not in t: raise SystemExit('transport coordinate set pattern missing')
-          if old in t: t=t.replace(old,new).replace('COORDINATE_PILOTS','COORDINATE_SEGMENTS')
-          p.write_text(t)
+      - name: AI read-only unit and route tests
+        run: node scripts/test-ai-read-only-contour.mjs
 
-          p=Path('supabase/functions/rona-mcp-gateway/index.js'); t=p.read_text()
-          old="""const COORDINATE_PILOT_BINDINGS=Object.freeze({
-  'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
-  'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE'],
-  'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
-  'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST'],
-  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
-});"""
-          new="""const COORDINATE_BINDINGS=Object.freeze({
-  'rona-mcp-operations':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
-  'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
-  'rona-mcp-finance':['FINANCE','AI-FINANCE'],
-  'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE'],
-  'rona-mcp-legal':['LEGAL','AI-LEGAL'],
-  'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
-  'rona-mcp-market-analyst':['MARKET_ANALYST','AI-MARKET-ANALYST'],
-  'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST'],
-  'rona-mcp-rail-logistics':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
-  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
-});"""
-          if old not in t and 'const COORDINATE_BINDINGS=' not in t: raise SystemExit('gateway coordinate binding block missing')
-          if old in t: t=t.replace(old,new).replace('COORDINATE_PILOT_BINDINGS','COORDINATE_BINDINGS')
-          t=t.replace('coordinate scope is enabled only on fixed business-role pilot connectors','coordinate scope is enabled only on fixed business-role connectors')
-          p.write_text(t)
+      - name: AI market and document read tests
+        run: node scripts/test-ai-read-extras.mjs
 
-          p=Path('supabase/functions/rona-mcp-oauth-token/index.js'); t=p.read_text()
-          old="const COORDINATE_PILOT_SLUGS=new Set(['rona-mcp-operations-pilot','rona-mcp-finance-pilot','rona-mcp-legal-pilot','rona-mcp-market-analyst-pilot','rona-mcp-rail-logistics-pilot']);"
-          new="const COORDINATE_ALLOWED_SLUGS=new Set(['rona-mcp-operations','rona-mcp-operations-pilot','rona-mcp-finance','rona-mcp-finance-pilot','rona-mcp-legal','rona-mcp-legal-pilot','rona-mcp-market-analyst','rona-mcp-market-analyst-pilot','rona-mcp-rail-logistics','rona-mcp-rail-logistics-pilot']);"
-          if old not in t and 'COORDINATE_ALLOWED_SLUGS' not in t: raise SystemExit('token coordinate set pattern missing')
-          if old in t: t=t.replace(old,new).replace('COORDINATE_PILOT_SLUGS','COORDINATE_ALLOWED_SLUGS')
-          t=t.replace('coordinate scope is enabled only on fixed business-role pilot connectors','coordinate scope is enabled only on fixed business-role connectors')
-          p.write_text(t)
-
-          gateway=Path('supabase/functions/rona-mcp-gateway/index.js').read_text()
-          token=Path('supabase/functions/rona-mcp-oauth-token/index.js').read_text()
-          transport=Path('functions/_mcp_transport.js').read_text()
-          if "'rona-mcp-system-admin':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN']" in gateway: raise SystemExit('SYSTEM_ADMIN coordinate binding detected')
-          if "'system-admin'" in transport.split('COORDINATE_SEGMENTS=',1)[1].split(';',1)[0]: raise SystemExit('SYSTEM_ADMIN public coordinate discovery detected')
-          if "'rona-mcp-system-admin'" in token.split('COORDINATE_ALLOWED_SLUGS=',1)[1].split(';',1)[0]: raise SystemExit('SYSTEM_ADMIN token coordinate allowance detected')
-          print('CANONICAL_COORDINATE_SOURCE_PATCH=PASS')
-          PY
-          git diff --check
-          if ! git diff --quiet -- portal-src portal-src/canonical functions/portal; then echo PORTAL_UI_DRIFT_DETECTED; exit 1; fi
-          node --check functions/_mcp_transport.js
-          node --check supabase/functions/rona-mcp-gateway/index.js
-          node --check supabase/functions/rona-mcp-oauth-token/index.js
-      - name: Commit source-only patch to PR branch
-        shell: bash
+      - name: Syntax checks
         run: |
-          set -euo pipefail
-          git config user.name 'RONA System Automation'
-          git config user.email 'actions@users.noreply.github.com'
-          git add functions/_mcp_transport.js supabase/functions/rona-mcp-gateway/index.js supabase/functions/rona-mcp-oauth-token/index.js
-          git diff --cached --quiet && exit 0
-          git commit -m 'MCP: promote canonical business roles to controlled coordinate scope'
-          git push origin HEAD:production/ai-canonical-coordinate-20260819
+          node --check supabase/functions/rona-ai-read-only/core.js
+          node --check supabase/functions/rona-ai-read-only/index.js
+          node --check supabase/functions/rona-ai-read-extras/index.js
+          node --check 'functions/portal/api/v1/ai/[[path]].js'
+          node --check functions/portal/api/v1/ai/market-data.js
+          node --check 'functions/portal/api/v1/ai/documents/[[path]].js'
+
+      - name: Canonical portal and existing production router non-regression
+        run: |
+          BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
+          APPROVED_ADMIN_MIDDLEWARE_BLOB=0ffe2bd70e294390bc0899afef4e429bf1edae49
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" -- \
+            portal-src/canonical \
+            'functions/portal/[[path]].js' \
+            functions/portal/agent/_middleware.js \
+            portal-src/agent.html \
+            portal-src/client.html
+          test "$(git hash-object functions/portal/_middleware.js)" = "$APPROVED_ADMIN_MIDDLEWARE_BLOB"
+          grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
+          grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
+          grep -q 'wrapOpenModalForAgentAccess' functions/portal/_middleware.js
+          grep -q "option.value='Агент'" functions/portal/_middleware.js
+          if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
+            echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
+            exit 1
+          fi
+          echo 'CANONICAL_VISUAL_ROUTER_BASELINE=PASS'
+          echo 'ADMIN_NONVISUAL_MIDDLEWARE_PIN=PASS'
+
+      - name: Production build regression
+        run: npm run build
+
+      - name: Verify no canonical build drift
+        run: |
+          BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
+          git cat-file -e "$BASE^{commit}"
+          git diff --exit-code "$BASE" -- portal-src/canonical
+
+      - name: Credential leak scan
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),path=require('path');
+          const roots=['supabase','functions','scripts','db'];
+          const skip=new Set(['node_modules','.git']);
+          const files=[];
+          function walk(p){if(!fs.existsSync(p))return;const s=fs.statSync(p);if(s.isDirectory()){if(skip.has(path.basename(p)))return;for(const n of fs.readdirSync(p))walk(path.join(p,n));}else files.push(p)}
+          roots.forEach(walk);
+          const literal=/(RONA_AI_TOKEN_SIGNING_KEY|RONA_AI_BOOTSTRAP_PEPPER)\s*=\s*["'][^"']+["']/;
+          const logged=/x-rona-ai-bootstrap-key[^\n]{0,100}(console\.|log\(|print\(|echo)/i;
+          const bad=[];
+          for(const f of files){const t=fs.readFileSync(f,'utf8');if(literal.test(t)||logged.test(t))bad.push(f)}
+          if(bad.length)throw new Error('credential leak pattern: '+bad.join(','));
+          console.log('AI_CREDENTIAL_LEAK_SCAN=PASS');
+          NODE
+
+      - name: Verify production baseline gate remains successful
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY;
+          const sha='ad893b67cd9459820d6a16a67a568308ae91f0f3';
+          const headers={authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'};
+          const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers});
+          if(!r.ok) throw new Error(`check-runs ${r.status}`);
+          const j=await r.json();
+          const c=(j.check_runs||[]).find(x=>x.name==='final-production-activation-v2');
+          if(!c||c.status!=='completed'||c.conclusion!=='success') throw new Error(`production gate not success: ${JSON.stringify(c||null)}`);
+          console.log(`PRODUCTION_BASELINE_GATE=PASS check_run_id=${c.id}`);
+          NODE
+
+      - name: Publish final QA status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA;
+          const ok=process.env.JOB_STATUS==='success';
+          const headers={authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','content-type':'application/json'};
+          const body={state:ok?'success':'failure',context:'rona/ai-read-only-contour',description:ok?'Step 2B-1 AI read-only QA PASS':'Step 2B-1 AI read-only QA FAILED',target_url:`https://github.com/${repo}/actions`};
+          const r=await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers,body:JSON.stringify(body)});
+          if(!r.ok) throw new Error(`status final ${r.status}`);
+          NODE
