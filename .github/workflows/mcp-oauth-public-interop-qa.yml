@@ -18,11 +18,12 @@ jobs:
       - name: Verify RFC discovery, no-auth challenge, and CORS preflight
         shell: bash
         run: |
-          set -euo pipefail
+          set -euxo pipefail
           BASE='https://ronaoil.com'
           ORIGIN='https://chatgpt.com'
           segments=(operations finance legal market-analyst rail-logistics system-admin)
           for segment in "${segments[@]}"; do
+            echo "RONA_OAUTH_INTEROP_SEGMENT=$segment"
             prm="$BASE/.well-known/oauth-protected-resource/$segment/mcp"
             asm="$BASE/.well-known/oauth-authorization-server/$segment"
             resource="$BASE/$segment/mcp"
@@ -166,6 +167,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
           REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
@@ -175,7 +177,8 @@ jobs:
             state='success'
             description='MCP OAuth public interop QA passed'
           fi
-          payload=$(printf '{"state":"%s","context":"rona/mcp-oauth-public-interop","description":"%s"}' "$state" "$description")
+          target_url="https://github.com/$REPO/actions/runs/$RUN_ID"
+          payload=$(printf '{"state":"%s","context":"rona/mcp-oauth-public-interop","description":"%s","target_url":"%s"}' "$state" "$description" "$target_url")
           curl -fsS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H 'Accept: application/vnd.github+json' \
