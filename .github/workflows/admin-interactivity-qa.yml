@@ -5,6 +5,9 @@ on:
     branches:
       - 'hotfix/admin-interactivity-*'
       - 'release/public-go-live-v1.1'
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
 
 permissions:
   contents: read
