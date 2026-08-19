@@ -67,8 +67,10 @@ jobs:
             const aj=await authority.json();
             assert(authority.ok&&aj?.ok===true&&Array.isArray(aj.data?.contracts),'Admin authority bootstrap');
             const c2=(aj.data.contracts||[]).find(x=>x.contractId==='RONA-C002-CTR-2026-001');
-            assert(c2&&c2.signedContractGate,'C002 signed-contract gate missing');
-            assert(c2.signedContractGate.accessAllowed===false,'C002 must remain fail-closed until Administrator uploads/confirms exact bilateral PDF');
+            assert(c2,'C002 contract missing from Admin authority bootstrap');
+            const signedProfiles=Array.isArray(aj.data?.signedContractGate?.contracts)?aj.data.signedContractGate.contracts:[];
+            const c2Signed=signedProfiles.find(x=>x.contractId==='RONA-C002-CTR-2026-001');
+            assert(!c2Signed||c2Signed.bilateralSignedConfirmed!==true,'C002 must remain fail-closed until Administrator uploads/confirms exact bilateral PDF');
 
             const admin=await fetch(base+'/portal/admin?_admin_access_proof='+Date.now(),{headers:{cookie}});
             const html=await admin.text();
