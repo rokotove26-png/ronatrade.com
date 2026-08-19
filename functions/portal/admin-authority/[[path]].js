@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const ADMIN_CONTROL_PLANE_API = `${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
+const ADMIN_CLIENT_AUTHORITY_API = `${SUPABASE_URL}/functions/v1/rona-admin-client-authority`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
 
@@ -82,6 +83,15 @@ function secureUpstream(response, cookies = []) {
   for (const cookie of cookies) headers.append('set-cookie', cookie);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
+function clientAuthorityTarget(path, bodyBytes) {
+  if (/^\/contracts\/[^/]+\/signed-document\/attach$/.test(path)) return true;
+  if (path !== '/access/users' || !bodyBytes) return false;
+  try {
+    const body = JSON.parse(new TextDecoder().decode(bodyBytes));
+    const role = String(body?.role || 'Клиент').trim();
+    return role === 'Клиент' || role === 'CLIENT';
+  } catch (_) { return true; }
+}
 
 export async function onRequest(context) {
   const request = context.request;
@@ -100,8 +110,10 @@ export async function onRequest(context) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  const bodyBytes = !['GET','HEAD'].includes(request.method) ? await request.clone().arrayBuffer() : null;
   const init = { method: request.method, headers };
-  if (!['GET','HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
-  const upstream = await fetch(`${ADMIN_CONTROL_PLANE_API}${path}${url.search}`, init);
+  if (bodyBytes) init.body = bodyBytes;
+  const base = clientAuthorityTarget(path, bodyBytes) ? ADMIN_CLIENT_AUTHORITY_API : ADMIN_CONTROL_PLANE_API;
+  const upstream = await fetch(`${base}${path}${url.search}`, init);
   return secureUpstream(upstream, session.setCookies);
 }
