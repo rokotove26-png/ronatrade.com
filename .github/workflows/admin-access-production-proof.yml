@@ -30,7 +30,7 @@ jobs:
           }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
 
-      - name: Prove live Admin client and Agent access wiring without business mutation
+      - name: Prove live Administrator-exclusive client and Agent wiring without business mutation
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -55,17 +55,20 @@ jobs:
             assert(profiles.some(x=>x.id==='AGP-2026-002'&&x.alias==='Егор Кузнецов'),'AGP-2026-002 missing '+JSON.stringify(profiles));
 
             const postHeaders={...h,origin:base,referer:base+'/portal/admin','content-type':'application/json'};
-            const badProfile=await fetch(base+'/portal/admin-authority/access/users',{method:'POST',headers:postHeaders,body:JSON.stringify({role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid'})});
+            const badProfile=await fetch(base+'/portal/admin-authority/access/users',{method:'POST',headers:postHeaders,body:JSON.stringify({role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid',initialPassword:'Aa1!NoMutation'})});
             const badJson=await badProfile.json();
             assert(badProfile.status===409&&badJson?.code==='AGENT_PROFILE_NOT_FOUND','negative Agent route '+badProfile.status+' '+JSON.stringify(badJson));
 
-            const validProfile=await fetch(base+'/portal/admin-authority/access/users',{method:'POST',headers:postHeaders,body:JSON.stringify({role:'Агент',name:'Артем Белов',login:'owner.rokotov',email:'agent-profile-probe@example.invalid'})});
-            const validJson=await validProfile.json();
-            assert(validProfile.status===409&&validJson?.code==='LOGIN_ALREADY_EXISTS','positive Agent profile resolution '+validProfile.status+' '+JSON.stringify(validJson));
+            const noPassword=await fetch(base+'/portal/admin-authority/access/users',{method:'POST',headers:postHeaders,body:JSON.stringify({role:'Клиент',name:'QA NO MUTATION',login:'rona_client_noop_probe',email:'client-noop-probe@example.invalid',contractIds:[]})});
+            const noPasswordJson=await noPassword.json();
+            assert(noPassword.status===400&&noPasswordJson?.code==='INVALID_INITIAL_PASSWORD','Administrator password gate '+noPassword.status+' '+JSON.stringify(noPasswordJson));
 
             const authority=await fetch(base+'/portal/admin-authority/bootstrap',{headers:h});
             const aj=await authority.json();
             assert(authority.ok&&aj?.ok===true&&Array.isArray(aj.data?.contracts),'Admin authority bootstrap');
+            assert(aj.data?.adminControlPlane?.mode==='ADMIN_EXCLUSIVE','Admin exclusive mode missing');
+            assert(aj.data?.adminControlPlane?.passwordOwner==='ADMINISTRATOR','Administrator password ownership missing');
+            assert(aj.data?.adminControlPlane?.accountCreationIndependentFromContract===true,'Client account creation remains contract-coupled');
             const c2=(aj.data.contracts||[]).find(x=>x.contractId==='RONA-C002-CTR-2026-001');
             assert(c2,'C002 contract missing from Admin authority bootstrap');
             const signedProfiles=Array.isArray(aj.data?.signedContractGate?.contracts)?aj.data.signedContractGate.contracts:[];
@@ -75,10 +78,11 @@ jobs:
             const admin=await fetch(base+'/portal/admin?_admin_access_proof='+Date.now(),{headers:{cookie}});
             const html=await admin.text();
             assert(admin.ok,'Admin HTML '+admin.status);
-            for(const marker of ['rona-admin-live-authority-adapter','openSignedContractAdmin','prepareSignedContractUpload','Подписанный контракт']) assert(html.includes(marker),'Admin live marker missing '+marker);
+            for(const marker of ['rona-admin-live-authority-adapter','openSignedContractAdmin','prepareSignedContractUpload','Подписанный контракт','askAdminPassword','setAccessUserPassword']) assert(html.includes(marker),'Admin live marker missing '+marker);
 
+            console.log('ADMIN_EXCLUSIVE_CONTROL_PLANE=PASS');
             console.log('ADMIN_AGENT_READINESS=PASS');
-            console.log('ADMIN_AGENT_VALID_PROFILE_RESOLUTION=PASS');
+            console.log('ADMIN_PASSWORD_OWNERSHIP=PASS');
             console.log('ADMIN_CLIENT_SIGNED_PDF_PATH=PASS');
             console.log('NO_AUTHORITATIVE_BUSINESS_MUTATION=PASS');
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
