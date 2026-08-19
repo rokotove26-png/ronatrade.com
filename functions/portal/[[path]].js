@@ -2,6 +2,7 @@ const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const STAFF_WORKSPACE = `${SUPABASE_URL}/functions/v1/rona-staff-workspace`;
+const ADMIN_CONTROL_PLANE_API = `${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
 
@@ -308,6 +309,26 @@ async function proxyApi(request) {
   for (const c of setCookies) headers.append('set-cookie', c);
   return new Response(upstreamResponse.body, { status: upstreamResponse.status, statusText: upstreamResponse.statusText, headers });
 }
+async function proxyAdminAuthority(request) {
+  if (!['GET','POST'].includes(request.method)) return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
+  if (request.method === 'POST' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
+  const session = await ensureSession(request);
+  if (!session) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
+  const roles = rolesOf(session.me);
+  if (!roles.includes('ADMIN')) return json({ ok:false, code:'ROLE_MISMATCH' }, 403, session.setCookies);
+  const url = new URL(request.url);
+  const prefix = '/portal/admin-authority';
+  const upstreamPath = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
+  const headers = new Headers({ authorization: `Bearer ${session.access}`, accept: 'application/json' });
+  for (const name of ['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id']) {
+    const value = request.headers.get(name);
+    if (value) headers.set(name, value);
+  }
+  const init = { method: request.method, headers };
+  if (!['GET','HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
+  const upstreamResponse = await fetch(`${ADMIN_CONTROL_PLANE_API}${upstreamPath}${url.search}`, init);
+  return secureResponse(upstreamResponse, session.setCookies, false);
+}
 
 export async function onRequest(context) {
   const { request } = context;
@@ -342,6 +363,7 @@ export async function onRequest(context) {
     await authLogout(cookies[ACCESS_COOKIE] || '');
     return redirect('/portal/login', 303, clearCookies());
   }
+  if (path.startsWith('/portal/admin-authority')) return proxyAdminAuthority(request);
   if (path.startsWith('/portal/api/')) {
     if (!['GET','POST'].includes(request.method)) return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
     return proxyApi(request);
