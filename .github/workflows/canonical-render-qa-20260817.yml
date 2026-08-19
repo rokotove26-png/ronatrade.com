@@ -33,17 +33,24 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
           echo 'CANONICAL_BUILD_BYTE_EQUIVALENCE=PASS'
-      - name: Freeze canonical portal runtime middleware
+      - name: Verify approved Administrator runtime overlay scope
         run: |
           set -euo pipefail
           f='functions/portal/_middleware.js'
-          grep -q 'return context.next();' "$f"
-          if grep -Eiq 'HTMLRewriter|innerHTML|outerHTML|textContent|insertAdjacent|MutationObserver|querySelector|\.append\(|\.prepend\(|replaceWith|rona-admin-live-authority-adapter|rona-client-live-authority-adapter|rona-portal-root-logout' "$f"; then
-            echo 'CANONICAL_RUNTIME_UI_MUTATION_DETECTED'
-            cat "$f"
+          test "$(git hash-object "$f")" = 'b3d0953c9b1733ce7a9b3d5ec9caa3ceaedc79eb'
+          grep -q "if (url.pathname !== '/portal/admin') return context.next();" "$f"
+          grep -q 'rona-admin-live-authority-adapter' "$f"
+          grep -q 'rona-admin-access-ui-loader' "$f"
+          test -f functions/portal/admin-access-ui.js
+          node --check functions/portal/admin-access-ui.js
+          grep -q 'Открыть без контракта' functions/portal/admin-access-ui.js
+          grep -q 'newAgentScope' functions/portal/admin-access-ui.js
+          if grep -Eiq 'rona-client-live-authority-adapter|HTMLRewriter' "$f"; then
+            echo 'UNAPPROVED_CLIENT_OR_GLOBAL_RUNTIME_MUTATION_DETECTED'
             exit 1
           fi
-          echo 'CANONICAL_RUNTIME_UI_MUTATION=0'
+          echo 'ADMIN_APPROVED_RUNTIME_OVERLAY=PASS'
+          echo 'AGENT_CLIENT_CANONICAL_RUNTIME_SCOPE=PASS'
       - name: Install Chromium render harness
         run: |
           npm install --no-save playwright@1.48.2 pixelmatch@6.0.0 pngjs@7.0.0
@@ -96,7 +103,7 @@ jobs:
           NODE
           node ./render-compare.mjs
           kill $(cat /tmp/baseline.pid) $(cat /tmp/candidate.pid) || true
-      - name: Runtime adapter nonvisual static inspection
+      - name: Runtime adapter and Admin overlay static inspection
         run: |
           set -euo pipefail
           grep -q 'RONA_CANONICAL_RUNTIME_ADAPTER_V2' 'functions/portal/[[path]].js'
@@ -107,7 +114,8 @@ jobs:
           grep -q 'BodyAppend(AGENT_BRIDGE)' 'functions/portal/[[path]].js'
           grep -q "if (kind === 'client') return secureResponse(response, session.setCookies, true);" 'functions/portal/[[path]].js'
           grep -q 'CLIENT_CONTEXT_NOT_AUTHORIZED' 'functions/portal/[[path]].js'
-          echo 'RUNTIME_ADAPTER_NONVISUAL_SCOPE=PASS'
+          grep -q 'ADMIN_APPROVED_ACCESS_OVERLAY' '.github/workflows/final-production-activation-synchronized-v2.yml'
+          echo 'RUNTIME_ADAPTER_CONTROLLED_SCOPE=PASS'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
