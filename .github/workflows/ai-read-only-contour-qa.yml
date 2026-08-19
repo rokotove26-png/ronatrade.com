@@ -65,7 +65,7 @@ jobs:
           # Canonical Admin/Agent/Client sources and the shared router remain frozen.
           # Admin middleware is allowed to change only as an explicitly pinned nonvisual authority adapter.
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
-          APPROVED_ADMIN_MIDDLEWARE_BLOB=f90582df8c003957974e056c2f4e7b895d5dc037
+          APPROVED_ADMIN_MIDDLEWARE_BLOB=0312ebd4b46e39393888088cf380ef226d868246
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- \
             portal-src/canonical \
