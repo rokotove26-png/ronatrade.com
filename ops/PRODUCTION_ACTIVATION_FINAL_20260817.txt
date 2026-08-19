@@ -1,3 +1,4 @@
 RONA TRADE FULL PRODUCTION ACTIVATION
 Final technical release marker: 2026-08-17
 Canonical portal visuals unchanged.
+Production gate targeted retrigger: 2026-08-20T00:18+03:00 after Administrator access-control merge 6da9932520ef97ebe2c859b6ee841e72dd222413.
