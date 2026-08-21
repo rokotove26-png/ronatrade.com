@@ -1,0 +1,82 @@
+name: Owner acceptance package gate
+
+on:
+  push:
+    branches:
+      - 'feature/admin-portal-owner-acceptance-*'
+      - 'release/public-go-live-v1.1'
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  owner-acceptance-source-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify canonical integrity and owner acceptance sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
+          test "$(git hash-object functions/portal/_middleware.js)" = '4d859ba9901afdc5bfc0ce68d3f02c34cc9f3087'
+          test "$(git hash-object 'functions/portal/[[path]].js')" = '94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3'
+          node --check functions/portal/admin.js
+          node --check functions/portal/client.js
+          node --check functions/portal/agent.js
+          node --check 'functions/portal/owner-acceptance-api/[[path]].js'
+          node --check functions/portal/owner-acceptance-ui.js
+          for f in functions/portal/owner-ui-chunks/*.js; do node --check "$f"; done
+          cp supabase/functions/rona-owner-acceptance/index.ts /tmp/rona-owner-acceptance.js
+          node --check /tmp/rona-owner-acceptance.js
+          node --input-type=module <<'NODE'
+          import c0 from './functions/portal/owner-ui-chunks/chunk0.js';
+          import c1 from './functions/portal/owner-ui-chunks/chunk1.js';
+          import c2 from './functions/portal/owner-ui-chunks/chunk2.js';
+          import c3 from './functions/portal/owner-ui-chunks/chunk3.js';
+          import c4 from './functions/portal/owner-ui-chunks/chunk4.js';
+          import c5 from './functions/portal/owner-ui-chunks/chunk5.js';
+          import c6 from './functions/portal/owner-ui-chunks/chunk6.js';
+          import {writeFileSync} from 'node:fs';
+          writeFileSync('/tmp/owner-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6].join(''));
+          NODE
+          node --check /tmp/owner-ui-runtime.js
+          grep -q 'Системный контроль обменов' /tmp/owner-ui-runtime.js
+          grep -q 'Управлять публикацией' /tmp/owner-ui-runtime.js
+          grep -q 'Поставщик одобрил' /tmp/owner-ui-runtime.js
+          grep -q 'Прикрепить допсоглашение' /tmp/owner-ui-runtime.js
+          grep -q 'Отправить в платежи' /tmp/owner-ui-runtime.js
+          grep -q 'Платежи и взаиморасчёты' /tmp/owner-ui-runtime.js
+          grep -q "card('Касса')" /tmp/owner-ui-runtime.js
+          grep -q "card('Онлайн ЖД'" /tmp/owner-ui-runtime.js
+          grep -q "card('Радиорубка')" /tmp/owner-ui-runtime.js
+          grep -q "card('Аналитика')" /tmp/owner-ui-runtime.js
+          grep -q 'Новости топливного рынка СНГ' /tmp/owner-ui-runtime.js
+          grep -q 'Закрепленный агент' /tmp/owner-ui-runtime.js
+          grep -q 'Скачать контракт' /tmp/owner-ui-runtime.js
+          grep -q 'Скачать PDF прайс-лист' /tmp/owner-ui-runtime.js
+          grep -q 'owner_price_snapshots' supabase/functions/rona-owner-acceptance/index.ts
+          grep -q 'owner_application_workflow' supabase/functions/rona-owner-acceptance/index.ts
+          grep -q 'owner_deal_documents' supabase/functions/rona-owner-acceptance/index.ts
+          grep -q 'owner_cash_snapshots' supabase/functions/rona-owner-acceptance/index.ts
+          grep -q 'owner_radio_items' supabase/functions/rona-owner-acceptance/index.ts
+          grep -q 'price-list.pdf' supabase/functions/rona-owner-acceptance/index.ts
+          grep -q 'createSignedUrl' supabase/functions/rona-owner-acceptance/index.ts
+      - name: Verify deployed owner acceptance edge rejects unauthenticated access
+        shell: bash
+        run: |
+          set -euo pipefail
+          code="$(curl -sS -o /tmp/owner-edge.json -w '%{http_code}' 'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-owner-acceptance/admin/bootstrap')"
+          test "$code" = '401'
+          grep -Eq 'Invalid JWT|PORTAL_ACCESS_DENIED' /tmp/owner-edge.json
+          echo 'OWNER_ACCEPTANCE_SOURCE_GATE=PASS'
