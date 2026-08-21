@@ -31,10 +31,12 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          test "$(git hash-object functions/portal/_middleware.js)" = 'c20db5cbb7e211f4c0eae703a78edfe3e1285e48'
+          test "$(git hash-object functions/portal/_middleware.js)" = 'aeb461df10a69a94e9e0cf032b3495a36c3844d4'
           test "$(git hash-object 'functions/portal/[[path]].js')" = '94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3'
           node --check functions/portal/admin-access-ui.js
-          grep -q "if (url.pathname !== '/portal/admin') return context.next();" functions/portal/_middleware.js
+          grep -q 'isPortalShell' functions/portal/_middleware.js
+          grep -q 'rona-portal-logout-runtime' functions/portal/_middleware.js
+          grep -q 'https://ronaoil.com' functions/portal/_middleware.js
           grep -q 'askAdminPassword' functions/portal/_middleware.js
           grep -q 'setAccessUserPassword' functions/portal/_middleware.js
           grep -q 'unblockAccessUser' functions/portal/_middleware.js
@@ -64,6 +66,7 @@ jobs:
           echo 'ADMIN_CONTRACT_ACTIVATION_LIFECYCLE=PASS'
           echo 'CLIENT_CONTRACT_DOWNLOAD_ARCHITECTURE=PASS'
           echo 'ADMIN_APPROVED_ACCESS_OVERLAY=PASS'
+          echo 'PORTAL_LOGOUT_SHARED_RUNTIME=PASS'
 
       - name: Install Playwright runtime using preinstalled Chrome
         shell: bash
@@ -124,7 +127,7 @@ jobs:
             const readiness=await ctx.request.get(base+'/portal/admin-authority/agent-readiness'),rj=await readiness.json();assert(readiness.ok()&&rj?.ok===true&&rj.data?.matrixReady===true,'agent readiness '+readiness.status()+' '+JSON.stringify(rj));const ids=(rj.data.profiles||[]).map(x=>x.agentPersonId).sort();assert(JSON.stringify(ids)===JSON.stringify(['AGP-2026-001','AGP-2026-002']),'agent matrix '+JSON.stringify(ids));
             const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));page.on('console',m=>{if(m.type()==='error'&&!/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(m.text()))errors.push('console:'+m.text())});
             await page.goto(base+'/portal/admin?_final='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});assert(new URL(page.url()).pathname==='/portal/admin','Admin route');
-            await waitBool(page,()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,'admin boot');await waitBool(page,()=>window.__RONA_ADMIN_LIVE_READY__===true,'admin control plane '+String(await page.evaluate(()=>window.__RONA_ADMIN_LIVE_ERROR__||'')));await waitBool(page,()=>window.__RONA_ADMIN_ACCESS_UI_V2__===true,'admin approved access UI');
+            await waitBool(page,()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,'admin boot');await waitBool(page,()=>window.__RONA_ADMIN_LIVE_READY__===true,'admin control plane '+String(await page.evaluate(()=>window.__RONA_ADMIN_LIVE_ERROR__||'')));await waitBool(page,()=>window.__RONA_ADMIN_ACCESS_UI_V2__===true,'admin approved access UI');await waitBool(page,()=>window.__RONA_PORTAL_LOGOUT_RUNTIME__===true,'shared logout runtime');
             const hooks=await page.evaluate(()=>Object.keys(window.__RONA_PORTAL_BACKEND__||{}));for(const name of requiredAdminBackendMethods)assert(hooks.includes(name),'missing Admin backend hook '+name);
             await page.evaluate(()=>window.openModal('create-access'));await page.waitForSelector('#ronaOpenWithoutContract');
             const ui=await page.evaluate(()=>{const role=document.getElementById('newRole');const agent=Array.from(role?.options||[]).find(o=>String(o.textContent||'').trim().startsWith('Агент'));const checks=Array.from(document.querySelectorAll('.newContractCheck'));role.value='Агент';role.dispatchEvent(new Event('change',{bubbles:true}));const profile=document.getElementById('newAgentScope');return{openWithout:!!document.getElementById('ronaOpenWithoutContract'),companyChecks:checks.length,disabledCompanyChecks:checks.filter(x=>x.disabled).length,agentEnabled:!!agent&&!agent.disabled,agentProfiles:Array.from(profile?.options||[]).map(x=>x.value).filter(Boolean).sort()}});
@@ -134,8 +137,8 @@ jobs:
             const badAgent=await ctx.request.post(base+'/portal/admin-authority/access/users',{headers:{origin:base,referer:base+'/portal/admin','content-type':'application/json'},data:{role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid',initialPassword:'Aa1!NoMutation'}}),baj=await badAgent.json();assert(badAgent.status()===409&&baj?.code==='AGENT_PROFILE_NOT_FOUND','agent route '+badAgent.status()+' '+JSON.stringify(baj));
             const nav=await page.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(nav)===JSON.stringify(expectedAdmin),'Admin nav '+JSON.stringify(nav));for(const p of nav){await page.locator(`#nav button[data-page="${p}"]`).click();await page.waitForTimeout(60);assert(await page.locator('#page-'+p).evaluate(el=>el.classList.contains('active')&&getComputedStyle(el).display!=='none'),'Inactive page '+p)}
             assert(errors.length===0,'Admin JS '+JSON.stringify(errors.slice(0,4)));assert(!/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(await page.content()),'JWT leaked');
-            await page.locator('#adminLogoutBtn').click();await page.waitForURL(u=>new URL(u).pathname==='/portal/login',{timeout:10000});assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Auth cookies remain after logout');
-            console.log(JSON.stringify({ok:true,adminNavigation:'23/23',backendHooks:requiredAdminBackendMethods.length,adminExclusive:true,passwordOwner:'ADMINISTRATOR',accountCreationIndependentFromContract:true,openWithoutContractCreatesPendingBinding:true,adminUploadActivatesContractAndPendingBindings:true,clientContractDownloadArchitecture:'CURRENT_CONFIRMED_PRIVATE_OBJECT_SHORT_LIVED_URL',openWithoutContractOption:true,companySelectionEnabled:true,agentProfiles:ids,canonicalSourceChanged:false,adminAccessOverlay:true,tokenLeak:false,applicationErrors:0,counts}));
+            const logout=page.locator('[data-rona-logout-bound="true"]').first();assert(await logout.count()&&await logout.isVisible(),'Admin logout control');await logout.click();await page.waitForURL(u=>new URL(u).origin===base&&new URL(u).pathname==='/',{timeout:10000});assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Auth cookies remain after logout');const afterLogout=await ctx.request.get(base+'/portal/api/session/me');assert([401,403].includes(afterLogout.status()),'Protected API survived logout '+afterLogout.status());await page.goBack({waitUntil:'domcontentloaded',timeout:10000}).catch(()=>null);await page.waitForTimeout(700);assert(new URL(page.url()).pathname!=='/portal/admin','Back restored Admin session');
+            console.log(JSON.stringify({ok:true,adminNavigation:'23/23',backendHooks:requiredAdminBackendMethods.length,adminExclusive:true,passwordOwner:'ADMINISTRATOR',accountCreationIndependentFromContract:true,openWithoutContractCreatesPendingBinding:true,adminUploadActivatesContractAndPendingBindings:true,clientContractDownloadArchitecture:'CURRENT_CONFIRMED_PRIVATE_OBJECT_SHORT_LIVED_URL',openWithoutContractOption:true,companySelectionEnabled:true,agentProfiles:ids,canonicalSourceChanged:false,adminAccessOverlay:true,tokenLeak:false,applicationErrors:0,adminLogoutRedirect:base,backRestoreDenied:true,counts}));
             await ctx.close();await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE

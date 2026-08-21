@@ -1,6 +1,8 @@
-// Canonical Agent and Client interfaces pass through byte-for-byte.
-// Admin keeps the approved base layout and receives the Administrator-authorized
-// access-control runtime for client/agent account creation and contract handling.
+// Canonical Agent and Client interfaces keep their approved markup and receive only
+// the shared server-session logout control. Admin keeps the approved base layout and
+// receives the Administrator-authorized access-control runtime plus the same logout flow.
+
+const PORTAL_LOGOUT_RUNTIME = `<script id="rona-portal-logout-runtime">(()=>{'use strict';if(window.__RONA_PORTAL_LOGOUT_RUNTIME__)return;window.__RONA_PORTAL_LOGOUT_RUNTIME__=true;const HOME='https://ronaoil.com';let signingOut=false;const norm=v=>String(v||'').trim().toLocaleLowerCase('ru-RU');function existingControl(){const direct=document.querySelector('#adminLogoutBtn,#ronaLogout,[data-action="logout"],[data-logout],a[href="/portal/logout"],a[href="/portal/auth/logout"],form[action="/portal/logout"] button,form[action="/portal/auth/logout"] button');if(direct)return direct;return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el=>['выход','выйти','logout'].includes(norm(el.textContent)))||null}function fallbackControl(){const b=document.createElement('button');const path=location.pathname;const kind=path.endsWith('/client')?'client':path.endsWith('/agent')?'agent':'portal';b.type='button';b.id=kind+'LogoutBtn';b.textContent='Выход';b.setAttribute('aria-label','Выход');b.setAttribute('data-rona-logout-control',kind);const host=document.querySelector('[data-user-menu],.user-menu,.user-actions,.header-actions,.topbar-actions,.topbar,header')||document.body;const ref=host.querySelector('button:last-of-type,a[role="button"]:last-of-type');if(ref&&typeof ref.className==='string'&&ref.className.trim())b.className=ref.className;else{b.style.cursor='pointer';b.style.border='1px solid rgba(255,255,255,.18)';b.style.borderRadius='8px';b.style.padding='8px 12px';b.style.background='rgba(12,20,26,.9)';b.style.color='inherit';if(host===document.body){b.style.position='fixed';b.style.top='18px';b.style.right='18px';b.style.zIndex='2147483000'}}host.appendChild(b);return b}async function signOut(event){if(event){event.preventDefault();event.stopImmediatePropagation()}if(signingOut)return;signingOut=true;const b=event?.currentTarget||event?.target;if(b&&'disabled'in b)b.disabled=true;try{await fetch('/portal/logout',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}})}catch(_e){}finally{window.location.replace(HOME)}}function bind(){const b=existingControl()||fallbackControl();if(b?.dataset?.ronaLogoutBound==='true')return;if(['выйти','logout'].includes(norm(b.textContent)))b.textContent='Выход';b.setAttribute('aria-label','Выход');b.dataset.ronaLogoutBound='true';b.addEventListener('click',signOut,true)}async function verifyRestore(){try{const r=await fetch('/portal/api/session/me',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});if(!r.ok)window.location.replace(HOME)}catch(_e){window.location.replace(HOME)}}window.addEventListener('pageshow',event=>{const nav=performance.getEntriesByType?.('navigation')?.[0];if(event.persisted||nav?.type==='back_forward')verifyRestore()});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
 
 const ADMIN_EXTERNAL_RESOURCE_GUARD = `<script id="rona-admin-external-resource-guard">(()=>{'use strict';if(window.__RONA_ADMIN_EXTERNAL_RESOURCE_GUARD__)return;window.__RONA_ADMIN_EXTERNAL_RESOURCE_GUARD__=true;window.addEventListener('error',event=>{const target=event&&event.target;if(!target||target===window)return;const src=String(target.src||target.href||'');if(src.startsWith('https://static.cloudflareinsights.com/beacon.min.js/'))event.stopImmediatePropagation()},true)})();<\/script>`;
 
@@ -48,17 +50,23 @@ const ADMIN_ACCESS_UI_SCRIPT = `<script id="rona-admin-access-ui-loader" src="/p
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
-  if (url.pathname !== '/portal/admin') return context.next();
+  const isPortalShell = ['/portal/admin','/portal/client','/portal/agent'].includes(url.pathname);
+  if (!isPortalShell) return context.next();
 
   const response = await context.next();
   const contentType = response.headers.get('content-type') || '';
   if (response.status !== 200 || !contentType.toLowerCase().includes('text/html')) return response;
 
   let source = await response.text();
-  if (!source.includes('rona-admin-external-resource-guard')) source = source.replace('</head>', `${ADMIN_EXTERNAL_RESOURCE_GUARD}${ADMIN_LIVE_AUTHORITY_ADAPTER}</head>`);
-  if (!source.includes('rona-admin-live-authority-adapter')) source = source.replace('</head>', `${ADMIN_LIVE_AUTHORITY_ADAPTER}</head>`);
-  if (!source.includes('rona-server-authenticated-admin-boot-kick')) source = source.replace('</body>', `${ADMIN_BOOT_KICK}</body>`);
-  if (!source.includes('rona-admin-access-ui-loader')) source = source.replace('</body>', `${ADMIN_ACCESS_UI_SCRIPT}</body>`);
+  if (url.pathname === '/portal/admin') {
+    if (!source.includes('rona-admin-external-resource-guard')) source = source.replace('</head>', `${ADMIN_EXTERNAL_RESOURCE_GUARD}${ADMIN_LIVE_AUTHORITY_ADAPTER}</head>`);
+    if (!source.includes('rona-admin-live-authority-adapter')) source = source.replace('</head>', `${ADMIN_LIVE_AUTHORITY_ADAPTER}</head>`);
+    if (!source.includes('rona-server-authenticated-admin-boot-kick')) source = source.replace('</body>', `${ADMIN_BOOT_KICK}</body>`);
+    if (!source.includes('rona-admin-access-ui-loader')) source = source.replace('</body>', `${ADMIN_ACCESS_UI_SCRIPT}</body>`);
+  }
+  if (!source.includes('rona-portal-logout-runtime')) {
+    source = source.includes('</body>') ? source.replace('</body>', `${PORTAL_LOGOUT_RUNTIME}</body>`) : source + PORTAL_LOGOUT_RUNTIME;
+  }
 
   const headers = new Headers(response.headers);
   headers.delete('content-length');
