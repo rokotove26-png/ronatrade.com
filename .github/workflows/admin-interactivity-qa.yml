@@ -41,9 +41,14 @@ jobs:
           grep -q "return clearedResponse(303, '/')" 'functions/portal/logout.js'
           node <<'NODE'
           const fs=require('fs');
-          const src=fs.readFileSync('functions/portal/_middleware.js','utf8');
-          if(!src.includes("firstLabel+'\\\\nНе менее 10 символов")) throw new Error('Admin password prompt escape regression');
-          console.log('ADMIN_INLINE_PASSWORD_PROMPT_ESCAPE=PASS');
+          const middleware=fs.readFileSync('functions/portal/_middleware.js','utf8');
+          const ui=fs.readFileSync('functions/portal/admin-access-ui.js','utf8');
+          if(/window\.prompt\s*\(/.test(middleware)||/window\.prompt\s*\(/.test(ui)) throw new Error('Native Admin prompt remains');
+          if(/window\.confirm\s*\(/.test(middleware)||/window\.confirm\s*\(/.test(ui)) throw new Error('Native Admin confirm remains');
+          if(!middleware.includes('window.RONA_ADMIN_DIALOGS')) throw new Error('Admin password dialog adapter missing');
+          if(!ui.includes('RONA_ADMIN_DIALOGS')||!ui.includes('rona-admin-dialog-mask')) throw new Error('Centered Admin dialog component missing');
+          if(!ui.includes('window.alert=message=>')) throw new Error('Native Admin alert replacement missing');
+          console.log('ADMIN_CENTERED_DIALOG_SOURCE=PASS');
           NODE
           echo 'CANONICAL_ADMIN_SOURCE_HASH=PASS'
           echo 'ADMIN_EXCLUSIVE_CONTROL_PLANE_SOURCE=PASS'
@@ -103,10 +108,14 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true}),hostname=new URL(origin).hostname,ctx=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});
             await ctx.addCookies([{name:'rona_portal_at',value:access,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:refresh,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
-            const p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e.message||e)));p.on('console',m=>{if(m.type()==='error'&&!/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(m.text()))errors.push(m.text())});
+            const p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e.message||e)));p.on('console',m=>{if(m.type()==='error'&&!/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(m.text()))errors.push(m.text())});p.on('dialog',async d=>{errors.push('Native browser dialog: '+d.type()+' '+d.message());await d.dismiss().catch(()=>{})});
             await p.goto(origin+'/portal/admin?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});assert(new URL(p.url()).pathname==='/portal/admin','Admin route failed');
             for(let i=0;i<160&&!await p.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true);i++)await p.waitForTimeout(100);assert(await p.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true),'Admin boot not ready');
             for(let i=0;i<160&&!await p.evaluate(()=>window.__RONA_ADMIN_LIVE_READY__===true);i++)await p.waitForTimeout(100);assert(await p.evaluate(()=>window.__RONA_ADMIN_LIVE_READY__===true),'Admin control plane not ready: '+String(await p.evaluate(()=>window.__RONA_ADMIN_LIVE_ERROR__||'')));
+            assert(await p.evaluate(()=>!!window.RONA_ADMIN_DIALOGS&&typeof window.RONA_ADMIN_DIALOGS.confirm==='function'&&typeof window.RONA_ADMIN_DIALOGS.password==='function'&&typeof window.RONA_ADMIN_DIALOGS.message==='function'),'Centered Admin dialog API missing');
+            await p.evaluate(()=>{window.__ronaQaConfirmResult=null;window.RONA_ADMIN_DIALOGS.confirm('QA centered confirm').then(v=>window.__ronaQaConfirmResult=v)});await p.locator('.rona-admin-dialog').waitFor({state:'visible'});let geom=await p.locator('.rona-admin-dialog').evaluate(el=>{const r=el.getBoundingClientRect();return{cx:r.left+r.width/2,cy:r.top+r.height/2,w:innerWidth,h:innerHeight}});assert(Math.abs(geom.cx-geom.w/2)<3&&Math.abs(geom.cy-geom.h/2)<3,'Confirm dialog not centered '+JSON.stringify(geom));await p.locator('.rona-admin-dialog-actions button[data-primary="true"]').click();for(let i=0;i<40&&await p.evaluate(()=>window.__ronaQaConfirmResult!==true);i++)await p.waitForTimeout(25);assert(await p.evaluate(()=>window.__ronaQaConfirmResult===true),'Centered confirm did not resolve');
+            await p.evaluate(()=>{window.__ronaQaPasswordResult=null;window.RONA_ADMIN_DIALOGS.password('QA password').then(()=>window.__ronaQaPasswordResult='resolved').catch(e=>window.__ronaQaPasswordResult=String(e?.code||e?.message||e))});await p.locator('.rona-admin-dialog').waitFor({state:'visible'});assert(await p.locator('.rona-admin-dialog-field input[type="password"]').count()===2,'Password dialog fields missing');geom=await p.locator('.rona-admin-dialog').evaluate(el=>{const r=el.getBoundingClientRect();return{cx:r.left+r.width/2,cy:r.top+r.height/2,w:innerWidth,h:innerHeight}});assert(Math.abs(geom.cx-geom.w/2)<3&&Math.abs(geom.cy-geom.h/2)<3,'Password dialog not centered '+JSON.stringify(geom));await p.locator('.rona-admin-dialog-actions button').filter({hasText:'Отмена'}).click();for(let i=0;i<40&&await p.evaluate(()=>window.__ronaQaPasswordResult===null);i++)await p.waitForTimeout(25);assert(await p.evaluate(()=>window.__ronaQaPasswordResult==='ADMIN_PASSWORD_CANCELLED'),'Password cancel semantics changed');
+            await p.evaluate(()=>alert('QA centered notification'));await p.locator('.rona-admin-dialog').waitFor({state:'visible'});geom=await p.locator('.rona-admin-dialog').evaluate(el=>{const r=el.getBoundingClientRect();return{cx:r.left+r.width/2,cy:r.top+r.height/2,w:innerWidth,h:innerHeight}});assert(Math.abs(geom.cx-geom.w/2)<3&&Math.abs(geom.cy-geom.h/2)<3,'Notification dialog not centered '+JSON.stringify(geom));await p.locator('.rona-admin-dialog-actions button[data-primary="true"]').click();
             const hooks=await p.evaluate(()=>Object.keys(window.__RONA_PORTAL_BACKEND__||{}));for(const name of requiredBackendMethods)assert(hooks.includes(name),'Missing Admin backend hook '+name);
             const authorityResponse=await ctx.request.get(origin+'/portal/admin-authority/bootstrap'),authorityJson=await authorityResponse.json();assert(authorityResponse.ok()&&authorityJson.ok,'Admin authority proxy failed');
             assert(authorityJson.data?.adminControlPlane?.mode==='ADMIN_EXCLUSIVE','Admin exclusive mode missing');
@@ -122,7 +131,7 @@ jobs:
             const actual=await p.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(actual)===JSON.stringify(expected),'Admin navigation contract mismatch');for(const page of actual){await p.locator(`#nav button[data-page="${page}"]`).click();await p.waitForTimeout(60);assert(await p.locator('#page-'+page).evaluate(el=>el.classList.contains('active')&&getComputedStyle(el).display!=='none'),'Inactive page '+page)}
             assert(!/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(await p.content()),'JWT leaked');assert(errors.length===0,'Admin JS errors '+JSON.stringify(errors.slice(0,5)));
             await p.locator('#adminLogoutBtn').click();await p.waitForURL(u=>new URL(u).pathname==='/portal/login',{timeout:10000});assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Auth cookies remain after logout');
-            console.log(JSON.stringify({ok:true,origin,navigation:'23/23',backendHooks:requiredBackendMethods.length,adminExclusive:true,passwordOwner:'ADMINISTRATOR',accountCreationIndependentFromContract:true,agentProfiles:ids,logoutToPortalLogin:true,tokenLeak:false,applicationErrors:0}));
+            console.log(JSON.stringify({ok:true,origin,navigation:'23/23',backendHooks:requiredBackendMethods.length,adminExclusive:true,passwordOwner:'ADMINISTRATOR',accountCreationIndependentFromContract:true,centeredDialogs:true,nativeBrowserDialogs:false,agentProfiles:ids,logoutToPortalLogin:true,tokenLeak:false,applicationErrors:0}));
             await ctx.close();await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
