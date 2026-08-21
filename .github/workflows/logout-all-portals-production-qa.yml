@@ -1,0 +1,96 @@
+name: Logout all portals production QA
+
+on:
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  statuses: write
+
+jobs:
+  logout-all-portals-production:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install Playwright runtime using preinstalled Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then
+            google-chrome --version
+          elif command -v google-chrome-stable >/dev/null 2>&1; then
+            google-chrome-stable --version
+          else
+            echo 'PREINSTALLED_CHROME_NOT_FOUND'
+            exit 1
+          fi
+
+      - name: Wait for Cloudflare production deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{for(let i=0;i<140;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-LOGOUT-QA'}});
+            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);await sleep(6000);return}}
+            await sleep(3000);
+          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Client and Agent logout production E2E
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const crypto=require('crypto');
+          const {chromium}=require('playwright');
+          const base='https://ronaoil.com';
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||'1',gh=process.env.GH_TOKEN;
+          const runUrl=`https://github.com/${repo}/actions/runs/${runId}`;
+          const contractId='RONA-C002-CTR-2026-001';
+          const password='Aa1!'+crypto.randomBytes(18).toString('base64url')+'!';
+          const suffix=`${runId}_${attempt}`;
+          const clientLogin=`qa_logout_client_${suffix}`,clientEmail=`qa-logout-client-${suffix}@example.invalid`;
+          const agentLogin=`qa_logout_agent_${suffix}`,agentEmail=`qa-logout-agent-${suffix}@example.invalid`;
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          let clientUserId='',agentUserId='',adminCookie='';
+          const proof={client:{},agent:{},cleanup:{}};
+          async function status(state,description){try{await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','content-type':'application/json'},body:JSON.stringify({state,context:'rona/logout-all-portals-e2e',description:String(description).slice(0,140),target_url:runUrl})})}catch(_e){}}
+          async function broker(){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json();assert(r.ok&&j.ok&&j.session?.access_token&&j.session?.refresh_token,'controlled Admin session unavailable '+JSON.stringify({status:r.status,code:j.code,proof:j.proof||null}));return j.session}
+          function jsonHeaders(){return{cookie:adminCookie,origin:base,referer:base+'/portal/admin','content-type':'application/json',accept:'application/json'}}
+          async function adminGet(path){const r=await fetch(base+'/portal/admin-authority'+path,{headers:{cookie:adminCookie,accept:'application/json'},redirect:'manual'});const t=await r.text();let j={};try{j=JSON.parse(t)}catch{}return{r,j,t}}
+          async function adminPost(path,body={}){const r=await fetch(base+'/portal/admin-authority'+path,{method:'POST',headers:jsonHeaders(),body:JSON.stringify(body),redirect:'manual'});const t=await r.text();let j={};try{j=JSON.parse(t)}catch{}return{r,j,t}}
+          async function cleanup(){if(clientUserId){try{const x=await adminPost('/access/users/'+encodeURIComponent(clientUserId)+'/contracts/'+encodeURIComponent(contractId)+'/revoke',{});proof.cleanup.clientRevoke=x.r.status}catch{}try{const x=await adminPost('/access/users/'+encodeURIComponent(clientUserId)+'/block',{});proof.cleanup.clientBlock=x.r.status}catch{}}if(agentUserId){try{const x=await adminPost('/access/users/'+encodeURIComponent(agentUserId)+'/block',{});proof.cleanup.agentBlock=x.r.status}catch{}}}
+          async function loginAndLogout(browser,email,portalPath,label){const context=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});const page=await context.newPage();await page.goto(base+'/portal/login?next='+encodeURIComponent(portalPath),{waitUntil:'domcontentloaded',timeout:45000});await page.locator('input[name="email"]').fill(email);await page.locator('input[name="password"]').fill(password);await page.locator('button[type="submit"]').click();await page.waitForURL(u=>new URL(u).pathname===portalPath,{timeout:20000});for(let i=0;i<200;i++){if(await page.evaluate(()=>window.__RONA_PORTAL_LOGOUT_RUNTIME__===true))break;if(i===199)throw new Error(label+' logout runtime timeout');await page.waitForTimeout(100)}const control=page.locator('[data-rona-logout-bound="true"]').first();assert(await control.count()&&await control.isVisible(),label+' logout control missing');assert((await control.innerText()).trim()==='Выход',label+' logout label mismatch: '+await control.innerText());await control.click();await page.waitForURL(u=>new URL(u).origin===base&&new URL(u).pathname==='/',{timeout:12000});assert(!(await context.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),label+' auth cookies remain');const api=await context.request.get(base+'/portal/api/session/me');assert([401,403].includes(api.status()),label+' protected API survived logout '+api.status());await page.goBack({waitUntil:'domcontentloaded',timeout:10000}).catch(()=>null);await page.waitForTimeout(900);assert(new URL(page.url()).pathname!==portalPath,label+' Back restored authenticated portal');const result={visible:true,label:'Выход',redirect:base,apiDenied:api.status(),backDenied:true};await context.close();return result}
+          (async()=>{
+            await status('pending','Logout all portals production E2E running');
+            const admin=await broker();adminCookie=`rona_portal_at=${admin.access_token}; rona_portal_rt=${admin.refresh_token}`;
+            const boot=await adminGet('/bootstrap');assert(boot.r.ok&&boot.j?.ok===true,'admin bootstrap '+boot.r.status+' '+boot.t.slice(0,300));const c2=(boot.j.data?.contracts||[]).find(x=>x.contractId===contractId);assert(c2&&c2.contractStatus==='ACTIVE','eligible Client contract unavailable '+JSON.stringify(c2||null));
+            const cr=await adminPost('/access/users',{role:'Клиент',name:'QA LOGOUT CLIENT',login:clientLogin,email:clientEmail,initialPassword:password,contractIds:[contractId],openWithoutContract:false,bindingRole:'Уполномоченный представитель'});assert(cr.r.status===201&&cr.j?.ok===true&&cr.j.userId,'client create '+cr.r.status+' '+cr.t.slice(0,500));clientUserId=String(cr.j.userId);assert(Array.isArray(cr.j.linkedContractIds)&&cr.j.linkedContractIds.includes(contractId),'client active binding '+JSON.stringify(cr.j));proof.client.created=true;
+            const ar=await adminPost('/access/users',{role:'Агент',name:'QA LOGOUT AGENT',login:agentLogin,email:agentEmail,initialPassword:password,contractIds:[],agentScope:'AGP-2026-002'});assert(ar.r.status===201&&ar.j?.ok===true&&ar.j.userId&&ar.j.agentPersonId==='AGP-2026-002','agent create '+ar.r.status+' '+ar.t.slice(0,500));agentUserId=String(ar.j.userId);proof.agent.created=true;
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            proof.client.logout=await loginAndLogout(browser,clientEmail,'/portal/client','Client');
+            proof.agent.logout=await loginAndLogout(browser,agentEmail,'/portal/agent','Agent');
+            await browser.close();
+            await cleanup();
+            assert(proof.cleanup.clientRevoke>=200&&proof.cleanup.clientRevoke<300,'client cleanup revoke');assert(proof.cleanup.clientBlock>=200&&proof.cleanup.clientBlock<300,'client cleanup block');assert(proof.cleanup.agentBlock>=200&&proof.cleanup.agentBlock<300,'agent cleanup block');
+            console.log('RONA_LOGOUT_E2E='+JSON.stringify({ok:true,client:proof.client,agent:proof.agent,cleanup:proof.cleanup,redirectTarget:base,backSessionRestore:'DENIED'}));
+            await status('success','Client and Agent logout redirect/Back/API E2E PASS');
+          })().catch(async e=>{await cleanup();console.error(e.stack||e);console.error('RONA_LOGOUT_E2E_FAILURE='+JSON.stringify({client:proof.client,agent:proof.agent,cleanup:proof.cleanup,clientUserId,agentUserId}));await status('failure','Logout all portals production E2E failed');process.exit(1)});
+          NODE
