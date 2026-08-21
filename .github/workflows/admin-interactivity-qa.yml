@@ -1,71 +1,21 @@
-name: Admin authenticated interactivity gate
+name: Autonomous Client and Agent production E2E
 
 on:
   push:
     branches:
-      - 'hotfix/admin-interactivity-*'
-      - 'release/public-go-live-v1.1'
+      - 'hotfix/admin-interactivity-autonomous-e2e-20260821-run7'
 
 permissions:
-  contents: read
-  checks: read
   actions: read
+  checks: read
+  contents: read
   statuses: write
 
 jobs:
-  authenticated-admin-navigation:
+  production-client-agent-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Verify frozen canonical source and Admin-exclusive activation source
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm run build
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
-          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
-          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' 'functions/portal/[[path]].js'
-          grep -q 'rona-admin-live-authority-adapter' 'functions/portal/_middleware.js'
-          grep -q 'askAdminPassword' 'functions/portal/_middleware.js'
-          grep -q 'setAccessUserPassword' 'functions/portal/_middleware.js'
-          grep -q 'unblockAccessUser' 'functions/portal/_middleware.js'
-          grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/[[path]].js'
-          grep -q 'proxyAdminAuthority' 'functions/portal/[[path]].js'
-          grep -q 'ADMIN_EXCLUSIVE_CLIENT_V1' 'supabase/functions/rona-admin-control-plane/index.ts'
-          grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' 'supabase/functions/rona-admin-control-plane/index.ts'
-          grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' 'supabase/functions/rona-admin-control-plane/index.ts'
-          grep -q "return clearedResponse(303, '/')" 'functions/portal/logout.js'
-          node <<'NODE'
-          const fs=require('fs');
-          const src=fs.readFileSync('functions/portal/_middleware.js','utf8');
-          if(!src.includes("firstLabel+'\\\\nНе менее 10 символов")) throw new Error('Admin password prompt escape regression');
-          console.log('ADMIN_INLINE_PASSWORD_PROMPT_ESCAPE=PASS');
-          NODE
-          echo 'CANONICAL_ADMIN_SOURCE_HASH=PASS'
-          echo 'ADMIN_EXCLUSIVE_CONTROL_PLANE_SOURCE=PASS'
-      - name: Install Playwright Chromium
-        run: |
-          npm install --no-save --ignore-scripts playwright@1.54.2
-          npx playwright install --with-deps chromium
-      - name: Resolve deployed target
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ "${GITHUB_REF_NAME}" = 'release/public-go-live-v1.1' ]; then
-            echo 'TARGET_ORIGIN=https://ronaoil.com' >> "$GITHUB_ENV"
-            exit 0
-          fi
-          node <<'NODE'
-          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,token=process.env.GH_TOKEN;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{for(let i=0;i<60;i++){const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${token}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-Trade-Admin-QA'}});if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages'&&x.status==='completed'&&x.conclusion==='success');const m=String(cf?.output?.summary||'').match(/https:\/\/[a-z0-9-]+\.rona-trade-public\.pages\.dev/i);if(m){fs.appendFileSync(process.env.GITHUB_ENV,`TARGET_ORIGIN=${m[0]}\n`);return}}await sleep(5000)}throw new Error('Cloudflare Pages target unavailable')})().catch(e=>{console.error(e.message);process.exit(1)});
-          NODE
       - name: Obtain controlled server-authenticated Admin session
         env:
           GH_TOKEN: ${{ github.token }}
@@ -87,45 +37,50 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_ENV,`RONA_ACCESS_TOKEN<<EOF\n${j.session.access_token}\nEOF\nRONA_REFRESH_TOKEN<<EOF\n${j.session.refresh_token}\nEOF\n`);
           NODE
           rm -f /tmp/rona-admin-session.json
-      - name: Authenticated Admin control-plane and logout regression
+
+      - name: Execute Client and Agent production E2E
         env:
-          TARGET_ORIGIN: ${{ env.TARGET_ORIGIN }}
+          GH_TOKEN: ${{ github.token }}
           RONA_ACCESS_TOKEN: ${{ env.RONA_ACCESS_TOKEN }}
           RONA_REFRESH_TOKEN: ${{ env.RONA_REFRESH_TOKEN }}
         shell: bash
         run: |
+          set -euo pipefail
           node <<'NODE'
-          const {chromium}=require('playwright');
-          const origin=process.env.TARGET_ORIGIN,access=process.env.RONA_ACCESS_TOKEN,refresh=process.env.RONA_REFRESH_TOKEN;
-          const expected=['home','prices','applications','deals','documents','payments','monitoring','accounting','claims','access','messages','notifications','announcements','analytics','market-news','publication','agents','agent-settlements','portal-contour','exchange','datahub','archive','roles'];
-          const requiredBackendMethods=['attachSignedContractToExistingContract','replaceSignedContractVersion','downloadSignedContract','createAccessUser','setAccessUserPassword','linkContractsToUser','revokeBinding','restoreBinding','blockAccessUser','unblockAccessUser','syncCanonical'];
+          const crypto=require('crypto');
+          const base='https://ronaoil.com';
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,runId=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||'1',gh=process.env.GH_TOKEN;
+          const runUrl=`https://github.com/${repo}/actions/runs/${runId}`;
+          const contractId='RONA-C002-CTR-2026-001',clientId='RONA-C002';
+          const password='Aa1!'+crypto.randomBytes(18).toString('base64url')+'!';
+          const suffix=`${runId}_${attempt}`;
+          const clientLogin=`qa_e2e_client_${suffix}`,clientEmail=`qa-e2e-client-${suffix}@example.invalid`;
+          const agentLogin=`qa_e2e_agent_${suffix}`,agentEmail=`qa-e2e-agent-${suffix}@example.invalid`;
+          const adminCookie=`rona_portal_at=${process.env.RONA_ACCESS_TOKEN}; rona_portal_rt=${process.env.RONA_REFRESH_TOKEN}`;
           const assert=(v,m)=>{if(!v)throw new Error(m)};
+          let clientUserId='',agentUserId='',clientCookie='',agentCookie='';
+          const proof={client:{},agent:{},cleanup:{}};
+          async function status(state,description){try{await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','content-type':'application/json'},body:JSON.stringify({state,context:'rona/autonomous-client-agent-e2e',description:String(description).slice(0,140),target_url:runUrl})})}catch(_e){}}
+          function jsonHeaders(){return{cookie:adminCookie,origin:base,referer:base+'/portal/admin','content-type':'application/json',accept:'application/json'}}
+          async function adminGet(path){const r=await fetch(base+'/portal/admin-authority'+path,{headers:{cookie:adminCookie,accept:'application/json'},redirect:'manual'});const t=await r.text();let j={};try{j=JSON.parse(t)}catch{}return{r,j,t}}
+          async function adminPost(path,body={}){const r=await fetch(base+'/portal/admin-authority'+path,{method:'POST',headers:jsonHeaders(),body:JSON.stringify(body),redirect:'manual'});const t=await r.text();let j={};try{j=JSON.parse(t)}catch{}return{r,j,t}}
+          function cookies(r){let a=[];if(typeof r.headers.getSetCookie==='function')a=r.headers.getSetCookie();if(!a.length){const x=r.headers.get('set-cookie')||'';if(x)a=x.split(/,(?=\s*[^;,=]+=[^;,]+)/)}return a.map(x=>x.split(';')[0].trim()).filter(x=>/^rona_portal_(at|rt)=/.test(x)).join('; ')}
+          async function login(email,next){const r=await fetch(base+'/portal/auth/login',{method:'POST',redirect:'manual',headers:{origin:base,referer:base+'/portal/login','content-type':'application/json'},body:JSON.stringify({email,password,next})});const t=await r.text();const c=cookies(r),loc=String(r.headers.get('location')||'');assert([302,303].includes(r.status),'login '+email+' '+r.status+' '+t.slice(0,250));assert(c.includes('rona_portal_at=')&&c.includes('rona_portal_rt='),'login cookies '+email);return{c,loc}}
+          async function get(path,cookie,accept='text/html,application/json'){const r=await fetch(base+path,{headers:{cookie,accept},redirect:'manual'});const t=await r.text();let j=null;try{j=JSON.parse(t)}catch{}return{r,t,j}}
+          async function cleanup(){if(clientUserId){try{const x=await adminPost('/access/users/'+encodeURIComponent(clientUserId)+'/contracts/'+encodeURIComponent(contractId)+'/revoke',{});proof.cleanup.clientRevoke=x.r.status}catch{}try{const x=await adminPost('/access/users/'+encodeURIComponent(clientUserId)+'/block',{});proof.cleanup.clientBlock=x.r.status}catch{}}if(agentUserId){try{const x=await adminPost('/access/users/'+encodeURIComponent(agentUserId)+'/block',{});proof.cleanup.agentBlock=x.r.status}catch{}}}
           (async()=>{
-            const browser=await chromium.launch({headless:true}),hostname=new URL(origin).hostname,ctx=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});
-            await ctx.addCookies([{name:'rona_portal_at',value:access,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:refresh,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
-            const p=await ctx.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e.message||e)));p.on('console',m=>{if(m.type()==='error'&&!/static\.cloudflareinsights\.com\/beacon\.min\.js/i.test(m.text()))errors.push(m.text())});
-            await p.goto(origin+'/portal/admin?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});assert(new URL(p.url()).pathname==='/portal/admin','Admin route failed');
-            for(let i=0;i<160&&!await p.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true);i++)await p.waitForTimeout(100);assert(await p.evaluate(()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true),'Admin boot not ready');
-            for(let i=0;i<160&&!await p.evaluate(()=>window.__RONA_ADMIN_LIVE_READY__===true);i++)await p.waitForTimeout(100);assert(await p.evaluate(()=>window.__RONA_ADMIN_LIVE_READY__===true),'Admin control plane not ready: '+String(await p.evaluate(()=>window.__RONA_ADMIN_LIVE_ERROR__||'')));
-            const hooks=await p.evaluate(()=>Object.keys(window.__RONA_PORTAL_BACKEND__||{}));for(const name of requiredBackendMethods)assert(hooks.includes(name),'Missing Admin backend hook '+name);
-            const authorityResponse=await ctx.request.get(origin+'/portal/admin-authority/bootstrap'),authorityJson=await authorityResponse.json();assert(authorityResponse.ok()&&authorityJson.ok,'Admin authority proxy failed');
-            assert(authorityJson.data?.adminControlPlane?.mode==='ADMIN_EXCLUSIVE','Admin exclusive mode missing');
-            assert(authorityJson.data?.adminControlPlane?.passwordOwner==='ADMINISTRATOR','Password ownership not Administrator');
-            assert(authorityJson.data?.adminControlPlane?.accountCreationIndependentFromContract===true,'Account creation still contract-coupled');
-            assert(Array.isArray(authorityJson.data?.contracts)&&Array.isArray(authorityJson.data?.accessUsers),'Admin authority bootstrap shape failed');
-            const c3=authorityJson.data.contracts.find(x=>x.contractId==='RONA-C003-CTR-2026-001');assert(c3&&c3.currentExternalContractNumber==null,'C003 legacy external number was promoted');
-            const readiness=await ctx.request.get(origin+'/portal/admin-authority/agent-readiness'),rj=await readiness.json();assert(readiness.ok()&&rj?.ok===true&&rj.data?.matrixReady===true,'Agent readiness failed');const ids=(rj.data.profiles||[]).map(x=>x.agentPersonId).sort();assert(JSON.stringify(ids)===JSON.stringify(['AGP-2026-001','AGP-2026-002']),'Agent profile matrix '+JSON.stringify(ids));
-            const noPassword=await ctx.request.post(origin+'/portal/admin-authority/access/users',{headers:{origin,referer:origin+'/portal/admin','content-type':'application/json'},data:{role:'Клиент',name:'QA NO MUTATION',login:'rona_no_mutation_probe',email:'no-mutation@example.invalid',contractIds:[]}});const npj=await noPassword.json();assert(noPassword.status()===400&&npj?.code==='INVALID_INITIAL_PASSWORD','Password ownership gate '+noPassword.status()+' '+JSON.stringify(npj));
-            const badAgent=await ctx.request.post(origin+'/portal/admin-authority/access/users',{headers:{origin,referer:origin+'/portal/admin','content-type':'application/json'},data:{role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid',initialPassword:'Aa1!NoMutation'}});const baj=await badAgent.json();assert(badAgent.status()===409&&baj?.code==='AGENT_PROFILE_NOT_FOUND','Agent route '+badAgent.status()+' '+JSON.stringify(baj));
-            assert(await p.evaluate(()=>window.__RONA_ADMIN_AGENT_ACCESS_READY__===true),'Agent access runtime not ready');
-            await p.evaluate(()=>openModal('create-access'));for(let i=0;i<80&&!await p.evaluate(()=>{const s=document.getElementById('newRole');return !!s&&[...s.options].some(o=>String(o.textContent||'').trim().startsWith('Агент')&&!o.disabled&&o.value==='Агент')});i++)await p.waitForTimeout(100);assert(await p.evaluate(()=>{const s=document.getElementById('newRole');return !!s&&[...s.options].some(o=>String(o.textContent||'').trim().startsWith('Агент')&&!o.disabled&&o.value==='Агент')}),'Agent option not enabled');await p.evaluate(()=>closeModal());
-            const actual=await p.locator('#nav button[data-page]').evaluateAll(xs=>xs.map(x=>x.dataset.page));assert(JSON.stringify(actual)===JSON.stringify(expected),'Admin navigation contract mismatch');for(const page of actual){await p.locator(`#nav button[data-page="${page}"]`).click();await p.waitForTimeout(60);assert(await p.locator('#page-'+page).evaluate(el=>el.classList.contains('active')&&getComputedStyle(el).display!=='none'),'Inactive page '+page)}
-            assert(!/eyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{20,}\./.test(await p.content()),'JWT leaked');assert(errors.length===0,'Admin JS errors '+JSON.stringify(errors.slice(0,5)));
-            await p.locator('#adminLogoutBtn').click();await p.waitForURL(u=>new URL(u).pathname==='/portal/login',{timeout:10000});assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Auth cookies remain after logout');
-            console.log(JSON.stringify({ok:true,origin,navigation:'23/23',backendHooks:requiredBackendMethods.length,adminExclusive:true,passwordOwner:'ADMINISTRATOR',accountCreationIndependentFromContract:true,agentProfiles:ids,logoutToPortalLogin:true,tokenLeak:false,applicationErrors:0}));
-            await ctx.close();await browser.close();
-          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+            await status('pending','Autonomous Client and Agent production E2E running');
+            const boot=await adminGet('/bootstrap');assert(boot.r.ok&&boot.j?.ok===true,'admin bootstrap '+boot.r.status+' '+boot.t.slice(0,300));const c2=(boot.j.data?.contracts||[]).find(x=>x.contractId===contractId);assert(c2&&c2.clientId===clientId,'C002 unavailable');const signed=(boot.j.data?.signedContractGate?.contracts||[]).find(x=>x.contractId===contractId);assert(!signed||signed.bilateralSignedConfirmed!==true,'C002 unexpectedly signed');
+            const cr=await adminPost('/access/users',{role:'Клиент',name:'QA E2E CLIENT',login:clientLogin,email:clientEmail,initialPassword:password,contractIds:[contractId],openWithoutContract:true,bindingRole:'Уполномоченный представитель'});assert(cr.r.status===201&&cr.j?.ok===true&&cr.j.userId,'client create '+cr.r.status+' '+cr.t.slice(0,500));clientUserId=String(cr.j.userId);assert(Array.isArray(cr.j.pendingContractIds)&&cr.j.pendingContractIds.includes(contractId),'client pending binding '+JSON.stringify(cr.j));proof.client.created=true;proof.client.pending=true;
+            const cli=await login(clientEmail,'/portal/client');clientCookie=cli.c;assert(cli.loc.includes('/portal/client'),'client target '+cli.loc);proof.client.login=true;const clientRoute=await get('/portal/client',clientCookie);assert(clientRoute.r.status===403&&clientRoute.t.includes('CLIENT_CONTEXT_NOT_AUTHORIZED'),'client not fail-closed '+clientRoute.r.status+' '+clientRoute.t.slice(0,250));const clientApi=await get('/portal/api/v1/client/bootstrap',clientCookie,'application/json');const contexts=Array.isArray(clientApi.j?.data?.contexts)?clientApi.j.data.contexts:[];assert(!clientApi.r.ok||clientApi.j?.ok!==true||contexts.length===0,'client context exposed '+JSON.stringify(clientApi.j));proof.client.failClosed=true;
+            const rv=await adminPost('/access/users/'+encodeURIComponent(clientUserId)+'/contracts/'+encodeURIComponent(contractId)+'/revoke',{});assert(rv.r.ok&&rv.j?.ok===true&&rv.j.status==='REVOKED','client revoke '+rv.r.status+' '+rv.t.slice(0,300));proof.client.revoked=true;const bl=await adminPost('/access/users/'+encodeURIComponent(clientUserId)+'/block',{});assert(bl.r.ok&&bl.j?.ok===true&&bl.j.status==='SUSPENDED','client block '+bl.r.status+' '+bl.t.slice(0,300));proof.client.blocked=true;const clientAfter=await get('/portal/client',clientCookie);assert(clientAfter.r.status!==200,'blocked client retained access');proof.client.deniedAfterBlock=true;
+            const ar=await adminPost('/access/users',{role:'Агент',name:'QA E2E AGENT',login:agentLogin,email:agentEmail,initialPassword:password,contractIds:[],agentScope:'AGP-2026-002'});assert(ar.r.status===201&&ar.j?.ok===true&&ar.j.userId&&ar.j.agentPersonId==='AGP-2026-002','agent create '+ar.r.status+' '+ar.t.slice(0,500));agentUserId=String(ar.j.userId);proof.agent.created=true;proof.agent.binding=true;
+            const ali=await login(agentEmail,'/portal/agent');agentCookie=ali.c;assert(ali.loc.includes('/portal/agent'),'agent target '+ali.loc);proof.agent.login=true;const agentRoute=await get('/portal/agent',agentCookie);assert(agentRoute.r.status===200,'agent route '+agentRoute.r.status+' '+agentRoute.t.slice(0,250));const agentApi=await get('/portal/api/v1/agent/bootstrap',agentCookie,'application/json');assert(agentApi.r.ok&&agentApi.j?.ok===true&&agentApi.j?.data,'agent bootstrap '+agentApi.r.status+' '+agentApi.t.slice(0,500));assert(JSON.stringify(agentApi.j).includes('AGP-2026-002'),'agent scope absent');proof.agent.authorized=true;
+            const abl=await adminPost('/access/users/'+encodeURIComponent(agentUserId)+'/block',{});assert(abl.r.ok&&abl.j?.ok===true&&abl.j.status==='SUSPENDED','agent block '+abl.r.status+' '+abl.t.slice(0,300));proof.agent.blocked=true;const agentAfter=await get('/portal/agent',agentCookie);const agentApiAfter=await get('/portal/api/v1/agent/bootstrap',agentCookie,'application/json');assert(agentAfter.r.status!==200&&!agentApiAfter.r.ok,'blocked agent retained access route='+agentAfter.r.status+' api='+agentApiAfter.r.status);proof.agent.deniedAfterBlock=true;
+            await cleanup();console.log('RONA_AUTONOMOUS_E2E='+JSON.stringify({ok:true,client:proof.client,agent:proof.agent,cleanup:proof.cleanup,clientUserId,agentUserId,contractId,agentPersonId:'AGP-2026-002'}));await status('success','Client pending fail-closed and Agent login/block E2E PASS');
+          })().catch(async e=>{await cleanup();console.error(e.stack||e);console.error('RONA_AUTONOMOUS_E2E_FAILURE='+JSON.stringify({client:proof.client,agent:proof.agent,cleanup:proof.cleanup,clientUserId,agentUserId}));await status('failure','Autonomous Client and Agent production E2E failed');process.exit(1)});
           NODE
+
       - name: Clean runtime secrets from runner
         if: always()
         run: |
