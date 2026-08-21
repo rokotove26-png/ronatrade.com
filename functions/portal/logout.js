@@ -53,13 +53,11 @@ export async function onRequestPost(context) {
         method: 'POST',
         headers,
       });
-    } catch (_) {
-      // Browser session cookies are still invalidated fail-closed if upstream logout is unavailable.
-    }
+    } catch (_) {}
   }
-  return clearedResponse(303, '/');
+  return clearedResponse(303, 'https://ronaoil.com');
 }
 
 export function onRequestGet() {
-  return Response.redirect('https://ronaoil.com/', 303);
+  return Response.redirect('https://ronaoil.com', 303);
 }
