@@ -1,0 +1,3 @@
+import { onRequest as basePortal } from './[[path]].js';
+const LOADER='<script id="rona-owner-acceptance-ui-loader" src="/portal/owner-acceptance-ui" defer></script>';
+export async function onRequest(context){const response=await basePortal(context);const ct=response.headers.get('content-type')||'';if(response.status!==200||!ct.toLowerCase().includes('text/html'))return response;let source=await response.text();if(!source.includes('rona-owner-acceptance-ui-loader'))source=source.replace('</body>',LOADER+'</body>');const h=new Headers(response.headers);h.delete('content-length');h.delete('etag');return new Response(source,{status:response.status,statusText:response.statusText,headers:h})}
