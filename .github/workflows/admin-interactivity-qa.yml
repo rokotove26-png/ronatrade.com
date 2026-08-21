@@ -35,7 +35,7 @@ jobs:
           grep -q 'unblockAccessUser' 'functions/portal/_middleware.js'
           grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/[[path]].js'
           grep -q 'proxyAdminAuthority' 'functions/portal/[[path]].js'
-          grep -q 'ADMIN_EXCLUSIVE_CLIENT_V1' 'supabase/functions/rona-admin-control-plane/index.ts'
+          grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' 'supabase/functions/rona-admin-control-plane/index.ts'
           grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' 'supabase/functions/rona-admin-control-plane/index.ts'
           grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' 'supabase/functions/rona-admin-control-plane/index.ts'
           grep -q "return clearedResponse(303, '/')" 'functions/portal/logout.js'
