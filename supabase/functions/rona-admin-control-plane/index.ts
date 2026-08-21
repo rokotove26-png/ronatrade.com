@@ -382,7 +382,19 @@ async function forwardTo(req, base, path) {
 }
 
 async function forwardLegacy(req, path) { return forwardTo(req, LEGACY_AUTHORITY, path); }
-async function forwardContractActivation(req, path) { return forwardTo(req, CONTRACT_ACTIVATION, path); }
+async function forwardContractActivation(req, path) {
+  const response = await forwardTo(req, CONTRACT_ACTIVATION, path);
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+
+  if (contentType.includes("application/json")) {
+    return response;
+  }
+
+  return send(response.status >= 400 && response.status < 600 ? response.status : 502, {
+    ok: false,
+    code: "CONTRACT_ACTIVATION_UPSTREAM_ERROR"
+  });
+}
 
 async function bootstrap(req) {
   const upstream = await forwardLegacy(req, "/bootstrap"), body = await upstream.json().catch(() => ({}));
