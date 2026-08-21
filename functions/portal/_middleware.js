@@ -48,6 +48,13 @@ if(window.__RONA_ADMIN_BOOT_STATE__?.ready===true)boot();
 const ADMIN_BOOT_KICK = `<script id="rona-server-authenticated-admin-boot-kick">(()=>{'use strict';if(window.__RONA_ADMIN_BOOT_KICK_INSTALLED__)return;window.__RONA_ADMIN_BOOT_KICK_INSTALLED__=true;const kick=()=>{try{window.RONA_ADMIN_SERVER_BOOTSTRAP?.start?.()}catch(_e){}};kick();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',kick,{once:true});queueMicrotask(kick);setTimeout(kick,0)})();<\/script>`;
 const ADMIN_ACCESS_UI_SCRIPT = `<script id="rona-admin-access-ui-loader" src="/portal/admin-access-ui" defer><\/script>`;
 
+function injectBeforeLastClosingTag(source, tag, payload) {
+  const marker = String(tag || '').toLowerCase();
+  const index = source.toLowerCase().lastIndexOf(marker);
+  if (index < 0) return source + payload;
+  return source.slice(0, index) + payload + source.slice(index);
+}
+
 export async function onRequest(context) {
   const url = new URL(context.request.url);
   const isPortalShell = ['/portal/admin','/portal/client','/portal/agent'].includes(url.pathname);
@@ -65,7 +72,7 @@ export async function onRequest(context) {
     if (!source.includes('rona-admin-access-ui-loader')) source = source.replace('</body>', `${ADMIN_ACCESS_UI_SCRIPT}</body>`);
   }
   if (!source.includes('rona-portal-logout-runtime')) {
-    source = source.includes('</body>') ? source.replace('</body>', `${PORTAL_LOGOUT_RUNTIME}</body>`) : source + PORTAL_LOGOUT_RUNTIME;
+    source = injectBeforeLastClosingTag(source, '</body>', PORTAL_LOGOUT_RUNTIME);
   }
 
   const headers = new Headers(response.headers);
