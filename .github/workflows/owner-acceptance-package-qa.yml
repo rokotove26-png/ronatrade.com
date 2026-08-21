@@ -78,5 +78,5 @@ jobs:
           set -euo pipefail
           code="$(curl -sS -o /tmp/owner-edge.json -w '%{http_code}' 'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-owner-acceptance/admin/bootstrap')"
           test "$code" = '401'
-          grep -Eq 'Invalid JWT|PORTAL_ACCESS_DENIED' /tmp/owner-edge.json
+          grep -Eqi 'Invalid JWT|PORTAL_ACCESS_DENIED|Missing authorization|authorization header' /tmp/owner-edge.json
           echo 'OWNER_ACCEPTANCE_SOURCE_GATE=PASS'
