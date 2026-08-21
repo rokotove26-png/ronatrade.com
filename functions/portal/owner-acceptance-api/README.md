@@ -1,0 +1,1 @@
+Same-origin authenticated proxy from `/portal/owner-acceptance-api/*` to the JWT-protected Supabase `rona-owner-acceptance` Edge Function. Portal access and refresh tokens remain HttpOnly cookies and are not exposed to browser JavaScript.

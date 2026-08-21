@@ -1,0 +1,1 @@
+`owner-acceptance-package-qa.yml` verifies frozen canonical portal integrity, protected runtime adapter syntax, owner-acceptance UI runtime reconstruction, business endpoint source coverage, and the deployed Edge Function's unauthenticated fail-closed behavior.

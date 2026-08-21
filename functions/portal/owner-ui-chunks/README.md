@@ -1,0 +1,1 @@
+The owner-acceptance browser runtime is stored as deterministic string chunks so the canonical portal HTML remains byte-for-byte unchanged. `functions/portal/owner-acceptance-ui.js` concatenates these chunks and serves the resulting JavaScript through the protected portal route.
