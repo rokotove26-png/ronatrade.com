@@ -31,7 +31,7 @@ jobs:
           cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          test "$(git hash-object functions/portal/_middleware.js)" = '8f0684de33c930018b1f2f5201da5d90e7401ed0'
+          test "$(git hash-object functions/portal/_middleware.js)" = 'aeb461df10a69a94e9e0cf032b3495a36c3844d4'
           test "$(git hash-object 'functions/portal/[[path]].js')" = '94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3'
           node --check functions/portal/admin-access-ui.js
           grep -q 'isPortalShell' functions/portal/_middleware.js
