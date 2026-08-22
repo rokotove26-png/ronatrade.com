@@ -34,6 +34,14 @@ function isAllowedCallbackLocation(value){
     return h==='chatgpt.com'||h.endsWith('.chatgpt.com')||h==='openai.com'||h.endsWith('.openai.com');
   }catch{return false;}
 }
+function invalidRegistrationRedirect(buffer,contentType){
+  if(!String(contentType||'').toLowerCase().split(';',1)[0].trim().endsWith('json'))return false;
+  try{
+    const payload=JSON.parse(new TextDecoder().decode(buffer));
+    if(!payload||typeof payload!=='object'||Array.isArray(payload)||!Array.isArray(payload.redirect_uris))return false;
+    return payload.redirect_uris.some(value=>!isAllowedCallbackLocation(value));
+  }catch{return false;}
+}
 function corsFor(request){
   const origin=request.headers.get('origin');
   if(!origin||!ALLOWED_ORIGINS.has(origin))return {};
@@ -197,6 +205,9 @@ export async function proxyRoleRequest(context,segment){
   try{
     if(!['GET','HEAD'].includes(request.method)){
       const raw=await readBodyLimited(request);
+      if(path==='/register'&&request.method==='POST'&&invalidRegistrationRedirect(raw,request.headers.get('content-type'))){
+        return json({error:'invalid_redirect_uri'},400,corsFor(request));
+      }
       tokenShape=path==='/token'?safeTokenShape(raw,request.headers.get('content-type')):null;
       body=await rewriteFormBody(raw,request.headers.get('content-type'),segment,path);
     }
