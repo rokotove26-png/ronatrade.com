@@ -21,7 +21,10 @@ async function refreshAdmin(){try{adminSync=await load('/admin/ai-sync');window.
 async function refreshAgent(){try{agentSync=await load('/agent/ai-sync');window.__RONA_OWNER_AGENT_AI_SYNC_SNAPSHOT__=agentSync;renderAgent()}catch(e){window.__RONA_OWNER_AGENT_AI_SYNC_ERROR__=String(e&&e.message?e.message:e)}}
 function startAdmin(){refreshAdmin();setInterval(refreshAdmin,60000);new MutationObserver(renderAdmin).observe(document.body,{childList:true,subtree:true})}
 function startAgent(){refreshAgent();setInterval(refreshAgent,60000);new MutationObserver(renderAgent).observe(document.body,{childList:true,subtree:true})}
+function afterReady(flag,start){let tries=0;function tick(){if(window[flag]===true){start();return}tries++;if(tries<600)setTimeout(tick,100)}tick()}
+function bootAdminSync(){afterReady('__RONA_OWNER_ADMIN_READY__',startAdmin)}
+function bootAgentSync(){afterReady('__RONA_OWNER_AGENT_READY__',startAgent)}
 const path=location.pathname;
-if(path==='/portal/admin'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startAdmin,{once:true});else startAdmin()}
-else if(path==='/portal/agent'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startAgent,{once:true});else startAgent()}
+if(path==='/portal/admin'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootAdminSync,{once:true});else bootAdminSync()}
+else if(path==='/portal/agent'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootAgentSync,{once:true});else bootAgentSync()}
 })();`;
