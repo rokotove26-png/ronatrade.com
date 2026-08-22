@@ -95,7 +95,7 @@ jobs:
           grep -q 'rv-tech-hidden' /tmp/main-ui-runtime.js
           grep -q 'официальные источники' /tmp/main-ui-runtime.js
           grep -q 'rona-owner-attention-badge' /tmp/main-ui-runtime.js
-          grep -q 'data-page=\\"documents\\"' /tmp/main-ui-runtime.js
+          grep -q 'data-page="documents"' /tmp/main-ui-runtime.js
           grep -q '__RONA_OWNER_FIRST_PAINT_READY__' /tmp/main-ui-runtime.js
           grep -q 'owner_price_snapshots' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_application_workflow' supabase/functions/rona-owner-acceptance/index.ts
