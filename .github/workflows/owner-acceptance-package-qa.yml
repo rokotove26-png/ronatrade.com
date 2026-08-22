@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - 'feature/admin-portal-owner-acceptance-*'
+      - 'feature/portal-visual-redesign-*'
       - 'release/public-go-live-v1.1'
   pull_request:
     branches:
@@ -48,8 +49,11 @@ jobs:
           import c4 from './functions/portal/owner-ui-chunks/chunk4.js';
           import c5 from './functions/portal/owner-ui-chunks/chunk5.js';
           import c6 from './functions/portal/owner-ui-chunks/chunk6.js';
+          import c7 from './functions/portal/owner-ui-chunks/chunk7.js';
+          import c8 from './functions/portal/owner-ui-chunks/chunk8.js';
+          import c9 from './functions/portal/owner-ui-chunks/chunk9.js';
           import {writeFileSync} from 'node:fs';
-          writeFileSync('/tmp/owner-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6].join(''));
+          writeFileSync('/tmp/owner-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6,c7,c8,c9].join(''));
           NODE
           node --check /tmp/owner-ui-runtime.js
           grep -q "const API='/portal/owner-api'" /tmp/owner-ui-runtime.js
@@ -68,6 +72,12 @@ jobs:
           grep -q 'Закрепленный агент' /tmp/owner-ui-runtime.js
           grep -q 'Скачать контракт' /tmp/owner-ui-runtime.js
           grep -q 'Скачать PDF прайс-лист' /tmp/owner-ui-runtime.js
+          grep -q 'rona-visual-v2' /tmp/owner-ui-runtime.js
+          grep -q 'Клиенты и агенты' /tmp/owner-ui-runtime.js
+          grep -q 'RONA TRADE · OPERATIONS' /tmp/owner-ui-runtime.js
+          grep -q 'Назначение агента' /tmp/owner-ui-runtime.js
+          grep -q 'rv-tech-hidden' /tmp/owner-ui-runtime.js
+          grep -q 'официальные источники' /tmp/owner-ui-runtime.js
           grep -q 'owner_price_snapshots' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_application_workflow' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_deal_documents' supabase/functions/rona-owner-acceptance/index.ts
