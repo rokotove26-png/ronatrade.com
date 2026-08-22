@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
       - name: Verify source and install browser runtime
         shell: bash
         run: |
@@ -32,8 +33,11 @@ jobs:
           node --check functions/portal/admin.js
           node --check functions/portal/client.js
           node --check functions/portal/agent.js
+          node --check functions/portal/auth/login.js
+          node --check functions/portal/owner-api.js
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
       - name: Resolve deployed target
         id: target
         env:
@@ -71,6 +75,7 @@ jobs:
             throw new Error('Cloudflare deployment timeout');
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
+
       - name: Full Admin Client Agent owner acceptance
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,79 +87,50 @@ jobs:
           const {chromium}=require('playwright');
           const origin=process.env.TARGET_ORIGIN,repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
           const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           async function broker(){
-            const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});
-            const j=await r.json().catch(()=>({}));
-            assert(r.ok&&j.ok&&j.session?.access_token&&j.session?.refresh_token,'controlled session '+JSON.stringify({status:r.status,code:j.code}));
-            return j.session;
+            let last={};
+            for(let i=0;i<8;i++){
+              const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});
+              const j=await r.json().catch(()=>({}));last={status:r.status,code:j.code};
+              if(r.ok&&j.ok&&j.session?.access_token&&j.session?.refresh_token)return j.session;
+              await sleep(1500*(i+1));
+            }
+            throw new Error('controlled session '+JSON.stringify(last));
           }
-          async function waitFlag(page,name,tries=400){
-            for(let i=0;i<tries;i++){if(await page.evaluate(n=>window[n]===true,name))return;await page.waitForTimeout(100)}
-            throw new Error(name+' timeout '+String(await page.evaluate(()=>window.__RONA_OWNER_ADMIN_ERROR__||window.__RONA_OWNER_CLIENT_ERROR__||window.__RONA_OWNER_AGENT_ERROR__||'')));
-          }
-          async function api(ctx,path){
-            const r=await ctx.request.get(origin+path),text=await r.text();let j={};try{j=JSON.parse(text)}catch{}
-            assert(r.ok()&&j?.ok===true,path+' '+r.status()+' '+text.slice(0,300));return j.data;
-          }
-          async function adminPost(ctx,path,data){
-            const r=await ctx.request.post(origin+path,{headers:{origin,referer:origin+'/portal/admin','content-type':'application/json'},data}),text=await r.text();let j={};try{j=JSON.parse(text)}catch{}
-            assert(r.ok()&&j?.ok===true,path+' '+r.status()+' '+text.slice(0,400));return j;
-          }
+          async function waitFlag(page,name,tries=400){for(let i=0;i<tries;i++){if(await page.evaluate(n=>window[n]===true,name))return;await page.waitForTimeout(100)}throw new Error(name+' timeout '+String(await page.evaluate(()=>window.__RONA_OWNER_ADMIN_ERROR__||window.__RONA_OWNER_CLIENT_ERROR__||window.__RONA_OWNER_AGENT_ERROR__||'')))}
+          async function api(ctx,path){const r=await ctx.request.get(origin+path),text=await r.text();let j={};try{j=JSON.parse(text)}catch{}assert(r.ok()&&j?.ok===true,path+' '+r.status()+' '+text.slice(0,300));return j.data}
+          async function adminPost(ctx,path,data){const r=await ctx.request.post(origin+path,{headers:{origin,referer:origin+'/portal/admin','content-type':'application/json'},data}),text=await r.text();let j={};try{j=JSON.parse(text)}catch{}assert(r.ok()&&j?.ok===true,path+' '+r.status()+' '+text.slice(0,400));return j}
           (async()=>{
             const session=await broker(),hostname=new URL(origin).hostname;
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const ctx=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});
             await ctx.addCookies([{name:'rona_portal_at',value:session.access_token,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:session.refresh_token,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
-            const page=await ctx.newPage(),errors=[];
-            page.on('pageerror',e=>errors.push(String(e.message||e)));
-            page.on('console',m=>{if(m.type()==='error'&&!/cloudflareinsights/i.test(m.text()))errors.push('console:'+m.text())});
-            let qaUserId=null;
-            let clientCtx=null;
+            const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));page.on('console',m=>{if(m.type()==='error'&&!/cloudflareinsights/i.test(m.text()))errors.push('console:'+m.text())});
+            let qaUserId=null,clientCtx=null;
             try{
-              await page.goto(origin+'/portal/admin?_owner='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
-              assert(new URL(page.url()).pathname==='/portal/admin','Admin route');
-              await waitFlag(page,'__RONA_OWNER_ADMIN_READY__');
+              await page.goto(origin+'/portal/admin?_owner='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});assert(new URL(page.url()).pathname==='/portal/admin','Admin route');await waitFlag(page,'__RONA_OWNER_ADMIN_READY__');
               const admin=await api(ctx,'/portal/owner-acceptance-api/admin/bootstrap');
-              assert(Array.isArray(admin.clients)&&admin.clients.length===3,'Admin clients');
-              assert(Array.isArray(admin.deals)&&admin.deals.length===4,'Admin deals');
-              assert(Array.isArray(admin.applications)&&admin.applications.length===4,'Admin applications');
-              assert(admin.clients.every(x=>x.agent_person_id),'Company-level agent assignment');
+              assert(Array.isArray(admin.clients)&&admin.clients.length===3,'Admin clients');assert(Array.isArray(admin.deals)&&admin.deals.length===4,'Admin deals');assert(Array.isArray(admin.applications)&&admin.applications.length===4,'Admin applications');assert(admin.clients.every(x=>x.agent_person_id),'Company-level agent assignment');
               for(const text of ['Сделки в работе','Требует внимания','Активные заявки','Ожидают отправления','Претензии','Системный контроль обменов'])assert(await page.getByText(text,{exact:true}).count(),`Admin dashboard ${text}`);
-              const technical=['publication','portal-contour','exchange','datahub','archive','roles','notifications','announcements'];
-              for(const id of technical){const b=page.locator(`#nav button[data-page="${id}"]`);assert(await b.count()===1,'canonical technical node '+id);const v=await b.evaluate(el=>({aria:el.getAttribute('aria-hidden'),tab:el.tabIndex,opacity:getComputedStyle(el).opacity}));assert(v.aria==='true'&&v.tab===-1&&v.opacity==='0','technical nav exposed '+id+' '+JSON.stringify(v))}
-              const business=[['prices','Цены'],['applications','Заявки'],['deals','Сделки'],['documents','Документы сделок'],['payments','Платежи и взаиморасчёты'],['accounting','Касса'],['monitoring','Онлайн ЖД'],['messages','Радиорубка'],['analytics','Аналитика'],['market-news','Новости топливного рынка СНГ']];
-              for(const [id,title] of business){await page.locator(`#nav button[data-page="${id}"]`).click();await page.waitForTimeout(80);assert(await page.getByText(title,{exact:true}).count(),`business page ${id} ${title}`)}
+              const technical=['publication','portal-contour','exchange','datahub','archive','roles','notifications','announcements'];for(const id of technical){const b=page.locator(`#nav button[data-page="${id}"]`);assert(await b.count()===1,'canonical technical node '+id);const v=await b.evaluate(el=>({aria:el.getAttribute('aria-hidden'),tab:el.tabIndex,opacity:getComputedStyle(el).opacity}));assert(v.aria==='true'&&v.tab===-1&&v.opacity==='0','technical nav exposed '+id+' '+JSON.stringify(v))}
+              const business=[['prices','Цены'],['applications','Заявки'],['deals','Сделки'],['documents','Документы сделок'],['payments','Платежи и взаиморасчёты'],['accounting','Касса'],['monitoring','Онлайн ЖД'],['messages','Радиорубка'],['analytics','Аналитика'],['market-news','Новости топливного рынка СНГ']];for(const [id,title] of business){await page.locator(`#nav button[data-page="${id}"]`).click();await page.waitForTimeout(80);assert(await page.getByText(title,{exact:true}).count(),`business page ${id} ${title}`)}
               await page.locator('#nav button[data-page="claims"]').click();await page.waitForTimeout(100);assert(await page.locator('#page-claims').evaluate(el=>el.classList.contains('active')&&getComputedStyle(el).display!=='none'),'Claims regression');
               await page.locator('#nav button[data-page="monitoring"]').click();await page.waitForTimeout(80);if(admin.rail.length){const values=await page.locator('#page-monitoring select option').allTextContents();assert(values.some(x=>x.includes('1308903120')),'GU-12 selector')}
               await page.evaluate(()=>window.openModal('create-access'));await page.waitForSelector('#newEmail');await page.locator('#newEmail').fill('owner-login-sync@example.invalid');await page.waitForTimeout(80);const login=await page.evaluate(()=>({email:document.getElementById('newEmail')?.value,login:document.getElementById('newLogin')?.value,hidden:document.getElementById('newLogin')?.closest('.rona-owner-hide')!=null||document.getElementById('newLogin')?.parentElement?.classList.contains('rona-owner-hide')}));assert(login.email===login.login&&login.hidden===true,'Email is not authoritative login '+JSON.stringify(login));await page.evaluate(()=>window.closeModal());
               await page.locator('#nav button[data-page="access"]').click();await page.waitForTimeout(80);assert(await page.getByText('Закрепленный агент',{exact:true}).count(),'Agent assignment UI');
 
               const qaEmail=`qa-owner-client-${runId}@example.invalid`,qaPassword=`Qa!${runId}Aa9#`;
-              const created=await adminPost(ctx,'/portal/admin-authority/access/users',{role:'Клиент',name:'QA OWNER ACCEPTANCE CLIENT',login:qaEmail,email:qaEmail,initialPassword:qaPassword,bindingRole:'Уполномоченный представитель',contractIds:['RONA-C002-CTR-2026-001'],openWithoutContract:false});
-              qaUserId=created.userId||created.data?.userId||null;assert(qaUserId,'QA client user id missing '+JSON.stringify(created));
-
-              clientCtx=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});
-              const clientPage=await clientCtx.newPage(),clientErrors=[];
-              clientPage.on('pageerror',e=>clientErrors.push(String(e.message||e)));
-              clientPage.on('console',m=>{if(m.type()==='error'&&!/cloudflareinsights/i.test(m.text()))clientErrors.push('console:'+m.text())});
-              await clientPage.goto(origin+'/portal/login?next=%2Fportal%2Fclient',{waitUntil:'domcontentloaded',timeout:30000});
-              await clientPage.locator('input[name="email"]').fill(qaEmail);await clientPage.locator('input[name="password"]').fill(qaPassword);await clientPage.locator('button[type="submit"]').click();
-              await clientPage.waitForURL(u=>new URL(u).origin===origin&&new URL(u).pathname==='/portal/client',{timeout:15000});
-              await waitFlag(clientPage,'__RONA_OWNER_CLIENT_READY__');
-              const client=await api(clientCtx,'/portal/owner-acceptance-api/client/bootstrap');
-              assert(Array.isArray(client.companies)&&client.companies.some(x=>x.contract_id==='RONA-C002-CTR-2026-001'),'Client company binding');
-              assert(await clientPage.getByText('Договоры',{exact:true}).count(),'Client contracts section');assert(await clientPage.getByText('Цены',{exact:true}).count(),'Client prices');assert(await clientPage.getByText('Заявки',{exact:true}).count(),'Client applications');
-              const downloadable=(client.companies||[]).find(x=>x.contract_document_id);assert(downloadable,'No downloadable client contract in controlled client scope');
-              const dr=await clientCtx.request.get(origin+'/portal/owner-acceptance-api/client/contracts/'+encodeURIComponent(downloadable.contract_id)+'/download'),dt=await dr.text();let dj={};try{dj=JSON.parse(dt)}catch{}
-              assert(dr.ok()&&dj?.ok===true&&dj.data?.url,'Client contract signed URL '+dr.status()+' '+dt.slice(0,200));const pdf=await clientCtx.request.get(dj.data.url);assert(pdf.ok()&&String(pdf.headers()['content-type']||'').toLowerCase().includes('pdf'),'Client contract PDF');
-              assert(clientErrors.length===0,'Client browser errors '+JSON.stringify(clientErrors.slice(0,5)));
-              await clientCtx.close();clientCtx=null;
+              const created=await adminPost(ctx,'/portal/admin-authority/access/users',{role:'Клиент',name:'QA OWNER ACCEPTANCE CLIENT',login:qaEmail,email:qaEmail,initialPassword:qaPassword,bindingRole:'Уполномоченный представитель',contractIds:['RONA-C002-CTR-2026-001'],openWithoutContract:false});qaUserId=created.userId||created.data?.userId||null;assert(qaUserId,'QA client user id missing '+JSON.stringify(created));
+              clientCtx=await browser.newContext({viewport:{width:1920,height:1080},javaScriptEnabled:true});const clientPage=await clientCtx.newPage(),clientErrors=[];clientPage.on('pageerror',e=>clientErrors.push(String(e.message||e)));clientPage.on('console',m=>{if(m.type()==='error'&&!/cloudflareinsights/i.test(m.text()))clientErrors.push('console:'+m.text())});
+              await clientPage.goto(origin+'/portal/login?next=%2Fportal%2Fclient',{waitUntil:'domcontentloaded',timeout:30000});await clientPage.locator('input[name="email"]').fill(qaEmail);await clientPage.locator('input[name="password"]').fill(qaPassword);await clientPage.locator('button[type="submit"]').click();await clientPage.waitForURL(u=>new URL(u).origin===origin&&new URL(u).pathname==='/portal/client',{timeout:15000});await waitFlag(clientPage,'__RONA_OWNER_CLIENT_READY__');
+              const client=await api(clientCtx,'/portal/owner-acceptance-api/client/bootstrap');assert(Array.isArray(client.companies)&&client.companies.some(x=>x.contract_id==='RONA-C002-CTR-2026-001'),'Client company binding');assert(await clientPage.getByText('Договоры',{exact:true}).count(),'Client contracts section');assert(await clientPage.getByText('Цены',{exact:true}).count(),'Client prices');assert(await clientPage.getByText('Заявки',{exact:true}).count(),'Client applications');
+              const downloadable=(client.companies||[]).find(x=>x.contract_document_id);assert(downloadable,'No downloadable client contract in controlled client scope');const dr=await clientCtx.request.get(origin+'/portal/owner-acceptance-api/client/contracts/'+encodeURIComponent(downloadable.contract_id)+'/download'),dt=await dr.text();let dj={};try{dj=JSON.parse(dt)}catch{}assert(dr.ok()&&dj?.ok===true&&dj.data?.url,'Client contract signed URL '+dr.status()+' '+dt.slice(0,200));const pdf=await clientCtx.request.get(dj.data.url);assert(pdf.ok()&&String(pdf.headers()['content-type']||'').toLowerCase().includes('pdf'),'Client contract PDF');assert(clientErrors.length===0,'Client browser errors '+JSON.stringify(clientErrors.slice(0,5)));await clientCtx.close();clientCtx=null;
 
               await page.goto(origin+'/portal/agent?_owner='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});assert(new URL(page.url()).pathname==='/portal/agent','Agent route');await waitFlag(page,'__RONA_OWNER_AGENT_READY__');const agent=await api(ctx,'/portal/owner-acceptance-api/agent/bootstrap');assert(Array.isArray(agent.prices),'Agent prices shape');assert(await page.getByText('Внешний прайс-лист RONA Trade',{exact:true}).count(),'Agent external price');assert(await page.getByText('Скачать PDF прайс-лист',{exact:true}).count(),'Agent PDF action');const pricePdf=await ctx.request.get(origin+'/portal/owner-acceptance-api/agent/price-list.pdf');assert(pricePdf.ok()&&String(pricePdf.headers()['content-type']||'').toLowerCase().includes('application/pdf'),'Agent PDF price list');const bytes=await pricePdf.body();assert(bytes.subarray(0,5).toString()==='%PDF-','Agent PDF signature');
 
               await adminPost(ctx,`/portal/admin-authority/access/users/${qaUserId}/block`,{});qaUserId=null;
-
-              await page.goto(origin+'/portal/admin?_logout='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await waitFlag(page,'__RONA_OWNER_ADMIN_READY__');const logout=page.locator('[data-rona-logout-bound="true"]').first();assert(await logout.count()&&await logout.isVisible(),'Logout control');await logout.click();await page.waitForURL(u=>new URL(u).origin===origin&&new URL(u).pathname==='/',{timeout:12000});assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Logout cookies remain');
+              await page.goto(origin+'/portal/admin?_logout='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});await waitFlag(page,'__RONA_OWNER_ADMIN_READY__');let sawRoot=false;page.on('framenavigated',f=>{try{const u=new URL(f.url());if(f===page.mainFrame()&&u.origin===origin&&u.pathname==='/')sawRoot=true}catch{}});const logout=page.locator('[data-rona-logout-bound="true"]').first();assert(await logout.count()&&await logout.isVisible(),'Logout control');await logout.click();for(let i=0;i<120&&!sawRoot;i++)await page.waitForTimeout(100);assert(sawRoot,'Logout did not redirect through site root');for(let i=0;i<60;i++){if(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'))break;await page.waitForTimeout(100)}assert(!(await ctx.cookies()).some(x=>x.name==='rona_portal_at'||x.name==='rona_portal_rt'),'Logout cookies remain');
               assert(errors.length===0,'Browser errors '+JSON.stringify(errors.slice(0,5)));
               console.log('OWNER_ACCEPTANCE_LIVE=PASS '+JSON.stringify({origin,adminClients:admin.clients.length,applications:admin.applications.length,deals:admin.deals.length,rail:admin.rail.length,clientContractDownload:true,agentPdf:true,claimsRegression:true,emailLogin:true,agentCompanyBinding:true,logout:true}));
             } finally {
@@ -164,6 +140,7 @@ jobs:
             }
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
+
       - name: Publish owner acceptance commit status
         if: always()
         env:
