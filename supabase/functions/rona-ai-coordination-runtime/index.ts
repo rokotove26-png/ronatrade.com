@@ -3,8 +3,8 @@ import postgres from "postgres";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 if (!DB) throw new Error("SUPABASE_DB_URL missing");
-const sql = postgres(DB, { prepare: false, max: 3 });
-const WORKER_VERSION = "1.2.0";
+const sql = postgres(DB, { prepare: false, max: 1, idle_timeout: 5, connect_timeout: 10, max_lifetime: 60 });
+const WORKER_VERSION = "1.2.1";
 const WORKER_ID = `rona-ai-runtime-${crypto.randomUUID().slice(0, 8)}`;
 const ROLE_SET = new Set(["OPERATIONS_DIRECTOR", "FINANCE", "LEGAL", "MARKET_ANALYST", "RAIL_LOGISTICS", "SYSTEM_ADMIN"]);
 const TERMINAL_TASK = new Set(["DECIDED", "COMPLETED", "REJECTED", "CLOSED"]);
