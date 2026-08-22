@@ -1,0 +1,29 @@
+name: QA client form diagnostic
+on:
+  push:
+    branches:
+      - 'hotfix/admin-interactivity-owner-rail-diagnostic-*'
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  diagnose-form:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm install --no-save --ignore-scripts playwright@1.54.2
+      - name: Inspect login form
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN,runId=process.env.GITHUB_RUN_ID,origin='https://ronaoil.com';
+          async function status(state,desc){await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','content-type':'application/json'},body:JSON.stringify({state,context:'rona/qa-client-form-diagnostic',description:String(desc).slice(0,140),target_url:`https://github.com/${repo}/actions/runs/${runId}`})})}
+          (async()=>{await status('pending','client form diagnostic running');const b=await chromium.launch({headless:true,channel:'chrome'}),ctx=await b.newContext();const p=await ctx.newPage();const events=[];p.on('request',r=>{if(r.url().includes('/portal/auth/login')||r.url().includes('/auth/v1/token'))events.push(['REQ',r.method(),r.url(),r.headers()['origin']||'',r.headers()['referer']||'',r.headers()['accept']||''])});p.on('response',async r=>{if(r.url().includes('/portal/auth/login')||r.url().includes('/auth/v1/token'))events.push(['RES',r.status(),r.url(),r.headers()['location']||'',(await r.text().catch(()=>'' )).slice(0,300)])});await p.goto(origin+'/portal/login?next=%2Fportal%2Fclient',{waitUntil:'domcontentloaded'});await p.locator('input[name="email"]').fill('qa-owner-client-32571968750@example.invalid');await p.locator('input[name="password"]').fill('Qa!32571968750Aa9#');console.log('FORM',await p.locator('form').evaluate(f=>({valid:f.checkValidity(),action:f.action,method:f.method,email:document.querySelector('[name=email]').validity,password:document.querySelector('[name=password]').validity,next:document.querySelector('[name=next]').value})));await p.locator('button[type="submit"]').click();await p.waitForTimeout(3000);console.log('URL',p.url());console.log('EVENTS',JSON.stringify(events));console.log('BODY',(await p.locator('body').innerText()).slice(0,1000));await ctx.close();await b.close();await status('success','client form diagnostic captured '+new URL(p.url()).pathname)})().catch(async e=>{console.error(e.stack||e);await status('failure',String(e.message||e));process.exit(1)});
+          NODE
