@@ -69,15 +69,16 @@ jobs:
                 const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');
                 if(cf?.status==='completed'){
                   if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);
+                  const productionProof=ref==='refs/heads/release/public-go-live-v1.1'||ref==='refs/heads/hotfix/admin-interactivity-production-prepaint-target-20260822';
                   let u='';
-                  if(ref==='refs/heads/release/public-go-live-v1.1')u='https://ronaoil.com';
+                  if(productionProof)u='https://ronaoil.com';
                   else{
                     const text=String(cf.output?.summary||'')+' '+String(cf.output?.text||'')+' '+String(cf.details_url||'');
                     const urls=[...text.matchAll(/https:\/\/[a-z0-9.-]+\.pages\.dev/ig)].map(x=>x[0]);
                     u=urls.find(x=>!/rona-trade-public\.pages\.dev$/i.test(x))||urls[0]||'';
                   }
                   if(!u)throw new Error('Deployment URL not found');
-                  await sleep(ref==='refs/heads/release/public-go-live-v1.1'?6000:3000);
+                  await sleep(productionProof?6000:3000);
                   fs.appendFileSync(process.env.GITHUB_OUTPUT,`origin=${u}\n`);
                   return;
                 }
