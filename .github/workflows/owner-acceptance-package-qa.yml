@@ -5,6 +5,7 @@ on:
     branches:
       - 'feature/admin-portal-owner-acceptance-*'
       - 'feature/portal-visual-redesign-*'
+      - 'hotfix/admin-interactivity-*'
       - 'release/public-go-live-v1.1'
   pull_request:
     branches:
@@ -22,7 +23,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify canonical integrity and owner acceptance sources
+      - name: Verify canonical integrity and primary portal UI sources
         shell: bash
         run: |
           set -euo pipefail
@@ -35,12 +36,22 @@ jobs:
           node --check functions/portal/admin.js
           node --check functions/portal/client.js
           node --check functions/portal/agent.js
+          node --check functions/portal/main-ui.js
           node --check functions/portal/owner-api.js
           node --check 'functions/portal/owner-acceptance-api/[[path]].js'
           node --check functions/portal/owner-acceptance-ui.js
           for f in functions/portal/owner-ui-chunks/*.js; do node --check "$f"; done
           cp supabase/functions/rona-owner-acceptance/index.ts /tmp/rona-owner-acceptance.js
           node --check /tmp/rona-owner-acceptance.js
+          for f in functions/portal/admin.js functions/portal/client.js functions/portal/agent.js; do
+            grep -q 'rona-main-ui-loader' "$f"
+            grep -q 'src="/portal/main-ui"' "$f"
+            grep -q 'rona-ui-primary' "$f"
+            ! grep -q 'rona-owner-acceptance-ui-loader' "$f"
+          done
+          grep -q "export { onRequest } from './main-ui.js'" functions/portal/owner-acceptance-ui.js
+          grep -q '__RONA_MAIN_UI_ENTRY__' functions/portal/main-ui.js
+          grep -q '__RONA_MAIN_UI_RUNTIME_LOADED__' functions/portal/main-ui.js
           node --input-type=module <<'NODE'
           import c0 from './functions/portal/owner-ui-chunks/chunk0.js';
           import c1 from './functions/portal/owner-ui-chunks/chunk1.js';
@@ -52,32 +63,40 @@ jobs:
           import c7 from './functions/portal/owner-ui-chunks/chunk7.js';
           import c8 from './functions/portal/owner-ui-chunks/chunk8.js';
           import c9 from './functions/portal/owner-ui-chunks/chunk9.js';
+          import c10 from './functions/portal/owner-ui-chunks/chunk10.js';
+          import c11 from './functions/portal/owner-ui-chunks/chunk11.js';
+          import c12 from './functions/portal/owner-ui-chunks/chunk12.js';
+          import c13 from './functions/portal/owner-ui-chunks/chunk13.js';
+          import c14 from './functions/portal/owner-ui-chunks/chunk14.js';
+          import c15 from './functions/portal/owner-ui-chunks/chunk15.js';
           import {writeFileSync} from 'node:fs';
-          writeFileSync('/tmp/owner-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6,c7,c8,c9].join(''));
+          writeFileSync('/tmp/main-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15].join(''));
           NODE
-          node --check /tmp/owner-ui-runtime.js
-          grep -q "const API='/portal/owner-api'" /tmp/owner-ui-runtime.js
-          grep -q 'searchParams.get' functions/portal/owner-api.js
-          grep -q 'Системный контроль обменов' /tmp/owner-ui-runtime.js
-          grep -q 'Управлять публикацией' /tmp/owner-ui-runtime.js
-          grep -q 'Поставщик одобрил' /tmp/owner-ui-runtime.js
-          grep -q 'Прикрепить допсоглашение' /tmp/owner-ui-runtime.js
-          grep -q 'Отправить в платежи' /tmp/owner-ui-runtime.js
-          grep -q 'Платежи и взаиморасчёты' /tmp/owner-ui-runtime.js
-          grep -q "card('Касса')" /tmp/owner-ui-runtime.js
-          grep -q "card('Онлайн ЖД'" /tmp/owner-ui-runtime.js
-          grep -q "card('Радиорубка')" /tmp/owner-ui-runtime.js
-          grep -q "card('Аналитика')" /tmp/owner-ui-runtime.js
-          grep -q 'Новости топливного рынка СНГ' /tmp/owner-ui-runtime.js
-          grep -q 'Закрепленный агент' /tmp/owner-ui-runtime.js
-          grep -q 'Скачать контракт' /tmp/owner-ui-runtime.js
-          grep -q 'Скачать PDF прайс-лист' /tmp/owner-ui-runtime.js
-          grep -q 'rona-visual-v2' /tmp/owner-ui-runtime.js
-          grep -q 'Клиенты и агенты' /tmp/owner-ui-runtime.js
-          grep -q 'RONA TRADE · OPERATIONS' /tmp/owner-ui-runtime.js
-          grep -q 'Назначение агента' /tmp/owner-ui-runtime.js
-          grep -q 'rv-tech-hidden' /tmp/owner-ui-runtime.js
-          grep -q 'официальные источники' /tmp/owner-ui-runtime.js
+          node --check /tmp/main-ui-runtime.js
+          grep -q "const API='/portal/owner-api'" /tmp/main-ui-runtime.js
+          grep -q 'Системный контроль обменов' /tmp/main-ui-runtime.js
+          grep -q 'Управлять публикацией' /tmp/main-ui-runtime.js
+          grep -q 'Поставщик одобрил' /tmp/main-ui-runtime.js
+          grep -q 'Прикрепить допсоглашение' /tmp/main-ui-runtime.js
+          grep -q 'Отправить в платежи' /tmp/main-ui-runtime.js
+          grep -q 'Платежи и взаиморасчёты' /tmp/main-ui-runtime.js
+          grep -q "card('Касса')" /tmp/main-ui-runtime.js
+          grep -q "card('Онлайн ЖД'" /tmp/main-ui-runtime.js
+          grep -q "card('Радиорубка')" /tmp/main-ui-runtime.js
+          grep -q "card('Аналитика')" /tmp/main-ui-runtime.js
+          grep -q 'Новости топливного рынка СНГ' /tmp/main-ui-runtime.js
+          grep -q 'Закрепленный агент' /tmp/main-ui-runtime.js
+          grep -q 'Скачать контракт' /tmp/main-ui-runtime.js
+          grep -q 'Скачать PDF прайс-лист' /tmp/main-ui-runtime.js
+          grep -q 'rona-visual-v2' /tmp/main-ui-runtime.js
+          grep -q 'Клиенты и агенты' /tmp/main-ui-runtime.js
+          grep -q 'RONA TRADE · OPERATIONS' /tmp/main-ui-runtime.js
+          grep -q 'Назначение агента' /tmp/main-ui-runtime.js
+          grep -q 'rv-tech-hidden' /tmp/main-ui-runtime.js
+          grep -q 'официальные источники' /tmp/main-ui-runtime.js
+          grep -q 'rona-owner-attention-badge' /tmp/main-ui-runtime.js
+          grep -q 'data-page="documents"' /tmp/main-ui-runtime.js
+          grep -q '__RONA_OWNER_FIRST_PAINT_READY__' /tmp/main-ui-runtime.js
           grep -q 'owner_price_snapshots' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_application_workflow' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_deal_documents' supabase/functions/rona-owner-acceptance/index.ts
@@ -91,6 +110,7 @@ jobs:
           test ! -e supabase/migrations/20260821232000_owner_acceptance_business_workflow.sql
           test ! -e supabase/migrations/20260821234500_owner_acceptance_business_views.sql
           test ! -e supabase/migrations/20260822013000_owner_acceptance_price_publication_flags.sql
+          echo 'PRIMARY_PORTAL_UI_SOURCE_GATE=PASS'
       - name: Verify deployed owner acceptance edge rejects unauthenticated access
         shell: bash
         run: |
