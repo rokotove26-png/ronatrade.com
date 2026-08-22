@@ -30,20 +30,35 @@ jobs:
           async function post(state,description,target_url){await j(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({state,context:'rona/target-production-gate',description:String(description).slice(0,140),target_url})})}
           (async()=>{
             await post('pending',`${sha.slice(0,7)} waiting for current production gate`,`https://github.com/${repo}/commit/${sha}`);
+            let lastFailure=null,lastFailureId=null;
             for(let i=0;i<660;i++){
               const x=await j(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`);
-              const c=(x.check_runs||[]).find(v=>v.name==='final-production-activation-v2');
+              const runs=(x.check_runs||[])
+                .filter(v=>v.name==='final-production-activation-v2')
+                .sort((a,b)=>(Number(b.id)||0)-(Number(a.id)||0));
+              const c=runs[0];
               if(c){
                 const target=c.details_url||c.html_url||`https://github.com/${repo}/commit/${sha}`;
-                if(c.status==='completed'){
-                  const state=c.conclusion==='success'?'success':'failure';
-                  await post(state,`${sha.slice(0,7)} ${c.status}/${c.conclusion||'none'}`,target);
+                if(c.status==='completed'&&c.conclusion==='success'){
+                  await post('success',`${sha.slice(0,7)} completed/success`,target);
                   console.log(JSON.stringify({id:c.id,status:c.status,conclusion:c.conclusion,target}));
-                  if(state!=='success')process.exit(1);
                   return;
+                }
+                if(c.status==='completed'&&c.conclusion!=='success'){
+                  lastFailure={...c,target};
+                  if(lastFailureId!==c.id){
+                    lastFailureId=c.id;
+                    await post('pending',`${sha.slice(0,7)} ${c.conclusion||'failed'}; waiting for rerun`,target);
+                    console.log(JSON.stringify({id:c.id,status:c.status,conclusion:c.conclusion,target,decision:'WAIT_FOR_RERUN'}));
+                  }
                 }
               }
               await sleep(3000);
+            }
+            if(lastFailure){
+              await post('failure',`${sha.slice(0,7)} completed/${lastFailure.conclusion||'failure'} after rerun window`,lastFailure.target);
+              console.error(JSON.stringify({id:lastFailure.id,status:lastFailure.status,conclusion:lastFailure.conclusion,target:lastFailure.target,decision:'FINAL_FAILURE'}));
+              process.exit(1);
             }
             throw new Error('current production gate timeout');
           })().catch(async e=>{try{await post('error',String(e.message||e),`https://github.com/${repo}/commit/${sha}`)}catch(_e){}console.error(e.stack||e);process.exit(1)});
