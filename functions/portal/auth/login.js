@@ -24,7 +24,17 @@ function tokenCookies(tokens){const expires=Math.min(Math.max(Number(tokens?.exp
 function response(body,status,contentType,cookies=[],location=''){const h=headers({'content-type':contentType});if(location)h.set('location',location);for(const c of cookies)h.append('set-cookie',c);return new Response(body,{status,headers:h});}
 function json(body,status=200,cookies=[]){return response(JSON.stringify(body),status,'application/json; charset=utf-8',cookies);}
 function redirect(location,cookies=[]){return response(null,303,'text/plain; charset=utf-8',cookies,location);}
-function sameOrigin(request){const u=new URL(request.url);const o=request.headers.get('origin');if(o)return o===u.origin;const r=request.headers.get('referer');if(!r)return false;try{return new URL(r).origin===u.origin}catch{return false}}
+function sameOrigin(request){
+ const u=new URL(request.url),o=request.headers.get('origin');
+ if(o&&o!=='null')return o===u.origin;
+ if(o==='null'){
+  const site=String(request.headers.get('sec-fetch-site')||'').toLowerCase();
+  const mode=String(request.headers.get('sec-fetch-mode')||'').toLowerCase();
+  const dest=String(request.headers.get('sec-fetch-dest')||'').toLowerCase();
+  if(site==='same-origin'&&mode==='navigate'&&(dest==='document'||dest===''))return true;
+ }
+ const r=request.headers.get('referer');if(!r)return false;try{return new URL(r).origin===u.origin}catch{return false}
+}
 function canonicalPath(path){if(path==='/portal/admin.html')return'/portal/admin';if(path==='/portal/agent.html')return'/portal/agent';if(path==='/portal/client.html')return'/portal/client';return path;}
 function parseLocalNext(value){if(!value)return null;try{const u=new URL(value,'https://local.invalid');if(u.origin!=='https://local.invalid')return null;const path=canonicalPath(u.pathname);return ['/portal/admin','/portal/staff','/portal/agent','/portal/client','/portal/select'].includes(path)?path:null}catch{return null}}
 function targets(roles){const out=[];if(roles.includes('ADMIN'))out.push('/portal/admin');if(roles.includes('RONA_OPERATOR'))out.push('/portal/staff');if(roles.includes('AGENT'))out.push('/portal/agent');if(roles.includes('CLIENT'))out.push('/portal/client');return out;}
