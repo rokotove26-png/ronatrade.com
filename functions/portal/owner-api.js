@@ -5,6 +5,8 @@ const AI_SYNC_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-ai-sync`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
+const EXTERNAL_DEAL_DOCUMENT_KINDS=new Set(['ADDENDUM','SIGNED_ADDENDUM','INVOICE']);
+const AGENT_AMOUNT_VISIBLE_STAGES=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);
 function parseCookies(header){const out={};for(const item of String(header||'').split(';')){const i=item.indexOf('=');if(i<1)continue;const k=item.slice(0,i).trim(),v=item.slice(i+1).trim();if(k)out[k]=v}return out}
 function accessCookie(token,maxAge=3600){return `${ACCESS_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
 function refreshCookie(token,maxAge=604800){return `${REFRESH_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
@@ -17,20 +19,18 @@ async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/au
 function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf','/admin/ai-sync','/agent/ai-sync'].includes(path)}
 function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function failClosedClientMarket(path,response){
-  if(path!=='/client/bootstrap'||!response.ok)return response;
-  const ct=String(response.headers.get('content-type')||'');
-  if(!ct.includes('application/json'))return response;
-  const payload=await response.json().catch(()=>null);
-  if(!payload||typeof payload!=='object')return new Response(JSON.stringify({ok:false,code:'CLIENT_BOOTSTRAP_INVALID'}),{status:502,headers:{'content-type':'application/json; charset=utf-8'}});
-  if(payload.data&&typeof payload.data==='object'){
-    payload.data.analytics=[];
-    payload.data.news=[];
-    payload.data.marketPublicationGate={status:'FAIL_CLOSED',reason:'ONLY_PUBLISHED_DISTRIBUTION_ALLOWED'};
-  }
-  const h=new Headers(response.headers);h.set('content-type','application/json; charset=utf-8');
-  return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers:h});
-}
+function safePrice(p){return{id:p?.id??null,product:p?.product??null,producer:p?.producer??null,basis:p?.basis??null,final_station:p?.final_station??null,sale_price:p?.sale_price??null,currency:p?.currency??null,payment_terms:p?.payment_terms??null,commercial_terms:p?.commercial_terms??null,agreed_at:p?.agreed_at??null}}
+function safeClientCompany(c){return{client_id:c?.client_id??null,legal_name:c?.legal_name??null,contract_id:c?.contract_id??null,current_external_contract_number:c?.current_external_contract_number??null,contract_document_id:c?.contract_document_id??null,contract_filename:c?.contract_filename??null,verification_status:c?.current_external_contract_number?'CONFIRMED_CURRENT':'TO_VERIFY'}}
+function safeAgentCompany(c){return{client_id:c?.client_id??null,legal_name:c?.legal_name??null,agent_person_id:c?.agent_person_id??null,agent_legal_name:c?.agent_legal_name??null}}
+function safeApplication(a,agent=false){const base={application_id:a?.application_id??null,product:a?.product??null,quantity_tonnes:a?.quantity_tonnes??null,status:a?.status??null,deal_id:a?.deal_id??null};if(agent)return{...base,client_id:a?.client_id??null,legal_name:a?.legal_name??null};return{...base,proposed_price:a?.proposed_price??null,proposed_currency:a?.proposed_currency??null,owner_status:a?.owner_status??null,counter_price:a?.counter_price??null,counter_currency:a?.counter_currency??null,client_counter_response:a?.client_counter_response??null}}
+function safeDeal(d){return{deal_id:d?.deal_id??null,business_status:d?.business_status??null,legal_name:d?.legal_name??null,contract_id:d?.contract_id??null,payment_handoff_state:d?.payment_handoff_state??null}}
+function safeDocument(d,agent=false){const kind=String(d?.document_kind??'').toUpperCase();if(!EXTERNAL_DEAL_DOCUMENT_KINDS.has(kind))return null;const out={deal_id:d?.deal_id??null,document_id:d?.document_id??null,authoritative_filename:d?.authoritative_filename??null,document_kind:kind};if(!agent)out.checked_by_admin=!!d?.checked_by_admin;else out.client_id=d?.client_id??null;return out}
+function safeRadio(r){return{id:r?.id??null,item_kind:r?.item_kind??null,target_scope:r?.target_scope??null,target_id:r?.target_id??null,body_text:r?.body_text??null,active_from:r?.active_from??null,active_until:r?.active_until??null}}
+function normalizeShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
+function sanitizeClientBootstrap(data){return{companies:Array.isArray(data?.companies)?data.companies.map(safeClientCompany):[],prices:Array.isArray(data?.prices)?data.prices.map(safePrice):[],applications:Array.isArray(data?.applications)?data.applications.map(x=>safeApplication(x,false)):[],deals:Array.isArray(data?.deals)?data.deals.map(safeDeal):[],documents:Array.isArray(data?.documents)?data.documents.map(x=>safeDocument(x,false)).filter(Boolean):[],analytics:[],news:[],radio:Array.isArray(data?.radio)?data.radio.map(safeRadio):[],marketPublicationGate:{status:'FAIL_CLOSED',reason:'ONLY_PUBLISHED_DISTRIBUTION_ALLOWED'}}}
+function sanitizeAgentBootstrap(data){return{companies:Array.isArray(data?.companies)?data.companies.map(safeAgentCompany):[],prices:Array.isArray(data?.prices)?data.prices.map(safePrice):[],applications:Array.isArray(data?.applications)?data.applications.map(x=>safeApplication(x,true)):[],documents:Array.isArray(data?.documents)?data.documents.map(x=>safeDocument(x,true)).filter(Boolean):[],radio:Array.isArray(data?.radio)?data.radio.map(safeRadio):[]}}
+function sanitizeAgentAi(data){const raw=data?.displayPolicy||null,share=normalizeShare(raw?.positiveActualFxVisibleShare);const displayPolicy=raw&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:raw?.appliesTo??'ACTUAL_CONFIRMED_POSITIVE_FX_ONLY',status:raw?.status??null,updatedAt:raw?.updatedAt??null,note:'В ЛК Агента учитывается только разрешенная доля подтвержденного фактического положительного курсового эффекта. Прогнозные и неподтвержденные значения не публикуются.'}:null;const settlements=Array.isArray(data?.settlements)?data.settlements.map(s=>{const stage=String(s?.stage??'');const amountVisible=AGENT_AMOUNT_VISIBLE_STAGES.has(stage);return{settlementId:s?.settlementId??null,dealId:s?.dealId??null,clientId:s?.clientId??null,stage,amount:amountVisible?s?.amount??null:null,currency:amountVisible?s?.currency??null:null,paymentObligationConfirmed:!!s?.paymentObligationConfirmed,paymentFactConfirmed:!!s?.paymentFactConfirmed,updatedAt:s?.updatedAt??null}}):[];return{generatedAt:data?.generatedAt??null,displayPolicy,settlements,positiveActualFxEffects:[]}}
+async function sanitizeExternalProjection(path,response){if(!response.ok)return response;const ct=String(response.headers.get('content-type')||'');if(!ct.includes('application/json'))return response;if(!['/client/bootstrap','/agent/bootstrap','/agent/ai-sync'].includes(path))return response;const payload=await response.json().catch(()=>null);if(!payload||typeof payload!=='object')return new Response(JSON.stringify({ok:false,code:'EXTERNAL_PROJECTION_INVALID'}),{status:502,headers:{'content-type':'application/json; charset=utf-8'}});if(payload.data&&typeof payload.data==='object'){if(path==='/client/bootstrap')payload.data=sanitizeClientBootstrap(payload.data);else if(path==='/agent/bootstrap')payload.data=sanitizeAgentBootstrap(payload.data);else payload.data=sanitizeAgentAi(payload.data)}const h=new Headers(response.headers);h.set('content-type','application/json; charset=utf-8');return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers:h})}
 export async function onRequest(context){
   const request=context.request;
   if(!['GET','POST'].includes(request.method))return json({ok:false,code:'METHOD_NOT_ALLOWED'},405);
@@ -43,10 +43,10 @@ export async function onRequest(context){
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
   const body=request.method==='POST'?await request.clone().arrayBuffer():null;
   const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
-  const forwardReadResilient=async token=>{let r;for(let i=0;i<3;i++){r=await forward(token);if(request.method!=='GET'||r.status<500||r.status>=600)return r;if(i<2){await r.arrayBuffer().catch(()=>{});await sleep(250*(i+1))}}return r};
+  const forwardReadResilient=async token=>{let r=await forward(token);if(request.method==='GET'&&[502,503,504].includes(r.status)){await r.arrayBuffer().catch(()=>{});await sleep(500);r=await forward(token)}return r};
   let response=await forwardReadResilient(access);
   if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forwardReadResilient(access)}}
-  response=await failClosedClientMarket(path,response);
+  response=await sanitizeExternalProjection(path,response);
   const outHeaders=headers(response.headers);for(const c of setCookies)outHeaders.append('set-cookie',c);if(response.status===401&&!setCookies.length){for(const c of clearCookies())outHeaders.append('set-cookie',c)}
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:outHeaders});
 }
