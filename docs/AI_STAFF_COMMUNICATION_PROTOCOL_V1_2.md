@@ -2,7 +2,7 @@
 
 Status: production baseline
 Protocol ID: `AI_STAFF_COMMUNICATION_PROTOCOL_V1_2`
-Runtime worker: `rona-ai-coordination-runtime` / `1.2.0`
+Runtime worker: DB-native `1.2.2`
 
 ## 1. Purpose
 
@@ -33,80 +33,80 @@ This protocol governs communication between RONA Trade AI employees, human emplo
 ## 4. Role gates
 
 ### Finance
-
 - Bank/payment facts require authoritative payment evidence.
 - `PAID != Accounting CLOSED`.
 - A Legal or Operations handoff cannot manufacture payment/accounting closure.
 
 ### Legal
-
 - Preserve canonical IDs and history.
 - Never auto-promote a legacy reference over the current authoritative record.
 - Exact signed document bytes/hash/storage provenance must be verified where document authority depends on the asset.
 
 ### Market Analyst
-
 - FACT, CALCULATION and FORECAST remain distinct.
 - `INTERNAL` remains internal until value-level provenance, as-of data and explicit release authority are present.
 
 ### Rail Logistics
-
 - Document/readiness evidence is not a physical movement fact.
 - Shipment/movement requires a trusted operational source.
 - Missing/disabled tracking is a blocker, not permission to synthesize movement.
 
 ### Operations Director
-
 - Coordinates handoffs, SLA and internal decisions.
 - Preserves domain holds/gates and cannot substitute another role's authority.
 
 ### System Admin
-
 - IAM/binding is fail-closed.
 - Contact email does not create a Portal User or company binding.
 - Current connector surface is read-only. Writeback must use a separate authorized admin workflow until a System Admin Pilot connector is provisioned.
 
 ## 5. Runtime semantics
 
-The V1.2 runtime is a persisted, event-driven delivery layer:
+The production V1.2 runtime is persisted and event-driven. Since V1.2.2 the dispatcher is **DB-native** and does not open direct Postgres sessions from an Edge worker.
 
 - `staff_tasks` and `ai_coordination_records` enqueue work automatically.
 - Queue items are deduplicated by source/type/target role.
-- DB trigger wakes the runtime immediately; `pg_cron` also dispatches every minute.
+- An `AFTER INSERT ... FOR EACH STATEMENT` trigger immediately invokes DB-native dispatch; bulk inserts cause one wake per statement, not one Edge invocation per row.
+- `pg_cron` also dispatches every minute.
 - Operations heartbeat runs every 15 minutes.
 - SLA watchdog runs every minute.
 - SLA targets: CRITICAL immediate, HIGH 5 min, NORMAL 15 min, LOW 60 min.
-- Queue claims use leases and `FOR UPDATE SKIP LOCKED`.
+- Claims use row locks and `FOR UPDATE SKIP LOCKED`.
 - Runtime runs are append-only audit records.
 - QA items are excluded from production execution.
 - A linked coordination response or terminal staff-task status settles the queue item.
+- The former `rona-ai-coordination-runtime` direct-DB Edge worker is retired and returns HTTP 410; it is not part of the active dispatch path.
 
 Queue states: `QUEUED`, `CLAIMED`, `DELIVERED`, `PROCESSED`, `BLOCKED`, `DEAD_LETTER`.
 
 ## 6. Execution boundary
 
-The deployed runtime proves persistence, routing, identity/connector availability, delivery visibility, SLA/watchdog and audited settlement. It deliberately does **not** claim that an autonomous server-side LLM executor exists.
+The deployed runtime proves persistence, routing, immediate wakeup, fixed-role identity/connector availability, delivery visibility, SLA/watchdog and audited settlement. It deliberately does **not** claim that an autonomous server-side LLM executor exists.
 
-Current execution mode: `PERSISTED_EVENT_DRIVEN_MCP_PULL`.
+Current execution mode: `PERSISTED_EVENT_DRIVEN_DB_NATIVE_MCP_PULL`.
 
-At deployment time no approved server-side model executor credential/runtime was available in the controlled Supabase environment, therefore `model_execution_state` is fail-closed as `BLOCKED`. Role ChatGPT sessions can consume the delivered work through their MCP contours; a future autonomous executor must be separately provisioned and authorized before changing this state.
+No approved server-side model executor credential/runtime is currently provisioned in the controlled environment, therefore `model_execution_state` remains fail-closed as `BLOCKED`. Role ChatGPT sessions consume delivered work through their MCP contours. A future autonomous executor must be separately provisioned and authorized before changing this state.
 
-## 7. Security
+## 7. Security and backpressure
 
-- Runtime HTTP endpoint uses a dedicated private high-entropy runtime key stored in a private DB table with public/anon/authenticated access revoked.
-- Runtime response is `no-store`; no secrets are returned by status.
-- Role capability checks require ACTIVE AI identity plus enabled role connector.
-- System Admin read-only asymmetry is represented explicitly and must not be hidden.
+- Active dispatch does not require a public HTTP endpoint or a direct Edge-to-Postgres pool.
+- Bulk queue inserts wake once per SQL statement, preventing per-row runtime fan-out.
+- Role capability checks require an ACTIVE AI identity plus the enabled fixed-role read connector.
+- Bidirectional delivery is only represented where a Pilot connector exists.
+- System Admin read-only asymmetry is explicit and must not be hidden.
+- Runtime audit tables remain private and append-only where applicable.
 
 ## 8. Deployment controls
 
 Expected production controls:
 
-- Edge Function: `rona-ai-coordination-runtime`
-- Worker version: `1.2.0`
+- DB dispatcher: `portal_private.ai_runtime_dispatch_db()`
+- Worker version: `1.2.2`
 - Protocol: `AI_STAFF_COMMUNICATION_PROTOCOL_V1_2`
+- Trigger: `trg_ai_runtime_queue_wake` — `AFTER INSERT ... FOR EACH STATEMENT`
 - Cron: `rona-ai-runtime-dispatch` every minute
 - Cron: `rona-ai-runtime-heartbeat` every 15 minutes
 - Cron: `rona-ai-runtime-watchdog` every minute
+- Legacy Edge endpoint: `rona-ai-coordination-runtime` retired / HTTP 410
 
 Any future change to role authority, SLA, autonomous execution or System Admin write capability requires a new protocol/runtime version and an auditable migration.
