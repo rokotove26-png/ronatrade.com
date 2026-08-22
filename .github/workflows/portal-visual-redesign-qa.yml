@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - 'feature/portal-visual-redesign-*'
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
 
 permissions:
   actions: read
@@ -63,11 +66,12 @@ jobs:
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
+          VISUAL_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
-          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,token=process.env.GH_TOKEN;
+          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.VISUAL_HEAD_SHA,token=process.env.GH_TOKEN;
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{
             for(let i=0;i<180;i++){
@@ -96,13 +100,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
+          VISUAL_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          VISUAL_HEAD_REF: ${{ github.head_ref || github.ref }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           const {chromium}=require('playwright');
           const fs=require('fs');
-          const origin=process.env.TARGET_ORIGIN,repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||'1',gh=process.env.GH_TOKEN;
+          const rawRef=process.env.VISUAL_HEAD_REF||'',headRef=rawRef.startsWith('refs/')?rawRef:`refs/heads/${rawRef}`;
+          const origin=process.env.TARGET_ORIGIN,repo=process.env.GITHUB_REPOSITORY,sha=process.env.VISUAL_HEAD_SHA,ref=headRef,runId=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||'1',gh=process.env.GH_TOKEN;
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           fs.mkdirSync('/tmp/visual-qa',{recursive:true});
@@ -143,7 +150,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: portal-visual-redesign-preview
+          name: portal-visual-redesign-preview-${{ github.run_id }}
           path: /tmp/visual-qa
           if-no-files-found: ignore
           retention-days: 7
