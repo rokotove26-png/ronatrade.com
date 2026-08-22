@@ -1,0 +1,95 @@
+name: Owner UI prepaint gate QA
+
+on:
+  push:
+    branches:
+      - 'hotfix/admin-interactivity-*'
+      - 'feature/portal-visual-redesign-*'
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+jobs:
+  prepaint-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify prepaint source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          node --check functions/portal/admin.js
+          node --check functions/portal/client.js
+          node --check functions/portal/agent.js
+          node --check functions/portal/owner-acceptance-ui.js
+          node --check functions/portal/owner-ui-chunks/chunk15.js
+          for f in functions/portal/admin.js functions/portal/client.js functions/portal/agent.js; do
+            grep -q 'rona-owner-prepaint-gate' "$f"
+            grep -q 'rona-owner-paint-ready' "$f"
+          done
+          grep -q "owner-ui-chunks/chunk15.js" functions/portal/owner-acceptance-ui.js
+          grep -q '__RONA_OWNER_FIRST_PAINT_READY__' functions/portal/owner-ui-chunks/chunk15.js
+      - name: Install browser runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+      - name: Resolve Cloudflare preview
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            for(let i=0;i<180;i++){
+              const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-PREPAINT-QA'}});
+              if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);const text=String(cf.output?.summary||'')+' '+String(cf.output?.text||'')+' '+String(cf.details_url||'');const urls=[...text.matchAll(/https:\/\/[a-z0-9.-]+\.pages\.dev/ig)].map(x=>x[0]);const u=urls.find(x=>!/rona-trade-public\.pages\.dev$/i.test(x))||urls[0];if(!u)throw new Error('Preview URL not found');fs.appendFileSync(process.env.GITHUB_OUTPUT,`origin=${u}\n`);return}}await sleep(3000)}throw new Error('Cloudflare deployment timeout')
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+      - name: Prove legacy Admin never paints before redesigned UI
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const origin=process.env.TARGET_ORIGIN,repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          async function broker(){for(let i=0;i<8;i++){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json().catch(()=>({}));if(r.ok&&j.ok&&j.session?.access_token&&j.session?.refresh_token)return j.session;await sleep(1200*(i+1))}throw new Error('controlled session unavailable')}
+          (async()=>{
+            const session=await broker(),hostname=new URL(origin).hostname,browser=await chromium.launch({headless:true,channel:'chrome'}),ctx=await browser.newContext({viewport:{width:1920,height:1080}});
+            await ctx.addCookies([{name:'rona_portal_at',value:session.access_token,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:session.refresh_token,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
+            const page=await ctx.newPage();let releaseRuntime;const hold=new Promise(r=>releaseRuntime=r);let runtimeRequested=false;
+            await page.route('**/portal/owner-acceptance-ui',async route=>{runtimeRequested=true;await hold;await route.continue()});
+            await page.goto(origin+'/portal/admin?_prepaint='+Date.now(),{waitUntil:'commit',timeout:45000});
+            await page.waitForSelector('body',{state:'attached',timeout:15000});
+            await page.waitForSelector('.app',{state:'attached',timeout:15000});
+            for(let i=0;i<100&&!runtimeRequested;i++)await page.waitForTimeout(25);
+            assert(runtimeRequested,'owner runtime was not requested');
+            const before=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{gate:!!document.getElementById('rona-owner-prepaint-gate'),ready:document.documentElement.classList.contains('rona-owner-paint-ready'),opacity:cs.opacity,visibility:cs.visibility,pointerEvents:cs.pointerEvents}});
+            assert(before.gate,'prepaint style missing');assert(before.ready===false,'paint released before redesigned runtime');assert(before.opacity==='0'&&before.visibility==='hidden'&&before.pointerEvents==='none','legacy content can paint '+JSON.stringify(before));
+            releaseRuntime();
+            await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:45000});
+            await page.waitForFunction(()=>document.documentElement.classList.contains('rona-owner-paint-ready')&&window.__RONA_OWNER_FIRST_PAINT_READY__===true,{timeout:5000});
+            const after=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{paint:document.documentElement.dataset.ronaOwnerPaint,opacity:cs.opacity,visibility:cs.visibility,owner:window.__RONA_OWNER_ADMIN_READY__===true}});
+            assert(after.owner&&after.paint==='ready','redesigned UI did not own first visible paint '+JSON.stringify(after));assert(after.opacity!=='0'&&after.visibility!=='hidden','final UI remains hidden '+JSON.stringify(after));
+            console.log('OWNER_PREPAINT_GATE=PASS '+JSON.stringify({origin,before,after}));
+            await ctx.close();await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
