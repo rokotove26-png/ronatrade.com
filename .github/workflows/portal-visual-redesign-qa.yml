@@ -4,14 +4,12 @@ on:
   push:
     branches:
       - 'feature/portal-visual-redesign-*'
-  pull_request:
-    branches:
-      - 'release/public-go-live-v1.1'
 
 permissions:
   actions: read
   checks: read
   contents: read
+  statuses: write
 
 jobs:
   visual-preview-qa:
@@ -66,12 +64,11 @@ jobs:
         id: target
         env:
           GH_TOKEN: ${{ github.token }}
-          VISUAL_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
-          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.VISUAL_HEAD_SHA,token=process.env.GH_TOKEN;
+          const fs=require('fs'),repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,token=process.env.GH_TOKEN;
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           (async()=>{
             for(let i=0;i<180;i++){
@@ -100,16 +97,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
-          VISUAL_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          VISUAL_HEAD_REF: ${{ github.head_ref || github.ref }}
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           const {chromium}=require('playwright');
           const fs=require('fs');
-          const rawRef=process.env.VISUAL_HEAD_REF||'',headRef=rawRef.startsWith('refs/')?rawRef:`refs/heads/${rawRef}`;
-          const origin=process.env.TARGET_ORIGIN,repo=process.env.GITHUB_REPOSITORY,sha=process.env.VISUAL_HEAD_SHA,ref=headRef,runId=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||'1',gh=process.env.GH_TOKEN;
+          const origin=process.env.TARGET_ORIGIN,repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,attempt=process.env.GITHUB_RUN_ATTEMPT||'1',gh=process.env.GH_TOKEN;
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           fs.mkdirSync('/tmp/visual-qa',{recursive:true});
@@ -165,3 +159,18 @@ jobs:
           echo '- Admin: ${{ steps.target.outputs.origin }}/portal/admin' >> "$GITHUB_STEP_SUMMARY"
           echo '- Client: ${{ steps.target.outputs.origin }}/portal/client' >> "$GITHUB_STEP_SUMMARY"
           echo '- Agent: ${{ steps.target.outputs.origin }}/portal/agent' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish visual QA commit status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          node <<'NODE'
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,token=process.env.GH_TOKEN,status=process.env.JOB_STATUS;
+          const state=status==='success'?'success':'failure';
+          const target=state==='success'&&process.env.TARGET_ORIGIN?process.env.TARGET_ORIGIN+'/portal/admin':`https://github.com/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+          fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{authorization:`Bearer ${token}`,accept:'application/vnd.github+json','content-type':'application/json','x-github-api-version':'2022-11-28','user-agent':'RONA-VISUAL-QA'},body:JSON.stringify({state,context:'portal-visual-redesign-preview',description:state==='success'?'Visual QA PASS':'Visual QA FAIL',target_url:target})}).then(async r=>{if(!r.ok)throw new Error(await r.text());console.log('VISUAL_STATUS='+state)}).catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
