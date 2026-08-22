@@ -34,6 +34,7 @@ jobs:
           node --check functions/portal/admin.js
           node --check functions/portal/client.js
           node --check functions/portal/agent.js
+          node --check functions/portal/owner-api.js
           node --check 'functions/portal/owner-acceptance-api/[[path]].js'
           node --check functions/portal/owner-acceptance-ui.js
           for f in functions/portal/owner-ui-chunks/*.js; do node --check "$f"; done
@@ -51,6 +52,8 @@ jobs:
           writeFileSync('/tmp/owner-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6].join(''));
           NODE
           node --check /tmp/owner-ui-runtime.js
+          grep -q "const API='/portal/owner-api'" /tmp/owner-ui-runtime.js
+          grep -q 'searchParams.get' functions/portal/owner-api.js
           grep -q 'Системный контроль обменов' /tmp/owner-ui-runtime.js
           grep -q 'Управлять публикацией' /tmp/owner-ui-runtime.js
           grep -q 'Поставщик одобрил' /tmp/owner-ui-runtime.js
@@ -72,6 +75,12 @@ jobs:
           grep -q 'owner_radio_items' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'price-list.pdf' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'createSignedUrl' supabase/functions/rona-owner-acceptance/index.ts
+          test -f supabase/migrations/20260821210358_owner_acceptance_business_workflow.sql
+          test -f supabase/migrations/20260821210410_owner_acceptance_business_views.sql
+          test -f supabase/migrations/20260821222948_owner_acceptance_price_publication_flags.sql
+          test ! -e supabase/migrations/20260821232000_owner_acceptance_business_workflow.sql
+          test ! -e supabase/migrations/20260821234500_owner_acceptance_business_views.sql
+          test ! -e supabase/migrations/20260822013000_owner_acceptance_price_publication_flags.sql
       - name: Verify deployed owner acceptance edge rejects unauthenticated access
         shell: bash
         run: |
