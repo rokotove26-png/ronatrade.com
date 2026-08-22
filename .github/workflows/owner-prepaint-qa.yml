@@ -73,6 +73,7 @@ jobs:
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           const assert=(x,m)=>{if(!x)throw new Error(m)};
           async function broker(){for(let i=0;i<8;i++){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json().catch(()=>({}));if(r.ok&&j.ok&&j.session?.access_token&&j.session?.refresh_token)return j.session;await sleep(1200*(i+1))}throw new Error('controlled session unavailable')}
+          async function poll(page,fn,tries,label){for(let i=0;i<tries;i++){if(await page.evaluate(fn))return;await page.waitForTimeout(100)}throw new Error(label+' timeout')}
           (async()=>{
             const session=await broker(),hostname=new URL(origin).hostname,browser=await chromium.launch({headless:true,channel:'chrome'}),ctx=await browser.newContext({viewport:{width:1920,height:1080}});
             await ctx.addCookies([{name:'rona_portal_at',value:session.access_token,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:session.refresh_token,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
@@ -86,8 +87,8 @@ jobs:
             const before=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{gate:!!document.getElementById('rona-owner-prepaint-gate'),ready:document.documentElement.classList.contains('rona-owner-paint-ready'),opacity:cs.opacity,visibility:cs.visibility,pointerEvents:cs.pointerEvents}});
             assert(before.gate,'prepaint style missing');assert(before.ready===false,'paint released before redesigned runtime');assert(before.opacity==='0'&&before.visibility==='hidden'&&before.pointerEvents==='none','legacy content can paint '+JSON.stringify(before));
             releaseRuntime();
-            await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:45000});
-            await page.waitForFunction(()=>document.documentElement.classList.contains('rona-owner-paint-ready')&&window.__RONA_OWNER_FIRST_PAINT_READY__===true,{timeout:5000});
+            await poll(page,()=>window.__RONA_OWNER_ADMIN_READY__===true,450,'owner admin ready');
+            await poll(page,()=>document.documentElement.classList.contains('rona-owner-paint-ready')&&window.__RONA_OWNER_FIRST_PAINT_READY__===true,50,'owner first paint');
             const after=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{paint:document.documentElement.dataset.ronaOwnerPaint,opacity:cs.opacity,visibility:cs.visibility,owner:window.__RONA_OWNER_ADMIN_READY__===true}});
             assert(after.owner&&after.paint==='ready','redesigned UI did not own first visible paint '+JSON.stringify(after));assert(after.opacity!=='0'&&after.visibility!=='hidden','final UI remains hidden '+JSON.stringify(after));
             console.log('OWNER_PREPAINT_GATE=PASS '+JSON.stringify({origin,before,after}));
