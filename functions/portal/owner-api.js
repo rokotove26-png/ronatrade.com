@@ -1,6 +1,7 @@
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance`;
+const AI_SYNC_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-ai-sync`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
@@ -13,8 +14,23 @@ function headers(base=new Headers()){const h=new Headers(base);for(const[k,v]of 
 function json(body,status=200,cookies=[]){const h=headers(new Headers({'content-type':'application/json; charset=utf-8'}));for(const c of cookies)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
 function sameOriginPost(request){const url=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===url.origin;const ref=request.headers.get('referer');if(!ref)return false;try{return new URL(ref).origin===url.origin}catch{return false}}
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
-function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf'].includes(path)}
+function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf','/admin/ai-sync','/agent/ai-sync'].includes(path)}
+function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function failClosedClientMarket(path,response){
+  if(path!=='/client/bootstrap'||!response.ok)return response;
+  const ct=String(response.headers.get('content-type')||'');
+  if(!ct.includes('application/json'))return response;
+  const payload=await response.json().catch(()=>null);
+  if(!payload||typeof payload!=='object')return new Response(JSON.stringify({ok:false,code:'CLIENT_BOOTSTRAP_INVALID'}),{status:502,headers:{'content-type':'application/json; charset=utf-8'}});
+  if(payload.data&&typeof payload.data==='object'){
+    payload.data.analytics=[];
+    payload.data.news=[];
+    payload.data.marketPublicationGate={status:'FAIL_CLOSED',reason:'ONLY_PUBLISHED_DISTRIBUTION_ALLOWED'};
+  }
+  const h=new Headers(response.headers);h.set('content-type','application/json; charset=utf-8');
+  return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers:h});
+}
 export async function onRequest(context){
   const request=context.request;
   if(!['GET','POST'].includes(request.method))return json({ok:false,code:'METHOD_NOT_ALLOWED'},405);
@@ -26,10 +42,11 @@ export async function onRequest(context){
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
   const body=request.method==='POST'?await request.clone().arrayBuffer():null;
-  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(`${UPSTREAM}${path}`,init)};
+  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
   const forwardReadResilient=async token=>{let r;for(let i=0;i<3;i++){r=await forward(token);if(request.method!=='GET'||r.status<500||r.status>=600)return r;if(i<2){await r.arrayBuffer().catch(()=>{});await sleep(250*(i+1))}}return r};
   let response=await forwardReadResilient(access);
   if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forwardReadResilient(access)}}
+  response=await failClosedClientMarket(path,response);
   const outHeaders=headers(response.headers);for(const c of setCookies)outHeaders.append('set-cookie',c);if(response.status===401&&!setCookies.length){for(const c of clearCookies())outHeaders.append('set-cookie',c)}
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:outHeaders});
 }

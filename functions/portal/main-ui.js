@@ -14,10 +14,11 @@ import c12 from './owner-ui-chunks/chunk12.js';
 import c13 from './owner-ui-chunks/chunk13.js';
 import c14 from './owner-ui-chunks/chunk14.js';
 import c15 from './owner-ui-chunks/chunk15.js';
+import c16 from './owner-ui-chunks/chunk16.js';
 
 const SCRIPT=[
   "window.__RONA_MAIN_UI_ENTRY__=true;",
-  c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,
+  c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
   "window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;"
 ].join('');
 
