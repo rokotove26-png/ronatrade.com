@@ -1,9 +1,10 @@
-name: Agent core syntax diagnostic
+name: Agent primary UI runtime diagnostic
 
 on:
   push:
     branches:
       - 'release/public-go-live-v1.1'
+      - 'hotfix/admin-interactivity-*'
 
 permissions:
   actions: read
@@ -14,14 +15,14 @@ permissions:
 jobs:
   diagnose-agent-core:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
       - run: npm install --no-save --ignore-scripts acorn@8
-      - name: Compare frozen and production Agent core
+      - name: Verify frozen Agent substrate and deployed primary runtime
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -29,42 +30,66 @@ jobs:
           node <<'NODE'
           (async()=>{
             const fs=require('fs');
-            const cp=require('child_process');
+            const path=require('path');
+            const {pathToFileURL}=require('url');
             const acorn=require('acorn');
             const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
-            const headers={authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-AGENT-DIAG'};
+            const headers={authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-AGENT-PRIMARY-DIAG'};
+            const sleep=ms=>new Promise(r=>setTimeout(r,ms));
             async function post(context,state,description){const r=await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({state,context,description:String(description).slice(0,140),target_url:`https://github.com/${repo}/actions/runs/${runId}`})});if(!r.ok)throw new Error('status '+r.status+' '+await r.text())}
-            const path='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html';
-            const frozenHtml=fs.readFileSync(path,'utf8');
+
+            const frozenPath='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html';
+            const frozenHtml=fs.readFileSync(frozenPath,'utf8');
             const frozenMatch=frozenHtml.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
             if(!frozenMatch)throw new Error('AGENT_CORE_NOT_FOUND');
             const frozen=frozenMatch[1];
             let frozenErr='';try{acorn.parse(frozen,{ecmaVersion:'latest'})}catch(e){frozenErr=String(e.message||e)}
-            await post('rona/agent-static-syntax',frozenErr?'failure':'success',frozenErr||`static syntax ok bytes=${Buffer.byteLength(frozen)}`);
+            await post('rona/agent-static-syntax',frozenErr?'failure':'success',frozenErr||`frozen Agent substrate syntax ok bytes=${Buffer.byteLength(frozen)}`);
             if(frozenErr)throw new Error('frozen invalid '+frozenErr);
+
+            const mainPath=pathToFileURL(path.join(process.cwd(),'functions/portal/main-ui.js')).href+'?diag='+Date.now();
+            const main=await import(mainPath);
+            const localResponse=await main.onRequest();
+            const localRuntime=await localResponse.text();
+            if(localResponse.headers.get('x-rona-ui')!=='main-v2')throw new Error('LOCAL_PRIMARY_UI_MARKER_MISSING');
+            acorn.parse(localRuntime,{ecmaVersion:'latest'});
+            for(const token of ['__RONA_MAIN_UI_ENTRY__','__RONA_OWNER_AGENT_READY__','__RONA_OWNER_FIRST_PAINT_READY__'])if(!localRuntime.includes(token))throw new Error('LOCAL_PRIMARY_RUNTIME_TOKEN_MISSING '+token);
+
             for(let i=0;i<120;i++){
               const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers});
               if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);break}}
               if(i===119)throw new Error('Cloudflare timeout');
-              await new Promise(r=>setTimeout(r,2000));
+              await sleep(2000);
             }
-            await new Promise(r=>setTimeout(r,3000));
-            const broker=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});
-            const bj=await broker.json().catch(()=>({}));
-            if(!broker.ok||!bj.ok||!bj.session?.access_token||!bj.session?.refresh_token)throw new Error('broker '+JSON.stringify({status:broker.status,code:bj.code,proof:bj.proof||null}));
-            const rr=await fetch(`https://ronaoil.com/portal/agent?_diag=${Date.now()}`,{headers:{cookie:`rona_portal_at=${bj.session.access_token}; rona_portal_rt=${bj.session.refresh_token}`,accept:'text/html'}});
-            const runtimeHtml=await rr.text();
-            if(!rr.ok)throw new Error('agent response '+rr.status+' '+runtimeHtml.slice(0,300));
-            const runtimeMatch=runtimeHtml.match(/<script id="rona-agent-secure-core-v043">([\s\S]*?)<\/script>/);
-            if(!runtimeMatch)throw new Error('runtime core not found');
-            const runtime=runtimeMatch[1];
+            await sleep(3000);
+
+            let bj=null;
+            for(let i=0;i<10;i++){
+              const broker=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});
+              bj=await broker.json().catch(()=>({}));
+              if(broker.ok&&bj.ok&&bj.session?.access_token&&bj.session?.refresh_token)break;
+              if(i===9)throw new Error('broker '+JSON.stringify({status:broker.status,code:bj.code,proof:bj.proof||null}));
+              await sleep(1000*(i+1));
+            }
+            const cookie=`rona_portal_at=${bj.session.access_token}; rona_portal_rt=${bj.session.refresh_token}`;
+            const shell=await fetch(`https://ronaoil.com/portal/agent?_diag=${Date.now()}`,{headers:{cookie,accept:'text/html'}});
+            const runtimeHtml=await shell.text();
+            if(!shell.ok)throw new Error('agent response '+shell.status+' '+runtimeHtml.slice(0,300));
+            if(shell.headers.get('x-rona-ui')!=='main-v2')throw new Error('AGENT_PRIMARY_UI_HEADER_MISSING');
+            if(!runtimeHtml.includes('name="rona-ui-primary" content="main-v2"'))throw new Error('AGENT_PRIMARY_META_MISSING');
+            if(!runtimeHtml.includes('id="rona-main-ui-loader"')||!runtimeHtml.includes('src="/portal/main-ui"'))throw new Error('AGENT_PRIMARY_LOADER_MISSING');
+
+            const runtimeResponse=await fetch('https://ronaoil.com/portal/main-ui',{headers:{cookie,accept:'application/javascript'}});
+            const runtime=await runtimeResponse.text();
+            if(!runtimeResponse.ok)throw new Error('main-ui response '+runtimeResponse.status+' '+runtime.slice(0,240));
+            if(runtimeResponse.headers.get('x-rona-ui')!=='main-v2')throw new Error('DEPLOYED_PRIMARY_UI_MARKER_MISSING');
             let runtimeErr='';try{acorn.parse(runtime,{ecmaVersion:'latest',locations:true})}catch(e){runtimeErr=String(e.message||e)}
-            let diff=-1;const min=Math.min(frozen.length,runtime.length);for(let i=0;i<min;i++){if(frozen.charCodeAt(i)!==runtime.charCodeAt(i)){diff=i;break}}if(diff<0&&frozen.length!==runtime.length)diff=min;
+            let diff=-1;const min=Math.min(localRuntime.length,runtime.length);for(let i=0;i<min;i++){if(localRuntime.charCodeAt(i)!==runtime.charCodeAt(i)){diff=i;break}}if(diff<0&&localRuntime.length!==runtime.length)diff=min;
             const before=runtime.slice(0,diff<0?runtime.length:diff);const line=before.split('\n').length;const col=before.length-before.lastIndexOf('\n')-1;
-            const detail={frozenLength:frozen.length,runtimeLength:runtime.length,diff,line,col,frozenContext:diff<0?'':frozen.slice(Math.max(0,diff-180),diff+260),runtimeContext:diff<0?'':runtime.slice(Math.max(0,diff-180),diff+260),runtimeErr};
-            console.log('AGENT_RUNTIME_DIFF='+JSON.stringify(detail));
+            const detail={localLength:localRuntime.length,runtimeLength:runtime.length,diff,line,col,runtimeErr,primaryHeader:shell.headers.get('x-rona-ui')};
+            console.log('AGENT_PRIMARY_RUNTIME_DIFF='+JSON.stringify(detail));
             const state=!runtimeErr&&diff<0?'success':'failure';
-            const desc=state==='success'?`runtime identical syntax ok len=${runtime.length}`:`runtimeErr=${runtimeErr||'none'} diff=${diff} ${line}:${col} len ${frozen.length}/${runtime.length}`;
+            const desc=state==='success'?`primary main-v2 runtime identical syntax ok len=${runtime.length}`:`runtimeErr=${runtimeErr||'none'} diff=${diff} ${line}:${col} len ${localRuntime.length}/${runtime.length}`;
             await post('rona/agent-runtime-diff',state,desc);
             if(state!=='success')process.exit(1);
           })().catch(async e=>{console.error(e.stack||e);try{const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;await fetch(`https://api.github.com/repos/${repo}/statuses/${sha}`,{method:'POST',headers:{authorization:`Bearer ${gh}`,'content-type':'application/json',accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'},body:JSON.stringify({state:'error',context:'rona/agent-runtime-diff',description:String(e.message||e).slice(0,140),target_url:`https://github.com/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`})})}catch(_){}process.exit(1)});
