@@ -75,7 +75,7 @@ do $$
 begin
   if not exists(select 1 from vault.secrets where name='rona_ai_model_executor_key_v1') then
     perform vault.create_secret(
-      encode(gen_random_bytes(32),'hex'),
+      encode(extensions.gen_random_bytes(32),'hex'),
       'rona_ai_model_executor_key_v1',
       'Internal scheduler authentication for rona-ai-model-executor',
       null
@@ -140,7 +140,7 @@ as $$
     where name='rona_ai_model_executor_key_v1'
       and p_token is not null
       and length(p_token)>=32
-      and digest(convert_to(p_token,'UTF8'),'sha256')=digest(convert_to(decrypted_secret,'UTF8'),'sha256')
+      and extensions.digest(convert_to(p_token,'UTF8'),'sha256')=extensions.digest(convert_to(decrypted_secret,'UTF8'),'sha256')
   )
 $$;
 
@@ -338,7 +338,7 @@ begin
   b64h:=translate(replace(encode(convert_to(hdr,'UTF8'),'base64'),E'\n',''),'+/','-_'); b64h:=rtrim(b64h,'=');
   b64p:=translate(replace(encode(convert_to(pay,'UTF8'),'base64'),E'\n',''),'+/','-_'); b64p:=rtrim(b64p,'=');
   unsigned:=b64h||'.'||b64p;
-  sig:=translate(replace(encode(hmac(convert_to(unsigned,'UTF8'),convert_to(secret,'UTF8'),'sha256'),'base64'),E'\n',''),'+/','-_'); sig:=rtrim(sig,'=');
+  sig:=translate(replace(encode(extensions.hmac(convert_to(unsigned,'UTF8'),convert_to(secret,'UTF8'),'sha256'),'base64'),E'\n',''),'+/','-_'); sig:=rtrim(sig,'=');
   return jsonb_build_object('access_token',unsigned||'.'||sig,'token_type','Bearer','expires_in',least(greatest(coalesce(ident.token_ttl_seconds,300),60),300),'functional_role',ident.business_role,'ai_identity_id',ident.identity_id,'jti',j);
 end $$;
 
@@ -463,8 +463,8 @@ begin
     payload_body:=jsonb_build_object('record_id',parent_id,'action',decision_action,'note',left(p_action->>'note',4000));
   end if;
 
-  idem_hash:=encode(digest(convert_to('AI_EXECUTOR|'||q.id::text||'|'||action,'UTF8'),'sha256'),'hex');
-  payload_hash:=encode(digest(convert_to(payload_body::text,'UTF8'),'sha256'),'hex');
+  idem_hash:=encode(extensions.digest(convert_to('AI_EXECUTOR|'||q.id::text||'|'||action,'UTF8'),'sha256'),'hex');
+  payload_hash:=encode(extensions.digest(convert_to(payload_body::text,'UTF8'),'sha256'),'hex');
   select record_id into rec_id from portal_private.ai_coordination_records where identity_id=ident.identity_id and tool_name='ai_model_executor_'||lower(action) and idempotency_key_hash=idem_hash limit 1;
   if rec_id is null then
     insert into portal_private.ai_coordination_records(
