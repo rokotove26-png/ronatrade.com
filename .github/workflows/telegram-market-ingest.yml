@@ -26,13 +26,50 @@ jobs:
       RONA_TELEGRAM_INGEST_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ai-read-extras/telegram-ingest
       RONA_TELEGRAM_RUN_KEY: gh-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - name: Validate Telegram credential presence
+      - name: Acquire GitHub OIDC token for RONA ingest
         shell: bash
         run: |
           set -euo pipefail
-          test -n "${TELEGRAM_API_ID}" || { echo "TELEGRAM_API_ID_MISSING"; exit 2; }
-          test -n "${TELEGRAM_API_HASH}" || { echo "TELEGRAM_API_HASH_MISSING"; exit 2; }
-          test -n "${TELEGRAM_SESSION}" || { echo "TELEGRAM_SESSION_MISSING"; exit 2; }
+          OIDC_JSON="$(curl -fsS \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=rona-telegram-ingest")"
+          OIDC_TOKEN="$(printf '%s' "${OIDC_JSON}" | python -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
+          test -n "${OIDC_TOKEN}" || { echo "GITHUB_OIDC_TOKEN_MISSING"; exit 2; }
+          echo "::add-mask::${OIDC_TOKEN}"
+          printf 'RONA_INGEST_OIDC_TOKEN=%s\n' "${OIDC_TOKEN}" >> "${GITHUB_ENV}"
+
+      - name: Validate and audit Telegram credential gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          test -n "${TELEGRAM_API_ID}" || missing+=(TELEGRAM_API_ID)
+          test -n "${TELEGRAM_API_HASH}" || missing+=(TELEGRAM_API_HASH)
+          test -n "${TELEGRAM_SESSION}" || missing+=(TELEGRAM_SESSION)
+          if (( ${#missing[@]} > 0 )); then
+            PAYLOAD="$(python - <<'PY'
+          import json, os
+          print(json.dumps({
+              "run_key": os.environ["RONA_TELEGRAM_RUN_KEY"],
+              "status": "BLOCKED",
+              "channels": ["platts_digits", "Samantahlil"],
+              "scanned_messages": 0,
+              "accepted_files": 0,
+              "duplicate_files": 0,
+              "failed_files": 0,
+              "error_code": "TELEGRAM_CREDENTIALS_MISSING",
+          }, separators=(",", ":")))
+          PY
+            )"
+            curl -fsS \
+              -X POST \
+              -H "Authorization: Bearer ${RONA_INGEST_OIDC_TOKEN}" \
+              -H "Content-Type: application/json" \
+              --data-binary "${PAYLOAD}" \
+              "${RONA_TELEGRAM_INGEST_URL}/run-status" >/dev/null
+            echo "::error::TELEGRAM_CREDENTIALS_MISSING (${missing[*]})"
+            exit 2
+          fi
 
       - name: Checkout production release source
         uses: actions/checkout@v4
@@ -55,18 +92,6 @@ jobs:
             'pypdf>=5,<7' \
             'pdfplumber>=0.11,<0.12' \
             'requests>=2.32,<3'
-
-      - name: Acquire GitHub OIDC token for RONA ingest
-        shell: bash
-        run: |
-          set -euo pipefail
-          OIDC_JSON="$(curl -fsS \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=rona-telegram-ingest")"
-          OIDC_TOKEN="$(printf '%s' "${OIDC_JSON}" | python -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
-          test -n "${OIDC_TOKEN}" || { echo "GITHUB_OIDC_TOKEN_MISSING"; exit 2; }
-          echo "::add-mask::${OIDC_TOKEN}"
-          printf 'RONA_INGEST_OIDC_TOKEN=%s\n' "${OIDC_TOKEN}" >> "${GITHUB_ENV}"
 
       - name: Ingest Telegram market documents
         shell: bash
