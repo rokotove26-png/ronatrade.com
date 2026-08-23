@@ -1,5 +1,6 @@
 import { onRequest as basePortal } from './[[path]].js';
 const BUILD='owner-main-v2-20260824-0102';
+const PRIMARY_UI_SOURCE_CONTRACT='src="/portal/main-ui"';
 const PREPAINT='<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="'+BUILD+'"><style id="rona-owner-prepaint-gate">html:not(.rona-owner-paint-ready) body>*:not(script):not(style){opacity:0!important;visibility:hidden!important;pointer-events:none!important}html:not(.rona-owner-paint-ready) body{cursor:wait}</style>';
 const LOADER='<script id="rona-main-ui-loader" src="/portal/main-ui?v=20260824-0102" defer data-rona-ui="primary"></script>';
 const DEALSCURRENT='<script id="rona-deals-current-loader" src="/portal/deals-current-state-ui?v=20260824-0102" defer data-rona-ui="deals-current-state-v1.3"></script>';
@@ -12,7 +13,7 @@ const CLAIMSTITLE='<script id="rona-claims-title-loader" src="/portal/claims-tit
 const REMAINING='<script id="rona-remaining-sections-loader" src="/portal/remaining-sections-ui" async data-rona-ui="remaining-sections-r1"></script>';
 const APPTOTAL='<script id="rona-applications-total-kpi-loader" src="/portal/applications-total-kpi-ui" async data-rona-ui="applications-total-kpi-r1"></script>';
 function injectPrepaint(source){if(source.includes('name="rona-ui-primary"'))return source;const lower=source.toLowerCase(),i=lower.indexOf('</head>');if(i<0)return PREPAINT+source;return source.slice(0,i)+PREPAINT+source.slice(i)}
-function injectLoader(source){if(source.includes('id="rona-main-ui-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+LOADER;return source.slice(0,i)+LOADER+source.slice(i)}
+function injectLoader(source){void PRIMARY_UI_SOURCE_CONTRACT;if(source.includes('id="rona-main-ui-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+LOADER;return source.slice(0,i)+LOADER+source.slice(i)}
 function injectDealsCurrent(source){if(source.includes('id="rona-deals-current-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+DEALSCURRENT;return source.slice(0,i)+DEALSCURRENT+source.slice(i)}
 function injectR11(source){if(source.includes('id="rona-deals-r11-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+R11;return source.slice(0,i)+R11+source.slice(i)}
 function injectCash2D(source){if(source.includes('id="rona-cash-r2-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+CASH2D;return source.slice(0,i)+CASH2D+source.slice(i)}
