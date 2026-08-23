@@ -1,7 +1,7 @@
 import { onRequest as basePortal } from './[[path]].js';
-const BUILD='owner-main-v2-20260823-1805-prices2a';
+const BUILD='owner-main-v2-20260823-1830-prices2a-hotfix';
 const PREPAINT='<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="'+BUILD+'"><style id="rona-owner-prepaint-gate">html:not(.rona-owner-paint-ready) body>*:not(script):not(style){opacity:0!important;visibility:hidden!important;pointer-events:none!important}html:not(.rona-owner-paint-ready) body{cursor:wait}</style>';
-const LOADER='<script id="rona-main-ui-loader" src="/portal/main-ui" defer data-rona-ui="primary"></script>';
+const LOADER='<script id="rona-main-ui-loader" src="/portal/main-ui?v='+encodeURIComponent(BUILD)+'" defer data-rona-ui="primary"></script>';
 function injectPrepaint(source){if(source.includes('name="rona-ui-primary"'))return source;const lower=source.toLowerCase(),i=lower.indexOf('</head>');if(i<0)return PREPAINT+source;return source.slice(0,i)+PREPAINT+source.slice(i)}
 function injectLoader(source){if(source.includes('id="rona-main-ui-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+LOADER;return source.slice(0,i)+LOADER+source.slice(i)}
 export async function onRequest(context){const response=await basePortal(context);const ct=response.headers.get('content-type')||'';if(response.status!==200||!ct.toLowerCase().includes('text/html'))return response;let source=await response.text();source=injectPrepaint(source);source=injectLoader(source);const h=new Headers(response.headers);h.delete('content-length');h.delete('etag');h.set('cache-control','no-store, no-cache, must-revalidate');h.set('pragma','no-cache');h.set('expires','0');h.set('x-rona-ui','main-v2');h.set('x-rona-ui-build',BUILD);return new Response(source,{status:response.status,statusText:response.statusText,headers:h})}
