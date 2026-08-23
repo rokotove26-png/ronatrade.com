@@ -4,6 +4,7 @@ import c2 from './owner-ui-chunks/chunk2.js';
 import c3 from './owner-ui-chunks/chunk3.js';
 import c4 from './owner-ui-chunks/chunk4.js';
 import c5 from './owner-ui-chunks/chunk5.js';
+import cPriceArchitecture from './owner-ui-chunks/chunkPriceArchitecture.js';
 import c6 from './owner-ui-chunks/chunk6.js';
 import c7 from './owner-ui-chunks/chunk7.js';
 import c8 from './owner-ui-chunks/chunk8.js';
@@ -16,10 +17,10 @@ import c14 from './owner-ui-chunks/chunk14.js';
 import c15 from './owner-ui-chunks/chunk15.js';
 import c16 from './owner-ui-chunks/chunk16.js';
 
-const BUILD='owner-main-v2-20260823-1745';
+const BUILD='owner-main-v2-20260823-1805-prices2a';
 const SCRIPT=[
   "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
-  c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
+  c0,c1,c2,c3,c4,c5,cPriceArchitecture,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
   "window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;"
 ].join('');
 
