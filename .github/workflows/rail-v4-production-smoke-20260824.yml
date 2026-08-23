@@ -1,0 +1,60 @@
+name: rail-v4-production-smoke-20260824
+
+on:
+  push:
+    branches:
+      - qa/rail-v4-production-smoke-20260824
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  rail-v4-production-smoke:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_SHA: f7a40225f1c404424a2c36890df8f21e29c0af76
+    steps:
+      - name: Verify published Online Rail v4 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 120); do
+            code=$(curl -sS -D /tmp/rail.headers -o /tmp/rail.js -w '%{http_code}' 'https://ronaoil.com/portal/rail-current-v4-ui?v=20260824-0252' || true)
+            if [ "$code" = "200" ] \
+              && grep -qi '^x-rona-rail-ui: current-v4' /tmp/rail.headers \
+              && grep -q '__RONA_RAIL_CURRENT_V4__' /tmp/rail.js \
+              && grep -q 'data-rail-current-v4' /tmp/rail.js \
+              && grep -q 'Карта СНГ' /tmp/rail.js \
+              && ! grep -q 'MutationObserver' /tmp/rail.js; then
+              ok=1
+              break
+            fi
+            sleep 2
+          done
+          test "$ok" = "1"
+          node --check /tmp/rail.js
+          grep -q "grid-template-columns:minmax(300px,.72fr) minmax(620px,1.75fr)" /tmp/rail.js
+          grep -q "setInterval(sync,30000)" /tmp/rail.js
+
+      - name: Publish Rail v4 production smoke status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          state=failure
+          description='Online Rail v4 production smoke failed'
+          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Online Rail v4 production smoke passed'; fi
+          target="https://github.com/$REPO/actions/runs/${{ github.run_id }}"
+          payload=$(printf '{"state":"%s","context":"rona/rail-v4-production-smoke","description":"%s","target_url":"%s"}' "$state" "$description" "$target")
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$REPO/statuses/$TARGET_SHA" \
+            -d "$payload" >/dev/null
