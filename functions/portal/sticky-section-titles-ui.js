@@ -1,7 +1,7 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_STICKY_SECTION_TITLES_V2__)return;
-window.__RONA_STICKY_SECTION_TITLES_V2__='20260823-2305';
+window.__RONA_STICKY_SECTION_TITLES_V2__='20260823-2315';
 function q(s,r){return(r||document).querySelector(s)}
 function qa(s,r){return Array.from((r||document).querySelectorAll(s))}
 function norm(v){return String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU')}
@@ -20,10 +20,10 @@ function buttonLabel(b){
   return t.replace(/^[^A-Za-zА-Яа-яЁё0-9]+/,'').trim();
 }
 function scrollParent(el){
-  var p=el&&el.parentElement;
+  var p=el;
   while(p&&p!==document.body&&p!==document.documentElement){
     var cs=getComputedStyle(p),oy=String(cs.overflowY||''),o=String(cs.overflow||'');
-    if(/auto|scroll|overlay/.test(oy)||/auto|scroll|overlay/.test(o))return p;
+    if((/auto|scroll|overlay/.test(oy)||/auto|scroll|overlay/.test(o))&&p.clientHeight>0&&p.scrollHeight>p.clientHeight+1)return p;
     p=p.parentElement;
   }
   return document.scrollingElement||document.documentElement;
