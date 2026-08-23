@@ -4,9 +4,10 @@ function ronaPrimaryUiFailVisible(reason){
   const code=String(reason||window.__RONA_OWNER_ADMIN_ERROR__||'PRIMARY_UI_TIMEOUT');
   window.__RONA_OWNER_ADMIN_ERROR__=code;
   for(const child of Array.from(document.body.children)){
-    if(child.tagName==='SCRIPT'||child.tagName==='STYLE'||child.id==='ronaOwnerPrimaryUiFailure')continue;
+    if(child.tagName==='SCRIPT'||child.tagName==='STYLE'||child.id==='ronaOwnerPrimaryUiFailure'||child.id==='rona-owner-boot-failure')continue;
     child.classList.add('rona-owner-original-hidden');
   }
+  const independent=q('#rona-owner-boot-failure');if(independent)independent.remove();
   let host=q('#ronaOwnerPrimaryUiFailure');
   if(!host){
     host=e('section',{id:'ronaOwnerPrimaryUiFailure',class:'rona-owner-client-summary'});
@@ -24,6 +25,8 @@ const __ronaRenderAdminBase=renderAdmin;
 renderAdmin=function(){
   try{
     const out=__ronaRenderAdminBase();
+    const independent=q('#rona-owner-boot-failure');if(independent)independent.remove();
+    const fail=q('#ronaOwnerPrimaryUiFailure');if(fail)fail.remove();
     document.documentElement.classList.add('rona-owner-paint-ready');
     return out;
   }catch(err){
