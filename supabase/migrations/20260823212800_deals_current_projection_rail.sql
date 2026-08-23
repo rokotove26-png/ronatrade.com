@@ -138,6 +138,20 @@ begin
                  rd.document_date, rd.route_text, rd.updated_at
       ) x
     ), '[]'::jsonb),
+    'dataConflicts', coalesce((
+      select jsonb_agg(to_jsonb(x) order by x.contract_id)
+      from (
+        select
+          'CONTRACT_COMPANY_CONFLICT'::text as code,
+          ct.contract_id,
+          count(distinct ct.client_key)::int as company_count,
+          array_agg(distinct cl.client_id order by cl.client_id) as client_ids
+        from portal_private.contracts ct
+        join portal_private.clients cl on cl.id = ct.client_key
+        group by ct.contract_id
+        having count(distinct ct.client_key) > 1
+      ) x
+    ), '[]'::jsonb),
     'applications', coalesce((
       select jsonb_agg(to_jsonb(x))
       from (
