@@ -16,7 +16,7 @@ import c14 from './owner-ui-chunks/chunk14.js';
 import c15 from './owner-ui-chunks/chunk15.js';
 import c16 from './owner-ui-chunks/chunk16.js';
 
-const BUILD='owner-main-v2-20260824-0136';
+const BUILD='owner-main-v2-20260824-0150';
 const RAW=[
   "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
   c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
@@ -29,7 +29,7 @@ function patchPayments(script){
   const replacements=[
     [
       ".rona-fin-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}",
-      ".rona-fin-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}"
+      ".rona-fin-kpi-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}#page-payments{width:100%!important;max-width:none!important}#page-payments>.rona-owner-page-content,#page-payments .rona-owner-page-content[data-owner-page=\"payments\"]{width:100%!important;max-width:none!important;margin-left:0!important;margin-right:0!important}#page-payments .rona-owner-card{box-sizing:border-box}#page-payments .rona-owner-table{min-width:1180px}#page-payments .rona-owner-table th,#page-payments .rona-owner-table td{padding-left:12px;padding-right:12px}"
     ],
     [
       "function allocationStatusRu(v){const m={CONFIRMED:'Привязка подтверждена',TO_VERIFY:'Распределение между сделками требует подтверждения',NOT_DEAL:'Не относится к сделке'};return m[String(v||'').toUpperCase()]||String(v||'—')}",
@@ -49,11 +49,15 @@ function patchPayments(script){
     ],
     [
       "function cashResidualCell(s){if(s&&String(s.cash_residual_status||'').toUpperCase()==='CONFIRMED'&&s.cash_residual_amount!==null&&s.cash_residual_amount!==undefined)return financePill(money(s.cash_residual_amount,s.cash_residual_currency||s.currency),'success');return e('div',{},financePill('Требует подтверждения','warn'),s?.cash_residual_note?e('div',{class:'rona-owner-muted',text:s.cash_residual_note}):null)}",
-      "function cashResidualCell(s){if(s&&String(s.cash_residual_status||'').toUpperCase()==='CONFIRMED'&&s.cash_residual_amount!==null&&s.cash_residual_amount!==undefined)return financePill(money(s.cash_residual_amount,s.cash_residual_currency||s.currency),'success');return e('div',{},financePill('Не распределено по сделке','neutral'),e('div',{class:'rona-owner-muted',text:'Внутрисделочный остаток не используется как факт оплаты клиента.'}))}"
+      "function cashResidualCell(s){const frag=financeFragment(),xs=Array.isArray(frag?.payments)?frag.payments:[],dealId=String(s?.deal_id||''),rel=xs.filter(x=>String(x.deal_id||'')===dealId&&String(x.bank_fact_status||'').toUpperCase()==='BANK_CONFIRMED'&&['ALLOCATED','VERIFIED'].includes(String(x.allocation_status||'').toUpperCase())),total=rel.reduce((n,x)=>n+Number(x.allocated_amount||0),0),currency=String(rel[0]?.currency||s?.currency||'');if(rel.length)return e('div',{},financePill('Распределено по сделке','success'),e('div',{class:'rona-owner-muted',text:money(total,currency)}));if(Number(s?.received_amount||0)>0)return financePill('Поступление подтверждено','success');return financePill('Поступлений нет','neutral')}"
+    ],
+    [
+      "'Остаток денежных средств внутри сделки'",
+      "'Распределение поступлений'"
     ],
     [
       "let financeFlowFilter='RECEIVED';\nfunction renderPayments(){const f=financeFragment();",
-      "function isolatePaymentsPage(){const p=page('payments');if(!p)return;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"payments\\\"]',p)||q(':scope > .rona-owner-page-content',p);for(const child of Array.from(p.children)){if(child===host)continue;child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}if(host){host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');host.dataset.ownerPage='payments';host.dataset.ronaPaymentsOwner='finance-current-v1'}}\nlet financeFlowFilter='RECEIVED';\nfunction renderPayments(){isolatePaymentsPage();const f=financeFragment();"
+      "function isolatePaymentsPage(){const p=page('payments');if(!p)return;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"payments\\\"]',p)||q(':scope > .rona-owner-page-content',p);for(const child of Array.from(p.children)){if(child===host)continue;child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}if(host){host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');host.dataset.ownerPage='payments';host.dataset.ronaPaymentsOwner='finance-current-v2'}}\nlet financeFlowFilter='RECEIVED';\nfunction renderPayments(){isolatePaymentsPage();const f=financeFragment();"
     ],
     [
       "const totals=Array.isArray(f.paymentTotalsByCurrency)?f.paymentTotalsByCurrency:[],outs=Array.isArray(f.outgoingPayments)?f.outgoingPayments:[],sums=Array.isArray(f.dealFinanceSummaries)?f.dealFinanceSummaries:[],sumByDeal=new Map(sums.map(x=>[String(x.deal_id),x])),expectedTotals=totalsByCurrency(sums,'client_remaining_amount',x=>Number(x.client_remaining_amount)>0),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});",
@@ -90,7 +94,7 @@ export async function onRequest(){
     'x-content-type-options':'nosniff',
     'x-rona-ui':'main-v2',
     'x-rona-ui-build':BUILD,
-    'x-rona-deals-owner':'current-only-v1.4',
-    'x-rona-payments-ui':'finance-current-v1'
+    'x-rona-deals-owner':'current-only-v1.5',
+    'x-rona-payments-ui':'finance-current-v2'
   }});
 }
