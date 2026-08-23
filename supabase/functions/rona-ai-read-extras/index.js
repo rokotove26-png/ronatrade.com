@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "npm:postgres@3.4.7";
 import { createClient } from "npm:@supabase/supabase-js@2.109.0";
+import { handleTelegramIngest } from "./telegram_ingest.js";
 
 const DB=Deno.env.get('SUPABASE_DB_URL');
 const SIGNING_KEY=Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY');
@@ -81,7 +82,7 @@ async function telegramMarketSources(){
 async function marketData(auth,req){
   if(auth.role!=='MARKET_ANALYST')throw Object.assign(new Error('AI_MARKET_SCOPE_DENIED'),{status:403});
   const rows=await sql`select distinct on (source_object_type,source_object_id) source_object_type,source_object_id,source_system,source_version,source_timestamp,checksum_sha256,raw_snapshot,created_at from portal_private.source_objects where source_object_type in ('MARKET_FACT','MARKET_FORECAST','MARKET_CALCULATION') and coalesce(lower(source_system),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])' order by source_object_type,source_object_id,source_timestamp desc nulls last,created_at desc`;
-  let telegram=[];try{telegram=await telegramMarketSources();}catch(e){if(String(e?.message||'').includes('telegram_market_'))throw e;console.error('telegram market sources unavailable',String(e?.message||e));}
+  let telegram=[];try{telegram=await telegramMarketSources();}catch(e){console.error('telegram market sources unavailable',String(e?.message||e));}
   await audit({identity:auth.identity,role:auth.role,req,requestIds:auth.requestIds,domain:'MARKET',result:'SUCCESS',httpStatus:200,jti:auth.jti,metadata:{records:rows.length,telegram_records:telegram.length,current_only:true,deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID+TELEGRAM_SHA256_PRIMARY_PRIORITY'}});
   return{
     data_contract:'AI_MARKET_READ_V2',
@@ -90,22 +91,15 @@ async function marketData(auth,req){
     qa_test_debug_temp_excluded:true,
     deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID',
     records:rows,
-    telegram:{
-      source_class:'TELEGRAM_MTPROTO',
-      access:'MARKET_ANALYST_READ_ONLY',
-      client_distribution_allowed:false,
-      original_binary:'PRIVATE_SIGNED_URL_120S',
-      extracted_text_preview_chars:30000,
-      extracted_tables_preview_max:3,
-      deduplication:'SHA256_WITH_PRIMARY_CHANNEL_PRIORITY',
-      documents:telegram,
-    },
+    telegram:{source_class:'TELEGRAM_MTPROTO',access:'MARKET_ANALYST_READ_ONLY',client_distribution_allowed:false,original_binary:'PRIVATE_SIGNED_URL_120S',extracted_text_preview_chars:30000,extracted_tables_preview_max:3,deduplication:'SHA256_WITH_PRIMARY_CHANNEL_PRIORITY',documents:telegram},
   };
 }
 
 Deno.serve(async req=>{
+  const path=functionPath(req);
+  const telegramResponse=await handleTelegramIngest(req,path);if(telegramResponse)return telegramResponse;
   if(req.method!=='GET')return json({ok:false,code:'AI_READ_ONLY_METHOD_DENIED'},405,{allow:'GET'});
-  const path=functionPath(req),auth=await authenticate(req);if(!auth.ok){await audit({req,requestIds:auth.requestIds,domain:'AUTH',result:'DENIED',httpStatus:auth.status,jti:auth.jti??null,role:auth.role??null});return json({ok:false,code:auth.code,request_id:auth.requestIds.requestId},auth.status)}
+  const auth=await authenticate(req);if(!auth.ok){await audit({req,requestIds:auth.requestIds,domain:'AUTH',result:'DENIED',httpStatus:auth.status,jti:auth.jti??null,role:auth.role??null});return json({ok:false,code:auth.code,request_id:auth.requestIds.requestId},auth.status)}
   try{
     if(path==='/market-data'){const data=await marketData(auth,req);return json({ok:true,ai_identity_id:auth.identity.identity_id,functional_role:auth.role,request_id:auth.requestIds.requestId,correlation_id:auth.requestIds.correlationId,data})}
     const m=path.match(/^\/documents\/([^/]+)\/signed-url$/);if(m){let id;try{id=decodeURIComponent(m[1])}catch{throw Object.assign(new Error('AI_DOCUMENT_NOT_FOUND'),{status:404})}const data=await documentSignedUrl(auth,id,req);return json({ok:true,ai_identity_id:auth.identity.identity_id,functional_role:auth.role,request_id:auth.requestIds.requestId,correlation_id:auth.requestIds.correlationId,data})}
