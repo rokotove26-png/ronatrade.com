@@ -19,7 +19,7 @@ export const ROLE_DOMAINS = Object.freeze({
     'CONTRACT','DOCUMENT','APPLICATION','DEAL','LEGAL_CONTROL','TASK','PORTAL_EVENT','SOURCE_METADATA',
   ]),
   MARKET_ANALYST: Object.freeze([
-    'MARKET','PUBLICATION','PUBLICATION_HISTORY','SOURCE_METADATA','TASK','PORTAL_EVENT',
+    'CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PUBLICATION_HISTORY','SOURCE_METADATA','TASK','PORTAL_EVENT',
   ]),
   RAIL_LOGISTICS: Object.freeze([
     'DEAL','SHIPMENT','RAIL_DOCUMENT','RAIL_MOVEMENT','RAIL_MONITORING','LOGISTICS_CONTROL','DOCUMENT','TASK','PORTAL_EVENT',
@@ -33,7 +33,7 @@ export const HISTORY_DOMAINS = Object.freeze({
   OPERATIONS_DIRECTOR: Object.freeze(['contracts','deals','documents','publications','tasks']),
   FINANCE: Object.freeze(['contracts','deals','payments','tasks','audit']),
   LEGAL: Object.freeze(['contracts','documents','tasks']),
-  MARKET_ANALYST: Object.freeze(['publications','tasks']),
+  MARKET_ANALYST: Object.freeze(['contracts','deals','publications','tasks']),
   RAIL_LOGISTICS: Object.freeze(['rail','shipments','tasks']),
   SYSTEM_ADMIN: Object.freeze(['audit','tasks','sessions']),
 });
