@@ -1,5 +1,5 @@
 import { onRequest as basePortal } from './[[path]].js';
-const BUILD='owner-main-v2-20260823-1745';
+const BUILD='owner-main-v2-20260823-1805-prices2a';
 const PREPAINT='<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="'+BUILD+'"><style id="rona-owner-prepaint-gate">html:not(.rona-owner-paint-ready) body>*:not(script):not(style){opacity:0!important;visibility:hidden!important;pointer-events:none!important}html:not(.rona-owner-paint-ready) body{cursor:wait}</style>';
 const LOADER='<script id="rona-main-ui-loader" src="/portal/main-ui" defer data-rona-ui="primary"></script>';
 function injectPrepaint(source){if(source.includes('name="rona-ui-primary"'))return source;const lower=source.toLowerCase(),i=lower.indexOf('</head>');if(i<0)return PREPAINT+source;return source.slice(0,i)+PREPAINT+source.slice(i)}
