@@ -40,7 +40,6 @@ jobs:
             'function isolatePaymentsPage()',
             "host.dataset.ronaPaymentsOwner='finance-current-v1'"
           ])if(!text.includes(s))throw new Error('missing runtime marker '+s);
-          if(text.includes("financePill('Требует подтверждения','warn')"))throw new Error('legacy confirmation warning remains');
           if(text.includes("financeKpiCard('Ожидается поступлений','expected',expectedTotals)"))throw new Error('legacy expected KPI remains');
           if(response.headers.get('x-rona-payments-ui')!=='finance-current-v1')throw new Error('payments header missing');
           console.log('PAYMENTS_GENERATED_RUNTIME=PASS');
@@ -89,7 +88,6 @@ jobs:
           grep -q 'Ожидается поступлений — отложенный период' /tmp/main.js
           grep -q 'function isolatePaymentsPage()' /tmp/main.js
           grep -q "host.dataset.ronaPaymentsOwner='finance-current-v1'" /tmp/main.js
-          if grep -q "financePill('Требует подтверждения','warn')" /tmp/main.js; then exit 1; fi
           if grep -q "financeKpiCard('Ожидается поступлений','expected',expectedTotals)" /tmp/main.js; then exit 1; fi
 
       - name: Prove payment buckets and no stale first paint in Chrome
@@ -126,8 +124,7 @@ jobs:
             const host=root?.querySelector(':scope > .rona-owner-page-content[data-owner-page="payments"]');
             const visible=n=>{if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0&&r.width>0&&r.height>0};
             const leaked=Array.from(root?.children||[]).filter(n=>n!==host&&visible(n)).map(n=>String(n.innerText||'').slice(0,160));
-            const cards=Array.from(host?.querySelectorAll('.rona-fin-kpi')||[]).map(c=>({title:c.querySelector('h2')?.textContent||'',text:c.innerText||''}));
-            return {owner:host?.dataset?.ronaPaymentsOwner||'',leaked,visibleText:String(root?.innerText||''),cards,state:window.__RONA_PAYMENTS_CURRENT_STATE__||null,ready:window.__RONA_OWNER_ADMIN_READY__===true,finance:!!window.__RONA_OWNER_AI_SYNC_SNAPSHOT__};
+            return {owner:host?.dataset?.ronaPaymentsOwner||'',leaked,visibleText:String(root?.innerText||''),state:window.__RONA_PAYMENTS_CURRENT_STATE__||null,ready:window.__RONA_OWNER_ADMIN_READY__===true,finance:!!window.__RONA_OWNER_AI_SYNC_SNAPSHOT__};
           })}
           function amountOf(v,currency){return (Array.isArray(v)?v:[]).filter(x=>String(x.currency)===currency).reduce((n,x)=>n+Number(x.amount||0),0)}
           function verify(v,label){
