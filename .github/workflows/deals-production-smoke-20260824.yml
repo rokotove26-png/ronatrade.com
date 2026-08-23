@@ -20,6 +20,7 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --dump-header /tmp/headers.txt --output /tmp/deals.js 'https://ronaoil.com/portal/deals-current-state-ui?smoke=20260824'
           grep -qi '^x-rona-deals-ui: current-state-v1.1' /tmp/headers.txt
+          node --check /tmp/deals.js
           grep -q 'Ожидают оплаты' /tmp/deals.js
           if grep -q 'Ожидают оплаты или действий' /tmp/deals.js; then
             echo 'legacy payment KPI label is still deployed' >&2
