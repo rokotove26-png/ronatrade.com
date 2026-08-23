@@ -1,0 +1,186 @@
+name: Payments current/deferred browser proof 20260824
+
+on:
+  push:
+    branches:
+      - 'hotfix/payments-current-deferred-authoritative-20260824'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  statuses: write
+
+jobs:
+  payments-browser-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify generated runtime and install browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          node --check functions/portal/admin.js
+          node --check functions/portal/main-ui.js
+          node --input-type=module <<'NODE'
+          import {onRequest} from './functions/portal/main-ui.js';
+          const response=await onRequest();
+          if(response.status!==200)throw new Error('main-ui status '+response.status);
+          const text=await response.text();
+          for(const s of [
+            'Ожидается поступлений — текущий период',
+            'Ожидается поступлений — отложенный период',
+            'function isolatePaymentsPage()',
+            "host.dataset.ronaPaymentsOwner='finance-current-v1'"
+          ])if(!text.includes(s))throw new Error('missing runtime marker '+s);
+          if(text.includes("financeKpiCard('Ожидается поступлений','expected',expectedTotals)"))throw new Error('legacy expected KPI remains');
+          if(response.headers.get('x-rona-payments-ui')!=='finance-current-v1')throw new Error('payments header missing');
+          console.log('PAYMENTS_GENERATED_RUNTIME=PASS');
+          NODE
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Resolve deployed target
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,gh=process.env.GH_TOKEN;
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{for(let i=0;i<180;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-PAYMENTS-DEPLOY-PROOF'}});
+            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){
+              if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);
+              const production=ref==='refs/heads/release/public-go-live-v1.1';
+              await sleep(production?6000:4000);
+              if(production){fs.appendFileSync(process.env.GITHUB_OUTPUT,'origin=https://ronaoil.com\n');return}
+              const text=String(cf.output?.summary||'')+' '+String(cf.output?.text||'')+' '+String(cf.details_url||'');
+              const urls=[...text.matchAll(/https:\/\/[a-z0-9.-]+\.pages\.dev/ig)].map(x=>x[0]);
+              const u=urls.find(x=>!/rona-trade-public\.pages\.dev$/i.test(x))||urls[0];
+              if(!u)throw new Error('Preview URL not found');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT,`origin=${u}\n`);return;
+            }}
+            await sleep(3000);
+          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Verify deployed Payments runtime
+        env:
+          TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -D /tmp/main.headers -o /tmp/main.js "$TARGET_ORIGIN/portal/main-ui?payments_proof=$GITHUB_SHA"
+          grep -qi '^x-rona-payments-ui: finance-current-v1' /tmp/main.headers
+          node --check /tmp/main.js
+          grep -q 'Ожидается поступлений — текущий период' /tmp/main.js
+          grep -q 'Ожидается поступлений — отложенный период' /tmp/main.js
+          grep -q 'function isolatePaymentsPage()' /tmp/main.js
+          grep -q "host.dataset.ronaPaymentsOwner='finance-current-v1'" /tmp/main.js
+          if grep -q "financeKpiCard('Ожидается поступлений','expected',expectedTotals)" /tmp/main.js; then exit 1; fi
+
+      - name: Prove payment buckets and no stale first paint in Chrome
+        env:
+          TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const {chromium}=require('playwright');
+          const origin=process.env.TARGET_ORIGIN;
+          const runtime=fs.readFileSync('/tmp/main.js','utf8');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const admin={
+            prices:[],applications:[],documents:[],rail:[],clients:[],agents:[],radio:[],analytics:[],news:[],operationalConflicts:[],exchange:{status:'HEALTHY'},
+            deals:[
+              {deal_id:'DEAL-2026-004',business_status:'EXECUTING',finance_status:'PAID',lifecycle_state:'ACTIVE'},
+              {deal_id:'DEAL-2026-005',business_status:'EXECUTING',finance_status:'NOT_DUE',lifecycle_state:'ACTIVE'},
+              {deal_id:'DEAL-2026-006',business_status:'EXECUTING',finance_status:'NOT_DUE',lifecycle_state:'ACTIVE'}
+            ]
+          };
+          const finance={generatedAt:new Date().toISOString(),railTariffs:[],financeFragment:{
+            authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',sourceAsOf:'2026-08-23',obligationPlanAvailable:true,cash:[],outgoingPayments:[],payments:[],
+            paymentTotalsByCurrency:[{currency:'USD',amount:487320}],
+            dealFinanceSummaries:[
+              {deal_id:'DEAL-2026-004',client_id:'RONA-C002',client_name:'FARGONA',obligation_amount:236250,received_amount:236250,client_remaining_amount:0,currency:'USD',finance_status:'PAID',accounting_status:'OPEN',cash_residual_status:'TO_VERIFY'},
+              {deal_id:'DEAL-2026-005',client_id:'RONA-C003',client_name:'UNVERSAL SOLYARIS GRAND',obligation_amount:672500,received_amount:201750,client_remaining_amount:470750,currency:'USD',finance_status:'PARTIALLY_PAID',accounting_status:'OPEN',cash_residual_status:'TO_VERIFY'},
+              {deal_id:'DEAL-2026-006',client_id:'RONA-C003',client_name:'UNVERSAL SOLYARIS GRAND',obligation_amount:164400,received_amount:49320,client_remaining_amount:115080,currency:'USD',finance_status:'PARTIALLY_PAID',accounting_status:'OPEN',cash_residual_status:'TO_VERIFY'}
+            ]
+          }};
+          async function inspect(page){return page.evaluate(()=>{
+            const root=document.querySelector('#page-payments');
+            const host=root?.querySelector(':scope > .rona-owner-page-content[data-owner-page="payments"]');
+            const visible=n=>{if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0&&r.width>0&&r.height>0};
+            const leaked=Array.from(root?.children||[]).filter(n=>n!==host&&visible(n)).map(n=>String(n.innerText||'').slice(0,160));
+            return {owner:host?.dataset?.ronaPaymentsOwner||'',leaked,visibleText:String(root?.innerText||''),state:window.__RONA_PAYMENTS_CURRENT_STATE__||null,ready:window.__RONA_OWNER_ADMIN_READY__===true,finance:!!window.__RONA_OWNER_AI_SYNC_SNAPSHOT__};
+          })}
+          function amountOf(v,currency){return (Array.isArray(v)?v:[]).filter(x=>String(x.currency)===currency).reduce((n,x)=>n+Number(x.amount||0),0)}
+          function verify(v,label){
+            assert(v.ready&&v.finance,label+' current snapshots not ready');
+            assert(v.owner==='finance-current-v1',label+' wrong payments owner '+v.owner);
+            assert(v.leaked.length===0,label+' stale visible sibling '+JSON.stringify(v.leaked));
+            assert(v.visibleText.includes('Ожидается поступлений — текущий период'),label+' missing current-period block');
+            assert(v.visibleText.includes('Ожидается поступлений — отложенный период'),label+' missing deferred-period block');
+            assert(!v.visibleText.includes('Требует подтверждения'),label+' misleading confirmation warning visible');
+            assert(v.visibleText.includes('Частично оплачено'),label+' partial-paid fact missing');
+            assert(amountOf(v.state?.current,'USD')===0,label+' current period must be 0 USD '+JSON.stringify(v.state));
+            assert(amountOf(v.state?.deferred,'USD')===585830,label+' deferred must be 585830 USD '+JSON.stringify(v.state));
+          }
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const ctx=await browser.newContext({viewport:{width:2048,height:1152},javaScriptEnabled:true});
+            const page=await ctx.newPage(),errors=[];
+            page.on('pageerror',e=>errors.push(String(e.message||e)));
+            await page.route('**/portal/admin?synthetic=*',async route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"></head><body><div class="app"><nav id="nav"><button type="button" data-page="payments">Платежи и взаиморасчёты</button></nav><main><section id="page-payments" class="active"><section id="legacyPayments"><h2>Ожидается поступлений</h2><div>999 999 USD</div><span>Требует подтверждения</span></section></section></main></div></body></html>`}));
+            await page.route('**/portal/owner-api?*',async route=>{
+              const u=new URL(route.request().url()),p=u.searchParams.get('path');
+              const data=p==='/admin/ai-sync'?finance:admin;
+              await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data})});
+            });
+            await page.goto(origin+'/portal/admin?synthetic='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+            await page.evaluate(()=>{window.__RONA_ADMIN_BOOT_STATE__={ready:true};window.__RONA_ADMIN_LIVE_READY__=true});
+            await page.addScriptTag({content:runtime});
+            for(let i=0;i<300;i++){
+              const ok=await page.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true&&!!window.__RONA_OWNER_AI_SYNC_SNAPSHOT__&&!!window.__RONA_PAYMENTS_CURRENT_STATE__);
+              if(ok)break;await page.waitForTimeout(100);
+            }
+            let v=await inspect(page);assert(errors.length===0,'browser errors '+JSON.stringify(errors));verify(v,'initial');
+            const expected=page.locator('#page-payments .rona-fin-filter button',{hasText:'Ожидается'});if(await expected.count())await expected.first().click();
+            await page.waitForTimeout(300);
+            v=await inspect(page);verify(v,'expected-tab');
+            await page.waitForTimeout(5000);
+            v=await inspect(page);assert(errors.length===0,'browser errors delayed '+JSON.stringify(errors));verify(v,'delayed');
+            console.log('PAYMENTS_BROWSER_PROOF=PASS '+JSON.stringify({origin,currentUSD:amountOf(v.state.current,'USD'),deferredUSD:amountOf(v.state.deferred,'USD'),owner:v.owner}));
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Publish Payments browser proof status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=failure
+          description='Payments current/deferred browser proof failed'
+          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Payments current/deferred authoritative UI PASS'; fi
+          target="https://github.com/$REPO/actions/runs/$RUN_ID"
+          payload=$(printf '{"state":"%s","context":"rona/payments-browser-proof","description":"%s","target_url":"%s"}' "$state" "$description" "$target")
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$payload" >/dev/null
