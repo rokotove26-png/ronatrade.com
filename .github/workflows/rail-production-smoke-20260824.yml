@@ -1,0 +1,61 @@
+name: Rail production smoke 20260824
+
+on:
+  push:
+    branches:
+      - qa/rail-production-smoke-20260824
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  rail-production-smoke:
+    runs-on: ubuntu-24.04
+    env:
+      TARGET_SHA: 52266406c739d479e440b507a1def0f35240ff97
+      TARGET_URL: https://ronaoil.com/portal/rail-r2-ui?v=20260824-0231&smoke=20260824
+    steps:
+      - name: Verify deployed Online Rail runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 8 --retry-delay 3 --retry-all-errors -D /tmp/rail.headers -o /tmp/rail.js "$TARGET_URL"
+          grep -Eiq '^x-rona-rail-ui:[[:space:]]*current-first-map-v3' /tmp/rail.headers
+          grep -Fq "__RONA_RAIL_CURRENT_FIRST__" /tmp/rail.js
+          grep -Fq "data-rail-current-root" /tmp/rail.js
+          grep -Fq "Карта СНГ" /tmp/rail.js
+          grep -Fq "data-rona-rail-tariff-preserved" /tmp/rail.js
+          grep -Fq "grid-template-columns:minmax(300px,.72fr) minmax(620px,1.75fr)" /tmp/rail.js
+          if grep -Fq "__RONA_OWNER_ADMIN_READY__===true" /tmp/rail.js; then
+            echo "Legacy Admin-Ready wait is still present" >&2
+            exit 1
+          fi
+          node --check /tmp/rail.js
+          echo "RAIL_PRODUCTION_SMOKE=PASS"
+
+      - name: Publish rail production smoke status
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          state=failure
+          description='Online Rail production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then
+            state=success
+            description='Online Rail current-first runtime deployed'
+          fi
+          target_url="https://github.com/$REPO/actions/runs/$RUN_ID"
+          payload=$(printf '{"state":"%s","context":"rona/rail-production-smoke","description":"%s","target_url":"%s"}' "$state" "$description" "$target_url")
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/$REPO/statuses/$TARGET_SHA" \
+            -d "$payload" >/dev/null
