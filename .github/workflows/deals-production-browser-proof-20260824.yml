@@ -3,7 +3,7 @@ name: Deals production browser proof 20260824
 on:
   push:
     branches:
-      - 'hotfix/deals-browser-proof-without-ci-session-20260824'
+      - 'hotfix/deals-browser-proof-script-injection-20260824'
       - 'release/public-go-live-v1.1'
 
 permissions:
@@ -82,56 +82,25 @@ jobs:
         run: |
           set -euo pipefail
           node <<'NODE'
+          const fs=require('fs');
           const {chromium}=require('playwright');
           const origin=process.env.TARGET_ORIGIN;
+          const deployedDealsScript=fs.readFileSync('/tmp/deals.js','utf8');
           const assert=(x,m)=>{if(!x)throw new Error(m)};
-          const fixture={
-            generatedAt:new Date().toISOString(),
-            deals:[{
-              deal_id:'DEAL-PROOF-001',client_id:'RONA-C002',legal_name:'PROOF CLIENT LLC',
-              contract_id:'RONA-C002-CTR-2026-001',contract_status:'ACTIVE',contract_client_conflict:false,
-              business_status:'ACTIVE',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',
-              product_value:'АИ-92 К5',product_confirmed_at:new Date().toISOString(),
-              quantity_tonnes_value:100,quantity_confirmed_at:new Date().toISOString(),
-              source_product:'АИ-92 К5',source_quantity_tonnes:100,delivery_basis:'CPT Сарыагаш',destination:'Сарыагаш',
-              payment_handoff_state:'NOT_SENT',payment_expectation_state:'NOT_CREATED',payment_expectation_amount:0,
-              obligation_amount:100000,received_amount:100000,client_remaining_amount:0,finance_currency:'USD',
-              finance_status:'PAID',accounting_status:'OPEN',updated_at:new Date().toISOString()
-            }],
-            documents:[],rail:[],dataConflicts:[],applications:[]
-          };
-          async function inspect(page){return page.evaluate(()=>{
-            const root=document.querySelector('#page-deals');
-            const host=root?.querySelector(':scope > .rona-owner-page-content[data-owner-page="deals"]');
-            const owned=host?.querySelector(':scope > .rona-current-deals-owned');
-            const visible=n=>{if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0&&r.width>0&&r.height>0};
-            const siblings=Array.from(root?.children||[]).filter(n=>n!==host&&visible(n)).map(n=>({id:n.id,cls:String(n.className||''),text:String(n.innerText||'').slice(0,180)}));
-            return {owned:!!owned,owner:host?.dataset?.ronaDealsOwner||'',siblings,text:String(owned?.innerText||''),rootText:String(root?.innerText||''),legacyDisplay:getComputedStyle(document.getElementById('legacyDealsDiagnostics')).display};
-          })}
-          function verify(v,label){
-            assert(v.owned,label+' owned root missing');
-            assert(v.owner==='current-v1.3',label+' wrong owner '+v.owner);
-            assert(v.siblings.length===0,label+' visible preserved sibling '+JSON.stringify(v.siblings));
-            assert(v.legacyDisplay==='none',label+' legacy diagnostic underlay display='+v.legacyDisplay);
-            for(const s of ['Операционная картина сделок','Ожидают оплаты','Общий объём сделок, т','Общая сумма сделок','Базис поставки'])assert(v.text.includes(s),label+' missing '+s);
-            for(const s of ['Ожидают оплаты или действий','Контрольный срез источников','CF-001','ОЖИДАЮТ ПОДТВЕРЖДЕНИЕ РЕСУРСА'])assert(!v.rootText.includes(s),label+' leaked '+s);
-          }
+          const fixture={generatedAt:new Date().toISOString(),deals:[{deal_id:'DEAL-PROOF-001',client_id:'RONA-C002',legal_name:'PROOF CLIENT LLC',contract_id:'RONA-C002-CTR-2026-001',contract_status:'ACTIVE',contract_client_conflict:false,business_status:'ACTIVE',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',product_value:'АИ-92 К5',product_confirmed_at:new Date().toISOString(),quantity_tonnes_value:100,quantity_confirmed_at:new Date().toISOString(),source_product:'АИ-92 К5',source_quantity_tonnes:100,delivery_basis:'CPT Сарыагаш',destination:'Сарыагаш',payment_handoff_state:'NOT_SENT',payment_expectation_state:'NOT_CREATED',payment_expectation_amount:0,obligation_amount:100000,received_amount:100000,client_remaining_amount:0,finance_currency:'USD',finance_status:'PAID',accounting_status:'OPEN',updated_at:new Date().toISOString()}],documents:[],rail:[],dataConflicts:[],applications:[]};
+          async function inspect(page){return page.evaluate(()=>{const root=document.querySelector('#page-deals'),host=root?.querySelector(':scope > .rona-owner-page-content[data-owner-page="deals"]'),owned=host?.querySelector(':scope > .rona-current-deals-owned'),legacy=document.getElementById('legacyDealsDiagnostics');const visible=n=>{if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0&&r.width>0&&r.height>0};const siblings=Array.from(root?.children||[]).filter(n=>n!==host&&visible(n)).map(n=>({id:n.id,cls:String(n.className||''),text:String(n.innerText||'').slice(0,180)}));return{owned:!!owned,owner:host?.dataset?.ronaDealsOwner||'',siblings,text:String(owned?.innerText||''),rootText:String(root?.innerText||''),legacyDisplay:legacy?getComputedStyle(legacy).display:'MISSING',ui:window.__RONA_DEALS_CURRENT_STATE_UI__||'',error:window.__RONA_DEALS_CURRENT_STATE_ERROR__||'',snapshot:!!window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__}})}
+          function verify(v,label){assert(v.owned,label+' owned root missing '+JSON.stringify(v));assert(v.owner==='current-v1.3',label+' wrong owner '+v.owner);assert(v.siblings.length===0,label+' visible preserved sibling '+JSON.stringify(v.siblings));assert(v.legacyDisplay==='none',label+' legacy diagnostic underlay display='+v.legacyDisplay);for(const s of ['Операционная картина сделок','Ожидают оплаты','Общий объём сделок, т','Общая сумма сделок','Базис поставки'])assert(v.text.includes(s),label+' missing '+s);for(const s of ['Ожидают оплаты или действий','Контрольный срез источников','CF-001','ОЖИДАЮТ ПОДТВЕРЖДЕНИЕ РЕСУРСА'])assert(!v.rootText.includes(s),label+' leaked '+s)}
           (async()=>{
-            const browser=await chromium.launch({headless:true,channel:'chrome'});
-            const ctx=await browser.newContext({viewport:{width:2048,height:1152},javaScriptEnabled:true});
-            const page=await ctx.newPage(),errors=[];
+            const browser=await chromium.launch({headless:true,channel:'chrome'}),ctx=await browser.newContext({viewport:{width:2048,height:1152},javaScriptEnabled:true}),page=await ctx.newPage(),errors=[];
             page.on('pageerror',e=>errors.push(String(e.message||e)));
             await page.route('**/portal/admin?synthetic=*',async route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"></head><body><nav id="nav"><button type="button" data-page="deals">Сделки</button></nav><main><section id="page-deals"><section id="legacyDealsDiagnostics"><h1>Контрольный срез источников сверка</h1><div>CF-001</div><div>ОЖИДАЮТ ПОДТВЕРЖДЕНИЕ РЕСУРСА</div></section></section></main></body></html>`}));
             await page.route('**/portal/owner-api?*',async route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:fixture})}));
             await page.goto(origin+'/portal/admin?synthetic='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
-            await page.addScriptTag({url:origin+'/portal/deals-current-state-ui?synthetic='+Date.now()});
-            await page.waitForSelector('#page-deals .rona-current-deals-owned',{state:'attached',timeout:15000});
-            let v=await inspect(page);verify(v,'initial');
-            await page.waitForTimeout(5000);
-            v=await inspect(page);verify(v,'delayed');
-            assert(errors.length===0,'browser errors '+JSON.stringify(errors));
-            console.log('DEALS_SYNTHETIC_RACE_PROOF=PASS '+JSON.stringify({origin,owner:v.owner,legacyDisplay:v.legacyDisplay}));
-            await browser.close();
+            await page.addScriptTag({content:deployedDealsScript});
+            for(let i=0;i<150&&!await page.$('#page-deals .rona-current-deals-owned');i++)await page.waitForTimeout(100);
+            let v=await inspect(page);assert(errors.length===0,'browser errors before render '+JSON.stringify(errors));verify(v,'initial');
+            await page.waitForTimeout(5000);v=await inspect(page);assert(errors.length===0,'browser errors delayed '+JSON.stringify(errors));verify(v,'delayed');
+            console.log('DEALS_SYNTHETIC_RACE_PROOF=PASS '+JSON.stringify({origin,owner:v.owner,legacyDisplay:v.legacyDisplay,ui:v.ui,snapshot:v.snapshot}));await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
 
