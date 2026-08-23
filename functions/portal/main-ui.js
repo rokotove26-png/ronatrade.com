@@ -16,14 +16,14 @@ import c14 from './owner-ui-chunks/chunk14.js';
 import c15 from './owner-ui-chunks/chunk15.js';
 import c16 from './owner-ui-chunks/chunk16.js';
 
-const BUILD='owner-main-v2-20260824-0055';
+const BUILD='owner-main-v2-20260824-0102';
 const RAW=[
   "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
   c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
   "window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;"
 ].join('');
 
-const DEALS_SHELL="function renderDealsCurrentShell(){const p=page('deals');if(!p)return;if(window.__RONA_DEALS_CURRENT_STATE__||document.documentElement.classList.contains('rona-deals-current-ready'))return;replacePage('deals',card('Сделки',e('div',{class:'rona-owner-muted',text:'Загрузка актуальных данных…'})))}\n";
+const DEALS_SHELL="function isolateDealsShell(p){if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\"deals\"]',p)||q(':scope > .rona-owner-page-content',p);for(const child of Array.from(p.children)){if(child===host)continue;child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}if(host){host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display')}return host}function renderDealsCurrentShell(){const p=page('deals');if(!p)return;const ready=window.__RONA_DEALS_CURRENT_STATE__||document.documentElement.classList.contains('rona-deals-current-ready');if(!ready&&!q(':scope > .rona-owner-page-content[data-owner-page=\"deals\"]',p))replacePage('deals',card('Сделки',e('div',{class:'rona-owner-muted',text:'Загрузка актуальных данных…'})));isolateDealsShell(p)}\n";
 const SCRIPT=RAW
   .replace('function renderOwnedAdminPage(id){',DEALS_SHELL+'function renderOwnedAdminPage(id){')
   .replace('deals:renderDeals,','deals:renderDealsCurrentShell,')
@@ -38,6 +38,6 @@ export async function onRequest(){
     'x-content-type-options':'nosniff',
     'x-rona-ui':'main-v2',
     'x-rona-ui-build':BUILD,
-    'x-rona-deals-owner':'current-only'
+    'x-rona-deals-owner':'current-only-v1.3'
   }});
 }

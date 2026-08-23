@@ -3,7 +3,7 @@ name: Deals current-only QA 20260824
 on:
   push:
     branches:
-      - 'hotfix/deals-visible-current-only-20260824'
+      - 'hotfix/deals-hide-canonical-underlay-20260824'
 
 permissions:
   contents: read
@@ -30,24 +30,32 @@ jobs:
           const dr=await deals.onRequest();
           const ds=await dr.text();
           new Function(ds);
-          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.2','Deals runtime header');
+          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.3','Deals runtime header');
           assert(ds.includes('function waitsPayment(d)'),'payment-only predicate missing');
           assert(!ds.includes('function waitsAction(d)'),'legacy waitsAction remains');
-          assert(ds.includes("document.addEventListener('DOMContentLoaded',start,{once:true})"),'independent start missing');
-          assert(ds.includes('new MutationObserver(mount)'),'Deals mount observer missing');
+          assert(ds.includes('function isolateDealsPage(root,host)'),'Deals underlay isolation missing');
+          assert(ds.includes("host.dataset.ronaDealsOwner='current-v1.3'"),'exclusive owner marker missing');
+          assert(ds.includes("n.style.setProperty('display','none','important')"),'preserved underlay is not forcibly hidden');
+          assert(ds.includes("var owned=el('div','rona-current-deals-owned')"),'owned Deals root missing');
+          assert(ds.includes('function guardDealsOwner()'),'exclusive Deals guard missing');
+          assert(ds.includes('new MutationObserver(function(){if(guardQueued)return;'),'exclusive ownership observer missing');
           assert(ds.includes("kpi('Ожидают оплаты'"),'payment KPI title missing');
           assert(!ds.includes("kpi('Ожидают оплаты или действий'"),'legacy payment KPI title remains');
+          assert(ds.includes("'Базис поставки'"),'delivery basis column missing');
+          assert(ds.includes("'Общий объём сделок, т'"),'total volume KPI missing');
+          assert(ds.includes("'Общая сумма сделок'"),'total amount KPI missing');
 
           const main=await import('./functions/portal/main-ui.js?qa='+Date.now());
           const mr=await main.onRequest();
           const ms=await mr.text();
           new Function(ms);
-          assert(mr.headers.get('x-rona-deals-owner')==='current-only','main current-only marker');
+          assert(mr.headers.get('x-rona-deals-owner')==='current-only-v1.3','main current-only marker');
+          assert(ms.includes('function isolateDealsShell(p)'),'main Deals underlay isolation missing');
           assert(ms.includes('function renderDealsCurrentShell()'),'current Deals loading shell missing');
           assert(ms.includes('deals:renderDealsCurrentShell,'),'navigation still owns legacy Deals renderer');
           assert(!ms.includes('deals:renderDeals,'),'legacy navigation Deals renderer remains active');
           assert(ms.includes('renderApplications();renderDealsCurrentShell();renderDocuments();'),'initial Admin render does not use current-only shell');
-          console.log('DEALS_CURRENT_ONLY_GENERATED_RUNTIME=PASS');
+          console.log('DEALS_CURRENT_ONLY_V13_GENERATED_RUNTIME=PASS');
           NODE
       - name: Publish QA status
         if: always()
@@ -61,8 +69,8 @@ jobs:
         run: |
           set -euo pipefail
           state=failure
-          description='Deals current-only generated runtime failed'
-          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Deals current-only generated runtime PASS'; fi
+          description='Deals current-only v1.3 generated runtime failed'
+          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Deals current-only v1.3 generated runtime PASS'; fi
           target="https://github.com/$REPO/actions/runs/$RUN_ID"
           payload=$(printf '{"state":"%s","context":"rona/deals-current-only","description":"%s","target_url":"%s"}' "$state" "$description" "$target")
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$payload" >/dev/null
