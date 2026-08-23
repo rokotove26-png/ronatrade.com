@@ -16,8 +16,9 @@ import c14 from './owner-ui-chunks/chunk14.js';
 import c15 from './owner-ui-chunks/chunk15.js';
 import c16 from './owner-ui-chunks/chunk16.js';
 
+const BUILD='owner-main-v2-20260823-1745';
 const SCRIPT=[
-  "window.__RONA_MAIN_UI_ENTRY__=true;",
+  "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
   c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
   "window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;"
 ].join('');
@@ -25,8 +26,11 @@ const SCRIPT=[
 export async function onRequest(){
   return new Response(SCRIPT,{status:200,headers:{
     'content-type':'application/javascript; charset=utf-8',
-    'cache-control':'no-store',
+    'cache-control':'no-store, no-cache, must-revalidate',
+    'pragma':'no-cache',
+    'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-ui':'main-v2'
+    'x-rona-ui':'main-v2',
+    'x-rona-ui-build':BUILD
   }});
 }
