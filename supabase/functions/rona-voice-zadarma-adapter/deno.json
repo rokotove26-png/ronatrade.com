@@ -1,0 +1,1 @@
+{"imports":{"@supabase/supabase-js":"npm:@supabase/supabase-js@2.109.0","postgres":"npm:postgres@3.4.7","openai":"npm:openai@7.5.0"}}
