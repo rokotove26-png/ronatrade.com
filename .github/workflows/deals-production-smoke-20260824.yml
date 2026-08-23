@@ -1,0 +1,33 @@
+name: Deals production smoke 20260824
+
+on:
+  push:
+    branches:
+      - 'hotfix/deals-production-smoke-20260824'
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  deals-production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify production Deals runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --dump-header /tmp/headers.txt --output /tmp/deals.js 'https://ronaoil.com/portal/deals-current-state-ui?smoke=20260824'
+          grep -qi '^x-rona-deals-ui: current-state-v1.1' /tmp/headers.txt
+          grep -q 'Ожидают оплаты' /tmp/deals.js
+          if grep -q 'Ожидают оплаты или действий' /tmp/deals.js; then
+            echo 'legacy payment KPI label is still deployed' >&2
+            exit 1
+          fi
+          grep -q 'function waitsPayment' /tmp/deals.js
+          if grep -q 'function waitsAction' /tmp/deals.js; then
+            echo 'legacy waitsAction runtime is still deployed' >&2
+            exit 1
+          fi
+          echo 'DEALS_PRODUCTION_RUNTIME=PASS'
