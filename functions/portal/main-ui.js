@@ -18,7 +18,7 @@ import c15 from './owner-ui-chunks/chunk15.js';
 import c16 from './owner-ui-chunks/chunk16.js';
 import cPaintGuard from './owner-ui-chunks/chunkPaintGuard.js';
 
-const BUILD='owner-main-v2-20260823-1830-prices2a-hotfix';
+const BUILD='owner-main-v2-20260823-1842-loader-guard';
 const SCRIPT=[
   "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
   c0,c1,c2,c3,c4,c5,cPriceArchitecture,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,cPaintGuard,
