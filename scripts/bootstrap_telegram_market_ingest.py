@@ -9,7 +9,8 @@ It writes only these GitHub Actions secrets through an already-authenticated `gh
   TELEGRAM_SESSION
 
 The script does not join channels, send messages, or mutate Telegram state. It only
-verifies read access to the configured market-source usernames.
+verifies read access to the configured market-source usernames, provisions the
+repository secrets, and dispatches the existing read-only ingest workflow.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ except ImportError as exc:
 
 
 REPO = "rokotove26-png/ronatrade.com"
+WORKFLOW = "telegram-market-ingest.yml"
 CHANNELS = ("platts_digits", "Samantahlil")
 SECRET_NAMES = ("TELEGRAM_API_ID", "TELEGRAM_API_HASH", "TELEGRAM_SESSION")
 
@@ -81,6 +83,18 @@ def verify_secret_names() -> None:
     missing = [name for name in SECRET_NAMES if name not in present]
     if missing:
         fail("GitHub did not report all required secret names: " + ", ".join(missing))
+
+
+def dispatch_ingest() -> None:
+    result = subprocess.run(
+        ["gh", "workflow", "run", WORKFLOW, "--repo", REPO, "--ref", "main"],
+        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail("Secrets are provisioned, but the Telegram ingest workflow could not be dispatched. Check GitHub Actions permission and retry the workflow from the GitHub UI.")
 
 
 async def authorize(api_id: int, api_hash: str, phone: str) -> tuple[str, Dict[str, str]]:
@@ -137,21 +151,21 @@ async def main() -> None:
         fail("Use an international phone number beginning with +.")
 
     session, access = await authorize(api_id, api_hash, phone)
+    if not any(access.get(username) == "READABLE" for username in CHANNELS):
+        fail(
+            "Telegram authorization is valid, but neither @platts_digits nor @Samantahlil is readable. "
+            "Grant this account legitimate access to at least one configured source and retry."
+        )
 
     set_github_secret("TELEGRAM_API_ID", str(api_id))
     set_github_secret("TELEGRAM_API_HASH", api_hash)
     set_github_secret("TELEGRAM_SESSION", session)
     verify_secret_names()
+    dispatch_ingest()
 
-    print("PASS: required GitHub Actions secret names are provisioned.")
+    print("PASS: required GitHub Actions secret names are provisioned and the ingest workflow was dispatched.")
     for username in CHANNELS:
         print(f"CHANNEL @{username}: {access.get(username, 'UNKNOWN')}")
-    if access.get("platts_digits") != "READABLE" and access.get("Samantahlil") != "READABLE":
-        print(
-            "WARNING: authorization is valid, but neither configured channel was readable. "
-            "Grant this Telegram account legitimate access and rerun the bootstrap.",
-            file=sys.stderr,
-        )
     print("No Telegram code, 2FA password, API hash, or session token was printed or stored locally by this script.")
 
 
