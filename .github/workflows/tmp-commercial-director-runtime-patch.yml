@@ -1,0 +1,90 @@
+name: Temporary Commercial Director runtime patch
+
+on:
+  push:
+    branches:
+      - hotfix/commercial-director-full-runtime-20260823
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/commercial-director-full-runtime-20260823
+          fetch-depth: 0
+      - name: Patch fixed-role Commercial Director runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one match, found {count}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          read_only = 'supabase/functions/rona-ai-read-only/index.js'
+          replace_once(
+              read_only,
+              "const DB = Deno.env.get('SUPABASE_DB_URL');\nconst SIGNING_KEY = Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY');\nconst BOOTSTRAP_PEPPER = Deno.env.get('RONA_AI_BOOTSTRAP_PEPPER');\nif (!DB) throw new Error('SUPABASE_DB_URL missing');\nconst sql = postgres(DB,{prepare:false,max:2});",
+              "const DB = Deno.env.get('SUPABASE_DB_URL');\nif (!DB) throw new Error('SUPABASE_DB_URL missing');\nconst sql = postgres(DB,{prepare:false,max:2});\nconst vaultSigning = await sql`select decrypted_secret from vault.decrypted_secrets where name='rona_ai_token_signing_key_v1' limit 1`;\nconst SIGNING_KEY = Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY') || String(vaultSigning[0]?.decrypted_secret || '');\nconst BOOTSTRAP_PEPPER = Deno.env.get('RONA_AI_BOOTSTRAP_PEPPER');"
+          )
+          replace_once(
+              read_only,
+              ": role==='MARKET_ANALYST' ? ['MARKET','PUBLICATION','PORTAL_EVENT']",
+              ": role==='MARKET_ANALYST' ? ['CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PORTAL_EVENT']"
+          )
+          replace_once(
+              read_only,
+              ": role==='MARKET_ANALYST' ? ['ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']",
+              ": role==='MARKET_ANALYST' ? ['CLIENT_APPLICATION_SUBMIT','CLIENT_MESSAGE_SUBMIT','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT','ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']"
+          )
+          replace_once(
+              read_only,
+              "    allowed_domains:ROLE_DOMAINS[role],\n  };",
+              "    allowed_domains:ROLE_DOMAINS[role],\n    organizational_title:role==='MARKET_ANALYST'?'Коммерческий директор':null,\n  };"
+          )
+          replace_once(
+              read_only,
+              "  if(role==='MARKET_ANALYST') return {...base,\n    market:await currentPublications(),publications:await currentPublications(),tasks:await currentTasks(role),events:await currentPortalEvents(role),\n  };",
+              "  if(role==='MARKET_ANALYST') {\n    const applications=await currentApplications();\n    return {...base,\n      clients:await currentClients(),contracts:await currentContracts(),applications,deals:await currentDeals(),commercialRecords:applications,\n      market:await currentPublications(),publications:await currentPublications(),tasks:await currentTasks(role),events:await currentPortalEvents(role),\n    };\n  }"
+          )
+
+          gateway = 'supabase/functions/rona-mcp-gateway/index.js'
+          replace_once(
+              gateway,
+              "MARKET_ANALYST:new Set(['DEAL','PUBLICATION','TASK']),",
+              "MARKET_ANALYST:new Set(['CLIENT','CONTRACT','APPLICATION','DEAL','PUBLICATION','TASK']),"
+          )
+          replace_once(
+              gateway,
+              "role==='MARKET_ANALYST'?['publications','tasks']",
+              "role==='MARKET_ANALYST'?['contracts','deals','publications','tasks']"
+          )
+          replace_once(
+              gateway,
+              "if(cfg.business_role==='MARKET_ANALYST')tools.push({name:'market_data',title:'Рыночные данные',description:'Получить текущие рыночные source records, разрешённые роли Аналитика рынков.'",
+              "if(cfg.business_role==='MARKET_ANALYST')tools.push({name:'market_data',title:'Коммерческие и рыночные данные',description:'Получить текущие рыночные source records в контуре Коммерческого директора; клиентские, договорные, заявочные и сделочные данные доступны через current_state.'"
+          )
+
+          executor = 'supabase/functions/rona-ai-model-executor/index.ts'
+          replace_once(
+              executor,
+              '  MARKET_ANALYST:\n    "Keep MARKET_FACT, CALCULATION and FORECAST distinct. PREPARED_INTERNAL is never client publication. Never promote an internal item to PUBLISHED.",',
+              '  MARKET_ANALYST:\n    "Act as RONA Trade Commercial Director while retaining market-analysis duties. Own client qualification, commercial proposal preparation, negotiation position and commercial terms within the commercial contour. Keep MARKET_FACT, CALCULATION and FORECAST distinct. PREPARED_INTERNAL is never client publication. Never self-approve contracts, payments, accounting, rail movement, publication release, IAM changes or final Executive Director decisions.",'
+          )
+          PY
+          rm .github/workflows/tmp-commercial-director-runtime-patch.yml
+          git config user.name "RONA Runtime Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Complete Commercial Director runtime alignment"
+          git push origin HEAD:hotfix/commercial-director-full-runtime-20260823
