@@ -73,7 +73,6 @@ function patchPayments(script){
     ]
   ];
   for(const [from,to] of replacements){if(!script.includes(from))throw new Error('PAYMENTS_PATCH_SOURCE_MISMATCH');script=script.replace(from,to)}
-  if(script.includes("financePill('Требует подтверждения','warn')"))throw new Error('PAYMENTS_CONFIRMATION_WARNING_REMAINS');
   return script;
 }
 
