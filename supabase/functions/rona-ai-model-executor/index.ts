@@ -1,11 +1,14 @@
 // @ts-nocheck
 import { createClient } from "npm:@supabase/supabase-js@2.109.0";
-import OpenAI from "npm:openai@7.5.0";
 
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 if (!SUPA_URL) throw new Error("SUPABASE_URL_MISSING");
 
-const VERSION = "1.3.1";
+const VERSION = "1.4.0";
+const PROVIDER = "GROQ";
+const PROVIDER_BASE_URL = "https://api.groq.com/openai/v1";
+const PROVIDER_MODEL = "openai/gpt-oss-120b";
+const MAX_AUTONOMOUS_INPUT_CHARS = 18000;
 const READ_ONLY_URL = `${SUPA_URL.replace(/\/$/, "")}/functions/v1/rona-ai-read-only/current-state`;
 const AUTONOMOUS_ROLES = new Set([
   "OPERATIONS_DIRECTOR",
@@ -152,6 +155,13 @@ const ACTION_SCHEMA = {
   },
 };
 
+const PROBE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ok"],
+  properties: { ok: { type: "boolean" } },
+};
+
 const ROLE_RULES: Record<string, string> = {
   OPERATIONS_DIRECTOR:
     "Coordinate cross-role work and escalation. Never substitute Finance, Legal, Accounting, Rail, Market, System Admin or IAM authority.",
@@ -197,7 +207,21 @@ function needles(queue: any) {
   ].filter((x) => typeof x === "string" && x.length > 2).map(String);
 }
 
-function trimArray(items: any[], match: string[], max = 20) {
+function boundValue(value: any, depth = 0, arrayMax = 8, stringMax = 1200): any {
+  if (value === null || value === undefined) return value ?? null;
+  if (typeof value === "string") return value.length > stringMax ? `${value.slice(0, stringMax)}...[TRUNCATED]` : value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (depth >= 5) return typeof value === "object" ? "[DEPTH_LIMIT]" : String(value);
+  if (Array.isArray(value)) return value.slice(0, arrayMax).map((v) => boundValue(v, depth + 1, arrayMax, stringMax));
+  if (typeof value === "object") {
+    const out: Record<string, any> = {};
+    for (const [k, v] of Object.entries(value).slice(0, 40)) out[k] = boundValue(v, depth + 1, arrayMax, stringMax);
+    return out;
+  }
+  return String(value);
+}
+
+function trimArray(items: any[], match: string[], max = 8) {
   const hits = items.filter((item) => {
     if (!match.length) return false;
     try {
@@ -215,30 +239,55 @@ function trimArray(items: any[], match: string[], max = 20) {
     try { key = JSON.stringify(item); } catch { key = String(item); }
     if (!seen.has(key)) {
       seen.add(key);
-      out.push(item);
+      out.push(boundValue(item));
     }
   }
   return out;
 }
 
 function compactState(state: any, queue: any) {
-  if (!state || typeof state !== "object" || Array.isArray(state)) return state;
+  if (!state || typeof state !== "object" || Array.isArray(state)) return boundValue(state);
   const match = needles(queue);
   const out: Record<string, any> = {};
   for (const [key, value] of Object.entries(state)) {
     if (Array.isArray(value)) {
-      out[key] = trimArray(value, match, 20);
+      out[key] = trimArray(value, match, 8);
     } else if (value && typeof value === "object") {
       const nested: Record<string, any> = {};
-      for (const [k, v] of Object.entries(value as Record<string, any>)) {
-        nested[k] = Array.isArray(v) ? trimArray(v, match, 20) : v;
+      for (const [k, v] of Object.entries(value as Record<string, any>).slice(0, 40)) {
+        nested[k] = Array.isArray(v) ? trimArray(v, match, 8) : boundValue(v);
       }
       out[key] = nested;
     } else {
-      out[key] = value;
+      out[key] = boundValue(value);
     }
   }
   return out;
+}
+
+function modelEnvelope(queue: any, currentState: any) {
+  const envelope = {
+    protocol: "AI_STAFF_COMMUNICATION_PROTOCOL_V1_3",
+    provider: PROVIDER,
+    queue: {
+      queue_id: queue.queue_id,
+      source_type: queue.source_type,
+      source_id: queue.source_id,
+      source_record_id: queue.source_record_id,
+      target_role: queue.target_role,
+      priority: queue.priority,
+      payload: boundValue(queue.payload, 0, 10, 1400),
+      attempt: queue.attempts,
+    },
+    current_state: compactState(currentState, queue),
+  };
+  const input = JSON.stringify(envelope);
+  if (input.length > MAX_AUTONOMOUS_INPUT_CHARS) {
+    const e = new Error("MODEL_INPUT_BUDGET_EXCEEDED");
+    (e as any).detail = `input_chars=${input.length};limit=${MAX_AUTONOMOUS_INPUT_CHARS}`;
+    throw e;
+  }
+  return input;
 }
 
 async function fetchCurrentState(queue: any, workerId: string) {
@@ -281,51 +330,82 @@ async function fetchCurrentState(queue: any, workerId: string) {
 function usageOf(response: any) {
   const u = response?.usage || {};
   return {
-    input_tokens: Number(u.input_tokens || 0),
-    output_tokens: Number(u.output_tokens || 0),
+    input_tokens: Number(u.prompt_tokens || u.input_tokens || 0),
+    output_tokens: Number(u.completion_tokens || u.output_tokens || 0),
     total_tokens: Number(u.total_tokens || 0),
   };
 }
 
-async function modelAction(openai: OpenAI, queue: any, currentState: any) {
-  const envelope = {
-    protocol: "AI_STAFF_COMMUNICATION_PROTOCOL_V1_3",
-    queue: {
-      queue_id: queue.queue_id,
-      source_type: queue.source_type,
-      source_id: queue.source_id,
-      source_record_id: queue.source_record_id,
-      target_role: queue.target_role,
-      priority: queue.priority,
-      payload: queue.payload,
-      attempt: queue.attempts,
-    },
-    current_state: compactState(currentState, queue),
-  };
-  const input = JSON.stringify(envelope);
-  const requestHash = await sha256Hex(input);
-
-  const response = await openai.responses.create({
-    model: queue.model_id,
-    instructions: instructions(queue.target_role),
-    input,
-    max_output_tokens: Number(queue.max_output_tokens || 1600),
-    store: false,
-    text: {
-      format: {
-        type: "json_schema",
-        name: "rona_ai_controlled_action_v1_3",
-        description: "One bounded RONA Trade internal coordination action; never an authoritative business mutation.",
-        strict: true,
-        schema: ACTION_SCHEMA,
+async function groqCompletion(
+  apiKey: string,
+  model: string,
+  systemText: string,
+  userText: string,
+  schemaName: string,
+  schema: Record<string, unknown>,
+  maxCompletionTokens: number,
+) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const response = await fetch(`${PROVIDER_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${apiKey}`,
+        "content-type": "application/json",
+        accept: "application/json",
       },
-    },
-  });
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: systemText },
+          { role: "user", content: userText },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: schemaName,
+            strict: true,
+            schema,
+          },
+        },
+        reasoning_effort: "low",
+        max_completion_tokens: Math.max(64, Math.min(Number(maxCompletionTokens || 900), 1200)),
+        stream: false,
+      }),
+      signal: ctrl.signal,
+      redirect: "error",
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const e = new Error(`GROQ_HTTP_${response.status}`);
+      (e as any).status = response.status;
+      (e as any).detail = String(data?.error?.message || data?.error?.code || "GROQ_REQUEST_FAILED").slice(0, 800);
+      throw e;
+    }
+    return data;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
-  const outputText = String(response.output_text || "");
+async function modelAction(apiKey: string, queue: any, currentState: any) {
+  const input = modelEnvelope(queue, currentState);
+  const requestHash = await sha256Hex(input);
+  const response = await groqCompletion(
+    apiKey,
+    queue.model_id,
+    instructions(queue.target_role),
+    input,
+    "rona_ai_controlled_action_v1_4",
+    ACTION_SCHEMA,
+    Number(queue.max_output_tokens || 900),
+  );
+
+  const outputText = String(response?.choices?.[0]?.message?.content || "");
   if (!outputText) {
     const e = new Error("MODEL_OUTPUT_EMPTY");
-    Object.assign(e, { responseId: response.id, requestHash, usage: usageOf(response) });
+    Object.assign(e, { responseId: response?.id, requestHash, usage: usageOf(response) });
     throw e;
   }
   const outputHash = await sha256Hex(outputText);
@@ -334,10 +414,10 @@ async function modelAction(openai: OpenAI, queue: any, currentState: any) {
     action = JSON.parse(outputText);
   } catch {
     const e = new Error("MODEL_OUTPUT_INVALID_JSON");
-    Object.assign(e, { responseId: response.id, requestHash, outputHash, usage: usageOf(response) });
+    Object.assign(e, { responseId: response?.id, requestHash, outputHash, usage: usageOf(response) });
     throw e;
   }
-  return { action, responseId: response.id, requestHash, outputHash, usage: usageOf(response) };
+  return { action, responseId: response?.id, requestHash, outputHash, usage: usageOf(response) };
 }
 
 async function recordFailure(queue: any, workerId: string, error: any, retryable: boolean) {
@@ -372,10 +452,14 @@ async function handleHealth(req: Request) {
     mode: "FAIL_CLOSED_COORDINATION_ONLY",
     control: health,
     capabilities: {
-      openaiApiKeyPresent: Boolean(Deno.env.get("OPENAI_API_KEY")),
+      provider: PROVIDER,
+      providerBaseUrl: PROVIDER_BASE_URL,
+      providerModel: PROVIDER_MODEL,
+      providerApiKeyPresent: Boolean(Deno.env.get("GROQ_API_KEY")),
       autonomousBusinessMutation: false,
       autonomousSystemAdminWrite: false,
       scheduledTasksUsed: false,
+      strictStructuredOutputs: true,
     },
   });
 }
@@ -383,39 +467,28 @@ async function handleHealth(req: Request) {
 async function handleProbe(req: Request) {
   if (!await authorized(req)) return send(401, { ok: false, code: "EXECUTOR_AUTH_REQUIRED" });
   const health = await rpc("rona_ai_executor_health");
-  const model = String(health?.model_id || "gpt-5.6-terra");
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  const model = String(health?.model_id || PROVIDER_MODEL);
+  const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) {
     await rpc("rona_ai_executor_record_probe", {
       p_ok: false,
       p_model: model,
-      p_error_code: "OPENAI_API_KEY_MISSING",
+      p_error_code: "GROQ_API_KEY_MISSING",
     });
-    return send(409, { ok: false, code: "OPENAI_API_KEY_MISSING", model, armed: false });
+    return send(409, { ok: false, code: "GROQ_API_KEY_MISSING", provider: PROVIDER, model, armed: false });
   }
 
-  const openai = new OpenAI({ apiKey, maxRetries: 0, timeout: 30000 });
   try {
-    const response = await openai.responses.create({
+    const response = await groqCompletion(
+      apiKey,
       model,
-      input: "Return the executor health probe result.",
-      max_output_tokens: 64,
-      store: false,
-      text: {
-        format: {
-          type: "json_schema",
-          name: "rona_executor_probe",
-          strict: true,
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            required: ["ok"],
-            properties: { ok: { type: "boolean" } },
-          },
-        },
-      },
-    });
-    const parsed = JSON.parse(String(response.output_text || "{}"));
+      "Return exactly the requested structured health result. Do not include reasoning or any other fields.",
+      "Return the executor health probe result with ok=true.",
+      "rona_executor_probe_v1_4",
+      PROBE_SCHEMA,
+      128,
+    );
+    const parsed = JSON.parse(String(response?.choices?.[0]?.message?.content || "{}"));
     if (parsed?.ok !== true) throw new Error("MODEL_PROBE_STRUCTURED_OUTPUT_FAILED");
     const recorded = await rpc("rona_ai_executor_record_probe", {
       p_ok: true,
@@ -424,14 +497,17 @@ async function handleProbe(req: Request) {
     });
     return send(200, {
       ok: true,
+      provider: PROVIDER,
       model,
       state: recorded?.state || "PROBE_OK",
       armed: false,
-      responseIdRecorded: Boolean(response.id),
+      responseIdRecorded: Boolean(response?.id),
+      strictStructuredOutput: true,
     });
   } catch (error) {
-    const code = String((error as any)?.status
-      ? `OPENAI_HTTP_${(error as any).status}`
+    const status = Number((error as any)?.status || 0);
+    const code = String(status
+      ? `GROQ_HTTP_${status}`
       : (error as any)?.message || "MODEL_PROBE_FAILED")
       .replace(/[^A-Z0-9_]/gi, "_")
       .slice(0, 160);
@@ -440,7 +516,7 @@ async function handleProbe(req: Request) {
       p_model: model,
       p_error_code: code,
     });
-    return send(409, { ok: false, code, model, armed: false });
+    return send(409, { ok: false, code, provider: PROVIDER, model, armed: false });
   }
 }
 
@@ -458,13 +534,12 @@ async function handleRun(req: Request) {
     });
   }
 
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+  const apiKey = Deno.env.get("GROQ_API_KEY");
   if (!apiKey) {
-    await rpc("rona_ai_executor_disarm", { p_reason: "OPENAI_API_KEY_MISSING" });
-    return send(409, { ok: false, code: "OPENAI_API_KEY_MISSING", disarmed: true });
+    await rpc("rona_ai_executor_disarm", { p_reason: "GROQ_API_KEY_MISSING" });
+    return send(409, { ok: false, code: "GROQ_API_KEY_MISSING", disarmed: true });
   }
 
-  const openai = new OpenAI({ apiKey, maxRetries: 0, timeout: 45000 });
   const workerId = crypto.randomUUID();
   const claimed = await rpc("rona_ai_executor_claim", {
     p_worker_id: workerId,
@@ -482,7 +557,7 @@ async function handleRun(req: Request) {
 
     try {
       const currentState = await fetchCurrentState(queue, workerId);
-      const modeled = await modelAction(openai, queue, currentState);
+      const modeled = await modelAction(apiKey, queue, currentState);
       let committed: any;
       try {
         committed = await rpc("rona_ai_executor_commit_action", {
@@ -522,6 +597,7 @@ async function handleRun(req: Request) {
 
   return send(200, {
     ok: true,
+    provider: PROVIDER,
     workerVersion: VERSION,
     claimed: items.length,
     executed: results.filter((r) => r.ok).length,
