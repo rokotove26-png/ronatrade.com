@@ -36,10 +36,20 @@ async function adminSync(){
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
     order by p.payment_at desc,p.payment_id desc,d.deal_id nulls last`;
+  const outgoingPayments=await sql`
+    select fact_id,payment_at,beneficiary_name,beneficiary_role,amount,currency,purpose,bank_document,deal_ids,deal_allocation_status,flow_kind,bank_fact_status,source_document,source_version,source_timestamp,authority_state,lifecycle_state
+    from portal_private.owner_outgoing_payment_facts
+    where lifecycle_state='ACTIVE' and authority_state='CONFIRMED' and bank_fact_status='BANK_CONFIRMED'
+    order by payment_at desc,fact_id desc`;
+  const dealFinanceSummaries=await sql`
+    select deal_id,client_id,client_name,obligation_amount,received_amount,currency,client_remaining_amount,finance_status,accounting_status,cash_residual_amount,cash_residual_currency,cash_residual_status,cash_residual_note,source_document,source_version,source_timestamp,authority_state
+    from portal_private.owner_deal_finance_summary
+    where lifecycle_state='ACTIVE' and authority_state='CONFIRMED'
+    order by deal_id`;
   const paymentTotalsByCurrency=await sql`select currency,sum(amount) amount from portal_private.payments where lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum) and bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum group by currency order by currency`;
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
-  const financeFragment={authoritativeSource:'FINANCE_CANONICAL_BANK_RECONCILIATION',sourceAsOf:cash[0]?.snapshot_date||null,payments,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
+  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',sourceAsOf:cash[0]?.snapshot_date||null,payments,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
   return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
