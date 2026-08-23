@@ -4,11 +4,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.109.0";
 import { handleTelegramIngest } from "./telegram_ingest.js";
 
 const DB=Deno.env.get('SUPABASE_DB_URL');
-const SIGNING_KEY=Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY');
 const SUPA_URL=Deno.env.get('SUPABASE_URL');
 const SERVICE_ROLE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 if(!DB) throw new Error('SUPABASE_DB_URL missing');
 const sql=postgres(DB,{prepare:false,max:2});
+const vaultSigning=await sql`select decrypted_secret from vault.decrypted_secrets where name='rona_ai_token_signing_key_v1' limit 1`;
+const SIGNING_KEY=Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY')||String(vaultSigning[0]?.decrypted_secret||'');
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 const AI_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','RAIL_LOGISTICS','SYSTEM_ADMIN']);
 const FIN_DOC_TYPES=new Set(['ИНВОЙС','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ']);
