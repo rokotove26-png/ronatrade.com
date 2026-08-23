@@ -19,7 +19,7 @@ function priceStationKey(v){
 }
 function pricePeriod(rows){
   const t=String((rows||[]).find(x=>x&&x.commercial_terms)?.commercial_terms||'');
-  const m=t.match(/Период поставки:\s*([^;]+)/i);
+  const m=t.match(/Период поставки:[ \t]*([^;]+)/i);
   return m?m[1].trim():'Требует подтверждения';
 }
 function groupedPrices(rows){
@@ -45,7 +45,7 @@ let ownerPriceFilter='ALL';
 renderPrices=function(){
   ensureLkArchitectureV2Style();
   const rows=Array.isArray(adminData?.prices)?adminData.prices:[];
-  if(!rows.length){replacePage('prices',card('Цены',e('div',{class:'rona-owner-muted',text:'Согласованные цены из authoritative контура пока не сформированы.'})));return}
+  if(!rows.length){replacePage('prices',card('Цены',e('div',{class:'rona-owner-muted',text:'Согласованные цены из подтверждённого контура пока не сформированы.'})));return}
   const groups=groupedPrices(rows),publishedRows=rows.filter(x=>String(x.business_status||'').toUpperCase()==='PUBLISHED'),verifyGroups=groups.filter(x=>x.needsVerify),period=pricePeriod(rows),allClient=rows.every(x=>x.publish_client===true),allAgent=rows.every(x=>x.publish_agent===true);
   const kpi=e('div',{class:'rona-owner-grid rona-price-kpi-grid'});
   kpi.append(
@@ -80,7 +80,7 @@ renderPrices=function(){
   }});
   const pubStatus=e('div',{class:'rona-price-publish-status'},financePill('Клиенты · '+(allClient?'опубликовано':'не опубликовано'),allClient?'success':'neutral'),financePill('Агенты · '+(allAgent?'опубликовано':'не опубликовано'),allAgent?'success':'neutral'));
   const lastPublished=rows.map(x=>x.published_at).filter(Boolean).sort().pop();
-  const publication=card('Публикация прайса',pubStatus,e('div',{class:'rona-price-publish-row'},e('span',{text:'Аудитория'}),audience,publishButton),e('div',{class:'rona-price-note',text:'Публикация применяется ко всей выбранной аудитории. Индивидуальная адресация не имитируется без отдельного authoritative механизма.'}),lastPublished?e('div',{class:'rona-price-note',text:'Последняя подтверждённая публикация: '+date(lastPublished)}):null);
+  const publication=card('Публикация прайса',pubStatus,e('div',{class:'rona-price-publish-row'},e('span',{text:'Аудитория'}),audience,publishButton),e('div',{class:'rona-price-note',text:'Публикация применяется ко всей выбранной аудитории. Индивидуальная адресация не показывается, пока для неё нет отдельного подтверждённого механизма.'}),lastPublished?e('div',{class:'rona-price-note',text:'Последняя подтверждённая публикация: '+date(lastPublished)}):null);
   replacePage('prices',e('div',{},kpi,filter,matrix,terms,publication));
 };
 ensureLkArchitectureV2Style();
