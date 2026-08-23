@@ -48,15 +48,59 @@ async function documentSignedUrl(auth,documentId,req){
   if(!SUPA_URL||!SERVICE_ROLE)throw Object.assign(new Error('AI_DOCUMENT_STORAGE_NOT_CONFIGURED'),{status:503});
   const rows=await sql`select d.document_id,d.document_type,cl.client_id,ct.contract_id,x.deal_id,d.authoritative_filename,d.authority_state::text,d.lifecycle_state::text,dv.sha256,dv.version_number,so.id storage_object_id,so.bucket_id,so.object_name,so.content_type from portal_private.documents d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.deals x on x.id=d.deal_key join portal_private.document_versions dv on dv.id=d.current_version_id join portal_private.storage_objects so on so.document_version_key=dv.id where d.document_id=${documentId} and d.lifecycle_state='ACTIVE' and d.authority_state not in ('SUPERSEDED','REJECTED') and dv.is_current and dv.lifecycle_state='ACTIVE' and dv.authority_state not in ('SUPERSEDED','REJECTED') and so.storage_state='VERIFIED' limit 2`;
   if(rows.length!==1)throw Object.assign(new Error('AI_DOCUMENT_NOT_FOUND'),{status:404});const row=rows[0];if(!documentAllowed(auth.role,row))throw Object.assign(new Error('AI_DOCUMENT_SCOPE_DENIED'),{status:403});
-  const storage=createClient(SUPA_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}}),expiresIn=120;const {data,error}=await storage.storage.from(String(row.bucket_id)).createSignedUrl(String(row.object_name),expiresIn);if(error||!data?.signedUrl)throw Object.assign(new Error('AI_DOCUMENT_SIGNED_URL_FAILED'),{status:502});
+  const store=createClient(SUPA_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}}),expiresIn=120;const {data,error}=await store.storage.from(String(row.bucket_id)).createSignedUrl(String(row.object_name),expiresIn);if(error||!data?.signedUrl)throw Object.assign(new Error('AI_DOCUMENT_SIGNED_URL_FAILED'),{status:502});
   await audit({identity:auth.identity,role:auth.role,req,requestIds:auth.requestIds,domain:'DOCUMENT_CONTENT',result:'SUCCESS',httpStatus:200,jti:auth.jti,metadata:{document_id:String(row.document_id),document_type:String(row.document_type),client_id:String(row.client_id),contract_id:String(row.contract_id),deal_id:row.deal_id?String(row.deal_id):null,storage_object_id:String(row.storage_object_id),expires_in:expiresIn}});
   return{documentId:String(row.document_id),documentType:String(row.document_type),clientId:String(row.client_id),contractId:String(row.contract_id),dealId:row.deal_id?String(row.deal_id):null,filename:String(row.authoritative_filename),authorityState:String(row.authority_state),lifecycleState:String(row.lifecycle_state),sha256:String(row.sha256),versionNumber:Number(row.version_number),content_type:row.content_type?String(row.content_type):null,signed_url:data.signedUrl,expires_in:expiresIn};
 }
+
+async function telegramMarketSources(){
+  const rows=await sql`
+    select * from (
+      select distinct on (d.sha256)
+        d.id::text as document_id,d.channel_username,c.channel_role,c.priority as channel_priority,
+        d.message_id,d.message_timestamp,d.source_url,d.telegram_caption,d.file_name,d.file_size,d.mime_type,d.sha256,
+        d.storage_bucket,d.storage_path,d.extraction_state,left(coalesce(d.extracted_text,''),30000) as extracted_text_preview,
+        jsonb_array_length(d.extracted_tables) as table_count,
+        jsonb_build_array(d.extracted_tables->0,d.extracted_tables->1,d.extracted_tables->2) as extracted_tables_preview,
+        d.extraction_note,d.ingest_source,d.ingested_at,d.last_seen_at
+      from portal_private.telegram_market_documents d
+      join portal_private.telegram_market_channels c on c.channel_username=d.channel_username
+      where c.enabled=true and d.ingest_source='TELEGRAM_MTPROTO'
+      order by d.sha256,c.priority asc,d.message_timestamp desc,d.ingested_at desc
+    ) q
+    order by message_timestamp desc,channel_priority asc
+    limit 12`;
+  if(!SUPA_URL||!SERVICE_ROLE)return rows.map(r=>({...r,signed_url:null,expires_in:0,storage_access:'BLOCKED'}));
+  const store=createClient(SUPA_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}}),expiresIn=120;
+  return await Promise.all(rows.map(async r=>{
+    const {data,error}=await store.storage.from(String(r.storage_bucket)).createSignedUrl(String(r.storage_path),expiresIn,{download:String(r.file_name)});
+    return {...r,signed_url:error||!data?.signedUrl?null:data.signedUrl,expires_in:error?0:expiresIn,storage_access:error?'SIGNED_URL_FAILED':'AUTHORIZED_120S'};
+  }));
+}
+
 async function marketData(auth,req){
   if(auth.role!=='MARKET_ANALYST')throw Object.assign(new Error('AI_MARKET_SCOPE_DENIED'),{status:403});
   const rows=await sql`select distinct on (source_object_type,source_object_id) source_object_type,source_object_id,source_system,source_version,source_timestamp,checksum_sha256,raw_snapshot,created_at from portal_private.source_objects where source_object_type in ('MARKET_FACT','MARKET_FORECAST','MARKET_CALCULATION') and coalesce(lower(source_system),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])' order by source_object_type,source_object_id,source_timestamp desc nulls last,created_at desc`;
-  await audit({identity:auth.identity,role:auth.role,req,requestIds:auth.requestIds,domain:'MARKET',result:'SUCCESS',httpStatus:200,jti:auth.jti,metadata:{records:rows.length,current_only:true,deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID'}});
-  return{data_contract:'AI_MARKET_READ_V1',current_only:true,history_included:false,qa_test_debug_temp_excluded:true,deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID',records:rows};
+  let telegram=[];try{telegram=await telegramMarketSources();}catch(e){if(String(e?.message||'').includes('telegram_market_'))throw e;console.error('telegram market sources unavailable',String(e?.message||e));}
+  await audit({identity:auth.identity,role:auth.role,req,requestIds:auth.requestIds,domain:'MARKET',result:'SUCCESS',httpStatus:200,jti:auth.jti,metadata:{records:rows.length,telegram_records:telegram.length,current_only:true,deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID+TELEGRAM_SHA256_PRIMARY_PRIORITY'}});
+  return{
+    data_contract:'AI_MARKET_READ_V2',
+    current_only:true,
+    history_included:false,
+    qa_test_debug_temp_excluded:true,
+    deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID',
+    records:rows,
+    telegram:{
+      source_class:'TELEGRAM_MTPROTO',
+      access:'MARKET_ANALYST_READ_ONLY',
+      client_distribution_allowed:false,
+      original_binary:'PRIVATE_SIGNED_URL_120S',
+      extracted_text_preview_chars:30000,
+      extracted_tables_preview_max:3,
+      deduplication:'SHA256_WITH_PRIMARY_CHANNEL_PRIORITY',
+      documents:telegram,
+    },
+  };
 }
 
 Deno.serve(async req=>{
