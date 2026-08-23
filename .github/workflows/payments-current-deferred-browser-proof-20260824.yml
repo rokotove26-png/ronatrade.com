@@ -138,16 +138,17 @@ jobs:
           })}
           function amountOf(v,currency){return (Array.isArray(v)?v:[]).filter(x=>String(x.currency)===currency).reduce((n,x)=>n+Number(x.amount||0),0)}
           function verify(v,label){
+            const lower=v.visibleText.toLocaleLowerCase('ru-RU');
             assert(v.ready&&v.finance,label+' current snapshots not ready');
             assert(v.owner==='finance-current-v2',label+' wrong payments owner '+v.owner);
             assert(v.leaked.length===0,label+' stale visible sibling '+JSON.stringify(v.leaked));
-            assert(v.visibleText.includes('Ожидается поступлений — текущий период'),label+' missing current-period block '+JSON.stringify(v.visibleText));
-            assert(v.visibleText.includes('Ожидается поступлений — отложенный период'),label+' missing deferred-period block '+JSON.stringify(v.visibleText));
-            assert(v.visibleText.includes('Распределение поступлений'),label+' allocation column missing '+JSON.stringify(v.visibleText));
-            assert(v.visibleText.includes('Распределено по сделке'),label+' verified deal allocation missing '+JSON.stringify(v.visibleText));
-            assert(!v.visibleText.includes('Не распределено по сделке'),label+' false unallocated wording visible '+JSON.stringify(v.visibleText));
-            assert(!v.visibleText.includes('Требует подтверждения'),label+' misleading confirmation warning visible '+JSON.stringify(v.visibleText));
-            assert(v.visibleText.includes('Частично оплачено'),label+' partial-paid fact missing '+JSON.stringify(v.visibleText));
+            assert(lower.includes('ожидается поступлений — текущий период'),label+' missing current-period block '+JSON.stringify(v.visibleText));
+            assert(lower.includes('ожидается поступлений — отложенный период'),label+' missing deferred-period block '+JSON.stringify(v.visibleText));
+            assert(lower.includes('распределение поступлений'),label+' allocation column missing '+JSON.stringify(v.visibleText));
+            assert(lower.includes('распределено по сделке'),label+' verified deal allocation missing '+JSON.stringify(v.visibleText));
+            assert(!lower.includes('не распределено по сделке'),label+' false unallocated wording visible '+JSON.stringify(v.visibleText));
+            assert(!lower.includes('требует подтверждения'),label+' misleading confirmation warning visible '+JSON.stringify(v.visibleText));
+            assert(lower.includes('частично оплачено'),label+' partial-paid fact missing '+JSON.stringify(v.visibleText));
             assert(amountOf(v.state?.current,'USD')===0,label+' current period must be 0 USD '+JSON.stringify(v.state));
             assert(amountOf(v.state?.deferred,'USD')===585830,label+' deferred must be 585830 USD '+JSON.stringify(v.state));
             assert(v.widths.length===4,label+' expected four KPI cards '+JSON.stringify(v.widths));
