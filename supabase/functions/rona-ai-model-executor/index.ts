@@ -5,7 +5,7 @@ import OpenAI from "npm:openai@7.5.0";
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 if (!SUPA_URL) throw new Error("SUPABASE_URL_MISSING");
 
-const VERSION = "1.3.0";
+const VERSION = "1.3.1";
 const READ_ONLY_URL = `${SUPA_URL.replace(/\/$/, "")}/functions/v1/rona-ai-read-only/current-state`;
 const AUTONOMOUS_ROLES = new Set([
   "OPERATIONS_DIRECTOR",
@@ -362,7 +362,8 @@ async function recordFailure(queue: any, workerId: string, error: any, retryable
   }
 }
 
-async function handleHealth() {
+async function handleHealth(req: Request) {
+  if (!await authorized(req)) return send(401, { ok: false, code: "EXECUTOR_AUTH_REQUIRED" });
   const health = await rpc("rona_ai_executor_health");
   return send(200, {
     ok: true,
@@ -531,7 +532,7 @@ async function handleRun(req: Request) {
 Deno.serve(async (req) => {
   const path = routePath(req);
   try {
-    if (req.method === "GET" && (path === "/" || path === "/health")) return await handleHealth();
+    if (req.method === "GET" && (path === "/" || path === "/health")) return await handleHealth(req);
     if (req.method === "POST" && path === "/probe") return await handleProbe(req);
     if (req.method === "POST" && path === "/run") return await handleRun(req);
     return send(404, { ok: false, code: "ROUTE_NOT_FOUND" });
