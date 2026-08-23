@@ -6,10 +6,11 @@ import {
 } from "./core.js";
 
 const DB = Deno.env.get('SUPABASE_DB_URL');
-const SIGNING_KEY = Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY');
-const BOOTSTRAP_PEPPER = Deno.env.get('RONA_AI_BOOTSTRAP_PEPPER');
 if (!DB) throw new Error('SUPABASE_DB_URL missing');
 const sql = postgres(DB,{prepare:false,max:2});
+const vaultSigning = await sql`select decrypted_secret from vault.decrypted_secrets where name='rona_ai_token_signing_key_v1' limit 1`;
+const SIGNING_KEY = Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY') || String(vaultSigning[0]?.decrypted_secret || '');
+const BOOTSTRAP_PEPPER = Deno.env.get('RONA_AI_BOOTSTRAP_PEPPER');
 
 const NO_QA_SOURCE = `coalesce(lower(source_system),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])'`;
 const FIN_DOC_TYPES = ['ИНВОЙС','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ'];
@@ -227,7 +228,7 @@ async function currentTasks(role){
   const domains = role==='OPERATIONS_DIRECTOR' ? ['APPLICATION','DEAL','CONTRACT','DOCUMENT','RESOURCE','PUBLICATION','MARKET','RAIL','SHIPMENT','QUALITY','VED','COMMERCIAL']
     : role==='FINANCE' ? ['PAYMENT','ACCOUNTING','FINANCE','DEAL','CONTRACT']
     : role==='LEGAL' ? ['CONTRACT','DOCUMENT','LEGAL','PORTAL_EVENT']
-    : role==='MARKET_ANALYST' ? ['MARKET','PUBLICATION','PORTAL_EVENT']
+    : role==='MARKET_ANALYST' ? ['CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PORTAL_EVENT']
     : role==='RAIL_LOGISTICS' ? ['RAIL','SHIPMENT','PORTAL_EVENT']
     : ['TECHNICAL','IAM','AUDIT','PORTAL_EVENT'];
   return await sql`select task_id,title,description,status::text,priority::text,authority_domain,assigned_functional_role::text,due_at,source_type,source_object_id,source_version,acknowledged_at,decision,decision_at,created_at,updated_at
@@ -238,7 +239,7 @@ async function currentTasks(role){
 async function currentPortalEvents(role){
   const types = role==='OPERATIONS_DIRECTOR' ? ['CLIENT_APPLICATION_SUBMIT','CLIENT_CLAIM_SUBMIT','CLIENT_PAYMENT_PROOF_SUBMIT','CLIENT_MESSAGE_SUBMIT','CLIENT_DOCUMENT_ACK','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT','ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']
     : role==='LEGAL' ? ['CLIENT_CLAIM_SUBMIT','CLIENT_DOCUMENT_ACK','CLIENT_MESSAGE_SUBMIT']
-    : role==='MARKET_ANALYST' ? ['ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']
+    : role==='MARKET_ANALYST' ? ['CLIENT_APPLICATION_SUBMIT','CLIENT_MESSAGE_SUBMIT','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT','ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']
     : role==='RAIL_LOGISTICS' ? ['CLIENT_MESSAGE_SUBMIT','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT']
     : role==='SYSTEM_ADMIN' ? ['ADMIN_SOURCE_SYNC_REQUEST','ADMIN_AUTHORITY_ACTION_REQUEST']
     : ['CLIENT_PAYMENT_PROOF_SUBMIT'];
@@ -287,6 +288,7 @@ async function buildCurrentState(role){
     qa_test_debug_temp_excluded:true,
     superseded_archived_excluded:true,
     allowed_domains:ROLE_DOMAINS[role],
+    organizational_title:role==='MARKET_ANALYST'?'Коммерческий директор':null,
   };
   if(role==='OPERATIONS_DIRECTOR') return {...base,
     clients:await currentClients(),contracts:await currentContracts(),applications:await currentApplications(),deals:await currentDeals(),documents:await currentDocuments(),
@@ -300,9 +302,13 @@ async function buildCurrentState(role){
   if(role==='LEGAL') return {...base,
     contracts:await currentContracts(),documents:await currentDocuments(),applications:await currentApplications(),deals:await currentDeals(),controls:await controls(role),tasks:await currentTasks(role),events:await currentPortalEvents(role),
   };
-  if(role==='MARKET_ANALYST') return {...base,
-    market:await currentPublications(),publications:await currentPublications(),tasks:await currentTasks(role),events:await currentPortalEvents(role),
-  };
+  if(role==='MARKET_ANALYST') {
+    const applications=await currentApplications();
+    return {...base,
+      clients:await currentClients(),contracts:await currentContracts(),applications,deals:await currentDeals(),commercialRecords:applications,
+      market:await currentPublications(),publications:await currentPublications(),tasks:await currentTasks(role),events:await currentPortalEvents(role),
+    };
+  }
   if(role==='RAIL_LOGISTICS') return {...base,
     deals:await currentDeals(),shipments:await currentShipments(),rail:await currentRail(),documents:await currentDocuments(),tasks:await currentTasks(role),events:await currentPortalEvents(role),
   };
