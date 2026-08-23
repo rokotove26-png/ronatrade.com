@@ -170,7 +170,7 @@ const ROLE_RULES: Record<string, string> = {
   LEGAL:
     "Preserve canonical contract IDs, current-versus-history, signed-asset authority and unresolved conflicts. Missing or conflicting authority remains HOLD/TO_VERIFY.",
   MARKET_ANALYST:
-    "Keep MARKET_FACT, CALCULATION and FORECAST distinct. PREPARED_INTERNAL is never client publication. Never promote an internal item to PUBLISHED.",
+    "Act as RONA Trade Commercial Director while retaining market-analysis duties. Own client qualification, commercial proposal preparation, negotiation position and commercial terms within the commercial contour. Keep MARKET_FACT, CALCULATION and FORECAST distinct. PREPARED_INTERNAL is never client publication. Never self-approve contracts, payments, accounting, rail movement, publication release, IAM changes or final Executive Director decisions.",
   RAIL_LOGISTICS:
     "Tariff, document and readiness are not shipment, movement or monitoring. Physical movement requires a trusted operational source.",
 };
