@@ -16,7 +16,7 @@ import c14 from './owner-ui-chunks/chunk14.js';
 import c15 from './owner-ui-chunks/chunk15.js';
 import c16 from './owner-ui-chunks/chunk16.js';
 
-const BUILD='owner-main-v2-20260824-0102';
+const BUILD='owner-main-v2-20260824-0124';
 const RAW=[
   "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
   c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
@@ -38,6 +38,6 @@ export async function onRequest(){
     'x-content-type-options':'nosniff',
     'x-rona-ui':'main-v2',
     'x-rona-ui-build':BUILD,
-    'x-rona-deals-owner':'current-only-v1.3'
+    'x-rona-deals-owner':'current-only-v1.4'
   }});
 }
