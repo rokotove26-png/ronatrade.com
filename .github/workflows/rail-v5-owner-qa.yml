@@ -1,10 +1,11 @@
-name: rail-v5-owner-qa
+name: rail-current-owner-qa
 on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
       - functions/portal/admin.js
       - functions/portal/rail-current-v5-ui.js
+      - functions/portal/rail-current-v6-ui.js
       - .github/workflows/rail-v5-owner-qa.yml
 permissions:
   contents: read
@@ -14,18 +15,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Rail v5 ownership
+      - name: Verify current Rail ownership and v6 visual contract
         shell: bash
         run: |
           set -euo pipefail
           node --check functions/portal/admin.js
           node --check functions/portal/rail-current-v5-ui.js
-          grep -q 'rail-current-v5-ui' functions/portal/admin.js
-          grep -q 'current-v5-owner' functions/portal/admin.js
+          node --check functions/portal/rail-current-v6-ui.js
+          grep -q 'rail-current-v6-ui' functions/portal/admin.js
+          grep -q 'current-v6-visual' functions/portal/admin.js
           grep -q 'document.addEventListener' functions/portal/rail-current-v5-ui.js
           grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
           grep -q '__RONA_OWNER_ADMIN_READY__===true' functions/portal/rail-current-v5-ui.js
           ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
+          grep -q 'rona-rail-v6-select' functions/portal/rail-current-v6-ui.js
+          grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
+          grep -q 'data-wagon-layer' functions/portal/rail-current-v6-ui.js
+          grep -q 'dedupeOnlineRail' functions/portal/rail-current-v6-ui.js
+          node --input-type=module <<'NODE'
+          import { onRequest } from './functions/portal/rail-current-v6-ui.js';
+          const response=await onRequest({});
+          if(response.status!==200)throw new Error('rail-v6 endpoint '+response.status+' '+await response.text());
+          const src=await response.text();
+          const must=[
+            "__RONA_RAIL_CURRENT_V6__='20260824-0308-v6'",
+            'rona-rail-v6-select',
+            'Номера вагонов',
+            'data-wagon-layer="true"',
+            'РОССИЙСКАЯ ФЕДЕРАЦИЯ',
+            'Ташкент',
+            'Владивосток',
+            'stopImmediatePropagation',
+            'dedupeOnlineRail(host)'
+          ];
+          for(const marker of must)if(!src.includes(marker))throw new Error('missing runtime marker: '+marker);
+          if(src.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('legacy GU button row remains');
+          if(src.includes('new MutationObserver')||src.includes('MutationObserver('))throw new Error('MutationObserver forbidden');
+          if(response.headers.get('x-rona-rail-ui')!=='current-v6-visual')throw new Error('wrong rail header');
+          console.log('RAIL_V6_GENERATED_RUNTIME=PASS',src.length);
+          NODE
       - name: Publish status
         if: always()
         env:
@@ -35,6 +63,6 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         shell: bash
         run: |
-          state=failure; desc='Rail v5 owner QA failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v5 owner QA passed'; fi
+          state=failure; desc='Rail current owner/v6 visual QA failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail current owner/v6 visual QA passed'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v5-owner\",\"description\":\"$desc\"}" >/dev/null
