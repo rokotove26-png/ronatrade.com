@@ -2,6 +2,10 @@ name: rail-claims-layout-polish-production-smoke-20260824
 on:
   push:
     branches: [qa/rail-claims-layout-polish-production-smoke-20260824]
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - .github/workflows/rail-claims-layout-polish-production-smoke-20260824.yml
 permissions:
   contents: read
   statuses: write
