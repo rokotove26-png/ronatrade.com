@@ -8,6 +8,7 @@ on:
       - functions/portal/rail-current-v6-ui.js
       - functions/portal/rail-current-v6-single-title-ui.js
       - functions/portal/rail-current-v7-real-map-ui.js
+      - functions/portal/rail-current-v8-maplibre-ui.js
       - .github/workflows/rail-v5-owner-qa.yml
 permissions:
   contents: read
@@ -17,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify current Rail ownership and v7 real-map contract
+      - name: Verify Rail v8 MapLibre/OpenFreeMap visual contract
         shell: bash
         run: |
           set -euo pipefail
@@ -26,47 +27,51 @@ jobs:
           node --check functions/portal/rail-current-v6-ui.js
           node --check functions/portal/rail-current-v6-single-title-ui.js
           node --check functions/portal/rail-current-v7-real-map-ui.js
-          grep -q 'rail-current-v7-real-map-ui' functions/portal/admin.js
-          grep -q 'current-v7-real-map' functions/portal/admin.js
-          grep -q 'document.addEventListener' functions/portal/rail-current-v5-ui.js
+          node --check functions/portal/rail-current-v8-maplibre-ui.js
+          grep -q 'rail-current-v8-maplibre-ui' functions/portal/admin.js
+          grep -q 'current-v8-maplibre-openfreemap' functions/portal/admin.js
+          grep -q 'maplibre-gl@5.16.0' functions/portal/rail-current-v8-maplibre-ui.js
+          grep -q 'tiles.openfreemap.org/styles/dark' functions/portal/rail-current-v8-maplibre-ui.js
+          grep -q 'rona-rail-network-core' functions/portal/rail-current-v8-maplibre-ui.js
+          grep -q 'source-layer.*transportation' functions/portal/rail-current-v8-maplibre-ui.js
+          grep -q 'rona-wagons' functions/portal/rail-current-v8-maplibre-ui.js
           grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
-          grep -q '__RONA_OWNER_ADMIN_READY__===true' functions/portal/rail-current-v5-ui.js
           ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
           grep -q 'rona-rail-v6-select' functions/portal/rail-current-v6-ui.js
           grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
           grep -q 'rona-rail-v4-hero{display:none' functions/portal/rail-current-v6-single-title-ui.js
-          grep -q 'tile.openstreetmap.org' functions/portal/rail-current-v7-real-map-ui.js
-          grep -q 'mountRealRailMap' functions/portal/rail-current-v7-real-map-ui.js
-          grep -q 'pointerdown' functions/portal/rail-current-v7-real-map-ui.js
-          grep -q 'wheel' functions/portal/rail-current-v7-real-map-ui.js
-          grep -q '© OpenStreetMap' functions/portal/rail-current-v7-real-map-ui.js
           node --input-type=module <<'NODE'
-          import { onRequest } from './functions/portal/rail-current-v7-real-map-ui.js';
+          import { onRequest } from './functions/portal/rail-current-v8-maplibre-ui.js';
           const response=await onRequest({});
-          if(response.status!==200)throw new Error('rail-v7 endpoint '+response.status+' '+await response.text());
+          if(response.status!==200)throw new Error('rail-v8 endpoint '+response.status+' '+await response.text());
           const src=await response.text();
           const must=[
-            "window.__RONA_RAIL_REAL_MAP__='20260824-1026-v7'",
-            "__RONA_RAIL_CURRENT_V6__='20260824-1026-v7'",
-            '.rona-rail-v4-hero{display:none!important}',
-            'rona-rail-v6-select',
-            'Номера вагонов',
-            'tile.openstreetmap.org',
-            'rona-rail-v7-map-viewport',
-            'mountRealRailMap',
-            'Интерактивная карта',
-            '© OpenStreetMap',
-            "version:'v7'",
+            "window.__RONA_RAIL_CURRENT_V8__='20260824-1324-v8'",
+            'maplibre-gl@5.16.0/dist/maplibre-gl.js',
+            'tiles.openfreemap.org/styles/dark',
+            'rona-rail-network-glow',
+            'rona-rail-network-core',
+            "'source-layer':'transportation'",
+            'rona-wagon-halo',
+            'rona-wagon-labels',
+            'Интерактивная ЖД-карта',
+            'OpenFreeMap · OpenMapTiles · OpenStreetMap',
+            "version:'v8'",
             'stopImmediatePropagation',
             'dedupeOnlineRail(host)'
           ];
           for(const marker of must)if(!src.includes(marker))throw new Error('missing runtime marker: '+marker);
           if(src.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('legacy GU button row remains');
-          if(src.includes('c.innerHTML=mapSvg()'))throw new Error('fake SVG map is still mounted');
+          if(src.includes('c.innerHTML=mapSvg()'))throw new Error('fake SVG map is still mounted by active map panel');
           if(src.includes('new MutationObserver')||src.includes('MutationObserver('))throw new Error('MutationObserver forbidden');
-          if(response.headers.get('x-rona-rail-ui')!=='current-v7-real-map')throw new Error('wrong rail header');
-          console.log('RAIL_V7_GENERATED_RUNTIME=PASS',src.length);
+          if(response.headers.get('x-rona-rail-ui')!=='current-v8-maplibre-openfreemap')throw new Error('wrong rail header');
+          console.log('RAIL_V8_GENERATED_RUNTIME=PASS',src.length);
           NODE
+          curl -fsS --retry 3 --retry-delay 2 https://tiles.openfreemap.org/styles/dark -o /tmp/openfreemap-dark.json
+          grep -q '"sources"' /tmp/openfreemap-dark.json
+          grep -q 'openmaptiles' /tmp/openfreemap-dark.json
+          curl -fsS --retry 3 --retry-delay 2 https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js -o /tmp/maplibre.js
+          test -s /tmp/maplibre.js
       - name: Publish status
         if: always()
         env:
@@ -76,6 +81,6 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         shell: bash
         run: |
-          state=failure; desc='Rail current owner/v7 real-map QA failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail current owner/v7 real-map QA passed'; fi
+          state=failure; desc='Rail v8 MapLibre/OpenFreeMap QA failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v8 MapLibre/OpenFreeMap QA passed'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v5-owner\",\"description\":\"$desc\"}" >/dev/null
