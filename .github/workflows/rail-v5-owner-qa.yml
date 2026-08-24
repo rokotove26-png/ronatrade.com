@@ -1,0 +1,40 @@
+name: rail-v5-owner-qa
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - functions/portal/admin.js
+      - functions/portal/rail-current-v5-ui.js
+      - .github/workflows/rail-v5-owner-qa.yml
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Rail v5 ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin.js
+          node --check functions/portal/rail-current-v5-ui.js
+          grep -q 'rail-current-v5-ui' functions/portal/admin.js
+          grep -q 'current-v5-owner' functions/portal/admin.js
+          grep -q 'document.addEventListener' functions/portal/rail-current-v5-ui.js
+          grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
+          grep -q '__RONA_OWNER_ADMIN_READY__===true' functions/portal/rail-current-v5-ui.js
+          ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
+      - name: Publish status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          state=failure; desc='Rail v5 owner QA failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v5 owner QA passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v5-owner\",\"description\":\"$desc\"}" >/dev/null
