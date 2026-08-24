@@ -17,22 +17,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ok=0
-          for i in $(seq 1 40); do
-            stamp=$(date +%s)-$i
-            rm -f /tmp/admin.html /tmp/admin.h
-            if curl -fsS -D /tmp/admin.h "https://ronaoil.com/portal/admin?smoke=$stamp" -o /tmp/admin.html; then
-              if grep -qi '^x-rona-claims-first-paint: current-only-v1' /tmp/admin.h \
-                && grep -q '#page-claims>\*:not(.rona-claims-r2-root):not(.rona-claims-section-title){display:none!important}' /tmp/admin.html \
-                && grep -q 'rona-claims-r2-loader' /tmp/admin.html \
-                && grep -q 'rona-claims-title-loader' /tmp/admin.html; then
-                ok=1
-                break
-              fi
-            fi
-            sleep 4
-          done
-          test "$ok" = 1
+          stamp=$(date +%s)
+          curl -fsS -D /tmp/admin.h "https://ronaoil.com/portal/admin?smoke=$stamp" -o /tmp/admin.html
+          echo '--- relevant production headers ---'
+          grep -Ei '^(x-rona-|cache-control|cf-cache-status|age):' /tmp/admin.h || true
+          echo '--- production markers ---'
+          grep -o 'owner-main-v2-20260824-[0-9]*' /tmp/admin.html | head -n 3 || true
+          grep -o 'x-rona-claims-first-paint[^<]*' /tmp/admin.html | head -n 2 || true
+          grep -o '#page-claims>[^<]*display:none!important}' /tmp/admin.html | head -n 3 || true
+          test "$(grep -Eic '^x-rona-claims-first-paint: current-only-v1' /tmp/admin.h)" -ge 1
+          grep -Fq '#page-claims>*:not(.rona-claims-r2-root):not(.rona-claims-section-title){display:none!important}' /tmp/admin.html
+          grep -q 'rona-claims-r2-loader' /tmp/admin.html
+          grep -q 'rona-claims-title-loader' /tmp/admin.html
       - name: Publish production status
         if: always()
         env:
