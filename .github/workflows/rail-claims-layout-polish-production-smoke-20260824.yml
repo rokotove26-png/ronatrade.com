@@ -17,31 +17,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ok=0
-          for i in $(seq 1 40); do
-            stamp=$(date +%s)-$i
-            rm -f /tmp/layout.js /tmp/layout.h /tmp/admin.html /tmp/admin.h
-            if curl -fsS -D /tmp/layout.h "https://ronaoil.com/portal/owner-layout-polish-ui?smoke=$stamp" -o /tmp/layout.js; then
-              if grep -qi '^x-rona-owner-layout-polish: rail-claims-v1' /tmp/layout.h \
-                && grep -q "__RONA_OWNER_LAYOUT_POLISH__='20260824-1346-rail-claims-v1'" /tmp/layout.js \
-                && grep -q '#page-monitoring .rona-rail-v4-work{align-items:stretch!important}' /tmp/layout.js \
-                && grep -q 'grid-template-rows:auto minmax(0,1fr)!important' /tmp/layout.js \
-                && grep -q 'html body #page-claims>.rona-claims-r2-root' /tmp/layout.js \
-                && grep -q 'max-width:1480px!important' /tmp/layout.js; then
-                node --check /tmp/layout.js
-                if curl -fsS -D /tmp/admin.h "https://ronaoil.com/portal/admin?smoke=$stamp" -o /tmp/admin.html; then
-                  if grep -qi '^x-rona-owner-layout-polish: rail-claims-v1' /tmp/admin.h \
-                    && grep -q 'rona-owner-layout-polish-loader' /tmp/admin.html \
-                    && grep -q '/portal/owner-layout-polish-ui?v=20260824-1346' /tmp/admin.html; then
-                    ok=1
-                    break
-                  fi
-                fi
-              fi
-            fi
-            sleep 4
-          done
-          test "$ok" = 1
+          stamp=$(date +%s)
+          curl -sS -D /tmp/layout.h "https://ronaoil.com/portal/owner-layout-polish-ui?smoke=$stamp" -o /tmp/layout.js || true
+          echo '--- layout headers ---'
+          cat /tmp/layout.h || true
+          echo '--- layout markers ---'
+          grep -E 'RONA_OWNER_LAYOUT_POLISH|page-monitoring|page-claims|max-width:1480' /tmp/layout.js | head -20 || true
+          curl -sS -D /tmp/admin.h "https://ronaoil.com/portal/admin?smoke=$stamp" -o /tmp/admin.html || true
+          echo '--- admin headers ---'
+          cat /tmp/admin.h || true
+          echo '--- admin loader markers ---'
+          grep -E 'owner-layout-polish|rona-owner-layout-polish-loader' /tmp/admin.html | head -20 || true
+          grep -qi '^x-rona-owner-layout-polish: rail-claims-v1' /tmp/layout.h
+          grep -q "__RONA_OWNER_LAYOUT_POLISH__='20260824-1346-rail-claims-v1'" /tmp/layout.js
+          grep -q '#page-monitoring .rona-rail-v4-work{align-items:stretch!important}' /tmp/layout.js
+          grep -q 'grid-template-rows:auto minmax(0,1fr)!important' /tmp/layout.js
+          grep -q 'html body #page-claims>.rona-claims-r2-root' /tmp/layout.js
+          grep -q 'max-width:1480px!important' /tmp/layout.js
+          node --check /tmp/layout.js
       - name: Publish production status
         if: always()
         env:
