@@ -1,0 +1,36 @@
+name: owner-admin-rollback-production-smoke-20260824
+
+on:
+  push:
+    branches:
+      - 'qa/owner-admin-rollback-production-smoke-20260824'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Wait for rolled-back Admin wrapper in production
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 72); do
+            headers=$(mktemp)
+            body=$(mktemp)
+            code=$(curl -sS -L -D "$headers" -o "$body" -w '%{http_code}' https://ronaoil.com/portal/admin || true)
+            build=$(awk 'BEGIN{IGNORECASE=1}/^x-rona-ui-build:/{gsub("\r","");print $2}' "$headers" | tail -1)
+            clients=$(awk 'BEGIN{IGNORECASE=1}/^x-rona-clients-layout:/{gsub("\r","");print $2}' "$headers" | tail -1)
+            echo "attempt=$i code=$code build=${build:-none} clients=${clients:-none}"
+            if [ "$code" = "200" ] && [ "$build" = "owner-main-v2-20260824-1602" ] && [ -z "${clients:-}" ]; then
+              ok=1
+              rm -f "$headers" "$body"
+              break
+            fi
+            rm -f "$headers" "$body"
+            sleep 5
+          done
+          test "$ok" = 1
+          echo 'OWNER_ADMIN_ROLLBACK_PRODUCTION=PASS'
