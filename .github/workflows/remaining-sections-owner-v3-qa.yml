@@ -66,10 +66,13 @@ jobs:
           grep -q '__RONA_ACCESS_CANONICAL_V4__' functions/portal/clients-agents-canonical-guard-ui.js
           grep -q '20260824-2018-home-parity-v1' functions/portal/clients-agents-v4-ui.js
           grep -q '__RONA_ANALYTICS_V2__' functions/portal/analytics-v2-ui.js
+          grep -q 'v2-bnk-values-table' functions/portal/analytics-v2-ui.js
           grep -q '1.1.9-SF5-20260822-2203' functions/portal/analytics-v2-ui.js
           grep -q 'Argus European Products' functions/portal/analytics-v2-ui.js
           grep -q 'BNK Diesel Composite' functions/portal/analytics-v2-ui.js
-          grep -q "rona-owner-kpi" functions/portal/analytics-v2-ui.js
+          grep -q 'an2-point-value' functions/portal/analytics-v2-ui.js
+          grep -q 'an2-data-table' functions/portal/analytics-v2-ui.js
+          ! grep -q "card('Публикация аналитики')" functions/portal/analytics-v2-ui.js
           grep -q 'owner_analytics_admin_bootstrap' functions/portal/owner-api.js
           grep -q 'owner_analytics_client_feed' functions/portal/owner-api.js
           grep -q 'owner_analytics_publication_action' functions/portal/owner-api.js
@@ -153,10 +156,9 @@ jobs:
             window.__RONA_OWNER_ADMIN_READY__=false;
             window.__RONA_ADMIN_BOOT_STATE__={ready:false};
             window.__RONA_OWNER_ADMIN_SNAPSHOT__={clients:[{legal_name:'Client One',client_id:'C001',contract_id:'RONA-C001-CTR-2026-001',current_external_contract_number:'EXT-1',agent_person_id:'A1',agent_name:'Agent One'}],agents:[{agent_person_id:'A1',agent_name:'Agent One'}],radio:[],analytics:[],news:[]};
-            const market={generatedAt:'2026-08-24T12:40:00Z',currentOnly:true,identity:{identity_id:'AI-MARKET-ANALYST',display_name:'Коммерческий директор',status:'ACTIVE'},analytics:[{record_id:'AN-1',status:'APPROVED_WITH_CONDITIONS',summary:'MARKET_FACT: Platts gasoline signal. MARKET_FORECAST: September remains tight.',created_at:'2026-08-24T11:00:00Z',source_refs:['PLATTS_EUROPEAN_MARKETSCAN_2026-08-21']}],news:[{record_id:'NW-1',subject:'Hairatan gasoline spike',priority:'HIGH',requested_check:'MARKET_FACT current field signal.',created_at:'2026-08-24T11:08:50Z',source_refs:['hairatan']}],currentPublications:[]};
+            const market={generatedAt:'2026-08-24T12:40:00Z',currentOnly:true,identity:{identity_id:'AI-MARKET-ANALYST',display_name:'Коммерческий директор',status:'ACTIVE'},analytics:[],news:[{record_id:'NW-1',subject:'Hairatan gasoline spike',priority:'HIGH',requested_check:'MARKET_FACT current field signal.',created_at:'2026-08-24T11:08:50Z',source_refs:['hairatan']}],currentPublications:[]};
             window.fetch=async input=>{
               const u=String(input?.url||input);
-              if(u.includes('analytics-bootstrap'))return new Response(JSON.stringify({ok:true,data:{generatedAt:new Date().toISOString(),publications:[],gate:'ADMIN_APPROVE_THEN_PUBLISH_DERIVED_ANALYTICS_ONLY'}}),{status:200,headers:{'content-type':'application/json'}});
               if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:market}}),{status:200,headers:{'content-type':'application/json'}});
               if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});
               if(u.includes('/agent'))return new Response(JSON.stringify({ok:true,data:{}}),{status:200,headers:{'content-type':'application/json'}});
@@ -187,17 +189,23 @@ jobs:
           if(visibleAnalytics.length!==1||visibleAnalytics[0]!=='rona-analytics-v2')throw new Error('legacy Analytics still visible '+visibleAnalytics.join(','));
           if(await page.locator('#legacy-analytics-action').isVisible().catch(()=>false))throw new Error('legacy Analytics action visible');
           if(await page.locator('#rona-analytics-v2 h1').filter({hasText:'Аналитика'}).count()!==1)throw new Error('Analytics title missing/duplicated');
-          if(await page.locator('#rona-analytics-v2 .rona-owner-kpi').count()<4)throw new Error('Home KPI primitives missing');
+          if(await page.locator('#rona-analytics-v2 .rona-owner-kpi').count()!==3)throw new Error('Analytics KPI set is not the expected three cards');
           if(await page.locator('#rona-analytics-v2 .an2-chart svg').count()!==1)throw new Error('Platts chart missing');
-          if(!(await page.locator('#rona-analytics-v2').innerText()).includes('1 186,75'))throw new Error('latest Platts value missing');
+          if(await page.locator('#rona-analytics-v2 .an2-point-value').count()!==12)throw new Error('Point value labels missing');
+          if(await page.locator('#rona-analytics-v2 .an2-data-table tbody tr').count()!==12)throw new Error('Right-side quote table missing rows');
+          if((await page.locator('#rona-analytics-v2 .an2-data-panel').evaluate(el=>getComputedStyle(el).backgroundColor))!=='rgba(0, 0, 0, 0)')throw new Error('Data table has non-transparent background');
+          const analyticsText=await page.locator('#rona-analytics-v2').innerText();
+          if(analyticsText.includes('Публикация аналитики')||analyticsText.includes('Шлюз Admin Portal'))throw new Error('Publication UI still visible');
+          if(!analyticsText.includes('1 186,75'))throw new Error('latest Platts value missing');
           await page.getByRole('button',{name:'ДТ',exact:true}).click();
           if(!(await page.locator('#rona-analytics-v2').innerText()).includes('363,88'))throw new Error('BNK diesel composite not rendered');
+          if(await page.locator('#rona-analytics-v2 .an2-point-value').count()!==12)throw new Error('DT point labels missing after rerender');
+          if(await page.locator('#rona-analytics-v2 .an2-data-table tbody tr').count()!==12)throw new Error('DT data table missing after rerender');
           await page.getByRole('button',{name:'АИ-92',exact:true}).click();
           await page.getByRole('button',{name:'Argus',exact:true}).click();
           const argusText=await page.locator('#rona-analytics-v2').innerText();
           if(!argusText.includes('Argus European Products')||!argusText.includes('не загружен'))throw new Error('Argus fail-closed explanation missing');
           if(argusText.includes('Argus Рынок Каспия'))throw new Error('regional Argus substituted into BNK base');
-          if(await page.getByRole('button',{name:'Опубликовать',exact:true}).count()!==0)throw new Error('publish action exposed without eligible server publication');
 
           await page.locator('#nav button[data-page="market-news"]').click();
           await page.waitForFunction(()=>document.querySelector('#page-market-news .rona-functional-preserved-host #legacy-news-action'));
@@ -208,9 +216,10 @@ jobs:
           if(shell.opacity==='0'||shell.visibility==='hidden')throw new Error('Admin shell hidden');
           console.log('ACCESS_REGRESSION=PASS');
           console.log('ANALYTICS_V2_SINGLE_OWNER=PASS');
-          console.log('PLATTS_BNK_CHART=PASS');
+          console.log('PLATTS_POINT_VALUES=PASS');
+          console.log('TRANSPARENT_QUOTES_TABLE=PASS');
+          console.log('ANALYTICS_PUBLICATION_UI_REMOVED=PASS');
           console.log('ARGUS_FAIL_CLOSED=PASS');
-          console.log('FORECAST_PUBLICATION_GATE_UI=PASS');
           await ctx.close();await browser.close();
           NODE
 
@@ -224,9 +233,10 @@ jobs:
             if curl -fsS -D "$ah" -o "$ab" "https://ronaoil.com/portal/analytics-v2-ui?v=${GITHUB_SHA}" \
               && curl -fsS -D "$ph" -o "$pb" "https://ronaoil.com/portal/remaining-sections-functional-preserve-v2-ui?v=${GITHUB_SHA}" \
               && curl -fsS -D "$ch" -o "$cb" "https://ronaoil.com/portal/clients-agents-v4-ui?v=${GITHUB_SHA}"; then
-              if grep -qi '^x-rona-analytics-ui: v2-bnk-publication' "$ah" \
-                && grep -q '__RONA_ANALYTICS_V2__' "$ab" \
-                && grep -q '1.1.9-SF5-20260822-2203' "$ab" \
+              if grep -qi '^x-rona-analytics-ui: v2-bnk-values-table' "$ah" \
+                && grep -q 'v2-bnk-values-table' "$ab" \
+                && grep -q 'an2-point-value' "$ab" \
+                && grep -q 'an2-data-table' "$ab" \
                 && grep -qi '^x-rona-remaining-functional-preserve: market-only-v2' "$ph" \
                 && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE_V3__' "$pb" \
                 && grep -qi '^x-rona-clients-agents-ui: v4-canonical-single-owner' "$ch" \
@@ -250,5 +260,5 @@ jobs:
         run: |
           set -euo pipefail
           state=failure; description='Access/Analytics canonical proof failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; description='Access preserved; Analytics v2 single owner; BNK/Platts/Argus gate proven'; fi
+          if [ "$JOB_STATUS" = success ]; then state=success; description='Analytics values/table visible; publication UI removed; Access preserved'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -d "{\"state\":\"${state}\",\"context\":\"rona/remaining-sections-current-owned\",\"description\":\"${description}\",\"target_url\":\"https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" >/dev/null
