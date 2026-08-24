@@ -1,0 +1,53 @@
+name: rail-claims-layout-polish-production-smoke-20260824
+on:
+  push:
+    branches: [qa/rail-claims-layout-polish-production-smoke-20260824]
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed layout polish runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 40); do
+            stamp=$(date +%s)-$i
+            rm -f /tmp/layout.js /tmp/layout.h /tmp/admin.html /tmp/admin.h
+            if curl -fsS -D /tmp/layout.h "https://ronaoil.com/portal/owner-layout-polish-ui?smoke=$stamp" -o /tmp/layout.js; then
+              if grep -qi '^x-rona-owner-layout-polish: rail-claims-v1' /tmp/layout.h \
+                && grep -q "__RONA_OWNER_LAYOUT_POLISH__='20260824-1346-rail-claims-v1'" /tmp/layout.js \
+                && grep -q '#page-monitoring .rona-rail-v4-work{align-items:stretch!important}' /tmp/layout.js \
+                && grep -q 'grid-template-rows:auto minmax(0,1fr)!important' /tmp/layout.js \
+                && grep -q 'html body #page-claims>.rona-claims-r2-root' /tmp/layout.js \
+                && grep -q 'max-width:1480px!important' /tmp/layout.js; then
+                node --check /tmp/layout.js
+                if curl -fsS -D /tmp/admin.h "https://ronaoil.com/portal/admin?smoke=$stamp" -o /tmp/admin.html; then
+                  if grep -qi '^x-rona-owner-layout-polish: rail-claims-v1' /tmp/admin.h \
+                    && grep -q 'rona-owner-layout-polish-loader' /tmp/admin.html \
+                    && grep -q '/portal/owner-layout-polish-ui?v=20260824-1346' /tmp/admin.html; then
+                    ok=1
+                    break
+                  fi
+                fi
+              fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+      - name: Publish production status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: 22a663f48f382b2b0e56ee4ca6f44e050b24091c
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          state=failure; desc='Rail/Claims layout production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail/Claims layout production smoke passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-claims-layout-production\",\"description\":\"$desc\",\"target_url\":\"https://github.com/$REPO/actions/runs/$RUN_ID\"}" >/dev/null
