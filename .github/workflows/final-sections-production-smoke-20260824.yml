@@ -1,0 +1,69 @@
+name: final-sections-production-smoke-20260824
+
+on:
+  push:
+    branches:
+      - qa/final-sections-production-smoke-20260824
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed remaining-sections runtimes
+        id: smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          origin="https://ronaoil.com"
+          ok=0
+          for i in $(seq 1 30); do
+            rm -f /tmp/polish.js /tmp/polish.h /tmp/remaining.js /tmp/remaining.h
+            if curl -fsSL --connect-timeout 10 --max-time 30 -D /tmp/polish.h "${origin}/portal/remaining-sections-final-polish-ui?v=20260824-1455&smoke=${i}" -o /tmp/polish.js \
+              && curl -fsSL --connect-timeout 10 --max-time 30 -D /tmp/remaining.h "${origin}/portal/remaining-sections-ui?v=20260824-1455&smoke=${i}" -o /tmp/remaining.js \
+              && grep -qi '^x-rona-remaining-final-polish: clients-market-final-v1' /tmp/polish.h \
+              && grep -q '__RONA_REMAINING_FINAL_POLISH__' /tmp/polish.js \
+              && grep -q '1360px' /tmp/polish.js \
+              && grep -q 'marketAnalystFragment' /tmp/remaining.js \
+              && grep -q 'AI-MARKET-ANALYST' /tmp/remaining.js \
+              && grep -q 'Коммерческий директор' /tmp/remaining.js; then
+              ok=1
+              break
+            fi
+            sleep 5
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo 'Production runtimes did not reach expected final contract' >&2
+            exit 1
+          fi
+          node --check /tmp/polish.js
+          node --check /tmp/remaining.js
+          echo 'FINAL_SECTIONS_PRODUCTION_SMOKE=PASS'
+
+      - name: Publish success status
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: a64bfe1b2c7b677a124d3e952316af32eadc0a14
+        run: |
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -d '{"state":"success","context":"rona/remaining-sections-production-smoke","description":"Clients + Market final runtimes deployed"}'
+
+      - name: Publish failure status
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_SHA: a64bfe1b2c7b677a124d3e952316af32eadc0a14
+        run: |
+          curl -fsSL -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${TARGET_SHA}" \
+            -d '{"state":"failure","context":"rona/remaining-sections-production-smoke","description":"Final remaining-sections production smoke failed"}'
