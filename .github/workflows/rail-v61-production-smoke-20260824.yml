@@ -1,0 +1,53 @@
+name: rail-v61-production-smoke-20260824
+on:
+  push:
+    branches: [qa/rail-v61-production-smoke-20260824]
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  rail-v61-production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed Rail v6.1 single-title runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://ronaoil.com/portal/rail-current-v6-single-title-ui?smoke=$(date +%s)"
+          ok=0
+          for i in $(seq 1 45); do
+            rm -f /tmp/rail.js /tmp/rail.h
+            if curl -fsS -D /tmp/rail.h "$url-$i" -o /tmp/rail.js; then
+              if grep -qi '^x-rona-rail-ui: current-v6.1-visual' /tmp/rail.h \
+                && grep -q "__RONA_RAIL_CURRENT_V6__='20260824-0320-v6.1'" /tmp/rail.js \
+                && grep -q "__RONA_RAIL_SINGLE_TITLE__='20260824-0320-v6.1'" /tmp/rail.js \
+                && grep -q '.rona-rail-v4-hero{display:none!important}' /tmp/rail.js \
+                && grep -q 'rona-rail-v6-select' /tmp/rail.js \
+                && grep -q 'Номера вагонов' /tmp/rail.js \
+                && grep -q 'data-wagon-layer="true"' /tmp/rail.js \
+                && grep -q 'РОССИЙСКАЯ ФЕДЕРАЦИЯ' /tmp/rail.js \
+                && grep -q 'Владивосток' /tmp/rail.js \
+                && grep -q 'stopImmediatePropagation' /tmp/rail.js \
+                && ! grep -q "filters.append(filterBtn('Все ГУ-12'" /tmp/rail.js \
+                && ! grep -q 'MutationObserver' /tmp/rail.js; then
+                node --check /tmp/rail.js
+                ok=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+      - name: Publish Rail v6.1 production status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: b367baa332e9c2ca1604dc8e2bb30c215eccee08
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          state=failure; desc='Rail v6.1 production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v6.1 production smoke passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v6-production-smoke\",\"description\":\"$desc\",\"target_url\":\"https://github.com/$REPO/actions/runs/$RUN_ID\"}" >/dev/null
