@@ -6,11 +6,40 @@ function runtimeKey(kind){const legacy=kind==="pub"?Deno.env.get("SUPABASE_ANON_
 function send(status,body){return new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}})}function claims(token){try{const p=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return JSON.parse(atob(p+"=".repeat((4-p.length%4)%4)))}catch{return{}}}
 async function authContext(req){const authorization=req.headers.get("authorization");if(!authorization?.startsWith("Bearer "))return null;const token=authorization.slice(7),client=createClient(SUPA_URL,runtimeKey("pub"),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:authorization}}});const {data,error}=await client.auth.getUser(token);if(error||!data.user)return null;const sid=claims(token).session_id;if(typeof sid!=="string"||!UUID_RE.test(sid))return null;const rows=await sql`select a.portal_user_id,a.display_name,a.roles,s.not_after from portal_private.resolve_portal_auth(${data.user.id}::uuid,${sid}) a join auth.sessions s on s.id=${sid}::uuid and s.user_id=${data.user.id}::uuid where a.session_allowed and (s.not_after is null or s.not_after>now())`;if(rows.length!==1)return null;return{userId:String(rows[0].portal_user_id),roles:(rows[0].roles||[]).map(String)}}
 function pathOf(req){const p=new URL(req.url).pathname,m="/rona-owner-ai-sync",i=p.indexOf(m);return i>=0?(p.slice(i+m.length)||"/"):p}function requireRole(ctx,role){if(!ctx?.roles?.includes(role))throw Object.assign(new Error("ROLE_MISMATCH"),{status:403})}
+function marketNoise(text){return /(full-contour|\buat\b|protocol|production operating|global cleanup|self-ack|go-live|owner appointment|activation|test r[0-9])/i.test(String(text||""))}
+function marketTerms(text){return /(market|рын|price|прайс|цен|telegram|platts|argus|petromarket|hairatan|khafi|afghanistan|galaba|бенз|диз|lpg|суг|benchmark|конкурент)/i.test(String(text||""))}
 async function adminSync(){
   const railTariffs=await sql`select tariff_key,product_group,territory,route_text,tariff_usd_per_t,source_provider,status,original_rate,original_currency,original_unit,valid_to,notes,source_refs,approved_at,updated_at from portal_private.owner_rail_tariff_matrix order by case product_group when 'LIGHT_PETROLEUM' then 1 else 2 end,territory,route_text`;
   const aiRuntime=(await sql`select enabled,protocol_version,scheduler_state,model_execution_state,heartbeat_minutes,worker_version,updated_at from portal_private.ai_runtime_control where singleton=true limit 1`)[0]||null;
   const aiEmployees=await sql`select identity_id,business_role::text,display_name,status::text,updated_at from portal_private.ai_service_identities order by business_role::text`;
   const latestAiConclusions=await sql`select distinct on (functional_role,target_type,target_id) record_id,functional_role::text as role,target_type,target_id,status,version,payload->>'summary' as summary,created_at from portal_private.ai_coordination_records where record_type='FUNCTIONAL_CONCLUSION' and qa_only=false order by functional_role,target_type,target_id,version desc,created_at desc limit 50`;
+
+  const marketIdentity=(await sql`select identity_id,business_role::text as role,display_name,status::text,updated_at from portal_private.ai_service_identities where identity_id='AI-MARKET-ANALYST' limit 1`)[0]||null;
+  const marketRecords=await sql`
+    select record_id,record_type,target_type,target_id,target_role::text as target_role,status,version,
+      payload->>'subject' as subject,payload->>'priority' as priority,payload->>'summary' as summary,
+      payload->>'recommendation' as recommendation,payload->>'requested_check' as requested_check,
+      payload->>'reason' as reason,source_refs,created_at
+    from portal_private.ai_coordination_records
+    where qa_only=false and functional_role::text='MARKET_ANALYST' and target_type='PUBLICATION'
+      and record_type in ('FUNCTIONAL_CONCLUSION','HANDOFF_REQUEST')
+      and created_at>=now()-interval '7 days'
+    order by created_at desc
+    limit 120`;
+  const marketPublications=await sql`
+    select p.publication_id,p.publication_type::text as publication_type,p.title,p.status::text as status,p.audience,
+      p.prepared_at,p.published_at,p.source_system,p.source_version,p.source_timestamp,
+      coalesce(jsonb_agg(jsonb_build_object('item_id',pi.id,'item_order',pi.item_order,'item_type',pi.item_type::text,'product',pi.product,'basis',pi.basis,'price',pi.price,'currency',pi.currency,'content_text',pi.content_text,'analytics_as_of',pi.analytics_as_of) order by pi.item_order) filter (where pi.id is not null),'[]'::jsonb) as items
+    from portal_private.publications p
+    left join portal_private.publication_items pi on pi.publication_key=p.id and pi.lifecycle_state::text='ACTIVE'
+    where p.lifecycle_state::text='ACTIVE' and p.authority_state::text='CONFIRMED' and p.status::text='PUBLISHED'
+    group by p.id
+    order by p.published_at desc nulls last,p.prepared_at desc
+    limit 3`;
+  const analytics=marketRecords.filter(r=>{if(r.record_type!=='FUNCTIONAL_CONCLUSION')return false;const t=[r.summary,r.recommendation,(r.source_refs||[]).join(' ')].join(' ');return !marketNoise(t)&&marketTerms(t)}).slice(0,12);
+  const news=marketRecords.filter(r=>{if(r.record_type!=='HANDOFF_REQUEST')return false;const subject=String(r.subject||'');const t=[subject,r.requested_check,r.reason,(r.source_refs||[]).join(' ')].join(' ');if(marketNoise(t))return false;if(/TECH BLOCKER|OWNER COMMAND — route Telegram Platts PDF ingest/i.test(subject))return false;return marketTerms(t)}).slice(0,18);
+  const marketAnalystFragment={generatedAt:new Date().toISOString(),currentOnly:true,identity:marketIdentity?{...marketIdentity,organizationalTitle:'Коммерческий директор'}:{identity_id:'AI-MARKET-ANALYST',role:'MARKET_ANALYST',organizationalTitle:'Коммерческий директор',status:'TO_VERIFY'},analytics,news,currentPublications:marketPublications};
+
   const payments=await sql`
     select p.payment_id,p.payment_at,p.amount,p.currency,
            coalesce(nullif(p.payer_name,''),cl.legal_name) payer_name,
@@ -50,7 +79,7 @@ async function adminSync(){
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
   const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',sourceAsOf:cash[0]?.snapshot_date||null,payments,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
-  return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),financeFragment}
+  return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
 async function agentSync(ctx){const rawPolicy=(await sql`select numeric_value,applies_to,status,updated_at from portal_private.owner_agent_display_policies where policy_key='POSITIVE_ACTUAL_FX_EFFECT_AGENT_VISIBLE_SHARE' and agent_visible=true and status='ACTIVE_DISPLAY_ONLY' limit 1`)[0]||null;const share=rawPolicy?normalizedShare(rawPolicy.numeric_value):null;const displayPolicy=rawPolicy&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:String(rawPolicy.applies_to),status:String(rawPolicy.status),updatedAt:rawPolicy.updated_at,note:'При подтвержденном положительном фактическом курсовом эффекте в ЛК Агента учитывается только разрешенная доля подтвержденной суммы. Прогнозные и неподтвержденные значения не используются.'}:null;const settlements=await sql`select s.settlement_id,d.deal_id,cl.client_id,s.settlement_state::text,s.amount,s.currency,s.payable_confirmed_at,s.paid_at,s.updated_at from portal_private.agent_settlements s join portal_private.deals d on d.id=s.deal_key join portal_private.clients cl on cl.id=d.client_key where s.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.agent_user_has_deal_access(${ctx.userId}::uuid,s.deal_key,now()) order by s.created_at desc`;const amountVisible=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);return{generatedAt:new Date().toISOString(),displayPolicy,settlements:settlements.map(r=>{const stage=String(r.settlement_state);const visible=amountVisible.has(stage);return{settlementId:String(r.settlement_id),dealId:String(r.deal_id),clientId:String(r.client_id),stage,amount:visible?r.amount:null,currency:visible?r.currency:null,paymentObligationConfirmed:r.payable_confirmed_at!=null,paymentFactConfirmed:r.paid_at!=null,updatedAt:r.updated_at}}),positiveActualFxEffects:[]}}
