@@ -1,42 +1,39 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_CLIENTS_HOME_LAYOUT__)return;
-window.__RONA_CLIENTS_HOME_LAYOUT__='20260824-1628';
+window.__RONA_CLIENTS_HOME_LAYOUT__='20260824-1632';
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
-function installStyle(){if(q('#ronaClientsHomeLayoutStyle'))return;const s=document.createElement('style');s.id='ronaClientsHomeLayoutStyle';s.textContent=`
-@keyframes ronaLogoShimmer{0%,100%{filter:brightness(1) saturate(1) drop-shadow(0 0 0 rgba(239,68,68,0));transform:translateZ(0)}42%{filter:brightness(1.08) saturate(1.18) drop-shadow(0 0 5px rgba(239,68,68,.18))}55%{filter:brightness(1.22) saturate(1.35) drop-shadow(0 0 11px rgba(248,113,113,.36))}68%{filter:brightness(1.08) saturate(1.15) drop-shadow(0 0 4px rgba(239,68,68,.16))}}
-.rona-logo-shimmer{animation:ronaLogoShimmer 4.8s ease-in-out infinite!important;transform-origin:center!important;will-change:filter}
-#page-access .rona-rs-root[data-kind="clients"]{display:none!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"]{display:grid!important;width:min(100%,1440px)!important;max-width:1440px!important;margin:0 auto!important;gap:16px!important;align-content:start!important;box-sizing:border-box!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"]>.rona-rs-preserved{display:contents!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-clients-suppressed{display:none!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-clients-duplicate-title{display:none!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-owner-page-content{display:grid!important;gap:16px!important;width:100%!important;max-width:none!important;min-height:0!important;margin:0!important;align-content:start!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-owner-card,
-#page-access .rona-functional-preserved-host[data-kind="clients"] section,
-#page-access .rona-functional-preserved-host[data-kind="clients"] article{min-height:0!important}
-#page-access .rona-clients-actionbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:0 2px;min-height:42px}
-#page-access .rona-clients-actionbar:empty{display:none}
-#page-access .rona-clients-actionbar button{min-height:40px!important;padding:10px 16px!important;border-radius:10px!important;font-size:12px!important;font-weight:850!important}
-#page-access .rona-clients-home-card{background:linear-gradient(145deg,rgba(11,27,45,.86),rgba(7,18,31,.82))!important;border:1px solid rgba(92,139,181,.23)!important;border-radius:16px!important;box-shadow:0 16px 38px rgba(0,0,0,.16)!important;backdrop-filter:blur(10px);padding:17px 18px!important;margin:0!important}
-#page-access .rona-clients-home-card h2,#page-access .rona-clients-home-card h3{font-size:15px!important;line-height:1.25!important;margin-bottom:10px!important}
-#page-access .rona-clients-home-card table{font-size:12px!important}
-#page-access .rona-clients-home-card th,#page-access .rona-clients-home-card td{padding:10px 9px!important;line-height:1.35!important}
-#page-access .rona-clients-core-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(310px,.8fr);gap:16px;align-items:start}
-#page-access .rona-clients-core-grid>.rona-clients-wide{grid-column:1/-1}
-#page-access .rona-clients-core-grid>.rona-clients-main{grid-column:1}
-#page-access .rona-clients-core-grid>.rona-clients-side{grid-column:2}
-#page-access .rona-clients-agent-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:16px;align-items:start}
-#page-access .rona-clients-contract-stack{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;align-items:stretch!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"] button,#page-access .rona-functional-preserved-host[data-kind="clients"] input,#page-access .rona-functional-preserved-host[data-kind="clients"] select{font-size:12px!important}
-#page-access .rona-functional-preserved-host[data-kind="clients"] p,#page-access .rona-functional-preserved-host[data-kind="clients"] .muted,#page-access .rona-functional-preserved-host[data-kind="clients"] [class*="muted"]{line-height:1.5!important}
-@media(max-width:1050px){#page-access .rona-clients-core-grid,#page-access .rona-clients-agent-grid{grid-template-columns:1fr}#page-access .rona-clients-core-grid>*{grid-column:1!important}#page-access .rona-clients-contract-stack{grid-template-columns:1fr!important}}
-@media(max-width:680px){#page-access .rona-functional-preserved-host[data-kind="clients"]{width:100%!important;max-width:none!important;gap:12px!important}#page-access .rona-clients-home-card{padding:14px!important;border-radius:13px!important}}
-@media(prefers-reduced-motion:reduce){.rona-logo-shimmer{animation:none!important}}
-`;document.head.append(s)}
+function installStyle(){if(q('#ronaClientsHomeLayoutStyle'))return;const s=document.createElement('style');s.id='ronaClientsHomeLayoutStyle';s.textContent=[
+'@keyframes ronaLogoShimmer{0%,100%{filter:brightness(1) saturate(1) drop-shadow(0 0 0 rgba(239,68,68,0));transform:translateZ(0)}42%{filter:brightness(1.08) saturate(1.18) drop-shadow(0 0 5px rgba(239,68,68,.18))}55%{filter:brightness(1.22) saturate(1.35) drop-shadow(0 0 11px rgba(248,113,113,.36))}68%{filter:brightness(1.08) saturate(1.15) drop-shadow(0 0 4px rgba(239,68,68,.16))}}',
+'.rona-logo-shimmer{animation:ronaLogoShimmer 4.8s ease-in-out infinite!important;transform-origin:center!important;will-change:filter}',
+'#page-access .rona-rs-root[data-kind="clients"]{display:none!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"]{display:grid!important;width:min(100%,1440px)!important;max-width:1440px!important;margin:0 auto!important;gap:16px!important;align-content:start!important;box-sizing:border-box!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"]>.rona-rs-preserved{display:contents!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-clients-suppressed{display:none!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-clients-duplicate-title{display:none!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-owner-page-content{display:grid!important;gap:16px!important;width:100%!important;max-width:none!important;min-height:0!important;margin:0!important;align-content:start!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"] .rona-owner-card,#page-access .rona-functional-preserved-host[data-kind="clients"] section,#page-access .rona-functional-preserved-host[data-kind="clients"] article{min-height:0!important}',
+'#page-access .rona-clients-actionbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:0 2px;min-height:42px}',
+'#page-access .rona-clients-actionbar:empty{display:none}',
+'#page-access .rona-clients-actionbar button{min-height:40px!important;padding:10px 16px!important;border-radius:10px!important;font-size:12px!important;font-weight:850!important}',
+'#page-access .rona-clients-home-card{background:linear-gradient(145deg,rgba(11,27,45,.86),rgba(7,18,31,.82))!important;border:1px solid rgba(92,139,181,.23)!important;border-radius:16px!important;box-shadow:0 16px 38px rgba(0,0,0,.16)!important;backdrop-filter:blur(10px);padding:17px 18px!important;margin:0!important}',
+'#page-access .rona-clients-home-card h2,#page-access .rona-clients-home-card h3{font-size:15px!important;line-height:1.25!important;margin-bottom:10px!important}',
+'#page-access .rona-clients-home-card table{font-size:12px!important}',
+'#page-access .rona-clients-home-card th,#page-access .rona-clients-home-card td{padding:10px 9px!important;line-height:1.35!important}',
+'#page-access .rona-clients-core-grid{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(310px,.8fr);gap:16px;align-items:start}',
+'#page-access .rona-clients-core-grid>.rona-clients-wide{grid-column:1/-1}',
+'#page-access .rona-clients-core-grid>.rona-clients-main{grid-column:1}',
+'#page-access .rona-clients-core-grid>.rona-clients-side{grid-column:2}',
+'#page-access .rona-clients-agent-grid{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:16px;align-items:start}',
+'#page-access .rona-clients-contract-stack{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important;align-items:stretch!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"] button,#page-access .rona-functional-preserved-host[data-kind="clients"] input,#page-access .rona-functional-preserved-host[data-kind="clients"] select{font-size:12px!important}',
+'#page-access .rona-functional-preserved-host[data-kind="clients"] p,#page-access .rona-functional-preserved-host[data-kind="clients"] .muted,#page-access .rona-functional-preserved-host[data-kind="clients"] [class*="muted"]{line-height:1.5!important}',
+'@media(max-width:1050px){#page-access .rona-clients-core-grid,#page-access .rona-clients-agent-grid{grid-template-columns:1fr}#page-access .rona-clients-core-grid>*{grid-column:1!important}#page-access .rona-clients-contract-stack{grid-template-columns:1fr!important}}',
+'@media(max-width:680px){#page-access .rona-functional-preserved-host[data-kind="clients"]{width:100%!important;max-width:none!important;gap:12px!important}#page-access .rona-clients-home-card{padding:14px!important;border-radius:13px!important}}',
+'@media(prefers-reduced-motion:reduce){.rona-logo-shimmer{animation:none!important}}'
+].join('');document.head.append(s)}
 function shimmerLogo(){installStyle();const add=n=>{if(n&&!n.classList.contains('rona-logo-shimmer'))n.classList.add('rona-logo-shimmer')};qa('img').forEach(n=>{const v=(n.getAttribute('src')||'')+' '+(n.getAttribute('alt')||'')+' '+(n.getAttribute('class')||'');if(/rona|logo/i.test(v))add(n)});qa('[class*="logo" i],[class*="brand" i]').forEach(n=>{if(/rona/i.test(n.textContent||'')||n.querySelector('svg,img'))add(n.querySelector('svg,img')||n)})}
 function blockFor(n){if(!n)return null;return n.closest('section,article,.rona-owner-card,[class*="card" i],[class*="panel" i],[class*="section" i]')||n.parentElement}
-function exactTextNode(host,text){const t=norm(text);return qa('h1,h2,h3,h4,strong,button,div,span',host).find(n=>norm(n.textContent)===t)||null}
 function byText(host,text){const t=norm(text);return qa('h1,h2,h3,h4,strong,div,span',host).find(n=>norm(n.textContent).includes(t))||null}
 function hideBlock(host,text){const n=byText(host,text);if(!n)return null;const b=blockFor(n);if(b)b.classList.add('rona-clients-suppressed');return b}
 function markCard(host,text,cls){const n=byText(host,text);if(!n)return null;const b=blockFor(n);if(b){b.classList.add('rona-clients-home-card');if(cls)b.classList.add(cls)}return b}
