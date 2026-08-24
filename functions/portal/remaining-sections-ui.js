@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_REMAINING_SECTIONS_R2__)return;
-window.__RONA_REMAINING_SECTIONS_R2__='20260824-1421';
+window.__RONA_REMAINING_SECTIONS_R2__='20260824-1948';
 window.__RONA_REMAINING_SECTIONS_R1__=window.__RONA_REMAINING_SECTIONS_R1__||'superseded-by-r2';
 const API='/portal/owner-api';
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
@@ -9,7 +9,7 @@ const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!==u
 const date=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('ru-RU')};
 const dt=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})};
 const money=(v,c)=>{const n=Number(v);return v===null||v===undefined||v===''||!Number.isFinite(n)?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)+(c?' '+c:'')};
-const LABELS={'клиенты и агенты':'clients','радиорубка':'radio','аналитика':'analytics','новости топливного рынка снг':'news','агенты':'agents','вознаграждения агентов':'rewards'};
+const LABELS=window.__RONA_ACCESS_CANONICAL_V4__===true?{'радиорубка':'radio','аналитика':'analytics','новости топливного рынка снг':'news','агенты':'agents','вознаграждения агентов':'rewards'}:{'клиенты и агенты':'clients','радиорубка':'radio','аналитика':'analytics','новости топливного рынка снг':'news','агенты':'agents','вознаграждения агентов':'rewards'};
 const S={};let M=null,marketPromise=null;
 function label(b){const c=b.cloneNode(true);qa('[aria-hidden="true"],svg,img,.rona-owner-attention-badge',c).forEach(n=>n.remove());return norm(c.textContent)}
 function button(kind){return qa('#nav button[data-page]').find(b=>LABELS[label(b)]===kind)||null}
@@ -47,4 +47,4 @@ function openKind(kind){gate(kind);if(kind==='analytics'||kind==='news'){refresh
 function bind(){style();void refreshMarket();document.addEventListener('click',ev=>{const b=ev.target&&ev.target.closest&&ev.target.closest('#nav button[data-page]');if(!b)return;const kind=LABELS[label(b)];if(!kind)return;openKind(kind)},true);Object.values(LABELS).forEach(kind=>{const b=button(kind);if(b&&b.classList.contains('active'))openKind(kind)});window.__RONA_REMAINING_SECTIONS_READY__='r2-market-director'}
 let tries=0;(function wait(){if(window.__RONA_OWNER_ADMIN_READY__===true&&snap()){bind();return}tries++;if(tries<1200)setTimeout(wait,100)})();
 })();`;
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-remaining-sections':'r2-market-director'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-remaining-sections':'r2-market-director-v5-explicit-ownership'}})}
