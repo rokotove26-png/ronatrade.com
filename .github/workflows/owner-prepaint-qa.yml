@@ -40,6 +40,9 @@ jobs:
             grep -q 'src="/portal/main-ui"' "$f"
             grep -q 'rona-ui-primary' "$f"
           done
+          grep -q 'visible-before-runtime-v1' functions/portal/admin.js
+          grep -q 'rona-owner-paint-ready.*body .app' functions/portal/admin.js
+          grep -q 'ronaOwnerPaint.*fallback' functions/portal/owner-ui-chunks/chunk15.js
           grep -q '__RONA_MAIN_UI_ENTRY__' functions/portal/main-ui.js
           grep -q '__RONA_MAIN_UI_RUNTIME_LOADED__' functions/portal/main-ui.js
           grep -q "export { onRequest } from './main-ui.js'" functions/portal/owner-acceptance-ui.js
@@ -88,7 +91,7 @@ jobs:
             throw new Error('Cloudflare deployment timeout');
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
-      - name: Prove primary Admin UI owns first visible paint
+      - name: Prove authenticated Admin shell is visible before primary runtime
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
@@ -110,22 +113,25 @@ jobs:
             const response=await page.goto(origin+'/portal/admin?_prepaint='+Date.now(),{waitUntil:'commit',timeout:45000});
             assert(response&&response.status()===200,'admin response was not 200');
             assert(response.headers()['x-rona-ui']==='main-v2','primary UI response marker missing');
+            assert(response.headers()['x-rona-admin-shell-first-paint']==='visible-before-runtime-v1','shell-first-paint marker missing');
             await page.waitForSelector('body',{state:'attached',timeout:15000});
             await page.waitForSelector('.app',{state:'attached',timeout:15000});
             for(let i=0;i<100&&!runtimeRequested;i++)await page.waitForTimeout(25);
             assert(runtimeRequested,'primary main UI runtime was not requested');
-            const before=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{gate:!!document.getElementById('rona-owner-prepaint-gate'),primary:document.querySelector('meta[name="rona-ui-primary"]')?.content||'',loader:!!document.getElementById('rona-main-ui-loader'),legacyLoader:!!document.getElementById('rona-owner-acceptance-ui-loader'),ready:document.documentElement.classList.contains('rona-owner-paint-ready'),opacity:cs.opacity,visibility:cs.visibility,pointerEvents:cs.pointerEvents}});
+            const before=await page.evaluate(()=>{const app=document.querySelector('.app'),home=document.querySelector('#page-home'),cs=getComputedStyle(app),hs=home?getComputedStyle(home):null;return{gate:!!document.getElementById('rona-owner-prepaint-gate'),primary:document.querySelector('meta[name="rona-ui-primary"]')?.content||'',loader:!!document.getElementById('rona-main-ui-loader'),legacyLoader:!!document.getElementById('rona-owner-acceptance-ui-loader'),ready:document.documentElement.classList.contains('rona-owner-paint-ready'),opacity:cs.opacity,visibility:cs.visibility,pointerEvents:cs.pointerEvents,homeOpacity:hs?.opacity||'',homeVisibility:hs?.visibility||''}});
             assert(before.gate&&before.primary==='main-v2'&&before.loader&&!before.legacyLoader,'primary UI shell contract failed '+JSON.stringify(before));
-            assert(before.ready===false,'paint released before primary runtime');
-            assert(before.opacity==='0'&&before.visibility==='hidden'&&before.pointerEvents==='none','legacy substrate can paint '+JSON.stringify(before));
+            assert(before.ready===false,'primary runtime unexpectedly marked ready while held');
+            assert(before.opacity!=='0'&&before.visibility!=='hidden','authenticated shell is blank before runtime '+JSON.stringify(before));
+            assert(before.pointerEvents==='none','pre-ready shell must remain non-interactive '+JSON.stringify(before));
+            assert(before.homeOpacity==='0'&&before.homeVisibility==='hidden','legacy page content can flash before primary runtime '+JSON.stringify(before));
             releaseRuntime();
             await poll(page,()=>window.__RONA_MAIN_UI_ENTRY__===true&&window.__RONA_MAIN_UI_RUNTIME_LOADED__===true,100,'main UI runtime');
             await poll(page,()=>window.__RONA_OWNER_ADMIN_READY__===true,450,'primary admin ready');
             await poll(page,()=>document.documentElement.classList.contains('rona-owner-paint-ready')&&window.__RONA_OWNER_FIRST_PAINT_READY__===true,50,'primary first paint');
-            const after=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{paint:document.documentElement.dataset.ronaOwnerPaint,opacity:cs.opacity,visibility:cs.visibility,owner:window.__RONA_OWNER_ADMIN_READY__===true,mainEntry:window.__RONA_MAIN_UI_ENTRY__===true,mainLoaded:window.__RONA_MAIN_UI_RUNTIME_LOADED__===true,visual:document.documentElement.classList.contains('rona-visual-v2')}});
-            assert(after.owner&&after.mainEntry&&after.mainLoaded&&after.visual&&after.paint==='ready','primary redesigned UI did not own first visible paint '+JSON.stringify(after));
-            assert(after.opacity!=='0'&&after.visibility!=='hidden','primary UI remains hidden '+JSON.stringify(after));
-            console.log('PRIMARY_UI_PREPAINT_GATE=PASS '+JSON.stringify({origin,before,after}));
+            const after=await page.evaluate(()=>{const app=document.querySelector('.app');const cs=getComputedStyle(app);return{paint:document.documentElement.dataset.ronaOwnerPaint,opacity:cs.opacity,visibility:cs.visibility,pointerEvents:cs.pointerEvents,owner:window.__RONA_OWNER_ADMIN_READY__===true,mainEntry:window.__RONA_MAIN_UI_ENTRY__===true,mainLoaded:window.__RONA_MAIN_UI_RUNTIME_LOADED__===true,visual:document.documentElement.classList.contains('rona-visual-v2')}});
+            assert(after.owner&&after.mainEntry&&after.mainLoaded&&after.visual&&after.paint==='ready','primary redesigned UI did not own first full paint '+JSON.stringify(after));
+            assert(after.opacity!=='0'&&after.visibility!=='hidden'&&after.pointerEvents!=='none','primary UI remains unavailable '+JSON.stringify(after));
+            console.log('PRIMARY_UI_SHELL_FIRST_PAINT_GATE=PASS '+JSON.stringify({origin,before,after}));
             await ctx.close();await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
@@ -140,8 +146,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          state='failure'; description='Primary portal UI prepaint QA failed'
-          if [ "$JOB_STATUS" = 'success' ]; then state='success'; description='Primary portal UI owns first paint'; fi
+          state='failure'; description='Authenticated Admin shell first-paint QA failed'
+          if [ "$JOB_STATUS" = 'success' ]; then state='success'; description='Authenticated Admin shell is visible before primary runtime'; fi
           target_url="https://github.com/$REPO/actions/runs/$RUN_ID"
           payload=$(printf '{"state":"%s","context":"rona/primary-ui-prepaint","description":"%s","target_url":"%s"}' "$state" "$description" "$target_url")
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$payload" >/dev/null
