@@ -2,6 +2,10 @@ name: claims-current-first-production-smoke-20260824
 on:
   push:
     branches: [qa/claims-current-first-production-smoke-20260824]
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - .github/workflows/claims-current-first-production-smoke-20260824.yml
 permissions:
   contents: read
   statuses: write
