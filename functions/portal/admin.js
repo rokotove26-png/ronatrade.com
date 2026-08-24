@@ -1,5 +1,5 @@
 import { onRequest as basePortal } from './[[path]].js';
-const BUILD='owner-main-v2-20260824-1918';
+const BUILD='owner-main-v2-20260824-1928';
 const PRIMARY_UI_SOURCE_CONTRACT='src="/portal/main-ui"';
 const LEGACY_ACCESS_ARCHIVE='legacy-work-areas-v1';
 const PREPAINT='<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="'+BUILD+'"><style id="rona-owner-prepaint-gate">#page-claims>*:not(.rona-claims-r2-root):not(.rona-claims-section-title){display:none!important}#page-deals>*:not(.rona-owner-page-content[data-owner-page="deals"]){display:none!important}html:not(.rona-owner-paint-ready) #page-access>*,html:not(.rona-access-v4-ready) #page-access>*{visibility:hidden!important;opacity:0!important;pointer-events:none!important}html.rona-access-v4-ready #page-access>#rona-ca4{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}</style>';
@@ -14,7 +14,7 @@ const CLAIMSTITLE='<script id="rona-claims-title-loader" src="/portal/claims-tit
 const ACCESSGUARD='<script id="rona-clients-agents-canonical-guard-loader" src="/portal/clients-agents-canonical-guard-ui?v=20260824-1918" defer data-rona-ui="clients-agents-v4-pre-r2-guard"></script>';
 const REMAINING='<script id="rona-remaining-sections-loader" src="/portal/remaining-sections-ui?v=20260824-1602" defer data-rona-ui="remaining-sections-r2-market-director"></script>';
 const REMAININGFINAL='<script id="rona-remaining-final-polish-loader" src="/portal/remaining-sections-final-polish-ui?v=20260824-1602" defer data-rona-ui="clients-market-final-v1"></script>';
-const REMAININGPRESERVE='<script id="rona-remaining-functional-preserve-loader" src="/portal/remaining-sections-functional-preserve-v2-ui?v=20260824-1906" defer data-rona-ui="remaining-functional-preserve-market-only-v2"></script>';
+const REMAININGPRESERVE='<script id="rona-remaining-functional-preserve-loader" src="/portal/remaining-sections-functional-preserve-v2-ui?v=20260824-1928" defer data-rona-ui="remaining-functional-preserve-market-only-v2"></script>';
 const CLIENTSAGENTS='<script id="rona-clients-agents-v4-loader" src="/portal/clients-agents-v4-ui?v=20260824-1858" defer data-rona-ui="clients-agents-v4-canonical-single-owner"></script>';
 const APPTOTAL='<script id="rona-applications-total-kpi-loader" src="/portal/applications-total-kpi-ui" async data-rona-ui="applications-total-kpi-r1"></script>';
 const LAYOUTPOLISH='<script id="rona-owner-layout-polish-loader" src="/portal/owner-layout-polish-ui?v=20260824-1346" defer data-rona-ui="rail-claims-layout-polish-v1"></script>';
