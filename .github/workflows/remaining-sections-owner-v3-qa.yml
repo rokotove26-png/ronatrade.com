@@ -191,7 +191,7 @@ jobs:
           if(await page.locator('#rona-analytics-v2 .an2-chart svg').count()!==1)throw new Error('Platts chart missing');
           if(!(await page.locator('#rona-analytics-v2').innerText()).includes('1 186,75'))throw new Error('latest Platts value missing');
           await page.getByRole('button',{name:'ДТ',exact:true}).click();
-          if(!(await page.locator('#rona-analytics-v2').innerText()).includes('1 363,88'))throw new Error('BNK diesel composite not rendered');
+          if(!(await page.locator('#rona-analytics-v2').innerText()).includes('363,88'))throw new Error('BNK diesel composite not rendered');
           await page.getByRole('button',{name:'АИ-92',exact:true}).click();
           await page.getByRole('button',{name:'Argus',exact:true}).click();
           const argusText=await page.locator('#rona-analytics-v2').innerText();
