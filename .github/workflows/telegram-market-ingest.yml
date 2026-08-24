@@ -4,13 +4,6 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
-  push:
-    branches:
-      - release/public-go-live-v1.1
-    paths:
-      - ".github/workflows/telegram-market-ingest.yml"
-      - "scripts/telegram_public_market_ingest.py"
-      - "scripts/telegram_public_market_ingest_search.py"
 
 permissions:
   contents: read
@@ -64,8 +57,8 @@ jobs:
           echo "::add-mask::${OIDC_TOKEN}"
           printf 'RONA_INGEST_OIDC_TOKEN=%s\n' "${OIDC_TOKEN}" >> "${GITHUB_ENV}"
 
-      - name: Ingest public Telegram market documents
+      - name: Ingest public Telegram market sources
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/telegram_public_market_ingest_search.py
+          python scripts/telegram_public_market_ingest_resilient.py
