@@ -58,8 +58,8 @@ jobs:
             'pdfplumber>=0.11,<0.12' \
             'requests>=2.32,<3'
 
-      - name: Ingest public Telegram market documents
+      - name: Ingest public Telegram market sources
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/telegram_public_market_ingest_search.py
+          python scripts/telegram_public_market_ingest_resilient.py
