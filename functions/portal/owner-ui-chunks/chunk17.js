@@ -2,6 +2,10 @@ export default `(function(){
 'use strict';
 if(window.__RONA_OWNER_MARKET_NEWS_CANONICAL_V1__)return;
 window.__RONA_OWNER_MARKET_NEWS_CANONICAL_V1__=true;
+const API='/portal/owner-api';
+const q=(s,r=document)=>r.querySelector(s);
+function e(tag,attrs={},...children){const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(k==='class')n.className=v;else if(k==='text')n.textContent=String(v);else if(k.startsWith('on')&&typeof v==='function')n.addEventListener(k.slice(2).toLowerCase(),v);else if(v!==false&&v!==null&&v!==undefined)n.setAttribute(k,v===true?'':String(v))}for(const c of children.flat(Infinity)){if(c===null||c===undefined)continue;n.append(c?.nodeType?c:document.createTextNode(String(c)))}return n}
+async function load(path){const r=await fetch(API+'?path='+encodeURIComponent(path),{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});let j={};try{j=await r.json()}catch{}if(!r.ok||j?.ok===false){const err=new Error(String(j?.code||'HTTP_'+r.status));err.code=String(j?.code||'REQUEST_FAILED');throw err}return j?.data||{}}
 let marketNewsData=[];
 let marketNewsLoading=false;
 let marketNewsLoaded=false;
@@ -13,13 +17,14 @@ function installMarketNewsStyle(){
   document.head.appendChild(s);
 }
 
+function page(){return q('#page-market-news')}
 function newsRows(){return marketNewsData}
 
 async function refreshMarketNews(){
   if(marketNewsLoading)return;
   marketNewsLoading=true;
   try{
-    const data=await call('/admin/analytics-bootstrap');
+    const data=await load('/admin/analytics-bootstrap');
     marketNewsData=Array.isArray(data?.marketNewsFeed)?data.marketNewsFeed:[];
     marketNewsLoaded=true;
     window.__RONA_OWNER_MARKET_NEWS_SNAPSHOT__={generatedAt:data?.generatedAt||null,count:marketNewsData.length,news:marketNewsData};
@@ -69,16 +74,20 @@ function openNews(x){
   if(typeof d.showModal==='function')d.showModal();else d.setAttribute('open','');
 }
 
+function ownerHost(p){
+  let host=q(':scope > .rona-owner-page-content',p);
+  if(host)return host;
+  for(const child of Array.from(p.children)){child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true')}
+  host=e('div',{class:'rona-owner-page-content','data-owner-page':'market-news'});
+  p.appendChild(host);
+  return host;
+}
+
 function renderMarketNews(){
-  const p=page('market-news');
+  const p=page();
   if(!p)return false;
   installMarketNewsStyle();
-  let host=q(':scope > .rona-owner-page-content',p);
-  if(!host){
-    replacePage('market-news',e('div'));
-    host=q(':scope > .rona-owner-page-content',p);
-    if(!host)return false;
-  }
+  const host=ownerHost(p);
   const xs=newsRows();
   const signature=String(xs.length)+'|'+String(xs[0]?.publication_id||'')+'|'+String(xs[0]?.prepared_at||'')+'|'+String(marketNewsLoaded);
   if(host.dataset.ronaMarketNewsCanonical==='v1'&&host.dataset.ronaMarketNewsSignature===signature&&q(':scope > .rona-news-hero',host))return true;
@@ -91,16 +100,16 @@ function renderMarketNews(){
     feed.append(e('div',{class:'rona-news-loading',text:marketNewsLoaded?'Новостей нет.':'Загрузка…'}));
   }else{
     for(const x of xs){
-      const b=e('button',{type:'button',class:'rona-news-item',onclick:()=>openNews(x)},e('span',{class:'rona-news-date',text:newsDate(x)}),e('span',{class:'rona-news-headline',text:x?.headline||'Новость'}),e('span',{class:'rona-news-chevron','aria-hidden':'true',text:'›'}));
-      feed.append(b);
+      feed.append(e('button',{type:'button',class:'rona-news-item',onclick:()=>openNews(x)},e('span',{class:'rona-news-date',text:newsDate(x)}),e('span',{class:'rona-news-headline',text:x?.headline||'Новость'}),e('span',{class:'rona-news-chevron','aria-hidden':'true',text:'›'})));
     }
   }
   host.replaceChildren(hero,feed);
+  p.classList.remove('rona-owner-hide');
   return true;
 }
 
 function watchMarketNews(){
-  const p=page('market-news');
+  const p=page();
   if(!p)return false;
   if(!p.__ronaMarketNewsCanonicalObserver){
     const o=new MutationObserver(()=>queueMicrotask(renderMarketNews));
