@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/telegram-market-ingest.yml"
 
 permissions:
   contents: read
