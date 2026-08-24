@@ -5,6 +5,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin.js'
+      - 'functions/portal/clients-agents-canonical-guard-ui.js'
       - 'functions/portal/clients-agents-v4-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'functions/portal/remaining-sections-final-polish-ui.js'
@@ -14,6 +15,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin.js'
+      - 'functions/portal/clients-agents-canonical-guard-ui.js'
       - 'functions/portal/clients-agents-v4-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'functions/portal/remaining-sections-final-polish-ui.js'
@@ -38,10 +40,13 @@ jobs:
           set -euo pipefail
           npm run build
           node --check functions/portal/admin.js
+          node --check functions/portal/clients-agents-canonical-guard-ui.js
           node --check functions/portal/clients-agents-v4-ui.js
           node --check functions/portal/remaining-sections-ui.js
           node --check functions/portal/remaining-sections-final-polish-ui.js
           node --check functions/portal/remaining-sections-functional-preserve-v2-ui.js
+          grep -q 'rona-clients-agents-canonical-guard-loader' functions/portal/admin.js
+          grep -q 'clients-agents-v4-pre-r2-guard' functions/portal/admin.js
           grep -q 'rona-remaining-sections-loader' functions/portal/admin.js
           grep -q 'remaining-sections-r2-market-director' functions/portal/admin.js
           grep -q 'rona-remaining-final-polish-loader' functions/portal/admin.js
@@ -65,10 +70,12 @@ jobs:
           set -euo pipefail
           node --input-type=module <<'NODE'
           import { chromium } from 'playwright';
+          import { onRequest as guardRequest } from './functions/portal/clients-agents-canonical-guard-ui.js';
           import { onRequest as r2Request } from './functions/portal/remaining-sections-ui.js';
           import { onRequest as polishRequest } from './functions/portal/remaining-sections-final-polish-ui.js';
           import { onRequest as preserveRequest } from './functions/portal/remaining-sections-functional-preserve-v2-ui.js';
           import { onRequest as accessRequest } from './functions/portal/clients-agents-v4-ui.js';
+          const guard=await (await guardRequest()).text();
           const r2=await (await r2Request()).text();
           const polish=await (await polishRequest()).text();
           const preserve=await (await preserveRequest()).text();
@@ -93,14 +100,21 @@ jobs:
             window.__RONA_OWNER_ADMIN_READY__=true;
             window.__RONA_OWNER_ADMIN_SNAPSHOT__={clients:[{legal_name:'Client One',client_id:'C001',contract_id:'RONA-C001-CTR-2026-001',current_external_contract_number:'EXT-1',agent_person_id:'A1',agent_name:'Agent One'}],agents:[{agent_person_id:'A1',agent_name:'Agent One'}],radio:[],analytics:[],news:[]};
             const market={generatedAt:'2026-08-24T12:40:00Z',currentOnly:true,identity:{identity_id:'AI-MARKET-ANALYST',display_name:'Коммерческий директор',status:'ACTIVE'},analytics:[{record_id:'AN-1',status:'APPROVED_WITH_CONDITIONS',summary:'MARKET_FACT: Platts gasoline signal. MARKET_FORECAST: September remains tight.',created_at:'2026-08-24T11:00:00Z',source_refs:['PLATTS_EUROPEAN_MARKETSCAN_2026-08-21']}],news:[{record_id:'NW-1',subject:'Hairatan gasoline spike + Khafi source conflict',priority:'HIGH',requested_check:'MARKET_FACT current field signal.',created_at:'2026-08-24T11:08:50Z',source_refs:['https://t.me/s/hairatanbazar','https://t.me/s/khafipetroleum/42455']}],currentPublications:[]};
-            window.fetch=async (url,options)=>{const u=String(url);if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:market}}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('/agent'))return new Response(JSON.stringify({ok:true,data:{}}),{status:200,headers:{'content-type':'application/json'}});throw new Error('unexpected fetch '+u)};
+            window.fetch=async url=>{const u=String(url);if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:market}}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('/agent'))return new Response(JSON.stringify({ok:true,data:{}}),{status:200,headers:{'content-type':'application/json'}});throw new Error('unexpected fetch '+u)};
             document.addEventListener('click',ev=>{const b=ev.target.closest?.('#nav button[data-page]');if(!b)return;document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('main>section').forEach(x=>x.classList.toggle('active',x.id==='page-'+b.dataset.page))},true);
           });
           const radioBefore=await page.locator('#page-messages').innerHTML();
+          await page.addScriptTag({content:guard});
+          await page.waitForFunction(()=>window.__RONA_CLIENTS_AGENTS_CANONICAL_GUARD_READY__===true);
+          const visibleNavLabel=await page.locator('#nav button[data-page="access"]').innerText();
+          if(!visibleNavLabel.startsWith('Клиенты и агенты'))throw new Error('canonical guard changed visible nav label');
           await page.addScriptTag({content:r2});
           await page.addScriptTag({content:polish});
           await page.waitForTimeout(180);
+          if(await page.locator('#legacy-client-action').count()!==1)throw new Error('legacy access controls were destroyed by r2 before archival');
+          if(await page.locator('#page-access>.rona-rs-root[data-kind="clients"]').count()!==0)throw new Error('legacy Clients renderer still owns Access page');
           await page.addScriptTag({content:preserve});
+          await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_ARCHIVE_READY__===true);
           await page.addScriptTag({content:accessV4});
           await page.waitForFunction(()=>window.__RONA_CLIENTS_AGENTS_V4_READY__===true);
           await page.waitForFunction(()=>window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_READY__===true);
@@ -115,7 +129,11 @@ jobs:
           if(!(await page.locator('#ca4-legacy-content #legacy-client-action').isVisible()))throw new Error('legacy access action not visible inside Users workspace');
           await page.locator('#ca4-legacy-content #legacy-client-action').click();
           if(await page.evaluate(()=>window.__legacyClient)!==1)throw new Error('legacy access handler lost inside v4 workspace');
-          const injected=await page.evaluate(()=>{const x=document.createElement('div');x.id='late-legacy-access';x.textContent='LATE LEGACY ACCESS';document.querySelector('#page-access').append(x);return true});
+          await page.getByRole('button',{name:'Компании'}).click();
+          await page.getByRole('button',{name:'Пользователи и доступы'}).click();
+          await page.locator('#ca4-legacy-content #legacy-client-action').click();
+          if(await page.evaluate(()=>window.__legacyClient)!==2)throw new Error('legacy access handler lost after v4 tab rerender');
+          await page.evaluate(()=>{const x=document.createElement('div');x.id='late-legacy-access';x.textContent='LATE LEGACY ACCESS';document.querySelector('#page-access').append(x)});
           await page.waitForTimeout(100);
           if(await page.locator('#late-legacy-access').isVisible())throw new Error('late legacy access node became visible');
           if(await page.locator('#page-access>#rona-ca4').count()!==1)throw new Error('canonical root lost after legacy mutation');
@@ -142,11 +160,11 @@ jobs:
           set -euo pipefail
           ok=0
           for i in $(seq 1 60); do
-            ph=$(mktemp); pb=$(mktemp); ah=$(mktemp); ab=$(mktemp)
-            if curl -fsS -D "$ph" -o "$pb" "https://ronaoil.com/portal/remaining-sections-functional-preserve-v2-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ah" -o "$ab" "https://ronaoil.com/portal/clients-agents-v4-ui?v=${GITHUB_SHA}"; then
-              if grep -qi '^x-rona-remaining-functional-preserve: market-only-v2' "$ph" && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE_V2__' "$pb" && grep -qi '^x-rona-clients-agents-ui: v4-canonical-single-owner' "$ah" && grep -q '__RONA_CLIENTS_AGENTS_V4__' "$ab"; then ok=1; rm -f "$ph" "$pb" "$ah" "$ab"; break; fi
+            gh=$(mktemp); gb=$(mktemp); ph=$(mktemp); pb=$(mktemp); ah=$(mktemp); ab=$(mktemp)
+            if curl -fsS -D "$gh" -o "$gb" "https://ronaoil.com/portal/clients-agents-canonical-guard-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ph" -o "$pb" "https://ronaoil.com/portal/remaining-sections-functional-preserve-v2-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ah" -o "$ab" "https://ronaoil.com/portal/clients-agents-v4-ui?v=${GITHUB_SHA}"; then
+              if grep -qi '^x-rona-clients-agents-guard: v4-pre-r2' "$gh" && grep -q '__RONA_CLIENTS_AGENTS_CANONICAL_GUARD__' "$gb" && grep -qi '^x-rona-remaining-functional-preserve: market-only-v2' "$ph" && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE_V2__' "$pb" && grep -qi '^x-rona-clients-agents-ui: v4-canonical-single-owner' "$ah" && grep -q '__RONA_CLIENTS_AGENTS_V4__' "$ab"; then ok=1; rm -f "$gh" "$gb" "$ph" "$pb" "$ah" "$ab"; break; fi
             fi
-            rm -f "$ph" "$pb" "$ah" "$ab"
+            rm -f "$gh" "$gb" "$ph" "$pb" "$ah" "$ab"
             sleep 5
           done
           test "$ok" = 1
