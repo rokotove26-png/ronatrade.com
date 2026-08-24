@@ -1,0 +1,46 @@
+name: rail-v5-production-smoke-20260824
+on:
+  push:
+    branches: [qa/rail-v5-production-smoke-20260824]
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  rail-v5-production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed Rail v5 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://ronaoil.com/portal/rail-current-v5-ui?smoke=$(date +%s)"
+          ok=0
+          for i in $(seq 1 30); do
+            rm -f /tmp/rail.js /tmp/rail.h
+            if curl -fsS -D /tmp/rail.h "$url-$i" -o /tmp/rail.js; then
+              if grep -qi '^x-rona-rail-ui: current-v5-owner' /tmp/rail.h \
+                && grep -q 'stopImmediatePropagation' /tmp/rail.js \
+                && grep -q '__RONA_OWNER_ADMIN_READY__===true' /tmp/rail.js \
+                && grep -q 'activateRailV5' /tmp/rail.js \
+                && ! grep -q 'MutationObserver' /tmp/rail.js; then
+                node --check /tmp/rail.js
+                ok=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+      - name: Publish Rail v5 production status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: 253b432b0a4483e22d6ee1448ff774b16ab03bad
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          state=failure; desc='Rail v5 production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v5 production smoke passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v5-production-smoke\",\"description\":\"$desc\",\"target_url\":\"https://github.com/$REPO/actions/runs/$RUN_ID\"}" >/dev/null
