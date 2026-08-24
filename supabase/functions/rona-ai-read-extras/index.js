@@ -67,7 +67,7 @@ async function telegramMarketSources(){
         d.extraction_note,d.ingest_source,d.ingested_at,d.last_seen_at
       from portal_private.telegram_market_documents d
       join portal_private.telegram_market_channels c on c.channel_username=d.channel_username
-      where c.enabled=true and d.ingest_source='TELEGRAM_MTPROTO'
+      where c.enabled=true and d.ingest_source in ('TELEGRAM_MTPROTO','TELEGRAM_PUBLIC_PREVIEW')
       order by d.sha256,c.priority asc,d.message_timestamp desc,d.ingested_at desc
     ) q
     order by message_timestamp desc,channel_priority asc
@@ -92,7 +92,7 @@ async function marketData(auth,req){
     qa_test_debug_temp_excluded:true,
     deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID',
     records:rows,
-    telegram:{source_class:'TELEGRAM_MTPROTO',access:'MARKET_ANALYST_READ_ONLY',client_distribution_allowed:false,original_binary:'PRIVATE_SIGNED_URL_120S',extracted_text_preview_chars:30000,extracted_tables_preview_max:3,deduplication:'SHA256_WITH_PRIMARY_CHANNEL_PRIORITY',documents:telegram},
+    telegram:{source_class:'TELEGRAM_MARKET_SOURCE',source_classes:['TELEGRAM_MTPROTO','TELEGRAM_PUBLIC_PREVIEW'],access:'MARKET_ANALYST_READ_ONLY',client_distribution_allowed:false,original_binary:'PRIVATE_SIGNED_URL_120S_WHEN_AVAILABLE;PUBLIC_PREVIEW_MAY_BE_METADATA_ONLY',extracted_text_preview_chars:30000,extracted_tables_preview_max:3,deduplication:'SHA256_WITH_PRIMARY_CHANNEL_PRIORITY',documents:telegram},
   };
 }
 
