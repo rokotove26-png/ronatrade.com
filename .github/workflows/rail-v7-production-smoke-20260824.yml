@@ -1,0 +1,56 @@
+name: rail-v7-production-smoke-20260824
+on:
+  push:
+    branches: [qa/rail-v7-production-smoke-20260824]
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  rail-v7-production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed Rail v7 real map runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="https://ronaoil.com/portal/rail-current-v7-real-map-ui?smoke=$(date +%s)"
+          ok=0
+          for i in $(seq 1 45); do
+            rm -f /tmp/rail-v7.js /tmp/rail-v7.h
+            if curl -fsS -D /tmp/rail-v7.h "$url-$i" -o /tmp/rail-v7.js; then
+              if grep -qi '^x-rona-rail-ui: current-v7-real-map' /tmp/rail-v7.h \
+                && grep -q "window.__RONA_RAIL_REAL_MAP__='20260824-1026-v7'" /tmp/rail-v7.js \
+                && grep -q 'tile.openstreetmap.org' /tmp/rail-v7.js \
+                && grep -q 'rona-rail-v7-map-viewport' /tmp/rail-v7.js \
+                && grep -q 'mountRealRailMap' /tmp/rail-v7.js \
+                && grep -q 'pointerdown' /tmp/rail-v7.js \
+                && grep -q 'wheel' /tmp/rail-v7.js \
+                && grep -q '© OpenStreetMap' /tmp/rail-v7.js \
+                && grep -q 'Интерактивная карта' /tmp/rail-v7.js \
+                && grep -q 'rona-rail-v6-select' /tmp/rail-v7.js \
+                && grep -q 'Номера вагонов' /tmp/rail-v7.js \
+                && ! grep -q 'c.innerHTML=mapSvg()' /tmp/rail-v7.js \
+                && ! grep -q 'MutationObserver' /tmp/rail-v7.js; then
+                node --check /tmp/rail-v7.js
+                curl -fsS --max-time 15 'https://tile.openstreetmap.org/3/5/2.png' -o /tmp/osm-tile.png
+                test -s /tmp/osm-tile.png
+                ok=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+      - name: Publish Rail v7 production status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: e157194c2d72203dc3eb3b3ca496e3094f96d11c
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          state=failure; desc='Rail v7 production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v7 production smoke passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v7-production-smoke\",\"description\":\"$desc\",\"target_url\":\"https://github.com/$REPO/actions/runs/$RUN_ID\"}" >/dev/null
