@@ -1,6 +1,7 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_V3__)return;
 window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_V3__='20260824-analytics-canonical';
+window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_V2__=window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_V2__||'compat-v3';
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 function style(){if(q('#ronaPreserveV3Style'))return;const s=document.createElement('style');s.id='ronaPreserveV3Style';s.textContent='.rona-functional-preserved-host{display:grid!important;width:100%!important;max-width:none!important;margin:0 0 12px!important;gap:12px!important;box-sizing:border-box}.rona-functional-preserved-host>.rona-rs-preserved{margin:0!important}.rona-functional-preserved-host>.rona-owner-page-content{display:block!important;width:100%!important}.rona-functional-preserved-host [aria-hidden="true"]{visibility:visible}.rona-functional-preserved-host .rona-owner-original-hidden{display:block!important}';document.head.append(s)}
 function revealAccess(){const v=window.__RONA_ACCESS_LEGACY_VAULT__||null;if(!v||!v.closest('#rona-ca4'))return false;v.style.removeProperty('display');v.style.removeProperty('visibility');v.style.removeProperty('opacity');v.style.removeProperty('pointer-events');v.removeAttribute('aria-hidden');return true}
@@ -11,4 +12,4 @@ let queued=false;function schedule(){if(queued)return;queued=true;requestAnimati
 function bind(){if(document.__ronaRemainingPreserveV3Bound)return;document.__ronaRemainingPreserveV3Bound=true;document.addEventListener('click',ev=>{const b=ev.target?.closest?.('#nav button[data-page]');if(!b)return;if(['access','market-news'].includes(String(b.dataset.page||'')))schedule()},true);new MutationObserver(()=>revealAccess()).observe(document.documentElement,{childList:true,subtree:true});schedule()}
 let tries=0;(function wait(){if(window.__RONA_OWNER_ADMIN_READY__===true&&window.__RONA_REMAINING_SECTIONS_READY__){bind();return}tries++;if(tries<1200)setTimeout(wait,100)})();
 })();`;
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-remaining-functional-preserve':'access-news-v3-analytics-canonical'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-remaining-functional-preserve':'market-only-v2; access-news-v3-analytics-canonical'}})}
