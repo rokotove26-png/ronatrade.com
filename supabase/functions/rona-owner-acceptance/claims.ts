@@ -127,22 +127,22 @@ export function createClaimsRuntime(deps:any) {
       join portal_private.documents pd on pd.id=c.primary_document_key
       where c.claim_id=${claimId} and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum limit 1`)[0];
     if(!c)throw Object.assign(new Error('CLAIM_NOT_FOUND'),{status:404});
+    if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('LEGAL_HANDOFF_INCOMING_ONLY'),{status:409});
     const countRows=await sql`select count(*)::int n from portal_private.ai_coordination_records where target_type='CLAIM' and target_id=${claimId} and record_type='HANDOFF_REQUEST' and target_role='LEGAL'::portal_private.ai_business_role_enum`;
     const seq=Number(countRows[0]?.n||0)+1;
     const sourceRefs=[String(c.claim_id),String(c.document_id),String(c.client_id),String(c.contract_id),...(c.deal_id?[String(c.deal_id)]:[])];
-    const inbound=String(c.claim_source)==='CLIENT';
     const payload={
-      reason:inbound?'В клиентском портале зарегистрирована претензия клиента. Требуется независимая юридическая оценка до финального решения.':'В Admin Portal зарегистрирована претензия RONA Trade. Требуется независимая юридическая оценка до финального решения.',
-      subject:`Претензия ${c.claim_id} — юридический анализ`,priority:'HIGH',entity_id:String(c.claim_id),entity_type:'CLAIM',source_refs:sourceRefs,target_role:'LEGAL',claim_source:String(c.claim_source),
-      requested_check:`Провести юридический анализ претензии ${c.claim_id} по клиенту ${c.legal_name}, договору ${c.contract_id}${c.deal_id?`, сделке ${c.deal_id}`:''}. Источник: ${c.claim_source}. Категория: ${c.category}. Предмет: ${c.subject}. Прочитать подтверждённый документ ${c.document_id} через document_read. Оценить обоснованность требований, договорные и доказательственные риски, необходимые документы, рекомендуемую позицию RONA Trade и условия принятия/отклонения. Не изменять authoritative claim status и документы; вернуть FUNCTIONAL_CONCLUSION с target_type CLAIM / target_id ${c.claim_id}.`
+      reason:'В клиентском портале зарегистрирована претензия клиента. Требуется независимая юридическая оценка до финального решения.',
+      subject:`Претензия ${c.claim_id} — юридический анализ`,priority:'HIGH',entity_id:String(c.claim_id),entity_type:'CLAIM',source_refs:sourceRefs,target_role:'LEGAL',claim_source:'CLIENT',
+      requested_check:`Провести юридический анализ входящей претензии ${c.claim_id} по клиенту ${c.legal_name}, договору ${c.contract_id}${c.deal_id?`, сделке ${c.deal_id}`:''}. Категория: ${c.category}. Предмет: ${c.subject}. Прочитать подтверждённый документ ${c.document_id} через document_read. Оценить обоснованность требований, договорные и доказательственные риски, необходимые документы, рекомендуемую позицию RONA Trade и условия принятия/отклонения. Не изменять authoritative claim status и документы; вернуть FUNCTIONAL_CONCLUSION с target_type CLAIM / target_id ${c.claim_id}.`
     };
     const idemHash=await sha256Text(`claim:${claimId}:legal:${seq}`),payloadHash=await sha256Text(JSON.stringify(payload));
     const correlationId=reqIds(req).correlationId||crypto.randomUUID(),mcpRequestId=crypto.randomUUID(),recordId=crypto.randomUUID();
     await sql.begin(async(tx:any)=>{
       await tx`insert into portal_private.ai_coordination_records(record_id,record_type,functional_role,identity_id,client_id,server_slug,tool_name,target_type,target_id,target_role,version,idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,correlation_id,mcp_request_id,qa_only)
-        values(${recordId}::uuid,'HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,'AI-SYSTEM-ADMIN',${inbound?'portal-client-claims':'portal-admin-claims'},'rona-owner-acceptance','claim_legal_handoff','CLAIM',${claimId},'LEGAL'::portal_private.ai_business_role_enum,${seq},${idemHash},${payloadHash},${sql.json(sourceRefs)},'[]'::jsonb,${sql.json(payload)},'REQUESTED',${correlationId}::uuid,${mcpRequestId}::uuid,false)`;
+        values(${recordId}::uuid,'HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,'AI-SYSTEM-ADMIN','portal-client-claims','rona-owner-acceptance','claim_legal_handoff','CLAIM',${claimId},'LEGAL'::portal_private.ai_business_role_enum,${seq},${idemHash},${payloadHash},${sql.json(sourceRefs)},'[]'::jsonb,${sql.json(payload)},'REQUESTED',${correlationId}::uuid,${mcpRequestId}::uuid,false)`;
       await tx`update portal_private.owner_claims set legal_handoff_record_id=${recordId}::uuid,updated_by=${ctx.userId}::uuid,updated_at=now() where claim_id=${claimId}`;
-      await audit(tx,ctx,inbound?'CLIENT_CLAIM_SENT_TO_LEGAL':'OWNER_CLAIM_SENT_TO_LEGAL','CLAIM',claimId,req,{recordId,version:seq,claimSource:String(c.claim_source)});
+      await audit(tx,ctx,'CLIENT_CLAIM_SENT_TO_LEGAL','CLAIM',claimId,req,{recordId,version:seq,claimSource:'CLIENT'});
     });
     return {claimId,recordId,status:'REQUESTED',version:seq};
   }
@@ -165,11 +165,10 @@ export function createClaimsRuntime(deps:any) {
         const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-OUT`,documentType:'CLAIM',clientKey:String(scope.client_key),contractKey:String(scope.contract_key),dealKey,sourceSystem:'ADMIN_PORTAL'});
         await tx`insert into portal_private.owner_claims(claim_id,claim_source,client_key,contract_key,deal_key,category,subject,description,status,primary_document_key,created_by,updated_by)
           values(${claimId},'ADMIN',${scope.client_key}::uuid,${scope.contract_key}::uuid,${dealKey||null}::uuid,${category},${subject},${description||null},'REVIEW',${doc.docKey}::uuid,${ctx.userId}::uuid,${ctx.userId}::uuid)`;
-        await audit(tx,ctx,'OWNER_CLAIM_REGISTERED','CLAIM',claimId,req,{claimSource:'ADMIN',clientId,contractId,dealId:dealId||null,documentId:doc.documentId,sha256:doc.sha256});
+        await audit(tx,ctx,'OWNER_CLAIM_REGISTERED_FOR_CLIENT','CLAIM',claimId,req,{claimSource:'ADMIN',clientId,contractId,dealId:dealId||null,documentId:doc.documentId,sha256:doc.sha256,delivery:'CLIENT_PORTAL'});
       });
     }catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
-    let legal=null;try{legal=await dispatchLegal(ctx,req,claimId)}catch(e){console.error('claim legal dispatch failed',claimId,e)}
-    return {claimId,claimSource:'ADMIN',clientId,contractId,dealId:dealId||null,status:'REVIEW',legalDispatch:legal?.status||'FAILED'};
+    return {claimId,claimSource:'ADMIN',clientId,contractId,dealId:dealId||null,status:'REVIEW',clientDelivery:'VISIBLE_IN_CLIENT_PORTAL',legalDispatch:'NOT_APPLICABLE'};
   }
 
   async function registerClientClaim(ctx:any,req:Request) {
@@ -203,8 +202,9 @@ export function createClaimsRuntime(deps:any) {
   }
 
   async function uploadResponse(ctx:any,req:Request,claimId:string) {
-    const parsed=await parsePdf(req),c=(await sql`select c.id,c.client_key,c.contract_key,c.deal_key,cl.client_id from portal_private.owner_claims c join portal_private.clients cl on cl.id=c.client_key where c.claim_id=${claimId} and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum limit 1`)[0];
+    const parsed=await parsePdf(req),c=(await sql`select c.id,c.claim_source,c.client_key,c.contract_key,c.deal_key,cl.client_id from portal_private.owner_claims c join portal_private.clients cl on cl.id=c.client_key where c.claim_id=${claimId} and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum limit 1`)[0];
     if(!c)throw Object.assign(new Error('CLAIM_NOT_FOUND'),{status:404});
+    if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('RESPONSE_INCOMING_ONLY'),{status:409});
     const raw=await uploadRaw(`claims/${c.client_id}/${claimId}/response`,parsed);
     try{return await sql.begin(async(tx:any)=>{const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-RESP-${crypto.randomUUID().slice(0,6).toUpperCase()}`,documentType:'CLAIM_RESPONSE',clientKey:String(c.client_key),contractKey:String(c.contract_key),dealKey:c.deal_key?String(c.deal_key):null,sourceSystem:'ADMIN_PORTAL'});await tx`update portal_private.owner_claims set response_document_key=${doc.docKey}::uuid,response_sent_at=null,response_sent_by=null,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_UPLOADED','CLAIM',claimId,req,{documentId:doc.documentId,sha256:doc.sha256});return{claimId,documentId:doc.documentId,filename:doc.filename,responseSentAt:null}})}catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
   }
@@ -212,20 +212,22 @@ export function createClaimsRuntime(deps:any) {
   async function sendResponse(ctx:any,req:Request,claimId:string) {
     const c=(await sql`select c.id,c.claim_source,c.response_document_key,rd.document_id from portal_private.owner_claims c left join portal_private.documents rd on rd.id=c.response_document_key where c.claim_id=${claimId} and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum limit 1`)[0];
     if(!c)throw Object.assign(new Error('CLAIM_NOT_FOUND'),{status:404});
+    if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('RESPONSE_INCOMING_ONLY'),{status:409});
     if(!c.response_document_key)throw Object.assign(new Error('RESPONSE_PDF_REQUIRED'),{status:409});
     const sentAt=new Date().toISOString();
-    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set response_sent_at=${sentAt}::timestamptz,response_sent_by=${ctx.userId}::uuid,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_SENT','CLAIM',claimId,req,{claimSource:String(c.claim_source||'ADMIN'),documentId:c.document_id||null,sentAt})});
+    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set response_sent_at=${sentAt}::timestamptz,response_sent_by=${ctx.userId}::uuid,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_SENT','CLAIM',claimId,req,{claimSource:'CLIENT',documentId:c.document_id||null,sentAt})});
     return {claimId,documentId:c.document_id||null,responseSentAt:sentAt};
   }
 
   async function updateStatus(ctx:any,req:Request,claimId:string) {
     const body=await jsonBody(req),status=clean(body.status,'STATUS',40).toUpperCase();
     if(!['REVIEW','ACCEPTED','REJECTED'].includes(status))throw Object.assign(new Error('INVALID_STATUS'),{status:400});
-    const c=(await sql`select c.id,c.status,c.response_document_key,exists(select 1 from portal_private.ai_coordination_records r where r.target_type='CLAIM' and r.target_id=c.claim_id and r.record_type='FUNCTIONAL_CONCLUSION' and r.functional_role='LEGAL'::portal_private.ai_business_role_enum) has_legal_conclusion from portal_private.owner_claims c where c.claim_id=${claimId} and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum limit 1`)[0];
+    const c=(await sql`select c.id,c.claim_source,c.status,c.response_document_key,exists(select 1 from portal_private.ai_coordination_records r where r.target_type='CLAIM' and r.target_id=c.claim_id and r.record_type='FUNCTIONAL_CONCLUSION' and r.functional_role='LEGAL'::portal_private.ai_business_role_enum) has_legal_conclusion from portal_private.owner_claims c where c.claim_id=${claimId} and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum limit 1`)[0];
     if(!c)throw Object.assign(new Error('CLAIM_NOT_FOUND'),{status:404});
+    if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('CLAIM_DECISION_INCOMING_ONLY'),{status:409});
     if(status!=='REVIEW'&&!c.has_legal_conclusion)throw Object.assign(new Error('LEGAL_CONCLUSION_REQUIRED'),{status:409});
     if(status==='REJECTED'&&!c.response_document_key)throw Object.assign(new Error('RESPONSE_PDF_REQUIRED'),{status:409});
-    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set status=${status},decision_at=${status==='REVIEW'?null:new Date().toISOString()}::timestamptz,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_STATUS_UPDATED','CLAIM',claimId,req,{from:String(c.status),to:status})});
+    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set status=${status},decision_at=${status==='REVIEW'?null:new Date().toISOString()}::timestamptz,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_STATUS_UPDATED','CLAIM',claimId,req,{from:String(c.status),to:status,claimSource:'CLIENT'})});
     return {claimId,status};
   }
 
