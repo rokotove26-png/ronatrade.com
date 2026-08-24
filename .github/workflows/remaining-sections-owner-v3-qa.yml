@@ -35,7 +35,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Static syntax and canonical ownership contract
+      - name: Static syntax and post-core ownership contract
         run: |
           set -euo pipefail
           npm run build
@@ -45,30 +45,46 @@ jobs:
           node --check functions/portal/remaining-sections-ui.js
           node --check functions/portal/remaining-sections-final-polish-ui.js
           node --check functions/portal/remaining-sections-functional-preserve-v2-ui.js
-          grep -q 'rona-clients-agents-canonical-guard-loader' functions/portal/admin.js
-          grep -q 'clients-agents-v4-pre-r2-guard' functions/portal/admin.js
-          grep -q 'rona-remaining-sections-loader' functions/portal/admin.js
-          grep -q 'remaining-sections-r2-market-director' functions/portal/admin.js
-          grep -q 'rona-remaining-final-polish-loader' functions/portal/admin.js
-          grep -q 'rona-remaining-functional-preserve-loader' functions/portal/admin.js
-          grep -q 'remaining-sections-functional-preserve-v2-ui' functions/portal/admin.js
-          grep -q 'rona-clients-agents-v4-loader' functions/portal/admin.js
-          grep -q 'clients-agents-v4-canonical-single-owner' functions/portal/admin.js
-          grep -q 'rona-access-v4-ready' functions/portal/admin.js
-          grep -q 'x-rona-legacy-access-archive' functions/portal/admin.js
+          grep -q 'rona-postcore-enhancements-loader' functions/portal/admin.js
+          grep -q 'postcore-access-market-v6' functions/portal/admin.js
+          grep -q 'rona:admin-app-ready' functions/portal/admin.js
+          grep -q 'rona-access-fallback' functions/portal/admin.js
+          grep -q '__RONA_ACCESS_CANONICAL_V4__' functions/portal/clients-agents-canonical-guard-ui.js
+          grep -q 'v6-postcore-explicit-owner' functions/portal/clients-agents-canonical-guard-ui.js
+          ! grep -q 'MutationObserver' functions/portal/clients-agents-canonical-guard-ui.js
+          ! grep -q 'const ZW' functions/portal/clients-agents-canonical-guard-ui.js
+          grep -q 'window.__RONA_ACCESS_CANONICAL_V4__===true' functions/portal/remaining-sections-ui.js
+          grep -q 'r2-market-director-v5-explicit-ownership' functions/portal/remaining-sections-ui.js
+          ! grep -q 'id="rona-clients-agents-canonical-guard-loader"' functions/portal/admin.js
+          ! grep -q 'id="rona-remaining-sections-loader"' functions/portal/admin.js
+          ! grep -q 'id="rona-remaining-functional-preserve-loader"' functions/portal/admin.js
+          ! grep -q 'id="rona-clients-agents-v4-loader"' functions/portal/admin.js
           test ! -e functions/portal/clients-agents-v2-ui.js
           test ! -e functions/portal/clients-agents-v3-ui.js
-          ! grep -q 'remaining-sections-functional-preserve-ui?v=' functions/portal/admin.js
           ! grep -q 'html:not(.rona-owner-paint-ready) body' functions/portal/admin.js
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const src=fs.readFileSync('functions/portal/admin.js','utf8');
+          const m=src.match(/const POSTCORE=(.+);\nconst APPTOTAL=/s);
+          if(!m)throw new Error('POSTCORE constant not found');
+          const html=Function('"use strict";return ('+m[1]+')')();
+          if(!html.startsWith('<script ')||!html.endsWith('</script>'))throw new Error('POSTCORE script tag malformed');
+          const code=html.slice(html.indexOf('>')+1,html.lastIndexOf('</script>'));
+          new Function(code);
+          if(!code.includes('rona:admin-app-ready'))throw new Error('POSTCORE is not gated by core ready event');
+          if(!code.includes('rona-access-fallback'))throw new Error('POSTCORE fallback missing');
+          console.log('POSTCORE_INLINE_SYNTAX_AND_GATING=PASS');
+          NODE
       - name: Install browser runtime
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           google-chrome --version
-      - name: Prove Access v4 is single visible owner and legacy actions survive inside workspace
+      - name: Prove core-first loading and single Access owner
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
+          import fs from 'node:fs';
           import { chromium } from 'playwright';
           import { onRequest as guardRequest } from './functions/portal/clients-agents-canonical-guard-ui.js';
           import { onRequest as r2Request } from './functions/portal/remaining-sections-ui.js';
@@ -80,10 +96,27 @@ jobs:
           const polish=await (await polishRequest()).text();
           const preserve=await (await preserveRequest()).text();
           const accessV4=await (await accessRequest()).text();
+          const adminSrc=fs.readFileSync('functions/portal/admin.js','utf8');
+          const m=adminSrc.match(/const POSTCORE=(.+);\nconst APPTOTAL=/s);
+          if(!m)throw new Error('POSTCORE constant missing');
+          const postcoreHtml=Function('"use strict";return ('+m[1]+')')();
+          const postcore=postcoreHtml.slice(postcoreHtml.indexOf('>')+1,postcoreHtml.lastIndexOf('</script>'));
           const browser=await chromium.launch({headless:true,channel:'chrome'});
           const ctx=await browser.newContext({viewport:{width:1600,height:1000}});
           const page=await ctx.newPage();
-          await page.setContent(`<!doctype html><html><head></head><body><div class="app" id="shell">ADMIN SHELL</div>
+          await page.route('https://ronaoil.test/portal/**',async route=>{
+            const u=new URL(route.request().url());
+            const map={
+              '/portal/clients-agents-canonical-guard-ui':guard,
+              '/portal/remaining-sections-ui':r2,
+              '/portal/remaining-sections-final-polish-ui':polish,
+              '/portal/remaining-sections-functional-preserve-v2-ui':preserve,
+              '/portal/clients-agents-v4-ui':accessV4
+            };
+            if(Object.prototype.hasOwnProperty.call(map,u.pathname)){await route.fulfill({status:200,contentType:'application/javascript; charset=utf-8',body:map[u.pathname]});return}
+            await route.abort();
+          });
+          await page.setContent(`<!doctype html><html><head><base href="https://ronaoil.test/"></head><body><div class="app" id="shell">ADMIN SHELL</div>
             <nav id="nav">
               <button class="active" data-page="access">Клиенты и агенты</button>
               <button data-page="messages">Радиорубка</button>
@@ -97,27 +130,31 @@ jobs:
               <section id="page-market-news"><div class="rona-owner-page-content" id="legacy-news"><button id="legacy-news-action" onclick="window.__legacyNews=(window.__legacyNews||0)+1">LEGACY NEWS ACTION</button><div>NEWS WORKSPACE</div></div></section>
             </main></body></html>`);
           await page.evaluate(()=>{
-            window.__RONA_OWNER_ADMIN_READY__=true;
+            window.__RONA_OWNER_ADMIN_READY__=false;
+            window.__RONA_ADMIN_BOOT_STATE__={ready:false};
             window.__RONA_OWNER_ADMIN_SNAPSHOT__={clients:[{legal_name:'Client One',client_id:'C001',contract_id:'RONA-C001-CTR-2026-001',current_external_contract_number:'EXT-1',agent_person_id:'A1',agent_name:'Agent One'}],agents:[{agent_person_id:'A1',agent_name:'Agent One'}],radio:[],analytics:[],news:[]};
             const market={generatedAt:'2026-08-24T12:40:00Z',currentOnly:true,identity:{identity_id:'AI-MARKET-ANALYST',display_name:'Коммерческий директор',status:'ACTIVE'},analytics:[{record_id:'AN-1',status:'APPROVED_WITH_CONDITIONS',summary:'MARKET_FACT: Platts gasoline signal. MARKET_FORECAST: September remains tight.',created_at:'2026-08-24T11:00:00Z',source_refs:['PLATTS_EUROPEAN_MARKETSCAN_2026-08-21']}],news:[{record_id:'NW-1',subject:'Hairatan gasoline spike + Khafi source conflict',priority:'HIGH',requested_check:'MARKET_FACT current field signal.',created_at:'2026-08-24T11:08:50Z',source_refs:['https://t.me/s/hairatanbazar','https://t.me/s/khafipetroleum/42455']}],currentPublications:[]};
             window.fetch=async url=>{const u=String(url);if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:market}}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('/agent'))return new Response(JSON.stringify({ok:true,data:{}}),{status:200,headers:{'content-type':'application/json'}});throw new Error('unexpected fetch '+u)};
             document.addEventListener('click',ev=>{const b=ev.target.closest?.('#nav button[data-page]');if(!b)return;document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('main>section').forEach(x=>x.classList.toggle('active',x.id==='page-'+b.dataset.page))},true);
           });
           const radioBefore=await page.locator('#page-messages').innerHTML();
-          await page.addScriptTag({content:guard});
+          await page.addScriptTag({content:postcore});
+          await page.waitForTimeout(220);
+          if(await page.locator('script[data-rona-postcore-id]').count()!==0)throw new Error('post-core modules started before Admin core ready');
+          if(await page.evaluate(()=>window.__RONA_ACCESS_CANONICAL_V4__)===true)throw new Error('Access ownership activated before Admin core ready');
+          await page.evaluate(()=>{
+            window.__RONA_OWNER_ADMIN_READY__=true;
+            window.__RONA_ADMIN_BOOT_STATE__.ready=true;
+            window.dispatchEvent(new CustomEvent('rona:admin-app-ready'));
+          });
+          await page.waitForFunction(()=>window.__RONA_POSTCORE_ENHANCEMENTS_READY__===true);
           await page.waitForFunction(()=>window.__RONA_CLIENTS_AGENTS_CANONICAL_GUARD_READY__===true);
-          const visibleNavLabel=await page.locator('#nav button[data-page="access"]').innerText();
-          if(!visibleNavLabel.startsWith('Клиенты и агенты'))throw new Error('canonical guard changed visible nav label');
-          await page.addScriptTag({content:r2});
-          await page.addScriptTag({content:polish});
-          await page.waitForTimeout(180);
-          if(await page.locator('#legacy-client-action').count()!==1)throw new Error('legacy access controls were destroyed by r2 before archival');
-          if(await page.locator('#page-access>.rona-rs-root[data-kind="clients"]').count()!==0)throw new Error('legacy Clients renderer still owns Access page');
-          await page.addScriptTag({content:preserve});
-          await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_ARCHIVE_READY__===true);
-          await page.addScriptTag({content:accessV4});
-          await page.waitForFunction(()=>window.__RONA_CLIENTS_AGENTS_V4_READY__===true);
           await page.waitForFunction(()=>window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_READY__===true);
+          await page.waitForFunction(()=>window.__RONA_CLIENTS_AGENTS_V4_READY__===true);
+          const visibleNavLabel=await page.locator('#nav button[data-page="access"]').innerText();
+          if(visibleNavLabel!=='Клиенты и агенты')throw new Error('post-core ownership changed canonical nav label');
+          if(await page.locator('#legacy-client-action').count()!==1)throw new Error('legacy access controls lost before archival');
+          if(await page.locator('#page-access>.rona-rs-root[data-kind="clients"]').count()!==0)throw new Error('legacy Clients renderer still owns Access page');
           if(await page.locator('#page-access>#rona-ca4').count()!==1)throw new Error('canonical access root missing or duplicated');
           const visibleTop=await page.locator('#page-access>:visible').evaluateAll(xs=>xs.map(x=>x.id||x.className));
           if(visibleTop.length!==1||visibleTop[0]!=='rona-ca4')throw new Error('legacy access cabinet still visible beside v4: '+visibleTop.join(','));
@@ -151,20 +188,21 @@ jobs:
           if(radioAfter!==radioBefore)throw new Error('radio section modified');
           const shell=await page.locator('#shell').evaluate(el=>({opacity:getComputedStyle(el).opacity,visibility:getComputedStyle(el).visibility}));
           if(shell.opacity==='0'||shell.visibility==='hidden')throw new Error('Admin shell hidden');
-          console.log('ACCESS_V4_SINGLE_OWNER_AND_FUNCTIONAL_PRESERVATION=PASS');
+          if(await page.evaluate(()=>document.documentElement.dataset.ronaPostcore)!=='ready')throw new Error('post-core stack did not reach ready state');
+          console.log('ADMIN_CORE_FIRST_ACCESS_V4_SINGLE_OWNER=PASS');
           await ctx.close();await browser.close();
           NODE
-      - name: Production endpoint proof
+      - name: Production v6 endpoint proof
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         run: |
           set -euo pipefail
           ok=0
           for i in $(seq 1 60); do
-            gh=$(mktemp); gb=$(mktemp); ph=$(mktemp); pb=$(mktemp); ah=$(mktemp); ab=$(mktemp)
-            if curl -fsS -D "$gh" -o "$gb" "https://ronaoil.com/portal/clients-agents-canonical-guard-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ph" -o "$pb" "https://ronaoil.com/portal/remaining-sections-functional-preserve-v2-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ah" -o "$ab" "https://ronaoil.com/portal/clients-agents-v4-ui?v=${GITHUB_SHA}"; then
-              if grep -qi '^x-rona-clients-agents-guard: v4-pre-r2' "$gh" && grep -q '__RONA_CLIENTS_AGENTS_CANONICAL_GUARD__' "$gb" && grep -qi '^x-rona-remaining-functional-preserve: market-only-v2' "$ph" && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE_V2__' "$pb" && grep -qi '^x-rona-clients-agents-ui: v4-canonical-single-owner' "$ah" && grep -q '__RONA_CLIENTS_AGENTS_V4__' "$ab"; then ok=1; rm -f "$gh" "$gb" "$ph" "$pb" "$ah" "$ab"; break; fi
+            gh=$(mktemp); gb=$(mktemp); rh=$(mktemp); rb=$(mktemp); ph=$(mktemp); pb=$(mktemp); ah=$(mktemp); ab=$(mktemp)
+            if curl -fsS -D "$gh" -o "$gb" "https://ronaoil.com/portal/clients-agents-canonical-guard-ui?v=${GITHUB_SHA}" && curl -fsS -D "$rh" -o "$rb" "https://ronaoil.com/portal/remaining-sections-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ph" -o "$pb" "https://ronaoil.com/portal/remaining-sections-functional-preserve-v2-ui?v=${GITHUB_SHA}" && curl -fsS -D "$ah" -o "$ab" "https://ronaoil.com/portal/clients-agents-v4-ui?v=${GITHUB_SHA}"; then
+              if grep -qi '^x-rona-clients-agents-guard: v6-postcore-explicit-owner' "$gh" && grep -q '__RONA_ACCESS_CANONICAL_V4__' "$gb" && grep -qi '^x-rona-remaining-sections: r2-market-director-v5-explicit-ownership' "$rh" && grep -q 'window.__RONA_ACCESS_CANONICAL_V4__===true' "$rb" && grep -qi '^x-rona-remaining-functional-preserve: market-only-v2' "$ph" && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE_V2__' "$pb" && grep -qi '^x-rona-clients-agents-ui: v4-canonical-single-owner' "$ah" && grep -q '__RONA_CLIENTS_AGENTS_V4__' "$ab"; then ok=1; rm -f "$gh" "$gb" "$rh" "$rb" "$ph" "$pb" "$ah" "$ab"; break; fi
             fi
-            rm -f "$gh" "$gb" "$ph" "$pb" "$ah" "$ab"
+            rm -f "$gh" "$gb" "$rh" "$rb" "$ph" "$pb" "$ah" "$ab"
             sleep 5
           done
           test "$ok" = 1
@@ -176,6 +214,6 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
-          state=failure; description='Canonical Access v4 ownership/preservation failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; description='Access v4 single owner; legacy actions scoped to workspace'; fi
+          state=failure; description='Admin core-first Access v6 proof failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; description='Admin core-first; Access v4 single owner; v6 production markers proven'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -d "{\"state\":\"${state}\",\"context\":\"rona/remaining-sections-current-owned\",\"description\":\"${description}\",\"target_url\":\"https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" >/dev/null
