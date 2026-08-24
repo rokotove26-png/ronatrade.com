@@ -1,0 +1,44 @@
+name: claims-current-first-production-smoke-20260824
+on:
+  push:
+    branches: [qa/claims-current-first-production-smoke-20260824]
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed Claims current-first gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 40); do
+            stamp=$(date +%s)-$i
+            rm -f /tmp/admin.html /tmp/admin.h
+            if curl -fsS -D /tmp/admin.h "https://ronaoil.com/portal/admin?smoke=$stamp" -o /tmp/admin.html; then
+              if grep -qi '^x-rona-claims-first-paint: current-only-v1' /tmp/admin.h \
+                && grep -q '#page-claims>\*:not(.rona-claims-r2-root):not(.rona-claims-section-title){display:none!important}' /tmp/admin.html \
+                && grep -q 'rona-claims-r2-loader' /tmp/admin.html \
+                && grep -q 'rona-claims-title-loader' /tmp/admin.html; then
+                ok=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+      - name: Publish production status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: e6cb584f71597445c7217eb57af43ea4fdd31b9a
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          state=failure; desc='Claims current-first production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Claims current-first production smoke passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/claims-current-first-production\",\"description\":\"$desc\",\"target_url\":\"https://github.com/$REPO/actions/runs/$RUN_ID\"}" >/dev/null
