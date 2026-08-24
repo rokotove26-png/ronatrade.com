@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - 'qa/owner-admin-rollback-production-smoke-20260824'
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - '.github/workflows/owner-admin-rollback-production-smoke-20260824.yml'
   workflow_dispatch:
 
 permissions:
@@ -39,7 +44,7 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
