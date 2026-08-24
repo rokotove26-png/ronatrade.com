@@ -2,6 +2,9 @@ export default `(function(){
 'use strict';
 if(window.__RONA_OWNER_MARKET_NEWS_CANONICAL_V1__)return;
 window.__RONA_OWNER_MARKET_NEWS_CANONICAL_V1__=true;
+let marketNewsData=[];
+let marketNewsLoading=false;
+let marketNewsLoaded=false;
 
 function installMarketNewsStyle(){
   if(q('#ronaMarketNewsCanonicalStyle'))return;
@@ -10,9 +13,20 @@ function installMarketNewsStyle(){
   document.head.appendChild(s);
 }
 
-function newsRows(){
-  const xs=window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.marketNewsFeed;
-  return Array.isArray(xs)?xs:[];
+function newsRows(){return marketNewsData}
+
+async function refreshMarketNews(){
+  if(marketNewsLoading)return;
+  marketNewsLoading=true;
+  try{
+    const data=await call('/admin/analytics-bootstrap');
+    marketNewsData=Array.isArray(data?.marketNewsFeed)?data.marketNewsFeed:[];
+    marketNewsLoaded=true;
+    window.__RONA_OWNER_MARKET_NEWS_SNAPSHOT__={generatedAt:data?.generatedAt||null,count:marketNewsData.length,news:marketNewsData};
+    renderMarketNews();
+  }catch(err){
+    window.__RONA_OWNER_MARKET_NEWS_ERROR__=String(err?.code||err?.message||err);
+  }finally{marketNewsLoading=false}
 }
 
 function safeSourceUrl(v){
@@ -66,7 +80,7 @@ function renderMarketNews(){
     if(!host)return false;
   }
   const xs=newsRows();
-  const signature=String(xs.length)+'|'+String(xs[0]?.publication_id||'')+'|'+String(xs[0]?.prepared_at||'');
+  const signature=String(xs.length)+'|'+String(xs[0]?.publication_id||'')+'|'+String(xs[0]?.prepared_at||'')+'|'+String(marketNewsLoaded);
   if(host.dataset.ronaMarketNewsCanonical==='v1'&&host.dataset.ronaMarketNewsSignature===signature&&q(':scope > .rona-news-hero',host))return true;
   host.dataset.ownerPage='market-news';
   host.dataset.ronaMarketNewsCanonical='v1';
@@ -74,7 +88,7 @@ function renderMarketNews(){
   const hero=e('section',{class:'rona-visual-hero rona-news-hero','data-rona-news-canonical':'v1'},e('div',{},e('h1',{class:'rona-visual-title',text:'Новости топливного рынка СНГ'})));
   const feed=e('section',{class:'rona-owner-card rona-news-feed','aria-label':'Новости топливного рынка СНГ'});
   if(!xs.length){
-    feed.append(e('div',{class:'rona-news-loading',text:'Загрузка…'}));
+    feed.append(e('div',{class:'rona-news-loading',text:marketNewsLoaded?'Новостей нет.':'Загрузка…'}));
   }else{
     for(const x of xs){
       const b=e('button',{type:'button',class:'rona-news-item',onclick:()=>openNews(x)},e('span',{class:'rona-news-date',text:newsDate(x)}),e('span',{class:'rona-news-headline',text:x?.headline||'Новость'}),e('span',{class:'rona-news-chevron','aria-hidden':'true',text:'›'}));
@@ -94,12 +108,13 @@ function watchMarketNews(){
     p.__ronaMarketNewsCanonicalObserver=o;
   }
   renderMarketNews();
+  if(!marketNewsLoaded&&!marketNewsLoading)refreshMarketNews();
   return true;
 }
 
-window.addEventListener('rona:ai-sync',()=>queueMicrotask(renderMarketNews));
 let attempts=0;
 const timer=setInterval(()=>{attempts++;if(watchMarketNews()||attempts>120)clearInterval(timer)},100);
-queueMicrotask(watchMarketNews);
+setInterval(refreshMarketNews,60000);
+queueMicrotask(()=>{watchMarketNews();refreshMarketNews()});
 })();
 `;
