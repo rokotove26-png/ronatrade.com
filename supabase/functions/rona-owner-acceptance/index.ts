@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
+import { createClaimsRuntime } from "./claims.ts";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
@@ -335,10 +336,13 @@ function ascii(v){const map={'А':'A','Б':'B','В':'V','Г':'G','Д':'D','Е':'
 function pdfEscape(s){return ascii(s).replace(/([\\()])/g,'\\$1').slice(0,180)}
 function buildPricePdf(prices){const lines=['RONA Trade | Agent Price List',`Generated: ${new Date().toISOString().slice(0,10)}`,''];for(const p of prices){lines.push(`${p.product||'-'} | ${p.final_station||p.basis||'-'} | ${p.sale_price??'-'} ${p.currency||''} | ${p.payment_terms||'-'}`)}if(prices.length===0)lines.push('No published prices.');const cmds=[];cmds.push('0.72 0.07 0.10 rg 0 780 595 62 re f');cmds.push('1 1 1 rg BT /F1 20 Tf 40 812 Td (RONA Trade) Tj ET');cmds.push('0 0 0 rg');let y=750;for(let i=0;i<lines.length&&i<45;i++,y-=16){cmds.push(`BT /F1 ${i===0?14:9} Tf 40 ${y} Td (${pdfEscape(lines[i])}) Tj ET`)}const stream=cmds.join('\n');const objs=[];objs[1]='<< /Type /Catalog /Pages 2 0 R >>';objs[2]='<< /Type /Pages /Kids [3 0 R] /Count 1 >>';objs[3]='<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>';objs[4]=`<< /Length ${new TextEncoder().encode(stream).length} >>\nstream\n${stream}\nendstream`;objs[5]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';let out='%PDF-1.4\n',offsets=[0];for(let i=1;i<=5;i++){offsets[i]=new TextEncoder().encode(out).length;out+=`${i} 0 obj\n${objs[i]}\nendobj\n`}const xref=new TextEncoder().encode(out).length;out+='xref\n0 6\n0000000000 65535 f \n';for(let i=1;i<=5;i++)out+=String(offsets[i]).padStart(10,'0')+' 00000 n \n';out+=`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;return new TextEncoder().encode(out)}
 
+const claimsRuntime=createClaimsRuntime({sql,service,BUCKET,MAX_PDF,audit,reqIds});
+
 Deno.serve(async req=>{
   const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:'PORTAL_ACCESS_DENIED'});const path=pathOf(req),method=req.method;
   try{
     if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
+    if(path==='/admin/claims'||path.startsWith('/admin/claims/')){requireRole(ctx,'ADMIN');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
     let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
     m=path.match(/^\/admin\/prices\/([0-9a-f-]+)\/publication$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await publishPrice(ctx,req,m[1])})}
     m=path.match(/^\/admin\/clients\/([^/]+)\/agent$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await setAgentAssignment(ctx,req,decodeURIComponent(m[1]))})}
