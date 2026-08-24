@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 jobs:
   production-smoke:
@@ -34,3 +35,15 @@ jobs:
           done
           test "$ok" = 1
           echo 'OWNER_ADMIN_ROLLBACK_PRODUCTION=PASS'
+      - name: Publish status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          state=failure
+          description='Owner Admin rollback production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; description='Owner Admin rollback is live in production'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -d "{\"state\":\"${state}\",\"context\":\"rona/owner-admin-rollback-production\",\"description\":\"${description}\",\"target_url\":\"https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" >/dev/null
