@@ -1,0 +1,61 @@
+name: rail-v81-production-smoke-20260824
+on:
+  push:
+    branches: [qa/rail-v81-production-smoke-20260824]
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  rail-v81-production-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify deployed Rail v8.1 runtime and map providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://ronaoil.com/portal/rail-current-v81-maplibre-ui?smoke=$(date +%s)"
+          ok=0
+          for i in $(seq 1 40); do
+            rm -f /tmp/rail.js /tmp/rail.h
+            if curl -fsS -D /tmp/rail.h "$base-$i" -o /tmp/rail.js; then
+              if grep -qi '^x-rona-rail-ui: current-v8.1-maplibre-openfreemap' /tmp/rail.h \
+                && grep -q "window.__RONA_RAIL_CURRENT_V81__='20260824-1338-v8.1'" /tmp/rail.js \
+                && grep -q 'maplibre-gl@5.16.0/dist/maplibre-gl.js' /tmp/rail.js \
+                && grep -q 'tiles.openfreemap.org/styles/dark' /tmp/rail.js \
+                && grep -q 'rona-v81-rail-glow' /tmp/rail.js \
+                && grep -q 'rona-v81-rail' /tmp/rail.js \
+                && grep -q "'source-layer':'transportation'" /tmp/rail.js \
+                && grep -q 'rona-v81-wagons' /tmp/rail.js \
+                && grep -q 'Интерактивная ЖД-карта' /tmp/rail.js \
+                && ! grep -q 'new MutationObserver' /tmp/rail.js; then
+                node --check /tmp/rail.js
+                ok=1
+                break
+              fi
+            fi
+            sleep 4
+          done
+          test "$ok" = 1
+          curl -fsS --retry 3 --retry-delay 2 https://tiles.openfreemap.org/styles/dark -o /tmp/openfreemap-dark.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const s=JSON.parse(fs.readFileSync('/tmp/openfreemap-dark.json','utf8'));
+          if(!s.sources||!s.sources.openmaptiles||s.sources.openmaptiles.type!=='vector')throw new Error('OpenFreeMap openmaptiles vector source missing');
+          console.log('OPENFREEMAP_STYLE_OK',Object.keys(s.layers||{}).length||s.layers?.length||0);
+          NODE
+          curl -fsS --retry 3 --retry-delay 2 https://unpkg.com/maplibre-gl@5.16.0/dist/maplibre-gl.js -o /tmp/maplibre.js
+          test -s /tmp/maplibre.js
+          echo 'RAIL_V81_PRODUCTION_SMOKE=PASS'
+      - name: Publish Rail v8.1 production status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: c74127a3195a93c6b07b1f419d311b0a41688c0d
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_ID: ${{ github.run_id }}
+        shell: bash
+        run: |
+          state=failure; desc='Rail v8.1 production smoke failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v8.1 production smoke passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v81-production-smoke\",\"description\":\"$desc\",\"target_url\":\"https://github.com/$REPO/actions/runs/$RUN_ID\"}" >/dev/null
