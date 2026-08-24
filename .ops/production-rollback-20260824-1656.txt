@@ -1,0 +1,3 @@
+Emergency production rollback trigger.
+Reason: Owner Admin rendered background only after Clients & Agents visual overlay.
+Runtime source restored to 868d9cd1bde301e06862633a776aa6f4b5098a62 before this marker commit.
