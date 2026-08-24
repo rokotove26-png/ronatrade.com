@@ -93,6 +93,30 @@ export function createClaimsRuntime(deps:any) {
       order by c.updated_at desc,c.received_at desc`;
   }
 
+  async function listClientClaims(ctx:any) {
+    return sql`
+      select c.claim_id,coalesce(c.claim_source,'ADMIN') claim_source,cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,c.category,c.subject,c.description,c.status,
+             pd.document_id primary_document_id,pd.authoritative_filename primary_filename,
+             case when c.response_sent_at is not null then rd.document_id else null end response_document_id,
+             case when c.response_sent_at is not null then rd.authoritative_filename else null end response_filename,
+             c.received_at,c.decision_at,c.response_sent_at,c.updated_at
+      from portal_private.owner_claims c
+      join portal_private.clients cl on cl.id=c.client_key
+      join portal_private.contracts ct on ct.id=c.contract_key
+      left join portal_private.deals d on d.id=c.deal_key
+      join portal_private.documents pd on pd.id=c.primary_document_key
+      left join portal_private.documents rd on rd.id=c.response_document_key
+      where c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and exists(
+          select 1 from portal_private.client_user_bindings b
+          where b.user_id=${ctx.userId}::uuid and b.client_key=c.client_key and b.contract_key=c.contract_key
+            and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null
+            and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
+            and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        )
+      order by c.updated_at desc,c.received_at desc`;
+  }
+
   async function dispatchLegal(ctx:any,req:Request,claimId:string) {
     const c=(await sql`
       select c.id,c.claim_id,coalesce(c.claim_source,'ADMIN') claim_source,c.category,c.subject,c.description,c.status,cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,pd.document_id,pd.authoritative_filename
@@ -116,9 +140,9 @@ export function createClaimsRuntime(deps:any) {
     const correlationId=reqIds(req).correlationId||crypto.randomUUID(),mcpRequestId=crypto.randomUUID(),recordId=crypto.randomUUID();
     await sql.begin(async(tx:any)=>{
       await tx`insert into portal_private.ai_coordination_records(record_id,record_type,functional_role,identity_id,client_id,server_slug,tool_name,target_type,target_id,target_role,version,idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,correlation_id,mcp_request_id,qa_only)
-        values(${recordId}::uuid,'HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,'AI-SYSTEM-ADMIN','portal-admin-claims','rona-owner-acceptance','claim_legal_handoff','CLAIM',${claimId},'LEGAL'::portal_private.ai_business_role_enum,${seq},${idemHash},${payloadHash},${sql.json(sourceRefs)},'[]'::jsonb,${sql.json(payload)},'REQUESTED',${correlationId}::uuid,${mcpRequestId}::uuid,false)`;
+        values(${recordId}::uuid,'HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,'AI-SYSTEM-ADMIN',${inbound?'portal-client-claims':'portal-admin-claims'},'rona-owner-acceptance','claim_legal_handoff','CLAIM',${claimId},'LEGAL'::portal_private.ai_business_role_enum,${seq},${idemHash},${payloadHash},${sql.json(sourceRefs)},'[]'::jsonb,${sql.json(payload)},'REQUESTED',${correlationId}::uuid,${mcpRequestId}::uuid,false)`;
       await tx`update portal_private.owner_claims set legal_handoff_record_id=${recordId}::uuid,updated_by=${ctx.userId}::uuid,updated_at=now() where claim_id=${claimId}`;
-      await audit(tx,ctx,'OWNER_CLAIM_SENT_TO_LEGAL','CLAIM',claimId,req,{recordId,version:seq,claimSource:String(c.claim_source)});
+      await audit(tx,ctx,inbound?'CLIENT_CLAIM_SENT_TO_LEGAL':'OWNER_CLAIM_SENT_TO_LEGAL','CLAIM',claimId,req,{recordId,version:seq,claimSource:String(c.claim_source)});
     });
     return {claimId,recordId,status:'REQUESTED',version:seq};
   }
@@ -146,6 +170,36 @@ export function createClaimsRuntime(deps:any) {
     }catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
     let legal=null;try{legal=await dispatchLegal(ctx,req,claimId)}catch(e){console.error('claim legal dispatch failed',claimId,e)}
     return {claimId,claimSource:'ADMIN',clientId,contractId,dealId:dealId||null,status:'REVIEW',legalDispatch:legal?.status||'FAILED'};
+  }
+
+  async function registerClientClaim(ctx:any,req:Request) {
+    const parsed=await parsePdf(req),clientId=clean(parsed.form.get('clientId'),'CLIENT_ID',160),contractId=clean(parsed.form.get('contractId'),'CONTRACT_ID',160),dealId=clean(parsed.form.get('dealId'),'DEAL_ID',160,false),category=clean(parsed.form.get('category'),'CATEGORY',120),subject=clean(parsed.form.get('subject'),'SUBJECT',500),description=clean(parsed.form.get('description'),'DESCRIPTION',4000,false);
+    const scope=(await sql`
+      select cl.id client_key,cl.client_id,cl.legal_name,ct.id contract_key,ct.contract_id
+      from portal_private.client_user_bindings b
+      join portal_private.clients cl on cl.id=b.client_key
+      join portal_private.contracts ct on ct.id=b.contract_key
+      where b.user_id=${ctx.userId}::uuid and cl.client_id=${clientId} and ct.contract_id=${contractId}
+        and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null
+        and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
+        and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and cl.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+        and ct.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+      limit 1`)[0];
+    if(!scope)throw Object.assign(new Error('CLIENT_CONTRACT_ACCESS_DENIED'),{status:403});
+    let dealKey=null;
+    if(dealId){const d=(await sql`select id from portal_private.deals where deal_id=${dealId} and client_key=${scope.client_key}::uuid and contract_key=${scope.contract_key}::uuid and lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum limit 1`)[0];if(!d)throw Object.assign(new Error('DEAL_SCOPE_MISMATCH'),{status:409});dealKey=String(d.id)}
+    const day=new Date().toISOString().slice(0,10).replaceAll('-',''),claimId=`RONA-CLM-${day}-${crypto.randomUUID().slice(0,8).toUpperCase()}`,raw=await uploadRaw(`claims/${clientId}/${claimId}/incoming`,parsed);
+    try{
+      await sql.begin(async(tx:any)=>{
+        const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-IN`,documentType:'CLAIM',clientKey:String(scope.client_key),contractKey:String(scope.contract_key),dealKey,sourceSystem:'CLIENT_PORTAL'});
+        await tx`insert into portal_private.owner_claims(claim_id,claim_source,client_key,contract_key,deal_key,category,subject,description,status,primary_document_key,created_by,updated_by)
+          values(${claimId},'CLIENT',${scope.client_key}::uuid,${scope.contract_key}::uuid,${dealKey||null}::uuid,${category},${subject},${description||null},'REVIEW',${doc.docKey}::uuid,${ctx.userId}::uuid,${ctx.userId}::uuid)`;
+        await audit(tx,ctx,'CLIENT_CLAIM_REGISTERED','CLAIM',claimId,req,{claimSource:'CLIENT',clientId,contractId,dealId:dealId||null,documentId:doc.documentId,sha256:doc.sha256});
+      });
+    }catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
+    let legal=null;try{legal=await dispatchLegal(ctx,req,claimId)}catch(e){console.error('client claim legal dispatch failed',claimId,e)}
+    return {claimId,claimSource:'CLIENT',clientId,contractId,dealId:dealId||null,status:'REVIEW',legalDispatch:legal?.status||'FAILED'};
   }
 
   async function uploadResponse(ctx:any,req:Request,claimId:string) {
@@ -178,6 +232,8 @@ export function createClaimsRuntime(deps:any) {
   async function handle(ctx:any,req:Request,path:string,method:string) {
     if(path==='/admin/claims'&&method==='GET')return{status:200,body:{ok:true,data:{claims:await listClaims()}}};
     if(path==='/admin/claims'&&method==='POST')return{status:200,body:{ok:true,data:await registerClaim(ctx,req)}};
+    if(path==='/client/claims'&&method==='GET')return{status:200,body:{ok:true,data:{claims:await listClientClaims(ctx)}}};
+    if(path==='/client/claims'&&method==='POST')return{status:200,body:{ok:true,data:await registerClientClaim(ctx,req)}};
     let m=path.match(/^\/admin\/claims\/([^/]+)\/legal$/);if(m&&method==='POST')return{status:200,body:{ok:true,data:await dispatchLegal(ctx,req,decodeURIComponent(m[1]))}};
     m=path.match(/^\/admin\/claims\/([^/]+)\/response$/);if(m&&method==='POST')return{status:200,body:{ok:true,data:await uploadResponse(ctx,req,decodeURIComponent(m[1]))}};
     m=path.match(/^\/admin\/claims\/([^/]+)\/send-response$/);if(m&&method==='POST')return{status:200,body:{ok:true,data:await sendResponse(ctx,req,decodeURIComponent(m[1]))}};
