@@ -1,17 +1,21 @@
-name: remaining-sections-owner-v4-qa
+name: remaining-sections-functional-preservation-qa
 
 on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin.js'
-      - 'functions/portal/remaining-sections-owner-v4-ui.js'
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/remaining-sections-final-polish-ui.js'
+      - 'functions/portal/remaining-sections-functional-preserve-ui.js'
       - '.github/workflows/remaining-sections-owner-v3-qa.yml'
   push:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin.js'
-      - 'functions/portal/remaining-sections-owner-v4-ui.js'
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/remaining-sections-final-polish-ui.js'
+      - 'functions/portal/remaining-sections-functional-preserve-ui.js'
       - '.github/workflows/remaining-sections-owner-v3-qa.yml'
   workflow_dispatch:
 
@@ -20,88 +24,96 @@ permissions:
   statuses: write
 
 jobs:
-  remaining-sections-current-owned:
+  remaining-sections-functional:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Static syntax and visibility contract
+      - name: Static syntax and loader contract
         run: |
           set -euo pipefail
           npm run build
           node --check functions/portal/admin.js
-          node --check functions/portal/remaining-sections-owner-v4-ui.js
-          grep -q 'rona-remaining-owner-v4-loader' functions/portal/admin.js
-          grep -q 'current-owned-v4' functions/portal/admin.js
-          grep -q 'AI-MARKET-ANALYST' functions/portal/remaining-sections-owner-v4-ui.js
-          grep -q "PAGE_KIND={access:'clients',analytics:'analytics','market-news':'news'}" functions/portal/remaining-sections-owner-v4-ui.js
-          grep -q 'Клиенты и агенты' functions/portal/remaining-sections-owner-v4-ui.js
-          grep -q 'Новости топливного рынка СНГ' functions/portal/remaining-sections-owner-v4-ui.js
+          node --check functions/portal/remaining-sections-ui.js
+          node --check functions/portal/remaining-sections-final-polish-ui.js
+          node --check functions/portal/remaining-sections-functional-preserve-ui.js
+          grep -q 'rona-remaining-sections-loader' functions/portal/admin.js
+          grep -q 'remaining-sections-r2-market-director' functions/portal/admin.js
+          grep -q 'rona-remaining-final-polish-loader' functions/portal/admin.js
+          grep -q 'rona-remaining-functional-preserve-loader' functions/portal/admin.js
+          grep -q 'legacy-work-areas-v1' functions/portal/admin.js
           ! grep -q 'rona-remaining-owner-v3-loader' functions/portal/admin.js
-          ! grep -q 'rona-remaining-sections-loader' functions/portal/admin.js
-          ! grep -q 'rona-remaining-final-polish-loader' functions/portal/admin.js
+          ! grep -q 'rona-remaining-owner-v4-loader' functions/portal/admin.js
           ! grep -q 'html:not(.rona-owner-paint-ready) body' functions/portal/admin.js
       - name: Install browser runtime
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           google-chrome --version
-      - name: Prove visible shell and current Market renderer
+      - name: Prove original work areas survive Market overlays and rerenders
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
           import { chromium } from 'playwright';
-          import { onRequest } from './functions/portal/remaining-sections-owner-v4-ui.js';
-          const script=await (await onRequest()).text();
-          if(!script.includes('__RONA_REMAINING_OWNER_V4__'))throw new Error('v4 marker missing');
+          import { onRequest as r2Request } from './functions/portal/remaining-sections-ui.js';
+          import { onRequest as polishRequest } from './functions/portal/remaining-sections-final-polish-ui.js';
+          import { onRequest as preserveRequest } from './functions/portal/remaining-sections-functional-preserve-ui.js';
+          const r2=await (await r2Request()).text();
+          const polish=await (await polishRequest()).text();
+          const preserve=await (await preserveRequest()).text();
           const browser=await chromium.launch({headless:true,channel:'chrome'});
           const ctx=await browser.newContext({viewport:{width:1600,height:1000}});
           const page=await ctx.newPage();
-          await page.setContent(`<!doctype html><html><head></head><body><div class="app" id="shell">SHELL</div>
+          await page.setContent(`<!doctype html><html><head></head><body><div class="app" id="shell">ADMIN SHELL</div>
             <nav id="nav">
-              <button data-page="access">Клиенты и агенты</button>
+              <button class="active" data-page="access">Клиенты и агенты</button>
               <button data-page="messages">Радиорубка</button>
-              <button class="active" data-page="analytics">Аналитика</button>
+              <button data-page="analytics">Аналитика</button>
               <button data-page="market-news">Новости топливного рынка СНГ</button>
             </nav>
             <main>
-              <section id="page-access"><div id="legacy-clients">LEGACY CLIENTS</div></section>
-              <section id="page-messages"><div id="radio-original">RADIO KEEP</div></section>
-              <section id="page-analytics"><div id="legacy-analytics">LEGACY ANALYTICS EMPTY</div></section>
-              <section id="page-market-news"><div id="legacy-news">LEGACY NEWS EMPTY</div></section>
+              <section id="page-access" class="active"><div class="rona-owner-page-content" id="legacy-clients"><button id="legacy-client-action" onclick="window.__legacyClient=(window.__legacyClient||0)+1">LEGACY CLIENT ACTION</button><div>ACCESS MANAGEMENT</div></div></section>
+              <section id="page-messages"><div id="radio-original"><button>RADIO KEEP</button></div></section>
+              <section id="page-analytics"><div class="rona-owner-page-content" id="legacy-analytics"><button id="legacy-analytics-action" onclick="window.__legacyAnalytics=(window.__legacyAnalytics||0)+1">LEGACY ANALYTICS ACTION</button><div>ANALYTICS WORKSPACE</div></div></section>
+              <section id="page-market-news"><div class="rona-owner-page-content" id="legacy-news"><button id="legacy-news-action" onclick="window.__legacyNews=(window.__legacyNews||0)+1">LEGACY NEWS ACTION</button><div>NEWS WORKSPACE</div></div></section>
             </main></body></html>`);
           await page.evaluate(()=>{
             window.__RONA_OWNER_ADMIN_READY__=true;
-            window.__RONA_OWNER_ADMIN_SNAPSHOT__={clients:[{legal_name:'Client One',client_id:'C001',contract_id:'RONA-C001-CTR-2026-001',current_external_contract_number:'EXT-1',agent_person_id:'A1',agent_name:'Agent One'}],agents:[{agent_person_id:'A1',agent_name:'Agent One'}]};
-            const market={generatedAt:'2026-08-24T12:40:00Z',currentOnly:true,identity:{identity_id:'AI-MARKET-ANALYST',display_name:'Коммерческий директор',status:'ACTIVE'},analytics:[{record_id:'AN-1',status:'APPROVED_WITH_CONDITIONS',summary:'MARKET_FACT: Platts gasoline signal. MARKET_FORECAST: September remains tight.',created_at:'2026-08-24T11:00:00Z',source_refs:['PLATTS_EUROPEAN_MARKETSCAN_2026-08-21']}],news:[{record_id:'NW-1',subject:'Telegram delta 24.08 — Hairatan gasoline spike + Khafi source conflict',priority:'HIGH',requested_check:'MARKET_FACT current field signal from Hairatan and Khafi.',created_at:'2026-08-24T11:08:50Z',source_refs:['https://t.me/s/hairatanbazar','https://t.me/s/khafipetroleum/42455']}],currentPublications:[{publication_id:'RONA-PRICE-LIST-2026-09-R2',title:'ПРАЙС-ЛИСТ RONA TRADE НА СЕНТЯБРЬ 2026 — РЕДАКЦИЯ 2',published_at:'2026-08-24T10:40:54Z',items:[{product:'АИ-92 К5',basis:'CPT Сарыагаш',price:1332.1,currency:'USD'}]}]};
-            window.fetch=async url=>{const u=String(url);if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:market}}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});throw new Error('unexpected fetch '+u)};
+            window.__RONA_OWNER_ADMIN_SNAPSHOT__={clients:[{legal_name:'Client One',client_id:'C001',contract_id:'RONA-C001-CTR-2026-001',current_external_contract_number:'EXT-1',agent_person_id:'A1',agent_name:'Agent One'}],agents:[{agent_person_id:'A1',agent_name:'Agent One'}],radio:[],analytics:[{product:'АИ-92',basis:'CPT',actual_value:100,forecast_value:110,analytics_unit:'USD',analytics_as_of:'2026-08-24T12:00:00Z'}],news:[{headline:'Legacy current news',published_at:'2026-08-24T10:00:00Z'}]};
+            const market={generatedAt:'2026-08-24T12:40:00Z',currentOnly:true,identity:{identity_id:'AI-MARKET-ANALYST',display_name:'Коммерческий директор',status:'ACTIVE'},analytics:[{record_id:'AN-1',status:'APPROVED_WITH_CONDITIONS',summary:'MARKET_FACT: Platts gasoline signal. MARKET_FORECAST: September remains tight.',created_at:'2026-08-24T11:00:00Z',source_refs:['PLATTS_EUROPEAN_MARKETSCAN_2026-08-21']}],news:[{record_id:'NW-1',subject:'Hairatan gasoline spike + Khafi source conflict',priority:'HIGH',requested_check:'MARKET_FACT current field signal.',created_at:'2026-08-24T11:08:50Z',source_refs:['https://t.me/s/hairatanbazar','https://t.me/s/khafipetroleum/42455']}],currentPublications:[{publication_id:'RONA-PRICE-LIST-2026-09-R2',title:'ПРАЙС-ЛИСТ RONA TRADE',published_at:'2026-08-24T10:40:54Z',items:[{product:'АИ-92 К5',basis:'CPT Сарыагаш',price:1332.1,currency:'USD'}]}]};
+            window.fetch=async url=>{const u=String(url);if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:market}}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});if(u.includes('/agent'))return new Response(JSON.stringify({ok:true,data:{}}),{status:200,headers:{'content-type':'application/json'}});throw new Error('unexpected fetch '+u)};
             document.addEventListener('click',ev=>{const b=ev.target.closest?.('#nav button[data-page]');if(!b)return;document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('main>section').forEach(x=>x.classList.toggle('active',x.id==='page-'+b.dataset.page))},true);
           });
-          const shellBefore=await page.locator('#shell').evaluate(el=>({opacity:getComputedStyle(el).opacity,visibility:getComputedStyle(el).visibility}));
-          if(shellBefore.opacity==='0'||shellBefore.visibility==='hidden')throw new Error('shell hidden before runtime');
           const radioBefore=await page.locator('#page-messages').innerHTML();
-          await page.addScriptTag({content:script});
-          await page.waitForFunction(()=>window.__RONA_REMAINING_OWNER_V4_READY__);
+          await page.addScriptTag({content:r2});
+          await page.addScriptTag({content:polish});
+          await page.addScriptTag({content:preserve});
+          await page.waitForFunction(()=>window.__RONA_REMAINING_FUNCTIONAL_PRESERVE_READY__===true);
+          await page.waitForFunction(()=>document.querySelector('#page-access .rona-functional-preserved-host #legacy-client-action'));
+          await page.locator('#legacy-client-action').click();
+          if(await page.evaluate(()=>window.__legacyClient)!==1)throw new Error('client original action lost');
+          await page.locator('#nav button[data-page="analytics"]').click();
           await page.waitForFunction(()=>document.querySelector('#page-analytics')?.textContent?.includes('MARKET_FACT'));
-          const analytics=await page.locator('#page-analytics').innerText();
-          if(!analytics.includes('Коммерческий директор')||!analytics.includes('Platts'))throw new Error('analytics current data missing');
+          await page.waitForFunction(()=>document.querySelector('#page-analytics .rona-functional-preserved-host #legacy-analytics-action'));
+          await page.locator('#legacy-analytics-action').click();
+          if(await page.evaluate(()=>window.__legacyAnalytics)!==1)throw new Error('analytics original action lost');
           await page.locator('#nav button[data-page="market-news"]').click();
           await page.waitForFunction(()=>document.querySelector('#page-market-news')?.textContent?.includes('Hairatan gasoline spike'));
-          const news=await page.locator('#page-market-news').innerText();
-          if(!news.includes('AI-MARKET-ANALYST')||!news.includes('Khafi'))throw new Error('news current data missing');
+          await page.waitForFunction(()=>document.querySelector('#page-market-news .rona-functional-preserved-host #legacy-news-action'));
+          await page.locator('#legacy-news-action').click();
+          if(await page.evaluate(()=>window.__legacyNews)!==1)throw new Error('news original action lost');
           await page.locator('#nav button[data-page="access"]').click();
-          await page.waitForFunction(()=>document.querySelector('#page-access')?.textContent?.includes('Client One'));
-          const clientDisplay=await page.locator('#legacy-clients').evaluate(el=>getComputedStyle(el).display);
-          if(clientDisplay!=='none')throw new Error('legacy clients still visible');
-          const rootWidth=await page.locator('#page-access .rona-owner-v4').evaluate(el=>getComputedStyle(el).maxWidth);
-          if(rootWidth!=='1360px')throw new Error('clients width contract failed '+rootWidth);
+          await page.waitForTimeout(1000);
+          if(await page.locator('#legacy-client-action').count()!==1)throw new Error('client original control lost after rerender');
+          await page.locator('#legacy-client-action').click();
+          if(await page.evaluate(()=>window.__legacyClient)!==2)throw new Error('client original handler lost after rerender');
           const radioAfter=await page.locator('#page-messages').innerHTML();
           if(radioAfter!==radioBefore)throw new Error('radio section modified');
-          const shellAfter=await page.locator('#shell').evaluate(el=>({opacity:getComputedStyle(el).opacity,visibility:getComputedStyle(el).visibility}));
-          if(shellAfter.opacity==='0'||shellAfter.visibility==='hidden')throw new Error('shell hidden after runtime');
-          console.log('REMAINING_SECTIONS_OWNER_V4=PASS');
+          const shell=await page.locator('#shell').evaluate(el=>({opacity:getComputedStyle(el).opacity,visibility:getComputedStyle(el).visibility}));
+          if(shell.opacity==='0'||shell.visibility==='hidden')throw new Error('Admin shell hidden');
+          console.log('REMAINING_FUNCTIONAL_PRESERVATION=PASS');
           await ctx.close();await browser.close();
           NODE
       - name: Production endpoint proof
@@ -111,8 +123,8 @@ jobs:
           ok=0
           for i in $(seq 1 60); do
             headers=$(mktemp); body=$(mktemp)
-            if curl -fsS -D "$headers" -o "$body" "https://ronaoil.com/portal/remaining-sections-owner-v4-ui?v=${GITHUB_SHA}"; then
-              if grep -qi '^x-rona-remaining-owner: current-owned-v4' "$headers" && grep -q '__RONA_REMAINING_OWNER_V4__' "$body"; then ok=1; rm -f "$headers" "$body"; break; fi
+            if curl -fsS -D "$headers" -o "$body" "https://ronaoil.com/portal/remaining-sections-functional-preserve-ui?v=${GITHUB_SHA}"; then
+              if grep -qi '^x-rona-remaining-functional-preserve: legacy-work-areas-v1' "$headers" && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE__' "$body"; then ok=1; rm -f "$headers" "$body"; break; fi
             fi
             rm -f "$headers" "$body"
             sleep 5
@@ -126,6 +138,6 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           set -euo pipefail
-          state=failure; description='Remaining sections v4 renderer failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; description='Visible Admin shell + current Market sections PASS'; fi
+          state=failure; description='Remaining sections functional preservation failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; description='Clients Analytics News original work areas preserved'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -d "{\"state\":\"${state}\",\"context\":\"rona/remaining-sections-current-owned\",\"description\":\"${description}\",\"target_url\":\"https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" >/dev/null
