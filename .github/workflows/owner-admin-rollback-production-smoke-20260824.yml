@@ -19,23 +19,23 @@ jobs:
   production-smoke:
     runs-on: ubuntu-24.04
     steps:
-      - name: Wait for rolled-back Admin wrapper in production
+      - name: Wait for rolled-back runtime in production
         run: |
           set -euo pipefail
           ok=0
           for i in $(seq 1 72); do
-            headers=$(mktemp)
-            body=$(mktemp)
-            code=$(curl -sS -L -D "$headers" -o "$body" -w '%{http_code}' https://ronaoil.com/portal/admin || true)
-            build=$(awk 'BEGIN{IGNORECASE=1}/^x-rona-ui-build:/{gsub("\r","");print $2}' "$headers" | tail -1)
-            clients=$(awk 'BEGIN{IGNORECASE=1}/^x-rona-clients-layout:/{gsub("\r","");print $2}' "$headers" | tail -1)
-            echo "attempt=$i code=$code build=${build:-none} clients=${clients:-none}"
-            if [ "$code" = "200" ] && [ "$build" = "owner-main-v2-20260824-1602" ] && [ -z "${clients:-}" ]; then
+            keep_h=$(mktemp); keep_b=$(mktemp); client_h=$(mktemp); client_b=$(mktemp)
+            keep_code=$(curl -sS -D "$keep_h" -o "$keep_b" -w '%{http_code}' "https://ronaoil.com/portal/remaining-sections-functional-preserve-ui?v=${GITHUB_SHA}" || true)
+            client_code=$(curl -sS -D "$client_h" -o "$client_b" -w '%{http_code}' "https://ronaoil.com/portal/clients-home-layout-ui?v=${GITHUB_SHA}" || true)
+            keep=$(awk 'BEGIN{IGNORECASE=1}/^x-rona-remaining-functional-preserve:/{gsub("\r","");print $2}' "$keep_h" | tail -1)
+            client=$(awk 'BEGIN{IGNORECASE=1}/^x-rona-clients-layout:/{gsub("\r","");print $2}' "$client_h" | tail -1)
+            echo "attempt=$i keep_code=$keep_code keep=${keep:-none} client_code=$client_code client=${client:-none}"
+            if [ "$keep_code" = "200" ] && [ "$keep" = "legacy-work-areas-v1" ] && [ -z "${client:-}" ]; then
               ok=1
-              rm -f "$headers" "$body"
+              rm -f "$keep_h" "$keep_b" "$client_h" "$client_b"
               break
             fi
-            rm -f "$headers" "$body"
+            rm -f "$keep_h" "$keep_b" "$client_h" "$client_b"
             sleep 5
           done
           test "$ok" = 1
@@ -50,5 +50,5 @@ jobs:
           set -euo pipefail
           state=failure
           description='Owner Admin rollback production smoke failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; description='Owner Admin rollback is live in production'; fi
+          if [ "$JOB_STATUS" = success ]; then state=success; description='Rolled-back Owner runtime is live in production'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -d "{\"state\":\"${state}\",\"context\":\"rona/owner-admin-rollback-production\",\"description\":\"${description}\",\"target_url\":\"https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" >/dev/null
