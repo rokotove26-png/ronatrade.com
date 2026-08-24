@@ -1,7 +1,7 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_OWNER_LAYOUT_POLISH__)return;
-window.__RONA_OWNER_LAYOUT_POLISH__='20260824-2244-independent-sections-v3';
+window.__RONA_OWNER_LAYOUT_POLISH__='20260824-1346-rail-claims-v1';
 var s=document.createElement('style');
 s.id='ronaOwnerLayoutPolishStyle';
 s.textContent=[
@@ -38,6 +38,6 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-owner-layout-polish':'rail-claims-v1; canonical-section-recovery-v2'
+    'x-rona-owner-layout-polish':'rail-claims-v1'
   }});
 }
