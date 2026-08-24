@@ -10,6 +10,7 @@ on:
     paths:
       - ".github/workflows/telegram-market-ingest.yml"
       - "scripts/telegram_public_market_ingest.py"
+      - "scripts/telegram_public_market_ingest_search.py"
 
 permissions:
   contents: read
@@ -67,4 +68,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/telegram_public_market_ingest.py
+          python scripts/telegram_public_market_ingest_search.py
