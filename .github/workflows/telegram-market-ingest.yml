@@ -63,4 +63,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/telegram_public_pdf_ingest_v2.py
+          python scripts/telegram_public_pdf_ingest_v3.py
