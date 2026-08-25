@@ -92,7 +92,7 @@ async function authPassword(email, password) {
     body: JSON.stringify({ email, password }),
   });
   const data = await r.json().catch(() => ({}));
-  return { ok: r.ok, data };
+  return { ok: r.ok, status: r.status, data };
 }
 async function authRefresh(refreshToken) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
@@ -101,7 +101,7 @@ async function authRefresh(refreshToken) {
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
   const data = await r.json().catch(() => ({}));
-  return { ok: r.ok, data };
+  return { ok: r.ok, status: r.status, data };
 }
 async function authLogout(accessToken) {
   if (!accessToken) return;
@@ -124,29 +124,20 @@ async function upstream(accessToken, path, request = null) {
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   return fetch(`${PORTAL_API}${path}`, init);
 }
-async function sessionMe(accessToken) {
-  if (!accessToken) return null;
-  try {
-    const r = await upstream(accessToken, '/session/me');
-    if (!r.ok) return null;
-    const j = await r.json();
-    return j?.ok && j?.user ? j : null;
-  } catch (_) { return null; }
+const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000,2000,2500]);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function sessionProbe(accessToken){
+  if(!accessToken)return{state:'INVALID',me:null,status:401};let lastStatus=503;
+  for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
+  return{state:'UNAVAILABLE',me:null,status:lastStatus};
 }
-async function ensureSession(request) {
-  const cookies = parseCookies(request.headers.get('cookie'));
-  const access = cookies[ACCESS_COOKIE] || '';
-  const refresh = cookies[REFRESH_COOKIE] || '';
-  if (access) {
-    const me = await sessionMe(access);
-    if (me) return { access, refresh, me, setCookies: [] };
-  }
-  if (!refresh) return null;
-  const next = await authRefresh(refresh);
-  if (!next.ok || !next.data?.access_token || !next.data?.refresh_token) return null;
-  const me = await sessionMe(next.data.access_token);
-  if (!me) return null;
-  return { access: next.data.access_token, refresh: next.data.refresh_token, me, setCookies: tokenCookies(next.data) };
+async function ensureSession(request){
+  const cookies=parseCookies(request.headers.get('cookie')),access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
+  if(access){const probe=await sessionProbe(access);if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};if(probe.state==='UNAVAILABLE')return{unavailable:true,access,refresh,me:null,setCookies:[]}}
+  if(!refresh)return null;let next;try{next=await authRefresh(refresh)}catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
+  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(next.status===429||Number(next.status||0)>=500)return{unavailable:true,access,refresh,me:null,setCookies:[]};return null}
+  const probe=await sessionProbe(next.data.access_token);if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};if(probe.state!=='VALID')return null;
+  return{access:next.data.access_token,refresh:next.data.refresh_token,me:probe.me,setCookies:tokenCookies(next.data)};
 }
 function rolesOf(me) { return Array.isArray(me?.user?.roles) ? me.user.roles.map(String) : []; }
 function portalTargets(roles) {
@@ -191,6 +182,10 @@ function escapeHtml(value) { return String(value).replace(/[&<>"']/g, c => ({'&'
 function loginPage(message = '') {
   const note = message ? `<div class="error">${escapeHtml(message)}</div>` : '';
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Вход</title><style>:root{font-family:Inter,Arial,sans-serif;color:#eef4f7;background:#05090d}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:radial-gradient(circle at 80% 10%,#152633 0,#071018 42%,#05090d 75%)}.box{width:min(430px,calc(100vw - 32px));padding:28px;border:1px solid rgba(171,220,239,.24);border-radius:18px;background:rgba(8,15,22,.88);box-shadow:0 22px 80px rgba(0,0,0,.42)}h1{font-size:26px;margin:0 0 6px}.sub{color:#9db1bc;margin:0 0 24px}.field{display:grid;gap:7px;margin:14px 0}.field label{font-size:13px;color:#afc0c9}.field input{width:100%;padding:12px;border-radius:10px;border:1px solid rgba(171,220,239,.26);background:#09121a;color:#fff;font:inherit}.btn{width:100%;margin-top:10px;padding:12px;border:1px solid rgba(224,66,75,.45);border-radius:10px;background:rgba(224,66,75,.15);color:#fff;font-weight:800;cursor:pointer}.error{padding:10px 12px;border-radius:9px;background:#4b1e23;color:#ffdfe3;margin:12px 0;font-size:13px}.foot{margin-top:18px;color:#788d98;font-size:13px}</style></head><body><main class="box"><h1>RONA Trade</h1><p class="sub">Единый вход в защищённые кабинеты</p>${note}<form method="post" action="/portal/auth/login" autocomplete="on"><input type="hidden" name="next" id="next"><div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required></div><div class="field"><label for="password">Пароль</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><button class="btn" type="submit">Войти</button></form><p class="foot">Один вход открывает только разрешённые сервером контуры: Кабинет администратора, Внутренний офис, Кабинет агента или Кабинет клиента.</p></main><script>const q=new URLSearchParams(location.search);const n=q.get('next')||'';document.getElementById('next').value=n.startsWith('/portal/')?n:'';</script></body></html>`;
+}
+function unavailablePage(nextPath='/portal/'){
+  const target=String(nextPath||'/portal/').startsWith('/portal/')?String(nextPath||'/portal/'):'/portal/',safeTarget=escapeHtml(target);
+  return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2;url=${safeTarget}"><title>RONA Trade — Восстановление соединения</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif}.box{width:min(520px,calc(100vw - 32px));padding:28px;border:1px solid #29404e;border-radius:16px;background:#0b151d}.muted{color:#93a8b3}.btn{display:inline-block;margin-top:12px;padding:11px 14px;border:1px solid #365464;border-radius:10px;color:#eef4f7;text-decoration:none;background:#101f29}</style></head><body><main class="box"><h1>Восстанавливаю соединение</h1><p class="muted">Сессия сохранена. Сервер авторизации временно недоступен; повторная проверка выполняется автоматически.</p><a class="btn" href="${safeTarget}">Повторить сейчас</a></main></body></html>`;
 }
 function deniedPage(code = 'ROLE_MISMATCH') {
   return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Доступ запрещён</title><style>body{margin:0;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif;min-height:100vh;display:grid;place-items:center}.box{max-width:620px;padding:28px;border:1px solid #50323a;border-radius:14px;background:#101820}a{color:#b7dbea}</style></head><body><div class="box"><h1>Доступ запрещён</h1><p>Сервер не подтвердил право на этот раздел.</p><p><code>${escapeHtml(code)}</code></p><p><a href="/portal/">Открыть разрешённый кабинет</a></p></div></body></html>`;
@@ -297,8 +292,8 @@ async function proxyApi(request) {
   let setCookies = [];
   if (!upstreamResponse || upstreamResponse.status === 401) {
     if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
-    const next = await authRefresh(refresh);
-    if (!next.ok || !next.data?.access_token || !next.data?.refresh_token) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
+    let next;try{next=await authRefresh(refresh)}catch(_){return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503)}
+    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(next.status===429||Number(next.status||0)>=500)return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies())}
     access = next.data.access_token;
     setCookies = tokenCookies(next.data);
     upstreamResponse = await upstream(access, path, request);
@@ -312,9 +307,10 @@ async function proxyApi(request) {
 async function proxyAdminAuthority(request) {
   if (!['GET','POST'].includes(request.method)) return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
   if (request.method === 'POST' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
-  const session = await ensureSession(request);
-  if (!session) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
-  const roles = rolesOf(session.me);
+  const session=await ensureSession(request);
+  if(session?.unavailable)return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503,session.setCookies);
+  if(!session)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
+  const roles=rolesOf(session.me);
   if (!roles.includes('ADMIN')) return json({ ok:false, code:'ROLE_MISMATCH' }, 403, session.setCookies);
   const url = new URL(request.url);
   const prefix = '/portal/admin-authority';
@@ -348,9 +344,11 @@ export async function onRequest(context) {
     if (!email || !password || email.length > 320 || password.length > 1024) return html(loginPage('Не удалось выполнить вход.'), 400);
     const login = await authPassword(email, password);
     if (!login.ok || !login.data?.access_token || !login.data?.refresh_token) return html(loginPage('Неверные данные входа или доступ неактивен.'), 401, clearCookies());
-    const me = await sessionMe(login.data.access_token);
-    if (!me) { await authLogout(login.data.access_token); return html(loginPage('Доступ к порталу не активирован.'), 403, clearCookies()); }
-    const roles = rolesOf(me);
+    const loginProbe=await sessionProbe(login.data.access_token);
+    if(loginProbe.state==='UNAVAILABLE')return html(unavailablePage(parseLocalNext(next)||'/portal/'),503,tokenCookies(login.data));
+    if(loginProbe.state!=='VALID'){await authLogout(login.data.access_token);return html(loginPage('Доступ к порталу не активирован.'),403,clearCookies());}
+    const me=loginProbe.me;
+    const roles=rolesOf(me);
     const requested = parseLocalNext(next);
     if (requested && !roleAllows(requested, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, tokenCookies(login.data));
     const target = requested || defaultTarget(roles);
@@ -370,16 +368,18 @@ export async function onRequest(context) {
   }
   if (request.method !== 'GET' && request.method !== 'HEAD') return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
   if (path === '/portal/login') {
-    const session = await ensureSession(request);
-    if (session) {
-      const target = defaultTarget(rolesOf(session.me));
+    const session=await ensureSession(request);
+    if(session?.unavailable)return html(unavailablePage('/portal/login'),503,session.setCookies);
+    if(session){
+      const target=defaultTarget(rolesOf(session.me));
       if (target) return redirect(target, 303, session.setCookies);
     }
     return html(loginPage(), 200, session?.setCookies || clearCookies());
   }
-  const session = await ensureSession(request);
-  if (!session) return redirect(`/portal/login?next=${encodeURIComponent(canonicalProtectedPath(path))}`, 303, clearCookies());
-  const roles = rolesOf(session.me);
+  const session=await ensureSession(request);
+  if(session?.unavailable)return html(unavailablePage(canonicalProtectedPath(path)),503,session.setCookies);
+  if(!session)return redirect(`/portal/login?next=${encodeURIComponent(canonicalProtectedPath(path))}`,303,clearCookies());
+  const roles=rolesOf(session.me);
   if (path === '/portal' || path === '/portal/') {
     const target = defaultTarget(roles);
     return target ? redirect(target, 303, session.setCookies) : html(deniedPage('ROLE_NOT_PORTAL_ENABLED'), 403, session.setCookies);

@@ -6,7 +6,7 @@ import { createClaimsRuntime } from "./claims.ts";
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 if (!DB || !SUPA_URL) throw new Error("runtime vars missing");
-const sql = postgres(DB, { prepare: false, max: 1 });
+const sql = postgres(DB, { prepare: false, max: 1, idle_timeout: 1, connect_timeout: 3, max_lifetime: 15 });
 const BUCKET = "rona-portal-private";
 const MAX_PDF = 50 * 1024 * 1024;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
