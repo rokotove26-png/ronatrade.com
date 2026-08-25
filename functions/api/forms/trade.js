@@ -123,7 +123,7 @@ export async function onRequestPost(context) {
     return json({ success: false, code: 'ORIGIN_REJECTED' }, 403);
   }
 
-  if (!env.BREVO_API_KEY || !env.FORM_DEDUPE) {
+  if ((!env.BREVO_API_KEY && !env.MAILER) || !env.FORM_DEDUPE) {
     return json({ success: false, code: 'SERVICE_NOT_CONFIGURED' }, 503);
   }
 
