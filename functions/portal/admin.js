@@ -1,5 +1,4 @@
-const BUILD='owner-fast-shell-v1-20260826-0203';
-const SHELL_RUNTIME='/assets/portal-admin-shell-fast-v1.js?v=20260826-0203';
+const BUILD='owner-fast-shell-v2-20260826-0251';
 const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self' https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
 
 function hasPortalCookie(request){
@@ -20,6 +19,7 @@ function securityHeaders(source){
   h.set('cross-origin-resource-policy','same-origin');
   h.set('content-security-policy',ADMIN_CSP);
   h.set('x-rona-admin-shell','fast-static-v1');
+  h.set('x-rona-admin-shell-render','build-injected-static');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
   h.delete('etag');
@@ -37,10 +37,6 @@ function loginRedirect(request){
 async function canonicalAdminAsset(context){
   if(context.env?.ASSETS?.fetch){
     const u=new URL(context.request.url);
-    // Cloudflare Static Assets resolves HTML through the pretty pathname. Using
-    // /portal/admin.html here can invoke canonicalization/redirect behavior.
-    // ASSETS.fetch addresses the asset binding directly; it does not recurse
-    // through this Pages Function route.
     u.pathname='/portal/admin';
     u.search='';
     return context.env.ASSETS.fetch(new Request(u.toString(),{
@@ -49,12 +45,6 @@ async function canonicalAdminAsset(context){
     }));
   }
   return context.next();
-}
-
-class FastShellHeadInjector{
-  element(el){
-    el.append(`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v1"><script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`,{html:true});
-  }
 }
 
 export async function onRequest(context){
@@ -67,21 +57,7 @@ export async function onRequest(context){
 
   const started=Date.now();
   const response=await canonicalAdminAsset(context);
-  const ct=String(response.headers.get('content-type')||'').toLowerCase();
   const h=securityHeaders(response.headers);
   h.set('server-timing',`admin_shell;dur=${Math.max(0,Date.now()-started)}`);
-
-  if(response.status!==200||!ct.includes('text/html')||request.method==='HEAD'){
-    return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
-  }
-
-  if(typeof HTMLRewriter!=='function'){
-    const source=await response.text();
-    const tag=`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v1"><script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`;
-    const html=source.includes('rona-admin-fast-shell-runtime')?source:source.replace('</head>',tag+'</head>');
-    return new Response(html,{status:200,headers:h});
-  }
-
-  const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
-  return new HTMLRewriter().on('head',new FastShellHeadInjector()).transform(base);
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
 }
