@@ -1,0 +1,49 @@
+name: analytics-client-payload-qa
+
+on:
+  push:
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - '.github/workflows/analytics-client-payload-qa.yml'
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/analytics-v2-ui.js'
+      - '.github/workflows/analytics-client-payload-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  payload-syntax:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate generated client payload
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { onRequest } from './functions/portal/analytics-v2-ui.js';
+          const response=await onRequest();
+          const script=await response.text();
+          new Function(script);
+          const required=[
+            'v4-market-consistency-lpg-platts',
+            'Propane CIF NWE Large Cargo Financial',
+            '560.5',
+            '558.5',
+            'Hairatan domestic LPG',
+            '725',
+            '780',
+            'МОДЕЛЬ НА ПЕРЕСМОТРЕ',
+            'Комментарий Коммерческого директора',
+            'Коммерческий вывод'
+          ];
+          for(const token of required)if(!script.includes(token))throw new Error('ANALYTICS_V4_TOKEN_MISSING: '+token);
+          console.log('ANALYTICS_CLIENT_PAYLOAD_SYNTAX=PASS');
+          console.log('ANALYTICS_V4_MARKET_CONSISTENCY_CONTRACT=PASS');
+          NODE
