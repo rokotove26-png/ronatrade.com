@@ -1,84 +1,83 @@
-import { onRequest as basePortal } from './[[path]].js';
-const BUILD='owner-main-v2-20260825-0352-canonical-tweaks-v1';
-const PRIMARY_UI_SOURCE_CONTRACT='src="/portal/main-ui"';
-const LEGACY_ACCESS_ARCHIVE='legacy-work-areas-v1';
-const POSTCORE_COMPAT='postcore-access-market-v6';
+const BUILD='owner-fast-shell-v1-20260826-0203';
+const SHELL_RUNTIME='/assets/portal-admin-shell-fast-v1.js?v=20260826-0203';
 const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self' https://tiles.openfreemap.org; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
-const PREPAINT='<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="'+BUILD+'"><style id="rona-owner-prepaint-gate">html:not(.rona-owner-paint-ready) body .app{opacity:0!important;visibility:hidden!important;pointer-events:none!important}html:not(.rona-owner-paint-ready) body [id^="page-"]{visibility:hidden!important;opacity:0!important;pointer-events:none!important}#page-claims>*:not(.rona-claims-r2-root):not(.rona-claims-section-title){display:none!important}#page-deals>*:not(.rona-owner-page-content[data-owner-page="deals"]){display:none!important}html:not(.rona-owner-paint-ready) #page-access>*,html:not(.rona-access-v4-ready):not(.rona-access-fallback) #page-access>*{visibility:hidden!important;opacity:0!important;pointer-events:none!important}html.rona-access-v4-ready #page-access>#rona-ca4{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}html.rona-access-fallback #page-access>#rona-ca4{display:none!important}html.rona-access-fallback #page-access>*:not(#rona-ca4){display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}html:not(.rona-analytics-v2-ready):not(.rona-analytics-fallback) #page-analytics>*{visibility:hidden!important;opacity:0!important;pointer-events:none!important}html.rona-analytics-v2-ready #page-analytics>#rona-analytics-v2{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}html.rona-analytics-fallback #page-analytics>#rona-analytics-v2{display:none!important}html.rona-analytics-fallback #page-analytics>*:not(#rona-analytics-v2){visibility:visible!important;opacity:1!important;pointer-events:auto!important}</style>';
-const FETCHGATE=`<script id="rona-admin-backend-fetch-gate" data-rona-ui="backend-fetch-gate-v1">(()=>{'use strict';if(window.__RONA_BACKEND_FETCH_GATE__)return;window.__RONA_BACKEND_FETCH_GATE__='v1';const raw=window.fetch.bind(window),MAX=4,q=[];let active=0;function gated(input){try{const rawUrl=typeof input==='string'?input:(input instanceof URL?input.href:(input&&input.url)||''),u=new URL(rawUrl,location.href);if(u.origin!==location.origin)return false;const p=u.pathname;return p.startsWith('/portal/api/')||p.startsWith('/portal/admin-authority')||p.includes('price-updates-api')||p.includes('owner-acceptance-api')||p.includes('control-plane')}catch{return false}}function pump(){while(active<MAX&&q.length){active++;const job=q.shift();job().finally(()=>{active--;pump()})}}window.fetch=(input,init)=>{if(!gated(input))return raw(input,init);return new Promise((resolve,reject)=>{q.push(()=>Promise.resolve(raw(input,init)).then(resolve,reject));pump()})}})();</script>`;
-const LOADER='<script id="rona-main-ui-loader" src="/portal/main-ui?v=20260824-0320" defer data-rona-ui="primary"></script>';
-const BOOTRESCUE='<script id="rona-admin-boot-rescue" data-rona-ui="admin-boot-failsafe-v2">(()=>{\'use strict\';if(window.__RONA_ADMIN_BOOT_FAILSAFE__)return;window.__RONA_ADMIN_BOOT_FAILSAFE__=\'20260824-shell-visible-v2\';const root=document.documentElement;let released=false;function reveal(reason){if(released||window.__RONA_OWNER_FIRST_PAINT_READY__===true||root.dataset.ronaOwnerPaint===\'ready\')return;released=true;root.classList.add(\'rona-owner-paint-ready\');root.dataset.ronaOwnerPaint=\'fallback\';root.dataset.ronaAdminBootFailsafe=reason;window.__RONA_OWNER_SHELL_FALLBACK__=true;if(document.body){document.body.classList.remove(\'admin-auth-locked\');document.body.classList.add(\'admin-auth-server-verified\')}const app=document.querySelector(\'.app\');if(app){app.style.setProperty(\'opacity\',\'1\',\'important\');app.style.setProperty(\'visibility\',\'visible\',\'important\');app.style.setProperty(\'pointer-events\',\'auto\',\'important\');app.removeAttribute(\'aria-hidden\')}}function arm(){const loader=document.getElementById(\'rona-main-ui-loader\');if(loader)loader.addEventListener(\'error\',()=>reveal(\'main-ui-load-error\'),{once:true});setTimeout(()=>{if(window.__RONA_OWNER_FIRST_PAINT_READY__!==true&&root.dataset.ronaOwnerPaint!==\'ready\')reveal(document.body&&document.body.classList.contains(\'admin-auth-locked\')?\'auth-locked\':\'boot-timeout\')},6500);setTimeout(()=>{if(window.__RONA_OWNER_FIRST_PAINT_READY__!==true&&root.dataset.ronaOwnerPaint!==\'ready\')reveal(\'boot-timeout-hard\')},12000)}if(document.readyState===\'loading\')document.addEventListener(\'DOMContentLoaded\',arm,{once:true});else arm()})();</script>';
-const DEALSCURRENT='<script id="rona-deals-current-loader" src="/portal/deals-current-state-ui?v=20260824-0320" defer data-rona-ui="deals-current-state-v1.5"></script>';
-const R11='<script id="rona-deals-r11-loader" src="/portal/deals-r1-r11-ui" defer data-rona-ui="deals-r1-cancel-hotfix"></script>';
-const CASH2D='<script id="rona-cash-r2-loader" src="/portal/cash-r2-ui" async data-rona-ui="cash-2d-isolated"></script>';
-const RAILV81='<script id="rona-rail-current-v81-loader" src="/portal/rail-current-v81-maplibre-ui?v=20260825-0352" defer data-rona-ui="rail-current-v8.1-maplibre-openfreemap"></script>';
-const CLAIMS2F='<script id="rona-claims-r2-loader" src="/portal/claims-r2-ui" async data-rona-ui="claims-2f-isolated"></script>';
-const TITLECLEANUP='<script id="rona-title-visual-rollback-loader" src="/portal/title-visual-rollback-ui" async data-rona-ui="title-visual-rollback"></script>';
-const CLAIMSTITLE='<script id="rona-claims-title-loader" src="/portal/claims-title-hotfix" async data-rona-ui="claims-title-hotfix"></script>';
-const POSTCORE='<script id="rona-postcore-enhancements-loader" data-rona-ui="postcore-independent-v10-analytics-v3">(()=>{\'use strict\';if(window.__RONA_POSTCORE_ENHANCEMENTS__)return;window.__RONA_POSTCORE_ENHANCEMENTS__=\'20260824-independent-v10\';window.__RONA_ACCESS_CANONICAL_V4__=true;window.__RONA_ANALYTICS_CANONICAL_V2__=true;const U={guard:\'/portal/clients-agents-canonical-guard-ui?v=20260824-2008\',remaining:\'/portal/remaining-sections-ui?v=20260824-1948\',polish:\'/portal/remaining-sections-final-polish-ui?v=20260824-1602\',preserve:\'/portal/remaining-sections-functional-preserve-v2-ui?v=20260824-analytics-compat\',access:\'/portal/clients-agents-v4-ui?v=20260824-2018-home-parity-v1\',analytics:\'/portal/analytics-v2-ui?v=20260824-v3-market-rona-lpg\'};let started=false,ownerBusy=false;const sleep=ms=>new Promise(r=>setTimeout(r,ms));function load(src,id){return new Promise((resolve,reject)=>{if(document.querySelector(\'script[data-rona-postcore-id="\'+id+\'"]\')){resolve();return}const s=document.createElement(\'script\');s.src=src;s.async=false;s.dataset.ronaPostcoreId=id;s.onload=()=>resolve();s.onerror=()=>reject(new Error(\'POSTCORE_LOAD_FAILED:\'+id));document.body.appendChild(s)})}async function waitFor(test,label,timeout=6000){const until=Date.now()+timeout;while(Date.now()<until){if(test())return true;await sleep(60)}throw new Error(\'POSTCORE_STATE_TIMEOUT:\'+label)}function forceStyle(el,name,value){if(el.style.getPropertyValue(name)!==value||el.style.getPropertyPriority(name)!==\'important\')el.style.setProperty(name,value,\'important\')}function own(pageId,rootId,flag,readyClass,fallbackClass){if(window[flag]!==true)return;const p=document.querySelector(pageId),r=p&&p.querySelector(\':scope>\'+rootId);if(!p||!r)return;document.documentElement.classList.add(readyClass);document.documentElement.classList.remove(fallbackClass);if(p.classList.contains(\'rona-rs-gated\'))p.classList.remove(\'rona-rs-gated\');const loading=p.querySelector(\':scope>.rona-rs-loading\');if(loading)loading.remove();forceStyle(r,\'display\',\'grid\');forceStyle(r,\'visibility\',\'visible\');forceStyle(r,\'opacity\',\'1\');forceStyle(r,\'pointer-events\',\'auto\');if(r.hasAttribute(\'aria-hidden\'))r.removeAttribute(\'aria-hidden\');Array.from(p.children).forEach(x=>{if(x===r)return;forceStyle(x,\'display\',\'none\');forceStyle(x,\'visibility\',\'hidden\');forceStyle(x,\'opacity\',\'0\');forceStyle(x,\'pointer-events\',\'none\');if(x.getAttribute(\'aria-hidden\')!==\'true\')x.setAttribute(\'aria-hidden\',\'true\')})}function enforceOwners(){if(ownerBusy)return;ownerBusy=true;try{own(\'#page-access\',\'#rona-ca4\',\'__RONA_CLIENTS_AGENTS_V4_READY__\',\'rona-access-v4-ready\',\'rona-access-fallback\');own(\'#page-analytics\',\'#rona-analytics-v2\',\'__RONA_ANALYTICS_V2_READY__\',\'rona-analytics-v2-ready\',\'rona-analytics-fallback\')}finally{ownerBusy=false}}function installOwnerGuard(){[\'#page-access\',\'#page-analytics\'].forEach(sel=>{const p=document.querySelector(sel);if(!p||p.__ronaPostcoreOwnerGuard)return;p.__ronaPostcoreOwnerGuard=true;new MutationObserver(()=>queueMicrotask(enforceOwners)).observe(p,{childList:true})});document.addEventListener(\'click\',ev=>{const b=ev.target&&ev.target.closest&&ev.target.closest(\'#nav button[data-page]\');if(!b||![\'access\',\'analytics\'].includes(String(b.dataset.page||\'\')))return;queueMicrotask(enforceOwners);[0,80,180,420,900].forEach(ms=>setTimeout(enforceOwners,ms))},true)}async function run(){if(started)return;started=true;installOwnerGuard();let accessOk=false,analyticsOk=false;try{await load(U.guard,\'access-ownership\');await waitFor(()=>window.__RONA_CLIENTS_AGENTS_CANONICAL_GUARD_READY__===true,\'OWNERSHIP_READY\',2500)}catch(e){window.__RONA_POSTCORE_GUARD_ERROR__=String(e&&e.message||e);console.error(\'[RONA postcore ownership warning]\',e)}const analyticsP=(async()=>{try{await load(U.analytics,\'analytics-v2\');await waitFor(()=>window.__RONA_ANALYTICS_V2_READY__===true,\'ANALYTICS_V2_READY\',7000);analyticsOk=true;enforceOwners()}catch(e){document.documentElement.classList.add(\'rona-analytics-fallback\');window.__RONA_ANALYTICS_V2_ERROR__=String(e&&e.message||e);console.error(\'[RONA analytics v2 fallback]\',e)}})();try{await load(U.remaining,\'remaining-sections\');await waitFor(()=>!!window.__RONA_REMAINING_SECTIONS_READY__,\'REMAINING_READY\',4000);await load(U.polish,\'remaining-polish\');await load(U.preserve,\'functional-preserve-v3\');try{await waitFor(()=>window.__RONA_ACCESS_FUNCTIONAL_ARCHIVE_READY__===true,\'ACCESS_ARCHIVE_READY\',5000)}catch(e){window.__RONA_ACCESS_ARCHIVE_WARNING__=String(e&&e.message||e);console.error(\'[RONA access archive warning]\',e)}}catch(e){window.__RONA_POSTCORE_AUX_ERROR__=String(e&&e.message||e);console.error(\'[RONA postcore auxiliary warning]\',e)}const accessP=(async()=>{try{await load(U.access,\'access-v4\');await waitFor(()=>window.__RONA_CLIENTS_AGENTS_V4_READY__===true,\'ACCESS_V4_READY\',7000);accessOk=true;enforceOwners()}catch(e){document.documentElement.classList.add(\'rona-access-fallback\');window.__RONA_ACCESS_V4_ERROR__=String(e&&e.message||e);console.error(\'[RONA postcore access fallback]\',e)}})();await Promise.allSettled([accessP,analyticsP]);enforceOwners();document.documentElement.dataset.ronaPostcore=accessOk&&analyticsOk?\'ready\':\'partial\';window.__RONA_POSTCORE_ENHANCEMENTS_READY__=true}function afterCore(){const b=window.__RONA_ADMIN_BOOT_STATE__;if(b&&b.ready===true){setTimeout(run,0);return}if(window.__RONA_OWNER_ADMIN_READY__===true&&!document.body.classList.contains(\'admin-auth-locked\'))setTimeout(run,0)}window.addEventListener(\'rona:admin-app-ready\',()=>setTimeout(run,0),{once:true});if(document.readyState===\'loading\')document.addEventListener(\'DOMContentLoaded\',()=>{setTimeout(afterCore,0);setTimeout(afterCore,9500)},{once:true});else{setTimeout(afterCore,0);setTimeout(afterCore,9500)}})();</script>';
-const APPTOTAL='<script id="rona-applications-total-kpi-loader" src="/portal/applications-total-kpi-ui" async data-rona-ui="applications-total-kpi-r1"></script>';
-const LAYOUTPOLISH='<script id="rona-owner-layout-polish-loader" src="/portal/owner-layout-polish-ui?v=20260824-1346" defer data-rona-ui="rail-claims-layout-polish-v1-section-harmony"></script>';
-const ADMINTWEAKS='<script id="rona-admin-canonical-tweaks-loader" src="/portal/admin-canonical-tweaks-ui?v=20260825-0352" defer data-rona-ui="admin-canonical-tweaks-v1"></script>';
-const BODY_LOADERS=FETCHGATE+LOADER+BOOTRESCUE+DEALSCURRENT+R11+CASH2D+RAILV81+CLAIMS2F+TITLECLEANUP+CLAIMSTITLE+POSTCORE+APPTOTAL+LAYOUTPOLISH+ADMINTWEAKS;
-void PRIMARY_UI_SOURCE_CONTRACT;
-void POSTCORE_COMPAT;
-function injectSinglePass(source){
-  const head=source.indexOf('</head>');
-  const body=source.lastIndexOf('</body>');
-  if(head>=0&&body>=head)return source.slice(0,head)+PREPAINT+source.slice(head,body)+BODY_LOADERS+source.slice(body);
-  if(head>=0)return source.slice(0,head)+PREPAINT+source.slice(head)+BODY_LOADERS;
-  if(body>=0)return PREPAINT+source.slice(0,body)+BODY_LOADERS+source.slice(body);
-  return PREPAINT+source+BODY_LOADERS;
+
+function hasPortalCookie(request){
+  const raw=String(request.headers.get('cookie')||'');
+  return /(?:^|;\s*)rona_portal_(?:at|rt)=/.test(raw);
 }
-function responseHeaders(response){
-  const h=new Headers(response.headers);
-  h.delete('content-length');
-  h.delete('etag');
+
+function securityHeaders(source){
+  const h=new Headers(source||{});
   h.set('cache-control','no-store, no-cache, must-revalidate');
   h.set('pragma','no-cache');
   h.set('expires','0');
+  h.set('referrer-policy','no-referrer');
+  h.set('x-content-type-options','nosniff');
+  h.set('x-frame-options','DENY');
+  h.set('permissions-policy','camera=(), microphone=(), geolocation=(), payment=()');
+  h.set('cross-origin-opener-policy','same-origin');
+  h.set('cross-origin-resource-policy','same-origin');
   h.set('content-security-policy',ADMIN_CSP);
-  h.set('x-rona-ui','main-v2');
+  h.set('x-rona-admin-shell','fast-static-v1');
   h.set('x-rona-ui-build',BUILD);
-  h.set('x-rona-admin-boot-failsafe','shell-visible-watchdog-v2');
-  h.set('x-rona-admin-shell-first-paint','legacy-hidden-until-primary-ready-v2');
-  h.set('x-rona-r1-ui','current-state-primary');
-  h.set('x-rona-cash-ui','isolated-r2');
-  h.set('x-rona-rail-ui','current-v8.1-maplibre-openfreemap-cspfix');
-  h.set('x-rona-claims-ui','isolated-2f');
-  h.set('x-rona-claims-first-paint','current-only-v1');
-  h.set('x-rona-claims-title','hotfix-v2');
-  h.set('x-rona-title-visual','rollback-pre-sticky');
-  h.set('x-rona-postcore-enhancements','independent-v10-access-analytics');
-  h.set('x-rona-clients-agents-guard','v6-postcore-explicit-owner');
-  h.set('x-rona-remaining-sections','r2-market-director-v5-postcore');
-  h.set('x-rona-remaining-final-polish','clients-market-final-v1-postcore');
-  h.set('x-rona-remaining-functional-preserve','access-news-v3-analytics-canonical');
-  h.set('x-rona-legacy-access-archive',LEGACY_ACCESS_ARCHIVE);
-  h.set('x-rona-clients-agents-ui','v4-canonical-independent-owner');
-  h.set('x-rona-analytics-ui','v3-market-rona-bases-lpg-independent-owner');
-  h.set('x-rona-applications-total-kpi','r1');
-  h.set('x-rona-deals-current-state','v1.5');
-  h.set('x-rona-payments-ui','finance-current-v2');
-  h.set('x-rona-owner-layout-polish','rail-claims-v1');
-  h.set('x-rona-section-visual-harmony','home-parity-v1');
-  h.set('x-rona-canonical-section-recovery','access-analytics-v2');
-  h.set('x-rona-admin-canonical-tweaks','20260825-0352-v1');
-  h.set('x-rona-admin-transform','streaming-htmlrewriter-v1');
+  h.delete('content-length');
+  h.delete('etag');
   return h;
 }
-export async function onRequest(context){
-  const response=await basePortal(context);
-  const ct=response.headers.get('content-type')||'';
-  if(response.status!==200||!ct.toLowerCase().includes('text/html'))return response;
-  const h=responseHeaders(response);
-  if(typeof HTMLRewriter==='function'){
-    const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
-    return new HTMLRewriter()
-      .on('head',{element(el){el.append(PREPAINT,{html:true})}})
-      .on('body',{element(el){el.append(BODY_LOADERS,{html:true})}})
-      .transform(base);
+
+function loginRedirect(request){
+  const u=new URL('/portal/login',request.url);
+  u.searchParams.set('next','/portal/admin');
+  const h=securityHeaders();
+  h.set('location',u.toString());
+  return new Response(null,{status:302,headers:h});
+}
+
+async function canonicalAdminAsset(context){
+  if(context.env?.ASSETS?.fetch){
+    const u=new URL(context.request.url);
+    u.pathname='/portal/admin.html';
+    u.search='';
+    return context.env.ASSETS.fetch(new Request(u.toString(),{
+      method:context.request.method,
+      headers:{accept:'text/html,application/xhtml+xml'}
+    }));
   }
-  const source=await response.text();
-  return new Response(injectSinglePass(source),{status:response.status,statusText:response.statusText,headers:h});
+  return context.next();
+}
+
+class FastShellHeadInjector{
+  element(el){
+    el.append(`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v1"><script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`,{html:true});
+  }
+}
+
+export async function onRequest(context){
+  const request=context.request;
+  if(!['GET','HEAD'].includes(request.method)){
+    const h=securityHeaders({'content-type':'application/json; charset=utf-8','allow':'GET, HEAD'});
+    return new Response(JSON.stringify({ok:false,code:'METHOD_NOT_ALLOWED'}),{status:405,headers:h});
+  }
+  if(!hasPortalCookie(request))return loginRedirect(request);
+
+  const started=Date.now();
+  const response=await canonicalAdminAsset(context);
+  const ct=String(response.headers.get('content-type')||'').toLowerCase();
+  const h=securityHeaders(response.headers);
+  h.set('server-timing',`admin_shell;dur=${Math.max(0,Date.now()-started)}`);
+
+  if(response.status!==200||!ct.includes('text/html')||request.method==='HEAD'){
+    return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
+  }
+
+  if(typeof HTMLRewriter!=='function'){
+    const source=await response.text();
+    const tag=`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v1"><script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`;
+    const html=source.includes('rona-admin-fast-shell-runtime')?source:source.replace('</head>',tag+'</head>');
+    return new Response(html,{status:200,headers:h});
+  }
+
+  const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
+  return new HTMLRewriter().on('head',new FastShellHeadInjector()).transform(base);
 }
