@@ -9,7 +9,7 @@ on:
       - functions/portal/rail-current-v6-single-title-ui.js
       - functions/portal/rail-current-v7-real-map-ui.js
       - functions/portal/rail-current-v81-maplibre-ui.js
-      - functions/portal/map-assets/[[path]].js
+      - functions/portal/map-assets/**
       - .github/workflows/rail-v5-owner-qa.yml
 permissions:
   contents: read
