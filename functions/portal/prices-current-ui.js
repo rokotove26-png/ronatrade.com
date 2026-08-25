@@ -1,14 +1,14 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_PRICES_CURRENT_UI__)return;
-window.__RONA_PRICES_CURRENT_UI__='20260825-owner-update-gate-v2';
+window.__RONA_PRICES_CURRENT_UI__='20260825-owner-update-gate-v3-canonical-2a';
 if(location.pathname!=='/portal/admin')return;
 const OWNER_API='/portal/owner-api';
 const UPDATE_API='/portal/price-updates-api';
-const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
+const q=(s,r=document)=>r.querySelector(s);
 const e=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined&&text!==null)n.textContent=String(text);return n};
 const money=(v,c='')=>v===null||v===undefined||v===''?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(v))+(c?' '+c:'');
 const dt=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})};
-let admin=null,updates=null,loading=false,timer=null;
+let admin=null,updates=null,loading=false,timer=null,ownerPriceFilter='ALL';
 
 function page(){return q('#page-prices')}
 function nav(){return q('#nav button[data-page="prices"]')}
@@ -18,12 +18,9 @@ function installStyle(){
  const s=e('style');s.id='ronaPricesCurrentStyle';s.textContent=[
  '#page-prices>#rona-prices-current{display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;width:min(100%,1660px)!important;max-width:1660px!important;margin:0 auto!important}',
  '#page-prices>.rona-prices-legacy-hidden{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important}',
- '.rona-prices-summary{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}',
- '.rona-prices-summary-main{display:grid;gap:6px;min-width:260px}.rona-prices-summary-title{font-size:13px;font-weight:850;color:#f8fbff}.rona-prices-summary-meta{font-size:12px;color:var(--rv-muted,#91a2b3);line-height:1.5}',
- '.rona-prices-audience-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.rona-prices-audience-controls label{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:800;color:#dce8f0}.rona-prices-audience-controls input{width:16px;height:16px}',
  '.rona-prices-signal{border-color:rgba(255,107,122,.38)!important;background:radial-gradient(420px 150px at 100% 0,rgba(255,107,122,.14),transparent 68%),linear-gradient(180deg,rgba(40,20,29,.92),rgba(15,12,19,.82))!important;box-shadow:inset 3px 0 0 rgba(255,107,122,.82),0 18px 52px rgba(0,0,0,.23)!important}',
  '.rona-prices-signal-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.rona-prices-signal-title{font-size:16px;font-weight:900;color:#ff7d8a}.rona-prices-signal-sub{margin-top:5px;font-size:12px;line-height:1.55;color:#c9d3dc}',
- '.rona-prices-pill{display:inline-flex;align-items:center;padding:5px 9px;border-radius:999px;border:1px solid rgba(145,190,214,.18);background:rgba(6,12,19,.42);font-size:10px;font-weight:850;white-space:nowrap}',
+ '.rona-prices-pill{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 9px;border-radius:999px;border:1px solid rgba(145,190,214,.18);background:rgba(6,12,19,.42);font-size:10px;font-weight:850;white-space:nowrap;text-align:center}',
  '.rona-prices-pill.ok{border-color:rgba(76,225,184,.28);background:rgba(76,225,184,.08);color:#c8ffef}.rona-prices-pill.warn{border-color:rgba(255,199,107,.32);background:rgba(255,199,107,.09);color:#ffe3ad}.rona-prices-pill.bad{border-color:rgba(255,107,122,.36);background:rgba(255,107,122,.10);color:#ffc5cc}',
  '.rona-prices-proposals{display:grid;gap:14px}.rona-prices-proposal{margin-bottom:0!important}.rona-prices-proposal.is-update{border-color:rgba(255,107,122,.26)!important}.rona-prices-proposal.is-blocked{border-color:rgba(255,199,107,.28)!important}',
  '.rona-prices-proposal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}.rona-prices-proposal-title{font-size:15px;font-weight:900;color:#f8fbff}.rona-prices-proposal-meta{font-size:11px;color:var(--rv-muted,#91a2b3);margin-top:5px;line-height:1.45}',
@@ -33,11 +30,16 @@ function installStyle(){
  '.rona-prices-actions{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.rona-prices-actions button{font:inherit;cursor:pointer;font-size:12px;font-weight:800}.rona-prices-actions button:disabled{opacity:.45;cursor:default}',
  '.rona-prices-apply{border-color:rgba(89,215,255,.38)!important;background:linear-gradient(135deg,rgba(53,169,219,.26),rgba(96,110,224,.24))!important}.rona-prices-reject{border-color:rgba(255,107,122,.24)!important}',
  '.rona-prices-card-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}.rona-prices-card-head h2{margin:0!important}.rona-prices-card-sub{font-size:12px;color:var(--rv-muted,#91a2b3);line-height:1.45}',
+ '.rona-prices-kpi-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.rona-prices-kpi{min-height:118px;display:flex;flex-direction:column;justify-content:space-between}.rona-prices-kpi-label{font-size:12px;color:var(--rv-muted,#91a2b3);font-weight:800}.rona-prices-kpi-value{margin-top:9px;font-size:22px;line-height:1.15;font-weight:900;color:#f7fbff}.rona-prices-kpi-caption{margin-top:8px;font-size:11px;line-height:1.45;color:var(--rv-muted,#91a2b3)}',
+ '.rona-prices-filter{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.rona-prices-filter button{font:inherit;color:#c7d2db;background:rgba(6,12,19,.34);border:1px solid rgba(145,190,214,.16);border-radius:999px;padding:8px 12px;cursor:pointer;font-size:11px;font-weight:850}.rona-prices-filter button[aria-pressed="true"]{color:#fff;border-color:rgba(89,215,255,.38);background:rgba(53,169,219,.18)}',
+ '.rona-prices-matrix .rona-owner-table th:nth-child(n+4),.rona-prices-matrix .rona-owner-table td:nth-child(n+4){text-align:center}.rona-prices-matrix .rona-owner-table td:first-child{font-weight:900}.rona-prices-matrix .rona-owner-table td:nth-child(4),.rona-prices-matrix .rona-owner-table td:nth-child(5),.rona-prices-matrix .rona-owner-table td:nth-child(6){white-space:nowrap}',
+ '.rona-prices-terms{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.rona-prices-term{padding:12px;border:1px solid rgba(145,190,214,.14);border-radius:11px;background:rgba(6,12,19,.22)}.rona-prices-term span{display:block;font-size:11px;color:var(--rv-muted,#91a2b3)}.rona-prices-term strong{display:block;margin-top:5px;font-size:13px;color:#f7fbff}.rona-prices-payment{margin-top:11px;font-size:12px;line-height:1.55;color:#d5e0e7}',
+ '.rona-prices-publication{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}.rona-prices-publication-main{display:grid;gap:7px}.rona-prices-publication-title{font-size:13px;font-weight:850;color:#f8fbff}.rona-prices-publication-meta{font-size:11px;color:var(--rv-muted,#91a2b3);line-height:1.5}.rona-prices-publication-controls{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.rona-prices-publication-controls select,.rona-prices-publication-controls button{font:inherit;color:inherit;background:rgba(6,12,19,.34);border:1px solid rgba(145,190,214,.20);border-radius:9px;padding:9px 11px}.rona-prices-publication-controls button{cursor:pointer;font-weight:800}',
  '.rona-prices-cp-grid{display:grid;gap:0}.rona-prices-cp-row{display:grid;grid-template-columns:minmax(220px,1.2fr) minmax(180px,.8fr) minmax(180px,.8fr) minmax(180px,.8fr);gap:12px;align-items:center;padding:13px 4px;border-bottom:1px solid rgba(144,184,205,.08);font-size:12px}.rona-prices-cp-row:last-child{border-bottom:0}.rona-prices-cp-name{font-weight:850}.rona-prices-cp-meta{color:var(--rv-muted,#91a2b3)}',
  '.rona-prices-history{display:grid;gap:0}.rona-prices-history-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 2px;border-bottom:1px solid rgba(144,184,205,.08);font-size:12px}.rona-prices-history-row:last-child{border-bottom:0}',
  '.rona-prices-empty{padding:18px;border:1px dashed rgba(145,190,214,.18);border-radius:16px;color:var(--rv-muted,#91a2b3);line-height:1.5}',
  '#nav button[data-page="prices"] .rona-price-update-nav{display:inline-flex!important;min-width:18px;height:18px;align-items:center;justify-content:center;margin-left:auto;border-radius:999px;background:#dc2626;color:#fff;font-size:10px;font-weight:900;line-height:1}',
- '@media(max-width:900px){.rona-prices-cp-row{grid-template-columns:1fr 1fr}}@media(max-width:760px){.rona-prices-cp-row{grid-template-columns:1fr}.rona-prices-summary{align-items:flex-start}}'
+ '@media(max-width:900px){.rona-prices-kpi-grid,.rona-prices-terms{grid-template-columns:1fr}.rona-prices-cp-row{grid-template-columns:1fr 1fr}}@media(max-width:760px){.rona-prices-cp-row{grid-template-columns:1fr}.rona-prices-publication{align-items:flex-start}}'
  ].join('');
  document.head.appendChild(s)
 }
@@ -183,20 +185,110 @@ function proposalNode(p){
  return c
 }
 
-function currentRows(){
- const xs=Array.isArray(admin?.prices)?admin.prices:[];
- return xs.filter(x=>String(x.business_status||'').toUpperCase()!=='SUPERSEDED').map(p=>[
-   p.product||'—',
-   p.producer||'—',
-   p.supplier||'—',
-   money(p.purchase_price,p.currency),
-   money(p.rail_tariff,p.currency),
-   p.final_station||p.basis||p.border_crossing||'—',
-   money(p.landed_cost,p.currency),
-   money(p.rona_margin,p.currency),
-   money(p.sale_price,p.currency),
-   p.payment_terms||'—'
- ])
+function activePriceRows(){
+ const rows=Array.isArray(admin?.prices)?admin.prices:[];
+ return rows.filter(x=>String(x?.business_status||'').toUpperCase()!=='SUPERSEDED')
+}
+
+function priceStation(v){
+ const s=String(v||'').trim().toUpperCase();
+ if(s.includes('ОЗИН')||s.includes('OZINK'))return'OZINKI';
+ if(s.includes('САРЫ')||s.includes('SARY'))return'SARYAGASH';
+ if(s.includes('НАУШ')||s.includes('NAUSH'))return'NAUSHKI';
+ return''
+}
+
+function pricePeriod(rows){
+ for(const x of rows||[]){
+   const t=String(x?.commercial_terms||'');
+   const m=t.match(/Период поставки:\s*([^;]+)/i);
+   if(m&&m[1])return m[1].trim()
+ }
+ return'Требует подтверждения'
+}
+
+function priceGroups(rows){
+ const map=new Map();
+ for(const p of rows||[]){
+   const product=String(p?.product||'').trim()||'Без наименования';
+   if(!map.has(product))map.set(product,{product,rows:[],producers:new Set(),suppliers:new Set(),stations:{},published:true});
+   const g=map.get(product);g.rows.push(p);
+   const producer=String(p?.producer||'').trim(),supplier=String(p?.supplier||'').trim();
+   if(producer)g.producers.add(producer);if(supplier)g.suppliers.add(supplier);
+   const k=priceStation(p?.final_station||p?.basis||p?.border_crossing);if(k)g.stations[k]=p;
+   if(String(p?.business_status||'').toUpperCase()!=='PUBLISHED')g.published=false
+ }
+ return Array.from(map.values()).map(g=>{
+   g.producer=g.producers.size===1?Array.from(g.producers)[0]:null;
+   g.supplier=g.suppliers.size===1?Array.from(g.suppliers)[0]:null;
+   g.needsVerify=!g.producer||!g.supplier;
+   return g
+ })
+}
+
+function priceValue(p){
+ if(!p)return e('span','rona-prices-pill','Не сформировано');
+ const c=String(p.currency||'USD');
+ return e('strong','',money(p.sale_price,c+'/т'))
+}
+
+function verifyPill(text){return e('span','rona-prices-pill warn',text||'Требует подтверждения')}
+
+function kpiCard(title,value,caption){
+ const c=e('section','rona-owner-card rona-prices-kpi');
+ const top=e('div');top.append(e('div','rona-prices-kpi-label',title),e('div','rona-prices-kpi-value',value));
+ c.append(top,e('div','rona-prices-kpi-caption',caption));return c
+}
+
+function kpiGrid(rows,groups){
+ const grid=e('div','rona-prices-kpi-grid');
+ const publishedRows=rows.filter(x=>String(x?.business_status||'').toUpperCase()==='PUBLISHED');
+ const verifyGroups=groups.filter(x=>x.needsVerify);
+ const period=pricePeriod(rows);
+ const client=!!updates?.clientEnabled,agent=!!updates?.agentEnabled;
+ const audience=client&&agent?'Клиентам и агентам':client?'Клиентам':agent?'Агентам':'Аудитория требует проверки';
+ grid.append(
+   kpiCard('Действующий прайс',period,'USD/т · CPT · Incoterms 2020'),
+   kpiCard('Позиций опубликовано',String(publishedRows.length),audience),
+   kpiCard('Требует обновления',String(verifyGroups.length),verifyGroups.length?'Производитель / поставщик требуют подтверждения':'Подтверждённые данные заполнены')
+ );
+ return grid
+}
+
+function filterBar(){
+ const bar=e('div','rona-prices-filter');
+ [['ALL','Все'],['PUBLISHED','Опубликовано'],['VERIFY','Требует подтверждения']].forEach(a=>{
+   const b=e('button','',a[1]);b.type='button';b.setAttribute('aria-pressed',String(ownerPriceFilter===a[0]));
+   b.onclick=()=>{ownerPriceFilter=a[0];render()};bar.append(b)
+ });
+ return bar
+}
+
+function pricesCard(rows,groups){
+ const visible=groups.filter(g=>ownerPriceFilter==='VERIFY'?g.needsVerify:ownerPriceFilter==='PUBLISHED'?g.published:true);
+ const body=visible.map(g=>[
+   g.product,
+   g.producer||verifyPill('Требует подтверждения'),
+   g.supplier||verifyPill('Требует подтверждения'),
+   priceValue(g.stations.OZINKI),
+   priceValue(g.stations.SARYAGASH),
+   priceValue(g.stations.NAUSHKI)
+ ]);
+ const card=e('section','rona-owner-card rona-prices-matrix'),head=e('div','rona-prices-card-head');
+ head.append(e('h2','','Действующие цены'),filterBar());card.append(head);
+ card.append(body.length?table(['Продукт','Производитель','Поставщик','CPT Ozinki','CPT Saryagash','CPT Naushki'],body):e('div','rona-prices-empty','По выбранному фильтру позиций нет.'));
+ return card
+}
+
+function termsCard(rows){
+ const card=e('section','rona-owner-card'),head=e('div','rona-prices-card-head'),grid=e('div','rona-prices-terms');
+ head.append(e('h2','','Условия прайса'));
+ const period=pricePeriod(rows);
+ [['Период',period],['Базис','CPT · Incoterms 2020'],['Единица цены','USD / тонна']].forEach(x=>{
+   const t=e('div','rona-prices-term');t.append(e('span','',x[0]),e('strong','',x[1]));grid.append(t)
+ });
+ const payment=String(rows.find(x=>String(x?.payment_terms||'').trim())?.payment_terms||'Требует подтверждения');
+ card.append(head,grid,e('div','rona-prices-payment',payment));return card
 }
 
 async function saveAudience(client,agent){
@@ -204,21 +296,23 @@ async function saveAudience(client,agent){
  try{
    await updateApi('audience','','POST',{client,agent});
    await refreshAll(true);
-   await notify('Доступ к текущему прайс-листу обновлён.')
+   await notify('Публикация прайса обновлена.')
  }catch(err){await notify(err.code||err.message,'Не удалось изменить публикацию')}
 }
 
 function publicationCard(){
- const card=e('section','rona-owner-card rona-prices-summary'),main=e('div','rona-prices-summary-main'),controls=e('div','rona-owner-actions rona-prices-audience-controls');
+ const card=e('section','rona-owner-card rona-prices-publication'),main=e('div','rona-prices-publication-main'),controls=e('div','rona-prices-publication-controls');
+ const client=!!updates?.clientEnabled,agent=!!updates?.agentEnabled;
  main.append(
-   e('div','rona-prices-summary-title','Действующий прайс: '+String(updates?.currentPublicationId||'—')),
-   e('div','rona-prices-summary-meta','ЛК Клиента: '+(updates?.clientEnabled?'включено':'выключено')+' · ЛК Агента: '+(updates?.agentEnabled?'включено':'выключено')+' · Проверено: '+dt(updates?.generatedAt))
+   e('div','rona-prices-publication-title','Публикация прайса'),
+   e('div','rona-prices-publication-meta','Действующий прайс: '+String(updates?.currentPublicationId||'—')+' · Клиенты: '+(client?'опубликовано':'не опубликовано')+' · Агенты: '+(agent?'опубликовано':'не опубликовано')+' · Проверено: '+dt(updates?.generatedAt))
  );
- const lc=e('label'),la=e('label'),c=document.createElement('input'),a=document.createElement('input');
- c.type='checkbox';a.type='checkbox';c.checked=!!updates?.clientEnabled;a.checked=!!updates?.agentEnabled;
- lc.append(c,document.createTextNode(' ЛК Клиента'));la.append(a,document.createTextNode(' ЛК Агента'));
- const save=e('button','','Сохранить публикацию');save.type='button';save.onclick=()=>saveAudience(c.checked,a.checked);
- controls.append(lc,la,save);card.append(main,controls);return card
+ const audience=document.createElement('select');
+ [['BOTH','Клиенты и агенты'],['CLIENTS','Только клиенты'],['AGENTS','Только агенты'],['NONE','Снять публикацию']].forEach(a=>{const o=document.createElement('option');o.value=a[0];o.textContent=a[1];audience.append(o)});
+ audience.value=client&&agent?'BOTH':client?'CLIENTS':agent?'AGENTS':'NONE';
+ const apply=e('button','','Применить публикацию');apply.type='button';
+ apply.onclick=()=>{const v=audience.value;saveAudience(v==='BOTH'||v==='CLIENTS',v==='BOTH'||v==='AGENTS')};
+ controls.append(audience,apply);card.append(main,controls);return card
 }
 
 function signalCard(available){
@@ -231,15 +325,7 @@ function signalCard(available){
 }
 
 function cpStatus(v){
- const m={
-   REQUESTED:['Требуется новое КП','warn'],
-   GENERATED:['Сформировано','warn'],
-   OWNER_REVIEWED:['Просмотрено владельцем','ok'],
-   SENT:['Отправлено','ok'],
-   BLOCKED:['Заблокировано','bad'],
-   RETIRED:['Архив',''],
-   STALE_PRICE_SOURCE:['Неактуален — цена изменена','bad']
- };
+ const m={REQUESTED:['Требуется новое КП','warn'],GENERATED:['Сформировано','warn'],OWNER_REVIEWED:['Просмотрено владельцем','ok'],SENT:['Отправлено','ok'],BLOCKED:['Заблокировано','bad'],RETIRED:['Архив',''],STALE_PRICE_SOURCE:['Неактуален — цена изменена','bad']};
  return m[String(v||'')]||[String(v||'—'),'']
 }
 
@@ -277,37 +363,21 @@ function historyCard(){
  card.append(head,box);return card
 }
 
-function pricesCard(){
- const rows=currentRows(),card=e('section','rona-owner-card'),head=e('div','rona-prices-card-head');
- head.append(
-   e('h2','','Цены'),
-   e('div','rona-prices-card-sub','Текущая внутренняя коммерческая версия. Публикация наружу управляется на уровне всего прайс-листа.')
- );
- card.append(head);
- card.append(rows.length?table(
-   ['Производитель / продукт','Производитель','Поставщик','Покупная цена','ЖД тариф','Территория / направление','Себестоимость на конечной станции','Маржа','Цена реализации','Условия оплаты'],
-   rows
- ):e('div','rona-prices-empty','Согласованные цены из контура Операционного директора пока не поступили.'));
- return card
-}
-
 function render(){
  const r=host();if(!r)return false;
  updateNav();r.replaceChildren(makeHero());
  const pending=Array.isArray(updates?.proposals)?updates.proposals:[],available=pending.filter(x=>x.status==='UPDATE_AVAILABLE');
  if(available.length)r.append(signalCard(available));
- r.append(publicationCard());
  if(pending.length){const ps=e('div','rona-prices-proposals');pending.forEach(p=>ps.append(proposalNode(p)));r.append(ps)}
- r.append(pricesCard());
+ const rows=activePriceRows(),groups=priceGroups(rows);
+ if(rows.length){
+   r.append(kpiGrid(rows,groups),pricesCard(rows,groups),termsCard(rows),publicationCard())
+ }else{
+   r.append(e('section','rona-owner-card rona-prices-empty','Согласованные цены из контура Операционного директора пока не поступили.'),publicationCard())
+ }
  const cp=cpCard();if(cp)r.append(cp);
  const hc=historyCard();if(hc)r.append(hc);
- window.__RONA_PRICES_CURRENT_STATE__={
-   generatedAt:updates?.generatedAt||null,
-   currentPublicationId:updates?.currentPublicationId||null,
-   clientEnabled:!!updates?.clientEnabled,
-   agentEnabled:!!updates?.agentEnabled,
-   updateAvailableCount:Number(updates?.updateAvailableCount||0)
- };
+ window.__RONA_PRICES_CURRENT_STATE__={generatedAt:updates?.generatedAt||null,currentPublicationId:updates?.currentPublicationId||null,clientEnabled:!!updates?.clientEnabled,agentEnabled:!!updates?.agentEnabled,updateAvailableCount:Number(updates?.updateAvailableCount||0)};
  return true
 }
 
@@ -349,7 +419,8 @@ export async function onRequest(){
    'pragma':'no-cache',
    'expires':'0',
    'x-content-type-options':'nosniff',
-   'x-rona-prices-ui':'owner-update-gate-v2',
-   'x-rona-prices-visual':'canonical-v2-restored'
+   'x-rona-prices-ui':'owner-update-gate-v3-canonical-2a',
+   'x-rona-prices-visual':'canonical-v2-restored',
+   'x-rona-prices-structure':'prices-2a-canonical'
  }})
 }
