@@ -24,9 +24,17 @@ function cleanClaimsPresentation(){
     }
   }
 }
-const SYSTEM_REMOVE_LABELS=new Set(['агенты','вознаграждение агентов']);
+const SYSTEM_REMOVE_LABELS=new Set(['агенты']);
 const navNorm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 function navBusinessLabel(el){let t=navNorm(el?.textContent);t=t.replace(/^[^a-zа-яё]+/i,'').replace(/\s+\d+$/,'').trim();return t}
+function relocateAgentRewards(nav){
+  if(!nav)return;
+  const access=nav.querySelector('button[data-page="access"],a[data-page="access"],[role="button"][data-page="access"]');
+  const rewards=Array.from(nav.querySelectorAll('button[data-page],a[data-page],[role="button"][data-page]')).find(control=>navBusinessLabel(control)==='вознаграждение агентов');
+  if(!access||!rewards||access===rewards)return;
+  if(access.nextElementSibling!==rewards)access.insertAdjacentElement('afterend',rewards);
+  rewards.dataset.ronaOwnerNavGroup='clients';
+}
 function removeObsoleteSystemSection(nav){
   if(!nav)return;
   let removedActive=false;
@@ -58,6 +66,7 @@ function removeObsoleteSystemSection(nav){
 function apply(){
   cleanClaimsPresentation();
   const nav=document.getElementById('nav');if(!nav)return;
+  relocateAgentRewards(nav);
   removeObsoleteSystemSection(nav);
   setStyle(nav,'display','flex');setStyle(nav,'flexDirection','column');setStyle(nav,'alignItems','stretch');
   const children=Array.from(nav.children);
