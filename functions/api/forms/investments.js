@@ -73,7 +73,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   if (!sameOrigin(request)) return json({ success: false, code: 'ORIGIN_REJECTED' }, 403);
-  if (!env.BREVO_API_KEY || !env.FORM_DEDUPE) return json({ success: false, code: 'SERVICE_NOT_CONFIGURED' }, 503);
+  if ((!env.BREVO_API_KEY && !env.MAILER) || !env.FORM_DEDUPE) return json({ success: false, code: 'SERVICE_NOT_CONFIGURED' }, 503);
   if (!(await applyRateLimit(request, env.FORM_DEDUPE))) return json({ success: false, code: 'RATE_LIMITED' }, 429);
 
   let data;
