@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 const admin=fs.readFileSync('functions/portal/admin.js','utf8');
 const middleware=fs.readFileSync('functions/portal/_middleware.js','utf8');
 const runtime=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
+const build=fs.readFileSync('scripts/build-pages-direct-canonical.mjs','utf8');
 
 assert(!admin.includes("from './[[path]].js'"),'Admin shell must not depend on catch-all session runtime');
 assert(!admin.includes('supabase.co'),'Admin shell must not call Supabase directly');
@@ -12,7 +13,17 @@ assert(admin.includes('ASSETS?.fetch'),'Admin shell must serve the canonical sta
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
 assert(!admin.includes("u.pathname='/portal/admin.html';"),'Direct .html Static Assets path must not return to Admin shell');
 assert(admin.includes("'x-rona-admin-shell','fast-static-v1'"),'Admin shell resilience header missing');
+assert(admin.includes("'x-rona-admin-shell-render','build-injected-static'"),'Admin build-injected render marker missing');
 assert(admin.includes('hasPortalCookie(request)'),'Admin shell must retain a cookie-presence entry gate');
+assert(!admin.includes('HTMLRewriter'),'Admin route must never rewrite HTML at runtime');
+assert(!admin.includes('response.text()'),'Admin route must never buffer HTML at runtime');
+assert(!admin.includes('FastShellHeadInjector'),'Admin runtime injector must not return');
+
+assert(build.includes("marker: 'rona-admin-fast-shell-runtime'"),'Build-time Admin shell marker missing');
+assert(build.includes('function injectAdminFastShell(source)'),'Build-time Admin shell injector missing');
+assert(build.includes('adminRuntimeText=injectAdminFastShell(adminRuntimeText)'),'Admin shell must be injected during Pages build');
+assert(build.includes("injection:'BUILD_TIME_ONLY'"),'Build integrity metadata must declare build-time-only shell injection');
+assert(build.includes('runtime_html_rewrite:false'),'Build integrity metadata must prohibit runtime HTML rewriting');
 
 assert(middleware.includes("if(url.pathname==='/portal/admin')return context.next();"),'Portal middleware must bypass Admin HTML');
 const adminBypassIndex=middleware.indexOf("if(url.pathname==='/portal/admin')return context.next();");

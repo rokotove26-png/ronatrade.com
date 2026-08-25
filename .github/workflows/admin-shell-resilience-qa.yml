@@ -8,6 +8,7 @@ on:
     branches:
       - 'release/public-go-live-v1.1'
       - 'fix/admin-shell-static-assets-pretty-path-20260826'
+      - 'hotfix/admin-shell-zero-rewrite-20260826'
 
 jobs:
   admin-shell-resilience:
@@ -23,6 +24,7 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check functions/portal/admin.js
           node --check functions/portal/_middleware.js
+          node --check scripts/build-pages-direct-canonical.mjs
       - name: Run Admin shell regression guard
         run: node tests/admin-shell-resilience.test.mjs
       - name: Build Cloudflare Pages artifact
@@ -32,3 +34,6 @@ jobs:
           test -s dist/portal/admin.html
           test -s dist/assets/portal-admin-shell-fast-v1.js
           grep -q "fast-static-v1" dist/assets/portal-admin-shell-fast-v1.js
+          grep -q "rona-admin-fast-shell-runtime" dist/portal/admin.html
+          grep -q "owner-fast-shell-v2-20260826-0251" dist/portal/admin.html
+          node -e "const j=require('./dist/canonical-visual-integrity.json'); if(j?.admin_shell?.injection!=='BUILD_TIME_ONLY'||j?.admin_shell?.runtime_html_rewrite!==false) process.exit(1)"
