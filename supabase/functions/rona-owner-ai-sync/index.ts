@@ -8,11 +8,54 @@ async function authContext(req){const authorization=req.headers.get("authorizati
 function pathOf(req){const p=new URL(req.url).pathname,m="/rona-owner-ai-sync",i=p.indexOf(m);return i>=0?(p.slice(i+m.length)||"/"):p}function requireRole(ctx,role){if(!ctx?.roles?.includes(role))throw Object.assign(new Error("ROLE_MISMATCH"),{status:403})}
 function marketNoise(text){return /(full-contour|\buat\b|protocol|production operating|global cleanup|self-ack|go-live|owner appointment|activation|test r[0-9])/i.test(String(text||""))}
 function marketTerms(text){return /(market|рын|price|прайс|цен|telegram|platts|argus|petromarket|hairatan|khafi|afghanistan|galaba|бенз|диз|lpg|суг|benchmark|конкурент)/i.test(String(text||""))}
+async function coordinationDashboard(){
+  const roleMetrics=await sql`
+    with periods(period,since_at,sort) as (
+      values
+        ('TODAY',date_trunc('day',now()),1),
+        ('7D',now()-interval '7 days',2),
+        ('30D',now()-interval '30 days',3),
+        ('ALL',null::timestamptz,4)
+    ), roles as (
+      select business_role::text role,display_name,identity_id,status::text identity_status
+      from portal_private.ai_service_identities
+      where revoked_at is null
+    ), business as (
+      select * from portal_private.ai_runtime_queue
+      where qa_only=false and source_type in ('PORTAL_REVERSE_EVENT','STAFF_TASK','COORDINATION')
+    )
+    select p.period,r.role,r.display_name,r.identity_id,r.identity_status,
+      count(b.id)::int sent,
+      count(b.id) filter (where b.delivered_at is not null)::int delivered,
+      count(b.id) filter (where b.state='PROCESSED')::int responses,
+      count(b.id) filter (where b.state not in ('PROCESSED','DEAD_LETTER'))::int awaiting,
+      count(b.id) filter (where b.sla_breached_at is not null and b.state not in ('PROCESSED','DEAD_LETTER'))::int sla_breached,
+      count(b.id) filter (where b.state in ('BLOCKED','DEAD_LETTER') or b.last_error_code is not null)::int errors,
+      count(b.id) filter (where b.source_type='PORTAL_REVERSE_EVENT')::int portal_requests,
+      max(b.processed_at) last_response_at,max(b.created_at) last_request_at
+    from periods p cross join roles r
+    left join business b on b.target_role::text=r.role and (p.since_at is null or b.created_at>=p.since_at)
+    group by p.period,p.sort,r.role,r.display_name,r.identity_id,r.identity_status
+    order by p.sort,r.role`;
+  const recent=await sql`
+    select q.id,q.source_type,q.source_id,q.target_role::text as target_role,q.priority,q.state,
+      coalesce(nullif(q.payload->>'title',''),nullif(q.payload->'payload'->>'subject',''),nullif(q.payload->'payload'->>'requested_check',''),q.source_id) as subject,
+      q.created_at,q.delivered_at,q.processed_at,q.deadline_at,q.sla_breached_at,q.last_error_code
+    from portal_private.ai_runtime_queue q
+    where q.qa_only=false and q.source_type in ('PORTAL_REVERSE_EVENT','STAFF_TASK','COORDINATION')
+    order by q.created_at desc limit 24`;
+  const periods={TODAY:[],"7D":[],"30D":[],ALL:[]};
+  for(const row of roleMetrics){const key=String(row.period);if(periods[key])periods[key].push(row)}
+  const totals={};
+  for(const [key,rows] of Object.entries(periods))totals[key]=rows.reduce((a,r)=>({sent:a.sent+Number(r.sent||0),delivered:a.delivered+Number(r.delivered||0),responses:a.responses+Number(r.responses||0),awaiting:a.awaiting+Number(r.awaiting||0),slaBreached:a.slaBreached+Number(r.sla_breached||0),errors:a.errors+Number(r.errors||0),portalRequests:a.portalRequests+Number(r.portal_requests||0)}),{sent:0,delivered:0,responses:0,awaiting:0,slaBreached:0,errors:0,portalRequests:0});
+  return{generatedAt:new Date().toISOString(),semantics:{sent:"Business queue records: PORTAL_REVERSE_EVENT + STAFF_TASK + COORDINATION; HEARTBEAT and SYSTEM_CHECK excluded",responses:"Only queue records settled to PROCESSED by authoritative response/terminal triggers",awaiting:"Non-terminal queue records excluding DEAD_LETTER",sla:"Authoritative ai_runtime_queue.sla_breached_at"},periods,totals,recent};
+}
 async function adminSync(){
   const railTariffs=await sql`select tariff_key,product_group,territory,route_text,tariff_usd_per_t,source_provider,status,original_rate,original_currency,original_unit,valid_to,notes,source_refs,approved_at,updated_at from portal_private.owner_rail_tariff_matrix order by case product_group when 'LIGHT_PETROLEUM' then 1 else 2 end,territory,route_text`;
   const aiRuntime=(await sql`select enabled,protocol_version,scheduler_state,model_execution_state,heartbeat_minutes,worker_version,updated_at from portal_private.ai_runtime_control where singleton=true limit 1`)[0]||null;
   const aiEmployees=await sql`select identity_id,business_role::text,display_name,status::text,updated_at from portal_private.ai_service_identities order by business_role::text`;
   const latestAiConclusions=await sql`select distinct on (functional_role,target_type,target_id) record_id,functional_role::text as role,target_type,target_id,status,version,payload->>'summary' as summary,created_at from portal_private.ai_coordination_records where record_type='FUNCTIONAL_CONCLUSION' and qa_only=false order by functional_role,target_type,target_id,version desc,created_at desc limit 50`;
+  const homeCoordination=await coordinationDashboard();
 
   const marketIdentity=(await sql`select identity_id,business_role::text as role,display_name,status::text,updated_at from portal_private.ai_service_identities where identity_id='AI-MARKET-ANALYST' limit 1`)[0]||null;
   const marketRecords=await sql`
@@ -79,7 +122,7 @@ async function adminSync(){
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
   const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',sourceAsOf:cash[0]?.snapshot_date||null,payments,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
-  return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
+  return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,homeCoordination,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
 async function agentSync(ctx){const rawPolicy=(await sql`select numeric_value,applies_to,status,updated_at from portal_private.owner_agent_display_policies where policy_key='POSITIVE_ACTUAL_FX_EFFECT_AGENT_VISIBLE_SHARE' and agent_visible=true and status='ACTIVE_DISPLAY_ONLY' limit 1`)[0]||null;const share=rawPolicy?normalizedShare(rawPolicy.numeric_value):null;const displayPolicy=rawPolicy&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:String(rawPolicy.applies_to),status:String(rawPolicy.status),updatedAt:rawPolicy.updated_at,note:'При подтвержденном положительном фактическом курсовом эффекте в ЛК Агента учитывается только разрешенная доля подтвержденной суммы. Прогнозные и неподтвержденные значения не используются.'}:null;const settlements=await sql`select s.settlement_id,d.deal_id,cl.client_id,s.settlement_state::text,s.amount,s.currency,s.payable_confirmed_at,s.paid_at,s.updated_at from portal_private.agent_settlements s join portal_private.deals d on d.id=s.deal_key join portal_private.clients cl on cl.id=d.client_key where s.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.agent_user_has_deal_access(${ctx.userId}::uuid,s.deal_key,now()) order by s.created_at desc`;const amountVisible=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);return{generatedAt:new Date().toISOString(),displayPolicy,settlements:settlements.map(r=>{const stage=String(r.settlement_state);const visible=amountVisible.has(stage);return{settlementId:String(r.settlement_id),dealId:String(r.deal_id),clientId:String(r.client_id),stage,amount:visible?r.amount:null,currency:visible?r.currency:null,paymentObligationConfirmed:r.payable_confirmed_at!=null,paymentFactConfirmed:r.paid_at!=null,updatedAt:r.updated_at}}),positiveActualFxEffects:[]}}
