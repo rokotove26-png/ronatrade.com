@@ -1,0 +1,155 @@
+name: Admin Shell Live Production QA
+
+on:
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+      - 'hotfix/admin-shell-live-*'
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+
+jobs:
+  authenticated-admin-shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Wait for Cloudflare Pages deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const repo=process.env.GITHUB_REPOSITORY;
+          const sha=process.env.GITHUB_SHA;
+          const token=process.env.GH_TOKEN;
+          const isRelease=process.env.GITHUB_REF_NAME==='release/public-go-live-v1.1';
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          (async()=>{
+            for(let i=0;i<90;i++){
+              const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{
+                headers:{authorization:`Bearer ${token}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-Trade-Admin-Shell-Live-QA'}
+              });
+              if(r.ok){
+                const j=await r.json();
+                const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');
+                if(cf?.status==='completed'&&cf?.conclusion==='success'){
+                  let origin='https://ronaoil.com';
+                  if(!isRelease){
+                    const m=String(cf?.output?.summary||'').match(/https:\/\/[a-z0-9-]+\.rona-trade-public\.pages\.dev/i);
+                    if(!m)throw new Error('Cloudflare preview URL missing');
+                    origin=m[0];
+                  }
+                  fs.appendFileSync(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\n`);
+                  console.log(`CLOUDFLARE_DEPLOYMENT_READY ${origin}`);
+                  return;
+                }
+                if(cf?.status==='completed'&&cf?.conclusion&&cf.conclusion!=='success')throw new Error(`Cloudflare Pages ${cf.conclusion}`);
+              }
+              await sleep(5000);
+            }
+            throw new Error('Cloudflare Pages deployment timeout');
+          })().catch(e=>{console.error(e.message);process.exit(1)});
+          NODE
+
+      - name: Obtain controlled Admin session
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --request POST \
+            'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header "x-github-repository: ${GITHUB_REPOSITORY}" \
+            --header "x-github-sha: ${GITHUB_SHA}" \
+            --header "x-github-ref: ${GITHUB_REF}" \
+            --header "x-github-run-id: ${GITHUB_RUN_ID}" \
+            --output /tmp/rona-admin-session.json
+          node <<'NODE'
+          const fs=require('fs');
+          const j=JSON.parse(fs.readFileSync('/tmp/rona-admin-session.json','utf8'));
+          if(!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error('controlled Admin session unavailable');
+          console.log('::add-mask::'+j.session.access_token);
+          console.log('::add-mask::'+j.session.refresh_token);
+          fs.appendFileSync(process.env.GITHUB_ENV,`RONA_ACCESS_TOKEN<<EOF\n${j.session.access_token}\nEOF\nRONA_REFRESH_TOKEN<<EOF\n${j.session.refresh_token}\nEOF\n`);
+          NODE
+          rm -f /tmp/rona-admin-session.json
+
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Prove authenticated Admin shell opens repeatedly
+        env:
+          TARGET_ORIGIN: ${{ env.TARGET_ORIGIN }}
+          RONA_ACCESS_TOKEN: ${{ env.RONA_ACCESS_TOKEN }}
+          RONA_REFRESH_TOKEN: ${{ env.RONA_REFRESH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const origin=process.env.TARGET_ORIGIN;
+          const access=process.env.RONA_ACCESS_TOKEN;
+          const refresh=process.env.RONA_REFRESH_TOKEN;
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true});
+            const hostname=new URL(origin).hostname;
+            const ctx=await browser.newContext({viewport:{width:1600,height:1000},javaScriptEnabled:true});
+            await ctx.addCookies([
+              {name:'rona_portal_at',value:access,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
+              {name:'rona_portal_rt',value:refresh,domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}
+            ]);
+            const results=[];
+            for(let attempt=1;attempt<=3;attempt++){
+              const p=await ctx.newPage();
+              const pageErrors=[];
+              p.on('pageerror',e=>pageErrors.push(String(e?.message||e)));
+              const response=await p.goto(origin+'/portal/admin?_live_shell_qa='+Date.now()+'_'+attempt,{waitUntil:'domcontentloaded',timeout:45000});
+              assert(response,'Admin response missing');
+              assert(response.status()===200,'Admin HTTP '+response.status());
+              assert(new URL(p.url()).pathname==='/portal/admin','Admin redirected to '+p.url());
+              assert(response.headers()['x-rona-admin-shell']==='fast-static-v1','Admin resilience header missing');
+              const text=(await p.locator('body').innerText().catch(()=>''));
+              assert(!/error\s*1102/i.test(text),'Cloudflare 1102 rendered');
+              await p.waitForFunction(()=>window.__RONA_ADMIN_SHELL_RESILIENCE__==='fast-static-v1',null,{timeout:10000});
+              await p.waitForFunction(()=>['VERIFIED','DEGRADED_BACKEND'].includes(String(window.__RONA_ADMIN_SESSION_STATE__||'')),null,{timeout:30000});
+              const state=await p.evaluate(()=>window.__RONA_ADMIN_SESSION_STATE__);
+              assert(state==='VERIFIED','Admin session did not verify: '+state);
+              await p.waitForFunction(()=>window.__RONA_ADMIN_FAST_CORE_LOADED__===true,null,{timeout:30000});
+              const visible=await p.evaluate(()=>{
+                const app=document.querySelector('.app');
+                if(!app)return false;
+                const s=getComputedStyle(app),r=app.getBoundingClientRect();
+                return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)>0&&r.width>0&&r.height>0;
+              });
+              assert(visible,'Admin app is not visible');
+              const navCount=await p.locator('#nav button[data-page]').count();
+              assert(navCount>=20,'Admin navigation incomplete: '+navCount);
+              const sessionProbe=await p.evaluate(async()=>{const r=await fetch('/portal/api/session/me',{credentials:'same-origin',cache:'no-store'});return r.status});
+              assert(sessionProbe===200,'Session probe '+sessionProbe);
+              results.push({attempt,status:response.status(),shell:response.headers()['x-rona-admin-shell'],session:state,navCount,pageErrors:pageErrors.slice(0,3)});
+              await p.close();
+            }
+            await browser.close();
+            console.log(JSON.stringify({ok:true,origin,attempts:results},null,2));
+          })().catch(e=>{console.error(e.stack||e.message);process.exit(1)});
+          NODE
+
+      - name: Clean runtime secrets
+        if: always()
+        shell: bash
+        run: |
+          rm -f /tmp/rona-admin-session.json
