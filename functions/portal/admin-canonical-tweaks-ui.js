@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_CANONICAL_TWEAKS__)return;
-window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-2115-v6-prices-runtime-refresh';
+window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-2135-v7-prices-agent-cp-current-only';
 if(location.pathname!=='/portal/admin')return;
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
@@ -26,6 +26,8 @@ function connectionLabel(){if(window.__RONA_OWNER_ADMIN_ERROR__||window.__RONA_O
 function updateTicker(){const t=q('#rona-admin-version-ticker .rona-admin-version-track');if(!t)return;const meta=q('meta[name="rona-ui-build"]')?.content||'',build=String(meta||window.__RONA_UI_BUILD__||'owner-main-v2'),text='Версия кабинета: '+build+'   ·   Подключение: '+connectionLabel();if(t.textContent!==text)t.textContent=text}
 function analyticsFix(){for(const h of qa('#rona-analytics-v2 h1,#rona-analytics-v2 h2,#rona-analytics-v2 h3'))if(norm(h.textContent)==='комментарий коммерческого директора')h.textContent='Аналитический вывод'}
 function agentsFix(){const root=q('#rona-ca4');if(!root)return;const active=qa('.ca4-tabs button',root).find(b=>b.getAttribute('aria-pressed')==='true');if(!active||norm(active.textContent)!=='агенты')return;const snap=window.__RONA_OWNER_ADMIN_SNAPSHOT__||{},agents=Array.isArray(snap.agents)?snap.agents:[];for(const card of qa('.ca4-grid>.ca4-card',root)){const id=String(q('.ca4-id',card)?.textContent||'').trim(),name=q('.ca4-name',card);if(!id||!name)continue;const rows=agents.filter(a=>String(a.agent_person_id||a.id||'')===id),agent=rows[0],base=String(agent?.agent_name||agent?.display_name||agent?.full_name||name.textContent||'Агент').replace(/\s*\([^)]*\)\s*$/,'').trim(),legalEntities=rows.map(a=>String(a.agent_legal_name||'').trim()).filter(Boolean),unique=Array.from(new Set(legalEntities)),next=unique.length?base+' ('+unique.join(', ')+')':base;if(name.textContent!==next)name.textContent=next}}
+function activePriceId(){const root=q('#rona-prices-current')||q('#page-prices');if(!root)return'';for(const node of qa('.rona-prices-publication-title,.rona-prices-publication-main,.rona-prices-publication',root)){const text=String(node.textContent||'');if(!/действующ/i.test(text))continue;const m=text.match(/RONA-PRICE-LIST-\d{4}-\d{2}-R\d+/i);if(m)return m[0].toUpperCase()}const m=String(root.textContent||'').match(/Действующий\s+прайс\s+(RONA-PRICE-LIST-\d{4}-\d{2}-R\d+)/i);return m?m[1].toUpperCase():''}
+function currentAgentCpFix(){const root=q('#rona-prices-current')||q('#page-prices');if(!root)return;const rows=qa('.rona-prices-cp-row',root);if(!rows.length)return;const priceId=activePriceId();if(!priceId)return;let visible=0;for(const row of rows){const current=String(row.textContent||'').toUpperCase().includes(priceId);if(current){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('aria-hidden');visible++}else{row.hidden=true;row.style.setProperty('display','none','important');row.setAttribute('aria-hidden','true')}}const parent=rows[0].parentElement;if(!parent)return;let empty=q('[data-rona-agent-cp-current-empty]',parent);if(visible){if(empty)empty.remove();return}if(!empty){empty=document.createElement('div');empty.className='rona-prices-empty';empty.dataset.ronaAgentCpCurrentEmpty='1';empty.textContent='По действующему прайсу КП агентам отсутствуют.';parent.appendChild(empty)}}
 function resizeRailMap(){const page=q('#page-monitoring');if(!page||!page.classList.contains('active'))return;for(const canvas of qa('.rona-rail-v81 .rona-rail-v4-map-canvas',page)){const map=canvas.__ronaV81Map;if(map&&typeof map.resize==='function'){try{map.resize();setTimeout(()=>{try{map.resize()}catch(_){}},120)}catch(_){}}}}
 function ensurePricesUI(){
  const structure=String(window.__RONA_PRICES_STRUCTURE__||'');
@@ -42,12 +44,12 @@ function ensurePricesUI(){
  if(q('script[data-rona-prices-current-loader]'))return;
  const s=document.createElement('script');s.src='/portal/prices-current-ui?v=20260825-2055-centered-modal-v4';s.defer=true;s.dataset.ronaPricesCurrentLoader='v4';s.onerror=()=>{window.__RONA_PRICES_CURRENT_LOADER_ERROR__='LOAD_FAILED'};document.body.appendChild(s)
 }
-function apply(){headerFix();updateTicker();analyticsFix();agentsFix();resizeRailMap();ensurePricesUI()}
+function apply(){headerFix();updateTicker();analyticsFix();agentsFix();currentAgentCpFix();resizeRailMap();ensurePricesUI()}
 let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
 document.addEventListener('click',ev=>{const nav=ev.target?.closest?.('#nav button[data-page]');if(nav?.dataset.page==='monitoring')[0,120,360,900,1800,3200].forEach(ms=>setTimeout(resizeRailMap,ms));if(nav?.dataset.page==='access'||nav?.dataset.page==='analytics'||nav?.dataset.page==='prices')[0,80,240,700].forEach(ms=>setTimeout(schedule,ms))},true);
 window.addEventListener('resize',()=>setTimeout(resizeRailMap,80),{passive:true});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
 new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
-setInterval(()=>{headerFix();updateTicker();analyticsFix();agentsFix();ensurePricesUI()},1000);
+setInterval(()=>{headerFix();updateTicker();analyticsFix();agentsFix();currentAgentCpFix();ensurePricesUI()},1000);
 })();`;
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-admin-canonical-tweaks':'20260825-2115-v6-prices-runtime-refresh'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-admin-canonical-tweaks':'20260825-2135-v7-prices-agent-cp-current-only'}})}
