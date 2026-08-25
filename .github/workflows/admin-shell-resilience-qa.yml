@@ -1,0 +1,45 @@
+name: Admin Shell Resilience QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/admin.js'
+      - 'functions/portal/_middleware.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'tests/admin-shell-resilience.test.mjs'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - '.github/workflows/admin-shell-resilience-qa.yml'
+  push:
+    branches:
+      - 'fix/admin-shell-permanent-resilience-20260826'
+    paths:
+      - 'functions/portal/admin.js'
+      - 'functions/portal/_middleware.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'tests/admin-shell-resilience.test.mjs'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - '.github/workflows/admin-shell-resilience-qa.yml'
+
+jobs:
+  admin-shell-resilience:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check Admin shell code
+        run: |
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check functions/portal/admin.js
+          node --check functions/portal/_middleware.js
+      - name: Run Admin shell regression guard
+        run: node tests/admin-shell-resilience.test.mjs
+      - name: Build Cloudflare Pages artifact
+        run: npm run build
+      - name: Verify resilient Admin artifacts
+        run: |
+          test -s dist/portal/admin.html
+          test -s dist/assets/portal-admin-shell-fast-v1.js
+          grep -q "fast-static-v1" dist/assets/portal-admin-shell-fast-v1.js
