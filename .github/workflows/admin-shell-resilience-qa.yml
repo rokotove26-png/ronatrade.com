@@ -2,23 +2,12 @@ name: Admin Shell Resilience QA
 
 on:
   pull_request:
-    paths:
-      - 'functions/portal/admin.js'
-      - 'functions/portal/_middleware.js'
-      - 'assets/portal-admin-shell-fast-v1.js'
-      - 'tests/admin-shell-resilience.test.mjs'
-      - 'scripts/build-pages-direct-canonical.mjs'
-      - '.github/workflows/admin-shell-resilience-qa.yml'
+    branches:
+      - 'release/public-go-live-v1.1'
   push:
     branches:
-      - 'fix/admin-shell-permanent-resilience-20260826'
-    paths:
-      - 'functions/portal/admin.js'
-      - 'functions/portal/_middleware.js'
-      - 'assets/portal-admin-shell-fast-v1.js'
-      - 'tests/admin-shell-resilience.test.mjs'
-      - 'scripts/build-pages-direct-canonical.mjs'
-      - '.github/workflows/admin-shell-resilience-qa.yml'
+      - 'release/public-go-live-v1.1'
+      - 'fix/admin-shell-static-assets-pretty-path-20260826'
 
 jobs:
   admin-shell-resilience:

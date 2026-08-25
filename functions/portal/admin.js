@@ -37,7 +37,11 @@ function loginRedirect(request){
 async function canonicalAdminAsset(context){
   if(context.env?.ASSETS?.fetch){
     const u=new URL(context.request.url);
-    u.pathname='/portal/admin.html';
+    // Cloudflare Static Assets resolves HTML through the pretty pathname. Using
+    // /portal/admin.html here can invoke canonicalization/redirect behavior.
+    // ASSETS.fetch addresses the asset binding directly; it does not recurse
+    // through this Pages Function route.
+    u.pathname='/portal/admin';
     u.search='';
     return context.env.ASSETS.fetch(new Request(u.toString(),{
       method:context.request.method,
