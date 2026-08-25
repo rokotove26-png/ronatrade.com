@@ -1,7 +1,7 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_OWNER_LAYOUT_POLISH__)return;
-window.__RONA_OWNER_LAYOUT_POLISH__='20260824-1346-rail-claims-v1';
+window.__RONA_OWNER_LAYOUT_POLISH__='20260825-1803-prices-owner-v1';
 window.__RONA_SECTION_VISUAL_HARMONY__='20260824-home-parity-v1';
 var s=document.createElement('style');
 s.id='ronaOwnerLayoutPolishStyle';
@@ -28,7 +28,7 @@ document.head.appendChild(s);
 
 if(location.pathname!=='/portal/admin')return;
 if(window.__RONA_CANONICAL_SECTION_RECOVERY__)return;
-window.__RONA_CANONICAL_SECTION_RECOVERY__='20260824-independent-access-analytics-v5';
+window.__RONA_CANONICAL_SECTION_RECOVERY__='20260825-independent-access-analytics-prices-v1';
 var root=document.documentElement,busy=false,harmonyBusy=false;
 function sleep(ms){return new Promise(function(resolve){setTimeout(resolve,ms)})}
 function load(src,id){return new Promise(function(resolve,reject){var old=document.querySelector('script[data-rona-section-recovery="'+id+'"]');if(old){resolve();return}var x=document.createElement('script');x.src=src;x.async=false;x.dataset.ronaSectionRecovery=id;x.onload=function(){resolve()};x.onerror=function(){reject(new Error('SECTION_LOAD_FAILED:'+id))};(document.body||document.documentElement).appendChild(x)})}
@@ -42,7 +42,8 @@ function enforce(){if(busy)return;busy=true;try{if(window.__RONA_CLIENTS_AGENTS_
 function watchPages(){['#page-access','#page-analytics'].forEach(function(sel){var p=document.querySelector(sel);if(!p||p.__ronaCanonicalOwnerWatch)return;p.__ronaCanonicalOwnerWatch=true;new MutationObserver(function(){queueMicrotask(enforce)}).observe(p,{childList:true})});document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest&&ev.target.closest('#nav button[data-page]');if(!b||!['access','analytics'].includes(String(b.dataset.page||'')))return;[0,60,160,360,800,1600].forEach(function(ms){setTimeout(enforce,ms)})},true)}
 async function access(){try{await load('/portal/clients-agents-canonical-guard-ui?v=20260824-recovery-5','access-guard');try{await waitFor(function(){return window.__RONA_ACCESS_FUNCTIONAL_ARCHIVE_READY__===true||window.__RONA_CLIENTS_AGENTS_V4_READY__===true},'ACCESS_ARCHIVE_OR_READY',7000)}catch(e){window.__RONA_ACCESS_RECOVERY_ARCHIVE_WARNING__=String(e&&e.message||e)}if(window.__RONA_CLIENTS_AGENTS_V4_READY__===true){enforce();return}await load('/portal/clients-agents-v4-ui?v=20260824-2018-home-parity-v1-recovery-5','access-v4');await waitFor(function(){return window.__RONA_CLIENTS_AGENTS_V4_READY__===true},'ACCESS_V4',7000);enforce()}catch(e){root.classList.add('rona-access-fallback');root.dataset.ronaAccessRecovery='fallback';window.__RONA_ACCESS_RECOVERY_ERROR__=String(e&&e.message||e);console.error('[RONA access independent recovery]',e)}}
 async function analytics(){try{await load('/portal/analytics-v2-ui?v=20260824-v3-market-rona-lpg-recovery-5','analytics-v2');await waitFor(function(){return window.__RONA_ANALYTICS_V2_READY__===true},'ANALYTICS_V2',7000);enforce()}catch(e){root.classList.add('rona-analytics-fallback');root.dataset.ronaAnalyticsRecovery='fallback';window.__RONA_ANALYTICS_RECOVERY_ERROR__=String(e&&e.message||e);console.error('[RONA analytics independent recovery]',e)}}
-async function run(){try{await waitFor(function(){return window.__RONA_OWNER_ADMIN_READY__===true&&document.querySelector('#page-access')&&document.querySelector('#page-analytics')},'ADMIN_CORE',15000)}catch(e){window.__RONA_SECTION_RECOVERY_ERROR__=String(e&&e.message||e);return}watchPages();await Promise.allSettled([access(),analytics()]);enforce();window.__RONA_CANONICAL_SECTION_RECOVERY_READY__=window.__RONA_CLIENTS_AGENTS_V4_READY__===true&&window.__RONA_ANALYTICS_V2_READY__===true}
+async function prices(){try{await load('/portal/prices-current-ui?v=20260825-1803','prices-current-v1');window.__RONA_PRICES_LOADER_READY__=true}catch(e){window.__RONA_PRICES_LOADER_ERROR__=String(e&&e.message||e);console.error('[RONA prices current owner]',e)}}
+async function run(){try{await waitFor(function(){return window.__RONA_OWNER_ADMIN_READY__===true&&document.querySelector('#page-access')&&document.querySelector('#page-analytics')&&document.querySelector('#page-prices')},'ADMIN_CORE',15000)}catch(e){window.__RONA_SECTION_RECOVERY_ERROR__=String(e&&e.message||e);return}watchPages();await prices();await Promise.allSettled([access(),analytics()]);enforce();window.__RONA_CANONICAL_SECTION_RECOVERY_READY__=window.__RONA_CLIENTS_AGENTS_V4_READY__===true&&window.__RONA_ANALYTICS_V2_READY__===true&&window.__RONA_PRICES_LOADER_READY__===true}
 setInterval(enforce,1000);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(run,0)},{once:true});else setTimeout(run,0);
 })();`;
 
@@ -53,7 +54,7 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-owner-layout-polish':'rail-claims-v1',
+    'x-rona-owner-layout-polish':'rail-claims-prices-v1',
     'x-rona-section-visual-harmony':'home-parity-v1'
   }});
 }
