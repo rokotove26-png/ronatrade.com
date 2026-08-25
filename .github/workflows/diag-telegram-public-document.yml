@@ -19,6 +19,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install probe dependency
+        run: python -m pip install --disable-pip-version-check 'requests>=2.32,<3'
+
       - name: Probe public RSSHub Telegram media bridges
         shell: bash
         run: |
