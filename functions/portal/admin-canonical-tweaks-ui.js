@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_CANONICAL_TWEAKS__)return;
-window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-1830-v4-prices';
+window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-1900-v5-prices';
 if(location.pathname!=='/portal/admin')return;
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
@@ -26,7 +26,7 @@ function updateTicker(){const t=q('#rona-admin-version-ticker .rona-admin-versio
 function analyticsFix(){for(const h of qa('#rona-analytics-v2 h1,#rona-analytics-v2 h2,#rona-analytics-v2 h3'))if(norm(h.textContent)==='комментарий коммерческого директора')h.textContent='Аналитический вывод'}
 function agentsFix(){const root=q('#rona-ca4');if(!root)return;const active=qa('.ca4-tabs button',root).find(b=>b.getAttribute('aria-pressed')==='true');if(!active||norm(active.textContent)!=='агенты')return;const snap=window.__RONA_OWNER_ADMIN_SNAPSHOT__||{},agents=Array.isArray(snap.agents)?snap.agents:[];for(const card of qa('.ca4-grid>.ca4-card',root)){const id=String(q('.ca4-id',card)?.textContent||'').trim(),name=q('.ca4-name',card);if(!id||!name)continue;const rows=agents.filter(a=>String(a.agent_person_id||a.id||'')===id),agent=rows[0],base=String(agent?.agent_name||agent?.display_name||agent?.full_name||name.textContent||'Агент').replace(/\s*\([^)]*\)\s*$/,'').trim(),legalEntities=rows.map(a=>String(a.agent_legal_name||'').trim()).filter(Boolean),unique=Array.from(new Set(legalEntities)),next=unique.length?base+' ('+unique.join(', ')+')':base;if(name.textContent!==next)name.textContent=next}}
 function resizeRailMap(){const page=q('#page-monitoring');if(!page||!page.classList.contains('active'))return;for(const canvas of qa('.rona-rail-v81 .rona-rail-v4-map-canvas',page)){const map=canvas.__ronaV81Map;if(map&&typeof map.resize==='function'){try{map.resize();setTimeout(()=>{try{map.resize()}catch(_){}},120)}catch(_){}}}}
-function ensurePricesUI(){if(window.__RONA_PRICES_CURRENT_UI__||q('script[data-rona-prices-current-loader]'))return;const s=document.createElement('script');s.src='/portal/prices-current-ui?v=20260825-1830';s.defer=true;s.dataset.ronaPricesCurrentLoader='v1';s.onerror=()=>{window.__RONA_PRICES_CURRENT_LOADER_ERROR__='LOAD_FAILED'};document.body.appendChild(s)}
+function ensurePricesUI(){if(window.__RONA_PRICES_CURRENT_UI__||q('script[data-rona-prices-current-loader]'))return;const s=document.createElement('script');s.src='/portal/prices-current-ui?v=20260825-1900';s.defer=true;s.dataset.ronaPricesCurrentLoader='v2';s.onerror=()=>{window.__RONA_PRICES_CURRENT_LOADER_ERROR__='LOAD_FAILED'};document.body.appendChild(s)}
 function apply(){headerFix();updateTicker();analyticsFix();agentsFix();resizeRailMap();ensurePricesUI()}
 let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
 document.addEventListener('click',ev=>{const nav=ev.target?.closest?.('#nav button[data-page]');if(nav?.dataset.page==='monitoring')[0,120,360,900,1800,3200].forEach(ms=>setTimeout(resizeRailMap,ms));if(nav?.dataset.page==='access'||nav?.dataset.page==='analytics'||nav?.dataset.page==='prices')[0,80,240,700].forEach(ms=>setTimeout(schedule,ms))},true);
@@ -35,4 +35,4 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
 setInterval(()=>{headerFix();updateTicker();analyticsFix();agentsFix();ensurePricesUI()},1000);
 })();`;
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-admin-canonical-tweaks':'20260825-1830-v4-prices'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-admin-canonical-tweaks':'20260825-1900-v5-prices'}})}
