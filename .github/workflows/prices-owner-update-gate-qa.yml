@@ -1,0 +1,51 @@
+name: Prices Owner Update Gate QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/price-updates-api.js'
+      - 'functions/portal/admin-canonical-tweaks-ui.js'
+      - 'supabase/migrations/*owner_price_update_gate*.sql'
+      - '.github/workflows/prices-owner-update-gate-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  prices-owner-update-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax
+        run: |
+          node --check functions/portal/prices-current-ui.js
+          node --check functions/portal/price-updates-api.js
+          node --check functions/portal/admin-canonical-tweaks-ui.js
+      - name: Contract gate
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const ui=fs.readFileSync('functions/portal/prices-current-ui.js','utf8');
+          const api=fs.readFileSync('functions/portal/price-updates-api.js','utf8');
+          const mig=fs.readFileSync('supabase/migrations/20260825183000_owner_price_update_gate_v1.sql','utf8');
+          const loader=fs.readFileSync('functions/portal/admin-canonical-tweaks-ui.js','utf8');
+          const need=(src,token,label)=>{if(!src.includes(token))throw new Error(label+': '+token)};
+          need(ui,'Данные обновлены','missing owner update signal');
+          need(ui,"'Обновить'",'missing owner apply action');
+          need(ui,'Действующий прайс и внешние кабинеты не изменятся','missing no-auto-publish explanation');
+          need(api,'owner_price_updates_bootstrap','missing bootstrap rpc');
+          need(api,'owner_apply_price_change_proposal','missing apply rpc');
+          need(mig,"AI-OPERATIONS-DIRECTOR",'missing fixed Operations identity');
+          need(mig,"PROPOSE_PRICE_LIST_UPDATE",'missing proposal contract');
+          need(mig,"proposal_status='APPLIED'",'missing apply state');
+          need(mig,"business_status='SUPERSEDED'",'missing version supersede');
+          need(mig,"STALE_PRICE_SOURCE",'missing stale Agent CP guard');
+          need(mig,"OWNER_PRICE_UPDATE_APPLIED",'missing audit event');
+          need(mig,"publish_client",'missing Client propagation');
+          need(mig,"publish_agent",'missing Agent propagation');
+          need(loader,'/portal/prices-current-ui','canonical Prices loader missing');
+          if(/fetch\([^)]*OPERATIONS/i.test(ui))throw new Error('Admin UI must not send pricing intelligence to Operations');
+          console.log('PRICES_OWNER_UPDATE_GATE=PASS');
+          NODE
