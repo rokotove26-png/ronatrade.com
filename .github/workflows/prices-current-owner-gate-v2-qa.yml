@@ -1,0 +1,45 @@
+name: RONA Prices owner approval v2
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/price-updates-api.js'
+      - 'functions/portal/admin-canonical-tweaks-ui.js'
+      - 'supabase/migrations/20260825190000_owner_price_update_gate_v2.sql'
+      - '.github/workflows/prices-current-owner-gate-v2-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  prices-owner-gate-v2:
+    name: Verify Prices owner approval v2 contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check functions/portal/prices-current-ui.js
+          node --check functions/portal/price-updates-api.js
+          node --check functions/portal/admin-canonical-tweaks-ui.js
+      - name: Verify canonical direction and owner gates
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const ui=fs.readFileSync('functions/portal/prices-current-ui.js','utf8');
+          const api=fs.readFileSync('functions/portal/price-updates-api.js','utf8');
+          const loader=fs.readFileSync('functions/portal/admin-canonical-tweaks-ui.js','utf8');
+          const mig=fs.readFileSync('supabase/migrations/20260825190000_owner_price_update_gate_v2.sql','utf8');
+          const need=(text,patterns,label)=>{for(const p of patterns){if(!text.includes(p))throw new Error(label+': missing '+p)}};
+          need(ui,['20260825-owner-update-gate-v2','Данные обновлены','Открыть детали','Отклонить','Обновить','ЛК Клиента','ЛК Агента','Неактуален — цена изменена','Только внутреннее'],'prices UI');
+          if(ui.includes("/admin/prices/")) throw new Error('legacy per-row publication route remains in current Prices UI');
+          need(api,["op==='apply'","op==='reject'","op==='audience'",'owner_apply_price_change_proposal','owner_reject_price_change_proposal','owner_set_price_publication_audience'],'price update API');
+          need(loader,['20260825-1900-v5-prices','/portal/prices-current-ui?v=20260825-1900',"ronaPricesCurrentLoader='v2'"],'canonical loader');
+          need(mig,['AI-OPERATIONS-DIRECTOR','PROPOSE_PRICE_LIST_UPDATE','BUSINESS_CHANGE_PROPOSAL','OWNER_PRICE_UPDATE_APPLIED','OWNER_PRICE_UPDATE_REJECTED','STALE_PRICE_SOURCE','owner_set_price_publication_audience','operations-price-proposal-v2'],'migration');
+          if(/HANDOFF_REQUEST[\s\S]{0,500}OPERATIONS_DIRECTOR/.test(ui+api+mig)) throw new Error('Admin Prices must not create an Operations handoff');
+          console.log('PRICES_OWNER_APPROVAL_V2=PASS');
+          NODE
