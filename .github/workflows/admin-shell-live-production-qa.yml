@@ -76,27 +76,33 @@ jobs:
           const {chromium}=require('playwright');
           const origin=process.env.TARGET_ORIGIN;
           const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function poll(page,reader,label,timeout){
+            const started=Date.now();
+            let last;
+            while(Date.now()-started<timeout){
+              last=await page.evaluate(reader).catch(()=>undefined);
+              if(last)return last;
+              await sleep(200);
+            }
+            throw new Error(label+' timeout; last='+String(last));
+          }
           (async()=>{
             const browser=await chromium.launch({headless:true});
             const hostname=new URL(origin).hostname;
 
-            // First prove the unauthenticated entry gate still redirects to login.
             const guest=await browser.newContext({viewport:{width:1600,height:1000},javaScriptEnabled:true});
             const guestPage=await guest.newPage();
             await guestPage.goto(origin+'/portal/admin?_guest_gate_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
             assert(new URL(guestPage.url()).pathname==='/portal/login','Unauthenticated Admin entry did not redirect to login: '+guestPage.url());
             await guest.close();
 
-            // The probe cookie only exercises the HTML/static Pages path. It is not a Supabase token.
-            // All real business APIs therefore remain unauthorized/fail-closed.
             const ctx=await browser.newContext({viewport:{width:1600,height:1000},javaScriptEnabled:true});
             await ctx.addCookies([
               {name:'rona_portal_at',value:'qa-shell-probe-not-a-token',domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
               {name:'rona_portal_rt',value:'qa-shell-probe-not-a-token',domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}
             ]);
 
-            // Browser-local interception verifies the first-paint runtime without creating or using
-            // any production Owner/Admin session. It only replaces /session/me inside this test page.
             await ctx.route('**/portal/api/session/me',async route=>{
               await route.fulfill({
                 status:200,
@@ -117,9 +123,9 @@ jobs:
               assert(response.headers()['x-rona-admin-shell']==='fast-static-v1','Admin resilience header missing');
               const text=(await p.locator('body').innerText().catch(()=>''));
               assert(!/error\s*1102/i.test(text),'Cloudflare 1102 rendered');
-              await p.waitForFunction(()=>window.__RONA_ADMIN_SHELL_RESILIENCE__==='fast-static-v1',null,{timeout:10000});
-              await p.waitForFunction(()=>window.__RONA_ADMIN_SESSION_STATE__==='VERIFIED',null,{timeout:10000});
-              await p.waitForFunction(()=>window.__RONA_ADMIN_FAST_CORE_LOADED__===true,null,{timeout:30000});
+              await poll(p,()=>window.__RONA_ADMIN_SHELL_RESILIENCE__==='fast-static-v1','Admin resilience marker',10000);
+              await poll(p,()=>window.__RONA_ADMIN_SESSION_STATE__==='VERIFIED','Admin QA session state',10000);
+              await poll(p,()=>window.__RONA_ADMIN_FAST_CORE_LOADED__===true,'Admin core UI',30000);
               const visible=await p.evaluate(()=>{
                 const app=document.querySelector('.app');
                 if(!app)return false;
@@ -135,8 +141,6 @@ jobs:
               await p.close();
             }
 
-            // APIRequestContext is not affected by the page route interception. Dummy cookies must
-            // remain rejected by the real production backend, proving the QA path is non-authoritative.
             const realProbe=await ctx.request.get(origin+'/portal/api/session/me',{timeout:30000});
             assert([401,403].includes(realProbe.status()),'Dummy probe unexpectedly authorized: '+realProbe.status());
 
