@@ -37,7 +37,7 @@ jobs:
       - name: Run Admin shell regression guard
         run: node tests/admin-shell-resilience.test.mjs
       - name: Build Cloudflare Pages artifact
-        run: npm run build-pages-direct
+        run: npm run build
       - name: Verify resilient Admin artifacts
         run: |
           test -s dist/portal/admin.html
