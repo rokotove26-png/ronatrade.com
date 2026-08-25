@@ -18,18 +18,66 @@ const POSTCORE='<script id="rona-postcore-enhancements-loader" data-rona-ui="pos
 const APPTOTAL='<script id="rona-applications-total-kpi-loader" src="/portal/applications-total-kpi-ui" async data-rona-ui="applications-total-kpi-r1"></script>';
 const LAYOUTPOLISH='<script id="rona-owner-layout-polish-loader" src="/portal/owner-layout-polish-ui?v=20260824-1346" defer data-rona-ui="rail-claims-layout-polish-v1-section-harmony"></script>';
 const ADMINTWEAKS='<script id="rona-admin-canonical-tweaks-loader" src="/portal/admin-canonical-tweaks-ui?v=20260825-0352" defer data-rona-ui="admin-canonical-tweaks-v1"></script>';
-function injectPrepaint(source){if(source.includes('name="rona-ui-primary"'))return source;const lower=source.toLowerCase(),i=lower.indexOf('</head>');if(i<0)return PREPAINT+source;return source.slice(0,i)+PREPAINT+source.slice(i)}
-function injectLoader(source){void PRIMARY_UI_SOURCE_CONTRACT;if(source.includes('id="rona-main-ui-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+LOADER;return source.slice(0,i)+LOADER+source.slice(i)}
-function injectBootRescue(source){if(source.includes('id="rona-admin-boot-rescue"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+BOOTRESCUE;return source.slice(0,i)+BOOTRESCUE+source.slice(i)}
-function injectDealsCurrent(source){if(source.includes('id="rona-deals-current-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+DEALSCURRENT;return source.slice(0,i)+DEALSCURRENT+source.slice(i)}
-function injectR11(source){if(source.includes('id="rona-deals-r11-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+R11;return source.slice(0,i)+R11+source.slice(i)}
-function injectCash2D(source){if(source.includes('id="rona-cash-r2-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+CASH2D;return source.slice(0,i)+CASH2D+source.slice(i)}
-function injectRailV81(source){if(source.includes('id="rona-rail-current-v81-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+RAILV81;return source.slice(0,i)+RAILV81+source.slice(i)}
-function injectClaims2F(source){if(source.includes('id="rona-claims-r2-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+CLAIMS2F;return source.slice(0,i)+CLAIMS2F+source.slice(i)}
-function injectTitleCleanup(source){if(source.includes('id="rona-title-visual-rollback-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+TITLECLEANUP;return source.slice(0,i)+TITLECLEANUP+source.slice(i)}
-function injectClaimsTitle(source){if(source.includes('id="rona-claims-title-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+CLAIMSTITLE;return source.slice(0,i)+CLAIMSTITLE+source.slice(i)}
-function injectPostCore(source){void POSTCORE_COMPAT;if(source.includes('id="rona-postcore-enhancements-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+POSTCORE;return source.slice(0,i)+POSTCORE+source.slice(i)}
-function injectAppTotal(source){if(source.includes('id="rona-applications-total-kpi-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+APPTOTAL;return source.slice(0,i)+APPTOTAL+source.slice(i)}
-function injectLayoutPolish(source){if(source.includes('id="rona-owner-layout-polish-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+LAYOUTPOLISH;return source.slice(0,i)+LAYOUTPOLISH+source.slice(i)}
-function injectAdminTweaks(source){if(source.includes('id="rona-admin-canonical-tweaks-loader"'))return source;const lower=source.toLowerCase(),i=lower.lastIndexOf('</body>');if(i<0)return source+ADMINTWEAKS;return source.slice(0,i)+ADMINTWEAKS+source.slice(i)}
-export async function onRequest(context){const response=await basePortal(context);const ct=response.headers.get('content-type')||'';if(response.status!==200||!ct.toLowerCase().includes('text/html'))return response;let source=await response.text();source=injectPrepaint(source);source=injectLoader(source);source=injectBootRescue(source);source=injectDealsCurrent(source);source=injectR11(source);source=injectCash2D(source);source=injectRailV81(source);source=injectClaims2F(source);source=injectTitleCleanup(source);source=injectClaimsTitle(source);source=injectPostCore(source);source=injectAppTotal(source);source=injectLayoutPolish(source);source=injectAdminTweaks(source);const h=new Headers(response.headers);h.delete('content-length');h.delete('etag');h.set('cache-control','no-store, no-cache, must-revalidate');h.set('pragma','no-cache');h.set('expires','0');h.set('content-security-policy',ADMIN_CSP);h.set('x-rona-ui','main-v2');h.set('x-rona-ui-build',BUILD);h.set('x-rona-admin-boot-failsafe','shell-visible-watchdog-v2');h.set('x-rona-admin-shell-first-paint','legacy-hidden-until-primary-ready-v2');h.set('x-rona-r1-ui','current-state-primary');h.set('x-rona-cash-ui','isolated-r2');h.set('x-rona-rail-ui','current-v8.1-maplibre-openfreemap-cspfix');h.set('x-rona-claims-ui','isolated-2f');h.set('x-rona-claims-first-paint','current-only-v1');h.set('x-rona-claims-title','hotfix-v2');h.set('x-rona-title-visual','rollback-pre-sticky');h.set('x-rona-postcore-enhancements','independent-v10-access-analytics');h.set('x-rona-clients-agents-guard','v6-postcore-explicit-owner');h.set('x-rona-remaining-sections','r2-market-director-v5-postcore');h.set('x-rona-remaining-final-polish','clients-market-final-v1-postcore');h.set('x-rona-remaining-functional-preserve','access-news-v3-analytics-canonical');h.set('x-rona-legacy-access-archive',LEGACY_ACCESS_ARCHIVE);h.set('x-rona-clients-agents-ui','v4-canonical-independent-owner');h.set('x-rona-analytics-ui','v3-market-rona-bases-lpg-independent-owner');h.set('x-rona-applications-total-kpi','r1');h.set('x-rona-deals-current-state','v1.5');h.set('x-rona-payments-ui','finance-current-v2');h.set('x-rona-owner-layout-polish','rail-claims-v1');h.set('x-rona-section-visual-harmony','home-parity-v1');h.set('x-rona-canonical-section-recovery','access-analytics-v2');h.set('x-rona-admin-canonical-tweaks','20260825-0352-v1');return new Response(source,{status:response.status,statusText:response.statusText,headers:h})}
+const BODY_LOADERS=LOADER+BOOTRESCUE+DEALSCURRENT+R11+CASH2D+RAILV81+CLAIMS2F+TITLECLEANUP+CLAIMSTITLE+POSTCORE+APPTOTAL+LAYOUTPOLISH+ADMINTWEAKS;
+void PRIMARY_UI_SOURCE_CONTRACT;
+void POSTCORE_COMPAT;
+function injectSinglePass(source){
+  const head=source.indexOf('</head>');
+  const body=source.lastIndexOf('</body>');
+  if(head>=0&&body>=head)return source.slice(0,head)+PREPAINT+source.slice(head,body)+BODY_LOADERS+source.slice(body);
+  if(head>=0)return source.slice(0,head)+PREPAINT+source.slice(head)+BODY_LOADERS;
+  if(body>=0)return PREPAINT+source.slice(0,body)+BODY_LOADERS+source.slice(body);
+  return PREPAINT+source+BODY_LOADERS;
+}
+function responseHeaders(response){
+  const h=new Headers(response.headers);
+  h.delete('content-length');
+  h.delete('etag');
+  h.set('cache-control','no-store, no-cache, must-revalidate');
+  h.set('pragma','no-cache');
+  h.set('expires','0');
+  h.set('content-security-policy',ADMIN_CSP);
+  h.set('x-rona-ui','main-v2');
+  h.set('x-rona-ui-build',BUILD);
+  h.set('x-rona-admin-boot-failsafe','shell-visible-watchdog-v2');
+  h.set('x-rona-admin-shell-first-paint','legacy-hidden-until-primary-ready-v2');
+  h.set('x-rona-r1-ui','current-state-primary');
+  h.set('x-rona-cash-ui','isolated-r2');
+  h.set('x-rona-rail-ui','current-v8.1-maplibre-openfreemap-cspfix');
+  h.set('x-rona-claims-ui','isolated-2f');
+  h.set('x-rona-claims-first-paint','current-only-v1');
+  h.set('x-rona-claims-title','hotfix-v2');
+  h.set('x-rona-title-visual','rollback-pre-sticky');
+  h.set('x-rona-postcore-enhancements','independent-v10-access-analytics');
+  h.set('x-rona-clients-agents-guard','v6-postcore-explicit-owner');
+  h.set('x-rona-remaining-sections','r2-market-director-v5-postcore');
+  h.set('x-rona-remaining-final-polish','clients-market-final-v1-postcore');
+  h.set('x-rona-remaining-functional-preserve','access-news-v3-analytics-canonical');
+  h.set('x-rona-legacy-access-archive',LEGACY_ACCESS_ARCHIVE);
+  h.set('x-rona-clients-agents-ui','v4-canonical-independent-owner');
+  h.set('x-rona-analytics-ui','v3-market-rona-bases-lpg-independent-owner');
+  h.set('x-rona-applications-total-kpi','r1');
+  h.set('x-rona-deals-current-state','v1.5');
+  h.set('x-rona-payments-ui','finance-current-v2');
+  h.set('x-rona-owner-layout-polish','rail-claims-v1');
+  h.set('x-rona-section-visual-harmony','home-parity-v1');
+  h.set('x-rona-canonical-section-recovery','access-analytics-v2');
+  h.set('x-rona-admin-canonical-tweaks','20260825-0352-v1');
+  h.set('x-rona-admin-transform','streaming-htmlrewriter-v1');
+  return h;
+}
+export async function onRequest(context){
+  const response=await basePortal(context);
+  const ct=response.headers.get('content-type')||'';
+  if(response.status!==200||!ct.toLowerCase().includes('text/html'))return response;
+  const h=responseHeaders(response);
+  if(typeof HTMLRewriter==='function'){
+    const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
+    return new HTMLRewriter()
+      .on('head',{element(el){el.append(PREPAINT,{html:true})}})
+      .on('body',{element(el){el.append(BODY_LOADERS,{html:true})}})
+      .transform(base);
+  }
+  const source=await response.text();
+  return new Response(injectSinglePass(source),{status:response.status,statusText:response.statusText,headers:h});
+}
