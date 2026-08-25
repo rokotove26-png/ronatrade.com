@@ -21,7 +21,6 @@ export async function onRequest({request}){
   if(request.method==='POST'&&!sameOrigin(request))return out({ok:false,code:'ORIGIN_DENIED'},403);
   const u=new URL(request.url),op=String(u.searchParams.get('op')||'');
   if(op==='bootstrap'&&request.method==='GET')return invoke(request,'owner_price_updates_bootstrap',{});
-  if(op==='cp-bootstrap'&&request.method==='GET')return invoke(request,'owner_agent_cp_owner_gate_bootstrap',{});
   if(op==='apply'&&request.method==='POST'){
     const id=String(u.searchParams.get('id')||'');if(!uuid(id))return out({ok:false,code:'INVALID_PROPOSAL_ID'},400);
     return invoke(request,'owner_apply_price_change_proposal',{p_proposal_id:id});
