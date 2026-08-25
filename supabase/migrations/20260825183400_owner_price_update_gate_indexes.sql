@@ -1,0 +1,3 @@
+create index if not exists owner_price_change_proposals_base_publication_idx on portal_private.owner_price_change_proposals(base_publication_key);
+create index if not exists owner_price_change_proposals_new_publication_idx on portal_private.owner_price_change_proposals(new_publication_key);
+create index if not exists owner_price_change_proposals_applied_by_idx on portal_private.owner_price_change_proposals(applied_by);
