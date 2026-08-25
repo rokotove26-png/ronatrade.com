@@ -22,6 +22,14 @@ const SOURCES = Object.freeze({
     out: 'client.html',
   },
 });
+const AGENT_LIFECYCLE = Object.freeze({
+  state: 'CURRENT_ONLY',
+  version: '0.4.3',
+  route: '/portal/agent',
+  source_path: SOURCES.agent.path,
+  source_sha256: SOURCES.agent.sha256,
+  retired_runtime_sources: ['portal-src/agent.html'],
+});
 const ASSETS = Object.freeze({
   png: { mime: 'image/png', bytes: 2627000, sha256: '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc' },
   svg: { mime: 'image/svg+xml', bytes: 336904, sha256: '755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65' },
@@ -33,6 +41,10 @@ async function exists(p){ try { await stat(p); return true; } catch { return fal
 async function walk(dir){ const out=[]; for(const e of await readdir(dir,{withFileTypes:true})){ const p=join(dir,e.name); if(e.isDirectory()) out.push(...await walk(p)); else out.push(p); } return out; }
 function requireExact(label, bytes, expected){ const got=sha256(bytes); if(got!==expected) throw new Error(`${label} SHA-256 mismatch: ${got}`); }
 function extractDataUri(text,mime){ const marker=`data:${mime};base64,`; const first=text.indexOf(marker); if(first<0) throw new Error(`Missing canonical ${mime} data URI`); if(text.indexOf(marker,first+marker.length)>=0) throw new Error(`Expected one canonical ${mime} data URI`); let end=first+marker.length; while(end<text.length && /[A-Za-z0-9+/=]/.test(text[end])) end++; return Buffer.from(text.slice(first+marker.length,end),'base64'); }
+
+for(const retired of AGENT_LIFECYCLE.retired_runtime_sources){
+  if(await exists(join(ROOT,...retired.split('/')))) throw new Error(`RETIRED_AGENT_RUNTIME_SOURCE_PRESENT: ${retired}`);
+}
 
 const canonical={};
 for(const [kind,spec] of Object.entries(SOURCES)){
@@ -59,6 +71,7 @@ for(const [kind,spec] of Object.entries(SOURCES)) await writeFile(join(OUT,'port
 const integrity={
   architecture:'FROZEN_CANONICAL_SOURCE_DIRECT_BUILD',
   sources:Object.fromEntries(Object.entries(SOURCES).map(([k,v])=>[k,{sha256:v.sha256,bytes:canonical[k].bytes.length,path:v.path}])),
+  agent_lifecycle:AGENT_LIFECYCLE,
   embedded_assets:{
     background_png:{sha256:ASSETS.png.sha256,bytes:ASSETS.png.bytes,embedded:true},
     logo_svg:{sha256:ASSETS.svg.sha256,bytes:ASSETS.svg.bytes,embedded:true},
@@ -70,4 +83,4 @@ await writeFile(join(OUT,'canonical-visual-integrity.json'),JSON.stringify(integ
 for(const name of FORBIDDEN_TOP_LEVEL) if(await exists(join(OUT,name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files=await walk(OUT);
 for(const required of ['index.html','en/index.html','investments/index.html','en/investments/index.html','_routes.json','portal/admin.html','portal/agent.html','portal/client.html','canonical-visual-integrity.json']) if(!(await exists(join(OUT,...required.split('/'))))) throw new Error(`dist/${required} missing`);
-console.log(`RONA direct canonical build PASS: ${files.length} public files; Admin ${SOURCES.admin.sha256}; Agent ${SOURCES.agent.sha256}; Client ${SOURCES.client.sha256}; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}; no visual reconstruction; no permanent binary prerequisite.`);
+console.log(`RONA direct canonical build PASS: ${files.length} public files; Admin ${SOURCES.admin.sha256}; Agent ${SOURCES.agent.sha256} CURRENT_ONLY; Client ${SOURCES.client.sha256}; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}; no visual reconstruction; no permanent binary prerequisite.`);
