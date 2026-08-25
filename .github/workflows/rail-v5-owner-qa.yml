@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Rail v8.1.1 resilient MapLibre/OpenFreeMap contract
+      - name: Verify Rail v8.2 raster-first map contract
         shell: bash
         run: |
           set -euo pipefail
@@ -31,19 +31,10 @@ jobs:
           node --check functions/portal/rail-current-v81-maplibre-ui.js
           node --check 'functions/portal/map-assets/[[path]].js'
           grep -q 'rail-current-v81-maplibre-ui' functions/portal/admin.js
-          grep -q 'current-v8.1-maplibre-openfreemap' functions/portal/admin.js
-          grep -q '/portal/map-assets/maplibre-gl.js' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q '/portal/map-assets/maplibre-gl.css' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'MAPLIBRE_TIMEOUT' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'OPENFREEMAP_TIMEOUT' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'v81Fallback' functions/portal/rail-current-v81-maplibre-ui.js
           grep -q '/portal/map-assets/osm/' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'tiles.openfreemap.org/styles/dark' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'rona-v81-rail' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'source-layer.*transportation' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'rona-v81-wagons' functions/portal/rail-current-v81-maplibre-ui.js
-          grep -q 'cdn.jsdelivr.net/npm/maplibre-gl@' 'functions/portal/map-assets/[[path]].js'
-          grep -q 'unpkg.com/maplibre-gl@' 'functions/portal/map-assets/[[path]].js'
+          grep -q '20260825-raster-first-v8.2' functions/portal/rail-current-v81-maplibre-ui.js
+          grep -q 'mountRealRailMap' functions/portal/rail-current-v7-real-map-ui.js
+          grep -q 'rona-rail-v7-map-viewport' functions/portal/rail-current-v7-real-map-ui.js
           grep -q 'tile.openstreetmap.org' 'functions/portal/map-assets/[[path]].js'
           grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
           ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
@@ -54,25 +45,16 @@ jobs:
           import { onRequest as rail } from './functions/portal/rail-current-v81-maplibre-ui.js';
           import { onRequest as assets } from './functions/portal/map-assets/[[path]].js';
           const response=await rail({});
-          if(response.status!==200)throw new Error('rail-v8.1.1 endpoint '+response.status+' '+await response.text());
+          if(response.status!==200)throw new Error('rail-v8.2 endpoint '+response.status+' '+await response.text());
           const src=await response.text();
           const must=[
-            "window.__RONA_RAIL_CURRENT_V81__='20260825-map-resilient-v8.1.1'",
-            '/portal/map-assets/maplibre-gl.js?v=5.16.0',
-            '/portal/map-assets/maplibre-gl.css?v=5.16.0',
+            "window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",
             '/portal/map-assets/osm/',
-            'MAPLIBRE_TIMEOUT',
-            'OPENFREEMAP_TIMEOUT',
-            'v81Fallback',
-            'tiles.openfreemap.org/styles/dark',
-            'rona-v81-rail-glow',
-            'rona-v81-rail',
-            "'source-layer':'transportation'",
-            'rona-v81-wagon-halo',
-            'rona-v81-wagons',
+            'mountRealRailMap',
+            'rona-rail-v7-map-viewport',
+            'rona-rail-v7-controls',
             'Интерактивная ЖД-карта',
-            'OpenFreeMap · OpenMapTiles · OpenStreetMap',
-            "version:'v8.1.1'",
+            "version:'v8.2'",
             'stopImmediatePropagation',
             'dedupeOnlineRail(host)'
           ];
@@ -80,16 +62,14 @@ jobs:
           if(src.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('legacy GU button row remains');
           if(src.includes('c.innerHTML=mapSvg()'))throw new Error('fake SVG map is still mounted by active map panel');
           if(src.includes('https://tile.openstreetmap.org/'))throw new Error('browser still depends directly on OSM tile host');
-          if(src.includes('https://unpkg.com/maplibre-gl@'))throw new Error('browser still depends directly on unpkg');
+          if(src.includes('new gl.Map(')||src.includes('tiles.openfreemap.org/styles/dark')||src.includes('/portal/map-assets/maplibre-gl.js'))throw new Error('MapLibre/OpenFreeMap remains in primary Rail runtime');
           if(src.includes('new MutationObserver')||src.includes('MutationObserver('))throw new Error('MutationObserver forbidden');
-          if(response.headers.get('x-rona-rail-ui')!=='current-v8.1.1-maplibre-resilient')throw new Error('wrong rail header');
+          if(response.headers.get('x-rona-rail-ui')!=='current-v8.2-raster-first')throw new Error('wrong rail header');
           const notFound=await assets({request:new Request('https://ronaoil.com/portal/map-assets/not-allowed')});
           if(notFound.status!==404)throw new Error('map-assets allowlist is not fail-closed');
-          let calls=[];
-          globalThis.fetch=async url=>{calls.push(String(url));if(calls.length===1)throw new Error('primary cdn unavailable');return new Response('ok',{status:200})};
-          const proxied=await assets({request:new Request('https://ronaoil.com/portal/map-assets/maplibre-gl.js')});
-          if(proxied.status!==200||calls.length!==2)throw new Error('map-assets CDN fallback failed');
-          console.log('RAIL_V811_GENERATED_RUNTIME=PASS',src.length);
+          const badTile=await assets({request:new Request('https://ronaoil.com/portal/map-assets/osm/20/0/0.png')});
+          if(badTile.status!==404)throw new Error('invalid OSM tile path is not fail-closed');
+          console.log('RAIL_V82_GENERATED_RUNTIME=PASS',src.length);
           NODE
       - name: Publish status
         if: always()
@@ -100,6 +80,6 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         shell: bash
         run: |
-          state=failure; desc='Rail v8.1.1 resilient map QA failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v8.1.1 resilient map QA passed'; fi
+          state=failure; desc='Rail v8.2 raster-first map QA failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail v8.2 raster-first map QA passed'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v5-owner\",\"description\":\"$desc\"}" >/dev/null
