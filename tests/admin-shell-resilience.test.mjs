@@ -9,6 +9,8 @@ assert(!admin.includes("from './[[path]].js'"),'Admin shell must not depend on c
 assert(!admin.includes('supabase.co'),'Admin shell must not call Supabase directly');
 assert(!admin.includes('/portal/api/session/me'),'Admin server route must not block on session probe');
 assert(admin.includes('ASSETS?.fetch'),'Admin shell must serve the canonical static asset directly');
+assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
+assert(!admin.includes("u.pathname='/portal/admin.html';"),'Direct .html Static Assets path must not return to Admin shell');
 assert(admin.includes("'x-rona-admin-shell','fast-static-v1'"),'Admin shell resilience header missing');
 assert(admin.includes('hasPortalCookie(request)'),'Admin shell must retain a cookie-presence entry gate');
 
