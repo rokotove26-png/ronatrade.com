@@ -1,11 +1,6 @@
 name: RONA Telegram Market Ingest
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/telegram-market-ingest.yml
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
