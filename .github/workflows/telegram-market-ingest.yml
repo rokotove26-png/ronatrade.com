@@ -19,7 +19,9 @@ jobs:
     timeout-minutes: 20
     env:
       TELEGRAM_CHANNELS: Samantahlil,platts_digits
-      TELEGRAM_MAX_MESSAGES: "80"
+      TELEGRAM_MAX_MESSAGES: "30"
+      TELEGRAM_PDF_ONLY: "1"
+      TGSTAT_API_TOKEN: ${{ secrets.TGSTAT_API_TOKEN }}
       RONA_TELEGRAM_INGEST_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ai-read-extras/telegram-ingest
       RONA_TELEGRAM_RUN_KEY: gh-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
@@ -57,8 +59,8 @@ jobs:
             'pdfplumber>=0.11,<0.12' \
             'requests>=2.32,<3'
 
-      - name: Ingest public Telegram market sources
+      - name: Ingest Telegram PDF market sources
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/telegram_public_market_ingest_resilient.py
+          python scripts/telegram_public_pdf_ingest_v2.py
