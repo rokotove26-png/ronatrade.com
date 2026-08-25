@@ -1,0 +1,106 @@
+name: Diagnose Telegram public document download
+
+on:
+  push:
+    branches:
+      - diag/telegram-public-document-download
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install diagnostic dependencies
+        run: python -m pip install --disable-pip-version-check 'requests>=2.32,<3' 'beautifulsoup4>=4.12,<5' 'lxml>=5,<7'
+
+      - name: Inspect public Telegram PDF post surfaces
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from urllib.parse import urljoin, urlparse
+          import requests
+          from bs4 import BeautifulSoup
+
+          session = requests.Session()
+          headers = {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+          }
+          targets = [
+              'https://t.me/s/Samantahlil',
+              'https://t.me/Samantahlil/105304?embed=1&mode=tme',
+              'https://telegram.me/Samantahlil/105304?embed=1&mode=tme',
+          ]
+
+          def safe_headers(resp):
+              return {
+                  'status': resp.status_code,
+                  'url': resp.url,
+                  'content_type': resp.headers.get('content-type'),
+                  'content_length': resp.headers.get('content-length'),
+                  'location': resp.headers.get('location'),
+                  'content_disposition': resp.headers.get('content-disposition'),
+              }
+
+          for target in targets:
+              try:
+                  r = session.get(target, headers=headers, timeout=30, allow_redirects=True)
+                  print(json.dumps({'event':'PAGE','target':target, **safe_headers(r), 'bytes':len(r.content)}, ensure_ascii=False))
+                  soup = BeautifulSoup(r.text, 'lxml')
+                  elems = []
+                  for el in soup.select('.tgme_widget_message[data-post]'):
+                      if el.get('data-post') == 'Samantahlil/105304':
+                          elems.append(el)
+                  if not elems:
+                      elems = soup.select('.tgme_widget_message_document_wrap')[:5]
+                  for el in elems:
+                      wraps = el.select('.tgme_widget_message_document_wrap') if hasattr(el, 'select') else []
+                      if not wraps and 'tgme_widget_message_document_wrap' in (el.get('class') or []):
+                          wraps = [el]
+                      for wrap in wraps:
+                          attrs = {str(k):str(v)[:1200] for k,v in wrap.attrs.items()}
+                          title = wrap.select_one('.tgme_widget_message_document_title')
+                          extra = wrap.select_one('.tgme_widget_message_document_extra')
+                          print(json.dumps({
+                              'event':'DOCUMENT_WRAP',
+                              'target':target,
+                              'tag':wrap.name,
+                              'attrs':attrs,
+                              'title': title.get_text(' ', strip=True) if title else None,
+                              'extra': extra.get_text(' ', strip=True) if extra else None,
+                          }, ensure_ascii=False))
+                          candidates=[]
+                          for node in [wrap, *wrap.select('*')]:
+                              for attr in ('href','src','data-src','data-url','data-web-document-url','data-webdocument-url','download'):
+                                  val=node.get(attr) if hasattr(node,'get') else None
+                                  if val:
+                                      candidates.append((attr, urljoin(target, str(val))))
+                          seen=set()
+                          for attr,url in candidates:
+                              if url in seen: continue
+                              seen.add(url)
+                              try:
+                                  h=session.get(url,headers={**headers,'Referer':target,'Range':'bytes=0-31'},timeout=30,allow_redirects=False,stream=True)
+                                  prefix=next(h.iter_content(chunk_size=32),b'')[:32]
+                                  print(json.dumps({'event':'CANDIDATE','attr':attr,'url':url,**safe_headers(h),'prefix_hex':prefix.hex()}, ensure_ascii=False))
+                                  h.close()
+                              except Exception as e:
+                                  print(json.dumps({'event':'CANDIDATE_ERROR','attr':attr,'url':url,'error':type(e).__name__,'detail':str(e)[:180]}, ensure_ascii=False))
+                  # Also report suspicious CDN/file URLs embedded anywhere in markup.
+                  raw = r.text
+                  for needle in ('cdn','file/','document'):
+                      if needle in raw.lower():
+                          print(json.dumps({'event':'MARKUP_HAS','target':target,'needle':needle}, ensure_ascii=False))
+              except Exception as e:
+                  print(json.dumps({'event':'PAGE_ERROR','target':target,'error':type(e).__name__,'detail':str(e)[:220]}, ensure_ascii=False))
+          PY
