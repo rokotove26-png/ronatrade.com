@@ -84,8 +84,13 @@ begin
     and not exists (
       select 1
       from portal_private.audit_events ae
-      where ae.action in ('OWNER_AGENT_CP_PUBLISHED','OWNER_AGENT_CP_RETURNED_FOR_REVISION')
-        and ae.metadata->>'coordinationRecordId'=r.record_id::text
+      where (
+          ae.action='OWNER_AGENT_CP_RETURNED_FOR_REVISION'
+          and ae.metadata->>'coordinationRecordId'=r.record_id::text
+        ) or (
+          ae.action='OWNER_COMMAND_AGENT_CP_PUBLICATION_SENT'
+          and ae.metadata->>'owner_command_id'='CP-GATE:'||r.record_id::text
+        )
     );
 
   return jsonb_build_object(
