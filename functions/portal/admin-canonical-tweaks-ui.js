@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_CANONICAL_TWEAKS__)return;
-window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-2115-v6-prices-runtime-refresh';
+window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-2245-v7-agent-cp-owner-gate';
 if(location.pathname!=='/portal/admin')return;
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
@@ -42,12 +42,13 @@ function ensurePricesUI(){
  if(q('script[data-rona-prices-current-loader]'))return;
  const s=document.createElement('script');s.src='/portal/prices-current-ui?v=20260825-2055-centered-modal-v4';s.defer=true;s.dataset.ronaPricesCurrentLoader='v4';s.onerror=()=>{window.__RONA_PRICES_CURRENT_LOADER_ERROR__='LOAD_FAILED'};document.body.appendChild(s)
 }
-function apply(){headerFix();updateTicker();analyticsFix();agentsFix();resizeRailMap();ensurePricesUI()}
+function ensureAgentCpOwnerUI(){if(q('script[data-rona-agent-cp-owner-loader]'))return;const s=document.createElement('script');s.src='/portal/agent-cp-owner-ui?v=20260825-2245-owner-gate-v1';s.defer=true;s.dataset.ronaAgentCpOwnerLoader='v1';s.onerror=()=>{window.__RONA_AGENT_CP_OWNER_LOADER_ERROR__='LOAD_FAILED'};document.body.appendChild(s)}
+function apply(){headerFix();updateTicker();analyticsFix();agentsFix();resizeRailMap();ensurePricesUI();ensureAgentCpOwnerUI()}
 let queued=false;function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
 document.addEventListener('click',ev=>{const nav=ev.target?.closest?.('#nav button[data-page]');if(nav?.dataset.page==='monitoring')[0,120,360,900,1800,3200].forEach(ms=>setTimeout(resizeRailMap,ms));if(nav?.dataset.page==='access'||nav?.dataset.page==='analytics'||nav?.dataset.page==='prices')[0,80,240,700].forEach(ms=>setTimeout(schedule,ms))},true);
 window.addEventListener('resize',()=>setTimeout(resizeRailMap,80),{passive:true});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
 new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true});
-setInterval(()=>{headerFix();updateTicker();analyticsFix();agentsFix();ensurePricesUI()},1000);
+setInterval(()=>{headerFix();updateTicker();analyticsFix();agentsFix();ensurePricesUI();ensureAgentCpOwnerUI()},1000);
 })();`;
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-admin-canonical-tweaks':'20260825-2115-v6-prices-runtime-refresh'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-admin-canonical-tweaks':'20260825-2245-v7-agent-cp-owner-gate'}})}
