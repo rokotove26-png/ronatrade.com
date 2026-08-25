@@ -89,7 +89,6 @@ jobs:
           }
           (async()=>{
             const browser=await chromium.launch({headless:true});
-            const hostname=new URL(origin).hostname;
 
             const guest=await browser.newContext({viewport:{width:1600,height:1000},javaScriptEnabled:true});
             const guestPage=await guest.newPage();
@@ -99,9 +98,11 @@ jobs:
 
             const ctx=await browser.newContext({viewport:{width:1600,height:1000},javaScriptEnabled:true});
             await ctx.addCookies([
-              {name:'rona_portal_at',value:'qa-shell-probe-not-a-token',domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
-              {name:'rona_portal_rt',value:'qa-shell-probe-not-a-token',domain:hostname,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}
+              {name:'rona_portal_at',value:'qa-shell-probe-not-a-token',url:origin+'/portal/admin',secure:true,httpOnly:true,sameSite:'Lax'},
+              {name:'rona_portal_rt',value:'qa-shell-probe-not-a-token',url:origin+'/portal/admin',secure:true,httpOnly:true,sameSite:'Lax'}
             ]);
+            const probeCookies=await ctx.cookies(origin+'/portal/admin');
+            assert(probeCookies.some(c=>c.name==='rona_portal_at'),'Admin probe access cookie missing from browser context');
 
             await ctx.route('**/portal/api/session/me',async route=>{
               await route.fulfill({
