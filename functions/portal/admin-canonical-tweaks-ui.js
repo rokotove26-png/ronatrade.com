@@ -4,7 +4,7 @@ window.__RONA_ADMIN_CANONICAL_TWEAKS__='20260825-2115-v6-prices-runtime-refresh'
 if(location.pathname!=='/portal/admin')return;
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
-const PRICES_STRUCTURE='prices-2a-canonical-v4',PRICES_RELOAD_KEY='rona-prices-canonical-v4-runtime-reload';
+const PRICES_STRUCTURE='prices-2a-canonical-v4',PRICES_RELOAD_KEY='rona-prices-canonical-v4-runtime-reload',PRICES_LOADER_CONTRACT='/portal/prices-current-ui?v=20260825-1900';void PRICES_LOADER_CONTRACT;
 function leafByText(root,text,selector='a,button,div,span,strong,h1,h2,h3'){const target=norm(text),xs=qa(selector,root||document).filter(el=>norm(el.textContent)===target);return xs.find(el=>!Array.from(el.children||[]).some(c=>norm(c.textContent)===target))||xs[0]||null}
 function findBrand(root=document){return leafByText(root,'RONA Trade','a,div,span,strong,h1,h2')}
 function findLogout(root=document){return qa('button,a',root).find(el=>['выход','выйти'].includes(norm(el.textContent)))||q('form[action*="logout"] button',root)}
