@@ -1,4 +1,5 @@
 import c17 from './chunk17.js';
+import c18 from './chunk18.js';
 
 export default `(()=>{'use strict';
 if(window.__RONA_AI_LK_SYNC_OVERLAY__)return;
@@ -36,4 +37,4 @@ function bootAgentSync(){afterReady('__RONA_OWNER_AGENT_READY__',startAgent)}
 const path=location.pathname;
 if(path==='/portal/admin'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootAdminSync,{once:true});else bootAdminSync()}
 else if(path==='/portal/agent'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bootAgentSync,{once:true});else bootAgentSync()}
-})();` + c17;
+})();` + c17 + c18;
