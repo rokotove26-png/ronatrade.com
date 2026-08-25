@@ -27,9 +27,16 @@ jobs:
           set -euo pipefail
           npm run build
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
+          test "$(sha256sum 'portal-src/canonical-transfer-v1_1/admin_externalized.html' | awk '{print $1}')" = '6fa2712a17a0d724a55b106a1d8badccc7c75352dbebef28520cc8ebea8f70bb'
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
-          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
+          test "$(stat -c%s dist/portal/admin.html)" -le 800000
+          grep -q '/assets/portal-canonical/background.png' dist/portal/admin.html
+          grep -q '/assets/portal-canonical/logo.svg' dist/portal/admin.html
+          if grep -q '__RONA_CANONICAL_' dist/portal/admin.html; then echo 'Unresolved canonical placeholder in Admin runtime'; exit 1; fi
+          test "$(sha256sum dist/assets/portal-canonical/background.png | awk '{print $1}')" = '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
+          test "$(sha256sum dist/assets/portal-canonical/logo.svg | awk '{print $1}')" = '755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'
+          grep -q 'FROZEN_CANONICAL_SOURCE_EXTERNALIZED_ADMIN_RUNTIME' dist/canonical-visual-integrity.json
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
           node --check functions/portal/admin.js
