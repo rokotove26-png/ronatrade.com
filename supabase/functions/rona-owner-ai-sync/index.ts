@@ -50,12 +50,55 @@ async function coordinationDashboard(){
   for(const [key,rows] of Object.entries(periods))totals[key]=rows.reduce((a,r)=>({sent:a.sent+Number(r.sent||0),delivered:a.delivered+Number(r.delivered||0),responses:a.responses+Number(r.responses||0),awaiting:a.awaiting+Number(r.awaiting||0),slaBreached:a.slaBreached+Number(r.sla_breached||0),errors:a.errors+Number(r.errors||0),portalRequests:a.portalRequests+Number(r.portal_requests||0)}),{sent:0,delivered:0,responses:0,awaiting:0,slaBreached:0,errors:0,portalRequests:0});
   return{generatedAt:new Date().toISOString(),semantics:{sent:"Business queue records: PORTAL_REVERSE_EVENT + STAFF_TASK + COORDINATION; HEARTBEAT and SYSTEM_CHECK excluded",responses:"Only queue records settled to PROCESSED by authoritative response/terminal triggers",awaiting:"Non-terminal queue records excluding DEAD_LETTER",sla:"Authoritative ai_runtime_queue.sla_breached_at"},periods,totals,recent};
 }
+async function agentRewardsDashboard(){
+  const rows=await sql`
+    with active_assignments as (
+      select aca.id assignment_id,aca.client_key,ale.agent_legal_entity_id,ale.legal_name agent_legal_name,
+             cl.client_id,cl.legal_name client_name
+      from portal_private.agent_client_assignments aca
+      join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
+      join portal_private.clients cl on cl.id=aca.client_key
+      where aca.status::text='ACTIVE'
+        and aca.lifecycle_state::text='ACTIVE'
+        and aca.authority_state::text in ('CONFIRMED','VERIFIED')
+        and aca.valid_from<=now() and (aca.valid_to is null or aca.valid_to>now())
+        and ale.lifecycle_state::text='ACTIVE'
+    ), scope as (
+      select a.*,d.id deal_key,d.deal_id,d.business_status,d.finance_status::text finance_status,
+             d.accounting_closure_status::text accounting_status
+      from active_assignments a
+      left join portal_private.deals d on d.client_key=a.client_key
+        and d.lifecycle_state::text not in ('ARCHIVED','SUPERSEDED')
+    )
+    select s.assignment_id,s.agent_legal_entity_id,s.agent_legal_name,s.client_id,s.client_name,
+           s.deal_id,s.business_status,s.finance_status,s.accounting_status,
+           t.status::text term_status,t.lifecycle_state::text term_lifecycle_state,t.authority_state::text term_authority_state,
+           t.commission_mode::text commission_mode,t.commission_rate,t.commission_fixed_amount,t.currency term_currency,
+           st.settlement_id,st.settlement_state::text settlement_state,st.amount settlement_amount,st.currency settlement_currency,
+           st.authority_state::text settlement_authority_state,st.payable_confirmed_at,st.paid_at,
+           greatest(coalesce(t.updated_at,'epoch'::timestamptz),coalesce(st.updated_at,'epoch'::timestamptz)) updated_at
+    from scope s
+    left join lateral (
+      select x.* from portal_private.agent_deal_terms x
+      where x.assignment_id=s.assignment_id and x.deal_key=s.deal_key
+      order by x.updated_at desc limit 1
+    ) t on s.deal_key is not null
+    left join lateral (
+      select x.* from portal_private.agent_settlements x
+      where x.deal_key=s.deal_key and x.lifecycle_state::text='ACTIVE'
+        and (t.id is null or x.agent_deal_term_key=t.id)
+      order by x.updated_at desc limit 1
+    ) st on s.deal_key is not null
+    order by s.agent_legal_name,s.client_name,s.deal_id nulls last`;
+  return{generatedAt:new Date().toISOString(),rows};
+}
 async function adminSync(){
   const railTariffs=await sql`select tariff_key,product_group,territory,route_text,tariff_usd_per_t,source_provider,status,original_rate,original_currency,original_unit,valid_to,notes,source_refs,approved_at,updated_at from portal_private.owner_rail_tariff_matrix order by case product_group when 'LIGHT_PETROLEUM' then 1 else 2 end,territory,route_text`;
   const aiRuntime=(await sql`select enabled,protocol_version,scheduler_state,model_execution_state,heartbeat_minutes,worker_version,updated_at from portal_private.ai_runtime_control where singleton=true limit 1`)[0]||null;
   const aiEmployees=await sql`select identity_id,business_role::text,display_name,status::text,updated_at from portal_private.ai_service_identities order by business_role::text`;
   const latestAiConclusions=await sql`select distinct on (functional_role,target_type,target_id) record_id,functional_role::text as role,target_type,target_id,status,version,payload->>'summary' as summary,created_at from portal_private.ai_coordination_records where record_type='FUNCTIONAL_CONCLUSION' and qa_only=false order by functional_role,target_type,target_id,version desc,created_at desc limit 50`;
   const homeCoordination=await coordinationDashboard();
+  const agentRewardsFragment=await agentRewardsDashboard();
 
   const marketIdentity=(await sql`select identity_id,business_role::text as role,display_name,status::text,updated_at from portal_private.ai_service_identities where identity_id='AI-MARKET-ANALYST' limit 1`)[0]||null;
   const marketRecords=await sql`
@@ -122,7 +165,7 @@ async function adminSync(){
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
   const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',sourceAsOf:cash[0]?.snapshot_date||null,payments,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
-  return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,homeCoordination,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
+  return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,homeCoordination,agentRewardsFragment,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
 async function agentSync(ctx){const rawPolicy=(await sql`select numeric_value,applies_to,status,updated_at from portal_private.owner_agent_display_policies where policy_key='POSITIVE_ACTUAL_FX_EFFECT_AGENT_VISIBLE_SHARE' and agent_visible=true and status='ACTIVE_DISPLAY_ONLY' limit 1`)[0]||null;const share=rawPolicy?normalizedShare(rawPolicy.numeric_value):null;const displayPolicy=rawPolicy&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:String(rawPolicy.applies_to),status:String(rawPolicy.status),updatedAt:rawPolicy.updated_at,note:'При подтвержденном положительном фактическом курсовом эффекте в ЛК Агента учитывается только разрешенная доля подтвержденной суммы. Прогнозные и неподтвержденные значения не используются.'}:null;const settlements=await sql`select s.settlement_id,d.deal_id,cl.client_id,s.settlement_state::text,s.amount,s.currency,s.payable_confirmed_at,s.paid_at,s.updated_at from portal_private.agent_settlements s join portal_private.deals d on d.id=s.deal_key join portal_private.clients cl on cl.id=d.client_key where s.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.agent_user_has_deal_access(${ctx.userId}::uuid,s.deal_key,now()) order by s.created_at desc`;const amountVisible=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);return{generatedAt:new Date().toISOString(),displayPolicy,settlements:settlements.map(r=>{const stage=String(r.settlement_state);const visible=amountVisible.has(stage);return{settlementId:String(r.settlement_id),dealId:String(r.deal_id),clientId:String(r.client_id),stage,amount:visible?r.amount:null,currency:visible?r.currency:null,paymentObligationConfirmed:r.payable_confirmed_at!=null,paymentFactConfirmed:r.paid_at!=null,updatedAt:r.updated_at}}),positiveActualFxEffects:[]}}
