@@ -1,0 +1,206 @@
+name: Apply Admin session resilience hotfix
+
+on:
+  push:
+    branches:
+      - fix/admin-session-resilience-db-pressure-20260826
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[session-resilience-applied]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/admin-session-resilience-db-pressure-20260826
+          fetch-depth: 0
+      - name: Patch auth resilience, Admin request pressure and Edge DB lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              return text.replace(old, new, 1)
+
+          portal = Path('functions/portal/[[path]].js')
+          s = portal.read_text(encoding='utf-8')
+
+          s = replace_once(
+              s,
+              "  return { ok: r.ok, data };\n}\nasync function authRefresh(refreshToken) {",
+              "  return { ok: r.ok, status: r.status, data };\n}\nasync function authRefresh(refreshToken) {",
+              'authPassword status')
+          s = replace_once(
+              s,
+              "  return { ok: r.ok, data };\n}\nasync function authLogout(accessToken) {",
+              "  return { ok: r.ok, status: r.status, data };\n}\nasync function authLogout(accessToken) {",
+              'authRefresh status')
+
+          old_session = '''async function sessionMe(accessToken) {
+            if (!accessToken) return null;
+            try {
+              const r = await upstream(accessToken, '/session/me');
+              if (!r.ok) return null;
+              const j = await r.json();
+              return j?.ok && j?.user ? j : null;
+            } catch (_) { return null; }
+          }
+          async function ensureSession(request) {
+            const cookies = parseCookies(request.headers.get('cookie'));
+            const access = cookies[ACCESS_COOKIE] || '';
+            const refresh = cookies[REFRESH_COOKIE] || '';
+            if (access) {
+              const me = await sessionMe(access);
+              if (me) return { access, refresh, me, setCookies: [] };
+            }
+            if (!refresh) return null;
+            const next = await authRefresh(refresh);
+            if (!next.ok || !next.data?.access_token || !next.data?.refresh_token) return null;
+            const me = await sessionMe(next.data.access_token);
+            if (!me) return null;
+            return { access: next.data.access_token, refresh: next.data.refresh_token, me, setCookies: tokenCookies(next.data) };
+          }
+          '''
+          new_session = '''const SESSION_RETRY_DELAYS_MS = Object.freeze([0, 250, 500, 1000, 2000, 2500]);
+          const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+          async function sessionProbe(accessToken) {
+            if (!accessToken) return { state:'INVALID', me:null, status:401 };
+            let lastStatus = 503;
+            for (let i = 0; i < SESSION_RETRY_DELAYS_MS.length; i++) {
+              const delay = SESSION_RETRY_DELAYS_MS[i];
+              if (delay) await sleep(delay);
+              try {
+                const r = await upstream(accessToken, '/session/me');
+                lastStatus = r.status;
+                if (r.ok) {
+                  const j = await r.json().catch(() => null);
+                  if (j?.ok && j?.user) return { state:'VALID', me:j, status:r.status };
+                  continue;
+                }
+                if (r.status === 401 || r.status === 403) return { state:'INVALID', me:null, status:r.status };
+                if (r.status === 429 || r.status >= 500) continue;
+                return { state:'INVALID', me:null, status:r.status };
+              } catch (_) { lastStatus = 503; }
+            }
+            return { state:'UNAVAILABLE', me:null, status:lastStatus };
+          }
+          async function ensureSession(request) {
+            const cookies = parseCookies(request.headers.get('cookie'));
+            const access = cookies[ACCESS_COOKIE] || '';
+            const refresh = cookies[REFRESH_COOKIE] || '';
+            if (access) {
+              const probe = await sessionProbe(access);
+              if (probe.state === 'VALID') return { access, refresh, me:probe.me, setCookies: [] };
+              if (probe.state === 'UNAVAILABLE') return { unavailable:true, access, refresh, me:null, setCookies: [] };
+            }
+            if (!refresh) return null;
+            let next;
+            try { next = await authRefresh(refresh); }
+            catch (_) { return { unavailable:true, access, refresh, me:null, setCookies: [] }; }
+            if (!next.ok || !next.data?.access_token || !next.data?.refresh_token) {
+              if (next.status === 429 || Number(next.status || 0) >= 500) return { unavailable:true, access, refresh, me:null, setCookies: [] };
+              return null;
+            }
+            const probe = await sessionProbe(next.data.access_token);
+            if (probe.state === 'UNAVAILABLE') return { unavailable:true, access:next.data.access_token, refresh:next.data.refresh_token, me:null, setCookies:tokenCookies(next.data) };
+            if (probe.state !== 'VALID') return null;
+            return { access: next.data.access_token, refresh: next.data.refresh_token, me:probe.me, setCookies: tokenCookies(next.data) };
+          }
+          '''
+          s = replace_once(s, old_session, new_session, 'session tri-state block')
+
+          unavailable_fn = '''function unavailablePage(nextPath = '/portal/') {
+            const target = String(nextPath || '/portal/').startsWith('/portal/') ? String(nextPath || '/portal/') : '/portal/';
+            const safeTarget = escapeHtml(target);
+            return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2;url=${safeTarget}"><title>RONA Trade — Восстановление соединения</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif}.box{width:min(520px,calc(100vw - 32px));padding:28px;border:1px solid #29404e;border-radius:16px;background:#0b151d}.muted{color:#93a8b3}.btn{display:inline-block;margin-top:12px;padding:11px 14px;border:1px solid #365464;border-radius:10px;color:#eef4f7;text-decoration:none;background:#101f29}</style></head><body><main class="box"><h1>Восстанавливаю соединение</h1><p class="muted">Сессия сохранена. Сервер авторизации временно недоступен; повторная проверка выполняется автоматически.</p><a class="btn" href="${safeTarget}">Повторить сейчас</a></main></body></html>`;
+          }
+          '''
+          s = replace_once(s, "function deniedPage(code = 'ROLE_MISMATCH') {", unavailable_fn + "function deniedPage(code = 'ROLE_MISMATCH') {", 'unavailable page')
+
+          old_login_probe = "    const me = await sessionMe(login.data.access_token);\n    if (!me) { await authLogout(login.data.access_token); return html(loginPage('Доступ к порталу не активирован.'), 403, clearCookies()); }\n    const roles = rolesOf(me);"
+          new_login_probe = "    const loginProbe = await sessionProbe(login.data.access_token);\n    if (loginProbe.state === 'UNAVAILABLE') return html(unavailablePage(parseLocalNext(next) || '/portal/'), 503, tokenCookies(login.data));\n    if (loginProbe.state !== 'VALID') { await authLogout(login.data.access_token); return html(loginPage('Доступ к порталу не активирован.'), 403, clearCookies()); }\n    const me = loginProbe.me;\n    const roles = rolesOf(me);"
+          s = replace_once(s, old_login_probe, new_login_probe, 'login probe')
+
+          old_proxy_refresh = "    const next = await authRefresh(refresh);\n    if (!next.ok || !next.data?.access_token || !next.data?.refresh_token) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());"
+          new_proxy_refresh = "    let next;\n    try { next = await authRefresh(refresh); } catch (_) { return json({ ok:false, code:'PORTAL_AUTH_BACKEND_UNAVAILABLE', retryable:true }, 503); }\n    if (!next.ok || !next.data?.access_token || !next.data?.refresh_token) {\n      if (next.status === 429 || Number(next.status || 0) >= 500) return json({ ok:false, code:'PORTAL_AUTH_BACKEND_UNAVAILABLE', retryable:true }, 503);\n      return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());\n    }"
+          s = replace_once(s, old_proxy_refresh, new_proxy_refresh, 'proxy refresh resilience')
+
+          old_admin_session = "  const session = await ensureSession(request);\n  if (!session) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());\n  const roles = rolesOf(session.me);"
+          new_admin_session = "  const session = await ensureSession(request);\n  if (session?.unavailable) return json({ ok:false, code:'PORTAL_AUTH_BACKEND_UNAVAILABLE', retryable:true }, 503, session.setCookies);\n  if (!session) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());\n  const roles = rolesOf(session.me);"
+          s = replace_once(s, old_admin_session, new_admin_session, 'admin authority session')
+
+          old_login_route = "    const session = await ensureSession(request);\n    if (session) {\n      const target = defaultTarget(rolesOf(session.me));"
+          new_login_route = "    const session = await ensureSession(request);\n    if (session?.unavailable) return html(unavailablePage('/portal/login'), 503, session.setCookies);\n    if (session) {\n      const target = defaultTarget(rolesOf(session.me));"
+          s = replace_once(s, old_login_route, new_login_route, 'login route unavailable')
+
+          old_protected = "  const session = await ensureSession(request);\n  if (!session) return redirect(`/portal/login?next=${encodeURIComponent(canonicalProtectedPath(path))}`, 303, clearCookies());\n  const roles = rolesOf(session.me);"
+          new_protected = "  const session = await ensureSession(request);\n  if (session?.unavailable) return html(unavailablePage(canonicalProtectedPath(path)), 503, session.setCookies);\n  if (!session) return redirect(`/portal/login?next=${encodeURIComponent(canonicalProtectedPath(path))}`, 303, clearCookies());\n  const roles = rolesOf(session.me);"
+          s = replace_once(s, old_protected, new_protected, 'protected route unavailable')
+
+          portal.write_text(s, encoding='utf-8')
+
+          admin = Path('functions/portal/admin.js')
+          a = admin.read_text(encoding='utf-8')
+          fetch_gate = '''const FETCHGATE='<script id="rona-admin-backend-fetch-gate" data-rona-ui="backend-fetch-gate-v1">(()=>{\'use strict\';if(window.__RONA_BACKEND_FETCH_GATE__)return;window.__RONA_BACKEND_FETCH_GATE__=\'v1\';const raw=window.fetch.bind(window),MAX=4,q=[];let active=0;function gated(input){try{const rawUrl=typeof input===\'string\'?input:(input instanceof URL?input.href:(input&&input.url)||\'\'),u=new URL(rawUrl,location.href);if(u.origin!==location.origin)return false;const p=u.pathname;return p.startsWith(\'/portal/api/\')||p.startsWith(\'/portal/admin-authority\')||p.includes(\'price-updates-api\')||p.includes(\'owner-acceptance-api\')||p.includes(\'control-plane\')}catch{return false}}function pump(){while(active<MAX&&q.length){active++;const job=q.shift();job().finally(()=>{active--;pump()})}}window.fetch=(input,init)=>{if(!gated(input))return raw(input,init);return new Promise((resolve,reject)=>{q.push(()=>Promise.resolve(raw(input,init)).then(resolve,reject));pump()})}})();</script>';
+          '''
+          a = replace_once(a, "const LOADER='<script id=\"rona-main-ui-loader\"", fetch_gate + "const LOADER='<script id=\"rona-main-ui-loader\"", 'admin fetch gate declaration')
+          a = replace_once(a, 'const BODY_LOADERS=LOADER+BOOTRESCUE+', 'const BODY_LOADERS=FETCHGATE+LOADER+BOOTRESCUE+', 'admin fetch gate order')
+          admin.write_text(a, encoding='utf-8')
+
+          pool_files = [
+              Path('supabase/functions/rona-portal-api/shared.ts'),
+              Path('supabase/functions/rona-owner-acceptance/index.ts'),
+              Path('supabase/functions/rona-admin-control-plane/index.ts'),
+              Path('supabase/functions/rona-admin-authority/index.ts'),
+          ]
+          for p in pool_files:
+              if not p.exists():
+                  continue
+              x = p.read_text(encoding='utf-8')
+              before = x
+              x = x.replace('postgres(DB,{prepare:false,max:1})', "postgres(DB,{prepare:false,max:1,idle_timeout:1,connect_timeout:3,max_lifetime:15})")
+              x = x.replace('postgres(DB, { prepare: false, max: 1 })', "postgres(DB, { prepare: false, max: 1, idle_timeout: 1, connect_timeout: 3, max_lifetime: 15 })")
+              if x == before:
+                  print(f'pool pattern not present in {p}; leaving unchanged')
+              else:
+                  p.write_text(x, encoding='utf-8')
+
+          shared = Path('supabase/functions/rona-portal-api/shared.ts')
+          x = shared.read_text(encoding='utf-8')
+          auth_old = '''export async function authenticate(req:Request):Promise<Ctx|null>{const authorization=req.headers.get("authorization");if(!authorization?.startsWith("Bearer "))return null;const token=authorization.slice(7),client=createClient(SUPA_URL!,runtimeKey("pub"),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:authorization}}}),{data,error}=await client.auth.getUser(token);if(error||!data.user)return null;const sid=claims(token).session_id;if(typeof sid!=="string"||!uuid.test(sid))return null;const rows=await sql`select a.portal_user_id,a.display_name,a.roles,s.not_after from portal_private.resolve_portal_auth(${data.user.id}::uuid,${sid}) a join auth.sessions s on s.id=${sid}::uuid and s.user_id=${data.user.id}::uuid where a.session_allowed and (s.not_after is null or s.not_after>now())`;if(rows.length!==1)return null;return{auth:data.user.id,user:String(rows[0].portal_user_id),name:String(rows[0].display_name||""),roles:(rows[0].roles||[]).map(String),sid,exp:rows[0].not_after?new Date(rows[0].not_after).toISOString():null}}
+          '''
+          auth_new = '''const dbSleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));function transientDbError(error:unknown){return /remaining connection slots|too many connections|connection|timeout|ECONN|terminated|closed/i.test(String((error as any)?.message||error||''))}export async function authenticate(req:Request):Promise<Ctx|null>{const authorization=req.headers.get("authorization");if(!authorization?.startsWith("Bearer "))return null;const token=authorization.slice(7),client=createClient(SUPA_URL!,runtimeKey("pub"),{auth:{persistSession:false,autoRefreshToken:false},global:{headers:{Authorization:authorization}}}),{data,error}=await client.auth.getUser(token);if(error||!data.user)return null;const sid=claims(token).session_id;if(typeof sid!=="string"||!uuid.test(sid))return null;let rows:any[]=[];for(let attempt=0;attempt<5;attempt++){try{rows=await sql`select a.portal_user_id,a.display_name,a.roles,s.not_after from portal_private.resolve_portal_auth(${data.user.id}::uuid,${sid}) a join auth.sessions s on s.id=${sid}::uuid and s.user_id=${data.user.id}::uuid where a.session_allowed and (s.not_after is null or s.not_after>now())`;break}catch(e){if(attempt===4||!transientDbError(e))throw e;await dbSleep(100*(2**attempt))}}if(rows.length!==1)return null;return{auth:data.user.id,user:String(rows[0].portal_user_id),name:String(rows[0].display_name||""),roles:(rows[0].roles||[]).map(String),sid,exp:rows[0].not_after?new Date(rows[0].not_after).toISOString():null}}
+          '''
+          x = replace_once(x, auth_old, auth_new, 'portal-api auth DB retry')
+          scope_start = 'export async function sessionScope(c:Ctx){const clients='
+          x = replace_once(x, scope_start, 'export async function sessionScope(c:Ctx){try{const clients=', 'scope try')
+          scope_end = 'return{client_ids:[...clients],contract_ids:[...contracts],deal_ids:[...deals],agent_person_ids:[...persons],agent_legal_entity_ids:[...legalEntities]}}\nexport async function recordApiEvent'
+          scope_new_end = 'return{client_ids:[...clients],contract_ids:[...contracts],deal_ids:[...deals],agent_person_ids:[...persons],agent_legal_entity_ids:[...legalEntities]}}catch(error){console.error("portal session scope unavailable",error);return{client_ids:[],contract_ids:[],deal_ids:[],agent_person_ids:[],agent_legal_entity_ids:[]}}}\nexport async function recordApiEvent'
+          x = replace_once(x, scope_end, scope_new_end, 'scope fail closed')
+          shared.write_text(x, encoding='utf-8')
+
+          # Remove this one-shot workflow from the resulting patch commit.
+          Path('.github/workflows/apply-admin-session-resilience-hotfix.yml').unlink()
+          PY
+          node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/admin.js
+          grep -q 'PORTAL_AUTH_BACKEND_UNAVAILABLE' 'functions/portal/[[path]].js'
+          grep -q 'backend-fetch-gate-v1' functions/portal/admin.js
+          grep -q 'idle_timeout:1' supabase/functions/rona-portal-api/shared.ts
+      - name: Commit generated hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'RONA Production Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'Harden Admin session against transient DB pressure [session-resilience-applied]'
+          git push origin HEAD:fix/admin-session-resilience-db-pressure-20260826
