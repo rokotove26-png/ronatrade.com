@@ -29,6 +29,11 @@ const ADMIN_RUNTIME = Object.freeze({
   background_url: '/assets/portal-canonical/background.png',
   logo_url: '/assets/portal-canonical/logo.svg',
 });
+const ADMIN_FAST_SHELL = Object.freeze({
+  build: 'owner-fast-shell-v2-20260826-0251',
+  marker: 'rona-admin-fast-shell-runtime',
+  runtime_url: '/assets/portal-admin-shell-fast-v1.js?v=20260826-0203',
+});
 const AGENT_LIFECYCLE = Object.freeze({
   state: 'CURRENT_ONLY',
   version: '0.4.3',
@@ -49,6 +54,15 @@ async function walk(dir){ const out=[]; for(const e of await readdir(dir,{withFi
 function requireExact(label, bytes, expected){ const got=sha256(bytes); if(got!==expected) throw new Error(`${label} SHA-256 mismatch: ${got}`); }
 function extractDataUri(text,mime){ const marker=`data:${mime};base64,`; const first=text.indexOf(marker); if(first<0) throw new Error(`Missing canonical ${mime} data URI`); if(text.indexOf(marker,first+marker.length)>=0) throw new Error(`Expected one canonical ${mime} data URI`); let end=first+marker.length; while(end<text.length && /[A-Za-z0-9+/=]/.test(text[end])) end++; return Buffer.from(text.slice(first+marker.length,end),'base64'); }
 function replaceExactOnce(source,marker,value){ const first=source.indexOf(marker); if(first<0) throw new Error(`ADMIN_RUNTIME_PLACEHOLDER_MISSING: ${marker}`); if(source.indexOf(marker,first+marker.length)>=0) throw new Error(`ADMIN_RUNTIME_PLACEHOLDER_DUPLICATE: ${marker}`); return source.slice(0,first)+value+source.slice(first+marker.length); }
+function injectAdminFastShell(source){
+  if(source.includes(ADMIN_FAST_SHELL.marker)) throw new Error('ADMIN_FAST_SHELL_ALREADY_PRESENT');
+  const marker='</head>';
+  const first=source.indexOf(marker);
+  if(first<0) throw new Error('ADMIN_FAST_SHELL_HEAD_MISSING');
+  if(source.indexOf(marker,first+marker.length)>=0) throw new Error('ADMIN_FAST_SHELL_HEAD_DUPLICATE');
+  const tag=`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${ADMIN_FAST_SHELL.build}"><meta name="rona-admin-shell" content="fast-static-v1"><script id="${ADMIN_FAST_SHELL.marker}" src="${ADMIN_FAST_SHELL.runtime_url}" defer></script>`;
+  return source.slice(0,first)+tag+source.slice(first);
+}
 
 for(const retired of AGENT_LIFECYCLE.retired_runtime_sources){
   if(await exists(join(ROOT,...retired.split('/')))) throw new Error(`RETIRED_AGENT_RUNTIME_SOURCE_PRESENT: ${retired}`);
@@ -78,6 +92,7 @@ let adminRuntimeText=externalizedAdminBytes.toString('utf8');
 adminRuntimeText=replaceExactOnce(adminRuntimeText,'__RONA_CANONICAL_BACKGROUND_DATA_URI__',ADMIN_RUNTIME.background_url);
 adminRuntimeText=replaceExactOnce(adminRuntimeText,'__RONA_CANONICAL_LOGO_DATA_URI__',ADMIN_RUNTIME.logo_url);
 if(adminRuntimeText.includes('__RONA_CANONICAL_')) throw new Error('ADMIN_RUNTIME_UNRESOLVED_CANONICAL_PLACEHOLDER');
+adminRuntimeText=injectAdminFastShell(adminRuntimeText);
 const adminRuntimeBytes=Buffer.from(adminRuntimeText,'utf8');
 if(adminRuntimeBytes.length>ADMIN_RUNTIME.max_bytes) throw new Error(`ADMIN_RUNTIME_PAYLOAD_TOO_LARGE: ${adminRuntimeBytes.length}`);
 
@@ -109,6 +124,13 @@ const integrity={
     logo_url:ADMIN_RUNTIME.logo_url,
     embedded_canonical_assets:false,
   },
+  admin_shell:{
+    injection:'BUILD_TIME_ONLY',
+    build:ADMIN_FAST_SHELL.build,
+    runtime_url:ADMIN_FAST_SHELL.runtime_url,
+    marker:ADMIN_FAST_SHELL.marker,
+    runtime_html_rewrite:false,
+  },
   agent_lifecycle:AGENT_LIFECYCLE,
   embedded_assets:{
     background_png:{sha256:ASSETS.png.sha256,bytes:ASSETS.png.bytes,embedded:false,url:ADMIN_RUNTIME.background_url},
@@ -121,4 +143,4 @@ await writeFile(join(OUT,'canonical-visual-integrity.json'),JSON.stringify(integ
 for(const name of FORBIDDEN_TOP_LEVEL) if(await exists(join(OUT,name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files=await walk(OUT);
 for(const required of ['index.html','en/index.html','investments/index.html','en/investments/index.html','_routes.json','portal/admin.html','portal/agent.html','portal/client.html','assets/portal-canonical/background.png','assets/portal-canonical/logo.svg','canonical-visual-integrity.json']) if(!(await exists(join(OUT,...required.split('/'))))) throw new Error(`dist/${required} missing`);
-console.log(`RONA direct canonical build PASS: ${files.length} public files; Admin externalized runtime ${adminRuntimeBytes.length} bytes from ${ADMIN_RUNTIME.sha256}; Agent ${SOURCES.agent.sha256} CURRENT_ONLY; Client ${SOURCES.client.sha256}; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}; canonical assets served statically; no permanent binary prerequisite.`);
+console.log(`RONA direct canonical build PASS: ${files.length} public files; Admin externalized runtime ${adminRuntimeBytes.length} bytes from ${ADMIN_RUNTIME.sha256}; Admin shell ${ADMIN_FAST_SHELL.build} injected at build time; Agent ${SOURCES.agent.sha256} CURRENT_ONLY; Client ${SOURCES.client.sha256}; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}; canonical assets served statically; no permanent binary prerequisite.`);
