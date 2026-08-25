@@ -25,12 +25,13 @@ function cleanClaimsPresentation(){
   }
 }
 const SYSTEM_REMOVE_LABELS=new Set(['агенты']);
+const AGENT_REWARDS_LABELS=new Set(['вознаграждение агентов','вознаграждения агентов']);
 const navNorm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 function navBusinessLabel(el){let t=navNorm(el?.textContent);t=t.replace(/^[^a-zа-яё]+/i,'').replace(/\s+\d+$/,'').trim();return t}
 function relocateAgentRewards(nav){
   if(!nav)return;
   const access=nav.querySelector('button[data-page="access"],a[data-page="access"],[role="button"][data-page="access"]');
-  const rewards=Array.from(nav.querySelectorAll('button[data-page],a[data-page],[role="button"][data-page]')).find(control=>navBusinessLabel(control)==='вознаграждение агентов');
+  const rewards=Array.from(nav.querySelectorAll('button[data-page],a[data-page],[role="button"][data-page]')).find(control=>AGENT_REWARDS_LABELS.has(navBusinessLabel(control)));
   if(!access||!rewards||access===rewards)return;
   if(access.nextElementSibling!==rewards)access.insertAdjacentElement('afterend',rewards);
   rewards.dataset.ronaOwnerNavGroup='clients';
