@@ -16,7 +16,7 @@ jobs:
       - name: Wait for production diagnostic deployment
         run: sleep 90
 
-      - name: Probe exact Brevo send response
+      - name: Probe Cloudflare mailer fallback binding
         shell: bash
         run: |
           set -euo pipefail
@@ -25,14 +25,14 @@ jobs:
           body=$(cat <<JSON
           {
             "Contact Person":"RONA SYSTEM TEST",
-            "Company":"RONA Trade Internal Diagnostics ${now} exact403",
+            "Company":"RONA Trade Internal Diagnostics ${now} mailer",
             "Company Registration Country":"Kyrgyzstan",
             "Petroleum Product":"LPG/SPBT",
             "Cargo Destination Country":"Kazakhstan",
             "Estimated Volume, tonnes":"1",
             "Phone":"+996000000000",
             "Email":"office_kg@ronaoil.com",
-            "Comments":"Automated internal Brevo 403 diagnostic",
+            "Comments":"Automated internal Cloudflare mailer diagnostic",
             "Source":"RONA SYSTEM ADMIN",
             "Submitted At":"${now}",
             "Language":"EN",
@@ -45,7 +45,7 @@ jobs:
             --request POST "$endpoint" \
             --header 'Origin: https://ronaoil.com' \
             --header 'Content-Type: application/json' \
-            --header 'x-rona-diagnostic: brevo-minimal-send' \
+            --header 'x-rona-diagnostic: mailer-binding' \
             --data "$body")
           echo "HTTP_STATUS=$status"
           echo -n 'RESPONSE_BODY='; cat "$tmp"; echo
