@@ -19,7 +19,7 @@ jobs:
         with:
           ref: release/public-go-live-v1.1
 
-      - name: Capture live public form DOM
+      - name: Capture embedded form source
         shell: bash
         run: |
           set -euo pipefail
@@ -27,62 +27,34 @@ jobs:
           curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_large.html?layout=large' -o .probe/home_large.html
           curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_compact.html?layout=compact' -o .probe/home_compact.html
           python3 - <<'PY'
-          import html, re, pathlib
-          from html.parser import HTMLParser
-
-          class FrameParser(HTMLParser):
-              def __init__(self):
-                  super().__init__(convert_charrefs=True)
-                  self.frames=[]
-              def handle_starttag(self, tag, attrs):
-                  if tag.lower()=='iframe':
-                      self.frames.append(dict(attrs))
-
-          def compact(s,n=2400):
-              return re.sub(r'\s+',' ',s).strip()[:n]
-
+          import pathlib,re
+          def compact(x,n=4200): return re.sub(r'\s+',' ',x).strip()[:n]
+          needles=['formsubmit.co','office_kg@ronaoil.com','/api/forms/trade','uiSceneFrame','compactFrame','.srcdoc','srcdoc =','srcdoc=','fetch(','Отправить заявку','submitBtn','submit']
           out=[]
           for name in ('home_large','home_compact'):
               s=(pathlib.Path('.probe')/(name+'.html')).read_text('utf-8',errors='replace')
-              p=FrameParser(); p.feed(s)
-              out.append(f'===== {name} bytes={len(s)} iframes={len(p.frames)} =====')
-              for idx,a in enumerate(p.frames,1):
-                  srcdoc=a.get('srcdoc','') or ''
-                  out.append(f'IFRAME {idx}: id={a.get("id")} class={a.get("class")} sandbox={a.get("sandbox")} src={a.get("src")} srcdoc_bytes={len(srcdoc)}')
-                  if not srcdoc:
-                      continue
-                  forms=list(re.finditer(r'<form\b[^>]*>.*?</form\s*>',srcdoc,re.I|re.S))
-                  out.append(f'  srcdoc_forms={len(forms)}')
-                  for fi,m in enumerate(forms,1):
-                      block=m.group(0)
-                      opening=re.match(r'<form\b[^>]*>',block,re.I|re.S)
-                      out.append(f'  FORM {fi}: {compact(opening.group(0) if opening else "",1800)}')
-                      for t in re.findall(r'<(?:input|select|textarea|button)\b[^>]*>',block,re.I|re.S)[:100]:
-                          out.append('    '+compact(t,1400))
-                      visible=re.sub(r'<script\b.*?</script\s*>|<style\b.*?</style\s*>',' ',block,flags=re.I|re.S)
-                      visible=html.unescape(re.sub(r'<[^>]+>',' ',visible))
-                      out.append('    TEXT: '+compact(visible,2600))
-                  for needle in ('formsubmit.co','/api/forms/trade','fetch(','addEventListener','onsubmit','Отправить заявку'):
-                      low=srcdoc.lower(); nlow=needle.lower(); pos=0; hits=0
-                      while hits<8:
-                          j=low.find(nlow,pos)
-                          if j<0: break
-                          out.append(f'  HIT {needle!r} at {j}: '+compact(srcdoc[max(0,j-1200):min(len(srcdoc),j+2600)],3800))
-                          pos=j+len(needle); hits+=1
+              out.append(f'===== {name} bytes={len(s)} =====')
+              low=s.lower()
+              for needle in needles:
+                  nlow=needle.lower(); positions=[]; pos=0
+                  while True:
+                      j=low.find(nlow,pos)
+                      if j<0: break
+                      positions.append(j); pos=j+len(nlow)
+                  out.append(f'NEEDLE {needle!r} count={len(positions)} positions={positions[:30]}')
+                  for j in positions[:8]:
+                      out.append(f'  AT {j}: '+compact(s[max(0,j-1600):min(len(s),j+3200)]))
           pathlib.Path('ops/trade-form-live-dom-20260826.txt').write_text('\n'.join(out),'utf-8')
           PY
-          cat ops/trade-form-live-dom-20260826.txt
+          sed -n '1,320p' ops/trade-form-live-dom-20260826.txt
 
-      - name: Commit live DOM probe
+      - name: Commit live source probe
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'rona-trade-form-probe'
           git config user.email 'actions@users.noreply.github.com'
           git add ops/trade-form-live-dom-20260826.txt
-          if git diff --cached --quiet; then
-            echo 'No probe change'
-            exit 0
-          fi
-          git commit -m 'Record embedded trade form DOM probe'
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record embedded trade form source probe'
           git push origin HEAD:release/public-go-live-v1.1
