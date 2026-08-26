@@ -1,4 +1,3 @@
-# rerun: structured-cloudflare-error
 name: Temporary trade form production smoke 20260826
 
 on:
@@ -14,66 +13,61 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Probe production trade form stages
+      - name: Wait for production diagnostic deployment
+        run: sleep 75
+
+      - name: Run controlled production delivery probes
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           endpoint='https://ronaoil.com/api/forms/trade'
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-          get_tmp=$(mktemp)
-          get_status=$(curl --silent --show-error --max-time 20 --output "$get_tmp" --write-out '%{http_code}' "$endpoint")
-          echo "GET_STATUS=$get_status"
-          echo -n 'GET_BODY='; cat "$get_tmp"; echo
-
-          honey_body=$(cat <<JSON
-          {
-            "Contact Person":"RONA SYSTEM HONEY TEST",
-            "Company":"RONA Trade Internal Diagnostics",
-            "Company Registration Country":"Kyrgyzstan",
-            "Petroleum Product":"LPG/SPBT",
-            "Cargo Destination Country":"Kazakhstan",
-            "Phone":"+996000000000",
-            "website":"bot-probe"
-          }
-          JSON
-          )
-          honey_tmp=$(mktemp)
-          honey_status=$(curl --silent --show-error --max-time 20 --output "$honey_tmp" --write-out '%{http_code}' \
-            --request POST "$endpoint" --header 'Origin: https://ronaoil.com' --header 'Content-Type: application/json' --data "$honey_body")
-          echo "HONEY_STATUS=$honey_status"
-          echo -n 'HONEY_BODY='; cat "$honey_tmp"; echo
-
-          body=$(cat <<JSON
+          request_probe() {
+            label="$1"
+            mode="$2"
+            company_suffix="$3"
+            body=$(cat <<JSON
           {
             "Contact Person":"RONA SYSTEM TEST",
-            "Company":"RONA Trade Internal Diagnostics ${now}",
+            "Company":"RONA Trade Internal Diagnostics ${now} ${company_suffix}",
             "Company Registration Country":"Kyrgyzstan",
             "Petroleum Product":"LPG/SPBT",
             "Cargo Destination Country":"Kazakhstan",
             "Estimated Volume, tonnes":"1",
             "Phone":"+996000000000",
             "Email":"office_kg@ronaoil.com",
-            "Comments":"Automated production smoke test ${now}",
+            "Comments":"Automated internal production delivery isolation probe",
             "Source":"RONA SYSTEM ADMIN",
             "Submitted At":"${now}",
             "Language":"EN",
             "Page URL / Source":"https://ronaoil.com/pages/home_large.html"
           }
           JSON
-          )
-          real_tmp=$(mktemp)
-          real_headers=$(mktemp)
-          real_status=$(curl --silent --show-error --max-time 20 --output "$real_tmp" --dump-header "$real_headers" --write-out '%{http_code}' \
-            --request POST "$endpoint" \
-            --header 'Origin: https://ronaoil.com' \
-            --header 'Content-Type: application/json' \
-            --header 'Accept: application/json' \
-            --data "$body")
-          echo "REAL_STATUS=$real_status"
-          echo 'REAL_HEADERS_BEGIN'; cat "$real_headers"; echo 'REAL_HEADERS_END'
-          echo -n 'REAL_BODY='; cat "$real_tmp"; echo
+            )
+            tmp=$(mktemp)
+            if [ -n "$mode" ]; then
+              status=$(curl --silent --show-error --max-time 20 --output "$tmp" --write-out '%{http_code}' \
+                --request POST "$endpoint" \
+                --header 'Origin: https://ronaoil.com' \
+                --header 'Content-Type: application/json' \
+                --header "x-rona-diagnostic: ${mode}" \
+                --data "$body" || true)
+            else
+              status=$(curl --silent --show-error --max-time 20 --output "$tmp" --write-out '%{http_code}' \
+                --request POST "$endpoint" \
+                --header 'Origin: https://ronaoil.com' \
+                --header 'Content-Type: application/json' \
+                --data "$body" || true)
+            fi
+            printf '%s_STATUS=%s\n' "$label" "$status"
+            printf '%s_BODY=' "$label"
+            cat "$tmp"
+            echo
+          }
 
-          test "$get_status" = '405'
-          test "$honey_status" = '202'
-          test "$real_status" = '202'
+          request_probe PRE_DELIVERY pre-delivery pre
+          request_probe SIMULATED_FAILURE simulate-delivery-failure sim
+          request_probe BREVO_ACCOUNT brevo-account account
+          request_probe BREVO_MINIMAL_SEND brevo-minimal-send minimal
+          request_probe NORMAL '' normal
