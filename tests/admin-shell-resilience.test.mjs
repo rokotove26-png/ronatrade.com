@@ -58,9 +58,11 @@ assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v3'
 assert(watchdog.includes("if(p==='monitoring')return'rail'")&&watchdog.includes("if(p==='analytics')return'analytics'"),'Rail/Analytics recovery mappings missing');
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
 
-assert(railSafe.includes("observer.observe(host,{childList:true})"),'Rail fallback observer must be direct-child only');
-assert(!railSafe.includes("observer.observe(page,{childList:true,subtree:true})"),'Recursive Rail observer must not return');
+assert(railSafe.includes('const WATCH_FROM='),'Rail fallback must fail closed against the exact legacy observer source');
+assert(railSafe.includes('const WATCH_TO='),'Rail fallback must define an explicit safe observer replacement');
+assert(railSafe.includes("observer.observe(host,{childList:true})"),'Rail fallback replacement observer must be direct-child only');
 assert(railSafe.includes("if(!q('[data-rail-current-root]',host))queueRepair()"),'Rail fallback may repair only when current root is lost');
+assert(railSafe.includes('.replace(WATCH_FROM,WATCH_TO)'),'Rail fallback must replace the recursive observer before serving runtime code');
 assert(railSafe.includes("window.__RONA_RAIL_SAFE_FALLBACK__='20260826-direct-child-v1'"),'Rail safe fallback marker missing');
 
 assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'"),'Current Clients/Agents owner missing');
