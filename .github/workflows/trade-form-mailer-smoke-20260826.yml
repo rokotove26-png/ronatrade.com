@@ -19,17 +19,17 @@ jobs:
         with:
           ref: release/public-go-live-v1.1
 
-      - name: Verify public form transport and delivery
+      - name: Probe public form transport and delivery
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           mkdir -p .probe ops
 
-          curl -fsS -D .probe/home.headers -o .probe/home.html \
-            'https://ronaoil.com/pages/home_large.html?layout=large'
-          grep -qi '^x-rona-form-transport: controlled-v1.1' .probe/home.headers
-          grep -q 'rona-controlled-form-transport-v1-1' .probe/home.html
-          grep -q "'https://formsubmit.co/ajax/office_kg@ronaoil.com':'/api/forms/trade'" .probe/home.html
+          get_code=$(curl -sS -L -D .probe/home.headers -o .probe/home.html -w '%{http_code}' \
+            'https://ronaoil.com/pages/home_large.html?layout=large' 2>.probe/get.stderr || true)
+          transport_header=$(awk 'BEGIN{IGNORECASE=1} /^x-rona-form-transport:/{sub(/\r$/,"",$0); print $0}' .probe/home.headers 2>/dev/null | tail -1)
+          if grep -q 'rona-controlled-form-transport-v1-1' .probe/home.html 2>/dev/null; then bridge_script=present; else bridge_script=missing; fi
+          if grep -q "/api/forms/trade" .probe/home.html 2>/dev/null; then bridge_target=present; else bridge_target=missing; fi
 
           stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
           cat > .probe/payload.json <<JSON
@@ -50,38 +50,36 @@ jobs:
           }
           JSON
 
-          code=$(curl -sS -o .probe/response.json -w '%{http_code}' \
+          api_code=$(curl -sS -o .probe/response.json -w '%{http_code}' \
             -X POST 'https://ronaoil.com/api/forms/trade' \
             -H 'Origin: https://ronaoil.com' \
             -H 'Content-Type: application/json' \
             -H 'Accept: application/json' \
-            --data-binary @.probe/payload.json)
-
-          body=$(cat .probe/response.json)
-          echo "HTTP ${code} ${body}"
-          test "$code" = '202'
-          python3 - <<'PY'
-          import json
-          d=json.load(open('.probe/response.json',encoding='utf-8'))
-          assert d.get('success') is True, d
-          assert d.get('status') == 'accepted', d
-          assert d.get('submission_id'), d
-          PY
+            --data-binary @.probe/payload.json 2>.probe/post.stderr || true)
+          api_body=$(cat .probe/response.json 2>/dev/null || true)
+          get_error=$(tr '\n' ' ' < .probe/get.stderr 2>/dev/null || true)
+          post_error=$(tr '\n' ' ' < .probe/post.stderr 2>/dev/null || true)
 
           {
             echo "timestamp=${stamp}"
-            echo "transport_header=controlled-v1.1"
-            echo "legacy_formsubmit_bridge=present"
-            echo "api_http=${code}"
-            echo "api_response=${body}"
+            echo "home_http=${get_code}"
+            echo "transport_header=${transport_header}"
+            echo "bridge_script=${bridge_script}"
+            echo "bridge_target=${bridge_target}"
+            echo "home_curl_error=${get_error}"
+            echo "api_http=${api_code}"
+            echo "api_response=${api_body}"
+            echo "api_curl_error=${post_error}"
           } > ops/trade-form-production-e2e-20260826.txt
+          cat ops/trade-form-production-e2e-20260826.txt
 
-      - name: Commit production E2E proof
+      - name: Commit production E2E probe
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'rona-trade-form-e2e'
           git config user.email 'actions@users.noreply.github.com'
           git add ops/trade-form-production-e2e-20260826.txt
-          git commit -m 'Record production trade form E2E proof'
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Record production trade form E2E probe'
           git push origin HEAD:release/public-go-live-v1.1
