@@ -6,11 +6,14 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'assets/admin-four-sections-recovery-v1.js'
+      - 'assets/admin-approved-analytics-owner-v1.js'
       - 'functions/portal/rail-current-stable-ui.js'
       - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/price-updates-api.js'
       - 'functions/portal/analytics-v2-ui.js'
       - 'functions/portal/clients-agents-current-ui.js'
       - 'scripts/materialize-admin-current-modules.mjs'
+      - 'scripts/qa-admin-browser-runtime.mjs'
       - 'scripts/qa-admin-four-sections.mjs'
       - '.github/workflows/admin-four-sections-qa.yml'
   push:
@@ -18,11 +21,14 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'assets/admin-four-sections-recovery-v1.js'
+      - 'assets/admin-approved-analytics-owner-v1.js'
       - 'functions/portal/rail-current-stable-ui.js'
       - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/price-updates-api.js'
       - 'functions/portal/analytics-v2-ui.js'
       - 'functions/portal/clients-agents-current-ui.js'
       - 'scripts/materialize-admin-current-modules.mjs'
+      - 'scripts/qa-admin-browser-runtime.mjs'
       - 'scripts/qa-admin-four-sections.mjs'
       - '.github/workflows/admin-four-sections-qa.yml'
 
