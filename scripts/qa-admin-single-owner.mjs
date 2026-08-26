@@ -18,7 +18,11 @@ need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
 
 need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owner shell marker is missing');
-need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui"),'Required current modules are not loaded');
+for(const required of [
+  '/portal/claims-r2-ui','/portal/remaining-sections-current-ui','/portal/analytics-v2-ui',
+  '/portal/prices-standard-list-current-ui','/portal/access-create-parity-ui','/portal/rail-current-v81-maplibre-ui'
+]) need(has(shell,required),'Required current module is not loaded: '+required);
+need(!has(shell,"['agent-settlements','messages','analytics','market-news']"),'Analytics is still owned by generic Remaining');
 for(const forbidden of [
   'clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui',
   'remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui',
@@ -46,7 +50,7 @@ if(failures.length){
   process.exit(1);
 }
 console.log('ADMIN_SINGLE_OWNER_QA=PASS');
-console.log('routes=access,claims,agent-settlements');
+console.log('routes=access,claims,agent-settlements,prices,monitoring,analytics');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v3');
 console.log('watchdog=page-aware-v2/non-destructive');
