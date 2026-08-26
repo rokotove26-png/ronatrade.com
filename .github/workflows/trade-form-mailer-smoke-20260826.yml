@@ -1,68 +1,66 @@
-name: trade-form-mailer-smoke-20260826
+name: trade-form-production-e2e-diagnostic
 
 on:
   push:
     branches:
-      - release/public-go-live-v1.1
+      - diag/trade-form-e2e-20260826
     paths:
       - .github/workflows/trade-form-mailer-smoke-20260826.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  formsubmit-fallback-probe:
+  production-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: release/public-go-live-v1.1
-
-      - name: Probe legacy FormSubmit delivery endpoint
+      - name: Probe production trade form end to end
         shell: bash
         run: |
           set -u
-          mkdir -p .probe ops
+          mkdir -p .probe
           stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
           cat > .probe/payload.json <<JSON
           {
             "Контактное лицо": "RONA SYSTEM TEST",
-            "Компания": "RONA Trade FormSubmit probe ${stamp}",
+            "Компания": "RONA Trade production E2E ${stamp}",
             "Страна регистрации компании": "Kyrgyzstan",
             "Нефтепродукт": "СПБТ / СУГ",
             "Страна назначения груза": "Kazakhstan",
             "Ориентировочный объем, тонн": "1",
             "Телефон": "+996000000000",
             "E-mail": "office_kg@ronaoil.com",
-            "Комментарий": "Synthetic delivery probe ${stamp}. Ignore.",
-            "_subject": "RONA Trade — form delivery probe ${stamp}",
-            "_template": "table",
-            "_captcha": "false"
+            "Комментарий": "Synthetic production E2E test ${stamp}. Ignore.",
+            "Источник": "github-actions-production-e2e",
+            "Дата отправки": "${stamp}",
+            "Language": "RU",
+            "URL страницы / источник": "https://ronaoil.com/"
           }
           JSON
-          code=$(curl -sS -L -o .probe/response.json -w '%{http_code}' \
-            -X POST 'https://formsubmit.co/ajax/office_kg@ronaoil.com' \
+
+          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' \
+            --max-time 25 \
+            -X POST 'https://ronaoil.com/api/forms/trade' \
+            -H 'Origin: https://ronaoil.com' \
+            -H 'Referer: https://ronaoil.com/' \
             -H 'Content-Type: application/json' \
             -H 'Accept: application/json' \
-            --data-binary @.probe/payload.json 2>.probe/stderr || true)
-          body=$(cat .probe/response.json 2>/dev/null || true)
-          err=$(tr '\n' ' ' < .probe/stderr 2>/dev/null || true)
-          {
-            echo "timestamp=${stamp}"
-            echo "formsubmit_http=${code}"
-            echo "formsubmit_response=${body}"
-            echo "formsubmit_curl_error=${err}"
-          } > ops/trade-form-formsubmit-probe-20260826.txt
-          cat ops/trade-form-formsubmit-probe-20260826.txt
+            --data-binary @.probe/payload.json 2>.probe/form-stderr || true)
+          form_body=$(cat .probe/form-response.json 2>/dev/null || true)
+          form_err=$(tr '\n' ' ' < .probe/form-stderr 2>/dev/null || true)
+          echo "FORM_HTTP=${form_http}"
+          echo "FORM_RESPONSE=${form_body}"
+          echo "FORM_CURL_ERROR=${form_err}"
 
-      - name: Commit FormSubmit probe proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'rona-trade-form-e2e'
-          git config user.email 'actions@users.noreply.github.com'
-          git add ops/trade-form-formsubmit-probe-20260826.txt
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Record FormSubmit delivery probe'
-          git push origin HEAD:release/public-go-live-v1.1
+          if [ "${form_http}" != "202" ]; then
+            diag_http=$(curl -sS -o .probe/diag-response.json -w '%{http_code}' \
+              --max-time 25 \
+              'https://ronaoil.com/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d' \
+              2>.probe/diag-stderr || true)
+            diag_body=$(cat .probe/diag-response.json 2>/dev/null || true)
+            diag_err=$(tr '\n' ' ' < .probe/diag-stderr 2>/dev/null || true)
+            echo "DIAG_HTTP=${diag_http}"
+            echo "DIAG_RESPONSE=${diag_body}"
+            echo "DIAG_CURL_ERROR=${diag_err}"
+          fi
