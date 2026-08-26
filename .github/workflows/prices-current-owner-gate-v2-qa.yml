@@ -7,6 +7,7 @@ on:
     paths:
       - 'functions/portal/prices-current-ui.js'
       - 'functions/portal/price-updates-api.js'
+      - 'functions/portal/agent.js'
       - 'functions/portal/admin-canonical-tweaks-ui.js'
       - 'supabase/migrations/20260825190000_owner_price_update_gate_v2.sql'
       - 'supabase/migrations/20260825195200_owner_price_update_rpc_anon_hardening_v3.sql'
@@ -26,6 +27,7 @@ jobs:
         run: |
           node --check functions/portal/prices-current-ui.js
           node --check functions/portal/price-updates-api.js
+          node --check functions/portal/agent.js
           node --check functions/portal/admin-canonical-tweaks-ui.js
       - name: Verify canonical direction and owner gates
         run: |
@@ -33,15 +35,21 @@ jobs:
           const fs=require('fs');
           const ui=fs.readFileSync('functions/portal/prices-current-ui.js','utf8');
           const api=fs.readFileSync('functions/portal/price-updates-api.js','utf8');
+          const agent=fs.readFileSync('functions/portal/agent.js','utf8');
           const loader=fs.readFileSync('functions/portal/admin-canonical-tweaks-ui.js','utf8');
           const mig=fs.readFileSync('supabase/migrations/20260825190000_owner_price_update_gate_v2.sql','utf8');
           const hardening=fs.readFileSync('supabase/migrations/20260825195200_owner_price_update_rpc_anon_hardening_v3.sql','utf8');
           const need=(text,patterns,label)=>{for(const p of patterns){if(!text.includes(p))throw new Error(label+': missing '+p)}};
-          need(ui,['20260825-owner-update-gate-v2','Данные обновлены','Открыть детали','Отклонить','Обновить','ЛК Клиента','ЛК Агента','Неактуален — цена изменена','Только внутреннее'],'prices UI');
-          if(ui.includes("/admin/prices/")) throw new Error('legacy per-row publication route remains in current Prices UI');
+          const forbid=(text,patterns,label)=>{for(const p of patterns){if(text.includes(p))throw new Error(label+': obsolete '+p)}};
+          need(ui,['20260826-standard-agent-price-list-v1','Данные обновлены','Открыть детали','Отклонить','Обновить','ЛК Клиента / Агента','Только внутреннее','Клиенты и агенты','x-rona-agent-prices','standard-publication'],'prices UI');
+          forbid(ui,['cp-bootstrap','cp-preview','cp-publish','cp-return','КП агентам','Открыть PDF','RONA-AGENT-CP-2026-001'],'prices UI');
+          if(ui.includes('/admin/prices/')) throw new Error('legacy per-row publication route remains in current Prices UI');
           need(api,["op==='apply'","op==='reject'","op==='audience'",'owner_apply_price_change_proposal','owner_reject_price_change_proposal','owner_set_price_publication_audience'],'price update API');
-          need(loader,['20260825-1900-v5-prices','/portal/prices-current-ui?v=20260825-1900',"ronaPricesCurrentLoader='v2'"],'canonical loader');
-          need(mig,['AI-OPERATIONS-DIRECTOR','PROPOSE_PRICE_LIST_UPDATE','BUSINESS_CHANGE_PROPOSAL','OWNER_PRICE_UPDATE_APPLIED','OWNER_PRICE_UPDATE_REJECTED','STALE_PRICE_SOURCE','owner_set_price_publication_audience','operations-price-proposal-v2'],'migration');
+          forbid(api,['cp-bootstrap','cp-preview','cp-publish','cp-return','agent-cp-download','agent_current_commercial_proposals','agent_cp_download_plan','owner_agent_cp_'],'price update API');
+          need(agent,['x-rona-agent-prices','standard-publication'],'agent shell');
+          forbid(agent,['agent-cp-bootstrap','agent-cp-download','Коммерческие предложения','Открыть PDF'],'agent shell');
+          need(loader,['/portal/prices-current-ui'],'canonical loader');
+          need(mig,['AI-OPERATIONS-DIRECTOR','PROPOSE_PRICE_LIST_UPDATE','BUSINESS_CHANGE_PROPOSAL','OWNER_PRICE_UPDATE_APPLIED','OWNER_PRICE_UPDATE_REJECTED','owner_set_price_publication_audience'],'migration');
           need(hardening,[
             'revoke all on function public.owner_price_updates_bootstrap() from anon',
             'revoke all on function public.owner_apply_price_change_proposal(uuid) from anon',
