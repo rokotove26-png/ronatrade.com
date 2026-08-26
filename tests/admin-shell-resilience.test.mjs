@@ -52,8 +52,8 @@ assert(runtime.includes("'/portal/main-ui?v=20260824-0320'"),'Current main-v2 ru
 assert(runtime.includes("'/portal/prices-current-ui?v=20260825-2055-centered-modal-v4'"),'Current Prices UI must remain loaded');
 assert(runtime.includes("'/portal/analytics-v2-ui?v=20260824-v3-market-rona-lpg'"),'Canonical Analytics UI must remain loaded');
 
-assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'"),'Current Clients/Agents owner missing');
-assert(access.includes("AUTH='/portal/admin-authority'"),'Current access UI must use server authority directly');
+assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'"),'Current Clients/Agents owner missing');
+assert(access.includes("const AUTH='/portal/admin-authority'"),'Current access UI must use server authority directly');
 assert(!access.includes('harvestLegacy'),'Current access UI must not harvest legacy DOM');
 assert(!access.includes('window.openModal'),'Current access UI must not depend on legacy modal functions');
 assert(access.includes("window.__RONA_CLIENTS_AGENTS_V4_READY__=true"),'Current access UI must preserve the established owner-ready contract');
