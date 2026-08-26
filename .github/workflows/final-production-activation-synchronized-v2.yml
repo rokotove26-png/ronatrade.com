@@ -31,12 +31,14 @@ jobs:
           node --check functions/portal/admin.js
           node --check functions/portal/main-ui.js
           node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
+          node scripts/qa-admin-single-owner.mjs
 
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
@@ -54,17 +56,28 @@ jobs:
           ! grep -q 'v3.4.13' dist/portal/admin.html
           grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
-          grep -q 'grid-template-columns:238px minmax(0,1fr)' dist/portal/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' dist/portal/admin.html
+          grep -q 'min-height:48px' dist/portal/admin.html
+          grep -q 'font-size:14.5px' dist/portal/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
           grep -q 'data-page="claims"' dist/portal/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
+          grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'" functions/portal/clients-agents-current-ui.js
-          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
-          ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'SIGNED_CONTRACT_ACTIVATION_V2' supabase/functions/rona-admin-contract-activation/index.ts
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.state!=='CURRENT_ONLY'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
