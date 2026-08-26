@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  inspect-live-trade-form:
+  production-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -19,59 +19,69 @@ jobs:
         with:
           ref: release/public-go-live-v1.1
 
-      - name: Decode embedded form document
+      - name: Verify public form transport and delivery
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p .probe
-          curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_large.html?layout=large' -o .probe/home_large.html
-          curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_compact.html?layout=compact' -o .probe/home_compact.html
-          python3 - <<'PY'
-          import base64,html,pathlib,re
-          def compact(x,n=3500): return re.sub(r'\s+',' ',x).strip()[:n]
-          out=[]
-          for name in ('home_large','home_compact'):
-              outer=(pathlib.Path('.probe')/(name+'.html')).read_text('utf-8',errors='replace')
-              if name=='home_large':
-                  m=re.search(r'<script\b[^>]*id=["\']uiScenePayload["\'][^>]*>(.*?)</script\s*>',outer,re.I|re.S)
-                  b64=(m.group(1).strip() if m else '')
-              else:
-                  m=re.search(r'\bSOURCE_B64\s*=\s*["\']([^"\']+)["\']',outer,re.S)
-                  b64=(m.group(1).strip() if m else '')
-              try: inner=base64.b64decode(b64).decode('utf-8','replace') if b64 else ''
-              except Exception as e: inner=''; out.append(f'{name} decode_error={e!r}')
-              out.append(f'===== {name} outer={len(outer)} payload_b64={len(b64)} inner={len(inner)} =====')
-              forms=list(re.finditer(r'<form\b[^>]*>.*?</form\s*>',inner,re.I|re.S))
-              out.append(f'forms={len(forms)}')
-              for i,mf in enumerate(forms,1):
-                  block=mf.group(0)
-                  opening=re.match(r'<form\b[^>]*>',block,re.I|re.S)
-                  out.append(f'FORM {i}: '+compact(opening.group(0) if opening else '',1800))
-                  for tag in re.findall(r'<(?:input|select|textarea|button)\b[^>]*>',block,re.I|re.S)[:120]:
-                      out.append('  '+compact(tag,1400))
-                  text=re.sub(r'<script\b.*?</script\s*>|<style\b.*?</style\s*>',' ',block,flags=re.I|re.S)
-                  text=html.unescape(re.sub(r'<[^>]+>',' ',text))
-                  out.append('  TEXT: '+compact(text,2400))
-              for needle in ('formsubmit.co','office_kg@ronaoil.com','/api/forms/trade','fetch(','addEventListener(\'submit','addEventListener("submit','preventDefault','FormData','JSON.stringify','Отправить заявку'):
-                  low=inner.lower(); nl=needle.lower(); pos=[]; at=0
-                  while True:
-                      j=low.find(nl,at)
-                      if j<0: break
-                      pos.append(j); at=j+len(nl)
-                  out.append(f'NEEDLE {needle!r} count={len(pos)} positions={pos[:20]}')
-                  for j in pos[:6]:
-                      out.append('  '+compact(inner[max(0,j-1500):min(len(inner),j+3000)],4400))
-          pathlib.Path('ops/trade-form-live-dom-20260826.txt').write_text('\n'.join(out),'utf-8')
-          PY
-          sed -n '1,360p' ops/trade-form-live-dom-20260826.txt
+          mkdir -p .probe ops
 
-      - name: Commit decoded form probe
+          curl -fsS -D .probe/home.headers -o .probe/home.html \
+            'https://ronaoil.com/pages/home_large.html?layout=large'
+          grep -qi '^x-rona-form-transport: controlled-v1.1' .probe/home.headers
+          grep -q 'rona-controlled-form-transport-v1-1' .probe/home.html
+          grep -q "'https://formsubmit.co/ajax/office_kg@ronaoil.com':'/api/forms/trade'" .probe/home.html
+
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          cat > .probe/payload.json <<JSON
+          {
+            "Контактное лицо": "RONA SYSTEM TEST",
+            "Компания": "RONA Trade E2E ${stamp}",
+            "Страна регистрации компании": "Kyrgyzstan",
+            "Нефтепродукт": "СПБТ / СУГ",
+            "Страна назначения груза": "Kazakhstan",
+            "Ориентировочный объем, тонн": "1",
+            "Телефон": "+996000000000",
+            "E-mail": "office_kg@ronaoil.com",
+            "Комментарий": "Synthetic production form E2E test ${stamp}. Ignore.",
+            "Источник": "Production E2E smoke",
+            "Дата отправки": "${stamp}",
+            "Language": "RU",
+            "URL страницы / источник": "https://ronaoil.com/pages/home_large.html?layout=large"
+          }
+          JSON
+
+          code=$(curl -sS -o .probe/response.json -w '%{http_code}' \
+            -X POST 'https://ronaoil.com/api/forms/trade' \
+            -H 'Origin: https://ronaoil.com' \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            --data-binary @.probe/payload.json)
+
+          body=$(cat .probe/response.json)
+          echo "HTTP ${code} ${body}"
+          test "$code" = '202'
+          python3 - <<'PY'
+          import json
+          d=json.load(open('.probe/response.json',encoding='utf-8'))
+          assert d.get('success') is True, d
+          assert d.get('status') == 'accepted', d
+          assert d.get('submission_id'), d
+          PY
+
+          {
+            echo "timestamp=${stamp}"
+            echo "transport_header=controlled-v1.1"
+            echo "legacy_formsubmit_bridge=present"
+            echo "api_http=${code}"
+            echo "api_response=${body}"
+          } > ops/trade-form-production-e2e-20260826.txt
+
+      - name: Commit production E2E proof
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'rona-trade-form-probe'
+          git config user.name 'rona-trade-form-e2e'
           git config user.email 'actions@users.noreply.github.com'
-          git add ops/trade-form-live-dom-20260826.txt
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Record decoded public trade form probe'
+          git add ops/trade-form-production-e2e-20260826.txt
+          git commit -m 'Record production trade form E2E proof'
           git push origin HEAD:release/public-go-live-v1.1
