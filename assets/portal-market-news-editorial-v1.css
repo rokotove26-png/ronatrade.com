@@ -1,1 +1,2 @@
-/* Retired permanently. Market News visual styling is owned by portal-market-news-current-v1.js plus the no-gray-band invariant asset. */
+/* Permanent compatibility alias. The former editorial stylesheet is retired; every legacy reference now receives the no-gray-band invariant only. */
+@import url('/assets/portal-market-news-no-gray-bands-v1.css?v=20260827-no-gray-bands-v1');
