@@ -11,7 +11,7 @@ const sql=postgres(DB,{prepare:false,max:2});
 const vaultSigning=await sql`select decrypted_secret from vault.decrypted_secrets where name='rona_ai_token_signing_key_v1' limit 1`;
 const SIGNING_KEY=Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY')||String(vaultSigning[0]?.decrypted_secret||'');
 const encoder=new TextEncoder(),decoder=new TextDecoder();
-const AI_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','RAIL_LOGISTICS','SYSTEM_ADMIN']);
+const AI_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN']);
 const FIN_DOC_TYPES=new Set(['ИНВОЙС','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ']);
 const RAIL_DOC_TYPES=new Set(['ЗАЯВКА НА ПОСТАВКУ','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ']);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -81,7 +81,7 @@ async function telegramMarketSources(){
 }
 
 async function marketData(auth,req){
-  if(auth.role!=='MARKET_ANALYST')throw Object.assign(new Error('AI_MARKET_SCOPE_DENIED'),{status:403});
+  if(!['MARKET_ANALYST','COMMERCIAL_DIRECTOR'].includes(auth.role))throw Object.assign(new Error('AI_MARKET_SCOPE_DENIED'),{status:403});
   const rows=await sql`select distinct on (source_object_type,source_object_id) source_object_type,source_object_id,source_system,source_version,source_timestamp,checksum_sha256,raw_snapshot,created_at from portal_private.source_objects where source_object_type in ('MARKET_FACT','MARKET_FORECAST','MARKET_CALCULATION') and coalesce(lower(source_system),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])' order by source_object_type,source_object_id,source_timestamp desc nulls last,created_at desc`;
   let telegram=[];try{telegram=await telegramMarketSources();}catch(e){console.error('telegram market sources unavailable',String(e?.message||e));}
   await audit({identity:auth.identity,role:auth.role,req,requestIds:auth.requestIds,domain:'MARKET',result:'SUCCESS',httpStatus:200,jti:auth.jti,metadata:{records:rows.length,telegram_records:telegram.length,current_only:true,deduplication:'LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID+TELEGRAM_SHA256_PRIMARY_PRIORITY'}});

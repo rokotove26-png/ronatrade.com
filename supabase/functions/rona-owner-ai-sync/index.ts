@@ -100,14 +100,14 @@ async function adminSync(){
   const homeCoordination=await coordinationDashboard();
   const agentRewardsFragment=await agentRewardsDashboard();
 
-  const marketIdentity=(await sql`select identity_id,business_role::text as role,display_name,status::text,updated_at from portal_private.ai_service_identities where identity_id='AI-MARKET-ANALYST' limit 1`)[0]||null;
+  const marketIdentity=(await sql`select identity_id,business_role::text as role,display_name,status::text,updated_at from portal_private.ai_service_identities where identity_id='AI-COMMERCIAL-DIRECTOR' limit 1`)[0]||null;
   const marketRecords=await sql`
     select record_id,record_type,target_type,target_id,target_role::text as target_role,status,version,
       payload->>'subject' as subject,payload->>'priority' as priority,payload->>'summary' as summary,
       payload->>'recommendation' as recommendation,payload->>'requested_check' as requested_check,
       payload->>'reason' as reason,source_refs,created_at
     from portal_private.ai_coordination_records
-    where qa_only=false and functional_role::text='MARKET_ANALYST' and target_type='PUBLICATION'
+    where qa_only=false and functional_role::text in ('COMMERCIAL_DIRECTOR','MARKET_ANALYST') and target_type='PUBLICATION'
       and record_type in ('FUNCTIONAL_CONCLUSION','HANDOFF_REQUEST')
       and created_at>=now()-interval '7 days'
     order by created_at desc
@@ -124,7 +124,7 @@ async function adminSync(){
     limit 3`;
   const analytics=marketRecords.filter(r=>{if(r.record_type!=='FUNCTIONAL_CONCLUSION')return false;const t=[r.summary,r.recommendation,(r.source_refs||[]).join(' ')].join(' ');return !marketNoise(t)&&marketTerms(t)}).slice(0,12);
   const news=marketRecords.filter(r=>{if(r.record_type!=='HANDOFF_REQUEST')return false;const subject=String(r.subject||'');const t=[subject,r.requested_check,r.reason,(r.source_refs||[]).join(' ')].join(' ');if(marketNoise(t))return false;if(/TECH BLOCKER|OWNER COMMAND — route Telegram Platts PDF ingest/i.test(subject))return false;return marketTerms(t)}).slice(0,18);
-  const marketAnalystFragment={generatedAt:new Date().toISOString(),currentOnly:true,identity:marketIdentity?{...marketIdentity,organizationalTitle:'Коммерческий директор'}:{identity_id:'AI-MARKET-ANALYST',role:'MARKET_ANALYST',organizationalTitle:'Коммерческий директор',status:'TO_VERIFY'},analytics,news,currentPublications:marketPublications};
+  const marketAnalystFragment={generatedAt:new Date().toISOString(),currentOnly:true,identity:marketIdentity?{...marketIdentity,organizationalTitle:'Коммерческий директор'}:{identity_id:'AI-COMMERCIAL-DIRECTOR',role:'COMMERCIAL_DIRECTOR',organizationalTitle:'Коммерческий директор',status:'TO_VERIFY'},analytics,news,currentPublications:marketPublications};
 
   const payments=await sql`
     select p.payment_id,p.payment_at,p.amount,p.currency,

@@ -228,7 +228,7 @@ async function currentTasks(role){
   const domains = role==='OPERATIONS_DIRECTOR' ? ['APPLICATION','DEAL','CONTRACT','DOCUMENT','RESOURCE','PUBLICATION','MARKET','RAIL','SHIPMENT','QUALITY','VED','COMMERCIAL']
     : role==='FINANCE' ? ['PAYMENT','ACCOUNTING','FINANCE','DEAL','CONTRACT']
     : role==='LEGAL' ? ['CONTRACT','DOCUMENT','LEGAL','PORTAL_EVENT']
-    : role==='MARKET_ANALYST' ? ['CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PORTAL_EVENT']
+    : (role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') ? ['CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PORTAL_EVENT']
     : role==='RAIL_LOGISTICS' ? ['RAIL','SHIPMENT','PORTAL_EVENT']
     : ['TECHNICAL','IAM','AUDIT','PORTAL_EVENT'];
   return await sql`select task_id,title,description,status::text,priority::text,authority_domain,assigned_functional_role::text,due_at,source_type,source_object_id,source_version,acknowledged_at,decision,decision_at,created_at,updated_at
@@ -239,7 +239,7 @@ async function currentTasks(role){
 async function currentPortalEvents(role){
   const types = role==='OPERATIONS_DIRECTOR' ? ['CLIENT_APPLICATION_SUBMIT','CLIENT_CLAIM_SUBMIT','CLIENT_PAYMENT_PROOF_SUBMIT','CLIENT_MESSAGE_SUBMIT','CLIENT_DOCUMENT_ACK','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT','ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']
     : role==='LEGAL' ? ['CLIENT_CLAIM_SUBMIT','CLIENT_DOCUMENT_ACK','CLIENT_MESSAGE_SUBMIT']
-    : role==='MARKET_ANALYST' ? ['CLIENT_APPLICATION_SUBMIT','CLIENT_MESSAGE_SUBMIT','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT','ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']
+    : (role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') ? ['CLIENT_APPLICATION_SUBMIT','CLIENT_MESSAGE_SUBMIT','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT','ADMIN_PUBLICATION_REQUEST','ADMIN_UNPUBLISH_REQUEST','ADMIN_PRICE_PUBLICATION_REQUEST']
     : role==='RAIL_LOGISTICS' ? ['CLIENT_MESSAGE_SUBMIT','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT']
     : role==='SYSTEM_ADMIN' ? ['ADMIN_SOURCE_SYNC_REQUEST','ADMIN_AUTHORITY_ACTION_REQUEST']
     : ['CLIENT_PAYMENT_PROOF_SUBMIT'];
@@ -264,7 +264,7 @@ async function controls(role){
     ) q order by updated_at desc`;
   if(role==='FINANCE') return rows.filter(x=>x.control_type==='PAYMENT_ACCOUNTING_OPEN'||x.control_type==='CONTRACT_VERIFICATION');
   if(role==='LEGAL') return rows.filter(x=>x.control_type==='CONTRACT_VERIFICATION');
-  if(role==='RAIL_LOGISTICS'||role==='MARKET_ANALYST') return [];
+  if(role==='RAIL_LOGISTICS'||role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') return [];
   return rows;
 }
 async function systemAdminState(){
@@ -288,7 +288,7 @@ async function buildCurrentState(role){
     qa_test_debug_temp_excluded:true,
     superseded_archived_excluded:true,
     allowed_domains:ROLE_DOMAINS[role],
-    organizational_title:role==='MARKET_ANALYST'?'Коммерческий директор':null,
+    organizational_title:(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR')?'Коммерческий директор':null,
   };
   if(role==='OPERATIONS_DIRECTOR') return {...base,
     clients:await currentClients(),contracts:await currentContracts(),applications:await currentApplications(),deals:await currentDeals(),documents:await currentDocuments(),
@@ -302,7 +302,7 @@ async function buildCurrentState(role){
   if(role==='LEGAL') return {...base,
     contracts:await currentContracts(),documents:await currentDocuments(),applications:await currentApplications(),deals:await currentDeals(),controls:await controls(role),tasks:await currentTasks(role),events:await currentPortalEvents(role),
   };
-  if(role==='MARKET_ANALYST') {
+  if(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') {
     const applications=await currentApplications();
     return {...base,
       clients:await currentClients(),contracts:await currentContracts(),applications,deals:await currentDeals(),commercialRecords:applications,
