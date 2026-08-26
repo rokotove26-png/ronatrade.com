@@ -1,0 +1,85 @@
+name: RONA LK Market News Auto Refresh Fix
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - .github/workflows/market-news-lk-autorefresh-fix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: release/public-go-live-v1.1
+          fetch-depth: 0
+
+      - name: Patch LK market-news refresh lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('assets/portal-market-news-current-v1.js')
+          s = p.read_text()
+
+          replacements = [
+            (
+              "window.__RONA_MARKET_NEWS_CURRENT_V1__='20260826-clean-rebuild-v1';",
+              "window.__RONA_MARKET_NEWS_CURRENT_V1__='20260827-auto-refresh-v2';"
+            ),
+            (
+              "const state={rows:[],loading:false,loaded:false,error:'',date:'',source:'ALL',search:'',updatedAt:''};",
+              "const state={rows:[],loading:false,loaded:false,error:'',date:'',source:'ALL',search:'',updatedAt:'',fingerprint:''};\nconst AUTO_REFRESH_MS=60000;\nlet autoRefreshTimer=null;"
+            ),
+            (
+              "function uniqueSources(){return Array.from(new Set(state.rows.map(sourceName))).sort((a,b)=>a.localeCompare(b,'ru'))}",
+              "function rowKey(x){return String(x?.duplicate_group||x?.news_id||x?.source_version||x?.publication_id||x?.id||[headline(x),timestamp(x),sourceName(x)].join('|'))}\nfunction dedupeRows(rows){const seen=new Set(),out=[];for(const x of rows){const k=rowKey(x);if(seen.has(k))continue;seen.add(k);out.push(x)}return out}\nfunction rowsFingerprint(rows){return JSON.stringify(rows.map(x=>[rowKey(x),String(x?.updated_at||x?.published_at||x?.prepared_at||x?.created_at||timestamp(x)||'')]))}\nfunction uniqueSources(){return Array.from(new Set(state.rows.map(sourceName))).sort((a,b)=>a.localeCompare(b,'ru'))}"
+            ),
+            (
+              "    state.rows=Array.isArray(data.marketNewsFeed)?data.marketNewsFeed.slice():[];\n    state.rows.sort((a,b)=>String(timestamp(b)).localeCompare(String(timestamp(a))));\n    state.loaded=true;state.updatedAt=new Date().toISOString();",
+              "    const incoming=dedupeRows(Array.isArray(data.marketNewsFeed)?data.marketNewsFeed.slice():[]);\n    incoming.sort((a,b)=>String(timestamp(b)).localeCompare(String(timestamp(a))));\n    const fingerprint=rowsFingerprint(incoming);\n    if(!state.loaded||fingerprint!==state.fingerprint){state.rows=incoming;state.fingerprint=fingerprint}\n    state.loaded=true;state.updatedAt=new Date().toISOString();"
+            ),
+            (
+              "function activate(){ensureRoot();loadData(false)}\nwindow.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')==='market-news')activate()});",
+              "function isActive(){return Boolean(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')}\nfunction refreshIfActive(){if(document.visibilityState==='visible'&&isActive())loadData(true)}\nfunction startAutoRefresh(){if(autoRefreshTimer)return;autoRefreshTimer=setInterval(refreshIfActive,AUTO_REFRESH_MS)}\nfunction activate(){ensureRoot();startAutoRefresh();loadData(true)}\nwindow.addEventListener('focus',refreshIfActive);\ndocument.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfActive()});\nwindow.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')==='market-news')activate()});"
+            ),
+          ]
+
+          for old, new in replacements:
+              if old not in s:
+                  raise SystemExit('expected source fragment not found:\n' + old[:180])
+              s = s.replace(old, new, 1)
+
+          p.write_text(s)
+          print('MARKET_NEWS_AUTO_REFRESH_PATCH_OK')
+          PY
+
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-market-news-current-v1.js
+
+      - name: Commit patched asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/portal-market-news-current-v1.js
+          git commit -m "fix: auto-refresh admin LK market news"
+          git push origin HEAD:release/public-go-live-v1.1
