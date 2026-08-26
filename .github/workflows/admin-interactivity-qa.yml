@@ -28,20 +28,25 @@ jobs:
           npm run build
           node --check functions/portal/admin.js
           node --check functions/portal/clients-agents-current-ui.js
-          node --check functions/portal/admin-access-ui.js
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
+          node tests/admin-runtime-watchdog.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
+          node scripts/qa-admin-single-owner.mjs
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
           grep -q "window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
-          grep -q 'grid-template-columns:238px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' portal-src/current/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'id="nav"' portal-src/current/admin.html
           for p in home prices applications deals payments accounting monitoring messages access agent-settlements claims analytics market-news; do grep -q "data-page=\"$p\"" portal-src/current/admin.html; grep -q "id=\"page-$p\"" portal-src/current/admin.html; done
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'" functions/portal/clients-agents-current-ui.js
-          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
-          grep -q 'RONA_ADMIN_DIALOGS' functions/portal/admin-access-ui.js
-          ! grep -Eq 'window\.prompt\s*\(|window\.confirm\s*\(' functions/portal/admin-access-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' supabase/functions/rona-admin-control-plane/index.ts
@@ -64,11 +69,12 @@ jobs:
           const shell=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
           assert(shell.status===302,'Admin auth boundary '+shell.status);
           const access=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='current-only-v2','access current-only-v2 contract');
-          assert(access.headers.get('x-rona-access-create')==='client-agent-v2','access create contract');
-          assert(access.headers.get('x-rona-admin-nav-stability')==='v2','navigation stability contract');
+          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','access single-owner-v3 contract');
+          assert(access.headers.get('x-rona-access-create')==='client-agent-v3','access create contract');
+          assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','navigation owner contract');
+          assert(access.headers.get('x-rona-shell-mutation')==='none','page-scoped shell contract');
           const src=await access.text();
-          for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4'])assert(src.includes(marker),'current access ASCII marker '+marker);
+          for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4'])assert(src.includes(marker),'current access marker '+marker);
           const claims=await fetch(base+'/portal/claims-r2-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(claims.ok,'claims runtime '+claims.status);
           const claimsSrc=await claims.text();
