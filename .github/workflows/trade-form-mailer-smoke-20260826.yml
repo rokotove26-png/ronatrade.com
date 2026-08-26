@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  production-e2e:
+  delivery-diagnostic:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -19,67 +19,31 @@ jobs:
         with:
           ref: release/public-go-live-v1.1
 
-      - name: Probe public form transport and delivery
+      - name: Probe production delivery backends
         shell: bash
         run: |
           set -u
           mkdir -p .probe ops
-
-          get_code=$(curl -sS -L -D .probe/home.headers -o .probe/home.html -w '%{http_code}' \
-            'https://ronaoil.com/pages/home_large.html?layout=large' 2>.probe/get.stderr || true)
-          transport_header=$(awk 'BEGIN{IGNORECASE=1} /^x-rona-form-transport:/{sub(/\r$/,"",$0); print $0}' .probe/home.headers 2>/dev/null | tail -1)
-          if grep -q 'rona-controlled-form-transport-v1-1' .probe/home.html 2>/dev/null; then bridge_script=present; else bridge_script=missing; fi
-          if grep -q "/api/forms/trade" .probe/home.html 2>/dev/null; then bridge_target=present; else bridge_target=missing; fi
-
-          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
-          cat > .probe/payload.json <<JSON
+          code=$(curl -sS -o .probe/diagnostic.json -w '%{http_code}' \
+            'https://ronaoil.com/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d' \
+            2>.probe/diagnostic.stderr || true)
+          body=$(cat .probe/diagnostic.json 2>/dev/null || true)
+          err=$(tr '\n' ' ' < .probe/diagnostic.stderr 2>/dev/null || true)
           {
-            "Контактное лицо": "RONA SYSTEM TEST",
-            "Компания": "RONA Trade E2E ${stamp}",
-            "Страна регистрации компании": "Kyrgyzstan",
-            "Нефтепродукт": "СПБТ / СУГ",
-            "Страна назначения груза": "Kazakhstan",
-            "Ориентировочный объем, тонн": "1",
-            "Телефон": "+996000000000",
-            "E-mail": "office_kg@ronaoil.com",
-            "Комментарий": "Synthetic production form E2E test ${stamp}. Ignore.",
-            "Источник": "Production E2E smoke",
-            "Дата отправки": "${stamp}",
-            "Language": "RU",
-            "URL страницы / источник": "https://ronaoil.com/pages/home_large.html?layout=large"
-          }
-          JSON
+            echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+            echo "diagnostic_http=${code}"
+            echo "diagnostic_response=${body}"
+            echo "diagnostic_curl_error=${err}"
+          } > ops/trade-form-delivery-diagnostic-20260826.txt
+          cat ops/trade-form-delivery-diagnostic-20260826.txt
 
-          api_code=$(curl -sS -o .probe/response.json -w '%{http_code}' \
-            -X POST 'https://ronaoil.com/api/forms/trade' \
-            -H 'Origin: https://ronaoil.com' \
-            -H 'Content-Type: application/json' \
-            -H 'Accept: application/json' \
-            --data-binary @.probe/payload.json 2>.probe/post.stderr || true)
-          api_body=$(cat .probe/response.json 2>/dev/null || true)
-          get_error=$(tr '\n' ' ' < .probe/get.stderr 2>/dev/null || true)
-          post_error=$(tr '\n' ' ' < .probe/post.stderr 2>/dev/null || true)
-
-          {
-            echo "timestamp=${stamp}"
-            echo "home_http=${get_code}"
-            echo "transport_header=${transport_header}"
-            echo "bridge_script=${bridge_script}"
-            echo "bridge_target=${bridge_target}"
-            echo "home_curl_error=${get_error}"
-            echo "api_http=${api_code}"
-            echo "api_response=${api_body}"
-            echo "api_curl_error=${post_error}"
-          } > ops/trade-form-production-e2e-20260826.txt
-          cat ops/trade-form-production-e2e-20260826.txt
-
-      - name: Commit production E2E probe
+      - name: Commit delivery diagnostic proof
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'rona-trade-form-e2e'
           git config user.email 'actions@users.noreply.github.com'
-          git add ops/trade-form-production-e2e-20260826.txt
+          git add ops/trade-form-delivery-diagnostic-20260826.txt
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Record production trade form E2E probe'
+          git commit -m 'Record production trade delivery diagnostic'
           git push origin HEAD:release/public-go-live-v1.1
