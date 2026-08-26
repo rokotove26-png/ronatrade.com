@@ -13,6 +13,7 @@ on:
       - 'fix/admin-access-nav-parity-20260826'
       - 'fix/admin-current-router-functional-sections-20260826'
       - 'fix/admin-single-owner-stability-20260826'
+      - 'fix/lk-rail-analytics-recovery-20260826'
 
 jobs:
   admin-shell-resilience:
@@ -30,6 +31,8 @@ jobs:
           node --check functions/portal/admin.js
           node --check functions/portal/_middleware.js
           node --check functions/portal/clients-agents-current-ui.js
+          node --check functions/portal/analytics-v2-ui.js
+          node --check functions/portal/rail-safe-fallback-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
       - name: Run Admin current-only regression guards
         run: |
@@ -60,7 +63,9 @@ jobs:
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" dist/assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v3'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          grep -q '/portal/analytics-v2-ui' dist/assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/rail-safe-fallback-ui' dist/assets/portal-admin-shell-fast-v1.js
           ! grep -q 'location.reload(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'adminLoginGate' dist/portal/admin.html
