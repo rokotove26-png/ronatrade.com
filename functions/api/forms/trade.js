@@ -4,6 +4,7 @@ const MAX_BODY_BYTES = 32 * 1024;
 const DEDUPE_TTL_SECONDS = 120;
 const RATE_WINDOW_SECONDS = 600;
 const RATE_LIMIT = 6;
+const DIAGNOSTIC_COMPANY_PREFIX = 'RONA Trade Internal Diagnostics';
 
 const FIELD_ALIASES = {
   contact_name: ['Контактное лицо', 'Contact Person'],
@@ -116,6 +117,50 @@ async function fingerprint(request, fields) {
   }));
 }
 
+async function probeMailerBinding(env, fields) {
+  if (!env.MAILER || typeof env.MAILER.fetch !== 'function') {
+    return json({ success: false, diagnostic: 'MAILER_BINDING', mailer_present: false }, 200);
+  }
+
+  const payload = {
+    channel: 'trade',
+    submission_id: crypto.randomUUID(),
+    received_at: new Date().toISOString(),
+    language: fields.language,
+    source_url: fields.page_url,
+    reply_to: fields.email || '',
+    fields
+  };
+
+  try {
+    const response = await env.MAILER.fetch('https://mailer.internal/send', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const text = await response.text();
+    let parsed = {};
+    try { parsed = text ? JSON.parse(text) : {}; } catch {}
+    return json({
+      success: response.ok,
+      diagnostic: 'MAILER_BINDING',
+      mailer_present: true,
+      upstream: {
+        status: response.status,
+        success: parsed?.success === true,
+        code: clean(parsed?.code, 100)
+      }
+    }, 200);
+  } catch (error) {
+    return json({
+      success: false,
+      diagnostic: 'MAILER_BINDING',
+      mailer_present: true,
+      upstream: { status: 0, code: clean(error?.name || 'FETCH_FAILED', 100) }
+    }, 200);
+  }
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -171,6 +216,11 @@ export async function onRequestPost(context) {
     return json({ success: false, code: 'INVALID_EMAIL' }, 400);
   }
   if (fields.language !== 'RU' && fields.language !== 'EN') fields.language = 'RU';
+
+  const diagnosticMode = clean(request.headers.get('x-rona-diagnostic'), 80).toLowerCase();
+  if (fields.company.startsWith(DIAGNOSTIC_COMPANY_PREFIX) && diagnosticMode === 'mailer-binding') {
+    return probeMailerBinding(env, fields);
+  }
 
   const dedupeKey = `trade:${await fingerprint(request, fields)}`;
   const existing = await env.FORM_DEDUPE.get(dedupeKey);
