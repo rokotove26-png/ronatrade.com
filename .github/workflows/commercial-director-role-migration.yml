@@ -161,3 +161,5 @@ jobs:
                   supabase/functions/rona-owner-ai-sync/index.ts
           git commit -m "feat: canonical AI Commercial Director role"
           git push origin HEAD:release/public-go-live-v1.1
+
+# trigger: production migration completion
