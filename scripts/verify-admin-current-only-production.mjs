@@ -41,11 +41,11 @@ const claimsSrc=await claims.text();
 const remainingSrc=await remaining.text();
 assert(runtimeSrc.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='fast-static-v1'"),'resilience runtime marker missing');
 assert(runtimeSrc.includes('/portal/main-ui'),'resilience runtime does not load main-v2');
-// Cloudflare bundles Pages Functions and may normalize function.toString() formatting. Verify the
-// live module by stable response headers and semantic strings instead of quote/whitespace identity.
-for(const marker of ['Создать доступ','/portal/admin-authority','Клиенты и агенты','Пользователи и доступы'])assert(accessSrc.includes(marker),`current access semantic marker missing: ${marker}`);
-assert(/ronaCreateAccess/.test(accessSrc),'primary create-access dataset contract missing');
+// Pages Functions serializes Function#toString and may unicode-escape non-ASCII literals.
+// Live verification therefore uses response contract headers plus stable ASCII identifiers.
+for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4','CLIENT'])assert(accessSrc.includes(marker),`current access contract marker missing: ${marker}`);
 assert(claimsSrc.includes('#page-claims'),'claims host contract missing');
-assert(remainingSrc.includes('вознаграждения агентов'),'agent rewards route contract missing');
-for(const legacy of ['harvestLegacy','Временный автономный вход','rona-admin-auth-v3413'])assert(!accessSrc.includes(legacy),`legacy access dependency ${legacy}`);
-console.log('ADMIN_CURRENT_ONLY_PRODUCTION=PASS',JSON.stringify({base,adminState:integrity.admin_runtime.state,adminBytes:integrity.admin_runtime.emitted_bytes,legacyRuntime:false,shell:'current-only-v2',access:'client-agent-v2',nav:'v2'}));
+assert(claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims current runtime marker missing');
+assert(remainingSrc.includes('renderRewards'),'agent rewards renderer contract missing');
+for(const legacy of ['harvestLegacy','rona-admin-auth-v3413'])assert(!accessSrc.includes(legacy),`legacy access dependency ${legacy}`);
+console.log('ADMIN_CURRENT_ONLY_PRODUCTION=PASS',JSON.stringify({base,adminState:integrity.admin_runtime.state,adminBytes:integrity.admin_runtime.emitted_bytes,legacyRuntime:false,shell:'current-only-v2',access:'client-agent-v2',nav:'v2',claims:true,rewards:true}));
