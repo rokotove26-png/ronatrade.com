@@ -52,3 +52,5 @@ jobs:
           probe custom https://ronaoil.com https://ronaoil.com
           probe pages https://rona-trade-public.pages.dev https://rona-trade-public.pages.dev
           probe olddeploy https://3bef8b32.rona-trade-public.pages.dev https://3bef8b32.rona-trade-public.pages.dev
+
+# Merge-trigger probe 2026-08-26
