@@ -41,8 +41,10 @@ jobs:
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'id="nav"' portal-src/current/admin.html
           for p in home prices applications deals payments accounting monitoring messages access agent-settlements claims analytics market-news; do grep -q "data-page=\"$p\"" portal-src/current/admin.html; grep -q "id=\"page-$p\"" portal-src/current/admin.html; done
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q 'История и права' functions/portal/clients-agents-current-ui.js
+          grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
           grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
@@ -69,12 +71,12 @@ jobs:
           const shell=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
           assert(shell.status===302,'Admin auth boundary '+shell.status);
           const access=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','access single-owner-v3 contract');
-          assert(access.headers.get('x-rona-access-create')==='client-agent-v3','access create contract');
+          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v4','access single-owner-v4 contract');
+          assert(access.headers.get('x-rona-access-create')==='client-agent-v4','access create contract');
           assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','navigation owner contract');
           assert(access.headers.get('x-rona-shell-mutation')==='none','page-scoped shell contract');
           const src=await access.text();
-          for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4'])assert(src.includes(marker),'current access marker '+marker);
+          for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4','История и права','Сменить пароль'])assert(src.includes(marker),'current access marker '+marker);
           const claims=await fetch(base+'/portal/claims-r2-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(claims.ok,'claims runtime '+claims.status);
           const claimsSrc=await claims.text();

@@ -52,10 +52,13 @@ assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards
 assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'Page-aware watchdog missing');
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
 
-assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'"),'Current Clients/Agents owner missing');
+assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'"),'Current Clients/Agents owner missing');
 assert(access.includes("const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority'"),'Current access UI must use current server APIs');
 assert(access.includes("new Option('Клиент','Клиент'),new Option('Агент','Агент')"),'Client/Agent creation modes missing');
 assert(access.includes("dataset.ronaCreateAccess='primary'"),'Primary create-access action missing');
+assert(access.includes("setAccessUserPassword")&&access.includes("'Сменить пароль'"),'Administrator password-reset control missing');
+assert(access.includes("['history','История и права']"),'Access history/rights view missing');
+assert(access.includes("const clientContract=kind===''||kind==='CLIENT_CONTRACT'"),'Agent bindings must not enter Client contract mutation path');
 assert(!access.includes('installShellParity')&&!access.includes('installNavigationStability'),'Page module must not mutate global shell/navigation');
 assert(access.includes("'x-rona-shell-mutation':'none'"),'Page-scoped shell mutation contract missing');
 

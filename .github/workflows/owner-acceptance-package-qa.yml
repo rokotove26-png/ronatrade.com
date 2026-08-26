@@ -81,8 +81,10 @@ jobs:
           grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "setAccessUserPassword" functions/portal/clients-agents-current-ui.js
+          grep -q "История и права" functions/portal/clients-agents-current-ui.js
           grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
           ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
           ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js

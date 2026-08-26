@@ -29,10 +29,14 @@ jobs:
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/admin.js
           node --check scripts/materialize-admin-current-modules.mjs
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q "new Option('Клиент','Клиент'),new Option('Агент','Агент')" functions/portal/clients-agents-current-ui.js
+          grep -q 'Роль пользователя' functions/portal/clients-agents-current-ui.js
+          grep -q 'История и права' functions/portal/clients-agents-current-ui.js
+          grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
+          grep -q 'openWithoutContract' functions/portal/clients-agents-current-ui.js
           grep -q '/access/users' functions/portal/clients-agents-current-ui.js
           grep -q '/admin/clients/' functions/portal/clients-agents-current-ui.js
           grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
@@ -50,10 +54,13 @@ jobs:
           test -f dist/portal/claims-r2-ui
           test -f dist/portal/remaining-sections-ui
           test -f dist/_headers
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" dist/portal/clients-agents-current-ui
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" dist/portal/clients-agents-current-ui
           grep -q 'Тип доступа' dist/portal/clients-agents-current-ui
+          grep -q 'Роль пользователя' dist/portal/clients-agents-current-ui
           grep -q 'Договоры клиента' dist/portal/clients-agents-current-ui
           grep -q 'Профиль агента' dist/portal/clients-agents-current-ui
+          grep -q 'История и права' dist/portal/clients-agents-current-ui
+          grep -q 'Сменить пароль' dist/portal/clients-agents-current-ui
           grep -q 'Создать доступ' dist/portal/clients-agents-current-ui
           grep -q 'Зарегистрировать и направить клиенту' dist/portal/claims-r2-ui
           grep -q 'renderRewards' dist/portal/remaining-sections-ui
@@ -62,6 +69,8 @@ jobs:
           grep -q '/portal/claims-r2-ui' dist/_headers
           grep -q '/portal/remaining-sections-ui' dist/_headers
           grep -q 'static-build-v1' dist/_headers
+          grep -q 'X-Rona-Clients-Agents-Ui: single-owner-v4' dist/_headers
+          grep -q 'X-Rona-Access-Create: client-agent-v4' dist/_headers
           grep -q '/portal/clients-agents-current-ui' dist/_routes.json
           grep -q '/portal/claims-r2-ui' dist/_routes.json
           grep -q '/portal/remaining-sections-ui' dist/_routes.json
@@ -81,7 +90,7 @@ jobs:
           const base='https://ronaoil.com';
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-          const accessSemantics=['Тип доступа','Договоры клиента','Профиль агента','Будет создан доступ клиента по выбранным договорам.','Будет создан доступ в кабинет агента.','Создать доступ'];
+          const accessSemantics=['Тип доступа','Роль пользователя','Договоры клиента','Профиль агента','История и права','Сменить пароль','Будет создан клиентский доступ по выбранным договорам.','Будет создан доступ в кабинет агента.','Создать доступ'];
           for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){
             const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});
             const j=await r.json().catch(()=>({}));
@@ -93,8 +102,8 @@ jobs:
             src=r.ok?await r.text():'';
             const currentHeaders=r.ok&&
               r.headers.get('x-rona-delivery')==='static-build-v1'&&
-              r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3'&&
-              r.headers.get('x-rona-access-create')==='client-agent-v3'&&
+              r.headers.get('x-rona-clients-agents-ui')==='single-owner-v4'&&
+              r.headers.get('x-rona-access-create')==='client-agent-v4'&&
               r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2'&&
               r.headers.get('x-rona-shell-mutation')==='none'&&
               r.headers.get('x-rona-legacy-dependency')==='none';
@@ -105,8 +114,8 @@ jobs:
             if(i<29)await sleep(3000);
           }
           assert(r?.ok&&r.headers.get('x-rona-delivery')==='static-build-v1','static access module unavailable: '+last);
-          assert(r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner access module unavailable: '+last);
-          assert(r.headers.get('x-rona-access-create')==='client-agent-v3','access creation contract unavailable: '+last);
+          assert(r.headers.get('x-rona-clients-agents-ui')==='single-owner-v4','single-owner access module unavailable: '+last);
+          assert(r.headers.get('x-rona-access-create')==='client-agent-v4','access creation contract unavailable: '+last);
           assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation-owner contract unavailable: '+last);
           assert(r.headers.get('x-rona-shell-mutation')==='none','access module may not mutate global shell: '+last);
           assert(r.headers.get('x-rona-legacy-dependency')==='none','legacy dependency returned: '+last);
