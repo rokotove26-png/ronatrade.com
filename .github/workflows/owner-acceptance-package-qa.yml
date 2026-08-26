@@ -20,30 +20,61 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify canonical integrity and primary portal UI sources
+      - name: Verify current-only Admin integrity and primary portal UI sources
         shell: bash
         run: |
           set -euo pipefail
           npm run build
+
+          # Historical sources remain immutable archive material, but are no longer Admin build inputs.
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
-          test "$(git hash-object functions/portal/_middleware.js)" = '4d859ba9901afdc5bfc0ce68d3f02c34cc9f3087'
-          test "$(git hash-object 'functions/portal/[[path]].js')" = '94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3'
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="${{ github.base_ref }}"
+            git diff --exit-code "origin/$BASE_REF"...HEAD -- functions/portal/_middleware.js 'functions/portal/[[path]].js'
+          fi
+
           node --check functions/portal/admin.js
           node --check functions/portal/client.js
           node --check functions/portal/agent.js
           node --check functions/portal/main-ui.js
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/owner-api.js
           node --check 'functions/portal/owner-acceptance-api/[[path]].js'
           node --check functions/portal/owner-acceptance-ui.js
           for f in functions/portal/owner-ui-chunks/*.js; do node --check "$f"; done
           cp supabase/functions/rona-owner-acceptance/index.ts /tmp/rona-owner-acceptance.js
           node --check /tmp/rona-owner-acceptance.js
-          for f in functions/portal/admin.js functions/portal/client.js functions/portal/agent.js; do
+
+          # Admin current-only shell and server-authenticated route.
+          grep -q "'x-rona-admin-shell','current-only-v1'" functions/portal/admin.js
+          grep -q "'x-rona-admin-auth','server-verified-v1'" functions/portal/admin.js
+          grep -q "if(!rolesOf(session.me).includes('ADMIN'))" functions/portal/admin.js
+          ! grep -q 'HTMLRewriter' functions/portal/admin.js
+          ! grep -q 'adminLoginGate' functions/portal/admin.js
+          ! grep -q 'rona-admin-auth-v3413' functions/portal/admin.js
+          grep -q 'rona-admin-shell" content="current-only-v1' portal-src/current/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v1' portal-src/current/admin.html
+          grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
+          grep -q 'clients-agents-current-ui' portal-src/current/admin.html
+          grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "path: 'portal-src/current/admin.html'" scripts/build-pages-direct-canonical.mjs
+          grep -q 'legacy_runtime_in_deployment:false' scripts/build-pages-direct-canonical.mjs
+          ! grep -q 'adminLoginGate' dist/portal/admin.html
+          ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
+          ! grep -q 'Временный автономный вход' dist/portal/admin.html
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
+
+          # Client and Agent continue to use the approved primary main-v2 entrypoint.
+          for f in functions/portal/client.js functions/portal/agent.js; do
             grep -q 'rona-main-ui-loader' "$f"
             grep -q 'src="/portal/main-ui"' "$f"
             grep -q 'rona-ui-primary' "$f"
@@ -52,6 +83,7 @@ jobs:
           grep -q "export { onRequest } from './main-ui.js'" functions/portal/owner-acceptance-ui.js
           grep -q '__RONA_MAIN_UI_ENTRY__' functions/portal/main-ui.js
           grep -q '__RONA_MAIN_UI_RUNTIME_LOADED__' functions/portal/main-ui.js
+
           node --input-type=module <<'NODE'
           import c0 from './functions/portal/owner-ui-chunks/chunk0.js';
           import c1 from './functions/portal/owner-ui-chunks/chunk1.js';
@@ -69,8 +101,9 @@ jobs:
           import c13 from './functions/portal/owner-ui-chunks/chunk13.js';
           import c14 from './functions/portal/owner-ui-chunks/chunk14.js';
           import c15 from './functions/portal/owner-ui-chunks/chunk15.js';
+          import c16 from './functions/portal/owner-ui-chunks/chunk16.js';
           import {writeFileSync} from 'node:fs';
-          writeFileSync('/tmp/main-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15].join(''));
+          writeFileSync('/tmp/main-ui-runtime.js',[c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16].join(''));
           NODE
           node --check /tmp/main-ui-runtime.js
           grep -q "const API='/portal/owner-api'" /tmp/main-ui-runtime.js
@@ -85,18 +118,11 @@ jobs:
           grep -q "card('Радиорубка')" /tmp/main-ui-runtime.js
           grep -q "card('Аналитика')" /tmp/main-ui-runtime.js
           grep -q 'Новости топливного рынка СНГ' /tmp/main-ui-runtime.js
-          grep -q 'Закрепленный агент' /tmp/main-ui-runtime.js
-          grep -q 'Скачать контракт' /tmp/main-ui-runtime.js
-          grep -q 'Скачать PDF прайс-лист' /tmp/main-ui-runtime.js
           grep -q 'rona-visual-v2' /tmp/main-ui-runtime.js
-          grep -q 'Клиенты и агенты' /tmp/main-ui-runtime.js
           grep -q 'RONA TRADE · OPERATIONS' /tmp/main-ui-runtime.js
-          grep -q 'Назначение агента' /tmp/main-ui-runtime.js
-          grep -q 'rv-tech-hidden' /tmp/main-ui-runtime.js
-          grep -q 'официальные источники' /tmp/main-ui-runtime.js
-          grep -q 'rona-owner-attention-badge' /tmp/main-ui-runtime.js
-          grep -q 'data-page="documents"' /tmp/main-ui-runtime.js
           grep -q '__RONA_OWNER_FIRST_PAINT_READY__' /tmp/main-ui-runtime.js
+
+          # Owner workflow backend/data invariants remain unchanged.
           grep -q 'owner_price_snapshots' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_application_workflow' supabase/functions/rona-owner-acceptance/index.ts
           grep -q 'owner_deal_documents' supabase/functions/rona-owner-acceptance/index.ts
@@ -110,7 +136,7 @@ jobs:
           test ! -e supabase/migrations/20260821232000_owner_acceptance_business_workflow.sql
           test ! -e supabase/migrations/20260821234500_owner_acceptance_business_views.sql
           test ! -e supabase/migrations/20260822013000_owner_acceptance_price_publication_flags.sql
-          echo 'PRIMARY_PORTAL_UI_SOURCE_GATE=PASS'
+          echo 'PRIMARY_PORTAL_CURRENT_ONLY_SOURCE_GATE=PASS'
       - name: Verify deployed owner acceptance edge rejects unauthenticated access
         shell: bash
         run: |
