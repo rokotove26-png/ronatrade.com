@@ -82,9 +82,11 @@ jobs:
           grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/[[path]].js'
           grep -q 'proxyAdminAuthority' 'functions/portal/[[path]].js'
           grep -q "path.startsWith('/portal/admin-authority')" 'functions/portal/[[path]].js'
-          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q 'clients-agents-current-ui' portal-src/current/admin.html
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q '/access/users' functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
