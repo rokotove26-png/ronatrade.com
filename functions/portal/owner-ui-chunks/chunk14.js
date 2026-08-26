@@ -3,7 +3,7 @@ if(window.__RONA_VISUAL_V2_NAV_STRUCTURE__)return;
 window.__RONA_VISUAL_V2_NAV_STRUCTURE__=true;
 if(location.pathname!=='/portal/admin')return;
 function textNodes(el){const out=[];const walk=n=>{for(const c of n.childNodes){if(c.nodeType===3){if(String(c.textContent||'').trim())out.push(c)}else if(c.nodeType===1&&!c.classList?.contains('rona-owner-attention-badge'))walk(c)}};walk(el);return out}
-function setLabel(button,label){if(!button)return;const labelEl=button.querySelector('.label');if(labelEl){if(String(labelEl.textContent||'').trim()!==label)labelEl.textContent=label;return}const nodes=textNodes(button).filter(n=>/[A-Za-zА-Яа-яЁё]{2}/.test(String(n.textContent||'')));if(nodes.length){if(String(nodes[0].textContent||'').trim()!==label)nodes[0].textContent=' '+label;for(const n of nodes.slice(1))if(String(n.textContent||'').trim())n.textContent=''}else button.append(document.createTextNode(label))}
+function setLabel(button,label){if(!button)return;const labelEl=button.querySelector('.label,.nav-label');if(labelEl){if(String(labelEl.textContent||'').trim()!==label)labelEl.textContent=label;return}const nodes=textNodes(button).filter(n=>/[A-Za-zА-Яа-яЁё]{2}/.test(String(n.textContent||'')));if(nodes.length){if(String(nodes[0].textContent||'').trim()!==label)nodes[0].textContent=' '+label;for(const n of nodes.slice(1))if(String(n.textContent||'').trim())n.textContent=''}else button.append(document.createTextNode(label))}
 function setStyle(el,key,value){if(el&&el.style[key]!==value)el.style[key]=value}
 function hidePresentationOnly(el){if(!el)return;if(el.dataset.ronaPresentationHidden!=='true')el.dataset.ronaPresentationHidden='true';if(el.getAttribute('aria-hidden')!=='true')el.setAttribute('aria-hidden','true');if(el.style.getPropertyValue('visibility')!=='hidden'||el.style.getPropertyPriority('visibility')!=='important')el.style.setProperty('visibility','hidden','important')}
 function cleanClaimsPresentation(){
@@ -27,7 +27,7 @@ function cleanClaimsPresentation(){
 const SYSTEM_REMOVE_LABELS=new Set(['агенты']);
 const AGENT_REWARDS_LABELS=new Set(['вознаграждение агентов','вознаграждения агентов']);
 const navNorm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
-function navBusinessLabel(el){let t=navNorm(el?.textContent);t=t.replace(/^[^a-zа-яё]+/i,'').replace(/\s+\d+$/,'').trim();return t}
+function navBusinessLabel(el){const direct=el?.querySelector?.('.nav-label,.label');if(direct)return navNorm(direct.textContent);let t=navNorm(el?.textContent);t=t.replace(/^[^a-zа-яё]+/i,'').replace(/\s+\d+$/,'').trim();return t}
 function relocateAgentRewards(nav){
   if(!nav)return;
   const access=nav.querySelector('button[data-page="access"],a[data-page="access"],[role="button"][data-page="access"]');
@@ -38,12 +38,10 @@ function relocateAgentRewards(nav){
 }
 function removeObsoleteSystemSection(nav){
   if(!nav)return;
-  let removedActive=false;
   const removedIds=[];
   for(const control of Array.from(nav.querySelectorAll('button[data-page],a[data-page],[role="button"][data-page]'))){
     if(!SYSTEM_REMOVE_LABELS.has(navBusinessLabel(control)))continue;
     const id=String(control.dataset.page||'').trim(),page=id?document.getElementById('page-'+id):null;
-    if(control.classList.contains('active')||page?.classList.contains('active'))removedActive=true;
     if(id)removedIds.push(id);
     control.remove();
     page?.remove();
@@ -56,17 +54,13 @@ function removeObsoleteSystemSection(nav){
     if(el.querySelector('button,a,[role="button"],input,select,textarea'))continue;
     if(navNorm(el.textContent)===''&&!el.children.length)el.remove();
   }
-  if(removedActive){
-    const home=nav.querySelector('button[data-page="home"]');
-    for(const b of nav.querySelectorAll('button[data-page]')){const on=b===home;b.classList.toggle('active',on);if(on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')}
-    for(const p of document.querySelectorAll('[id^="page-"]'))p.classList.toggle('active',p.id==='page-home');
-  }
   window.__RONA_OWNER_SYSTEM_SECTION_REMOVED__=true;
   window.__RONA_OWNER_REMOVED_SYSTEM_PAGE_IDS__=Array.from(new Set([...(window.__RONA_OWNER_REMOVED_SYSTEM_PAGE_IDS__||[]),...removedIds]));
 }
 function apply(){
   cleanClaimsPresentation();
   const nav=document.getElementById('nav');if(!nav)return;
+  for(const icon of nav.querySelectorAll('.nav-icon')){if(icon.getAttribute('aria-hidden')!=='true')icon.setAttribute('aria-hidden','true')}
   relocateAgentRewards(nav);
   removeObsoleteSystemSection(nav);
   setStyle(nav,'display','flex');setStyle(nav,'flexDirection','column');setStyle(nav,'alignItems','stretch');
