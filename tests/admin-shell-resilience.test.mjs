@@ -9,6 +9,7 @@ const build=fs.readFileSync('scripts/build-pages-direct-canonical.mjs','utf8');
 const shell=fs.readFileSync('portal-src/current/admin.html','utf8');
 const access=fs.readFileSync('functions/portal/clients-agents-current-ui.js','utf8');
 const analytics=fs.readFileSync('functions/portal/analytics-v2-ui.js','utf8');
+const railSafe=fs.readFileSync('functions/portal/rail-safe-fallback-ui.js','utf8');
 
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
@@ -47,15 +48,20 @@ assert(runtime.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='CHECKING'"),'Async session state missing');
 assert(runtime.includes("if(r.status===401||r.status===403)"),'Only explicit auth denial may redirect');
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='DEGRADED_BACKEND'"),'Transient backend degradation state missing');
-for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui','/portal/prices-current-ui','/portal/analytics-v2-ui','/portal/rail-current-v81-maplibre-ui','/portal/rail-r2-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
+for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui','/portal/prices-current-ui','/portal/analytics-v2-ui','/portal/rail-current-v81-maplibre-ui','/portal/rail-safe-fallback-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!runtime.includes(forbidden),`Competing Admin module returned: ${forbidden}`);
-assert(runtime.includes('async function loadRail()')&&runtime.includes("root.dataset.ronaRailOwner='rail-r2-fallback'"),'Rail primary/fallback recovery missing');
+assert(runtime.includes('async function loadRail()')&&runtime.includes("root.dataset.ronaRailOwner='safe-fallback-direct-child-v1'"),'Rail primary/fallback recovery missing');
 assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("root.dataset.ronaAnalyticsOwner='analytics-v2'"),'Dedicated Analytics owner missing');
 assert(!runtime.includes("['agent-settlements','messages','analytics','market-news'].includes(p)"),'Analytics must not be routed back to Remaining owner');
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
 assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v3'"),'Page-aware watchdog missing');
 assert(watchdog.includes("if(p==='monitoring')return'rail'")&&watchdog.includes("if(p==='analytics')return'analytics'"),'Rail/Analytics recovery mappings missing');
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
+
+assert(railSafe.includes("observer.observe(host,{childList:true})"),'Rail fallback observer must be direct-child only');
+assert(!railSafe.includes("observer.observe(page,{childList:true,subtree:true})"),'Recursive Rail observer must not return');
+assert(railSafe.includes("if(!q('[data-rail-current-root]',host))queueRepair()"),'Rail fallback may repair only when current root is lost');
+assert(railSafe.includes("window.__RONA_RAIL_SAFE_FALLBACK__='20260826-direct-child-v1'"),'Rail safe fallback marker missing');
 
 assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'"),'Current Clients/Agents owner missing');
 assert(access.includes("const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority'"),'Current access UI must use current server APIs');
