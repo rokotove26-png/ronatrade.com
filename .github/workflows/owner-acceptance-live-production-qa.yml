@@ -40,7 +40,11 @@ jobs:
           cmp -s portal-src/current/admin.html dist/portal/admin.html
           cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
           cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          grep -q 'data-rona-admin-shell="current-only-v1"' dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
+          grep -q 'data-page="agent-settlements"' dist/portal/admin.html
+          grep -q 'data-page="claims"' dist/portal/admin.html
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
           ! grep -q 'Временный автономный вход' dist/portal/admin.html
@@ -67,7 +71,7 @@ jobs:
             const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});
             assert([401,403].includes(r.status),path+' must reject unauthenticated access; got '+r.status);
           }
-          for(const path of ['/portal/main-ui','/portal/clients-agents-current-ui']){const r=await fetch(base+path+'?_qa='+Date.now(),{cache:'no-store'});assert(r.ok,path+' unavailable')}
+          for(const path of ['/portal/main-ui','/portal/clients-agents-current-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui']){const r=await fetch(base+path+'?_qa='+Date.now(),{cache:'no-store'});assert(r.ok,path+' unavailable')}
           const edge=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-owner-acceptance/admin/bootstrap',{redirect:'manual'});
           assert(edge.status===401,'owner acceptance edge must reject unauthenticated access; got '+edge.status);
           console.log('OWNER_ACCEPTANCE_NON_MUTATING_PRODUCTION=PASS');
