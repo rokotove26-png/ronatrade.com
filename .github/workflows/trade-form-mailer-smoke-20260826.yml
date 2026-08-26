@@ -28,43 +28,50 @@ jobs:
           curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_compact.html?layout=compact' -o .probe/home_compact.html
           python3 - <<'PY'
           import html, re, pathlib
+          from html.parser import HTMLParser
+
+          class FrameParser(HTMLParser):
+              def __init__(self):
+                  super().__init__(convert_charrefs=True)
+                  self.frames=[]
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower()=='iframe':
+                      self.frames.append(dict(attrs))
+
+          def compact(s,n=2400):
+              return re.sub(r'\s+',' ',s).strip()[:n]
 
           out=[]
           for name in ('home_large','home_compact'):
-              p=pathlib.Path('.probe')/(name+'.html')
-              s=p.read_text('utf-8', errors='replace')
-              out.append(f'===== {name} bytes={len(s)} =====')
-              forms=list(re.finditer(r'<form\b[^>]*>.*?</form\s*>', s, re.I|re.S))
-              out.append(f'forms={len(forms)}')
-              for i,m in enumerate(forms,1):
-                  block=m.group(0)
-                  open_tag=re.match(r'<form\b[^>]*>',block,re.I|re.S)
-                  out.append(f'--- FORM {i} ---')
-                  out.append((open_tag.group(0) if open_tag else '')[:2000])
-                  tags=re.findall(r'<(?:input|select|textarea|button)\b[^>]*>',block,re.I|re.S)
-                  for t in tags[:120]:
-                      out.append(re.sub(r'\s+',' ',t)[:1600])
-                  text=re.sub(r'<script\b.*?</script\s*>|<style\b.*?</style\s*>',' ',block,flags=re.I|re.S)
-                  text=re.sub(r'<[^>]+>',' ',text)
-                  text=html.unescape(re.sub(r'\s+',' ',text)).strip()
-                  out.append('TEXT: '+text[:4000])
-
-              needles=['formsubmit','/api/forms/trade','Отправить заявку','отправить заявку','preventDefault','addEventListener(\"submit','addEventListener(\'submit','fetch(']
-              for needle in needles:
-                  pos=0; count=0
-                  low=s.lower(); nlow=needle.lower()
-                  while True:
-                      j=low.find(nlow,pos)
-                      if j<0 or count>=12: break
-                      a=max(0,j-1800); b=min(len(s),j+3000)
-                      snippet=s[a:b].replace('\r',' ').replace('\n',' ')
-                      snippet=re.sub(r'\s+',' ',snippet)
-                      out.append(f'--- HIT {needle!r} at {j} ---')
-                      out.append(snippet)
-                      pos=j+len(needle); count+=1
-          pathlib.Path('ops/trade-form-live-dom-20260826.txt').write_text('\n'.join(out), 'utf-8')
+              s=(pathlib.Path('.probe')/(name+'.html')).read_text('utf-8',errors='replace')
+              p=FrameParser(); p.feed(s)
+              out.append(f'===== {name} bytes={len(s)} iframes={len(p.frames)} =====')
+              for idx,a in enumerate(p.frames,1):
+                  srcdoc=a.get('srcdoc','') or ''
+                  out.append(f'IFRAME {idx}: id={a.get("id")} class={a.get("class")} sandbox={a.get("sandbox")} src={a.get("src")} srcdoc_bytes={len(srcdoc)}')
+                  if not srcdoc:
+                      continue
+                  forms=list(re.finditer(r'<form\b[^>]*>.*?</form\s*>',srcdoc,re.I|re.S))
+                  out.append(f'  srcdoc_forms={len(forms)}')
+                  for fi,m in enumerate(forms,1):
+                      block=m.group(0)
+                      opening=re.match(r'<form\b[^>]*>',block,re.I|re.S)
+                      out.append(f'  FORM {fi}: {compact(opening.group(0) if opening else "",1800)}')
+                      for t in re.findall(r'<(?:input|select|textarea|button)\b[^>]*>',block,re.I|re.S)[:100]:
+                          out.append('    '+compact(t,1400))
+                      visible=re.sub(r'<script\b.*?</script\s*>|<style\b.*?</style\s*>',' ',block,flags=re.I|re.S)
+                      visible=html.unescape(re.sub(r'<[^>]+>',' ',visible))
+                      out.append('    TEXT: '+compact(visible,2600))
+                  for needle in ('formsubmit.co','/api/forms/trade','fetch(','addEventListener','onsubmit','Отправить заявку'):
+                      low=srcdoc.lower(); nlow=needle.lower(); pos=0; hits=0
+                      while hits<8:
+                          j=low.find(nlow,pos)
+                          if j<0: break
+                          out.append(f'  HIT {needle!r} at {j}: '+compact(srcdoc[max(0,j-1200):min(len(srcdoc),j+2600)],3800))
+                          pos=j+len(needle); hits+=1
+          pathlib.Path('ops/trade-form-live-dom-20260826.txt').write_text('\n'.join(out),'utf-8')
           PY
-          sed -n '1,240p' ops/trade-form-live-dom-20260826.txt
+          cat ops/trade-form-live-dom-20260826.txt
 
       - name: Commit live DOM probe
         shell: bash
@@ -77,5 +84,5 @@ jobs:
             echo 'No probe change'
             exit 0
           fi
-          git commit -m 'Record live public trade form DOM probe'
+          git commit -m 'Record embedded trade form DOM probe'
           git push origin HEAD:release/public-go-live-v1.1
