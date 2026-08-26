@@ -13,9 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Wait for production diagnostic deployment
-        run: sleep 90
-
       - name: Probe Cloudflare mailer fallback binding
         shell: bash
         run: |
@@ -25,7 +22,7 @@ jobs:
           body=$(cat <<JSON
           {
             "Contact Person":"RONA SYSTEM TEST",
-            "Company":"RONA Trade Internal Diagnostics ${now} mailer",
+            "Company":"RONA Trade Internal Diagnostics ${now} mailer-now",
             "Company Registration Country":"Kyrgyzstan",
             "Petroleum Product":"LPG/SPBT",
             "Cargo Destination Country":"Kazakhstan",
