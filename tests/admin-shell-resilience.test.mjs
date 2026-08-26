@@ -75,8 +75,9 @@ assert(access.includes("const clientContract=kind===''||kind==='CLIENT_CONTRACT'
 assert(!access.includes('installShellParity')&&!access.includes('installNavigationStability'),'Page module must not mutate global shell/navigation');
 assert(access.includes("'x-rona-shell-mutation':'none'"),'Page-scoped shell mutation contract missing');
 
-assert(analytics.includes("window.__RONA_ANALYTICS_V2__='20260826-analytics-v4-operational-market'"),'Approved Analytics v4 owner missing');
-for(const marker of ['Управленческий срез','Торговая аналитика','Клиентская аналитика','Логистика и экспорт','Экспортные направления','Динамика'])assert(analytics.includes(marker),`Analytics functional block missing: ${marker}`);
-assert(analytics.includes("operationalSource:'OWNER_ADMIN_BOOTSTRAP'")&&analytics.includes("'x-rona-shell-mutation':'none'"),'Analytics source/shell contract missing');
+assert(analytics.includes("import { onRequest as canonicalV3 } from './analytics-v2-approved-base.js'"),'Analytics canonical v3 source wrapper missing');
+assert(analytics.includes("'20260824-analytics-v3-market-rona-bases-lpg'")&&analytics.includes("'АИ-92'")&&analytics.includes("'АИ-95'")&&analytics.includes("'ДТ'")&&analytics.includes("'LPG / СУГ'"),'Analytics canonical market contract missing');
+assert(analytics.includes("headers.set('x-rona-analytics-ui','canonical-v3-only')")&&analytics.includes("headers.set('x-rona-analytics-owner','canonical-v3-exclusive')"),'Analytics canonical owner headers missing');
+assert(analytics.includes('ROOT_TO')&&analytics.includes('BIND_TO'),'Analytics direct-child owner guard missing');
 
 console.log('Admin current-only single-owner resilience QA: PASS');
