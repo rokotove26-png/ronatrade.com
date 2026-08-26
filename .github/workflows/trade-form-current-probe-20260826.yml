@@ -1,0 +1,120 @@
+name: Trade form current-state probe 20260826
+
+on:
+  push:
+    branches:
+      - 'ops/trade-form-current-probe-20260826'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TARGET_ORIGIN: https://ronaoil.com
+      CF_TOKEN_A: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_TOKEN_B: ${{ secrets.CF_API_TOKEN }}
+      CF_TOKEN_C: ${{ secrets.CLOUDFLARE_TOKEN }}
+      CF_ZONE_A: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+      CF_ZONE_B: ${{ secrets.CF_ZONE_ID }}
+      CF_ACCOUNT_A: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_ACCOUNT_B: ${{ secrets.CF_ACCOUNT_ID }}
+    steps:
+      - name: Probe live form transport and delivery
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          curl -fsS -D "$tmp/home.headers" -o "$tmp/home.html" "$TARGET_ORIGIN/pages/home_large?_probe=$(date +%s)"
+          echo "HOME_STATUS=OK"
+          tr -d '\r' < "$tmp/home.headers" | grep -i '^x-rona-form-transport:' || true
+          grep -q 'rona-controlled-form-transport-v1-1' "$tmp/home.html" && echo 'BRIDGE_SCRIPT=PASS' || echo 'BRIDGE_SCRIPT=FAIL'
+          grep -q '/api/forms/trade' "$tmp/home.html" && echo 'BRIDGE_TARGET=PASS' || echo 'BRIDGE_TARGET=FAIL'
+
+          diag_status=$(curl -sS -o "$tmp/diag.body" -w '%{http_code}' "$TARGET_ORIGIN/api/forms/delivery-diagnostic?v=rona-trade-delivery-20260826")
+          echo "DIAGNOSTIC_HTTP=$diag_status"
+          cat "$tmp/diag.body"
+          echo
+
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          cat > "$tmp/payload.json" <<JSON
+          {
+            "Контактное лицо":"RONA SYSTEM E2E",
+            "Компания":"RONA Trade System Test",
+            "Страна регистрации компании":"Кыргызстан",
+            "Нефтепродукт":"СПБТ / СУГ",
+            "Страна назначения груза":"Кыргызстан",
+            "Ориентировочный объем, тонн":"1",
+            "Телефон":"+996000000000",
+            "E-mail":"office_kg@ronaoil.com",
+            "Комментарий":"Automated production transport test $stamp",
+            "Источник":"RONA controlled E2E probe",
+            "Дата отправки":"$stamp",
+            "Language":"RU",
+            "URL страницы / источник":"$TARGET_ORIGIN/pages/home_large"
+          }
+          JSON
+          form_status=$(curl -sS -o "$tmp/form.body" -w '%{http_code}' \
+            -X POST "$TARGET_ORIGIN/api/forms/trade" \
+            -H "Origin: $TARGET_ORIGIN" \
+            -H "Referer: $TARGET_ORIGIN/pages/home_large" \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            --data-binary @"$tmp/payload.json")
+          echo "TRADE_FORM_HTTP=$form_status"
+          cat "$tmp/form.body"
+          echo
+
+          token=''
+          for candidate in "$CF_TOKEN_A" "$CF_TOKEN_B" "$CF_TOKEN_C"; do
+            if [ -n "$candidate" ]; then token="$candidate"; break; fi
+          done
+          zone=''
+          for candidate in "$CF_ZONE_A" "$CF_ZONE_B"; do
+            if [ -n "$candidate" ]; then zone="$candidate"; break; fi
+          done
+          account=''
+          for candidate in "$CF_ACCOUNT_A" "$CF_ACCOUNT_B"; do
+            if [ -n "$candidate" ]; then account="$candidate"; break; fi
+          done
+          [ -n "$token" ] && echo 'CF_API_TOKEN_PRESENT=true' || echo 'CF_API_TOKEN_PRESENT=false'
+          [ -n "$zone" ] && echo 'CF_ZONE_ID_PRESENT=true' || echo 'CF_ZONE_ID_PRESENT=false'
+          [ -n "$account" ] && echo 'CF_ACCOUNT_ID_PRESENT=true' || echo 'CF_ACCOUNT_ID_PRESENT=false'
+
+          if [ -n "$token" ]; then
+            verify_status=$(curl -sS -o "$tmp/cf.verify" -w '%{http_code}' \
+              -H "Authorization: Bearer $token" \
+              -H 'Content-Type: application/json' \
+              'https://api.cloudflare.com/client/v4/user/tokens/verify')
+            echo "CF_TOKEN_VERIFY_HTTP=$verify_status"
+            if [ -z "$zone" ]; then
+              zones_status=$(curl -sS -o "$tmp/cf.zones" -w '%{http_code}' \
+                -H "Authorization: Bearer $token" \
+                -H 'Content-Type: application/json' \
+                'https://api.cloudflare.com/client/v4/zones?name=ronaoil.com&status=active')
+              echo "CF_ZONE_DISCOVERY_HTTP=$zones_status"
+              if [ "$zones_status" = '200' ]; then
+                zone=$(python3 - <<'PY'
+          import json
+          p='/tmp/nonexistent'
+          PY
+          ) || true
+                zone=$(node -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync('$tmp/cf.zones','utf8')); process.stdout.write(x.result&&x.result[0]&&x.result[0].id||'')")
+              fi
+            fi
+            if [ -n "$zone" ]; then
+              list_status=$(curl -sS -o "$tmp/cf.subdomains" -w '%{http_code}' \
+                -H "Authorization: Bearer $token" \
+                -H 'Content-Type: application/json' \
+                "https://api.cloudflare.com/client/v4/zones/$zone/email/sending/subdomains")
+              echo "CF_EMAIL_SUBDOMAINS_HTTP=$list_status"
+              if [ "$list_status" = '200' ]; then
+                enabled=$(node -e "const fs=require('fs'); const x=JSON.parse(fs.readFileSync('$tmp/cf.subdomains','utf8')); const r=(x.result||[]).find(v=>v.name==='ronaoil.com'); process.stdout.write(r&&r.enabled?'true':'false')")
+                echo "CF_RONAOIL_SENDING_ENABLED=$enabled"
+              else
+                node -e "const fs=require('fs'); try{const x=JSON.parse(fs.readFileSync('$tmp/cf.subdomains','utf8')); console.log('CF_EMAIL_ERROR='+(x.errors||[]).map(e=>e.code+':'+e.message).join('|'))}catch(_){}"
+              fi
+            fi
+          fi
