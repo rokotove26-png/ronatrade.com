@@ -1,4 +1,4 @@
-# rerun: post-runtime-catch
+# rerun: after-cloudflare-deploy
 name: Temporary trade form production smoke 20260826
 
 on:
