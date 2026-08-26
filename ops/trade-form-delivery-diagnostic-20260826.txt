@@ -1,0 +1,4 @@
+timestamp=20260826T134817Z-32976200134
+diagnostic_http=200
+diagnostic_response={"success":true,"submission_id":"6d794db4-ef40-4414-ab24-8578dd534235","brevo":{"configured":true,"ok":false,"status":403,"code":"permission_denied","message":"Unable to send email. Your SMTP account is not yet activated. Please contact us at contact@brevo.com to request activation"},"mailer":{"configured":true,"ok":false,"status":502,"code":"E_SENDER_DOMAIN_NOT_CONFIGURED","message":"{\"success\":false,\"code\":\"E_SENDER_DOMAIN_NOT_CONFIGURED\"}"}}
+diagnostic_curl_error=
