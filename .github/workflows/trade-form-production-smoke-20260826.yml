@@ -1,3 +1,4 @@
+# rerun: post-runtime-catch
 name: Temporary trade form production smoke 20260826
 
 on:
