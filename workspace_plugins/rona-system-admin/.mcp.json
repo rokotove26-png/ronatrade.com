@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "rona-system-admin": {
+      "type": "http",
+      "url": "https://ronaoil.com/system-admin/mcp"
+    }
+  }
+}
