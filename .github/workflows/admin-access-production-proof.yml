@@ -28,8 +28,9 @@ jobs:
           npm run build
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/admin.js
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q '/access/users' functions/portal/clients-agents-current-ui.js
           grep -q '/admin/clients/' functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
@@ -37,7 +38,8 @@ jobs:
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' supabase/functions/rona-admin-control-plane/index.ts
-          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
           echo 'ADMIN_ACCESS_CURRENT_ONLY_SOURCE=PASS'
       - name: Wait for Cloudflare production deployment
@@ -59,9 +61,10 @@ jobs:
             assert([401,403].includes(r.status),path+' must fail closed; got '+r.status+' '+JSON.stringify(j));
           }
           const r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='current-only-v1','current access module unavailable');
+          assert(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='current-only-v2','current access module unavailable');
           const src=await r.text();
           assert(src.includes("AUTH='/portal/admin-authority'"),'authority route missing live');
+          assert(src.includes("create.dataset.ronaCreateAccess='primary'"),'primary create-access action missing live');
           assert(!src.includes('harvestLegacy'),'legacy DOM harvest deployed');
           console.log('ADMIN_ACCESS_FAIL_CLOSED_PRODUCTION=PASS');
           NODE

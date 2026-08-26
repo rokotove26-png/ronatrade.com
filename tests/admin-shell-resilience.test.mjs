@@ -11,9 +11,9 @@ const access=fs.readFileSync('functions/portal/clients-agents-current-ui.js','ut
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
 assert(!admin.includes("u.pathname='/portal/admin.html';"),'Direct .html Static Assets path must not return to Admin route');
-assert(admin.includes("'x-rona-admin-shell','current-only-v1'"),'Current-only Admin shell header missing');
+assert(admin.includes("'x-rona-admin-shell','current-only-v2'"),'Current-only Admin shell v2 header missing');
 assert(admin.includes("'x-rona-admin-auth','server-verified-v1'"),'Server-authenticated Admin marker missing');
-assert(admin.includes("'x-rona-admin-current-only','main-v2-shell-v1'"),'Current-only lifecycle header missing');
+assert(admin.includes("'x-rona-admin-current-only','main-v2-shell-v2'"),'Current-only v2 lifecycle header missing');
 assert(!admin.includes('HTMLRewriter'),'Admin entry must not transform or buffer a legacy HTML substrate');
 assert(!admin.includes('adminLoginGate'),'Legacy autonomous login gate must not exist in Admin route');
 assert(!admin.includes('rona-admin-auth-v3413'),'Legacy autonomous auth runtime must not exist in Admin route');
@@ -32,8 +32,12 @@ const adminBypassIndex=middleware.indexOf("if(url.pathname==='/portal/admin')ret
 const responseTextIndex=middleware.indexOf('response.text()');
 assert(responseTextIndex<0||adminBypassIndex<responseTextIndex,'Admin must bypass any response buffering');
 
-for(const marker of ['rona-admin-shell" content="current-only-v1','data-rona-admin-shell="current-only-v1','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-claims"','portal-admin-shell-fast-v1.js','clients-agents-current-ui'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
+for(const marker of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','current-only-router-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-agent-settlements"','id="page-claims"','portal-admin-shell-fast-v1.js','clients-agents-current-ui'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
 for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','admin_externalized','v3.4.13','BOOT_ERROR_LATCH_FINAL_CANDIDATE'])assert(!shell.includes(marker),`Legacy Admin marker returned to current shell: ${marker}`);
+assert(shell.includes('grid-template-columns:238px minmax(0,1fr)'),'Canonical-scale sidebar must be owned by the current shell');
+assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Current shell must expose the primary access action even before the access module finishes mounting');
+assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit user navigation during late module boot');
+assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
 assert(shell.length<60000,'Current Admin shell must remain a small structural shell, not a bundled legacy cabinet');
 
 assert(build.includes("path: 'portal-src/current/admin.html'"),'Build must source Admin from current-only shell');
@@ -43,6 +47,7 @@ assert(build.includes("path: 'portal-src/canonical/canonical_logo.svg'"),'Build 
 assert(!build.includes("SOURCES.admin"),'Frozen legacy Admin source must not be part of deployment sources');
 assert(!build.includes('const ADMIN_RUNTIME'),'Legacy externalized Admin runtime must not be a deployment input');
 assert(build.includes('legacy_runtime_in_deployment:false'),'Build integrity must fail closed on legacy deployment');
+assert(build.includes('current-only-router-v2'),'Build must reject a shell without the authoritative current router');
 
 assert(runtime.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='fast-static-v1'"),'Static resilience runtime marker missing');
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='CHECKING'"),'Async session state missing');
@@ -58,4 +63,4 @@ assert(!access.includes('harvestLegacy'),'Current access UI must not harvest leg
 assert(!access.includes('window.openModal'),'Current access UI must not depend on legacy modal functions');
 assert(access.includes("window.__RONA_CLIENTS_AGENTS_V4_READY__=true"),'Current access UI must preserve the established owner-ready contract');
 
-console.log('Admin current-only resilience QA: PASS');
+console.log('Admin current-only v2 resilience QA: PASS');

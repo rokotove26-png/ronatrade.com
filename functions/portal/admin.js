@@ -1,4 +1,4 @@
-const BUILD='owner-current-only-v1-20260826';
+const BUILD='owner-current-only-v2-20260826-1231';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
@@ -36,9 +36,9 @@ function securityHeaders(source,cookies=[]){
   h.set('cross-origin-opener-policy','same-origin');
   h.set('cross-origin-resource-policy','same-origin');
   h.set('content-security-policy',ADMIN_CSP);
-  h.set('x-rona-admin-shell','current-only-v1');
+  h.set('x-rona-admin-shell','current-only-v2');
   h.set('x-rona-admin-auth','server-verified-v1');
-  h.set('x-rona-admin-current-only','main-v2-shell-v1');
+  h.set('x-rona-admin-current-only','main-v2-shell-v2');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
   h.delete('etag');

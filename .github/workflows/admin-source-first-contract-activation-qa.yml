@@ -27,11 +27,15 @@ jobs:
           npm run build
           cmp -s portal-src/current/admin.html dist/portal/admin.html
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
-          grep -q 'data-rona-admin-shell="current-only-v1"' dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
+          grep -q 'data-page="agent-settlements"' dist/portal/admin.html
+          grep -q 'data-page="claims"' dist/portal/admin.html
           ! grep -q 'v3.4.13' dist/portal/admin.html
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/admin-authority/[[path]].js'
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q '/access/users' functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           grep -q 'ADMIN_CLIENT_AUTHORITY_API' 'functions/portal/admin-authority/[[path]].js'
