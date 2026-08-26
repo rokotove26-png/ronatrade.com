@@ -1,4 +1,4 @@
-name: trade-form-production-mailer-repair
+name: trade-form-alt-sender-dns-diagnostic
 
 on:
   push:
@@ -11,114 +11,32 @@ permissions:
   contents: read
 
 jobs:
-  repair-and-probe:
+  dns:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    env:
-      CF_TOKEN_PRIMARY: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CF_TOKEN_ALT: ${{ secrets.CF_API_TOKEN }}
-      CF_GLOBAL_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
-      CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
+    timeout-minutes: 5
     steps:
-      - name: Detect Cloudflare API capability and onboard sending domain when possible
+      - name: Inspect candidate sender domains without changes
         shell: bash
         run: |
           set -u
-          mkdir -p .probe
-          auth_mode=none
-          token="${CF_TOKEN_PRIMARY:-}"
-          if [ -z "$token" ]; then token="${CF_TOKEN_ALT:-}"; fi
-
-          cf_get() {
-            url="$1"
-            if [ -n "$token" ]; then
-              curl -sS --max-time 25 -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "$url"
-            elif [ -n "${CF_GLOBAL_KEY:-}" ] && [ -n "${CF_EMAIL:-}" ]; then
-              curl -sS --max-time 25 -H "X-Auth-Email: ${CF_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_KEY}" -H 'Content-Type: application/json' "$url"
-            else
-              return 22
-            fi
-          }
-
-          cf_post() {
-            url="$1"
-            body="$2"
-            if [ -n "$token" ]; then
-              curl -sS --max-time 25 -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data "$body" "$url"
-            elif [ -n "${CF_GLOBAL_KEY:-}" ] && [ -n "${CF_EMAIL:-}" ]; then
-              curl -sS --max-time 25 -X POST -H "X-Auth-Email: ${CF_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_KEY}" -H 'Content-Type: application/json' --data "$body" "$url"
-            else
-              return 22
-            fi
-          }
-
-          if [ -n "$token" ]; then auth_mode=token; fi
-          if [ "$auth_mode" = none ] && [ -n "${CF_GLOBAL_KEY:-}" ] && [ -n "${CF_EMAIL:-}" ]; then auth_mode=global_key; fi
-          echo "CF_AUTH_MODE=${auth_mode}"
-
-          if [ "$auth_mode" != none ]; then
-            zones=$(cf_get 'https://api.cloudflare.com/client/v4/zones?name=ronaoil.com&status=active' || true)
-            echo "CF_ZONES_RESPONSE=${zones}"
-            zone_id=$(printf '%s' "$zones" | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d.get("result") or []; print(r[0].get("id", "") if r else "")' 2>/dev/null || true)
-            if [ -n "$zone_id" ]; then
-              before=$(cf_get "https://api.cloudflare.com/client/v4/zones/${zone_id}/email/sending/subdomains" || true)
-              echo "CF_EMAIL_SENDING_BEFORE=${before}"
-              enabled=$(printf '%s' "$before" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("yes" if any(x.get("name")=="ronaoil.com" and x.get("enabled") for x in (d.get("result") or [])) else "no")' 2>/dev/null || echo no)
-              if [ "$enabled" != yes ]; then
-                created=$(cf_post "https://api.cloudflare.com/client/v4/zones/${zone_id}/email/sending/subdomains" '{"name":"ronaoil.com"}' || true)
-                echo "CF_EMAIL_SENDING_CREATE=${created}"
-                sleep 5
-              fi
-              after=$(cf_get "https://api.cloudflare.com/client/v4/zones/${zone_id}/email/sending/subdomains" || true)
-              echo "CF_EMAIL_SENDING_AFTER=${after}"
-            else
-              echo 'CF_ZONE_ID=unavailable'
-            fi
-          fi
-
-      - name: Probe production trade form after repair attempt
-        shell: bash
-        run: |
-          set -u
-          mkdir -p .probe
-          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
-          cat > .probe/payload.json <<JSON
-          {
-            "Контактное лицо": "RONA SYSTEM TEST",
-            "Компания": "RONA Trade production E2E ${stamp}",
-            "Страна регистрации компании": "Kyrgyzstan",
-            "Нефтепродукт": "СПБТ / СУГ",
-            "Страна назначения груза": "Kazakhstan",
-            "Ориентировочный объем, тонн": "1",
-            "Телефон": "+996000000000",
-            "E-mail": "office_kg@ronaoil.com",
-            "Комментарий": "Synthetic production E2E test ${stamp}. Ignore.",
-            "Источник": "github-actions-production-e2e",
-            "Дата отправки": "${stamp}",
-            "Language": "RU",
-            "URL страницы / источник": "https://ronaoil.com/"
-          }
-          JSON
-          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' --max-time 25 \
-            -X POST 'https://ronaoil.com/api/forms/trade' \
-            -H 'Origin: https://ronaoil.com' \
-            -H 'Referer: https://ronaoil.com/' \
-            -H 'Content-Type: application/json' \
-            -H 'Accept: application/json' \
-            --data-binary @.probe/payload.json 2>.probe/form-stderr || true)
-          form_body=$(cat .probe/form-response.json 2>/dev/null || true)
-          form_err=$(tr '\n' ' ' < .probe/form-stderr 2>/dev/null || true)
-          echo "FORM_HTTP=${form_http}"
-          echo "FORM_RESPONSE=${form_body}"
-          echo "FORM_CURL_ERROR=${form_err}"
-
-          if [ "${form_http}" != "202" ]; then
-            diag_http=$(curl -sS -o .probe/diag-response.json -w '%{http_code}' --max-time 25 \
-              'https://ronaoil.com/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d' \
-              2>.probe/diag-stderr || true)
-            diag_body=$(cat .probe/diag-response.json 2>/dev/null || true)
-            diag_err=$(tr '\n' ' ' < .probe/diag-stderr 2>/dev/null || true)
-            echo "DIAG_HTTP=${diag_http}"
-            echo "DIAG_RESPONSE=${diag_body}"
-            echo "DIAG_CURL_ERROR=${diag_err}"
-          fi
+          for domain in ronaoil.com ronatrade.com; do
+            echo "===== ${domain} ====="
+            echo 'NS:'
+            dig +short NS "$domain" || true
+            echo 'MX root:'
+            dig +short MX "$domain" || true
+            echo 'TXT root:'
+            dig +short TXT "$domain" || true
+            echo 'DMARC:'
+            dig +short TXT "_dmarc.${domain}" || true
+            echo 'cf-bounce MX:'
+            dig +short MX "cf-bounce.${domain}" || true
+            echo 'cf-bounce TXT:'
+            dig +short TXT "cf-bounce.${domain}" || true
+            echo 'DKIM candidates:'
+            for sel in cf2024 cf2025 cf2026 cfdkim1 cfdkim2; do
+              out=$(dig +short TXT "${sel}._domainkey.${domain}" || true)
+              if [ -n "$out" ]; then echo "${sel}: ${out}"; fi
+            done
+            echo
+          done
