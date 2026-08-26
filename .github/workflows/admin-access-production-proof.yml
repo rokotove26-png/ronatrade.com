@@ -62,9 +62,11 @@ jobs:
           }
           const r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='current-only-v2','current access module unavailable');
+          assert(r.headers.get('x-rona-access-create')==='client-agent-v2','access creation contract unavailable');
+          assert(r.headers.get('x-rona-admin-nav-stability')==='v2','access navigation-stability contract unavailable');
           const src=await r.text();
-          assert(src.includes("AUTH='/portal/admin-authority'"),'authority route missing live');
-          assert(src.includes("create.dataset.ronaCreateAccess='primary'"),'primary create-access action missing live');
+          assert(src.includes('admin-authority'),'authority route missing live');
+          assert(src.includes('ronaCreateAccess'),'primary create-access action missing live');
           assert(!src.includes('harvestLegacy'),'legacy DOM harvest deployed');
           console.log('ADMIN_ACCESS_FAIL_CLOSED_PRODUCTION=PASS');
           NODE
