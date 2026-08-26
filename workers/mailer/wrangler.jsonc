@@ -1,4 +1,4 @@
-// Deployment marker: Cloudflare rona-public-mailer branch/root settings saved; trigger 2026-08-26.
+// Deployment marker: Pages MAILER service binding redeploy trigger 2026-08-26.
 {
   "name": "rona-public-mailer",
   "main": "src/index.js",
