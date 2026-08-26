@@ -1,0 +1,31 @@
+name: Home inline real-auth browser QA
+
+on:
+  push:
+    branches:
+      - fix/home-inline-real-auth-20260826
+      - release/public-go-live-v1.1
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  home-inline-real-auth-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current public artifact
+        run: npm run build
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Exercise direct compact-page inline login
+        run: node scripts/qa-home-inline-auth-browser.mjs
