@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="rona-ui-primary" content="main-v2">
+  <meta name="rona-admin-shell" content="current-only-v1">
+  <meta name="rona-admin-lifecycle" content="CURRENT_ONLY">
+  <title>RONA Trade — Администратор</title>
+  <style>
+    :root{--shell-bg:#050a10;--shell-panel:rgba(7,14,22,.88);--shell-panel-2:rgba(10,19,29,.9);--shell-line:rgba(145,190,214,.14);--shell-text:#f4f8fb;--shell-muted:#91a2b3;--shell-cyan:#59d7ff;--shell-red:#e51b2b}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--shell-bg);color:var(--shell-text);font-family:Inter,Segoe UI,Arial,sans-serif}body{min-height:100vh;background-image:linear-gradient(rgba(3,8,13,.68),rgba(3,8,13,.68)),url('/assets/portal-canonical/background.png');background-position:center;background-size:cover;background-attachment:fixed}button,input,select,textarea{font:inherit}.app{min-height:100vh;display:grid;grid-template-columns:176px minmax(0,1fr);grid-template-rows:58px minmax(0,1fr)}.sidebar{grid-row:1/3;padding:12px 9px 16px;border-right:1px solid var(--shell-line);background:linear-gradient(180deg,rgba(4,10,17,.97),rgba(6,13,21,.91));backdrop-filter:blur(18px);overflow:auto}.brand{height:72px;display:flex;align-items:center;justify-content:center;margin-bottom:6px}.brand img{width:112px;height:57px;object-fit:contain}.nav-group{margin:14px 8px 7px;color:#6f8292;font-size:9px;line-height:1.2;font-weight:800;letter-spacing:.13em;text-transform:uppercase}#nav{display:flex;flex-direction:column;gap:3px;border:0;background:transparent;box-shadow:none;backdrop-filter:none;padding:0 0 10px}#nav button{width:100%;min-height:36px;display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:#b6c4cf;text-align:left;cursor:pointer;font-size:12px;font-weight:650}#nav button:hover{background:rgba(89,215,255,.07);color:#fff}#nav button.active,#nav button[aria-current="page"]{background:linear-gradient(135deg,rgba(89,215,255,.14),rgba(107,124,255,.12));border-color:rgba(89,215,255,.18);color:#fff}.nav-icon{width:15px;min-width:15px;text-align:center;color:#89a3b5;font-size:12px}.topbar{grid-column:2;display:flex;align-items:center;gap:12px;padding:8px 14px;border-bottom:1px solid var(--shell-line);background:rgba(4,10,16,.88);backdrop-filter:blur(18px);position:sticky;top:0;z-index:100}.search{flex:1;min-width:0;height:36px;border:1px solid rgba(145,190,214,.17);border-radius:10px;background:rgba(5,11,18,.72);color:#eaf2f7;padding:0 13px;outline:none}.search:focus{border-color:rgba(89,215,255,.42);box-shadow:0 0 0 3px rgba(89,215,255,.07)}.role-pill,.logout{height:34px;border:1px solid rgba(145,190,214,.19);border-radius:999px;background:rgba(8,16,25,.75);color:#eaf2f7;padding:0 12px;font-size:11px;font-weight:750;white-space:nowrap}.logout{cursor:pointer}.logout:hover{border-color:rgba(89,215,255,.4)}main{grid-column:2;min-width:0;overflow:auto}.page{display:none;min-height:calc(100vh - 58px)}.page.active{display:block}.current-loading{width:min(100%,1480px);margin:0 auto;padding:28px}.current-loading-card{padding:22px;border:1px solid var(--shell-line);border-radius:18px;background:var(--shell-panel);box-shadow:0 18px 50px rgba(0,0,0,.22)}.current-loading-title{font-size:18px;font-weight:800}.current-loading-sub{margin-top:7px;color:var(--shell-muted);font-size:13px}.current-only-hidden-page{display:none!important}@media(max-width:900px){.app{grid-template-columns:72px minmax(0,1fr)}.sidebar{padding-inline:6px}.brand img{width:60px}.nav-group{font-size:0;margin:10px 0 4px}.nav-group::after{content:'·';font-size:12px}.nav-label{display:none}#nav button{justify-content:center;padding:8px}.topbar{padding-inline:10px}.role-pill{display:none}}@media(max-width:620px){.app{grid-template-columns:1fr;grid-template-rows:54px auto minmax(0,1fr)}.sidebar{grid-row:2;grid-column:1;border-right:0;border-bottom:1px solid var(--shell-line);padding:6px;overflow-x:auto}.brand{display:none}#nav{flex-direction:row;min-width:max-content;padding:0}#nav .nav-group{display:none}#nav button{width:auto;min-width:42px}.topbar{grid-column:1;grid-row:1}.search{font-size:12px}main{grid-column:1;grid-row:3}.page{min-height:calc(100vh - 108px)}}
+  </style>
+</head>
+<body class="admin-auth-server-verified">
+<div class="app" data-rona-admin-shell="current-only-v1">
+  <aside class="sidebar" aria-label="Навигация администратора">
+    <div class="brand"><img src="/assets/portal-canonical/logo.svg" alt="RONA Trade"></div>
+    <nav id="nav" aria-label="Разделы кабинета">
+      <div class="nav-group">Операции</div>
+      <button type="button" class="active" data-page="home" aria-current="page"><span class="nav-icon">⌂</span><span class="nav-label">Главная</span></button>
+      <button type="button" data-page="prices"><span class="nav-icon">◈</span><span class="nav-label">Цены</span></button>
+      <button type="button" data-page="applications"><span class="nav-icon">▤</span><span class="nav-label">Заявки</span></button>
+      <button type="button" data-page="deals"><span class="nav-icon">◆</span><span class="nav-label">Сделки</span></button>
+      <button type="button" data-page="payments"><span class="nav-icon">▣</span><span class="nav-label">Платежи</span></button>
+      <button type="button" data-page="accounting"><span class="nav-icon">▥</span><span class="nav-label">Касса</span></button>
+      <button type="button" data-page="monitoring"><span class="nav-icon">⇄</span><span class="nav-label">Онлайн ЖД</span></button>
+      <button type="button" data-page="messages"><span class="nav-icon">◉</span><span class="nav-label">Радиорубка</span></button>
+      <div class="nav-group">Клиенты</div>
+      <button type="button" data-page="access"><span class="nav-icon">◇</span><span class="nav-label">Клиенты и агенты</span></button>
+      <button type="button" data-page="agent-settlements"><span class="nav-icon">％</span><span class="nav-label">Вознаграждения агентов</span></button>
+      <button type="button" data-page="claims"><span class="nav-icon">□</span><span class="nav-label">Претензии</span></button>
+      <div class="nav-group">Рынок</div>
+      <button type="button" data-page="analytics"><span class="nav-icon">⌁</span><span class="nav-label">Аналитика</span></button>
+      <button type="button" data-page="market-news"><span class="nav-icon">◌</span><span class="nav-label">Новости топливного рынка СНГ</span></button>
+    </nav>
+  </aside>
+  <header class="topbar">
+    <input class="search" type="search" placeholder="Поиск: ID сделки, ИД заявки, ИД претензии, контрагент, документ" aria-label="Поиск">
+    <span class="role-pill">Администратор</span>
+    <button type="button" class="logout" data-action="logout">Выход</button>
+  </header>
+  <main id="current-admin-main">
+    <section id="page-home" class="page active"><div class="current-loading"><div class="current-loading-card"><div class="current-loading-title">Главная</div><div class="current-loading-sub">Загрузка актуального рабочего кабинета…</div></div></div></section>
+    <section id="page-prices" class="page"></section>
+    <section id="page-applications" class="page"></section>
+    <section id="page-deals" class="page"></section>
+    <section id="page-documents" class="page current-only-hidden-page" aria-hidden="true"></section>
+    <section id="page-payments" class="page"></section>
+    <section id="page-accounting" class="page"></section>
+    <section id="page-monitoring" class="page"></section>
+    <section id="page-messages" class="page"></section>
+    <section id="page-access" class="page"></section>
+    <section id="page-agent-settlements" class="page"></section>
+    <section id="page-claims" class="page"></section>
+    <section id="page-analytics" class="page"></section>
+    <section id="page-market-news" class="page"></section>
+  </main>
+</div>
+<script>window.__RONA_ADMIN_BOOT_STATE__={ready:true,currentOnly:true};window.__RONA_ADMIN_CURRENT_SHELL__='current-only-v1';</script>
+<script id="rona-admin-fast-shell-runtime" src="/assets/portal-admin-shell-fast-v1.js?v=20260826-current-only-v1" defer></script>
+</body>
+</html>
