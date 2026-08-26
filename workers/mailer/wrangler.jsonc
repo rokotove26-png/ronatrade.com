@@ -1,11 +1,8 @@
-// Temporary autonomous sender onboarding hook. Remove after Email Sending is enabled.
+// Sender compatibility probe: ronaoil.com sender identity.
 {
   "name": "rona-public-mailer",
   "main": "src/index.js",
   "compatibility_date": "2026-08-11",
-  "build": {
-    "command": "timeout 90s npx --yes wrangler@latest email sending enable ronaoil.com || true"
-  },
   "send_email": [
     {
       "name": "EMAIL",
