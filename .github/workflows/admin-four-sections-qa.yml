@@ -7,6 +7,7 @@ on:
     paths:
       - 'assets/admin-four-sections-recovery-v1.js'
       - 'assets/admin-approved-analytics-owner-v1.js'
+      - 'assets/admin-current-nav-owner-guard-v1.js'
       - 'functions/portal/rail-current-stable-ui.js'
       - 'functions/portal/prices-current-ui.js'
       - 'functions/portal/price-updates-api.js'
@@ -22,6 +23,7 @@ on:
     paths:
       - 'assets/admin-four-sections-recovery-v1.js'
       - 'assets/admin-approved-analytics-owner-v1.js'
+      - 'assets/admin-current-nav-owner-guard-v1.js'
       - 'functions/portal/rail-current-stable-ui.js'
       - 'functions/portal/prices-current-ui.js'
       - 'functions/portal/price-updates-api.js'
