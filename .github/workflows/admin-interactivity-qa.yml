@@ -64,16 +64,19 @@ jobs:
           const shell=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
           assert(shell.status===302,'Admin auth boundary '+shell.status);
           const access=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
+          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='current-only-v2','access current-only-v2 contract');
+          assert(access.headers.get('x-rona-access-create')==='client-agent-v2','access create contract');
+          assert(access.headers.get('x-rona-admin-nav-stability')==='v2','navigation stability contract');
           const src=await access.text();
-          for(const marker of ['Клиенты и агенты','Пользователи и доступы','Создать доступ','Сохранить'])assert(src.includes(marker),'current interaction marker '+marker);
+          for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4'])assert(src.includes(marker),'current access ASCII marker '+marker);
           const claims=await fetch(base+'/portal/claims-r2-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(claims.ok,'claims runtime '+claims.status);
           const claimsSrc=await claims.text();
-          assert(claimsSrc.includes('#page-claims'),'claims host contract missing');
+          assert(claimsSrc.includes('#page-claims')&&claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims runtime contract missing');
           const remaining=await fetch(base+'/portal/remaining-sections-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(remaining.ok,'remaining-sections runtime '+remaining.status);
           const remainingSrc=await remaining.text();
-          assert(remainingSrc.includes('вознаграждения агентов'),'agent rewards route contract missing');
+          assert(remainingSrc.includes('renderRewards'),'agent rewards renderer contract missing');
           for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});assert([401,403].includes(r.status),path+' '+r.status)}
           console.log('ADMIN_CURRENT_ONLY_INTERACTIVITY_PRODUCTION=PASS');
           NODE
