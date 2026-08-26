@@ -1,6 +1,7 @@
 (()=>{'use strict';
 if(window.__RONA_ACCESS_FULL_VISIBILITY_GUARD__)return;
 window.__RONA_ACCESS_FULL_VISIBILITY_GUARD__='20260826-v1';
+/* data-rona-access-field is the rendered semantic marker enforced below. */
 const STYLE_ID='ronaAccessFullVisibilityGuardStyle';
 function ensureStyle(){
   if(document.getElementById(STYLE_ID))return;
