@@ -44,4 +44,4 @@ jobs:
           test "$code" = "202"
           grep -q '"success":true' response.json
 
-# Trigger: final production verification 2026-08-26
+# Trigger: final production verification after MAILER binding 2026-08-26
