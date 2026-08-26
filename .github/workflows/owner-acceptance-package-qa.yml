@@ -55,14 +55,19 @@ jobs:
           node --check /tmp/rona-owner-acceptance.js
 
           # Admin current-only shell and server-authenticated route.
-          grep -q "'x-rona-admin-shell','current-only-v1'" functions/portal/admin.js
+          grep -q "'x-rona-admin-shell','current-only-v2'" functions/portal/admin.js
           grep -q "'x-rona-admin-auth','server-verified-v1'" functions/portal/admin.js
           grep -q "if(!rolesOf(session.me).includes('ADMIN'))" functions/portal/admin.js
           ! grep -q 'HTMLRewriter' functions/portal/admin.js
           ! grep -q 'adminLoginGate' functions/portal/admin.js
           ! grep -q 'rona-admin-auth-v3413' functions/portal/admin.js
-          grep -q 'rona-admin-shell" content="current-only-v1' portal-src/current/admin.html
-          grep -q 'data-rona-admin-shell="current-only-v1' portal-src/current/admin.html
+          grep -q 'rona-admin-shell" content="current-only-v2' portal-src/current/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
+          grep -q 'grid-template-columns:238px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
+          grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
+          grep -q 'data-page="claims"' portal-src/current/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
           grep -q 'clients-agents-current-ui' portal-src/current/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
