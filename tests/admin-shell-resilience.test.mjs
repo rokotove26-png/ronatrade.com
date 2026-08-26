@@ -46,7 +46,8 @@ assert(runtime.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='CHECKING'"),'Async session state missing');
 assert(runtime.includes("if(r.status===401||r.status===403)"),'Only explicit auth denial may redirect');
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='DEGRADED_BACKEND'"),'Transient backend degradation state missing');
-for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui','/portal/prices-current-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
+for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-current-ui','/portal/analytics-v2-ui','/portal/prices-standard-list-current-ui','/portal/access-create-parity-ui','/portal/rail-current-v81-maplibre-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
+assert(!runtime.includes("['agent-settlements','messages','analytics','market-news']"),'Generic Remaining must not own Analytics');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!runtime.includes(forbidden),`Competing Admin module returned: ${forbidden}`);
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
 assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'Page-aware watchdog missing');

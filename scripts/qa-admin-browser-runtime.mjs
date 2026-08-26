@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
 import { onRequest as mainUiRequest } from '../functions/portal/main-ui.js';
+import { onRequest as pricesUiRequest } from '../functions/portal/prices-standard-list-current-ui.js';
+import { onRequest as remainingUiRequest } from '../functions/portal/remaining-sections-current-ui.js';
+import { onRequest as analyticsUiRequest } from '../functions/portal/analytics-v2-ui.js';
+import { onRequest as accessParityRequest } from '../functions/portal/access-create-parity-ui.js';
 
 const ROOT=process.cwd();
 const DIST=join(ROOT,'dist');
@@ -11,6 +15,7 @@ const adminBootstrap={
   clients:[{client_id:'RONA-QA-C001',legal_name:'QA Client',contract_id:'RONA-QA-CTR-001',current_external_contract_number:'QA-001',agent_person_id:'RONA-QA-A001'}],
   companies:[{client_id:'RONA-QA-C001',legal_name:'QA Client',contract_id:'RONA-QA-CTR-001',current_external_contract_number:'QA-001',agent_person_id:'RONA-QA-A001'}],
   agents:[{agent_person_id:'RONA-QA-A001',agent_name:'QA Agent'}],
+  prices:[{price_id:'RONA-QA-PRICE-001',business_status:'PUBLISHED',product:'СУГ',producer:'QA Refinery',supplier:'QA Supplier',final_station:'Наушки',sale_price:702,purchase_price:620,rail_tariff:60,cost_price:680,margin_abs:22,currency:'USD',commercial_terms:'Период поставки: сентябрь 2026; Оплата: 100% предоплата'}],
   applications:[],deals:[],documents:[],payments:[],cash:[],rail:[],publications:[],operationalConflicts:[],claims:[],
   agentRewards:[{agent_person_id:'RONA-QA-A001',agent_name:'QA Agent',deal_id:'QA-DEAL-001',amount:100,currency:'USD',status:'DUE',created_at:now}]
 };
@@ -31,11 +36,22 @@ const aiSync={
 };
 const authority={
   accessUsers:[],
-  contracts:[{contractId:'RONA-QA-CTR-001',id:'RONA-QA-CTR-001',contractStatus:'ACTIVE',status:'ACTIVE',clientId:'RONA-QA-C001',company:'QA Client',externalContractNumber:'QA-001'}]
+  contracts:[{contractId:'RONA-QA-CTR-001',id:'RONA-QA-CTR-001',contractStatus:'ACTIVE',status:'ACTIVE',clientId:'RONA-QA-C001',company:'QA Client',legalName:'QA Client',externalContractNumber:'QA-001',currentExternalContractNumber:'QA-001',serverConfirmed:true}],
+  adminControlPlane:{agentProfiles:[{agentPersonId:'RONA-QA-A001',displayAlias:'QA Agent'}]}
 };
+const priceUpdates={generatedAt:now,currentPublicationId:'RONA-QA-PUBLICATION-001',clientEnabled:true,agentEnabled:true,updateAvailableCount:0,proposals:[],history:[],agentCommercialProposals:[]};
 
 const mainResponse=await mainUiRequest();
+const pricesResponse=await pricesUiRequest({});
+const remainingResponse=await remainingUiRequest({});
+const analyticsResponse=await analyticsUiRequest({});
+const accessResponse=await accessParityRequest({});
 const mainUi=await mainResponse.text();
+const pricesUi=await pricesResponse.text();
+const remainingUi=await remainingResponse.text();
+const analyticsUi=await analyticsResponse.text();
+const accessUi=await accessResponse.text();
+for(const [name,response] of [['prices',pricesResponse],['remaining',remainingResponse],['analytics',analyticsResponse],['access',accessResponse]])if(response.status!==200)throw new Error(`${name} endpoint ${response.status}`);
 
 function send(res,status,body,type='text/plain; charset=utf-8',headers={}){
   res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});
@@ -51,7 +67,7 @@ function mime(path){const e=extname(path).toLowerCase();return e==='.html'?'text
 async function serveFile(res,path,contentType){try{const b=await readFile(path);send(res,200,b,contentType||mime(path));return true}catch{return false}}
 
 const optionalUiPaths=new Set([
-  '/portal/deals-current-state-ui','/portal/deals-r1-r11-ui','/portal/cash-r2-ui','/portal/rail-current-v81-maplibre-ui','/portal/applications-total-kpi-ui','/portal/prices-current-ui'
+  '/portal/deals-current-state-ui','/portal/deals-r1-r11-ui','/portal/cash-r2-ui','/portal/rail-current-v81-maplibre-ui','/portal/applications-total-kpi-ui'
 ]);
 const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url||'/', 'http://127.0.0.1');
@@ -59,7 +75,11 @@ const server=http.createServer(async(req,res)=>{
   if(p==='/favicon.ico')return send(res,204,'');
   if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');
   if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');
-  if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui'||p==='/portal/remaining-sections-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');
+  if(p==='/portal/prices-standard-list-current-ui')return send(res,200,pricesUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/remaining-sections-current-ui')return send(res,200,remainingUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/analytics-v2-ui')return send(res,200,analyticsUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/access-create-parity-ui')return send(res,200,accessUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');
   if(optionalUiPaths.has(p))return send(res,200,'/* QA optional current module */','application/javascript; charset=utf-8');
   if(p==='/portal/api/session/me')return json(res,{ok:true,user:{roles:['ADMIN'],display_name:'QA Admin'}});
   if(p==='/portal/api/v1/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
@@ -67,6 +87,7 @@ const server=http.createServer(async(req,res)=>{
   if(p==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority});
   if(p==='/portal/admin-authority/agent-readiness')return json(res,{ok:true,data:{matrixReady:true}});
   if(p.startsWith('/portal/admin-authority/'))return json(res,{ok:true,data:{}});
+  if(p==='/portal/price-updates-api')return json(res,{ok:true,data:priceUpdates});
   if(p==='/portal/owner-api'){
     const ownerPath=u.searchParams.get('path')||'';
     if(ownerPath==='/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
@@ -118,7 +139,7 @@ try{
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>window.__RONA_ADMIN_CURRENT_ROUTER__==='current-only-router-v2',{timeout:10000});
   await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:15000});
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(700);
 
   const visual=await page.evaluate(()=>{
     const side=document.querySelector('.sidebar'),nav=document.querySelector('#nav button[data-page="home"]'),app=document.querySelector('.app');
@@ -135,17 +156,39 @@ try{
   const create=page.locator('#page-access #rona-ca4 button[data-rona-create-access="primary"]');
   await create.waitFor({state:'visible',timeout:10000});
   await create.click();
-  const modal=page.locator('.ca-modal');
+  const modal=page.locator('.rap-modal');
   await modal.waitFor({state:'visible',timeout:5000});
-  assert((await modal.innerText()).includes('Тип доступа'),'access modal: Тип доступа missing');
-  assert((await modal.innerText()).includes('Договоры клиента'),'access modal: Договоры клиента missing');
+  const accessText=await modal.innerText();
+  for(const marker of ['Тип доступа','Роль пользователя','Ф.И.О.','Единый логин','Электронная почта','Телефон','Разрешённые компании / контракты'])assert(accessText.includes(marker),'full access modal missing '+marker);
   const role=modal.locator('select').first();
   await role.selectOption({label:'Агент'});
   await page.waitForTimeout(100);
   assert((await modal.innerText()).includes('Профиль агента'),'access modal: Профиль агента missing');
   await modal.locator('button:has-text("Отмена")').click();
-  await stableSelection(page,'access',1200);
+  await stableSelection(page,'access',500);
 
+  await clickSection(page,'prices');
+  const pricesRoot=page.locator('#page-prices #rona-prices-current');
+  await pricesRoot.waitFor({state:'visible',timeout:10000});
+  await page.waitForTimeout(450);
+  const pricesText=await pricesRoot.innerText();
+  assert(pricesText.includes('Цены и маржа'),'Prices title missing');
+  assert(pricesText.includes('СУГ'),'Prices standard-list row missing');
+  assert(pricesText.includes('702'),'Prices sale price missing');
+  assert(!pricesText.includes('временно недоступен'),'Prices rendered unavailable state');
+  assert(await page.evaluate(()=>window.__RONA_PRICES_STANDARD_LIST_ONLY__==='20260826-v1'),'Prices standard-list owner marker absent');
+
+  await clickSection(page,'monitoring');
+  await stableSelection(page,'monitoring',600);
+
+  await clickSection(page,'analytics');
+  const analyticsRoot=page.locator('#page-analytics #rona-analytics-v2');
+  await analyticsRoot.waitFor({state:'visible',timeout:10000});
+  const analyticsText=await analyticsRoot.innerText();
+  for(const marker of ['Аналитика','Platts','Argus','Возможные цены RONA Trade'])assert(analyticsText.includes(marker),'Analytics visual/function missing '+marker);
+  assert(await page.evaluate(()=>String(window.__RONA_ANALYTICS_V2__||'').includes('analytics-v3-market-rona-bases-lpg')),'Dedicated Analytics owner marker absent');
+
+  await clickSection(page,'access');
   // Deliberately emulate a late competing runtime mutation. The current router must restore the user's explicit page.
   await page.evaluate(()=>{
     document.querySelector('#nav button[data-page="access"]')?.classList.remove('active');
@@ -158,7 +201,7 @@ try{
   await clickSection(page,'claims');
   await page.locator('#page-claims .rona-claims-r2-root').waitFor({state:'visible',timeout:10000});
   assert((await page.locator('#page-claims').innerText()).includes('Претензии'),'claims functional page did not render');
-  await stableSelection(page,'claims',1200);
+  await stableSelection(page,'claims',600);
 
   await clickSection(page,'agent-settlements');
   const rewardsOwner=page.locator('#page-agent-settlements [data-rona-agent-rewards-owner="current-v1"]');
@@ -168,27 +211,30 @@ try{
   assert(rewardsText.includes('Вознаграждения агентов'),'agent rewards canonical page did not render');
   assert(rewardsText.includes('QA Agent'),'agent rewards canonical data row did not render');
   assert(rewardsText.includes('100 USD'),'agent rewards confirmed amount did not render');
-  await stableSelection(page,'agent-settlements',1200);
+  await stableSelection(page,'agent-settlements',600);
 
-  for(let i=0;i<3;i++){
-    for(const key of ['access','claims','agent-settlements'])await clickSection(page,key);
+  for(let i=0;i<2;i++){
+    for(const key of ['prices','monitoring','analytics','access','claims','agent-settlements'])await clickSection(page,key);
   }
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(800);
   await stableSelection(page,'agent-settlements',0);
 
   const runtime=await page.evaluate(()=>({
     shell:window.__RONA_ADMIN_CURRENT_SHELL__,router:window.__RONA_ADMIN_CURRENT_ROUTER__,runtime:window.__RONA_ADMIN_RUNTIME_OWNER__,
-    access:window.__RONA_CLIENTS_AGENTS_CURRENT__,accessReady:window.__RONA_CLIENTS_AGENTS_CURRENT_READY__,claims:window.__RONA_CLAIMS_R2_UI__,remaining:window.__RONA_REMAINING_SECTIONS_R2__,
+    access:window.__RONA_CLIENTS_AGENTS_CURRENT__,accessReady:window.__RONA_CLIENTS_AGENTS_CURRENT_READY__,accessParity:window.__RONA_ACCESS_CREATE_PARITY__,claims:window.__RONA_CLAIMS_R2_UI__,remaining:window.__RONA_REMAINING_SECTIONS_R2__,analytics:window.__RONA_ANALYTICS_V2__,prices:window.__RONA_PRICES_STANDARD_LIST_ONLY__,
     rewardsReady:window.__RONA_AGENT_REWARDS_CURRENT_READY__,rewardsState:window.__RONA_AGENT_REWARDS_CURRENT_STATE__,moduleErrors:window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__||[]
   }));
   assert(runtime.shell==='current-only-v2','wrong shell '+runtime.shell);
   assert(runtime.router==='current-only-router-v2','wrong router '+runtime.router);
   assert(runtime.runtime==='single-owner-v3','wrong runtime '+runtime.runtime);
   assert(runtime.accessReady===true,'Clients/Agents module never became ready');
+  assert(runtime.accessParity==='20260826-historical-full-v1','Full access parity owner absent');
   assert(!!runtime.claims,'Claims module marker absent');
   assert(!!runtime.remaining,'Remaining sections module marker absent');
+  assert(String(runtime.analytics||'').includes('analytics-v3-market-rona-bases-lpg'),'Analytics module marker absent');
+  assert(runtime.prices==='20260826-v1','Prices standard-list marker absent');
   assert(runtime.rewardsReady===true,'Agent Rewards canonical owner never became ready');
-  assert(!runtime.moduleErrors.some(x=>String(x.stage||'').includes('claims')||String(x.stage||'').includes('remaining')||String(x.stage||'').includes('clients-agents')),'functional module load errors '+JSON.stringify(runtime.moduleErrors));
+  assert(!runtime.moduleErrors.some(x=>['claims','remaining','analytics','prices','access-parity','clients-agents'].some(k=>String(x.stage||'').includes(k))),'functional module load errors '+JSON.stringify(runtime.moduleErrors));
   assert(failures.length===0,'browser errors: '+failures.join(' | '));
   console.log('ADMIN_REAL_BROWSER_RUNTIME_QA=PASS');
   console.log(JSON.stringify({origin,visual,runtime,failures,notes}));

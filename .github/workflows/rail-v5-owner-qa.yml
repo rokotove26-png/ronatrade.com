@@ -40,7 +40,8 @@ jobs:
           grep -q 'mountRealRailMap' functions/portal/rail-current-v7-real-map-ui.js
           grep -q 'rona-rail-v7-map-viewport' functions/portal/rail-current-v7-real-map-ui.js
           grep -q 'tile.openstreetmap.org' 'functions/portal/map-assets/[[path]].js'
-          grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
+          ! grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
+          grep -q 'rona:admin-pagechange' functions/portal/rail-current-v5-ui.js
           ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
           grep -q 'rona-rail-v6-select' functions/portal/rail-current-v6-ui.js
           grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
@@ -59,10 +60,11 @@ jobs:
             'rona-rail-v7-controls',
             'Интерактивная ЖД-карта',
             "version:'v8.2'",
-            'stopImmediatePropagation',
+            'rona:admin-pagechange',
             'dedupeOnlineRail(host)'
           ];
           for(const marker of must)if(!src.includes(marker))throw new Error('missing runtime marker: '+marker);
+          if(src.includes('stopImmediatePropagation'))throw new Error('Rail still competes with the canonical Admin router');
           if(src.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('legacy GU button row remains');
           if(src.includes('c.innerHTML=mapSvg()'))throw new Error('fake SVG map is still mounted by active map panel');
           if(src.includes('https://tile.openstreetmap.org/'))throw new Error('browser still depends directly on OSM tile host');

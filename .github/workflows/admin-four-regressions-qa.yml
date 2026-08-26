@@ -1,0 +1,101 @@
+name: admin-four-regressions-qa
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - assets/portal-admin-shell-fast-v1.js
+      - functions/portal/prices-current-ui.js
+      - functions/portal/prices-standard-list-current-ui.js
+      - functions/portal/rail-current-v5-ui.js
+      - functions/portal/rail-current-v6-ui.js
+      - functions/portal/rail-current-v6-single-title-ui.js
+      - functions/portal/rail-current-v7-real-map-ui.js
+      - functions/portal/rail-current-v81-maplibre-ui.js
+      - functions/portal/clients-agents-current-ui.js
+      - functions/portal/access-create-parity-ui.js
+      - functions/portal/remaining-sections-ui.js
+      - functions/portal/remaining-sections-current-ui.js
+      - functions/portal/analytics-v2-ui.js
+      - .github/workflows/admin-four-regressions-qa.yml
+permissions:
+  contents: read
+  statuses: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify current admin modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check functions/portal/prices-standard-list-current-ui.js
+          node --check functions/portal/rail-current-v5-ui.js
+          node --check functions/portal/access-create-parity-ui.js
+          node --check functions/portal/remaining-sections-current-ui.js
+          node --check functions/portal/analytics-v2-ui.js
+          grep -q '/portal/prices-standard-list-current-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/remaining-sections-current-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/access-create-parity-ui' assets/portal-admin-shell-fast-v1.js
+          ! grep -q "\['agent-settlements','messages','analytics','market-news'\]" assets/portal-admin-shell-fast-v1.js
+          ! grep -q 'stopImmediatePropagation();activateRailV5' functions/portal/rail-current-v5-ui.js
+          grep -q "rona:admin-pagechange" functions/portal/rail-current-v5-ui.js
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { onRequest as pricesRequest } from './functions/portal/prices-standard-list-current-ui.js';
+          import { onRequest as railRequest } from './functions/portal/rail-current-v81-maplibre-ui.js';
+          import { onRequest as remainingRequest } from './functions/portal/remaining-sections-current-ui.js';
+          import { onRequest as analyticsRequest } from './functions/portal/analytics-v2-ui.js';
+          import { onRequest as accessRequest } from './functions/portal/access-create-parity-ui.js';
+
+          const prices=await pricesRequest({});
+          const pricesSrc=await prices.text();
+          if(prices.status!==200)throw new Error('prices wrapper status '+prices.status+': '+pricesSrc);
+          if(!pricesSrc.includes('__RONA_PRICES_STANDARD_LIST_ONLY__'))throw new Error('prices standard-list marker missing');
+          if(pricesSrc.includes("updateApi('cp-bootstrap')"))throw new Error('removed Agent CP RPC remains a fatal Prices dependency');
+          for(const m of ["updateApi('bootstrap')",'Цены и маржа'])if(!pricesSrc.includes(m))throw new Error('prices source missing '+m);
+
+          const rail=await railRequest({});
+          const railSrc=await rail.text();
+          if(rail.status!==200)throw new Error('rail chain status '+rail.status+': '+railSrc);
+          for(const m of ['20260825-raster-first-v8.2',"version:'v8.2'",'mountRealRailMap','rona:admin-pagechange'])if(!railSrc.includes(m))throw new Error('rail source missing '+m);
+          if(railSrc.includes('stopImmediatePropagation();activateRailV5'))throw new Error('legacy Rail navigation owner remains');
+
+          const remaining=await remainingRequest({});
+          const remainingSrc=await remaining.text();
+          if(remaining.status!==200)throw new Error('remaining wrapper status '+remaining.status+': '+remainingSrc);
+          if(remainingSrc.includes("'аналитика':'analytics'"))throw new Error('generic Remaining still owns Analytics');
+          if(!remainingSrc.includes("'новости топливного рынка снг':'news'"))throw new Error('Remaining lost market news ownership');
+
+          const analytics=await analyticsRequest({});
+          const analyticsSrc=await analytics.text();
+          if(analytics.status!==200)throw new Error('analytics status '+analytics.status);
+          for(const m of ['analytics-v3-market-rona-bases-lpg','АИ-92','АИ-95','LPG / СУГ','Возможные цены RONA Trade','Комментарий Коммерческого директора','Platts','Argus'])if(!analyticsSrc.includes(m))throw new Error('approved Analytics missing '+m);
+
+          const access=await accessRequest({});
+          const accessSrc=await access.text();
+          if(access.status!==200)throw new Error('access parity status '+access.status);
+          for(const m of ['Создать пользователя','Роль пользователя','Уполномоченный представитель','Директор','Бухгалтер','Логистика','Единый логин','Электронная почта','openWithoutContract','agentScope','__RONA_PORTAL_BACKEND__'])if(!accessSrc.includes(m))throw new Error('full Create Access missing '+m);
+
+          const shell=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
+          if(!shell.includes("if(p==='analytics')loadModule('analytics'"))throw new Error('dedicated Analytics routing missing');
+          if(!shell.includes("if(p==='access')loadModule('access-parity'"))throw new Error('access parity routing missing');
+          console.log('ADMIN_FOUR_REGRESSIONS_QA=PASS');
+          NODE
+      - name: Publish status
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          JOB_STATUS: ${{ job.status }}
+        shell: bash
+        run: |
+          state=failure; desc='Admin four-regression QA failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Admin four-regression QA passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/admin-four-regressions\",\"description\":\"$desc\"}" >/dev/null
