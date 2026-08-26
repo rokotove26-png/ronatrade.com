@@ -1,0 +1,53 @@
+name: Admin Analytics Canonical Only QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+      - 'fix/analytics-canonical-only-20260826'
+
+jobs:
+  analytics-canonical-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify canonical-only runtime
+        run: |
+          node --check functions/portal/analytics-v2-ui.js
+          node --check functions/portal/remaining-sections-ui.js
+          node --check server-only/analytics-canonical-v3.js
+          node --check server-only/remaining-sections-r2-source.js
+          node --input-type=module <<'NODE'
+          const analytics = await import('./functions/portal/analytics-v2-ui.js?qa='+Date.now());
+          const analyticsSource = await (await analytics.onRequest({})).text();
+          new Function(analyticsSource);
+          for (const token of ['20260824-analytics-v3-market-rona-bases-lpg','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts','Argus','LOW','BASE','HIGH','Forward','Комментарий Коммерческого директора','FACT / CALCULATION / FORECAST']) {
+            if (!analyticsSource.includes(token)) throw new Error('canonical analytics token missing: '+token);
+          }
+          for (const token of ['Выводов','Рыночных сигналов','Аналитическая лента','Текущий опубликованный ориентир RONA Trade']) {
+            if (analyticsSource.includes(token)) throw new Error('legacy analytics token leaked into canonical runtime: '+token);
+          }
+          const remaining = await import('./functions/portal/remaining-sections-ui.js?qa='+Date.now());
+          const remainingSource = await (await remaining.onRequest({})).text();
+          new Function(remainingSource);
+          for (const token of ["'аналитика':'analytics'",'function renderAnalytics(){','function publicationCard(){',"kind==='analytics'",'data-kind=\\"analytics\\"','Выводов','Аналитическая лента']) {
+            if (remainingSource.includes(token)) throw new Error('legacy analytics leaked from remaining runtime: '+token);
+          }
+          for (const token of ['Радиорубка','Вознаграждения агентов','Новости топливного рынка СНГ']) {
+            if (!remainingSource.includes(token)) throw new Error('approved remaining section missing: '+token);
+          }
+          NODE
+      - name: Build current-only artifact
+        run: npm run build
+      - name: Verify Admin shell ownership split
+        run: |
+          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "if(p==='analytics')loadAnalytics()" assets/portal-admin-shell-fast-v1.js
+          grep -q "\['agent-settlements','messages','market-news'\]" assets/portal-admin-shell-fast-v1.js
