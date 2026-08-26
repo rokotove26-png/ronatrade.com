@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
+      - portal-src/current/admin.html
+      - assets/portal-admin-shell-fast-v1.js
       - functions/portal/admin.js
       - functions/portal/rail-current-v5-ui.js
       - functions/portal/rail-current-v6-ui.js
@@ -24,13 +26,15 @@ jobs:
         run: |
           set -euo pipefail
           node --check functions/portal/admin.js
+          node --check assets/portal-admin-shell-fast-v1.js
           node --check functions/portal/rail-current-v5-ui.js
           node --check functions/portal/rail-current-v6-ui.js
           node --check functions/portal/rail-current-v6-single-title-ui.js
           node --check functions/portal/rail-current-v7-real-map-ui.js
           node --check functions/portal/rail-current-v81-maplibre-ui.js
           node --check 'functions/portal/map-assets/[[path]].js'
-          grep -q 'rail-current-v81-maplibre-ui' functions/portal/admin.js
+          grep -q 'id="page-monitoring"' portal-src/current/admin.html
+          grep -q 'rail-current-v81-maplibre-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/map-assets/osm/' functions/portal/rail-current-v81-maplibre-ui.js
           grep -q '20260825-raster-first-v8.2' functions/portal/rail-current-v81-maplibre-ui.js
           grep -q 'mountRealRailMap' functions/portal/rail-current-v7-real-map-ui.js

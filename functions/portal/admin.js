@@ -1,5 +1,4 @@
-const BUILD='owner-fast-shell-v2-20260826-0300';
-const SHELL_RUNTIME='/assets/portal-admin-shell-fast-v1.js?v=20260826-0300';
+const BUILD='owner-current-only-v1-20260826';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
@@ -37,8 +36,9 @@ function securityHeaders(source,cookies=[]){
   h.set('cross-origin-opener-policy','same-origin');
   h.set('cross-origin-resource-policy','same-origin');
   h.set('content-security-policy',ADMIN_CSP);
-  h.set('x-rona-admin-shell','fast-static-v2');
+  h.set('x-rona-admin-shell','current-only-v1');
   h.set('x-rona-admin-auth','server-verified-v1');
+  h.set('x-rona-admin-current-only','main-v2-shell-v1');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
   h.delete('etag');
@@ -117,7 +117,7 @@ async function ensureSession(request){
   return {access:next.data.access_token,refresh:next.data.refresh_token,me:probe.me,setCookies};
 }
 
-async function canonicalAdminAsset(context){
+async function currentAdminAsset(context){
   if(context.env?.ASSETS?.fetch){
     const u=new URL(context.request.url);
     u.pathname='/portal/admin';
@@ -125,19 +125,6 @@ async function canonicalAdminAsset(context){
     return context.env.ASSETS.fetch(new Request(u.toString(),{method:context.request.method,headers:{accept:'text/html,application/xhtml+xml'}}));
   }
   return context.next();
-}
-class RemoveCanonicalLegacyAuthNode{element(el){el.remove();}}
-class ServerVerifiedAdminBody{
-  element(el){
-    const classes=String(el.getAttribute('class')||'').split(/\s+/).filter(Boolean).filter(x=>x!=='admin-auth-locked');
-    if(!classes.includes('admin-auth-server-verified'))classes.push('admin-auth-server-verified');
-    el.setAttribute('class',classes.join(' '));
-  }
-}
-class FastShellHeadInjector{
-  element(el){
-    el.append(`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v2"><meta name="rona-admin-auth" content="server-verified-v1"><script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`,{html:true});
-  }
 }
 
 export async function onRequest(context){
@@ -153,28 +140,8 @@ export async function onRequest(context){
   if(!rolesOf(session.me).includes('ADMIN'))return deniedPage(session.setCookies);
 
   const started=Date.now();
-  const response=await canonicalAdminAsset(context);
-  const ct=String(response.headers.get('content-type')||'').toLowerCase();
+  const response=await currentAdminAsset(context);
   const h=securityHeaders(response.headers,session.setCookies);
   h.set('server-timing',`admin_shell;dur=${Math.max(0,Date.now()-started)}`);
-
-  if(response.status!==200||!ct.includes('text/html')||request.method==='HEAD'){
-    return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
-  }
-
-  if(typeof HTMLRewriter!=='function'){
-    const source=await response.text();
-    const guard=`<style>#adminLoginGate{display:none!important}</style><script>document.addEventListener('DOMContentLoaded',()=>{document.getElementById('adminLoginGate')?.remove();document.body?.classList.remove('admin-auth-locked');document.body?.classList.add('admin-auth-server-verified')},{once:true})</script>`;
-    const tag=`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v2"><meta name="rona-admin-auth" content="server-verified-v1">${guard}<script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`;
-    const html=source.replace('<body class="admin-auth-locked">','<body class="admin-auth-server-verified">').replace('</head>',tag+'</head>');
-    return new Response(html,{status:200,headers:h});
-  }
-
-  const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
-  return new HTMLRewriter()
-    .on('head',new FastShellHeadInjector())
-    .on('body',new ServerVerifiedAdminBody())
-    .on('#adminLoginGate',new RemoveCanonicalLegacyAuthNode())
-    .on('#rona-admin-auth-v3413',new RemoveCanonicalLegacyAuthNode())
-    .transform(base);
+  return new Response(request.method==='HEAD'?null:response.body,{status:response.status,statusText:response.statusText,headers:h});
 }

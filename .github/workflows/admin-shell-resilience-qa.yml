@@ -8,6 +8,7 @@ on:
     branches:
       - 'release/public-go-live-v1.1'
       - 'fix/admin-shell-static-assets-pretty-path-20260826'
+      - 'fix/admin-current-only-owner-ui-20260826'
 
 jobs:
   admin-shell-resilience:
@@ -18,17 +19,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax check Admin shell code
+      - name: Syntax check Admin current-only code
         run: |
           node --check assets/portal-admin-shell-fast-v1.js
           node --check functions/portal/admin.js
           node --check functions/portal/_middleware.js
-      - name: Run Admin shell regression guard
-        run: node tests/admin-shell-resilience.test.mjs
+          node --check functions/portal/clients-agents-current-ui.js
+          node --check scripts/build-pages-direct-canonical.mjs
+      - name: Run Admin current-only regression guards
+        run: |
+          node tests/admin-shell-resilience.test.mjs
+          node tests/admin-current-only-shell-contract.test.mjs
       - name: Build Cloudflare Pages artifact
         run: npm run build
-      - name: Verify resilient Admin artifacts
+      - name: Verify current-only Admin artifact
         run: |
           test -s dist/portal/admin.html
           test -s dist/assets/portal-admin-shell-fast-v1.js
-          grep -q "fast-static-v1" dist/assets/portal-admin-shell-fast-v1.js
+          test -s dist/assets/portal-canonical/background.png
+          test -s dist/assets/portal-canonical/logo.svg
+          grep -q 'rona-admin-shell" content="current-only-v1' dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v1' dist/portal/admin.html
+          grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
+          grep -q 'clients-agents-current-ui' dist/portal/admin.html
+          ! grep -q 'adminLoginGate' dist/portal/admin.html
+          ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
+          ! grep -q 'Временный автономный вход' dist/portal/admin.html
+          ! grep -q 'admin_externalized' dist/portal/admin.html
+          ! grep -q 'v3.4.13' dist/portal/admin.html
+          test "$(wc -c < dist/portal/admin.html)" -lt 60000
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
