@@ -6,30 +6,76 @@ on:
       - release/public-go-live-v1.1
     paths:
       - .github/workflows/trade-form-mailer-smoke-20260826.yml
-      - functions/api/forms/delivery-diagnostic.js
+
+permissions:
+  contents: write
 
 jobs:
-  delivery-diagnostic:
+  inspect-live-trade-form:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
-      - name: Wait for Pages deployment and isolate Brevo vs MAILER
+      - uses: actions/checkout@v4
+        with:
+          ref: release/public-go-live-v1.1
+
+      - name: Capture live public form DOM
         shell: bash
         run: |
           set -euo pipefail
-          url='https://rona-trade-public.pages.dev/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d'
-          body=''
-          code=''
-          for attempt in $(seq 1 30); do
-            code=$(curl -sS -o diagnostic.json -w '%{http_code}' "$url" || true)
-            body=$(cat diagnostic.json 2>/dev/null || true)
-            echo "attempt=${attempt} http=${code} body=${body}"
-            if [ "$code" = '200' ] && printf '%s' "$body" | grep -q '"success":true'; then
-              break
-            fi
-            sleep 5
-          done
-          echo "FINAL HTTP ${code}"
-          printf '%s\n' "$body"
-          test "$code" = '200'
-          printf '%s' "$body" | grep -q '"success":true'
+          mkdir -p .probe
+          curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_large.html?layout=large' -o .probe/home_large.html
+          curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_compact.html?layout=compact' -o .probe/home_compact.html
+          python3 - <<'PY'
+          import html, re, pathlib
+
+          out=[]
+          for name in ('home_large','home_compact'):
+              p=pathlib.Path('.probe')/(name+'.html')
+              s=p.read_text('utf-8', errors='replace')
+              out.append(f'===== {name} bytes={len(s)} =====')
+              forms=list(re.finditer(r'<form\b[^>]*>.*?</form\s*>', s, re.I|re.S))
+              out.append(f'forms={len(forms)}')
+              for i,m in enumerate(forms,1):
+                  block=m.group(0)
+                  open_tag=re.match(r'<form\b[^>]*>',block,re.I|re.S)
+                  out.append(f'--- FORM {i} ---')
+                  out.append((open_tag.group(0) if open_tag else '')[:2000])
+                  tags=re.findall(r'<(?:input|select|textarea|button)\b[^>]*>',block,re.I|re.S)
+                  for t in tags[:120]:
+                      out.append(re.sub(r'\s+',' ',t)[:1600])
+                  text=re.sub(r'<script\b.*?</script\s*>|<style\b.*?</style\s*>',' ',block,flags=re.I|re.S)
+                  text=re.sub(r'<[^>]+>',' ',text)
+                  text=html.unescape(re.sub(r'\s+',' ',text)).strip()
+                  out.append('TEXT: '+text[:4000])
+
+              needles=['formsubmit','/api/forms/trade','Отправить заявку','отправить заявку','preventDefault','addEventListener(\"submit','addEventListener(\'submit','fetch(']
+              for needle in needles:
+                  pos=0; count=0
+                  low=s.lower(); nlow=needle.lower()
+                  while True:
+                      j=low.find(nlow,pos)
+                      if j<0 or count>=12: break
+                      a=max(0,j-1800); b=min(len(s),j+3000)
+                      snippet=s[a:b].replace('\r',' ').replace('\n',' ')
+                      snippet=re.sub(r'\s+',' ',snippet)
+                      out.append(f'--- HIT {needle!r} at {j} ---')
+                      out.append(snippet)
+                      pos=j+len(needle); count+=1
+          pathlib.Path('ops/trade-form-live-dom-20260826.txt').write_text('\n'.join(out), 'utf-8')
+          PY
+          sed -n '1,240p' ops/trade-form-live-dom-20260826.txt
+
+      - name: Commit live DOM probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'rona-trade-form-probe'
+          git config user.email 'actions@users.noreply.github.com'
+          git add ops/trade-form-live-dom-20260826.txt
+          if git diff --cached --quiet; then
+            echo 'No probe change'
+            exit 0
+          fi
+          git commit -m 'Record live public trade form DOM probe'
+          git push origin HEAD:release/public-go-live-v1.1
