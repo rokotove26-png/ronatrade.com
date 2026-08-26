@@ -1,1 +1,7 @@
-/* Retired compatibility asset. Market News was rebuilt from scratch and is now fully owned by /assets/portal-market-news-current-v1.js. */
+/* Market News contrast override. The section remains fully owned by /assets/portal-market-news-current-v1.js. */
+#page-market-news > .rona-market-news-current .mn-brand,
+#page-market-news > .rona-market-news-current .mn-title,
+#page-market-news > .rona-market-news-current .mn-deck,
+#page-market-news > .rona-market-news-current .mn-edition {
+  color: #fff !important;
+}
