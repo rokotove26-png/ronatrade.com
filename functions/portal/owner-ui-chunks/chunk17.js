@@ -16,7 +16,9 @@ function installMarketNewsStyle(){
   const s=e('style',{id:'ronaMarketNewsCanonicalStyleV3'});
   s.textContent=[
     '#page-market-news> :not(.rona-owner-page-content){display:none!important}',
-    '#page-market-news .rona-owner-page-content{box-sizing:border-box;width:min(100%,1480px)!important;max-width:1480px!important;margin:0 auto!important;padding:28px 32px 54px!important;gap:0!important;align-content:start!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;background:#f3efe7!important;color:#11151a!important;border-left:1px solid rgba(17,21,26,.08)!important;border-right:1px solid rgba(17,21,26,.08)!important;box-shadow:0 18px 70px rgba(0,0,0,.22)!important}',
+    '#page-market-news .rona-owner-page-content{box-sizing:border-box;width:min(100%,1480px)!important;max-width:1480px!important;margin:0 auto!important;padding:28px 32px 54px!important;gap:0!important;align-content:start!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;background:#f3efe7!important;color:#11151a!important;border-left:1px solid rgba(17,21,26,.08)!important;border-right:1px solid rgba(17,21,26,.08)!important;box-shadow:0 18px 70px rgba(0,0,0,.22)!important;grid-template-columns:minmax(0,1fr)!important;grid-auto-flow:row!important;grid-auto-rows:max-content!important}',
+    '#page-market-news .rona-owner-page-content > :not(.rona-news-hero):not(.rona-news-filter):not(.rona-news-content){display:none!important}',
+    '#page-market-news .rona-owner-page-content .rona-visual-hero:not(.rona-news-hero){display:none!important}',
     '#page-market-news .rona-news-hero{display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:22px!important;align-items:end!important;width:100%!important;margin:0!important;padding:0 0 20px!important;border:0!important;border-bottom:4px solid #c61f2f!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}',
     '#page-market-news .rona-news-brand{display:block!important;margin:0 0 11px!important;color:#c61f2f!important;font:900 11px/1.1 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.18em!important;text-transform:uppercase!important}',
     '#page-market-news .rona-news-title{margin:0!important;color:#11151a!important;font:800 clamp(38px,4.2vw,64px)/.98 Georgia,Times New Roman,serif!important;letter-spacing:-.045em!important;text-transform:none!important;text-shadow:none!important}',
@@ -208,13 +210,13 @@ function renderMarketNews(){
   if(host.dataset.ronaMarketNewsCanonical==='v3'&&host.dataset.ronaMarketNewsSignature===signature&&q(':scope > .rona-news-hero',host)&&q(':scope > .rona-news-filter',host))return true;
   host.dataset.ownerPage='market-news';
   host.dataset.ronaMarketNewsCanonical='v3';
-  host.dataset.ronaMarketNewsEditorial='v4';
+  host.dataset.ronaMarketNewsEditorial='v5';
   host.dataset.ronaMarketNewsSignature=signature;
 
-  const hero=e('header',{class:'rona-news-hero','data-rona-news-canonical':'v3','data-rona-news-editorial':'v4'},
+  const hero=e('header',{class:'rona-news-hero','data-rona-news-canonical':'v3','data-rona-news-editorial':'v5'},
     e('div',{},
       e('span',{class:'rona-news-brand',text:'RONA TRADE · MARKET INTELLIGENCE'}),
-      e('h1',{class:'rona-visual-title rona-news-title',text:'Новости топливного рынка СНГ'}),
+      e('h1',{class:'rona-news-title',text:'Новости топливного рынка СНГ'}),
       e('p',{class:'rona-news-deck',text:'Факты рынка, поставки, производство, логистика и торговые события — в редакционной ленте RONA Trade.'})
     ),
     e('div',{class:'rona-news-edition',text:'MARKET DESK · CIS ENERGY'})
