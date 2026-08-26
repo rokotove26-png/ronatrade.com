@@ -1,6 +1,16 @@
 {
   "version": 1,
-  "include": ["/portal/*", "/agent/*", "/client/*", "/staff/*", "/api/*"],
+  "include": [
+    "/portal/*",
+    "/agent/*",
+    "/client/*",
+    "/staff/*",
+    "/api/*",
+    "/pages/*",
+    "/en/pages/*",
+    "/investments/home*",
+    "/en/investments/home*"
+  ],
   "exclude": [
     "/assets/*",
     "/portal/clients-agents-current-ui",
