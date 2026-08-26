@@ -37,6 +37,8 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
+          node --check scripts/wait-cloudflare-commit.mjs
+          node --check scripts/verify-admin-current-only-production.mjs
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
@@ -74,66 +76,17 @@ jobs:
           done
           echo 'ADMIN_CURRENT_ONLY_FIRST_PAINT_SOURCE=PASS'
 
-      - name: Wait for this commit in Cloudflare production
+      - name: Wait for Pages and Worker convergence for this commit
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          node <<'NODE'
-          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{for(let i=0;i<150;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-CURRENT-ONLY-PREPAINT'}});
-            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);await sleep(5000);return}}
-            await sleep(3000);
-          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
+        run: node scripts/wait-cloudflare-commit.mjs
 
-      - name: Prove production exposes no legacy Admin first paint
+      - name: Prove converged production Admin first paint
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
-        shell: bash
-        run: |
-          node scripts/verify-admin-current-only-production.mjs
-          node <<'NODE'
-          const base='https://ronaoil.com',sha=process.env.GITHUB_SHA;
-          const assert=(v,m)=>{if(!v)throw new Error(m)};
-          (async()=>{
-            const integrityResponse=await fetch(base+'/canonical-visual-integrity.json?_qa='+sha,{cache:'no-store'});
-            assert(integrityResponse.ok,'integrity '+integrityResponse.status);
-            const integrity=await integrityResponse.json();
-            assert(integrity.architecture==='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS','architecture '+integrity.architecture);
-            assert(integrity.admin_runtime?.state==='CURRENT_ONLY','Admin lifecycle');
-            assert(integrity.admin_runtime?.legacy_runtime_in_deployment===false,'legacy Admin runtime is deployed');
-            const admin=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
-            assert(admin.status===302,'unauth Admin status '+admin.status);
-            assert(admin.headers.get('x-rona-admin-shell')==='current-only-v2','Admin shell header '+admin.headers.get('x-rona-admin-shell'));
-            const [access,claims,remaining,watchdog]=await Promise.all([
-              fetch(base+'/portal/clients-agents-current-ui?_qa='+sha,{cache:'no-store'}),
-              fetch(base+'/portal/claims-r2-ui?_qa='+sha,{cache:'no-store'}),
-              fetch(base+'/portal/remaining-sections-ui?_qa='+sha,{cache:'no-store'}),
-              fetch(base+'/assets/portal-admin-runtime-watchdog-v1.js?_qa='+sha,{cache:'no-store'})
-            ]);
-            assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','current access live');
-            assert(access.headers.get('x-rona-access-create')==='client-agent-v3','current access create contract live');
-            assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation owner live');
-            assert(access.headers.get('x-rona-shell-mutation')==='none','access page mutated global shell');
-            assert(claims.ok,'claims runtime live');
-            assert(remaining.ok,'remaining sections runtime live');
-            assert(watchdog.ok,'watchdog live');
-            const accessSrc=await access.text();
-            const claimsSrc=await claims.text();
-            const remainingSrc=await remaining.text();
-            const watchdogSrc=await watchdog.text();
-            assert(accessSrc.includes('ronaCreateAccess'),'create access marker');
-            assert(claimsSrc.includes('#page-claims')&&claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims page contract');
-            assert(remainingSrc.includes('renderRewards'),'agent rewards page contract');
-            assert(watchdogSrc.includes("__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'page-aware watchdog live');
-            assert(!watchdogSrc.includes('location.reload(')&&!watchdogSrc.includes('location.replace('),'destructive Admin recovery live');
-            assert(!accessSrc.includes('harvestLegacy')&&!accessSrc.includes('installNavigationStability')&&!accessSrc.includes('installShellParity'),'legacy/competing access dependency live');
-            console.log('ADMIN_CURRENT_ONLY_PRODUCTION_FIRST_PAINT=PASS');
-          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+        run: node scripts/verify-admin-current-only-production.mjs
 
       - name: Publish primary UI prepaint commit status
         if: always()
@@ -146,7 +99,7 @@ jobs:
         shell: bash
         run: |
           state='failure'; description='Current-only Admin first-paint QA failed'
-          if [ "$JOB_STATUS" = 'success' ]; then state='success'; description='Admin first paint is current-only; legacy runtime absent'; fi
+          if [ "$JOB_STATUS" = 'success' ]; then state='success'; description='Admin first paint current-only after Pages+Worker convergence'; fi
           target_url="https://github.com/$REPO/actions/runs/$RUN_ID"
           payload=$(printf '{"state":"%s","context":"rona/primary-ui-prepaint","description":"%s","target_url":"%s"}' "$state" "$description" "$target_url")
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$payload" >/dev/null
