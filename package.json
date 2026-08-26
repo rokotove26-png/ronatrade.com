@@ -4,6 +4,6 @@
   "version": "1.1.0",
   "type": "module",
   "scripts": {
-    "build": "node scripts/build-pages-direct-canonical.mjs"
+    "build": "node scripts/build-pages-direct-canonical.mjs && node scripts/build-cf-pages-config-probe.mjs"
   }
 }
