@@ -8,6 +8,7 @@ import { onRequest as analyticsUiRequest } from '../functions/portal/analytics-v
 import { onRequest as railStableRequest } from '../functions/portal/rail-current-stable-ui.js';
 
 const ROOT=process.cwd(),DIST=join(ROOT,'dist'),now=new Date().toISOString();
+const ONE_PIXEL=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=','base64');
 const adminBootstrap={
   clients:[{client_id:'RONA-QA-C001',legal_name:'QA Client',contract_id:'RONA-QA-CTR-001',current_external_contract_number:'QA-001',agent_person_id:'RONA-QA-A001'}],
   companies:[{client_id:'RONA-QA-C001',legal_name:'QA Client',contract_id:'RONA-QA-CTR-001',current_external_contract_number:'QA-001',agent_person_id:'RONA-QA-A001'}],
@@ -46,6 +47,7 @@ const blankUi=new Set(['/portal/deals-current-state-ui','/portal/deals-r1-r11-ui
 const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url||'/','http://127.0.0.1'),p=u.pathname;
   if(p==='/favicon.ico')return send(res,204,'');
+  if(p.startsWith('/portal/map-assets/osm/'))return send(res,200,ONE_PIXEL,'image/png');
   if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');
   if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');
   if(p==='/portal/prices-current-ui')return send(res,200,pricesUi,'application/javascript; charset=utf-8');
@@ -65,6 +67,7 @@ const server=http.createServer(async(req,res)=>{
     if(op==='/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
     if(op==='/admin/ai-sync')return json(res,{ok:true,data:aiSync});
     if(op==='/admin/claims')return json(res,{ok:true,data:{claims:[]}});
+    if(op==='/admin/analytics-bootstrap')return json(res,{ok:true,data:{generatedAt:now,marketNewsFeed:[]}});
     return json(res,{ok:true,data:{}});
   }
   if(p==='/portal/price-updates-api'){
@@ -77,7 +80,7 @@ const server=http.createServer(async(req,res)=>{
 });
 await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
 const origin=`http://127.0.0.1:${server.address().port}`;
-const failures=[];const assert=(v,m)=>{if(!v)throw new Error(m)};
+const failures=[];const assert=(v,m)=>{if(!v)throw new Error(m)};const compact=v=>String(v||'').replace(/\s+/g,' ').trim();
 async function click(page,key){const b=page.locator(`#nav button[data-page="${key}"]`);await b.waitFor({state:'visible',timeout:10000});await b.click();await page.locator(`#page-${key}.active`).waitFor({state:'visible',timeout:10000});await page.waitForTimeout(500);const selected=await page.evaluate(()=>document.documentElement.dataset.ronaAdminPage||'');assert(selected===key,`${key}: router switched to ${selected}`)}
 let browser;
 try{
@@ -87,6 +90,7 @@ try{
   page.on('console',m=>{if(m.type()==='error'&&!m.text().startsWith('Failed to load resource:'))failures.push(`console:${m.text()}`)});
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>window.__RONA_ADMIN_FOUR_SECTIONS_RECOVERY__==='20260826-v1',{timeout:10000});
+  await page.waitForFunction(()=>window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__==='20260826-v1',{timeout:10000});
   await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:15000});
 
   await click(page,'prices');
@@ -109,11 +113,13 @@ try{
   await page.locator('#page-access [data-rona-create-access="primary"]').waitFor({state:'visible',timeout:10000});
   await page.locator('#page-access [data-rona-create-access="primary"]').click();
   const modal=page.locator('.rona-access-full');await modal.waitFor({state:'visible',timeout:5000});
-  const accessText=await modal.innerText();
-  for(const marker of ['Тип доступа','Ф.И.О.','Единый логин','Электронная почта','Телефон','Роль привязки','Компании и договоры клиента','Открыть без контракта','Загрузить договор'])assert(accessText.includes(marker),`access: missing ${marker}`);
+  const accessText=compact(await modal.innerText());
+  for(const marker of ['Тип доступа','Ф.И.О.','Телефон','Роль привязки','Компании и договоры клиента','Открыть без контракта','Загрузить договор'])assert(accessText.includes(marker),`access: missing ${marker}`);
+  assert(await modal.locator('input[placeholder="Единый логин"]').count()===1,'access: separate login missing');
+  assert(await modal.locator('input[type="email"]').count()===1,'access: separate email missing');
   assert(await page.locator('.ca-modal').count()===0,'access: simplified competing modal opened');
   await modal.locator('select').first().selectOption('Агент');await page.waitForTimeout(100);
-  assert((await modal.innerText()).includes('Профиль агента'),'access: agent profile missing');
+  assert(compact(await modal.innerText()).includes('Профиль агента'),'access: agent profile missing');
   await modal.locator('button:has-text("Отмена")').click();
 
   await click(page,'analytics');
