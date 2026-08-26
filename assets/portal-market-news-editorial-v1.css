@@ -1,7 +1,1 @@
-/* Market News contrast override. The section remains fully owned by /assets/portal-market-news-current-v1.js. */
-#page-market-news > .rona-market-news-current .mn-brand,
-#page-market-news > .rona-market-news-current .mn-title,
-#page-market-news > .rona-market-news-current .mn-deck,
-#page-market-news > .rona-market-news-current .mn-edition {
-  color: #fff !important;
-}
+/* Retired permanently. Market News visual styling is owned by portal-market-news-current-v1.js plus the no-gray-band invariant asset. */
