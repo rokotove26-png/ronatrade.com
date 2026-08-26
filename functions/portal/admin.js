@@ -1,4 +1,4 @@
-const BUILD='owner-current-only-v2-20260826-1231';
+const BUILD='owner-current-only-v2-20260826-1308';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
