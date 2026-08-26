@@ -1,4 +1,4 @@
-import { onRequest as canonicalV3 } from '../../server-only/analytics-canonical-v3.js';
+import { onRequest as canonicalV3 } from './_analytics-canonical-v3.mjs';
 
 const GUARD_FROM="if(window.__RONA_ANALYTICS_V2__)return;";
 const GUARD_TO="if(window.__RONA_ANALYTICS_CANONICAL_ONLY__===true&&document.getElementById('rona-analytics-v2'))return;window.__RONA_ANALYTICS_CANONICAL_ONLY__=true;";
