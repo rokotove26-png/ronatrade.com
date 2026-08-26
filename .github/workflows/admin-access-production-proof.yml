@@ -15,19 +15,20 @@ permissions:
 jobs:
   admin-access-production-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify current access source contract
+      - name: Verify current access source and static artifact contract
         shell: bash
         run: |
           set -euo pipefail
           npm run build
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/admin.js
+          node --check scripts/materialize-admin-current-modules.mjs
           grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
@@ -45,14 +46,33 @@ jobs:
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
+          test -f dist/portal/clients-agents-current-ui
+          test -f dist/portal/claims-r2-ui
+          test -f dist/portal/remaining-sections-ui
+          test -f dist/_headers
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" dist/portal/clients-agents-current-ui
+          grep -q 'Тип доступа' dist/portal/clients-agents-current-ui
+          grep -q 'Договоры клиента' dist/portal/clients-agents-current-ui
+          grep -q 'Профиль агента' dist/portal/clients-agents-current-ui
+          grep -q 'Создать доступ' dist/portal/clients-agents-current-ui
+          grep -q 'Зарегистрировать и направить клиенту' dist/portal/claims-r2-ui
+          grep -q 'renderRewards' dist/portal/remaining-sections-ui
+          grep -q 'Вознаграждения агентов' dist/portal/remaining-sections-ui
+          grep -q '/portal/clients-agents-current-ui' dist/_headers
+          grep -q '/portal/claims-r2-ui' dist/_headers
+          grep -q '/portal/remaining-sections-ui' dist/_headers
+          grep -q 'static-build-v1' dist/_headers
+          grep -q '/portal/clients-agents-current-ui' dist/_routes.json
+          grep -q '/portal/claims-r2-ui' dist/_routes.json
+          grep -q '/portal/remaining-sections-ui' dist/_routes.json
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
-          echo 'ADMIN_ACCESS_SINGLE_OWNER_V3_SOURCE=PASS'
+          echo 'ADMIN_ACCESS_STATIC_CURRENT_MODULE_SOURCE=PASS'
       - name: Wait for Cloudflare deployment signals
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/wait-cloudflare-commit.mjs
-      - name: Prove live fail-closed access boundary without mutation
+      - name: Prove live static current modules and fail-closed authority
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
@@ -68,35 +88,30 @@ jobs:
             assert([401,403].includes(r.status),path+' must fail closed; got '+r.status+' '+JSON.stringify(j));
           }
           let r=null,src='',last='';
-          for(let i=0;i<20;i++){
+          for(let i=0;i<30;i++){
             r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
             src=r.ok?await r.text():'';
             const currentHeaders=r.ok&&
+              r.headers.get('x-rona-delivery')==='static-build-v1'&&
               r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3'&&
               r.headers.get('x-rona-access-create')==='client-agent-v3'&&
               r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2'&&
               r.headers.get('x-rona-shell-mutation')==='none'&&
               r.headers.get('x-rona-legacy-dependency')==='none';
             const semanticState=Object.fromEntries(accessSemantics.map(marker=>[marker,src.includes(marker)]));
-            const currentBody=src.includes('admin-authority')&&
-              src.includes('ronaCreateAccess')&&
-              accessSemantics.every(marker=>semanticState[marker])&&
-              !src.includes('harvestLegacy')&&
-              !src.includes('installNavigationStability')&&
-              !src.includes('installShellParity');
+            const currentBody=src.includes('admin-authority')&&src.includes('ronaCreateAccess')&&accessSemantics.every(marker=>semanticState[marker])&&!src.includes('harvestLegacy')&&!src.includes('installNavigationStability')&&!src.includes('installShellParity');
             if(currentHeaders&&currentBody)break;
-            last='status='+r.status+' ui='+r.headers.get('x-rona-clients-agents-ui')+' create='+r.headers.get('x-rona-access-create')+' semantics='+JSON.stringify(semanticState);
-            if(i<19)await sleep(3000);
+            last='status='+r.status+' delivery='+r.headers.get('x-rona-delivery')+' ui='+r.headers.get('x-rona-clients-agents-ui')+' semantics='+JSON.stringify(semanticState);
+            if(i<29)await sleep(3000);
           }
-          assert(r?.ok&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner access module unavailable: '+last);
+          assert(r?.ok&&r.headers.get('x-rona-delivery')==='static-build-v1','static access module unavailable: '+last);
+          assert(r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner access module unavailable: '+last);
           assert(r.headers.get('x-rona-access-create')==='client-agent-v3','access creation contract unavailable: '+last);
           assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation-owner contract unavailable: '+last);
           assert(r.headers.get('x-rona-shell-mutation')==='none','access module may not mutate global shell: '+last);
           assert(r.headers.get('x-rona-legacy-dependency')==='none','legacy dependency returned: '+last);
-          assert(src.includes('admin-authority'),'authority route missing live: '+last);
-          assert(src.includes('ronaCreateAccess'),'primary create-access action missing live: '+last);
-          for(const marker of accessSemantics)assert(src.includes(marker),'bundled-safe access semantic missing live: '+marker+' '+last);
-          assert(!src.includes('harvestLegacy'),'legacy DOM harvest deployed');
-          assert(!src.includes('installNavigationStability')&&!src.includes('installShellParity'),'competing navigation/shell owner deployed');
-          console.log('ADMIN_ACCESS_SINGLE_OWNER_V3_CUSTOM_DOMAIN_SEMANTIC=PASS');
+          assert(src.includes('admin-authority')&&src.includes('ronaCreateAccess'),'access authority/action missing live: '+last);
+          for(const marker of accessSemantics)assert(src.includes(marker),'static access semantic missing live: '+marker+' '+last);
+          assert(!src.includes('harvestLegacy')&&!src.includes('installNavigationStability')&&!src.includes('installShellParity'),'competing/legacy access owner deployed');
+          console.log('ADMIN_ACCESS_STATIC_CURRENT_MODULE_CUSTOM_DOMAIN=PASS');
           NODE

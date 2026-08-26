@@ -1,28 +1,13 @@
 {
   "version": 1,
-  "include": [
-    "/",
-    "/en/",
-    "/investments/",
-    "/en/investments/",
-    "/api/forms/*",
-    "/pages/*",
-    "/en/pages/*",
-    "/investments/home*",
-    "/en/investments/home*",
-    "/portal/*",
-    "/.well-known/*",
-    "/operations/*",
-    "/operations-pilot/*",
-    "/finance/*",
-    "/finance-pilot/*",
-    "/legal/*",
-    "/legal-pilot/*",
-    "/market-analyst/*",
-    "/market-analyst-pilot/*",
-    "/rail-logistics/*",
-    "/rail-logistics-pilot/*",
-    "/system-admin/*"
-  ],
-  "exclude": []
+  "include": ["/portal/*", "/agent/*", "/client/*", "/staff/*", "/api/*"],
+  "exclude": [
+    "/assets/*",
+    "/portal/clients-agents-current-ui",
+    "/portal/claims-r2-ui",
+    "/portal/remaining-sections-ui",
+    "/favicon.ico",
+    "/robots.txt",
+    "/sitemap.xml"
+  ]
 }
