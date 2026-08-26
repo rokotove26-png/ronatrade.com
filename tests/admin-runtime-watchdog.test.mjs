@@ -5,7 +5,7 @@ const shell=fs.readFileSync('portal-src/current/admin.html','utf8');
 const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf8');
 
 assert(shell.includes('id="rona-admin-runtime-watchdog-loader"'),'Admin shell must load the runtime watchdog');
-assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260826-self-heal-v1'),'Admin watchdog asset/version missing');
+assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260826-current-only-v2'),'Admin watchdog current-only v2 asset/version missing');
 
 for(const marker of [
   "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='current-only-recovery-v1'",
