@@ -9,7 +9,19 @@
     "/pages/*",
     "/en/pages/*",
     "/investments/home*",
-    "/en/investments/home*"
+    "/en/investments/home*",
+    "/.well-known/*",
+    "/operations/*",
+    "/operations-pilot/*",
+    "/finance/*",
+    "/finance-pilot/*",
+    "/legal/*",
+    "/legal-pilot/*",
+    "/market-analyst/*",
+    "/market-analyst-pilot/*",
+    "/rail-logistics/*",
+    "/rail-logistics-pilot/*",
+    "/system-admin/*"
   ],
   "exclude": [
     "/assets/*",
