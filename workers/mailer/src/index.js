@@ -1,5 +1,5 @@
-// Deployment marker: rona-public-mailer Cloudflare build configuration repaired on 2026-08-26.
-const MAIL_FROM = 'forms@ronatrade.com';
+// Sender compatibility probe: use the already-operational ronaoil.com mailbox identity.
+const MAIL_FROM = 'office_kg@ronaoil.com';
 const RECIPIENTS = Object.freeze({
   trade: 'office_kg@ronaoil.com',
   investments: 'rokotove26@gmail.com'
