@@ -1,4 +1,4 @@
-# rerun: after-cloudflare-deploy
+# rerun: structured-cloudflare-error
 name: Temporary trade form production smoke 20260826
 
 on:
@@ -63,9 +63,15 @@ jobs:
           JSON
           )
           real_tmp=$(mktemp)
-          real_status=$(curl --silent --show-error --max-time 20 --output "$real_tmp" --write-out '%{http_code}' \
-            --request POST "$endpoint" --header 'Origin: https://ronaoil.com' --header 'Content-Type: application/json' --data "$body")
+          real_headers=$(mktemp)
+          real_status=$(curl --silent --show-error --max-time 20 --output "$real_tmp" --dump-header "$real_headers" --write-out '%{http_code}' \
+            --request POST "$endpoint" \
+            --header 'Origin: https://ronaoil.com' \
+            --header 'Content-Type: application/json' \
+            --header 'Accept: application/json' \
+            --data "$body")
           echo "REAL_STATUS=$real_status"
+          echo 'REAL_HEADERS_BEGIN'; cat "$real_headers"; echo 'REAL_HEADERS_END'
           echo -n 'REAL_BODY='; cat "$real_tmp"; echo
 
           test "$get_status" = '405'
