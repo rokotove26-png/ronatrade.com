@@ -1,3 +1,81 @@
-/* RONA Trade — Market News visual ownership.
-   The canonical Market News renderer (owner-ui-chunks/chunk17.js) owns all current News styling.
-   This external stylesheet is intentionally kept as a no-op compatibility asset so no legacy/high-specificity override can mutate the canonical masthead after first paint. */
+/* RONA Trade — Market News editorial skin.
+   LIVE OWNER: static /portal/remaining-sections-ui -> .rona-rs-root[data-kind="news"].
+   Visual-only. No data, fetch, navigation or business logic is changed here. */
+#page-market-news{--news-paper:#f4f0e7;--news-paper-2:#fbf9f4;--news-ink:#101317;--news-copy:#43494e;--news-muted:#74746e;--news-rule:#c8c1b6;--news-rule-dark:#77736d;--news-red:#c92132;--news-red-dark:#971724;color-scheme:light}
+#page-market-news>.rona-rs-root[data-kind="news"]{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:0!important;width:min(100%,1480px)!important;max-width:1480px!important;margin:0 auto!important;padding:30px 34px 54px!important;box-sizing:border-box!important;background:var(--news-paper)!important;color:var(--news-ink)!important;border-left:1px solid rgba(16,19,23,.08)!important;border-right:1px solid rgba(16,19,23,.08)!important;box-shadow:0 22px 72px rgba(0,0,0,.28)!important}
+#page-market-news .rona-rs-root[data-kind="news"] *{box-sizing:border-box}
+
+/* Masthead */
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero{position:relative!important;display:block!important;margin:0!important;padding:8px 0 23px!important;border:0!important;border-bottom:4px solid var(--news-red)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--news-ink)!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero::before{content:'RONA TRADE · MARKET INTELLIGENCE';display:block!important;margin:0 0 14px!important;color:var(--news-red)!important;font:900 10px/1.1 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.18em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero::after{content:'MARKET DESK · CIS ENERGY';position:absolute!important;top:8px!important;right:0!important;color:#666862!important;font:850 9px/1.35 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.11em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero .rona-visual-title{display:block!important;max-width:1120px!important;margin:0!important;padding:0!important;color:var(--news-ink)!important;font:800 clamp(40px,4.55vw,66px)/.97 Georgia,'Times New Roman',serif!important;letter-spacing:-.045em!important;text-transform:none!important;text-shadow:none!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero .rona-rs-sub{display:block!important;max-width:930px!important;margin:13px 0 0!important;color:#555b5f!important;font:520 14px/1.55 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important}
+
+/* Market desk strip */
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-sourcebar{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:16px!important;margin:0!important;padding:10px 0!important;border:0!important;border-bottom:1px solid var(--news-rule)!important;border-radius:0!important;background:transparent!important;color:var(--news-ink)!important;box-shadow:none!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-sourcebar>div{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-sourcebar>div::before{content:'LIVE';display:inline-flex!important;align-items:center!important;min-height:22px!important;padding:0 7px!important;background:var(--news-red)!important;color:#fff!important;font:900 9px/1 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.09em!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-sourcebar strong{color:var(--news-ink)!important;font:850 10px/1.3 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.06em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-sourcebar span{color:var(--news-muted)!important;font:650 10px/1.35 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important}
+
+/* Newsroom statistics */
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:0!important;margin:19px 0 0!important;border-top:1px solid var(--news-rule-dark)!important;border-bottom:1px solid var(--news-rule-dark)!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi{display:block!important;min-height:94px!important;margin:0!important;padding:15px 18px!important;border:0!important;border-right:1px solid var(--news-rule)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--news-ink)!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi:last-child{border-right:0!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi h2{margin:0!important;color:#676b69!important;font:900 9px/1.2 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.11em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi .rona-owner-kpi{margin:10px 0 0!important;color:var(--news-ink)!important;font:800 24px/1.05 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:-.03em!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi .rona-owner-muted{margin:7px 0 0!important;color:#83817a!important;font:600 9.5px/1.35 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important}
+
+/* Search */
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls{display:flex!important;margin:18px 0 0!important;padding:0!important;border:0!important;background:transparent!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls::before{content:'ПОИСК ПО ЛЕНТЕ';display:flex!important;align-items:center!important;flex:0 0 auto!important;padding:0 12px!important;border:1px solid #a9a49b!important;border-right:0!important;background:#e8e3da!important;color:#575a57!important;font:900 9px/1 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.1em!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls input{flex:1!important;min-width:0!important;height:42px!important;padding:0 13px!important;border:1px solid #a9a49b!important;border-radius:0!important;background:var(--news-paper-2)!important;color:var(--news-ink)!important;font:650 12px/1 Inter,Segoe UI,Arial,sans-serif!important;outline:none!important;box-shadow:none!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls input:focus{border-color:var(--news-red)!important;box-shadow:0 0 0 2px rgba(201,33,50,.09)!important}
+#page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls input::placeholder{color:#8a8881!important}
+
+/* Editorial feed */
+#page-market-news .rona-rs-root[data-kind="news"]>[data-rs-news-list]{margin:24px 0 0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--news-ink)!important}
+#page-market-news .rona-rs-root[data-kind="news"]>[data-rs-news-list]>h2{margin:0!important;padding:0 0 10px!important;border-bottom:3px solid var(--news-ink)!important;color:var(--news-ink)!important;font:900 11px/1.2 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.14em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"]>[data-rs-news-list]>.rona-rs-feed{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:0 34px!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry{position:relative!important;display:block!important;min-width:0!important;margin:0!important;padding:21px 0 23px!important;border:0!important;border-bottom:1px solid var(--news-rule)!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--news-ink)!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:nth-child(even){padding-right:18px!important;border-right:1px solid #d8d1c7!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:first-child{grid-column:1/-1!important;padding:27px 0 31px!important;border-right:0!important;border-bottom:1px solid var(--news-rule-dark)!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:first-child::before{content:'ГЛАВНОЕ';display:inline-flex!important;margin:0 0 11px!important;padding:5px 8px!important;background:var(--news-red)!important;color:#fff!important;font:900 9px/1 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.11em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry-head{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;margin:0 0 9px!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry-meta{color:#797a75!important;font:750 9.5px/1.3 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.035em!important;text-transform:uppercase!important;opacity:1!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-fin-pill{display:inline-flex!important;padding:4px 7px!important;border:1px solid #b7b1a7!important;border-radius:0!important;background:transparent!important;color:#585a57!important;font:900 8.5px/1.2 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.08em!important;text-transform:uppercase!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-fin-pill--warn{border-color:rgba(201,33,50,.42)!important;background:rgba(201,33,50,.07)!important;color:var(--news-red-dark)!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry-title{margin:0 0 9px!important;color:var(--news-ink)!important;font:750 24px/1.16 Georgia,'Times New Roman',serif!important;letter-spacing:-.02em!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:first-child .rona-rs-entry-title{max-width:1120px!important;font:800 clamp(35px,3.65vw,52px)/1.04 Georgia,'Times New Roman',serif!important;letter-spacing:-.035em!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry-text{margin:0!important;color:var(--news-copy)!important;font:500 12.8px/1.62 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:first-child>.rona-rs-entry-text{max-width:1080px!important;color:#3d4448!important;font-size:14.5px!important;line-height:1.67!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-tags{display:flex!important;gap:6px!important;flex-wrap:wrap!important;margin:12px 0 0!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-tag{display:inline-flex!important;padding:4px 7px!important;border:1px solid #bdb7ad!important;border-radius:0!important;background:transparent!important;color:#5f625f!important;font:850 8.5px/1.1 Inter,Segoe UI,Arial,sans-serif!important;letter-spacing:.07em!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-sources{display:flex!important;gap:6px!important;flex-wrap:wrap!important;margin:10px 0 0!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-source{max-width:300px!important;padding:4px 6px!important;border:0!important;border-left:2px solid #aaa49a!important;border-radius:0!important;background:transparent!important;color:#757770!important;font:650 9px/1.2 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-details{margin:11px 0 0!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-details summary{color:var(--news-red-dark)!important;font:850 10px/1.3 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important;cursor:pointer!important}
+#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-empty{margin:16px 0 0!important;padding:28px 0!important;border:0!important;border-bottom:1px solid var(--news-rule)!important;border-radius:0!important;background:transparent!important;color:#6c706d!important;font:650 13px/1.55 Inter,Segoe UI,Arial,sans-serif!important;opacity:1!important}
+
+@media(hover:hover) and (pointer:fine){#page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:hover .rona-rs-entry-title{color:var(--news-red-dark)!important}}
+@media(max-width:980px){
+  #page-market-news>.rona-rs-root[data-kind="news"]{padding:24px 24px 44px!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi:nth-child(2){border-right:0!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi:nth-child(-n+2){border-bottom:1px solid var(--news-rule)!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>[data-rs-news-list]>.rona-rs-feed{grid-template-columns:1fr!important}
+  #page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:nth-child(even){padding-right:0!important;border-right:0!important}
+  #page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:first-child{grid-column:auto!important}
+}
+@media(max-width:680px){
+  #page-market-news>.rona-rs-root[data-kind="news"]{padding:18px 14px 34px!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero::after{position:static!important;display:block!important;margin:0 0 10px!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-hero .rona-visual-title{font-size:38px!important;line-height:.99!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis{grid-template-columns:1fr!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi{min-height:78px!important;border-right:0!important;border-bottom:1px solid var(--news-rule)!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-kpis>.rona-rs-kpi:last-child{border-bottom:0!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls{display:grid!important;grid-template-columns:1fr!important}
+  #page-market-news .rona-rs-root[data-kind="news"]>.rona-rs-controls::before{min-height:30px!important;border-right:1px solid #a9a49b!important;border-bottom:0!important}
+  #page-market-news .rona-rs-root[data-kind="news"] .rona-rs-entry:first-child .rona-rs-entry-title{font-size:32px!important}
+}
