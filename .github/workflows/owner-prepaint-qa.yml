@@ -38,12 +38,18 @@ jobs:
           node --check functions/portal/clients-agents-current-ui.js
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
-          grep -q 'rona-admin-shell" content="current-only-v1' portal-src/current/admin.html
-          grep -q 'data-rona-admin-shell="current-only-v1' portal-src/current/admin.html
+          grep -q 'rona-admin-shell" content="current-only-v2' portal-src/current/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
+          grep -q 'grid-template-columns:238px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
+          grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
+          grep -q 'data-page="claims"' portal-src/current/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q "'x-rona-admin-shell','current-only-v1'" functions/portal/admin.js
+          grep -q "'x-rona-admin-shell','current-only-v2'" functions/portal/admin.js
           grep -q "'x-rona-admin-auth','server-verified-v1'" functions/portal/admin.js
+          grep -q "'x-rona-admin-current-only','main-v2-shell-v2'" functions/portal/admin.js
           ! grep -q 'HTMLRewriter' functions/portal/admin.js
           ! grep -q 'adminLoginGate' portal-src/current/admin.html
           ! grep -q 'rona-admin-auth-v3413' portal-src/current/admin.html
@@ -92,14 +98,26 @@ jobs:
             assert(admin.status===302,'unauth Admin status '+admin.status);
             const loc=new URL(admin.headers.get('location'),base);
             assert(loc.pathname==='/portal/login'&&loc.searchParams.get('next')==='/portal/admin','Admin redirect '+loc.href);
-            assert(admin.headers.get('x-rona-admin-shell')==='current-only-v1','Admin shell header '+admin.headers.get('x-rona-admin-shell'));
+            assert(admin.headers.get('x-rona-admin-shell')==='current-only-v2','Admin shell header '+admin.headers.get('x-rona-admin-shell'));
             assert(admin.headers.get('x-rona-admin-auth')==='server-verified-v1','Admin auth header');
-            assert(admin.headers.get('x-rona-admin-current-only')==='main-v2-shell-v1','Admin lifecycle header');
-            const [main,access]=await Promise.all([fetch(base+'/portal/main-ui?_qa='+sha,{cache:'no-store'}),fetch(base+'/portal/clients-agents-current-ui?_qa='+sha,{cache:'no-store'})]);
+            assert(admin.headers.get('x-rona-admin-current-only')==='main-v2-shell-v2','Admin lifecycle header');
+            const [main,access,claims,remaining]=await Promise.all([
+              fetch(base+'/portal/main-ui?_qa='+sha,{cache:'no-store'}),
+              fetch(base+'/portal/clients-agents-current-ui?_qa='+sha,{cache:'no-store'}),
+              fetch(base+'/portal/claims-r2-ui?_qa='+sha,{cache:'no-store'}),
+              fetch(base+'/portal/remaining-sections-ui?_qa='+sha,{cache:'no-store'})
+            ]);
             assert(main.ok&&main.headers.get('x-rona-ui')==='main-v2','main-v2 live');
-            assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='current-only-v1','current access live');
+            assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='current-only-v2','current access live');
+            assert(claims.ok,'claims runtime live');
+            assert(remaining.ok,'remaining sections runtime live');
             const accessSrc=await access.text();
-            assert(accessSrc.includes("__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'"),'current access marker');
+            const claimsSrc=await claims.text();
+            const remainingSrc=await remaining.text();
+            assert(accessSrc.includes("__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'"),'current access marker');
+            assert(accessSrc.includes("create.dataset.ronaCreateAccess='primary'"),'create access marker');
+            assert(claimsSrc.includes('#page-claims'),'claims page contract');
+            assert(remainingSrc.includes('вознаграждения агентов'),'agent rewards page contract');
             assert(!accessSrc.includes('harvestLegacy'),'legacy access dependency live');
             console.log('ADMIN_CURRENT_ONLY_PRODUCTION_FIRST_PAINT=PASS');
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
