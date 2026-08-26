@@ -47,7 +47,7 @@ jobs:
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
           echo 'ADMIN_ACCESS_SINGLE_OWNER_V3_SOURCE=PASS'
-      - name: Wait for Cloudflare production deployment convergence
+      - name: Wait for Cloudflare deployment signals
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -60,26 +60,43 @@ jobs:
           node <<'NODE'
           const base='https://ronaoil.com';
           const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
           for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){
             const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});
             const j=await r.json().catch(()=>({}));
             assert([401,403].includes(r.status),path+' must fail closed; got '+r.status+' '+JSON.stringify(j));
           }
-          let r=null;
-          for(let i=0;i<6;i++){
+          let r=null,src='',last='';
+          for(let i=0;i<20;i++){
             r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
-            if(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3')break;
-            await new Promise(resolve=>setTimeout(resolve,1800));
+            src=r.ok?await r.text():'';
+            const currentHeaders=r.ok&&
+              r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3'&&
+              r.headers.get('x-rona-access-create')==='client-agent-v3'&&
+              r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2'&&
+              r.headers.get('x-rona-shell-mutation')==='none'&&
+              r.headers.get('x-rona-legacy-dependency')==='none';
+            const currentBody=src.includes('admin-authority')&&
+              src.includes('ronaCreateAccess')&&
+              src.includes("new Option('Клиент','Клиент')")&&
+              src.includes("new Option('Агент','Агент')")&&
+              !src.includes('harvestLegacy')&&
+              !src.includes('installNavigationStability')&&
+              !src.includes('installShellParity');
+            if(currentHeaders&&currentBody)break;
+            last='status='+r.status+' ui='+r.headers.get('x-rona-clients-agents-ui')+' create='+r.headers.get('x-rona-access-create')+' bodyClient='+src.includes("new Option('Клиент','Клиент')")+' bodyAgent='+src.includes("new Option('Агент','Агент')");
+            if(i<19)await sleep(3000);
           }
-          assert(r?.ok&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner access module unavailable');
-          assert(r.headers.get('x-rona-access-create')==='client-agent-v3','access creation contract unavailable');
-          assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation-owner contract unavailable');
-          assert(r.headers.get('x-rona-shell-mutation')==='none','access module may not mutate global shell');
-          const src=await r.text();
-          assert(src.includes('admin-authority'),'authority route missing live');
-          assert(src.includes('ronaCreateAccess'),'primary create-access action missing live');
-          assert(src.includes("new Option('Клиент','Клиент'),new Option('Агент','Агент')"),'Client/Agent modes missing live');
+          assert(r?.ok&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner access module unavailable: '+last);
+          assert(r.headers.get('x-rona-access-create')==='client-agent-v3','access creation contract unavailable: '+last);
+          assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation-owner contract unavailable: '+last);
+          assert(r.headers.get('x-rona-shell-mutation')==='none','access module may not mutate global shell: '+last);
+          assert(r.headers.get('x-rona-legacy-dependency')==='none','legacy dependency returned: '+last);
+          assert(src.includes('admin-authority'),'authority route missing live: '+last);
+          assert(src.includes('ronaCreateAccess'),'primary create-access action missing live: '+last);
+          assert(src.includes("new Option('Клиент','Клиент')"),'Client create mode missing live: '+last);
+          assert(src.includes("new Option('Агент','Агент')"),'Agent create mode missing live: '+last);
           assert(!src.includes('harvestLegacy'),'legacy DOM harvest deployed');
           assert(!src.includes('installNavigationStability')&&!src.includes('installShellParity'),'competing navigation/shell owner deployed');
-          console.log('ADMIN_ACCESS_SINGLE_OWNER_V3_PRODUCTION=PASS');
+          console.log('ADMIN_ACCESS_SINGLE_OWNER_V3_CUSTOM_DOMAIN_SEMANTIC=PASS');
           NODE
