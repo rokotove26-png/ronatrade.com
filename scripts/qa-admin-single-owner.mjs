@@ -7,6 +7,7 @@ const watchdog=read('assets/portal-admin-runtime-watchdog-v1.js');
 const access=read('functions/portal/clients-agents-current-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
+const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
 
 const failures=[];
 const need=(ok,msg)=>{if(!ok)failures.push(msg)};
@@ -45,6 +46,7 @@ need(has(access,"'x-rona-shell-mutation':'none'"),'Page-scoped shell-mutation co
 
 need(has(ownerApi,"path==='/admin/access-workspace'")&&has(ownerApi,"'owner_access_workspace_bootstrap'"),'Owner API access-workspace RPC route is missing');
 need(has(accessMigration,'create or replace function public.owner_access_workspace_bootstrap')&&has(accessMigration,"revoke execute on function public.owner_access_workspace_bootstrap(integer) from anon"),'Access workspace migration is missing fail-closed grants');
+need(has(accessHistoryHygiene,'join portal_private.portal_users eu on eu.id::text=ae.entity_id')&&has(accessHistoryHygiene,"left(lower(coalesce(eu.login_name,'')),3)<>'qa_'"),'Access history hygiene does not exclude QA identities');
 
 for(const forbidden of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','admin_externalized','BOOT_ERROR_LATCH_FINAL_CANDIDATE']){
   need(!has(admin,forbidden),'Forbidden legacy Admin marker in current shell: '+forbidden);
@@ -59,5 +61,5 @@ console.log('ADMIN_SINGLE_OWNER_QA=PASS');
 console.log('routes=access,claims,agent-settlements');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v4');
-console.log('access=roles,password,history,fail-closed-pending');
+console.log('access=roles,password,history,fail-closed-pending,qa-history-hygiene');
 console.log('watchdog=page-aware-v2/non-destructive');
