@@ -5,10 +5,10 @@ on:
     paths:
       - portal-src/current/admin.html
       - assets/portal-admin-shell-fast-v1.js
+      - assets/portal-admin-runtime-watchdog-v1.js
       - functions/portal/admin.js
-      - functions/portal/owner-layout-polish-ui.js
+      - functions/portal/rail-current-v81-maplibre-ui.js
       - functions/portal/claims-r2-ui.js
-      - functions/portal/claims-title-hotfix.js
       - supabase/functions/rona-owner-acceptance/claims.ts
       - .github/workflows/rail-claims-layout-polish-qa.yml
 permissions:
@@ -19,66 +19,47 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify Rail layout and Claims direction workflow
+      - name: Verify current Rail layout and Claims direction workflow
         shell: bash
         run: |
           set -euo pipefail
           node --check functions/portal/admin.js
           node --check assets/portal-admin-shell-fast-v1.js
-          node --check functions/portal/owner-layout-polish-ui.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
+          node --check functions/portal/rail-current-v81-maplibre-ui.js
           node --check functions/portal/claims-r2-ui.js
-          node --check functions/portal/claims-title-hotfix.js
           grep -q 'id="page-claims"' portal-src/current/admin.html
           grep -q 'id="page-monitoring"' portal-src/current/admin.html
-          grep -q 'owner-layout-polish-ui?v=20260824-1346' assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q '/portal/rail-current-v81-maplibre-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q '/portal/claims-title-hotfix' assets/portal-admin-shell-fast-v1.js
-          grep -q '#page-monitoring .rona-rail-v4-work{align-items:stretch!important}' functions/portal/owner-layout-polish-ui.js
-          grep -q 'grid-template-rows:auto minmax(0,1fr)!important' functions/portal/owner-layout-polish-ui.js
-          grep -q 'rona-rail-v4-card:last-child{height:100%!important' functions/portal/owner-layout-polish-ui.js
-          grep -q 'max-width:1480px!important' functions/portal/owner-layout-polish-ui.js
-          grep -q 'margin-left:auto!important;margin-right:auto!important' functions/portal/owner-layout-polish-ui.js
+          ! grep -q 'owner-layout-polish-ui' assets/portal-admin-shell-fast-v1.js
+          ! grep -q 'claims-title-hotfix' assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q '20260825-direction-workflow-v6' functions/portal/claims-r2-ui.js
           grep -q "x-rona-claims-ui':'direction-workflow-v6" functions/portal/claims-r2-ui.js
           grep -q 'Зарегистрировать и направить клиенту' functions/portal/claims-r2-ui.js
           ! grep -q 'Зарегистрировать и передать в Legal' functions/portal/claims-r2-ui.js
           grep -q 'В юридический контур исходящие претензии не передаются' functions/portal/claims-r2-ui.js
           grep -q 'Работа с входящей претензией' functions/portal/claims-r2-ui.js
-          grep -q '20260825-direction-workflow-v3' functions/portal/claims-title-hotfix.js
-          grep -q "x-rona-claims-title':'direction-workflow-v3" functions/portal/claims-title-hotfix.js
-          grep -q 'Исходящие претензии направляются клиенту в ЛК' functions/portal/claims-title-hotfix.js
-          grep -q 'font-size:14px!important' functions/portal/claims-title-hotfix.js
           grep -q 'LEGAL_HANDOFF_INCOMING_ONLY' supabase/functions/rona-owner-acceptance/claims.ts
           grep -q "clientDelivery:'VISIBLE_IN_CLIENT_PORTAL'" supabase/functions/rona-owner-acceptance/claims.ts
           grep -q "legalDispatch:'NOT_APPLICABLE'" supabase/functions/rona-owner-acceptance/claims.ts
           grep -q 'RESPONSE_INCOMING_ONLY' supabase/functions/rona-owner-acceptance/claims.ts
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          import { onRequest as layoutRequest } from './functions/portal/owner-layout-polish-ui.js';
           import { onRequest as claimsRequest } from './functions/portal/claims-r2-ui.js';
-          import { onRequest as titleRequest } from './functions/portal/claims-title-hotfix.js';
-          const layout=await layoutRequest({});
-          if(layout.status!==200)throw new Error('layout endpoint '+layout.status);
-          const src=await layout.text();
-          const must=[
-            "__RONA_OWNER_LAYOUT_POLISH__='20260824-1346-rail-claims-v1'",
-            '#page-monitoring .rona-rail-v4-work{align-items:stretch!important}',
-            'grid-template-rows:auto minmax(0,1fr)!important',
-            'html body #page-claims>.rona-claims-r2-root',
-            'max-width:1480px!important',
-            '@media(max-width:1040px)'
-          ];
-          for(const m of must)if(!src.includes(m))throw new Error('missing '+m);
-          if(layout.headers.get('x-rona-owner-layout-polish')!=='rail-claims-v1')throw new Error('wrong layout header');
+          const runtime=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
+          if(runtime.includes('owner-layout-polish-ui')||runtime.includes('claims-title-hotfix'))throw new Error('legacy Rail/Claims page owner returned to active runtime');
+          if(!runtime.includes('/portal/rail-current-v81-maplibre-ui')||!runtime.includes('/portal/claims-r2-ui'))throw new Error('current Rail/Claims modules missing');
           const claims=await claimsRequest({});
           const claimsSrc=await claims.text();
           if(claims.headers.get('x-rona-claims-ui')!=='direction-workflow-v6')throw new Error('wrong claims header');
           for(const m of ['Зарегистрировать и направить клиенту','Работа с входящей претензией','В ЛК клиента','Не применяется'])if(!claimsSrc.includes(m))throw new Error('claims missing '+m);
           if(claimsSrc.includes('Зарегистрировать и передать в Legal'))throw new Error('outgoing legal copy remains');
-          const title=await titleRequest({});
-          const titleSrc=await title.text();
-          if(title.headers.get('x-rona-claims-title')!=='direction-workflow-v3')throw new Error('wrong title header');
-          for(const m of ['Исходящие претензии направляются клиенту в ЛК','Входящие претензии клиента проходят юридический анализ','font-size:14px!important'])if(!titleSrc.includes(m))throw new Error('title missing '+m);
           const backend=fs.readFileSync('supabase/functions/rona-owner-acceptance/claims.ts','utf8');
           const a=backend.indexOf('async function registerClaim');
           const b=backend.indexOf('async function registerClientClaim');
@@ -88,7 +69,7 @@ jobs:
           if(outgoing.includes('dispatchLegal(ctx,req,claimId)'))throw new Error('outgoing still dispatches Legal');
           if(!incoming.includes('dispatchLegal(ctx,req,claimId)'))throw new Error('incoming no longer dispatches Legal');
           if(!backend.includes("if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('LEGAL_HANDOFF_INCOMING_ONLY')"))throw new Error('Legal incoming-only invariant missing');
-          console.log('RAIL_CLAIMS_DIRECTION_WORKFLOW=PASS');
+          console.log('RAIL_CLAIMS_CURRENT_SINGLE_OWNER=PASS');
           NODE
       - name: Publish status
         if: always()
@@ -99,6 +80,6 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         shell: bash
         run: |
-          state=failure; desc='Rail/Claims direction workflow QA failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail/Claims direction workflow QA passed'; fi
+          state=failure; desc='Rail/Claims current single-owner QA failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; desc='Rail/Claims current single-owner QA passed'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-claims-layout-polish\",\"description\":\"$desc\"}" >/dev/null

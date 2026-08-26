@@ -1,0 +1,43 @@
+name: admin-single-owner-runtime
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'assets/portal-admin-runtime-watchdog-v1.js'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'scripts/qa-admin-single-owner.mjs'
+      - '.github/workflows/admin-single-owner-runtime.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'assets/portal-admin-runtime-watchdog-v1.js'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'scripts/qa-admin-single-owner.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-single-owner-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
+          node --check functions/portal/clients-agents-current-ui.js
+      - name: Single-owner regression QA
+        run: node scripts/qa-admin-single-owner.mjs
+      - name: Canonical production build
+        run: npm run build

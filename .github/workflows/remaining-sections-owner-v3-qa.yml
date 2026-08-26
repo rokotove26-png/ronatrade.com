@@ -7,11 +7,10 @@ on:
     paths:
       - 'portal-src/current/admin.html'
       - 'assets/portal-admin-shell-fast-v1.js'
+      - 'assets/portal-admin-runtime-watchdog-v1.js'
       - 'functions/portal/clients-agents-current-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
-      - 'functions/portal/remaining-sections-final-polish-ui.js'
-      - 'functions/portal/remaining-sections-functional-preserve-v2-ui.js'
-      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/claims-r2-ui.js'
       - '.github/workflows/remaining-sections-owner-v3-qa.yml'
 
 jobs:
@@ -23,60 +22,81 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify current-only remaining-section owners
+      - name: Verify single-owner remaining-section runtime
         run: |
           set -euo pipefail
           node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/remaining-sections-ui.js
-          node --check functions/portal/remaining-sections-final-polish-ui.js
-          node --check functions/portal/remaining-sections-functional-preserve-v2-ui.js
-          node --check functions/portal/analytics-v2-ui.js
+          node --check functions/portal/claims-r2-ui.js
 
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
-          grep -q 'clients-agents-current-ui' portal-src/current/admin.html
-          grep -q "__RONA_CLIENTS_AGENTS_V4__='retired-by-current-only-v2'" portal-src/current/admin.html
-
-          grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
-
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'" functions/portal/clients-agents-current-ui.js
-          grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
-          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
-          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
-          ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
-          grep -q 'Клиенты и агенты' functions/portal/clients-agents-current-ui.js
-          grep -q 'Пользователи и доступы' functions/portal/clients-agents-current-ui.js
-          grep -q 'Вознаграждения агентов' portal-src/current/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
           grep -q 'data-page="claims"' portal-src/current/admin.html
           grep -q 'Радиорубка' portal-src/current/admin.html
           grep -q 'Новости топливного рынка СНГ' portal-src/current/admin.html
           grep -q 'Аналитика' portal-src/current/admin.html
 
+          grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          ! grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
+          ! grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
+          ! grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
+
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "new Option('Клиент','Клиент'),new Option('Агент','Агент')" functions/portal/clients-agents-current-ui.js
+          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
+
+          grep -q "__RONA_REMAINING_SECTIONS_R2__" functions/portal/remaining-sections-ui.js
+          grep -q "'вознаграждения агентов':'rewards'" functions/portal/remaining-sections-ui.js
+          grep -q "'радиорубка':'radio'" functions/portal/remaining-sections-ui.js
+          grep -q "'аналитика':'analytics'" functions/portal/remaining-sections-ui.js
+          grep -q "'новости топливного рынка снг':'news'" functions/portal/remaining-sections-ui.js
+          grep -q 'renderRewards' functions/portal/remaining-sections-ui.js
+          grep -q 'renderRadio' functions/portal/remaining-sections-ui.js
+          grep -q 'renderAnalytics' functions/portal/remaining-sections-ui.js
+          grep -q 'renderNews' functions/portal/remaining-sections-ui.js
+          grep -q '#page-claims' functions/portal/claims-r2-ui.js
+          grep -q '__RONA_CLAIMS_R2_UI__' functions/portal/claims-r2-ui.js
+
           node --input-type=module <<'NODE'
           import { onRequest as accessRequest } from './functions/portal/clients-agents-current-ui.js';
-          import { onRequest as analyticsRequest } from './functions/portal/analytics-v2-ui.js';
+          import { onRequest as remainingRequest } from './functions/portal/remaining-sections-ui.js';
+          import { onRequest as claimsRequest } from './functions/portal/claims-r2-ui.js';
           const access=await accessRequest({});
           if(access.status!==200)throw new Error('access endpoint '+access.status);
           const accessSrc=await access.text();
           for(const marker of [
-            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'",
+            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'",
             "AUTH='/portal/admin-authority'",
             'Клиенты и агенты',
             'Пользователи и доступы',
-            "create.dataset.ronaCreateAccess='primary'",
+            "dataset.ronaCreateAccess='primary'",
             "window.__RONA_CLIENTS_AGENTS_V4_READY__=true"
           ])if(!accessSrc.includes(marker))throw new Error('access missing '+marker);
-          for(const legacy of ['harvestLegacy','window.openModal'])if(accessSrc.includes(legacy))throw new Error('legacy access dependency '+legacy);
-          if(access.headers.get('x-rona-clients-agents-ui')!=='current-only-v2')throw new Error('wrong access owner header');
+          if(access.headers.get('x-rona-clients-agents-ui')!=='single-owner-v3')throw new Error('wrong access owner header');
+          if(access.headers.get('x-rona-access-create')!=='client-agent-v3')throw new Error('wrong access create contract');
+          if(access.headers.get('x-rona-shell-mutation')!=='none')throw new Error('access mutates global shell');
 
-          const analytics=await analyticsRequest({});
-          if(analytics.status!==200)throw new Error('analytics endpoint '+analytics.status);
-          const analyticsSrc=await analytics.text();
-          for(const marker of ['Аналитика','Argus European Products','BNK Diesel Composite'])if(!analyticsSrc.includes(marker))throw new Error('analytics missing '+marker);
-          console.log('REMAINING_SECTIONS_CURRENT_ONLY=PASS');
+          const remaining=await remainingRequest({});
+          if(remaining.status!==200)throw new Error('remaining endpoint '+remaining.status);
+          const remainingSrc=await remaining.text();
+          for(const marker of ['renderRewards','renderRadio','renderAnalytics','renderNews','вознаграждения агентов','радиорубка','аналитика','новости топливного рынка снг'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
+
+          const claims=await claimsRequest({});
+          if(claims.status!==200)throw new Error('claims endpoint '+claims.status);
+          const claimsSrc=await claims.text();
+          if(!claimsSrc.includes('#page-claims')||!claimsSrc.includes('__RONA_CLAIMS_R2_UI__'))throw new Error('claims current runtime contract missing');
+          console.log('REMAINING_SECTIONS_SINGLE_OWNER=PASS');
           NODE

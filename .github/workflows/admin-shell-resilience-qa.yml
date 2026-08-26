@@ -12,6 +12,7 @@ on:
       - 'fix/admin-runtime-self-heal-20260826'
       - 'fix/admin-access-nav-parity-20260826'
       - 'fix/admin-current-router-functional-sections-20260826'
+      - 'fix/admin-single-owner-stability-20260826'
 
 jobs:
   admin-shell-resilience:
@@ -36,6 +37,7 @@ jobs:
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
+          node scripts/qa-admin-single-owner.mjs
       - name: Build Cloudflare Pages artifact
         run: npm run build
       - name: Verify current-only Admin artifact
@@ -48,13 +50,19 @@ jobs:
           grep -q 'rona-admin-shell" content="current-only-v2' dist/portal/admin.html
           grep -q 'data-rona-admin-shell="current-only-v2' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
-          grep -q 'grid-template-columns:238px minmax(0,1fr)' dist/portal/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' dist/portal/admin.html
+          grep -q 'min-height:48px' dist/portal/admin.html
+          grep -q 'font-size:14.5px' dist/portal/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
           grep -q 'data-page="claims"' dist/portal/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
+          grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" dist/assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' dist/assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
           ! grep -q 'Временный автономный вход' dist/portal/admin.html

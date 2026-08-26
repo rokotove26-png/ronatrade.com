@@ -35,7 +35,7 @@ jobs:
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/admin-authority/[[path]].js'
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
-          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q '/access/users' functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           grep -q 'ADMIN_CLIENT_AUTHORITY_API' 'functions/portal/admin-authority/[[path]].js'

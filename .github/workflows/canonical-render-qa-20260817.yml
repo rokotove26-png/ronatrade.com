@@ -37,12 +37,17 @@ jobs:
           cmp -s portal-src/canonical/canonical_background.png dist/assets/portal-canonical/background.png
           cmp -s portal-src/canonical/canonical_logo.svg dist/assets/portal-canonical/logo.svg
           test "$(stat -c%s dist/portal/admin.html)" -lt 60000
-          grep -q 'data-rona-admin-shell="current-only-v1"' dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' dist/portal/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
+          grep -q 'data-page="agent-settlements"' dist/portal/admin.html
+          grep -q 'data-page="claims"' dist/portal/admin.html
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
           ! grep -q 'Временный автономный вход' dist/portal/admin.html
           ! grep -q 'v3.4.13' dist/portal/admin.html
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.state!=='CURRENT_ONLY'||x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
           echo 'ADMIN_CURRENT_ONLY_BUILD_EQUIVALENCE=PASS'
           echo 'AGENT_CLIENT_CANONICAL_BYTE_EQUIVALENCE=PASS'
           echo 'CANONICAL_VISUAL_ASSET_EQUIVALENCE=PASS'
@@ -51,8 +56,17 @@ jobs:
           node --check functions/portal/admin.js
           node --check functions/portal/main-ui.js
           node --check functions/portal/clients-agents-current-ui.js
-          grep -q "'x-rona-admin-shell','current-only-v1'" functions/portal/admin.js
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "'x-rona-admin-shell','current-only-v2'" functions/portal/admin.js
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
-          echo 'CURRENT_ONLY_RUNTIME_SCOPE=PASS'
+          ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
+          echo 'CURRENT_ONLY_SINGLE_OWNER_RUNTIME_SCOPE=PASS'

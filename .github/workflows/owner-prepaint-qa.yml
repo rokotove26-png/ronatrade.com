@@ -35,18 +35,28 @@ jobs:
           node --check functions/portal/agent.js
           node --check functions/portal/main-ui.js
           node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
+          node tests/admin-runtime-watchdog.test.mjs
+          node tests/admin-current-access-nav-v2.test.mjs
+          node scripts/qa-admin-single-owner.mjs
           grep -q 'rona-admin-shell" content="current-only-v2' portal-src/current/admin.html
           grep -q 'data-rona-admin-shell="current-only-v2' portal-src/current/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
-          grep -q 'grid-template-columns:238px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'min-height:48px' portal-src/current/admin.html
+          grep -q 'font-size:14.5px' portal-src/current/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
           grep -q 'data-page="claims"' portal-src/current/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q "'x-rona-admin-shell','current-only-v2'" functions/portal/admin.js
           grep -q "'x-rona-admin-auth','server-verified-v1'" functions/portal/admin.js
           grep -q "'x-rona-admin-current-only','main-v2-shell-v2'" functions/portal/admin.js
@@ -98,23 +108,29 @@ jobs:
             const admin=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
             assert(admin.status===302,'unauth Admin status '+admin.status);
             assert(admin.headers.get('x-rona-admin-shell')==='current-only-v2','Admin shell header '+admin.headers.get('x-rona-admin-shell'));
-            const [access,claims,remaining]=await Promise.all([
+            const [access,claims,remaining,watchdog]=await Promise.all([
               fetch(base+'/portal/clients-agents-current-ui?_qa='+sha,{cache:'no-store'}),
               fetch(base+'/portal/claims-r2-ui?_qa='+sha,{cache:'no-store'}),
-              fetch(base+'/portal/remaining-sections-ui?_qa='+sha,{cache:'no-store'})
+              fetch(base+'/portal/remaining-sections-ui?_qa='+sha,{cache:'no-store'}),
+              fetch(base+'/assets/portal-admin-runtime-watchdog-v1.js?_qa='+sha,{cache:'no-store'})
             ]);
-            assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='current-only-v2','current access live');
-            assert(access.headers.get('x-rona-access-create')==='client-agent-v2','current access create contract live');
-            assert(access.headers.get('x-rona-admin-nav-stability')==='v2','current navigation stability live');
+            assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','current access live');
+            assert(access.headers.get('x-rona-access-create')==='client-agent-v3','current access create contract live');
+            assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation owner live');
+            assert(access.headers.get('x-rona-shell-mutation')==='none','access page mutated global shell');
             assert(claims.ok,'claims runtime live');
             assert(remaining.ok,'remaining sections runtime live');
+            assert(watchdog.ok,'watchdog live');
             const accessSrc=await access.text();
             const claimsSrc=await claims.text();
             const remainingSrc=await remaining.text();
+            const watchdogSrc=await watchdog.text();
             assert(accessSrc.includes('ronaCreateAccess'),'create access marker');
             assert(claimsSrc.includes('#page-claims')&&claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims page contract');
             assert(remainingSrc.includes('renderRewards'),'agent rewards page contract');
-            assert(!accessSrc.includes('harvestLegacy'),'legacy access dependency live');
+            assert(watchdogSrc.includes("__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'page-aware watchdog live');
+            assert(!watchdogSrc.includes('location.reload(')&&!watchdogSrc.includes('location.replace('),'destructive Admin recovery live');
+            assert(!accessSrc.includes('harvestLegacy')&&!accessSrc.includes('installNavigationStability')&&!accessSrc.includes('installShellParity'),'legacy/competing access dependency live');
             console.log('ADMIN_CURRENT_ONLY_PRODUCTION_FIRST_PAINT=PASS');
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
