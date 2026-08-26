@@ -1,47 +1,76 @@
-name: trade-form-mailer-smoke-20260826
+name: trade-form-runtime-isolation-20260826
 
 on:
   push:
     branches:
-      - release/public-go-live-v1.1
+      - diag/trade-form-runtime-isolation-20260826
     paths:
       - .github/workflows/trade-form-mailer-smoke-20260826.yml
 
 jobs:
-  smoke:
+  isolate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Submit production trade form
+      - name: Compare custom domain and Pages runtime
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
+          CUSTOM="https://ronaoil.com"
+          PAGES="https://3bef8b32.rona-trade-public.pages.dev"
           ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           body=$(cat <<JSON
           {
             "Контактное лицо":"RONA SYSTEM TEST",
-            "Компания":"RONA Trade synthetic test ${ts}",
+            "Компания":"RONA runtime isolation ${ts}",
             "Страна регистрации компании":"Kyrgyzstan",
             "Нефтепродукт":"TEST ONLY",
             "Страна назначения груза":"Kyrgyzstan",
             "Ориентировочный объем, тонн":"1",
             "E-mail":"office_kg@ronaoil.com",
-            "Комментарий":"Synthetic production smoke test after MAILER service binding. Ignore.",
-            "Источник":"GitHub Actions production smoke test",
+            "Комментарий":"Synthetic runtime isolation probe. Ignore.",
+            "Источник":"GitHub Actions runtime isolation",
             "Дата отправки":"${ts}",
             "Language":"RU",
             "URL страницы / источник":"https://ronaoil.com/"
           }
           JSON
           )
-          code=$(curl -sS -o response.json -w "%{http_code}" \
-            -X POST "https://ronaoil.com/api/forms/trade" \
-            -H "Origin: https://ronaoil.com" \
-            -H "Content-Type: application/json" \
-            --data "$body")
-          echo "HTTP $code"
-          cat response.json
-          test "$code" = "202"
-          grep -q '"success":true' response.json
 
-# Trigger: final production verification 2026-08-26
+          probe_page() {
+            label="$1"; base="$2"
+            echo "===== PAGE $label ====="
+            code=$(curl -sS -L --max-time 30 -o "page-${label}.html" -w "%{http_code}" "$base/pages/home_large" || true)
+            echo "HTTP=$code bytes=$(wc -c < "page-${label}.html" 2>/dev/null || echo 0)"
+            if grep -q '/api/forms/trade' "page-${label}.html" 2>/dev/null; then echo "FORM_BRIDGE_MARKER=present"; else echo "FORM_BRIDGE_MARKER=absent"; fi
+            if grep -q 'uiScenePayload' "page-${label}.html" 2>/dev/null; then echo "SCENE_WRAPPER=present"; else echo "SCENE_WRAPPER=absent"; fi
+          }
+
+          probe_api_get() {
+            label="$1"; base="$2"
+            echo "===== API GET $label ====="
+            code=$(curl -sS --max-time 30 -D "get-${label}.headers" -o "get-${label}.body" -w "%{http_code}" "$base/api/forms/trade" -H 'Origin: https://ronaoil.com' || true)
+            echo "HTTP=$code"
+            grep -Ei '^(server|cf-ray|content-type|x-|location):' "get-${label}.headers" || true
+            echo -n 'BODY='; head -c 500 "get-${label}.body" 2>/dev/null || true; echo
+          }
+
+          probe_api_post() {
+            label="$1"; base="$2"
+            echo "===== API POST $label ====="
+            code=$(curl -sS --max-time 45 -D "post-${label}.headers" -o "post-${label}.body" -w "%{http_code}" \
+              -X POST "$base/api/forms/trade" \
+              -H 'Origin: https://ronaoil.com' \
+              -H 'Content-Type: application/json' \
+              --data "$body" || true)
+            echo "HTTP=$code"
+            grep -Ei '^(server|cf-ray|content-type|x-|location):' "post-${label}.headers" || true
+            echo -n 'BODY='; head -c 1000 "post-${label}.body" 2>/dev/null || true; echo
+          }
+
+          probe_page custom "$CUSTOM"
+          probe_page pages "$PAGES"
+          probe_api_get custom "$CUSTOM"
+          probe_api_get pages "$PAGES"
+          probe_api_post custom "$CUSTOM"
+          probe_api_post pages "$PAGES"
