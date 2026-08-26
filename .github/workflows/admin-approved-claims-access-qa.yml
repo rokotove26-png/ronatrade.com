@@ -1,0 +1,43 @@
+name: Admin Approved Claims Access QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+      - 'fix/claims-access-approved-ui-20260826'
+
+jobs:
+  approved-claims-access:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check runtime syntax
+        run: |
+          node --check functions/portal/admin-approved-polish-ui.js
+          node --input-type=module <<'NODE'
+          const m = await import('./functions/portal/admin-approved-polish-ui.js');
+          const source = await (await m.onRequest()).text();
+          new Function(source);
+          if (!source.includes('Создать единую учётную запись')) throw new Error('approved access action missing');
+          if (!source.includes('Разрешённые компании / контракты')) throw new Error('approved contract cards missing');
+          if (!source.includes('Загрузить договор')) throw new Error('signed contract action missing');
+          if (!source.includes('grid-template-columns:minmax(0,1fr)!important')) throw new Error('claims equal-width layout missing');
+          NODE
+      - name: Build current-only artifact
+        run: npm run build
+      - name: Verify approved runtime is deployed by Admin shell
+        run: |
+          test -s dist/portal/admin.html
+          grep -q 'rona-admin-approved-polish-loader' dist/portal/admin.html
+          grep -q '/portal/admin-approved-polish-ui?v=20260826-claims-access-approved-v1' dist/portal/admin.html
+          grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
+          grep -q 'clients-agents-current-ui' dist/portal/admin.html
+          grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
+          ! grep -q 'admin_externalized' dist/portal/admin.html
