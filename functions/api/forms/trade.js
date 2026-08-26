@@ -202,7 +202,35 @@ export async function onRequestPost(context) {
   return json({ success: true, status: 'accepted', submission_id: submissionId }, 202);
 }
 
-export function onRequest(context) {
-  if (context.request.method === 'POST') return onRequestPost(context);
-  return json({ success: false, code: 'METHOD_NOT_ALLOWED' }, 405);
+function safeError(value, max = 240) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+export async function onRequest(context) {
+  if (context.request.method !== 'POST') {
+    return json({ success: false, code: 'METHOD_NOT_ALLOWED' }, 405);
+  }
+
+  try {
+    return await onRequestPost(context);
+  } catch (error) {
+    const diagnostic = {
+      event: 'TRADE_FORM_EXCEPTION',
+      name: safeError(error?.name, 80),
+      message: safeError(error?.message, 240)
+    };
+    console.error(JSON.stringify(diagnostic));
+    return json({
+      success: false,
+      code: 'FUNCTION_EXCEPTION',
+      diagnostic: {
+        name: diagnostic.name,
+        message: diagnostic.message
+      }
+    }, 500);
+  }
 }
