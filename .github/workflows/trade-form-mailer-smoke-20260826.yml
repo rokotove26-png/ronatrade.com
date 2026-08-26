@@ -1,0 +1,45 @@
+name: trade-form-mailer-smoke-20260826
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - .github/workflows/trade-form-mailer-smoke-20260826.yml
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Submit production trade form
+        shell: bash
+        run: |
+          set -euo pipefail
+          ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          body=$(cat <<JSON
+          {
+            "Контактное лицо":"RONA SYSTEM TEST",
+            "Компания":"RONA Trade synthetic test ${ts}",
+            "Страна регистрации компании":"Kyrgyzstan",
+            "Нефтепродукт":"TEST ONLY",
+            "Страна назначения груза":"Kyrgyzstan",
+            "Ориентировочный объем, тонн":"1",
+            "E-mail":"office_kg@ronaoil.com",
+            "Комментарий":"Synthetic production smoke test after MAILER service binding. Ignore.",
+            "Источник":"GitHub Actions production smoke test",
+            "Дата отправки":"${ts}",
+            "Language":"RU",
+            "URL страницы / источник":"https://ronaoil.com/"
+          }
+          JSON
+          )
+          code=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "https://ronaoil.com/api/forms/trade" \
+            -H "Origin: https://ronaoil.com" \
+            -H "Content-Type: application/json" \
+            --data "$body")
+          echo "HTTP $code"
+          cat response.json
+          test "$code" = "202"
+          grep -q '"success":true' response.json
