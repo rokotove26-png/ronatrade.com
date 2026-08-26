@@ -1,8 +1,10 @@
 import { onRequest as baseRemaining } from './remaining-sections-r2-base.js';
+import { onRequest as premiumNews } from './news-current-ui.js';
 
 export async function onRequest(context){
-  const response=await baseRemaining(context);
+  const [response,newsResponse]=await Promise.all([baseRemaining(context),premiumNews(context)]);
   let source=await response.text();
+  const newsSource=await newsResponse.text();
 
   source=source.replaceAll("'аналитика':'analytics',",'');
   source=source.replaceAll("'новости топливного рынка снг':'news',",'');
@@ -31,13 +33,17 @@ export async function onRequest(context){
   if(forbidden.some(token=>source.includes(token))){
     return new Response('REMAINING_CANONICAL_SPLIT_FAILED',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
+  for(const token of ['20260826-international-newsroom-v1','RONA TRADE · MARKET INTELLIGENCE','Главная лента','Сводка ленты','География','Источники']){
+    if(!newsSource.includes(token))return new Response('PREMIUM_NEWS_SOURCE_INVALID',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  }
 
   const headers=new Headers(response.headers);
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('expires','0');
-  headers.set('x-rona-remaining-sections','r2-canonical-split-no-analytics-news-v1');
+  headers.set('x-rona-remaining-sections','r2-canonical-split-premium-news-v1');
+  headers.set('x-rona-market-news-ui','international-newsroom-v1');
   headers.delete('content-length');
   headers.delete('etag');
-  return new Response(source,{status:response.status,statusText:response.statusText,headers});
+  return new Response(source+'\n'+newsSource,{status:response.status,statusText:response.statusText,headers});
 }
