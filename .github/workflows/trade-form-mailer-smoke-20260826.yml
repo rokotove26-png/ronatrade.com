@@ -1,4 +1,4 @@
-name: trade-form-production-edge-diagnostic
+name: trade-form-production-e2e-restored
 
 on:
   push:
@@ -11,27 +11,48 @@ permissions:
   contents: read
 
 jobs:
-  production-edge-diagnostic:
+  production-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 6
     steps:
-      - name: Probe deployed production delivery transports
+      - name: Wait for production deployment
+        shell: bash
+        run: sleep 45
+
+      - name: Probe production trade form end to end
         shell: bash
         run: |
           set -euo pipefail
-          url='https://rona-trade-public.pages.dev/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d'
-          body=''
-          code=''
-          for attempt in $(seq 1 36); do
-            code=$(curl -sS --max-time 20 -o diagnostic.json -w '%{http_code}' "$url" || true)
-            body=$(cat diagnostic.json 2>/dev/null || true)
-            echo "attempt=${attempt} http=${code} body=${body}"
-            if [ "$code" = '200' ] && printf '%s' "$body" | grep -q '"formsubmit"'; then
-              break
-            fi
-            sleep 5
-          done
-          echo "FINAL_HTTP=${code}"
-          echo "FINAL_BODY=${body}"
-          test "$code" = '200'
-          printf '%s' "$body" | grep -q '"formsubmit"'
+          mkdir -p .probe
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          cat > .probe/payload.json <<JSON
+          {
+            "Контактное лицо": "RONA SYSTEM TEST",
+            "Компания": "RONA Trade production E2E ${stamp}",
+            "Страна регистрации компании": "Kyrgyzstan",
+            "Нефтепродукт": "СПБТ / СУГ",
+            "Страна назначения груза": "Kazakhstan",
+            "Ориентировочный объем, тонн": "1",
+            "Телефон": "+996000000000",
+            "E-mail": "office_kg@ronaoil.com",
+            "Комментарий": "Synthetic production E2E test ${stamp}. Ignore.",
+            "Источник": "github-actions-production-e2e",
+            "Дата отправки": "${stamp}",
+            "Language": "RU",
+            "URL страницы / источник": "https://ronaoil.com/"
+          }
+          JSON
+
+          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' --max-time 40 \
+            -X POST 'https://ronaoil.com/api/forms/trade' \
+            -H 'Origin: https://ronaoil.com' \
+            -H 'Referer: https://ronaoil.com/' \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            --data-binary @.probe/payload.json)
+          form_body=$(cat .probe/form-response.json)
+          echo "FORM_HTTP=${form_http}"
+          echo "FORM_RESPONSE=${form_body}"
+          test "${form_http}" = "202"
+          printf '%s' "${form_body}" | grep -q '"success":true'
+          printf '%s' "${form_body}" | grep -q '"submission_id"'
