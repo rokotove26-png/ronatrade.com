@@ -11,6 +11,7 @@ on:
       - 'fix/admin-current-only-owner-ui-20260826'
       - 'fix/admin-runtime-self-heal-20260826'
       - 'fix/admin-access-nav-parity-20260826'
+      - 'fix/admin-current-router-functional-sections-20260826'
 
 jobs:
   admin-shell-resilience:
@@ -44,8 +45,13 @@ jobs:
           test -s dist/assets/portal-admin-runtime-watchdog-v1.js
           test -s dist/assets/portal-canonical/background.png
           test -s dist/assets/portal-canonical/logo.svg
-          grep -q 'rona-admin-shell" content="current-only-v1' dist/portal/admin.html
-          grep -q 'data-rona-admin-shell="current-only-v1' dist/portal/admin.html
+          grep -q 'rona-admin-shell" content="current-only-v2' dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2' dist/portal/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
+          grep -q 'grid-template-columns:238px minmax(0,1fr)' dist/portal/admin.html
+          grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
+          grep -q 'data-page="agent-settlements"' dist/portal/admin.html
+          grep -q 'data-page="claims"' dist/portal/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
