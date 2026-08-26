@@ -1,0 +1,56 @@
+/* MARKET_NEWS_NO_GRAY_BANDS_V1
+   Permanent visual invariant for the standalone Market News section.
+   No dark/gray filled bands are allowed inside the newspaper canvas. */
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-masthead,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-toolbar,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-statusline,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-front,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-all,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-all-head,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-grid,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-lead,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-rail-item,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-card {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-input,
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-select {
+  background: #faf8f2 !important;
+  background-color: #faf8f2 !important;
+  background-image: none !important;
+  color: #111317 !important;
+  box-shadow: none !important;
+}
+
+/* Restore newspaper masthead colors after the gray-band removal. */
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-brand {
+  color: #be1e2d !important;
+}
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-title {
+  color: #111317 !important;
+}
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-deck {
+  color: #51575a !important;
+}
+html body #page-market-news > #rona-market-news-current.rona-market-news-current .mn-edition {
+  color: #646760 !important;
+}
+
+/* Global sticky-section UI must never create a gray title band over Market News. */
+html body #page-market-news > .rona-global-sticky-title {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+html body #page-market-news .mn-title.rona-global-title-duplicate-heading {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}

@@ -1,7 +1,2 @@
-/* Market News contrast override. The section remains fully owned by /assets/portal-market-news-current-v1.js. */
-#page-market-news > .rona-market-news-current .mn-brand,
-#page-market-news > .rona-market-news-current .mn-title,
-#page-market-news > .rona-market-news-current .mn-deck,
-#page-market-news > .rona-market-news-current .mn-edition {
-  color: #fff !important;
-}
+/* Permanent compatibility alias. The former editorial stylesheet is retired; every legacy reference now receives the no-gray-band invariant only. */
+@import url('/assets/portal-market-news-no-gray-bands-v1.css?v=20260827-no-gray-bands-v1');
