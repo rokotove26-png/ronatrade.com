@@ -33,22 +33,26 @@ jobs:
           node --check functions/portal/remaining-sections-functional-preserve-v2-ui.js
           node --check functions/portal/analytics-v2-ui.js
 
-          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q 'clients-agents-current-ui' portal-src/current/admin.html
-          grep -q "__RONA_CLIENTS_AGENTS_V4__='retired-by-current-only-v1'" portal-src/current/admin.html
+          grep -q "__RONA_CLIENTS_AGENTS_V4__='retired-by-current-only-v2'" portal-src/current/admin.html
 
           grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
 
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
           grep -q 'Клиенты и агенты' functions/portal/clients-agents-current-ui.js
           grep -q 'Пользователи и доступы' functions/portal/clients-agents-current-ui.js
           grep -q 'Вознаграждения агентов' portal-src/current/admin.html
+          grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
+          grep -q 'data-page="claims"' portal-src/current/admin.html
           grep -q 'Радиорубка' portal-src/current/admin.html
           grep -q 'Новости топливного рынка СНГ' portal-src/current/admin.html
           grep -q 'Аналитика' portal-src/current/admin.html
@@ -60,14 +64,15 @@ jobs:
           if(access.status!==200)throw new Error('access endpoint '+access.status);
           const accessSrc=await access.text();
           for(const marker of [
-            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'",
+            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'",
             "AUTH='/portal/admin-authority'",
             'Клиенты и агенты',
             'Пользователи и доступы',
+            "create.dataset.ronaCreateAccess='primary'",
             "window.__RONA_CLIENTS_AGENTS_V4_READY__=true"
           ])if(!accessSrc.includes(marker))throw new Error('access missing '+marker);
           for(const legacy of ['harvestLegacy','window.openModal'])if(accessSrc.includes(legacy))throw new Error('legacy access dependency '+legacy);
-          if(access.headers.get('x-rona-clients-agents-ui')!=='current-only-v1')throw new Error('wrong access owner header');
+          if(access.headers.get('x-rona-clients-agents-ui')!=='current-only-v2')throw new Error('wrong access owner header');
 
           const analytics=await analyticsRequest({});
           if(analytics.status!==200)throw new Error('analytics endpoint '+analytics.status);
