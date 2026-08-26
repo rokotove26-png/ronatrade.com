@@ -32,9 +32,11 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check functions/portal/main-ui.js
           node --check functions/portal/deals-current-state-ui.js
-          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
-          grep -q '/portal/main-ui?v=20260824-0320' assets/portal-admin-shell-fast-v1.js
-          grep -q '/portal/deals-current-state-ui?v=20260824-0320' assets/portal-admin-shell-fast-v1.js
+          grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/deals-current-state-ui' assets/portal-admin-shell-fast-v1.js
           grep -q 'current-only-v1.5' functions/portal/main-ui.js
           grep -q 'current-state-v1.5' functions/portal/deals-current-state-ui.js
           grep -q "replaceAll('waitsAction','waitsPayment')" functions/portal/deals-current-state-ui.js
@@ -42,8 +44,9 @@ jobs:
           grep -q 'width:310px!important' functions/portal/deals-current-state-ui.js
           grep -q 'width:145px!important' functions/portal/deals-current-state-ui.js
           ! grep -q 'adminLoginGate' dist/portal/admin.html
-          echo 'DEALS_CURRENT_ONLY_SOURCE=PASS'
-      - name: Wait for exact production deploy
+          ! grep -q 'v3.4.13' dist/portal/admin.html
+          echo 'DEALS_CURRENT_ONLY_V2_SOURCE=PASS'
+      - name: Wait for exact production deploy convergence
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -53,7 +56,10 @@ jobs:
         shell: bash
         run: |
           node scripts/verify-admin-current-only-production.mjs
-          curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA&attempt=$i&ts=$(date +%s%N)" && grep -qi '^x-rona-deals-ui: current-state-v1.5' /tmp/deals.headers; then break; fi
+            sleep 2
+          done
           grep -qi '^x-rona-deals-ui: current-state-v1.5' /tmp/deals.headers
           node --check /tmp/deals.js
           grep -q 'function isolateDealsPage(root,host)' /tmp/deals.js
