@@ -1,0 +1,9 @@
+timestamp=20260826T134443Z-32975770643
+home_http=200
+transport_header=x-rona-form-transport: controlled-v1.1
+bridge_script=present
+bridge_target=present
+home_curl_error=
+api_http=502
+api_response=error code: 502
+api_curl_error=
