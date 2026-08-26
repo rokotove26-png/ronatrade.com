@@ -28,21 +28,26 @@ jobs:
           npm run build
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/admin.js
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
-          grep -q "create.dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "new Option('Клиент','Клиент'),new Option('Агент','Агент')" functions/portal/clients-agents-current-ui.js
           grep -q '/access/users' functions/portal/clients-agents-current-ui.js
           grep -q '/admin/clients/' functions/portal/clients-agents-current-ui.js
+          grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
-          echo 'ADMIN_ACCESS_CURRENT_ONLY_SOURCE=PASS'
-      - name: Wait for Cloudflare production deployment
+          echo 'ADMIN_ACCESS_SINGLE_OWNER_V3_SOURCE=PASS'
+      - name: Wait for Cloudflare production deployment convergence
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -60,13 +65,21 @@ jobs:
             const j=await r.json().catch(()=>({}));
             assert([401,403].includes(r.status),path+' must fail closed; got '+r.status+' '+JSON.stringify(j));
           }
-          const r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='current-only-v2','current access module unavailable');
-          assert(r.headers.get('x-rona-access-create')==='client-agent-v2','access creation contract unavailable');
-          assert(r.headers.get('x-rona-admin-nav-stability')==='v2','access navigation-stability contract unavailable');
+          let r=null;
+          for(let i=0;i<6;i++){
+            r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
+            if(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3')break;
+            await new Promise(resolve=>setTimeout(resolve,1800));
+          }
+          assert(r?.ok&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner access module unavailable');
+          assert(r.headers.get('x-rona-access-create')==='client-agent-v3','access creation contract unavailable');
+          assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation-owner contract unavailable');
+          assert(r.headers.get('x-rona-shell-mutation')==='none','access module may not mutate global shell');
           const src=await r.text();
           assert(src.includes('admin-authority'),'authority route missing live');
           assert(src.includes('ronaCreateAccess'),'primary create-access action missing live');
+          assert(src.includes("new Option('Клиент','Клиент'),new Option('Агент','Агент')"),'Client/Agent modes missing live');
           assert(!src.includes('harvestLegacy'),'legacy DOM harvest deployed');
-          console.log('ADMIN_ACCESS_FAIL_CLOSED_PRODUCTION=PASS');
+          assert(!src.includes('installNavigationStability')&&!src.includes('installShellParity'),'competing navigation/shell owner deployed');
+          console.log('ADMIN_ACCESS_SINGLE_OWNER_V3_PRODUCTION=PASS');
           NODE

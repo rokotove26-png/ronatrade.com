@@ -1,58 +1,28 @@
 const base=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 const sha=process.env.GITHUB_SHA||Date.now();
 const assert=(v,m)=>{if(!v)throw new Error(m)};
-const integrityResponse=await fetch(`${base}/canonical-visual-integrity.json?_qa=${sha}`,{cache:'no-store'});
-assert(integrityResponse.ok,`integrity ${integrityResponse.status}`);
-const integrity=await integrityResponse.json();
-assert(integrity.architecture==='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS',`architecture ${integrity.architecture}`);
-assert(integrity.admin_runtime?.state==='CURRENT_ONLY','Admin state is not CURRENT_ONLY');
-assert(integrity.admin_runtime?.legacy_runtime_in_deployment===false,'legacy Admin runtime is deployed');
-assert(Number(integrity.admin_runtime?.emitted_bytes||0)>0&&Number(integrity.admin_runtime?.emitted_bytes||0)<60000,'Admin shell size contract failed');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function retry(label,fn,attempts=8){let last;for(let i=1;i<=attempts;i++){try{return await fn(i)}catch(e){last=e;if(i<attempts)await sleep(2500)}}throw new Error(`${label}: ${last?.message||last}`)}
+const fetchNoStore=(path,attempt=0,opts={})=>fetch(`${base}${path}${path.includes('?')?'&':'?'}_qa=${encodeURIComponent(sha)}&_attempt=${attempt}&_nonce=${Date.now()}`,{cache:'no-store',...opts});
 
-const admin=await fetch(`${base}/portal/admin?_qa=${Date.now()}`,{redirect:'manual',cache:'no-store'});
-assert(admin.status===302,`unauth Admin status ${admin.status}`);
-const location=new URL(admin.headers.get('location'),base);
-assert(location.pathname==='/portal/login'&&location.searchParams.get('next')==='/portal/admin',`Admin redirect ${location.href}`);
-assert(admin.headers.get('x-rona-admin-shell')==='current-only-v2',`Admin shell ${admin.headers.get('x-rona-admin-shell')}`);
-assert(admin.headers.get('x-rona-admin-auth')==='server-verified-v1','server auth marker missing');
-assert(admin.headers.get('x-rona-admin-current-only')==='main-v2-shell-v2','current-only marker missing');
+const integrity=await retry('integrity',async attempt=>{const r=await fetchNoStore('/canonical-visual-integrity.json',attempt);assert(r.ok,`status ${r.status}`);const x=await r.json();assert(x.architecture==='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS',`architecture ${x.architecture}`);assert(x.admin_runtime?.state==='CURRENT_ONLY','Admin state is not CURRENT_ONLY');assert(x.admin_runtime?.legacy_runtime_in_deployment===false,'legacy Admin runtime is deployed');assert(Number(x.admin_runtime?.emitted_bytes||0)>0&&Number(x.admin_runtime?.emitted_bytes||0)<60000,'Admin shell size contract failed');return x});
 
-const [main,runtime,watchdog,access,claims,remaining,bg,logo]=await Promise.all([
-  fetch(`${base}/portal/main-ui?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/assets/portal-admin-shell-fast-v1.js?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/assets/portal-admin-runtime-watchdog-v1.js?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/portal/clients-agents-current-ui?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/portal/claims-r2-ui?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/portal/remaining-sections-ui?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/assets/portal-canonical/background.png?_qa=${sha}`,{cache:'no-store'}),
-  fetch(`${base}/assets/portal-canonical/logo.svg?_qa=${sha}`,{cache:'no-store'})
-]);
-assert(main.ok&&main.headers.get('x-rona-ui')==='main-v2','main-v2 deployment failed');
-assert(runtime.ok,'Admin single-owner runtime missing');
-assert(watchdog.ok,'Admin page-aware watchdog missing');
-assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v3','single-owner Clients/Agents v3 deployment failed');
-assert(access.headers.get('x-rona-access-create')==='client-agent-v3','client/agent access creation contract missing');
-assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','Admin single navigation owner contract missing');
-assert(access.headers.get('x-rona-shell-mutation')==='none','Clients/Agents must not mutate the global shell');
-assert(access.headers.get('x-rona-legacy-dependency')==='none','Clients/Agents legacy dependency returned');
-assert(claims.ok,'claims runtime missing');
-assert(remaining.ok,'remaining sections runtime missing');
-assert(bg.ok&&logo.ok,'canonical visual assets missing');
-const runtimeSrc=await runtime.text();
-const watchdogSrc=await watchdog.text();
-const accessSrc=await access.text();
-const claimsSrc=await claims.text();
-const remainingSrc=await remaining.text();
-assert(runtimeSrc.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'single-owner runtime marker missing');
+await retry('Admin auth shell',async attempt=>{const r=await fetchNoStore('/portal/admin',attempt,{redirect:'manual'});assert(r.status===302,`status ${r.status}`);const location=new URL(r.headers.get('location'),base);assert(location.pathname==='/portal/login'&&location.searchParams.get('next')==='/portal/admin',`redirect ${location.href}`);assert(r.headers.get('x-rona-admin-shell')==='current-only-v2',`shell ${r.headers.get('x-rona-admin-shell')}`);assert(r.headers.get('x-rona-admin-auth')==='server-verified-v1','server auth marker missing');assert(r.headers.get('x-rona-admin-current-only')==='main-v2-shell-v2','current-only marker missing');return true});
+
+const main=await retry('main-v2',async attempt=>{const r=await fetchNoStore('/portal/main-ui',attempt);assert(r.ok&&r.headers.get('x-rona-ui')==='main-v2',`status ${r.status} ui ${r.headers.get('x-rona-ui')}`);return r.text()});
+const runtimeSrc=await retry('single-owner runtime',async attempt=>{const r=await fetchNoStore('/assets/portal-admin-shell-fast-v1.js',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();assert(t.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'single-owner marker missing');return t});
+const watchdogSrc=await retry('page-aware watchdog',async attempt=>{const r=await fetchNoStore('/assets/portal-admin-runtime-watchdog-v1.js',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();assert(t.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'page-aware marker missing');assert(!t.includes('location.reload(')&&!t.includes('location.replace('),'destructive recovery returned');return t});
+const access=await retry('Clients/Agents single-owner',async attempt=>{const r=await fetchNoStore('/portal/clients-agents-current-ui',attempt);assert(r.ok,`status ${r.status}`);assert(r.headers.get('x-rona-clients-agents-ui')==='single-owner-v3',`owner ${r.headers.get('x-rona-clients-agents-ui')}`);assert(r.headers.get('x-rona-access-create')==='client-agent-v3',`create ${r.headers.get('x-rona-access-create')}`);assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2',`nav ${r.headers.get('x-rona-admin-nav-owner')}`);assert(r.headers.get('x-rona-shell-mutation')==='none','page mutates global shell');assert(r.headers.get('x-rona-legacy-dependency')==='none','legacy dependency returned');const t=await r.text();for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4'])assert(t.includes(marker),`missing ${marker}`);for(const legacy of ['harvestLegacy','rona-admin-auth-v3413','installNavigationStability','installShellParity'])assert(!t.includes(legacy),`legacy/competing dependency ${legacy}`);return t});
+const claims=await retry('Claims current runtime',async attempt=>{const r=await fetchNoStore('/portal/claims-r2-ui',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();assert(t.includes('#page-claims')&&t.includes('__RONA_CLAIMS_R2_UI__'),'claims contract missing');return t});
+const remaining=await retry('Remaining sections current runtime',async attempt=>{const r=await fetchNoStore('/portal/remaining-sections-ui',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();assert(t.includes('renderRewards'),'agent rewards renderer missing');return t});
+await retry('canonical visual assets',async attempt=>{const [bg,logo]=await Promise.all([fetchNoStore('/assets/portal-canonical/background.png',attempt),fetchNoStore('/assets/portal-canonical/logo.svg',attempt)]);assert(bg.ok&&logo.ok,`bg ${bg.status} logo ${logo.status}`);return true});
+
+assert(main.length>0,'main-v2 body empty');
 assert(runtimeSrc.includes('/portal/main-ui'),'single-owner runtime does not load main-v2');
 assert(runtimeSrc.includes('/portal/claims-r2-ui'),'single-owner runtime does not load Claims');
 assert(runtimeSrc.includes('/portal/remaining-sections-ui'),'single-owner runtime does not load Agent Rewards/remaining sections');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!runtimeSrc.includes(forbidden),`competing Admin runtime returned: ${forbidden}`);
-assert(watchdogSrc.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'page-aware watchdog marker missing');
-assert(!watchdogSrc.includes('location.reload(')&&!watchdogSrc.includes('location.replace('),'destructive Admin recovery returned');
-for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4'])assert(accessSrc.includes(marker),`current access contract marker missing: ${marker}`);
-assert(claimsSrc.includes('#page-claims'),'claims host contract missing');
-assert(claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims current runtime marker missing');
-assert(remainingSrc.includes('renderRewards'),'agent rewards renderer contract missing');
-for(const legacy of ['harvestLegacy','rona-admin-auth-v3413','installNavigationStability','installShellParity'])assert(!accessSrc.includes(legacy),`legacy/competing access dependency ${legacy}`);
-console.log('ADMIN_CURRENT_ONLY_PRODUCTION=PASS',JSON.stringify({base,adminState:integrity.admin_runtime.state,adminBytes:integrity.admin_runtime.emitted_bytes,legacyRuntime:false,shell:'current-only-v2',runtime:'single-owner-v3',watchdog:'page-aware-v2',access:'client-agent-v3',nav:'current-only-router-v2',claims:true,rewards:true}));
+assert(access.includes("new Option('Клиент','Клиент'),new Option('Агент','Агент')"),'Client/Agent create modes missing');
+assert(claims.includes('Зарегистрировать и направить клиенту'),'Claims workflow action missing');
+assert(remaining.includes('Вознаграждения агентов'),'Agent Rewards title missing');
+console.log('ADMIN_CURRENT_ONLY_PRODUCTION=PASS',JSON.stringify({base,sha,adminState:integrity.admin_runtime.state,adminBytes:integrity.admin_runtime.emitted_bytes,legacyRuntime:false,shell:'current-only-v2',runtime:'single-owner-v3',watchdog:'page-aware-v2',access:'client-agent-v3',nav:'current-only-router-v2',claims:true,rewards:true,edgeConvergenceRetry:true}));
