@@ -19,6 +19,14 @@ const aiSync={
   generatedAt:now,
   marketAnalystFragment:{generatedAt:now,analytics:[],news:[],currentPublications:[]},
   homeCoordination:{generatedAt:now,totals:{TODAY:zero,'7D':zero,'30D':zero,ALL:zero},periods:{TODAY:[],'7D':[],'30D':[],ALL:[]},recent:[]},
+  agentRewardsFragment:{
+    generatedAt:now,
+    rows:[{
+      agent_legal_entity_id:'RONA-QA-A001',agent_legal_name:'QA Agent',client_id:'RONA-QA-C001',client_name:'QA Client',deal_id:'QA-DEAL-001',business_status:'EXECUTING',
+      term_status:'ACTIVE',term_lifecycle_state:'ACTIVE',term_authority_state:'CONFIRMED',commission_mode:'PERCENT',commission_rate:0.01,term_currency:'USD',
+      settlement_authority_state:'CONFIRMED',settlement_state:'PAYABLE_CONFIRMED',settlement_amount:100,settlement_currency:'USD'
+    }]
+  },
   aiRuntime:{enabled:true,scheduler_state:'ENABLED',worker_version:'qa-browser'}
 };
 const authority={
@@ -48,11 +56,13 @@ const optionalUiPaths=new Set([
 const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url||'/', 'http://127.0.0.1');
   const p=u.pathname;
+  if(p==='/favicon.ico')return send(res,204,'');
   if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');
   if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');
   if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui'||p==='/portal/remaining-sections-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');
   if(optionalUiPaths.has(p))return send(res,200,'/* QA optional current module */','application/javascript; charset=utf-8');
   if(p==='/portal/api/session/me')return json(res,{ok:true,user:{roles:['ADMIN'],display_name:'QA Admin'}});
+  if(p==='/portal/api/v1/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
   if(p==='/portal/logout')return json(res,{ok:true});
   if(p==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority});
   if(p==='/portal/admin-authority/agent-readiness')return json(res,{ok:true,data:{matrixReady:true}});
@@ -62,6 +72,7 @@ const server=http.createServer(async(req,res)=>{
     if(ownerPath==='/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
     if(ownerPath==='/admin/ai-sync')return json(res,{ok:true,data:aiSync});
     if(ownerPath==='/admin/claims')return json(res,{ok:true,data:{claims:[]}});
+    if(ownerPath==='/admin/analytics-bootstrap')return json(res,{ok:true,data:{generatedAt:now,marketNewsFeed:[]}});
     return json(res,{ok:true,data:{}});
   }
   const f=safeDistPath(p);
@@ -102,7 +113,8 @@ try{
   const context=await browser.newContext({viewport:{width:1920,height:1080}});
   const page=await context.newPage();
   page.on('pageerror',e=>failures.push(`pageerror:${String(e.message||e)}`));
-  page.on('console',m=>{if(m.type()==='error')failures.push(`console:${m.text()}`)});
+  page.on('response',r=>{if(r.status()>=400)failures.push(`http:${r.status()}:${r.url()}`)});
+  page.on('console',m=>{if(m.type()==='error'&&!m.text().startsWith('Failed to load resource:'))failures.push(`console:${m.text()}`)});
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>window.__RONA_ADMIN_CURRENT_ROUTER__==='current-only-router-v2',{timeout:10000});
   await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:15000});
@@ -149,8 +161,13 @@ try{
   await stableSelection(page,'claims',1200);
 
   await clickSection(page,'agent-settlements');
-  await page.locator('#page-agent-settlements .rona-rs-root[data-kind="rewards"]').waitFor({state:'visible',timeout:10000});
-  assert((await page.locator('#page-agent-settlements').innerText()).includes('Вознаграждения агентов'),'agent rewards functional page did not render');
+  const rewardsOwner=page.locator('#page-agent-settlements [data-rona-agent-rewards-owner="current-v1"]');
+  await rewardsOwner.waitFor({state:'visible',timeout:10000});
+  await page.waitForFunction(()=>window.__RONA_AGENT_REWARDS_CURRENT_READY__===true,{timeout:10000});
+  const rewardsText=await rewardsOwner.innerText();
+  assert(rewardsText.includes('Вознаграждения агентов'),'agent rewards canonical page did not render');
+  assert(rewardsText.includes('QA Agent'),'agent rewards canonical data row did not render');
+  assert(rewardsText.includes('100 USD'),'agent rewards confirmed amount did not render');
   await stableSelection(page,'agent-settlements',1200);
 
   for(let i=0;i<3;i++){
@@ -162,7 +179,7 @@ try{
   const runtime=await page.evaluate(()=>({
     shell:window.__RONA_ADMIN_CURRENT_SHELL__,router:window.__RONA_ADMIN_CURRENT_ROUTER__,runtime:window.__RONA_ADMIN_RUNTIME_OWNER__,
     access:window.__RONA_CLIENTS_AGENTS_CURRENT__,accessReady:window.__RONA_CLIENTS_AGENTS_CURRENT_READY__,claims:window.__RONA_CLAIMS_R2_UI__,remaining:window.__RONA_REMAINING_SECTIONS_R2__,
-    moduleErrors:window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__||[]
+    rewardsReady:window.__RONA_AGENT_REWARDS_CURRENT_READY__,rewardsState:window.__RONA_AGENT_REWARDS_CURRENT_STATE__,moduleErrors:window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__||[]
   }));
   assert(runtime.shell==='current-only-v2','wrong shell '+runtime.shell);
   assert(runtime.router==='current-only-router-v2','wrong router '+runtime.router);
@@ -170,6 +187,7 @@ try{
   assert(runtime.accessReady===true,'Clients/Agents module never became ready');
   assert(!!runtime.claims,'Claims module marker absent');
   assert(!!runtime.remaining,'Remaining sections module marker absent');
+  assert(runtime.rewardsReady===true,'Agent Rewards canonical owner never became ready');
   assert(!runtime.moduleErrors.some(x=>String(x.stage||'').includes('claims')||String(x.stage||'').includes('remaining')||String(x.stage||'').includes('clients-agents')),'functional module load errors '+JSON.stringify(runtime.moduleErrors));
   assert(failures.length===0,'browser errors: '+failures.join(' | '));
   console.log('ADMIN_REAL_BROWSER_RUNTIME_QA=PASS');
