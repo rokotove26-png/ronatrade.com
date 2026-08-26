@@ -1,0 +1,24 @@
+{
+  "name": "rona-system-admin",
+  "version": "1.0.0",
+  "description": "RONA Trade system administration workspace plugin backed by the existing authenticated MCP endpoint.",
+  "author": {
+    "name": "RONA Trade",
+    "url": "https://ronaoil.com/"
+  },
+  "homepage": "https://ronaoil.com/",
+  "repository": "https://github.com/rokotove26-png/ronatrade.com",
+  "keywords": ["rona", "system-admin", "operations", "mcp"],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "RONA System Admin",
+    "shortDescription": "RONA Trade system administration and runtime diagnostics",
+    "longDescription": "Connect ChatGPT to the existing RONA Trade System Admin MCP contour for current-state checks and audited technical diagnostics within the fixed SYSTEM_ADMIN role.",
+    "developerName": "RONA Trade",
+    "category": "Operations",
+    "capabilities": ["Interactive", "Read"],
+    "websiteURL": "https://ronaoil.com/",
+    "brandColor": "#D71920",
+    "defaultPrompt": ["Check the current RONA System Admin state and continue technical work within the fixed SYSTEM_ADMIN role."]
+  }
+}
