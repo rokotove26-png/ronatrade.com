@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
 import { onRequest as mainUiRequest } from '../functions/portal/main-ui.js';
+import { onRequest as analyticsUiRequest } from '../functions/portal/analytics-v2-ui.js';
+import { onRequest as railStableRequest } from '../functions/portal/rail-current-stable-ui.js';
 
 const ROOT=process.cwd();
 const DIST=join(ROOT,'dist');
@@ -36,6 +38,10 @@ const authority={
 
 const mainResponse=await mainUiRequest();
 const mainUi=await mainResponse.text();
+const analyticsResponse=await analyticsUiRequest();
+const analyticsUi=await analyticsResponse.text();
+const railResponse=await railStableRequest({});
+const railUi=await railResponse.text();
 
 function send(res,status,body,type='text/plain; charset=utf-8',headers={}){
   res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});
@@ -59,13 +65,15 @@ const server=http.createServer(async(req,res)=>{
   if(p==='/favicon.ico')return send(res,204,'');
   if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');
   if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/analytics-v2-ui')return send(res,200,analyticsUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/rail-current-stable-ui')return send(res,200,railUi,'application/javascript; charset=utf-8');
   if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui'||p==='/portal/remaining-sections-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');
   if(optionalUiPaths.has(p))return send(res,200,'/* QA optional current module */','application/javascript; charset=utf-8');
   if(p==='/portal/api/session/me')return json(res,{ok:true,user:{roles:['ADMIN'],display_name:'QA Admin'}});
   if(p==='/portal/api/v1/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
   if(p==='/portal/logout')return json(res,{ok:true});
   if(p==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority});
-  if(p==='/portal/admin-authority/agent-readiness')return json(res,{ok:true,data:{matrixReady:true}});
+  if(p==='/portal/admin-authority/agent-readiness')return json(res,{ok:true,data:{matrixReady:true,profiles:[{agentPersonId:'RONA-QA-A001',displayAlias:'QA Agent'}]}});
   if(p.startsWith('/portal/admin-authority/'))return json(res,{ok:true,data:{}});
   if(p==='/portal/owner-api'){
     const ownerPath=u.searchParams.get('path')||'';
@@ -86,6 +94,7 @@ const origin=`http://127.0.0.1:${address.port}`;
 const failures=[];
 const notes=[];
 const assert=(v,m)=>{if(!v)throw new Error(m)};
+const compactText=v=>String(v||'').replace(/\s+/g,' ').trim();
 async function stableSelection(page,key,wait=900){
   await page.waitForTimeout(wait);
   const state=await page.evaluate(k=>({
@@ -137,15 +146,17 @@ try{
   await create.click();
   const modal=page.locator('.rona-access-full');
   await modal.waitFor({state:'visible',timeout:5000});
-  const accessText=await modal.innerText();
+  const accessText=compactText(await modal.innerText());
   for(const marker of ['Тип доступа','Ф.И.О.','Единый логин','Электронная почта','Телефон','Роль привязки','Компании и договоры клиента','Открыть без контракта','Загрузить договор']){
     assert(accessText.includes(marker),`access modal: ${marker} missing`);
   }
+  assert(await modal.locator('input[placeholder="Единый логин"]').count()===1,'access modal: separate login input missing');
+  assert(await modal.locator('input[type="email"]').count()===1,'access modal: separate email input missing');
   assert(await page.locator('.ca-modal').count()===0,'access modal: simplified competing modal opened');
   const role=modal.locator('select').first();
   await role.selectOption({label:'Агент'});
   await page.waitForTimeout(100);
-  assert((await modal.innerText()).includes('Профиль агента'),'access modal: Профиль агента missing');
+  assert(compactText(await modal.innerText()).includes('Профиль агента'),'access modal: Профиль агента missing');
   await modal.locator('button:has-text("Отмена")').click();
   await stableSelection(page,'access',1200);
 
