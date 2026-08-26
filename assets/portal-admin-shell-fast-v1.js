@@ -1,13 +1,13 @@
 (()=>{'use strict';
 if(window.__RONA_ADMIN_SHELL_RESILIENCE__)return;
-window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v4';
-window.__RONA_ADMIN_RUNTIME_OWNER__='single-owner-v4';
+window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3';
+window.__RONA_ADMIN_RUNTIME_OWNER__='single-owner-v3';
 window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__=[];
 window.__RONA_ADMIN_MODULES__=Object.create(null);
 window.__RONA_ADMIN_SESSION_STATE__='CHECKING';
 const LOGIN='/portal/login?next='+encodeURIComponent('/portal/admin');
 const root=document.documentElement;
-root.dataset.ronaAdminRuntimeOwner='single-owner-v4';
+root.dataset.ronaAdminRuntimeOwner='single-owner-v3';
 root.dataset.ronaAdminShellOwner='canonical-home-v4';
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 
@@ -16,7 +16,7 @@ function recordError(stage,error){
   window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__.push(entry);
   console.warn('[RONA Admin]',entry.stage,entry.error);
 }
-function revealShell(reason='single-owner-v4'){
+function revealShell(reason='single-owner-v3'){
   root.classList.add('rona-owner-paint-ready');
   root.dataset.ronaOwnerPaint='current-only';
   root.dataset.ronaAdminShell=reason;
@@ -48,7 +48,7 @@ function scriptOnce(src,id,timeout=14000){
     let prior=document.getElementById(id);
     if(prior&&prior.dataset.ronaLoaded==='true'){resolve(prior);return}
     if(prior)prior.remove();
-    const s=document.createElement('script');s.id=id;s.src=src;s.async=false;s.dataset.ronaSingleOwner='v4';
+    const s=document.createElement('script');s.id=id;s.src=src;s.async=false;s.dataset.ronaSingleOwner='v3';
     let done=false;
     const finish=(ok,v)=>{if(done)return;done=true;clearTimeout(timer);if(ok){s.dataset.ronaLoaded='true';resolve(s)}else{s.remove();reject(v)}};
     const timer=setTimeout(()=>finish(false,new Error('SCRIPT_TIMEOUT:'+id)),timeout);
@@ -124,7 +124,7 @@ window.addEventListener('rona:admin-module-retry',event=>{
 });
 
 if(!window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__){
-  window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__='single-owner-v4';
+  window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__='single-owner-v3';
   const BASE='/portal/admin-authority';let authorityBusy=false;
   async function call(path,options){const init=Object.assign({credentials:'same-origin',cache:'no-store',headers:{}},options||{});const r=await fetch(BASE+path,init);const j=await r.json().catch(()=>({}));if(!r.ok||j?.ok===false){const e=new Error(String(j?.code||('HTTP_'+r.status)));e.code=String(j?.code||'REQUEST_FAILED');e.status=r.status;e.payload=j;throw e}return j}
   async function coreBootstrap(){const r=await fetch('/portal/api/v1/admin/bootstrap',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok)throw new Error(String(j?.code||'ADMIN_BOOTSTRAP_FAILED'));return j.data}
@@ -151,7 +151,7 @@ if(!window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__){
 }
 
 (function installLogout(){
-  if(window.__RONA_PORTAL_LOGOUT_RUNTIME__)return;window.__RONA_PORTAL_LOGOUT_RUNTIME__='single-owner-v4';let signingOut=false;
+  if(window.__RONA_PORTAL_LOGOUT_RUNTIME__)return;window.__RONA_PORTAL_LOGOUT_RUNTIME__='single-owner-v3';let signingOut=false;
   async function signOut(event){event?.preventDefault();event?.stopImmediatePropagation();if(signingOut)return;signingOut=true;try{await fetch('/portal/logout',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}})}catch(e){recordError('logout',e)}finally{location.replace('https://ronaoil.com')}}
   document.addEventListener('click',e=>{const b=e.target?.closest?.('[data-action="logout"]');if(b)signOut(e)},true)
 })();
