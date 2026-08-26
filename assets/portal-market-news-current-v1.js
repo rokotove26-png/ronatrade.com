@@ -1,13 +1,15 @@
 (()=>{
 'use strict';
 if(window.__RONA_MARKET_NEWS_CURRENT_V1__)return;
-window.__RONA_MARKET_NEWS_CURRENT_V1__='20260826-clean-rebuild-v1';
+window.__RONA_MARKET_NEWS_CURRENT_V1__='20260827-auto-refresh-v2';
 
 const PAGE_ID='page-market-news';
 const ROOT_ID='rona-market-news-current';
 const STYLE_ID='rona-market-news-current-style';
 const API='/portal/owner-api';
-const state={rows:[],loading:false,loaded:false,error:'',date:'',source:'ALL',search:'',updatedAt:''};
+const state={rows:[],loading:false,loaded:false,error:'',date:'',source:'ALL',search:'',updatedAt:'',fingerprint:''};
+const AUTO_REFRESH_MS=60000;
+let autoRefreshTimer=null;
 
 const q=(s,r=document)=>r.querySelector(s);
 function el(tag,attrs={},...children){
@@ -36,6 +38,9 @@ function bodyText(x){return String(x?.content_text||x?.summary||x?.body_text||x?
 function excerpt(x,max=260){const s=bodyText(x).replace(/\s+/g,' ').trim();return s.length>max?s.slice(0,max).trimEnd()+'…':s}
 function safeUrl(v){try{const u=new URL(String(v||''));return /^https?:$/.test(u.protocol)?u.href:''}catch(_){return''}}
 function sourceUrl(x){return safeUrl(x?.source_url||x?.url||x?.source_link)}
+function rowKey(x){return String(x?.duplicate_group||x?.news_id||x?.source_version||x?.publication_id||x?.id||[headline(x),timestamp(x),sourceName(x)].join('|'))}
+function dedupeRows(rows){const seen=new Set(),out=[];for(const x of rows){const k=rowKey(x);if(seen.has(k))continue;seen.add(k);out.push(x)}return out}
+function rowsFingerprint(rows){return JSON.stringify(rows.map(x=>[rowKey(x),String(x?.updated_at||x?.published_at||x?.prepared_at||x?.created_at||timestamp(x)||'')]))}
 function uniqueSources(){return Array.from(new Set(state.rows.map(sourceName))).sort((a,b)=>a.localeCompare(b,'ru'))}
 function filteredRows(){
   const needle=state.search.trim().toLocaleLowerCase('ru-RU');
@@ -229,8 +234,10 @@ async function loadData(force=false){
     let j={};try{j=await r.json()}catch(_){ }
     if(!r.ok||j?.ok===false)throw new Error(String(j?.code||'HTTP_'+r.status));
     const data=j?.data||{};
-    state.rows=Array.isArray(data.marketNewsFeed)?data.marketNewsFeed.slice():[];
-    state.rows.sort((a,b)=>String(timestamp(b)).localeCompare(String(timestamp(a))));
+    const incoming=dedupeRows(Array.isArray(data.marketNewsFeed)?data.marketNewsFeed.slice():[]);
+    incoming.sort((a,b)=>String(timestamp(b)).localeCompare(String(timestamp(a))));
+    const fingerprint=rowsFingerprint(incoming);
+    if(!state.loaded||fingerprint!==state.fingerprint){state.rows=incoming;state.fingerprint=fingerprint}
     state.loaded=true;state.updatedAt=new Date().toISOString();
   }catch(err){
     state.error=String(err?.message||err||'MARKET_NEWS_LOAD_FAILED');
@@ -239,7 +246,12 @@ async function loadData(force=false){
     state.loading=false;render();
   }
 }
-function activate(){ensureRoot();loadData(false)}
+function isActive(){return Boolean(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')}
+function refreshIfActive(){if(document.visibilityState==='visible'&&isActive())loadData(true)}
+function startAutoRefresh(){if(autoRefreshTimer)return;autoRefreshTimer=setInterval(refreshIfActive,AUTO_REFRESH_MS)}
+function activate(){ensureRoot();startAutoRefresh();loadData(true)}
+window.addEventListener('focus',refreshIfActive);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfActive()});
 window.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')==='market-news')activate()});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{if(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')activate()},{once:true});
 else if(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')activate();
