@@ -46,6 +46,7 @@ jobs:
           node --check functions/portal/agent.js
           node --check functions/portal/main-ui.js
           node --check assets/portal-admin-shell-fast-v1.js
+          node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/owner-api.js
           node --check 'functions/portal/owner-acceptance-api/[[path]].js'
@@ -64,13 +65,27 @@ jobs:
           grep -q 'rona-admin-shell" content="current-only-v2' portal-src/current/admin.html
           grep -q 'data-rona-admin-shell="current-only-v2' portal-src/current/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
-          grep -q 'grid-template-columns:238px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'grid-template-columns:272px minmax(0,1fr)' portal-src/current/admin.html
+          grep -q 'min-height:48px' portal-src/current/admin.html
+          grep -q 'font-size:14.5px' portal-src/current/admin.html
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
           grep -q 'data-page="claims"' portal-src/current/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
+          grep -q 'portal-admin-runtime-watchdog-v1.js' portal-src/current/admin.html
           grep -q 'clients-agents-current-ui' portal-src/current/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
+          ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
+          grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
           grep -q "path: 'portal-src/current/admin.html'" scripts/build-pages-direct-canonical.mjs
           grep -q 'legacy_runtime_in_deployment:false' scripts/build-pages-direct-canonical.mjs
           ! grep -q 'adminLoginGate' dist/portal/admin.html
