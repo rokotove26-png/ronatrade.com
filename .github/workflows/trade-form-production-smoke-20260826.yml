@@ -14,60 +14,39 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Wait for production diagnostic deployment
-        run: sleep 75
+        run: sleep 90
 
-      - name: Run controlled production delivery probes
+      - name: Probe exact Brevo send response
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           endpoint='https://ronaoil.com/api/forms/trade'
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-          request_probe() {
-            label="$1"
-            mode="$2"
-            company_suffix="$3"
-            body=$(cat <<JSON
+          body=$(cat <<JSON
           {
             "Contact Person":"RONA SYSTEM TEST",
-            "Company":"RONA Trade Internal Diagnostics ${now} ${company_suffix}",
+            "Company":"RONA Trade Internal Diagnostics ${now} exact403",
             "Company Registration Country":"Kyrgyzstan",
             "Petroleum Product":"LPG/SPBT",
             "Cargo Destination Country":"Kazakhstan",
             "Estimated Volume, tonnes":"1",
             "Phone":"+996000000000",
             "Email":"office_kg@ronaoil.com",
-            "Comments":"Automated internal production delivery isolation probe",
+            "Comments":"Automated internal Brevo 403 diagnostic",
             "Source":"RONA SYSTEM ADMIN",
             "Submitted At":"${now}",
             "Language":"EN",
             "Page URL / Source":"https://ronaoil.com/pages/home_large.html"
           }
           JSON
-            )
-            tmp=$(mktemp)
-            if [ -n "$mode" ]; then
-              status=$(curl --silent --show-error --max-time 20 --output "$tmp" --write-out '%{http_code}' \
-                --request POST "$endpoint" \
-                --header 'Origin: https://ronaoil.com' \
-                --header 'Content-Type: application/json' \
-                --header "x-rona-diagnostic: ${mode}" \
-                --data "$body" || true)
-            else
-              status=$(curl --silent --show-error --max-time 20 --output "$tmp" --write-out '%{http_code}' \
-                --request POST "$endpoint" \
-                --header 'Origin: https://ronaoil.com' \
-                --header 'Content-Type: application/json' \
-                --data "$body" || true)
-            fi
-            printf '%s_STATUS=%s\n' "$label" "$status"
-            printf '%s_BODY=' "$label"
-            cat "$tmp"
-            echo
-          }
-
-          request_probe PRE_DELIVERY pre-delivery pre
-          request_probe SIMULATED_FAILURE simulate-delivery-failure sim
-          request_probe BREVO_ACCOUNT brevo-account account
-          request_probe BREVO_MINIMAL_SEND brevo-minimal-send minimal
-          request_probe NORMAL '' normal
+          )
+          tmp=$(mktemp)
+          status=$(curl --silent --show-error --max-time 20 --output "$tmp" --write-out '%{http_code}' \
+            --request POST "$endpoint" \
+            --header 'Origin: https://ronaoil.com' \
+            --header 'Content-Type: application/json' \
+            --header 'x-rona-diagnostic: brevo-minimal-send' \
+            --data "$body")
+          echo "HTTP_STATUS=$status"
+          echo -n 'RESPONSE_BODY='; cat "$tmp"; echo
+          test "$status" = '200'
