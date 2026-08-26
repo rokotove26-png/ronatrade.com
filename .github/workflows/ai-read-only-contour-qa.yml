@@ -60,37 +60,33 @@ jobs:
           node --check functions/portal/api/v1/ai/market-data.js
           node --check 'functions/portal/api/v1/ai/documents/[[path]].js'
           node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/clients-agents-current-ui.js
 
-      - name: Canonical portal and approved production router non-regression
+      - name: Current Admin and approved production router non-regression
         run: |
-          BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
-          APPROVED_ADMIN_MIDDLEWARE_BLOB=4d859ba9901afdc5bfc0ce68d3f02c34cc9f3087
-          APPROVED_PORTAL_ROUTER_BLOB=94f8c6ba847162a5f58a0c7ce6d0a8c2a0cdf1c3
-          git cat-file -e "$BASE^{commit}"
-          git diff --exit-code "$BASE" -- \
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_REF="${{ github.base_ref }}"
+            git diff --exit-code "origin/$BASE_REF"...HEAD -- functions/portal/_middleware.js 'functions/portal/[[path]].js'
+          fi
+          git diff --exit-code 5634a6aa2f8c0b77169fad4ca217309357288d97 -- \
             portal-src/canonical \
             functions/portal/agent/_middleware.js \
             portal-src/agent.html \
             portal-src/client.html
-          test "$(git hash-object functions/portal/_middleware.js)" = "$APPROVED_ADMIN_MIDDLEWARE_BLOB"
-          test "$(git hash-object 'functions/portal/[[path]].js')" = "$APPROVED_PORTAL_ROUTER_BLOB"
-          grep -q 'rona-admin-live-authority-adapter' functions/portal/_middleware.js
-          grep -q 'enableExistingAgentAccessOption' functions/portal/_middleware.js
-          grep -q 'wrapOpenModalForAgentAccess' functions/portal/_middleware.js
-          grep -q "option.value='Агент'" functions/portal/_middleware.js
-          grep -q 'askAdminPassword' functions/portal/_middleware.js
-          grep -q 'setAccessUserPassword' functions/portal/_middleware.js
+          grep -q "if(url.pathname==='/portal/admin')return context.next();" functions/portal/_middleware.js
           grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/[[path]].js'
           grep -q 'proxyAdminAuthority' 'functions/portal/[[path]].js'
           grep -q "path.startsWith('/portal/admin-authority')" 'functions/portal/[[path]].js'
-          if grep -Eiq 'innerHTML|outerHTML|insertAdjacent|MutationObserver|\.append\(|\.prepend\(|replaceWith|<style|style[[:space:]]*=' functions/portal/_middleware.js; then
-            echo 'UNAPPROVED_VISUAL_DOM_MUTATION_DETECTED'
-            exit 1
-          fi
-          echo 'CANONICAL_VISUAL_ROUTER_BASELINE=PASS'
-          echo 'ADMIN_NONVISUAL_MIDDLEWARE_PIN=PASS'
-          echo 'ADMIN_AUTHORITY_ROUTER_PIN=PASS'
-          echo 'ADMIN_EXCLUSIVE_CONTROL_PLANE=PASS'
+          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          grep -q 'clients-agents-current-ui' portal-src/current/admin.html
+          grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q '/access/users' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
+          echo 'CURRENT_ADMIN_ROUTER_BASELINE=PASS'
+          echo 'ADMIN_AUTHORITY_ROUTER=PASS'
+          echo 'ADMIN_ACCESS_CURRENT_ONLY=PASS'
 
       - name: Production build regression
         run: npm run build
@@ -100,6 +96,7 @@ jobs:
           BASE=5634a6aa2f8c0b77169fad4ca217309357288d97
           git cat-file -e "$BASE^{commit}"
           git diff --exit-code "$BASE" -- portal-src/canonical
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
 
       - name: Credential leak scan
         run: |
