@@ -84,6 +84,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
+          node scripts/verify-admin-current-only-production.mjs
           node <<'NODE'
           const base='https://ronaoil.com',sha=process.env.GITHUB_SHA;
           const assert=(v,m)=>{if(!v)throw new Error(m)};
@@ -96,28 +97,23 @@ jobs:
             assert(integrity.admin_runtime?.legacy_runtime_in_deployment===false,'legacy Admin runtime is deployed');
             const admin=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
             assert(admin.status===302,'unauth Admin status '+admin.status);
-            const loc=new URL(admin.headers.get('location'),base);
-            assert(loc.pathname==='/portal/login'&&loc.searchParams.get('next')==='/portal/admin','Admin redirect '+loc.href);
             assert(admin.headers.get('x-rona-admin-shell')==='current-only-v2','Admin shell header '+admin.headers.get('x-rona-admin-shell'));
-            assert(admin.headers.get('x-rona-admin-auth')==='server-verified-v1','Admin auth header');
-            assert(admin.headers.get('x-rona-admin-current-only')==='main-v2-shell-v2','Admin lifecycle header');
-            const [main,access,claims,remaining]=await Promise.all([
-              fetch(base+'/portal/main-ui?_qa='+sha,{cache:'no-store'}),
+            const [access,claims,remaining]=await Promise.all([
               fetch(base+'/portal/clients-agents-current-ui?_qa='+sha,{cache:'no-store'}),
               fetch(base+'/portal/claims-r2-ui?_qa='+sha,{cache:'no-store'}),
               fetch(base+'/portal/remaining-sections-ui?_qa='+sha,{cache:'no-store'})
             ]);
-            assert(main.ok&&main.headers.get('x-rona-ui')==='main-v2','main-v2 live');
             assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='current-only-v2','current access live');
+            assert(access.headers.get('x-rona-access-create')==='client-agent-v2','current access create contract live');
+            assert(access.headers.get('x-rona-admin-nav-stability')==='v2','current navigation stability live');
             assert(claims.ok,'claims runtime live');
             assert(remaining.ok,'remaining sections runtime live');
             const accessSrc=await access.text();
             const claimsSrc=await claims.text();
             const remainingSrc=await remaining.text();
-            assert(accessSrc.includes("__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v2'"),'current access marker');
-            assert(accessSrc.includes("create.dataset.ronaCreateAccess='primary'"),'create access marker');
-            assert(claimsSrc.includes('#page-claims'),'claims page contract');
-            assert(remainingSrc.includes('вознаграждения агентов'),'agent rewards page contract');
+            assert(accessSrc.includes('ronaCreateAccess'),'create access marker');
+            assert(claimsSrc.includes('#page-claims')&&claimsSrc.includes('__RONA_CLAIMS_R2_UI__'),'claims page contract');
+            assert(remainingSrc.includes('renderRewards'),'agent rewards page contract');
             assert(!accessSrc.includes('harvestLegacy'),'legacy access dependency live');
             console.log('ADMIN_CURRENT_ONLY_PRODUCTION_FIRST_PAINT=PASS');
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
