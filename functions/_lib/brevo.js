@@ -1,5 +1,7 @@
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
 const BREVO_TIMEOUT_MS = 6000;
+const RONA_SMTP_BRIDGE_ENDPOINT = 'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-mail-auth-test';
+const RONA_SMTP_BRIDGE_TIMEOUT_MS = 20000;
 const DEFAULT_SENDER_EMAIL = 'office_kg@ronaoil.com';
 const DEFAULT_SENDER_NAME = 'RONA Trade Website';
 
@@ -178,6 +180,55 @@ async function sendViaMailerBinding(env, payload) {
   }
 }
 
+async function sendViaCorporateSmtpBridge(payload) {
+  if (payload.channel !== 'trade') return false;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), RONA_SMTP_BRIDGE_TIMEOUT_MS);
+  try {
+    const response = await fetch(RONA_SMTP_BRIDGE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json; charset=utf-8'
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      let code = '';
+      try {
+        const body = await response.json();
+        code = sanitizeDiagnostic(body?.code, 100);
+      } catch {
+        // Status is sufficient for diagnostics.
+      }
+      console.error(JSON.stringify({
+        event: 'RONA_SMTP_BRIDGE_FAILED',
+        status: response.status,
+        code
+      }));
+      return false;
+    }
+
+    console.log(JSON.stringify({
+      event: 'RONA_SMTP_BRIDGE_OK',
+      status: response.status
+    }));
+    return true;
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: 'RONA_SMTP_BRIDGE_EXCEPTION',
+      name: sanitizeDiagnostic(error?.name, 80),
+      message: sanitizeDiagnostic(error?.message, 300)
+    }));
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function sendFormEmail(env, payload) {
   const config = CHANNELS[payload.channel];
   if (!config) return false;
@@ -204,5 +255,6 @@ export async function sendFormEmail(env, payload) {
   }
 
   if (await sendViaBrevo(env, message)) return true;
-  return sendViaMailerBinding(env, normalizedPayload);
+  if (await sendViaMailerBinding(env, normalizedPayload)) return true;
+  return sendViaCorporateSmtpBridge(normalizedPayload);
 }
