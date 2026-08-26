@@ -9,6 +9,7 @@ const PUBLIC_ORIGIN='https://ronaoil.com';
 const encoder=new TextEncoder();
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const NONCE_RE=/^[A-Za-z0-9_-]{43,128}$/;
+const HASH_RE=/^[0-9a-f]{64}$/;
 const FORM_FIELDS=new Set(['request_id','email','password','confirm','continuation_nonce']);
 const SEGMENT_ROLE=Object.freeze({
   'operations':'OPERATIONS_DIRECTOR',
@@ -31,7 +32,6 @@ function publicResource(segment){return `${PUBLIC_ORIGIN}/${segment}/mcp`;}
 function contentTypeIsForm(value){return String(value||'').toLowerCase().split(';',1)[0].trim()==='application/x-www-form-urlencoded';}
 async function readTextLimited(req,max){const len=req.headers.get('content-length');if(len&&Number(len)>max)throw Object.assign(new Error('REQUEST_TOO_LARGE'),{status:413});const text=await req.text();if(encoder.encode(text).length>max)throw Object.assign(new Error('REQUEST_TOO_LARGE'),{status:413});return text;}
 async function sha256Hex(value){const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(String(value))));return[...digest].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function randomToken(bytes=32){const b=crypto.getRandomValues(new Uint8Array(bytes));let s='';for(const x of b)s+=x.toString(16).padStart(2,'0');return s;}
 function safeHeader(req,name,max=180){const v=String(req.headers.get(name)||'').slice(0,max);return v||null;}
 function traceMeta(req){return{
   origin:safeHeader(req,'x-rona-oauth-original-origin',80),
@@ -60,7 +60,7 @@ async function prepare(ctx){
   if(String(rows[0].resource)!==publicResource(ctx.segment)){await writeTrace(ctx,{phase:'PREPARE_RESOURCE_REJECTED',requestId,correlationHash,result:'REJECTED',publicStatus:400});return json({error:'invalid_target'},400);}
   let authUser;try{const client=createClient(SUPA_URL,publicSupabaseKey(),{auth:{persistSession:false,autoRefreshToken:false}});const {data,error}=await client.auth.signInWithPassword({email,password});if(error||!data?.user)throw error||new Error('AUTH_FAILED');authUser=data.user;}catch{await writeTrace(ctx,{phase:'PREPARE_OWNER_AUTH_REJECTED',requestId,correlationHash,result:'REJECTED',publicStatus:403});return json({error:'access_denied'},403);}
   const ownerId=await ownerPortalUser(authUser.id);if(!ownerId){await writeTrace(ctx,{phase:'PREPARE_OWNER_ALLOWLIST_REJECTED',requestId,correlationHash,result:'REJECTED',publicStatus:403});return json({error:'access_denied'},403);}
-  try{await sql.begin(async tx=>{const updated=await tx`update portal_private.mcp_oauth_authorization_requests set used_at=now(),owner_portal_user_id=${ownerId}::uuid,completion_nonce_hash=${correlationHash},completion_expires_at=now()+interval '2 minutes',completion_used_at=null where request_id=${requestId}::uuid and server_slug=${cfg.server_slug} and functional_role=${ctx.role}::portal_private.ai_business_role_enum and used_at is null and expires_at>now() returning request_id`;if(updated.length!==1)throw new Error('AUTH_REQUEST_REUSED');});}catch{await writeTrace(ctx,{phase:'PREPARE_RACE_REJECTED',requestId,correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:'ONE_TIME_REQUEST_REUSED'}});return json({error:'invalid_request',error_description:'authorization request expired'},400);}
+  try{await sql.begin(async tx=>{const updated=await tx`update portal_private.mcp_oauth_authorization_requests set used_at=now(),owner_portal_user_id=${ownerId}::uuid,completion_nonce_hash=${correlationHash},completion_expires_at=now()+interval '2 minutes',completion_used_at=null,completion_code_hash=null where request_id=${requestId}::uuid and server_slug=${cfg.server_slug} and functional_role=${ctx.role}::portal_private.ai_business_role_enum and used_at is null and expires_at>now() returning request_id`;if(updated.length!==1)throw new Error('AUTH_REQUEST_REUSED');});}catch{await writeTrace(ctx,{phase:'PREPARE_RACE_REJECTED',requestId,correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:'ONE_TIME_REQUEST_REUSED'}});return json({error:'invalid_request',error_description:'authorization request expired'},400);}
   await writeTrace(ctx,{phase:'PREPARE_ACCEPTED',requestId,correlationHash,result:'SUCCESS',upstreamStatus:204,publicStatus:204,metadata:{request_used:true,code_issued:false}});
   return new Response(null,{status:204,headers:{'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff'}});
 }
@@ -69,13 +69,32 @@ async function complete(ctx){
   if(ctx.req.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405);
   const nonce=ctx.url.searchParams.get('nonce')||'';if(!NONCE_RE.test(nonce))return json({error:'invalid_request'},400);
   const correlationHash=await sha256Hex(nonce),cfg=await gatewayConfig(ctx);if(!cfg)return json({error:'MCP_CONFIG_UNAVAILABLE'},503);
-  const rows=await sql`select request_id,client_id,redirect_uri,state,code_challenge,scope,resource,owner_portal_user_id from portal_private.mcp_oauth_authorization_requests where server_slug=${cfg.server_slug} and functional_role=${ctx.role}::portal_private.ai_business_role_enum and completion_nonce_hash=${correlationHash} and used_at is not null and completion_used_at is null and completion_expires_at>now() and owner_portal_user_id is not null limit 1`;
-  if(rows.length!==1){await writeTrace(ctx,{phase:'COMPLETE_REJECTED',correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:'INVALID_OR_USED_CONTINUATION'}});return json({error:'invalid_request',error_description:'authorization completion invalid'},400);}
+  const rows=await sql`select request_id,client_id,redirect_uri,state,code_challenge,scope,resource,owner_portal_user_id,completion_used_at,completion_code_hash from portal_private.mcp_oauth_authorization_requests where server_slug=${cfg.server_slug} and functional_role=${ctx.role}::portal_private.ai_business_role_enum and completion_nonce_hash=${correlationHash} and used_at is not null and completion_expires_at>now() and owner_portal_user_id is not null and (completion_used_at is null or completion_code_hash is not null) limit 1`;
+  if(rows.length!==1){await writeTrace(ctx,{phase:'COMPLETE_REJECTED',correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:'INVALID_OR_EXPIRED_CONTINUATION'}});return json({error:'invalid_request',error_description:'authorization completion invalid'},400);}
   const row=rows[0];if(String(row.resource)!==publicResource(ctx.segment)){await writeTrace(ctx,{phase:'COMPLETE_RESOURCE_REJECTED',requestId:row.request_id,correlationHash,result:'REJECTED',publicStatus:400});return json({error:'invalid_target'},400);}
-  const code=randomToken(32),codeHash=await sha256Hex(code);
-  try{await sql.begin(async tx=>{const used=await tx`update portal_private.mcp_oauth_authorization_requests set completion_used_at=now() where request_id=${row.request_id}::uuid and completion_nonce_hash=${correlationHash} and completion_used_at is null and completion_expires_at>now() returning request_id`;if(used.length!==1)throw new Error('COMPLETION_REUSED');await tx`insert into portal_private.mcp_oauth_authorization_codes(code_hash,server_slug,functional_role,client_id,redirect_uri,code_challenge,scope,resource,owner_portal_user_id,expires_at) values(${codeHash},${cfg.server_slug},${ctx.role}::portal_private.ai_business_role_enum,${row.client_id},${row.redirect_uri},${row.code_challenge},${row.scope},${row.resource},${row.owner_portal_user_id}::uuid,now()+interval '5 minutes')`;});}catch{await writeTrace(ctx,{phase:'COMPLETE_RACE_REJECTED',requestId:row.request_id,correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:'ONE_TIME_COMPLETION_REUSED'}});return json({error:'invalid_request',error_description:'authorization completion invalid'},400);}
+  const code=await sha256Hex(['RONA_MCP_AUTH_CODE_V2',nonce,row.request_id,cfg.server_slug,row.client_id].join('|'));
+  const codeHash=await sha256Hex(code);
+  if(row.completion_used_at&&(!HASH_RE.test(String(row.completion_code_hash||''))||String(row.completion_code_hash)!==codeHash)){await writeTrace(ctx,{phase:'COMPLETE_REJECTED',requestId:row.request_id,correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:'LEGACY_OR_MISMATCHED_COMPLETION'}});return json({error:'invalid_request',error_description:'authorization completion invalid'},400);}
+  let replay=false;
+  try{await sql.begin(async tx=>{
+    const locked=await tx`select request_id,completion_used_at,completion_code_hash,completion_expires_at from portal_private.mcp_oauth_authorization_requests where request_id=${row.request_id}::uuid and server_slug=${cfg.server_slug} and functional_role=${ctx.role}::portal_private.ai_business_role_enum and completion_nonce_hash=${correlationHash} and used_at is not null and completion_expires_at>now() and owner_portal_user_id is not null for update`;
+    if(locked.length!==1)throw new Error('COMPLETION_INVALID');
+    const current=locked[0];
+    if(current.completion_used_at){
+      if(String(current.completion_code_hash||'')!==codeHash)throw new Error('COMPLETION_REUSED_LEGACY');
+      replay=true;
+    }else{
+      const used=await tx`update portal_private.mcp_oauth_authorization_requests set completion_used_at=now(),completion_code_hash=${codeHash} where request_id=${row.request_id}::uuid and completion_nonce_hash=${correlationHash} and completion_used_at is null and completion_expires_at>now() returning request_id`;
+      if(used.length!==1)throw new Error('COMPLETION_RACE');
+      await tx`insert into portal_private.mcp_oauth_authorization_codes(code_hash,server_slug,functional_role,client_id,redirect_uri,code_challenge,scope,resource,owner_portal_user_id,expires_at) values(${codeHash},${cfg.server_slug},${ctx.role}::portal_private.ai_business_role_enum,${row.client_id},${row.redirect_uri},${row.code_challenge},${row.scope},${row.resource},${row.owner_portal_user_id}::uuid,now()+interval '5 minutes') on conflict(code_hash) do nothing`;
+    }
+    const issued=await tx`select code_hash,server_slug,functional_role::text,client_id,redirect_uri,code_challenge,scope,resource,owner_portal_user_id,expires_at from portal_private.mcp_oauth_authorization_codes where code_hash=${codeHash} limit 1`;
+    if(issued.length!==1)throw new Error('AUTH_CODE_NOT_FOUND');
+    const i=issued[0];
+    if(String(i.server_slug)!==String(cfg.server_slug)||String(i.functional_role)!==String(ctx.role)||String(i.client_id)!==String(row.client_id)||String(i.redirect_uri)!==String(row.redirect_uri)||String(i.code_challenge)!==String(row.code_challenge)||String(i.scope)!==String(row.scope)||String(i.resource)!==String(row.resource)||String(i.owner_portal_user_id)!==String(row.owner_portal_user_id))throw new Error('AUTH_CODE_SCOPE_MISMATCH');
+  });}catch(e){await writeTrace(ctx,{phase:'COMPLETE_RACE_REJECTED',requestId:row.request_id,correlationHash,result:'REJECTED',publicStatus:400,metadata:{reason:String(e?.message||'COMPLETION_FAILED').slice(0,120)}});return json({error:'invalid_request',error_description:'authorization completion invalid'},400);}
   const redir=new URL(String(row.redirect_uri));redir.searchParams.set('code',code);redir.searchParams.set('state',String(row.state));const host=redir.hostname,path=redir.pathname,stateMatch=redir.searchParams.get('state')===String(row.state);
-  await writeTrace(ctx,{phase:'COMPLETE_CALLBACK_ISSUED',requestId:row.request_id,correlationHash,result:'SUCCESS',upstreamStatus:302,publicStatus:303,callbackHost:host,callbackPath:path,hasLocation:true,hasCode:true,stateMatch,metadata:{request_used:true,completion_used:true,code_issued:true}});
+  await writeTrace(ctx,{phase:replay?'COMPLETE_CALLBACK_REPLAYED':'COMPLETE_CALLBACK_ISSUED',requestId:row.request_id,correlationHash,result:'SUCCESS',upstreamStatus:302,publicStatus:303,callbackHost:host,callbackPath:path,hasLocation:true,hasCode:true,stateMatch,metadata:{request_used:true,completion_used:true,code_issued:!replay,idempotent_replay:replay}});
   return Response.redirect(redir.toString(),302);
 }
 
