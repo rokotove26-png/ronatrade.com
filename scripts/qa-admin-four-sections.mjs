@@ -114,9 +114,9 @@ try{
   await page.locator('#page-access [data-rona-create-access="primary"]').click();
   const modal=page.locator('.rona-access-full');await modal.waitFor({state:'visible',timeout:5000});
   const accessText=compact(await modal.innerText());
-  for(const marker of ['Тип доступа','Ф.И.О.','Телефон','Роль привязки','Компании и договоры клиента','Открыть без контракта','Загрузить договор'])assert(accessText.includes(marker),`access: missing ${marker}`);
-  assert(await modal.locator('input[placeholder="Единый логин"]').count()===1,'access: separate login missing');
-  assert(await modal.locator('input[type="email"]').count()===1,'access: separate email missing');
+  for(const marker of ['Тип доступа','Ф.И.О.','Единый логин','Электронная почта','Телефон','Роль привязки','Компании и договоры клиента','Открыть без контракта','Загрузить договор'])assert(accessText.includes(marker),`access: missing ${marker}`);
+  assert(await modal.getByLabel('Единый логин',{exact:true}).count()===1,'access: separate login missing');
+  assert(await modal.getByLabel('Электронная почта',{exact:true}).count()===1,'access: separate email missing');
   assert(await page.locator('.ca-modal').count()===0,'access: simplified competing modal opened');
   await modal.locator('select').first().selectOption('Агент');await page.waitForTimeout(100);
   assert(compact(await modal.innerText()).includes('Профиль агента'),'access: agent profile missing');
