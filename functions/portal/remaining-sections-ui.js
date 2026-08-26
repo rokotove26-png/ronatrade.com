@@ -1,4 +1,4 @@
-import { onRequest as baseRemaining } from './_remaining-sections-r2-source.mjs';
+import { onRequest as baseRemaining } from './remaining-sections-r2-base.js';
 
 export async function onRequest(context){
   const response=await baseRemaining(context);

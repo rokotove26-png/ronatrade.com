@@ -22,8 +22,8 @@ jobs:
         run: |
           node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/remaining-sections-ui.js
-          node --check functions/portal/_analytics-canonical-v3.mjs
-          node --check functions/portal/_remaining-sections-r2-source.mjs
+          node --check functions/portal/analytics-v2-approved-base.js
+          node --check functions/portal/remaining-sections-r2-base.js
           node --input-type=module <<'NODE'
           const analytics = await import('./functions/portal/analytics-v2-ui.js?qa='+Date.now());
           const analyticsSource = await (await analytics.onRequest({})).text();
