@@ -8,40 +8,47 @@ on:
       - .github/workflows/trade-form-mailer-smoke-20260826.yml
 
 jobs:
-  smoke:
+  isolate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Submit production trade form
+      - name: Isolate custom-domain vs Pages production POST
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           body=$(cat <<JSON
           {
             "Контактное лицо":"RONA SYSTEM TEST",
-            "Компания":"RONA Trade synthetic test ${ts}",
+            "Компания":"RONA Trade synthetic isolate ${ts}",
             "Страна регистрации компании":"Kyrgyzstan",
             "Нефтепродукт":"TEST ONLY",
             "Страна назначения груза":"Kyrgyzstan",
             "Ориентировочный объем, тонн":"1",
             "E-mail":"office_kg@ronaoil.com",
-            "Комментарий":"Synthetic production smoke test after MAILER service binding. Ignore.",
-            "Источник":"GitHub Actions production smoke test",
+            "Комментарий":"Synthetic diagnostic. Ignore.",
+            "Источник":"GitHub Actions isolated production probe",
             "Дата отправки":"${ts}",
             "Language":"RU",
             "URL страницы / источник":"https://ronaoil.com/"
           }
           JSON
           )
-          code=$(curl -sS -o response.json -w "%{http_code}" \
-            -X POST "https://ronaoil.com/api/forms/trade" \
-            -H "Origin: https://ronaoil.com" \
-            -H "Content-Type: application/json" \
-            --data "$body")
-          echo "HTTP $code"
-          cat response.json
-          test "$code" = "202"
-          grep -q '"success":true' response.json
 
-# Trigger: final production verification after MAILER binding 2026-08-26
+          probe() {
+            label="$1"; url="$2"; origin="$3"
+            echo "===== ${label} ====="
+            curl -sS -D "${label}.headers" -o "${label}.body" \
+              -X POST "$url/api/forms/trade" \
+              -H "Origin: $origin" \
+              -H "Content-Type: application/json" \
+              --data "$body" || true
+            head -n 30 "${label}.headers" || true
+            echo "--- BODY ---"
+            cat "${label}.body" || true
+            echo
+          }
+
+          probe custom https://ronaoil.com https://ronaoil.com
+          probe pages https://rona-trade-public.pages.dev https://rona-trade-public.pages.dev
+          probe olddeploy https://3bef8b32.rona-trade-public.pages.dev https://3bef8b32.rona-trade-public.pages.dev
