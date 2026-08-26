@@ -10,6 +10,7 @@ on:
       - 'fix/admin-shell-static-assets-pretty-path-20260826'
       - 'fix/admin-current-only-owner-ui-20260826'
       - 'fix/admin-runtime-self-heal-20260826'
+      - 'fix/admin-access-nav-parity-20260826'
 
 jobs:
   admin-shell-resilience:
@@ -33,6 +34,7 @@ jobs:
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
+          node tests/admin-current-access-nav-v2.test.mjs
       - name: Build Cloudflare Pages artifact
         run: npm run build
       - name: Verify current-only Admin artifact
