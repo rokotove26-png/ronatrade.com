@@ -1,0 +1,4 @@
+RONA Trade Admin current-only-v2 deployment marker
+build=20260826-1318
+purpose=force exact Cloudflare Pages production deployment after live verifier escaped-JS correction
+runtime_change=false
