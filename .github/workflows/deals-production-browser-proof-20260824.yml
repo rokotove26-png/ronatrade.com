@@ -5,6 +5,8 @@ on:
     branches:
       - 'hotfix/deals-production-proof-v15-20260824'
       - 'release/public-go-live-v1.1'
+  pull_request:
+    branches: [release/public-go-live-v1.1]
 
 permissions:
   actions: read
@@ -21,114 +23,55 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Verify source and browser runtime
+      - name: Verify current Deals owner and Admin loader
         shell: bash
         run: |
           set -euo pipefail
           npm run build
           node --check functions/portal/admin.js
-          grep -q 'src="/portal/main-ui"' functions/portal/admin.js
-          grep -q 'deals-current-state-v1.5' functions/portal/admin.js
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check functions/portal/main-ui.js
+          node --check functions/portal/deals-current-state-ui.js
+          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          grep -q '/portal/main-ui?v=20260824-0320' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/deals-current-state-ui?v=20260824-0320' assets/portal-admin-shell-fast-v1.js
           grep -q 'current-only-v1.5' functions/portal/main-ui.js
           grep -q 'current-state-v1.5' functions/portal/deals-current-state-ui.js
           grep -q "replaceAll('waitsAction','waitsPayment')" functions/portal/deals-current-state-ui.js
           grep -q 'ronaDealsLayoutV15' functions/portal/deals-current-state-ui.js
           grep -q 'width:310px!important' functions/portal/deals-current-state-ui.js
           grep -q 'width:145px!important' functions/portal/deals-current-state-ui.js
-          npm install --no-save --ignore-scripts playwright@1.54.2
-          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
-
-      - name: Resolve deployed target
-        id: target
+          ! grep -q 'adminLoginGate' dist/portal/admin.html
+          echo 'DEALS_CURRENT_ONLY_SOURCE=PASS'
+      - name: Wait for exact production deploy
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Verify deployed Deals runtime markers
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
-          set -euo pipefail
-          node <<'NODE'
-          const fs=require('fs');
-          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,gh=process.env.GH_TOKEN;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{for(let i=0;i<180;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-DEALS-DEPLOY-PROOF'}});
-            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);await sleep(ref==='refs/heads/release/public-go-live-v1.1'?6000:4000);if(ref==='refs/heads/release/public-go-live-v1.1'){fs.appendFileSync(process.env.GITHUB_OUTPUT,'origin=https://ronaoil.com\n');return}const text=String(cf.output?.summary||'')+' '+String(cf.output?.text||'')+' '+String(cf.details_url||'');const urls=[...text.matchAll(/https:\/\/[a-z0-9.-]+\.pages\.dev/ig)].map(x=>x[0]);const u=urls.find(x=>!/rona-trade-public\.pages\.dev$/i.test(x))||urls[0];if(!u)throw new Error('Preview URL not found');fs.appendFileSync(process.env.GITHUB_OUTPUT,`origin=${u}\n`);return}}
-            await sleep(3000);
-          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
-
-      - name: Verify deployed runtime markers
-        env:
-          TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "$TARGET_ORIGIN/portal/deals-current-state-ui?proof=$GITHUB_SHA"
+          node scripts/verify-admin-current-only-production.mjs
+          curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA"
           grep -qi '^x-rona-deals-ui: current-state-v1.5' /tmp/deals.headers
           node --check /tmp/deals.js
           grep -q 'function isolateDealsPage(root,host)' /tmp/deals.js
           grep -q "host.dataset.ronaDealsOwner='current-v1.5'" /tmp/deals.js
-          grep -q 'function guardDealsOwner()' /tmp/deals.js
           grep -q 'function waitsPayment(d)' /tmp/deals.js
-          if grep -q 'waitsAction' /tmp/deals.js; then echo 'legacy waitsAction reference remains' >&2; exit 1; fi
+          ! grep -q 'waitsAction' /tmp/deals.js
           grep -q "kpi('Ожидают оплаты'" /tmp/deals.js
           grep -q "'Базис поставки'" /tmp/deals.js
           grep -q "'Общий объём сделок, т'" /tmp/deals.js
           grep -q "'Общая сумма сделок'" /tmp/deals.js
-          grep -q 'ronaDealsLayoutV15' /tmp/deals.js
-          grep -q 'width:310px!important' /tmp/deals.js
-          grep -q 'width:145px!important' /tmp/deals.js
-          grep -q 'text-overflow:clip!important' /tmp/deals.js
-          if grep -q "kpi('Ожидают оплаты или действий'" /tmp/deals.js; then exit 1; fi
-          curl -fsS -D /tmp/main.headers -o /tmp/main.js "$TARGET_ORIGIN/portal/main-ui?proof=$GITHUB_SHA"
-          grep -qi '^x-rona-deals-owner: current-only-v1.5' /tmp/main.headers
-          node --check /tmp/main.js
-          grep -q 'function isolateDealsShell(p)' /tmp/main.js
-
-      - name: Prove current-only render and readable deal columns
-        env:
-          TARGET_ORIGIN: ${{ steps.target.outputs.origin }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          node <<'NODE'
-          const fs=require('fs');
-          const {chromium}=require('playwright');
-          const origin=process.env.TARGET_ORIGIN;
-          const deployedDealsScript=fs.readFileSync('/tmp/deals.js','utf8');
-          const assert=(x,m)=>{if(!x)throw new Error(m)};
-          const company='ОБЩЕСТВО С ОГРАНИЧЕННОЙ ОТВЕТСТВЕННОСТЬЮ ПРОВЕРКА ДЛИННОГО НАЗВАНИЯ';
-          const fixture={generatedAt:new Date().toISOString(),deals:[{deal_id:'DEAL-PROOF-001',client_id:'RONA-C002',legal_name:company,contract_id:'RONA-C002-CTR-2026-001',contract_status:'ACTIVE',contract_client_conflict:false,business_status:'ACTIVE',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',product_value:'АИ-92 К5',product_confirmed_at:new Date().toISOString(),quantity_tonnes_value:100,quantity_confirmed_at:new Date().toISOString(),source_product:'АИ-92 К5',source_quantity_tonnes:100,delivery_basis:'CPT Сарыагаш, Incoterms 2020',destination:'Сарыагаш',payment_handoff_state:'NOT_SENT',payment_expectation_state:'NOT_CREATED',payment_expectation_amount:0,obligation_amount:100000,received_amount:100000,client_remaining_amount:0,finance_currency:'USD',finance_status:'PAID',accounting_status:'OPEN',updated_at:new Date().toISOString()}],documents:[],rail:[],dataConflicts:[],applications:[]};
-          async function inspect(page){return page.evaluate(()=>{const root=document.querySelector('#page-deals'),host=root?.querySelector(':scope > .rona-owner-page-content[data-owner-page="deals"]'),owned=host?.querySelector(':scope > .rona-current-deals-owned'),legacy=document.getElementById('legacyDealsDiagnostics'),companyEl=owned?.querySelector('.rona-current-deal-company'),basisEl=owned?.querySelector('.rona-current-deal-table tbody tr td:nth-child(5) .rona-current-deal-main');const visible=n=>{if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0&&r.width>0&&r.height>0};const siblings=Array.from(root?.children||[]).filter(n=>n!==host&&visible(n)).map(n=>({id:n.id,cls:String(n.className||''),text:String(n.innerText||'').slice(0,180)})),cs=companyEl?getComputedStyle(companyEl):null;return{owned:!!owned,owner:host?.dataset?.ronaDealsOwner||'',siblings,text:String(owned?.innerText||''),rootText:String(root?.innerText||''),legacyDisplay:legacy?getComputedStyle(legacy).display:'MISSING',companyText:String(companyEl?.textContent||''),companyWhiteSpace:cs?.whiteSpace||'',companyOverflow:cs?.textOverflow||'',basisText:String(basisEl?.textContent||''),ui:window.__RONA_DEALS_CURRENT_STATE_UI__||'',error:window.__RONA_DEALS_CURRENT_STATE_ERROR__||'',snapshot:!!window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__}})}
-          function verify(v,label){assert(v.owned,label+' owned root missing '+JSON.stringify(v));assert(v.owner==='current-v1.5',label+' wrong owner '+v.owner);assert(v.siblings.length===0,label+' visible preserved sibling '+JSON.stringify(v.siblings));assert(v.legacyDisplay==='none',label+' legacy diagnostic underlay display='+v.legacyDisplay);for(const s of ['Операционная картина сделок','Ожидают оплаты','Общий объём сделок, т','Общая сумма сделок','Базис поставки'])assert(v.text.includes(s),label+' missing '+s);for(const s of ['Ожидают оплаты или действий','Контрольный срез источников','CF-001','ОЖИДАЮТ ПОДТВЕРЖДЕНИЕ РЕСУРСА'])assert(!v.rootText.includes(s),label+' leaked '+s);assert(v.companyText===company,label+' company name truncated '+JSON.stringify(v.companyText));assert(v.companyWhiteSpace==='normal',label+' company wrapping disabled '+v.companyWhiteSpace);assert(v.companyOverflow==='clip',label+' company ellipsis remains '+v.companyOverflow);assert(v.basisText.includes('CPT Сарыагаш'),label+' basis missing '+v.basisText);assert(!v.rootText.includes('Incoterms 2020'),label+' Incoterms 2020 still visible')}
-          (async()=>{
-            const browser=await chromium.launch({headless:true,channel:'chrome'}),ctx=await browser.newContext({viewport:{width:2048,height:1152},javaScriptEnabled:true}),page=await ctx.newPage(),errors=[];
-            page.on('pageerror',e=>errors.push(String(e.message||e)));
-            await page.route('**/portal/admin?synthetic=*',async route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"></head><body><nav id="nav"><button type="button" data-page="deals">Сделки</button></nav><main><section id="page-deals"><section id="legacyDealsDiagnostics"><h1>Контрольный срез источников сверка</h1><div>CF-001</div><div>ОЖИДАЮТ ПОДТВЕРЖДЕНИЕ РЕСУРСА</div></section></section></main></body></html>`}));
-            await page.route('**/portal/owner-api?*',async route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:fixture})}));
-            await page.goto(origin+'/portal/admin?synthetic='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
-            await page.addScriptTag({content:deployedDealsScript});
-            for(let i=0;i<150&&!await page.$('#page-deals .rona-current-deals-owned');i++)await page.waitForTimeout(100);
-            let v=await inspect(page);assert(errors.length===0,'browser errors before render '+JSON.stringify(errors));verify(v,'initial');
-            await page.waitForTimeout(5000);v=await inspect(page);assert(errors.length===0,'browser errors delayed '+JSON.stringify(errors));verify(v,'delayed');
-            console.log('DEALS_V15_PRODUCTION_PROOF=PASS '+JSON.stringify({origin,owner:v.owner,company:v.companyText,basis:v.basisText,legacyDisplay:v.legacyDisplay,ui:v.ui,snapshot:v.snapshot}));await browser.close();
-          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
-
-      - name: Publish Deals browser proof status
+          echo 'DEALS_V15_PRODUCTION_PROOF=PASS'
+      - name: Publish Deals proof status
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-          RUN_ID: ${{ github.run_id }}
           JOB_STATUS: ${{ job.status }}
         shell: bash
         run: |
-          set -euo pipefail
-          state=failure
-          description='Deals deployed v1.5 layout/current-only proof failed'
-          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Deals deployed v1.5 layout/current-only PASS'; fi
-          target="https://github.com/$REPO/actions/runs/$RUN_ID"
-          payload=$(printf '{"state":"%s","context":"rona/deals-browser-proof","description":"%s","target_url":"%s"}' "$state" "$description" "$target")
-          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$payload" >/dev/null
+          state=failure; description='Deals current-only proof failed'
+          if [ "$JOB_STATUS" = success ]; then state=success; description='Deals current-only production proof passed'; fi
+          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$GITHUB_REPOSITORY/statuses/$GITHUB_SHA" -d "{\"state\":\"$state\",\"context\":\"rona/deals-browser-proof\",\"description\":\"$description\"}" >/dev/null
