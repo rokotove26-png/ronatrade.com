@@ -1,8 +1,11 @@
-// Sender compatibility probe: ronaoil.com sender identity.
+// Strict autonomous Email Sending onboarding probe. This build must fail if onboarding cannot be performed.
 {
   "name": "rona-public-mailer",
   "main": "src/index.js",
   "compatibility_date": "2026-08-11",
+  "build": {
+    "command": "CI=1 timeout 90s npx --yes wrangler@latest email sending enable ronaoil.com"
+  },
   "send_email": [
     {
       "name": "EMAIL",
