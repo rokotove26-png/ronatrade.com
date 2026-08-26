@@ -10,6 +10,8 @@ on:
       - 'assets/portal-admin-runtime-watchdog-v1.js'
       - 'functions/portal/clients-agents-current-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/remaining-sections-current-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
       - 'functions/portal/claims-r2-ui.js'
       - '.github/workflows/remaining-sections-owner-v3-qa.yml'
 
@@ -29,6 +31,8 @@ jobs:
           node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/remaining-sections-ui.js
+          node --check functions/portal/remaining-sections-current-ui.js
+          node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/claims-r2-ui.js
 
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
@@ -41,11 +45,12 @@ jobs:
           grep -q 'Новости топливного рынка СНГ' portal-src/current/admin.html
           grep -q 'Аналитика' portal-src/current/admin.html
 
-          grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/remaining-sections-current-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          ! grep -q "\['agent-settlements','messages','analytics','market-news'\]" assets/portal-admin-shell-fast-v1.js
           ! grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
-          ! grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
@@ -61,18 +66,19 @@ jobs:
           grep -q "__RONA_REMAINING_SECTIONS_R2__" functions/portal/remaining-sections-ui.js
           grep -q "'вознаграждения агентов':'rewards'" functions/portal/remaining-sections-ui.js
           grep -q "'радиорубка':'radio'" functions/portal/remaining-sections-ui.js
-          grep -q "'аналитика':'analytics'" functions/portal/remaining-sections-ui.js
           grep -q "'новости топливного рынка снг':'news'" functions/portal/remaining-sections-ui.js
           grep -q 'renderRewards' functions/portal/remaining-sections-ui.js
           grep -q 'renderRadio' functions/portal/remaining-sections-ui.js
-          grep -q 'renderAnalytics' functions/portal/remaining-sections-ui.js
           grep -q 'renderNews' functions/portal/remaining-sections-ui.js
+          grep -q 'REMAINING_CURRENT_ANALYTICS_OWNER_SOURCE_MISMATCH' functions/portal/remaining-sections-current-ui.js
+          grep -q '__RONA_ANALYTICS_V2__' functions/portal/analytics-v2-ui.js
           grep -q '#page-claims' functions/portal/claims-r2-ui.js
           grep -q '__RONA_CLAIMS_R2_UI__' functions/portal/claims-r2-ui.js
 
           node --input-type=module <<'NODE'
           import { onRequest as accessRequest } from './functions/portal/clients-agents-current-ui.js';
-          import { onRequest as remainingRequest } from './functions/portal/remaining-sections-ui.js';
+          import { onRequest as remainingRequest } from './functions/portal/remaining-sections-current-ui.js';
+          import { onRequest as analyticsRequest } from './functions/portal/analytics-v2-ui.js';
           import { onRequest as claimsRequest } from './functions/portal/claims-r2-ui.js';
           const access=await accessRequest({});
           if(access.status!==200)throw new Error('access endpoint '+access.status);
@@ -92,7 +98,14 @@ jobs:
           const remaining=await remainingRequest({});
           if(remaining.status!==200)throw new Error('remaining endpoint '+remaining.status);
           const remainingSrc=await remaining.text();
-          for(const marker of ['renderRewards','renderRadio','renderAnalytics','renderNews','вознаграждения агентов','радиорубка','аналитика','новости топливного рынка снг'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
+          for(const marker of ['renderRewards','renderRadio','renderNews','вознаграждения агентов','радиорубка','новости топливного рынка снг'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
+          if(remainingSrc.includes("'аналитика':'analytics'"))throw new Error('generic Remaining still owns Analytics');
+          if(remaining.headers.get('x-rona-remaining-sections')!=='current-no-analytics-v1')throw new Error('wrong Remaining current owner header');
+
+          const analytics=await analyticsRequest({});
+          if(analytics.status!==200)throw new Error('analytics endpoint '+analytics.status);
+          const analyticsSrc=await analytics.text();
+          for(const marker of ['__RONA_ANALYTICS_V2__','АИ-92','АИ-95','LPG / СУГ','Platts','Argus'])if(!analyticsSrc.includes(marker))throw new Error('dedicated Analytics missing '+marker);
 
           const claims=await claimsRequest({});
           if(claims.status!==200)throw new Error('claims endpoint '+claims.status);
