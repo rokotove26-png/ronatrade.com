@@ -89,6 +89,42 @@ function renderHtml(config, payload) {
   return `<!doctype html><html><body><p><strong>Submission ID:</strong> ${escapeHtml(payload.submission_id)}</p><p><strong>Received at:</strong> ${escapeHtml(payload.received_at)}</p><p><strong>Source URL:</strong> ${escapeHtml(payload.source_url || '')}</p><table cellspacing="0" cellpadding="0" style="border-collapse:collapse">${rows.join('')}</table></body></html>`;
 }
 
+function sanitizeDiagnostic(value, max = 300) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+async function logBrevoFailure(response) {
+  let code = '';
+  let message = '';
+
+  try {
+    const text = await response.text();
+    if (text) {
+      try {
+        const parsed = JSON.parse(text);
+        code = sanitizeDiagnostic(parsed?.code, 80);
+        message = sanitizeDiagnostic(parsed?.message, 300);
+      } catch {
+        message = sanitizeDiagnostic(text, 300);
+      }
+    }
+  } catch {
+    // Ignore diagnostic body parsing failures; status is still logged below.
+  }
+
+  console.error(JSON.stringify({
+    event: 'BREVO_SEND_FAILED',
+    status: response.status,
+    status_text: sanitizeDiagnostic(response.statusText, 80),
+    code,
+    message
+  }));
+}
+
 async function sendViaBrevo(env, message) {
   if (!env.BREVO_API_KEY) return false;
 
@@ -105,8 +141,23 @@ async function sendViaBrevo(env, message) {
       body: JSON.stringify(message),
       signal: controller.signal
     });
-    return response.ok;
-  } catch {
+
+    if (!response.ok) {
+      await logBrevoFailure(response);
+      return false;
+    }
+
+    console.log(JSON.stringify({
+      event: 'BREVO_SEND_OK',
+      status: response.status
+    }));
+    return true;
+  } catch (error) {
+    console.error(JSON.stringify({
+      event: 'BREVO_SEND_EXCEPTION',
+      name: sanitizeDiagnostic(error?.name, 80),
+      message: sanitizeDiagnostic(error?.message, 300)
+    }));
     return false;
   } finally {
     clearTimeout(timeout);
