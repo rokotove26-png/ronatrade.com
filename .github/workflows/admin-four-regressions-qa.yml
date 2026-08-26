@@ -58,7 +58,7 @@ jobs:
           if(prices.status!==200)throw new Error('prices wrapper status '+prices.status+': '+pricesSrc);
           if(!pricesSrc.includes('__RONA_PRICES_STANDARD_LIST_ONLY__'))throw new Error('prices standard-list marker missing');
           if(pricesSrc.includes("updateApi('cp-bootstrap')"))throw new Error('removed Agent CP RPC remains a fatal Prices dependency');
-          for(const m of ['owner_price_updates_bootstrap','Цены и маржа'])if(!pricesSrc.includes(m))throw new Error('prices source missing '+m);
+          for(const m of ["updateApi('bootstrap')",'Цены и маржа'])if(!pricesSrc.includes(m))throw new Error('prices source missing '+m);
 
           const rail=await railRequest({});
           const railSrc=await rail.text();
