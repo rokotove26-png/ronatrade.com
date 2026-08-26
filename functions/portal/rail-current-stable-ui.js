@@ -1,4 +1,4 @@
-import { onRequest as currentRail } from './rail-current-v81-maplibre-ui.js';
+import { onRequest as realMapRail } from './rail-current-v7-real-map-ui.js';
 import { onRequest as stableRail } from './rail-current-v4-ui.js';
 
 function withHeaders(response, mode){
@@ -7,7 +7,7 @@ function withHeaders(response, mode){
   h.set('pragma','no-cache');
   h.set('expires','0');
   h.set('x-content-type-options','nosniff');
-  h.set('x-rona-rail-stable-owner','current-first-fallback-v1');
+  h.set('x-rona-rail-stable-owner','real-map-first-fallback-v1');
   h.set('x-rona-rail-render-mode',mode);
   h.delete('content-length');
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
@@ -15,8 +15,8 @@ function withHeaders(response, mode){
 
 export async function onRequest(context){
   try{
-    const current=await currentRail(context);
-    if(current?.status===200)return withHeaders(current,'CURRENT_V8_2');
+    const current=await realMapRail(context);
+    if(current?.status===200)return withHeaders(current,'REAL_MAP_V7');
   }catch(_){ }
   try{
     const fallback=await stableRail(context);
