@@ -1,0 +1,48 @@
+name: admin-four-sections-qa
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'assets/admin-four-sections-recovery-v1.js'
+      - 'functions/portal/rail-current-stable-ui.js'
+      - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'scripts/materialize-admin-current-modules.mjs'
+      - 'scripts/qa-admin-four-sections.mjs'
+      - '.github/workflows/admin-four-sections-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'assets/admin-four-sections-recovery-v1.js'
+      - 'functions/portal/rail-current-stable-ui.js'
+      - 'functions/portal/prices-current-ui.js'
+      - 'functions/portal/analytics-v2-ui.js'
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'scripts/materialize-admin-current-modules.mjs'
+      - 'scripts/qa-admin-four-sections.mjs'
+      - '.github/workflows/admin-four-sections-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-four-sections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current Admin artifact
+        run: npm run build
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Verify Prices Rail full Access and approved Analytics
+        run: node scripts/qa-admin-four-sections.mjs
