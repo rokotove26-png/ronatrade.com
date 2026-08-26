@@ -1,6 +1,6 @@
 class RealAuthHeadInjector {
   element(element) {
-    element.prepend('<script id="rona-g82-real-auth-entry-loader-v1" src="/assets/g82/portal-real-auth-entry-v1.js" defer></script>', { html: true });
+    element.prepend('<script id="rona-g82-real-auth-entry-loader-v1" src="/assets/g82/portal-real-auth-entry-v1.js" defer></script><script id="rona-g82-inline-auth-loader-v2" src="/assets/g82/portal-home-inline-auth-v2.js" defer></script>', { html: true });
   }
 }
 
@@ -18,5 +18,6 @@ export async function onRequest(context) {
   headers.delete('etag');
   headers.set('cache-control', 'no-cache, no-store, must-revalidate');
   headers.set('x-rona-real-auth-entry', 'g8.2-production-login-fix-v1');
+  headers.set('x-rona-inline-auth-entry', 'g8.2-inline-auth-v2');
   return new Response(transformed.body, { status: transformed.status, statusText: transformed.statusText, headers });
 }
