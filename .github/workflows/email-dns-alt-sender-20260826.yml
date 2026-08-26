@@ -1,0 +1,37 @@
+name: email-dns-alt-sender-20260826
+
+on:
+  push:
+    branches:
+      - diag/trade-form-e2e-20260826
+    paths:
+      - .github/workflows/email-dns-alt-sender-20260826.yml
+
+permissions:
+  contents: read
+
+jobs:
+  dns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect candidate sender-domain DNS without changes
+        shell: bash
+        run: |
+          set -u
+          for domain in ronaoil.com ronatrade.com; do
+            echo "===== ${domain} ====="
+            echo 'NS:'
+            dig +short NS "$domain" || true
+            echo 'MX root:'
+            dig +short MX "$domain" || true
+            echo 'TXT root:'
+            dig +short TXT "$domain" || true
+            echo 'DMARC:'
+            dig +short TXT "_dmarc.${domain}" || true
+            echo 'cf-bounce MX:'
+            dig +short MX "cf-bounce.${domain}" || true
+            echo 'cf-bounce TXT:'
+            dig +short TXT "cf-bounce.${domain}" || true
+            echo
+          done
