@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__)return;
-window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__='20260826-v2';
+window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__='20260826-v1';
 const nav=document.getElementById('nav');
 if(!nav)return;
 let lastExplicit='';
