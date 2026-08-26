@@ -40,7 +40,7 @@ need(has(access,"['companies','Компании'],['agents','Агенты'],['us
 need(has(access,"openWithoutContract:!isAgent&&openWithout.checked"),'Open-without-contract fail-closed option is missing');
 need(has(access,"setAccessUserPassword")&&has(access,"'Сменить пароль'"),'Admin password reset control is missing');
 need(has(access,"clientRoles()")&&has(access,"bindingRole:bindingRole.value"),'Client representation role control is missing');
-need(has(access,"const clientContract=kind===''||kind==='CLIENT_CONTRACT'")&&has(access,"AGENT_FIXED_SCOPE"),'Agent binding must remain non-contract and fail-safe');
+need(has(access,"const clientContract=kind===''||kind==='CLIENT_CONTRACT'")&&has(access,"clientContract&&status==='ACTIVE'")&&has(access,"clientContract&&['REVOKED','SUSPENDED'].includes(status)"),'Agent binding must remain outside Client contract revoke/restore routes');
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
 need(has(access,"'x-rona-shell-mutation':'none'"),'Page-scoped shell-mutation contract is missing');
 
