@@ -1,3 +1,4 @@
+// Deployment marker: Cloudflare production branch/root configuration verified 2026-08-26.
 {
   "name": "rona-public-mailer",
   "main": "src/index.js",
