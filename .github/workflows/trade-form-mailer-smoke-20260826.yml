@@ -1,4 +1,4 @@
-name: trade-form-production-e2e-after-email-onboarding
+name: trade-form-production-e2e-after-smtp-bridge
 
 on:
   push:
@@ -13,8 +13,12 @@ permissions:
 jobs:
   production-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
+      - name: Wait for production deployment
+        shell: bash
+        run: sleep 75
+
       - name: Probe production trade form end to end
         shell: bash
         run: |
@@ -38,7 +42,7 @@ jobs:
             "URL страницы / источник": "https://ronaoil.com/"
           }
           JSON
-          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' --max-time 25 \
+          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' --max-time 35 \
             -X POST 'https://ronaoil.com/api/forms/trade' \
             -H 'Origin: https://ronaoil.com' \
             -H 'Referer: https://ronaoil.com/' \
