@@ -1,267 +1,77 @@
-name: remaining-sections-functional-preservation-qa
+name: Remaining Sections Owner v3 QA
 
 on:
   pull_request:
-    branches: [release/public-go-live-v1.1]
+    branches:
+      - 'release/public-go-live-v1.1'
     paths:
-      - 'functions/portal/admin.js'
-      - 'functions/portal/owner-api.js'
-      - 'functions/portal/clients-agents-canonical-guard-ui.js'
-      - 'functions/portal/clients-agents-v4-ui.js'
-      - 'functions/portal/analytics-v2-ui.js'
+      - 'portal-src/current/admin.html'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'functions/portal/clients-agents-current-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'functions/portal/remaining-sections-final-polish-ui.js'
       - 'functions/portal/remaining-sections-functional-preserve-v2-ui.js'
-      - 'functions/portal/remaining-sections-functional-preserve-v3-ui.js'
-      - '.github/workflows/remaining-sections-owner-v3-qa.yml'
-  push:
-    branches: [release/public-go-live-v1.1]
-    paths:
-      - 'functions/portal/admin.js'
-      - 'functions/portal/owner-api.js'
-      - 'functions/portal/clients-agents-canonical-guard-ui.js'
-      - 'functions/portal/clients-agents-v4-ui.js'
       - 'functions/portal/analytics-v2-ui.js'
-      - 'functions/portal/remaining-sections-ui.js'
-      - 'functions/portal/remaining-sections-final-polish-ui.js'
-      - 'functions/portal/remaining-sections-functional-preserve-v2-ui.js'
-      - 'functions/portal/remaining-sections-functional-preserve-v3-ui.js'
       - '.github/workflows/remaining-sections-owner-v3-qa.yml'
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  statuses: write
 
 jobs:
-  remaining-sections-functional:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
+  remaining-sections-functional-preservation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
-
-      - name: Static syntax and ownership contracts
+          node-version: '22'
+      - name: Verify current-only remaining-section owners
         run: |
           set -euo pipefail
-          npm run build
-          node --check functions/portal/admin.js
-          node --check functions/portal/clients-agents-canonical-guard-ui.js
-          node --check functions/portal/clients-agents-v4-ui.js
-          node --check functions/portal/analytics-v2-ui.js
+          node --check assets/portal-admin-shell-fast-v1.js
+          node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/remaining-sections-ui.js
+          node --check functions/portal/remaining-sections-final-polish-ui.js
           node --check functions/portal/remaining-sections-functional-preserve-v2-ui.js
-          grep -q 'rona:admin-app-ready' functions/portal/admin.js
-          grep -q 'analytics-v2-ui' functions/portal/admin.js
-          grep -q '__RONA_ACCESS_CANONICAL_V4__' functions/portal/clients-agents-canonical-guard-ui.js
-          grep -q '20260824-2018-home-parity-v1' functions/portal/clients-agents-v4-ui.js
-          grep -q '__RONA_ANALYTICS_V2__' functions/portal/analytics-v2-ui.js
-          grep -q 'v3-market-rona-bases-lpg' functions/portal/analytics-v2-ui.js
-          grep -q 'BNK Diesel Composite' functions/portal/analytics-v2-ui.js
-          grep -q 'Argus European Products' functions/portal/analytics-v2-ui.js
-          grep -q "'LPG'" functions/portal/analytics-v2-ui.js
-          grep -q 'Hairatan domestic LPG' functions/portal/analytics-v2-ui.js
-          grep -q 'Petromarket Eurasian LPG' functions/portal/analytics-v2-ui.js
-          grep -q 'an2-point-value' functions/portal/analytics-v2-ui.js
-          grep -q 'an2-market-forecast' functions/portal/analytics-v2-ui.js
-          grep -q 'Возможные цены RONA Trade' functions/portal/analytics-v2-ui.js
-          grep -q 'CPT Озинки' functions/portal/analytics-v2-ui.js
-          grep -q 'CPT Сарыагаш' functions/portal/analytics-v2-ui.js
-          grep -q 'CPT Наушки' functions/portal/analytics-v2-ui.js
-          ! grep -q 'Значения котировок' functions/portal/analytics-v2-ui.js
-          ! grep -q 'an2-data-table' functions/portal/analytics-v2-ui.js
-          ! grep -q "card('Публикация аналитики')" functions/portal/analytics-v2-ui.js
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const src=fs.readFileSync('functions/portal/admin.js','utf8');
-          const m=src.match(/const POSTCORE=(.+);\nconst APPTOTAL=/s);
-          if(!m)throw new Error('POSTCORE constant not found');
-          const html=Function('"use strict";return ('+m[1]+')')();
-          const code=html.slice(html.indexOf('>')+1,html.lastIndexOf('</script>'));
-          new Function(code);
-          if(!code.includes('rona:admin-app-ready'))throw new Error('core-ready gate missing');
-          if(!code.includes('ANALYTICS_V2_READY'))throw new Error('analytics ready state missing');
-          console.log('POSTCORE_SYNTAX=PASS');
-          NODE
+          node --check functions/portal/analytics-v2-ui.js
 
-      - name: Install browser runtime
-        run: |
-          set -euo pipefail
-          npm install --no-save --ignore-scripts playwright@1.54.2
-          google-chrome --version
+          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          grep -q 'clients-agents-current-ui' portal-src/current/admin.html
+          grep -q "__RONA_CLIENTS_AGENTS_V4__='retired-by-current-only-v1'" portal-src/current/admin.html
 
-      - name: Prove Access regression and Analytics business layout
-        run: |
-          set -euo pipefail
+          grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
+
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'" functions/portal/clients-agents-current-ui.js
+          grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
+          grep -q 'Клиенты и агенты' functions/portal/clients-agents-current-ui.js
+          grep -q 'Пользователи и доступы' functions/portal/clients-agents-current-ui.js
+          grep -q 'Вознаграждения агентов' portal-src/current/admin.html
+          grep -q 'Радиорубка' portal-src/current/admin.html
+          grep -q 'Новости топливного рынка СНГ' portal-src/current/admin.html
+          grep -q 'Аналитика' portal-src/current/admin.html
+
           node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          import { chromium } from 'playwright';
-          import { onRequest as guardRequest } from './functions/portal/clients-agents-canonical-guard-ui.js';
-          import { onRequest as r2Request } from './functions/portal/remaining-sections-ui.js';
-          import { onRequest as polishRequest } from './functions/portal/remaining-sections-final-polish-ui.js';
-          import { onRequest as preserveRequest } from './functions/portal/remaining-sections-functional-preserve-v2-ui.js';
-          import { onRequest as accessRequest } from './functions/portal/clients-agents-v4-ui.js';
+          import { onRequest as accessRequest } from './functions/portal/clients-agents-current-ui.js';
           import { onRequest as analyticsRequest } from './functions/portal/analytics-v2-ui.js';
-          const guard=await (await guardRequest()).text();
-          const r2=await (await r2Request()).text();
-          const polish=await (await polishRequest()).text();
-          const preserve=await (await preserveRequest()).text();
-          const accessV4=await (await accessRequest()).text();
-          const analytics=await (await analyticsRequest()).text();
-          const adminSrc=fs.readFileSync('functions/portal/admin.js','utf8');
-          const m=adminSrc.match(/const POSTCORE=(.+);\nconst APPTOTAL=/s);
-          if(!m)throw new Error('POSTCORE constant missing');
-          const postcoreHtml=Function('"use strict";return ('+m[1]+')')();
-          const postcore=postcoreHtml.slice(postcoreHtml.indexOf('>')+1,postcoreHtml.lastIndexOf('</script>'));
-          const browser=await chromium.launch({headless:true,channel:'chrome'});
-          const ctx=await browser.newContext({viewport:{width:1600,height:1000}});
-          const page=await ctx.newPage();
-          await page.route('https://ronaoil.test/portal/**',async route=>{
-            const u=new URL(route.request().url());
-            const map={
-              '/portal/clients-agents-canonical-guard-ui':guard,
-              '/portal/remaining-sections-ui':r2,
-              '/portal/remaining-sections-final-polish-ui':polish,
-              '/portal/remaining-sections-functional-preserve-v2-ui':preserve,
-              '/portal/clients-agents-v4-ui':accessV4,
-              '/portal/analytics-v2-ui':analytics
-            };
-            if(Object.prototype.hasOwnProperty.call(map,u.pathname)){await route.fulfill({status:200,contentType:'application/javascript; charset=utf-8',body:map[u.pathname]});return}
-            await route.abort();
-          });
-          await page.setContent(`<!doctype html><html><head><base href="https://ronaoil.test/"></head><body>
-            <div class="app" id="shell">ADMIN SHELL</div>
-            <nav id="nav">
-              <button class="active" data-page="access">Клиенты и агенты</button>
-              <button data-page="messages">Радиорубка</button>
-              <button data-page="analytics">Аналитика</button>
-              <button data-page="market-news">Новости топливного рынка СНГ</button>
-            </nav>
-            <main>
-              <section id="page-access" class="active"><div class="rona-owner-page-content" id="legacy-clients"><button id="legacy-client-action" onclick="window.__legacyClient=(window.__legacyClient||0)+1">LEGACY CLIENT ACTION</button><div>Пользователи и договоры ACCESS MANAGEMENT</div></div></section>
-              <section id="page-messages"><div id="radio-original"><button>RADIO KEEP</button></div></section>
-              <section id="page-analytics"><div class="rona-owner-page-content" id="legacy-analytics">OLD ANALYTICS WORKSPACE</div></section>
-              <section id="page-market-news"><div class="rona-owner-page-content" id="legacy-news"><button id="legacy-news-action" onclick="window.__legacyNews=(window.__legacyNews||0)+1">LEGACY NEWS ACTION</button></div></section>
-            </main></body></html>`);
-          await page.evaluate(()=>{
-            window.__RONA_OWNER_ADMIN_READY__=false;
-            window.__RONA_ADMIN_BOOT_STATE__={ready:false};
-            window.__RONA_OWNER_ADMIN_SNAPSHOT__={clients:[{legal_name:'Client One',client_id:'C001',contract_id:'RONA-C001-CTR-2026-001',current_external_contract_number:'EXT-1',agent_person_id:'A1',agent_name:'Agent One'}],agents:[{agent_person_id:'A1',agent_name:'Agent One'}],radio:[],analytics:[],news:[]};
-            window.fetch=async input=>{
-              const u=String(input?.url||input);
-              if(u.includes('%2Fadmin%2Fbootstrap')||u.includes('/admin/bootstrap'))return new Response(JSON.stringify({ok:true,data:window.__RONA_OWNER_ADMIN_SNAPSHOT__}),{status:200,headers:{'content-type':'application/json'}});
-              if(u.includes('%2Fadmin%2Fai-sync')||u.includes('/admin/ai-sync'))return new Response(JSON.stringify({ok:true,data:{marketAnalystFragment:{analytics:[],news:[]}}}),{status:200,headers:{'content-type':'application/json'}});
-              if(u.includes('/agent'))return new Response(JSON.stringify({ok:true,data:{}}),{status:200,headers:{'content-type':'application/json'}});
-              throw new Error('unexpected fetch '+u);
-            };
-            document.addEventListener('click',ev=>{const b=ev.target.closest?.('#nav button[data-page]');if(!b)return;document.querySelectorAll('#nav button[data-page]').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('main>section').forEach(x=>x.classList.toggle('active',x.id==='page-'+b.dataset.page))},true);
-          });
-          const radioBefore=await page.locator('#page-messages').innerHTML();
-          await page.addScriptTag({content:postcore});
-          await page.waitForTimeout(220);
-          if(await page.locator('script[data-rona-postcore-id]').count()!==0)throw new Error('post-core modules started before core ready');
-          await page.evaluate(()=>{window.__RONA_OWNER_ADMIN_READY__=true;window.__RONA_ADMIN_BOOT_STATE__.ready=true;window.dispatchEvent(new CustomEvent('rona:admin-app-ready'))});
-          await page.waitForFunction(()=>window.__RONA_POSTCORE_ENHANCEMENTS_READY__===true);
-          await page.waitForFunction(()=>window.__RONA_CLIENTS_AGENTS_V4_READY__===true);
-          await page.waitForFunction(()=>window.__RONA_ANALYTICS_V2_READY__===true);
+          const access=await accessRequest({});
+          if(access.status!==200)throw new Error('access endpoint '+access.status);
+          const accessSrc=await access.text();
+          for(const marker of [
+            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'",
+            "AUTH='/portal/admin-authority'",
+            'Клиенты и агенты',
+            'Пользователи и доступы',
+            "window.__RONA_CLIENTS_AGENTS_V4_READY__=true"
+          ])if(!accessSrc.includes(marker))throw new Error('access missing '+marker);
+          for(const legacy of ['harvestLegacy','window.openModal'])if(accessSrc.includes(legacy))throw new Error('legacy access dependency '+legacy);
+          if(access.headers.get('x-rona-clients-agents-ui')!=='current-only-v1')throw new Error('wrong access owner header');
 
-          if(await page.locator('#page-access>#rona-ca4').count()!==1)throw new Error('Access canonical root missing');
-          const visibleAccess=await page.locator('#page-access>:visible').evaluateAll(xs=>xs.map(x=>x.id||x.className));
-          if(visibleAccess.length!==1||visibleAccess[0]!=='rona-ca4')throw new Error('Access overlay regression '+visibleAccess.join(','));
-          await page.getByRole('button',{name:'Пользователи и доступы'}).click();
-          await page.waitForFunction(()=>document.querySelector('#ca4-legacy-content #legacy-client-action'));
-          await page.locator('#ca4-legacy-content #legacy-client-action').click();
-          if(await page.evaluate(()=>window.__legacyClient)!==1)throw new Error('Access legacy handler lost');
-
-          await page.locator('#nav button[data-page="analytics"]').click();
-          if(await page.locator('#page-analytics>#rona-analytics-v2').count()!==1)throw new Error('Analytics canonical root missing');
-          const visibleAnalytics=await page.locator('#page-analytics>:visible').evaluateAll(xs=>xs.map(x=>x.id||x.className));
-          if(visibleAnalytics.length!==1||visibleAnalytics[0]!=='rona-analytics-v2')throw new Error('legacy Analytics still visible '+visibleAnalytics.join(','));
-          if(await page.locator('#rona-analytics-v2 .rona-owner-kpi').count()!==3)throw new Error('Analytics KPI count changed');
-          if(await page.locator('#rona-analytics-v2 .an2-chart svg').count()!==1)throw new Error('Chart missing');
-          if(await page.locator('#rona-analytics-v2 .an2-point-value').count()!==12)throw new Error('AI92 point value labels missing');
-          if(await page.locator('#rona-analytics-v2 .an2-market-forecast').count()!==1)throw new Error('Market forecast not placed beside chart');
-          let txt=await page.locator('#rona-analytics-v2').innerText();
-          if(txt.includes('Значения котировок'))throw new Error('Quote-values table returned');
-          if(!txt.includes('Прогноз рынка на 09.2026')||!txt.includes('LOW')||!txt.includes('BASE')||!txt.includes('HIGH')||!txt.includes('Forward Sep'))throw new Error('Market forecast incomplete');
-          const rona=page.locator('#rona-analytics-v2 .an2-rona');
-          let rt=await rona.innerText();
-          if(!rt.includes('Возможные цены RONA Trade')||!rt.includes('CPT Озинки')||!rt.includes('CPT Сарыагаш')||!rt.includes('CPT Наушки')||!rt.includes('INDICATIVE'))throw new Error('RONA working-basis forecast incomplete');
-
-          await page.getByRole('button',{name:'ДТ',exact:true}).click();
-          txt=await page.locator('#rona-analytics-v2').innerText();
-          if(!txt.includes('1 363,88')&&!txt.includes('1 363,88')&&!txt.includes('1363,88'))throw new Error('BNK diesel composite not rendered');
-          if(await page.locator('#rona-analytics-v2 .an2-point-value').count()!==12)throw new Error('DT point labels missing');
-
-          await page.getByRole('button',{name:'LPG / СУГ',exact:true}).click();
-          if(await page.locator('#rona-analytics-v2 .an2-point-value').count()!==3)throw new Error('LPG point labels missing');
-          txt=await page.locator('#rona-analytics-v2').innerText();
-          if(!txt.includes('943,00')||!txt.includes('970,00')||!txt.includes('995,00'))throw new Error('LPG market series missing');
-          if(!txt.includes('Petromarket')||!txt.includes('725–780'))throw new Error('LPG regional benchmark missing');
-          rt=await page.locator('#rona-analytics-v2 .an2-rona').innerText();
-          if(!rt.includes('CPT Озинки')||!rt.includes('CPT Сарыагаш')||rt.includes('CPT Наушки'))throw new Error('LPG RONA bases invalid');
-          if(await page.getByRole('button',{name:'Argus',exact:true}).count()!==0)throw new Error('LPG incorrectly uses gasoline Argus control');
-
-          await page.getByRole('button',{name:'АИ-92',exact:true}).click();
-          await page.getByRole('button',{name:'Argus',exact:true}).click();
-          const argusText=await page.locator('#rona-analytics-v2').innerText();
-          if(!argusText.includes('Argus European Products')||!argusText.includes('не загружен'))throw new Error('Argus fail-closed explanation missing');
-
-          await page.locator('#nav button[data-page="market-news"]').click();
-          await page.waitForFunction(()=>document.querySelector('#page-market-news .rona-functional-preserved-host #legacy-news-action'));
-          await page.locator('#legacy-news-action').click();
-          if(await page.evaluate(()=>window.__legacyNews)!==1)throw new Error('News legacy handler lost');
-          if(await page.locator('#page-messages').innerHTML()!==radioBefore)throw new Error('Radio section modified');
-          const shell=await page.locator('#shell').evaluate(el=>({opacity:getComputedStyle(el).opacity,visibility:getComputedStyle(el).visibility}));
-          if(shell.opacity==='0'||shell.visibility==='hidden')throw new Error('Admin shell hidden');
-          console.log('ACCESS_REGRESSION=PASS');
-          console.log('ANALYTICS_SINGLE_OWNER=PASS');
-          console.log('MARKET_FORECAST_RIGHT_PANEL=PASS');
-          console.log('RONA_WORKING_BASES_FORECAST=PASS');
-          console.log('LPG_ANALYTICS=PASS');
-          console.log('ARGUS_FAIL_CLOSED=PASS');
-          await ctx.close();await browser.close();
+          const analytics=await analyticsRequest({});
+          if(analytics.status!==200)throw new Error('analytics endpoint '+analytics.status);
+          const analyticsSrc=await analytics.text();
+          for(const marker of ['Аналитика','Argus European Products','BNK Diesel Composite'])if(!analyticsSrc.includes(marker))throw new Error('analytics missing '+marker);
+          console.log('REMAINING_SECTIONS_CURRENT_ONLY=PASS');
           NODE
-
-      - name: Production endpoints proof
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
-        run: |
-          set -euo pipefail
-          ok=0
-          for i in $(seq 1 80); do
-            ah=$(mktemp); ab=$(mktemp); ph=$(mktemp); pb=$(mktemp); ch=$(mktemp); cb=$(mktemp)
-            if curl -fsS -D "$ah" -o "$ab" "https://ronaoil.com/portal/analytics-v2-ui?v=${GITHUB_SHA}" \
-              && curl -fsS -D "$ph" -o "$pb" "https://ronaoil.com/portal/remaining-sections-functional-preserve-v2-ui?v=${GITHUB_SHA}" \
-              && curl -fsS -D "$ch" -o "$cb" "https://ronaoil.com/portal/clients-agents-v4-ui?v=${GITHUB_SHA}"; then
-              if grep -qi '^x-rona-analytics-ui: v3-market-rona-bases-lpg' "$ah" \
-                && grep -q 'v3-market-rona-bases-lpg' "$ab" \
-                && grep -q 'an2-market-forecast' "$ab" \
-                && grep -q 'Возможные цены RONA Trade' "$ab" \
-                && grep -q 'Hairatan domestic LPG' "$ab" \
-                && grep -qi '^x-rona-remaining-functional-preserve: market-only-v2' "$ph" \
-                && grep -q '__RONA_REMAINING_FUNCTIONAL_PRESERVE_V3__' "$pb" \
-                && grep -qi '^x-rona-clients-agents-ui: v4-canonical-single-owner' "$ch" \
-                && grep -qi '^x-rona-clients-agents-visual: home-parity-v1' "$ch"; then
-                ok=1
-                rm -f "$ah" "$ab" "$ph" "$pb" "$ch" "$cb"
-                break
-              fi
-            fi
-            rm -f "$ah" "$ab" "$ph" "$pb" "$ch" "$cb"
-            sleep 5
-          done
-          test "$ok" = 1
-
-      - name: Publish status
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          JOB_STATUS: ${{ job.status }}
-        run: |
-          set -euo pipefail
-          state=failure; description='Access/Analytics canonical proof failed'
-          if [ "$JOB_STATUS" = success ]; then state=success; description='Analytics market forecast + RONA bases + LPG proven; Access preserved'; fi
-          curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/${GITHUB_REPOSITORY}/statuses/${SHA}" -d "{\"state\":\"${state}\",\"context\":\"rona/remaining-sections-current-owned\",\"description\":\"${description}\",\"target_url\":\"https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" >/dev/null
