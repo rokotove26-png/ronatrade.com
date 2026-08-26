@@ -26,24 +26,32 @@ function stripLegacyAnalyticsAndNews(source){
   source=source.replaceAll("'новости топливного рынка снг':'news',",'');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"analytics\\"]','');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"news\\"]','');
+  source=source.replace('const S={};let M=null,marketPromise=null;','const S={};');
 
-  const analyticsStart=source.indexOf('function publicationCard(){');
-  const analyticsEnd=source.indexOf('function renderNews(){',analyticsStart);
-  if(analyticsStart<0||analyticsEnd<=analyticsStart)throw new Error('STATIC_REMAINING_ANALYTICS_SOURCE_MISMATCH');
-  source=source.slice(0,analyticsStart)+source.slice(analyticsEnd);
+  const refreshMarketStart=source.indexOf('async function refreshMarket(');
+  const refreshMarketEnd=source.indexOf('function notice(',refreshMarketStart);
+  if(refreshMarketStart<0||refreshMarketEnd<=refreshMarketStart)throw new Error('STATIC_REMAINING_MARKET_REFRESH_SOURCE_MISMATCH');
+  source=source.slice(0,refreshMarketStart)+source.slice(refreshMarketEnd);
+
+  const helperStart=source.indexOf('function sourceBar(){');
+  const helperEnd=source.indexOf('function renderClients(){',helperStart);
+  if(helperStart<0||helperEnd<=helperStart)throw new Error('STATIC_REMAINING_MARKET_HELPERS_SOURCE_MISMATCH');
+  source=source.slice(0,helperStart)+source.slice(helperEnd);
+
+  const marketStart=source.indexOf('function publicationCard(){');
+  const marketEnd=source.indexOf('function renderAgents(){',marketStart);
+  if(marketStart<0||marketEnd<=marketStart)throw new Error('STATIC_REMAINING_MARKET_RENDERERS_SOURCE_MISMATCH');
+  source=source.slice(0,marketStart)+source.slice(marketEnd);
   source=source.replace("if(kind==='analytics')return renderAnalytics();",'');
-  source=source.replace("if(kind==='analytics'||kind==='news')","if(kind==='news')");
-
-  const newsStart=source.indexOf('function renderNews(){');
-  const newsEnd=source.indexOf('function renderAgents(){',newsStart);
-  if(newsStart<0||newsEnd<=newsStart)throw new Error('STATIC_REMAINING_NEWS_SOURCE_MISMATCH');
-  source=source.slice(0,newsStart)+source.slice(newsEnd);
   source=source.replace("if(kind==='news')return renderNews();",'');
+  source=source.replace("if(kind==='analytics'||kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
   source=source.replace("if(kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
+  source=source.replace('function bind(){style();void refreshMarket();','function bind(){style();');
 
-  for(const token of ["'аналитика':'analytics'","'новости топливного рынка снг':'news'",'function renderAnalytics(){','function publicationCard(){','function renderNews(){',"kind==='analytics'","kind==='news'",'data-kind=\\"analytics\\"','data-kind=\\"news\\"',"kpi('Выводов'",'Аналитическая лента','Высокий приоритет','Лента рынка']){
+  for(const token of ["'аналитика':'analytics'","'новости топливного рынка снг':'news'",'function renderAnalytics(){','function publicationCard(){','function renderNews(){','function sourceBar(){','function tagsFor(','function entry(','async function refreshMarket(',"kind==='analytics'","kind==='news'",'data-kind=\\"analytics\\"','data-kind=\\"news\\"',"kpi('Выводов'",'Аналитическая лента','Высокий приоритет','Лента рынка']){
     if(source.includes(token))throw new Error(`STATIC_REMAINING_LEGACY_MARKET_PRESENT: ${token}`);
   }
+  for(const marker of ['Радиорубка','Вознаграждения агентов','renderRadio','renderRewards'])requireMarker(source,marker,'approved remaining runtime');
   return source;
 }
 function canonicalizeAnalytics(source){
@@ -75,9 +83,7 @@ for(const marker of [
   'Будет создан доступ в кабинет агента.','Создать доступ'
 ])requireMarker(access,marker,'clients-agents static runtime');
 for(const marker of ['__RONA_CLAIMS_R2_UI__','#page-claims','Зарегистрировать и направить клиенту'])requireMarker(claims,marker,'claims-r2-ui');
-for(const marker of ['renderRewards','Вознаграждения агентов','Радиорубка'])requireMarker(remainingCore,marker,'remaining sections static runtime');
 for(const marker of ['20260826-international-newsroom-v1','Новости топливного рынка СНГ','RONA TRADE · MARKET INTELLIGENCE','Главная лента','Сводка ленты','География','Источники'])requireMarker(news,marker,'premium market news static runtime');
-for(const token of ['function renderNews(){','Высокий приоритет','Лента рынка',"'новости топливного рынка снг':'news'"])if(remainingCore.includes(token))throw new Error(`STATIC_LEGACY_NEWS_PRESENT: ${token}`);
 for(const forbidden of ['harvestLegacy','installNavigationStability','installShellParity'])if(access.includes(forbidden))throw new Error(`STATIC_ACCESS_FORBIDDEN_MARKER: ${forbidden}`);
 
 await writeFile(join(OUT,'clients-agents-current-ui'),access);
