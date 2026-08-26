@@ -37,20 +37,23 @@ jobs:
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
           grep -q 'data-page="claims"' portal-src/current/admin.html
+          grep -q 'data-page="analytics"' portal-src/current/admin.html
+          grep -q 'data-page="market-news"' portal-src/current/admin.html
           grep -q 'Радиорубка' portal-src/current/admin.html
           grep -q 'Новости топливного рынка СНГ' portal-src/current/admin.html
           grep -q 'Аналитика' portal-src/current/admin.html
 
           grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
-          ! grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "if(p==='market-news')return'market-news-current'" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
 
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q "new Option('Клиент','Клиент'),new Option('Агент','Агент')" functions/portal/clients-agents-current-ui.js
@@ -58,15 +61,10 @@ jobs:
           ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
           ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
 
-          grep -q "__RONA_REMAINING_SECTIONS_R2__" functions/portal/remaining-sections-ui.js
-          grep -q "'вознаграждения агентов':'rewards'" functions/portal/remaining-sections-ui.js
-          grep -q "'радиорубка':'radio'" functions/portal/remaining-sections-ui.js
-          grep -q "'аналитика':'analytics'" functions/portal/remaining-sections-ui.js
-          grep -q "'новости топливного рынка снг':'news'" functions/portal/remaining-sections-ui.js
-          grep -q 'renderRewards' functions/portal/remaining-sections-ui.js
-          grep -q 'renderRadio' functions/portal/remaining-sections-ui.js
-          grep -q 'renderAnalytics' functions/portal/remaining-sections-ui.js
-          grep -q 'renderNews' functions/portal/remaining-sections-ui.js
+          grep -q "from './remaining-sections-r2-base.js'" functions/portal/remaining-sections-ui.js
+          grep -q "__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'" functions/portal/remaining-sections-ui.js
+          grep -q "if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')" functions/portal/remaining-sections-ui.js
+          grep -q "x-rona-market-news-owner','dedicated-current-content-health-v6" functions/portal/remaining-sections-ui.js
           grep -q '#page-claims' functions/portal/claims-r2-ui.js
           grep -q '__RONA_CLAIMS_R2_UI__' functions/portal/claims-r2-ui.js
 
@@ -78,21 +76,23 @@ jobs:
           if(access.status!==200)throw new Error('access endpoint '+access.status);
           const accessSrc=await access.text();
           for(const marker of [
-            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v3'",
+            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'",
             "AUTH='/portal/admin-authority'",
             'Клиенты и агенты',
             'Пользователи и доступы',
             "dataset.ronaCreateAccess='primary'",
             "window.__RONA_CLIENTS_AGENTS_V4_READY__=true"
           ])if(!accessSrc.includes(marker))throw new Error('access missing '+marker);
-          if(access.headers.get('x-rona-clients-agents-ui')!=='single-owner-v3')throw new Error('wrong access owner header');
-          if(access.headers.get('x-rona-access-create')!=='client-agent-v3')throw new Error('wrong access create contract');
+          if(access.headers.get('x-rona-clients-agents-ui')!=='single-owner-v4')throw new Error('wrong access owner header');
+          if(access.headers.get('x-rona-access-create')!=='client-agent-v4')throw new Error('wrong access create contract');
           if(access.headers.get('x-rona-shell-mutation')!=='none')throw new Error('access mutates global shell');
 
           const remaining=await remainingRequest({});
           if(remaining.status!==200)throw new Error('remaining endpoint '+remaining.status);
           const remainingSrc=await remaining.text();
-          for(const marker of ['renderRewards','renderRadio','renderAnalytics','renderNews','вознаграждения агентов','радиорубка','аналитика','новости топливного рынка снг'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
+          for(const marker of ['renderRewards','renderRadio','вознаграждения агентов','радиорубка','__RONA_MARKET_NEWS_OWNER_GUARD_V6__','market-news-owner-guard-v6-content-repair'])if(!remainingSrc.toLowerCase().includes(marker.toLowerCase()))throw new Error('remaining missing '+marker);
+          for(const forbidden of ['function renderAnalytics(){','function renderNews(){',"'аналитика':'analytics'","'новости топливного рынка снг':'news'"])if(remainingSrc.includes(forbidden))throw new Error('remaining still owns '+forbidden);
+          if(remaining.headers.get('x-rona-market-news-owner')!=='dedicated-current-content-health-v6')throw new Error('wrong Market News owner contract');
 
           const claims=await claimsRequest({});
           if(claims.status!==200)throw new Error('claims endpoint '+claims.status);
