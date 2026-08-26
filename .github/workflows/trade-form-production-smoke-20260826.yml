@@ -13,15 +13,40 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Submit synthetic trade form request
+      - name: Probe production trade form stages
         shell: bash
         run: |
           set -euo pipefail
+          endpoint='https://ronaoil.com/api/forms/trade'
           now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          get_tmp=$(mktemp)
+          get_status=$(curl --silent --show-error --max-time 20 --output "$get_tmp" --write-out '%{http_code}' "$endpoint")
+          echo "GET_STATUS=$get_status"
+          echo -n 'GET_BODY='; cat "$get_tmp"; echo
+
+          honey_body=$(cat <<JSON
+          {
+            "Contact Person":"RONA SYSTEM HONEY TEST",
+            "Company":"RONA Trade Internal Diagnostics",
+            "Company Registration Country":"Kyrgyzstan",
+            "Petroleum Product":"LPG/SPBT",
+            "Cargo Destination Country":"Kazakhstan",
+            "Phone":"+996000000000",
+            "website":"bot-probe"
+          }
+          JSON
+          )
+          honey_tmp=$(mktemp)
+          honey_status=$(curl --silent --show-error --max-time 20 --output "$honey_tmp" --write-out '%{http_code}' \
+            --request POST "$endpoint" --header 'Origin: https://ronaoil.com' --header 'Content-Type: application/json' --data "$honey_body")
+          echo "HONEY_STATUS=$honey_status"
+          echo -n 'HONEY_BODY='; cat "$honey_tmp"; echo
+
           body=$(cat <<JSON
           {
             "Contact Person":"RONA SYSTEM TEST",
-            "Company":"RONA Trade Internal Diagnostics",
+            "Company":"RONA Trade Internal Diagnostics ${now}",
             "Company Registration Country":"Kyrgyzstan",
             "Petroleum Product":"LPG/SPBT",
             "Cargo Destination Country":"Kazakhstan",
@@ -36,18 +61,12 @@ jobs:
           }
           JSON
           )
-          tmp=$(mktemp)
-          status=$(curl --silent --show-error --max-time 20 \
-            --output "$tmp" \
-            --write-out '%{http_code}' \
-            --request POST 'https://ronaoil.com/api/forms/trade' \
-            --header 'Origin: https://ronaoil.com' \
-            --header 'Content-Type: application/json' \
-            --data "$body")
-          echo "HTTP_STATUS=$status"
-          echo -n 'RESPONSE_BODY='
-          cat "$tmp"
-          echo
-          if [ "$status" != '202' ]; then
-            exit 1
-          fi
+          real_tmp=$(mktemp)
+          real_status=$(curl --silent --show-error --max-time 20 --output "$real_tmp" --write-out '%{http_code}' \
+            --request POST "$endpoint" --header 'Origin: https://ronaoil.com' --header 'Content-Type: application/json' --data "$body")
+          echo "REAL_STATUS=$real_status"
+          echo -n 'REAL_BODY='; cat "$real_tmp"; echo
+
+          test "$get_status" = '405'
+          test "$honey_status" = '202'
+          test "$real_status" = '202'
