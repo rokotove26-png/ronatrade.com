@@ -33,6 +33,8 @@ function stabilize(root){
   window.__RONA_ACCESS_FULL_SEMANTICS_READY__=true;
 }
 function scan(){document.querySelectorAll('.rona-access-full').forEach(stabilize)}
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true})},{once:true});
-else{scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true})}
+ensureStyle();
+const start=()=>{scan();new MutationObserver(scan).observe(document.body,{childList:true,subtree:true})};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+document.addEventListener('click',event=>{if(event.target?.closest?.('#page-access [data-rona-create-access="primary"],#page-access [data-action="create-access"]')){queueMicrotask(scan);requestAnimationFrame(scan);setTimeout(scan,0)}},true);
 })();
