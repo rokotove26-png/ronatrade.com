@@ -1,4 +1,4 @@
-name: trade-form-production-e2e-diagnostic
+name: trade-form-production-mailer-repair
 
 on:
   push:
@@ -11,11 +11,72 @@ permissions:
   contents: read
 
 jobs:
-  production-e2e:
+  repair-and-probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
+    env:
+      CF_TOKEN_PRIMARY: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_TOKEN_ALT: ${{ secrets.CF_API_TOKEN }}
+      CF_GLOBAL_KEY: ${{ secrets.CLOUDFLARE_API_KEY }}
+      CF_EMAIL: ${{ secrets.CLOUDFLARE_EMAIL }}
     steps:
-      - name: Probe production trade form end to end
+      - name: Detect Cloudflare API capability and onboard sending domain when possible
+        shell: bash
+        run: |
+          set -u
+          mkdir -p .probe
+          auth_mode=none
+          token="${CF_TOKEN_PRIMARY:-}"
+          if [ -z "$token" ]; then token="${CF_TOKEN_ALT:-}"; fi
+
+          cf_get() {
+            url="$1"
+            if [ -n "$token" ]; then
+              curl -sS --max-time 25 -H "Authorization: Bearer $token" -H 'Content-Type: application/json' "$url"
+            elif [ -n "${CF_GLOBAL_KEY:-}" ] && [ -n "${CF_EMAIL:-}" ]; then
+              curl -sS --max-time 25 -H "X-Auth-Email: ${CF_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_KEY}" -H 'Content-Type: application/json' "$url"
+            else
+              return 22
+            fi
+          }
+
+          cf_post() {
+            url="$1"
+            body="$2"
+            if [ -n "$token" ]; then
+              curl -sS --max-time 25 -X POST -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data "$body" "$url"
+            elif [ -n "${CF_GLOBAL_KEY:-}" ] && [ -n "${CF_EMAIL:-}" ]; then
+              curl -sS --max-time 25 -X POST -H "X-Auth-Email: ${CF_EMAIL}" -H "X-Auth-Key: ${CF_GLOBAL_KEY}" -H 'Content-Type: application/json' --data "$body" "$url"
+            else
+              return 22
+            fi
+          }
+
+          if [ -n "$token" ]; then auth_mode=token; fi
+          if [ "$auth_mode" = none ] && [ -n "${CF_GLOBAL_KEY:-}" ] && [ -n "${CF_EMAIL:-}" ]; then auth_mode=global_key; fi
+          echo "CF_AUTH_MODE=${auth_mode}"
+
+          if [ "$auth_mode" != none ]; then
+            zones=$(cf_get 'https://api.cloudflare.com/client/v4/zones?name=ronaoil.com&status=active' || true)
+            echo "CF_ZONES_RESPONSE=${zones}"
+            zone_id=$(printf '%s' "$zones" | python3 -c 'import json,sys; d=json.load(sys.stdin); r=d.get("result") or []; print(r[0].get("id", "") if r else "")' 2>/dev/null || true)
+            if [ -n "$zone_id" ]; then
+              before=$(cf_get "https://api.cloudflare.com/client/v4/zones/${zone_id}/email/sending/subdomains" || true)
+              echo "CF_EMAIL_SENDING_BEFORE=${before}"
+              enabled=$(printf '%s' "$before" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("yes" if any(x.get("name")=="ronaoil.com" and x.get("enabled") for x in (d.get("result") or [])) else "no")' 2>/dev/null || echo no)
+              if [ "$enabled" != yes ]; then
+                created=$(cf_post "https://api.cloudflare.com/client/v4/zones/${zone_id}/email/sending/subdomains" '{"name":"ronaoil.com"}' || true)
+                echo "CF_EMAIL_SENDING_CREATE=${created}"
+                sleep 5
+              fi
+              after=$(cf_get "https://api.cloudflare.com/client/v4/zones/${zone_id}/email/sending/subdomains" || true)
+              echo "CF_EMAIL_SENDING_AFTER=${after}"
+            else
+              echo 'CF_ZONE_ID=unavailable'
+            fi
+          fi
+
+      - name: Probe production trade form after repair attempt
         shell: bash
         run: |
           set -u
@@ -38,9 +99,7 @@ jobs:
             "URL страницы / источник": "https://ronaoil.com/"
           }
           JSON
-
-          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' \
-            --max-time 25 \
+          form_http=$(curl -sS -o .probe/form-response.json -w '%{http_code}' --max-time 25 \
             -X POST 'https://ronaoil.com/api/forms/trade' \
             -H 'Origin: https://ronaoil.com' \
             -H 'Referer: https://ronaoil.com/' \
@@ -54,8 +113,7 @@ jobs:
           echo "FORM_CURL_ERROR=${form_err}"
 
           if [ "${form_http}" != "202" ]; then
-            diag_http=$(curl -sS -o .probe/diag-response.json -w '%{http_code}' \
-              --max-time 25 \
+            diag_http=$(curl -sS -o .probe/diag-response.json -w '%{http_code}' --max-time 25 \
               'https://ronaoil.com/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d' \
               2>.probe/diag-stderr || true)
             diag_body=$(cat .probe/diag-response.json 2>/dev/null || true)
