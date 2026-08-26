@@ -1,1 +1,0 @@
-This change removes the retired Admin cabinet from the production HTML build path and replaces it with a small current-only shell. Server-side ADMIN authentication is preserved. No authoritative business data is changed.
