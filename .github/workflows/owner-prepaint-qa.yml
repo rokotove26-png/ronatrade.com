@@ -37,6 +37,7 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
+          node --check functions/portal/remaining-sections-ui.js
           node --check scripts/wait-cloudflare-commit.mjs
           node --check scripts/verify-admin-current-only-production.mjs
           node tests/admin-shell-resilience.test.mjs
@@ -53,10 +54,13 @@ jobs:
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'data-page="agent-settlements"' portal-src/current/admin.html
           grep -q 'data-page="claims"' portal-src/current/admin.html
+          grep -q 'data-page="market-news"' portal-src/current/admin.html
           grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'" functions/portal/remaining-sections-ui.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q "'x-rona-admin-shell','current-only-v2'" functions/portal/admin.js
