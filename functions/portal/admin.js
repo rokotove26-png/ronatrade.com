@@ -7,6 +7,7 @@ const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self'; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
 const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000]);
+const CURRENT_ONLY_GUARD=`<style id="rona-current-only-paint-gate">html:not(.rona-current-ui-ready)::before{content:"";position:fixed;inset:0;z-index:2147483646;background:#07121f}html:not(.rona-current-ui-ready)::after{content:"Загрузка рабочего кабинета RONA Trade…";position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2147483647;color:#dce8ff;font:600 14px/1.4 Inter,Arial,sans-serif;letter-spacing:.02em}html.rona-current-ui-failed::after{content:"Рабочий кабинет не загрузился. Обновите страницу.";color:#ffd8dc}</style><script id="rona-current-only-paint-runtime">(()=>{'use strict';const root=document.documentElement;let observer=null,done=false;const ready=()=>window.__RONA_OWNER_ADMIN_READY__===true&&window.__RONA_POSTCORE_ENHANCEMENTS_READY__===true&&root.dataset.ronaPostcore==='ready'&&!!window.__RONA_ADMIN_CANONICAL_TWEAKS__;function release(){if(done||!ready())return false;done=true;root.classList.add('rona-current-ui-ready');root.classList.remove('rona-current-ui-failed');root.dataset.ronaOwnerPaint='current-only-ready';window.__RONA_OWNER_FIRST_PAINT_READY__=true;if(observer)observer.disconnect();return true}function arm(){if(release())return;if(typeof MutationObserver==='function'){observer=new MutationObserver(()=>release());observer.observe(root,{attributes:true,attributeFilter:['class','data-rona-postcore','data-rona-owner-paint']})}window.addEventListener('rona:admin-app-ready',()=>queueMicrotask(release));[250,750,1500,3000,6000,12000].forEach(ms=>setTimeout(release,ms));setTimeout(()=>{if(!release()){root.classList.add('rona-current-ui-failed');root.dataset.ronaOwnerPaint='blocked-error'}},20000)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',arm,{once:true});else arm()})()</script>`;
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function parseCookies(header){
@@ -40,6 +41,7 @@ function securityHeaders(source,cookies=[]){
   h.set('x-rona-admin-shell','fast-static-v2');
   h.set('x-rona-admin-auth','server-verified-v1');
   h.set('x-rona-ui-build',BUILD);
+  h.set('x-rona-admin-current-only','main-v2-canonical');
   h.delete('content-length');
   h.delete('etag');
   for(const cookie of cookies)h.append('set-cookie',cookie);
@@ -136,7 +138,7 @@ class ServerVerifiedAdminBody{
 }
 class FastShellHeadInjector{
   element(el){
-    el.append(`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v2"><meta name="rona-admin-auth" content="server-verified-v1"><script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`,{html:true});
+    el.append(`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v2"><meta name="rona-admin-auth" content="server-verified-v1">${CURRENT_ONLY_GUARD}<script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`,{html:true});
   }
 }
 
@@ -165,7 +167,7 @@ export async function onRequest(context){
   if(typeof HTMLRewriter!=='function'){
     const source=await response.text();
     const guard=`<style>#adminLoginGate{display:none!important}</style><script>document.addEventListener('DOMContentLoaded',()=>{document.getElementById('adminLoginGate')?.remove();document.body?.classList.remove('admin-auth-locked');document.body?.classList.add('admin-auth-server-verified')},{once:true})</script>`;
-    const tag=`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v2"><meta name="rona-admin-auth" content="server-verified-v1">${guard}<script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`;
+    const tag=`<meta name="rona-ui-primary" content="main-v2"><meta name="rona-ui-build" content="${BUILD}"><meta name="rona-admin-shell" content="fast-static-v2"><meta name="rona-admin-auth" content="server-verified-v1">${guard}${CURRENT_ONLY_GUARD}<script id="rona-admin-fast-shell-runtime" src="${SHELL_RUNTIME}" defer></script>`;
     const html=source.replace('<body class="admin-auth-locked">','<body class="admin-auth-server-verified">').replace('</head>',tag+'</head>');
     return new Response(html,{status:200,headers:h});
   }
