@@ -4,6 +4,9 @@ const MAX_BODY_BYTES = 32 * 1024;
 const DEDUPE_TTL_SECONDS = 120;
 const RATE_WINDOW_SECONDS = 600;
 const RATE_LIMIT = 6;
+const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+const BREVO_ACCOUNT_ENDPOINT = 'https://api.brevo.com/v3/account';
+const DIAGNOSTIC_COMPANY_PREFIX = 'RONA Trade Internal Diagnostics';
 
 const FIELD_ALIASES = {
   contact_name: ['Контактное лицо', 'Contact Person'],
@@ -116,6 +119,47 @@ async function fingerprint(request, fields) {
   }));
 }
 
+function getDiagnosticMode(request, fields) {
+  if (!fields.company.startsWith(DIAGNOSTIC_COMPANY_PREFIX)) return '';
+  return clean(request.headers.get('x-rona-diagnostic'), 60).toLowerCase();
+}
+
+async function probeBrevoAccount(env) {
+  const response = await fetch(BREVO_ACCOUNT_ENDPOINT, {
+    method: 'GET',
+    headers: {
+      accept: 'application/json',
+      'api-key': env.BREVO_API_KEY
+    }
+  });
+  const status = response.status;
+  try { await response.body?.cancel(); } catch {}
+  return status;
+}
+
+async function probeBrevoMinimalSend(env) {
+  const response = await fetch(BREVO_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'api-key': env.BREVO_API_KEY
+    },
+    body: JSON.stringify({
+      sender: {
+        name: env.BREVO_SENDER_NAME || 'RONA Trade Website',
+        email: env.BREVO_SENDER_EMAIL || 'office_kg@ronaoil.com'
+      },
+      to: [{ email: 'office_kg@ronaoil.com' }],
+      subject: 'RONA SYSTEM TEST — Brevo minimal probe',
+      textContent: 'Automated internal delivery probe. No customer data.'
+    })
+  });
+  const status = response.status;
+  try { await response.body?.cancel(); } catch {}
+  return status;
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -172,6 +216,16 @@ export async function onRequestPost(context) {
   }
   if (fields.language !== 'RU' && fields.language !== 'EN') fields.language = 'RU';
 
+  const diagnosticMode = getDiagnosticMode(request, fields);
+  if (diagnosticMode === 'brevo-account') {
+    const status = await probeBrevoAccount(env);
+    return json({ success: true, diagnostic: 'BREVO_ACCOUNT', upstream_status: status }, 200);
+  }
+  if (diagnosticMode === 'brevo-minimal-send') {
+    const status = await probeBrevoMinimalSend(env);
+    return json({ success: status >= 200 && status < 300, diagnostic: 'BREVO_MINIMAL_SEND', upstream_status: status }, 200);
+  }
+
   const dedupeKey = `trade:${await fingerprint(request, fields)}`;
   const existing = await env.FORM_DEDUPE.get(dedupeKey);
   if (existing) {
@@ -179,6 +233,15 @@ export async function onRequestPost(context) {
   }
 
   await env.FORM_DEDUPE.put(dedupeKey, 'pending', { expirationTtl: DEDUPE_TTL_SECONDS });
+
+  if (diagnosticMode === 'pre-delivery') {
+    await env.FORM_DEDUPE.delete(dedupeKey);
+    return json({ success: true, diagnostic: 'PRE_DELIVERY_OK' }, 202);
+  }
+  if (diagnosticMode === 'simulate-delivery-failure') {
+    await env.FORM_DEDUPE.delete(dedupeKey);
+    return json({ success: false, diagnostic: 'SIMULATED_DELIVERY_FAILURE' }, 502);
+  }
 
   const submissionId = crypto.randomUUID();
   const receivedAt = new Date().toISOString();
