@@ -1,0 +1,33 @@
+name: email-dns-inventory-20260826
+
+on:
+  push:
+    branches:
+      - diag/trade-form-e2e-20260826
+    paths:
+      - .github/workflows/email-dns-inventory-20260826.yml
+
+permissions:
+  contents: read
+
+jobs:
+  dns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect current mail DNS without changes
+        shell: bash
+        run: |
+          set -u
+          echo 'NS:'
+          dig +short NS ronaoil.com || true
+          echo 'MX root:'
+          dig +short MX ronaoil.com || true
+          echo 'TXT root:'
+          dig +short TXT ronaoil.com || true
+          echo 'DMARC:'
+          dig +short TXT _dmarc.ronaoil.com || true
+          echo 'cf-bounce MX:'
+          dig +short MX cf-bounce.ronaoil.com || true
+          echo 'cf-bounce TXT:'
+          dig +short TXT cf-bounce.ronaoil.com || true
