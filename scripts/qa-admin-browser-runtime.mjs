@@ -135,10 +135,13 @@ try{
   const create=page.locator('#page-access #rona-ca4 button[data-rona-create-access="primary"]');
   await create.waitFor({state:'visible',timeout:10000});
   await create.click();
-  const modal=page.locator('.ca-modal');
+  const modal=page.locator('.rona-access-full');
   await modal.waitFor({state:'visible',timeout:5000});
-  assert((await modal.innerText()).includes('Тип доступа'),'access modal: Тип доступа missing');
-  assert((await modal.innerText()).includes('Договоры клиента'),'access modal: Договоры клиента missing');
+  const accessText=await modal.innerText();
+  for(const marker of ['Тип доступа','Ф.И.О.','Единый логин','Электронная почта','Телефон','Роль привязки','Компании и договоры клиента','Открыть без контракта','Загрузить договор']){
+    assert(accessText.includes(marker),`access modal: ${marker} missing`);
+  }
+  assert(await page.locator('.ca-modal').count()===0,'access modal: simplified competing modal opened');
   const role=modal.locator('select').first();
   await role.selectOption({label:'Агент'});
   await page.waitForTimeout(100);
