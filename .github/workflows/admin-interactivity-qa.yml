@@ -46,7 +46,8 @@ jobs:
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
-          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
@@ -85,6 +86,7 @@ jobs:
           assert(remaining.ok,'remaining-sections runtime '+remaining.status);
           const remainingSrc=await remaining.text();
           assert(remainingSrc.includes('renderRewards'),'agent rewards renderer contract missing');
+          assert(remainingSrc.includes('__RONA_MARKET_NEWS_OWNER_GUARD_V6__'),'Market News content-health guard missing');
           for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});assert([401,403].includes(r.status),path+' '+r.status)}
           console.log('ADMIN_CURRENT_ONLY_INTERACTIVITY_PRODUCTION=PASS');
           NODE
