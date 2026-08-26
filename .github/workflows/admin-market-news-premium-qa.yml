@@ -1,0 +1,63 @@
+name: Admin Market News Premium QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+      - 'fix/news-premium-20260826'
+
+jobs:
+  market-news-premium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify newsroom runtime
+        run: |
+          node --check functions/portal/news-current-ui.js
+          node --check functions/portal/remaining-sections-ui.js
+          node --check scripts/materialize-admin-current-modules.mjs
+          node --input-type=module <<'NODE'
+          const news = await import('./functions/portal/news-current-ui.js?qa='+Date.now());
+          const newsSource = await (await news.onRequest({})).text();
+          new Function(newsSource);
+          for (const token of ['20260826-international-newsroom-v1','RONA TRADE · MARKET INTELLIGENCE','Новости топливного рынка СНГ','Главная лента','Сводка ленты','География','Источники','Вся лента','Срочно','Бензины','ДТ','СУГ','ЖД','Экспорт']) {
+            if (!newsSource.includes(token)) throw new Error('premium news token missing: '+token);
+          }
+          if (newsSource.includes('/mnt/data/') || newsSource.includes('image_gen')) throw new Error('generated-image dependency is prohibited');
+          const remaining = await import('./functions/portal/remaining-sections-ui.js?qa='+Date.now());
+          const remainingSource = await (await remaining.onRequest({})).text();
+          new Function(remainingSource);
+          for (const token of ['function renderNews(){','Высокий приоритет','Лента рынка',"'новости топливного рынка снг':'news'"]) {
+            if (remainingSource.includes(token)) throw new Error('legacy news leaked into delivered runtime: '+token);
+          }
+          for (const token of ['Радиорубка','Вознаграждения агентов','20260826-international-newsroom-v1']) {
+            if (!remainingSource.includes(token)) throw new Error('required remaining/new runtime marker missing: '+token);
+          }
+          NODE
+      - name: Build current-only artifact
+        run: npm run build
+      - name: Verify materialized production news runtime
+        run: |
+          grep -q '20260826-international-newsroom-v1' dist/portal/remaining-sections-ui
+          grep -q 'RONA TRADE · MARKET INTELLIGENCE' dist/portal/remaining-sections-ui
+          grep -q 'Главная лента' dist/portal/remaining-sections-ui
+          grep -q 'Сводка ленты' dist/portal/remaining-sections-ui
+          grep -q 'Радиорубка' dist/portal/remaining-sections-ui
+          grep -q 'Вознаграждения агентов' dist/portal/remaining-sections-ui
+          if grep -q 'function renderNews(){' dist/portal/remaining-sections-ui; then exit 1; fi
+          if grep -q 'Высокий приоритет' dist/portal/remaining-sections-ui; then exit 1; fi
+          if grep -q 'Лента рынка' dist/portal/remaining-sections-ui; then exit 1; fi
+          grep -q '20260824-analytics-v3-market-rona-bases-lpg' dist/portal/analytics-v2-ui
+      - name: Verify approved cabinet loaders unchanged
+        run: |
+          grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/rail-current-v81-maplibre-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/prices-current-ui' assets/portal-admin-shell-fast-v1.js
