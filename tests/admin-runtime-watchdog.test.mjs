@@ -4,28 +4,17 @@ import assert from 'node:assert/strict';
 const shell=fs.readFileSync('portal-src/current/admin.html','utf8');
 const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf8');
 
-assert(shell.includes('id="rona-admin-runtime-watchdog-loader"'),'Admin shell must load the runtime watchdog');
-assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260826-current-only-v2'),'Admin watchdog current-only v2 asset/version missing');
-
-for(const marker of [
-  "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='current-only-recovery-v1'",
-  "window.__RONA_MAIN_UI_RUNTIME_LOADED__===true",
-  "window.__RONA_OWNER_ADMIN_READY__===true",
-  "const prior=document.getElementById(id);",
-  "if(prior)prior.remove();",
-  "u.searchParams.set('_rona_recovery_attempt'",
-  "sessionStorage.getItem(RELOAD_KEY)",
-  "sessionStorage.setItem(RELOAD_KEY",
-  "hardReloadOnce('MAIN_UI_NOT_READY')",
-  "hardReloadOnce('OWNER_ADMIN_NOT_READY')",
-  "hardReloadOnce('HOME_STATIC_PLACEHOLDER_STUCK')",
-  "window.__RONA_ADMIN_RUNTIME_RECOVERY_READY__=true",
-])assert(watchdog.includes(marker),`Admin runtime watchdog missing ${marker}`);
-
-assert(watchdog.includes("const delays=[300,900,2200,4200]"),'Main UI recovery must use bounded retries');
-assert(watchdog.includes("const delays=[250,800,1800]"),'Fast shell recovery must use bounded retries');
-assert(watchdog.includes("if(last&&now-last<90000)"),'Automatic hard reload must be loop-protected');
-assert(watchdog.includes("btn.textContent='Повторить загрузку'"),'Terminal recovery must leave an explicit user retry control');
-assert(!watchdog.includes('setInterval(location.reload'),'Watchdog must not create an uncontrolled reload loop');
-
-console.log('Admin runtime watchdog QA: PASS');
+assert(shell.includes('id="rona-admin-runtime-watchdog-loader"'),'Admin shell must load runtime watchdog');
+assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260826-single-owner-1345'),'Admin watchdog single-owner asset/version missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'"),'Page-aware recovery marker missing');
+assert(watchdog.includes("p==='claims'?'claims'"),'Claims recovery mapping missing');
+assert(watchdog.includes("p==='access'?'clients-agents-current'"),'Access recovery mapping missing');
+assert(watchdog.includes("['agent-settlements','messages','analytics','market-news'].includes(p)?'remaining'"),'Remaining-section recovery mapping missing');
+assert(watchdog.includes("window.dispatchEvent(new CustomEvent('rona:admin-module-retry'"),'In-place module retry event missing');
+assert(watchdog.includes("btn.textContent='Повторить загрузку'"),'Explicit retry control missing');
+assert(watchdog.includes('(state.pageAttempts[p]||0)>=3'),'Recovery must be bounded before terminal inline state');
+assert(!watchdog.includes('location.reload('),'Watchdog must not hard reload');
+assert(!watchdog.includes('location.replace('),'Watchdog must not navigate to another page');
+assert(!watchdog.includes('hardReloadOnce'),'Legacy destructive recovery must be removed');
+assert(!watchdog.includes('RELOAD_KEY'),'Reload-loop state must be removed');
+console.log('Admin page-aware non-destructive watchdog QA: PASS');
