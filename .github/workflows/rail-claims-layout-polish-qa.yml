@@ -3,6 +3,8 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
+      - portal-src/current/admin.html
+      - assets/portal-admin-shell-fast-v1.js
       - functions/portal/admin.js
       - functions/portal/owner-layout-polish-ui.js
       - functions/portal/claims-r2-ui.js
@@ -22,13 +24,15 @@ jobs:
         run: |
           set -euo pipefail
           node --check functions/portal/admin.js
+          node --check assets/portal-admin-shell-fast-v1.js
           node --check functions/portal/owner-layout-polish-ui.js
           node --check functions/portal/claims-r2-ui.js
           node --check functions/portal/claims-title-hotfix.js
-          grep -q 'owner-layout-polish-ui?v=20260824-1346' functions/portal/admin.js
-          grep -q "x-rona-owner-layout-polish','rail-claims-v1" functions/portal/admin.js
-          grep -q '#page-claims>\*:not(.rona-claims-r2-root):not(.rona-claims-section-title){display:none!important}' functions/portal/admin.js
-          grep -q "x-rona-claims-first-paint','current-only-v1" functions/portal/admin.js
+          grep -q 'id="page-claims"' portal-src/current/admin.html
+          grep -q 'id="page-monitoring"' portal-src/current/admin.html
+          grep -q 'owner-layout-polish-ui?v=20260824-1346' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q '/portal/claims-title-hotfix' assets/portal-admin-shell-fast-v1.js
           grep -q '#page-monitoring .rona-rail-v4-work{align-items:stretch!important}' functions/portal/owner-layout-polish-ui.js
           grep -q 'grid-template-rows:auto minmax(0,1fr)!important' functions/portal/owner-layout-polish-ui.js
           grep -q 'rona-rail-v4-card:last-child{height:100%!important' functions/portal/owner-layout-polish-ui.js
