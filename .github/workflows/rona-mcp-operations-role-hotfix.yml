@@ -1,0 +1,49 @@
+name: RONA MCP operations role hotfix
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - .github/workflows/rona-mcp-operations-role-hotfix.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/public-go-live-v1.1
+          fetch-depth: 0
+      - name: Canonicalize Operations staff role in MCP gateway
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/rona-mcp-gateway/index.js')
+          s = p.read_text(encoding='utf-8')
+          old = "const STAFF_ROLE=Object.freeze({OPERATIONS_DIRECTOR:'EXECUTIVE_DIRECTOR',FINANCE:'FINANCE',LEGAL:'LEGAL',MARKET_ANALYST:'MARKET_ANALYST',RAIL_LOGISTICS:'RAIL_LOGISTICS',SYSTEM_ADMIN:'SYSTEM_ADMIN'});"
+          new = "const STAFF_ROLE=Object.freeze({OPERATIONS_DIRECTOR:'OPERATIONS_DIRECTOR',FINANCE:'FINANCE',LEGAL:'LEGAL',MARKET_ANALYST:'MARKET_ANALYST',RAIL_LOGISTICS:'RAIL_LOGISTICS',SYSTEM_ADMIN:'SYSTEM_ADMIN'});"
+          if old not in s:
+              if new in s:
+                  print('Already patched')
+                  raise SystemExit(0)
+              raise SystemExit('Expected STAFF_ROLE source not found; refusing broad rewrite')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+      - name: Commit patch if changed
+        shell: bash
+        run: |
+          if git diff --quiet -- supabase/functions/rona-mcp-gateway/index.js; then
+            echo "No source change required"
+            exit 0
+          fi
+          git config user.name "RONA System Admin"
+          git config user.email "office_kg@ronaoil.com"
+          git add supabase/functions/rona-mcp-gateway/index.js
+          git commit -m "Canonicalize Operations staff role in MCP gateway"
+          git push origin HEAD:release/public-go-live-v1.1
