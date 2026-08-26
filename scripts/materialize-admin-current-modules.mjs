@@ -21,17 +21,35 @@ function extractRawScript(source,label){
   if(start<0||end<0||end<=start)throw new Error(`STATIC_RUNTIME_EXTRACT_FAILED: ${label}`);
   return source.slice(start+startMarker.length,end)+'\n';
 }
-function stripLegacyAnalytics(source){
+function stripLegacyOwnedSections(source){
   source=source.replaceAll("'аналитика':'analytics',",'');
+  source=source.replaceAll("'новости топливного рынка снг':'news',",'');
   source=source.replaceAll(',.rona-rs-root[data-kind=\\"analytics\\"]','');
+  source=source.replaceAll(',.rona-rs-root[data-kind=\\"news\\"]','');
+
   const start=source.indexOf('function publicationCard(){');
-  const end=source.indexOf('function renderNews(){',start);
-  if(start<0||end<=start)throw new Error('STATIC_REMAINING_ANALYTICS_SOURCE_MISMATCH');
+  const end=source.indexOf('function renderAgents(){',start);
+  if(start<0||end<=start)throw new Error('STATIC_REMAINING_MARKET_SOURCE_MISMATCH');
   source=source.slice(0,start)+source.slice(end);
-  source=source.replace("if(kind==='analytics')return renderAnalytics();",'');
-  source=source.replace("if(kind==='analytics'||kind==='news')","if(kind==='news')");
-  for(const token of ["'аналитика':'analytics'",'function renderAnalytics(){','function publicationCard(){',"kind==='analytics'",'data-kind=\\"analytics\\"',"kpi('Выводов'",'Аналитическая лента']){
-    if(source.includes(token))throw new Error(`STATIC_REMAINING_LEGACY_ANALYTICS_PRESENT: ${token}`);
+
+  source=source.replaceAll("if(kind==='analytics')return renderAnalytics();",'');
+  source=source.replaceAll("if(kind==='news')return renderNews();",'');
+  source=source.replaceAll("if(kind==='analytics'||kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
+  source=source.replaceAll("if(kind==='news'){refreshMarket(true).then(()=>render(kind));return}",'');
+
+  for(const token of [
+    "'аналитика':'analytics'",
+    "'новости топливного рынка снг':'news'",
+    'function renderAnalytics(){',
+    'function renderNews(){',
+    'function publicationCard(){',
+    "kind==='analytics'",
+    "root('analytics'",
+    "root('news'",
+    "kpi('Выводов'",
+    'Аналитическая лента'
+  ]){
+    if(source.includes(token))throw new Error(`STATIC_REMAINING_LEGACY_MARKER: ${token}`);
   }
   return source;
 }
@@ -52,7 +70,8 @@ function canonicalizeAnalytics(source){
 await mkdir(OUT,{recursive:true});
 const access=extractFunctionRuntime(await read('functions/portal/clients-agents-current-ui.js'),'currentUiRuntime');
 const claims=extractRawScript(await read('functions/portal/claims-r2-ui.js'),'claims-r2-ui');
-const remaining=stripLegacyAnalytics(extractRawScript(await read('functions/portal/remaining-sections-r2-base.js'),'remaining-sections-r2-base'));
+const newsBootstrap="(()=>{if(window.__RONA_MARKET_NEWS_CURRENT_LOADER__)return;window.__RONA_MARKET_NEWS_CURRENT_LOADER__='20260826-clean-rebuild-v1';const s=document.createElement('script');s.src='/assets/portal-market-news-current-v1.js?v=20260826-clean-rebuild-v1';s.defer=true;s.dataset.ronaMarketNewsLoader='clean-rebuild-v1';document.head.appendChild(s)})();\n";
+const remaining=stripLegacyOwnedSections(extractRawScript(await read('functions/portal/remaining-sections-r2-base.js'),'remaining-sections-r2-base'))+newsBootstrap;
 const analytics=canonicalizeAnalytics(extractRawScript(await read('functions/portal/analytics-v2-approved-base.js'),'analytics-v2-approved-base'));
 
 for(const marker of [
@@ -62,7 +81,8 @@ for(const marker of [
   'Будет создан доступ в кабинет агента.','Создать доступ'
 ])requireMarker(access,marker,'clients-agents static runtime');
 for(const marker of ['__RONA_CLAIMS_R2_UI__','#page-claims','Зарегистрировать и направить клиенту'])requireMarker(claims,marker,'claims-r2-ui');
-for(const marker of ['renderRewards','Вознаграждения агентов','Радиорубка','Новости топливного рынка СНГ'])requireMarker(remaining,marker,'remaining sections static runtime');
+for(const marker of ['renderRewards','Вознаграждения агентов','Радиорубка','portal-market-news-current-v1.js','__RONA_MARKET_NEWS_CURRENT_LOADER__'])requireMarker(remaining,marker,'remaining sections static runtime');
+for(const forbidden of ['Новости топливного рынка СНГ','function renderNews(){',"'новости топливного рынка снг':'news'"])if(remaining.includes(forbidden))throw new Error(`STATIC_REMAINING_NEWS_PRESENT: ${forbidden}`);
 for(const forbidden of ['harvestLegacy','installNavigationStability','installShellParity'])if(access.includes(forbidden))throw new Error(`STATIC_ACCESS_FORBIDDEN_MARKER: ${forbidden}`);
 
 await writeFile(join(OUT,'clients-agents-current-ui'),access);
@@ -70,6 +90,6 @@ await writeFile(join(OUT,'claims-r2-ui'),claims);
 await writeFile(join(OUT,'remaining-sections-ui'),remaining);
 await writeFile(join(OUT,'analytics-v2-ui'),analytics);
 
-const headers=`/portal/clients-agents-current-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Clients-Agents-Ui: single-owner-v4\n  X-Rona-Access-Create: client-agent-v4\n  X-Rona-Admin-Nav-Owner: external-current-router-v2\n  X-Rona-Shell-Mutation: none\n  X-Rona-Legacy-Dependency: none\n\n/portal/claims-r2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Claims-Ui: direction-workflow-v6\n\n/portal/remaining-sections-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1-no-analytics\n\n/portal/analytics-v2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Analytics-Ui: canonical-v3-only\n  X-Rona-Analytics-Owner: canonical-v3-exclusive\n`;
+const headers=`/portal/clients-agents-current-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Clients-Agents-Ui: single-owner-v4\n  X-Rona-Access-Create: client-agent-v4\n  X-Rona-Admin-Nav-Owner: external-current-router-v2\n  X-Rona-Shell-Mutation: none\n  X-Rona-Legacy-Dependency: none\n\n/portal/claims-r2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Claims-Ui: direction-workflow-v6\n\n/portal/remaining-sections-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v2-no-analytics-no-news\n\n/portal/analytics-v2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Analytics-Ui: canonical-v3-only\n  X-Rona-Analytics-Owner: canonical-v3-exclusive\n`;
 await writeFile(join(ROOT,'dist','_headers'),headers);
-console.log(`ADMIN_CURRENT_STATIC_MODULES=PASS access=${Buffer.byteLength(access)} claims=${Buffer.byteLength(claims)} remaining=${Buffer.byteLength(remaining)} analytics=${Buffer.byteLength(analytics)}`);
+console.log(`ADMIN_CURRENT_STATIC_MODULES=PASS access=${Buffer.byteLength(access)} claims=${Buffer.byteLength(claims)} remaining=${Buffer.byteLength(remaining)} analytics=${Buffer.byteLength(analytics)} newsOwner=dedicated-asset-v1`);
