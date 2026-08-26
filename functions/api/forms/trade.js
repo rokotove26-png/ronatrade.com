@@ -119,6 +119,32 @@ async function fingerprint(request, fields) {
   }));
 }
 
+function safeDiagnostic(value, max = 180) {
+  return String(value ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+async function readBrevoDiagnostic(response) {
+  let code = '';
+  let message = '';
+  try {
+    const text = await response.text();
+    if (text) {
+      try {
+        const parsed = JSON.parse(text);
+        code = safeDiagnostic(parsed?.code, 80);
+        message = safeDiagnostic(parsed?.message, 180);
+      } catch {
+        message = safeDiagnostic(text, 180);
+      }
+    }
+  } catch {}
+  return { status: response.status, code, message };
+}
+
 function getDiagnosticMode(request, fields) {
   if (!fields.company.startsWith(DIAGNOSTIC_COMPANY_PREFIX)) return '';
   return clean(request.headers.get('x-rona-diagnostic'), 60).toLowerCase();
@@ -132,9 +158,7 @@ async function probeBrevoAccount(env) {
       'api-key': env.BREVO_API_KEY
     }
   });
-  const status = response.status;
-  try { await response.body?.cancel(); } catch {}
-  return status;
+  return readBrevoDiagnostic(response);
 }
 
 async function probeBrevoMinimalSend(env) {
@@ -155,9 +179,7 @@ async function probeBrevoMinimalSend(env) {
       textContent: 'Automated internal delivery probe. No customer data.'
     })
   });
-  const status = response.status;
-  try { await response.body?.cancel(); } catch {}
-  return status;
+  return readBrevoDiagnostic(response);
 }
 
 export async function onRequestPost(context) {
@@ -218,12 +240,12 @@ export async function onRequestPost(context) {
 
   const diagnosticMode = getDiagnosticMode(request, fields);
   if (diagnosticMode === 'brevo-account') {
-    const status = await probeBrevoAccount(env);
-    return json({ success: true, diagnostic: 'BREVO_ACCOUNT', upstream_status: status }, 200);
+    const upstream = await probeBrevoAccount(env);
+    return json({ success: upstream.status >= 200 && upstream.status < 300, diagnostic: 'BREVO_ACCOUNT', upstream }, 200);
   }
   if (diagnosticMode === 'brevo-minimal-send') {
-    const status = await probeBrevoMinimalSend(env);
-    return json({ success: status >= 200 && status < 300, diagnostic: 'BREVO_MINIMAL_SEND', upstream_status: status }, 200);
+    const upstream = await probeBrevoMinimalSend(env);
+    return json({ success: upstream.status >= 200 && upstream.status < 300, diagnostic: 'BREVO_MINIMAL_SEND', upstream }, 200);
   }
 
   const dedupeKey = `trade:${await fingerprint(request, fields)}`;
