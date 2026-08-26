@@ -26,8 +26,10 @@ jobs:
           node --check functions/portal/_middleware.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
-      - name: Run Admin current-only regression guard
-        run: node tests/admin-shell-resilience.test.mjs
+      - name: Run Admin current-only regression guards
+        run: |
+          node tests/admin-shell-resilience.test.mjs
+          node tests/admin-current-only-shell-contract.test.mjs
       - name: Build Cloudflare Pages artifact
         run: npm run build
       - name: Verify current-only Admin artifact
