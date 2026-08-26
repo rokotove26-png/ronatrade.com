@@ -19,7 +19,7 @@ jobs:
         with:
           ref: release/public-go-live-v1.1
 
-      - name: Capture embedded form source
+      - name: Decode embedded form document
         shell: bash
         run: |
           set -euo pipefail
@@ -27,28 +27,45 @@ jobs:
           curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_large.html?layout=large' -o .probe/home_large.html
           curl -fLsS --retry 3 --max-time 60 'https://ronaoil.com/pages/home_compact.html?layout=compact' -o .probe/home_compact.html
           python3 - <<'PY'
-          import pathlib,re
-          def compact(x,n=4200): return re.sub(r'\s+',' ',x).strip()[:n]
-          needles=['formsubmit.co','office_kg@ronaoil.com','/api/forms/trade','uiSceneFrame','compactFrame','.srcdoc','srcdoc =','srcdoc=','fetch(','Отправить заявку','submitBtn','submit']
+          import base64,html,pathlib,re
+          def compact(x,n=3500): return re.sub(r'\s+',' ',x).strip()[:n]
           out=[]
           for name in ('home_large','home_compact'):
-              s=(pathlib.Path('.probe')/(name+'.html')).read_text('utf-8',errors='replace')
-              out.append(f'===== {name} bytes={len(s)} =====')
-              low=s.lower()
-              for needle in needles:
-                  nlow=needle.lower(); positions=[]; pos=0
+              outer=(pathlib.Path('.probe')/(name+'.html')).read_text('utf-8',errors='replace')
+              if name=='home_large':
+                  m=re.search(r'<script\b[^>]*id=["\']uiScenePayload["\'][^>]*>(.*?)</script\s*>',outer,re.I|re.S)
+                  b64=(m.group(1).strip() if m else '')
+              else:
+                  m=re.search(r'\bSOURCE_B64\s*=\s*["\']([^"\']+)["\']',outer,re.S)
+                  b64=(m.group(1).strip() if m else '')
+              try: inner=base64.b64decode(b64).decode('utf-8','replace') if b64 else ''
+              except Exception as e: inner=''; out.append(f'{name} decode_error={e!r}')
+              out.append(f'===== {name} outer={len(outer)} payload_b64={len(b64)} inner={len(inner)} =====')
+              forms=list(re.finditer(r'<form\b[^>]*>.*?</form\s*>',inner,re.I|re.S))
+              out.append(f'forms={len(forms)}')
+              for i,mf in enumerate(forms,1):
+                  block=mf.group(0)
+                  opening=re.match(r'<form\b[^>]*>',block,re.I|re.S)
+                  out.append(f'FORM {i}: '+compact(opening.group(0) if opening else '',1800))
+                  for tag in re.findall(r'<(?:input|select|textarea|button)\b[^>]*>',block,re.I|re.S)[:120]:
+                      out.append('  '+compact(tag,1400))
+                  text=re.sub(r'<script\b.*?</script\s*>|<style\b.*?</style\s*>',' ',block,flags=re.I|re.S)
+                  text=html.unescape(re.sub(r'<[^>]+>',' ',text))
+                  out.append('  TEXT: '+compact(text,2400))
+              for needle in ('formsubmit.co','office_kg@ronaoil.com','/api/forms/trade','fetch(','addEventListener(\'submit','addEventListener("submit','preventDefault','FormData','JSON.stringify','Отправить заявку'):
+                  low=inner.lower(); nl=needle.lower(); pos=[]; at=0
                   while True:
-                      j=low.find(nlow,pos)
+                      j=low.find(nl,at)
                       if j<0: break
-                      positions.append(j); pos=j+len(nlow)
-                  out.append(f'NEEDLE {needle!r} count={len(positions)} positions={positions[:30]}')
-                  for j in positions[:8]:
-                      out.append(f'  AT {j}: '+compact(s[max(0,j-1600):min(len(s),j+3200)]))
+                      pos.append(j); at=j+len(nl)
+                  out.append(f'NEEDLE {needle!r} count={len(pos)} positions={pos[:20]}')
+                  for j in pos[:6]:
+                      out.append('  '+compact(inner[max(0,j-1500):min(len(inner),j+3000)],4400))
           pathlib.Path('ops/trade-form-live-dom-20260826.txt').write_text('\n'.join(out),'utf-8')
           PY
-          sed -n '1,320p' ops/trade-form-live-dom-20260826.txt
+          sed -n '1,360p' ops/trade-form-live-dom-20260826.txt
 
-      - name: Commit live source probe
+      - name: Commit decoded form probe
         shell: bash
         run: |
           set -euo pipefail
@@ -56,5 +73,5 @@ jobs:
           git config user.email 'actions@users.noreply.github.com'
           git add ops/trade-form-live-dom-20260826.txt
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Record embedded trade form source probe'
+          git commit -m 'Record decoded public trade form probe'
           git push origin HEAD:release/public-go-live-v1.1
