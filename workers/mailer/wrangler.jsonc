@@ -1,4 +1,4 @@
-// Deployment marker: Pages MAILER service binding redeploy trigger 2026-08-26.
+// Sender compatibility probe: ronaoil.com sender identity.
 {
   "name": "rona-public-mailer",
   "main": "src/index.js",
@@ -11,7 +11,7 @@
         "rokotove26@gmail.com"
       ],
       "allowed_sender_addresses": [
-        "forms@ronatrade.com"
+        "office_kg@ronaoil.com"
       ]
     }
   ]
