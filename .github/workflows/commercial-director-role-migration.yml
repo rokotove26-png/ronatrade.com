@@ -1,0 +1,163 @@
+name: RONA Commercial Director Role Migration
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - .github/workflows/commercial-director-role-migration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-role:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v4
+        with:
+          ref: release/public-go-live-v1.1
+          fetch-depth: 0
+
+      - name: Patch canonical Commercial Director role
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          def load(path):
+              p = Path(path)
+              if not p.exists():
+                  raise SystemExit(f"missing source: {path}")
+              return p, p.read_text()
+
+          def must_replace(text, old, new, label, count=None):
+              n = text.count(old)
+              if n == 0:
+                  raise SystemExit(f"replacement not found: {label}")
+              if count is not None and n != count:
+                  raise SystemExit(f"unexpected replacement count for {label}: {n}")
+              return text.replace(old, new)
+
+          # MCP gateway: keep legacy public route/slug, switch canonical bound role + identity.
+          p, t = load('supabase/functions/rona-mcp-gateway/index.js')
+          t = must_replace(t,
+              "'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST']",
+              "'rona-mcp-market-analyst-pilot':['COMMERCIAL_DIRECTOR','AI-COMMERCIAL-DIRECTOR']",
+              'gateway pilot binding', 1)
+          t = must_replace(t,
+              "const AI_ROLES=Object.freeze(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','RAIL_LOGISTICS','SYSTEM_ADMIN']);",
+              "const AI_ROLES=Object.freeze(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN']);",
+              'gateway AI_ROLES', 1)
+          t = must_replace(t,
+              "const BUSINESS_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','RAIL_LOGISTICS']);",
+              "const BUSINESS_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS']);",
+              'gateway BUSINESS_ROLES', 1)
+          t = must_replace(t,
+              "const STAFF_ROLE=Object.freeze({OPERATIONS_DIRECTOR:'OPERATIONS_DIRECTOR',FINANCE:'FINANCE',LEGAL:'LEGAL',MARKET_ANALYST:'MARKET_ANALYST',RAIL_LOGISTICS:'RAIL_LOGISTICS',SYSTEM_ADMIN:'SYSTEM_ADMIN'});",
+              "const STAFF_ROLE=Object.freeze({OPERATIONS_DIRECTOR:'OPERATIONS_DIRECTOR',FINANCE:'FINANCE',LEGAL:'LEGAL',MARKET_ANALYST:'MARKET_ANALYST',COMMERCIAL_DIRECTOR:'MARKET_ANALYST',RAIL_LOGISTICS:'RAIL_LOGISTICS',SYSTEM_ADMIN:'SYSTEM_ADMIN'});",
+              'gateway STAFF_ROLE', 1)
+          t = must_replace(t,
+              "  MARKET_ANALYST:new Set(['CLIENT','CONTRACT','APPLICATION','DEAL','PUBLICATION','TASK']),\n",
+              "  MARKET_ANALYST:new Set(['CLIENT','CONTRACT','APPLICATION','DEAL','PUBLICATION','TASK']),\n  COMMERCIAL_DIRECTOR:new Set(['CLIENT','CONTRACT','APPLICATION','DEAL','PUBLICATION','TASK']),\n",
+              'gateway ENTITY_SCOPE', 1)
+          t = t.replace("role==='MARKET_ANALYST'?['contracts','deals','publications','tasks']", "(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR')?['contracts','deals','publications','tasks']")
+          t = must_replace(t,
+              "if(cfg.business_role==='MARKET_ANALYST')tools.push",
+              "if(cfg.business_role==='MARKET_ANALYST'||cfg.business_role==='COMMERCIAL_DIRECTOR')tools.push",
+              'gateway market_data tool', 1)
+          p.write_text(t)
+
+          # Read-only token role vocabulary + domain mappings.
+          p, t = load('supabase/functions/rona-ai-read-only/core.js')
+          t = must_replace(t,
+              "  'MARKET_ANALYST',\n  'RAIL_LOGISTICS',",
+              "  'MARKET_ANALYST',\n  'COMMERCIAL_DIRECTOR',\n  'RAIL_LOGISTICS',",
+              'read-only AI_ROLES', 1)
+          m = re.search(r"(  MARKET_ANALYST: Object\.freeze\(\[\n.*?  \]\),\n)", t, re.S)
+          if not m:
+              raise SystemExit('ROLE_DOMAINS MARKET_ANALYST block not found')
+          block = m.group(1)
+          t = t[:m.end()] + block.replace('MARKET_ANALYST','COMMERCIAL_DIRECTOR',1) + t[m.end():]
+          m = re.search(r"(  MARKET_ANALYST: Object\.freeze\(\[[^\n]*\]\),\n)", t)
+          if not m:
+              raise SystemExit('HISTORY_DOMAINS MARKET_ANALYST block not found')
+          block = m.group(1)
+          t = t[:m.end()] + block.replace('MARKET_ANALYST','COMMERCIAL_DIRECTOR',1) + t[m.end():]
+          p.write_text(t)
+
+          p, t = load('supabase/functions/rona-ai-read-only/index.js')
+          t = must_replace(t,
+              "organizational_title:role==='MARKET_ANALYST'?'Коммерческий директор':null,",
+              "organizational_title:(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR')?'Коммерческий директор':null,",
+              'read-only organizational title', 1)
+          t = t.replace("role==='MARKET_ANALYST' ?", "(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') ?")
+          t = must_replace(t,
+              "if(role==='MARKET_ANALYST') {",
+              "if(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') {",
+              'read-only commercial state branch', 1)
+          t = t.replace("if(role==='RAIL_LOGISTICS'||role==='MARKET_ANALYST') return [];",
+                        "if(role==='RAIL_LOGISTICS'||role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') return [];")
+          p.write_text(t)
+
+          # Read extras market source access.
+          p, t = load('supabase/functions/rona-ai-read-extras/index.js')
+          t = must_replace(t,
+              "const AI_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','RAIL_LOGISTICS','SYSTEM_ADMIN']);",
+              "const AI_ROLES=new Set(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN']);",
+              'read-extras AI_ROLES', 1)
+          t = must_replace(t,
+              "if(auth.role!=='MARKET_ANALYST')throw Object.assign(new Error('AI_MARKET_SCOPE_DENIED'),{status:403});",
+              "if(!['MARKET_ANALYST','COMMERCIAL_DIRECTOR'].includes(auth.role))throw Object.assign(new Error('AI_MARKET_SCOPE_DENIED'),{status:403});",
+              'read-extras market role gate', 1)
+          p.write_text(t)
+
+          # Model executor: canonical role becomes autonomous and may hand off to itself/others.
+          p, t = load('supabase/functions/rona-ai-model-executor/index.ts')
+          t = must_replace(t,
+              'const AUTONOMOUS_ROLES=new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","RAIL_LOGISTICS"]),',
+              'const AUTONOMOUS_ROLES=new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS"]),',
+              'model executor autonomous roles', 1)
+          t = must_replace(t,
+              'enum:["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","RAIL_LOGISTICS","SYSTEM_ADMIN",null]',
+              'enum:["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN",null]',
+              'model executor target roles', 1)
+          t = must_replace(t,
+              'function instructions(role:string){',
+              'ROLE_RULES.COMMERCIAL_DIRECTOR=ROLE_RULES.MARKET_ANALYST;\nfunction instructions(role:string){',
+              'model executor role rules alias', 1)
+          p.write_text(t)
+
+          # Owner/admin dashboard: current canonical identity + legacy history retained.
+          p, t = load('supabase/functions/rona-owner-ai-sync/index.ts')
+          t = t.replace("AI-MARKET-ANALYST", "AI-COMMERCIAL-DIRECTOR")
+          t = t.replace("functional_role::text='MARKET_ANALYST'", "functional_role::text in ('COMMERCIAL_DIRECTOR','MARKET_ANALYST')")
+          t = t.replace("role:'MARKET_ANALYST'", "role:'COMMERCIAL_DIRECTOR'")
+          p.write_text(t)
+
+          print('COMMERCIAL_DIRECTOR_SOURCE_PATCH_OK')
+          PY
+
+      - name: Commit patched release sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/rona-mcp-gateway/index.js \
+                  supabase/functions/rona-ai-read-only/core.js \
+                  supabase/functions/rona-ai-read-only/index.js \
+                  supabase/functions/rona-ai-read-extras/index.js \
+                  supabase/functions/rona-ai-model-executor/index.ts \
+                  supabase/functions/rona-owner-ai-sync/index.ts
+          git commit -m "feat: canonical AI Commercial Director role"
+          git push origin HEAD:release/public-go-live-v1.1
