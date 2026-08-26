@@ -1,0 +1,57 @@
+name: trade-form-e2e-after-onboarding-20260826
+
+on:
+  push:
+    branches:
+      - diag/trade-form-e2e-20260826
+    paths:
+      - .github/workflows/trade-form-e2e-after-onboarding-20260826.yml
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe production trade form
+        shell: bash
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          cat > /tmp/payload.json <<JSON
+          {
+            "Контактное лицо": "RONA SYSTEM TEST",
+            "Компания": "RONA Trade production E2E ${stamp}",
+            "Страна регистрации компании": "Kyrgyzstan",
+            "Нефтепродукт": "СПБТ / СУГ",
+            "Страна назначения груза": "Kazakhstan",
+            "Ориентировочный объем, тонн": "1",
+            "Телефон": "+996000000000",
+            "E-mail": "office_kg@ronaoil.com",
+            "Комментарий": "Synthetic production E2E test ${stamp}. Ignore.",
+            "Источник": "github-actions-production-e2e",
+            "Дата отправки": "${stamp}",
+            "Language": "RU",
+            "URL страницы / источник": "https://ronaoil.com/"
+          }
+          JSON
+          code=$(curl -sS -o /tmp/response.txt -w '%{http_code}' --max-time 25 \
+            -X POST 'https://ronaoil.com/api/forms/trade' \
+            -H 'Origin: https://ronaoil.com' \
+            -H 'Referer: https://ronaoil.com/' \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json' \
+            --data-binary @/tmp/payload.json || true)
+          body=$(cat /tmp/response.txt 2>/dev/null || true)
+          echo "FORM_HTTP=${code}"
+          echo "FORM_RESPONSE=${body}"
+          if [ "$code" != "202" ]; then
+            dcode=$(curl -sS -o /tmp/diag.txt -w '%{http_code}' --max-time 25 \
+              'https://ronaoil.com/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d' || true)
+            dbody=$(cat /tmp/diag.txt 2>/dev/null || true)
+            echo "DIAG_HTTP=${dcode}"
+            echo "DIAG_RESPONSE=${dbody}"
+            exit 1
+          fi
