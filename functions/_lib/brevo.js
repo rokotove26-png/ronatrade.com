@@ -254,7 +254,7 @@ export async function sendFormEmail(env, payload) {
     message.replyTo = { email: payload.reply_to };
   }
 
+  if (payload.channel === 'trade' && await sendViaCorporateSmtpBridge(normalizedPayload)) return true;
   if (await sendViaBrevo(env, message)) return true;
-  if (await sendViaMailerBinding(env, normalizedPayload)) return true;
-  return sendViaCorporateSmtpBridge(normalizedPayload);
+  return sendViaMailerBinding(env, normalizedPayload);
 }
