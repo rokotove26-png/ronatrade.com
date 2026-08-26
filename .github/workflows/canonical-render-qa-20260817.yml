@@ -1,12 +1,14 @@
 name: Canonical portal real-browser render equivalence
 
 on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
   push:
     branches:
-      - staging/canonical-all-portals-visual-20260816
+      - 'staging/canonical-all-portals-visual-20260816'
       - 'hotfix/admin-interactivity-*'
       - 'hotfix/canonical-gate-align-*'
-      - release/public-go-live-v1.1
+      - 'release/public-go-live-v1.1'
 
 permissions:
   contents: read
@@ -20,106 +22,37 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify canonical source package and build exact pages
-        run: |
-          set -euo pipefail
-          npm run build
-          sha256sum \
-            'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' \
-            'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' \
-            'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' \
-            dist/portal/admin.html dist/portal/agent.html dist/portal/client.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          echo 'CANONICAL_BUILD_BYTE_EQUIVALENCE=PASS'
-      - name: Verify approved Administrator runtime overlay scope
-        run: |
-          set -euo pipefail
-          f='functions/portal/_middleware.js'
-          test "$(git hash-object "$f")" = 'b3d0953c9b1733ce7a9b3d5ec9caa3ceaedc79eb'
-          grep -q "if (url.pathname !== '/portal/admin') return context.next();" "$f"
-          grep -q 'rona-admin-live-authority-adapter' "$f"
-          grep -q 'rona-admin-access-ui-loader' "$f"
-          test -f functions/portal/admin-access-ui.js
-          node --check functions/portal/admin-access-ui.js
-          grep -q 'Открыть без контракта' functions/portal/admin-access-ui.js
-          grep -q 'newAgentScope' functions/portal/admin-access-ui.js
-          if grep -Eiq 'rona-client-live-authority-adapter|HTMLRewriter' "$f"; then
-            echo 'UNAPPROVED_CLIENT_OR_GLOBAL_RUNTIME_MUTATION_DETECTED'
-            exit 1
-          fi
-          echo 'ADMIN_APPROVED_RUNTIME_OVERLAY=PASS'
-          echo 'AGENT_CLIENT_CANONICAL_RUNTIME_SCOPE=PASS'
-      - name: Install Chromium render harness
-        run: |
-          npm install --no-save playwright@1.48.2 pixelmatch@6.0.0 pngjs@7.0.0
-          npx playwright install --with-deps chromium
-      - name: Real-browser rendered equivalence
+      - name: Verify current lifecycle source and build equivalence
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/baseline/portal /tmp/candidate/portal render-evidence
-          cp 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' /tmp/baseline/portal/admin.html
-          cp 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' /tmp/baseline/portal/agent.html
-          cp 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' /tmp/baseline/portal/client.html
-          cp dist/portal/*.html /tmp/candidate/portal/
-          python3 -m http.server 4173 --directory /tmp/baseline >/tmp/baseline-http.log 2>&1 & echo $! >/tmp/baseline.pid
-          python3 -m http.server 4174 --directory /tmp/candidate >/tmp/candidate-http.log 2>&1 & echo $! >/tmp/candidate.pid
-          sleep 2
-          cat > render-compare.mjs <<'NODE'
-          import { chromium } from 'playwright';
-          import fs from 'node:fs';
-          import crypto from 'node:crypto';
-          import pixelmatch from 'pixelmatch';
-          import { PNG } from 'pngjs';
-          const kinds=['admin','agent','client'];
-          const browser=await chromium.launch({headless:true});
-          const results={viewport:{width:1440,height:1000},javascript:false,portals:{}};
-          for(const kind of kinds){
-            const ctx=await browser.newContext({viewport:results.viewport,javaScriptEnabled:false,deviceScaleFactor:1});
-            const a=await ctx.newPage();
-            const b=await ctx.newPage();
-            await a.goto(`http://127.0.0.1:4173/portal/${kind}.html`,{waitUntil:'load'});
-            await b.goto(`http://127.0.0.1:4174/portal/${kind}.html`,{waitUntil:'load'});
-            const pa=`render-evidence/${kind}-frozen.png`, pb=`render-evidence/${kind}-candidate.png`, pd=`render-evidence/${kind}-diff.png`;
-            await a.screenshot({path:pa,fullPage:true});
-            await b.screenshot({path:pb,fullPage:true});
-            const ba=fs.readFileSync(pa),bb=fs.readFileSync(pb); const ia=PNG.sync.read(ba),ib=PNG.sync.read(bb);
-            if(ia.width!==ib.width||ia.height!==ib.height) throw new Error(`${kind} render dimensions differ ${ia.width}x${ia.height} vs ${ib.width}x${ib.height}`);
-            const diff=new PNG({width:ia.width,height:ia.height});
-            const pixels=pixelmatch(ia.data,ib.data,diff.data,ia.width,ia.height,{threshold:0});
-            fs.writeFileSync(pd,PNG.sync.write(diff));
-            const sha=x=>crypto.createHash('sha256').update(x).digest('hex');
-            results.portals[kind]={width:ia.width,height:ia.height,differing_pixels:pixels,frozen_png_sha256:sha(ba),candidate_png_sha256:sha(bb),pass:pixels===0};
-            console.log(`${kind.toUpperCase()}_RENDER_EQUIVALENCE=${pixels===0?'PASS':'FAIL'} differing_pixels=${pixels}`);
-            if(pixels!==0) throw new Error(`${kind} unauthorized visible delta ${pixels}`);
-            await ctx.close();
-          }
-          await browser.close();
-          results.unauthorized_visible_delta=0;
-          fs.writeFileSync('render-evidence/render-equivalence.json',JSON.stringify(results,null,2));
-          console.log('UNAUTHORIZED_VISIBLE_VISUAL_DELTA=0');
-          NODE
-          node ./render-compare.mjs
-          kill $(cat /tmp/baseline.pid) $(cat /tmp/candidate.pid) || true
-      - name: Runtime adapter and Admin overlay static inspection
+          npm run build
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
+          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
+          test "$(sha256sum 'portal-src/canonical/canonical_background.png' | awk '{print $1}')" = '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
+          test "$(sha256sum 'portal-src/canonical/canonical_logo.svg' | awk '{print $1}')" = '755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'
+          cmp -s portal-src/current/admin.html dist/portal/admin.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
+          cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
+          cmp -s portal-src/canonical/canonical_background.png dist/assets/portal-canonical/background.png
+          cmp -s portal-src/canonical/canonical_logo.svg dist/assets/portal-canonical/logo.svg
+          test "$(stat -c%s dist/portal/admin.html)" -lt 60000
+          grep -q 'data-rona-admin-shell="current-only-v1"' dist/portal/admin.html
+          ! grep -q 'adminLoginGate' dist/portal/admin.html
+          ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
+          ! grep -q 'Временный автономный вход' dist/portal/admin.html
+          ! grep -q 'v3.4.13' dist/portal/admin.html
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          echo 'ADMIN_CURRENT_ONLY_BUILD_EQUIVALENCE=PASS'
+          echo 'AGENT_CLIENT_CANONICAL_BYTE_EQUIVALENCE=PASS'
+          echo 'CANONICAL_VISUAL_ASSET_EQUIVALENCE=PASS'
+      - name: Verify controlled runtime scope
         run: |
-          set -euo pipefail
-          grep -q 'RONA_CANONICAL_RUNTIME_ADAPTER_V2' 'functions/portal/[[path]].js'
-          grep -q "on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
-          grep -q "on('#rona-admin-auth-v3413', new RemoveCanonicalLegacyAuthNode())" 'functions/portal/[[path]].js'
-          grep -q 'SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP' 'functions/portal/[[path]].js'
-          grep -q 'BootServerAuthenticatedAdminBody' 'functions/portal/[[path]].js'
-          grep -q 'BodyAppend(AGENT_BRIDGE)' 'functions/portal/[[path]].js'
-          grep -q "if (kind === 'client') return secureResponse(response, session.setCookies, true);" 'functions/portal/[[path]].js'
-          grep -q 'CLIENT_CONTEXT_NOT_AUTHORIZED' 'functions/portal/[[path]].js'
-          grep -q 'ADMIN_APPROVED_ACCESS_OVERLAY' '.github/workflows/final-production-activation-synchronized-v2.yml'
-          echo 'RUNTIME_ADAPTER_CONTROLLED_SCOPE=PASS'
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: canonical-render-evidence-${{ github.sha }}
-          path: render-evidence
-          if-no-files-found: warn
-          retention-days: 7
+          node --check functions/portal/admin.js
+          node --check functions/portal/main-ui.js
+          node --check functions/portal/clients-agents-current-ui.js
+          grep -q "'x-rona-admin-shell','current-only-v1'" functions/portal/admin.js
+          grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'" functions/portal/clients-agents-current-ui.js
+          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
+          echo 'CURRENT_ONLY_RUNTIME_SCOPE=PASS'
