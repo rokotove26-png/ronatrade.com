@@ -6,51 +6,30 @@ on:
       - release/public-go-live-v1.1
     paths:
       - .github/workflows/trade-form-mailer-smoke-20260826.yml
+      - functions/api/forms/delivery-diagnostic.js
 
 jobs:
-  isolate:
+  delivery-diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
-      - name: Isolate custom-domain vs Pages production POST
+      - name: Wait for Pages deployment and isolate Brevo vs MAILER
         shell: bash
         run: |
-          set -u
-          ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          body=$(cat <<JSON
-          {
-            "Контактное лицо":"RONA SYSTEM TEST",
-            "Компания":"RONA Trade synthetic isolate ${ts}",
-            "Страна регистрации компании":"Kyrgyzstan",
-            "Нефтепродукт":"TEST ONLY",
-            "Страна назначения груза":"Kyrgyzstan",
-            "Ориентировочный объем, тонн":"1",
-            "E-mail":"office_kg@ronaoil.com",
-            "Комментарий":"Synthetic diagnostic. Ignore.",
-            "Источник":"GitHub Actions isolated production probe",
-            "Дата отправки":"${ts}",
-            "Language":"RU",
-            "URL страницы / источник":"https://ronaoil.com/"
-          }
-          JSON
-          )
-
-          probe() {
-            label="$1"; url="$2"; origin="$3"
-            echo "===== ${label} ====="
-            curl -sS -D "${label}.headers" -o "${label}.body" \
-              -X POST "$url/api/forms/trade" \
-              -H "Origin: $origin" \
-              -H "Content-Type: application/json" \
-              --data "$body" || true
-            head -n 30 "${label}.headers" || true
-            echo "--- BODY ---"
-            cat "${label}.body" || true
-            echo
-          }
-
-          probe custom https://ronaoil.com https://ronaoil.com
-          probe pages https://rona-trade-public.pages.dev https://rona-trade-public.pages.dev
-          probe olddeploy https://3bef8b32.rona-trade-public.pages.dev https://3bef8b32.rona-trade-public.pages.dev
-
-# Merge-trigger probe 2026-08-26
+          set -euo pipefail
+          url='https://rona-trade-public.pages.dev/api/forms/delivery-diagnostic?token=a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d'
+          body=''
+          code=''
+          for attempt in $(seq 1 30); do
+            code=$(curl -sS -o diagnostic.json -w '%{http_code}' "$url" || true)
+            body=$(cat diagnostic.json 2>/dev/null || true)
+            echo "attempt=${attempt} http=${code} body=${body}"
+            if [ "$code" = '200' ] && printf '%s' "$body" | grep -q '"success":true'; then
+              break
+            fi
+            sleep 5
+          done
+          echo "FINAL HTTP ${code}"
+          printf '%s\n' "$body"
+          test "$code" = '200'
+          printf '%s' "$body" | grep -q '"success":true'
