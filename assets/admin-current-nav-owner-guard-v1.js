@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__)return;
-window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__='20260826-v1';
+window.__RONA_ADMIN_CURRENT_NAV_OWNER_GUARD__='20260826-v2';
 const nav=document.getElementById('nav');
 if(!nav)return;
 let lastExplicit='';
@@ -9,23 +9,28 @@ function reassert(page){
   if(!page)return;
   try{window.__RONA_ADMIN_NAVIGATE__?.(page)}catch(_){ }
 }
-/* The inline current-only router is registered before this guard. It receives
-   the click first. This guard then prevents all later/legacy visual runtimes
-   from interpreting the same navigation click and becoming a second owner. */
-nav.addEventListener('click',event=>{
-  const button=event.target?.closest?.('button[data-page]');
+/* The current-only router exposes one authoritative navigation API before any
+   optional visual runtime is loaded. Capture the user's nav click at document
+   level, invoke that API directly and stop the event before later document/body
+   handlers can reinterpret the same click. */
+document.addEventListener('click',event=>{
+  const button=event.target?.closest?.('#nav button[data-page]');
   if(!button||!nav.contains(button))return;
-  lastExplicit=String(button.dataset.page||'');
+  const page=String(button.dataset.page||'');
+  if(!page)return;
+  lastExplicit=page;
+  event.preventDefault();
   event.stopImmediatePropagation();
   event.stopPropagation();
-  queueMicrotask(()=>reassert(lastExplicit));
-  setTimeout(()=>reassert(lastExplicit),50);
-  setTimeout(()=>reassert(lastExplicit),250);
+  reassert(page);
+  queueMicrotask(()=>reassert(page));
+  setTimeout(()=>reassert(page),50);
+  setTimeout(()=>reassert(page),250);
 },true);
 window.addEventListener('rona:admin-pagechange',event=>{
   const page=String(event?.detail?.page||'');
   const source=String(event?.detail?.source||'');
-  if(source==='user'||source==='api')lastExplicit=page;
+  if((source==='user'||source==='api')&&page)lastExplicit=page;
 });
 const observer=new MutationObserver(()=>{
   if(!lastExplicit)return;
