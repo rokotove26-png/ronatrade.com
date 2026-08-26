@@ -1,9 +1,10 @@
 name: Admin source-first contract activation QA
 
 on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
   push:
-    branches:
-      - 'release/public-go-live-v1.1'
+    branches: [release/public-go-live-v1.1]
 
 permissions:
   actions: read
@@ -19,83 +20,36 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Verify source-first authority code and frozen canonical sources
+      - name: Verify current-only source-first authority
         shell: bash
         run: |
           set -euo pipefail
           npm run build
+          cmp -s portal-src/current/admin.html dist/portal/admin.html
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
-          cmp -s 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' dist/portal/admin.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          node --check functions/portal/admin-access-ui.js
+          grep -q 'data-rona-admin-shell="current-only-v1"' dist/portal/admin.html
+          ! grep -q 'v3.4.13' dist/portal/admin.html
+          node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/admin-authority/[[path]].js'
+          grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q '/access/users' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           grep -q 'ADMIN_CLIENT_AUTHORITY_API' 'functions/portal/admin-authority/[[path]].js'
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-client-authority/index.ts
           grep -q 'ADMIN_CONTRACT_AUTHORITY_ACTIVATED' supabase/functions/rona-admin-client-authority/index.ts
           grep -q 'client_user_pending_company_bindings' supabase/functions/rona-admin-client-authority/index.ts
-          grep -q '__RONA_ADMIN_ACCESS_UI_V3__' functions/portal/admin-access-ui.js
-          grep -q 'Открыть без контракта' functions/portal/admin-access-ui.js
-          echo 'SOURCE_FIRST_ADMIN_AUTHORITY_STATIC=PASS'
-
-      - name: Install Playwright runtime using preinstalled Chrome
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --no-save --ignore-scripts playwright@1.54.2
-          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else echo PREINSTALLED_CHROME_NOT_FOUND; exit 1; fi
-
-      - name: Wait for this commit in Cloudflare production
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          echo 'SOURCE_FIRST_CURRENT_ONLY_ADMIN=PASS'
+      - name: Wait for exact production deploy
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Verify production source-first boundary without mutation
+        if: github.event_name == 'push'
         run: |
+          node scripts/verify-admin-current-only-production.mjs
           node <<'NODE'
-          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{for(let i=0;i<120;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-ADMIN-SOURCE-FIRST-QA'}});
-            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare '+cf.conclusion);await sleep(5000);return}}
-            await sleep(2000);
-          }throw new Error('Cloudflare timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
-
-      - name: Verify Admin company selection reaches native PDF chooser
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          node <<'NODE'
-          const {chromium}=require('playwright');
-          const base='https://ronaoil.com',repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
-          function assert(v,m){if(!v)throw new Error(m)}
-          async function session(){const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok||!j.session?.access_token||!j.session?.refresh_token)throw new Error('broker '+r.status+' '+JSON.stringify(j));return j.session}
-          async function wait(page,fn,label){for(let i=0;i<300;i++){if(await page.evaluate(fn))return;await page.waitForTimeout(100)}throw new Error(label+' timeout')}
-          (async()=>{
-            const browser=await chromium.launch({headless:true,channel:'chrome'}),s=await session();
-            const ctx=await browser.newContext({viewport:{width:1920,height:1080}});
-            await ctx.addCookies([{name:'rona_portal_at',value:s.access_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},{name:'rona_portal_rt',value:s.refresh_token,domain:'ronaoil.com',path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}]);
-            const page=await ctx.newPage(),errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
-            await page.goto(base+'/portal/admin?_source_first='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
-            await wait(page,()=>window.__RONA_ADMIN_BOOT_STATE__?.ready===true,'admin boot');
-            await wait(page,()=>window.__RONA_ADMIN_LIVE_READY__===true,'admin live');
-            await wait(page,()=>window.__RONA_ADMIN_ACCESS_UI_V3__===true,'source-first UI');
-            await page.evaluate(()=>window.openModal('create-access'));
-            await page.waitForSelector('#ronaOpenWithoutContract');
-            await page.evaluate(()=>{const role=document.getElementById('newRole');role.value='Клиент';role.dispatchEvent(new Event('change',{bubbles:true}))});
-            const state=await page.evaluate(()=>({checks:document.querySelectorAll('.newContractCheck').length,disabled:Array.from(document.querySelectorAll('.newContractCheck')).filter(x=>x.disabled).length,uploads:document.querySelectorAll('[data-rona-upload-contract]').length,without:!!document.getElementById('ronaOpenWithoutContract')}));
-            assert(state.checks===3,'company check count '+JSON.stringify(state));
-            assert(state.disabled===0,'company selection disabled '+JSON.stringify(state));
-            assert(state.uploads>=1,'upload controls missing '+JSON.stringify(state));
-            assert(state.without===true,'open-without-contract missing');
-            const upload=page.locator('[data-rona-upload-contract]').first();
-            const chooserPromise=page.waitForEvent('filechooser',{timeout:5000});
-            await upload.click();
-            await chooserPromise;
-            assert(errors.length===0,'Admin JS '+JSON.stringify(errors.slice(0,4)));
-            console.log('ADMIN_SOURCE_FIRST_FILE_CHOOSER=PASS '+JSON.stringify(state));
-            await ctx.close();await browser.close();
-          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          for(const p of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){const r=await fetch('https://ronaoil.com'+p,{redirect:'manual',cache:'no-store'});if(![401,403].includes(r.status))throw new Error(p+' fail-closed status '+r.status)}
+          console.log('SOURCE_FIRST_CURRENT_ONLY_PRODUCTION=PASS');
           NODE
