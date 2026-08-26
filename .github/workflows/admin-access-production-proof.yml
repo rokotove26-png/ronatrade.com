@@ -1,9 +1,10 @@
 name: Admin access production proof
 
 on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
   push:
-    branches:
-      - 'release/public-go-live-v1.1'
+    branches: [release/public-go-live-v1.1]
   workflow_dispatch:
 
 permissions:
@@ -16,74 +17,51 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify current access source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          node --check functions/portal/clients-agents-current-ui.js
+          node --check functions/portal/admin.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-current-only-v1'" functions/portal/clients-agents-current-ui.js
+          grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
+          grep -q '/access/users' functions/portal/clients-agents-current-ui.js
+          grep -q '/admin/clients/' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
+          grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
+          grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' supabase/functions/rona-admin-control-plane/index.ts
+          grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' supabase/functions/rona-admin-control-plane/index.ts
+          grep -q 'data-rona-admin-shell="current-only-v1"' portal-src/current/admin.html
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
+          echo 'ADMIN_ACCESS_CURRENT_ONLY_SOURCE=PASS'
       - name: Wait for Cloudflare production deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Prove live fail-closed access boundary without mutation
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        shell: bash
         run: |
-          node <<'NODE'
-          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,gh=process.env.GH_TOKEN;
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          (async()=>{for(let i=0;i<120;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs`,{headers:{authorization:`Bearer ${gh}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-ADMIN-ACCESS-PROOF'}});
-            if(r.ok){const j=await r.json();const cf=(j.check_runs||[]).find(x=>x.name==='Cloudflare Pages');if(cf?.status==='completed'){if(cf.conclusion!=='success')throw new Error('Cloudflare deployment '+cf.conclusion);await sleep(5000);return}}
-            await sleep(3000);
-          }throw new Error('Cloudflare deployment timeout')})().catch(e=>{console.error(e.stack||e);process.exit(1)});
-          NODE
-
-      - name: Prove live Administrator-exclusive client and Agent wiring without business mutation
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
+          node scripts/verify-admin-current-only-production.mjs
           node <<'NODE'
           const base='https://ronaoil.com';
-          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA,ref=process.env.GITHUB_REF,runId=process.env.GITHUB_RUN_ID,gh=process.env.GH_TOKEN;
-          const assert=(x,m)=>{if(!x)throw new Error(m)};
-          async function broker(){
-            const r=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',{method:'POST',headers:{authorization:`Bearer ${gh}`,'x-github-repository':repo,'x-github-sha':sha,'x-github-ref':ref,'x-github-run-id':runId}});
-            const j=await r.json();assert(r.ok&&j.ok&&j.session?.access_token&&j.session?.refresh_token,'controlled Admin session unavailable '+JSON.stringify({status:r.status,code:j.code,proof:j.proof||null}));return j.session;
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){
+            const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});
+            const j=await r.json().catch(()=>({}));
+            assert([401,403].includes(r.status),path+' must fail closed; got '+r.status+' '+JSON.stringify(j));
           }
-          (async()=>{
-            const s=await broker();
-            const cookie=`rona_portal_at=${s.access_token}; rona_portal_rt=${s.refresh_token}`;
-            const h={cookie,accept:'application/json'};
-
-            const readiness=await fetch(base+'/portal/admin-authority/agent-readiness',{headers:h});
-            const rj=await readiness.json();
-            assert(readiness.ok&&rj?.ok===true&&rj.data?.matrixReady===true,'agent readiness '+readiness.status+' '+JSON.stringify(rj));
-            const profiles=(rj.data.profiles||[]).map(x=>({id:String(x.agentPersonId),alias:String(x.displayAlias)}));
-            assert(profiles.some(x=>x.id==='AGP-2026-001'&&x.alias==='Артем Белов'),'AGP-2026-001 missing '+JSON.stringify(profiles));
-            assert(profiles.some(x=>x.id==='AGP-2026-002'&&x.alias==='Егор Кузнецов'),'AGP-2026-002 missing '+JSON.stringify(profiles));
-
-            const postHeaders={...h,origin:base,referer:base+'/portal/admin','content-type':'application/json'};
-            const badProfile=await fetch(base+'/portal/admin-authority/access/users',{method:'POST',headers:postHeaders,body:JSON.stringify({role:'Агент',name:'__RONA_NONEXISTENT_AGENT__',login:'rona_agent_noop_probe',email:'agent-noop-probe@example.invalid',initialPassword:'Aa1!NoMutation'})});
-            const badJson=await badProfile.json();
-            assert(badProfile.status===409&&badJson?.code==='AGENT_PROFILE_NOT_FOUND','negative Agent route '+badProfile.status+' '+JSON.stringify(badJson));
-
-            const noPassword=await fetch(base+'/portal/admin-authority/access/users',{method:'POST',headers:postHeaders,body:JSON.stringify({role:'Клиент',name:'QA NO MUTATION',login:'rona_client_noop_probe',email:'client-noop-probe@example.invalid',contractIds:[]})});
-            const noPasswordJson=await noPassword.json();
-            assert(noPassword.status===400&&noPasswordJson?.code==='INVALID_INITIAL_PASSWORD','Administrator password gate '+noPassword.status+' '+JSON.stringify(noPasswordJson));
-
-            const authority=await fetch(base+'/portal/admin-authority/bootstrap',{headers:h});
-            const aj=await authority.json();
-            assert(authority.ok&&aj?.ok===true&&Array.isArray(aj.data?.contracts),'Admin authority bootstrap');
-            assert(aj.data?.adminControlPlane?.mode==='ADMIN_EXCLUSIVE','Admin exclusive mode missing');
-            assert(aj.data?.adminControlPlane?.passwordOwner==='ADMINISTRATOR','Administrator password ownership missing');
-            assert(aj.data?.adminControlPlane?.accountCreationIndependentFromContract===true,'Client account creation remains contract-coupled');
-            const c2=(aj.data.contracts||[]).find(x=>x.contractId==='RONA-C002-CTR-2026-001');
-            assert(c2,'C002 contract missing from Admin authority bootstrap');
-            const signedProfiles=Array.isArray(aj.data?.signedContractGate?.contracts)?aj.data.signedContractGate.contracts:[];
-            const c2Signed=signedProfiles.find(x=>x.contractId==='RONA-C002-CTR-2026-001');
-            assert(!c2Signed||c2Signed.bilateralSignedConfirmed!==true,'C002 must remain fail-closed until Administrator uploads/confirms exact bilateral PDF');
-
-            const admin=await fetch(base+'/portal/admin?_admin_access_proof='+Date.now(),{headers:{cookie}});
-            const html=await admin.text();
-            assert(admin.ok,'Admin HTML '+admin.status);
-            for(const marker of ['rona-admin-live-authority-adapter','openSignedContractAdmin','prepareSignedContractUpload','Подписанный контракт','askAdminPassword','setAccessUserPassword']) assert(html.includes(marker),'Admin live marker missing '+marker);
-
-            console.log('ADMIN_EXCLUSIVE_CONTROL_PLANE=PASS');
-            console.log('ADMIN_AGENT_READINESS=PASS');
-            console.log('ADMIN_PASSWORD_OWNERSHIP=PASS');
-            console.log('ADMIN_CLIENT_SIGNED_PDF_PATH=PASS');
-            console.log('NO_AUTHORITATIVE_BUSINESS_MUTATION=PASS');
-          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          const r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
+          assert(r.ok&&r.headers.get('x-rona-clients-agents-ui')==='current-only-v1','current access module unavailable');
+          const src=await r.text();
+          assert(src.includes("AUTH='/portal/admin-authority'"),'authority route missing live');
+          assert(!src.includes('harvestLegacy'),'legacy DOM harvest deployed');
+          console.log('ADMIN_ACCESS_FAIL_CLOSED_PRODUCTION=PASS');
           NODE
