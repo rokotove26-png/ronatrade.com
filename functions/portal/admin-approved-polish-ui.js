@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_APPROVED_POLISH__)return;
-window.__RONA_ADMIN_APPROVED_POLISH__='20260826-claims-access-approved-v1';
+window.__RONA_ADMIN_APPROVED_POLISH__='20260826-claims-access-radio-approved-v2';
 if(location.pathname!=='/portal/admin')return;
 
 const AUTH='/portal/admin-authority';
@@ -18,6 +18,8 @@ function ensureStyle(){
     '#page-claims .rona-claims-registry,#page-claims .rona-claims-side,#page-claims .rona-claims-side>.rona-owner-card{width:100%!important;max-width:none!important;min-width:0!important;box-sizing:border-box!important}',
     '#page-claims .rona-claims-side{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}',
     '#page-claims .rona-claims-side>.rona-claims-detail-card{grid-column:auto!important}',
+    '#page-messages.rona-radio-single-owner-ready>*:not(.rona-rs-root[data-kind="radio"]){display:none!important}',
+    '#page-messages.rona-radio-single-owner-ready>.rona-rs-root[data-kind="radio"]{display:grid!important;visibility:visible!important;opacity:1!important}',
     '.rona-approved-access-mask{position:fixed;inset:0;z-index:2147483250;background:rgba(2,8,14,.70);display:flex;align-items:center;justify-content:center;padding:30px;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}',
     '.rona-approved-access-modal{width:min(860px,96vw);max-height:88vh;overflow:auto;border:1px solid rgba(222,236,248,.30);border-radius:20px;background:rgba(5,16,28,.985);color:#f7fbff;box-shadow:0 30px 100px rgba(0,0,0,.56)}',
     '.rona-approved-access-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;padding:20px;border-bottom:1px solid rgba(222,236,248,.20)}',
@@ -37,6 +39,22 @@ function ensureStyle(){
     '.rona-approved-agent-note{padding:12px 13px;border:1px solid rgba(145,201,248,.22);border-radius:11px;background:rgba(48,91,129,.14);color:#c8d8e4;font-size:13px;line-height:1.5}',
     '@media(max-width:900px){.rona-approved-contract-grid{grid-template-columns:1fr}.rona-approved-access-grid2{grid-template-columns:1fr}.rona-approved-access-mask{padding:16px}.rona-approved-access-modal{width:min(720px,100%);max-height:calc(100vh - 32px)}}'
   ].join('');document.head.append(s)
+}
+
+function enforceRadioSingleOwner(){
+  const page=q('#page-messages');if(!page)return false;
+  const current=q(':scope>.rona-rs-root[data-kind="radio"]',page);
+  if(!current){page.classList.remove('rona-radio-single-owner-ready');return false}
+  page.classList.add('rona-radio-single-owner-ready');
+  current.style.removeProperty('display');current.removeAttribute('aria-hidden');
+  window.__RONA_RADIO_SINGLE_OWNER__='remaining-sections-r2';
+  return true
+}
+function installRadioSingleOwner(){
+  const page=q('#page-messages');if(!page||page.__ronaRadioSingleOwner)return;
+  page.__ronaRadioSingleOwner=true;enforceRadioSingleOwner();
+  new MutationObserver(()=>enforceRadioSingleOwner()).observe(page,{childList:true});
+  window.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')!=='messages')return;queueMicrotask(enforceRadioSingleOwner);setTimeout(enforceRadioSingleOwner,80);setTimeout(enforceRadioSingleOwner,220)})
 }
 
 function notice(message,title='Клиенты и агенты'){
@@ -115,8 +133,8 @@ async function openApprovedAccess(){
 
 function isCreateButton(node){const b=node?.closest?.('#page-access button');if(!b)return null;const t=String(b.textContent||'').replace(/\s+/g,' ').trim();return b.dataset.ronaCreateAccess==='primary'||b.dataset.action==='create-access'||t==='Создать доступ'?b:null}
 document.addEventListener('click',ev=>{const b=isCreateButton(ev.target);if(!b)return;ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation();void openApprovedAccess()},true);
-window.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')==='claims')ensureStyle()});
-ensureStyle();window.__RONA_ADMIN_APPROVED_POLISH_READY__=true;
+window.addEventListener('rona:admin-pagechange',ev=>{const page=String(ev?.detail?.page||'');if(page==='claims')ensureStyle();if(page==='messages')enforceRadioSingleOwner()});
+ensureStyle();installRadioSingleOwner();window.__RONA_ADMIN_APPROVED_POLISH_READY__=true;
 })();`;
 
 export async function onRequest(){
@@ -126,7 +144,7 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-admin-polish':'claims-access-approved-v1',
-    'x-rona-shell-mutation':'claims-layout-and-access-modal-only'
+    'x-rona-admin-polish':'claims-access-radio-approved-v2',
+    'x-rona-shell-mutation':'claims-layout-access-modal-radio-single-owner'
   }});
 }
