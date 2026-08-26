@@ -1,5 +1,6 @@
 const TOKEN = 'a5c7e2f1-948d-4e56-8c2a-79f6b4426f3d';
 const BREVO_ENDPOINT = 'https://api.brevo.com/v3/smtp/email';
+const FORMSUBMIT_ENDPOINT = 'https://formsubmit.co/ajax/office_kg@ronaoil.com';
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -28,7 +29,7 @@ async function responseDiagnostic(response) {
     if (text) {
       try {
         const parsed = JSON.parse(text);
-        code = safe(parsed?.code, 100);
+        code = safe(parsed?.code || parsed?.success, 100);
         message = safe(parsed?.message || parsed?.error || text, 240);
       } catch {
         message = safe(text, 240);
@@ -106,16 +107,48 @@ async function testMailer(env, submissionId, now) {
   }
 }
 
+async function testFormSubmit(submissionId, now) {
+  const payload = {
+    'Контактное лицо': 'RONA SYSTEM TEST',
+    'Компания': `RONA Trade edge delivery diagnostic ${submissionId}`,
+    'Страна регистрации компании': 'Kyrgyzstan',
+    'Нефтепродукт': 'TEST ONLY',
+    'Страна назначения груза': 'Kyrgyzstan',
+    'Ориентировочный объем, тонн': '1',
+    'E-mail': 'office_kg@ronaoil.com',
+    'Комментарий': `Synthetic Cloudflare-edge delivery diagnostic ${submissionId} at ${now}. Ignore.`,
+    _subject: `RONA Trade edge delivery diagnostic ${submissionId}`,
+    _template: 'table',
+    _captcha: 'false'
+  };
+
+  try {
+    const response = await fetch(FORMSUBMIT_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'user-agent': 'RONA-Trade-Website/1.0'
+      },
+      body: JSON.stringify(payload)
+    });
+    return await responseDiagnostic(response);
+  } catch (error) {
+    return { ok: false, status: 0, code: safe(error?.name, 100), message: safe(error?.message, 240) };
+  }
+}
+
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
   if (url.searchParams.get('token') !== TOKEN) return json({ success: false, code: 'NOT_FOUND' }, 404);
 
   const submissionId = crypto.randomUUID();
   const now = new Date().toISOString();
-  const [brevo, mailer] = await Promise.all([
+  const [brevo, mailer, formsubmit] = await Promise.all([
     testBrevo(env, submissionId, now),
-    testMailer(env, submissionId, now)
+    testMailer(env, submissionId, now),
+    testFormSubmit(submissionId, now)
   ]);
 
-  return json({ success: true, submission_id: submissionId, brevo, mailer });
+  return json({ success: true, submission_id: submissionId, brevo, mailer, formsubmit });
 }
