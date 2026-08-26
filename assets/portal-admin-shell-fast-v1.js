@@ -85,7 +85,7 @@ const MODULES=Object.freeze({
   dealsR11:{src:'/portal/deals-r1-r11-ui?v=20260826-single-owner'},
   cash:{src:'/portal/cash-r2-ui?v=20260826-single-owner'},
   rail:{src:'/portal/rail-current-v81-maplibre-ui?v=20260826-rail-primary'},
-  railFallback:{src:'/portal/rail-r2-ui?v=20260826-rail-fallback'},
+  railFallback:{src:'/portal/rail-safe-fallback-ui?v=20260826-rail-safe-fallback'},
   applications:{src:'/portal/applications-total-kpi-ui?v=20260826-single-owner'},
   claims:{src:'/portal/claims-r2-ui?v=20260826-single-owner'},
   remaining:{src:'/portal/remaining-sections-ui?v=20260826-single-owner'},
@@ -93,13 +93,13 @@ const MODULES=Object.freeze({
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'}
 });
 const railPrimaryReady=()=>!!window.__RONA_RAIL_CURRENT_V81__&&!!document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root]');
-const railFallbackReady=()=>!!window.__RONA_RAIL_CURRENT_FIRST__&&!!document.querySelector('[data-rail-current-root],[data-rail-current-v4="ready"]');
+const railFallbackReady=()=>!!window.__RONA_RAIL_SAFE_FALLBACK__&&!!document.querySelector('[data-rail-current-root="ready"]');
 async function loadRail(){
   const primary=await loadModule('rail',MODULES.rail.src,{attempts:2,ready:railPrimaryReady,timeout:12000});
   if(primary){root.dataset.ronaRailOwner='current-v81';return true}
   recordError('rail-fallback','primary-unavailable');
   const fallback=await loadModule('railFallback',MODULES.railFallback.src,{attempts:2,ready:railFallbackReady,timeout:12000});
-  if(fallback)root.dataset.ronaRailOwner='rail-r2-fallback';
+  if(fallback)root.dataset.ronaRailOwner='safe-fallback-direct-child-v1';
   return fallback
 }
 async function loadAnalytics(){
