@@ -1,0 +1,53 @@
+name: Temporary trade form production smoke 20260826
+
+on:
+  push:
+    branches:
+      - 'test/trade-form-prod-smoke-20260826'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Submit synthetic trade form request
+        shell: bash
+        run: |
+          set -euo pipefail
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          body=$(cat <<JSON
+          {
+            "Contact Person":"RONA SYSTEM TEST",
+            "Company":"RONA Trade Internal Diagnostics",
+            "Company Registration Country":"Kyrgyzstan",
+            "Petroleum Product":"LPG/SPBT",
+            "Cargo Destination Country":"Kazakhstan",
+            "Estimated Volume, tonnes":"1",
+            "Phone":"+996000000000",
+            "Email":"office_kg@ronaoil.com",
+            "Comments":"Automated production smoke test ${now}",
+            "Source":"RONA SYSTEM ADMIN",
+            "Submitted At":"${now}",
+            "Language":"EN",
+            "Page URL / Source":"https://ronaoil.com/pages/home_large.html"
+          }
+          JSON
+          )
+          tmp=$(mktemp)
+          status=$(curl --silent --show-error --max-time 20 \
+            --output "$tmp" \
+            --write-out '%{http_code}' \
+            --request POST 'https://ronaoil.com/api/forms/trade' \
+            --header 'Origin: https://ronaoil.com' \
+            --header 'Content-Type: application/json' \
+            --data "$body")
+          echo "HTTP_STATUS=$status"
+          echo -n 'RESPONSE_BODY='
+          cat "$tmp"
+          echo
+          if [ "$status" != '202' ]; then
+            exit 1
+          fi
