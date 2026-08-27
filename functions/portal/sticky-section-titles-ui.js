@@ -1,7 +1,7 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_STICKY_SECTION_TITLES__)return;
-window.__RONA_STICKY_SECTION_TITLES__='20260823-2255';
+window.__RONA_STICKY_SECTION_TITLES__='20260827-analytics-hero-exempt-v2';
 function q(s,r){return(r||document).querySelector(s)}
 function qa(s,r){return Array.from((r||document).querySelectorAll(s))}
 function norm(v){return String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU')}
@@ -41,6 +41,12 @@ function topOffset(page){
 }
 function ensureTitle(pageId,title){
   var page=q('#page-'+pageId);if(!page||!title)return;
+  if(pageId==='analytics'){
+    var stale=q(':scope > .rona-global-sticky-title',page);if(stale)stale.remove();
+    qa('.rona-global-title-duplicate',page).forEach(function(n){n.classList.remove('rona-global-title-duplicate')});
+    qa('.rona-global-title-duplicate-heading',page).forEach(function(n){n.classList.remove('rona-global-title-duplicate-heading')});
+    return;
+  }
   var bar=q(':scope > .rona-global-sticky-title',page);
   if(!bar){
     bar=document.createElement('div');bar.className='rona-global-sticky-title';bar.dataset.page=pageId;
@@ -85,4 +91,4 @@ function bind(){
 }
 var tries=0;(function wait(){if(window.__RONA_OWNER_ADMIN_READY__===true){bind();return}tries++;if(tries<1200)setTimeout(wait,100)})();
 })();`;
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-sticky-titles':'v1'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-sticky-titles':'v2-analytics-hero-exempt'}})}
