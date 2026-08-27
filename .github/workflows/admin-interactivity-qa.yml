@@ -47,7 +47,8 @@ jobs:
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
-          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "current-loading:not(.rona-owner-original-hidden)" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
           grep -q '__RONA_MARKET_NEWS_CURRENT_V1__' assets/portal-market-news-current-v1.js
           grep -q 'Новости топливного рынка СНГ' assets/portal-market-news-current-v1.js
@@ -89,7 +90,7 @@ jobs:
           assert(remaining.ok,'remaining-sections runtime '+remaining.status);
           const remainingSrc=await remaining.text();
           assert(remainingSrc.includes('renderRewards'),'agent rewards renderer contract missing');
-          assert(remainingSrc.includes('portal-market-news-current-v1.js')&&remainingSrc.includes('__RONA_MARKET_NEWS_CURRENT_LOADER__'),'Market News dedicated loader missing');
+          assert(remainingSrc.includes('portal-market-news-current-v1.js')&&remainingSrc.includes('__RONA_MARKET_NEWS_OWNER_GUARD_V6__'),'Market News dedicated owner guard missing');
           const news=await fetch(base+'/assets/portal-market-news-current-v1.js?_qa='+Date.now(),{cache:'no-store'});
           assert(news.ok,'Market News dedicated runtime '+news.status);
           const newsSrc=await news.text();
