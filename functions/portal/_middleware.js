@@ -1,15 +1,69 @@
-// Admin is intentionally excluded from shell middleware. Its exact route serves the
+// Admin HTML is intentionally excluded from shell middleware. Its exact route serves the
 // canonical static shell and a static resilience runtime without response buffering.
 // Client and Agent keep only the shared logout control here.
+// Analytics JS is normalized at the delivery boundary so stale title runtimes cannot
+// replace the owner-approved v4.5.5 hero after deployment.
 
 const PORTAL_LOGOUT_RUNTIME = `<script id="rona-portal-logout-runtime">(()=>{'use strict';if(window.__RONA_PORTAL_LOGOUT_RUNTIME__)return;window.__RONA_PORTAL_LOGOUT_RUNTIME__=true;const HOME='https://ronaoil.com';let signingOut=false;const norm=v=>String(v||'').trim().toLocaleLowerCase('ru-RU');function existingControl(){const direct=document.querySelector('#adminLogoutBtn,#ronaLogout,[data-action="logout"],[data-logout],a[href="/portal/logout"],a[href="/portal/auth/logout"],form[action="/portal/logout"] button,form[action="/portal/auth/logout"] button');if(direct)return direct;return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el=>['выход','выйти','logout'].includes(norm(el.textContent)))||null}function fallbackControl(){const b=document.createElement('button');const path=location.pathname;const kind=path.endsWith('/client')?'client':path.endsWith('/agent')?'agent':'portal';b.type='button';b.id=kind+'LogoutBtn';b.textContent='Выход';b.setAttribute('aria-label','Выход');b.setAttribute('data-rona-logout-control',kind);const host=document.querySelector('[data-user-menu],.user-menu,.user-actions,.header-actions,.topbar-actions,.topbar,header')||document.body;const ref=host.querySelector('button:last-of-type,a[role="button"]:last-of-type');if(ref&&typeof ref.className==='string'&&ref.className.trim())b.className=ref.className;else{b.style.cursor='pointer';b.style.border='1px solid rgba(255,255,255,.18)';b.style.borderRadius='8px';b.style.padding='8px 12px';b.style.background='rgba(12,20,26,.9)';b.style.color='inherit';if(host===document.body){b.style.position='fixed';b.style.top='18px';b.style.right='18px';b.style.zIndex='2147483000'}}host.appendChild(b);return b}async function signOut(event){if(event){event.preventDefault();event.stopImmediatePropagation()}if(signingOut)return;signingOut=true;const b=event?.currentTarget||event?.target;if(b&&'disabled'in b)b.disabled=true;try{await fetch('/portal/logout',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}})}catch(_e){}finally{window.location.replace(HOME)}}function bind(){const b=existingControl()||fallbackControl();if(!b||b?.dataset?.ronaLogoutBound==='true')return;if(['выйти','logout'].includes(norm(b.textContent)))b.textContent='Выход';b.setAttribute('aria-label','Выход');b.dataset.ronaLogoutBound='true';b.addEventListener('click',signOut,true)}async function verifyRestore(){try{const r=await fetch('/portal/api/session/me',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});if(r.status===401||r.status===403)window.location.replace(HOME)}catch(_e){}}window.addEventListener('pageshow',event=>{const nav=performance.getEntriesByType?.('navigation')?.[0];if(event.persisted||nav?.type==='back_forward')verifyRestore()});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
+
+const ANALYTICS_V455_FINAL_LOCK = String.raw`
+;(()=>{'use strict';
+if(window.__RONA_ANALYTICS_V455_FINAL_LOCK__)return;
+window.__RONA_ANALYTICS_V455_FINAL_LOCK__='20260827-owner-approved-hero-v455';
+const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
+function ensureStyle(){let s=q('#ronaAnalyticsV455FinalHeaderStyle');if(s){document.head.appendChild(s);return}s=document.createElement('style');s.id='ronaAnalyticsV455FinalHeaderStyle';s.textContent=[
+'#page-analytics #rona-analytics-v2 .rona-analytics-canonical-title,#page-analytics>.rona-global-sticky-title,#page-analytics>.rona-global-sticky-slot{display:none!important;visibility:hidden!important;opacity:0!important}',
+'#page-analytics #rona-analytics-v2.an2>.an2-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:14px!important;min-height:0!important;margin:0 0 14px!important;padding:22px!important;border:1px solid rgba(132,196,224,.15)!important;border-radius:22px!important;background:radial-gradient(420px 190px at 100% 0,rgba(89,215,255,.11),transparent 65%),linear-gradient(160deg,rgba(9,24,37,.72),rgba(5,12,20,.28))!important;box-shadow:0 22px 70px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.035)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}',
+'#page-analytics #rona-analytics-v2.an2>.an2-head h1{display:block!important;visibility:visible!important;opacity:1!important;margin:6px 0 8px!important;font-size:clamp(30px,3vw,46px)!important;line-height:1.02!important;letter-spacing:-.035em!important;color:#f4f8fb!important;font-weight:800!important}',
+'#page-analytics #rona-analytics-v2.an2>.an2-head .rona-visual-kicker{display:block!important;visibility:visible!important;opacity:1!important;margin:0!important;font-size:11px!important;line-height:1.25!important;letter-spacing:.16em!important;text-transform:uppercase!important;color:#65d9ff!important;font-weight:850!important}',
+'#page-analytics #rona-analytics-v2.an2>.an2-head p,#page-analytics #rona-analytics-v2.an2>.an2-head .rona-visual-sub{display:block!important;max-width:900px!important;margin:0!important;color:#9eb3c1!important;font-size:13px!important;line-height:1.55!important;opacity:1!important}',
+'@media(max-width:680px){#page-analytics #rona-analytics-v2.an2>.an2-head{padding:18px!important;border-radius:18px!important}#page-analytics #rona-analytics-v2.an2>.an2-head h1{font-size:32px!important}}'
+].join('');document.head.appendChild(s)}
+function apply(){
+ const page=q('#page-analytics');if(!page)return false;const root=q('#rona-analytics-v2',page);if(!root)return false;ensureStyle();
+ qa(':scope>.rona-global-sticky-title,:scope>.rona-global-sticky-slot,:scope>.rona-module-error,:scope>.current-loading',page).forEach(n=>{if(n!==root)n.remove()});
+ qa('.rona-analytics-canonical-title',root).forEach(n=>n.remove());
+ qa('.rona-global-title-duplicate,.rona-global-title-duplicate-heading',root).forEach(n=>{n.classList.remove('rona-global-title-duplicate');n.classList.remove('rona-global-title-duplicate-heading')});
+ const head=q(':scope>.an2-head',root)||q('.an2-head',root);if(!head)return false;
+ const left=head.firstElementChild||head;let kicker=q('.rona-visual-kicker',head);if(!kicker){kicker=document.createElement('div');kicker.className='rona-visual-kicker';kicker.textContent='RONA TRADE · ANALYTICS';left.prepend(kicker)}else kicker.textContent='RONA TRADE · ANALYTICS';
+ const h=q('h1',head);if(h)h.textContent='Аналитика';
+ const d=q('p',head)||q('.rona-visual-sub',head);if(d)d.textContent='Рыночная аналитика Коммерческого директора: динамика котировок, прогноз рынка следующего месяца и индикативный прогноз возможных цен RONA Trade по рабочим базисам.';
+ document.documentElement.dataset.ronaAnalyticsHeader='owner-approved-v455';return true
+}
+let queued=false;function soon(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',soon,{once:true});else soon();
+const obs=new MutationObserver(soon);obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+window.addEventListener('rona:admin-pagechange',e=>{if(e.detail?.page==='analytics')soon()});
+[0,80,250,700,1600,3500].forEach(ms=>setTimeout(apply,ms));
+})();`;
 
 class LogoutBodyInjector{
   element(el){el.append(PORTAL_LOGOUT_RUNTIME,{html:true});}
 }
 
+async function analyticsResponse(context){
+  const response=await context.next();
+  if(response.status!==200)return response;
+  const contentType=String(response.headers.get('content-type')||'').toLowerCase();
+  if(!contentType.includes('javascript')&&!contentType.includes('text/plain'))return response;
+  const source=await response.text();
+  const clean=source
+    .replace(/<script[^>]*data-rona-analytics-legacy[^>]*>[\s\S]*?<\/script>/gi,'')
+    .replace(/\/\*\s*RONA_ANALYTICS_LEGACY_BEGIN\s*\*\/[\s\S]*?\/\*\s*RONA_ANALYTICS_LEGACY_END\s*\*\//g,'');
+  const headers=new Headers(response.headers);
+  headers.delete('content-length');headers.delete('etag');
+  headers.set('content-type','application/javascript; charset=utf-8');
+  headers.set('cache-control','no-store, no-cache, must-revalidate');
+  headers.set('pragma','no-cache');headers.set('expires','0');
+  headers.set('x-rona-analytics-header','owner-approved-v455-final-lock');
+  headers.set('x-rona-analytics-legacy-title','disabled');
+  return new Response(clean+'\n'+ANALYTICS_V455_FINAL_LOCK+'\n',{status:response.status,statusText:response.statusText,headers});
+}
+
 export async function onRequest(context){
   const url=new URL(context.request.url);
+
+  if(url.pathname==='/portal/analytics-v2-ui')return analyticsResponse(context);
 
   // Permanent resilience rule: Admin HTML must not be buffered or rewritten here.
   if(url.pathname==='/portal/admin')return context.next();
