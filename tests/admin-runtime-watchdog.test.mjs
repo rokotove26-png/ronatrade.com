@@ -6,7 +6,7 @@ const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf
 
 assert(shell.includes('id="rona-admin-runtime-watchdog-loader"'),'Admin shell must load runtime watchdog');
 assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260826-single-owner-1345'),'Admin watchdog single-owner asset/version missing');
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'"),'Page-aware recovery marker missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'"),'Page-aware recovery marker missing');
 assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
 assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
 assert(!watchdog.includes("window.__RONA_OWNER_ADMIN_READY__===true&&!n.querySelector(':scope > .current-loading')"),'Legacy false-positive Home readiness check must be removed');
@@ -16,7 +16,7 @@ assert(watchdog.includes("if(p==='monitoring')return'rail'"),'Rail recovery mapp
 assert(watchdog.includes("if(p==='analytics')return'analytics'"),'Analytics recovery mapping missing');
 assert(watchdog.includes("if(p==='market-news')return'market-news-current'"),'Dedicated Market News recovery mapping missing');
 assert(watchdog.includes("if(['agent-settlements','messages'].includes(p))return'remaining'"),'Remaining-section recovery mapping missing');
-assert(watchdog.includes("window.__RONA_ANALYTICS_V2_READY__===true"),'Analytics readiness marker missing');
+assert(watchdog.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness contract missing');
 assert(watchdog.includes("[data-rail-current-v4=\"ready\"],[data-rail-current-root]"),'Rail readiness root missing');
 assert(watchdog.includes("root.querySelector(':scope > .mn-masthead')"),'Market News masthead health check missing');
 assert(watchdog.includes("root.querySelector(':scope > .mn-toolbar')"),'Market News toolbar health check missing');
