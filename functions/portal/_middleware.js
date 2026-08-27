@@ -41,32 +41,13 @@ class LogoutBodyInjector{
   element(el){el.append(PORTAL_LOGOUT_RUNTIME,{html:true});}
 }
 
-async function analyticsResponse(context){
-  const response=await context.next();
-  if(response.status!==200)return response;
-  const contentType=String(response.headers.get('content-type')||'').toLowerCase();
-  if(!contentType.includes('javascript')&&!contentType.includes('text/plain'))return response;
-  const source=await response.text();
-  const clean=source
-    .replace(/<script[^>]*data-rona-analytics-legacy[^>]*>[\s\S]*?<\/script>/gi,'')
-    .replace(/\/\*\s*RONA_ANALYTICS_LEGACY_BEGIN\s*\*\/[\s\S]*?\/\*\s*RONA_ANALYTICS_LEGACY_END\s*\*\//g,'');
-  const headers=new Headers(response.headers);
-  headers.delete('content-length');headers.delete('etag');
-  headers.set('content-type','application/javascript; charset=utf-8');
-  headers.set('cache-control','no-store, no-cache, must-revalidate');
-  headers.set('pragma','no-cache');headers.set('expires','0');
-  headers.set('x-rona-analytics-header','owner-approved-v455-final-lock');
-  headers.set('x-rona-analytics-legacy-title','disabled');
-  return new Response(clean+'\n'+ANALYTICS_V455_FINAL_LOCK+'\n',{status:response.status,statusText:response.statusText,headers});
-}
-
 export async function onRequest(context){
   const url=new URL(context.request.url);
 
-  if(url.pathname==='/portal/analytics-v2-ui')return analyticsResponse(context);
-
   // Permanent resilience rule: Admin HTML must not be buffered or rewritten here.
   if(url.pathname==='/portal/admin')return context.next();
+
+  if(url.pathname==='/portal/analytics-v2-ui')return analyticsResponse(context);
 
   if(!['/portal/client','/portal/agent'].includes(url.pathname))return context.next();
   const response=await context.next();
@@ -87,4 +68,23 @@ export async function onRequest(context){
   const source=await response.text();
   const html=source.includes('rona-portal-logout-runtime')?source:source.replace('</body>',PORTAL_LOGOUT_RUNTIME+'</body>');
   return new Response(html,{status:response.status,statusText:response.statusText,headers});
+}
+
+async function analyticsResponse(context){
+  const downstream=await context.next();
+  if(downstream.status!==200)return downstream;
+  const contentType=String(downstream.headers.get('content-type')||'').toLowerCase();
+  if(!contentType.includes('javascript')&&!contentType.includes('text/plain'))return downstream;
+  const source=await downstream.text();
+  const clean=source
+    .replace(/<script[^>]*data-rona-analytics-legacy[^>]*>[\s\S]*?<\/script>/gi,'')
+    .replace(/\/\*\s*RONA_ANALYTICS_LEGACY_BEGIN\s*\*\/[\s\S]*?\/\*\s*RONA_ANALYTICS_LEGACY_END\s*\*\//g,'');
+  const headers=new Headers(downstream.headers);
+  headers.delete('content-length');headers.delete('etag');
+  headers.set('content-type','application/javascript; charset=utf-8');
+  headers.set('cache-control','no-store, no-cache, must-revalidate');
+  headers.set('pragma','no-cache');headers.set('expires','0');
+  headers.set('x-rona-analytics-header','owner-approved-v455-final-lock');
+  headers.set('x-rona-analytics-legacy-title','disabled');
+  return new Response(clean+'\n'+ANALYTICS_V455_FINAL_LOCK+'\n',{status:downstream.status,statusText:downstream.statusText,headers});
 }
