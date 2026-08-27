@@ -52,9 +52,10 @@ assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("roo
 assert(!runtime.includes("['agent-settlements','messages','analytics','market-news'].includes(p)"),'Analytics/News must not be routed back to Remaining owner');
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
 
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'"),'Page-aware watchdog missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'"),'Page-aware watchdog missing');
 assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
 assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
+assert(watchdog.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness check missing');
 assert(watchdog.includes("if(p==='monitoring')return'rail'")&&watchdog.includes("if(p==='analytics')return'analytics'")&&watchdog.includes("if(p==='market-news')return'market-news-current'"),'Current recovery mappings missing');
 for(const marker of ["root.querySelector(':scope > .mn-masthead')","root.querySelector(':scope > .mn-toolbar')","root.querySelector(':scope > .mn-statusline')","root.querySelector(':scope > main')","activateMarketNews('watchdog-content-repair')"])assert(watchdog.includes(marker),`Market News content-health recovery missing: ${marker}`);
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
@@ -79,8 +80,12 @@ assert(!access.includes('installShellParity')&&!access.includes('installNavigati
 assert(access.includes("'x-rona-shell-mutation':'none'"),'Page-scoped shell mutation contract missing');
 
 assert(analytics.includes("import { onRequest as approvedAnalytics } from './analytics-v2-approved-base.js'"),'Approved Analytics source wrapper missing');
+assert(analytics.includes("const CANONICAL_ANALYTICS_SOURCE='RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html'"),'Canonical v4.3.2 source provenance missing');
+assert(analytics.includes("const CANONICAL_ANALYTICS_MARKER='approved-v4.3.2-pricing-bridge-single-owner'"),'Canonical v4.3.2 runtime marker missing');
+assert(analytics.includes("headers.set('x-rona-analytics-owner','approved-v432-exclusive')"),'Canonical Analytics owner header missing');
+assert(analytics.includes("headers.set('x-rona-analytics-visual','approved-hero-v432-pricing-bridge')"),'Canonical Analytics visual header missing');
 assert(analytics.includes('approved-data-contract: AI95 first=1075.25 last=1226.75; differential=AI92+40 USD/t'),'Approved gasoline differential contract missing');
 assert(!analytics.includes('ROOT_TO')&&!analytics.includes('BIND_TO')&&!analytics.includes('rona-analytics-canonical-title')&&!analytics.includes('home-canonical-frames-title-v1'),'Obsolete Analytics transform returned');
-assert(analyticsBase.includes("'x-rona-analytics-ui':'approved-v4.3.1-single-owner'")&&analyticsBase.includes("'x-rona-analytics-owner':'approved-v431-exclusive'")&&analyticsBase.includes("'x-rona-analytics-visual':'approved-hero-v431'")&&analyticsBase.includes("'x-rona-analytics-chart':'designer-v3-shared-gasoline-axis'"),'Approved Analytics owner headers missing');
+assert(analyticsBase.includes("'x-rona-analytics-ui':'approved-v4.3.1-single-owner'")&&analyticsBase.includes("'x-rona-analytics-owner':'approved-v431-exclusive'")&&analyticsBase.includes("'x-rona-analytics-visual':'approved-hero-v431'")&&analyticsBase.includes("'x-rona-analytics-chart':'designer-v3-shared-gasoline-axis'"),'Frozen approved Analytics base headers missing');
 
 console.log('Admin current-only single-owner resilience QA: PASS');
