@@ -9,32 +9,32 @@ const PORTAL_LOGOUT_RUNTIME = `<script id="rona-portal-logout-runtime">(()=>{'us
 const ANALYTICS_V455_FINAL_LOCK = String.raw`
 ;(()=>{'use strict';
 if(window.__RONA_ANALYTICS_V455_FINAL_LOCK__)return;
-window.__RONA_ANALYTICS_V455_FINAL_LOCK__='20260827-owner-approved-hero-v455';
+window.__RONA_ANALYTICS_V455_FINAL_LOCK__='20260827-owner-approved-hero-v455-final-v2';
 const q=(s,r=document)=>r.querySelector(s),qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
 function ensureStyle(){let s=q('#ronaAnalyticsV455FinalHeaderStyle');if(s){document.head.appendChild(s);return}s=document.createElement('style');s.id='ronaAnalyticsV455FinalHeaderStyle';s.textContent=[
-'#page-analytics #rona-analytics-v2 .rona-analytics-canonical-title,#page-analytics>.rona-global-sticky-title,#page-analytics>.rona-global-sticky-slot{display:none!important;visibility:hidden!important;opacity:0!important}',
-'#page-analytics #rona-analytics-v2.an2>.an2-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:14px!important;min-height:0!important;margin:0 0 14px!important;padding:22px!important;border:1px solid rgba(132,196,224,.15)!important;border-radius:22px!important;background:radial-gradient(420px 190px at 100% 0,rgba(89,215,255,.11),transparent 65%),linear-gradient(160deg,rgba(9,24,37,.72),rgba(5,12,20,.28))!important;box-shadow:0 22px 70px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.035)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}',
-'#page-analytics #rona-analytics-v2.an2>.an2-head h1{display:block!important;visibility:visible!important;opacity:1!important;margin:6px 0 8px!important;font-size:clamp(30px,3vw,46px)!important;line-height:1.02!important;letter-spacing:-.035em!important;color:#f4f8fb!important;font-weight:800!important}',
-'#page-analytics #rona-analytics-v2.an2>.an2-head .rona-visual-kicker{display:block!important;visibility:visible!important;opacity:1!important;margin:0!important;font-size:11px!important;line-height:1.25!important;letter-spacing:.16em!important;text-transform:uppercase!important;color:#65d9ff!important;font-weight:850!important}',
-'#page-analytics #rona-analytics-v2.an2>.an2-head p,#page-analytics #rona-analytics-v2.an2>.an2-head .rona-visual-sub{display:block!important;max-width:900px!important;margin:0!important;color:#9eb3c1!important;font-size:13px!important;line-height:1.55!important;opacity:1!important}',
-'@media(max-width:680px){#page-analytics #rona-analytics-v2.an2>.an2-head{padding:18px!important;border-radius:18px!important}#page-analytics #rona-analytics-v2.an2>.an2-head h1{font-size:32px!important}}'
+'html body #current-admin-main #page-analytics #rona-analytics-v2 .rona-analytics-canonical-title,html body #current-admin-main #page-analytics>.rona-global-sticky-title,html body #current-admin-main #page-analytics>.rona-global-sticky-slot{display:none!important;visibility:hidden!important;opacity:0!important}',
+'html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head{display:flex!important;visibility:visible!important;opacity:1!important;align-items:flex-start!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:14px!important;min-height:0!important;margin:0 0 14px!important;padding:22px!important;border:1px solid rgba(132,196,224,.15)!important;border-radius:22px!important;background:radial-gradient(420px 190px at 100% 0,rgba(89,215,255,.11),transparent 65%),linear-gradient(160deg,rgba(9,24,37,.72),rgba(5,12,20,.28))!important;box-shadow:0 22px 70px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.035)!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;color:inherit!important}',
+'html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head h1{display:block!important;visibility:visible!important;opacity:1!important;margin:6px 0 8px!important;font-size:clamp(30px,3vw,46px)!important;line-height:1.02!important;letter-spacing:-.035em!important;color:#f4f8fb!important;font-weight:800!important}',
+'html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head .rona-visual-kicker{display:block!important;visibility:visible!important;opacity:1!important;margin:0!important;font-size:11px!important;line-height:1.25!important;letter-spacing:.16em!important;text-transform:uppercase!important;color:#65d9ff!important;font-weight:850!important}',
+'html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head p,html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head .rona-visual-sub{display:block!important;visibility:visible!important;max-width:900px!important;margin:0!important;color:#9eb3c1!important;font-size:13px!important;line-height:1.55!important;opacity:1!important}',
+'@media(max-width:680px){html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head{padding:18px!important;border-radius:18px!important}html body #current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head h1{font-size:32px!important}}'
 ].join('');document.head.appendChild(s)}
 function apply(){
  const page=q('#page-analytics');if(!page)return false;const root=q('#rona-analytics-v2',page);if(!root)return false;ensureStyle();
  qa(':scope>.rona-global-sticky-title,:scope>.rona-global-sticky-slot,:scope>.rona-module-error,:scope>.current-loading',page).forEach(n=>{if(n!==root)n.remove()});
- qa('.rona-analytics-canonical-title',root).forEach(n=>n.remove());
+ qa('.rona-analytics-canonical-title,.rona-analytics-canonical-title-text',root).forEach(n=>n.remove());
  qa('.rona-global-title-duplicate,.rona-global-title-duplicate-heading',root).forEach(n=>{n.classList.remove('rona-global-title-duplicate');n.classList.remove('rona-global-title-duplicate-heading')});
  const head=q(':scope>.an2-head',root)||q('.an2-head',root);if(!head)return false;
- const left=head.firstElementChild||head;let kicker=q('.rona-visual-kicker',head);if(!kicker){kicker=document.createElement('div');kicker.className='rona-visual-kicker';kicker.textContent='RONA TRADE · ANALYTICS';left.prepend(kicker)}else kicker.textContent='RONA TRADE · ANALYTICS';
- const h=q('h1',head);if(h)h.textContent='Аналитика';
+ const left=head.firstElementChild||head;let kicker=q('.rona-visual-kicker',head);if(!kicker){kicker=document.createElement('div');kicker.className='rona-visual-kicker';left.prepend(kicker)}kicker.textContent='RONA TRADE · ANALYTICS';
+ let h=q('h1',head);if(!h){h=document.createElement('h1');const target=q('p,.rona-visual-sub',left);if(target)left.insertBefore(h,target);else left.appendChild(h)}h.textContent='Аналитика';
  const d=q('p',head)||q('.rona-visual-sub',head);if(d)d.textContent='Рыночная аналитика Коммерческого директора: динамика котировок, прогноз рынка следующего месяца и индикативный прогноз возможных цен RONA Trade по рабочим базисам.';
- document.documentElement.dataset.ronaAnalyticsHeader='owner-approved-v455';return true
+ document.documentElement.dataset.ronaAnalyticsHeader='owner-approved-v455-final-v2';return true
 }
 let queued=false;function soon(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',soon,{once:true});else soon();
 const obs=new MutationObserver(soon);obs.observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
 window.addEventListener('rona:admin-pagechange',e=>{if(e.detail?.page==='analytics')soon()});
-[0,80,250,700,1600,3500].forEach(ms=>setTimeout(apply,ms));
+[0,50,120,250,500,900,1600,3500,7000].forEach(ms=>setTimeout(apply,ms));
 })();`;
 
 class LogoutBodyInjector{
@@ -76,15 +76,21 @@ async function analyticsResponse(context){
   const contentType=String(downstream.headers.get('content-type')||'').toLowerCase();
   if(!contentType.includes('javascript')&&!contentType.includes('text/plain'))return downstream;
   const source=await downstream.text();
-  const clean=source
+  const legacyTitleCreate=/const title=el\('div','rona-global-sticky-title rona-analytics-canonical-title'\);title\.dataset\.page='analytics';title\.append\(el\('div','rona-global-sticky-title-text rona-analytics-canonical-title-text','Аналитика'\)\);r\.append\(title\);/g;
+  let clean=source
     .replace(/<script[^>]*data-rona-analytics-legacy[^>]*>[\s\S]*?<\/script>/gi,'')
-    .replace(/\/\*\s*RONA_ANALYTICS_LEGACY_BEGIN\s*\*\/[\s\S]*?\/\*\s*RONA_ANALYTICS_LEGACY_END\s*\*\//g,'');
+    .replace(/\/\*\s*RONA_ANALYTICS_LEGACY_BEGIN\s*\*\/[\s\S]*?\/\*\s*RONA_ANALYTICS_LEGACY_END\s*\*\//g,'')
+    .replace(legacyTitleCreate,'')
+    .replace(/'#current-admin-main #page-analytics #rona-analytics-v2 \.rona-analytics-canonical-title\{[^']*\}',?/g,'')
+    .replace(/'#current-admin-main #page-analytics #rona-analytics-v2 \.rona-analytics-canonical-title-text\{[^']*\}',?/g,'')
+    .replace(/'#current-admin-main #page-analytics #rona-analytics-v2\.an2>\.an2-head h1\{display:none!important\}',?/g,'')
+    .replace(/'#current-admin-main #page-analytics #rona-analytics-v2\.an2>\.an2-head \.rona-visual-kicker\{display:none!important\}',?/g,'');
   const headers=new Headers(downstream.headers);
   headers.delete('content-length');headers.delete('etag');
   headers.set('content-type','application/javascript; charset=utf-8');
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');headers.set('expires','0');
-  headers.set('x-rona-analytics-header','owner-approved-v455-final-lock');
-  headers.set('x-rona-analytics-legacy-title','disabled');
+  headers.set('x-rona-analytics-header','owner-approved-v455-final-lock-v2');
+  headers.set('x-rona-analytics-legacy-title','removed-at-delivery-boundary');
   return new Response(clean+'\n'+ANALYTICS_V455_FINAL_LOCK+'\n',{status:downstream.status,statusText:downstream.statusText,headers});
 }
