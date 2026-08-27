@@ -5,6 +5,7 @@ const admin=read('portal-src/current/admin.html');
 const shell=read('assets/portal-admin-shell-fast-v1.js');
 const watchdog=read('assets/portal-admin-runtime-watchdog-v1.js');
 const access=read('functions/portal/clients-agents-current-ui.js');
+const polish=read('functions/portal/admin-approved-polish-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
@@ -50,6 +51,11 @@ need(has(access,"const clientContract=kind===''||kind==='CLIENT_CONTRACT'")&&has
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
 need(has(access,"'x-rona-shell-mutation':'none'"),'Page-scoped shell-mutation contract is missing');
 
+need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260828-claims-radio-dialogs-single-owner-v3'"),'Approved polish current marker is missing');
+need(has(polish,"window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})"),'In-app Admin dialog service is missing');
+need(has(polish,"page.dataset.ronaAccessUiOwner='clients-agents-current-v4'")&&has(polish,"'x-rona-access-owner':'clients-agents-current-v4'"),'Access single-owner declaration is missing from polish runtime');
+for(const forbidden of ['openApprovedAccess','installApprovedAccess','Создать единую учётную запись','Укажите Ф.И.О. пользователя и единый логин'])need(!has(polish,forbidden),'Competing legacy create-user flow still exists: '+forbidden);
+
 need(has(ownerApi,"path==='/admin/access-workspace'")&&has(ownerApi,"'owner_access_workspace_bootstrap'"),'Owner API access-workspace RPC route is missing');
 need(has(accessMigration,'create or replace function public.owner_access_workspace_bootstrap')&&has(accessMigration,"revoke execute on function public.owner_access_workspace_bootstrap(integer) from anon"),'Access workspace migration is missing fail-closed grants');
 need(has(accessHistoryHygiene,'join portal_private.portal_users eu on eu.id::text=ae.entity_id')&&has(accessHistoryHygiene,"left(lower(coalesce(eu.login_name,'')),3)<>'qa_'"),'Access history hygiene does not exclude QA identities');
@@ -67,5 +73,5 @@ console.log('ADMIN_SINGLE_OWNER_QA=PASS');
 console.log('routes=access,claims,agent-settlements,analytics,market-news');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v4');
-console.log('access=roles,password,history,fail-closed-pending,qa-history-hygiene');
+console.log('access=single-owner-current-v4,roles,password,history,fail-closed-pending,qa-history-hygiene');
 console.log('watchdog=page-aware-v7-analytics-rendered-ready/non-destructive');
