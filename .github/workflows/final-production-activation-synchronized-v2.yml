@@ -33,6 +33,8 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
+          node --check functions/portal/admin-approved-polish-ui.js
+          node --check functions/portal/admin-approved-analytics-v455-ui.js
           node --check functions/portal/remaining-sections-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
           node tests/admin-shell-resilience.test.mjs
@@ -77,11 +79,22 @@ jobs:
           grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
-          grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
-          grep -q "setAccessUserPassword" functions/portal/clients-agents-current-ui.js
-          grep -q "История и права" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'" functions/portal/clients-agents-current-ui.js
+          grep -q "makeField('Единый логин',login)" functions/portal/clients-agents-current-ui.js
+          grep -q "makeField('Электронная почта',email)" functions/portal/clients-agents-current-ui.js
+          grep -q "await mutate('/access/users',payload)" functions/portal/clients-agents-current-ui.js
+          grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
+          grep -q "x-rona-access-create-owner':'none" functions/portal/admin-approved-polish-ui.js
+          grep -q "x-rona-access-loader':'none" functions/portal/admin-approved-analytics-v455-ui.js
+          ! grep -q 'installCanonicalAccessCreate' functions/portal/admin-approved-polish-ui.js
+          ! grep -q 'loadCanonicalAccess' functions/portal/admin-approved-analytics-v455-ui.js
+          test ! -e functions/portal/admin-canonical-create-access-v441-ui.js
+          test ! -e functions/portal/admin-canonical-create-access-v441-password-hotfix-ui.js
+          test ! -e functions/portal/admin-access-ui.js
+          test ! -e functions/portal/clients-agents-v4-ui.js
+          test ! -e functions/portal/clients-agents-canonical-guard-ui.js
           ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
           ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
           ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
