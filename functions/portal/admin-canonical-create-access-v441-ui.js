@@ -28,6 +28,10 @@ function ensureStyle(){
     '.rona-approved-note{padding:13px 14px;border-left:3px solid #f3ca78;background:rgba(120,87,25,.20);border-radius:10px;font-size:13px;line-height:1.5;color:#f2e4c5}.rona-approved-note label{display:flex;align-items:flex-start;gap:8px;cursor:pointer}.rona-approved-note input{margin-top:3px;accent-color:#e53a46}',
     '.rona-approved-access-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}.rona-approved-access-primary{height:44px;padding:0 15px;border:1px solid rgba(255,130,138,.50);border-radius:12px;background:rgba(202,34,47,.90);color:#fff;font-size:14px;font-weight:850;cursor:pointer}.rona-approved-access-primary:hover{background:rgba(218,42,55,.96)}.rona-approved-access-primary:disabled,.rona-approved-upload:disabled{opacity:.5;cursor:wait}',
     '.rona-approved-agent-note{padding:12px 13px;border:1px solid rgba(145,201,248,.22);border-radius:11px;background:rgba(48,91,129,.14);color:#c8d8e4;font-size:13px;line-height:1.5}',
+    '.ca-modal-backdrop{position:fixed;inset:0;z-index:2147483200;background:rgba(1,6,11,.78);display:grid;place-items:center;padding:20px;backdrop-filter:blur(9px)}',
+    '.ca-modal{width:min(720px,100%);max-height:calc(100vh - 40px);overflow:auto;padding:22px!important;display:grid;gap:12px;background:rgba(7,17,28,.985)!important;color:#f7fbff;border:1px solid rgba(160,203,224,.16)!important;border-radius:20px!important;box-shadow:0 24px 80px rgba(0,0,0,.34)}',
+    '.ca-modal .ca-copy{font-size:12px;line-height:1.5;color:#b6c4d1}.ca-modal-actions{display:flex;justify-content:flex-end;gap:8px}',
+    '.ca-modal .ca-primary{font:inherit;color:inherit;border:1px solid rgba(89,215,255,.42);border-radius:10px;background:linear-gradient(135deg,rgba(39,105,145,.52),rgba(24,58,92,.58));padding:9px 12px;cursor:pointer;font-weight:800}.ca-modal .ca-primary:hover{border-color:rgba(89,215,255,.65)}',
     '@media(max-width:900px){.rona-approved-contract-grid{grid-template-columns:1fr}.rona-approved-access-grid2{grid-template-columns:1fr}.rona-approved-access-mask{padding:16px}.rona-approved-access-modal{width:min(720px,100%);max-height:calc(100vh - 32px)}}'
   ].join('');document.head.append(s)
 }
@@ -58,9 +62,19 @@ function companyRows(){
   }
   return rows
 }
-async function notice(message,title='Проверка'){
-  if(window.RONA_ADMIN_DIALOGS?.message)return window.RONA_ADMIN_DIALOGS.message(String(message),{title});
-  let n=q('#ronaCanonicalAccessInlineNotice');if(!n){n=el('div','rona-approved-note');n.id='ronaCanonicalAccessInlineNotice';const body=q('.rona-approved-access-body');if(body)body.prepend(n)}if(n)n.textContent=String(message)
+function canonicalNoticeModal(title){
+  const back=el('div','ca-modal-backdrop'),box=el('section','rona-owner-card ca-modal');
+  box.append(el('h2','',title));back.append(box);document.body.append(back);
+  return {back,box}
+}
+function notice(message,title='Клиенты и агенты'){
+  ensureStyle();
+  const m=canonicalNoticeModal(title),copy=el('div','ca-copy',message),actions=el('div','ca-modal-actions'),ok=el('button','ca-primary','Закрыть');
+  ok.type='button';
+  return new Promise(resolve=>{
+    let closed=false;const close=()=>{if(closed)return;closed=true;m.back.remove();resolve()};
+    ok.onclick=close;m.back.addEventListener('click',e=>{if(e.target===m.back)close()});actions.append(ok);m.box.append(copy,actions);queueMicrotask(()=>ok.focus())
+  })
 }
 async function backendCreate(payload){
   for(let i=0;i<30;i++){const b=window.__RONA_PORTAL_BACKEND__;if(b&&typeof b.createAccessUser==='function')return b.createAccessUser(payload);await sleep(100)}
@@ -129,4 +143,4 @@ window.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page|
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enforceOwner,{once:true});else enforceOwner();
 })();`;
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-access-canonical-source':'RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html','x-rona-access-create-owner':'approved-canonical-v4.4.1','x-rona-access-workspace-owner':'clients-agents-current-v4'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-access-canonical-source':'RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html','x-rona-access-create-owner':'approved-canonical-v4.4.1','x-rona-access-workspace-owner':'clients-agents-current-v4','x-rona-access-notice-owner':'canonical-ca-modal'}})}
