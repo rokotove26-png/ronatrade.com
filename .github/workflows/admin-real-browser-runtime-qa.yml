@@ -11,10 +11,13 @@ on:
       - 'functions/portal/main-ui.js'
       - 'functions/portal/owner-ui-chunks/**'
       - 'functions/portal/clients-agents-current-ui.js'
+      - 'functions/portal/admin-canonical-create-access-v441-ui.js'
+      - 'functions/portal/admin-approved-analytics-v455-ui.js'
       - 'functions/portal/claims-r2-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'scripts/materialize-admin-current-modules.mjs'
       - 'scripts/qa-admin-browser-runtime.mjs'
+      - 'scripts/qa-admin-access-functional-browser.mjs'
       - '.github/workflows/admin-real-browser-runtime-qa.yml'
   push:
     branches:
@@ -26,10 +29,13 @@ on:
       - 'functions/portal/main-ui.js'
       - 'functions/portal/owner-ui-chunks/**'
       - 'functions/portal/clients-agents-current-ui.js'
+      - 'functions/portal/admin-canonical-create-access-v441-ui.js'
+      - 'functions/portal/admin-approved-analytics-v455-ui.js'
       - 'functions/portal/claims-r2-ui.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'scripts/materialize-admin-current-modules.mjs'
       - 'scripts/qa-admin-browser-runtime.mjs'
+      - 'scripts/qa-admin-access-functional-browser.mjs'
       - '.github/workflows/admin-real-browser-runtime-qa.yml'
 
 permissions:
@@ -38,7 +44,7 @@ permissions:
 jobs:
   admin-real-browser-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -52,3 +58,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Exercise Admin navigation and functional sections in Chromium
         run: node scripts/qa-admin-browser-runtime.mjs
+      - name: Exercise create-user, password, client PDF gate and agent access in Chromium
+        run: node scripts/qa-admin-access-functional-browser.mjs
