@@ -58,9 +58,12 @@ jobs:
           grep -q 'portal-admin-shell-fast-v1.js' portal-src/current/admin.html
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'" functions/portal/remaining-sections-ui.js
+          grep -q 'approved-v4.3.2-pricing-bridge-single-owner' dist/portal/analytics-v2-ui
+          grep -q 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/portal/analytics-v2-ui
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q "'x-rona-admin-shell','current-only-v2'" functions/portal/admin.js
