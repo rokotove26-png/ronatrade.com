@@ -66,10 +66,13 @@ jobs:
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" dist/assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'" dist/assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')" dist/assets/portal-admin-runtime-watchdog-v1.js
           grep -q "root.querySelector(':scope > .mn-masthead')" dist/assets/portal-admin-runtime-watchdog-v1.js
           grep -q '/portal/analytics-v2-ui' dist/assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/rail-safe-fallback-ui' dist/assets/portal-admin-shell-fast-v1.js
+          grep -q 'approved-v4.3.2-pricing-bridge-single-owner' dist/portal/analytics-v2-ui
+          grep -q 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/portal/analytics-v2-ui
           ! grep -q 'location.reload(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'adminLoginGate' dist/portal/admin.html
