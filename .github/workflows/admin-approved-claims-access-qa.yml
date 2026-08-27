@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check runtime syntax and access single owner
+      - name: Check runtime syntax and canonical access create owner
         run: |
           node --check functions/portal/admin-approved-polish-ui.js
           node --check functions/portal/clients-agents-current-ui.js
@@ -26,23 +26,38 @@ jobs:
           const polish = await import('./functions/portal/admin-approved-polish-ui.js');
           const source = await (await polish.onRequest()).text();
           new Function(source);
-          if (!source.includes("20260828-claims-radio-dialogs-single-owner-v3")) throw new Error('current polish marker missing');
-          if (!source.includes("clients-agents-current-v4")) throw new Error('current access owner missing');
+          if (!source.includes("20260828-canonical-access-v3413-v4")) throw new Error('canonical polish marker missing');
+          if (!source.includes("clients-agents-current-v4")) throw new Error('current access workspace owner missing');
+          if (!source.includes("approved-canonical-v3.4.13")) throw new Error('canonical create-access owner missing');
           if (!source.includes('window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})')) throw new Error('in-app dialog service missing');
           if (!source.includes('grid-template-columns:minmax(0,1fr)!important')) throw new Error('claims equal-width layout missing');
-          for (const stale of ['openApprovedAccess','installApprovedAccess','Создать единую учётную запись','Укажите Ф.И.О. пользователя и единый логин']) {
-            if (source.includes(stale)) throw new Error('legacy create-user owner still present: '+stale);
-          }
+          const canonical = [
+            'Создать пользователя',
+            'Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам',
+            'Тип доступа',
+            'Роль пользователя',
+            'Ф.И.О. пользователя',
+            'Единый логин',
+            'Электронная почта',
+            'Телефон',
+            'Разрешённые компании / контракты',
+            'Агент — матрица прав не утверждена',
+            'Новая пользовательская связь разрешается только по ИД контракта с действующим двусторонне подписанным PDF, подтверждённым сервером. Пароль и ИД пользователя создаются только серверным сервисом.',
+            'Создать единую учётную запись',
+            '[data-rona-create-access="primary"],[data-action="create-access"]',
+            'ev.stopImmediatePropagation()',
+          ];
+          for (const marker of canonical) if (!source.includes(marker)) throw new Error('canonical create-user marker missing: '+marker);
+          for (const stale of ['openApprovedAccess','installApprovedAccess']) if (source.includes(stale)) throw new Error('retired access owner still present: '+stale);
           const fs = await import('node:fs');
           const access = fs.readFileSync('functions/portal/clients-agents-current-ui.js','utf8');
-          if (!access.includes("__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'")) throw new Error('clients-agents current owner marker missing');
+          if (!access.includes("__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'")) throw new Error('clients-agents current workspace owner marker missing');
           if (!access.includes("dataset.ronaCreateAccess='primary'")) throw new Error('primary create-access action missing');
-          if (!access.includes("login:mail,email:mail")) throw new Error('email-as-login contract missing');
-          if (!access.includes("modal('Создать доступ')")) throw new Error('current create-access modal missing');
+          if (!access.includes("setAccessUserPassword")) throw new Error('administrator password control missing');
           NODE
       - name: Build current-only artifact
         run: npm run build
-      - name: Verify current access owner is deployed by Admin shell
+      - name: Verify canonical access owner is deployed by Admin shell
         run: |
           test -s dist/portal/admin.html
           grep -q 'rona-admin-approved-polish-loader' dist/portal/admin.html
@@ -51,3 +66,10 @@ jobs:
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           ! grep -q 'admin_externalized' dist/portal/admin.html
+          node --input-type=module <<'NODE'
+          const fs = await import('node:fs');
+          const html=fs.readFileSync('dist/portal/admin.html','utf8');
+          const current=html.indexOf('/portal/clients-agents-current-ui');
+          const polish=html.indexOf('/portal/admin-approved-polish-ui');
+          if(current<0||polish<0||polish<=current)throw new Error('canonical create-access owner must load after current access workspace');
+          NODE
