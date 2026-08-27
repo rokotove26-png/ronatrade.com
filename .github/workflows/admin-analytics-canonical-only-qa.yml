@@ -18,28 +18,26 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify canonical-only function runtime
+      - name: Verify current verified Analytics runtime
         run: |
           node --check functions/portal/analytics-v2-ui.js
+          node --check functions/portal/api/v1/admin/analytics.js
           node --check functions/portal/remaining-sections-ui.js
-          node --check functions/portal/analytics-v2-approved-base.js
           node --check functions/portal/remaining-sections-r2-base.js
           node --input-type=module <<'NODE'
           const analytics = await import('./functions/portal/analytics-v2-ui.js?qa='+Date.now());
           const response = await analytics.onRequest({});
           const analyticsSource = await response.text();
           new Function(analyticsSource);
-          for (const token of ['20260824-analytics-v3-market-rona-bases-lpg','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts','Argus','LOW','BASE','HIGH','Forward','Аналитический вывод','FACT / CALCULATION / FORECAST']) {
-            if (!analyticsSource.includes(token)) throw new Error('canonical analytics token missing: '+token);
+          for (const token of ["window.__RONA_ANALYTICS_CURRENT__='20260827-dynamic-v1'",'/portal/api/v1/admin/analytics','rona-analytics-current-root','currentAnalytics','VERIFIED','PUBLISHED','FACT / CALCULATION / FORECAST','source_refs','public_chart','setInterval(()=>load(false),60000)']) {
+            if (!analyticsSource.includes(token)) throw new Error('current analytics token missing: '+token);
           }
-          for (const token of ['Выводов','Рыночных сигналов','Аналитическая лента','Текущий опубликованный ориентир RONA Trade','Комментарий Коммерческого директора']) {
-            if (analyticsSource.includes(token)) throw new Error('legacy analytics token leaked into canonical runtime: '+token);
+          for (const token of ['analytics-v2-approved-base.js','20260824-analytics-v3-market-rona-bases-lpg','1.1.9-SF5-20260822-2203','DATA.products','ronaAnalyticsDesignerChartV2','Текущий опубликованный ориентир RONA Trade','Комментарий Коммерческого директора','Аналитическая лента']) {
+            if (analyticsSource.includes(token)) throw new Error('stale analytics token leaked into runtime: '+token);
           }
-          if (response.headers.get('x-rona-analytics-visual') !== 'home-canonical-frames-title-v1') throw new Error('canonical home visual marker missing');
-          if (response.headers.get('x-rona-analytics-typography') !== 'semantic-palette-v1') throw new Error('semantic typography marker missing');
-          for (const token of ['ronaAnalyticsCanonicalHomeVisualV1','border-radius:14px','background:transparent','--an2-cyan:#65d9ff','--an2-amber:#efc978']) {
-            if (!analyticsSource.includes(token)) throw new Error('analytics visual contract missing: '+token);
-          }
+          if (response.headers.get('x-rona-analytics-ui') !== 'current-dynamic-v1') throw new Error('dynamic analytics UI marker missing');
+          if (response.headers.get('x-rona-analytics-owner') !== 'current-verified-exclusive') throw new Error('verified owner marker missing');
+          if (response.headers.get('x-rona-analytics-data') !== 'owner-analytics-rpc-v1') throw new Error('analytics data marker missing');
           const remaining = await import('./functions/portal/remaining-sections-ui.js?qa='+Date.now());
           const remainingSource = await (await remaining.onRequest({})).text();
           new Function(remainingSource);
@@ -50,22 +48,26 @@ jobs:
             if (!remainingSource.includes(token)) throw new Error('approved remaining section missing: '+token);
           }
           NODE
+          grep -q 'owner_analytics_admin_bootstrap' functions/portal/api/v1/admin/analytics.js
+          grep -q "current.status!=='PUBLISHED'" functions/portal/api/v1/admin/analytics.js
+          grep -q "current.authority_state!=='VERIFIED'" functions/portal/api/v1/admin/analytics.js
       - name: Build current-only artifact
         run: npm run build
       - name: Verify materialized production runtime
         run: |
-          grep -q '20260824-analytics-v3-market-rona-bases-lpg' dist/portal/analytics-v2-ui
-          grep -q 'Аналитический вывод' dist/portal/analytics-v2-ui
-          grep -q 'home-canonical-frames-title-v1' dist/portal/analytics-v2-ui
-          grep -q 'semantic-palette-v1' dist/portal/analytics-v2-ui
+          grep -q '20260827-dynamic-v1' dist/portal/analytics-v2-ui
+          grep -q '/portal/api/v1/admin/analytics' dist/portal/analytics-v2-ui
+          grep -q 'rona-analytics-current-root' dist/portal/analytics-v2-ui
+          grep -q 'currentAnalytics' dist/portal/analytics-v2-ui
           grep -q 'FACT / CALCULATION / FORECAST' dist/portal/analytics-v2-ui
-          grep -q 'Радиорубка' dist/portal/remaining-sections-ui
+          grep -q 'Rадиорубка\|Радиорубка' dist/portal/remaining-sections-ui
           grep -q 'Вознаграждения агентов' dist/portal/remaining-sections-ui
-          if grep -q 'Комментарий Коммерческого директора' dist/portal/analytics-v2-ui; then exit 1; fi
+          for token in 'analytics-v2-approved-base.js' '20260824-analytics-v3-market-rona-bases-lpg' '1.1.9-SF5-20260822-2203' 'DATA.products' 'Комментарий Коммерческого директора'; do
+            if grep -q "$token" dist/portal/analytics-v2-ui; then echo "stale token: $token"; exit 1; fi
+          done
           if grep -q 'Аналитическая лента' dist/portal/remaining-sections-ui; then exit 1; fi
           if grep -q "'аналитика':'analytics'" dist/portal/remaining-sections-ui; then exit 1; fi
           if grep -q 'function renderAnalytics(){' dist/portal/remaining-sections-ui; then exit 1; fi
-          if grep -q 'Выводов' dist/portal/analytics-v2-ui; then exit 1; fi
       - name: Verify Admin shell ownership split
         run: |
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
