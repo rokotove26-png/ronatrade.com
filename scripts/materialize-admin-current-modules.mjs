@@ -64,11 +64,27 @@ async function materializeAnalyticsCurrent(){
   const source=await response.text();
   if(!response.ok)throw new Error(`ANALYTICS_CURRENT_OWNER_HTTP_${response.status}: ${source.slice(0,180)}`);
   for(const token of [
-    '20260824-analytics-v3-market-rona-bases-lpg','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts','Argus',
-    'LOW','BASE','HIGH','Forward','Аналитический вывод','FACT / CALCULATION / FORECAST',
-    'rona-analytics-canonical-title','ronaAnalyticsDesignerChartV2'
-  ])requireMarker(source,token,'current analytics static runtime');
-  for(const token of ['Выводов','Рыночных сигналов','Аналитическая лента','Текущий опубликованный ориентир RONA Trade','Комментарий Коммерческого директора']){
+    "window.__RONA_ANALYTICS_CURRENT__='20260827-dynamic-v1'",
+    '/portal/api/v1/admin/analytics',
+    'rona-analytics-current-root',
+    'currentAnalytics',
+    'VERIFIED',
+    'PUBLISHED',
+    'FACT / CALCULATION / FORECAST',
+    'source_refs',
+    'public_chart',
+    'setInterval(()=>load(false),60000)'
+  ])requireMarker(source,token,'current analytics dynamic runtime');
+  for(const token of [
+    'analytics-v2-approved-base.js',
+    '20260824-analytics-v3-market-rona-bases-lpg',
+    '1.1.9-SF5-20260822-2203',
+    'DATA.products',
+    'ronaAnalyticsDesignerChartV2',
+    'Текущий опубликованный ориентир RONA Trade',
+    'Комментарий Коммерческого директора',
+    'Аналитическая лента'
+  ]){
     if(source.includes(token))throw new Error(`STATIC_ANALYTICS_LEGACY_MARKER: ${token}`);
   }
   return source;
@@ -97,6 +113,6 @@ await writeFile(join(OUT,'claims-r2-ui'),claims);
 await writeFile(join(OUT,'remaining-sections-ui'),remaining);
 await writeFile(join(OUT,'analytics-v2-ui'),analytics);
 
-const headers=`/portal/clients-agents-current-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Clients-Agents-Ui: single-owner-v4\n  X-Rona-Access-Create: client-agent-v4\n  X-Rona-Admin-Nav-Owner: external-current-router-v2\n  X-Rona-Shell-Mutation: none\n  X-Rona-Legacy-Dependency: none\n\n/portal/claims-r2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Claims-Ui: direction-workflow-v6\n\n/portal/remaining-sections-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v2-no-analytics-no-news\n\n/portal/analytics-v2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-current-owner\n  X-Rona-Analytics-Ui: canonical-v3-only\n  X-Rona-Analytics-Owner: canonical-v3-exclusive\n  X-Rona-Analytics-Layout: balanced-fluid-1520-v2\n  X-Rona-Analytics-Visual: home-canonical-frames-title-v1\n  X-Rona-Analytics-Typography: semantic-palette-v1\n  X-Rona-Analytics-Chart: designer-depth-v2\n`;
+const headers=`/portal/clients-agents-current-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Clients-Agents-Ui: single-owner-v4\n  X-Rona-Access-Create: client-agent-v4\n  X-Rona-Admin-Nav-Owner: external-current-router-v2\n  X-Rona-Shell-Mutation: none\n  X-Rona-Legacy-Dependency: none\n\n/portal/claims-r2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Claims-Ui: direction-workflow-v6\n\n/portal/remaining-sections-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v2-no-analytics-no-news\n\n/portal/analytics-v2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-current-owner\n  X-Rona-Analytics-Ui: current-dynamic-v1\n  X-Rona-Analytics-Owner: current-verified-exclusive\n  X-Rona-Analytics-Data: owner-analytics-rpc-v1\n  X-Rona-Analytics-Layout: balanced-fluid-1520-v3\n  X-Rona-Legacy-Dependency: none\n`;
 await writeFile(join(ROOT,'dist','_headers'),headers);
-console.log(`ADMIN_CURRENT_STATIC_MODULES=PASS access=${Buffer.byteLength(access)} claims=${Buffer.byteLength(claims)} remaining=${Buffer.byteLength(remaining)} analytics=${Buffer.byteLength(analytics)} analyticsOwner=current-only newsOwner=dedicated-asset-v1`);
+console.log(`ADMIN_CURRENT_STATIC_MODULES=PASS access=${Buffer.byteLength(access)} claims=${Buffer.byteLength(claims)} remaining=${Buffer.byteLength(remaining)} analytics=${Buffer.byteLength(analytics)} analyticsOwner=current-verified-dynamic-v1 newsOwner=dedicated-asset-v1`);
