@@ -1,0 +1,31 @@
+name: admin-access-functional-browser
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  access-functional-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current Admin artifact
+        run: npm run build
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove client and agent account creation with PDF contract gate
+        run: node scripts/qa-admin-access-functional-browser.mjs
