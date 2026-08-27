@@ -1,0 +1,90 @@
+name: Admin Canonical Create Access v4.4.1 QA
+
+on:
+  push:
+    branches: [release/public-go-live-v1.1]
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+jobs:
+  canonical-create-access-v441:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact canonical source and shell loader
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin-canonical-create-access-v441-ui.js
+          node --check functions/portal/admin-approved-analytics-v455-ui.js
+          npm run build
+          grep -q '/portal/admin-approved-analytics-v455-ui' dist/portal/admin.html
+          grep -q '/portal/admin-canonical-create-access-v441-ui?v=20260828-canonical-v441' functions/portal/admin-approved-analytics-v455-ui.js
+          node --input-type=module <<'NODE'
+          const mod=await import('./functions/portal/admin-canonical-create-access-v441-ui.js');
+          const r=await mod.onRequest();
+          const s=await r.text();
+          new Function(s);
+          const must=[
+            'RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html',
+            "window.__RONA_ACCESS_CREATE_OWNER__='approved-canonical-v4.4.1'",
+            'Создать пользователя',
+            'Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам',
+            'Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Телефон',
+            'Профиль агента','Разрешённые компании / контракты','Договор подтверждён',
+            'Открыть без контракта — учётная запись будет создана для выбранной компании, но доступ к данным компании останется закрытым до загрузки и подтверждения подписанного договора.',
+            'Новая пользовательская связь активируется по Contract ID только после серверного подтверждения действующего двусторонне подписанного PDF. Пароль и ИД пользователя создаются серверным сервисом.',
+            'Создать единую учётную запись',
+            '.rona-approved-access-mask{position:fixed;inset:0;z-index:2147483250',
+            '.rona-approved-access-modal{width:min(860px,96vw);max-height:88vh',
+            '.rona-approved-contract-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}',
+            '[data-rona-create-access="primary"],[data-action="create-access"]','ev.stopImmediatePropagation()','backendCreate(payload)'
+          ];
+          for(const x of must)if(!s.includes(x))throw new Error('CANONICAL_V441_MISSING: '+x);
+          if(r.headers.get('x-rona-access-canonical-source')!=='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html')throw new Error('CANONICAL_SOURCE_HEADER_MISSING');
+          if(r.headers.get('x-rona-access-create-owner')!=='approved-canonical-v4.4.1')throw new Error('CANONICAL_OWNER_HEADER_MISSING');
+          NODE
+      - name: Wait for Cloudflare deployment signals
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Prove canonical create-access runtime on production
+        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        shell: bash
+        run: |
+          node <<'NODE'
+          const base='https://ronaoil.com';
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const must=['Создать пользователя','Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам','Единый логин','Разрешённые компании / контракты','Создать единую учётную запись','approved-canonical-v4.4.1','RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'];
+          let good=false,last='';
+          for(let i=0;i<36;i++){
+            const r=await fetch(base+'/portal/admin-canonical-create-access-v441-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
+            const s=r.ok?await r.text():'';
+            const headers=r.headers.get('x-rona-access-canonical-source')==='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'&&r.headers.get('x-rona-access-create-owner')==='approved-canonical-v4.4.1';
+            if(r.ok&&headers&&must.every(x=>s.includes(x))){good=true;break}
+            last='status='+r.status+' source='+r.headers.get('x-rona-access-canonical-source')+' owner='+r.headers.get('x-rona-access-create-owner');
+            await sleep(3000);
+          }
+          assert(good,'canonical create-access endpoint did not converge: '+last);
+          let hostGood=false;
+          for(let i=0;i<20;i++){
+            const r=await fetch(base+'/portal/admin-approved-analytics-v455-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
+            const s=r.ok?await r.text():'';
+            if(r.ok&&s.includes('/portal/admin-canonical-create-access-v441-ui?v=20260828-canonical-v441')&&r.headers.get('x-rona-access-canonical-loader')==='v4.4.1'){hostGood=true;break}
+            await sleep(3000);
+          }
+          assert(hostGood,'Admin shell compatibility loader did not converge to canonical access v4.4.1');
+          console.log('ADMIN_CANONICAL_CREATE_ACCESS_V441_PRODUCTION=PASS');
+          NODE
