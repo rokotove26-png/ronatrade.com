@@ -1,4 +1,4 @@
-name: Admin Canonical Create Access v4.4.1 QA
+name: Admin Create User + Contract PDF QA
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 jobs:
-  canonical-create-access-v441:
+  create-user-contract-pdf:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -21,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify exact canonical source and shell loader
+      - name: Verify functional source and shell loader
         shell: bash
         run: |
           set -euo pipefail
@@ -38,32 +38,26 @@ jobs:
           const must=[
             'RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html',
             "window.__RONA_ACCESS_CREATE_OWNER__='approved-canonical-v4.4.1'",
-            'Создать пользователя',
-            'Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам',
-            'Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Телефон',
-            'Профиль агента','Разрешённые компании / контракты','Договор подтверждён',
-            'Открыть без контракта — учётная запись будет создана для выбранной компании, но доступ к данным компании останется закрытым до загрузки и подтверждения подписанного договора.',
-            'Новая пользовательская связь активируется по Contract ID только после серверного подтверждения действующего двусторонне подписанного PDF. Пароль и ИД пользователя создаются серверным сервисом.',
-            'Создать единую учётную запись',
-            'Укажите Ф.И.О. пользователя и единый логин.',
-            '.ca-modal-backdrop{position:fixed;inset:0;z-index:2147483200',
-            "el('section','rona-owner-card ca-modal')",
-            "el('div','ca-modal-actions')",
-            "el('button','ca-primary','Закрыть')",
-            'data-rona-create-access','ev.stopImmediatePropagation()','backendCreate(payload)'
+            "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='create-user-contract-pdf-v5-20260828'",
+            'Создать пользователя','Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Телефон',
+            "makeField('Пароль',password)","makeField('Повторите пароль',repeat)",'Профиль агента','Разрешённые компании / контракты',
+            'PDF подтверждён','PDF загружен · ожидает подтверждения','PDF не закреплён','Закрепить PDF',
+            'Открыть учётную запись до подтверждения PDF','Создать единую учётную запись','Укажите Ф.И.О. пользователя и единый логин.',
+            'initialPassword:pw1','attachSignedContractToExistingContract','/signed-document/attach','adminClaimsBilateralSigned','BILATERAL_SIGNED_CONTRACT_ATTESTATION',
+            'backendCreate(payload)','ev.stopImmediatePropagation()',"el('button','ca-primary','Закрыть')"
           ];
-          for(const x of must)if(!s.includes(x))throw new Error('CANONICAL_V441_MISSING: '+x);
-          for(const stale of ['RONA_ADMIN_DIALOGS','ronaCanonicalAccessInlineNotice'])if(s.includes(stale))throw new Error('NONCANONICAL_VALIDATION_DIALOG_PRESENT: '+stale);
-          if(r.headers.get('x-rona-access-canonical-source')!=='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html')throw new Error('CANONICAL_SOURCE_HEADER_MISSING');
-          if(r.headers.get('x-rona-access-create-owner')!=='approved-canonical-v4.4.1')throw new Error('CANONICAL_OWNER_HEADER_MISSING');
-          if(r.headers.get('x-rona-access-notice-owner')!=='canonical-ca-modal')throw new Error('CANONICAL_NOTICE_OWNER_MISSING');
+          for(const x of must)if(!s.includes(x))throw new Error('FUNCTIONAL_ACCESS_MARKER_MISSING: '+x);
+          for(const stale of ['RONA_ADMIN_DIALOGS','ronaCanonicalAccessInlineNotice'])if(s.includes(stale))throw new Error('NONCANONICAL_DIALOG_PRESENT: '+stale);
+          if(r.headers.get('x-rona-access-functional-build')!=='create-user-contract-pdf-v5-20260828')throw new Error('FUNCTIONAL_BUILD_HEADER_MISSING');
+          if(r.headers.get('x-rona-access-pdf-control')!=='attach-and-gate-v1')throw new Error('PDF_CONTROL_HEADER_MISSING');
+          if(r.headers.get('x-rona-access-notice-owner')!=='canonical-ca-modal')throw new Error('NOTICE_OWNER_MISSING');
           NODE
       - name: Wait for Cloudflare deployment signals
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/wait-cloudflare-commit.mjs
-      - name: Prove canonical create-access runtime on production
+      - name: Prove functional runtime on production
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
@@ -71,18 +65,17 @@ jobs:
           const base='https://ronaoil.com';
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           const assert=(v,m)=>{if(!v)throw new Error(m)};
-          const must=['Создать пользователя','Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам','Единый логин','Разрешённые компании / контракты','Создать единую учётную запись','Укажите Ф.И.О. пользователя и единый логин.','ca-modal-backdrop','rona-owner-card ca-modal','ca-modal-actions',"ca-primary','Закрыть",'approved-canonical-v4.4.1','RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'];
-          const stale=['RONA_ADMIN_DIALOGS','ronaCanonicalAccessInlineNotice'];
+          const must=['create-user-contract-pdf-v5-20260828','Создать пользователя','Пароль','Повторите пароль','Разрешённые компании / контракты','PDF подтверждён','PDF не закреплён','Закрепить PDF','initialPassword:pw1','/signed-document/attach','Создать единую учётную запись'];
           let good=false,last='';
-          for(let i=0;i<36;i++){
+          for(let i=0;i<40;i++){
             const r=await fetch(base+'/portal/admin-canonical-create-access-v441-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
             const s=r.ok?await r.text():'';
-            const headers=r.headers.get('x-rona-access-canonical-source')==='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'&&r.headers.get('x-rona-access-create-owner')==='approved-canonical-v4.4.1'&&r.headers.get('x-rona-access-notice-owner')==='canonical-ca-modal';
-            if(r.ok&&headers&&must.every(x=>s.includes(x))&&stale.every(x=>!s.includes(x))){good=true;break}
-            last='status='+r.status+' source='+r.headers.get('x-rona-access-canonical-source')+' owner='+r.headers.get('x-rona-access-create-owner')+' notice='+r.headers.get('x-rona-access-notice-owner');
+            const headers=r.headers.get('x-rona-access-functional-build')==='create-user-contract-pdf-v5-20260828'&&r.headers.get('x-rona-access-pdf-control')==='attach-and-gate-v1';
+            if(r.ok&&headers&&must.every(x=>s.includes(x))){good=true;break}
+            last='status='+r.status+' build='+r.headers.get('x-rona-access-functional-build')+' pdf='+r.headers.get('x-rona-access-pdf-control');
             await sleep(3000);
           }
-          assert(good,'canonical create-access endpoint did not converge: '+last);
+          assert(good,'functional create-user runtime did not converge: '+last);
           let hostGood=false;
           for(let i=0;i<20;i++){
             const r=await fetch(base+'/portal/admin-approved-analytics-v455-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
@@ -90,6 +83,6 @@ jobs:
             if(r.ok&&s.includes('/portal/admin-canonical-create-access-v441-ui?v=20260828-canonical-v441')&&r.headers.get('x-rona-access-canonical-loader')==='v4.4.1'){hostGood=true;break}
             await sleep(3000);
           }
-          assert(hostGood,'Admin shell compatibility loader did not converge to canonical access v4.4.1');
-          console.log('ADMIN_CANONICAL_CREATE_ACCESS_V441_PRODUCTION=PASS');
+          assert(hostGood,'Admin shell loader did not converge to functional access runtime');
+          console.log('ADMIN_CREATE_USER_CONTRACT_PDF_PRODUCTION=PASS');
           NODE
