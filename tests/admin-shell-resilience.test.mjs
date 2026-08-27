@@ -10,6 +10,7 @@ const build=read('scripts/build-pages-direct-canonical.mjs');
 const shell=read('portal-src/current/admin.html');
 const access=read('functions/portal/clients-agents-current-ui.js');
 const analytics=read('functions/portal/analytics-v2-ui.js');
+const analyticsApi=read('functions/portal/api/v1/admin/analytics.js');
 const railSafe=read('functions/portal/rail-safe-fallback-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 
@@ -75,9 +76,12 @@ assert(access.includes("const clientContract=kind===''||kind==='CLIENT_CONTRACT'
 assert(!access.includes('installShellParity')&&!access.includes('installNavigationStability'),'Page module must not mutate global shell/navigation');
 assert(access.includes("'x-rona-shell-mutation':'none'"),'Page-scoped shell mutation contract missing');
 
-assert(analytics.includes("import { onRequest as canonicalV3 } from './analytics-v2-approved-base.js'"),'Analytics canonical v3 source wrapper missing');
-assert(analytics.includes("'20260824-analytics-v3-market-rona-bases-lpg'")&&analytics.includes("'АИ-92'")&&analytics.includes("'АИ-95'")&&analytics.includes("'ДТ'")&&analytics.includes("'LPG / СУГ'"),'Analytics canonical market contract missing');
-assert(analytics.includes("headers.set('x-rona-analytics-ui','canonical-v3-only')")&&analytics.includes("headers.set('x-rona-analytics-owner','canonical-v3-exclusive')"),'Analytics canonical owner headers missing');
-assert(analytics.includes('ROOT_TO')&&analytics.includes('BIND_TO'),'Analytics direct-child owner guard missing');
+for(const marker of ["window.__RONA_ANALYTICS_CURRENT__='20260827-dynamic-v1'","const API='/portal/api/v1/admin/analytics'",'currentAnalytics',"current.status!=='PUBLISHED'",'public_chart','source_refs','setInterval(()=>load(false),60000)'])assert(analytics.includes(marker),`Dynamic current Analytics marker missing: ${marker}`);
+for(const forbidden of ["analytics-v2-approved-base.js","20260824-analytics-v3-market-rona-bases-lpg","1.1.9-SF5-20260822-2203","DATA.products","ronaAnalyticsDesignerChartV2","Текущий опубликованный ориентир RONA Trade","Комментарий Коммерческого директора","Аналитическая лента"])assert(!analytics.includes(forbidden),`Stale Analytics source returned: ${forbidden}`);
+for(const marker of ["'x-rona-analytics-ui':'current-dynamic-v1'","'x-rona-analytics-owner':'current-verified-exclusive'","'x-rona-analytics-data':'owner-analytics-rpc-v1'"])assert(analytics.includes(marker),`Dynamic Analytics owner header missing: ${marker}`);
+assert(analyticsApi.includes('owner_analytics_admin_bootstrap'),'Analytics endpoint must use canonical current Analytics RPC');
+assert(analyticsApi.includes("current.status!=='PUBLISHED'")&&analyticsApi.includes("current.authority_state!=='VERIFIED'")&&analyticsApi.includes("current.audience!=='ALL_CLIENTS'"),'Analytics endpoint must fail closed on non-current/non-verified data');
+assert(analyticsApi.includes("credentials")===false,'Server Analytics endpoint must not emulate browser credentials');
+assert(analyticsApi.includes("const ACCESS_COOKIE='rona_portal_at'")&&analyticsApi.includes("const REFRESH_COOKIE='rona_portal_rt'"),'Analytics endpoint must use canonical portal session cookies');
 
 console.log('Admin current-only single-owner resilience QA: PASS');
