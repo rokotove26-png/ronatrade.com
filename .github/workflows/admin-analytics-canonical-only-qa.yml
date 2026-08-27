@@ -24,7 +24,9 @@ jobs:
           node --check functions/portal/remaining-sections-ui.js
           node --check functions/portal/analytics-v2-approved-base.js
           node --check functions/portal/remaining-sections-r2-base.js
+          node --check assets/portal-market-news-current-v1.js
           node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
           const analytics = await import('./functions/portal/analytics-v2-ui.js?qa='+Date.now());
           const response = await analytics.onRequest({});
           const analyticsSource = await response.text();
@@ -46,8 +48,13 @@ jobs:
           for (const token of ["'аналитика':'analytics'",'function renderAnalytics(){','function publicationCard(){',"kind==='analytics'",'data-kind=\\"analytics\\"','Выводов','Аналитическая лента']) {
             if (remainingSource.includes(token)) throw new Error('legacy analytics leaked from remaining runtime: '+token);
           }
-          for (const token of ['Радиорубка','Вознаграждения агентов','Новости топливного рынка СНГ']) {
-            if (!remainingSource.includes(token)) throw new Error('approved remaining section missing: '+token);
+          for (const token of ['Радиорубка','Вознаграждения агентов','portal-market-news-current-v1.js','__RONA_MARKET_NEWS_CURRENT_LOADER__']) {
+            if (!remainingSource.includes(token)) throw new Error('approved remaining section/loader missing: '+token);
+          }
+          const newsSource = await readFile('./assets/portal-market-news-current-v1.js','utf8');
+          new Function(newsSource);
+          for (const token of ['__RONA_MARKET_NEWS_CURRENT_V1__','Новости топливного рынка СНГ','RONA TRADE · MARKET INTELLIGENCE']) {
+            if (!newsSource.includes(token)) throw new Error('dedicated Market News runtime missing: '+token);
           }
           NODE
       - name: Build current-only artifact
@@ -61,6 +68,10 @@ jobs:
           grep -q 'FACT / CALCULATION / FORECAST' dist/portal/analytics-v2-ui
           grep -q 'Радиорубка' dist/portal/remaining-sections-ui
           grep -q 'Вознаграждения агентов' dist/portal/remaining-sections-ui
+          grep -q 'portal-market-news-current-v1.js' dist/portal/remaining-sections-ui
+          grep -q '__RONA_MARKET_NEWS_CURRENT_LOADER__' dist/portal/remaining-sections-ui
+          grep -q '__RONA_MARKET_NEWS_CURRENT_V1__' dist/assets/portal-market-news-current-v1.js
+          grep -q 'Новости топливного рынка СНГ' dist/assets/portal-market-news-current-v1.js
           if grep -q 'Комментарий Коммерческого директора' dist/portal/analytics-v2-ui; then exit 1; fi
           if grep -q 'Аналитическая лента' dist/portal/remaining-sections-ui; then exit 1; fi
           if grep -q "'аналитика':'analytics'" dist/portal/remaining-sections-ui; then exit 1; fi
