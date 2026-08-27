@@ -1,4 +1,4 @@
-name: Admin Analytics Approved Single Owner QA
+name: Admin Analytics Canonical v4.3.2 Single Owner QA
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ on:
       - 'fix/analytics-approved-single-owner-20260827'
 
 jobs:
-  analytics-approved-single-owner:
+  analytics-canonical-single-owner:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify approved Analytics runtime only
+      - name: Verify canonical Analytics runtime only
         run: |
           node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/analytics-v2-approved-base.js
@@ -30,15 +30,17 @@ jobs:
           const response = await analytics.onRequest({});
           const source = await response.text();
           new Function(source);
-          for (const token of ['approved-v4.3.1-single-owner','RONA TRADE · ANALYTICS','Аналитика','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts LPG / СУГ','Petromarket · DAP benchmark','1075.25','1226.75','Возможные цены RONA Trade','Аналитический вывод','DATA-DRIVEN','FACT / CALCULATION / FORECAST']) {
-            if (!source.includes(token)) throw new Error('approved Analytics token missing: '+token);
+          for (const token of ['approved-v4.3.2-pricing-bridge-single-owner','RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html','RONA TRADE · ANALYTICS','Аналитика','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts LPG / СУГ','Petromarket · DAP benchmark','1075.25','1226.75','Возможные цены RONA Trade','Аналитический вывод','DATA-DRIVEN','FACT / CALCULATION / FORECAST']) {
+            if (!source.includes(token)) throw new Error('canonical Analytics token missing: '+token);
           }
           for (const token of ['rona-analytics-canonical-title','ronaAnalyticsCanonicalHomeVisualV1','home-canonical-frames-title-v1','LPG Hairatan','Hairatan / Petromarket / Platts propane ref','Комментарий Коммерческого директора','Аналитическая лента','Текущий опубликованный ориентир RONA Trade']) {
             if (source.includes(token)) throw new Error('stale Analytics marker leaked: '+token);
           }
-          if (response.headers.get('x-rona-analytics-owner') !== 'approved-v431-exclusive') throw new Error('approved owner header missing');
-          if (response.headers.get('x-rona-analytics-visual') !== 'approved-hero-v431') throw new Error('approved visual header missing');
-          if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('approved chart header missing');
+          if (response.headers.get('x-rona-analytics-ui') !== 'approved-v4.3.2-pricing-bridge-single-owner') throw new Error('canonical ui header missing');
+          if (response.headers.get('x-rona-analytics-owner') !== 'approved-v432-exclusive') throw new Error('canonical owner header missing');
+          if (response.headers.get('x-rona-analytics-source-file') !== 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html') throw new Error('canonical source-file header missing');
+          if (response.headers.get('x-rona-analytics-visual') !== 'approved-hero-v432-pricing-bridge') throw new Error('canonical visual header missing');
+          if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('canonical chart header missing');
           const shim = await import('./functions/portal/admin-approved-analytics-v455-ui.js?qa='+Date.now());
           const shimSource = await (await shim.onRequest({})).text();
           if (!shimSource.includes('retired-compat-guard-v1')) throw new Error('old v455 overlay is not retired');
@@ -48,13 +50,17 @@ jobs:
         run: npm run build
       - name: Verify materialized production Analytics
         run: |
-          grep -q 'approved-v4.3.1-single-owner' dist/portal/analytics-v2-ui
+          grep -q 'approved-v4.3.2-pricing-bridge-single-owner' dist/portal/analytics-v2-ui
+          grep -q 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/portal/analytics-v2-ui
           grep -q 'RONA TRADE · ANALYTICS' dist/portal/analytics-v2-ui
           grep -q 'Platts LPG / СУГ' dist/portal/analytics-v2-ui
           grep -q '1075.25' dist/portal/analytics-v2-ui
           grep -q '1226.75' dist/portal/analytics-v2-ui
           grep -q 'Аналитический вывод' dist/portal/analytics-v2-ui
           grep -q 'DATA-DRIVEN' dist/portal/analytics-v2-ui
+          grep -q 'X-Rona-Analytics-Ui: approved-v4.3.2-pricing-bridge-single-owner' dist/_headers
+          grep -q 'X-Rona-Analytics-Owner: approved-v432-exclusive' dist/_headers
+          grep -q 'X-Rona-Analytics-Source-File: RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/_headers
           if grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui; then exit 1; fi
           if grep -q 'home-canonical-frames-title-v1' dist/portal/analytics-v2-ui; then exit 1; fi
           if grep -q 'LPG Hairatan' dist/portal/analytics-v2-ui; then exit 1; fi
