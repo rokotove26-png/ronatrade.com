@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Check runtime syntax and canonical access create owner
+      - name: Check runtime syntax and functional access create owner
         run: |
           node --check functions/portal/admin-approved-polish-ui.js
           node --check functions/portal/clients-agents-current-ui.js
@@ -30,7 +30,6 @@ jobs:
           new Function(source);
           if (!source.includes("20260828-canonical-access-v3413-v4")) throw new Error('canonical polish marker missing');
           if (!source.includes("clients-agents-current-v4")) throw new Error('current access workspace owner missing');
-          if (!source.includes("approved-canonical-v3.4.13")) throw new Error('compat create-access owner missing');
           if (!source.includes('window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})')) throw new Error('in-app dialog service missing');
           if (!source.includes('grid-template-columns:minmax(0,1fr)!important')) throw new Error('claims equal-width layout missing');
           for (const stale of ['openApprovedAccess','installApprovedAccess']) if (source.includes(stale)) throw new Error('retired access owner still present: '+stale);
@@ -39,41 +38,27 @@ jobs:
           const canonicalResponse = await canonicalMod.onRequest();
           const canonical = await canonicalResponse.text();
           new Function(canonical);
-          if (canonicalResponse.headers.get('x-rona-access-canonical-source') !== 'RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html') throw new Error('canonical v4.4.1 source header missing');
-          if (canonicalResponse.headers.get('x-rona-access-create-owner') !== 'approved-canonical-v4.4.1') throw new Error('canonical v4.4.1 owner header missing');
+          if (canonicalResponse.headers.get('x-rona-access-functional-build') !== 'create-user-contract-pdf-v5-20260828') throw new Error('functional access build header missing');
+          if (canonicalResponse.headers.get('x-rona-access-pdf-control') !== 'attach-and-gate-v1') throw new Error('PDF control header missing');
           const exact = [
             'RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html',
             "window.__RONA_ACCESS_CREATE_OWNER__='approved-canonical-v4.4.1'",
-            'Создать пользователя',
-            'Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам',
-            'Тип доступа',
-            'Роль пользователя',
-            'Ф.И.О. пользователя',
-            'Единый логин',
-            'Электронная почта',
-            'Телефон',
-            'Профиль агента',
-            'Разрешённые компании / контракты',
-            'Договор подтверждён',
-            'Открыть без контракта — учётная запись будет создана для выбранной компании, но доступ к данным компании останется закрытым до загрузки и подтверждения подписанного договора.',
-            'Новая пользовательская связь активируется по Contract ID только после серверного подтверждения действующего двусторонне подписанного PDF. Пароль и ИД пользователя создаются серверным сервисом.',
-            'Создать единую учётную запись',
-            '.rona-approved-access-mask{position:fixed;inset:0;z-index:2147483250',
-            '.rona-approved-access-modal{width:min(860px,96vw);max-height:88vh',
-            '.rona-approved-access-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}',
-            '.rona-approved-contract-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}',
-            'data-rona-create-access',
-            'ev.stopImmediatePropagation()',
-            'backendCreate(payload)'
+            "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='create-user-contract-pdf-v5-20260828'",
+            'Создать пользователя','Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Телефон',
+            "makeField('Пароль',password)","makeField('Повторите пароль',repeat)",'Профиль агента','Разрешённые компании / контракты',
+            'PDF подтверждён','PDF загружен · ожидает подтверждения','PDF не закреплён','Закрепить PDF',
+            'Открыть учётную запись до подтверждения PDF','Создать единую учётную запись',
+            'initialPassword:pw1','attachSignedContractToExistingContract','/signed-document/attach','BILATERAL_SIGNED_CONTRACT_ATTESTATION',
+            'data-rona-create-access','ev.stopImmediatePropagation()','backendCreate(payload)'
           ];
-          for (const marker of exact) if (!canonical.includes(marker)) throw new Error('exact canonical v4.4.1 marker missing: '+marker);
-          for (const stale of ['Электронная почта / логин','Договоры клиента</span>']) if (canonical.includes(stale)) throw new Error('noncanonical create-user marker present: '+stale);
+          for (const marker of exact) if (!canonical.includes(marker)) throw new Error('functional access marker missing: '+marker);
+          for (const stale of ['Электронная почта / логин','Договоры клиента</span>']) if (canonical.includes(stale)) throw new Error('retired create-user marker present: '+stale);
           if (!canonical.includes("removeCompeting(){qa('.ca-modal-backdrop,.rona-canonical-access-mask,.rona-approved-access-mask')")) throw new Error('competing create-user cleanup missing');
 
           const compat = await import('./functions/portal/admin-approved-analytics-v455-ui.js');
           const compatSource = await (await compat.onRequest()).text();
           new Function(compatSource);
-          if (!compatSource.includes('/portal/admin-canonical-create-access-v441-ui?v=20260828-canonical-v441')) throw new Error('canonical access loader missing');
+          if (!compatSource.includes('/portal/admin-canonical-create-access-v441-ui?v=20260828-canonical-v441')) throw new Error('functional access loader missing');
 
           const fs = await import('node:fs');
           const access = fs.readFileSync('functions/portal/clients-agents-current-ui.js','utf8');
@@ -83,7 +68,7 @@ jobs:
           NODE
       - name: Build current-only artifact
         run: npm run build
-      - name: Verify canonical access owner is deployed by Admin shell
+      - name: Verify functional access owner is deployed by Admin shell
         run: |
           test -s dist/portal/admin.html
           grep -q 'rona-admin-approved-polish-loader' dist/portal/admin.html
@@ -100,6 +85,6 @@ jobs:
           const current=html.indexOf('/portal/clients-agents-current-ui');
           const polish=html.indexOf('/portal/admin-approved-polish-ui');
           const compat=html.indexOf('/portal/admin-approved-analytics-v455-ui');
-          if(current<0||polish<0||polish<=current)throw new Error('compat create-access owner must load after current access workspace');
-          if(compat<0||compat<=polish)throw new Error('canonical v4.4.1 loader host must load after polish');
+          if(current<0||polish<0||polish<=current)throw new Error('compat access owner must load after current access workspace');
+          if(compat<0||compat<=polish)throw new Error('functional access loader host must load after polish');
           NODE
