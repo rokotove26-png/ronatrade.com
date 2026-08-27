@@ -42,7 +42,7 @@ async function authRefresh(refreshToken) {
 async function sessionMe(accessToken) {
   if (!accessToken) return null;
   try {
-    const r = await fetch(`${PORTAL_API}/session/me`, { headers: { authorization: `Bearer ${accessToken}`, accept: 'application/json' } });
+    const r = await fetch(`${PORTAL_API}/session/me`, { headers: { apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}`, accept: 'application/json' } });
     if (!r.ok) return null;
     const j = await r.json();
     return j?.ok && j?.user ? j : null;
@@ -71,7 +71,13 @@ function json(body, status = 200, cookies = []) {
   for (const cookie of cookies) headers.append('set-cookie', cookie);
   return new Response(JSON.stringify(body), { status, headers });
 }
-function secureUpstream(response, cookies = []) {
+async function secureUpstream(response, cookies = []) {
+  if (!response.ok) {
+    const payload = await response.clone().json().catch(() => null);
+    if (!payload || typeof payload !== 'object' || !String(payload.code || '').trim()) {
+      return json({ ok:false, code:`ACCESS_UPSTREAM_HTTP_${response.status}` }, response.status, cookies);
+    }
+  }
   const headers = new Headers(response.headers);
   headers.set('cache-control', 'no-store');
   headers.set('x-content-type-options', 'nosniff');
@@ -83,21 +89,17 @@ function secureUpstream(response, cookies = []) {
   for (const cookie of cookies) headers.append('set-cookie', cookie);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
-function clientAuthorityTarget(path, bodyBytes) {
-  if (/^\/contracts\/[^/]+\/signed-document\/attach$/.test(path)) return true;
-  if (path !== '/access/users' || !bodyBytes) return false;
-  try {
-    const body = JSON.parse(new TextDecoder().decode(bodyBytes));
-    const role = String(body?.role || 'Клиент').trim();
-    return role === 'Клиент' || role === 'CLIENT';
-  } catch (_) { return true; }
+function clientAuthorityTarget(path) {
+  return /^\/contracts\/[^/]+\/signed-document\/attach$/.test(path);
 }
 
 export async function onRequest(context) {
   const request = context.request;
   if (!['GET','POST'].includes(request.method)) return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
   if (request.method === 'POST' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
-  const session = await ensureSession(request);
+  let session;
+  try { session = await ensureSession(request); }
+  catch (_) { return json({ ok:false, code:'PORTAL_SESSION_UPSTREAM_UNAVAILABLE' }, 503); }
   if (!session) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401);
   const roles = Array.isArray(session.me?.user?.roles) ? session.me.user.roles.map(String) : [];
   if (!roles.includes('ADMIN')) return json({ ok:false, code:'ROLE_MISMATCH' }, 403, session.setCookies);
@@ -105,7 +107,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const prefix = '/portal/admin-authority';
   const path = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
-  const headers = new Headers({ authorization: `Bearer ${session.access}`, accept: 'application/json' });
+  const headers = new Headers({ apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${session.access}`, accept: 'application/json' });
   for (const name of ['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
@@ -113,7 +115,12 @@ export async function onRequest(context) {
   const bodyBytes = !['GET','HEAD'].includes(request.method) ? await request.clone().arrayBuffer() : null;
   const init = { method: request.method, headers };
   if (bodyBytes) init.body = bodyBytes;
-  const base = clientAuthorityTarget(path, bodyBytes) ? ADMIN_CLIENT_AUTHORITY_API : ADMIN_CONTROL_PLANE_API;
-  const upstream = await fetch(`${base}${path}${url.search}`, init);
+
+  // Account creation for both Client and Agent is owned by the unified Admin Control Plane.
+  // Client Authority remains the single owner only for signed-contract PDF attachment/activation.
+  const base = clientAuthorityTarget(path) ? ADMIN_CLIENT_AUTHORITY_API : ADMIN_CONTROL_PLANE_API;
+  let upstream;
+  try { upstream = await fetch(`${base}${path}${url.search}`, init); }
+  catch (_) { return json({ ok:false, code:'ACCESS_UPSTREAM_UNAVAILABLE' }, 502, session.setCookies); }
   return secureUpstream(upstream, session.setCookies);
 }
