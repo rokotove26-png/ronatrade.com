@@ -10,6 +10,7 @@ const build=read('scripts/build-pages-direct-canonical.mjs');
 const shell=read('portal-src/current/admin.html');
 const access=read('functions/portal/clients-agents-current-ui.js');
 const analytics=read('functions/portal/analytics-v2-ui.js');
+const analyticsBase=read('functions/portal/analytics-v2-approved-base.js');
 const railSafe=read('functions/portal/rail-safe-fallback-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 
@@ -77,9 +78,9 @@ assert(access.includes("const clientContract=kind===''||kind==='CLIENT_CONTRACT'
 assert(!access.includes('installShellParity')&&!access.includes('installNavigationStability'),'Page module must not mutate global shell/navigation');
 assert(access.includes("'x-rona-shell-mutation':'none'"),'Page-scoped shell mutation contract missing');
 
-assert(analytics.includes("import { onRequest as canonicalV3 } from './analytics-v2-approved-base.js'"),'Analytics canonical v3 source wrapper missing');
-assert(analytics.includes("'20260824-analytics-v3-market-rona-bases-lpg'")&&analytics.includes("'АИ-92'")&&analytics.includes("'АИ-95'")&&analytics.includes("'ДТ'")&&analytics.includes("'LPG / СУГ'"),'Analytics canonical market contract missing');
-assert(analytics.includes("headers.set('x-rona-analytics-ui','canonical-v3-only')")&&analytics.includes("headers.set('x-rona-analytics-owner','canonical-v3-exclusive')"),'Analytics canonical owner headers missing');
-assert(analytics.includes('ROOT_TO')&&analytics.includes('BIND_TO'),'Analytics direct-child owner guard missing');
+assert(analytics.includes("import { onRequest as approvedAnalytics } from './analytics-v2-approved-base.js'"),'Approved Analytics source wrapper missing');
+assert(analytics.includes('approved-data-contract: AI95 first=1075.25 last=1226.75; differential=AI92+40 USD/t'),'Approved gasoline differential contract missing');
+assert(!analytics.includes('ROOT_TO')&&!analytics.includes('BIND_TO')&&!analytics.includes('rona-analytics-canonical-title')&&!analytics.includes('home-canonical-frames-title-v1'),'Obsolete Analytics transform returned');
+assert(analyticsBase.includes("'x-rona-analytics-ui':'approved-v4.3.1-single-owner'")&&analyticsBase.includes("'x-rona-analytics-owner':'approved-v431-exclusive'")&&analyticsBase.includes("'x-rona-analytics-visual':'approved-hero-v431'")&&analyticsBase.includes("'x-rona-analytics-chart':'designer-v3-shared-gasoline-axis'"),'Approved Analytics owner headers missing');
 
 console.log('Admin current-only single-owner resilience QA: PASS');
