@@ -31,7 +31,8 @@ for(const forbidden of [
 ]) need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
 need(!has(watchdog,'location.reload(')&&!has(watchdog,'location.replace('),'Watchdog still performs destructive navigation/reload');
 need(has(watchdog,"p==='claims'")&&has(watchdog,"p==='agent-settlements'")&&has(watchdog,'rona:admin-module-retry'),'Watchdog does not recover Claims/Rewards in-place');
 need(has(watchdog,"if(p==='market-news')return'market-news-current'")&&has(watchdog,"root.querySelector(':scope > .mn-masthead')")&&has(watchdog,"activateMarketNews('watchdog-content-repair')"),'Watchdog does not repair an emptied current Market News owner');
@@ -66,4 +67,4 @@ console.log('routes=access,claims,agent-settlements,market-news');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v4');
 console.log('access=roles,password,history,fail-closed-pending,qa-history-hygiene');
-console.log('watchdog=page-aware-v5-market-news-content-health/non-destructive');
+console.log('watchdog=page-aware-v6-home-hidden-fallback-safe/non-destructive');
