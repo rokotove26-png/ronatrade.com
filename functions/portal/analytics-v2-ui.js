@@ -149,7 +149,7 @@ function canonicalizeV432(source){
   out=out.replaceAll("document.documentElement.dataset.ronaAnalyticsLocal='v4.3.1'","document.documentElement.dataset.ronaAnalyticsLocal='v4.3.2'");
   out=out.replaceAll("version:'functional-v4.3.1'","version:'functional-v4.3.2'");
   out=out.replaceAll('approved-v4.3.1-single-owner',CANONICAL_ANALYTICS_MARKER);
-  out+=CANONICAL_PRICING_BRIDGE_RUNTIME;
+  out+=CANONICAL_PRICING_BRIDGE_RUNTIME+APPROVED_DATA_VALIDATION;
   const required=['RONA TRADE · ANALYTICS','Внутренний аналитический контур','Базовая котировка','Возможные цены RONA Trade','Аналитический вывод','function pricingBridgeFor','function calculateRonaScenario',"version:'functional-v4.3.2'",'setPricingBridge','rona:analytics-price-model','1075.25','1226.75'];
   for(const token of required)if(!out.includes(token))throw new Error(`CANONICAL_ANALYTICS_V432_MISSING:${token}`);
   for(const stale of ['rona-analytics-canonical-title','Комментарий Коммерческого директора','Аналитическая лента'])if(out.includes(stale))throw new Error(`CANONICAL_ANALYTICS_STALE_OWNER:${stale}`);
@@ -169,5 +169,5 @@ export async function onRequest(context){
   headers.set('x-rona-analytics-owner','approved-v432-exclusive');
   headers.set('x-rona-analytics-visual','approved-hero-v432-pricing-bridge');
   headers.set('x-rona-analytics-chart','designer-v3-shared-gasoline-axis');
-  return new Response(canonicalSource+CANONICAL_PROVENANCE+APPROVED_DATA_VALIDATION,{status:response.status,statusText:response.statusText,headers});
+  return new Response(canonicalSource+CANONICAL_PROVENANCE,{status:response.status,statusText:response.statusText,headers});
 }
