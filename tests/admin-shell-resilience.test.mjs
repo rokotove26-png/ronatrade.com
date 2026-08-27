@@ -85,7 +85,8 @@ assert(analytics.includes("const CANONICAL_ANALYTICS_MARKER='approved-v4.3.2-pri
 assert(analytics.includes("headers.set('x-rona-analytics-owner','approved-v432-exclusive')"),'Canonical Analytics owner header missing');
 assert(analytics.includes("headers.set('x-rona-analytics-visual','approved-hero-v432-pricing-bridge')"),'Canonical Analytics visual header missing');
 assert(analytics.includes('approved-data-contract: AI95 first=1075.25 last=1226.75; differential=AI92+40 USD/t'),'Approved gasoline differential contract missing');
-assert(!analytics.includes('ROOT_TO')&&!analytics.includes('BIND_TO')&&!analytics.includes('rona-analytics-canonical-title')&&!analytics.includes('home-canonical-frames-title-v1'),'Obsolete Analytics transform returned');
+assert(!analytics.includes('ROOT_TO')&&!analytics.includes('BIND_TO')&&!analytics.includes('home-canonical-frames-title-v1'),'Obsolete Analytics transform returned');
+assert(analytics.includes("for(const stale of ['rona-analytics-canonical-title'"),'Canonical Analytics stale-owner guard missing');
 assert(analyticsBase.includes("'x-rona-analytics-ui':'approved-v4.3.1-single-owner'")&&analyticsBase.includes("'x-rona-analytics-owner':'approved-v431-exclusive'")&&analyticsBase.includes("'x-rona-analytics-visual':'approved-hero-v431'")&&analyticsBase.includes("'x-rona-analytics-chart':'designer-v3-shared-gasoline-axis'"),'Frozen approved Analytics base headers missing');
 
 console.log('Admin current-only single-owner resilience QA: PASS');
