@@ -45,14 +45,18 @@ jobs:
             'Открыть без контракта — учётная запись будет создана для выбранной компании, но доступ к данным компании останется закрытым до загрузки и подтверждения подписанного договора.',
             'Новая пользовательская связь активируется по Contract ID только после серверного подтверждения действующего двусторонне подписанного PDF. Пароль и ИД пользователя создаются серверным сервисом.',
             'Создать единую учётную запись',
-            '.rona-approved-access-mask{position:fixed;inset:0;z-index:2147483250',
-            '.rona-approved-access-modal{width:min(860px,96vw);max-height:88vh',
-            '.rona-approved-contract-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}',
+            'Укажите Ф.И.О. пользователя и единый логин.',
+            '.ca-modal-backdrop{position:fixed;inset:0;z-index:2147483200',
+            "el('section','rona-owner-card ca-modal')",
+            "el('div','ca-modal-actions')",
+            "el('button','ca-primary','Закрыть')",
             'data-rona-create-access','ev.stopImmediatePropagation()','backendCreate(payload)'
           ];
           for(const x of must)if(!s.includes(x))throw new Error('CANONICAL_V441_MISSING: '+x);
+          for(const stale of ['RONA_ADMIN_DIALOGS','ronaCanonicalAccessInlineNotice'])if(s.includes(stale))throw new Error('NONCANONICAL_VALIDATION_DIALOG_PRESENT: '+stale);
           if(r.headers.get('x-rona-access-canonical-source')!=='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html')throw new Error('CANONICAL_SOURCE_HEADER_MISSING');
           if(r.headers.get('x-rona-access-create-owner')!=='approved-canonical-v4.4.1')throw new Error('CANONICAL_OWNER_HEADER_MISSING');
+          if(r.headers.get('x-rona-access-notice-owner')!=='canonical-ca-modal')throw new Error('CANONICAL_NOTICE_OWNER_MISSING');
           NODE
       - name: Wait for Cloudflare deployment signals
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
@@ -67,14 +71,15 @@ jobs:
           const base='https://ronaoil.com';
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           const assert=(v,m)=>{if(!v)throw new Error(m)};
-          const must=['Создать пользователя','Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам','Единый логин','Разрешённые компании / контракты','Создать единую учётную запись','approved-canonical-v4.4.1','RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'];
+          const must=['Создать пользователя','Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам','Единый логин','Разрешённые компании / контракты','Создать единую учётную запись','Укажите Ф.И.О. пользователя и единый логин.','ca-modal-backdrop','rona-owner-card ca-modal','ca-modal-actions',"ca-primary','Закрыть",'approved-canonical-v4.4.1','RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'];
+          const stale=['RONA_ADMIN_DIALOGS','ronaCanonicalAccessInlineNotice'];
           let good=false,last='';
           for(let i=0;i<36;i++){
             const r=await fetch(base+'/portal/admin-canonical-create-access-v441-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
             const s=r.ok?await r.text():'';
-            const headers=r.headers.get('x-rona-access-canonical-source')==='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'&&r.headers.get('x-rona-access-create-owner')==='approved-canonical-v4.4.1';
-            if(r.ok&&headers&&must.every(x=>s.includes(x))){good=true;break}
-            last='status='+r.status+' source='+r.headers.get('x-rona-access-canonical-source')+' owner='+r.headers.get('x-rona-access-create-owner');
+            const headers=r.headers.get('x-rona-access-canonical-source')==='RONA_Admin_LK_LOCAL_v4_4_1_Clients_Agents_Canonical_CreateAccess_Local.html'&&r.headers.get('x-rona-access-create-owner')==='approved-canonical-v4.4.1'&&r.headers.get('x-rona-access-notice-owner')==='canonical-ca-modal';
+            if(r.ok&&headers&&must.every(x=>s.includes(x))&&stale.every(x=>!s.includes(x))){good=true;break}
+            last='status='+r.status+' source='+r.headers.get('x-rona-access-canonical-source')+' owner='+r.headers.get('x-rona-access-create-owner')+' notice='+r.headers.get('x-rona-access-notice-owner');
             await sleep(3000);
           }
           assert(good,'canonical create-access endpoint did not converge: '+last);
