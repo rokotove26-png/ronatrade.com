@@ -1,55 +1,17 @@
-name: RONA Public Market News Ingest
+name: RONA Public Market News Ingest (DB-native)
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
-
-concurrency:
-  group: rona-public-market-news-ingest
-  cancel-in-progress: false
 
 jobs:
-  ingest:
+  status:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      RONA_PUBLIC_MARKET_INGEST_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ai-read-extras/public-market-ingest
-      RONA_PUBLIC_MARKET_RUN_KEY: gh-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - name: Acquire GitHub OIDC token
+      - name: DB-native collector status
         shell: bash
         run: |
-          set -euo pipefail
-          OIDC_JSON="$(curl -fsS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=rona-public-market-ingest")"
-          OIDC_TOKEN="$(printf '%s' "${OIDC_JSON}" | python -c 'import json,sys; print(json.load(sys.stdin)["value"])')"
-          test -n "${OIDC_TOKEN}"
-          echo "::add-mask::${OIDC_TOKEN}"
-          printf 'RONA_INGEST_OIDC_TOKEN=%s\n' "${OIDC_TOKEN}" >> "${GITHUB_ENV}"
-
-      - name: Mark run started
-        shell: bash
-        run: |
-          curl -fsS -X POST \
-            -H "Authorization: Bearer ${RONA_INGEST_OIDC_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data '{"run_key":"'"${RONA_PUBLIC_MARKET_RUN_KEY}"'","status":"STARTED","scanned_items":0,"accepted_items":0,"duplicate_items":0,"filtered_items":0,"failed_items":0}' \
-            "${RONA_PUBLIC_MARKET_INGEST_URL}/run-status"
-
-      - name: Collector placeholder
-        shell: bash
-        run: |
-          echo "Public source collector remains separated from publication materialization."
-
-      - name: Mark run blocked until collector credentials are configured
-        shell: bash
-        run: |
-          curl -fsS -X POST \
-            -H "Authorization: Bearer ${RONA_INGEST_OIDC_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data '{"run_key":"'"${RONA_PUBLIC_MARKET_RUN_KEY}"'","status":"BLOCKED","scanned_items":0,"accepted_items":0,"duplicate_items":0,"filtered_items":0,"failed_items":0,"error_code":"PUBLIC_SOURCE_COLLECTOR_NOT_CONFIGURED"}' \
-            "${RONA_PUBLIC_MARKET_INGEST_URL}/run-status"
+          echo "Public market source collection is executed in production by Supabase pg_cron job rona-public-market-news-db-ingest-v1."
+          echo "The former GitHub placeholder schedule is disabled to prevent false PUBLIC_SOURCE_COLLECTOR_NOT_CONFIGURED alerts."
