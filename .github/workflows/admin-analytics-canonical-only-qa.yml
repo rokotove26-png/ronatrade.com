@@ -64,5 +64,5 @@ jobs:
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "if(p==='analytics')loadAnalytics()" assets/portal-admin-shell-fast-v1.js
           grep -q "\['agent-settlements','messages','market-news'\]" assets/portal-admin-shell-fast-v1.js
-          if grep -q "'аналитика':'analytics'" functions/portal/remaining-sections-r2-base.js; then exit 1; fi
-          if grep -q 'function renderAnalytics(){' functions/portal/remaining-sections-r2-base.js; then exit 1; fi
+          if grep -q "'аналитика':'analytics'" dist/portal/remaining-sections-ui; then exit 1; fi
+          if grep -q 'function renderAnalytics(){' dist/portal/remaining-sections-ui; then exit 1; fi
