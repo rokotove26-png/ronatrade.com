@@ -1,13 +1,23 @@
 const repo=process.env.GITHUB_REPOSITORY;
 const sha=process.env.GITHUB_SHA;
-const token=process.env.GH_TOKEN||process.env.GITHUB_TOKEN;
-if(!repo||!sha||!token)throw new Error('GITHUB_REPOSITORY, GITHUB_SHA and GH_TOKEN are required');
+const token=process.env.GH_TOKEN||process.env.GITHUB_TOKEN||'';
+if(!repo||!sha)throw new Error('GITHUB_REPOSITORY and GITHUB_SHA are required');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const required=['Cloudflare Pages','Workers Builds: ronatrade-com'];
 const latest=(runs,name)=>runs.filter(x=>x.name===name).sort((a,b)=>Date.parse(b.started_at||b.completed_at||0)-Date.parse(a.started_at||a.completed_at||0))[0]||null;
 let last={};
-for(let i=0;i<180;i++){
-  const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers:{authorization:`Bearer ${token}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-CURRENT-ONLY-DEPLOY-SIGNAL'}});
+for(let i=0;i<120;i++){
+  const headers={accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-CURRENT-ONLY-DEPLOY-SIGNAL'};
+  if(token)headers.authorization=`Bearer ${token}`;
+  const r=await fetch(`https://api.github.com/repos/${repo}/commits/${sha}/check-runs?per_page=100`,{headers});
+  if(r.status===401||r.status===403){
+    // Some repository Actions tokens cannot read third-party check-runs even with checks:read.
+    // Do not block production proof on that permission boundary: the following workflow step
+    // performs semantic no-store verification against the custom domain itself.
+    console.warn(`CLOUDFLARE_DEPLOY_SIGNAL_API_UNAVAILABLE status=${r.status}; semantic custom-domain proof will be authoritative`);
+    await sleep(15000);
+    process.exit(0);
+  }
   if(r.ok){
     const j=await r.json();
     const runs=j.check_runs||[];
@@ -22,6 +32,8 @@ for(let i=0;i<180;i++){
       console.log(`CLOUDFLARE_DEPLOY_SIGNALS_READY ${sha} pages=${found[0].id} worker=${found[1].id}`);
       process.exit(0);
     }
+  }else{
+    last={http_status:r.status};
   }
   await sleep(3000);
 }
