@@ -40,21 +40,33 @@ need(has(watchdog,"p==='claims'")&&has(watchdog,"p==='agent-settlements'")&&has(
 need(has(watchdog,"if(p==='market-news')return'market-news-current'")&&has(watchdog,"root.querySelector(':scope > .mn-masthead')")&&has(watchdog,"activateMarketNews('watchdog-content-repair')"),'Watchdog does not repair an emptied current Market News owner');
 need(has(remaining,"__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'")&&has(remaining,"if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')"),'No-store Market News content-health guard is missing');
 
-need(has(access,"__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'"),'Current Clients/Agents owner marker is missing');
-need(has(access,"new Option('Клиент','Клиент')")&&has(access,"new Option('Агент','Агент')"),'Client/Agent create access modes are missing');
-need(has(access,"dataset.ronaCreateAccess='primary'")&&has(access,"'Создать доступ'"),'Primary create-access action is missing');
+need(has(access,"__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'"),'Current Clients/Agents workspace owner marker is missing');
+need(has(access,"dataset.ronaCreateAccess='primary'")&&has(access,"'Создать доступ'"),'Primary create-access entry is missing');
 need(has(access,"['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']"),'Access history/rights tab is missing');
-need(has(access,"openWithoutContract:!isAgent&&openWithout.checked"),'Open-without-contract fail-closed option is missing');
 need(has(access,"setAccessUserPassword")&&has(access,"'Сменить пароль'"),'Admin password reset control is missing');
-need(has(access,"clientRoles()")&&has(access,"bindingRole:bindingRole.value"),'Client representation role control is missing');
 need(has(access,"const clientContract=kind===''||kind==='CLIENT_CONTRACT'")&&has(access,"clientContract&&status==='ACTIVE'")&&has(access,"clientContract&&['REVOKED','SUSPENDED'].includes(status)"),'Agent binding must remain outside Client contract revoke/restore routes');
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
 need(has(access,"'x-rona-shell-mutation':'none'"),'Page-scoped shell-mutation contract is missing');
 
-need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260828-claims-radio-dialogs-single-owner-v3'"),'Approved polish current marker is missing');
+need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260828-canonical-access-v3413-v4'"),'Approved polish canonical marker is missing');
 need(has(polish,"window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})"),'In-app Admin dialog service is missing');
-need(has(polish,"page.dataset.ronaAccessUiOwner='clients-agents-current-v4'")&&has(polish,"'x-rona-access-owner':'clients-agents-current-v4'"),'Access single-owner declaration is missing from polish runtime');
-for(const forbidden of ['openApprovedAccess','installApprovedAccess','Создать единую учётную запись','Укажите Ф.И.О. пользователя и единый логин'])need(!has(polish,forbidden),'Competing legacy create-user flow still exists: '+forbidden);
+need(has(polish,"page.dataset.ronaAccessUiOwner='clients-agents-current-v4'")&&has(polish,"'x-rona-access-owner':'clients-agents-current-v4'"),'Access workspace owner declaration is missing from polish runtime');
+need(has(polish,"page.dataset.ronaAccessCreateOwner='approved-canonical-v3.4.13'")&&has(polish,"'x-rona-access-create-owner':'approved-canonical-v3.4.13'"),'Canonical create-access owner declaration is missing');
+for(const marker of [
+  'Создать пользователя',
+  'Один ИД пользователя может иметь доступ к нескольким компаниям и контрактам',
+  'Ф.И.О. пользователя',
+  'Единый логин',
+  'Электронная почта',
+  'Телефон',
+  'Разрешённые компании / контракты',
+  'Агент — матрица прав не утверждена',
+  'Новая пользовательская связь разрешается только по ИД контракта с действующим двусторонне подписанным PDF, подтверждённым сервером. Пароль и ИД пользователя создаются только серверным сервисом.',
+  'Создать единую учётную запись',
+  '[data-rona-create-access="primary"],[data-action="create-access"]',
+  'ev.stopImmediatePropagation()'
+]) need(has(polish,marker),'Canonical create-user UI marker is missing: '+marker);
+for(const forbidden of ['openApprovedAccess','installApprovedAccess'])need(!has(polish,forbidden),'Retired access owner still exists: '+forbidden);
 
 need(has(ownerApi,"path==='/admin/access-workspace'")&&has(ownerApi,"'owner_access_workspace_bootstrap'"),'Owner API access-workspace RPC route is missing');
 need(has(accessMigration,'create or replace function public.owner_access_workspace_bootstrap')&&has(accessMigration,"revoke execute on function public.owner_access_workspace_bootstrap(integer) from anon"),'Access workspace migration is missing fail-closed grants');
@@ -73,5 +85,5 @@ console.log('ADMIN_SINGLE_OWNER_QA=PASS');
 console.log('routes=access,claims,agent-settlements,analytics,market-news');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v4');
-console.log('access=single-owner-current-v4,roles,password,history,fail-closed-pending,qa-history-hygiene');
+console.log('access=workspace-current-v4/create-approved-canonical-v3.4.13,password,history,signed-pdf-gate');
 console.log('watchdog=page-aware-v7-analytics-rendered-ready/non-destructive');
