@@ -62,12 +62,13 @@ jobs:
             '.rona-approved-access-modal{width:min(860px,96vw);max-height:88vh',
             '.rona-approved-access-grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}',
             '.rona-approved-contract-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:8px}',
-            '[data-rona-create-access="primary"],[data-action="create-access"]',
+            'data-rona-create-access',
             'ev.stopImmediatePropagation()',
             'backendCreate(payload)'
           ];
           for (const marker of exact) if (!canonical.includes(marker)) throw new Error('exact canonical v4.4.1 marker missing: '+marker);
-          for (const stale of ['Электронная почта / логин','Договоры клиента</span>','ca-modal-backdrop']) if (canonical.includes(stale)) throw new Error('noncanonical create-user marker present: '+stale);
+          for (const stale of ['Электронная почта / логин','Договоры клиента</span>']) if (canonical.includes(stale)) throw new Error('noncanonical create-user marker present: '+stale);
+          if (!canonical.includes("removeCompeting(){qa('.ca-modal-backdrop,.rona-canonical-access-mask,.rona-approved-access-mask')")) throw new Error('competing create-user cleanup missing');
 
           const compat = await import('./functions/portal/admin-approved-analytics-v455-ui.js');
           const compatSource = await (await compat.onRequest()).text();
