@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "npm:postgres@3.4.7";
 import { createClient } from "npm:@supabase/supabase-js@2.109.0";
 import { handleTelegramIngest } from "./telegram_ingest.js";
+import { handleCommercialDirectorMarketNews } from "./commercial_director_market_news.js";
 
 const DB=Deno.env.get('SUPABASE_DB_URL');
 const SUPA_URL=Deno.env.get('SUPABASE_URL');
@@ -99,6 +100,7 @@ async function marketData(auth,req){
 Deno.serve(async req=>{
   const path=functionPath(req);
   const telegramResponse=await handleTelegramIngest(req,path);if(telegramResponse)return telegramResponse;
+  const commercialNewsResponse=await handleCommercialDirectorMarketNews(req,path);if(commercialNewsResponse)return commercialNewsResponse;
   if(req.method!=='GET')return json({ok:false,code:'AI_READ_ONLY_METHOD_DENIED'},405,{allow:'GET'});
   const auth=await authenticate(req);if(!auth.ok){await audit({req,requestIds:auth.requestIds,domain:'AUTH',result:'DENIED',httpStatus:auth.status,jti:auth.jti??null,role:auth.role??null});return json({ok:false,code:auth.code,request_id:auth.requestIds.requestId},auth.status)}
   try{
