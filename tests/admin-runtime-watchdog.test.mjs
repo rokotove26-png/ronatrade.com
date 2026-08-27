@@ -6,7 +6,10 @@ const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf
 
 assert(shell.includes('id="rona-admin-runtime-watchdog-loader"'),'Admin shell must load runtime watchdog');
 assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260826-single-owner-1345'),'Admin watchdog single-owner asset/version missing');
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'"),'Page-aware recovery marker missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'"),'Page-aware recovery marker missing');
+assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
+assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
+assert(!watchdog.includes("window.__RONA_OWNER_ADMIN_READY__===true&&!n.querySelector(':scope > .current-loading')"),'Legacy false-positive Home readiness check must be removed');
 assert(watchdog.includes("if(p==='claims')return'claims'"),'Claims recovery mapping missing');
 assert(watchdog.includes("if(p==='access')return'clients-agents-current'"),'Access recovery mapping missing');
 assert(watchdog.includes("if(p==='monitoring')return'rail'"),'Rail recovery mapping missing');
