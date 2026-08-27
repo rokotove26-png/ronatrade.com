@@ -51,7 +51,9 @@ assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("roo
 assert(!runtime.includes("['agent-settlements','messages','analytics','market-news'].includes(p)"),'Analytics/News must not be routed back to Remaining owner');
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
 
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'"),'Page-aware watchdog missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'"),'Page-aware watchdog missing');
+assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
+assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
 assert(watchdog.includes("if(p==='monitoring')return'rail'")&&watchdog.includes("if(p==='analytics')return'analytics'")&&watchdog.includes("if(p==='market-news')return'market-news-current'"),'Current recovery mappings missing');
 for(const marker of ["root.querySelector(':scope > .mn-masthead')","root.querySelector(':scope > .mn-toolbar')","root.querySelector(':scope > .mn-statusline')","root.querySelector(':scope > main')","activateMarketNews('watchdog-content-repair')"])assert(watchdog.includes(marker),`Market News content-health recovery missing: ${marker}`);
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
