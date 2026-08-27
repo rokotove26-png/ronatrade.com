@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 const ROOT=process.cwd();
 const OUT=join(ROOT,'dist','portal');
@@ -53,17 +54,23 @@ function stripLegacyOwnedSections(source){
   }
   return source;
 }
-function canonicalizeAnalytics(source){
-  const guardFrom="if(window.__RONA_ANALYTICS_V2__)return;";
-  const guardTo="if(window.__RONA_ANALYTICS_CANONICAL_ONLY__===true&&document.getElementById('rona-analytics-v2'))return;window.__RONA_ANALYTICS_CANONICAL_ONLY__=true;";
-  const rootFrom="function ensureRoot(){const p=page();if(!p)return null;style();let r=q('#rona-analytics-v2',p);if(!r){r=el('section','an2');r.id='rona-analytics-v2';p.insertBefore(r,p.firstChild)}for(const x of qa(':scope>*',p))if(x!==r){x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}return r}";
-  const rootTo="function ensureRoot(){const p=page();if(!p)return null;style();let r=q('#rona-analytics-v2',p);if(!r){r=el('section','an2');r.id='rona-analytics-v2';p.insertBefore(r,p.firstChild)}for(const x of qa(':scope>*',p))if(x!==r)x.remove();return r}";
-  const bindFrom="function bind(){render();const p=page();if(p&&!p.__ronaAnalyticsV2Observer){p.__ronaAnalyticsV2Observer=true;new MutationObserver(()=>{const r=q('#rona-analytics-v2',p);if(!r)return;for(const x of qa(':scope>*',p))if(x!==r){x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}}).observe(p,{childList:true})}}";
-  const bindTo="function bind(){render();const p=page();if(p&&!p.__ronaAnalyticsV2Observer){p.__ronaAnalyticsV2Observer=true;new MutationObserver(()=>{const r=q('#rona-analytics-v2',p);if(!r)return;for(const x of qa(':scope>*',p))if(x!==r)x.remove()}).observe(p,{childList:true})}}";
-  if(!source.includes(guardFrom)||!source.includes(rootFrom)||!source.includes(bindFrom))throw new Error('STATIC_ANALYTICS_CANONICAL_SOURCE_MISMATCH');
-  source=source.replace(guardFrom,guardTo).replace(rootFrom,rootTo).replace(bindFrom,bindTo);
-  for(const token of ['20260824-analytics-v3-market-rona-bases-lpg','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts','Argus','LOW','BASE','HIGH','Forward','Комментарий Коммерческого директора','FACT / CALCULATION / FORECAST'])requireMarker(source,token,'canonical analytics static runtime');
-  for(const token of ['Выводов','Рыночных сигналов','Аналитическая лента','Текущий опубликованный ориентир RONA Trade'])if(source.includes(token))throw new Error(`STATIC_ANALYTICS_LEGACY_MARKER: ${token}`);
+
+async function materializeAnalyticsCurrent(){
+  const moduleUrl=pathToFileURL(join(ROOT,'functions','portal','analytics-v2-ui.js'));
+  moduleUrl.searchParams.set('materialize',String(Date.now()));
+  const mod=await import(moduleUrl.href);
+  if(typeof mod.onRequest!=='function')throw new Error('ANALYTICS_CURRENT_OWNER_MISSING');
+  const response=await mod.onRequest({});
+  const source=await response.text();
+  if(!response.ok)throw new Error(`ANALYTICS_CURRENT_OWNER_HTTP_${response.status}: ${source.slice(0,180)}`);
+  for(const token of [
+    '20260824-analytics-v3-market-rona-bases-lpg','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts','Argus',
+    'LOW','BASE','HIGH','Forward','Аналитический вывод','FACT / CALCULATION / FORECAST',
+    'rona-analytics-canonical-title','ronaAnalyticsDesignerChartV2'
+  ])requireMarker(source,token,'current analytics static runtime');
+  for(const token of ['Выводов','Рыночных сигналов','Аналитическая лента','Текущий опубликованный ориентир RONA Trade','Комментарий Коммерческого директора']){
+    if(source.includes(token))throw new Error(`STATIC_ANALYTICS_LEGACY_MARKER: ${token}`);
+  }
   return source;
 }
 
@@ -72,7 +79,7 @@ const access=extractFunctionRuntime(await read('functions/portal/clients-agents-
 const claims=extractRawScript(await read('functions/portal/claims-r2-ui.js'),'claims-r2-ui');
 const newsBootstrap="(()=>{if(window.__RONA_MARKET_NEWS_CURRENT_LOADER__)return;window.__RONA_MARKET_NEWS_CURRENT_LOADER__='20260826-clean-rebuild-v1';const s=document.createElement('script');s.src='/assets/portal-market-news-current-v1.js?v=20260826-clean-rebuild-v1';s.defer=true;s.dataset.ronaMarketNewsLoader='clean-rebuild-v1';document.head.appendChild(s)})();\n";
 const remaining=stripLegacyOwnedSections(extractRawScript(await read('functions/portal/remaining-sections-r2-base.js'),'remaining-sections-r2-base'))+newsBootstrap;
-const analytics=canonicalizeAnalytics(extractRawScript(await read('functions/portal/analytics-v2-approved-base.js'),'analytics-v2-approved-base'));
+const analytics=await materializeAnalyticsCurrent();
 
 for(const marker of [
   "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'",
@@ -90,6 +97,6 @@ await writeFile(join(OUT,'claims-r2-ui'),claims);
 await writeFile(join(OUT,'remaining-sections-ui'),remaining);
 await writeFile(join(OUT,'analytics-v2-ui'),analytics);
 
-const headers=`/portal/clients-agents-current-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Clients-Agents-Ui: single-owner-v4\n  X-Rona-Access-Create: client-agent-v4\n  X-Rona-Admin-Nav-Owner: external-current-router-v2\n  X-Rona-Shell-Mutation: none\n  X-Rona-Legacy-Dependency: none\n\n/portal/claims-r2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Claims-Ui: direction-workflow-v6\n\n/portal/remaining-sections-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v2-no-analytics-no-news\n\n/portal/analytics-v2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Analytics-Ui: canonical-v3-only\n  X-Rona-Analytics-Owner: canonical-v3-exclusive\n`;
+const headers=`/portal/clients-agents-current-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v1\n  X-Rona-Clients-Agents-Ui: single-owner-v4\n  X-Rona-Access-Create: client-agent-v4\n  X-Rona-Admin-Nav-Owner: external-current-router-v2\n  X-Rona-Shell-Mutation: none\n  X-Rona-Legacy-Dependency: none\n\n/portal/claims-r2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Claims-Ui: direction-workflow-v6\n\n/portal/remaining-sections-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-v2-no-analytics-no-news\n\n/portal/analytics-v2-ui\n  Content-Type: application/javascript; charset=utf-8\n  Cache-Control: no-store, no-cache, must-revalidate\n  Pragma: no-cache\n  Expires: 0\n  X-Content-Type-Options: nosniff\n  X-Rona-Delivery: static-build-current-owner\n  X-Rona-Analytics-Ui: canonical-v3-only\n  X-Rona-Analytics-Owner: canonical-v3-exclusive\n  X-Rona-Analytics-Layout: balanced-fluid-1520-v2\n  X-Rona-Analytics-Visual: home-canonical-frames-title-v1\n  X-Rona-Analytics-Typography: semantic-palette-v1\n  X-Rona-Analytics-Chart: designer-depth-v2\n`;
 await writeFile(join(ROOT,'dist','_headers'),headers);
-console.log(`ADMIN_CURRENT_STATIC_MODULES=PASS access=${Buffer.byteLength(access)} claims=${Buffer.byteLength(claims)} remaining=${Buffer.byteLength(remaining)} analytics=${Buffer.byteLength(analytics)} newsOwner=dedicated-asset-v1`);
+console.log(`ADMIN_CURRENT_STATIC_MODULES=PASS access=${Buffer.byteLength(access)} claims=${Buffer.byteLength(claims)} remaining=${Buffer.byteLength(remaining)} analytics=${Buffer.byteLength(analytics)} analyticsOwner=current-only newsOwner=dedicated-asset-v1`);
