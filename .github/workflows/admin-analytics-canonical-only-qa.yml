@@ -48,8 +48,8 @@ jobs:
           for (const token of ["'аналитика':'analytics'",'function renderAnalytics(){','function publicationCard(){',"kind==='analytics'",'data-kind=\\"analytics\\"','Выводов','Аналитическая лента']) {
             if (remainingSource.includes(token)) throw new Error('legacy analytics leaked from remaining runtime: '+token);
           }
-          for (const token of ['Радиорубка','Вознаграждения агентов','portal-market-news-current-v1.js','__RONA_MARKET_NEWS_CURRENT_LOADER__']) {
-            if (!remainingSource.includes(token)) throw new Error('approved remaining section/loader missing: '+token);
+          for (const token of ['Радиорубка','Вознаграждения агентов','portal-market-news-current-v1.js','__RONA_MARKET_NEWS_OWNER_GUARD_V6__']) {
+            if (!remainingSource.includes(token)) throw new Error('approved remaining section/guard missing: '+token);
           }
           const newsSource = await readFile('./assets/portal-market-news-current-v1.js','utf8');
           new Function(newsSource);
