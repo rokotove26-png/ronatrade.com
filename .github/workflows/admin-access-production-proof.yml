@@ -21,67 +21,72 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify current access source and static artifact contract
+      - name: Verify single-owner access source and static artifact contract
         shell: bash
         run: |
           set -euo pipefail
           npm run build
           node --check functions/portal/clients-agents-current-ui.js
+          node --check functions/portal/admin-approved-polish-ui.js
+          node --check functions/portal/admin-approved-analytics-v455-ui.js
           node --check functions/portal/admin.js
           node --check scripts/materialize-admin-current-modules.mjs
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-user-v6-20260828'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
-          grep -q "new Option('Клиент','Клиент'),new Option('Агент','Агент')" functions/portal/clients-agents-current-ui.js
-          grep -q 'Роль пользователя' functions/portal/clients-agents-current-ui.js
+          grep -q "b.onclick=openAccessModal" functions/portal/clients-agents-current-ui.js
+          grep -q "create.onclick=openAccessModal" functions/portal/clients-agents-current-ui.js
+          grep -q "makeField('Единый логин',login)" functions/portal/clients-agents-current-ui.js
+          grep -q "makeField('Электронная почта',email)" functions/portal/clients-agents-current-ui.js
+          grep -q "makeField('Пароль',password)" functions/portal/clients-agents-current-ui.js
+          grep -q "initialPassword:pw1" functions/portal/clients-agents-current-ui.js
+          grep -q "await mutate('/access/users',payload)" functions/portal/clients-agents-current-ui.js
+          grep -q "'/signed-document/attach'" functions/portal/clients-agents-current-ui.js
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
-          grep -q 'openWithoutContract' functions/portal/clients-agents-current-ui.js
-          grep -q '/access/users' functions/portal/clients-agents-current-ui.js
-          grep -q '/admin/clients/' functions/portal/clients-agents-current-ui.js
-          grep -q "'x-rona-shell-mutation':'none'" functions/portal/clients-agents-current-ui.js
-          ! grep -q 'harvestLegacy' functions/portal/clients-agents-current-ui.js
-          ! grep -q 'window.openModal' functions/portal/clients-agents-current-ui.js
-          ! grep -q 'installNavigationStability' functions/portal/clients-agents-current-ui.js
-          ! grep -q 'installShellParity' functions/portal/clients-agents-current-ui.js
+          grep -q "x-rona-access-create-owner':'clients-agents-current-v5" functions/portal/clients-agents-current-ui.js
+          grep -q "x-rona-access-create-owner':'none" functions/portal/admin-approved-polish-ui.js
+          grep -q "x-rona-access-loader':'none" functions/portal/admin-approved-analytics-v455-ui.js
+          ! grep -q 'installCanonicalAccessCreate' functions/portal/admin-approved-polish-ui.js
+          ! grep -q 'openCanonicalAccessModal' functions/portal/admin-approved-polish-ui.js
+          ! grep -q 'loadCanonicalAccess' functions/portal/admin-approved-analytics-v455-ui.js
+          test ! -e functions/portal/admin-canonical-create-access-v441-ui.js
+          test ! -e functions/portal/admin-canonical-create-access-v441-password-hotfix-ui.js
+          test ! -e functions/portal/admin-access-ui.js
+          test ! -e functions/portal/clients-agents-v4-ui.js
+          test ! -e functions/portal/clients-agents-canonical-guard-ui.js
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'ADMIN_EXCLUSIVE_AGENT_V1' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'PORTAL_USER_PASSWORD_SET_BY_ADMIN' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
-          grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           test -f dist/portal/clients-agents-current-ui
           test -f dist/portal/claims-r2-ui
           test -f dist/portal/remaining-sections-ui
           test -f dist/_headers
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" dist/portal/clients-agents-current-ui
-          grep -q 'Тип доступа' dist/portal/clients-agents-current-ui
-          grep -q 'Роль пользователя' dist/portal/clients-agents-current-ui
-          grep -q 'Договоры клиента' dist/portal/clients-agents-current-ui
-          grep -q 'Профиль агента' dist/portal/clients-agents-current-ui
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" dist/portal/clients-agents-current-ui
+          grep -q 'Единый логин' dist/portal/clients-agents-current-ui
+          grep -q 'Электронная почта' dist/portal/clients-agents-current-ui
+          grep -q 'Повторите пароль' dist/portal/clients-agents-current-ui
+          grep -q 'Разрешённые компании / контракты' dist/portal/clients-agents-current-ui
+          grep -q 'Закрепить PDF' dist/portal/clients-agents-current-ui
           grep -q 'История и права' dist/portal/clients-agents-current-ui
           grep -q 'Сменить пароль' dist/portal/clients-agents-current-ui
-          grep -q 'Создать доступ' dist/portal/clients-agents-current-ui
-          grep -q 'Зарегистрировать и направить клиенту' dist/portal/claims-r2-ui
-          grep -q 'renderRewards' dist/portal/remaining-sections-ui
-          grep -q 'Вознаграждения агентов' dist/portal/remaining-sections-ui
+          grep -q 'Создать пользователя' dist/portal/clients-agents-current-ui
+          ! grep -q 'approved-canonical-v3.4.13' functions/portal/admin-approved-polish-ui.js
+          ! grep -q 'admin-canonical-create-access-v441-ui' functions/portal/admin-approved-analytics-v455-ui.js
           grep -q '/portal/clients-agents-current-ui' dist/_headers
-          grep -q '/portal/claims-r2-ui' dist/_headers
-          grep -q '/portal/remaining-sections-ui' dist/_headers
-          grep -q 'static-build-v1' dist/_headers
-          grep -q 'X-Rona-Clients-Agents-Ui: single-owner-v4' dist/_headers
-          grep -q 'X-Rona-Access-Create: client-agent-v4' dist/_headers
           grep -q '/portal/clients-agents-current-ui' dist/_routes.json
-          grep -q '/portal/claims-r2-ui' dist/_routes.json
-          grep -q '/portal/remaining-sections-ui' dist/_routes.json
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
-          echo 'ADMIN_ACCESS_STATIC_CURRENT_MODULE_SOURCE=PASS'
+          echo 'ADMIN_ACCESS_SINGLE_OWNER_SOURCE=PASS'
       - name: Wait for Cloudflare deployment signals
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/wait-cloudflare-commit.mjs
-      - name: Prove live static current modules and fail-closed authority
+      - name: Prove live single-owner current module and fail-closed authority
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
@@ -90,7 +95,6 @@ jobs:
           const base='https://ronaoil.com';
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-          const accessSemantics=['Тип доступа','Роль пользователя','Договоры клиента','Профиль агента','История и права','Сменить пароль','Будет создан клиентский доступ по выбранным договорам.','Будет создан доступ в кабинет агента.','Создать доступ'];
           for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){
             const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});
             const j=await r.json().catch(()=>({}));
@@ -100,27 +104,21 @@ jobs:
           for(let i=0;i<30;i++){
             r=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now()+'&attempt='+i,{cache:'no-store'});
             src=r.ok?await r.text():'';
-            const currentHeaders=r.ok&&
-              r.headers.get('x-rona-delivery')==='static-build-v1'&&
-              r.headers.get('x-rona-clients-agents-ui')==='single-owner-v4'&&
-              r.headers.get('x-rona-access-create')==='client-agent-v4'&&
-              r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2'&&
-              r.headers.get('x-rona-shell-mutation')==='none'&&
-              r.headers.get('x-rona-legacy-dependency')==='none';
-            const semanticState=Object.fromEntries(accessSemantics.map(marker=>[marker,src.includes(marker)]));
-            const currentBody=src.includes('admin-authority')&&src.includes('ronaCreateAccess')&&accessSemantics.every(marker=>semanticState[marker])&&!src.includes('harvestLegacy')&&!src.includes('installNavigationStability')&&!src.includes('installShellParity');
-            if(currentHeaders&&currentBody)break;
-            last='status='+r.status+' delivery='+r.headers.get('x-rona-delivery')+' ui='+r.headers.get('x-rona-clients-agents-ui')+' semantics='+JSON.stringify(semanticState);
+            const headers=r.ok&&r.headers.get('x-rona-delivery')==='static-build-v1'&&r.headers.get('x-rona-clients-agents-ui')==='single-owner-v5'&&r.headers.get('x-rona-access-create')==='single-owner-create-user-v6'&&r.headers.get('x-rona-access-create-owner')==='clients-agents-current-v5'&&r.headers.get('x-rona-shell-mutation')==='none'&&r.headers.get('x-rona-legacy-dependency')==='none';
+            const body=src.includes("window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'")&&src.includes("makeField('Единый логин',login)")&&src.includes("makeField('Электронная почта',email)")&&src.includes("await mutate('/access/users',payload)")&&!src.includes('openCanonicalAccessModal')&&!src.includes('installCanonicalAccessCreate');
+            if(headers&&body)break;
+            last='status='+r.status+' delivery='+r.headers.get('x-rona-delivery')+' ui='+r.headers.get('x-rona-clients-agents-ui')+' create='+r.headers.get('x-rona-access-create')+' owner='+r.headers.get('x-rona-access-create-owner');
             if(i<29)await sleep(3000);
           }
-          assert(r?.ok&&r.headers.get('x-rona-delivery')==='static-build-v1','static access module unavailable: '+last);
-          assert(r.headers.get('x-rona-clients-agents-ui')==='single-owner-v4','single-owner access module unavailable: '+last);
-          assert(r.headers.get('x-rona-access-create')==='client-agent-v4','access creation contract unavailable: '+last);
-          assert(r.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','single navigation-owner contract unavailable: '+last);
-          assert(r.headers.get('x-rona-shell-mutation')==='none','access module may not mutate global shell: '+last);
-          assert(r.headers.get('x-rona-legacy-dependency')==='none','legacy dependency returned: '+last);
-          assert(src.includes('admin-authority')&&src.includes('ronaCreateAccess'),'access authority/action missing live: '+last);
-          for(const marker of accessSemantics)assert(src.includes(marker),'static access semantic missing live: '+marker+' '+last);
-          assert(!src.includes('harvestLegacy')&&!src.includes('installNavigationStability')&&!src.includes('installShellParity'),'competing/legacy access owner deployed');
-          console.log('ADMIN_ACCESS_STATIC_CURRENT_MODULE_CUSTOM_DOMAIN=PASS');
+          assert(r?.ok,'static access module unavailable: '+last);
+          assert(r.headers.get('x-rona-clients-agents-ui')==='single-owner-v5','single-owner access module unavailable: '+last);
+          assert(r.headers.get('x-rona-access-create-owner')==='clients-agents-current-v5','access owner mismatch: '+last);
+          assert(src.includes("makeField('Единый логин',login)"),'single login field missing');
+          assert(src.includes("makeField('Электронная почта',email)"),'single email field missing');
+          assert(!src.includes('openCanonicalAccessModal')&&!src.includes('installCanonicalAccessCreate'),'competing access owner deployed');
+          for(const obsolete of ['/portal/admin-canonical-create-access-v441-ui','/portal/admin-canonical-create-access-v441-password-hotfix-ui']){
+            const x=await fetch(base+obsolete+'?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
+            assert(x.status===404,obsolete+' must be deleted; got '+x.status);
+          }
+          console.log('ADMIN_ACCESS_SINGLE_OWNER_CUSTOM_DOMAIN=PASS');
           NODE
