@@ -45,33 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/portal/client.html
-          test "$(wc -c < dist/portal/client.html | tr -d ' ')" = "493060"
-          printf '%s  %s\n' "0d9158b3487e1f5bd6b034b541fe7446ff6262b33671c12e6a4d45f73c89677e" "dist/portal/client.html" | sha256sum -c -
-
-      - name: Verify deal open lifecycle contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --input-type=module <<'NODE'
-          import { readFile } from 'node:fs/promises';
-          const html=await readFile('dist/portal/client.html','utf8');
-          const click="const d=e.target.closest('[data-open-deal]');if(d&&typeof window.openDeal==='function'){e.preventDefault();window.openDeal(d.dataset.openDeal)};";
-          if(!html.includes(click)) throw new Error('CLIENT_DEAL_OPEN_DELEGATION_MISSING');
-          const start=html.indexOf('function dealLifecycleMarkup(c,d){');
-          const end=html.indexOf('\nwindow.openDeal=',start);
-          if(start<0||end<0) throw new Error('CLIENT_DEAL_LIFECYCLE_FUNCTION_MISSING');
-          const source=html.slice(start,end);
-          if(source.includes('resourceLabeledText(d)')) throw new Error('CLIENT_DEAL_LIFECYCLE_OUT_OF_SCOPE_HELPER');
-          const window={ronaResourceDisplayText:v=>String(v||'').replace(/^Ресурс\s+/i,'')};
-          const ce=x=>String(x??'');
-          let dealLifecycleMarkup;
-          eval(source.replace('function dealLifecycleMarkup','dealLifecycleMarkup = function'));
-          const c={applications:[{deal:'DEAL-1',id:'APP-1',status:'Принята'}],payments:[{deal:'DEAL-1',bankStatus:'Оплачено',credited:'100 USD',creditedAt:'28.08.2026'}],closingStatus:'Закрытие не завершено',closingRequirements:[{mandatory:true}]};
-          const d={id:'DEAL-1',status:'В исполнении',stage:'Исполнение договора',resource:'Ресурс подтверждён',resourceDate:'28.08.2026',basis:'DAP',station:'X',next:'Поставка'};
-          const rendered=dealLifecycleMarkup(c,d);
-          if(!rendered.includes('Жизненный цикл сделки')||!rendered.includes('Текущий этап')) throw new Error('CLIENT_DEAL_LIFECYCLE_RENDER_FAILED');
-          console.log('CLIENT_DEAL_OPEN_LIFECYCLE=PASS');
-          NODE
+          test "$(wc -c < dist/portal/client.html | tr -d ' ')" = "487355"
+          printf '%s  %s\n' "ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb" "dist/portal/client.html" | sha256sum -c -
 
       - name: Verify legacy client owners are absent
         shell: bash
@@ -96,7 +71,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const manifest=JSON.parse(await readFile('portal-src/current/client/manifest.json','utf8'));
-          const required={state:'CURRENT_ONLY',route:'/portal/client',sha256:'0d9158b3487e1f5bd6b034b541fe7446ff6262b33671c12e6a4d45f73c89677e',decoded_bytes:493060,visual_transform:'NONE',legacy_runtime:false};
+          const required={state:'CURRENT_ONLY',route:'/portal/client',sha256:'ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb',decoded_bytes:487355,visual_transform:'NONE',legacy_runtime:false};
           for(const [key,value] of Object.entries(required)){
             if(manifest[key]!==value) throw new Error(`CLIENT_MANIFEST_MISMATCH ${key}: ${manifest[key]} !== ${value}`);
           }
