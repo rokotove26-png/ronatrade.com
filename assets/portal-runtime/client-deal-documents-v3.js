@@ -1,13 +1,13 @@
 (()=>{
 'use strict';
-const MARK='20260829-client-deal-documents-v3-canonical-role';
+const MARK='20260829-client-deal-documents-v3-canonical-role-bounded';
 if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V3__===MARK)return;
 window.__RONA_CLIENT_DEAL_DOCUMENTS_V3__=MARK;
 window.__RONA_CLIENT_DEAL_DOCUMENTS_V2__=MARK;
 const API='/portal/api',PANEL='rona-deal-documents-v3',HOST='rona-deal-card-v3';
 const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/;
 const STATUS_RE=/^(?:В\s+ИСПОЛНЕНИИ|СДЕЛКА\s+ОТКРЫТА|РЕСУРС\s+ПОДТВЕРЖД[ЕЁ]Н|ПОДТВЕРЖД[ЕЁ]Н|НЕ\s+ПОДТВЕРЖД[ЕЁ]Н|РЕСУРС\s+НЕ\s+ПОДТВЕРЖД[ЕЁ]Н|ПЛАТЕЖИ|ОЖИДАЕТ\s+ОПЛАТЫ|ОПЛАЧЕН(?:О|А)?|ЗАВЕРШЕН(?:А|О)?|ЗАКРЫТ(?:А|О)?|ОТМЕНЕН(?:А|О)?|НА\s+СОГЛАСОВАНИИ)$/i;
-const state={deals:new Map(),busy:false,lastLoad:0};
+const state={deals:new Map(),busy:false,lastLoad:0,scanTimer:0};
 const text=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>text(v).toLocaleLowerCase('ru-RU');
 const visible=n=>{if(!n||!n.isConnected)return false;const s=getComputedStyle(n);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&n.getClientRects().length>0};
@@ -38,7 +38,9 @@ function ensureStyle(){let s=document.getElementById(`${PANEL}-style`);if(s)s.re
 .${PANEL}__action--upload{overflow:hidden!important;border-color:rgba(248,113,113,.74)!important;background:linear-gradient(105deg,#781925,#bd3040,#781925)!important;background-size:220% 100%!important;box-shadow:0 7px 20px rgba(127,29,29,.30),0 0 0 1px rgba(239,68,68,.08),inset 0 1px 0 rgba(255,255,255,.11)!important;animation:ronaSignedDsV3Pulse 2.5s ease-in-out infinite,ronaSignedDsV3Flow 4.2s linear infinite!important;color:#fff7f7!important}
 .${PANEL}__action--upload::before{content:'↑';background:rgba(255,255,255,.11);border-color:rgba(254,202,202,.34);color:#fff1f2}
 .${PANEL}__stage{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(96,165,250,.28);background:rgba(59,130,246,.08);color:#d4e8ff;font-size:14px;font-weight:780;line-height:1;white-space:nowrap;flex:0 0 auto}
-.${PANEL}__empty,.${PANEL}__error{font-size:14px;line-height:1.35;white-space:nowrap}. ${PANEL}__empty{color:rgba(203,213,225,.55)}.${PANEL}__error{color:#fca5a5}
+.${PANEL}__empty,.${PANEL}__error{font-size:14px;line-height:1.35;white-space:nowrap}
+.${PANEL}__empty{color:rgba(203,213,225,.55)}
+.${PANEL}__error{color:#fca5a5}
 @keyframes ronaSignedDsV3Flow{0%{background-position:100% 0}100%{background-position:-100% 0}}@keyframes ronaSignedDsV3Pulse{0%,100%{box-shadow:0 7px 20px rgba(127,29,29,.24)}50%{box-shadow:0 9px 27px rgba(127,29,29,.40),0 0 19px rgba(239,68,68,.22)}}
 @media(max-width:900px){.${HOST}{padding:17px 18px 16px!important}.${HOST}__dealid{font-size:19px!important}.${HOST}__detail{font-size:16px!important}.${HOST}__status{height:38px!important;min-height:38px!important;font-size:15px!important}.${PANEL}{gap:10px!important}}
 @media(prefers-reduced-motion:reduce){.${PANEL}__action--upload{animation:none!important}}
@@ -68,7 +70,8 @@ function panelFor(id){return [...document.querySelectorAll(`.${PANEL}`)].find(n=
 function renderDeal(id){if(!isDealsView())return;const info=state.deals.get(id);if(!info)return;const host=dealHost(id,[...state.deals.keys()]);if(!host)return;decorate(host,id);let p=panelFor(id);if(p&&p.parentElement!==host){p.remove();p=null}const sig=signature(info);if(p&&p.dataset.signature===sig)return;const next=buildPanel(info);if(p)p.replaceWith(next);else host.appendChild(next)}
 function cleanup(){for(const p of document.querySelectorAll(`.${PANEL}`)){const id=text(p.dataset.dealId);if(!state.deals.has(id))p.remove()}document.querySelectorAll('.rona-deal-documents-v1,.rona-deal-documents-v2').forEach(n=>{if(!n.classList.contains(PANEL))n.remove()})}
 function scan(){removeLegacySection();if(!isDealsView())return;cleanup();for(const id of state.deals.keys())renderDeal(id)}
-function scheduleScan(){setTimeout(scan,140)}
-function start(){ensureStyle();removeLegacySection();loadData();setInterval(()=>{if(document.visibilityState==='visible')scan()},2500);setInterval(()=>{if(document.visibilityState==='visible')loadData()},30000);document.addEventListener('click',scheduleScan,true);document.addEventListener('change',scheduleScan,true);window.addEventListener('pageshow',()=>{scan();if(Date.now()-state.lastLoad>10000)loadData()});document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-state.lastLoad>10000)loadData()},{passive:true})}
+function scheduleScan(){clearTimeout(state.scanTimer);state.scanTimer=setTimeout(scan,160)}
+function relevantInteraction(target){if(isDealsView())return true;const n=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');if(!n)return false;const t=text(n.textContent);return /^СДЕЛКИ$/i.test(t)||legacyLabel(t)}
+function start(){ensureStyle();removeLegacySection();loadData();setInterval(()=>{if(document.visibilityState==='visible'&&isDealsView())scan()},3000);setInterval(()=>{if(document.visibilityState==='visible')loadData()},30000);document.addEventListener('click',e=>{if(relevantInteraction(e.target))scheduleScan()},true);document.addEventListener('change',e=>{if(isDealsView())scheduleScan()},true);window.addEventListener('pageshow',()=>{scan();if(Date.now()-state.lastLoad>10000)loadData()});document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-state.lastLoad>10000)loadData()},{passive:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
