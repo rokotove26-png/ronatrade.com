@@ -60,6 +60,7 @@ jobs:
             "functions/portal/client-claims-ui.js"
             "functions/portal/main-ui.js"
             "functions/portal/deals-r1-ui.js"
+            "functions/portal/owner-acceptance-ui.js"
           )
           for path in "${forbidden[@]}"; do
             if test -e "$path"; then

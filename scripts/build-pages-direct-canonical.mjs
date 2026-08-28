@@ -29,6 +29,7 @@ const CLIENT_CURRENT = Object.freeze({
     'functions/portal/client-claims-ui.js',
     'functions/portal/main-ui.js',
     'functions/portal/deals-r1-ui.js',
+    'functions/portal/owner-acceptance-ui.js',
   ],
 });
 const ADMIN_CURRENT = Object.freeze({
@@ -57,7 +58,7 @@ const FORBIDDEN_TOP_LEVEL = new Set(['README_FIRST.txt','RONA_Trade_PUBLIC_BILIN
 const FORBIDDEN_ADMIN_MARKERS = Object.freeze([
   'adminLoginGate',
   'rona-admin-auth-v3413',
-  'Temporary standalone login',
+  'Временный автономный вход',
   'admin_externalized',
   'v3.4.13',
   'BOOT_ERROR_LATCH_FINAL_CANDIDATE',
