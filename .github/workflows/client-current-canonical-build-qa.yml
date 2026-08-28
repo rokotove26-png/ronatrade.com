@@ -1,0 +1,63 @@
+name: client-current-canonical-build-qa
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-client-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build canonical deployment
+        run: npm run build
+
+      - name: Verify exact current client artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f dist/portal/client.html
+          test "$(wc -c < dist/portal/client.html | tr -d ' ')" = "487355"
+          printf '%s  %s\n' "ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb" "dist/portal/client.html" | sha256sum -c -
+
+      - name: Verify legacy client owners are absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          forbidden=(
+            "portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html"
+            "portal-src/canonical-transfer-v1_1/client_externalized.html"
+            "portal-src/client.html"
+            "functions/portal/client.js"
+            "functions/portal/client-claims-ui.js"
+            "functions/portal/main-ui.js"
+            "functions/portal/deals-r1-ui.js"
+          )
+          for path in "${forbidden[@]}"; do
+            if test -e "$path"; then
+              echo "LEGACY_CLIENT_OWNER_PRESENT: $path" >&2
+              exit 1
+            fi
+          done
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const manifest=JSON.parse(await readFile('portal-src/current/client/manifest.json','utf8'));
+          const required={state:'CURRENT_ONLY',route:'/portal/client',sha256:'ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb',decoded_bytes:487355,visual_transform:'NONE',legacy_runtime:false};
+          for(const [key,value] of Object.entries(required)){
+            if(manifest[key]!==value) throw new Error(`CLIENT_MANIFEST_MISMATCH ${key}: ${manifest[key]} !== ${value}`);
+          }
+          console.log('CLIENT_CURRENT_CANONICAL_BUILD=PASS');
+          NODE
