@@ -17,8 +17,8 @@ const CLIENT_CURRENT = Object.freeze({
   source_dir: 'portal-src/current/client',
   chunks: ['payload.00','payload.01','payload.02','payload.03','payload.04','payload.05','payload.06','payload.07','payload.08','payload.09'],
   encoding: 'base64+brotli',
-  sha256: 'ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb',
-  bytes: 487355,
+  sha256: '1e1cd08ff0fafeaba42fd6ac3d56fd182af9188ee968c19f7b5031445a2769df',
+  bytes: 492847,
   out: 'client.html',
   visual_transform: 'NONE',
   retired_runtime_sources: [
