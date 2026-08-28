@@ -1,0 +1,52 @@
+name: Admin Main Runtime Production Smoke
+
+on:
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/main-ui/index.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - '.github/workflows/admin-main-runtime-production-smoke.yml'
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+jobs:
+  admin-main-runtime-production-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Wait for exact Cloudflare deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Verify recovered Admin runtime on production
+        shell: bash
+        run: |
+          set -euo pipefail
+          nonce="${GITHUB_SHA}-$(date +%s)"
+
+          curl -fsS -D /tmp/main.headers -o /tmp/main.body "https://ronaoil.com/portal/main-ui?_qa=${nonce}"
+          grep -qi '^x-rona-ui: main-v2' /tmp/main.headers
+          test -s /tmp/main.body
+          grep -q '__RONA_OWNER_ADMIN_READY__' /tmp/main.body
+
+          curl -fsS -D /tmp/visual.headers -o /tmp/visual.body "https://ronaoil.com/portal/admin-approved-shell-v455-ui?_qa=${nonce}"
+          grep -qi '^x-rona-admin-shell-visual: approved-v4.5.5' /tmp/visual.headers
+          grep -q 'rona-topbar-premium' /tmp/visual.body
+          grep -q '/assets/portal-canonical/background.png' /tmp/visual.body
+
+          status=$(curl -sS -o /dev/null -D /tmp/admin.headers -w '%{http_code}' "https://ronaoil.com/portal/admin?_qa=${nonce}")
+          test "$status" = '302'
+          grep -qi '^x-rona-admin-shell: current-only-v2' /tmp/admin.headers
+          grep -qi '^x-rona-admin-auth: server-verified-v1' /tmp/admin.headers
+
+          echo 'ADMIN_MAIN_RUNTIME_PRODUCTION_SMOKE=PASS'
