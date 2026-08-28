@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const MARK='20260829-deal-documents-v1-7-single-line-status';
+  const MARK='20260829-deal-documents-v1-8-full-card-anchor';
   if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__===MARK)return;
   window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__=MARK;
 
@@ -23,10 +23,10 @@
     const s=document.createElement('style');
     s.id='rona-client-deal-documents-v1-style';
     s.textContent=`
-      .${PANEL_CLASS}{width:100%;min-width:0;box-sizing:border-box;margin-top:14px;padding-top:12px;border-top:1px solid rgba(113,154,184,.15);font-family:inherit;color:inherit}
+      .${PANEL_CLASS}{width:100%;min-width:0;box-sizing:border-box;margin-top:14px;padding-top:12px;border-top:1px solid rgba(113,154,184,.15);font-family:inherit;color:inherit;overflow:visible}
       .${PANEL_CLASS}__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 1px 9px}
       .${PANEL_CLASS}__title{font-size:11.8px;font-weight:760;line-height:1.2;letter-spacing:.015em;color:rgba(203,213,225,.72)}
-      .${PANEL_CLASS}__stage{font-size:10.3px;font-weight:720;line-height:1;height:22px;box-sizing:border-box;display:inline-flex;align-items:center;padding:0 9px;border-radius:999px;border:1px solid rgba(96,165,250,.24);background:rgba(59,130,246,.07);color:rgba(191,219,254,.90);white-space:nowrap}
+      .${PANEL_CLASS}__stage{display:inline-flex;align-items:center;justify-content:center;height:22px;box-sizing:border-box;padding:0 9px;border-radius:999px;border:1px solid rgba(96,165,250,.24);background:rgba(59,130,246,.07);color:rgba(191,219,254,.90);font-size:10.3px;font-weight:720;line-height:1;white-space:nowrap}
       .${PANEL_CLASS}__actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap!important;width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;padding:1px 0 2px;scrollbar-width:none}
       .${PANEL_CLASS}__actions::-webkit-scrollbar{display:none}
       .${PANEL_CLASS}__action{position:relative;appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;min-height:38px;padding:0 13px;border:1px solid rgba(93,180,226,.42);border-radius:9px;background:linear-gradient(180deg,rgba(19,66,97,.92),rgba(8,39,62,.94));box-shadow:0 5px 14px rgba(1,8,16,.20),inset 0 1px 0 rgba(255,255,255,.07);color:rgba(244,250,255,.96);font:760 11.5px/1.15 inherit;letter-spacing:.005em;cursor:pointer;white-space:nowrap;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease}
@@ -42,7 +42,7 @@
       .${PANEL_CLASS}__action--upload:hover{border-color:rgba(254,202,202,.96);box-shadow:0 9px 24px rgba(127,29,29,.38),0 0 20px rgba(239,68,68,.18),inset 0 1px 0 rgba(255,255,255,.13)}
       .${PANEL_CLASS}__empty{padding:6px 1px;font-size:10.8px;color:rgba(203,213,225,.48)}
       .${PANEL_CLASS}__error{margin-top:8px;padding:0 1px;font-size:11px;color:#fca5a5}
-      .${CARD_CLASS}__status{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:22px!important;height:22px!important;box-sizing:border-box!important;padding:0 9px!important;border-radius:999px!important;font-size:10.3px!important;font-weight:720!important;line-height:1!important;white-space:nowrap!important;vertical-align:middle!important;margin-top:0!important;margin-bottom:0!important;transform:none!important}
+      .${CARD_CLASS}__status{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:22px!important;height:22px!important;box-sizing:border-box!important;padding:0 9px!important;border-radius:999px!important;font-size:10.3px!important;font-weight:720!important;line-height:1!important;white-space:nowrap!important;vertical-align:middle!important;margin-top:0!important;margin-bottom:0!important;transform:none!important;align-self:center!important}
       .${CARD_CLASS}__resource{gap:5px!important;border:1px solid rgba(74,222,128,.20)!important;background:rgba(34,197,94,.045)!important;color:rgba(187,247,208,.82)!important}
       .${CARD_CLASS}__resource::before{content:'';display:block;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.82}
       @keyframes ronaSignedDsButtonFlow{0%{background-position:100% 0}100%{background-position:-100% 0}}
@@ -129,17 +129,22 @@
     return unique.slice(0,1);
   }
 
+  function hasOpenAction(node){
+    return [...node.querySelectorAll('button,a,[role="button"]')].some(n=>visible(n)&&/^ОТКРЫТЬ$/i.test(text(n.textContent)));
+  }
+
   function widenDealHost(host,dealId,allIds){
     let best=host;
     let bestRect=host.getBoundingClientRect();
-    let n=host.parentElement;
-    for(let depth=0;n&&n!==document.body&&depth<6;depth++,n=n.parentElement){
-      if(!visible(n))break;
+    let n=host;
+    for(let depth=0;n&&n!==document.body&&depth<10;depth++,n=n.parentElement){
+      if(!visible(n))continue;
       const t=text(n.innerText||n.textContent);
-      if(!t.includes(dealId)||allIds.some(id=>id!==dealId&&t.includes(id)))break;
+      if(!t.includes(dealId)||allIds.some(id=>id!==dealId&&t.includes(id)))continue;
       const r=n.getBoundingClientRect();
-      if(r.height>480)break;
-      if(r.width>bestRect.width*1.08){best=n;bestRect=r}
+      if(r.width<bestRect.width||r.height<70||r.height>520)continue;
+      if(hasOpenAction(n)&&r.width>=520)return n;
+      if(r.width>bestRect.width){best=n;bestRect=r}
     }
     return best;
   }
@@ -175,20 +180,17 @@
   function normalizeDealStatuses(host){
     const nodes=[...host.querySelectorAll('span,small,label,p,strong,b,div')]
       .filter(n=>visible(n)&&!n.closest(`.${PANEL_CLASS}`)&&DEAL_STATUS_RE.test(text(n.textContent)));
-    const selected=[];
+    const byValue=new Map();
     for(const node of nodes){
-      const value=text(node.textContent);
-      if(selected.some(n=>text(n.textContent)===value))continue;
-      const same=nodes.filter(n=>text(n.textContent)===value);
-      same.sort((a,b)=>{
-        const ac=a.childElementCount,bc=b.childElementCount;
-        if(ac!==bc)return ac-bc;
-        const ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
-        return ar.width*ar.height-br.width*br.height;
-      });
-      selected.push(same[0]);
+      const value=text(node.textContent).toUpperCase();
+      const prior=byValue.get(value);
+      if(!prior){byValue.set(value,node);continue}
+      const a=prior.getBoundingClientRect(),b=node.getBoundingClientRect();
+      const priorScore=prior.childElementCount*100000+a.width*a.height;
+      const nodeScore=node.childElementCount*100000+b.width*b.height;
+      if(nodeScore<priorScore)byValue.set(value,node);
     }
-    selected.forEach(n=>n.classList.add(`${CARD_CLASS}__status`));
+    byValue.forEach(n=>n.classList.add(`${CARD_CLASS}__status`));
   }
 
   function polishDealHost(host){
@@ -323,8 +325,8 @@
     for(const [dealId,info] of state.deals){
       const hosts=dealHosts(dealId,allIds);
       for(const host of hosts){
-        polishDealHost(host);
         const target=widenDealHost(host,dealId,allIds);
+        polishDealHost(target);
         target.append(buildPanel(info));
       }
     }
