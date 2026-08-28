@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v5-contract-download';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v6-contract-download-v2';
 
 const API='/portal/api';
 const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0};
@@ -17,7 +17,7 @@ function ensureContractDownloadRuntime(){
   if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__||document.getElementById('rona-client-contract-download-loader'))return;
   const script=document.createElement('script');
   script.id='rona-client-contract-download-loader';
-  script.src='/assets/portal-runtime/client-contract-download-v1.js?v=20260828-secure-current-contract-v1';
+  script.src='/assets/portal-runtime/client-contract-download-v1.js?v=20260828-secure-current-contract-v2';
   script.defer=true;
   (document.head||document.documentElement).appendChild(script);
 }
