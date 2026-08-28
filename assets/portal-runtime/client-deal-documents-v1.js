@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const MARK='20260829-deal-documents-v1-2-ui-polish';
+  const MARK='20260829-deal-documents-v1-3-harmonized';
   if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__===MARK)return;
   window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__=MARK;
 
@@ -9,7 +9,7 @@
   const CARD_CLASS='rona-deal-card-polished-v1';
   const LEGACY_RE=/^(?:ДС\s*(?:(?:И|\/|&)\s*)?(?:ИНВОЙС(?:Ы)?|INVOICES?)|DS\s*(?:(?:AND|\/|&)\s*)?INVOICES?)$/i;
   const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/;
-  const RESOURCE_STATUS_RE=/^ПОДТВЕРЖД[ЕЁ]Н$/i;
+  const RESOURCE_STATUS_RE=/^(?:РЕСУРС\s+)?ПОДТВЕРЖД[ЕЁ]Н$/i;
   const state={deals:new Map(),busy:false,lastError:null};
   let observerActive=false;
 
@@ -22,24 +22,26 @@
     const s=document.createElement('style');
     s.id='rona-client-deal-documents-v1-style';
     s.textContent=`
-      .${PANEL_CLASS}{margin-top:18px;padding:16px 17px 17px;border:1px solid rgba(89,135,171,.28);border-radius:15px;background:linear-gradient(180deg,rgba(8,22,37,.62),rgba(5,17,30,.42));box-shadow:inset 0 1px 0 rgba(255,255,255,.025);font-family:inherit;color:inherit}
-      .${PANEL_CLASS}__head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:13px}
-      .${PANEL_CLASS}__title{font-size:15px;font-weight:700;letter-spacing:.005em}
-      .${PANEL_CLASS}__stage{font-size:11px;font-weight:700;line-height:1;padding:6px 10px;border-radius:999px;border:1px solid rgba(121,161,191,.27);background:rgba(113,154,184,.055);opacity:.86;white-space:nowrap}
-      .${PANEL_CLASS}__list{display:grid;gap:9px}
-      .${PANEL_CLASS}__row{display:grid;grid-template-columns:minmax(185px,1.05fr) minmax(240px,1.65fr) auto;align-items:center;gap:16px;min-height:48px;padding:11px 13px;border:1px solid rgba(113,154,184,.20);border-radius:11px;background:rgba(3,13,24,.34)}
-      .${PANEL_CLASS}__kind{font-size:12.5px;font-weight:700;line-height:1.35}
-      .${PANEL_CLASS}__file{min-width:0;font-size:12px;line-height:1.4;opacity:.72;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-      .${PANEL_CLASS}__btn{appearance:none;min-height:32px;border:1px solid rgba(126,166,196,.34);border-radius:8px;background:rgba(255,255,255,.025);color:inherit;padding:7px 11px;font:600 12px/1.2 inherit;cursor:pointer;white-space:nowrap;transition:background .15s ease,border-color .15s ease,transform .15s ease}
-      .${PANEL_CLASS}__btn:hover{border-color:rgba(125,211,252,.55);background:rgba(56,189,248,.065)}
-      .${PANEL_CLASS}__btn:active{transform:translateY(1px)}
-      .${PANEL_CLASS}__btn:disabled{opacity:.55;cursor:wait;transform:none}
-      .${PANEL_CLASS}__upload{margin-top:10px;padding-top:11px;border-top:1px solid rgba(113,154,184,.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-      .${PANEL_CLASS}__hint{font-size:12px;line-height:1.4;opacity:.66}
-      .${PANEL_CLASS}__error{margin-top:8px;font-size:12px;color:#f87171}
-      .${CARD_CLASS}__resource{display:inline-flex!important;align-items:center!important;min-height:26px!important;padding:5px 10px!important;border-radius:999px!important;border:1px solid rgba(74,222,128,.28)!important;background:rgba(34,197,94,.075)!important;color:#9adead!important;font-size:11.5px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important}
-      @media(max-width:900px){.${PANEL_CLASS}__row{grid-template-columns:minmax(150px,1fr) minmax(180px,1.35fr) auto;gap:11px}}
-      @media(max-width:760px){.${PANEL_CLASS}{padding:14px}.${PANEL_CLASS}__row{grid-template-columns:1fr;gap:7px}.${PANEL_CLASS}__file{white-space:normal;overflow-wrap:anywhere}.${PANEL_CLASS}__row .${PANEL_CLASS}__btn{justify-self:start}}
+      .${PANEL_CLASS}{margin-top:14px;padding-top:12px;border-top:1px solid rgba(113,154,184,.17);font-family:inherit;color:inherit}
+      .${PANEL_CLASS}__head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:24px;margin:0 2px 7px}
+      .${PANEL_CLASS}__title{font-size:12.5px;font-weight:700;line-height:1.2;letter-spacing:.01em;color:rgba(226,232,240,.88)}
+      .${PANEL_CLASS}__stage{font-size:10.5px;font-weight:700;line-height:1;padding:4px 7px;border-radius:999px;border:1px solid rgba(96,165,250,.22);background:rgba(59,130,246,.055);color:rgba(191,219,254,.86);white-space:nowrap}
+      .${PANEL_CLASS}__list{overflow:hidden;border:1px solid rgba(113,154,184,.16);border-radius:10px;background:rgba(3,13,24,.18)}
+      .${PANEL_CLASS}__row{display:grid;grid-template-columns:minmax(180px,.95fr) minmax(0,1.55fr) auto;align-items:center;gap:14px;min-height:42px;padding:8px 10px;background:transparent}
+      .${PANEL_CLASS}__row+.${PANEL_CLASS}__row{border-top:1px solid rgba(113,154,184,.12)}
+      .${PANEL_CLASS}__kind{min-width:0;font-size:11.8px;font-weight:650;line-height:1.35;color:rgba(226,232,240,.82)}
+      .${PANEL_CLASS}__file{min-width:0;font-size:11.5px;line-height:1.35;color:rgba(203,213,225,.58);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .${PANEL_CLASS}__btn{appearance:none;min-height:29px;border:1px solid rgba(126,166,196,.26);border-radius:7px;background:rgba(255,255,255,.018);color:rgba(226,232,240,.84);padding:6px 9px;font:600 11.2px/1.2 inherit;cursor:pointer;white-space:nowrap;transition:background .15s ease,border-color .15s ease,color .15s ease}
+      .${PANEL_CLASS}__btn:hover{border-color:rgba(125,211,252,.42);background:rgba(56,189,248,.045);color:rgba(240,249,255,.96)}
+      .${PANEL_CLASS}__btn:disabled{opacity:.5;cursor:wait}
+      .${PANEL_CLASS}__upload{display:grid;grid-template-columns:minmax(180px,.95fr) minmax(0,1.55fr) auto;align-items:center;gap:14px;min-height:42px;margin-top:6px;padding:8px 10px;border:1px solid rgba(113,154,184,.14);border-radius:10px;background:rgba(3,13,24,.13)}
+      .${PANEL_CLASS}__hint{min-width:0;font-size:11px;line-height:1.35;color:rgba(203,213,225,.50)}
+      .${PANEL_CLASS}__list>.${PANEL_CLASS}__hint{display:block;padding:11px 10px}
+      .${PANEL_CLASS}__error{margin-top:6px;padding:0 2px;font-size:11px;color:#fca5a5}
+      .${CARD_CLASS}__resource{display:inline-flex!important;align-items:center!important;gap:5px!important;min-height:20px!important;padding:3px 8px!important;border-radius:999px!important;border:1px solid rgba(74,222,128,.20)!important;background:rgba(34,197,94,.045)!important;color:rgba(187,247,208,.82)!important;font-size:10.3px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important}
+      .${CARD_CLASS}__resource::before{content:'';display:block;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.82}
+      @media(max-width:900px){.${PANEL_CLASS}__row,.${PANEL_CLASS}__upload{grid-template-columns:minmax(150px,.9fr) minmax(0,1.25fr) auto;gap:10px}}
+      @media(max-width:760px){.${PANEL_CLASS}__row,.${PANEL_CLASS}__upload{grid-template-columns:1fr;gap:5px}.${PANEL_CLASS}__file{white-space:normal;overflow-wrap:anywhere}.${PANEL_CLASS}__btn{justify-self:start}}
     `;
     document.head.appendChild(s);
   }
@@ -224,8 +226,9 @@
   function uploadControl(info,panel){
     const wrap=el('div',`${PANEL_CLASS}__upload`);
     const input=el('input');input.type='file';input.accept='application/pdf,.pdf';input.hidden=true;
+    const kind=el('div',`${PANEL_CLASS}__kind`,'Подписанный DS');
+    const hint=el('span',`${PANEL_CLASS}__hint`,'PDF · до 20 МБ');
     const b=el('button',`${PANEL_CLASS}__btn`,'Загрузить подписанный DS');b.type='button';
-    const hint=el('span',`${PANEL_CLASS}__hint`,'PDF до 20 МБ');
     b.addEventListener('click',()=>input.click());
     input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
@@ -243,7 +246,7 @@
         b.disabled=false;b.textContent='Загрузить подписанный DS';input.value='';
       }
     });
-    wrap.append(b,input,hint);
+    wrap.append(kind,hint,b,input);
     return wrap;
   }
 
@@ -251,8 +254,9 @@
     const panel=el('div',PANEL_CLASS);panel.dataset.dealId=info.dealId;
     const head=el('div',`${PANEL_CLASS}__head`);
     head.append(el('div',`${PANEL_CLASS}__title`,'Документы сделки'));
-    const stage=text(info.workflow?.client_stage)==='PAYMENTS'||['READY','SENT'].includes(text(info.workflow?.payment_handoff_state))?'Платежи':'Документы сделки';
-    head.append(el('div',`${PANEL_CLASS}__stage`,stage));panel.append(head);
+    const paymentStage=text(info.workflow?.client_stage)==='PAYMENTS'||['READY','SENT'].includes(text(info.workflow?.payment_handoff_state));
+    if(paymentStage)head.append(el('div',`${PANEL_CLASS}__stage`,'Платежи'));
+    panel.append(head);
     const list=el('div',`${PANEL_CLASS}__list`);
     const ds=typeDocs(info,'ADDENDUM');
     const invoices=typeDocs(info,'INVOICE');
