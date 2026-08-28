@@ -125,7 +125,7 @@ await writeFile(join(OUT,'portal',CLIENT_CURRENT.out),clientBytes);
 
 for(const [kind,spec] of Object.entries(ASSETS)){
   const emitted=await readFile(join(OUT,'assets','portal-canonical',spec.out));
-  requireSize(`Emitted canonical ${kind}`,emitted.bytes);
+  requireSize(`Emitted canonical ${kind}`,emitted,spec.bytes);
   requireExact(`Emitted canonical ${kind}`,emitted,spec.sha256);
 }
 const emittedAdmin=await readFile(join(OUT,'portal','admin.html'),'utf8');
