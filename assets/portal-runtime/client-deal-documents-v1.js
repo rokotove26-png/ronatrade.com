@@ -1,17 +1,18 @@
 (()=>{
   'use strict';
-  const MARK='20260829-deal-documents-v1';
+  const MARK='20260829-deal-documents-v1-1';
   if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__===MARK)return;
   window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__=MARK;
 
   const API='/portal/api';
   const PANEL_CLASS='rona-deal-documents-v1';
-  const LEGACY_RE=/^(?:ДС\s*(?:И|\/|&)\s*ИНВОЙС(?:Ы)?|DS\s*(?:AND|\/|&)\s*INVOICES?)$/i;
+  const LEGACY_RE=/^(?:ДС\s*(?:(?:И|\/|&)\s*)?(?:ИНВОЙС(?:Ы)?|INVOICES?)|DS\s*(?:(?:AND|\/|&)\s*)?INVOICES?)$/i;
   const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/;
   const state={deals:new Map(),busy:false,lastError:null};
+  let observerActive=false;
 
   function text(v){return String(v??'').replace(/\s+/g,' ').trim()}
-  function visible(el){if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&el.getClientRects().length>0}
+  function visible(node){if(!node||!node.isConnected)return false;const s=getComputedStyle(node);return s.display!=='none'&&s.visibility!=='hidden'&&node.getClientRects().length>0}
   function el(tag,cls,txt){const node=document.createElement(tag);if(cls)node.className=cls;if(txt!=null)node.textContent=txt;return node}
 
   function ensureStyle(){
@@ -84,9 +85,10 @@
     const dealNav=findNavExact('Сделки');
     const candidates=[...document.querySelectorAll('a,button,[role="tab"],[role="menuitem"],li')].filter(n=>LEGACY_RE.test(text(n.textContent)));
     for(const n of candidates){
-      const active=n.getAttribute('aria-selected')==='true'||n.getAttribute('aria-current')||/(^|\s)(active|selected)(\s|$)/i.test(n.className||'');
+      const active=n.getAttribute('aria-selected')==='true'||n.getAttribute('aria-current')||/(^|\s)(active|selected)(\s|$)/i.test(String(n.className||''));
       if(active&&dealNav)try{dealNav.click()}catch{}
-      const target=n.tagName==='LI'?n:(n.closest('li')&&LEGACY_RE.test(text(n.closest('li').textContent))?n.closest('li'):n);
+      const item=n.closest('li');
+      const target=n.tagName==='LI'?n:(item&&LEGACY_RE.test(text(item.textContent))?item:n);
       if(target&&target!==dealNav)target.remove();
     }
   }
@@ -107,7 +109,9 @@
         if(depth>=2){found.push(n);break}
       }
     }
-    return [...new Set(found)];
+    const unique=[...new Set(found)];
+    unique.sort((a,b)=>{const ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();return ar.width*ar.height-br.width*br.height});
+    return unique.slice(0,1);
   }
 
   function typeDocs(info,type){return info.documents.filter(d=>text(d.document_type).toUpperCase()===type)}
@@ -123,8 +127,14 @@
 
   async function markDownload(info,doc){
     const kind=text(doc.document_type).toUpperCase();
-    if(!['ADDENDUM','INVOICE'].includes(kind))return;
+    if(!['ADDENDUM','INVOICE'].includes(kind))return true;
     await getJson(`${API}/v1/client/deals/${encodeURIComponent(info.dealId)}/documents/${encodeURIComponent(text(doc.document_id))}/downloaded`,{method:'POST',headers:{'content-type':'application/json'},body:'{}'});
+    return true;
+  }
+
+  function openSignedUrl(url,tab){
+    if(tab){tab.location.replace(url);return}
+    const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.style.display='none';document.body.appendChild(a);a.click();a.remove();
   }
 
   async function download(info,doc,button){
@@ -137,9 +147,10 @@
       tab=window.open('about:blank','_blank');
       if(tab)try{tab.opener=null}catch{}
       const url=await signedUrl(doc);
-      if(tab)tab.location.replace(url);else window.location.assign(url);
-      await markDownload(info,doc).catch(err=>console.warn('deal document download mark failed',err));
-      if(text(doc.document_type).toUpperCase()==='ADDENDUM'){
+      openSignedUrl(url,tab);
+      let marked=false;
+      try{marked=await markDownload(info,doc)}catch(err){console.warn('deal document download mark failed',err)}
+      if(marked&&text(doc.document_type).toUpperCase()==='ADDENDUM'){
         info.workflow={...info.workflow,client_addendum_downloaded_at:new Date().toISOString()};
         render();
         load();
@@ -163,7 +174,7 @@
   }
 
   function uploadErrorMessage(code){
-    const map={ADDENDUM_DOWNLOAD_REQUIRED:'Сначала скачайте дополнительное соглашение.',CURRENT_ADDENDUM_REQUIRED:'Актуальное дополнительное соглашение недоступно.',PDF_REQUIRED:'Выберите PDF-файл.',PDF_SIGNATURE_INVALID:'Файл не является корректным PDF.',PDF_SIZE_INVALID:'Размер PDF превышает допустимый лимит.',STORAGE_UPLOAD_FAILED:'Не удалось загрузить файл в защищённое хранилище.',SIGNED_ADDENDUM_REGISTER_FAILED:'Не удалось зарегистрировать подписанный DS.'};
+    const map={ADDENDUM_DOWNLOAD_REQUIRED:'Сначала скачайте дополнительное соглашение.',CURRENT_ADDENDUM_REQUIRED:'Актуальное дополнительное соглашение недоступно.',PDF_REQUIRED:'Выберите PDF-файл.',PDF_SIGNATURE_INVALID:'Файл не является корректным PDF.',PDF_SIZE_INVALID:'Размер PDF превышает допустимый лимит.',STORAGE_UPLOAD_FAILED:'Не удалось загрузить файл в защищённое хранилище.',STORAGE_OBJECT_ID_MISSING:'Не удалось зарегистрировать файл в защищённом хранилище.',SIGNED_ADDENDUM_REGISTER_FAILED:'Не удалось зарегистрировать подписанный DS.'};
     return map[code]||'Не удалось загрузить подписанный DS.';
   }
 
@@ -212,18 +223,19 @@
     return panel;
   }
 
+  function observe(){if(observerActive)observer.observe(document.body,{childList:true,subtree:true})}
+
   function render(){
+    if(observerActive)observer.disconnect();
     ensureStyle();
     removeLegacySection();
     document.querySelectorAll(`.${PANEL_CLASS}`).forEach(p=>p.remove());
     const allIds=[...state.deals.keys()];
     for(const [dealId,info] of state.deals){
       const hosts=dealHosts(dealId,allIds);
-      for(const host of hosts){
-        if(host.querySelector(`:scope > .${PANEL_CLASS}`))continue;
-        host.append(buildPanel(info));
-      }
+      for(const host of hosts)host.append(buildPanel(info));
     }
+    observe();
   }
 
   let renderQueued=false;
@@ -234,7 +246,8 @@
   const start=()=>{
     ensureStyle();
     removeLegacySection();
-    observer.observe(document.body,{childList:true,subtree:true});
+    observerActive=true;
+    observe();
     load();
     setInterval(load,15000);
   };
