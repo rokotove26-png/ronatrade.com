@@ -70,10 +70,10 @@ assert(railSafe.includes("if(!q('[data-rail-current-root]',host))queueRepair()")
 assert(railSafe.includes('.replace(WATCH_FROM,WATCH_TO)'),'Rail fallback must replace the recursive observer before serving runtime code');
 assert(railSafe.includes("window.__RONA_RAIL_SAFE_FALLBACK__='20260826-direct-child-v1'"),'Rail safe fallback marker missing');
 
-assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'"),'Current Clients/Agents owner missing');
+assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'"),'Current Clients/Agents owner missing');
 assert(access.includes("const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority'"),'Current access UI must use current server APIs');
 assert(access.includes("new Option('Клиент','Клиент'),new Option('Агент','Агент')"),'Client/Agent creation modes missing');
-assert(access.includes("dataset.ronaCreateAccess='primary'")&&access.includes("setAccessUserPassword")&&access.includes("'Сменить пароль'"),'Access management controls missing');
+assert(access.includes("dataset.ronaCreateAccess='primary'")&&access.includes("setPasswordFor")&&access.includes("'Сменить пароль'"),'Access management controls missing');
 assert(access.includes("['history','История и права']"),'Access history/rights view missing');
 assert(access.includes("const clientContract=kind===''||kind==='CLIENT_CONTRACT'"),'Agent bindings must not enter Client contract mutation path');
 assert(!access.includes('installShellParity')&&!access.includes('installNavigationStability'),'Page module must not mutate global shell/navigation');
