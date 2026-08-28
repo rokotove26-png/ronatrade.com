@@ -1,0 +1,116 @@
+name: Build CIS TR4 Reference
+
+on:
+  push:
+    branches:
+      - tmp/cis-tr4-20260827
+
+permissions:
+  contents: write
+
+jobs:
+  build-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install parser
+        run: python -m pip install --quiet xlrd==2.0.1
+      - name: Build official CIS rail reference
+        run: |
+          python - <<'PY'
+          import urllib.request, xlrd, json, pathlib, re
+          url='https://sovetgt.org/tr4/2026/08/27/Kniga_2_2026-08-27.xls'
+          req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'})
+          data=urllib.request.urlopen(req,timeout=60).read()
+          p='/tmp/book2.xls'; open(p,'wb').write(data)
+          book=xlrd.open_workbook(p)
+          sheet=book.sheet_by_name('РП')
+          def country_for(road):
+              road=str(road).strip()
+              if road=='13 Бел': return 'Беларусь'
+              if '(Р)' in road: return 'Россия'
+              if '(У)' in road: return 'Украина'
+              exact={
+                '39 Млд':'Молдова','55 Азерб':'Азербайджан','56 Ю-Кав':'Армения','57 Грз':'Грузия',
+                '68 Кзх':'Казахстан','70 Кирг':'Кыргызстан','73 Узбк':'Узбекистан','74 Тадж':'Таджикистан','75 Трк':'Туркменистан'
+              }
+              return exact.get(road,'')
+          rows=[]
+          seen=set()
+          for r in range(6,sheet.nrows):
+              name=str(sheet.cell_value(r,1)).strip()
+              road=str(sheet.cell_value(r,3)).strip()
+              raw=sheet.cell_value(r,5)
+              if not name or not road or raw in ('',None): continue
+              if isinstance(raw,float) and raw.is_integer(): code=str(int(raw))
+              else: code=str(raw).strip()
+              if code.endswith('.0') and code[:-2].isdigit(): code=code[:-2]
+              code=re.sub(r'\D','',code).zfill(6)
+              country=country_for(road)
+              if not country: continue
+              key=(name,code,road,country)
+              if key in seen: continue
+              seen.add(key); rows.append([name,code,road,country])
+          rows.sort(key=lambda s:(s[0].casefold(),s[1]))
+          borders=[s for s in rows if ('эксп' in s[0].casefold() or 'стык' in s[0].casefold())]
+          expected_countries=['Беларусь','Россия','Украина','Молдова','Азербайджан','Армения','Грузия','Казахстан','Кыргызстан','Узбекистан','Таджикистан','Туркменистан']
+          countries=sorted({s[3] for s in rows})
+          if set(countries)!=set(expected_countries): raise SystemExit(f'COUNTRY_SET_MISMATCH {countries}')
+          if len(rows)<10700: raise SystemExit(f'STATION_COUNT_TOO_LOW {len(rows)}')
+          by_code={s[1]:s for s in rows}
+          checks={'742705':'Киргили','171401':'Красное','720602':'Келес','719501':'Ала-Тоо','568101':'Абовян'}
+          for code,needle in checks.items():
+              s=by_code.get(code)
+              if not s or needle.casefold() not in s[0].casefold(): raise SystemExit(f'KNOWN_STATION_MISSING {code} {s}')
+          obj={
+            'source':'Совет по железнодорожному транспорту государств - участников Содружества; Тарифное руководство №4, Книга 2',
+            'source_url':url,'as_of':'27.08.2026','station_count':len(rows),'border_count':len(borders),
+            'countries':expected_countries,'stations':rows,'borders':borders
+          }
+          out='(()=>{\'use strict\';window.__RONA_CIS_RAIL_REFERENCE__='+json.dumps(obj,ensure_ascii=False,separators=(',',':'))+';})();\n'
+          path=pathlib.Path('assets/portal-runtime/cis-rail-reference-v1.js')
+          path.write_text(out,encoding='utf-8')
+          print('REFERENCE_STATIONS',len(rows))
+          print('REFERENCE_BORDERS',len(borders))
+          print('REFERENCE_BYTES',path.stat().st_size)
+          print('KNOWN_KIRGILI',by_code['742705'])
+          print('KNOWN_KRASNOE',by_code['171401'])
+          print('KNOWN_KELES',by_code['720602'])
+          PY
+      - name: Wire reference and application v3 into Client
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('functions/portal/_middleware.js')
+          text=p.read_text(encoding='utf-8')
+          new="const CLIENT_PRICE_SYNC_RUNTIME = `<script id=\"rona-client-price-sync-loader\" src=\"/assets/portal-runtime/client-price-sync-v1.js?v=20260828-2125-price-hover-v1\" defer><\\/script><script id=\"rona-client-price-conditions-loader\" src=\"/assets/portal-runtime/client-price-conditions-v1.js?v=20260828-conditions-below-v1\" defer><\\/script><script id=\"rona-cis-rail-reference-loader\" src=\"/assets/portal-runtime/cis-rail-reference-v1.js?v=20260827-tr4-book2-v1\" defer><\\/script><script id=\"rona-client-application-form-v3-loader\" src=\"/assets/portal-runtime/client-application-form-v3.js?v=20260828-cis-rail-reference-v3\" defer><\\/script>`;"
+          text2,n=re.subn(r"const CLIENT_PRICE_SYNC_RUNTIME = `[^`]*`;",lambda m:new,text,count=1)
+          if n!=1: raise SystemExit(f'CLIENT_RUNTIME_PATCH_FAILED {n}')
+          text2=text2.replace("headers.set('x-rona-client-price-sync','safe-v5-rail-application');","headers.set('x-rona-client-price-sync','safe-v7-cis-rail-application');")
+          p.write_text(text2,encoding='utf-8')
+          print('MIDDLEWARE_PATCHED',n)
+          PY
+      - name: Validate JavaScript
+        run: |
+          node --check assets/portal-runtime/cis-rail-reference-v1.js
+          node --check assets/portal-runtime/client-application-form-v3.js
+          node --check functions/portal/_middleware.js
+          grep -q "Период отгрузки" assets/portal-runtime/client-application-form-v3.js
+          ! grep -q "Период поставки" assets/portal-runtime/client-application-form-v3.js
+          grep -q "destination_station_code.*readonly" assets/portal-runtime/client-application-form-v3.js
+          grep -q "rona-cis-rail-reference-loader" functions/portal/_middleware.js
+          grep -q "client-application-form-v3" functions/portal/_middleware.js
+      - name: Remove temporary diagnostics and commit generated runtime
+        run: |
+          rm -f .github/workflows/cis-tr4-diagnostic.yml .github/workflows/cis-tr4-roads.yml .github/workflows/cis-tr4-build.yml
+          git config user.name "RONA Trade Automation"
+          git config user.email "automation@ronaoil.com"
+          git add assets/portal-runtime/cis-rail-reference-v1.js assets/portal-runtime/client-application-form-v3.js functions/portal/_middleware.js .github/workflows
+          git commit -m "Client application: current CIS stations and border crossings"
+          git push origin HEAD:tmp/cis-tr4-20260827
