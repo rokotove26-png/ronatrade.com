@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const MARK='20260829-deal-documents-v1-5-wide-actions';
+  const MARK='20260829-deal-documents-v1-6-document-buttons';
   if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__===MARK)return;
   window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__=MARK;
 
@@ -22,39 +22,31 @@
     const s=document.createElement('style');
     s.id='rona-client-deal-documents-v1-style';
     s.textContent=`
-      .${PANEL_CLASS}{width:100%;min-width:0;box-sizing:border-box;margin-top:15px;padding-top:13px;border-top:1px solid rgba(113,154,184,.17);font-family:inherit;color:inherit}
-      .${PANEL_CLASS}__head{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:24px;margin:0 2px 10px}
-      .${PANEL_CLASS}__title{font-size:12.8px;font-weight:760;line-height:1.2;letter-spacing:.01em;color:rgba(226,232,240,.92)}
-      .${PANEL_CLASS}__stage{font-size:10.5px;font-weight:750;line-height:1;padding:4px 8px;border-radius:999px;border:1px solid rgba(96,165,250,.24);background:rgba(59,130,246,.07);color:rgba(191,219,254,.90);white-space:nowrap}
-      .${PANEL_CLASS}__list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));align-items:stretch;gap:12px;width:100%;min-width:0}
-      .${PANEL_CLASS}__row,.${PANEL_CLASS}__upload{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;min-height:52px;padding:8px 9px 8px 14px;border:1px solid rgba(113,154,184,.19);border-radius:11px;background:linear-gradient(180deg,rgba(8,27,45,.62),rgba(4,16,29,.47));box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 6px 18px rgba(1,8,16,.10)}
-      .${PANEL_CLASS}__row{position:relative;overflow:hidden}
-      .${PANEL_CLASS}__row::before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:2px;border-radius:2px;background:rgba(56,189,248,.30)}
-      .${PANEL_CLASS}__upload{position:relative;overflow:hidden;border-color:rgba(248,113,113,.46);background:linear-gradient(110deg,rgba(72,13,22,.52),rgba(127,29,29,.25),rgba(72,13,22,.52));background-size:240% 100%;box-shadow:0 0 0 1px rgba(239,68,68,.07),0 0 22px rgba(239,68,68,.11),inset 0 1px 0 rgba(255,255,255,.025);animation:ronaSignedDsGlow 2.6s ease-in-out infinite,ronaSignedDsShimmer 4.2s linear infinite}
-      .${PANEL_CLASS}__upload::after{content:'';position:absolute;inset:-30% auto -30% -45%;width:36%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.11),transparent);animation:ronaSignedDsSweep 3.2s ease-in-out infinite;pointer-events:none}
-      .${PANEL_CLASS}__kind{flex:1 1 auto;min-width:0;font-size:12px;font-weight:760;line-height:1.2;color:rgba(226,232,240,.90);white-space:normal}
-      .${PANEL_CLASS}__file{display:none}
-      .${PANEL_CLASS}__btn{position:relative;z-index:1;appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 0 auto;min-height:36px;border:1px solid rgba(125,211,252,.54);border-radius:8px;background:linear-gradient(180deg,#1c638f,#0d456b);box-shadow:0 6px 16px rgba(2,12,22,.28),inset 0 1px 0 rgba(255,255,255,.11);color:#f7fbff;padding:8px 14px;font:760 11.6px/1.15 inherit;cursor:pointer;white-space:nowrap;transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,filter .15s ease}
-      .${PANEL_CLASS}__btn--download::before{content:'↓';font-size:13px;font-weight:800;line-height:1;opacity:.88}
-      .${PANEL_CLASS}__btn--upload::before{content:'↑';font-size:13px;font-weight:800;line-height:1;opacity:.92}
-      .${PANEL_CLASS}__btn:hover{transform:translateY(-1px);border-color:rgba(186,230,253,.86);box-shadow:0 8px 20px rgba(2,12,22,.34),0 0 0 1px rgba(56,189,248,.11),inset 0 1px 0 rgba(255,255,255,.14);filter:brightness(1.09)}
-      .${PANEL_CLASS}__btn:active{transform:translateY(0)}
-      .${PANEL_CLASS}__btn:disabled{opacity:.55;cursor:wait;transform:none;filter:none}
-      .${PANEL_CLASS}__upload .${PANEL_CLASS}__kind{color:#fee2e2;font-weight:780}
-      .${PANEL_CLASS}__upload .${PANEL_CLASS}__hint{display:none}
-      .${PANEL_CLASS}__upload .${PANEL_CLASS}__btn{border-color:rgba(254,202,202,.76);background:linear-gradient(180deg,#c73745,#8d2031);box-shadow:0 7px 20px rgba(127,29,29,.34),inset 0 1px 0 rgba(255,255,255,.14)}
-      .${PANEL_CLASS}__upload .${PANEL_CLASS}__btn:hover{border-color:rgba(254,226,226,.98);box-shadow:0 9px 24px rgba(127,29,29,.46),0 0 20px rgba(239,68,68,.22),inset 0 1px 0 rgba(255,255,255,.16)}
-      .${PANEL_CLASS}__hint{font-size:10.7px;line-height:1.25;color:rgba(203,213,225,.50)}
-      .${PANEL_CLASS}__list>.${PANEL_CLASS}__hint{display:block;padding:11px 10px}
-      .${PANEL_CLASS}__error{margin-top:6px;padding:0 2px;font-size:11px;color:#fca5a5}
+      .${PANEL_CLASS}{width:100%;min-width:0;box-sizing:border-box;margin-top:14px;padding-top:12px;border-top:1px solid rgba(113,154,184,.15);font-family:inherit;color:inherit}
+      .${PANEL_CLASS}__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 1px 9px}
+      .${PANEL_CLASS}__title{font-size:11.8px;font-weight:760;line-height:1.2;letter-spacing:.015em;color:rgba(203,213,225,.72)}
+      .${PANEL_CLASS}__stage{font-size:10.2px;font-weight:760;line-height:1;padding:4px 8px;border-radius:999px;border:1px solid rgba(96,165,250,.24);background:rgba(59,130,246,.07);color:rgba(191,219,254,.90);white-space:nowrap}
+      .${PANEL_CLASS}__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;min-width:0}
+      .${PANEL_CLASS}__action{position:relative;appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:39px;padding:0 16px;border:1px solid rgba(93,180,226,.42);border-radius:9px;background:linear-gradient(180deg,rgba(19,66,97,.92),rgba(8,39,62,.94));box-shadow:0 5px 14px rgba(1,8,16,.20),inset 0 1px 0 rgba(255,255,255,.07);color:rgba(244,250,255,.96);font:760 11.5px/1.15 inherit;letter-spacing:.005em;cursor:pointer;white-space:nowrap;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease}
+      .${PANEL_CLASS}__action::before{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border-radius:6px;background:rgba(125,211,252,.10);border:1px solid rgba(125,211,252,.18);font-size:13px;font-weight:800;line-height:1;color:rgba(186,230,253,.96)}
+      .${PANEL_CLASS}__action--download::before{content:'↓'}
+      .${PANEL_CLASS}__action--signed::before{content:'✓';background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.18);color:rgba(187,247,208,.96)}
+      .${PANEL_CLASS}__action:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.70);box-shadow:0 8px 20px rgba(1,8,16,.28),0 0 0 1px rgba(56,189,248,.07),inset 0 1px 0 rgba(255,255,255,.10);filter:brightness(1.08)}
+      .${PANEL_CLASS}__action:active{transform:translateY(0)}
+      .${PANEL_CLASS}__action:disabled{opacity:.56;cursor:wait;transform:none;filter:none}
+      .${PANEL_CLASS}__action--upload{overflow:hidden;border-color:rgba(248,113,113,.66);background:linear-gradient(105deg,#7d1c2a,#b82e3b,#7d1c2a);background-size:220% 100%;box-shadow:0 6px 18px rgba(127,29,29,.26),0 0 0 1px rgba(239,68,68,.06),inset 0 1px 0 rgba(255,255,255,.10);animation:ronaSignedDsButtonPulse 2.4s ease-in-out infinite,ronaSignedDsButtonFlow 4s linear infinite;color:#fff5f5}
+      .${PANEL_CLASS}__action--upload::before{content:'↑';background:rgba(255,255,255,.10);border-color:rgba(254,202,202,.32);color:#fff1f2}
+      .${PANEL_CLASS}__action--upload::after{content:'';position:absolute;top:-35%;bottom:-35%;left:-48%;width:34%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent);animation:ronaSignedDsButtonSweep 3.1s ease-in-out infinite;pointer-events:none}
+      .${PANEL_CLASS}__action--upload:hover{border-color:rgba(254,202,202,.96);box-shadow:0 9px 24px rgba(127,29,29,.38),0 0 20px rgba(239,68,68,.18),inset 0 1px 0 rgba(255,255,255,.13)}
+      .${PANEL_CLASS}__empty{padding:6px 1px;font-size:10.8px;color:rgba(203,213,225,.48)}
+      .${PANEL_CLASS}__error{margin-top:8px;padding:0 1px;font-size:11px;color:#fca5a5}
       .${CARD_CLASS}__resource{display:inline-flex!important;align-items:center!important;gap:5px!important;min-height:20px!important;padding:3px 8px!important;border-radius:999px!important;border:1px solid rgba(74,222,128,.20)!important;background:rgba(34,197,94,.045)!important;color:rgba(187,247,208,.82)!important;font-size:10.3px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important}
       .${CARD_CLASS}__resource::before{content:'';display:block;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.82}
-      @keyframes ronaSignedDsShimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
-      @keyframes ronaSignedDsGlow{0%,100%{box-shadow:0 0 0 1px rgba(239,68,68,.05),0 0 14px rgba(239,68,68,.09)}50%{box-shadow:0 0 0 1px rgba(248,113,113,.18),0 0 28px rgba(239,68,68,.23)}}
-      @keyframes ronaSignedDsSweep{0%,22%{left:-45%;opacity:0}38%{opacity:1}62%{left:118%;opacity:0}100%{left:118%;opacity:0}}
-      @media(max-width:1050px){.${PANEL_CLASS}__list{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.${PANEL_CLASS}__btn{padding-left:11px;padding-right:11px}}
-      @media(max-width:760px){.${PANEL_CLASS}__list{grid-template-columns:1fr}.${PANEL_CLASS}__row,.${PANEL_CLASS}__upload{width:100%;box-sizing:border-box}}
-      @media(prefers-reduced-motion:reduce){.${PANEL_CLASS}__upload,.${PANEL_CLASS}__upload::after{animation:none}}
+      @keyframes ronaSignedDsButtonFlow{0%{background-position:100% 0}100%{background-position:-100% 0}}
+      @keyframes ronaSignedDsButtonPulse{0%,100%{box-shadow:0 6px 18px rgba(127,29,29,.22),0 0 0 1px rgba(239,68,68,.05)}50%{box-shadow:0 8px 24px rgba(127,29,29,.36),0 0 18px rgba(239,68,68,.20)}}
+      @keyframes ronaSignedDsButtonSweep{0%,24%{left:-48%;opacity:0}40%{opacity:1}62%{left:116%;opacity:0}100%{left:116%;opacity:0}}
+      @media(max-width:760px){.${PANEL_CLASS}__actions{align-items:stretch}.${PANEL_CLASS}__action{width:100%;justify-content:flex-start;min-height:42px}}
+      @media(prefers-reduced-motion:reduce){.${PANEL_CLASS}__action--upload,.${PANEL_CLASS}__action--upload::after{animation:none}}
     `;
     document.head.appendChild(s);
   }
@@ -229,21 +221,21 @@
     }catch(err){
       if(tab)try{tab.close()}catch{}
       console.error('deal document download failed',err);
-      button.textContent='Не удалось скачать';
+      button.textContent='Не удалось открыть';
       setTimeout(()=>{if(button.isConnected){button.disabled=false;button.textContent=old}},1800);
       return;
     }
     if(button.isConnected){button.disabled=false;button.textContent=old}
   }
 
-  function row(info,doc,label,buttonLabel){
-    const r=el('div',`${PANEL_CLASS}__row`);
-    r.append(el('div',`${PANEL_CLASS}__kind`,label));
-    const file=el('div',`${PANEL_CLASS}__file`,text(doc.authoritative_filename)||text(doc.document_id)||'PDF');
-    file.title=file.textContent;
-    r.append(file);
-    const b=el('button',`${PANEL_CLASS}__btn ${PANEL_CLASS}__btn--download`,buttonLabel);b.type='button';b.title=file.textContent;b.addEventListener('click',()=>download(info,doc,b));r.append(b);
-    return r;
+  function documentButton(info,doc,label,signed=false){
+    const cls=`${PANEL_CLASS}__action ${PANEL_CLASS}__action--download${signed?` ${PANEL_CLASS}__action--signed`:''}`;
+    const b=el('button',cls,label);b.type='button';
+    const filename=text(doc.authoritative_filename)||text(doc.document_id)||'PDF';
+    b.title=filename;
+    b.setAttribute('aria-label',`${label}. ${filename}`);
+    b.addEventListener('click',()=>download(info,doc,b));
+    return b;
   }
 
   function uploadErrorMessage(code){
@@ -251,12 +243,9 @@
     return map[code]||'Не удалось загрузить подписанное ДС.';
   }
 
-  function uploadControl(info,panel){
-    const wrap=el('div',`${PANEL_CLASS}__upload`);
+  function appendUploadAction(info,panel,actions){
     const input=el('input');input.type='file';input.accept='application/pdf,.pdf';input.hidden=true;
-    const kind=el('div',`${PANEL_CLASS}__kind`,'Требуется подписанное ДС');
-    const hint=el('span',`${PANEL_CLASS}__hint`,'PDF · до 20 МБ');
-    const b=el('button',`${PANEL_CLASS}__btn ${PANEL_CLASS}__btn--upload`,'Загрузить подписанное ДС');b.type='button';
+    const b=el('button',`${PANEL_CLASS}__action ${PANEL_CLASS}__action--upload`,'Загрузить подписанное ДС');b.type='button';
     b.addEventListener('click',()=>input.click());
     input.addEventListener('change',async()=>{
       const file=input.files?.[0];if(!file)return;
@@ -270,12 +259,11 @@
         await load();
       }catch(err){
         const e=el('div',`${PANEL_CLASS}__error`,uploadErrorMessage(err?.payload?.code||err?.message));
-        wrap.insertAdjacentElement('afterend',e);
+        panel.append(e);
         b.disabled=false;b.textContent='Загрузить подписанное ДС';input.value='';
       }
     });
-    wrap.append(kind,hint,b,input);
-    return wrap;
+    actions.append(b,input);
   }
 
   function buildPanel(info){
@@ -285,16 +273,19 @@
     const paymentStage=text(info.workflow?.client_stage)==='PAYMENTS'||['READY','SENT'].includes(text(info.workflow?.payment_handoff_state));
     if(paymentStage)head.append(el('div',`${PANEL_CLASS}__stage`,'Платежи'));
     panel.append(head);
-    const list=el('div',`${PANEL_CLASS}__list`);
+
+    const actions=el('div',`${PANEL_CLASS}__actions`);
     const ds=typeDocs(info,'ADDENDUM');
     const invoices=typeDocs(info,'INVOICE');
     const signed=typeDocs(info,'SIGNED_ADDENDUM');
-    for(const d of ds)list.append(row(info,d,'Дополнительное соглашение','Скачать ДС'));
-    for(const d of invoices)list.append(row(info,d,'Инвойс','Скачать инвойс'));
-    for(const d of signed)list.append(row(info,d,'Подписанное ДС','Скачать ДС'));
-    if(info.workflow?.client_addendum_downloaded_at&&!signed.length)list.append(uploadControl(info,panel));
-    if(!list.children.length)list.append(el('div',`${PANEL_CLASS}__hint`,'Документы по сделке пока не опубликованы.'));
-    panel.append(list);
+
+    ds.forEach((d,i)=>actions.append(documentButton(info,d,ds.length>1?`Дополнительное соглашение ${i+1}`:'Дополнительное соглашение')));
+    invoices.forEach((d,i)=>actions.append(documentButton(info,d,invoices.length>1?`Инвойс ${i+1}`:'Инвойс')));
+    signed.forEach((d,i)=>actions.append(documentButton(info,d,signed.length>1?`Подписанное ДС ${i+1}`:'Подписанное ДС',true)));
+    if(info.workflow?.client_addendum_downloaded_at&&!signed.length)appendUploadAction(info,panel,actions);
+
+    if(actions.querySelector('button'))panel.append(actions);
+    else panel.append(el('div',`${PANEL_CLASS}__empty`,'Документы по сделке пока не опубликованы.'));
     return panel;
   }
 
@@ -309,9 +300,9 @@
     for(const [dealId,info] of state.deals){
       const hosts=dealHosts(dealId,allIds);
       for(const host of hosts){
-        const wideHost=widenDealHost(host,dealId,allIds);
-        polishDealHost(wideHost);
-        wideHost.append(buildPanel(info));
+        polishDealHost(host);
+        const target=widenDealHost(host,dealId,allIds);
+        target.append(buildPanel(info));
       }
     }
     observe();
