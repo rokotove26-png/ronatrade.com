@@ -1,0 +1,28 @@
+name: Client interactivity diagnostic
+
+on:
+  push:
+    branches:
+      - diag/client-interactivity-20260828
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-static-interactivity-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current client artifact
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Diagnose client navigation, overlays and runtime errors
+        run: node scripts/qa-client-interactivity-diagnostic.mjs
