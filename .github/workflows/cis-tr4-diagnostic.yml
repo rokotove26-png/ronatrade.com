@@ -1,0 +1,44 @@
+name: CIS TR4 Diagnostic
+
+on:
+  push:
+    branches:
+      - tmp/cis-tr4-20260827
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download official TR4 Book 2
+        run: |
+          python - <<'PY'
+          import urllib.request
+          url='https://sovetgt.org/tr4/2026/08/27/Kniga_2_2026-08-27.xls'
+          req=urllib.request.Request(url,headers={'User-Agent':'Mozilla/5.0'})
+          with urllib.request.urlopen(req,timeout=60) as r:
+              data=r.read()
+          open('/tmp/book2.xls','wb').write(data)
+          print('DOWNLOAD_BYTES',len(data))
+          print('MAGIC',data[:16].hex())
+          PY
+      - name: Inspect workbook
+        run: |
+          python -m pip install --quiet xlrd==2.0.1
+          python - <<'PY'
+          import xlrd
+          p='/tmp/book2.xls'
+          book=xlrd.open_workbook(p,formatting_info=False)
+          print('SHEETS',book.sheet_names())
+          for s in book.sheets():
+              print('SHEET',repr(s.name),'ROWS',s.nrows,'COLS',s.ncols)
+              for r in range(min(s.nrows,30)):
+                  vals=[s.cell_value(r,c) for c in range(min(s.ncols,14))]
+                  print('ROW',r,repr(vals))
+          PY
