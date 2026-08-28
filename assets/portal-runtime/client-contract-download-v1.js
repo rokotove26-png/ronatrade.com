@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__)return;
-window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__='20260828-secure-current-contract-v1';
+window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__='20260828-secure-current-contract-v2';
 
 const API='/portal/api';
 const STYLE_ID='ronaClientContractDownloadV1Style';
@@ -25,8 +25,10 @@ function visible(el){
 
 function signedContract(documents){
   const docs=Array.isArray(documents)?documents:[];
-  return docs.find(d=>String(d?.document_type||'').toUpperCase()==='SIGNED_CONTRACT'&&d?.storage_object_id)
-    ||docs.find(d=>String(d?.document_type||'').toUpperCase().includes('CONTRACT')&&d?.storage_object_id)
+  const hasStorage=d=>Boolean(d?.storage_object_id);
+  const type=d=>String(d?.document_type||'').toUpperCase();
+  return docs.find(d=>type(d)==='SIGNED_CONTRACT'&&hasStorage(d))
+    ||docs.find(d=>(type(d).includes('CONTRACT')||type(d).includes('КОНТРАКТ'))&&hasStorage(d))
     ||null;
 }
 
@@ -60,7 +62,7 @@ function ensureStyle(){
   const style=document.createElement('style');
   style.id=STYLE_ID;
   style.textContent=`
-button[data-rona-contract-download]{appearance:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;min-height:26px!important;padding:6px 10px!important;border:1px solid rgba(230,190,82,.34)!important;border-radius:999px!important;background:linear-gradient(180deg,rgba(230,190,82,.12),rgba(230,190,82,.065))!important;color:#e8c86f!important;font:800 10px/1.15 inherit!important;letter-spacing:.02em!important;white-space:nowrap!important;cursor:pointer!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;transition:border-color .14s ease,background-color .14s ease,color .14s ease,box-shadow .14s ease,transform .14s ease!important}
+button[data-rona-contract-download]{appearance:none!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:6px!important;min-height:26px!important;padding:6px 10px!important;border:1px solid rgba(230,190,82,.34)!important;border-radius:999px!important;background:linear-gradient(180deg,rgba(230,190,82,.12),rgba(230,190,82,.065))!important;color:#e8c86f!important;font-family:inherit!important;font-size:10px!important;line-height:1.15!important;font-weight:800!important;letter-spacing:.02em!important;white-space:nowrap!important;cursor:pointer!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035)!important;transition:border-color .14s ease,background-color .14s ease,color .14s ease,box-shadow .14s ease,transform .14s ease!important}
 button[data-rona-contract-download]::before{content:'↓';font-size:12px;line-height:1;font-weight:900;color:#67d9fb}
 @media(hover:hover) and (pointer:fine){button[data-rona-contract-download]:hover{border-color:rgba(101,217,255,.52)!important;background:rgba(101,217,255,.10)!important;color:#d7f7ff!important;box-shadow:0 0 14px rgba(101,217,255,.08)!important;transform:translateY(-1px)!important}}
 button[data-rona-contract-download]:focus-visible{outline:2px solid rgba(101,217,255,.42)!important;outline-offset:2px!important}
@@ -151,13 +153,12 @@ async function beginDownload(entry,button){
     a.style.display='none';
     document.body.appendChild(a);a.click();a.remove();
     button.textContent='Договор открыт';
-    setTimeout(()=>{if(button.isConnected&&!button.disabled===false)button.textContent=idle},1200);
   }catch(error){
     console.error('RONA contract download',error);
     button.textContent='Не удалось скачать';
     button.title='Не удалось получить защищённую ссылку. Повторите попытку.';
   }finally{
-    setTimeout(()=>{if(button.isConnected){button.disabled=false;if(button.textContent!=='Не удалось скачать')button.textContent=idle}},900);
+    setTimeout(()=>{if(button.isConnected){button.disabled=false;button.textContent=idle}},1100);
   }
 }
 
