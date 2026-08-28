@@ -36,23 +36,28 @@ async function authenticate(req:Request):Promise<Ctx|null>{
 }
 function route(req:Request){
   const pathname=new URL(req.url).pathname;
-  const marker="/rona-client-deal-documents";
-  const i=pathname.indexOf(marker);
-  return i>=0?(pathname.slice(i+marker.length)||"/"):pathname;
+  const i=pathname.indexOf("/v1/client/");
+  return i>=0?pathname.slice(i):pathname;
 }
-function json(status:number,body:unknown){return new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}})}
-function safeName(v:string){const name=String(v||"").replace(/[\u0000-\u001f\u007f]/g,"").trim();return name.slice(0,240)||"signed-addendum.pdf"}
+function json(status:number,body:unknown){return new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","x-content-type-options":"nosniff"}})}
+function safeName(v:string){
+  const base=String(v||"signed-addendum.pdf").split(/[\\/]/).pop()||"signed-addendum.pdf";
+  const name=base.replace(/[\u0000-\u001f\u007f]/g,"").trim().slice(0,240);
+  return name||"signed-addendum.pdf";
+}
 async function sha256Hex(bytes:Uint8Array){const hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("")}
+async function rawStorageObjectId(objectName:string){const rows=await sql`select id from storage.objects where bucket_id=${BUCKET} and name=${objectName} limit 1`;return rows[0]?.id?String(rows[0].id):null}
 async function workflowState(c:Ctx,clientId:string,contractId:string){
   return await sql`select d.deal_id,coalesce(w.payment_handoff_state,'NOT_SENT') as payment_handoff_state,coalesce(w.payment_expectation_state,'NOT_CREATED') as payment_expectation_state,w.client_addendum_downloaded_at,w.client_invoice_downloaded_at,w.signed_supplement_document_key,sd.document_id as signed_addendum_document_id,case when coalesce(w.payment_handoff_state,'NOT_SENT') in ('READY','SENT') then 'PAYMENTS' else 'DEAL_DOCUMENTS' end as client_stage from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.owner_deal_workflow w on w.deal_key=d.id left join portal_private.documents sd on sd.id=w.signed_supplement_document_key where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) order by d.created_at desc`;
 }
 async function markDownloaded(c:Ctx,dealId:string,documentId:string){
-  const rows=await sql`select d.id as deal_key,odd.document_kind from portal_private.deals d join portal_private.owner_deal_documents odd on odd.deal_key=d.id join portal_private.documents doc on doc.id=odd.document_key where d.deal_id=${dealId} and doc.document_id=${documentId} and odd.document_kind in ('ADDENDUM','INVOICE') and doc.authority_state='CONFIRMED'::portal_private.authority_state_enum and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) limit 1`;
+  const rows=await sql`select d.id as deal_key,odd.document_kind from portal_private.deals d join portal_private.owner_deal_documents odd on odd.deal_key=d.id join portal_private.documents doc on doc.id=odd.document_key join portal_private.document_versions dv on dv.id=doc.current_version_id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where d.deal_id=${dealId} and doc.document_id=${documentId} and odd.document_kind in ('ADDENDUM','INVOICE') and doc.authority_state='CONFIRMED'::portal_private.authority_state_enum and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) limit 1`;
   if(rows.length!==1)return null;
   const row=rows[0];
   await sql`insert into portal_private.owner_deal_workflow(deal_key) values(${row.deal_key}::uuid) on conflict(deal_key) do nothing`;
   if(String(row.document_kind)==="ADDENDUM")await sql`update portal_private.owner_deal_workflow set client_addendum_downloaded_at=coalesce(client_addendum_downloaded_at,now()),updated_at=now() where deal_key=${row.deal_key}::uuid`;
   else await sql`update portal_private.owner_deal_workflow set client_invoice_downloaded_at=coalesce(client_invoice_downloaded_at,now()),updated_at=now() where deal_key=${row.deal_key}::uuid`;
+  try{await sql`insert into portal_private.audit_events(actor_user_id,actor_role,action,entity_type,entity_id,metadata) values(${c.user}::uuid,'CLIENT','CLIENT_DEAL_DOCUMENT_DOWNLOADED','DEAL',${dealId},${sql.json({document_id:documentId,document_kind:String(row.document_kind)})})`}catch(error){console.error("deal document download audit failed",error)}
   const state=await sql`select client_addendum_downloaded_at,client_invoice_downloaded_at,payment_handoff_state,payment_expectation_state from portal_private.owner_deal_workflow where deal_key=${row.deal_key}::uuid`;
   return state[0]||null;
 }
@@ -65,7 +70,9 @@ async function uploadSignedAddendum(c:Ctx,req:Request,dealId:string){
   if(!(file instanceof File))return json(400,{ok:false,code:"PDF_REQUIRED"});
   const filename=safeName(file.name);
   if(file.size<1||file.size>MAX_PDF_BYTES)return json(413,{ok:false,code:"PDF_SIZE_INVALID",max_bytes:MAX_PDF_BYTES});
-  if(!filename.toLowerCase().endsWith(".pdf")&&String(file.type||"").toLowerCase()!=="application/pdf")return json(415,{ok:false,code:"PDF_REQUIRED"});
+  if(!filename.toLowerCase().endsWith(".pdf")||(file.type&&String(file.type).toLowerCase()!=="application/pdf"))return json(415,{ok:false,code:"PDF_REQUIRED"});
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  if(new TextDecoder().decode(bytes.slice(0,5))!=="%PDF-")return json(415,{ok:false,code:"PDF_SIGNATURE_INVALID"});
 
   const scope=await sql`select d.id as deal_key,d.client_key,d.contract_key,cl.client_id,ct.contract_id,w.client_addendum_downloaded_at from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.owner_deal_workflow w on w.deal_key=d.id where d.deal_id=${dealId} and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) limit 1`;
   if(scope.length!==1)return json(404,{ok:false,code:"DEAL_NOT_FOUND"});
@@ -74,13 +81,13 @@ async function uploadSignedAddendum(c:Ctx,req:Request,dealId:string){
   const sourceDs=await sql`select doc.id,doc.document_id from portal_private.owner_deal_documents odd join portal_private.documents doc on doc.id=odd.document_key join portal_private.document_versions dv on dv.id=doc.current_version_id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where odd.deal_key=${deal.deal_key}::uuid and odd.document_kind='ADDENDUM' and doc.authority_state='CONFIRMED'::portal_private.authority_state_enum and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective order by doc.updated_at desc limit 1`;
   if(sourceDs.length!==1)return json(409,{ok:false,code:"CURRENT_ADDENDUM_REQUIRED"});
 
-  const bytes=new Uint8Array(await file.arrayBuffer());
   const sha=await sha256Hex(bytes);
-  const objectToken=crypto.randomUUID();
-  const objectName=`deals/${String(deal.client_id)}/${dealId}/signed-addendum/${objectToken}.pdf`;
+  const objectName=`deals/${String(deal.client_id)}/${dealId}/signed-addendum/${crypto.randomUUID()}.pdf`;
   const storage=createClient(SUPA_URL!,runtimeKey("secret"),{auth:{persistSession:false,autoRefreshToken:false}});
   const uploaded=await storage.storage.from(BUCKET).upload(objectName,bytes,{contentType:"application/pdf",upsert:false,cacheControl:"0"});
   if(uploaded.error)return json(502,{ok:false,code:"STORAGE_UPLOAD_FAILED"});
+  const rawStorageId=await rawStorageObjectId(objectName);
+  if(!rawStorageId){await storage.storage.from(BUCKET).remove([objectName]).catch(()=>null);return json(502,{ok:false,code:"STORAGE_OBJECT_ID_MISSING"})}
 
   const documentKey=crypto.randomUUID();
   const versionKey=crypto.randomUUID();
@@ -91,7 +98,7 @@ async function uploadSignedAddendum(c:Ctx,req:Request,dealId:string){
       await tx`insert into portal_private.documents(id,document_id,document_type,client_key,contract_key,deal_key,authoritative_filename,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${documentKey}::uuid,${documentId},'SIGNED_ADDENDUM',${deal.client_key}::uuid,${deal.contract_key}::uuid,${deal.deal_key}::uuid,${filename},'CLIENT_PORTAL','SIGNED_ADDENDUM_UPLOAD_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
       await tx`insert into portal_private.document_versions(id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${versionKey}::uuid,${documentKey}::uuid,1,${filename},${sha},${objectName},${c.user}::uuid,true,true,'CLIENT_PORTAL','SIGNED_ADDENDUM_UPLOAD_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
       await tx`update portal_private.documents set current_version_id=${versionKey}::uuid where id=${documentKey}::uuid`;
-      await tx`insert into portal_private.storage_objects(id,bucket_id,object_name,object_kind,client_key,contract_key,deal_key,document_version_key,content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at) values(${storageKey}::uuid,${BUCKET},${objectName},'DOCUMENT',${deal.client_key}::uuid,${deal.contract_key}::uuid,${deal.deal_key}::uuid,${versionKey}::uuid,'application/pdf',${file.size},${sha},'VERIFIED',${c.user}::uuid,${c.user}::uuid,now())`;
+      await tx`insert into portal_private.storage_objects(id,bucket_id,object_name,storage_object_id,object_kind,client_key,contract_key,deal_key,document_version_key,content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at) values(${storageKey}::uuid,${BUCKET},${objectName},${rawStorageId}::uuid,'DOCUMENT',${deal.client_key}::uuid,${deal.contract_key}::uuid,${deal.deal_key}::uuid,${versionKey}::uuid,'application/pdf',${file.size},${sha},'VERIFIED',${c.user}::uuid,${c.user}::uuid,now())`;
       await tx`insert into portal_private.owner_deal_documents(deal_key,document_key,document_kind) values(${deal.deal_key}::uuid,${documentKey}::uuid,'SIGNED_ADDENDUM')`;
       await tx`update portal_private.owner_deal_workflow set payment_handoff_state='READY',payment_handoff_at=coalesce(payment_handoff_at,now()),payment_handoff_by=coalesce(payment_handoff_by,${c.user}::uuid),updated_at=now() where deal_key=${deal.deal_key}::uuid`;
     });
