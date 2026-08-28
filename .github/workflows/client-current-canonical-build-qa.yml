@@ -45,8 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           test -f dist/portal/client.html
-          test "$(wc -c < dist/portal/client.html | tr -d ' ')" = "487355"
-          printf '%s  %s\n' "ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb" "dist/portal/client.html" | sha256sum -c -
+          test "$(wc -c < dist/portal/client.html | tr -d ' ')" = "492847"
+          printf '%s  %s\n' "1e1cd08ff0fafeaba42fd6ac3d56fd182af9188ee968c19f7b5031445a2769df" "dist/portal/client.html" | sha256sum -c -
 
       - name: Verify legacy client owners are absent
         shell: bash
@@ -71,7 +71,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const manifest=JSON.parse(await readFile('portal-src/current/client/manifest.json','utf8'));
-          const required={state:'CURRENT_ONLY',route:'/portal/client',sha256:'ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb',decoded_bytes:487355,visual_transform:'NONE',legacy_runtime:false};
+          const required={state:'CURRENT_ONLY',route:'/portal/client',sha256:'1e1cd08ff0fafeaba42fd6ac3d56fd182af9188ee968c19f7b5031445a2769df',decoded_bytes:492847,visual_transform:'NONE',legacy_runtime:false};
           for(const [key,value] of Object.entries(required)){
             if(manifest[key]!==value) throw new Error(`CLIENT_MANIFEST_MISMATCH ${key}: ${manifest[key]} !== ${value}`);
           }
