@@ -5,7 +5,7 @@ import postgres from "postgres";
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 if (!DB || !SUPA_URL) throw new Error("runtime vars missing");
-const sql = postgres(DB, { prepare: false, max: 1, idle_timeout: 1, connect_timeout: 3, max_lifetime: 15 });
+const sql = postgres(DB, { prepare: false, max: 1 });
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LEGACY_AUTHORITY = `${SUPA_URL}/functions/v1/rona-admin-authority`;
 const CONTRACT_ACTIVATION = `${SUPA_URL}/functions/v1/rona-admin-contract-activation`;
@@ -80,9 +80,20 @@ function requiredText(v, name, max = 240) {
 }
 
 function validatePassword(v) {
-  const p = requiredText(v, "INITIAL_PASSWORD", 128);
-  if (p.length < 10 || !/[a-zа-яё]/.test(p) || !/[A-ZА-ЯЁ]/.test(p) || !/[0-9]/.test(p) || !/[^A-Za-zА-Яа-яЁё0-9]/.test(p)) throw Object.assign(new Error("PASSWORD_POLICY_FAILED"), { status: 400 });
+  if (typeof v !== "string" || !v.length || v.length > 128) throw Object.assign(new Error("INVALID_INITIAL_PASSWORD"), { status: 400 });
+  const p = v;
+  if (p.length < 10 || !/[a-zа-яё]/.test(p) || !/[A-ZА-ЯЁ]/.test(p) || !/[0-9]/.test(p) || !/[^A-Za-zА-Яа-яЁё0-9\s]/.test(p)) throw Object.assign(new Error("PASSWORD_POLICY_FAILED"), { status: 400 });
   return p;
+}
+
+async function assertPasswordPersisted(authId, password) {
+  const rows = await sql`
+    select coalesce(crypt(${password},encrypted_password)=encrypted_password,false) as ok
+    from auth.users
+    where id=${authId}::uuid
+    limit 1
+  `;
+  if (rows.length !== 1 || rows[0].ok !== true) throw Object.assign(new Error("AUTH_PASSWORD_PERSISTENCE_FAILED"), { status: 502 });
 }
 
 function normalizeName(v) { return String(v || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("ru-RU").replace(/ё/g, "е"); }
@@ -230,7 +241,14 @@ async function assertLoginAvailable(login) {
 async function createAuthUser(email, password, login, name, extra = {}) {
   const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { rona_portal_login: login, rona_portal_display_name: name, ...extra } });
   if (error || !data?.user?.id) throw Object.assign(new Error("AUTH_USER_CREATE_FAILED"), { status: 502 });
-  return String(data.user.id);
+  const authId = String(data.user.id);
+  try {
+    await assertPasswordPersisted(authId, password);
+  } catch (e) {
+    try { await service.auth.admin.deleteUser(authId); } catch (_) {}
+    throw e;
+  }
+  return authId;
 }
 
 async function createClientUser(ctx, req, b) {
@@ -274,7 +292,7 @@ async function createClientUser(ctx, req, b) {
         `;
       }
       await audit(tx, ctx, "CLIENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, {
-        login, email, requested_contract_ids: requested, linked_contract_ids: eligible.map((x) => String(x.contract_id)), pending_contract_ids: pending.map((x) => String(x.contract_id)), password_admin_set: true, open_without_contract: openWithout,
+        login, email, requested_contract_ids: requested, linked_contract_ids: eligible.map((x) => String(x.contract_id)), pending_contract_ids: pending.map((x) => String(x.contract_id)), password_admin_set: true, password_hash_verified: true, open_without_contract: openWithout,
       });
       return { userId, linkedContractIds: eligible.map((x) => String(x.contract_id)), pendingContractIds: pending.map((x) => String(x.contract_id)) };
     });
@@ -311,7 +329,7 @@ async function createAgentUser(ctx, req, b) {
         insert into portal_private.agent_user_bindings(user_id,agent_person_key,agent_legal_entity_key,status,valid_from,granted_by,granted_at,reason,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
         values(${userId}::uuid,${profile.agentPersonKey}::uuid,${profile.legalEntity.agentLegalEntityKey}::uuid,'ACTIVE'::portal_private.binding_status_enum,now(),${ctx.user}::uuid,now(),'Admin Portal: fixed Agent Person access granted','ADMIN_PORTAL','ADMIN_EXCLUSIVE_AGENT_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)
       `;
-      await audit(tx, ctx, "AGENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, { login, email, agent_person_id: profile.agentPersonId, agent_legal_entity_id: profile.legalEntity.agentLegalEntityId, password_admin_set: true });
+      await audit(tx, ctx, "AGENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, { login, email, agent_person_id: profile.agentPersonId, agent_legal_entity_id: profile.legalEntity.agentLegalEntityId, password_admin_set: true, password_hash_verified: true });
       return { userId, agentPersonId: profile.agentPersonId, agentLegalEntityId: profile.legalEntity.agentLegalEntityId };
     });
   } catch (e) {
@@ -331,11 +349,12 @@ async function setPassword(ctx, req, userId) {
   const user = await nonAdminUser(userId), b = await jsonBody(req), password = validatePassword(b.password);
   const { error } = await service.auth.admin.updateUserById(String(user.auth_user_id), { password });
   if (error) throw Object.assign(new Error("AUTH_PASSWORD_UPDATE_FAILED"), { status: 502 });
+  await assertPasswordPersisted(String(user.auth_user_id), password);
   await sql.begin(async (tx) => {
     await tx`update portal_private.portal_users set must_change_password=false,password_change_required_at=null,password_changed_at=now(),updated_at=now() where id=${userId}::uuid`;
-    await audit(tx, ctx, "PORTAL_USER_PASSWORD_SET_BY_ADMIN", "PORTAL_USER", userId, req, { password_admin_set: true });
+    await audit(tx, ctx, "PORTAL_USER_PASSWORD_SET_BY_ADMIN", "PORTAL_USER", userId, req, { password_admin_set: true, password_hash_verified: true });
   });
-  return { userId, passwordUpdated: true };
+  return { userId, passwordUpdated: true, passwordHashVerified: true };
 }
 
 async function blockUser(ctx, req, userId) {
