@@ -1,10 +1,11 @@
 // Admin HTML is intentionally excluded from shell middleware. Its exact route serves the
 // canonical static shell and a static resilience runtime without response buffering.
-// Agent keeps the shared logout control here. Client HTML is passed through unchanged.
+// Agent keeps the shared logout control here. Client receives only the isolated price-sync runtime.
 // Analytics JS is normalized at the delivery boundary so stale title runtimes cannot
 // replace the owner-approved v4.5.5 hero after deployment.
 
 const PORTAL_LOGOUT_RUNTIME = `<script id="rona-portal-logout-runtime">(()=>{'use strict';if(window.__RONA_PORTAL_LOGOUT_RUNTIME__)return;window.__RONA_PORTAL_LOGOUT_RUNTIME__=true;const HOME='https://ronaoil.com';let signingOut=false;const norm=v=>String(v||'').trim().toLocaleLowerCase('ru-RU');function existingControl(){const direct=document.querySelector('#adminLogoutBtn,#ronaLogout,[data-action="logout"],[data-logout],a[href="/portal/logout"],a[href="/portal/auth/logout"],form[action="/portal/logout"] button,form[action="/portal/auth/logout"] button');if(direct)return direct;return Array.from(document.querySelectorAll('button,a,[role="button"]')).find(el=>['выход','выйти','logout'].includes(norm(el.textContent)))||null}function fallbackControl(){const b=document.createElement('button');const kind='agent';b.type='button';b.id=kind+'LogoutBtn';b.textContent='Выход';b.setAttribute('aria-label','Выход');b.setAttribute('data-rona-logout-control',kind);const host=document.querySelector('[data-user-menu],.user-menu,.user-actions,.header-actions,.topbar-actions,.topbar,header')||document.body;const ref=host.querySelector('button:last-of-type,a[role="button"]:last-of-type');if(ref&&typeof ref.className==='string'&&ref.className.trim())b.className=ref.className;else{b.style.cursor='pointer';b.style.border='1px solid rgba(255,255,255,.18)';b.style.borderRadius='8px';b.style.padding='8px 12px';b.style.background='rgba(12,20,26,.9)';b.style.color='inherit';if(host===document.body){b.style.position='fixed';b.style.top='18px';b.style.right='18px';b.style.zIndex='2147483000'}}host.appendChild(b);return b}async function signOut(event){if(event){event.preventDefault();event.stopImmediatePropagation()}if(signingOut)return;signingOut=true;const b=event?.currentTarget||event?.target;if(b&&'disabled'in b)b.disabled=true;try{await fetch('/portal/logout',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}})}catch(_e){}finally{window.location.replace(HOME)}}function bind(){const b=existingControl()||fallbackControl();if(!b||b?.dataset?.ronaLogoutBound==='true')return;if(['выйти','logout'].includes(norm(b.textContent)))b.textContent='Выход';b.setAttribute('aria-label','Выход');b.dataset.ronaLogoutBound='true';b.addEventListener('click',signOut,true)}async function verifyRestore(){try{const r=await fetch('/portal/api/session/me',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});if(r.status===401||r.status===403)window.location.replace(HOME)}catch(_e){}}window.addEventListener('pageshow',event=>{const nav=performance.getEntriesByType?.('navigation')?.[0];if(event.persisted||nav?.type==='back_forward')verifyRestore()});if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
+const CLIENT_PRICE_SYNC_RUNTIME = `<script id="rona-client-price-sync-loader" src="/assets/portal-runtime/client-price-sync-v1.js?v=20260828-2055-1" defer><\/script>`;
 
 const ANALYTICS_V455_FINAL_LOCK = String.raw`
 ;(()=>{'use strict';
@@ -40,6 +41,9 @@ window.addEventListener('rona:admin-pagechange',e=>{if(e.detail?.page==='analyti
 class LogoutBodyInjector{
   element(el){el.append(PORTAL_LOGOUT_RUNTIME,{html:true});}
 }
+class ClientPriceSyncInjector{
+  element(el){el.append(CLIENT_PRICE_SYNC_RUNTIME,{html:true});}
+}
 
 export async function onRequest(context){
   const url=new URL(context.request.url);
@@ -49,7 +53,26 @@ export async function onRequest(context){
 
   if(url.pathname==='/portal/analytics-v2-ui')return analyticsResponse(context);
 
-  // Client is a strict pass-through: no DOM, CSS, script, title or control injection.
+  // Client receives one isolated same-origin runtime: published prices + application submission.
+  // No theme guard, no attribute observer and no global CSS injection are allowed here.
+  if(url.pathname==='/portal/client'){
+    const response=await context.next();
+    const contentType=String(response.headers.get('content-type')||'').toLowerCase();
+    if(response.status!==200||!contentType.includes('text/html'))return response;
+    const headers=new Headers(response.headers);
+    headers.delete('content-length');
+    headers.delete('etag');
+    headers.set('cache-control','no-store, no-cache, must-revalidate');
+    headers.set('x-rona-client-price-sync','safe-v1');
+    if(typeof HTMLRewriter==='function'){
+      const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      return new HTMLRewriter().on('body',new ClientPriceSyncInjector()).transform(base);
+    }
+    const source=await response.text();
+    const html=source.includes('rona-client-price-sync-loader')?source:source.replace('</body>',CLIENT_PRICE_SYNC_RUNTIME+'</body>');
+    return new Response(html,{status:response.status,statusText:response.statusText,headers});
+  }
+
   if(url.pathname!=='/portal/agent')return context.next();
   const response=await context.next();
   const contentType=String(response.headers.get('content-type')||'').toLowerCase();
