@@ -42,12 +42,12 @@ jobs:
           grep -q 'data-action="create-access">Создать доступ</button>' portal-src/current/admin.html
           grep -q 'id="nav"' portal-src/current/admin.html
           for p in home prices applications deals payments accounting monitoring messages access agent-settlements claims analytics market-news; do grep -q "data-page=\"$p\"" portal-src/current/admin.html; grep -q "id=\"page-$p\"" portal-src/current/admin.html; done
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
-          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v6-home-hidden-fallback-safe'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "current-loading:not(.rona-owner-original-hidden)" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "root.querySelector(':scope > .mn-masthead')" assets/portal-admin-runtime-watchdog-v1.js
           grep -q '__RONA_MARKET_NEWS_CURRENT_V1__' assets/portal-market-news-current-v1.js
