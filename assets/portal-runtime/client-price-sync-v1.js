@@ -1,9 +1,15 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v1';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v2-admin-parity';
 
 const API='/portal/api';
 const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0};
+const ADMIN_PRODUCER_BY_PRODUCT=new Map([
+  ['АИ-92 К5','ОАО «Мозырский НПЗ»'],
+  ['АИ-95 К5','ОАО «Мозырский НПЗ»'],
+  ['ДТ сорт C К5','ОАО «Мозырский НПЗ»'],
+  ['СУГ / СПБТ','ОАО «Мозырский НПЗ»'],
+]);
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -47,7 +53,7 @@ function chooseContext(contexts){
 function findPriceTable(){
   return Array.from(document.querySelectorAll('table')).find(table=>{
     const text=norm(table.querySelector('thead')?.textContent||table.textContent);
-    return text.includes('продукт')&&text.includes('класс');
+    return text.includes('продукт')&&(text.includes('класс')||text.includes('производитель')||text.includes('cpt озинки')||text.includes('cpt сарыагаш')||text.includes('cpt наушки'));
   })||null;
 }
 
@@ -71,17 +77,11 @@ function groupedProducts(){
 }
 
 function productLabel(product){
-  const value=String(product||'').trim();
-  if(/^АИ-\d+/i.test(value))return value.replace(/\s+К5\b/i,'').trim();
-  if(/^ДТ\b/i.test(value))return 'ДТ';
-  return value;
+  return String(product||'').trim();
 }
 
-function productClass(product){
-  const value=String(product||'').trim();
-  if(/дт/i.test(value)&&/сорт\s*c/i.test(value))return 'сорт C · К5';
-  if(/\bК5\b/i.test(value))return 'К5';
-  return '—';
+function producerLabel(product){
+  return ADMIN_PRODUCER_BY_PRODUCT.get(String(product||'').trim())||'—';
 }
 
 function priceText(item){
@@ -128,13 +128,26 @@ function markPublished(){
   }
 }
 
+function styleHeadCell(cell,index){
+  Object.assign(cell.style,{fontSize:'15px',lineHeight:'1.25',fontWeight:'800',padding:'14px 12px',verticalAlign:'middle',whiteSpace:'nowrap'});
+  if(index===0)cell.style.width='52px';
+  if(index===1)cell.style.minWidth='180px';
+  if(index===2)cell.style.minWidth='210px';
+}
+
+function styleBodyCell(cell,index){
+  Object.assign(cell.style,{fontSize:'16px',lineHeight:'1.35',fontWeight:index===0?'650':'700',padding:'15px 12px',verticalAlign:'middle'});
+  if(index===0){cell.style.width='52px';cell.style.whiteSpace='nowrap'}
+  if(index>=3)cell.style.whiteSpace='nowrap';
+}
+
 function makePriceButton(item){
   const button=document.createElement('button');
   button.type='button';
   button.dataset.ronaPriceItem=String(item.publication_item_id||'');
   button.textContent=priceText(item);
   button.title='Подать заявку';
-  Object.assign(button.style,{appearance:'none',border:'0',background:'transparent',padding:'0',margin:'0',color:'inherit',font:'inherit',fontWeight:'inherit',cursor:'pointer',width:'100%',textAlign:'left'});
+  Object.assign(button.style,{appearance:'none',border:'0',background:'transparent',padding:'3px 0',margin:'0',color:'inherit',fontFamily:'inherit',fontSize:'16px',lineHeight:'1.35',fontWeight:'800',cursor:'pointer',width:'100%',textAlign:'left',whiteSpace:'nowrap'});
   button.addEventListener('click',()=>openApplication(item));
   return button;
 }
@@ -144,17 +157,19 @@ function render(){
   const table=findPriceTable();
   if(!table)return false;
   const bases=uniqueBases();
-  const signature=[state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
+  const signature=['admin-parity-v2',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
   if(table.dataset.ronaPriceSyncSignature===signature)return true;
 
+  Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
   const head=table.tHead?.rows?.[0]||table.querySelector('thead tr');
   if(head){
-    while(head.children.length>3)head.removeChild(head.lastElementChild);
-    for(const basis of bases){
+    head.textContent='';
+    ['№','Продукт','Производитель',...bases].forEach((value,index)=>{
       const th=document.createElement('th');
-      th.textContent=basis;
+      th.textContent=value;
+      styleHeadCell(th,index);
       head.appendChild(th);
-    }
+    });
   }
 
   let body=table.tBodies?.[0]||table.querySelector('tbody');
@@ -162,15 +177,17 @@ function render(){
   body.textContent='';
   groupedProducts().forEach(([product,items],index)=>{
     const row=document.createElement('tr');
-    [String(index+1),productLabel(product),productClass(product)].forEach(value=>{
+    [String(index+1),productLabel(product),producerLabel(product)].forEach((value,cellIndex)=>{
       const cell=document.createElement('td');
       cell.textContent=value;
+      styleBodyCell(cell,cellIndex);
       row.appendChild(cell);
     });
     for(const basis of bases){
       const cell=document.createElement('td');
+      styleBodyCell(cell,row.children.length);
       const item=items.find(x=>String(x.basis||'').trim()===basis);
-      if(item)cell.appendChild(makePriceButton(item)); else cell.textContent='—';
+      if(item)cell.appendChild(makePriceButton(item));else cell.textContent='—';
       row.appendChild(cell);
     }
     body.appendChild(row);
@@ -204,7 +221,7 @@ function openApplication(item){
   Object.assign(overlay.style,{position:'fixed',inset:'0',zIndex:'2147483600',display:'grid',placeItems:'center',padding:'24px',background:'rgba(2,7,12,.76)'});
   const form=document.createElement('form');
   Object.assign(form.style,{width:'min(620px,calc(100vw - 32px))',maxHeight:'calc(100vh - 48px)',overflow:'auto',border:'1px solid rgba(101,217,255,.22)',borderRadius:'18px',padding:'22px',background:'linear-gradient(160deg,rgba(10,28,42,.99),rgba(5,14,23,.99))',boxShadow:'0 28px 90px rgba(0,0,0,.55)',color:'#f4f8fb',font:'13px/1.45 Inter,Arial,sans-serif'});
-  form.innerHTML=`<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#65d9ff;font-weight:800">RONA TRADE · ЗАЯВКА</div><h2 style="margin:6px 0 4px;font-size:24px">${esc(productLabel(item.product))}</h2><div style="color:#9eb3c1;margin-bottom:16px">${esc(item.basis)} · ${esc(priceText(item))} · поставка ${esc(periodText(item))}</div><label style="display:grid;gap:6px;margin:12px 0"><span>Количество, т</span><input name="quantity" inputmode="decimal" required min="0.001" step="0.001" style="padding:11px;border-radius:9px;border:1px solid rgba(145,194,216,.25);background:#081722;color:#fff"></label><label style="display:flex;gap:9px;align-items:center;margin:12px 0"><input name="listPrice" type="checkbox" checked><span>Цена по прайсу</span></label><label data-proposed style="display:none;gap:6px;margin:12px 0"><span>Предлагаемая цена, ${esc(item.currency||'USD')}/т</span><input name="proposedPrice" inputmode="decimal" min="0.01" step="0.01" style="padding:11px;border-radius:9px;border:1px solid rgba(145,194,216,.25);background:#081722;color:#fff"></label><label style="display:grid;gap:6px;margin:12px 0"><span>Комментарий</span><textarea name="comment" rows="3" style="resize:vertical;padding:11px;border-radius:9px;border:1px solid rgba(145,194,216,.25);background:#081722;color:#fff"></textarea></label><div data-error hidden style="margin:10px 0;padding:9px 11px;border-radius:8px;background:#3a1b21;color:#ffdfe3"></div><div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px"><button type="button" data-cancel style="padding:10px 15px;border-radius:9px;border:1px solid rgba(255,255,255,.16);background:#0b1a25;color:#dbe9ef;cursor:pointer">Отмена</button><button type="submit" style="padding:10px 16px;border-radius:9px;border:1px solid rgba(101,217,255,.35);background:#123b4b;color:#fff;font-weight:800;cursor:pointer">Подать заявку</button></div>`;
+  form.innerHTML=`<div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#65d9ff;font-weight:800">RONA TRADE · ЗАЯВКА</div><h2 style="margin:6px 0 4px;font-size:24px">${esc(productLabel(item.product))}</h2><div style="color:#9eb3c1;margin-bottom:16px">${esc(producerLabel(item.product))} · ${esc(item.basis)} · ${esc(priceText(item))} · поставка ${esc(periodText(item))}</div><label style="display:grid;gap:6px;margin:12px 0"><span>Количество, т</span><input name="quantity" inputmode="decimal" required min="0.001" step="0.001" style="padding:11px;border-radius:9px;border:1px solid rgba(145,194,216,.25);background:#081722;color:#fff"></label><label style="display:flex;gap:9px;align-items:center;margin:12px 0"><input name="listPrice" type="checkbox" checked><span>Цена по прайсу</span></label><label data-proposed style="display:none;gap:6px;margin:12px 0"><span>Предлагаемая цена, ${esc(item.currency||'USD')}/т</span><input name="proposedPrice" inputmode="decimal" min="0.01" step="0.01" style="padding:11px;border-radius:9px;border:1px solid rgba(145,194,216,.25);background:#081722;color:#fff"></label><label style="display:grid;gap:6px;margin:12px 0"><span>Комментарий</span><textarea name="comment" rows="3" style="resize:vertical;padding:11px;border-radius:9px;border:1px solid rgba(145,194,216,.25);background:#081722;color:#fff"></textarea></label><div data-error hidden style="margin:10px 0;padding:9px 11px;border-radius:8px;background:#3a1b21;color:#ffdfe3"></div><div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px"><button type="button" data-cancel style="padding:10px 15px;border-radius:9px;border:1px solid rgba(255,255,255,.16);background:#0b1a25;color:#dbe9ef;cursor:pointer">Отмена</button><button type="submit" style="padding:10px 16px;border-radius:9px;border:1px solid rgba(101,217,255,.35);background:#123b4b;color:#fff;font-weight:800;cursor:pointer">Подать заявку</button></div>`;
   overlay.appendChild(form);document.body.appendChild(overlay);
   overlay.addEventListener('mousedown',e=>{if(e.target===overlay)closeApplication()});
   form.querySelector('[data-cancel]').addEventListener('click',closeApplication);
@@ -231,7 +248,7 @@ function openApplication(item){
       }
       closeApplication();notify(applicationId?`Заявка ${applicationId} подана.`:'Заявка подана.');
       window.dispatchEvent(new CustomEvent('rona:client-application-submitted',{detail:{applicationId:applicationId||null}}));
-    }catch(error){error=String(error?.message||'APPLICATION_SUBMIT_FAILED');const node=form.querySelector('[data-error]');node.textContent='Не удалось подать заявку: '+error;node.hidden=false}
+    }catch(error){const code=String(error?.message||'APPLICATION_SUBMIT_FAILED');const node=form.querySelector('[data-error]');node.textContent='Не удалось подать заявку: '+code;node.hidden=false}
     finally{submit.disabled=false}
   });
 }
@@ -265,7 +282,5 @@ function scheduleRefresh(force=true){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>refresh(true),{once:true});else queueMicrotask(()=>refresh(true));
 document.addEventListener('click',()=>scheduleRefresh(true),true);
 document.addEventListener('change',()=>scheduleRefresh(true),true);
-const observer=new MutationObserver(()=>{if(state.prices.length)requestAnimationFrame(render)});
-observer.observe(document.documentElement,{subtree:true,childList:true});
 setInterval(()=>{if(document.visibilityState==='visible')refresh(false)},15000);
 })();
