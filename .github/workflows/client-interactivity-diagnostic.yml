@@ -26,3 +26,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Diagnose client navigation, overlays and runtime errors
         run: node scripts/qa-client-interactivity-diagnostic.mjs
+      - name: Exercise production CSP shell and viewport matrix
+        run: node scripts/qa-client-production-shell-matrix.mjs
