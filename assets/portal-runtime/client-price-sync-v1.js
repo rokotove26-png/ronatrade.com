@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v2-admin-parity';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v3-price-hover';
 
 const API='/portal/api';
 const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0};
@@ -12,7 +12,7 @@ const ADMIN_PRODUCER_BY_PRODUCT=new Map([
 ]);
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 
 async function request(path,init={}){
   const headers={accept:'application/json',...(init.headers||{})};
@@ -128,6 +128,45 @@ function markPublished(){
   }
 }
 
+function ensurePriceInteractionStyle(){
+  if(document.getElementById('ronaClientPriceInteractionV1'))return;
+  const style=document.createElement('style');
+  style.id='ronaClientPriceInteractionV1';
+  style.textContent=`
+button[data-rona-price-item]{
+  border:1px solid transparent!important;
+  border-radius:9px!important;
+  padding:7px 10px!important;
+  transition:background-color .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease,transform .14s ease!important;
+  outline:none!important;
+}
+@media (hover:hover) and (pointer:fine){
+  button[data-rona-price-item]:hover{
+    background:rgba(101,217,255,.11)!important;
+    border-color:rgba(101,217,255,.58)!important;
+    color:#c9f5ff!important;
+    box-shadow:inset 0 0 0 1px rgba(101,217,255,.08),0 0 16px rgba(101,217,255,.10)!important;
+    transform:translateY(-1px)!important;
+  }
+}
+button[data-rona-price-item]:focus-visible{
+  background:rgba(101,217,255,.12)!important;
+  border-color:rgba(101,217,255,.72)!important;
+  color:#d9f9ff!important;
+  box-shadow:0 0 0 2px rgba(101,217,255,.18)!important;
+}
+button[data-rona-price-item]:active{
+  background:rgba(101,217,255,.17)!important;
+  border-color:rgba(101,217,255,.78)!important;
+  transform:translateY(0)!important;
+}
+@media (prefers-reduced-motion:reduce){
+  button[data-rona-price-item]{transition:none!important;transform:none!important}
+}
+`;
+  document.head.appendChild(style);
+}
+
 function styleHeadCell(cell,index){
   Object.assign(cell.style,{fontSize:'15px',lineHeight:'1.25',fontWeight:'800',padding:'14px 12px',verticalAlign:'middle',whiteSpace:'nowrap'});
   if(index===0)cell.style.width='52px';
@@ -142,12 +181,14 @@ function styleBodyCell(cell,index){
 }
 
 function makePriceButton(item){
+  ensurePriceInteractionStyle();
   const button=document.createElement('button');
   button.type='button';
   button.dataset.ronaPriceItem=String(item.publication_item_id||'');
   button.textContent=priceText(item);
-  button.title='Подать заявку';
-  Object.assign(button.style,{appearance:'none',border:'0',background:'transparent',padding:'3px 0',margin:'0',color:'inherit',fontFamily:'inherit',fontSize:'16px',lineHeight:'1.35',fontWeight:'800',cursor:'pointer',width:'100%',textAlign:'left',whiteSpace:'nowrap'});
+  button.title='Нажмите, чтобы подать заявку по этой цене';
+  button.setAttribute('aria-label',`Подать заявку: ${productLabel(item.product)}, ${item.basis}, ${priceText(item)}`);
+  Object.assign(button.style,{appearance:'none',border:'1px solid transparent',background:'transparent',padding:'7px 10px',margin:'0',color:'inherit',fontFamily:'inherit',fontSize:'16px',lineHeight:'1.35',fontWeight:'800',cursor:'pointer',width:'100%',textAlign:'left',whiteSpace:'nowrap'});
   button.addEventListener('click',()=>openApplication(item));
   return button;
 }
@@ -157,7 +198,7 @@ function render(){
   const table=findPriceTable();
   if(!table)return false;
   const bases=uniqueBases();
-  const signature=['admin-parity-v2',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
+  const signature=['admin-parity-v3-hover',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
   if(table.dataset.ronaPriceSyncSignature===signature)return true;
 
   Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
