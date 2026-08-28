@@ -1,3 +1,4 @@
+// RONA_CLIENT_CONTEXT_RECOVERY_DEPLOY_TRIGGER_20260828
 import { onRequest as basePortal } from './[[path]].js';
 const PREPAINT='<meta name="rona-ui-primary" content="main-v2"><style id="rona-owner-prepaint-gate">html:not(.rona-owner-paint-ready) body>*:not(script):not(style){opacity:0!important;visibility:hidden!important;pointer-events:none!important}html:not(.rona-owner-paint-ready) body{cursor:wait}</style>';
 const LOADER='<script id="rona-main-ui-loader" src="/portal/main-ui" defer data-rona-ui="primary"></script>';
