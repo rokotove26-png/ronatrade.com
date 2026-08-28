@@ -1,0 +1,23 @@
+{
+  "schema": "RONA_CLIENT_CURRENT_CANONICAL/1.0",
+  "state": "CURRENT_ONLY",
+  "route": "/portal/client",
+  "source": "client_current_externalized.html",
+  "encoding": "base64+brotli",
+  "chunks": [
+    "payload.00",
+    "payload.01",
+    "payload.02",
+    "payload.03",
+    "payload.04",
+    "payload.05",
+    "payload.06",
+    "payload.07",
+    "payload.08",
+    "payload.09"
+  ],
+  "decoded_bytes": 487355,
+  "sha256": "ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb",
+  "visual_transform": "NONE",
+  "legacy_runtime": false
+}
