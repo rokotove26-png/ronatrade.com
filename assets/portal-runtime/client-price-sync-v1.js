@@ -1,9 +1,9 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v6-contract-download-v2';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260829-safe-v7-bounded-context';
 
 const API='/portal/api';
-const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0};
+const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0};
 const ADMIN_PRODUCER_BY_PRODUCT=new Map([
   ['АИ-92 К5','ОАО «Мозырский НПЗ»'],
   ['АИ-95 К5','ОАО «Мозырский НПЗ»'],
@@ -14,10 +14,10 @@ const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU'
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
 function ensureContractDownloadRuntime(){
-  if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__||document.getElementById('rona-client-contract-download-loader'))return;
+  if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__||window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V2__||window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__||document.getElementById('rona-client-contract-download-v3-fallback'))return;
   const script=document.createElement('script');
-  script.id='rona-client-contract-download-loader';
-  script.src='/assets/portal-runtime/client-contract-download-v1.js?v=20260828-secure-current-contract-v2';
+  script.id='rona-client-contract-download-v3-fallback';
+  script.src='/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-context-v3';
   script.defer=true;
   (document.head||document.documentElement).appendChild(script);
 }
@@ -40,7 +40,7 @@ function visible(el){
 }
 
 function currentControlTexts(){
-  const selector='button,[role="button"],select,option:checked,[aria-selected="true"],[data-active="true"],.active,.selected,[class*="company"],[class*="contract"]';
+  const selector='button,[role="button"],select,option:checked,[aria-selected="true"],[data-active="true"],.active,.selected,[class*="company"],[class*="contract"],[data-client-id],[data-contract-id]';
   return Array.from(document.querySelectorAll(selector)).filter(visible).map(el=>norm(el.textContent||el.value)).filter(Boolean);
 }
 
@@ -68,20 +68,13 @@ function findPriceTable(){
 
 function uniqueBases(){
   const out=[];
-  for(const item of state.prices){
-    const basis=String(item.basis||'').trim();
-    if(basis&&!out.includes(basis))out.push(basis);
-  }
+  for(const item of state.prices){const basis=String(item.basis||'').trim();if(basis&&!out.includes(basis))out.push(basis)}
   return out;
 }
 
 function groupedProducts(){
   const map=new Map();
-  for(const item of state.prices){
-    const key=String(item.product||'').trim();
-    if(!map.has(key))map.set(key,[]);
-    map.get(key).push(item);
-  }
+  for(const item of state.prices){const key=String(item.product||'').trim();if(!map.has(key))map.set(key,[]);map.get(key).push(item)}
   return [...map.entries()];
 }
 
@@ -98,22 +91,17 @@ function statusScope(){
   const anchor=labels.find(el=>norm(el.textContent)==='прайс-лист');
   return anchor?.closest('section,article,.card,.panel')||anchor?.parentElement?.parentElement||document;
 }
-
 function markPublished(){
   const scope=statusScope();
   for(const el of Array.from(scope.querySelectorAll('span,div,small,strong'))){
     const value=norm(el.textContent);
-    if(value==='ожидает публикации'||value==='ожидает публикацию'){
-      el.textContent='Опубликовано';
-      el.dataset.ronaPriceSyncStatus='published';
-    }
+    if(value==='ожидает публикации'||value==='ожидает публикацию'){el.textContent='Опубликовано';el.dataset.ronaPriceSyncStatus='published'}
   }
 }
 
 function ensurePriceInteractionStyle(){
   if(document.getElementById('ronaClientPriceInteractionV1'))return;
-  const style=document.createElement('style');
-  style.id='ronaClientPriceInteractionV1';
+  const style=document.createElement('style');style.id='ronaClientPriceInteractionV1';
   style.textContent=`
 button[data-rona-price-item]{border:1px solid transparent!important;border-radius:9px!important;padding:7px 10px!important;transition:background-color .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease,transform .14s ease!important;outline:none!important}
 @media (hover:hover) and (pointer:fine){button[data-rona-price-item]:hover{background:rgba(101,217,255,.11)!important;border-color:rgba(101,217,255,.58)!important;color:#c9f5ff!important;box-shadow:inset 0 0 0 1px rgba(101,217,255,.08),0 0 16px rgba(101,217,255,.10)!important;transform:translateY(-1px)!important}}
@@ -123,107 +111,51 @@ button[data-rona-price-item]:active{background:rgba(101,217,255,.17)!important;b
 `;
   document.head.appendChild(style);
 }
-
-function styleHeadCell(cell,index){
-  Object.assign(cell.style,{fontSize:'15px',lineHeight:'1.25',fontWeight:'800',padding:'14px 12px',verticalAlign:'middle',whiteSpace:'nowrap'});
-  if(index===0)cell.style.width='52px';
-  if(index===1)cell.style.minWidth='180px';
-  if(index===2)cell.style.minWidth='210px';
-}
-
-function styleBodyCell(cell,index){
-  Object.assign(cell.style,{fontSize:'16px',lineHeight:'1.35',fontWeight:index===0?'650':'700',padding:'15px 12px',verticalAlign:'middle'});
-  if(index===0){cell.style.width='52px';cell.style.whiteSpace='nowrap'}
-  if(index>=3)cell.style.whiteSpace='nowrap';
-}
-
+function styleHeadCell(cell,index){Object.assign(cell.style,{fontSize:'15px',lineHeight:'1.25',fontWeight:'800',padding:'14px 12px',verticalAlign:'middle',whiteSpace:'nowrap'});if(index===0)cell.style.width='52px';if(index===1)cell.style.minWidth='180px';if(index===2)cell.style.minWidth='210px'}
+function styleBodyCell(cell,index){Object.assign(cell.style,{fontSize:'16px',lineHeight:'1.35',fontWeight:index===0?'650':'700',padding:'15px 12px',verticalAlign:'middle'});if(index===0){cell.style.width='52px';cell.style.whiteSpace='nowrap'}if(index>=3)cell.style.whiteSpace='nowrap'}
 function makePriceButton(item){
-  ensurePriceInteractionStyle();
-  const button=document.createElement('button');
-  button.type='button';
-  button.dataset.ronaPriceItem=String(item.publication_item_id||'');
-  button.textContent=priceText(item);
-  button.title='Нажмите, чтобы подать заявку по этой цене';
-  button.setAttribute('aria-label',`Подать заявку: ${productLabel(item.product)}, ${item.basis}, ${priceText(item)}`);
-  Object.assign(button.style,{appearance:'none',border:'1px solid transparent',background:'transparent',padding:'7px 10px',margin:'0',color:'inherit',fontFamily:'inherit',fontSize:'16px',lineHeight:'1.35',fontWeight:'800',cursor:'pointer',width:'100%',textAlign:'left',whiteSpace:'nowrap'});
-  return button;
+  ensurePriceInteractionStyle();const button=document.createElement('button');button.type='button';button.dataset.ronaPriceItem=String(item.publication_item_id||'');button.textContent=priceText(item);button.title='Нажмите, чтобы подать заявку по этой цене';button.setAttribute('aria-label',`Подать заявку: ${productLabel(item.product)}, ${item.basis}, ${priceText(item)}`);Object.assign(button.style,{appearance:'none',border:'1px solid transparent',background:'transparent',padding:'7px 10px',margin:'0',color:'inherit',fontFamily:'inherit',fontSize:'16px',lineHeight:'1.35',fontWeight:'800',cursor:'pointer',width:'100%',textAlign:'left',whiteSpace:'nowrap'});return button;
 }
 
 function render(){
-  if(!state.prices.length)return false;
-  const table=findPriceTable();
-  if(!table)return false;
+  if(!state.prices.length)return false;const table=findPriceTable();if(!table)return false;
   const bases=uniqueBases();
-  const signature=['admin-parity-v4-display-only',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
-  if(table.dataset.ronaPriceSyncSignature===signature)return true;
-
+  const signature=['admin-parity-v7-bounded-context',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
+  if(table.dataset.ronaPriceSyncSignature===signature){markPublished();return true}
   Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
   const head=table.tHead?.rows?.[0]||table.querySelector('thead tr');
-  if(head){
-    head.textContent='';
-    ['№','Продукт','Производитель',...bases].forEach((value,index)=>{
-      const th=document.createElement('th');
-      th.textContent=value;
-      styleHeadCell(th,index);
-      head.appendChild(th);
-    });
-  }
-
-  let body=table.tBodies?.[0]||table.querySelector('tbody');
-  if(!body){body=document.createElement('tbody');table.appendChild(body)}
-  body.textContent='';
-  groupedProducts().forEach(([product,items],index)=>{
-    const row=document.createElement('tr');
-    [String(index+1),productLabel(product),producerLabel(product)].forEach((value,cellIndex)=>{
-      const cell=document.createElement('td');
-      cell.textContent=value;
-      styleBodyCell(cell,cellIndex);
-      row.appendChild(cell);
-    });
-    for(const basis of bases){
-      const cell=document.createElement('td');
-      styleBodyCell(cell,row.children.length);
-      const item=items.find(x=>String(x.basis||'').trim()===basis);
-      if(item)cell.appendChild(makePriceButton(item));else cell.textContent='—';
-      row.appendChild(cell);
-    }
-    body.appendChild(row);
-  });
-  table.dataset.ronaPriceSyncSignature=signature;
-  state.renderSignature=signature;
-  markPublished();
-  return true;
+  if(head){head.textContent='';['№','Продукт','Производитель',...bases].forEach((value,index)=>{const th=document.createElement('th');th.textContent=value;styleHeadCell(th,index);head.appendChild(th)})}
+  let body=table.tBodies?.[0]||table.querySelector('tbody');if(!body){body=document.createElement('tbody');table.appendChild(body)}body.textContent='';
+  groupedProducts().forEach(([product,items],index)=>{const row=document.createElement('tr');[String(index+1),productLabel(product),producerLabel(product)].forEach((value,cellIndex)=>{const cell=document.createElement('td');cell.textContent=value;styleBodyCell(cell,cellIndex);row.appendChild(cell)});for(const basis of bases){const cell=document.createElement('td');styleBodyCell(cell,row.children.length);const item=items.find(x=>String(x.basis||'').trim()===basis);if(item)cell.appendChild(makePriceButton(item));else cell.textContent='—';row.appendChild(cell)}body.appendChild(row)});
+  table.dataset.ronaPriceSyncSignature=signature;state.renderSignature=signature;markPublished();return true;
 }
 
 async function refresh(force=false){
   if(state.loading)return;
+  const now=Date.now();if(!force&&now-state.lastRefresh<15000){render();return}
   state.loading=true;
   try{
     ensureContractDownloadRuntime();
-    const boot=await request('/v1/client/bootstrap');
-    const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];
-    state.contexts=contexts;
-    const next=chooseContext(contexts);
-    if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
-    const changed=!state.context||state.context.client_id!==next.client_id||state.context.contract_id!==next.contract_id;
-    state.context=next;
-    if(changed||force||!state.prices.length){
-      const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
-      state.prices=Array.isArray(result?.prices)?result.prices:[];
-      window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,loadedAt:new Date().toISOString()};
-    }
-    render();
-  }catch(error){console.error('RONA client price sync',error)}
-  finally{state.loading=false}
+    const boot=await request('/v1/client/bootstrap');const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];state.contexts=contexts;
+    const next=chooseContext(contexts);if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
+    const changed=!state.context||state.context.client_id!==next.client_id||state.context.contract_id!==next.contract_id;state.context=next;
+    if(changed||force||!state.prices.length){const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));state.prices=Array.isArray(result?.prices)?result.prices:[];window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,loadedAt:new Date().toISOString()}}
+    state.lastRefresh=Date.now();render();
+  }catch(error){console.error('RONA client price sync',error)}finally{state.loading=false}
 }
 
-function scheduleRefresh(force=true){
-  clearTimeout(state.refreshTimer);
-  state.refreshTimer=setTimeout(()=>refresh(force),260);
+function isContextInteraction(target){
+  const el=target?.closest?.('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"],[role="tab"],button,[role="button"]');if(!el)return false;
+  if(el.matches('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"],[role="tab"]'))return true;
+  const t=norm(el.textContent),aria=norm(el.getAttribute?.('aria-label')),title=norm(el.getAttribute?.('title'));
+  return state.contexts.some(ctx=>[ctx.legal_name,ctx.current_external_contract_number,ctx.contract_id,ctx.client_id].map(norm).filter(Boolean).some(k=>(t&&t.includes(k))||(aria&&aria.includes(k))||(title&&title.includes(k))));
 }
+function scheduleRefresh(force=true){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(force),320)}
+function maybeRefresh(event){if(isContextInteraction(event.target))scheduleRefresh(true)}
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>refresh(true),{once:true});else queueMicrotask(()=>refresh(true));
-document.addEventListener('click',()=>scheduleRefresh(true),true);
-document.addEventListener('change',()=>scheduleRefresh(true),true);
-setInterval(()=>{if(document.visibilityState==='visible')refresh(false)},15000);
+document.addEventListener('click',maybeRefresh,true);
+document.addEventListener('change',maybeRefresh,true);
+window.addEventListener('pageshow',()=>{render();if(Date.now()-state.lastRefresh>15000)refresh(true)});
+setInterval(()=>{if(document.visibilityState==='visible')refresh(false)},30000);
 })();
