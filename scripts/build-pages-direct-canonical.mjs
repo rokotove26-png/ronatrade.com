@@ -21,6 +21,7 @@ const CLIENT_CURRENT = Object.freeze({
   bytes: 493060,
   out: 'client.html',
   visual_transform: 'NONE',
+  functional_transform: 'PRICE_APPLICATION_SUBMIT_V1',
   retired_runtime_sources: [
     'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html',
     'portal-src/canonical-transfer-v1_1/client_externalized.html',
@@ -70,6 +71,28 @@ async function walk(dir){ const out=[]; for(const e of await readdir(dir,{withFi
 function requireExact(label, bytes, expected){ const got=sha256(bytes); if(got!==expected) throw new Error(`${label} SHA-256 mismatch: ${got}`); }
 function requireSize(label, bytes, expected){ if(bytes.length!==expected) throw new Error(`${label} byte mismatch: ${bytes.length}`); }
 
+function applyClientFunctionalTransform(bytes){
+  const source=bytes.toString('utf8');
+  const disabled="document.getElementById('ronaOrderForm')?.addEventListener('submit',e=>{e.preventDefault();const draft=buildDraft();if(!draft){if(typeof toast==='function')toast('Проверьте обязательные поля заявки и текущий договорный контекст.');return}if(typeof toast==='function')toast('Заявка заполнена, но отправка пока недоступна.')});";
+  const enabled=`let applicationSubmitState={signature:'',key:''};
+ const applicationUuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+ function applicationPeriod(value){const s=String(value||'').trim();let m=s.match(/(\\d{4}-\\d{2}-\\d{2})\\D+(\\d{4}-\\d{2}-\\d{2})/);if(m)return{from:m[1],to:m[2]};m=s.match(/(\\d{2})\\.(\\d{2})\\.(\\d{4})\\D+(\\d{2})\\.(\\d{2})\\.(\\d{4})/);if(m)return{from:m[3]+'-'+m[2]+'-'+m[1],to:m[6]+'-'+m[5]+'-'+m[4]};return null}
+ function applicationDestination(offer,draft){const raw=String(offer?.namedPlace||offer?.basis||draft?.basis||'').trim();if(/Озинки/i.test(raw))return{country:'Россия',station:'Озинки'};if(/Наушки/i.test(raw))return{country:'Россия',station:'Наушки'};if(/Сарыагаш/i.test(raw))return{country:'Казахстан',station:'Сарыагаш'};return null}
+ function applicationPublicationItemId(offer,draft){return[offer?.id,offer?.offerId,draft?.offer_id].map(x=>String(x||'').trim()).find(x=>applicationUuid.test(x))||''}
+ function applicationKey(draft,itemId){const signature=[draft.client_id,draft.contract_id,draft.publication_id,itemId,draft.quantity_tons,draft.price_by_list?'LIST':'PROPOSED',draft.price_by_list?'':draft.proposed_price].join('|');if(applicationSubmitState.signature!==signature){const nonce=(window.crypto&&typeof window.crypto.randomUUID==='function')?window.crypto.randomUUID():String(Date.now())+'-'+Math.random().toString(36).slice(2);applicationSubmitState={signature,key:'PRICE-APP-'+nonce}}return applicationSubmitState.key}
+ async function postApplicationComment(draft,applicationId,idempotencyKey){const comment=String(draft.comment||'').trim();if(!comment)return true;const key=idempotencyKey+'-COMMENT';const r=await fetch('/portal/api/v1/events',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json','accept':'application/json','x-idempotency-key':key},body:JSON.stringify({role:'CLIENT',event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'APPLICATION',authority_target_type:'APPLICATION',authority_target_id:applicationId,client_id:draft.client_id,contract_id:draft.contract_id,payload:{application_id:applicationId,message_type:'APPLICATION_COMMENT',comment},idempotency_key:key})});const j=await r.json().catch(()=>null);return r.ok&&j?.ok===true}
+ async function submitApplicationDraft(draft){const pub=currentPublication(),offer=findOffer(pub,draft.offer_id),itemId=applicationPublicationItemId(offer,draft),period=applicationPeriod(offer?.deliveryPeriod||draft.delivery_period),dest=applicationDestination(offer,draft);if(!itemId)throw new Error('PRICE_OFFER_ID_INVALID');if(!period)throw new Error('PRICE_PERIOD_INVALID');if(!dest)throw new Error('PRICE_DESTINATION_INVALID');const key=applicationKey(draft,itemId);const payload={clientId:draft.client_id,contractId:draft.contract_id,publicationItemId:itemId,quantityTonnes:draft.quantity_tons,priceMode:draft.price_by_list?'ACCEPT_PUBLISHED_PRICE':'CLIENT_PROPOSED_PRICE',proposedPrice:draft.price_by_list?null:draft.proposed_price,proposedCurrency:draft.price_by_list?null:draft.currency,destinationCountry:dest.country,destinationStation:dest.station,deliveryPeriodFrom:period.from,deliveryPeriodTo:period.to,idempotencyKey:key};const r=await fetch('/portal/api/v1/client/applications',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json','accept':'application/json','x-idempotency-key':key},body:JSON.stringify(payload)});const j=await r.json().catch(()=>null);if(!r.ok||j?.ok!==true)throw new Error(String(j?.code||j?.error?.code||'APPLICATION_SUBMIT_FAILED'));const app=j?.application||j?.data||{},id=String(app.application_id||app.applicationId||'').trim();if(!id)throw new Error('APPLICATION_ID_MISSING');const commentOk=await postApplicationComment(draft,id,key).catch(()=>false);applicationSubmitState={signature:'',key:''};return{id,status:String(app.status||'SUBMITTED'),commentOk}}
+ document.getElementById('ronaOrderForm')?.addEventListener('submit',async e=>{e.preventDefault();const draft=buildDraft();if(!draft){if(typeof toast==='function')toast('Проверьте обязательные поля заявки и текущий договорный контекст.');return}const form=e.currentTarget,button=form?.querySelector('button[type="submit"]');if(button?.disabled)return;if(button)button.disabled=true;try{const result=await submitApplicationDraft(draft);close();if(typeof toast==='function')toast(result.commentOk?'Заявка '+result.id+' подана.':'Заявка '+result.id+' подана. Комментарий не передан.');window.dispatchEvent(new CustomEvent('rona:client-application-submitted',{detail:{applicationId:result.id,status:result.status}}))}catch(error){const code=String(error?.message||'');let message='Не удалось подать заявку. Обновите данные и повторите.';if(code==='PRICE_OFFER_ID_INVALID')message='Подача заявки недоступна: отсутствует ИД ценового предложения.';else if(code==='PRICE_PERIOD_INVALID')message='Подача заявки недоступна: период поставки не подтверждён.';else if(code==='PRICE_DESTINATION_INVALID')message='Подача заявки недоступна: пункт поставки не подтверждён.';if(typeof toast==='function')toast(message)}finally{if(button)button.disabled=false}});`;
+  const count=source.split(disabled).length-1;
+  if(count!==1) throw new Error(`CLIENT_APPLICATION_SUBMIT_PATCH_TARGET_COUNT:${count}`);
+  const transformed=source.replace(disabled,enabled);
+  for(const marker of ['/portal/api/v1/client/applications','ACCEPT_PUBLISHED_PRICE','CLIENT_PROPOSED_PRICE','publicationItemId','destinationCountry','deliveryPeriodFrom','CLIENT_MESSAGE_SUBMIT','rona:client-application-submitted']){
+    if(!transformed.includes(marker)) throw new Error(`CLIENT_APPLICATION_SUBMIT_MARKER_MISSING:${marker}`);
+  }
+  if(transformed.includes('Заявка заполнена, но отправка пока недоступна.')) throw new Error('CLIENT_APPLICATION_SUBMIT_DISABLED_HANDLER_REMAINS');
+  return Buffer.from(transformed,'utf8');
+}
+
 for(const retired of AGENT_LIFECYCLE.retired_runtime_sources){
   if(await exists(join(ROOT,...retired.split('/')))) throw new Error(`RETIRED_AGENT_RUNTIME_SOURCE_PRESENT: ${retired}`);
 }
@@ -94,6 +117,7 @@ try { clientBytes=brotliDecompressSync(Buffer.from(clientEncoded,'base64')); }
 catch (error) { throw new Error(`CURRENT_CLIENT_DECODE_FAILED: ${error?.message||error}`); }
 requireSize('Current client source',clientBytes,CLIENT_CURRENT.bytes);
 requireExact('Current client source',clientBytes,CLIENT_CURRENT.sha256);
+const clientOutputBytes=applyClientFunctionalTransform(clientBytes);
 
 const adminPath=join(ROOT,...ADMIN_CURRENT.path.split('/'));
 if(!(await exists(adminPath))) throw new Error(`CURRENT_ADMIN_SOURCE_MISSING: ${ADMIN_CURRENT.path}`);
@@ -121,7 +145,7 @@ await mkdir(join(OUT,'assets','portal-canonical'),{recursive:true});
 for(const [kind,spec] of Object.entries(ASSETS)) await writeFile(join(OUT,'assets','portal-canonical',spec.out),assetBytes[kind]);
 await writeFile(join(OUT,'portal',ADMIN_CURRENT.out),adminBytes);
 await writeFile(join(OUT,'portal',AGENT_SOURCE.out),agentBytes);
-await writeFile(join(OUT,'portal',CLIENT_CURRENT.out),clientBytes);
+await writeFile(join(OUT,'portal',CLIENT_CURRENT.out),clientOutputBytes);
 
 for(const [kind,spec] of Object.entries(ASSETS)){
   const emitted=await readFile(join(OUT,'assets','portal-canonical',spec.out));
@@ -131,8 +155,8 @@ for(const [kind,spec] of Object.entries(ASSETS)){
 const emittedAdmin=await readFile(join(OUT,'portal','admin.html'),'utf8');
 for(const marker of FORBIDDEN_ADMIN_MARKERS) if(emittedAdmin.includes(marker)) throw new Error(`DEPLOYED_ADMIN_FORBIDDEN_LEGACY_MARKER: ${marker}`);
 const emittedClient=await readFile(join(OUT,'portal',CLIENT_CURRENT.out));
-requireSize('Emitted current client',emittedClient,CLIENT_CURRENT.bytes);
-requireExact('Emitted current client',emittedClient,CLIENT_CURRENT.sha256);
+requireSize('Emitted current client',emittedClient,clientOutputBytes.length);
+requireExact('Emitted current client',emittedClient,sha256(clientOutputBytes));
 
 const integrity={
   architecture:'CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS',
@@ -154,8 +178,11 @@ const integrity={
     route:CLIENT_CURRENT.route,
     source_dir:CLIENT_CURRENT.source_dir,
     source_sha256:CLIENT_CURRENT.sha256,
-    emitted_bytes:CLIENT_CURRENT.bytes,
+    source_bytes:CLIENT_CURRENT.bytes,
+    emitted_sha256:sha256(clientOutputBytes),
+    emitted_bytes:clientOutputBytes.length,
     visual_transform:CLIENT_CURRENT.visual_transform,
+    functional_transform:CLIENT_CURRENT.functional_transform,
     legacy_runtime_in_deployment:false,
     retired_runtime_sources:CLIENT_CURRENT.retired_runtime_sources,
   },
@@ -168,4 +195,4 @@ await writeFile(join(OUT,'canonical-visual-integrity.json'),JSON.stringify(integ
 for(const name of FORBIDDEN_TOP_LEVEL) if(await exists(join(OUT,name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files=await walk(OUT);
 for(const required of ['index.html','en/index.html','investments/index.html','en/investments/index.html','_routes.json','portal/admin.html','portal/agent.html','portal/client.html','assets/portal-canonical/background.png','assets/portal-canonical/logo.svg','canonical-visual-integrity.json']) if(!(await exists(join(OUT,...required.split('/'))))) throw new Error(`dist/${required} missing`);
-console.log(`RONA direct build PASS: ${files.length} public files; Admin CURRENT_ONLY ${sha256(adminBytes)} (${adminBytes.length} bytes); Agent ${AGENT_SOURCE.sha256} CURRENT_ONLY; Client CURRENT_ONLY ${CLIENT_CURRENT.sha256} (${CLIENT_CURRENT.bytes} bytes), no legacy Client runtime, no Client visual transform; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}.`);
+console.log(`RONA direct build PASS: ${files.length} public files; Admin CURRENT_ONLY ${sha256(adminBytes)} (${adminBytes.length} bytes); Agent ${AGENT_SOURCE.sha256} CURRENT_ONLY; Client source CURRENT_ONLY ${CLIENT_CURRENT.sha256} (${CLIENT_CURRENT.bytes} bytes), emitted ${sha256(clientOutputBytes)} (${clientOutputBytes.length} bytes), functional transform ${CLIENT_CURRENT.functional_transform}, no legacy Client runtime, no Client visual transform; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}.`);
