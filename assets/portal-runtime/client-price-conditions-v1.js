@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_CONDITIONS_V1__)return;
-window.__RONA_CLIENT_PRICE_CONDITIONS_V1__='20260828-premium-terms-v2';
+window.__RONA_CLIENT_PRICE_CONDITIONS_V1__='20260828-premium-terms-v3';
 
 const BLOCK_ID='ronaClientPriceConditionsV1';
 const STYLE_ID='ronaClientPriceConditionsPremiumV2';
@@ -151,7 +151,7 @@ function render(){
   const grid=document.createElement('div');grid.className='rona-pc-grid';
   grid.append(
     metric('Прайс-лист',data.publication),
-    metric('Период поставки',data.period),
+    metric('Период отгрузки',data.period),
     metric('Валюта / единица',data.unit),
     metric('Условия поставки',data.delivery),
   );
