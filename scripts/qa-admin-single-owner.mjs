@@ -51,7 +51,7 @@ for(const forbidden of ['openCanonicalAccessModal','installCanonicalAccessCreate
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
 need(has(access,"'x-rona-shell-mutation':'none'")&&has(access,"'x-rona-access-create-owner':'clients-agents-current-v5'"),'Page-scoped single-owner contract is missing');
 
-need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260828-polish-no-access-owner-v5'"),'Approved polish no-access-owner marker is missing');
+need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260828-polish-no-access-owner-v6'"),'Approved polish no-access-owner marker is missing');
 need(has(polish,"window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})"),'In-app Admin dialog service is missing');
 need(has(polish,"'x-rona-access-create-owner':'none'")&&!has(polish,'installCanonicalAccessCreate')&&!has(polish,'openCanonicalAccessModal'),'Polish runtime still owns access creation');
 need(has(analyticsCompat,"'x-rona-access-loader':'none'")&&!has(analyticsCompat,'loadCanonicalAccess')&&!has(analyticsCompat,'admin-canonical-create-access-v441-ui'),'Analytics compatibility runtime still loads access UI');
