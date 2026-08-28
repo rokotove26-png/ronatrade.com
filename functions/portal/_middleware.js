@@ -1,6 +1,6 @@
 import { onRequest as coreOnRequest } from './_middleware-core.js';
 
-const CLIENT_ADMIN_SYNC_RUNTIME = `<script id="rona-client-single-logout-loader-v2" src="/assets/portal-runtime/client-shell-guard-v2.js?v=20260829-single-logout-v2" defer><\/script><script id="rona-client-contract-download-v2-loader" src="/assets/portal-runtime/client-contract-download-v2.js?v=20260829-admin-authoritative-v1" defer><\/script><script id="rona-client-deal-documents-v1-loader" src="/assets/portal-runtime/client-deal-documents-v1.js?v=20260829-deals-full-card-anchor-v1-8" defer><\/script>`;
+const CLIENT_ADMIN_SYNC_RUNTIME = `<script id="rona-client-single-logout-loader-v2" src="/assets/portal-runtime/client-shell-guard-v2.js?v=20260829-single-logout-v2" defer><\/script><script id="rona-client-contract-download-v2-loader" src="/assets/portal-runtime/client-contract-download-v2.js?v=20260829-admin-authoritative-v1" defer><\/script><script id="rona-client-deal-documents-v2-loader" src="/assets/portal-runtime/client-deal-documents-v2.js?v=20260829-universal-multideal-v2" defer><\/script>`;
 
 class ClientAdminSyncHeadInjector {
   element(el) {
@@ -19,7 +19,7 @@ export async function onRequest(context) {
   headers.delete('content-length');
   headers.delete('etag');
   headers.set('cache-control','no-store, no-cache, must-revalidate');
-  headers.set('x-rona-client-admin-sync','contract-v2-single-logout-v2-deal-documents-v1-8-full-card-anchor');
+  headers.set('x-rona-client-admin-sync','contract-v2-single-logout-v2-deal-documents-v2-universal-multideal');
 
   if(typeof HTMLRewriter==='function'){
     const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers});
@@ -27,6 +27,6 @@ export async function onRequest(context) {
   }
 
   const source=await response.text();
-  const html=source.includes('rona-client-deal-documents-v1-loader')?source:source.replace('</head>',CLIENT_ADMIN_SYNC_RUNTIME+'</head>');
+  const html=source.includes('rona-client-deal-documents-v2-loader')?source:source.replace('</head>',CLIENT_ADMIN_SYNC_RUNTIME+'</head>');
   return new Response(html,{status:response.status,statusText:response.statusText,headers});
 }
