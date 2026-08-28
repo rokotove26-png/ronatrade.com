@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_APPROVED_POLISH__)return;
-window.__RONA_ADMIN_APPROVED_POLISH__='20260828-polish-no-access-owner-v5';
+window.__RONA_ADMIN_APPROVED_POLISH__='20260828-polish-no-access-owner-v6';
 if(location.pathname!=='/portal/admin')return;
 
 const q=(s,r=document)=>r.querySelector(s);
@@ -16,7 +16,7 @@ function ensureStyle(){
     '#page-claims .rona-claims-side>.rona-claims-detail-card{grid-column:auto!important}',
     '#page-messages.rona-radio-single-owner-ready>*:not(.rona-rs-root[data-kind="radio"]){display:none!important}',
     '#page-messages.rona-radio-single-owner-ready>.rona-rs-root[data-kind="radio"]{display:grid!important;visibility:visible!important;opacity:1!important}',
-    '.rona-admin-dialog-mask{position:fixed;inset:0;z-index:2147483400;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,14,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}',
+    '.rona-admin-dialog-mask{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,14,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}',
     '.rona-admin-dialog{width:min(500px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;border:1px solid rgba(222,236,248,.30);border-radius:18px;background:rgba(5,16,28,.99);color:#f7fbff;box-shadow:0 28px 90px rgba(0,0,0,.52)}',
     '.rona-admin-dialog-head{padding:20px 22px 12px}.rona-admin-dialog-head h2{margin:0;font-size:22px;line-height:1.2}.rona-admin-dialog-body{padding:4px 22px 20px;color:#b6c4d1;font-size:14px;line-height:1.55;white-space:pre-wrap}',
     '.rona-admin-dialog-fields{display:grid;gap:13px;padding:0 22px 4px}.rona-admin-dialog-field{display:grid;gap:7px}.rona-admin-dialog-field span{font-size:13px;color:#b6c4d1}.rona-admin-dialog-field input{width:100%;height:44px;border:1px solid rgba(222,236,248,.30);border-radius:12px;background:rgba(7,18,31,.82);color:#fff;padding:0 13px;outline:none}',
@@ -73,8 +73,9 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-admin-polish':'no-access-owner-v5',
+    'x-rona-admin-polish':'no-access-owner-v6',
     'x-rona-access-create-owner':'none',
+    'x-rona-dialog-layer':'above-access-v1',
     'x-rona-shell-mutation':'claims-layout-radio-dialog-service'
   }});
 }
