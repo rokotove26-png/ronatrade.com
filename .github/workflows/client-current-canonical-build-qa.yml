@@ -12,7 +12,7 @@ permissions:
 jobs:
   canonical-client-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +28,14 @@ jobs:
           set -euo pipefail
           node --check functions/portal/_middleware.js
           node --check 'functions/portal/[[path]].js'
+
+      - name: Compile Pages Functions
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .pages-build
+          npx --yes wrangler@latest pages functions build functions --outfile=.pages-build/worker.js
+          test -s .pages-build/worker.js
 
       - name: Build canonical deployment
         run: npm run build
