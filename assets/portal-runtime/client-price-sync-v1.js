@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v4-display-only';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260828-safe-v5-contract-download';
 
 const API='/portal/api';
 const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0};
@@ -12,6 +12,16 @@ const ADMIN_PRODUCER_BY_PRODUCT=new Map([
 ]);
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
+
+function ensureContractDownloadRuntime(){
+  if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__||document.getElementById('rona-client-contract-download-loader'))return;
+  const script=document.createElement('script');
+  script.id='rona-client-contract-download-loader';
+  script.src='/assets/portal-runtime/client-contract-download-v1.js?v=20260828-secure-current-contract-v1';
+  script.defer=true;
+  (document.head||document.documentElement).appendChild(script);
+}
+ensureContractDownloadRuntime();
 
 async function request(path,init={}){
   const headers={accept:'application/json',...(init.headers||{})};
@@ -189,6 +199,7 @@ async function refresh(force=false){
   if(state.loading)return;
   state.loading=true;
   try{
+    ensureContractDownloadRuntime();
     const boot=await request('/v1/client/bootstrap');
     const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];
     state.contexts=contexts;
