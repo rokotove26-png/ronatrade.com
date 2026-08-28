@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const MARK='20260829-deal-documents-v1-6-document-buttons';
+  const MARK='20260829-deal-documents-v1-7-single-line-status';
   if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__===MARK)return;
   window.__RONA_CLIENT_DEAL_DOCUMENTS_V1__=MARK;
 
@@ -10,6 +10,7 @@
   const LEGACY_RE=/^(?:ДС\s*(?:(?:И|\/|&)\s*)?(?:ИНВОЙС(?:Ы)?|INVOICES?)|DS\s*(?:(?:AND|\/|&)\s*)?INVOICES?)$/i;
   const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/;
   const RESOURCE_STATUS_RE=/^(?:РЕСУРС\s+)?ПОДТВЕРЖД[ЕЁ]Н$/i;
+  const DEAL_STATUS_RE=/^(?:В\s+ИСПОЛНЕНИИ|РЕСУРС\s+ПОДТВЕРЖД[ЕЁ]Н|ПЛАТЕЖИ|ОЖИДАЕТ\s+ОПЛАТЫ|ОПЛАЧЕН(?:О|А)?|ЗАВЕРШЕН(?:А|О)?|ЗАКРЫТ(?:А|О)?|ОТМЕНЕН(?:А|О)?|НА\s+СОГЛАСОВАНИИ)$/i;
   const state={deals:new Map(),busy:false,lastError:null};
   let observerActive=false;
 
@@ -25,10 +26,11 @@
       .${PANEL_CLASS}{width:100%;min-width:0;box-sizing:border-box;margin-top:14px;padding-top:12px;border-top:1px solid rgba(113,154,184,.15);font-family:inherit;color:inherit}
       .${PANEL_CLASS}__head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 1px 9px}
       .${PANEL_CLASS}__title{font-size:11.8px;font-weight:760;line-height:1.2;letter-spacing:.015em;color:rgba(203,213,225,.72)}
-      .${PANEL_CLASS}__stage{font-size:10.2px;font-weight:760;line-height:1;padding:4px 8px;border-radius:999px;border:1px solid rgba(96,165,250,.24);background:rgba(59,130,246,.07);color:rgba(191,219,254,.90);white-space:nowrap}
-      .${PANEL_CLASS}__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;width:100%;min-width:0}
-      .${PANEL_CLASS}__action{position:relative;appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:39px;padding:0 16px;border:1px solid rgba(93,180,226,.42);border-radius:9px;background:linear-gradient(180deg,rgba(19,66,97,.92),rgba(8,39,62,.94));box-shadow:0 5px 14px rgba(1,8,16,.20),inset 0 1px 0 rgba(255,255,255,.07);color:rgba(244,250,255,.96);font:760 11.5px/1.15 inherit;letter-spacing:.005em;cursor:pointer;white-space:nowrap;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease}
-      .${PANEL_CLASS}__action::before{display:grid;place-items:center;width:20px;height:20px;flex:0 0 20px;border-radius:6px;background:rgba(125,211,252,.10);border:1px solid rgba(125,211,252,.18);font-size:13px;font-weight:800;line-height:1;color:rgba(186,230,253,.96)}
+      .${PANEL_CLASS}__stage{font-size:10.3px;font-weight:720;line-height:1;height:22px;box-sizing:border-box;display:inline-flex;align-items:center;padding:0 9px;border-radius:999px;border:1px solid rgba(96,165,250,.24);background:rgba(59,130,246,.07);color:rgba(191,219,254,.90);white-space:nowrap}
+      .${PANEL_CLASS}__actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap!important;width:100%;min-width:0;overflow-x:auto;overflow-y:hidden;padding:1px 0 2px;scrollbar-width:none}
+      .${PANEL_CLASS}__actions::-webkit-scrollbar{display:none}
+      .${PANEL_CLASS}__action{position:relative;appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;min-height:38px;padding:0 13px;border:1px solid rgba(93,180,226,.42);border-radius:9px;background:linear-gradient(180deg,rgba(19,66,97,.92),rgba(8,39,62,.94));box-shadow:0 5px 14px rgba(1,8,16,.20),inset 0 1px 0 rgba(255,255,255,.07);color:rgba(244,250,255,.96);font:760 11.5px/1.15 inherit;letter-spacing:.005em;cursor:pointer;white-space:nowrap;transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease,filter .16s ease}
+      .${PANEL_CLASS}__action::before{display:grid;place-items:center;width:19px;height:19px;flex:0 0 19px;border-radius:6px;background:rgba(125,211,252,.10);border:1px solid rgba(125,211,252,.18);font-size:12px;font-weight:800;line-height:1;color:rgba(186,230,253,.96)}
       .${PANEL_CLASS}__action--download::before{content:'↓'}
       .${PANEL_CLASS}__action--signed::before{content:'✓';background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.18);color:rgba(187,247,208,.96)}
       .${PANEL_CLASS}__action:hover{transform:translateY(-1px);border-color:rgba(125,211,252,.70);box-shadow:0 8px 20px rgba(1,8,16,.28),0 0 0 1px rgba(56,189,248,.07),inset 0 1px 0 rgba(255,255,255,.10);filter:brightness(1.08)}
@@ -40,12 +42,13 @@
       .${PANEL_CLASS}__action--upload:hover{border-color:rgba(254,202,202,.96);box-shadow:0 9px 24px rgba(127,29,29,.38),0 0 20px rgba(239,68,68,.18),inset 0 1px 0 rgba(255,255,255,.13)}
       .${PANEL_CLASS}__empty{padding:6px 1px;font-size:10.8px;color:rgba(203,213,225,.48)}
       .${PANEL_CLASS}__error{margin-top:8px;padding:0 1px;font-size:11px;color:#fca5a5}
-      .${CARD_CLASS}__resource{display:inline-flex!important;align-items:center!important;gap:5px!important;min-height:20px!important;padding:3px 8px!important;border-radius:999px!important;border:1px solid rgba(74,222,128,.20)!important;background:rgba(34,197,94,.045)!important;color:rgba(187,247,208,.82)!important;font-size:10.3px!important;font-weight:700!important;line-height:1!important;white-space:nowrap!important}
+      .${CARD_CLASS}__status{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-height:22px!important;height:22px!important;box-sizing:border-box!important;padding:0 9px!important;border-radius:999px!important;font-size:10.3px!important;font-weight:720!important;line-height:1!important;white-space:nowrap!important;vertical-align:middle!important;margin-top:0!important;margin-bottom:0!important;transform:none!important}
+      .${CARD_CLASS}__resource{gap:5px!important;border:1px solid rgba(74,222,128,.20)!important;background:rgba(34,197,94,.045)!important;color:rgba(187,247,208,.82)!important}
       .${CARD_CLASS}__resource::before{content:'';display:block;width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.82}
       @keyframes ronaSignedDsButtonFlow{0%{background-position:100% 0}100%{background-position:-100% 0}}
       @keyframes ronaSignedDsButtonPulse{0%,100%{box-shadow:0 6px 18px rgba(127,29,29,.22),0 0 0 1px rgba(239,68,68,.05)}50%{box-shadow:0 8px 24px rgba(127,29,29,.36),0 0 18px rgba(239,68,68,.20)}}
       @keyframes ronaSignedDsButtonSweep{0%,24%{left:-48%;opacity:0}40%{opacity:1}62%{left:116%;opacity:0}100%{left:116%;opacity:0}}
-      @media(max-width:760px){.${PANEL_CLASS}__actions{align-items:stretch}.${PANEL_CLASS}__action{width:100%;justify-content:flex-start;min-height:42px}}
+      @media(max-width:760px){.${PANEL_CLASS}__actions{gap:8px}.${PANEL_CLASS}__action{min-height:40px;padding-left:12px;padding-right:12px}}
       @media(prefers-reduced-motion:reduce){.${PANEL_CLASS}__action--upload,.${PANEL_CLASS}__action--upload::after{animation:none}}
     `;
     document.head.appendChild(s);
@@ -169,12 +172,32 @@
     node.textContent=value;
   }
 
+  function normalizeDealStatuses(host){
+    const nodes=[...host.querySelectorAll('span,small,label,p,strong,b,div')]
+      .filter(n=>visible(n)&&!n.closest(`.${PANEL_CLASS}`)&&DEAL_STATUS_RE.test(text(n.textContent)));
+    const selected=[];
+    for(const node of nodes){
+      const value=text(node.textContent);
+      if(selected.some(n=>text(n.textContent)===value))continue;
+      const same=nodes.filter(n=>text(n.textContent)===value);
+      same.sort((a,b)=>{
+        const ac=a.childElementCount,bc=b.childElementCount;
+        if(ac!==bc)return ac-bc;
+        const ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();
+        return ar.width*ar.height-br.width*br.height;
+      });
+      selected.push(same[0]);
+    }
+    selected.forEach(n=>n.classList.add(`${CARD_CLASS}__status`));
+  }
+
   function polishDealHost(host){
     host.classList.add(CARD_CLASS);
     const resourceLabel=smallestExact(host,'Ресурс');
     if(resourceLabel)resourceLabel.remove();
     const status=statusNode(host);
-    if(status){replaceStatusText(status,'Ресурс подтвержден');status.classList.add(`${CARD_CLASS}__resource`)}
+    if(status){replaceStatusText(status,'Ресурс подтвержден');status.classList.add(`${CARD_CLASS}__resource`,`${CARD_CLASS}__status`)}
+    normalizeDealStatuses(host);
   }
 
   function typeDocs(info,type){return info.documents.filter(d=>text(d.document_type).toUpperCase()===type)}
