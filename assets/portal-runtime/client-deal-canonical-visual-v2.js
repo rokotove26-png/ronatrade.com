@@ -58,22 +58,28 @@ function hideOriginal(n){if(!n||!n.isConnected||n.closest(`.${PANEL}`)||n.closes
 function setText(el,value){if(norm(el.textContent)!==norm(value))el.textContent=value}
 function composeHost(host){
   const id=norm(host.dataset.ronaCanonicalDealId||'');if(!DEAL_RE.test(id))return;
-  const ls=leaves(host);if(host.getAttribute('data-rona-deal-summary-ready')==='true'&&!ls.length)return;
+  const existingV8=host.querySelector('[data-rona-deal-summary="canonical-v8"]');
+  const ls=leaves(host);if(host.getAttribute('data-rona-deal-summary-ready')==='true'&&!ls.length&&existingV8)return;
+  const legacyDetail=host.querySelector('[data-rona-deal-summary-detail]');
   const idNodes=ls.filter(n=>norm(n.textContent)===id),amountNodes=ls.filter(n=>AMOUNT_RE.test(norm(n.textContent))),statusNodes=ls.filter(n=>STATUS_RE.test(norm(n.textContent))||/^Сумма$/iu.test(norm(n.textContent)));
   const detailCandidates=ls.filter(n=>{const t=norm(n.textContent);return t!==id&&!AMOUNT_RE.test(t)&&!STATUS_RE.test(t)&&!/^Сумма$/iu.test(t)&&t!=='Документы'&&t.length>=8});
   const primary=detailCandidates.sort((a,b)=>norm(b.textContent).length-norm(a.textContent).length)[0]||null;
-  const detail=splitDetail(primary?.textContent||'');
-  const amount=norm(amountNodes[0]?.textContent||'');
-  let summary=host.querySelector('[data-rona-deal-summary="canonical-v8"]')||host.querySelector('[data-rona-deal-summary]');
+  const detail=splitDetail(primary?.textContent||legacyDetail?.textContent||'');
+  const legacyAmount=host.querySelector('[data-rona-deal-summary-amount]');
+  const amount=norm(amountNodes[0]?.textContent||legacyAmount?.textContent||'');
+  let summary=existingV8||host.querySelector('[data-rona-deal-summary]');
   if(!summary){summary=document.createElement('div');summary.className=`${HOST}__summary`;host.insertBefore(summary,host.firstChild)}
+  summary.className=`${HOST}__summary`;
   summary.setAttribute('data-rona-deal-summary','canonical-v8');
-  let main=summary.querySelector('[data-rona-deal-summary-main]');if(!main){main=document.createElement('div');main.className=`${HOST}__summary-main`;main.setAttribute('data-rona-deal-summary-main','true');summary.append(main)}
-  let headline=main.querySelector('[data-rona-deal-summary-headline]');if(!headline){headline=document.createElement('div');headline.className=`${HOST}__headline`;headline.setAttribute('data-rona-deal-summary-headline','true');main.append(headline)}
-  let idEl=headline.querySelector('[data-rona-deal-summary-id]');if(!idEl){idEl=document.createElement('div');idEl.className=`${HOST}__dealid`;idEl.setAttribute('data-rona-deal-summary-id','true');headline.append(idEl)}setText(idEl,id);
-  let subjectEl=headline.querySelector('[data-rona-deal-summary-subject]');if(!subjectEl){subjectEl=document.createElement('div');subjectEl.className=`${HOST}__subject`;subjectEl.setAttribute('data-rona-deal-summary-subject','true');headline.append(subjectEl)}setText(subjectEl,detail.subject);subjectEl.hidden=!detail.subject;
-  let termsEl=summary.querySelector('[data-rona-deal-summary-terms]');if(!termsEl){termsEl=document.createElement('div');termsEl.className=`${HOST}__terms`;termsEl.setAttribute('data-rona-deal-summary-terms','true');main.insertAdjacentElement('afterend',termsEl)}setText(termsEl,detail.terms);termsEl.hidden=!detail.terms;
-  let side=summary.querySelector('[data-rona-deal-summary-side]');if(!side){side=document.createElement('div');side.className=`${HOST}__summary-side`;side.setAttribute('data-rona-deal-summary-side','true');summary.append(side)}
-  let amountEl=side.querySelector('[data-rona-deal-summary-amount]');if(amount){if(!amountEl){amountEl=document.createElement('div');amountEl.className=`${HOST}__amount`;amountEl.setAttribute('data-rona-deal-summary-amount','true');side.prepend(amountEl)}setText(amountEl,amount)}else amountEl?.remove();
+  let main=summary.querySelector('[data-rona-deal-summary-main]');if(!main){main=document.createElement('div');main.className=`${HOST}__summary-main`;main.setAttribute('data-rona-deal-summary-main','true');summary.prepend(main)}
+  main.className=`${HOST}__summary-main`;
+  let headline=main.querySelector('[data-rona-deal-summary-headline]');if(!headline){headline=document.createElement('div');headline.className=`${HOST}__headline`;headline.setAttribute('data-rona-deal-summary-headline','true');const oldId=main.querySelector(':scope > [data-rona-deal-summary-id]');if(oldId)headline.append(oldId);main.querySelectorAll(':scope > [data-rona-deal-summary-detail]').forEach(n=>n.remove());main.append(headline)}
+  let idEl=headline.querySelector('[data-rona-deal-summary-id]');if(!idEl){idEl=document.createElement('div');idEl.setAttribute('data-rona-deal-summary-id','true');headline.prepend(idEl)}idEl.className=`${HOST}__dealid`;setText(idEl,id);
+  let subjectEl=headline.querySelector('[data-rona-deal-summary-subject]');if(!subjectEl){subjectEl=document.createElement('div');subjectEl.setAttribute('data-rona-deal-summary-subject','true');headline.append(subjectEl)}subjectEl.className=`${HOST}__subject`;setText(subjectEl,detail.subject);subjectEl.hidden=!detail.subject;
+  main.querySelectorAll(':scope > [data-rona-deal-summary-detail]').forEach(n=>n.remove());
+  let termsEl=summary.querySelector('[data-rona-deal-summary-terms]');if(!termsEl){termsEl=document.createElement('div');termsEl.setAttribute('data-rona-deal-summary-terms','true');main.insertAdjacentElement('afterend',termsEl)}termsEl.className=`${HOST}__terms`;setText(termsEl,detail.terms);termsEl.hidden=!detail.terms;
+  let side=summary.querySelector('[data-rona-deal-summary-side]');if(!side){side=document.createElement('div');side.setAttribute('data-rona-deal-summary-side','true');summary.append(side)}side.className=`${HOST}__summary-side`;
+  let amountEl=side.querySelector('[data-rona-deal-summary-amount]');if(amount){if(!amountEl){amountEl=document.createElement('div');amountEl.setAttribute('data-rona-deal-summary-amount','true');side.prepend(amountEl)}amountEl.className=`${HOST}__amount`;setText(amountEl,amount)}else amountEl?.remove();
   const open=[...host.querySelectorAll('button,a,[role="button"]')].find(n=>!n.closest(`.${PANEL}`)&&norm(n.textContent).toLocaleLowerCase('ru-RU')==='открыть');if(open&&!open.closest('[data-rona-deal-summary-side]')){open.classList.add(`${HOST}__open`);side.append(open)}
   for(const n of [...idNodes,...amountNodes,...statusNodes,...detailCandidates])hideOriginal(n);
   host.setAttribute('data-rona-deal-summary-ready','true');
