@@ -232,18 +232,28 @@ function apply(){
   }
   return Boolean(apps||deals);
 }
+function operationsPageVisible(){
+  return visible(document.getElementById('page-applications'))||visible(document.getElementById('page-deals'));
+}
+function loadWhenNeeded(force=false){
+  if(operationsPageVisible())loadAuthoritativeState(force);
+}
 function schedule(delay=0){clearTimeout(state.timer);state.timer=setTimeout(apply,delay)}
+function scheduleAndLoad(delay=0,force=false){
+  schedule(delay);
+  setTimeout(()=>loadWhenNeeded(force),delay+20);
+}
 function start(){
   apply();
-  loadAuthoritativeState(true);
+  loadWhenNeeded(true);
   state.observer=new MutationObserver(()=>schedule(30));
   state.observer.observe(document.body,{childList:true,subtree:true});
-  setInterval(()=>loadAuthoritativeState(false),REFRESH_MS);
+  setInterval(()=>loadWhenNeeded(false),REFRESH_MS);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-document.addEventListener('click',()=>schedule(60),true);
-document.addEventListener('change',()=>schedule(60),true);
-window.addEventListener('pageshow',()=>loadAuthoritativeState(true),{passive:true});
-window.addEventListener('hashchange',()=>schedule(20),{passive:true});
+document.addEventListener('click',()=>scheduleAndLoad(40,false),true);
+document.addEventListener('change',()=>scheduleAndLoad(40,false),true);
+window.addEventListener('pageshow',()=>scheduleAndLoad(0,false),{passive:true});
+window.addEventListener('hashchange',()=>scheduleAndLoad(20,false),{passive:true});
 window.addEventListener('rona:client-application-submitted',()=>setTimeout(()=>loadAuthoritativeState(true),150));
 })();
