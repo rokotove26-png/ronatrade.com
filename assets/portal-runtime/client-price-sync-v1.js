@@ -128,7 +128,8 @@ function syncPublicationStatus(){
   for(const el of Array.from(scope.querySelectorAll('span,div,small,strong'))){
     const value=norm(el.textContent);
     if(value==='ожидает публикации'||value==='ожидает публикацию'||value==='опубликовано'){
-      el.textContent='Опубликовано';el.dataset.ronaPriceSyncStatus='published-authoritative';
+      if(el.textContent!=='Опубликовано')el.textContent='Опубликовано';
+      if(el.dataset.ronaPriceSyncStatus!=='published-authoritative')el.dataset.ronaPriceSyncStatus='published-authoritative';
     }
   }
 }
