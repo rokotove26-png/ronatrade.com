@@ -43,7 +43,7 @@ jobs:
           if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('canonical chart header missing');
           const shim = await import('./functions/portal/admin-approved-analytics-v455-ui.js?qa='+Date.now());
           const shimSource = await (await shim.onRequest({})).text();
-          if (!shimSource.includes('retired-compat-guard-v1')) throw new Error('old v455 overlay is not retired');
+          if (!shimSource.includes('retired-compat-guard-v5')) throw new Error('old v455 overlay is not retired');
           if (shimSource.includes('makeSvg(') || shimSource.includes('A92.map(x=>x+40)')) throw new Error('old v455 renderer still active');
           NODE
       - name: Build current-only artifact
