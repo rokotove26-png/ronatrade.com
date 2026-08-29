@@ -20,6 +20,10 @@ const SCRIPT=RAW
     "function basisText(d){var raw=String(d&&d.delivery_basis||'').trim();if(!raw)return'Требует подтверждения';return raw.replace(/\\s*[,(]?\\s*Incoterms\\s*2020\\s*\\)?/ig,'').replace(/\\s{2,}/g,' ').replace(/\\s*,\\s*$/,'').trim()||'Требует подтверждения'}"
   )
   .replace(
+    "dx.forEach(function(x){var item=el('div','rona-current-deal-doc-item'),meta=el('div');meta.append(el('strong','',x.document_kind||'Документ'),el('div','rona-owner-muted',x.authoritative_filename||x.document_id||'—'));item.append(meta,button('Скачать','',function(){downloadDocument('/admin/documents/'+encodeURIComponent(x.document_id)+'/download').catch(showError)}));list.append(item)})",
+    "dx.forEach(function(x){var signed=String(x.document_kind||'').toUpperCase()==='SIGNED_ADDENDUM',item=el('div','rona-current-deal-doc-item'),meta=el('div'),kind=signed?'Подписанное дополнительное соглашение':(x.document_kind||'Документ');meta.append(el('strong','',kind),el('div','rona-owner-muted',x.authoritative_filename||x.document_id||'—'));item.append(meta,button(signed?'Скачать подписанное доп. соглашение':'Скачать',signed?'rona-current-deal-primary':'',function(){downloadDocument('/admin/documents/'+encodeURIComponent(x.document_id)+'/download').catch(showError)}));list.append(item)})"
+  )
+  .replace(
     "function render(){ensureStyle();var root=q('#page-deals');if(!root||!state)return;var host=q(':scope > .rona-owner-page-content',root);if(!host){host=el('div','rona-owner-page-content');host.dataset.ownerPage='deals';root.append(host)}",
     "function isolateDealsPage(root,host){if(!root||!host)return;qa(':scope > *',root).forEach(function(n){if(n===host)return;n.classList.add('rona-owner-original-hidden');n.setAttribute('aria-hidden','true');n.style.setProperty('display','none','important')});host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');host.dataset.ownerPage='deals';host.dataset.ronaDealsOwner='current-v1.5'}function guardDealsOwner(){if(!state)return;var root=q('#page-deals');if(!root)return;var host=q(':scope > .rona-owner-page-content[data-owner-page=\"deals\"]',root)||q(':scope > .rona-owner-page-content',root);if(!host)return;isolateDealsPage(root,host);if(!q(':scope > .rona-current-deals-owned',host))render()}function render(){ensureStyle();var root=q('#page-deals');if(!root||!state)return;var host=q(':scope > .rona-owner-page-content[data-owner-page=\"deals\"]',root)||q(':scope > .rona-owner-page-content',root);if(!host){host=el('div','rona-owner-page-content');host.dataset.ownerPage='deals';root.prepend(host)}isolateDealsPage(root,host);"
   )
@@ -42,5 +46,6 @@ const SCRIPT=RAW
 
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
+if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.5'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.6-signed-addendum'}})}
