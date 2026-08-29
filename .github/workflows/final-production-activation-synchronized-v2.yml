@@ -59,8 +59,21 @@ jobs:
           if(manifest.decoded_bytes!==source.length||manifest.sha256!==sha) throw new Error('CLIENT_MANIFEST_SOURCE_IDENTITY_MISMATCH');
           NODE
 
-          cmp -s portal-src/current/admin.html dist/portal/admin.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const bridge='<script id="rona-portal-currency-iso-v1" src="/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1" defer></script>';
+          const pairs=[
+            ['ADMIN','portal-src/current/admin.html','dist/portal/admin.html'],
+            ['AGENT','portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html','dist/portal/agent.html'],
+          ];
+          for(const [label,sourcePath,emittedPath] of pairs){
+            const source=await readFile(sourcePath,'utf8'),emitted=await readFile(emittedPath,'utf8');
+            const count=emitted.split(bridge).length-1;
+            if(count!==1) throw new Error(`${label}_ISO_CURRENCY_BRIDGE_COUNT_${count}`);
+            if(emitted.replace(bridge,'')!==source) throw new Error(`${label}_EMITTED_DIFF_EXCEEDS_ISO_CURRENCY_BRIDGE`);
+          }
+          console.log('ADMIN_AGENT_SOURCE_PLUS_ISO_CURRENCY_BRIDGE=PASS');
+          NODE
           test "$(stat -c%s dist/portal/admin.html)" -lt 60000
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
@@ -82,6 +95,9 @@ jobs:
           grep -q 'id="rona-client-contract-authoritative-projection-v5"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5' dist/portal/client.html
           test "$(grep -o 'client-contract-download-v3\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
+          grep -q 'id="rona-portal-currency-iso-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1' dist/portal/client.html
+          test "$(grep -o 'portal-currency-iso-v1\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
@@ -117,7 +133,7 @@ jobs:
           grep -q "if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')" functions/portal/remaining-sections-ui.js
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-control-plane/index.ts
           grep -q 'SIGNED_CONTRACT_ACTIVATION_V2' supabase/functions/rona-admin-contract-activation/index.ts
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); const c=x.client_runtime; if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.state!=='CURRENT_ONLY'||x.admin_runtime?.legacy_runtime_in_deployment!==false||c?.state!=='CURRENT_ONLY'||c?.legacy_runtime_in_deployment!==false||c?.functional_bridge?.id!=='rona-client-contract-authoritative-projection-v5'||c?.functional_bridge?.marker!=='20260829-client-contract-v3-authoritative-projection-v5') process.exit(1)"
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); const c=x.client_runtime; if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.state!=='CURRENT_ONLY'||x.admin_runtime?.legacy_runtime_in_deployment!==false||c?.state!=='CURRENT_ONLY'||c?.legacy_runtime_in_deployment!==false||c?.functional_bridge?.id!=='rona-client-contract-authoritative-projection-v5'||c?.functional_bridge?.marker!=='20260829-client-contract-v3-authoritative-projection-v5'||x.portal_currency_display?.standard!=='ISO_4217') process.exit(1)"
           echo 'CURRENT_ONLY_ADMIN_CLIENT_PRODUCTION_SOURCE_GATE=PASS'
 
       - name: Wait for this commit in Cloudflare production
