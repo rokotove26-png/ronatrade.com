@@ -8,14 +8,17 @@ const connectionRuntimePath='dist/assets/portal-runtime/client-server-connection
 const id='rona-client-application-resource-archive-v1';
 const connectionId='rona-client-server-connection-v1';
 const guardId='rona-client-operations-first-paint-guard';
-const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-operations-finance-authoritative-state-v6';
+const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-admin-client-authoritative-deal-projection-v7';
 const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=20260830-server-indicator-v1';
-const marker='20260830-client-operations-finance-authoritative-state-v6';
+const marker='20260830-client-admin-authoritative-deal-projection-v7';
 const connectionMarker='20260830-client-server-connection-v1';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_APPLICATION_LIFECYCLE_MARKER_MISSING: ${marker}`);
+if(/function\s+(operationsDealState|operationsResourceState|financePaymentState)\b/.test(runtime))throw new Error('CLIENT_LOCAL_BUSINESS_STATE_INFERENCE_FORBIDDEN');
+if(!runtime.includes("source:'ADMIN_CLIENT_SERVER_PROJECTION'"))throw new Error('CLIENT_SERVER_DEAL_PROJECTION_SOURCE_MISSING');
+if(!runtime.includes('data-rona-deal-state-strip'))throw new Error('CLIENT_DEAL_STATE_STRIP_MISSING');
 const connectionRuntime=await readFile(connectionRuntimePath,'utf8');
 if(!connectionRuntime.includes(connectionMarker))throw new Error(`CLIENT_SERVER_CONNECTION_MARKER_MISSING: ${connectionMarker}`);
 
@@ -37,7 +40,7 @@ const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 integrity.client_runtime.server_connection_indicator={id:connectionId,src:connectionSrc,marker:connectionMarker,replaces:'TOPBAR_DEALS_COUNTER',server_signal:'OBSERVED_SAME_ORIGIN_PORTAL_API_TRAFFIC',extra_network_requests:false,states:['CHECKING','ONLINE','DEGRADED','OFFLINE']};
-integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'AUTHORITATIVE_CLIENT_CONTEXT',archive_trigger:'RESOURCE_CONFIRMED',deal_status_source:'OPERATIONS_DIRECTOR/AUTHORITATIVE_DEALS',payment_status_source:'FINANCE/AUTHORITATIVE_PAYMENT_ALLOCATIONS',payment_projection:'EXTERNAL_SAFE_CONFIRMED_OR_DUE_STATE_ONLY',deal_current_status_projection:'OPERATIONS_BUSINESS_STATUS',deal_amount_presentation:'BADGE_WITHOUT_LABEL',resource_projection:'SINGLE_AUTHORITATIVE_OPERATIONS_STATUS',first_paint_guard:{id:guardId,mode:'SCOPED_AUTHORITATIVE_SECTIONS',scope:['APPLICATIONS','DEALS'],fail_closed:true,global_body_block:false}};
+integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'ADMIN_CLIENT_SERVER_PROJECTION',archive_trigger:'SERVER_APPLICATION_LIFECYCLE',deal_status_source:'SERVER_RESOLVED_OPERATIONS_STATE',payment_status_source:'SERVER_RESOLVED_FINANCE_SUMMARY_AND_VERIFIED_ALLOCATIONS',payment_projection:'CLIENT_SAFE_PROGRESS_PERCENT_AND_CONFIRMED_FACT',deal_current_status_projection:'SERVER_LABEL_NO_BROWSER_INFERENCE',deal_amount_presentation:'BADGE_WITHOUT_LABEL',resource_projection:'SERVER_RESOLVED_RESOURCE_STATE',deal_status_presentation:'SINGLE_COMPACT_HORIZONTAL_STRIP',first_paint_guard:{id:guardId,mode:'SCOPED_AUTHORITATIVE_SECTIONS',scope:['APPLICATIONS','DEALS'],fail_closed:true,global_body_block:false}};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; server connection indicator ${connectionId}; authoritative deal status/payment indicators enabled`);
+console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; server connection indicator ${connectionId}; server-resolved deal state strip enabled`);
