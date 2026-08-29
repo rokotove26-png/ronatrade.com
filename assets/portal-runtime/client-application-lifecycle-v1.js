@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260829-client-operations-authoritative-state-v3';
+const MARK='20260829-client-operations-authoritative-state-v4';
 if(window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__===MARK)return;
 window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -11,6 +11,7 @@ const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0};
 const APP_ID_RE=/\bRONA-C\d{3}-IN-\d{4}-\d{3,}\b/g;
 const DEAL_ID_RE=/\bDEAL-\d{4}-\d{3,}\b/g;
+const DEAL_AMOUNT_RE=/^\d[\d\s.,]*\s*(?:долл\.?\s*США|USD|сом|KGS|руб\.?|RUB|₽|EUR|€)$/iu;
 
 async function request(path){
   const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
@@ -119,6 +120,30 @@ function hideStatusLabels(root){
     }
   }
 }
+function styleDealAmounts(root,ids){
+  for(const id of ids){
+    const row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);if(!row)continue;
+    for(const el of row.querySelectorAll('*')){
+      if(el.childElementCount!==0)continue;
+      const text=norm(el.textContent);
+      if(text==='Сумма'){
+        el.style.display='none';
+        el.setAttribute('data-rona-deal-amount-label-removed','true');
+        continue;
+      }
+      if(!DEAL_AMOUNT_RE.test(text))continue;
+      el.style.display='inline-flex';
+      el.style.alignItems='center';
+      el.style.width='fit-content';
+      el.style.padding='5px 10px';
+      el.style.border='1px solid rgba(78,196,255,.30)';
+      el.style.borderRadius='999px';
+      el.style.background='rgba(11,34,49,.86)';
+      el.style.whiteSpace='nowrap';
+      el.setAttribute('data-rona-deal-amount-badge','true');
+    }
+  }
+}
 function projectApplicationRows(root,ids){
   if(!state.ready)return;
   for(const id of ids){
@@ -168,11 +193,12 @@ function apply(){
     hideStatusLabels(apps);
     projectApplicationRows(apps,ids);
     syncApplicationCounter(apps,ids);
-    apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v3':'authoritative-pending-v3');
+    apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v4':'authoritative-pending-v4');
   }
   const deals=dealsRoot();
   if(deals){
     const ids=idsFromText(deals,DEAL_ID_RE);
+    styleDealAmounts(deals,ids);
     projectDealRows(deals,ids);
     deals.setAttribute('data-rona-deal-authority',state.ready?'operations-director-v1':'operations-pending');
   }
