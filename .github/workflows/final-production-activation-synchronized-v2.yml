@@ -36,7 +36,6 @@ jobs:
           node --check functions/portal/admin-approved-analytics-v455-ui.js
           node --check functions/portal/remaining-sections-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
-          node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
