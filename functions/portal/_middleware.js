@@ -1,6 +1,6 @@
 import { onRequest as coreOnRequest } from './_middleware-core.js';
 
-const CLIENT_ADMIN_SYNC_RUNTIME = `<script id="rona-client-single-logout-loader-v3" src="/assets/portal-runtime/client-shell-guard-v3.js?v=20260829-bounded-role-v3" defer><\/script><script id="rona-client-contract-download-v3-loader" src="/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-context-v3-2" defer><\/script><script id="rona-client-deal-documents-v3-loader" src="/assets/portal-runtime/client-deal-documents-v3.js?v=20260829-canonical-deal-card-v3-1" defer><\/script><script id="rona-client-deal-canonical-visual-v1-loader" src="/assets/portal-runtime/client-deal-canonical-visual-v1.js?v=20260829-canonical-compact-v1" defer><\/script><script id="rona-client-price-sync-bounded-loader" src="/assets/portal-runtime/client-price-sync-v1.js?v=20260829-bounded-context-v7" defer><\/script>`;
+const CLIENT_ADMIN_SYNC_RUNTIME = `<script id="rona-client-single-logout-loader-v3" src="/assets/portal-runtime/client-shell-guard-v3.js?v=20260829-bounded-role-v3" defer><\/script><script id="rona-client-contract-download-v3-loader" src="/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-context-v3-2" defer><\/script><script id="rona-client-deal-documents-v3-loader" src="/assets/portal-runtime/client-deal-documents-v3.js?v=20260829-canonical-native-v3-2" defer><\/script><script id="rona-client-price-sync-bounded-loader" src="/assets/portal-runtime/client-price-sync-v1.js?v=20260829-bounded-context-v7" defer><\/script>`;
 
 class ClientAdminSyncHeadInjector {
   element(el) {
@@ -19,7 +19,7 @@ export async function onRequest(context) {
   headers.delete('content-length');
   headers.delete('etag');
   headers.set('cache-control','no-store, no-cache, must-revalidate');
-  headers.set('x-rona-client-admin-sync','role-v3-contract-authoritative-deal-canonical-compact-price-bounded');
+  headers.set('x-rona-client-admin-sync','role-v3-contract-authoritative-deal-canonical-native-price-bounded');
 
   if(typeof HTMLRewriter==='function'){
     const base=new Response(response.body,{status:response.status,statusText:response.statusText,headers});
