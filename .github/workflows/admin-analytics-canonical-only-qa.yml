@@ -31,7 +31,6 @@ jobs:
             'live-market-intelligence-v2',
             'owner-bootstrap-v2',
             '/portal/api/v1/admin/analytics',
-            '30s-pagechange-focus-root-rebind',
             'rona:admin-pagechange',
             'LIVE DATA',
             'РАЗРЫВ ДАННЫХ',
@@ -50,10 +49,10 @@ jobs:
           grep -q 'live-market-intelligence-v2' dist/portal/analytics-v2-ui
           grep -q 'owner-bootstrap-v2' dist/portal/analytics-v2-ui
           grep -q '/portal/api/v1/admin/analytics' dist/portal/analytics-v2-ui
-          grep -q '30s-pagechange-focus-root-rebind' dist/portal/analytics-v2-ui
           grep -q 'rona:admin-pagechange' dist/portal/analytics-v2-ui
           grep -q 'РАЗРЫВ ДАННЫХ' dist/portal/analytics-v2-ui
           grep -q 'Устаревший локальный snapshot намеренно скрыт' dist/portal/analytics-v2-ui
+          grep -q 'X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind' dist/_headers
       - name: Verify Admin shell ownership
         run: |
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
