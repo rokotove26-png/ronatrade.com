@@ -126,11 +126,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/wait-cloudflare-commit.mjs
 
-      - name: Verify current-only Admin in production
+      - name: Verify Client v5 contract projection in production
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           TARGET_ORIGIN: https://ronaoil.com
-        run: node scripts/verify-admin-current-only-production.mjs
+        run: node scripts/verify-client-contract-v5-production.mjs
 
       - name: Publish target production status
         if: always()
