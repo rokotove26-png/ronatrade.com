@@ -1,11 +1,13 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260829-authoritative-price-v9-fast-cache';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260830-authoritative-price-v10-parallel-prefetch';
 
 const API='/portal/api';
 const BOOTSTRAP_TTL=30000;
 const PRICE_TTL=15000;
-const state={contexts:[],context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,bootstrapAt:0,bootstrapPromise:null,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null};
+const CLIENT_ID_RE=/\bRONA-C\d{3}\b/;
+const CONTRACT_ID_RE=/\bRONA-C\d{3}-CTR-\d{4}-\d{3,}\b/;
+const state={contexts:[],context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,bootstrapAt:0,bootstrapPromise:null,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null,prefetchKey:'',prefetchPromise:null};
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
@@ -56,6 +58,18 @@ function chooseContext(contexts){
 }
 
 function contextKey(ctx){return `${ctx?.client_id||''}|${ctx?.contract_id||''}`}
+function domContextHint(){
+  const scopes=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]'),document.querySelector('[class*="header"]'),document.body].filter(Boolean);
+  for(const scope of scopes){const raw=String(scope.innerText||scope.textContent||'');const contract=raw.match(CONTRACT_ID_RE)?.[0]||'';const client=raw.match(CLIENT_ID_RE)?.[0]||'';if(client&&contract)return{client_id:client,contract_id:contract}}
+  return null;
+}
+function prefetchPrices(hint){
+  if(!hint)return null;const key=contextKey(hint);if(!key||key==='|')return null;
+  if(state.prefetchKey===key&&state.prefetchPromise)return state.prefetchPromise;
+  state.prefetchKey=key;
+  state.prefetchPromise=request('/v1/client/prices?clientId='+encodeURIComponent(hint.client_id)+'&contractId='+encodeURIComponent(hint.contract_id)).catch(()=>null).finally(()=>{setTimeout(()=>{if(state.prefetchKey===key){state.prefetchKey='';state.prefetchPromise=null}},1000)});
+  return state.prefetchPromise;
+}
 
 function findPriceTable(){
   return Array.from(document.querySelectorAll('table')).find(table=>{
@@ -140,7 +154,7 @@ function makePriceButton(item){
 function render(){
   if(!state.prices.length)return false;const table=findPriceTable();if(!table)return false;
   const bases=uniqueBases();
-  const signature=['admin-authority-v8',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier,x.authority?.updated_at].join(':'))].join('|');
+  const signature=['admin-authority-v10',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier,x.authority?.updated_at].join(':'))].join('|');
   if(table.dataset.ronaPriceSyncSignature===signature){syncPublicationStatus();return true}
   Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
   const head=table.tHead?.rows?.[0]||table.querySelector('thead tr');
@@ -181,11 +195,11 @@ function publishPriceState(next,source){
   window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:new Date().toISOString()};
 }
 
-async function loadPrices(next,force=false){
+async function loadPrices(next,force=false,prefetched=null){
   const key=contextKey(next);
   if(!force&&state.prices.length&&state.priceContextKey===key&&Date.now()-state.priceLoadedAt<PRICE_TTL){render();return}
   const seq=++state.priceSeq;
-  const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
+  const result=prefetched||await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
   if(seq!==state.priceSeq||contextKey(state.context)!==key)return;
   publishPriceState(next,Array.isArray(result?.prices)?result.prices:[]);
 }
@@ -195,11 +209,15 @@ async function refresh(forcePrices=false,forceBootstrap=false){
   state.loading=true;
   try{
     ensureContractDownloadRuntime();
+    const hint=!state.contexts.length?domContextHint():null;
+    const warm=hint?prefetchPrices(hint):null;
     await loadBootstrap(forceBootstrap);
     const next=chooseContext(state.contexts);if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
     const changed=contextKey(state.context)!==contextKey(next);state.context=next;
     if(changed){state.priceSeq++;clearPriceState()}
-    await loadPrices(next,changed||forcePrices||!state.prices.length);
+    let prefetched=null;
+    if(warm&&contextKey(hint)===contextKey(next))prefetched=await warm;
+    await loadPrices(next,changed||forcePrices||!state.prices.length,prefetched);
     state.lastRefresh=Date.now();render();
   }catch(error){console.error('RONA client price sync',error)}finally{
     state.loading=false;
@@ -230,7 +248,7 @@ function isPriceInteraction(target){
   const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title'))].join(' ');
   return text.includes('цены')||text.includes('прайс');
 }
-function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices,false),320)}
+function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices,false),80)}
 function maybeRefresh(event){
   if(isContextInteraction(event.target)){scheduleRefresh(false);return}
   if(isPriceInteraction(event.target)){queueRender();if(Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}
