@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - release/public-go-live-v1.1
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
   workflow_dispatch:
 
 permissions:
@@ -37,21 +40,60 @@ jobs:
           npx --yes wrangler@latest pages functions build functions --outfile=.pages-build/worker.js
           test -s .pages-build/worker.js
 
+      - name: Verify exact frozen current client source
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          import { brotliDecompressSync } from 'node:zlib';
+          import { createHash } from 'node:crypto';
+          const manifest=JSON.parse(await readFile('portal-src/current/client/manifest.json','utf8'));
+          const encoded=(await Promise.all(manifest.chunks.map(name=>readFile(`portal-src/current/client/${name}`,'utf8')))).join('');
+          const source=brotliDecompressSync(Buffer.from(encoded,'base64'));
+          const sha=createHash('sha256').update(source).digest('hex');
+          if(source.length!==484970) throw new Error(`CLIENT_SOURCE_BYTES_MISMATCH ${source.length}`);
+          if(sha!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183') throw new Error(`CLIENT_SOURCE_SHA_MISMATCH ${sha}`);
+          if(manifest.decoded_bytes!==source.length||manifest.sha256!==sha) throw new Error('CLIENT_MANIFEST_SOURCE_IDENTITY_MISMATCH');
+          console.log(`CLIENT_FROZEN_SOURCE=PASS sha256=${sha} bytes=${source.length}`);
+          NODE
+
       - name: Build canonical deployment
         run: npm run build
 
-      - name: Verify exact current client artifact
+      - name: Verify emitted client artifact and authoritative bridge
         shell: bash
         run: |
           set -euo pipefail
           test -f dist/portal/client.html
-          test "$(wc -c < dist/portal/client.html | tr -d ' ')" = "484970"
-          printf '%s  %s\n' "d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183" "dist/portal/client.html" | sha256sum -c -
-          ! grep -Fq 'id="navDocuments"' dist/portal/client.html
-          ! grep -Fq 'id="page-documents"' dist/portal/client.html
+          test -f dist/canonical-visual-integrity.json
           grep -Fq 'data-page="deals"' dist/portal/client.html
           grep -Fq 'id="page-deals"' dist/portal/client.html
           grep -Fq 'id="page-payments"' dist/portal/client.html
+          ! grep -Fq 'id="navDocuments"' dist/portal/client.html
+          ! grep -Fq 'id="page-documents"' dist/portal/client.html
+          grep -Fq 'id="rona-client-contract-authoritative-projection-v4"' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v4' dist/portal/client.html
+          test "$(grep -o 'client-contract-download-v3\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          import { createHash } from 'node:crypto';
+          const integrity=JSON.parse(await readFile('dist/canonical-visual-integrity.json','utf8'));
+          const emitted=await readFile('dist/portal/client.html');
+          const emittedSha=createHash('sha256').update(emitted).digest('hex');
+          const client=integrity.client_runtime;
+          if(client.source_sha256!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183') throw new Error('INTEGRITY_SOURCE_SHA_MISMATCH');
+          if(client.source_bytes!==484970) throw new Error('INTEGRITY_SOURCE_BYTES_MISMATCH');
+          if(client.emitted_sha256!==emittedSha) throw new Error(`INTEGRITY_EMITTED_SHA_MISMATCH ${client.emitted_sha256} !== ${emittedSha}`);
+          if(client.emitted_bytes!==emitted.length) throw new Error(`INTEGRITY_EMITTED_BYTES_MISMATCH ${client.emitted_bytes} !== ${emitted.length}`);
+          if(client.visual_transform!=='NONE') throw new Error(`CLIENT_VISUAL_TRANSFORM_CHANGED ${client.visual_transform}`);
+          if(client.functional_bridge?.id!=='rona-client-contract-authoritative-projection-v4') throw new Error('CLIENT_FUNCTIONAL_BRIDGE_ID_MISSING');
+          if(!String(client.functional_bridge?.src||'').includes('client-contract-download-v3.js')) throw new Error('CLIENT_FUNCTIONAL_BRIDGE_SRC_MISSING');
+          console.log(`CLIENT_CURRENT_CANONICAL_EMITTED=PASS sha256=${emittedSha} bytes=${emitted.length}`);
+          NODE
+
+      - name: Verify authoritative contract projection guard
+        run: node scripts/qa-client-contract-authoritative-projection.mjs
 
       - name: Verify legacy client owners are absent
         shell: bash
