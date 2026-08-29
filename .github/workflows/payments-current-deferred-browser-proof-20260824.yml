@@ -28,9 +28,10 @@ jobs:
           set -euo pipefail
           npm run build
           node --check functions/portal/admin.js
-          node --check functions/portal/main-ui.js
+          node --check functions/portal/main-ui/index.js
+          node --check functions/portal/admin-main-ui-current.js
           node --input-type=module <<'NODE'
-          import {onRequest} from './functions/portal/main-ui.js';
+          import {onRequest} from './functions/portal/main-ui/index.js';
           const response=await onRequest();
           if(response.status!==200)throw new Error('main-ui status '+response.status);
           const text=await response.text();
