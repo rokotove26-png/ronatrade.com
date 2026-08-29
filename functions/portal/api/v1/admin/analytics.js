@@ -23,6 +23,10 @@ function sameOrigin(request){const u=new URL(request.url),origin=request.headers
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
 async function analyticsRpc(token){return fetch(`${SUPABASE_URL}/rest/v1/rpc/owner_analytics_admin_bootstrap`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,accept:'application/json','content-type':'application/json'},body:'{}'})}
 async function loadWithRefresh(access,refresh){let cookies=[];let response=await analyticsRpc(access);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;cookies=tokenCookies(next.data);response=await analyticsRpc(access)}}return{response,cookies}}
+function canonicalValid(payload){
+  if(!payload||payload.version!=='RONA_ADMIN_ANALYTICS_CANONICAL_DAILY_V1'||!payload.products)return false;
+  return ['AI92','AI95','DT','LPG'].every(key=>Array.isArray(payload.products?.[key]?.dates)&&Array.isArray(payload.products?.[key]?.values)&&payload.products[key].dates.length===payload.products[key].values.length&&payload.products[key].dates.length>0);
+}
 export async function onRequest(context){
   const request=context.request;
   if(request.method!=='GET')return json({ok:false,code:'METHOD_NOT_ALLOWED'},405);
@@ -37,7 +41,7 @@ export async function onRequest(context){
   if(response.status===401)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,setCookies.length?setCookies:clearCookies());
   if(!response.ok){const raw=await response.text().catch(()=>''),denied=response.status===403||response.status===400&&/PORTAL_ACCESS_DENIED|42501/i.test(raw);return json({ok:false,code:denied?'ANALYTICS_ACCESS_DENIED':'ANALYTICS_BOOTSTRAP_FAILED'},denied?403:502,setCookies)}
   const data=await response.json().catch(()=>null);
-  const current=data?.currentAnalytics;
-  if(!data||typeof data!=='object'||!current||current.status!=='PUBLISHED'||current.audience!=='ALL_CLIENTS'||current.authority_state!=='VERIFIED'||!Array.isArray(current.items))return json({ok:false,code:'ANALYTICS_BOOTSTRAP_INVALID'},502,setCookies);
+  const current=data?.currentAnalytics,canonical=data?.canonicalAnalytics;
+  if(!data||typeof data!=='object'||!current||current.status!=='PUBLISHED'||current.audience!=='ALL_CLIENTS'||current.authority_state!=='VERIFIED'||!Array.isArray(current.items)||!canonicalValid(canonical))return json({ok:false,code:'ANALYTICS_BOOTSTRAP_INVALID'},502,setCookies);
   return json({ok:true,data},200,setCookies);
 }
