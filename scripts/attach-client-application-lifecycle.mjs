@@ -5,8 +5,8 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-application-lifecycle-v1.js';
 const id='rona-client-application-resource-archive-v1';
-const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260829-authoritative-active-v2';
-const marker='20260829-client-application-authoritative-active-v2';
+const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260829-operations-authoritative-state-v3';
+const marker='20260829-client-operations-authoritative-state-v3';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -24,7 +24,7 @@ const emitted=Buffer.from(html,'utf8');
 const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
-integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'AUTHORITATIVE_CLIENT_CONTEXT',archive_trigger:'RESOURCE_CONFIRMED'};
+integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'AUTHORITATIVE_CLIENT_CONTEXT',archive_trigger:'RESOURCE_CONFIRMED',deal_status_source:'OPERATIONS_DIRECTOR/AUTHORITATIVE_DEALS'};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
 console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);
