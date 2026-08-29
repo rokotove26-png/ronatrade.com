@@ -80,7 +80,7 @@ jobs:
           const materializePath='scripts/materialize-admin-current-modules.mjs';
           let m=await readFile(materializePath,'utf8');
           const mustFrom="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод'])requireMarker(source,token,'live analytics static runtime');";
-          const mustTo="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод','balanced-fluid-1520-v2','home-canonical-frames-title-v1','semantic-palette-v1','designer-depth-v2','rona-analytics-canonical-title'])requireMarker(source,token,'live analytics static runtime');";
+          const mustTo="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод','ronaAnalyticsBalancedLayoutV2','ronaAnalyticsCanonicalHomeVisualV1','ronaAnalyticsDesignerChartV2','rona-analytics-canonical-title'])requireMarker(source,token,'live analytics static runtime');";
           if(!m.includes(mustFrom))throw new Error('MATERIALIZER_ANALYTICS_MARKER_ANCHOR_MISSING');
           m=m.replace(mustFrom,mustTo);
           const headerFrom="  X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind\\n`;";
@@ -92,8 +92,9 @@ jobs:
           node --check functions/portal/analytics-v2-ui.js
           node --check scripts/materialize-admin-current-modules.mjs
           npm run build
-          grep -q 'home-canonical-frames-title-v1' dist/portal/analytics-v2-ui
-          grep -q 'designer-depth-v2' dist/portal/analytics-v2-ui
+          grep -q 'ronaAnalyticsBalancedLayoutV2' dist/portal/analytics-v2-ui
+          grep -q 'ronaAnalyticsCanonicalHomeVisualV1' dist/portal/analytics-v2-ui
+          grep -q 'ronaAnalyticsDesignerChartV2' dist/portal/analytics-v2-ui
           grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui
           grep -q 'X-Rona-Analytics-Visual: home-canonical-frames-title-v1' dist/_headers
           git config user.name 'github-actions[bot]'
@@ -126,10 +127,9 @@ jobs:
             'ФАКТ / MTD / FORWARD',
             'Старый snapshot не используется',
             'Устаревший локальный snapshot намеренно скрыт',
-            'balanced-fluid-1520-v2',
-            'home-canonical-frames-title-v1',
-            'semantic-palette-v1',
-            'designer-depth-v2',
+            'ronaAnalyticsBalancedLayoutV2',
+            'ronaAnalyticsCanonicalHomeVisualV1',
+            'ronaAnalyticsDesignerChartV2',
             'rona-analytics-canonical-title'
           ]) if (!source.includes(token)) throw new Error('Analytics canonical token missing: '+token);
           if (response.headers.get('x-rona-analytics-ui') !== 'live-market-intelligence-v2') throw new Error('live ui marker missing');
@@ -149,8 +149,9 @@ jobs:
           grep -q 'rona:admin-pagechange' dist/portal/analytics-v2-ui
           grep -q 'РАЗРЫВ ДАННЫХ' dist/portal/analytics-v2-ui
           grep -q 'Устаревший локальный snapshot намеренно скрыт' dist/portal/analytics-v2-ui
-          grep -q 'home-canonical-frames-title-v1' dist/portal/analytics-v2-ui
-          grep -q 'designer-depth-v2' dist/portal/analytics-v2-ui
+          grep -q 'ronaAnalyticsBalancedLayoutV2' dist/portal/analytics-v2-ui
+          grep -q 'ronaAnalyticsCanonicalHomeVisualV1' dist/portal/analytics-v2-ui
+          grep -q 'ronaAnalyticsDesignerChartV2' dist/portal/analytics-v2-ui
           grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui
           grep -q 'X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind' dist/_headers
           grep -q 'X-Rona-Analytics-Visual: home-canonical-frames-title-v1' dist/_headers
