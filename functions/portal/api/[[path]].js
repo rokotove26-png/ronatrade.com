@@ -1,7 +1,8 @@
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
-const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-client-deal-documents`;
+// Existing production slot hosts the canonical Client deal-document service while the project Edge Function quota is full.
+const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-temp-upload-order-20260816`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
