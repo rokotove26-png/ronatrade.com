@@ -96,6 +96,9 @@ jobs:
       - name: Verify authoritative contract projection guard
         run: node scripts/qa-client-contract-authoritative-projection.mjs
 
+      - name: Verify server-authoritative deal state projection
+        run: node scripts/qa-client-deal-server-projection.mjs
+
       - name: Verify legacy client owners are absent
         shell: bash
         run: |
