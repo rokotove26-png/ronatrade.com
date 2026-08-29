@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260830-client-deal-canonical-visual-v2-v8-three-row';
+const MARK='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
 if(window.__RONA_CLIENT_DEAL_CANONICAL_VISUAL__===MARK)return;
 window.__RONA_CLIENT_DEAL_CANONICAL_VISUAL__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -121,7 +121,10 @@ function apply(){
 .${PANEL}__action:disabled{opacity:.56!important;cursor:wait!important;transform:none!important;filter:none!important}
 .${PANEL}__action--upload{overflow:hidden!important;border-color:rgba(248,113,113,.58)!important;background:linear-gradient(105deg,#74202b,#a52b37,#74202b)!important;background-size:220% 100%!important;box-shadow:0 5px 15px rgba(127,29,29,.22),inset 0 1px 0 rgba(255,255,255,.08)!important;animation:ronaSignedDsCanonicalV2Flow 4s linear infinite!important;color:#fff5f5!important}
 .${PANEL}__action--upload::before{content:'↑';background:rgba(255,255,255,.09);border-color:rgba(254,202,202,.26);color:#fff1f2}
+.${PANEL}__action--uploaded,.${PANEL}__action--uploaded:disabled{opacity:1!important;cursor:default!important;border-color:rgba(74,222,128,.38)!important;background:linear-gradient(180deg,rgba(22,101,52,.78),rgba(15,73,42,.86))!important;color:rgba(236,253,245,.98)!important;box-shadow:0 3px 10px rgba(5,46,22,.16),inset 0 1px 0 rgba(255,255,255,.05)!important}
+.${PANEL}__action--uploaded::before{content:'✓';background:rgba(255,255,255,.08);border-color:rgba(187,247,208,.20);color:#dcfce7}
 .${PANEL}__stage{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;height:26px;box-sizing:border-box;padding:0 9px;border-radius:8px;border:1px solid rgba(96,165,250,.20);background:rgba(59,130,246,.055);color:rgba(191,219,254,.84);font-size:10.4px;font-weight:730;line-height:1;white-space:nowrap;flex:0 0 auto}
+.${PANEL}__stage--signed{border-color:rgba(74,222,128,.28)!important;background:rgba(34,197,94,.07)!important;color:rgba(220,252,231,.94)!important}
 .${PANEL}__empty{font-size:10.6px;line-height:1.3;color:rgba(203,213,225,.45);white-space:nowrap}
 .${PANEL}__error{font-size:10.6px;line-height:1.25;color:#fca5a5;white-space:nowrap}
 @keyframes ronaSignedDsCanonicalV2Flow{0%{background-position:100% 0}100%{background-position:-100% 0}}

@@ -1,7 +1,7 @@
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
-// Canonical public route stays /portal/api/v1/client/...; this internal production slot hosts the isolated deal-document service.
+// Existing production slot hosts the canonical Client deal-document service while the project Edge Function quota is full.
 const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-temp-upload-order-20260816`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
