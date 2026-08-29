@@ -1,15 +1,9 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260829-safe-v7-bounded-context';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260829-authoritative-price-v8';
 
 const API='/portal/api';
-const state={contexts:[],context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0};
-const ADMIN_PRODUCER_BY_PRODUCT=new Map([
-  ['АИ-92 К5','ОАО «Мозырский НПЗ»'],
-  ['АИ-95 К5','ОАО «Мозырский НПЗ»'],
-  ['ДТ сорт C К5','ОАО «Мозырский НПЗ»'],
-  ['СУГ / СПБТ','ОАО «Мозырский НПЗ»'],
-]);
+const state={contexts:[],context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0};
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
@@ -79,11 +73,30 @@ function groupedProducts(){
 }
 
 function productLabel(product){return String(product||'').trim()}
-function producerLabel(product){return ADMIN_PRODUCER_BY_PRODUCT.get(String(product||'').trim())||'—'}
+function producerLabel(items){
+  const values=[...new Set((items||[]).map(x=>String(x.producer||'').trim()).filter(Boolean))];
+  return values.length?values.join(' / '):'—';
+}
 function priceText(item){
   const value=num(item.price);
   const price=value===null?String(item.price||'—'):new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(value);
   return `${price} ${String(item.currency||'')}/т`;
+}
+
+function authorityIsPublished(a){
+  if(!a)return false;
+  const pub=String(a.publication_status||'').toUpperCase(),pa=String(a.publication_authority_state||'').toUpperCase(),pl=String(a.publication_lifecycle_state||'').toUpperCase();
+  const ia=String(a.item_authority_state||'').toUpperCase(),il=String(a.item_lifecycle_state||'').toUpperCase(),bs=String(a.business_status||'').toUpperCase();
+  return pub==='PUBLISHED'&&['CONFIRMED','VERIFIED'].includes(pa)&&pl==='ACTIVE'&&['CONFIRMED','VERIFIED'].includes(ia)&&il==='ACTIVE'&&bs==='PUBLISHED'&&a.publish_client===true;
+}
+function authoritativeItem(item){
+  const id=String(item?.publication_item_id||''),a=state.priceAuthority.get(id);
+  if(!authorityIsPublished(a))return null;
+  if(String(a.publication_id||'')!==String(item.publication_id||''))return null;
+  const sourcePrice=num(item.price),snapshotPrice=num(a.snapshot_price);
+  if(sourcePrice===null||snapshotPrice===null||Math.abs(sourcePrice-snapshotPrice)>.00001)return null;
+  if(String(item.currency||'').toUpperCase()!==String(a.snapshot_currency||'').toUpperCase())return null;
+  return {...item,producer:String(a.producer||'').trim()||null,supplier:String(a.supplier||'').trim()||null,authority:a};
 }
 
 function statusScope(){
@@ -91,11 +104,14 @@ function statusScope(){
   const anchor=labels.find(el=>norm(el.textContent)==='прайс-лист');
   return anchor?.closest('section,article,.card,.panel')||anchor?.parentElement?.parentElement||document;
 }
-function markPublished(){
+function syncPublicationStatus(){
+  if(!state.prices.length||!state.prices.every(x=>authorityIsPublished(x.authority)))return;
   const scope=statusScope();
   for(const el of Array.from(scope.querySelectorAll('span,div,small,strong'))){
     const value=norm(el.textContent);
-    if(value==='ожидает публикации'||value==='ожидает публикацию'){el.textContent='Опубликовано';el.dataset.ronaPriceSyncStatus='published'}
+    if(value==='ожидает публикации'||value==='ожидает публикацию'||value==='опубликовано'){
+      el.textContent='Опубликовано';el.dataset.ronaPriceSyncStatus='published-authoritative';
+    }
   }
 }
 
@@ -120,14 +136,14 @@ function makePriceButton(item){
 function render(){
   if(!state.prices.length)return false;const table=findPriceTable();if(!table)return false;
   const bases=uniqueBases();
-  const signature=['admin-parity-v7-bounded-context',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.product,x.basis,x.price,x.currency].join(':'))].join('|');
-  if(table.dataset.ronaPriceSyncSignature===signature){markPublished();return true}
+  const signature=['admin-authority-v8',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier,x.authority?.updated_at].join(':'))].join('|');
+  if(table.dataset.ronaPriceSyncSignature===signature){syncPublicationStatus();return true}
   Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
   const head=table.tHead?.rows?.[0]||table.querySelector('thead tr');
   if(head){head.textContent='';['№','Продукт','Производитель',...bases].forEach((value,index)=>{const th=document.createElement('th');th.textContent=value;styleHeadCell(th,index);head.appendChild(th)})}
   let body=table.tBodies?.[0]||table.querySelector('tbody');if(!body){body=document.createElement('tbody');table.appendChild(body)}body.textContent='';
-  groupedProducts().forEach(([product,items],index)=>{const row=document.createElement('tr');[String(index+1),productLabel(product),producerLabel(product)].forEach((value,cellIndex)=>{const cell=document.createElement('td');cell.textContent=value;styleBodyCell(cell,cellIndex);row.appendChild(cell)});for(const basis of bases){const cell=document.createElement('td');styleBodyCell(cell,row.children.length);const item=items.find(x=>String(x.basis||'').trim()===basis);if(item)cell.appendChild(makePriceButton(item));else cell.textContent='—';row.appendChild(cell)}body.appendChild(row)});
-  table.dataset.ronaPriceSyncSignature=signature;state.renderSignature=signature;markPublished();return true;
+  groupedProducts().forEach(([product,items],index)=>{const row=document.createElement('tr');[String(index+1),productLabel(product),producerLabel(items)].forEach((value,cellIndex)=>{const cell=document.createElement('td');cell.textContent=value;styleBodyCell(cell,cellIndex);row.appendChild(cell)});for(const basis of bases){const cell=document.createElement('td');styleBodyCell(cell,row.children.length);const item=items.find(x=>String(x.basis||'').trim()===basis);if(item)cell.appendChild(makePriceButton(item));else cell.textContent='—';row.appendChild(cell)}body.appendChild(row)});
+  table.dataset.ronaPriceSyncSignature=signature;state.renderSignature=signature;syncPublicationStatus();return true;
 }
 
 async function refresh(force=false){
@@ -136,10 +152,18 @@ async function refresh(force=false){
   state.loading=true;
   try{
     ensureContractDownloadRuntime();
-    const boot=await request('/v1/client/bootstrap');const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];state.contexts=contexts;
+    const boot=await request('/v1/client/bootstrap'),data=boot?.data||{};const contexts=Array.isArray(data.contexts)?data.contexts:[];state.contexts=contexts;
+    state.priceAuthority=new Map((Array.isArray(data.price_authority)?data.price_authority:[]).map(x=>[String(x.publication_item_id||''),x]).filter(x=>x[0]));
     const next=chooseContext(contexts);if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
     const changed=!state.context||state.context.client_id!==next.client_id||state.context.contract_id!==next.contract_id;state.context=next;
-    if(changed||force||!state.prices.length){const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));state.prices=Array.isArray(result?.prices)?result.prices:[];window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,loadedAt:new Date().toISOString()}}
+    if(changed||force||!state.prices.length){
+      const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
+      const source=Array.isArray(result?.prices)?result.prices:[],accepted=[],rejected=[];
+      for(const item of source){const verified=authoritativeItem(item);if(verified)accepted.push(verified);else rejected.push(String(item?.publication_item_id||''))}
+      state.prices=accepted;
+      if(rejected.length)console.error('RONA client price authority mismatch',{rejected});
+      window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:new Date().toISOString()};
+    }
     state.lastRefresh=Date.now();render();
   }catch(error){console.error('RONA client price sync',error)}finally{state.loading=false}
 }
