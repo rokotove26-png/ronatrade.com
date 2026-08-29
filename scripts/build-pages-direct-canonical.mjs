@@ -33,9 +33,9 @@ const CLIENT_CURRENT = Object.freeze({
   ],
 });
 const CLIENT_CONTRACT_RUNTIME = Object.freeze({
-  id: 'rona-client-contract-authoritative-projection-v4',
-  src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v4',
-  marker: '20260829-client-contract-v3-authoritative-projection-v4',
+  id: 'rona-client-contract-authoritative-projection-v5',
+  src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5',
+  marker: '20260829-client-contract-v3-authoritative-projection-v5',
 });
 const ADMIN_CURRENT = Object.freeze({
   path: 'portal-src/current/admin.html',
@@ -192,4 +192,4 @@ await writeFile(join(OUT,'canonical-visual-integrity.json'),JSON.stringify(integ
 for(const name of FORBIDDEN_TOP_LEVEL) if(await exists(join(OUT,name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files=await walk(OUT);
 for(const required of ['index.html','en/index.html','investments/index.html','en/investments/index.html','_routes.json','portal/admin.html','portal/agent.html','portal/client.html','assets/portal-canonical/background.png','assets/portal-canonical/logo.svg','canonical-visual-integrity.json']) if(!(await exists(join(OUT,...required.split('/'))))) throw new Error(`dist/${required} missing`);
-console.log(`RONA direct build PASS: ${files.length} public files; Admin CURRENT_ONLY ${sha256(adminBytes)} (${adminBytes.length} bytes); Agent ${AGENT_SOURCE.sha256} CURRENT_ONLY; Client CURRENT_ONLY source ${CLIENT_CURRENT.sha256} (${CLIENT_CURRENT.bytes} bytes), emitted ${sha256(clientEmittedBytes)} (${clientEmittedBytes.length} bytes), authoritative contract bridge ${CLIENT_CONTRACT_RUNTIME.id}, no legacy Client runtime, no Client visual transform; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}.`);
+console.log(`RONA direct build PASS: ${files.length} public files; Admin CURRENT_ONLY ${sha256(adminBytes)} (${adminBytes.length} bytes); Agent ${AGENT_SOURCE.sha256} CURRENT_ONLY; Client CURRENT_ONLY source ${CLIENT_CURRENT.sha256} (${clientBytes.length} bytes), emitted ${sha256(clientEmittedBytes)} (${clientEmittedBytes.length} bytes), authoritative contract bridge ${CLIENT_CONTRACT_RUNTIME.id}, no legacy Client runtime, no Client visual transform; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}.`);
