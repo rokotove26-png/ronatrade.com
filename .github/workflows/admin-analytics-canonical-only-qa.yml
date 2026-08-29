@@ -9,106 +9,20 @@ on:
       - 'release/public-go-live-v1.1'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   analytics-live-market-intelligence:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Restore approved canonical Analytics presentation layer when missing
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          set -euo pipefail
-          if grep -q 'home-canonical-frames-title-v1' functions/portal/analytics-v2-ui.js && grep -q 'designer-depth-v2' functions/portal/analytics-v2-ui.js; then
-            echo 'APPROVED_ANALYTICS_VISUAL_ALREADY_PRESENT=YES'
-            exit 0
-          fi
-          git fetch --depth=1 origin 87a52839e838e32fbb82de8c1f89b229407e1d65
-          git show 87a52839e838e32fbb82de8c1f89b229407e1d65:functions/portal/analytics-v2-ui.js > /tmp/analytics-approved-visual.js
-          node --input-type=module <<'NODE'
-          import {readFile,writeFile} from 'node:fs/promises';
-          const path='functions/portal/analytics-v2-ui.js';
-          let src=await readFile(path,'utf8');
-          const approved=await readFile('/tmp/analytics-approved-visual.js','utf8');
-          if(!src.includes("const CANONICAL_ANALYTICS_MARKER='live-market-intelligence-v2'"))throw new Error('CURRENT_LIVE_ANALYTICS_OWNER_MISMATCH');
-          const take=name=>{
-            const start=approved.indexOf(`const ${name}=String.raw\``);
-            if(start<0)throw new Error(`APPROVED_VISUAL_BLOCK_MISSING:${name}`);
-            const end=approved.indexOf('`;\n\n',start);
-            if(end<0)throw new Error(`APPROVED_VISUAL_BLOCK_END_MISSING:${name}`);
-            return approved.slice(start,end+2);
-          };
-          const adapt=(block,oldName,newName)=>block
-            .replace(`const ${oldName}=`, `const ${newName}=`)
-            .replaceAll('.an2-main','.an2-live-grid')
-            .replaceAll('.an2-chart','.an2-live-chart')
-            .replaceAll('.an2-market-forecast','.an2-live-side')
-            .replaceAll('.an2-controls','.an2-live-controls')
-            .replaceAll('.an2-mf-row','.an2-live-row')
-            .replaceAll('.an2-mf-meta','.an2-live-meta')
-            .replaceAll('.an2-comment','.an2-live-current')
-            .replaceAll('.an2-rona-grid','.an2-live-extra');
-          const balanced=adapt(take('BALANCED_LAYOUT_PATCH'),'BALANCED_LAYOUT_PATCH','LIVE_BALANCED_LAYOUT_PATCH');
-          const home=adapt(take('CANONICAL_HOME_VISUAL_PATCH'),'CANONICAL_HOME_VISUAL_PATCH','LIVE_CANONICAL_HOME_VISUAL_PATCH');
-          const chart=adapt(take('DESIGNER_CHART_PATCH'),'DESIGNER_CHART_PATCH','LIVE_DESIGNER_CHART_PATCH');
-          const insert='function canonicalize(source){';
-          if(!src.includes(insert))throw new Error('LIVE_ANALYTICS_INSERT_ANCHOR_MISSING');
-          src=src.replace(insert,balanced+'\n\n'+home+'\n\n'+chart+'\n\n'+insert);
-          const renderFrom="r.replaceChildren();r.dataset.ronaLiveRoot='owner-bootstrap-v2';r.dataset.publicationId=String(current.publication_id||'');";
-          const renderTo="r.replaceChildren();const title=el('div','rona-analytics-canonical-title');title.append(el('div','rona-analytics-canonical-title-text','Аналитика'));r.append(title);r.dataset.ronaLiveRoot='owner-bootstrap-v2';r.dataset.publicationId=String(current.publication_id||'');";
-          if(!src.includes(renderFrom))throw new Error('LIVE_ANALYTICS_RENDER_ANCHOR_MISSING');
-          src=src.replace(renderFrom,renderTo);
-          const currentFrom="return r.dataset.ronaLiveRoot==='owner-bootstrap-v2'&&r.dataset.publicationId===id&&!!r.querySelector('.an2-live-current')&&!!r.querySelector('[data-rona-live-chart=\"v2\"]');";
-          const currentTo="return r.dataset.ronaLiveRoot==='owner-bootstrap-v2'&&r.dataset.publicationId===id&&!!r.querySelector('.rona-analytics-canonical-title')&&!!r.querySelector('.an2-live-current')&&!!r.querySelector('[data-rona-live-chart=\"v2\"]');";
-          if(!src.includes(currentFrom))throw new Error('LIVE_ANALYTICS_DOM_GUARD_ANCHOR_MISSING');
-          src=src.replace(currentFrom,currentTo);
-          const responseFrom="return new Response(FAIL_CLOSED_GUARD+source+LIVE_ANALYTICS_RUNTIME,{status:response.status,statusText:response.statusText,headers});";
-          const responseTo="headers.set('x-rona-analytics-layout','balanced-fluid-1520-v2');headers.set('x-rona-analytics-visual','home-canonical-frames-title-v1');headers.set('x-rona-analytics-typography','semantic-palette-v1');headers.set('x-rona-analytics-chart','designer-depth-v2');return new Response(FAIL_CLOSED_GUARD+source+LIVE_ANALYTICS_RUNTIME+LIVE_BALANCED_LAYOUT_PATCH+LIVE_CANONICAL_HOME_VISUAL_PATCH+LIVE_DESIGNER_CHART_PATCH,{status:response.status,statusText:response.statusText,headers});";
-          if(!src.includes(responseFrom))throw new Error('LIVE_ANALYTICS_RESPONSE_ANCHOR_MISSING');
-          src=src.replace(responseFrom,responseTo);
-          for(const token of ['balanced-fluid-1520-v2','home-canonical-frames-title-v1','semantic-palette-v1','designer-depth-v2','rona-analytics-canonical-title'])if(!src.includes(token))throw new Error('RESTORED_VISUAL_MARKER_MISSING:'+token);
-          await writeFile(path,src,'utf8');
-
-          const materializePath='scripts/materialize-admin-current-modules.mjs';
-          let m=await readFile(materializePath,'utf8');
-          const mustFrom="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод'])requireMarker(source,token,'live analytics static runtime');";
-          const mustTo="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод','ronaAnalyticsBalancedLayoutV2','ronaAnalyticsCanonicalHomeVisualV1','ronaAnalyticsDesignerChartV2','rona-analytics-canonical-title'])requireMarker(source,token,'live analytics static runtime');";
-          if(!m.includes(mustFrom))throw new Error('MATERIALIZER_ANALYTICS_MARKER_ANCHOR_MISSING');
-          m=m.replace(mustFrom,mustTo);
-          const headerFrom="  X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind\\n`;";
-          const headerTo="  X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind\\n  X-Rona-Analytics-Layout: balanced-fluid-1520-v2\\n  X-Rona-Analytics-Visual: home-canonical-frames-title-v1\\n  X-Rona-Analytics-Typography: semantic-palette-v1\\n  X-Rona-Analytics-Chart: designer-depth-v2\\n`;";
-          if(!m.includes(headerFrom))throw new Error('MATERIALIZER_ANALYTICS_HEADER_ANCHOR_MISSING');
-          m=m.replace(headerFrom,headerTo);
-          await writeFile(materializePath,m,'utf8');
-          NODE
-          node --check functions/portal/analytics-v2-ui.js
-          node --check scripts/materialize-admin-current-modules.mjs
-          npm run build
-          grep -q 'ronaAnalyticsBalancedLayoutV2' dist/portal/analytics-v2-ui
-          grep -q 'ronaAnalyticsCanonicalHomeVisualV1' dist/portal/analytics-v2-ui
-          grep -q 'ronaAnalyticsDesignerChartV2' dist/portal/analytics-v2-ui
-          grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui
-          grep -q 'X-Rona-Analytics-Visual: home-canonical-frames-title-v1' dist/_headers
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add functions/portal/analytics-v2-ui.js scripts/materialize-admin-current-modules.mjs
-          if git diff --cached --quiet; then
-            echo 'NO_SOURCE_CHANGE_REQUIRED=YES'
-            exit 0
-          fi
-          git diff --cached --check
-          git commit -m 'fix(admin): restore accepted canonical Analytics visual'
-          git push origin HEAD:release/public-go-live-v1.1
       - name: Verify live Analytics runtime and approved visual
         run: |
+          set -euo pipefail
           node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/analytics-v2-approved-base.js
           node --check functions/portal/api/v1/admin/analytics.js
@@ -137,12 +51,14 @@ jobs:
           if (response.headers.get('x-rona-analytics-refresh') !== '30s-pagechange-focus-root-rebind') throw new Error('live refresh marker missing');
           if (response.headers.get('x-rona-analytics-layout') !== 'balanced-fluid-1520-v2') throw new Error('approved layout marker missing');
           if (response.headers.get('x-rona-analytics-visual') !== 'home-canonical-frames-title-v1') throw new Error('approved visual marker missing');
+          if (response.headers.get('x-rona-analytics-typography') !== 'semantic-palette-v1') throw new Error('approved typography marker missing');
           if (response.headers.get('x-rona-analytics-chart') !== 'designer-depth-v2') throw new Error('approved chart marker missing');
           NODE
       - name: Build current-only artifact
         run: npm run build
-      - name: Verify materialized live Analytics
+      - name: Verify materialized Analytics contract
         run: |
+          set -euo pipefail
           grep -q 'live-market-intelligence-v2' dist/portal/analytics-v2-ui
           grep -q 'owner-bootstrap-v2' dist/portal/analytics-v2-ui
           grep -q '/portal/api/v1/admin/analytics' dist/portal/analytics-v2-ui
@@ -154,9 +70,12 @@ jobs:
           grep -q 'ronaAnalyticsDesignerChartV2' dist/portal/analytics-v2-ui
           grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui
           grep -q 'X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind' dist/_headers
+          grep -q 'X-Rona-Analytics-Layout: balanced-fluid-1520-v2' dist/_headers
           grep -q 'X-Rona-Analytics-Visual: home-canonical-frames-title-v1' dist/_headers
+          grep -q 'X-Rona-Analytics-Typography: semantic-palette-v1' dist/_headers
           grep -q 'X-Rona-Analytics-Chart: designer-depth-v2' dist/_headers
       - name: Verify Admin shell ownership
         run: |
+          set -euo pipefail
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "if(p==='analytics')loadAnalytics()" assets/portal-admin-shell-fast-v1.js
