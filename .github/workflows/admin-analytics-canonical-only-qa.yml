@@ -1,4 +1,4 @@
-name: Admin Analytics Live Market Intelligence QA
+name: Admin Analytics Canonical v4.3.2 Single Owner QA
 
 on:
   pull_request:
@@ -7,12 +7,10 @@ on:
   push:
     branches:
       - 'release/public-go-live-v1.1'
-
-permissions:
-  contents: read
+      - 'fix/analytics-approved-single-owner-20260827'
 
 jobs:
-  analytics-live-market-intelligence:
+  analytics-canonical-single-owner:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -20,62 +18,57 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify live Analytics runtime and approved visual
+      - name: Verify canonical Analytics runtime only
         run: |
-          set -euo pipefail
           node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/analytics-v2-approved-base.js
-          node --check functions/portal/api/v1/admin/analytics.js
+          node --check functions/portal/admin-approved-analytics-v455-ui.js
+          node --check functions/portal/remaining-sections-ui.js
+          node --check functions/portal/remaining-sections-r2-base.js
           node --input-type=module <<'NODE'
           const analytics = await import('./functions/portal/analytics-v2-ui.js?qa='+Date.now());
           const response = await analytics.onRequest({});
           const source = await response.text();
           new Function(source);
-          for (const token of [
-            'live-market-intelligence-v2',
-            'owner-bootstrap-v2',
-            '/portal/api/v1/admin/analytics',
-            'rona:admin-pagechange',
-            'LIVE DATA',
-            'РАЗРЫВ ДАННЫХ',
-            'ФАКТ / MTD / FORWARD',
-            'Старый snapshot не используется',
-            'Устаревший локальный snapshot намеренно скрыт',
-            'ronaAnalyticsBalancedLayoutV2',
-            'ronaAnalyticsCanonicalHomeVisualV1',
-            'ronaAnalyticsDesignerChartV2',
-            'rona-analytics-canonical-title'
-          ]) if (!source.includes(token)) throw new Error('Analytics canonical token missing: '+token);
-          if (response.headers.get('x-rona-analytics-ui') !== 'live-market-intelligence-v2') throw new Error('live ui marker missing');
-          if (response.headers.get('x-rona-analytics-data-source') !== 'owner_analytics_admin_bootstrap') throw new Error('live data source marker missing');
-          if (response.headers.get('x-rona-analytics-refresh') !== '30s-pagechange-focus-root-rebind') throw new Error('live refresh marker missing');
-          if (response.headers.get('x-rona-analytics-layout') !== 'balanced-fluid-1520-v2') throw new Error('approved layout marker missing');
-          if (response.headers.get('x-rona-analytics-visual') !== 'home-canonical-frames-title-v1') throw new Error('approved visual marker missing');
-          if (response.headers.get('x-rona-analytics-typography') !== 'semantic-palette-v1') throw new Error('approved typography marker missing');
-          if (response.headers.get('x-rona-analytics-chart') !== 'designer-depth-v2') throw new Error('approved chart marker missing');
+          for (const token of ['approved-v4.3.2-pricing-bridge-single-owner','RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html','RONA TRADE · ANALYTICS','Аналитика','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts LPG / СУГ','Petromarket · DAP benchmark','1075.25','1226.75','Возможные цены RONA Trade','Аналитический вывод','DATA-DRIVEN','FACT / CALCULATION / FORECAST']) {
+            if (!source.includes(token)) throw new Error('canonical Analytics token missing: '+token);
+          }
+          for (const token of ['rona-analytics-canonical-title','ronaAnalyticsCanonicalHomeVisualV1','home-canonical-frames-title-v1','LPG Hairatan','Hairatan / Petromarket / Platts propane ref','Комментарий Коммерческого директора','Аналитическая лента','Текущий опубликованный ориентир RONA Trade']) {
+            if (source.includes(token)) throw new Error('stale Analytics marker leaked: '+token);
+          }
+          if (response.headers.get('x-rona-analytics-ui') !== 'approved-v4.3.2-pricing-bridge-single-owner') throw new Error('canonical ui header missing');
+          if (response.headers.get('x-rona-analytics-owner') !== 'approved-v432-exclusive') throw new Error('canonical owner header missing');
+          if (response.headers.get('x-rona-analytics-source-file') !== 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html') throw new Error('canonical source-file header missing');
+          if (response.headers.get('x-rona-analytics-visual') !== 'approved-hero-v432-pricing-bridge') throw new Error('canonical visual header missing');
+          if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('canonical chart header missing');
+          const shim = await import('./functions/portal/admin-approved-analytics-v455-ui.js?qa='+Date.now());
+          const shimSource = await (await shim.onRequest({})).text();
+          if (!shimSource.includes('retired-compat-guard-v1')) throw new Error('old v455 overlay is not retired');
+          if (shimSource.includes('makeSvg(') || shimSource.includes('A92.map(x=>x+40)')) throw new Error('old v455 renderer still active');
           NODE
       - name: Build current-only artifact
         run: npm run build
-      - name: Verify materialized Analytics contract
+      - name: Verify materialized production Analytics
         run: |
-          set -euo pipefail
-          grep -q 'live-market-intelligence-v2' dist/portal/analytics-v2-ui
-          grep -q 'owner-bootstrap-v2' dist/portal/analytics-v2-ui
-          grep -q '/portal/api/v1/admin/analytics' dist/portal/analytics-v2-ui
-          grep -q 'rona:admin-pagechange' dist/portal/analytics-v2-ui
-          grep -q 'РАЗРЫВ ДАННЫХ' dist/portal/analytics-v2-ui
-          grep -q 'Устаревший локальный snapshot намеренно скрыт' dist/portal/analytics-v2-ui
-          grep -q 'ronaAnalyticsBalancedLayoutV2' dist/portal/analytics-v2-ui
-          grep -q 'ronaAnalyticsCanonicalHomeVisualV1' dist/portal/analytics-v2-ui
-          grep -q 'ronaAnalyticsDesignerChartV2' dist/portal/analytics-v2-ui
-          grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui
-          grep -q 'X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind' dist/_headers
-          grep -q 'X-Rona-Analytics-Layout: balanced-fluid-1520-v2' dist/_headers
-          grep -q 'X-Rona-Analytics-Visual: home-canonical-frames-title-v1' dist/_headers
-          grep -q 'X-Rona-Analytics-Typography: semantic-palette-v1' dist/_headers
-          grep -q 'X-Rona-Analytics-Chart: designer-depth-v2' dist/_headers
-      - name: Verify Admin shell ownership
+          grep -q 'approved-v4.3.2-pricing-bridge-single-owner' dist/portal/analytics-v2-ui
+          grep -q 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/portal/analytics-v2-ui
+          grep -q 'RONA TRADE · ANALYTICS' dist/portal/analytics-v2-ui
+          grep -q 'Platts LPG / СУГ' dist/portal/analytics-v2-ui
+          grep -q '1075.25' dist/portal/analytics-v2-ui
+          grep -q '1226.75' dist/portal/analytics-v2-ui
+          grep -q 'Аналитический вывод' dist/portal/analytics-v2-ui
+          grep -q 'DATA-DRIVEN' dist/portal/analytics-v2-ui
+          grep -q 'X-Rona-Analytics-Ui: approved-v4.3.2-pricing-bridge-single-owner' dist/_headers
+          grep -q 'X-Rona-Analytics-Owner: approved-v432-exclusive' dist/_headers
+          grep -q 'X-Rona-Analytics-Source-File: RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/_headers
+          if grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui; then exit 1; fi
+          if grep -q 'home-canonical-frames-title-v1' dist/portal/analytics-v2-ui; then exit 1; fi
+          if grep -q 'LPG Hairatan' dist/portal/analytics-v2-ui; then exit 1; fi
+          if grep -q 'Комментарий Коммерческого директора' dist/portal/analytics-v2-ui; then exit 1; fi
+      - name: Verify ownership split
         run: |
-          set -euo pipefail
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "if(p==='analytics')loadAnalytics()" assets/portal-admin-shell-fast-v1.js
+          grep -q "\['agent-settlements','messages','market-news'\]" assets/portal-admin-shell-fast-v1.js
+          if grep -q "'аналитика':'analytics'" dist/portal/remaining-sections-ui; then exit 1; fi
+          if grep -q 'function renderAnalytics(){' dist/portal/remaining-sections-ui; then exit 1; fi
