@@ -1,0 +1,63 @@
+name: One-shot Operations Mail Binding Repair
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: release/public-go-live-v1.1
+          fetch-depth: 0
+      - name: Patch Operations role mail binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/functions/rona-mcp-gateway/index.js')
+          s=p.read_text()
+          def rep(old,new,label):
+              global s
+              if old in s:
+                  if s.count(old)!=1:
+                      raise SystemExit(f'{label}: expected exactly one old occurrence, got {s.count(old)}')
+                  s=s.replace(old,new,1)
+                  print(f'{label}: patched')
+              elif new in s:
+                  print(f'{label}: already patched')
+              else:
+                  raise SystemExit(f'{label}: source invariant not found')
+          rep("if(cfg.business_role==='COMMERCIAL_DIRECTOR')tools.push(\n{name:'mail_sync_status',title:'Статус корпоративной почты',description:'Получить технический статус синхронизации закрепленного корпоративного ящика analyst@ronaoil.com. Gmail не используется.',", "if(['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR'].includes(cfg.business_role))tools.push(\n{name:'mail_sync_status',title:'Статус корпоративной почты',description:'Получить технический статус синхронизации закрепленного корпоративного role mailbox. Gmail не используется.',", 'read-tools-role')
+          s=s.replace("закрепленного ящика analyst@ronaoil.com", "закрепленного корпоративного role mailbox")
+          rep("if(cfg.business_role==='COMMERCIAL_DIRECTOR')common.push({name:'mail_send',title:'Отправить корпоративное письмо',description:'Отправить внешнее письмо строго из закрепленного ящика analyst@ronaoil.com через REG.RU SMTP.", "if(['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR'].includes(cfg.business_role))common.push({name:'mail_send',title:'Отправить корпоративное письмо',description:'Отправить внешнее письмо строго из закрепленного корпоративного role mailbox через REG.RU SMTP.", 'write-tools-role')
+          rep("const COMMERCIAL_MAILBOX='analyst@ronaoil.com';\nfunction roleMailbox(cfg){return cfg.business_role==='COMMERCIAL_DIRECTOR'?COMMERCIAL_MAILBOX:null;}", "const COMMERCIAL_MAILBOX='analyst@ronaoil.com';\nconst OPERATIONS_MAILBOX='exec_director@ronaoil.com';\nfunction roleMailbox(cfg){return cfg.business_role==='COMMERCIAL_DIRECTOR'?COMMERCIAL_MAILBOX:cfg.business_role==='OPERATIONS_DIRECTOR'?OPERATIONS_MAILBOX:null;}", 'role-mailbox-map')
+          rep("async function commercialMailRead(name,args){const mailbox=COMMERCIAL_MAILBOX;", "async function roleMailRead(cfg,name,args){const mailbox=roleMailbox(cfg);if(!mailbox)return{error:'ROLE_AUTHORITY_DENIED'};", 'mail-read-function')
+          rep("if(name.startsWith('mail_')){if(cfg.business_role!=='COMMERCIAL_DIRECTOR')return{error:'ROLE_AUTHORITY_DENIED'};return commercialMailRead(name,args||{});}", "if(name.startsWith('mail_')){if(!roleMailbox(cfg))return{error:'ROLE_AUTHORITY_DENIED'};return roleMailRead(cfg,name,args||{});}", 'mail-read-dispatch')
+          rep("if(name==='mail_send'){\n  if(cfg.business_role!=='COMMERCIAL_DIRECTOR')return{error:'ROLE_AUTHORITY_DENIED'};", "if(name==='mail_send'){\n  if(!roleMailbox(cfg))return{error:'ROLE_AUTHORITY_DENIED'};", 'mail-send-dispatch')
+          p.write_text(s)
+          PY
+          node --check supabase/functions/rona-mcp-gateway/index.js
+          grep -q "OPERATIONS_MAILBOX='exec_director@ronaoil.com'" supabase/functions/rona-mcp-gateway/index.js
+          grep -q "\['COMMERCIAL_DIRECTOR','OPERATIONS_DIRECTOR'\].*mail_send" supabase/functions/rona-mcp-gateway/index.js
+      - name: Commit patch if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- supabase/functions/rona-mcp-gateway/index.js; then
+            echo 'No patch needed.'
+            exit 0
+          fi
+          git config user.name 'RONA System Admin Automation'
+          git config user.email 'system-admin@ronaoil.com'
+          git add supabase/functions/rona-mcp-gateway/index.js
+          git commit -m 'fix(mcp): restore Operations corporate mail binding [ops-mail-applied]'
+          git push origin HEAD:release/public-go-live-v1.1
