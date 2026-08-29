@@ -1,9 +1,11 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260829-authoritative-price-v8';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260829-authoritative-price-v9-fast-cache';
 
 const API='/portal/api';
-const state={contexts:[],context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0};
+const BOOTSTRAP_TTL=30000;
+const PRICE_TTL=15000;
+const state={contexts:[],context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,bootstrapAt:0,bootstrapPromise:null,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null};
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
@@ -52,6 +54,8 @@ function chooseContext(contexts){
   }
   return best;
 }
+
+function contextKey(ctx){return `${ctx?.client_id||''}|${ctx?.contract_id||''}`}
 
 function findPriceTable(){
   return Array.from(document.querySelectorAll('table')).find(table=>{
@@ -146,40 +150,96 @@ function render(){
   table.dataset.ronaPriceSyncSignature=signature;state.renderSignature=signature;syncPublicationStatus();return true;
 }
 
-async function refresh(force=false){
-  if(state.loading)return;
-  const now=Date.now();if(!force&&now-state.lastRefresh<15000){render();return}
+async function loadBootstrap(force=false){
+  const now=Date.now();
+  if(!force&&state.contexts.length&&now-state.bootstrapAt<BOOTSTRAP_TTL)return;
+  if(state.bootstrapPromise)return state.bootstrapPromise;
+  state.bootstrapPromise=(async()=>{
+    const boot=await request('/v1/client/bootstrap'),data=boot?.data||{};
+    state.contexts=Array.isArray(data.contexts)?data.contexts:[];
+    state.priceAuthority=new Map((Array.isArray(data.price_authority)?data.price_authority:[]).map(x=>[String(x.publication_item_id||''),x]).filter(x=>x[0]));
+    state.bootstrapAt=Date.now();
+  })().finally(()=>{state.bootstrapPromise=null});
+  return state.bootstrapPromise;
+}
+
+function clearPriceState(){
+  state.prices=[];
+  state.priceContextKey='';
+  state.priceLoadedAt=0;
+  state.renderSignature='';
+  window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:state.context,prices:[],authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:null};
+}
+
+function publishPriceState(next,source){
+  const accepted=[],rejected=[];
+  for(const item of source){const verified=authoritativeItem(item);if(verified)accepted.push(verified);else rejected.push(String(item?.publication_item_id||''))}
+  state.prices=accepted;
+  state.priceContextKey=contextKey(next);
+  state.priceLoadedAt=Date.now();
+  if(rejected.length)console.error('RONA client price authority mismatch',{rejected});
+  window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:new Date().toISOString()};
+}
+
+async function loadPrices(next,force=false){
+  const key=contextKey(next);
+  if(!force&&state.prices.length&&state.priceContextKey===key&&Date.now()-state.priceLoadedAt<PRICE_TTL){render();return}
+  const seq=++state.priceSeq;
+  const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
+  if(seq!==state.priceSeq||contextKey(state.context)!==key)return;
+  publishPriceState(next,Array.isArray(result?.prices)?result.prices:[]);
+}
+
+async function refresh(forcePrices=false,forceBootstrap=false){
+  if(state.loading){state.refreshPending=true;render();return}
   state.loading=true;
   try{
     ensureContractDownloadRuntime();
-    const boot=await request('/v1/client/bootstrap'),data=boot?.data||{};const contexts=Array.isArray(data.contexts)?data.contexts:[];state.contexts=contexts;
-    state.priceAuthority=new Map((Array.isArray(data.price_authority)?data.price_authority:[]).map(x=>[String(x.publication_item_id||''),x]).filter(x=>x[0]));
-    const next=chooseContext(contexts);if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
-    const changed=!state.context||state.context.client_id!==next.client_id||state.context.contract_id!==next.contract_id;state.context=next;
-    if(changed||force||!state.prices.length){
-      const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
-      const source=Array.isArray(result?.prices)?result.prices:[],accepted=[],rejected=[];
-      for(const item of source){const verified=authoritativeItem(item);if(verified)accepted.push(verified);else rejected.push(String(item?.publication_item_id||''))}
-      state.prices=accepted;
-      if(rejected.length)console.error('RONA client price authority mismatch',{rejected});
-      window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:new Date().toISOString()};
-    }
+    await loadBootstrap(forceBootstrap);
+    const next=chooseContext(state.contexts);if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
+    const changed=contextKey(state.context)!==contextKey(next);state.context=next;
+    if(changed){state.priceSeq++;clearPriceState()}
+    await loadPrices(next,changed||forcePrices||!state.prices.length);
     state.lastRefresh=Date.now();render();
-  }catch(error){console.error('RONA client price sync',error)}finally{state.loading=false}
+  }catch(error){console.error('RONA client price sync',error)}finally{
+    state.loading=false;
+    if(state.refreshPending){state.refreshPending=false;queueMicrotask(()=>refresh(false,false))}
+  }
+}
+
+function queueRender(){
+  if(state.renderQueued||!state.prices.length)return;
+  state.renderQueued=true;
+  requestAnimationFrame(()=>{state.renderQueued=false;render()});
+}
+
+function observePriceMount(){
+  if(state.observer||!document.body)return;
+  state.observer=new MutationObserver(()=>queueRender());
+  state.observer.observe(document.body,{childList:true,subtree:true});
 }
 
 function isContextInteraction(target){
-  const el=target?.closest?.('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"],[role="tab"],button,[role="button"]');if(!el)return false;
-  if(el.matches('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"],[role="tab"]'))return true;
+  const el=target?.closest?.('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"],button,[role="button"],[role="tab"]');if(!el)return false;
+  if(el.matches('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"]'))return true;
   const t=norm(el.textContent),aria=norm(el.getAttribute?.('aria-label')),title=norm(el.getAttribute?.('title'));
   return state.contexts.some(ctx=>[ctx.legal_name,ctx.current_external_contract_number,ctx.contract_id,ctx.client_id].map(norm).filter(Boolean).some(k=>(t&&t.includes(k))||(aria&&aria.includes(k))||(title&&title.includes(k))));
 }
-function scheduleRefresh(force=true){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(force),320)}
-function maybeRefresh(event){if(isContextInteraction(event.target))scheduleRefresh(true)}
+function isPriceInteraction(target){
+  const el=target?.closest?.('button,[role="button"],[role="tab"],a');if(!el)return false;
+  const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title'))].join(' ');
+  return text.includes('цены')||text.includes('прайс');
+}
+function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices,false),320)}
+function maybeRefresh(event){
+  if(isContextInteraction(event.target)){scheduleRefresh(false);return}
+  if(isPriceInteraction(event.target)){queueRender();if(Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}
+}
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>refresh(true),{once:true});else queueMicrotask(()=>refresh(true));
+function start(){observePriceMount();refresh(true,false)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
 document.addEventListener('click',maybeRefresh,true);
 document.addEventListener('change',maybeRefresh,true);
-window.addEventListener('pageshow',()=>{render();if(Date.now()-state.lastRefresh>15000)refresh(true)});
-setInterval(()=>{if(document.visibilityState==='visible')refresh(false)},30000);
+window.addEventListener('pageshow',()=>{queueRender();if(Date.now()-state.lastRefresh>PRICE_TTL)refresh(false,false)});
+setInterval(()=>{if(document.visibilityState==='visible')refresh(false,false)},30000);
 })();
