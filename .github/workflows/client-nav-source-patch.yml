@@ -31,7 +31,7 @@ jobs:
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
-          import { readFile, writeFile, rm } from 'node:fs/promises';
+          import { readFile, writeFile } from 'node:fs/promises';
           import { createHash } from 'node:crypto';
           import { brotliCompressSync, brotliDecompressSync, constants } from 'node:zlib';
 
@@ -64,9 +64,7 @@ jobs:
 
           if(text.includes('id="navDocuments"')) throw new Error('navDocuments still present');
           if(text.includes('id="page-documents"')) throw new Error('page-documents still present');
-          if(!text.includes('data-page="deals"')) throw new Error('Deals nav missing after patch');
-          if(!text.includes('id="page-deals"')) throw new Error('Deals page missing after patch');
-          if(!text.includes('id="page-payments"')) throw new Error('Payments page missing after patch');
+          for(const marker of ['data-page="deals"','id="page-deals"','id="page-payments"']) if(!text.includes(marker)) throw new Error(`Required Client marker missing: ${marker}`);
 
           bytes=Buffer.from(text,'utf8');
           const newSha=sha(bytes);
@@ -102,15 +100,6 @@ jobs:
           build=build.replace(emittedNeedle,`${emittedNeedle}\nconst emittedClientText=emittedClient.toString('utf8');\nfor(const marker of ['id="navDocuments"','id="page-documents"']) if(emittedClientText.includes(marker)) throw new Error(\`DEPLOYED_CLIENT_OBSOLETE_DOCUMENTS_UI_PRESENT: \${marker}\`);\nfor(const marker of ['data-page="deals"','id="page-deals"','id="page-payments"']) if(!emittedClientText.includes(marker)) throw new Error(\`DEPLOYED_CLIENT_REQUIRED_UI_MISSING: \${marker}\`);`);
           await writeFile(buildPath,build,'utf8');
 
-          const qaPath='.github/workflows/client-current-canonical-build-qa.yml';
-          let qa=await readFile(qaPath,'utf8');
-          if(!qa.includes(OLD_SHA)||!qa.includes(String(OLD_BYTES))) throw new Error('Old Client QA expectations missing');
-          qa=qa.replaceAll(OLD_SHA,newSha).replaceAll(String(OLD_BYTES),String(newBytes));
-          const hashCheck=`          printf '%s  %s\\n' "${newSha}" "dist/portal/client.html" | sha256sum -c -`;
-          if(!qa.includes(hashCheck)) throw new Error('Updated hash check anchor missing');
-          qa=qa.replace(hashCheck,`${hashCheck}\n          ! grep -Fq 'id="navDocuments"' dist/portal/client.html\n          ! grep -Fq 'id="page-documents"' dist/portal/client.html\n          grep -Fq 'data-page="deals"' dist/portal/client.html\n          grep -Fq 'id="page-deals"' dist/portal/client.html`);
-          await writeFile(qaPath,qa,'utf8');
-
           const middlewarePath='functions/portal/_middleware.js';
           let middleware=await readFile(middlewarePath,'utf8');
           const guardLine=middleware.split('\n').find(line=>line.startsWith('const CLIENT_OBSOLETE_DS_INVOICE_GUARD = '));
@@ -125,9 +114,6 @@ jobs:
           if(middleware.includes('CLIENT_OBSOLETE_DS_INVOICE_GUARD')||middleware.includes('rona-client-obsolete-ds-invoice-guard')) throw new Error('Obsolete runtime guard still referenced');
           await writeFile(middlewarePath,middleware,'utf8');
 
-          await rm('.github/workflows/client-nav-source-inspect.yml',{force:true});
-          await rm('.github/workflows/client-nav-source-patch.yml',{force:true});
-
           console.log(`CLIENT_SOURCE_PATCHED SHA=${newSha} BYTES=${newBytes} REMOVED_PAGE_BYTES=${Buffer.byteLength(removedPage,'utf8')}`);
           NODE
 
@@ -136,7 +122,7 @@ jobs:
 
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add portal-src/current/client scripts/build-pages-direct-canonical.mjs .github/workflows/client-current-canonical-build-qa.yml functions/portal/_middleware.js .github/workflows/client-nav-source-inspect.yml .github/workflows/client-nav-source-patch.yml
+          git add portal-src/current/client scripts/build-pages-direct-canonical.mjs functions/portal/_middleware.js
           git diff --cached --check
           git commit -m 'fix(client): remove standalone documents section from canonical source'
           git push origin HEAD:release/public-go-live-v1.1
