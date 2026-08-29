@@ -100,7 +100,12 @@ function styleDealAmounts(root,ids){
   for(const id of ids){const row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);if(!row)continue;for(const el of row.querySelectorAll('*')){if(el.childElementCount!==0)continue;const text=norm(el.textContent);if(text==='Сумма'){el.style.display='none';el.setAttribute('data-rona-deal-amount-label-removed','true');continue}if(!DEAL_AMOUNT_RE.test(text))continue;el.setAttribute('data-rona-deal-amount-badge','true')}}
 }
 function projectApplicationRows(root,ids){if(!state.ready)return;for(const id of ids){const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);if(!row)continue;if(state.activeIds.has(id)){if(row.hasAttribute('data-rona-application-projection')||row.hasAttribute('data-rona-application-archived')){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-application-projection');row.removeAttribute('data-rona-application-archived')}}else{row.hidden=true;row.style.display='none';row.setAttribute('data-rona-application-projection','authoritative-not-active')}}}
-function syncApplicationCounter(root,ids){if(!state.ready)return;let count=0;for(const id of ids){const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);if(row&&state.activeIds.has(id)&&visible(row))count++}for(const el of root.querySelectorAll('*'))if(el.childElementCount===0&&/^\d+\s+зарегистрировано$/iu.test(norm(el.textContent)))el.textContent=`${count} зарегистрировано`}
+function syncApplicationCounter(root,ids){
+  if(!state.ready)return;let count=0;
+  for(const id of ids){const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);if(row&&state.activeIds.has(id)&&visible(row))count++}
+  const next=`${count} зарегистрировано`;
+  for(const el of root.querySelectorAll('*'))if(el.childElementCount===0&&/^\d+\s+зарегистрировано$/iu.test(norm(el.textContent))&&norm(el.textContent)!==next)el.textContent=next;
+}
 function paymentTitle(deal){
   const r=Number(deal.paymentReceived),o=Number(deal.paymentObligation),c=deal.paymentCurrency;
   if(Number.isFinite(r)&&Number.isFinite(o)&&o>0&&c)return`Получено ${r.toLocaleString('ru-RU',{maximumFractionDigits:2})} из ${o.toLocaleString('ru-RU',{maximumFractionDigits:2})} ${c}`;
@@ -117,11 +122,15 @@ function syncDealStateStrip(row,deal){
   if(summarySide){const open=summarySide.querySelector('button,a,[role="button"]');if(strip.parentElement!==summarySide)summarySide.insertBefore(strip,open||null)}
   else if(!strip.parentElement){const first=stale[0]||legacy[0]||null;if(first?.parentElement)first.parentElement.insertBefore(strip,first);else{const docs=[...row.querySelectorAll('*')].find(el=>el.childElementCount===0&&norm(el.textContent)==='Документы');if(docs?.parentElement)docs.parentElement.insertBefore(strip,docs);else row.append(strip)}}
   for(const el of [...stale,...legacy]){if(el===strip||strip.contains(el))continue;el.hidden=true;el.style.display='none';el.setAttribute('aria-hidden','true');el.setAttribute('data-rona-stale-deal-state-removed','true')}
-  strip.replaceChildren(
-    chip(deal.statusLabel,deal.statusCode,'status',deal.statusSource||'Источник: серверная операционная проекция','data-rona-current-deal-status'),
-    chip(deal.paymentLabel,deal.paymentCode,/PAID|CONFIRMED|PARTIAL/i.test(deal.paymentCode)?'payment':'attention',paymentTitle(deal),'data-rona-finance-payment-state'),
-    chip(deal.resourceLabel,deal.resourceCode,/CONFIRMED|EXECUT/i.test(deal.resourceCode)?'resource':'attention',deal.resourceSource||'Источник: серверная ресурсная проекция','data-rona-operations-resource-state')
-  );
+  const signature=[deal.statusCode,deal.statusLabel,deal.paymentCode,deal.paymentLabel,deal.resourceCode,deal.resourceLabel,deal.paymentReceived,deal.paymentObligation,deal.paymentCurrency].map(v=>String(v??'')).join('|');
+  if(strip.dataset.ronaStateSignature!==signature){
+    strip.replaceChildren(
+      chip(deal.statusLabel,deal.statusCode,'status',deal.statusSource||'Источник: серверная операционная проекция','data-rona-current-deal-status'),
+      chip(deal.paymentLabel,deal.paymentCode,/PAID|CONFIRMED|PARTIAL/i.test(deal.paymentCode)?'payment':'attention',paymentTitle(deal),'data-rona-finance-payment-state'),
+      chip(deal.resourceLabel,deal.resourceCode,/CONFIRMED|EXECUT/i.test(deal.resourceCode)?'resource':'attention',deal.resourceSource||'Источник: серверная ресурсная проекция','data-rona-operations-resource-state')
+    );
+    strip.dataset.ronaStateSignature=signature;
+  }
 }
 function projectDealRows(root,ids){
   if(!state.ready)return;
