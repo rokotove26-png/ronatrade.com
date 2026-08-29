@@ -1,0 +1,36 @@
+name: Client Contract Authoritative Projection QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-contract-download-v3.js'
+      - 'supabase/functions/rona-portal-api/**'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'scripts/qa-client-contract-authoritative-projection.mjs'
+      - '.github/workflows/client-contract-authoritative-projection-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-contract-download-v3.js'
+      - 'supabase/functions/rona-portal-api/**'
+      - 'scripts/build-pages-direct-canonical.mjs'
+      - 'scripts/qa-client-contract-authoritative-projection.mjs'
+      - '.github/workflows/client-contract-authoritative-projection-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-contract-authoritative-projection:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current portal
+        run: npm run build
+      - name: Verify authoritative contract projection
+        run: node scripts/qa-client-contract-authoritative-projection.mjs
