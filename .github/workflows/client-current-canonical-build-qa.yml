@@ -31,6 +31,7 @@ jobs:
           set -euo pipefail
           node --check functions/portal/_middleware.js
           node --check 'functions/portal/[[path]].js'
+          node --check 'functions/portal/api/[[path]].js'
 
       - name: Compile Pages Functions
         shell: bash
@@ -98,6 +99,9 @@ jobs:
 
       - name: Verify server-authoritative deal state projection
         run: node scripts/qa-client-deal-server-projection.mjs
+
+      - name: Verify client portal API authoritative projection
+        run: node scripts/qa-client-portal-api-projection.mjs
 
       - name: Verify legacy client owners are absent
         shell: bash
