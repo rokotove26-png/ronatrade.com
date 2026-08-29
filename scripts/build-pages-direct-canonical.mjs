@@ -32,6 +32,11 @@ const CLIENT_CURRENT = Object.freeze({
     'functions/portal/owner-acceptance-ui.js',
   ],
 });
+const CLIENT_CONTRACT_RUNTIME = Object.freeze({
+  id: 'rona-client-contract-authoritative-projection-v4',
+  src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v4',
+  marker: '20260829-client-contract-v3-authoritative-projection-v4',
+});
 const ADMIN_CURRENT = Object.freeze({
   path: 'portal-src/current/admin.html',
   out: 'admin.html',
@@ -69,6 +74,14 @@ async function exists(p){ try { await stat(p); return true; } catch { return fal
 async function walk(dir){ const out=[]; for(const e of await readdir(dir,{withFileTypes:true})){ const p=join(dir,e.name); if(e.isDirectory()) out.push(...await walk(p)); else out.push(p); } return out; }
 function requireExact(label, bytes, expected){ const got=sha256(bytes); if(got!==expected) throw new Error(`${label} SHA-256 mismatch: ${got}`); }
 function requireSize(label, bytes, expected){ if(bytes.length!==expected) throw new Error(`${label} byte mismatch: ${bytes.length}`); }
+function attachClientFunctionalBridge(bytes){
+  const source=bytes.toString('utf8');
+  const bridge=`<script id="${CLIENT_CONTRACT_RUNTIME.id}" src="${CLIENT_CONTRACT_RUNTIME.src}" defer></script>`;
+  if(source.includes(CLIENT_CONTRACT_RUNTIME.id)||source.includes('client-contract-download-v3.js')) throw new Error('CURRENT_CLIENT_CONTRACT_BRIDGE_ALREADY_PRESENT');
+  const bodyClose=source.toLowerCase().lastIndexOf('</body>');
+  if(bodyClose<0) throw new Error('CURRENT_CLIENT_BODY_CLOSE_MISSING');
+  return Buffer.from(source.slice(0,bodyClose)+bridge+source.slice(bodyClose),'utf8');
+}
 
 for(const retired of AGENT_LIFECYCLE.retired_runtime_sources){
   if(await exists(join(ROOT,...retired.split('/')))) throw new Error(`RETIRED_AGENT_RUNTIME_SOURCE_PRESENT: ${retired}`);
@@ -94,6 +107,11 @@ try { clientBytes=brotliDecompressSync(Buffer.from(clientEncoded,'base64')); }
 catch (error) { throw new Error(`CURRENT_CLIENT_DECODE_FAILED: ${error?.message||error}`); }
 requireSize('Current client source',clientBytes,CLIENT_CURRENT.bytes);
 requireExact('Current client source',clientBytes,CLIENT_CURRENT.sha256);
+const clientRuntimePath=join(ROOT,...CLIENT_CONTRACT_RUNTIME.src.split('?')[0].replace(/^\//,'').split('/'));
+if(!(await exists(clientRuntimePath))) throw new Error(`CURRENT_CLIENT_CONTRACT_RUNTIME_MISSING: ${clientRuntimePath}`);
+const clientRuntimeText=await readFile(clientRuntimePath,'utf8');
+if(!clientRuntimeText.includes(CLIENT_CONTRACT_RUNTIME.marker)) throw new Error(`CURRENT_CLIENT_CONTRACT_RUNTIME_MARKER_MISSING: ${CLIENT_CONTRACT_RUNTIME.marker}`);
+const clientEmittedBytes=attachClientFunctionalBridge(clientBytes);
 
 const adminPath=join(ROOT,...ADMIN_CURRENT.path.split('/'));
 if(!(await exists(adminPath))) throw new Error(`CURRENT_ADMIN_SOURCE_MISSING: ${ADMIN_CURRENT.path}`);
@@ -121,7 +139,7 @@ await mkdir(join(OUT,'assets','portal-canonical'),{recursive:true});
 for(const [kind,spec] of Object.entries(ASSETS)) await writeFile(join(OUT,'assets','portal-canonical',spec.out),assetBytes[kind]);
 await writeFile(join(OUT,'portal',ADMIN_CURRENT.out),adminBytes);
 await writeFile(join(OUT,'portal',AGENT_SOURCE.out),agentBytes);
-await writeFile(join(OUT,'portal',CLIENT_CURRENT.out),clientBytes);
+await writeFile(join(OUT,'portal',CLIENT_CURRENT.out),clientEmittedBytes);
 
 for(const [kind,spec] of Object.entries(ASSETS)){
   const emitted=await readFile(join(OUT,'assets','portal-canonical',spec.out));
@@ -131,9 +149,9 @@ for(const [kind,spec] of Object.entries(ASSETS)){
 const emittedAdmin=await readFile(join(OUT,'portal','admin.html'),'utf8');
 for(const marker of FORBIDDEN_ADMIN_MARKERS) if(emittedAdmin.includes(marker)) throw new Error(`DEPLOYED_ADMIN_FORBIDDEN_LEGACY_MARKER: ${marker}`);
 const emittedClient=await readFile(join(OUT,'portal',CLIENT_CURRENT.out));
-requireSize('Emitted current client',emittedClient,CLIENT_CURRENT.bytes);
-requireExact('Emitted current client',emittedClient,CLIENT_CURRENT.sha256);
 const emittedClientText=emittedClient.toString('utf8');
+if(!emittedClientText.includes(`id="${CLIENT_CONTRACT_RUNTIME.id}"`)||!emittedClientText.includes(CLIENT_CONTRACT_RUNTIME.src)) throw new Error('DEPLOYED_CLIENT_CONTRACT_BRIDGE_MISSING');
+if((emittedClientText.match(/client-contract-download-v3\.js/g)||[]).length!==1) throw new Error('DEPLOYED_CLIENT_CONTRACT_BRIDGE_NOT_SINGLE_OWNER');
 for(const marker of ['id="navDocuments"','id="page-documents"']) if(emittedClientText.includes(marker)) throw new Error(`DEPLOYED_CLIENT_OBSOLETE_DOCUMENTS_UI_PRESENT: ${marker}`);
 for(const marker of ['data-page="deals"','id="page-deals"','id="page-payments"']) if(!emittedClientText.includes(marker)) throw new Error(`DEPLOYED_CLIENT_REQUIRED_UI_MISSING: ${marker}`);
 
@@ -157,8 +175,11 @@ const integrity={
     route:CLIENT_CURRENT.route,
     source_dir:CLIENT_CURRENT.source_dir,
     source_sha256:CLIENT_CURRENT.sha256,
-    emitted_bytes:CLIENT_CURRENT.bytes,
+    source_bytes:CLIENT_CURRENT.bytes,
+    emitted_sha256:sha256(clientEmittedBytes),
+    emitted_bytes:clientEmittedBytes.length,
     visual_transform:CLIENT_CURRENT.visual_transform,
+    functional_bridge:{id:CLIENT_CONTRACT_RUNTIME.id,src:CLIENT_CONTRACT_RUNTIME.src,marker:CLIENT_CONTRACT_RUNTIME.marker},
     legacy_runtime_in_deployment:false,
     retired_runtime_sources:CLIENT_CURRENT.retired_runtime_sources,
   },
@@ -171,4 +192,4 @@ await writeFile(join(OUT,'canonical-visual-integrity.json'),JSON.stringify(integ
 for(const name of FORBIDDEN_TOP_LEVEL) if(await exists(join(OUT,name))) throw new Error(`Forbidden deployment artifact detected: ${name}`);
 const files=await walk(OUT);
 for(const required of ['index.html','en/index.html','investments/index.html','en/investments/index.html','_routes.json','portal/admin.html','portal/agent.html','portal/client.html','assets/portal-canonical/background.png','assets/portal-canonical/logo.svg','canonical-visual-integrity.json']) if(!(await exists(join(OUT,...required.split('/'))))) throw new Error(`dist/${required} missing`);
-console.log(`RONA direct build PASS: ${files.length} public files; Admin CURRENT_ONLY ${sha256(adminBytes)} (${adminBytes.length} bytes); Agent ${AGENT_SOURCE.sha256} CURRENT_ONLY; Client CURRENT_ONLY ${CLIENT_CURRENT.sha256} (${CLIENT_CURRENT.bytes} bytes), no legacy Client runtime, no Client visual transform; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}.`);
+console.log(`RONA direct build PASS: ${files.length} public files; Admin CURRENT_ONLY ${sha256(adminBytes)} (${adminBytes.length} bytes); Agent ${AGENT_SOURCE.sha256} CURRENT_ONLY; Client CURRENT_ONLY source ${CLIENT_CURRENT.sha256} (${CLIENT_CURRENT.bytes} bytes), emitted ${sha256(clientEmittedBytes)} (${clientEmittedBytes.length} bytes), authoritative contract bridge ${CLIENT_CONTRACT_RUNTIME.id}, no legacy Client runtime, no Client visual transform; PNG ${ASSETS.png.sha256}/${ASSETS.png.bytes}; SVG ${ASSETS.svg.sha256}/${ASSETS.svg.bytes}.`);
