@@ -42,6 +42,8 @@ assert(router.includes('server_client_storage_object'), 'client signed-storage r
 assert(router.includes('issueSignedUrl(c,req,route,rows[0])'), 'client signed-storage route must issue server signed URL');
 
 assert.equal(builtRuntime, runtime, 'deployed build asset must equal authoritative source asset');
-assert(builtClient.includes('client-contract-download-v3.js'), 'current client build must load client-contract-download-v3.js');
+const scriptSrcs=[...builtClient.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
+console.log('CLIENT_CURRENT_SCRIPT_SRCS='+JSON.stringify(scriptSrcs));
+assert(scriptSrcs.some(src=>src.includes('client-contract-download-v3.js')), 'current client build must load client-contract-download-v3.js');
 
 console.log('CLIENT_CONTRACT_AUTHORITATIVE_PROJECTION=PASS');
