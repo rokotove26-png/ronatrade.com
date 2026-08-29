@@ -17,8 +17,8 @@ const CLIENT_CURRENT = Object.freeze({
   source_dir: 'portal-src/current/client',
   chunks: ['payload.00','payload.01','payload.02','payload.03','payload.04','payload.05','payload.06','payload.07','payload.08','payload.09'],
   encoding: 'base64+brotli',
-  sha256: 'ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb',
-  bytes: 487355,
+  sha256: 'd07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183',
+  bytes: 484970,
   out: 'client.html',
   visual_transform: 'NONE',
   retired_runtime_sources: [
@@ -133,6 +133,9 @@ for(const marker of FORBIDDEN_ADMIN_MARKERS) if(emittedAdmin.includes(marker)) t
 const emittedClient=await readFile(join(OUT,'portal',CLIENT_CURRENT.out));
 requireSize('Emitted current client',emittedClient,CLIENT_CURRENT.bytes);
 requireExact('Emitted current client',emittedClient,CLIENT_CURRENT.sha256);
+const emittedClientText=emittedClient.toString('utf8');
+for(const marker of ['id="navDocuments"','id="page-documents"']) if(emittedClientText.includes(marker)) throw new Error(`DEPLOYED_CLIENT_OBSOLETE_DOCUMENTS_UI_PRESENT: ${marker}`);
+for(const marker of ['data-page="deals"','id="page-deals"','id="page-payments"']) if(!emittedClientText.includes(marker)) throw new Error(`DEPLOYED_CLIENT_REQUIRED_UI_MISSING: ${marker}`);
 
 const integrity={
   architecture:'CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS',

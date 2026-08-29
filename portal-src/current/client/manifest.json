@@ -16,8 +16,10 @@
     "payload.08",
     "payload.09"
   ],
-  "decoded_bytes": 487355,
-  "sha256": "ef5800aed51146136cdf4e90ad1c3a874d1d08be2b46c63af9ea1b94eef565fb",
+  "decoded_bytes": 484970,
+  "sha256": "d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183",
   "visual_transform": "NONE",
-  "legacy_runtime": false
+  "legacy_runtime": false,
+  "standalone_documents_section": false,
+  "deal_documents_workpoint": "deals"
 }
