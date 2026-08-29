@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260829-client-operations-authoritative-state-v4';
+const MARK='20260829-client-operations-authoritative-state-v5';
 if(window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__===MARK)return;
 window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -12,6 +12,7 @@ const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle
 const APP_ID_RE=/\bRONA-C\d{3}-IN-\d{4}-\d{3,}\b/g;
 const DEAL_ID_RE=/\bDEAL-\d{4}-\d{3,}\b/g;
 const DEAL_AMOUNT_RE=/^\d[\d\s.,]*\s*(?:долл\.?\s*США|USD|сом|KGS|руб\.?|RUB|₽|EUR|€)$/iu;
+const RESOURCE_STATE_RE=/^(?:Ресурс|Ресурс\s+подтвержд[её]н|Ресурс\s+не\s+подтвержд[её]н|Подтвержд[её]н|Не\s+подтвержд[её]н|Ожидание\s+подтверждения\s+ресурса)$/iu;
 
 async function request(path){
   const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
@@ -25,9 +26,17 @@ function operationsResourceState(businessStatus){
   if(s==='CANCELLED')return{code:'DEAL_CANCELLED',label:'Сделка отменена'};
   return{code:'RESOURCE_PENDING',label:'Ожидание подтверждения ресурса'};
 }
+function markAuthoritativeReady(){
+  document.documentElement.setAttribute('data-rona-client-operations-state','ready');
+  document.documentElement.setAttribute('data-rona-client-operations-ready','true');
+}
+function markAuthoritativeError(){
+  document.documentElement.setAttribute('data-rona-client-operations-state','error');
+  document.documentElement.removeAttribute('data-rona-client-operations-ready');
+}
 async function loadAuthoritativeState(force=false){
   if(state.loading)return;
-  if(!force&&state.ready&&Date.now()-state.lastLoad<REFRESH_MS){apply();return}
+  if(!force&&state.ready&&Date.now()-state.lastLoad<REFRESH_MS){apply();markAuthoritativeReady();return}
   state.loading=true;
   try{
     const boot=await request('/v1/client/bootstrap');
@@ -55,10 +64,12 @@ async function loadAuthoritativeState(force=false){
     window.__RONA_CLIENT_APPLICATION_ACTIVE_STATE__={version:MARK,source:'AUTHORITATIVE_CLIENT_CONTEXT',active_application_ids:[...active],loaded_at:new Date().toISOString()};
     window.__RONA_CLIENT_DEAL_OPERATIONS_STATE__={version:MARK,source:'OPERATIONS_DIRECTOR/AUTHORITATIVE_DEALS',deals:[...deals.values()],loaded_at:new Date().toISOString()};
     apply();
+    markAuthoritativeReady();
   }catch(error){
     console.error('RONA client authoritative projection',error);
     state.ready=false;
     apply();
+    markAuthoritativeError();
   }finally{state.loading=false}
 }
 function applicationsRoot(){
@@ -169,6 +180,28 @@ function syncApplicationCounter(root,ids){
     if(/^\d+\s+зарегистрировано$/iu.test(norm(el.textContent)))el.textContent=`${count} зарегистрировано`;
   }
 }
+function syncResourceState(row,deal){
+  const leaves=[...row.querySelectorAll('*')].filter(el=>el.childElementCount===0&&RESOURCE_STATE_RE.test(norm(el.textContent)));
+  let anchor=leaves.find(el=>norm(el.textContent)==='Ресурс')||leaves.find(el=>low(el.textContent).includes('ресурс'))||leaves[0]||null;
+  if(!anchor){
+    anchor=document.createElement('span');
+    row.append(anchor);
+  }
+  for(const el of leaves){
+    if(el===anchor)continue;
+    el.hidden=true;
+    el.style.display='none';
+    el.setAttribute('aria-hidden','true');
+    el.setAttribute('data-rona-stale-resource-state-removed','true');
+  }
+  anchor.hidden=false;
+  anchor.style.removeProperty('display');
+  anchor.removeAttribute('aria-hidden');
+  anchor.textContent=deal.label;
+  anchor.setAttribute('data-rona-operations-resource-state',deal.code);
+  anchor.setAttribute('data-rona-resource-projection','single-authoritative');
+  anchor.setAttribute('title','Источник: контур Операционного директора');
+}
 function projectDealRows(root,ids){
   if(!state.ready)return;
   for(const id of ids){
@@ -177,12 +210,7 @@ function projectDealRows(root,ids){
     if(!row)continue;
     if(!deal){row.hidden=true;row.style.display='none';row.setAttribute('data-rona-deal-projection','authoritative-not-current');continue}
     if(row.hasAttribute('data-rona-deal-projection')){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-deal-projection')}
-    const candidates=[...row.querySelectorAll('*')].filter(el=>el.childElementCount===0&&low(el.textContent).includes('ресурс'));
-    for(const el of candidates){
-      el.textContent=deal.label;
-      el.setAttribute('data-rona-operations-resource-state',deal.code);
-      el.setAttribute('title','Источник: контур Операционного директора');
-    }
+    syncResourceState(row,deal);
     row.setAttribute('data-rona-operations-deal-status',deal.businessStatus||'UNKNOWN');
   }
 }
@@ -193,14 +221,14 @@ function apply(){
     hideStatusLabels(apps);
     projectApplicationRows(apps,ids);
     syncApplicationCounter(apps,ids);
-    apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v4':'authoritative-pending-v4');
+    apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v5':'authoritative-pending-v5');
   }
   const deals=dealsRoot();
   if(deals){
     const ids=idsFromText(deals,DEAL_ID_RE);
     styleDealAmounts(deals,ids);
     projectDealRows(deals,ids);
-    deals.setAttribute('data-rona-deal-authority',state.ready?'operations-director-v1':'operations-pending');
+    deals.setAttribute('data-rona-deal-authority',state.ready?'operations-director-v2':'operations-pending');
   }
   return Boolean(apps||deals);
 }
