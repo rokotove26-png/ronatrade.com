@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260830-client-operations-finance-authoritative-state-v6';
+const MARK='20260830-client-admin-authoritative-deal-projection-v7';
 if(window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__===MARK)return;
 window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -7,51 +7,46 @@ if(location.pathname!=='/portal/client')return;
 const API='/portal/api',REFRESH_MS=30000;
 const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
-const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0};
 const APP_ID_RE=/\bRONA-C\d{3}-IN-\d{4}-\d{3,}\b/g;
 const DEAL_ID_RE=/\bDEAL-\d{4}-\d{3,}\b/g;
-const DEAL_AMOUNT_RE=/^\d[\d\s.,]*\s*(?:долл\.?\s*США|USD|сом|KGS|руб\.?|RUB|₽|EUR|€)$/iu;
-const RESOURCE_STATE_RE=/^(?:Ресурс|Ресурс\s+подтвержд[её]н|Ресурс\s+не\s+подтвержд[её]н|Подтвержд[её]н|Не\s+подтвержд[её]н|Ожидание\s+подтверждения\s+ресурса)$/iu;
-const DEAL_STATUS_RE=/^(?:Сделка\s+открыта|В\s+исполнении|Сделка\s+зарегистрирована|Завершена|Сделка\s+отменена|Статус\s+уточняется)$/iu;
-const PAYMENT_STATE_RE=/^(?:Оплата\s+подтверждена|Оплата\s+не\s+требуется|Ожидается\s+оплата|Оплата\s+на\s+проверке|Статус\s+оплаты\s+уточняется)$/iu;
+const DEAL_AMOUNT_RE=/^\d[\d\s.,]*\s*(?:USD|KGS|RUB|EUR|CNY|KZT|UZS|BYN|AED|TRY|GBP)$/iu;
+const STALE_STATUS_RE=/^(?:Сделка\s+открыта|В\s+исполнении|Сделка\s+зарегистрирована|Ресурс\s+подтвержд[её]н|Ресурс\s+не\s+подтвержд[её]н|Ожидание\s+подтверждения\s+ресурса|Оплата\s+подтверждена|Оплата\s+не\s+требуется|Ожидается\s+оплата|Оплата\s+на\s+проверке|Статус\s+оплаты\s+уточняется|Оплачено(?:\s+\d+%)?|Частичная\s+оплата|Завершена|Сделка\s+отменена|Статус\s+уточняется|Ресурс)$/iu;
 
+function installStyle(){
+  if(document.getElementById('rona-client-deal-state-strip-v7'))return;
+  const style=document.createElement('style');
+  style.id='rona-client-deal-state-strip-v7';
+  style.textContent=`
+    #page-deals [data-rona-deal-state-strip="authoritative-v7"]{display:inline-flex!important;align-items:center;gap:6px;flex-wrap:wrap;width:auto!important;max-width:100%;margin:0;padding:0;vertical-align:middle}
+    #page-deals [data-rona-deal-state-strip="authoritative-v7"]>[data-rona-state-chip]{display:inline-flex!important;align-items:center;justify-content:center;min-height:22px;padding:3px 8px;border-radius:999px;border:1px solid rgba(103,184,224,.24);background:rgba(8,29,43,.78);color:#cfe8f4;font-size:10px;line-height:1;font-weight:700;letter-spacing:.01em;white-space:nowrap;box-shadow:none}
+    #page-deals [data-rona-deal-state-strip="authoritative-v7"]>[data-tone="payment"]{border-color:rgba(78,201,154,.30);background:rgba(8,48,39,.62);color:#bff1d8}
+    #page-deals [data-rona-deal-state-strip="authoritative-v7"]>[data-tone="resource"]{border-color:rgba(104,208,165,.28);background:rgba(9,45,37,.55);color:#bcebd5}
+    #page-deals [data-rona-deal-state-strip="authoritative-v7"]>[data-tone="attention"]{border-color:rgba(232,183,83,.34);background:rgba(62,44,8,.56);color:#ffe2a1}
+    @media(max-width:900px){#page-deals [data-rona-deal-state-strip="authoritative-v7"]{gap:4px}#page-deals [data-rona-deal-state-strip="authoritative-v7"]>[data-rona-state-chip]{font-size:9.5px;padding:3px 7px}}
+  `;
+  document.head.append(style);
+}
 async function request(path){
   const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
   const b=await r.json().catch(()=>null);
   if(!r.ok||b?.ok===false)throw new Error(String(b?.code||b?.error?.code||('HTTP_'+r.status)));
   return b;
 }
-function operationsResourceState(businessStatus){
-  const s=norm(businessStatus).toUpperCase();
-  if(s==='EXECUTING')return{resourceCode:'RESOURCE_CONFIRMED',resourceLabel:'Ресурс подтверждён'};
-  if(s==='CANCELLED')return{resourceCode:'DEAL_CANCELLED',resourceLabel:'Сделка отменена'};
-  return{resourceCode:'RESOURCE_PENDING',resourceLabel:'Ожидание подтверждения ресурса'};
-}
-function operationsDealState(businessStatus){
-  const s=norm(businessStatus).toUpperCase();
-  if(s==='EXECUTING')return{statusCode:'EXECUTING',statusLabel:'В исполнении'};
-  if(s==='REGISTERED')return{statusCode:'REGISTERED',statusLabel:'Сделка зарегистрирована'};
-  if(s==='CLOSED'||s==='COMPLETED'||s==='DONE')return{statusCode:s,statusLabel:'Завершена'};
-  if(s==='CANCELLED')return{statusCode:'CANCELLED',statusLabel:'Сделка отменена'};
-  return{statusCode:s||'UNKNOWN',statusLabel:'Статус уточняется'};
-}
-function financePaymentState(financeStatus,paymentFact){
-  if(paymentFact?.confirmed)return{paymentCode:'PAYMENT_CONFIRMED',paymentLabel:'Оплата подтверждена'};
-  const s=norm(financeStatus).toUpperCase();
-  if(s==='PAID')return{paymentCode:'PAID',paymentLabel:'Оплата подтверждена'};
-  if(s==='NOT_DUE')return{paymentCode:'NOT_DUE',paymentLabel:'Оплата не требуется'};
-  if(s==='DUE'||s==='PAYMENT_DUE'||s==='AWAITING_PAYMENT')return{paymentCode:s,paymentLabel:'Ожидается оплата'};
-  if(s==='HOLD'||s==='TO_VERIFY')return{paymentCode:s,paymentLabel:'Оплата на проверке'};
-  return{paymentCode:s||'UNKNOWN',paymentLabel:'Статус оплаты уточняется'};
-}
-function markAuthoritativeReady(){
-  document.documentElement.setAttribute('data-rona-client-operations-state','ready');
-  document.documentElement.setAttribute('data-rona-client-operations-ready','true');
-}
-function markAuthoritativeError(){
-  document.documentElement.setAttribute('data-rona-client-operations-state','error');
-  document.documentElement.removeAttribute('data-rona-client-operations-ready');
+function markAuthoritativeReady(){document.documentElement.setAttribute('data-rona-client-operations-state','ready');document.documentElement.setAttribute('data-rona-client-operations-ready','true')}
+function markAuthoritativeError(){document.documentElement.setAttribute('data-rona-client-operations-state','error');document.documentElement.removeAttribute('data-rona-client-operations-ready')}
+function dealFromServer(row){
+  const dealId=norm(row?.deal_id||row?.dealId||row?.id);
+  const statusCode=norm(row?.current_status||row?.status_code),statusLabel=norm(row?.current_status_label||row?.status_label);
+  const paymentCode=norm(row?.payment_status||row?.payment_code),paymentLabel=norm(row?.payment_label);
+  const resourceCode=norm(row?.resource_status||row?.resource_code),resourceLabel=norm(row?.resource_label);
+  if(!dealId||!statusCode||!statusLabel||!paymentCode||!paymentLabel||!resourceCode||!resourceLabel)throw new Error('CLIENT_DEAL_SERVER_PROJECTION_INCOMPLETE');
+  return{
+    dealId,statusCode,statusLabel,paymentCode,paymentLabel,resourceCode,resourceLabel,
+    businessStatus:norm(row?.business_status),
+    paymentReceived:row?.payment_received_amount??null,paymentObligation:row?.payment_obligation_amount??null,paymentCurrency:norm(row?.payment_currency),paymentPercent:row?.payment_percent??null,
+    statusSource:norm(row?.status_source),paymentSource:norm(row?.payment_source),resourceSource:norm(row?.resource_source)
+  };
 }
 async function loadAuthoritativeState(force=false){
   if(state.loading)return;
@@ -65,257 +60,71 @@ async function loadAuthoritativeState(force=false){
       if(!clientId||!contractId)throw new Error('CLIENT_CONTEXT_ID_MISSING');
       return request('/v1/client/context?clientId='+encodeURIComponent(clientId)+'&contractId='+encodeURIComponent(contractId));
     }));
-    const active=new Set(),deals=new Map(),paymentsByDeal=new Map();
+    const active=new Set(),deals=new Map();
     for(const detail of details){
-      for(const app of Array.isArray(detail?.data?.applications)?detail.data.applications:[]){
-        const id=norm(app?.application_id||app?.applicationId||app?.id);
-        if(id)active.add(id);
-      }
-      for(const payment of Array.isArray(detail?.data?.payments)?detail.data.payments:[]){
-        const dealId=norm(payment?.deal_id||payment?.dealId),allocationStatus=norm(payment?.allocation_status||payment?.allocationStatus).toUpperCase(),financeStatus=norm(payment?.finance_status||payment?.financeStatus).toUpperCase(),allocated=Number(payment?.allocated_amount??payment?.allocatedAmount??0),currency=norm(payment?.currency).toUpperCase();
-        if(!dealId)continue;
-        const current=paymentsByDeal.get(dealId)||{confirmed:false,totalAllocated:0,currencies:new Set(),paymentIds:[]};
-        if(Number.isFinite(allocated)&&allocated>0)current.totalAllocated+=allocated;
-        if(currency)current.currencies.add(currency);
-        const paymentId=norm(payment?.payment_id||payment?.paymentId);
-        if(paymentId)current.paymentIds.push(paymentId);
-        if(allocationStatus==='VERIFIED'&&financeStatus==='PAID')current.confirmed=true;
-        paymentsByDeal.set(dealId,current);
-      }
-      for(const deal of Array.isArray(detail?.data?.deals)?detail.data.deals:[]){
-        const id=norm(deal?.deal_id||deal?.dealId||deal?.id),businessStatus=norm(deal?.business_status||deal?.businessStatus||deal?.status),financeStatus=norm(deal?.finance_status||deal?.financeStatus),paymentFact=paymentsByDeal.get(id)||null;
-        if(id)deals.set(id,{dealId:id,businessStatus,financeStatus,paymentFact,...operationsDealState(businessStatus),...operationsResourceState(businessStatus),...financePaymentState(financeStatus,paymentFact)});
-      }
+      for(const app of Array.isArray(detail?.data?.applications)?detail.data.applications:[]){const id=norm(app?.application_id||app?.applicationId||app?.id);if(id)active.add(id)}
+      for(const raw of Array.isArray(detail?.data?.deals)?detail.data.deals:[]){const deal=dealFromServer(raw);deals.set(deal.dealId,deal)}
     }
-    state.activeIds=active;
-    state.dealStates=deals;
-    state.ready=true;
-    state.lastLoad=Date.now();
+    state.activeIds=active;state.dealStates=deals;state.ready=true;state.lastLoad=Date.now();
     window.__RONA_CLIENT_APPLICATION_ACTIVE_STATE__={version:MARK,source:'AUTHORITATIVE_CLIENT_CONTEXT',active_application_ids:[...active],loaded_at:new Date().toISOString()};
-    window.__RONA_CLIENT_DEAL_OPERATIONS_STATE__={version:MARK,source:'OPERATIONS_DIRECTOR/AUTHORITATIVE_DEALS + FINANCE/AUTHORITATIVE_PAYMENTS',deals:[...deals.values()].map(d=>({dealId:d.dealId,businessStatus:d.businessStatus,statusCode:d.statusCode,statusLabel:d.statusLabel,resourceCode:d.resourceCode,resourceLabel:d.resourceLabel,financeStatus:d.financeStatus,paymentCode:d.paymentCode,paymentLabel:d.paymentLabel,paymentConfirmed:Boolean(d.paymentFact?.confirmed),paymentIds:d.paymentFact?.paymentIds||[]})),loaded_at:new Date().toISOString()};
-    apply();
-    markAuthoritativeReady();
-  }catch(error){
-    console.error('RONA client authoritative projection',error);
-    state.ready=false;
-    apply();
-    markAuthoritativeError();
-  }finally{state.loading=false}
+    window.__RONA_CLIENT_DEAL_OPERATIONS_STATE__={version:MARK,source:'ADMIN_CLIENT_SERVER_PROJECTION',deals:[...deals.values()],loaded_at:new Date().toISOString()};
+    apply();markAuthoritativeReady();
+  }catch(error){console.error('RONA client authoritative projection',error);state.ready=false;apply();markAuthoritativeError()}
+  finally{state.loading=false}
 }
 function applicationsRoot(){
-  for(const selector of ['#page-applications','#applicationsPage','[data-page-panel="applications"]','[data-page-id="applications"]']){
-    const el=document.querySelector(selector);if(el)return el;
-  }
-  let best=null;
-  for(const el of document.querySelectorAll('main section,main div,section,article')){
-    if(!visible(el))continue;
-    const t=norm(el.textContent);
-    if(!t.includes('Заявки')||!t.includes('Все статусы')||!t.includes('зарегистрировано'))continue;
-    if(!best||t.length<norm(best.textContent).length)best=el;
-  }
-  return best;
+  for(const selector of ['#page-applications','#applicationsPage','[data-page-panel="applications"]','[data-page-id="applications"]']){const el=document.querySelector(selector);if(el)return el}
+  let best=null;for(const el of document.querySelectorAll('main section,main div,section,article')){if(!visible(el))continue;const t=norm(el.textContent);if(!t.includes('Заявки')||!t.includes('Все статусы')||!t.includes('зарегистрировано'))continue;if(!best||t.length<norm(best.textContent).length)best=el}return best;
 }
 function dealsRoot(){
-  for(const selector of ['#page-deals','#dealsPage','[data-page-panel="deals"]','[data-page-id="deals"]']){
-    const el=document.querySelector(selector);if(el)return el;
-  }
-  let best=null;
-  for(const el of document.querySelectorAll('main section,main div,section,article')){
-    if(!visible(el))continue;
-    const t=norm(el.textContent);
-    if(!t.includes('Сделки')||!t.includes('Все этапы')||!DEAL_ID_RE.test(t)){DEAL_ID_RE.lastIndex=0;continue}
-    DEAL_ID_RE.lastIndex=0;
-    if(!best||t.length<norm(best.textContent).length)best=el;
-  }
-  return best;
+  for(const selector of ['#page-deals','#dealsPage','[data-page-panel="deals"]','[data-page-id="deals"]']){const el=document.querySelector(selector);if(el)return el}
+  let best=null;for(const el of document.querySelectorAll('main section,main div,section,article')){if(!visible(el))continue;const t=norm(el.textContent);if(!t.includes('Сделки')||!t.includes('Все этапы')||!DEAL_ID_RE.test(t)){DEAL_ID_RE.lastIndex=0;continue}DEAL_ID_RE.lastIndex=0;if(!best||t.length<norm(best.textContent).length)best=el}return best;
 }
-function idsFromText(root,re){
-  const ids=new Set(),walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;
-  while((node=walker.nextNode())){
-    const matches=String(node.nodeValue||'').match(re)||[];
-    for(const id of matches)ids.add(id);
-  }
-  return [...ids];
-}
-function leafWithText(root,text){return [...root.querySelectorAll('*')].filter(el=>el.childElementCount===0&&norm(el.textContent).includes(text))}
+function idsFromText(root,re){const ids=new Set(),walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode()))for(const id of String(node.nodeValue||'').match(re)||[])ids.add(id);return[...ids]}
+function leafWithText(root,text){return[...root.querySelectorAll('*')].filter(el=>el.childElementCount===0&&norm(el.textContent).includes(text))}
 function rowFor(root,id,allIds,contextTokens){
-  for(const leaf of leafWithText(root,id)){
-    let node=leaf,candidate=null;
-    for(let depth=0;node&&node!==root&&depth<12;depth++,node=node.parentElement){
-      const t=norm(node.textContent);
-      if(!t.includes(id))continue;
-      const idsPresent=allIds.filter(x=>x&&t.includes(x));
-      const hasRowContext=contextTokens.some(token=>t.includes(token));
-      if(idsPresent.length===1&&hasRowContext&&t.length<3200)candidate=node;
-      if(idsPresent.length>1)break;
-    }
-    if(candidate)return candidate;
-  }
-  return null;
+  for(const leaf of leafWithText(root,id)){let node=leaf,candidate=null;for(let depth=0;node&&node!==root&&depth<12;depth++,node=node.parentElement){const t=norm(node.textContent);if(!t.includes(id))continue;const idsPresent=allIds.filter(x=>x&&t.includes(x)),hasRowContext=contextTokens.some(token=>t.includes(token));if(idsPresent.length===1&&hasRowContext&&t.length<3200)candidate=node;if(idsPresent.length>1)break}if(candidate)return candidate}return null;
 }
-function hideStatusLabels(root){
-  for(const el of root.querySelectorAll('*')){
-    if(el.childElementCount===0&&norm(el.textContent)==='Статус'){
-      el.style.display='none';
-      el.setAttribute('data-rona-status-label-removed','true');
-    }
-  }
-}
+function hideStatusLabels(root){for(const el of root.querySelectorAll('*'))if(el.childElementCount===0&&norm(el.textContent)==='Статус'){el.style.display='none';el.setAttribute('data-rona-status-label-removed','true')}}
 function styleDealAmounts(root,ids){
-  for(const id of ids){
-    const row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);if(!row)continue;
-    for(const el of row.querySelectorAll('*')){
-      if(el.childElementCount!==0)continue;
-      const text=norm(el.textContent);
-      if(text==='Сумма'){
-        el.style.display='none';
-        el.setAttribute('data-rona-deal-amount-label-removed','true');
-        continue;
-      }
-      if(!DEAL_AMOUNT_RE.test(text))continue;
-      el.style.display='inline-flex';
-      el.style.alignItems='center';
-      el.style.width='fit-content';
-      el.style.padding='5px 10px';
-      el.style.border='1px solid rgba(78,196,255,.30)';
-      el.style.borderRadius='999px';
-      el.style.background='rgba(11,34,49,.86)';
-      el.style.whiteSpace='nowrap';
-      el.setAttribute('data-rona-deal-amount-badge','true');
-    }
-  }
+  for(const id of ids){const row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);if(!row)continue;for(const el of row.querySelectorAll('*')){if(el.childElementCount!==0)continue;const text=norm(el.textContent);if(text==='Сумма'){el.style.display='none';el.setAttribute('data-rona-deal-amount-label-removed','true');continue}if(!DEAL_AMOUNT_RE.test(text))continue;el.style.display='inline-flex';el.style.alignItems='center';el.style.width='fit-content';el.style.padding='5px 10px';el.style.border='1px solid rgba(78,196,255,.30)';el.style.borderRadius='999px';el.style.background='rgba(11,34,49,.86)';el.style.whiteSpace='nowrap';el.setAttribute('data-rona-deal-amount-badge','true')}}
 }
-function projectApplicationRows(root,ids){
-  if(!state.ready)return;
-  for(const id of ids){
-    const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);if(!row)continue;
-    if(state.activeIds.has(id)){
-      if(row.hasAttribute('data-rona-application-projection')||row.hasAttribute('data-rona-application-archived')){
-        row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-application-projection');row.removeAttribute('data-rona-application-archived');
-      }
-    }else{
-      row.hidden=true;row.style.display='none';row.setAttribute('data-rona-application-projection','authoritative-not-active');
-    }
-  }
+function projectApplicationRows(root,ids){if(!state.ready)return;for(const id of ids){const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);if(!row)continue;if(state.activeIds.has(id)){if(row.hasAttribute('data-rona-application-projection')||row.hasAttribute('data-rona-application-archived')){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-application-projection');row.removeAttribute('data-rona-application-archived')}}else{row.hidden=true;row.style.display='none';row.setAttribute('data-rona-application-projection','authoritative-not-active')}}}
+function syncApplicationCounter(root,ids){if(!state.ready)return;let count=0;for(const id of ids){const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);if(row&&state.activeIds.has(id)&&visible(row))count++}for(const el of root.querySelectorAll('*'))if(el.childElementCount===0&&/^\d+\s+зарегистрировано$/iu.test(norm(el.textContent)))el.textContent=`${count} зарегистрировано`}
+function paymentTitle(deal){
+  const r=Number(deal.paymentReceived),o=Number(deal.paymentObligation),c=deal.paymentCurrency;
+  if(Number.isFinite(r)&&Number.isFinite(o)&&o>0&&c)return`Получено ${r.toLocaleString('ru-RU',{maximumFractionDigits:2})} из ${o.toLocaleString('ru-RU',{maximumFractionDigits:2})} ${c}`;
+  return 'Источник: серверная финансовая проекция';
 }
-function syncApplicationCounter(root,ids){
-  if(!state.ready)return;
-  let count=0;
-  for(const id of ids){
-    const row=rowFor(root,id,ids,['Принята','Принято','Открыть','Сделка','DEAL-']);
-    if(row&&state.activeIds.has(id)&&visible(row))count++;
-  }
-  for(const el of root.querySelectorAll('*')){
-    if(el.childElementCount!==0)continue;
-    if(/^\d+\s+зарегистрировано$/iu.test(norm(el.textContent)))el.textContent=`${count} зарегистрировано`;
-  }
-}
-function dealStatusAnchor(row){
-  return row.querySelector('[data-rona-current-deal-status]')||[...row.querySelectorAll('*')].find(el=>el.childElementCount===0&&DEAL_STATUS_RE.test(norm(el.textContent)))||null;
-}
-function syncDealCurrentStatus(row,deal){
-  let anchor=dealStatusAnchor(row);
-  if(!anchor){
-    anchor=document.createElement('span');
-    const resource=[...row.querySelectorAll('*')].find(el=>el.childElementCount===0&&RESOURCE_STATE_RE.test(norm(el.textContent)));
-    if(resource?.className)anchor.className=resource.className;
-    if(resource?.parentElement)resource.parentElement.insertBefore(anchor,resource);else row.append(anchor);
-  }
-  anchor.hidden=false;
-  anchor.style.removeProperty('display');
-  anchor.textContent=deal.statusLabel;
-  anchor.setAttribute('data-rona-current-deal-status',deal.statusCode);
-  anchor.setAttribute('title','Источник: контур Операционного директора');
-}
-function syncPaymentState(row,deal){
-  let anchor=row.querySelector('[data-rona-finance-payment-state]')||[...row.querySelectorAll('*')].find(el=>el.childElementCount===0&&PAYMENT_STATE_RE.test(norm(el.textContent)))||null;
-  if(!anchor){
-    const status=dealStatusAnchor(row),resource=[...row.querySelectorAll('*')].find(el=>el.childElementCount===0&&RESOURCE_STATE_RE.test(norm(el.textContent))),template=status||resource;
-    anchor=document.createElement('span');
-    if(template?.className)anchor.className=template.className;
-    if(status?.parentElement)status.insertAdjacentElement('afterend',anchor);
-    else if(resource?.parentElement)resource.parentElement.insertBefore(anchor,resource);
-    else row.append(anchor);
-  }
-  anchor.hidden=false;
-  anchor.style.removeProperty('display');
-  anchor.textContent=deal.paymentLabel;
-  anchor.setAttribute('data-rona-finance-payment-state',deal.paymentCode);
-  anchor.setAttribute('title','Источник: контур Финансового директора');
-}
-function syncResourceState(row,deal){
-  const leaves=[...row.querySelectorAll('*')].filter(el=>el.childElementCount===0&&RESOURCE_STATE_RE.test(norm(el.textContent)));
-  let anchor=leaves.find(el=>norm(el.textContent)==='Ресурс')||leaves.find(el=>low(el.textContent).includes('ресурс'))||leaves[0]||null;
-  if(!anchor){
-    anchor=document.createElement('span');
-    row.append(anchor);
-  }
-  for(const el of leaves){
-    if(el===anchor)continue;
-    el.hidden=true;
-    el.style.display='none';
-    el.setAttribute('aria-hidden','true');
-    el.setAttribute('data-rona-stale-resource-state-removed','true');
-  }
-  anchor.hidden=false;
-  anchor.style.removeProperty('display');
-  anchor.removeAttribute('aria-hidden');
-  anchor.textContent=deal.resourceLabel;
-  anchor.setAttribute('data-rona-operations-resource-state',deal.resourceCode);
-  anchor.setAttribute('data-rona-resource-projection','single-authoritative');
-  anchor.setAttribute('title','Источник: контур Операционного директора');
+function chip(text,code,tone,title,attr){const el=document.createElement('span');el.textContent=text;el.setAttribute('data-rona-state-chip',code);el.setAttribute('data-tone',tone);if(title)el.title=title;if(attr)el.setAttribute(attr,code);return el}
+function syncDealStateStrip(row,deal){
+  const stale=[...row.querySelectorAll('*')].filter(el=>el.childElementCount===0&&STALE_STATUS_RE.test(norm(el.textContent))&&!el.closest('[data-rona-deal-state-strip]'));
+  const legacy=[...row.querySelectorAll('[data-rona-current-deal-status],[data-rona-finance-payment-state],[data-rona-operations-resource-state]')].filter(el=>!el.closest('[data-rona-deal-state-strip]'));
+  const first=stale[0]||legacy[0]||null;
+  let strip=row.querySelector('[data-rona-deal-state-strip="authoritative-v7"]');
+  if(!strip){strip=document.createElement('div');strip.setAttribute('data-rona-deal-state-strip','authoritative-v7');if(first?.parentElement)first.parentElement.insertBefore(strip,first);else{const docs=[...row.querySelectorAll('*')].find(el=>el.childElementCount===0&&norm(el.textContent)==='Документы');if(docs?.parentElement)docs.parentElement.insertBefore(strip,docs);else row.append(strip)}}
+  for(const el of [...stale,...legacy]){if(el===strip||strip.contains(el))continue;el.hidden=true;el.style.display='none';el.setAttribute('aria-hidden','true');el.setAttribute('data-rona-stale-deal-state-removed','true')}
+  strip.replaceChildren(
+    chip(deal.statusLabel,deal.statusCode,'status',deal.statusSource||'Источник: серверная операционная проекция','data-rona-current-deal-status'),
+    chip(deal.paymentLabel,deal.paymentCode,/PAID|CONFIRMED|PARTIAL/i.test(deal.paymentCode)?'payment':'attention',paymentTitle(deal),'data-rona-finance-payment-state'),
+    chip(deal.resourceLabel,deal.resourceCode,/CONFIRMED|EXECUT/i.test(deal.resourceCode)?'resource':'attention',deal.resourceSource||'Источник: серверная ресурсная проекция','data-rona-operations-resource-state')
+  );
 }
 function projectDealRows(root,ids){
   if(!state.ready)return;
-  for(const id of ids){
-    const deal=state.dealStates.get(id);
-    const row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);
-    if(!row)continue;
-    if(!deal){row.hidden=true;row.style.display='none';row.setAttribute('data-rona-deal-projection','authoritative-not-current');continue}
-    if(row.hasAttribute('data-rona-deal-projection')){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-deal-projection')}
-    syncDealCurrentStatus(row,deal);
-    syncPaymentState(row,deal);
-    syncResourceState(row,deal);
-    row.setAttribute('data-rona-operations-deal-status',deal.businessStatus||'UNKNOWN');
-    row.setAttribute('data-rona-finance-status',deal.financeStatus||'UNKNOWN');
-  }
+  for(const id of ids){const deal=state.dealStates.get(id),row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);if(!row)continue;if(!deal){row.hidden=true;row.style.display='none';row.setAttribute('data-rona-deal-projection','authoritative-not-current');continue}if(row.hasAttribute('data-rona-deal-projection')){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-deal-projection')}syncDealStateStrip(row,deal);row.setAttribute('data-rona-operations-deal-status',deal.statusCode);row.setAttribute('data-rona-finance-status',deal.paymentCode);row.setAttribute('data-rona-resource-status',deal.resourceCode)}
 }
 function apply(){
-  const apps=applicationsRoot();
-  if(apps){
-    const ids=idsFromText(apps,APP_ID_RE);
-    hideStatusLabels(apps);
-    projectApplicationRows(apps,ids);
-    syncApplicationCounter(apps,ids);
-    apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v6':'authoritative-pending-v6');
-  }
-  const deals=dealsRoot();
-  if(deals){
-    const ids=idsFromText(deals,DEAL_ID_RE);
-    styleDealAmounts(deals,ids);
-    projectDealRows(deals,ids);
-    deals.setAttribute('data-rona-deal-authority',state.ready?'operations-finance-v3':'operations-finance-pending');
-  }
+  installStyle();
+  const apps=applicationsRoot();if(apps){const ids=idsFromText(apps,APP_ID_RE);hideStatusLabels(apps);projectApplicationRows(apps,ids);syncApplicationCounter(apps,ids);apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v7':'authoritative-pending-v7')}
+  const deals=dealsRoot();if(deals){const ids=idsFromText(deals,DEAL_ID_RE);styleDealAmounts(deals,ids);projectDealRows(deals,ids);deals.setAttribute('data-rona-deal-authority',state.ready?'admin-client-server-v7':'admin-client-server-pending')}
   return Boolean(apps||deals);
 }
-function operationsPageVisible(){
-  return visible(document.getElementById('page-applications'))||visible(document.getElementById('page-deals'));
-}
-function loadWhenNeeded(force=false){
-  if(operationsPageVisible())loadAuthoritativeState(force);
-}
+function operationsPageVisible(){return visible(document.getElementById('page-applications'))||visible(document.getElementById('page-deals'))}
+function loadWhenNeeded(force=false){if(operationsPageVisible())loadAuthoritativeState(force)}
 function schedule(delay=0){clearTimeout(state.timer);state.timer=setTimeout(apply,delay)}
-function scheduleAndLoad(delay=0,force=false){
-  schedule(delay);
-  setTimeout(()=>loadWhenNeeded(force),delay+20);
-}
-function start(){
-  apply();
-  loadWhenNeeded(true);
-  state.observer=new MutationObserver(()=>schedule(30));
-  state.observer.observe(document.body,{childList:true,subtree:true});
-  setInterval(()=>loadWhenNeeded(false),REFRESH_MS);
-}
+function scheduleAndLoad(delay=0,force=false){schedule(delay);setTimeout(()=>loadWhenNeeded(force),delay+20)}
+function start(){installStyle();apply();loadWhenNeeded(true);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true});setInterval(()=>loadWhenNeeded(false),REFRESH_MS)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 document.addEventListener('click',()=>scheduleAndLoad(40,false),true);
 document.addEventListener('change',()=>scheduleAndLoad(40,false),true);
