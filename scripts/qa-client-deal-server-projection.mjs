@@ -25,12 +25,14 @@ for(const probe of [
   "source:'ADMIN_CLIENT_SERVER_PROJECTION'",
   'CLIENT_DEAL_SERVER_PROJECTION_INCOMPLETE',
   'data-rona-deal-state-strip',
-  'authoritative-v7',
+  'authoritative-v8',
+  'applicationIsActive',
   'paymentReceived',
   'paymentObligation',
 ])if(!runtime.includes(probe))throw new Error(`CLIENT_RENDERER_PROBE_MISSING ${probe}`);
 if(!attach.includes('CLIENT_LOCAL_BUSINESS_STATE_INFERENCE_FORBIDDEN'))throw new Error('BUILD_LOCAL_INFERENCE_GUARD_MISSING');
-if(!attach.includes('SINGLE_COMPACT_HORIZONTAL_STRIP'))throw new Error('BUILD_STATUS_STRIP_CONTRACT_MISSING');
+if(!attach.includes('SINGLE_COMPOSED_SEGMENTED_STRIP'))throw new Error('BUILD_STATUS_STRIP_CONTRACT_MISSING');
+if(!attach.includes('LINKED_DEAL_OR_TERMINAL_APPLICATION_STATUS'))throw new Error('BUILD_APPLICATION_ARCHIVE_CONTRACT_MISSING');
 
 const manifest=JSON.parse(await readFile('portal-src/current/client/manifest.json','utf8'));
 const encoded=(await Promise.all(manifest.chunks.map(name=>readFile(`portal-src/current/client/${name}`,'utf8')))).join('');
@@ -38,4 +40,4 @@ const source=brotliDecompressSync(Buffer.from(encoded,'base64'));
 const sha=createHash('sha256').update(source).digest('hex');
 if(source.length!==484970||sha!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183')throw new Error(`CLIENT_FROZEN_SOURCE_CHANGED ${source.length}/${sha}`);
 
-console.log('CLIENT_DEAL_SERVER_PROJECTION_QA=PASS server=ADMIN_CLIENT_SERVER_V1 renderer=THIN status_strip=HORIZONTAL frozen_source=UNCHANGED');
+console.log('CLIENT_DEAL_SERVER_PROJECTION_QA=PASS server=ADMIN_CLIENT_SERVER_V1 renderer=THIN status_strip=COMPOSED_SEGMENTED application_archive=LINKED_OR_TERMINAL frozen_source=UNCHANGED');
