@@ -28,26 +28,30 @@ jobs:
           const source = await response.text();
           new Function(source);
           for (const token of [
-            'live-market-intelligence-v1',
-            'owner-bootstrap-v1',
+            'live-market-intelligence-v2',
+            'owner-bootstrap-v2',
             '/portal/api/v1/admin/analytics',
+            '30s-pagechange-focus-root-rebind',
+            'rona:admin-pagechange',
             'LIVE DATA',
             'РАЗРЫВ ДАННЫХ',
             'ФАКТ / MTD / FORWARD',
             'Старый snapshot не используется',
             'Устаревший локальный snapshot намеренно скрыт'
           ]) if (!source.includes(token)) throw new Error('live Analytics token missing: '+token);
-          if (response.headers.get('x-rona-analytics-ui') !== 'live-market-intelligence-v1') throw new Error('live ui marker missing');
+          if (response.headers.get('x-rona-analytics-ui') !== 'live-market-intelligence-v2') throw new Error('live ui marker missing');
           if (response.headers.get('x-rona-analytics-data-source') !== 'owner_analytics_admin_bootstrap') throw new Error('live data source marker missing');
-          if (response.headers.get('x-rona-analytics-refresh') !== '300s-plus-focus') throw new Error('live refresh marker missing');
+          if (response.headers.get('x-rona-analytics-refresh') !== '30s-pagechange-focus-root-rebind') throw new Error('live refresh marker missing');
           NODE
       - name: Build current-only artifact
         run: npm run build
       - name: Verify materialized live Analytics
         run: |
-          grep -q 'live-market-intelligence-v1' dist/portal/analytics-v2-ui
-          grep -q 'owner-bootstrap-v1' dist/portal/analytics-v2-ui
+          grep -q 'live-market-intelligence-v2' dist/portal/analytics-v2-ui
+          grep -q 'owner-bootstrap-v2' dist/portal/analytics-v2-ui
           grep -q '/portal/api/v1/admin/analytics' dist/portal/analytics-v2-ui
+          grep -q '30s-pagechange-focus-root-rebind' dist/portal/analytics-v2-ui
+          grep -q 'rona:admin-pagechange' dist/portal/analytics-v2-ui
           grep -q 'РАЗРЫВ ДАННЫХ' dist/portal/analytics-v2-ui
           grep -q 'Устаревший локальный snapshot намеренно скрыт' dist/portal/analytics-v2-ui
       - name: Verify Admin shell ownership
