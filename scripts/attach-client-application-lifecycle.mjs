@@ -8,9 +8,9 @@ const connectionRuntimePath='dist/assets/portal-runtime/client-server-connection
 const id='rona-client-application-resource-archive-v1';
 const connectionId='rona-client-server-connection-v1';
 const guardId='rona-client-operations-first-paint-guard';
-const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-admin-client-authoritative-deal-projection-v7';
+const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-admin-client-authoritative-deal-projection-v8';
 const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=20260830-server-indicator-v1';
-const marker='20260830-client-admin-authoritative-deal-projection-v7';
+const marker='20260830-client-admin-authoritative-deal-projection-v8';
 const connectionMarker='20260830-client-server-connection-v1';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -40,7 +40,7 @@ const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 integrity.client_runtime.server_connection_indicator={id:connectionId,src:connectionSrc,marker:connectionMarker,replaces:'TOPBAR_DEALS_COUNTER',server_signal:'OBSERVED_SAME_ORIGIN_PORTAL_API_TRAFFIC',extra_network_requests:false,states:['CHECKING','ONLINE','DEGRADED','OFFLINE']};
-integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'ADMIN_CLIENT_SERVER_PROJECTION',archive_trigger:'SERVER_APPLICATION_LIFECYCLE',deal_status_source:'SERVER_RESOLVED_OPERATIONS_STATE',payment_status_source:'SERVER_RESOLVED_FINANCE_SUMMARY_AND_VERIFIED_ALLOCATIONS',payment_projection:'CLIENT_SAFE_PROGRESS_PERCENT_AND_CONFIRMED_FACT',deal_current_status_projection:'SERVER_LABEL_NO_BROWSER_INFERENCE',deal_amount_presentation:'BADGE_WITHOUT_LABEL',resource_projection:'SERVER_RESOLVED_RESOURCE_STATE',deal_status_presentation:'SINGLE_COMPACT_HORIZONTAL_STRIP',first_paint_guard:{id:guardId,mode:'SCOPED_AUTHORITATIVE_SECTIONS',scope:['APPLICATIONS','DEALS'],fail_closed:true,global_body_block:false}};
+integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'ADMIN_CLIENT_SERVER_PROJECTION',archive_trigger:'LINKED_DEAL_OR_TERMINAL_APPLICATION_STATUS',deal_status_source:'SERVER_RESOLVED_OPERATIONS_STATE',payment_status_source:'SERVER_RESOLVED_FINANCE_SUMMARY_AND_VERIFIED_ALLOCATIONS',payment_projection:'CLIENT_SAFE_PROGRESS_PERCENT_AND_CONFIRMED_FACT',deal_current_status_projection:'SERVER_LABEL_NO_BROWSER_INFERENCE',deal_amount_presentation:'CANONICAL_SUMMARY',resource_projection:'SERVER_RESOLVED_RESOURCE_STATE',deal_status_presentation:'SINGLE_COMPOSED_SEGMENTED_STRIP',first_paint_guard:{id:guardId,mode:'SCOPED_AUTHORITATIVE_SECTIONS',scope:['APPLICATIONS','DEALS'],fail_closed:true,global_body_block:false}};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
 console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; server connection indicator ${connectionId}; server-resolved deal state strip enabled`);
