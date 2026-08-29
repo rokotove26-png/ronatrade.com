@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260830-client-deal-canonical-visual-v2-v6-composed';
+const MARK='20260830-client-deal-canonical-visual-v2-v7-composed';
 if(window.__RONA_CLIENT_DEAL_CANONICAL_VISUAL__===MARK)return;
 window.__RONA_CLIENT_DEAL_CANONICAL_VISUAL__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -8,6 +8,41 @@ if(location.pathname!=='/portal/client')return;
 const PANEL='rona-deal-documents-v5';
 const HOST='rona-deal-card-v5';
 const STYLE_ID='rona-client-deal-canonical-visual-v2-style';
+const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/i;
+const AMOUNT_RE=/^\d[\d\s.,]*\s*(?:USD|KGS|RUB|EUR|CNY|KZT|UZS|BYN|AED|TRY|GBP)$/iu;
+const STATUS_RE=/^(?:В\s+исполнении|Сделка\s+открыта|Сделка\s+зарегистрирована|Ресурс(?:\s+(?:не\s+)?подтвержд[её]н|\s+ожидает\s+подтверждения)?|Подтвержд[её]н|Не\s+подтвержд[её]н|Оплачено(?:\s+\d+%)?|Оплата\s+получена|Оплата\s+не\s+наступила|Ожидается\s+оплата|Оплата\s+просрочена|Статус\s+оплаты\s+уточняется|Завершена|Сделка\s+отменена|Статус\s+уточняется)$/iu;
+const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
+const visible=n=>{if(!n||!n.isConnected)return false;const s=getComputedStyle(n);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0};
+
+function cleanDetail(value){
+  const parts=norm(value).split(/\s*[•·]\s*/).map(norm).filter(Boolean).filter(x=>!/^Инкотермс(?:\s+\d{4})?$/iu.test(x));
+  const unique=[];
+  for(const part of parts){const k=part.toLocaleLowerCase('ru-RU');if(!unique.some(x=>x.toLocaleLowerCase('ru-RU')===k))unique.push(part)}
+  const basisIndex=unique.findIndex(x=>/^(?:EXW|FCA|FAS|FOB|CFR|CIF|CPT|CIP|DAP|DPU|DDP)\b/iu.test(x));
+  if(basisIndex>=0){const basis=unique[basisIndex].toLocaleLowerCase('ru-RU');return unique.filter((x,i)=>{if(i<=basisIndex)return true;const k=x.toLocaleLowerCase('ru-RU');return !(k.length>=4&&basis.includes(k))}).join(' · ')}
+  return unique.join(' · ');
+}
+function leaves(host){return [...host.querySelectorAll('span,small,p,strong,b,div,label')].filter(n=>visible(n)&&!n.closest(`.${PANEL}`)&&!n.closest('[data-rona-deal-summary]')&&!n.closest('[data-rona-deal-state-strip]')&&!n.closest('button,a,[role="button"]')).filter(n=>{const t=norm(n.textContent);return t&&t.length<=420&&![...n.children].some(c=>visible(c)&&norm(c.textContent))})}
+function hideOriginal(n){if(!n||!n.isConnected||n.closest(`.${PANEL}`)||n.closest('[data-rona-deal-summary]')||n.closest('[data-rona-deal-state-strip]'))return;n.setAttribute('data-rona-deal-original-hidden','true');n.setAttribute('aria-hidden','true')}
+function composeHost(host){
+  const id=norm(host.dataset.ronaCanonicalDealId||'');if(!DEAL_RE.test(id))return;
+  const ls=leaves(host),idNodes=ls.filter(n=>norm(n.textContent)===id),amountNodes=ls.filter(n=>AMOUNT_RE.test(norm(n.textContent))),statusNodes=ls.filter(n=>STATUS_RE.test(norm(n.textContent))||/^Сумма$/iu.test(norm(n.textContent)));
+  const detailCandidates=ls.filter(n=>{const t=norm(n.textContent);return t!==id&&!AMOUNT_RE.test(t)!==false&&!STATUS_RE.test(t)&&!/^Сумма$/iu.test(t)&&t!=='Документы'&&t.length>=8});
+  const primary=detailCandidates.sort((a,b)=>norm(b.textContent).length-norm(a.textContent).length)[0]||null;
+  const detail=cleanDetail(primary?.textContent||'');
+  const amount=norm(amountNodes[0]?.textContent||'');
+  let summary=host.querySelector('[data-rona-deal-summary="canonical-v7"]');
+  if(!summary){summary=document.createElement('div');summary.className=`${HOST}__summary`;summary.setAttribute('data-rona-deal-summary','canonical-v7');host.insertBefore(summary,host.firstChild)}
+  let main=summary.querySelector('[data-rona-deal-summary-main]');if(!main){main=document.createElement('div');main.className=`${HOST}__summary-main`;main.setAttribute('data-rona-deal-summary-main','true');summary.append(main)}
+  let idEl=main.querySelector('[data-rona-deal-summary-id]');if(!idEl){idEl=document.createElement('div');idEl.className=`${HOST}__dealid`;idEl.setAttribute('data-rona-deal-summary-id','true');main.append(idEl)}idEl.textContent=id;
+  let detailEl=main.querySelector('[data-rona-deal-summary-detail]');if(!detailEl){detailEl=document.createElement('div');detailEl.className=`${HOST}__detail`;detailEl.setAttribute('data-rona-deal-summary-detail','true');main.append(detailEl)}detailEl.textContent=detail;detailEl.hidden=!detail;
+  let side=summary.querySelector('[data-rona-deal-summary-side]');if(!side){side=document.createElement('div');side.className=`${HOST}__summary-side`;side.setAttribute('data-rona-deal-summary-side','true');summary.append(side)}
+  let amountEl=side.querySelector('[data-rona-deal-summary-amount]');if(amount){if(!amountEl){amountEl=document.createElement('div');amountEl.className=`${HOST}__amount`;amountEl.setAttribute('data-rona-deal-summary-amount','true');side.prepend(amountEl)}amountEl.textContent=amount}else amountEl?.remove();
+  const open=[...host.querySelectorAll('button,a,[role="button"]')].find(n=>!n.closest(`.${PANEL}`)&&norm(n.textContent).toLocaleLowerCase('ru-RU')==='открыть');if(open&&!open.closest('[data-rona-deal-summary-side]')){open.classList.add(`${HOST}__open`);side.append(open)}
+  for(const n of [...idNodes,...amountNodes,...statusNodes,...detailCandidates])hideOriginal(n);
+  host.setAttribute('data-rona-deal-summary-ready','true');
+}
+function compose(){for(const host of document.querySelectorAll(`.${HOST}[data-rona-canonical-deal-id]`))composeHost(host)}
 
 function apply(){
   document.getElementById(`${PANEL}-style`)?.remove();
@@ -50,8 +85,11 @@ function apply(){
 `;
   document.head.appendChild(s);
   document.documentElement.dataset.ronaDealVisual='canonical-composed-v2';
+  compose();
 }
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
-window.addEventListener('pageshow',()=>{if(document.getElementById(`${PANEL}-style`)||!document.getElementById(STYLE_ID))apply()},{passive:true});
+let timer=0;const schedule=()=>{clearTimeout(timer);timer=setTimeout(compose,40)};
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{apply();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true})},{once:true});else{apply();new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true})}
+window.addEventListener('pageshow',()=>{if(document.getElementById(`${PANEL}-style`)||!document.getElementById(STYLE_ID))apply();else compose()},{passive:true});
+document.addEventListener('click',schedule,true);
 })();
