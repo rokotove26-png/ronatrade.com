@@ -1,0 +1,153 @@
+name: Restore Admin Analytics Canonical Visual
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - .github/workflows/admin-analytics-restore-canonical-visual.yml
+
+permissions:
+  contents: write
+
+jobs:
+  restore-analytics-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout release
+        uses: actions/checkout@v4
+        with:
+          ref: release/public-go-live-v1.1
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Restore accepted Analytics visual without touching live data owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises';
+
+          const path='functions/portal/analytics-v2-ui.js';
+          let src=await readFile(path,'utf8');
+          if(!src.includes("const CANONICAL_ANALYTICS_MARKER='live-market-intelligence-v2'")) throw new Error('Unexpected Analytics owner');
+          if(src.includes('home-canonical-frames-title-v2')) throw new Error('Canonical visual already restored');
+
+          const renderAnchor="r.replaceChildren();r.dataset.ronaLiveRoot='owner-bootstrap-v2';r.dataset.publicationId=String(current.publication_id||'');";
+          const renderReplacement="r.replaceChildren();const title=el('div','rona-analytics-canonical-title');title.append(el('div','rona-analytics-canonical-title-text','Аналитика'));r.append(title);r.dataset.ronaLiveRoot='owner-bootstrap-v2';r.dataset.publicationId=String(current.publication_id||'');";
+          if(!src.includes(renderAnchor)) throw new Error('Analytics render anchor missing');
+          src=src.replace(renderAnchor,renderReplacement);
+
+          const currentAnchor="return r.dataset.ronaLiveRoot==='owner-bootstrap-v2'&&r.dataset.publicationId===id&&!!r.querySelector('.an2-live-current')&&!!r.querySelector('[data-rona-live-chart=\"v2\"]');";
+          const currentReplacement="return r.dataset.ronaLiveRoot==='owner-bootstrap-v2'&&r.dataset.publicationId===id&&!!r.querySelector('.rona-analytics-canonical-title')&&!!r.querySelector('.an2-live-current')&&!!r.querySelector('[data-rona-live-chart=\"v2\"]');";
+          if(!src.includes(currentAnchor)) throw new Error('Analytics live DOM anchor missing');
+          src=src.replace(currentAnchor,currentReplacement);
+
+          const patch=String.raw`
+const CANONICAL_LIVE_VISUAL=String.raw\`
+;(()=>{'use strict';
+  if(window.__RONA_ANALYTICS_CANONICAL_LIVE_VISUAL__==='home-canonical-frames-title-v2')return;
+  window.__RONA_ANALYTICS_CANONICAL_LIVE_VISUAL__='home-canonical-frames-title-v2';
+  const oldIds=['ronaAnalyticsCanonicalHomeVisualV1','ronaAnalyticsDesignerChartV1','ronaAnalyticsDesignerChartV2','ronaAnalyticsBalancedLayoutV1','ronaAnalyticsBalancedLayoutV2'];
+  oldIds.forEach(id=>document.getElementById(id)?.remove());
+  if(!document.getElementById('ronaAnalyticsCanonicalLiveVisualV2')){
+    const s=document.createElement('style');s.id='ronaAnalyticsCanonicalLiveVisualV2';s.textContent=[
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2{--an2-text-primary:#e8f1f6;--an2-text-secondary:#9eb3c1;--an2-heading:#dbe8ef;--an2-heading-soft:#bdd0db;--an2-cyan:#65d9ff;--an2-blue:#8db7ff;--an2-green:#8bdcb4;--an2-amber:#efc978;--an2-red:#ff8c97;width:min(100%,1520px)!important;max-width:1520px!important;margin:0 auto!important;padding:0 clamp(10px,1vw,18px) 24px!important;box-sizing:border-box!important;gap:14px!important;color:var(--an2-text-primary)!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .rona-analytics-canonical-title{position:sticky!important;top:0!important;z-index:2147481200!important;display:flex!important;visibility:visible!important;opacity:1!important;align-items:center!important;min-height:48px!important;box-sizing:border-box!important;margin:0 0 14px!important;padding:10px 14px!important;border:1px solid var(--line-soft,rgba(255,255,255,.14))!important;border-radius:12px!important;background:rgba(6,18,31,.94)!important;-webkit-backdrop-filter:blur(12px) saturate(120%)!important;backdrop-filter:blur(12px) saturate(120%)!important;box-shadow:0 8px 24px rgba(0,0,0,.16)!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .rona-analytics-canonical-title-text{font-size:22px!important;font-weight:850!important;line-height:1.2!important;letter-spacing:.01em!important;color:inherit!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:14px!important;min-height:0!important;margin:0!important;padding:16px!important;border:1px solid var(--line,rgba(255,255,255,.18))!important;border-radius:14px!important;background:transparent!important;box-shadow:none!important;color:inherit!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head h1{display:none!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2>.an2-head p{max-width:900px!important;margin:0!important;color:var(--an2-text-secondary)!important;font-size:12px!important;line-height:1.55!important;opacity:1!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-kpis{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;min-width:0!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2 .rona-owner-card{border:1px solid var(--line,rgba(255,255,255,.18))!important;border-radius:14px!important;background:transparent!important;box-shadow:none!important;padding:16px!important;box-sizing:border-box!important;color:inherit!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2 .rona-owner-card>h2{margin:0 0 10px!important;color:var(--an2-heading)!important;font-size:15px!important;line-height:1.25!important;font-weight:800!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2 .rona-owner-kpi{color:var(--an2-cyan)!important;font-size:25px!important;font-weight:850!important;line-height:1.15!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2.an2 .rona-owner-muted{color:var(--an2-text-secondary)!important;opacity:1!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-controls{gap:9px!important}.an2-live-controls button{color:#c7d7e1!important}.an2-live-controls button[aria-pressed=\"true\"]{color:var(--an2-cyan)!important;border-color:rgba(101,217,255,.48)!important;background:rgba(101,217,255,.07)!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-grid{grid-template-columns:minmax(0,1.52fr) minmax(330px,.78fr)!important;gap:14px!important;align-items:stretch!important;min-width:0!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart{min-height:360px!important;overflow:hidden!important;color:var(--an2-cyan)!important;background:linear-gradient(180deg,rgba(8,24,38,.34),rgba(3,12,20,.08))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 14px 36px rgba(0,0,0,.12)!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart svg{height:310px!important;border-radius:18px!important;filter:drop-shadow(0 22px 40px rgba(0,0,0,.30))!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart .an2-gridline{stroke:var(--an2-text-secondary)!important;opacity:.12!important;stroke-dasharray:2 8!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart .an2-axis{fill:var(--an2-text-secondary)!important;opacity:.9!important;font-size:11px!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart .an2-line{stroke:var(--an2-cyan)!important;stroke-width:4.8!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart .an2-dot{fill:var(--an2-cyan)!important;stroke:#e9fbff!important;stroke-width:1.8!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart .an2-point-value{fill:#dff7ff!important;opacity:1!important;paint-order:stroke!important;stroke:rgba(3,13,22,.96)!important;stroke-width:3.8px!important;font-size:10px!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-side{height:100%!important;box-sizing:border-box!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-row{padding:10px 2px!important;border-bottom:1px solid var(--line-soft,rgba(255,255,255,.12))!important}.an2-live-row span{color:var(--an2-text-secondary)!important;opacity:1!important;font-size:11px!important}.an2-live-row strong{color:#e6eef3!important;font-size:17px!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-meta{color:var(--an2-text-secondary)!important;opacity:1!important;font-size:11px!important;line-height:1.5!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-current{gap:10px!important;color:#cbdbe5!important;font-size:13px!important;line-height:1.62!important}.an2-live-current h3{color:var(--an2-heading-soft)!important;font-size:15px!important}.an2-live-current p{font-size:13px!important;line-height:1.62!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-extra{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px!important;min-width:0!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-source-gap{border-left-color:var(--an2-amber)!important;color:#d9c99e!important;background:rgba(239,201,120,.06)!important}',
+      '#current-admin-main #page-analytics #rona-analytics-v2 .rona-fin-pill--info{color:var(--an2-blue)!important}#current-admin-main #page-analytics #rona-analytics-v2 .rona-fin-pill--success{color:var(--an2-green)!important}#current-admin-main #page-analytics #rona-analytics-v2 .rona-fin-pill--warn{color:var(--an2-amber)!important}#current-admin-main #page-analytics #rona-analytics-v2 .rona-fin-pill--danger{color:var(--an2-red)!important}#current-admin-main #page-analytics #rona-analytics-v2 .rona-fin-pill--neutral{color:var(--an2-text-secondary)!important}',
+      '@media(max-width:1280px){#current-admin-main #page-analytics #rona-analytics-v2.an2{width:100%!important;max-width:none!important}#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-grid{grid-template-columns:minmax(0,1.45fr) minmax(300px,.72fr)!important}}',
+      '@media(max-width:1050px){#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-grid{grid-template-columns:1fr!important}#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-extra{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))!important}}',
+      '@media(max-width:720px){#current-admin-main #page-analytics #rona-analytics-v2 .rona-analytics-canonical-title{min-height:44px!important;padding:9px 12px!important;margin-bottom:10px!important}#current-admin-main #page-analytics #rona-analytics-v2 .rona-analytics-canonical-title-text{font-size:19px!important}}',
+      '@media(max-width:680px){#current-admin-main #page-analytics #rona-analytics-v2.an2{padding-left:0!important;padding-right:0!important}#current-admin-main #page-analytics #rona-analytics-v2 .an2-kpis,#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-extra{grid-template-columns:1fr!important}#current-admin-main #page-analytics #rona-analytics-v2 .an2-live-chart svg{height:270px!important;border-radius:13px!important}}'
+    ].join('');document.head.append(s);
+  }
+  const ns='http://www.w3.org/2000/svg';
+  function n(name,attrs){const x=document.createElementNS(ns,name);for(const k in attrs)x.setAttribute(k,String(attrs[k]));return x}
+  function stop(offset,color,opacity){return n('stop',{offset,'stop-color':color,'stop-opacity':opacity})}
+  function enhance(svg){
+    if(!svg||svg.dataset.ronaDesignerChart==='v3')return;const line=svg.querySelector('.an2-line');if(!line)return;
+    svg.dataset.ronaDesignerChart='v3';window.__RONA_ANALYTICS_CHART_SEQ__=(window.__RONA_ANALYTICS_CHART_SEQ__||0)+1;
+    const uid='ronaAn2LiveChart'+window.__RONA_ANALYTICS_CHART_SEQ__,defs=n('defs',{}),panelId=uid+'Panel',areaId=uid+'Area',strokeId=uid+'Stroke',glowId=uid+'Glow',spotId=uid+'Spot';
+    const panel=n('linearGradient',{id:panelId,x1:'0',y1:'0',x2:'0',y2:'1'});panel.append(stop('0%','#0d2a40',.96),stop('48%','#081c2c',.88),stop('100%','#03101a',.96));
+    const area=n('linearGradient',{id:areaId,x1:'0',y1:'0',x2:'0',y2:'1'});area.append(stop('0%','#65d9ff',.42),stop('46%','#4ba7d4',.17),stop('100%','#071826',.015));
+    const stroke=n('linearGradient',{id:strokeId,x1:'0',y1:'0',x2:'1',y2:'0'});stroke.append(stop('0%','#b8f3ff',1),stop('42%','#65d9ff',1),stop('100%','#8db7ff',1));
+    const spot=n('linearGradient',{id:spotId,x1:'0',y1:'0',x2:'0',y2:'1'});spot.append(stop('0%','#8ce7ff',.48),stop('100%','#65d9ff',0));
+    const glow=n('filter',{id:glowId,x:'-24%',y:'-40%',width:'148%',height:'190%'});glow.append(n('feDropShadow',{dx:'0',dy:'4',stdDeviation:'5','flood-color':'#65d9ff','flood-opacity':'.34'}));defs.append(panel,area,stroke,spot,glow);svg.insertBefore(defs,svg.firstChild);
+    const grid=Array.from(svg.querySelectorAll('.an2-gridline')),ys=grid.map(g=>Number(g.getAttribute('y1'))).filter(Number.isFinite),baseline=ys.length?Math.max(...ys):240,bg=n('rect',{x:50,y:24,width:832,height:230,rx:20,fill:'url(#'+panelId+')',stroke:'rgba(126,200,232,.20)','stroke-width':1.2});svg.insertBefore(bg,defs.nextSibling);
+    const points=String(line.getAttribute('points')||'').trim(),pairs=points.split(/\\s+/).filter(Boolean);
+    if(pairs.length){const first=pairs[0].split(',')[0],lastPair=pairs[pairs.length-1].split(','),last=lastPair[0],lastY=lastPair[1],shadow2=n('polyline',{points,fill:'none',stroke:'rgba(0,8,14,.94)','stroke-width':15,'stroke-linecap':'round','stroke-linejoin':'round',transform:'translate(0 11)',opacity:.52}),shadow1=n('polyline',{points,fill:'none',stroke:'rgba(26,103,139,.42)','stroke-width':9,'stroke-linecap':'round','stroke-linejoin':'round',transform:'translate(0 6)',opacity:.74}),areaPoly=n('polygon',{points:first+','+baseline+' '+points+' '+last+','+baseline,fill:'url(#'+areaId+')',opacity:.96}),spotLine=n('rect',{x:Number(last)-1.5,y:Number(lastY),width:3,height:Math.max(0,baseline-Number(lastY)),rx:1.5,fill:'url(#'+spotId+')'});line.parentNode.insertBefore(shadow2,line);line.parentNode.insertBefore(shadow1,line);line.parentNode.insertBefore(areaPoly,line);line.parentNode.insertBefore(spotLine,line)}
+    line.style.stroke='url(#'+strokeId+')';line.style.filter='url(#'+glowId+')';
+    const hi=line.cloneNode(false);hi.removeAttribute('class');hi.setAttribute('fill','none');hi.setAttribute('stroke','rgba(232,251,255,.72)');hi.setAttribute('stroke-width','1.15');hi.setAttribute('stroke-linecap','round');hi.setAttribute('stroke-linejoin','round');hi.setAttribute('transform','translate(0 -1.4)');line.parentNode.insertBefore(hi,line.nextSibling);
+    const dots=Array.from(svg.querySelectorAll('.an2-dot'));dots.forEach((dot,i)=>{const last=i===dots.length-1,halo2=n('circle',{cx:dot.getAttribute('cx'),cy:dot.getAttribute('cy'),r:last?16:10,fill:'rgba(101,217,255,.055)',stroke:'rgba(101,217,255,.10)','stroke-width':1}),halo=n('circle',{cx:dot.getAttribute('cx'),cy:dot.getAttribute('cy'),r:last?10:7.5,fill:'rgba(101,217,255,.14)',stroke:'rgba(167,237,255,.22)','stroke-width':1});dot.parentNode.insertBefore(halo2,dot);dot.parentNode.insertBefore(halo,dot);dot.setAttribute('r',last?'5.8':'4.5')});
+  }
+  function all(){document.querySelectorAll('#page-analytics #rona-analytics-v2 .an2-live-chart svg').forEach(enhance)}
+  all();const root=document.querySelector('#page-analytics #rona-analytics-v2');if(root&&!root.__ronaDesignerChartObserverV3){root.__ronaDesignerChartObserverV3=true;new MutationObserver(()=>requestAnimationFrame(all)).observe(root,{childList:true,subtree:true})}setTimeout(all,80);setTimeout(all,350);window.__RONA_ANALYTICS_DESIGNER_CHART__='designer-depth-v3';
+})();
+\`;
+`;
+          const insert='function canonicalize(source){';
+          if(!src.includes(insert)) throw new Error('Canonical visual insert anchor missing');
+          src=src.replace(insert,patch+'\n'+insert);
+
+          const responseAnchor="return new Response(FAIL_CLOSED_GUARD+source+LIVE_ANALYTICS_RUNTIME,{status:response.status,statusText:response.statusText,headers});";
+          const responseReplacement="headers.set('x-rona-analytics-visual','home-canonical-frames-title-v2');headers.set('x-rona-analytics-chart','designer-depth-v3');return new Response(FAIL_CLOSED_GUARD+source+LIVE_ANALYTICS_RUNTIME+CANONICAL_LIVE_VISUAL,{status:response.status,statusText:response.statusText,headers});";
+          if(!src.includes(responseAnchor)) throw new Error('Analytics response anchor missing');
+          src=src.replace(responseAnchor,responseReplacement);
+          await writeFile(path,src,'utf8');
+
+          const materializePath='scripts/materialize-admin-current-modules.mjs';
+          let m=await readFile(materializePath,'utf8');
+          const tokenAnchor="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод'])requireMarker(source,token,'live analytics static runtime');";
+          const tokenReplacement="for(const token of ['live-market-intelligence-v2','owner-bootstrap-v2','/portal/api/v1/admin/analytics','LIVE DATA','РАЗРЫВ ДАННЫХ','ФАКТ / MTD / FORWARD','Старый snapshot не используется','Устаревший локальный snapshot намеренно скрыт','Аналитический вывод','home-canonical-frames-title-v2','designer-depth-v3','rona-analytics-canonical-title'])requireMarker(source,token,'live analytics static runtime');";
+          if(!m.includes(tokenAnchor)) throw new Error('Materialize Analytics token anchor missing');
+          m=m.replace(tokenAnchor,tokenReplacement);
+          const refreshHeader="  X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind\\n`";
+          const visualHeaders="  X-Rona-Analytics-Refresh: 30s-pagechange-focus-root-rebind\\n  X-Rona-Analytics-Visual: home-canonical-frames-title-v2\\n  X-Rona-Analytics-Chart: designer-depth-v3\\n`";
+          if(!m.includes(refreshHeader)) throw new Error('Materialize Analytics header anchor missing');
+          m=m.replace(refreshHeader,visualHeaders);
+          await writeFile(materializePath,m,'utf8');
+          NODE
+
+          node --check functions/portal/analytics-v2-ui.js
+          node --check scripts/materialize-admin-current-modules.mjs
+          npm run build
+          grep -q 'home-canonical-frames-title-v2' dist/portal/analytics-v2-ui
+          grep -q 'designer-depth-v3' dist/portal/analytics-v2-ui
+          grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui
+          grep -q 'X-Rona-Analytics-Visual: home-canonical-frames-title-v2' dist/_headers
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add functions/portal/analytics-v2-ui.js scripts/materialize-admin-current-modules.mjs
+          git diff --cached --check
+          git commit -m 'fix(admin): restore accepted canonical Analytics visual'
+          git push origin HEAD:release/public-go-live-v1.1
