@@ -58,6 +58,8 @@ jobs:
 
           s=s.replace("закрепленного корпоративного ящика analyst@ronaoil.com", "закрепленного корпоративного role mailbox")
           s=s.replace("закрепленного ящика analyst@ronaoil.com", "закрепленного корпоративного role mailbox")
+          s=s.replace("тексту писем analyst@ronaoil.com", "тексту писем закрепленного корпоративного role mailbox")
+          s=s.replace("содержимое письма analyst@ronaoil.com", "содержимое письма закрепленного корпоративного role mailbox")
           p.write_text(s)
           PY
           node --check supabase/functions/rona-mcp-gateway/index.js
@@ -67,6 +69,8 @@ jobs:
           grep -Fq "return roleMailRead(cfg,name,args||{});" supabase/functions/rona-mcp-gateway/index.js
           grep -Fq "if(name==='mail_send'){" supabase/functions/rona-mcp-gateway/index.js
           grep -Fq "if(!roleMailbox(cfg))return{error:'ROLE_AUTHORITY_DENIED'};" supabase/functions/rona-mcp-gateway/index.js
+          ! grep -Fq "письма analyst@ronaoil.com" supabase/functions/rona-mcp-gateway/index.js
+          ! grep -Fq "писем analyst@ronaoil.com" supabase/functions/rona-mcp-gateway/index.js
       - name: Commit patch if needed
         shell: bash
         run: |
@@ -78,5 +82,5 @@ jobs:
           git config user.name 'RONA System Admin Automation'
           git config user.email 'system-admin@ronaoil.com'
           git add supabase/functions/rona-mcp-gateway/index.js
-          git commit -m 'fix(mcp): restore Operations corporate mail binding [ops-mail-applied]'
+          git commit -m 'fix(mcp): normalize Operations corporate mail binding [ops-mail-applied]'
           git push origin HEAD:release/public-go-live-v1.1
