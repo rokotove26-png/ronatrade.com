@@ -37,7 +37,9 @@ assert(phase5d.includes('current_external_contract_number'), 'client context mus
 assert(phase5d.includes("so.storage_state='VERIFIED'"), 'client documents must require VERIFIED storage');
 assert(router.includes('clientContractProjection'), 'router must expose client contract projection');
 assert(router.includes('/v1/client/context'), 'router must expose client context endpoint');
-assert(router.includes('/v1/client/storage/'), 'router must expose signed storage URL endpoint');
+assert(router.includes('const clientStorageMatch=route.match('), 'router must define client signed-storage route');
+assert(router.includes('server_client_storage_object'), 'client signed-storage route must enforce server access gate');
+assert(router.includes('issueSignedUrl(c,req,route,rows[0])'), 'client signed-storage route must issue server signed URL');
 
 assert.equal(builtRuntime, runtime, 'deployed build asset must equal authoritative source asset');
 assert(builtClient.includes('client-contract-download-v3.js'), 'current client build must load client-contract-download-v3.js');
