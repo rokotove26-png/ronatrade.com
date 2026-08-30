@@ -7,7 +7,7 @@ const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;";
 const API_FROM="function api(path){return fetch(API+'?path='+encodeURIComponent(path),{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j&&j.data||{}})})}";
 const WAIT_FROM="function waitAdminReady(){var n=0,t=setInterval(function(){n++;if(window.__RONA_OWNER_ADMIN_READY__===true){clearInterval(t);paint();return}if(n>200)clearInterval(t)},100)}";
 const START_FROM="function start(){ensureStyle();ensureV6Style();snapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__||null;paint();bind();sync();waitAdminReady();timer=setInterval(sync,30000)}";
-const START_TO="function start(){ensureClientCanonicalOwnerStyle();ensureStyle();ensureV6Style();if(!ensureClientRailMount())return;snapshot=null;paint();bind();sync();waitAdminReady();window.__RONA_CLIENT_RAIL_REFRESH__=function(){return sync()};timer=setInterval(sync,30000)}";
+const START_TO="function start(){ensureClientCanonicalOwnerStyle();ensureStyle();ensureV6Style();if(!ensureClientRailMount())return;snapshot=null;paint();bind();sync();waitAdminReady();window.__RONA_CLIENT_RAIL_REFRESH__=function(){return sync()};window.__RONA_CLIENT_RAIL_NOTIFY_CHANGE__=function(detail){return clientRailScheduleChangedSync(detail)};bindClientRailChangeSignals();timer=null}";
 const LOCATION_FROM="if(location.pathname==='/portal/admin'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const LOCATION_TO="if(location.pathname==='/portal/client'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const BIND_FROM="function bind(){var nav=q('#nav button[data-page=\"monitoring\"]');if(nav&&!nav.__ronaRailV4Bound){nav.__ronaRailV4Bound=true;nav.addEventListener('click',function(){setTimeout(paint,0);setTimeout(paint,120);setTimeout(function(){sync()},350)})}}";
@@ -16,12 +16,36 @@ const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
+var clientRailChangedSyncTimer=0;
 function clientRailOuter(){
   var selectors=['#page-rail','#page-monitoring','[data-page-panel="rail"]','[data-page-panel="monitoring"]','[data-page-id="rail"]','[data-page-id="monitoring"]'];
   for(var i=0;i<selectors.length;i++){var n=document.querySelector(selectors[i]);if(n)return n}
   var hs=Array.from(document.querySelectorAll('h1,h2,h3'));
   for(var j=0;j<hs.length;j++){if(String(hs[j].textContent||'').replace(/\s+/g,' ').trim()==='Онлайн ЖД')return hs[j].closest('section[id^="page-"],[data-page-panel],[data-page-id],main')||null}
   return null
+}
+function clientRailChangeRelevant(detail){
+  if(detail===null||detail===undefined)return true;
+  var text='';
+  try{text=typeof detail==='string'?detail:JSON.stringify(detail)}catch(_){text=String(detail||'')}
+  if(!text)return true;
+  return /rail|shipment|wagon|movement|monitor|gu-?12|жд|вагон|отправ/iu.test(text)
+}
+function clientRailScheduleChangedSync(detail){
+  if(!clientRailChangeRelevant(detail))return false;
+  clearTimeout(clientRailChangedSyncTimer);
+  clientRailChangedSyncTimer=setTimeout(function(){sync()},80);
+  return true
+}
+function bindClientRailChangeSignals(){
+  if(document.documentElement.dataset.ronaClientRailChangeBound==='true')return;
+  document.documentElement.dataset.ronaClientRailChangeBound='true';
+  var onChanged=function(ev){clientRailScheduleChangedSync(ev&&ev.detail)};
+  ['rona:client-rail:changed','rona:client:data-changed','rona:portal:data-changed','rona:shipments:changed','rona:rail:changed'].forEach(function(name){window.addEventListener(name,onChanged)});
+  window.addEventListener('focus',function(){clientRailScheduleChangedSync({domain:'rail',reason:'focus'})});
+  window.addEventListener('online',function(){clientRailScheduleChangedSync({domain:'rail',reason:'online'})});
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')clientRailScheduleChangedSync({domain:'rail',reason:'visible'})});
+  document.documentElement.dataset.ronaClientRailRefreshMode='EVENT_DRIVEN_PLUS_MANUAL'
 }
 function ensureClientCanonicalOwnerStyle(){
   if(document.getElementById('ronaClientRailAdminCanonicalCoreStyle'))return;
@@ -75,10 +99,11 @@ async function api(path){
   var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments',true),providerResult=await clientRailFetch('/portal/api/v1/client/rail',false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();
   movementRows.forEach(function(row){var key=clientRailMovementKey(row);if(!key)return;if(!byKey.has(key))byKey.set(key,[]);byKey.get(key).push(row)});
   var rail=shipments.map(function(row){var key=clientRailShipmentKey(row),nested=clientRailArray(row.wagons||row.railcars||row.cars||row.positions),matched=key&&byKey.has(key)?byKey.get(key):[],wagons=clientRailUniqueWagons(nested.concat(matched));return{gu12_number:clientRailPick(row,['gu12_number','gu12Number'])||null,document_number:clientRailPick(row,['document_number','documentNumber'])||null,rail_document_id:clientRailPick(row,['rail_document_id','railDocumentId','shipment_id','shipmentId','id'])||null,deal_id:clientRailPick(row,['deal_id','dealId'])||null,route_text:clientRailRoute(row),wagons:wagons}}),activeRaw=clientRailPick(provider,['active_targets','activeTargets']),active=production&&publication?(activeRaw!==''?clientRailNumber(activeRaw,0):1):0,exchange={active_targets:active,conflicts:clientRailNumber(clientRailPick(provider,['conflicts','attention_count','attentionCount']),0)};
-  window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',shipment_source:'/portal/api/v1/client/shipments',provider_source:'/portal/api/v1/client/rail',provider:declared||'NOT_CONNECTED',provider_live:production,movement_publication:publication,movement_source:movementSource,movement_count:movementRows.length,rail_count:rail.length,active_targets:active,updated_at:new Date().toISOString()};
+  window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',shipment_source:'/portal/api/v1/client/shipments',provider_source:'/portal/api/v1/client/rail',provider:declared||'NOT_CONNECTED',provider_live:production,movement_publication:publication,movement_source:movementSource,movement_count:movementRows.length,rail_count:rail.length,active_targets:active,updated_at:new Date().toISOString(),refresh_mode:'EVENT_DRIVEN_PLUS_MANUAL'};
   document.documentElement.dataset.ronaClientRailSource='AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS';
   document.documentElement.dataset.ronaClientRailProvider=declared||'NOT_CONNECTED';
   document.documentElement.dataset.ronaClientRailOperational=production&&publication?'true':'false';
+  document.documentElement.dataset.ronaClientRailRefreshMode='EVENT_DRIVEN_PLUS_MANUAL';
   window.dispatchEvent(new CustomEvent('rona:client-rail:authority',{detail:window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__}));
   return{rail:rail,exchange:exchange}
 }
@@ -111,6 +136,9 @@ export async function onRequest(context){
   if(source.includes("/portal/owner-api")||source.includes("/admin/bootstrap")||source.includes("location.pathname==='/portal/admin'")){
     return new Response('CLIENT_RAIL_ADMIN_AUTHORITY_LEAK',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
+  if(source.includes('timer=setInterval(sync,30000)')){
+    return new Response('CLIENT_RAIL_PERIODIC_REFRESH_REGRESSION',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  }
   for(const forbidden of ['rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки']){
     if(source.includes(forbidden))return new Response('CLIENT_RAIL_LEGACY_VISUAL_PRESENT',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
@@ -121,6 +149,7 @@ export async function onRequest(context){
   headers.set('expires','0');
   headers.set('x-rona-client-rail-ui','admin-current-v81-canonical-client-authority-v1');
   headers.set('x-rona-client-rail-visual-canon','/portal/rail-current-v81-maplibre-ui');
+  headers.set('x-rona-client-rail-refresh-mode','event-driven-plus-manual');
   headers.delete('content-length');
   headers.delete('etag');
   return new Response(source,{status:200,headers});
