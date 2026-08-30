@@ -86,9 +86,13 @@ async function api(path){
 export async function onRequest(context){
   const response=await adminRailCurrent(context);
   let source=await response.text();
-  const required=[ADMIN_MARKER,API_VAR_FROM,API_FROM,WAIT_FROM,START_FROM,LOCATION_FROM,BIND_FROM,'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',"/portal/map-assets/osm/"];
-  if(response.status!==200||required.some(marker=>!source.includes(marker))){
-    return new Response('CLIENT_RAIL_ADMIN_CANONICAL_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  const checks=[
+    ['ADMIN_MARKER',ADMIN_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_FROM',START_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],
+    ['ROOT_CLASS','rona-rail-v4-root'],['WORK_CLASS','rona-rail-v4-work'],['SELECTOR_CLASS','rona-rail-v6-selector'],['WAGON_CLASS','rona-rail-v6-wagon-box'],['REAL_MAP_CLASS','rona-rail-v7-real'],['LOCAL_TILE','/portal/map-assets/osm/']
+  ];
+  const missing=checks.filter(([,marker])=>!source.includes(marker)).map(([name])=>name);
+  if(response.status!==200||missing.length){
+    return new Response(`CLIENT_RAIL_ADMIN_CANONICAL_SOURCE_MISMATCH status=${response.status} missing=${missing.join(',')||'NONE'}`,{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
   source=source
     .replace("'use strict';","'use strict';\n"+CLIENT_PREAMBLE)
