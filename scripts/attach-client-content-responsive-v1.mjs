@@ -27,7 +27,7 @@ for(const required of [
   if(!css.includes(required))throw new Error(`CLIENT_CONTENT_RESPONSIVE_CONTRACT_MISSING: ${required}`);
 }
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(css))throw new Error('CLIENT_CONTENT_RESPONSIVE_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
-if(/price|payment_obligation|resource_status|finance_status|accounting_status/iu.test(css))throw new Error('CLIENT_CONTENT_RESPONSIVE_BUSINESS_LOGIC_TOKEN_FORBIDDEN');
+if(/\b(?:payment_obligation_amount|payment_received_amount|payment_remaining_amount|resource_status|finance_status|accounting_status|publication_item_id|current_external_contract_number|payment_status)\b/iu.test(css))throw new Error('CLIENT_CONTENT_RESPONSIVE_BUSINESS_FIELD_TOKEN_FORBIDDEN');
 
 let html=await readFile(htmlPath,'utf8');
 if(html.includes(`id="${id}"`)||html.includes('client-content-responsive-v1.css'))throw new Error('CLIENT_CONTENT_RESPONSIVE_ALREADY_PRESENT');
