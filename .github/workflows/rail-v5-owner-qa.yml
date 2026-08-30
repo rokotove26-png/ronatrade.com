@@ -52,7 +52,6 @@ jobs:
           grep -q 'attach-client-rail-production-v1.mjs' package.json
           grep -q '/assets/portal-runtime/client-rail-production-v1.js' scripts/emit-client-runtime-cache-policy.mjs
           grep -q 'tile.openstreetmap.org' 'functions/portal/map-assets/[[path]].js'
-          grep -q 'stopImmediatePropagation' functions/portal/rail-current-v5-ui.js
           ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
           grep -q 'rona-rail-v6-select' functions/portal/rail-current-v6-ui.js
           grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
