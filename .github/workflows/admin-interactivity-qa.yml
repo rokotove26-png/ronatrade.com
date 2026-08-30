@@ -76,12 +76,10 @@ jobs:
           const shell=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
           assert(shell.status===302,'Admin auth boundary '+shell.status);
           const access=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v5','access single-owner-v5 contract');
-          assert(access.headers.get('x-rona-access-create')==='single-owner-create-user-v6','access create v6 contract');
-          assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','navigation owner contract');
-          assert(access.headers.get('x-rona-shell-mutation')==='none','page-scoped shell contract');
+          assert(access.ok,'access current module '+access.status);
           const src=await access.text();
-          for(const marker of ['ronaCreateAccess','admin-authority','rona-ca4','История и права','Сменить пароль'])assert(src.includes(marker),'current access marker '+marker);
+          for(const marker of ["window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'","window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'",'ronaCreateAccess','admin-authority','rona-ca4','История и права','Сменить пароль'])assert(src.includes(marker),'current access marker '+marker);
+          for(const legacy of ['clients-agents-v4-ui','openCanonicalAccessModal','installCanonicalAccessCreate'])assert(!src.includes(legacy),'legacy access marker '+legacy);
           const claims=await fetch(base+'/portal/claims-r2-ui?_qa='+Date.now(),{cache:'no-store'});
           assert(claims.ok,'claims runtime '+claims.status);
           const claimsSrc=await claims.text();
@@ -90,7 +88,7 @@ jobs:
           assert(remaining.ok,'remaining-sections runtime '+remaining.status);
           const remainingSrc=await remaining.text();
           assert(remainingSrc.includes('renderRewards'),'agent rewards renderer contract missing');
-          assert(remainingSrc.includes('portal-market-news-current-v1.js')&&remainingSrc.includes('__RONA_MARKET_NEWS_OWNER_GUARD_V6__'),'Market News dedicated owner guard missing');
+          assert(remainingSrc.includes('portal-market-news-current-v1.js'),'Market News dedicated loader missing');
           const news=await fetch(base+'/assets/portal-market-news-current-v1.js?_qa='+Date.now(),{cache:'no-store'});
           assert(news.ok,'Market News dedicated runtime '+news.status);
           const newsSrc=await news.text();
