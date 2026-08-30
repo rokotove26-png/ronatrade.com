@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - 'release/public-go-live-v1.1'
-      - 'fix/client-content-responsive-shell-20260830'
 
 permissions:
   contents: read
@@ -96,7 +95,7 @@ jobs:
               };
             });
             assert(r.viewport===1366,'unexpected viewport '+JSON.stringify(r));
-            assert(r.workspace<1220&&r.workspace>900,'fixture must model 14-inch pane '+JSON.stringify(r));
+            assert(r.home<1220&&r.home>900,'fixture must model 14-inch content pane '+JSON.stringify(r));
             assert(r.homeMainCols===1,'Home did not stack from content width '+JSON.stringify(r));
             assert(r.homeKpiCols===2,'Home KPI grid did not adapt from content width '+JSON.stringify(r));
             assert(r.dealsCols===2,'Deals did not enter compact summary from content width '+JSON.stringify(r));
@@ -107,10 +106,10 @@ jobs:
             await page.waitForTimeout(50);
             const p=await page.evaluate(()=>{
               const q=s=>document.querySelector(s),cols=s=>getComputedStyle(q(s)).gridTemplateColumns.trim().split(/\s+/).length;
-              const workspace=q('.workspace');
-              return{workspace:Math.round(workspace.getBoundingClientRect().width),paymentKpiCols:cols('.rona-payments-kpis'),paymentDealCols:cols('.rona-payments-deal'),overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth};
+              const workspace=q('.workspace'),payments=q('#page-payments');
+              return{workspace:Math.round(workspace.getBoundingClientRect().width),payments:Math.round(payments.getBoundingClientRect().width),paymentKpiCols:cols('.rona-payments-kpis'),paymentDealCols:cols('.rona-payments-deal'),overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth};
             });
-            assert(p.workspace<900,'compact fixture must put content pane below 900 '+JSON.stringify(p));
+            assert(p.payments<900,'compact fixture must put Payments page below 900 '+JSON.stringify(p));
             assert(p.paymentKpiCols===2&&p.paymentDealCols===1,'Payments did not adapt from content width '+JSON.stringify(p));
             assert(p.overflow<=1,'compact viewport overflow '+JSON.stringify(p));
             console.log('CLIENT_CONTENT_RESPONSIVE_14IN=PASS',JSON.stringify({r,p}));
