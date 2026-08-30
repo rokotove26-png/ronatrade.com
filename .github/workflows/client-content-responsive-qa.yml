@@ -31,6 +31,8 @@ jobs:
           grep -q 'container-name: rona-client-deals' assets/portal-runtime/client-content-responsive-v1.css
           grep -q 'container-name: rona-client-payments' assets/portal-runtime/client-content-responsive-v1.css
           grep -q 'container-name: rona-client-rail' assets/portal-runtime/client-content-responsive-v1.css
+          grep -q '.rona-rail-v4-work' assets/portal-runtime/client-content-responsive-v1.css
+          ! grep -q '.rona-rail-grid' assets/portal-runtime/client-content-responsive-v1.css
           npm run build
           grep -q 'id="rona-client-content-responsive-v1"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-content-responsive-v1.css?v=20260830-content-width-aware-v1' dist/portal/client.html
@@ -64,12 +66,12 @@ jobs:
             [id^="page-"]{width:100%;margin:0 0 20px}.rona-cc-kpis{display:grid;grid-template-columns:1.18fr 1fr 1fr}.rona-cc-main,.rona-cc-bottom{display:grid;grid-template-columns:minmax(0,1.82fr) minmax(300px,.82fr);gap:16px}.rona-cc-panel{min-width:0}
             .rona-deal-card-v5__summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px}.rona-deal-card-v5__summary-main{grid-column:1}.rona-deal-card-v5__amount{grid-column:2}.rona-deal-card-v5__open{grid-column:3}
             .rona-payments-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.rona-payments-deal{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(150px,1fr) minmax(220px,2fr);gap:12px}
-            .rona-rail-grid{display:grid;grid-template-columns:minmax(360px,.9fr) minmax(480px,1.35fr);gap:12px}.rona-rail-map-shell{height:365px}.rona-rail-list{max-height:410px}
+            .rona-rail-v4-work{display:grid;grid-template-columns:minmax(360px,.9fr) minmax(480px,1.35fr);gap:12px}.rona-rail-v4-map{min-height:365px}.rona-rail-v4-card{min-width:0}
           </style></head><body><aside class="sidebar"></aside><main class="workspace">
             <section id="page-home"><section data-rona-client-home-owner="command-center-v2" data-rona-home-visual="tablet-v3" data-rona-home-night="v4"><div class="rona-cc-kpis"><div></div><div></div><div></div></div><div class="rona-cc-main"><div class="rona-cc-panel"></div><div class="rona-cc-panel"></div></div><div class="rona-cc-bottom"><div></div><div></div></div></section></section>
             <section id="page-deals"><article class="rona-deal-card-v5"><div class="rona-deal-card-v5__summary"><div class="rona-deal-card-v5__summary-main">Deal</div><div class="rona-deal-card-v5__amount">Amount</div><button class="rona-deal-card-v5__open">Open</button><div data-rona-deal-state-strip="authoritative-v8">State</div></div></article></section>
             <section id="page-payments"><section data-rona-client-payments-owner="finance-authoritative-v1" data-rona-payments-canonical-width><div class="rona-payments-kpis"><div></div><div></div><div></div><div></div></div><div class="rona-payments-deal"><div></div><div></div><div></div></div></section></section>
-            <section id="page-rail"><div class="rona-rail-ws"><div class="rona-rail-grid"><div class="rona-rail-list"></div><div class="rona-rail-map-shell"></div></div></div></section>
+            <section id="page-rail"><div class="rona-rail-v4-root"><div class="rona-rail-v4-work"><div class="rona-rail-v4-card"></div><div class="rona-rail-v4-map"></div></div></div></section>
           </main></body></html>`;
           (async()=>{
             const browser=await chromium.launch({headless:true,channel:'chrome'});
@@ -87,7 +89,7 @@ jobs:
                 homeMainCols:cols('.rona-cc-main'),
                 homeKpiCols:cols('.rona-cc-kpis'),
                 dealsCols:cols('.rona-deal-card-v5__summary'),
-                railCols:cols('.rona-rail-grid'),
+                railCols:cols('.rona-rail-v4-work'),
                 bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
                 workspaceOverflow:workspace.scrollWidth-workspace.clientWidth,
                 railOverflow:rail.scrollWidth-rail.clientWidth,
@@ -99,7 +101,7 @@ jobs:
             assert(r.homeMainCols===1,'Home did not stack from content width '+JSON.stringify(r));
             assert(r.homeKpiCols===2,'Home KPI grid did not adapt from content width '+JSON.stringify(r));
             assert(r.dealsCols===2,'Deals did not enter compact summary from content width '+JSON.stringify(r));
-            assert(r.railCols===1,'Online Rail did not stack from content width '+JSON.stringify(r));
+            assert(r.railCols===1,'Online Rail Admin-canonical work area did not stack from content width '+JSON.stringify(r));
             assert(r.bodyOverflow<=1&&r.workspaceOverflow<=1&&r.railOverflow<=1&&r.dealsOverflow<=1,'horizontal cabinet overflow '+JSON.stringify(r));
 
             await page.setViewportSize({width:1180,height:800});
