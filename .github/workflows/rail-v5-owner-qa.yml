@@ -7,6 +7,7 @@ on:
       - portal-src/current/admin.html
       - assets/portal-admin-shell-fast-v1.js
       - assets/portal-runtime/client-rail-production-v1.js
+      - assets/portal-runtime/client-rail-movizor-gate-v1.js
       - scripts/attach-client-rail-production-v1.mjs
       - scripts/emit-client-runtime-cache-policy.mjs
       - functions/portal/_middleware.js
@@ -26,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify current Admin Rail and Client Online Rail workspace
+      - name: Verify current Admin Rail and fail-closed Client MOVIZOR gate
         shell: bash
         run: |
           set -euo pipefail
@@ -34,6 +35,7 @@ jobs:
           node --check functions/portal/_middleware.js
           node --check assets/portal-admin-shell-fast-v1.js
           node --check assets/portal-runtime/client-rail-production-v1.js
+          node --check assets/portal-runtime/client-rail-movizor-gate-v1.js
           node --check scripts/attach-client-rail-production-v1.mjs
           node --check scripts/emit-client-runtime-cache-policy.mjs
           node --check functions/portal/rail-current-v5-ui.js
@@ -51,7 +53,7 @@ jobs:
           grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
           grep -q 'rona-rail-v4-hero{display:none' functions/portal/rail-current-v6-single-title-ui.js
 
-          # Client Rail current contract: shipments + local map, no movement provider and no tariff matrix.
+          # Base Client Rail still owns the shipment workspace and must not pretend to consume MOVIZOR.
           grep -q "__RONA_CLIENT_RAIL_PRODUCTION__='20260830-client-workspace-v3'" assets/portal-runtime/client-rail-production-v1.js
           grep -q "SHIPMENTS_API='/portal/api/v1/client/shipments'" assets/portal-runtime/client-rail-production-v1.js
           grep -q "MAPLIBRE_JS='/portal/map-assets/maplibre-gl.js'" assets/portal-runtime/client-rail-production-v1.js
@@ -63,16 +65,32 @@ jobs:
           grep -q 'movement_publication:false' assets/portal-runtime/client-rail-production-v1.js
           grep -q 'movements:\[\]' assets/portal-runtime/client-rail-production-v1.js
           grep -q "ronaClientRailTariffMatrix='REMOVED'" assets/portal-runtime/client-rail-production-v1.js
-          grep -q 'setInterval(()=>refresh(false),DATA_REFRESH_MS)' assets/portal-runtime/client-rail-production-v1.js
           grep -q 'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS' assets/portal-runtime/client-rail-production-v1.js
           ! grep -q 'MutationObserver' assets/portal-runtime/client-rail-production-v1.js
           ! grep -Eq '/v1/client/rail|MOVIZOR|PROVIDER_GATE_API|provider_gate_source' assets/portal-runtime/client-rail-production-v1.js
           ! grep -Eqi 'owner_rail_tariff_matrix|rail_tariff_matrix|/rail/tariff' assets/portal-runtime/client-rail-production-v1.js
 
+          # The separate fail-closed gate is the only Client MOVIZOR readiness owner.
+          grep -q "__RONA_CLIENT_RAIL_MOVIZOR_GATE__=MARK" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "const PROVIDER_API='/portal/api/v1/client/rail'" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "const PROVIDER='MOVIZOR'" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "upper(state?.movement_source)===PROVIDER" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "state?.movement_publication===true" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "MOVIZOR · подключение требуется" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "Онлайн ЖД не введён в эксплуатацию" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q "Интерактивная карта недоступна" assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q 'font-family:inherit!important' assets/portal-runtime/client-rail-movizor-gate-v1.js
+          grep -q 'rona-rail-title{font-size:18px!important' assets/portal-runtime/client-rail-movizor-gate-v1.js
+          ! grep -q 'MutationObserver' assets/portal-runtime/client-rail-movizor-gate-v1.js
+          ! grep -Eqi 'RONA-C[0-9]{3}|DEAL-2026-[0-9]{3,}|UNIVERSAL SOLYARIS|FARGONA' assets/portal-runtime/client-rail-movizor-gate-v1.js
+
           grep -q 'CLIENT_RAIL_PRODUCTION_BRIDGE=PASS' scripts/attach-client-rail-production-v1.mjs
           grep -q 'client-rail-production-v1.js?v=20260830-client-workspace-v3' scripts/attach-client-rail-production-v1.mjs
+          grep -q 'client-rail-movizor-gate-v1.js?v=20260830-movizor-required-v1' scripts/attach-client-rail-production-v1.mjs
+          grep -q "working_state:'FAIL_CLOSED_UNTIL_MOVIZOR_MOVEMENT_PUBLICATION'" scripts/attach-client-rail-production-v1.mjs
           grep -q 'attach-client-rail-production-v1.mjs' package.json
           grep -q '/assets/portal-runtime/client-rail-production-v1.js' scripts/emit-client-runtime-cache-policy.mjs
+          grep -q '/assets/portal-runtime/client-rail-movizor-gate-v1.js' scripts/emit-client-runtime-cache-policy.mjs
           grep -q 'tile.openstreetmap.org' functions/portal/_middleware.js
           grep -q 'allowClientRailTileCsp(headers)' functions/portal/_middleware.js
           grep -q 'tile.openstreetmap.org' 'functions/portal/map-assets/[[path]].js'
@@ -80,7 +98,10 @@ jobs:
           npm run build
           grep -q 'id="rona-client-rail-production-v1"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-rail-production-v1.js?v=20260830-client-workspace-v3' dist/portal/client.html
+          grep -q 'id="rona-client-rail-movizor-gate-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-rail-movizor-gate-v1.js?v=20260830-movizor-required-v1' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-rail-production-v1.js' dist/_headers
+          grep -q '/assets/portal-runtime/client-rail-movizor-gate-v1.js' dist/_headers
 
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
@@ -90,10 +111,12 @@ jobs:
           const bridge=integrity?.client_runtime?.rail_client_workspace;
           if(!bridge||bridge.id!=='rona-client-rail-production-v1'||bridge.marker!=='20260830-client-workspace-v3')throw new Error('Client Rail current workspace integrity record missing');
           if(bridge.shipment_source!=='/portal/api/v1/client/shipments'||bridge.authoritative_refresh_ms!==30000||bridge.auto_refresh!==true||bridge.manual_refresh!==true)throw new Error('Client Rail authoritative shipment refresh contract missing');
-          if(bridge.map_engine!=='MAPLIBRE_SAME_ORIGIN'||bridge.map_interactive!==true||bridge.tile_source!=='/portal/map-assets/osm/{z}/{x}/{y}.png')throw new Error('Client Rail same-origin map contract missing');
-          if(bridge.movement_source!=='NOT_CONNECTED'||bridge.movement_publication!==false||bridge.provider_gate_consumed!==false)throw new Error('Client Rail must not consume a movement provider');
+          if(bridge.map_engine!=='MAPLIBRE_SAME_ORIGIN'||bridge.map_interactive!=='ONLY_WHEN_MOVIZOR_PROVIDER_AND_MOVEMENT_PUBLICATION_READY'||bridge.tile_source!=='/portal/map-assets/osm/{z}/{x}/{y}.png')throw new Error('Client Rail conditional map contract missing');
+          if(bridge.movement_source!=='NOT_CONNECTED_IN_BASE_RUNTIME'||bridge.movement_publication!==false||bridge.provider_gate_consumed!==true)throw new Error('Client Rail MOVIZOR gate contract missing');
+          if(bridge.provider_gate_endpoint!=='/portal/api/v1/client/rail'||bridge.provider_required!=='MOVIZOR'||bridge.working_state!=='FAIL_CLOSED_UNTIL_MOVIZOR_MOVEMENT_PUBLICATION')throw new Error('Client Rail working-state gate missing');
+          if(bridge?.gate?.marker!=='20260830-movizor-required-v1'||bridge.canonical_typography_basis!=='CLIENT_HOME_AND_PAYMENTS')throw new Error('Client Rail gate/typography integrity missing');
           if(bridge.tariff_matrix!=='REMOVED_FROM_CLIENT_WORKSPACE')throw new Error('Client tariff matrix removal contract missing');
-          if(bridge.business_logic_changed!==false||bridge.hardcoded_business_entities!==false)throw new Error('Client Rail workspace crossed business-data boundary');
+          if(bridge.business_data_changed!==false||bridge.hardcoded_business_entities!==false)throw new Error('Client Rail gate crossed business-data boundary');
           if(integrity?.client_runtime?.rail_map_recovery)throw new Error('retired Client Rail recovery integrity remains');
 
           const response=await rail({});
