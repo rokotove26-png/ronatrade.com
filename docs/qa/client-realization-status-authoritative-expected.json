@@ -1,0 +1,13 @@
+{
+  "component": "Статус реализации",
+  "authority": "SERVER_AUTHORITATIVE_REALIZATION_V1",
+  "states": ["DONE", "CURRENT", "PENDING", "BLOCKED"],
+  "stage_order": ["contract", "documents", "payment", "resource", "logistics", "close"],
+  "browser_business_inference": false,
+  "refresh": {
+    "interval_ms": 7000,
+    "on_focus": true,
+    "on_visibility": true,
+    "fail_closed": true
+  }
+}
