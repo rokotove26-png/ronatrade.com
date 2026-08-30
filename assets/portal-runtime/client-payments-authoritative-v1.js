@@ -33,6 +33,7 @@ function installStyle(){
   #page-payments .rona-payments-pill{display:inline-flex;align-items:center;min-height:23px;padding:0 8px;border-radius:999px;border:1px solid rgba(85,211,157,.25);background:rgba(22,102,77,.16);color:#9ee8c5;font-size:9px;font-weight:700}#page-payments .rona-payments-pill[data-tone="waiting"]{border-color:rgba(228,186,82,.25);background:rgba(129,91,19,.15);color:#f0d184}#page-payments .rona-payments-pill[data-tone="check"]{border-color:rgba(227,112,112,.26);background:rgba(130,41,41,.15);color:#f4b0b0}
   #page-payments .rona-payments-events{display:grid;gap:7px;padding:12px}#page-payments .rona-payments-event{display:grid;grid-template-columns:minmax(130px,1fr) minmax(130px,1fr) auto;gap:12px;align-items:center;padding:9px 11px;border:1px solid rgba(92,159,194,.13);border-radius:9px;background:rgba(7,26,41,.48);font-size:10px}#page-payments .rona-payments-event b{color:#e8f8ff}#page-payments .rona-payments-event time{color:#8fb2c1}#page-payments .rona-payments-empty{padding:18px;color:#8fb2c1;font-size:11px;text-align:center}
   #page-payments [data-rona-payments-legacy-hidden="true"]{display:none!important}
+  #page-payments [data-rona-client-payments-owner="finance-authoritative-v1"]{display:grid!important}
   @media(max-width:900px){#page-payments .rona-payments-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}#page-payments .rona-payments-deal{grid-template-columns:1fr}#page-payments .rona-payments-event{grid-template-columns:1fr}}
   `;
   document.head.appendChild(style);
@@ -72,6 +73,7 @@ function chooseContext(contexts){
 function markLegacy(root){
   const exact=/^(?:Платёжный статус|Платежный статус|Платёжных данных пока нет\.?|Платежных данных пока нет\.?)$/iu;
   for(const leaf of root.querySelectorAll('*')){
+    if(leaf.closest('[data-rona-client-payments-owner="finance-authoritative-v1"]'))continue;
     if(leaf.childElementCount!==0||!exact.test(norm(leaf.textContent)))continue;
     let chosen=leaf,node=leaf;
     while(node.parentElement&&node.parentElement!==root){
@@ -108,6 +110,7 @@ function render(detail,ctx){
   installStyle();markLegacy(root);
   let host=root.querySelector('[data-rona-client-payments-owner="finance-authoritative-v1"]');
   if(!host){host=document.createElement('section');host.setAttribute('data-rona-client-payments-owner','finance-authoritative-v1');root.appendChild(host)}
+  host.removeAttribute('data-rona-payments-legacy-hidden');
   const deals=Array.isArray(detail?.deals)?detail.deals:[];
   const payments=(Array.isArray(detail?.payments)?detail.payments:[]).filter(confirmedPayment);
   const totals=aggregate(deals);
@@ -125,6 +128,7 @@ function renderLoadingError(message){
   const root=paymentsRoot();if(!root)return;
   installStyle();markLegacy(root);
   let host=root.querySelector('[data-rona-client-payments-owner="finance-authoritative-v1"]');if(!host){host=document.createElement('section');host.setAttribute('data-rona-client-payments-owner','finance-authoritative-v1');root.appendChild(host)}
+  host.removeAttribute('data-rona-payments-legacy-hidden');
   host.innerHTML=`<section data-rona-payments-card><div class="rona-payments-empty">${esc(message)}</div></section>`;
 }
 function ready(ok){document.documentElement.dataset.ronaClientPaymentsState=ok?'ready':'error';if(ok)document.documentElement.setAttribute('data-rona-client-payments-ready','true');else document.documentElement.removeAttribute('data-rona-client-payments-ready')}
