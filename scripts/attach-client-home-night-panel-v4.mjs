@@ -13,7 +13,7 @@ const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_HOME_NIGHT_MARKER_MISSING: ${marker}`);
 if(!runtime.includes('data-rona-home-night')||!runtime.includes('rona-night-left')||!runtime.includes('data-rona-night-empty'))throw new Error('CLIENT_HOME_NIGHT_REFLOW_CONTRACT_MISSING');
 if(!runtime.includes('appendChild(finance)')||!runtime.includes('appendChild(control)'))throw new Error('CLIENT_HOME_NIGHT_GAP_REMOVAL_MISSING');
-if(!runtime.includes('min-height:56px')||!runtime.includes('min-height:82px'))throw new Error('CLIENT_HOME_NIGHT_COMPACT_FRAME_CONTRACT_MISSING');
+if(!runtime.includes('min-height:0!important')||!runtime.includes('padding:11px 16px')||!runtime.includes('padding:11px 15px'))throw new Error('CLIENT_HOME_NIGHT_COMPACT_FRAME_CONTRACT_MISSING');
 if(!runtime.includes('color:#f0cd77')||!runtime.includes('color:#92e8bf')||!runtime.includes('color:#8de1ff'))throw new Error('CLIENT_HOME_NIGHT_ROLE_COLOR_CONTRACT_MISSING');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_NIGHT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_HOME_NIGHT_IMAGE_ASSET_FORBIDDEN');
