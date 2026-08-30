@@ -5,13 +5,18 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-application-lifecycle-v1.js';
 const connectionRuntimePath='dist/assets/portal-runtime/client-server-connection-v1.js';
+const paymentsRuntimePath='dist/assets/portal-runtime/client-payments-authoritative-v1.js';
 const id='rona-client-application-resource-archive-v1';
 const connectionId='rona-client-server-connection-v1';
+const paymentsId='rona-client-payments-authoritative-v1';
 const guardId='rona-client-operations-first-paint-guard';
+const paymentsGuardId='rona-client-payments-first-paint-guard';
 const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-admin-client-authoritative-deal-projection-v8';
 const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=20260830-server-indicator-v1';
+const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1';
 const marker='20260830-client-admin-authoritative-deal-projection-v8';
 const connectionMarker='20260830-client-server-connection-v1';
+const paymentsMarker='20260830-client-payments-authoritative-v1';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -21,17 +26,24 @@ if(!runtime.includes("source:'ADMIN_CLIENT_SERVER_PROJECTION'"))throw new Error(
 if(!runtime.includes('data-rona-deal-state-strip'))throw new Error('CLIENT_DEAL_STATE_STRIP_MISSING');
 const connectionRuntime=await readFile(connectionRuntimePath,'utf8');
 if(!connectionRuntime.includes(connectionMarker))throw new Error(`CLIENT_SERVER_CONNECTION_MARKER_MISSING: ${connectionMarker}`);
+const paymentsRuntime=await readFile(paymentsRuntimePath,'utf8');
+if(!paymentsRuntime.includes(paymentsMarker))throw new Error(`CLIENT_PAYMENTS_MARKER_MISSING: ${paymentsMarker}`);
+if(!paymentsRuntime.includes("source:'CLIENT_CONTEXT_FINANCE_PROJECTION'"))throw new Error('CLIENT_PAYMENTS_FINANCE_SOURCE_MISSING');
+if(!paymentsRuntime.includes('/v1/client/bootstrap')||!paymentsRuntime.includes('/v1/client/context?clientId='))throw new Error('CLIENT_PAYMENTS_SERVER_CONTEXT_MISSING');
+if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(paymentsRuntime))throw new Error('CLIENT_PAYMENTS_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 
 let html=await readFile(htmlPath,'utf8');
 if(html.includes(id)||html.includes('client-application-lifecycle-v1.js')||html.includes(guardId))throw new Error('CLIENT_APPLICATION_LIFECYCLE_BRIDGE_ALREADY_PRESENT');
 if(html.includes(connectionId)||html.includes('client-server-connection-v1.js'))throw new Error('CLIENT_SERVER_CONNECTION_BRIDGE_ALREADY_PRESENT');
+if(html.includes(paymentsId)||html.includes('client-payments-authoritative-v1.js')||html.includes(paymentsGuardId))throw new Error('CLIENT_PAYMENTS_BRIDGE_ALREADY_PRESENT');
 const headClose=html.toLowerCase().lastIndexOf('</head>');
 if(headClose<0)throw new Error('CLIENT_HEAD_CLOSE_MISSING');
 const criticalGuard=`<style id="${guardId}">#page-applications,#page-deals{position:relative}html:not([data-rona-client-operations-ready="true"]) #page-applications>*,html:not([data-rona-client-operations-ready="true"]) #page-deals>*{visibility:hidden!important}html:not([data-rona-client-operations-ready="true"]) #page-applications::after,html:not([data-rona-client-operations-ready="true"]) #page-deals::after{content:"Загрузка актуальных данных…";position:absolute;inset:0;min-height:180px;display:flex;align-items:center;justify-content:center;padding:24px;color:#dce9f3;background:#06111d;font:600 14px/1.4 system-ui,sans-serif;letter-spacing:.01em;pointer-events:all;z-index:20}html[data-rona-client-operations-state="error"] #page-applications::after,html[data-rona-client-operations-state="error"] #page-deals::after{content:"Актуальные данные временно недоступны"}</style>`;
-html=html.slice(0,headClose)+criticalGuard+html.slice(headClose);
+const paymentsGuard=`<style id="${paymentsGuardId}">#page-payments{position:relative}html:not([data-rona-client-payments-ready="true"]) #page-payments>*{visibility:hidden!important}html:not([data-rona-client-payments-ready="true"]) #page-payments::after{content:"Загрузка актуальных платежных данных…";position:absolute;inset:0;min-height:180px;display:flex;align-items:center;justify-content:center;padding:24px;color:#dce9f3;background:#06111d;font:600 14px/1.4 system-ui,sans-serif;letter-spacing:.01em;pointer-events:all;z-index:20}html[data-rona-client-payments-state="error"] #page-payments::after{content:"Актуальные платежные данные временно недоступны"}</style>`;
+html=html.slice(0,headClose)+criticalGuard+paymentsGuard+html.slice(headClose);
 const close=html.toLowerCase().lastIndexOf('</body>');
 if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
-const bridge=`<script id="${connectionId}" src="${connectionSrc}" defer></script><script id="${id}" src="${src}" defer></script>`;
+const bridge=`<script id="${connectionId}" src="${connectionSrc}" defer></script><script id="${id}" src="${src}" defer></script><script id="${paymentsId}" src="${paymentsSrc}" defer></script>`;
 html=html.slice(0,close)+bridge+html.slice(close);
 await writeFile(htmlPath,html,'utf8');
 
@@ -41,6 +53,7 @@ integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 integrity.client_runtime.server_connection_indicator={id:connectionId,src:connectionSrc,marker:connectionMarker,replaces:'TOPBAR_DEALS_COUNTER',server_signal:'OBSERVED_SAME_ORIGIN_PORTAL_API_TRAFFIC',extra_network_requests:false,states:['CHECKING','ONLINE','DEGRADED','OFFLINE']};
 integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'ADMIN_CLIENT_SERVER_PROJECTION',archive_trigger:'LINKED_DEAL_OR_TERMINAL_APPLICATION_STATUS',deal_status_source:'SERVER_RESOLVED_OPERATIONS_STATE',payment_status_source:'SERVER_RESOLVED_FINANCE_SUMMARY_AND_VERIFIED_ALLOCATIONS',payment_projection:'CLIENT_SAFE_PROGRESS_PERCENT_AND_CONFIRMED_FACT',deal_current_status_projection:'SERVER_LABEL_NO_BROWSER_INFERENCE',deal_amount_presentation:'CANONICAL_SUMMARY',resource_projection:'SERVER_RESOLVED_RESOURCE_STATE',deal_status_presentation:'SINGLE_COMPOSED_SEGMENTED_STRIP',first_paint_guard:{id:guardId,mode:'SCOPED_AUTHORITATIVE_SECTIONS',scope:['APPLICATIONS','DEALS'],fail_closed:true,global_body_block:false}};
+integrity.client_runtime.payments_bridge={id:paymentsId,src:paymentsSrc,marker:paymentsMarker,source:'CLIENT_CONTEXT_FINANCE_PROJECTION',scope:'SELECTED_AUTHORIZED_CLIENT_CONTRACT',payment_fact:'BANK_CONFIRMED_CLIENT_SAFE',deal_summary:'SERVER_RESOLVED_FINANCE_SUMMARY',resource_prerequisite:'SERVER_RESOLVED_RESOURCE_STATE',refresh_ms:30000,context_switch:'AUTOMATIC_FROM_AUTHORIZED_CONTEXT',hardcoded_business_entities:false,first_paint_guard:{id:paymentsGuardId,mode:'PAYMENTS_FAIL_CLOSED',fail_closed:true}};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; server connection indicator ${connectionId}; server-resolved deal state strip enabled`);
+console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; server connection indicator ${connectionId}; server-resolved deal state strip enabled; authoritative client payments ${paymentsId}`);
