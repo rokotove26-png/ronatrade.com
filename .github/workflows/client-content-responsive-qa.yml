@@ -1,0 +1,118 @@
+name: Client content responsive QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  content-responsive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify responsive attachment contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/attach-client-content-responsive-v1.mjs
+          grep -q '20260830-content-width-aware-v1' assets/portal-runtime/client-content-responsive-v1.css
+          grep -q 'container-name: rona-client-home' assets/portal-runtime/client-content-responsive-v1.css
+          grep -q 'container-name: rona-client-deals' assets/portal-runtime/client-content-responsive-v1.css
+          grep -q 'container-name: rona-client-payments' assets/portal-runtime/client-content-responsive-v1.css
+          grep -q 'container-name: rona-client-rail' assets/portal-runtime/client-content-responsive-v1.css
+          npm run build
+          grep -q 'id="rona-client-content-responsive-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-content-responsive-v1.css?v=20260830-content-width-aware-v1' dist/portal/client.html
+          node - <<'NODE'
+          const i=require('./dist/canonical-visual-integrity.json');
+          const r=i.client_runtime?.content_responsive;
+          if(r?.mode!=='CONTENT_WIDTH_CONTAINER_QUERIES')throw new Error('responsive mode missing');
+          if(r?.layout_basis!=='ACTUAL_PAGE_PANE_AFTER_SIDEBAR')throw new Error('content-width basis missing');
+          if(r?.viewport_only_breakpoints!==false)throw new Error('viewport-only breakpoints not disabled');
+          if(r?.business_logic_changed!==false||r?.hardcoded_business_entities!==false)throw new Error('responsive layer changed business scope');
+          NODE
+
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove 14-inch content-pane adaptation
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const fixture=`<!doctype html><html><head><meta charset="utf-8"><style>
+            html,body{margin:0;width:100%;min-height:100%;background:#06111d;color:white;font-family:Arial,sans-serif}
+            body{display:flex}.sidebar{width:260px;flex:0 0 260px}.workspace{flex:1 1 auto;padding:24px;box-sizing:border-box}
+            [id^="page-"]{width:100%;margin:0 0 20px}.rona-cc-kpis{display:grid;grid-template-columns:1.18fr 1fr 1fr}.rona-cc-main,.rona-cc-bottom{display:grid;grid-template-columns:minmax(0,1.82fr) minmax(300px,.82fr);gap:16px}.rona-cc-panel{min-width:0}
+            .rona-deal-card-v5__summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px}.rona-deal-card-v5__summary-main{grid-column:1}.rona-deal-card-v5__amount{grid-column:2}.rona-deal-card-v5__open{grid-column:3}
+            .rona-payments-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.rona-payments-deal{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(150px,1fr) minmax(220px,2fr);gap:12px}
+            .rona-rail-grid{display:grid;grid-template-columns:minmax(360px,.9fr) minmax(480px,1.35fr);gap:12px}.rona-rail-map-shell{height:365px}.rona-rail-list{max-height:410px}
+          </style></head><body><aside class="sidebar"></aside><main class="workspace">
+            <section id="page-home"><section data-rona-client-home-owner="command-center-v2" data-rona-home-visual="tablet-v3" data-rona-home-night="v4"><div class="rona-cc-kpis"><div></div><div></div><div></div></div><div class="rona-cc-main"><div class="rona-cc-panel"></div><div class="rona-cc-panel"></div></div><div class="rona-cc-bottom"><div></div><div></div></div></section></section>
+            <section id="page-deals"><article class="rona-deal-card-v5"><div class="rona-deal-card-v5__summary"><div class="rona-deal-card-v5__summary-main">Deal</div><div class="rona-deal-card-v5__amount">Amount</div><button class="rona-deal-card-v5__open">Open</button><div data-rona-deal-state-strip="authoritative-v8">State</div></div></article></section>
+            <section id="page-payments"><section data-rona-client-payments-owner="finance-authoritative-v1" data-rona-payments-canonical-width><div class="rona-payments-kpis"><div></div><div></div><div></div><div></div></div><div class="rona-payments-deal"><div></div><div></div><div></div></div></section></section>
+            <section id="page-rail"><div class="rona-rail-ws"><div class="rona-rail-grid"><div class="rona-rail-list"></div><div class="rona-rail-map-shell"></div></div></div></section>
+          </main></body></html>`;
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1366,height:768}});
+            await page.setContent(fixture,{waitUntil:'domcontentloaded'});
+            await page.addStyleTag({path:path.resolve('assets/portal-runtime/client-content-responsive-v1.css')});
+            await page.waitForTimeout(50);
+            const r=await page.evaluate(()=>{
+              const q=s=>document.querySelector(s),cols=s=>getComputedStyle(q(s)).gridTemplateColumns.trim().split(/\s+/).length;
+              const workspace=q('.workspace'),home=q('#page-home'),deals=q('#page-deals'),rail=q('#page-rail');
+              return{
+                viewport:innerWidth,
+                workspace:Math.round(workspace.getBoundingClientRect().width),
+                home:Math.round(home.getBoundingClientRect().width),
+                homeMainCols:cols('.rona-cc-main'),
+                homeKpiCols:cols('.rona-cc-kpis'),
+                dealsCols:cols('.rona-deal-card-v5__summary'),
+                railCols:cols('.rona-rail-grid'),
+                bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
+                workspaceOverflow:workspace.scrollWidth-workspace.clientWidth,
+                railOverflow:rail.scrollWidth-rail.clientWidth,
+                dealsOverflow:deals.scrollWidth-deals.clientWidth
+              };
+            });
+            assert(r.viewport===1366,'unexpected viewport '+JSON.stringify(r));
+            assert(r.home<1220&&r.home>900,'fixture must model 14-inch content pane '+JSON.stringify(r));
+            assert(r.homeMainCols===1,'Home did not stack from content width '+JSON.stringify(r));
+            assert(r.homeKpiCols===2,'Home KPI grid did not adapt from content width '+JSON.stringify(r));
+            assert(r.dealsCols===2,'Deals did not enter compact summary from content width '+JSON.stringify(r));
+            assert(r.railCols===1,'Online Rail did not stack from content width '+JSON.stringify(r));
+            assert(r.bodyOverflow<=1&&r.workspaceOverflow<=1&&r.railOverflow<=1&&r.dealsOverflow<=1,'horizontal cabinet overflow '+JSON.stringify(r));
+
+            await page.setViewportSize({width:1180,height:800});
+            await page.waitForTimeout(50);
+            const p=await page.evaluate(()=>{
+              const q=s=>document.querySelector(s),cols=s=>getComputedStyle(q(s)).gridTemplateColumns.trim().split(/\s+/).length;
+              const workspace=q('.workspace'),payments=q('#page-payments');
+              return{workspace:Math.round(workspace.getBoundingClientRect().width),payments:Math.round(payments.getBoundingClientRect().width),paymentKpiCols:cols('.rona-payments-kpis'),paymentDealCols:cols('.rona-payments-deal'),overflow:document.documentElement.scrollWidth-document.documentElement.clientWidth};
+            });
+            assert(p.payments<900,'compact fixture must put Payments page below 900 '+JSON.stringify(p));
+            assert(p.paymentKpiCols===2&&p.paymentDealCols===1,'Payments did not adapt from content width '+JSON.stringify(p));
+            assert(p.overflow<=1,'compact viewport overflow '+JSON.stringify(p));
+            console.log('CLIENT_CONTENT_RESPONSIVE_14IN=PASS',JSON.stringify({r,p}));
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
