@@ -29,7 +29,7 @@ jobs:
           while IFS= read -r ref; do
             branch="${ref#origin/}"
             case "$branch" in
-              fix/*|maintenance/*|chore/*|hotfix/*) ;;
+              fix/*|maintenance/*|chore/*|hotfix/*|fix-*|maintenance-*|chore-*|hotfix-*) ;;
               *) continue ;;
             esac
             if git merge-base --is-ancestor "$ref" "$target"; then
