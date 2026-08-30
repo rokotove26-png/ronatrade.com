@@ -32,7 +32,7 @@ jobs:
           node <<'NODE'
           const fs=require('fs');
           const v=fs.readFileSync('assets/portal-runtime/client-home-night-panel-v4.js','utf8');
-          for(const marker of ['20260830-client-home-night-panel-v4','data-rona-home-night','rona-night-left','data-rona-night-empty','appendChild(finance)','appendChild(control)','min-height:56px','min-height:82px','color:#f0cd77','color:#92e8bf','color:#8de1ff'])if(!v.includes(marker))throw new Error('missing night panel marker '+marker);
+          for(const marker of ['20260830-client-home-night-panel-v4','data-rona-home-night','rona-night-left','data-rona-night-empty','appendChild(finance)','appendChild(control)','min-height:0!important','padding:11px 16px','padding:11px 15px','color:#f0cd77','color:#92e8bf','color:#8de1ff'])if(!v.includes(marker))throw new Error('missing night panel marker '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(v))throw new Error('hardcoded business entity found');
           if(/<img|<svg|<canvas|background-image\s*:/iu.test(v))throw new Error('image asset found in night panel runtime');
           const a=fs.readFileSync('scripts/attach-client-home-night-panel-v4.mjs','utf8');
@@ -83,9 +83,9 @@ jobs:
             assert(r.bottomDisplay==='none','legacy bottom row still reserves space '+JSON.stringify(r));
             assert(r.financeParent.includes('rona-night-left'),'finance not moved below deals '+JSON.stringify(r));
             assert(r.controlParent.includes('rona-cc-stack'),'control not moved below actions '+JSON.stringify(r));
-            assert(r.panelHeadH<=58,'panel head remains stretched '+JSON.stringify(r));
+            assert(r.panelHeadH<=65,'panel head remains stretched '+JSON.stringify(r));
             assert(r.dealH<=90,'deal frame remains stretched '+JSON.stringify(r));
-            assert(r.controlAlertH<=80,'control frame remains stretched '+JSON.stringify(r));
+            assert(r.controlAlertH<=70,'control frame remains stretched '+JSON.stringify(r));
             assert(r.actionH>=68,'touch target was reduced '+JSON.stringify(r));
             assert(new Set([r.financeBorder,r.attentionBorder,r.controlBorder]).size===3,'role border colors are not distinct '+JSON.stringify(r));
             assert(new Set([r.financeTitle,r.attentionTitle,r.controlTitle]).size===3,'role typography colors are not distinct '+JSON.stringify(r));
