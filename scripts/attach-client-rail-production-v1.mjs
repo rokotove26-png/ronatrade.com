@@ -129,6 +129,7 @@ const currentOpen=addCurrentOnlyAttributes(before.openTag,before.id);
 html=html.slice(0,before.openStart)+currentOpen+currentOnlyInner+html.slice(before.innerEnd);
 
 const currentOnlyStyle=`<style id="${staticStyleId}">[data-rona-client-rail-current-only="${staticHostMarker}"]{width:100%;min-width:0;max-width:none}[data-rona-client-rail-current-only="${staticHostMarker}"]::before{content:none!important}</style>`;
+if(currentOnlyStyle.includes('content:"Онлайн ЖД"')||currentOnlyStyle.includes('.rona-rail-v4-hero{display:none!important}'))throw new Error('CLIENT_RAIL_CURRENT_ONLY_STYLE_REGRESSION_BEFORE_EMIT');
 const headClose=html.toLowerCase().lastIndexOf('</head>');
 if(headClose<0)throw new Error('CLIENT_HEAD_CLOSE_MISSING');
 html=html.slice(0,headClose)+currentOnlyStyle+html.slice(headClose);
@@ -190,7 +191,12 @@ if(!html.includes(`id="${heroId}"`)||!html.includes(heroSrc))throw new Error('CL
 if((html.match(/client-rail-current-ui/g)||[]).length!==1)throw new Error('CLIENT_RAIL_OPERATIONAL_BRIDGE_NOT_SINGLE_OWNER');
 if((html.match(/client-rail-canonical-hero-v1\.js/g)||[]).length!==1)throw new Error('CLIENT_RAIL_CANONICAL_HERO_BRIDGE_NOT_SINGLE_OWNER');
 if(!html.includes(`data-rona-client-rail-current-only="${staticHostMarker}"`)||!html.includes(`id="${staticStyleId}"`))throw new Error('CLIENT_RAIL_CURRENT_ONLY_STATIC_HOST_MISSING_AFTER_WRITE');
-if(html.includes('content:"Онлайн ЖД"')||html.includes('.rona-rail-v4-hero{display:none!important}'))throw new Error('CLIENT_RAIL_BARE_PSEUDO_TITLE_OR_HIDDEN_HERO_REINTRODUCED');
+const currentStyleOpen=`<style id="${staticStyleId}">`;
+const currentStyleStart=html.indexOf(currentStyleOpen);
+const currentStyleEnd=currentStyleStart<0?-1:html.indexOf('</style>',currentStyleStart);
+if(currentStyleStart<0||currentStyleEnd<0)throw new Error('CLIENT_RAIL_CURRENT_ONLY_STYLE_MISSING_AFTER_WRITE');
+const emittedCurrentOnlyStyle=html.slice(currentStyleStart,currentStyleEnd+8);
+if(emittedCurrentOnlyStyle.includes('content:"Онлайн ЖД"')||emittedCurrentOnlyStyle.includes('.rona-rail-v4-hero{display:none!important}'))throw new Error('CLIENT_RAIL_CURRENT_ONLY_STYLE_REGRESSION_AFTER_EMIT');
 const after=elementBoundsById(html,before.id);
 const afterInner=html.slice(after.innerStart,after.innerEnd);
 if(afterInner!==currentOnlyInner)throw new Error('CLIENT_RAIL_STATIC_PAGE_NOT_CURRENT_ONLY');
