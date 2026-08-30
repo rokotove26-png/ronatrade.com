@@ -16,11 +16,11 @@ const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
 const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
 const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
 const commandCenterSrc='/assets/portal-runtime/client-deal-command-center-v3.js?v=20260830-native-right-close-v3';
-const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260830-lifecycle-v1';
+const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260830-realization-status-server-v2';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
 const commandCenterMarker='20260830-client-deal-command-center-v3-native-left';
-const lifecycleMarker='20260830-client-deal-lifecycle-v1-authoritative-projection';
+const lifecycleMarker='20260830-client-deal-realization-status-v2-server-authoritative';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
   __RONA_CLIENT_DEAL_DOCUMENTS_V2__:'20260829-deal-documents-v2-universal-stable-ui-v3',
@@ -36,7 +36,7 @@ const lifecycleRuntime=await readFile(lifecycleRuntimePath,'utf8');
 if(!docsRuntime.includes(docsMarker))throw new Error(`CLIENT_DEAL_DOCUMENTS_MARKER_MISSING: ${docsMarker}`);
 if(!visualRuntime.includes(visualMarker))throw new Error(`CLIENT_DEAL_VISUAL_MARKER_MISSING: ${visualMarker}`);
 if(!commandCenterRuntime.includes(commandCenterMarker))throw new Error(`CLIENT_DEAL_COMMAND_CENTER_MARKER_MISSING: ${commandCenterMarker}`);
-if(!lifecycleRuntime.includes(lifecycleMarker))throw new Error(`CLIENT_DEAL_LIFECYCLE_MARKER_MISSING: ${lifecycleMarker}`);
+if(!lifecycleRuntime.includes(lifecycleMarker))throw new Error(`CLIENT_DEAL_REALIZATION_STATUS_MARKER_MISSING: ${lifecycleMarker}`);
 for(const required of [
   '/v1/client/bootstrap','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id',
 ]) if(!docsRuntime.includes(required)) throw new Error(`CLIENT_DEAL_DOCUMENTS_GENERIC_FLOW_MISSING: ${required}`);
@@ -44,9 +44,11 @@ for(const required of [
   'Паспорт сделки','Схема реализации сделки','Контракт и сделка','Логистика и поставка','Закрытие сделки','data-rona-command-field','DEAL CONTROL','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','Native drawer geometry is deliberately preserved',
 ]) if(!commandCenterRuntime.includes(required)) throw new Error(`CLIENT_DEAL_COMMAND_CENTER_GENERIC_UI_MISSING: ${required}`);
 for(const required of [
-  'Жизненный цикл сделки','Оформление сделки','Подписание документов','Оплата','Подтверждение ресурса','Отгрузка и поставка','Закрывающие документы и завершение','Выполнено','Сейчас','Предстоит','Оплачено ${ev.paymentPct}% · осталось ${100-ev.paymentPct}%','cardTextOutside',
-]) if(!lifecycleRuntime.includes(required)) throw new Error(`CLIENT_DEAL_LIFECYCLE_GENERIC_UI_MISSING: ${required}`);
-if(lifecycleRuntime.includes('fetch('))throw new Error('CLIENT_DEAL_LIFECYCLE_NETWORK_REQUEST_FORBIDDEN');
+  'Статус реализации','Оформление сделки','Подписание документов','Оплата','Подтверждение ресурса','Отгрузка и поставка','Закрывающие документы и завершение','Выполнено','В работе','Предстоит','Требует решения','/v1/client/bootstrap','/v1/client/deal-documents/state?clientId=','SERVER_AUTHORITATIVE_REALIZATION_V1','REFRESH_MS=7000',
+]) if(!lifecycleRuntime.includes(required)) throw new Error(`CLIENT_DEAL_REALIZATION_STATUS_GENERIC_UI_MISSING: ${required}`);
+for(const forbiddenInference of ['function evidence(','function lifecycle(','cardTextOutside','fieldValue(root','resourceDone=','paymentPct=pctMatch']){
+  if(lifecycleRuntime.includes(forbiddenInference))throw new Error(`CLIENT_DEAL_REALIZATION_LOCAL_BUSINESS_INFERENCE_FORBIDDEN: ${forbiddenInference}`);
+}
 for(const forbiddenGeometry of ['position:fixed!important','transform:translate(-50%,-50%)','width:min(1180px','height:min(800px']) if(commandCenterRuntime.includes(forbiddenGeometry)) throw new Error(`CLIENT_DEAL_NATIVE_DRAWER_GEOMETRY_OVERRIDDEN: ${forbiddenGeometry}`);
 for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','FARGONA GAZ','UNIVERSAL SOLYARIS']){
   if(docsRuntime.includes(forbidden)||visualRuntime.includes(forbidden)||commandCenterRuntime.includes(forbidden)||lifecycleRuntime.includes(forbidden))throw new Error(`CLIENT_DEAL_RUNTIME_CLIENT_SPECIFIC_FORBIDDEN: ${forbidden}`);
@@ -86,7 +88,7 @@ if(oldDocsRefs!==0)throw new Error(`CLIENT_DEAL_DOCUMENTS_LEGACY_OWNER_PRESENT r
 if(visualRefs!==1)throw new Error(`CLIENT_DEAL_VISUAL_SINGLE_OWNER_FAILED refs=${visualRefs}`);
 if(commandCenterV3Refs!==1)throw new Error(`CLIENT_DEAL_COMMAND_CENTER_V3_SINGLE_OWNER_FAILED refs=${commandCenterV3Refs}`);
 if(commandCenterLegacyRefs!==0)throw new Error(`CLIENT_DEAL_COMMAND_CENTER_LEGACY_OWNER_PRESENT refs=${commandCenterLegacyRefs}`);
-if(lifecycleRefs!==1)throw new Error(`CLIENT_DEAL_LIFECYCLE_SINGLE_OWNER_FAILED refs=${lifecycleRefs}`);
+if(lifecycleRefs!==1)throw new Error(`CLIENT_DEAL_REALIZATION_STATUS_SINGLE_OWNER_FAILED refs=${lifecycleRefs}`);
 if(!html.includes(`id="${legacyPreemptId}"`))throw new Error('CLIENT_DEAL_DOCUMENTS_LEGACY_PREEMPT_MISSING');
 for(const [key,marker] of Object.entries(legacyMarkers))if(!html.includes(key)||!html.includes(marker))throw new Error(`CLIENT_DEAL_DOCUMENTS_PREPAINT_GUARD_MISSING:${key}`);
 
@@ -99,9 +101,9 @@ integrity.client_runtime.deal_documents_bridge={
   visual_id:visualId,visual_src:visualSrc,visual_marker:visualMarker,
   command_center_id:commandCenterId,command_center_src:commandCenterSrc,command_center_marker:commandCenterMarker,
   command_center_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',command_center_data_policy:'PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION',command_center_layout:'NATIVE_RIGHT_DRAWER_PRESERVED',command_center_close_behavior:'NATIVE_DRAWER_CONTROL_UNTOUCHED',command_center_detector:'SEMANTIC_LABEL_COVERAGE_NATIVE_DRAWER_VISIBILITY',
-  lifecycle_id:lifecycleId,lifecycle_src:lifecycleSrc,lifecycle_marker:lifecycleMarker,lifecycle_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',lifecycle_data_policy:'CURRENT_RENDERED_SERVER_PROJECTION_ONLY',lifecycle_status_model:['DONE','CURRENT','PENDING'],lifecycle_visual:'CONNECTED_VERTICAL_TIMELINE_WITH_PROGRESS',
+  lifecycle_id:lifecycleId,lifecycle_src:lifecycleSrc,lifecycle_marker:lifecycleMarker,lifecycle_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY',lifecycle_source:'CLIENT_DEAL_DOCUMENTS_STATE_API',lifecycle_status_model:['DONE','CURRENT','PENDING','BLOCKED'],lifecycle_visual:'CONNECTED_VERTICAL_TIMELINE_WITH_PROGRESS',lifecycle_refresh:'7000MS_PLUS_FOCUS_AND_VISIBILITY',lifecycle_fail_closed:true,
   scope:'ALL_AUTHORIZED_CLIENT_CONTEXTS',context_source:'SERVER_CLIENT_BOOTSTRAP_AND_CONTEXT',authorization:'SERVER_CLIENT_USER_HAS_DEAL_ACCESS',upload_protocol:'MULTIPART_FILE_PLUS_SOURCE_UNSIGNED_DOCUMENT_ID',replacement_semantics:'SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM',success_projection:['SIGNED_ADDENDUM_CURRENT','UPLOAD_DISABLED','DOCUMENTS_SIGNED'],client_specific_hardcoding:false,prepaint_single_owner:true,legacy_preempt:{id:legacyPreemptId,markers:legacyMarkers},
 };
 await writeFile(htmlPath,html,'utf8');
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=NATIVE_RIGHT_V3; lifecycle=CONNECTED_TIMELINE_V1; native_close=preserved; prepaint_single_owner=true; single owner=${docsId}`);
+console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=NATIVE_RIGHT_V3; realization_status=SERVER_AUTHORITATIVE_V2; native_close=preserved; prepaint_single_owner=true; single owner=${docsId}`);
