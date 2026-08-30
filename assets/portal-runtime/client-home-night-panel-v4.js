@@ -22,15 +22,15 @@ function installStyle(){
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-bottom[data-rona-night-empty="true"]{display:none!important}
 
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel{height:auto!important;min-height:0!important;align-self:start!important;overflow:hidden!important}
-    ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel-head{min-height:56px!important;padding:13px 16px!important}
-    ${OWNER}[data-rona-home-night="v4"] .rona-cc-deal{min-height:82px!important;padding:13px 15px!important;gap:12px!important}
+    ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel-head{min-height:0!important;height:auto!important;padding:11px 16px!important}
+    ${OWNER}[data-rona-home-night="v4"] .rona-cc-deal{min-height:0!important;height:auto!important;padding:11px 15px!important;gap:12px!important}
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-attention{gap:8px!important;padding:10px!important}
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-alert{padding:11px 12px 11px 15px!important}
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-finance{gap:12px!important;padding:13px 16px!important}
-    ${OWNER}[data-rona-home-night="v4"] .rona-cc-finance-row{min-height:38px!important;gap:12px!important}
+    ${OWNER}[data-rona-home-night="v4"] .rona-cc-finance-row{min-height:0!important;height:auto!important;gap:12px!important}
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-actions{gap:9px!important;padding:10px!important}
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel[data-visual-panel="control"] .rona-cc-attention{gap:8px!important}
-    ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel[data-visual-panel="control"] .rona-cc-alert{min-height:72px!important;padding:11px 12px!important}
+    ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel[data-visual-panel="control"] .rona-cc-alert{min-height:0!important;height:auto!important;padding:10px 12px!important}
 
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-livebar{position:relative!important;border-color:rgba(83,207,247,.56)!important;box-shadow:inset 0 1px 0 rgba(230,250,255,.08),inset 0 0 28px rgba(32,150,205,.05),0 0 0 1px rgba(42,150,195,.20),0 0 24px rgba(25,176,226,.12),0 14px 32px rgba(0,0,0,.16)!important}
     ${OWNER}[data-rona-home-night="v4"] .rona-cc-livebar::after{content:"";position:absolute;left:18px;right:18px;bottom:-1px;height:1px;background:linear-gradient(90deg,transparent,rgba(93,220,255,.88),rgba(82,221,181,.78),transparent);box-shadow:0 0 12px rgba(72,203,240,.48);pointer-events:none}
@@ -82,7 +82,7 @@ function installStyle(){
 
     @media(max-width:1220px){
       ${OWNER}[data-rona-home-night="v4"] .rona-cc-main{grid-template-columns:1fr!important}
-      ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel-head{min-height:54px!important}
+      ${OWNER}[data-rona-home-night="v4"] .rona-cc-panel-head{min-height:0!important;padding:10px 14px!important}
     }
   `;
   document.head.appendChild(style);
