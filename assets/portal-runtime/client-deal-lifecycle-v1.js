@@ -17,7 +17,7 @@ const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};
 const STAGE_NAMES={contract:'Оформление сделки',documents:'Подписание документов',payment:'Оплата',resource:'Подтверждение ресурса',logistics:'Отгрузка и поставка',close:'Закрывающие документы и завершение'};
-const STAGE_ORDER=['contract','documents','payment','resource','logistics','close'];
+const STAGE_ORDER=['contract','documents','resource','payment','logistics','close'];
 const BADGES={DONE:'Выполнено',CURRENT:'В работе',PENDING:'Предстоит',BLOCKED:'Требует решения'};
 
 const ICONS={
