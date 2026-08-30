@@ -71,7 +71,8 @@ jobs:
             "visual_contract:'CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY'",
             "static_title_owner:'CLIENT_CANONICAL_HERO_RUNTIME_V1'",
             'client-rail-canonical-hero-v1.js?v=20260831-client-canonical-hero-v1',
-            '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'
+            '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1',
+            'CLIENT_RAIL_CURRENT_ONLY_STYLE_REGRESSION_AFTER_EMIT'
           ])if(!attach.includes(marker))throw new Error('current-only/canonical hero guard missing: '+marker);
 
           const cache=fs.readFileSync('scripts/emit-client-runtime-cache-policy.mjs','utf8');
@@ -98,8 +99,6 @@ jobs:
           test "$(grep -o 'client-rail-canonical-hero-v1.js' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
           ! grep -q 'client-rail-production-v1.js' dist/portal/client.html
           ! grep -q 'client-rail-movizor-gate-v1.js' dist/portal/client.html
-          ! grep -q 'content:"Онлайн ЖД";display:block' dist/portal/client.html
-          ! grep -q '\.rona-rail-v4-hero{display:none!important}' dist/portal/client.html
           test -s dist/assets/portal-runtime/client-rail-canonical-hero-v1.js
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
@@ -123,6 +122,15 @@ jobs:
           if(inner!==expected)throw new Error('legacy/static Rail DOM survived build-time replacement');
           const hostTags=html.match(/<[^>]+data-rona-client-rail-current-only="current-only-v2"[^>]*>/g)||[];
           if(hostTags.length!==1)throw new Error('current-only Rail host is not unique: '+hostTags.length);
+
+          const styleOpen='<style id="rona-client-rail-current-only-v2-style">';
+          const styleStart=html.indexOf(styleOpen);
+          const styleEnd=styleStart<0?-1:html.indexOf('</style>',styleStart);
+          if(styleStart<0||styleEnd<0)throw new Error('current-only style missing');
+          const currentOnlyStyle=html.slice(styleStart,styleEnd+8);
+          if(currentOnlyStyle.includes('content:"Онлайн ЖД"')||currentOnlyStyle.includes('.rona-rail-v4-hero{display:none!important}'))throw new Error('current-only style still owns bare title or hides hero');
+          if(!currentOnlyStyle.includes('content:none!important'))throw new Error('current-only pseudo-title suppression missing');
+
           if(rail.visual_canon!=='CLIENT_CANONICAL_RAIL_HERO_V1'||rail.visual_contract!=='CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY')throw new Error('wrong Client Rail visual canon');
           if(rail.operational_body_canon!=='/portal/rail-current-v81-maplibre-ui')throw new Error('wrong Rail operational body source');
           if(rail.visual_source_mode!=='CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER'||rail.static_title_owner!=='CLIENT_CANONICAL_HERO_RUNTIME_V1'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false)throw new Error('Rail current-only ownership drifted');
@@ -150,7 +158,7 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1366,height:768}});
-            const html=`<!doctype html><html><head><style>body{margin:0;background:#06111b;color:#eaf4f8;font-family:Arial,sans-serif}.workspace{padding:24px}[data-rona-client-rail-current-only]{width:100%}.rona-rail-v4-root{display:grid;gap:16px}.rona-rail-v4-hero{display:flex}.rona-visual-title{font-size:18px}</style></head><body><main class="workspace"><section id="page-monitoring" data-rona-client-rail-current-only="current-only-v2"><div class="rona-rail-v4-root"><div class="rona-visual-hero rona-rail-v4-hero"><div><div class="rona-visual-kicker">Железнодорожный контур</div><div class="rona-visual-title">Онлайн ЖД</div><div class="rona-visual-sub">ГУ-12, позиции вагонов и рабочее пространство мониторинга.</div></div></div><div class="rona-rail-v4-work"><div></div><div></div></div></div></section></main></body></html>`;
+            const html=`<!doctype html><html><head><style>body{margin:0;background:#06111b;color:#eaf4f8;font-family:Arial,sans-serif}.workspace{padding:24px}[data-rona-client-rail-current-only]{width:100%}.rona-rail-v4-root{display:grid;gap:16px}.rona-rail-v4-hero{display:none!important}.rona-visual-title{font-size:18px}</style></head><body><main class="workspace"><section id="page-monitoring" data-rona-client-rail-current-only="current-only-v2"><div class="rona-rail-v4-root"><div class="rona-visual-hero rona-rail-v4-hero"><div><div class="rona-visual-kicker">Железнодорожный контур</div><div class="rona-visual-title">Онлайн ЖД</div><div class="rona-visual-sub">ГУ-12, позиции вагонов и рабочее пространство мониторинга.</div></div></div><div class="rona-rail-v4-work"><div></div><div></div></div></div></section></main></body></html>`;
             await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.evaluate(()=>{window.__RONA_CLIENT_RAIL_REFRESH__=()=>{window.__RONA_CLIENT_RAIL_REFRESH_HIT__=(window.__RONA_CLIENT_RAIL_REFRESH_HIT__||0)+1}});
