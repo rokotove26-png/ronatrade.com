@@ -49,11 +49,14 @@ for(const required of ['rona-rail-v4-root','rona-rail-v4-work','ЖД-конту�
   if(!adminBase.includes(required))throw new Error(`ADMIN_RAIL_VISUAL_CONTRACT_MISSING: ${required}`);
 }
 
-function elementBoundsById(source,idValue){
+function elementBoundsById(source,idValue,required=true){
   const quoted=escapeRe(idValue);
   const openRe=new RegExp(`<([A-Za-z][A-Za-z0-9:_-]*)\\b[^>]*\\bid\\s*=\\s*(["'])${quoted}\\2[^>]*>`,'i');
   const match=openRe.exec(source);
-  if(!match)throw new Error(`CLIENT_RAIL_STATIC_HOST_MISSING: ${idValue}`);
+  if(!match){
+    if(required)throw new Error(`CLIENT_RAIL_STATIC_HOST_MISSING: ${idValue}`);
+    return null;
+  }
   const tag=match[1];
   const innerStart=match.index+match[0].length;
   const tagRe=new RegExp(`<\\/?${escapeRe(tag)}\\b[^>]*>`,'gi');
@@ -65,16 +68,27 @@ function elementBoundsById(source,idValue){
     if(/^<\//.test(raw))depth--;
     else if(!/\/\s*>$/.test(raw))depth++;
     if(depth===0){
-      return {openStart:match.index,openEnd:innerStart,innerStart,innerEnd:token.index,closeEnd:tagRe.lastIndex,openTag:match[0],tag};
+      return {id:idValue,openStart:match.index,openEnd:innerStart,innerStart,innerEnd:token.index,closeEnd:tagRe.lastIndex,openTag:match[0],tag};
     }
   }
   throw new Error(`CLIENT_RAIL_STATIC_HOST_UNCLOSED: ${idValue}`);
 }
 
-function addCurrentOnlyAttributes(openTag){
+function appendAttribute(openTag,name,value){
+  const re=new RegExp(`\\s${escapeRe(name)}\\s*=`,'i');
+  if(re.test(openTag))return openTag;
+  return openTag.replace(/>$/,` ${name}="${value}">`);
+}
+function addCurrentOnlyAttributes(openTag,outerId){
   if(/data-rona-client-rail-current-only\s*=/.test(openTag))throw new Error('CLIENT_RAIL_CURRENT_ONLY_ATTRIBUTE_ALREADY_PRESENT');
-  if(/aria-label\s*=/.test(openTag))return openTag.replace(/>$/,` data-rona-client-rail-current-only="${staticHostMarker}">`);
-  return openTag.replace(/>$/,` data-rona-client-rail-current-only="${staticHostMarker}" aria-label="Онлайн ЖД">`);
+  let out=appendAttribute(openTag,'data-rona-client-rail-current-only',staticHostMarker);
+  out=appendAttribute(out,'aria-label','Онлайн ЖД');
+  if(outerId==='page-monitoring'){
+    out=appendAttribute(out,'data-rona-client-rail-admin-canonical-mount','v1');
+    out=appendAttribute(out,'data-rona-client-rail-owner','admin-current-v81-client-authority-v1');
+    out=appendAttribute(out,'data-rona-client-rail-current-visual','v2');
+  }
+  return out;
 }
 
 let html=await readFile(htmlPath,'utf8');
@@ -84,14 +98,16 @@ for(const retired of ['client-rail-production-v1.js','client-rail-movizor-gate-v
 if(html.includes(id)||html.includes('/portal/client-rail-current-ui'))throw new Error('CLIENT_RAIL_ADMIN_CANONICAL_BRIDGE_ALREADY_PRESENT');
 if(html.includes(staticStyleId)||html.includes(`data-rona-client-rail-current-only="${staticHostMarker}"`))throw new Error('CLIENT_RAIL_CURRENT_ONLY_HOST_ALREADY_PRESENT');
 
-const before=elementBoundsById(html,'page-rail');
+const before=elementBoundsById(html,'page-rail',false)||elementBoundsById(html,'page-monitoring',false);
+if(!before)throw new Error('CLIENT_RAIL_STATIC_HOST_MISSING: page-rail|page-monitoring');
 const removedStaticBytes=Buffer.byteLength(html.slice(before.innerStart,before.innerEnd),'utf8');
 if(removedStaticBytes===0)throw new Error('CLIENT_RAIL_LEGACY_STATIC_SOURCE_EMPTY_UNEXPECTEDLY');
-const currentOnlyInner=`<div id="page-monitoring" data-rona-client-rail-admin-canonical-mount="v1" data-rona-client-rail-owner="admin-current-v81-client-authority-v1" data-rona-client-rail-current-visual="v2"></div>`;
-const currentOpen=addCurrentOnlyAttributes(before.openTag);
+const nestedMount='<div id="page-monitoring" data-rona-client-rail-admin-canonical-mount="v1" data-rona-client-rail-owner="admin-current-v81-client-authority-v1" data-rona-client-rail-current-visual="v2"></div>';
+const currentOnlyInner=before.id==='page-monitoring'?'':nestedMount;
+const currentOpen=addCurrentOnlyAttributes(before.openTag,before.id);
 html=html.slice(0,before.openStart)+currentOpen+currentOnlyInner+html.slice(before.innerEnd);
 
-const currentOnlyStyle=`<style id="${staticStyleId}">#page-rail[data-rona-client-rail-current-only="${staticHostMarker}"]::before{content:"Онлайн ЖД";display:block;margin:0 0 14px;font:800 24px/1.15 Inter,Arial,sans-serif;letter-spacing:-.02em;color:inherit}#page-rail[data-rona-client-rail-current-only="${staticHostMarker}"]>.rona-client-rail-current-title-accessible{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}#page-rail[data-rona-client-rail-current-only="${staticHostMarker}"]>.rona-rail-v4-hero,#page-rail[data-rona-client-rail-current-only="${staticHostMarker}"] .rona-rail-v4-hero{display:none!important}</style>`;
+const currentOnlyStyle=`<style id="${staticStyleId}">[data-rona-client-rail-current-only="${staticHostMarker}"]::before{content:"Онлайн ЖД";display:block;margin:0 0 14px;font:800 24px/1.15 Inter,Arial,sans-serif;letter-spacing:-.02em;color:inherit}[data-rona-client-rail-current-only="${staticHostMarker}"] .rona-rail-v4-hero{display:none!important}</style>`;
 const headClose=html.toLowerCase().lastIndexOf('</head>');
 if(headClose<0)throw new Error('CLIENT_HEAD_CLOSE_MISSING');
 html=html.slice(0,headClose)+currentOnlyStyle+html.slice(headClose);
@@ -118,9 +134,9 @@ integrity.client_runtime.rail_client_admin_canonical={
   visual_contract:'ADMIN_CURRENT_V8_2',
   visual_source_mode:'DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER',
   host_mode:'BUILD_TIME_CURRENT_ONLY_SOURCE_HOST',
-  static_host:'page-rail',
+  static_host:before.id,
   static_host_marker:staticHostMarker,
-  static_title_owner:'PAGE_RAIL_CURRENT_ONLY_PSEUDO_TITLE',
+  static_title_owner:'CURRENT_ONLY_HOST_PSEUDO_TITLE',
   static_legacy_dom_removed:true,
   static_removed_bytes:removedStaticBytes,
   runtime_replaces_legacy_page_dom:false,
@@ -139,9 +155,10 @@ await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 
 if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error('CLIENT_RAIL_ADMIN_CANONICAL_BRIDGE_MISSING_AFTER_WRITE');
 if((html.match(/client-rail-current-ui/g)||[]).length!==1)throw new Error('CLIENT_RAIL_ADMIN_CANONICAL_BRIDGE_NOT_SINGLE_OWNER');
-if(!html.includes(`data-rona-client-rail-current-only="${staticHostMarker}"`)||!html.includes(`id="${staticStyleId}"`)||!html.includes(currentOnlyInner))throw new Error('CLIENT_RAIL_CURRENT_ONLY_STATIC_HOST_MISSING_AFTER_WRITE');
-const after=elementBoundsById(html,'page-rail');
+if(!html.includes(`data-rona-client-rail-current-only="${staticHostMarker}"`)||!html.includes(`id="${staticStyleId}"`))throw new Error('CLIENT_RAIL_CURRENT_ONLY_STATIC_HOST_MISSING_AFTER_WRITE');
+const after=elementBoundsById(html,before.id);
 const afterInner=html.slice(after.innerStart,after.innerEnd);
 if(afterInner!==currentOnlyInner)throw new Error('CLIENT_RAIL_STATIC_PAGE_NOT_CURRENT_ONLY');
+if(before.id==='page-monitoring'&&after.openTag.indexOf('data-rona-client-rail-admin-canonical-mount="v1"')<0)throw new Error('CLIENT_RAIL_DIRECT_MOUNT_NOT_CANONICAL');
 for(const retired of ['client-rail-production-v1.js','client-rail-movizor-gate-v1.js'])if(html.includes(retired))throw new Error(`CLIENT_RAIL_RETIRED_OWNER_EMITTED: ${retired}`);
-console.log(`CLIENT_RAIL_ADMIN_CANONICAL=PASS id=${id} visual=/portal/rail-current-v81-maplibre-ui client-authority=server-scoped static-host=${staticHostMarker} removed-static-bytes=${removedStaticBytes} single-owner=true.`);
+console.log(`CLIENT_RAIL_ADMIN_CANONICAL=PASS id=${id} visual=/portal/rail-current-v81-maplibre-ui client-authority=server-scoped static-host=${before.id} current-only=${staticHostMarker} removed-static-bytes=${removedStaticBytes} single-owner=true.`);
