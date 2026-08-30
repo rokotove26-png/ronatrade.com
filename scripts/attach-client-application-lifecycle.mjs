@@ -16,11 +16,11 @@ const paymentsGuardId='rona-client-payments-first-paint-guard';
 const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-admin-client-authoritative-deal-projection-v8';
 const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=20260830-server-indicator-v1';
 const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
-const paymentsCanonicalSrc='/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-canonical-width-date-v1';
+const paymentsCanonicalSrc='/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v2';
 const marker='20260830-client-admin-authoritative-deal-projection-v8';
 const connectionMarker='20260830-client-server-connection-v1';
 const paymentsMarker='20260830-client-payments-authoritative-v1';
-const paymentsCanonicalMarker='20260830-client-payments-canonical-layout-v1';
+const paymentsCanonicalMarker='20260830-client-payments-canonical-layout-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -38,6 +38,7 @@ if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(paymentsRuntime))throw new Error('CLIENT_P
 const paymentsCanonicalRuntime=await readFile(paymentsCanonicalRuntimePath,'utf8');
 if(!paymentsCanonicalRuntime.includes(paymentsCanonicalMarker))throw new Error(`CLIENT_PAYMENTS_CANONICAL_LAYOUT_MARKER_MISSING: ${paymentsCanonicalMarker}`);
 if(!paymentsCanonicalRuntime.includes('data-rona-payments-canonical-width')||!paymentsCanonicalRuntime.includes('Дата поступления:'))throw new Error('CLIENT_PAYMENTS_CANONICAL_WIDTH_DATE_CONTRACT_MISSING');
+if(!paymentsCanonicalRuntime.includes("'title-frame-context'")||!paymentsCanonicalRuntime.includes("'title-frame-owner'"))throw new Error('CLIENT_PAYMENTS_TITLE_FRAME_CANON_MISSING');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(paymentsCanonicalRuntime))throw new Error('CLIENT_PAYMENTS_CANONICAL_LAYOUT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 
 let html=await readFile(htmlPath,'utf8');
@@ -63,7 +64,7 @@ integrity.client_runtime.emitted_bytes=emitted.length;
 integrity.client_runtime.server_connection_indicator={id:connectionId,src:connectionSrc,marker:connectionMarker,replaces:'TOPBAR_DEALS_COUNTER',server_signal:'OBSERVED_SAME_ORIGIN_PORTAL_API_TRAFFIC',extra_network_requests:false,states:['CHECKING','ONLINE','DEGRADED','OFFLINE']};
 integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'ADMIN_CLIENT_SERVER_PROJECTION',archive_trigger:'LINKED_DEAL_OR_TERMINAL_APPLICATION_STATUS',deal_status_source:'SERVER_RESOLVED_OPERATIONS_STATE',payment_status_source:'SERVER_RESOLVED_FINANCE_SUMMARY_AND_VERIFIED_ALLOCATIONS',payment_projection:'CLIENT_SAFE_PROGRESS_PERCENT_AND_CONFIRMED_FACT',deal_current_status_projection:'SERVER_LABEL_NO_BROWSER_INFERENCE',deal_amount_presentation:'CANONICAL_SUMMARY',resource_projection:'SERVER_RESOLVED_RESOURCE_STATE',deal_status_presentation:'SINGLE_COMPOSED_SEGMENTED_STRIP',first_paint_guard:{id:guardId,mode:'SCOPED_AUTHORITATIVE_SECTIONS',scope:['APPLICATIONS','DEALS'],fail_closed:true,global_body_block:false}};
 integrity.client_runtime.payments_bridge={id:paymentsId,src:paymentsSrc,marker:paymentsMarker,source:'CLIENT_CONTEXT_FINANCE_PROJECTION',scope:'SELECTED_AUTHORIZED_CLIENT_CONTRACT',payment_fact:'BANK_CONFIRMED_CLIENT_SAFE',deal_summary:'SERVER_RESOLVED_FINANCE_SUMMARY',resource_prerequisite:'SERVER_RESOLVED_RESOURCE_STATE',refresh_ms:30000,context_switch:'AUTOMATIC_FROM_AUTHORIZED_CONTEXT',hardcoded_business_entities:false,first_paint_guard:{id:paymentsGuardId,mode:'PAYMENTS_FAIL_CLOSED',fail_closed:true}};
-integrity.client_runtime.payments_canonical_layout={id:paymentsCanonicalId,src:paymentsCanonicalSrc,marker:paymentsCanonicalMarker,width_reference:'PAYMENTS_SECTION_HEADER_FRAME',receipt_date_source:'CLIENT_CONTEXT_FILTERED_PAYMENT_AT',confirmed_receipts_projection:'SERVER_FILTERED_CLIENT_CONTEXT_PAYMENTS',hardcoded_business_entities:false};
+integrity.client_runtime.payments_canonical_layout={id:paymentsCanonicalId,src:paymentsCanonicalSrc,marker:paymentsCanonicalMarker,width_reference:'PAYMENTS_TITLE_FRAME_ONLY',aligned_frames:['CONTEXT','PAYMENT_STATUS','CONFIRMED_RECEIPTS'],receipt_date_source:'CLIENT_CONTEXT_FILTERED_PAYMENT_AT',confirmed_receipts_projection:'SERVER_FILTERED_CLIENT_CONTEXT_PAYMENTS',hardcoded_business_entities:false};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
 console.log(`CLIENT_APPLICATION_LIFECYCLE_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; server connection indicator ${connectionId}; server-resolved deal state strip enabled; authoritative client payments ${paymentsId}; canonical payments layout ${paymentsCanonicalId}`);
