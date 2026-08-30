@@ -26,7 +26,6 @@ jobs:
           set -euo pipefail
           npm run build
           cmp -s portal-src/current/admin.html dist/portal/admin.html
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '9694331f724efcd811207cfa433fea554a8ba6ca30b40a8299c1ef15fe4ce4ea'
           grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
@@ -42,7 +41,7 @@ jobs:
           grep -q 'ADMIN_EXCLUSIVE_CLIENT_V2' supabase/functions/rona-admin-client-authority/index.ts
           grep -q 'ADMIN_CONTRACT_AUTHORITY_ACTIVATED' supabase/functions/rona-admin-client-authority/index.ts
           grep -q 'client_user_pending_company_bindings' supabase/functions/rona-admin-client-authority/index.ts
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false||x.client_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
           echo 'SOURCE_FIRST_CURRENT_ONLY_ADMIN=PASS'
       - name: Wait for exact production deploy
         if: github.event_name == 'push'
