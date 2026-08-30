@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify direct Admin visual-source adapter
+      - name: Verify current visual runtime and source-host contract
         shell: bash
         run: |
           set -euo pipefail
@@ -47,31 +47,47 @@ jobs:
           ])if(!source.includes(marker))throw new Error('missing canonical marker: '+marker);
           for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки',".rona-rail-v4-hero{display:none!important}"])if(source.includes(forbidden))throw new Error('retired/divergent Client Rail marker returned: '+forbidden);
           const adapter=fs.readFileSync('functions/portal/client-rail-current-ui.js','utf8');
-          if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail no longer derives directly from Admin current visual source');
-          if(!adapter.includes('ADMIN_SINGLE_TITLE_HIDDEN_HERO')||!adapter.includes(".replace(ADMIN_SINGLE_TITLE_HIDDEN_HERO,''"))throw new Error('Client Rail canonical title restoration guard missing');
+          if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail visual source drifted from current Admin canon');
           const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
+          for(const marker of ['current-only-v2','CLIENT_RAIL_STATIC_PAGE_NOT_CURRENT_ONLY','static_legacy_dom_removed:true','runtime_replaces_legacy_page_dom:false'])if(!attach.includes(marker))throw new Error('current-only source-host guard missing: '+marker);
           if(!attach.includes('/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'))throw new Error('canonical Client Rail bridge missing');
           const css=fs.readFileSync('assets/portal-runtime/client-content-responsive-v1.css','utf8');
           if(!css.includes('.rona-rail-v4-work')||css.includes('.rona-rail-grid'))throw new Error('responsive layer still targets retired Client Rail visual classes');
-          console.log('CLIENT_RAIL_ADMIN_CANONICAL_SOURCE=PASS');
+          console.log('CLIENT_RAIL_CURRENT_ONLY_SOURCE=PASS');
           NODE
-      - name: Build current Client and verify one Rail owner
+      - name: Build current Client and verify static Rail replacement
         shell: bash
         run: |
           set -euo pipefail
           npm run build
           grep -q 'id="rona-client-rail-admin-canonical-v1"' dist/portal/client.html
           grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
+          grep -q 'data-rona-client-rail-current-only="current-only-v2"' dist/portal/client.html
+          grep -q 'id="rona-client-rail-current-only-v2-style"' dist/portal/client.html
+          grep -q 'aria-label="Онлайн ЖД"' dist/portal/client.html
           test "$(grep -o 'client-rail-current-ui' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
           ! grep -q 'client-rail-production-v1.js' dist/portal/client.html
           ! grep -q 'client-rail-movizor-gate-v1.js' dist/portal/client.html
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
+          const html=fs.readFileSync('dist/portal/client.html','utf8');
+          const expected='<div id="page-monitoring" data-rona-client-rail-admin-canonical-mount="v1" data-rona-client-rail-owner="admin-current-v81-client-authority-v1" data-rona-client-rail-current-visual="v2"></div>';
+          const open=html.match(/<([A-Za-z][A-Za-z0-9:_-]*)\b[^>]*\bid\s*=\s*(["'])page-rail\2[^>]*>/i);
+          if(!open)throw new Error('page-rail missing');
+          const tag=open[1],start=(open.index||0)+open[0].length,re=new RegExp(`<\\/?${tag}\\b[^>]*>`,'gi');
+          re.lastIndex=start;let depth=1,token,end=-1;
+          while((token=re.exec(html))){if(/^<\//.test(token[0]))depth--;else if(!/\/\s*>$/.test(token[0]))depth++;if(depth===0){end=token.index;break}}
+          if(end<0)throw new Error('page-rail unclosed');
+          const inner=html.slice(start,end);
+          if(inner!==expected)throw new Error('legacy/static Rail DOM survived build-time replacement');
+          if((html.match(/data-rona-client-rail-current-only="current-only-v2"/g)||[]).length!==1)throw new Error('current-only Rail host is not unique');
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const rail=integrity?.client_runtime?.rail_client_admin_canonical;
           if(!rail)throw new Error('rail canonical integrity missing');
           if(rail.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||rail.visual_contract!=='ADMIN_CURRENT_V8_2')throw new Error('wrong Rail visual canon');
+          if(rail.scope!=='ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST'||rail.visual_source_mode!=='BUILD_TIME_CURRENT_ONLY_HOST_WITH_ADMIN_CANONICAL_INNER_RUNTIME')throw new Error('Rail still uses legacy overlay architecture');
+          if(rail.static_host_marker!=='current-only-v2'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false||!(rail.static_removed_bytes>0))throw new Error('static current-only Rail proof missing');
           if(rail.client_data_source!=='/portal/api/v1/client/shipments')throw new Error('wrong Client Rail data authority');
           if(rail.legacy_client_visual_owner!==false||rail.separate_movizor_visual_gate!==false)throw new Error('retired visual owner remains');
-          console.log('CLIENT_RAIL_ADMIN_CANONICAL_BUILD=PASS');
+          console.log('CLIENT_RAIL_CURRENT_ONLY_BUILD=PASS removed_bytes='+rail.static_removed_bytes);
           NODE
