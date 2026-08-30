@@ -1,7 +1,7 @@
 import { onRequest as baseRailV7 } from './rail-current-v7-real-map-ui.js';
 
-const TILE_FROM="img.src='https://tile.openstreetmap.org/'+z+'/'+wrap+'/'+ty+'.png';";
-const TILE_TO="img.src='/portal/map-assets/osm/'+z+'/'+wrap+'/'+ty+'.png';";
+const TILE_RUNTIME_FROM="img.referrerPolicy='strict-origin-when-cross-origin';img.src='https://tile.openstreetmap.org/'+z+'/'+wrap+'/'+ty+'.png';img.onerror=function(){state.status.textContent='Картографический слой временно недоступен';};";
+const TILE_RUNTIME_TO="img.referrerPolicy='strict-origin-when-cross-origin';img.dataset.ronaTileDirect='https://tile.openstreetmap.org/'+z+'/'+wrap+'/'+ty+'.png';img.dataset.ronaTileProxy='/portal/map-assets/osm/'+z+'/'+wrap+'/'+ty+'.png';img.dataset.ronaTileFallback='0';img.src=img.dataset.ronaTileDirect;img.onerror=function(){var self=this;if(self.dataset.ronaTileFallback==='0'){self.dataset.ronaTileFallback='1';self.src=self.dataset.ronaTileProxy;state.status.textContent='Переключение картографического слоя…';return}state.status.textContent='Картографический слой временно недоступен';};";
 const V7_MARKER="window.__RONA_RAIL_REAL_MAP__='20260824-1026-v7';";
 const V82_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const TITLE_STYLE_FROM='.rona-rail-v7-real .rona-rail-v4-map-title{color:#16232b;background:rgba(255,255,255,.91);padding:7px 10px;border-radius:9px;box-shadow:0 4px 18px rgba(18,38,48,.12)}';
@@ -14,7 +14,7 @@ export async function onRequest(context){
   let source=await response.text();
   if(
     response.status!==200||
-    !source.includes(TILE_FROM)||
+    !source.includes(TILE_RUNTIME_FROM)||
     !source.includes(V7_MARKER)||
     !source.includes("version:'v7'")||
     !source.includes('mountRealRailMap')||
@@ -29,7 +29,7 @@ export async function onRequest(context){
   }
 
   source=source
-    .replace(TILE_FROM,TILE_TO)
+    .replace(TILE_RUNTIME_FROM,TILE_RUNTIME_TO)
     .replace(V7_MARKER,V82_MARKER)
     .replace("version:'v7'","version:'v8.2'")
     .replace('Интерактивная карта','Интерактивная ЖД-карта')
