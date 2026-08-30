@@ -1,0 +1,115 @@
+name: Client Payments authoritative runtime QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'fix/client-payments-authoritative-runtime-20260830'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  client-payments-authoritative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify runtime contract and canonical build attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-runtime/client-payments-authoritative-v1.js
+          node --check scripts/attach-client-application-lifecycle.mjs
+          node <<'NODE'
+          const fs=require('fs');
+          const runtime=fs.readFileSync('assets/portal-runtime/client-payments-authoritative-v1.js','utf8');
+          for(const marker of [
+            '20260830-client-payments-authoritative-v1',
+            '/v1/client/bootstrap',
+            '/v1/client/context?clientId=',
+            "source:'CLIENT_CONTEXT_FINANCE_PROJECTION'",
+            'payment_received_amount',
+            'payment_obligation_amount',
+            'bank_fact_status',
+            'resource_status',
+            'REFRESH_MS=30000'
+          ])if(!runtime.includes(marker))throw new Error('missing payments runtime marker '+marker);
+          if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(runtime))throw new Error('hardcoded client/deal found in payments runtime');
+          const attach=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
+          for(const marker of ['rona-client-payments-authoritative-v1','CLIENT_PAYMENTS_HARDCODED_BUSINESS_ENTITY_FORBIDDEN','PAYMENTS_FAIL_CLOSED'])if(!attach.includes(marker))throw new Error('missing build attachment marker '+marker);
+          NODE
+          npm run build
+          grep -q 'id="rona-client-payments-authoritative-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1' dist/portal/client.html
+          grep -q 'id="rona-client-payments-first-paint-guard"' dist/portal/client.html
+          node -e "const i=require('./dist/canonical-visual-integrity.json');if(i.client_runtime?.payments_bridge?.source!=='CLIENT_CONTEXT_FINANCE_PROJECTION'||i.client_runtime?.payments_bridge?.hardcoded_business_entities!==false)process.exit(1)"
+
+      - name: Install browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove generic automatic client payment projection in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const contexts=[
+            {client_id:'CLIENT-A',legal_name:'ALPHA TEST',contract_id:'CTR-A',current_external_contract_number:'A-001'},
+            {client_id:'CLIENT-B',legal_name:'BETA TEST',contract_id:'CTR-B',current_external_contract_number:'B-002'}
+          ];
+          const details={
+            'CLIENT-A|CTR-A':{deals:[{deal_id:'D-A',resource_status:'RESOURCE_CONFIRMED',payment_status:'PARTIALLY_PAID',payment_label:'Оплачено 30%',payment_received_amount:49320,payment_obligation_amount:164400,payment_currency:'USD',payment_percent:30}],payments:[{payment_id:'PAY-A',deal_id:'D-A',amount:49320,currency:'USD',bank_fact_status:'BANK_CONFIRMED',received_at:'2026-08-14T00:00:00Z'}]},
+            'CLIENT-B|CTR-B':{deals:[{deal_id:'D-B',resource_status:'RESOURCE_CONFIRMED',payment_status:'PARTIALLY_PAID',payment_label:'Оплачено 20%',payment_received_amount:200,payment_obligation_amount:1000,payment_currency:'USD',payment_percent:20}],payments:[{payment_id:'PAY-B',deal_id:'D-B',amount:200,currency:'USD',bank_fact_status:'BANK_CONFIRMED',received_at:'2026-08-15T00:00:00Z'}]}
+          };
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1800,height:1000}});
+            const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:'<!doctype html><html><head><meta charset="utf-8"></head><body><header><div id="selectedContext">ALPHA TEST · A-001</div></header><main><section id="page-payments"><div><h1>Платежи и взаиморасчёты</h1></div><div>Выбрана компания ALPHA TEST · A-001</div><div id="legacy"><div><h3>Платёжный статус</h3><p>Платёжных данных пока нет.</p></div><aside>Платёжных данных пока нет</aside></div></section></main></body></html>'}));
+            await page.route('https://rona.test/portal/api/**',async route=>{
+              const u=new URL(route.request().url());
+              if(u.pathname.endsWith('/v1/client/bootstrap'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{contexts}})});
+              if(u.pathname.endsWith('/v1/client/context')){
+                const key=u.searchParams.get('clientId')+'|'+u.searchParams.get('contractId');
+                return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:details[key]||{deals:[],payments:[]}})});
+              }
+              return route.fulfill({status:404,contentType:'application/json',body:JSON.stringify({ok:false,code:'NOT_FOUND'})});
+            });
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-payments-authoritative-v1.js')});
+            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-payments-ready')==='true',{timeout:10000});
+            let v=await page.evaluate(()=>({text:document.querySelector('[data-rona-client-payments-owner]')?.innerText||'',legacy:getComputedStyle(document.querySelector('[data-rona-payments-legacy-hidden="true"]')).display,state:window.__RONA_CLIENT_PAYMENTS_STATE__}));
+            assert(errors.length===0,'browser errors '+JSON.stringify(errors));
+            assert(v.legacy==='none','legacy empty payment block still visible');
+            for(const s of ['D-A','49 320 USD','164 400 USD','115 080 USD','30%','PAY-A','Finance · подтверждённые поступления · автообновление'])assert(v.text.includes(s),'alpha projection missing '+s+' in '+JSON.stringify(v.text));
+            assert(v.state?.client_id==='CLIENT-A'&&v.state?.contract_id==='CTR-A','wrong selected context '+JSON.stringify(v.state));
+
+            await page.evaluate(()=>{
+              document.querySelector('#selectedContext').textContent='BETA TEST · B-002';
+              const selected=[...document.querySelector('#page-payments').children].find(x=>x.textContent.includes('Выбрана компания'));
+              if(selected)selected.textContent='Выбрана компания BETA TEST · B-002';
+              document.querySelector('#selectedContext').click();
+            });
+            await page.waitForFunction(()=>window.__RONA_CLIENT_PAYMENTS_STATE__?.client_id==='CLIENT-B',{timeout:10000});
+            v=await page.evaluate(()=>({text:document.querySelector('[data-rona-client-payments-owner]')?.innerText||'',state:window.__RONA_CLIENT_PAYMENTS_STATE__}));
+            for(const s of ['D-B','200 USD','1 000 USD','800 USD','20%','PAY-B'])assert(v.text.includes(s),'beta projection missing '+s+' in '+JSON.stringify(v.text));
+            assert(!v.text.includes('D-A'),'cross-context payment leakage detected');
+            assert(errors.length===0,'browser errors after context switch '+JSON.stringify(errors));
+            console.log('CLIENT_PAYMENTS_AUTHORITATIVE_BROWSER=PASS');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
