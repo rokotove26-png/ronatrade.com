@@ -52,8 +52,10 @@ html body [data-page-panel] video {
 
 #page-rail,
 #page-monitoring,
-[data-page="rail"],
-[data-page="monitoring"] {
+[data-page-panel="rail"],
+[data-page-panel="monitoring"],
+[data-page-id="rail"],
+[data-page-id="monitoring"] {
   container-type: inline-size;
   container-name: rona-client-rail;
 }
@@ -253,61 +255,34 @@ html body [data-page-panel] video {
   }
 }
 
-/* Online Rail: stack the operational list and map when the actual page pane is narrow. */
+/* Online Rail: use the same structural classes and breakpoints as the current Admin rail owner. */
 @container rona-client-rail (max-width: 1100px) {
-  #page-rail .rona-rail-grid,
-  #page-monitoring .rona-rail-grid,
-  [data-page="rail"] .rona-rail-grid,
-  [data-page="monitoring"] .rona-rail-grid {
+  #page-rail .rona-rail-v4-work,
+  #page-monitoring .rona-rail-v4-work {
     grid-template-columns: 1fr !important;
   }
 
-  #page-rail .rona-rail-map-shell,
-  #page-monitoring .rona-rail-map-shell {
-    height: 330px !important;
-  }
-
-  #page-rail .rona-rail-list,
-  #page-monitoring .rona-rail-list {
-    max-height: 320px !important;
+  #page-rail .rona-rail-v4-map,
+  #page-monitoring .rona-rail-v4-map {
+    min-height: 300px !important;
   }
 }
 
-@container rona-client-rail (max-width: 720px) {
-  #page-rail .rona-rail-hero,
-  #page-monitoring .rona-rail-hero {
-    align-items: flex-start !important;
-    flex-direction: column !important;
+@container rona-client-rail (max-width: 680px) {
+  #page-rail .rona-rail-v4-kpis,
+  #page-monitoring .rona-rail-v4-kpis {
+    grid-template-columns: 1fr 1fr !important;
   }
 
-  #page-rail .rona-rail-actions,
-  #page-monitoring .rona-rail-actions {
-    justify-content: flex-start !important;
-  }
-
-  #page-rail .rona-rail-metrics,
-  #page-monitoring .rona-rail-metrics,
-  #page-rail .rona-rail-detail,
-  #page-monitoring .rona-rail-detail {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-
-  #page-rail .rona-rail-tools,
-  #page-monitoring .rona-rail-tools {
-    flex-direction: column !important;
-  }
-
-  #page-rail .rona-rail-select,
-  #page-monitoring .rona-rail-select {
-    width: 100% !important;
+  #page-rail .rona-rail-v4-card,
+  #page-monitoring .rona-rail-v4-card {
+    padding: 14px !important;
   }
 }
 
 @container rona-client-rail (max-width: 480px) {
-  #page-rail .rona-rail-metrics,
-  #page-monitoring .rona-rail-metrics,
-  #page-rail .rona-rail-detail,
-  #page-monitoring .rona-rail-detail {
+  #page-rail .rona-rail-v4-kpis,
+  #page-monitoring .rona-rail-v4-kpis {
     grid-template-columns: 1fr !important;
   }
 }
