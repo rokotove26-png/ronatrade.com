@@ -12,6 +12,7 @@ const LOCATION_FROM="if(location.pathname==='/portal/admin'){if(document.readySt
 const LOCATION_TO="if(location.pathname==='/portal/client'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const BIND_FROM="function bind(){var nav=q('#nav button[data-page=\"monitoring\"]');if(nav&&!nav.__ronaRailV4Bound){nav.__ronaRailV4Bound=true;nav.addEventListener('click',function(){setTimeout(paint,0);setTimeout(paint,120);setTimeout(function(){sync()},350)})}}";
 const BIND_TO="function bind(){if(document.documentElement.dataset.ronaClientRailNavBound==='true')return;document.documentElement.dataset.ronaClientRailNavBound='true';document.addEventListener('click',function(ev){var n=ev.target&&ev.target.closest?ev.target.closest('button,a,[role=\"button\"]'):null;if(!n)return;var key=String(n.getAttribute('data-page')||n.getAttribute('data-section')||n.getAttribute('data-target')||'').toLowerCase(),label=String(n.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();if(key!=='rail'&&key!=='monitoring'&&label!=='онлайн жд')return;setTimeout(function(){ensureClientRailMount();paint()},0);setTimeout(paint,120);setTimeout(function(){sync()},350)},true)}";
+const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important}',";
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
@@ -87,7 +88,7 @@ export async function onRequest(context){
   const response=await adminRailCurrent(context);
   let source=await response.text();
   const checks=[
-    ['ADMIN_MARKER',ADMIN_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_FROM',START_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],
+    ['ADMIN_MARKER',ADMIN_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_FROM',START_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],['ADMIN_SINGLE_TITLE_HIDDEN_HERO',ADMIN_SINGLE_TITLE_HIDDEN_HERO],
     ['ROOT_CLASS','rona-rail-v4-root'],['WORK_CLASS','rona-rail-v4-work'],['SELECTOR_CLASS','rona-rail-v6-selector'],['WAGON_CLASS','rona-rail-v6-wagon-box'],['REAL_MAP_CLASS','rona-rail-v7-real'],['LOCAL_TILE','/portal/map-assets/osm/']
   ];
   const missing=checks.filter(([,marker])=>!source.includes(marker)).map(([name])=>name);
@@ -102,7 +103,11 @@ export async function onRequest(context){
     .replace(START_FROM,START_TO)
     .replace(BIND_FROM,BIND_TO)
     .replace(LOCATION_FROM,LOCATION_TO)
+    .replace(ADMIN_SINGLE_TITLE_HIDDEN_HERO,'')
     .split("'/admin/bootstrap'").join("'/client/rail-canonical'");
+  if(source.includes(ADMIN_SINGLE_TITLE_HIDDEN_HERO)){
+    return new Response('CLIENT_RAIL_TITLE_HIDDEN_AFTER_ADAPT',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  }
   if(source.includes("/portal/owner-api")||source.includes("/admin/bootstrap")||source.includes("location.pathname==='/portal/admin'")){
     return new Response('CLIENT_RAIL_ADMIN_AUTHORITY_LEAK',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
