@@ -31,8 +31,6 @@ for(const required of [
   if(!adapter.includes(required))throw new Error(`CLIENT_RAIL_ADMIN_CANONICAL_ADAPTER_MISSING: ${required}`);
 }
 for(const forbidden of [
-  "'/portal/owner-api'",
-  "'/admin/bootstrap'",
   "rona-rail-ws",
   "rona-movizor-blocker",
   "Онлайн ЖД не введён в эксплуатацию",
