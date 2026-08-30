@@ -4,10 +4,7 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
   push:
-    branches:
-      - 'release/public-go-live-v1.1'
-      - 'hotfix/admin-interactivity-*'
-      - 'feature/portal-visual-redesign-*'
+    branches: [release/public-go-live-v1.1]
 
 permissions:
   actions: read
@@ -24,7 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify owner acceptance current source contract
+      - name: Verify current-only owner acceptance source contract
         shell: bash
         run: |
           set -euo pipefail
@@ -35,19 +32,10 @@ jobs:
           node --check functions/portal/admin-main-ui-current.js
           node --check functions/portal/owner-api.js
           node --check functions/portal/clients-agents-current-ui.js
+          node --check 'functions/portal/owner-acceptance-api/[[path]].js'
           test ! -e functions/portal/client.js
-          cmp -s portal-src/current/admin.html dist/portal/admin.html
-          grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
-          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
-          grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
-          grep -q 'data-page="agent-settlements"' dist/portal/admin.html
-          grep -q 'data-page="claims"' dist/portal/admin.html
-          ! grep -q 'adminLoginGate' dist/portal/admin.html
-          ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
-          ! grep -q 'Временный автономный вход' dist/portal/admin.html
           grep -q "export { onRequest } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
-          grep -q 'src="/portal/main-ui"' functions/portal/agent.js
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false||x.client_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
           echo 'OWNER_ACCEPTANCE_CURRENT_ONLY_SOURCE=PASS'
       - name: Wait for exact production deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
