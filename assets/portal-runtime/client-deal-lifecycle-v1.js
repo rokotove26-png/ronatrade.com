@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260830-client-deal-lifecycle-v1-authoritative-projection';
+const MARK='20260830-client-deal-realization-status-v2-server-authoritative';
 if(window.__RONA_CLIENT_DEAL_LIFECYCLE__===MARK)return;
 window.__RONA_CLIENT_DEAL_LIFECYCLE__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -9,9 +9,16 @@ const STYLE_ID='rona-client-deal-lifecycle-v1-style';
 const FLOW_ID='rona-deal-realization-flow-v3';
 const ROOT_CLASS='rona-deal-command-center-v3';
 const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/iu;
+const API='/portal/api';
+const SOURCE='SERVER_AUTHORITATIVE_REALIZATION_V1';
+const REFRESH_MS=7000;
+const CONTEXT_TTL_MS=60000;
 const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};
+const STAGE_NAMES={contract:'Оформление сделки',documents:'Подписание документов',payment:'Оплата',resource:'Подтверждение ресурса',logistics:'Отгрузка и поставка',close:'Закрывающие документы и завершение'};
+const STAGE_ORDER=['contract','documents','payment','resource','logistics','close'];
+const BADGES={DONE:'Выполнено',CURRENT:'В работе',PENDING:'Предстоит',BLOCKED:'Требует решения'};
 
 const ICONS={
   contract:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h8l3 3V20a1.5 1.5 0 0 1-1.5 1.5H6.5A1.5 1.5 0 0 1 5 20V5a1.5 1.5 0 0 1 1.5-1.5Z"/><path d="M14.5 3.8V7h3.2M8 11h6.5M8 14.5h5M8 18h3.5"/></svg>',
@@ -23,7 +30,7 @@ const ICONS={
 };
 
 function installStyle(){
-  if(document.getElementById(STYLE_ID))return;
+  document.getElementById(STYLE_ID)?.remove();
   const s=document.createElement('style');
   s.id=STYLE_ID;
   s.textContent=`
@@ -57,87 +64,116 @@ function installStyle(){
 .${ROOT_CLASS} .rona-deal-lifecycle-v1__item.is-current .rona-deal-lifecycle-v1__name{color:#e8f9ff}
 .${ROOT_CLASS} .rona-deal-lifecycle-v1__item.is-current .rona-deal-lifecycle-v1__detail{color:rgba(183,226,241,.88)}
 .${ROOT_CLASS} .rona-deal-lifecycle-v1__item.is-pending{opacity:.72}
+.${ROOT_CLASS} .rona-deal-lifecycle-v1__item.is-blocked .rona-deal-lifecycle-v1__node{border-color:rgba(255,132,132,.34);background:linear-gradient(180deg,rgba(70,24,30,.80),rgba(31,17,25,.96));color:#ffb0b0}
+.${ROOT_CLASS} .rona-deal-lifecycle-v1__item.is-blocked .rona-deal-lifecycle-v1__badge{border-color:rgba(255,132,132,.25);background:rgba(255,132,132,.08);color:#ffc0c0}
+.${ROOT_CLASS} .rona-deal-lifecycle-v1__notice{position:relative;padding:14px 0 2px;font-size:10.5px;font-weight:650;line-height:1.45;color:rgba(171,198,214,.78)}
 `;
   document.head.append(s);
 }
 
-function fieldValue(root,key){
-  const card=root.querySelector(`[data-rona-command-field="${key}"]`);
-  const explicit=card?.querySelector('[data-rona-command-field-value]');
-  if(explicit)return norm(explicit.textContent);
-  if(!card)return '';
-  const label=card.querySelector('[data-rona-command-field-label]');
-  return norm(card.textContent).replace(norm(label?.textContent),'').trim();
-}
 function dealId(root){
   const h=root.querySelector('[data-rona-command-heading]');
   const t=norm(h?.textContent);
   return DEAL_RE.test(t)?t:'';
 }
-function cardTextOutside(root,id){
-  if(!id)return '';
-  let best='',bestArea=Infinity;
-  for(const el of document.querySelectorAll('article,section,div')){
-    if(root.contains(el)||!visible(el))continue;
-    const t=norm(el.textContent);
-    if(!t.includes(id))continue;
-    const r=el.getBoundingClientRect();
-    if(r.width<300||r.height<45||r.height>320)continue;
-    const area=r.width*r.height;
-    if(area<bestArea){best=t;bestArea=area}
+async function getJson(url){
+  const r=await fetch(url,{method:'GET',headers:{accept:'application/json'},credentials:'same-origin',cache:'no-store'});
+  const body=await r.json().catch(()=>null);
+  if(!r.ok||!body)throw new Error(body?.code||`HTTP_${r.status}`);
+  return body;
+}
+let contextCache={at:0,items:[]};
+let stateByDeal=new Map();
+let refreshPromise=null;
+let loadedOnce=false;
+let loadError=false;
+async function contexts(force=false){
+  const now=Date.now();
+  if(!force&&contextCache.items.length&&now-contextCache.at<CONTEXT_TTL_MS)return contextCache.items;
+  const payload=await getJson(`${API}/v1/client/bootstrap`);
+  const items=Array.isArray(payload?.data?.contexts)?payload.data.contexts.filter(c=>c?.client_id&&c?.contract_id):[];
+  contextCache={at:now,items};
+  return items;
+}
+async function refresh(force=false){
+  if(refreshPromise)return refreshPromise;
+  const hasVisible=[...document.querySelectorAll(`.${ROOT_CLASS}`)].some(visible);
+  if(!hasVisible&&!force)return;
+  refreshPromise=(async()=>{
+    try{
+      const ctx=await contexts(force);
+      const responses=await Promise.all(ctx.map(c=>getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(c.client_id)}&contractId=${encodeURIComponent(c.contract_id)}`)));
+      const next=new Map();
+      for(const payload of responses)for(const row of Array.isArray(payload?.deals)?payload.deals:[]){
+        const id=norm(row?.deal_id);
+        if(DEAL_RE.test(id)&&row?.realization_status?.source===SOURCE)next.set(id,row.realization_status);
+      }
+      stateByDeal=next;
+      loadedOnce=true;
+      loadError=false;
+    }catch(error){
+      console.error('RONA realization status refresh failed',error);
+      loadError=true;
+      loadedOnce=true;
+    }finally{
+      refreshPromise=null;
+      schedule();
+    }
+  })();
+  return refreshPromise;
+}
+function validatedStages(status){
+  if(!status||status.source!==SOURCE||!Array.isArray(status.stages))return null;
+  const byKey=new Map(status.stages.map(s=>[norm(s?.key),s]));
+  const stages=[];
+  for(const key of STAGE_ORDER){
+    const raw=byKey.get(key);
+    const state=String(raw?.state||'').toUpperCase();
+    if(!raw||!Object.hasOwn(BADGES,state))return null;
+    stages.push({key,name:STAGE_NAMES[key],state,detail:norm(raw.detail)||'Статус подтверждается системой'});
   }
-  return best;
+  return stages;
 }
-function evidence(root){
-  const id=dealId(root);
-  const stage=fieldValue(root,'stage');
-  const resource=fieldValue(root,'resource');
-  const next=fieldValue(root,'next');
-  const text=norm(`${root.textContent||''} ${cardTextOutside(root,id)}`);
-  const pctMatch=text.match(/Оплачено\s*(\d{1,3})\s*%/iu);
-  const paymentPct=pctMatch?Math.max(0,Math.min(100,Number(pctMatch[1]))):null;
-  return{id,stage,resource,next,text,paymentPct};
-}
-function lifecycle(ev){
-  const t=ev.text,stage=ev.stage,next=ev.next,resource=ev.resource;
-  const closed=/(?:сделка\s+(?:закрыта|завершена)|исполнение\s+завершено|договор\s+исполнен|статус\s*[:—-]?\s*(?:закрыта|закрыт|завершена|завершен))/iu.test(t);
-  const documentsDone=/(?:документы\s+подписаны|документ(?:ы|а)?\s+подписан(?:ы|о)?|подписанн(?:ое|ый|ая)\s+(?:доп\.?(?:олнительное)?\s*)?соглашение|SIGNED_ADDENDUM)/iu.test(t);
-  const documentsCurrent=!documentsDone&&/(?:подписан|документ)/iu.test(`${stage} ${next}`);
-  const paymentDone=ev.paymentPct===100||/(?:оплата\s+(?:получена|подтверждена)|оплачен(?:а|о)?\s+полностью|полная\s+оплата)/iu.test(t);
-  const paymentCurrent=!paymentDone&&((ev.paymentPct!==null&&ev.paymentPct>0)||/(?:оплат|плат[её]ж)/iu.test(`${stage} ${next}`));
-  const resourceDone=/(?:подтвержд[её]н|обеспечен|зарезервирован|готов)/iu.test(resource)||/(?:ресурс\s+подтвержд[её]н)/iu.test(t);
-  const resourceCurrent=!resourceDone&&Boolean(resource)&&!/(?:не\s+подтвержд[её]н|отсутствует|не\s+обеспечен)/iu.test(resource);
-  const deliveryDone=/(?:поставка\s+(?:исполнена|завершена)|доставлен[аоы]?|выгружен[аоы]?|груз\s+получен)/iu.test(t)||closed;
-  const deliveryCurrent=!deliveryDone&&/(?:поставк|отгруз|логист|вагон|в\s+пути|достав)/iu.test(`${stage} ${next}`);
-  const closingCurrent=!closed&&/(?:закрывающ|акт(?:ы|а)?\s+при[её]м|финальн.*документ)/iu.test(`${stage} ${next}`);
-  const paymentDetail=ev.paymentPct===null?(paymentDone?'Оплата подтверждена':paymentCurrent?'Оплата в процессе':'Оплата ещё не подтверждена'):(ev.paymentPct>=100?'Оплачено 100%':ev.paymentPct>0?`Оплачено ${ev.paymentPct}% · осталось ${100-ev.paymentPct}%`:'Оплата ещё не поступила');
-  return[
-    {key:'contract',name:'Оформление сделки',state:'done',detail:'Сделка зарегистрирована и доступна в кабинете'},
-    {key:'documents',name:'Подписание документов',state:documentsDone?'done':documentsCurrent?'current':'pending',detail:documentsDone?'Документы подписаны':documentsCurrent?(next||stage||'Документы находятся на оформлении'):'Подписание документов ещё предстоит'},
-    {key:'payment',name:'Оплата',state:paymentDone?'done':paymentCurrent?'current':'pending',detail:paymentDetail},
-    {key:'resource',name:'Подтверждение ресурса',state:resourceDone?'done':resourceCurrent?'current':'pending',detail:resourceDone?(resource||'Ресурс подтверждён'):resourceCurrent?resource:'Подтверждение ресурса ещё предстоит'},
-    {key:'logistics',name:'Отгрузка и поставка',state:deliveryDone?'done':deliveryCurrent?'current':'pending',detail:deliveryDone?'Поставка исполнена':deliveryCurrent?(next||stage||'Идёт этап поставки'):'Отгрузка и поставка ещё предстоят'},
-    {key:'close',name:'Закрывающие документы и завершение',state:closed?'done':closingCurrent?'current':'pending',detail:closed?'Сделка завершена':closingCurrent?(next||'Ожидаются закрывающие документы'):'Закрытие сделки ещё предстоит'}
-  ];
+function renderNotice(flow,message){
+  const sig=`notice:${message}`;
+  if(flow.dataset.lifecycleSignature===sig)return;
+  flow.dataset.lifecycleSignature=sig;
+  flow.className='rona-deal-lifecycle-v1';
+  flow.setAttribute('aria-label','Статус реализации');
+  flow.innerHTML=`<div class="rona-deal-lifecycle-v1__head"><div><div class="rona-deal-lifecycle-v1__eyebrow">Deal status</div><div class="rona-deal-lifecycle-v1__title">Статус реализации</div></div><div class="rona-deal-lifecycle-v1__summary">Актуальные данные</div></div><div class="rona-deal-lifecycle-v1__notice">${esc(message)}</div>`;
 }
 function render(root){
   installStyle();
   const flow=root.querySelector(`#${FLOW_ID}`);
   if(!flow)return;
-  const stages=lifecycle(evidence(root));
-  const sig=JSON.stringify(stages);
+  const id=dealId(root);
+  if(!id){renderNotice(flow,'Идентификатор сделки уточняется системой');return}
+  const status=stateByDeal.get(id);
+  const stages=validatedStages(status);
+  if(!stages){
+    if(loadError)renderNotice(flow,'Актуальный статус реализации временно недоступен');
+    else renderNotice(flow,loadedOnce?'Статус реализации синхронизируется с сервером':'Загрузка актуального статуса реализации…');
+    return;
+  }
+  const done=stages.filter(s=>s.state==='DONE').length;
+  const current=stages.find(s=>s.state==='CURRENT');
+  const blocked=stages.find(s=>s.state==='BLOCKED');
+  const progress=Math.round(done/stages.length*100);
+  const sig=JSON.stringify({id,source:status.source,done,current:current?.key||null,blocked:blocked?.key||null,stages});
   if(flow.dataset.lifecycleSignature===sig&&flow.classList.contains('rona-deal-lifecycle-v1'))return;
   flow.dataset.lifecycleSignature=sig;
   flow.className='rona-deal-lifecycle-v1';
-  flow.setAttribute('aria-label','Жизненный цикл сделки');
-  const done=stages.filter(s=>s.state==='done').length;
-  const current=stages.find(s=>s.state==='current');
-  const progress=Math.round(done/stages.length*100);
-  flow.innerHTML=`<div class="rona-deal-lifecycle-v1__head"><div><div class="rona-deal-lifecycle-v1__eyebrow">Deal lifecycle</div><div class="rona-deal-lifecycle-v1__title">Жизненный цикл сделки</div></div><div class="rona-deal-lifecycle-v1__summary">Выполнено ${done} из ${stages.length}${current?`<br>Сейчас: ${esc(current.name)}`:''}</div></div><div class="rona-deal-lifecycle-v1__progress" aria-label="Прогресс сделки ${progress}%"><span style="width:${progress}%"></span></div><div class="rona-deal-lifecycle-v1__list">${stages.map(s=>`<article class="rona-deal-lifecycle-v1__item is-${s.state}" data-lifecycle-stage="${s.key}"><div class="rona-deal-lifecycle-v1__rail"><span class="rona-deal-lifecycle-v1__node">${ICONS[s.key]}</span></div><div class="rona-deal-lifecycle-v1__body"><div class="rona-deal-lifecycle-v1__top"><div class="rona-deal-lifecycle-v1__name">${esc(s.name)}</div><span class="rona-deal-lifecycle-v1__badge">${s.state==='done'?'Выполнено':s.state==='current'?'Сейчас':'Предстоит'}</span></div><div class="rona-deal-lifecycle-v1__detail">${esc(s.detail)}</div></div></article>`).join('')}</div>`;
+  flow.setAttribute('aria-label','Статус реализации');
+  const summary=blocked?`Требует решения: ${STAGE_NAMES[blocked.key]}`:current?`В работе: ${STAGE_NAMES[current.key]}`:'Все этапы завершены';
+  flow.innerHTML=`<div class="rona-deal-lifecycle-v1__head"><div><div class="rona-deal-lifecycle-v1__eyebrow">Deal status</div><div class="rona-deal-lifecycle-v1__title">Статус реализации</div></div><div class="rona-deal-lifecycle-v1__summary">Выполнено ${done} из ${stages.length}<br>${esc(summary)}</div></div><div class="rona-deal-lifecycle-v1__progress" aria-label="Выполнено ${done} из ${stages.length}"><span style="width:${progress}%"></span></div><div class="rona-deal-lifecycle-v1__list">${stages.map(s=>`<article class="rona-deal-lifecycle-v1__item is-${s.state.toLowerCase()}" data-lifecycle-stage="${s.key}"><div class="rona-deal-lifecycle-v1__rail"><span class="rona-deal-lifecycle-v1__node">${ICONS[s.key]}</span></div><div class="rona-deal-lifecycle-v1__body"><div class="rona-deal-lifecycle-v1__top"><div class="rona-deal-lifecycle-v1__name">${esc(s.name)}</div><span class="rona-deal-lifecycle-v1__badge">${BADGES[s.state]}</span></div><div class="rona-deal-lifecycle-v1__detail">${esc(s.detail)}</div></div></article>`).join('')}</div>`;
 }
 let scheduled=false;
 function scan(){scheduled=false;for(const root of document.querySelectorAll(`.${ROOT_CLASS}`))if(visible(root))render(root)}
 function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(scan)}
-new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
-setTimeout(schedule,0);setTimeout(schedule,350);setInterval(schedule,2200);
+new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+window.addEventListener('focus',()=>refresh(true),{passive:true});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh(true)},{passive:true});
+setTimeout(()=>{schedule();refresh(true)},0);
+setTimeout(()=>{schedule();refresh(false)},350);
+setInterval(()=>refresh(false),REFRESH_MS);
 })();
