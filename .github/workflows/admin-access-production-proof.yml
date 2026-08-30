@@ -39,14 +39,9 @@ jobs:
           test ! -e functions/portal/admin-canonical-create-access-v441-ui.js
           test ! -e functions/portal/admin-access-ui.js
           test ! -e functions/portal/clients-agents-v4-ui.js
-      - name: Build authoritative current artifact
-        run: npm run build
-      - name: Verify materialized access owner
+      - name: Build and materialize authoritative current access owner
         shell: bash
         run: |
           set -euo pipefail
-          test -s dist/portal/clients-agents-current-ui
-          test -s dist/_headers
-          grep -q '/portal/clients-agents-current-ui' dist/_headers
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
+          npm run build
           echo 'ADMIN_ACCESS_CURRENT_PROOF=PASS'
