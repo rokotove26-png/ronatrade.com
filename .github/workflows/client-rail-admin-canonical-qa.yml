@@ -41,13 +41,14 @@ jobs:
           for(const marker of [
             "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'",
             'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
-            'ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
+            'Онлайн ЖД','ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
             '/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',
             'ADMIN_CURRENT_V81_CANONICAL','admin-current-v81-client-authority-v1'
           ])if(!source.includes(marker))throw new Error('missing canonical marker: '+marker);
-          for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки'])if(source.includes(forbidden))throw new Error('retired/divergent Client Rail marker returned: '+forbidden);
+          for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки',".rona-rail-v4-hero{display:none!important}"])if(source.includes(forbidden))throw new Error('retired/divergent Client Rail marker returned: '+forbidden);
           const adapter=fs.readFileSync('functions/portal/client-rail-current-ui.js','utf8');
           if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail no longer derives directly from Admin current visual source');
+          if(!adapter.includes('ADMIN_SINGLE_TITLE_HIDDEN_HERO')||!adapter.includes(".replace(ADMIN_SINGLE_TITLE_HIDDEN_HERO,''"))throw new Error('Client Rail canonical title restoration guard missing');
           const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
           if(!attach.includes('/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'))throw new Error('canonical Client Rail bridge missing');
           const css=fs.readFileSync('assets/portal-runtime/client-content-responsive-v1.css','utf8');
