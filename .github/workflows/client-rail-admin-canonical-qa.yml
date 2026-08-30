@@ -10,7 +10,9 @@ on:
       - functions/portal/rail-current-v6-single-title-ui.js
       - functions/portal/rail-current-v7-real-map-ui.js
       - functions/portal/rail-current-v81-maplibre-ui.js
+      - assets/portal-runtime/client-rail-canonical-hero-v1.js
       - scripts/attach-client-rail-production-v1.mjs
+      - scripts/emit-client-runtime-cache-policy.mjs
       - assets/portal-runtime/client-content-responsive-v1.css
       - package.json
       - .github/workflows/client-rail-admin-canonical-qa.yml
@@ -23,12 +25,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Verify current visual runtime and source-host contract
+      - name: Verify Client canonical hero and current-only operational body contract
         shell: bash
         run: |
           set -euo pipefail
           node --check functions/portal/client-rail-current-ui.js
+          node --check assets/portal-runtime/client-rail-canonical-hero-v1.js
           node --check scripts/attach-client-rail-production-v1.mjs
+          node --check scripts/emit-client-runtime-cache-policy.mjs
           test ! -e assets/portal-runtime/client-rail-production-v1.js
           test ! -e assets/portal-runtime/client-rail-movizor-gate-v1.js
           node --input-type=module <<'NODE'
@@ -37,43 +41,74 @@ jobs:
           const response=await onRequest({});
           const source=await response.text();
           if(response.status!==200)throw new Error(`adapter status ${response.status}: ${source}`);
-          if(response.headers.get('x-rona-client-rail-visual-canon')!=='/portal/rail-current-v81-maplibre-ui')throw new Error('wrong visual canon header');
+          if(response.headers.get('x-rona-client-rail-visual-canon')!=='/portal/rail-current-v81-maplibre-ui')throw new Error('operational adapter source header drifted');
           for(const marker of [
             "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'",
             'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
             'Онлайн ЖД','ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
             '/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',
             'ADMIN_CURRENT_V81_CANONICAL','admin-current-v81-client-authority-v1'
-          ])if(!source.includes(marker))throw new Error('missing canonical marker: '+marker);
+          ])if(!source.includes(marker))throw new Error('missing operational marker: '+marker);
           for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки',".rona-rail-v4-hero{display:none!important}"])if(source.includes(forbidden))throw new Error('retired/divergent Client Rail marker returned: '+forbidden);
+
           const adapter=fs.readFileSync('functions/portal/client-rail-current-ui.js','utf8');
-          if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail visual source drifted from current Admin canon');
+          if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail operational body drifted from current Admin source');
+
+          const hero=fs.readFileSync('assets/portal-runtime/client-rail-canonical-hero-v1.js','utf8');
+          for(const marker of [
+            "20260831-client-rail-canonical-hero-v1",
+            "const KICKER='RONA Trade · Operations'",
+            "const TITLE='Онлайн ЖД'",
+            "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
+            'rona-client-rail-hero-actions','Автообновление · 30 с','Обновить',
+            'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'
+          ])if(!hero.includes(marker))throw new Error('Client canonical hero contract missing: '+marker);
+          if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(hero))throw new Error('canonical hero contains hardcoded business entity');
+
           const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
-          for(const marker of ['current-only-v2','CLIENT_RAIL_STATIC_PAGE_NOT_CURRENT_ONLY','static_legacy_dom_removed:true','runtime_replaces_legacy_page_dom:false','page-rail|page-monitoring'])if(!attach.includes(marker))throw new Error('current-only source-host guard missing: '+marker);
-          if(!attach.includes('/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'))throw new Error('canonical Client Rail bridge missing');
+          for(const marker of [
+            'current-only-v2','CLIENT_RAIL_STATIC_PAGE_NOT_CURRENT_ONLY','static_legacy_dom_removed:true','runtime_replaces_legacy_page_dom:false','page-rail|page-monitoring',
+            "visual_canon:'CLIENT_CANONICAL_RAIL_HERO_V1'",
+            "visual_contract:'CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY'",
+            "static_title_owner:'CLIENT_CANONICAL_HERO_RUNTIME_V1'",
+            'client-rail-canonical-hero-v1.js?v=20260831-client-canonical-hero-v1'
+          ])if(!attach.includes(marker))throw new Error('current-only/canonical hero guard missing: '+marker);
+          if(!attach.includes('/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'))throw new Error('Client Rail operational bridge missing');
+          if(attach.includes('content:"Онлайн ЖД";display:block')||attach.includes('.rona-rail-v4-hero{display:none!important}'))throw new Error('bare pseudo title or hidden hero regression reintroduced');
+
+          const cache=fs.readFileSync('scripts/emit-client-runtime-cache-policy.mjs','utf8');
+          if(!cache.includes('/assets/portal-runtime/client-rail-canonical-hero-v1.js'))throw new Error('canonical hero no-store policy missing');
           const css=fs.readFileSync('assets/portal-runtime/client-content-responsive-v1.css','utf8');
           if(!css.includes('.rona-rail-v4-work')||css.includes('.rona-rail-grid'))throw new Error('responsive layer still targets retired Client Rail visual classes');
-          console.log('CLIENT_RAIL_CURRENT_ONLY_SOURCE=PASS');
+          console.log('CLIENT_RAIL_CANONICAL_HERO_SOURCE=PASS');
           NODE
-      - name: Build current Client and verify static Rail replacement
+
+      - name: Build current Client and verify canonical title ownership
         shell: bash
         run: |
           set -euo pipefail
           npm run build
           grep -q 'id="rona-client-rail-admin-canonical-v1"' dist/portal/client.html
           grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
+          grep -q 'id="rona-client-rail-canonical-hero-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260831-client-canonical-hero-v1' dist/portal/client.html
           grep -q 'data-rona-client-rail-current-only="current-only-v2"' dist/portal/client.html
           grep -q 'id="rona-client-rail-current-only-v2-style"' dist/portal/client.html
           grep -q 'aria-label="Онлайн ЖД"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-rail-canonical-hero-v1.js' dist/_headers
           test "$(grep -o 'client-rail-current-ui' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
+          test "$(grep -o 'client-rail-canonical-hero-v1.js' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
           ! grep -q 'client-rail-production-v1.js' dist/portal/client.html
           ! grep -q 'client-rail-movizor-gate-v1.js' dist/portal/client.html
+          ! grep -q 'content:"Онлайн ЖД";display:block' dist/portal/client.html
+          ! grep -q '\.rona-rail-v4-hero{display:none!important}' dist/portal/client.html
+          test -s dist/assets/portal-runtime/client-rail-canonical-hero-v1.js
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const html=fs.readFileSync('dist/portal/client.html','utf8');
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const rail=integrity?.client_runtime?.rail_client_admin_canonical;
-          if(!rail)throw new Error('rail canonical integrity missing');
+          if(!rail)throw new Error('rail current integrity missing');
           if(!['page-rail','page-monitoring'].includes(rail.static_host))throw new Error('unknown current-only Rail host: '+rail.static_host);
           const hostId=rail.static_host;
           const quoted=hostId.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
@@ -91,10 +126,70 @@ jobs:
           if(hostId==='page-monitoring'&&!open[0].includes('data-rona-client-rail-admin-canonical-mount="v1"'))throw new Error('direct page-monitoring host is not canonical mount');
           const currentOnlyHostTags=html.match(/<[^>]+data-rona-client-rail-current-only="current-only-v2"[^>]*>/g)||[];
           if(currentOnlyHostTags.length!==1)throw new Error('current-only Rail host element is not unique: '+currentOnlyHostTags.length);
-          if(rail.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||rail.visual_contract!=='ADMIN_CURRENT_V8_2')throw new Error('wrong Rail visual canon');
-          if(rail.scope!=='ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST'||rail.visual_source_mode!=='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER'||rail.host_mode!=='BUILD_TIME_CURRENT_ONLY_SOURCE_HOST')throw new Error('Rail still uses legacy overlay architecture');
-          if(rail.static_host_marker!=='current-only-v2'||rail.static_title_owner!=='CURRENT_ONLY_HOST_PSEUDO_TITLE'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false||!(rail.static_removed_bytes>0))throw new Error('static current-only Rail proof missing');
-          if(rail.client_data_source!=='/portal/api/v1/client/shipments')throw new Error('wrong Client Rail data authority');
+          if(rail.visual_canon!=='CLIENT_CANONICAL_RAIL_HERO_V1'||rail.visual_contract!=='CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY')throw new Error('wrong Client Rail visual canon');
+          if(rail.operational_body_canon!=='/portal/rail-current-v81-maplibre-ui')throw new Error('wrong Rail operational body source');
+          if(rail.scope!=='ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST'||rail.visual_source_mode!=='CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER'||rail.host_mode!=='BUILD_TIME_CURRENT_ONLY_SOURCE_HOST')throw new Error('Rail current-only architecture drifted');
+          if(rail.static_host_marker!=='current-only-v2'||rail.static_title_owner!=='CLIENT_CANONICAL_HERO_RUNTIME_V1'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false||!(rail.static_removed_bytes>0))throw new Error('static current-only Rail proof missing');
+          const hero=rail.canonical_hero;
+          if(hero?.marker!=='20260831-client-rail-canonical-hero-v1'||hero?.kicker!=='RONA Trade · Operations'||hero?.title!=='Онлайн ЖД'||hero?.subtitle!=='Операционная картина железнодорожных отправок по данным клиентского контура.'||hero?.refresh_label!=='Автообновление · 30 с'||hero?.refresh_action!=='Обновить')throw new Error('canonical Client Rail hero metadata mismatch');
+          if(rail.client_data_source!=='/portal/api/v1/client/shipments'||rail.provider_state_source!=='/portal/api/v1/client/rail')throw new Error('wrong Client Rail data authority');
           if(rail.legacy_client_visual_owner!==false||rail.separate_movizor_visual_gate!==false)throw new Error('retired visual owner remains');
-          console.log('CLIENT_RAIL_CURRENT_ONLY_BUILD=PASS host='+hostId+' removed_bytes='+rail.static_removed_bytes);
+          console.log('CLIENT_RAIL_CANONICAL_HERO_BUILD=PASS host='+hostId+' removed_bytes='+rail.static_removed_bytes);
+          NODE
+
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove canonical Client Rail hero in rendered browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1366,height:768}});
+            const html=`<!doctype html><html><head><style>body{margin:0;background:#06111b;color:#eaf4f8;font-family:Arial,sans-serif}.workspace{padding:24px}[data-rona-client-rail-current-only]{width:100%}.rona-rail-v4-root{display:grid;gap:16px}.rona-rail-v4-hero{display:flex}.rona-visual-title{font-size:18px}</style></head><body><main class="workspace"><section id="page-monitoring" data-rona-client-rail-current-only="current-only-v2"><div class="rona-rail-v4-root"><div class="rona-visual-hero rona-rail-v4-hero"><div><div class="rona-visual-kicker">Железнодорожный контур</div><div class="rona-visual-title">Онлайн ЖД</div><div class="rona-visual-sub">ГУ-12, позиции вагонов и рабочее пространство мониторинга.</div></div></div><div class="rona-rail-v4-work"><div></div><div></div></div></div></section></main></body></html>`;
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.evaluate(()=>{window.__RONA_CLIENT_RAIL_REFRESH__=()=>{window.__RONA_CLIENT_RAIL_REFRESH_HIT__=(window.__RONA_CLIENT_RAIL_REFRESH_HIT__||0)+1}});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-rail-canonical-hero-v1.js')});
+            await page.waitForFunction(()=>document.querySelector('.rona-rail-v4-hero')?.getAttribute('data-rona-client-rail-canonical-hero')==='v1');
+            const result=await page.evaluate(()=>{
+              const hero=document.querySelector('.rona-rail-v4-hero');
+              const style=getComputedStyle(hero);
+              const title=hero.querySelector('.rona-visual-title');
+              return {
+                kicker:hero.querySelector('.rona-visual-kicker')?.textContent.trim(),
+                title:title?.textContent.trim(),
+                subtitle:hero.querySelector('.rona-visual-sub')?.textContent.trim(),
+                actionCount:hero.querySelectorAll('.rona-client-rail-hero-actions').length,
+                pill:hero.querySelector('.rona-client-rail-hero-pill')?.textContent.trim(),
+                button:hero.querySelector('.rona-client-rail-hero-btn')?.textContent.trim(),
+                display:style.display,
+                borderRadius:parseFloat(style.borderRadius),
+                titlePx:parseFloat(getComputedStyle(title).fontSize),
+                titleCount:[...document.querySelectorAll('*')].filter(el=>el.children.length===0&&el.textContent.trim()==='Онлайн ЖД'&&getComputedStyle(el).display!=='none').length,
+                visual:document.documentElement.dataset.ronaClientRailVisual,
+                owner:document.documentElement.dataset.ronaClientRailTitleOwner
+              };
+            });
+            assert(result.kicker==='RONA Trade · Operations','wrong kicker '+JSON.stringify(result));
+            assert(result.title==='Онлайн ЖД','wrong title '+JSON.stringify(result));
+            assert(result.subtitle==='Операционная картина железнодорожных отправок по данным клиентского контура.','wrong subtitle '+JSON.stringify(result));
+            assert(result.actionCount===1&&result.pill==='Автообновление · 30 с'&&result.button==='Обновить','canonical actions missing '+JSON.stringify(result));
+            assert(result.display==='flex'&&result.borderRadius>=15&&result.titlePx>=24,'canonical hero geometry missing '+JSON.stringify(result));
+            assert(result.titleCount===1,'duplicate visible Online Rail title '+JSON.stringify(result));
+            assert(result.visual==='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY'&&result.owner==='CLIENT_CANONICAL_HERO_V1','canonical ownership markers missing '+JSON.stringify(result));
+            await page.click('.rona-client-rail-hero-btn');
+            assert(await page.evaluate(()=>window.__RONA_CLIENT_RAIL_REFRESH_HIT__===1),'refresh action not wired');
+            console.log('CLIENT_RAIL_CANONICAL_HERO_BROWSER=PASS '+JSON.stringify(result));
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
