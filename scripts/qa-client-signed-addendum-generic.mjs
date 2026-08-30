@@ -5,7 +5,7 @@ const [html,runtime,visual,commandCenter,proxy,edge,integrityRaw,cachePolicy,...
   read('dist/portal/client.html'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-canonical-visual-v2.js'),
-  read('assets/portal-runtime/client-deal-command-center-v1.js'),
+  read('assets/portal-runtime/client-deal-command-center-v2.js'),
   read('functions/portal/api/[[path]].js'),
   read('supabase/functions/rona-client-deal-documents/index.ts'),
   read('dist/canonical-visual-integrity.json'),
@@ -19,14 +19,15 @@ const integrity=JSON.parse(integrityRaw);
 const must=(condition,code)=>{if(!condition)throw new Error(code)};
 const count=(text,re)=>(text.match(re)||[]).length;
 
-// One emitted runtime owner for all clients; older document bridges must not survive the current page.
+// One emitted runtime owner for all clients; older document/command-center bridges must not survive the current page.
 must(count(html,/client-deal-documents-v5\.js/giu)===1,'SIGNED_ADDENDUM_RUNTIME_NOT_SINGLE_OWNER');
 must(count(html,/client-deal-documents-v[1-4]\.js/giu)===0,'SIGNED_ADDENDUM_LEGACY_RUNTIME_PRESENT');
 must(count(html,/client-deal-canonical-visual-v2\.js/giu)===1,'SIGNED_ADDENDUM_VISUAL_NOT_SINGLE_OWNER');
-must(count(html,/client-deal-command-center-v1\.js/giu)===1,'DEAL_COMMAND_CENTER_NOT_SINGLE_OWNER');
+must(count(html,/client-deal-command-center-v2\.js/giu)===1,'DEAL_COMMAND_CENTER_V2_NOT_SINGLE_OWNER');
+must(count(html,/client-deal-command-center-v1\.js/giu)===0,'DEAL_COMMAND_CENTER_V1_LEGACY_OWNER_PRESENT');
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
 must(html.includes('20260830-single-owner-prepaint-v8'),'SIGNED_ADDENDUM_PREPAINT_CACHE_BUSTER_MISSING');
-must(html.includes('20260830-command-center-v1'),'DEAL_COMMAND_CENTER_CACHE_BUSTER_MISSING');
+must(html.includes('20260830-command-center-expanded-v2'),'DEAL_COMMAND_CENTER_V2_CACHE_BUSTER_MISSING');
 for(const marker of [
   '__RONA_CLIENT_DEAL_DOCUMENTS_V1__',
   '__RONA_CLIENT_DEAL_DOCUMENTS_V2__',
@@ -34,8 +35,7 @@ for(const marker of [
   '__RONA_CLIENT_DEAL_DOCUMENTS_V4__',
 ]) must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
 
-// Legacy URLs remain only as compatibility entry points for stale HTML. They are forbidden from rendering UI;
-// every one must delegate to the same v5 owner and v2 visual runtime.
+// Legacy document URLs remain compatibility entry points only.
 const retiredMarker='20260830-client-deal-documents-legacy-retired-to-v5';
 must(new Set(legacyRuntimes).size===1,'SIGNED_ADDENDUM_LEGACY_COMPATIBILITY_SHIMS_DIVERGED');
 legacyRuntimes.forEach((legacy,index)=>{
@@ -59,9 +59,10 @@ for(const marker of [
   "client_stage:'DOCUMENTS_SIGNED'",
 ]) must(runtime.includes(marker),`SIGNED_ADDENDUM_BROWSER_MARKER_MISSING:${marker}`);
 
-// Deal detail command center is semantic, presentation-only, and generic across clients/deals.
+// Expanded deal detail command center: semantic detector, large control surface, six-stage realization map.
 for(const marker of [
-  '20260830-client-deal-command-center-v1',
+  '20260830-client-deal-command-center-v2-expanded',
+  'DEAL CONTROL CENTER',
   'Паспорт сделки',
   'Схема реализации сделки',
   'Контракт и сделка',
@@ -72,7 +73,13 @@ for(const marker of [
   'Закрытие сделки',
   'data-rona-command-field',
   'data-rona-command-heading',
-]) must(commandCenter.includes(marker),`DEAL_COMMAND_CENTER_MARKER_MISSING:${marker}`);
+  'position:fixed!important',
+  'width:min(1180px',
+  'height:min(800px',
+  'grid-template-columns:repeat(6',
+  'coverage<5',
+  'r.height<70',
+]) must(commandCenter.includes(marker),`DEAL_COMMAND_CENTER_V2_MARKER_MISSING:${marker}`);
 must(!commandCenter.includes('/v1/client/context'),'DEAL_COMMAND_CENTER_MUST_NOT_FETCH_OR_INFER_BUSINESS_CONTEXT');
 must(!commandCenter.includes('fetch('),'DEAL_COMMAND_CENTER_NETWORK_REQUEST_FORBIDDEN');
 must(commandCenter.includes('PRESENTATION')===false,'DEAL_COMMAND_CENTER_RUNTIME_SHOULD_NOT_CARRY_BUSINESS_POLICY_LABELS');
@@ -120,8 +127,7 @@ for(const value of forbidden){
   for(const legacy of legacyRuntimes)must(!legacy.includes(value),`SIGNED_ADDENDUM_LEGACY_COMPAT_HARDCODED:${value}`);
 }
 
-// Client page and all deal runtime URLs are non-cacheable so an old renderer
-// cannot reappear after a production deploy or navigation.
+// Client page and all deal runtime URLs are non-cacheable so an old renderer cannot reappear after deploy/navigation.
 for(const marker of [
   '/portal/client',
   '/assets/portal-runtime/client-deal-documents-v*.js',
@@ -138,6 +144,8 @@ must(bridge?.prepaint_single_owner===true,'SIGNED_ADDENDUM_PREPAINT_SINGLE_OWNER
 must(bridge?.replacement_semantics==='SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM','SIGNED_ADDENDUM_REPLACEMENT_SEMANTICS_MISSING');
 must(bridge?.command_center_scope==='ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS','DEAL_COMMAND_CENTER_SCOPE_NOT_GENERIC');
 must(bridge?.command_center_data_policy==='PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION','DEAL_COMMAND_CENTER_DATA_POLICY_INVALID');
-must(bridge?.command_center_marker==='20260830-client-deal-command-center-v1','DEAL_COMMAND_CENTER_INTEGRITY_MARKER_MISSING');
+must(bridge?.command_center_marker==='20260830-client-deal-command-center-v2-expanded','DEAL_COMMAND_CENTER_V2_INTEGRITY_MARKER_MISSING');
+must(bridge?.command_center_layout==='EXPANDED_MODAL_CONTROL_CENTER','DEAL_COMMAND_CENTER_V2_LAYOUT_POLICY_MISSING');
+must(bridge?.command_center_detector==='SEMANTIC_LABEL_COVERAGE_NO_TALL_DRAWER_ASSUMPTION','DEAL_COMMAND_CENTER_V2_DETECTOR_POLICY_MISSING');
 
-console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; client deal command center=ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS; presentation-only; no client/deal hardcoding; no-store cache policy; signed document supersedes current unsigned addendum');
+console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; client deal command center=EXPANDED_MODAL_V2; semantic compact-panel detection; six-stage realization map; presentation-only; no client/deal hardcoding; no-store cache policy');
