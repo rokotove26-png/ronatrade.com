@@ -5,14 +5,18 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const docsRuntimePath='dist/assets/portal-runtime/client-deal-documents-v5.js';
 const visualRuntimePath='dist/assets/portal-runtime/client-deal-canonical-visual-v2.js';
+const commandCenterRuntimePath='dist/assets/portal-runtime/client-deal-command-center-v1.js';
 
 const docsId='rona-client-deal-documents-authoritative-v5';
 const visualId='rona-client-deal-canonical-visual-authoritative-v2';
+const commandCenterId='rona-client-deal-command-center-v1';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
 const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
 const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
+const commandCenterSrc='/assets/portal-runtime/client-deal-command-center-v1.js?v=20260830-command-center-v1';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
+const commandCenterMarker='20260830-client-deal-command-center-v1';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
   __RONA_CLIENT_DEAL_DOCUMENTS_V2__:'20260829-deal-documents-v2-universal-stable-ui-v3',
@@ -23,8 +27,10 @@ const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const docsRuntime=await readFile(docsRuntimePath,'utf8');
 const visualRuntime=await readFile(visualRuntimePath,'utf8');
+const commandCenterRuntime=await readFile(commandCenterRuntimePath,'utf8');
 if(!docsRuntime.includes(docsMarker))throw new Error(`CLIENT_DEAL_DOCUMENTS_MARKER_MISSING: ${docsMarker}`);
 if(!visualRuntime.includes(visualMarker))throw new Error(`CLIENT_DEAL_VISUAL_MARKER_MISSING: ${visualMarker}`);
+if(!commandCenterRuntime.includes(commandCenterMarker))throw new Error(`CLIENT_DEAL_COMMAND_CENTER_MARKER_MISSING: ${commandCenterMarker}`);
 for(const required of [
   '/v1/client/bootstrap',
   '/v1/client/context?clientId=',
@@ -34,21 +40,30 @@ for(const required of [
   'SIGNED_ADDENDUM',
   'supersedes_document_id',
 ]) if(!docsRuntime.includes(required)) throw new Error(`CLIENT_DEAL_DOCUMENTS_GENERIC_FLOW_MISSING: ${required}`);
-for(const forbidden of ['RONA-C003','DEAL-2026-005','DEAL-2026-006','UNIVERSAL SOLYARIS']){
-  if(docsRuntime.includes(forbidden)||visualRuntime.includes(forbidden))throw new Error(`CLIENT_DEAL_DOCUMENTS_CLIENT_SPECIFIC_RUNTIME_FORBIDDEN: ${forbidden}`);
+for(const required of [
+  'Паспорт сделки',
+  'Схема реализации сделки',
+  'Контракт и сделка',
+  'Логистика и поставка',
+  'Закрытие сделки',
+  'data-rona-command-field',
+]) if(!commandCenterRuntime.includes(required)) throw new Error(`CLIENT_DEAL_COMMAND_CENTER_GENERIC_UI_MISSING: ${required}`);
+for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','FARGONA GAZ','UNIVERSAL SOLYARIS']){
+  if(docsRuntime.includes(forbidden)||visualRuntime.includes(forbidden)||commandCenterRuntime.includes(forbidden))throw new Error(`CLIENT_DEAL_RUNTIME_CLIENT_SPECIFIC_FORBIDDEN: ${forbidden}`);
 }
 
 let html=await readFile(htmlPath,'utf8');
 
 // The frozen current client is not edited in-place. During build, retire every older
 // deal-document/visual bridge from the emitted client and attach one authoritative,
-// client-agnostic owner. This applies to every authenticated CLIENT context returned
-// by the server, not to a named company, contract, or deal.
+// client-agnostic owner. The command-center enhancement is presentation-only and
+// applies to every authenticated CLIENT deal drawer detected semantically.
 const dealScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-documents-v[1-5]\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
 const visualScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-canonical-visual-v[1-9]\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
-html=html.replace(dealScriptRe,'').replace(visualScriptRe,'');
+const commandCenterScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-command-center-v\d+\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
+html=html.replace(dealScriptRe,'').replace(visualScriptRe,'').replace(commandCenterScriptRe,'');
 
-for(const id of [docsId,visualId,legacyPreemptId]){
+for(const id of [docsId,visualId,commandCenterId,legacyPreemptId]){
   const re=new RegExp(`<script\\b[^>]*\\bid=["']${id}["'][^>]*>[\\s\\S]*?<\\/script>`,'giu');
   html=html.replace(re,'');
 }
@@ -61,15 +76,17 @@ html=html.slice(0,headInsertAt)+guard+html.slice(headInsertAt);
 
 const bodyClose=html.toLowerCase().lastIndexOf('</body>');
 if(bodyClose<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
-const bridge=`<script id="${docsId}" src="${docsSrc}" defer></script><script id="${visualId}" src="${visualSrc}" defer></script>`;
+const bridge=`<script id="${docsId}" src="${docsSrc}" defer></script><script id="${visualId}" src="${visualSrc}" defer></script><script id="${commandCenterId}" src="${commandCenterSrc}" defer></script>`;
 html=html.slice(0,bodyClose)+bridge+html.slice(bodyClose);
 
 const docsRefs=(html.match(/client-deal-documents-v5\.js/giu)||[]).length;
 const oldDocsRefs=(html.match(/client-deal-documents-v[1-4]\.js/giu)||[]).length;
 const visualRefs=(html.match(/client-deal-canonical-visual-v2\.js/giu)||[]).length;
+const commandCenterRefs=(html.match(/client-deal-command-center-v1\.js/giu)||[]).length;
 if(docsRefs!==1)throw new Error(`CLIENT_DEAL_DOCUMENTS_SINGLE_OWNER_FAILED refs=${docsRefs}`);
 if(oldDocsRefs!==0)throw new Error(`CLIENT_DEAL_DOCUMENTS_LEGACY_OWNER_PRESENT refs=${oldDocsRefs}`);
 if(visualRefs!==1)throw new Error(`CLIENT_DEAL_VISUAL_SINGLE_OWNER_FAILED refs=${visualRefs}`);
+if(commandCenterRefs!==1)throw new Error(`CLIENT_DEAL_COMMAND_CENTER_SINGLE_OWNER_FAILED refs=${commandCenterRefs}`);
 if(!html.includes(`id="${legacyPreemptId}"`))throw new Error('CLIENT_DEAL_DOCUMENTS_LEGACY_PREEMPT_MISSING');
 for(const [key,marker] of Object.entries(legacyMarkers)){
   if(!html.includes(key)||!html.includes(marker))throw new Error(`CLIENT_DEAL_DOCUMENTS_PREPAINT_GUARD_MISSING:${key}`);
@@ -86,6 +103,11 @@ integrity.client_runtime.deal_documents_bridge={
   visual_id:visualId,
   visual_src:visualSrc,
   visual_marker:visualMarker,
+  command_center_id:commandCenterId,
+  command_center_src:commandCenterSrc,
+  command_center_marker:commandCenterMarker,
+  command_center_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',
+  command_center_data_policy:'PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION',
   scope:'ALL_AUTHORIZED_CLIENT_CONTEXTS',
   context_source:'SERVER_CLIENT_BOOTSTRAP_AND_CONTEXT',
   authorization:'SERVER_CLIENT_USER_HAS_DEAL_ACCESS',
@@ -99,4 +121,4 @@ integrity.client_runtime.deal_documents_bridge={
 await writeFile(htmlPath,html,'utf8');
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; prepaint_single_owner=true; single owner=${docsId}`);
+console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS; prepaint_single_owner=true; single owner=${docsId}`);
