@@ -114,10 +114,10 @@ jobs:
             assert(Math.abs(a.title.left-a.owner.left)<=1&&Math.abs(a.title.width-a.owner.width)<=1,'Home owner not aligned to title frame '+JSON.stringify(a));
             assert(a.legacy==='none','legacy Home body remains visible');
             assert(a.text.includes('TX-A1')&&a.text.includes('TX-A2'),'current deals missing '+a.text);
-            assert(a.text.includes('2')&&a.text.includes('Активные сделки'),'active deal count missing '+a.text);
+            assert(/АКТИВНЫЕ СДЕЛКИ\s+2/iu.test(a.text),'active deal count missing '+a.text);
             assert(a.text.includes('300 USD / 1 500 USD'),'finance aggregate missing '+a.text);
             assert(a.text.includes('Ресурс подтверждён')&&a.text.includes('Оплачено 30%'),'server statuses missing '+a.text);
-            assert(a.text.includes('Заявки в работе')&&a.text.includes('1'),'active application summary missing '+a.text);
+            assert(/ЗАЯВКИ В РАБОТЕ\s+1/iu.test(a.text),'active application summary missing '+a.text);
             assert(a.text.includes('14.08.2026'),'last confirmed payment date missing '+a.text);
             assert(a.meta.includes('Обновлено:')&&!a.meta.includes('11.08.2026'),'stale title timestamp not replaced '+a.meta);
             assert(!a.text.includes('ТЕКУЩИЙ СТАТУС')&&!a.text.includes('СЛЕДУЮЩИЙ ШАГ'),'duplicate legacy status remains '+a.text);
