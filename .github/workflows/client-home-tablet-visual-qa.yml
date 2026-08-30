@@ -1,0 +1,83 @@
+name: Client Home tablet visual QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'feat/client-home-tablet-dashboard-v3-20260830'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  tablet-dashboard-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify visual runtime and build attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-runtime/client-home-tablet-visual-v3.js
+          node --check scripts/attach-client-application-lifecycle.mjs
+          node <<'NODE'
+          const fs=require('fs');
+          const v=fs.readFileSync('assets/portal-runtime/client-home-tablet-visual-v3.js','utf8');
+          for(const marker of ['20260830-client-home-tablet-visual-v3','data-rona-home-visual','tablet-v3','data-visual-panel','48px','16px','68px'])if(!v.includes(marker))throw new Error('missing visual marker '+marker);
+          if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(v))throw new Error('hardcoded business entity found');
+          if(/<img|<svg|<canvas|background-image\s*:/iu.test(v))throw new Error('image asset found in tablet visual runtime');
+          const a=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
+          for(const marker of ['rona-client-home-tablet-visual-v3','TABLET_DASHBOARD_VISUAL_V3','images_added:false','business_logic_changed:false'])if(!a.includes(marker))throw new Error('missing attachment marker '+marker);
+          NODE
+          npm run build
+          grep -q 'id="rona-client-home-tablet-visual-v3"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-home-tablet-visual-v3.js?v=20260830-tablet-dashboard-v3' dist/portal/client.html
+          node -e "const i=require('./dist/canonical-visual-integrity.json');const v=i.client_runtime?.home_visual;if(v?.mode!=='TABLET_DASHBOARD_VISUAL_V3'||v?.images_added!==false||v?.business_logic_changed!==false)process.exit(1)"
+
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove tablet hierarchy and readable typography in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1500,height:1000}});
+            const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#04101b;color:white;font-family:Arial,sans-serif}#page-home{width:1200px;margin:30px auto}.owner{width:1100px}</style></head><body><section id="page-home"><section class="owner" data-rona-client-home-owner="command-center-v2"><div class="rona-cc-livebar"><div class="rona-cc-liveleft"><i class="rona-cc-live-dot"></i><strong class="rona-cc-live-title">Оперативный центр</strong></div><span class="rona-cc-live-note">Обновлено сейчас</span></div><div class="rona-cc-kpis"><div class="rona-cc-kpi"><span class="rona-cc-kpi-label">Активные сделки</span><strong class="rona-cc-kpi-value">4</strong><span class="rona-cc-kpi-note">Текущие сделки</span></div><div class="rona-cc-kpi"><span class="rona-cc-kpi-label">Оплата</span><strong class="rona-cc-kpi-value">236 250 USD</strong><div class="rona-cc-kpi-progress"><i style="width:78%"></i></div></div><div class="rona-cc-kpi"><span class="rona-cc-kpi-label">Ресурс</span><strong class="rona-cc-kpi-value">3/4</strong></div><div class="rona-cc-kpi"><span class="rona-cc-kpi-label">Объём</span><strong class="rona-cc-kpi-value">1 250 т</strong></div></div><div class="rona-cc-main"><section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Сделки в работе</strong><span class="rona-cc-panel-sub">Текущая операционная картина</span></div></div><div class="rona-cc-deals"><div class="rona-cc-deal"><div><strong class="rona-cc-deal-id">TX-001</strong><div class="rona-cc-deal-product">СУГ · 315 т</div><div class="rona-cc-deal-route">CPT · станция назначения</div></div><div><span class="rona-cc-label">Сделка</span><span class="rona-cc-pill">В исполнении</span></div><div><span class="rona-cc-label">Ресурс</span><span class="rona-cc-pill" data-tone="ok">Подтверждён</span></div><div><span class="rona-cc-label">Оплата</span><span class="rona-cc-pill" data-tone="ok">Оплачено</span></div><button class="rona-cc-open">Открыть</button></div></div></section><div class="rona-cc-stack"><section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Требует внимания</strong><span class="rona-cc-panel-sub">Только отклонения</span></div></div><div class="rona-cc-attention"><div class="rona-cc-alert" data-tone="wait"><strong>Ожидается действие</strong><span>Контрольный пункт по сделке</span></div></div></section><section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Быстрые действия</strong><span class="rona-cc-panel-sub">Переход к разделам</span></div></div><div class="rona-cc-actions"><button class="rona-cc-action">Заявки<span>Открыть заявки</span></button><button class="rona-cc-action">Сделки<span>Открыть сделки</span></button><button class="rona-cc-action">Платежи<span>Финансы</span></button><button class="rona-cc-action">Онлайн ЖД<span>Логистика</span></button></div></section></div></div><div class="rona-cc-bottom"><section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Финансовое исполнение</strong><span class="rona-cc-panel-sub">Оплата по активным сделкам</span></div></div><div class="rona-cc-finance"><div class="rona-cc-finance-row"><b class="rona-cc-finance-code">TX-001</b><div class="rona-cc-finance-track"><i style="width:78%"></i></div><div class="rona-cc-finance-values"><b>236 250</b> / 300 000 USD</div></div></div></section><section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Контур управления</strong><span class="rona-cc-panel-sub">Автоматическое обновление</span></div></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки</strong><span>Серверный статус</span></div><div class="rona-cc-alert"><strong>Финансы</strong><span>Подтверждённые факты</span></div><div class="rona-cc-alert"><strong>Контекст</strong><span>Выбранный договор</span></div></div></section></div></section></section></body></html>`}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-tablet-visual-v3.js')});
+            await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]')?.getAttribute('data-rona-home-visual')==='tablet-v3');
+            const r=await page.evaluate(()=>{
+              const q=s=>document.querySelector(s),px=s=>parseFloat(getComputedStyle(q(s)).fontSize),box=s=>q(s).getBoundingClientRect();
+              const owner=q('[data-rona-client-home-owner]'),k=[...document.querySelectorAll('.rona-cc-kpi')].map(x=>x.getBoundingClientRect());
+              return{live:px('.rona-cc-live-title'),hero:px('.rona-cc-kpi[data-visual-rank="hero"] .rona-cc-kpi-value'),panel:px('.rona-cc-panel-title'),deal:px('.rona-cc-deal-id'),product:px('.rona-cc-deal-product'),pill:px('.rona-cc-pill'),action:px('.rona-cc-action'),actionH:box('.rona-cc-action').height,openH:box('.rona-cc-open').height,heroH:k[0].height,smallH:k[1].height,overflow:owner.scrollWidth-owner.clientWidth,images:owner.querySelectorAll('img,svg,canvas').length,attention:q('[data-visual-panel="attention"]')?.getAttribute('data-visual-panel'),finance:q('[data-visual-panel="finance"]')?.getAttribute('data-visual-panel'),control:q('[data-visual-panel="control"]')?.getAttribute('data-visual-panel')};
+            });
+            assert(errors.length===0,'browser errors '+JSON.stringify(errors));
+            assert(r.live>=13&&r.hero>=48&&r.panel>=16&&r.deal>=14&&r.product>=12&&r.pill>=11&&r.action>=13,'typography below target '+JSON.stringify(r));
+            assert(r.actionH>=68&&r.openH>=42,'touch targets below target '+JSON.stringify(r));
+            assert(r.heroH>=r.smallH*1.6,'KPI mosaic lacks strong hierarchy '+JSON.stringify(r));
+            assert(r.overflow<=1,'dashboard horizontal overflow '+JSON.stringify(r));
+            assert(r.images===0,'visual runtime introduced imagery');
+            assert(r.attention==='attention'&&r.finance==='finance'&&r.control==='control','panel hierarchy classification missing '+JSON.stringify(r));
+            console.log('CLIENT_HOME_TABLET_VISUAL_V3=PASS',JSON.stringify(r));
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
