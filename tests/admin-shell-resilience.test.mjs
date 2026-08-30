@@ -37,7 +37,7 @@ assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must
 assert(shell.length<60000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
 
 assert(build.includes("path: 'portal-src/current/admin.html'"),'Build must source Admin from current shell');
-assert(build.includes('CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'),'Build integrity must declare current-only Admin architecture');
+assert(build.includes('CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'),'Build integrity must declare current-only Admin and Client architecture');
 assert(build.includes('legacy_runtime_in_deployment:false'),'Build integrity must fail closed on legacy deployment');
 assert(build.includes('current-only-router-v2'),'Build must reject a shell without authoritative current router');
 
