@@ -29,4 +29,51 @@ function safeAgentPayment(data){return{paymentId:data?.paymentId??data?.payment_
 function isClientDealDocumentsPath(path){return path==='/v1/client/deal-documents/state'||/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/documents\/[^/]+\/downloaded$/.test(path)||/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/signed-addendum$/.test(path)}
 function isSignedAddendumUpload(path,method){return method==='POST'&&/^\/v1\/client\/deals\/DEAL-\d{4}-\d{3,}\/signed-addendum$/.test(path)}
 async function sanitize(path,response){if(!response.ok)return response;const ct=String(response.headers.get('content-type')||'');if(!ct.includes('application/json'))return response;const target=path==='/v1/client/bootstrap'||path==='/v1/client/context'||path==='/v1/agent/bootstrap'||/^\/v1\/agent\/payments\//.test(path);if(!target)return response;const payload=await response.json().catch(()=>null);if(!payload||typeof payload!=='object')return json({ok:false,code:'EXTERNAL_PROJECTION_INVALID'},502);if(payload.data&&typeof payload.data==='object'){if(path==='/v1/client/bootstrap')payload.data=safeClientBootstrap(payload.data);else if(path==='/v1/client/context')payload.data=safeClientContext(payload.data);else if(path==='/v1/agent/bootstrap')payload.data=safeAgentBootstrap(payload.data);else payload.data=safeAgentPayment(payload.data)}const h=new Headers(response.headers);h.set('content-type','application/json; charset=utf-8');return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers:h})}
-export async function onRequest(context){const request=context.request;if(!sameOrigin(request))return json({ok:false,code:'ORIGIN_DENIED'},403);const url=new URL(request.url);const prefix='/portal/api';let path=url.pathname.startsWith(prefix)?url.pathname.slice(prefix.length):'';if(!path.startsWith('/')||path.includes('..'))return json({ok:false,code:'ROUTE_NOT_ALLOWED'},404);const query=url.search||'';const cookies=parseCookies(request.headers.get('cookie'));let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());const multipartUpload=isSignedAddendumUpload(path,request.method);let body=null,uploadParts=null;if(multipartUpload){let form;try{form=await request.clone().formData()}catch{return json({ok:false,code:'INVALID_MULTIPART'},400)}const file=form.get('file'),source=form.get('sourceUnsignedDocumentId');if(!(file instanceof File))return json({ok:false,code:'PDF_REQUIRED'},400);if(typeof source!=='string'||!source.trim())return json({ok:false,code:'SOURCE_ADDENDUM_REQUIRED'},400);uploadParts={file,source:source.trim()}}else if(!['GET','HEAD'].includes(request.method))body=await request.clone().arrayBuffer();const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id','x-idempotency-key']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(uploadParts){h.delete('content-type');const fd=new FormData();fd.append('file',uploadParts.file,uploadParts.file.name);fd.append('sourceUnsignedDocumentId',uploadParts.source);init.body=fd}else if(body!==null)init.body=body;const target=isClientDealDocumentsPath(path)?`${CLIENT_DEAL_DOCUMENTS_API}${path}${query}`:`${PORTAL_API}${path}${query}`;return fetch(target,init)};let response=await forward(access);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forward(access)}}response=await sanitize(path,response);const h=secureHeaders(response.headers);for(const c of setCookies)h.append('set-cookie',c);if(response.status===401&&!setCookies.length)for(const c of clearCookies())h.append('set-cookie',c);return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h})}
+export async function onRequest(context){
+  const request=context.request;
+  if(!sameOrigin(request))return json({ok:false,code:'ORIGIN_DENIED'},403);
+  const url=new URL(request.url);
+  const prefix='/portal/api';
+  const path=url.pathname.startsWith(prefix)?url.pathname.slice(prefix.length):'';
+  if(!path.startsWith('/')||path.includes('..'))return json({ok:false,code:'ROUTE_NOT_ALLOWED'},404);
+  const query=url.search||'';
+  const cookies=parseCookies(request.headers.get('cookie'));
+  let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
+  if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
+  if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
+  const multipartUpload=isSignedAddendumUpload(path,request.method);
+  let body=null,uploadParts=null;
+  if(multipartUpload){
+    let form;
+    try{form=await request.formData()}catch{return json({ok:false,code:'INVALID_MULTIPART'},400)}
+    const file=form.get('file'),source=form.get('sourceUnsignedDocumentId');
+    const fileLike=!!file&&typeof file==='object'&&typeof file.arrayBuffer==='function'&&Number.isFinite(Number(file.size));
+    if(!fileLike)return json({ok:false,code:'PDF_REQUIRED'},400);
+    if(typeof source!=='string'||!source.trim())return json({ok:false,code:'SOURCE_ADDENDUM_REQUIRED'},400);
+    let bytes;
+    try{bytes=await file.arrayBuffer()}catch{return json({ok:false,code:'PDF_READ_FAILED'},400)}
+    uploadParts={bytes,name:String(file.name||'signed-addendum.pdf'),type:String(file.type||'application/pdf'),source:source.trim()};
+  }else if(!['GET','HEAD'].includes(request.method))body=await request.clone().arrayBuffer();
+  const forward=async token=>{
+    const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});
+    for(const name of['content-type','x-request-id','x-correlation-id','x-idempotency-key']){const v=request.headers.get(name);if(v)h.set(name,v)}
+    const init={method:request.method,headers:h};
+    if(uploadParts){
+      h.delete('content-type');
+      const fd=new FormData();
+      const blob=new Blob([uploadParts.bytes],{type:uploadParts.type||'application/pdf'});
+      fd.append('file',blob,uploadParts.name||'signed-addendum.pdf');
+      fd.append('sourceUnsignedDocumentId',uploadParts.source);
+      init.body=fd;
+    }else if(body!==null)init.body=body;
+    const target=isClientDealDocumentsPath(path)?`${CLIENT_DEAL_DOCUMENTS_API}${path}${query}`:`${PORTAL_API}${path}${query}`;
+    return fetch(target,init);
+  };
+  let response=await forward(access);
+  if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forward(access)}}
+  response=await sanitize(path,response);
+  const h=secureHeaders(response.headers);
+  for(const c of setCookies)h.append('set-cookie',c);
+  if(response.status===401&&!setCookies.length)for(const c of clearCookies())h.append('set-cookie',c);
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
+}
