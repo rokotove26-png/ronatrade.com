@@ -1,0 +1,44 @@
+name: Merged branch sanitation
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: write
+
+jobs:
+  prune-merged-work-branches:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Delete only fully merged temporary work branches
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --prune
+          target='origin/release/public-go-live-v1.1'
+          deleted=0
+          kept=0
+          while IFS= read -r ref; do
+            branch="${ref#origin/}"
+            case "$branch" in
+              fix/*|maintenance/*|chore/*|hotfix/*) ;;
+              *) continue ;;
+            esac
+            if git merge-base --is-ancestor "$ref" "$target"; then
+              echo "Deleting merged work branch: $branch"
+              git push origin --delete "$branch"
+              deleted=$((deleted+1))
+            else
+              echo "Keeping unmerged work branch: $branch"
+              kept=$((kept+1))
+            fi
+          done < <(git for-each-ref --format='%(refname:short)' refs/remotes/origin/ | sort)
+          echo "MERGED_BRANCH_SANITATION=PASS deleted=$deleted kept_unmerged=$kept"

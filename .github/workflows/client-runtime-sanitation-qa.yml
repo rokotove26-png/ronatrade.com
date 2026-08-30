@@ -1,0 +1,101 @@
+name: Client runtime sanitation QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  push:
+    branches:
+      - maintenance/client-runtime-sanitation-20260830
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  sanitation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify retired runtime files are physically absent
+        shell: bash
+        run: |
+          set -euo pipefail
+          retired=(
+            assets/portal-runtime/client-deal-documents-v1.js
+            assets/portal-runtime/client-deal-documents-v2.js
+            assets/portal-runtime/client-deal-documents-v3.js
+            assets/portal-runtime/client-deal-documents-v4.js
+            assets/portal-runtime/client-deal-command-center-v1.js
+            assets/portal-runtime/client-deal-command-center-v2.js
+          )
+          for f in "${retired[@]}"; do
+            test ! -e "$f" || { echo "RETIRED_RUNTIME_PRESENT $f"; exit 1; }
+          done
+          node --check assets/portal-runtime/client-payments-sanitation-v1.js
+          node --check scripts/attach-client-application-lifecycle.mjs
+
+      - name: Build current-only deployment and prove no legacy Client runtime is emitted
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test -f dist/portal/client.html
+          for name in client-deal-documents-v1.js client-deal-documents-v2.js client-deal-documents-v3.js client-deal-documents-v4.js client-deal-command-center-v1.js client-deal-command-center-v2.js; do
+            ! grep -q "$name" dist/portal/client.html || { echo "LEGACY_CLIENT_REF_EMITTED $name"; exit 1; }
+            test ! -e "dist/assets/portal-runtime/$name" || { echo "LEGACY_CLIENT_ASSET_DEPLOYED $name"; exit 1; }
+          done
+          node <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('dist/portal/client.html','utf8');
+          const sanitation='client-payments-sanitation-v1.js?v=20260830-current-only-v1';
+          const payments='client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
+          if((html.match(/client-payments-sanitation-v1\.js/g)||[]).length!==1)throw new Error('payments sanitation not single owner');
+          if((html.match(/client-payments-authoritative-v1\.js/g)||[]).length!==1)throw new Error('payments authoritative runtime not single owner');
+          if(html.indexOf(sanitation)<0||html.indexOf(payments)<0||html.indexOf(sanitation)>html.indexOf(payments))throw new Error('payments sanitation must execute before authoritative payments runtime');
+          if(!html.includes('rona-client-payments-first-paint-guard'))throw new Error('payments first-paint guard missing');
+          const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
+          const s=integrity.client_runtime?.payments_sanitation;
+          if(s?.mode!=='CURRENT_ONLY_REMOVE_LEGACY_PAYMENT_PLACEHOLDERS'||s?.navigation_prepaint_reset!==true||s?.hardcoded_business_entities!==false)throw new Error('payments sanitation integrity contract missing');
+          console.log('CLIENT_RUNTIME_SANITATION_BUILD=PASS');
+          NODE
+
+      - name: Install browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove stale Payments UI cannot repaint before current owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1400,height:900}});
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html data-rona-client-payments-ready="true"><body><button id="nav">Платежи и взаиморасчёты</button><section id="page-payments"><header><h1>Платежи и взаиморасчёты</h1></header><div id="ctx">Выбрана компания TEST</div><section id="legacy"><h3>Платёжный статус</h3><p>Платёжных данных пока нет.</p></section><section data-rona-client-payments-owner="finance-authoritative-v1"><div>CURRENT FINANCE OWNER</div></section></section></body></html>`}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-payments-sanitation-v1.js')});
+            await page.waitForFunction(()=>document.querySelector('#page-payments')?.getAttribute('data-rona-payments-sanitation')==='current-only-v1',{timeout:10000});
+            await page.click('#nav');
+            await page.waitForTimeout(100);
+            const state=await page.evaluate(()=>({ready:document.documentElement.hasAttribute('data-rona-client-payments-ready'),legacy:!!document.querySelector('#legacy'),owner:document.querySelector('[data-rona-client-payments-owner]')?.textContent||'',title:document.querySelector('#page-payments h1')?.textContent||'',ctx:document.querySelector('#ctx')?.textContent||''}));
+            assert(state.ready===false,'ready flag was not reset before Payments navigation');
+            assert(state.legacy===false,'legacy Payments block survived sanitation');
+            assert(state.owner.includes('CURRENT FINANCE OWNER'),'authoritative owner was removed');
+            assert(state.title.includes('Платежи и взаиморасчёты'),'section title was removed');
+            assert(state.ctx.includes('Выбрана компания'),'context frame was removed');
+            console.log('CLIENT_PAYMENTS_STALE_FIRST_PAINT=BLOCKED');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE

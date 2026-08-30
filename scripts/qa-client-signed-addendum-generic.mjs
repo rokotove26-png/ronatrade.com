@@ -1,7 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { access, readFile } from 'node:fs/promises';
 
 const read=p=>readFile(p,'utf8');
-const [html,runtime,visual,commandCenter,proxy,edge,integrityRaw,cachePolicy,...legacyRuntimes]=await Promise.all([
+const [html,runtime,visual,commandCenter,proxy,edge,integrityRaw,cachePolicy]=await Promise.all([
   read('dist/portal/client.html'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-canonical-visual-v2.js'),
@@ -10,16 +10,12 @@ const [html,runtime,visual,commandCenter,proxy,edge,integrityRaw,cachePolicy,...
   read('supabase/functions/rona-client-deal-documents/index.ts'),
   read('dist/canonical-visual-integrity.json'),
   read('dist/_headers'),
-  read('dist/assets/portal-runtime/client-deal-documents-v1.js'),
-  read('dist/assets/portal-runtime/client-deal-documents-v2.js'),
-  read('dist/assets/portal-runtime/client-deal-documents-v3.js'),
-  read('dist/assets/portal-runtime/client-deal-documents-v4.js'),
 ]);
 const integrity=JSON.parse(integrityRaw);
 const must=(condition,code)=>{if(!condition)throw new Error(code)};
 const count=(text,re)=>(text.match(re)||[]).length;
 
-// One emitted runtime owner for all clients; older document/command-center bridges must not survive the current page.
+// One emitted runtime owner for all clients; older document/command-center bridges must not survive the current page or deployment.
 must(count(html,/client-deal-documents-v5\.js/giu)===1,'SIGNED_ADDENDUM_RUNTIME_NOT_SINGLE_OWNER');
 must(count(html,/client-deal-documents-v[1-4]\.js/giu)===0,'SIGNED_ADDENDUM_LEGACY_RUNTIME_PRESENT');
 must(count(html,/client-deal-canonical-visual-v2\.js/giu)===1,'SIGNED_ADDENDUM_VISUAL_NOT_SINGLE_OWNER');
@@ -35,17 +31,25 @@ for(const marker of [
   '__RONA_CLIENT_DEAL_DOCUMENTS_V4__',
 ]) must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
 
-// Legacy document URLs remain compatibility entry points only.
-const retiredMarker='20260830-client-deal-documents-legacy-retired-to-v5';
-must(new Set(legacyRuntimes).size===1,'SIGNED_ADDENDUM_LEGACY_COMPATIBILITY_SHIMS_DIVERGED');
-legacyRuntimes.forEach((legacy,index)=>{
-  const version=index+1;
-  must(legacy.includes(retiredMarker),`SIGNED_ADDENDUM_LEGACY_V${version}_NOT_RETIRED`);
-  must(legacy.includes('/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8'),`SIGNED_ADDENDUM_LEGACY_V${version}_V5_DELEGATE_MISSING`);
-  must(legacy.includes('/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8'),`SIGNED_ADDENDUM_LEGACY_V${version}_VISUAL_DELEGATE_MISSING`);
-  must(!legacy.includes('Загрузить подписанное ДС'),`SIGNED_ADDENDUM_LEGACY_V${version}_RENDERER_SURVIVED`);
-  must(!legacy.includes('Загрузить подписанное доп. соглашение'),`SIGNED_ADDENDUM_LEGACY_V${version}_UI_TEXT_SURVIVED`);
-});
+const retiredPaths=[
+  'assets/portal-runtime/client-deal-documents-v1.js',
+  'assets/portal-runtime/client-deal-documents-v2.js',
+  'assets/portal-runtime/client-deal-documents-v3.js',
+  'assets/portal-runtime/client-deal-documents-v4.js',
+  'assets/portal-runtime/client-deal-command-center-v1.js',
+  'assets/portal-runtime/client-deal-command-center-v2.js',
+  'dist/assets/portal-runtime/client-deal-documents-v1.js',
+  'dist/assets/portal-runtime/client-deal-documents-v2.js',
+  'dist/assets/portal-runtime/client-deal-documents-v3.js',
+  'dist/assets/portal-runtime/client-deal-documents-v4.js',
+  'dist/assets/portal-runtime/client-deal-command-center-v1.js',
+  'dist/assets/portal-runtime/client-deal-command-center-v2.js',
+];
+for(const p of retiredPaths){
+  let present=true;
+  try{await access(p)}catch(error){if(error?.code==='ENOENT')present=false;else throw error}
+  must(!present,`SIGNED_ADDENDUM_RETIRED_RUNTIME_STILL_PRESENT:${p}`);
+}
 
 // Browser flow is server-context driven, not tied to one company/deal.
 for(const marker of [
@@ -129,7 +133,6 @@ for(const value of forbidden){
   must(!commandCenter.includes(value),`DEAL_COMMAND_CENTER_HARDCODED:${value}`);
   must(!proxy.includes(value),`SIGNED_ADDENDUM_PROXY_HARDCODED:${value}`);
   must(!edge.includes(value),`SIGNED_ADDENDUM_EDGE_HARDCODED:${value}`);
-  for(const legacy of legacyRuntimes)must(!legacy.includes(value),`SIGNED_ADDENDUM_LEGACY_COMPAT_HARDCODED:${value}`);
 }
 
 // Client page and all deal runtime URLs are non-cacheable so an old renderer cannot reappear after deploy/navigation.
@@ -154,4 +157,4 @@ must(bridge?.command_center_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_COMMA
 must(bridge?.command_center_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_COMMAND_CENTER_NATIVE_CLOSE_POLICY_MISSING');
 must(bridge?.command_center_detector==='SEMANTIC_LABEL_COVERAGE_NATIVE_DRAWER_VISIBILITY','DEAL_COMMAND_CENTER_V3_DETECTOR_POLICY_MISSING');
 
-console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; client deal command center=NATIVE_RIGHT_V3; native close untouched; semantic visible-drawer detection; six-stage realization map; presentation-only; no client/deal hardcoding; no-store cache policy');
+console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; legacy deal runtimes physically absent; client deal command center=NATIVE_RIGHT_V3; native close untouched; semantic visible-drawer detection; six-stage realization map; presentation-only; no client/deal hardcoding; no-store cache policy');
