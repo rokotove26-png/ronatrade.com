@@ -53,7 +53,7 @@ jobs:
           const clean=(raw)=>raw.replace(/\s*[,(]?\s*Incoterms\s*2020\s*\)?/ig,'').replace(/\s{2,}/g,' ').replace(/\s*,\s*$/,'').trim();
           assert(clean('DAP ст. Уртааул, Incoterms 2020')==='DAP ст. Уртааул','basis cleanup result');
 
-          const main=await import('./functions/portal/main-ui.js?qa='+Date.now());
+          const main=await import('./functions/portal/admin-main-ui-current.js?qa='+Date.now());
           const mr=await main.onRequest();
           const ms=await mr.text();
           new Function(ms);
