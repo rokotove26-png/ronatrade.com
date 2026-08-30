@@ -64,6 +64,7 @@ jobs:
           import { readFile } from 'node:fs/promises';
           const bridge='<script id="rona-portal-currency-iso-v1" src="/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1" defer></script>';
           const adminModal='  <link rel="stylesheet" href="/assets/portal-admin-modal-stack-v1.css?v=20260830-modal-stack-v1" data-rona-admin-modal-stack="v1">\n';
+          const canonicalHover='<script id="rona-portal-canonical-button-hover-v1" src="/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1" defer></script>';
           const pairs=[
             ['ADMIN','portal-src/current/admin.html','dist/portal/admin.html'],
             ['AGENT','portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html','dist/portal/agent.html'],
@@ -77,6 +78,9 @@ jobs:
               const modalCount=normalized.split(adminModal).length-1;
               if(modalCount!==1) throw new Error(`ADMIN_MODAL_STACK_LINK_COUNT_${modalCount}`);
               normalized=normalized.replace(adminModal,'');
+              const hoverCount=normalized.split(canonicalHover).length-1;
+              if(hoverCount!==1) throw new Error(`ADMIN_CANONICAL_BUTTON_HOVER_BRIDGE_COUNT_${hoverCount}`);
+              normalized=normalized.replace(canonicalHover,'');
             }
             if(normalized!==source) throw new Error(`${label}_EMITTED_DIFF_EXCEEDS_APPROVED_BUILD_ATTACHMENTS`);
           }
@@ -102,12 +106,18 @@ jobs:
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
           grep -q 'data-rona-admin-modal-stack="v1"' dist/portal/admin.html
           grep -q '.ca-modal-backdrop{z-index:2147483600!important}' dist/assets/portal-admin-modal-stack-v1.css
+          grep -q 'id="rona-portal-canonical-button-hover-v1"' dist/portal/admin.html
+          grep -q '/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1' dist/portal/admin.html
+          test "$(grep -o 'portal-canonical-button-hover-v1\.js' dist/portal/admin.html | wc -l | tr -d ' ')" = "1"
           grep -q 'id="rona-client-contract-authoritative-projection-v5"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5' dist/portal/client.html
           test "$(grep -o 'client-contract-download-v3\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           grep -q 'id="rona-portal-currency-iso-v1"' dist/portal/client.html
           grep -q '/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1' dist/portal/client.html
           test "$(grep -o 'portal-currency-iso-v1\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
+          grep -q 'id="rona-portal-canonical-button-hover-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1' dist/portal/client.html
+          test "$(grep -o 'portal-canonical-button-hover-v1\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/remaining-sections-ui' assets/portal-admin-shell-fast-v1.js
