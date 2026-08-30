@@ -5,13 +5,13 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-logout-visual-v1.js';
 const id='rona-client-logout-visual-v1';
-const src='/assets/portal-runtime/client-logout-visual-v1.js?v=20260830-red-glow-v1';
-const marker='20260830-client-logout-red-glow-v1';
+const src='/assets/portal-runtime/client-logout-visual-v1.js?v=20260830-force-red-v2';
+const marker='20260830-client-logout-force-red-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_LOGOUT_VISUAL_MARKER_MISSING: ${marker}`);
-for(const required of ['justify-content:center!important','linear-gradient(120deg','ronaClientLogoutRedFlowV1','data-rona-logout-visual-v1']){
+for(const required of ['justify-content:center!important','linear-gradient(110deg','ronaClientLogoutRedFlowV2','data-rona-logout-visual-v1',"style.setProperty(prop,value,'important')",'setInterval(()=>{if(document.visibilityState===\'visible\')apply()},1500)']){
   if(!runtime.includes(required))throw new Error(`CLIENT_LOGOUT_VISUAL_CONTRACT_MISSING: ${required}`);
 }
 if(/\/portal\/auth\/logout|fetch\s*\(/.test(runtime))throw new Error('CLIENT_LOGOUT_VISUAL_MUST_NOT_OWN_LOGOUT_BEHAVIOR');
@@ -33,7 +33,8 @@ integrity.client_runtime.logout_visual={
   src,
   marker,
   scope:'SINGLE_CANONICAL_CLIENT_LOGOUT_CONTROL',
-  presentation:['CENTERED_LABEL','RED_ANIMATED_GRADIENT','RESTRAINED_RED_GLOW','HOVER_BRIGHTEN'],
+  presentation:['CENTERED_LABEL','FORCED_RED_ANIMATED_GRADIENT','RED_GLOW','HOVER_BRIGHTEN'],
+  enforcement:'INLINE_IMPORTANT_PLUS_SCOPED_STYLESHEET',
   layout_changed:false,
   logout_behavior_changed:false,
   business_logic_changed:false
@@ -41,4 +42,4 @@ integrity.client_runtime.logout_visual={
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 
 if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error('CLIENT_LOGOUT_VISUAL_BRIDGE_MISSING_AFTER_WRITE');
-console.log(`Client logout visual PASS: ${id} attached; centered label + red animated gradient; behavior unchanged.`);
+console.log(`Client logout visual PASS: ${id} attached; forced red gradient + centered label; behavior unchanged.`);
