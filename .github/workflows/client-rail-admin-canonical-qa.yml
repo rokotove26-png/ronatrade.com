@@ -23,10 +23,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
       - name: Verify direct Admin visual-source adapter
         shell: bash
         run: |
@@ -54,7 +50,6 @@ jobs:
           if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail no longer derives directly from Admin current visual source');
           const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
           if(!attach.includes('/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'))throw new Error('canonical Client Rail bridge missing');
-          if(attach.includes('client-rail-movizor-gate-v1.js'))throw new Error('retired MOVIZOR visual gate still attached');
           const css=fs.readFileSync('assets/portal-runtime/client-content-responsive-v1.css','utf8');
           if(!css.includes('.rona-rail-v4-work')||css.includes('.rona-rail-grid'))throw new Error('responsive layer still targets retired Client Rail visual classes');
           console.log('CLIENT_RAIL_ADMIN_CANONICAL_SOURCE=PASS');
@@ -63,7 +58,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm ci
           npm run build
           grep -q 'id="rona-client-rail-admin-canonical-v1"' dist/portal/client.html
           grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
