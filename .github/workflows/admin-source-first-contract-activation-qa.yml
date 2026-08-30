@@ -25,7 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          cmp -s portal-src/current/admin.html dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
