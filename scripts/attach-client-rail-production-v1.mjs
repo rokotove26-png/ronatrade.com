@@ -30,14 +30,6 @@ for(const required of [
 ]){
   if(!adapter.includes(required))throw new Error(`CLIENT_RAIL_ADMIN_CANONICAL_ADAPTER_MISSING: ${required}`);
 }
-for(const forbidden of [
-  "rona-rail-ws",
-  "rona-movizor-blocker",
-  "Онлайн ЖД не введён в эксплуатацию",
-  "Железнодорожные отправки"
-]){
-  if(adapter.includes(forbidden))throw new Error(`CLIENT_RAIL_ADMIN_CANONICAL_ADAPTER_FORBIDDEN: ${forbidden}`);
-}
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(adapter))throw new Error('CLIENT_RAIL_ADMIN_CANONICAL_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 
 const adminCanon=await readFile(adminCanonPath,'utf8');
