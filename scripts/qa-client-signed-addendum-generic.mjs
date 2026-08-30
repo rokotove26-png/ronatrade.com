@@ -5,7 +5,7 @@ const [html,runtime,visual,commandCenter,proxy,edge,integrityRaw,cachePolicy,...
   read('dist/portal/client.html'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-canonical-visual-v2.js'),
-  read('assets/portal-runtime/client-deal-command-center-v2.js'),
+  read('assets/portal-runtime/client-deal-command-center-v3.js'),
   read('functions/portal/api/[[path]].js'),
   read('supabase/functions/rona-client-deal-documents/index.ts'),
   read('dist/canonical-visual-integrity.json'),
@@ -23,11 +23,11 @@ const count=(text,re)=>(text.match(re)||[]).length;
 must(count(html,/client-deal-documents-v5\.js/giu)===1,'SIGNED_ADDENDUM_RUNTIME_NOT_SINGLE_OWNER');
 must(count(html,/client-deal-documents-v[1-4]\.js/giu)===0,'SIGNED_ADDENDUM_LEGACY_RUNTIME_PRESENT');
 must(count(html,/client-deal-canonical-visual-v2\.js/giu)===1,'SIGNED_ADDENDUM_VISUAL_NOT_SINGLE_OWNER');
-must(count(html,/client-deal-command-center-v2\.js/giu)===1,'DEAL_COMMAND_CENTER_V2_NOT_SINGLE_OWNER');
-must(count(html,/client-deal-command-center-v1\.js/giu)===0,'DEAL_COMMAND_CENTER_V1_LEGACY_OWNER_PRESENT');
+must(count(html,/client-deal-command-center-v3\.js/giu)===1,'DEAL_COMMAND_CENTER_V3_NOT_SINGLE_OWNER');
+must(count(html,/client-deal-command-center-v[12]\.js/giu)===0,'DEAL_COMMAND_CENTER_LEGACY_OWNER_PRESENT');
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
 must(html.includes('20260830-single-owner-prepaint-v8'),'SIGNED_ADDENDUM_PREPAINT_CACHE_BUSTER_MISSING');
-must(html.includes('20260830-command-center-expanded-v2'),'DEAL_COMMAND_CENTER_V2_CACHE_BUSTER_MISSING');
+must(html.includes('20260830-native-right-close-v3'),'DEAL_COMMAND_CENTER_V3_CACHE_BUSTER_MISSING');
 for(const marker of [
   '__RONA_CLIENT_DEAL_DOCUMENTS_V1__',
   '__RONA_CLIENT_DEAL_DOCUMENTS_V2__',
@@ -59,10 +59,10 @@ for(const marker of [
   "client_stage:'DOCUMENTS_SIGNED'",
 ]) must(runtime.includes(marker),`SIGNED_ADDENDUM_BROWSER_MARKER_MISSING:${marker}`);
 
-// Expanded deal detail command center: semantic detector, large control surface, six-stage realization map.
+// Deal detail command center enriches content only. Native RIGHT drawer geometry and native close control remain owned by the canonical client UI.
 for(const marker of [
-  '20260830-client-deal-command-center-v2-expanded',
-  'DEAL CONTROL CENTER',
+  '20260830-client-deal-command-center-v3-native-left',
+  'DEAL CONTROL',
   'Паспорт сделки',
   'Схема реализации сделки',
   'Контракт и сделка',
@@ -73,13 +73,18 @@ for(const marker of [
   'Закрытие сделки',
   'data-rona-command-field',
   'data-rona-command-heading',
-  'position:fixed!important',
-  'width:min(1180px',
-  'height:min(800px',
-  'grid-template-columns:repeat(6',
+  'grid-template-columns:repeat(2',
   'coverage<5',
   'r.height<70',
-]) must(commandCenter.includes(marker),`DEAL_COMMAND_CENTER_V2_MARKER_MISSING:${marker}`);
+  'onscreen',
+  'Native drawer geometry is deliberately preserved',
+]) must(commandCenter.includes(marker),`DEAL_COMMAND_CENTER_V3_MARKER_MISSING:${marker}`);
+for(const forbidden of [
+  'position:fixed!important',
+  'transform:translate(-50%,-50%)',
+  'width:min(1180px',
+  'height:min(800px',
+]) must(!commandCenter.includes(forbidden),`DEAL_COMMAND_CENTER_NATIVE_RIGHT_DRAWER_GEOMETRY_OVERRIDDEN:${forbidden}`);
 must(!commandCenter.includes('/v1/client/context'),'DEAL_COMMAND_CENTER_MUST_NOT_FETCH_OR_INFER_BUSINESS_CONTEXT');
 must(!commandCenter.includes('fetch('),'DEAL_COMMAND_CENTER_NETWORK_REQUEST_FORBIDDEN');
 must(commandCenter.includes('PRESENTATION')===false,'DEAL_COMMAND_CENTER_RUNTIME_SHOULD_NOT_CARRY_BUSINESS_POLICY_LABELS');
@@ -144,8 +149,9 @@ must(bridge?.prepaint_single_owner===true,'SIGNED_ADDENDUM_PREPAINT_SINGLE_OWNER
 must(bridge?.replacement_semantics==='SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM','SIGNED_ADDENDUM_REPLACEMENT_SEMANTICS_MISSING');
 must(bridge?.command_center_scope==='ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS','DEAL_COMMAND_CENTER_SCOPE_NOT_GENERIC');
 must(bridge?.command_center_data_policy==='PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION','DEAL_COMMAND_CENTER_DATA_POLICY_INVALID');
-must(bridge?.command_center_marker==='20260830-client-deal-command-center-v2-expanded','DEAL_COMMAND_CENTER_V2_INTEGRITY_MARKER_MISSING');
-must(bridge?.command_center_layout==='EXPANDED_MODAL_CONTROL_CENTER','DEAL_COMMAND_CENTER_V2_LAYOUT_POLICY_MISSING');
-must(bridge?.command_center_detector==='SEMANTIC_LABEL_COVERAGE_NO_TALL_DRAWER_ASSUMPTION','DEAL_COMMAND_CENTER_V2_DETECTOR_POLICY_MISSING');
+must(bridge?.command_center_marker==='20260830-client-deal-command-center-v3-native-left','DEAL_COMMAND_CENTER_V3_INTEGRITY_MARKER_MISSING');
+must(bridge?.command_center_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_COMMAND_CENTER_RIGHT_LAYOUT_POLICY_MISSING');
+must(bridge?.command_center_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_COMMAND_CENTER_NATIVE_CLOSE_POLICY_MISSING');
+must(bridge?.command_center_detector==='SEMANTIC_LABEL_COVERAGE_NATIVE_DRAWER_VISIBILITY','DEAL_COMMAND_CENTER_V3_DETECTOR_POLICY_MISSING');
 
-console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; client deal command center=EXPANDED_MODAL_V2; semantic compact-panel detection; six-stage realization map; presentation-only; no client/deal hardcoding; no-store cache policy');
+console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; client deal command center=NATIVE_RIGHT_V3; native close untouched; semantic visible-drawer detection; six-stage realization map; presentation-only; no client/deal hardcoding; no-store cache policy');
