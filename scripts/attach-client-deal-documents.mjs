@@ -5,18 +5,18 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const docsRuntimePath='dist/assets/portal-runtime/client-deal-documents-v5.js';
 const visualRuntimePath='dist/assets/portal-runtime/client-deal-canonical-visual-v2.js';
-const commandCenterRuntimePath='dist/assets/portal-runtime/client-deal-command-center-v1.js';
+const commandCenterRuntimePath='dist/assets/portal-runtime/client-deal-command-center-v2.js';
 
 const docsId='rona-client-deal-documents-authoritative-v5';
 const visualId='rona-client-deal-canonical-visual-authoritative-v2';
-const commandCenterId='rona-client-deal-command-center-v1';
+const commandCenterId='rona-client-deal-command-center-v2';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
 const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
 const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
-const commandCenterSrc='/assets/portal-runtime/client-deal-command-center-v1.js?v=20260830-command-center-v1';
+const commandCenterSrc='/assets/portal-runtime/client-deal-command-center-v2.js?v=20260830-command-center-expanded-v2';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
-const commandCenterMarker='20260830-client-deal-command-center-v1';
+const commandCenterMarker='20260830-client-deal-command-center-v2-expanded';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
   __RONA_CLIENT_DEAL_DOCUMENTS_V2__:'20260829-deal-documents-v2-universal-stable-ui-v3',
@@ -47,6 +47,9 @@ for(const required of [
   'Логистика и поставка',
   'Закрытие сделки',
   'data-rona-command-field',
+  'DEAL CONTROL CENTER',
+  'grid-template-columns:repeat(6',
+  'r.height<70',
 ]) if(!commandCenterRuntime.includes(required)) throw new Error(`CLIENT_DEAL_COMMAND_CENTER_GENERIC_UI_MISSING: ${required}`);
 for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','FARGONA GAZ','UNIVERSAL SOLYARIS']){
   if(docsRuntime.includes(forbidden)||visualRuntime.includes(forbidden)||commandCenterRuntime.includes(forbidden))throw new Error(`CLIENT_DEAL_RUNTIME_CLIENT_SPECIFIC_FORBIDDEN: ${forbidden}`);
@@ -55,15 +58,14 @@ for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-0
 let html=await readFile(htmlPath,'utf8');
 
 // The frozen current client is not edited in-place. During build, retire every older
-// deal-document/visual bridge from the emitted client and attach one authoritative,
-// client-agnostic owner. The command-center enhancement is presentation-only and
-// applies to every authenticated CLIENT deal drawer detected semantically.
+// deal-document/visual/command-center bridge from the emitted client and attach one
+// authoritative, client-agnostic owner. The command-center enhancement is presentation-only.
 const dealScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-documents-v[1-5]\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
 const visualScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-canonical-visual-v[1-9]\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
 const commandCenterScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-command-center-v\d+\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
 html=html.replace(dealScriptRe,'').replace(visualScriptRe,'').replace(commandCenterScriptRe,'');
 
-for(const id of [docsId,visualId,commandCenterId,legacyPreemptId]){
+for(const id of [docsId,visualId,'rona-client-deal-command-center-v1',commandCenterId,legacyPreemptId]){
   const re=new RegExp(`<script\\b[^>]*\\bid=["']${id}["'][^>]*>[\\s\\S]*?<\\/script>`,'giu');
   html=html.replace(re,'');
 }
@@ -82,11 +84,13 @@ html=html.slice(0,bodyClose)+bridge+html.slice(bodyClose);
 const docsRefs=(html.match(/client-deal-documents-v5\.js/giu)||[]).length;
 const oldDocsRefs=(html.match(/client-deal-documents-v[1-4]\.js/giu)||[]).length;
 const visualRefs=(html.match(/client-deal-canonical-visual-v2\.js/giu)||[]).length;
-const commandCenterRefs=(html.match(/client-deal-command-center-v1\.js/giu)||[]).length;
+const commandCenterV2Refs=(html.match(/client-deal-command-center-v2\.js/giu)||[]).length;
+const commandCenterLegacyRefs=(html.match(/client-deal-command-center-v1\.js/giu)||[]).length;
 if(docsRefs!==1)throw new Error(`CLIENT_DEAL_DOCUMENTS_SINGLE_OWNER_FAILED refs=${docsRefs}`);
 if(oldDocsRefs!==0)throw new Error(`CLIENT_DEAL_DOCUMENTS_LEGACY_OWNER_PRESENT refs=${oldDocsRefs}`);
 if(visualRefs!==1)throw new Error(`CLIENT_DEAL_VISUAL_SINGLE_OWNER_FAILED refs=${visualRefs}`);
-if(commandCenterRefs!==1)throw new Error(`CLIENT_DEAL_COMMAND_CENTER_SINGLE_OWNER_FAILED refs=${commandCenterRefs}`);
+if(commandCenterV2Refs!==1)throw new Error(`CLIENT_DEAL_COMMAND_CENTER_V2_SINGLE_OWNER_FAILED refs=${commandCenterV2Refs}`);
+if(commandCenterLegacyRefs!==0)throw new Error(`CLIENT_DEAL_COMMAND_CENTER_LEGACY_OWNER_PRESENT refs=${commandCenterLegacyRefs}`);
 if(!html.includes(`id="${legacyPreemptId}"`))throw new Error('CLIENT_DEAL_DOCUMENTS_LEGACY_PREEMPT_MISSING');
 for(const [key,marker] of Object.entries(legacyMarkers)){
   if(!html.includes(key)||!html.includes(marker))throw new Error(`CLIENT_DEAL_DOCUMENTS_PREPAINT_GUARD_MISSING:${key}`);
@@ -108,6 +112,8 @@ integrity.client_runtime.deal_documents_bridge={
   command_center_marker:commandCenterMarker,
   command_center_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',
   command_center_data_policy:'PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION',
+  command_center_layout:'EXPANDED_MODAL_CONTROL_CENTER',
+  command_center_detector:'SEMANTIC_LABEL_COVERAGE_NO_TALL_DRAWER_ASSUMPTION',
   scope:'ALL_AUTHORIZED_CLIENT_CONTEXTS',
   context_source:'SERVER_CLIENT_BOOTSTRAP_AND_CONTEXT',
   authorization:'SERVER_CLIENT_USER_HAS_DEAL_ACCESS',
@@ -121,4 +127,4 @@ integrity.client_runtime.deal_documents_bridge={
 await writeFile(htmlPath,html,'utf8');
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS; prepaint_single_owner=true; single owner=${docsId}`);
+console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=EXPANDED_MODAL_V2; prepaint_single_owner=true; single owner=${docsId}`);
