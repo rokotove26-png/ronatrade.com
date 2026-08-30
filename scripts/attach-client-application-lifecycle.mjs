@@ -19,12 +19,12 @@ const src='/assets/portal-runtime/client-application-lifecycle-v1.js?v=20260830-
 const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=20260830-server-indicator-v1';
 const paymentsSanitationSrc='/assets/portal-runtime/client-payments-sanitation-v1.js?v=20260830-current-only-v1';
 const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
-const paymentsCanonicalSrc='/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v2';
+const paymentsCanonicalSrc='/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v3';
 const marker='20260830-client-admin-authoritative-deal-projection-v8';
 const connectionMarker='20260830-client-server-connection-v1';
 const paymentsSanitationMarker='20260830-client-payments-sanitation-v1';
 const paymentsMarker='20260830-client-payments-authoritative-v1';
-const paymentsCanonicalMarker='20260830-client-payments-canonical-layout-v2';
+const paymentsCanonicalMarker='20260830-client-payments-canonical-layout-v3';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
