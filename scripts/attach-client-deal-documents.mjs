@@ -13,7 +13,7 @@ const commandCenterId='rona-client-deal-command-center-v3';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
 const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
 const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
-const commandCenterSrc='/assets/portal-runtime/client-deal-command-center-v3.js?v=20260830-native-left-close-v3';
+const commandCenterSrc='/assets/portal-runtime/client-deal-command-center-v3.js?v=20260830-native-right-close-v3';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
 const commandCenterMarker='20260830-client-deal-command-center-v3-native-left';
@@ -69,7 +69,7 @@ let html=await readFile(htmlPath,'utf8');
 // The frozen current client is not edited in-place. During build, retire every older
 // deal-document/visual/command-center bridge from the emitted client and attach one
 // authoritative, client-agnostic owner. The command-center enhancement is presentation-only
-// and deliberately preserves the native left drawer geometry and its native close behavior.
+// and deliberately preserves the native RIGHT drawer geometry and its native close behavior.
 const dealScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-documents-v[1-5]\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
 const visualScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-canonical-visual-v[1-9]\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
 const commandCenterScriptRe=/<script\b[^>]*\bsrc\s*=\s*["'][^"']*\/assets\/portal-runtime\/client-deal-command-center-v\d+\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/giu;
@@ -122,7 +122,7 @@ integrity.client_runtime.deal_documents_bridge={
   command_center_marker:commandCenterMarker,
   command_center_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',
   command_center_data_policy:'PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION',
-  command_center_layout:'NATIVE_LEFT_DRAWER_PRESERVED',
+  command_center_layout:'NATIVE_RIGHT_DRAWER_PRESERVED',
   command_center_close_behavior:'NATIVE_DRAWER_CONTROL_UNTOUCHED',
   command_center_detector:'SEMANTIC_LABEL_COVERAGE_NATIVE_DRAWER_VISIBILITY',
   scope:'ALL_AUTHORIZED_CLIENT_CONTEXTS',
@@ -138,4 +138,4 @@ integrity.client_runtime.deal_documents_bridge={
 await writeFile(htmlPath,html,'utf8');
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=NATIVE_LEFT_V3; native_close=preserved; prepaint_single_owner=true; single owner=${docsId}`);
+console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; command_center=NATIVE_RIGHT_V3; native_close=preserved; prepaint_single_owner=true; single owner=${docsId}`);
