@@ -27,7 +27,9 @@ for(const required of [
   "ADMIN_CURRENT_V81_CANONICAL",
   "admin-current-v81-client-authority-v1",
   "AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS",
+  "EVENT_DRIVEN_PLUS_MANUAL",
   "x-rona-client-rail-visual-canon",
+  "x-rona-client-rail-refresh-mode",
   "rona-rail-v4-root",
   "rona-rail-v4-work",
   "rona-rail-v6-selector",
@@ -59,14 +61,18 @@ for(const required of [
   "const KICKER='RONA Trade · Operations'",
   "const TITLE='Онлайн ЖД'",
   "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
+  'font-size:18px!important',
+  'min-height:300px!important',
+  'COMPACT_STANDARD_V1',
   'rona-client-rail-hero-actions',
-  'Автообновление · 30 с',
+  'Обновление · по изменению',
   'Обновить',
   'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY',
   'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'
 ]){
   if(!heroRuntime.includes(required))throw new Error(`CLIENT_RAIL_CANONICAL_HERO_CONTRACT_MISSING: ${required}`);
 }
+if(heroRuntime.includes('Автообновление · 30 с'))throw new Error('CLIENT_RAIL_PERIODIC_REFRESH_LABEL_REGRESSION');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(heroRuntime))throw new Error('CLIENT_RAIL_CANONICAL_HERO_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 
 function elementBoundsById(source,idValue,required=true){
@@ -169,14 +175,19 @@ integrity.client_runtime.rail_client_admin_canonical={
     marker:heroMarker,
     kicker:'RONA Trade · Operations',
     title:'Онлайн ЖД',
+    title_px:18,
+    density:'COMPACT_STANDARD_V1',
     subtitle:'Операционная картина железнодорожных отправок по данным клиентского контура.',
-    refresh_label:'Автообновление · 30 с',
+    refresh_label:'Обновление · по изменению',
     refresh_action:'Обновить'
   },
   client_data_source:'/portal/api/v1/client/shipments',
   provider_state_source:'/portal/api/v1/client/rail',
-  authoritative_refresh_ms:30000,
-  auto_refresh:true,
+  authoritative_refresh_ms:null,
+  auto_refresh:false,
+  refresh_mode:'EVENT_DRIVEN_PLUS_MANUAL',
+  event_refresh:true,
+  manual_refresh:true,
   map_tile_source:'/portal/map-assets/osm/{z}/{x}/{y}.png',
   movement_publication:'FAIL_CLOSED_FROM_CLIENT_PROVIDER_STATE',
   legacy_client_visual_owner:false,
@@ -202,4 +213,4 @@ const afterInner=html.slice(after.innerStart,after.innerEnd);
 if(afterInner!==currentOnlyInner)throw new Error('CLIENT_RAIL_STATIC_PAGE_NOT_CURRENT_ONLY');
 if(before.id==='page-monitoring'&&after.openTag.indexOf('data-rona-client-rail-admin-canonical-mount="v1"')<0)throw new Error('CLIENT_RAIL_DIRECT_MOUNT_NOT_CANONICAL');
 for(const retired of ['client-rail-production-v1.js','client-rail-movizor-gate-v1.js'])if(html.includes(retired))throw new Error(`CLIENT_RAIL_RETIRED_OWNER_EMITTED: ${retired}`);
-console.log(`CLIENT_RAIL_CURRENT_ONLY=PASS id=${id} hero=${heroMarker} operational-body=/portal/rail-current-v81-maplibre-ui client-authority=server-scoped static-host=${before.id} current-only=${staticHostMarker} removed-static-bytes=${removedStaticBytes} single-owner=true.`);
+console.log(`CLIENT_RAIL_CURRENT_ONLY=PASS id=${id} hero=${heroMarker} operational-body=/portal/rail-current-v81-maplibre-ui client-authority=server-scoped refresh=event-driven-plus-manual density=compact-standard-v1 static-host=${before.id} current-only=${staticHostMarker} removed-static-bytes=${removedStaticBytes} single-owner=true.`);
