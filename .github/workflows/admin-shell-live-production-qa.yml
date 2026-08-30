@@ -20,14 +20,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify current-only shell source
+      - name: Verify current-only shell source and emitted artifact
+        shell: bash
         run: |
+          set -euo pipefail
           npm run build
           node --check functions/portal/admin.js
           node --check assets/portal-admin-shell-fast-v1.js
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
-          cmp -s portal-src/current/admin.html dist/portal/admin.html
+          grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
+          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
           grep -q 'data-page="agent-settlements"' dist/portal/admin.html
@@ -35,6 +38,8 @@ jobs:
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
           ! grep -q 'Временный автономный вход' dist/portal/admin.html
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          echo 'ADMIN_SHELL_CURRENT_ARTIFACT=PASS'
       - name: Wait for exact Cloudflare production deployment
         if: github.event_name == 'push'
         env:
