@@ -1,0 +1,83 @@
+name: Client Home density v5 QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'fix/client-home-kpi-density-v5-20260830'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  density-v5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify density runtime and canonical attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-runtime/client-home-density-v5.js
+          node --check scripts/attach-client-home-night-panel-v4.mjs
+          node <<'NODE'
+          const fs=require('fs');
+          const v=fs.readFileSync('assets/portal-runtime/client-home-density-v5.js','utf8');
+          for(const marker of ['20260830-client-home-density-v5','repeat(4,minmax(0,1fr))','grid-row:auto!important','grid-column:auto!important','min-height:0!important'])if(!v.includes(marker))throw new Error('missing density marker '+marker);
+          if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(v))throw new Error('hardcoded business entity found');
+          if(/<img|<svg|<canvas|background-image\s*:/iu.test(v))throw new Error('image asset found');
+          NODE
+          npm run build
+          grep -q 'id="rona-client-home-density-v5"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-home-density-v5.js?v=20260830-content-density-v5' dist/portal/client.html
+          node -e "const i=require('./dist/canonical-visual-integrity.json');const v=i.client_runtime?.home_density_visual;if(v?.mode!=='CONTENT_DENSITY_V5'||v?.scope!=='HOME_KPI_FRAMES_ONLY'||v?.business_logic_changed!==false)process.exit(1)"
+
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove KPI frames hug content in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1500,height:900}});
+            const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#04101b;color:white;font-family:Arial,sans-serif}.owner{width:1100px;margin:40px auto}</style></head><body><section class="owner" data-rona-client-home-owner="command-center-v2" data-rona-home-visual="tablet-v3" data-rona-home-night="v4"><div class="rona-cc-kpis"><div class="rona-cc-kpi" data-visual-rank="hero"><span class="rona-cc-kpi-label">Активные сделки</span><strong class="rona-cc-kpi-value">1</strong><span class="rona-cc-kpi-note">Текущий контур исполнения договора</span></div><div class="rona-cc-kpi"><span class="rona-cc-kpi-label">Объём в работе</span><strong class="rona-cc-kpi-value">315 т</strong><span class="rona-cc-kpi-note">Сумма объёмов</span></div><div class="rona-cc-kpi" data-visual-rank="finance"><span class="rona-cc-kpi-label">Получено</span><strong class="rona-cc-kpi-value" data-size="compact">236 250 USD</strong><div class="rona-cc-kpi-progress"><i style="display:block;width:100%;height:100%"></i></div></div><div class="rona-cc-kpi" data-visual-rank="resource"><span class="rona-cc-kpi-label">Ресурс подтверждён</span><strong class="rona-cc-kpi-value">1/1</strong><span class="rona-cc-kpi-note">По текущему договору</span></div></div></section></body></html>`}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-tablet-visual-v3.js')});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-density-v5.js')});
+            const r=await page.evaluate(()=>{
+              const owner=document.querySelector('[data-rona-client-home-owner]');
+              const cards=[...owner.querySelectorAll('.rona-cc-kpi')];
+              const rects=cards.map(x=>x.getBoundingClientRect());
+              const cs=cards.map(x=>getComputedStyle(x));
+              return{heights:rects.map(x=>Math.round(x.height)),tops:rects.map(x=>Math.round(x.top)),widths:rects.map(x=>Math.round(x.width)),rows:cs.map(x=>x.gridRow),cols:cs.map(x=>x.gridColumn),overflow:owner.scrollWidth-owner.clientWidth};
+            });
+            assert(errors.length===0,'browser errors '+JSON.stringify(errors));
+            assert(Math.max(...r.heights)<=130,'KPI frame remains vertically stretched '+JSON.stringify(r));
+            assert(Math.max(...r.tops)-Math.min(...r.tops)<=2,'KPI cards are not in one compact row '+JSON.stringify(r));
+            assert(Math.max(...r.widths)-Math.min(...r.widths)<=20,'KPI widths remain disproportionately stretched '+JSON.stringify(r));
+            assert(r.rows.every(x=>x==='auto'),'hero row span remains '+JSON.stringify(r));
+            assert(r.cols.every(x=>x==='auto'),'wide column span remains '+JSON.stringify(r));
+            assert(r.overflow<=1,'dashboard horizontal overflow '+JSON.stringify(r));
+            console.log('CLIENT_HOME_DENSITY_V5=PASS',JSON.stringify(r));
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
