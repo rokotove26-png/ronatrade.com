@@ -1,9 +1,10 @@
-name: Deals current-only QA 20260824
+name: Deals current-only QA
 
 on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
   push:
     branches:
-      - 'hotfix/payments-deals-layout-finance-20260824'
       - 'release/public-go-live-v1.1'
 
 permissions:
@@ -19,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Parse generated portal runtimes
+      - name: Parse current Deals and Admin runtimes
         shell: bash
         run: |
           set -euo pipefail
@@ -31,7 +32,7 @@ jobs:
           const dr=await deals.onRequest();
           const ds=await dr.text();
           new Function(ds);
-          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.5','Deals runtime header');
+          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.6-signed-addendum','Deals runtime header');
           assert(ds.includes('function waitsPayment(d)'),'payment-only predicate missing');
           assert(!ds.includes('function waitsAction(d)'),'legacy waitsAction remains');
           assert(ds.includes('function isolateDealsPage(root,host)'),'Deals underlay isolation missing');
@@ -43,7 +44,8 @@ jobs:
           assert(!ds.includes("kpi('Ожидают оплаты или действий'"),'legacy payment KPI title remains');
           assert(ds.includes("'Базис поставки'"),'delivery basis column missing');
           assert(ds.includes('Incoterms\\s*2020'),'basis display cleanup missing');
-          assert(ds.includes('ronaDealsLayoutV15'),'Deals layout v1.5 style missing');
+          assert(ds.includes('ronaDealsLayoutV15'),'Deals layout style missing');
+          assert(ds.includes('Скачать подписанное доп. соглашение'),'signed addendum action missing');
           assert(ds.includes('width:310px!important'),'company column expansion missing');
           assert(ds.includes('width:145px!important'),'basis column compaction missing');
           assert(ds.includes('text-overflow:clip!important'),'company truncation override missing');
@@ -63,7 +65,7 @@ jobs:
           assert(ms.includes('deals:renderDealsCurrentShell,'),'navigation still owns legacy Deals renderer');
           assert(!ms.includes('deals:renderDeals,'),'legacy navigation Deals renderer remains active');
           assert(ms.includes('renderApplications();renderDealsCurrentShell();renderDocuments();'),'initial Admin render does not use current-only shell');
-          console.log('DEALS_CURRENT_ONLY_V15_GENERATED_RUNTIME=PASS');
+          console.log('DEALS_CURRENT_ONLY_GENERATED_RUNTIME=PASS');
           NODE
       - name: Publish QA status
         if: always()
@@ -77,8 +79,8 @@ jobs:
         run: |
           set -euo pipefail
           state=failure
-          description='Deals current-only v1.5 generated runtime failed'
-          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Deals current-only v1.5 layout PASS'; fi
+          description='Deals current-only generated runtime failed'
+          if [ "$JOB_STATUS" = 'success' ]; then state=success; description='Deals current-only runtime PASS'; fi
           target="https://github.com/$REPO/actions/runs/$RUN_ID"
           payload=$(printf '{"state":"%s","context":"rona/deals-current-only","description":"%s","target_url":"%s"}' "$state" "$description" "$target")
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "$payload" >/dev/null
