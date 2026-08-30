@@ -6,7 +6,7 @@ on:
       - 'release/public-go-live-v1.1'
   push:
     branches:
-      - 'fix/client-payments-canonical-width-date-20260830'
+      - 'fix/client-payments-title-frame-canonical-20260830'
       - 'release/public-go-live-v1.1'
 
 permissions:
@@ -32,8 +32,10 @@ jobs:
           const fs=require('fs');
           const runtime=fs.readFileSync('assets/portal-runtime/client-payments-canonical-layout-v1.js','utf8');
           for(const marker of [
-            '20260830-client-payments-canonical-layout-v1',
+            '20260830-client-payments-canonical-layout-v2',
             'data-rona-payments-canonical-width',
+            'title-frame-context',
+            'title-frame-owner',
             'Платежи и взаиморасчёты',
             'Выбрана компания',
             'Дата поступления:',
@@ -41,12 +43,12 @@ jobs:
           ])if(!runtime.includes(marker))throw new Error('missing canonical payments marker '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(runtime))throw new Error('hardcoded client/deal found in canonical payments runtime');
           const attach=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
-          for(const marker of ['rona-client-payments-canonical-layout-v1','PAYMENTS_SECTION_HEADER_FRAME','CLIENT_CONTEXT_FILTERED_PAYMENT_AT'])if(!attach.includes(marker))throw new Error('missing canonical build attachment marker '+marker);
+          for(const marker of ['rona-client-payments-canonical-layout-v1','PAYMENTS_TITLE_FRAME_ONLY','CLIENT_CONTEXT_FILTERED_PAYMENT_AT'])if(!attach.includes(marker))throw new Error('missing canonical build attachment marker '+marker);
           NODE
           npm run build
           grep -q 'id="rona-client-payments-canonical-layout-v1"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-canonical-width-date-v1' dist/portal/client.html
-          node -e "const i=require('./dist/canonical-visual-integrity.json');const x=i.client_runtime?.payments_canonical_layout;if(x?.width_reference!=='PAYMENTS_SECTION_HEADER_FRAME'||x?.receipt_date_source!=='CLIENT_CONTEXT_FILTERED_PAYMENT_AT'||x?.hardcoded_business_entities!==false)process.exit(1)"
+          grep -q '/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v2' dist/portal/client.html
+          node -e "const i=require('./dist/canonical-visual-integrity.json');const x=i.client_runtime?.payments_canonical_layout;if(x?.width_reference!=='PAYMENTS_TITLE_FRAME_ONLY'||x?.receipt_date_source!=='CLIENT_CONTEXT_FILTERED_PAYMENT_AT'||x?.hardcoded_business_entities!==false)process.exit(1)"
 
       - name: Install browser harness
         shell: bash
@@ -55,7 +57,7 @@ jobs:
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
 
-      - name: Prove header-width alignment and authoritative receipt dates in Chrome
+      - name: Prove title-frame canonical alignment and authoritative receipt dates in Chrome
         shell: bash
         run: |
           set -euo pipefail
@@ -67,23 +69,26 @@ jobs:
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1600,height:1000}});
             const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
-            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}#page-payments{position:relative;width:1000px;margin-left:100px}.frame{box-sizing:border-box;width:760px;margin-left:120px;border:1px solid rgba(92,159,194,.3);border-radius:12px}.owner{display:grid;gap:12px;width:1000px;margin-top:12px}.card{border:1px solid rgba(92,159,194,.22);border-radius:12px}.rona-payments-head{padding:10px}.rona-payments-deals,.rona-payments-events{padding:10px}.rona-payments-deal,.rona-payments-event{padding:8px}</style></head><body><main><section id="page-payments"><section id="header-frame" class="frame"><h1>Платежи и взаиморасчёты</h1></section><section id="context-frame" class="frame"><span>Выбрана компания TEST CLIENT RONA-C900 · RONA-C900-CTR-2026-001</span></section><section class="owner" data-rona-client-payments-owner="finance-authoritative-v1"><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Платёжный статус</strong></div><div class="rona-payments-deals"><article class="rona-payments-deal" data-deal-id="D-A"><div class="rona-payments-amount">Получено <b>49 320 USD</b></div></article></div></section><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Подтверждённые поступления</strong></div><div class="rona-payments-events"><div class="rona-payments-empty">Подтверждённых банковских поступлений по выбранному договору пока нет.</div></div></section></section></section></main><script>window.__RONA_CLIENT_PAYMENTS_STATE__={version:'test',source:'CLIENT_CONTEXT_FINANCE_PROJECTION',client_id:'RONA-C900',contract_id:'RONA-C900-CTR-2026-001',deals:[{deal_id:'D-A'}],payments:[{payment_id:'PAY-A',deal_id:'D-A',payment_at:'2026-08-14T00:00:00Z',amount:49320,currency:'USD'}]};</script></body></html>`}));
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}#page-payments{position:relative;width:1000px;margin-left:100px}.frame{box-sizing:border-box;border:1px solid rgba(92,159,194,.3);border-radius:12px}#header-frame{width:760px;margin-left:120px}#context-frame{width:680px;margin-left:160px}.owner{display:grid;gap:12px;width:1000px;margin-top:12px}.card{border:1px solid rgba(92,159,194,.22);border-radius:12px}.rona-payments-head{padding:10px}.rona-payments-deals,.rona-payments-events{padding:10px}.rona-payments-deal,.rona-payments-event{padding:8px}</style></head><body><main><section id="page-payments"><section id="header-frame" class="frame"><h1>Платежи и взаиморасчёты</h1></section><section id="context-frame" class="frame"><span>Выбрана компания TEST CLIENT RONA-X · RONA-X-CTR</span></section><section class="owner" data-rona-client-payments-owner="finance-authoritative-v1"><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Платёжный статус</strong></div><div class="rona-payments-deals"><article class="rona-payments-deal" data-deal-id="D-A"><div class="rona-payments-amount">Получено <b>49 320 USD</b></div></article></div></section><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Подтверждённые поступления</strong></div><div class="rona-payments-events"><div class="rona-payments-empty">Подтверждённых банковских поступлений по выбранному договору пока нет.</div></div></section></section></section></main><script>window.__RONA_CLIENT_PAYMENTS_STATE__={version:'test',source:'CLIENT_CONTEXT_FINANCE_PROJECTION',client_id:'RONA-X',contract_id:'RONA-X-CTR',deals:[{deal_id:'D-A'}],payments:[{payment_id:'PAY-A',deal_id:'D-A',payment_at:'2026-08-14T00:00:00Z',amount:49320,currency:'USD'}]};</script></body></html>`}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-payments-canonical-layout-v1.js')});
-            await page.waitForFunction(()=>document.querySelector('[data-rona-payments-canonical-width="header-frame"]')&&document.querySelector('[data-rona-payment-events-signature]'),{timeout:10000});
+            await page.waitForFunction(()=>document.querySelector('[data-rona-payments-canonical-width="title-frame-owner"]')&&document.querySelector('[data-rona-payments-canonical-width="title-frame-context"]')&&document.querySelector('[data-rona-payment-events-signature]'),{timeout:10000});
             const v=await page.evaluate(()=>{
               const frame=document.querySelector('#header-frame').getBoundingClientRect();
+              const context=document.querySelector('#context-frame').getBoundingClientRect();
               const owner=document.querySelector('[data-rona-client-payments-owner]').getBoundingClientRect();
-              return{frame:{left:frame.left,width:frame.width},owner:{left:owner.left,width:owner.width},text:document.querySelector('[data-rona-client-payments-owner]').innerText,eventCount:document.querySelectorAll('[data-rona-payment-event="authoritative"]').length};
+              return{frame:{left:frame.left,width:frame.width},context:{left:context.left,width:context.width},owner:{left:owner.left,width:owner.width},text:document.querySelector('[data-rona-client-payments-owner]').innerText,eventCount:document.querySelectorAll('[data-rona-payment-event="authoritative"]').length};
             });
             assert(errors.length===0,'browser errors '+JSON.stringify(errors));
-            assert(Math.abs(v.frame.width-v.owner.width)<=1,'owner width not aligned to header '+JSON.stringify(v));
-            assert(Math.abs(v.frame.left-v.owner.left)<=1,'owner left not aligned to header '+JSON.stringify(v));
+            assert(Math.abs(v.frame.width-v.owner.width)<=1,'owner width not aligned to title '+JSON.stringify(v));
+            assert(Math.abs(v.frame.left-v.owner.left)<=1,'owner left not aligned to title '+JSON.stringify(v));
+            assert(Math.abs(v.frame.width-v.context.width)<=1,'context width not aligned to title '+JSON.stringify(v));
+            assert(Math.abs(v.frame.left-v.context.left)<=1,'context left not aligned to title '+JSON.stringify(v));
             assert(v.eventCount===1,'authoritative payment event missing '+JSON.stringify(v));
             assert(v.text.includes('Дата поступления: 14.08.2026'),'receipt date missing '+JSON.stringify(v.text));
             assert(v.text.includes('PAY-A')&&v.text.includes('49 320 USD'),'confirmed payment projection missing '+JSON.stringify(v.text));
             assert(!v.text.includes('Подтверждённых банковских поступлений по выбранному договору пока нет.'),'legacy empty payment message still present');
-            console.log('CLIENT_PAYMENTS_CANONICAL_LAYOUT_BROWSER=PASS');
+            console.log('CLIENT_PAYMENTS_TITLE_FRAME_CANONICAL_BROWSER=PASS');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
