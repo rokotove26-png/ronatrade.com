@@ -76,8 +76,8 @@ jobs:
           const shell=await fetch(base+'/portal/admin?_qa='+Date.now(),{redirect:'manual',cache:'no-store'});
           assert(shell.status===302,'Admin auth boundary '+shell.status);
           const access=await fetch(base+'/portal/clients-agents-current-ui?_qa='+Date.now(),{cache:'no-store'});
-          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v4','access single-owner-v4 contract');
-          assert(access.headers.get('x-rona-access-create')==='client-agent-v4','access create contract');
+          assert(access.ok&&access.headers.get('x-rona-clients-agents-ui')==='single-owner-v5','access single-owner-v5 contract');
+          assert(access.headers.get('x-rona-access-create')==='single-owner-create-user-v6','access create v6 contract');
           assert(access.headers.get('x-rona-admin-nav-owner')==='external-current-router-v2','navigation owner contract');
           assert(access.headers.get('x-rona-shell-mutation')==='none','page-scoped shell contract');
           const src=await access.text();
