@@ -79,7 +79,7 @@ jobs:
             'rona-rail-v7-controls',
             'Интерактивная ЖД-карта',
             "version:'v8.2'",
-            'stopImmediatePropagation',
+            'waitAdminReady',
             'dedupeOnlineRail(host)'
           ])if(!src.includes(marker))throw new Error('missing current Rail marker: '+marker);
           if(src.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('legacy GU button row remains');
