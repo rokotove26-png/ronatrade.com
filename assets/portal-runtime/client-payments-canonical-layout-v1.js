@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260830-client-payments-canonical-layout-v2';
+const MARK='20260830-client-payments-canonical-layout-v3';
 if(window.__RONA_CLIENT_PAYMENTS_CANONICAL_LAYOUT__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_CANONICAL_LAYOUT__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -45,12 +45,13 @@ function alignFrameToTitle(root,target,title,marker){
   if(!target||!title)return false;
   const rr=root.getBoundingClientRect(),tr=title.getBoundingClientRect();
   if(tr.width<1||rr.width<1)return false;
-  const left=Math.max(0,tr.left-rr.left);
   target.style.boxSizing='border-box';
   target.style.width=tr.width+'px';
   target.style.maxWidth=tr.width+'px';
-  target.style.marginLeft=left+'px';
+  target.style.marginLeft='0';
   target.style.marginRight='0';
+  const current=target.getBoundingClientRect();
+  target.style.marginLeft=(tr.left-current.left)+'px';
   target.setAttribute('data-rona-payments-canonical-width',marker);
   return true;
 }
