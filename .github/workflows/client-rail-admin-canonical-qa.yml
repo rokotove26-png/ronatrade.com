@@ -85,7 +85,7 @@ jobs:
           const rail=integrity?.client_runtime?.rail_client_admin_canonical;
           if(!rail)throw new Error('rail canonical integrity missing');
           if(rail.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||rail.visual_contract!=='ADMIN_CURRENT_V8_2')throw new Error('wrong Rail visual canon');
-          if(rail.scope!=='ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST'||rail.visual_source_mode!=='BUILD_TIME_CURRENT_ONLY_HOST_WITH_ADMIN_CANONICAL_INNER_RUNTIME')throw new Error('Rail still uses legacy overlay architecture');
+          if(rail.scope!=='ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST'||rail.visual_source_mode!=='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER'||rail.host_mode!=='BUILD_TIME_CURRENT_ONLY_SOURCE_HOST')throw new Error('Rail still uses legacy overlay architecture');
           if(rail.static_host_marker!=='current-only-v2'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false||!(rail.static_removed_bytes>0))throw new Error('static current-only Rail proof missing');
           if(rail.client_data_source!=='/portal/api/v1/client/shipments')throw new Error('wrong Client Rail data authority');
           if(rail.legacy_client_visual_owner!==false||rail.separate_movizor_visual_gate!==false)throw new Error('retired visual owner remains');
