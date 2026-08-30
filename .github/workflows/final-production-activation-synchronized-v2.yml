@@ -36,6 +36,7 @@ jobs:
           node --check functions/portal/admin-approved-analytics-v455-ui.js
           node --check functions/portal/remaining-sections-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
+          node --check scripts/attach-admin-modal-stack.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
@@ -62,6 +63,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const bridge='<script id="rona-portal-currency-iso-v1" src="/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1" defer></script>';
+          const adminModal='  <link rel="stylesheet" href="/assets/portal-admin-modal-stack-v1.css?v=20260830-modal-stack-v1" data-rona-admin-modal-stack="v1">\n';
           const pairs=[
             ['ADMIN','portal-src/current/admin.html','dist/portal/admin.html'],
             ['AGENT','portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html','dist/portal/agent.html'],
@@ -70,9 +72,15 @@ jobs:
             const source=await readFile(sourcePath,'utf8'),emitted=await readFile(emittedPath,'utf8');
             const count=emitted.split(bridge).length-1;
             if(count!==1) throw new Error(`${label}_ISO_CURRENCY_BRIDGE_COUNT_${count}`);
-            if(emitted.replace(bridge,'')!==source) throw new Error(`${label}_EMITTED_DIFF_EXCEEDS_ISO_CURRENCY_BRIDGE`);
+            let normalized=emitted.replace(bridge,'');
+            if(label==='ADMIN'){
+              const modalCount=normalized.split(adminModal).length-1;
+              if(modalCount!==1) throw new Error(`ADMIN_MODAL_STACK_LINK_COUNT_${modalCount}`);
+              normalized=normalized.replace(adminModal,'');
+            }
+            if(normalized!==source) throw new Error(`${label}_EMITTED_DIFF_EXCEEDS_APPROVED_BUILD_ATTACHMENTS`);
           }
-          console.log('ADMIN_AGENT_SOURCE_PLUS_ISO_CURRENCY_BRIDGE=PASS');
+          console.log('ADMIN_AGENT_SOURCE_PLUS_APPROVED_BUILD_ATTACHMENTS=PASS');
           NODE
           test "$(stat -c%s dist/portal/admin.html)" -lt 60000
           ! grep -q 'adminLoginGate' dist/portal/admin.html
@@ -92,6 +100,8 @@ jobs:
           grep -q 'portal-admin-shell-fast-v1.js' dist/portal/admin.html
           grep -q 'portal-admin-runtime-watchdog-v1.js' dist/portal/admin.html
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
+          grep -q 'data-rona-admin-modal-stack="v1"' dist/portal/admin.html
+          grep -q '.ca-modal-backdrop{z-index:2147483600!important}' dist/assets/portal-admin-modal-stack-v1.css
           grep -q 'id="rona-client-contract-authoritative-projection-v5"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5' dist/portal/client.html
           test "$(grep -o 'client-contract-download-v3\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
