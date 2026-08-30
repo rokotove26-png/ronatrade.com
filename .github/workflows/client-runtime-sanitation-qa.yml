@@ -66,11 +66,12 @@ jobs:
           if(!html.includes('rona-client-payments-first-paint-guard'))throw new Error('payments first-paint guard missing');
           if(!html.includes('rona-client-section-first-paint-v1-style'))throw new Error('current-only section prepaint guard missing');
           if(!html.includes('data-rona-client-deals-paint-ready')||!html.includes('data-rona-client-payments-paint-ready'))throw new Error('section paint-ready gates missing');
+          if(/data-rona-client-(?:deals|payments)-paint-ready[^}]*visibility\s*:\s*hidden/iu.test(html))throw new Error('section prepaint must not hide runtime DOM');
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const s=integrity.client_runtime?.payments_sanitation;
           if(s?.mode!=='CURRENT_ONLY_REMOVE_LEGACY_PAYMENT_PLACEHOLDERS'||s?.navigation_prepaint_reset!==true||s?.hardcoded_business_entities!==false)throw new Error('payments sanitation integrity contract missing');
           const p=integrity.client_runtime?.section_first_paint;
-          if(p?.mode!=='CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT'||p?.legacy_visual_flash_allowed!==false||p?.business_logic_changed!==false)throw new Error('section first-paint integrity contract missing');
+          if(p?.mode!=='CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT'||p?.shielding!=='OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE'||p?.runtime_dom_visibility_preserved!==true||p?.legacy_visual_flash_allowed!==false||p?.business_logic_changed!==false)throw new Error('section first-paint integrity contract missing');
           console.log('CLIENT_RUNTIME_SANITATION_BUILD=PASS');
           NODE
 
@@ -109,7 +110,7 @@ jobs:
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
 
-      - name: Prove Deals and Payments never expose legacy transition frames
+      - name: Prove overlay blocks legacy pixels without deadlocking runtime scanners
         shell: bash
         run: |
           set -euo pipefail
@@ -124,19 +125,29 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1400,height:900}});
-            const body=`<!doctype html><html data-rona-client-operations-ready="true"><head>${match[0]}</head><body><button id="navDeals">Сделки</button><button id="navPayments">Платежи</button><section id="page-deals" style="display:block"><div id="legacyDeals">OLD DEALS FRAME</div></section><section id="page-payments" style="display:none"><section id="legacyPayments"><h3>Платёжный статус</h3><p>Платёжных данных пока нет.</p></section></section></body></html>`;
+            const body=`<!doctype html><html data-rona-client-operations-ready="true"><head>${match[0]}</head><body><button id="navDeals">Сделки</button><button id="navPayments">Платежи</button><section id="page-deals" style="display:block"><div id="legacyDeals"><h2>Сделки</h2><span>DEAL-2099-999</span><button>Открыть</button></div></section><section id="page-payments" style="display:none"><section id="legacyPayments"><h3>Платёжный статус</h3><p>Платёжных данных пока нет.</p></section></section></body></html>`;
             await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-section-first-paint-v1.js')});
             await page.waitForTimeout(50);
-            assert(await page.$eval('#legacyDeals',el=>getComputedStyle(el).visibility)==='hidden','legacy Deals frame became visible before current composition');
+            const initialDeals=await page.evaluate(()=>({
+              childVisibility:getComputedStyle(document.querySelector('#legacyDeals')).visibility,
+              overlay:getComputedStyle(document.querySelector('#page-deals'),'::after').content,
+              overlayBg:getComputedStyle(document.querySelector('#page-deals'),'::after').backgroundColor,
+              ready:document.documentElement.getAttribute('data-rona-client-deals-paint-ready')
+            }));
+            assert(initialDeals.childVisibility==='visible','Deals runtime DOM was hidden and can deadlock visibility-based scanners');
+            assert(initialDeals.overlay.includes('Загрузка актуальных сделок'),'Deals opaque overlay missing before current composition');
+            assert(initialDeals.overlayBg!=='rgba(0, 0, 0, 0)'&&initialDeals.overlayBg!=='transparent','Deals overlay is not opaque');
+            assert(initialDeals.ready!== 'true','Deals gate released before current composition');
             await page.evaluate(()=>{
               const root=document.querySelector('#page-deals');
               root.setAttribute('data-rona-deal-authority','admin-client-server-v8');
               root.innerHTML='<article class="rona-deal-card-v5" data-rona-canonical-deal-id="DEAL-2099-999" data-rona-deal-summary-ready="true"><div data-rona-deal-summary="canonical-v8">DEAL-2099-999 CURRENT DEAL</div></article>';
             });
             await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',{timeout:5000});
-            assert(await page.$eval('.rona-deal-card-v5',el=>getComputedStyle(el).visibility)==='visible','current Deals view did not release');
+            const dealsReleased=await page.evaluate(()=>getComputedStyle(document.querySelector('#page-deals'),'::after').content);
+            assert(dealsReleased==='none'||dealsReleased==='normal','Deals overlay did not release');
 
             await page.evaluate(()=>{
               document.querySelector('#page-deals').style.display='none';
@@ -146,14 +157,22 @@ jobs:
               p.insertAdjacentHTML('beforeend','<section data-rona-client-payments-owner="finance-authoritative-v1"><div>CURRENT FINANCE OWNER</div></section>');
             });
             await page.waitForTimeout(50);
-            assert(await page.$eval('#legacyPayments',el=>getComputedStyle(el).visibility)==='hidden','legacy Payments frame became visible before sanitation completed');
+            const initialPayments=await page.evaluate(()=>({
+              childVisibility:getComputedStyle(document.querySelector('#legacyPayments')).visibility,
+              overlay:getComputedStyle(document.querySelector('#page-payments'),'::after').content,
+              ready:document.documentElement.getAttribute('data-rona-client-payments-paint-ready')
+            }));
+            assert(initialPayments.childVisibility==='visible','Payments runtime DOM was hidden and can deadlock sanitation/runtime scanners');
+            assert(initialPayments.overlay.includes('Загрузка актуальных платежных данных'),'Payments opaque overlay missing before sanitation completed');
+            assert(initialPayments.ready!=='true','Payments gate released with legacy payment leaf present');
             await page.evaluate(()=>document.querySelector('#legacyPayments').remove());
             await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-payments-paint-ready')==='true',{timeout:5000});
-            assert(await page.$eval('[data-rona-client-payments-owner]',el=>getComputedStyle(el).visibility)==='visible','current Payments owner did not release');
+            const paymentsReleased=await page.evaluate(()=>getComputedStyle(document.querySelector('#page-payments'),'::after').content);
+            assert(paymentsReleased==='none'||paymentsReleased==='normal','Payments overlay did not release');
 
             await page.dispatchEvent('#navDeals','pointerdown');
             assert(await page.evaluate(()=>!document.documentElement.hasAttribute('data-rona-client-deals-paint-ready')),'Deals paint gate was not reset on navigation prepaint');
-            console.log('CLIENT_DEALS_PAYMENTS_NO_LEGACY_TRANSITION=PASS');
+            console.log('CLIENT_SECTION_PREPAINT_NO_DEADLOCK=PASS');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
