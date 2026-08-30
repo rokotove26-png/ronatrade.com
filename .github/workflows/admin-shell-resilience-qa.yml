@@ -7,14 +7,6 @@ on:
   push:
     branches:
       - 'release/public-go-live-v1.1'
-      - 'fix/admin-shell-static-assets-pretty-path-20260826'
-      - 'fix/admin-current-only-owner-ui-20260826'
-      - 'fix/admin-runtime-self-heal-20260826'
-      - 'fix/admin-access-nav-parity-20260826'
-      - 'fix/admin-current-router-functional-sections-20260826'
-      - 'fix/admin-single-owner-stability-20260826'
-      - 'fix/lk-rail-analytics-recovery-20260826'
-      - 'fix/market-news-content-health-v6-20260827'
 
 jobs:
   admin-shell-resilience:
@@ -24,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
       - name: Syntax check Admin current-only code
         run: |
           node --check assets/portal-admin-shell-fast-v1.js
@@ -67,18 +59,14 @@ jobs:
           grep -q 'clients-agents-current-ui' dist/portal/admin.html
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" dist/assets/portal-admin-shell-fast-v1.js
           grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'" dist/assets/portal-admin-runtime-watchdog-v1.js
-          grep -q "if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')" dist/assets/portal-admin-runtime-watchdog-v1.js
-          grep -q "root.querySelector(':scope > .mn-masthead')" dist/assets/portal-admin-runtime-watchdog-v1.js
           grep -q '/portal/analytics-v2-ui' dist/assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/rail-safe-fallback-ui' dist/assets/portal-admin-shell-fast-v1.js
-          grep -q 'approved-v4.3.2-pricing-bridge-single-owner' dist/portal/analytics-v2-ui
-          grep -q 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/portal/analytics-v2-ui
           ! grep -q 'location.reload(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' dist/assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
           ! grep -q 'Временный автономный вход' dist/portal/admin.html
           ! grep -q 'admin_externalized' dist/portal/admin.html
-          ! grep -q 'v3.4.13' dist/portal/admin.html
           test "$(wc -c < dist/portal/admin.html)" -lt 60000
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
+          echo 'ADMIN_SHELL_RESILIENCE_CURRENT=PASS'

@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { readFile } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { onRequest as currentUiRequest } from '../functions/portal/clients-agents-current-ui.js';
 
@@ -18,7 +19,11 @@ const authority=()=>({
   accessUsers:[]
 });
 const ui=await (await currentUiRequest()).text();
-const html=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#050b13;color:#fff;font:14px Arial,sans-serif;padding:40px}.rona-owner-card{border:1px solid #234;padding:12px;border-radius:12px}</style></head><body><section id="page-access"></section><script src="/current-access.js"></script></body></html>`;
+const modalCss=await readFile('assets/portal-admin-modal-stack-v1.css','utf8');
+const builtAdmin=await readFile('dist/portal/admin.html','utf8');
+if(!modalCss.includes('.ca-modal-backdrop{z-index:2147483600!important}'))throw new Error('ADMIN_MODAL_STACK_CSS_MISSING');
+if(!builtAdmin.includes('data-rona-admin-modal-stack="v1"'))throw new Error('ADMIN_MODAL_STACK_BUILD_ATTACHMENT_MISSING');
+const html=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/admin-modal-stack.css"><style>body{margin:0;background:#050b13;color:#fff;font:14px Arial,sans-serif;padding:40px}.rona-owner-card{border:1px solid #234;padding:12px;border-radius:12px}</style></head><body><section id="page-access"></section><script src="/current-access.js"></script></body></html>`;
 
 function send(res,status,body,type='text/plain; charset=utf-8'){res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(body)}
 function json(res,data,status=200){send(res,status,JSON.stringify(data),'application/json; charset=utf-8')}
@@ -28,6 +33,7 @@ const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url||'/', 'http://127.0.0.1');
   if(u.pathname==='/portal/admin')return send(res,200,html,'text/html; charset=utf-8');
   if(u.pathname==='/current-access.js')return send(res,200,ui,'application/javascript; charset=utf-8');
+  if(u.pathname==='/admin-modal-stack.css')return send(res,200,modalCss,'text/css; charset=utf-8');
   if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/bootstrap')return json(res,{ok:true,data:business});
   if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/access-workspace')return json(res,{ok:true,data:{users:[],events:[],rightsModel:{clientRoles:['Уполномоченный представитель','Директор','Бухгалтер','Логистика']}}});
   if(u.pathname==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority()});

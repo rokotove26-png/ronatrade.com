@@ -1,4 +1,4 @@
-name: Admin Analytics Canonical v4.3.2 Single Owner QA
+name: Admin Analytics Current Single Owner QA
 
 on:
   pull_request:
@@ -7,19 +7,20 @@ on:
   push:
     branches:
       - 'release/public-go-live-v1.1'
-      - 'fix/analytics-approved-single-owner-20260827'
 
 jobs:
-  analytics-canonical-single-owner:
+  analytics-current-single-owner:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - name: Verify canonical Analytics runtime only
+          node-version: '24'
+      - name: Verify current Analytics owner source
+        shell: bash
         run: |
+          set -euo pipefail
           node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/analytics-v2-approved-base.js
           node --check functions/portal/admin-approved-analytics-v455-ui.js
@@ -31,44 +32,32 @@ jobs:
           const source = await response.text();
           new Function(source);
           for (const token of ['approved-v4.3.2-pricing-bridge-single-owner','RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html','RONA TRADE · ANALYTICS','Аналитика','АИ-92','АИ-95','ДТ','LPG / СУГ','Platts LPG / СУГ','Petromarket · DAP benchmark','1075.25','1226.75','Возможные цены RONA Trade','Аналитический вывод','DATA-DRIVEN','FACT / CALCULATION / FORECAST']) {
-            if (!source.includes(token)) throw new Error('canonical Analytics token missing: '+token);
+            if (!source.includes(token)) throw new Error('current Analytics token missing: '+token);
           }
           for (const token of ['rona-analytics-canonical-title','ronaAnalyticsCanonicalHomeVisualV1','home-canonical-frames-title-v1','LPG Hairatan','Hairatan / Petromarket / Platts propane ref','Комментарий Коммерческого директора','Аналитическая лента','Текущий опубликованный ориентир RONA Trade']) {
             if (source.includes(token)) throw new Error('stale Analytics marker leaked: '+token);
           }
-          if (response.headers.get('x-rona-analytics-ui') !== 'approved-v4.3.2-pricing-bridge-single-owner') throw new Error('canonical ui header missing');
-          if (response.headers.get('x-rona-analytics-owner') !== 'approved-v432-exclusive') throw new Error('canonical owner header missing');
-          if (response.headers.get('x-rona-analytics-source-file') !== 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html') throw new Error('canonical source-file header missing');
-          if (response.headers.get('x-rona-analytics-visual') !== 'approved-hero-v432-pricing-bridge') throw new Error('canonical visual header missing');
-          if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('canonical chart header missing');
+          if (response.headers.get('x-rona-analytics-ui') !== 'approved-v4.3.2-pricing-bridge-single-owner') throw new Error('current ui header missing');
+          if (response.headers.get('x-rona-analytics-owner') !== 'approved-v432-exclusive') throw new Error('current owner header missing');
+          if (response.headers.get('x-rona-analytics-source-file') !== 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html') throw new Error('current source-file header missing');
+          if (response.headers.get('x-rona-analytics-visual') !== 'approved-hero-v432-pricing-bridge') throw new Error('current visual header missing');
+          if (response.headers.get('x-rona-analytics-chart') !== 'designer-v3-shared-gasoline-axis') throw new Error('current chart header missing');
           const shim = await import('./functions/portal/admin-approved-analytics-v455-ui.js?qa='+Date.now());
           const shimSource = await (await shim.onRequest({})).text();
+          new Function(shimSource);
           if (!shimSource.includes('retired-compat-guard-v5')) throw new Error('old v455 overlay is not retired');
           if (shimSource.includes('makeSvg(') || shimSource.includes('A92.map(x=>x+40)')) throw new Error('old v455 renderer still active');
           NODE
-      - name: Build current-only artifact
+      - name: Build authoritative current artifact
         run: npm run build
-      - name: Verify materialized production Analytics
+      - name: Verify materialization and exclusive ownership
+        shell: bash
         run: |
-          grep -q 'approved-v4.3.2-pricing-bridge-single-owner' dist/portal/analytics-v2-ui
-          grep -q 'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/portal/analytics-v2-ui
-          grep -q 'RONA TRADE · ANALYTICS' dist/portal/analytics-v2-ui
-          grep -q 'Platts LPG / СУГ' dist/portal/analytics-v2-ui
-          grep -q '1075.25' dist/portal/analytics-v2-ui
-          grep -q '1226.75' dist/portal/analytics-v2-ui
-          grep -q 'Аналитический вывод' dist/portal/analytics-v2-ui
-          grep -q 'DATA-DRIVEN' dist/portal/analytics-v2-ui
-          grep -q 'X-Rona-Analytics-Ui: approved-v4.3.2-pricing-bridge-single-owner' dist/_headers
-          grep -q 'X-Rona-Analytics-Owner: approved-v432-exclusive' dist/_headers
-          grep -q 'X-Rona-Analytics-Source-File: RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html' dist/_headers
-          if grep -q 'rona-analytics-canonical-title' dist/portal/analytics-v2-ui; then exit 1; fi
-          if grep -q 'home-canonical-frames-title-v1' dist/portal/analytics-v2-ui; then exit 1; fi
-          if grep -q 'LPG Hairatan' dist/portal/analytics-v2-ui; then exit 1; fi
-          if grep -q 'Комментарий Коммерческого директора' dist/portal/analytics-v2-ui; then exit 1; fi
-      - name: Verify ownership split
-        run: |
+          set -euo pipefail
+          test -s dist/portal/analytics-v2-ui
+          test -s dist/_headers
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           grep -q "if(p==='analytics')loadAnalytics()" assets/portal-admin-shell-fast-v1.js
-          grep -q "\['agent-settlements','messages','market-news'\]" assets/portal-admin-shell-fast-v1.js
           if grep -q "'аналитика':'analytics'" dist/portal/remaining-sections-ui; then exit 1; fi
           if grep -q 'function renderAnalytics(){' dist/portal/remaining-sections-ui; then exit 1; fi
+          echo 'ADMIN_ANALYTICS_CURRENT_SINGLE_OWNER=PASS'

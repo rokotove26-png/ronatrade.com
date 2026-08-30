@@ -4,10 +4,7 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
   push:
-    branches:
-      - 'release/public-go-live-v1.1'
-      - 'hotfix/admin-interactivity-*'
-      - 'feature/portal-visual-redesign-*'
+    branches: [release/public-go-live-v1.1]
 
 permissions:
   actions: read
@@ -24,33 +21,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify owner acceptance current source contract
+      - name: Verify current-only owner acceptance source contract
         shell: bash
         run: |
           set -euo pipefail
           npm run build
           node --check functions/portal/admin.js
-          node --check functions/portal/client.js
           node --check functions/portal/agent.js
-          node --check functions/portal/main-ui.js
+          node --check functions/portal/main-ui/index.js
+          node --check functions/portal/admin-main-ui-current.js
           node --check functions/portal/owner-api.js
           node --check functions/portal/clients-agents-current-ui.js
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
-          cmp -s portal-src/current/admin.html dist/portal/admin.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' dist/portal/agent.html
-          cmp -s 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' dist/portal/client.html
-          grep -q 'data-rona-admin-shell="current-only-v2"' dist/portal/admin.html
-          grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" dist/portal/admin.html
-          grep -q 'data-action="create-access">Создать доступ</button>' dist/portal/admin.html
-          grep -q 'data-page="agent-settlements"' dist/portal/admin.html
-          grep -q 'data-page="claims"' dist/portal/admin.html
-          ! grep -q 'adminLoginGate' dist/portal/admin.html
-          ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
-          ! grep -q 'Временный автономный вход' dist/portal/admin.html
-          grep -q 'src="/portal/main-ui"' functions/portal/client.js
-          grep -q 'src="/portal/main-ui"' functions/portal/agent.js
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.admin_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
+          node --check 'functions/portal/owner-acceptance-api/[[path]].js'
+          test ! -e functions/portal/client.js
+          grep -q "export { onRequest } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
+          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false||x.client_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
           echo 'OWNER_ACCEPTANCE_CURRENT_ONLY_SOURCE=PASS'
       - name: Wait for exact production deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'

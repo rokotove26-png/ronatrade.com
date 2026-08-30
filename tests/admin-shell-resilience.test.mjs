@@ -23,9 +23,9 @@ assert(admin.includes("if(!rolesOf(session.me).includes('ADMIN'))"),'Admin role 
 assert(admin.includes("if(session?.unavailable)return recoveryPage(request,session.setCookies)"),'Transient auth failures must preserve the session');
 assert(admin.includes("if(!session)return loginRedirect(request,clearCookies())"),'Invalid sessions must return to canonical login');
 
-assert(middleware.includes("if(url.pathname==='/portal/admin')return context.next();"),'Portal middleware must bypass Admin HTML');
-const bypass=middleware.indexOf("if(url.pathname==='/portal/admin')return context.next();"),text=middleware.indexOf('response.text()');
-assert(text<0||bypass<text,'Admin must bypass response buffering');
+assert(middleware.includes("if(url.pathname!=='/portal/client')return response;"),'Portal middleware must leave non-Client routes untouched');
+const clientOnly=middleware.indexOf("if(url.pathname!=='/portal/client')return response;"),text=middleware.indexOf('response.text()');
+assert(clientOnly>=0&&(text<0||clientOnly<text),'Non-Client routes must bypass response buffering');
 
 for(const marker of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','current-only-router-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-agent-settlements"','id="page-claims"','id="page-market-news"','portal-admin-shell-fast-v1.js','clients-agents-current-ui'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
 for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','admin_externalized','BOOT_ERROR_LATCH_FINAL_CANDIDATE'])assert(!shell.includes(marker),`Legacy Admin marker returned: ${marker}`);
@@ -37,7 +37,7 @@ assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must
 assert(shell.length<60000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
 
 assert(build.includes("path: 'portal-src/current/admin.html'"),'Build must source Admin from current shell');
-assert(build.includes('CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'),'Build integrity must declare current-only Admin architecture');
+assert(build.includes('CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'),'Build integrity must declare current-only Admin and Client architecture');
 assert(build.includes('legacy_runtime_in_deployment:false'),'Build integrity must fail closed on legacy deployment');
 assert(build.includes('current-only-router-v2'),'Build must reject a shell without authoritative current router');
 

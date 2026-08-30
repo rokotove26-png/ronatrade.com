@@ -1,9 +1,8 @@
-name: Deals production browser proof 20260824
+name: Deals production browser proof
 
 on:
   push:
     branches:
-      - 'hotfix/deals-production-proof-v15-20260824'
       - 'release/public-go-live-v1.1'
   pull_request:
     branches: [release/public-go-live-v1.1]
@@ -40,14 +39,15 @@ jobs:
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/deals-current-state-ui' assets/portal-admin-shell-fast-v1.js
           grep -q 'current-only-v1.5' functions/portal/admin-main-ui-current.js
-          grep -q 'current-state-v1.5' functions/portal/deals-current-state-ui.js
+          grep -q 'current-state-v1.6-signed-addendum' functions/portal/deals-current-state-ui.js
           grep -q "replaceAll('waitsAction','waitsPayment')" functions/portal/deals-current-state-ui.js
           grep -q 'ronaDealsLayoutV15' functions/portal/deals-current-state-ui.js
+          grep -q 'Скачать подписанное доп. соглашение' functions/portal/deals-current-state-ui.js
           grep -q 'width:310px!important' functions/portal/deals-current-state-ui.js
           grep -q 'width:145px!important' functions/portal/deals-current-state-ui.js
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'v3.4.13' dist/portal/admin.html
-          echo 'DEALS_CURRENT_ONLY_V2_SOURCE=PASS'
+          echo 'DEALS_CURRENT_SOURCE=PASS'
       - name: Wait for exact production deploy convergence
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
@@ -59,10 +59,10 @@ jobs:
         run: |
           node scripts/verify-admin-current-only-production.mjs
           for i in 1 2 3 4 5 6; do
-            if curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA&attempt=$i&ts=$(date +%s%N)" && grep -qi '^x-rona-deals-ui: current-state-v1.5' /tmp/deals.headers; then break; fi
+            if curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA&attempt=$i&ts=$(date +%s%N)" && grep -qi '^x-rona-deals-ui: current-state-v1.6-signed-addendum' /tmp/deals.headers; then break; fi
             sleep 2
           done
-          grep -qi '^x-rona-deals-ui: current-state-v1.5' /tmp/deals.headers
+          grep -qi '^x-rona-deals-ui: current-state-v1.6-signed-addendum' /tmp/deals.headers
           node --check /tmp/deals.js
           grep -q 'function isolateDealsPage(root,host)' /tmp/deals.js
           grep -q "host.dataset.ronaDealsOwner='current-v1.5'" /tmp/deals.js
@@ -70,9 +70,10 @@ jobs:
           ! grep -q 'waitsAction' /tmp/deals.js
           grep -q "kpi('Ожидают оплаты'" /tmp/deals.js
           grep -q "'Базис поставки'" /tmp/deals.js
+          grep -q 'Скачать подписанное доп. соглашение' /tmp/deals.js
           grep -q "'Общий объём сделок, т'" /tmp/deals.js
           grep -q "'Общая сумма сделок'" /tmp/deals.js
-          echo 'DEALS_V15_PRODUCTION_PROOF=PASS'
+          echo 'DEALS_CURRENT_PRODUCTION_PROOF=PASS'
       - name: Publish Deals proof status
         if: always()
         env:
