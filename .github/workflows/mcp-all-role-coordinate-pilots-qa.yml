@@ -45,15 +45,19 @@ jobs:
           grep -Fq "'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR']" supabase/functions/rona-mcp-gateway/index.js
           grep -Fq "'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE']" supabase/functions/rona-mcp-gateway/index.js
           grep -Fq "'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL']" supabase/functions/rona-mcp-gateway/index.js
-          grep -Fq "'rona-mcp-market-analyst-pilot':['MARKET_ANALYST','AI-MARKET-ANALYST']" supabase/functions/rona-mcp-gateway/index.js
+          grep -Fq "'rona-mcp-market-analyst-pilot':['COMMERCIAL_DIRECTOR','AI-COMMERCIAL-DIRECTOR']" supabase/functions/rona-mcp-gateway/index.js
           grep -Fq "'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS']" supabase/functions/rona-mcp-gateway/index.js
 
           grep -Fq "COORDINATE_PILOT_SLUGS" supabase/functions/rona-mcp-oauth-token/index.js
           grep -Fq "mcp_gateway_config_coordinate_pilot_binding_check" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-finance-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-legal-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
-          grep -Fq "rona-mcp-market-analyst-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
           grep -Fq "rona-mcp-rail-logistics-pilot" supabase/migrations/20260818202500_all_business_role_coordinate_pilots.sql
+
+          grep -Fq "mcp_gateway_config_coordinate_pilot_binding_check" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
+          grep -Fq "server_slug='rona-mcp-market-analyst-pilot' and business_role='COMMERCIAL_DIRECTOR'" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
+          grep -Fq "identity_id='AI-COMMERCIAL-DIRECTOR'" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
+          grep -Fq "where identity_id='AI-MARKET-ANALYST';" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
 
           if grep -R -Eq "rona-mcp-system-admin-pilot|/system-admin-pilot" functions supabase/functions supabase/migrations _routes.json; then
             echo SYSTEM_ADMIN_COORDINATE_PILOT_FORBIDDEN
