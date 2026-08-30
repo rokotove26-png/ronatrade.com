@@ -5,7 +5,7 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-home-night-panel-v4.js';
 const id='rona-client-home-night-panel-v4';
-const src='/assets/portal-runtime/client-home-night-panel-v4.js?v=20260830-night-cockpit-v4';
+const src='/assets/portal-runtime/client-home-night-panel-v4.js?v=20260830-night-cockpit-v4-compact-color';
 const marker='20260830-client-home-night-panel-v4';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -13,6 +13,8 @@ const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_HOME_NIGHT_MARKER_MISSING: ${marker}`);
 if(!runtime.includes('data-rona-home-night')||!runtime.includes('rona-night-left')||!runtime.includes('data-rona-night-empty'))throw new Error('CLIENT_HOME_NIGHT_REFLOW_CONTRACT_MISSING');
 if(!runtime.includes('appendChild(finance)')||!runtime.includes('appendChild(control)'))throw new Error('CLIENT_HOME_NIGHT_GAP_REMOVAL_MISSING');
+if(!runtime.includes('min-height:0!important')||!runtime.includes('padding:11px 16px')||!runtime.includes('padding:11px 15px'))throw new Error('CLIENT_HOME_NIGHT_COMPACT_FRAME_CONTRACT_MISSING');
+if(!runtime.includes('color:#f0cd77')||!runtime.includes('color:#92e8bf')||!runtime.includes('color:#8de1ff'))throw new Error('CLIENT_HOME_NIGHT_ROLE_COLOR_CONTRACT_MISSING');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_NIGHT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_HOME_NIGHT_IMAGE_ASSET_FORBIDDEN');
 
@@ -28,7 +30,7 @@ const emitted=Buffer.from(html,'utf8');
 const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
-integrity.client_runtime.home_night_visual={id,src,marker,mode:'NIGHT_COCKPIT_VISUAL_V4',data_source:'UNCHANGED_SERVER_AUTHORITATIVE_HOME_V2',layout:'INDEPENDENT_LEFT_RIGHT_STACKS',gap_removal:'FINANCE_MOVED_BELOW_DEALS_AND_CONTROL_MOVED_BELOW_ACTIONS',visual_changes:['SOFT_EDGE_GLOW','STATUS_TONE_GLOW','INSTRUMENT_PANEL_DEPTH','FINANCE_TRACK_GLOW','STATIC_NO_BLINKING'],images_added:false,business_logic_changed:false,hardcoded_business_entities:false};
+integrity.client_runtime.home_night_visual={id,src,marker,mode:'NIGHT_COCKPIT_VISUAL_V4',variant:'COMPACT_ROLE_COLOR',data_source:'UNCHANGED_SERVER_AUTHORITATIVE_HOME_V2',layout:'INDEPENDENT_LEFT_RIGHT_STACKS',gap_removal:'FINANCE_MOVED_BELOW_DEALS_AND_CONTROL_MOVED_BELOW_ACTIONS',visual_changes:['COMPACT_FRAME_GEOMETRY','ROLE_COLORED_BORDERS','ROLE_COLORED_TYPOGRAPHY','SOFT_EDGE_GLOW','STATUS_TONE_GLOW','INSTRUMENT_PANEL_DEPTH','FINANCE_TRACK_GLOW','STATIC_NO_BLINKING'],images_added:false,business_logic_changed:false,hardcoded_business_entities:false};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
 console.log(`CLIENT_HOME_NIGHT_PANEL_V4=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);

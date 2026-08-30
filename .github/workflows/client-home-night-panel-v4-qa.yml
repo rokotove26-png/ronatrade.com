@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - 'feat/client-home-night-panel-v4-20260830'
+      - 'feat/client-home-night-panel-v4-compact-color-20260830'
       - 'release/public-go-live-v1.1'
 
 permissions:
@@ -22,7 +23,7 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Verify runtime, no imagery and build attachment
+      - name: Verify compact colored runtime, no imagery and build attachment
         shell: bash
         run: |
           set -euo pipefail
@@ -31,16 +32,16 @@ jobs:
           node <<'NODE'
           const fs=require('fs');
           const v=fs.readFileSync('assets/portal-runtime/client-home-night-panel-v4.js','utf8');
-          for(const marker of ['20260830-client-home-night-panel-v4','data-rona-home-night','rona-night-left','data-rona-night-empty','appendChild(finance)','appendChild(control)'])if(!v.includes(marker))throw new Error('missing night panel marker '+marker);
+          for(const marker of ['20260830-client-home-night-panel-v4','data-rona-home-night','rona-night-left','data-rona-night-empty','appendChild(finance)','appendChild(control)','min-height:0!important','padding:11px 16px','padding:11px 15px','color:#f0cd77','color:#92e8bf','color:#8de1ff'])if(!v.includes(marker))throw new Error('missing night panel marker '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(v))throw new Error('hardcoded business entity found');
           if(/<img|<svg|<canvas|background-image\s*:/iu.test(v))throw new Error('image asset found in night panel runtime');
           const a=fs.readFileSync('scripts/attach-client-home-night-panel-v4.mjs','utf8');
-          for(const marker of ['NIGHT_COCKPIT_VISUAL_V4','images_added:false','business_logic_changed:false','INDEPENDENT_LEFT_RIGHT_STACKS'])if(!a.includes(marker))throw new Error('missing attachment marker '+marker);
+          for(const marker of ['NIGHT_COCKPIT_VISUAL_V4','COMPACT_ROLE_COLOR','COMPACT_FRAME_GEOMETRY','ROLE_COLORED_BORDERS','ROLE_COLORED_TYPOGRAPHY','images_added:false','business_logic_changed:false','INDEPENDENT_LEFT_RIGHT_STACKS'])if(!a.includes(marker))throw new Error('missing attachment marker '+marker);
           NODE
           npm run build
           grep -q 'id="rona-client-home-night-panel-v4"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-home-night-panel-v4.js?v=20260830-night-cockpit-v4' dist/portal/client.html
-          node -e "const i=require('./dist/canonical-visual-integrity.json');const v=i.client_runtime?.home_night_visual;if(v?.mode!=='NIGHT_COCKPIT_VISUAL_V4'||v?.images_added!==false||v?.business_logic_changed!==false||v?.layout!=='INDEPENDENT_LEFT_RIGHT_STACKS')process.exit(1)"
+          grep -q '/assets/portal-runtime/client-home-night-panel-v4.js?v=20260830-night-cockpit-v4-compact-color' dist/portal/client.html
+          node -e "const i=require('./dist/canonical-visual-integrity.json');const v=i.client_runtime?.home_night_visual;if(v?.mode!=='NIGHT_COCKPIT_VISUAL_V4'||v?.variant!=='COMPACT_ROLE_COLOR'||v?.images_added!==false||v?.business_logic_changed!==false||v?.layout!=='INDEPENDENT_LEFT_RIGHT_STACKS')process.exit(1)"
 
       - name: Install Chrome browser harness
         shell: bash
@@ -49,7 +50,7 @@ jobs:
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
 
-      - name: Prove gap removal and cockpit lighting in Chrome
+      - name: Prove compact geometry and role colors in Chrome
         shell: bash
         run: |
           set -euo pipefail
@@ -61,32 +62,38 @@ jobs:
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1500,height:1000}});
             const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
-            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#04101b;color:white;font-family:Arial,sans-serif}#page-home{width:1200px;margin:30px auto}.owner{width:1100px}.rona-cc-main,.rona-cc-bottom{display:grid;grid-template-columns:2fr 1fr;gap:16px}.rona-cc-stack{display:grid;gap:16px}.rona-cc-panel,.rona-cc-kpi,.rona-cc-livebar{border:1px solid rgba(80,160,200,.2);background:#071d2d}.rona-cc-panel-head{padding:12px}.rona-cc-deals,.rona-cc-attention,.rona-cc-actions,.rona-cc-finance{padding:12px}.rona-cc-deal{min-height:120px}.rona-cc-actions{min-height:180px}.rona-cc-alert{min-height:80px}.rona-cc-finance{min-height:100px}</style></head><body><section id="page-home"><section class="owner" data-rona-client-home-owner="command-center-v2"><div class="rona-cc-livebar"><i class="rona-cc-live-dot"></i><strong class="rona-cc-live-title">Оперативный центр</strong></div><div class="rona-cc-kpis"><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">2</strong></div><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">620 т</strong></div><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">251 070</strong></div><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">2/2</strong></div></div><div class="rona-cc-main"><div><section class="rona-cc-panel"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Сделки в работе</strong></div><div class="rona-cc-deals"><div class="rona-cc-deal"><span class="rona-cc-pill" data-tone="ok">В исполнении</span><button class="rona-cc-open">Открыть</button></div></div></section></div><div class="rona-cc-stack"><section class="rona-cc-panel"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Требует внимания</strong></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Критических событий нет</strong></div></div></section><section class="rona-cc-panel"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Быстрые действия</strong></div><div class="rona-cc-actions"><button class="rona-cc-action">Заявки</button><button class="rona-cc-action">Сделки</button></div></section></div></div><div class="rona-cc-bottom"><section class="rona-cc-panel"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Финансовое исполнение</strong></div><div class="rona-cc-finance"><div class="rona-cc-finance-track"><i style="display:block;width:35%;height:10px;background:#4bcf9f"></i></div></div></section><section class="rona-cc-panel"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Контур управления</strong></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки и ресурс</strong></div></div></section></div></section></section></body></html>`}));
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#04101b;color:white;font-family:Arial,sans-serif}#page-home{width:1200px;margin:30px auto}.owner{width:1100px}.owner *{box-sizing:border-box}.rona-cc-main,.rona-cc-bottom{display:grid;grid-template-columns:2fr 1fr;gap:16px}.rona-cc-stack{display:grid;gap:16px}.rona-cc-panel,.rona-cc-kpi,.rona-cc-livebar{border:1px solid rgba(80,160,200,.2);background:#071d2d}.rona-cc-panel-head{padding:12px}.rona-cc-deals,.rona-cc-attention,.rona-cc-actions,.rona-cc-finance{padding:12px}.rona-cc-deal{display:grid;grid-template-columns:minmax(185px,1.35fr) minmax(118px,.78fr) minmax(132px,.88fr) minmax(132px,.88fr) auto;align-items:center;min-height:120px}.rona-cc-actions{min-height:180px}.rona-cc-alert{min-height:80px}.rona-cc-finance{min-height:100px}</style></head><body><section id="page-home"><section class="owner" data-rona-client-home-owner="command-center-v2"><div class="rona-cc-livebar"><i class="rona-cc-live-dot"></i><strong class="rona-cc-live-title">Оперативный центр</strong></div><div class="rona-cc-kpis"><div class="rona-cc-kpi" data-visual-rank="hero"><span class="rona-cc-kpi-label">Активные сделки</span><strong class="rona-cc-kpi-value">2</strong></div><div class="rona-cc-kpi"><span class="rona-cc-kpi-label">Объём</span><strong class="rona-cc-kpi-value">620 т</strong></div><div class="rona-cc-kpi" data-visual-rank="finance"><span class="rona-cc-kpi-label">Получено</span><strong class="rona-cc-kpi-value">251 070</strong></div><div class="rona-cc-kpi" data-visual-rank="resource"><span class="rona-cc-kpi-label">Ресурс</span><strong class="rona-cc-kpi-value">2/2</strong></div></div><div class="rona-cc-main"><div><section class="rona-cc-panel"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Сделки в работе</strong></div><div class="rona-cc-deals"><div class="rona-cc-deal"><div><strong class="rona-cc-deal-id">TX-001</strong><div class="rona-cc-deal-product">СУГ · 315 т</div><div class="rona-cc-deal-route">CPT · станция</div></div><span class="rona-cc-pill" data-tone="ok">В исполнении</span><span class="rona-cc-pill" data-tone="ok">Подтверждён</span><span class="rona-cc-pill" data-tone="ok">Оплачено</span><button class="rona-cc-open">Открыть</button></div></div></section></div><div class="rona-cc-stack"><section class="rona-cc-panel" data-visual-panel="attention"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Требует внимания</strong></div><div class="rona-cc-attention"><div class="rona-cc-alert" data-tone="wait"><strong>Критических событий нет</strong></div></div></section><section class="rona-cc-panel" data-visual-panel="actions"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Быстрые действия</strong></div><div class="rona-cc-actions"><button class="rona-cc-action">Заявки<span>Открыть заявки</span></button><button class="rona-cc-action">Сделки<span>Открыть сделки</span></button></div></section></div></div><div class="rona-cc-bottom"><section class="rona-cc-panel" data-visual-panel="finance"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Финансовое исполнение</strong></div><div class="rona-cc-finance"><div class="rona-cc-finance-row"><b class="rona-cc-finance-code">USD</b><div class="rona-cc-finance-track"><i style="display:block;width:35%;height:10px;background:#4bcf9f"></i></div><div class="rona-cc-finance-values"><b>251 070</b></div></div></div></section><section class="rona-cc-panel" data-visual-panel="control"><div class="rona-cc-panel-head"><strong class="rona-cc-panel-title">Контур управления</strong></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки и ресурс</strong></div><div class="rona-cc-alert"><strong>Финансы</strong></div><div class="rona-cc-alert"><strong>Контекст</strong></div></div></section></div></section></section></body></html>`}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-tablet-visual-v3.js')});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-night-panel-v4.js')});
             await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]')?.getAttribute('data-rona-home-night')==='v4');
             const r=await page.evaluate(()=>{
               const owner=document.querySelector('[data-rona-client-home-owner]');
-              const deals=[...owner.querySelectorAll('.rona-cc-panel')].find(x=>x.textContent.includes('Сделки в работе'));
-              const finance=[...owner.querySelectorAll('.rona-cc-panel')].find(x=>x.textContent.includes('Финансовое исполнение'));
-              const actions=[...owner.querySelectorAll('.rona-cc-panel')].find(x=>x.textContent.includes('Быстрые действия'));
-              const control=[...owner.querySelectorAll('.rona-cc-panel')].find(x=>x.textContent.includes('Контур управления'));
+              const panel=t=>[...owner.querySelectorAll('.rona-cc-panel')].find(x=>x.textContent.includes(t));
+              const deals=panel('Сделки в работе'),finance=panel('Финансовое исполнение'),actions=panel('Быстрые действия'),attention=panel('Требует внимания'),control=panel('Контур управления');
               const bottom=owner.querySelector('.rona-cc-bottom');
               const gap=Math.round(finance.getBoundingClientRect().top-deals.getBoundingClientRect().bottom);
               const rightGap=Math.round(control.getBoundingClientRect().top-actions.getBoundingClientRect().bottom);
-              return{gap,rightGap,bottomDisplay:getComputedStyle(bottom).display,financeParent:finance.parentElement.className,controlParent:control.parentElement.className,panelShadow:getComputedStyle(deals).boxShadow,liveShadow:getComputedStyle(owner.querySelector('.rona-cc-livebar')).boxShadow,trackShadow:getComputedStyle(owner.querySelector('.rona-cc-finance-track')).boxShadow,images:owner.querySelectorAll('img,svg,canvas').length,overflow:owner.scrollWidth-owner.clientWidth};
+              const cs=x=>getComputedStyle(x);
+              return{gap,rightGap,bottomDisplay:cs(bottom).display,financeParent:finance.parentElement.className,controlParent:control.parentElement.className,panelHeadH:Math.round(deals.querySelector('.rona-cc-panel-head').getBoundingClientRect().height),dealH:Math.round(deals.querySelector('.rona-cc-deal').getBoundingClientRect().height),dealDisplay:cs(deals.querySelector('.rona-cc-deal')).display,dealMinH:cs(deals.querySelector('.rona-cc-deal')).minHeight,controlAlertH:Math.round(control.querySelector('.rona-cc-alert').getBoundingClientRect().height),actionH:Math.round(actions.querySelector('.rona-cc-action').getBoundingClientRect().height),financeBorder:cs(finance).borderTopColor,attentionBorder:cs(attention).borderTopColor,controlBorder:cs(control).borderTopColor,financeTitle:cs(finance.querySelector('.rona-cc-panel-title')).color,attentionTitle:cs(attention.querySelector('.rona-cc-panel-title')).color,controlTitle:cs(control.querySelector('.rona-cc-panel-title')).color,panelShadow:cs(deals).boxShadow,trackShadow:cs(owner.querySelector('.rona-cc-finance-track')).boxShadow,images:owner.querySelectorAll('img,svg,canvas').length,overflow:owner.scrollWidth-owner.clientWidth};
             });
             assert(errors.length===0,'browser errors '+JSON.stringify(errors));
-            assert(r.gap>=12&&r.gap<=20,'left column gap not compact '+JSON.stringify(r));
-            assert(r.rightGap>=12&&r.rightGap<=20,'right column gap not compact '+JSON.stringify(r));
+            assert(r.gap>=10&&r.gap<=18,'left column gap not compact '+JSON.stringify(r));
+            assert(r.rightGap>=10&&r.rightGap<=18,'right column gap not compact '+JSON.stringify(r));
             assert(r.bottomDisplay==='none','legacy bottom row still reserves space '+JSON.stringify(r));
             assert(r.financeParent.includes('rona-night-left'),'finance not moved below deals '+JSON.stringify(r));
             assert(r.controlParent.includes('rona-cc-stack'),'control not moved below actions '+JSON.stringify(r));
-            assert(r.panelShadow!=='none'&&r.liveShadow!=='none'&&r.trackShadow!=='none','cockpit lighting missing '+JSON.stringify(r));
+            assert(r.panelHeadH<=65,'panel head remains stretched '+JSON.stringify(r));
+            assert(r.dealDisplay==='grid'&&r.dealMinH==='0px','deal production geometry not represented '+JSON.stringify(r));
+            assert(r.dealH<=90,'deal frame remains stretched '+JSON.stringify(r));
+            assert(r.controlAlertH<=70,'control frame remains stretched '+JSON.stringify(r));
+            assert(r.actionH>=68,'touch target was reduced '+JSON.stringify(r));
+            assert(new Set([r.financeBorder,r.attentionBorder,r.controlBorder]).size===3,'role border colors are not distinct '+JSON.stringify(r));
+            assert(new Set([r.financeTitle,r.attentionTitle,r.controlTitle]).size===3,'role typography colors are not distinct '+JSON.stringify(r));
+            assert(r.panelShadow!=='none'&&r.trackShadow!=='none','cockpit lighting missing '+JSON.stringify(r));
             assert(r.images===0,'night visual introduced imagery');
             assert(r.overflow<=1,'dashboard horizontal overflow '+JSON.stringify(r));
-            console.log('CLIENT_HOME_NIGHT_PANEL_V4=PASS',JSON.stringify(r));
+            console.log('CLIENT_HOME_NIGHT_PANEL_V4_COMPACT_COLOR=PASS',JSON.stringify(r));
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
