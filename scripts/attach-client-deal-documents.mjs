@@ -9,11 +9,16 @@ const visualRuntimePath='dist/assets/portal-runtime/client-deal-canonical-visual
 const docsId='rona-client-deal-documents-authoritative-v5';
 const visualId='rona-client-deal-canonical-visual-authoritative-v2';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
-const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-signed-addendum-authoritative-v7';
-const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-signed-addendum-authoritative-v7';
+const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
+const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
-const legacyV4Marker='20260829-client-deal-documents-v4-cabinet-canonical';
+const legacyMarkers={
+  __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
+  __RONA_CLIENT_DEAL_DOCUMENTS_V2__:'20260829-deal-documents-v2-universal-stable-ui-v3',
+  __RONA_CLIENT_DEAL_DOCUMENTS_V3__:'20260829-client-deal-documents-v3-canonical-native-v3-2',
+  __RONA_CLIENT_DEAL_DOCUMENTS_V4__:'20260829-client-deal-documents-v4-cabinet-canonical',
+};
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const docsRuntime=await readFile(docsRuntimePath,'utf8');
@@ -50,7 +55,7 @@ for(const id of [docsId,visualId,legacyPreemptId]){
 
 const headOpen=/<head\b[^>]*>/iu.exec(html);
 if(!headOpen)throw new Error('CLIENT_HEAD_OPEN_MISSING');
-const guard=`<script id="${legacyPreemptId}">window.__RONA_CLIENT_DEAL_DOCUMENTS_V4__=${JSON.stringify(legacyV4Marker)};</script>`;
+const guard=`<script id="${legacyPreemptId}">Object.assign(window,${JSON.stringify(legacyMarkers)});</script>`;
 const headInsertAt=headOpen.index+headOpen[0].length;
 html=html.slice(0,headInsertAt)+guard+html.slice(headInsertAt);
 
@@ -66,6 +71,9 @@ if(docsRefs!==1)throw new Error(`CLIENT_DEAL_DOCUMENTS_SINGLE_OWNER_FAILED refs=
 if(oldDocsRefs!==0)throw new Error(`CLIENT_DEAL_DOCUMENTS_LEGACY_OWNER_PRESENT refs=${oldDocsRefs}`);
 if(visualRefs!==1)throw new Error(`CLIENT_DEAL_VISUAL_SINGLE_OWNER_FAILED refs=${visualRefs}`);
 if(!html.includes(`id="${legacyPreemptId}"`))throw new Error('CLIENT_DEAL_DOCUMENTS_LEGACY_PREEMPT_MISSING');
+for(const [key,marker] of Object.entries(legacyMarkers)){
+  if(!html.includes(key)||!html.includes(marker))throw new Error(`CLIENT_DEAL_DOCUMENTS_PREPAINT_GUARD_MISSING:${key}`);
+}
 
 const emitted=Buffer.from(html,'utf8');
 const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
@@ -85,9 +93,10 @@ integrity.client_runtime.deal_documents_bridge={
   replacement_semantics:'SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM',
   success_projection:['SIGNED_ADDENDUM_CURRENT','UPLOAD_DISABLED','DOCUMENTS_SIGNED'],
   client_specific_hardcoding:false,
-  legacy_preempt:{id:legacyPreemptId,marker:legacyV4Marker},
+  prepaint_single_owner:true,
+  legacy_preempt:{id:legacyPreemptId,markers:legacyMarkers},
 };
 await writeFile(htmlPath,html,'utf8');
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; single owner=${docsId}`);
+console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; prepaint_single_owner=true; single owner=${docsId}`);
