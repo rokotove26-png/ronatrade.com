@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - 'fix/client-payments-title-frame-canonical-20260830'
+      - 'fix/client-payments-left-alignment-20260830'
       - 'release/public-go-live-v1.1'
 
 permissions:
@@ -32,7 +33,7 @@ jobs:
           const fs=require('fs');
           const runtime=fs.readFileSync('assets/portal-runtime/client-payments-canonical-layout-v1.js','utf8');
           for(const marker of [
-            '20260830-client-payments-canonical-layout-v2',
+            '20260830-client-payments-canonical-layout-v3',
             'data-rona-payments-canonical-width',
             'title-frame-context',
             'title-frame-owner',
@@ -47,7 +48,7 @@ jobs:
           NODE
           npm run build
           grep -q 'id="rona-client-payments-canonical-layout-v1"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v2' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v3' dist/portal/client.html
           node -e "const i=require('./dist/canonical-visual-integrity.json');const x=i.client_runtime?.payments_canonical_layout;if(x?.width_reference!=='PAYMENTS_TITLE_FRAME_ONLY'||x?.receipt_date_source!=='CLIENT_CONTEXT_FILTERED_PAYMENT_AT'||x?.hardcoded_business_entities!==false)process.exit(1)"
 
       - name: Install browser harness
@@ -69,7 +70,7 @@ jobs:
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1600,height:1000}});
             const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
-            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}#page-payments{position:relative;width:1000px;margin-left:100px}.frame{box-sizing:border-box;border:1px solid rgba(92,159,194,.3);border-radius:12px}#header-frame{width:760px;margin-left:120px}#context-frame{width:680px;margin-left:160px}.owner{display:grid;gap:12px;width:1000px;margin-top:12px}.card{border:1px solid rgba(92,159,194,.22);border-radius:12px}.rona-payments-head{padding:10px}.rona-payments-deals,.rona-payments-events{padding:10px}.rona-payments-deal,.rona-payments-event{padding:8px}</style></head><body><main><section id="page-payments"><section id="header-frame" class="frame"><h1>Платежи и взаиморасчёты</h1></section><section id="context-frame" class="frame"><span>Выбрана компания TEST CLIENT RONA-X · RONA-X-CTR</span></section><section class="owner" data-rona-client-payments-owner="finance-authoritative-v1"><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Платёжный статус</strong></div><div class="rona-payments-deals"><article class="rona-payments-deal" data-deal-id="D-A"><div class="rona-payments-amount">Получено <b>49 320 USD</b></div></article></div></section><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Подтверждённые поступления</strong></div><div class="rona-payments-events"><div class="rona-payments-empty">Подтверждённых банковских поступлений по выбранному договору пока нет.</div></div></section></section></section></main><script>window.__RONA_CLIENT_PAYMENTS_STATE__={version:'test',source:'CLIENT_CONTEXT_FINANCE_PROJECTION',client_id:'RONA-X',contract_id:'RONA-X-CTR',deals:[{deal_id:'D-A'}],payments:[{payment_id:'PAY-A',deal_id:'D-A',payment_at:'2026-08-14T00:00:00Z',amount:49320,currency:'USD'}]};</script></body></html>`}));
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0}#page-payments{position:relative;width:1000px;margin-left:100px;padding:0 24px;box-sizing:border-box}.frame{box-sizing:border-box;border:1px solid rgba(92,159,194,.3);border-radius:12px}#header-frame{width:760px;margin-left:120px}#context-frame{width:680px;margin-left:160px}.owner{display:grid;gap:12px;width:1000px;margin-top:12px}.card{border:1px solid rgba(92,159,194,.22);border-radius:12px}.rona-payments-head{padding:10px}.rona-payments-deals,.rona-payments-events{padding:10px}.rona-payments-deal,.rona-payments-event{padding:8px}</style></head><body><main><section id="page-payments"><section id="header-frame" class="frame"><h1>Платежи и взаиморасчёты</h1></section><section id="context-frame" class="frame"><span>Выбрана компания TEST CLIENT RONA-X · RONA-X-CTR</span></section><section class="owner" data-rona-client-payments-owner="finance-authoritative-v1"><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Платёжный статус</strong></div><div class="rona-payments-deals"><article class="rona-payments-deal" data-deal-id="D-A"><div class="rona-payments-amount">Получено <b>49 320 USD</b></div></article></div></section><section class="card" data-rona-payments-card><div class="rona-payments-head"><strong>Подтверждённые поступления</strong></div><div class="rona-payments-events"><div class="rona-payments-empty">Подтверждённых банковских поступлений по выбранному договору пока нет.</div></div></section></section></section></main><script>window.__RONA_CLIENT_PAYMENTS_STATE__={version:'test',source:'CLIENT_CONTEXT_FINANCE_PROJECTION',client_id:'RONA-X',contract_id:'RONA-X-CTR',deals:[{deal_id:'D-A'}],payments:[{payment_id:'PAY-A',deal_id:'D-A',payment_at:'2026-08-14T00:00:00Z',amount:49320,currency:'USD'}]};</script></body></html>`}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-payments-canonical-layout-v1.js')});
             await page.waitForFunction(()=>document.querySelector('[data-rona-payments-canonical-width="title-frame-owner"]')&&document.querySelector('[data-rona-payments-canonical-width="title-frame-context"]')&&document.querySelector('[data-rona-payment-events-signature]'),{timeout:10000});
