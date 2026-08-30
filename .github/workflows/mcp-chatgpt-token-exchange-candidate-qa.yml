@@ -48,7 +48,8 @@ jobs:
           assert(gateway.includes("function publicMcpResource"),'public resource canonicalizer');
           assert(gateway.includes("function normalizeResource"),'resource normalization');
           assert(gateway.includes("supplied=form.get('resource'),requestedResource=supplied?normalizeResource"),'authorization-code resource may be omitted');
-          assert(consent.includes("stateMatch=redir.searchParams.get('state')===String(row.state)") && consent.includes("phase:'COMPLETE_CALLBACK_ISSUED'"),'callback state match diagnostic lives in consent bridge');
+          assert(consent.includes("stateMatch=redir.searchParams.get('state')===String(row.state)") && consent.includes("replay?'COMPLETE_CALLBACK_REPLAYED':'COMPLETE_CALLBACK_ISSUED'") && consent.includes('idempotent_replay:replay'),'callback state and idempotent replay diagnostics live in consent bridge');
+          assert(consent.includes("'market-analyst':'COMMERCIAL_DIRECTOR'") && consent.includes("'market-analyst-pilot':'COMMERCIAL_DIRECTOR'"),'Commercial Director consent binding');
           assert(gateway.includes("tokenAudit('RONA_OAUTH_TOKEN_REQUEST_RECEIVED'"),'token safe audit');
           assert(gateway.includes("return role==='OPERATIONS_DIRECTOR'") && gateway.includes("['audit','tasks','sessions']"),'role history fixed');
           assert(!gateway.includes("name:'write'"),'no generic write tool');

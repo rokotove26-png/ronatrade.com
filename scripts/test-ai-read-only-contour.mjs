@@ -14,17 +14,19 @@ const proxy=await fs.readFile(proxyPath,'utf8');
 const migration=await fs.readFile(migrationPath,'utf8');
 
 assert.deepEqual(AI_ROLES,[
-  'OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','RAIL_LOGISTICS','SYSTEM_ADMIN'
+  'OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN'
 ]);
 assert(!AI_ROLES.includes('OWNER_ADMIN'));
 for(const role of AI_ROLES) assert(ROLE_DOMAINS[role]?.length>0,`${role} domains`);
 for(const d of ['COMMERCIAL','VED','QUALITY','PUBLICATION']) assert(roleAllowsDomain('OPERATIONS_DIRECTOR',d));
 for(const d of ['PAYMENT','ACCOUNTING','FINANCIAL_CONTROL']) assert(roleAllowsDomain('FINANCE',d));
 assert(roleAllowsDomain('MARKET_ANALYST','PUBLICATION'));
+assert(roleAllowsDomain('COMMERCIAL_DIRECTOR','PUBLICATION'));
 assert(roleAllowsDomain('SYSTEM_ADMIN','IAM'));
 assert(!roleAllowsDomain('SYSTEM_ADMIN','RESOURCE'));
 assert(!roleAllowsDomain('FINANCE','IAM'));
 assert(roleAllowsHistory('OPERATIONS_DIRECTOR','publications'));
+assert(roleAllowsHistory('COMMERCIAL_DIRECTOR','publications'));
 assert(!roleAllowsHistory('FINANCE','publications'));
 
 const key='k'.repeat(64);

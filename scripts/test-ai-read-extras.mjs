@@ -7,7 +7,7 @@ const marketPath=new URL('../functions/portal/api/v1/ai/market-data.js',import.m
 const docPath=new URL('../functions/portal/api/v1/ai/documents/[[path]].js',import.meta.url);
 const market=await fs.readFile(marketPath,'utf8'),docs=await fs.readFile(docPath,'utf8');
 
-assert(edge.includes("auth.role!=='MARKET_ANALYST'"));
+assert(edge.includes("!['MARKET_ANALYST','COMMERCIAL_DIRECTOR'].includes(auth.role)"));
 assert(edge.includes('AI_MARKET_SCOPE_DENIED'));
 assert(edge.includes('distinct on (source_object_type,source_object_id)'));
 assert(edge.includes('LATEST_PER_TYPE_AND_SOURCE_OBJECT_ID'));

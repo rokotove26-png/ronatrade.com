@@ -62,23 +62,30 @@ jobs:
           node --check 'functions/portal/[[path]].js'
           node --check functions/portal/clients-agents-current-ui.js
 
-      - name: Current Admin and approved production router non-regression
+      - name: Current Admin Agent and Client source non-regression
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE_REF="${{ github.base_ref }}"
             git diff --exit-code "origin/$BASE_REF"...HEAD -- \
               functions/portal/_middleware.js \
+              functions/portal/_middleware-core.js \
               'functions/portal/[[path]].js' \
               functions/portal/agent/_middleware.js \
-              portal-src/agent.html \
-              portal-src/client.html \
+              portal-src/current/admin.html \
+              portal-src/current/client \
               portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html \
-              portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html
+              scripts/build-pages-direct-canonical.mjs
           fi
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
-          grep -q "if(url.pathname==='/portal/admin')return context.next();" functions/portal/_middleware.js
+          test ! -e 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html'
+          test ! -e portal-src/client.html
+          test ! -e functions/portal/client.js
+          grep -Fq "source_dir: 'portal-src/current/client'" scripts/build-pages-direct-canonical.mjs
+          grep -Fq "sha256: 'd07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183'" scripts/build-pages-direct-canonical.mjs
+          grep -Fq "visual_transform: 'NONE'" scripts/build-pages-direct-canonical.mjs
+          grep -q "if(url.pathname==='/portal/admin')return context.next();" functions/portal/_middleware-core.js
+          grep -q "if(url.pathname!=='/portal/client')return response;" functions/portal/_middleware.js
           grep -q 'ADMIN_CONTROL_PLANE_API' 'functions/portal/[[path]].js'
           grep -q 'proxyAdminAuthority' 'functions/portal/[[path]].js'
           grep -q "path.startsWith('/portal/admin-authority')" 'functions/portal/[[path]].js'
@@ -93,6 +100,7 @@ jobs:
           echo 'CURRENT_ADMIN_ROUTER_BASELINE=PASS'
           echo 'ADMIN_AUTHORITY_ROUTER=PASS'
           echo 'ADMIN_ACCESS_CURRENT_ONLY=PASS'
+          echo 'CLIENT_CURRENT_ONLY_SOURCE=PASS'
 
       - name: Production build regression
         run: npm run build
@@ -104,15 +112,26 @@ jobs:
             BASE_REF="${{ github.base_ref }}"
             git diff --exit-code "origin/$BASE_REF"...HEAD -- \
               portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html \
-              portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html \
+              portal-src/current/client \
               portal-src/canonical/canonical_background.png \
-              portal-src/canonical/canonical_logo.svg
+              portal-src/canonical/canonical_logo.svg \
+              scripts/build-pages-direct-canonical.mjs
           fi
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
-          test "$(sha256sum 'portal-src/canonical/RONA_Trade_Client_Portal_v1_5_14_SIGNED_CONTRACT_AUTHORITY_FINAL_FIX_CANDIDATE_20260812.html' | awk '{print $1}')" = '961a834f6c29c9479531b8363cb6cdb230acfd4ca1817eba17702fa1b1a21b31'
           test "$(sha256sum 'portal-src/canonical/canonical_background.png' | awk '{print $1}')" = '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
           test "$(sha256sum 'portal-src/canonical/canonical_logo.svg' | awk '{print $1}')" = '755f13d3ba5c7b08a2538b72d3bcb8e0a6d5bb9b24ffde57cda7eca27762ac65'
-          node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_SHELL_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false) process.exit(1)"
+          node <<'NODE'
+          const x=require('./dist/canonical-visual-integrity.json');
+          const fail=m=>{throw new Error(m)};
+          if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS')fail('architecture');
+          if(x.admin_runtime?.state!=='CURRENT_ONLY'||x.admin_runtime?.legacy_runtime_in_deployment!==false)fail('Admin current-only contract');
+          if(x.client_runtime?.state!=='CURRENT_ONLY')fail('Client state');
+          if(x.client_runtime?.source_dir!=='portal-src/current/client')fail('Client source dir');
+          if(x.client_runtime?.source_sha256!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183')fail('Client source sha');
+          if(x.client_runtime?.legacy_runtime_in_deployment!==false)fail('legacy Client runtime');
+          if(x.client_runtime?.visual_transform!=='NONE')fail('Client visual transform');
+          console.log('CURRENT_ONLY_BUILD_INTEGRITY=PASS');
+          NODE
 
       - name: Credential leak scan
         run: |
