@@ -18,9 +18,12 @@ const policy=`/portal/client
 /assets/portal-runtime/client-rail-production-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
+/assets/portal-runtime/client-rail-movizor-gate-v1.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
 /assets/portal-runtime/portal-canonical-button-hover-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 `;
 
 await writeFile('dist/_headers',policy,'utf8');
-console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS route=/portal/client deal + rail runtimes + canonical button hover=no-store');
+console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS route=/portal/client deal + rail + MOVIZOR gate runtimes + canonical button hover=no-store');
