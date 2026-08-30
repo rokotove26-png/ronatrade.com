@@ -1,0 +1,2 @@
+comment on function portal_private.enforce_resource_confirmation_before_payment_allocation() is 'Global deal invariant: a payment allocation cannot be recorded against a deal before authoritative resource confirmation.';
+comment on function portal_private.enforce_resource_confirmation_before_finance_receipt() is 'Global deal invariant: received deal finance cannot be recorded before authoritative resource confirmation.';
