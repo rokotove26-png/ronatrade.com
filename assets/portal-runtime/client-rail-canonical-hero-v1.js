@@ -27,54 +27,65 @@
         margin:0 0 14px!important;
         border:1px solid rgba(113,169,194,.18)!important;
         border-radius:16px!important;
-        background:linear-gradient(135deg,rgba(10,31,43,.94),rgba(6,18,27,.90))!important;
+        background:linear-gradient(135deg,rgba(10,31,43,.94),rgba(6,18,27,.9))!important;
         box-shadow:0 14px 40px rgba(0,0,0,.18)!important;
         color:#eaf4f8!important;
+        font-family:Inter,Arial,sans-serif!important;
         box-sizing:border-box!important;
       }
       ${HOST} .rona-rail-v4-hero .rona-visual-kicker{
         display:block!important;
         margin:0 0 6px!important;
         color:#71b9d2!important;
-        font:800 10px/1.2 inherit!important;
+        font-family:Inter,Arial,sans-serif!important;
+        font-size:10px!important;
+        font-weight:800!important;
         letter-spacing:.14em!important;
         text-transform:uppercase!important;
       }
       ${HOST} .rona-rail-v4-hero .rona-visual-title{
         display:block!important;
         margin:0!important;
-        color:#effbff!important;
-        font:850 25px/1.1 inherit!important;
+        color:#eaf4f8!important;
+        font-family:Inter,Arial,sans-serif!important;
+        font-size:25px!important;
+        line-height:1.1!important;
+        font-weight:850!important;
         letter-spacing:-.02em!important;
       }
       ${HOST} .rona-rail-v4-hero .rona-visual-sub{
         display:block!important;
         margin:7px 0 0!important;
         color:#8ea6b2!important;
-        font:500 12px/1.5 inherit!important;
+        font-family:Inter,Arial,sans-serif!important;
+        font-size:12px!important;
+        line-height:1.5!important;
+        font-weight:400!important;
       }
       ${HOST} .rona-client-rail-hero-actions{
         display:flex!important;
         align-items:center!important;
-        justify-content:flex-end!important;
         gap:8px!important;
         flex-wrap:wrap!important;
-        flex:0 0 auto!important;
+        justify-content:flex-end!important;
       }
       ${HOST} .rona-client-rail-hero-pill,
       ${HOST} .rona-client-rail-hero-btn{
-        min-height:30px!important;
-        padding:7px 11px!important;
         border:1px solid rgba(111,188,218,.25)!important;
         border-radius:999px!important;
         background:rgba(12,34,46,.72)!important;
         color:#b9d5df!important;
-        font:750 10px/1 inherit!important;
+        font-family:Inter,Arial,sans-serif!important;
+        font-size:10px!important;
+        font-weight:750!important;
+        line-height:normal!important;
         white-space:nowrap!important;
         box-sizing:border-box!important;
       }
-      ${HOST} .rona-client-rail-hero-btn{cursor:pointer!important}
-      ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.90)!important;color:#fff!important}
+      ${HOST} .rona-client-rail-hero-pill{padding:7px 10px!important}
+      ${HOST} .rona-client-rail-hero-btn{padding:7px 11px!important;cursor:pointer!important}
+      ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.9)!important;color:#fff!important}
+      ${HOST} .rona-client-rail-hero-btn:disabled{opacity:.55!important;cursor:default!important}
       @media(max-width:720px){
         ${HOST} .rona-rail-v4-hero{align-items:flex-start!important;flex-direction:column!important}
         ${HOST} .rona-client-rail-hero-actions{justify-content:flex-start!important}
