@@ -1,0 +1,319 @@
+/* RONA_CLIENT_CONTENT_RESPONSIVE_V1: 20260830-content-width-aware-v1 */
+/* Client-only presentation layer. No business data, status, price or payment logic. */
+
+html,
+body {
+  max-width: 100%;
+}
+
+html body main,
+html body main > *,
+html body [id^="page-"],
+html body [data-page-panel],
+html body [data-page-id] {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+html body [id^="page-"] img,
+html body [id^="page-"] svg,
+html body [id^="page-"] canvas,
+html body [id^="page-"] video,
+html body [data-page-panel] img,
+html body [data-page-panel] svg,
+html body [data-page-panel] canvas,
+html body [data-page-panel] video {
+  max-width: 100%;
+}
+
+#page-home,
+#homePage,
+[data-page-panel="home"],
+[data-page-id="home"] {
+  container-type: inline-size;
+  container-name: rona-client-home;
+}
+
+#page-deals,
+[data-page-panel="deals"],
+[data-page-id="deals"] {
+  container-type: inline-size;
+  container-name: rona-client-deals;
+}
+
+#page-payments,
+#paymentsPage,
+[data-page-panel="payments"],
+[data-page-id="payments"] {
+  container-type: inline-size;
+  container-name: rona-client-payments;
+}
+
+#page-rail,
+#page-monitoring,
+[data-page="rail"],
+[data-page="monitoring"] {
+  container-type: inline-size;
+  container-name: rona-client-rail;
+}
+
+/* Home: use the width of the actual workspace after the sidebar, not the browser viewport. */
+@container rona-client-home (max-width: 1220px) {
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpis,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpis,
+  [data-page-panel="home"] [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpis,
+  [data-page-id="home"] [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpis {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpi[data-visual-rank="hero"],
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpi[data-visual-rank="hero"] {
+    grid-row: auto !important;
+    min-height: 132px !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpi[data-visual-rank="wide"],
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpi[data-visual-rank="wide"] {
+    grid-column: span 1 !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-main,
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-bottom,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-main,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-bottom,
+  [data-page-panel="home"] [data-rona-client-home-owner="command-center-v2"] .rona-cc-main,
+  [data-page-panel="home"] [data-rona-client-home-owner="command-center-v2"] .rona-cc-bottom,
+  [data-page-id="home"] [data-rona-client-home-owner="command-center-v2"] .rona-cc-main,
+  [data-page-id="home"] [data-rona-client-home-owner="command-center-v2"] .rona-cc-bottom {
+    grid-template-columns: 1fr !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"][data-rona-home-night="v4"] .rona-cc-main,
+  #homePage [data-rona-client-home-owner="command-center-v2"][data-rona-home-night="v4"] .rona-cc-main {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@container rona-client-home (max-width: 900px) {
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-deal,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-deal {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-deal > div:first-child,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-deal > div:first-child {
+    grid-column: 1 / -1 !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-panel[data-visual-panel="control"] .rona-cc-attention,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-panel[data-visual-panel="control"] .rona-cc-attention {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@container rona-client-home (max-width: 680px) {
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpis,
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-actions,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-kpis,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-actions {
+    grid-template-columns: 1fr !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-deal,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-deal {
+    grid-template-columns: 1fr !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-finance-row,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-finance-row {
+    grid-template-columns: 72px minmax(0, 1fr) !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-finance-values,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-finance-values {
+    grid-column: 1 / -1 !important;
+    text-align: left !important;
+    white-space: normal !important;
+  }
+
+  #page-home [data-rona-client-home-owner="command-center-v2"] .rona-cc-livebar,
+  #homePage [data-rona-client-home-owner="command-center-v2"] .rona-cc-livebar {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+}
+
+/* Deals: mirror the intended desktop breakpoints against the page width. */
+@container rona-client-deals (max-width: 1100px) {
+  #page-deals .rona-deal-card-v5__summary {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+  }
+
+  #page-deals .rona-deal-card-v5__summary-main {
+    grid-column: 1 / -1 !important;
+    grid-row: 1 !important;
+  }
+
+  #page-deals .rona-deal-card-v5__terms {
+    grid-column: 1 / -1 !important;
+    grid-row: 2 !important;
+  }
+
+  #page-deals .rona-deal-card-v5__amount {
+    grid-column: 1 !important;
+    grid-row: 3 !important;
+    justify-self: start !important;
+  }
+
+  #page-deals .rona-deal-card-v5__open {
+    grid-column: 2 !important;
+    grid-row: 3 !important;
+  }
+
+  #page-deals .rona-deal-card-v5 [data-rona-deal-state-strip="authoritative-v8"] {
+    grid-column: 1 / -1 !important;
+    grid-row: 4 !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+}
+
+@container rona-client-deals (max-width: 760px) {
+  #page-deals .rona-deal-card-v5 {
+    padding: 12px !important;
+  }
+
+  #page-deals .rona-deal-card-v5__headline {
+    display: grid !important;
+    gap: 4px !important;
+  }
+
+  #page-deals .rona-deal-card-v5__subject {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  #page-deals .rona-deal-documents-v5 {
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+  }
+
+  #page-deals .rona-deal-documents-v5__actions {
+    flex-wrap: wrap !important;
+  }
+
+  #page-deals .rona-deal-documents-v5__stage {
+    margin-left: 0 !important;
+  }
+}
+
+/* Payments: width alignment must never preserve a desktop pixel width inside a narrower pane. */
+@container rona-client-payments (max-width: 900px) {
+  body #page-payments [data-rona-payments-canonical-width],
+  body #paymentsPage [data-rona-payments-canonical-width] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  body #page-payments .rona-payments-kpis,
+  body #paymentsPage .rona-payments-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  body #page-payments .rona-payments-deal,
+  body #page-payments .rona-payments-event,
+  body #paymentsPage .rona-payments-deal,
+  body #paymentsPage .rona-payments-event {
+    grid-template-columns: 1fr !important;
+  }
+
+  body #page-payments .rona-payments-head,
+  body #paymentsPage .rona-payments-head {
+    align-items: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  body #page-payments .rona-payments-source,
+  body #paymentsPage .rona-payments-source {
+    text-align: left !important;
+    white-space: normal !important;
+  }
+}
+
+@container rona-client-payments (max-width: 560px) {
+  body #page-payments .rona-payments-kpis,
+  body #paymentsPage .rona-payments-kpis {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Online Rail: stack the operational list and map when the actual page pane is narrow. */
+@container rona-client-rail (max-width: 1100px) {
+  #page-rail .rona-rail-grid,
+  #page-monitoring .rona-rail-grid,
+  [data-page="rail"] .rona-rail-grid,
+  [data-page="monitoring"] .rona-rail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  #page-rail .rona-rail-map-shell,
+  #page-monitoring .rona-rail-map-shell {
+    height: 330px !important;
+  }
+
+  #page-rail .rona-rail-list,
+  #page-monitoring .rona-rail-list {
+    max-height: 320px !important;
+  }
+}
+
+@container rona-client-rail (max-width: 720px) {
+  #page-rail .rona-rail-hero,
+  #page-monitoring .rona-rail-hero {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  #page-rail .rona-rail-actions,
+  #page-monitoring .rona-rail-actions {
+    justify-content: flex-start !important;
+  }
+
+  #page-rail .rona-rail-metrics,
+  #page-monitoring .rona-rail-metrics,
+  #page-rail .rona-rail-detail,
+  #page-monitoring .rona-rail-detail {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #page-rail .rona-rail-tools,
+  #page-monitoring .rona-rail-tools {
+    flex-direction: column !important;
+  }
+
+  #page-rail .rona-rail-select,
+  #page-monitoring .rona-rail-select {
+    width: 100% !important;
+  }
+}
+
+@container rona-client-rail (max-width: 480px) {
+  #page-rail .rona-rail-metrics,
+  #page-monitoring .rona-rail-metrics,
+  #page-rail .rona-rail-detail,
+  #page-monitoring .rona-rail-detail {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Wide data structures may scroll inside their own page, but may not widen the whole cabinet. */
+html body [id^="page-"] :where(table, [role="table"], .table, [class*="table-wrap"], [class*="table-container"]),
+html body [data-page-panel] :where(table, [role="table"], .table, [class*="table-wrap"], [class*="table-container"]) {
+  max-width: 100%;
+}
