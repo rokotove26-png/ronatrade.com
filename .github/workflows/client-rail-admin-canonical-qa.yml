@@ -1,0 +1,82 @@
+name: client-rail-admin-canonical-qa
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - functions/portal/client-rail-current-ui.js
+      - functions/portal/rail-current-v4-ui.js
+      - functions/portal/rail-current-v5-ui.js
+      - functions/portal/rail-current-v6-ui.js
+      - functions/portal/rail-current-v6-single-title-ui.js
+      - functions/portal/rail-current-v7-real-map-ui.js
+      - functions/portal/rail-current-v81-maplibre-ui.js
+      - scripts/attach-client-rail-production-v1.mjs
+      - assets/portal-runtime/client-content-responsive-v1.css
+      - package.json
+      - .github/workflows/client-rail-admin-canonical-qa.yml
+  push:
+    branches: [release/public-go-live-v1.1]
+permissions:
+  contents: read
+jobs:
+  client-rail-admin-canonical:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Verify direct Admin visual-source adapter
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/client-rail-current-ui.js
+          node --check scripts/attach-client-rail-production-v1.mjs
+          test ! -e assets/portal-runtime/client-rail-production-v1.js
+          test ! -e assets/portal-runtime/client-rail-movizor-gate-v1.js
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import { onRequest } from './functions/portal/client-rail-current-ui.js';
+          const response=await onRequest({});
+          const source=await response.text();
+          if(response.status!==200)throw new Error(`adapter status ${response.status}: ${source}`);
+          if(response.headers.get('x-rona-client-rail-visual-canon')!=='/portal/rail-current-v81-maplibre-ui')throw new Error('wrong visual canon header');
+          for(const marker of [
+            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'",
+            'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
+            'ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
+            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',
+            'ADMIN_CURRENT_V81_CANONICAL','admin-current-v81-client-authority-v1'
+          ])if(!source.includes(marker))throw new Error('missing canonical marker: '+marker);
+          for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки'])if(source.includes(forbidden))throw new Error('retired/divergent Client Rail marker returned: '+forbidden);
+          const adapter=fs.readFileSync('functions/portal/client-rail-current-ui.js','utf8');
+          if(!adapter.includes("from './rail-current-v81-maplibre-ui.js'"))throw new Error('Client Rail no longer derives directly from Admin current visual source');
+          const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
+          if(!attach.includes('/portal/client-rail-current-ui?v=20260831-admin-canonical-v1'))throw new Error('canonical Client Rail bridge missing');
+          if(attach.includes('client-rail-movizor-gate-v1.js'))throw new Error('retired MOVIZOR visual gate still attached');
+          const css=fs.readFileSync('assets/portal-runtime/client-content-responsive-v1.css','utf8');
+          if(!css.includes('.rona-rail-v4-work')||css.includes('.rona-rail-grid'))throw new Error('responsive layer still targets retired Client Rail visual classes');
+          console.log('CLIENT_RAIL_ADMIN_CANONICAL_SOURCE=PASS');
+          NODE
+      - name: Build current Client and verify one Rail owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build
+          grep -q 'id="rona-client-rail-admin-canonical-v1"' dist/portal/client.html
+          grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
+          test "$(grep -o 'client-rail-current-ui' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
+          ! grep -q 'client-rail-production-v1.js' dist/portal/client.html
+          ! grep -q 'client-rail-movizor-gate-v1.js' dist/portal/client.html
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
+          const rail=integrity?.client_runtime?.rail_client_admin_canonical;
+          if(!rail)throw new Error('rail canonical integrity missing');
+          if(rail.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||rail.visual_contract!=='ADMIN_CURRENT_V8_2')throw new Error('wrong Rail visual canon');
+          if(rail.client_data_source!=='/portal/api/v1/client/shipments')throw new Error('wrong Client Rail data authority');
+          if(rail.legacy_client_visual_owner!==false||rail.separate_movizor_visual_gate!==false)throw new Error('retired visual owner remains');
+          console.log('CLIENT_RAIL_ADMIN_CANONICAL_BUILD=PASS');
+          NODE
