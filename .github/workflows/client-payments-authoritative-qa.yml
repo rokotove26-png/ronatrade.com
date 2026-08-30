@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - 'fix/client-payments-authoritative-runtime-20260830'
+      - 'fix/client-payments-self-hide-20260830'
       - 'release/public-go-live-v1.1'
 
 permissions:
@@ -40,7 +41,9 @@ jobs:
             'payment_obligation_amount',
             'bank_fact_status',
             'resource_status',
-            'REFRESH_MS=30000'
+            'REFRESH_MS=30000',
+            "leaf.closest('[data-rona-client-payments-owner=\"finance-authoritative-v1\"]')",
+            "host.removeAttribute('data-rona-payments-legacy-hidden')"
           ])if(!runtime.includes(marker))throw new Error('missing payments runtime marker '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(runtime))throw new Error('hardcoded client/deal found in payments runtime');
           const attach=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
@@ -48,7 +51,7 @@ jobs:
           NODE
           npm run build
           grep -q 'id="rona-client-payments-authoritative-v1"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix' dist/portal/client.html
           grep -q 'id="rona-client-payments-first-paint-guard"' dist/portal/client.html
           node -e "const i=require('./dist/canonical-visual-integrity.json');if(i.client_runtime?.payments_bridge?.source!=='CLIENT_CONTEXT_FINANCE_PROJECTION'||i.client_runtime?.payments_bridge?.hardcoded_business_entities!==false)process.exit(1)"
 
@@ -97,6 +100,10 @@ jobs:
             assert(v.legacy==='none','legacy empty payment block still visible');
             for(const s of ['D-A','49 320 USD','164 400 USD','115 080 USD','30%','PAY-A','Finance · подтверждённые поступления · автообновление'])assert(v.text.includes(s),'alpha projection missing '+s+' in '+JSON.stringify(v.text));
             assert(v.state?.client_id==='CLIENT-A'&&v.state?.contract_id==='CTR-A','wrong selected context '+JSON.stringify(v.state));
+            await page.waitForTimeout(500);
+            const ownerVisibility=await page.evaluate(()=>{const el=document.querySelector('[data-rona-client-payments-owner="finance-authoritative-v1"]');return {display:getComputedStyle(el).display,hidden:el.hasAttribute('data-rona-payments-legacy-hidden'),text:el.innerText||''}});
+            assert(ownerVisibility.display!=='none'&&!ownerVisibility.hidden,'authoritative payments owner hid itself after MutationObserver refresh '+JSON.stringify(ownerVisibility));
+            assert(ownerVisibility.text.includes('D-A'),'authoritative payments owner lost rendered data after observer refresh');
 
             await page.evaluate(()=>{
               document.querySelector('#selectedContext').textContent='BETA TEST · B-002';
