@@ -38,7 +38,9 @@ jobs:
             test ! -e "$f" || { echo "RETIRED_RUNTIME_PRESENT $f"; exit 1; }
           done
           node --check assets/portal-runtime/client-payments-sanitation-v1.js
+          node --check assets/portal-runtime/client-section-first-paint-v1.js
           node --check scripts/attach-client-application-lifecycle.mjs
+          node --check scripts/attach-client-section-first-paint-v1.mjs
 
       - name: Build current-only deployment and prove no legacy Client runtime is emitted
         shell: bash
@@ -55,13 +57,20 @@ jobs:
           const html=fs.readFileSync('dist/portal/client.html','utf8');
           const sanitation='client-payments-sanitation-v1.js?v=20260830-current-only-v1';
           const payments='client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
+          const firstPaint='client-section-first-paint-v1.js?v=20260830-current-only-no-legacy-flash-v1';
           if((html.match(/client-payments-sanitation-v1\.js/g)||[]).length!==1)throw new Error('payments sanitation not single owner');
           if((html.match(/client-payments-authoritative-v1\.js/g)||[]).length!==1)throw new Error('payments authoritative runtime not single owner');
+          if((html.match(/client-section-first-paint-v1\.js/g)||[]).length!==1)throw new Error('section first-paint runtime not single owner');
           if(html.indexOf(sanitation)<0||html.indexOf(payments)<0||html.indexOf(sanitation)>html.indexOf(payments))throw new Error('payments sanitation must execute before authoritative payments runtime');
+          if(html.indexOf(firstPaint)<0)throw new Error('section first-paint runtime missing');
           if(!html.includes('rona-client-payments-first-paint-guard'))throw new Error('payments first-paint guard missing');
+          if(!html.includes('rona-client-section-first-paint-v1-style'))throw new Error('current-only section prepaint guard missing');
+          if(!html.includes('data-rona-client-deals-paint-ready')||!html.includes('data-rona-client-payments-paint-ready'))throw new Error('section paint-ready gates missing');
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const s=integrity.client_runtime?.payments_sanitation;
           if(s?.mode!=='CURRENT_ONLY_REMOVE_LEGACY_PAYMENT_PLACEHOLDERS'||s?.navigation_prepaint_reset!==true||s?.hardcoded_business_entities!==false)throw new Error('payments sanitation integrity contract missing');
+          const p=integrity.client_runtime?.section_first_paint;
+          if(p?.mode!=='CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT'||p?.legacy_visual_flash_allowed!==false||p?.business_logic_changed!==false)throw new Error('section first-paint integrity contract missing');
           console.log('CLIENT_RUNTIME_SANITATION_BUILD=PASS');
           NODE
 
@@ -96,6 +105,55 @@ jobs:
             assert(state.title.includes('Платежи и взаиморасчёты'),'section title was removed');
             assert(state.ctx.includes('Выбрана компания'),'context frame was removed');
             console.log('CLIENT_PAYMENTS_STALE_FIRST_PAINT=BLOCKED');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Prove Deals and Payments never expose legacy transition frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const built=fs.readFileSync('dist/portal/client.html','utf8');
+          const match=built.match(/<style id="rona-client-section-first-paint-v1-style">[\s\S]*?<\/style>/i);
+          assert(match,'first-paint guard style missing from built Client');
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1400,height:900}});
+            const body=`<!doctype html><html data-rona-client-operations-ready="true"><head>${match[0]}</head><body><button id="navDeals">Сделки</button><button id="navPayments">Платежи</button><section id="page-deals" style="display:block"><div id="legacyDeals">OLD DEALS FRAME</div></section><section id="page-payments" style="display:none"><section id="legacyPayments"><h3>Платёжный статус</h3><p>Платёжных данных пока нет.</p></section></section></body></html>`;
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-section-first-paint-v1.js')});
+            await page.waitForTimeout(50);
+            assert(await page.$eval('#legacyDeals',el=>getComputedStyle(el).visibility)==='hidden','legacy Deals frame became visible before current composition');
+            await page.evaluate(()=>{
+              const root=document.querySelector('#page-deals');
+              root.setAttribute('data-rona-deal-authority','admin-client-server-v8');
+              root.innerHTML='<article class="rona-deal-card-v5" data-rona-canonical-deal-id="DEAL-2099-999" data-rona-deal-summary-ready="true"><div data-rona-deal-summary="canonical-v8">DEAL-2099-999 CURRENT DEAL</div></article>';
+            });
+            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',{timeout:5000});
+            assert(await page.$eval('.rona-deal-card-v5',el=>getComputedStyle(el).visibility)==='visible','current Deals view did not release');
+
+            await page.evaluate(()=>{
+              document.querySelector('#page-deals').style.display='none';
+              const p=document.querySelector('#page-payments');p.style.display='block';
+              document.documentElement.setAttribute('data-rona-client-payments-ready','true');
+              p.setAttribute('data-rona-payments-sanitation','current-only-v1');
+              p.insertAdjacentHTML('beforeend','<section data-rona-client-payments-owner="finance-authoritative-v1"><div>CURRENT FINANCE OWNER</div></section>');
+            });
+            await page.waitForTimeout(50);
+            assert(await page.$eval('#legacyPayments',el=>getComputedStyle(el).visibility)==='hidden','legacy Payments frame became visible before sanitation completed');
+            await page.evaluate(()=>document.querySelector('#legacyPayments').remove());
+            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-payments-paint-ready')==='true',{timeout:5000});
+            assert(await page.$eval('[data-rona-client-payments-owner]',el=>getComputedStyle(el).visibility)==='visible','current Payments owner did not release');
+
+            await page.dispatchEvent('#navDeals','pointerdown');
+            assert(await page.evaluate(()=>!document.documentElement.hasAttribute('data-rona-client-deals-paint-ready')),'Deals paint gate was not reset on navigation prepaint');
+            console.log('CLIENT_DEALS_PAYMENTS_NO_LEGACY_TRANSITION=PASS');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
