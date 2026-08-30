@@ -1,11 +1,12 @@
 import { access, readFile } from 'node:fs/promises';
 
 const read=p=>readFile(p,'utf8');
-const [html,runtime,visual,commandCenter,proxy,edge,integrityRaw,cachePolicy]=await Promise.all([
+const [html,runtime,visual,passport,lifecycle,proxy,edge,integrityRaw,cachePolicy]=await Promise.all([
   read('dist/portal/client.html'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-canonical-visual-v2.js'),
-  read('assets/portal-runtime/client-deal-command-center-v3.js'),
+  read('assets/portal-runtime/client-deal-passport-v1.js'),
+  read('assets/portal-runtime/client-deal-lifecycle-v1.js'),
   read('functions/portal/api/[[path]].js'),
   read('supabase/functions/rona-client-deal-documents/index.ts'),
   read('dist/canonical-visual-integrity.json'),
@@ -15,134 +16,55 @@ const integrity=JSON.parse(integrityRaw);
 const must=(condition,code)=>{if(!condition)throw new Error(code)};
 const count=(text,re)=>(text.match(re)||[]).length;
 
-// One emitted runtime owner for all clients; older document/command-center bridges must not survive the current page or deployment.
 must(count(html,/client-deal-documents-v5\.js/giu)===1,'SIGNED_ADDENDUM_RUNTIME_NOT_SINGLE_OWNER');
 must(count(html,/client-deal-documents-v[1-4]\.js/giu)===0,'SIGNED_ADDENDUM_LEGACY_RUNTIME_PRESENT');
 must(count(html,/client-deal-canonical-visual-v2\.js/giu)===1,'SIGNED_ADDENDUM_VISUAL_NOT_SINGLE_OWNER');
-must(count(html,/client-deal-command-center-v3\.js/giu)===1,'DEAL_COMMAND_CENTER_V3_NOT_SINGLE_OWNER');
-must(count(html,/client-deal-command-center-v[12]\.js/giu)===0,'DEAL_COMMAND_CENTER_LEGACY_OWNER_PRESENT');
+must(count(html,/client-deal-passport-v1\.js/giu)===1,'DEAL_PASSPORT_NOT_SINGLE_OWNER');
+must(count(html,/client-deal-command-center-v\d+\.js/giu)===0,'RETIRED_DEAL_COMMAND_CENTER_EMITTED');
+must(count(html,/client-deal-lifecycle-v1\.js/giu)===1,'DEAL_LIFECYCLE_NOT_SINGLE_OWNER');
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
 must(html.includes('20260830-single-owner-prepaint-v8'),'SIGNED_ADDENDUM_PREPAINT_CACHE_BUSTER_MISSING');
-must(html.includes('20260830-native-right-close-v3'),'DEAL_COMMAND_CENTER_V3_CACHE_BUSTER_MISSING');
-for(const marker of [
-  '__RONA_CLIENT_DEAL_DOCUMENTS_V1__',
-  '__RONA_CLIENT_DEAL_DOCUMENTS_V2__',
-  '__RONA_CLIENT_DEAL_DOCUMENTS_V3__',
-  '__RONA_CLIENT_DEAL_DOCUMENTS_V4__',
-]) must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
+must(html.includes('20260831-passport-only-v1'),'DEAL_PASSPORT_CACHE_BUSTER_MISSING');
+must(html.includes('20260831-realization-single-owner-v3'),'DEAL_LIFECYCLE_CACHE_BUSTER_MISSING');
+for(const marker of ['__RONA_CLIENT_DEAL_DOCUMENTS_V1__','__RONA_CLIENT_DEAL_DOCUMENTS_V2__','__RONA_CLIENT_DEAL_DOCUMENTS_V3__','__RONA_CLIENT_DEAL_DOCUMENTS_V4__'])
+  must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
 
 const retiredPaths=[
-  'assets/portal-runtime/client-deal-documents-v1.js',
-  'assets/portal-runtime/client-deal-documents-v2.js',
-  'assets/portal-runtime/client-deal-documents-v3.js',
-  'assets/portal-runtime/client-deal-documents-v4.js',
-  'assets/portal-runtime/client-deal-command-center-v1.js',
-  'assets/portal-runtime/client-deal-command-center-v2.js',
-  'dist/assets/portal-runtime/client-deal-documents-v1.js',
-  'dist/assets/portal-runtime/client-deal-documents-v2.js',
-  'dist/assets/portal-runtime/client-deal-documents-v3.js',
-  'dist/assets/portal-runtime/client-deal-documents-v4.js',
-  'dist/assets/portal-runtime/client-deal-command-center-v1.js',
-  'dist/assets/portal-runtime/client-deal-command-center-v2.js',
+  'assets/portal-runtime/client-deal-documents-v1.js','assets/portal-runtime/client-deal-documents-v2.js','assets/portal-runtime/client-deal-documents-v3.js','assets/portal-runtime/client-deal-documents-v4.js',
+  'assets/portal-runtime/client-deal-command-center-v1.js','assets/portal-runtime/client-deal-command-center-v2.js','assets/portal-runtime/client-deal-command-center-v3.js',
+  'dist/assets/portal-runtime/client-deal-documents-v1.js','dist/assets/portal-runtime/client-deal-documents-v2.js','dist/assets/portal-runtime/client-deal-documents-v3.js','dist/assets/portal-runtime/client-deal-documents-v4.js',
+  'dist/assets/portal-runtime/client-deal-command-center-v1.js','dist/assets/portal-runtime/client-deal-command-center-v2.js','dist/assets/portal-runtime/client-deal-command-center-v3.js',
 ];
-for(const p of retiredPaths){
-  let present=true;
-  try{await access(p)}catch(error){if(error?.code==='ENOENT')present=false;else throw error}
-  must(!present,`SIGNED_ADDENDUM_RETIRED_RUNTIME_STILL_PRESENT:${p}`);
-}
+for(const p of retiredPaths){let present=true;try{await access(p)}catch(error){if(error?.code==='ENOENT')present=false;else throw error}must(!present,`SIGNED_ADDENDUM_RETIRED_RUNTIME_STILL_PRESENT:${p}`)}
 
-// Browser flow is server-context driven, not tied to one company/deal.
-for(const marker of [
-  '/v1/client/bootstrap',
-  '/v1/client/context?clientId=',
-  '/v1/client/deal-documents/state?clientId=',
-  'sourceUnsignedDocumentId',
-  '/signed-addendum',
-  'SIGNED_ADDENDUM',
-  'supersedes_document_id',
-  "client_stage:'DOCUMENTS_SIGNED'",
-]) must(runtime.includes(marker),`SIGNED_ADDENDUM_BROWSER_MARKER_MISSING:${marker}`);
+for(const marker of ['/v1/client/bootstrap','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id',"client_stage:'DOCUMENTS_SIGNED'"])
+  must(runtime.includes(marker),`SIGNED_ADDENDUM_BROWSER_MARKER_MISSING:${marker}`);
 
-// Deal detail command center enriches content only. Native RIGHT drawer geometry and native close control remain owned by the canonical client UI.
-for(const marker of [
-  '20260830-client-deal-command-center-v3-native-left',
-  'DEAL CONTROL',
-  'Паспорт сделки',
-  'Схема реализации сделки',
-  'Контракт и сделка',
-  'Документы',
-  'Оплата',
-  'Ресурс',
-  'Логистика и поставка',
-  'Закрытие сделки',
-  'data-rona-command-field',
-  'data-rona-command-heading',
-  'grid-template-columns:repeat(2',
-  'coverage<5',
-  'r.height<70',
-  'onscreen',
-  'Native drawer geometry is deliberately preserved',
-]) must(commandCenter.includes(marker),`DEAL_COMMAND_CENTER_V3_MARKER_MISSING:${marker}`);
-for(const forbidden of [
-  'position:fixed!important',
-  'transform:translate(-50%,-50%)',
-  'width:min(1180px',
-  'height:min(800px',
-]) must(!commandCenter.includes(forbidden),`DEAL_COMMAND_CENTER_NATIVE_RIGHT_DRAWER_GEOMETRY_OVERRIDDEN:${forbidden}`);
-must(!commandCenter.includes('/v1/client/context'),'DEAL_COMMAND_CENTER_MUST_NOT_FETCH_OR_INFER_BUSINESS_CONTEXT');
-must(!commandCenter.includes('fetch('),'DEAL_COMMAND_CENTER_NETWORK_REQUEST_FORBIDDEN');
-must(commandCenter.includes('PRESENTATION')===false,'DEAL_COMMAND_CENTER_RUNTIME_SHOULD_NOT_CARRY_BUSINESS_POLICY_LABELS');
+for(const marker of ['20260831-client-deal-passport-v1','DEAL CONTROL','Паспорт сделки','data-rona-command-field','data-rona-command-heading','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','passport-only'])
+  must(passport.includes(marker),`DEAL_PASSPORT_MARKER_MISSING:${marker}`);
+for(const forbidden of ['Схема реализации сделки','Контракт и сделка','function stageData(','function renderFlow(','rona-deal-flow-v3__grid','setInterval(schedule,2200)','fetch('])
+  must(!passport.includes(forbidden),`DEAL_PASSPORT_RETIRED_REALIZATION_OR_NETWORK_BEHAVIOR:${forbidden}`);
+for(const forbidden of ['position:fixed!important','transform:translate(-50%,-50%)','width:min(1180px','height:min(800px'])
+  must(!passport.includes(forbidden),`DEAL_PASSPORT_NATIVE_RIGHT_DRAWER_GEOMETRY_OVERRIDDEN:${forbidden}`);
 
-// Proxy must preserve multipart semantics and the unsigned source identity.
-for(const marker of [
-  'isSignedAddendumUpload',
-  "form.get('sourceUnsignedDocumentId')",
-  "fd.append('sourceUnsignedDocumentId'",
-  "h.delete('content-type')",
-  'CLIENT_DEAL_DOCUMENTS_API',
-]) must(proxy.includes(marker),`SIGNED_ADDENDUM_PROXY_MARKER_MISSING:${marker}`);
+for(const marker of ['20260831-client-deal-realization-status-v3-single-owner','SERVER_AUTHORITATIVE_REALIZATION_V1',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v3'",'Статус реализации'])
+  must(lifecycle.includes(marker),`DEAL_LIFECYCLE_MARKER_MISSING:${marker}`);
+for(const forbidden of ['Статусы формируются из текущей карточки сделки','function stageData(','function renderFlow('])
+  must(!lifecycle.includes(forbidden),`DEAL_LIFECYCLE_LOCAL_INFERENCE_FORBIDDEN:${forbidden}`);
 
-// Authoritative edge function resolves scope from authenticated user + deal, then supersedes the active unsigned addendum.
-for(const marker of [
-  'client_user_has_deal_access',
-  'sourceUnsignedDocumentId',
-  'ADDENDUM_SOURCE_CHANGED',
-  'SIGNED_ADDENDUM_ALREADY_CURRENT',
-  "document_kind='ADDENDUM'",
-  "'SIGNED_ADDENDUM'",
-  "lifecycle_state='SUPERSEDED'",
-  'signed_supplement_document_key',
-  'CLIENT_SIGNED_ADDENDUM_UPLOADED_AUTHORITATIVE',
-]) must(edge.includes(marker),`SIGNED_ADDENDUM_EDGE_MARKER_MISSING:${marker}`);
+for(const marker of ['isSignedAddendumUpload',"form.get('sourceUnsignedDocumentId')","fd.append('sourceUnsignedDocumentId'","h.delete('content-type')",'CLIENT_DEAL_DOCUMENTS_API'])
+  must(proxy.includes(marker),`SIGNED_ADDENDUM_PROXY_MARKER_MISSING:${marker}`);
+for(const marker of ['client_user_has_deal_access','sourceUnsignedDocumentId','ADDENDUM_SOURCE_CHANGED','SIGNED_ADDENDUM_ALREADY_CURRENT',"document_kind='ADDENDUM'","'SIGNED_ADDENDUM'","lifecycle_state='SUPERSEDED'",'signed_supplement_document_key','CLIENT_SIGNED_ADDENDUM_UPLOADED_AUTHORITATIVE'])
+  must(edge.includes(marker),`SIGNED_ADDENDUM_EDGE_MARKER_MISSING:${marker}`);
 
-// Regression guard: implementation code must never encode a production client, contract or deal.
-const forbidden=[
-  'RONA-C002',
-  'RONA-C003',
-  'DEAL-2026-004',
-  'DEAL-2026-005',
-  'DEAL-2026-006',
-  'FARGONA GAZ',
-  'UNIVERSAL SOLYARIS',
-  '01/PT-01-1926',
-  '01/PT-02-1926',
-];
+const forbidden=['RONA-C002','RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','FARGONA GAZ','UNIVERSAL SOLYARIS','01/PT-01-1926','01/PT-02-1926'];
 for(const value of forbidden){
-  must(!runtime.includes(value),`SIGNED_ADDENDUM_RUNTIME_HARDCODED:${value}`);
-  must(!visual.includes(value),`SIGNED_ADDENDUM_VISUAL_HARDCODED:${value}`);
-  must(!commandCenter.includes(value),`DEAL_COMMAND_CENTER_HARDCODED:${value}`);
-  must(!proxy.includes(value),`SIGNED_ADDENDUM_PROXY_HARDCODED:${value}`);
-  must(!edge.includes(value),`SIGNED_ADDENDUM_EDGE_HARDCODED:${value}`);
+  must(!runtime.includes(value),`SIGNED_ADDENDUM_RUNTIME_HARDCODED:${value}`);must(!visual.includes(value),`SIGNED_ADDENDUM_VISUAL_HARDCODED:${value}`);must(!passport.includes(value),`DEAL_PASSPORT_HARDCODED:${value}`);must(!lifecycle.includes(value),`DEAL_LIFECYCLE_HARDCODED:${value}`);must(!proxy.includes(value),`SIGNED_ADDENDUM_PROXY_HARDCODED:${value}`);must(!edge.includes(value),`SIGNED_ADDENDUM_EDGE_HARDCODED:${value}`);
 }
 
-// Client page and all deal runtime URLs are non-cacheable so an old renderer cannot reappear after deploy/navigation.
-for(const marker of [
-  '/portal/client',
-  '/assets/portal-runtime/client-deal-documents-v*.js',
-  '/assets/portal-runtime/client-deal-canonical-visual-v*.js',
-  '/assets/portal-runtime/client-deal-command-center-v*.js',
-  'Cache-Control: no-store, no-cache, must-revalidate, max-age=0',
-]) must(cachePolicy.includes(marker),`CLIENT_DEAL_CACHE_POLICY_MISSING:${marker}`);
+for(const marker of ['/portal/client','/assets/portal-runtime/client-deal-documents-v*.js','/assets/portal-runtime/client-deal-canonical-visual-v*.js','/assets/portal-runtime/client-deal-passport-v*.js','/assets/portal-runtime/client-deal-lifecycle-v*.js','Cache-Control: no-store, no-cache, must-revalidate, max-age=0'])
+  must(cachePolicy.includes(marker),`CLIENT_DEAL_CACHE_POLICY_MISSING:${marker}`);
+must(!cachePolicy.includes('/assets/portal-runtime/client-deal-command-center-v*.js'),'RETIRED_COMMAND_CENTER_CACHE_POLICY_REMAINS');
 
 const bridge=integrity?.client_runtime?.deal_documents_bridge;
 must(bridge?.scope==='ALL_AUTHORIZED_CLIENT_CONTEXTS','SIGNED_ADDENDUM_SCOPE_NOT_GENERIC');
@@ -150,11 +72,13 @@ must(bridge?.authorization==='SERVER_CLIENT_USER_HAS_DEAL_ACCESS','SIGNED_ADDEND
 must(bridge?.client_specific_hardcoding===false,'SIGNED_ADDENDUM_HARDCODING_GUARD_MISSING');
 must(bridge?.prepaint_single_owner===true,'SIGNED_ADDENDUM_PREPAINT_SINGLE_OWNER_MISSING');
 must(bridge?.replacement_semantics==='SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM','SIGNED_ADDENDUM_REPLACEMENT_SEMANTICS_MISSING');
-must(bridge?.command_center_scope==='ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS','DEAL_COMMAND_CENTER_SCOPE_NOT_GENERIC');
-must(bridge?.command_center_data_policy==='PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION','DEAL_COMMAND_CENTER_DATA_POLICY_INVALID');
-must(bridge?.command_center_marker==='20260830-client-deal-command-center-v3-native-left','DEAL_COMMAND_CENTER_V3_INTEGRITY_MARKER_MISSING');
-must(bridge?.command_center_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_COMMAND_CENTER_RIGHT_LAYOUT_POLICY_MISSING');
-must(bridge?.command_center_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_COMMAND_CENTER_NATIVE_CLOSE_POLICY_MISSING');
-must(bridge?.command_center_detector==='SEMANTIC_LABEL_COVERAGE_NATIVE_DRAWER_VISIBILITY','DEAL_COMMAND_CENTER_V3_DETECTOR_POLICY_MISSING');
+must(bridge?.passport_scope==='ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS','DEAL_PASSPORT_SCOPE_NOT_GENERIC');
+must(bridge?.passport_data_policy==='PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION','DEAL_PASSPORT_DATA_POLICY_INVALID');
+must(bridge?.passport_marker==='20260831-client-deal-passport-v1','DEAL_PASSPORT_INTEGRITY_MARKER_MISSING');
+must(bridge?.passport_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_PASSPORT_RIGHT_LAYOUT_POLICY_MISSING');
+must(bridge?.passport_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_PASSPORT_NATIVE_CLOSE_POLICY_MISSING');
+must(bridge?.lifecycle_single_owner===true,'DEAL_LIFECYCLE_SINGLE_OWNER_MISSING');
+must(bridge?.lifecycle_host_owner==='SERVER_AUTHORITATIVE_V3','DEAL_LIFECYCLE_HOST_OWNER_INVALID');
+must(bridge?.retired_local_realization_renderer==='PHYSICALLY_REMOVED','RETIRED_LOCAL_REALIZATION_RENDERER_NOT_REMOVED');
 
-console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; legacy deal runtimes physically absent; client deal command center=NATIVE_RIGHT_V3; native close untouched; semantic visible-drawer detection; six-stage realization map; presentation-only; no client/deal hardcoding; no-store cache policy');
+console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; retired deal realization renderer physically absent; passport presentation-only; authoritative lifecycle single owner; native close untouched; no client/deal hardcoding; no-store cache policy');
