@@ -97,7 +97,8 @@ export async function onRequest(context){
     .replace(WAIT_FROM,'function waitAdminReady(){}')
     .replace(START_FROM,START_TO)
     .replace(BIND_FROM,BIND_TO)
-    .replace(LOCATION_FROM,LOCATION_TO);
+    .replace(LOCATION_FROM,LOCATION_TO)
+    .split("'/admin/bootstrap'").join("'/client/rail-canonical'");
   if(source.includes("/portal/owner-api")||source.includes("/admin/bootstrap")||source.includes("location.pathname==='/portal/admin'")){
     return new Response('CLIENT_RAIL_ADMIN_AUTHORITY_LEAK',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
