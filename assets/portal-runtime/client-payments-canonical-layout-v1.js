@@ -1,12 +1,12 @@
 (()=>{'use strict';
-const MARK='20260830-client-payments-canonical-layout-v1';
+const MARK='20260830-client-payments-canonical-layout-v2';
 if(window.__RONA_CLIENT_PAYMENTS_CANONICAL_LAYOUT__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_CANONICAL_LAYOUT__=MARK;
 if(location.pathname!=='/portal/client')return;
 
 const OWNER='[data-rona-client-payments-owner="finance-authoritative-v1"]';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
-const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const formatDate=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('ru-RU')};
 const money=(v,c)=>{const n=num(v);if(n===null)return'—';return n.toLocaleString('ru-RU',{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2})+(c?' '+norm(c):'')};
@@ -39,20 +39,26 @@ function frameFromExactText(root,needle){
   }
   return null;
 }
-function canonicalFrame(root){
-  return frameFromExactText(root,'Выбрана компания')||frameFromExactText(root,'Платежи и взаиморасчёты');
+function titleFrame(root){return frameFromExactText(root,'Платежи и взаиморасчёты')}
+function contextFrame(root){return frameFromExactText(root,'Выбрана компания')}
+function alignFrameToTitle(root,target,title,marker){
+  if(!target||!title)return false;
+  const rr=root.getBoundingClientRect(),tr=title.getBoundingClientRect();
+  if(tr.width<1||rr.width<1)return false;
+  const left=Math.max(0,tr.left-rr.left);
+  target.style.boxSizing='border-box';
+  target.style.width=tr.width+'px';
+  target.style.maxWidth=tr.width+'px';
+  target.style.marginLeft=left+'px';
+  target.style.marginRight='0';
+  target.setAttribute('data-rona-payments-canonical-width',marker);
+  return true;
 }
-function alignOwner(root,owner){
-  const frame=canonicalFrame(root);if(!frame)return false;
-  const rr=root.getBoundingClientRect(),fr=frame.getBoundingClientRect();
-  if(fr.width<1||rr.width<1)return false;
-  const left=Math.max(0,fr.left-rr.left);
-  owner.style.boxSizing='border-box';
-  owner.style.width=fr.width+'px';
-  owner.style.maxWidth=fr.width+'px';
-  owner.style.marginLeft=left+'px';
-  owner.style.marginRight='0';
-  owner.setAttribute('data-rona-payments-canonical-width','header-frame');
+function alignCanonicalFrames(root,owner){
+  const title=titleFrame(root);if(!title)return false;
+  const context=contextFrame(root);
+  if(context&&context!==title)alignFrameToTitle(root,context,title,'title-frame-context');
+  alignFrameToTitle(root,owner,title,'title-frame-owner');
   return true;
 }
 function paymentsState(){const s=window.__RONA_CLIENT_PAYMENTS_STATE__;return s&&Array.isArray(s.payments)?s.payments:[]}
@@ -106,7 +112,7 @@ function installStyle(){
     #page-payments ${OWNER}>[data-rona-payments-card]{width:100%;box-sizing:border-box}
     #page-payments .rona-payment-received-date{margin-top:5px;color:#8fb6c7;font-size:9px;line-height:1.25}
     #page-payments .rona-payments-event time{white-space:nowrap}
-    @media(max-width:900px){#page-payments ${OWNER}{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}}
+    @media(max-width:900px){#page-payments [data-rona-payments-canonical-width]{width:100%!important;max-width:100%!important;margin-left:0!important;margin-right:0!important}}
   `;
   document.head.appendChild(style);
 }
@@ -114,7 +120,7 @@ let scheduled=false;
 function apply(){
   scheduled=false;installStyle();
   const root=paymentsRoot(),owner=root?.querySelector(OWNER);if(!root||!owner)return;
-  alignOwner(root,owner);
+  alignCanonicalFrames(root,owner);
   const payments=paymentsState();
   projectDealReceiptDates(owner,payments);
   projectConfirmedReceipts(owner,payments);
