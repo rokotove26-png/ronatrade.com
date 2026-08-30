@@ -9,8 +9,11 @@ const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a
 const BUCKET="rona-portal-private";
 const MAX_PDF_BYTES=20*1024*1024;
 const SOURCE_VERSION="SIGNED_ADDENDUM_UPLOAD_V2";
+const REALIZATION_SOURCE="SERVER_AUTHORITATIVE_REALIZATION_V1";
 
 type Ctx={auth:string;user:string;roles:string[];sid:string};
+type RealizationState="DONE"|"CURRENT"|"PENDING"|"BLOCKED";
+type RealizationStage={key:string;state:RealizationState;detail:string};
 
 function runtimeKey(kind:"pub"|"secret"){
   const legacy=kind==="pub"?Deno.env.get("SUPABASE_ANON_KEY"):Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -48,8 +51,97 @@ function safeName(v:string){
 }
 async function sha256Hex(bytes:Uint8Array){const hash=await crypto.subtle.digest("SHA-256",bytes);return Array.from(new Uint8Array(hash)).map(x=>x.toString(16).padStart(2,"0")).join("")}
 async function rawStorageObjectId(objectName:string){const rows=await sql`select id from storage.objects where bucket_id=${BUCKET} and name=${objectName} limit 1`;return rows[0]?.id?String(rows[0].id):null}
+function finite(value:unknown):number|null{const n=Number(value);return Number.isFinite(n)?n:null}
+function paymentStage(row:any):RealizationStage{
+  const obligation=finite(row.obligation_amount),received=finite(row.received_amount);
+  if(obligation!==null&&obligation>0&&received!==null){
+    const pct=Math.max(0,Math.min(100,Math.round(received/obligation*100)));
+    if(received>=obligation)return{key:"payment",state:"DONE",detail:"Оплачено 100%"};
+    if(received>0)return{key:"payment",state:"CURRENT",detail:`Оплачено ${pct}% · осталось ${100-pct}%`};
+  }
+  const finance=String(row.finance_summary_status||row.deal_finance_status||"").toUpperCase();
+  if(finance==="OVERDUE")return{key:"payment",state:"CURRENT",detail:"Оплата просрочена"};
+  if(["DUE","PAYMENT_DUE","AWAITING_PAYMENT"].includes(finance))return{key:"payment",state:"CURRENT",detail:"Ожидается оплата"};
+  if(finance==="PAID")return{key:"payment",state:"DONE",detail:"Оплата подтверждена"};
+  if(finance==="NOT_DUE")return{key:"payment",state:"PENDING",detail:"Срок оплаты ещё не наступил"};
+  return{key:"payment",state:"PENDING",detail:"Оплата ещё не подтверждена"};
+}
+function resourceStage(row:any):RealizationStage{
+  const state=String(row.resource_decision_state||"").toUpperCase();
+  if(state==="RESOURCE_CONFIRMED")return{key:"resource",state:"DONE",detail:"Ресурс подтверждён"};
+  if(state==="RESOURCE_DENIED")return{key:"resource",state:"BLOCKED",detail:"Ресурс не подтверждён"};
+  if(state)return{key:"resource",state:"CURRENT",detail:"Решение по ресурсу обрабатывается"};
+  return{key:"resource",state:"PENDING",detail:"Ресурс пока не подтверждён"};
+}
+function shipmentStage(row:any):RealizationStage{
+  const state=String(row.shipment_status||"").toUpperCase();
+  if(!state)return{key:"logistics",state:"PENDING",detail:"Отгрузка ещё не начата"};
+  if(state==="PLANNED")return{key:"logistics",state:"PENDING",detail:"Отгрузка запланирована"};
+  if(state==="OPEN")return{key:"logistics",state:"CURRENT",detail:"Отгрузка открыта"};
+  if(state==="IN_TRANSIT")return{key:"logistics",state:"CURRENT",detail:"Груз в пути"};
+  if(state==="ARRIVED")return{key:"logistics",state:"CURRENT",detail:"Груз прибыл, ожидается завершение поставки"};
+  if(state==="UNLOADED")return{key:"logistics",state:"DONE",detail:"Груз выгружен"};
+  if(state==="CLOSED")return{key:"logistics",state:"DONE",detail:"Поставка завершена"};
+  if(state==="CANCELLED")return{key:"logistics",state:"BLOCKED",detail:"Отгрузка отменена"};
+  return{key:"logistics",state:"CURRENT",detail:"Отгрузка выполняется"};
+}
+function closureStage(row:any):RealizationStage{
+  const state=String(row.accounting_closure_status||"").toUpperCase();
+  if(state==="CLOSED"||row.closed_at)return{key:"close",state:"DONE",detail:"Сделка закрыта"};
+  if(state==="PENDING_RECONCILIATION")return{key:"close",state:"CURRENT",detail:"Идёт сверка и закрытие сделки"};
+  return{key:"close",state:"PENDING",detail:"Закрытие сделки ещё предстоит"};
+}
+function realizationStatus(row:any){
+  const signed=Boolean(row.signed_supplement_document_key&&row.signed_addendum_document_id&&String(row.signed_lifecycle_state||"").toUpperCase()==="ACTIVE"&&["CONFIRMED","VERIFIED"].includes(String(row.signed_authority_state||"").toUpperCase()));
+  const stages:RealizationStage[]=[
+    {key:"contract",state:"DONE",detail:"Сделка зарегистрирована и доступна в кабинете"},
+    {key:"documents",state:signed?"DONE":"PENDING",detail:signed?"Документы подписаны":"Ожидается подписание документов"},
+    paymentStage(row),
+    resourceStage(row),
+    shipmentStage(row),
+    closureStage(row),
+  ];
+  if(!stages.some(s=>s.state==="CURRENT"||s.state==="BLOCKED")){
+    const next=stages.find(s=>s.state==="PENDING");
+    if(next)next.state="CURRENT";
+  }
+  return{source:REALIZATION_SOURCE,completed_count:stages.filter(s=>s.state==="DONE").length,total_count:stages.length,current_stage_key:stages.find(s=>s.state==="CURRENT")?.key||null,has_blocker:stages.some(s=>s.state==="BLOCKED"),stages};
+}
 async function workflowState(c:Ctx,clientId:string,contractId:string){
-  return await sql`select d.deal_id,coalesce(w.payment_handoff_state,'NOT_SENT') as payment_handoff_state,coalesce(w.payment_expectation_state,'NOT_CREATED') as payment_expectation_state,w.client_addendum_downloaded_at,w.client_invoice_downloaded_at,w.signed_supplement_document_key,sd.document_id as signed_addendum_document_id,case when sd.id is not null and sd.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum then 'DOCUMENTS_SIGNED' when coalesce(w.payment_handoff_state,'NOT_SENT')='SENT' then 'PAYMENTS' else 'DEAL_DOCUMENTS' end as client_stage from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.owner_deal_workflow w on w.deal_key=d.id left join portal_private.documents sd on sd.id=w.signed_supplement_document_key where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) order by d.created_at desc`;
+  const rows=await sql`
+    select d.deal_id,d.business_status,d.finance_status::text as deal_finance_status,d.accounting_closure_status::text as accounting_closure_status,d.opened_at,d.closed_at,d.updated_at as deal_updated_at,
+      coalesce(w.payment_handoff_state,'NOT_SENT') as payment_handoff_state,coalesce(w.payment_expectation_state,'NOT_CREATED') as payment_expectation_state,w.client_addendum_downloaded_at,w.client_invoice_downloaded_at,w.signed_supplement_document_key,w.updated_at as workflow_updated_at,
+      sd.document_id as signed_addendum_document_id,sd.authority_state::text as signed_authority_state,sd.lifecycle_state::text as signed_lifecycle_state,
+      fs.obligation_amount,fs.received_amount,fs.client_remaining_amount,fs.currency as finance_currency,fs.finance_status as finance_summary_status,fs.updated_at as finance_updated_at,
+      rd.decision_state as resource_decision_state,rd.decided_at as resource_decided_at,
+      sh.shipment_status::text as shipment_status,sh.actual_departure_at,sh.actual_arrival_at,sh.closed_at as shipment_closed_at,sh.updated_at as shipment_updated_at,
+      case when sd.id is not null and sd.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum then 'DOCUMENTS_SIGNED' when coalesce(w.payment_handoff_state,'NOT_SENT')='SENT' then 'PAYMENTS' else 'DEAL_DOCUMENTS' end as client_stage
+    from portal_private.deals d
+    join portal_private.clients cl on cl.id=d.client_key
+    join portal_private.contracts ct on ct.id=d.contract_key
+    left join portal_private.owner_deal_workflow w on w.deal_key=d.id
+    left join portal_private.documents sd on sd.id=w.signed_supplement_document_key
+    left join lateral (
+      select f.obligation_amount,f.received_amount,f.client_remaining_amount,f.currency,f.finance_status,f.updated_at
+      from portal_private.owner_deal_finance_summary f
+      where f.deal_id=d.deal_id and f.authority_state in ('CONFIRMED','VERIFIED') and f.lifecycle_state='ACTIVE'
+      order by f.updated_at desc limit 1
+    ) fs on true
+    left join lateral (
+      select r.decision_state,r.decided_at
+      from portal_private.resource_decisions r
+      where r.deal_key=d.id
+      order by r.decided_at desc nulls last,r.created_at desc limit 1
+    ) rd on true
+    left join lateral (
+      select s.shipment_status,s.actual_departure_at,s.actual_arrival_at,s.closed_at,s.updated_at
+      from portal_private.shipments s
+      where s.deal_key=d.id and s.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum) and s.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      order by s.updated_at desc limit 1
+    ) sh on true
+    where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now())
+    order by d.created_at desc`;
+  return rows.map((row:any)=>({...row,realization_status:realizationStatus(row)}));
 }
 async function markDownloaded(c:Ctx,dealId:string,documentId:string){
   const rows=await sql`select d.id as deal_key,odd.document_kind from portal_private.deals d join portal_private.owner_deal_documents odd on odd.deal_key=d.id join portal_private.documents doc on doc.id=odd.document_key join portal_private.document_versions dv on dv.id=doc.current_version_id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where d.deal_id=${dealId} and doc.document_id=${documentId} and odd.document_kind in ('ADDENDUM','INVOICE') and doc.authority_state='CONFIRMED'::portal_private.authority_state_enum and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) limit 1`;
