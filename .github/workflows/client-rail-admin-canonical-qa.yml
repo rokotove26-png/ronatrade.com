@@ -89,7 +89,8 @@ jobs:
           const expected=hostId==='page-monitoring'?'':nested;
           if(inner!==expected)throw new Error('legacy/static Rail DOM survived build-time replacement');
           if(hostId==='page-monitoring'&&!open[0].includes('data-rona-client-rail-admin-canonical-mount="v1"'))throw new Error('direct page-monitoring host is not canonical mount');
-          if((html.match(/data-rona-client-rail-current-only="current-only-v2"/g)||[]).length!==1)throw new Error('current-only Rail host is not unique');
+          const currentOnlyHostTags=html.match(/<[^>]+data-rona-client-rail-current-only="current-only-v2"[^>]*>/g)||[];
+          if(currentOnlyHostTags.length!==1)throw new Error('current-only Rail host element is not unique: '+currentOnlyHostTags.length);
           if(rail.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||rail.visual_contract!=='ADMIN_CURRENT_V8_2')throw new Error('wrong Rail visual canon');
           if(rail.scope!=='ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST'||rail.visual_source_mode!=='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER'||rail.host_mode!=='BUILD_TIME_CURRENT_ONLY_SOURCE_HOST')throw new Error('Rail still uses legacy overlay architecture');
           if(rail.static_host_marker!=='current-only-v2'||rail.static_title_owner!=='CURRENT_ONLY_HOST_PSEUDO_TITLE'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false||!(rail.static_removed_bytes>0))throw new Error('static current-only Rail proof missing');
