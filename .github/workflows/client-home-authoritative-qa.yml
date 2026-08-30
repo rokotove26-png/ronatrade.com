@@ -1,0 +1,139 @@
+name: Client Home authoritative QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+  push:
+    branches:
+      - 'fix/client-home-authoritative-consolidation-20260830'
+      - 'release/public-go-live-v1.1'
+
+permissions:
+  contents: read
+
+jobs:
+  client-home-authoritative:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify current-only Home runtime contract and build attachment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-runtime/client-home-authoritative-v1.js
+          node --check scripts/attach-client-application-lifecycle.mjs
+          node <<'NODE'
+          const fs=require('fs');
+          const runtime=fs.readFileSync('assets/portal-runtime/client-home-authoritative-v1.js','utf8');
+          for(const marker of [
+            '20260830-client-home-authoritative-v1',
+            "source:'CLIENT_CONTEXT_HOME_PROJECTION'",
+            '/v1/client/bootstrap',
+            '/v1/client/context?clientId=',
+            'data-rona-client-home-owner',
+            'data-rona-home-canonical-width',
+            'current_status_label',
+            'resource_label',
+            'payment_label',
+            'payment_obligation_amount',
+            'payment_received_amount',
+            'Обновлено:'
+          ])if(!runtime.includes(marker))throw new Error('missing Home marker '+marker);
+          if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('hardcoded business entity found in Home runtime');
+          const attach=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
+          for(const marker of ['rona-client-home-authoritative-v1','rona-client-home-first-paint-guard','CURRENT_ONLY_CONSOLIDATED_HOME','HOME_FAIL_CLOSED'])if(!attach.includes(marker))throw new Error('missing Home build marker '+marker);
+          NODE
+          npm run build
+          grep -q 'id="rona-client-home-authoritative-v1"' dist/portal/client.html
+          grep -q 'id="rona-client-home-first-paint-guard"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-home-authoritative-v1.js?v=20260830-current-only-authoritative-v1' dist/portal/client.html
+          node -e "const i=require('./dist/canonical-visual-integrity.json');const h=i.client_runtime?.home_bridge;if(h?.source!=='CLIENT_CONTEXT_HOME_PROJECTION'||h?.mode!=='CURRENT_ONLY_CONSOLIDATED_HOME'||h?.duplicates_removed!==true||h?.hardcoded_business_entities!==false)process.exit(1)"
+
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove consolidated Home, context switch and automatic refresh in Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1500,height:1000}});
+            const errors=[];page.on('pageerror',e=>errors.push(String(e.message||e)));
+            let phase='A1';
+            const contexts=[
+              {client_id:'CLIENT-A',legal_name:'CLIENT ALPHA',contract_id:'CTR-A',current_external_contract_number:'EXT-A'},
+              {client_id:'CLIENT-B',legal_name:'CLIENT BETA',contract_id:'CTR-B',current_external_contract_number:'EXT-B'}
+            ];
+            const detailA=()=>({
+              contract:contexts[0],
+              applications:[
+                {application_id:'APP-A1',deal_id:'TX-A1',product:'Бензин тестовый',quantity_tonnes:100,destination:'Станция A',delivery_basis:'DAP',status:'DEAL_REGISTERED'},
+                {application_id:'APP-A2',deal_id:'TX-A2',product:'Дизель тестовый',quantity_tonnes:50,destination:'Станция B',delivery_basis:'CPT',status:'DEAL_REGISTERED'},
+                {application_id:'APP-A3',deal_id:null,product:'СУГ тестовый',quantity_tonnes:20,status:'SUBMITTED'}
+              ],
+              deals:[
+                {deal_id:'TX-A1',business_status:'EXECUTING',current_status:'EXECUTING',current_status_label:phase==='A2'?'Готов к отгрузке':'В исполнении',resource_status:'RESOURCE_CONFIRMED',resource_label:'Ресурс подтверждён',payment_status:'PARTIALLY_PAID',payment_label:'Оплачено 30%',payment_received_amount:300,payment_obligation_amount:1000,payment_currency:'USD',closed_at:null},
+                {deal_id:'TX-A2',business_status:'EXECUTING',current_status:'EXECUTING',current_status_label:'В исполнении',resource_status:'RESOURCE_PENDING',resource_label:'Ресурс ожидает подтверждения',payment_status:'NOT_DUE',payment_label:'Оплата не наступила',payment_received_amount:0,payment_obligation_amount:500,payment_currency:'USD',closed_at:null}
+              ],
+              payments:[{payment_id:'PAY-A',deal_id:'TX-A1',amount:300,currency:'USD',payment_at:'2026-08-14T00:00:00Z'}],prices:[]
+            });
+            const detailB={
+              contract:contexts[1],applications:[{application_id:'APP-B1',deal_id:'TX-B1',product:'Нафта тестовая',quantity_tonnes:75,destination:'Станция C',delivery_basis:'DAP',status:'DEAL_REGISTERED'}],
+              deals:[{deal_id:'TX-B1',business_status:'EXECUTING',current_status:'EXECUTING',current_status_label:'В исполнении',resource_status:'RESOURCE_CONFIRMED',resource_label:'Ресурс подтверждён',payment_status:'PAID',payment_label:'Оплачено 100%',payment_received_amount:900,payment_obligation_amount:900,payment_currency:'USD',closed_at:null}],
+              payments:[{payment_id:'PAY-B',deal_id:'TX-B1',amount:900,currency:'USD',payment_at:'2026-08-20T00:00:00Z'}],prices:[]
+            };
+            await page.route('https://rona.test/portal/api/v1/client/bootstrap',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{contexts}})}));
+            await page.route(/https:\/\/rona\.test\/portal\/api\/v1\/client\/context\?.*/,route=>{
+              const u=new URL(route.request().url());const client=u.searchParams.get('clientId');
+              route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:client==='CLIENT-B'?detailB:detailA()})});
+            });
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;background:#04101b;color:white}#page-home{box-sizing:border-box;width:1000px;padding:20px;margin-left:120px}.frame{box-sizing:border-box;width:900px;margin-left:20px;border:1px solid #234;border-radius:12px;padding:12px}.legacy{width:900px;margin:10px 0 0 20px;border:1px solid #234;padding:10px}</style></head><body><header>CLIENT ALPHA · CLIENT-A · CTR-A · EXT-A</header><main><section id="page-home"><section id="title" class="frame"><h1>Главная</h1><div>Сводка по выбранной компании: сделки, условия, оплата и ближайшие шаги.</div><span>Данные по состоянию на 11.08.2026</span></section><section id="context" class="frame"><span>Выбрана компания</span> <b id="contextText">CLIENT ALPHA · CLIENT-A · CTR-A · EXT-A</b></section><section id="legacy" class="legacy"><div>АКТИВНЫЕ СДЕЛКИ</div><div>ОПЛАТА</div><div>ТЕКУЩИЙ СТАТУС</div><aside><div>Компания</div><div>Оплата</div><div>Цены</div><div>Заявки</div></aside></section></section></main><nav><button>Главная</button><button>Сделки</button><button>Платежи и взаиморасчёты</button></nav></body></html>`}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-authoritative-v1.js')});
+            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-ready')==='true'&&document.querySelector('[data-rona-client-home-owner="authoritative-v1"]'));
+            const a=await page.evaluate(()=>{
+              const title=document.querySelector('#title').getBoundingClientRect(),owner=document.querySelector('[data-rona-client-home-owner]').getBoundingClientRect();
+              return{title:{left:title.left,width:title.width},owner:{left:owner.left,width:owner.width},text:document.querySelector('#page-home').innerText,legacy:getComputedStyle(document.querySelector('#legacy')).display,meta:document.querySelector('#title').innerText};
+            });
+            assert(errors.length===0,'browser errors '+JSON.stringify(errors));
+            assert(Math.abs(a.title.left-a.owner.left)<=1&&Math.abs(a.title.width-a.owner.width)<=1,'Home owner not aligned to title frame '+JSON.stringify(a));
+            assert(a.legacy==='none','legacy Home body remains visible');
+            assert(a.text.includes('TX-A1')&&a.text.includes('TX-A2'),'current deals missing '+a.text);
+            assert(/АКТИВНЫЕ СДЕЛКИ\s+2/iu.test(a.text),'active deal count missing '+a.text);
+            assert(a.text.includes('300 USD / 1 500 USD'),'finance aggregate missing '+a.text);
+            assert(a.text.includes('Ресурс подтверждён')&&a.text.includes('Оплачено 30%'),'server statuses missing '+a.text);
+            assert(/ЗАЯВКИ В РАБОТЕ\s+1/iu.test(a.text),'active application summary missing '+a.text);
+            assert(a.text.includes('14.08.2026'),'last confirmed payment date missing '+a.text);
+            assert(a.meta.includes('Обновлено:')&&!a.meta.includes('11.08.2026'),'stale title timestamp not replaced '+a.meta);
+            assert(!a.text.includes('ТЕКУЩИЙ СТАТУС')&&!a.text.includes('СЛЕДУЮЩИЙ ШАГ'),'duplicate legacy status remains '+a.text);
+
+            await page.evaluate(()=>{document.querySelector('header').textContent='CLIENT BETA · CLIENT-B · CTR-B · EXT-B';document.querySelector('#contextText').textContent='CLIENT BETA · CLIENT-B · CTR-B · EXT-B'});
+            await page.waitForFunction(()=>window.__RONA_CLIENT_HOME_STATE__?.client_id==='CLIENT-B'&&document.querySelector('[data-rona-client-home-owner]').innerText.includes('TX-B1'));
+            const b=await page.locator('[data-rona-client-home-owner]').innerText();
+            assert(b.includes('TX-B1')&&!b.includes('TX-A1'),'context switch did not replace Home projection '+b);
+            assert(b.includes('900 USD / 900 USD')&&b.includes('Оплачено 100%'),'context B finance/status wrong '+b);
+
+            phase='A2';
+            await page.evaluate(()=>{document.querySelector('header').textContent='CLIENT ALPHA · CLIENT-A · CTR-A · EXT-A';document.querySelector('#contextText').textContent='CLIENT ALPHA · CLIENT-A · CTR-A · EXT-A'});
+            await page.waitForFunction(()=>window.__RONA_CLIENT_HOME_STATE__?.client_id==='CLIENT-A');
+            await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow')));
+            await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]').innerText.includes('Готов к отгрузке'));
+            console.log('CLIENT_HOME_AUTHORITATIVE_BROWSER=PASS');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
