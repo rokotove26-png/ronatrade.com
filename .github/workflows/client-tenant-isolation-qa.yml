@@ -5,10 +5,7 @@ on:
     branches:
       - release/public-go-live-v1.1
     paths:
-      - 'functions/portal/_middleware.js'
-      - 'functions/portal/[[path]].js'
-      - 'functions/portal/api/[[path]].js'
-      - 'functions/portal/auth/login.js'
+      - 'functions/portal/**'
       - 'supabase/functions/rona-portal-api/client.ts'
       - 'supabase/functions/rona-portal-api/phase5d.ts'
       - '.github/workflows/client-tenant-isolation-qa.yml'
@@ -16,10 +13,7 @@ on:
     branches:
       - release/public-go-live-v1.1
     paths:
-      - 'functions/portal/_middleware.js'
-      - 'functions/portal/[[path]].js'
-      - 'functions/portal/api/[[path]].js'
-      - 'functions/portal/auth/login.js'
+      - 'functions/portal/**'
       - 'supabase/functions/rona-portal-api/client.ts'
       - 'supabase/functions/rona-portal-api/phase5d.ts'
       - '.github/workflows/client-tenant-isolation-qa.yml'
@@ -42,14 +36,15 @@ jobs:
           grep -Fq 'rona-client-server-tenant-guard-v1' functions/portal/_middleware.js
           grep -Fq 'SERVER_SESSION_AUTHORITY' functions/portal/_middleware.js
           grep -Fq '/portal/api/v1/client/bootstrap' functions/portal/_middleware.js
-          grep -Fq "x-rona-client-tenant-context','server-session-authority-v1" functions/portal/_middleware.js
+          grep -Fq "x-rona-client-tenant-context','server-session-authority-v2" functions/portal/_middleware.js
+          grep -Fq 'CLIENT_CONTEXTS.splice(0,CLIENT_CONTEXTS.length,next)' functions/portal/_middleware.js
           grep -Fq 'client_user_has_contract_access' supabase/functions/rona-portal-api/phase5d.ts
-          grep -Fq 'client_user_has_contract_access' functions/portal/[[path]].js
+          grep -Fq 'client_user_has_contract_access' 'functions/portal/[[path]].js'
           echo 'CLIENT_TENANT_ISOLATION_CONTRACT=PASS'
       - name: Verify fail-closed context routing
         run: |
           set -euo pipefail
           grep -Fq 'CONTEXT_NOT_FOUND' supabase/functions/rona-portal-api/phase5d.ts
-          grep -Fq 'requireRealClientContext' functions/portal/[[path]].js
-          grep -Fq 'CLIENT_REAL_CONTEXT_REQUIRED' functions/portal/[[path]].js
+          grep -Fq 'requireRealClientContext' 'functions/portal/[[path]].js'
+          grep -Fq 'CLIENT_CONTEXT_NOT_AUTHORIZED' 'functions/portal/[[path]].js'
           echo 'CLIENT_TENANT_FAIL_CLOSED=PASS'
