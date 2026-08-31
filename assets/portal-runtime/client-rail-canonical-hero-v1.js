@@ -11,7 +11,7 @@
   const TITLE='Онлайн ЖД';
   const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.';
   const PAYMENTS_TITLE='Платежи и взаиморасчёты';
-  let timer=0;
+  let timer=0,observer=null,applying=false,paymentsCanon=null;
 
   const norm=value=>String(value??'').replace(/\s+/g,' ').trim();
   const num=value=>{const n=parseFloat(value);return Number.isFinite(n)?n:null};
@@ -89,20 +89,21 @@
     });
   }
 
-  function applyPaymentsCanon(host,hero,title){
-    const canon=readPaymentsCanon(),root=host.querySelector('.rona-rail-v4-root');
-    if(!canon||!root||!hero||!title)return false;
+  function applyPaymentsCanon(){
+    if(!paymentsCanon)paymentsCanon=readPaymentsCanon();
+    const canon=paymentsCanon;if(!canon)return false;
+    const root=document.documentElement;
     root.style.setProperty('--rona-rail-canon-width',`${canon.width}px`);
-    hero.style.setProperty('--rona-rail-canon-radius',canon.radius||'16px');
-    hero.style.setProperty('--rona-rail-canon-pt',canon.paddingTop||'18px');
-    hero.style.setProperty('--rona-rail-canon-pr',canon.paddingRight||'20px');
-    hero.style.setProperty('--rona-rail-canon-pb',canon.paddingBottom||'18px');
-    hero.style.setProperty('--rona-rail-canon-pl',canon.paddingLeft||'20px');
-    title.style.setProperty('--rona-rail-canon-title-size',canon.titleFontSize||'28px');
-    title.style.setProperty('--rona-rail-canon-title-line',canon.titleLineHeight||'1.2');
-    title.style.setProperty('--rona-rail-canon-title-weight',canon.titleFontWeight||'800');
-    title.style.setProperty('--rona-rail-canon-title-spacing',canon.titleLetterSpacing||'normal');
-    document.documentElement.dataset.ronaClientRailPaymentsReference='MATCHED';
+    root.style.setProperty('--rona-rail-canon-radius',canon.radius||'16px');
+    root.style.setProperty('--rona-rail-canon-pt',canon.paddingTop||'18px');
+    root.style.setProperty('--rona-rail-canon-pr',canon.paddingRight||'20px');
+    root.style.setProperty('--rona-rail-canon-pb',canon.paddingBottom||'18px');
+    root.style.setProperty('--rona-rail-canon-pl',canon.paddingLeft||'20px');
+    root.style.setProperty('--rona-rail-canon-title-size',canon.titleFontSize||'28px');
+    root.style.setProperty('--rona-rail-canon-title-line',canon.titleLineHeight||'1.2');
+    root.style.setProperty('--rona-rail-canon-title-weight',canon.titleFontWeight||'800');
+    root.style.setProperty('--rona-rail-canon-title-spacing',canon.titleLetterSpacing||'normal');
+    root.dataset.ronaClientRailPaymentsReference='MATCHED';
     window.__RONA_CLIENT_RAIL_PAYMENTS_CANON__=canon;
     return true;
   }
@@ -188,32 +189,54 @@
   }
 
   function canonicalize(){
-    ensureStyle();
-    const host=document.querySelector(HOST);if(!host)return false;
-    const hero=host.querySelector('.rona-rail-v4-hero');if(!hero)return false;
-    const kicker=hero.querySelector('.rona-visual-kicker'),title=hero.querySelector('.rona-visual-title'),subtitle=hero.querySelector('.rona-visual-sub');
-    if(!kicker||!title||!subtitle)return false;
-    kicker.textContent=KICKER;title.textContent=TITLE;subtitle.textContent=SUBTITLE;
-    addActions(hero);removeCompetingTitle(host,hero);applyPaymentsCanon(host,hero,title);
-    hero.setAttribute('data-rona-client-rail-canonical-hero','v1');
-    document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY';
-    document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V1';
-    window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'};
-    return true;
+    if(applying)return false;
+    applying=true;
+    try{
+      ensureStyle();
+      applyPaymentsCanon();
+      const host=document.querySelector(HOST);if(!host)return false;
+      const hero=host.querySelector('.rona-rail-v4-hero');if(!hero)return false;
+      const kicker=hero.querySelector('.rona-visual-kicker'),title=hero.querySelector('.rona-visual-title'),subtitle=hero.querySelector('.rona-visual-sub');
+      if(!kicker||!title||!subtitle)return false;
+      if(kicker.textContent!==KICKER)kicker.textContent=KICKER;
+      if(title.textContent!==TITLE)title.textContent=TITLE;
+      if(subtitle.textContent!==SUBTITLE)subtitle.textContent=SUBTITLE;
+      addActions(hero);removeCompetingTitle(host,hero);
+      if(hero.getAttribute('data-rona-client-rail-canonical-hero')!=='v1')hero.setAttribute('data-rona-client-rail-canonical-hero','v1');
+      document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY';
+      document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V1';
+      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'};
+      return true;
+    }finally{applying=false}
   }
 
   function schedule(){clearTimeout(timer);timer=window.setTimeout(canonicalize,0)}
+  function invalidatePaymentsCanon(){paymentsCanon=null;schedule()}
   function isRailNav(target){
     const node=target?.closest?.('button,a,[role="button"]');if(!node)return false;
     const key=norm(node.getAttribute('data-page')||node.getAttribute('data-section')||node.getAttribute('data-target')).toLowerCase();
     const label=norm(node.textContent).toLowerCase();
     return key==='rail'||key==='monitoring'||label==='онлайн жд';
   }
+  function touchesRail(record){
+    const host=document.querySelector(HOST);
+    if(host&&(record.target===host||host.contains(record.target)))return true;
+    for(const node of record.addedNodes||[]){
+      if(node.nodeType!==1)continue;
+      if(node.matches?.(HOST)||node.querySelector?.(HOST)||host?.contains(node))return true;
+    }
+    return false;
+  }
+  function ensureObserver(){
+    if(observer||!document.body)return;
+    observer=new MutationObserver(records=>{if(applying)return;if(records.some(touchesRail))schedule()});
+    observer.observe(document.body,{childList:true,subtree:true});
+  }
+
   document.addEventListener('rona:client-rail:authority',schedule);
   document.addEventListener('click',event=>{if(isRailNav(event.target)){schedule();setTimeout(canonicalize,140);setTimeout(canonicalize,420)}},true);
   window.addEventListener('pageshow',()=>{schedule();setTimeout(canonicalize,160)});
   window.addEventListener('focus',schedule);
-  window.addEventListener('resize',schedule,{passive:true});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{schedule();setTimeout(canonicalize,180)},{once:true});else schedule();
-  window.setInterval(canonicalize,2000);
+  window.addEventListener('resize',invalidatePaymentsCanon,{passive:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{ensureObserver();schedule();setTimeout(canonicalize,180)},{once:true});else{ensureObserver();schedule()}
 })();
