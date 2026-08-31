@@ -61,7 +61,7 @@ jobs:
             "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
             'rona-client-rail-hero-actions','Автообновление · 30 с','Обновить',
             'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',
-            'width:min(100%,1240px)!important','grid-template-columns:minmax(320px,360px) minmax(0,1fr)!important','font-size:18px!important'
+            'width:min(100%,1240px)!important','grid-template-columns:minmax(320px,360px) minmax(0,1fr)!important','${HOST} .rona-rail-v4-hero .rona-visual-title','font-size:28px!important'
           ])if(!hero.includes(marker))throw new Error('Client canonical hero contract missing: '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(hero))throw new Error('canonical hero contains hardcoded business entity');
 
@@ -194,7 +194,7 @@ jobs:
             assert(result.title==='Онлайн ЖД','wrong title '+JSON.stringify(result));
             assert(result.subtitle==='Операционная картина железнодорожных отправок по данным клиентского контура.','wrong subtitle '+JSON.stringify(result));
             assert(result.actionCount===1&&result.pill==='Автообновление · 30 с'&&result.button==='Обновить','canonical actions missing '+JSON.stringify(result));
-            assert(result.display==='flex'&&result.borderRadius>=15&&result.titlePx===18,'canonical hero geometry/title standard missing '+JSON.stringify(result));
+            assert(result.display==='flex'&&result.borderRadius>=15&&result.titlePx===28,'canonical hero geometry/page-title scale missing '+JSON.stringify(result));
             assert(result.rootWidth<=1240.5&&result.rootWidth>=1239,'compact desktop width missing '+JSON.stringify(result));
             assert(result.leftWidth<=360.5&&result.leftWidth>=319,'compact left column missing '+JSON.stringify(result));
             assert(result.titleCount===1,'duplicate visible Online Rail title '+JSON.stringify(result));
