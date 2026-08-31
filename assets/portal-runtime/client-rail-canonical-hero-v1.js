@@ -65,7 +65,7 @@
         margin:0!important;
         color:#eaf4f8!important;
         font-family:Inter,Arial,sans-serif!important;
-        font-size:18px!important;
+        font-size:28px!important;
         line-height:1.2!important;
         font-weight:800!important;
         letter-spacing:-.01em!important;
