@@ -16,8 +16,10 @@ for(const required of [
 for(const forbidden of ['function evidence(','function lifecycle(','cardTextOutside','resourceDone=','paymentPct=pctMatch','Статусы формируются из текущей карточки сделки'])
   if(runtime.includes(forbidden))throw new Error(`REALIZATION_BROWSER_INFERENCE_FORBIDDEN:${forbidden}`);
 
-for(const required of ['20260831-client-deal-passport-v1','Паспорт сделки','passport-only','data-rona-command-field'])
-  if(!passport.includes(required))throw new Error(`DEAL_PASSPORT_REQUIRED_MISSING:${required}`);
+for(const required of [
+  '20260831-client-deal-passport-v2-centered-status','Паспорт сделки','passport-only','data-rona-command-field',
+  '[data-rona-command-field="stage"]','[data-rona-command-field="resource"]','justify-content:center!important','align-items:center!important',
+]) if(!passport.includes(required))throw new Error(`DEAL_PASSPORT_REQUIRED_MISSING:${required}`);
 for(const forbidden of ['Схема реализации сделки','Контракт и сделка','function stageData(','function renderFlow(','rona-deal-flow-v3__grid','setInterval(schedule,2200)'])
   if(passport.includes(forbidden))throw new Error(`RETIRED_LOCAL_REALIZATION_RENDERER_REMAINS:${forbidden}`);
 
@@ -35,11 +37,11 @@ for(const required of ['CANONICAL_LEGACY_RESOURCE_MATERIALIZATION','RESOURCE_CON
 
 for(const required of [
   "lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY'",'20260831-realization-single-owner-v3',"retired_local_realization_renderer:'PHYSICALLY_REMOVED'",'lifecycle_single_owner:true',
-  'client-deal-passport-v1.js?v=20260831-passport-only-v1',
+  'client-deal-passport-v1.js?v=20260831-status-center-v2',"passportMarker='20260831-client-deal-passport-v2-centered-status'",
 ]) if(!attach.includes(required))throw new Error(`REALIZATION_INTEGRITY_POLICY_MISSING:${required}`);
 if(attach.includes('client-deal-command-center-v3.js'))throw new Error('RETIRED_COMMAND_CENTER_REFERENCE_REMAINS_IN_ATTACH');
 
 for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','FARGONA GAZ','UNIVERSAL SOLYARIS']){
   if(runtime.includes(forbidden)||passport.includes(forbidden)||backend.includes(forbidden)||resourceGuard.includes(forbidden)||legacyNormalization.includes(forbidden))throw new Error(`REALIZATION_HARDCODING_FORBIDDEN:${forbidden}`);
 }
-console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS single-owner=SERVER_AUTHORITATIVE_V3 retired-local-renderer=absent');
+console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS single-owner=SERVER_AUTHORITATIVE_V3 centered-stage-resource=PASS retired-local-renderer=absent');
