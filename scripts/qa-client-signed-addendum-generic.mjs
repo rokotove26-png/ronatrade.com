@@ -24,7 +24,7 @@ must(count(html,/client-deal-command-center-v\d+\.js/giu)===0,'RETIRED_DEAL_COMM
 must(count(html,/client-deal-lifecycle-v1\.js/giu)===1,'DEAL_LIFECYCLE_NOT_SINGLE_OWNER');
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
 must(html.includes('20260830-single-owner-prepaint-v8'),'SIGNED_ADDENDUM_PREPAINT_CACHE_BUSTER_MISSING');
-must(html.includes('20260831-passport-only-v1'),'DEAL_PASSPORT_CACHE_BUSTER_MISSING');
+must(html.includes('20260831-status-center-v2'),'DEAL_PASSPORT_CACHE_BUSTER_MISSING');
 must(html.includes('20260831-realization-single-owner-v3'),'DEAL_LIFECYCLE_CACHE_BUSTER_MISSING');
 for(const marker of ['__RONA_CLIENT_DEAL_DOCUMENTS_V1__','__RONA_CLIENT_DEAL_DOCUMENTS_V2__','__RONA_CLIENT_DEAL_DOCUMENTS_V3__','__RONA_CLIENT_DEAL_DOCUMENTS_V4__'])
   must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
@@ -40,7 +40,7 @@ for(const p of retiredPaths){let present=true;try{await access(p)}catch(error){i
 for(const marker of ['/v1/client/bootstrap','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id',"client_stage:'DOCUMENTS_SIGNED'"])
   must(runtime.includes(marker),`SIGNED_ADDENDUM_BROWSER_MARKER_MISSING:${marker}`);
 
-for(const marker of ['20260831-client-deal-passport-v1','DEAL CONTROL','Паспорт сделки','data-rona-command-field','data-rona-command-heading','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','passport-only'])
+for(const marker of ['20260831-client-deal-passport-v2-centered-status','DEAL CONTROL','Паспорт сделки','data-rona-command-field','data-rona-command-heading','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','passport-only'])
   must(passport.includes(marker),`DEAL_PASSPORT_MARKER_MISSING:${marker}`);
 for(const forbidden of ['Схема реализации сделки','Контракт и сделка','function stageData(','function renderFlow(','rona-deal-flow-v3__grid','setInterval(schedule,2200)','fetch('])
   must(!passport.includes(forbidden),`DEAL_PASSPORT_RETIRED_REALIZATION_OR_NETWORK_BEHAVIOR:${forbidden}`);
@@ -74,7 +74,7 @@ must(bridge?.prepaint_single_owner===true,'SIGNED_ADDENDUM_PREPAINT_SINGLE_OWNER
 must(bridge?.replacement_semantics==='SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM','SIGNED_ADDENDUM_REPLACEMENT_SEMANTICS_MISSING');
 must(bridge?.passport_scope==='ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS','DEAL_PASSPORT_SCOPE_NOT_GENERIC');
 must(bridge?.passport_data_policy==='PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION','DEAL_PASSPORT_DATA_POLICY_INVALID');
-must(bridge?.passport_marker==='20260831-client-deal-passport-v1','DEAL_PASSPORT_INTEGRITY_MARKER_MISSING');
+must(bridge?.passport_marker==='20260831-client-deal-passport-v2-centered-status','DEAL_PASSPORT_INTEGRITY_MARKER_MISSING');
 must(bridge?.passport_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_PASSPORT_RIGHT_LAYOUT_POLICY_MISSING');
 must(bridge?.passport_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_PASSPORT_NATIVE_CLOSE_POLICY_MISSING');
 must(bridge?.lifecycle_single_owner===true,'DEAL_LIFECYCLE_SINGLE_OWNER_MISSING');
