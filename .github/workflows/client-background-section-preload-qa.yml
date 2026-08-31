@@ -1,0 +1,50 @@
+name: client-background-section-preload-qa
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - assets/portal-runtime/client-background-section-preload-v1.js
+      - scripts/attach-client-background-section-preload-v1.mjs
+      - scripts/emit-client-runtime-cache-policy.mjs
+      - tests/client-background-section-preload-v1.test.mjs
+      - package.json
+      - .github/workflows/client-background-section-preload-qa.yml
+  push:
+    branches: [release/public-go-live-v1.1]
+permissions:
+  actions: read
+  contents: read
+jobs:
+  client-background-preload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify read-only all-section preload contract
+        run: node tests/client-background-section-preload-v1.test.mjs
+      - name: Build current Client with background preload
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -q 'id="rona-client-background-section-preload-v1"' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-background-section-preload-v1.js?v=20260831-all-sections-v1' dist/portal/client.html
+          test "$(grep -o 'client-background-section-preload-v1.js' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
+          grep -q '/assets/portal-runtime/client-background-section-preload-v1.js' dist/_headers
+          grep -q '20260831-client-background-section-preload-v1' dist/assets/portal-runtime/client-background-section-preload-v1.js
+          node -e "const x=require('./dist/canonical-visual-integrity.json');const b=x.client_runtime?.background_section_preload;if(!b||b.mode!=='ALL_CLIENT_SECTIONS_BACKGROUND_PRELOAD'||b.visibility_independent!==true||b.scope!=='ALL_AUTHORIZED_CLIENT_CONTEXTS'||b.read_only!==true||b.visual_change!==false||b.business_mutation!==false)process.exit(1)"
+      - name: Wait for production and prove deployed runtime
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          node scripts/wait-cloudflare-commit.mjs
+          curl -fsSL -H 'Cache-Control: no-cache' "https://ronaoil.com/portal/client?qa=${GITHUB_SHA}" -o /tmp/client.html
+          grep -q 'id="rona-client-background-section-preload-v1"' /tmp/client.html
+          grep -q '/assets/portal-runtime/client-background-section-preload-v1.js?v=20260831-all-sections-v1' /tmp/client.html
+          curl -fsSL -H 'Cache-Control: no-cache' "https://ronaoil.com/assets/portal-runtime/client-background-section-preload-v1.js?v=${GITHUB_SHA}" -o /tmp/preload.js
+          grep -q '20260831-client-background-section-preload-v1' /tmp/preload.js
+          grep -q "cycle('open')" /tmp/preload.js
+          echo 'CLIENT_BACKGROUND_SECTION_PRELOAD_PRODUCTION=PASS'
