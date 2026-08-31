@@ -6,8 +6,8 @@ const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-section-first-paint-v1.js';
 const styleId='rona-client-section-first-paint-v1-style';
 const scriptId='rona-client-section-first-paint-v1';
-const src='/assets/portal-runtime/client-section-first-paint-v1.js?v=20260830-current-only-no-legacy-flash-v1';
-const marker='20260830-client-section-first-paint-v1';
+const src='/assets/portal-runtime/client-section-first-paint-v1.js?v=20260831-background-preload-v2';
+const marker='20260831-client-section-first-paint-v2-background-preload';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
