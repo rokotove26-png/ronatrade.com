@@ -15,11 +15,11 @@ const lifecycleId='rona-client-deal-lifecycle-v1';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
 const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
 const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
-const passportSrc='/assets/portal-runtime/client-deal-passport-v1.js?v=20260831-passport-only-v1';
+const passportSrc='/assets/portal-runtime/client-deal-passport-v1.js?v=20260831-status-center-v2';
 const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260831-realization-single-owner-v3';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
-const passportMarker='20260831-client-deal-passport-v1';
+const passportMarker='20260831-client-deal-passport-v2-status-center';
 const lifecycleMarker='20260831-client-deal-realization-status-v3-single-owner';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
