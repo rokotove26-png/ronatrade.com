@@ -15,6 +15,7 @@ const CONTRACT_RE=/\\bRONA-C\\d{3}-CTR-\\d{4}-\\d{3,}\\b/g;
 const d=document.documentElement;
 d.dataset.ronaClientTenantReady='0';
 d.dataset.ronaClientTenantState='checking';
+function attr(el,name,value){if(el&&el.getAttribute(name)!==value)el.setAttribute(name,value)}
 function clean(c){return c&&typeof c==='object'?{client_id:norm(c.client_id),legal_name:norm(c.legal_name),contract_id:norm(c.contract_id),current_external_contract_number:norm(c.current_external_contract_number),contract_status:norm(c.contract_status)}:null}
 function valid(c){return !!(c&&c.client_id&&c.contract_id&&c.legal_name)}
 function expose(){
@@ -38,20 +39,20 @@ function syncSelect(ctx){
   const current=select.options.length===1&&norm(select.options[0]?.value)===ctx.contract_id&&norm(select.options[0]?.textContent)===label;
   if(!current){const option=new Option(label,ctx.contract_id,true,true);select.replaceChildren(option)}
   if(select.value!==ctx.contract_id)select.value=ctx.contract_id;
-  select.setAttribute('data-client-id',ctx.client_id);
-  select.setAttribute('data-contract-id',ctx.contract_id);
-  select.setAttribute('data-rona-context-source','server-session-authority');
+  attr(select,'data-client-id',ctx.client_id);
+  attr(select,'data-contract-id',ctx.contract_id);
+  attr(select,'data-rona-context-source','server-session-authority');
 }
 function syncScope(scope,ctx){
   if(!scope)return;
-  scope.setAttribute('data-client-id',ctx.client_id);
-  scope.setAttribute('data-contract-id',ctx.contract_id);
-  scope.setAttribute('data-rona-context-source','server-session-authority');
+  attr(scope,'data-client-id',ctx.client_id);
+  attr(scope,'data-contract-id',ctx.contract_id);
+  attr(scope,'data-rona-context-source','server-session-authority');
   const leaves=[...scope.querySelectorAll('*')].filter(el=>el.childElementCount===0);
   let company=null,companyScore=-1;
   for(const leaf of leaves){
     const before=norm(leaf.textContent);if(!before)continue;
-    let after=before.replace(CONTRACT_RE,ctx.current_external_contract_number||ctx.contract_id).replace(CLIENT_RE,ctx.client_id);
+    const after=before.replace(CONTRACT_RE,ctx.current_external_contract_number||ctx.contract_id).replace(CLIENT_RE,ctx.client_id);
     if(after!==before)leaf.textContent=after;
     if(companyLike(before)){
       let score=before.length;if(/[«»]/u.test(before))score+=300;if(/(ооо|осоо|общество|совместное предприятие|llc|limited)/iu.test(before))score+=200;
@@ -151,7 +152,7 @@ export async function onRequest(context) {
   }
 
   const source=await response.text();
-  if(source.includes('rona-client-deal-documents-v5-loader'))return new Response(source,{status:response.status,statusText:response.statusText,headers});
+  if(source.includes('rona-client-server-tenant-guard-v1'))return new Response(source,{status:response.status,statusText:response.statusText,headers});
   const html=source.replace('</head>',CLIENT_ADMIN_SYNC_RUNTIME+'</head>');
   return new Response(html,{status:response.status,statusText:response.statusText,headers});
 }
