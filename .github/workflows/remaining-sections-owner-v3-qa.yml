@@ -48,12 +48,12 @@ jobs:
           grep -q '/portal/analytics-v2-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q '/portal/remaining-sections-final-polish-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q '/portal/remaining-sections-functional-preserve-v2-ui' assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v5-market-news-content-health'" assets/portal-admin-runtime-watchdog-v1.js
           grep -q "if(p==='market-news')return'market-news-current'" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
 
-          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'" functions/portal/clients-agents-current-ui.js
           grep -q "AUTH='/portal/admin-authority'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q "new Option('Клиент','Клиент'),new Option('Агент','Агент')" functions/portal/clients-agents-current-ui.js
@@ -76,15 +76,15 @@ jobs:
           if(access.status!==200)throw new Error('access endpoint '+access.status);
           const accessSrc=await access.text();
           for(const marker of [
-            "__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'",
+            "__RONA_CLIENTS_AGENTS_CURRENT__='20260826-single-owner-v4'",
             "AUTH='/portal/admin-authority'",
             'Клиенты и агенты',
             'Пользователи и доступы',
             "dataset.ronaCreateAccess='primary'",
-            "window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=true"
+            "window.__RONA_CLIENTS_AGENTS_V4_READY__=true"
           ])if(!accessSrc.includes(marker))throw new Error('access missing '+marker);
-          if(access.headers.get('x-rona-clients-agents-ui')!=='single-owner-v5')throw new Error('wrong access owner header');
-          if(access.headers.get('x-rona-access-create')!=='single-owner-create-user-v6')throw new Error('wrong access create contract');
+          if(access.headers.get('x-rona-clients-agents-ui')!=='single-owner-v4')throw new Error('wrong access owner header');
+          if(access.headers.get('x-rona-access-create')!=='client-agent-v4')throw new Error('wrong access create contract');
           if(access.headers.get('x-rona-shell-mutation')!=='none')throw new Error('access mutates global shell');
 
           const remaining=await remainingRequest({});

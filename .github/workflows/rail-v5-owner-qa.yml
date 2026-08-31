@@ -43,7 +43,7 @@ jobs:
           node --check functions/portal/rail-current-v81-maplibre-ui.js
           node --check 'functions/portal/map-assets/[[path]].js'
 
-          # Admin Rail remains the operational-body canon and its current dedicated runtime stays intact.
+          # Admin Rail remains the visual canon and its current dedicated runtime stays intact.
           grep -q 'id="page-monitoring"' portal-src/current/admin.html
           grep -q 'rail-current-v81-maplibre-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
@@ -51,7 +51,7 @@ jobs:
           grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
           grep -q 'rona-rail-v4-hero{display:none' functions/portal/rail-current-v6-single-title-ui.js
 
-          # Client uses its canonical hero plus the current Admin v8.2 operational body.
+          # Client must derive the visual runtime directly from the current Admin v8.2 source.
           test ! -e assets/portal-runtime/client-rail-production-v1.js
           test ! -e assets/portal-runtime/client-rail-movizor-gate-v1.js
           grep -q "from './rail-current-v81-maplibre-ui.js'" functions/portal/client-rail-current-ui.js
@@ -63,11 +63,9 @@ jobs:
           grep -q 'admin-current-v81-client-authority-v1' functions/portal/client-rail-current-ui.js
           ! grep -Eqi 'RONA-C[0-9]{3}|DEAL-2026-[0-9]{3,}|UNIVERSAL SOLYARIS|FARGONA' functions/portal/client-rail-current-ui.js
 
-          grep -q 'CLIENT_RAIL_CURRENT_ONLY=PASS' scripts/attach-client-rail-production-v1.mjs
+          grep -q 'CLIENT_RAIL_ADMIN_CANONICAL=PASS' scripts/attach-client-rail-production-v1.mjs
           grep -q 'client-rail-current-ui?v=20260831-admin-canonical-v1' scripts/attach-client-rail-production-v1.mjs
-          grep -q "visual_canon:'CLIENT_CANONICAL_RAIL_HERO_V1'" scripts/attach-client-rail-production-v1.mjs
-          grep -q "visual_contract:'CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY'" scripts/attach-client-rail-production-v1.mjs
-          grep -q "operational_body_canon:'/portal/rail-current-v81-maplibre-ui'" scripts/attach-client-rail-production-v1.mjs
+          grep -q "visual_canon:'/portal/rail-current-v81-maplibre-ui'" scripts/attach-client-rail-production-v1.mjs
           grep -q "legacy_client_visual_owner:false" scripts/attach-client-rail-production-v1.mjs
           grep -q "separate_movizor_visual_gate:false" scripts/attach-client-rail-production-v1.mjs
           grep -q 'attach-client-rail-production-v1.mjs' package.json
@@ -98,7 +96,7 @@ jobs:
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const bridge=integrity?.client_runtime?.rail_client_admin_canonical;
           if(!bridge||bridge.id!=='rona-client-rail-admin-canonical-v1'||bridge.marker!=='20260831-admin-canonical-v1')throw new Error('Client Rail Admin-canonical integrity record missing');
-          if(bridge.visual_canon!=='CLIENT_CANONICAL_RAIL_HERO_V1'||bridge.visual_contract!=='CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY'||bridge.visual_source_mode!=='CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER'||bridge.operational_body_canon!=='/portal/rail-current-v81-maplibre-ui')throw new Error('Client Rail visual canon contract missing');
+          if(bridge.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||bridge.visual_contract!=='ADMIN_CURRENT_V8_2'||bridge.visual_source_mode!=='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER')throw new Error('Client Rail visual canon contract missing');
           if(bridge.client_data_source!=='/portal/api/v1/client/shipments'||bridge.provider_state_source!=='/portal/api/v1/client/rail'||bridge.authoritative_refresh_ms!==30000||bridge.auto_refresh!==true)throw new Error('Client Rail authoritative server contract missing');
           if(bridge.map_tile_source!=='/portal/map-assets/osm/{z}/{x}/{y}.png'||bridge.movement_publication!=='FAIL_CLOSED_FROM_CLIENT_PROVIDER_STATE')throw new Error('Client Rail map/provider publication contract missing');
           if(bridge.legacy_client_visual_owner!==false||bridge.separate_movizor_visual_gate!==false)throw new Error('retired Client Rail visual owner remains');
