@@ -9,7 +9,8 @@ on:
       - supabase/functions/rona-portal-api/index.ts
       - functions/portal/\[\[path\]\].js
       - functions/portal/agent.js
-      - portal-src/agent-approved-v043.gz.b64.part-*
+      - scripts/build-pages-direct-canonical.mjs
+      - portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html
       - .github/workflows/agent-price-authoritative-e2e-qa.yml
   workflow_dispatch:
 
@@ -22,13 +23,16 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Reconstruct frozen Agent source
+      - name: Verify frozen Agent source from canonical build SSOT
         shell: bash
         run: |
           set -euo pipefail
-          cat portal-src/agent-approved-v043.gz.b64.part-* | tr -d '\r\n' | base64 -d > /tmp/agent.gz
-          gzip -dc /tmp/agent.gz > /tmp/agent.html
+          AGENT_SOURCE='portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html'
+          test -f "$AGENT_SOURCE"
+          cp "$AGENT_SOURCE" /tmp/agent.html
           test "$(sha256sum /tmp/agent.html | awk '{print $1}')" = "4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c"
+          grep -q "path: 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html'" scripts/build-pages-direct-canonical.mjs
+          grep -q "sha256: '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'" scripts/build-pages-direct-canonical.mjs
       - name: Agent source exposes RONA_AGENT_PORTAL boot
         continue-on-error: true
         run: grep -q 'RONA_AGENT_PORTAL' /tmp/agent.html
@@ -57,6 +61,10 @@ jobs:
           grep -q "ops.publish_agent=true" supabase/functions/rona-portal-api/agent.ts
           grep -q "pi.distribution_allowed=true" supabase/functions/rona-portal-api/agent.ts
           grep -q 'AGENT_PRICE_PUBLICATION_V1' supabase/functions/rona-portal-api/agent.ts
+          if grep -q 'raw.githubusercontent.com' supabase/functions/rona-portal-api/agent.ts; then
+            echo 'Agent API must not depend on a historical remote source at runtime' >&2
+            exit 1
+          fi
       - name: Frozen Agent visual source unchanged
         run: |
           set -euo pipefail
