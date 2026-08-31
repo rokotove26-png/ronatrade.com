@@ -1,13 +1,13 @@
 import { onRequest as coreOnRequest } from './_middleware-core.js';
 
 const CLIENT_SERVER_TENANT_GUARD = `<script id="rona-client-server-tenant-guard-v1">(()=>{'use strict';
-const MARK='20260901-client-server-tenant-context-v1';
+const MARK='20260901-client-server-tenant-context-v2';
 if(window.__RONA_CLIENT_SERVER_TENANT_GUARD__===MARK)return;
 window.__RONA_CLIENT_SERVER_TENANT_GUARD__=MARK;
 if(location.pathname!=='/portal/client')return;
 const BOOT='/portal/api/v1/client/bootstrap';
 const nativeFetch=window.fetch.bind(window);
-const state={contexts:[],single:null,loading:null,ready:false,observer:null,syncing:false,queued:false,eventSent:false};
+const state={contexts:[],single:null,loading:null,ready:false,observer:null,syncing:false,queued:false,eventSent:false,modelBound:false};
 const norm=v=>String(v??'').replace(/\\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const CLIENT_RE=/\\bRONA-C\\d{3}\\b/g;
@@ -16,14 +16,43 @@ const d=document.documentElement;
 d.dataset.ronaClientTenantReady='0';
 d.dataset.ronaClientTenantState='checking';
 function attr(el,name,value){if(el&&el.getAttribute(name)!==value)el.setAttribute(name,value)}
-function clean(c){return c&&typeof c==='object'?{client_id:norm(c.client_id),legal_name:norm(c.legal_name),contract_id:norm(c.contract_id),current_external_contract_number:norm(c.current_external_contract_number),contract_status:norm(c.contract_status)}:null}
+function clean(c){return c&&typeof c==='object'?{client_id:norm(c.client_id),legal_name:norm(c.legal_name),registration_country:norm(c.registration_country),registered_address:norm(c.registered_address),contact_phone:norm(c.contact_phone),contract_id:norm(c.contract_id),current_external_contract_number:norm(c.current_external_contract_number),contract_status:norm(c.contract_status),effective_from:norm(c.effective_from),effective_to:norm(c.effective_to)}:null}
 function valid(c){return !!(c&&c.client_id&&c.contract_id&&c.legal_name)}
 function expose(){
   const contexts=state.contexts.map(c=>Object.freeze({...c}));
   const value=Object.freeze({schema:'RONA_CLIENT_SERVER_CONTEXT/1.0',source:'SERVER_SESSION_AUTHORITY',contexts:Object.freeze(contexts),single_context:state.single?Object.freeze({...state.single}):null});
-  try{Object.defineProperty(window,'RONA_CLIENT_SERVER_CONTEXT',{value,writable:false,configurable:false,enumerable:false})}catch(_){window.RONA_CLIENT_SERVER_CONTEXT=value}
+  try{if(!Object.prototype.hasOwnProperty.call(window,'RONA_CLIENT_SERVER_CONTEXT'))Object.defineProperty(window,'RONA_CLIENT_SERVER_CONTEXT',{value,writable:false,configurable:false,enumerable:false})}catch(_){ }
 }
 function companyLike(t){const v=low(t);if(v.length<14||v.length>260)return false;if(v==='kompaniya / kontrakt'||v==='компания / контракт'||v==='компания'||v==='контракт')return false;if(v.includes('выбрана компания')||v.includes('текущая компания')||v.includes('активный контекст')||v.includes('контракт №')||v.includes('договор №'))return false;return /(ооо|осоо|общество|совместное предприятие|топливная компания|llc|limited|company|«|»)/iu.test(t)}
+function blankShape(value,depth=0){
+  if(depth>5)return null;
+  if(Array.isArray(value))return[];
+  if(value&&typeof value==='object'){const out={};for(const [k,v] of Object.entries(value))out[k]=blankShape(v,depth+1);return out}
+  if(typeof value==='boolean')return false;
+  if(typeof value==='number')return 0;
+  return'';
+}
+function serverModel(ctx,template){
+  const out=blankShape(template&&typeof template==='object'?template:{})||{};
+  const active=String(ctx.contract_status||'').toUpperCase()==='ACTIVE';
+  Object.assign(out,{id:ctx.client_id,clientId:ctx.client_id,client_id:ctx.client_id,company:ctx.legal_name,legalName:ctx.legal_name,legal_name:ctx.legal_name,registrationCountry:ctx.registration_country,registration_country:ctx.registration_country,registeredAddress:ctx.registered_address,registered_address:ctx.registered_address,contactPhone:ctx.contact_phone,contact_phone:ctx.contact_phone,contractId:ctx.contract_id,contract_id:ctx.contract_id,contractNo:ctx.current_external_contract_number,current_external_contract_number:ctx.current_external_contract_number,contractDate:ctx.effective_from,effective_from:ctx.effective_from,effective_to:ctx.effective_to,contractStatus:ctx.contract_status,contract_status:ctx.contract_status,status:active?'Действует':(ctx.contract_status||'Требует проверки'),contractStateBlocked:!active});
+  for(const k of ['applications','deals','payments','shipments','documents','rail','claims','notifications','messages','actions','prices'])if(!Array.isArray(out[k]))out[k]=[];
+  return out;
+}
+function bindCanonicalModel(ctx){
+  if(state.modelBound)return true;
+  try{
+    if(typeof CLIENT_CONTEXTS==='undefined'||!Array.isArray(CLIENT_CONTEXTS))return false;
+    const existing=CLIENT_CONTEXTS.find(c=>norm(c?.contractId||c?.contract_id)===ctx.contract_id&&norm(c?.id||c?.clientId||c?.client_id)===ctx.client_id);
+    const next=existing||serverModel(ctx,CLIENT_CONTEXTS[0]||{});
+    Object.assign(next,{id:ctx.client_id,clientId:ctx.client_id,client_id:ctx.client_id,company:ctx.legal_name,legalName:ctx.legal_name,legal_name:ctx.legal_name,contractId:ctx.contract_id,contract_id:ctx.contract_id,contractNo:ctx.current_external_contract_number,current_external_contract_number:ctx.current_external_contract_number,contractStatus:ctx.contract_status,contract_status:ctx.contract_status});
+    CLIENT_CONTEXTS.splice(0,CLIENT_CONTEXTS.length,next);
+    try{activeClientContractId=ctx.contract_id}catch(_){ }
+    state.modelBound=true;
+    try{if(typeof setClientContext==='function')setClientContext(ctx.contract_id,false)}catch(_){ }
+    return true;
+  }catch(_){return false}
+}
 function contextScopes(){
   const out=[];
   const labels=[...document.querySelectorAll('body *')].filter(el=>el.childElementCount===0&&/^(выбрана компания|текущая компания|активный контекст)$/iu.test(norm(el.textContent)));
@@ -42,6 +71,14 @@ function syncSelect(ctx){
   attr(select,'data-client-id',ctx.client_id);
   attr(select,'data-contract-id',ctx.contract_id);
   attr(select,'data-rona-context-source','server-session-authority');
+}
+function filterTenantCards(ctx){
+  for(const card of document.querySelectorAll('.company-switch-card')){
+    const text=norm(card.textContent),action=norm(card.getAttribute('onclick'))+' '+norm(card.querySelector('[onclick]')?.getAttribute('onclick'));
+    const ids=[...(text+' '+action).matchAll(/RONA-C\\d{3}(?:-CTR-\\d{4}-\\d{3,})?/g)].map(m=>m[0]);
+    const authorized=!ids.length||ids.some(v=>v===ctx.client_id||v===ctx.contract_id);
+    if(!authorized){card.hidden=true;card.style.display='none';attr(card,'data-rona-tenant-filtered','true')}else if(card.getAttribute('data-rona-tenant-filtered')==='true'){card.hidden=false;card.style.removeProperty('display');card.removeAttribute('data-rona-tenant-filtered')}
+  }
 }
 function syncScope(scope,ctx){
   if(!scope)return;
@@ -66,7 +103,9 @@ function sync(){
   state.syncing=true;
   try{
     const ctx=state.single;
+    if(!bindCanonicalModel(ctx)){d.dataset.ronaClientTenantState='binding-model';return}
     syncSelect(ctx);
+    filterTenantCards(ctx);
     for(const scope of contextScopes())syncScope(scope,ctx);
     d.dataset.ronaClientTenantReady='1';
     d.dataset.ronaClientTenantState='bound';
@@ -81,7 +120,7 @@ function publish(raw){
   if(!contexts.length)return false;
   state.contexts=contexts;state.single=contexts.length===1?contexts[0]:null;state.ready=true;
   expose();
-  d.dataset.ronaClientTenantState=state.single?'bound':'selection-required';
+  d.dataset.ronaClientTenantState=state.single?'binding-model':'selection-required';
   if(state.single)schedule();else d.dataset.ronaClientTenantReady='1';
   return true;
 }
@@ -143,7 +182,7 @@ export async function onRequest(context) {
   headers.delete('etag');
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('x-rona-client-admin-sync','role-v3-contract-authoritative-deal-v5-canonical-compact-v2-source-no-standalone-documents-price-bounded');
-  headers.set('x-rona-client-tenant-context','server-session-authority-v1');
+  headers.set('x-rona-client-tenant-context','server-session-authority-v2');
   allowClientRailTileCsp(headers);
 
   if(typeof HTMLRewriter==='function'){
