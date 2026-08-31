@@ -1,7 +1,8 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260831-client-rail-canonical-hero-v2-payments-reference';
+  const MARK='20260831-client-rail-canonical-hero-v1';
+  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:min(100%,1240px)!important font-size:28px!important';
   if(window.__RONA_CLIENT_RAIL_CANONICAL_HERO__===MARK)return;
   window.__RONA_CLIENT_RAIL_CANONICAL_HERO__=MARK;
 
@@ -56,8 +57,7 @@
         node.style.setProperty('display','block','important');
       }
     }
-    const rootStyle=root.getAttribute('style');
-    changed.push([root,rootStyle]);
+    changed.push([root,root.getAttribute('style')]);
     root.style.setProperty('visibility','hidden','important');
     root.style.setProperty('pointer-events','none','important');
     try{return fn(root)}finally{
@@ -72,8 +72,7 @@
     return withPaymentsMeasurable(root=>{
       const title=exactTextLeaf(root,PAYMENTS_TITLE);if(!title)return null;
       const frame=paymentsTitleFrame(root,title);if(!frame)return null;
-      const tr=title.getBoundingClientRect(),fr=frame.getBoundingClientRect();
-      if(fr.width<200)return null;
+      const fr=frame.getBoundingClientRect();if(fr.width<200)return null;
       const ts=getComputedStyle(title),fs=getComputedStyle(frame);
       return {
         width:fr.width,
@@ -91,16 +90,15 @@
   }
 
   function applyPaymentsCanon(host,hero,title){
-    const canon=readPaymentsCanon();
-    const root=host.querySelector('.rona-rail-v4-root');
+    const canon=readPaymentsCanon(),root=host.querySelector('.rona-rail-v4-root');
     if(!canon||!root||!hero||!title)return false;
     root.style.setProperty('--rona-rail-canon-width',`${canon.width}px`);
-    hero.style.setProperty('--rona-rail-canon-radius',canon.radius||'12px');
-    hero.style.setProperty('--rona-rail-canon-pt',canon.paddingTop||'16px');
-    hero.style.setProperty('--rona-rail-canon-pr',canon.paddingRight||'18px');
-    hero.style.setProperty('--rona-rail-canon-pb',canon.paddingBottom||'16px');
-    hero.style.setProperty('--rona-rail-canon-pl',canon.paddingLeft||'18px');
-    title.style.setProperty('--rona-rail-canon-title-size',canon.titleFontSize||'24px');
+    hero.style.setProperty('--rona-rail-canon-radius',canon.radius||'16px');
+    hero.style.setProperty('--rona-rail-canon-pt',canon.paddingTop||'18px');
+    hero.style.setProperty('--rona-rail-canon-pr',canon.paddingRight||'20px');
+    hero.style.setProperty('--rona-rail-canon-pb',canon.paddingBottom||'18px');
+    hero.style.setProperty('--rona-rail-canon-pl',canon.paddingLeft||'20px');
+    title.style.setProperty('--rona-rail-canon-title-size',canon.titleFontSize||'28px');
     title.style.setProperty('--rona-rail-canon-title-line',canon.titleLineHeight||'1.2');
     title.style.setProperty('--rona-rail-canon-title-weight',canon.titleFontWeight||'800');
     title.style.setProperty('--rona-rail-canon-title-spacing',canon.titleLetterSpacing||'normal');
@@ -131,10 +129,10 @@
         align-items:flex-end!important;
         justify-content:space-between!important;
         gap:16px!important;
-        padding:var(--rona-rail-canon-pt,16px) var(--rona-rail-canon-pr,18px) var(--rona-rail-canon-pb,16px) var(--rona-rail-canon-pl,18px)!important;
+        padding:var(--rona-rail-canon-pt,18px) var(--rona-rail-canon-pr,20px) var(--rona-rail-canon-pb,18px) var(--rona-rail-canon-pl,20px)!important;
         margin:0 0 14px!important;
         border:1px solid rgba(113,169,194,.18)!important;
-        border-radius:var(--rona-rail-canon-radius,12px)!important;
+        border-radius:var(--rona-rail-canon-radius,16px)!important;
         background:linear-gradient(135deg,rgba(10,31,43,.94),rgba(6,18,27,.9))!important;
         box-shadow:0 14px 40px rgba(0,0,0,.18)!important;
         color:#eaf4f8!important;
@@ -148,7 +146,7 @@
       }
       ${HOST} .rona-rail-v4-hero .rona-visual-title{
         display:block!important;margin:0!important;color:#eaf4f8!important;font-family:Inter,Arial,sans-serif!important;
-        font-size:var(--rona-rail-canon-title-size,24px)!important;
+        font-size:var(--rona-rail-canon-title-size,28px)!important;
         line-height:var(--rona-rail-canon-title-line,1.2)!important;
         font-weight:var(--rona-rail-canon-title-weight,800)!important;
         letter-spacing:var(--rona-rail-canon-title-spacing,normal)!important;
@@ -197,10 +195,10 @@
     if(!kicker||!title||!subtitle)return false;
     kicker.textContent=KICKER;title.textContent=TITLE;subtitle.textContent=SUBTITLE;
     addActions(hero);removeCompetingTitle(host,hero);applyPaymentsCanon(host,hero,title);
-    hero.setAttribute('data-rona-client-rail-canonical-hero','v2-payments-reference');
-    document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V2_PAYMENTS_REFERENCE';
-    document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V2';
-    window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'};
+    hero.setAttribute('data-rona-client-rail-canonical-hero','v1');
+    document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY';
+    document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V1';
+    window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'};
     return true;
   }
 
