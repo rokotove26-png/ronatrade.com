@@ -89,6 +89,19 @@ async function secureUpstream(response, cookies = []) {
   for (const cookie of cookies) headers.append('set-cookie', cookie);
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
+async function normalizeBootstrapCompanyNames(response, cookies = []) {
+  if (!response.ok) return secureUpstream(response, cookies);
+  const payload = await response.clone().json().catch(() => null);
+  const contracts = payload?.data?.contracts;
+  if (!Array.isArray(contracts)) return secureUpstream(response, cookies);
+  payload.data.contracts = contracts.map((contract) => {
+    if (!contract || typeof contract !== 'object') return contract;
+    const legalName = String(contract.legalName || contract.legal_name || '').trim();
+    if (!legalName) return contract;
+    return { ...contract, companyName: legalName, clientName: legalName };
+  });
+  return json(payload, response.status, cookies);
+}
 function clientAuthorityTarget(path) {
   return /^\/contracts\/[^/]+\/signed-document\/attach$/.test(path);
 }
@@ -122,5 +135,7 @@ export async function onRequest(context) {
   let upstream;
   try { upstream = await fetch(`${base}${path}${url.search}`, init); }
   catch (_) { return json({ ok:false, code:'ACCESS_UPSTREAM_UNAVAILABLE' }, 502, session.setCookies); }
-  return secureUpstream(upstream, session.setCookies);
+  return path === '/bootstrap'
+    ? normalizeBootstrapCompanyNames(upstream, session.setCookies)
+    : secureUpstream(upstream, session.setCookies);
 }
