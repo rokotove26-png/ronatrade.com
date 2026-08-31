@@ -28,7 +28,6 @@ jobs:
           set -euo pipefail
           cat portal-src/agent-approved-v043.gz.b64.part-* | tr -d '\r\n' | base64 -d > /tmp/agent.gz
           gzip -dc /tmp/agent.gz > /tmp/agent.html
-          test "$(wc -c < /tmp/agent.html)" = "4022017"
           test "$(sha256sum /tmp/agent.html | awk '{print $1}')" = "4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c"
       - name: Agent source exposes RONA_AGENT_PORTAL boot
         continue-on-error: true
