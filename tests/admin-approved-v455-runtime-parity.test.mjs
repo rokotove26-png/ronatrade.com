@@ -16,12 +16,13 @@ assert.match(shell, /x-rona-admin-shell-visual':'approved-v4\.5\.5/);
 assert.match(claims, /__RONA_CLAIMS_VISUAL_V455__='20260827'/);
 assert.match(claims, /x-rona-claims-visual':'approved-v4\.5\.5/);
 
-assert.match(analytics, /__RONA_ANALYTICS_APPROVED_V455__='20260827-v455'/);
-assert.doesNotMatch(analytics, /retired-single-owner-v1/);
+assert.match(analytics, /__RONA_ANALYTICS_APPROVED_V455__='20260827'/);
+assert.doesNotMatch(analytics, /retired-(?:single-owner|compat-guard)/);
 assert.match(analytics, /rona-visual-kicker/);
-assert.match(analytics, /data-rona-approved-data/);
-assert.match(analytics, /normalizeAnalytics/);
+assert.match(analytics, /dataset\.ronaApprovedData/);
+assert.match(analytics, /function makeSvg/);
+assert.match(analytics, /function patch/);
 assert.match(analytics, /createElementNS/);
-assert.match(analytics, /x-rona-analytics-visual':'approved-v4\.5\.5/);
+assert.match(analytics, /x-rona-analytics-approved':'v4\.5\.5/);
 
 console.log('ADMIN_APPROVED_V455_RUNTIME_PARITY=PASS');
