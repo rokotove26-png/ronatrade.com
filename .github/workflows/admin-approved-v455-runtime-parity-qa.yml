@@ -53,11 +53,12 @@ jobs:
           grep -q "__RONA_CLAIMS_VISUAL_V455__='20260827'" /tmp/claims.body
 
           curl -fsS -D /tmp/analytics.headers -o /tmp/analytics.body "https://ronaoil.com/portal/admin-approved-analytics-v455-ui?_qa=${nonce}"
-          grep -qi '^x-rona-analytics-visual: approved-v4.5.5' /tmp/analytics.headers
-          grep -q "__RONA_ANALYTICS_APPROVED_V455__='20260827-v455'" /tmp/analytics.body
-          ! grep -q 'retired-single-owner-v1' /tmp/analytics.body
+          grep -qi '^x-rona-analytics-approved: v4.5.5' /tmp/analytics.headers
+          grep -q "__RONA_ANALYTICS_APPROVED_V455__='20260827'" /tmp/analytics.body
+          ! grep -Eq 'retired-(single-owner|compat-guard)' /tmp/analytics.body
           grep -q 'rona-visual-kicker' /tmp/analytics.body
-          grep -q 'data-rona-approved-data' /tmp/analytics.body
-          grep -q 'normalizeAnalytics' /tmp/analytics.body
+          grep -q 'ronaApprovedData' /tmp/analytics.body
+          grep -q 'function makeSvg' /tmp/analytics.body
+          grep -q 'function patch' /tmp/analytics.body
 
           echo 'ADMIN_APPROVED_V455_LIVE_PARITY=PASS'
