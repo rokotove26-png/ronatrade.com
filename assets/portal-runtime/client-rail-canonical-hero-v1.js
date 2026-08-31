@@ -18,12 +18,29 @@
     const style=document.createElement('style');
     style.id='rona-client-rail-canonical-hero-v1-style';
     style.textContent=`
+      ${HOST} .rona-rail-v4-root{
+        width:min(100%,1240px)!important;
+        max-width:1240px!important;
+        margin-left:auto!important;
+        margin-right:auto!important;
+      }
+      ${HOST} .rona-rail-v4-work{
+        grid-template-columns:minmax(320px,360px) minmax(0,1fr)!important;
+        gap:16px!important;
+      }
+      ${HOST} .rona-rail-v4-left{
+        min-width:0!important;
+        max-width:360px!important;
+      }
+      ${HOST} .rona-rail-v4-work > *{
+        min-width:0!important;
+      }
       ${HOST} .rona-rail-v4-hero{
         display:flex!important;
         align-items:flex-end!important;
         justify-content:space-between!important;
         gap:16px!important;
-        padding:20px 22px!important;
+        padding:18px 20px!important;
         margin:0 0 14px!important;
         border:1px solid rgba(113,169,194,.18)!important;
         border-radius:16px!important;
@@ -48,10 +65,10 @@
         margin:0!important;
         color:#eaf4f8!important;
         font-family:Inter,Arial,sans-serif!important;
-        font-size:25px!important;
-        line-height:1.1!important;
-        font-weight:850!important;
-        letter-spacing:-.02em!important;
+        font-size:18px!important;
+        line-height:1.2!important;
+        font-weight:800!important;
+        letter-spacing:-.01em!important;
       }
       ${HOST} .rona-rail-v4-hero .rona-visual-sub{
         display:block!important;
@@ -86,6 +103,11 @@
       ${HOST} .rona-client-rail-hero-btn{padding:7px 11px!important;cursor:pointer!important}
       ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.9)!important;color:#fff!important}
       ${HOST} .rona-client-rail-hero-btn:disabled{opacity:.55!important;cursor:default!important}
+      @media(max-width:1100px){
+        ${HOST} .rona-rail-v4-root{width:100%!important;max-width:100%!important}
+        ${HOST} .rona-rail-v4-work{grid-template-columns:1fr!important}
+        ${HOST} .rona-rail-v4-left{max-width:none!important}
+      }
       @media(max-width:720px){
         ${HOST} .rona-rail-v4-hero{align-items:flex-start!important;flex-direction:column!important}
         ${HOST} .rona-client-rail-hero-actions{justify-content:flex-start!important}
