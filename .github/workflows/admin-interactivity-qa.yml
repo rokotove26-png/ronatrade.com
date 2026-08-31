@@ -97,8 +97,9 @@ jobs:
           for(const path of ['/portal/admin-authority/bootstrap','/portal/admin-authority/agent-readiness']){const r=await fetch(base+path,{redirect:'manual',cache:'no-store'});assert([401,403].includes(r.status),path+' '+r.status)}
           console.log('ADMIN_CURRENT_ONLY_INTERACTIVITY_PRODUCTION=PASS');
           NODE
-      - name: Publish Admin interactivity status
+      - name: Publish Admin interactivity status (legacy best effort)
         if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           JOB_STATUS: ${{ job.status }}
