@@ -67,8 +67,9 @@ jobs:
           assert(ms.includes('renderApplications();renderDealsCurrentShell();renderDocuments();'),'initial Admin render does not use current-only shell');
           console.log('DEALS_CURRENT_ONLY_GENERATED_RUNTIME=PASS');
           NODE
-      - name: Publish QA status
+      - name: Publish QA status (legacy best effort)
         if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
