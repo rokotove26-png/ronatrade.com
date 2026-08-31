@@ -74,8 +74,9 @@ jobs:
           grep -q "'Общий объём сделок, т'" /tmp/deals.js
           grep -q "'Общая сумма сделок'" /tmp/deals.js
           echo 'DEALS_CURRENT_PRODUCTION_PROOF=PASS'
-      - name: Publish Deals proof status
+      - name: Publish Deals proof status (legacy best effort)
         if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           JOB_STATUS: ${{ job.status }}
