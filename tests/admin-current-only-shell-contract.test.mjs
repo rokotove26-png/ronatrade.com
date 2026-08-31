@@ -9,6 +9,7 @@ const requiredPages=['home','prices','applications','deals','payments','accounti
 for(const id of requiredPages){assert(shell.includes(`data-page="${id}"`),`Admin nav missing ${id}`);assert(shell.includes(`id="page-${id}"`),`Admin page host missing ${id}`)}
 for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','canonical-transfer-v1_1/admin_externalized.html','RONA_Trade_Admin_Portal_v3_4_13']){assert(!shell.includes(marker),`Legacy marker in current shell: ${marker}`);assert(!route.includes(marker),`Legacy marker in current Admin route: ${marker}`)}
 assert(shell.includes('rona-admin-shell" content="current-only-v2"'),'Admin shell v2 meta marker missing');
+assert(shell.includes('rona-admin-runtime-build" content="20260826-1345-single-owner"'),'Admin single-owner runtime build marker missing');
 assert(shell.includes('data-rona-admin-shell="current-only-v2"'),'Admin shell v2 runtime marker missing');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Authoritative current router marker missing');
 assert(shell.includes("document.documentElement.dataset.ronaAdminNavigationOwner='current-only-router-v2'"),'Navigation owner marker missing');
@@ -18,6 +19,8 @@ assert(shell.includes('data-action="create-access">Создать доступ</
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Selected Admin page must survive late runtime races');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Navigation drift guard missing');
 assert(shell.includes("'rona:admin-pagechange'"),'Current router page-change event missing');
+for(const forbidden of ['rona-admin-approved-shell-v455-loader','rona-admin-approved-claims-v455-loader','rona-admin-approved-analytics-v455-loader','20260827-approved-v455','rona-topbar-premium','rona-nav-attention'])assert(!shell.includes(forbidden),`Retired Admin overlay leaked into live shell: ${forbidden}`);
+for(const required of ['rona-admin-fast-shell-runtime','rona-clients-agents-current-loader','rona-admin-approved-polish-loader','rona-admin-runtime-watchdog-loader'])assert(shell.includes(required),`Single-owner Admin runtime missing: ${required}`);
 assert(route.includes("'x-rona-admin-shell','current-only-v2'"),'Admin route must identify current-only v2 shell');
 assert(route.includes("'x-rona-admin-current-only','main-v2-shell-v2'"),'Admin route lifecycle marker missing');
 assert(build.includes("path: 'portal-src/current/admin.html'"));

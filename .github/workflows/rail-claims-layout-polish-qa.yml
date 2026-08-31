@@ -36,7 +36,7 @@ jobs:
           grep -q '/portal/claims-r2-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q 'owner-layout-polish-ui' assets/portal-admin-shell-fast-v1.js
           ! grep -q 'claims-title-hotfix' assets/portal-admin-shell-fast-v1.js
-          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v2'" assets/portal-admin-runtime-watchdog-v1.js
+          grep -q "__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'" assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.reload(' assets/portal-admin-runtime-watchdog-v1.js
           ! grep -q 'location.replace(' assets/portal-admin-runtime-watchdog-v1.js
           grep -q '20260825-direction-workflow-v6' functions/portal/claims-r2-ui.js
