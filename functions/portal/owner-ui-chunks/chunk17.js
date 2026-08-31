@@ -1,4 +1,4 @@
 // Compatibility aggregation only. No DOM overlay is mounted here.
-// Admin Operations Center v3 replaces the canonical home renderer with live-data UI.
-import operationsCenterV3 from './chunk19.js';
-export default operationsCenterV3;
+// Admin Operations Center v3.1 replaces the canonical home renderer with live-data UI.
+import operationsCenterV31 from './chunk20.js';
+export default operationsCenterV31;
