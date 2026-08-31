@@ -19,7 +19,7 @@ const passportSrc='/assets/portal-runtime/client-deal-passport-v1.js?v=20260831-
 const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260831-realization-single-owner-v3';
 const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
-const passportMarker='20260831-client-deal-passport-v2-status-center';
+const passportMarker='20260831-client-deal-passport-v2-centered-status';
 const lifecycleMarker='20260831-client-deal-realization-status-v3-single-owner';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
