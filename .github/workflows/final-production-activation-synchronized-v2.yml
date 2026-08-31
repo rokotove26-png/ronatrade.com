@@ -63,7 +63,7 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const bridge='<script id="rona-portal-currency-iso-v1" src="/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1" defer></script>';
-          const adminModal='  <link rel="stylesheet" href="/assets/portal-admin-modal-stack-v1.css?v=20260830-modal-stack-v1" data-rona-admin-modal-stack="v1">\n';
+          const adminModal='  <link rel="stylesheet" href="/assets/portal-admin-modal-stack-v1.css?v=20260831-ops-readability-v2" data-rona-admin-modal-stack="v1">\n';
           const canonicalHover='<script id="rona-portal-canonical-button-hover-v1" src="/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1" defer></script>';
           const pairs=[
             ['ADMIN','portal-src/current/admin.html','dist/portal/admin.html'],
