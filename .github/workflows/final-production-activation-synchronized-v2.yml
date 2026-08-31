@@ -168,8 +168,9 @@ jobs:
           TARGET_ORIGIN: https://ronaoil.com
         run: node scripts/verify-client-contract-v5-production.mjs
 
-      - name: Publish target production status
+      - name: Publish target production status (legacy best effort)
         if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
