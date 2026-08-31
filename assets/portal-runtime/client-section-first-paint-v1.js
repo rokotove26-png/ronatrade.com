@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260830-client-section-first-paint-v1';
+const MARK='20260831-client-section-first-paint-v2-background-preload';
 if(window.__RONA_CLIENT_SECTION_FIRST_PAINT__===MARK)return;
 window.__RONA_CLIENT_SECTION_FIRST_PAINT__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -7,8 +7,10 @@ if(location.pathname!=='/portal/client')return;
 const DEAL_RE=/\bDEAL-\d{4}-\d{3,}\b/giu;
 const PAYMENT_OWNER='[data-rona-client-payments-owner="finance-authoritative-v1"]';
 const LEGACY_PAYMENT_EXACT=/^(?:Плат[её]жный статус|Плат[её]жных данных пока нет\.?|Подтвержд[её]нные поступления)$/iu;
+const PRELOAD_LOADER_RE=/^__RONA_(?:LOAD|REFRESH)_CLIENT_[A-Z0-9_]+__$/u;
 const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
-let lastActive='',queued=false;
+let lastActive='',queued=false,preloadTimer=0,preloadUntil=0;
+const preloadedFunctions=new WeakSet();
 
 function rootFor(section){
   if(section==='deals')return document.querySelector('#page-deals,#dealsPage,[data-page-panel="deals"],[data-page-id="deals"]');
@@ -106,14 +108,38 @@ function evaluate(){
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(evaluate)}
 function resetFromNavigation(event){const section=navSection(event.target);if(!section)return;setPending(section);if(section!==lastActive)lastActive='';schedule()}
 
+function runBackgroundPreloaders(){
+  for(const key of Object.getOwnPropertyNames(window)){
+    if(!PRELOAD_LOADER_RE.test(key))continue;
+    const loader=window[key];
+    if(typeof loader!=='function'||preloadedFunctions.has(loader))continue;
+    preloadedFunctions.add(loader);
+    Promise.resolve().then(()=>loader()).catch(()=>{});
+  }
+}
+function backgroundPreloadTick(){
+  runBackgroundPreloaders();
+  if(Date.now()<preloadUntil)preloadTimer=window.setTimeout(backgroundPreloadTick,250);
+  else document.documentElement.dataset.ronaClientBackgroundPreload='ready';
+}
+function startBackgroundPreload(){
+  window.clearTimeout(preloadTimer);
+  preloadUntil=Date.now()+10000;
+  document.documentElement.dataset.ronaClientBackgroundPreload='loading';
+  const begin=()=>backgroundPreloadTick();
+  if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(begin,{timeout:500});
+  else preloadTimer=window.setTimeout(begin,80);
+}
+
 function start(){
   document.addEventListener('pointerdown',resetFromNavigation,true);
   document.addEventListener('click',resetFromNavigation,true);
-  window.addEventListener('popstate',()=>{lastActive='';setPending('deals');setPending('payments');schedule()},{passive:true});
-  window.addEventListener('hashchange',()=>{lastActive='';setPending('deals');setPending('payments');schedule()},{passive:true});
-  window.addEventListener('pageshow',()=>{lastActive='';schedule()},{passive:true});
-  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-rona-deal-authority','data-rona-deal-summary-ready','data-rona-payments-sanitation','data-rona-client-operations-ready','data-rona-client-payments-ready']});
+  window.addEventListener('popstate',()=>{lastActive='';setPending('deals');setPending('payments');schedule();startBackgroundPreload()},{passive:true});
+  window.addEventListener('hashchange',()=>{lastActive='';setPending('deals');setPending('payments');schedule();startBackgroundPreload()},{passive:true});
+  window.addEventListener('pageshow',()=>{lastActive='';schedule();startBackgroundPreload()},{passive:true});
+  new MutationObserver(()=>{schedule();runBackgroundPreloaders()}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-rona-deal-authority','data-rona-deal-summary-ready','data-rona-payments-sanitation','data-rona-client-operations-ready','data-rona-client-payments-ready']});
   evaluate();
+  startBackgroundPreload();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
