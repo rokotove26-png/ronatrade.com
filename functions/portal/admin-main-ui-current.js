@@ -1,3 +1,4 @@
+import { patchAdminOperationsCommandCenterV4, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v4.js';
 import c0 from './owner-ui-chunks/chunk0.js';
 import c1 from './owner-ui-chunks/chunk1.js';
 import c2 from './owner-ui-chunks/chunk2.js';
@@ -80,10 +81,10 @@ function patchPayments(script){
   return script;
 }
 
-const SCRIPT=patchPayments(RAW
+const SCRIPT=patchAdminOperationsCommandCenterV4(patchPayments(RAW
   .replace('function renderOwnedAdminPage(id){',DEALS_SHELL+'function renderOwnedAdminPage(id){')
   .replace('deals:renderDeals,','deals:renderDealsCurrentShell,')
-  .replace('renderAdminHome();renderPrices();renderApplications();renderDeals();renderDocuments();','renderAdminHome();renderPrices();renderApplications();renderDealsCurrentShell();renderDocuments();'));
+  .replace('renderAdminHome();renderPrices();renderApplications();renderDeals();renderDocuments();','renderAdminHome();renderPrices();renderApplications();renderDealsCurrentShell();renderDocuments();')));
 
 export async function onRequest(){
   return new Response(SCRIPT,{status:200,headers:{
@@ -94,6 +95,7 @@ export async function onRequest(){
     'x-content-type-options':'nosniff',
     'x-rona-ui':'main-v2',
     'x-rona-ui-build':BUILD,
+    'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION,
     'x-rona-deals-owner':'current-only-v1.5',
     'x-rona-payments-ui':'finance-current-v2'
   }});
