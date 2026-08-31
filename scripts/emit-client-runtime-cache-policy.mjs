@@ -21,9 +21,12 @@ const policy=`/portal/client
 /assets/portal-runtime/client-deal-lifecycle-v*.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
+/assets/portal-runtime/client-section-first-paint-v*.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
 /assets/portal-runtime/portal-canonical-button-hover-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 `;
 
 await writeFile('dist/_headers',policy,'utf8');
-console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS route=/portal/client + Client Rail canonical hero + Admin-derived operational body + current deal passport/lifecycle runtimes + canonical button hover=no-store');
+console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS route=/portal/client + Client Rail canonical hero + Admin-derived operational body + current deal passport/lifecycle/section-first-paint runtimes + canonical button hover=no-store');
