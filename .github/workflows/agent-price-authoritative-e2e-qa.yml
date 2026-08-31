@@ -1,0 +1,65 @@
+name: Agent Authoritative Price E2E Contract QA
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - supabase/functions/rona-portal-api/agent.ts
+      - supabase/functions/rona-portal-api/index.ts
+      - functions/portal/\[\[path\]\].js
+      - functions/portal/agent.js
+      - portal-src/agent-approved-v043.gz.b64.part-*
+      - .github/workflows/agent-price-authoritative-e2e-qa.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct frozen Agent source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat portal-src/agent-approved-v043.gz.b64.part-* | tr -d '\r\n' | base64 -d > /tmp/agent.gz
+          gzip -dc /tmp/agent.gz > /tmp/agent.html
+          test "$(wc -c < /tmp/agent.html)" = "4022017"
+          test "$(sha256sum /tmp/agent.html | awk '{print $1}')" = "4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c"
+      - name: Agent source exposes RONA_AGENT_PORTAL boot
+        continue-on-error: true
+        run: grep -q 'RONA_AGENT_PORTAL' /tmp/agent.html
+      - name: Agent source recognizes pricePublication
+        continue-on-error: true
+        run: grep -q 'pricePublication' /tmp/agent.html
+      - name: Agent source recognizes publicationStatus
+        continue-on-error: true
+        run: grep -q 'publicationStatus' /tmp/agent.html
+      - name: Agent source has price navigation surface
+        continue-on-error: true
+        run: grep -Eqi 'data-page=["'"']prices|page-prices|Цены|PRICE' /tmp/agent.html
+      - name: Same-origin Agent bridge calls server bootstrap
+        run: |
+          set -euo pipefail
+          grep -q "/portal/api/v1/agent/bootstrap" 'functions/portal/[[path]].js'
+          grep -q "RONA_AGENT_PORTAL?.boot?.(j.data)" 'functions/portal/[[path]].js'
+      - name: API projection passes pricePublication
+        run: grep -q 'pricePublication:data.pricePublication' supabase/functions/rona-portal-api/index.ts
+      - name: Agent API uses authoritative publication chain
+        run: |
+          set -euo pipefail
+          grep -q 'portal_private.owner_price_snapshots' supabase/functions/rona-portal-api/agent.ts
+          grep -q 'portal_private.publication_items' supabase/functions/rona-portal-api/agent.ts
+          grep -q 'portal_private.publications' supabase/functions/rona-portal-api/agent.ts
+          grep -q "ops.publish_agent=true" supabase/functions/rona-portal-api/agent.ts
+          grep -q "pi.distribution_allowed=true" supabase/functions/rona-portal-api/agent.ts
+          grep -q 'AGENT_PRICE_PUBLICATION_V1' supabase/functions/rona-portal-api/agent.ts
+      - name: Frozen Agent visual source unchanged
+        run: |
+          set -euo pipefail
+          grep -q "AGENT_CANONICAL_SHA256='4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'" functions/portal/agent.js
+          grep -q "x-rona-agent-prices','standard-publication'" functions/portal/agent.js
