@@ -9,6 +9,9 @@ on:
       - 'assets/portal-admin-shell-fast-v1.js'
       - 'assets/portal-admin-runtime-watchdog-v1.js'
       - 'functions/portal/clients-agents-current-ui.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/admin-operations-command-center-v4.js'
+      - 'functions/portal/owner-ui-chunks/chunk17.js'
       - 'scripts/qa-admin-single-owner.mjs'
       - '.github/workflows/admin-single-owner-runtime.yml'
   push:
@@ -19,6 +22,9 @@ on:
       - 'assets/portal-admin-shell-fast-v1.js'
       - 'assets/portal-admin-runtime-watchdog-v1.js'
       - 'functions/portal/clients-agents-current-ui.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/admin-operations-command-center-v4.js'
+      - 'functions/portal/owner-ui-chunks/chunk17.js'
       - 'scripts/qa-admin-single-owner.mjs'
 
 permissions:
@@ -37,6 +43,8 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/clients-agents-current-ui.js
+          node --check functions/portal/admin-main-ui-current.js
+          node --check functions/portal/admin-operations-command-center-v4.js
       - name: Single-owner regression QA
         run: node scripts/qa-admin-single-owner.mjs
       - name: Canonical production build

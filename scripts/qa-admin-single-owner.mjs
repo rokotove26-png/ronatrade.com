@@ -9,6 +9,9 @@ const polish=read('functions/portal/admin-approved-polish-ui.js');
 const analyticsCompat=read('functions/portal/admin-approved-analytics-v455-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
+const mainUi=read('functions/portal/admin-main-ui-current.js');
+const operations=read('functions/portal/admin-operations-command-center-v4.js');
+const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
 
@@ -28,6 +31,18 @@ need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owne
 need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules are not loaded');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
+
+need(has(mainUi,"patchAdminOperationsCommandCenterV4(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center patch after source assembly');
+need(has(mainUi,"'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION"),'Operations Command Center response marker is missing');
+need(has(operations,"OPERATIONS_COMMAND_CENTER_VERSION='v4-canonical-single-owner'"),'Operations Command Center version marker is missing');
+need(has(operations,"window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v4-canonical-single-owner'"),'Operations Command Center browser marker is missing');
+need(has(operations,"'data-rona-operations-command-center':'v4'")&&has(operations,"'data-rona-single-owner':'true'"),'Operations Command Center DOM ownership marker is missing');
+for(const marker of ['RONA TRADE · OPERATIONS COMMAND CENTER','Сделки в исполнении','Требует внимания','EXECUTION LINE','Онлайн ЖД','Платежи','Документы','Следующее действие'])need(has(operations,marker),'Operations Command Center semantic missing: '+marker);
+for(const marker of ['rona-ops-v4__metrics','rona-ops-v4__main','rona-ops-v4-deal-head','rona-ops-v4__timeline','rona-ops-v4__modules'])need(has(operations,marker),'Operations Command Center visual contract missing: '+marker);
+need(has(operations,"if((patched.match(/function renderAdminHome\\(\\)\\{/g)||[]).length!==1"),'Operations Command Center does not enforce single renderAdminHome owner');
+need(has(operations,"const start='function renderAdminHome(){'")&&has(operations,"const end='function renderPrices(){'"),'Operations Command Center deterministic source boundary is missing');
+need(!has(homeCompat,'chunk19.js')&&!has(homeCompat,'operationsCenterV3'),'Retired chunk17 re-enables the broken Operations Center override');
+need(!has(operations,'/portal/client')&&!has(operations,'client-deal-passport')&&!has(operations,'client-section-first-paint'),'Admin Operations Command Center reaches into frozen Client runtime');
 
 need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'"),'Page-aware watchdog marker is missing');
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
@@ -68,5 +83,6 @@ console.log('ADMIN_SINGLE_OWNER_QA=PASS');
 console.log('routes=access,claims,agent-settlements,analytics,market-news');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
+console.log('operations-command-center=v4-canonical-single-owner');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
 console.log('watchdog=page-aware-v7-analytics-rendered-ready/non-destructive');

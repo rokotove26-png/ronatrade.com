@@ -57,7 +57,7 @@ jobs:
           const html=fs.readFileSync('dist/portal/client.html','utf8');
           const sanitation='client-payments-sanitation-v1.js?v=20260830-current-only-v1';
           const payments='client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
-          const firstPaint='client-section-first-paint-v1.js?v=20260830-current-only-no-legacy-flash-v1';
+          const firstPaint='client-section-first-paint-v1.js?v=20260831-background-preload-v2';
           if((html.match(/client-payments-sanitation-v1\.js/g)||[]).length!==1)throw new Error('payments sanitation not single owner');
           if((html.match(/client-payments-authoritative-v1\.js/g)||[]).length!==1)throw new Error('payments authoritative runtime not single owner');
           if((html.match(/client-section-first-paint-v1\.js/g)||[]).length!==1)throw new Error('section first-paint runtime not single owner');
