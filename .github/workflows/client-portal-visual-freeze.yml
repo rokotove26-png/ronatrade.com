@@ -1,0 +1,43 @@
+name: Client Portal visual freeze
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  push:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  client-visual-freeze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - name: Verify frozen Client Portal baseline
+        run: node scripts/qa-client-portal-visual-freeze.mjs
+      - name: Require explicit owner marker for freeze-governance changes
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA" || true
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true)"
+          governed="$(printf '%s\n' "$changed" | grep -E '^(portal-src/current/client/|assets/portal-runtime/client-|scripts/attach-client-|governance/client-portal-visual-freeze\.json$|scripts/qa-client-portal-visual-freeze\.mjs$|\.github/workflows/client-portal-visual-freeze\.yml$)' || true)"
+          if [ -n "$governed" ]; then
+            printf '%s' "$PR_BODY" | grep -F 'OWNER_VISUAL_APPROVAL:' >/dev/null || {
+              echo 'CLIENT_PORTAL_VISUAL_FREEZE=BLOCKED'
+              echo 'Explicit owner instruction marker is required in the PR body: OWNER_VISUAL_APPROVAL:'
+              echo "$governed"
+              exit 1
+            }
+          fi
+          echo 'CLIENT_PORTAL_VISUAL_FREEZE_OWNER_GATE=PASS'
