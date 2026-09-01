@@ -26,8 +26,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq '/assets/portal-runtime/client-home-current-only-v1.js?v=20260901-error-resilience-v2' dist/portal/client.html
-          grep -Fq '20260901-client-home-current-only-v1-error-resilience-v2' dist/assets/portal-runtime/client-home-current-only-v1.js
+          grep -Fq '/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-pageshow-race-v3' dist/portal/client.html
+          grep -Fq '20260902-client-home-current-only-v1-pageshow-race-v3' dist/assets/portal-runtime/client-home-current-only-v1.js
           grep -Fq 'ensureDegradedOwner' dist/assets/portal-runtime/client-home-current-only-v1.js
           echo 'CLIENT_HOME_EMITTED_RUNTIME=PASS'
       - name: Wait for exact production deploy
@@ -41,8 +41,8 @@ jobs:
         run: |
           node <<'NODE'
           const base='https://ronaoil.com';
-          const marker='20260901-client-home-current-only-v1-error-resilience-v2';
-          const assetPath='/assets/portal-runtime/client-home-current-only-v1.js?v=20260901-error-resilience-v2&_qa='+Date.now();
+          const marker='20260902-client-home-current-only-v1-pageshow-race-v3';
+          const assetPath='/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-pageshow-race-v3&_qa='+Date.now();
           const assert=(v,m)=>{if(!v)throw new Error(m)};
           const asset=await fetch(base+assetPath,{headers:{'cache-control':'no-cache'},redirect:'manual'});
           assert(asset.status===200,'live current-only runtime unavailable: '+asset.status);
