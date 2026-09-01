@@ -7,8 +7,8 @@ const runtimePath='dist/assets/portal-runtime/client-home-current-only-v1.js';
 const retiredRepoPath='assets/portal-runtime/client-home-authoritative-v1.js';
 const retiredDistPath='dist/assets/portal-runtime/client-home-authoritative-v1.js';
 const id='rona-client-home-current-only-v1';
-const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260901-bounded-rescue-v1';
-const marker='20260901-client-home-current-only-v1-bounded-rescue';
+const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260901-error-resilience-v2';
+const marker='20260901-client-home-current-only-v1-error-resilience-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const exists=async p=>{try{await stat(p);return true}catch{return false}};
 
@@ -29,7 +29,10 @@ for(const token of [
   'PREPAINT_MAX_MS=5000',
   "data-rona-client-home-prepaint','released",
   "'bounded-timeout'",
-  'homeStateObserver.observe'
+  'homeStateObserver.observe',
+  'ensureDegradedOwner',
+  'data-rona-client-home-degraded',
+  'CONTROLLED_DEGRADED_STATE'
 ])if(!runtime.includes(token))throw new Error(`CLIENT_HOME_CURRENT_ONLY_CONTRACT_MISSING: ${token}`);
 if(runtime.includes("setAttribute('data-rona-home-legacy-hidden'"))throw new Error('CLIENT_HOME_CURRENT_ONLY_HIDE_ONLY_SANITATION_FORBIDDEN');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_CURRENT_ONLY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
@@ -59,6 +62,8 @@ integrity.client_runtime.home_current_only={
   legacy_runtime_asset:'ABSENT',
   navigation_prepaint_reset:true,
   prepaint_rescue:{mode:'BOUNDED_FAIL_OPEN',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true},
+  degraded_error_owner:true,
+  error_fallback:'CONTROLLED_DEGRADED_STATE',
   reinsertion_policy:'REMOVE_BEFORE_NEXT_PAINT',
   preserves:['HOME_TITLE_FRAME','HOME_CONTEXT_FRAME','COMMAND_CENTER_V2_OWNER'],
   business_logic_changed:false,
