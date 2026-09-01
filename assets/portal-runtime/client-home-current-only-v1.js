@@ -1,14 +1,15 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260830-client-home-current-only-v1';
+  const MARK='20260901-client-home-current-only-v1-bounded-rescue';
   if(window.__RONA_CLIENT_HOME_CURRENT_ONLY__===MARK)return;
   window.__RONA_CLIENT_HOME_CURRENT_ONLY__=MARK;
 
   const OWNER='[data-rona-client-home-owner="command-center-v2"]';
   const ROOT_SELECTORS=['#page-home','#homePage','[data-page-panel="home"]','[data-page-id="home"]'];
   const LEGACY_LABELS=['АКТИВНЫЕ СДЕЛКИ','ОПЛАТА','ТЕКУЩИЙ СТАТУС','СЛЕДУЮЩИЙ ШАГ','Компания','Оплата','Цены','Заявки'];
-  let observer=null;
+  const PREPAINT_MAX_MS=5000;
+  let observer=null,homeStateObserver=null,rescueTimer=0;
 
   const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
   const navText=v=>norm(v).toLowerCase().replace(/ё/g,'е');
@@ -99,14 +100,37 @@
     root.setAttribute('data-rona-client-home-current-only','command-center-v2');
     document.documentElement.setAttribute('data-rona-client-home-dom','CURRENT_ONLY_PHYSICAL_V1');
     document.documentElement.setAttribute('data-rona-client-home-legacy-nodes',String(root.querySelectorAll('[data-rona-home-legacy-hidden]').length));
-    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed};
+    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed,prepaint_max_ms:PREPAINT_MAX_MS};
     return true;
+  }
+
+  function releasePrepaint(reason){
+    if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=0}
+    document.documentElement.setAttribute('data-rona-client-home-prepaint','released');
+    document.documentElement.setAttribute('data-rona-client-home-prepaint-release',String(reason||'released'));
+  }
+
+  function armPrepaint(){
+    if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=0}
+    document.documentElement.setAttribute('data-rona-client-home-prepaint','blocked-until-command-center-v2');
+    document.documentElement.removeAttribute('data-rona-client-home-prepaint-release');
+    rescueTimer=window.setTimeout(()=>{
+      const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
+      releasePrepaint(ready?'command-center-ready':'bounded-timeout');
+    },PREPAINT_MAX_MS);
+  }
+
+  function syncPrepaint(){
+    const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
+    const state=String(document.documentElement.getAttribute('data-rona-client-home-state')||'');
+    if(ready||state==='ready')releasePrepaint('command-center-ready');
+    else if(state==='error')releasePrepaint('command-center-error');
   }
 
   function resetBeforeHomePaint(){
     document.documentElement.removeAttribute('data-rona-client-home-ready');
     document.documentElement.setAttribute('data-rona-client-home-state','loading');
-    document.documentElement.setAttribute('data-rona-client-home-prepaint','blocked-until-command-center-v2');
+    armPrepaint();
   }
 
   function isHomeNavigationTarget(target){
@@ -133,8 +157,11 @@
     document.addEventListener('click',prepaint,true);
     observer=new MutationObserver(()=>{purgeLegacy()});
     observer.observe(document.body,{childList:true,subtree:true});
+    homeStateObserver=new MutationObserver(syncPrepaint);
+    homeStateObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-rona-client-home-ready','data-rona-client-home-state']});
     window.addEventListener('pageshow',()=>{resetBeforeHomePaint();purgeLegacy()},{passive:true});
-    document.addEventListener('rona:client-home:rendered',purgeLegacy);
+    document.addEventListener('rona:client-home:rendered',()=>{purgeLegacy();syncPrepaint()});
+    syncPrepaint();
   }
 
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});
