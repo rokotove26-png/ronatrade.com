@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260901-client-home-current-only-v1-error-resilience-v2';
+  const MARK='20260902-client-home-current-only-v1-pageshow-race-v3';
   if(window.__RONA_CLIENT_HOME_CURRENT_ONLY__===MARK)return;
   window.__RONA_CLIENT_HOME_CURRENT_ONLY__=MARK;
 
@@ -184,6 +184,21 @@
     purgeLegacy();
   }
 
+  function onPageShow(){
+    purgeLegacy();
+    const html=document.documentElement;
+    const ready=html.getAttribute('data-rona-client-home-ready')==='true';
+    const state=String(html.getAttribute('data-rona-client-home-state')||'');
+    const owner=homeRoot()?.querySelector(OWNER)||null;
+    if((ready||state==='ready')&&owner&&norm(owner.textContent)){
+      clearDegradedState();
+      releasePrepaint('pageshow-ready-preserved');
+      return;
+    }
+    if(html.getAttribute('data-rona-client-home-prepaint')!=='blocked-until-command-center-v2')armPrepaint();
+    syncPrepaint();
+  }
+
   function start(){
     resetBeforeHomePaint();
     purgeLegacy();
@@ -194,7 +209,7 @@
     observer.observe(document.body,{childList:true,subtree:true});
     homeStateObserver=new MutationObserver(syncPrepaint);
     homeStateObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-rona-client-home-ready','data-rona-client-home-state']});
-    window.addEventListener('pageshow',()=>{resetBeforeHomePaint();purgeLegacy()},{passive:true});
+    window.addEventListener('pageshow',onPageShow,{passive:true});
     document.addEventListener('rona:client-home:rendered',()=>{purgeLegacy();syncPrepaint()});
     syncPrepaint();
   }
