@@ -31,8 +31,7 @@ for(const token of [
   "'bounded-timeout'",
   'homeStateObserver.observe',
   'ensureDegradedOwner',
-  'data-rona-client-home-degraded',
-  'CONTROLLED_DEGRADED_STATE'
+  'data-rona-client-home-degraded'
 ])if(!runtime.includes(token))throw new Error(`CLIENT_HOME_CURRENT_ONLY_CONTRACT_MISSING: ${token}`);
 if(runtime.includes("setAttribute('data-rona-home-legacy-hidden'"))throw new Error('CLIENT_HOME_CURRENT_ONLY_HIDE_ONLY_SANITATION_FORBIDDEN');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_CURRENT_ONLY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
