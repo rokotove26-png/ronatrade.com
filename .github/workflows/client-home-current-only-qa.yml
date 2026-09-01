@@ -38,7 +38,7 @@ jobs:
           const fs=require('fs');
           const i=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const h=i.client_runtime?.home_current_only;
-          if(h?.owner!=='command-center-v2'||h?.mode!=='PHYSICAL_CURRENT_ONLY_DOM_V1'||h?.legacy_dom!=='PHYSICALLY_REMOVED'||h?.legacy_runtime_asset!=='ABSENT'||h?.navigation_prepaint_reset!==true||h?.reinsertion_policy!=='REMOVE_BEFORE_NEXT_PAINT'||h?.business_logic_changed!==false||h?.business_data_changed!==false)throw new Error('Home current-only integrity contract missing');
+          if(h?.owner!=='command-center-v2'||h?.mode!=='PHYSICAL_CURRENT_ONLY_DOM_V1'||h?.legacy_dom!=='PHYSICALLY_REMOVED'||h?.legacy_runtime_asset!=='ABSENT'||h?.navigation_prepaint_reset!==true||h?.degraded_error_owner!==true||h?.error_fallback!=='CONTROLLED_DEGRADED_STATE'||h?.reinsertion_policy!=='REMOVE_BEFORE_NEXT_PAINT'||h?.business_logic_changed!==false||h?.business_data_changed!==false)throw new Error('Home current-only integrity contract missing');
           console.log('CLIENT_HOME_CURRENT_ONLY_BUILD=PASS');
           NODE
 
@@ -100,6 +100,60 @@ jobs:
             assert(state.overlayBg!=='transparent'&&state.overlayBg!=='rgba(0, 0, 0, 0)','Home guard is transparent');
             assert(state.dom==='CURRENT_ONLY_PHYSICAL_V1','current-only DOM marker missing');
             console.log('CLIENT_HOME_LEGACY_REPAINT=BLOCKED');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Prove command-center error becomes controlled degraded state
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1400,height:900}});
+            const html='<!doctype html><html><head><style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}.legacy{width:850px;height:180px}</style></head><body><main><section id="page-home"><section class="frame"><h1>Главная</h1></section><section class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"></section><section id="legacyError" class="legacy"><div>АКТИВНЫЕ СДЕЛКИ</div><div>ТЕКУЩИЙ СТАТУС</div></section></section></main></body></html>';
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-current-only-v1.js')});
+            await page.evaluate(()=>document.documentElement.setAttribute('data-rona-client-home-state','error'));
+            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-degraded')==='error-fallback');
+            const fallback=await page.evaluate(()=>({
+              owners:document.querySelectorAll('[data-rona-client-home-owner="command-center-v2"]').length,
+              text:document.querySelector('[data-rona-client-home-owner="command-center-v2"]')?.textContent||'',
+              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint'),
+              release:document.documentElement.getAttribute('data-rona-client-home-prepaint-release'),
+              title:document.body.textContent.includes('Главная'),
+              context:document.body.textContent.includes('Выбрана компания'),
+              legacy:!!document.querySelector('#legacyError')
+            }));
+            assert(fallback.owners===1,'error fallback duplicated or lost current owner');
+            assert(fallback.text.includes('Данные временно недоступны'),'controlled degraded message missing');
+            assert(fallback.prepaint==='released'&&fallback.release==='command-center-error','error state did not release prepaint safely');
+            assert(fallback.title&&fallback.context,'canonical title/context frames were removed');
+            assert(fallback.legacy===false,'legacy Home survived error fallback');
+
+            await page.evaluate(()=>{
+              const owner=document.querySelector('[data-rona-client-home-owner="command-center-v2"]');
+              owner.innerHTML='<div id="lastGood">LAST KNOWN GOOD</div>';
+              owner.removeAttribute('data-rona-client-home-degraded');
+              document.documentElement.removeAttribute('data-rona-client-home-degraded');
+              document.documentElement.setAttribute('data-rona-client-home-state','loading');
+              document.documentElement.setAttribute('data-rona-client-home-state','error');
+            });
+            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-degraded')==='stale-preserved');
+            const preserved=await page.evaluate(()=>({
+              owners:document.querySelectorAll('[data-rona-client-home-owner="command-center-v2"]').length,
+              lastGood:!!document.querySelector('#lastGood'),
+              degraded:document.documentElement.getAttribute('data-rona-client-home-degraded'),
+              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint')
+            }));
+            assert(preserved.owners===1&&preserved.lastGood,'last-known-good owner was not preserved');
+            assert(preserved.degraded==='stale-preserved'&&preserved.prepaint==='released','stale-preserved state contract missing');
+            console.log('CLIENT_HOME_ERROR_DEGRADED_STATE=PASS');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
