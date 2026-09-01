@@ -52,6 +52,17 @@ jobs:
             }
             console.log(`MATCH_LINES=${count}`);
           }
+          const focus=[/localStorage/i,/sessionStorage/i,/selected/i,/company/i,/clientId/i,/contractId/i,/showPage/i,/page-home/i,/display\s*=\s*['"]none/i,/style\.display/i,/classList\.(?:add|remove)/i];
+          console.log('\n### FIRST_LOGIN_STATE_CONTEXT');
+          const seen=new Set();
+          for(let i=0;i<lines.length;i++){
+            if(!focus.some(p=>p.test(lines[i])))continue;
+            const a=Math.max(0,i-3),b=Math.min(lines.length,i+4),key=`${a}:${b}`;
+            if(seen.has(key))continue;seen.add(key);
+            console.log(`--- ${a+1}-${b} ---`);
+            for(let j=a;j<b;j++)console.log(`${j+1}: ${lines[j].slice(0,1400)}`);
+            if(seen.size>=80){console.log('...FIRST_LOGIN_CONTEXT_TRUNCATED...');break}
+          }
           const scripts=[...html.matchAll(/<script\b[^>]*?(?:src=["']([^"']+)["'])?[^>]*>/gi)].map(m=>m[1]||'[inline]');
           console.log('\n### SCRIPTS'); scripts.forEach((s,i)=>console.log(`${i+1}: ${s}`));
           const styles=[...html.matchAll(/<(?:main|section|div)\b[^>]*(?:id|class)=["'][^"']*(?:boot|load|shell|auth|portal|app)[^"']*["'][^>]*>/gi)].slice(0,100).map(m=>m[0]);
