@@ -7,8 +7,8 @@ const runtimePath='dist/assets/portal-runtime/client-home-current-only-v1.js';
 const retiredRepoPath='assets/portal-runtime/client-home-authoritative-v1.js';
 const retiredDistPath='dist/assets/portal-runtime/client-home-authoritative-v1.js';
 const id='rona-client-home-current-only-v1';
-const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-pageshow-race-v3';
-const marker='20260902-client-home-current-only-v1-pageshow-race-v3';
+const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-shell-recovery-v4';
+const marker='20260902-client-home-current-only-v1-shell-recovery-v4';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const exists=async p=>{try{await stat(p);return true}catch{return false}};
 
@@ -31,7 +31,11 @@ for(const token of [
   "'bounded-timeout'",
   'homeStateObserver.observe',
   'ensureDegradedOwner',
-  'data-rona-client-home-degraded'
+  'data-rona-client-home-degraded',
+  "FIRST_PAINT_GUARD_ID='rona-client-home-first-paint-guard'",
+  'removeFirstPaintGuard',
+  'data-rona-client-home-guard-recovery',
+  'guard.remove()'
 ])if(!runtime.includes(token))throw new Error(`CLIENT_HOME_CURRENT_ONLY_CONTRACT_MISSING: ${token}`);
 if(runtime.includes("setAttribute('data-rona-home-legacy-hidden'"))throw new Error('CLIENT_HOME_CURRENT_ONLY_HIDE_ONLY_SANITATION_FORBIDDEN');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_CURRENT_ONLY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
@@ -60,7 +64,7 @@ integrity.client_runtime.home_current_only={
   legacy_dom:'PHYSICALLY_REMOVED',
   legacy_runtime_asset:'ABSENT',
   navigation_prepaint_reset:true,
-  prepaint_rescue:{mode:'BOUNDED_FAIL_OPEN',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true},
+  prepaint_rescue:{mode:'BOUNDED_FAIL_OPEN_WITH_GUARD_REMOVAL',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true,remove_stuck_first_paint_guard:true},
   degraded_error_owner:true,
   error_fallback:'CONTROLLED_DEGRADED_STATE',
   reinsertion_policy:'REMOVE_BEFORE_NEXT_PAINT',
