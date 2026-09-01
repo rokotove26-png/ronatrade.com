@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260901-client-home-current-only-v1-bounded-rescue';
+  const MARK='20260901-client-home-current-only-v1-error-resilience-v2';
   if(window.__RONA_CLIENT_HOME_CURRENT_ONLY__===MARK)return;
   window.__RONA_CLIENT_HOME_CURRENT_ONLY__=MARK;
 
@@ -9,6 +9,7 @@
   const ROOT_SELECTORS=['#page-home','#homePage','[data-page-panel="home"]','[data-page-id="home"]'];
   const LEGACY_LABELS=['АКТИВНЫЕ СДЕЛКИ','ОПЛАТА','ТЕКУЩИЙ СТАТУС','СЛЕДУЮЩИЙ ШАГ','Компания','Оплата','Цены','Заявки'];
   const PREPAINT_MAX_MS=5000;
+  const DEGRADED_MESSAGE='Данные временно недоступны. Центр управления повторит загрузку автоматически.';
   let observer=null,homeStateObserver=null,rescueTimer=0;
 
   const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
@@ -100,8 +101,37 @@
     root.setAttribute('data-rona-client-home-current-only','command-center-v2');
     document.documentElement.setAttribute('data-rona-client-home-dom','CURRENT_ONLY_PHYSICAL_V1');
     document.documentElement.setAttribute('data-rona-client-home-legacy-nodes',String(root.querySelectorAll('[data-rona-home-legacy-hidden]').length));
-    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed,prepaint_max_ms:PREPAINT_MAX_MS};
+    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed,prepaint_max_ms:PREPAINT_MAX_MS,degraded_error_owner:true};
     return true;
+  }
+
+  function ensureDegradedOwner(){
+    const root=homeRoot();
+    if(!root)return false;
+    let owner=root.querySelector(OWNER);
+    if(owner&&norm(owner.textContent)){
+      owner.setAttribute('data-rona-client-home-degraded','stale-preserved');
+      document.documentElement.setAttribute('data-rona-client-home-degraded','stale-preserved');
+      purgeLegacy();
+      return true;
+    }
+    if(!owner){
+      owner=document.createElement('section');
+      owner.setAttribute('data-rona-client-home-owner','command-center-v2');
+      const contextDirect=directChild(root,frameFromText(root,'Выбрана компания'));
+      if(contextDirect?.parentElement===root)contextDirect.insertAdjacentElement('afterend',owner);
+      else root.appendChild(owner);
+    }
+    owner.setAttribute('data-rona-client-home-degraded','error-fallback');
+    owner.innerHTML=`<div class="rona-cc-context-required" data-rona-client-home-degraded-message="true">${DEGRADED_MESSAGE}</div>`;
+    document.documentElement.setAttribute('data-rona-client-home-degraded','error-fallback');
+    purgeLegacy();
+    return true;
+  }
+
+  function clearDegradedState(){
+    document.documentElement.removeAttribute('data-rona-client-home-degraded');
+    homeRoot()?.querySelector(OWNER)?.removeAttribute('data-rona-client-home-degraded');
   }
 
   function releasePrepaint(reason){
@@ -123,8 +153,13 @@
   function syncPrepaint(){
     const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
     const state=String(document.documentElement.getAttribute('data-rona-client-home-state')||'');
-    if(ready||state==='ready')releasePrepaint('command-center-ready');
-    else if(state==='error')releasePrepaint('command-center-error');
+    if(ready||state==='ready'){
+      clearDegradedState();
+      releasePrepaint('command-center-ready');
+    }else if(state==='error'){
+      ensureDegradedOwner();
+      releasePrepaint('command-center-error');
+    }
   }
 
   function resetBeforeHomePaint(){
