@@ -54,14 +54,22 @@ jobs:
           ])if(!runtime.includes(marker))throw new Error('missing Home marker '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('hardcoded business entity found in Home runtime');
           const attach=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
-          for(const marker of ['rona-client-home-command-center-v2','rona-client-home-first-paint-guard','COMMAND_CENTER_DASHBOARD_V2','HOME_FAIL_CLOSED'])if(!attach.includes(marker))throw new Error('missing Home build marker '+marker);
+          for(const marker of [
+            'rona-client-home-command-center-v2',
+            'rona-client-home-first-paint-guard',
+            'COMMAND_CENTER_DASHBOARD_V2',
+            'HOME_BOUNDED_FAIL_OPEN',
+            'fail_closed:false',
+            'max_block_ms:5000',
+            'canonical_fallback:true'
+          ])if(!attach.includes(marker))throw new Error('missing Home build marker '+marker);
           NODE
           npm run build
           grep -q 'id="rona-client-home-command-center-v2"' dist/portal/client.html
           grep -q 'id="rona-client-home-first-paint-guard"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-home-command-center-v2.js?v=20260830-command-center-v2' dist/portal/client.html
           if grep -q 'id="rona-client-home-authoritative-v1"' dist/portal/client.html; then echo 'legacy sparse Home runtime still attached'; exit 1; fi
-          node -e "const i=require('./dist/canonical-visual-integrity.json');const h=i.client_runtime?.home_bridge;if(h?.source!=='CLIENT_CONTEXT_HOME_PROJECTION'||h?.mode!=='COMMAND_CENTER_DASHBOARD_V2'||h?.duplicates_removed!==true||h?.hardcoded_business_entities!==false||!Array.isArray(h?.zones)||h.zones.length<6)process.exit(1)"
+          node -e "const i=require('./dist/canonical-visual-integrity.json');const h=i.client_runtime?.home_bridge;if(h?.source!=='CLIENT_CONTEXT_HOME_PROJECTION'||h?.mode!=='COMMAND_CENTER_DASHBOARD_V2'||h?.duplicates_removed!==true||h?.hardcoded_business_entities!==false||h?.first_paint_guard?.mode!=='HOME_BOUNDED_FAIL_OPEN'||h?.first_paint_guard?.fail_closed!==false||h?.first_paint_guard?.max_block_ms!==5000||h?.first_paint_guard?.canonical_fallback!==true||!Array.isArray(h?.zones)||h.zones.length<6)process.exit(1)"
 
       - name: Install Chrome browser harness
         shell: bash
