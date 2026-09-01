@@ -51,7 +51,7 @@ jobs:
           assert(text.includes('ensureDegradedOwner'),'live degraded owner contract missing');
           assert(text.includes('data-rona-client-home-degraded'),'live degraded state marker missing');
           const client=await fetch(base+'/portal/client?_qa='+Date.now(),{headers:{'cache-control':'no-cache'},redirect:'manual'});
-          assert(client.status===302,'unauthenticated Client route must redirect; got '+client.status);
+          assert([302,303].includes(client.status),'unauthenticated Client route must redirect; got '+client.status);
           const location=client.headers.get('location')||'';
           assert(location.includes('/portal/login'),'Client route did not fail closed to login: '+location);
           console.log('CLIENT_HOME_LIVE_RUNTIME=PASS');
