@@ -7,8 +7,8 @@ const runtimePath='dist/assets/portal-runtime/client-home-current-only-v1.js';
 const retiredRepoPath='assets/portal-runtime/client-home-authoritative-v1.js';
 const retiredDistPath='dist/assets/portal-runtime/client-home-authoritative-v1.js';
 const id='rona-client-home-current-only-v1';
-const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260901-error-resilience-v2';
-const marker='20260901-client-home-current-only-v1-error-resilience-v2';
+const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-pageshow-race-v3';
+const marker='20260902-client-home-current-only-v1-pageshow-race-v3';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const exists=async p=>{try{await stat(p);return true}catch{return false}};
 
