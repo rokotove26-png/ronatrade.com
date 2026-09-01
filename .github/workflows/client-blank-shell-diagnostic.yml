@@ -52,6 +52,18 @@ jobs:
             }
             console.log(`MATCH_LINES=${count}`);
           }
+          console.log('\n### ROOT_HIDE_CONTEXT');
+          let rootHideMatches=0;
+          for(let i=0;i<lines.length-2;i++){
+            if(!/display\s*:\s*none\s*!important/i.test(lines[i]))continue;
+            if(!/visibility\s*:\s*hidden\s*!important/i.test(lines[i+1]||''))continue;
+            if(!/opacity\s*:\s*0\s*!important/i.test(lines[i+2]||''))continue;
+            rootHideMatches++;
+            const a=Math.max(0,i-12),b=Math.min(lines.length,i+9);
+            console.log(`--- HIDE_CHAIN ${a+1}-${b} ---`);
+            for(let j=a;j<b;j++)console.log(`${j+1}: ${lines[j].slice(0,1800)}`);
+          }
+          console.log(`ROOT_HIDE_MATCHES=${rootHideMatches}`);
           const focus=[/localStorage/i,/sessionStorage/i,/selected/i,/company/i,/clientId/i,/contractId/i,/showPage/i,/page-home/i,/display\s*=\s*['"]none/i,/style\.display/i,/classList\.(?:add|remove)/i];
           console.log('\n### FIRST_LOGIN_STATE_CONTEXT');
           const seen=new Set();
