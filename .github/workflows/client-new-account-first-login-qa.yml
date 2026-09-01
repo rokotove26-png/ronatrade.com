@@ -6,12 +6,26 @@ on:
     paths:
       - 'supabase/functions/rona-portal-api/**'
       - 'supabase/functions/rona-admin-control-plane/**'
+      - 'assets/portal-runtime/client-home-command-center-v2.js'
+      - 'assets/portal-runtime/client-home-current-only-v1.js'
+      - 'assets/portal-runtime/client-application-lifecycle-v1.js'
+      - 'assets/portal-runtime/client-background-section-preload-v1.js'
+      - 'scripts/attach-client-application-lifecycle.mjs'
+      - 'scripts/attach-client-home-current-only-v1.mjs'
+      - 'portal-src/current/client/**'
       - '.github/workflows/client-new-account-first-login-qa.yml'
   push:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'supabase/functions/rona-portal-api/**'
       - 'supabase/functions/rona-admin-control-plane/**'
+      - 'assets/portal-runtime/client-home-command-center-v2.js'
+      - 'assets/portal-runtime/client-home-current-only-v1.js'
+      - 'assets/portal-runtime/client-application-lifecycle-v1.js'
+      - 'assets/portal-runtime/client-background-section-preload-v1.js'
+      - 'scripts/attach-client-application-lifecycle.mjs'
+      - 'scripts/attach-client-home-current-only-v1.mjs'
+      - 'portal-src/current/client/**'
       - '.github/workflows/client-new-account-first-login-qa.yml'
   workflow_dispatch:
 
@@ -21,7 +35,7 @@ permissions:
 jobs:
   new-client-first-login:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -54,4 +68,160 @@ jobs:
           assert(/'PENDING'::portal_private\.binding_status_enum/.test(admin),'pending fail-closed binding path missing');
 
           console.log('CLIENT_NEW_ACCOUNT_FIRST_LOGIN_CONTRACT=PASS');
+          NODE
+
+      - name: Build current Client artifact
+        run: npm run build
+
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove first login with one empty authoritative context renders full Client Home
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const http=require('http');
+          const fs=require('fs');
+          const path=require('path');
+          const {chromium}=require('playwright');
+          const assert=(value,message)=>{if(!value)throw new Error(message)};
+          const dist=path.resolve('dist');
+          const port=4173;
+          const origin=`http://127.0.0.1:${port}`;
+          const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon'};
+          const server=http.createServer((req,res)=>{
+            const u=new URL(req.url,origin);
+            let pathname=u.pathname;
+            if(pathname==='/portal/client'||pathname==='/portal/client/')pathname='/portal/client.html';
+            const file=path.resolve(dist,'.'+pathname);
+            if(!file.startsWith(dist+path.sep)){res.writeHead(403);res.end('forbidden');return}
+            fs.readFile(file,(error,data)=>{
+              if(error){res.writeHead(404,{'content-type':'text/plain; charset=utf-8'});res.end('not found');return}
+              res.writeHead(200,{'content-type':mime[path.extname(file).toLowerCase()]||'application/octet-stream','cache-control':'no-store'});
+              res.end(data);
+            });
+          });
+          const listen=()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve)});
+          const close=()=>new Promise(resolve=>server.close(()=>resolve()));
+          const client={client_id:'RONA-C004',legal_name:'CLIENT FIRST LOGIN',registration_country:'RU',registered_address:'TEST',contact_phone:null,contract_id:'RONA-C004-CTR-2026-001',current_external_contract_number:'RONA-C004-CTR-2026-001',contract_status:'ACTIVE',effective_from:'2026-08-31',effective_to:null,signed_contract_confirmed_at:'2026-08-31T00:00:00Z'};
+          const detail={contract:client,applications:[],deals:[],documents:[],payments:[],prices:[]};
+          const apiPayload=pathname=>{
+            if(pathname.endsWith('/v1/client/bootstrap'))return{ok:true,data:{generated_at:new Date().toISOString(),data_contract:'1.4',requires_context_selection:false,contexts:[client],price_authority:[],selected_context:null,applications:[],deals:[],documents:[],payments:[],shipments:[],rail_documents:[],market:[],notifications:[]}};
+            if(pathname.endsWith('/v1/client/context'))return{ok:true,data:detail};
+            if(pathname.endsWith('/v1/client/prices'))return{ok:true,data:[]};
+            if(pathname.endsWith('/v1/client/market'))return{ok:true,data:[]};
+            if(pathname.endsWith('/v1/client/shipments'))return{ok:true,data:{shipments:[],rail_documents:[],wagons:[]}};
+            if(pathname.endsWith('/v1/client/rail'))return{ok:true,data:{status:'EMPTY',rail:[],rail_documents:[],wagons:[]}};
+            return{ok:true,data:{items:[],applications:[],deals:[],documents:[],payments:[],prices:[],shipments:[],rail:[],rail_documents:[],wagons:[],market:[],notifications:[]}};
+          };
+          async function scenario(browser,name,{staleStorage=false,latency=450}={}){
+            const context=await browser.newContext({viewport:{width:1440,height:1000}});
+            const page=await context.newPage();
+            const pageErrors=[];
+            const consoleErrors=[];
+            page.on('pageerror',error=>pageErrors.push(String(error?.stack||error?.message||error)));
+            page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text())});
+            await page.addInitScript(({client,detail,staleStorage,latency})=>{
+              localStorage.clear();sessionStorage.clear();
+              if(staleStorage)localStorage.setItem('rona.client.context','RONA-C002-CTR-2026-001');
+              const originalFetch=window.fetch.bind(window);
+              const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+              const responseFor=pathname=>{
+                if(pathname.endsWith('/v1/client/bootstrap'))return{ok:true,data:{generated_at:new Date().toISOString(),data_contract:'1.4',requires_context_selection:false,contexts:[client],price_authority:[],selected_context:null,applications:[],deals:[],documents:[],payments:[],shipments:[],rail_documents:[],market:[],notifications:[]}};
+                if(pathname.endsWith('/v1/client/context'))return{ok:true,data:detail};
+                if(pathname.endsWith('/v1/client/prices'))return{ok:true,data:[]};
+                if(pathname.endsWith('/v1/client/market'))return{ok:true,data:[]};
+                if(pathname.endsWith('/v1/client/shipments'))return{ok:true,data:{shipments:[],rail_documents:[],wagons:[]}};
+                if(pathname.endsWith('/v1/client/rail'))return{ok:true,data:{status:'EMPTY',rail:[],rail_documents:[],wagons:[]}};
+                return{ok:true,data:{items:[],applications:[],deals:[],documents:[],payments:[],prices:[],shipments:[],rail:[],rail_documents:[],wagons:[],market:[],notifications:[]}};
+              };
+              window.fetch=async(input,init)=>{
+                const href=typeof input==='string'?input:input?.url||String(input);
+                const url=new URL(href,location.href);
+                if(!url.pathname.startsWith('/portal/api/'))return originalFetch(input,init);
+                if(latency>0)await pause(latency);
+                return new Response(JSON.stringify(responseFor(url.pathname)),{status:200,headers:{'content-type':'application/json','cache-control':'no-store'}});
+              };
+            },{client,detail,staleStorage,latency});
+            await page.goto(origin+'/portal/client',{waitUntil:'domcontentloaded'});
+            await page.waitForTimeout(7000);
+            const snapshot=await page.evaluate(()=>{
+              const html=document.documentElement;
+              const home=document.querySelector('#page-home');
+              const owner=home?.querySelector('[data-rona-client-home-owner="command-center-v2"]')||null;
+              const homeStyle=home?getComputedStyle(home):null;
+              const after=home?getComputedStyle(home,'::after'):null;
+              const homeRect=home?.getBoundingClientRect();
+              const ownerRect=owner?.getBoundingClientRect();
+              return{
+                homeExists:Boolean(home),
+                homeActive:Boolean(home?.classList.contains('active')),
+                homeDisplay:homeStyle?.display||null,
+                homeVisibility:homeStyle?.visibility||null,
+                homeHeight:homeRect?.height||0,
+                ownerExists:Boolean(owner),
+                ownerHeight:ownerRect?.height||0,
+                ownerText:String(owner?.innerText||''),
+                homeState:html.getAttribute('data-rona-client-home-state'),
+                homeReady:html.getAttribute('data-rona-client-home-ready'),
+                prepaint:html.getAttribute('data-rona-client-home-prepaint'),
+                prepaintRelease:html.getAttribute('data-rona-client-home-prepaint-release'),
+                currentOnly:home?.getAttribute('data-rona-client-home-current-only')||null,
+                pseudoContent:after?.content||null,
+                runtimeState:window.__RONA_CLIENT_HOME_STATE__||null,
+                currentOnlyState:window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__||null,
+                storedContext:localStorage.getItem('rona.client.context')
+              };
+            });
+            console.log('CLIENT_FIRST_LOGIN_SNAPSHOT '+name+' '+JSON.stringify(snapshot));
+            console.log('CLIENT_FIRST_LOGIN_PAGE_ERRORS '+name+' '+JSON.stringify(pageErrors));
+            console.log('CLIENT_FIRST_LOGIN_CONSOLE_ERRORS '+name+' '+JSON.stringify(consoleErrors));
+            assert(pageErrors.length===0,`${name}: page errors ${JSON.stringify(pageErrors)}`);
+            assert(snapshot.homeExists,`${name}: #page-home missing`);
+            assert(snapshot.homeActive,`${name}: Home lost active class ${JSON.stringify(snapshot)}`);
+            assert(snapshot.homeDisplay!=='none'&&snapshot.homeVisibility!=='hidden',`${name}: Home hidden ${JSON.stringify(snapshot)}`);
+            assert(snapshot.homeHeight>100,`${name}: Home has no visible height ${JSON.stringify(snapshot)}`);
+            assert(snapshot.ownerExists&&snapshot.ownerHeight>40&&snapshot.ownerText.trim().length>40,`${name}: command center owner blank ${JSON.stringify(snapshot)}`);
+            assert(snapshot.homeState==='ready'&&snapshot.homeReady==='true',`${name}: Home never reached ready ${JSON.stringify(snapshot)}`);
+            assert(snapshot.prepaint==='released',`${name}: Home first-paint shield remained armed ${JSON.stringify(snapshot)}`);
+            assert(snapshot.runtimeState?.client_id==='RONA-C004'&&snapshot.runtimeState?.contract_id==='RONA-C004-CTR-2026-001',`${name}: authoritative first-login context not selected ${JSON.stringify(snapshot)}`);
+            assert(!snapshot.ownerText.includes('RONA-C002'),`${name}: legacy static context leaked into Home owner ${JSON.stringify(snapshot)}`);
+
+            await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+            await page.waitForTimeout(5600);
+            const afterPageShow=await page.evaluate(()=>({
+              state:document.documentElement.getAttribute('data-rona-client-home-state'),
+              ready:document.documentElement.getAttribute('data-rona-client-home-ready'),
+              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint'),
+              ownerText:String(document.querySelector('#page-home [data-rona-client-home-owner="command-center-v2"]')?.innerText||''),
+              ownerHeight:document.querySelector('#page-home [data-rona-client-home-owner="command-center-v2"]')?.getBoundingClientRect().height||0,
+              homeActive:Boolean(document.querySelector('#page-home')?.classList.contains('active')),
+              homeDisplay:document.querySelector('#page-home')?getComputedStyle(document.querySelector('#page-home')).display:null
+            }));
+            console.log('CLIENT_FIRST_LOGIN_PAGESHOW '+name+' '+JSON.stringify(afterPageShow));
+            assert(afterPageShow.state==='ready'&&afterPageShow.ready==='true'&&afterPageShow.prepaint==='released',`${name}: pageshow left Home blocked ${JSON.stringify(afterPageShow)}`);
+            assert(afterPageShow.homeActive&&afterPageShow.homeDisplay!=='none'&&afterPageShow.ownerHeight>40&&afterPageShow.ownerText.trim().length>40,`${name}: pageshow produced blank shell ${JSON.stringify(afterPageShow)}`);
+            await context.close();
+          }
+          (async()=>{
+            await listen();
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            try{
+              await scenario(browser,'fresh-empty-storage',{staleStorage:false,latency:450});
+              await scenario(browser,'stale-legacy-storage',{staleStorage:true,latency:700});
+              console.log('CLIENT_NEW_ACCOUNT_FIRST_LOGIN_BROWSER=PASS');
+            }finally{
+              await browser.close();
+              await close();
+            }
+          })().catch(async error=>{
+            console.error(error?.stack||error);
+            try{await close()}catch{}
+            process.exit(1);
+          });
           NODE
