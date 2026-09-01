@@ -193,7 +193,23 @@ jobs:
             assert(!snapshot.ownerText.includes('RONA-C002'),`${name}: legacy static context leaked into Home owner ${JSON.stringify(snapshot)}`);
 
             await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
-            await page.waitForTimeout(5600);
+            await page.waitForTimeout(150);
+            const immediatePageShow=await page.evaluate(()=>({
+              state:document.documentElement.getAttribute('data-rona-client-home-state'),
+              ready:document.documentElement.getAttribute('data-rona-client-home-ready'),
+              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint'),
+              prepaintRelease:document.documentElement.getAttribute('data-rona-client-home-prepaint-release'),
+              ownerText:String(document.querySelector('#page-home [data-rona-client-home-owner="command-center-v2"]')?.innerText||''),
+              ownerHeight:document.querySelector('#page-home [data-rona-client-home-owner="command-center-v2"]')?.getBoundingClientRect().height||0,
+              homeActive:Boolean(document.querySelector('#page-home')?.classList.contains('active')),
+              homeDisplay:document.querySelector('#page-home')?getComputedStyle(document.querySelector('#page-home')).display:null,
+              homeVisibility:document.querySelector('#page-home')?getComputedStyle(document.querySelector('#page-home')).visibility:null
+            }));
+            console.log('CLIENT_FIRST_LOGIN_PAGESHOW_IMMEDIATE '+name+' '+JSON.stringify(immediatePageShow));
+            assert(immediatePageShow.prepaint==='released',`${name}: pageshow re-armed blank-shell prepaint shield ${JSON.stringify(immediatePageShow)}`);
+            assert(immediatePageShow.homeActive&&immediatePageShow.homeDisplay!=='none'&&immediatePageShow.homeVisibility!=='hidden'&&immediatePageShow.ownerHeight>40&&immediatePageShow.ownerText.trim().length>40,`${name}: pageshow immediately produced blank shell ${JSON.stringify(immediatePageShow)}`);
+
+            await page.waitForTimeout(5450);
             const afterPageShow=await page.evaluate(()=>({
               state:document.documentElement.getAttribute('data-rona-client-home-state'),
               ready:document.documentElement.getAttribute('data-rona-client-home-ready'),
