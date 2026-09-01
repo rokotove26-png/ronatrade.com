@@ -1,0 +1,77 @@
+name: Client blank shell diagnostic
+
+on:
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - '.github/workflows/client-blank-shell-diagnostic.yml'
+      - 'portal-src/current/client/**'
+      - 'assets/portal-runtime/**'
+      - 'scripts/attach-client-*.mjs'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose-current-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Decode current canonical client and report boot/shell invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          import { brotliDecompressSync } from 'node:zlib';
+          const manifest=JSON.parse(await readFile('portal-src/current/client/manifest.json','utf8'));
+          const encoded=(await Promise.all(manifest.chunks.map(n=>readFile(`portal-src/current/client/${n}`,'utf8')))).join('');
+          const html=brotliDecompressSync(Buffer.from(encoded,'base64')).toString('utf8');
+          const lines=html.replace(/></g,'>\n<').split('\n');
+          const patterns=[
+            /<body[^>]*>/i,/<html[^>]*>/i,/display\s*:\s*none/ig,/visibility\s*:\s*hidden/ig,/opacity\s*:\s*0(?:\D|$)/ig,
+            /localStorage/ig,/sessionStorage/ig,/rona[^\s"'<>]{0,40}(?:boot|load|ready|auth|shell|client)/ig,
+            /\/portal\/(?:api|auth)[^\s"'<>)]*/ig,/Promise\.all(?:Settled)?/g
+          ];
+          console.log('CLIENT_CANONICAL_DIAGNOSTIC_BEGIN');
+          for(const p of patterns){
+            console.log(`\n### ${p}`);
+            let count=0;
+            for(let i=0;i<lines.length;i++){
+              p.lastIndex=0;
+              if(p.test(lines[i])){
+                console.log(`${i+1}: ${lines[i].slice(0,900)}`);
+                if(++count>=40){console.log('...TRUNCATED_MATCHES...');break}
+              }
+            }
+            console.log(`MATCH_LINES=${count}`);
+          }
+          const scripts=[...html.matchAll(/<script\b[^>]*?(?:src=["']([^"']+)["'])?[^>]*>/gi)].map(m=>m[1]||'[inline]');
+          console.log('\n### SCRIPTS'); scripts.forEach((s,i)=>console.log(`${i+1}: ${s}`));
+          const styles=[...html.matchAll(/<(?:main|section|div)\b[^>]*(?:id|class)=["'][^"']*(?:boot|load|shell|auth|portal|app)[^"']*["'][^>]*>/gi)].slice(0,100).map(m=>m[0]);
+          console.log('\n### BOOT_SHELL_NODES'); styles.forEach((s,i)=>console.log(`${i+1}: ${s.slice(0,900)}`));
+          console.log('CLIENT_CANONICAL_DIAGNOSTIC_END');
+          NODE
+
+      - name: Build and report emitted client attachment order
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const html=await readFile('dist/portal/client.html','utf8');
+          console.log('EMITTED_SCRIPT_ORDER_BEGIN');
+          for(const [i,m] of [...html.matchAll(/<script\b[^>]*?(?:id=["']([^"']+)["'])?[^>]*?(?:src=["']([^"']+)["'])?[^>]*>/gi)].entries())console.log(`${i+1}: id=${m[1]||'-'} src=${m[2]||'[inline]'}`);
+          console.log('EMITTED_SCRIPT_ORDER_END');
+          const guard=[...html.matchAll(/<style\b[^>]*id=["']([^"']*(?:paint|guard|preload)[^"']*)["'][^>]*>([\s\S]*?)<\/style>/gi)];
+          console.log('GUARD_STYLES_BEGIN');
+          for(const m of guard)console.log(`STYLE ${m[1]} :: ${m[2].slice(0,5000)}`);
+          console.log('GUARD_STYLES_END');
+          NODE
