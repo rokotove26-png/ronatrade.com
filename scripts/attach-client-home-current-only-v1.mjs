@@ -7,8 +7,6 @@ const runtimePath='dist/assets/portal-runtime/client-home-current-only-v1.js';
 const retiredRepoPath='assets/portal-runtime/client-home-authoritative-v1.js';
 const retiredDistPath='dist/assets/portal-runtime/client-home-authoritative-v1.js';
 const id='rona-client-home-current-only-v1';
-const src='/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-bounded-reusable-guard-v5';
-const marker='20260902-client-home-current-only-v1-bounded-reusable-guard-v5';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const exists=async p=>{try{await stat(p);return true}catch{return false}};
 
@@ -16,8 +14,14 @@ if(await exists(retiredRepoPath))throw new Error(`RETIRED_CLIENT_HOME_RUNTIME_PR
 if(await exists(retiredDistPath))throw new Error(`RETIRED_CLIENT_HOME_RUNTIME_DEPLOYED: ${retiredDistPath}`);
 
 const runtime=await readFile(runtimePath,'utf8');
+const markerMatch=runtime.match(/\bconst\s+MARK\s*=\s*(['"])([^'"]+)\1\s*;/);
+if(!markerMatch)throw new Error('CLIENT_HOME_CURRENT_ONLY_MARKER_MISSING');
+const marker=markerMatch[2];
+if(!/^\d{8}-client-home-current-only-v1-[a-z0-9-]+$/i.test(marker))throw new Error(`CLIENT_HOME_CURRENT_ONLY_MARKER_INVALID: ${marker}`);
+const runtimeDigest=sha256(Buffer.from(runtime,'utf8'));
+const src=`/assets/portal-runtime/client-home-current-only-v1.js?v=${runtimeDigest.slice(0,16)}`;
+
 for(const token of [
-  marker,
   'CURRENT_ONLY_PHYSICAL_V1',
   "legacy_dom:'PHYSICALLY_REMOVED'",
   "child.remove()",
@@ -73,4 +77,4 @@ integrity.client_runtime.home_current_only={
 };
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_HOME_CURRENT_ONLY_V1=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);
+console.log(`CLIENT_HOME_CURRENT_ONLY_V1=PASS marker=${marker} src=${src} sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);

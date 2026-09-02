@@ -26,14 +26,27 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -Fq '/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-bounded-reusable-guard-v5' dist/portal/client.html
-          grep -Fq '20260902-client-home-current-only-v1-bounded-reusable-guard-v5' dist/assets/portal-runtime/client-home-current-only-v1.js
-          grep -Fq 'ensureDegradedOwner' dist/assets/portal-runtime/client-home-current-only-v1.js
-          grep -Fq "first_paint_guard:'RETAINED_REUSABLE'" dist/assets/portal-runtime/client-home-current-only-v1.js
-          grep -Fq 'PREPAINT_MAX_MS=5000' dist/assets/portal-runtime/client-home-current-only-v1.js
-          ! grep -Fq 'removeFirstPaintGuard' dist/assets/portal-runtime/client-home-current-only-v1.js
-          ! grep -Fq 'guard.remove()' dist/assets/portal-runtime/client-home-current-only-v1.js
-          echo 'CLIENT_HOME_EMITTED_RUNTIME=PASS'
+          node <<'NODE'
+          const fs=require('fs');
+          const {createHash}=require('crypto');
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const html=fs.readFileSync('dist/portal/client.html','utf8');
+          const runtime=fs.readFileSync('dist/assets/portal-runtime/client-home-current-only-v1.js','utf8');
+          const src=html.match(/<script\b[^>]*id=["']rona-client-home-current-only-v1["'][^>]*src=["']([^"']+)["'][^>]*>/i)?.[1];
+          const marker=runtime.match(/\bconst\s+MARK\s*=\s*(['"])([^'"]+)\1\s*;/)?.[2];
+          assert(src,'emitted current-only runtime src missing');
+          assert(marker,'current-only runtime marker missing');
+          assert(/^\d{8}-client-home-current-only-v1-[a-z0-9-]+$/i.test(marker),'current-only marker format invalid: '+marker);
+          const expected='/assets/portal-runtime/client-home-current-only-v1.js?v='+createHash('sha256').update(runtime).digest('hex').slice(0,16);
+          assert(src===expected,'emitted current-only src is not content-addressed: '+src+' expected '+expected);
+          assert(runtime.includes('ensureDegradedOwner'),'degraded owner contract missing');
+          assert(runtime.includes("first_paint_guard:'RETAINED_REUSABLE'"),'reusable first-paint guard contract missing');
+          assert(runtime.includes('PREPAINT_MAX_MS=5000'),'bounded guard timeout missing');
+          assert(!runtime.includes('removeFirstPaintGuard'),'runtime must not remove reusable guard');
+          assert(!runtime.includes('guard.remove()'),'runtime must retain reusable first-paint guard');
+          console.log('CLIENT_HOME_EMITTED_RUNTIME=PASS');
+          console.log(JSON.stringify({src,marker,contentAddressed:true,reusableGuardPresent:true}));
+          NODE
       - name: Wait for exact production deploy
         if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
@@ -44,14 +57,20 @@ jobs:
         shell: bash
         run: |
           node <<'NODE'
+          const fs=require('fs');
           const base='https://ronaoil.com';
-          const marker='20260902-client-home-current-only-v1-bounded-reusable-guard-v5';
-          const assetPath='/assets/portal-runtime/client-home-current-only-v1.js?v=20260902-bounded-reusable-guard-v5&_qa='+Date.now();
           const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const built=fs.readFileSync('dist/portal/client.html','utf8');
+          const source=fs.readFileSync('dist/assets/portal-runtime/client-home-current-only-v1.js','utf8');
+          const src=built.match(/<script\b[^>]*id=["']rona-client-home-current-only-v1["'][^>]*src=["']([^"']+)["'][^>]*>/i)?.[1];
+          const marker=source.match(/\bconst\s+MARK\s*=\s*(['"])([^'"]+)\1\s*;/)?.[2];
+          assert(src,'built current-only runtime src missing');
+          assert(marker,'built current-only runtime marker missing');
+          const assetPath=src+(src.includes('?')?'&':'?')+'_qa='+Date.now();
           const asset=await fetch(base+assetPath,{headers:{'cache-control':'no-cache'},redirect:'manual'});
           assert(asset.status===200,'live current-only runtime unavailable: '+asset.status);
           const text=await asset.text();
-          assert(text.includes(marker),'live current-only marker missing');
+          assert(text.includes(marker),'live current-only marker missing: '+marker);
           assert(text.includes('ensureDegradedOwner'),'live degraded owner contract missing');
           assert(text.includes('data-rona-client-home-degraded'),'live degraded state marker missing');
           assert(text.includes("first_paint_guard:'RETAINED_REUSABLE'"),'live reusable first-paint guard contract missing');
@@ -63,5 +82,5 @@ jobs:
           const location=client.headers.get('location')||'';
           assert(location.includes('/portal/login'),'Client route did not fail closed to login: '+location);
           console.log('CLIENT_HOME_LIVE_RUNTIME=PASS');
-          console.log(JSON.stringify({assetStatus:asset.status,assetBytes:text.length,markerPresent:true,degradedOwnerPresent:true,reusableGuardPresent:true,clientStatus:client.status,clientFailClosed:true}));
+          console.log(JSON.stringify({assetStatus:asset.status,assetBytes:text.length,src,marker,degradedOwnerPresent:true,reusableGuardPresent:true,clientStatus:client.status,clientFailClosed:true}));
           NODE
