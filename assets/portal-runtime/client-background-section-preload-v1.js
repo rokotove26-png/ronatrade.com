@@ -1,14 +1,14 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260902-client-background-section-preload-current-context-v4';
+  const MARK='20260902-client-background-section-preload-current-context-v5';
   if(window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__===MARK)return;
   window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__=MARK;
 
   const API='/portal/api';
   const REFRESH_MS=30000;
   const RETRY_MS=2500;
-  const state={version:MARK,running:false,rerun:false,timer:0,retry:0,cycle:0,lastStartedAt:null,lastCompletedAt:null,lastReason:null,contexts:[],authorizedContextCount:0,cache:{},sections:{},errors:[],unsubscribe:null};
+  const state={version:MARK,running:false,rerun:false,timer:0,retry:0,cycle:0,lastStartedAt:null,lastCompletedAt:null,lastReason:null,currentContext:null,cache:{},sections:{},errors:[],unsubscribe:null};
   window.__RONA_CLIENT_BACKGROUND_STATE__=state;
 
   const norm=v=>String(v??'').trim();
@@ -22,14 +22,15 @@
   function emit(name,detail){try{window.dispatchEvent(new CustomEvent(name,{detail}))}catch(_){}}
   function markSection(name,status,meta={}){state.sections[name]={status,updated_at:now(),...meta}}
   function publish(reason){
-    const detail={version:MARK,reason,cycle:state.cycle,last_completed_at:state.lastCompletedAt,contexts:state.contexts.map(c=>({client_id:norm(c?.client_id),contract_id:norm(c?.contract_id)})),authorized_context_count:state.authorizedContextCount,sections:JSON.parse(JSON.stringify(state.sections))};
+    const context=state.currentContext?{client_id:norm(state.currentContext.client_id),contract_id:norm(state.currentContext.contract_id)}:null;
+    const detail={version:MARK,reason,cycle:state.cycle,last_completed_at:state.lastCompletedAt,current_context:context,sections:JSON.parse(JSON.stringify(state.sections))};
     document.documentElement.dataset.ronaClientBackgroundSections=Object.values(state.sections).every(x=>x.status==='READY'||x.status==='READY_EMPTY'||x.status==='READY_DISABLED')?'ready':'degraded';
     emit('rona:client:background-sections',detail);
   }
 
   async function read(path,{allowDisabled=false}={}){
     const started=Date.now();let response;
-    try{response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-background-preload':'v4-current-context'}})}
+    try{response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-background-preload':'v5-current-context-only'}})}
     catch(error){const message=String(error?.message||error||'NETWORK_ERROR');state.cache[path]={ok:false,status:0,error:message,loaded_at:now(),duration_ms:Date.now()-started};throw new Error(message)}
     const body=await response.json().catch(()=>null);
     const disabled=allowDisabled&&response.status===503&&body?.code==='RAIL_CLIENT_PUBLICATION_DISABLED';
@@ -47,9 +48,9 @@
     state.running=true;state.rerun=false;state.cycle+=1;state.lastReason=reason;state.lastStartedAt=now();state.errors=[];
     document.documentElement.dataset.ronaClientBackgroundSections='loading';emit('rona:client:background-sections-loading',{version:MARK,reason,cycle:state.cycle});
     try{
-      const authority=await authorityReady(),current=authority.getCurrentContext(),authorized=authority.getAuthorizedContexts();
-      state.authorizedContextCount=authorized.length;state.contexts=current?[current]:[];
-      markSection('company_contract','READY',{contexts:state.contexts.length,authorized_contexts:authorized.length,selection_required:authority.selectionRequired()});
+      const authority=await authorityReady(),current=authority.getCurrentContext();
+      state.currentContext=current||null;
+      markSection('company_contract','READY',{context_selected:Boolean(current),selection_required:authority.selectionRequired()});
       const marketPromise=read('/v1/client/market').then(()=>({ok:true})).catch(error=>({ok:false,error}));
       if(!current){
         const market=await marketPromise;
@@ -65,8 +66,8 @@
           preloadContext(current)
         ]);
         if(contextKey(authority.getCurrentContext())!==key){state.rerun=true;return}
-        for(const name of ['home','applications','deals','documents','payments'])markSection(name,context.detail_ok?'READY':'DEGRADED',{contexts:1});
-        markSection('prices',context.prices_ok?'READY':'DEGRADED',{contexts:1});
+        for(const name of ['home','applications','deals','documents','payments'])markSection(name,context.detail_ok?'READY':'DEGRADED',{context_selected:true});
+        markSection('prices',context.prices_ok?'READY':'DEGRADED',{context_selected:true});
         markSection('market',market.ok?'READY':'DEGRADED');
         markSection('rail',shipments.ok&&rail.ok?(rail.disabled?'READY_DISABLED':'READY'):'DEGRADED',{provider_disabled:Boolean(rail.disabled)});
         if(!context.ok)state.errors.push({scope:'context',key:context.key,detail_error:context.detail_error,prices_error:context.prices_error});
