@@ -1,16 +1,15 @@
 (()=>{'use strict';
-const MARK='20260830-client-payments-authoritative-v1';
+const MARK='20260902-client-payments-authoritative-v2-current-context';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
 
 const API='/portal/api',REFRESH_MS=30000;
-const state={contexts:[],activeKey:'',detail:null,loading:false,lastLoad:0,timer:0,observer:null,scheduled:false};
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,observer:null,scheduled:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0};
 
 function installStyle(){
   if(document.getElementById('rona-client-payments-authoritative-v1-style'))return;
@@ -54,22 +53,8 @@ function paymentsRoot(){
   return best;
 }
 function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
-function pageContextText(){
-  const root=paymentsRoot();
-  const candidates=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]'),root].filter(Boolean);
-  return norm(candidates.map(x=>visible(x)?x.textContent:'').join(' '));
-}
-function chooseContext(contexts){
-  if(contexts.length===1)return contexts[0];
-  const text=pageContextText();
-  let best=null,score=0,ties=0;
-  for(const ctx of contexts){
-    let s=0;
-    for(const token of [ctx?.current_external_contract_number,ctx?.legal_name,ctx?.contract_id,ctx?.client_id].map(norm).filter(Boolean))if(text.includes(token))s++;
-    if(s>score){best=ctx;score=s;ties=1}else if(s>0&&s===score)ties++;
-  }
-  return score>0&&ties===1?best:null;
-}
+function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
 function markLegacy(root){
   const exact=/^(?:Платёжный статус|Платежный статус|Платёжных данных пока нет\.?|Платежных данных пока нет\.?)$/iu;
   for(const leaf of root.querySelectorAll('*')){
@@ -132,34 +117,37 @@ function renderLoadingError(message){
   host.innerHTML=`<section data-rona-payments-card><div class="rona-payments-empty">${esc(message)}</div></section>`;
 }
 function ready(ok){document.documentElement.dataset.ronaClientPaymentsState=ok?'ready':'error';if(ok)document.documentElement.setAttribute('data-rona-client-payments-ready','true');else document.documentElement.removeAttribute('data-rona-client-payments-ready')}
+function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
 async function load(force=false){
   if(state.loading)return;
   const root=paymentsRoot();if(!root)return;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,state.contexts.find(c=>contextKey(c)===state.activeKey)||{});ready(true);return}
+  let ctx=null;
+  try{ctx=await currentContext()}catch(error){console.error('RONA client payments context authority',error);renderLoadingError('Контекст клиента временно недоступен.');ready(false);return}
+  if(!ctx){clearForContext(null);renderLoadingError('Выберите компанию и договор для отображения платежей.');ready(true);return}
+  const key=contextKey(ctx);
+  if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
+  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx);ready(true);return}
   state.loading=true;
   try{
-    const boot=await request('/v1/client/bootstrap');
-    const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];state.contexts=contexts;
-    const ctx=chooseContext(contexts);
-    if(!ctx){state.activeKey='';state.detail=null;renderLoadingError('Выберите компанию и договор для отображения платежей.');ready(true);return}
-    const key=contextKey(ctx);
     const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
-    state.activeKey=key;state.detail=detail?.data||{};state.lastLoad=Date.now();
-    window.__RONA_CLIENT_PAYMENTS_STATE__={version:MARK,source:'CLIENT_CONTEXT_FINANCE_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:Array.isArray(state.detail.deals)?state.detail.deals:[],payments:Array.isArray(state.detail.payments)?state.detail.payments:[],loaded_at:new Date().toISOString()};
+    if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
+    state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
+    window.__RONA_CLIENT_PAYMENTS_STATE__={version:MARK,source:'CURRENT_CONTEXT_FINANCE_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:Array.isArray(state.detail.deals)?state.detail.deals:[],payments:Array.isArray(state.detail.payments)?state.detail.payments:[],loaded_at:new Date().toISOString()};
     render(state.detail,ctx);ready(true);
   }catch(error){console.error('RONA client payments projection',error);renderLoadingError('Актуальные платежные данные временно недоступны.');ready(false)}finally{state.loading=false}
 }
-function schedule(force=false){
-  if(state.scheduled)return;state.scheduled=true;
-  setTimeout(()=>{state.scheduled=false;const ctx=chooseContext(state.contexts);const key=ctx?contextKey(ctx):'';load(force||key!==state.activeKey)},120);
-}
+function schedule(force=false){if(state.scheduled)return;state.scheduled=true;setTimeout(()=>{state.scheduled=false;load(force)},120)}
 function start(){
-  installStyle();load(true);
+  installStyle();
+  const authority=contextAuthority();
+  if(!authority){renderLoadingError('Контекст клиента временно недоступен.');ready(false);return}
+  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';const changed=key!==state.activeKey;if(changed)clearForContext(ctx);schedule(true)});
+  schedule(true);
   state.timer=window.setInterval(()=>load(true),REFRESH_MS);
   if(!state.observer){state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true})}
   window.addEventListener('pageshow',()=>load(true),{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(true)});
-  document.addEventListener('click',e=>{const t=norm(e.target?.textContent);if(t.includes('Платежи')||t.includes('КОМПАНИЯ')||t.includes('КОНТРАКТ'))setTimeout(()=>load(true),120)},true);
+  document.addEventListener('click',e=>{const t=norm(e.target?.textContent);if(t.includes('Платежи'))setTimeout(()=>load(true),120)},true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
