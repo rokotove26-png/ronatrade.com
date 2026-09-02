@@ -1,0 +1,36 @@
+name: Diagnose ronaoil live reachability
+
+on:
+  push:
+    branches:
+      - diag/ronaoil-live-20260902-2126
+    paths:
+      - .github/workflows/diag-ronaoil-live-20260902-2126.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: DNS and HTTP probes
+        shell: bash
+        run: |
+          set -euxo pipefail
+          date -u
+          getent ahosts ronaoil.com || true
+          getent ahosts www.ronaoil.com || true
+          for u in https://ronaoil.com/ https://ronaoil.com/portal/login https://www.ronaoil.com/; do
+            echo "=== $u ==="
+            curl -sS -L --connect-timeout 10 --max-time 30 -o /tmp/body -D /tmp/headers -w 'http=%{http_code} remote=%{remote_ip} total=%{time_total} final=%{url_effective}\n' "$u" || true
+            sed -n '1,40p' /tmp/headers || true
+            head -c 300 /tmp/body || true
+            echo
+          done
+      - name: TLS probe
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo | openssl s_client -connect ronaoil.com:443 -servername ronaoil.com -brief 2>&1 | sed -n '1,80p'
+          echo | openssl s_client -connect www.ronaoil.com:443 -servername www.ronaoil.com -brief 2>&1 | sed -n '1,80p' || true
