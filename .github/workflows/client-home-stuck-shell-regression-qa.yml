@@ -21,6 +21,11 @@ jobs:
           node-version: '24'
       - name: Build current Client artifact
         run: npm run build
+      - name: Print legacy inline fault context
+        shell: bash
+        run: |
+          set -euo pipefail
+          nl -ba dist/portal/client.html | sed -n '1488,1498p;1620,1630p'
       - name: Install Chrome browser harness
         shell: bash
         run: |
