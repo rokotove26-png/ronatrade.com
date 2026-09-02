@@ -13,7 +13,7 @@ const SIGNING_KEY = Deno.env.get('RONA_AI_TOKEN_SIGNING_KEY') || String(vaultSig
 const BOOTSTRAP_PEPPER = Deno.env.get('RONA_AI_BOOTSTRAP_PEPPER');
 
 const NO_QA_SOURCE = `coalesce(lower(source_system),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])'`;
-const FIN_DOC_TYPES = ['ИНВОЙС','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ'];
+const FIN_DOC_TYPES = ['ИНВОЙС','СПЕЦИФИКАЦИЯ / СЧЁТ-ФАКТУРА','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ'];
 
 function json(body,status=200,extra={}) {
   return new Response(JSON.stringify(body,(_k,v)=>typeof v==='bigint'?v.toString():v),{
