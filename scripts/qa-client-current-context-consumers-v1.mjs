@@ -25,7 +25,7 @@ requireAll('dealLifecycle',['20260902-client-deal-realization-status-v4-current-
 requireAll('applicationForm',['20260902-destination-price-calc-v7-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','contextKey(currentContext())']);
 requireAll('applicationLifecycle',['20260902-client-admin-authoritative-deal-projection-v9-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('contract',['20260902-client-contract-v5-current-context-only','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe',"scope:'CURRENT_CONTEXT_ONLY'"]);
-requireAll('background',['20260902-client-background-section-preload-current-context-v5','RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe']);
+requireAll('background',['20260902-client-background-section-preload-current-context-v6','RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe']);
 
 for(const name of ['home','payments','prices','dealDocuments','dealLifecycle','applicationLifecycle','contract','background'])forbidAll(name,['/v1/client/bootstrap','getAuthorizedContexts','chooseContext(','contextFromSelect(','Promise.all(contexts.map','state.contexts']);
 forbidAll('prices',['priceAuthority','owner_price_snapshots','chooseContext(','domContextHint(','currentControlTexts(','data.contexts','prefetchPrices(']);
