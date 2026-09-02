@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260902-client-background-section-preload-current-context-v5';
+  const MARK='20260902-client-background-section-preload-current-context-v6';
   if(window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__===MARK)return;
   window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__=MARK;
 
@@ -13,8 +13,12 @@
 
   const norm=v=>String(v??'').trim();
   const contextKey=c=>`${norm(c?.client_id)}|${norm(c?.contract_id)}`;
-  const contextPath=c=>`/v1/client/context?clientId=${encodeURIComponent(norm(c?.client_id))}&contractId=${encodeURIComponent(norm(c?.contract_id))}`;
-  const pricesPath=c=>`/v1/client/prices?clientId=${encodeURIComponent(norm(c?.client_id))}&contractId=${encodeURIComponent(norm(c?.contract_id))}`;
+  const scopedPath=(route,c)=>`${route}?clientId=${encodeURIComponent(norm(c?.client_id))}&contractId=${encodeURIComponent(norm(c?.contract_id))}`;
+  const contextPath=c=>scopedPath('/v1/client/context',c);
+  const pricesPath=c=>scopedPath('/v1/client/prices',c);
+  const marketPath=c=>scopedPath('/v1/client/market',c);
+  const shipmentsPath=c=>scopedPath('/v1/client/shipments',c);
+  const railPath=c=>scopedPath('/v1/client/rail',c);
   const now=()=>new Date().toISOString();
 
   function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
@@ -30,7 +34,7 @@
 
   async function read(path,{allowDisabled=false}={}){
     const started=Date.now();let response;
-    try{response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-background-preload':'v5-current-context-only'}})}
+    try{response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-background-preload':'v6-current-context-only'}})}
     catch(error){const message=String(error?.message||error||'NETWORK_ERROR');state.cache[path]={ok:false,status:0,error:message,loaded_at:now(),duration_ms:Date.now()-started};throw new Error(message)}
     const body=await response.json().catch(()=>null);
     const disabled=allowDisabled&&response.status===503&&body?.code==='RAIL_CLIENT_PUBLICATION_DISABLED';
@@ -51,25 +55,21 @@
       const authority=await authorityReady(),current=authority.getCurrentContext();
       state.currentContext=current||null;
       markSection('company_contract','READY',{context_selected:Boolean(current),selection_required:authority.selectionRequired()});
-      const marketPromise=read('/v1/client/market').then(()=>({ok:true})).catch(error=>({ok:false,error}));
       if(!current){
-        const market=await marketPromise;
-        for(const name of ['home','applications','deals','documents','payments','prices','rail'])markSection(name,'READY_EMPTY',{selection_required:true});
-        markSection('market',market.ok?'READY':'DEGRADED');
-        if(!market.ok)state.errors.push({scope:'market',error:String(market.error?.message||market.error)});
+        for(const name of ['home','applications','deals','documents','payments','prices','market','rail'])markSection(name,'READY_EMPTY',{selection_required:true});
       }else{
         const key=contextKey(current);
         const [market,shipments,rail,context]=await Promise.all([
-          marketPromise,
-          read('/v1/client/shipments').then(()=>({ok:true})).catch(error=>({ok:false,error})),
-          read('/v1/client/rail',{allowDisabled:true}).then(entry=>({ok:true,disabled:entry.disabled})).catch(error=>({ok:false,error})),
+          read(marketPath(current)).then(()=>({ok:true})).catch(error=>({ok:false,error})),
+          read(shipmentsPath(current)).then(()=>({ok:true})).catch(error=>({ok:false,error})),
+          read(railPath(current),{allowDisabled:true}).then(entry=>({ok:true,disabled:entry.disabled})).catch(error=>({ok:false,error})),
           preloadContext(current)
         ]);
         if(contextKey(authority.getCurrentContext())!==key){state.rerun=true;return}
         for(const name of ['home','applications','deals','documents','payments'])markSection(name,context.detail_ok?'READY':'DEGRADED',{context_selected:true});
         markSection('prices',context.prices_ok?'READY':'DEGRADED',{context_selected:true});
-        markSection('market',market.ok?'READY':'DEGRADED');
-        markSection('rail',shipments.ok&&rail.ok?(rail.disabled?'READY_DISABLED':'READY'):'DEGRADED',{provider_disabled:Boolean(rail.disabled)});
+        markSection('market',market.ok?'READY':'DEGRADED',{context_selected:true});
+        markSection('rail',shipments.ok&&rail.ok?(rail.disabled?'READY_DISABLED':'READY'):'DEGRADED',{provider_disabled:Boolean(rail.disabled),context_selected:true});
         if(!context.ok)state.errors.push({scope:'context',key:context.key,detail_error:context.detail_error,prices_error:context.prices_error});
         if(!market.ok)state.errors.push({scope:'market',error:String(market.error?.message||market.error)});
         if(!shipments.ok)state.errors.push({scope:'shipments',error:String(shipments.error?.message||shipments.error)});
