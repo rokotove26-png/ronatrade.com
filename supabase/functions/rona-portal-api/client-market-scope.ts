@@ -1,0 +1,9 @@
+import { sql, type Ctx } from "./shared.ts";
+import { PortalHttpError } from "./phase5d.ts";
+
+export async function clientMarketSafeScoped(c:Ctx,clientId:string,contractId:string){
+  const context=await sql`select cl.id as client_key,ct.id as contract_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;
+  if(context.length!==1)throw new PortalHttpError(404,"CONTEXT_NOT_FOUND");
+  const clientKey=String(context[0].client_key);
+  return await sql`select p.publication_id,p.publication_type::text,p.title,p.published_at,pi.id as publication_item_id,pi.item_type::text,pi.product,pi.basis,pi.currency,pi.price,pi.payment_terms,pi.valid_from,pi.valid_to,pi.headline,pi.content_text,pi.analytics_as_of,pi.analytics_period_from,pi.analytics_period_to,pi.forecast_scenario,pi.actual_value,pi.forecast_value,pi.analytics_unit from portal_private.publications p join portal_private.publication_items pi on pi.publication_key=p.id where p.status='PUBLISHED'::portal_private.publication_status_enum and pi.distribution_allowed and p.audience in ('ALL_CLIENTS','SELECTED_CLIENTS','PUBLIC') and pi.audience in ('ALL_CLIENTS','SELECTED_CLIENTS','PUBLIC') and ((p.audience<>'SELECTED_CLIENTS' and pi.audience<>'SELECTED_CLIENTS') or exists(select 1 from portal_private.publication_client_targets pct where pct.client_key=${clientKey}::uuid and pct.publication_key=p.id and (pct.target_scope='PUBLICATION' or (pct.target_scope='ITEM' and pct.publication_item_key=pi.id)))) and (pi.valid_from is null or pi.valid_from<=now()) and (pi.valid_to is null or pi.valid_to>=now()) and (pi.item_type<>'NEWS'::portal_private.publication_item_type_enum or (pi.client_active_from<=now() and pi.client_active_until>=now())) order by p.published_at desc nulls last,pi.item_order`;
+}
