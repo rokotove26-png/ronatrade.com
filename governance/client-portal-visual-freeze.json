@@ -4,7 +4,7 @@
   "effective_at": "2026-08-31T17:38:00+03:00",
   "baseline_release_commit": "4dd055e675e40349f0798298c394315872a69d8a",
   "owner_instruction_required": true,
-  "approval_marker": "OWNER_VISUAL_APPROVAL: FUNCTIONAL_ONLY_NO_VISUAL_CHANGE_20260902",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: FUNCTIONAL_EMPTY_STATE_NO_LAYOUT_CHANGE_20260902",
   "scope_note": "Client Portal visual surface remains frozen: typography, colors, frames and approved visual styling must not change. Functional runtime, account-specific data loading, content projection and information refresh are authorized to change without altering the frozen visual design.",
   "protected_files": {
     "portal-src/current/client/manifest.json": "7b0d5dd080a0c361528a67d7528ed964b8252727",
@@ -43,7 +43,7 @@
     "assets/portal-runtime/client-price-conditions-v1.js": "863c7046edae829f93c26426421af1275d45e2f6",
     "assets/portal-runtime/client-price-sync-v1.js": "95c0ac70d2f3f14ea49c059e327076c7d0124d85",
     "assets/portal-runtime/client-rail-canonical-hero-v1.js": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
-    "assets/portal-runtime/client-section-first-paint-v1.js": "d251556f070af52302cb3a3e3846146fce0e46d1",
+    "assets/portal-runtime/client-section-first-paint-v1.js": "842ce6381dd961d227b52e0e376fbe0124906698",
     "assets/portal-runtime/client-server-connection-v1.js": "b0bdb9f1db854a02a233c55f0a3700cf9a3c65dd",
     "assets/portal-runtime/client-shell-guard-v1.js": "494b2622848ed3c7e23602b40d1ecdad82f59281",
     "assets/portal-runtime/client-shell-guard-v2.js": "c568f0ba170af26a51b30a27659c4ff07bf8a1e1",
@@ -57,6 +57,6 @@
     "scripts/attach-client-home-night-panel-v4.mjs": "ed9825aa40ed7578269f96404d8cd54003349f41",
     "scripts/attach-client-logout-visual-v1.mjs": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
     "scripts/attach-client-rail-production-v1.mjs": "6e2cfbd44bb9136025279a031894a7290a29d775",
-    "scripts/attach-client-section-first-paint-v1.mjs": "40ffe1eeb4b5503f689b32c69bf6a6cbbff0febd"
+    "scripts/attach-client-section-first-paint-v1.mjs": "6e39c798c640f6afa376449de314769b839243b0"
   }
 }
