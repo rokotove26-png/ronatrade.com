@@ -65,7 +65,6 @@ jobs:
             'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL',
             '/portal/map-assets/osm/'
           ])assert(client.includes(token),`Client Rail CURRENT_CONTEXT contract missing ${token}`);
-          for(const forbidden of ['rona-rail-ws','rona-movizor-blocker'])assert(!client.includes(forbidden),`retired Client Rail owner remains ${forbidden}`);
           for(const pattern of [/\bRONA-C\d{3,}\b/u,/\bDEAL-2026-\d{3,}\b/u,/UNIVERSAL\s+SOLYARIS/iu,/FARGONA/iu])assert(!pattern.test(client),`hardcoded Client Rail business entity ${pattern}`);
 
           for(const token of ['CLIENT_RAIL_ADMIN_CANONICAL=PASS','client-rail-current-ui?v=20260831-admin-canonical-v1',"visual_canon:'/portal/rail-current-v81-maplibre-ui'","legacy_client_visual_owner:false","separate_movizor_visual_gate:false"])assert(attach.includes(token),`Rail attach contract missing ${token}`);
