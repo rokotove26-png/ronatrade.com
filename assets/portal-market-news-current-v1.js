@@ -1,7 +1,7 @@
 (()=>{
 'use strict';
 if(window.__RONA_MARKET_NEWS_CURRENT_V1__)return;
-window.__RONA_MARKET_NEWS_CURRENT_V1__='20260902-hourly-dialog-body-v5';
+window.__RONA_MARKET_NEWS_CURRENT_V1__='20260902-hourly-dialog-body-v6';
 
 const PAGE_ID='page-market-news';
 const ROOT_ID='rona-market-news-current';
@@ -150,9 +150,9 @@ function storyButton(x,kind){
 }
 function openArticle(x){
   if(!ensureRoot())return;
-  let d=document.getElementById(DIALOG_ID);
-  if(d){if(d.open&&typeof d.close==='function')d.close();else d.remove()}
-  d=el('dialog',{id:DIALOG_ID,class:'mn-dialog'});
+  const old=document.getElementById(DIALOG_ID);
+  if(old)old.remove();
+  const d=el('dialog',{id:DIALOG_ID,class:'mn-dialog'});
   d.addEventListener('close',()=>{d.remove();if(isActive())render()},{once:true});
   const close=el('button',{type:'button',class:'mn-dialog-close','aria-label':'Закрыть',text:'×',onclick:()=>d.close()});
   const head=el('div',{class:'mn-dialog-head'},el('div',{},el('span',{class:'mn-kicker',text:'RONA Market Intelligence'}),el('h2',{text:headline(x)})),close);
