@@ -37,7 +37,7 @@ jobs:
           node-version: '24'
       - name: Build canonical Client artifact
         run: npm run build
-      - name: Prove current-context isolated open plus hourly Market Intelligence ownership
+      - name: Prove isolated published-content open plus hourly ownership
         shell: bash
         run: |
           set -euo pipefail
@@ -48,10 +48,10 @@ jobs:
           const news=fs.readFileSync('assets/portal-runtime/client-market-news-admin-parity-v1.js','utf8');
           const preload=fs.readFileSync('assets/portal-runtime/client-background-section-preload-v1.js','utf8');
           const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
-          for(const token of ['RONA_CLIENT_CONTEXT',"load('open')",'REFRESH_MS=3600000','/v1/client/market-intelligence'])assert(analytics.includes(token),`analytics current contract missing ${token}`);
-          for(const token of ['AUTO_REFRESH_MS=3600000','setInterval(refreshHourly,AUTO_REFRESH_MS)','/v1/client/market-intelligence'])assert(news.includes(token),`news current contract missing ${token}`);
+          for(const token of ["load('open')",'REFRESH_MS=3600000','/v1/client/market-intelligence','rona:client:context-changed'])assert(analytics.includes(token),`analytics published-content contract missing ${token}`);
+          for(const token of ['AUTO_REFRESH_MS=3600000','setInterval(refreshHourly,AUTO_REFRESH_MS)','/v1/client/market-intelligence','rona:client:context-changed'])assert(news.includes(token),`news published-content contract missing ${token}`);
           assert(!/addEventListener\(["']focus["']/.test(analytics+news),'focus refetch must not own Market Intelligence');
           assert(!preload.includes('/v1/client/market-intelligence'),'30s background preload must not own Market Intelligence');
           assert(!preload.includes('getAuthorizedContexts'),'background preload must not fan out across authorized contexts');
-          console.log('CLIENT_MARKET_INTELLIGENCE_LIVE_CONTRACT=PASS context=CURRENT_CONTEXT refresh=OPEN_THEN_HOURLY focus_refetch=DISABLED');
+          console.log('CLIENT_MARKET_INTELLIGENCE_LIVE_CONTRACT=PASS distribution=PUBLISHED_CONTENT refresh=OPEN_THEN_HOURLY focus_refetch=DISABLED');
           NODE
