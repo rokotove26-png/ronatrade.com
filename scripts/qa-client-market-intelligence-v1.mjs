@@ -14,15 +14,15 @@ const endpoint=await read('functions/portal/api/v1/client/market-intelligence.js
 const migration=await read('supabase/migrations/20260902173000_client_market_intelligence_safe_feed_v1.sql');
 
 for(const token of [
-  'id="rona-client-background-section-preload-v1"','client-background-section-preload-v1.js?v=20260902-core-only-v3',
+  'id="rona-client-background-section-preload-v1"','client-background-section-preload-v1.js?v=20260902-current-context-v6',
   'id="rona-client-market-intelligence-v1"','client-market-intelligence-v1.js?v=20260902-analytics-hourly-isolated-v4',
   'id="rona-client-market-news-admin-parity-v1"','client-market-news-admin-parity-v1.js?v=20260902-news-dialog-single-owner-v5',
   'id="rona-client-analytics-forecast-spacing-v1"','client-analytics-forecast-spacing-v1.js?v=20260902-forecast-spacing-v2'
 ])must(html,token,'built client');
 forbid(html,'portal-market-news-current-v1.js','built client competing news runtime');
 
-for(const token of ['20260902-client-background-section-preload-core-only-v3','REFRESH_MS=30000','/v1/client/bootstrap','/v1/client/market','/v1/client/shipments','/v1/client/rail','rona:client:background-sections'])must(preload,token,'core background preload');
-for(const token of ['/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'", "markSection('market_news'"])forbid(preload,token,'core background preload');
+for(const token of ['20260902-client-background-section-preload-current-context-v6','REFRESH_MS=30000','RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe','/v1/client/context','/v1/client/prices','/v1/client/market','/v1/client/shipments','/v1/client/rail','rona:client:background-sections'])must(preload,token,'core background preload');
+for(const token of ['/v1/client/bootstrap','getAuthorizedContexts','state.contexts.map(preloadContext)','/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'", "markSection('market_news'"])forbid(preload,token,'core background preload');
 
 for(const token of ['REFRESH_MS=3600000',"load('open')",'/v1/client/market-intelligence','RONA_CLIENT_MARKET_INTELLIGENCE_V1','public_chart',"rona:client:context-changed"])must(analytics,token,'analytics runtime');
 for(const token of ['rona:client:background-sections','__RONA_CLIENT_BACKGROUND_CACHE__','background-cache','background-event','REFRESH_MS=60000'])forbid(analytics,token,'analytics runtime');
@@ -42,6 +42,7 @@ for(const pattern of [/\bRONA-C\d{3,}\b/iu,/НИК-ОЙЛ|NIK[- ]OIL/iu,/UNIVERS
 
 const bg=integrity.client_runtime?.background_section_preload;
 if(bg?.refresh_ms!==30000||bg?.market_intelligence_owned!==false)throw new Error('background preload isolation metadata invalid');
+if(bg?.context_source!=='RONA_CLIENT_CONTEXT_AUTHORITY'||bg?.scope!=='CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'||bg?.authorized_context_catalog!=='NOT_CONSUMED_BY_MODULE')throw new Error('background preload current-context authority metadata invalid');
 if(bg?.global?.includes('/portal/api/v1/client/market-intelligence'))throw new Error('30s background preload still owns Market Intelligence');
 if(bg?.covered_sections?.includes('analytics')||bg?.covered_sections?.includes('market_news'))throw new Error('30s background preload still covers Market Intelligence sections');
 if(!bg?.excluded_sections?.includes('analytics')||!bg?.excluded_sections?.includes('market_news'))throw new Error('background preload explicit exclusions missing');
@@ -52,4 +53,4 @@ if(mi?.analytics_forecast_spacing?.padding!=='16px 18px'||mi?.analytics_forecast
 if(mi?.news_visual_parity!=='EXACT_ADMIN_RENDERER_DOM_CSS_TEXT'||mi?.competing_client_news_renderer!==false||mi?.news_dialog_host!=='PAGE_SIBLING_OUTSIDE_RENDER_ROOT')throw new Error('Admin News parity/dialog isolation invalid');
 if(mi?.raw_internal_benchmarks_exposed!==false||mi?.business_mutation!==false||mi?.read_only!==true)throw new Error('safe read-only scope invalid');
 
-console.log('CLIENT_MARKET_INTELLIGENCE_QA=PASS one Client news renderer; article dialog outside replaceable root; article clicks cannot reactivate News; Analytics/News open+hourly only');
+console.log('CLIENT_MARKET_INTELLIGENCE_QA=PASS current-context preload isolated; one Client news renderer; article dialog outside replaceable root; article clicks cannot reactivate News; Analytics/News open+hourly only');
