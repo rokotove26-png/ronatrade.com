@@ -1,0 +1,49 @@
+name: Client Messages Archive frozen DOM probe once
+
+on:
+  push:
+    branches: [fix/client-context-universal-modules-v1]
+    paths: [.github/workflows/client-messages-archive-dom-probe-once.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Decode frozen Client source and report Messages Archive DOM only
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const crypto=require('crypto');
+          const zlib=require('zlib');
+          const chunks=Array.from({length:10},(_,i)=>`portal-src/current/client/payload.${String(i).padStart(2,'0')}`);
+          const encoded=chunks.map(p=>fs.readFileSync(p,'utf8')).join('');
+          const html=zlib.brotliDecompressSync(Buffer.from(encoded,'base64'));
+          const sha=crypto.createHash('sha256').update(html).digest('hex');
+          if(html.length!==484970)throw new Error(`CLIENT_BYTES_DRIFT ${html.length}`);
+          if(sha!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183')throw new Error(`CLIENT_SHA_DRIFT ${sha}`);
+          const s=html.toString('utf8');
+          const needles=['Сообщения','Архив','messages','archive'];
+          console.log(`FROZEN_CLIENT_OK bytes=${html.length} sha256=${sha}`);
+          for(const needle of needles){
+            let pos=0,count=0;
+            while((pos=s.toLowerCase().indexOf(needle.toLowerCase(),pos))>=0&&count<20){
+              const a=Math.max(0,pos-600),b=Math.min(s.length,pos+needle.length+900);
+              console.log(`\n--- MATCH ${needle} #${count+1} @${pos} ---\n${s.slice(a,b).replace(/\s+/g,' ')}`);
+              pos+=needle.length;count++;
+            }
+            console.log(`MATCH_COUNT ${needle}=${count}`);
+          }
+          const ids=[...s.matchAll(/(?:id|data-page)=["']([^"']+)["']/g)].map(m=>m[1]);
+          console.log('\nDOM_CANDIDATES='+[...new Set(ids.filter(x=>/mess|archiv|сообщ|архив/i.test(x)))].join(','));
+          NODE
