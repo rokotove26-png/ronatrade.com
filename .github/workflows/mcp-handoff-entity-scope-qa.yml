@@ -1,0 +1,77 @@
+name: MCP Handoff Entity Scope QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - supabase/functions/rona-mcp-gateway/index.js
+      - .github/workflows/mcp-handoff-entity-scope-qa.yml
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - supabase/functions/rona-mcp-gateway/index.js
+      - .github/workflows/mcp-handoff-entity-scope-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  handoff-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify gateway syntax
+        run: node --check supabase/functions/rona-mcp-gateway/index.js
+      - name: Verify canonical handoff and role intersections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          s=Path('supabase/functions/rona-mcp-gateway/index.js').read_text()
+
+          canonical="const CANONICAL_HANDOFF_ENTITY_TYPES=Object.freeze(['CLIENT','CONTRACT','APPLICATION','DEAL','DOCUMENT','PAYMENT','SHIPMENT','RAIL_DOCUMENT','PUBLICATION','TASK','SYSTEM']);"
+          schema="entity_type:{type:'string',enum:CANONICAL_HANDOFF_ENTITY_TYPES}"
+          strict="if(!roleCanUseEntity(cfg.business_role,type)||!roleCanUseEntity(targetRole,type))"
+          permissive="if(!roleCanUseEntity(cfg.business_role,type)&&!roleCanUseEntity(targetRole,type))"
+
+          assert canonical in s, 'canonical handoff entity enum missing'
+          assert schema in s, 'handoff tool schema is not canonical-enum bounded'
+          assert strict in s, 'recipient/source scope intersection enforcement missing'
+          assert permissive not in s, 'permissive source-or-target handoff scope rule present'
+          assert 'SYSTEM_ADMIN_BUSINESS_HANDOFF_BLOCKED' in s, 'System Admin business proxy guard missing'
+          assert 'rona-mcp-system-admin-pilot' not in s, 'System Admin coordinate pilot must not exist'
+
+          line=canonical
+          assert 'SPECIFICATION' not in line, 'SPECIFICATION must not be a first-class handoff entity'
+
+          block=re.search(r"const ENTITY_SCOPE=Object\.freeze\(\{(.*?)\n\}\);",s,re.S)
+          assert block, 'ENTITY_SCOPE block missing'
+          scopes={}
+          for role,items in re.findall(r"\s*([A-Z_]+):new Set\(\[([^\]]*)\]\)",block.group(1)):
+              scopes[role]=set(re.findall(r"'([^']+)'",items))
+
+          required={'OPERATIONS_DIRECTOR','FINANCE','LEGAL','RAIL_LOGISTICS','SYSTEM_ADMIN'}
+          assert required.issubset(scopes), f'missing scopes: {sorted(required-set(scopes))}'
+          assert scopes['SYSTEM_ADMIN']=={'TASK','SYSTEM'}, 'System Admin business scope expanded'
+
+          def inter(target):
+              return scopes['OPERATIONS_DIRECTOR'] & scopes[target]
+
+          assert inter('FINANCE')=={'CONTRACT','APPLICATION','DEAL','PAYMENT','TASK'}, inter('FINANCE')
+          assert inter('LEGAL')=={'CONTRACT','DEAL','DOCUMENT','TASK'}, inter('LEGAL')
+          assert inter('RAIL_LOGISTICS')=={'DEAL','SHIPMENT','RAIL_DOCUMENT','TASK'}, inter('RAIL_LOGISTICS')
+          assert 'DOCUMENT' not in inter('FINANCE'), 'Finance DOCUMENT scope expansion detected'
+          assert 'CONTRACT' not in inter('RAIL_LOGISTICS'), 'Rail CONTRACT scope expansion detected'
+          assert all('SPECIFICATION' not in v for v in scopes.values()), 'SPECIFICATION scope expansion detected'
+
+          print('MCP_HANDOFF_ENTITY_SCOPE_QA=PASS')
+          PY
