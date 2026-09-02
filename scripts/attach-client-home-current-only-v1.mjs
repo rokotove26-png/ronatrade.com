@@ -53,6 +53,12 @@ if(!html.includes('id="rona-client-home-command-center-v2"'))throw new Error('CU
 if(!html.includes('id="rona-client-home-first-paint-guard"'))throw new Error('CURRENT_CLIENT_HOME_PREPAINT_GUARD_MISSING');
 if(!html.includes('data-rona-client-home-prepaint="released"'))throw new Error('CURRENT_CLIENT_HOME_BOUNDED_GUARD_SELECTOR_MISSING');
 if(html.includes(id)||html.includes('client-home-current-only-v1.js'))throw new Error('CLIENT_HOME_CURRENT_ONLY_BRIDGE_ALREADY_PRESENT');
+
+const unsafeClockTick=`function tick(){const d=new Date();document.getElementById('clockTime').textContent=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});document.getElementById('clockDate').textContent=d.toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'});}tick();setInterval(tick,30000);`;
+const safeClockTick=`function tick(){const d=new Date(),clockTime=document.getElementById('clockTime'),clockDate=document.getElementById('clockDate');if(clockTime)clockTime.textContent=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});if(clockDate)clockDate.textContent=d.toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'});}tick();setInterval(tick,30000);`;
+if(html.includes(unsafeClockTick))html=html.replace(unsafeClockTick,safeClockTick);
+else if(!html.includes(safeClockTick))throw new Error('CLIENT_HOME_LEGACY_CLOCK_COMPAT_TARGET_MISSING');
+
 const close=html.toLowerCase().lastIndexOf('</body>');
 if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
 html=html.slice(0,close)+`<script id="${id}" src="${src}" defer></script>`+html.slice(close);
@@ -72,6 +78,7 @@ integrity.client_runtime.home_current_only={
   prepaint_rescue:{mode:'BOUNDED_REUSABLE_HARD_FAIL_OPEN',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true,reusable_guard:true,hard_release:'STYLE_MEDIA_NOT_ALL',rearm_on_navigation:true},
   degraded_error_owner:true,
   error_fallback:'CONTROLLED_DEGRADED_STATE',
+  legacy_clock_tick:'NULL_SAFE_COMPAT',
   reinsertion_policy:'REMOVE_BEFORE_NEXT_PAINT',
   preserves:['HOME_TITLE_FRAME','HOME_CONTEXT_FRAME','COMMAND_CENTER_V2_OWNER'],
   business_logic_changed:false,
