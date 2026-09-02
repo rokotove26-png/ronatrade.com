@@ -5,14 +5,14 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-context-selection-authority-v1.js';
 const id='rona-client-context-selection-authority-v1';
-const marker='20260902-client-context-selection-authority-v1';
+const marker='20260902-client-context-selection-authority-v3-scoped-bootstrap';
 const homeId='rona-client-home-command-center-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_CONTEXT_AUTHORITY_MARKER_MISSING: ${marker}`);
 if(!runtime.includes('/portal/api/v1/client/bootstrap')||!runtime.includes('CLIENT_CONTEXT_SELECTION_REQUIRED'))throw new Error('CLIENT_CONTEXT_AUTHORITY_SERVER_CONTRACT_MISSING');
-if(!runtime.includes('clientContextSelect')||!runtime.includes('companyDisplayName')||!runtime.includes('rona:client-context-changed'))throw new Error('CLIENT_CONTEXT_AUTHORITY_SELECTION_CONTRACT_MISSING');
+for(const token of ['clientContextSelect','companyDisplayName','rona:client-context-changed','RONA_CLIENT_CONTEXT','getCurrentContext','getAuthorizedContexts','whenReady','subscribe','scopedBootstrapResponse'])if(!runtime.includes(token))throw new Error(`CLIENT_CONTEXT_AUTHORITY_SELECTION_CONTRACT_MISSING: ${token}`);
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_CONTEXT_AUTHORITY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 
 const digest=sha256(Buffer.from(runtime,'utf8')).slice(0,16);
@@ -31,6 +31,6 @@ const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime=integrity.client_runtime||{};
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
-integrity.client_runtime.context_selection_authority={id,src,marker,source:'SERVER_SESSION_AUTHORITY',scope:'ALL_AUTHORIZED_CLIENT_CABINETS',selection:'EXPLICIT_AUTHORIZED_CONTEXT_OR_SINGLE_AUTO',multi_context_first_fallback:false,api_rewrite:'SELECTED_AUTHORIZED_CONTEXT',company_label:'COMPACT_LEGAL_DISPLAY',legacy_context_zone:'DISPLAY_ONLY_SERVER_SYNCED',hardcoded_business_entities:false};
+integrity.client_runtime.context_selection_authority={id,src,marker,source:'SERVER_SESSION_AUTHORITY',scope:'ALL_AUTHORIZED_CLIENT_CABINETS',selection:'EXPLICIT_AUTHORIZED_CONTEXT_OR_SINGLE_AUTO',multi_context_first_fallback:false,api_rewrite:'SELECTED_AUTHORIZED_CONTEXT',bootstrap_projection:'SELECTED_CONTEXT_ONLY_OR_EMPTY_UNTIL_SELECTION',public_api:'RONA_CLIENT_CONTEXT',company_label:'COMPACT_LEGAL_DISPLAY',legacy_context_zone:'DISPLAY_ONLY_SERVER_SYNCED',hardcoded_business_entities:false};
 await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
-console.log(`CLIENT_CONTEXT_SELECTION_AUTHORITY=PASS marker=${marker} asset=${src} order=before-home-command-center`);
+console.log(`CLIENT_CONTEXT_SELECTION_AUTHORITY=PASS marker=${marker} asset=${src} order=before-home-command-center bootstrap=selected-only`);
