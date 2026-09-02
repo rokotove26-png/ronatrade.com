@@ -1,0 +1,44 @@
+name: Fix Client runtime sanitation QA once
+
+on:
+  push:
+    branches:
+      - fix/client-context-universal-modules-v1
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Replace stale runtime version assertions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('.github/workflows/client-runtime-sanitation-qa.yml')
+          text=path.read_text()
+          old="""          const sanitation='client-payments-sanitation-v1.js?v=20260830-current-only-v1';
+          const payments='client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
+          const firstPaint='client-section-first-paint-v1.js?v=20260902-authoritative-empty-v3';"""
+          new="""          const sanitation='client-payments-sanitation-v1.js';
+          const payments='client-payments-authoritative-v1.js';
+          const firstPaint='client-section-first-paint-v1.js';"""
+          if old not in text:
+              raise SystemExit('stale sanitation assertion block not found')
+          path.write_text(text.replace(old,new,1))
+          PY
+      - name: Commit QA correction and remove one-shot workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/fix-client-runtime-sanitation-qa-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/client-runtime-sanitation-qa.yml .github/workflows/fix-client-runtime-sanitation-qa-once.yml
+          git commit -m 'test(portal): make sanitation runtime order version-agnostic'
+          git push origin HEAD:${GITHUB_REF_NAME}
