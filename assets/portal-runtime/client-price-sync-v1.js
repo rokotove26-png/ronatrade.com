@@ -1,13 +1,11 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260830-authoritative-price-v10-parallel-prefetch';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260902-authoritative-price-v11-current-context';
 
 const API='/portal/api';
 const BOOTSTRAP_TTL=30000;
 const PRICE_TTL=15000;
-const CLIENT_ID_RE=/\bRONA-C\d{3}\b/;
-const CONTRACT_ID_RE=/\bRONA-C\d{3}-CTR-\d{4}-\d{3,}\b/;
-const state={contexts:[],context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,bootstrapAt:0,bootstrapPromise:null,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null,prefetchKey:'',prefetchPromise:null};
+const state={context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,bootstrapAt:0,bootstrapPromise:null,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null,unsubscribe:null};
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
@@ -28,48 +26,9 @@ async function request(path,init={}){
   if(!response.ok||body?.ok===false)throw new Error(String(body?.code||body?.error?.code||('HTTP_'+response.status)));
   return body;
 }
-
-function visible(el){
-  if(!el||!el.isConnected)return false;
-  const s=getComputedStyle(el);
-  if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)===0)return false;
-  const r=el.getBoundingClientRect();
-  return r.width>0&&r.height>0;
-}
-
-function currentControlTexts(){
-  const selector='button,[role="button"],select,option:checked,[aria-selected="true"],[data-active="true"],.active,.selected,[class*="company"],[class*="contract"],[data-client-id],[data-contract-id]';
-  return Array.from(document.querySelectorAll(selector)).filter(visible).map(el=>norm(el.textContent||el.value)).filter(Boolean);
-}
-
-function chooseContext(contexts){
-  if(!contexts.length)return null;
-  const texts=currentControlTexts();
-  let best=contexts[0],bestScore=-1;
-  for(const ctx of contexts){
-    const keys=[ctx.legal_name,ctx.current_external_contract_number,ctx.contract_id,ctx.client_id].map(norm).filter(Boolean);
-    let score=0;
-    for(const text of texts){
-      keys.forEach((key,index)=>{if(key&&text.includes(key))score+=index===0?9:index===1?8:index===2?5:3});
-    }
-    if(score>bestScore){bestScore=score;best=ctx}
-  }
-  return best;
-}
-
+function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
 function contextKey(ctx){return `${ctx?.client_id||''}|${ctx?.contract_id||''}`}
-function domContextHint(){
-  const scopes=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]'),document.querySelector('[class*="header"]'),document.body].filter(Boolean);
-  for(const scope of scopes){const raw=String(scope.innerText||scope.textContent||'');const contract=raw.match(CONTRACT_ID_RE)?.[0]||'';const client=raw.match(CLIENT_ID_RE)?.[0]||'';if(client&&contract)return{client_id:client,contract_id:contract}}
-  return null;
-}
-function prefetchPrices(hint){
-  if(!hint)return null;const key=contextKey(hint);if(!key||key==='|')return null;
-  if(state.prefetchKey===key&&state.prefetchPromise)return state.prefetchPromise;
-  state.prefetchKey=key;
-  state.prefetchPromise=request('/v1/client/prices?clientId='+encodeURIComponent(hint.client_id)+'&contractId='+encodeURIComponent(hint.contract_id)).catch(()=>null).finally(()=>{setTimeout(()=>{if(state.prefetchKey===key){state.prefetchKey='';state.prefetchPromise=null}},1000)});
-  return state.prefetchPromise;
-}
 
 function findPriceTable(){
   return Array.from(document.querySelectorAll('table')).find(table=>{
@@ -155,7 +114,7 @@ function makePriceButton(item){
 function render(){
   if(!state.prices.length)return false;const table=findPriceTable();if(!table)return false;
   const bases=uniqueBases();
-  const signature=['admin-authority-v10',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier,x.authority?.updated_at].join(':'))].join('|');
+  const signature=['admin-authority-v11-current-context',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier,x.authority?.updated_at].join(':'))].join('|');
   if(table.dataset.ronaPriceSyncSignature===signature){syncPublicationStatus();return true}
   Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
   const head=table.tHead?.rows?.[0]||table.querySelector('thead tr');
@@ -167,11 +126,10 @@ function render(){
 
 async function loadBootstrap(force=false){
   const now=Date.now();
-  if(!force&&state.contexts.length&&now-state.bootstrapAt<BOOTSTRAP_TTL)return;
+  if(!force&&state.bootstrapAt&&now-state.bootstrapAt<BOOTSTRAP_TTL)return;
   if(state.bootstrapPromise)return state.bootstrapPromise;
   state.bootstrapPromise=(async()=>{
     const boot=await request('/v1/client/bootstrap'),data=boot?.data||{};
-    state.contexts=Array.isArray(data.contexts)?data.contexts:[];
     state.priceAuthority=new Map((Array.isArray(data.price_authority)?data.price_authority:[]).map(x=>[String(x.publication_item_id||''),x]).filter(x=>x[0]));
     state.bootstrapAt=Date.now();
   })().finally(()=>{state.bootstrapPromise=null});
@@ -196,12 +154,12 @@ function publishPriceState(next,source){
   window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:new Date().toISOString()};
 }
 
-async function loadPrices(next,force=false,prefetched=null){
+async function loadPrices(next,force=false){
   const key=contextKey(next);
   if(!force&&state.prices.length&&state.priceContextKey===key&&Date.now()-state.priceLoadedAt<PRICE_TTL){render();return}
   const seq=++state.priceSeq;
-  const result=prefetched||await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
-  if(seq!==state.priceSeq||contextKey(state.context)!==key)return;
+  const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
+  if(seq!==state.priceSeq||contextKey(state.context)!==key||contextKey(contextAuthority()?.getCurrentContext())!==key)return;
   publishPriceState(next,Array.isArray(result?.prices)?result.prices:[]);
 }
 
@@ -210,15 +168,12 @@ async function refresh(forcePrices=false,forceBootstrap=false){
   state.loading=true;
   try{
     ensureContractDownloadRuntime();
-    const hint=!state.contexts.length?domContextHint():null;
-    const warm=hint?prefetchPrices(hint):null;
     await loadBootstrap(forceBootstrap);
-    const next=chooseContext(state.contexts);if(!next)throw new Error('CLIENT_CONTEXT_NOT_FOUND');
+    const next=await currentContext();
+    if(!next){if(state.context){state.context=null;state.priceSeq++;clearPriceState()}return}
     const changed=contextKey(state.context)!==contextKey(next);state.context=next;
     if(changed){state.priceSeq++;clearPriceState()}
-    let prefetched=null;
-    if(warm&&contextKey(hint)===contextKey(next))prefetched=await warm;
-    await loadPrices(next,changed||forcePrices||!state.prices.length,prefetched);
+    await loadPrices(next,changed||forcePrices||!state.prices.length);
     state.lastRefresh=Date.now();render();
   }catch(error){console.error('RONA client price sync',error)}finally{
     state.loading=false;
@@ -238,24 +193,21 @@ function observePriceMount(){
   state.observer.observe(document.body,{childList:true,subtree:true});
 }
 
-function isContextInteraction(target){
-  const el=target?.closest?.('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"],button,[role="button"],[role="tab"]');if(!el)return false;
-  if(el.matches('select,[data-client-id],[data-contract-id],[class*="company"],[class*="contract"]'))return true;
-  const t=norm(el.textContent),aria=norm(el.getAttribute?.('aria-label')),title=norm(el.getAttribute?.('title'));
-  return state.contexts.some(ctx=>[ctx.legal_name,ctx.current_external_contract_number,ctx.contract_id,ctx.client_id].map(norm).filter(Boolean).some(k=>(t&&t.includes(k))||(aria&&aria.includes(k))||(title&&title.includes(k))));
-}
 function isPriceInteraction(target){
   const el=target?.closest?.('button,[role="button"],[role="tab"],a');if(!el)return false;
   const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title'))].join(' ');
   return text.includes('цены')||text.includes('прайс');
 }
 function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices,false),80)}
-function maybeRefresh(event){
-  if(isContextInteraction(event.target)){scheduleRefresh(false);return}
-  if(isPriceInteraction(event.target)){queueRender();if(Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}
-}
+function maybeRefresh(event){if(isPriceInteraction(event.target)){queueRender();if(Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}}
 
-function start(){observePriceMount();refresh(true,false)}
+function start(){
+  observePriceMount();
+  const authority=contextAuthority();
+  if(!authority){console.error('RONA client price sync: context authority unavailable');return}
+  state.unsubscribe=authority.subscribe(ctx=>{const changed=contextKey(state.context)!==contextKey(ctx);state.context=ctx||null;if(changed){state.priceSeq++;clearPriceState()}scheduleRefresh(true)});
+  refresh(true,false);
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
 document.addEventListener('click',maybeRefresh,true);
 document.addEventListener('change',maybeRefresh,true);
