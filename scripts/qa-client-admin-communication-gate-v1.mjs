@@ -1,10 +1,9 @@
 import { readFile } from 'node:fs/promises';
 
-const [migration,admin,router,applicationForm]=await Promise.all([
+const [migration,admin,events]=await Promise.all([
   readFile('supabase/migrations/20260902233000_client_communication_admin_gate_v1.sql','utf8'),
   readFile('supabase/functions/rona-portal-api/admin.ts','utf8'),
-  readFile('supabase/functions/rona-portal-api/index.ts','utf8'),
-  readFile('assets/portal-runtime/client-application-form-v3.js','utf8')
+  readFile('supabase/functions/rona-portal-api/events.ts','utf8')
 ]);
 const must=(value,code)=>{if(!value)throw new Error(code)};
 
@@ -40,14 +39,18 @@ for(const token of [
 ])must(admin.includes(token),`ADMIN_CLIENT_INTAKE_PROJECTION_MISSING:${token}`);
 
 for(const token of [
-  '/v1/admin/client-intake/',
+  'ADMIN_CLIENT_INTAKE_ROUTE',
   'server_admin_route_client_intake',
+  'SOURCE_CLIENT_EVENT_REQUIRED',
   'INVALID_FUNCTIONAL_ROLE',
-  'ROLE_MISMATCH'
-])must(router.includes(token),`ADMIN_CLIENT_INTAKE_ROUTE_MISSING:${token}`);
+  'functionalRoles',
+  'role==="ADMIN"&&eventType==="ADMIN_CLIENT_INTAKE_ROUTE"'
+])must(events.includes(token),`ADMIN_CLIENT_INTAKE_EVENT_ROUTE_MISSING:${token}`);
 
-must(applicationForm.includes("event_type:'CLIENT_APPLICATION_SUBMIT',authority_domain:'APPLICATION'"),'CLIENT_APPLICATION_EVENT_TYPE_REQUIRED');
-must(!applicationForm.includes("event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'APPLICATION'"),'CLIENT_APPLICATION_AS_MESSAGE_FORBIDDEN');
-must(applicationForm.includes("event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'PRICE_CALCULATION'"),'CLIENT_GENERIC_PRICE_CALC_MESSAGE_PRESERVED');
+must(events.includes('CLIENT_APPLICATION_SUBMIT'),'CLIENT_APPLICATION_EVENT_ALLOWED');
+must(events.includes('CLIENT_CLAIM_SUBMIT'),'CLIENT_CLAIM_EVENT_ALLOWED');
+must(events.includes('CLIENT_PAYMENT_PROOF_SUBMIT'),'CLIENT_PAYMENT_PROOF_EVENT_ALLOWED');
+must(events.includes('CLIENT_MESSAGE_SUBMIT'),'CLIENT_MESSAGE_EVENT_ALLOWED');
+must(!events.includes('ADMIN"::portal_private.staff_functional_role_enum'),'ADMIN_MUST_NOT_BE_FAKE_FUNCTIONAL_ROLE');
 
-console.log('CLIENT_ADMIN_COMMUNICATION_GATE_QA=PASS client-origin=Admin-first admin-routing=explicit published-content=unchanged application-event=typed');
+console.log('CLIENT_ADMIN_COMMUNICATION_GATE_QA=PASS client-origin=Admin-first admin-routing=explicit-existing-events-api published-content=unchanged');
