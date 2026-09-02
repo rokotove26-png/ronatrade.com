@@ -15,9 +15,9 @@ const migration=await read('supabase/migrations/20260902173000_client_market_int
 
 for(const token of [
   'id="rona-client-market-intelligence-v1"',
-  '/assets/portal-runtime/client-market-intelligence-v1.js?v=20260902-analytics-safe-v2',
+  '/assets/portal-runtime/client-market-intelligence-v1.js?v=20260902-analytics-hourly-v3',
   'id="rona-client-market-news-admin-parity-v1"',
-  '/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-admin-canonical-exact-v1'
+  '/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-admin-canonical-hourly-v2'
 ])must(html,token,'built client');
 
 for(const token of [
@@ -25,6 +25,8 @@ for(const token of [
   '/v1/client/market-intelligence',
   'RONA_CLIENT_MARKET_INTELLIGENCE_V1',
   'public_chart',
+  'REFRESH_MS=3600000',
+  "load('open')",
   'rona:client:background-sections'
 ])must(runtime,token,'client analytics market runtime');
 for(const token of [
@@ -34,7 +36,8 @@ for(const token of [
   'SUPABASE_SERVICE_ROLE',
   'mi-news-list',
   'function renderNews(',
-  "ensureOwner(root,'news')"
+  "ensureOwner(root,'news')",
+  'REFRESH_MS=60000'
 ])forbid(runtime,token,'client analytics market runtime');
 
 for(const token of [
@@ -55,6 +58,8 @@ for(const token of [
   '/v1/client/market-intelligence',
   'source_published_at',
   'duplicate_group',
+  'AUTO_REFRESH_MS=3600000',
+  'Актуализация при открытии кабинета и раз в час',
   'rona:client:background-sections',
   'admin-canonical-client-safe-v1'
 ])must(newsRuntime,token,'client Admin-parity Market News runtime');
@@ -65,7 +70,8 @@ for(const token of [
   'service_role',
   'SUPABASE_SERVICE_ROLE',
   'mi-news-list',
-  'mi-open'
+  'mi-open',
+  'AUTO_REFRESH_MS=60000'
 ])forbid(newsRuntime,token,'client Admin-parity Market News runtime');
 
 for(const token of [
@@ -88,6 +94,8 @@ for(const token of [
 
 for(const token of [
   '/v1/client/market-intelligence',
+  'MARKET_INTELLIGENCE_REFRESH_MS=3600000',
+  'readMarketIntelligence(reason)',
   "markSection('analytics'",
   "markSection('market_news'",
   'window_calendar_dates:7',
@@ -123,6 +131,7 @@ for(const pattern of [/\bRONA-C\d{3,}\b/iu,/НИК-ОЙЛ|NIK[- ]OIL/iu,/UNIVERS
 
 const mi=integrity.client_runtime?.market_intelligence;
 if(mi?.mode!=='ADMIN_PRINCIPLE_CLIENT_SAFE_PROJECTION')throw new Error('integrity market intelligence mode missing');
+if(mi?.trigger!=='PORTAL_OPEN'||mi?.refresh_ms!==3600000||mi?.refresh_policy!=='OPEN_THEN_HOURLY')throw new Error('integrity market intelligence open+hourly refresh policy missing');
 if(mi?.news_window_calendar_dates!==7||mi?.authoritative_news_date!=='source_published_at')throw new Error('integrity authoritative seven-date news window missing');
 if(mi?.news_visual_owner!=='ADMIN_MARKET_NEWS_CANONICAL_EXACT_V1')throw new Error('integrity exact Admin Market News owner missing');
 if(mi?.news_visual_contract!=='portal-market-news-current-v1/20260827-auto-refresh-v2')throw new Error('integrity Admin Market News visual contract missing');
@@ -132,5 +141,6 @@ if(mi?.raw_internal_benchmarks_exposed!==false||mi?.business_mutation!==false||m
 const bg=integrity.client_runtime?.background_section_preload;
 if(!bg?.global?.includes('/portal/api/v1/client/market-intelligence'))throw new Error('background preload market intelligence endpoint missing');
 if(!bg?.covered_sections?.includes('analytics')||!bg?.covered_sections?.includes('market_news'))throw new Error('background preload section coverage missing');
+if(bg?.market_intelligence?.trigger!=='PORTAL_OPEN'||bg?.market_intelligence?.refresh_ms!==3600000||bg?.market_intelligence?.refresh_policy!=='OPEN_THEN_HOURLY')throw new Error('background preload market intelligence open+hourly policy missing');
 
-console.log('CLIENT_MARKET_INTELLIGENCE_QA=PASS server-gated Analytics + 7-calendar-date deduped Market News; News exact Admin canonical renderer DOM/CSS/text; tenant-safe read-only universal Client projection with no client hardcoding');
+console.log('CLIENT_MARKET_INTELLIGENCE_QA=PASS Analytics + Market News load on Client portal open and refresh hourly; server-gated safe feed, exact Admin News renderer, tenant-safe universal Client projection');
