@@ -4,7 +4,6 @@ const html=await readFile('dist/portal/client.html','utf8');
 const runtime=await readFile('dist/assets/portal-runtime/client-context-selection-authority-v1.js','utf8');
 const marker='20260902-client-context-selection-authority-v3-scoped-bootstrap';
 const id='rona-client-context-selection-authority-v1';
-const homeId='rona-client-home-command-center-v2';
 
 if(!runtime.includes(marker))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_MARKER_MISSING');
 const runtimeLower=runtime.toLocaleLowerCase('ru-RU');
@@ -14,7 +13,8 @@ if(runtime.includes('return state.contexts[0]')||runtime.includes('return contex
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 if(!runtime.includes("contexts:selected?[selected]:[]"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_SCOPED_BOOTSTRAP_MISSING');
 if(!runtime.includes("url.searchParams.set('clientId',state.selected.client_id)")||!runtime.includes("url.searchParams.set('contractId',state.selected.contract_id)"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_REQUEST_REWRITE_MISSING');
-const authorityAt=html.indexOf(`id="${id}"`),homeAt=html.indexOf(`id="${homeId}"`);
-if(authorityAt<0||homeAt<0||authorityAt>homeAt)throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_ORDER_INVALID');
+const authorityAt=html.indexOf(`id="${id}"`),headClose=html.toLowerCase().indexOf('</head>'),firstConsumerCandidates=['client-application-lifecycle-v1.js','client-home-command-center-v2.js','client-payments-authoritative-v1.js','client-price-sync-v1.js','client-contract-download-v3.js'].map(x=>html.indexOf(x)).filter(x=>x>=0),firstConsumerAt=firstConsumerCandidates.length?Math.min(...firstConsumerCandidates):-1;
+if(authorityAt<0||headClose<0||authorityAt>headClose)throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_NOT_IN_HEAD');
+if(firstConsumerAt>=0&&authorityAt>firstConsumerAt)throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_ORDER_INVALID');
 if(!html.includes('client-context-selection-authority-v1.js?v='))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_CONTENT_ADDRESS_MISSING');
-console.log('CLIENT_CONTEXT_SELECTION_AUTHORITY_QA=PASS source=SERVER_SESSION_AUTHORITY public_api=RONA_CLIENT_CONTEXT bootstrap=SELECTED_ONLY_OR_EMPTY selection=AUTHORIZED_EXPLICIT_OR_SINGLE_AUTO');
+console.log('CLIENT_CONTEXT_SELECTION_AUTHORITY_QA=PASS source=SERVER_SESSION_AUTHORITY public_api=RONA_CLIENT_CONTEXT bootstrap=SELECTED_ONLY_OR_EMPTY order=HEAD_DEFER_BEFORE_CONSUMERS');
