@@ -1,4 +1,4 @@
-name: Client first-login rail QA corrective once
+name: Client current-context rail corrective once
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   corrective:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,52 +22,132 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Patch stale first-login rail assertion
+      - name: Apply current-context rail delta
         run: |
           node - <<'NODE'
           const fs=require('fs');
-          const path='.github/workflows/client-new-account-first-login-qa.yml';
-          const lines=fs.readFileSync(path,'utf8').split('\n');
-          const index=lines.findIndex(line=>line.includes('client rail safe response or role gate missing'));
-          if(index<0) throw new Error('stale rail QA assertion target missing');
-          const p=lines[index].match(/^\s*/)[0];
-          lines.splice(index,1,
-            p+`const railStart=api.indexOf('if(route==="/v1/client/rail"&&req.method==="GET")');`,
-            p+`const railEnd=api.indexOf('if(route==="/v1/events"',railStart);`,
-            p+`assert(railStart>=0&&railEnd>railStart,'client rail route missing');`,
-            p+`const railBlock=api.slice(railStart,railEnd);`,
-            p+`assert(railBlock.includes('c.roles.includes("CLIENT")'),'client rail CLIENT role gate missing');`,
-            p+`assert(railBlock.includes('CLIENT_CONTRACT_CONTEXT_REQUIRED'),'client rail context requirement missing');`,
-            p+`assert(railBlock.includes('portal_private.client_user_has_contract_access'),'client rail server access gate missing');`,
-            p+`assert(railBlock.includes('send(origin,200'),'client rail safe 200 projection missing');`
-          );
-          fs.writeFileSync(path,lines.join('\n'));
+
+          // Client Rail: keep the approved Admin-derived visual canon intact and scope only data transport.
+          {
+            const path='functions/portal/client-rail-current-ui.js';
+            let text=fs.readFileSync(path,'utf8');
+            if(text.includes("window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';"))throw new Error('Client Rail current-context delta already applied');
+            const preamble='${CLIENT_MARKER}\nfunction clientRailOuter()';
+            const preambleNext='${CLIENT_MARKER}\nwindow.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__=\'20260903-client-contract-v1\';\nfunction clientRailOuter()';
+            if(!text.includes(preamble))throw new Error('Client Rail preamble target missing');
+            text=text.replace(preamble,preambleNext);
+
+            const apiStart=text.indexOf('async function api(path){');
+            const apiEnd=text.indexOf('\n}\n`;',apiStart);
+            if(apiStart<0||apiEnd<=apiStart)throw new Error('Client Rail api function boundary missing');
+            let api=text.slice(apiStart,apiEnd+2);
+            const first="var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments',true),providerResult=await clientRailFetch('/portal/api/v1/client/rail',false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();";
+            const firstNext="var context=await clientRailCurrentContext(),contextKey=clientRailContextKey(context),query=clientRailContextQuery(context);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=contextKey;var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments'+query,true),providerResult=await clientRailFetch('/portal/api/v1/client/rail'+query,false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();var activeAuthority=clientRailAuthority(),activeContext=activeAuthority&&typeof activeAuthority.getCurrentContext==='function'?activeAuthority.getCurrentContext():null;if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');";
+            if(!api.includes(first))throw new Error('Client Rail unscoped fetch target missing');
+            api=api.replace(first,firstNext);
+            const state="window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',";
+            const stateNext="window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),";
+            if(!api.includes(state))throw new Error('Client Rail authority state target missing');
+            api=api.replace(state,stateNext);
+
+            const helpers=String.raw`function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}
+function clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;if(typeof sync==='function')setTimeout(function(){sync()},0)})}
+async function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');clientRailBindContext();return ctx}
+function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}
+`;
+            text=text.slice(0,apiStart)+helpers+api+text.slice(apiEnd+2);
+            fs.writeFileSync(path,text);
+          }
+
+          // Build manifest: make current-context source and scope explicit without changing visual metadata.
+          {
+            const path='scripts/attach-client-rail-production-v1.mjs';
+            let text=fs.readFileSync(path,'utf8');
+            const required='  "AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS",\n  "x-rona-client-rail-visual-canon",';
+            const requiredNext='  "AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS",\n  "RONA_CLIENT_CONTEXT",\n  "clientId=",\n  "contractId=",\n  "x-rona-client-rail-visual-canon",';
+            if(!text.includes(required))throw new Error('Rail attach required-marker target missing');
+            text=text.replace(required,requiredNext);
+            const manifest="  provider_state_source:'/portal/api/v1/client/rail',\n  authoritative_refresh_ms:30000,";
+            const manifestNext="  provider_state_source:'/portal/api/v1/client/rail',\n  context_source:'RONA_CLIENT_CONTEXT',\n  context_scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY',\n  context_keys:['client_id','contract_id'],\n  authoritative_refresh_ms:30000,";
+            if(!text.includes(manifest))throw new Error('Rail attach manifest target missing');
+            text=text.replace(manifest,manifestNext);
+            fs.writeFileSync(path,text);
+          }
+
+          // Rail owner QA: assert context authority and server-scoped transport while preserving visual canon checks.
+          {
+            const path='.github/workflows/rail-v5-owner-qa.yml';
+            let text=fs.readFileSync(path,'utf8');
+            const greps="          grep -q \"'/portal/api/v1/client/rail'\" functions/portal/client-rail-current-ui.js\n          grep -q 'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS' functions/portal/client-rail-current-ui.js";
+            const grepsNext="          grep -q \"'/portal/api/v1/client/rail'\" functions/portal/client-rail-current-ui.js\n          grep -q 'RONA_CLIENT_CONTEXT' functions/portal/client-rail-current-ui.js\n          grep -q 'clientId=' functions/portal/client-rail-current-ui.js\n          grep -q 'contractId=' functions/portal/client-rail-current-ui.js\n          grep -q 'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD' functions/portal/client-rail-current-ui.js\n          grep -q 'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS' functions/portal/client-rail-current-ui.js";
+            if(!text.includes(greps))throw new Error('Rail QA grep target missing');
+            text=text.replace(greps,grepsNext);
+            const manifest="          if(bridge.client_data_source!=='/portal/api/v1/client/shipments'||bridge.provider_state_source!=='/portal/api/v1/client/rail'||bridge.authoritative_refresh_ms!==30000||bridge.auto_refresh!==true)throw new Error('Client Rail authoritative server contract missing');";
+            const manifestNext=manifest+"\n          if(bridge.context_source!=='RONA_CLIENT_CONTEXT'||bridge.context_scope!=='CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'||JSON.stringify(bridge.context_keys)!==JSON.stringify(['client_id','contract_id']))throw new Error('Client Rail current-context contract missing');";
+            if(!text.includes(manifest))throw new Error('Rail QA manifest assertion target missing');
+            text=text.replace(manifest,manifestNext);
+            const markers="            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail',\n            'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'";
+            const markersNext="            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail',\n            'RONA_CLIENT_CONTEXT','clientId=','contractId=','CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD',\n            'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'";
+            if(!text.includes(markers))throw new Error('Rail QA runtime marker target missing');
+            text=text.replace(markers,markersNext);
+            fs.writeFileSync(path,text);
+          }
+
+          // First-login QA: replace the stale 500-character regex with semantic route-block assertions.
+          {
+            const path='.github/workflows/client-new-account-first-login-qa.yml';
+            const lines=fs.readFileSync(path,'utf8').split('\n');
+            const index=lines.findIndex(line=>line.includes('client rail safe response or role gate missing'));
+            if(index<0)throw new Error('First-login stale rail assertion target missing');
+            const p=lines[index].match(/^\s*/)[0];
+            lines.splice(index,1,
+              p+`const railStart=api.indexOf('if(route==="/v1/client/rail"&&req.method==="GET")');`,
+              p+`const railEnd=api.indexOf('if(route==="/v1/events"',railStart);`,
+              p+`assert(railStart>=0&&railEnd>railStart,'client rail route missing');`,
+              p+`const railBlock=api.slice(railStart,railEnd);`,
+              p+`assert(railBlock.includes('c.roles.includes("CLIENT")'),'client rail CLIENT role gate missing');`,
+              p+`assert(railBlock.includes('CLIENT_CONTRACT_CONTEXT_REQUIRED'),'client rail context requirement missing');`,
+              p+`assert(railBlock.includes('portal_private.client_user_has_contract_access'),'client rail server access gate missing');`,
+              p+`assert(railBlock.includes('send(origin,200'),'client rail safe 200 projection missing');`
+            );
+            fs.writeFileSync(path,lines.join('\n'));
+          }
           NODE
-      - name: Validate current rail contract and build
+      - name: Validate current-context rail delta
         run: |
           set -euo pipefail
+          node --check functions/portal/client-rail-current-ui.js
+          node --check scripts/attach-client-rail-production-v1.mjs
           node - <<'NODE'
           const fs=require('fs');
-          const api=fs.readFileSync('supabase/functions/rona-portal-api/index.ts','utf8');
-          const start=api.indexOf('if(route==="/v1/client/rail"&&req.method==="GET")');
-          const end=api.indexOf('if(route==="/v1/events"',start);
-          if(start<0||end<=start)throw new Error('client rail route missing');
-          const block=api.slice(start,end);
-          for(const marker of ['c.roles.includes("CLIENT")','CLIENT_CONTRACT_CONTEXT_REQUIRED','portal_private.client_user_has_contract_access','status:"EMPTY"','rail:[]','rail_documents:[]','wagons:[]','send(origin,200)'])if(!block.includes(marker))throw new Error('rail contract missing '+marker);
-          if(block.includes('send(origin,503'))throw new Error('client rail hard 503 reintroduced');
-          const qa=fs.readFileSync('.github/workflows/client-new-account-first-login-qa.yml','utf8');
-          for(const marker of ['const railStart=api.indexOf','const railBlock=api.slice','client rail server access gate missing'])if(!qa.includes(marker))throw new Error('patched QA missing '+marker);
-          if(qa.includes('client rail safe response or role gate missing'))throw new Error('stale bounded regex remains');
-          console.log('CLIENT_FIRST_LOGIN_RAIL_QA_PATCH=PASS');
+          const rail=fs.readFileSync('functions/portal/client-rail-current-ui.js','utf8');
+          for(const marker of ['RONA_CLIENT_CONTEXT','clientId=','contractId=','CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','context_source:\'RONA_CLIENT_CONTEXT\''])if(!rail.includes(marker))throw new Error('Client Rail current-context marker missing '+marker);
+          for(const forbidden of ['RONA-C001','RONA-C002','RONA-C003','DEAL-2026-004'])if(rail.includes(forbidden))throw new Error('hardcoded business context forbidden '+forbidden);
+          const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
+          for(const marker of ["context_source:'RONA_CLIENT_CONTEXT'","context_scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'","context_keys:['client_id','contract_id']"])if(!attach.includes(marker))throw new Error('Rail manifest marker missing '+marker);
+          const first=fs.readFileSync('.github/workflows/client-new-account-first-login-qa.yml','utf8');
+          if(first.includes('client rail safe response or role gate missing'))throw new Error('stale first-login bounded regex remains');
+          for(const marker of ['const railStart=api.indexOf','const railBlock=api.slice','client rail server access gate missing'])if(!first.includes(marker))throw new Error('First-login semantic rail assertion missing '+marker);
+          console.log('CLIENT_RAIL_CURRENT_CONTEXT_SOURCE_QA=PASS');
           NODE
           npm run build
+          node --input-type=module <<'NODE'
+          import { onRequest as clientRail } from './functions/portal/client-rail-current-ui.js';
+          const response=await clientRail({});
+          if(response.status!==200)throw new Error('Client Rail adapter build response '+response.status+' '+await response.text());
+          const src=await response.text();
+          for(const marker of ['RONA_CLIENT_CONTEXT','clientId=','contractId=','CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'])if(!src.includes(marker))throw new Error('Generated Client Rail current-context marker missing '+marker);
+          if(src.includes('/portal/owner-api')||src.includes("location.pathname==='/portal/admin'"))throw new Error('Admin authority leak in generated Client Rail');
+          console.log('CLIENT_RAIL_CURRENT_CONTEXT_GENERATED_QA=PASS');
+          NODE
           git diff --check
-      - name: Commit validated workflow delta
+      - name: Commit validated rail delta
         run: |
           set -euo pipefail
           git config user.name "RONA LK Architect"
           git config user.email "actions@users.noreply.github.com"
-          git add .github/workflows/client-new-account-first-login-qa.yml
+          git add functions/portal/client-rail-current-ui.js scripts/attach-client-rail-production-v1.mjs .github/workflows/rail-v5-owner-qa.yml .github/workflows/client-new-account-first-login-qa.yml
           git diff --cached --check
-          git commit -m "ci: align first-login rail QA with scoped route"
+          git commit -m "fix: scope Client Rail to current authorized context"
           git push origin HEAD:fix/client-context-universal-modules-v1
