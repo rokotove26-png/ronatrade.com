@@ -9,6 +9,7 @@ const API_PREFIX='/portal/api/v1/client/';
 const REQUIRED_CONTEXT_ROUTES=new Set([
   '/portal/api/v1/client/context',
   '/portal/api/v1/client/prices',
+  '/portal/api/v1/client/market',
   '/portal/api/v1/client/deals',
   '/portal/api/v1/client/documents',
   '/portal/api/v1/client/payments',
