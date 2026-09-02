@@ -1,0 +1,40 @@
+name: Client frozen shell audit once
+
+on:
+  push:
+    branches: [fix/client-context-universal-modules-v1]
+    paths: [.github/workflows/client-frozen-shell-audit-once.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Inspect frozen Client shell anchors without mutation
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require('fs'),zlib=require('zlib'),crypto=require('crypto');
+          const dir='portal-src/current/client';
+          const chunks=Array.from({length:10},(_,i)=>fs.readFileSync(`${dir}/payload.${String(i).padStart(2,'0')}`,'utf8')).join('');
+          const html=zlib.brotliDecompressSync(Buffer.from(chunks,'base64')).toString('utf8');
+          const sha=crypto.createHash('sha256').update(html).digest('hex');
+          if(sha!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183')throw new Error('FROZEN_SOURCE_SHA_MISMATCH');
+          const ids=[...html.matchAll(/\bid=["']([^"']+)["']/gi)].map(m=>m[1]);
+          const attrs=[...html.matchAll(/\bdata-page(?:-panel|-id)?=["']([^"']+)["']/gi)].map(m=>m[1]);
+          const relevant=ids.filter(v=>/(page|nav|message|chat|archive|application|deal|claim|request|inbox)/i.test(v));
+          const text=html.replace(/<script\b[\s\S]*?<\/script>/gi,' ').replace(/<style\b[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ');
+          const terms=['Сообщения','Архив','Заявки','Претензии','Сделки','Запросы'];
+          console.log('CLIENT_FROZEN_SHELL_SHA='+sha);
+          console.log('RELEVANT_IDS='+JSON.stringify([...new Set(relevant)]));
+          console.log('DATA_PAGE_VALUES='+JSON.stringify([...new Set(attrs)]));
+          console.log('TERM_PRESENCE='+JSON.stringify(Object.fromEntries(terms.map(t=>[t,text.includes(t)]))));
+          for(const term of terms){const i=text.indexOf(term);if(i>=0)console.log(`TERM_CONTEXT_${term}=`+text.slice(Math.max(0,i-120),Math.min(text.length,i+240)));}
+          NODE
