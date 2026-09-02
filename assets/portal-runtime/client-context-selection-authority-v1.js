@@ -15,7 +15,8 @@ const REQUIRED_CONTEXT_ROUTES=new Set([
   '/portal/api/v1/client/claims',
   '/portal/api/v1/client/messages',
   '/portal/api/v1/client/archive',
-  '/portal/api/v1/client/shipments'
+  '/portal/api/v1/client/shipments',
+  '/portal/api/v1/client/rail'
 ]);
 const REQUIRED_CONTEXT_PREFIXES=[
   '/portal/api/v1/client/deals/',
