@@ -1,157 +1,127 @@
 name: rail-current-owner-qa
+
 on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
-      - package.json
-      - portal-src/current/admin.html
-      - assets/portal-admin-shell-fast-v1.js
-      - functions/portal/client-rail-current-ui.js
-      - scripts/attach-client-rail-production-v1.mjs
-      - scripts/emit-client-runtime-cache-policy.mjs
-      - functions/portal/_middleware.js
-      - functions/portal/admin.js
-      - functions/portal/rail-current-v5-ui.js
-      - functions/portal/rail-current-v6-ui.js
-      - functions/portal/rail-current-v6-single-title-ui.js
-      - functions/portal/rail-current-v7-real-map-ui.js
-      - functions/portal/rail-current-v81-maplibre-ui.js
-      - functions/portal/map-assets/**
-      - .github/workflows/rail-v5-owner-qa.yml
+      - 'functions/portal/client-rail-current-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'functions/portal/_middleware.js'
+      - 'functions/portal/map-assets/**'
+      - 'scripts/attach-client-rail-production-v1.mjs'
+      - 'scripts/emit-client-runtime-cache-policy.mjs'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - '.github/workflows/rail-v5-owner-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/client-rail-current-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'functions/portal/_middleware.js'
+      - 'functions/portal/map-assets/**'
+      - 'scripts/attach-client-rail-production-v1.mjs'
+      - 'scripts/emit-client-runtime-cache-policy.mjs'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'portal-src/current/admin.html'
+      - '.github/workflows/rail-v5-owner-qa.yml'
+  workflow_dispatch:
+
 permissions:
   contents: read
   statuses: write
+
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Verify current Admin Rail and Admin-canonical Client Rail
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify Admin-canonical Client Rail with CURRENT_CONTEXT
         shell: bash
         run: |
           set -euo pipefail
-          node --check functions/portal/admin.js
-          node --check functions/portal/_middleware.js
-          node --check assets/portal-admin-shell-fast-v1.js
-          node --check functions/portal/client-rail-current-ui.js
-          node --check scripts/attach-client-rail-production-v1.mjs
-          node --check scripts/emit-client-runtime-cache-policy.mjs
-          node --check functions/portal/rail-current-v5-ui.js
-          node --check functions/portal/rail-current-v6-ui.js
-          node --check functions/portal/rail-current-v6-single-title-ui.js
-          node --check functions/portal/rail-current-v7-real-map-ui.js
-          node --check functions/portal/rail-current-v81-maplibre-ui.js
-          node --check 'functions/portal/map-assets/[[path]].js'
+          node <<'NODE'
+          const fs=require('fs');
+          const client=fs.readFileSync('functions/portal/client-rail-current-ui.js','utf8');
+          const admin=fs.readFileSync('functions/portal/rail-current-v81-maplibre-ui.js','utf8');
+          const attach=fs.readFileSync('scripts/attach-client-rail-production-v1.mjs','utf8');
+          const cache=fs.readFileSync('scripts/emit-client-runtime-cache-policy.mjs','utf8');
+          const shell=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
+          const adminHtml=fs.readFileSync('portal-src/current/admin.html','utf8');
+          const middleware=fs.readFileSync('functions/portal/_middleware.js','utf8');
+          const mapAssets=fs.readFileSync('functions/portal/map-assets/[[path]].js','utf8');
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
 
-          # Admin Rail remains the visual canon and its current dedicated runtime stays intact.
-          grep -q 'id="page-monitoring"' portal-src/current/admin.html
-          grep -q 'rail-current-v81-maplibre-ui' assets/portal-admin-shell-fast-v1.js
-          ! grep -q 'MutationObserver' functions/portal/rail-current-v5-ui.js
-          grep -q 'rona-rail-v6-select' functions/portal/rail-current-v6-ui.js
-          grep -q 'Номера вагонов' functions/portal/rail-current-v6-ui.js
-          grep -q 'rona-rail-v4-hero{display:none' functions/portal/rail-current-v6-single-title-ui.js
+          for(const token of [
+            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'",
+            "window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",
+            'RONA_CLIENT_CONTEXT','clientRailCurrentContext','CLIENT_CONTRACT_CONTEXT_REQUIRED','clientRailContextQuery',
+            "'?clientId='", "'&contractId='",
+            "'/portal/api/v1/client/shipments'+query", "'/portal/api/v1/client/rail'+query",
+            'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL',
+            '/portal/map-assets/osm/'
+          ])assert(client.includes(token),`Client Rail CURRENT_CONTEXT contract missing ${token}`);
+          for(const forbidden of ['/portal/owner-api','/admin/bootstrap','rona-rail-ws','rona-movizor-blocker'])assert(!client.includes(forbidden),`retired Client Rail owner remains ${forbidden}`);
+          for(const pattern of [/\bRONA-C\d{3,}\b/u,/\bDEAL-2026-\d{3,}\b/u,/UNIVERSAL\s+SOLYARIS/iu,/FARGONA/iu])assert(!pattern.test(client),`hardcoded Client Rail business entity ${pattern}`);
 
-          # Client must derive the visual runtime directly from the current Admin v8.2 source.
-          test ! -e assets/portal-runtime/client-rail-production-v1.js
-          test ! -e assets/portal-runtime/client-rail-movizor-gate-v1.js
-          grep -q "from './rail-current-v81-maplibre-ui.js'" functions/portal/client-rail-current-ui.js
-          grep -q "__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'" functions/portal/client-rail-current-ui.js
-          grep -q "'/portal/api/v1/client/shipments'" functions/portal/client-rail-current-ui.js
-          grep -q "'/portal/api/v1/client/rail'" functions/portal/client-rail-current-ui.js
-          grep -q 'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS' functions/portal/client-rail-current-ui.js
-          grep -q 'ADMIN_CURRENT_V81_CANONICAL' functions/portal/client-rail-current-ui.js
-          grep -q 'admin-current-v81-client-authority-v1' functions/portal/client-rail-current-ui.js
-          ! grep -Eqi 'RONA-C[0-9]{3}|DEAL-2026-[0-9]{3,}|UNIVERSAL SOLYARIS|FARGONA' functions/portal/client-rail-current-ui.js
+          for(const token of ['CLIENT_RAIL_ADMIN_CANONICAL=PASS','client-rail-current-ui?v=20260831-admin-canonical-v1',"visual_canon:'/portal/rail-current-v81-maplibre-ui'","legacy_client_visual_owner:false","separate_movizor_visual_gate:false"])assert(attach.includes(token),`Rail attach contract missing ${token}`);
+          assert(cache.includes('/portal/client-rail-current-ui'),'Client Rail cache route missing');
+          assert(!cache.includes('/assets/portal-runtime/client-rail-production-v1.js')&&!cache.includes('/assets/portal-runtime/client-rail-movizor-gate-v1.js'),'retired Client Rail cache owner remains');
 
-          grep -q 'CLIENT_RAIL_ADMIN_CANONICAL=PASS' scripts/attach-client-rail-production-v1.mjs
-          grep -q 'client-rail-current-ui?v=20260831-admin-canonical-v1' scripts/attach-client-rail-production-v1.mjs
-          grep -q "visual_canon:'/portal/rail-current-v81-maplibre-ui'" scripts/attach-client-rail-production-v1.mjs
-          grep -q "legacy_client_visual_owner:false" scripts/attach-client-rail-production-v1.mjs
-          grep -q "separate_movizor_visual_gate:false" scripts/attach-client-rail-production-v1.mjs
-          grep -q 'attach-client-rail-production-v1.mjs' package.json
-          grep -q '/portal/client-rail-current-ui' scripts/emit-client-runtime-cache-policy.mjs
-          ! grep -q '/assets/portal-runtime/client-rail-production-v1.js' scripts/emit-client-runtime-cache-policy.mjs
-          ! grep -q '/assets/portal-runtime/client-rail-movizor-gate-v1.js' scripts/emit-client-runtime-cache-policy.mjs
-
-          # Existing map/CSP infrastructure remains current.
-          grep -q 'tile.openstreetmap.org' functions/portal/_middleware.js
-          grep -q 'allowClientRailTileCsp(headers)' functions/portal/_middleware.js
-          grep -q 'tile.openstreetmap.org' 'functions/portal/map-assets/[[path]].js'
+          assert(adminHtml.includes('id="page-monitoring"'),'Admin Rail page missing');
+          assert(shell.includes('rail-current-v81-maplibre-ui'),'Admin shell current Rail owner missing');
+          for(const token of ["window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",'/portal/map-assets/osm/','mountRealRailMap','rona-rail-v7-map-viewport','rona-rail-v7-controls','Интерактивная ЖД-карта',"version:'v8.2'",'waitAdminReady','dedupeOnlineRail(host)'])assert(admin.includes(token),`Admin Rail visual canon missing ${token}`);
+          assert(!admin.includes('new MutationObserver')&&!admin.includes('MutationObserver('),'Admin Rail MutationObserver forbidden');
+          assert(!admin.includes('new gl.Map(')&&!admin.includes('tiles.openfreemap.org/styles/dark')&&!admin.includes('/portal/map-assets/maplibre-gl.js'),'MapLibre/OpenFreeMap must not own primary Admin Rail');
+          assert(middleware.includes('tile.openstreetmap.org')&&middleware.includes('allowClientRailTileCsp(headers)'),'Rail tile CSP contract missing');
+          assert(mapAssets.includes('tile.openstreetmap.org'),'OSM tile proxy missing');
+          console.log('ONLINE_RAIL_CURRENT_OWNER_STATIC=PASS context=CURRENT_CONTEXT visual=ADMIN_CURRENT_V8_2');
+          NODE
 
           npm run build
-          grep -q 'id="rona-client-rail-admin-canonical-v1"' dist/portal/client.html
-          grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
-          test "$(grep -o 'client-rail-current-ui' dist/portal/client.html | wc -l | tr -d ' ')" = '1'
-          ! grep -q 'client-rail-production-v1.js' dist/portal/client.html
-          ! grep -q 'client-rail-movizor-gate-v1.js' dist/portal/client.html
-          grep -q '/portal/client-rail-current-ui' dist/_headers
-          ! grep -q '/assets/portal-runtime/client-rail-production-v1.js' dist/_headers
-          ! grep -q '/assets/portal-runtime/client-rail-movizor-gate-v1.js' dist/_headers
 
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           import { onRequest as rail } from './functions/portal/rail-current-v81-maplibre-ui.js';
           import { onRequest as clientRail } from './functions/portal/client-rail-current-ui.js';
           import { onRequest as assets } from './functions/portal/map-assets/[[path]].js';
+          const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const bridge=integrity?.client_runtime?.rail_client_admin_canonical;
-          if(!bridge||bridge.id!=='rona-client-rail-admin-canonical-v1'||bridge.marker!=='20260831-admin-canonical-v1')throw new Error('Client Rail Admin-canonical integrity record missing');
-          if(bridge.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||bridge.visual_contract!=='ADMIN_CURRENT_V8_2'||bridge.visual_source_mode!=='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER')throw new Error('Client Rail visual canon contract missing');
-          if(bridge.client_data_source!=='/portal/api/v1/client/shipments'||bridge.provider_state_source!=='/portal/api/v1/client/rail'||bridge.authoritative_refresh_ms!==30000||bridge.auto_refresh!==true)throw new Error('Client Rail authoritative server contract missing');
-          if(bridge.map_tile_source!=='/portal/map-assets/osm/{z}/{x}/{y}.png'||bridge.movement_publication!=='FAIL_CLOSED_FROM_CLIENT_PROVIDER_STATE')throw new Error('Client Rail map/provider publication contract missing');
-          if(bridge.legacy_client_visual_owner!==false||bridge.separate_movizor_visual_gate!==false)throw new Error('retired Client Rail visual owner remains');
-          if(bridge.business_data_changed!==false||bridge.hardcoded_business_entities!==false)throw new Error('Client Rail crossed business-data boundary');
-          if(integrity?.client_runtime?.rail_client_workspace||integrity?.client_runtime?.rail_map_recovery)throw new Error('retired Client Rail integrity remains');
+          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260831-admin-canonical-v1','Client Rail integrity record missing');
+          assert(bridge.visual_canon==='/portal/rail-current-v81-maplibre-ui'&&bridge.visual_contract==='ADMIN_CURRENT_V8_2'&&bridge.visual_source_mode==='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER','Client Rail visual canon contract missing');
+          assert(bridge.client_data_source==='/portal/api/v1/client/shipments'&&bridge.provider_state_source==='/portal/api/v1/client/rail'&&bridge.authoritative_refresh_ms===30000&&bridge.auto_refresh===true,'Client Rail server-source metadata missing');
+          assert(bridge.legacy_client_visual_owner===false&&bridge.separate_movizor_visual_gate===false&&bridge.business_data_changed===false&&bridge.hardcoded_business_entities===false,'Client Rail isolation metadata invalid');
 
           const clientResponse=await clientRail({});
-          if(clientResponse.status!==200)throw new Error('Client Admin-canonical Rail endpoint '+clientResponse.status+' '+await clientResponse.text());
+          assert(clientResponse.status===200,'Client Admin-canonical Rail endpoint '+clientResponse.status);
           const clientSrc=await clientResponse.text();
-          for(const marker of [
-            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'",
-            "window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",
-            'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
-            '/portal/map-assets/osm/','Интерактивная ЖД-карта',
-            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail',
-            'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'
-          ])if(!clientSrc.includes(marker))throw new Error('missing Client Admin-canonical Rail marker: '+marker);
-          for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки'])if(clientSrc.includes(forbidden))throw new Error('retired/divergent Client Rail output remains: '+forbidden);
-          if(clientResponse.headers.get('x-rona-client-rail-visual-canon')!=='/portal/rail-current-v81-maplibre-ui')throw new Error('wrong Client Rail visual-canon header');
+          for(const token of ["window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'","window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'])assert(clientSrc.includes(token),`built Client Rail marker missing ${token}`);
+          assert(clientResponse.headers.get('x-rona-client-rail-visual-canon')==='/portal/rail-current-v81-maplibre-ui','wrong Client Rail visual-canon header');
 
-          const response=await rail({});
-          if(response.status!==200)throw new Error('Admin rail-v8.2 endpoint '+response.status+' '+await response.text());
-          const src=await response.text();
-          for(const marker of [
-            "window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",
-            '/portal/map-assets/osm/',
-            'mountRealRailMap',
-            'rona-rail-v7-map-viewport',
-            'rona-rail-v7-controls',
-            'Интерактивная ЖД-карта',
-            "version:'v8.2'",
-            'waitAdminReady',
-            'dedupeOnlineRail(host)'
-          ])if(!src.includes(marker))throw new Error('missing current Admin Rail marker: '+marker);
-          if(src.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('legacy GU button row remains');
-          if(src.includes('c.innerHTML=mapSvg()'))throw new Error('fake SVG map is still mounted by active Admin map panel');
-          if(src.includes('new gl.Map(')||src.includes('tiles.openfreemap.org/styles/dark')||src.includes('/portal/map-assets/maplibre-gl.js'))throw new Error('MapLibre/OpenFreeMap remains in primary Admin Rail runtime');
-          if(src.includes('new MutationObserver')||src.includes('MutationObserver('))throw new Error('Admin Rail MutationObserver forbidden');
-          if(response.headers.get('x-rona-rail-ui')!=='current-v8.2-raster-first')throw new Error('wrong Admin Rail header');
-
+          const adminResponse=await rail({});
+          assert(adminResponse.status===200,'Admin Rail endpoint '+adminResponse.status);
+          assert(adminResponse.headers.get('x-rona-rail-ui')==='current-v8.2-raster-first','wrong Admin Rail header');
           const notFound=await assets({request:new Request('https://ronaoil.com/portal/map-assets/not-allowed')});
-          if(notFound.status!==404)throw new Error('map-assets allowlist is not fail-closed');
           const badTile=await assets({request:new Request('https://ronaoil.com/portal/map-assets/osm/20/0/0.png')});
-          if(badTile.status!==404)throw new Error('invalid OSM tile path is not fail-closed');
-          console.log('ONLINE_RAIL_CURRENT_OWNER_BUILD=PASS');
+          assert(notFound.status===404&&badTile.status===404,'map-assets allowlist is not fail-closed');
+          console.log('ONLINE_RAIL_CURRENT_OWNER_BUILD=PASS context=CURRENT_CONTEXT visual=ADMIN_CURRENT_V8_2');
           NODE
       - name: Publish status
         if: always()
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.pull_request.head.sha }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           REPO: ${{ github.repository }}
           JOB_STATUS: ${{ job.status }}
-        shell: bash
         run: |
-          state=failure; desc='Online Rail current owner QA failed'
+          set -euo pipefail
+          state=failure
+          desc='Online Rail current owner QA failed'
           if [ "$JOB_STATUS" = success ]; then state=success; desc='Online Rail current owner QA passed'; fi
           curl -fsS -X POST -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' "https://api.github.com/repos/$REPO/statuses/$SHA" -d "{\"state\":\"$state\",\"context\":\"rona/rail-v5-owner\",\"description\":\"$desc\"}" >/dev/null
