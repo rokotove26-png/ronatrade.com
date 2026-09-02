@@ -1,0 +1,84 @@
+name: Client Messages Archive corrective v2 once
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/client-context-universal-modules-v1]
+    paths: [.github/workflows/client-messages-archive-corrective-v2-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  corrective:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/client-context-universal-modules-v1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Wire routes and Admin projection
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const indexPath='supabase/functions/rona-portal-api/index.ts';
+          let api=fs.readFileSync(indexPath,'utf8');
+          const importAnchor='import { clientClaims } from "./client-claims.ts";';
+          const commImport='import { clientMessages, submitClientMessage, adminPublishClientResponse, clientArchive } from "./client-communications.ts";';
+          if(!api.includes(commImport)){
+            if(!api.includes(importAnchor))throw new Error('CLIENT_CLAIMS_IMPORT_ANCHOR_MISSING');
+            api=api.replace(importAnchor,importAnchor+'\n'+commImport);
+          }
+          if(!api.includes('route==="/v1/client/messages"')){
+            const anchor='if(route==="/v1/client/prices"&&req.method==="GET"){';
+            if(!api.includes(anchor))throw new Error('CLIENT_PRICE_ROUTE_ANCHOR_MISSING');
+            const routes='if(route==="/v1/client/messages"&&req.method==="GET"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const clientId=url.searchParams.get("clientId"),contractId=url.searchParams.get("contractId");if(!clientId||!contractId)return send(origin,400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"});const messages=await clientMessages(c,clientId,contractId);return messages===null?send(origin,404,{ok:false,code:"CONTEXT_NOT_FOUND"}):send(origin,200,{ok:true,projection_contract:"CLIENT_ADMIN_MEDIATED_MESSAGES_V1",messages})}if(route==="/v1/client/messages"&&req.method==="POST"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const[status,messageBody]=await submitClientMessage(c,req);return send(origin,status,messageBody)}if(route==="/v1/client/archive"&&req.method==="GET"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const clientId=url.searchParams.get("clientId"),contractId=url.searchParams.get("contractId");if(!clientId||!contractId)return send(origin,400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"});const archive=await clientArchive(c,clientId,contractId);return archive===null?send(origin,404,{ok:false,code:"CONTEXT_NOT_FOUND"}):send(origin,200,{ok:true,archive})}';
+            api=api.replace(anchor,routes+anchor);
+          }
+          if(!api.includes('adminClientResponseMatch')){
+            const anchor='if(route==="/v1/client/shipments"&&req.method==="GET"){';
+            if(!api.includes(anchor))throw new Error('CLIENT_SHIPMENTS_ROUTE_ANCHOR_MISSING');
+            const route='const adminClientResponseMatch=route.match(/^\\/v1\\/admin\\/client-intake\\/([^/]+)\\/respond$/);if(adminClientResponseMatch&&req.method==="POST"){if(!c.roles.includes("ADMIN"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const eventId=safePathValue(adminClientResponseMatch[1]);if(!eventId)return send(origin,404,{ok:false,code:"CLIENT_MESSAGE_NOT_FOUND"});const[status,responseBody]=await adminPublishClientResponse(c,req,eventId);return send(origin,status,responseBody)}';
+            api=api.replace(anchor,route+anchor);
+          }
+          fs.writeFileSync(indexPath,api);
+
+          const adminPath='supabase/functions/rona-portal-api/admin.ts';
+          let admin=fs.readFileSync(adminPath,'utf8');
+          if(!admin.includes('staff_messages')){
+            const anchor='      t.assigned_functional_role::text as assigned_functional_role\n';
+            if(!admin.includes(anchor))throw new Error('ADMIN_INTAKE_SELECT_ANCHOR_MISSING');
+            const replacement='      t.assigned_functional_role::text as assigned_functional_role,\n      e.client_response_text,\n      e.client_response_published_at,\n      coalesce((select jsonb_agg(jsonb_build_object(\'message_id\',m.id::text,\'author_functional_role\',m.author_functional_role::text,\'message_text\',m.message_text,\'created_at\',m.created_at) order by m.created_at) from portal_private.staff_task_messages m where m.task_key=t.id and m.internal_only=true),\'[]\'::jsonb) as staff_messages\n';
+            admin=admin.replace(anchor,replacement);
+            fs.writeFileSync(adminPath,admin);
+          }
+
+          const packagePath='package.json';
+          const pkg=JSON.parse(fs.readFileSync(packagePath,'utf8'));
+          if(!pkg.scripts.build.includes('qa-client-messages-archive-v1.mjs')){
+            const buildAnchor='node scripts/qa-client-claims-context-scope-v1.mjs';
+            if(!pkg.scripts.build.includes(buildAnchor))throw new Error('BUILD_CLAIMS_QA_ANCHOR_MISSING');
+            pkg.scripts.build=pkg.scripts.build.replace(buildAnchor,buildAnchor+' && node scripts/qa-client-messages-archive-v1.mjs');
+            fs.writeFileSync(packagePath,JSON.stringify(pkg,null,2)+'\n');
+          }
+          NODE
+          node scripts/qa-client-messages-archive-v1.mjs
+          npm run build
+          git diff --check
+      - name: Commit validated delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "RONA LK Architect"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/functions/rona-portal-api/index.ts supabase/functions/rona-portal-api/admin.ts package.json
+          git diff --cached --check
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: wire Admin-mediated messages and context archive"
+          git push origin HEAD:fix/client-context-universal-modules-v1
