@@ -1,0 +1,74 @@
+name: Counterparty read projection hotfix
+
+on:
+  push:
+    branches:
+      - fix/counterparty-contract-materialization-20260902
+
+permissions:
+  contents: write
+
+jobs:
+  patch-read-projections:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/counterparty-contract-materialization-20260902
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Patch counterparty-aware read projections
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def patch(path, replacements):
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              changed = False
+              for old, new in replacements:
+                  if old in s:
+                      s = s.replace(old, new)
+                      changed = True
+                  elif new not in s:
+                      raise SystemExit(f'Expected source fragment missing in {path}: {old[:120]}')
+              if changed:
+                  p.write_text(s, encoding='utf-8')
+
+          patch('supabase/functions/rona-ai-read-only/index.js', [
+              ('select ct.contract_id,cl.client_id,ct.current_external_contract_number,ct.contract_status,',
+               'select ct.contract_id,cl.client_id,ct.counterparty_code,ct.current_external_contract_number,ct.contract_status,'),
+              ('from portal_private.contracts ct\n    join portal_private.clients cl on cl.id=ct.client_key',
+               'from portal_private.contracts ct\n    left join portal_private.clients cl on cl.id=ct.client_key'),
+              ('select d.document_id,d.document_type,cl.client_id,ct.contract_id,x.deal_id,',
+               'select d.document_id,d.document_type,cl.client_id,d.counterparty_code,ct.contract_id,x.deal_id,'),
+              ('from portal_private.documents d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key',
+               'from portal_private.documents d left join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key'),
+          ])
+
+          patch('supabase/functions/rona-ai-read-extras/index.js', [
+              ('select d.document_id,d.document_type,cl.client_id,ct.contract_id,x.deal_id,',
+               'select d.document_id,d.document_type,cl.client_id,d.counterparty_code,ct.contract_id,x.deal_id,'),
+              ('from portal_private.documents d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key',
+               'from portal_private.documents d left join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key'),
+              ('client_id:String(row.client_id),contract_id:String(row.contract_id),',
+               'client_id:row.client_id?String(row.client_id):null,counterparty_code:row.counterparty_code?String(row.counterparty_code):null,contract_id:String(row.contract_id),'),
+              ('clientId:String(row.client_id),contractId:String(row.contract_id),',
+               'clientId:row.client_id?String(row.client_id):null,counterpartyCode:row.counterparty_code?String(row.counterparty_code):null,contractId:String(row.contract_id),'),
+          ])
+          PY
+      - name: Commit projection patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo COUNTERPARTY_READ_PROJECTION_PATCH=ALREADY_APPLIED
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add supabase/functions/rona-ai-read-only/index.js supabase/functions/rona-ai-read-extras/index.js
+          git commit -m 'Make AI read projections counterparty-aware'
+          git push origin HEAD:fix/counterparty-contract-materialization-20260902
