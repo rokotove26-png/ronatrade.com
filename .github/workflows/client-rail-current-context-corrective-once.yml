@@ -1,6 +1,7 @@
 name: Client Rail current-context corrective once
 
 on:
+  workflow_dispatch:
   push:
     branches: [fix/client-context-universal-modules-v1]
     paths: [.github/workflows/client-rail-current-context-corrective-once.yml]
