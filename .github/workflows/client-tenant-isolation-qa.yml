@@ -36,11 +36,18 @@ jobs:
           grep -Fq 'rona-client-server-tenant-guard-v1' functions/portal/_middleware.js
           grep -Fq 'SERVER_SESSION_AUTHORITY' functions/portal/_middleware.js
           grep -Fq '/portal/api/v1/client/bootstrap' functions/portal/_middleware.js
-          grep -Fq "x-rona-client-tenant-context','server-session-authority-v2" functions/portal/_middleware.js
+          grep -Fq "x-rona-client-tenant-context','server-session-authority-v3" functions/portal/_middleware.js
           grep -Fq 'CLIENT_CONTEXTS.splice(0,CLIENT_CONTEXTS.length,next)' functions/portal/_middleware.js
+          grep -Fq 'const modelBound=bindCanonicalModel(ctx);' functions/portal/_middleware.js
+          grep -Fq "d.dataset.ronaClientTenantReady='1';" functions/portal/_middleware.js
+          if grep -Fq "if(!bindCanonicalModel(ctx)){d.dataset.ronaClientTenantState='binding-model';return}" functions/portal/_middleware.js; then
+            echo 'CLIENT_TENANT_PREPAINT_BLOCKING_MODEL_BIND=FAIL' >&2
+            exit 1
+          fi
           grep -Fq 'client_user_has_contract_access' supabase/functions/rona-portal-api/phase5d.ts
           grep -Fq 'client_user_has_contract_access' 'functions/portal/[[path]].js'
           echo 'CLIENT_TENANT_ISOLATION_CONTRACT=PASS'
+          echo 'CLIENT_TENANT_PREPAINT_NONBLOCKING_MODEL_BIND=PASS'
       - name: Verify fail-closed context routing
         run: |
           set -euo pipefail
