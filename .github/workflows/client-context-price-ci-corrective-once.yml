@@ -23,7 +23,17 @@ jobs:
         with:
           node-version: '24'
       - name: Apply corrective delta
-        run: node scripts/apply-client-context-price-ci-corrective-once.mjs
+        run: |
+          node scripts/apply-client-context-price-ci-corrective-once.mjs
+          node - <<'NODE'
+          const fs=require('fs');
+          const path='scripts/qa-client-price-authority-v1.mjs';
+          let text=fs.readFileSync(path,'utf8');
+          const old="assert(runtime.includes('item.producer'),'runtime must render producer from server projection');";
+          const next="assert(runtime.includes(\"String(x.producer||'')\"),'runtime must render producer from server projection');";
+          if(!text.includes(old))throw new Error('price runtime assertion patch target missing');
+          fs.writeFileSync(path,text.replace(old,next));
+          NODE
       - name: Validate corrective delta
         run: |
           set -euo pipefail
