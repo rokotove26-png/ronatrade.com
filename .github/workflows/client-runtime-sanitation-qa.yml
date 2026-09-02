@@ -57,7 +57,7 @@ jobs:
           const html=fs.readFileSync('dist/portal/client.html','utf8');
           const sanitation='client-payments-sanitation-v1.js?v=20260830-current-only-v1';
           const payments='client-payments-authoritative-v1.js?v=20260830-finance-authoritative-v1-selfhide-fix';
-          const firstPaint='client-section-first-paint-v1.js?v=20260831-background-preload-v2';
+          const firstPaint='client-section-first-paint-v1.js?v=20260902-authoritative-empty-v3';
           if((html.match(/client-payments-sanitation-v1\.js/g)||[]).length!==1)throw new Error('payments sanitation not single owner');
           if((html.match(/client-payments-authoritative-v1\.js/g)||[]).length!==1)throw new Error('payments authoritative runtime not single owner');
           if((html.match(/client-section-first-paint-v1\.js/g)||[]).length!==1)throw new Error('section first-paint runtime not single owner');
@@ -66,12 +66,14 @@ jobs:
           if(!html.includes('rona-client-payments-first-paint-guard'))throw new Error('payments first-paint guard missing');
           if(!html.includes('rona-client-section-first-paint-v1-style'))throw new Error('current-only section prepaint guard missing');
           if(!html.includes('data-rona-client-deals-paint-ready')||!html.includes('data-rona-client-payments-paint-ready'))throw new Error('section paint-ready gates missing');
+          if(!html.includes('Открытых сделок нет. По выбранной компании и договору активные сделки отсутствуют.'))throw new Error('authoritative Deals empty message missing');
           if(/data-rona-client-(?:deals|payments)-paint-ready[^}]*visibility\s*:\s*hidden/iu.test(html))throw new Error('section prepaint must not hide runtime DOM');
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const s=integrity.client_runtime?.payments_sanitation;
           if(s?.mode!=='CURRENT_ONLY_REMOVE_LEGACY_PAYMENT_PLACEHOLDERS'||s?.navigation_prepaint_reset!==true||s?.hardcoded_business_entities!==false)throw new Error('payments sanitation integrity contract missing');
           const p=integrity.client_runtime?.section_first_paint;
-          if(p?.mode!=='CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT'||p?.shielding!=='OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE'||p?.runtime_dom_visibility_preserved!==true||p?.legacy_visual_flash_allowed!==false||p?.business_logic_changed!==false)throw new Error('section first-paint integrity contract missing');
+          if(p?.mode!=='CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT'||p?.shielding!=='OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE'||p?.runtime_dom_visibility_preserved!==true||p?.legacy_visual_flash_allowed!==false||p?.business_logic_changed!==false||p?.functional_empty_state_changed!==true)throw new Error('section first-paint integrity contract missing');
+          if(p?.deals_empty_state!=='SERVER_CONTEXT_LOADED_AND_NO_ACTIVE_DEALS')throw new Error('Deals authoritative empty contract missing');
           console.log('CLIENT_RUNTIME_SANITATION_BUILD=PASS');
           NODE
 
@@ -81,6 +83,66 @@ jobs:
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+
+      - name: Prove authoritative empty Deals completes loading and recovers
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const fs=require('fs');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          const built=fs.readFileSync('dist/portal/client.html','utf8');
+          const match=built.match(/<style id="rona-client-section-first-paint-v1-style">[\s\S]*?<\/style>/i);
+          assert(match,'first-paint guard style missing from built Client');
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1400,height:900}});
+            const clientId='TEST-C001',contractId='TEST-CTR-001';
+            const contextPath=`/v1/client/context?clientId=${clientId}&contractId=${contractId}`;
+            const body=`<!doctype html><html data-rona-client-id="${clientId}" data-rona-contract-id="${contractId}" data-rona-client-context-authority="qa" data-rona-client-context-selection="selected"><head>${match[0]}</head><body><section id="page-deals" style="display:block"><div id="legacyDeals"><h2>Сделки</h2><span>OLD STATIC CONTENT</span></div></section></body></html>`;
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.evaluate(({contextPath})=>{
+              window.__RONA_CLIENT_BACKGROUND_CACHE__={
+                [contextPath]:{ok:true,status:200,body:{ok:true,data:{deals:[]}}}
+              };
+            },{contextPath});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-section-first-paint-v1.js')});
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='empty'&&document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',{timeout:5000});
+            const empty=await page.evaluate(()=>({
+              state:document.documentElement.dataset.ronaClientDealsPaintState,
+              ready:document.documentElement.getAttribute('data-rona-client-deals-paint-ready'),
+              owner:document.querySelector('#page-deals')?.getAttribute('data-rona-client-deals-empty'),
+              message:getComputedStyle(document.querySelector('#page-deals'),'::after').content
+            }));
+            assert(empty.state==='empty'&&empty.ready==='true','successful zero-deal result did not finish loading');
+            assert(empty.owner==='server-authoritative-empty-v1','authoritative empty owner missing');
+            assert(empty.message.includes('Открытых сделок нет'),'authoritative empty message not shown');
+
+            await page.evaluate(({contextPath})=>{
+              window.__RONA_CLIENT_BACKGROUND_CACHE__[contextPath]={ok:true,status:200,body:{ok:true,data:{deals:[{deal_id:'DEAL-2099-998',current_status:'ACTIVE'}]}}};
+              document.documentElement.setAttribute('data-rona-client-operations-ready','true');
+              const root=document.querySelector('#page-deals');
+              root.setAttribute('data-rona-deal-authority','admin-client-server-v8');
+              root.innerHTML='<article class="rona-deal-card-v5" data-rona-canonical-deal-id="DEAL-2099-998" data-rona-deal-summary-ready="true"><div data-rona-deal-summary="canonical-v8">DEAL-2099-998 CURRENT DEAL</div></article>';
+              window.dispatchEvent(new CustomEvent('rona:client:background-sections'));
+            },{contextPath});
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='ready'&&!document.querySelector('#page-deals')?.hasAttribute('data-rona-client-deals-empty'),{timeout:5000});
+            const recovered=await page.evaluate(()=>({
+              state:document.documentElement.dataset.ronaClientDealsPaintState,
+              ready:document.documentElement.getAttribute('data-rona-client-deals-paint-ready'),
+              emptyOwner:document.querySelector('#page-deals')?.getAttribute('data-rona-client-deals-empty'),
+              overlay:getComputedStyle(document.querySelector('#page-deals'),'::after').content
+            }));
+            assert(recovered.state==='ready'&&recovered.ready==='true','active Deals did not recover from empty state');
+            assert(!recovered.emptyOwner,'empty marker survived active Deals');
+            assert(recovered.overlay==='none'||recovered.overlay==='normal','empty/loading overlay survived active Deals');
+            console.log('CLIENT_DEALS_AUTHORITATIVE_EMPTY_AND_RECOVERY=PASS');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
 
       - name: Prove stale Payments UI cannot repaint before current owner
         shell: bash
