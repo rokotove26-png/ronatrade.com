@@ -7,7 +7,7 @@ window.__RONA_CLIENT_MARKET_INTELLIGENCE__=MARK;
 
 const API_PATH='/v1/client/market-intelligence';
 const API='/portal/api'+API_PATH;
-const REFRESH_MS=60000;
+const REFRESH_MS=3600000;
 const OWNER='data-rona-client-market-intelligence-owner';
 const state={version:MARK,loading:false,loaded:false,error:'',data:null,updatedAt:'',fingerprint:'',timer:0,renderQueued:false};
 window.__RONA_CLIENT_MARKET_INTELLIGENCE_STATE__=state;
@@ -133,10 +133,10 @@ function start(){
   const cached=cacheData();if(cached)accept(cached,'initial-cache');
   load('open');
   state.timer=setInterval(()=>load('interval'),REFRESH_MS);
-  window.addEventListener('focus',()=>load('focus'),{passive:true});
-  window.addEventListener('pageshow',()=>load('pageshow'),{passive:true});
-  window.addEventListener('online',()=>load('online'),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load('visible')});
+  window.addEventListener('focus',schedule,{passive:true});
+  window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('online',schedule,{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')schedule()});
   window.addEventListener('rona:client:background-sections',()=>{const c=cacheData();if(c)accept(c,'background-event')},{passive:true});
   new MutationObserver(()=>schedule()).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-page','data-page-id']});
   schedule();
