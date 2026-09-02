@@ -22,8 +22,9 @@ const COORDINATE_PILOT_BINDINGS=Object.freeze({
   'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
   'rona-mcp-market-analyst-pilot':['COMMERCIAL_DIRECTOR','AI-COMMERCIAL-DIRECTOR'],
   'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
+  'rona-mcp-system-admin-pilot':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN'],
 });
-const SEGMENT_BY_SLUG=Object.freeze({'rona-mcp-operations':'operations','rona-mcp-operations-pilot':'operations-pilot','rona-mcp-finance':'finance','rona-mcp-finance-pilot':'finance-pilot','rona-mcp-legal':'legal','rona-mcp-legal-pilot':'legal-pilot','rona-mcp-market-analyst':'market-analyst','rona-mcp-market-analyst-pilot':'market-analyst-pilot','rona-mcp-rail-logistics':'rail-logistics','rona-mcp-rail-logistics-pilot':'rail-logistics-pilot','rona-mcp-system-admin':'system-admin'});
+const SEGMENT_BY_SLUG=Object.freeze({'rona-mcp-operations':'operations','rona-mcp-operations-pilot':'operations-pilot','rona-mcp-finance':'finance','rona-mcp-finance-pilot':'finance-pilot','rona-mcp-legal':'legal','rona-mcp-legal-pilot':'legal-pilot','rona-mcp-market-analyst':'market-analyst','rona-mcp-market-analyst-pilot':'market-analyst-pilot','rona-mcp-rail-logistics':'rail-logistics','rona-mcp-rail-logistics-pilot':'rail-logistics-pilot','rona-mcp-system-admin':'system-admin','rona-mcp-system-admin-pilot':'system-admin-pilot'});
 const SLUG_BY_SEGMENT=Object.freeze(Object.fromEntries(Object.entries(SEGMENT_BY_SLUG).map(([k,v])=>[v,k])));
 const AI_ROLES=Object.freeze(['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN']);
 const CANONICAL_HANDOFF_ENTITY_TYPES=Object.freeze(['CLIENT','CONTRACT','APPLICATION','DEAL','DOCUMENT','PAYMENT','SHIPMENT','RAIL_DOCUMENT','PUBLICATION','TASK','SYSTEM']);
