@@ -1,0 +1,64 @@
+name: Client Admin communication gate once
+
+on:
+  push:
+    branches:
+      - fix/client-context-universal-modules-v1
+
+permissions:
+  contents: write
+
+jobs:
+  admin-gate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Wire Admin intake route and typed application event
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          router_path=Path('supabase/functions/rona-portal-api/index.ts')
+          router=router_path.read_text()
+          route_token='/v1/admin/client-intake/'
+          if route_token not in router:
+              marker='if(route==="/v1/admin/bootstrap"&&req.method==="GET")return c.roles.includes("ADMIN")?send(origin,200,{ok:true,data:await adminBootstrap()}):send(origin,403,{ok:false,code:"ROLE_MISMATCH"});'
+              if router.count(marker)!=1:
+                  raise SystemExit(f'expected one admin bootstrap route marker, got {router.count(marker)}')
+              route='''const adminClientIntakeRouteMatch=route.match(/^\\/v1\\/admin\\/client-intake\\/([^/]+)\\/route$/);if(adminClientIntakeRouteMatch&&req.method==="POST"){if(!c.roles.includes("ADMIN"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const eventId=safePathValue(adminClientIntakeRouteMatch[1]);if(!eventId)return send(origin,404,{ok:false,code:"EVENT_NOT_FOUND"});const body=await req.json().catch(()=>null),functionalRole=String(body?.functional_role||body?.functionalRole||"").trim().toUpperCase(),allowedRoles=new Set(["EXECUTIVE_DIRECTOR","OPERATIONS_DIRECTOR","LEGAL","FINANCE","ACCOUNTING","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN"]);if(!allowedRoles.has(functionalRole))return send(origin,400,{ok:false,code:"INVALID_FUNCTIONAL_ROLE"});const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id"),requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID(),correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null,rows=await sql`select * from portal_private.server_admin_route_client_intake(${c.user}::uuid,${eventId},${functionalRole}::portal_private.staff_functional_role_enum,${requestId}::uuid,${correlationId}::uuid)`;return rows.length===1?send(origin,200,{ok:true,data:rows[0]}):send(origin,404,{ok:false,code:"EVENT_NOT_FOUND"})}'''
+              router=router.replace(marker,marker+route,1)
+              router_path.write_text(router)
+
+          form_path=Path('assets/portal-runtime/client-application-form-v3.js')
+          form=form_path.read_text()
+          old="event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'APPLICATION'"
+          new="event_type:'CLIENT_APPLICATION_SUBMIT',authority_domain:'APPLICATION'"
+          if old in form:
+              if form.count(old)!=1:
+                  raise SystemExit(f'expected one application-as-message event, got {form.count(old)}')
+              form=form.replace(old,new,1)
+              form_path.write_text(form)
+          elif new not in form:
+              raise SystemExit('typed client application event not found')
+          PY
+      - name: Run Admin communication gate regression
+        run: |
+          node scripts/qa-client-admin-communication-gate-v1.mjs
+          node scripts/qa-client-backend-context-scope-v1.mjs
+          node scripts/qa-client-current-context-consumers-v1.mjs
+          node scripts/qa-client-claims-context-scope-v1.mjs
+          node tests/client-context-universal-modules-v1.test.mjs
+          node tests/client-background-section-preload-v1.test.mjs
+      - name: Commit materialized gate and remove one-shot workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/client-admin-communication-gate-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/rona-portal-api/index.ts assets/portal-runtime/client-application-form-v3.js .github/workflows/client-admin-communication-gate-once.yml
+          git commit -m 'feat(portal): materialize Admin-mediated client communication gate'
+          git push origin HEAD:${GITHUB_REF_NAME}
