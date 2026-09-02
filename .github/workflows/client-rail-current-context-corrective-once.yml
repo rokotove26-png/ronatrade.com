@@ -21,71 +21,27 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Apply scoped Client Rail and align stale QA
+      - name: Apply current-context scope without visual baseline change
         shell: bash
         run: |
           set -euo pipefail
           node <<'NODE'
           const fs=require('fs');
-          const replaceOnce=(text,from,to,label)=>{if(!text.includes(from))throw new Error(label+' target missing');return text.replace(from,to)};
-
-          {
-            const path='functions/portal/client-rail-current-ui.js';
-            let text=fs.readFileSync(path,'utf8');
-            if(!text.includes("window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';")){
-              text=replaceOnce(text,'${CLIENT_MARKER}\nfunction clientRailOuter()','${CLIENT_MARKER}\nwindow.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__=\'20260903-client-contract-v1\';\nfunction clientRailOuter()','rail preamble');
-              const helper=`function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}\nfunction clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}\nfunction clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;if(typeof sync==='function')setTimeout(function(){sync()},0)})}\nasync function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');return ctx}\nfunction clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}\n`;
-              text=replaceOnce(text,'async function api(path){',helper+'async function api(path){','rail helper insertion');
-              const oldFetch="var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments',true),providerResult=await clientRailFetch('/portal/api/v1/client/rail',false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();";
-              const newFetch="var context=await clientRailCurrentContext(),contextKey=clientRailContextKey(context),query=clientRailContextQuery(context);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=contextKey;var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments'+query,true),providerResult=await clientRailFetch('/portal/api/v1/client/rail'+query,false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();var activeAuthority=clientRailAuthority(),activeContext=activeAuthority&&typeof activeAuthority.getCurrentContext==='function'?activeAuthority.getCurrentContext():null;if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');";
-              text=replaceOnce(text,oldFetch,newFetch,'rail scoped fetch');
-              text=replaceOnce(text,"window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',","window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),",'rail authority state');
-              fs.writeFileSync(path,text);
-            }
-          }
-
-          {
-            const path='scripts/attach-client-rail-production-v1.mjs';
-            let text=fs.readFileSync(path,'utf8');
-            if(!text.includes('"RONA_CLIENT_CONTEXT"')) text=replaceOnce(text,'  "AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS",\n  "x-rona-client-rail-visual-canon",','  "AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS",\n  "RONA_CLIENT_CONTEXT",\n  "clientId=",\n  "contractId=",\n  "x-rona-client-rail-visual-canon",','rail attach markers');
-            if(!text.includes("context_scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'")) text=replaceOnce(text,"  provider_state_source:'/portal/api/v1/client/rail',\n  authoritative_refresh_ms:30000,","  provider_state_source:'/portal/api/v1/client/rail',\n  context_source:'RONA_CLIENT_CONTEXT',\n  context_scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY',\n  context_keys:['client_id','contract_id'],\n  authoritative_refresh_ms:30000,",'rail attach context manifest');
+          const path='functions/portal/client-rail-current-ui.js';
+          let text=fs.readFileSync(path,'utf8');
+          const replaceOnce=(from,to,label)=>{if(!text.includes(from))throw new Error(label+' target missing');text=text.replace(from,to)};
+          if(!text.includes("window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';")){
+            replaceOnce('${CLIENT_MARKER}\nfunction clientRailOuter()','${CLIENT_MARKER}\nwindow.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__=\'20260903-client-contract-v1\';\nfunction clientRailOuter()','rail preamble');
+            const helper=`function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}\nfunction clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}\nfunction clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;if(typeof sync==='function')setTimeout(function(){sync()},0)})}\nasync function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');return ctx}\nfunction clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}\n`;
+            replaceOnce('async function api(path){',helper+'async function api(path){','rail helper insertion');
+            const oldFetch="var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments',true),providerResult=await clientRailFetch('/portal/api/v1/client/rail',false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();";
+            const newFetch="var context=await clientRailCurrentContext(),contextKey=clientRailContextKey(context),query=clientRailContextQuery(context);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=contextKey;var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments'+query,true),providerResult=await clientRailFetch('/portal/api/v1/client/rail'+query,false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();var activeAuthority=clientRailAuthority(),activeContext=activeAuthority&&typeof activeAuthority.getCurrentContext==='function'?activeAuthority.getCurrentContext():null;if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');";
+            replaceOnce(oldFetch,newFetch,'rail scoped fetch');
+            replaceOnce("window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',","window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),",'rail authority state');
             fs.writeFileSync(path,text);
-          }
-
-          {
-            const path='.github/workflows/rail-v5-owner-qa.yml';
-            let text=fs.readFileSync(path,'utf8');
-            text=text.replace("grep -q \"visual_canon:'/portal/rail-current-v81-maplibre-ui'\" scripts/attach-client-rail-production-v1.mjs","grep -q \"visual_canon:'CLIENT_CANONICAL_RAIL_HERO_V1'\" scripts/attach-client-rail-production-v1.mjs\n          grep -q \"operational_body_canon:'/portal/rail-current-v81-maplibre-ui'\" scripts/attach-client-rail-production-v1.mjs");
-            text=text.replace("if(bridge.visual_canon!=='/portal/rail-current-v81-maplibre-ui'||bridge.visual_contract!=='ADMIN_CURRENT_V8_2'||bridge.visual_source_mode!=='DIRECT_ADMIN_CANONICAL_RUNTIME_ADAPTER')throw new Error('Client Rail visual canon contract missing');","if(bridge.visual_canon!=='CLIENT_CANONICAL_RAIL_HERO_V1'||bridge.visual_contract!=='CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY'||bridge.visual_source_mode!=='CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER'||bridge.operational_body_canon!=='/portal/rail-current-v81-maplibre-ui')throw new Error('Client Rail visual canon contract missing');");
-            if(!text.includes("grep -q 'RONA_CLIENT_CONTEXT' functions/portal/client-rail-current-ui.js")) text=text.replace("          grep -q \"'/portal/api/v1/client/rail'\" functions/portal/client-rail-current-ui.js\n          grep -q 'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS' functions/portal/client-rail-current-ui.js","          grep -q \"'/portal/api/v1/client/rail'\" functions/portal/client-rail-current-ui.js\n          grep -q 'RONA_CLIENT_CONTEXT' functions/portal/client-rail-current-ui.js\n          grep -q 'clientId=' functions/portal/client-rail-current-ui.js\n          grep -q 'contractId=' functions/portal/client-rail-current-ui.js\n          grep -q 'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD' functions/portal/client-rail-current-ui.js\n          grep -q 'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS' functions/portal/client-rail-current-ui.js");
-            if(!text.includes("bridge.context_source!=='RONA_CLIENT_CONTEXT'")) text=text.replace("          if(bridge.client_data_source!=='/portal/api/v1/client/shipments'||bridge.provider_state_source!=='/portal/api/v1/client/rail'||bridge.authoritative_refresh_ms!==30000||bridge.auto_refresh!==true)throw new Error('Client Rail authoritative server contract missing');","          if(bridge.client_data_source!=='/portal/api/v1/client/shipments'||bridge.provider_state_source!=='/portal/api/v1/client/rail'||bridge.authoritative_refresh_ms!==30000||bridge.auto_refresh!==true)throw new Error('Client Rail authoritative server contract missing');\n          if(bridge.context_source!=='RONA_CLIENT_CONTEXT'||bridge.context_scope!=='CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'||JSON.stringify(bridge.context_keys)!==JSON.stringify(['client_id','contract_id']))throw new Error('Client Rail current-context contract missing');");
-            if(!text.includes("'RONA_CLIENT_CONTEXT','clientId=','contractId=','CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD'")) text=text.replace("            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail',\n            'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'","            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail',\n            'RONA_CLIENT_CONTEXT','clientId=','contractId=','CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD',\n            'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'");
-            fs.writeFileSync(path,text);
-          }
-
-          {
-            const path='.github/workflows/client-new-account-first-login-qa.yml';
-            let text=fs.readFileSync(path,'utf8');
-            const old="          assert(/route===\\\"\\/v1\\/client\\/rail\\\"[\\s\\S]{0,500}c\\.roles\\.includes\\(\\\"CLIENT\\\"\\)[\\s\\S]{0,500}send\\(origin,200/.test(api),'client rail safe response or role gate missing');";
-            if(text.includes(old)){
-              const next=[
-                "          const railStart=api.indexOf('if(route===\\\"/v1/client/rail\\\"&&req.method===\\\"GET\\\")');",
-                "          const railEnd=api.indexOf('if(route===\\\"/v1/events\\\"',railStart);",
-                "          assert(railStart>=0&&railEnd>railStart,'client rail route missing');",
-                "          const railBlock=api.slice(railStart,railEnd);",
-                "          assert(railBlock.includes('c.roles.includes(\\\"CLIENT\\\")'),'client rail CLIENT role gate missing');",
-                "          assert(railBlock.includes('CLIENT_CONTRACT_CONTEXT_REQUIRED'),'client rail context requirement missing');",
-                "          assert(railBlock.includes('portal_private.client_user_has_contract_access'),'client rail server access gate missing');",
-                "          assert(railBlock.includes('send(origin,200'),'client rail safe 200 projection missing');"
-              ].join('\n');
-              text=text.replace(old,next);
-              fs.writeFileSync(path,text);
-            }
           }
           NODE
-
           node --check functions/portal/client-rail-current-ui.js
-          node --check scripts/attach-client-rail-production-v1.mjs
           node --input-type=module <<'NODE'
           import { onRequest as clientRail } from './functions/portal/client-rail-current-ui.js';
           const response=await clientRail({});
@@ -96,14 +52,13 @@ jobs:
           NODE
           npm run build
           git diff --check
-
-      - name: Commit validated delta
+      - name: Commit validated functional delta
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "RONA LK Architect"
           git config user.email "actions@users.noreply.github.com"
-          git add functions/portal/client-rail-current-ui.js scripts/attach-client-rail-production-v1.mjs .github/workflows/rail-v5-owner-qa.yml .github/workflows/client-new-account-first-login-qa.yml
+          git add functions/portal/client-rail-current-ui.js
           git diff --cached --check
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "fix: scope Client Rail to current authorized context"
