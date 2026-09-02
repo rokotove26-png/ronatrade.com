@@ -1,12 +1,13 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260831-client-background-section-preload-v1';
+  const MARK='20260902-client-background-section-preload-market-hourly-v2';
   if(window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__===MARK)return;
   window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__=MARK;
 
   const API='/portal/api';
   const REFRESH_MS=30000;
+  const MARKET_INTELLIGENCE_REFRESH_MS=3600000;
   const RETRY_MS=2500;
   const MARKET_INTELLIGENCE_PATH='/v1/client/market-intelligence';
   const state={
@@ -55,7 +56,7 @@
     const started=Date.now();
     let response;
     try{
-      response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-background-preload':'v1'}});
+      response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-background-preload':'v2'}});
     }catch(error){
       const message=String(error?.message||error||'NETWORK_ERROR');
       state.cache[path]={ok:false,status:0,error:message,loaded_at:now(),duration_ms:Date.now()-started};
@@ -71,6 +72,16 @@
 
   function contextRows(entry){
     return Array.isArray(entry?.body?.data?.contexts)?entry.body.data.contexts:[];
+  }
+
+  async function readMarketIntelligence(reason){
+    const cached=state.cache[MARKET_INTELLIGENCE_PATH];
+    const loadedAt=Date.parse(cached?.loaded_at||'');
+    const fresh=Boolean(cached?.ok)&&Number.isFinite(loadedAt)&&(Date.now()-loadedAt)<MARKET_INTELLIGENCE_REFRESH_MS;
+    const force=reason==='open'||reason==='context-change';
+    if(fresh&&!force)return {ok:true,entry:cached,cached:true};
+    try{return {ok:true,entry:await read(MARKET_INTELLIGENCE_PATH),cached:false}}
+    catch(error){return {ok:false,error,cached:false}}
   }
 
   async function preloadContext(ctx){
@@ -105,7 +116,7 @@
 
       const [market,marketIntelligence,shipments,rail,contexts]=await Promise.all([
         read('/v1/client/market').then(()=>({ok:true})).catch(error=>({ok:false,error})),
-        read(MARKET_INTELLIGENCE_PATH).then(entry=>({ok:true,entry})).catch(error=>({ok:false,error})),
+        readMarketIntelligence(reason),
         read('/v1/client/shipments').then(()=>({ok:true})).catch(error=>({ok:false,error})),
         read('/v1/client/rail',{allowDisabled:true}).then(entry=>({ok:true,disabled:entry.disabled})).catch(error=>({ok:false,error})),
         Promise.all(state.contexts.map(preloadContext))
@@ -123,8 +134,8 @@
       }
       markSection('prices',empty?'READY_EMPTY':allPrices?'READY':'DEGRADED',{contexts:state.contexts.length});
       markSection('market',market.ok?'READY':'DEGRADED');
-      markSection('analytics',marketIntelligence.ok?(analyticsCount?'READY':'READY_EMPTY'):'DEGRADED',{items:analyticsCount,feed:'RONA_CLIENT_MARKET_INTELLIGENCE_V1'});
-      markSection('market_news',marketIntelligence.ok?(newsCount?'READY':'READY_EMPTY'):'DEGRADED',{items:newsCount,window_calendar_dates:7,authoritative_date:'source_published_at',deduplication:'duplicate_group'});
+      markSection('analytics',marketIntelligence.ok?(analyticsCount?'READY':'READY_EMPTY'):'DEGRADED',{items:analyticsCount,feed:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',refresh_ms:MARKET_INTELLIGENCE_REFRESH_MS});
+      markSection('market_news',marketIntelligence.ok?(newsCount?'READY':'READY_EMPTY'):'DEGRADED',{items:newsCount,window_calendar_dates:7,authoritative_date:'source_published_at',deduplication:'duplicate_group',refresh_ms:MARKET_INTELLIGENCE_REFRESH_MS});
       markSection('rail',shipments.ok&&rail.ok?(rail.disabled?'READY_DISABLED':'READY'):'DEGRADED',{provider_disabled:Boolean(rail.disabled)});
 
       for(const row of contexts){
