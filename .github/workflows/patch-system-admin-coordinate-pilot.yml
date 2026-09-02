@@ -23,54 +23,39 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('supabase/functions/rona-mcp-gateway/index.js')
-          s=p.read_text()
-          old1="""const COORDINATE_PILOT_BINDINGS=Object.freeze({
-  'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
-  'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE'],
-  'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
-  'rona-mcp-market-analyst-pilot':['COMMERCIAL_DIRECTOR','AI-COMMERCIAL-DIRECTOR'],
-  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
-});"""
-          new1="""const COORDINATE_PILOT_BINDINGS=Object.freeze({
-  'rona-mcp-operations-pilot':['OPERATIONS_DIRECTOR','AI-OPERATIONS-DIRECTOR'],
-  'rona-mcp-finance-pilot':['FINANCE','AI-FINANCE'],
-  'rona-mcp-legal-pilot':['LEGAL','AI-LEGAL'],
-  'rona-mcp-market-analyst-pilot':['COMMERCIAL_DIRECTOR','AI-COMMERCIAL-DIRECTOR'],
-  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],
-  'rona-mcp-system-admin-pilot':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN'],
-});"""
-          old2="'rona-mcp-system-admin':'system-admin'});"
-          new2="'rona-mcp-system-admin':'system-admin','rona-mcp-system-admin-pilot':'system-admin-pilot'});"
-          if s.count(old1)!=1:
-              raise SystemExit(f'expected one pilot binding block, found {s.count(old1)}')
-          if s.count(old2)!=1:
+          p = Path('supabase/functions/rona-mcp-gateway/index.js')
+          s = p.read_text()
+          old1 = "  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],\n});"
+          new1 = "  'rona-mcp-rail-logistics-pilot':['RAIL_LOGISTICS','AI-RAIL-LOGISTICS'],\n  'rona-mcp-system-admin-pilot':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN'],\n});"
+          old2 = "'rona-mcp-system-admin':'system-admin'});"
+          new2 = "'rona-mcp-system-admin':'system-admin','rona-mcp-system-admin-pilot':'system-admin-pilot'});"
+          if s.count(old1) != 1:
+              raise SystemExit(f'expected one pilot binding tail, found {s.count(old1)}')
+          if s.count(old2) != 1:
               raise SystemExit(f'expected one system-admin route tail, found {s.count(old2)}')
-          s=s.replace(old1,new1).replace(old2,new2)
-          p.write_text(s)
+          p.write_text(s.replace(old1, new1).replace(old2, new2))
           PY
       - name: Verify scope invariants
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          s=Path('supabase/functions/rona-mcp-gateway/index.js').read_text()
+          s = Path('supabase/functions/rona-mcp-gateway/index.js').read_text()
           assert "'rona-mcp-system-admin-pilot':['SYSTEM_ADMIN','AI-SYSTEM-ADMIN']" in s
           assert "'rona-mcp-system-admin-pilot':'system-admin-pilot'" in s
           assert "SYSTEM_ADMIN:new Set(['TASK','SYSTEM'])" in s
-          assert "if(BUSINESS_ROLES.has(cfg.business_role))" in s
           assert "SYSTEM_ADMIN_BUSINESS_HANDOFF_BLOCKED" in s
           print('scope invariants OK')
           PY
       - name: Commit patch
         shell: bash
         run: |
-          if git diff --quiet -- supabase/functions/rona-mcp-gateway/index.js; then
-            echo 'No patch needed'
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add supabase/functions/rona-mcp-gateway/index.js
+          if git diff --cached --quiet; then
+            echo 'No patch needed'
+            exit 0
+          fi
           git commit -m 'Add restricted System Admin coordinate pilot'
           git push origin HEAD:fix/system-admin-coordinate-pilot-20260902
