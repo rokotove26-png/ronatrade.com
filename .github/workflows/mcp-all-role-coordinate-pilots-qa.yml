@@ -59,7 +59,9 @@ jobs:
           grep -Fq "identity_id='AI-COMMERCIAL-DIRECTOR'" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
           grep -Fq "where identity_id='AI-MARKET-ANALYST';" supabase/migrations/20260826233503_commercial_director_runtime_cutover_v2.sql
 
-          if grep -R -Eq "rona-mcp-system-admin-pilot|/system-admin-pilot" functions supabase/functions supabase/migrations _routes.json; then
+          # Historical migrations are immutable evidence, not deployable runtime.
+          # Enforce the System Admin no-coordinate-pilot invariant against active sources only.
+          if grep -R -Eq "rona-mcp-system-admin-pilot|/system-admin-pilot" functions supabase/functions _routes.json; then
             echo SYSTEM_ADMIN_COORDINATE_PILOT_FORBIDDEN
             exit 1
           fi
