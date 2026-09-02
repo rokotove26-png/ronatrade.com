@@ -24,23 +24,24 @@ function clean(c){return c&&typeof c==='object'?{
 function valid(c){return !!(c&&c.client_id&&c.contract_id&&c.legal_name)}
 function key(c){return c?c.client_id+'|'+c.contract_id:''}
 function authorized(ctx){const k=key(ctx);return state.contexts.find(c=>key(c)===k)||null}
+function only(items){return items.length===1?items.find(()=>true)||null:null}
 function isKg(ctx){return /(кыргыз|киргиз|kyrgyz|kgz|\bkg\b)/iu.test(norm(ctx?.registration_country))}
 function quoteName(legal){const m=norm(legal).match(/[«“"][^»”"]+[»”"]/u);return m?m[0]:''}
 function companyDisplayName(ctx){
   const legal=norm(ctx?.legal_name);if(!legal)return norm(ctx?.client_id)||'Компания';
   const quoted=quoteName(legal);
-  const existing=legal.match(/^(ОсОО|ООО|ПАО|НАО|АО|ЗАО|ОАО|ИП|LLC)\b\s*/iu);
+  const existing=legal.match(/^(ОсОО|ООО|ПАО|НАО|АО|ЗАО|ОАО|ОДО|ИП|LLC)(?:\s+|$)/iu);
   if(existing){const form=existing[1];if(quoted)return form+' '+quoted;return legal}
   const forms=[
-    [/^общество с ограниченной ответственностью\b\s*/iu,isKg(ctx)?'ОсОО':'ООО'],
-    [/^общество с дополнительной ответственностью\b\s*/iu,'ОДО'],
-    [/^публичное акционерное общество\b\s*/iu,'ПАО'],
-    [/^непубличное акционерное общество\b\s*/iu,'АО'],
-    [/^закрытое акционерное общество\b\s*/iu,'ЗАО'],
-    [/^открытое акционерное общество\b\s*/iu,'ОАО'],
-    [/^акционерное общество\b\s*/iu,'АО'],
-    [/^индивидуальный предприниматель\b\s*/iu,'ИП'],
-    [/^limited liability company\b\s*/iu,'LLC']
+    [/^общество с ограниченной ответственностью(?:\s+|$)/iu,isKg(ctx)?'ОсОО':'ООО'],
+    [/^общество с дополнительной ответственностью(?:\s+|$)/iu,'ОДО'],
+    [/^публичное акционерное общество(?:\s+|$)/iu,'ПАО'],
+    [/^непубличное акционерное общество(?:\s+|$)/iu,'АО'],
+    [/^закрытое акционерное общество(?:\s+|$)/iu,'ЗАО'],
+    [/^открытое акционерное общество(?:\s+|$)/iu,'ОАО'],
+    [/^акционерное общество(?:\s+|$)/iu,'АО'],
+    [/^индивидуальный предприниматель(?:\s+|$)/iu,'ИП'],
+    [/^limited liability company(?:\s+|$)/iu,'LLC']
   ];
   for(const [re,form] of forms){if(!re.test(legal))continue;const rest=legal.replace(re,'').trim();return quoted?form+' '+quoted:(rest?form+' '+rest:form)}
   return legal;
@@ -48,7 +49,8 @@ function companyDisplayName(ctx){
 function compactContract(ctx){const no=norm(ctx?.current_external_contract_number||ctx?.contract_id);return no.replace(/^RONA-C\d{3}-CTR-/,'CTR ')}
 function contextByValue(value,option){
   const v=norm(value),clientId=norm(option?.dataset?.clientId),contractId=norm(option?.dataset?.contractId);
-  return state.contexts.find(c=>c.contract_id===v||c.current_external_contract_number===v||c.client_id===v||(contractId&&c.contract_id===contractId)||(clientId&&c.client_id===clientId))||null;
+  const byContract=state.contexts.find(c=>c.contract_id===contractId||c.contract_id===v||c.current_external_contract_number===v);if(byContract)return byContract;
+  const wantedClient=clientId||v;return wantedClient?only(state.contexts.filter(c=>c.client_id===wantedClient)):null;
 }
 function contextFromSelect(){
   const select=document.getElementById('clientContextSelect');if(!select)return null;
@@ -57,10 +59,10 @@ function contextFromSelect(){
 function contextFromDataset(){
   const clientId=norm(d.dataset.ronaClientId),contractId=norm(d.dataset.ronaContractId);
   if(!clientId&&!contractId)return null;
-  return state.contexts.find(c=>(!clientId||c.client_id===clientId)&&(!contractId||c.contract_id===contractId))||null;
+  const matches=state.contexts.filter(c=>(!clientId||c.client_id===clientId)&&(!contractId||c.contract_id===contractId));return only(matches);
 }
 function resolveSelection(){
-  if(state.contexts.length===1)return state.contexts.find(()=>true)||null;
+  if(state.contexts.length===1)return only(state.contexts);
   return contextFromSelect()||contextFromDataset()||null;
 }
 function exposeSelection(){
