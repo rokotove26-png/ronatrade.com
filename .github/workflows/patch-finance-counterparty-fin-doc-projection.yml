@@ -1,0 +1,55 @@
+name: Patch Finance counterparty document projection
+
+on:
+  push:
+    branches:
+      - fix/finance-counterparty-fin-doc-projection-20260902
+    paths:
+      - .github/workflows/patch-finance-counterparty-fin-doc-projection.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/finance-counterparty-fin-doc-projection-20260902
+          fetch-depth: 0
+      - name: Patch Finance document types
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/functions/rona-ai-read-only/index.js')
+          s=p.read_text()
+          old="const FIN_DOC_TYPES = ['ИНВОЙС','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ'];"
+          new="const FIN_DOC_TYPES = ['ИНВОЙС','СПЕЦИФИКАЦИЯ / СЧЁТ-ФАКТУРА','КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ','КОНТРАКТ','ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ'];"
+          if s.count(old) != 1:
+              raise SystemExit(f'expected exactly one FIN_DOC_TYPES baseline, found {s.count(old)}')
+          p.write_text(s.replace(old,new))
+          PY
+      - name: Verify minimal projection delta
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('supabase/functions/rona-ai-read-only/index.js').read_text()
+          assert "'СПЕЦИФИКАЦИЯ / СЧЁТ-ФАКТУРА'" in s
+          assert "async function currentDocuments(types=null)" in s
+          assert "left join portal_private.clients cl on cl.id=d.client_key" in s
+          assert "join portal_private.contracts ct on ct.id=d.contract_key" in s
+          print('finance projection invariants OK')
+          PY
+          node --check supabase/functions/rona-ai-read-only/index.js
+          git diff --check
+      - name: Commit patch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/rona-ai-read-only/index.js
+          git commit -m 'Include supplier specification invoice in Finance projection'
+          git push origin HEAD:fix/finance-counterparty-fin-doc-projection-20260902
