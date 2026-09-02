@@ -58,3 +58,8 @@ export async function clientBootstrap(c:Ctx){
   `;
   return{generated_at:new Date().toISOString(),data_contract:"1.4",requires_context_selection:contexts.length>1,contexts,price_authority:priceAuthority,selected_context:null,applications:[] as unknown[],deals:[] as unknown[],documents:[] as unknown[],payments:[] as unknown[],shipments:[] as unknown[],rail_documents:[] as unknown[],market:[] as unknown[],notifications:[] as unknown[]}
 }
+export async function clientShipments(c:Ctx,clientId:string,contractId:string){
+  const context=await sql`select ct.id as contract_key,cl.id as client_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;
+  if(context.length!==1)return null;
+  return await sql`select s.id as shipment_key,s.shipment_id,d.deal_id,s.shipment_status::text,s.origin_location,s.destination_location,s.planned_departure_at,s.actual_departure_at,s.planned_arrival_at,s.actual_arrival_at,s.closed_at from portal_private.shipments s join portal_private.deals d on d.id=s.deal_key join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key where cl.client_id=${clientId} and ct.contract_id=${contractId} and s.client_key=cl.id and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) and portal_private.client_user_has_shipment_access(${c.user}::uuid,s.id,now()) order by s.created_at desc`;
+}
