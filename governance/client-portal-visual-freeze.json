@@ -58,7 +58,7 @@
     "scripts/attach-client-market-intelligence-v1.mjs": "1048c5efe92e1f7758425e5b89c0b885310f5c5c",
     "scripts/attach-client-content-responsive-v1.mjs": "1a33eb6face1a896368e1bb84cb0eb62156d3c21",
     "scripts/attach-client-context-selection-authority-v1.mjs": "7899ff70ce5eb3fa9de782e171f3bc0395072810",
-    "scripts/attach-client-deal-documents.mjs": "492a7621ebe95cb714e3562c7f35c39af7b7d456",
+    "scripts/attach-client-deal-documents.mjs": "492a7621ebe95cb714e356b8bf2e2d33c4fb98a1",
     "scripts/attach-client-home-current-only-v1.mjs": "d7e18449fe323905b54b697f53f5af685b7582c3",
     "scripts/attach-client-home-night-panel-v4.mjs": "ed9825aa40ed7578269f96404d8cd54003349f41",
     "scripts/attach-client-logout-visual-v1.mjs": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
