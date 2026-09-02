@@ -1,6 +1,9 @@
 name: Client context CI repair once
 
 on:
+  push:
+    branches: [fix/client-context-universal-modules-v1]
+    paths: [.github/workflows/client-context-ci-repair-once.yml]
   workflow_dispatch:
 
 permissions:
