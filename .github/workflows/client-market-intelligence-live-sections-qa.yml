@@ -50,8 +50,8 @@ jobs:
           const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           for(const token of ["load('open')",'REFRESH_MS=3600000','/v1/client/market-intelligence','rona:client:context-changed'])assert(analytics.includes(token),`analytics published-content contract missing ${token}`);
           for(const token of ['AUTO_REFRESH_MS=3600000','setInterval(refreshHourly,AUTO_REFRESH_MS)','/v1/client/market-intelligence','rona:client:context-changed'])assert(news.includes(token),`news published-content contract missing ${token}`);
-          assert(!/addEventListener\(["']focus["']/.test(analytics+news),'focus refetch must not own Market Intelligence');
+          assert(!analytics.includes('REFRESH_MS=60000')&&!news.includes('AUTO_REFRESH_MS=60000'),'minute refresh must not own Market Intelligence');
           assert(!preload.includes('/v1/client/market-intelligence'),'30s background preload must not own Market Intelligence');
           assert(!preload.includes('getAuthorizedContexts'),'background preload must not fan out across authorized contexts');
-          console.log('CLIENT_MARKET_INTELLIGENCE_LIVE_CONTRACT=PASS distribution=PUBLISHED_CONTENT refresh=OPEN_THEN_HOURLY focus_refetch=DISABLED');
+          console.log('CLIENT_MARKET_INTELLIGENCE_LIVE_CONTRACT=PASS distribution=PUBLISHED_CONTENT refresh=OPEN_THEN_HOURLY background_owner=ISOLATED');
           NODE
