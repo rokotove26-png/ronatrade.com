@@ -15,4 +15,6 @@ for(const invariant of [
   "payment_status:dealFinance,payment_label:dealFinance==='OVERDUE'?'Оплата просрочена':'Ожидается оплата',payment_received_amount:null,payment_obligation_amount:null,payment_currency:currency,payment_percent:null,payment_source:'DEAL_FINANCE_STATUS'"
 ])must(router.includes(invariant),`CLIENT_BACKEND_UNRELATED_SEMANTICS_DRIFT:${invariant}`);
 for(const forbidden of ['adminStorageObject(clientStorageMatch[1])','executiveRecordSupplierResponse(c,req,supplierRequestMatch[1])'])must(!router.includes(forbidden),`CLIENT_BACKEND_UNRELATED_ROUTING_DRIFT:${forbidden}`);
-console.log('CLIENT_BACKEND_CONTEXT_SCOPE_QA=PASS deals=client+contract shipments=client+contract rail=client+contract unrelated-semantics=preserved');
+for(const route of ['/v1/client/deals','/v1/client/documents','/v1/client/payments'])must(router.includes(`"${route}"`),`CLIENT_UNIVERSAL_MODULE_ROUTE_MISSING:${route}`);
+for(const token of ['const moduleKey=route.slice(route.lastIndexOf("/")+1)','projection[moduleKey]||[]'])must(router.includes(token),`CLIENT_UNIVERSAL_MODULE_PROJECTION_MISSING:${token}`);
+console.log('CLIENT_BACKEND_CONTEXT_SCOPE_QA=PASS deals=client+contract documents=client+contract payments=client+contract shipments=client+contract rail=client+contract unrelated-semantics=preserved');
