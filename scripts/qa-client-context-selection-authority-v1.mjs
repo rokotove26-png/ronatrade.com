@@ -7,7 +7,9 @@ const id='rona-client-context-selection-authority-v1';
 const homeId='rona-client-home-command-center-v2';
 
 if(!runtime.includes(marker))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_MARKER_MISSING');
-for(const token of ['SERVER_SESSION_AUTHORITY','companyDisplayName','clientContextSelect','CLIENT_CONTEXT_SELECTION_REQUIRED','rona:client-context-changed','Выбрана компания'])if(!runtime.includes(token))throw new Error(`CLIENT_CONTEXT_AUTHORITY_QA_TOKEN_MISSING: ${token}`);
+const runtimeLower=runtime.toLocaleLowerCase('ru-RU');
+for(const token of ['SERVER_SESSION_AUTHORITY','companyDisplayName','clientContextSelect','CLIENT_CONTEXT_SELECTION_REQUIRED','rona:client-context-changed'])if(!runtime.includes(token))throw new Error(`CLIENT_CONTEXT_AUTHORITY_QA_TOKEN_MISSING: ${token}`);
+if(!runtimeLower.includes('выбрана компания'))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_LEGACY_CONTEXT_SYNC_MISSING');
 if(runtime.includes('return state.contexts[0]')||runtime.includes('return contexts[0]'))throw new Error('CLIENT_CONTEXT_AUTHORITY_MULTI_CONTEXT_FIRST_FALLBACK_FORBIDDEN');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 const authorityAt=html.indexOf(`id="${id}"`),homeAt=html.indexOf(`id="${homeId}"`);
