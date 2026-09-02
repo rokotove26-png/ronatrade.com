@@ -13,14 +13,14 @@ const visualId='rona-client-deal-canonical-visual-authoritative-v2';
 const passportId='rona-client-deal-passport-v1';
 const lifecycleId='rona-client-deal-lifecycle-v1';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
-const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260830-single-owner-prepaint-v8';
+const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260902-current-context-v9';
 const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
 const passportSrc='/assets/portal-runtime/client-deal-passport-v1.js?v=20260831-status-center-v2';
-const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260831-realization-single-owner-v3';
-const docsMarker='20260830-client-deal-documents-v6-signed-authoritative';
+const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260902-current-context-v4';
+const docsMarker='20260902-client-deal-documents-v7-current-context';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
 const passportMarker='20260831-client-deal-passport-v2-centered-status';
-const lifecycleMarker='20260831-client-deal-realization-status-v3-single-owner';
+const lifecycleMarker='20260902-client-deal-realization-status-v4-current-context';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
   __RONA_CLIENT_DEAL_DOCUMENTS_V2__:'20260829-deal-documents-v2-universal-stable-ui-v3',
@@ -37,14 +37,16 @@ if(!docsRuntime.includes(docsMarker))throw new Error(`CLIENT_DEAL_DOCUMENTS_MARK
 if(!visualRuntime.includes(visualMarker))throw new Error(`CLIENT_DEAL_VISUAL_MARKER_MISSING: ${visualMarker}`);
 if(!passportRuntime.includes(passportMarker))throw new Error(`CLIENT_DEAL_PASSPORT_MARKER_MISSING: ${passportMarker}`);
 if(!lifecycleRuntime.includes(lifecycleMarker))throw new Error(`CLIENT_DEAL_REALIZATION_STATUS_MARKER_MISSING: ${lifecycleMarker}`);
-for(const required of ['/v1/client/bootstrap','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id'])
+for(const required of ['RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id'])
   if(!docsRuntime.includes(required))throw new Error(`CLIENT_DEAL_DOCUMENTS_GENERIC_FLOW_MISSING: ${required}`);
+if(docsRuntime.includes('/v1/client/bootstrap')||docsRuntime.includes('Promise.all(contexts.map'))throw new Error('CLIENT_DEAL_DOCUMENTS_PARALLEL_CONTEXT_SOURCE_FORBIDDEN');
 for(const required of ['Паспорт сделки','data-rona-command-field','DEAL CONTROL','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','passport-only'])
   if(!passportRuntime.includes(required))throw new Error(`CLIENT_DEAL_PASSPORT_GENERIC_UI_MISSING: ${required}`);
 for(const forbidden of ['Схема реализации сделки','Контракт и сделка','function stageData(','function renderFlow(','rona-deal-flow-v3__grid','setInterval(schedule,2200)'])
   if(passportRuntime.includes(forbidden))throw new Error(`RETIRED_DEAL_REALIZATION_RENDERER_REMAINS:${forbidden}`);
-for(const required of ['Статус реализации','Оформление сделки','Подписание документов','Подтверждение ресурса','Оплата','Отгрузка и поставка','Закрывающие документы и завершение','Выполнено','В работе','Предстоит','Требует решения','/v1/client/bootstrap','/v1/client/deal-documents/state?clientId=','SERVER_AUTHORITATIVE_REALIZATION_V1','REFRESH_MS=7000',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v3'"])
+for(const required of ['Статус реализации','Оформление сделки','Подписание документов','Подтверждение ресурса','Оплата','Отгрузка и поставка','Закрывающие документы и завершение','Выполнено','В работе','Предстоит','Требует решения','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/deal-documents/state?clientId=','SERVER_AUTHORITATIVE_REALIZATION_V1','REFRESH_MS=7000',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v4-current-context'"])
   if(!lifecycleRuntime.includes(required))throw new Error(`CLIENT_DEAL_REALIZATION_STATUS_GENERIC_UI_MISSING: ${required}`);
+if(lifecycleRuntime.includes('/v1/client/bootstrap')||lifecycleRuntime.includes('ctx.map('))throw new Error('CLIENT_DEAL_REALIZATION_PARALLEL_CONTEXT_SOURCE_FORBIDDEN');
 for(const forbiddenInference of ['function evidence(','function lifecycle(','cardTextOutside','fieldValue(root','resourceDone=','paymentPct=pctMatch','Статусы формируются из текущей карточки сделки'])
   if(lifecycleRuntime.includes(forbiddenInference))throw new Error(`CLIENT_DEAL_REALIZATION_LOCAL_BUSINESS_INFERENCE_FORBIDDEN: ${forbiddenInference}`);
 for(const forbiddenGeometry of ['position:fixed!important','transform:translate(-50%,-50%)','width:min(1180px','height:min(800px'])
@@ -92,8 +94,8 @@ integrity.client_runtime.deal_documents_bridge={
   id:docsId,src:docsSrc,marker:docsMarker,
   visual_id:visualId,visual_src:visualSrc,visual_marker:visualMarker,
   passport_id:passportId,passport_src:passportSrc,passport_marker:passportMarker,passport_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',passport_data_policy:'PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION',passport_layout:'NATIVE_RIGHT_DRAWER_PRESERVED',passport_close_behavior:'NATIVE_DRAWER_CONTROL_UNTOUCHED',passport_detector:'SEMANTIC_LABEL_COVERAGE_NATIVE_DRAWER_VISIBILITY',
-  lifecycle_id:lifecycleId,lifecycle_src:lifecycleSrc,lifecycle_marker:lifecycleMarker,lifecycle_scope:'ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS',lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY',lifecycle_source:'CLIENT_DEAL_DOCUMENTS_STATE_API',lifecycle_status_model:['DONE','CURRENT','PENDING','BLOCKED'],lifecycle_visual:'CONNECTED_VERTICAL_TIMELINE_WITH_PROGRESS',lifecycle_refresh:'7000MS_PLUS_FOCUS_AND_VISIBILITY',lifecycle_fail_closed:true,lifecycle_single_owner:true,lifecycle_host_owner:'SERVER_AUTHORITATIVE_V3',retired_local_realization_renderer:'PHYSICALLY_REMOVED',
-  scope:'ALL_AUTHORIZED_CLIENT_CONTEXTS',context_source:'SERVER_CLIENT_BOOTSTRAP_AND_CONTEXT',authorization:'SERVER_CLIENT_USER_HAS_DEAL_ACCESS',upload_protocol:'MULTIPART_FILE_PLUS_SOURCE_UNSIGNED_DOCUMENT_ID',replacement_semantics:'SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM',success_projection:['SIGNED_ADDENDUM_CURRENT','UPLOAD_DISABLED','DOCUMENTS_SIGNED'],client_specific_hardcoding:false,prepaint_single_owner:true,legacy_preempt:{id:legacyPreemptId,markers:legacyMarkers},
+  lifecycle_id:lifecycleId,lifecycle_src:lifecycleSrc,lifecycle_marker:lifecycleMarker,lifecycle_scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY',lifecycle_source:'CLIENT_DEAL_DOCUMENTS_STATE_API',lifecycle_status_model:['DONE','CURRENT','PENDING','BLOCKED'],lifecycle_visual:'CONNECTED_VERTICAL_TIMELINE_WITH_PROGRESS',lifecycle_refresh:'7000MS_PLUS_FOCUS_AND_VISIBILITY',lifecycle_fail_closed:true,lifecycle_single_owner:true,lifecycle_host_owner:'SERVER_AUTHORITATIVE_V4_CURRENT_CONTEXT',retired_local_realization_renderer:'PHYSICALLY_REMOVED',
+  scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',authorization:'SERVER_CLIENT_USER_HAS_DEAL_ACCESS',upload_protocol:'MULTIPART_FILE_PLUS_SOURCE_UNSIGNED_DOCUMENT_ID',replacement_semantics:'SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM',success_projection:['SIGNED_ADDENDUM_CURRENT','UPLOAD_DISABLED','DOCUMENTS_SIGNED'],client_specific_hardcoding:false,prepaint_single_owner:true,legacy_preempt:{id:legacyPreemptId,markers:legacyMarkers},
 };
 await writeFile(htmlPath,html,'utf8');await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; passport=PRESENTATION_ONLY_V1; realization_status=SERVER_AUTHORITATIVE_SINGLE_OWNER_V3; native_close=preserved; retired_local_realization_renderer=removed; single owner=${docsId}`);
+console.log(`CLIENT_DEAL_DOCUMENTS_BRIDGE=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; scope=CURRENT_AUTHORIZED_CLIENT_CONTEXT; context=RONA_CLIENT_CONTEXT_AUTHORITY; passport=PRESENTATION_ONLY_V1; realization_status=SERVER_AUTHORITATIVE_SINGLE_OWNER_V4; native_close=preserved; retired_local_realization_renderer=removed; single owner=${docsId}`);
