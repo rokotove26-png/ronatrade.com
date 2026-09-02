@@ -1,14 +1,14 @@
 (()=>{
 'use strict';
 if(window.__RONA_MARKET_NEWS_CURRENT_V1__)return;
-window.__RONA_MARKET_NEWS_CURRENT_V1__='20260827-auto-refresh-v2';
+window.__RONA_MARKET_NEWS_CURRENT_V1__='20260902-hourly-refresh-v3';
 
 const PAGE_ID='page-market-news';
 const ROOT_ID='rona-market-news-current';
 const STYLE_ID='rona-market-news-current-style';
 const API='/portal/owner-api';
 const state={rows:[],loading:false,loaded:false,error:'',date:'',source:'ALL',search:'',updatedAt:'',fingerprint:''};
-const AUTO_REFRESH_MS=60000;
+const AUTO_REFRESH_MS=3600000;
 let autoRefreshTimer=null;
 
 const q=(s,r=document)=>r.querySelector(s);
@@ -247,11 +247,15 @@ async function loadData(force=false){
   }
 }
 function isActive(){return Boolean(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')}
-function refreshIfActive(){if(document.visibilityState==='visible'&&isActive())loadData(true)}
-function startAutoRefresh(){if(autoRefreshTimer)return;autoRefreshTimer=setInterval(refreshIfActive,AUTO_REFRESH_MS)}
+function refreshIfDue(){
+  if(document.visibilityState!=='visible'||!isActive())return;
+  const last=Date.parse(state.updatedAt||'');
+  if(!last||Date.now()-last>=AUTO_REFRESH_MS)loadData(true);
+}
+function startAutoRefresh(){if(autoRefreshTimer)return;autoRefreshTimer=setInterval(refreshIfDue,AUTO_REFRESH_MS)}
 function activate(){ensureRoot();startAutoRefresh();loadData(true)}
-window.addEventListener('focus',refreshIfActive);
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfActive()});
+window.addEventListener('focus',refreshIfDue);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfDue()});
 window.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')==='market-news')activate()});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{if(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')activate()},{once:true});
 else if(page()?.classList.contains('active')||document.documentElement.dataset.ronaAdminPage==='market-news')activate();
