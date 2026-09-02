@@ -8,10 +8,11 @@ const resourceGuard=await readFile('supabase/migrations/20260830122500_deal_reso
 const legacyNormalization=await readFile('supabase/migrations/20260830122600_materialize_legacy_executing_resource_confirmations_v2.sql','utf8');
 
 for(const required of [
-  '20260831-client-deal-realization-status-v3-single-owner','Статус реализации','SERVER_AUTHORITATIVE_REALIZATION_V1',
-  '/v1/client/deal-documents/state?clientId=','REFRESH_MS=7000','Требует решения',
-  "const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v3'",
+  '20260902-client-deal-realization-status-v4-current-context','Статус реализации','SERVER_AUTHORITATIVE_REALIZATION_V1',
+  'RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/deal-documents/state?clientId=','REFRESH_MS=7000','Требует решения',
+  "const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v4-current-context'",
 ]) if(!runtime.includes(required))throw new Error(`REALIZATION_RUNTIME_REQUIRED_MISSING:${required}`);
+if(runtime.includes('/v1/client/bootstrap')||runtime.includes('ctx.map('))throw new Error('REALIZATION_PARALLEL_CONTEXT_SOURCE_FORBIDDEN');
 
 for(const forbidden of ['function evidence(','function lifecycle(','cardTextOutside','resourceDone=','paymentPct=pctMatch','Статусы формируются из текущей карточки сделки'])
   if(runtime.includes(forbidden))throw new Error(`REALIZATION_BROWSER_INFERENCE_FORBIDDEN:${forbidden}`);
@@ -36,7 +37,7 @@ for(const required of ['CANONICAL_LEGACY_RESOURCE_MATERIALIZATION','RESOURCE_CON
   if(!legacyNormalization.includes(required))throw new Error(`RESOURCE_LEGACY_NORMALIZATION_MISSING:${required}`);
 
 for(const required of [
-  "lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY'",'20260831-realization-single-owner-v3',"retired_local_realization_renderer:'PHYSICALLY_REMOVED'",'lifecycle_single_owner:true',
+  "lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY'",'20260902-current-context-v4',"retired_local_realization_renderer:'PHYSICALLY_REMOVED'",'lifecycle_single_owner:true',"lifecycle_host_owner:'SERVER_AUTHORITATIVE_V4_CURRENT_CONTEXT'", "context_source:'RONA_CLIENT_CONTEXT_AUTHORITY'",
   'client-deal-passport-v1.js?v=20260831-status-center-v2',"passportMarker='20260831-client-deal-passport-v2-centered-status'",
 ]) if(!attach.includes(required))throw new Error(`REALIZATION_INTEGRITY_POLICY_MISSING:${required}`);
 if(attach.includes('client-deal-command-center-v3.js'))throw new Error('RETIRED_COMMAND_CENTER_REFERENCE_REMAINS_IN_ATTACH');
@@ -44,4 +45,4 @@ if(attach.includes('client-deal-command-center-v3.js'))throw new Error('RETIRED_
 for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','FARGONA GAZ','UNIVERSAL SOLYARIS']){
   if(runtime.includes(forbidden)||passport.includes(forbidden)||backend.includes(forbidden)||resourceGuard.includes(forbidden)||legacyNormalization.includes(forbidden))throw new Error(`REALIZATION_HARDCODING_FORBIDDEN:${forbidden}`);
 }
-console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS single-owner=SERVER_AUTHORITATIVE_V3 centered-stage-resource=PASS retired-local-renderer=absent');
+console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS single-owner=SERVER_AUTHORITATIVE_V4_CURRENT_CONTEXT context-authority=PASS centered-stage-resource=PASS retired-local-renderer=absent');
