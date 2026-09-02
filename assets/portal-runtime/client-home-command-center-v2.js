@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260830-client-home-command-center-v2';
+const MARK='20260902-client-home-command-center-v3-current-context';
 if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -8,12 +8,11 @@ const API='/portal/api',REFRESH_MS=30000;
 const OWNER='[data-rona-client-home-owner="command-center-v2"]';
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);
-const state={contexts:[],activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,scheduled:false,observer:null};
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,scheduled:false,observer:null,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0};
 
 async function request(path){
   const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
@@ -52,22 +51,9 @@ function frameFromText(root,needle){
 function titleFrame(root){return frameFromText(root,'Главная')}
 function contextFrame(root){return frameFromText(root,'Выбрана компания')}
 function directChild(root,node){let cur=node;if(!cur)return null;while(cur.parentElement&&cur.parentElement!==root)cur=cur.parentElement;return cur.parentElement===root?cur:null}
-function contextText(root){
-  const frame=contextFrame(root);
-  const candidates=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]'),frame].filter(Boolean);
-  return norm(candidates.filter(visible).map(x=>x.textContent).join(' '));
-}
 function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
-function chooseContext(contexts,root){
-  if(contexts.length===1)return contexts[0];
-  const text=contextText(root);let best=null,score=0,ties=0;
-  for(const ctx of contexts){
-    let s=0;
-    for(const token of [ctx?.current_external_contract_number,ctx?.legal_name,ctx?.contract_id,ctx?.client_id].map(norm).filter(Boolean))if(text.includes(token))s++;
-    if(s>score){best=ctx;score=s;ties=1}else if(s>0&&s===score)ties++;
-  }
-  return score>0&&ties===1?best:null;
-}
+function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
 function setHomeState(mode){
   document.documentElement.setAttribute('data-rona-client-home-state',mode);
   if(mode==='ready')document.documentElement.setAttribute('data-rona-client-home-ready','true');
@@ -265,30 +251,34 @@ function bindActions(owner){
   if(owner.dataset.ronaHomeActionsBound==='true')return;owner.dataset.ronaHomeActionsBound='true';
   owner.addEventListener('click',e=>{const target=e.target?.closest?.('[data-home-action]');if(!target)return;const action=target.getAttribute('data-home-action');if(action==='deal'){const id=norm(target.getAttribute('data-deal-id'));if(id)openDeal(id)}else if(action==='section'){sectionTrigger(target.getAttribute('data-section'))?.click()}});
 }
+function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
 async function load(force=false){
   if(state.loading)return;
   const root=homeRoot();if(!root)return;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,state.ctx,state.lastLoad);setHomeState('ready');return}
-  state.loading=true;const previousKey=state.activeKey;
+  let ctx=null;
+  try{ctx=await currentContext()}catch(error){console.error('RONA client home context authority',error);state.detail=null;setHomeState('error');return}
+  if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
+  const key=contextKey(ctx);
+  if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
+  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx,state.lastLoad);setHomeState('ready');return}
+  state.loading=true;
   try{
-    const boot=await request('/v1/client/bootstrap');
-    const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];state.contexts=contexts;
-    const ctx=chooseContext(contexts,root);
-    if(!ctx){state.activeKey='';state.detail=null;state.ctx=null;renderContextRequired();setHomeState('ready');return}
-    const key=contextKey(ctx);if(!previousKey||previousKey!==key)setHomeState('loading');
+    setHomeState('loading');
     const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+    if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
     state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
-    window.__RONA_CLIENT_HOME_STATE__={version:MARK,source:'CLIENT_CONTEXT_HOME_PROJECTION',mode:'COMMAND_CENTER',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_deals:activeDeals(state.detail).map(d=>norm(d?.deal_id)),loaded_at:new Date(state.lastLoad).toISOString()};
+    window.__RONA_CLIENT_HOME_STATE__={version:MARK,source:'CURRENT_CONTEXT_HOME_PROJECTION',mode:'COMMAND_CENTER',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_deals:activeDeals(state.detail).map(d=>norm(d?.deal_id)),loaded_at:new Date(state.lastLoad).toISOString()};
     render(state.detail,ctx,state.lastLoad);setHomeState('ready');
   }catch(error){console.error('RONA client home command center projection',error);state.detail=null;setHomeState('error')}
   finally{state.loading=false}
 }
-function schedule(force=false){
-  if(state.scheduled)return;state.scheduled=true;
-  requestAnimationFrame(()=>{state.scheduled=false;const root=homeRoot();if(!root)return;const selected=state.contexts.length?chooseContext(state.contexts,root):null;const changed=selected&&contextKey(selected)!==state.activeKey;load(Boolean(force||changed))});
-}
+function schedule(force=false){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load(force)})}
 function start(){
-  installStyle();setHomeState('loading');schedule(true);
+  installStyle();setHomeState('loading');
+  const authority=contextAuthority();
+  if(!authority){setHomeState('error');return}
+  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule(true)});
+  schedule(true);
   state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','hidden','aria-selected']});
   window.addEventListener('pageshow',()=>schedule(true),{passive:true});
   window.addEventListener('resize',()=>{const root=homeRoot(),owner=root?.querySelector(OWNER);if(root&&owner)alignOwner(root,owner)},{passive:true});
