@@ -1,0 +1,46 @@
+import { readFile } from 'node:fs/promises';
+
+const files={
+  authority:'assets/portal-runtime/client-context-selection-authority-v1.js',
+  home:'assets/portal-runtime/client-home-command-center-v2.js',
+  payments:'assets/portal-runtime/client-payments-authoritative-v1.js',
+  prices:'assets/portal-runtime/client-price-sync-v1.js',
+  dealDocuments:'assets/portal-runtime/client-deal-documents-v5.js',
+  dealLifecycle:'assets/portal-runtime/client-deal-lifecycle-v1.js',
+  applicationForm:'assets/portal-runtime/client-application-form-v3.js',
+  applicationLifecycle:'assets/portal-runtime/client-application-lifecycle-v1.js',
+  contract:'assets/portal-runtime/client-contract-download-v3.js',
+  background:'assets/portal-runtime/client-background-section-preload-v1.js'
+};
+const source=Object.fromEntries(await Promise.all(Object.entries(files).map(async([name,path])=>[name,await readFile(path,'utf8')])));
+const requireAll=(name,tokens)=>{for(const token of tokens)if(!source[name].includes(token))throw new Error(`CURRENT_CONTEXT_REQUIRED_MISSING:${name}:${token}`)};
+const forbidAll=(name,tokens)=>{for(const token of tokens)if(source[name].includes(token))throw new Error(`CURRENT_CONTEXT_FORBIDDEN_PRESENT:${name}:${token}`)};
+
+requireAll('authority',['20260902-client-context-selection-authority-v3-scoped-bootstrap','window.RONA_CLIENT_CONTEXT=publicApi','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','rona:client-context-changed','CLIENT_CONTEXT_SELECTION_REQUIRED']);
+requireAll('home',['20260902-client-home-command-center-v3-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('payments',['20260902-client-payments-authoritative-v2-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('prices',['20260902-authoritative-price-v11-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('dealDocuments',['20260902-client-deal-documents-v7-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('dealLifecycle',['20260902-client-deal-realization-status-v4-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('applicationForm',['20260902-destination-price-calc-v7-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','contextKey(currentContext())']);
+requireAll('applicationLifecycle',['20260902-client-admin-authoritative-deal-projection-v9-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('contract',['20260902-client-contract-v4-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','getAuthorizedContexts','whenReady','authority.subscribe']);
+requireAll('background',['20260902-client-background-section-preload-current-context-v4','RONA_CLIENT_CONTEXT','getCurrentContext','getAuthorizedContexts','selectionRequired','authority.subscribe']);
+
+for(const name of ['home','payments','dealDocuments','dealLifecycle','applicationLifecycle','contract','background'])forbidAll(name,['/v1/client/bootstrap','chooseContext(','contextFromSelect(','Promise.all(contexts.map','state.contexts']);
+forbidAll('prices',['state.contexts','chooseContext(','domContextHint(','currentControlTexts(','data.contexts','prefetchPrices(']);
+forbidAll('applicationForm',['PRODUCER_BY_PRODUCT','Мозырский НПЗ','state?.context?.client_id','state?.context?.contract_id']);
+forbidAll('dealDocuments',['Promise.all(contexts.map']);
+forbidAll('dealLifecycle',['ctx.map(']);
+forbidAll('background',['state.contexts.map(preloadContext)']);
+
+const universalNames=['home','payments','prices','dealDocuments','dealLifecycle','applicationForm','applicationLifecycle','contract','background'];
+const hardcoded=[/RONA-C\d{3}-CTR-2026-\d{3}/u,/DEAL-2026-\d{3}/u,/FARGONA\s+GAZ/iu,/UNIVERSAL\s+SOLYARIS/iu,/Мозырский\s+НПЗ/iu];
+for(const name of universalNames)for(const re of hardcoded)if(re.test(source[name]))throw new Error(`CURRENT_CONTEXT_BUSINESS_HARDCODE:${name}:${re}`);
+
+if(!source.prices.includes("const boot=await request('/v1/client/bootstrap')"))throw new Error('PRICE_AUTHORITY_BOOTSTRAP_PROVENANCE_MISSING');
+if(!source.prices.includes('state.priceAuthority=new Map'))throw new Error('PRICE_AUTHORITY_SNAPSHOT_VALIDATION_MISSING');
+if(!source.contract.includes('return{context:base,document:null}'))throw new Error('CONTRACT_NONCURRENT_DETAIL_FETCH_MUST_REMAIN_DISABLED');
+if(!source.contract.includes('current:current?contextKey(r.context)===currentKey:false'))throw new Error('CONTRACT_CURRENT_CONTEXT_PROJECTION_FLAG_MISSING');
+
+console.log('CLIENT_CURRENT_CONTEXT_CONSUMERS_QA=PASS authority=single-source consumers=9 context-selection=central business-hardcodes=absent');
