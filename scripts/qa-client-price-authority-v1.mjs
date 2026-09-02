@@ -1,0 +1,15 @@
+import { readFile } from 'node:fs/promises';
+import { strict as assert } from 'node:assert';
+const phase=await readFile('supabase/functions/rona-portal-api/phase5d.ts','utf8');
+const router=await readFile('supabase/functions/rona-portal-api/index.ts','utf8');
+const runtime=await readFile('assets/portal-runtime/client-price-sync-v1.js','utf8');
+const start=phase.indexOf('export async function clientPrices('),end=phase.indexOf('export async function clientContext(',start);
+assert(start>=0&&end>start,'clientPrices block missing');
+const block=phase.slice(start,end);
+for(const marker of ['portal_private.owner_price_snapshots','s.source_publication_item_key=pi.id','s.source_reference=p.publication_id','s.product=pi.product','s.sale_price=pi.price','s.currency=pi.currency','s.publish_client=true',"s.business_status='PUBLISHED'",'s.client_published_at is not null','ps.producer,ps.supplier','price_snapshot_id','price_snapshot_source_reference','price_snapshot_source_system','price_snapshot_published_at',"'authority','OWNER_PRICE_SNAPSHOT'","p.authority_state='CONFIRMED'","p.lifecycle_state='ACTIVE'","pi.lifecycle_state='ACTIVE'"])assert(block.includes(marker),`price authority missing ${marker}`);
+for(const internal of ['purchase_price','rail_tariff','landed_cost','rona_margin'])assert(!block.includes(internal),`client price projection leaks ${internal}`);
+assert(router.includes('filterAuthoritativePublishedRows(await clientPrices(c,clientId,contractId))'),'price route must apply authoritative publication gate');
+assert(runtime.includes('SERVER_AUTHORITATIVE_PRICE_PROJECTION'),'runtime must identify server price authority');
+assert(runtime.includes("String(x.producer||'')"),'runtime must render producer from server projection');
+assert(!/FARGONA|SOLYARIS|producerMap/iu.test(runtime),'runtime contains producer fallback mapping');
+console.log('CLIENT_PRICE_AUTHORITY_QA=PASS source=OWNER_PRICE_SNAPSHOT projection=producer+supplier+snapshot fail-closed=true');
