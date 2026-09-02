@@ -45,13 +45,14 @@ jobs:
             exit 1
           fi
           grep -Fq 'client_user_has_contract_access' supabase/functions/rona-portal-api/phase5d.ts
-          grep -Fq 'client_user_has_contract_access' 'functions/portal/[[path]].js'
+          grep -Fq "if (p === '/portal/client') return roles.includes('CLIENT');" 'functions/portal/[[path]].js'
+          grep -Fq "if (path === '/portal/client') return serveStaticProtected(context, session, 'client');" 'functions/portal/[[path]].js'
           echo 'CLIENT_TENANT_ISOLATION_CONTRACT=PASS'
           echo 'CLIENT_TENANT_PREPAINT_NONBLOCKING_MODEL_BIND=PASS'
       - name: Verify fail-closed context routing
         run: |
           set -euo pipefail
           grep -Fq 'CONTEXT_NOT_FOUND' supabase/functions/rona-portal-api/phase5d.ts
-          grep -Fq 'requireRealClientContext' 'functions/portal/[[path]].js'
-          grep -Fq 'CLIENT_CONTEXT_NOT_AUTHORIZED' 'functions/portal/[[path]].js'
+          grep -Fq 'CLIENT_CONTEXT_NOT_AUTHORIZED' functions/portal/_middleware.js
+          grep -Fq "if (p === '/portal/client') return roles.includes('CLIENT');" 'functions/portal/[[path]].js'
           echo 'CLIENT_TENANT_FAIL_CLOSED=PASS'
