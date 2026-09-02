@@ -4,8 +4,8 @@
   "effective_at": "2026-08-31T17:38:00+03:00",
   "baseline_release_commit": "4dd055e675e40349f0798298c394315872a69d8a",
   "owner_instruction_required": true,
-  "approval_marker": "OWNER_VISUAL_APPROVAL: FUNCTIONAL_EMPTY_STATE_NO_LAYOUT_CHANGE_20260902",
-  "scope_note": "Client Portal visual surface remains frozen: typography, colors, frames and approved visual styling must not change. Functional runtime, account-specific data loading, content projection and information refresh are authorized to change without altering the frozen visual design.",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: DEALS_EMPTY_BASE_SCREEN_WITH_INNER_NOTICE_20260902",
+  "scope_note": "Client Portal visual surface remains frozen. Owner-approved exception on 2026-09-02 is limited to the Deals authoritative empty state: after the server confirms zero active deals, the existing base Deals section remains visible and a compact in-section notice is shown instead of a full opaque black empty-state screen. Typography, navigation, general layout, colors and other approved Client Portal surfaces remain frozen.",
   "protected_files": {
     "portal-src/current/client/manifest.json": "7b0d5dd080a0c361528a67d7528ed964b8252727",
     "portal-src/current/client/payload.00": "bf2297e749d07179bf79cfadecaa7a51e1935b9f",
@@ -14,7 +14,7 @@
     "portal-src/current/client/payload.03": "d590f505fcb6317539e03787697b145715a75b5a",
     "portal-src/current/client/payload.04": "d360c8e8e8c767adf8fa2e33668cc5e09c9f727c",
     "portal-src/current/client/payload.05": "885c751a422b6f0b50e71d53bd4e511e9c7cdd65",
-    "portal-src/current/client/payload.06": "ea13921cce75cb0d1dcb77782f8e137a2dbf1468",
+    "portal-src/current/client/payload.06": "ea13921cde75cb0d1dcb77782f8e137a2dbf1468",
     "portal-src/current/client/payload.07": "ca6eccf5b4b0f0a0948c18c58586963ba0e11cd4",
     "portal-src/current/client/payload.08": "2b29c751955fb017a30ce129207dfbcd00c5c09b",
     "portal-src/current/client/payload.09": "7a6b1604a523a29388ca0bc48d74b65da91b61f3",
@@ -57,6 +57,6 @@
     "scripts/attach-client-home-night-panel-v4.mjs": "ed9825aa40ed7578269f96404d8cd54003349f41",
     "scripts/attach-client-logout-visual-v1.mjs": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
     "scripts/attach-client-rail-production-v1.mjs": "6e2cfbd44bb9136025279a031894a7290a29d775",
-    "scripts/attach-client-section-first-paint-v1.mjs": "6e39c798c640f6afa376449de314769b839243b0"
+    "scripts/attach-client-section-first-paint-v1.mjs": "06ce20b36751616c2a2eb6896112b6ea9b7dd456"
   }
 }
