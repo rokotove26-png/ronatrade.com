@@ -23,9 +23,9 @@ must(count(html,/client-deal-passport-v1\.js/giu)===1,'DEAL_PASSPORT_NOT_SINGLE_
 must(count(html,/client-deal-command-center-v\d+\.js/giu)===0,'RETIRED_DEAL_COMMAND_CENTER_EMITTED');
 must(count(html,/client-deal-lifecycle-v1\.js/giu)===1,'DEAL_LIFECYCLE_NOT_SINGLE_OWNER');
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
-must(html.includes('20260830-single-owner-prepaint-v8'),'SIGNED_ADDENDUM_PREPAINT_CACHE_BUSTER_MISSING');
+must(html.includes('20260902-current-context-v9'),'SIGNED_ADDENDUM_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
 must(html.includes('20260831-status-center-v2'),'DEAL_PASSPORT_CACHE_BUSTER_MISSING');
-must(html.includes('20260831-realization-single-owner-v3'),'DEAL_LIFECYCLE_CACHE_BUSTER_MISSING');
+must(html.includes('20260902-current-context-v4'),'DEAL_LIFECYCLE_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
 for(const marker of ['__RONA_CLIENT_DEAL_DOCUMENTS_V1__','__RONA_CLIENT_DEAL_DOCUMENTS_V2__','__RONA_CLIENT_DEAL_DOCUMENTS_V3__','__RONA_CLIENT_DEAL_DOCUMENTS_V4__'])
   must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
 
@@ -37,8 +37,10 @@ const retiredPaths=[
 ];
 for(const p of retiredPaths){let present=true;try{await access(p)}catch(error){if(error?.code==='ENOENT')present=false;else throw error}must(!present,`SIGNED_ADDENDUM_RETIRED_RUNTIME_STILL_PRESENT:${p}`)}
 
-for(const marker of ['/v1/client/bootstrap','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id',"client_stage:'DOCUMENTS_SIGNED'"])
+for(const marker of ['20260902-client-deal-documents-v7-current-context','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id',"client_stage:'DOCUMENTS_SIGNED'"])
   must(runtime.includes(marker),`SIGNED_ADDENDUM_BROWSER_MARKER_MISSING:${marker}`);
+must(!runtime.includes('/v1/client/bootstrap'),'SIGNED_ADDENDUM_PARALLEL_BOOTSTRAP_FORBIDDEN');
+must(!runtime.includes('Promise.all(contexts.map'),'SIGNED_ADDENDUM_PARALLEL_CONTEXT_LOOP_FORBIDDEN');
 
 for(const marker of ['20260831-client-deal-passport-v2-centered-status','DEAL CONTROL','Паспорт сделки','data-rona-command-field','data-rona-command-heading','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','passport-only'])
   must(passport.includes(marker),`DEAL_PASSPORT_MARKER_MISSING:${marker}`);
@@ -47,8 +49,9 @@ for(const forbidden of ['Схема реализации сделки','Конт
 for(const forbidden of ['position:fixed!important','transform:translate(-50%,-50%)','width:min(1180px','height:min(800px'])
   must(!passport.includes(forbidden),`DEAL_PASSPORT_NATIVE_RIGHT_DRAWER_GEOMETRY_OVERRIDDEN:${forbidden}`);
 
-for(const marker of ['20260831-client-deal-realization-status-v3-single-owner','SERVER_AUTHORITATIVE_REALIZATION_V1',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v3'",'Статус реализации'])
+for(const marker of ['20260902-client-deal-realization-status-v4-current-context','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','SERVER_AUTHORITATIVE_REALIZATION_V1',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v4-current-context'",'Статус реализации'])
   must(lifecycle.includes(marker),`DEAL_LIFECYCLE_MARKER_MISSING:${marker}`);
+must(!lifecycle.includes('/v1/client/bootstrap'),'DEAL_LIFECYCLE_PARALLEL_BOOTSTRAP_FORBIDDEN');
 for(const forbidden of ['Статусы формируются из текущей карточки сделки','function stageData(','function renderFlow('])
   must(!lifecycle.includes(forbidden),`DEAL_LIFECYCLE_LOCAL_INFERENCE_FORBIDDEN:${forbidden}`);
 
@@ -67,7 +70,8 @@ for(const marker of ['/portal/client','/assets/portal-runtime/client-deal-docume
 must(!cachePolicy.includes('/assets/portal-runtime/client-deal-command-center-v*.js'),'RETIRED_COMMAND_CENTER_CACHE_POLICY_REMAINS');
 
 const bridge=integrity?.client_runtime?.deal_documents_bridge;
-must(bridge?.scope==='ALL_AUTHORIZED_CLIENT_CONTEXTS','SIGNED_ADDENDUM_SCOPE_NOT_GENERIC');
+must(bridge?.scope==='CURRENT_AUTHORIZED_CLIENT_CONTEXT','SIGNED_ADDENDUM_SCOPE_NOT_CURRENT_CONTEXT');
+must(bridge?.context_source==='RONA_CLIENT_CONTEXT_AUTHORITY','SIGNED_ADDENDUM_CONTEXT_SOURCE_NOT_AUTHORITY');
 must(bridge?.authorization==='SERVER_CLIENT_USER_HAS_DEAL_ACCESS','SIGNED_ADDENDUM_AUTH_SCOPE_NOT_SERVER');
 must(bridge?.client_specific_hardcoding===false,'SIGNED_ADDENDUM_HARDCODING_GUARD_MISSING');
 must(bridge?.prepaint_single_owner===true,'SIGNED_ADDENDUM_PREPAINT_SINGLE_OWNER_MISSING');
@@ -78,7 +82,8 @@ must(bridge?.passport_marker==='20260831-client-deal-passport-v2-centered-status
 must(bridge?.passport_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_PASSPORT_RIGHT_LAYOUT_POLICY_MISSING');
 must(bridge?.passport_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_PASSPORT_NATIVE_CLOSE_POLICY_MISSING');
 must(bridge?.lifecycle_single_owner===true,'DEAL_LIFECYCLE_SINGLE_OWNER_MISSING');
-must(bridge?.lifecycle_host_owner==='SERVER_AUTHORITATIVE_V3','DEAL_LIFECYCLE_HOST_OWNER_INVALID');
+must(bridge?.lifecycle_host_owner==='SERVER_AUTHORITATIVE_V4_CURRENT_CONTEXT','DEAL_LIFECYCLE_HOST_OWNER_INVALID');
+must(bridge?.lifecycle_scope==='CURRENT_AUTHORIZED_CLIENT_CONTEXT','DEAL_LIFECYCLE_SCOPE_NOT_CURRENT_CONTEXT');
 must(bridge?.retired_local_realization_renderer==='PHYSICALLY_REMOVED','RETIRED_LOCAL_REALIZATION_RENDERER_NOT_REMOVED');
 
-console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=ALL_AUTHORIZED_CLIENT_CONTEXTS; retired deal realization renderer physically absent; passport presentation-only; authoritative lifecycle single owner; native close untouched; no client/deal hardcoding; no-store cache policy');
+console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=CURRENT_AUTHORIZED_CLIENT_CONTEXT; context authority=RONA_CLIENT_CONTEXT; retired deal realization renderer physically absent; passport presentation-only; authoritative lifecycle single owner; native close untouched; no client/deal hardcoding; no-store cache policy');
