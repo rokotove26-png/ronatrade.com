@@ -1,4 +1,4 @@
-name: Client context price CI corrective once
+name: Client first-login rail QA corrective once
 
 on:
   push:
@@ -22,38 +22,52 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Apply corrective delta
+      - name: Patch stale first-login rail assertion
         run: |
-          node scripts/apply-client-context-price-ci-corrective-once.mjs
           node - <<'NODE'
           const fs=require('fs');
-          const path='scripts/qa-client-price-authority-v1.mjs';
-          let text=fs.readFileSync(path,'utf8');
-          const old="assert(runtime.includes('item.producer'),'runtime must render producer from server projection');";
-          const next="assert(runtime.includes(\"String(x.producer||'')\"),'runtime must render producer from server projection');";
-          if(!text.includes(old))throw new Error('price runtime assertion patch target missing');
-          fs.writeFileSync(path,text.replace(old,next));
+          const path='.github/workflows/client-new-account-first-login-qa.yml';
+          const lines=fs.readFileSync(path,'utf8').split('\n');
+          const index=lines.findIndex(line=>line.includes('client rail safe response or role gate missing'));
+          if(index<0) throw new Error('stale rail QA assertion target missing');
+          const p=lines[index].match(/^\s*/)[0];
+          lines.splice(index,1,
+            p+`const railStart=api.indexOf('if(route==="/v1/client/rail"&&req.method==="GET")');`,
+            p+`const railEnd=api.indexOf('if(route==="/v1/events"',railStart);`,
+            p+`assert(railStart>=0&&railEnd>railStart,'client rail route missing');`,
+            p+`const railBlock=api.slice(railStart,railEnd);`,
+            p+`assert(railBlock.includes('c.roles.includes("CLIENT")'),'client rail CLIENT role gate missing');`,
+            p+`assert(railBlock.includes('CLIENT_CONTRACT_CONTEXT_REQUIRED'),'client rail context requirement missing');`,
+            p+`assert(railBlock.includes('portal_private.client_user_has_contract_access'),'client rail server access gate missing');`,
+            p+`assert(railBlock.includes('send(origin,200'),'client rail safe 200 projection missing');`
+          );
+          fs.writeFileSync(path,lines.join('\n'));
           NODE
-      - name: Validate corrective delta
+      - name: Validate current rail contract and build
         run: |
           set -euo pipefail
+          node - <<'NODE'
+          const fs=require('fs');
+          const api=fs.readFileSync('supabase/functions/rona-portal-api/index.ts','utf8');
+          const start=api.indexOf('if(route==="/v1/client/rail"&&req.method==="GET")');
+          const end=api.indexOf('if(route==="/v1/events"',start);
+          if(start<0||end<=start)throw new Error('client rail route missing');
+          const block=api.slice(start,end);
+          for(const marker of ['c.roles.includes("CLIENT")','CLIENT_CONTRACT_CONTEXT_REQUIRED','portal_private.client_user_has_contract_access','status:"EMPTY"','rail:[]','rail_documents:[]','wagons:[]','send(origin,200)'])if(!block.includes(marker))throw new Error('rail contract missing '+marker);
+          if(block.includes('send(origin,503'))throw new Error('client rail hard 503 reintroduced');
+          const qa=fs.readFileSync('.github/workflows/client-new-account-first-login-qa.yml','utf8');
+          for(const marker of ['const railStart=api.indexOf','const railBlock=api.slice','client rail server access gate missing'])if(!qa.includes(marker))throw new Error('patched QA missing '+marker);
+          if(qa.includes('client rail safe response or role gate missing'))throw new Error('stale bounded regex remains');
+          console.log('CLIENT_FIRST_LOGIN_RAIL_QA_PATCH=PASS');
+          NODE
           npm run build
-          node scripts/qa-client-contract-authoritative-projection.mjs
-          node scripts/qa-client-price-authority-v1.mjs
-          node tests/client-context-universal-modules-v1.test.mjs
-          node scripts/qa-client-admin-communication-gate-v1.mjs
-          node scripts/qa-client-claims-context-scope-v1.mjs
           git diff --check
-      - name: Commit validated source delta
+      - name: Commit validated workflow delta
         run: |
           set -euo pipefail
           git config user.name "RONA LK Architect"
           git config user.email "actions@users.noreply.github.com"
-          git add package.json scripts/qa-client-contract-authoritative-projection.mjs scripts/qa-client-price-authority-v1.mjs supabase/functions/rona-portal-api/phase5d.ts
+          git add .github/workflows/client-new-account-first-login-qa.yml
           git diff --cached --check
-          if git diff --cached --quiet; then
-            echo "No source delta to commit"
-            exit 0
-          fi
-          git commit -m "fix: align current-context CI and server price authority"
+          git commit -m "ci: align first-login rail QA with scoped route"
           git push origin HEAD:fix/client-context-universal-modules-v1
