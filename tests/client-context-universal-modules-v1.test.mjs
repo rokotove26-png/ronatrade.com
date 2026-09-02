@@ -11,17 +11,33 @@ const modules = [
   'assets/portal-runtime/client-deal-documents-v5.js',
   'assets/portal-runtime/client-deal-lifecycle-v1.js',
   'assets/portal-runtime/client-application-lifecycle-v1.js',
+  'assets/portal-runtime/client-application-form-v3.js',
   'assets/portal-runtime/client-contract-download-v3.js',
   'assets/portal-runtime/client-background-section-preload-v1.js'
 ];
-const forbidden = ['/v1/client/bootstrap', 'contexts[0]', 'Promise.all(contexts.map', 'chooseContext(contexts', 'domContextHint()'];
+const forbidden = [
+  '/v1/client/bootstrap',
+  'getAuthorizedContexts',
+  'contexts[0]',
+  'Promise.all(contexts.map',
+  'chooseContext(contexts',
+  'domContextHint()'
+];
+const hardcodedClient = /['"`]RONA-C\d{3}(?:-CTR-\d{4}-\d{3,})?['"`]/u;
+const hardcodedDeal = /['"`]DEAL-\d{4}-\d{3,}['"`]/u;
 for (const path of modules) {
   const source = read(path);
   if (!source.includes('RONA_CLIENT_CONTEXT') || !source.includes('getCurrentContext')) throw new Error(path + ': CURRENT_CONTEXT authority missing');
   for (const token of forbidden) if (source.includes(token)) throw new Error(path + ': forbidden parallel context logic: ' + token);
+  if (hardcodedClient.test(source)) throw new Error(path + ': hardcoded client/contract literal');
+  if (hardcodedDeal.test(source)) throw new Error(path + ': hardcoded deal literal');
 }
 const price = read('assets/portal-runtime/client-price-sync-v1.js');
 if (!price.includes('RONA_CLIENT_CONTEXT') || !price.includes('authority.subscribe')) throw new Error('price sync CURRENT_CONTEXT subscription missing');
-for (const token of ['contexts[0]', 'chooseContext(contexts', 'domContextHint()', 'Promise.all(contexts.map']) if (price.includes(token)) throw new Error('price sync context fallback remains: ' + token);
+for (const token of ['getAuthorizedContexts','contexts[0]', 'chooseContext(contexts', 'domContextHint()', 'Promise.all(contexts.map']) if (price.includes(token)) throw new Error('price sync context fallback remains: ' + token);
+if (hardcodedClient.test(price)) throw new Error('price sync hardcoded client/contract literal');
+if (hardcodedDeal.test(price)) throw new Error('price sync hardcoded deal literal');
 console.log('CLIENT_CONTEXT_UNIVERSAL_MODULES=PASS');
+console.log('CURRENT_CONTEXT_ONLY_MODULES=' + modules.length);
+console.log('PRICE_CONTEXT_FALLBACK=REMOVED');
 console.log('PRICE_AUTHORITY_BOOTSTRAP_MIGRATION=PENDING_BACKEND_PROJECTION');
