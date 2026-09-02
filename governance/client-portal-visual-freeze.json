@@ -57,7 +57,7 @@
     "assets/portal-runtime/client-shell-guard-v3.js": "1309b4a644b8dc394106eef9ad440c59974c09da",
     "scripts/attach-client-application-lifecycle.mjs": "e03a00e96d62cac8cbfa7eef1d2c7f35c39af7b7",
     "scripts/attach-client-background-section-preload-v1.mjs": "ff761cbf5b08800603bacecece9608cd357ffe1e",
-    "scripts/attach-client-market-intelligence-v1.mjs": "b5f25eb43f515fb289a6068806b121c426493b4e",
+    "scripts/attach-client-market-intelligence-v1.mjs": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
     "scripts/attach-client-content-responsive-v1.mjs": "1a33eb6face1a896368e1bb84cb0eb62156d3c21",
     "scripts/attach-client-context-selection-authority-v1.mjs": "7899ff70ce5eb3fa9de782e171f3bc0395072810",
     "scripts/attach-client-deal-documents.mjs": "492a7621ebe95cb714e356b8bf2e2d33c4fb98a1",
