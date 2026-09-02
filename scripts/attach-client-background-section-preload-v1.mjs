@@ -5,8 +5,8 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-background-section-preload-v1.js';
 const id='rona-client-background-section-preload-v1';
-const src='/assets/portal-runtime/client-background-section-preload-v1.js?v=20260831-all-sections-v1';
-const marker='20260831-client-background-section-preload-v1';
+const src='/assets/portal-runtime/client-background-section-preload-v1.js?v=20260902-market-hourly-v2';
+const marker='20260902-client-background-section-preload-market-hourly-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -22,6 +22,8 @@ for(const required of [
   "state.contexts.map(preloadContext)",
   "cycle('open')",
   'REFRESH_MS=30000',
+  'MARKET_INTELLIGENCE_REFRESH_MS=3600000',
+  'readMarketIntelligence(reason)',
   "markSection('analytics'",
   "markSection('market_news'",
   'window_calendar_dates:7',
@@ -64,6 +66,9 @@ integrity.client_runtime.background_section_preload={
     feed:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',
     analytics:true,
     market_news:true,
+    trigger:'PORTAL_OPEN',
+    refresh_ms:3600000,
+    refresh_policy:'OPEN_THEN_HOURLY',
     news_window_calendar_dates:7,
     authoritative_news_date:'source_published_at',
     deduplication:'duplicate_group'
@@ -75,4 +80,4 @@ integrity.client_runtime.background_section_preload={
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 
 if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error('CLIENT_BACKGROUND_PRELOAD_BRIDGE_MISSING_AFTER_WRITE');
-console.log('CLIENT_BACKGROUND_SECTION_PRELOAD=PASS all authorized Client sections including Analytics and Market News preload at portal open and refresh every 30s independent of active section');
+console.log('CLIENT_BACKGROUND_SECTION_PRELOAD=PASS all authorized Client sections preload at portal open; Analytics and Market News refresh on open and hourly while other section preload cadence remains 30s');
