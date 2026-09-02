@@ -1,6 +1,9 @@
 name: Client Market Intelligence live sections QA
 
 on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
   pull_request:
     branches:
       - release/public-go-live-v1.1
@@ -26,7 +29,7 @@ jobs:
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
-      - name: Prove Analytics and Market News render in real Client section roots
+      - name: Prove Analytics and exact Admin-canonical Market News visual owner
         shell: bash
         run: |
           set -euo pipefail
@@ -70,14 +73,25 @@ jobs:
                 window.__MI_QA_VERSION='A';
                 const originalFetch=window.fetch.bind(window);
                 const json=(body,status=200)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json','cache-control':'no-store'}});
+                const newsRows=v=>Array.from({length:7},(_,i)=>({
+                  publication_id:'QA-NEWS',
+                  publication_item_id:`22222222-2222-4222-8222-22222222222${i}`,
+                  published_at:`2026-09-02T14:${String(i).padStart(2,'0')}:00Z`,
+                  news_id:`QA-NEWS-${v}-${i+1}`,
+                  duplicate_group:`QA-EVENT-${String(i+1).padStart(3,'0')}`,
+                  headline:`QA NEWS ${v} ${i+1}`,
+                  content_text:`QA verified market news ${v} ${i+1}`,
+                  product:i%2?'ДТ':'бензин',region:'СНГ',category:'QA',source_name:`QA SOURCE ${(i%3)+1}`,
+                  source_url:`https://example.com/qa-${i+1}`,
+                  source_published_at:`2026-09-02T13:${String(i).padStart(2,'0')}:00Z`
+                }));
                 const marketIntelligence=()=>{
                   const v=String(window.__MI_QA_VERSION||'A');
                   const minute=v==='A'?'00':'01';
                   return {ok:true,data:{
                     version:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',generated_at:`2026-09-02T14:${minute}:00Z`,server_date:'2026-09-02',timezone:'Europe/Moscow',
                     analytics:[{publication_id:'QA-ANALYTICS',publication_item_id:'11111111-1111-4111-8111-111111111111',published_at:`2026-09-02T14:${minute}:00Z`,product:'АИ-92',headline:`QA AI-92 ${v}`,content_text:'QA derived analytics',analytics_as_of:'2026-09-02T00:00:00Z',analytics_unit:'USD/т',public_chart:{type:'FORECAST_RANGE',unit:'USD/т',labels:['ФАКТ','FORWARD'],values:[1000,v==='A'?1010:1020]}}],
-                    news:[{publication_id:'QA-NEWS',publication_item_id:'22222222-2222-4222-8222-222222222222',published_at:`2026-09-02T14:${minute}:00Z`,news_id:`QA-NEWS-${v}`,duplicate_group:'QA-EVENT-001',headline:`QA NEWS ${v}`,content_text:'QA verified market news',product:'бензин',region:'СНГ',category:'QA',source_name:'QA SOURCE',source_url:'https://example.com/qa',source_published_at:`2026-09-02T13:${minute}:00Z`}],
-                    analytics_gate:'QA',news_gate:'QA'
+                    news:newsRows(v),analytics_gate:'QA',news_gate:'QA'
                   }};
                 };
                 const payload=pathname=>{
@@ -101,34 +115,62 @@ jobs:
               await page.goto(origin+'/portal/client',{waitUntil:'domcontentloaded'});
               await page.waitForFunction(()=>{
                 const a=document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-                const n=document.querySelector('[data-rona-client-market-intelligence-owner="news"]');
-                return a?.textContent?.includes('QA AI-92 A')&&n?.textContent?.includes('QA NEWS A');
+                const n=document.querySelector('#page-market-news > #rona-market-news-current[data-rona-market-news-owner="admin-canonical-client-safe-v1"]');
+                return a?.textContent?.includes('QA AI-92 A')&&n?.textContent?.includes('QA NEWS A 7');
               },{timeout:12000});
               const first=await page.evaluate(()=>{
                 const a=document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]');
-                const n=document.querySelector('[data-rona-client-market-intelligence-owner="news"]');
-                const root=e=>e?.parentElement;
+                const n=document.querySelector('#page-market-news > #rona-market-news-current');
+                const css=n?getComputedStyle(n):null;
                 return{
-                  runtime:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
-                  state:document.documentElement.dataset.ronaClientMarketIntelligence||null,
-                  analyticsRoot:root(a)?.id||root(a)?.getAttribute('data-page-panel')||root(a)?.getAttribute('data-page-id')||null,
-                  newsRoot:root(n)?.id||root(n)?.getAttribute('data-page-panel')||root(n)?.getAttribute('data-page-id')||null,
+                  analyticsRuntime:window.__RONA_CLIENT_MARKET_INTELLIGENCE__||null,
+                  newsRuntime:window.__RONA_CLIENT_MARKET_NEWS_ADMIN_PARITY_V1__||null,
+                  analyticsRoot:a?.parentElement?.id||null,
+                  newsRoot:n?.parentElement?.id||null,
+                  newsOwner:n?.getAttribute('data-rona-market-news-owner')||null,
+                  visualContract:n?.getAttribute('data-rona-market-news-visual-contract')||null,
+                  masthead:!!n?.querySelector('.mn-masthead'),
+                  lead:!!n?.querySelector('.mn-front .mn-lead'),
+                  railCount:n?.querySelectorAll('.mn-rail-item').length||0,
+                  gridCount:n?.querySelectorAll('.mn-grid .mn-card').length||0,
+                  title:n?.querySelector('.mn-title')?.textContent||'',
+                  edition:n?.querySelector('.mn-edition')?.textContent||'',
+                  paper:css?.backgroundColor||'',
+                  wrongOwner:!!document.querySelector('[data-rona-client-market-intelligence-owner="news"]'),
+                  wrongList:!!document.querySelector('.mi-news-list'),
                   analyticsText:a?.textContent||'',newsText:n?.textContent||''
                 };
               });
               first.pageErrors=pageErrors.slice();
-              assert(first.runtime==='20260902-client-market-intelligence-v1','market intelligence runtime missing '+JSON.stringify(first));
-              assert(first.state==='ready','market intelligence not ready '+JSON.stringify(first));
-              assert(first.analyticsRoot,'real Analytics section root not resolved '+JSON.stringify(first));
-              assert(first.newsRoot,'real Market News section root not resolved '+JSON.stringify(first));
-              assert(first.analyticsText.includes('QA AI-92 A'),'Analytics payload not rendered');
-              assert(first.newsText.includes('QA NEWS A'),'Market News payload not rendered');
+              assert(first.analyticsRuntime==='20260902-client-market-intelligence-v2-admin-news-parity','analytics runtime missing '+JSON.stringify(first));
+              assert(first.newsRuntime==='20260902-admin-news-canonical-exact-v1','Admin-parity News runtime missing '+JSON.stringify(first));
+              assert(first.analyticsRoot==='page-analytics','real Analytics section root not resolved '+JSON.stringify(first));
+              assert(first.newsRoot==='page-market-news','real Market News section root not resolved '+JSON.stringify(first));
+              assert(first.newsOwner==='admin-canonical-client-safe-v1','wrong Market News owner '+JSON.stringify(first));
+              assert(first.visualContract==='portal-market-news-current-v1/20260827-auto-refresh-v2','Admin visual contract missing '+JSON.stringify(first));
+              assert(first.masthead&&first.lead&&first.railCount===4&&first.gridCount===2,'Admin newspaper composition mismatch '+JSON.stringify(first));
+              assert(first.title==='Новости топливного рынка СНГ'&&first.edition.includes('MARKET DESK · CIS ENERGY'),'Admin masthead text mismatch '+JSON.stringify(first));
+              assert(!first.wrongOwner&&!first.wrongList,'competing dark Client News renderer still present '+JSON.stringify(first));
+              assert(first.analyticsText.includes('QA AI-92 A')&&first.newsText.includes('QA NEWS A 1'),'initial safe payload not rendered');
+
+              await page.locator('#page-market-news .mn-lead').click();
+              await page.waitForFunction(()=>document.querySelector('#page-market-news .mn-dialog[open]')?.textContent?.includes('QA NEWS A 7'),{timeout:3000});
+              const dialog=await page.evaluate(()=>({open:!!document.querySelector('#page-market-news .mn-dialog[open]'),source:document.querySelector('#page-market-news .mn-dialog .mn-source-link')?.textContent||''}));
+              assert(dialog.open&&dialog.source.includes('Открыть первоисточник'),'Admin article dialog contract failed '+JSON.stringify(dialog));
+              await page.locator('#page-market-news .mn-dialog-close').click();
 
               await page.evaluate(()=>{window.__MI_QA_VERSION='B';window.dispatchEvent(new Event('focus'))});
-              await page.waitForFunction(()=>document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]')?.textContent?.includes('QA AI-92 B')&&document.querySelector('[data-rona-client-market-intelligence-owner="news"]')?.textContent?.includes('QA NEWS B'),{timeout:7000});
-              const refreshed=await page.evaluate(()=>({analytics:document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]')?.textContent||'',news:document.querySelector('[data-rona-client-market-intelligence-owner="news"]')?.textContent||'',background:window.__RONA_CLIENT_BACKGROUND_STATE__?.sections||null}));
-              assert(refreshed.analytics.includes('QA AI-92 B')&&refreshed.news.includes('QA NEWS B'),'focus refresh did not update both sections '+JSON.stringify(refreshed));
-              console.log('CLIENT_MARKET_INTELLIGENCE_LIVE_SECTIONS=PASS '+JSON.stringify({analyticsRoot:first.analyticsRoot,newsRoot:first.newsRoot,runtime:first.runtime,refresh:'A_TO_B',pageErrors:first.pageErrors.length}));
+              await page.waitForFunction(()=>document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]')?.textContent?.includes('QA AI-92 B')&&document.querySelector('#page-market-news > #rona-market-news-current')?.textContent?.includes('QA NEWS B 7'),{timeout:7000});
+              const refreshed=await page.evaluate(()=>({
+                analytics:document.querySelector('[data-rona-client-market-intelligence-owner="analytics"]')?.textContent||'',
+                news:document.querySelector('#page-market-news > #rona-market-news-current')?.textContent||'',
+                wrongOwner:!!document.querySelector('[data-rona-client-market-intelligence-owner="news"]'),
+                wrongList:!!document.querySelector('.mi-news-list')
+              }));
+              assert(refreshed.analytics.includes('QA AI-92 B')&&refreshed.news.includes('QA NEWS B 1'),'focus refresh did not update both sections '+JSON.stringify(refreshed));
+              assert(!refreshed.wrongOwner&&!refreshed.wrongList,'competing News renderer returned after refresh '+JSON.stringify(refreshed));
+              assert(pageErrors.length===0,'browser page errors '+JSON.stringify(pageErrors));
+              console.log('CLIENT_MARKET_INTELLIGENCE_LIVE_SECTIONS=PASS '+JSON.stringify({analyticsRoot:first.analyticsRoot,newsRoot:first.newsRoot,newsOwner:first.newsOwner,visualContract:first.visualContract,composition:{masthead:first.masthead,lead:first.lead,rail:first.railCount,grid:first.gridCount},refresh:'A_TO_B',wrongRenderer:false,pageErrors:0}));
               await context.close();
             }finally{
               await browser.close();
