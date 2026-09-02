@@ -22,7 +22,7 @@ for(const probe of requiredApi)if(!api.includes(probe))throw new Error(`SERVER_P
 for(const forbidden of ['DEAL-2026-005','DEAL-2026-006'])if(api.includes(forbidden)||runtime.includes(forbidden))throw new Error(`HARDCODED_DEAL_STATE_FORBIDDEN ${forbidden}`);
 for(const localFn of ['operationsDealState','operationsResourceState','financePaymentState'])if(new RegExp(`function\\s+${localFn}\\b`).test(runtime))throw new Error(`CLIENT_LOCAL_BUSINESS_INFERENCE_FORBIDDEN ${localFn}`);
 for(const probe of [
-  "source:'ADMIN_CLIENT_SERVER_PROJECTION'",
+  "source:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_SERVER_PROJECTION'",
   'CLIENT_DEAL_SERVER_PROJECTION_INCOMPLETE',
   'data-rona-deal-state-strip',
   'authoritative-v8',
@@ -40,4 +40,4 @@ const source=brotliDecompressSync(Buffer.from(encoded,'base64'));
 const sha=createHash('sha256').update(source).digest('hex');
 if(source.length!==484970||sha!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183')throw new Error(`CLIENT_FROZEN_SOURCE_CHANGED ${source.length}/${sha}`);
 
-console.log('CLIENT_DEAL_SERVER_PROJECTION_QA=PASS server=ADMIN_CLIENT_SERVER_V1 renderer=THIN status_strip=COMPOSED_SEGMENTED application_archive=LINKED_OR_TERMINAL frozen_source=UNCHANGED');
+console.log('CLIENT_DEAL_SERVER_PROJECTION_QA=PASS server=ADMIN_CLIENT_SERVER_V1 renderer=THIN context=CURRENT_AUTHORIZED_CLIENT_CONTEXT status_strip=COMPOSED_SEGMENTED application_archive=LINKED_OR_TERMINAL frozen_source=UNCHANGED');
