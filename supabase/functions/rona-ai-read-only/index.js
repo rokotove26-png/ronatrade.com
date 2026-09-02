@@ -116,7 +116,7 @@ async function authenticateAi(req){
 
 async function currentContracts(){
   return await sql.unsafe(`
-    select ct.contract_id,cl.client_id,ct.current_external_contract_number,ct.contract_status,
+    select ct.contract_id,cl.client_id,ct.counterparty_code,ct.current_external_contract_number,ct.contract_status,
            ct.effective_from,ct.effective_to,ct.authority_state::text,ct.lifecycle_state::text,
            ct.source_system,ct.source_version,ct.source_timestamp,ct.updated_at,
            case
@@ -148,7 +148,7 @@ async function currentContracts(){
                     and r.authority_state not in ('SUPERSEDED','REJECTED')) > 1
            ) as conflict
     from portal_private.contracts ct
-    join portal_private.clients cl on cl.id=ct.client_key
+    left join portal_private.clients cl on cl.id=ct.client_key
     where ct.lifecycle_state not in ('ARCHIVED','SUPERSEDED','CLOSED')
       and ct.authority_state not in ('SUPERSEDED','REJECTED')
       and (${sourceClause('ct')})
@@ -176,15 +176,15 @@ async function currentDeals(){
 }
 async function currentDocuments(types=null){
   if(types?.length){
-    return await sql`select d.document_id,d.document_type,cl.client_id,ct.contract_id,x.deal_id,d.authoritative_filename,d.authority_state::text,d.lifecycle_state::text,d.source_system,d.source_version,d.source_timestamp,d.updated_at,dv.version_number,dv.sha256,dv.is_current,dv.is_effective
-      from portal_private.documents d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.deals x on x.id=d.deal_key left join portal_private.document_versions dv on dv.id=d.current_version_id
+    return await sql`select d.document_id,d.document_type,cl.client_id,d.counterparty_code,ct.contract_id,x.deal_id,d.authoritative_filename,d.authority_state::text,d.lifecycle_state::text,d.source_system,d.source_version,d.source_timestamp,d.updated_at,dv.version_number,dv.sha256,dv.is_current,dv.is_effective
+      from portal_private.documents d left join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.deals x on x.id=d.deal_key left join portal_private.document_versions dv on dv.id=d.current_version_id
       where d.lifecycle_state='ACTIVE' and d.authority_state not in ('SUPERSEDED','REJECTED') and d.document_type=any(${types}::text[])
         and coalesce(lower(d.source_system),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])'
         and (dv.id is null or (dv.is_current and dv.lifecycle_state='ACTIVE' and dv.authority_state not in ('SUPERSEDED','REJECTED')))
       order by d.updated_at desc`;
   }
-  return await sql.unsafe(`select d.document_id,d.document_type,cl.client_id,ct.contract_id,x.deal_id,d.authoritative_filename,d.authority_state::text,d.lifecycle_state::text,d.source_system,d.source_version,d.source_timestamp,d.updated_at,dv.version_number,dv.sha256,dv.is_current,dv.is_effective
-    from portal_private.documents d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.deals x on x.id=d.deal_key left join portal_private.document_versions dv on dv.id=d.current_version_id
+  return await sql.unsafe(`select d.document_id,d.document_type,cl.client_id,d.counterparty_code,ct.contract_id,x.deal_id,d.authoritative_filename,d.authority_state::text,d.lifecycle_state::text,d.source_system,d.source_version,d.source_timestamp,d.updated_at,dv.version_number,dv.sha256,dv.is_current,dv.is_effective
+    from portal_private.documents d left join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key left join portal_private.deals x on x.id=d.deal_key left join portal_private.document_versions dv on dv.id=d.current_version_id
     where d.lifecycle_state='ACTIVE' and d.authority_state not in ('SUPERSEDED','REJECTED') and (${sourceClause('d')})
       and (dv.id is null or (dv.is_current and dv.lifecycle_state='ACTIVE' and dv.authority_state not in ('SUPERSEDED','REJECTED')))
     order by d.updated_at desc`);
