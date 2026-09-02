@@ -24,6 +24,26 @@ function expose(){
   try{if(!Object.prototype.hasOwnProperty.call(window,'RONA_CLIENT_SERVER_CONTEXT'))Object.defineProperty(window,'RONA_CLIENT_SERVER_CONTEXT',{value,writable:false,configurable:false,enumerable:false})}catch(_){ }
 }
 function companyLike(t){const v=low(t);if(v.length<14||v.length>260)return false;if(v==='kompaniya / kontrakt'||v==='компания / контракт'||v==='компания'||v==='контракт')return false;if(v.includes('выбрана компания')||v.includes('текущая компания')||v.includes('активный контекст')||v.includes('контракт №')||v.includes('договор №'))return false;return /(ооо|осоо|общество|совместное предприятие|топливная компания|llc|limited|company|«|»)/iu.test(t)}
+function isKg(ctx){const country=low(ctx?.registration_country);return country.includes('кыргыз')||country.includes('киргиз')||country.includes('kyrgyz')||country==='kg'||country==='kgz'}
+function companyDisplayName(ctx){
+  const legal=norm(ctx?.legal_name);if(!legal)return norm(ctx?.client_id)||'Компания';
+  const direct=['ОсОО','ООО','ПАО','НАО','АО','ЗАО','ОАО','ОДО','ИП','LLC'];
+  for(const form of direct)if(legal===form||legal.startsWith(form+' '))return legal;
+  const legalLow=low(legal);
+  const forms=[
+    ['общество с ограниченной ответственностью',isKg(ctx)?'ОсОО':'ООО'],
+    ['общество с дополнительной ответственностью','ОДО'],
+    ['публичное акционерное общество','ПАО'],
+    ['непубличное акционерное общество','АО'],
+    ['закрытое акционерное общество','ЗАО'],
+    ['открытое акционерное общество','ОАО'],
+    ['акционерное общество','АО'],
+    ['индивидуальный предприниматель','ИП'],
+    ['limited liability company','LLC']
+  ];
+  for(const [full,short] of forms){if(legalLow===full||legalLow.startsWith(full+' ')){const rest=legal.slice(full.length).trim();return rest?short+' '+rest:short}}
+  return legal;
+}
 function blankShape(value,depth=0){
   if(depth>5)return null;
   if(Array.isArray(value))return[];
@@ -64,13 +84,14 @@ function contextScopes(){
 function syncSelect(ctx){
   const select=document.getElementById('clientContextSelect');
   if(!select)return;
-  const label=ctx.legal_name+(ctx.current_external_contract_number?' · '+ctx.current_external_contract_number:'');
+  const label=companyDisplayName(ctx);
   const current=select.options.length===1&&norm(select.options[0]?.value)===ctx.contract_id&&norm(select.options[0]?.textContent)===label;
-  if(!current){const option=new Option(label,ctx.contract_id,true,true);select.replaceChildren(option)}
+  if(!current){const option=new Option(label,ctx.contract_id,true,true);option.title=ctx.legal_name+(ctx.current_external_contract_number?' · '+ctx.current_external_contract_number:'');select.replaceChildren(option)}
   if(select.value!==ctx.contract_id)select.value=ctx.contract_id;
   attr(select,'data-client-id',ctx.client_id);
   attr(select,'data-contract-id',ctx.contract_id);
   attr(select,'data-rona-context-source','server-session-authority');
+  attr(select,'title',ctx.legal_name);
 }
 function filterTenantCards(ctx){
   for(const card of document.querySelectorAll('.company-switch-card')){
@@ -96,7 +117,8 @@ function syncScope(scope,ctx){
       if(score>companyScore){company=leaf;companyScore=score}
     }
   }
-  if(company&&norm(company.textContent)!==ctx.legal_name)company.textContent=ctx.legal_name;
+  const display=companyDisplayName(ctx);
+  if(company&&norm(company.textContent)!==display)company.textContent=display;
 }
 function sync(){
   if(state.syncing||!state.single||!document.body)return;
@@ -111,7 +133,8 @@ function sync(){
     d.dataset.ronaClientTenantState=modelBound?'bound':'bound-dom-model-pending';
     d.dataset.ronaClientId=ctx.client_id;
     d.dataset.ronaContractId=ctx.contract_id;
-    if(!state.eventSent){state.eventSent=true;window.dispatchEvent(new CustomEvent('rona:client-server-context-ready',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,source:'SERVER_SESSION_AUTHORITY'}}))}
+    d.dataset.ronaClientDisplayName=companyDisplayName(ctx);
+    if(!state.eventSent){state.eventSent=true;window.dispatchEvent(new CustomEvent('rona:client-server-context-ready',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,display_name:companyDisplayName(ctx),source:'SERVER_SESSION_AUTHORITY'}}))}
   }finally{state.syncing=false}
 }
 function schedule(){if(state.queued)return;state.queued=true;requestAnimationFrame(()=>{state.queued=false;sync()})}
