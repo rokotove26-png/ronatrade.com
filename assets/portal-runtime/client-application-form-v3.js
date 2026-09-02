@@ -1,15 +1,9 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_APPLICATION_FORM_V3__)return;
-window.__RONA_CLIENT_APPLICATION_FORM_V3__='20260828-destination-price-calc-v6';
+window.__RONA_CLIENT_APPLICATION_FORM_V3__='20260902-destination-price-calc-v7-current-context-authority';
 
 const API='/portal/api';
 const COUNTRIES=Object.freeze(['Беларусь','Россия','Украина','Молдова','Азербайджан','Армения','Грузия','Казахстан','Кыргызстан','Узбекистан','Таджикистан','Туркменистан']);
-const PRODUCER_BY_PRODUCT=new Map([
-  ['АИ-92 К5','ОАО «Мозырский НПЗ»'],
-  ['АИ-95 К5','ОАО «Мозырский НПЗ»'],
-  ['ДТ сорт C К5','ОАО «Мозырский НПЗ»'],
-  ['СУГ / СПБТ','ОАО «Мозырский НПЗ»'],
-]);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 const norm=v=>String(v??'').trim().toLocaleLowerCase('ru-RU').replaceAll('ё','е').replace(/\s+/g,' ');
 const num=v=>{const n=Number(String(v??'').replace(',','.'));return Number.isFinite(n)?n:null};
@@ -31,8 +25,11 @@ function readonlyRow(label,value){return `<div class="rona-app-v3-read"><span>${
 function countrySelect(){return `<label class="rona-app-v3-field"><span>Страна назначения <b>*</b></span><select name="destination_country" required><option value="">Выберите страну</option>${COUNTRIES.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label>`}
 function combo(label,inputName,placeholder,kind){return `<label class="rona-app-v3-field rona-app-v3-combo-wrap" data-combo="${kind}"><span>${label} <b>*</b></span><div class="rona-app-v3-combo"><input name="${inputName}" type="text" autocomplete="off" placeholder="${esc(placeholder)}" required aria-autocomplete="list" aria-expanded="false"><div class="rona-app-v3-dropdown" role="listbox" hidden></div></div></label>`}
 function currentState(){return window.__RONA_CLIENT_PRICE_SYNC_STATE__||null}
+function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+function contextKey(ctx){return `${String(ctx?.client_id||'').trim()}|${String(ctx?.contract_id||'').trim()}`}
+function currentContext(){return contextAuthority()?.getCurrentContext?.()||null}
 function findItem(button){const state=currentState();if(!state)return null;const id=String(button?.dataset?.ronaPriceItem||'');return (state.prices||[]).find(x=>String(x.publication_item_id||'')===id)||null}
-function producer(item){return PRODUCER_BY_PRODUCT.get(String(item?.product||'').trim())||String(item?.producer||'')||'—'}
+function producer(item){return String(item?.producer||'').trim()||'—'}
 function reference(){const r=window.__RONA_CIS_RAIL_REFERENCE__;return r&&Array.isArray(r.stations)&&r.stations.length>10000?r:null}
 function searchRows(rows,query,limit=80){
   const q=norm(query),digits=String(query||'').replace(/\D/g,''),out=[];
@@ -69,7 +66,9 @@ function open(item,ctx){
   form.elements.destination_station.addEventListener('change',()=>{const stationCountry=String(form.elements.destination_station_country.value||'').trim();if(COUNTRIES.includes(stationCountry))form.elements.destination_country.value=stationCountry});form.elements.destination_country.addEventListener('change',()=>{const stationCountry=String(form.elements.destination_station_country.value||'').trim(),selectedCountry=String(form.elements.destination_country.value||'').trim();if(stationCountry&&selectedCountry!==stationCountry)stationCombo?.clear()});
   form.elements.destination_quote.addEventListener('change',()=>{submit.textContent=form.elements.destination_quote.checked?'Запросить расчёт':'Подать заявку'});form.elements.payment_terms.readOnly=true;
   form.addEventListener('submit',async e=>{
-    e.preventDefault();const error=form.querySelector('[data-error]');error.hidden=true;const quantity=num(form.elements.quantity.value);if(!quantity||quantity<=0){error.textContent='Укажите объём больше нуля.';error.hidden=false;return}
+    e.preventDefault();const error=form.querySelector('[data-error]');error.hidden=true;
+    if(contextKey(currentContext())!==contextKey(ctx)){error.textContent='Компания или договор были изменены. Закройте форму и откройте заявку заново.';error.hidden=false;return}
+    const quantity=num(form.elements.quantity.value);if(!quantity||quantity<=0){error.textContent='Укажите объём больше нуля.';error.hidden=false;return}
     const destinationCountry=String(form.elements.destination_country.value||'').trim();if(!COUNTRIES.includes(destinationCountry)){error.textContent='Выберите страну назначения из списка.';error.hidden=false;return}
     const stationCode=String(form.elements.destination_station_code.value||'').trim();if(!stationCode){error.textContent='Выберите станцию назначения из справочника СНГ.';error.hidden=false;form.elements.destination_station.focus();return}if(String(form.elements.destination_station_country.value||'')!==destinationCountry){error.textContent='Страна назначения и выбранная станция не совпадают.';error.hidden=false;return}
     const borderCode=String(form.elements.border_station_code.value||'').trim();if(!borderCode){error.textContent='Выберите погранпереход из справочника СНГ.';error.hidden=false;form.elements.border_station.focus();return}
@@ -82,5 +81,5 @@ function open(item,ctx){
     }catch(err){error.textContent=(calculation?'Не удалось отправить запрос на расчёт: ':'Не удалось подать заявку: ')+String(err?.message||'ошибка сервера');error.hidden=false}finally{submit.disabled=false}
   })
 }
-document.addEventListener('click',e=>{const button=e.target?.closest?.('button[data-rona-price-item]');if(!button)return;const state=currentState(),item=findItem(button),ctx=state?.context;if(!item||!ctx)return;e.preventDefault();e.stopImmediatePropagation();open(item,ctx)},true);
+document.addEventListener('click',e=>{const button=e.target?.closest?.('button[data-rona-price-item]');if(!button)return;const state=currentState(),item=findItem(button),ctx=currentContext();if(!item||!ctx||contextKey(state?.context)!==contextKey(ctx))return;e.preventDefault();e.stopImmediatePropagation();open(item,ctx)},true);
 })();
