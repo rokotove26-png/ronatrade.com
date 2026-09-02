@@ -36,10 +36,13 @@ for(const token of [
   'homeStateObserver.observe',
   'ensureDegradedOwner',
   'data-rona-client-home-degraded',
-  "first_paint_guard:'RETAINED_REUSABLE'"
+  "FIRST_PAINT_GUARD_ID='rona-client-home-first-paint-guard'",
+  'setFirstPaintGuardEnabled',
+  "guard.media=enabled?'all':'not all'",
+  "first_paint_guard:'REUSABLE_HARD_FAIL_OPEN'"
 ])if(!runtime.includes(token))throw new Error(`CLIENT_HOME_CURRENT_ONLY_CONTRACT_MISSING: ${token}`);
 if(runtime.includes("setAttribute('data-rona-home-legacy-hidden'"))throw new Error('CLIENT_HOME_CURRENT_ONLY_HIDE_ONLY_SANITATION_FORBIDDEN');
-if(runtime.includes('guard.remove()')||runtime.includes('removeFirstPaintGuard'))throw new Error('CLIENT_HOME_CURRENT_ONLY_REUSABLE_GUARD_REMOVAL_FORBIDDEN');
+if(runtime.includes('guard.remove()')||runtime.includes('removeFirstPaintGuard'))throw new Error('CLIENT_HOME_CURRENT_ONLY_REUSABLE_GUARD_MUST_NOT_BE_REMOVED');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_CURRENT_ONLY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 
 let html=await readFile(htmlPath,'utf8');
@@ -50,6 +53,12 @@ if(!html.includes('id="rona-client-home-command-center-v2"'))throw new Error('CU
 if(!html.includes('id="rona-client-home-first-paint-guard"'))throw new Error('CURRENT_CLIENT_HOME_PREPAINT_GUARD_MISSING');
 if(!html.includes('data-rona-client-home-prepaint="released"'))throw new Error('CURRENT_CLIENT_HOME_BOUNDED_GUARD_SELECTOR_MISSING');
 if(html.includes(id)||html.includes('client-home-current-only-v1.js'))throw new Error('CLIENT_HOME_CURRENT_ONLY_BRIDGE_ALREADY_PRESENT');
+
+const unsafeClockTick=`function tick(){const d=new Date();document.getElementById('clockTime').textContent=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});document.getElementById('clockDate').textContent=d.toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'});}tick();setInterval(tick,30000);`;
+const safeClockTick=`function tick(){const d=new Date(),clockTime=document.getElementById('clockTime'),clockDate=document.getElementById('clockDate');if(clockTime)clockTime.textContent=d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});if(clockDate)clockDate.textContent=d.toLocaleDateString('ru-RU',{day:'2-digit',month:'long',year:'numeric'});}tick();setInterval(tick,30000);`;
+if(html.includes(unsafeClockTick))html=html.replace(unsafeClockTick,safeClockTick);
+else if(!html.includes(safeClockTick))throw new Error('CLIENT_HOME_LEGACY_CLOCK_COMPAT_TARGET_MISSING');
+
 const close=html.toLowerCase().lastIndexOf('</body>');
 if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
 html=html.slice(0,close)+`<script id="${id}" src="${src}" defer></script>`+html.slice(close);
@@ -66,9 +75,10 @@ integrity.client_runtime.home_current_only={
   legacy_dom:'PHYSICALLY_REMOVED',
   legacy_runtime_asset:'ABSENT',
   navigation_prepaint_reset:true,
-  prepaint_rescue:{mode:'BOUNDED_FAIL_OPEN_REUSABLE_GUARD',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true,reusable_guard:true},
+  prepaint_rescue:{mode:'BOUNDED_REUSABLE_HARD_FAIL_OPEN',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true,reusable_guard:true,hard_release:'STYLE_MEDIA_NOT_ALL',rearm_on_navigation:true},
   degraded_error_owner:true,
   error_fallback:'CONTROLLED_DEGRADED_STATE',
+  legacy_clock_tick:'NULL_SAFE_COMPAT',
   reinsertion_policy:'REMOVE_BEFORE_NEXT_PAINT',
   preserves:['HOME_TITLE_FRAME','HOME_CONTEXT_FRAME','COMMAND_CENTER_V2_OWNER'],
   business_logic_changed:false,
