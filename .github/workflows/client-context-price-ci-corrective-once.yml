@@ -27,7 +27,6 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
 
-          // Client Rail: keep the approved Admin-derived visual canon intact and scope only data transport.
           {
             const path='functions/portal/client-rail-current-ui.js';
             let text=fs.readFileSync(path,'utf8');
@@ -36,7 +35,6 @@ jobs:
             const preambleNext='${CLIENT_MARKER}\nwindow.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__=\'20260903-client-contract-v1\';\nfunction clientRailOuter()';
             if(!text.includes(preamble))throw new Error('Client Rail preamble target missing');
             text=text.replace(preamble,preambleNext);
-
             const apiStart=text.indexOf('async function api(path){');
             const apiEnd=text.indexOf('\n}\n`;',apiStart);
             if(apiStart<0||apiEnd<=apiStart)throw new Error('Client Rail api function boundary missing');
@@ -49,18 +47,17 @@ jobs:
             const stateNext="window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),";
             if(!api.includes(state))throw new Error('Client Rail authority state target missing');
             api=api.replace(state,stateNext);
-
-            const helpers=String.raw`function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}
-function clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}
-function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;if(typeof sync==='function')setTimeout(function(){sync()},0)})}
-async function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');clientRailBindContext();return ctx}
-function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}
-`;
+            const helpers=[
+              "function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}",
+              "function clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}",
+              "function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;if(typeof sync==='function')setTimeout(function(){sync()},0)})}",
+              "async function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');clientRailBindContext();return ctx}",
+              "function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}"
+            ].join('\n')+'\n';
             text=text.slice(0,apiStart)+helpers+api+text.slice(apiEnd+2);
             fs.writeFileSync(path,text);
           }
 
-          // Build manifest: make current-context source and scope explicit without changing visual metadata.
           {
             const path='scripts/attach-client-rail-production-v1.mjs';
             let text=fs.readFileSync(path,'utf8');
@@ -75,7 +72,6 @@ function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clien
             fs.writeFileSync(path,text);
           }
 
-          // Rail owner QA: assert context authority and server-scoped transport while preserving visual canon checks.
           {
             const path='.github/workflows/rail-v5-owner-qa.yml';
             let text=fs.readFileSync(path,'utf8');
@@ -94,7 +90,6 @@ function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clien
             fs.writeFileSync(path,text);
           }
 
-          // First-login QA: replace the stale 500-character regex with semantic route-block assertions.
           {
             const path='.github/workflows/client-new-account-first-login-qa.yml';
             const lines=fs.readFileSync(path,'utf8').split('\n');
