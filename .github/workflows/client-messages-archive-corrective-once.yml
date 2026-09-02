@@ -1,0 +1,204 @@
+name: Client Messages Archive corrective once
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/client-context-universal-modules-v1]
+    paths: [.github/workflows/client-messages-archive-corrective-once.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  corrective:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/client-context-universal-modules-v1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Implement context-scoped Messages and Archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > supabase/functions/rona-portal-api/client-communications.ts <<'EOF'
+          import { sql, type Ctx, uuid } from "./shared.ts";
+
+          function textValue(value:unknown,max:number):string|null{if(value===null||value===undefined)return null;if(typeof value!=="string")return null;const out=value.trim();return out&&out.length<=max?out:null}
+          async function contextKeys(c:Ctx,clientId:string,contractId:string){const rows=await sql`select cl.id as client_key,ct.id as contract_key,ct.contract_status::text,ct.lifecycle_state::text,ct.effective_from,ct.effective_to from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;return rows.length===1?rows[0]:null}
+
+          export async function clientMessages(c:Ctx,clientId:string,contractId:string){
+            const ctx=await contextKeys(c,clientId,contractId);if(!ctx)return null;
+            return await sql`select e.event_id,e.event_type,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,e.client_response_text,e.client_response_published_at,e.created_at,e.updated_at,e.lifecycle_state::text from portal_private.portal_reverse_events e left join portal_private.deals d on d.id=e.deal_key where e.client_key=${ctx.client_key}::uuid and e.contract_key=${ctx.contract_key}::uuid and e.actor_role='CLIENT'::portal_private.portal_role_enum and e.event_type='CLIENT_MESSAGE_SUBMIT' and e.lifecycle_state in ('ACTIVE'::portal_private.lifecycle_state_enum,'CLOSED'::portal_private.lifecycle_state_enum) and (e.deal_key is null or portal_private.client_user_has_deal_access(${c.user}::uuid,e.deal_key,now())) order by e.created_at desc`;
+          }
+
+          export async function submitClientMessage(c:Ctx,req:Request){
+            let body:any;try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
+            const clientId=textValue(body?.clientId??body?.client_id,80),contractId=textValue(body?.contractId??body?.contract_id,120),dealId=textValue(body?.dealId??body?.deal_id,80),message=textValue(body?.message,8000),subject=textValue(body?.subject,240),idempotencyKey=textValue(req.headers.get("x-idempotency-key")??body?.idempotencyKey??body?.idempotency_key,160);
+            if(!clientId||!contractId)return[400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"}] as const;
+            if(!message)return[400,{ok:false,code:"MESSAGE_REQUIRED"}] as const;
+            if(!idempotencyKey)return[400,{ok:false,code:"IDEMPOTENCY_REQUIRED"}] as const;
+            const ctx=await contextKeys(c,clientId,contractId);if(!ctx)return[404,{ok:false,code:"CONTEXT_NOT_FOUND"}] as const;
+            if(dealId){const deal=await sql`select d.id from portal_private.deals d where d.deal_id=${dealId} and d.client_key=${ctx.client_key}::uuid and d.contract_key=${ctx.contract_key}::uuid and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) limit 1`;if(deal.length!==1)return[404,{ok:false,code:"DEAL_NOT_FOUND"}] as const}
+            const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id"),requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID(),correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
+            try{const rows=await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;if(rows.length!==1)return[500,{ok:false,code:"MESSAGE_NOT_CREATED",request_id:requestId}] as const;const row=rows[0];return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),processing_state:String(row.processing_state),acknowledgement_state:String(row.acknowledgement_state),created_at:row.created_at},request_id:requestId}] as const}catch(error){const raw=String((error as any)?.message||error||"");return[/denied|not found|required|unsupported|idempotency/i.test(raw)?403:500,{ok:false,code:/denied|not found|required|unsupported|idempotency/i.test(raw)?"MESSAGE_SCOPE_DENIED":"MESSAGE_SERVER_ERROR",request_id:requestId}] as const}
+          }
+
+          export async function adminPublishClientResponse(c:Ctx,req:Request,eventId:string){
+            let body:any;try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
+            const response=textValue(body?.response??body?.message,8000),sourceTaskId=textValue(body?.source_task_id??body?.sourceTaskId,160);if(!response)return[400,{ok:false,code:"RESPONSE_REQUIRED"}] as const;if(!sourceTaskId)return[400,{ok:false,code:"SOURCE_TASK_REQUIRED"}] as const;
+            const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id"),requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID(),correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
+            try{const rows=await sql`select * from portal_private.server_admin_publish_client_response(${c.user}::uuid,${eventId},${response},${sourceTaskId},${requestId}::uuid,${correlationId}::uuid)`;if(rows.length!==1)return[404,{ok:false,code:"CLIENT_MESSAGE_NOT_FOUND",request_id:requestId}] as const;return[200,{ok:true,response:rows[0],request_id:requestId}] as const}catch(error){const raw=String((error as any)?.message||error||"");const denied=/admin role|required|not client message|not found|staff response missing|already published/i.test(raw);return[denied?403:500,{ok:false,code:denied?"CLIENT_RESPONSE_PUBLISH_DENIED":"CLIENT_RESPONSE_SERVER_ERROR",request_id:requestId}] as const}
+          }
+
+          export async function clientArchive(c:Ctx,clientId:string,contractId:string){
+            const ctx=await contextKeys(c,clientId,contractId);if(!ctx)return null;
+            const contract=(String(ctx.lifecycle_state)!=='ACTIVE'||(ctx.effective_to&&new Date(ctx.effective_to).getTime()<Date.now()))?{client_id:clientId,contract_id:contractId,contract_status:String(ctx.contract_status),lifecycle_state:String(ctx.lifecycle_state),effective_from:ctx.effective_from,effective_to:ctx.effective_to}:null;
+            const deals=await sql`select d.deal_id,d.business_status,d.finance_status::text,d.accounting_closure_status::text,d.opened_at,d.closed_at,d.updated_at,d.lifecycle_state::text from portal_private.deals d where d.client_key=${ctx.client_key}::uuid and d.contract_key=${ctx.contract_key}::uuid and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) and (d.lifecycle_state::text<>'ACTIVE' or d.business_status::text in ('CANCELLED','CLOSED','COMPLETED','DONE','RESOURCE_DENIED')) order by coalesce(d.closed_at,d.updated_at) desc`;
+            const documents=await sql`select doc.document_id,doc.document_type,doc.authoritative_filename,d.deal_id,doc.updated_at,doc.lifecycle_state::text from portal_private.documents doc left join portal_private.deals d on d.id=doc.deal_key where doc.client_key=${ctx.client_key}::uuid and doc.contract_key=${ctx.contract_key}::uuid and portal_private.client_user_has_document_access(${c.user}::uuid,doc.id,now()) and (doc.lifecycle_state::text<>'ACTIVE' or (d.id is not null and (d.lifecycle_state::text<>'ACTIVE' or d.business_status::text in ('CANCELLED','CLOSED','COMPLETED','DONE','RESOURCE_DENIED')))) order by doc.updated_at desc`;
+            const payments=await sql`select distinct p.payment_id,p.payment_at,p.amount,p.currency,d.deal_id,p.finance_status::text,p.accounting_closure_status::text,p.updated_at from portal_private.payment_allocations pa join portal_private.payments p on p.id=pa.payment_key join portal_private.deals d on d.id=pa.deal_key where pa.client_key=${ctx.client_key}::uuid and pa.contract_key=${ctx.contract_key}::uuid and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now()) and p.bank_fact_status::text='BANK_CONFIRMED' and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum) and pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum) and (d.lifecycle_state::text<>'ACTIVE' or d.business_status::text in ('CANCELLED','CLOSED','COMPLETED','DONE','RESOURCE_DENIED')) order by p.updated_at desc`;
+            const messages=await sql`select e.event_id,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,e.client_response_text,e.client_response_published_at,e.created_at,e.updated_at from portal_private.portal_reverse_events e left join portal_private.deals d on d.id=e.deal_key where e.client_key=${ctx.client_key}::uuid and e.contract_key=${ctx.contract_key}::uuid and e.actor_role='CLIENT'::portal_private.portal_role_enum and e.event_type='CLIENT_MESSAGE_SUBMIT' and e.lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum and (e.deal_key is null or portal_private.client_user_has_deal_access(${c.user}::uuid,e.deal_key,now())) order by e.updated_at desc`;
+            return{projection_contract:'CLIENT_CONTEXT_ARCHIVE_V1',contract,deals,documents,payments,messages};
+          }
+          EOF
+
+          cat > supabase/migrations/20260903001500_client_message_admin_response_v1.sql <<'EOF'
+          begin;
+
+          alter table portal_private.portal_reverse_events add column if not exists client_response_text text;
+          alter table portal_private.portal_reverse_events add column if not exists client_response_published_at timestamptz;
+          alter table portal_private.portal_reverse_events add column if not exists client_response_published_by uuid;
+          alter table portal_private.portal_reverse_events add column if not exists client_response_source_task_key uuid;
+
+          do $block$
+          begin
+            if not exists(select 1 from pg_constraint where conname='portal_reverse_events_client_response_published_by_fkey' and conrelid='portal_private.portal_reverse_events'::regclass) then
+              alter table portal_private.portal_reverse_events add constraint portal_reverse_events_client_response_published_by_fkey foreign key(client_response_published_by) references portal_private.portal_users(id) on delete restrict;
+            end if;
+            if not exists(select 1 from pg_constraint where conname='portal_reverse_events_client_response_source_task_key_fkey' and conrelid='portal_private.portal_reverse_events'::regclass) then
+              alter table portal_private.portal_reverse_events add constraint portal_reverse_events_client_response_source_task_key_fkey foreign key(client_response_source_task_key) references portal_private.staff_tasks(id) on delete restrict;
+            end if;
+            if not exists(select 1 from pg_constraint where conname='portal_reverse_events_client_response_state_chk' and conrelid='portal_private.portal_reverse_events'::regclass) then
+              alter table portal_private.portal_reverse_events add constraint portal_reverse_events_client_response_state_chk check ((client_response_text is null and client_response_published_at is null and client_response_published_by is null and client_response_source_task_key is null) or (client_response_text is not null and btrim(client_response_text)<>'' and char_length(client_response_text)<=8000 and client_response_published_at is not null and client_response_published_by is not null and client_response_source_task_key is not null));
+            end if;
+          end
+          $block$;
+
+          create or replace function portal_private.server_admin_publish_client_response(
+            p_actor uuid,
+            p_event_id text,
+            p_response_text text,
+            p_source_task_id text,
+            p_request_id uuid default null,
+            p_correlation_id uuid default null
+          )
+          returns table(event_id text,response_published_at timestamptz,response_source_task_id text,reused boolean)
+          language plpgsql
+          security definer
+          set search_path to 'pg_catalog','portal_private'
+          as $function$
+          declare
+            ev portal_private.portal_reverse_events%rowtype;
+            task portal_private.staff_tasks%rowtype;
+          begin
+            if p_actor is null or coalesce(btrim(p_event_id),'')='' or coalesce(btrim(p_response_text),'')='' or char_length(p_response_text)>8000 or coalesce(btrim(p_source_task_id),'')='' then raise exception 'admin client response required fields missing'; end if;
+            if not exists(select 1 from portal_private.portal_user_roles r where r.user_id=p_actor and r.role='ADMIN'::portal_private.portal_role_enum and r.status='ACTIVE' and r.revoked_at is null) then raise exception 'admin role required'; end if;
+            select e.* into ev from portal_private.portal_reverse_events e where e.event_id=p_event_id and e.lifecycle_state='ACTIVE' for update;
+            if not found then raise exception 'client message not found'; end if;
+            if ev.actor_role<>'CLIENT'::portal_private.portal_role_enum or ev.event_type<>'CLIENT_MESSAGE_SUBMIT' then raise exception 'event is not client message'; end if;
+            select t.* into task from portal_private.staff_tasks t where t.task_id=p_source_task_id and t.source_reverse_event_key=ev.id and t.qa_only=false limit 1;
+            if not found then raise exception 'source staff task not found'; end if;
+            if not exists(select 1 from portal_private.staff_task_messages m where m.task_key=task.id and m.internal_only=true and btrim(m.message_text)<>'') then raise exception 'staff response missing'; end if;
+            if ev.client_response_published_at is not null then
+              if ev.client_response_text=p_response_text and ev.client_response_source_task_key=task.id then return query select ev.event_id,ev.client_response_published_at,task.task_id,true; return; end if;
+              raise exception 'client response already published';
+            end if;
+            update portal_private.portal_reverse_events set client_response_text=p_response_text,client_response_published_at=now(),client_response_published_by=p_actor,client_response_source_task_key=task.id,processing_state='APPLIED',acknowledgement_state='ACKNOWLEDGED',acknowledged_at=coalesce(acknowledged_at,now()),acknowledged_by=coalesce(acknowledged_by,p_actor),updated_at=now() where id=ev.id returning portal_reverse_events.event_id,portal_reverse_events.client_response_published_at into event_id,response_published_at;
+            response_source_task_id:=task.task_id;reused:=false;
+            insert into portal_private.audit_events(actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata,severity,result) values(p_actor,'ADMIN','ADMIN_PUBLISH_CLIENT_RESPONSE','PORTAL_REVERSE_EVENT',ev.event_id,p_request_id,p_correlation_id,jsonb_build_object('event_type',ev.event_type,'task_id',task.task_id,'client_key',ev.client_key,'contract_key',ev.contract_key,'deal_key',ev.deal_key),'INFO','SUCCESS');
+            return next;
+          end
+          $function$;
+
+          revoke all on function portal_private.server_admin_publish_client_response(uuid,text,text,text,uuid,uuid) from public;
+          grant execute on function portal_private.server_admin_publish_client_response(uuid,text,text,text,uuid,uuid) to service_role;
+
+          commit;
+          EOF
+
+          cat > scripts/qa-client-messages-archive-v1.mjs <<'EOF'
+          import fs from 'node:fs';
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const api=fs.readFileSync('supabase/functions/rona-portal-api/index.ts','utf8');
+          const module=fs.readFileSync('supabase/functions/rona-portal-api/client-communications.ts','utf8');
+          const admin=fs.readFileSync('supabase/functions/rona-portal-api/admin.ts','utf8');
+          const migration=fs.readFileSync('supabase/migrations/20260903001500_client_message_admin_response_v1.sql','utf8');
+          for(const token of ['/v1/client/messages','/v1/client/archive','CLIENT_CONTRACT_CONTEXT_REQUIRED','clientMessages','submitClientMessage','clientArchive'])assert(api.includes(token),`client communication route missing ${token}`);
+          assert(api.includes('/v1/admin\\/client-intake\\/([^/]+)\\/respond'),'Admin response route missing');
+          assert(api.includes('adminPublishClientResponse'),'Admin response authority missing');
+          for(const token of ['client_user_has_contract_access','client_user_has_deal_access','client_user_has_document_access','CLIENT_MESSAGE_SUBMIT','CLIENT_CONTEXT_ARCHIVE_V1','server_submit_reverse_event'])assert(module.includes(token),`messages/archive server scope missing ${token}`);
+          assert(!module.includes('staff_task_messages'),'Client module must not read internal staff messaging');
+          assert(!module.includes('create table')&&!module.includes('client_messages'),'Archive/messages projection must not create parallel business tables');
+          for(const token of ['alter table portal_private.portal_reverse_events','server_admin_publish_client_response','portal_user_roles','staff_task_messages','internal_only=true','source_reverse_event_key=ev.id','ADMIN_PUBLISH_CLIENT_RESPONSE'])assert(migration.includes(token),`Admin-mediated response migration missing ${token}`);
+          assert(migration.includes('grant execute on function portal_private.server_admin_publish_client_response')&&migration.includes('to service_role'),'Response function privilege contract missing');
+          assert(admin.includes('staff_messages')&&admin.includes('client_response_text')&&admin.includes('client_response_published_at'),'Admin intake response projection missing');
+          assert(!api.includes('/v1/staff/client-intake')&&!api.includes('/v1/staff/client-messages'),'Direct staff-to-client route forbidden');
+          for(const pattern of [/RONA-C\d{3,}/,/RONA-C\d{3,}-CTR-/,/DEAL-2026-\d{3,}/])assert(!pattern.test(module),`hardcoded business identifier ${pattern}`);
+          console.log('CLIENT_MESSAGES_ARCHIVE_QA=PASS context=client+contract client-to-admin=true admin-to-client=true staff-direct=false archive=projection-only');
+          EOF
+
+          node <<'NODE'
+          const fs=require('fs');
+          const indexPath='supabase/functions/rona-portal-api/index.ts';
+          let api=fs.readFileSync(indexPath,'utf8');
+          const importAnchor='import { clientClaims } from "./client-claims.ts";';
+          const commImport='import { clientMessages, submitClientMessage, adminPublishClientResponse, clientArchive } from "./client-communications.ts";';
+          if(!api.includes(commImport)){if(!api.includes(importAnchor))throw new Error('CLIENT_CLAIMS_IMPORT_ANCHOR_MISSING');api=api.replace(importAnchor,importAnchor+'\n'+commImport)}
+          if(!api.includes('route==="/v1/client/messages"')){
+            const priceAnchor='if(route==="/v1/client/prices"&&req.method==="GET"){';
+            if(!api.includes(priceAnchor))throw new Error('CLIENT_PRICE_ROUTE_ANCHOR_MISSING');
+            const routes='if(route==="/v1/client/messages"&&req.method==="GET"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const clientId=url.searchParams.get("clientId"),contractId=url.searchParams.get("contractId");if(!clientId||!contractId)return send(origin,400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"});const messages=await clientMessages(c,clientId,contractId);return messages===null?send(origin,404,{ok:false,code:"CONTEXT_NOT_FOUND"}):send(origin,200,{ok:true,projection_contract:"CLIENT_ADMIN_MEDIATED_MESSAGES_V1",messages})}if(route==="/v1/client/messages"&&req.method==="POST"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const[status,messageBody]=await submitClientMessage(c,req);return send(origin,status,messageBody)}if(route==="/v1/client/archive"&&req.method==="GET"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const clientId=url.searchParams.get("clientId"),contractId=url.searchParams.get("contractId");if(!clientId||!contractId)return send(origin,400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"});const archive=await clientArchive(c,clientId,contractId);return archive===null?send(origin,404,{ok:false,code:"CONTEXT_NOT_FOUND"}):send(origin,200,{ok:true,archive})}';
+            api=api.replace(priceAnchor,routes+priceAnchor);
+          }
+          if(!api.includes('adminPublishClientResponse(c,req,eventId)')){
+            const anchor='if(route==="/v1/client/shipments"&&req.method==="GET"){';
+            if(!api.includes(anchor))throw new Error('CLIENT_SHIPMENTS_ROUTE_ANCHOR_MISSING');
+            const route='const adminClientResponseMatch=route.match(/^\\/v1\\/admin\\/client-intake\\/([^/]+)\\/respond$/);if(adminClientResponseMatch&&req.method==="POST"){if(!c.roles.includes("ADMIN"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const eventId=safePathValue(adminClientResponseMatch[1]);if(!eventId)return send(origin,404,{ok:false,code:"CLIENT_MESSAGE_NOT_FOUND"});const[status,responseBody]=await adminPublishClientResponse(c,req,eventId);return send(origin,status,responseBody)}';
+            api=api.replace(anchor,route+anchor);
+          }
+          fs.writeFileSync(indexPath,api);
+
+          const adminPath='supabase/functions/rona-portal-api/admin.ts';
+          let admin=fs.readFileSync(adminPath,'utf8');
+          if(!admin.includes('staff_messages')){
+            const anchor='      t.assigned_functional_role::text as assigned_functional_role\n';
+            if(!admin.includes(anchor))throw new Error('ADMIN_INTAKE_SELECT_ANCHOR_MISSING');
+            const replacement='      t.assigned_functional_role::text as assigned_functional_role,\n      e.client_response_text,\n      e.client_response_published_at,\n      coalesce((select jsonb_agg(jsonb_build_object(\'message_id\',m.id::text,\'author_functional_role\',m.author_functional_role::text,\'message_text\',m.message_text,\'created_at\',m.created_at) order by m.created_at) from portal_private.staff_task_messages m where m.task_key=t.id and m.internal_only=true),\'[]\'::jsonb) as staff_messages\n';
+            admin=admin.replace(anchor,replacement);
+            fs.writeFileSync(adminPath,admin);
+          }
+
+          const pkgPath='package.json';
+          const pkg=JSON.parse(fs.readFileSync(pkgPath,'utf8'));
+          if(!pkg.scripts.build.includes('qa-client-messages-archive-v1.mjs'))pkg.scripts.build=pkg.scripts.build.replace('node scripts/qa-client-claims-context-scope-v1.mjs','node scripts/qa-client-claims-context-scope-v1.mjs && node scripts/qa-client-messages-archive-v1.mjs');
+          fs.writeFileSync(pkgPath,JSON.stringify(pkg,null,2)+'\n');
+          NODE
+
+          node scripts/qa-client-messages-archive-v1.mjs
+          npm run build
+          git diff --check
+      - name: Commit validated Messages Archive delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "RONA LK Architect"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/functions/rona-portal-api/client-communications.ts supabase/functions/rona-portal-api/index.ts supabase/functions/rona-portal-api/admin.ts supabase/migrations/20260903001500_client_message_admin_response_v1.sql scripts/qa-client-messages-archive-v1.mjs package.json
+          git diff --cached --check
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: add Admin-mediated messages and context archive"
+          git push origin HEAD:fix/client-context-universal-modules-v1
