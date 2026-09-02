@@ -23,7 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Decode current canonical client and report boot/shell invariants
+
+      - name: Decode canonical Client and print shell CSS cascade
         shell: bash
         run: |
           set -euo pipefail
@@ -34,55 +35,26 @@ jobs:
           const encoded=(await Promise.all(manifest.chunks.map(n=>readFile(`portal-src/current/client/${n}`,'utf8')))).join('');
           const html=brotliDecompressSync(Buffer.from(encoded,'base64')).toString('utf8');
           const lines=html.replace(/></g,'>\n<').split('\n');
-          const patterns=[
-            /<body[^>]*>/i,/<html[^>]*>/i,/display\s*:\s*none/ig,/visibility\s*:\s*hidden/ig,/opacity\s*:\s*0(?:\D|$)/ig,
-            /localStorage/ig,/sessionStorage/ig,/rona[^\s"'<>]{0,40}(?:boot|load|ready|auth|shell|client)/ig,
-            /\/portal\/(?:api|auth)[^\s"'<>)]*/ig,/Promise\.all(?:Settled)?/g
-          ];
-          console.log('CLIENT_CANONICAL_DIAGNOSTIC_BEGIN');
-          for(const p of patterns){
-            console.log(`\n### ${p}`);
-            let count=0;
-            for(let i=0;i<lines.length;i++){
-              p.lastIndex=0;
-              if(p.test(lines[i])){
-                console.log(`${i+1}: ${lines[i].slice(0,900)}`);
-                if(++count>=40){console.log('...TRUNCATED_MATCHES...');break}
-              }
-            }
-            console.log(`MATCH_LINES=${count}`);
-          }
-          console.log('\n### ROOT_HIDE_CONTEXT');
-          let rootHideMatches=0;
-          for(let i=0;i<lines.length-2;i++){
-            if(!/display\s*:\s*none\s*!important/i.test(lines[i]))continue;
-            if(!/visibility\s*:\s*hidden\s*!important/i.test(lines[i+1]||''))continue;
-            if(!/opacity\s*:\s*0\s*!important/i.test(lines[i+2]||''))continue;
-            rootHideMatches++;
-            const a=Math.max(0,i-12),b=Math.min(lines.length,i+9);
-            console.log(`--- HIDE_CHAIN ${a+1}-${b} ---`);
-            for(let j=a;j<b;j++)console.log(`${j+1}: ${lines[j].slice(0,1800)}`);
-          }
-          console.log(`ROOT_HIDE_MATCHES=${rootHideMatches}`);
-          const focus=[/localStorage/i,/sessionStorage/i,/selected/i,/company/i,/clientId/i,/contractId/i,/showPage/i,/page-home/i,/display\s*=\s*['"]none/i,/style\.display/i,/classList\.(?:add|remove)/i];
-          console.log('\n### FIRST_LOGIN_STATE_CONTEXT');
+          const hit=/(?:\.app\b|\.sidebar\b|\.topbar\b|main\.main|\.page\b|#page-home|rona-owner-paint|opacity\s*:\s*0|visibility\s*:\s*hidden|display\s*:\s*none)/i;
+          console.log('CLIENT_SHELL_CSS_CONTEXT_BEGIN');
           const seen=new Set();
           for(let i=0;i<lines.length;i++){
-            if(!focus.some(p=>p.test(lines[i])))continue;
-            const a=Math.max(0,i-3),b=Math.min(lines.length,i+4),key=`${a}:${b}`;
-            if(seen.has(key))continue;seen.add(key);
+            if(!hit.test(lines[i]))continue;
+            const a=Math.max(0,i-4),b=Math.min(lines.length,i+5),key=`${a}:${b}`;
+            if(seen.has(key))continue;
+            seen.add(key);
             console.log(`--- ${a+1}-${b} ---`);
-            for(let j=a;j<b;j++)console.log(`${j+1}: ${lines[j].slice(0,1400)}`);
-            if(seen.size>=80){console.log('...FIRST_LOGIN_CONTEXT_TRUNCATED...');break}
+            for(let j=a;j<b;j++)console.log(`${j+1}: ${lines[j].slice(0,2200)}`);
           }
-          const scripts=[...html.matchAll(/<script\b[^>]*?(?:src=["']([^"']+)["'])?[^>]*>/gi)].map(m=>m[1]||'[inline]');
-          console.log('\n### SCRIPTS'); scripts.forEach((s,i)=>console.log(`${i+1}: ${s}`));
-          const styles=[...html.matchAll(/<(?:main|section|div)\b[^>]*(?:id|class)=["'][^"']*(?:boot|load|shell|auth|portal|app)[^"']*["'][^>]*>/gi)].slice(0,100).map(m=>m[0]);
-          console.log('\n### BOOT_SHELL_NODES'); styles.forEach((s,i)=>console.log(`${i+1}: ${s.slice(0,900)}`));
-          console.log('CLIENT_CANONICAL_DIAGNOSTIC_END');
+          console.log('CLIENT_SHELL_CSS_CONTEXT_END');
+          console.log('CLIENT_HOME_TAGS_BEGIN');
+          for(let i=0;i<lines.length;i++){
+            if(/<(?:html|body|main|aside|header|section)\b/i.test(lines[i])&&/(?:class=|id=)/i.test(lines[i])&&/(?:app|sidebar|topbar|main|page-home|current-client-main|rona-owner)/i.test(lines[i]))console.log(`${i+1}: ${lines[i].slice(0,2200)}`);
+          }
+          console.log('CLIENT_HOME_TAGS_END');
           NODE
 
-      - name: Build and report emitted client attachment order
+      - name: Build and print final emitted shell selectors
         shell: bash
         run: |
           set -euo pipefail
@@ -90,11 +62,19 @@ jobs:
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const html=await readFile('dist/portal/client.html','utf8');
-          console.log('EMITTED_SCRIPT_ORDER_BEGIN');
-          for(const [i,m] of [...html.matchAll(/<script\b[^>]*?(?:id=["']([^"']+)["'])?[^>]*?(?:src=["']([^"']+)["'])?[^>]*>/gi)].entries())console.log(`${i+1}: id=${m[1]||'-'} src=${m[2]||'[inline]'}`);
-          console.log('EMITTED_SCRIPT_ORDER_END');
-          const guard=[...html.matchAll(/<style\b[^>]*id=["']([^"']*(?:paint|guard|preload)[^"']*)["'][^>]*>([\s\S]*?)<\/style>/gi)];
-          console.log('GUARD_STYLES_BEGIN');
-          for(const m of guard)console.log(`STYLE ${m[1]} :: ${m[2].slice(0,5000)}`);
-          console.log('GUARD_STYLES_END');
+          const styles=[...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map(m=>m[1]);
+          const rules=[];
+          for(const css of styles){
+            for(const raw of css.split('}')){
+              const rule=raw+'}';
+              if(/(?:\.app\b|\.sidebar\b|\.topbar\b|main\.main|\.page\b|#page-home|rona-owner-paint|data-rona-client-home)/i.test(rule)&&/(?:display|visibility|opacity|position|z-index|height|min-height|grid-template)/i.test(rule))rules.push(rule.trim());
+            }
+          }
+          console.log('EMITTED_SHELL_RULES_BEGIN');
+          rules.forEach((r,i)=>console.log(`${i+1}: ${r.slice(0,3500)}`));
+          console.log('EMITTED_SHELL_RULES_END');
+          const tags=[...html.matchAll(/<(?:html|body|main|aside|header|section)\b[^>]*>/gi)].map(m=>m[0]).filter(x=>/(?:app|sidebar|topbar|main|page-home|current-client-main|rona-owner)/i.test(x));
+          console.log('EMITTED_SHELL_TAGS_BEGIN');
+          tags.forEach((t,i)=>console.log(`${i+1}: ${t.slice(0,2200)}`));
+          console.log('EMITTED_SHELL_TAGS_END');
           NODE
