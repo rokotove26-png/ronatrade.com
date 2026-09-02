@@ -40,15 +40,20 @@ jobs:
           npm run build
           node scripts/qa-client-contract-authoritative-projection.mjs
           node scripts/qa-client-price-authority-v1.mjs
+          npm run ci:client:universal-context
+          npm run ci:client:admin-communication-gate
+          npm run ci:client:claims-context-scope
           git diff --check
-      - name: Commit validated corrective delta
+      - name: Commit validated source delta
         run: |
           set -euo pipefail
-          rm .github/workflows/client-context-price-ci-corrective-once.yml
-          rm scripts/apply-client-context-price-ci-corrective-once.mjs
           git config user.name "RONA LK Architect"
           git config user.email "actions@users.noreply.github.com"
-          git add -A
+          git add package.json scripts/qa-client-contract-authoritative-projection.mjs scripts/qa-client-price-authority-v1.mjs supabase/functions/rona-portal-api/phase5d.ts
           git diff --cached --check
+          if git diff --cached --quiet; then
+            echo "No source delta to commit"
+            exit 0
+          fi
           git commit -m "fix: align current-context CI and server price authority"
           git push origin HEAD:fix/client-context-universal-modules-v1
