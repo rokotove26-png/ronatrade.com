@@ -44,9 +44,9 @@ jobs:
           node scripts/qa-client-market-intelligence-v1.mjs
           node <<'NODE'
           const fs=require('fs');
-          const analytics=fs.readFileSync('assets/portal-runtime/client-market-intelligence-v1.js','utf8');
-          const news=fs.readFileSync('assets/portal-runtime/client-market-news-admin-parity-v1.js','utf8');
-          const preload=fs.readFileSync('assets/portal-runtime/client-background-section-preload-v1.js','utf8');
+          const analytics=fs.readFileSync('dist/assets/portal-runtime/client-market-intelligence-v1.js','utf8');
+          const news=fs.readFileSync('dist/assets/portal-runtime/client-market-news-admin-parity-v1.js','utf8');
+          const preload=fs.readFileSync('dist/assets/portal-runtime/client-background-section-preload-v1.js','utf8');
           const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           for(const token of ["load('open')",'REFRESH_MS=3600000','/v1/client/market-intelligence','rona:client:context-changed'])assert(analytics.includes(token),`analytics published-content contract missing ${token}`);
           for(const token of ['AUTO_REFRESH_MS=3600000','setInterval(refreshHourly,AUTO_REFRESH_MS)','/v1/client/market-intelligence','rona:client:context-changed'])assert(news.includes(token),`news published-content contract missing ${token}`);
