@@ -13,9 +13,9 @@
   "technical_baseline_refresh": {
     "authorized_at": "2026-09-03",
     "authorized_source": "OWNER_IN_CHAT",
-    "scope": "CURRENT_CONTEXT_AND_UNIVERSAL_CLIENT_ARCHITECTURE_TECHNICAL_ONLY",
+    "scope": "CURRENT_CONTEXT_UNIVERSAL_ADMIN_MEDIATED_MESSAGES_ARCHIVE_TECHNICAL_ONLY",
     "no_visual_change": true,
-    "authorization_head": "13bc711aca695b2d8db6b6b008f86aa9402b9c04"
+    "authorization_head": "5ca11cd8d1c5d3b18eaee551545c0a46c3b372e3"
   },
   "protected_files": {
     "portal-src/current/client/manifest.json": "7b0d5dd080a0c361528a67d7528ed964b8252727",
@@ -51,6 +51,7 @@
     "assets/portal-runtime/client-home-night-panel-v4.js": "5cc60f7460eacb0c879db5d6d1acb6923947e2b7",
     "assets/portal-runtime/client-home-tablet-visual-v3.js": "5c026942beef1d7ed457d3c1d571824b5a4ba800",
     "assets/portal-runtime/client-logout-visual-v1.js": "2dc6eceae13334ce9c3fc020afc06bd95a8decb4",
+    "assets/portal-runtime/client-messages-archive-v1.js": "ff7c84ac067e70fa8d7a9b0e43c1a4fab7c71f71",
     "assets/portal-runtime/client-payments-authoritative-v1.js": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
     "assets/portal-runtime/client-payments-canonical-layout-v1.js": "4f5fc870355edd947c20b8d377cf0f3a5df2003c",
     "assets/portal-runtime/client-payments-sanitation-v1.js": "d1337457b629af38e4f4ecd6dca273be87864661",
@@ -71,6 +72,7 @@
     "scripts/attach-client-home-current-only-v1.mjs": "d7e18449fe323905b54b697f53f5af685b7582c3",
     "scripts/attach-client-home-night-panel-v4.mjs": "ed9825aa40ed7578269f96404d8cd54003349f41",
     "scripts/attach-client-logout-visual-v1.mjs": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
+    "scripts/attach-client-messages-archive-v1.mjs": "36886e3bbcc41c71583f4ad0d5b037754a0cba47",
     "scripts/attach-client-rail-production-v1.mjs": "6e2cfbd44bb9136025279a031894a7290a29d775",
     "scripts/attach-client-section-first-paint-v1.mjs": "06ce20b36751616c2a2eb6896112b6ea9b7dd456"
   }
