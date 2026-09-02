@@ -1,3 +1,4 @@
+# Owner-approved functional recovery; no visual design change.
 name: Client Home stuck-shell regression QA
 
 on:
