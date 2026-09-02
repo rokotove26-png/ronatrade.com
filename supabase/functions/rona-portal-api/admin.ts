@@ -57,7 +57,10 @@ async function adminClientIntake(){
       e.updated_at,
       t.task_id,
       t.status::text as staff_task_status,
-      t.assigned_functional_role::text as assigned_functional_role
+      t.assigned_functional_role::text as assigned_functional_role,
+      e.client_response_text,
+      e.client_response_published_at,
+      coalesce((select jsonb_agg(jsonb_build_object('message_id',m.id::text,'author_functional_role',m.author_functional_role::text,'message_text',m.message_text,'created_at',m.created_at) order by m.created_at) from portal_private.staff_task_messages m where m.task_key=t.id and m.internal_only=true),'[]'::jsonb) as staff_messages
     from portal_private.portal_reverse_events e
     left join portal_private.clients cl on cl.id=e.client_key
     left join portal_private.contracts ct on ct.id=e.contract_key
