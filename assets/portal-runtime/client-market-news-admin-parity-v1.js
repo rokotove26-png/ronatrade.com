@@ -11,7 +11,7 @@ const STYLE_ID='rona-market-news-current-style';
 const API_PATH='/v1/client/market-intelligence';
 const API='/portal/api'+API_PATH;
 const state={rows:[],loading:false,loaded:false,error:'',date:'',source:'ALL',search:'',updatedAt:'',fingerprint:''};
-const AUTO_REFRESH_MS=60000;
+const AUTO_REFRESH_MS=3600000;
 let autoRefreshTimer=null;
 
 const q=(s,r=document)=>r.querySelector(s);
@@ -202,7 +202,7 @@ function render(){
   );
   const status=el('div',{class:'mn-statusline'},
     el('span',{},el('strong',{text:String(rows.length)}),document.createTextNode(' материалов · '+String(sources.length)+' источников')),
-    el('span',{text:state.updatedAt?'Обновлено: '+new Date(state.updatedAt).toLocaleString('ru-RU'):'Актуализация при открытии раздела'})
+    el('span',{text:state.updatedAt?'Обновлено: '+new Date(state.updatedAt).toLocaleString('ru-RU'):'Актуализация при открытии кабинета и раз в час'})
   );
   const content=el('main',{});
   if(state.error&&!state.rows.length){
@@ -263,11 +263,11 @@ function isActive(){return Boolean(page()?.classList.contains('active'))}
 function refreshIfActive(){if(document.visibilityState==='visible'&&isActive())loadData(true)}
 function startAutoRefresh(){if(autoRefreshTimer)return;autoRefreshTimer=setInterval(refreshIfActive,AUTO_REFRESH_MS)}
 function consumeBackground(){const data=cachedData();if(data&&acceptData(data))render()}
-function activate(){ensureRoot();startAutoRefresh();loadData(true)}
+function activate(){ensureRoot();startAutoRefresh();consumeBackground();render()}
 function start(){
   ensureRoot();startAutoRefresh();consumeBackground();loadData(true);
-  window.addEventListener('focus',refreshIfActive,{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfActive()});
+  window.addEventListener('focus',consumeBackground,{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')consumeBackground()});
   window.addEventListener('rona:client:background-sections',consumeBackground,{passive:true});
   document.addEventListener('click',ev=>{const n=ev.target?.closest?.('a,button,[data-page],[data-page-id],[role="tab"]');const text=String(n?.textContent||'').toLocaleLowerCase('ru-RU');if(text.includes('новост')||String(n?.getAttribute?.('data-page')||'').includes('market-news'))setTimeout(activate,0)},true);
 }
