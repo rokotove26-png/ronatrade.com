@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260831-client-deal-realization-status-v3-single-owner';
+const MARK='20260902-client-deal-realization-status-v4-current-context';
 if(window.__RONA_CLIENT_DEAL_LIFECYCLE__===MARK)return;
 window.__RONA_CLIENT_DEAL_LIFECYCLE__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -12,7 +12,6 @@ const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/iu;
 const API='/portal/api';
 const SOURCE='SERVER_AUTHORITATIVE_REALIZATION_V1';
 const REFRESH_MS=7000;
-const CONTEXT_TTL_MS=60000;
 const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};
@@ -66,12 +65,22 @@ function installStyle(){
 }
 function dealId(root){const h=root.querySelector('[data-rona-command-heading]');const t=norm(h?.textContent);return DEAL_RE.test(t)?t:''}
 async function getJson(url){const r=await fetch(url,{method:'GET',headers:{accept:'application/json'},credentials:'same-origin',cache:'no-store'});const body=await r.json().catch(()=>null);if(!r.ok||!body)throw new Error(body?.code||`HTTP_${r.status}`);return body}
-let contextCache={at:0,items:[]},stateByDeal=new Map(),refreshPromise=null,loadedOnce=false,loadError=false;
-async function contexts(force=false){const now=Date.now();if(!force&&contextCache.items.length&&now-contextCache.at<CONTEXT_TTL_MS)return contextCache.items;const payload=await getJson(`${API}/v1/client/bootstrap`);const items=Array.isArray(payload?.data?.contexts)?payload.data.contexts.filter(c=>c?.client_id&&c?.contract_id):[];contextCache={at:now,items};return items}
+function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
+function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
+let stateByDeal=new Map(),refreshPromise=null,loadedOnce=false,loadError=false,selectionRequired=false,activeContextKey='',unsubscribe=null;
 async function refresh(force=false){
   if(refreshPromise)return refreshPromise;
   const hasVisible=[...document.querySelectorAll(`.${ROOT_CLASS}`)].some(visible);if(!hasVisible&&!force)return;
-  refreshPromise=(async()=>{try{const ctx=await contexts(force);const responses=await Promise.all(ctx.map(c=>getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(c.client_id)}&contractId=${encodeURIComponent(c.contract_id)}`)));const next=new Map();for(const payload of responses)for(const row of Array.isArray(payload?.deals)?payload.deals:[]){const id=norm(row?.deal_id);if(DEAL_RE.test(id)&&row?.realization_status?.source===SOURCE)next.set(id,row.realization_status)}stateByDeal=next;loadedOnce=true;loadError=false}catch(error){console.error('RONA realization status refresh failed',error);loadError=true;loadedOnce=true}finally{refreshPromise=null;schedule()}})();return refreshPromise;
+  refreshPromise=(async()=>{try{
+    const ctx=await currentContext();
+    if(!ctx){activeContextKey='';stateByDeal=new Map();loadedOnce=true;loadError=false;selectionRequired=true;return}
+    const key=contextKey(ctx);selectionRequired=false;
+    const payload=await getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(ctx.client_id)}&contractId=${encodeURIComponent(ctx.contract_id)}`);
+    if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
+    const next=new Map();for(const row of Array.isArray(payload?.deals)?payload.deals:[]){const id=norm(row?.deal_id);if(DEAL_RE.test(id)&&row?.realization_status?.source===SOURCE)next.set(id,row.realization_status)}
+    activeContextKey=key;stateByDeal=next;loadedOnce=true;loadError=false;
+  }catch(error){console.error('RONA realization status refresh failed',error);loadError=true;loadedOnce=true}finally{refreshPromise=null;schedule()}})();return refreshPromise;
 }
 function validatedStages(status){if(!status||status.source!==SOURCE||!Array.isArray(status.stages))return null;const byKey=new Map(status.stages.map(s=>[norm(s?.key),s]));const stages=[];for(const key of STAGE_ORDER){const raw=byKey.get(key),state=String(raw?.state||'').toUpperCase();if(!raw||!Object.hasOwn(BADGES,state))return null;stages.push({key,name:STAGE_NAMES[key],state,detail:norm(raw.detail)||'Статус подтверждается системой'})}return stages}
 function ensureFlow(root){
@@ -79,14 +88,14 @@ function ensureFlow(root){
   let flow=all.shift()||null;for(const duplicate of all)duplicate.remove();
   if(flow&&flow.classList.contains('rona-deal-flow-v3')){flow.replaceChildren();flow.className='';flow.removeAttribute('data-signature')}
   if(!flow){flow=document.createElement('section');flow.id=FLOW_ID;root.append(flow)}
-  flow.dataset.ronaRealizationOwner='server-authoritative-v3';
+  flow.dataset.ronaRealizationOwner='server-authoritative-v4-current-context';
   return flow;
 }
 function renderNotice(flow,message){const sig=`notice:${message}`;if(flow.dataset.lifecycleSignature===sig)return;flow.dataset.lifecycleSignature=sig;flow.className='rona-deal-lifecycle-v1';flow.setAttribute('aria-label','Статус реализации');flow.innerHTML=`<div class="rona-deal-lifecycle-v1__head"><div><div class="rona-deal-lifecycle-v1__eyebrow">Deal status</div><div class="rona-deal-lifecycle-v1__title">Статус реализации</div></div><div class="rona-deal-lifecycle-v1__summary">Актуальные данные</div></div><div class="rona-deal-lifecycle-v1__notice">${esc(message)}</div>`}
 function render(root){
   installStyle();const flow=ensureFlow(root);const id=dealId(root);if(!id){renderNotice(flow,'Идентификатор сделки уточняется системой');return}
   const status=stateByDeal.get(id),stages=validatedStages(status);
-  if(!stages){if(loadError)renderNotice(flow,'Актуальный статус реализации временно недоступен');else renderNotice(flow,loadedOnce?'Статус реализации синхронизируется с сервером':'Загрузка актуального статуса реализации…');return}
+  if(!stages){if(selectionRequired)renderNotice(flow,'Выберите компанию и договор для загрузки статуса реализации');else if(loadError)renderNotice(flow,'Актуальный статус реализации временно недоступен');else renderNotice(flow,loadedOnce?'Статус реализации синхронизируется с сервером':'Загрузка актуального статуса реализации…');return}
   const done=stages.filter(s=>s.state==='DONE').length,current=stages.find(s=>s.state==='CURRENT'),blocked=stages.find(s=>s.state==='BLOCKED'),progress=Math.round(done/stages.length*100);
   const sig=JSON.stringify({id,source:status.source,done,current:current?.key||null,blocked:blocked?.key||null,stages});if(flow.dataset.lifecycleSignature===sig&&flow.classList.contains('rona-deal-lifecycle-v1'))return;
   flow.dataset.lifecycleSignature=sig;flow.className='rona-deal-lifecycle-v1';flow.setAttribute('aria-label','Статус реализации');
@@ -97,6 +106,7 @@ let scheduled=false;
 function scan(){scheduled=false;for(const root of document.querySelectorAll(`.${ROOT_CLASS}`))if(visible(root))render(root)}
 function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(scan)}
 new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+const authority=contextAuthority();if(authority)unsubscribe=authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==activeContextKey){activeContextKey=key;stateByDeal=new Map();loadedOnce=false;loadError=false}refresh(true)});else console.error('RONA realization status: context authority unavailable');
 window.addEventListener('focus',()=>refresh(true),{passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh(true)},{passive:true});
 setTimeout(()=>{schedule();refresh(true)},0);setTimeout(()=>{schedule();refresh(false)},350);setInterval(()=>refresh(false),REFRESH_MS);
 })();
