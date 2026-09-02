@@ -1,0 +1,57 @@
+name: Client module routes once
+
+on:
+  push:
+    branches:
+      - fix/client-context-universal-modules-v1
+
+permissions:
+  contents: write
+
+jobs:
+  module-routes:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Add universal context-scoped client module routes
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          router_path = Path('supabase/functions/rona-portal-api/index.ts')
+          router = router_path.read_text()
+          marker = 'if(route==="/v1/client/prices"&&req.method==="GET"){'
+          if router.count(marker) != 1:
+              raise SystemExit(f'expected one prices route marker, got {router.count(marker)}')
+          module_route = '''if(["/v1/client/deals","/v1/client/documents","/v1/client/payments"].includes(route)&&req.method==="GET"){if(!c.roles.includes("CLIENT"))return send(origin,403,{ok:false,code:"ROLE_MISMATCH"});const clientId=url.searchParams.get("clientId"),contractId=url.searchParams.get("contractId");if(!clientId||!contractId)return send(origin,400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"});const projection=await clientContextProjection(await clientContext(c,clientId,contractId));const moduleKey=route.slice(route.lastIndexOf("/")+1);return send(origin,200,{ok:true,[moduleKey]:projection[moduleKey]||[]})}'''
+          if module_route in router:
+              raise SystemExit('universal client module route already present')
+          router = router.replace(marker, module_route + marker, 1)
+          router_path.write_text(router)
+
+          qa_path = Path('scripts/qa-client-backend-context-scope-v1.mjs')
+          qa = qa_path.read_text()
+          log_marker = "console.log('CLIENT_BACKEND_CONTEXT_SCOPE_QA=PASS deals=client+contract shipments=client+contract rail=client+contract unrelated-semantics=preserved');"
+          if qa.count(log_marker) != 1:
+              raise SystemExit(f'expected one QA log marker, got {qa.count(log_marker)}')
+          assertions = '''for(const route of ['/v1/client/deals','/v1/client/documents','/v1/client/payments'])must(router.includes(`"${route}"`),`CLIENT_UNIVERSAL_MODULE_ROUTE_MISSING:${route}`);\nfor(const token of ['const moduleKey=route.slice(route.lastIndexOf("/")+1)','projection[moduleKey]||[]'])must(router.includes(token),`CLIENT_UNIVERSAL_MODULE_PROJECTION_MISSING:${token}`);\n'''
+          qa = qa.replace(log_marker, assertions + "console.log('CLIENT_BACKEND_CONTEXT_SCOPE_QA=PASS deals=client+contract documents=client+contract payments=client+contract shipments=client+contract rail=client+contract unrelated-semantics=preserved');", 1)
+          qa_path.write_text(qa)
+          PY
+      - name: Run client context regression checks
+        run: |
+          node scripts/qa-client-backend-context-scope-v1.mjs
+          node tests/client-context-universal-modules-v1.test.mjs
+      - name: Commit universal module routes and remove one-shot workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/client-module-routes-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/rona-portal-api/index.ts scripts/qa-client-backend-context-scope-v1.mjs .github/workflows/client-module-routes-once.yml
+          git commit -m 'feat(client): add universal context-scoped module routes'
+          git push origin HEAD:${GITHUB_REF_NAME}
