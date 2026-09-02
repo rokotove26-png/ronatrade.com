@@ -1,7 +1,7 @@
 import { onRequest as coreOnRequest } from './_middleware-core.js';
 
 const CLIENT_SERVER_TENANT_GUARD = `<script id="rona-client-server-tenant-guard-v1">(()=>{'use strict';
-const MARK='20260901-client-server-tenant-context-v2';
+const MARK='20260902-client-server-tenant-context-v3-nonblocking-model-bind';
 if(window.__RONA_CLIENT_SERVER_TENANT_GUARD__===MARK)return;
 window.__RONA_CLIENT_SERVER_TENANT_GUARD__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -103,12 +103,12 @@ function sync(){
   state.syncing=true;
   try{
     const ctx=state.single;
-    if(!bindCanonicalModel(ctx)){d.dataset.ronaClientTenantState='binding-model';return}
+    const modelBound=bindCanonicalModel(ctx);
     syncSelect(ctx);
     filterTenantCards(ctx);
     for(const scope of contextScopes())syncScope(scope,ctx);
     d.dataset.ronaClientTenantReady='1';
-    d.dataset.ronaClientTenantState='bound';
+    d.dataset.ronaClientTenantState=modelBound?'bound':'bound-dom-model-pending';
     d.dataset.ronaClientId=ctx.client_id;
     d.dataset.ronaContractId=ctx.contract_id;
     if(!state.eventSent){state.eventSent=true;window.dispatchEvent(new CustomEvent('rona:client-server-context-ready',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,source:'SERVER_SESSION_AUTHORITY'}}))}
@@ -182,7 +182,7 @@ export async function onRequest(context) {
   headers.delete('etag');
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('x-rona-client-admin-sync','role-v3-contract-authoritative-deal-v5-canonical-compact-v2-source-no-standalone-documents-price-bounded');
-  headers.set('x-rona-client-tenant-context','server-session-authority-v2');
+  headers.set('x-rona-client-tenant-context','server-session-authority-v3');
   allowClientRailTileCsp(headers);
 
   if(typeof HTMLRewriter==='function'){
