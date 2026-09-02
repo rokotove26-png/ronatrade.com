@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260902-client-context-selection-authority-v2-universal-core';
+const MARK='20260902-client-context-selection-authority-v3-scoped-bootstrap';
 if(window.__RONA_CLIENT_CONTEXT_SELECTION_AUTHORITY__===MARK)return;
 window.__RONA_CLIENT_CONTEXT_SELECTION_AUTHORITY__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -14,8 +14,18 @@ const REQUIRED_CONTEXT_ROUTES=new Set([
   '/portal/api/v1/client/payments',
   '/portal/api/v1/client/claims',
   '/portal/api/v1/client/messages',
-  '/portal/api/v1/client/archive'
+  '/portal/api/v1/client/archive',
+  '/portal/api/v1/client/shipments'
 ]);
+const REQUIRED_CONTEXT_PREFIXES=[
+  '/portal/api/v1/client/deals/',
+  '/portal/api/v1/client/deal-documents/',
+  '/portal/api/v1/client/documents/',
+  '/portal/api/v1/client/payments/',
+  '/portal/api/v1/client/claims/',
+  '/portal/api/v1/client/messages/',
+  '/portal/api/v1/client/archive/'
+];
 const nativeFetch=window.fetch.bind(window);
 const state={contexts:[],selected:null,loading:null,ready:false,observer:null,queued:false,syncing:false};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
@@ -71,9 +81,7 @@ function contextFromSelect(){
   const select=document.getElementById('clientContextSelect');if(!select)return null;
   return contextByValue(select.value,select.selectedOptions?.[0]||null);
 }
-function contextFromDataset(){
-  return contextByIds(d.dataset.ronaClientId,d.dataset.ronaContractId);
-}
+function contextFromDataset(){return contextByIds(d.dataset.ronaClientId,d.dataset.ronaContractId)}
 function resolveSelection(){
   if(state.contexts.length===1)return state.contexts[0];
   return contextFromSelect()||contextFromDataset()||null;
@@ -96,16 +104,10 @@ function exposeSelection(){
     delete d.dataset.ronaClientDisplayName;
   }
 }
-function emitSelection(source,force=false){
-  if(!force&&!state.ready)return;
-  window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:detail(source)}));
-}
-function emitReady(source){
-  window.dispatchEvent(new CustomEvent('rona:client-context-ready',{detail:detail(source)}));
-}
+function emitSelection(source,force=false){if(!force&&!state.ready)return;window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:detail(source)}))}
+function emitReady(source){window.dispatchEvent(new CustomEvent('rona:client-context-ready',{detail:detail(source)}))}
 function setSelected(ctx,source,emit=true){
-  const next=ctx?authorized(ctx):null;
-  const before=key(state.selected),after=key(next);
+  const next=ctx?authorized(ctx):null,before=key(state.selected),after=key(next);
   state.selected=next;exposeSelection();scheduleSync();
   if(emit&&before!==after)emitSelection(source,true);
   return next;
@@ -188,15 +190,13 @@ function syncVisualContext(){const ctx=state.selected;if(!ctx)return;for(const s
 function syncAll(){if(state.syncing)return;state.syncing=true;try{syncSelect();syncVisualContext();exposeSelection()}finally{state.syncing=false}}
 function scheduleSync(){if(state.queued)return;state.queued=true;requestAnimationFrame(()=>{state.queued=false;syncAll()})}
 function publish(raw,source='bootstrap'){
-  const contexts=(Array.isArray(raw)?raw:[]).map(clean).filter(valid);
-  if(!contexts.length)return false;
+  const contexts=(Array.isArray(raw)?raw:[]).map(clean).filter(valid);if(!contexts.length)return false;
   const previous=state.selected;state.contexts=contexts;state.ready=true;
   state.selected=previous&&authorized(previous)||resolveSelection();
   exposeSelection();scheduleSync();emitReady(source);
   if(key(previous)!==key(state.selected)||!state.selected)emitSelection(source,true);
   return true;
 }
-async function capture(response){try{if(!response?.ok)return;const body=await response.clone().json();if(body?.ok!==false)publish(body?.data?.contexts,'bootstrap-capture')}catch(_){}}
 async function ensure(){
   if(state.ready)return state.contexts;if(state.loading)return state.loading;
   state.loading=(async()=>{
@@ -213,11 +213,25 @@ async function ensure(){
 function rawInput(input){if(typeof input==='string')return input;if(input instanceof URL)return input.href;if(input&&typeof input.url==='string')return input.url;return''}
 function clientUrl(raw){try{const u=new URL(raw,location.origin);return u.origin===location.origin&&u.pathname.startsWith(API_PREFIX)?u:null}catch{return null}}
 function nextUrl(raw,url){return raw.startsWith('http://')||raw.startsWith('https://')?url.href:url.pathname+url.search+url.hash}
+function pathRequiresContext(pathname){return REQUIRED_CONTEXT_ROUTES.has(pathname)||REQUIRED_CONTEXT_PREFIXES.some(prefix=>pathname.startsWith(prefix))}
+function responseHeaders(response){const headers=new Headers(response.headers);headers.set('content-type','application/json; charset=utf-8');headers.delete('content-length');headers.delete('content-encoding');return headers}
+async function scopedBootstrapResponse(response){
+  try{
+    if(!response?.ok)return response;
+    const body=await response.clone().json();
+    if(body?.ok===false)return response;
+    const rawContexts=body?.data?.contexts;
+    if(!publish(rawContexts,'bootstrap-capture'))return response;
+    const selected=state.selected?{...state.selected}:null;
+    const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};
+    return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)});
+  }catch(_){return response}
+}
 window.fetch=async function(input,init){
   const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);
-  if(url.pathname===BOOT){const response=await nativeFetch(input,init);capture(response);return response}
+  if(url.pathname===BOOT){const response=await nativeFetch(input,init);return scopedBootstrapResponse(response)}
   const explicitlyContextual=url.searchParams.has('clientId')||url.searchParams.has('contractId');
-  const requiresContext=explicitlyContextual||REQUIRED_CONTEXT_ROUTES.has(url.pathname);
+  const requiresContext=explicitlyContextual||pathRequiresContext(url.pathname);
   if(!requiresContext)return nativeFetch(input,init);
   await ensure();
   if(!state.selected){const dom=resolveSelection();if(dom)setSelected(dom,'selector',true)}
@@ -230,8 +244,7 @@ function subscribe(listener){
   if(typeof listener!=='function')return()=>{};
   const fn=e=>listener(copy(state.selected),{...e.detail});
   window.addEventListener('rona:client-context-changed',fn);
-  if(state.ready)queueMicrotask(()=>listener(copy(state.selected),detail('subscribe')));
-  else ensure().catch(()=>{});
+  if(state.ready)queueMicrotask(()=>listener(copy(state.selected),detail('subscribe')));else ensure().catch(()=>{});
   return()=>window.removeEventListener('rona:client-context-changed',fn);
 }
 const publicApi=Object.freeze({
