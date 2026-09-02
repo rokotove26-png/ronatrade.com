@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260902-client-home-current-only-v1-bounded-reusable-guard-v5';
+  const MARK='20260902-client-home-current-only-v1-reusable-hard-fail-open-v6';
   if(window.__RONA_CLIENT_HOME_CURRENT_ONLY__===MARK)return;
   window.__RONA_CLIENT_HOME_CURRENT_ONLY__=MARK;
 
@@ -9,6 +9,7 @@
   const ROOT_SELECTORS=['#page-home','#homePage','[data-page-panel="home"]','[data-page-id="home"]'];
   const LEGACY_LABELS=['АКТИВНЫЕ СДЕЛКИ','ОПЛАТА','ТЕКУЩИЙ СТАТУС','СЛЕДУЮЩИЙ ШАГ','Компания','Оплата','Цены','Заявки'];
   const PREPAINT_MAX_MS=5000;
+  const FIRST_PAINT_GUARD_ID='rona-client-home-first-paint-guard';
   const DEGRADED_MESSAGE='Данные временно недоступны. Центр управления повторит загрузку автоматически.';
   let observer=null,homeStateObserver=null,rescueTimer=0;
 
@@ -101,7 +102,7 @@
     root.setAttribute('data-rona-client-home-current-only','command-center-v2');
     document.documentElement.setAttribute('data-rona-client-home-dom','CURRENT_ONLY_PHYSICAL_V1');
     document.documentElement.setAttribute('data-rona-client-home-legacy-nodes',String(root.querySelectorAll('[data-rona-home-legacy-hidden]').length));
-    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed,prepaint_max_ms:PREPAINT_MAX_MS,degraded_error_owner:true,first_paint_guard:'RETAINED_REUSABLE'};
+    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed,prepaint_max_ms:PREPAINT_MAX_MS,degraded_error_owner:true,first_paint_guard:'REUSABLE_HARD_FAIL_OPEN'};
     return true;
   }
 
@@ -134,16 +135,28 @@
     homeRoot()?.querySelector(OWNER)?.removeAttribute('data-rona-client-home-degraded');
   }
 
+  function setFirstPaintGuardEnabled(enabled,reason){
+    const guard=document.getElementById(FIRST_PAINT_GUARD_ID);
+    const state=enabled?'armed':'hard-released';
+    document.documentElement.setAttribute('data-rona-client-home-guard-recovery',String(reason||state));
+    if(!guard)return false;
+    guard.setAttribute('data-rona-client-home-guard-recovery',String(reason||state));
+    guard.media=enabled?'all':'not all';
+    return true;
+  }
+
   function releasePrepaint(reason){
     if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=0}
     document.documentElement.setAttribute('data-rona-client-home-prepaint','released');
     document.documentElement.setAttribute('data-rona-client-home-prepaint-release',String(reason||'released'));
+    setFirstPaintGuardEnabled(false,reason||'released');
   }
 
   function armPrepaint(){
     if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=0}
     document.documentElement.setAttribute('data-rona-client-home-prepaint','blocked-until-command-center-v2');
     document.documentElement.removeAttribute('data-rona-client-home-prepaint-release');
+    setFirstPaintGuardEnabled(true,'armed');
     rescueTimer=window.setTimeout(()=>{
       const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
       if(!ready)ensureDegradedOwner();
