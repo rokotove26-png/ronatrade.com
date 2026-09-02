@@ -1,11 +1,10 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_SYNC_V1__)return;
-window.__RONA_CLIENT_PRICE_SYNC_V1__='20260902-authoritative-price-v11-current-context';
+window.__RONA_CLIENT_PRICE_SYNC_V1__='20260902-authoritative-price-current-context-server-projection';
 
 const API='/portal/api';
-const BOOTSTRAP_TTL=30000;
 const PRICE_TTL=15000;
-const state={context:null,prices:[],priceAuthority:new Map(),loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,bootstrapAt:0,bootstrapPromise:null,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null,unsubscribe:null};
+const state={context:null,prices:[],loading:false,renderSignature:'',refreshTimer:0,lastRefresh:0,priceLoadedAt:0,priceContextKey:'',priceSeq:0,refreshPending:false,renderQueued:false,observer:null,unsubscribe:null};
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 
@@ -36,53 +35,15 @@ function findPriceTable(){
     return text.includes('продукт')&&(text.includes('класс')||text.includes('производитель')||text.includes('cpt озинки')||text.includes('cpt сарыагаш')||text.includes('cpt наушки'));
   })||null;
 }
-
-function uniqueBases(){
-  const out=[];
-  for(const item of state.prices){const basis=String(item.basis||'').trim();if(basis&&!out.includes(basis))out.push(basis)}
-  return out;
-}
-
-function groupedProducts(){
-  const map=new Map();
-  for(const item of state.prices){const key=String(item.product||'').trim();if(!map.has(key))map.set(key,[]);map.get(key).push(item)}
-  return [...map.entries()];
-}
-
+function uniqueBases(){const out=[];for(const item of state.prices){const basis=String(item.basis||'').trim();if(basis&&!out.includes(basis))out.push(basis)}return out}
+function groupedProducts(){const map=new Map();for(const item of state.prices){const key=String(item.product||'').trim();if(!map.has(key))map.set(key,[]);map.get(key).push(item)}return [...map.entries()]}
 function productLabel(product){return String(product||'').trim()}
-function producerLabel(items){
-  const values=[...new Set((items||[]).map(x=>String(x.producer||'').trim()).filter(Boolean))];
-  return values.length?values.join(' / '):'—';
-}
-function priceText(item){
-  const value=num(item.price);
-  const price=value===null?String(item.price||'—'):new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(value);
-  return `${price} ${String(item.currency||'')}/т`;
-}
+function producerLabel(items){const values=[...new Set((items||[]).map(x=>String(x.producer||'').trim()).filter(Boolean))];return values.length?values.join(' / '):'—'}
+function priceText(item){const value=num(item.price);const price=value===null?String(item.price||'—'):new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(value);return `${price} ${String(item.currency||'')}/т`}
 
-function authorityIsPublished(a){
-  if(!a)return false;
-  const pub=String(a.publication_status||'').toUpperCase(),pa=String(a.publication_authority_state||'').toUpperCase(),pl=String(a.publication_lifecycle_state||'').toUpperCase();
-  const ia=String(a.item_authority_state||'').toUpperCase(),il=String(a.item_lifecycle_state||'').toUpperCase(),bs=String(a.business_status||'').toUpperCase();
-  return pub==='PUBLISHED'&&['CONFIRMED','VERIFIED'].includes(pa)&&pl==='ACTIVE'&&['CONFIRMED','VERIFIED'].includes(ia)&&il==='ACTIVE'&&bs==='PUBLISHED'&&a.publish_client===true;
-}
-function authoritativeItem(item){
-  const id=String(item?.publication_item_id||''),a=state.priceAuthority.get(id);
-  if(!authorityIsPublished(a))return null;
-  if(String(a.publication_id||'')!==String(item.publication_id||''))return null;
-  const sourcePrice=num(item.price),snapshotPrice=num(a.snapshot_price);
-  if(sourcePrice===null||snapshotPrice===null||Math.abs(sourcePrice-snapshotPrice)>.00001)return null;
-  if(String(item.currency||'').toUpperCase()!==String(a.snapshot_currency||'').toUpperCase())return null;
-  return {...item,producer:String(a.producer||'').trim()||null,supplier:String(a.supplier||'').trim()||null,authority:a};
-}
-
-function statusScope(){
-  const labels=Array.from(document.querySelectorAll('div,p,span,strong,small'));
-  const anchor=labels.find(el=>norm(el.textContent)==='прайс-лист');
-  return anchor?.closest('section,article,.card,.panel')||anchor?.parentElement?.parentElement||document;
-}
+function statusScope(){const labels=Array.from(document.querySelectorAll('div,p,span,strong,small'));const anchor=labels.find(el=>norm(el.textContent)==='прайс-лист');return anchor?.closest('section,article,.card,.panel')||anchor?.parentElement?.parentElement||document}
 function syncPublicationStatus(){
-  if(!state.prices.length||!state.prices.every(x=>authorityIsPublished(x.authority)))return;
+  if(!state.prices.length)return;
   const scope=statusScope();
   for(const el of Array.from(scope.querySelectorAll('span,div,small,strong'))){
     const value=norm(el.textContent);
@@ -114,7 +75,7 @@ function makePriceButton(item){
 function render(){
   if(!state.prices.length)return false;const table=findPriceTable();if(!table)return false;
   const bases=uniqueBases();
-  const signature=['admin-authority-v11-current-context',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier,x.authority?.updated_at].join(':'))].join('|');
+  const signature=['server-authoritative-current-context',state.context?.client_id||'',state.context?.contract_id||'',...state.prices.map(x=>[x.publication_item_id,x.publication_id,x.product,x.basis,x.price,x.currency,x.producer,x.supplier].join(':'))].join('|');
   if(table.dataset.ronaPriceSyncSignature===signature){syncPublicationStatus();return true}
   Object.assign(table.style,{fontSize:'16px',lineHeight:'1.35',tableLayout:'auto'});
   const head=table.tHead?.rows?.[0]||table.querySelector('thead tr');
@@ -124,51 +85,22 @@ function render(){
   table.dataset.ronaPriceSyncSignature=signature;state.renderSignature=signature;syncPublicationStatus();return true;
 }
 
-async function loadBootstrap(force=false){
-  const now=Date.now();
-  if(!force&&state.bootstrapAt&&now-state.bootstrapAt<BOOTSTRAP_TTL)return;
-  if(state.bootstrapPromise)return state.bootstrapPromise;
-  state.bootstrapPromise=(async()=>{
-    const boot=await request('/v1/client/bootstrap'),data=boot?.data||{};
-    state.priceAuthority=new Map((Array.isArray(data.price_authority)?data.price_authority:[]).map(x=>[String(x.publication_item_id||''),x]).filter(x=>x[0]));
-    state.bootstrapAt=Date.now();
-  })().finally(()=>{state.bootstrapPromise=null});
-  return state.bootstrapPromise;
-}
-
-function clearPriceState(){
-  state.prices=[];
-  state.priceContextKey='';
-  state.priceLoadedAt=0;
-  state.renderSignature='';
-  window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:state.context,prices:[],authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:null};
-}
-
-function publishPriceState(next,source){
-  const accepted=[],rejected=[];
-  for(const item of source){const verified=authoritativeItem(item);if(verified)accepted.push(verified);else rejected.push(String(item?.publication_item_id||''))}
-  state.prices=accepted;
-  state.priceContextKey=contextKey(next);
-  state.priceLoadedAt=Date.now();
-  if(rejected.length)console.error('RONA client price authority mismatch',{rejected});
-  window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'ADMIN_PUBLISHED_PRICE_SNAPSHOT',loadedAt:new Date().toISOString()};
-}
-
+function clearPriceState(){state.prices=[];state.priceContextKey='';state.priceLoadedAt=0;state.renderSignature='';window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:state.context,prices:[],authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',loadedAt:null}}
+function publishPriceState(next,source){state.prices=Array.isArray(source)?source:[];state.priceContextKey=contextKey(next);state.priceLoadedAt=Date.now();window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',loadedAt:new Date().toISOString()}}
 async function loadPrices(next,force=false){
   const key=contextKey(next);
   if(!force&&state.prices.length&&state.priceContextKey===key&&Date.now()-state.priceLoadedAt<PRICE_TTL){render();return}
   const seq=++state.priceSeq;
   const result=await request('/v1/client/prices?clientId='+encodeURIComponent(next.client_id)+'&contractId='+encodeURIComponent(next.contract_id));
   if(seq!==state.priceSeq||contextKey(state.context)!==key||contextKey(contextAuthority()?.getCurrentContext())!==key)return;
-  publishPriceState(next,Array.isArray(result?.prices)?result.prices:[]);
+  publishPriceState(next,result?.prices);
 }
 
-async function refresh(forcePrices=false,forceBootstrap=false){
+async function refresh(forcePrices=false){
   if(state.loading){state.refreshPending=true;render();return}
   state.loading=true;
   try{
     ensureContractDownloadRuntime();
-    await loadBootstrap(forceBootstrap);
     const next=await currentContext();
     if(!next){if(state.context){state.context=null;state.priceSeq++;clearPriceState()}return}
     const changed=contextKey(state.context)!==contextKey(next);state.context=next;
@@ -177,28 +109,13 @@ async function refresh(forcePrices=false,forceBootstrap=false){
     state.lastRefresh=Date.now();render();
   }catch(error){console.error('RONA client price sync',error)}finally{
     state.loading=false;
-    if(state.refreshPending){state.refreshPending=false;queueMicrotask(()=>refresh(false,false))}
+    if(state.refreshPending){state.refreshPending=false;queueMicrotask(()=>refresh(false))}
   }
 }
-
-function queueRender(){
-  if(state.renderQueued||!state.prices.length)return;
-  state.renderQueued=true;
-  requestAnimationFrame(()=>{state.renderQueued=false;render()});
-}
-
-function observePriceMount(){
-  if(state.observer||!document.body)return;
-  state.observer=new MutationObserver(()=>queueRender());
-  state.observer.observe(document.body,{childList:true,subtree:true});
-}
-
-function isPriceInteraction(target){
-  const el=target?.closest?.('button,[role="button"],[role="tab"],a');if(!el)return false;
-  const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title'))].join(' ');
-  return text.includes('цены')||text.includes('прайс');
-}
-function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices,false),80)}
+function queueRender(){if(state.renderQueued||!state.prices.length)return;state.renderQueued=true;requestAnimationFrame(()=>{state.renderQueued=false;render()})}
+function observePriceMount(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>queueRender());state.observer.observe(document.body,{childList:true,subtree:true})}
+function isPriceInteraction(target){const el=target?.closest?.('button,[role="button"],[role="tab"],a');if(!el)return false;const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title'))].join(' ');return text.includes('цены')||text.includes('прайс')}
+function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices),80)}
 function maybeRefresh(event){if(isPriceInteraction(event.target)){queueRender();if(Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}}
 
 function start(){
@@ -206,11 +123,11 @@ function start(){
   const authority=contextAuthority();
   if(!authority){console.error('RONA client price sync: context authority unavailable');return}
   state.unsubscribe=authority.subscribe(ctx=>{const changed=contextKey(state.context)!==contextKey(ctx);state.context=ctx||null;if(changed){state.priceSeq++;clearPriceState()}scheduleRefresh(true)});
-  refresh(true,false);
+  refresh(true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
 document.addEventListener('click',maybeRefresh,true);
 document.addEventListener('change',maybeRefresh,true);
-window.addEventListener('pageshow',()=>{queueRender();if(Date.now()-state.lastRefresh>PRICE_TTL)refresh(false,false)});
-setInterval(()=>{if(document.visibilityState==='visible')refresh(false,false)},30000);
+window.addEventListener('pageshow',()=>{queueRender();if(Date.now()-state.lastRefresh>PRICE_TTL)refresh(false)});
+setInterval(()=>{if(document.visibilityState==='visible')refresh(false)},30000);
 })();
