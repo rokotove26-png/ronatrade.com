@@ -57,6 +57,11 @@ for(const token of [
   'PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_AUTHORITATIVE_SOURCE_DATE_7_CALENDAR_DATES_DEDUP'
 ])must(migration,token,'client market migration');
 
+const universalSources=[runtime,preload,endpoint,migration].join('\n');
+for(const pattern of [/\bRONA-C\d{3,}\b/iu,/НИК-ОЙЛ|NIK[- ]OIL/iu,/UNIVERSAL\s+SOLYARIS/iu,/GAZONE/iu]){
+  if(pattern.test(universalSources))throw new Error(`CLIENT_MARKET_INTELLIGENCE_CLIENT_HARDCODE_FORBIDDEN: ${pattern}`);
+}
+
 const mi=integrity.client_runtime?.market_intelligence;
 if(mi?.mode!=='ADMIN_PRINCIPLE_CLIENT_SAFE_PROJECTION')throw new Error('integrity market intelligence mode missing');
 if(mi?.news_window_calendar_dates!==7||mi?.authoritative_news_date!=='source_published_at')throw new Error('integrity authoritative seven-date news window missing');
@@ -65,4 +70,4 @@ const bg=integrity.client_runtime?.background_section_preload;
 if(!bg?.global?.includes('/portal/api/v1/client/market-intelligence'))throw new Error('background preload market intelligence endpoint missing');
 if(!bg?.covered_sections?.includes('analytics')||!bg?.covered_sections?.includes('market_news'))throw new Error('background preload section coverage missing');
 
-console.log('CLIENT_MARKET_INTELLIGENCE_QA=PASS server-gated Analytics + 7-calendar-date deduped Market News, tenant-safe read-only Client projection');
+console.log('CLIENT_MARKET_INTELLIGENCE_QA=PASS server-gated Analytics + 7-calendar-date deduped Market News, tenant-safe read-only universal Client projection with no client hardcoding');
