@@ -6,6 +6,8 @@ const module=fs.readFileSync('supabase/functions/rona-portal-api/client-communic
 const admin=fs.readFileSync('supabase/functions/rona-portal-api/admin.ts','utf8');
 const gate=fs.readFileSync('supabase/migrations/20260902233000_client_communication_admin_gate_v1.sql','utf8');
 const migration=fs.readFileSync('supabase/migrations/20260903001500_client_message_admin_response_v1.sql','utf8');
+const runtime=fs.readFileSync('assets/portal-runtime/client-messages-archive-v1.js','utf8');
+const attach=fs.readFileSync('scripts/attach-client-messages-archive-v1.mjs','utf8');
 
 for(const token of ['/v1/client/messages','/v1/client/archive','CLIENT_CONTRACT_CONTEXT_REQUIRED','clientMessages','submitClientMessage','clientArchive']){
   assert(api.includes(token),`client communication route missing ${token}`);
@@ -55,8 +57,19 @@ assert(migration.includes('revoke all on function portal_private.client_user_has
 assert(migration.includes('revoke all on function portal_private.server_admin_publish_client_response')&&migration.includes('grant execute on function portal_private.server_admin_publish_client_response')&&migration.includes('to service_role'),'Response authority privilege contract missing');
 assert(admin.includes('staff_messages')&&admin.includes('client_response_text')&&admin.includes('client_response_published_at'),'Admin intake response projection missing');
 
+for(const token of ['20260903-client-messages-archive-current-context-v1','RONA_CLIENT_CONTEXT','getCurrentContext','authority()?.getCurrentContext','/v1/client/messages','/v1/client/archive','clientId=','contractId=','#sendMessage','Административный канал активен']){
+  assert(runtime.includes(token),`messages/archive runtime missing ${token}`);
+}
+for(const forbidden of ['/v1/client/bootstrap','getAuthorizedContexts','/v1/staff/','staff_task_messages']){
+  assert(!runtime.includes(forbidden),`messages/archive runtime forbidden dependency ${forbidden}`);
+}
+assert(runtime.includes("credentials:'same-origin'")&&runtime.includes("cache:'no-store'"),'messages/archive runtime session request contract missing');
+assert(runtime.includes('event.stopImmediatePropagation()'),'frozen placeholder send guard missing');
+assert(attach.includes('frozen_dom_reused:true')&&attach.includes("visual_change:false")&&attach.includes('CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'),'frozen DOM attach contract missing');
+
 for(const pattern of [/RONA-C\d{3,}/,/RONA-C\d{3,}-CTR-/,/DEAL-2026-\d{3,}/]){
   assert(!pattern.test(module),`hardcoded business identifier ${pattern}`);
+  assert(!pattern.test(runtime),`runtime hardcoded business identifier ${pattern}`);
 }
 
-console.log('CLIENT_MESSAGES_ARCHIVE_QA=PASS context=client+contract client-to-admin=true admin-to-client=true staff-direct=false archive=projection-only historical-iam=canonical-bindings');
+console.log('CLIENT_MESSAGES_ARCHIVE_QA=PASS context=client+contract client-to-admin=true admin-to-client=true staff-direct=false archive=projection-only historical-iam=canonical-bindings frozen-dom=true');
