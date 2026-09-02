@@ -16,39 +16,39 @@ async function request(path,init={}){
   if(!response.ok||body?.ok===false)throw new Error(String(body?.code||body?.error?.code||('HTTP_'+response.status)));
   return body;
 }
-function status(text){const el=document.querySelector('#page-messages .asof');if(el)el.textContent=text}
+function status(text){const el=document.querySelector('#page-messages .asof');if(el&&el.textContent!==text)el.textContent=text}
 function notify(text){if(typeof window.toast==='function')window.toast(text);else console.info('RONA client messages',text)}
 function payload(row){return row&&typeof row.payload==='object'&&row.payload?row.payload:{}}
 function node(tag,className,text){const el=document.createElement(tag);if(className)el.className=className;if(text!==undefined&&text!==null)el.textContent=String(text);return el}
 function empty(title,text){const box=node('div','empty');box.append(node('strong','',title),node('p','',text));return box}
 function row(main,sub,cell){const out=node('div','doc-row'),left=node('div','row-main');left.append(node('strong','',main),node('span','',sub||''));out.append(left,node('div','cell',cell||''));return out}
+function messageSignature(){return [contextKey(state.context),...state.messages.map(item=>[item.event_id,item.updated_at,item.processing_state,item.acknowledgement_state,item.client_response_published_at].join(':'))].join('|')}
+function archiveSignature(){const deals=Array.isArray(state.archive?.deals)?state.archive.deals:[];return [contextKey(state.context),...deals.map(deal=>[deal.deal_id,deal.contract_id,deal.business_status,deal.lifecycle_state,deal.closed_at,deal.updated_at].join(':'))].join('|')}
 
 function messagesPanel(){return document.querySelector('#page-messages .message-grid > .panel')||document.querySelector('#page-messages .panel')}
 function renderMessages(){
-  const panel=messagesPanel();if(!panel)return false;
+  const panel=messagesPanel();if(!panel)return false;const signature=messageSignature();if(panel.dataset.ronaMessagesSignature===signature)return true;
   panel.textContent='';const head=node('div','panel-head');head.append(node('strong','','Переписка'));panel.append(head);
-  if(!state.messages.length){panel.append(empty('Сообщений пока нет','Здесь будут отображаться только фактически отправленные и полученные сообщения выбранной компании.'));return true}
-  for(const item of state.messages){
+  if(!state.messages.length)panel.append(empty('Сообщений пока нет','Здесь будут отображаться только фактически отправленные и полученные сообщения выбранной компании.'));
+  else for(const item of state.messages){
     const p=payload(item),subject=norm(p.subject)||'Сообщение',message=norm(p.message)||'—';
     const processing=norm(item.processing_state),ack=norm(item.acknowledgement_state);
     const stage=item.client_response_published_at?'Ответ опубликован':ack==='REJECTED'?'Отклонено':processing==='APPLIED'?'Обработано':'Передано администратору';
     panel.append(row(subject,message,`${stage} · ${dateText(item.created_at)}`));
     if(norm(item.client_response_text))panel.append(row('Ответ RONA Trade',norm(item.client_response_text),dateText(item.client_response_published_at)));
   }
-  return true;
+  panel.dataset.ronaMessagesSignature=signature;return true;
 }
 function renderArchive(){
-  const page=document.getElementById('page-archive');if(!page)return false;
-  const panel=page.querySelector('.panel');if(!panel)return false;
-  const deals=Array.isArray(state.archive?.deals)?state.archive.deals:[];
+  const page=document.getElementById('page-archive');if(!page)return false;const panel=page.querySelector('.panel');if(!panel)return false;
+  const deals=Array.isArray(state.archive?.deals)?state.archive.deals:[],signature=archiveSignature();if(panel.dataset.ronaArchiveSignature===signature)return true;
   panel.textContent='';
-  if(!deals.length){panel.append(empty('Закрытых сделок пока нет','После полного завершения сделки она появится в архиве.'));return true}
-  for(const deal of deals){
-    const statusText=norm(deal.business_status)||norm(deal.lifecycle_state)||'Завершена';
-    const contract=norm(deal.contract_id);const closed=dateText(deal.closed_at||deal.updated_at);
+  if(!deals.length)panel.append(empty('Закрытых сделок пока нет','После полного завершения сделки она появится в архиве.'));
+  else for(const deal of deals){
+    const statusText=norm(deal.business_status)||norm(deal.lifecycle_state)||'Завершена',contract=norm(deal.contract_id),closed=dateText(deal.closed_at||deal.updated_at);
     panel.append(row(norm(deal.deal_id)||'Сделка',contract?`Контракт ${contract}`:'',`${statusText} · ${closed}`));
   }
-  return true;
+  panel.dataset.ronaArchiveSignature=signature;return true;
 }
 function render(){if(!state.context)return false;const a=renderMessages(),b=renderArchive();if(a)status('Административный канал активен');return a||b}
 function scheduleRender(){if(state.renderQueued)return;state.renderQueued=true;requestAnimationFrame(()=>{state.renderQueued=false;render()})}
@@ -63,20 +63,15 @@ async function load(next){
   }catch(error){if(seq===state.seq&&contextKey(state.context)===key){console.error('RONA client messages/archive',error);status('Канал временно недоступен')}}finally{if(seq===state.seq)state.loading=false}
 }
 async function refresh(){
-  const a=authority();if(!a)return;
-  const next=a.getCurrentContext()||await a.whenReady();if(!next)return;
-  const changed=contextKey(state.context)!==contextKey(next);state.context=next;
-  if(changed){state.seq++;state.messages=[];state.archive=null;scheduleRender()}
-  await load(next);
+  const a=authority();if(!a)return;const next=a.getCurrentContext()||await a.whenReady();if(!next)return;
+  const changed=contextKey(state.context)!==contextKey(next);state.context=next;if(changed){state.seq++;state.messages=[];state.archive=null;scheduleRender()}await load(next);
 }
 async function submit(){
   const next=state.context||authority()?.getCurrentContext();if(!next)return notify('Сначала выберите компанию и контракт.');
-  const subject=norm(document.getElementById('msgSubject')?.value),message=norm(document.getElementById('msgText')?.value);
-  if(!message)return notify('Введите сообщение.');
+  const subject=norm(document.getElementById('msgSubject')?.value),message=norm(document.getElementById('msgText')?.value);if(!message)return notify('Введите сообщение.');
   const file=document.querySelector('#page-messages input[type="file"]');if(file?.files?.length)return notify('Вложения к сообщениям пока не подключены. Отправьте сообщение без файла.');
   const object=norm(document.getElementById('messageObject')?.value),match=object.match(/DEAL-\d{4}-\d{3,}/i);
-  const body={clientId:next.client_id,contractId:next.contract_id,subject,message,idempotencyKey:crypto.randomUUID()};if(match)body.dealId=match[0].toUpperCase();
-  status('Отправка…');
+  const body={clientId:next.client_id,contractId:next.contract_id,subject,message,idempotencyKey:crypto.randomUUID()};if(match)body.dealId=match[0].toUpperCase();status('Отправка…');
   try{
     await request('/v1/client/messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':body.idempotencyKey},body:JSON.stringify(body)});
     const subjectEl=document.getElementById('msgSubject'),messageEl=document.getElementById('msgText');if(subjectEl)subjectEl.value='';if(messageEl)messageEl.value='';
