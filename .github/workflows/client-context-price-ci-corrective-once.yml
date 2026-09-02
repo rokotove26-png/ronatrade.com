@@ -40,9 +40,9 @@ jobs:
           npm run build
           node scripts/qa-client-contract-authoritative-projection.mjs
           node scripts/qa-client-price-authority-v1.mjs
-          npm run ci:client:universal-context
-          npm run ci:client:admin-communication-gate
-          npm run ci:client:claims-context-scope
+          node tests/client-context-universal-modules-v1.test.mjs
+          node scripts/qa-client-admin-communication-gate-v1.mjs
+          node scripts/qa-client-claims-context-scope-v1.mjs
           git diff --check
       - name: Commit validated source delta
         run: |
