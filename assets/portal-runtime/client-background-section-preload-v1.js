@@ -8,6 +8,7 @@
   const API='/portal/api';
   const REFRESH_MS=30000;
   const RETRY_MS=2500;
+  const MARKET_INTELLIGENCE_PATH='/v1/client/market-intelligence';
   const state={
     version:MARK,
     running:false,
@@ -102,8 +103,9 @@
       state.contexts=contextRows(boot);
       markSection('company_contract','READY',{contexts:state.contexts.length});
 
-      const [market,shipments,rail,contexts]=await Promise.all([
+      const [market,marketIntelligence,shipments,rail,contexts]=await Promise.all([
         read('/v1/client/market').then(()=>({ok:true})).catch(error=>({ok:false,error})),
+        read(MARKET_INTELLIGENCE_PATH).then(entry=>({ok:true,entry})).catch(error=>({ok:false,error})),
         read('/v1/client/shipments').then(()=>({ok:true})).catch(error=>({ok:false,error})),
         read('/v1/client/rail',{allowDisabled:true}).then(entry=>({ok:true,disabled:entry.disabled})).catch(error=>({ok:false,error})),
         Promise.all(state.contexts.map(preloadContext))
@@ -112,18 +114,24 @@
       const allDetails=contexts.every(x=>x.detail_ok);
       const allPrices=contexts.every(x=>x.prices_ok);
       const empty=state.contexts.length===0;
+      const intelligenceData=marketIntelligence.ok?marketIntelligence.entry?.body?.data:null;
+      const analyticsCount=Array.isArray(intelligenceData?.analytics)?intelligenceData.analytics.length:0;
+      const newsCount=Array.isArray(intelligenceData?.news)?intelligenceData.news.length:0;
 
       for(const name of ['home','applications','deals','documents','payments']){
         markSection(name,empty?'READY_EMPTY':allDetails?'READY':'DEGRADED',{contexts:state.contexts.length});
       }
       markSection('prices',empty?'READY_EMPTY':allPrices?'READY':'DEGRADED',{contexts:state.contexts.length});
       markSection('market',market.ok?'READY':'DEGRADED');
+      markSection('analytics',marketIntelligence.ok?(analyticsCount?'READY':'READY_EMPTY'):'DEGRADED',{items:analyticsCount,feed:'RONA_CLIENT_MARKET_INTELLIGENCE_V1'});
+      markSection('market_news',marketIntelligence.ok?(newsCount?'READY':'READY_EMPTY'):'DEGRADED',{items:newsCount,window_calendar_dates:7,authoritative_date:'source_published_at',deduplication:'duplicate_group'});
       markSection('rail',shipments.ok&&rail.ok?(rail.disabled?'READY_DISABLED':'READY'):'DEGRADED',{provider_disabled:Boolean(rail.disabled)});
 
       for(const row of contexts){
         if(!row.ok)state.errors.push({scope:'context',key:row.key,detail_error:row.detail_error,prices_error:row.prices_error});
       }
       if(!market.ok)state.errors.push({scope:'market',error:String(market.error?.message||market.error)});
+      if(!marketIntelligence.ok)state.errors.push({scope:'market_intelligence',error:String(marketIntelligence.error?.message||marketIntelligence.error)});
       if(!shipments.ok)state.errors.push({scope:'shipments',error:String(shipments.error?.message||shipments.error)});
       if(!rail.ok)state.errors.push({scope:'rail',error:String(rail.error?.message||rail.error)});
 
@@ -133,8 +141,9 @@
       clearTimeout(state.retry);state.retry=0;
     }catch(error){
       state.errors.push({scope:'bootstrap',error:String(error?.message||error)});
-      for(const name of ['company_contract','home','applications','deals','documents','payments','prices','market','rail'])markSection(name,'DEGRADED');
+      for(const name of ['company_contract','home','applications','deals','documents','payments','prices','market','analytics','market_news','rail'])markSection(name,'DEGRADED');
       state.lastCompletedAt=now();
+      window.__RONA_CLIENT_BACKGROUND_CACHE__=state.cache;
       publish(reason);
       clearTimeout(state.retry);
       state.retry=window.setTimeout(()=>cycle('retry'),RETRY_MS);

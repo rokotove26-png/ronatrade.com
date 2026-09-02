@@ -14,6 +14,7 @@ if(!runtime.includes(marker))throw new Error(`CLIENT_BACKGROUND_PRELOAD_MARKER_M
 for(const required of [
   '/v1/client/bootstrap',
   '/v1/client/market',
+  '/v1/client/market-intelligence',
   '/v1/client/shipments',
   '/v1/client/rail',
   '/v1/client/context?clientId=',
@@ -21,6 +22,10 @@ for(const required of [
   "state.contexts.map(preloadContext)",
   "cycle('open')",
   'REFRESH_MS=30000',
+  "markSection('analytics'",
+  "markSection('market_news'",
+  'window_calendar_dates:7',
+  "authoritative_date:'source_published_at'",
   'rona:client:background-sections',
   'window.__RONA_CLIENT_BACKGROUND_CACHE__=state.cache'
 ])if(!runtime.includes(required))throw new Error(`CLIENT_BACKGROUND_PRELOAD_CONTRACT_MISSING: ${required}`);
@@ -52,8 +57,17 @@ integrity.client_runtime.background_section_preload={
   read_only:true,
   bootstrap:'/portal/api/v1/client/bootstrap',
   per_context:['/portal/api/v1/client/context','/portal/api/v1/client/prices'],
-  global:['/portal/api/v1/client/market','/portal/api/v1/client/shipments','/portal/api/v1/client/rail'],
-  covered_sections:['company_contract','home','applications','deals','documents','payments','prices','market','rail'],
+  global:['/portal/api/v1/client/market','/portal/api/v1/client/market-intelligence','/portal/api/v1/client/shipments','/portal/api/v1/client/rail'],
+  covered_sections:['company_contract','home','applications','deals','documents','payments','prices','market','analytics','market_news','rail'],
+  market_intelligence:{
+    endpoint:'/portal/api/v1/client/market-intelligence',
+    feed:'RONA_CLIENT_MARKET_INTELLIGENCE_V1',
+    analytics:true,
+    market_news:true,
+    news_window_calendar_dates:7,
+    authoritative_news_date:'source_published_at',
+    deduplication:'duplicate_group'
+  },
   rail_disabled_is_loaded_state:true,
   visual_change:false,
   business_mutation:false
@@ -61,4 +75,4 @@ integrity.client_runtime.background_section_preload={
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 
 if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error('CLIENT_BACKGROUND_PRELOAD_BRIDGE_MISSING_AFTER_WRITE');
-console.log('CLIENT_BACKGROUND_SECTION_PRELOAD=PASS all authorized Client sections preload at portal open and refresh every 30s independent of active section');
+console.log('CLIENT_BACKGROUND_SECTION_PRELOAD=PASS all authorized Client sections including Analytics and Market News preload at portal open and refresh every 30s independent of active section');
