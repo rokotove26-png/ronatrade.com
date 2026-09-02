@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260830-client-deal-documents-v6-signed-authoritative';
+const MARK='20260902-client-deal-documents-v7-current-context';
 if(window.__RONA_CLIENT_DEAL_DOCUMENTS_V5__===MARK)return;
 window.__RONA_CLIENT_DEAL_DOCUMENTS_V5__=MARK;
 window.__RONA_CLIENT_DEAL_DOCUMENTS_V4__=MARK;
@@ -10,7 +10,7 @@ const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/;
 const STATUS_RE=/^(?:В\s+ИСПОЛНЕНИИ|СДЕЛКА\s+ОТКРЫТА|РЕСУРС\s+ПОДТВЕРЖД[ЕЁ]Н|ПОДТВЕРЖД[ЕЁ]Н|НЕ\s+ПОДТВЕРЖД[ЕЁ]Н|РЕСУРС\s+НЕ\s+ПОДТВЕРЖД[ЕЁ]Н|ПЛАТЕЖИ|ОЖИДАЕТ\s+ОПЛАТЫ|ОПЛАЧЕН(?:О|А)?|ЗАВЕРШЕН(?:А|О)?|ЗАКРЫТ(?:А|О)?|ОТМЕНЕН(?:А|О)?|НА\s+СОГЛАСОВАНИИ)$/i;
 const RESOURCE_OK=/^(?:РЕСУРС\s+)?ПОДТВЕРЖД[ЕЁ]Н$/i;
 const RESOURCE_NO=/^(?:РЕСУРС\s+)?НЕ\s+ПОДТВЕРЖД[ЕЁ]Н$/i;
-const state={deals:new Map(),busy:false,lastLoad:0,scanTimer:0,bootReleased:false};
+const state={deals:new Map(),busy:false,lastLoad:0,scanTimer:0,bootReleased:false,contextKey:'',unsubscribe:null};
 const text=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>text(v).toLocaleLowerCase('ru-RU');
 const visible=n=>{if(!n||!n.isConnected)return false;const s=getComputedStyle(n);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&n.getClientRects().length>0};
@@ -52,8 +52,31 @@ function ensureStyle(){
 @media(prefers-reduced-motion:reduce){.${PANEL}__action--upload{animation:none!important}}
 `;document.head.appendChild(s);document.documentElement.dataset.ronaDealVisual='role-canonical-v5'}
 async function getJson(url,init={}){const r=await fetch(url,{credentials:'same-origin',cache:'no-store',...init});const j=await r.json().catch(()=>({}));if(!r.ok||j?.ok===false)throw Object.assign(new Error(j?.code||`HTTP_${r.status}`),{status:r.status,payload:j});return j}
+function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
+function ctxKey(ctx){return text(ctx?.client_id)+'|'+text(ctx?.contract_id)}
 function releaseBoot(){if(state.bootReleased)return;state.bootReleased=true;document.documentElement.dataset.ronaClientCanonReady='1'}
-async function loadData(){if(state.busy)return;state.busy=true;try{const boot=await getJson(`${API}/v1/client/bootstrap`);const contexts=Array.isArray(boot?.data?.contexts)?boot.data.contexts:[];const next=new Map();await Promise.all(contexts.map(async ctx=>{const clientId=text(ctx.client_id),contractId=text(ctx.contract_id);if(!clientId||!contractId)return;const [context,workflow]=await Promise.all([getJson(`${API}/v1/client/context?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`),getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`).catch(()=>({deals:[]}))]);const data=context?.data||{},wfMap=new Map((Array.isArray(workflow?.deals)?workflow.deals:[]).map(w=>[text(w.deal_id),w])),docs=Array.isArray(data.documents)?data.documents:[];for(const d of Array.isArray(data.deals)?data.deals:[]){const dealId=text(d.deal_id);if(!DEAL_RE.test(dealId))continue;const dealDocs=docs.filter(doc=>text(doc.deal_id)===dealId&&['ADDENDUM','SIGNED_ADDENDUM','INVOICE'].includes(text(doc.document_type).toUpperCase())&&text(doc.storage_object_id));next.set(dealId,{dealId,clientId,contractId,deal:d,workflow:wfMap.get(dealId)||{},documents:dealDocs})}}));state.deals=next;state.lastLoad=Date.now()}catch(err){console.error('RONA canonical deal load failed',err)}finally{state.busy=false;scan();requestAnimationFrame(()=>requestAnimationFrame(releaseBoot))}}
+async function loadData(){
+  if(state.busy)return;state.busy=true;
+  try{
+    const ctx=await currentContext();
+    if(!ctx){state.contextKey='';state.deals=new Map();state.lastLoad=Date.now();return}
+    const clientId=text(ctx.client_id),contractId=text(ctx.contract_id),key=ctxKey(ctx);
+    if(!clientId||!contractId)throw new Error('CLIENT_CONTEXT_INVALID');
+    const [context,workflow]=await Promise.all([
+      getJson(`${API}/v1/client/context?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`),
+      getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`).catch(()=>({deals:[]}))
+    ]);
+    if(ctxKey(contextAuthority()?.getCurrentContext())!==key)return;
+    const data=context?.data||{},wfMap=new Map((Array.isArray(workflow?.deals)?workflow.deals:[]).map(w=>[text(w.deal_id),w])),docs=Array.isArray(data.documents)?data.documents:[],next=new Map();
+    for(const d of Array.isArray(data.deals)?data.deals:[]){
+      const dealId=text(d.deal_id);if(!DEAL_RE.test(dealId))continue;
+      const dealDocs=docs.filter(doc=>text(doc.deal_id)===dealId&&['ADDENDUM','SIGNED_ADDENDUM','INVOICE'].includes(text(doc.document_type).toUpperCase())&&text(doc.storage_object_id));
+      next.set(dealId,{dealId,clientId,contractId,deal:d,workflow:wfMap.get(dealId)||{},documents:dealDocs});
+    }
+    state.contextKey=key;state.deals=next;state.lastLoad=Date.now();
+  }catch(err){console.error('RONA canonical deal load failed',err)}finally{state.busy=false;scan();requestAnimationFrame(()=>requestAnimationFrame(releaseBoot))}
+}
 function navExact(label){const wanted=low(label);return [...document.querySelectorAll('a,button,[role="tab"],[role="menuitem"]')].find(n=>visible(n)&&low(n.textContent)===wanted)||null}
 function removeLegacySection(){const dealNav=navExact('Сделки'),legacyPage=[...document.querySelectorAll('h1,h2,h3')].some(n=>visible(n)&&legacyLabel(n.textContent));if(legacyPage&&dealNav)try{dealNav.click()}catch{};for(const n of [...document.querySelectorAll('a,button,[role="tab"],[role="menuitem"],li')]){if(!legacyLabel(n.textContent))continue;const target=n.closest('li,[role="menuitem"]')||n;if(target!==dealNav)target.remove()}}
 function isDealsView(){return [...document.querySelectorAll('h1,h2,h3')].some(n=>visible(n)&&/^СДЕЛКИ$/i.test(text(n.textContent)))}
@@ -81,6 +104,18 @@ function cleanup(ids){for(const p of document.querySelectorAll(`.${PANEL}`)){con
 function scan(){removeLegacySection();if(!isDealsView())return;const ids=domDealIds();cleanup(ids);for(const id of ids)if(state.deals.has(id))renderDeal(id)}
 function scheduleScan(delay=80){clearTimeout(state.scanTimer);state.scanTimer=setTimeout(scan,delay)}
 function topbarControl(target){const n=target?.closest?.('button,[role="button"],[role="combobox"],select');if(!n)return false;const t=low(n.textContent);if(t==='выход'||t==='выйти'||t==='logout')return false;return Boolean(n.closest?.('header,.topbar,[class*="topbar"],[class*="header"],[data-user-menu],.user-menu,.user-actions,.header-actions,.topbar-actions'))}
-function start(){ensureStyle();removeLegacySection();loadData();document.addEventListener('click',e=>{const n=e.target?.closest?.('a,button,[role="tab"],[role="menuitem"],[role="button"],[role="combobox"]');const t=text(n?.textContent);if(/^СДЕЛКИ$/i.test(t)||legacyLabel(t)||topbarControl(e.target)){scheduleScan(90);setTimeout(scan,240);setTimeout(scan,600)}else if(isDealsView())scheduleScan(120)},true);document.addEventListener('change',()=>{scheduleScan(100);setTimeout(scan,320)},true);window.addEventListener('pageshow',()=>{scan();if(Date.now()-state.lastLoad>10000)loadData()});document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-state.lastLoad>10000)loadData()},{passive:true});setInterval(()=>{if(document.visibilityState==='visible'&&isDealsView())scan()},1800);setInterval(()=>{if(document.visibilityState==='visible')loadData()},30000)}
+function start(){
+  ensureStyle();removeLegacySection();
+  const authority=contextAuthority();
+  if(authority)state.unsubscribe=authority.subscribe(ctx=>{const key=ctxKey(ctx);if(key!==state.contextKey){state.contextKey=key;state.deals=new Map();state.lastLoad=0;cleanup(domDealIds())}loadData()});
+  else console.error('RONA canonical deal documents: context authority unavailable');
+  loadData();
+  document.addEventListener('click',e=>{const n=e.target?.closest?.('a,button,[role="tab"],[role="menuitem"],[role="button"],[role="combobox"]');const t=text(n?.textContent);if(/^СДЕЛКИ$/i.test(t)||legacyLabel(t)||topbarControl(e.target)){scheduleScan(90);setTimeout(scan,240);setTimeout(scan,600)}else if(isDealsView())scheduleScan(120)},true);
+  document.addEventListener('change',()=>{scheduleScan(100);setTimeout(scan,320)},true);
+  window.addEventListener('pageshow',()=>{scan();if(Date.now()-state.lastLoad>10000)loadData()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-state.lastLoad>10000)loadData()},{passive:true});
+  setInterval(()=>{if(document.visibilityState==='visible'&&isDealsView())scan()},1800);
+  setInterval(()=>{if(document.visibilityState==='visible')loadData()},30000)
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
