@@ -10,7 +10,7 @@ const analyticsId='rona-client-market-intelligence-v1';
 const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20260902-analytics-hourly-isolated-v4';
 const analyticsMarker='20260902-client-market-intelligence-v2-admin-news-parity';
 const newsId='rona-client-market-news-admin-parity-v1';
-const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-admin-canonical-hourly-isolated-v3';
+const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-news-click-scope-v4';
 const newsMarker='20260902-admin-news-canonical-exact-v1';
 const spacingId='rona-client-analytics-forecast-spacing-v1';
 const spacingSrc='/assets/portal-runtime/client-analytics-forecast-spacing-v1.js?v=20260902-forecast-spacing-v2';
@@ -37,8 +37,10 @@ newsRuntime=replaceRequired(newsRuntime,"function startAutoRefresh(){if(autoRefr
 newsRuntime=replaceRequired(newsRuntime,"function consumeBackground(){const data=cachedData();if(data&&acceptData(data))render()}\n",'', 'NEWS_BACKGROUND_CACHE_CONSUMER');
 newsRuntime=replaceRequired(newsRuntime,"function activate(){ensureRoot();startAutoRefresh();consumeBackground();render()}","function activate(){ensureRoot();startAutoRefresh();render()}",'NEWS_ACTIVATE_BACKGROUND');
 newsRuntime=replaceRequired(newsRuntime,"  ensureRoot();startAutoRefresh();consumeBackground();loadData(true);\n  window.addEventListener('focus',consumeBackground,{passive:true});\n  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')consumeBackground()});\n  window.addEventListener('rona:client:background-sections',consumeBackground,{passive:true});\n","  ensureRoot();startAutoRefresh();loadData(true);\n  document.addEventListener('rona:client:context-changed',()=>loadData(true));\n",'NEWS_START_BACKGROUND');
+newsRuntime=replaceRequired(newsRuntime,"  document.addEventListener('click',ev=>{const n=ev.target?.closest?.('a,button,[data-page],[data-page-id],[role=\"tab\"]');const text=String(n?.textContent||'').toLocaleLowerCase('ru-RU');if(text.includes('новост')||String(n?.getAttribute?.('data-page')||'').includes('market-news'))setTimeout(activate,0)},true);","  document.addEventListener('click',ev=>{if(ev.target?.closest?.('#page-market-news'))return;const n=ev.target?.closest?.('a,button,[data-page],[data-page-id],[role=\"tab\"]');const text=String(n?.textContent||'').toLocaleLowerCase('ru-RU');if(text.includes('новост')||String(n?.getAttribute?.('data-page')||'').includes('market-news'))setTimeout(activate,0)},true);",'NEWS_NAV_CLICK_SCOPE');
 for(const forbidden of ['rona:client:background-sections','consumeBackground','refreshIfActive','AUTO_REFRESH_MS=60000'])if(newsRuntime.includes(forbidden))throw new Error(`CLIENT_NEWS_HOURLY_ISOLATION_FAILED: ${forbidden}`);
 if(!newsRuntime.includes('setInterval(refreshHourly,AUTO_REFRESH_MS)'))throw new Error('CLIENT_NEWS_HOURLY_TIMER_MISSING');
+if(!newsRuntime.includes("if(ev.target?.closest?.('#page-market-news'))return"))throw new Error('CLIENT_NEWS_NAV_CLICK_SCOPE_MISSING');
 await writeFile(newsRuntimePath,newsRuntime,'utf8');
 
 const spacingRuntime=await readFile(spacingRuntimePath,'utf8');
@@ -61,4 +63,4 @@ integrity.client_runtime.market_intelligence={
 };
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 for(const token of [`id="${analyticsId}"`,analyticsSrc,`id="${newsId}"`,newsSrc,`id="${spacingId}"`,spacingSrc])if(!html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_BRIDGE_MISSING_AFTER_WRITE: ${token}`);
-console.log('CLIENT_MARKET_INTELLIGENCE_ATTACH=PASS Analytics and Market News fetch on portal open and every 3600000ms only; 30s background cache/events isolated; forecast inner spacing runtime attached');
+console.log('CLIENT_MARKET_INTELLIGENCE_ATTACH=PASS Analytics and Market News fetch on portal open and every 3600000ms only; news activation ignores article-content clicks; 30s background cache/events isolated; forecast inner spacing runtime attached');
