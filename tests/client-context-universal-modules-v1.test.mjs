@@ -13,7 +13,8 @@ const modules = [
   'assets/portal-runtime/client-application-lifecycle-v1.js',
   'assets/portal-runtime/client-application-form-v3.js',
   'assets/portal-runtime/client-contract-download-v3.js',
-  'assets/portal-runtime/client-background-section-preload-v1.js'
+  'assets/portal-runtime/client-background-section-preload-v1.js',
+  'assets/portal-runtime/client-price-sync-v1.js'
 ];
 const forbidden = [
   '/v1/client/bootstrap',
@@ -33,11 +34,11 @@ for (const path of modules) {
   if (hardcodedDeal.test(source)) throw new Error(path + ': hardcoded deal literal');
 }
 const price = read('assets/portal-runtime/client-price-sync-v1.js');
-if (!price.includes('RONA_CLIENT_CONTEXT') || !price.includes('authority.subscribe')) throw new Error('price sync CURRENT_CONTEXT subscription missing');
-for (const token of ['getAuthorizedContexts','contexts[0]', 'chooseContext(contexts', 'domContextHint()', 'Promise.all(contexts.map']) if (price.includes(token)) throw new Error('price sync context fallback remains: ' + token);
-if (hardcodedClient.test(price)) throw new Error('price sync hardcoded client/contract literal');
-if (hardcodedDeal.test(price)) throw new Error('price sync hardcoded deal literal');
+if (!price.includes('authority.subscribe')) throw new Error('price sync CURRENT_CONTEXT subscription missing');
+if (!price.includes('SERVER_AUTHORITATIVE_PRICE_PROJECTION')) throw new Error('price sync must trust server authoritative projection');
+if (price.includes('priceAuthority') || price.includes('owner_price_snapshots')) throw new Error('price sync must not duplicate price authority validation in browser');
 console.log('CLIENT_CONTEXT_UNIVERSAL_MODULES=PASS');
 console.log('CURRENT_CONTEXT_ONLY_MODULES=' + modules.length);
 console.log('PRICE_CONTEXT_FALLBACK=REMOVED');
-console.log('PRICE_AUTHORITY_BOOTSTRAP_MIGRATION=PENDING_BACKEND_PROJECTION');
+console.log('PRICE_BOOTSTRAP_DEPENDENCY=REMOVED');
+console.log('PRICE_AUTHORITY=SERVER_PROJECTION');
