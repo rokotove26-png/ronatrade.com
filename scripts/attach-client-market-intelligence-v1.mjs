@@ -6,10 +6,10 @@ const integrityPath='dist/canonical-visual-integrity.json';
 const analyticsRuntimePath='dist/assets/portal-runtime/client-market-intelligence-v1.js';
 const newsRuntimePath='dist/assets/portal-runtime/client-market-news-admin-parity-v1.js';
 const analyticsId='rona-client-market-intelligence-v1';
-const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20260902-analytics-safe-v2';
+const analyticsSrc='/assets/portal-runtime/client-market-intelligence-v1.js?v=20260902-analytics-hourly-v3';
 const analyticsMarker='20260902-client-market-intelligence-v2-admin-news-parity';
 const newsId='rona-client-market-news-admin-parity-v1';
-const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-admin-canonical-exact-v1';
+const newsSrc='/assets/portal-runtime/client-market-news-admin-parity-v1.js?v=20260902-admin-canonical-hourly-v2';
 const newsMarker='20260902-admin-news-canonical-exact-v1';
 const newsVisualContract='portal-market-news-current-v1/20260827-auto-refresh-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
@@ -21,6 +21,8 @@ for(const required of [
   'RONA_CLIENT_MARKET_INTELLIGENCE_V1',
   'data-rona-client-market-intelligence-owner',
   'public_chart',
+  'REFRESH_MS=3600000',
+  "load('open')",
   "window.addEventListener('rona:client:background-sections'"
 ])if(!analyticsRuntime.includes(required))throw new Error(`CLIENT_MARKET_INTELLIGENCE_RUNTIME_MISSING: ${required}`);
 for(const forbidden of [
@@ -30,7 +32,8 @@ for(const forbidden of [
   'SUPABASE_SERVICE_ROLE',
   'mi-news-list',
   'function renderNews(',
-  "ensureOwner(root,'news')"
+  "ensureOwner(root,'news')",
+  'REFRESH_MS=60000'
 ])if(analyticsRuntime.includes(forbidden))throw new Error(`CLIENT_MARKET_INTELLIGENCE_FORBIDDEN_MARKER: ${forbidden}`);
 
 const newsRuntime=await readFile(newsRuntimePath,'utf8');
@@ -51,6 +54,8 @@ for(const required of [
   '/v1/client/market-intelligence',
   'source_published_at',
   'duplicate_group',
+  'AUTO_REFRESH_MS=3600000',
+  'Актуализация при открытии кабинета и раз в час',
   'rona:client:background-sections',
   "data-rona-market-news-owner':'admin-canonical-client-safe-v1'"
 ])if(!newsRuntime.includes(required))throw new Error(`CLIENT_MARKET_NEWS_ADMIN_PARITY_RUNTIME_MISSING: ${required}`);
@@ -61,7 +66,8 @@ for(const forbidden of [
   'service_role',
   'SUPABASE_SERVICE_ROLE',
   'mi-news-list',
-  'mi-open'
+  'mi-open',
+  'AUTO_REFRESH_MS=60000'
 ])if(newsRuntime.includes(forbidden))throw new Error(`CLIENT_MARKET_NEWS_ADMIN_PARITY_FORBIDDEN_MARKER: ${forbidden}`);
 
 let html=await readFile(htmlPath,'utf8');
@@ -83,7 +89,9 @@ integrity.client_runtime.market_intelligence={
   mode:'ADMIN_PRINCIPLE_CLIENT_SAFE_PROJECTION',
   endpoint:'/portal/api/v1/client/market-intelligence',
   preload_cache_key:'/v1/client/market-intelligence',
-  refresh_ms:60000,
+  trigger:'PORTAL_OPEN',
+  refresh_ms:3600000,
+  refresh_policy:'OPEN_THEN_HOURLY',
   sections:['analytics','market-news'],
   analytics_gate:'PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_PUBLIC_CHART_ONLY',
   news_gate:'PUBLISHED_VERIFIED_DISTRIBUTION_ALLOWED_CLIENT_SCOPE_AUTHORITATIVE_SOURCE_DATE_7_CALENDAR_DATES_DEDUP',
@@ -104,4 +112,4 @@ integrity.client_runtime.market_intelligence={
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 
 for(const token of [`id="${analyticsId}"`,analyticsSrc,`id="${newsId}"`,newsSrc])if(!html.includes(token))throw new Error(`CLIENT_MARKET_INTELLIGENCE_BRIDGE_MISSING_AFTER_WRITE: ${token}`);
-console.log('CLIENT_MARKET_INTELLIGENCE_ATTACH=PASS Analytics uses safe Client feed; Market News uses exact Admin canonical renderer DOM/CSS/text with safe Client feed; global Client shell unchanged');
+console.log('CLIENT_MARKET_INTELLIGENCE_ATTACH=PASS Analytics and Market News refresh on Client portal open and every hour; safe Client feed and exact Admin Market News visual parity preserved');
