@@ -292,3 +292,12 @@ html body [id^="page-"] :where(table, [role="table"], .table, [class*="table-wra
 html body [data-page-panel] :where(table, [role="table"], .table, [class*="table-wrap"], [class*="table-container"]) {
   max-width: 100%;
 }
+
+/* Analytics: owner-approved inner spacing for the market forecast frame. */
+#page-analytics #rona-analytics-v2 .an2-market-forecast,
+#analyticsPage #rona-analytics-v2 .an2-market-forecast,
+[data-page-panel="analytics"] #rona-analytics-v2 .an2-market-forecast,
+[data-page-id="analytics"] #rona-analytics-v2 .an2-market-forecast {
+  box-sizing: border-box !important;
+  padding: 16px !important;
+}
