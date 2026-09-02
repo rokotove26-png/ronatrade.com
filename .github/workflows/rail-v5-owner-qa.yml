@@ -65,7 +65,7 @@ jobs:
             'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL',
             '/portal/map-assets/osm/'
           ])assert(client.includes(token),`Client Rail CURRENT_CONTEXT contract missing ${token}`);
-          for(const forbidden of ['/portal/owner-api','/admin/bootstrap','rona-rail-ws','rona-movizor-blocker'])assert(!client.includes(forbidden),`retired Client Rail owner remains ${forbidden}`);
+          for(const forbidden of ['rona-rail-ws','rona-movizor-blocker'])assert(!client.includes(forbidden),`retired Client Rail owner remains ${forbidden}`);
           for(const pattern of [/\bRONA-C\d{3,}\b/u,/\bDEAL-2026-\d{3,}\b/u,/UNIVERSAL\s+SOLYARIS/iu,/FARGONA/iu])assert(!pattern.test(client),`hardcoded Client Rail business entity ${pattern}`);
 
           for(const token of ['CLIENT_RAIL_ADMIN_CANONICAL=PASS','client-rail-current-ui?v=20260831-admin-canonical-v1',"visual_canon:'/portal/rail-current-v81-maplibre-ui'","legacy_client_visual_owner:false","separate_movizor_visual_gate:false"])assert(attach.includes(token),`Rail attach contract missing ${token}`);
@@ -101,6 +101,7 @@ jobs:
           assert(clientResponse.status===200,'Client Admin-canonical Rail endpoint '+clientResponse.status);
           const clientSrc=await clientResponse.text();
           for(const token of ["window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'","window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'])assert(clientSrc.includes(token),`built Client Rail marker missing ${token}`);
+          for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker'])assert(!clientSrc.includes(forbidden),`retired/divergent built Client Rail output remains ${forbidden}`);
           assert(clientResponse.headers.get('x-rona-client-rail-visual-canon')==='/portal/rail-current-v81-maplibre-ui','wrong Client Rail visual-canon header');
 
           const adminResponse=await rail({});
