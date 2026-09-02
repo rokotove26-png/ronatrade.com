@@ -1,0 +1,50 @@
+name: Client context index corrective once
+
+on:
+  push:
+    branches:
+      - fix/client-context-universal-modules-v1
+
+permissions:
+  contents: write
+
+jobs:
+  patch-index:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Correct unrelated router drift
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/rona-portal-api/index.ts')
+          s = p.read_text()
+          replacements = {
+              'adminStorageObject(clientStorageMatch[1])': 'adminStorageObject(adminStorageMatch[1])',
+              'executiveRecordSupplierResponse(c,req,supplierRequestMatch[1])': 'executiveRecordSupplierResponse(c,req,requestId)',
+          }
+          for old, new in replacements.items():
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'expected exactly one occurrence of {old!r}, got {count}')
+              s = s.replace(old, new)
+          p.write_text(s)
+          PY
+      - name: Verify backend context scope and preserved semantics
+        run: node scripts/qa-client-backend-context-scope-v1.mjs
+      - name: Commit corrective patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo 'No correction needed'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/rona-portal-api/index.ts
+          git commit -m 'fix(client): preserve unrelated portal API routes'
+          git push origin HEAD:${GITHUB_REF_NAME}
