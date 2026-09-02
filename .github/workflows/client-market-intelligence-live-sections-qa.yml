@@ -113,10 +113,10 @@ jobs:
                   state:document.documentElement.dataset.ronaClientMarketIntelligence||null,
                   analyticsRoot:root(a)?.id||root(a)?.getAttribute('data-page-panel')||root(a)?.getAttribute('data-page-id')||null,
                   newsRoot:root(n)?.id||root(n)?.getAttribute('data-page-panel')||root(n)?.getAttribute('data-page-id')||null,
-                  analyticsText:a?.textContent||'',newsText:n?.textContent||'',
-                  pageErrors
+                  analyticsText:a?.textContent||'',newsText:n?.textContent||''
                 };
               });
+              first.pageErrors=pageErrors.slice();
               assert(first.runtime==='20260902-client-market-intelligence-v1','market intelligence runtime missing '+JSON.stringify(first));
               assert(first.state==='ready','market intelligence not ready '+JSON.stringify(first));
               assert(first.analyticsRoot,'real Analytics section root not resolved '+JSON.stringify(first));
