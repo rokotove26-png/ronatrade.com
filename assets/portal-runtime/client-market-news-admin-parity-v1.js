@@ -180,6 +180,7 @@ function sourceSelect(){
 function render(){
   const root=ensureRoot();
   if(!root)return false;
+  if(root.querySelector('.mn-dialog[open]'))return true;
   const rows=filteredRows();
   const sources=uniqueSources();
   const masthead=el('header',{class:'mn-masthead'},
