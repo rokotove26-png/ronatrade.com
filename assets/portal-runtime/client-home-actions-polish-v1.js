@@ -6,6 +6,7 @@ if(location.pathname!=='/portal/client')return;
 
 const OWNER='[data-rona-client-home-owner="command-center-v2"]';
 const STYLE_ID='rona-client-home-actions-polish-v1-style';
+const CONTROL_SELECTOR='a,button,[role="tab"],[role="menuitem"],[role="button"],li,[data-page],[data-page-id],[data-page-target],[onclick]';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const key=v=>norm(v).toLowerCase().replace(/ё/g,'е');
 const GLYPHS={
@@ -21,10 +22,31 @@ function panelByTitle(root,needle){
   const wanted=key(needle);
   return [...root.querySelectorAll('.rona-cc-panel')].find(panel=>key(panel.querySelector('.rona-cc-panel-title')?.textContent).includes(wanted))||null;
 }
+function visible(el){
+  if(!el||!el.isConnected)return false;
+  const s=getComputedStyle(el);
+  return s.display!=='none'&&s.visibility!=='hidden'&&el.getClientRects().length>0;
+}
 function sectionTrigger(label){
-  const candidates=[...document.querySelectorAll('nav a,nav button,aside a,aside button,[role="navigation"] a,[role="navigation"] button')];
-  const wanted=key(label);
-  return candidates.find(el=>key(el.textContent)===wanted)||candidates.find(el=>key(el.textContent).includes(wanted))||null;
+  const wanted=key(label),owner=document.querySelector(OWNER);
+  const outsideOwner=el=>!!el&&(!owner||!owner.contains(el));
+  const candidates=[...document.querySelectorAll(CONTROL_SELECTOR)].filter(outsideOwner);
+  const textOf=el=>key(el.textContent);
+  const tokenOf=el=>key([
+    el.getAttribute?.('data-page'),
+    el.getAttribute?.('data-page-id'),
+    el.getAttribute?.('data-page-target'),
+    el.getAttribute?.('href'),
+    el.getAttribute?.('aria-label'),
+    el.getAttribute?.('title')
+  ].filter(Boolean).join(' '));
+  return candidates.find(el=>visible(el)&&textOf(el)===wanted)
+    ||candidates.find(el=>textOf(el)===wanted)
+    ||candidates.find(el=>visible(el)&&textOf(el).includes(wanted))
+    ||candidates.find(el=>textOf(el).includes(wanted))
+    ||candidates.find(el=>visible(el)&&tokenOf(el).includes(wanted))
+    ||candidates.find(el=>tokenOf(el).includes(wanted))
+    ||null;
 }
 function installStyle(){
   if(document.getElementById(STYLE_ID))return;
@@ -57,11 +79,30 @@ function removeControl(owner){
   const bottom=owner.querySelector('.rona-cc-bottom');
   if(bottom)bottom.setAttribute('data-rona-night-empty',bottom.children.length===0?'true':'false');
 }
+function bindPanelNavigation(panel){
+  if(panel.dataset.ronaActionNavigationBound==='true')return;
+  panel.dataset.ronaActionNavigationBound='true';
+  panel.addEventListener('click',event=>{
+    const button=event.target?.closest?.('.rona-cc-action[data-home-action="section"][data-section]');
+    if(!button||!panel.contains(button)||button.disabled)return;
+    const target=sectionTrigger(button.getAttribute('data-section'));
+    if(!target){
+      button.disabled=true;
+      button.setAttribute('aria-disabled','true');
+      button.setAttribute('data-rona-action-ready','false');
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    target.click();
+  });
+}
 function polishActions(owner){
   const panel=panelByTitle(owner,'быстрые действия');
   if(!panel)return;
   panel.setAttribute('data-rona-actions-polished','v1');
   panel.setAttribute('data-visual-panel','actions');
+  bindPanelNavigation(panel);
   const buttons=[...panel.querySelectorAll('.rona-cc-action[data-home-action="section"][data-section]')];
   for(const button of buttons){
     const section=norm(button.getAttribute('data-section'));
