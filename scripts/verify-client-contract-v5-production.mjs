@@ -42,9 +42,11 @@ const runtime=await retry('Client authoritative contract runtime',async attempt=
     'RONA_CLIENT_CONTEXT',
     '/v1/client/context?clientId=',
     'current_external_contract_number',
-    'function authoritativeContractText',
-    'function syncContractNumberLabels',
-    "ronaContractNumberSynced='authoritative'"
+    'function currentContractDocument',
+    'function effectiveContext',
+    "context_source:'RONA_CLIENT_CONTEXT_AUTHORITY'",
+    "scope:'CURRENT_CONTEXT_ONLY'",
+    "ronaClientContractModel='authoritative'"
   ])assert(text.includes(marker),`runtime marker missing: ${marker}`);
   for(const forbidden of ['01/РТ-01-1926','01/РТ-02-1926','01/PT-02-1926'])assert(!text.includes(forbidden),`runtime hardcodes contract number: ${forbidden}`);
   return text;
