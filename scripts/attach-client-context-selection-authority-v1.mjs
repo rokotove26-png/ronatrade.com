@@ -5,7 +5,7 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-context-selection-authority-v1.js';
 const id='rona-client-context-selection-authority-v1';
-const marker='20260902-client-context-selection-authority-v3-scoped-bootstrap';
+const marker='20260903-client-context-selection-authority-v4-header-current-context';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
