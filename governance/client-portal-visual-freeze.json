@@ -9,7 +9,7 @@
   "market_intelligence_refresh_policy_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_MARKET_INTELLIGENCE_OPEN_AND_HOURLY_20260902",
   "market_news_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_MARKET_NEWS_ADMIN_CANONICAL_PARITY_20260902",
   "analytics_forecast_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_FORECAST_INNER_SPACING_20260902",
-  "scope_note": "Client Portal visual surface remains frozen. Owner-approved Deals visual exception remains limited to the authoritative empty state. Market Intelligence is a universal read-only tenant-safe Client projection of published server-authoritative data. On 2026-09-02 the owner required Client Analytics and Client Market News to load when the cabinet opens and thereafter refresh once per hour. The generic 30-second background preload is explicitly prohibited from fetching, caching, owning, or driving Analytics or Market News and remains only for the other Client sections. Market News visualization remains exact Admin canonical DOM/CSS/text parity with the Client-safe endpoint. Analytics visual approval remains limited to inner spacing inside the visible market forecast frame; the correction may re-apply the padding inside same-origin embedded Analytics content, but may not change outer dimensions, position, data, chart, colors, borders, typography, or any other visual surface. Global navigation and Client shell remain frozen.",
+  "scope_note": "Client Portal visual surface remains frozen except for explicitly owner-approved scoped exceptions. Owner-approved Deals visual exception remains limited to the authoritative empty state. Market Intelligence is a universal read-only tenant-safe Client projection of published server-authoritative data. On 2026-09-02 the owner required Client Analytics and Client Market News to load when the cabinet opens and thereafter refresh once per hour. The generic 30-second background preload is explicitly prohibited from fetching, caching, owning, or driving Analytics or Market News and remains only for the other Client sections. Market News visualization remains exact Admin canonical DOM/CSS/text parity with the Client-safe endpoint. Analytics visual approval remains limited to inner spacing inside the visible market forecast frame; the correction may re-apply the padding inside same-origin embedded Analytics content, but may not change outer dimensions, position, data, chart, colors, borders, typography, or any other visual surface. On 2026-09-03 the owner explicitly lifted freeze only for the Client header correction: the title must be generic 'ЛИЧНЫЙ КАБИНЕТ КЛИЕНТА' with no counterparty suffix, and the upper-row 'Скачать договор PDF' control must be removed. All other Client visual surfaces remain frozen.",
   "technical_baseline_refresh": {
     "authorized_at": "2026-09-03",
     "authorized_source": "OWNER_IN_CHAT",
@@ -20,8 +20,11 @@
   "client_header_context_correction": {
     "authorized_at": "2026-09-03",
     "authorized_source": "OWNER_IN_CHAT",
-    "scope": "CURRENT_SELECTED_CLIENT_HEADER_IDENTITY_AND_CONTRACT_DOWNLOAD_CARD_PLACEMENT_ONLY",
-    "preserve_contract_download_function": true,
+    "scope": "GENERIC_CLIENT_CABINET_HEADER_AND_REMOVE_HEADER_CONTRACT_DOWNLOAD_ONLY",
+    "required_header_title": "ЛИЧНЫЙ КАБИНЕТ КЛИЕНТА",
+    "counterparty_suffix_in_header": false,
+    "header_contract_download": false,
+    "preserve_contract_download_function_elsewhere": true,
     "preserve_access_and_server_badges": true,
     "no_other_visual_change": true
   },
@@ -75,7 +78,7 @@
     "scripts/attach-client-background-section-preload-v1.mjs": "f4b95bbaf2ac1e15f5e593f5d35d79600e228b96",
     "scripts/attach-client-market-intelligence-v1.mjs": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
     "scripts/attach-client-content-responsive-v1.mjs": "1a33eb6face1a896368e1bb84cb0eb62156d3c21",
-    "scripts/attach-client-context-selection-authority-v1.mjs": "bfc22ee9b23a9f0ee6ea1be9d66d0709466197b2",
+    "scripts/attach-client-context-selection-authority-v1.mjs": "1380ecaadddfab9d89e07cfb706623bdc0f41070",
     "scripts/attach-client-deal-documents.mjs": "bd439510d86b147f43be22541b5a4ab51cf63a0a",
     "scripts/attach-client-home-current-only-v1.mjs": "d7e18449fe323905b54b697f53f5af685b7582c3",
     "scripts/attach-client-home-night-panel-v4.mjs": "ed9825aa40ed7578269f96404d8cd54003349f41",
