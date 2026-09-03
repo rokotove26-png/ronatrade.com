@@ -9,25 +9,16 @@
   "market_intelligence_refresh_policy_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_MARKET_INTELLIGENCE_OPEN_AND_HOURLY_20260902",
   "market_news_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_MARKET_NEWS_ADMIN_CANONICAL_PARITY_20260902",
   "analytics_forecast_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_FORECAST_INNER_SPACING_20260902",
-  "contextual_client_runtime_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_CONTEXTUAL_RUNTIME_20260903_EXCLUDING_P5_P7",
-  "contextual_client_runtime_scope": {
+  "contextual_client_runtime_rollback_marker": "OWNER_CORRECTION: CLIENT_CONTEXTUAL_RUNTIME_ROLLED_BACK_20260903",
+  "client_header_contract_download_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_HEADER_CONTRACT_DOWNLOAD_REMOVED_20260903",
+  "client_header_contract_download_scope": {
     "authorized_at": "2026-09-03",
     "authorized_source": "OWNER_IN_CHAT",
-    "authorization_head": "76ca737122d951aef9e7ea7ecc6d280ad8073efa",
-    "allowed": [
-      "CURRENT_AUTHORIZED_CLIENT_IDENTITY_SYNC",
-      "CONTEXTUAL_NAVIGATION_VISIBILITY",
-      "CONTEXTUAL_HOME_MODULE_VISIBILITY",
-      "CONTEXTUAL_QUICK_ACTION_VISIBILITY",
-      "AUTHORITATIVE_APPLICATION_AND_DEAL_COUNTS",
-      "AVAILABLE_VS_EMPTY_VS_UNAVAILABLE_MODULE_STATES"
-    ],
-    "explicitly_excluded": [
-      "CONTRACT_DOWNLOAD_AVAILABILITY_OR_COPY_P5",
-      "ACCESS_OR_SERVER_STATUS_BADGES_P7"
-    ]
+    "scope": "HIDE_CONTRACT_DOWNLOAD_CONTROL_IN_CLIENT_HEADER_ONLY",
+    "contract_download_functionality_elsewhere_unchanged": true,
+    "access_and_server_badges_unchanged": true
   },
-  "scope_note": "Client Portal visual surface remains frozen except explicit Owner-approved exceptions. Owner-approved Deals visual exception remains limited to the authoritative empty state. Market Intelligence is a universal read-only tenant-safe Client projection of published server-authoritative data. On 2026-09-02 the owner required Client Analytics and Client Market News to load when the cabinet opens and thereafter refresh once per hour. The generic 30-second background preload is explicitly prohibited from fetching, caching, owning, or driving Analytics or Market News and remains only for the other Client sections. Market News visualization remains exact Admin canonical DOM/CSS/text parity with the Client-safe endpoint. Analytics visual approval remains limited to inner spacing inside the visible market forecast frame; the correction may re-apply the padding inside same-origin embedded Analytics content, but may not change outer dimensions, position, data, chart, colors, borders, typography, or any other visual surface. On 2026-09-03 the Owner explicitly authorized correction of stale client identity, static module/menu rendering, empty decorative Home blocks, static quick actions, stale application/deal counts, current-context adaptation and the distinction between unavailable, available-empty and available-data modules. The Owner explicitly prohibited changes to contract-download behavior/copy (p.5) and access/server status badges (p.7). All other Client visual/runtime surfaces remain frozen.",
+  "scope_note": "Client Portal visual surface remains frozen except explicit Owner-approved exceptions. Owner-approved Deals visual exception remains limited to the authoritative empty state. Market Intelligence is a universal read-only tenant-safe Client projection of published server-authoritative data. On 2026-09-02 the owner required Client Analytics and Client Market News to load when the cabinet opens and thereafter refresh once per hour. The generic 30-second background preload is explicitly prohibited from fetching, caching, owning, or driving Analytics or Market News and remains only for the other Client sections. Market News visualization remains exact Admin canonical DOM/CSS/text parity with the Client-safe endpoint. Analytics visual approval remains limited to inner spacing inside the visible market forecast frame; the correction may re-apply the padding inside same-origin embedded Analytics content, but may not change outer dimensions, position, data, chart, colors, borders, typography, or any other visual surface. On 2026-09-03 the Owner rejected the contextual client runtime because it introduced layout regressions and ordered it rolled back. The Owner also explicitly ordered removal of the contract-download control from the Client cabinet header; contract-download functionality outside the header remains unchanged. Access/server status badges remain unchanged. All other Client visual/runtime surfaces remain frozen.",
   "technical_baseline_refresh": {
     "authorized_at": "2026-09-03",
     "authorized_source": "OWNER_IN_CHAT",
@@ -56,7 +47,6 @@
     "assets/portal-runtime/client-analytics-forecast-spacing-v1.js": "53eb6cc0e7c4cd8057da63fa4f2df2ab58adbd81",
     "assets/portal-runtime/client-content-responsive-v1.css": "8ca6c903fb700ba412a5a892e533a5f88f739ab8",
     "assets/portal-runtime/client-context-selection-authority-v1.js": "cb779a76004f17e532d82e94eb8c134f8572d99e",
-    "assets/portal-runtime/client-contextual-capabilities-v1.js": "6d96aeea69fc0c1bffb41a2e7392f5e67f51411a",
     "assets/portal-runtime/client-contract-download-v1.js": "4435a7772a205c553a35157b039113712bc6f6ad",
     "assets/portal-runtime/client-contract-download-v2.js": "38796c5cd1917937eea1e6d522193265851156b7",
     "assets/portal-runtime/client-contract-download-v3.js": "a1c9bc992ca33a0e1164949c108ccb660c94b85e",
@@ -81,7 +71,7 @@
     "assets/portal-runtime/client-server-connection-v1.js": "b0bdb9f1db854a02a233c55f0a3700cf9a3c65dd",
     "assets/portal-runtime/client-shell-guard-v1.js": "494b2622848ed3c7e23602b40d1ecdad82f59281",
     "assets/portal-runtime/client-shell-guard-v2.js": "c568f0ba170af26a51b30a27659c4ff07bf8a1e1",
-    "assets/portal-runtime/client-shell-guard-v3.js": "df1ad97e379bdee647965a1eed8aa4b9f1de697d",
+    "assets/portal-runtime/client-shell-guard-v3.js": "f2f4765af7eae18ff492e989d6b816eb644cd896",
     "scripts/attach-client-application-lifecycle.mjs": "91e7a806781915d134bb9e682dac59a2ae886d63",
     "scripts/attach-client-background-section-preload-v1.mjs": "f4b95bbaf2ac1e15f5e593f5d35d79600e228b96",
     "scripts/attach-client-market-intelligence-v1.mjs": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
