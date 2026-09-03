@@ -218,11 +218,6 @@ async function currentPublications(){
       coalesce((select jsonb_agg(jsonb_build_object('item_id',pi.id,'item_type',pi.item_type::text,'item_order',pi.item_order,'product',pi.product,'basis',pi.basis,'currency',pi.currency,'price',pi.price,'headline',pi.headline,'content_text',pi.content_text,'analytics_as_of',pi.analytics_as_of,'forecast_scenario',pi.forecast_scenario,'authority_state',pi.authority_state::text,'lifecycle_state',pi.lifecycle_state::text) order by pi.item_order) from portal_private.publication_items pi where pi.publication_key=p.id and pi.lifecycle_state='ACTIVE' and pi.authority_state not in ('SUPERSEDED','REJECTED') and (${sourceClause('pi')})),'[]'::jsonb) items
     from portal_private.publications p where p.lifecycle_state='ACTIVE' and p.authority_state not in ('SUPERSEDED','REJECTED') and p.status::text not in ('SUPERSEDED','ARCHIVED') and (${sourceClause('p')}) order by p.prepared_at desc`);
 }
-async function currentPublicationIndex(){
-  return await sql.unsafe(`select p.publication_id,p.publication_type::text,p.status::text,p.prepared_at,p.published_at,p.updated_at,
-      (select count(*)::int from portal_private.publication_items pi where pi.publication_key=p.id and pi.lifecycle_state='ACTIVE' and pi.authority_state not in ('SUPERSEDED','REJECTED') and (${sourceClause('pi')})) as item_count
-    from portal_private.publications p where p.lifecycle_state='ACTIVE' and p.authority_state not in ('SUPERSEDED','REJECTED') and p.status::text not in ('SUPERSEDED','ARCHIVED') and (${sourceClause('p')}) order by p.prepared_at desc`);
-}
 async function currentResource(){
   const requests=await sql.unsafe(`select r.supplier_request_id,d.deal_id,r.supplier_reference,r.status,r.requested_at,r.source_system,r.source_version,r.created_at,r.updated_at from portal_private.supplier_requests r join portal_private.deals d on d.id=r.deal_key where (${sourceClause('r')}) order by r.created_at desc`);
   const responses=await sql.unsafe(`select sr.supplier_response_id,r.supplier_request_id,d.deal_id,sr.response_state,sr.received_at,sr.recorded_at,sr.source_system,sr.created_at from portal_private.supplier_responses sr join portal_private.supplier_requests r on r.id=sr.supplier_request_key join portal_private.deals d on d.id=r.deal_key where (${sourceClause('sr')}) order by sr.created_at desc`);
@@ -236,9 +231,8 @@ async function currentTasks(role){
     : (role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') ? ['CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PORTAL_EVENT']
     : role==='RAIL_LOGISTICS' ? ['RAIL','SHIPMENT','PORTAL_EVENT']
     : ['TECHNICAL','IAM','AUDIT','PORTAL_EVENT'];
-  const commercialTaskScope=role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR';
   return await sql`select task_id,title,description,status::text,priority::text,authority_domain,assigned_functional_role::text,due_at,source_type,source_object_id,source_version,acknowledged_at,decision,decision_at,created_at,updated_at
-    from portal_private.staff_tasks where qa_only=false and authority_domain=any(${domains}::text[]) and (${commercialTaskScope}::boolean=false or assigned_functional_role='COMMERCIAL_DIRECTOR'::portal_private.staff_functional_role_enum) and status not in ('COMPLETED','REJECTED','CLOSED')
+    from portal_private.staff_tasks where qa_only=false and authority_domain=any(${domains}::text[]) and status not in ('COMPLETED','REJECTED','CLOSED')
       and coalesce(lower(source_type),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])'
     order by case priority when 'CRITICAL' then 1 when 'HIGH' then 2 when 'NORMAL' then 3 else 4 end,due_at nulls last,created_at desc`;
 }
@@ -310,18 +304,9 @@ async function buildCurrentState(role){
   };
   if(role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') {
     const applications=await currentApplications();
-    const publications=await currentPublicationIndex();
-    const market={
-      projection:'COMMERCIAL_CURRENT_STATE_COMPACT_V1',
-      publication_count:publications.length,
-      active_item_count:publications.reduce((n,x)=>n+Number(x.item_count||0),0),
-      latest_updated_at:publications[0]?.updated_at??null,
-      publication_items_in_current_state:false,
-      full_market_source_tool:'market_data',
-    };
     return {...base,
       clients:await currentClients(),contracts:await currentContracts(),applications,deals:await currentDeals(),commercialRecords:applications,
-      market,publications,tasks:await currentTasks(role),events:await currentPortalEvents(role),
+      market:await currentPublications(),publications:await currentPublications(),tasks:await currentTasks(role),events:await currentPortalEvents(role),
     };
   }
   if(role==='RAIL_LOGISTICS') return {...base,
