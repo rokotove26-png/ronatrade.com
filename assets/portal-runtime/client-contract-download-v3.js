@@ -89,7 +89,11 @@ async function refresh(force=false){
     const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));
     if(contextKey(authority.getCurrentContext())!==key)return;
     const data=detail?.data||{},context=effectiveContext(current,data);
-    state.entry={context,document:currentContractDocument(data.documents),applications:Array.isArray(data.applications)?data.applications:[],deals:Array.isArray(data.deals)?data.deals:[],documents:Array.isArray(data.documents)?data.documents:[],payments:Array.isArray(data.payments)?data.payments:[]};
+    state.entry={context,document:currentContractDocument(data.documents)};
+    state.entry.applications=Array.isArray(data.applications)?data.applications:[];
+    state.entry.deals=Array.isArray(data.deals)?data.deals:[];
+    state.entry.documents=Array.isArray(data.documents)?data.documents:[];
+    state.entry.payments=Array.isArray(data.payments)?data.payments:[];
     state.currentKey=key;state.lastLoad=Date.now();hydrateFrozenClientModel(state.entry);publishState();render();
   }catch(error){console.error('RONA contract current-context projection',error)}finally{state.loading=false}
 }
