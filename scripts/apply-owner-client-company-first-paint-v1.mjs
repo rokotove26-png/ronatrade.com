@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 
 const runtimePath='assets/portal-runtime/client-contract-download-v3.js';
+const buildPath='scripts/build-pages-direct-canonical.mjs';
 let runtime=await readFile(runtimePath,'utf8');
 
 function replaceOnce(from,to,label){
@@ -77,4 +78,12 @@ replaceOnce(
 );
 
 await writeFile(runtimePath,runtime,'utf8');
+
+let build=await readFile(buildPath,'utf8');
+const oldSrc='/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v2';
+const newSrc='/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-first-paint-v1';
+if(!build.includes(oldSrc))throw new Error('COMPANY_FIRST_PAINT_BUILD_SRC_NOT_FOUND');
+build=build.replaceAll(oldSrc,newSrc);
+await writeFile(buildPath,build,'utf8');
+
 console.log('CLIENT_COMPANY_FIRST_PAINT_V1=PASS');
