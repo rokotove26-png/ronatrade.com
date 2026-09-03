@@ -110,7 +110,7 @@ jobs:
           grep -q '/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1' dist/portal/admin.html
           test "$(grep -o 'portal-canonical-button-hover-v1\.js' dist/portal/admin.html | wc -l | tr -d ' ')" = "1"
           grep -q 'id="rona-client-contract-authoritative-projection-v5"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v2' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-first-paint-v1' dist/portal/client.html
           test "$(grep -o 'client-contract-download-v3\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           grep -q 'id="rona-portal-currency-iso-v1"' dist/portal/client.html
           grep -q '/assets/portal-runtime/portal-currency-iso-v1.js?v=20260830-iso-currency-v1' dist/portal/client.html
