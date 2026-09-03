@@ -68,11 +68,18 @@ function ensureStyle(){
 }
 function leafByText(root,predicate){return [...root.querySelectorAll('button,a,span,small,strong,p,div')].find(e=>e.childElementCount===0&&predicate(low(e.textContent)))||null}
 function findCompanyCard(ctx){
-  if(!ctx)return null;const contract=CSS.escape(norm(ctx.contract_id)),client=CSS.escape(norm(ctx.client_id));
-  const direct=document.querySelector(`[data-rona-client-contract-id="${contract}"],[data-contract-id="${contract}"],[data-client-id="${client}"]`);if(direct&&visible(direct))return direct.closest('article,section,li,div')||direct;
+  if(!ctx)return null;
+  const main=document.querySelector('main,[role="main"]');if(!main)return null;
+  const contract=CSS.escape(norm(ctx.contract_id)),client=CSS.escape(norm(ctx.client_id));
+  const direct=main.querySelector(`[data-rona-client-contract-id="${contract}"],[data-contract-id="${contract}"],[data-client-id="${client}"]`);
+  if(direct&&visible(direct)&&!direct.closest('header,nav,aside,[role="navigation"]')){
+    const card=direct.closest('article,section,li,div')||direct,t=low(card.textContent);
+    if(t.includes('подписанный контракт')||t.includes('текущая компания'))return card;
+  }
   const contractKey=low(ctx.contract_id),clientKey=low(ctx.client_id),tokens=identityTokens(ctx),c=[];
-  for(const node of document.querySelectorAll('article,section,li,div')){
-    if(!visible(node))continue;const t=low(node.textContent);if(!t||t.length>9000||(!t.includes('подписанный контракт')&&!t.includes('текущая компания')&&!t.includes('активный контекст')&&!t.includes('выбрана компания')))continue;
+  for(const node of main.querySelectorAll('article,section,li,div')){
+    if(!visible(node)||node.closest('header,nav,aside,[role="navigation"]'))continue;
+    const t=low(node.textContent);if(!t||t.length>9000||(!t.includes('подписанный контракт')&&!t.includes('текущая компания')))continue;
     const compact=tokenKey(t),hc=contractKey&&t.includes(contractKey),hi=clientKey&&t.includes(clientKey);let tokenScore=0;for(const x of tokens)if(compact.includes(x))tokenScore+=40;if(!hc&&!hi&&tokenScore<40)continue;
     c.push({node,score:(hc?10000:0)+(hi?3000:0)+tokenScore+500-Math.min(t.length,8000)/8,len:t.length});
   }
@@ -92,9 +99,9 @@ function makeButton(entry,template){
 function clearRuntimeButtons(){for(const old of document.querySelectorAll('button[data-rona-contract-download-v3],button[data-rona-contract-download],button[data-rona-contract-download-v2]'))old.remove()}
 function renderEntry(entry){
   const card=findCompanyCard(entry?.context);if(!card)return false;card.dataset.ronaClientContractId=String(entry.context?.contract_id||'');card.dataset.ronaClientId=String(entry.context?.client_id||'');
-  const unavailable=unavailableNode(card),active=String(entry.context?.contract_status||'').toUpperCase()==='ACTIVE';if(!active)return false;
+  const unavailable=unavailableNode(card),anchor=contractAnchor(card),active=String(entry.context?.contract_status||'').toUpperCase()==='ACTIVE';if(!active||(!unavailable&&!anchor))return false;
   if(!entry.document?.storage_object_id){if(unavailable){const msg='Файл подписанного контракта не опубликован в кабинете';if(unavailable.textContent!==msg)unavailable.textContent=msg;unavailable.setAttribute('aria-disabled','true');unavailable.dataset.ronaContractUnavailable='authoritative-storage-not-materialized'}return false}
-  const b=makeButton(entry,unavailable);if(unavailable){unavailable.replaceWith(b);return true}const anchor=contractAnchor(card),host=anchor?.parentElement||card;host.appendChild(b);return true;
+  const b=makeButton(entry,unavailable);if(unavailable){unavailable.replaceWith(b);return true}anchor.parentElement.appendChild(b);return true;
 }
 function render(){
   if(state.rendering)return false;state.rendering=true;try{ensureStyle();clearRuntimeButtons();const entry=state.entry;if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v4-current-context-only';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v4-current-context-only';return true}finally{state.rendering=false}
