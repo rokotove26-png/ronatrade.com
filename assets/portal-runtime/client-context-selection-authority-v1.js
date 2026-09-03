@@ -208,7 +208,7 @@ function syncHeader(ctx){
     const before=norm(leaf.textContent);if(!before)continue;let after=before;
     const titleMatch=before.match(/^(.*?личный кабинет клиента)/iu);
     if(titleMatch){
-      after=titleMatch[1]+' · '+display;
+      after=titleMatch[1];
     }else if(/(?:контракт|договор)/iu.test(before)){
       after=after.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
       const pos=after.search(/(?:контракт|договор)/iu);if(pos>0)after=display+' · '+after.slice(pos);
@@ -220,7 +220,7 @@ function syncHeader(ctx){
   }
   purgeHeaderContractDownload();
 }
-function syncVisualContext(){const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}
+function syncVisualContext(){purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}
 function syncAll(){if(state.syncing)return;state.syncing=true;try{syncSelect();syncVisualContext();exposeSelection()}finally{state.syncing=false}}
 function scheduleSync(){if(state.queued)return;state.queued=true;requestAnimationFrame(()=>{state.queued=false;syncAll()})}
 function publish(raw,source='bootstrap'){
