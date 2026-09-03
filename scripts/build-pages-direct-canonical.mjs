@@ -34,7 +34,7 @@ const CLIENT_CURRENT = Object.freeze({
 });
 const CLIENT_CONTRACT_RUNTIME = Object.freeze({
   id: 'rona-client-contract-authoritative-projection-v5',
-  src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5',
+  src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v1',
   marker: '20260829-client-contract-v3-authoritative-projection-v5',
 });
 const ADMIN_CURRENT = Object.freeze({

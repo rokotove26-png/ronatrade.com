@@ -28,12 +28,12 @@ const integrity=await retry('Client CURRENT_ONLY integrity',async attempt=>{
   assert(client.source_bytes===484970,`client bytes ${client.source_bytes}`);
   assert(client.functional_bridge?.id==='rona-client-contract-authoritative-projection-v5',`bridge id ${client.functional_bridge?.id}`);
   assert(client.functional_bridge?.marker==='20260829-client-contract-v3-authoritative-projection-v5',`bridge marker ${client.functional_bridge?.marker}`);
-  assert(client.functional_bridge?.src==='/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5',`bridge src ${client.functional_bridge?.src}`);
+  assert(client.functional_bridge?.src==='/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v1',`bridge src ${client.functional_bridge?.src}`);
   return data;
 });
 
 const runtime=await retry('Client authoritative contract runtime',async attempt=>{
-  const response=await fetchNoStore('/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5',attempt);
+  const response=await fetchNoStore('/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v1',attempt);
   assert(response.ok,`status ${response.status}`);
   const text=await response.text();
   for(const marker of [

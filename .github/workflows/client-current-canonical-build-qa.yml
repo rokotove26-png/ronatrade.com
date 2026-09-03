@@ -74,7 +74,7 @@ jobs:
           ! grep -Fq 'id="navDocuments"' dist/portal/client.html
           ! grep -Fq 'id="page-documents"' dist/portal/client.html
           grep -Fq 'id="rona-client-contract-authoritative-projection-v5"' dist/portal/client.html
-          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260829-authoritative-projection-v5' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v1' dist/portal/client.html
           test "$(grep -o 'client-contract-download-v3\.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
@@ -90,7 +90,7 @@ jobs:
           if(client.visual_transform!=='NONE') throw new Error(`CLIENT_VISUAL_TRANSFORM_CHANGED ${client.visual_transform}`);
           if(client.functional_bridge?.id!=='rona-client-contract-authoritative-projection-v5') throw new Error('CLIENT_FUNCTIONAL_BRIDGE_ID_MISSING');
           if(client.functional_bridge?.marker!=='20260829-client-contract-v3-authoritative-projection-v5') throw new Error('CLIENT_FUNCTIONAL_BRIDGE_MARKER_MISSING');
-          if(!String(client.functional_bridge?.src||'').includes('client-contract-download-v3.js?v=20260829-authoritative-projection-v5')) throw new Error('CLIENT_FUNCTIONAL_BRIDGE_SRC_MISSING');
+          if(!String(client.functional_bridge?.src||'').includes('client-contract-download-v3.js?v=20260904-company-directory-alias-v1')) throw new Error('CLIENT_FUNCTIONAL_BRIDGE_SRC_MISSING');
           console.log(`CLIENT_CURRENT_CANONICAL_EMITTED=PASS sha256=${emittedSha} bytes=${emitted.length}`);
           NODE
 
