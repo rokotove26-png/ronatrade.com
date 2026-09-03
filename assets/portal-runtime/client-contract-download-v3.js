@@ -129,6 +129,19 @@ function setMetric(card,labelText,value,relabel){
   }
   return false;
 }
+function hideRedundantCompanyAlias(displayLeaf,card){
+  if(!displayLeaf)return false;const main=document.querySelector('main,[role="main"]'),roots=[];let root=card;
+  for(let depth=0;root&&root!==main&&depth<4;depth++,root=root.parentElement)roots.push(root);
+  const displayRect=displayLeaf.getBoundingClientRect(),seen=new Set(),candidates=[];
+  for(const scope of roots)for(const el of scope.querySelectorAll('small,span,strong,div')){
+    if(seen.has(el)||el===displayLeaf||el.childElementCount!==0||!visible(el))continue;seen.add(el);
+    const text=norm(el.textContent);if(!/^[A-Z][A-Z0-9&.' -]{4,}$/u.test(text)||/^RONA-C/u.test(text)||/RONA TRADE/u.test(text)||/CLIENT DIRECTORY/u.test(text))continue;
+    const r=el.getBoundingClientRect(),vertical=displayRect.top-r.bottom,horizontal=Math.abs(r.left-displayRect.left);
+    if(vertical>=-8&&vertical<=90&&horizontal<=220)candidates.push({el,score:vertical+horizontal/8});
+  }
+  candidates.sort((a,b)=>a.score-b.score);const alias=candidates[0]?.el||null;if(!alias)return false;
+  alias.style.setProperty('display','none','important');alias.setAttribute('aria-hidden','true');alias.dataset.ronaRedundantCompanyAlias='hidden';return true;
+}
 function syncCompanyCard(entry,card){
   if(!entry||!card)return;const ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
   for(const el of leaves){
@@ -142,13 +155,8 @@ function syncCompanyCard(entry,card){
       continue;
     }
   }
-  const refreshed=leafNodes(card);
-  const displayLeaf=refreshed.find(el=>norm(el.textContent)===display)||null;
-  if(displayLeaf){
-    const all=[...card.querySelectorAll('small,span,strong,div')].filter(el=>el.childElementCount===0&&visible(el));
-    const alias=all.find(el=>/^[A-Z][A-Z0-9&.' -]{4,}$/u.test(norm(el.textContent))&&!/^RONA-C/u.test(norm(el.textContent))&&!/RONA TRADE/u.test(norm(el.textContent))&&el!==displayLeaf);
-    if(alias)alias.style.display='none';
-  }
+  const refreshed=leafNodes(card),displayLeaf=refreshed.find(el=>norm(el.textContent)===display)||null;
+  hideRedundantCompanyAlias(displayLeaf,card);
   setMetric(card,'заявок',entry.applications.length);
   setMetric(card,'сделок',entry.deals.length);
   if(!setMetric(card,'действий',entry.documents.length,'ДОКУМЕНТОВ'))setMetric(card,'документов',entry.documents.length);
