@@ -15,3 +15,4 @@ function schedule(){if(queued)return;queued=true;setTimeout(()=>{queued=false;no
 function start(){hideHeaderContractDownload();normalizeLogout();document.addEventListener('click',schedule,true);document.addEventListener('change',schedule,true);window.addEventListener('pageshow',normalizeLogout);setInterval(()=>{if(document.visibilityState==='visible')normalizeLogout()},5000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+(()=>{'use strict';if(location.pathname!=='/portal/client'||document.getElementById('rona-client-contextual-layout-v2-loader'))return;const s=document.createElement('script');s.id='rona-client-contextual-layout-v2-loader';s.src='/assets/portal-runtime/client-contextual-layout-v2.js?v=20260903-gap-safe-v2';s.defer=true;(document.head||document.documentElement).appendChild(s)})();
