@@ -2,12 +2,12 @@ import { readFile } from 'node:fs/promises';
 
 const html=await readFile('dist/portal/client.html','utf8');
 const runtime=await readFile('dist/assets/portal-runtime/client-context-selection-authority-v1.js','utf8');
-const marker='20260902-client-context-selection-authority-v3-scoped-bootstrap';
+const marker='20260903-client-context-selection-authority-v5-generic-header-no-contract-download';
 const id='rona-client-context-selection-authority-v1';
 
 if(!runtime.includes(marker))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_MARKER_MISSING');
 const runtimeLower=runtime.toLocaleLowerCase('ru-RU');
-for(const token of ['SERVER_SESSION_AUTHORITY','companyDisplayName','clientContextSelect','CLIENT_CONTEXT_SELECTION_REQUIRED','rona:client-context-changed','RONA_CLIENT_CONTEXT','whenReady','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','requires_context_selection','selected_context'])if(!runtime.includes(token))throw new Error(`CLIENT_CONTEXT_AUTHORITY_QA_TOKEN_MISSING: ${token}`);
+for(const token of ['SERVER_SESSION_AUTHORITY','companyDisplayName','clientContextSelect','CLIENT_CONTEXT_SELECTION_REQUIRED','rona:client-context-changed','RONA_CLIENT_CONTEXT','whenReady','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','requires_context_selection','selected_context','normalizeHeaderTitle','purgeHeaderContractDownload'])if(!runtime.includes(token))throw new Error(`CLIENT_CONTEXT_AUTHORITY_QA_TOKEN_MISSING: ${token}`);
 if(!runtimeLower.includes('выбрана компания'))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_LEGACY_CONTEXT_SYNC_MISSING');
 const soleContextGuard='if(state.contexts.length===1)return state.contexts[0];';
 const stateFirstReturns=(runtime.match(/return state\.contexts\[0\]/g)||[]).length;
@@ -15,8 +15,12 @@ if(!runtime.includes(soleContextGuard)||stateFirstReturns!==1||runtime.includes(
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 if(!runtime.includes("contexts:selected?[selected]:[]"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_SCOPED_BOOTSTRAP_MISSING');
 if(!runtime.includes("url.searchParams.set('clientId',state.selected.client_id)")||!runtime.includes("url.searchParams.set('contractId',state.selected.contract_id)"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_REQUEST_REWRITE_MISSING');
+if(runtime.includes("after=titleMatch[1]+' · '+display"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_HEADER_COMPANY_SUFFIX_PRESENT');
+if(!runtime.includes('after=titleMatch[1];'))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_GENERIC_HEADER_MISSING');
+if(!runtime.includes('function syncVisualContext(){normalizeHeaderTitle();purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;'))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_PRE_CONTEXT_HEADER_CLEANUP_MISSING');
+if(!runtime.includes("/^скачать\\s+договор\\s+pdf$/iu.test(norm(el.textContent))"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_HEADER_DOWNLOAD_PURGE_MISSING');
 const authorityAt=html.indexOf(`id="${id}"`),headClose=html.toLowerCase().indexOf('</head>'),firstConsumerCandidates=['client-application-lifecycle-v1.js','client-home-command-center-v2.js','client-payments-authoritative-v1.js','client-price-sync-v1.js','client-contract-download-v3.js'].map(x=>html.indexOf(x)).filter(x=>x>=0),firstConsumerAt=firstConsumerCandidates.length?Math.min(...firstConsumerCandidates):-1;
 if(authorityAt<0||headClose<0||authorityAt>headClose)throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_NOT_IN_HEAD');
 if(firstConsumerAt>=0&&authorityAt>firstConsumerAt)throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_ORDER_INVALID');
 if(!html.includes('client-context-selection-authority-v1.js?v='))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_CONTENT_ADDRESS_MISSING');
-console.log('CLIENT_CONTEXT_SELECTION_AUTHORITY_QA=PASS source=SERVER_SESSION_AUTHORITY public_api=RONA_CLIENT_CONTEXT bootstrap=SELECTED_ONLY_OR_EMPTY sole-context-auto-select=guarded order=HEAD_DEFER_BEFORE_CONSUMERS');
+console.log('CLIENT_CONTEXT_SELECTION_AUTHORITY_QA=PASS source=SERVER_SESSION_AUTHORITY public_api=RONA_CLIENT_CONTEXT header=GENERIC contract-download=REMOVED bootstrap=SELECTED_ONLY_OR_EMPTY sole-context-auto-select=guarded order=HEAD_DEFER_BEFORE_CONSUMERS');
