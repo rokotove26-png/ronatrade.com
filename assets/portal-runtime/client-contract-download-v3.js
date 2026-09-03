@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const MARK='20260904-client-contract-v5-company-directory-authority';
+const PREVIOUS_MARK='20260902-client-contract-v4-current-context-authority';
 const COMPAT_MARK='20260829-client-contract-v3-authoritative-projection-v5';
 if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__===MARK)return;
 window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__=MARK;
@@ -78,7 +79,7 @@ function hydrateFrozenClientModel(entry){
 }
 function publishState(){
   const entry=state.entry,ctx=entry?.context||null;
-  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:entry.applications.length,deals:entry.deals.length,documents:entry.documents.length,current:true}]:[],loadedAt:new Date().toISOString()};
+  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:entry.applications.length,deals:entry.deals.length,documents:entry.documents.length,current:true}]:[],loadedAt:new Date().toISOString()};
 }
 async function refresh(force=false){
   if(state.loading)return;if(!force&&Date.now()-state.lastLoad<REFRESH_MS){render();return}state.loading=true;
