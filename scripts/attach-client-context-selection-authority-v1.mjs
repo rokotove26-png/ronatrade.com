@@ -17,19 +17,31 @@ let runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker)){
   if(!runtime.includes(sourceMarker))throw new Error(`CLIENT_CONTEXT_AUTHORITY_SOURCE_MARKER_MISSING: ${sourceMarker}`);
   runtime=replaceExact(runtime,`const MARK='${sourceMarker}';`,`const MARK='${marker}';`,'marker');
-  runtime=replaceExact(runtime,"      after=titleMatch[1]+' · '+display;","      after=titleMatch[1];",'generic-header-title');
-  runtime=replaceExact(
-    runtime,
-    `function purgeHeaderContractDownload(){\n  for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]')){\n    if(/скачать\\s+договор\\s+pdf/iu.test(norm(el.textContent)))el.remove();\n  }\n}`,
-    `function normalizeHeaderTitle(){\n  for(const leaf of document.querySelectorAll('body *')){\n    if(leaf.childElementCount!==0)continue;\n    const before=norm(leaf.textContent),match=before.match(/^(.*?личный кабинет клиента)(?:\\s*·.*)?$/iu);\n    if(match&&before!==match[1])leaf.textContent=match[1];\n  }\n}\nfunction purgeHeaderContractDownload(){\n  for(const el of document.querySelectorAll('button,a,[role="button"]')){\n    if(!/^скачать\\s+договор\\s+pdf$/iu.test(norm(el.textContent)))continue;\n    let node=el.parentElement,inHeader=false;\n    for(let depth=0;node&&node!==document.body&&depth<8;depth++,node=node.parentElement){\n      const text=norm(node.textContent);\n      if(/личный кабинет клиента/iu.test(text)||node.querySelector?.('#clientContextSelect')){inHeader=true;break}\n      if(text.length>2500)break;\n    }\n    if(inHeader)el.remove();\n  }\n}`,
-    'header-contract-download-purge'
-  );
-  runtime=replaceExact(
-    runtime,
-    `function syncVisualContext(){const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}`,
-    `function syncVisualContext(){normalizeHeaderTitle();purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx)}`,
-    'pre-context-header-cleanup'
-  );
+
+  const legacyTitle="      after=titleMatch[1]+' · '+display;";
+  const genericTitle="      after=titleMatch[1];";
+  if(runtime.includes(legacyTitle))runtime=runtime.replace(legacyTitle,genericTitle);
+  else if(!runtime.includes(genericTitle))throw new Error('CLIENT_CONTEXT_AUTHORITY_PATCH_MISSING: generic-header-title');
+
+  if(!runtime.includes('function normalizeHeaderTitle(){')){
+    runtime=replaceExact(
+      runtime,
+      `function purgeHeaderContractDownload(){\n  for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]')){\n    if(/скачать\\s+договор\\s+pdf/iu.test(norm(el.textContent)))el.remove();\n  }\n}`,
+      `function normalizeHeaderTitle(){\n  for(const leaf of document.querySelectorAll('body *')){\n    if(leaf.childElementCount!==0)continue;\n    const before=norm(leaf.textContent),match=before.match(/^(.*?личный кабинет клиента)(?:\\s*·.*)?$/iu);\n    if(match&&before!==match[1])leaf.textContent=match[1];\n  }\n}\nfunction purgeHeaderContractDownload(){\n  for(const el of document.querySelectorAll('button,a,[role="button"]')){\n    if(!/^скачать\\s+договор\\s+pdf$/iu.test(norm(el.textContent)))continue;\n    let node=el.parentElement,inHeader=false;\n    for(let depth=0;node&&node!==document.body&&depth<8;depth++,node=node.parentElement){\n      const text=norm(node.textContent);\n      if(/личный кабинет клиента/iu.test(text)||node.querySelector?.('#clientContextSelect')){inHeader=true;break}\n      if(text.length>2500)break;\n    }\n    if(inHeader)el.remove();\n  }\n}`,
+      'header-contract-download-purge'
+    );
+  }
+
+  const targetSync=`function syncVisualContext(){normalizeHeaderTitle();purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx)}`;
+  if(!runtime.includes(targetSync)){
+    const syncVariants=[
+      `function syncVisualContext(){purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}`,
+      `function syncVisualContext(){const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}`
+    ];
+    const sourceSync=syncVariants.find(candidate=>runtime.includes(candidate));
+    if(!sourceSync)throw new Error('CLIENT_CONTEXT_AUTHORITY_PATCH_MISSING: pre-context-header-cleanup');
+    runtime=runtime.replace(sourceSync,targetSync);
+  }
   await writeFile(runtimePath,runtime,'utf8');
 }
 if(!runtime.includes(marker))throw new Error(`CLIENT_CONTEXT_AUTHORITY_MARKER_MISSING: ${marker}`);
