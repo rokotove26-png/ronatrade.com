@@ -28,16 +28,16 @@ const integrity=await retry('Client CURRENT_ONLY integrity',async attempt=>{
   assert(client.source_bytes===484970,`client bytes ${client.source_bytes}`);
   assert(client.functional_bridge?.id==='rona-client-contract-authoritative-projection-v5',`bridge id ${client.functional_bridge?.id}`);
   assert(client.functional_bridge?.marker==='20260829-client-contract-v3-authoritative-projection-v5',`bridge marker ${client.functional_bridge?.marker}`);
-  assert(client.functional_bridge?.src==='/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v2',`bridge src ${client.functional_bridge?.src}`);
+  assert(client.functional_bridge?.src==='/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-first-paint-v1',`bridge src ${client.functional_bridge?.src}`);
   return data;
 });
 
 const runtime=await retry('Client authoritative contract runtime',async attempt=>{
-  const response=await fetchNoStore('/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v2',attempt);
+  const response=await fetchNoStore('/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-first-paint-v1',attempt);
   assert(response.ok,`status ${response.status}`);
   const text=await response.text();
   for(const marker of [
-    '20260904-client-contract-v6-company-alias-slot-removed',
+    '20260904-client-contract-v7-company-first-paint',
     '20260902-client-contract-v4-current-context-authority',
     '20260829-client-contract-v3-authoritative-projection-v5',
     'RONA_CLIENT_CONTEXT',
@@ -49,7 +49,9 @@ const runtime=await retry('Client authoritative contract runtime',async attempt=
     "scope:'CURRENT_CONTEXT_ONLY'",
     "ronaClientContractModel='authoritative'",
     "function hideRedundantCompanyAlias(card)",
-    "dataset.ronaRedundantCompanyAlias='hidden'"
+    "dataset.ronaRedundantCompanyAlias='hidden'",
+    "pendingImmediate",
+    "primeCompanyDirectory"
   ])assert(text.includes(marker),`runtime marker missing: ${marker}`);
   for(const forbidden of ['01/РТ-01-1926','01/РТ-02-1926','01/PT-02-1926'])assert(!text.includes(forbidden),`runtime hardcodes contract number: ${forbidden}`);
   return text;
