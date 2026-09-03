@@ -32,6 +32,7 @@ async function waitForAuthority(timeoutMs=15000){
   throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');
 }
 function visible(el){if(!el||!el.isConnected)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0}
+function setNodeText(el,value){if(!el)return false;const next=String(value??'');if(String(el.textContent??'')===next)return false;el.textContent=next;return true}
 function tokenKey(v){return low(v).replace(new RegExp('['+APOSTROPHES+']','g'),'').replace(/[^a-zа-яё0-9]+/gi,'')}
 function legalWords(name){return (norm(name).match(/[A-Za-zА-Яа-яЁё0-9]+(?:['’‘`´ʼ-][A-Za-zА-Яа-яЁё0-9]+)*/g)||[]).filter(Boolean)}
 function canonicalBusinessWords(ctx){const words=legalWords(ctx?.legal_name);while(words.length&&GENERIC.has(low(words[0])))words.shift();return words}
@@ -120,11 +121,11 @@ function findCompanyCard(ctx){
 }
 function setMetric(card,labelText,value,relabel){
   const label=leafByText(card,t=>t===labelText);if(!label)return false;
-  if(relabel&&norm(label.textContent)!==relabel)label.textContent=relabel;
+  if(relabel)setNodeText(label,relabel);
   let box=label.parentElement;
   for(let depth=0;box&&box!==card&&depth<3;depth++,box=box.parentElement){
     const n=leafNodes(box).find(el=>el!==label&&/^\d+$/.test(norm(el.textContent)));
-    if(n){n.textContent=String(value);return true}
+    if(n){setNodeText(n,String(value));return true}
   }
   return false;
 }
@@ -132,12 +133,12 @@ function syncCompanyCard(entry,card){
   if(!entry||!card)return;const ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
   for(const el of leaves){
     const before=norm(el.textContent),l=low(before);if(!before)continue;
-    if(/^RONA-C\d{3}$/i.test(before)){el.textContent=ctx.client_id;continue}
-    if(/^RONA-C\d{3}-CTR-\d{4}-\d{3,}$/i.test(before)){el.textContent=ctx.contract_id;continue}
-    if(/^контракт\b/iu.test(before)&&!l.includes('подписанный контракт')&&!l.includes('скач')){el.textContent=`Контракт ${external}${effective?' · '+effective:''}`;continue}
-    if((/^(общество с |ооо\b|осоо\b|llc\b)/iu.test(before)||/[«»]/u.test(before))&&!l.includes('контракт')&&!l.includes('договор')){el.textContent=display;continue}
+    if(/^RONA-C\d{3}$/i.test(before)){setNodeText(el,ctx.client_id);continue}
+    if(/^RONA-C\d{3}-CTR-\d{4}-\d{3,}$/i.test(before)){setNodeText(el,ctx.contract_id);continue}
+    if(/^контракт\b/iu.test(before)&&!l.includes('подписанный контракт')&&!l.includes('скач')){setNodeText(el,`Контракт ${external}${effective?' · '+effective:''}`);continue}
+    if((/^(общество с |ооо\b|осоо\b|llc\b)/iu.test(before)||/[«»]/u.test(before))&&!l.includes('контракт')&&!l.includes('договор')){setNodeText(el,display);continue}
     if(/межсистемн|договорной контур|дополнительн.*сверк|контракт не требуется/iu.test(before)){
-      el.textContent=entry.document?.storage_object_id?'Подписанный договор зарегистрирован и доступен для скачивания.':'Подписанный договор зарегистрирован. Электронный файл пока не опубликован.';
+      setNodeText(el,entry.document?.storage_object_id?'Подписанный договор зарегистрирован и доступен для скачивания.':'Подписанный договор зарегистрирован. Электронный файл пока не опубликован.');
       continue;
     }
   }
@@ -164,16 +165,20 @@ async function beginDownload(entry,b){
 function makeButton(entry,template){
   ensureStyle();const b=document.createElement('button');b.type='button';if(template&&typeof template.className==='string')b.className=template.className;b.dataset.ronaContractDownloadV3=String(entry.context?.contract_id||'');b.dataset.storageObjectId=String(entry.document?.storage_object_id||'');b.textContent='Скачать договор PDF';b.title=norm(entry.document?.authoritative_filename)||'Скачать действующий подписанный договор';b.setAttribute('aria-label','Скачать подписанный договор '+norm(entry.context?.current_external_contract_number||entry.context?.contract_id));b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();beginDownload(entry,b)},true);return b;
 }
-function clearRuntimeButtons(){for(const old of document.querySelectorAll('button[data-rona-contract-download-v3],button[data-rona-contract-download],button[data-rona-contract-download-v2]'))old.remove()}
+function clearRuntimeButtons(entry){
+  for(const old of document.querySelectorAll('button[data-rona-contract-download],button[data-rona-contract-download-v2]'))old.remove();
+  const current=norm(entry?.context?.contract_id);
+  for(const old of document.querySelectorAll('button[data-rona-contract-download-v3]'))if(!current||norm(old.dataset.ronaContractDownloadV3)!==current)old.remove();
+}
 function renderEntry(entry){
   const card=findCompanyCard(entry?.context);if(!card)return false;syncCompanyCard(entry,card);
   const unavailable=unavailableNode(card),anchor=contractAnchor(card),active=String(entry.context?.contract_status||'').toUpperCase()==='ACTIVE';if(!active||(!unavailable&&!anchor))return false;
-  if(!entry.document?.storage_object_id){if(unavailable){const msg='Файл подписанного контракта не опубликован в кабинете';if(unavailable.textContent!==msg)unavailable.textContent=msg;unavailable.setAttribute('aria-disabled','true');unavailable.dataset.ronaContractUnavailable='authoritative-storage-not-materialized'}return false}
+  if(!entry.document?.storage_object_id){if(unavailable){const msg='Файл подписанного контракта не опубликован в кабинете';setNodeText(unavailable,msg);unavailable.setAttribute('aria-disabled','true');unavailable.dataset.ronaContractUnavailable='authoritative-storage-not-materialized'}return false}
   const existing=card.querySelector('button[data-rona-contract-download-v3]');if(existing){existing.dataset.storageObjectId=String(entry.document.storage_object_id);return true}
   const b=makeButton(entry,unavailable);if(unavailable){unavailable.replaceWith(b);return true}anchor.parentElement.appendChild(b);return true;
 }
 function render(){
-  if(state.rendering)return false;state.rendering=true;try{ensureStyle();clearRuntimeButtons();const entry=state.entry;if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v5-company-directory-authority';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v5-company-directory-authority';return true}finally{state.rendering=false}
+  if(state.rendering)return false;state.rendering=true;try{ensureStyle();const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v5-company-directory-authority';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v5-company-directory-authority';return true}finally{state.rendering=false}
 }
 function scheduleRender(delay=120){clearTimeout(state.renderTimer);state.renderTimer=setTimeout(render,delay)}
 function startObserver(){if(state.observer||!document.documentElement)return;state.observer=new MutationObserver(records=>{if(state.rendering)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'))scheduleRender(80)});state.observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true})}
