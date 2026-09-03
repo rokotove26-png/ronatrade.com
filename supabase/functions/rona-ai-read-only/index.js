@@ -236,8 +236,9 @@ async function currentTasks(role){
     : (role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR') ? ['CLIENT','CONTRACT','APPLICATION','DEAL','COMMERCIAL','MARKET','PUBLICATION','PORTAL_EVENT']
     : role==='RAIL_LOGISTICS' ? ['RAIL','SHIPMENT','PORTAL_EVENT']
     : ['TECHNICAL','IAM','AUDIT','PORTAL_EVENT'];
+  const commercialTaskScope=role==='MARKET_ANALYST'||role==='COMMERCIAL_DIRECTOR';
   return await sql`select task_id,title,description,status::text,priority::text,authority_domain,assigned_functional_role::text,due_at,source_type,source_object_id,source_version,acknowledged_at,decision,decision_at,created_at,updated_at
-    from portal_private.staff_tasks where qa_only=false and authority_domain=any(${domains}::text[]) and status not in ('COMPLETED','REJECTED','CLOSED')
+    from portal_private.staff_tasks where qa_only=false and authority_domain=any(${domains}::text[]) and (${commercialTaskScope}::boolean=false or assigned_functional_role='COMMERCIAL_DIRECTOR'::portal_private.staff_functional_role_enum) and status not in ('COMPLETED','REJECTED','CLOSED')
       and coalesce(lower(source_type),'') !~ '(^|[_/\\-])(qa|test|debug|temp)($|[_/\\-])'
     order by case priority when 'CRITICAL' then 1 when 'HIGH' then 2 when 'NORMAL' then 3 else 4 end,due_at nulls last,created_at desc`;
 }
