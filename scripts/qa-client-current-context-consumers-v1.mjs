@@ -16,7 +16,7 @@ const source=Object.fromEntries(await Promise.all(Object.entries(files).map(asyn
 const requireAll=(name,tokens)=>{for(const token of tokens)if(!source[name].includes(token))throw new Error(`CURRENT_CONTEXT_REQUIRED_MISSING:${name}:${token}`)};
 const forbidAll=(name,tokens)=>{for(const token of tokens)if(source[name].includes(token))throw new Error(`CURRENT_CONTEXT_FORBIDDEN_PRESENT:${name}:${token}`)};
 
-requireAll('authority',['20260902-client-context-selection-authority-v3-scoped-bootstrap','window.RONA_CLIENT_CONTEXT=publicApi','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','rona:client-context-changed','CLIENT_CONTEXT_SELECTION_REQUIRED']);
+requireAll('authority',['20260903-client-context-selection-authority-v4-header-current-context','window.RONA_CLIENT_CONTEXT=publicApi','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','rona:client-context-changed','CLIENT_CONTEXT_SELECTION_REQUIRED']);
 requireAll('home',['20260902-client-home-command-center-v3-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('payments',['20260902-client-payments-authoritative-v2-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('prices',['20260902-authoritative-price-current-context-server-projection','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe','SERVER_AUTHORITATIVE_PRICE_PROJECTION']);
