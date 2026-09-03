@@ -4,12 +4,12 @@
   "effective_at": "2026-08-31T17:38:00+03:00",
   "baseline_release_commit": "4dd055e675e40349f0798298c394315872a69d8a",
   "owner_instruction_required": true,
-  "approval_marker": "OWNER_VISUAL_APPROVAL: DEALS_EMPTY_BASE_SCREEN_WITH_INNER_NOTICE_20260902",
+  "approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_HOME_REMOVE_CONTROL_CONTOUR_AND_POLISH_QUICK_ACTIONS_20260904",
   "functional_exception_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_MARKET_INTELLIGENCE_ADMIN_PARITY_20260902",
   "market_intelligence_refresh_policy_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_MARKET_INTELLIGENCE_OPEN_AND_HOURLY_20260902",
   "market_news_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_MARKET_NEWS_ADMIN_CANONICAL_PARITY_20260902",
   "analytics_forecast_visual_exception_marker": "OWNER_VISUAL_APPROVAL: CLIENT_ANALYTICS_FORECAST_INNER_SPACING_20260902",
-  "scope_note": "Client Portal visual surface remains frozen except for explicitly owner-approved scoped exceptions. Owner-approved Deals visual exception remains limited to the authoritative empty state. Market Intelligence is a universal read-only tenant-safe Client projection of published server-authoritative data. On 2026-09-02 the owner required Client Analytics and Client Market News to load when the cabinet opens and thereafter refresh once per hour. The generic 30-second background preload is explicitly prohibited from fetching, caching, owning, or driving Analytics or Market News and remains only for the other Client sections. Market News visualization remains exact Admin canonical DOM/CSS/text parity with the Client-safe endpoint. Analytics visual approval remains limited to inner spacing inside the visible market forecast frame; the correction may re-apply the padding inside same-origin embedded Analytics content, but may not change outer dimensions, position, data, chart, colors, borders, typography, or any other visual surface. On 2026-09-03 the owner explicitly lifted freeze only for the Client header correction: the title must be generic 'ЛИЧНЫЙ КАБИНЕТ КЛИЕНТА' with no counterparty suffix, and the upper-row 'Скачать договор PDF' control must be removed. All other Client visual surfaces remain frozen.",
+  "scope_note": "Client Portal visual surface remains frozen except for explicitly owner-approved scoped exceptions. Owner-approved Deals visual exception remains limited to the authoritative empty state. Market Intelligence is a universal read-only tenant-safe Client projection of published server-authoritative data. On 2026-09-02 the owner required Client Analytics and Client Market News to load when the cabinet opens and thereafter refresh once per hour. The generic 30-second background preload is explicitly prohibited from fetching, caching, owning, or driving Analytics or Market News and remains only for the other Client sections. Market News visualization remains exact Admin canonical DOM/CSS/text parity with the Client-safe endpoint. Analytics visual approval remains limited to inner spacing inside the visible market forecast frame; the correction may re-apply the padding inside same-origin embedded Analytics content, but may not change outer dimensions, position, data, chart, colors, borders, typography, or any other visual surface. On 2026-09-03 the owner explicitly lifted freeze for the Client header correction: the title must be generic 'ЛИЧНЫЙ КАБИНЕТ КЛИЕНТА' with no counterparty suffix, and the upper-row 'Скачать договор PDF' control must be removed. On 2026-09-04 the owner explicitly approved a Home-only delta: remove the entire 'Контур управления' card and redesign 'Быстрые действия' as polished interactive controls while preserving the existing real sidebar navigation targets; no images, photos, business-data or unrelated visual changes are permitted. All other Client visual surfaces remain frozen.",
   "technical_baseline_refresh": {
     "authorized_at": "2026-09-03",
     "authorized_source": "OWNER_IN_CHAT",
@@ -26,6 +26,24 @@
     "header_contract_download": false,
     "preserve_contract_download_function_elsewhere": true,
     "preserve_access_and_server_badges": true,
+    "no_other_visual_change": true
+  },
+  "client_home_actions_correction": {
+    "authorized_at": "2026-09-04",
+    "authorized_source": "OWNER_IN_CHAT",
+    "scope": "REMOVE_HOME_CONTROL_CONTOUR_AND_POLISH_QUICK_ACTIONS_ONLY",
+    "remove_control_contour": true,
+    "quick_actions": "REAL_EXISTING_SECTION_NAVIGATION_ONLY",
+    "required_states": [
+      "DEFAULT",
+      "HOVER",
+      "ACTIVE",
+      "FOCUS_VISIBLE",
+      "DISABLED_IF_REAL_TARGET_ABSENT"
+    ],
+    "images_added": false,
+    "business_logic_changed": false,
+    "business_data_changed": false,
     "no_other_visual_change": true
   },
   "protected_files": {
@@ -56,6 +74,7 @@
     "assets/portal-runtime/client-deal-documents-v5.js": "12744a490368151c5b4e793051a093a8ff913529",
     "assets/portal-runtime/client-deal-lifecycle-v1.js": "e5ecddce2c3d4e595f2f42d53802a01ca5aeae58",
     "assets/portal-runtime/client-deal-passport-v1.js": "d9a9ca11da1ac32a0ed19a28695d1112475cad7f",
+    "assets/portal-runtime/client-home-actions-polish-v1.js": "d6fb542cf314c6c1c2ef0a30acd410704dace2a6",
     "assets/portal-runtime/client-home-command-center-v2.js": "057b373152c534284ce6918eca21ed7c22e5232c",
     "assets/portal-runtime/client-home-current-only-v1.js": "805dcd21e77c09bf342d41cd6488f8bb4671d66d",
     "assets/portal-runtime/client-home-density-v5.js": "ffcaadf734272d603617875ed9d537801d4bfb74",
@@ -80,6 +99,7 @@
     "scripts/attach-client-content-responsive-v1.mjs": "1a33eb6face1a896368e1bb84cb0eb62156d3c21",
     "scripts/attach-client-context-selection-authority-v1.mjs": "1380ecaadddfab9d89e07cfb706623bdc0f41070",
     "scripts/attach-client-deal-documents.mjs": "bd439510d86b147f43be22541b5a4ab51cf63a0a",
+    "scripts/attach-client-home-actions-polish-v1.mjs": "8bb2cdd24ce0867595be60184feb8208766a7d2b",
     "scripts/attach-client-home-current-only-v1.mjs": "d7e18449fe323905b54b697f53f5af685b7582c3",
     "scripts/attach-client-home-night-panel-v4.mjs": "ed9825aa40ed7578269f96404d8cd54003349f41",
     "scripts/attach-client-logout-visual-v1.mjs": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
