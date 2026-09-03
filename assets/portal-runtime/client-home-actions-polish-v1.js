@@ -160,3 +160,78 @@ function start(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
+
+(()=>{'use strict';
+const MARK='20260904-client-title-frame-right-meta-cleanup-v1';
+if(window.__RONA_CLIENT_TITLE_FRAME_RIGHT_META_CLEANUP__===MARK)return;
+window.__RONA_CLIENT_TITLE_FRAME_RIGHT_META_CLEANUP__=MARK;
+if(location.pathname!=='/portal/client')return;
+let timer=0;
+const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
+const px=v=>Number.parseFloat(String(v||'0'))||0;
+const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el),r=el.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};
+const interactive=el=>Boolean(el.closest('button,a,input,select,textarea,[role="button"],[role="link"],[contenteditable="true"]'));
+function titleNodes(main){
+  const out=new Set(main.querySelectorAll('h1,h2,[role="heading"]'));
+  for(const el of main.querySelectorAll('div,span,strong,p')){
+    if(el.childElementCount!==0||!visible(el))continue;
+    const text=norm(el.textContent);if(!text||text.length>120)continue;
+    const s=getComputedStyle(el),size=px(s.fontSize),weight=Number.parseInt(s.fontWeight,10)||400;
+    if(size>=22&&weight>=600)out.add(el);
+  }
+  return [...out].filter(visible);
+}
+function frameSignal(el){
+  const s=getComputedStyle(el),bg=String(s.backgroundColor||'').replace(/\s+/g,'');
+  const border=px(s.borderTopWidth)+px(s.borderRightWidth)+px(s.borderBottomWidth)+px(s.borderLeftWidth);
+  return border>0||s.boxShadow!=='none'||(bg&&bg!=='transparent'&&bg!=='rgba(0,0,0,0)');
+}
+function findTitleFrame(title,main){
+  const mr=main.getBoundingClientRect();let node=title.parentElement;
+  for(let depth=0;node&&node!==main&&depth<7;depth++,node=node.parentElement){
+    if(!visible(node))continue;const r=node.getBoundingClientRect();
+    if(r.width<Math.max(320,mr.width*.54)||r.height<54||r.height>210||!frameSignal(node))continue;
+    return node;
+  }
+  return null;
+}
+function hideRightMeta(frame,title){
+  const fr=frame.getBoundingClientRect();let hidden=0;
+  for(const el of frame.querySelectorAll('span,small,strong,p,div')){
+    if(el===title||title.contains(el)||el.contains(title)||el.childElementCount!==0||!visible(el)||interactive(el))continue;
+    const text=norm(el.textContent);if(!text||text.length>180)continue;
+    const r=el.getBoundingClientRect(),s=getComputedStyle(el);
+    if(r.left<fr.left+fr.width*.60||r.right>fr.right+3||r.top<fr.top-3||r.bottom>fr.bottom+3)continue;
+    if(r.width>fr.width*.42||px(s.fontSize)>16.5)continue;
+    el.style.setProperty('display','none','important');
+    el.setAttribute('aria-hidden','true');
+    el.dataset.ronaTitleFrameRightMeta='hidden';
+    hidden++;
+  }
+  if(hidden)frame.dataset.ronaTitleFrameRightMetaClean='true';
+  return hidden;
+}
+function clean(){
+  const main=document.querySelector('main,[role="main"]');if(!main)return;
+  const seen=new Set();
+  for(const title of titleNodes(main)){
+    const frame=findTitleFrame(title,main);if(!frame||seen.has(frame))continue;
+    seen.add(frame);hideRightMeta(frame,title);
+  }
+  document.documentElement.dataset.ronaTitleFrameRightMetaCleanup=MARK;
+}
+function scheduleClean(delay=0){clearTimeout(timer);timer=setTimeout(clean,delay)}
+function startClean(){
+  clean();
+  const observer=new MutationObserver(()=>scheduleClean(25));
+  observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden']});
+  document.addEventListener('click',()=>scheduleClean(30),true);
+  document.addEventListener('change',()=>scheduleClean(15),true);
+  window.addEventListener('pageshow',()=>scheduleClean(0));
+  window.addEventListener('popstate',()=>scheduleClean(15));
+  window.addEventListener('hashchange',()=>scheduleClean(15));
+  window.addEventListener('rona:client-context-ready',()=>scheduleClean(0));
+  window.addEventListener('rona:client-context-changed',()=>scheduleClean(0));
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startClean,{once:true});else startClean();
+})();
