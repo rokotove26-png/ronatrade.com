@@ -179,12 +179,18 @@ function syncContextScope(scope,ctx){
   scope.dataset.clientId=ctx.client_id;scope.dataset.contractId=ctx.contract_id;scope.dataset.ronaContextSource='server-session-authority';
 }
 function syncHeader(ctx){
+  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id;
   const roots=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]')].filter(Boolean);
   for(const root of [...new Set(roots)])for(const leaf of root.querySelectorAll('*')){
-    if(leaf.childElementCount!==0)continue;const before=norm(leaf.textContent);if(!before||!/(контракт|договор)\s*№/iu.test(before))continue;
-    if(!CLIENT_ONE.test(before)&&!CONTRACT_ONE.test(before))continue;
-    const contract=ctx.current_external_contract_number||ctx.contract_id;let after=before.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
-    const pos=after.search(/(?:контракт|договор)\s*№/iu);if(pos>0)after=companyDisplayName(ctx)+' · '+after.slice(pos);
+    if(leaf.childElementCount!==0||leaf.closest('select,option,button,[data-status],[data-service],[data-access]'))continue;
+    const before=norm(leaf.textContent);if(!before)continue;let after=before;
+    if(/^личный кабинет клиента\b/iu.test(before)){
+      after=before.replace(/^(.*?личный кабинет клиента)(?:\s*[·•—-]\s*.*)?$/iu,'$1 · '+display);
+    }else if(/(?:контракт|договор)/iu.test(before)){
+      after=after.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
+      const pos=after.search(/(?:контракт|договор)/iu);if(pos>0)after=display+' · '+after.slice(pos);
+      if(ctx.current_external_contract_number)after=after.replace(/((?:контракт|договор)\s*)номер уточняется/iu,'$1'+ctx.current_external_contract_number);
+    }
     if(after!==before)leaf.textContent=after;
   }
 }
