@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260902-client-context-selection-authority-v3-scoped-bootstrap';
+const MARK='20260903-client-context-selection-authority-v4-header-current-context';
 if(window.__RONA_CLIENT_CONTEXT_SELECTION_AUTHORITY__===MARK)return;
 window.__RONA_CLIENT_CONTEXT_SELECTION_AUTHORITY__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -178,23 +178,49 @@ function syncContextScope(scope,ctx){
   const company=companyCandidate(scope);if(company&&norm(company.textContent)!==display)company.textContent=display;
   scope.dataset.clientId=ctx.client_id;scope.dataset.contractId=ctx.contract_id;scope.dataset.ronaContextSource='server-session-authority';
 }
+function headerRoots(){
+  const out=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]')].filter(Boolean);
+  const select=document.getElementById('clientContextSelect');
+  if(select){
+    let node=select.parentElement;
+    for(let depth=0;node&&node!==document.body&&depth<8;depth++,node=node.parentElement){
+      const text=norm(node.textContent);
+      if(text.length<=1400&&(/личный кабинет клиента/iu.test(text)||/компания\s*\/\s*контракт/iu.test(text))){out.push(node);break}
+      if(text.length>2200)break;
+    }
+  }
+  return [...new Set(out.filter(Boolean))];
+}
+function purgeHeaderContractDownload(){
+  for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]')){
+    if(/скачать\s+договор\s+pdf/iu.test(norm(el.textContent)))el.remove();
+  }
+}
+function staleHeaderNames(ctx){
+  const names=[];
+  for(const c of state.contexts){if(key(c)===key(ctx))continue;for(const n of [norm(c.legal_name),companyDisplayName(c)])if(n&&!names.some(x=>low(x)===low(n)))names.push(n)}
+  return names;
+}
 function syncHeader(ctx){
-  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id;
-  const roots=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]')].filter(Boolean);
-  for(const root of [...new Set(roots)])for(const leaf of root.querySelectorAll('*')){
+  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id,stale=staleHeaderNames(ctx);
+  for(const root of headerRoots())for(const leaf of root.querySelectorAll('*')){
     if(leaf.childElementCount!==0||leaf.closest('select,option,button,[data-status],[data-service],[data-access]'))continue;
     const before=norm(leaf.textContent);if(!before)continue;let after=before;
-    if(/^личный кабинет клиента\b/iu.test(before)){
-      after=before.replace(/^(.*?личный кабинет клиента)(?:\s*[·•—-]\s*.*)?$/iu,'$1 · '+display);
+    const titleMatch=before.match(/^(.*?личный кабинет клиента)/iu);
+    if(titleMatch){
+      after=titleMatch[1]+' · '+display;
     }else if(/(?:контракт|договор)/iu.test(before)){
       after=after.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
       const pos=after.search(/(?:контракт|договор)/iu);if(pos>0)after=display+' · '+after.slice(pos);
       if(ctx.current_external_contract_number)after=after.replace(/((?:контракт|договор)\s*)номер уточняется/iu,'$1'+ctx.current_external_contract_number);
+    }else{
+      const old=stale.find(name=>low(name)===low(before));if(old)after=display;
     }
     if(after!==before)leaf.textContent=after;
   }
+  purgeHeaderContractDownload();
 }
-function syncVisualContext(){const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx)}
+function syncVisualContext(){const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}
 function syncAll(){if(state.syncing)return;state.syncing=true;try{syncSelect();syncVisualContext();exposeSelection()}finally{state.syncing=false}}
 function scheduleSync(){if(state.queued)return;state.queued=true;requestAnimationFrame(()=>{state.queued=false;syncAll()})}
 function publish(raw,source='bootstrap'){
