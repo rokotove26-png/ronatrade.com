@@ -37,8 +37,9 @@ const runtime=await retry('Client authoritative contract runtime',async attempt=
   assert(response.ok,`status ${response.status}`);
   const text=await response.text();
   for(const marker of [
+    '20260902-client-contract-v4-current-context-authority',
     '20260829-client-contract-v3-authoritative-projection-v5',
-    '/v1/client/bootstrap',
+    'RONA_CLIENT_CONTEXT',
     '/v1/client/context?clientId=',
     'current_external_contract_number',
     'function authoritativeContractText',
