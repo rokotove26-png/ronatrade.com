@@ -15,7 +15,7 @@ for(const required of [
   'data-rona-deals-authoritative-list','data-rona-deals-authoritative-rendered','data-rona-canonical-deal-id','data-open-deal',
   'authoritative-v8','classList.contains(\'active\')','function visible(','function canonicalIn(r,id)',
   'function openAuthoritativeDeal(id)','function effectiveResource(d)','function drawerFor(id,key)',
-  'function contextMatchesPayload(data,ctx,deal)','data-rona-authoritative-client-id','data-rona-authoritative-contract-id',
+  'function contextMatchesPayload(data,ctx,deal)','ronaAuthoritativeClientId','ronaAuthoritativeContractId',
   'current-context-v8','unauthorized-deal','authoritative-binding'
 ]){
   if(!runtime.includes(required))throw new Error(`CLIENT_DEALS_AUTHORITATIVE_RENDER_CONTRACT_MISSING:${required}`);
