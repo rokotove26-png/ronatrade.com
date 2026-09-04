@@ -6,6 +6,10 @@ on:
       - staging/public-go-live-v1.1
       - release/public-go-live-v1.1
 
+concurrency:
+  group: rona-production-live-qa-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
