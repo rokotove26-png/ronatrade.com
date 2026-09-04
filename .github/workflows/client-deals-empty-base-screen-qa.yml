@@ -46,7 +46,7 @@ jobs:
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.evaluate(({contextPath})=>{window.__RONA_CLIENT_BACKGROUND_CACHE__={[contextPath]:{ok:true,status:200,body:{ok:true,data:{deals:[]}}}}},{contextPath});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-section-first-paint-v1.js')});
-            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='empty'&&document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',{timeout:5000});
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='empty'&&document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',null,{timeout:5000});
             const empty=await page.evaluate(()=>{
               const root=document.querySelector('#page-deals');
               const base=document.querySelector('#baseShell');
@@ -83,7 +83,7 @@ jobs:
               root.querySelector('#terminalRow')?.remove();
               window.dispatchEvent(new CustomEvent('rona:client:background-sections'));
             },{contextPath});
-            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='loading',{timeout:5000});
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='loading',null,{timeout:5000});
 
             // Once the authoritative active Deal is actually represented in the Deals DOM,
             // first paint must become ready even while those auxiliary markers are still absent.
@@ -92,7 +92,25 @@ jobs:
               root.insertAdjacentHTML('beforeend','<article id="activeDeal" class="rona-deal-card-v5" data-rona-canonical-deal-id="DEAL-2099-901"><div>DEAL-2099-901 CURRENT DEAL</div></article>');
               window.dispatchEvent(new CustomEvent('rona:client:background-sections'));
             });
-            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='ready'&&document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',{timeout:5000});
+            await page.waitForTimeout(500);
+            const readinessProbe=await page.evaluate(({contextPath})=>{
+              const root=document.querySelector('#page-deals');
+              return{
+                state:document.documentElement.dataset.ronaClientDealsPaintState,
+                paintReady:document.documentElement.getAttribute('data-rona-client-deals-paint-ready'),
+                operationsReady:document.documentElement.getAttribute('data-rona-client-operations-ready'),
+                dealAuthority:root.getAttribute('data-rona-deal-authority'),
+                rootText:root.textContent,
+                rootDisplay:getComputedStyle(root).display,
+                rootVisibility:getComputedStyle(root).visibility,
+                parentDisplay:getComputedStyle(root.parentElement).display,
+                parentVisibility:getComputedStyle(root.parentElement).visibility,
+                contextPath,
+                cacheKeys:Object.keys(window.__RONA_CLIENT_BACKGROUND_CACHE__||{}),
+                marker:window.__RONA_CLIENT_SECTION_FIRST_PAINT__
+              };
+            },{contextPath});
+            assert(readinessProbe.state==='ready'&&readinessProbe.paintReady==='true','active authoritative Deal remained stuck in loading: '+JSON.stringify(readinessProbe));
             const recovered=await page.evaluate(()=>({
               notice:getComputedStyle(document.querySelector('#page-deals'),'::after').content,
               activeDisplay:getComputedStyle(document.querySelector('#activeDeal')).display,
@@ -102,7 +120,7 @@ jobs:
               state:document.documentElement.dataset.ronaClientDealsPaintState
             }));
             assert(recovered.state==='ready','active authoritative Deal remained stuck in loading');
-            assert(recovered.operationsReady!== 'true','regression fixture accidentally supplied operations-ready marker');
+            assert(recovered.operationsReady!=='true','regression fixture accidentally supplied operations-ready marker');
             assert(recovered.dealAuthority!=='admin-client-server-v8','regression fixture accidentally supplied deal-authority marker');
             assert(recovered.notice==='none'||recovered.notice==='normal','empty notice survived active Deals');
             assert(recovered.activeDisplay!=='none','active Deal remained hidden after recovery');
