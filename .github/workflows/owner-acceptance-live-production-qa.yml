@@ -1,9 +1,8 @@
 name: Owner acceptance live production gate
 
 on:
+  workflow_call:
   pull_request:
-    branches: [release/public-go-live-v1.1]
-  push:
     branches: [release/public-go-live-v1.1]
 
 concurrency:
@@ -42,12 +41,12 @@ jobs:
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false||x.client_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
           echo 'OWNER_ACCEPTANCE_CURRENT_ONLY_SOURCE=PASS'
       - name: Wait for exact production deploy
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/wait-cloudflare-commit.mjs
       - name: Verify live protected portals without business mutation
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         shell: bash
         run: |
           node scripts/verify-admin-current-only-production.mjs
