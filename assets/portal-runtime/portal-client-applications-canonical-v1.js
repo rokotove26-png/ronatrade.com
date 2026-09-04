@@ -39,8 +39,20 @@ function searchInput(r){return [...r.querySelectorAll('input')].find(el=>/ид �
 function statusSelect(r){return [...r.querySelectorAll('select')].find(el=>/все статусы/i.test(norm(el.textContent)))||null}
 function resetButton(r){return [...r.querySelectorAll('button')].find(el=>/^сбросить$/iu.test(norm(el.textContent)))||null}
 function rect(el){if(!el||!el.isConnected)return null;const b=el.getBoundingClientRect(),s=getComputedStyle(el);return b.width>0&&b.height>0&&s.display!=='none'&&s.visibility!=='hidden'?b:null}
+function titleFrameRect(r,rr){
+  const h=[...r.querySelectorAll('h1,h2,h3,[role="heading"]')].find(el=>norm(el.textContent)==='Заявки');
+  let node=h?.parentElement||null;
+  for(let i=0;node&&node!==r&&i<10;i++,node=node.parentElement){
+    const b=rect(node);if(!b)continue;
+    const cs=getComputedStyle(node),radius=parseFloat(cs.borderTopLeftRadius)||0;
+    if(b.width>=420&&b.height>=62&&b.height<=190&&b.left>=rr.left-2&&b.right<=rr.right+6&&radius>=8)return b;
+  }
+  return null;
+}
 function frameRect(r){
   const rr=rect(r);if(!rr)return null;
+  const title=titleFrameRect(r,rr);
+  if(title)return{left:title.left,right:title.right,width:title.width};
   const controls=[searchInput(r),statusSelect(r),resetButton(r)].map(rect).filter(Boolean);
   if(controls.length>=2){
     const left=Math.min(...controls.map(b=>b.left)),right=Math.max(...controls.map(b=>b.right)),width=right-left;
@@ -51,15 +63,7 @@ function frameRect(r){
     const b=rect(node);if(!b)continue;
     if(b.width>=420&&b.left>=rr.left+20&&b.right<=rr.right+6){best=b;if(statusSelect(r)&&node.contains(statusSelect(r)))return b}
   }
-  if(best)return best;
-  const h=[...r.querySelectorAll('h1,h2,h3,[role="heading"]')].find(el=>norm(el.textContent)==='Заявки');
-  node=h?.parentElement||null;
-  for(let i=0;node&&node!==r&&i<10;i++,node=node.parentElement){
-    const b=rect(node);if(!b)continue;
-    const cs=getComputedStyle(node),radius=parseFloat(cs.borderTopLeftRadius)||0;
-    if(b.width>=420&&b.height>=62&&b.height<=190&&b.left>=rr.left+20&&b.right<=rr.right+6&&radius>=8)return b;
-  }
-  return null;
+  return best;
 }
 function alignList(){
   const r=root(),list=r?.querySelector('[data-rona-live-applications="canonical-v1"]');if(!r||!list)return false;
