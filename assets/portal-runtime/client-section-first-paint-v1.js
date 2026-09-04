@@ -91,6 +91,18 @@ function clearDealsEmpty(root){
   root.removeAttribute('data-rona-client-deals-empty');
   root.removeAttribute('data-rona-client-deals-empty-context');
 }
+function authoritativeActiveDealIds(snapshot){
+  return [...new Set((snapshot?.active||[]).map(d=>norm(d?.deal_id)).filter(Boolean))];
+}
+function operationalDealsRendered(root,snapshot){
+  if(!root||!snapshot||!snapshot.active.length)return false;
+  const html=document.documentElement;
+  if(html.getAttribute('data-rona-client-operations-ready')!=='true')return false;
+  if(root.getAttribute('data-rona-deal-authority')!=='admin-client-server-v8')return false;
+  const expected=authoritativeActiveDealIds(snapshot);if(!expected.length)return false;
+  const rendered=new Set(dealIds(root));
+  return expected.every(id=>rendered.has(id));
+}
 function dealsState(root){
   if(!root)return'loading';
   const snapshot=authoritativeDealsSnapshot();
@@ -100,6 +112,7 @@ function dealsState(root){
     return'empty';
   }
   clearDealsEmpty(root);
+  if(operationalDealsRendered(root,snapshot))return'ready';
   const html=document.documentElement;
   if(html.getAttribute('data-rona-client-operations-ready')!=='true')return'loading';
   if(root.getAttribute('data-rona-deal-authority')!=='admin-client-server-v8')return'loading';
