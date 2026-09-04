@@ -39,8 +39,9 @@ jobs:
           grep -q '/portal/main-ui' assets/portal-admin-shell-fast-v1.js
           grep -q '/portal/deals-current-state-ui' assets/portal-admin-shell-fast-v1.js
           grep -q 'current-only-v1.5' functions/portal/admin-main-ui-current.js
-          grep -q 'current-state-v1.6-signed-addendum' functions/portal/deals-current-state-ui.js
+          grep -q 'current-state-v1.7-authoritative-kpis' functions/portal/deals-current-state-ui.js
           grep -q "replaceAll('waitsAction','waitsPayment')" functions/portal/deals-current-state-ui.js
+          grep -q "'PARTIALLY_PAID','PARTIAL','DUE'" functions/portal/deals-current-state-ui.js
           grep -q 'ronaDealsLayoutV15' functions/portal/deals-current-state-ui.js
           grep -q 'Скачать подписанное доп. соглашение' functions/portal/deals-current-state-ui.js
           grep -q 'width:310px!important' functions/portal/deals-current-state-ui.js
@@ -59,20 +60,21 @@ jobs:
         run: |
           node scripts/verify-admin-current-only-production.mjs
           for i in 1 2 3 4 5 6; do
-            if curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA&attempt=$i&ts=$(date +%s%N)" && grep -qi '^x-rona-deals-ui: current-state-v1.6-signed-addendum' /tmp/deals.headers; then break; fi
+            if curl -fsS -D /tmp/deals.headers -o /tmp/deals.js "https://ronaoil.com/portal/deals-current-state-ui?proof=$GITHUB_SHA&attempt=$i&ts=$(date +%s%N)" && grep -qi '^x-rona-deals-ui: current-state-v1.7-authoritative-kpis' /tmp/deals.headers; then break; fi
             sleep 2
           done
-          grep -qi '^x-rona-deals-ui: current-state-v1.6-signed-addendum' /tmp/deals.headers
+          grep -qi '^x-rona-deals-ui: current-state-v1.7-authoritative-kpis' /tmp/deals.headers
           node --check /tmp/deals.js
           grep -q 'function isolateDealsPage(root,host)' /tmp/deals.js
           grep -q "host.dataset.ronaDealsOwner='current-v1.5'" /tmp/deals.js
           grep -q 'function waitsPayment(d)' /tmp/deals.js
           ! grep -q 'waitsAction' /tmp/deals.js
+          grep -q "'PARTIALLY_PAID','PARTIAL','DUE'" /tmp/deals.js
           grep -q "kpi('Ожидают оплаты'" /tmp/deals.js
           grep -q "'Базис поставки'" /tmp/deals.js
           grep -q 'Скачать подписанное доп. соглашение' /tmp/deals.js
           grep -q "'Общий объём сделок, т'" /tmp/deals.js
-          grep -q "'Общая сумма сделок'" /tmp/deals.js
+          grep -q "'Подтверждённая сумма сделок'" /tmp/deals.js
           echo 'DEALS_CURRENT_PRODUCTION_PROOF=PASS'
       - name: Publish Deals proof status (legacy best effort)
         if: always()
