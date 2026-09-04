@@ -1,10 +1,10 @@
 name: G8.2 real browser QA
 
 on:
+  workflow_call:
   push:
     branches:
       - staging/public-go-live-v1.1
-      - release/public-go-live-v1.1
 
 concurrency:
   group: rona-production-live-qa-${{ github.ref }}
