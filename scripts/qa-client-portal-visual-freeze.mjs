@@ -28,12 +28,14 @@ const applicationExceptionAuthorized=
 const dealsLoaderExceptionAuthorized=
   dealsLoaderApproval?.approval==='OWNER_IN_CHAT'&&
   dealsLoaderApproval?.authorized_at==='2026-09-04'&&
+  dealsLoaderApproval?.extended_at==='2026-09-05'&&
   dealsLoaderApproval?.scope==='CLIENT_DEALS_FIRST_PAINT_FUNCTIONAL_REMEDIATION'&&
   dealsLoaderApproval?.requirements?.server_authoritative_context_required===true&&
   dealsLoaderApproval?.requirements?.server_authoritative_active_deal_ids_must_match_rendered_operational_deal_ids===true&&
   dealsLoaderApproval?.requirements?.canonical_visual_composer_must_not_block_functional_section_release===true&&
   dealsLoaderApproval?.requirements?.authoritative_live_deal_materialization_required===true&&
   dealsLoaderApproval?.requirements?.authoritative_deal_lifecycle_binding_change_allowed===true&&
+  dealsLoaderApproval?.requirements?.authoritative_lifecycle_attachment_change_allowed===true&&
   dealsLoaderApproval?.requirements?.cross_company_deal_detail_reuse_forbidden===true&&
   dealsLoaderApproval?.requirements?.active_current_section_only===true&&
   dealsLoaderApproval?.requirements?.functional_runtime_addition_allowed===true&&
@@ -55,6 +57,7 @@ if(applicationExceptionAuthorized){
 if(dealsLoaderExceptionAuthorized){
   approvedModifiedFiles.add('assets/portal-runtime/client-section-first-paint-v1.js');
   approvedModifiedFiles.add('assets/portal-runtime/client-deal-lifecycle-v1.js');
+  approvedModifiedFiles.add('scripts/attach-client-deal-documents.mjs');
   approvedNewRuntime.add('client-deals-authoritative-v1.js');
   approvedNewAttach.add('attach-client-deals-authoritative-v1.mjs');
 }
