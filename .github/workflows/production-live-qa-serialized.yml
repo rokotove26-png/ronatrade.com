@@ -1,0 +1,28 @@
+name: Serialized production live QA
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+
+concurrency:
+  group: rona-production-live-qa-orchestrator-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  statuses: write
+
+jobs:
+  owner-acceptance-live:
+    uses: ./.github/workflows/owner-acceptance-live-production-qa.yml
+
+  g82-real-browser-qa:
+    needs: owner-acceptance-live
+    uses: ./.github/workflows/g82-real-browser-qa.yml
+
+  final-production-activation:
+    needs: g82-real-browser-qa
+    uses: ./.github/workflows/final-production-activation-synchronized-v2.yml
