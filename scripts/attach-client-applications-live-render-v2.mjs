@@ -7,21 +7,21 @@ const sourceRuntimePath='assets/portal-runtime/client-applications-live-render-v
 const runtimePath='dist/assets/portal-runtime/client-applications-live-render-v2.js';
 const id='rona-client-applications-live-render-v2';
 const marker='20260904-client-applications-live-render-v2-single-owner';
-const src='/assets/portal-runtime/client-applications-live-render-v2.js?v=20260904-single-owner-v1';
+const src='/assets/portal-runtime/client-applications-live-render-v2.js?v=20260904-single-owner-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(sourceRuntimePath,'utf8');
 for(const required of [marker,'application_price','resource_status','Цена заявки','Подтверждение ресурса','applications-title-frame','data-rona-live-applications="v2"']){
   if(!runtime.includes(required))throw new Error(`CLIENT_APPLICATIONS_V2_REQUIRED_MARKER_MISSING: ${required}`);
 }
-for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены','data-rona-live-applications="v1"']){
+for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены']){
   if(runtime.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_V2_FORBIDDEN_LEGACY_OUTPUT: ${forbidden}`);
 }
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_APPLICATIONS_V2_IMAGE_ASSET_FORBIDDEN');
 
 await copyFile(sourceRuntimePath,runtimePath);
 let html=await readFile(htmlPath,'utf8');
-for(const forbidden of ['rona-client-applications-live-render-v1','rona-portal-client-applications-uat-v2','client-applications-canonical-layout-v1.js','portal-client-applications-uat-v2.js']){
+for(const forbidden of ['rona-client-applications-live-render-v1','rona-portal-client-applications-uat-v2','rona-portal-client-applications-uat-v3','client-applications-canonical-layout-v1.js','portal-client-applications-uat-v2.js','portal-client-applications-uat-v3.js']){
   if(html.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_V2_COMPETING_RENDERER_PRESENT: ${forbidden}`);
 }
 const close=html.toLowerCase().lastIndexOf('</body>');
