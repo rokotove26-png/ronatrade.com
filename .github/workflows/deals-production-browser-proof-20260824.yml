@@ -32,7 +32,8 @@ jobs:
           node --check functions/portal/main-ui/index.js
           node --check functions/portal/admin-main-ui-current.js
           node --check functions/portal/deals-current-state-ui.js
-          grep -q "export { onRequest } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
+          grep -q "import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
+          grep -q "x-rona-application-deal-handoff','approved-to-deal-v1" functions/portal/main-ui/index.js
           grep -q 'data-rona-admin-shell="current-only-v2"' portal-src/current/admin.html
           grep -q "__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'" portal-src/current/admin.html
           grep -q "__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'" assets/portal-admin-shell-fast-v1.js
