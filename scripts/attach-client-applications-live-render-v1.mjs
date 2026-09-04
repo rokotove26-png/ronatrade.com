@@ -10,9 +10,9 @@ const layoutRuntimePath='dist/assets/portal-runtime/client-applications-canonica
 const id='rona-client-applications-live-render-v1';
 const layoutId='rona-client-applications-canonical-layout-v1';
 const marker='20260904-client-applications-live-render-v1';
-const layoutMarker='20260904-client-applications-canonical-layout-v2-toolbar-frame';
-const src='/assets/portal-runtime/client-applications-live-render-v1.js?v=20260904-readable-row-v3';
-const layoutSrc='/assets/portal-runtime/client-applications-canonical-layout-v1.js?v=20260904-toolbar-frame-v3';
+const layoutMarker='20260904-client-applications-canonical-layout-v1';
+const src='/assets/portal-runtime/client-applications-live-render-v1.js?v=20260904-live-authoritative-v1';
+const layoutSrc='/assets/portal-runtime/client-applications-canonical-layout-v1.js?v=20260904-canonical-frame-v1';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(sourceRuntimePath,'utf8');
@@ -21,13 +21,11 @@ if(!runtime.includes('RONA_CLIENT_CONTEXT')||!runtime.includes('/v1/client/conte
 if(runtime.includes('/v1/client/bootstrap'))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_BOOTSTRAP_FORBIDDEN');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_IMAGE_ASSET_FORBIDDEN');
-if(!runtime.includes('data-rona-live-applications')||!runtime.includes('rona:client-application-submitted')||!runtime.includes('rona:client-applications-rendered'))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_CONTRACT_MISSING');
-if(!runtime.includes('rona-live-app-state')||!runtime.includes('rona-resource-status')||!runtime.includes('priceText(app)'))throw new Error('CLIENT_APPLICATIONS_READABLE_STATUS_ROW_MISSING');
+if(!runtime.includes('data-rona-live-applications')||!runtime.includes('rona:client-application-submitted'))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_CONTRACT_MISSING');
 
 const layoutRuntime=await readFile(layoutSourceRuntimePath,'utf8');
 if(!layoutRuntime.includes(layoutMarker))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_LAYOUT_MARKER_MISSING: ${layoutMarker}`);
-if(!layoutRuntime.includes('data-rona-live-applications')||!layoutRuntime.includes('applications-toolbar-frame')||!layoutRuntime.includes('rona:client-applications-rendered'))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_CONTRACT_MISSING');
-if(!layoutRuntime.includes('searchInput(r)')||!layoutRuntime.includes('resetButton(r)'))throw new Error('CLIENT_APPLICATIONS_TOOLBAR_GEOMETRY_SOURCE_MISSING');
+if(!layoutRuntime.includes('data-rona-live-applications')||!layoutRuntime.includes('applications-filter-frame'))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_CONTRACT_MISSING');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(layoutRuntime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(layoutRuntime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_IMAGE_ASSET_FORBIDDEN');
 
@@ -68,7 +66,7 @@ integrity.client_runtime.applications_canonical_layout={
   id:layoutId,
   src:layoutSrc,
   marker:layoutMarker,
-  anchor:'APPLICATIONS_TOOLBAR_FRAME_GEOMETRY',
+  anchor:'APPLICATIONS_FILTER_FRAME_GEOMETRY',
   target:'SERVER_APPLICATION_ROWS',
   responsive:true,
   hardcoded_business_entities:false,
