@@ -21,7 +21,7 @@ requireAll('home',['20260902-client-home-command-center-v3-current-context','RON
 requireAll('payments',['20260902-client-payments-authoritative-v2-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('prices',['20260902-authoritative-price-current-context-server-projection','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe','SERVER_AUTHORITATIVE_PRICE_PROJECTION']);
 requireAll('dealDocuments',['20260902-client-deal-documents-v7-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
-requireAll('dealLifecycle',['20260902-client-deal-realization-status-v4-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('dealLifecycle',['20260905-client-deal-realization-status-v6-strict-authoritative-context','RONA_CLIENT_CONTEXT','getCurrentContext','authority.subscribe','data-rona-authoritative-deal-id','data-rona-authoritative-context','contextKey(currentContext())']);
 requireAll('applicationForm',['20260902-destination-price-calc-v7-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','contextKey(currentContext())']);
 requireAll('applicationLifecycle',['20260902-client-admin-authoritative-deal-projection-v9-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('contract',['20260902-client-contract-v4-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe',"scope:'CURRENT_CONTEXT_ONLY'"]);
@@ -31,7 +31,7 @@ for(const name of ['home','payments','prices','dealDocuments','dealLifecycle','a
 forbidAll('prices',['priceAuthority','owner_price_snapshots','chooseContext(','domContextHint(','currentControlTexts(','data.contexts','prefetchPrices(']);
 forbidAll('applicationForm',['PRODUCER_BY_PRODUCT','Мозырский НПЗ','state?.context?.client_id','state?.context?.contract_id']);
 forbidAll('dealDocuments',['Promise.all(contexts.map']);
-forbidAll('dealLifecycle',['ctx.map(']);
+forbidAll('dealLifecycle',['ctx.map(','setInterval(()=>refresh','[data-rona-command-heading]']);
 forbidAll('background',['getAuthorizedContexts','state.contexts.map(preloadContext)']);
 
 const universalNames=['home','payments','prices','dealDocuments','dealLifecycle','applicationForm','applicationLifecycle','contract','background'];
@@ -43,4 +43,4 @@ if(!source.prices.includes('/v1/client/prices?clientId='))throw new Error('PRICE
 if(!source.contract.includes('state.entry={context,document:currentContractDocument(data.documents)}'))throw new Error('CONTRACT_CURRENT_CONTEXT_DETAIL_MISSING');
 if(source.contract.includes('getAuthorizedContexts'))throw new Error('CONTRACT_AUTHORIZED_CONTEXT_CATALOG_FORBIDDEN');
 
-console.log('CLIENT_CURRENT_CONTEXT_CONSUMERS_QA=PASS authority=single-source consumers=9 selected-context-only price-authority=server business-hardcodes=absent');
+console.log('CLIENT_CURRENT_CONTEXT_CONSUMERS_QA=PASS authority=single-source consumers=9 selected-context-only lifecycle=strict-authoritative-context price-authority=server business-hardcodes=absent');
