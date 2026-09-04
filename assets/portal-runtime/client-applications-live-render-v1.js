@@ -26,6 +26,9 @@ const fmtDate=v=>{const s=String(v||'');const m=s.match(/^(\d{4})-(\d{2})-(\d{2}
 const fmtDateTime=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?String(v):new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d)};
 const statusCode=a=>norm(a?.status).toUpperCase();
 const statusLabel=a=>STATUS_LABELS[statusCode(a)]||norm(a?.status)||'Статус уточняется';
+const resourceCode=a=>norm(a?.resource_status).toUpperCase()==='RESOURCE_CONFIRMED'||['ACCEPTED_AWAITING_DEAL_REGISTRATION','DEAL_REGISTERED'].includes(statusCode(a))?'RESOURCE_CONFIRMED':'RESOURCE_NOT_CONFIRMED';
+const resourceLabel=a=>resourceCode(a)==='RESOURCE_CONFIRMED'?'Ресурс подтвержден':'Ресурс не подтвержден';
+const priceText=a=>{const p=a?.application_price??a?.proposed_price;const c=norm(a?.application_currency||a?.proposed_currency||'USD');return p==null?'—':`${fmtNumber(p)} ${c}/т`};
 const isActive=a=>!TERMINAL.has(statusCode(a))&&!norm(a?.deal_id);
 const contextKey=ctx=>`${norm(ctx?.client_id)}|${norm(ctx?.contract_id)}`;
 function authority(){return window.RONA_CLIENT_CONTEXT||null}
@@ -50,13 +53,19 @@ function ensureStyle(){
   s.textContent=`
 #page-applications [data-rona-live-applications="v1"]{position:relative;z-index:2;display:grid;gap:10px;margin:14px 0 28px;padding:0;max-width:100%}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-row{border:1px solid rgba(93,170,211,.20);border-radius:12px;background:linear-gradient(145deg,rgba(7,25,39,.92),rgba(5,17,29,.92));box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 10px 28px rgba(0,0,0,.14);overflow:hidden}
-#page-applications [data-rona-live-applications="v1"] .rona-live-app-main{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(130px,.7fr) minmax(120px,.55fr) minmax(120px,.7fr) auto;align-items:center;gap:16px;padding:14px 16px}
+#page-applications [data-rona-live-applications="v1"] .rona-live-app-main{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(70px,.42fr) minmax(86px,.50fr) minmax(112px,.62fr) minmax(112px,.64fr) minmax(190px,.94fr);align-items:center;gap:12px;padding:14px 16px}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-id{font:800 11px/1.2 Inter,system-ui,sans-serif;letter-spacing:.035em;color:#7fdcff;margin-bottom:5px}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-product{font:760 14px/1.3 Inter,system-ui,sans-serif;color:#f2f7fa}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-cell{min-width:0}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-cell span{display:block;margin-bottom:4px;color:#7592a2;font:650 9px/1.1 Inter,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.07em}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-cell strong{display:block;overflow-wrap:anywhere;color:#dce9ef;font:700 12px/1.35 Inter,system-ui,sans-serif}
+#page-applications [data-rona-live-applications="v1"] .rona-live-app-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;min-width:0}
+#page-applications [data-rona-live-applications="v1"] .rona-live-app-state{display:grid;gap:4px;justify-items:end;min-width:116px}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-status{display:inline-flex;align-items:center;justify-content:center;min-height:27px;padding:0 10px;border:1px solid rgba(102,219,177,.24);border-radius:999px;background:rgba(37,119,91,.14);color:#bff1d8;font:800 10.5px/1 Inter,system-ui,sans-serif;white-space:nowrap}
+#page-applications [data-rona-live-applications="v1"] .rona-resource-status{display:inline-flex;align-items:center;gap:5px;color:#9daeb7;font:700 9px/1.1 Inter,system-ui,sans-serif;white-space:nowrap}
+#page-applications [data-rona-live-applications="v1"] .rona-resource-status:before{content:'';width:5px;height:5px;border-radius:50%;background:#c99a49}
+#page-applications [data-rona-live-applications="v1"] .rona-resource-status[data-resource="RESOURCE_CONFIRMED"]{color:#a9dbc4}
+#page-applications [data-rona-live-applications="v1"] .rona-resource-status[data-resource="RESOURCE_CONFIRMED"]:before{background:#64c99b}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-open{min-height:34px;padding:0 13px;border:1px solid rgba(101,217,255,.30);border-radius:8px;background:rgba(29,91,116,.28);color:#eaf8fc;font:800 11px/1 Inter,system-ui,sans-serif;cursor:pointer}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-open:hover{background:rgba(42,123,155,.36);border-color:rgba(101,217,255,.48)}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-open:focus-visible{outline:2px solid rgba(101,217,255,.72);outline-offset:2px}
@@ -66,8 +75,8 @@ function ensureStyle(){
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-detail span{display:block;margin-bottom:3px;color:#6f8d9d;font:650 9px/1.1 Inter,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-detail strong{display:block;color:#d9e8ef;font:650 11px/1.4 Inter,system-ui,sans-serif;overflow-wrap:anywhere}
 #page-applications [data-rona-live-applications="v1"] .rona-live-app-empty{padding:34px 18px;text-align:center;border:1px dashed rgba(93,170,211,.22);border-radius:12px;color:#7995a4;background:rgba(5,18,30,.45);font:650 12px/1.5 Inter,system-ui,sans-serif}
-@media(max-width:1100px){#page-applications [data-rona-live-applications="v1"] .rona-live-app-main{grid-template-columns:minmax(0,1fr) minmax(120px,.55fr) minmax(120px,.65fr) auto}.rona-live-app-period{display:none}}
-@media(max-width:760px){#page-applications [data-rona-live-applications="v1"] .rona-live-app-main{grid-template-columns:1fr auto;gap:10px 12px}.rona-live-app-destination,.rona-live-app-qty{display:none}#page-applications [data-rona-live-applications="v1"] .rona-live-app-details{grid-template-columns:1fr}}
+@media(max-width:1100px){#page-applications [data-rona-live-applications="v1"] .rona-live-app-main{grid-template-columns:minmax(0,1fr) minmax(76px,.44fr) minmax(92px,.52fr) minmax(190px,.94fr)}#page-applications [data-rona-live-applications="v1"] .rona-live-app-period,#page-applications [data-rona-live-applications="v1"] .rona-live-app-destination{display:none}}
+@media(max-width:760px){#page-applications [data-rona-live-applications="v1"] .rona-live-app-main{grid-template-columns:1fr auto;gap:10px 12px}#page-applications [data-rona-live-applications="v1"] .rona-live-app-qty,#page-applications [data-rona-live-applications="v1"] .rona-live-app-price{display:none}#page-applications [data-rona-live-applications="v1"] .rona-live-app-details{grid-template-columns:1fr}}
 `;
   document.head.appendChild(s);
 }
@@ -93,7 +102,7 @@ function currentFilter(r){
 }
 function matches(app,filter){
   if(filter.q){
-    const hay=[app.application_id,app.product,app.destination,app.deal_id,statusLabel(app)].map(norm).join(' ').toLocaleLowerCase('ru-RU');
+    const hay=[app.application_id,app.product,app.destination,app.deal_id,statusLabel(app),resourceLabel(app),priceText(app)].map(norm).join(' ').toLocaleLowerCase('ru-RU');
     if(!hay.includes(filter.q))return false;
   }
   if(filter.status){
@@ -109,22 +118,22 @@ function rowHtml(app){
   const destination=norm(app.destination)||'—';
   const basis=norm(app.delivery_basis)||'—';
   const payment=norm(app.payment_terms)||'—';
-  const priceMode=norm(app.price_mode)||'—';
-  const proposed=app.proposed_price!=null?`${fmtNumber(app.proposed_price)} ${norm(app.proposed_currency)||''}`.trim():'—';
   const submitted=fmtDateTime(app.submitted_at);
-  return `<article class="rona-live-app-row" data-rona-live-application-id="${esc(id)}" data-status="${esc(statusCode(app))}">
+  const resource=resourceCode(app);
+  return `<article class="rona-live-app-row" data-rona-live-application-id="${esc(id)}" data-status="${esc(statusCode(app))}" data-resource-status="${esc(resource)}">
     <div class="rona-live-app-main">
       <div class="rona-live-app-cell"><div class="rona-live-app-id">${esc(id)}</div><div class="rona-live-app-product">${esc(product)}</div></div>
       <div class="rona-live-app-cell rona-live-app-qty"><span>Объём</span><strong>${esc(qty)}</strong></div>
+      <div class="rona-live-app-cell rona-live-app-price"><span>Цена</span><strong>${esc(priceText(app))}</strong></div>
       <div class="rona-live-app-cell rona-live-app-period"><span>Период</span><strong>${esc(period)}</strong></div>
       <div class="rona-live-app-cell rona-live-app-destination"><span>Назначение</span><strong>${esc(destination)}</strong></div>
-      <div style="display:flex;align-items:center;gap:9px;justify-content:flex-end"><span class="rona-live-app-status">${esc(statusLabel(app))}</span><button type="button" class="rona-live-app-open" data-rona-open-application="${esc(id)}" aria-expanded="false">Открыть</button></div>
+      <div class="rona-live-app-actions"><div class="rona-live-app-state"><span class="rona-live-app-status">${esc(statusLabel(app))}</span><span class="rona-resource-status" data-resource="${esc(resource)}">${esc(resourceLabel(app))}</span></div><button type="button" class="rona-live-app-open" data-rona-open-application="${esc(id)}" aria-expanded="false">Открыть</button></div>
     </div>
     <div class="rona-live-app-details" data-rona-application-details="${esc(id)}" hidden>
       <div class="rona-live-app-detail"><span>Базис поставки</span><strong>${esc(basis)}</strong></div>
       <div class="rona-live-app-detail"><span>Условия оплаты</span><strong>${esc(payment)}</strong></div>
-      <div class="rona-live-app-detail"><span>Режим цены</span><strong>${esc(priceMode)}</strong></div>
-      <div class="rona-live-app-detail"><span>Предложенная цена</span><strong>${esc(proposed)}</strong></div>
+      <div class="rona-live-app-detail"><span>Цена заявки</span><strong>${esc(priceText(app))}</strong></div>
+      <div class="rona-live-app-detail"><span>Подтверждение ресурса</span><strong>${esc(resourceLabel(app))}</strong></div>
       <div class="rona-live-app-detail"><span>Подана</span><strong>${esc(submitted)}</strong></div>
       <div class="rona-live-app-detail"><span>ИД сделки</span><strong>${esc(norm(app.deal_id)||'Не зарегистрирована')}</strong></div>
     </div>
