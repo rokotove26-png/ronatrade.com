@@ -3,8 +3,10 @@ import { createHash } from 'node:crypto';
 
 const POLICY_PATH='governance/client-portal-visual-freeze.json';
 const APPLICATIONS_APPROVAL_PATH='governance/client-applications-uat-v2-owner-approval.json';
+const DEALS_LOADER_APPROVAL_PATH='governance/client-deals-loader-owner-remediation-20260904.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
+const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -23,10 +25,27 @@ const applicationExceptionAuthorized=
   applicationsApproval.requirements.resource_status_visible.includes('RESOURCE_NOT_CONFIRMED')&&
   applicationsApproval.requirements.resource_status_visible.includes('RESOURCE_CONFIRMED');
 
-const approvedModifiedFiles=new Set(applicationExceptionAuthorized?[
-  'assets/portal-runtime/client-applications-live-render-v1.js',
-  'scripts/attach-client-applications-live-render-v1.mjs'
-]:[]);
+const dealsLoaderExceptionAuthorized=
+  dealsLoaderApproval?.approval==='OWNER_IN_CHAT'&&
+  dealsLoaderApproval?.authorized_at==='2026-09-04'&&
+  dealsLoaderApproval?.scope==='CLIENT_DEALS_FIRST_PAINT_FUNCTIONAL_REMEDIATION'&&
+  dealsLoaderApproval?.requirements?.server_authoritative_context_required===true&&
+  dealsLoaderApproval?.requirements?.server_authoritative_active_deal_ids_must_match_rendered_operational_deal_ids===true&&
+  dealsLoaderApproval?.requirements?.canonical_visual_composer_must_not_block_functional_section_release===true&&
+  dealsLoaderApproval?.requirements?.existing_deal_visual_preserved===true&&
+  dealsLoaderApproval?.requirements?.business_data_changed===false&&
+  dealsLoaderApproval?.requirements?.business_logic_changed===false&&
+  dealsLoaderApproval?.requirements?.images_added===false&&
+  dealsLoaderApproval?.requirements?.unrelated_visual_change===false;
+
+const approvedModifiedFiles=new Set();
+if(applicationExceptionAuthorized){
+  approvedModifiedFiles.add('assets/portal-runtime/client-applications-live-render-v1.js');
+  approvedModifiedFiles.add('scripts/attach-client-applications-live-render-v1.mjs');
+}
+if(dealsLoaderExceptionAuthorized){
+  approvedModifiedFiles.add('assets/portal-runtime/client-section-first-paint-v1.js');
+}
 
 const protectedFiles=policy.protected_files||{};
 const errors=[];
@@ -78,4 +97,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'}`);
