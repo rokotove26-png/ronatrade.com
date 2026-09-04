@@ -24,7 +24,7 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
-      - name: Prove zero Deals keeps base section visible
+      - name: Prove zero Deals and active first-paint recovery
         shell: bash
         run: |
           set -euo pipefail
@@ -75,20 +75,39 @@ jobs:
             assert(/rgba\([^)]*,\s*0\.(?:8|82)\)/.test(empty.background),'empty notice is not translucent panel styling');
             assert(empty.pointerEvents==='none','empty notice blocks the base screen');
 
+            // Exact regression: the authoritative context switches to an active Deal before
+            // auxiliary operations/root-authority readiness markers are available.
             await page.evaluate(({contextPath})=>{
               window.__RONA_CLIENT_BACKGROUND_CACHE__[contextPath]={ok:true,status:200,body:{ok:true,data:{deals:[{deal_id:'DEAL-2099-901',current_status:'ACTIVE'}]}}};
-              document.documentElement.setAttribute('data-rona-client-operations-ready','true');
               const root=document.querySelector('#page-deals');
-              root.setAttribute('data-rona-deal-authority','admin-client-server-v8');
               root.querySelector('#terminalRow')?.remove();
-              root.insertAdjacentHTML('beforeend','<article id="activeDeal" class="rona-deal-card-v5" data-rona-canonical-deal-id="DEAL-2099-901" data-rona-deal-summary-ready="true"><div data-rona-deal-summary="canonical-v8">DEAL-2099-901 CURRENT DEAL</div></article>');
               window.dispatchEvent(new CustomEvent('rona:client:background-sections'));
             },{contextPath});
-            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='ready',{timeout:5000});
-            const recovered=await page.evaluate(()=>({notice:getComputedStyle(document.querySelector('#page-deals'),'::after').content,activeDisplay:getComputedStyle(document.querySelector('#activeDeal')).display,emptyOwner:document.querySelector('#page-deals').getAttribute('data-rona-client-deals-empty')}));
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='loading',{timeout:5000});
+
+            // Once the authoritative active Deal is actually represented in the Deals DOM,
+            // first paint must become ready even while those auxiliary markers are still absent.
+            await page.evaluate(()=>{
+              const root=document.querySelector('#page-deals');
+              root.insertAdjacentHTML('beforeend','<article id="activeDeal" class="rona-deal-card-v5" data-rona-canonical-deal-id="DEAL-2099-901"><div>DEAL-2099-901 CURRENT DEAL</div></article>');
+              window.dispatchEvent(new CustomEvent('rona:client:background-sections'));
+            });
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsPaintState==='ready'&&document.documentElement.getAttribute('data-rona-client-deals-paint-ready')==='true',{timeout:5000});
+            const recovered=await page.evaluate(()=>({
+              notice:getComputedStyle(document.querySelector('#page-deals'),'::after').content,
+              activeDisplay:getComputedStyle(document.querySelector('#activeDeal')).display,
+              emptyOwner:document.querySelector('#page-deals').getAttribute('data-rona-client-deals-empty'),
+              operationsReady:document.documentElement.getAttribute('data-rona-client-operations-ready'),
+              dealAuthority:document.querySelector('#page-deals').getAttribute('data-rona-deal-authority'),
+              state:document.documentElement.dataset.ronaClientDealsPaintState
+            }));
+            assert(recovered.state==='ready','active authoritative Deal remained stuck in loading');
+            assert(recovered.operationsReady!== 'true','regression fixture accidentally supplied operations-ready marker');
+            assert(recovered.dealAuthority!=='admin-client-server-v8','regression fixture accidentally supplied deal-authority marker');
             assert(recovered.notice==='none'||recovered.notice==='normal','empty notice survived active Deals');
             assert(recovered.activeDisplay!=='none','active Deal remained hidden after recovery');
             assert(!recovered.emptyOwner,'empty owner survived active Deals');
+            console.log('CLIENT_DEALS_FIRST_PAINT_ACTIVE_WITHOUT_AUX_MARKERS=PASS');
             console.log('CLIENT_DEALS_EMPTY_BASE_SCREEN=PASS');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
