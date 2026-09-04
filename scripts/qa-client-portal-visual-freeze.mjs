@@ -32,19 +32,28 @@ const dealsLoaderExceptionAuthorized=
   dealsLoaderApproval?.requirements?.server_authoritative_context_required===true&&
   dealsLoaderApproval?.requirements?.server_authoritative_active_deal_ids_must_match_rendered_operational_deal_ids===true&&
   dealsLoaderApproval?.requirements?.canonical_visual_composer_must_not_block_functional_section_release===true&&
+  dealsLoaderApproval?.requirements?.authoritative_live_deal_materialization_required===true&&
+  dealsLoaderApproval?.requirements?.active_current_section_only===true&&
+  dealsLoaderApproval?.requirements?.functional_runtime_addition_allowed===true&&
+  dealsLoaderApproval?.requirements?.functional_attachment_addition_allowed===true&&
   dealsLoaderApproval?.requirements?.existing_deal_visual_preserved===true&&
+  dealsLoaderApproval?.requirements?.visual_css_changed===false&&
   dealsLoaderApproval?.requirements?.business_data_changed===false&&
   dealsLoaderApproval?.requirements?.business_logic_changed===false&&
   dealsLoaderApproval?.requirements?.images_added===false&&
   dealsLoaderApproval?.requirements?.unrelated_visual_change===false;
 
 const approvedModifiedFiles=new Set();
+const approvedNewRuntime=new Set();
+const approvedNewAttach=new Set();
 if(applicationExceptionAuthorized){
   approvedModifiedFiles.add('assets/portal-runtime/client-applications-live-render-v1.js');
   approvedModifiedFiles.add('scripts/attach-client-applications-live-render-v1.mjs');
 }
 if(dealsLoaderExceptionAuthorized){
   approvedModifiedFiles.add('assets/portal-runtime/client-section-first-paint-v1.js');
+  approvedNewRuntime.add('client-deals-authoritative-v1.js');
+  approvedNewAttach.add('attach-client-deals-authoritative-v1.mjs');
 }
 
 const protectedFiles=policy.protected_files||{};
@@ -70,7 +79,7 @@ const baselineRuntime=new Set(Object.keys(protectedFiles)
 const currentRuntime=(await readdir('assets/portal-runtime'))
   .filter(name=>/^client-.*\.(?:js|css)$/u.test(name));
 for(const name of currentRuntime){
-  if(!baselineRuntime.has(name))errors.push(`NEW_CLIENT_RUNTIME assets/portal-runtime/${name}`);
+  if(!baselineRuntime.has(name)&&!approvedNewRuntime.has(name))errors.push(`NEW_CLIENT_RUNTIME assets/portal-runtime/${name}`);
 }
 
 const baselineAttach=new Set(Object.keys(protectedFiles)
@@ -79,7 +88,7 @@ const baselineAttach=new Set(Object.keys(protectedFiles)
 const currentAttach=(await readdir('scripts'))
   .filter(name=>/^attach-client-.*\.mjs$/u.test(name));
 for(const name of currentAttach){
-  if(!baselineAttach.has(name))errors.push(`NEW_CLIENT_ATTACHMENT scripts/${name}`);
+  if(!baselineAttach.has(name)&&!approvedNewAttach.has(name))errors.push(`NEW_CLIENT_ATTACHMENT scripts/${name}`);
 }
 
 const baselineSource=new Set(Object.keys(protectedFiles)
@@ -97,4 +106,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} visual_css_changed=false`);
