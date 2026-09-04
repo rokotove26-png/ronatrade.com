@@ -1,11 +1,9 @@
 name: Synchronized final production activation gate v2
 
 on:
+  workflow_call:
   pull_request:
     branches: [release/public-go-live-v1.1]
-  push:
-    branches:
-      - 'release/public-go-live-v1.1'
 
 concurrency:
   group: rona-production-live-qa-${{ github.ref }}
@@ -161,13 +159,13 @@ jobs:
           echo 'CURRENT_ONLY_ADMIN_CLIENT_PRODUCTION_SOURCE_GATE=PASS'
 
       - name: Wait for this commit in Cloudflare production
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/wait-cloudflare-commit.mjs
 
       - name: Verify Client v5 contract projection in production
-        if: github.event_name == 'push' && github.ref == 'refs/heads/release/public-go-live-v1.1'
+        if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
           TARGET_ORIGIN: https://ronaoil.com
         run: node scripts/verify-client-contract-v5-production.mjs
