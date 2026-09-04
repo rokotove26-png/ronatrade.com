@@ -16,6 +16,18 @@ const SCRIPT=RAW
     "kpi('Ожидают оплаты',String(metrics.waiting),'Сделки с подтверждённым непогашенным остатком платежа','waiting')"
   )
   .replace(
+    "function missingDocuments(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM');return !add||!inv||((d&&d.client_addendum_downloaded_at)&&!signed)}",
+    "function missingDocuments(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM');return !(add||signed)||!inv||((d&&d.client_addendum_downloaded_at)&&!signed)}"
+  )
+  .replace(
+    "function totalAmount(ds){var scope=ds.filter(includedForTotals),missing=false,totals={};scope.forEach(function(d){var raw=d&&d.obligation_amount,c=String(d&&d.finance_currency||'').trim();if(raw===null||raw===undefined||raw===''||!c){missing=true;return}var n=Number(raw);if(!Number.isFinite(n)){missing=true;return}totals[c]=(totals[c]||0)+n});var entries=Object.entries(totals);if(missing)return{value:'—',caption:'Есть сделки без подтверждённой суммы'};if(!entries.length)return{value:'—',caption:'Подтверждённые суммы не сформированы'};return{value:entries.map(function(p){return money(p[1],p[0])}).join(' · '),caption:'Без отменённых, удалённых и архивных сделок'}}",
+    "function totalAmount(ds){var scope=ds.filter(includedForTotals),missing=0,confirmed=0,totals={};scope.forEach(function(d){var raw=d&&d.obligation_amount,c=String(d&&d.finance_currency||'').trim();if(raw===null||raw===undefined||raw===''||!c){missing++;return}var n=Number(raw);if(!Number.isFinite(n)){missing++;return}confirmed++;totals[c]=(totals[c]||0)+n});var entries=Object.entries(totals);if(!entries.length)return{value:'—',caption:'Подтверждённые суммы не сформированы'};return{value:entries.map(function(p){return money(p[1],p[0])}).join(' · '),caption:missing?('Подтверждено по '+confirmed+' из '+scope.length+' сделок · '+missing+' без суммы'):'Без отменённых, удалённых и архивных сделок'}}"
+  )
+  .replace(
+    "kpi('Общая сумма сделок',metrics.amount.value,metrics.amount.caption,'total')",
+    "kpi('Подтверждённая сумма сделок',metrics.amount.value,metrics.amount.caption,'total')"
+  )
+  .replace(
     "function basisText(d){return String(d&&d.delivery_basis||'').trim()||'Требует подтверждения'}",
     "function basisText(d){var raw=String(d&&d.delivery_basis||'').trim();if(!raw)return'Требует подтверждения';return raw.replace(/\\s*[,(]?\\s*Incoterms\\s*2020\\s*\\)?/ig,'').replace(/\\s{2,}/g,' ').replace(/\\s*,\\s*$/,'').trim()||'Требует подтверждения'}"
   )
@@ -46,7 +58,9 @@ const SCRIPT=RAW
 
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
 if(!SCRIPT.includes("'PARTIALLY_PAID','PARTIAL','DUE'"))throw new Error('DEALS_PARTIAL_PAYMENT_KPI_RULE_MISSING');
+if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_SIGNED_ADDENDUM_COMPLETENESS_RULE_MISSING');
+if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"))throw new Error('DEALS_CONFIRMED_TOTAL_KPI_MISSING');
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.6-signed-addendum'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.7-authoritative-kpis'}})}
