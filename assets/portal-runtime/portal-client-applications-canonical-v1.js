@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260904-portal-client-applications-canonical-v2-deal-visual-parity';
+const MARK='20260904-portal-client-applications-canonical-v3-title-frame-box-model';
 if(window.__RONA_PORTAL_CLIENT_APPLICATIONS_CANONICAL__===MARK)return;
 window.__RONA_PORTAL_CLIENT_APPLICATIONS_CANONICAL__=MARK;
 if(!/^\/portal\/client\/?$/.test(location.pathname))return;
@@ -68,14 +68,17 @@ function frameRect(r){
 function alignList(){
   const r=root(),list=r?.querySelector('[data-rona-live-applications="canonical-v1"]');if(!r||!list)return false;
   const rr=rect(r),target=frameRect(r);if(!rr||!target)return false;
-  const offset=Math.max(0,Math.round(target.left-rr.left)),width=Math.max(420,Math.round(target.width));
+  const rs=getComputedStyle(r);
+  const contentLeft=rr.left+r.clientLeft+(parseFloat(rs.paddingLeft)||0);
+  const offset=Math.max(0,Math.round(target.left-contentLeft));
+  const width=Math.max(420,Math.round(target.width));
   list.style.boxSizing='border-box';
   list.style.marginLeft=`${offset}px`;
   list.style.marginRight='0';
   list.style.width=`${width}px`;
   list.style.minWidth='0';
   list.style.maxWidth=`calc(100% - ${offset}px)`;
-  list.dataset.ronaCanonicalFrame='applications-filter-frame';
+  list.dataset.ronaCanonicalFrame='applications-title-frame';
   return true;
 }
 function scheduleAlign(){cancelAnimationFrame(state.raf);state.raf=requestAnimationFrame(()=>{alignList();setTimeout(alignList,60)})}

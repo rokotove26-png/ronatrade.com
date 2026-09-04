@@ -7,8 +7,8 @@ const approvalPath='governance/client-portal-visual-freeze.json';
 const sourceRuntimePath='assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const runtimePath='dist/assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const id='rona-portal-client-applications-canonical-v1';
-const marker='20260904-portal-client-applications-canonical-v2-deal-visual-parity';
-const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260904-deal-visual-parity-v2';
+const marker='20260904-portal-client-applications-canonical-v3-title-frame-box-model';
+const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260904-title-frame-box-model-v3';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const approval=JSON.parse(await readFile(approvalPath,'utf8'));
@@ -21,7 +21,8 @@ for(const required of [
   'resource_status',
   'Цена заявки',
   'Подтверждение ресурса',
-  'applications-filter-frame',
+  'applications-title-frame',
+  'contentLeft',
   'data-rona-live-applications="canonical-v1"',
   'rona-live-app-summary',
   'rona-live-app-terms',
@@ -60,7 +61,8 @@ integrity.client_runtime.applications_live_render={
   ownership:'SINGLE_RENDERER',
   source:'CLIENT_APPLICATIONS_AUTHORITATIVE_V1',
   endpoint:'/portal/api/v1/client/applications-projection',
-  alignment:'APPLICATIONS_FILTER_FRAME',
+  alignment:'APPLICATIONS_TITLE_FRAME',
+  alignment_box_model:'CONTENT_BOX_AWARE',
   price:'IMMUTABLE_SUBMITTED_APPLICATION_PRICE',
   resource_status:['RESOURCE_NOT_CONFIRMED','RESOURCE_CONFIRMED'],
   internal_price_mode_visible:false,
@@ -73,4 +75,4 @@ integrity.client_runtime.applications_live_render={
   images_added:false
 };
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; visual=DEAL_CARD_VISUAL_PARITY; status=SINGLE_LINE_INDICATOR_STRIP`);
+console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; visual=DEAL_CARD_VISUAL_PARITY; alignment=APPLICATIONS_TITLE_FRAME; status=SINGLE_LINE_INDICATOR_STRIP`);
