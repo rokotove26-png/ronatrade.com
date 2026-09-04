@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260904-client-section-first-paint-v4-deals-dom-proof';
+const MARK='20260902-client-section-first-paint-v3-authoritative-empty';
 if(window.__RONA_CLIENT_SECTION_FIRST_PAINT__===MARK)return;
 window.__RONA_CLIENT_SECTION_FIRST_PAINT__=MARK;
 if(location.pathname!=='/portal/client')return;
