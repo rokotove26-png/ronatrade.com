@@ -1,0 +1,14 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-04",
+  "scope": "CLIENT_APPLICATIONS_UAT_V2",
+  "requirements": {
+    "application_rows_align_to_primary_title_frame": true,
+    "application_status_preserved": true,
+    "resource_status_visible": ["RESOURCE_NOT_CONFIRMED", "RESOURCE_CONFIRMED"],
+    "resource_status_source": "SERVER_AUTHORITATIVE_WORKFLOW_OR_DEAL_RESOURCE_DECISION",
+    "display_actual_submitted_price": true,
+    "hide_internal_price_mode_enum_from_client_display": true,
+    "images_added": false
+  }
+}
