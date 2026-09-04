@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260902-client-section-first-paint-v3-authoritative-empty';
+const MARK='20260904-client-section-first-paint-v4-deals-dom-proof';
 if(window.__RONA_CLIENT_SECTION_FIRST_PAINT__===MARK)return;
 window.__RONA_CLIENT_SECTION_FIRST_PAINT__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -96,9 +96,6 @@ function authoritativeActiveDealIds(snapshot){
 }
 function operationalDealsRendered(root,snapshot){
   if(!root||!snapshot||!snapshot.active.length)return false;
-  const html=document.documentElement;
-  if(html.getAttribute('data-rona-client-operations-ready')!=='true')return false;
-  if(root.getAttribute('data-rona-deal-authority')!=='admin-client-server-v8')return false;
   const expected=authoritativeActiveDealIds(snapshot);if(!expected.length)return false;
   const rendered=new Set(dealIds(root));
   return expected.every(id=>rendered.has(id));
