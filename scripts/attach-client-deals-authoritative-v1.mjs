@@ -5,12 +5,12 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260904-live-current-context-v2';
-const marker='20260904-client-deals-authoritative-live-render-v2';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260904-live-current-context-v3-detail-scope';
+const marker='20260904-client-deals-authoritative-live-render-v3-detail-scope';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
-for(const required of [marker,'RONA_CLIENT_CONTEXT','/v1/client/context?clientId=','data-rona-deals-authoritative-list','data-rona-deals-authoritative-rendered','data-rona-canonical-deal-id','data-open-deal','authoritative-v8','ADMIN_CLIENT_SERVER_V1','classList.contains(\'active\')','function visible(','function canonicalIn(r,id)']){
+for(const required of [marker,'RONA_CLIENT_CONTEXT','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','data-rona-deals-authoritative-list','data-rona-deals-authoritative-rendered','data-rona-canonical-deal-id','data-open-deal','authoritative-v8','ADMIN_CLIENT_SERVER_V1','classList.contains(\'active\')','function visible(','function canonicalIn(r,id)','function openAuthoritativeDeal(id)','current-context-v1']){
   if(!runtime.includes(required))throw new Error(`CLIENT_DEALS_AUTHORITATIVE_RENDER_CONTRACT_MISSING:${required}`);
 }
 for(const forbidden of ['createElement(\'style\')','createElement("style")','insertRule(','<style','RONA-C004','DEAL-2026-007','DEAL-2026-008']){
@@ -30,15 +30,18 @@ integrity.client_runtime.deals_authoritative_renderer={
   id:scriptId,src,marker,
   scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ACTIVE_DEALS_SECTION',
   source:'CLIENT_CONTEXT_API_ADMIN_CLIENT_SERVER_V1',
+  detail_source:'CURRENT_CONTEXT_PLUS_SERVER_AUTHORITATIVE_REALIZATION_V1',
+  detail_scope_key:'CLIENT_ID_CONTRACT_ID_DEAL_ID',
   role:'FUNCTIONAL_RENDER_ONLY',
   visual_css_changed:false,
   canonical_visual_owner:'client-deal-canonical-visual-v2',
   active_root_required:true,
   stale_hidden_root_suppression:false,
+  stale_detail_retention:false,
   hardcoded_business_entities:false
 };
 const emitted=Buffer.from(html,'utf8');
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; visual_css_changed=false; source=CLIENT_CONTEXT_API; sha256=${integrity.client_runtime.emitted_sha256}`);
+console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; visual_css_changed=false; source=CLIENT_CONTEXT_API; sha256=${integrity.client_runtime.emitted_sha256}`);
