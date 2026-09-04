@@ -1,0 +1,16 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-04",
+  "scope": "CLIENT_DEALS_FIRST_PAINT_FUNCTIONAL_REMEDIATION",
+  "reason": "Client Deals remains indefinitely on 'Загрузка актуальных сделок…' while the selected current context has server-authoritative active deals.",
+  "requirements": {
+    "server_authoritative_context_required": true,
+    "server_authoritative_active_deal_ids_must_match_rendered_operational_deal_ids": true,
+    "canonical_visual_composer_must_not_block_functional_section_release": true,
+    "existing_deal_visual_preserved": true,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "images_added": false,
+    "unrelated_visual_change": false
+  }
+}
