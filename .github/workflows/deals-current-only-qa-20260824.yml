@@ -32,9 +32,10 @@ jobs:
           const dr=await deals.onRequest();
           const ds=await dr.text();
           new Function(ds);
-          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.6-signed-addendum','Deals runtime header');
+          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.7-authoritative-kpis','Deals runtime header');
           assert(ds.includes('function waitsPayment(d)'),'payment-only predicate missing');
           assert(!ds.includes('function waitsAction(d)'),'legacy waitsAction remains');
+          assert(ds.includes("'PARTIALLY_PAID','PARTIAL','DUE'"),'authoritative partial-payment rule missing');
           assert(ds.includes('function isolateDealsPage(root,host)'),'Deals underlay isolation missing');
           assert(ds.includes("host.dataset.ronaDealsOwner='current-v1.5'"),'exclusive owner marker missing');
           assert(ds.includes("n.style.setProperty('display','none','important')"),'preserved underlay is not forcibly hidden');
@@ -50,7 +51,7 @@ jobs:
           assert(ds.includes('width:145px!important'),'basis column compaction missing');
           assert(ds.includes('text-overflow:clip!important'),'company truncation override missing');
           assert(ds.includes("'Общий объём сделок, т'"),'total volume KPI missing');
-          assert(ds.includes("'Общая сумма сделок'"),'total amount KPI missing');
+          assert(ds.includes("'Подтверждённая сумма сделок'"),'confirmed total amount KPI missing');
 
           const clean=(raw)=>raw.replace(/\s*[,(]?\s*Incoterms\s*2020\s*\)?/ig,'').replace(/\s{2,}/g,' ').replace(/\s*,\s*$/,'').trim();
           assert(clean('DAP ст. Уртааул, Incoterms 2020')==='DAP ст. Уртааул','basis cleanup result');
