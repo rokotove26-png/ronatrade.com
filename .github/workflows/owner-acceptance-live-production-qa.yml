@@ -37,7 +37,8 @@ jobs:
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/owner-acceptance-api/[[path]].js'
           test ! -e functions/portal/client.js
-          grep -q "export { onRequest } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
+          grep -q "import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js';" functions/portal/main-ui/index.js
+          grep -q "const response=await serveCurrentAdminUi(context);" functions/portal/main-ui/index.js
           node -e "const x=require('./dist/canonical-visual-integrity.json'); if(x.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'||x.admin_runtime?.legacy_runtime_in_deployment!==false||x.client_runtime?.legacy_runtime_in_deployment!==false)process.exit(1)"
           echo 'OWNER_ACCEPTANCE_CURRENT_ONLY_SOURCE=PASS'
       - name: Wait for exact production deploy
