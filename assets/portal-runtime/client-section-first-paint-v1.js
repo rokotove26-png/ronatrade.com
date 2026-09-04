@@ -5,6 +5,7 @@ window.__RONA_CLIENT_SECTION_FIRST_PAINT__=MARK;
 if(location.pathname!=='/portal/client')return;
 
 const DEAL_RE=/\bDEAL-\d{4}-\d{3,}\b/giu;
+const DEAL_ID_RE=/^DEAL-\d{4}-\d{3,}$/iu;
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const DEALS_EMPTY_OWNER='server-authoritative-empty-v1';
 const PAYMENT_OWNER='[data-rona-client-payments-owner="finance-authoritative-v1"]';
@@ -70,7 +71,14 @@ function setError(section){
   if(section==='deals')html.dataset.ronaClientDealsPaintState='error';
   if(section==='payments')html.dataset.ronaClientPaymentsPaintState='error';
 }
-function dealIds(root){return[...new Set(norm(root?.textContent).match(DEAL_RE)||[])]}
+function dealIds(root){
+  const ids=new Set((norm(root?.textContent).match(DEAL_RE)||[]).map(upper));
+  for(const el of root?.querySelectorAll?.('[data-rona-canonical-deal-id]')||[]){
+    const id=upper(el.getAttribute('data-rona-canonical-deal-id'));
+    if(DEAL_ID_RE.test(id))ids.add(id);
+  }
+  return[...ids];
+}
 function selectedContextPath(){
   const html=document.documentElement;
   if(html.dataset.ronaClientContextAuthority&&html.dataset.ronaClientContextSelection!=='selected')return'';
@@ -92,7 +100,7 @@ function clearDealsEmpty(root){
   root.removeAttribute('data-rona-client-deals-empty-context');
 }
 function authoritativeActiveDealIds(snapshot){
-  return [...new Set((snapshot?.active||[]).map(d=>norm(d?.deal_id)).filter(Boolean))];
+  return [...new Set((snapshot?.active||[]).map(d=>upper(d?.deal_id)).filter(id=>DEAL_ID_RE.test(id)))];
 }
 function operationalDealsRendered(root,snapshot){
   if(!root||!snapshot||!snapshot.active.length)return false;
@@ -117,7 +125,7 @@ function dealsState(root){
   if(!ids.length)return'ready';
   const cards=[...root.querySelectorAll('.rona-deal-card-v5[data-rona-canonical-deal-id]')];
   if(!cards.length)return'loading';
-  const represented=new Set(cards.map(c=>norm(c.getAttribute('data-rona-canonical-deal-id'))).filter(Boolean));
+  const represented=new Set(cards.map(c=>upper(c.getAttribute('data-rona-canonical-deal-id'))).filter(id=>DEAL_ID_RE.test(id)));
   if(ids.some(id=>!represented.has(id)))return'loading';
   return cards.every(card=>card.getAttribute('data-rona-deal-summary-ready')==='true'&&!!card.querySelector('[data-rona-deal-summary="canonical-v8"]'))?'ready':'loading';
 }
