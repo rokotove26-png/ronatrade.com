@@ -7,17 +7,34 @@ const approvalPath='governance/client-portal-visual-freeze.json';
 const sourceRuntimePath='assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const runtimePath='dist/assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const id='rona-portal-client-applications-canonical-v1';
-const marker='20260904-portal-client-applications-canonical-v1';
-const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260904-canonical-context-v1';
+const marker='20260904-portal-client-applications-canonical-v2-deal-visual-parity';
+const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260904-deal-visual-parity-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const approval=JSON.parse(await readFile(approvalPath,'utf8'));
 if(approval?.client_applications_live_render_correction?.authorized_source!=='OWNER_IN_CHAT')throw new Error('CLIENT_APPLICATIONS_OWNER_APPROVAL_MISSING');
 const runtime=await readFile(sourceRuntimePath,'utf8');
-for(const required of [marker,'applications-projection','application_price','resource_status','Цена заявки','Подтверждение ресурса','applications-filter-frame','data-rona-live-applications="canonical-v1"']){
+for(const required of [
+  marker,
+  'applications-projection',
+  'application_price',
+  'resource_status',
+  'Цена заявки',
+  'Подтверждение ресурса',
+  'applications-filter-frame',
+  'data-rona-live-applications="canonical-v1"',
+  'rona-live-app-summary',
+  'rona-live-app-terms',
+  'rona-live-app-state-strip',
+  'grid-template-columns:minmax(0,1fr) auto auto',
+  'flex-wrap:nowrap',
+  'font-size:14px',
+  'font-size:13.5px',
+  'font:740 12.2px/1',
+]){
   if(!runtime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_REQUIRED_MISSING: ${required}`);
 }
-for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены','portal-client-applications-uat-v2','portal-client-applications-uat-v3']){
+for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены','portal-client-applications-uat-v2','portal-client-applications-uat-v3','rona-live-app-state-lines']){
   if(runtime.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_FORBIDDEN_OUTPUT: ${forbidden}`);
 }
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_IMAGE_ASSET_FORBIDDEN');
@@ -47,10 +64,13 @@ integrity.client_runtime.applications_live_render={
   price:'IMMUTABLE_SUBMITTED_APPLICATION_PRICE',
   resource_status:['RESOURCE_NOT_CONFIRMED','RESOURCE_CONFIRMED'],
   internal_price_mode_visible:false,
-  visual_context:'EXISTING_CLIENT_PORTAL_COMPACT_ROW',
+  visual_context:'DEAL_CARD_VISUAL_PARITY',
+  layout:'HEADLINE_PRICE_ACTION_TERMS_STATE_STRIP',
+  status_layout:'SINGLE_LINE_INDICATOR_STRIP',
+  typography:'DEAL_CARD_SCALE',
   competing_renderers:false,
   refresh_ms:30000,
   images_added:false
 };
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);
+console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; visual=DEAL_CARD_VISUAL_PARITY; status=SINGLE_LINE_INDICATOR_STRIP`);
