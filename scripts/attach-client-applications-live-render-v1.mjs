@@ -5,9 +5,14 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const sourceRuntimePath='assets/portal-runtime/client-applications-live-render-v1.js';
 const runtimePath='dist/assets/portal-runtime/client-applications-live-render-v1.js';
+const layoutSourceRuntimePath='assets/portal-runtime/client-applications-canonical-layout-v1.js';
+const layoutRuntimePath='dist/assets/portal-runtime/client-applications-canonical-layout-v1.js';
 const id='rona-client-applications-live-render-v1';
+const layoutId='rona-client-applications-canonical-layout-v1';
 const marker='20260904-client-applications-live-render-v1';
+const layoutMarker='20260904-client-applications-canonical-layout-v1';
 const src='/assets/portal-runtime/client-applications-live-render-v1.js?v=20260904-live-authoritative-v1';
+const layoutSrc='/assets/portal-runtime/client-applications-canonical-layout-v1.js?v=20260904-canonical-frame-v1';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(sourceRuntimePath,'utf8');
@@ -18,13 +23,21 @@ if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))th
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_IMAGE_ASSET_FORBIDDEN');
 if(!runtime.includes('data-rona-live-applications')||!runtime.includes('rona:client-application-submitted'))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_CONTRACT_MISSING');
 
+const layoutRuntime=await readFile(layoutSourceRuntimePath,'utf8');
+if(!layoutRuntime.includes(layoutMarker))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_LAYOUT_MARKER_MISSING: ${layoutMarker}`);
+if(!layoutRuntime.includes('data-rona-live-applications')||!layoutRuntime.includes('applications-filter-frame'))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_CONTRACT_MISSING');
+if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(layoutRuntime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
+if(/<img|<svg|<canvas|background-image\s*:/iu.test(layoutRuntime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_IMAGE_ASSET_FORBIDDEN');
+
 await copyFile(sourceRuntimePath,runtimePath);
+await copyFile(layoutSourceRuntimePath,layoutRuntimePath);
 
 let html=await readFile(htmlPath,'utf8');
 if(html.includes(id)||html.includes('client-applications-live-render-v1.js'))throw new Error('CLIENT_APPLICATIONS_LIVE_RENDER_ALREADY_PRESENT');
+if(html.includes(layoutId)||html.includes('client-applications-canonical-layout-v1.js'))throw new Error('CLIENT_APPLICATIONS_CANONICAL_LAYOUT_ALREADY_PRESENT');
 const close=html.toLowerCase().lastIndexOf('</body>');
 if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
-const bridge=`<script id="${id}" src="${src}" defer></script>`;
+const bridge=`<script id="${id}" src="${src}" defer></script><script id="${layoutId}" src="${layoutSrc}" defer></script>`;
 html=html.slice(0,close)+bridge+html.slice(close);
 await writeFile(htmlPath,html,'utf8');
 
@@ -49,6 +62,16 @@ integrity.client_runtime.applications_live_render={
   hardcoded_business_entities:false,
   images_added:false
 };
+integrity.client_runtime.applications_canonical_layout={
+  id:layoutId,
+  src:layoutSrc,
+  marker:layoutMarker,
+  anchor:'APPLICATIONS_FILTER_FRAME_GEOMETRY',
+  target:'SERVER_APPLICATION_ROWS',
+  responsive:true,
+  hardcoded_business_entities:false,
+  images_added:false
+};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_APPLICATIONS_LIVE_RENDER=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);
+console.log(`CLIENT_APPLICATIONS_LIVE_RENDER=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; canonical_frame=${layoutId}`);
