@@ -4,9 +4,11 @@ import { createHash } from 'node:crypto';
 const POLICY_PATH='governance/client-portal-visual-freeze.json';
 const APPLICATIONS_APPROVAL_PATH='governance/client-applications-uat-v2-owner-approval.json';
 const DEALS_LOADER_APPROVAL_PATH='governance/client-deals-loader-owner-remediation-20260904.json';
+const CLIENT_LOAD_HOTFIX_APPROVAL_PATH='governance/client-load-hang-owner-hotfix-20260905.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
+const clientLoadHotfixApproval=JSON.parse(await readFile(CLIENT_LOAD_HOTFIX_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -47,6 +49,25 @@ const dealsLoaderExceptionAuthorized=
   dealsLoaderApproval?.requirements?.images_added===false&&
   dealsLoaderApproval?.requirements?.unrelated_visual_change===false;
 
+const clientLoadHotfixAuthorized=
+  clientLoadHotfixApproval?.approval==='OWNER_IN_CHAT'&&
+  clientLoadHotfixApproval?.authorized_at==='2026-09-05'&&
+  clientLoadHotfixApproval?.control==='SYSTEM_ADMIN'&&
+  clientLoadHotfixApproval?.scope==='CLIENT_LOADING_HANG_EMERGENCY_FUNCTIONAL_HOTFIX'&&
+  clientLoadHotfixApproval?.base_release==='release/public-go-live-v1.1@4e07ad9f2591c6135e6de651bdaa06bb80a82e78'&&
+  clientLoadHotfixApproval?.requirements?.keep_singleflight_v27===true&&
+  clientLoadHotfixApproval?.requirements?.break_client_feedback_loop===true&&
+  clientLoadHotfixApproval?.requirements?.single_initial_context_projection_owner===true&&
+  clientLoadHotfixApproval?.requirements?.archive_messages_non_blocking_home===true&&
+  clientLoadHotfixApproval?.requirements?.strict_current_context_fail_closed===true&&
+  clientLoadHotfixApproval?.requirements?.visual_css_changed===false&&
+  clientLoadHotfixApproval?.requirements?.visual_composition_changed===false&&
+  clientLoadHotfixApproval?.requirements?.deal_card_html_composition_changed===false&&
+  clientLoadHotfixApproval?.requirements?.business_data_changed===false&&
+  clientLoadHotfixApproval?.requirements?.authoritative_business_state_changed===false&&
+  clientLoadHotfixApproval?.requirements?.production_switch_before_system_admin_pass===false&&
+  clientLoadHotfixApproval?.requirements?.merge_before_system_admin_pass===false;
+
 const approvedModifiedFiles=new Set();
 const approvedNewRuntime=new Set();
 const approvedNewAttach=new Set();
@@ -60,6 +81,16 @@ if(dealsLoaderExceptionAuthorized){
   approvedModifiedFiles.add('scripts/attach-client-deal-documents.mjs');
   approvedNewRuntime.add('client-deals-authoritative-v1.js');
   approvedNewAttach.add('attach-client-deals-authoritative-v1.mjs');
+}
+if(clientLoadHotfixAuthorized){
+  for(const path of [
+    'assets/portal-runtime/client-background-section-preload-v1.js',
+    'assets/portal-runtime/client-context-selection-authority-v1.js',
+    'assets/portal-runtime/client-deal-documents-v5.js',
+    'assets/portal-runtime/client-home-command-center-v2.js',
+    'assets/portal-runtime/client-messages-archive-v1.js',
+    'assets/portal-runtime/client-price-sync-v1.js'
+  ])approvedModifiedFiles.add(path);
 }
 
 const protectedFiles=policy.protected_files||{};
@@ -112,4 +143,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} visual_css_changed=false`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_owner_exception=${clientLoadHotfixAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} visual_css_changed=false`);
