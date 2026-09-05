@@ -20,8 +20,9 @@ if(!runtime.includes(marker)){
 
   const legacyTitle="      after=titleMatch[1]+' · '+display;";
   const genericTitle="      after=titleMatch[1];";
+  const compactGenericTitle='if(titleMatch){after=titleMatch[1]}';
   if(runtime.includes(legacyTitle))runtime=runtime.replace(legacyTitle,genericTitle);
-  else if(!runtime.includes(genericTitle))throw new Error('CLIENT_CONTEXT_AUTHORITY_PATCH_MISSING: generic-header-title');
+  else if(!runtime.includes(genericTitle)&&!runtime.includes(compactGenericTitle))throw new Error('CLIENT_CONTEXT_AUTHORITY_PATCH_MISSING: generic-header-title');
 
   if(!runtime.includes('function normalizeHeaderTitle(){')){
     const compactPurge=`function purgeHeaderContractDownload(){for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]'))if(/скачать\\s+договор\\s+pdf/iu.test(norm(el.textContent)))el.remove()}`;
