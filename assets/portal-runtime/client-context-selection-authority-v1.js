@@ -6,298 +6,89 @@ if(location.pathname!=='/portal/client')return;
 
 const BOOT='/portal/api/v1/client/bootstrap';
 const API_PREFIX='/portal/api/v1/client/';
+const CONTEXT_ROUTE='/portal/api/v1/client/context';
+const CURRENT_SLOT='data-rona-current-context-slot';
+const CURRENT_SCOPE='data-rona-current-context-scope';
+const LEGACY_CONTEXT_LABEL='Выбрана компания';
+const LEGACY_PENDING_KEY='__RONA_AUTHORITY_PENDING__';
 const REQUIRED_CONTEXT_ROUTES=new Set([
-  '/portal/api/v1/client/context',
-  '/portal/api/v1/client/prices',
-  '/portal/api/v1/client/market',
-  '/portal/api/v1/client/deals',
-  '/portal/api/v1/client/documents',
-  '/portal/api/v1/client/payments',
-  '/portal/api/v1/client/claims',
-  '/portal/api/v1/client/messages',
-  '/portal/api/v1/client/archive',
-  '/portal/api/v1/client/shipments',
-  '/portal/api/v1/client/rail'
+  CONTEXT_ROUTE,'/portal/api/v1/client/prices','/portal/api/v1/client/market','/portal/api/v1/client/deals','/portal/api/v1/client/documents',
+  '/portal/api/v1/client/payments','/portal/api/v1/client/claims','/portal/api/v1/client/messages','/portal/api/v1/client/archive',
+  '/portal/api/v1/client/shipments','/portal/api/v1/client/rail'
 ]);
-const REQUIRED_CONTEXT_PREFIXES=[
-  '/portal/api/v1/client/deals/',
-  '/portal/api/v1/client/deal-documents/',
-  '/portal/api/v1/client/documents/',
-  '/portal/api/v1/client/payments/',
-  '/portal/api/v1/client/claims/',
-  '/portal/api/v1/client/messages/',
-  '/portal/api/v1/client/archive/'
-];
+const REQUIRED_CONTEXT_PREFIXES=['/portal/api/v1/client/deals/','/portal/api/v1/client/deal-documents/','/portal/api/v1/client/documents/','/portal/api/v1/client/payments/','/portal/api/v1/client/claims/','/portal/api/v1/client/messages/','/portal/api/v1/client/archive/'];
+const DIAG_ROUTES=new Set([CONTEXT_ROUTE,'/portal/api/v1/client/messages','/portal/api/v1/client/archive','/portal/api/v1/client/prices','/portal/api/v1/client/market','/portal/api/v1/client/shipments','/portal/api/v1/client/rail']);
 const nativeFetch=window.fetch.bind(window);
-const state={contexts:[],selected:null,loading:null,ready:false,observer:null,queued:false,syncing:false};
-const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
-const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const d=document.documentElement;
-const CLIENT_RE=/\bRONA-C\d{3}\b/g;
-const CONTRACT_RE=/\bRONA-C\d{3}-CTR-\d{4}-\d{3,}\b/g;
-const CLIENT_ONE=/\bRONA-C\d{3}\b/;
-const CONTRACT_ONE=/\bRONA-C\d{3}-CTR-\d{4}-\d{3,}\b/;
+const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
+const state={contexts:[],selected:null,seed:null,ready:false,loading:null,observer:null,queued:false,syncing:false,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},callerMap:[]};
+window.__RONA_CLIENT_CALLER_MAP__=state.callerMap;
 
-function clean(c){return c&&typeof c==='object'?{
-  client_id:norm(c.client_id),legal_name:norm(c.legal_name),registration_country:norm(c.registration_country),
-  contract_id:norm(c.contract_id),current_external_contract_number:norm(c.current_external_contract_number),
-  contract_status:norm(c.contract_status),effective_from:norm(c.effective_from),effective_to:norm(c.effective_to)
-}:null}
+function clean(c){return c&&typeof c==='object'?{client_id:norm(c.client_id),legal_name:norm(c.legal_name),registration_country:norm(c.registration_country),contract_id:norm(c.contract_id),current_external_contract_number:norm(c.current_external_contract_number),contract_status:norm(c.contract_status),effective_from:norm(c.effective_from),effective_to:norm(c.effective_to)}:null}
 function valid(c){return !!(c&&c.client_id&&c.contract_id&&c.legal_name)}
-function key(c){return c?c.client_id+'|'+c.contract_id:''}
+function key(c){return c?`${norm(c.client_id)}|${norm(c.contract_id)}`:''}
 function copy(c){return c?Object.freeze({...c}):null}
-function authorized(ctx){const k=key(ctx);return state.contexts.find(c=>key(c)===k)||null}
-function isKg(ctx){return /(кыргыз|киргиз|kyrgyz|kgz|\bkg\b)/iu.test(norm(ctx?.registration_country))}
-function quoteName(legal){const m=norm(legal).match(/[«“"][^»”"]+[»”"]/u);return m?m[0]:''}
-function companyDisplayName(ctx){
-  const legal=norm(ctx?.legal_name);if(!legal)return norm(ctx?.client_id)||'Компания';
-  const quoted=quoteName(legal);
-  const existing=legal.match(/^(ОсОО|ООО|ПАО|НАО|АО|ЗАО|ОАО|ОДО|ИП|LLC)(?:\s+|$)/iu);
-  if(existing){const form=existing[1];return quoted?form+' '+quoted:legal}
-  const forms=[
-    [/^общество с ограниченной ответственностью(?:\s+|$)/iu,isKg(ctx)?'ОсОО':'ООО'],
-    [/^общество с дополнительной ответственностью(?:\s+|$)/iu,'ОДО'],
-    [/^публичное акционерное общество(?:\s+|$)/iu,'ПАО'],
-    [/^непубличное акционерное общество(?:\s+|$)/iu,'АО'],
-    [/^закрытое акционерное общество(?:\s+|$)/iu,'ЗАО'],
-    [/^открытое акционерное общество(?:\s+|$)/iu,'ОАО'],
-    [/^акционерное общество(?:\s+|$)/iu,'АО'],
-    [/^индивидуальный предприниматель(?:\s+|$)/iu,'ИП'],
-    [/^limited liability company(?:\s+|$)/iu,'LLC']
-  ];
-  for(const [re,form] of forms){if(!re.test(legal))continue;const rest=legal.replace(re,'').trim();return quoted?form+' '+quoted:(rest?form+' '+rest:form)}
-  return legal;
-}
-function compactContract(ctx){const no=norm(ctx?.current_external_contract_number||ctx?.contract_id);return no.replace(/^RONA-C\d{3}-CTR-/,'CTR ')}
-function contextByIds(clientId,contractId){
-  const c=norm(clientId),k=norm(contractId);
-  if(!c||!k)return null;
-  return state.contexts.find(x=>x.client_id===c&&x.contract_id===k)||null;
-}
-function contextByValue(value,option){
-  const v=norm(value),clientId=norm(option?.dataset?.clientId),contractId=norm(option?.dataset?.contractId);
-  const byPair=contextByIds(clientId,contractId);if(byPair)return byPair;
-  return state.contexts.find(c=>c.contract_id===v||c.current_external_contract_number===v)||null;
-}
-function contextFromSelect(){
-  const select=document.getElementById('clientContextSelect');if(!select)return null;
-  return contextByValue(select.value,select.selectedOptions?.[0]||null);
-}
-function contextFromDataset(){return contextByIds(d.dataset.ronaClientId,d.dataset.ronaContractId)}
-function resolveSelection(){
-  if(state.contexts.length===1)return state.contexts[0];
-  return contextFromSelect()||contextFromDataset()||null;
-}
-function detail(source){
-  const ctx=state.selected;
-  return {client_id:ctx?.client_id||'',contract_id:ctx?.contract_id||'',display_name:ctx?companyDisplayName(ctx):'',source:source||'SERVER_SESSION_AUTHORITY',ready:state.ready,selection_required:state.ready&&state.contexts.length>1&&!ctx};
-}
-function exposeSelection(){
-  d.dataset.ronaClientContextAuthority=MARK;
-  d.dataset.ronaClientContextReady=state.ready?'true':'false';
-  d.dataset.ronaClientContextSelection=state.selected?'selected':(state.ready&&state.contexts.length>1?'required':'pending');
-  if(state.selected){
-    d.dataset.ronaClientId=state.selected.client_id;
-    d.dataset.ronaContractId=state.selected.contract_id;
-    d.dataset.ronaClientDisplayName=companyDisplayName(state.selected);
-  }else{
-    delete d.dataset.ronaClientId;
-    delete d.dataset.ronaContractId;
-    delete d.dataset.ronaClientDisplayName;
-  }
-}
-function emitSelection(source,force=false){if(!force&&!state.ready)return;window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:detail(source)}))}
+function isKg(c){return /(кыргыз|киргиз|kyrgyz|kgz|\bkg\b)/iu.test(norm(c?.registration_country))}
+function companyDisplayName(c){const legal=norm(c?.legal_name);if(!legal)return norm(c?.client_id)||'Компания';const quoted=legal.match(/[«“"][^»”"]+[»”"]/u)?.[0]||'';const pref=legal.match(/^(ОсОО|ООО|ПАО|НАО|АО|ЗАО|ОАО|ОДО|ИП|LLC)(?:\s+|$)/iu)?.[1];if(pref)return quoted?`${pref} ${quoted}`:legal;const forms=[[/^общество с ограниченной ответственностью(?:\s+|$)/iu,isKg(c)?'ОсОО':'ООО'],[/^общество с дополнительной ответственностью(?:\s+|$)/iu,'ОДО'],[/^публичное акционерное общество(?:\s+|$)/iu,'ПАО'],[/^непубличное акционерное общество(?:\s+|$)/iu,'АО'],[/^закрытое акционерное общество(?:\s+|$)/iu,'ЗАО'],[/^открытое акционерное общество(?:\s+|$)/iu,'ОАО'],[/^акционерное общество(?:\s+|$)/iu,'АО'],[/^индивидуальный предприниматель(?:\s+|$)/iu,'ИП'],[/^limited liability company(?:\s+|$)/iu,'LLC']];for(const [re,form] of forms){if(re.test(legal)){const rest=legal.replace(re,'').trim();return quoted?`${form} ${quoted}`:(rest?`${form} ${rest}`:form)}}return legal}
+function contextByIds(clientId,contractId){const c=norm(clientId),k=norm(contractId);if(!c||!k)return null;return state.contexts.find(x=>x.client_id===c&&x.contract_id===k)||null}
+function contextByValue(value,option){const pair=contextByIds(option?.dataset?.clientId,option?.dataset?.contractId);if(pair)return pair;const v=norm(value);return state.contexts.find(c=>c.contract_id===v||c.current_external_contract_number===v)||null}
+function pairFrom(v){if(!v||typeof v!=='object')return null;const client_id=norm(v.client_id||v.clientId),contract_id=norm(v.contract_id||v.contractId);return client_id&&contract_id?{client_id,contract_id}:null}
+function legacySeed(){const source=window.RONA_CLIENT_SERVER_CONTEXT;for(const candidate of [source?.selected_context,source?.current_selection,source?.current_context,source]){const p=pairFrom(candidate);if(p)return p}return pairFrom({client_id:d.dataset.ronaClientId,contract_id:d.dataset.ronaContractId})}
+function contextFromSelect(){const select=document.getElementById('clientContextSelect');return select?contextByValue(select.value,select.selectedOptions?.[0]):null}
+function resolveSelection(hint=null){if(state.contexts.length===1)return state.contexts[0];for(const candidate of [hint,state.selected,state.seed,contextFromSelect()]){const found=candidate&&contextByIds(candidate.client_id,candidate.contract_id);if(found)return found}return null}
+function detail(source){const ctx=state.selected;return{client_id:ctx?.client_id||'',contract_id:ctx?.contract_id||'',display_name:projectionPresentation(ctx)?companyDisplayName(projectionPresentation(ctx)):'',source:source||'SERVER_SESSION_AUTHORITY',ready:state.ready,selection_required:state.ready&&state.contexts.length>1&&!ctx}}
+function emitSelection(source){window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:detail(source)}))}
 function emitReady(source){window.dispatchEvent(new CustomEvent('rona:client-context-ready',{detail:detail(source)}))}
-function setSelected(ctx,source,emit=true){
-  const next=ctx?authorized(ctx):null,before=key(state.selected),after=key(next);
-  state.selected=next;exposeSelection();scheduleSync();
-  if(emit&&before!==after)emitSelection(source,true);
-  return next;
-}
-function labelCounts(){const map=new Map();for(const c of state.contexts){const n=companyDisplayName(c);map.set(n,(map.get(n)||0)+1)}return map}
-function syncSelect(){
-  const select=document.getElementById('clientContextSelect');if(!select||!state.ready)return;
-  const prior=state.selected||resolveSelection();if(prior)state.selected=authorized(prior);
-  const counts=labelCounts(),selectedKey=key(state.selected),desired=[];
-  if(state.contexts.length>1&&!state.selected)desired.push({value:'',text:'Выберите компанию',disabled:true,selected:true,ctx:null});
-  for(const ctx of state.contexts){
-    const display=companyDisplayName(ctx),duplicate=counts.get(display)>1;
-    desired.push({value:ctx.contract_id,text:duplicate?display+' · '+compactContract(ctx):display,disabled:false,selected:key(ctx)===selectedKey,ctx});
-  }
-  const current=[...select.options].map(o=>[norm(o.value),norm(o.textContent),o.disabled,o.selected,norm(o.dataset.clientId),norm(o.dataset.contractId)]);
-  const target=desired.map(o=>[o.value,o.text,o.disabled,o.selected,o.ctx?.client_id||'',o.ctx?.contract_id||'']);
-  if(JSON.stringify(current)!==JSON.stringify(target)){
-    const frag=document.createDocumentFragment();
-    for(const item of desired){
-      const option=new Option(item.text,item.value,item.selected,item.selected);option.disabled=item.disabled;
-      if(item.ctx){option.dataset.clientId=item.ctx.client_id;option.dataset.contractId=item.ctx.contract_id;option.title=item.ctx.legal_name+(item.ctx.current_external_contract_number?' · '+item.ctx.current_external_contract_number:'')}
-      frag.appendChild(option);
-    }
-    select.replaceChildren(frag);
-  }
-  if(state.selected&&select.value!==state.selected.contract_id)select.value=state.selected.contract_id;
-  if(state.selected){select.dataset.clientId=state.selected.client_id;select.dataset.contractId=state.selected.contract_id;select.dataset.ronaContextSource='server-session-authority';select.title=state.selected.legal_name}
-  else{delete select.dataset.clientId;delete select.dataset.contractId;select.dataset.ronaContextSource='server-session-authority-selection-required';select.title='Выберите компанию'}
-}
-function contextScopes(){
-  const out=[];
-  for(const leaf of document.querySelectorAll('body *')){
-    if(leaf.childElementCount!==0||!/^выбрана компания$/iu.test(norm(leaf.textContent)))continue;
-    let node=leaf.parentElement,chosen=node;
-    for(let depth=0;node&&node!==document.body&&depth<7;depth++,node=node.parentElement){
-      const text=norm(node.textContent);if(text.length>1800)break;
-      if(CONTRACT_ONE.test(text)||CLIENT_ONE.test(text)||/(контракт|договор)/iu.test(text))chosen=node;
-    }
-    if(chosen)out.push(chosen);
-  }
-  return [...new Set(out)];
-}
-function companyCandidate(scope){
-  const leaves=[...scope.querySelectorAll('*')].filter(el=>el.childElementCount===0&&norm(el.textContent));
-  const labelIndex=leaves.findIndex(el=>/^выбрана компания$/iu.test(norm(el.textContent)));
-  let best=null,bestScore=-1;
-  for(let i=0;i<leaves.length;i++){
-    const el=leaves[i],text=norm(el.textContent),l=low(text);
-    if(/^выбрана компания$/iu.test(text)||CLIENT_ONE.test(text)||CONTRACT_ONE.test(text)||/(контракт|договор|client|company)\s*№?/iu.test(text)||text.length>180)continue;
-    if(['активен','активна','подключено','сервер'].includes(l))continue;
-    let score=0;if(i>labelIndex)score+=120;if(/[«»“”"]/u.test(text))score+=80;if(/^[A-ZА-ЯЁ0-9][A-ZА-ЯЁ0-9 .&'«»“”"_-]{2,}$/u.test(text))score+=55;
-    if(state.contexts.some(c=>text===c.legal_name||text===companyDisplayName(c)))score+=150;
-    if(score>bestScore){best=el;bestScore=score}
-  }
-  return best;
-}
-function syncContextScope(scope,ctx){
-  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id;
-  for(const leaf of scope.querySelectorAll('*')){
-    if(leaf.childElementCount!==0)continue;const before=norm(leaf.textContent);if(!before)continue;
-    let after=before.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
-    const contractPos=after.search(/(?:контракт|договор)\s*№/iu);
-    if(contractPos>0&&(CLIENT_ONE.test(after)||CONTRACT_ONE.test(after)))after=display+' · '+after.slice(contractPos);
-    if(after!==before)leaf.textContent=after;
-  }
-  const company=companyCandidate(scope);if(company&&norm(company.textContent)!==display)company.textContent=display;
-  scope.dataset.clientId=ctx.client_id;scope.dataset.contractId=ctx.contract_id;scope.dataset.ronaContextSource='server-session-authority';
-}
-function headerRoots(){
-  const out=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]')].filter(Boolean);
-  const select=document.getElementById('clientContextSelect');
-  if(select){
-    let node=select.parentElement;
-    for(let depth=0;node&&node!==document.body&&depth<8;depth++,node=node.parentElement){
-      const text=norm(node.textContent);
-      if(text.length<=1400&&(/личный кабинет клиента/iu.test(text)||/компания\s*\/\s*контракт/iu.test(text))){out.push(node);break}
-      if(text.length>2200)break;
-    }
-  }
-  return [...new Set(out.filter(Boolean))];
-}
-function purgeHeaderContractDownload(){
-  for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]')){
-    if(/скачать\s+договор\s+pdf/iu.test(norm(el.textContent)))el.remove();
-  }
-}
-function staleHeaderNames(ctx){
-  const names=[];
-  for(const c of state.contexts){if(key(c)===key(ctx))continue;for(const n of [norm(c.legal_name),companyDisplayName(c)])if(n&&!names.some(x=>low(x)===low(n)))names.push(n)}
-  return names;
-}
-function syncHeader(ctx){
-  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id,stale=staleHeaderNames(ctx);
-  for(const root of headerRoots())for(const leaf of root.querySelectorAll('*')){
-    if(leaf.childElementCount!==0||leaf.closest('select,option,button,[data-status],[data-service],[data-access]'))continue;
-    const before=norm(leaf.textContent);if(!before)continue;let after=before;
-    const titleMatch=before.match(/^(.*?личный кабинет клиента)/iu);
-    if(titleMatch){
-      after=titleMatch[1];
-    }else if(/(?:контракт|договор)/iu.test(before)){
-      after=after.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
-      const pos=after.search(/(?:контракт|договор)/iu);if(pos>0)after=display+' · '+after.slice(pos);
-      if(ctx.current_external_contract_number)after=after.replace(/((?:контракт|договор)\s*)номер уточняется/iu,'$1'+ctx.current_external_contract_number);
-    }else{
-      const old=stale.find(name=>low(name)===low(before));if(old)after=display;
-    }
-    if(after!==before)leaf.textContent=after;
-  }
-  purgeHeaderContractDownload();
-}
-function syncVisualContext(){purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}
+function requestHeaders(input,init){return new Headers(init?.headers||(input instanceof Request?input.headers:undefined))}
+function callerSource(input,init){const explicit=requestHeaders(input,init).get('x-rona-client-source');if(explicit)return explicit;const stack=String(new Error().stack||'');const match=[...stack.matchAll(/\/assets\/portal-runtime\/([^?/:\s]+\.js)/g)].map(x=>x[1]).find(x=>x!=='client-context-selection-authority-v1.js');return match||'client-context-selection-authority-v1'}
+function recordCaller(url,source,kind){if(!DIAG_ROUTES.has(url.pathname))return;state.callerMap.push({at:new Date().toISOString(),kind,source,route:url.pathname,client_id:url.searchParams.get('clientId')||'',contract_id:url.searchParams.get('contractId')||''});if(state.callerMap.length>500)state.callerMap.splice(0,state.callerMap.length-500)}
+function taggedInit(input,init,source){const headers=requestHeaders(input,init);if(!headers.has('x-rona-client-source'))headers.set('x-rona-client-source',source);return{...(init||{}),headers}}
+function invalidateProjection(){Object.assign(state.projection,{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0})}
+function cloneProjection(){const p=state.projection;return new Response(p.text,{status:p.status,statusText:p.statusText,headers:new Headers(p.headers)})}
+function projectionPair(data){const contract=data?.contract||{},context=data?.context||{},client=data?.client||{};return{clientIds:[...new Set([data?.client_id,context.client_id,client.client_id,contract.client_id].map(norm).filter(Boolean))],contractIds:[...new Set([data?.contract_id,context.contract_id,contract.contract_id].map(norm).filter(Boolean))]}}
+function validateProjection(body,ctx){if(!body||body.ok===false||!body.data)throw new Error('CLIENT_CONTEXT_PROJECTION_INVALID');const pair=projectionPair(body.data);if(!pair.clientIds.length||!pair.contractIds.length||pair.clientIds.some(v=>v!==ctx.client_id)||pair.contractIds.some(v=>v!==ctx.contract_id))throw new Error('CLIENT_CONTEXT_PROJECTION_SCOPE_MISMATCH')}
+function projectionData(){const p=state.projection;return p.key===key(state.selected)&&p.json?.data?JSON.parse(JSON.stringify(p.json.data)):null}
+function projectionPresentation(ctx){if(!ctx)return null;const data=projectionData();if(!data)return null;const pair=projectionPair(data);if(!pair.clientIds.length||!pair.contractIds.length||pair.clientIds.some(v=>v!==ctx.client_id)||pair.contractIds.some(v=>v!==ctx.contract_id))return null;const client=data.client||{},context=data.context||{},contract=data.contract||{},legal_name=norm(client.legal_name||client.client_legal_name||client.client_name||client.company_name||context.legal_name||context.client_name||context.company_name),current_external_contract_number=norm(contract.current_external_contract_number||contract.external_contract_number||contract.contract_number||contract.number||context.current_external_contract_number);if(!legal_name)return null;return{client_id:ctx.client_id,contract_id:ctx.contract_id,legal_name,current_external_contract_number}}
+function legacyCompatibilityRecord(){const ctx=state.selected,presented=projectionPresentation(ctx);return{clientId:norm(ctx?.client_id),company:presented?.legal_name||'',contractId:norm(ctx?.contract_id),contractNo:presented?.current_external_contract_number||'',contractDate:'',status:'',contractStateBlocked:false,applications:[],deals:[],documents:[],payments:[],closingStatus:'',closingRequirements:[],shipments:[],claims:[],actions:0}}
+function syncLegacyContextOwner(){try{if(typeof CLIENT_CONTEXTS==='undefined'||!CLIENT_CONTEXTS||typeof CLIENT_CONTEXTS!=='object'||typeof activeClientContractId==='undefined')return false;const slot=state.selected?.contract_id||LEGACY_PENDING_KEY;CLIENT_CONTEXTS[slot]=legacyCompatibilityRecord();activeClientContractId=slot;d.dataset.ronaLegacyContextOwner='authoritative-current-context';return true}catch(error){console.error('RONA legacy context owner sync',error);return false}}
+function rerenderLegacyContext(){if(typeof window.renderClientContext!=='function')return false;try{window.renderClientContext();return true}catch(error){console.error('RONA legacy context neutral render',error);return false}}
+function syncAndRenderLegacyContext(){if(!syncLegacyContextOwner())return false;return rerenderLegacyContext()}
+async function loadCurrentProjection(source='client-context-selection-authority-v1:coordinator'){const ctx=state.selected;if(!ctx)return null;const wanted=key(ctx),p=state.projection;if(p.key===wanted&&p.text&&p.status>=200&&p.status<300)return cloneProjection();if(p.key===wanted&&p.promise){recordCaller(new URL(`${CONTEXT_ROUTE}?clientId=${encodeURIComponent(ctx.client_id)}&contractId=${encodeURIComponent(ctx.contract_id)}`,location.origin),source,'join');await p.promise;return cloneProjection()}invalidateProjection();p.key=wanted;const url=new URL(CONTEXT_ROUTE,location.origin);url.searchParams.set('clientId',ctx.client_id);url.searchParams.set('contractId',ctx.contract_id);recordCaller(url,source,'network');p.promise=(async()=>{const response=await nativeFetch(url.pathname+url.search,taggedInit(url.pathname+url.search,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},source));const text=await response.text();const body=JSON.parse(text||'null');if(!response.ok)throw new Error(String(body?.code||`HTTP_${response.status}`));validateProjection(body,ctx);if(key(state.selected)!==wanted)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_PROJECTION');p.text=text;p.json=body;p.status=response.status;p.statusText=response.statusText;p.headers=[...response.headers.entries()];p.loadedAt=Date.now();syncAndRenderLegacyContext();syncVisualContext();exposeSelection();window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,source,loaded_at:new Date(p.loadedAt).toISOString()}}))})().catch(error=>{if(p.key===wanted)invalidateProjection();throw error}).finally(()=>{if(p.key===wanted)p.promise=null});await p.promise;return cloneProjection()}
+function primeProjection(source){if(state.selected)queueMicrotask(()=>loadCurrentProjection(source).catch(error=>console.error('RONA current-context coordinator',error)))}
+function markSlot(el,type){if(!el||el.childElementCount!==0)return null;if(el.getAttribute(CURRENT_SLOT)!==type)el.setAttribute(CURRENT_SLOT,type);return el}
+function markContractSlot(el){if(!el)return null;return markSlot(el,norm(el.dataset.ronaCurrentContextContractPrefix)?'contract-label':'contract-id')}
+function declaredSlots(){for(const el of document.querySelectorAll('[data-rona-context-client],[data-rona-current-client]'))markSlot(el,'client-name');for(const el of document.querySelectorAll('[data-rona-context-client-id],[data-rona-current-client-id]'))markSlot(el,'client-id');for(const el of document.querySelectorAll('[data-rona-context-contract],[data-rona-current-contract]'))markContractSlot(el)}
+function legacyContextScopes(){return [...document.querySelectorAll(`[${CURRENT_SCOPE}]`)]}
+function bindLegacyScope(scope){if(!scope)return;for(const el of scope.querySelectorAll('[data-rona-context-client],[data-rona-current-client]'))markSlot(el,'client-name');for(const el of scope.querySelectorAll('[data-rona-context-contract],[data-rona-current-contract]'))markContractSlot(el)}
+function bindHeaderSlots(){declaredSlots()}
+function normalizeHeaderTitle(){return false}
+function purgeHeaderContractDownload(){const el=null;return !!(el&&/^скачать\s+договор\s+pdf$/iu.test(norm(el.textContent)))}
+function contractValue(ctx){return norm(ctx?.current_external_contract_number||ctx?.contract_id)}
+function renderSlot(el,ctx){const type=el.getAttribute(CURRENT_SLOT);if(!type||el.childElementCount!==0)return;const presented=projectionPresentation(ctx);if(!presented){if(el.textContent!=='')el.textContent='';return}let value='';if(type==='client-name')value=companyDisplayName(presented);else if(type==='client-id')value=presented.client_id;else if(type==='contract-id')value=contractValue(presented);else if(type==='contract-label')value=`${norm(el.dataset.ronaCurrentContextContractPrefix)||'Контракт'} ${contractValue(presented)}`;if(norm(el.textContent)!==norm(value))el.textContent=value}
+function clearCurrentSlots(){for(const el of document.querySelectorAll(`[${CURRENT_SLOT}]`))renderSlot(el,null)}
+function syncVisualContext(){normalizeHeaderTitle();purgeHeaderContractDownload();declaredSlots();for(const scope of legacyContextScopes())bindLegacyScope(scope);bindHeaderSlots();for(const el of document.querySelectorAll(`[${CURRENT_SLOT}]`))renderSlot(el,state.selected)}
+function exposeSelection(){d.dataset.ronaClientContextAuthority=MARK;d.dataset.ronaClientContextReady=state.ready?'true':'false';d.dataset.ronaClientContextSelection=state.selected?'selected':(state.ready&&state.contexts.length>1?'required':'pending');if(state.selected){d.dataset.ronaClientId=state.selected.client_id;d.dataset.ronaContractId=state.selected.contract_id}else{delete d.dataset.ronaClientId;delete d.dataset.ronaContractId}const presented=projectionPresentation(state.selected);if(presented)d.dataset.ronaClientDisplayName=companyDisplayName(presented);else delete d.dataset.ronaClientDisplayName}
+function syncSelect(){const select=document.getElementById('clientContextSelect');if(!select||!state.ready)return;const selectedKey=key(state.selected),counts=new Map();for(const c of state.contexts){const n=companyDisplayName(c);counts.set(n,(counts.get(n)||0)+1)}const desired=[];if(state.contexts.length>1&&!state.selected)desired.push({value:'',text:'Выберите компанию',disabled:true,selected:true,ctx:null});for(const ctx of state.contexts){const display=companyDisplayName(ctx),contract=norm(ctx.current_external_contract_number||ctx.contract_id);desired.push({value:ctx.contract_id,text:counts.get(display)>1?`${display} · ${contract}`:display,disabled:false,selected:key(ctx)===selectedKey,ctx})}const target=desired.map(x=>[x.value,x.text,x.disabled,x.selected,x.ctx?.client_id||'',x.ctx?.contract_id||'']);const current=[...select.options].map(o=>[norm(o.value),norm(o.textContent),o.disabled,o.selected,norm(o.dataset.clientId),norm(o.dataset.contractId)]);if(JSON.stringify(target)!==JSON.stringify(current)){const frag=document.createDocumentFragment();for(const item of desired){const option=new Option(item.text,item.value,item.selected,item.selected);option.disabled=item.disabled;if(item.ctx){option.dataset.clientId=item.ctx.client_id;option.dataset.contractId=item.ctx.contract_id;option.title=item.ctx.legal_name}frag.append(option)}select.replaceChildren(frag)}if(state.selected){select.value=state.selected.contract_id;select.dataset.clientId=state.selected.client_id;select.dataset.contractId=state.selected.contract_id;select.dataset.ronaContextSource='server-session-authority'}else{delete select.dataset.clientId;delete select.dataset.contractId;select.dataset.ronaContextSource='server-session-authority-selection-required'}}
 function syncAll(){if(state.syncing)return;state.syncing=true;try{syncSelect();syncVisualContext();exposeSelection()}finally{state.syncing=false}}
 function scheduleSync(){if(state.queued)return;state.queued=true;requestAnimationFrame(()=>{state.queued=false;syncAll()})}
-function publish(raw,source='bootstrap'){
-  const contexts=(Array.isArray(raw)?raw:[]).map(clean).filter(valid);if(!contexts.length)return false;
-  const previous=state.selected;state.contexts=contexts;state.ready=true;
-  state.selected=previous&&authorized(previous)||resolveSelection();
-  exposeSelection();scheduleSync();emitReady(source);
-  if(key(previous)!==key(state.selected)||!state.selected)emitSelection(source,true);
-  return true;
-}
-async function ensure(){
-  if(state.ready)return state.contexts;if(state.loading)return state.loading;
-  state.loading=(async()=>{
-    const known=window.RONA_CLIENT_SERVER_CONTEXT?.contexts;
-    if(Array.isArray(known)&&known.length&&publish(known,'server-context'))return state.contexts;
-    const response=await nativeFetch(BOOT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-    if(!response.ok)throw new Error('CLIENT_BOOTSTRAP_HTTP_'+response.status);
-    const body=await response.json();
-    if(body?.ok===false||!publish(body?.data?.contexts,'bootstrap'))throw new Error('CLIENT_CONTEXT_NOT_AUTHORIZED');
-    return state.contexts;
-  })().finally(()=>{state.loading=null});
-  return state.loading;
-}
+function setSelected(ctx,source,emit=true){const next=ctx?contextByIds(ctx.client_id,ctx.contract_id):null,before=key(state.selected),after=key(next);if(before!==after)clearCurrentSlots();state.selected=next;if(before!==after){invalidateProjection();syncAndRenderLegacyContext();if(next)primeProjection('client-context-selection-authority-v1:context-change')}exposeSelection();scheduleSync();if(emit&&before!==after)emitSelection(source);return next}
+function authoritativeHint(data){return pairFrom(data?.selected_context)||pairFrom(data?.current_selection)||pairFrom(data?.current_context)||null}
+function publish(raw,source='bootstrap',hint=null){const contexts=(Array.isArray(raw)?raw:[]).map(clean).filter(valid);if(!contexts.length)return false;const previous=state.selected;state.contexts=contexts;state.ready=true;state.selected=resolveSelection(hint);if(key(previous)!==key(state.selected)){clearCurrentSlots();invalidateProjection();syncAndRenderLegacyContext();if(state.selected)primeProjection('client-context-selection-authority-v1:initial')}exposeSelection();scheduleSync();emitReady(source);if(key(previous)!==key(state.selected)||!state.selected)emitSelection(source);return true}
+async function ensure(){if(state.ready)return state.contexts;if(state.loading)return state.loading;state.loading=(async()=>{state.seed=state.seed||legacySeed();const response=await nativeFetch(BOOT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-source':'client-context-selection-authority-v1:bootstrap'}});if(!response.ok)throw new Error(`CLIENT_BOOTSTRAP_HTTP_${response.status}`);const body=await response.json();if(body?.ok===false||!publish(body?.data?.contexts,'bootstrap',authoritativeHint(body?.data)))throw new Error('CLIENT_CONTEXT_NOT_AUTHORIZED');return state.contexts})().finally(()=>{state.loading=null});return state.loading}
 function rawInput(input){if(typeof input==='string')return input;if(input instanceof URL)return input.href;if(input&&typeof input.url==='string')return input.url;return''}
 function clientUrl(raw){try{const u=new URL(raw,location.origin);return u.origin===location.origin&&u.pathname.startsWith(API_PREFIX)?u:null}catch{return null}}
 function nextUrl(raw,url){return raw.startsWith('http://')||raw.startsWith('https://')?url.href:url.pathname+url.search+url.hash}
 function pathRequiresContext(pathname){return REQUIRED_CONTEXT_ROUTES.has(pathname)||REQUIRED_CONTEXT_PREFIXES.some(prefix=>pathname.startsWith(prefix))}
 function responseHeaders(response){const headers=new Headers(response.headers);headers.set('content-type','application/json; charset=utf-8');headers.delete('content-length');headers.delete('content-encoding');return headers}
-async function scopedBootstrapResponse(response){
-  try{
-    if(!response?.ok)return response;
-    const body=await response.clone().json();
-    if(body?.ok===false)return response;
-    const rawContexts=body?.data?.contexts;
-    if(!publish(rawContexts,'bootstrap-capture'))return response;
-    const selected=state.selected?{...state.selected}:null;
-    const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};
-    return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)});
-  }catch(_){return response}
-}
-window.fetch=async function(input,init){
-  const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);
-  if(url.pathname===BOOT){const response=await nativeFetch(input,init);return scopedBootstrapResponse(response)}
-  const explicitlyContextual=url.searchParams.has('clientId')||url.searchParams.has('contractId');
-  const requiresContext=explicitlyContextual||pathRequiresContext(url.pathname);
-  if(!requiresContext)return nativeFetch(input,init);
-  await ensure();
-  if(!state.selected){const dom=resolveSelection();if(dom)setSelected(dom,'selector',true)}
-  if(!state.selected)throw new Error('CLIENT_CONTEXT_SELECTION_REQUIRED');
-  url.searchParams.set('clientId',state.selected.client_id);url.searchParams.set('contractId',state.selected.contract_id);
-  return nativeFetch(nextUrl(raw,url),init);
-};
-function onChange(event){const select=event.target?.closest?.('#clientContextSelect');if(!select)return;const ctx=contextByValue(select.value,select.selectedOptions?.[0]||null);setSelected(ctx,'selector',true)}
-function subscribe(listener){
-  if(typeof listener!=='function')return()=>{};
-  const fn=e=>listener(copy(state.selected),{...e.detail});
-  window.addEventListener('rona:client-context-changed',fn);
-  if(state.ready)queueMicrotask(()=>listener(copy(state.selected),detail('subscribe')));else ensure().catch(()=>{});
-  return()=>window.removeEventListener('rona:client-context-changed',fn);
-}
-const publicApi=Object.freeze({
-  version:MARK,
-  whenReady:async()=>{await ensure();return copy(state.selected)},
-  getCurrentContext:()=>copy(state.selected),
-  getAuthorizedContexts:()=>state.contexts.map(copy),
-  selectionRequired:()=>state.ready&&state.contexts.length>1&&!state.selected,
-  select:(clientId,contractId)=>{const ctx=contextByIds(clientId,contractId);if(!ctx)throw new Error('CLIENT_CONTEXT_NOT_AUTHORIZED');return copy(setSelected(ctx,'api',true))},
-  subscribe
-});
+async function scopedBootstrapResponse(response){try{if(!response?.ok)return response;const body=await response.clone().json();if(body?.ok===false)return response;const rawContexts=body?.data?.contexts;if(!publish(rawContexts,'bootstrap-capture',authoritativeHint(body?.data)))return response;const selected=state.selected?{...state.selected}:null;const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)})}catch{return response}}
+window.fetch=async function(input,init){const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);const source=callerSource(input,init);if(url.pathname===BOOT){recordCaller(url,source,'request');const response=await nativeFetch(input,taggedInit(input,init,source));return scopedBootstrapResponse(response)}const contextual=url.searchParams.has('clientId')||url.searchParams.has('contractId')||pathRequiresContext(url.pathname);if(!contextual)return nativeFetch(input,init);await ensure();if(!state.selected)throw new Error('CLIENT_CONTEXT_SELECTION_REQUIRED');url.searchParams.set('clientId',state.selected.client_id);url.searchParams.set('contractId',state.selected.contract_id);recordCaller(url,source,'request');if(url.pathname===CONTEXT_ROUTE&&(init?.method===undefined||String(init.method).toUpperCase()==='GET'))return loadCurrentProjection(source);const response=await nativeFetch(nextUrl(raw,url),taggedInit(input,init,source));recordCaller(url,source,'network');if(String(init?.method||'GET').toUpperCase()!=='GET'&&response.ok)invalidateProjection();return response}
+function onChange(event){const select=event.target?.closest?.('#clientContextSelect');if(!select)return;setSelected(contextByValue(select.value,select.selectedOptions?.[0]),'selector',true)}
+function subscribe(listener){if(typeof listener!=='function')return()=>{};const fn=e=>listener(copy(state.selected),{...e.detail});window.addEventListener('rona:client-context-changed',fn);if(state.ready)queueMicrotask(()=>listener(copy(state.selected),detail('subscribe')));else ensure().catch(()=>{});return()=>window.removeEventListener('rona:client-context-changed',fn)}
+const publicApi=Object.freeze({version:MARK,whenReady:async()=>{await ensure();return copy(state.selected)},getCurrentContext:()=>copy(state.selected),getAuthorizedContexts:()=>state.contexts.map(copy),selectionRequired:()=>state.ready&&state.contexts.length>1&&!state.selected,select:(clientId,contractId)=>{const ctx=contextByIds(clientId,contractId);if(!ctx)throw new Error('CLIENT_CONTEXT_NOT_AUTHORIZED');return copy(setSelected(ctx,'api',true))},getCurrentProjection:()=>projectionData(),whenCurrentProjection:async(source='public-api')=>{await ensure();if(!state.selected)return null;await loadCurrentProjection(`client-context-selection-authority-v1:${source}`);return projectionData()},invalidateCurrentProjection:()=>invalidateProjection(),getCallerMap:()=>state.callerMap.map(x=>({...x})),subscribe});
 window.RONA_CLIENT_CONTEXT=publicApi;
 window.getCurrentClientContext=publicApi.getCurrentContext;
-function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>scheduleSync());state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['value','data-client-id','data-contract-id']});scheduleSync()}
-function start(){
-  document.addEventListener('change',onChange,true);
-  window.addEventListener('pageshow',scheduleSync,{passive:true});
-  window.addEventListener('rona:client-server-context-ready',()=>ensure().then(scheduleSync).catch(()=>{}));
-  startObserver();ensure().then(()=>{startObserver();scheduleSync()}).catch(error=>console.error('RONA client context selection authority',error));
-}
+function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>scheduleSync());state.observer.observe(document.body,{childList:true,subtree:true});scheduleSync()}
+function start(){state.seed=legacySeed();document.addEventListener('change',onChange,true);window.addEventListener('pageshow',scheduleSync,{passive:true});window.addEventListener('rona:client-server-context-ready',()=>ensure().then(()=>{scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:server-ready')}).catch(()=>{}));startObserver();ensure().then(()=>{syncAndRenderLegacyContext();startObserver();scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:startup')}).catch(error=>console.error('RONA client context selection authority',error))}
+void LEGACY_CONTEXT_LABEL;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

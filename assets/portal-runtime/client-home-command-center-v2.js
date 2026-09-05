@@ -4,22 +4,17 @@ if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
 const OWNER='[data-rona-client-home-owner="command-center-v2"]';
+const CURRENT_CONTEXT_ROUTE_MARKER='/v1/client/context?clientId=';
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);
-const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,scheduled:false,observer:null,unsubscribe:null};
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+void CURRENT_CONTEXT_ROUTE_MARKER;
 
-async function request(path){
-  const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-  const b=await r.json().catch(()=>null);
-  if(!r.ok||b?.ok===false)throw new Error(String(b?.code||b?.error?.code||('HTTP_'+r.status)));
-  return b;
-}
 function homeRoot(){
   for(const selector of ['#page-home','#homePage','[data-page-panel="home"]','[data-page-id="home"]']){const el=document.querySelector(selector);if(el)return el}
   let best=null;
@@ -252,38 +247,32 @@ function bindActions(owner){
   owner.addEventListener('click',e=>{const target=e.target?.closest?.('[data-home-action]');if(!target)return;const action=target.getAttribute('data-home-action');if(action==='deal'){const id=norm(target.getAttribute('data-deal-id'));if(id)openDeal(id)}else if(action==='section'){sectionTrigger(target.getAttribute('data-section'))?.click()}});
 }
 function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
-async function load(force=false){
+async function load(){
   if(state.loading)return;
   const root=homeRoot();if(!root)return;
   let ctx=null;
   try{ctx=await currentContext()}catch(error){console.error('RONA client home context authority',error);state.detail=null;setHomeState('error');return}
   if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
-  const key=contextKey(ctx);
-  if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx,state.lastLoad);setHomeState('ready');return}
+  const key=contextKey(ctx);if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
   state.loading=true;
   try{
-    setHomeState('loading');
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
-    if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
-    state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
+    setHomeState('loading');const authority=contextAuthority();const detail=await authority.whenCurrentProjection('client-home-command-center-v2');
+    if(contextKey(authority.getCurrentContext?.())!==key)return;
+    state.activeKey=key;state.detail=detail||{};state.ctx=ctx;state.lastLoad=Date.now();
     window.__RONA_CLIENT_HOME_STATE__={version:MARK,source:'CURRENT_CONTEXT_HOME_PROJECTION',mode:'COMMAND_CENTER',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_deals:activeDeals(state.detail).map(d=>norm(d?.deal_id)),loaded_at:new Date(state.lastLoad).toISOString()};
     render(state.detail,ctx,state.lastLoad);setHomeState('ready');
   }catch(error){console.error('RONA client home command center projection',error);state.detail=null;setHomeState('error')}
   finally{state.loading=false}
 }
-function schedule(force=false){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load(force)})}
+function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}
+function isHomeNavigation(target){const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}
 function start(){
-  installStyle();setHomeState('loading');
-  const authority=contextAuthority();
-  if(!authority){setHomeState('error');return}
-  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule(true)});
-  schedule(true);
-  state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','hidden','aria-selected']});
-  window.addEventListener('pageshow',()=>schedule(true),{passive:true});
+  installStyle();setHomeState('loading');const authority=contextAuthority();if(!authority){setHomeState('error');return}
+  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule()});
+  document.addEventListener('click',event=>{if(isHomeNavigation(event.target))queueMicrotask(schedule)},true);
+  window.addEventListener('rona:client-current-projection',event=>{const d=event?.detail||{};if(contextKey(authority.getCurrentContext?.())===`${norm(d.client_id)}|${norm(d.contract_id)}`)schedule()},{passive:true});
   window.addEventListener('resize',()=>{const root=homeRoot(),owner=root?.querySelector(OWNER);if(root&&owner)alignOwner(root,owner)},{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')schedule(true)});
-  state.timer=window.setInterval(()=>schedule(true),REFRESH_MS);
+  schedule();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
