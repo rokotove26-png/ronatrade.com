@@ -1,0 +1,52 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "owner_authorized_at": "2026-09-05",
+  "governance_recognized_at": "2026-09-06",
+  "pr_number": 429,
+  "branch": "hotfix/client-load-feedback-loop-v1",
+  "base_commit": "4e07ad9f2591c6135e6de651bdaa06bb80a82e78",
+  "head_before_governance_wiring": "313888560a3cb629dbc30bf810beb1ad7b732545",
+  "scope": "CLIENT_OWNER_VISUAL_DELTA_PR429_EXACT",
+  "source_comment_ids": [5554454496, 5554471190],
+  "governance_command_comment_id": 5554905119,
+  "approved_files": [
+    "assets/portal-runtime/client-content-responsive-v1.css",
+    "assets/portal-runtime/client-contract-download-v3.js"
+  ],
+  "exact_post_remediation_blobs": {
+    "assets/portal-runtime/client-content-responsive-v1.css": {
+      "baseline_blob_sha": "8ca6c903fb700ba412a5a892e533a5f88f739ab8",
+      "authorized_post_blob_sha": "dcf44a686e216bde92d1526c418bb0455291e3f2",
+      "required_marker": "RONA_CLIENT_OWNER_TYPOGRAPHY_110_V1"
+    },
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "authorized_post_blob_sha": "8674f3ba625916dcc230c8c39ed1b9416208ab63",
+      "required_marker": "20260905-client-contract-v8-authoritative-company-name-visible"
+    }
+  },
+  "authorized_visual_delta": {
+    "client_typography_scale": 1.1,
+    "analytics_effective_scale": 1.0,
+    "current_company_legal_name_visible": true,
+    "company_name_source": "SELECTED_CLIENT_ID_CONTRACT_ID_AUTHORITATIVE_CONTEXT"
+  },
+  "requirements": {
+    "visual_freeze_status_frozen": true,
+    "owner_instruction_required": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "approved_file_list_is_exact": true,
+    "css_delta_only_owner_typography_marker_and_analytics_cancellation": true,
+    "company_component_delta_only_authoritative_legal_name_visibility_and_owner_typography": true,
+    "analytics_unchanged_effective_typography": true,
+    "company_name_fail_closed_if_authoritative_unavailable": true,
+    "global_dom_text_replacement": false,
+    "hardcoded_company_contract_deal_ids": false,
+    "rail_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "business_data_changed": false,
+    "production_changed": false,
+    "merge_before_acceptance": false
+  }
+}
