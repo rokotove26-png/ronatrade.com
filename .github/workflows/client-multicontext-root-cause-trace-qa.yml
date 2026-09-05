@@ -24,7 +24,7 @@ jobs:
             sha: 21353b956cec50a8a747ec629018b519d39dad77
             expected: fail
           - label: POST_FIX
-            sha: fab824522cb8bd3542474284f9086854608a4973
+            sha: b49d0f0f8efc4448edb156981ebea80b5c2a815f
             expected: pass
     steps:
       - uses: actions/checkout@v4
