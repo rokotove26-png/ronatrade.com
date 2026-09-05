@@ -85,7 +85,7 @@ async function proveCompanyName(browser){
   await page.waitForFunction(()=>document.getElementById('companyName')?.textContent==='');
   await page.evaluate(async()=>await window.RONA_CLIENT_CONTEXT.whenCurrentProjection('owner-company-card-switch'));
   await page.waitForFunction(()=>document.getElementById('companyName')?.textContent==='BETA ENERGY LLC');
-  const b=await page.evaluate(()=>({name:document.getElementById('companyName').textContent,id:document.getElementById('companyId').textContent,contract:document.getElementById('companyContract').textContent,old:document.body.textContent.includes('ALPHA INDUSTRIES LLC')}));
+  const b=await page.evaluate(()=>({name:document.getElementById('companyName').textContent,id:document.getElementById('companyId').textContent,contract:document.getElementById('companyContract').textContent,old:document.getElementById('companyCard')?.textContent.includes('ALPHA INDUSTRIES LLC')||false}));
   assert.equal(b.name,B.legal_name);assert.equal(b.id,B.client_id);assert.equal(b.old,false);
   console.log('CURRENT_COMPANY_LEGAL_NAME=PASS',JSON.stringify({A:a,B:b,source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION'}));
   await page.close();
