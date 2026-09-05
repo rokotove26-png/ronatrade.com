@@ -14,6 +14,7 @@
   "reason": "Temporary Owner authorization for PR #429, the explicitly approved Deals/current-context delta, and the SYSTEM_ADMIN stale/fail-open Home corrective delta. Visual Freeze remains active. Home may change only to remove stale-preserved business presentation, clear prior Home business content during loading/error/context change, and reject late previous-context completion with a context-generation guard. The normal loaded Home visual remains unchanged. No production switch, business-data mutation, Rail rewrite, Supabase schema/RLS change, global DOM text replacement, or hardcoded company/deal name is authorized.",
   "approved_files": [
     ".github/workflows/client-home-current-only-qa.yml",
+    ".github/workflows/client-home-live-runtime-qa.yml",
     ".github/workflows/client-home-stuck-shell-regression-qa.yml",
     ".github/workflows/client-runtime-sanitation-qa.yml",
     "assets/portal-runtime/client-background-section-preload-v1.js",
