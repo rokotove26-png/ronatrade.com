@@ -50,6 +50,7 @@ const dealsLoaderExceptionAuthorized=
   dealsLoaderApproval?.requirements?.unrelated_visual_change===false;
 
 const CLIENT_LOAD_HOTFIX_PR429_FILES=[
+  '.github/workflows/client-runtime-sanitation-qa.yml',
   'assets/portal-runtime/client-background-section-preload-v1.js',
   'assets/portal-runtime/client-context-selection-authority-v1.js',
   'assets/portal-runtime/client-deal-documents-v5.js',
@@ -102,6 +103,7 @@ const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.requirements?.selected_context_slots_from_client_contract_ids===true&&
   clientLoadHotfixApproval?.requirements?.global_dom_text_replacement===false&&
   clientLoadHotfixApproval?.requirements?.hardcoded_company_names===false&&
+  clientLoadHotfixApproval?.requirements?.sanitation_assertion_updated_to_current_projection_contract===true&&
   clientLoadHotfixApproval?.requirements?.rail_runtime_changed===false&&
   clientLoadHotfixApproval?.requirements?.production_changed===false&&
   clientLoadHotfixApproval?.requirements?.full_green_ci_required_before_merge===true&&
