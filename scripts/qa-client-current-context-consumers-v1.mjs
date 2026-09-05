@@ -14,6 +14,7 @@ const files={
 };
 const source=Object.fromEntries(await Promise.all(Object.entries(files).map(async([name,path])=>[name,await readFile(path,'utf8')])));
 const requireAll=(name,tokens)=>{for(const token of tokens)if(!source[name].includes(token))throw new Error(`CURRENT_CONTEXT_REQUIRED_MISSING:${name}:${token}`)};
+const requireAny=(name,tokens,label)=>{if(!tokens.some(token=>source[name].includes(token)))throw new Error(`CURRENT_CONTEXT_REQUIRED_MISSING:${name}:${label}`)};
 const forbidAll=(name,tokens)=>{for(const token of tokens)if(source[name].includes(token))throw new Error(`CURRENT_CONTEXT_FORBIDDEN_PRESENT:${name}:${token}`)};
 
 requireAll('authority',['20260903-client-context-selection-authority-v4-header-current-context','window.RONA_CLIENT_CONTEXT=publicApi','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','rona:client-context-changed','CLIENT_CONTEXT_SELECTION_REQUIRED']);
@@ -21,7 +22,9 @@ requireAll('home',['20260902-client-home-command-center-v3-current-context','RON
 requireAll('payments',['20260902-client-payments-authoritative-v2-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('prices',['20260902-authoritative-price-current-context-server-projection','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe','SERVER_AUTHORITATIVE_PRICE_PROJECTION']);
 requireAll('dealDocuments',['20260902-client-deal-documents-v7-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
-requireAll('dealLifecycle',['20260905-client-deal-realization-status-v6-strict-authoritative-context','RONA_CLIENT_CONTEXT','getCurrentContext','authority.subscribe','data-rona-authoritative-deal-id','data-rona-authoritative-context','contextKey(currentContext())']);
+requireAll('dealLifecycle',['20260905-client-deal-realization-status-v6-strict-authoritative-context','RONA_CLIENT_CONTEXT','getCurrentContext','authority.subscribe','contextKey(currentContext())']);
+requireAny('dealLifecycle',['data-rona-authoritative-deal-id','ronaAuthoritativeDealId'],'authoritative-deal-id-binding');
+requireAny('dealLifecycle',['data-rona-authoritative-context','ronaAuthoritativeContext'],'authoritative-context-binding');
 requireAll('applicationForm',['20260902-destination-price-calc-v7-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','contextKey(currentContext())']);
 requireAll('applicationLifecycle',['20260902-client-admin-authoritative-deal-projection-v9-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('contract',['20260902-client-contract-v4-current-context-authority','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe',"scope:'CURRENT_CONTEXT_ONLY'"]);
