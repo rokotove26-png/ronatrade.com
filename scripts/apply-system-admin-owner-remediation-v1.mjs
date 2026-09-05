@@ -106,9 +106,9 @@ homeCommand = homeScaled.source;
 await write('assets/portal-runtime/client-home-command-center-v2.js', homeCommand);
 
 let responsive = await read('assets/portal-runtime/client-content-responsive-v1.css');
-const TYPO_MARK='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V1';
-if (responsive.includes(TYPO_MARK)) throw new Error('CLIENT_TYPOGRAPHY_ALREADY_APPLIED');
-responsive += `\n\n/* ${TYPO_MARK}: Owner-authorized +10% Client type outside Analytics. */\nhtml body { font-size: 110%; }\n#page-analytics,\n#analyticsPage,\n[data-page-panel="analytics"],\n[data-page-id="analytics"] { font-size: 90.9090909%; }\n`;
+const TYPO_MARK='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V2_REAL_UI';
+if (responsive.includes('RONA_CLIENT_OWNER_TYPOGRAPHY_110_')) throw new Error('CLIENT_TYPOGRAPHY_ALREADY_APPLIED');
+responsive += `\n\n/* ${TYPO_MARK}: Owner-authorized +10% Client typography; Analytics content remains at production scale. */\nhtml body { font-size: 110%; }\n/* Frozen Client shell uses explicit px for navigation and page headings, so inherited body scaling alone is not sufficient. */\n#nav [data-page] { font-size: 15.95px !important; }\n#page-home .page-head h1,\n#homePage .page-head h1,\n[id^="page-"]:not(#page-analytics) .page-head h1,\n[data-page-panel]:not([data-page-panel="analytics"]) .page-head h1,\n[data-page-id]:not([data-page-id="analytics"]) .page-head h1 { font-size: 48.4px !important; }\n#page-home .page-head .sub,\n#homePage .page-head .sub,\n[id^="page-"]:not(#page-analytics) .page-head .sub,\n[data-page-panel]:not([data-page-panel="analytics"]) .page-head .sub,\n[data-page-id]:not([data-page-id="analytics"]) .page-head .sub { font-size: 14.3px !important; }\n#page-analytics,\n#analyticsPage,\n[data-page-panel="analytics"],\n[data-page-id="analytics"] { font-size: 90.9090909%; }\n/* Analytics headings/subtitles are intentionally held to the frozen production values. */\n#page-analytics .page-head h1,\n#analyticsPage .page-head h1,\n[data-page-panel="analytics"] .page-head h1,\n[data-page-id="analytics"] .page-head h1 { font-size: 44px !important; }\n#page-analytics .page-head .sub,\n#analyticsPage .page-head .sub,\n[data-page-panel="analytics"] .page-head .sub,\n[data-page-id="analytics"] .page-head .sub { font-size: 13px !important; }\n`;
 await write('assets/portal-runtime/client-content-responsive-v1.css', responsive);
 
 console.log(JSON.stringify({
@@ -117,5 +117,5 @@ console.log(JSON.stringify({
   home_startup_ready:'PRESERVED_IF_EXACT_CURRENT_GENERATION',
   home_navigation_reentry:'EXPLICIT_DATA_PAGE_HOME',
   company_name:'AUTHORITATIVE_LEGAL_NAME_NOT_HIDDEN',
-  typography:{inherited_scale:1.1,analytics_effective_scale:1,home_explicit_scaled:homeScaled.count,company_explicit_scaled:companyScaled.count}
+  typography:{inherited_scale:1.1,static_nav_scale:1.1,static_page_head_scale:1.1,analytics_effective_scale:1,home_explicit_scaled:homeScaled.count,company_explicit_scaled:companyScaled.count}
 }));
