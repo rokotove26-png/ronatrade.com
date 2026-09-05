@@ -68,6 +68,14 @@ jobs:
             console.log('PRODUCTION_SOURCE_COUNT',JSON.stringify({label:'${{ matrix.label }}',token,count}));
           }
           NODE
+      - name: Trace synchronous foreign DOM owner
+        if: matrix.label == 'POST_FIX'
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_root="/tmp/rona-multicontext-${{ matrix.label }}"
+          cd "$target_root"
+          node "$GITHUB_WORKSPACE/scripts/qa-client-multicontext-foreign-dom-owner-trace.mjs" | tee "$GITHUB_WORKSPACE/client-multicontext-${{ matrix.label }}-dom-owner.log"
       - name: Run identical strict A-B-A discriminator
         shell: bash
         run: |
@@ -97,5 +105,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: client-multicontext-${{ matrix.label }}
-          path: client-multicontext-${{ matrix.label }}.log
+          path: client-multicontext-${{ matrix.label }}*.log
           if-no-files-found: error
