@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const read=p=>readFile(p,'utf8');
-const [context,deals,background,messages,prices,dealDocs,lifecycle,rail]=await Promise.all([
+const [context,deals,background,messages,prices,dealDocs,lifecycle,rail,home]=await Promise.all([
   read('assets/portal-runtime/client-context-selection-authority-v1.js'),
   read('assets/portal-runtime/client-deals-authoritative-v1.js'),
   read('assets/portal-runtime/client-background-section-preload-v1.js'),
@@ -10,7 +10,8 @@ const [context,deals,background,messages,prices,dealDocs,lifecycle,rail]=await P
   read('assets/portal-runtime/client-price-sync-v1.js'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-lifecycle-v1.js'),
-  read('functions/portal/client-rail-current-ui.js')
+  read('functions/portal/client-rail-current-ui.js'),
+  read('assets/portal-runtime/client-home-command-center-v2.js')
 ]);
 
 assert.match(context,/loadCurrentProjection/);
@@ -53,9 +54,19 @@ assert.doesNotMatch(lifecycle,/visibilitychange/);
 assert.match(lifecycle,/rona:client:deal-authoritative-detail/);
 assert.match(lifecycle,/client-deal-lifecycle-v1/);
 
-assert.doesNotMatch(rail,/timer=setInterval\(sync,30000\)/);
+const startTo=rail.match(/const START_TO="([^"]*)";/)?.[1]||'';
+assert.ok(startTo,'Client Rail START_TO contract missing');
+assert.doesNotMatch(startTo,/setInterval/);
 assert.match(rail,/client-rail-current-ui:shipments/);
 assert.match(rail,/client-rail-current-ui:rail/);
+
+// Home must consume the single current-context coordinator and must not own a
+// self-exciting whole-document MutationObserver or periodic/focus/visibility refresh.
+assert.match(home,/whenCurrentProjection/);
+assert.doesNotMatch(home,/new MutationObserver/);
+assert.doesNotMatch(home,/setInterval\([^\n]*schedule\(true\)/);
+assert.doesNotMatch(home,/addEventListener\('focus'/);
+assert.doesNotMatch(home,/visibilitychange/);
 
 console.log('CLIENT_LOAD_FEEDBACK_LOOP_HOTFIX_V1=PASS');
 console.log('VISUAL_DIFF=NONE_BY_SOURCE_SCOPE');
