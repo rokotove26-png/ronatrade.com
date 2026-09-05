@@ -144,8 +144,8 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.governance_command_comment_id===5554905119&&
   exactArray(ownerVisualDeltaApproval?.approved_files,OWNER_VISUAL_DELTA_FILES)&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.baseline_blob_sha==='8ca6c903fb700ba412a5a892e533a5f88f739ab8'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.authorized_post_blob_sha==='dcf44a686e216bde92d1526c418bb0455291e3f2'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.required_marker==='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V1'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.authorized_post_blob_sha==='1a0a4bcc1bbf42a071e97f3ffe064915d2d43379'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.required_marker==='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V2_REAL_UI'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='8674f3ba625916dcc230c8c39ed1b9416208ab63'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260905-client-contract-v8-authoritative-company-name-visible'&&
