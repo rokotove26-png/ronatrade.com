@@ -38,16 +38,16 @@ const REQUIRED_CONTEXT_PREFIXES=[
   '/portal/api/v1/client/messages/',
   '/portal/api/v1/client/archive/'
 ];
+const CURRENT_SLOT='data-rona-current-context-slot';
+const CURRENT_SCOPE='data-rona-current-context-scope';
 const nativeFetch=window.fetch.bind(window);
 const state={contexts:[],selected:null,loading:null,ready:false,observer:null,queued:false,syncing:false,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},callerMap:[]};
 window.__RONA_CLIENT_CALLER_MAP__=state.callerMap;
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const d=document.documentElement;
-const CLIENT_RE=/\bRONA-C\d{3}\b/g;
-const CONTRACT_RE=/\bRONA-C\d{3}-CTR-\d{4}-\d{3,}\b/g;
-const CLIENT_ONE=/\bRONA-C\d{3}\b/;
-const CONTRACT_ONE=/\bRONA-C\d{3}-CTR-\d{4}-\d{3,}\b/;
+const CLIENT_ONE=/^RONA-C\d{3}$/u;
+const CONTRACT_ONE=/^RONA-C\d{3}-CTR-\d{4}-\d{3,}$/u;
 
 function clean(c){return c&&typeof c==='object'?{
   client_id:norm(c.client_id),legal_name:norm(c.legal_name),registration_country:norm(c.registration_country),
@@ -187,80 +187,73 @@ function syncSelect(){
     select.replaceChildren(frag);
   }
   if(state.selected&&select.value!==state.selected.contract_id)select.value=state.selected.contract_id;
-  if(state.selected){select.dataset.clientId=state.selected.client_id;select.dataset.contractId=state.selected.contract_id;select.dataset.ronaContextSource='server-session-authority';select.title=state.selected.legal_name}
-  else{delete select.dataset.clientId;delete select.dataset.contractId;select.dataset.ronaContextSource='server-session-authority-selection-required';select.title='Выберите компанию'}
+  if(state.selected){if(select.dataset.clientId!==state.selected.client_id)select.dataset.clientId=state.selected.client_id;if(select.dataset.contractId!==state.selected.contract_id)select.dataset.contractId=state.selected.contract_id;if(select.dataset.ronaContextSource!=='server-session-authority')select.dataset.ronaContextSource='server-session-authority';if(select.title!==state.selected.legal_name)select.title=state.selected.legal_name}
+  else{if(select.dataset.clientId)delete select.dataset.clientId;if(select.dataset.contractId)delete select.dataset.contractId;if(select.dataset.ronaContextSource!=='server-session-authority-selection-required')select.dataset.ronaContextSource='server-session-authority-selection-required';if(select.title!=='Выберите компанию')select.title='Выберите компанию'}
 }
-function contextScopes(){
+function leafNodes(root){return [...root.querySelectorAll('div,span,p,small,strong,b,label,h1,h2,h3,h4')].filter(el=>el.childElementCount===0&&norm(el.textContent))}
+function authorizedName(text){const l=low(text);return state.contexts.some(c=>l===low(c.legal_name)||l===low(companyDisplayName(c)))}
+function authorizedContract(text){const l=low(text);return state.contexts.some(c=>{const values=[c.contract_id,c.current_external_contract_number].map(norm).filter(Boolean);return values.some(v=>l===low(v)||l.includes(low(v)))})}
+function markSlot(el,type){if(!el)return null;if(el.getAttribute(CURRENT_SLOT)!==type)el.setAttribute(CURRENT_SLOT,type);return el}
+function markContractSlot(el){if(!el)return null;const text=norm(el.textContent),prefix=/^договор\b/iu.test(text)?'Договор':/^контракт\b/iu.test(text)?'Контракт':'';if(prefix)el.dataset.ronaCurrentContextContractPrefix=prefix;return markSlot(el,prefix?'contract-label':'contract-id')}
+function declaredSlots(){
+  for(const el of document.querySelectorAll('[data-rona-context-client],[data-rona-current-client]'))markSlot(el,'client-name');
+  for(const el of document.querySelectorAll('[data-rona-context-contract],[data-rona-current-contract]'))markContractSlot(el);
+}
+function legacyContextScopes(){
   const out=[];
   for(const leaf of document.querySelectorAll('body *')){
     if(leaf.childElementCount!==0||!/^выбрана компания$/iu.test(norm(leaf.textContent)))continue;
-    let node=leaf.parentElement,chosen=node;
-    for(let depth=0;node&&node!==document.body&&depth<7;depth++,node=node.parentElement){
-      const text=norm(node.textContent);if(text.length>1800)break;
-      if(CONTRACT_ONE.test(text)||CLIENT_ONE.test(text)||/(контракт|договор)/iu.test(text))chosen=node;
+    let scope=leaf.parentElement;
+    for(let depth=0;scope&&scope!==document.body&&depth<6;depth++,scope=scope.parentElement){
+      const leaves=leafNodes(scope);if(leaves.some(n=>authorizedName(n.textContent))&&(leaves.some(n=>authorizedContract(n.textContent)||CONTRACT_ONE.test(norm(n.textContent)))||leaves.some(n=>CLIENT_ONE.test(norm(n.textContent))))){out.push(scope);break}
     }
-    if(chosen)out.push(chosen);
   }
   return [...new Set(out)];
 }
-function companyCandidate(scope){
-  const leaves=[...scope.querySelectorAll('*')].filter(el=>el.childElementCount===0&&norm(el.textContent));
-  const labelIndex=leaves.findIndex(el=>/^выбрана компания$/iu.test(norm(el.textContent)));
-  let best=null,bestScore=-1;
-  for(let i=0;i<leaves.length;i++){
-    const el=leaves[i],text=norm(el.textContent),l=low(text);
-    if(/^выбрана компания$/iu.test(text)||CLIENT_ONE.test(text)||CONTRACT_ONE.test(text)||/(контракт|договор|client|company)\s*№?/iu.test(text)||text.length>180)continue;
-    if(['активен','активна','подключено','сервер'].includes(l))continue;
-    let score=0;if(i>labelIndex)score+=120;if(/[«»“”"]/u.test(text))score+=80;if(/^[A-ZА-ЯЁ0-9][A-ZА-ЯЁ0-9 .&'«»“”"_-]{2,}$/u.test(text))score+=55;
-    if(state.contexts.some(c=>text===c.legal_name||text===companyDisplayName(c)))score+=150;
-    if(score>bestScore){best=el;bestScore=score}
-  }
-  return best;
-}
-function syncContextScope(scope,ctx){
-  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id;
-  for(const leaf of scope.querySelectorAll('*')){
-    if(leaf.childElementCount!==0)continue;const before=norm(leaf.textContent);if(!before)continue;
-    let after=before.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
-    const contractPos=after.search(/(?:контракт|договор)\s*№/iu);
-    if(contractPos>0&&(CLIENT_ONE.test(after)||CONTRACT_ONE.test(after)))after=display+' · '+after.slice(contractPos);
-    if(after!==before)leaf.textContent=after;
-  }
-  const company=companyCandidate(scope);if(company&&norm(company.textContent)!==display)company.textContent=display;
-  if(scope.dataset.clientId!==ctx.client_id)scope.dataset.clientId=ctx.client_id;if(scope.dataset.contractId!==ctx.contract_id)scope.dataset.contractId=ctx.contract_id;if(scope.dataset.ronaContextSource!=='server-session-authority')scope.dataset.ronaContextSource='server-session-authority';
+function bindLegacyScope(scope){
+  if(!scope)return;
+  scope.setAttribute(CURRENT_SCOPE,'legacy-explicit-slots');
+  const leaves=leafNodes(scope),labelIndex=leaves.findIndex(n=>/^выбрана компания$/iu.test(norm(n.textContent)));
+  const company=leaves.find((n,i)=>i>labelIndex&&authorizedName(n.textContent));if(company)markSlot(company,'client-name');
+  const clientId=leaves.find(n=>CLIENT_ONE.test(norm(n.textContent)));if(clientId)markSlot(clientId,'client-id');
+  const contract=leaves.find(n=>CONTRACT_ONE.test(norm(n.textContent))||authorizedContract(n.textContent));if(contract)markContractSlot(contract);
 }
 function headerRoots(){
   const out=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]')].filter(Boolean);
   const select=document.getElementById('clientContextSelect');
-  if(select){
-    let node=select.parentElement;
-    for(let depth=0;node&&node!==document.body&&depth<8;depth++,node=node.parentElement){
-      const text=norm(node.textContent);
-      if(text.length<=1400&&(/личный кабинет клиента/iu.test(text)||/компания\s*\/\s*контракт/iu.test(text))){out.push(node);break}
-      if(text.length>2200)break;
-    }
-  }
+  if(select){let node=select.parentElement;for(let depth=0;node&&node!==document.body&&depth<8;depth++,node=node.parentElement){const text=norm(node.textContent);if(text.length<=1400&&(/личный кабинет клиента/iu.test(text)||/компания\s*\/\s*контракт/iu.test(text))){out.push(node);break}if(text.length>2200)break}}
   return [...new Set(out.filter(Boolean))];
 }
-function purgeHeaderContractDownload(){for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]'))if(/скачать\s+договор\s+pdf/iu.test(norm(el.textContent)))el.remove()}
-function staleHeaderNames(ctx){const names=[];for(const c of state.contexts){if(key(c)===key(ctx))continue;for(const n of [norm(c.legal_name),companyDisplayName(c)])if(n&&!names.some(x=>low(x)===low(n)))names.push(n)}return names}
-function syncHeader(ctx){
-  const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id,stale=staleHeaderNames(ctx);
-  for(const root of headerRoots())for(const leaf of root.querySelectorAll('*')){
-    if(leaf.childElementCount!==0||leaf.closest('select,option,button,[data-status],[data-service],[data-access]'))continue;
-    const before=norm(leaf.textContent);if(!before)continue;let after=before;
-    const titleMatch=before.match(/^(.*?личный кабинет клиента)/iu);
-    if(titleMatch){after=titleMatch[1]}
-    else if(/(?:контракт|договор)/iu.test(before)){
-      after=after.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
-      const pos=after.search(/(?:контракт|договор)/iu);if(pos>0)after=display+' · '+after.slice(pos);
-      if(ctx.current_external_contract_number)after=after.replace(/((?:контракт|договор)\s*)номер уточняется/iu,'$1'+ctx.current_external_contract_number);
-    }else{const old=stale.find(name=>low(name)===low(before));if(old)after=display}
-    if(after!==before)leaf.textContent=after;
+function normalizeHeaderTitle(){
+  for(const root of headerRoots())for(const leaf of leafNodes(root)){
+    const before=norm(leaf.textContent),match=before.match(/^(.*?личный кабинет клиента)(?:\s*·.*)?$/iu);
+    if(match&&before!==match[1])leaf.textContent=match[1];
   }
-  purgeHeaderContractDownload();
 }
-function syncVisualContext(){purgeHeaderContractDownload();const ctx=state.selected;if(!ctx)return;for(const scope of contextScopes())syncContextScope(scope,ctx);syncHeader(ctx);purgeHeaderContractDownload()}
+function bindHeaderSlots(){
+  for(const root of headerRoots())for(const leaf of leafNodes(root)){
+    if(leaf.closest('select,option,button,[data-status],[data-service],[data-access]'))continue;
+    const text=norm(leaf.textContent);if(!text)continue;
+    if(authorizedName(text)){markSlot(leaf,'client-name');continue}
+    if(CONTRACT_ONE.test(text)||authorizedContract(text)||/^(?:контракт|договор)\b/iu.test(text)){markContractSlot(leaf);continue}
+    if(CLIENT_ONE.test(text))markSlot(leaf,'client-id');
+  }
+}
+function purgeHeaderContractDownload(){for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]'))if(/^скачать\s+договор\s+pdf$/iu.test(norm(el.textContent)))el.remove()}
+function contractValue(ctx){return norm(ctx?.current_external_contract_number||ctx?.contract_id)}
+function renderSlot(el,ctx){
+  const type=el.getAttribute(CURRENT_SLOT);if(!type)return;
+  if(!ctx){const empty=type==='client-name'?'Выберите компанию':'';if(el.textContent!==empty)el.textContent=empty;return}
+  let value='';
+  if(type==='client-name')value=companyDisplayName(ctx);
+  else if(type==='client-id')value=ctx.client_id;
+  else if(type==='contract-id')value=contractValue(ctx);
+  else if(type==='contract-label'){const prefix=el.dataset.ronaCurrentContextContractPrefix||'Контракт';value=prefix+' '+contractValue(ctx)}
+  if(norm(el.textContent)!==norm(value))el.textContent=value;
+}
+function syncVisualContext(){
+  purgeHeaderContractDownload();normalizeHeaderTitle();declaredSlots();for(const scope of legacyContextScopes())bindLegacyScope(scope);bindHeaderSlots();for(const el of document.querySelectorAll(`[${CURRENT_SLOT}]`))renderSlot(el,state.selected);purgeHeaderContractDownload();
+}
 function syncAll(){if(state.syncing)return;state.syncing=true;try{syncSelect();syncVisualContext();exposeSelection()}finally{state.syncing=false}}
 function scheduleSync(){if(state.queued)return;state.queued=true;requestAnimationFrame(()=>{state.queued=false;syncAll()})}
 function publish(raw,source='bootstrap'){
@@ -340,7 +333,7 @@ const publicApi=Object.freeze({
 });
 window.RONA_CLIENT_CONTEXT=publicApi;
 window.getCurrentClientContext=publicApi.getCurrentContext;
-function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>scheduleSync());state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['value','data-client-id','data-contract-id']});scheduleSync()}
+function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>scheduleSync());state.observer.observe(document.body,{childList:true,subtree:true});scheduleSync()}
 function start(){
   document.addEventListener('change',onChange,true);
   window.addEventListener('pageshow',scheduleSync,{passive:true});
