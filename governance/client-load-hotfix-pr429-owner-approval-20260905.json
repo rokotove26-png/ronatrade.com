@@ -1,0 +1,47 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-05",
+  "pr_number": 429,
+  "branch": "hotfix/client-load-feedback-loop-v1",
+  "base_commit": "4e07ad9f2591c6135e6de651bdaa06bb80a82e78",
+  "functional_head_before_wiring": "d8af6dd2cc41f279b3fc29aa12b423f0472f828f",
+  "scope": "CLIENT_LOAD_HOTFIX_PR_429",
+  "reason": "Temporary Owner authorization to wire the existing Client Portal load-hang hotfix into the active Visual Freeze gate without disabling or weakening the gate. Authorization is limited to the exact pre-approved PR #429 functional files and expires when the emergency hotfix is completed.",
+  "approved_files": [
+    "assets/portal-runtime/client-background-section-preload-v1.js",
+    "assets/portal-runtime/client-context-selection-authority-v1.js",
+    "assets/portal-runtime/client-deal-documents-v5.js",
+    "assets/portal-runtime/client-deal-lifecycle-v1.js",
+    "assets/portal-runtime/client-deals-authoritative-v1.js",
+    "assets/portal-runtime/client-home-command-center-v2.js",
+    "assets/portal-runtime/client-messages-archive-v1.js",
+    "assets/portal-runtime/client-price-sync-v1.js",
+    "package.json",
+    "scripts/attach-client-context-selection-authority-v1.mjs",
+    "scripts/qa-client-current-context-consumers-v1.mjs",
+    "tests/client-load-feedback-loop-hotfix-v1.test.mjs"
+  ],
+  "wiring_files": [
+    "governance/client-load-hotfix-pr429-owner-approval-20260905.json",
+    "scripts/qa-client-portal-visual-freeze.mjs"
+  ],
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "gate_mechanism_remains_active": true,
+    "approved_file_list_is_exact": true,
+    "new_runtime_files_allowed": false,
+    "new_attachment_files_allowed": false,
+    "css_changed": false,
+    "html_composition_changed": false,
+    "design_changed": false,
+    "business_data_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "business_logic_changed": false,
+    "full_green_ci_required_before_merge": true,
+    "system_admin_review_required_before_merge": true,
+    "authenticated_client_verification_required_before_merge": true,
+    "production_deploy_before_acceptance": false,
+    "merge_before_acceptance": false
+  },
+  "expires_on_hotfix_completion": true
+}
