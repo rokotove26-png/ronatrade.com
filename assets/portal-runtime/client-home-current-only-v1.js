@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260902-client-home-current-only-v1-reusable-hard-fail-open-v6';
+  const MARK='20260905-client-home-current-only-v1-fail-closed-generation-v7';
   if(window.__RONA_CLIENT_HOME_CURRENT_ONLY__===MARK)return;
   window.__RONA_CLIENT_HOME_CURRENT_ONLY__=MARK;
 
@@ -10,11 +10,39 @@
   const LEGACY_LABELS=['АКТИВНЫЕ СДЕЛКИ','ОПЛАТА','ТЕКУЩИЙ СТАТУС','СЛЕДУЮЩИЙ ШАГ','Компания','Оплата','Цены','Заявки'];
   const PREPAINT_MAX_MS=5000;
   const FIRST_PAINT_GUARD_ID='rona-client-home-first-paint-guard';
+  const LOADING_MESSAGE='Загрузка центра управления…';
   const DEGRADED_MESSAGE='Данные временно недоступны. Центр управления повторит загрузку автоматически.';
-  let observer=null,homeStateObserver=null,rescueTimer=0;
+  const SELECTION_MESSAGE='Выберите компанию и договор в верхней панели. После выбора центр управления загрузится автоматически.';
+  let observer=null,homeStateObserver=null,rescueTimer=0,contextGeneration=1,expectedContextKey='',confirmedProjectionKey='',sanitizing=false;
 
   const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
   const navText=v=>norm(v).toLowerCase().replace(/ё/g,'е');
+  const contextKey=c=>{const client=norm(c?.client_id),contract=norm(c?.contract_id);return client&&contract?`${client}|${contract}`:''};
+
+  function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
+  function selectedContextKey(){return contextKey(contextAuthority()?.getCurrentContext?.())}
+  function projectionKey(data=contextAuthority()?.getCurrentProjection?.()){
+    if(!data||typeof data!=='object')return'';
+    const contract=data.contract||{},context=data.context||{},client=data.client||{};
+    const clientIds=[...new Set([data.client_id,context.client_id,client.client_id,contract.client_id].map(norm).filter(Boolean))];
+    const contractIds=[...new Set([data.contract_id,context.contract_id,contract.contract_id].map(norm).filter(Boolean))];
+    return clientIds.length===1&&contractIds.length===1?`${clientIds[0]}|${contractIds[0]}`:'';
+  }
+  function homeSnapshotKey(){return contextKey(window.__RONA_CLIENT_HOME_STATE__||null)}
+  function currentProjectionConfirmed(){const selected=selectedContextKey();return Boolean(selected&&projectionKey()===selected)}
+  function readyBelongsToCurrentGeneration(){
+    const selected=selectedContextKey();
+    return Boolean(selected&&selected===expectedContextKey&&projectionKey()===selected&&homeSnapshotKey()===selected&&confirmedProjectionKey===selected);
+  }
+
+  function publishState(reason){
+    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={
+      version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',prepaint_max_ms:PREPAINT_MAX_MS,
+      degraded_error_owner:true,first_paint_guard:'REUSABLE_FAIL_CLOSED_NEUTRAL',stale_business_visibility:false,
+      current_projection_required:true,context_generation_guard:true,context_generation:contextGeneration,
+      projection_confirmed:currentProjectionConfirmed(),reason:norm(reason)||'sync'
+    };
+  }
 
   function homeRoot(){
     for(const selector of ROOT_SELECTORS){
@@ -102,37 +130,51 @@
     root.setAttribute('data-rona-client-home-current-only','command-center-v2');
     document.documentElement.setAttribute('data-rona-client-home-dom','CURRENT_ONLY_PHYSICAL_V1');
     document.documentElement.setAttribute('data-rona-client-home-legacy-nodes',String(root.querySelectorAll('[data-rona-home-legacy-hidden]').length));
-    window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__={version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',removed_last_pass:removed,prepaint_max_ms:PREPAINT_MAX_MS,degraded_error_owner:true,first_paint_guard:'REUSABLE_HARD_FAIL_OPEN'};
+    publishState(removed?'legacy-removed':'legacy-clean');
     return true;
   }
 
-  function ensureDegradedOwner(){
+  function ensureOwner(){
     const root=homeRoot();
-    if(!root)return false;
+    if(!root)return null;
     let owner=root.querySelector(OWNER);
-    if(owner&&norm(owner.textContent)){
-      owner.setAttribute('data-rona-client-home-degraded','stale-preserved');
-      document.documentElement.setAttribute('data-rona-client-home-degraded','stale-preserved');
-      purgeLegacy();
-      return true;
+    if(owner)return owner;
+    owner=document.createElement('section');
+    owner.setAttribute('data-rona-client-home-owner','command-center-v2');
+    const contextDirect=directChild(root,frameFromText(root,'Выбрана компания'));
+    if(contextDirect?.parentElement===root)contextDirect.insertAdjacentElement('afterend',owner);
+    else root.appendChild(owner);
+    return owner;
+  }
+
+  function neutralizeOwner(mode='loading',reason='neutral'){
+    const owner=ensureOwner();
+    if(!owner)return false;
+    const message=mode==='error'?DEGRADED_MESSAGE:(mode==='selection'?SELECTION_MESSAGE:LOADING_MESSAGE);
+    const degraded=mode==='error'?'error-fallback':(mode==='selection'?'selection-required':'loading-neutral');
+    const already=owner.getAttribute('data-rona-client-home-neutral')===mode&&norm(owner.textContent)===norm(message);
+    if(!already){
+      sanitizing=true;
+      const node=document.createElement('div');
+      node.className='rona-cc-context-required';
+      node.setAttribute('data-rona-client-home-neutral-message','true');
+      node.textContent=message;
+      owner.replaceChildren(node);
+      sanitizing=false;
     }
-    if(!owner){
-      owner=document.createElement('section');
-      owner.setAttribute('data-rona-client-home-owner','command-center-v2');
-      const contextDirect=directChild(root,frameFromText(root,'Выбрана компания'));
-      if(contextDirect?.parentElement===root)contextDirect.insertAdjacentElement('afterend',owner);
-      else root.appendChild(owner);
-    }
-    owner.setAttribute('data-rona-client-home-degraded','error-fallback');
-    owner.innerHTML=`<div class="rona-cc-context-required" data-rona-client-home-degraded-message="true">${DEGRADED_MESSAGE}</div>`;
-    document.documentElement.setAttribute('data-rona-client-home-degraded','error-fallback');
+    owner.setAttribute('data-rona-client-home-neutral',mode);
+    owner.setAttribute('data-rona-client-home-degraded',degraded);
+    document.documentElement.setAttribute('data-rona-client-home-degraded',degraded);
     purgeLegacy();
+    publishState(reason);
     return true;
   }
 
-  function clearDegradedState(){
+  function clearNeutralState(){
     document.documentElement.removeAttribute('data-rona-client-home-degraded');
-    homeRoot()?.querySelector(OWNER)?.removeAttribute('data-rona-client-home-degraded');
+    const owner=homeRoot()?.querySelector(OWNER);
+    owner?.removeAttribute('data-rona-client-home-degraded');
+    owner?.removeAttribute('data-rona-client-home-neutral');
   }
 
   function setFirstPaintGuardEnabled(enabled,reason){
@@ -150,35 +192,83 @@
     document.documentElement.setAttribute('data-rona-client-home-prepaint','released');
     document.documentElement.setAttribute('data-rona-client-home-prepaint-release',String(reason||'released'));
     setFirstPaintGuardEnabled(false,reason||'released');
+    publishState(reason||'released');
   }
 
   function armPrepaint(){
     if(rescueTimer){clearTimeout(rescueTimer);rescueTimer=0}
+    const generation=contextGeneration;
     document.documentElement.setAttribute('data-rona-client-home-prepaint','blocked-until-command-center-v2');
     document.documentElement.removeAttribute('data-rona-client-home-prepaint-release');
     setFirstPaintGuardEnabled(true,'armed');
     rescueTimer=window.setTimeout(()=>{
+      if(generation!==contextGeneration)return;
       const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
-      if(!ready)ensureDegradedOwner();
-      releasePrepaint(ready?'command-center-ready':'bounded-timeout');
+      if(ready&&readyBelongsToCurrentGeneration()){
+        clearNeutralState();
+        releasePrepaint('command-center-ready');
+        return;
+      }
+      neutralizeOwner('error','bounded-timeout');
+      document.documentElement.removeAttribute('data-rona-client-home-ready');
+      releasePrepaint('bounded-timeout');
     },PREPAINT_MAX_MS);
   }
 
+  function markLoading(reason){
+    document.documentElement.removeAttribute('data-rona-client-home-ready');
+    if(document.documentElement.getAttribute('data-rona-client-home-state')!=='loading')document.documentElement.setAttribute('data-rona-client-home-state','loading');
+    neutralizeOwner('loading',reason||'loading');
+    if(document.documentElement.getAttribute('data-rona-client-home-prepaint')!=='blocked-until-command-center-v2')armPrepaint();
+  }
+
+  function syncExpectedContext(reason='context-sync'){
+    const next=selectedContextKey();
+    if(next===expectedContextKey)return false;
+    contextGeneration+=1;
+    expectedContextKey=next;
+    confirmedProjectionKey='';
+    window.__RONA_CLIENT_HOME_STATE__=null;
+    markLoading(reason);
+    publishState(reason);
+    return true;
+  }
+
   function syncPrepaint(){
-    const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
-    const state=String(document.documentElement.getAttribute('data-rona-client-home-state')||'');
+    if(sanitizing)return;
+    syncExpectedContext('context-detected');
+    const html=document.documentElement;
+    const ready=html.getAttribute('data-rona-client-home-ready')==='true';
+    const state=String(html.getAttribute('data-rona-client-home-state')||'');
+    const selected=selectedContextKey();
+    const projection=projectionKey();
+    if(selected&&projection===selected)confirmedProjectionKey=selected;
+
     if(ready||state==='ready'){
-      clearDegradedState();
-      releasePrepaint('command-center-ready');
-    }else if(state==='error'){
-      ensureDegradedOwner();
-      releasePrepaint('command-center-error');
+      if(!selected){
+        neutralizeOwner('selection','selection-required');
+        releasePrepaint('selection-required');
+        return;
+      }
+      if(readyBelongsToCurrentGeneration()){
+        clearNeutralState();
+        purgeLegacy();
+        releasePrepaint('command-center-ready');
+        return;
+      }
+      markLoading('rejected-stale-ready');
+      return;
     }
+    if(state==='error'){
+      neutralizeOwner('error','command-center-error');
+      releasePrepaint('command-center-error');
+      return;
+    }
+    neutralizeOwner('loading',state||'pending');
   }
 
   function resetBeforeHomePaint(){
-    document.documentElement.removeAttribute('data-rona-client-home-ready');
-    document.documentElement.setAttribute('data-rona-client-home-state','loading');
+    markLoading('navigation-prepaint');
     armPrepaint();
   }
 
@@ -198,28 +288,51 @@
     purgeLegacy();
   }
 
-  function onPageShow(){
-    purgeLegacy();
-    const html=document.documentElement;
-    const ready=html.getAttribute('data-rona-client-home-ready')==='true';
-    const state=String(html.getAttribute('data-rona-client-home-state')||'');
-    const owner=homeRoot()?.querySelector(OWNER)||null;
-    if((ready||state==='ready')&&owner&&norm(owner.textContent)){
-      clearDegradedState();
-      releasePrepaint('pageshow-ready-preserved');
-      return;
-    }
-    if(html.getAttribute('data-rona-client-home-prepaint')!=='blocked-until-command-center-v2')armPrepaint();
+  function onContextEvent(){
+    syncExpectedContext('context-change');
+    markLoading('context-change');
+  }
+
+  function onProjection(event){
+    const detail=event?.detail||{};
+    const eventKey=contextKey({client_id:detail.client_id,contract_id:detail.contract_id});
+    const selected=selectedContextKey();
+    if(!selected||eventKey!==selected||projectionKey()!==selected)return;
+    confirmedProjectionKey=selected;
+    publishState('current-projection');
     syncPrepaint();
   }
 
+  function onPageShow(){
+    purgeLegacy();
+    syncExpectedContext('pageshow-context');
+    syncPrepaint();
+    const html=document.documentElement;
+    if(html.getAttribute('data-rona-client-home-prepaint')!=='released'&&html.getAttribute('data-rona-client-home-prepaint')!=='blocked-until-command-center-v2')armPrepaint();
+  }
+
+  function enforcePresentationInvariant(){
+    if(sanitizing)return;
+    purgeLegacy();
+    const state=String(document.documentElement.getAttribute('data-rona-client-home-state')||'');
+    const ready=document.documentElement.getAttribute('data-rona-client-home-ready')==='true';
+    if((ready||state==='ready')&&readyBelongsToCurrentGeneration())return;
+    if(state==='error')neutralizeOwner('error','dom-error-invariant');
+    else neutralizeOwner('loading','dom-loading-invariant');
+  }
+
   function start(){
+    expectedContextKey=selectedContextKey();
+    confirmedProjectionKey=projectionKey()===expectedContextKey?expectedContextKey:'';
     resetBeforeHomePaint();
     purgeLegacy();
     document.addEventListener('pointerdown',prepaint,true);
     document.addEventListener('mousedown',prepaint,true);
     document.addEventListener('click',prepaint,true);
-    observer=new MutationObserver(()=>{purgeLegacy()});
+    window.addEventListener('rona:client-context-changed',onContextEvent,{passive:true});
+    window.addEventListener('rona:client-context-ready',onContextEvent,{passive:true});
+    window.addEventListener('rona:client-current-projection',onProjection,{passive:true});
+    observer=new MutationObserver(enforcePresentationInvariant);
     observer.observe(document.body,{childList:true,subtree:true});
     homeStateObserver=new MutationObserver(syncPrepaint);
     homeStateObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-rona-client-home-ready','data-rona-client-home-state']});
