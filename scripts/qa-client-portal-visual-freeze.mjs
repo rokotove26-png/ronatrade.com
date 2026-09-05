@@ -58,8 +58,12 @@ const CLIENT_LOAD_HOTFIX_PR429_FILES=[
   'assets/portal-runtime/client-home-command-center-v2.js',
   'assets/portal-runtime/client-messages-archive-v1.js',
   'assets/portal-runtime/client-price-sync-v1.js',
+  'assets/portal-runtime/client-section-first-paint-v1.js',
   'package.json',
   'scripts/attach-client-context-selection-authority-v1.mjs',
+  'scripts/attach-client-deals-authoritative-v1.mjs',
+  'scripts/attach-client-section-first-paint-v1.mjs',
+  'scripts/qa-client-context-selection-authority-v1.mjs',
   'scripts/qa-client-current-context-consumers-v1.mjs',
   'tests/client-load-feedback-loop-hotfix-v1.test.mjs'
 ];
@@ -71,11 +75,13 @@ const exactArray=(actual,expected)=>Array.isArray(actual)&&actual.length===expec
 const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.approval==='OWNER_IN_CHAT'&&
   clientLoadHotfixApproval?.authorized_at==='2026-09-05'&&
+  clientLoadHotfixApproval?.extended_at==='2026-09-05'&&
   clientLoadHotfixApproval?.pr_number===429&&
   clientLoadHotfixApproval?.branch==='hotfix/client-load-feedback-loop-v1'&&
   clientLoadHotfixApproval?.base_commit==='4e07ad9f2591c6135e6de651bdaa06bb80a82e78'&&
   clientLoadHotfixApproval?.functional_head_before_wiring==='d8af6dd2cc41f279b3fc29aa12b423f0472f828f'&&
   clientLoadHotfixApproval?.scope==='CLIENT_LOAD_HOTFIX_PR_429'&&
+  clientLoadHotfixApproval?.authorized_delta==='DEALS_CURRENT_PROJECTION_AND_SELECTED_CONTEXT_SLOTS'&&
   exactArray(clientLoadHotfixApproval?.approved_files,CLIENT_LOAD_HOTFIX_PR429_FILES)&&
   exactArray(clientLoadHotfixApproval?.wiring_files,CLIENT_LOAD_HOTFIX_WIRING_FILES)&&
   clientLoadHotfixApproval?.requirements?.visual_freeze_remains_enabled===true&&
@@ -89,6 +95,15 @@ const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.requirements?.business_data_changed===false&&
   clientLoadHotfixApproval?.requirements?.supabase_schema_or_rls_changed===false&&
   clientLoadHotfixApproval?.requirements?.business_logic_changed===false&&
+  clientLoadHotfixApproval?.requirements?.deals_uses_current_projection===true&&
+  clientLoadHotfixApproval?.requirements?.deals_own_context_fetch===false&&
+  clientLoadHotfixApproval?.requirements?.projection_event_replaces_deals_payload===true&&
+  clientLoadHotfixApproval?.requirements?.first_paint_same_projection_no_fetch===true&&
+  clientLoadHotfixApproval?.requirements?.selected_context_slots_from_client_contract_ids===true&&
+  clientLoadHotfixApproval?.requirements?.global_dom_text_replacement===false&&
+  clientLoadHotfixApproval?.requirements?.hardcoded_company_names===false&&
+  clientLoadHotfixApproval?.requirements?.rail_runtime_changed===false&&
+  clientLoadHotfixApproval?.requirements?.production_changed===false&&
   clientLoadHotfixApproval?.requirements?.full_green_ci_required_before_merge===true&&
   clientLoadHotfixApproval?.requirements?.system_admin_review_required_before_merge===true&&
   clientLoadHotfixApproval?.requirements?.authenticated_client_verification_required_before_merge===true&&
@@ -164,4 +179,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} visual_css_changed=false`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} visual_css_changed=false`);
