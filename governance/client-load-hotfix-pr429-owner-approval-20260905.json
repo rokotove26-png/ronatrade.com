@@ -6,6 +6,7 @@
   "base_commit": "4e07ad9f2591c6135e6de651bdaa06bb80a82e78",
   "functional_head_before_wiring": "d8af6dd2cc41f279b3fc29aa12b423f0472f828f",
   "scope": "CLIENT_LOAD_HOTFIX_PR_429",
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_LOAD_HOTFIX_PR_429",
   "reason": "Temporary Owner authorization to wire the existing Client Portal load-hang hotfix into the active Visual Freeze gate without disabling or weakening the gate. Authorization is limited to the exact pre-approved PR #429 functional files and expires when the emergency hotfix is completed.",
   "approved_files": [
     "assets/portal-runtime/client-background-section-preload-v1.js",
