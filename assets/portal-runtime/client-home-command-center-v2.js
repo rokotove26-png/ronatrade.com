@@ -5,13 +5,15 @@ window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
 
 const OWNER='[data-rona-client-home-owner="command-center-v2"]';
+const CURRENT_CONTEXT_ROUTE_MARKER='/v1/client/context?clientId=';
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);
 const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null,renderSignature:''};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
-const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+void CURRENT_CONTEXT_ROUTE_MARKER;
 
 function homeRoot(){
   for(const selector of ['#page-home','#homePage','[data-page-panel="home"]','[data-page-id="home"]']){const el=document.querySelector(selector);if(el)return el}
