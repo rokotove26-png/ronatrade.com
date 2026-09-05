@@ -32,7 +32,7 @@ jobs:
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
-      - name: Prove a stuck first-paint stylesheet cannot keep Client Home blank
+      - name: Prove a stuck first-paint stylesheet cannot expose stale Client Home
         shell: bash
         run: |
           set -euo pipefail
@@ -43,7 +43,7 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1400,height:900}});
-            const html='<!doctype html><html><head><style id="rona-client-home-first-paint-guard">#page-home{display:none!important}</style><style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}</style></head><body><nav><button id="navHome">Главная</button></nav><main><section id="page-home"><section class="frame"><h1>Главная</h1></section><section class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"></section></section></main></body></html>';
+            const html='<!doctype html><html><head><style id="rona-client-home-first-paint-guard">#page-home{display:none!important}</style><style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}</style></head><body><nav><button id="navHome">Главная</button></nav><main><section id="page-home"><section class="frame"><h1>Главная</h1></section><section class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"><div>STALE BUSINESS HOME</div></section></section></main></body></html>';
             await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-current-only-v1.js')});
@@ -51,10 +51,12 @@ jobs:
             let snapshot=await page.evaluate(()=>({
               guardMedia:document.getElementById('rona-client-home-first-paint-guard')?.media||'',
               display:getComputedStyle(document.getElementById('page-home')).display,
-              state:document.documentElement.getAttribute('data-rona-client-home-state')
+              state:document.documentElement.getAttribute('data-rona-client-home-state'),
+              stale:document.body.textContent.includes('STALE BUSINESS HOME')
             }));
             assert(snapshot.guardMedia==='all','first-paint guard was not armed '+JSON.stringify(snapshot));
             assert(snapshot.display==='none','synthetic stuck shell was not reproduced '+JSON.stringify(snapshot));
+            assert(snapshot.stale===false,'stale owner content survived first loading transition '+JSON.stringify(snapshot));
 
             await page.evaluate(()=>document.documentElement.setAttribute('data-rona-client-home-state','error'));
             await page.waitForFunction(()=>document.getElementById('rona-client-home-first-paint-guard')?.media==='not all');
@@ -66,35 +68,46 @@ jobs:
               degraded:document.documentElement.getAttribute('data-rona-client-home-degraded'),
               text:document.querySelector('[data-rona-client-home-owner="command-center-v2"]')?.textContent||''
             }));
-            assert(snapshot.guardMedia==='not all','stuck guard was not hard-released '+JSON.stringify(snapshot));
-            assert(snapshot.display!=='none','Client Home remained hidden after hard release '+JSON.stringify(snapshot));
+            assert(snapshot.guardMedia==='not all','stuck guard was not released into neutral error '+JSON.stringify(snapshot));
+            assert(snapshot.display!=='none','Client Home remained hidden after neutral error release '+JSON.stringify(snapshot));
             assert(snapshot.prepaint==='released'&&snapshot.release==='command-center-error','prepaint did not release on error '+JSON.stringify(snapshot));
-            assert(snapshot.text.includes('Данные временно недоступны'),'controlled degraded owner was not visible '+JSON.stringify(snapshot));
+            assert(snapshot.degraded==='error-fallback'&&snapshot.text.includes('Данные временно недоступны'),'controlled neutral error owner was not visible '+JSON.stringify(snapshot));
 
             await page.dispatchEvent('#navHome','pointerdown');
             await page.waitForFunction(()=>document.getElementById('rona-client-home-first-paint-guard')?.media==='all');
             snapshot=await page.evaluate(()=>({
               guardMedia:document.getElementById('rona-client-home-first-paint-guard')?.media||'',
               display:getComputedStyle(document.getElementById('page-home')).display,
-              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint')
+              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint'),
+              text:document.querySelector('[data-rona-client-home-owner="command-center-v2"]')?.textContent||''
             }));
             assert(snapshot.guardMedia==='all'&&snapshot.display==='none'&&snapshot.prepaint==='blocked-until-command-center-v2','guard did not re-arm on Home navigation '+JSON.stringify(snapshot));
+            assert(snapshot.text.includes('Загрузка центра управления'),'navigation loading state is not neutral '+JSON.stringify(snapshot));
 
             await page.evaluate(()=>{
+              window.__selected={client_id:'CLIENT-CURRENT',contract_id:'CONTRACT-CURRENT'};
+              window.__projection={client_id:'CLIENT-CURRENT',contract_id:'CONTRACT-CURRENT'};
+              window.RONA_CLIENT_CONTEXT={getCurrentContext:()=>window.__selected,getCurrentProjection:()=>window.__projection,selectionRequired:()=>false};
+              window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:{client_id:'CLIENT-CURRENT',contract_id:'CONTRACT-CURRENT'}}));
               const owner=document.querySelector('[data-rona-client-home-owner="command-center-v2"]');
-              owner.innerHTML='<div>READY CURRENT HOME</div>';
-              document.documentElement.setAttribute('data-rona-client-home-ready','true');
+              owner.innerHTML='<div class="rona-cc-kpis"><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">READY CURRENT HOME</strong></div></div>';
+              window.__RONA_CLIENT_HOME_STATE__={client_id:'CLIENT-CURRENT',contract_id:'CONTRACT-CURRENT'};
+              window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:'CLIENT-CURRENT',contract_id:'CONTRACT-CURRENT'}}));
               document.documentElement.setAttribute('data-rona-client-home-state','ready');
+              document.documentElement.setAttribute('data-rona-client-home-ready','true');
             });
-            await page.waitForFunction(()=>document.getElementById('rona-client-home-first-paint-guard')?.media==='not all');
+            await page.waitForFunction(()=>document.getElementById('rona-client-home-first-paint-guard')?.media==='not all'&&document.body.textContent.includes('READY CURRENT HOME'));
             snapshot=await page.evaluate(()=>({
               guardMedia:document.getElementById('rona-client-home-first-paint-guard')?.media||'',
               display:getComputedStyle(document.getElementById('page-home')).display,
               prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint'),
-              ready:document.documentElement.getAttribute('data-rona-client-home-ready')
+              ready:document.documentElement.getAttribute('data-rona-client-home-ready'),
+              neutral:document.querySelector('[data-rona-client-home-owner="command-center-v2"]')?.hasAttribute('data-rona-client-home-neutral'),
+              kpis:document.querySelectorAll('.rona-cc-kpis').length
             }));
-            assert(snapshot.guardMedia==='not all'&&snapshot.display!=='none'&&snapshot.prepaint==='released'&&snapshot.ready==='true','ready Home did not hard-release reusable guard '+JSON.stringify(snapshot));
-            console.log('CLIENT_HOME_STUCK_SHELL_HARD_FAIL_OPEN=PASS');
+            assert(snapshot.guardMedia==='not all'&&snapshot.display!=='none'&&snapshot.prepaint==='released'&&snapshot.ready==='true','current authoritative Home did not release reusable guard '+JSON.stringify(snapshot));
+            assert(snapshot.neutral===false&&snapshot.kpis===1,'loaded Home class structure was not preserved '+JSON.stringify(snapshot));
+            console.log('CLIENT_HOME_STUCK_SHELL_FAIL_CLOSED=PASS');
             console.log(JSON.stringify(snapshot));
             await browser.close();
           })().catch(error=>{console.error(error.stack||error);process.exit(1)});
