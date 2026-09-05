@@ -54,6 +54,7 @@ jobs:
           target_root="/tmp/rona-multicontext-${{ matrix.label }}"
           log="$GITHUB_WORKSPACE/client-multicontext-${{ matrix.label }}.log"
           cd "$target_root"
+          set +e
           RONA_TRACE_TARGET_LABEL="${{ matrix.label }}" node "$GITHUB_WORKSPACE/scripts/qa-client-multicontext-root-cause-trace.mjs" >"$log" 2>&1
           rc=$?
           set -e
