@@ -25,7 +25,6 @@ const ICONS={
   logistics:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h10.8A2.2 2.2 0 0 1 18 7.7v7.8H4V6.5A1 1 0 0 1 5 5.5Z"/><path d="M18 10h2l1 2.7v2.8h-3"/><circle cx="7" cy="18" r="2"/><circle cx="17.5" cy="18" r="2"/></svg>',
   close:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21V4.5M6 5h10.5l-2.4 3.3 2.4 3.2H6"/><path d="m9 16.3 2 2 4.2-4.3"/></svg>'
 };
-
 function installStyle(){
   document.getElementById(STYLE_ID)?.remove();
   const s=document.createElement('style');s.id=STYLE_ID;s.textContent=`
@@ -68,7 +67,7 @@ function currentContext(){return contextAuthority()?.getCurrentContext?.()||null
 function rootContext(root){return norm(root?.dataset?.ronaAuthoritativeContext)}
 function dealId(root){const id=norm(root?.dataset?.ronaAuthoritativeDealId);return DEAL_RE.test(id)?id:''}
 function rootIsAuthoritative(root){const ctx=currentContext(),key=contextKey(ctx);return Boolean(ctx&&key&&rootContext(root)===key&&dealId(root))}
-async function getJson(url){const r=await fetch(url,{method:'GET',headers:{accept:'application/json','x-rona-client-deal-lifecycle':'authoritative-v6'},credentials:'same-origin',cache:'no-store'});const body=await r.json().catch(()=>null);if(!r.ok||body?.ok===false)throw new Error(body?.code||`HTTP_${r.status}`);return body}
+async function getJson(url){const r=await fetch(url,{method:'GET',headers:{accept:'application/json','x-rona-client-deal-lifecycle':'authoritative-v6','x-rona-client-source':'client-deal-lifecycle-v1'},credentials:'same-origin',cache:'no-store'});const body=await r.json().catch(()=>null);if(!r.ok||body?.ok===false)throw new Error(body?.code||`HTTP_${r.status}`);return body}
 let stateByDeal=new Map(),activeContextKey='',refreshPromise=null,loadedOnce=false,loadError=false,scheduled=false,requestSeq=0;
 function clearState(){requestSeq++;stateByDeal=new Map();loadedOnce=false;loadError=false;for(const root of document.querySelectorAll(`.${ROOT_CLASS}`)){const flow=root.querySelector(`#${FLOW_ID}`);if(flow)flow.remove()}}
 async function refresh(reason='event'){
@@ -76,7 +75,7 @@ async function refresh(reason='event'){
   const ctx=currentContext();const key=contextKey(ctx);
   if(!ctx||!key){activeContextKey='';clearState();schedule();return}
   const authoritativeRoots=[...document.querySelectorAll(`.${ROOT_CLASS}`)].filter(root=>rootIsAuthoritative(root)&&visible(root));
-  if(!authoritativeRoots.length&&reason!=='context')return;
+  if(!authoritativeRoots.length)return;
   const seq=++requestSeq;activeContextKey=key;stateByDeal=new Map();loadedOnce=false;loadError=false;schedule();
   refreshPromise=(async()=>{try{
     const payload=await getJson(`${API}/v1/client/deal-documents/state?clientId=${encodeURIComponent(norm(ctx.client_id))}&contractId=${encodeURIComponent(norm(ctx.contract_id))}`);
@@ -88,7 +87,7 @@ async function refresh(reason='event'){
   return refreshPromise;
 }
 function validatedStages(status){if(!status||status.source!==SOURCE||!Array.isArray(status.stages))return null;const byKey=new Map(status.stages.map(s=>[norm(s?.key),s]));const stages=[];for(const key of STAGE_ORDER){const raw=byKey.get(key),state=String(raw?.state||'').toUpperCase();if(!raw||!Object.hasOwn(BADGES,state))return null;stages.push({key,name:STAGE_NAMES[key],state,detail:norm(raw.detail)||'Статус подтверждается системой'})}return stages}
-function ensureFlow(root){let flow=root.querySelector(`#${FLOW_ID}`);if(!flow){flow=document.createElement('section');flow.id=FLOW_ID;root.append(flow)}flow.dataset.ronaRealizationOwner='server-authoritative-v6-strict-context';return flow}
+function ensureFlow(root){let flow=root.querySelector(`#${FLOW_ID}`);if(!flow){flow=document.createElement('section');flow.id=FLOW_ID;root.append(flow)}if(flow.dataset.ronaRealizationOwner!=='server-authoritative-v6-strict-context')flow.dataset.ronaRealizationOwner='server-authoritative-v6-strict-context';return flow}
 function renderNotice(flow,message){const sig=`notice:${message}`;if(flow.dataset.lifecycleSignature===sig)return;flow.dataset.lifecycleSignature=sig;flow.className='rona-deal-lifecycle-v1';flow.setAttribute('aria-label','Статус реализации');flow.innerHTML=`<div class="rona-deal-lifecycle-v1__head"><div><div class="rona-deal-lifecycle-v1__eyebrow">Deal status</div><div class="rona-deal-lifecycle-v1__title">Статус реализации</div></div><div class="rona-deal-lifecycle-v1__summary">Актуальные данные</div></div><div class="rona-deal-lifecycle-v1__notice">${esc(message)}</div>`}
 function render(root){
   if(!rootIsAuthoritative(root)){root.querySelector(`#${FLOW_ID}`)?.remove();return}
@@ -102,10 +101,8 @@ function render(root){
 }
 function scan(){scheduled=false;for(const root of document.querySelectorAll(`.${ROOT_CLASS}`))if(visible(root))render(root)}
 function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(scan)}
-new MutationObserver(schedule).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-rona-authoritative-deal-id','data-rona-authoritative-deal-detail','data-rona-authoritative-context']});
-const authority=contextAuthority();if(authority)authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==activeContextKey){activeContextKey=key;clearState()}setTimeout(()=>refresh('context'),0)});else console.error('RONA realization status: context authority unavailable');
-window.addEventListener('rona:client:deal-authoritative-detail',event=>{const detail=event?.detail||{},ctx=currentContext(),key=contextKey(ctx);if(norm(detail.context)!==key||!DEAL_RE.test(norm(detail.dealId)))return;setTimeout(()=>refresh('authoritative-detail'),0)});
-window.addEventListener('focus',()=>{if([...document.querySelectorAll(`.${ROOT_CLASS}`)].some(root=>rootIsAuthoritative(root)&&visible(root)))refresh('focus')},{passive:true});
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&[...document.querySelectorAll(`.${ROOT_CLASS}`)].some(root=>rootIsAuthoritative(root)&&visible(root)))refresh('visible')},{passive:true});
+const authority=contextAuthority();if(authority)authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==activeContextKey){activeContextKey=key;clearState()}schedule()});else console.error('RONA realization status: context authority unavailable');
+window.addEventListener('rona:client:deal-authoritative-detail',event=>{const detail=event?.detail||{},ctx=currentContext(),key=contextKey(ctx);if(norm(detail.context)!==key||!DEAL_RE.test(norm(detail.dealId)))return;schedule();setTimeout(()=>refresh('authoritative-detail'),0)});
+window.addEventListener('rona:client:deals-rendered',schedule,{passive:true});
 setTimeout(schedule,0);
 })();
