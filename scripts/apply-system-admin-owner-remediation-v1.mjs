@@ -33,11 +33,12 @@ function scaleExplicitPxTypography(source, label) {
 }
 
 // 1) Deals: the authoritative list is the sole business presentation after readiness.
+// Preserve the production marker because the attachment validates this native-passport owner identity.
 let deals = await read('assets/portal-runtime/client-deals-authoritative-v1.js');
 deals = replaceOnce(
   deals,
   "const MARK='20260905-client-deals-authoritative-live-render-v9-native-passport-strict';",
-  "const MARK='20260905-client-deals-authoritative-live-render-v10-single-owner-passport-strict';",
+  "const MARK='20260905-client-deals-authoritative-live-render-v9-native-passport-strict';",
   'DEALS_MARKER'
 );
 deals = replaceFunctionBefore(
