@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const read=p=>readFile(p,'utf8');
-const [context,deals,firstPaint,background,messages,prices,dealDocs,lifecycle,home]=await Promise.all([
+const [context,deals,firstPaint,background,messages,prices,dealDocs,lifecycle,home,passport]=await Promise.all([
   read('assets/portal-runtime/client-context-selection-authority-v1.js'),
   read('assets/portal-runtime/client-deals-authoritative-v1.js'),
   read('assets/portal-runtime/client-section-first-paint-v1.js'),
@@ -11,7 +11,8 @@ const [context,deals,firstPaint,background,messages,prices,dealDocs,lifecycle,ho
   read('assets/portal-runtime/client-price-sync-v1.js'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-lifecycle-v1.js'),
-  read('assets/portal-runtime/client-home-command-center-v2.js')
+  read('assets/portal-runtime/client-home-command-center-v2.js'),
+  read('assets/portal-runtime/client-deal-passport-v1.js')
 ]);
 
 assert.match(context,/loadCurrentProjection/);
@@ -24,6 +25,9 @@ assert.match(context,/function bindLegacyScope/);
 assert.match(context,/function bindHeaderSlots/);
 assert.match(context,/function renderSlot/);
 assert.match(context,/state\.observer\.observe\(document\.body,\{childList:true,subtree:true\}\)/);
+assert.match(context,/if\(!pair\.clientIds\.length\|\|!pair\.contractIds\.length/);
+assert.match(context,/if\(!el\|\|el\.childElementCount!==0\)return null/);
+assert.match(context,/if\(!type\|\|el\.childElementCount!==0\)return/);
 for(const forbidden of [
   'staleHeaderNames','companyCandidate','syncContextScope','replace(CONTRACT_RE','replace(CLIENT_RE','ronaClientBaseText',
   "document.querySelectorAll('body *')","attributeFilter:['value','data-client-id','data-contract-id']"
@@ -46,22 +50,53 @@ assert.doesNotMatch(deals,/setInterval\([^\n]*refresh/);
 assert.doesNotMatch(deals,/addEventListener\('focus'[^\n]*refresh/);
 assert.match(deals,/state\.observer\.observe\(r,\{childList:true,subtree:true\}\)/);
 assert.match(deals,/function setHidden/);
-assert.match(deals,/CLIENT_CONTEXT_PROJECTION_SCOPE_MISMATCH|contextMatchesPayload/);
+assert.match(deals,/function contextMatchesPayload/);
+assert.match(deals,/!pair\.clientIds\.length\|\|!pair\.contractIds\.length/);
 
-// The existing production modal/passport owns open and close. Authoritative code
-// waits for a visible drawer and binds in place; it must never pre-hide the valid
-// drawer. Foreign-context shutdown is delegated to the native close control or
-// native backdrop so an orphan overlay cannot be left behind.
+// The production passport owns the modal structure and visual system. The hotfix
+// only binds explicit production field/context slots after the native drawer has
+// opened for the exact requested deal and the exact workflow row has been loaded.
+assert.match(passport,/20260831-client-deal-passport-v2-centered-status/);
+assert.match(passport,/const ROOT_CLASS='rona-deal-command-center-v3'/);
+assert.match(passport,/data-rona-command-field-value/);
+assert.match(passport,/data-rona-command-grid/);
+assert.match(passport,/font-size:20px!important/);
 assert.match(deals,/function nativeCloseControl/);
 assert.match(deals,/function nativeBackdrop/);
 assert.match(deals,/control\.click\(\)/);
 assert.match(deals,/function drawerFor\(id,key\)\{const all=drawers\(\)\.filter\(r=>visible\(r\)/);
+assert.match(deals,/const exact=all\.filter\(r=>drawerId\(r\)===id/);
+assert.match(deals,/return exact\.length===1\?exact\[0\]:null/);
+assert.match(deals,/function passportSlotsReady/);
+assert.match(deals,/function waitForExactDrawer/);
+assert.match(deals,/function workflowRowValid/);
+assert.match(deals,/SERVER_AUTHORITATIVE_REALIZATION_V1/);
+assert.match(deals,/function clearDrawerBinding/);
+assert.match(deals,/data-rona-current-context-slot/);
 assert.match(deals,/setData\(r,'ronaAuthoritativeBinding','authoritative-binding'\)/);
+assert.doesNotMatch(deals,/return unbound\.length===1/);
+assert.doesNotMatch(deals,/scheduleDrawerBind\(id,null/);
+assert.doesNotMatch(deals,/function rewriteTextNodes|function exactLeafs|function fieldContainer|function setCompanyContext|function setLegal/);
+assert.doesNotMatch(deals,/Синхронизация с сервером/);
 assert.doesNotMatch(deals,/closeDrawer\(r,'authoritative-binding'\)/);
 assert.doesNotMatch(deals,/releaseDrawer\(r\)/);
 assert.doesNotMatch(deals,/function drawerCloseControl|function backdropDrawer|function onKeydown|closeOtherDrawers/);
 assert.match(deals,/\.rona-deal-command-center-v3,\[data-rona-deal-passport\]/);
 assert.doesNotMatch(deals,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
+
+// The approved production lifecycle visual contract remains intact. The binder
+// clears an old lifecycle before a new deal is loaded, then the lifecycle owner
+// recreates it from authoritative realization_status for the bound deal/context.
+assert.match(lifecycle,/const FLOW_ID='rona-deal-realization-flow-v3'/);
+assert.match(lifecycle,/SERVER_AUTHORITATIVE_REALIZATION_V1/);
+assert.match(lifecycle,/data-lifecycle-stage/);
+assert.match(lifecycle,/rona-deal-lifecycle-v1__progress/);
+assert.match(lifecycle,/rona-deal-lifecycle-v1__node/);
+assert.match(lifecycle,/Выполнено \$\{done\} из \$\{stages\.length\}/);
+assert.match(lifecycle,/rootIsAuthoritative/);
+assert.match(lifecycle,/rona:client:deal-authoritative-detail/);
+assert.match(deals,/drawer\.querySelector\('#rona-deal-realization-flow-v3'\)\?\.remove\(\)/);
+assert.doesNotMatch(deals,/function resetDrawer/);
 
 // First-paint receives the same projection through its legacy cache contract.
 // It may construct the legacy /context cache key, but it must perform no network
@@ -106,7 +141,6 @@ assert.match(dealDocs,/client-deal-documents-v5/);
 assert.doesNotMatch(lifecycle,/new MutationObserver/);
 assert.doesNotMatch(lifecycle,/addEventListener\('focus'/);
 assert.doesNotMatch(lifecycle,/visibilitychange/);
-assert.match(lifecycle,/rona:client:deal-authoritative-detail/);
 assert.match(lifecycle,/client-deal-lifecycle-v1/);
 
 // Rail remains the production runtime. This delta does not rewrite it; eager Rail
@@ -116,21 +150,30 @@ assert.match(background,/scopedPath\('\/v1\/client\/rail'/);
 assert.match(context,/\/portal\/api\/v1\/client\/shipments/);
 assert.match(context,/\/portal\/api\/v1\/client\/rail/);
 
-// Home consumes the single current-context coordinator and owns no self-exciting
-// whole-document observer or periodic/focus/visibility refresh.
+// Home keeps the production command-center owner, geometry and typography. Only
+// its data source/scheduling changed for the anti-hang hotfix; no alternate Home
+// renderer, font scale, width model or responsive grid is introduced here.
+assert.match(home,/data-rona-client-home-owner=\"command-center-v2\"/);
+assert.match(home,/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/);
+assert.match(home,/\.rona-cc-kpi-value\{[^}]*font-size:25px/s);
+assert.match(home,/\.rona-cc-panel-title\{[^}]*font-size:11\.5px/s);
+assert.match(home,/const width=tr\.width\+'px'/);
 assert.match(home,/whenCurrentProjection/);
 assert.doesNotMatch(home,/new MutationObserver/);
 assert.doesNotMatch(home,/setInterval\([^\n]*schedule\(true\)/);
 assert.doesNotMatch(home,/addEventListener\('focus'/);
 assert.doesNotMatch(home,/visibilitychange/);
+assert.doesNotMatch(home,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
 
 console.log('CLIENT_LOAD_FEEDBACK_LOOP_HOTFIX_V1=PASS');
 console.log('DEALS_CONTEXT_SOURCE=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION');
 console.log('DEALS_OWN_CONTEXT_FETCH=NONE');
+console.log('DEAL_PASSPORT_BINDING=EXACT_NATIVE_DRAWER_PLUS_EXPLICIT_SLOTS');
+console.log('DEAL_WORKFLOW_BINDING=EXACT_CLIENT_CONTRACT_DEAL');
+console.log('DEAL_LIFECYCLE_OWNER=PRODUCTION_CLIENT_DEAL_LIFECYCLE_V1');
 console.log('FIRST_PAINT_PROJECTION_CACHE_BRIDGE=NO_FETCH');
 console.log('VISUAL_CONTEXT_BINDING=DIRECT_SELECTED_CONTEXT_SLOTS');
-console.log('DEAL_DRAWER_LIFECYCLE=NATIVE_OPEN_CLOSE_BIND_IN_PLACE');
+console.log('HOME_VISUAL_CONTRACT=PRODUCTION_COMMAND_CENTER_GEOMETRY');
 console.log('GLOBAL_TEXT_REPLACEMENT=NONE');
 console.log('RAIL_DELTA=NONE');
-console.log('VISUAL_DIFF=NONE_BY_SOURCE_SCOPE');
 console.log('BUSINESS_DATA_MUTATION=NONE_BY_SOURCE_SCOPE');
