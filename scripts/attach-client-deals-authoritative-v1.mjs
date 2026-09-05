@@ -4,13 +4,9 @@ import { createHash } from 'node:crypto';
 const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
-const drawerRuntimePath='dist/assets/portal-runtime/client-deal-drawer-lifecycle-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const drawerScriptId='rona-client-deal-drawer-lifecycle-v1';
 const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260905-authoritative-v8-fail-closed-drawer';
-const drawerSrc='/assets/portal-runtime/client-deal-drawer-lifecycle-v1.js?v=20260905-deterministic-close-v1';
 const marker='20260905-client-deals-authoritative-live-render-v8-fail-closed-drawer';
-const drawerMarker='20260905-client-deal-drawer-lifecycle-v1';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -33,23 +29,12 @@ for(const forbidden of [
   if(runtime.includes(forbidden))throw new Error(`CLIENT_DEALS_AUTHORITATIVE_RENDER_FORBIDDEN:${forbidden}`);
 }
 
-const drawerRuntime=await readFile(drawerRuntimePath,'utf8');
-for(const required of [drawerMarker,'rona:client:deal-authoritative-detail','function enforceSingleAuthoritative','function closeControl','function modalBackdropFor','user-control','backdrop','Escape']){
-  if(!drawerRuntime.includes(required))throw new Error(`CLIENT_DEAL_DRAWER_LIFECYCLE_CONTRACT_MISSING:${required}`);
-}
-for(const forbidden of ['/v1/client/context','RONA-C004','DEAL-2026-007','DEAL-2026-008','FARGONA GAZ','FARG‘ONA GAZ','document.querySelectorAll(\'body *\')']){
-  if(drawerRuntime.includes(forbidden))throw new Error(`CLIENT_DEAL_DRAWER_LIFECYCLE_FORBIDDEN:${forbidden}`);
-}
-
 let html=await readFile(htmlPath,'utf8');
 if(html.includes(`id="${scriptId}"`)||html.includes('client-deals-authoritative-v1.js'))throw new Error('CLIENT_DEALS_AUTHORITATIVE_RENDER_ALREADY_PRESENT');
-if(html.includes(`id="${drawerScriptId}"`)||html.includes('client-deal-drawer-lifecycle-v1.js'))throw new Error('CLIENT_DEAL_DRAWER_LIFECYCLE_ALREADY_PRESENT');
 const bodyClose=html.toLowerCase().lastIndexOf('</body>');
 if(bodyClose<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
-const bridges=`<script id="${scriptId}" src="${src}" defer></script><script id="${drawerScriptId}" src="${drawerSrc}" defer></script>`;
-html=html.slice(0,bodyClose)+bridges+html.slice(bodyClose);
+html=html.slice(0,bodyClose)+`<script id="${scriptId}" src="${src}" defer></script>`+html.slice(bodyClose);
 if((html.match(/client-deals-authoritative-v1\.js/gu)||[]).length!==1)throw new Error('CLIENT_DEALS_AUTHORITATIVE_RENDER_NOT_SINGLE');
-if((html.match(/client-deal-drawer-lifecycle-v1\.js/gu)||[]).length!==1)throw new Error('CLIENT_DEAL_DRAWER_LIFECYCLE_NOT_SINGLE');
 await writeFile(htmlPath,html,'utf8');
 
 const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
@@ -76,18 +61,8 @@ integrity.client_runtime.deals_authoritative_renderer={
   inferred_resource_confirmation_blocked:true,
   hardcoded_business_entities:false
 };
-integrity.client_runtime.deal_drawer_lifecycle={
-  id:drawerScriptId,src:drawerSrc,marker:drawerMarker,
-  scope:'AUTHORITATIVE_DEAL_DRAWER_UI_LIFECYCLE_ONLY',
-  close_controls:['BACKDROP','X','CLOSE_TEXT','ESCAPE'],
-  single_visible_drawer:true,
-  authoritative_event:'rona:client:deal-authoritative-detail',
-  business_data_changed:false,
-  visual_css_changed:false,
-  hardcoded_business_entities:false
-};
 const emitted=Buffer.from(html,'utf8');
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; source=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION; own_context_fetch=false; projection_event_replaces_payload=true; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; fail_closed_drawer=true; drawer_lifecycle=DETERMINISTIC_SINGLE_VISIBLE_CLOSE; visual_css_changed=false; sha256=${integrity.client_runtime.emitted_sha256}`);
+console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; source=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION; own_context_fetch=false; projection_event_replaces_payload=true; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; fail_closed_drawer=true; visual_css_changed=false; sha256=${integrity.client_runtime.emitted_sha256}`);
