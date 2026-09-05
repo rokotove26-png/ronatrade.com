@@ -102,4 +102,7 @@ const nativeServe:any = Deno.serve.bind(Deno);
   return options===undefined ? nativeServe(wrapped) : nativeServe(options,wrapped);
 };
 
-import "https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/e6a9e09092975af15879fdfc184e5c2566dfcc35/supabase/functions/rona-portal-api/index.ts";
+// Keep the deployed Edge Function on the exact modular source shipped by this release.
+// Remote commit imports create a second source lineage and can silently drift from the
+// repository head that frontend/backend QA validates.
+import "./index.ts";
