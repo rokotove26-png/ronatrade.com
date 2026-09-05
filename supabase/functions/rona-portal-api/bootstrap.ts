@@ -4,6 +4,20 @@ const originalRequestJson = Request.prototype.json;
 const DATE_ONLY_OR_ISO = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2}))?$/;
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const enrichmentSql = DB ? postgres(DB,{prepare:false,max:1,idle_timeout:1,connect_timeout:3,max_lifetime:15}) : null;
+const CLIENT_READ_SINGLE_FLIGHT_ROUTES = new Set([
+  '/v1/client/context',
+  '/v1/client/prices',
+  '/v1/client/market',
+  '/v1/client/shipments',
+  '/v1/client/rail',
+  '/v1/client/deals',
+  '/v1/client/documents',
+  '/v1/client/payments',
+  '/v1/client/claims',
+  '/v1/client/messages',
+  '/v1/client/archive',
+]);
+const clientReadInflight = new Map<string,Promise<Response>>();
 
 function canonicalDate(value: unknown): unknown {
   if (typeof value !== 'string') return value;
@@ -14,6 +28,23 @@ function canonicalDate(value: unknown): unknown {
   const parsed = new Date(`${day}T00:00:00.000Z`);
   if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== day) return value;
   return day;
+}
+
+function apiRoute(pathname:string):string {
+  const marker='/rona-portal-api';
+  const index=pathname.indexOf(marker);
+  return index>=0?(pathname.slice(index+marker.length)||'/'):pathname;
+}
+
+function singleFlightKey(req:Request):string|null {
+  if(req.method!=='GET')return null;
+  let url:URL;
+  try{url=new URL(req.url)}catch{return null}
+  const route=apiRoute(url.pathname);
+  if(!CLIENT_READ_SINGLE_FLIGHT_ROUTES.has(route))return null;
+  const authorization=req.headers.get('authorization');
+  if(!authorization)return null;
+  return `${authorization}\n${route}\n${url.search}`;
 }
 
 Request.prototype.json = async function patchedJson(...args: Parameters<Request['json']>) {
@@ -36,7 +67,8 @@ const nativeServe:any = Deno.serve.bind(Deno);
   const handler = typeof first === 'function' ? first : second;
   const options = typeof first === 'function' ? undefined : first;
   if (typeof handler !== 'function') return nativeServe(first, second);
-  const wrapped = async (req:Request, info:any) => {
+
+  const run = async (req:Request, info:any) => {
     const response:Response = await handler(req, info);
     try {
       const url = new URL(req.url);
@@ -99,6 +131,18 @@ const nativeServe:any = Deno.serve.bind(Deno);
     }
     return response;
   };
+
+  const wrapped = async (req:Request, info:any) => {
+    const key=singleFlightKey(req);
+    if(!key)return run(req,info);
+    const existing=clientReadInflight.get(key);
+    if(existing)return (await existing).clone();
+    const task=run(req,info);
+    clientReadInflight.set(key,task);
+    try{return (await task).clone()}
+    finally{if(clientReadInflight.get(key)===task)clientReadInflight.delete(key)}
+  };
+
   return options===undefined ? nativeServe(wrapped) : nativeServe(options,wrapped);
 };
 
