@@ -153,10 +153,15 @@ jobs:
               document.documentElement.setAttribute('data-rona-client-home-state','loading');
             });
             await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]')?.getAttribute('data-rona-client-home-neutral')==='loading');
-            const loading=await page.evaluate(()=>({text:document.querySelector('[data-rona-client-home-owner]')?.textContent||'',lastGood:!!document.querySelector('#lastGood'),degraded:document.documentElement.getAttribute('data-rona-client-home-degraded')}));
+            const loading=await page.evaluate(()=>({
+              text:document.querySelector('[data-rona-client-home-owner]')?.textContent||'',
+              lastGood:!!document.querySelector('#lastGood'),
+              degraded:document.documentElement.getAttribute('data-rona-client-home-degraded'),
+              staleMarker:document.documentElement.outerHTML.includes('stale-preserved')
+            }));
             assert(!loading.lastGood&&!loading.text.includes('LAST KNOWN GOOD'),'last-known-good content survived loading transition');
             assert(loading.degraded==='loading-neutral','loading neutral marker missing');
-            assert(!document.documentElement.outerHTML.includes('stale-preserved'),'stale-preserved marker rendered');
+            assert(loading.staleMarker===false,'stale-preserved marker rendered');
             console.log('CLIENT_HOME_ERROR_LOADING_FAIL_CLOSED=PASS');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
