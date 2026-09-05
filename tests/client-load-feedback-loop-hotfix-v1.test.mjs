@@ -47,6 +47,11 @@ assert.doesNotMatch(deals,/addEventListener\('focus'[^\n]*refresh/);
 assert.match(deals,/state\.observer\.observe\(r,\{childList:true,subtree:true\}\)/);
 assert.match(deals,/function setHidden/);
 assert.match(deals,/CLIENT_CONTEXT_PROJECTION_SCOPE_MISMATCH|contextMatchesPayload/);
+assert.match(deals,/function drawerCloseControl/);
+assert.match(deals,/function backdropDrawer/);
+assert.match(deals,/function closeOtherDrawers/);
+assert.match(deals,/function onKeydown/);
+assert.match(deals,/closeOtherDrawers\(r,'other-drawer'\)/);
 assert.doesNotMatch(deals,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
 
 // First-paint receives the same projection through its legacy cache contract.
@@ -115,6 +120,7 @@ console.log('DEALS_CONTEXT_SOURCE=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION');
 console.log('DEALS_OWN_CONTEXT_FETCH=NONE');
 console.log('FIRST_PAINT_PROJECTION_CACHE_BRIDGE=NO_FETCH');
 console.log('VISUAL_CONTEXT_BINDING=DIRECT_SELECTED_CONTEXT_SLOTS');
+console.log('DEAL_DRAWER_LIFECYCLE=BACKDROP_CLOSE_X_SINGLE_VISIBLE');
 console.log('GLOBAL_TEXT_REPLACEMENT=NONE');
 console.log('RAIL_DELTA=NONE');
 console.log('VISUAL_DIFF=NONE_BY_SOURCE_SCOPE');
