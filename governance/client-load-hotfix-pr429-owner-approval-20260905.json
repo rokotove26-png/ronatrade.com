@@ -9,8 +9,9 @@
   "scope": "CLIENT_LOAD_HOTFIX_PR_429",
   "authorized_delta": "DEALS_CURRENT_PROJECTION_AND_SELECTED_CONTEXT_SLOTS",
   "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_LOAD_HOTFIX_PR_429",
-  "reason": "Temporary Owner authorization for PR #429 and the explicitly approved Deals/current-context delta. Visual Freeze remains active. The delta is limited to consuming the existing authoritative current projection, bridging that same projection into the legacy first-paint cache without a network fetch, and rendering current company/contract slots directly from the selected CLIENT_ID + CONTRACT_ID context. No production switch, business-data mutation, Rail rewrite, global DOM text replacement, or hardcoded company name is authorized.",
+  "reason": "Temporary Owner authorization for PR #429 and the explicitly approved Deals/current-context delta. Visual Freeze remains active. The delta is limited to consuming the existing authoritative current projection, bridging that same projection into the legacy first-paint cache without a network fetch, rendering current company/contract slots directly from the selected CLIENT_ID + CONTRACT_ID context, and updating the existing sanitation assertion to the new current-projection empty-state contract. No production switch, business-data mutation, Rail rewrite, global DOM text replacement, or hardcoded company name is authorized.",
   "approved_files": [
+    ".github/workflows/client-runtime-sanitation-qa.yml",
     "assets/portal-runtime/client-background-section-preload-v1.js",
     "assets/portal-runtime/client-context-selection-authority-v1.js",
     "assets/portal-runtime/client-deal-documents-v5.js",
@@ -51,6 +52,7 @@
     "selected_context_slots_from_client_contract_ids": true,
     "global_dom_text_replacement": false,
     "hardcoded_company_names": false,
+    "sanitation_assertion_updated_to_current_projection_contract": true,
     "rail_runtime_changed": false,
     "production_changed": false,
     "full_green_ci_required_before_merge": true,
