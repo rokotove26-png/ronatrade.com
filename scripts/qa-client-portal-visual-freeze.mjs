@@ -89,7 +89,8 @@ if(clientLoadHotfixAuthorized){
     'assets/portal-runtime/client-deal-documents-v5.js',
     'assets/portal-runtime/client-home-command-center-v2.js',
     'assets/portal-runtime/client-messages-archive-v1.js',
-    'assets/portal-runtime/client-price-sync-v1.js'
+    'assets/portal-runtime/client-price-sync-v1.js',
+    'scripts/attach-client-context-selection-authority-v1.mjs'
   ])approvedModifiedFiles.add(path);
 }
 
