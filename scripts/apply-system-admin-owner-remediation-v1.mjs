@@ -32,8 +32,9 @@ function scaleExplicitPxTypography(source, label) {
   return { source, count };
 }
 
-// 1) Deals: the authoritative list is the sole business presentation after readiness.
-// Preserve the production marker because the attachment validates this native-passport owner identity.
+// 1) Deals: while the authoritative Deals renderer is active, its list is the sole
+// visible owner of current deal rows. Retire only legacy deal-row owners inside the
+// real Deals root; no whole-document scan and no business-ID hardcodes.
 let deals = await read('assets/portal-runtime/client-deals-authoritative-v1.js');
 deals = replaceOnce(
   deals,
@@ -45,13 +46,13 @@ deals = replaceFunctionBefore(
   deals,
   'suppressForeignLegacy',
   'applyFilters',
-  `function retireNonCanonicalDealLayers(r,expected){\n  const allowed=new Set(expected);\n  for(const n of [...r.querySelectorAll('[data-rona-canonical-deal-id]')]){\n    if(n.closest(\`[\${LIST_ATTR}]\`))continue;\n    const id=norm(n.getAttribute('data-rona-canonical-deal-id'));\n    if(!DEAL_RE.test(id))continue;\n    n.remove();\n  }\n  suppressForeignDrawers(allowed);\n}`,
+  `function retireNonCanonicalDealLayers(r,expected){\n  const allowed=new Set(expected);\n  for(const trigger of [...r.querySelectorAll('[data-open-deal]')]){\n    if(trigger.closest(\`[\${LIST_ATTR}]\`))continue;\n    const id=norm(trigger.getAttribute('data-open-deal'));\n    if(!DEAL_RE.test(id))continue;\n    const row=trigger.closest('.deal-row,.client-deal-card,[data-home-deal],[data-home-deal-id]')||trigger;\n    if(row&&row.isConnected)row.remove();\n  }\n  for(const n of [...r.querySelectorAll('[data-rona-canonical-deal-id]')]){\n    if(n.closest(\`[\${LIST_ATTR}]\`))continue;\n    const id=norm(n.getAttribute('data-rona-canonical-deal-id'));\n    if(!DEAL_RE.test(id))continue;\n    n.remove();\n  }\n  suppressForeignDrawers(allowed);\n}`,
   'DEALS_NONCANONICAL_OWNER'
 );
 deals = replaceOnce(deals, 'suppressForeignLegacy(r,expected);', 'retireNonCanonicalDealLayers(r,expected);', 'DEALS_RENDER_BOUNDARY');
 await write('assets/portal-runtime/client-deals-authoritative-v1.js', deals);
 
-// 2) Home: do not destroy a current, fully matched command-center READY that existed before this guard loaded.
+// 2) Home guard: do not destroy a current, fully matched command-center READY that existed before this guard loaded.
 let homeGuard = await read('assets/portal-runtime/client-home-current-only-v1.js');
 homeGuard = replaceOnce(
   homeGuard,
@@ -85,13 +86,20 @@ await write('assets/portal-runtime/client-contract-download-v3.js', company);
 
 // 4) Owner-approved typography: inherited Client type is +10%; Analytics cancels inheritance.
 // Home command center has explicit px type, so scale those declarations deterministically as well.
-// Preserve the production marker because downstream lifecycle attachment validates this production owner identity.
+// Home re-entry must be bound to the production data-page contract, not exact visible text:
+// the real nav label includes a decorative icon, so /^Главная$/ alone misses it after prepaint.
 let homeCommand = await read('assets/portal-runtime/client-home-command-center-v2.js');
 homeCommand = replaceOnce(
   homeCommand,
   "const MARK='20260902-client-home-command-center-v3-current-context';",
   "const MARK='20260902-client-home-command-center-v3-current-context';",
   'HOME_COMMAND_MARKER'
+);
+homeCommand = replaceOnce(
+  homeCommand,
+  "function isHomeNavigation(target){const el=target?.closest?.('a,button,[role=\"tab\"],[role=\"menuitem\"]');return /^Главная$/iu.test(norm(el?.textContent))}",
+  "function isHomeNavigation(target){const explicit=target?.closest?.('[data-page=\"home\"],[data-page-link=\"home\"]');if(explicit)return true;const el=target?.closest?.('a,button,[role=\"tab\"],[role=\"menuitem\"]');return /^Главная$/iu.test(norm(el?.textContent))}",
+  'HOME_COMMAND_REAL_NAV_REENTRY'
 );
 const homeScaled = scaleExplicitPxTypography(homeCommand, 'HOME_COMMAND_TYPOGRAPHY');
 homeCommand = homeScaled.source;
@@ -105,8 +113,9 @@ await write('assets/portal-runtime/client-content-responsive-v1.css', responsive
 
 console.log(JSON.stringify({
   status:'SYSTEM_ADMIN_OWNER_REMEDIATION=PASS',
-  deals_owner:'AUTHORITATIVE_LIST_ONLY',
+  deals_owner:'AUTHORITATIVE_LIST_ONLY_REAL_DEALS_ROOT',
   home_startup_ready:'PRESERVED_IF_EXACT_CURRENT_GENERATION',
+  home_navigation_reentry:'EXPLICIT_DATA_PAGE_HOME',
   company_name:'AUTHORITATIVE_LEGAL_NAME_NOT_HIDDEN',
   typography:{inherited_scale:1.1,analytics_effective_scale:1,home_explicit_scaled:homeScaled.count,company_explicit_scaled:companyScaled.count}
 }));
