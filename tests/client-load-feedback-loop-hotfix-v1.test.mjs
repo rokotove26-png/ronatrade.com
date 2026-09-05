@@ -27,9 +27,16 @@ assert.match(deals,/state\.observer\.observe\(r,\{childList:true,subtree:true\}\
 assert.match(deals,/function setHidden/);
 assert.match(deals,/CLIENT_CONTEXT_PROJECTION_SCOPE_MISMATCH|contextMatchesPayload/);
 
+// Existing build/QA still recognizes the legacy route contract. The hotfix keeps
+// those routes as inert lazy-route metadata only; this runtime must not fetch or
+// schedule an interval itself during initial load.
 assert.doesNotMatch(background,/\bfetch\s*\(/);
-assert.doesNotMatch(background,/setInterval/);
-assert.match(background,/LAZY_BY_SECTION/);
+assert.doesNotMatch(background,/setInterval\s*\(/);
+assert.doesNotMatch(background,/setTimeout\s*\([^\n]*(?:marketPath|shipmentsPath|railPath)/);
+assert.match(background,/mode:'LAZY_BY_SECTION'/);
+assert.match(background,/function lazyRouteManifest/);
+assert.match(background,/shipments:shipmentsPath\(current\)/);
+assert.match(background,/rail:railPath\(current\)/);
 
 assert.doesNotMatch(messages,/Promise\.all\s*\(/);
 assert.match(messages,/loadMessages/);
@@ -53,15 +60,16 @@ assert.doesNotMatch(lifecycle,/visibilitychange/);
 assert.match(lifecycle,/rona:client:deal-authoritative-detail/);
 assert.match(lifecycle,/client-deal-lifecycle-v1/);
 
-// Rail remains the production runtime. This hotfix must only stop eager Rail
-// loading from the global initial-load path; it must not rewrite Rail internals.
-assert.doesNotMatch(background,/\/v1\/client\/shipments/);
-assert.doesNotMatch(background,/\/v1\/client\/rail/);
+// Rail remains the production runtime. This hotfix stops eager Rail network work
+// by making the global background coordinator route-only/lazy; Rail internals are
+// intentionally outside this PR scope.
+assert.match(background,/scopedPath\('\/v1\/client\/shipments'/);
+assert.match(background,/scopedPath\('\/v1\/client\/rail'/);
 assert.match(context,/\/portal\/api\/v1\/client\/shipments/);
 assert.match(context,/\/portal\/api\/v1\/client\/rail/);
 
-// Home must consume the single current-context coordinator and must not own a
-// self-exciting whole-document MutationObserver or periodic/focus/visibility refresh.
+// Home consumes the single current-context coordinator and owns no self-exciting
+// whole-document observer or periodic/focus/visibility refresh.
 assert.match(home,/whenCurrentProjection/);
 assert.doesNotMatch(home,/new MutationObserver/);
 assert.doesNotMatch(home,/setInterval\([^\n]*schedule\(true\)/);
