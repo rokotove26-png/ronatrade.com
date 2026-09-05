@@ -29,9 +29,10 @@ if(!runtime.includes(marker)){
   if(!runtime.includes('function normalizeHeaderTitle(){')){
     const compactPurge=`function purgeHeaderContractDownload(){for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]'))if(/скачать\\s+договор\\s+pdf/iu.test(norm(el.textContent)))el.remove()}`;
     const legacyPurge=`function purgeHeaderContractDownload(){\n  for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]')){\n    if(/скачать\\s+договор\\s+pdf/iu.test(norm(el.textContent)))el.remove();\n  }\n}`;
-    const sourcePurge=runtime.includes(compactPurge)?compactPurge:runtime.includes(legacyPurge)?legacyPurge:null;
+    const canonicalPurge=`function purgeHeaderContractDownload(){for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]'))if(/^скачать\\s+договор\\s+pdf$/iu.test(norm(el.textContent)))el.remove()}`;
+    const sourcePurge=runtime.includes(canonicalPurge)?canonicalPurge:runtime.includes(compactPurge)?compactPurge:runtime.includes(legacyPurge)?legacyPurge:null;
     if(!sourcePurge)throw new Error('CLIENT_CONTEXT_AUTHORITY_PATCH_MISSING: header-contract-download-purge');
-    const normalized=`function normalizeHeaderTitle(){\n  for(const leaf of document.querySelectorAll('body *')){\n    if(leaf.childElementCount!==0)continue;\n    const before=norm(leaf.textContent),match=before.match(/^(.*?личный кабинет клиента)(?:\\s*·.*)?$/iu);\n    if(match&&before!==match[1])leaf.textContent=match[1];\n  }\n}\n${sourcePurge}`;
+    const normalized=`function normalizeHeaderTitle(){\n  for(const leaf of document.querySelectorAll('body *')){\n    if(leaf.childElementCount!==0)continue;\n    const before=norm(leaf.textContent),match=before.match(/^(.*?личный кабинет клиента)(?:\\s*·.*)?$/iu);\n    if(match&&before!==match[1])leaf.textContent=match[1];\n  }\n}\n${canonicalPurge}`;
     runtime=runtime.replace(sourcePurge,normalized);
   }
 
