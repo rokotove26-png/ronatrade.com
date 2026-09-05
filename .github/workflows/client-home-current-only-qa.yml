@@ -193,10 +193,10 @@ jobs:
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-current-only-v1.js')});
 
             await page.evaluate(()=>{
+              window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:'CLIENT-A',contract_id:'CONTRACT-A'}}));
               const owner=document.querySelector('[data-rona-client-home-owner]');
               owner.innerHTML='<div class="rona-cc-kpis"><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">CURRENT-A</strong></div></div>';
               window.__RONA_CLIENT_HOME_STATE__={client_id:'CLIENT-A',contract_id:'CONTRACT-A'};
-              window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:'CLIENT-A',contract_id:'CONTRACT-A'}}));
               document.documentElement.setAttribute('data-rona-client-home-state','ready');
               document.documentElement.setAttribute('data-rona-client-home-ready','true');
             });
