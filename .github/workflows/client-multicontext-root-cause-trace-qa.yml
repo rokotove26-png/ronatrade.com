@@ -12,19 +12,68 @@ permissions:
   contents: read
 
 jobs:
-  multicontext-root-cause-trace:
+  strict-discriminator:
+    name: strict-${{ matrix.label }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: PRE_FIX
+            sha: 21353b956cec50a8a747ec629018b519d39dad77
+            expected: fail
+          - label: POST_FIX
+            sha: 516d712a50950b1f8793a6428970b48d96f837f6
+            expected: pass
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Build exact Client artifact
-        run: npm run build
       - name: Install Chromium trace harness
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Trace one full A to B to A browser session
-        run: node scripts/qa-client-multicontext-root-cause-trace.mjs
+      - name: Build exact target application revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_root="/tmp/rona-multicontext-${{ matrix.label }}"
+          rm -rf "$target_root"
+          git worktree add --detach "$target_root" "${{ matrix.sha }}"
+          cd "$target_root"
+          test "$(git rev-parse HEAD)" = "${{ matrix.sha }}"
+          npm run build
+      - name: Run identical strict A-B-A discriminator
+        shell: bash
+        run: |
+          set -uo pipefail
+          target_root="/tmp/rona-multicontext-${{ matrix.label }}"
+          log="$GITHUB_WORKSPACE/client-multicontext-${{ matrix.label }}.log"
+          cd "$target_root"
+          RONA_TRACE_TARGET_LABEL="${{ matrix.label }}" node "$GITHUB_WORKSPACE/scripts/qa-client-multicontext-root-cause-trace.mjs" >"$log" 2>&1
+          rc=$?
+          set -e
+          cat "$log"
+          if [ "${{ matrix.expected }}" = "fail" ]; then
+            test "$rc" -ne 0
+            grep -F 'FIRST_DIVERGENCE_TRACE_PRE_FIX' "$log"
+            grep -F 'ASSERTION_FAILED' "$log"
+            grep -F 'LEGACY_CONTEXT_OWNER_MISMATCH' "$log"
+            echo 'PRE_FIX_EXPECTED_HARD_FAIL=PASS'
+          else
+            test "$rc" -eq 0
+            grep -F 'POST_FIX_DIVERGENCE=NONE' "$log"
+            grep -F 'ROOT_CAUSE_ASSERTION_SET=PASS' "$log"
+            echo 'POST_FIX_ASSERTION_SET=PASS'
+          fi
+      - name: Upload strict discriminator trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-multicontext-${{ matrix.label }}
+          path: client-multicontext-${{ matrix.label }}.log
+          if-no-files-found: error
