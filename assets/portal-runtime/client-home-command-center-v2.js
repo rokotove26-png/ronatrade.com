@@ -4,22 +4,15 @@ if(window.__RONA_CLIENT_HOME_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_HOME_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
 const OWNER='[data-rona-client-home-owner="command-center-v2"]';
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);
-const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,scheduled:false,observer:null,unsubscribe:null};
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null,renderSignature:''};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
-const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 
-async function request(path){
-  const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-  const b=await r.json().catch(()=>null);
-  if(!r.ok||b?.ok===false)throw new Error(String(b?.code||b?.error?.code||('HTTP_'+r.status)));
-  return b;
-}
 function homeRoot(){
   for(const selector of ['#page-home','#homePage','[data-page-panel="home"]','[data-page-id="home"]']){const el=document.querySelector(selector);if(el)return el}
   let best=null;
@@ -55,9 +48,9 @@ function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
 function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
 async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
 function setHomeState(mode){
-  document.documentElement.setAttribute('data-rona-client-home-state',mode);
-  if(mode==='ready')document.documentElement.setAttribute('data-rona-client-home-ready','true');
-  else document.documentElement.removeAttribute('data-rona-client-home-ready');
+  const root=document.documentElement;if(root.getAttribute('data-rona-client-home-state')!==mode)root.setAttribute('data-rona-client-home-state',mode);
+  if(mode==='ready'){if(root.getAttribute('data-rona-client-home-ready')!=='true')root.setAttribute('data-rona-client-home-ready','true')}
+  else if(root.hasAttribute('data-rona-client-home-ready'))root.removeAttribute('data-rona-client-home-ready');
 }
 function installStyle(){
   if(document.getElementById('rona-client-home-command-center-v2-style'))return;
@@ -97,8 +90,8 @@ function alignOwner(root,owner){
   const parent=owner.parentElement||root,tr=title.getBoundingClientRect(),pr=parent.getBoundingClientRect(),ps=getComputedStyle(parent);
   const contentLeft=pr.left+parseFloat(ps.borderLeftWidth||'0')+parseFloat(ps.paddingLeft||'0');
   const left=Math.max(0,tr.left-contentLeft);
-  owner.style.width=tr.width+'px';owner.style.maxWidth=tr.width+'px';owner.style.marginLeft=left+'px';owner.style.marginRight='0';
-  owner.setAttribute('data-rona-home-canonical-width','title-frame');
+  const width=tr.width+'px',margin=left+'px';if(owner.style.width!==width)owner.style.width=width;if(owner.style.maxWidth!==width)owner.style.maxWidth=width;if(owner.style.marginLeft!==margin)owner.style.marginLeft=margin;if(owner.style.marginRight!=='0px')owner.style.marginRight='0';
+  if(owner.getAttribute('data-rona-home-canonical-width')!=='title-frame')owner.setAttribute('data-rona-home-canonical-width','title-frame');
 }
 function ensureOwner(root){
   installStyle();let owner=root.querySelector(OWNER);if(owner)return owner;
@@ -118,7 +111,7 @@ function hideCardByLeaf(root,text){
       if(decorated(p)&&t.length<2600)chosen=p;
       node=p;
     }
-    chosen.setAttribute('data-rona-home-legacy-hidden','true');
+    if(chosen.getAttribute('data-rona-home-legacy-hidden')!=='true')chosen.setAttribute('data-rona-home-legacy-hidden','true');
   }
 }
 function hideLegacy(root,owner){
@@ -126,19 +119,20 @@ function hideLegacy(root,owner){
   if(titleDirect&&ctxDirect&&titleDirect!==ctxDirect){
     for(const child of [...root.children]){
       if(child===titleDirect||child===ctxDirect||child===owner)continue;
-      child.setAttribute('data-rona-home-legacy-hidden','true');
+      if(child.getAttribute('data-rona-home-legacy-hidden')!=='true')child.setAttribute('data-rona-home-legacy-hidden','true');
     }
   }else{
     for(const label of ['АКТИВНЫЕ СДЕЛКИ','ОПЛАТА','ТЕКУЩИЙ СТАТУС','СЛЕДУЮЩИЙ ШАГ','Компания','Оплата','Цены','Заявки'])hideCardByLeaf(root,label);
   }
-  owner.removeAttribute('data-rona-home-legacy-hidden');
+  if(owner.hasAttribute('data-rona-home-legacy-hidden'))owner.removeAttribute('data-rona-home-legacy-hidden');
 }
 function updateTitleMeta(root,loadedAt){
   const title=titleFrame(root);if(!title)return;
   for(const el of title.querySelectorAll('*')){
-    if(el.childElementCount!==0)continue;const t=norm(el.textContent);
-    if(/^Данные\s+по\s+состоянию\s+на\s+/iu.test(t)||/^Обновлено:/iu.test(t))el.textContent='Обновлено: '+formatDateTime(loadedAt);
-    else if(t.includes('Сводка по выбранной компании: сделки, условия, оплата и ближайшие шаги')||t.includes('Актуальная серверная сводка по выбранной компании и договору'))el.textContent='Центр управления по выбранной компании и договору.';
+    if(el.childElementCount!==0)continue;const t=norm(el.textContent);let next='';
+    if(/^Данные\s+по\s+состоянию\s+на\s+/iu.test(t)||/^Обновлено:/iu.test(t))next='Обновлено: '+formatDateTime(loadedAt);
+    else if(t.includes('Сводка по выбранной компании: сделки, условия, оплата и ближайшие шаги')||t.includes('Актуальная серверная сводка по выбранной компании и договору'))next='Центр управления по выбранной компании и договору.';
+    if(next&&el.textContent!==next)el.textContent=next;
   }
 }
 function formatDate(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('ru-RU')}
@@ -221,15 +215,16 @@ function renderActions(){
   ];
   return `<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Быстрые действия</strong><span class="rona-cc-panel-sub">Переход без дублирования данных</span></div></div><div class="rona-cc-actions">${actions.map(a=>`<button class="rona-cc-action" type="button" data-home-action="section" data-section="${esc(a[2])}">${esc(a[0])}<span>${esc(a[1])}</span></button>`).join('')}</div></section>`;
 }
+function detailSignature(detail,ctx,loadedAt){return contextKey(ctx)+'|'+String(loadedAt)+'|'+JSON.stringify(detail||{})}
 function render(detail,ctx,loadedAt){
   const root=homeRoot();if(!root)return false;const owner=ensureOwner(root);hideLegacy(root,owner);alignOwner(root,owner);updateTitleMeta(root,loadedAt);
+  const signature=detailSignature(detail,ctx,loadedAt);if(state.renderSignature===signature&&owner.isConnected){bindActions(owner);return true}
   const deals=activeDeals(detail);
-  owner.innerHTML=renderLivebar(loadedAt)+renderKpis(deals,detail)+`<div class="rona-cc-main"><div>${renderDeals(deals,detail)}</div><div class="rona-cc-stack">${renderAttention(deals,detail)}${renderActions()}</div></div>`+`<div class="rona-cc-bottom">${renderFinance(deals,detail)}<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Контур управления</strong><span class="rona-cc-panel-sub">Что обновляется автоматически</span></div></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки и ресурс</strong><span>Серверные статусы активных сделок и доступности ресурса.</span></div><div class="rona-cc-alert"><strong>Финансы</strong><span>Суммы обязательств, подтверждённых поступлений и остатка.</span></div><div class="rona-cc-alert"><strong>Контекст</strong><span>При смене компании или договора Главная перестраивается автоматически.</span></div></div></section></div>`;
-  bindActions(owner);return true;
+  const html=renderLivebar(loadedAt)+renderKpis(deals,detail)+`<div class="rona-cc-main"><div>${renderDeals(deals,detail)}</div><div class="rona-cc-stack">${renderAttention(deals,detail)}${renderActions()}</div></div>`+`<div class="rona-cc-bottom">${renderFinance(deals,detail)}<section class="rona-cc-panel"><div class="rona-cc-panel-head"><div><strong class="rona-cc-panel-title">Контур управления</strong><span class="rona-cc-panel-sub">Что обновляется автоматически</span></div></div><div class="rona-cc-attention"><div class="rona-cc-alert"><strong>Сделки и ресурс</strong><span>Серверные статусы активных сделок и доступности ресурса.</span></div><div class="rona-cc-alert"><strong>Финансы</strong><span>Суммы обязательств, подтверждённых поступлений и остатка.</span></div><div class="rona-cc-alert"><strong>Контекст</strong><span>При смене компании или договора Главная перестраивается автоматически.</span></div></div></section></div>`;
+  if(owner.innerHTML!==html)owner.innerHTML=html;state.renderSignature=signature;bindActions(owner);return true;
 }
 function renderContextRequired(){
-  const root=homeRoot();if(!root)return false;const owner=ensureOwner(root);hideLegacy(root,owner);alignOwner(root,owner);
-  owner.innerHTML='<div class="rona-cc-context-required">Выберите компанию и договор в верхней панели. После выбора центр управления загрузится автоматически.</div>';return true;
+  const root=homeRoot();if(!root)return false;const owner=ensureOwner(root);hideLegacy(root,owner);alignOwner(root,owner);const html='<div class="rona-cc-context-required">Выберите компанию и договор в верхней панели. После выбора центр управления загрузится автоматически.</div>';if(state.renderSignature!=='context-required'||owner.innerHTML!==html)owner.innerHTML=html;state.renderSignature='context-required';return true;
 }
 function sectionTrigger(label){
   const candidates=[...document.querySelectorAll('nav a,nav button,aside a,aside button,[role="navigation"] a,[role="navigation"] button')];
@@ -251,39 +246,33 @@ function bindActions(owner){
   if(owner.dataset.ronaHomeActionsBound==='true')return;owner.dataset.ronaHomeActionsBound='true';
   owner.addEventListener('click',e=>{const target=e.target?.closest?.('[data-home-action]');if(!target)return;const action=target.getAttribute('data-home-action');if(action==='deal'){const id=norm(target.getAttribute('data-deal-id'));if(id)openDeal(id)}else if(action==='section'){sectionTrigger(target.getAttribute('data-section'))?.click()}});
 }
-function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0}
-async function load(force=false){
+function clearForContext(ctx){state.activeKey=ctx?contextKey(ctx):'';state.detail=null;state.ctx=ctx||null;state.lastLoad=0;state.renderSignature=''}
+async function load(){
   if(state.loading)return;
   const root=homeRoot();if(!root)return;
   let ctx=null;
   try{ctx=await currentContext()}catch(error){console.error('RONA client home context authority',error);state.detail=null;setHomeState('error');return}
   if(!ctx){clearForContext(null);renderContextRequired();setHomeState('ready');return}
-  const key=contextKey(ctx);
-  if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx,state.lastLoad);setHomeState('ready');return}
+  const key=contextKey(ctx);if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
   state.loading=true;
   try{
-    setHomeState('loading');
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
-    if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
-    state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
+    setHomeState('loading');const authority=contextAuthority();const detail=await authority.whenCurrentProjection('client-home-command-center-v2');
+    if(contextKey(authority.getCurrentContext?.())!==key)return;
+    state.activeKey=key;state.detail=detail||{};state.ctx=ctx;state.lastLoad=Date.now();
     window.__RONA_CLIENT_HOME_STATE__={version:MARK,source:'CURRENT_CONTEXT_HOME_PROJECTION',mode:'COMMAND_CENTER',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_deals:activeDeals(state.detail).map(d=>norm(d?.deal_id)),loaded_at:new Date(state.lastLoad).toISOString()};
     render(state.detail,ctx,state.lastLoad);setHomeState('ready');
   }catch(error){console.error('RONA client home command center projection',error);state.detail=null;setHomeState('error')}
   finally{state.loading=false}
 }
-function schedule(force=false){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load(force)})}
+function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}
+function isHomeNavigation(target){const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}
 function start(){
-  installStyle();setHomeState('loading');
-  const authority=contextAuthority();
-  if(!authority){setHomeState('error');return}
-  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule(true)});
-  schedule(true);
-  state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['class','hidden','aria-selected']});
-  window.addEventListener('pageshow',()=>schedule(true),{passive:true});
+  installStyle();setHomeState('loading');const authority=contextAuthority();if(!authority){setHomeState('error');return}
+  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule()});
+  document.addEventListener('click',event=>{if(isHomeNavigation(event.target))queueMicrotask(schedule)},true);
+  window.addEventListener('rona:client-current-projection',event=>{const d=event?.detail||{};if(contextKey(authority.getCurrentContext?.())===`${norm(d.client_id)}|${norm(d.contract_id)}`)schedule()},{passive:true});
   window.addEventListener('resize',()=>{const root=homeRoot(),owner=root?.querySelector(OWNER);if(root&&owner)alignOwner(root,owner)},{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')schedule(true)});
-  state.timer=window.setInterval(()=>schedule(true),REFRESH_MS);
+  schedule();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
