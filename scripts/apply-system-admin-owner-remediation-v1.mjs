@@ -84,11 +84,12 @@ await write('assets/portal-runtime/client-contract-download-v3.js', company);
 
 // 4) Owner-approved typography: inherited Client type is +10%; Analytics cancels inheritance.
 // Home command center has explicit px type, so scale those declarations deterministically as well.
+// Preserve the production marker because downstream lifecycle attachment validates this production owner identity.
 let homeCommand = await read('assets/portal-runtime/client-home-command-center-v2.js');
 homeCommand = replaceOnce(
   homeCommand,
   "const MARK='20260902-client-home-command-center-v3-current-context';",
-  "const MARK='20260905-client-home-command-center-v4-owner-type-110';",
+  "const MARK='20260902-client-home-command-center-v3-current-context';",
   'HOME_COMMAND_MARKER'
 );
 const homeScaled = scaleExplicitPxTypography(homeCommand, 'HOME_COMMAND_TYPOGRAPHY');
