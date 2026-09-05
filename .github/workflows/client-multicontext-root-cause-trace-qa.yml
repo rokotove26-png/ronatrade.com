@@ -47,6 +47,27 @@ jobs:
           cd "$target_root"
           test "$(git rev-parse HEAD)" = "${{ matrix.sha }}"
           npm run build
+      - name: Classify exact production owner source
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_root="/tmp/rona-multicontext-${{ matrix.label }}"
+          cd "$target_root"
+          node <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('dist/portal/client.html','utf8');
+          const tokens=['applications-projection','data-open-deal','Паспорт сделки','openDeal','dealDrawer','setInterval'];
+          for(const token of tokens){
+            let from=0,count=0;
+            while(count<8){
+              const i=html.indexOf(token,from);if(i<0)break;
+              const excerpt=html.slice(Math.max(0,i-900),Math.min(html.length,i+1400)).replace(/\s+/g,' ');
+              console.log('PRODUCTION_SOURCE_PROBE',JSON.stringify({label:'${{ matrix.label }}',token,index:i,excerpt}));
+              from=i+token.length;count++;
+            }
+            console.log('PRODUCTION_SOURCE_COUNT',JSON.stringify({label:'${{ matrix.label }}',token,count}));
+          }
+          NODE
       - name: Run identical strict A-B-A discriminator
         shell: bash
         run: |
