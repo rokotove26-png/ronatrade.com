@@ -8,6 +8,8 @@ if(location.pathname!=='/portal/client')return;
 const STYLE_ID='rona-client-deal-lifecycle-v1-style';
 const FLOW_ID='rona-deal-realization-flow-v3';
 const ROOT_CLASS='rona-deal-command-center-v3';
+const ATTR_CONTEXT='data-rona-authoritative-context';
+const ATTR_DEAL='data-rona-authoritative-deal-id';
 const DEAL_RE=/^DEAL-\d{4}-\d{3,}$/iu;
 const API='/portal/api';
 const SOURCE='SERVER_AUTHORITATIVE_REALIZATION_V1';
@@ -64,8 +66,8 @@ function installStyle(){
 function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
 function contextKey(c){return `${norm(c?.client_id)}|${norm(c?.contract_id)}`}
 function currentContext(){return contextAuthority()?.getCurrentContext?.()||null}
-function rootContext(root){return norm(root?.dataset?.ronaAuthoritativeContext)}
-function dealId(root){const id=norm(root?.dataset?.ronaAuthoritativeDealId);return DEAL_RE.test(id)?id:''}
+function rootContext(root){return norm(root?.getAttribute?.(ATTR_CONTEXT))}
+function dealId(root){const id=norm(root?.getAttribute?.(ATTR_DEAL));return DEAL_RE.test(id)?id:''}
 function rootIsAuthoritative(root){const ctx=currentContext(),key=contextKey(ctx);return Boolean(ctx&&key&&rootContext(root)===key&&dealId(root))}
 async function getJson(url){const r=await fetch(url,{method:'GET',headers:{accept:'application/json','x-rona-client-deal-lifecycle':'authoritative-v6','x-rona-client-source':'client-deal-lifecycle-v1'},credentials:'same-origin',cache:'no-store'});const body=await r.json().catch(()=>null);if(!r.ok||body?.ok===false)throw new Error(body?.code||`HTTP_${r.status}`);return body}
 let stateByDeal=new Map(),activeContextKey='',refreshPromise=null,loadedOnce=false,loadError=false,scheduled=false,requestSeq=0;
