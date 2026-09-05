@@ -1,0 +1,30 @@
+name: Client multi-context root-cause trace
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  push:
+    branches:
+      - hotfix/client-load-feedback-loop-v1
+
+permissions:
+  contents: read
+
+jobs:
+  multicontext-root-cause-trace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact Client artifact
+        run: npm run build
+      - name: Install Chromium trace harness
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Trace one full A to B to A browser session
+        run: node scripts/qa-client-multicontext-root-cause-trace.mjs
