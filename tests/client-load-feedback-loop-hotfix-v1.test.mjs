@@ -47,11 +47,20 @@ assert.doesNotMatch(deals,/addEventListener\('focus'[^\n]*refresh/);
 assert.match(deals,/state\.observer\.observe\(r,\{childList:true,subtree:true\}\)/);
 assert.match(deals,/function setHidden/);
 assert.match(deals,/CLIENT_CONTEXT_PROJECTION_SCOPE_MISMATCH|contextMatchesPayload/);
-assert.match(deals,/function drawerCloseControl/);
-assert.match(deals,/function backdropDrawer/);
-assert.match(deals,/function closeOtherDrawers/);
-assert.match(deals,/function onKeydown/);
-assert.match(deals,/closeOtherDrawers\(r,'other-drawer'\)/);
+
+// The existing production modal/passport owns open and close. Authoritative code
+// waits for a visible drawer and binds in place; it must never pre-hide the valid
+// drawer. Foreign-context shutdown is delegated to the native close control or
+// native backdrop so an orphan overlay cannot be left behind.
+assert.match(deals,/function nativeCloseControl/);
+assert.match(deals,/function nativeBackdrop/);
+assert.match(deals,/control\.click\(\)/);
+assert.match(deals,/function drawerFor\(id,key\)\{const all=drawers\(\)\.filter\(r=>visible\(r\)/);
+assert.match(deals,/setData\(r,'ronaAuthoritativeBinding','authoritative-binding'\)/);
+assert.doesNotMatch(deals,/closeDrawer\(r,'authoritative-binding'\)/);
+assert.doesNotMatch(deals,/releaseDrawer\(r\)/);
+assert.doesNotMatch(deals,/function drawerCloseControl|function backdropDrawer|function onKeydown|closeOtherDrawers/);
+assert.match(deals,/\.rona-deal-command-center-v3,\[data-rona-deal-passport\]/);
 assert.doesNotMatch(deals,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
 
 // First-paint receives the same projection through its legacy cache contract.
@@ -120,7 +129,7 @@ console.log('DEALS_CONTEXT_SOURCE=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION');
 console.log('DEALS_OWN_CONTEXT_FETCH=NONE');
 console.log('FIRST_PAINT_PROJECTION_CACHE_BRIDGE=NO_FETCH');
 console.log('VISUAL_CONTEXT_BINDING=DIRECT_SELECTED_CONTEXT_SLOTS');
-console.log('DEAL_DRAWER_LIFECYCLE=BACKDROP_CLOSE_X_SINGLE_VISIBLE');
+console.log('DEAL_DRAWER_LIFECYCLE=NATIVE_OPEN_CLOSE_BIND_IN_PLACE');
 console.log('GLOBAL_TEXT_REPLACEMENT=NONE');
 console.log('RAIL_DELTA=NONE');
 console.log('VISUAL_DIFF=NONE_BY_SOURCE_SCOPE');
