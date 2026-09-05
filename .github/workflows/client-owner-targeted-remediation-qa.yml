@@ -1,0 +1,30 @@
+name: Client owner targeted remediation QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [hotfix/client-load-feedback-loop-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  owner-targeted-remediation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact Client candidate
+        run: npm run build
+      - name: Install Chrome browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
+      - name: Prove targeted Owner remediation
+        run: node scripts/qa-client-owner-targeted-remediation-v1.mjs
