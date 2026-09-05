@@ -40,7 +40,7 @@
       version:MARK,owner:'command-center-v2',legacy_dom:'PHYSICALLY_REMOVED',prepaint_max_ms:PREPAINT_MAX_MS,
       degraded_error_owner:true,first_paint_guard:'REUSABLE_FAIL_CLOSED_NEUTRAL',stale_business_visibility:false,
       current_projection_required:true,context_generation_guard:true,context_generation:contextGeneration,
-      projection_confirmed:currentProjectionConfirmed(),reason:norm(reason)||'sync'
+      observer_scope:'HOME_ROOT_ONLY',projection_confirmed:currentProjectionConfirmed(),reason:norm(reason)||'sync'
     };
   }
 
@@ -289,8 +289,8 @@
   }
 
   function onContextEvent(){
-    syncExpectedContext('context-change');
-    markLoading('context-change');
+    if(syncExpectedContext('context-change'))return;
+    if(!currentProjectionConfirmed())markLoading('context-unconfirmed');
   }
 
   function onProjection(event){
@@ -332,8 +332,8 @@
     window.addEventListener('rona:client-context-changed',onContextEvent,{passive:true});
     window.addEventListener('rona:client-context-ready',onContextEvent,{passive:true});
     window.addEventListener('rona:client-current-projection',onProjection,{passive:true});
-    observer=new MutationObserver(enforcePresentationInvariant);
-    observer.observe(document.body,{childList:true,subtree:true});
+    const root=homeRoot();
+    if(root){observer=new MutationObserver(enforcePresentationInvariant);observer.observe(root,{childList:true,subtree:true})}
     homeStateObserver=new MutationObserver(syncPrepaint);
     homeStateObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-rona-client-home-ready','data-rona-client-home-state']});
     window.addEventListener('pageshow',onPageShow,{passive:true});
