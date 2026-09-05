@@ -1,0 +1,29 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-05",
+  "control": "SYSTEM_ADMIN",
+  "scope": "CLIENT_LOADING_HANG_EMERGENCY_FUNCTIONAL_HOTFIX",
+  "base_release": "release/public-go-live-v1.1@4e07ad9f2591c6135e6de651bdaa06bb80a82e78",
+  "reason": "Owner ordered an emergency pinpoint remediation of the authenticated Client Portal loading hang. The approved visual composition, deal-card HTML composition and authoritative business state must remain unchanged. Production must not be switched and the PR must not be merged before SYSTEM_ADMIN control PASS.",
+  "requirements": {
+    "keep_singleflight_v27": true,
+    "break_client_feedback_loop": true,
+    "single_initial_context_projection_owner": true,
+    "archive_messages_non_blocking_home": true,
+    "temporary_client_api_source_tags": true,
+    "strict_current_context_fail_closed": true,
+    "no_new_renderer": true,
+    "no_global_mutation_observer_addition": true,
+    "no_schema_or_rls_change": true,
+    "no_timeout_masking": true,
+    "authenticated_browser_acceptance_required": true,
+    "har_and_cpu_dom_trace_required": true,
+    "visual_css_changed": false,
+    "visual_composition_changed": false,
+    "deal_card_html_composition_changed": false,
+    "business_data_changed": false,
+    "authoritative_business_state_changed": false,
+    "production_switch_before_system_admin_pass": false,
+    "merge_before_system_admin_pass": false
+  }
+}
