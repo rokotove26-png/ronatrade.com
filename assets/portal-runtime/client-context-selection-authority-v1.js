@@ -201,7 +201,7 @@ function declaredSlots(){
 }
 function legacyContextScopes(){
   const out=[];
-  for(const leaf of document.querySelectorAll('body *')){
+  for(const leaf of document.querySelectorAll('div,span,p,small,strong,b,label,h1,h2,h3,h4')){
     if(leaf.childElementCount!==0||!/^выбрана компания$/iu.test(norm(leaf.textContent)))continue;
     let scope=leaf.parentElement;
     for(let depth=0;scope&&scope!==document.body&&depth<6;depth++,scope=scope.parentElement){
