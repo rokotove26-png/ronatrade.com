@@ -6,8 +6,9 @@ if(location.pathname!=='/portal/client')return;
 
 const BOOT='/portal/api/v1/client/bootstrap';
 const API_PREFIX='/portal/api/v1/client/';
+const CONTEXT_ROUTE='/portal/api/v1/client/context';
 const REQUIRED_CONTEXT_ROUTES=new Set([
-  '/portal/api/v1/client/context',
+  CONTEXT_ROUTE,
   '/portal/api/v1/client/prices',
   '/portal/api/v1/client/market',
   '/portal/api/v1/client/deals',
@@ -16,6 +17,15 @@ const REQUIRED_CONTEXT_ROUTES=new Set([
   '/portal/api/v1/client/claims',
   '/portal/api/v1/client/messages',
   '/portal/api/v1/client/archive',
+  '/portal/api/v1/client/shipments',
+  '/portal/api/v1/client/rail'
+]);
+const DIAG_ROUTES=new Set([
+  CONTEXT_ROUTE,
+  '/portal/api/v1/client/messages',
+  '/portal/api/v1/client/archive',
+  '/portal/api/v1/client/prices',
+  '/portal/api/v1/client/market',
   '/portal/api/v1/client/shipments',
   '/portal/api/v1/client/rail'
 ]);
@@ -29,7 +39,8 @@ const REQUIRED_CONTEXT_PREFIXES=[
   '/portal/api/v1/client/archive/'
 ];
 const nativeFetch=window.fetch.bind(window);
-const state={contexts:[],selected:null,loading:null,ready:false,observer:null,queued:false,syncing:false};
+const state={contexts:[],selected:null,loading:null,ready:false,observer:null,queued:false,syncing:false,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},callerMap:[]};
+window.__RONA_CLIENT_CALLER_MAP__=state.callerMap;
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const d=document.documentElement;
@@ -108,9 +119,49 @@ function exposeSelection(){
 }
 function emitSelection(source,force=false){if(!force&&!state.ready)return;window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:detail(source)}))}
 function emitReady(source){window.dispatchEvent(new CustomEvent('rona:client-context-ready',{detail:detail(source)}))}
+function requestHeaders(input,init){return new Headers(init?.headers||(input instanceof Request?input.headers:undefined))}
+function callerSource(input,init){
+  const explicit=requestHeaders(input,init).get('x-rona-client-source');if(explicit)return explicit;
+  const stack=String(new Error().stack||'');
+  const assets=[...stack.matchAll(/\/assets\/portal-runtime\/([^?/:\s]+\.js)/g)].map(m=>m[1]).filter(n=>n!=='client-context-selection-authority-v1.js');
+  if(assets.length)return assets[0];
+  const routes=[...stack.matchAll(/\/portal\/([^?/:\s]+(?:-ui)?)/g)].map(m=>m[1]).filter(Boolean);return routes[0]||'client-context-selection-authority-v1';
+}
+function diagnosticRoute(pathname){return DIAG_ROUTES.has(pathname)}
+function recordCaller(url,source,kind){
+  if(!diagnosticRoute(url.pathname))return;
+  const item={at:new Date().toISOString(),kind,source,route:url.pathname,client_id:url.searchParams.get('clientId')||'',contract_id:url.searchParams.get('contractId')||''};
+  state.callerMap.push(item);if(state.callerMap.length>500)state.callerMap.splice(0,state.callerMap.length-500);
+}
+function taggedInit(input,init,source){const headers=requestHeaders(input,init);if(!headers.has('x-rona-client-source'))headers.set('x-rona-client-source',source);return{...(init||{}),headers}}
+function invalidateProjection(){state.projection.key='';state.projection.promise=null;state.projection.text='';state.projection.json=null;state.projection.status=0;state.projection.statusText='';state.projection.headers=[];state.projection.loadedAt=0}
+function cloneProjection(){const p=state.projection;return new Response(p.text,{status:p.status,statusText:p.statusText,headers:new Headers(p.headers)})}
+function validateProjection(body,ctx){
+  if(!body||body.ok===false||!body.data)throw new Error('CLIENT_CONTEXT_PROJECTION_INVALID');
+  const contract=body.data.contract||{},clientId=norm(contract.client_id),contractId=norm(contract.contract_id);
+  if((clientId&&clientId!==ctx.client_id)||(contractId&&contractId!==ctx.contract_id))throw new Error('CLIENT_CONTEXT_PROJECTION_SCOPE_MISMATCH');
+}
+async function loadCurrentProjection(source='client-context-selection-authority-v1:coordinator'){
+  const ctx=state.selected;if(!ctx)return null;const wanted=key(ctx),p=state.projection;
+  if(p.key===wanted&&p.text&&p.status>=200&&p.status<300)return cloneProjection();
+  if(p.key===wanted&&p.promise){recordCaller(new URL(CONTEXT_ROUTE+`?clientId=${encodeURIComponent(ctx.client_id)}&contractId=${encodeURIComponent(ctx.contract_id)}`,location.origin),source,'join');await p.promise;return cloneProjection()}
+  invalidateProjection();p.key=wanted;
+  const url=new URL(CONTEXT_ROUTE,location.origin);url.searchParams.set('clientId',ctx.client_id);url.searchParams.set('contractId',ctx.contract_id);recordCaller(url,source,'network');
+  p.promise=(async()=>{
+    const response=await nativeFetch(url.pathname+url.search,taggedInit(url.pathname+url.search,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},source));
+    const text=await response.text();const body=JSON.parse(text||'null');if(!response.ok)throw new Error(String(body?.code||`HTTP_${response.status}`));validateProjection(body,ctx);
+    if(key(state.selected)!==wanted)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_PROJECTION');
+    p.text=text;p.json=body;p.status=response.status;p.statusText=response.statusText;p.headers=[...response.headers.entries()];p.loadedAt=Date.now();
+    window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,source,loaded_at:new Date(p.loadedAt).toISOString()}}));
+  })().catch(error=>{if(p.key===wanted)invalidateProjection();throw error}).finally(()=>{if(p.key===wanted)p.promise=null});
+  await p.promise;return cloneProjection();
+}
+function projectionData(){const p=state.projection;if(p.key!==key(state.selected)||!p.json?.data)return null;return JSON.parse(JSON.stringify(p.json.data))}
+function primeProjection(source){if(!state.selected)return;queueMicrotask(()=>loadCurrentProjection(source).catch(error=>console.error('RONA current-context coordinator',error)))}
 function setSelected(ctx,source,emit=true){
   const next=ctx?authorized(ctx):null,before=key(state.selected),after=key(next);
-  state.selected=next;exposeSelection();scheduleSync();
+  state.selected=next;if(before!==after){invalidateProjection();if(next)primeProjection('client-context-selection-authority-v1:context-change')}
+  exposeSelection();scheduleSync();
   if(emit&&before!==after)emitSelection(source,true);
   return next;
 }
@@ -176,7 +227,7 @@ function syncContextScope(scope,ctx){
     if(after!==before)leaf.textContent=after;
   }
   const company=companyCandidate(scope);if(company&&norm(company.textContent)!==display)company.textContent=display;
-  scope.dataset.clientId=ctx.client_id;scope.dataset.contractId=ctx.contract_id;scope.dataset.ronaContextSource='server-session-authority';
+  if(scope.dataset.clientId!==ctx.client_id)scope.dataset.clientId=ctx.client_id;if(scope.dataset.contractId!==ctx.contract_id)scope.dataset.contractId=ctx.contract_id;if(scope.dataset.ronaContextSource!=='server-session-authority')scope.dataset.ronaContextSource='server-session-authority';
 }
 function headerRoots(){
   const out=[document.querySelector('header'),document.querySelector('.topbar'),document.querySelector('[class*="topbar"]')].filter(Boolean);
@@ -191,31 +242,20 @@ function headerRoots(){
   }
   return [...new Set(out.filter(Boolean))];
 }
-function purgeHeaderContractDownload(){
-  for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]')){
-    if(/скачать\s+договор\s+pdf/iu.test(norm(el.textContent)))el.remove();
-  }
-}
-function staleHeaderNames(ctx){
-  const names=[];
-  for(const c of state.contexts){if(key(c)===key(ctx))continue;for(const n of [norm(c.legal_name),companyDisplayName(c)])if(n&&!names.some(x=>low(x)===low(n)))names.push(n)}
-  return names;
-}
+function purgeHeaderContractDownload(){for(const root of headerRoots())for(const el of root.querySelectorAll('button,a,[role="button"]'))if(/скачать\s+договор\s+pdf/iu.test(norm(el.textContent)))el.remove()}
+function staleHeaderNames(ctx){const names=[];for(const c of state.contexts){if(key(c)===key(ctx))continue;for(const n of [norm(c.legal_name),companyDisplayName(c)])if(n&&!names.some(x=>low(x)===low(n)))names.push(n)}return names}
 function syncHeader(ctx){
   const display=companyDisplayName(ctx),contract=ctx.current_external_contract_number||ctx.contract_id,stale=staleHeaderNames(ctx);
   for(const root of headerRoots())for(const leaf of root.querySelectorAll('*')){
     if(leaf.childElementCount!==0||leaf.closest('select,option,button,[data-status],[data-service],[data-access]'))continue;
     const before=norm(leaf.textContent);if(!before)continue;let after=before;
     const titleMatch=before.match(/^(.*?личный кабинет клиента)/iu);
-    if(titleMatch){
-      after=titleMatch[1];
-    }else if(/(?:контракт|договор)/iu.test(before)){
+    if(titleMatch){after=titleMatch[1]}
+    else if(/(?:контракт|договор)/iu.test(before)){
       after=after.replace(CONTRACT_RE,contract).replace(CLIENT_RE,ctx.client_id);
       const pos=after.search(/(?:контракт|договор)/iu);if(pos>0)after=display+' · '+after.slice(pos);
       if(ctx.current_external_contract_number)after=after.replace(/((?:контракт|договор)\s*)номер уточняется/iu,'$1'+ctx.current_external_contract_number);
-    }else{
-      const old=stale.find(name=>low(name)===low(before));if(old)after=display;
-    }
+    }else{const old=stale.find(name=>low(name)===low(before));if(old)after=display}
     if(after!==before)leaf.textContent=after;
   }
   purgeHeaderContractDownload();
@@ -227,6 +267,7 @@ function publish(raw,source='bootstrap'){
   const contexts=(Array.isArray(raw)?raw:[]).map(clean).filter(valid);if(!contexts.length)return false;
   const previous=state.selected;state.contexts=contexts;state.ready=true;
   state.selected=previous&&authorized(previous)||resolveSelection();
+  if(key(previous)!==key(state.selected)){invalidateProjection();if(state.selected)primeProjection('client-context-selection-authority-v1:initial')}
   exposeSelection();scheduleSync();emitReady(source);
   if(key(previous)!==key(state.selected)||!state.selected)emitSelection(source,true);
   return true;
@@ -236,7 +277,7 @@ async function ensure(){
   state.loading=(async()=>{
     const known=window.RONA_CLIENT_SERVER_CONTEXT?.contexts;
     if(Array.isArray(known)&&known.length&&publish(known,'server-context'))return state.contexts;
-    const response=await nativeFetch(BOOT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+    const response=await nativeFetch(BOOT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-source':'client-context-selection-authority-v1:bootstrap'}});
     if(!response.ok)throw new Error('CLIENT_BOOTSTRAP_HTTP_'+response.status);
     const body=await response.json();
     if(body?.ok===false||!publish(body?.data?.contexts,'bootstrap'))throw new Error('CLIENT_CONTEXT_NOT_AUTHORIZED');
@@ -252,10 +293,8 @@ function responseHeaders(response){const headers=new Headers(response.headers);h
 async function scopedBootstrapResponse(response){
   try{
     if(!response?.ok)return response;
-    const body=await response.clone().json();
-    if(body?.ok===false)return response;
-    const rawContexts=body?.data?.contexts;
-    if(!publish(rawContexts,'bootstrap-capture'))return response;
+    const body=await response.clone().json();if(body?.ok===false)return response;
+    const rawContexts=body?.data?.contexts;if(!publish(rawContexts,'bootstrap-capture'))return response;
     const selected=state.selected?{...state.selected}:null;
     const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};
     return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)});
@@ -263,7 +302,8 @@ async function scopedBootstrapResponse(response){
 }
 window.fetch=async function(input,init){
   const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);
-  if(url.pathname===BOOT){const response=await nativeFetch(input,init);return scopedBootstrapResponse(response)}
+  const source=callerSource(input,init);
+  if(url.pathname===BOOT){recordCaller(url,source,'request');const response=await nativeFetch(input,taggedInit(input,init,source));return scopedBootstrapResponse(response)}
   const explicitlyContextual=url.searchParams.has('clientId')||url.searchParams.has('contractId');
   const requiresContext=explicitlyContextual||pathRequiresContext(url.pathname);
   if(!requiresContext)return nativeFetch(input,init);
@@ -271,7 +311,11 @@ window.fetch=async function(input,init){
   if(!state.selected){const dom=resolveSelection();if(dom)setSelected(dom,'selector',true)}
   if(!state.selected)throw new Error('CLIENT_CONTEXT_SELECTION_REQUIRED');
   url.searchParams.set('clientId',state.selected.client_id);url.searchParams.set('contractId',state.selected.contract_id);
-  return nativeFetch(nextUrl(raw,url),init);
+  recordCaller(url,source,'request');
+  if(url.pathname===CONTEXT_ROUTE&&(init?.method===undefined||String(init.method).toUpperCase()==='GET'))return loadCurrentProjection(source);
+  const response=await nativeFetch(nextUrl(raw,url),taggedInit(input,init,source));recordCaller(url,source,'network');
+  if(String(init?.method||'GET').toUpperCase()!=='GET'&&response.ok)invalidateProjection();
+  return response;
 };
 function onChange(event){const select=event.target?.closest?.('#clientContextSelect');if(!select)return;const ctx=contextByValue(select.value,select.selectedOptions?.[0]||null);setSelected(ctx,'selector',true)}
 function subscribe(listener){
@@ -288,6 +332,10 @@ const publicApi=Object.freeze({
   getAuthorizedContexts:()=>state.contexts.map(copy),
   selectionRequired:()=>state.ready&&state.contexts.length>1&&!state.selected,
   select:(clientId,contractId)=>{const ctx=contextByIds(clientId,contractId);if(!ctx)throw new Error('CLIENT_CONTEXT_NOT_AUTHORIZED');return copy(setSelected(ctx,'api',true))},
+  getCurrentProjection:()=>projectionData(),
+  whenCurrentProjection:async(source='public-api')=>{await ensure();if(!state.selected)return null;await loadCurrentProjection('client-context-selection-authority-v1:'+source);return projectionData()},
+  invalidateCurrentProjection:()=>invalidateProjection(),
+  getCallerMap:()=>state.callerMap.map(x=>({...x})),
   subscribe
 });
 window.RONA_CLIENT_CONTEXT=publicApi;
@@ -296,8 +344,8 @@ function startObserver(){if(state.observer||!document.body)return;state.observer
 function start(){
   document.addEventListener('change',onChange,true);
   window.addEventListener('pageshow',scheduleSync,{passive:true});
-  window.addEventListener('rona:client-server-context-ready',()=>ensure().then(scheduleSync).catch(()=>{}));
-  startObserver();ensure().then(()=>{startObserver();scheduleSync()}).catch(error=>console.error('RONA client context selection authority',error));
+  window.addEventListener('rona:client-server-context-ready',()=>ensure().then(()=>{scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:server-ready')}).catch(()=>{}));
+  startObserver();ensure().then(()=>{startObserver();scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:startup')}).catch(error=>console.error('RONA client context selection authority',error));
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
