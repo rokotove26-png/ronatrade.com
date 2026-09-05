@@ -16,8 +16,8 @@
   "exact_post_remediation_blobs": {
     "assets/portal-runtime/client-content-responsive-v1.css": {
       "baseline_blob_sha": "8ca6c903fb700ba412a5a892e533a5f88f739ab8",
-      "authorized_post_blob_sha": "dcf44a686e216bde92d1526c418bb0455291e3f2",
-      "required_marker": "RONA_CLIENT_OWNER_TYPOGRAPHY_110_V1"
+      "authorized_post_blob_sha": "1a0a4bcc1bbf42a071e97f3ffe064915d2d43379",
+      "required_marker": "RONA_CLIENT_OWNER_TYPOGRAPHY_110_V2_REAL_UI"
     },
     "assets/portal-runtime/client-contract-download-v3.js": {
       "baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
