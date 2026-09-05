@@ -12,19 +12,69 @@ permissions:
 jobs:
   owner-targeted-remediation:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Build exact Client candidate
-        run: npm run build
-      - name: Install Chrome browser harness
+      - name: Install real browser harness
         shell: bash
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
-          if command -v google-chrome >/dev/null 2>&1; then google-chrome --version; elif command -v google-chrome-stable >/dev/null 2>&1; then google-chrome-stable --version; else exit 1; fi
-      - name: Prove targeted Owner remediation
-        run: node scripts/qa-client-owner-targeted-remediation-v1.mjs
+          npx playwright install chromium
+      - name: Build production baseline, rejected Owner HEAD, and exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_root=/tmp/rona-owner-retest-base
+          before_root=/tmp/rona-owner-retest-before
+          candidate_root=/tmp/rona-owner-retest-candidate
+          rm -rf "$base_root" "$before_root" "$candidate_root"
+          git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
+          git worktree add --detach "$before_root" 059af411561528621072822bc52d0a1c976385d0
+          candidate_sha='${{ github.event.pull_request.head.sha || github.sha }}'
+          git worktree add --detach "$candidate_root" "$candidate_sha"
+          (cd "$base_root" && npm run build)
+          (cd "$before_root" && npm run build)
+          (cd "$candidate_root" && npm run build)
+          {
+            echo "OWNER_BASE_ROOT=$base_root"
+            echo "OWNER_BEFORE_ROOT=$before_root"
+            echo "OWNER_CANDIDATE_ROOT=$candidate_root"
+            echo "OWNER_CANDIDATE_SHA=$candidate_sha"
+          } >> "$GITHUB_ENV"
+      - name: Prove rejected 059af411 HEAD fails the new real regression
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/owner-retest-before.log"
+          cd "$OWNER_BEFORE_ROOT"
+          set +e
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='BEFORE_059AF411' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v2.mjs" >"$log" 2>&1
+          rc=$?
+          set -e
+          cat "$log"
+          test "$rc" -ne 0
+          grep -F 'ASSERTION_FAILED HOME_REENTRY_READY' "$log"
+          grep -F 'OWNER_RETEST_REGRESSION_RESULT=FAIL' "$log"
+          echo 'OWNER_RETEST_BEFORE_EXPECTED_FAIL=PASS'
+      - name: Prove exact candidate passes the same real regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
+          cd "$OWNER_CANDIDATE_ROOT"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v2.mjs" | tee "$log"
+          grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
+          grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-owner-real-retest-${{ github.run_id }}
+          path: owner-retest-*.log
+          if-no-files-found: error
