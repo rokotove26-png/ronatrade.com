@@ -50,6 +50,8 @@ const dealsLoaderExceptionAuthorized=
   dealsLoaderApproval?.requirements?.unrelated_visual_change===false;
 
 const CLIENT_LOAD_HOTFIX_PR429_FILES=[
+  '.github/workflows/client-home-current-only-qa.yml',
+  '.github/workflows/client-home-stuck-shell-regression-qa.yml',
   '.github/workflows/client-runtime-sanitation-qa.yml',
   'assets/portal-runtime/client-background-section-preload-v1.js',
   'assets/portal-runtime/client-context-selection-authority-v1.js',
@@ -57,12 +59,14 @@ const CLIENT_LOAD_HOTFIX_PR429_FILES=[
   'assets/portal-runtime/client-deal-lifecycle-v1.js',
   'assets/portal-runtime/client-deals-authoritative-v1.js',
   'assets/portal-runtime/client-home-command-center-v2.js',
+  'assets/portal-runtime/client-home-current-only-v1.js',
   'assets/portal-runtime/client-messages-archive-v1.js',
   'assets/portal-runtime/client-price-sync-v1.js',
   'assets/portal-runtime/client-section-first-paint-v1.js',
   'package.json',
   'scripts/attach-client-context-selection-authority-v1.mjs',
   'scripts/attach-client-deals-authoritative-v1.mjs',
+  'scripts/attach-client-home-current-only-v1.mjs',
   'scripts/attach-client-section-first-paint-v1.mjs',
   'scripts/qa-client-context-selection-authority-v1.mjs',
   'scripts/qa-client-current-context-consumers-v1.mjs',
@@ -81,8 +85,10 @@ const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.branch==='hotfix/client-load-feedback-loop-v1'&&
   clientLoadHotfixApproval?.base_commit==='4e07ad9f2591c6135e6de651bdaa06bb80a82e78'&&
   clientLoadHotfixApproval?.functional_head_before_wiring==='d8af6dd2cc41f279b3fc29aa12b423f0472f828f'&&
+  clientLoadHotfixApproval?.home_fix_head_before_wiring==='8a98f6ad4b933fb03fed01138d926f0c45827c97'&&
   clientLoadHotfixApproval?.scope==='CLIENT_LOAD_HOTFIX_PR_429'&&
   clientLoadHotfixApproval?.authorized_delta==='DEALS_CURRENT_PROJECTION_AND_SELECTED_CONTEXT_SLOTS'&&
+  clientLoadHotfixApproval?.authorized_home_delta==='STALE_FAIL_OPEN_HOME_FIX'&&
   exactArray(clientLoadHotfixApproval?.approved_files,CLIENT_LOAD_HOTFIX_PR429_FILES)&&
   exactArray(clientLoadHotfixApproval?.wiring_files,CLIENT_LOAD_HOTFIX_WIRING_FILES)&&
   clientLoadHotfixApproval?.requirements?.visual_freeze_remains_enabled===true&&
@@ -104,6 +110,11 @@ const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.requirements?.global_dom_text_replacement===false&&
   clientLoadHotfixApproval?.requirements?.hardcoded_company_names===false&&
   clientLoadHotfixApproval?.requirements?.sanitation_assertion_updated_to_current_projection_contract===true&&
+  clientLoadHotfixApproval?.requirements?.home_stale_preserved_forbidden===true&&
+  clientLoadHotfixApproval?.requirements?.home_neutral_loading_error_only===true&&
+  clientLoadHotfixApproval?.requirements?.home_context_generation_guard===true&&
+  clientLoadHotfixApproval?.requirements?.home_current_projection_only===true&&
+  clientLoadHotfixApproval?.requirements?.home_loaded_visual_preserved===true&&
   clientLoadHotfixApproval?.requirements?.rail_runtime_changed===false&&
   clientLoadHotfixApproval?.requirements?.production_changed===false&&
   clientLoadHotfixApproval?.requirements?.full_green_ci_required_before_merge===true&&
@@ -181,4 +192,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} visual_css_changed=false`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} visual_css_changed=false`);
