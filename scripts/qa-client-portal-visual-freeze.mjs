@@ -51,6 +51,7 @@ const dealsLoaderExceptionAuthorized=
 
 const CLIENT_LOAD_HOTFIX_PR429_FILES=[
   '.github/workflows/client-home-current-only-qa.yml',
+  '.github/workflows/client-home-live-runtime-qa.yml',
   '.github/workflows/client-home-stuck-shell-regression-qa.yml',
   '.github/workflows/client-runtime-sanitation-qa.yml',
   'assets/portal-runtime/client-background-section-preload-v1.js',
