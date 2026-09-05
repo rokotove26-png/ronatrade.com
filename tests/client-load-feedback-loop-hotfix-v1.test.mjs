@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const read=p=>readFile(p,'utf8');
-const [context,deals,background,messages,prices,dealDocs,lifecycle,rail,home]=await Promise.all([
+const [context,deals,background,messages,prices,dealDocs,lifecycle,home]=await Promise.all([
   read('assets/portal-runtime/client-context-selection-authority-v1.js'),
   read('assets/portal-runtime/client-deals-authoritative-v1.js'),
   read('assets/portal-runtime/client-background-section-preload-v1.js'),
@@ -10,7 +10,6 @@ const [context,deals,background,messages,prices,dealDocs,lifecycle,rail,home]=aw
   read('assets/portal-runtime/client-price-sync-v1.js'),
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-lifecycle-v1.js'),
-  read('functions/portal/client-rail-current-ui.js'),
   read('assets/portal-runtime/client-home-command-center-v2.js')
 ]);
 
@@ -54,11 +53,12 @@ assert.doesNotMatch(lifecycle,/visibilitychange/);
 assert.match(lifecycle,/rona:client:deal-authoritative-detail/);
 assert.match(lifecycle,/client-deal-lifecycle-v1/);
 
-const startTo=rail.match(/const START_TO="([^"]*)";/)?.[1]||'';
-assert.ok(startTo,'Client Rail START_TO contract missing');
-assert.doesNotMatch(startTo,/setInterval/);
-assert.match(rail,/client-rail-current-ui:shipments/);
-assert.match(rail,/client-rail-current-ui:rail/);
+// Rail remains the production runtime. This hotfix must only stop eager Rail
+// loading from the global initial-load path; it must not rewrite Rail internals.
+assert.doesNotMatch(background,/\/v1\/client\/shipments/);
+assert.doesNotMatch(background,/\/v1\/client\/rail/);
+assert.match(context,/\/portal\/api\/v1\/client\/shipments/);
+assert.match(context,/\/portal\/api\/v1\/client\/rail/);
 
 // Home must consume the single current-context coordinator and must not own a
 // self-exciting whole-document MutationObserver or periodic/focus/visibility refresh.
