@@ -46,9 +46,12 @@ for(const token of [
   "guard.media=enabled?'all':'not all'",
   "first_paint_guard:'REUSABLE_FAIL_CLOSED_NEUTRAL'",
   'stale_business_visibility:false',
-  'context_generation_guard:true'
+  'context_generation_guard:true',
+  "observer_scope:'HOME_ROOT_ONLY'",
+  'observer.observe(root,{childList:true,subtree:true})'
 ])if(!runtime.includes(token))throw new Error(`CLIENT_HOME_CURRENT_ONLY_CONTRACT_MISSING: ${token}`);
 if(runtime.includes('stale-preserved'))throw new Error('CLIENT_HOME_STALE_PRESERVED_FORBIDDEN');
+if(runtime.includes('observer.observe(document.body'))throw new Error('CLIENT_HOME_WHOLE_BODY_OBSERVER_FORBIDDEN');
 if(runtime.includes("setAttribute('data-rona-home-legacy-hidden'"))throw new Error('CLIENT_HOME_CURRENT_ONLY_HIDE_ONLY_SANITATION_FORBIDDEN');
 if(runtime.includes('guard.remove()')||runtime.includes('removeFirstPaintGuard'))throw new Error('CLIENT_HOME_CURRENT_ONLY_REUSABLE_GUARD_MUST_NOT_BE_REMOVED');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_CURRENT_ONLY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
@@ -89,6 +92,8 @@ integrity.client_runtime.home_current_only={
   stale_business_visibility:false,
   current_projection_required:true,
   context_generation_guard:true,
+  observer_scope:'HOME_ROOT_ONLY',
+  whole_body_observer:false,
   legacy_clock_tick:'NULL_SAFE_COMPAT',
   reinsertion_policy:'REMOVE_BEFORE_NEXT_PAINT',
   preserves:['HOME_TITLE_FRAME','HOME_CONTEXT_FRAME','COMMAND_CENTER_V2_OWNER','LOADED_HOME_VISUAL_CLASSES'],
@@ -98,4 +103,4 @@ integrity.client_runtime.home_current_only={
 };
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_HOME_CURRENT_ONLY_V1=PASS marker=${marker} src=${src} sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length} stale_business_visibility=false context_generation_guard=true`);
+console.log(`CLIENT_HOME_CURRENT_ONLY_V1=PASS marker=${marker} src=${src} sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length} stale_business_visibility=false context_generation_guard=true observer_scope=HOME_ROOT_ONLY`);
