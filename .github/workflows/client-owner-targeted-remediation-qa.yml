@@ -12,7 +12,7 @@ permissions:
 jobs:
   owner-targeted-remediation:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,7 +55,7 @@ jobs:
           log="$GITHUB_WORKSPACE/owner-retest-before.log"
           cd "$OWNER_BEFORE_ROOT"
           set +e
-          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='BEFORE_059AF411' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v2.mjs" >"$log" 2>&1
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='BEFORE_059AF411' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v3.mjs" >"$log" 2>&1
           rc=$?
           set -e
           cat "$log"
@@ -69,7 +69,7 @@ jobs:
           set -euo pipefail
           log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
           cd "$OWNER_CANDIDATE_ROOT"
-          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v2.mjs" | tee "$log"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v3.mjs" | tee "$log"
           grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
           grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
       - uses: actions/upload-artifact@v4
