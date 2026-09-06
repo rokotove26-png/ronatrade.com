@@ -21,6 +21,9 @@ const docsMarker='20260902-client-deal-documents-v7-current-context';
 const visualMarker='20260830-client-deal-canonical-visual-v2-v9-signed-docs';
 const passportMarker='20260831-client-deal-passport-v2-centered-status';
 const lifecycleMarker='20260905-client-deal-realization-status-v6-strict-authoritative-context';
+const issue432DocsMarker='ISSUE432_DEAL_DOCUMENTS_CENTRAL_PROJECTION_V1';
+const issue432DocsAuthority="authority.whenCurrentProjection('client-deal-documents-v5')";
+const directContextToken='/v1/client/context?clientId=';
 const legacyMarkers={
   __RONA_CLIENT_DEAL_DOCUMENTS_V1__:'20260829-deal-documents-v1-8-full-card-anchor',
   __RONA_CLIENT_DEAL_DOCUMENTS_V2__:'20260829-deal-documents-v2-universal-stable-ui-v3',
@@ -37,8 +40,12 @@ if(!docsRuntime.includes(docsMarker))throw new Error(`CLIENT_DEAL_DOCUMENTS_MARK
 if(!visualRuntime.includes(visualMarker))throw new Error(`CLIENT_DEAL_VISUAL_MARKER_MISSING: ${visualMarker}`);
 if(!passportRuntime.includes(passportMarker))throw new Error(`CLIENT_DEAL_PASSPORT_MARKER_MISSING: ${passportMarker}`);
 if(!lifecycleRuntime.includes(lifecycleMarker))throw new Error(`CLIENT_DEAL_REALIZATION_STATUS_MARKER_MISSING: ${lifecycleMarker}`);
-for(const required of ['RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/context?clientId=','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id'])
+for(const required of ['RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/deal-documents/state?clientId=','sourceUnsignedDocumentId','/signed-addendum','SIGNED_ADDENDUM','supersedes_document_id'])
   if(!docsRuntime.includes(required))throw new Error(`CLIENT_DEAL_DOCUMENTS_GENERIC_FLOW_MISSING: ${required}`);
+if(docsRuntime.includes(issue432DocsMarker)){
+  if(!docsRuntime.includes(issue432DocsAuthority))throw new Error(`CLIENT_DEAL_DOCUMENTS_ISSUE432_AUTHORITY_MISSING: ${issue432DocsAuthority}`);
+  if(docsRuntime.includes(directContextToken))throw new Error(`CLIENT_DEAL_DOCUMENTS_ISSUE432_DIRECT_CONTEXT_FETCH_FORBIDDEN: ${directContextToken}`);
+}else if(!docsRuntime.includes(directContextToken))throw new Error(`CLIENT_DEAL_DOCUMENTS_GENERIC_FLOW_MISSING: ${directContextToken}`);
 if(docsRuntime.includes('/v1/client/bootstrap')||docsRuntime.includes('Promise.all(contexts.map'))throw new Error('CLIENT_DEAL_DOCUMENTS_PARALLEL_CONTEXT_SOURCE_FORBIDDEN');
 for(const required of ['Паспорт сделки','data-rona-command-field','DEAL CONTROL','grid-template-columns:repeat(2','coverage<5','r.height<70','onscreen','passport-only'])
   if(!passportRuntime.includes(required))throw new Error(`CLIENT_DEAL_PASSPORT_GENERIC_UI_MISSING: ${required}`);
