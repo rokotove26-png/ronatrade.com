@@ -147,8 +147,8 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.authorized_post_blob_sha==='1431234cfaa982d4377d5d85683637c2f870f6f3'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.required_marker==='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V2_REAL_UI'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='bf59802cc91e1e223e3bf9a673c85565e119280a'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260905-client-contract-v8-authoritative-company-name-visible'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='2df9c3a413710152ce736e8f2d457ac7bfcb546e'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v9-kpi-typography-owner'&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.client_typography_scale===1.1&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.analytics_effective_scale===1&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.current_company_legal_name_visible===true&&
@@ -158,8 +158,10 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.requirements?.exact_file_enforcement_remains_active===true&&
   ownerVisualDeltaApproval?.requirements?.wildcard_exception===false&&
   ownerVisualDeltaApproval?.requirements?.approved_file_list_is_exact===true&&
-  ownerVisualDeltaApproval?.requirements?.css_delta_only_owner_typography_marker_and_analytics_cancellation===true&&
-  ownerVisualDeltaApproval?.requirements?.company_component_delta_only_authoritative_legal_name_visibility_and_owner_typography===true&&
+  ownerVisualDeltaApproval?.requirements?.css_source_baseline_unchanged===true&&
+  ownerVisualDeltaApproval?.requirements?.company_component_and_global_typography_runtime_exact===true&&
+  ownerVisualDeltaApproval?.requirements?.client_typography_computed_scale_runtime===true&&
+  ownerVisualDeltaApproval?.requirements?.css_zoom_transform_used===false&&
   ownerVisualDeltaApproval?.requirements?.analytics_unchanged_effective_typography===true&&
   ownerVisualDeltaApproval?.requirements?.company_name_fail_closed_if_authoritative_unavailable===true&&
   Array.isArray(ownerVisualDeltaApproval?.system_admin_extension_comment_ids)&&

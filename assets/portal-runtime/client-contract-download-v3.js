@@ -1,5 +1,6 @@
 (()=>{'use strict';
-const MARK='20260904-client-contract-v5-company-directory-authority';
+const MARK='20260906-client-contract-v9-kpi-typography-owner';
+const COMPANY_ALIAS_COMPAT='20260904-client-contract-v6-company-alias-slot-removed';
 const PREVIOUS_MARK='20260902-client-contract-v4-current-context-authority';
 const COMPAT_MARK='20260829-client-contract-v3-authoritative-projection-v5';
 if(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__===MARK)return;
@@ -8,9 +9,14 @@ window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V2__=MARK;
 window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__=MARK;
 
 const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';
-const state={entry:null,loading:false,lastLoad:0,renderTimer:0,currentKey:'',observer:null,rendering:false,unsubscribe:null};
+const state={entry:null,loading:false,pendingImmediate:false,lastLoad:0,renderTimer:0,currentKey:'',observer:null,rendering:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU');
+const upper=v=>norm(v).toUpperCase();
+const CURRENT_DEAL_ID=/^DEAL-\d{4}-\d{3,}$/i;
+const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED']);
+const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
+function currentCompanyMetrics(entry){const applications=Array.isArray(entry?.applications)?entry.applications:[],deals=Array.isArray(entry?.deals)?entry.deals:[],documents=Array.isArray(entry?.documents)?entry.documents:[];return{applications:applications.filter(a=>!norm(a?.deal_id)&&!TERMINAL_APPLICATIONS.has(upper(a?.status))).length,deals:deals.filter(d=>CURRENT_DEAL_ID.test(norm(d?.deal_id))&&!d?.closed_at&&!TERMINAL_DEALS.has(upper(d?.current_status||d?.business_status))).length,documents:documents.length}}
 const GENERIC=new Set(['общество','ограниченной','ответственностью','совместное','предприятие','company','limited','liability','joint','venture','contract','контракт','rona','trade','ооо','осоо','сп','с','llc']);
 const APOSTROPHES="'’‘`´ʼ";
 
@@ -75,15 +81,15 @@ function frozenContexts(){try{if(typeof CLIENT_CONTEXTS!=='undefined'&&CLIENT_CO
 function hydrateFrozenClientModel(entry){
   const model=frozenContexts(),ctx=entry?.context||{},id=norm(ctx.contract_id),num=norm(ctx.current_external_contract_number||ctx.contract_id);if(!model||!id)return 0;
   const row=model[id];if(!row||typeof row!=='object')return 0;
-  row.clientId=norm(ctx.client_id);row.contractId=id;row.companyName=compactLegalName(ctx);row.legalName=norm(ctx.legal_name);row.contractNo=num.replace(/^№\s*/u,'');row.contractDate=formatDate(ctx.effective_from);row.applicationsCount=entry.applications.length;row.dealsCount=entry.deals.length;row.documentsCount=entry.documents.length;row.contractStateBlocked=String(ctx.contract_status||'').toUpperCase()!=='ACTIVE';if(!row.contractStateBlocked&&/уточн/i.test(String(row.status||'')))row.status='Действует';
+  row.clientId=norm(ctx.client_id);row.contractId=id;row.companyName=compactLegalName(ctx);row.legalName=norm(ctx.legal_name);row.contractNo=num.replace(/^№\s*/u,'');row.contractDate=formatDate(ctx.effective_from);const metrics=currentCompanyMetrics(entry);row.applicationsCount=metrics.applications;row.dealsCount=metrics.deals;row.documentsCount=metrics.documents;row.contractStateBlocked=String(ctx.contract_status||'').toUpperCase()!=='ACTIVE';if(!row.contractStateBlocked&&/уточн/i.test(String(row.status||'')))row.status='Действует';
   document.documentElement.dataset.ronaClientContractModel='authoritative';return 1;
 }
 function publishState(){
-  const entry=state.entry,ctx=entry?.context||null;
-  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:entry.applications.length,deals:entry.deals.length,documents:entry.documents.length,current:true}]:[],loadedAt:new Date().toISOString()};
+  const entry=state.entry,ctx=entry?.context||null,metrics=currentCompanyMetrics(entry);
+  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,current:true}]:[],loadedAt:new Date().toISOString()};
 }
 async function refresh(force=false){
-  if(state.loading)return;if(!force&&Date.now()-state.lastLoad<REFRESH_MS){render();return}state.loading=true;
+  if(state.loading){if(force)state.pendingImmediate=true;return}if(!force&&Date.now()-state.lastLoad<REFRESH_MS){render();return}state.loading=true;
   try{
     const authority=await waitForAuthority(),current=authority.getCurrentContext();
     if(!current){state.entry=null;state.currentKey='';state.lastLoad=Date.now();publishState();render();return}
@@ -96,7 +102,7 @@ async function refresh(force=false){
     state.entry.documents=Array.isArray(data.documents)?data.documents:[];
     state.entry.payments=Array.isArray(data.payments)?data.payments:[];
     state.currentKey=key;state.lastLoad=Date.now();hydrateFrozenClientModel(state.entry);publishState();render();
-  }catch(error){console.error('RONA contract current-context projection',error)}finally{state.loading=false}
+  }catch(error){console.error('RONA contract current-context projection',error)}finally{state.loading=false;if(state.pendingImmediate){state.pendingImmediate=false;queueMicrotask(()=>refresh(true))}}
 }
 function ensureStyle(){
   if(document.getElementById(STYLE_ID))return;const s=document.createElement('style');s.id=STYLE_ID;
@@ -124,23 +130,32 @@ function setMetric(card,labelText,value,relabel){
   if(relabel)setNodeText(label,relabel);
   let box=label.parentElement;
   for(let depth=0;box&&box!==card&&depth<3;depth++,box=box.parentElement){
-    const n=leafNodes(box).find(el=>el!==label&&/^\d+$/.test(norm(el.textContent)));
+    const n=leafNodes(box).find(el=>el!==label&&/^(?:\d+|—)$/.test(norm(el.textContent)));
     if(n){setNodeText(n,String(value));return true}
   }
   return false;
 }
-function hideRedundantCompanyAlias(displayLeaf,card){
-  if(!displayLeaf)return false;const main=document.querySelector('main,[role="main"]'),roots=[];let root=card;
-  for(let depth=0;root&&root!==main&&depth<4;depth++,root=root.parentElement)roots.push(root);
-  const displayRect=displayLeaf.getBoundingClientRect(),seen=new Set(),candidates=[];
-  for(const scope of roots)for(const el of scope.querySelectorAll('small,span,strong,div')){
-    if(seen.has(el)||el===displayLeaf||el.childElementCount!==0||!visible(el))continue;seen.add(el);
-    const text=norm(el.textContent);if(!/^[A-Z][A-Z0-9&.' -]{4,}$/u.test(text)||/^RONA-C/u.test(text)||/RONA TRADE/u.test(text)||/CLIENT DIRECTORY/u.test(text))continue;
-    const r=el.getBoundingClientRect(),vertical=displayRect.top-r.bottom,horizontal=Math.abs(r.left-displayRect.left);
-    if(vertical>=-8&&vertical<=90&&horizontal<=220)candidates.push({el,score:vertical+horizontal/8});
+function hideRedundantCompanyAlias(){return false}
+function primeCompanyDirectory(ctx){
+  if(!ctx)return false;const card=findCompanyCard(ctx);if(!card)return false;
+  const display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from);
+  hideRedundantCompanyAlias(card);
+  for(const el of leafNodes(card)){
+    const before=norm(el.textContent),l=low(before);if(!before)continue;
+    if(/^RONA-C\d{3}$/i.test(before)){setNodeText(el,ctx.client_id);continue}
+    if(/^RONA-C\d{3}-CTR-\d{4}-\d{3,}$/i.test(before)){setNodeText(el,ctx.contract_id);continue}
+    if(/^контракт\b/iu.test(before)&&!l.includes('подписанный контракт')&&!l.includes('скач')){setNodeText(el,'Контракт '+external+(effective?' · '+effective:''));continue}
+    if((/^(общество с |ооо\b|осоо\b|llc\b)/iu.test(before)||/[«»]/u.test(before))&&!l.includes('контракт')&&!l.includes('договор')){setNodeText(el,display);continue}
   }
-  candidates.sort((a,b)=>a.score-b.score);const alias=candidates[0]?.el||null;if(!alias)return false;
-  alias.style.setProperty('display','none','important');alias.setAttribute('aria-hidden','true');alias.dataset.ronaRedundantCompanyAlias='hidden';return true;
+  const sameReady=card.dataset.ronaCompanyDirectoryHydration==='ready'&&norm(card.dataset.ronaClientContractId)===norm(ctx.contract_id);
+  if(!sameReady){
+    setMetric(card,'заявок','—');
+    setMetric(card,'сделок','—');
+    if(!setMetric(card,'действий','—','ДОКУМЕНТОВ'))setMetric(card,'документов','—');
+    card.dataset.ronaCompanyDirectoryHydration='pending';
+  }
+  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');
+  return true;
 }
 function syncCompanyCard(entry,card){
   if(!entry||!card)return;const ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
@@ -155,12 +170,12 @@ function syncCompanyCard(entry,card){
       continue;
     }
   }
-  const refreshed=leafNodes(card),displayLeaf=refreshed.find(el=>norm(el.textContent)===display)||null;
-  hideRedundantCompanyAlias(displayLeaf,card);
-  setMetric(card,'заявок',entry.applications.length);
-  setMetric(card,'сделок',entry.deals.length);
-  if(!setMetric(card,'действий',entry.documents.length,'ДОКУМЕНТОВ'))setMetric(card,'документов',entry.documents.length);
-  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource='client-context-api';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
+  hideRedundantCompanyAlias(card);
+  const metrics=currentCompanyMetrics(entry);
+  setMetric(card,'заявок',metrics.applications);
+  setMetric(card,'сделок',metrics.deals);
+  if(!setMetric(card,'действий',metrics.documents,'ДОКУМЕНТОВ'))setMetric(card,'документов',metrics.documents);
+  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource='client-context-api';card.dataset.ronaCompanyDirectoryHydration='ready';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
 }
 const unavailableNode=card=>leafByText(card,t=>t.includes('контракт пока недоступен для скачивания')||t==='контракт недоступен для скачивания'||t.includes('файл подписанного контракта не опубликован в кабинете'));
 const contractAnchor=card=>leafByText(card,t=>t==='подписанный контракт');
@@ -186,18 +201,33 @@ function renderEntry(entry){
   const b=makeButton(entry,unavailable);if(unavailable){unavailable.replaceWith(b);return true}anchor.parentElement.appendChild(b);return true;
 }
 function render(){
-  if(state.rendering)return false;state.rendering=true;try{ensureStyle();const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v5-company-directory-authority';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v5-company-directory-authority';return true}finally{state.rendering=false}
+  if(state.rendering)return false;state.rendering=true;try{ensureStyle();const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}finally{state.rendering=false}
 }
 function scheduleRender(delay=120){clearTimeout(state.renderTimer);state.renderTimer=setTimeout(render,delay)}
+function primeFromAuthority(authority){const current=authority?.getCurrentContext?.();return current?primeCompanyDirectory(current):false}
+function refreshCompanyDirectoryNow(authority,delay=0){setTimeout(()=>{if(!primeFromAuthority(authority))return;refresh(true)},delay)}
 function startObserver(){if(state.observer||!document.documentElement)return;state.observer=new MutationObserver(records=>{if(state.rendering)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'))scheduleRender(80)});state.observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true})}
 async function start(){
   startObserver();
   let authority;try{authority=await waitForAuthority()}catch(error){console.error('RONA contract download: context authority unavailable',error);return}
-  if(typeof authority.subscribe==='function')state.unsubscribe=authority.subscribe(()=>refresh(true));
-  window.addEventListener('rona:client-context-ready',()=>refresh(true));window.addEventListener('rona:client-context-changed',()=>refresh(true));
-  refresh(true);
-  document.addEventListener('click',()=>scheduleRender(140),true);document.addEventListener('change',()=>scheduleRender(80),true);
-  window.addEventListener('pageshow',()=>{scheduleRender(0);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>scheduleRender(80));window.addEventListener('hashchange',()=>scheduleRender(80));setInterval(()=>{if(document.visibilityState==='visible')refresh(true)},REFRESH_MS);
+  primeFromAuthority(authority);
+  if(typeof authority.subscribe==='function')state.unsubscribe=authority.subscribe(()=>{primeFromAuthority(authority);refresh(true)});
+  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});
+  refresh(true);[120,350,900,1800,3200].forEach(delay=>refreshCompanyDirectoryNow(authority,delay));
+  document.addEventListener('click',()=>scheduleRender(140),true);document.addEventListener('click',()=>refreshCompanyDirectoryNow(authority,90),true);document.addEventListener('change',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)},true);
+  window.addEventListener('pageshow',()=>{scheduleRender(0);refreshCompanyDirectoryNow(authority,0);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});window.addEventListener('hashchange',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});setInterval(()=>{if(document.visibilityState==='visible')refresh(true)},REFRESH_MS);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+const OWNER_TYPO_MARK='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED';
+const OWNER_TYPO_SCALE=1.1;
+const OWNER_TYPO_BASE_ATTR='data-rona-owner-typo-base';
+let ownerTypoObserver=null,ownerTypoQueued=false,ownerTypoPending=new Set();
+function ownerTypoExcluded(el){if(!el||el.nodeType!==1)return true;if(el.closest('svg,canvas,picture,img,video,#page-analytics,#analyticsPage,[data-page-panel="analytics"],[data-page-id="analytics"]'))return true;if(el.getAttribute('aria-hidden')==='true')return true;if(/(?:icon|logo|glyph)/i.test(String(el.className||'')))return true;return false}
+function ownerTypoDirectText(el){if(ownerTypoExcluded(el)||el.matches('script,style,link,meta,template,noscript'))return false;if(el.matches('input,select,textarea,button,option'))return true;for(const node of el.childNodes){if(node.nodeType!==Node.TEXT_NODE)continue;const text=norm(node.textContent);if(!text)continue;if(text.length===1&&!/[A-Za-zА-Яа-яЁё0-9]/u.test(text))continue;return true}return false}
+function ownerTypoTargets(root){if(!root||root.nodeType!==1)return[];const nodes=[root,...root.querySelectorAll('*')];return nodes.filter(el=>!el.hasAttribute(OWNER_TYPO_BASE_ATTR)&&ownerTypoDirectText(el))}
+function ownerTypoApply(targets){const items=[...new Set(targets)].filter(el=>el?.isConnected&&!el.hasAttribute(OWNER_TYPO_BASE_ATTR)&&ownerTypoDirectText(el));if(!items.length)return 0;const restore=new Map();for(const el of items){for(let p=el.parentElement;p;p=p.parentElement){if(!p.hasAttribute(OWNER_TYPO_BASE_ATTR)||restore.has(p))continue;const base=Number(p.getAttribute(OWNER_TYPO_BASE_ATTR));if(!Number.isFinite(base)||base<=0)continue;restore.set(p,{value:p.style.getPropertyValue('font-size'),priority:p.style.getPropertyPriority('font-size')});p.style.setProperty('font-size',`${base}px`,'important')}}const baselines=items.map(el=>parseFloat(getComputedStyle(el).fontSize));for(const [el,old] of restore){if(old.value)el.style.setProperty('font-size',old.value,old.priority);else el.style.removeProperty('font-size')}let applied=0;items.forEach((el,index)=>{const base=baselines[index];if(!Number.isFinite(base)||base<=0)return;const scaled=Math.round(base*OWNER_TYPO_SCALE*10000)/10000;el.setAttribute(OWNER_TYPO_BASE_ATTR,String(base));el.setAttribute('data-rona-owner-typo-scaled','1.10');el.style.setProperty('font-size',`${scaled}px`,'important');applied++});document.documentElement.dataset.ronaClientOwnerTypography=OWNER_TYPO_MARK;return applied}
+function ownerTypoFlush(){ownerTypoQueued=false;const roots=[...ownerTypoPending];ownerTypoPending.clear();const targets=[];for(const root of roots)targets.push(...ownerTypoTargets(root));ownerTypoApply(targets)}
+function ownerTypoQueue(root){if(root?.nodeType===1)ownerTypoPending.add(root);if(ownerTypoQueued)return;ownerTypoQueued=true;queueMicrotask(ownerTypoFlush)}
+function startOwnerTypography(){if(!document.body)return;ownerTypoApply(ownerTypoTargets(document.body));if(ownerTypoObserver)return;ownerTypoObserver=new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1)ownerTypoQueue(node)});ownerTypoObserver.observe(document.body,{childList:true,subtree:true});window.RONA_CLIENT_OWNER_TYPOGRAPHY=Object.freeze({version:OWNER_TYPO_MARK,scale:OWNER_TYPO_SCALE,rescan:()=>ownerTypoApply(ownerTypoTargets(document.body))})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',startOwnerTypography,{once:true});else startOwnerTypography();
 })();

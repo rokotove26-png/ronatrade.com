@@ -265,7 +265,7 @@ async function load(){
   finally{state.loading=false}
 }
 function schedule(){if(state.scheduled)return;state.scheduled=true;requestAnimationFrame(()=>{state.scheduled=false;if(homeRoot())load()})}
-function isHomeNavigation(target){const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}
+function isHomeNavigation(target){const explicit=target?.closest?.('[data-page="home"],[data-page-link="home"]');if(explicit)return true;const el=target?.closest?.('a,button,[role="tab"],[role="menuitem"]');return /^Главная$/iu.test(norm(el?.textContent))}
 function start(){
   installStyle();setHomeState('loading');const authority=contextAuthority();if(!authority){setHomeState('error');return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';if(key!==state.activeKey)clearForContext(ctx);schedule()});

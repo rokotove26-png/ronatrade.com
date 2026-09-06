@@ -24,15 +24,16 @@
     },
     "assets/portal-runtime/client-contract-download-v3.js": {
       "baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
-      "authorized_post_blob_sha": "bf59802cc91e1e223e3bf9a673c85565e119280a",
-      "required_marker": "20260905-client-contract-v8-authoritative-company-name-visible"
+      "authorized_post_blob_sha": "2df9c3a413710152ce736e8f2d457ac7bfcb546e",
+      "required_marker": "20260906-client-contract-v9-kpi-typography-owner"
     }
   },
   "authorized_visual_delta": {
     "client_typography_scale": 1.1,
     "analytics_effective_scale": 1.0,
     "current_company_legal_name_visible": true,
-    "company_name_source": "SELECTED_CLIENT_ID_CONTRACT_ID_AUTHORITATIVE_CONTEXT"
+    "company_name_source": "SELECTED_CLIENT_ID_CONTRACT_ID_AUTHORITATIVE_CONTEXT",
+    "typography_runtime": "RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED"
   },
   "requirements": {
     "visual_freeze_status_frozen": true,
@@ -40,8 +41,8 @@
     "exact_file_enforcement_remains_active": true,
     "wildcard_exception": false,
     "approved_file_list_is_exact": true,
-    "css_delta_only_owner_typography_marker_and_analytics_cancellation": true,
-    "company_component_delta_only_authoritative_legal_name_visibility_and_owner_typography": true,
+    "css_delta_only_owner_typography_marker_and_analytics_cancellation": false,
+    "company_component_delta_only_authoritative_legal_name_visibility_and_owner_typography": false,
     "analytics_unchanged_effective_typography": true,
     "company_name_fail_closed_if_authoritative_unavailable": true,
     "global_dom_text_replacement": false,
@@ -52,7 +53,11 @@
     "production_changed": false,
     "merge_before_acceptance": false,
     "company_kpi_uses_client_applications_live_render_predicate": true,
-    "company_kpi_uses_client_deals_authoritative_predicate": true
+    "company_kpi_uses_client_deals_authoritative_predicate": true,
+    "css_source_baseline_unchanged": true,
+    "company_component_and_global_typography_runtime_exact": true,
+    "client_typography_computed_scale_runtime": true,
+    "css_zoom_transform_used": false
   },
   "system_admin_extension_comment_ids": [
     5558876637,

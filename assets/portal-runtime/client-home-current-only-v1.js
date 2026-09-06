@@ -1,7 +1,7 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260905-client-home-current-only-v1-fail-closed-generation-v7';
+  const MARK='20260905-client-home-current-only-v1-fail-closed-generation-v8-startup-ready-preserve';
   if(window.__RONA_CLIENT_HOME_CURRENT_ONLY__===MARK)return;
   window.__RONA_CLIENT_HOME_CURRENT_ONLY__=MARK;
 
@@ -324,8 +324,16 @@
   function start(){
     expectedContextKey=selectedContextKey();
     confirmedProjectionKey=projectionKey()===expectedContextKey?expectedContextKey:'';
-    resetBeforeHomePaint();
-    purgeLegacy();
+    const html=document.documentElement;
+    const startupCurrentReady=(html.getAttribute('data-rona-client-home-ready')==='true'||html.getAttribute('data-rona-client-home-state')==='ready')&&readyBelongsToCurrentGeneration();
+    if(startupCurrentReady){
+      clearNeutralState();
+      purgeLegacy();
+      releasePrepaint('startup-current-ready');
+    }else{
+      resetBeforeHomePaint();
+      purgeLegacy();
+    }
     document.addEventListener('pointerdown',prepaint,true);
     document.addEventListener('mousedown',prepaint,true);
     document.addEventListener('click',prepaint,true);
