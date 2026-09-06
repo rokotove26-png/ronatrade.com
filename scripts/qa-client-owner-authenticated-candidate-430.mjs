@@ -4,10 +4,12 @@ import { chromium } from 'playwright';
 const REPO=process.env.GITHUB_REPOSITORY||'rokotove26-png/ronatrade.com';
 const HEAD=String(process.env.RONA_EXACT_HEAD||process.env.GITHUB_SHA||'').trim();
 const GH_TOKEN=String(process.env.RONA_GITHUB_TOKEN||'').trim();
-const ISSUER=String(process.env.RONA_QA_ISSUER_URL||'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-inline-auth-qa-credential-20260816').trim();
+const ISSUER=String(process.env.RONA_QA_ISSUER_URL||'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-pr431-client-session-qa-20260907').trim();
 const OIDC_AUDIENCE=String(process.env.RONA_OIDC_AUDIENCE||'rona-pr431-client-qa').trim();
+const EXPECTED_BACKEND='PR429_EXISTING_CANDIDATE_SLOT';
 const ARTIFACT='issue430-real-authenticated-candidate-proof.json';
 if(!/^[0-9a-f]{40}$/i.test(HEAD))throw new Error('EXACT_HEAD_REQUIRED');
+if(!GH_TOKEN)throw new Error('GITHUB_TOKEN_REQUIRED');
 if(!ISSUER.startsWith('https://'))throw new Error('QA_ISSUER_URL_REQUIRED');
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -16,8 +18,7 @@ const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const safeUrl=u=>{const x=new URL(u);return `${x.pathname}${x.search}`};
 
 async function githubJson(path){
-  const headers={accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'};
-  if(GH_TOKEN)headers.authorization=`Bearer ${GH_TOKEN}`;
+  const headers={accept:'application/vnd.github+json','x-github-api-version':'2022-11-28',authorization:`Bearer ${GH_TOKEN}`};
   const r=await fetch(`https://api.github.com/repos/${REPO}${path}`,{headers});
   if(!r.ok)throw new Error(`GITHUB_HTTP_${r.status}`);
   return r.json();
@@ -51,6 +52,13 @@ async function issueSession(oidc,target){
   const access=String(body.access_token),refresh=String(body.refresh_token);
   console.log(`::add-mask::${access}`);console.log(`::add-mask::${refresh}`);
   return{access,refresh};
+}
+async function cleanupSession(oidc,target,session){
+  const endpoint=`${ISSUER.replace(/\/+$/,'')}/cleanup`;
+  const r=await fetch(endpoint,{method:'POST',headers:{authorization:`Bearer ${oidc}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({clientId:target.clientId,contractId:target.contractId,accessToken:session.access})});
+  const body=await r.json().catch(()=>null);
+  if(!r.ok||body?.ok!==true||body?.cleanup!=='REVOKED')throw new Error(`QA_SESSION_CLEANUP_${target.key}_HTTP_${r.status}_${String(body?.code||'INVALID_RESPONSE')}`);
+  return{revoked:true};
 }
 function targetDealFromPayload(payload,dealId){
   const deals=Array.isArray(payload?.data?.deals)?payload.data.deals:[];
@@ -110,7 +118,6 @@ async function pendingCompanyMetrics(page,target){
 async function foreignDomProof(page,target,foreignIds){
   return page.evaluate(({target,foreignIds})=>{const seen=[...document.querySelectorAll('[data-rona-client-id]')].map(x=>String(x.getAttribute('data-rona-client-id')||'')).filter(Boolean);const body=String(document.body?.innerText||'');return{data_client_ids:[...new Set(seen)],foreign_data_attribute:seen.some(x=>x!==target.clientId),foreign_identifier_text:foreignIds.some(x=>body.includes(x))};},{target,foreignIds});
 }
-async function logout(page){try{await page.evaluate(()=>fetch('/portal/logout',{method:'POST',credentials:'same-origin',headers:{accept:'application/json'}}).then(()=>true).catch(()=>false));}catch{}}
 
 const preview=await exactPreview();
 console.log(`IMMUTABLE_PREVIEW=${preview.origin}/portal/client`);
@@ -121,57 +128,64 @@ const targets=[
   {key:'C003',clientId:'RONA-C003',contractId:'RONA-C003-CTR-2026-001'},
   {key:'C004',clientId:'RONA-C004',contractId:'RONA-C004-CTR-2026-001',dealId:'DEAL-2026-007',amount:113500,currency:'USD',source:'FINALIZED_APPLICATION_COMMERCIAL_TERMS',applicationId:'RONA-C004-IN-2026-004'}
 ];
-const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V1',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,targets:{}};
+const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V2',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
 try{
   for(const target of targets){
     const session=await issueSession(oidc,target);
     const host=new URL(preview.origin).hostname;
     const context=await browser.newContext();
-    await context.addCookies([
-      {name:'rona_portal_at',value:session.access,domain:host,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
-      {name:'rona_portal_rt',value:session.refresh,domain:host,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}
-    ]);
-    const page=await context.newPage();
-    let apiEvidence=null,delayedResolve=null,delayed=false;
-    const delayedStarted=new Promise(resolve=>{delayedResolve=resolve});
-    if(target.key==='C003'){
-      await page.route('**/portal/api/v1/client/context?*',async route=>{const u=new URL(route.request().url());if(!delayed&&u.searchParams.get('clientId')===target.clientId&&u.searchParams.get('contractId')===target.contractId){delayed=true;delayedResolve();await sleep(3000)}await route.continue()});
+    try{
+      await context.addCookies([
+        {name:'rona_portal_at',value:session.access,domain:host,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
+        {name:'rona_portal_rt',value:session.refresh,domain:host,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'}
+      ]);
+      const page=await context.newPage();
+      let apiEvidence=null,delayedResolve=null,delayed=false;
+      const delayedStarted=new Promise(resolve=>{delayedResolve=resolve});
+      if(target.key==='C003'){
+        await page.route('**/portal/api/v1/client/context?*',async route=>{const u=new URL(route.request().url());if(!delayed&&u.searchParams.get('clientId')===target.clientId&&u.searchParams.get('contractId')===target.contractId){delayed=true;delayedResolve();await sleep(3000)}await route.continue()});
+      }
+      page.on('response',async response=>{try{const u=new URL(response.url());if(u.origin!==preview.origin||u.pathname!=='/portal/api/v1/client/context')return;if(u.searchParams.get('clientId')!==target.clientId||u.searchParams.get('contractId')!==target.contractId)return;const body=await response.json().catch(()=>null);if(body?.data?.contract?.client_id===target.clientId&&body?.data?.contract?.contract_id===target.contractId)apiEvidence=sanitizedApi(body,response,target)}catch{}});
+      const navPromise=page.goto(`${preview.origin}/portal/client`,{waitUntil:'domcontentloaded',timeout:30000});
+      if(target.key==='C003'){
+        await Promise.race([delayedStarted,(async()=>{await sleep(10000);throw new Error('C003_REAL_CONTEXT_DELAY_NOT_TRIGGERED')})()]);
+        await navPromise;
+        const pending=await pendingCompanyMetrics(page,target);
+        if(pending.hydration!=='pending'||pending.applications!=='—'||pending.deals!=='—'||pending.documents!=='—')throw new Error(`C003_FAIL_CLOSED_PENDING_MISMATCH_${JSON.stringify(pending)}`);
+        proof.targets.C003={fail_closed_before_real_response:pending};
+      }else await navPromise;
+      if(!page.url().startsWith(`${preview.origin}/portal/client`))throw new Error(`${target.key}_AUTHENTICATED_PORTAL_REDIRECTED`);
+      await ensureExactContext(page,target);
+      for(let i=0;i<60&&!apiEvidence;i++)await sleep(100);
+      if(!apiEvidence)throw new Error(`${target.key}_REAL_CONTEXT_RESPONSE_NOT_CAPTURED`);
+      if(apiEvidence.http_status!==200||apiEvidence.client_id!==target.clientId||apiEvidence.contract_id!==target.contractId)throw new Error(`${target.key}_REAL_CONTEXT_SCOPE_FAIL`);
+      if(apiEvidence.backend_header!==EXPECTED_BACKEND)throw new Error(`${target.key}_CANDIDATE_BOUNDARY_FAIL_${String(apiEvidence.backend_header||'MISSING')}`);
+      const runtime=await page.evaluate(()=>({deals:String(window.__RONA_CLIENT_DEALS_AUTHORITATIVE__||''),company:String(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__||''),context:String(window.__RONA_CLIENT_CONTEXT_SELECTION_AUTHORITY__||window.__RONA_CLIENT_CONTEXT_AUTHORITY__||'')}));
+      if(target.key==='C002'||target.key==='C004'){
+        const d=apiEvidence.deal;if(!d||Number(d.passport_amount)!==target.amount||d.passport_currency!==target.currency||d.passport_amount_source!==target.source||d.passport_application_id!==target.applicationId)throw new Error(`${target.key}_REAL_API_PASSPORT_MISMATCH_${JSON.stringify(d)}`);
+        const dom=await dealDomProof(page,target,target.amount);
+        proof.targets[target.key]={api:apiEvidence,dom,runtime};
+      }else{
+        const m=apiEvidence.company_metrics;if(!m||Number(m.applications_total)!==2||Number(m.deals_total)!==2||Number(m.documents_total)!==5||m.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||m.documents_predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`C003_REAL_API_KPI_MISMATCH_${JSON.stringify(m)}`);
+        const dom=await companyMetrics(page,target);
+        if(dom.applications!=='2'||dom.deals!=='2'||dom.documents!=='5'||dom.hydration!=='ready'||dom.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||dom.predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`C003_REAL_DOM_KPI_MISMATCH_${JSON.stringify(dom)}`);
+        proof.targets.C003={...proof.targets.C003,api:apiEvidence,dom,runtime};
+      }
+      const foreignIds=targets.filter(x=>x.key!==target.key).map(x=>x.clientId);
+      const foreign=await foreignDomProof(page,target,foreignIds);
+      if(foreign.foreign_data_attribute||foreign.foreign_identifier_text)throw new Error(`${target.key}_FOREIGN_CLIENT_DOM_PRESENT_${JSON.stringify(foreign)}`);
+      proof.targets[target.key].foreign_dom=foreign;
+    }finally{
+      await context.close().catch(()=>{});
+      const cleanup=await cleanupSession(oidc,target,session);
+      proof.targets[target.key]={...(proof.targets[target.key]||{}),session_cleanup:cleanup};
     }
-    page.on('response',async response=>{try{const u=new URL(response.url());if(u.origin!==preview.origin||u.pathname!=='/portal/api/v1/client/context')return;if(u.searchParams.get('clientId')!==target.clientId||u.searchParams.get('contractId')!==target.contractId)return;const body=await response.json().catch(()=>null);if(body?.data?.contract?.client_id===target.clientId&&body?.data?.contract?.contract_id===target.contractId)apiEvidence=sanitizedApi(body,response,target)}catch{}});
-    const navPromise=page.goto(`${preview.origin}/portal/client`,{waitUntil:'domcontentloaded',timeout:30000});
-    if(target.key==='C003'){
-      await Promise.race([delayedStarted,(async()=>{await sleep(10000);throw new Error('C003_REAL_CONTEXT_DELAY_NOT_TRIGGERED')})()]);
-      await navPromise;
-      const pending=await pendingCompanyMetrics(page,target);
-      if(pending.hydration!=='pending'||pending.applications!=='—'||pending.deals!=='—'||pending.documents!=='—')throw new Error(`C003_FAIL_CLOSED_PENDING_MISMATCH_${JSON.stringify(pending)}`);
-      proof.targets.C003={fail_closed_before_real_response:pending};
-    }else await navPromise;
-    if(!page.url().startsWith(`${preview.origin}/portal/client`))throw new Error(`${target.key}_AUTHENTICATED_PORTAL_REDIRECTED`);
-    await ensureExactContext(page,target);
-    for(let i=0;i<60&&!apiEvidence;i++)await sleep(100);
-    if(!apiEvidence)throw new Error(`${target.key}_REAL_CONTEXT_RESPONSE_NOT_CAPTURED`);
-    if(apiEvidence.http_status!==200||apiEvidence.client_id!==target.clientId||apiEvidence.contract_id!==target.contractId)throw new Error(`${target.key}_REAL_CONTEXT_SCOPE_FAIL`);
-    const runtime=await page.evaluate(()=>({deals:String(window.__RONA_CLIENT_DEALS_AUTHORITATIVE__||''),company:String(window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__||''),context:String(window.__RONA_CLIENT_CONTEXT_SELECTION_AUTHORITY__||window.__RONA_CLIENT_CONTEXT_AUTHORITY__||'')}));
-    if(target.key==='C002'||target.key==='C004'){
-      const d=apiEvidence.deal;if(!d||Number(d.passport_amount)!==target.amount||d.passport_currency!==target.currency||d.passport_amount_source!==target.source||d.passport_application_id!==target.applicationId)throw new Error(`${target.key}_REAL_API_PASSPORT_MISMATCH_${JSON.stringify(d)}`);
-      const dom=await dealDomProof(page,target,target.amount);
-      proof.targets[target.key]={api:apiEvidence,dom,runtime};
-    }else{
-      const m=apiEvidence.company_metrics;if(!m||Number(m.applications_total)!==2||Number(m.deals_total)!==2||Number(m.documents_total)!==5||m.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||m.documents_predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`C003_REAL_API_KPI_MISMATCH_${JSON.stringify(m)}`);
-      const dom=await companyMetrics(page,target);
-      if(dom.applications!=='2'||dom.deals!=='2'||dom.documents!=='5'||dom.hydration!=='ready'||dom.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||dom.predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`C003_REAL_DOM_KPI_MISMATCH_${JSON.stringify(dom)}`);
-      proof.targets.C003={...proof.targets.C003,api:apiEvidence,dom,runtime};
-    }
-    const foreignIds=targets.filter(x=>x.key!==target.key).map(x=>x.clientId);
-    const foreign=await foreignDomProof(page,target,foreignIds);
-    if(foreign.foreign_data_attribute||foreign.foreign_identifier_text)throw new Error(`${target.key}_FOREIGN_CLIENT_DOM_PRESENT_${JSON.stringify(foreign)}`);
-    proof.targets[target.key].foreign_dom=foreign;
-    await logout(page);await context.close();
   }
 }finally{await browser.close()}
 
 await writeFile(ARTIFACT,JSON.stringify(proof,null,2)+'\n','utf8');
 console.log('ISSUE430_REAL_AUTH_CANDIDATE=PASS');
+console.log(`CANDIDATE_BOUNDARY=${proof.targets.C002.api.backend_header}`);
 console.log(`C002_REAL_API=passport_amount:${proof.targets.C002.api.deal.passport_amount} currency:${proof.targets.C002.api.deal.passport_currency} source:${proof.targets.C002.api.deal.passport_amount_source} application:${proof.targets.C002.api.deal.passport_application_id}`);
 console.log('C002_REAL_DOM_CARD=236250 USD');
 console.log('C002_REAL_DOM_PASSPORT=236250 USD');
@@ -179,5 +193,7 @@ console.log(`C003_REAL_FAIL_CLOSED=${proof.targets.C003.fail_closed_before_real_
 console.log('C003_REAL_API_KPI=2/2/5');
 console.log('C003_REAL_DOM_KPI=2/2/5');
 console.log(`C004_REAL_API_PASSPORT=${proof.targets.C004.api.deal.passport_amount} ${proof.targets.C004.api.deal.passport_currency}`);
+console.log('C004_REAL_DOM_CARD=113500 USD');
 console.log('C004_REAL_DOM_PASSPORT=113500 USD');
 console.log('STALE_FOREIGN_DOM=ABSENT');
+console.log('QA_SESSION_CLEANUP=PASS');
