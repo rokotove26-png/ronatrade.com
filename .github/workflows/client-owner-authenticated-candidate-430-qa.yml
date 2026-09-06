@@ -1,0 +1,51 @@
+name: Client Owner authenticated candidate QA 430
+
+on:
+  push:
+    branches: [hotfix/client-multiclient-parity-430-v1]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  authenticated-candidate-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install real browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Prove exact immutable preview with real authenticated Client sessions
+        shell: bash
+        env:
+          RONA_EXACT_HEAD: ${{ github.sha }}
+          RONA_OIDC_AUDIENCE: rona-pr431-client-qa
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-owner-authenticated-candidate-430.mjs | tee issue430-real-authenticated-candidate.log
+          grep -F 'ISSUE430_REAL_AUTH_CANDIDATE=PASS' issue430-real-authenticated-candidate.log
+          grep -F 'C002_REAL_DOM_CARD=236250 USD' issue430-real-authenticated-candidate.log
+          grep -F 'C002_REAL_DOM_PASSPORT=236250 USD' issue430-real-authenticated-candidate.log
+          grep -F 'C003_REAL_API_KPI=2/2/5' issue430-real-authenticated-candidate.log
+          grep -F 'C003_REAL_DOM_KPI=2/2/5' issue430-real-authenticated-candidate.log
+          grep -F 'C004_REAL_DOM_PASSPORT=113500 USD' issue430-real-authenticated-candidate.log
+          grep -F 'STALE_FOREIGN_DOM=ABSENT' issue430-real-authenticated-candidate.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue430-real-authenticated-candidate-${{ github.run_id }}
+          path: |
+            issue430-real-authenticated-candidate-proof.json
+            issue430-real-authenticated-candidate.log
+          if-no-files-found: warn
