@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 
-const BASE='9797f7c7c5e8a003eaa19c520f4328a2001d5ce7';
+const BASE='fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18';
 const HISTORICAL_PR429_GOVERNANCE='governance/client-load-hotfix-pr429-owner-approval-20260905.json';
 const bootstrap=await readFile('supabase/functions/rona-portal-api/bootstrap.ts','utf8');
 const runtime=await readFile('assets/portal-runtime/client-contract-download-v3.js','utf8');
