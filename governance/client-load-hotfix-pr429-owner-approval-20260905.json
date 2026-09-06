@@ -71,7 +71,8 @@
     "system_admin_review_required_before_merge": true,
     "authenticated_client_verification_required_before_merge": true,
     "production_deploy_before_acceptance": false,
-    "merge_before_acceptance": false
+    "merge_before_acceptance": false,
+    "expires_on_hotfix_completion": true
   },
   "expires_on_hotfix_completion": true
 }
