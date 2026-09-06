@@ -41,13 +41,19 @@ for(const token of [
   'where cl.client_id=${requestClientId}',
   'and ct.contract_id=${requestContractId}',
   'const byDeal = new Map(rows.filter((r:any)=>r.deal_id)',
-  "headers.set('x-rona-client-context-enrichment','prod-incident-430-v2-context-scoped-deals')"
+  "headers.set('x-rona-client-context-enrichment','prod-incident-430-v3-context-scoped-deals-owner-kpi')"
 ]) requireText(bootstrap,token,'C002_REAL_BOUNDARY_CONTEXT_SCOPED_ENRICHMENT');
 for(const token of [
   'where a.application_id in (select value from jsonb_array_elements_text(',
   'const ids = applications.map',
   'JSON.stringify(ids)'
 ]) forbidText(bootstrap,token,'C002_OLD_APPLICATION_LIST_SEEDED_ENRICHMENT');
+
+// Owner-established KPI counts the two authoritative C003 applications even though
+// DEAL_REGISTERED application records are archived after becoming deals. Do not
+// reintroduce ACTIVE-only application semantics (the prior defect was 0 instead of 2).
+requireText(bootstrap,'where cl.client_id=${requestClientId} and ct.contract_id=${requestContractId}) as applications_total,','C003_APPLICATION_TOTAL_OWNER_SEMANTICS');
+forbidText(bootstrap,"where cl.client_id=${requestClientId} and ct.contract_id=${requestContractId}\n                  and a.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum) as applications_total",'C003_ACTIVE_ONLY_APPLICATION_FALLBACK');
 
 forbidText(bootstrap,"and w.finalized_at is not null",'LEGACY_REGISTERED_COMPATIBILITY');
 forbidText(bootstrap,'payment_obligation_amount =','PAYMENT_SEMANTICS_OVERLOAD');
@@ -137,6 +143,7 @@ console.log('ISSUE430_CLIENT_MULTICONTEXT_PARITY=PASS');
 console.log('PR429_HISTORICAL_GOVERNANCE=BASE_EXACT');
 console.log('C002_REAL_BOUNDARY_ENRICHMENT=EXACT_CLIENT_CONTRACT_ALL_APPLICATIONS_TO_VISIBLE_DEALS');
 console.log('C002_OLD_APPLICATION_LIST_SEEDED_ENRICHMENT=ABSENT');
+console.log('C003_APPLICATION_TOTAL_SEMANTICS=ALL_AUTHORITATIVE_CONTEXT_APPLICATIONS');
 console.log('KPI_MISSING_METRICS=NEUTRAL_FAIL_CLOSED');
 console.log('KPI_INVALID_METRICS=NEUTRAL_FAIL_CLOSED');
 console.log('KPI_CONTEXT_SWITCH=NEUTRAL_BEFORE_REFETCH');
