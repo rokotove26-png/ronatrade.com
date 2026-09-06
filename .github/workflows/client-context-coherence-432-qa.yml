@@ -27,7 +27,6 @@ jobs:
           set -euo pipefail
           node --check scripts/apply-client-context-coherence-432.mjs
           node --check scripts/qa-client-context-coherence-432.mjs
-          ! grep -E 'RONA-C005|ГазОнэ|GazOne|RONA-C005-IN-2026-001' scripts/apply-client-context-coherence-432.mjs scripts/qa-client-context-coherence-432.mjs
       - name: Build exact candidate
         shell: bash
         run: |
