@@ -1,7 +1,7 @@
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const MAIN_CONTEXT_API=`${SUPABASE_URL}/functions/v1/rona-portal-api/v1/client/context`;
-const PR429_PREVIEW_CONTEXT_API=`${SUPABASE_URL}/functions/v1/pr429-client-context-6bef355-preview/v1/client/context`;
+const PR429_PREVIEW_CONTEXT_API=`${SUPABASE_URL}/functions/v1/rona-portal-api-candidate-20260817/v1/client/context`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 
@@ -30,7 +30,7 @@ function secured(response,cookies=[],preview=false){
   headers.delete('etag');
   headers.delete('access-control-allow-origin');
   headers.delete('access-control-allow-credentials');
-  headers.set('x-rona-client-context-backend',preview?'PR429_CANDIDATE_6BEF355':'PRODUCTION_SHARED');
+  headers.set('x-rona-client-context-backend',preview?'PR429_EXISTING_CANDIDATE_SLOT':'PRODUCTION_SHARED');
   for(const cookie of cookies)headers.append('set-cookie',cookie);
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 }
