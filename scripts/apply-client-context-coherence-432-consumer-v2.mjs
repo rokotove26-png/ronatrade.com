@@ -2,9 +2,11 @@ import {readFile,writeFile} from 'node:fs/promises';
 
 const lifecyclePath='dist/assets/portal-runtime/client-application-lifecycle-v1.js';
 const applicationsPath='dist/assets/portal-runtime/client-applications-live-render-v1.js';
+const contractPath='dist/assets/portal-runtime/client-contract-download-v3.js';
 const PRIOR_MARK='ISSUE432_CONTEXT_SWITCH_RELOAD_QUEUE_V1';
 const MARK='ISSUE432_CONTEXT_AUTHORITY_CONSUMER_V2';
 const APPLICATIONS_MARK='ISSUE432_APPLICATIONS_CENTRAL_PROJECTION_V1';
+const CONTRACT_MARK='ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1';
 
 function replaceOnce(source,from,to,label){
   if(!source.includes(from))throw new Error(`${label}_TARGET_MISSING`);
@@ -52,4 +54,22 @@ assertNoBusinessHardcode(applications,'ISSUE432_APPLICATIONS');
 new Function(applications);
 await writeFile(applicationsPath,applications,'utf8');
 
-console.log(`CLIENT_CONTEXT_COHERENCE_432_CONSUMER=PASS marker=${MARK} lifecycle_context_source=CENTRAL_CURRENT_PROJECTION lifecycle_direct_context_fetch=absent context_switch_reload_queue=preserved applications_marker=${APPLICATIONS_MARK} applications_context_source=CENTRAL_CURRENT_PROJECTION applications_direct_context_fetch=absent applications_poll_ms=30000 visual_delta=none`);
+let contract=await readFile(contractPath,'utf8');
+if(!contract.includes(CONTRACT_MARK)){
+  contract=replaceOnce(
+    contract,
+    "const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';",
+    `const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style',${CONTRACT_MARK}='${CONTRACT_MARK}';`,
+    'ISSUE432_CONTRACT_MARK'
+  );
+  const oldRead="const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));";
+  const centralRead="const key=contextKey(current),projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};";
+  contract=replaceOnce(contract,oldRead,centralRead,'ISSUE432_CONTRACT_CONTEXT_READ');
+}
+for(const token of [CONTRACT_MARK,"authority.whenCurrentProjection('client-contract-download-v3')",'REFRESH_MS=30000'])if(!contract.includes(token))throw new Error(`ISSUE432_CONTRACT_CONTRACT_MISSING:${token}`);
+if(contract.includes("request('/v1/client/context?clientId='"))throw new Error('ISSUE432_CONTRACT_DIRECT_CONTEXT_FETCH_PRESENT');
+assertNoBusinessHardcode(contract,'ISSUE432_CONTRACT');
+new Function(contract);
+await writeFile(contractPath,contract,'utf8');
+
+console.log(`CLIENT_CONTEXT_COHERENCE_432_CONSUMER=PASS marker=${MARK} lifecycle_context_source=CENTRAL_CURRENT_PROJECTION lifecycle_direct_context_fetch=absent context_switch_reload_queue=preserved applications_marker=${APPLICATIONS_MARK} applications_context_source=CENTRAL_CURRENT_PROJECTION applications_direct_context_fetch=absent applications_poll_ms=30000 contract_marker=${CONTRACT_MARK} contract_context_source=CENTRAL_CURRENT_PROJECTION contract_direct_context_fetch=absent contract_poll_ms=30000 visual_delta=none`);
