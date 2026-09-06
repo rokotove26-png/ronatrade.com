@@ -91,7 +91,10 @@ jobs:
           set -euo pipefail
           log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
           cd "$OWNER_CANDIDATE_ROOT"
-          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" | tee "$log"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" | tee "$log"
+          grep -F 'OWNER_RETEST_QA_FIXTURE_ADAPTER=AUTHORITATIVE_COMPANY_METRICS_V1' "$log"
+          grep -F 'MY_COMPANIES_MISSING_METRICS_NEUTRAL_PROOF' "$log"
+          grep -F 'MY_COMPANIES_AUTHORITATIVE_METRICS_PROOF' "$log"
           grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
           grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
       - name: Prove exact candidate Deals first paint is canonical and parity-stable

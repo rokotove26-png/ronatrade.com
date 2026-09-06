@@ -14,7 +14,7 @@
     "assets/portal-runtime/client-contract-download-v3.js": {
       "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
       "production_pre_hotfix_blob_sha": "57e66a343bf199ab2076a0ff5f074ba71e79218c",
-      "authorized_post_blob_sha": "24b135fa8e0a26cf96e28fdb7d1d7196abb31490",
+      "authorized_post_blob_sha": "5dd392570b07b428df224f40e3061514b94d05c1",
       "required_marker": "20260906-client-contract-v11-authoritative-company-metrics"
     }
   },
@@ -32,6 +32,7 @@
     "company_metrics_missing_fail_closed": true,
     "company_metrics_invalid_fail_closed": true,
     "company_metrics_neutral_unknown": true,
+    "company_metrics_context_switch_fail_closed": true,
     "applications_kpi_total_current_contract": true,
     "deals_kpi_total_current_contract": true,
     "documents_kpi_current_effective_contractual_only": true,
