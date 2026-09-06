@@ -1,4 +1,4 @@
-name: SYSTEM_ADMIN PR429 final PRE POST discriminator v6
+name: SYSTEM_ADMIN PR429 final PRE POST discriminator v7
 
 on:
   push:
@@ -34,25 +34,27 @@ jobs:
               if n!=1: raise SystemExit(f'{label}_TARGET_COUNT={n}')
               p.write_text(s.replace(old,new,1))
 
-          # Harness adapter fixes: pass the marker into page.evaluate, avoid Node-side document,
-          # and evaluate Analytics content only. Navigation is outside Analytics and remains +10%.
           h='scripts/qa-client-owner-retest-real-browser-v4.mjs'
           replace_once(h,'}}, {selector,mark})}','}}, {selector,mark:OWNER_TYPO_MARK})}','OWNER_TYPO_MARK_ARGUMENT')
           replace_once(h,"proof={marker:document.documentElement?.dataset?.ronaClientOwnerTypography,nav:navTypography","proof={marker:navTypography.html_marker,nav:navTypography",'OWNER_TYPO_NODE_DOCUMENT_REFERENCE')
           replace_once(h,"analyticsRatios=['nav','title','sub','leaf'].filter(k=>Number.isFinite(ba[k])&&Number.isFinite(ta[k])&&ba[k]>0).map(k=>({key:k,ratio:ta[k]/ba[k],base:ba[k],target:ta[k]}))","analyticsRatios=['body','title','sub','leaf'].filter(k=>Number.isFinite(ba[k])&&Number.isFinite(ta[k])&&ba[k]>0).map(k=>({key:k,ratio:ta[k]/ba[k],base:ba[k],target:ta[k]}))",'ANALYTICS_CONTENT_ONLY_RATIO')
 
-          # Dynamic text nodes created/replaced after first render must receive the same computed +10%.
           r='assets/portal-runtime/client-contract-download-v3.js'
           replace_once(r,"const MARK='20260906-client-contract-v9-kpi-typography-owner';","const MARK='20260906-client-contract-v10-kpi-typography-dynamic-owner';",'COMPANY_RUNTIME_MARKER')
           old="ownerTypoObserver=new MutationObserver(records=>{for(const record of records)for(const node of record.addedNodes)if(node.nodeType===1)ownerTypoQueue(node)});ownerTypoObserver.observe(document.body,{childList:true,subtree:true});"
           new="ownerTypoObserver=new MutationObserver(records=>{for(const record of records){if(record.type==='characterData'){ownerTypoQueue(record.target?.parentElement);continue}for(const node of record.addedNodes){if(node.nodeType===1)ownerTypoQueue(node);else if(node.nodeType===3)ownerTypoQueue(node.parentElement)}}});ownerTypoObserver.observe(document.body,{childList:true,subtree:true,characterData:true});"
           replace_once(r,old,new,'DYNAMIC_TYPOGRAPHY_OBSERVER')
 
-          # Cache-bust the canonical runtime attachment.
           b='scripts/build-pages-direct-canonical.mjs'
           replace_once(b,'/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-kpi-typography-v9','/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-kpi-typography-v10','COMPANY_RUNTIME_CACHE_BUST')
 
-          # Update exact Visual Freeze authorization to the new immutable runtime blob.
+          # Keep canonical-source validators aligned with the final runtime marker/cache key.
+          a='scripts/apply-owner-client-company-alias-slot-v2.mjs'
+          replace_once(a,"20260906-client-contract-v9-kpi-typography-owner","20260906-client-contract-v10-kpi-typography-dynamic-owner",'ALIAS_VALIDATOR_MARKER')
+          replace_once(a,'20260906-company-directory-kpi-typography-v9','20260906-company-directory-kpi-typography-v10','ALIAS_VALIDATOR_CACHE')
+          m='scripts/apply-system-admin-owner-remediation-v1.mjs'
+          replace_once(m,"20260906-client-contract-v9-kpi-typography-owner","20260906-client-contract-v10-kpi-typography-dynamic-owner",'REMEDIATION_VALIDATOR_MARKER')
+
           body=Path(r).read_bytes(); sha=hashlib.sha1(f'blob {len(body)}\0'.encode()+body).hexdigest()
           g='governance/client-owner-visual-delta-pr429-approval-20260906.json'
           data=json.loads(Path(g).read_text())
@@ -83,8 +85,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base_root=/tmp/rona-owner-retest-base-v6
-          before_root=/tmp/rona-owner-retest-before-v6
+          base_root=/tmp/rona-owner-retest-base-v7
+          before_root=/tmp/rona-owner-retest-before-v7
           rm -rf "$base_root" "$before_root"
           git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
           git worktree add --detach "$before_root" d2a4bd75400cfb5f1f095ee997def21b936bceb2
@@ -137,6 +139,8 @@ jobs:
           git add \
             assets/portal-runtime/client-contract-download-v3.js \
             scripts/build-pages-direct-canonical.mjs \
+            scripts/apply-owner-client-company-alias-slot-v2.mjs \
+            scripts/apply-system-admin-owner-remediation-v1.mjs \
             governance/client-owner-visual-delta-pr429-approval-20260906.json \
             scripts/qa-client-portal-visual-freeze.mjs \
             scripts/qa-client-owner-retest-real-browser-v4.mjs
