@@ -61,4 +61,13 @@ try{
 }
 if(result.error)throw result.error;
 if(result.signal)throw new Error(`OWNER_RETEST_GENERATED_HARNESS_SIGNAL=${result.signal}`);
-process.exitCode=result.status??1;
+const status=result.status??1;
+if(status===0){
+  const productFiles=['assets/portal-runtime/client-contract-download-v3.js','supabase/functions/rona-portal-api/bootstrap.ts','functions/portal/api/v1/client/context.js'];
+  const syntheticBusinessLiterals=/CLIENT-B|CONTRACT-B|BOOTSTRAP ALIAS B|BETA ENERGY LLC|DEAL-2099-201/iu;
+  for(const path of productFiles){const text=await readFile(path,'utf8');if(syntheticBusinessLiterals.test(text))throw new Error(`SYNTHETIC_FUTURE_CLIENT_LEAKED_INTO_PRODUCT_RUNTIME ${path}`)}
+  console.log('GENERIC_FUTURE_CLIENT_BROWSER_FIXTURE=PASS client=CLIENT-B contract=CONTRACT-B path=CANONICAL_CURRENT_CONTEXT');
+  console.log('A_B_A_CURRENT_CONTEXT_ISOLATION=PASS');
+  console.log('SYNTHETIC_FUTURE_CLIENT_PRODUCT_HARDCODING=ABSENT');
+}
+process.exitCode=status;
