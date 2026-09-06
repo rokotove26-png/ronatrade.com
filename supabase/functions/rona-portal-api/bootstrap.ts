@@ -186,8 +186,7 @@ const nativeServe:any = Deno.serve.bind(Deno);
                  from portal_private.client_applications a
                  join portal_private.clients cl on cl.id=a.client_key
                  join portal_private.contracts ct on ct.id=a.contract_key
-                where cl.client_id=${requestClientId} and ct.contract_id=${requestContractId}
-                  and a.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum) as applications_total,
+                where cl.client_id=${requestClientId} and ct.contract_id=${requestContractId}) as applications_total,
               (select count(*)::int
                  from portal_private.deals d
                  join portal_private.clients cl on cl.id=d.client_key
@@ -227,7 +226,7 @@ const nativeServe:any = Deno.serve.bind(Deno);
         if (changed) {
           const headers = new Headers(response.headers);
           headers.delete('content-length');
-          headers.set('x-rona-client-context-enrichment','prod-incident-430-v2-context-scoped-deals');
+          headers.set('x-rona-client-context-enrichment','prod-incident-430-v3-context-scoped-deals-owner-kpi');
           return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
         }
       }
