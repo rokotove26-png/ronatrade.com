@@ -9,18 +9,6 @@
   "approved_protected_files": [
     "assets/portal-runtime/client-contract-download-v3.js"
   ],
-  "inherited_production_exact_blobs": {
-    "assets/portal-runtime/client-background-section-preload-v1.js": "86be180df3c669a54aeb5b951c30d650cef4c0a9",
-    "assets/portal-runtime/client-context-selection-authority-v1.js": "6e24be42c668d290805758eed0c28177666169bc",
-    "assets/portal-runtime/client-deal-documents-v5.js": "a1b724867218de56a168372dd33fc8d16a4f6266",
-    "assets/portal-runtime/client-home-command-center-v2.js": "14c3a251ba7015e7d46e2cf48d14f7c07e049ed6",
-    "assets/portal-runtime/client-home-current-only-v1.js": "819f22765a646c935b4025506eef096d3d1626fd",
-    "assets/portal-runtime/client-messages-archive-v1.js": "f3c49ac46cc32ee0cd92eefadb905f8ac52778ca",
-    "assets/portal-runtime/client-price-sync-v1.js": "e9a7564011d0a8452526e6f2220e15881cbf3010",
-    "scripts/attach-client-context-selection-authority-v1.mjs": "f55b923f417b9b6d94197ece680ad213fadcbcde",
-    "scripts/attach-client-home-current-only-v1.mjs": "f5ee9ce5ac690d1f45690627469627a10f67102d",
-    "scripts/attach-client-section-first-paint-v1.mjs": "a7232d33eb536987cbdfd104d1b653eaeb16e47a"
-  },
   "exact_post_remediation_blobs": {
     "assets/portal-runtime/client-contract-download-v3.js": {
       "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
@@ -35,7 +23,6 @@
     "exact_file_enforcement_remains_active": true,
     "wildcard_exception": false,
     "approved_file_list_is_exact": true,
-    "inherited_production_blobs_are_exact": true,
     "css_changed": false,
     "html_composition_changed": false,
     "design_changed": false,
