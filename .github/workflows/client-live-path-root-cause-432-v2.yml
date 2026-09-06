@@ -1,0 +1,98 @@
+name: Client live-path root cause 432 v2
+
+on:
+  push:
+    branches: [hotfix/client-live-applications-root-cause-432-v2]
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+
+permissions:
+  contents: read
+
+jobs:
+  live-artifact-root-cause:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact published production merge
+        shell: bash
+        run: |
+          set -euo pipefail
+          prod=/tmp/issue432-production-fe3f3
+          rm -rf "$prod"
+          git worktree add --detach "$prod" fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18
+          (cd "$prod" && npm run build)
+          echo "PROD_ROOT=$prod" >> "$GITHUB_ENV"
+      - name: Prove live ronatrade.com serves the published Issue432 artifact chain
+        shell: bash
+        run: |
+          set -euo pipefail
+          html="$PROD_ROOT/dist/portal/client.html"
+          app_src=$(grep -o '/assets/portal-runtime/portal-client-applications-canonical-v1\.js?v=[^"'"'"' ]*' "$html" | head -1)
+          ctx_src=$(grep -o '/assets/portal-runtime/client-context-selection-authority-v1\.js?v=[^"'"'"' ]*' "$html" | head -1)
+          test -n "$app_src"
+          test -n "$ctx_src"
+          echo "LIVE_EXPECTED_APPLICATIONS_ASSET=$app_src"
+          echo "LIVE_EXPECTED_CONTEXT_AUTHORITY_ASSET=$ctx_src"
+          curl -fsS --retry 3 --retry-delay 1 -D live-app.headers "https://ronatrade.com${app_src}&_issue432=$(date +%s)" -o live-app.js
+          curl -fsS --retry 3 --retry-delay 1 -D live-ctx.headers "https://ronatrade.com${ctx_src}&_issue432=$(date +%s)" -o live-ctx.js
+          prod_app="$PROD_ROOT/dist/assets/portal-runtime/portal-client-applications-canonical-v1.js"
+          prod_ctx="$PROD_ROOT/dist/assets/portal-runtime/client-context-selection-authority-v1.js"
+          live_app_sha=$(sha256sum live-app.js | awk '{print $1}')
+          prod_app_sha=$(sha256sum "$prod_app" | awk '{print $1}')
+          live_ctx_sha=$(sha256sum live-ctx.js | awk '{print $1}')
+          prod_ctx_sha=$(sha256sum "$prod_ctx" | awk '{print $1}')
+          echo "LIVE_APPLICATIONS_SHA256=$live_app_sha"
+          echo "PROD_MERGE_APPLICATIONS_SHA256=$prod_app_sha"
+          echo "LIVE_CONTEXT_SHA256=$live_ctx_sha"
+          echo "PROD_MERGE_CONTEXT_SHA256=$prod_ctx_sha"
+          test "$live_app_sha" = "$prod_app_sha"
+          test "$live_ctx_sha" = "$prod_ctx_sha"
+          grep -Fq "20260904-portal-client-applications-canonical-v3-title-frame-box-model" live-app.js
+          grep -Fq "/v1/client/applications-projection?clientId=" live-app.js
+          ! grep -Fq "ISSUE432_APPLICATIONS_CENTRAL_PROJECTION_V1" live-app.js
+          ! grep -Fq "whenCurrentProjection('portal-client-applications-canonical-v1'" live-app.js
+          grep -Fq "RONA_CLIENT_CONTEXT_COHERENCE_432_V1" live-ctx.js
+          grep -Fq "PROJECTION_MAX_AGE_MS=15000" live-ctx.js
+          echo 'ISSUE432_LIVE_ARTIFACT_CHAIN=PASS production_merge=fe3f3fa3 applications_owner=CANONICAL_INDEPENDENT_PROJECTION context_authority=COHERENCE_432_V1'
+          echo 'ISSUE432_LIVE_ROOT_CAUSE_CLASS=APPLICATIONS_OWNER_NOT_WIRED_TO_CORRECTED_CONTEXT_AUTHORITY'
+      - name: Prove published build quarantines polling/pageshow network refresh for the actual Applications owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          app="$PROD_ROOT/dist/assets/portal-runtime/portal-client-applications-canonical-v1.js"
+          ! grep -Fq "state.timer=setInterval(()=>load(false),REFRESH_MS);" "$app"
+          ! grep -Fq "window.addEventListener('pageshow',()=>{load(true);" "$app"
+          grep -Fq "window.addEventListener('pageshow',()=>{scheduleAlign();" "$app"
+          grep -Fq "refresh_policy:'INITIAL_CONTEXT_CHANGE_EXPLICIT_SUBMIT_ONLY'" "$PROD_ROOT/scripts/materialize-portal-client-applications-canonical-v1.mjs"
+          grep -Fq "periodic_refresh:false" "$PROD_ROOT/scripts/materialize-portal-client-applications-canonical-v1.mjs"
+          grep -Fq "pageshow_network_refresh:false" "$PROD_ROOT/scripts/materialize-portal-client-applications-canonical-v1.mjs"
+          echo 'ISSUE432_LIVE_STALE_PATH=PROVEN actual_applications_owner_has_no_periodic_or_pageshow_network_refresh'
+      - name: Prove live auth boundary remains closed to unauthenticated probes
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o live-context-unauth.json -w '%{http_code}' --retry 2 'https://ronatrade.com/portal/api/v1/client/context?clientId=RONA-C005&contractId=RONA-C005-CTR-2026-001&_issue432=1')
+          echo "LIVE_CONTEXT_UNAUTH_HTTP=$code"
+          test "$code" = 401 -o "$code" = 403
+          code2=$(curl -sS -o live-apps-unauth.json -w '%{http_code}' --retry 2 'https://ronatrade.com/portal/api/v1/client/applications-projection?clientId=RONA-C005&contractId=RONA-C005-CTR-2026-001&_issue432=1')
+          echo "LIVE_APPLICATIONS_UNAUTH_HTTP=$code2"
+          test "$code2" = 401 -o "$code2" = 403
+          echo 'ISSUE432_LIVE_AUTH_ISOLATION=PASS unauthenticated_context_and_applications_projection_rejected'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue432-live-artifact-root-cause-${{ github.run_id }}
+          path: |
+            live-app.headers
+            live-ctx.headers
+            live-context-unauth.json
+            live-apps-unauth.json
+          if-no-files-found: warn
