@@ -28,6 +28,27 @@ for(const token of [
   "source:'AUTHORITATIVE_CURRENT_CONTEXT_DB'"
 ]) requireText(bootstrap,token,'BACKEND_CONTRACT');
 
+// SYSTEM_ADMIN 5561852752 root-cause lock: enrichment must be driven by the exact
+// authorized current client+contract, not by whatever application IDs happened to
+// survive the upstream applications projection. This protects legacy DEAL_REGISTERED
+// rows whose linked deal is still visible even when the application row is not.
+for(const token of [
+  'const exactContext =',
+  'requestClientId===responseClientId',
+  'requestContractId===responseContractId',
+  'join portal_private.clients cl on cl.id=a.client_key',
+  'join portal_private.contracts ct on ct.id=a.contract_key',
+  'where cl.client_id=${requestClientId}',
+  'and ct.contract_id=${requestContractId}',
+  'const byDeal = new Map(rows.filter((r:any)=>r.deal_id)',
+  "headers.set('x-rona-client-context-enrichment','prod-incident-430-v2-context-scoped-deals')"
+]) requireText(bootstrap,token,'C002_REAL_BOUNDARY_CONTEXT_SCOPED_ENRICHMENT');
+for(const token of [
+  'where a.application_id in (select value from jsonb_array_elements_text(',
+  'const ids = applications.map',
+  'JSON.stringify(ids)'
+]) forbidText(bootstrap,token,'C002_OLD_APPLICATION_LIST_SEEDED_ENRICHMENT');
+
 forbidText(bootstrap,"and w.finalized_at is not null",'LEGACY_REGISTERED_COMPATIBILITY');
 forbidText(bootstrap,'payment_obligation_amount =','PAYMENT_SEMANTICS_OVERLOAD');
 forbidText(bootstrap,'delete from portal_private','NO_DESTRUCTIVE_CLEANUP');
@@ -114,6 +135,8 @@ try{
 
 console.log('ISSUE430_CLIENT_MULTICONTEXT_PARITY=PASS');
 console.log('PR429_HISTORICAL_GOVERNANCE=BASE_EXACT');
+console.log('C002_REAL_BOUNDARY_ENRICHMENT=EXACT_CLIENT_CONTRACT_ALL_APPLICATIONS_TO_VISIBLE_DEALS');
+console.log('C002_OLD_APPLICATION_LIST_SEEDED_ENRICHMENT=ABSENT');
 console.log('KPI_MISSING_METRICS=NEUTRAL_FAIL_CLOSED');
 console.log('KPI_INVALID_METRICS=NEUTRAL_FAIL_CLOSED');
 console.log('KPI_CONTEXT_SWITCH=NEUTRAL_BEFORE_REFETCH');
