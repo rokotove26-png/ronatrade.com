@@ -1,4 +1,4 @@
-name: SYSTEM_ADMIN PR429 canonical three-defect remediation v3
+name: SYSTEM_ADMIN PR429 final PRE POST discriminator v4
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  remediate:
+  verify:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -21,50 +21,37 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Materialize canonical source and prove branch build
+      - name: Fix real-browser typography adapter and prove canonical build
         shell: bash
         run: |
           set -euo pipefail
-          python3 scripts/system-admin-pr429-materialize-v3.py
+          python3 <<'PY'
+          from pathlib import Path
+          p=Path('scripts/qa-client-owner-retest-real-browser-v4.mjs')
+          s=p.read_text()
+          old='}}, {selector,mark})}'
+          new='}}, {selector,mark:OWNER_TYPO_MARK})}'
+          if s.count(old)!=1:
+              raise SystemExit(f'OWNER_TYPO_ADAPTER_TARGET_COUNT={s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          print('OWNER_TYPO_ADAPTER_REFERENCE_FIX=PASS')
+          PY
           npm run build
-          git status --short
-          git add \
-            supabase/functions/rona-portal-api/index.ts \
-            assets/portal-runtime/client-deals-authoritative-v1.js \
-            assets/portal-runtime/client-home-current-only-v1.js \
-            assets/portal-runtime/client-home-command-center-v2.js \
-            assets/portal-runtime/client-contract-download-v3.js \
-            scripts/qa-client-owner-retest-real-browser-v4.mjs \
-            scripts/apply-owner-client-company-alias-slot-v2.mjs \
-            scripts/apply-owner-client-company-first-paint-v1.mjs \
-            scripts/apply-system-admin-owner-remediation-v1.mjs \
-            scripts/build-pages-direct-canonical.mjs \
-            scripts/qa-client-portal-visual-freeze.mjs \
-            governance/client-owner-visual-delta-pr429-approval-20260906.json
-          echo 'CANONICAL_SOURCE_DELTA:'
-          git diff --cached --name-only
-          test -n "$(git diff --cached --name-only)"
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git commit -m 'fix(client): canonicalize passport KPI and computed typography'
-          post_sha=$(git rev-parse HEAD)
-          git push origin HEAD:hotfix/client-load-feedback-loop-v1
-          echo "POST_SHA=$post_sha" >> "$GITHUB_ENV"
-          echo "SYSTEM_ADMIN_CANONICAL_SOURCE_COMMIT=$post_sha"
+          git diff -- scripts/qa-client-owner-retest-real-browser-v4.mjs
 
-      - name: Install real browser harness
+      - name: Install Chromium
         shell: bash
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install chromium
 
-      - name: Build production baseline and exact PRE checkpoint
+      - name: Build exact production baseline and PRE checkpoint
         shell: bash
         run: |
           set -euo pipefail
-          base_root=/tmp/rona-owner-retest-base-v3
-          before_root=/tmp/rona-owner-retest-before-v3
+          base_root=/tmp/rona-owner-retest-base-v4
+          before_root=/tmp/rona-owner-retest-before-v4
           rm -rf "$base_root" "$before_root"
           git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
           git worktree add --detach "$before_root" d2a4bd75400cfb5f1f095ee997def21b936bceb2
@@ -75,7 +62,7 @@ jobs:
             echo "OWNER_BEFORE_ROOT=$before_root"
           } >> "$GITHUB_ENV"
 
-      - name: Prove PRE d2a4bd7 is representative RED on exactly the Owner defects
+      - name: PRE must be representative RED on all three Owner defects
         shell: bash
         run: |
           set -uo pipefail
@@ -94,25 +81,37 @@ jobs:
           grep -F 'OWNER_RETEST_REGRESSION_RESULT=FAIL' "$log"
           ! grep -F 'RAW_PROJECTION_TIMEOUT' "$log"
           ! grep -F 'OWNER_CONTEXT_ADAPTER_READINESS' "$log"
+          ! grep -F 'ReferenceError:' "$log"
           echo 'OWNER_RETEST_PRE_REPRESENTATIVE_RED=PASS'
 
-      - name: Prove committed POST candidate is GREEN on the same real DOM contract
+      - name: POST canonical candidate must be GREEN on same real DOM assertions
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$POST_SHA"
           log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
-          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="POST_${POST_SHA}" node scripts/qa-client-owner-retest-real-browser-v4.mjs | tee "$log"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="POST_$(git rev-parse HEAD)" node scripts/qa-client-owner-retest-real-browser-v4.mjs | tee "$log"
           grep -F 'PASSPORT_SOURCE_TO_PROJECTION_PROOF' "$log"
           grep -F 'MY_COMPANIES_SEMANTIC_SOURCE_PROOF' "$log"
           grep -F 'REAL_TYPOGRAPHY_PROOF' "$log"
           grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
           grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
-          echo "SYSTEM_ADMIN_PRE_RED_POST_GREEN=PASS head=$POST_SHA"
+          echo "SYSTEM_ADMIN_PRE_RED_POST_GREEN=PASS head=$(git rev-parse HEAD)"
+
+      - name: Commit only verified harness adapter correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add scripts/qa-client-owner-retest-real-browser-v4.mjs
+          test "$(git diff --cached --name-only)" = 'scripts/qa-client-owner-retest-real-browser-v4.mjs'
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'test(client): fix computed typography real-browser adapter'
+          git push origin HEAD:hotfix/client-load-feedback-loop-v1
+          echo "VERIFIED_HARNESS_HEAD=$(git rev-parse HEAD)"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: system-admin-pr429-pre-post-${{ github.run_id }}
+          name: system-admin-pr429-final-pre-post-${{ github.run_id }}
           path: owner-retest-*.log
           if-no-files-found: warn
