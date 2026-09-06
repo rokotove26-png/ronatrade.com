@@ -17,7 +17,15 @@ const CURRENT_DEAL_ID=/^DEAL-\d{4}-\d{3,}$/i;
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
 function metricNumber(value){const n=Number(value);return Number.isFinite(n)&&n>=0?Math.trunc(n):null}
-function currentCompanyMetrics(entry){const applications=Array.isArray(entry?.applications)?entry.applications:[],deals=Array.isArray(entry?.deals)?entry.deals:[],documents=Array.isArray(entry?.documents)?entry.documents:[],authoritative=entry?.company_metrics||null,applicationsTotal=metricNumber(authoritative?.applications_total),dealsTotal=metricNumber(authoritative?.deals_total),documentsTotal=metricNumber(authoritative?.documents_total);return{applications:applicationsTotal??applications.filter(a=>!norm(a?.deal_id)&&!TERMINAL_APPLICATIONS.has(upper(a?.status))).length,deals:dealsTotal??deals.filter(d=>CURRENT_DEAL_ID.test(norm(d?.deal_id))&&!d?.closed_at&&!TERMINAL_DEALS.has(upper(d?.current_status||d?.business_status))).length,documents:documentsTotal??documents.length,source:authoritative?.source||'LEGACY_RUNTIME_FALLBACK',documents_predicate:authoritative?.documents_predicate||null}}
+function currentCompanyMetrics(entry){
+  const authoritative=entry?.company_metrics&&typeof entry.company_metrics==='object'?entry.company_metrics:null;
+  const applicationsTotal=metricNumber(authoritative?.applications_total),dealsTotal=metricNumber(authoritative?.deals_total),documentsTotal=metricNumber(authoritative?.documents_total);
+  const sourceValid=authoritative?.source==='AUTHORITATIVE_CURRENT_CONTEXT_DB',predicateValid=authoritative?.documents_predicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
+  const ready=applicationsTotal!==null&&dealsTotal!==null&&documentsTotal!==null&&sourceValid&&predicateValid;
+  return ready
+    ?{applications:applicationsTotal,deals:dealsTotal,documents:documentsTotal,source:authoritative.source,documents_predicate:authoritative.documents_predicate,ready:true}
+    :{applications:null,deals:null,documents:null,source:'AUTHORITATIVE_METRICS_UNAVAILABLE',documents_predicate:null,ready:false};
+}
 const GENERIC=new Set(['общество','ограниченной','ответственностью','совместное','предприятие','company','limited','liability','joint','venture','contract','контракт','rona','trade','ооо','осоо','сп','с','llc']);
 const APOSTROPHES="'’‘`´ʼ";
 
@@ -82,12 +90,12 @@ function frozenContexts(){try{if(typeof CLIENT_CONTEXTS!=='undefined'&&CLIENT_CO
 function hydrateFrozenClientModel(entry){
   const model=frozenContexts(),ctx=entry?.context||{},id=norm(ctx.contract_id),num=norm(ctx.current_external_contract_number||ctx.contract_id);if(!model||!id)return 0;
   const row=model[id];if(!row||typeof row!=='object')return 0;
-  row.clientId=norm(ctx.client_id);row.contractId=id;row.companyName=compactLegalName(ctx);row.legalName=norm(ctx.legal_name);row.contractNo=num.replace(/^№\s*/u,'');row.contractDate=formatDate(ctx.effective_from);const metrics=currentCompanyMetrics(entry);row.applicationsCount=metrics.applications;row.dealsCount=metrics.deals;row.documentsCount=metrics.documents;row.contractStateBlocked=String(ctx.contract_status||'').toUpperCase()!=='ACTIVE';if(!row.contractStateBlocked&&/уточн/i.test(String(row.status||'')))row.status='Действует';
+  row.clientId=norm(ctx.client_id);row.contractId=id;row.companyName=compactLegalName(ctx);row.legalName=norm(ctx.legal_name);row.contractNo=num.replace(/^№\s*/u,'');row.contractDate=formatDate(ctx.effective_from);const metrics=currentCompanyMetrics(entry);row.applicationsCount=metrics.ready?metrics.applications:'—';row.dealsCount=metrics.ready?metrics.deals:'—';row.documentsCount=metrics.ready?metrics.documents:'—';row.contractStateBlocked=String(ctx.contract_status||'').toUpperCase()!=='ACTIVE';if(!row.contractStateBlocked&&/уточн/i.test(String(row.status||'')))row.status='Действует';
   document.documentElement.dataset.ronaClientContractModel='authoritative';return 1;
 }
 function publishState(){
   const entry=state.entry,ctx=entry?.context||null,metrics=currentCompanyMetrics(entry);
-  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,metrics_source:metrics.source,documents_predicate:metrics.documents_predicate,current:true}]:[],loadedAt:new Date().toISOString()};
+  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,metrics_ready:metrics.ready,metrics_source:metrics.source,documents_predicate:metrics.documents_predicate,current:true}]:[],loadedAt:new Date().toISOString()};
 }
 async function refresh(force=false){
   if(state.loading){if(force)state.pendingImmediate=true;return}if(!force&&Date.now()-state.lastLoad<REFRESH_MS){render();return}state.loading=true;
@@ -133,7 +141,7 @@ function setMetric(card,labelText,value,relabel){
   let box=label.parentElement;
   for(let depth=0;box&&box!==card&&depth<3;depth++,box=box.parentElement){
     const n=leafNodes(box).find(el=>el!==label&&/^(?:\d+|—)$/.test(norm(el.textContent)));
-    if(n){setNodeText(n,String(value));return true}
+    if(n){setNodeText(n,value==null?'—':String(value));return true}
   }
   return false;
 }
@@ -177,7 +185,7 @@ function syncCompanyCard(entry,card){
   setMetric(card,'заявок',metrics.applications);
   setMetric(card,'сделок',metrics.deals);
   if(!setMetric(card,'действий',metrics.documents,'ДОКУМЕНТОВ'))setMetric(card,'документов',metrics.documents);
-  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource=metrics.source;card.dataset.ronaCompanyDirectoryDocumentsPredicate=String(metrics.documents_predicate||'');card.dataset.ronaCompanyDirectoryHydration='ready';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
+  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource=metrics.source;card.dataset.ronaCompanyDirectoryDocumentsPredicate=String(metrics.documents_predicate||'');card.dataset.ronaCompanyDirectoryHydration=metrics.ready?'ready':'pending';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
 }
 const unavailableNode=card=>leafByText(card,t=>t.includes('контракт пока недоступен для скачивания')||t==='контракт недоступен для скачивания'||t.includes('файл подписанного контракта не опубликован в кабинете'));
 const contractAnchor=card=>leafByText(card,t=>t==='подписанный контракт');
