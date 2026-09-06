@@ -1,0 +1,49 @@
+{
+  "approval": "OWNER_SYSTEM_ADMIN_ISSUE_COMMENT",
+  "authorized_at": "2026-09-06",
+  "issue_number": 430,
+  "system_admin_comment_id": 5561179393,
+  "branch": "hotfix/client-multiclient-parity-430-v1",
+  "base_commit": "9797f7c7c5e8a003eaa19c520f4328a2001d5ce7",
+  "scope": "CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-contract-download-v3.js"
+  ],
+  "exact_post_remediation_blobs": {
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "production_pre_hotfix_blob_sha": "57e66a343bf199ab2076a0ff5f074ba71e79218c",
+      "authorized_post_blob_sha": "ff56312d880074dafbe51e09fba3a66209bbf3ba",
+      "required_marker": "20260906-client-contract-v11-authoritative-company-metrics"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "owner_instruction_required": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "approved_file_list_is_exact": true,
+    "css_changed": false,
+    "html_composition_changed": false,
+    "design_changed": false,
+    "typography_changed": false,
+    "company_metrics_current_context_authoritative": true,
+    "applications_kpi_total_current_contract": true,
+    "deals_kpi_total_current_contract": true,
+    "documents_kpi_current_effective_contractual_only": true,
+    "superseded_contractual_documents_not_counted": true,
+    "internal_artifacts_not_counted_as_contractual_kpi": true,
+    "legacy_registered_deal_amount_compatibility_allowed": true,
+    "legacy_amount_uses_dedicated_passport_fields": true,
+    "payment_status_semantics_unchanged": true,
+    "finance_summary_not_used_as_commercial_semantic_source": true,
+    "hardcoded_client_contract_deal_ids": false,
+    "global_dom_text_replacement": false,
+    "rail_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "business_data_changed": false,
+    "destructive_cleanup_in_hotfix": false,
+    "production_changed": false,
+    "merge_before_system_admin_review": false
+  }
+}
