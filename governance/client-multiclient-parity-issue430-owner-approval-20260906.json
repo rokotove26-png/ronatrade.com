@@ -3,6 +3,7 @@
   "authorized_at": "2026-09-06",
   "issue_number": 430,
   "system_admin_comment_id": 5561179393,
+  "system_admin_correction_comment_id": 5561354113,
   "branch": "hotfix/client-multiclient-parity-430-v1",
   "base_commit": "9797f7c7c5e8a003eaa19c520f4328a2001d5ce7",
   "scope": "CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430",
@@ -13,7 +14,7 @@
     "assets/portal-runtime/client-contract-download-v3.js": {
       "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
       "production_pre_hotfix_blob_sha": "57e66a343bf199ab2076a0ff5f074ba71e79218c",
-      "authorized_post_blob_sha": "ff56312d880074dafbe51e09fba3a66209bbf3ba",
+      "authorized_post_blob_sha": "baf1a79b3c858f625243506d62be824abbb6d043",
       "required_marker": "20260906-client-contract-v11-authoritative-company-metrics"
     }
   },
@@ -28,6 +29,9 @@
     "design_changed": false,
     "typography_changed": false,
     "company_metrics_current_context_authoritative": true,
+    "company_metrics_missing_fail_closed": true,
+    "company_metrics_invalid_fail_closed": true,
+    "company_metrics_neutral_unknown": true,
     "applications_kpi_total_current_contract": true,
     "deals_kpi_total_current_contract": true,
     "documents_kpi_current_effective_contractual_only": true,
