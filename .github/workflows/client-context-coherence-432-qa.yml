@@ -1,0 +1,67 @@
+name: Client context coherence 432 QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [hotfix/client-context-coherence-432-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  context-coherence-432:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/apply-client-context-coherence-432.mjs
+          node --check scripts/qa-client-context-coherence-432.mjs
+          ! grep -E 'RONA-C005|ГазОнэ|GazOne|RONA-C005-IN-2026-001' scripts/apply-client-context-coherence-432.mjs scripts/qa-client-context-coherence-432.mjs
+      - name: Build exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build | tee issue432-build.log
+          grep -F 'CLIENT_CONTEXT_COHERENCE_432=PASS' issue432-build.log
+          grep -F 'CLIENT_CONTEXT_SELECTION_AUTHORITY_QA=PASS' issue432-build.log
+          grep -F 'CLIENT_PORTAL_VISUAL_FREEZE=PASS' issue432-build.log
+      - name: Install Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Prove SYSTEM_ADMIN Issue 432 acceptance A-G
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-context-coherence-432.mjs | tee issue432-browser.log
+          grep -F 'ISSUE432_A_APPLICATION_SUBMIT_NO_RELOAD=PASS' issue432-browser.log
+          grep -F 'ISSUE432_B_EXTERNAL_CHANGE_POLLING=PASS' issue432-browser.log
+          grep -F 'ISSUE432_C_FAILED_MUTATION_NON_REGRESSION=PASS' issue432-browser.log
+          grep -F 'ISSUE432_D_CONTEXT_SWITCH_ISOLATION=PASS' issue432-browser.log
+          grep -F 'ISSUE432_E_INFLIGHT_STALE_RESPONSE_RACE=PASS' issue432-browser.log
+          grep -F 'ISSUE432_F_CACHE_CONTRACT=PASS' issue432-browser.log
+          grep -F 'ISSUE432_G_AUTH_AND_NO_CROSS_CLIENT_LEAKAGE=PASS' issue432-browser.log
+          grep -F 'ISSUE432_ROOT_CAUSE_PROOF=PASS' issue432-browser.log
+          grep -F 'ISSUE432_VISUAL_DELTA=NONE' issue432-browser.log
+          grep -F 'ISSUE432_CLIENT_CONTEXT_COHERENCE=PASS' issue432-browser.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-context-coherence-432-${{ github.run_id }}
+          path: |
+            issue432-build.log
+            issue432-browser.log
+          if-no-files-found: warn
