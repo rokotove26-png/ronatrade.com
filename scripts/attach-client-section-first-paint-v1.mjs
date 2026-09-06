@@ -11,10 +11,15 @@ const marker='20260902-client-section-first-paint-v3-authoritative-empty';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
-for(const required of [marker,'data-rona-client-deals-paint-ready','data-rona-client-payments-paint-ready','admin-client-server-v8','current-only-v1','finance-authoritative-v1','canonical-v8','server-authoritative-empty-v1','__RONA_CLIENT_BACKGROUND_CACHE__','rona:client:background-sections','data-rona-client-deals-empty']){
+for(const required of [
+  marker,'data-rona-client-deals-paint-ready','data-rona-client-payments-paint-ready','admin-client-server-v8','current-only-v1','finance-authoritative-v1','canonical-v8','server-authoritative-empty-v1',
+  '__RONA_CLIENT_BACKGROUND_CACHE__','rona:client:background-sections','data-rona-client-deals-empty','RONA_CLIENT_CONTEXT','getCurrentProjection','rona:client-current-projection',
+  'seedCurrentProjectionCache','RONA_CLIENT_CONTEXT_CURRENT_PROJECTION','projectionMatchesContext'
+]){
   if(!runtime.includes(required))throw new Error(`CLIENT_SECTION_FIRST_PAINT_CONTRACT_MISSING:${required}`);
 }
-if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_SECTION_FIRST_PAINT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
+if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARG(?:[‘'ʼ])?ONA/iu.test(runtime))throw new Error('CLIENT_SECTION_FIRST_PAINT_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
+for(const forbidden of ['fetch(','PRELOAD_LOADER_RE','runBackgroundPreloaders','__RONA_LOAD_CLIENT_','__RONA_REFRESH_CLIENT_'])if(runtime.includes(forbidden))throw new Error(`CLIENT_SECTION_FIRST_PAINT_NETWORK_OWNER_VIOLATION:${forbidden}`);
 
 let html=await readFile(htmlPath,'utf8');
 if(html.includes(`id="${styleId}"`)||html.includes(`id="${scriptId}"`)||html.includes('client-section-first-paint-v1.js'))throw new Error('CLIENT_SECTION_FIRST_PAINT_ALREADY_PRESENT');
@@ -52,16 +57,18 @@ integrity.client_runtime.section_first_paint={
   scope:['DEALS','PAYMENTS','HOME_FIRST_PAINT_PRESENTATION'],mode:'CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT',
   shielding:'OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE',
   home_first_paint:{right_meta:'HIDDEN_FROM_HEAD',control_contour:'HIDDEN_FROM_HEAD',runtime_cleanup_preserved:true},
-  deals_release:'SERVER_AUTHORITATIVE_ACTIVE_EMPTY_OR_CANONICAL_V8_COMPOSED',
-  deals_empty_state:'SERVER_CONTEXT_LOADED_AND_NO_ACTIVE_DEALS',
+  deals_release:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION_CACHE_OR_CANONICAL_V8_COMPOSED',
+  deals_projection_owner:'RONA_CLIENT_CONTEXT',
+  deals_projection_cache_bridge:'NO_FETCH_SAME_PROJECTION',
+  deals_empty_state:'CURRENT_PROJECTION_LOADED_AND_NO_ACTIVE_DEALS',
   deals_empty_message:'Открытых сделок нет. По выбранной компании и договору активные сделки отсутствуют.',
   deals_empty_visual:'BASE_SECTION_VISIBLE_WITH_COMPACT_IN_SECTION_NOTICE',
   payments_release:'FINANCE_AUTHORITATIVE_PLUS_CURRENT_ONLY_SANITATION',
-  navigation_reset:['POINTERDOWN','CLICK','ACTIVE_SECTION_MUTATION','CONTEXT_CHANGE','BACKGROUND_PRELOAD_COMPLETE'],
-  legacy_visual_flash_allowed:false,runtime_dom_visibility_preserved:true,hardcoded_business_entities:false,business_logic_changed:false,functional_empty_state_changed:true,visual_empty_state_changed:true
+  navigation_reset:['POINTERDOWN','CLICK','ACTIVE_SECTION_MUTATION','CONTEXT_CHANGE','CURRENT_PROJECTION_EVENT'],
+  legacy_visual_flash_allowed:false,runtime_dom_visibility_preserved:true,hardcoded_business_entities:false,business_logic_changed:false,functional_empty_state_changed:true,visual_empty_state_changed:true,additional_network_fetch:false
 };
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 await writeFile(htmlPath,html,'utf8');
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_SECTION_FIRST_PAINT=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; home=first-paint-stable; deals=current-only authoritative-empty-base-visible; payments=current-only; loading-shield=opaque-overlay; runtime_dom=measurable; legacy_flash=blocked`);
+console.log(`CLIENT_SECTION_FIRST_PAINT=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; deals=current-projection-cache-no-fetch; payments=current-only; loading-shield=opaque-overlay; runtime_dom=measurable; legacy_flash=blocked`);

@@ -3,14 +3,15 @@ if(window.__RONA_CLIENT_MESSAGES_ARCHIVE_V1__)return;
 window.__RONA_CLIENT_MESSAGES_ARCHIVE_V1__='20260903-client-messages-archive-current-context-v1';
 
 const API='/portal/api';
-const state={context:null,messages:[],archive:null,loading:false,seq:0,renderQueued:false,observer:null,unsubscribe:null};
+const state={context:null,messages:[],archive:null,loadingMessages:false,loadingArchive:false,messagesKey:'',archiveKey:'',seq:0,renderQueued:false,observer:null,unsubscribe:null};
 const norm=v=>String(v??'').trim();
+const low=v=>norm(v).toLocaleLowerCase('ru-RU').replaceAll('ё','е');
 const contextKey=c=>`${c?.client_id||''}|${c?.contract_id||''}`;
 const authority=()=>window.RONA_CLIENT_CONTEXT||null;
 const dateText=value=>{if(!value)return '—';const d=new Date(value);return Number.isFinite(d.getTime())?new Intl.DateTimeFormat('ru-RU',{dateStyle:'medium',timeStyle:'short'}).format(d):norm(value)};
 
-async function request(path,init={}){
-  const headers={accept:'application/json',...(init.headers||{})};
+async function request(path,source,init={}){
+  const headers={accept:'application/json','x-rona-client-source':source,...(init.headers||{})};
   const response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',...init,headers});
   const body=await response.json().catch(()=>null);
   if(!response.ok||body?.ok===false)throw new Error(String(body?.code||body?.error?.code||('HTTP_'+response.status)));
@@ -24,7 +25,6 @@ function empty(title,text){const box=node('div','empty');box.append(node('strong
 function row(main,sub,cell){const out=node('div','doc-row'),left=node('div','row-main');left.append(node('strong','',main),node('span','',sub||''));out.append(left,node('div','cell',cell||''));return out}
 function messageSignature(){return [contextKey(state.context),...state.messages.map(item=>[item.event_id,item.updated_at,item.processing_state,item.acknowledgement_state,item.client_response_published_at].join(':'))].join('|')}
 function archiveSignature(){const deals=Array.isArray(state.archive?.deals)?state.archive.deals:[];return [contextKey(state.context),...deals.map(deal=>[deal.deal_id,deal.contract_id,deal.business_status,deal.lifecycle_state,deal.closed_at,deal.updated_at].join(':'))].join('|')}
-
 function messagesPanel(){return document.querySelector('#page-messages .message-grid > .panel')||document.querySelector('#page-messages .panel')}
 function renderMessages(){
   const panel=messagesPanel();if(!panel)return false;const signature=messageSignature();if(panel.dataset.ronaMessagesSignature===signature)return true;
@@ -50,22 +50,23 @@ function renderArchive(){
   }
   panel.dataset.ronaArchiveSignature=signature;return true;
 }
-function render(){if(!state.context)return false;const a=renderMessages(),b=renderArchive();if(a)status('Административный канал активен');return a||b}
+function render(){if(!state.context)return false;const a=renderMessages(),b=renderArchive();if(a&&state.messagesKey===contextKey(state.context))status('Административный канал активен');return a||b}
 function scheduleRender(){if(state.renderQueued)return;state.renderQueued=true;requestAnimationFrame(()=>{state.renderQueued=false;render()})}
-
-async function load(next){
-  const key=contextKey(next),seq=++state.seq;state.loading=true;
-  try{
-    const query=`?clientId=${encodeURIComponent(next.client_id)}&contractId=${encodeURIComponent(next.contract_id)}`;
-    const [messages,archive]=await Promise.all([request('/v1/client/messages'+query),request('/v1/client/archive'+query)]);
-    if(seq!==state.seq||contextKey(state.context)!==key||contextKey(authority()?.getCurrentContext())!==key)return;
-    state.messages=Array.isArray(messages?.messages)?messages.messages:[];state.archive=archive?.archive||null;render();
-  }catch(error){if(seq===state.seq&&contextKey(state.context)===key){console.error('RONA client messages/archive',error);status('Канал временно недоступен')}}finally{if(seq===state.seq)state.loading=false}
+function query(next){return `?clientId=${encodeURIComponent(next.client_id)}&contractId=${encodeURIComponent(next.contract_id)}`}
+async function loadMessages(next,{force=false}={}){
+  const key=contextKey(next);if(!key||state.loadingMessages||(!force&&state.messagesKey===key))return;
+  const seq=state.seq;state.loadingMessages=true;
+  try{const body=await request('/v1/client/messages'+query(next),'client-messages-archive-v1:messages');if(seq!==state.seq||contextKey(state.context)!==key||contextKey(authority()?.getCurrentContext())!==key)return;state.messages=Array.isArray(body?.messages)?body.messages:[];state.messagesKey=key;renderMessages();status('Административный канал активен')}
+  catch(error){if(seq===state.seq&&contextKey(state.context)===key){console.error('RONA client messages',error);status('Канал временно недоступен')}}finally{state.loadingMessages=false}
 }
-async function refresh(){
-  const a=authority();if(!a)return;const next=a.getCurrentContext()||await a.whenReady();if(!next)return;
-  const changed=contextKey(state.context)!==contextKey(next);state.context=next;if(changed){state.seq++;state.messages=[];state.archive=null;scheduleRender()}await load(next);
+async function loadArchive(next,{force=false}={}){
+  const key=contextKey(next);if(!key||state.loadingArchive||(!force&&state.archiveKey===key))return;
+  const seq=state.seq;state.loadingArchive=true;
+  try{const body=await request('/v1/client/archive'+query(next),'client-messages-archive-v1:archive');if(seq!==state.seq||contextKey(state.context)!==key||contextKey(authority()?.getCurrentContext())!==key)return;state.archive=body?.archive||null;state.archiveKey=key;renderArchive()}
+  catch(error){if(seq===state.seq&&contextKey(state.context)===key)console.error('RONA client archive',error)}finally{state.loadingArchive=false}
 }
+function pageActive(id){const page=document.getElementById(id);if(!page)return false;return page.classList.contains('active')||page.getAttribute('aria-hidden')==='false'||(!page.hidden&&getComputedStyle(page).display!=='none')}
+function lazyForActive(){const next=state.context||authority()?.getCurrentContext?.();if(!next)return;if(pageActive('page-messages'))loadMessages(next);if(pageActive('page-archive'))loadArchive(next)}
 async function submit(){
   const next=state.context||authority()?.getCurrentContext();if(!next)return notify('Сначала выберите компанию и контракт.');
   const subject=norm(document.getElementById('msgSubject')?.value),message=norm(document.getElementById('msgText')?.value);if(!message)return notify('Введите сообщение.');
@@ -73,19 +74,21 @@ async function submit(){
   const object=norm(document.getElementById('messageObject')?.value),match=object.match(/DEAL-\d{4}-\d{3,}/i);
   const body={clientId:next.client_id,contractId:next.contract_id,subject,message,idempotencyKey:crypto.randomUUID()};if(match)body.dealId=match[0].toUpperCase();status('Отправка…');
   try{
-    await request('/v1/client/messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':body.idempotencyKey},body:JSON.stringify(body)});
+    await request('/v1/client/messages','client-messages-archive-v1:submit',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':body.idempotencyKey},body:JSON.stringify(body)});
     const subjectEl=document.getElementById('msgSubject'),messageEl=document.getElementById('msgText');if(subjectEl)subjectEl.value='';if(messageEl)messageEl.value='';
-    notify('Сообщение передано администратору.');await load(next);
+    notify('Сообщение передано администратору.');state.messagesKey='';await loadMessages(next,{force:true});
   }catch(error){console.error('RONA client message submit',error);status('Ошибка отправки');notify('Сообщение не отправлено. Повторите попытку.')}
 }
-function click(event){const button=event.target?.closest?.('#sendMessage');if(!button)return;event.preventDefault();event.stopImmediatePropagation();submit()}
+function navTarget(event){const el=event.target?.closest?.('a,button,[role="tab"],[role="menuitem"],[data-page]');return low(el?.textContent)}
+function click(event){const button=event.target?.closest?.('#sendMessage');if(button){event.preventDefault();event.stopImmediatePropagation();submit();return}const label=navTarget(event);if(label==='сообщения')queueMicrotask(()=>{scheduleRender();const next=state.context||authority()?.getCurrentContext?.();if(next)loadMessages(next)});else if(label==='архив')queueMicrotask(()=>{scheduleRender();const next=state.context||authority()?.getCurrentContext?.();if(next)loadArchive(next)})}
 function observe(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>scheduleRender());state.observer.observe(document.body,{childList:true,subtree:true})}
+function reset(next){state.context=next||null;state.seq++;state.messages=[];state.archive=null;state.messagesKey='';state.archiveKey='';scheduleRender()}
 function start(){
   const a=authority();if(!a){console.error('RONA client messages/archive: context authority unavailable');return}
   observe();document.addEventListener('click',click,true);
-  state.unsubscribe=a.subscribe(next=>{if(contextKey(state.context)===contextKey(next)){scheduleRender();return}state.context=next||null;state.seq++;state.messages=[];state.archive=null;scheduleRender();if(next)load(next)});
-  refresh();
+  state.unsubscribe=a.subscribe(next=>{if(contextKey(state.context)===contextKey(next)){scheduleRender();return}reset(next);queueMicrotask(lazyForActive)});
+  const current=a.getCurrentContext?.();if(current)reset(current);else scheduleRender();queueMicrotask(lazyForActive);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
-window.addEventListener('pageshow',()=>{scheduleRender();refresh()});
+window.addEventListener('pageshow',()=>{scheduleRender();queueMicrotask(lazyForActive)},{passive:true});
 })();

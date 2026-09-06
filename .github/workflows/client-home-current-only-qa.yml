@@ -21,13 +21,23 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Verify retired Home runtime is absent and current-only bridge is canonical
+      - name: Verify current-only fail-closed contract and build
         shell: bash
         run: |
           set -euo pipefail
           test ! -e assets/portal-runtime/client-home-authoritative-v1.js
           node --check assets/portal-runtime/client-home-current-only-v1.js
           node --check scripts/attach-client-home-current-only-v1.mjs
+          node <<'NODE'
+          const fs=require('fs');
+          const runtime=fs.readFileSync('assets/portal-runtime/client-home-current-only-v1.js','utf8');
+          for(const token of ['contextGeneration','readyBelongsToCurrentGeneration','currentProjectionConfirmed','neutralizeOwner','rona:client-context-changed','rona:client-current-projection','stale_business_visibility:false','context_generation_guard:true']){
+            if(!runtime.includes(token))throw new Error('missing fail-closed token '+token);
+          }
+          if(runtime.includes('stale-preserved'))throw new Error('stale-preserved must be absent');
+          if(/RONA-C\d{3}|DEAL-2026-\d{3}|NIK-OIL|FARGONA/iu.test(runtime))throw new Error('hardcoded business entity in Home current-only runtime');
+          console.log('CLIENT_HOME_STALE_SOURCE_GUARD=PASS');
+          NODE
           npm run build
           test ! -e dist/assets/portal-runtime/client-home-authoritative-v1.js
           ! grep -q 'client-home-authoritative-v1.js' dist/portal/client.html
@@ -38,7 +48,10 @@ jobs:
           const fs=require('fs');
           const i=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const h=i.client_runtime?.home_current_only;
-          if(h?.owner!=='command-center-v2'||h?.mode!=='PHYSICAL_CURRENT_ONLY_DOM_V1'||h?.legacy_dom!=='PHYSICALLY_REMOVED'||h?.legacy_runtime_asset!=='ABSENT'||h?.navigation_prepaint_reset!==true||h?.degraded_error_owner!==true||h?.error_fallback!=='CONTROLLED_DEGRADED_STATE'||h?.reinsertion_policy!=='REMOVE_BEFORE_NEXT_PAINT'||h?.business_logic_changed!==false||h?.business_data_changed!==false)throw new Error('Home current-only integrity contract missing');
+          if(h?.owner!=='command-center-v2'||h?.mode!=='PHYSICAL_CURRENT_ONLY_DOM_V1'||h?.legacy_dom!=='PHYSICALLY_REMOVED'||h?.legacy_runtime_asset!=='ABSENT'||h?.navigation_prepaint_reset!==true)throw new Error('Home current-only identity contract missing');
+          if(h?.degraded_error_owner!==true||h?.error_fallback!=='CONTROLLED_NEUTRAL_STATE'||h?.stale_business_visibility!==false||h?.current_projection_required!==true||h?.context_generation_guard!==true)throw new Error('Home fail-closed integrity contract missing');
+          if(h?.prepaint_rescue?.mode!=='BOUNDED_REUSABLE_FAIL_CLOSED_NEUTRAL'||h?.prepaint_rescue?.neutral_fallback!==true||h?.prepaint_rescue?.canonical_fallback!==false)throw new Error('Home fail-closed prepaint contract missing');
+          if(h?.business_logic_changed!==false||h?.business_data_changed!==false||h?.hardcoded_business_entities!==false)throw new Error('Home business preservation contract missing');
           console.log('CLIENT_HOME_CURRENT_ONLY_BUILD=PASS');
           NODE
 
@@ -64,12 +77,13 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1400,height:900}});
-            const html=`<!doctype html><html data-rona-client-home-ready="true"><head>${guard}<style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}.legacy{width:850px;height:180px;background:#812;color:white}</style></head><body><nav><button id="navHome">Главная</button></nav><main><section id="page-home"><section id="title" class="frame"><h1>Главная</h1></section><section id="context" class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"><div>CURRENT HOME OWNER</div></section><section id="legacyInitial" class="legacy"><div>АКТИВНЫЕ СДЕЛКИ</div><div>ТЕКУЩИЙ СТАТУС</div></section></section></main></body></html>`;
+            const html=`<!doctype html><html><head>${guard}<style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}.legacy{width:850px;height:180px;background:#812;color:white}</style></head><body><nav><button id="navHome">Главная</button></nav><main><section id="page-home"><section id="title" class="frame"><h1>Главная</h1></section><section id="context" class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"><div>OLD BUSINESS HOME</div></section><section id="legacyInitial" class="legacy"><div>АКТИВНЫЕ СДЕЛКИ</div><div>ТЕКУЩИЙ СТАТУС</div></section></section></main></body></html>`;
             await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-current-only-v1.js')});
             await page.waitForFunction(()=>document.querySelector('#page-home')?.getAttribute('data-rona-client-home-current-only')==='command-center-v2');
             assert(!(await page.$('#legacyInitial')),'initial legacy Home node was hidden instead of deleted');
+            assert(!(await page.textContent('[data-rona-client-home-owner]')).includes('OLD BUSINESS HOME'),'old owner business content survived startup loading');
 
             await page.evaluate(()=>{
               const button=document.querySelector('#navHome');
@@ -79,8 +93,6 @@ jobs:
                 old.id='legacyReinserted';old.className='legacy';old.innerHTML='<div>АКТИВНЫЕ СДЕЛКИ</div><div>ТЕКУЩИЙ СТАТУС</div>';
                 root.appendChild(old);
               });
-              document.documentElement.setAttribute('data-rona-client-home-ready','true');
-              document.documentElement.setAttribute('data-rona-client-home-state','ready');
             });
             await page.dispatchEvent('#navHome','pointerdown');
             await page.waitForTimeout(0);
@@ -89,6 +101,7 @@ jobs:
               status:document.documentElement.getAttribute('data-rona-client-home-state'),
               legacy:!!document.querySelector('#legacyReinserted'),
               owner:document.querySelectorAll('[data-rona-client-home-owner="command-center-v2"]').length,
+              ownerText:document.querySelector('[data-rona-client-home-owner="command-center-v2"]')?.textContent||'',
               overlay:getComputedStyle(document.querySelector('#page-home'),'::after').content,
               overlayBg:getComputedStyle(document.querySelector('#page-home'),'::after').backgroundColor,
               dom:document.documentElement.getAttribute('data-rona-client-home-dom')
@@ -96,6 +109,7 @@ jobs:
             assert(state.ready===false&&state.status==='loading','Home ready state was not reset before legacy renderer');
             assert(state.legacy===false,'reinserted legacy Home DOM survived to next task');
             assert(state.owner===1,'current Home owner was removed or duplicated');
+            assert(state.ownerText.includes('Загрузка центра управления'),'loading state is not neutral');
             assert(state.overlay.includes('Загрузка центра управления'),'Home opaque prepaint guard not active');
             assert(state.overlayBg!=='transparent'&&state.overlayBg!=='rgba(0, 0, 0, 0)','Home guard is transparent');
             assert(state.dom==='CURRENT_ONLY_PHYSICAL_V1','current-only DOM marker missing');
@@ -104,7 +118,7 @@ jobs:
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE
 
-      - name: Prove command-center error becomes controlled degraded state
+      - name: Prove error never preserves previous business content
         shell: bash
         run: |
           set -euo pipefail
@@ -115,7 +129,7 @@ jobs:
           (async()=>{
             const browser=await chromium.launch({headless:true,channel:'chrome'});
             const page=await browser.newPage({viewport:{width:1400,height:900}});
-            const html='<!doctype html><html><head><style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}.legacy{width:850px;height:180px}</style></head><body><main><section id="page-home"><section class="frame"><h1>Главная</h1></section><section class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"></section><section id="legacyError" class="legacy"><div>АКТИВНЫЕ СДЕЛКИ</div><div>ТЕКУЩИЙ СТАТУС</div></section></section></main></body></html>';
+            const html='<!doctype html><html><head><style>#page-home{position:relative;width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}</style></head><body><main><section id="page-home"><section class="frame"><h1>Главная</h1></section><section class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"><div id="oldBusiness">OLD CLIENT · OLD CONTRACT · OLD DEAL · 999</div></section></section></main></body></html>';
             await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
             await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
             await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-current-only-v1.js')});
@@ -126,34 +140,111 @@ jobs:
               text:document.querySelector('[data-rona-client-home-owner="command-center-v2"]')?.textContent||'',
               prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint'),
               release:document.documentElement.getAttribute('data-rona-client-home-prepaint-release'),
-              title:document.body.textContent.includes('Главная'),
-              context:document.body.textContent.includes('Выбрана компания'),
-              legacy:!!document.querySelector('#legacyError')
+              stale:document.body.textContent.includes('OLD CLIENT')||document.body.textContent.includes('OLD CONTRACT')||document.body.textContent.includes('OLD DEAL')
             }));
             assert(fallback.owners===1,'error fallback duplicated or lost current owner');
-            assert(fallback.text.includes('Данные временно недоступны'),'controlled degraded message missing');
+            assert(fallback.text.includes('Данные временно недоступны'),'controlled neutral error message missing');
             assert(fallback.prepaint==='released'&&fallback.release==='command-center-error','error state did not release prepaint safely');
-            assert(fallback.title&&fallback.context,'canonical title/context frames were removed');
-            assert(fallback.legacy===false,'legacy Home survived error fallback');
+            assert(fallback.stale===false,'previous business values survived error state');
 
             await page.evaluate(()=>{
               const owner=document.querySelector('[data-rona-client-home-owner="command-center-v2"]');
-              owner.innerHTML='<div id="lastGood">LAST KNOWN GOOD</div>';
-              owner.removeAttribute('data-rona-client-home-degraded');
-              document.documentElement.removeAttribute('data-rona-client-home-degraded');
+              owner.innerHTML='<div id="lastGood">LAST KNOWN GOOD CLIENT / CONTRACT / DEAL / KPI</div>';
               document.documentElement.setAttribute('data-rona-client-home-state','loading');
-              document.documentElement.setAttribute('data-rona-client-home-state','error');
             });
-            await page.waitForFunction(()=>document.documentElement.getAttribute('data-rona-client-home-degraded')==='stale-preserved');
-            const preserved=await page.evaluate(()=>({
-              owners:document.querySelectorAll('[data-rona-client-home-owner="command-center-v2"]').length,
+            await page.waitForFunction(()=>document.querySelector('[data-rona-client-home-owner]')?.getAttribute('data-rona-client-home-neutral')==='loading');
+            const loading=await page.evaluate(()=>({
+              text:document.querySelector('[data-rona-client-home-owner]')?.textContent||'',
               lastGood:!!document.querySelector('#lastGood'),
               degraded:document.documentElement.getAttribute('data-rona-client-home-degraded'),
-              prepaint:document.documentElement.getAttribute('data-rona-client-home-prepaint')
+              staleMarker:document.documentElement.outerHTML.includes('stale-preserved')
             }));
-            assert(preserved.owners===1&&preserved.lastGood,'last-known-good owner was not preserved');
-            assert(preserved.degraded==='stale-preserved'&&preserved.prepaint==='released','stale-preserved state contract missing');
-            console.log('CLIENT_HOME_ERROR_DEGRADED_STATE=PASS');
+            assert(!loading.lastGood&&!loading.text.includes('LAST KNOWN GOOD'),'last-known-good content survived loading transition');
+            assert(loading.degraded==='loading-neutral','loading neutral marker missing');
+            assert(loading.staleMarker===false,'stale-preserved marker rendered');
+            console.log('CLIENT_HOME_ERROR_LOADING_FAIL_CLOSED=PASS');
+            await browser.close();
+          })().catch(e=>{console.error(e.stack||e);process.exit(1)});
+          NODE
+
+      - name: Prove context-generation race rejects late previous-context render
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const {chromium}=require('playwright');
+          const path=require('path');
+          const assert=(x,m)=>{if(!x)throw new Error(m)};
+          (async()=>{
+            const browser=await chromium.launch({headless:true,channel:'chrome'});
+            const page=await browser.newPage({viewport:{width:1400,height:900}});
+            const html='<!doctype html><html><head><style id="rona-client-home-first-paint-guard">#page-home{position:relative}html[data-rona-client-home-prepaint="blocked-until-command-center-v2"] #page-home::after{content:"Загрузка центра управления";position:absolute;inset:0;background:#04101b}</style><style>#page-home{width:900px;min-height:500px}.frame{width:850px;border:1px solid #345;padding:10px}</style></head><body><main><section id="page-home"><section class="frame"><h1>Главная</h1></section><section class="frame"><span>Выбрана компания</span></section><section data-rona-client-home-owner="command-center-v2"></section></section></main></body></html>';
+            await page.route('https://rona.test/portal/client',route=>route.fulfill({status:200,contentType:'text/html; charset=utf-8',body:html}));
+            await page.goto('https://rona.test/portal/client',{waitUntil:'domcontentloaded'});
+            await page.evaluate(()=>{
+              window.__selected={client_id:'CLIENT-A',contract_id:'CONTRACT-A'};
+              window.__projection={client_id:'CLIENT-A',contract_id:'CONTRACT-A'};
+              window.RONA_CLIENT_CONTEXT={
+                getCurrentContext:()=>window.__selected,
+                getCurrentProjection:()=>window.__projection,
+                selectionRequired:()=>false
+              };
+            });
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/client-home-current-only-v1.js')});
+
+            await page.evaluate(()=>{
+              window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:'CLIENT-A',contract_id:'CONTRACT-A'}}));
+              const owner=document.querySelector('[data-rona-client-home-owner]');
+              owner.innerHTML='<div class="rona-cc-kpis"><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">CURRENT-A</strong></div></div>';
+              window.__RONA_CLIENT_HOME_STATE__={client_id:'CLIENT-A',contract_id:'CONTRACT-A'};
+              document.documentElement.setAttribute('data-rona-client-home-state','ready');
+              document.documentElement.setAttribute('data-rona-client-home-ready','true');
+            });
+            await page.waitForFunction(()=>document.getElementById('rona-client-home-first-paint-guard')?.media==='not all'&&document.body.textContent.includes('CURRENT-A'));
+
+            await page.evaluate(()=>{
+              window.__selected={client_id:'CLIENT-B',contract_id:'CONTRACT-B'};
+              window.__projection=null;
+              window.dispatchEvent(new CustomEvent('rona:client-context-changed',{detail:{client_id:'CLIENT-B',contract_id:'CONTRACT-B'}}));
+            });
+            await page.waitForFunction(()=>!document.body.textContent.includes('CURRENT-A')&&document.documentElement.getAttribute('data-rona-client-home-state')==='loading');
+            const generationAfterSwitch=await page.evaluate(()=>window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__?.context_generation||0);
+
+            await page.evaluate(()=>{
+              const owner=document.querySelector('[data-rona-client-home-owner]');
+              owner.innerHTML='<div id="lateA">LATE-A OLD DEAL 999</div>';
+              window.__RONA_CLIENT_HOME_STATE__={client_id:'CLIENT-A',contract_id:'CONTRACT-A'};
+              document.documentElement.setAttribute('data-rona-client-home-state','ready');
+              document.documentElement.setAttribute('data-rona-client-home-ready','true');
+            });
+            await page.waitForFunction(()=>!document.querySelector('#lateA')&&!document.body.textContent.includes('LATE-A')&&!document.documentElement.hasAttribute('data-rona-client-home-ready'));
+            const rejected=await page.evaluate(()=>({state:document.documentElement.getAttribute('data-rona-client-home-state'),neutral:document.querySelector('[data-rona-client-home-owner]')?.getAttribute('data-rona-client-home-neutral'),generation:window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__?.context_generation||0}));
+            assert(rejected.state==='loading'&&rejected.neutral==='loading','late previous-context render was not rejected '+JSON.stringify(rejected));
+            assert(rejected.generation===generationAfterSwitch,'late response changed context generation '+JSON.stringify(rejected));
+
+            await page.evaluate(()=>{
+              window.__projection={client_id:'CLIENT-B',contract_id:'CONTRACT-B'};
+              window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:'CLIENT-B',contract_id:'CONTRACT-B'}}));
+              const owner=document.querySelector('[data-rona-client-home-owner]');
+              owner.innerHTML='<div class="rona-cc-kpis"><div class="rona-cc-kpi"><strong class="rona-cc-kpi-value">CURRENT-B</strong></div></div>';
+              window.__RONA_CLIENT_HOME_STATE__={client_id:'CLIENT-B',contract_id:'CONTRACT-B'};
+              document.documentElement.setAttribute('data-rona-client-home-state','ready');
+              document.documentElement.setAttribute('data-rona-client-home-ready','true');
+            });
+            await page.waitForFunction(()=>document.getElementById('rona-client-home-first-paint-guard')?.media==='not all'&&document.body.textContent.includes('CURRENT-B'));
+            const current=await page.evaluate(()=>({
+              text:document.querySelector('[data-rona-client-home-owner]')?.textContent||'',
+              neutral:document.querySelector('[data-rona-client-home-owner]')?.hasAttribute('data-rona-client-home-neutral'),
+              kpis:document.querySelectorAll('[data-rona-client-home-owner] .rona-cc-kpis').length,
+              value:document.querySelectorAll('[data-rona-client-home-owner] .rona-cc-kpi-value').length,
+              guard:document.getElementById('rona-client-home-first-paint-guard')?.media||'',
+              projectionConfirmed:window.__RONA_CLIENT_HOME_CURRENT_ONLY_STATE__?.projection_confirmed
+            }));
+            assert(current.text.includes('CURRENT-B')&&!current.text.includes('CURRENT-A')&&!current.text.includes('LATE-A'),'current context did not replace previous context '+JSON.stringify(current));
+            assert(current.neutral===false&&current.kpis===1&&current.value===1,'loaded Home production class structure was altered '+JSON.stringify(current));
+            assert(current.guard==='not all'&&current.projectionConfirmed===true,'current projection did not release guard '+JSON.stringify(current));
+            console.log('CLIENT_HOME_CONTEXT_GENERATION_RACE=PASS');
+            console.log('CLIENT_HOME_LOADED_VISUAL_CLASS_STRUCTURE=PRESERVED');
             await browser.close();
           })().catch(e=>{console.error(e.stack||e);process.exit(1)});
           NODE

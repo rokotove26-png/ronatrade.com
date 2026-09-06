@@ -73,7 +73,7 @@ jobs:
           if(s?.mode!=='CURRENT_ONLY_REMOVE_LEGACY_PAYMENT_PLACEHOLDERS'||s?.navigation_prepaint_reset!==true||s?.hardcoded_business_entities!==false)throw new Error('payments sanitation integrity contract missing');
           const p=integrity.client_runtime?.section_first_paint;
           if(p?.mode!=='CURRENT_ONLY_FAIL_CLOSED_NAVIGATION_PREPAINT'||p?.shielding!=='OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE'||p?.runtime_dom_visibility_preserved!==true||p?.legacy_visual_flash_allowed!==false||p?.business_logic_changed!==false||p?.functional_empty_state_changed!==true)throw new Error('section first-paint integrity contract missing');
-          if(p?.deals_empty_state!=='SERVER_CONTEXT_LOADED_AND_NO_ACTIVE_DEALS')throw new Error('Deals authoritative empty contract missing');
+          if(p?.deals_empty_state!=='CURRENT_PROJECTION_LOADED_AND_NO_ACTIVE_DEALS')throw new Error('Deals authoritative current-projection empty contract missing');
           console.log('CLIENT_RUNTIME_SANITATION_BUILD=PASS');
           NODE
 

@@ -19,7 +19,7 @@ function ensureContractDownloadRuntime(){
 ensureContractDownloadRuntime();
 
 async function request(path,init={}){
-  const headers={accept:'application/json',...(init.headers||{})};
+  const headers={accept:'application/json','x-rona-client-source':'client-price-sync-v1:prices',...(init.headers||{})};
   const response=await fetch(API+path,{credentials:'same-origin',cache:'no-store',...init,headers});
   const body=await response.json().catch(()=>null);
   if(!response.ok||body?.ok===false)throw new Error(String(body?.code||body?.error?.code||('HTTP_'+response.status)));
@@ -71,7 +71,6 @@ function styleBodyCell(cell,index){Object.assign(cell.style,{fontSize:'16px',lin
 function makePriceButton(item){
   ensurePriceInteractionStyle();const button=document.createElement('button');button.type='button';button.dataset.ronaPriceItem=String(item.publication_item_id||'');button.textContent=priceText(item);button.title='Нажмите, чтобы подать заявку по этой цене';button.setAttribute('aria-label',`Подать заявку: ${productLabel(item.product)}, ${item.basis}, ${priceText(item)}`);Object.assign(button.style,{appearance:'none',border:'1px solid transparent',background:'transparent',padding:'7px 10px',margin:'0',color:'inherit',fontFamily:'inherit',fontSize:'16px',lineHeight:'1.35',fontWeight:'800',cursor:'pointer',width:'100%',textAlign:'left',whiteSpace:'nowrap'});return button;
 }
-
 function render(){
   if(!state.prices.length)return false;const table=findPriceTable();if(!table)return false;
   const bases=uniqueBases();
@@ -84,7 +83,6 @@ function render(){
   groupedProducts().forEach(([product,items],index)=>{const row=document.createElement('tr');[String(index+1),productLabel(product),producerLabel(items)].forEach((value,cellIndex)=>{const cell=document.createElement('td');cell.textContent=value;styleBodyCell(cell,cellIndex);row.appendChild(cell)});for(const basis of bases){const cell=document.createElement('td');styleBodyCell(cell,row.children.length);const item=items.find(x=>String(x.basis||'').trim()===basis);if(item)cell.appendChild(makePriceButton(item));else cell.textContent='—';row.appendChild(cell)}body.appendChild(row)});
   table.dataset.ronaPriceSyncSignature=signature;state.renderSignature=signature;syncPublicationStatus();return true;
 }
-
 function clearPriceState(){state.prices=[];state.priceContextKey='';state.priceLoadedAt=0;state.renderSignature='';window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:state.context,prices:[],authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',loadedAt:null}}
 function publishPriceState(next,source){state.prices=Array.isArray(source)?source:[];state.priceContextKey=contextKey(next);state.priceLoadedAt=Date.now();window.__RONA_CLIENT_PRICE_SYNC_STATE__={context:next,prices:state.prices,authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',loadedAt:new Date().toISOString()}}
 async function loadPrices(next,force=false){
@@ -95,7 +93,6 @@ async function loadPrices(next,force=false){
   if(seq!==state.priceSeq||contextKey(state.context)!==key||contextKey(contextAuthority()?.getCurrentContext())!==key)return;
   publishPriceState(next,result?.prices);
 }
-
 async function refresh(forcePrices=false){
   if(state.loading){state.refreshPending=true;render();return}
   state.loading=true;
@@ -116,18 +113,16 @@ function queueRender(){if(state.renderQueued||!state.prices.length)return;state.
 function observePriceMount(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>queueRender());state.observer.observe(document.body,{childList:true,subtree:true})}
 function isPriceInteraction(target){const el=target?.closest?.('button,[role="button"],[role="tab"],a');if(!el)return false;const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title'))].join(' ');return text.includes('цены')||text.includes('прайс')}
 function scheduleRefresh(forcePrices=false){clearTimeout(state.refreshTimer);state.refreshTimer=setTimeout(()=>refresh(forcePrices),80)}
-function maybeRefresh(event){if(isPriceInteraction(event.target)){queueRender();if(Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}}
-
+function maybeRefresh(event){if(isPriceInteraction(event.target)){queueRender();if(!state.prices.length||Date.now()-state.priceLoadedAt>PRICE_TTL)scheduleRefresh(false)}}
 function start(){
   observePriceMount();
   const authority=contextAuthority();
   if(!authority){console.error('RONA client price sync: context authority unavailable');return}
-  state.unsubscribe=authority.subscribe(ctx=>{const changed=contextKey(state.context)!==contextKey(ctx);state.context=ctx||null;if(changed){state.priceSeq++;clearPriceState()}scheduleRefresh(true)});
-  refresh(true);
+  state.unsubscribe=authority.subscribe(ctx=>{const changed=contextKey(state.context)!==contextKey(ctx);state.context=ctx||null;if(changed){state.priceSeq++;clearPriceState()}queueRender()});
+  const current=authority.getCurrentContext?.();if(current)state.context=current;
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
 document.addEventListener('click',maybeRefresh,true);
 document.addEventListener('change',maybeRefresh,true);
-window.addEventListener('pageshow',()=>{queueRender();if(Date.now()-state.lastRefresh>PRICE_TTL)refresh(false)});
-setInterval(()=>{if(document.visibilityState==='visible')refresh(false)},30000);
+window.addEventListener('pageshow',queueRender,{passive:true});
 })();

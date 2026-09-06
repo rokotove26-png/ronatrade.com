@@ -10,11 +10,9 @@ const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);
 const DEALS_EMPTY_OWNER='server-authoritative-empty-v1';
 const PAYMENT_OWNER='[data-rona-client-payments-owner="finance-authoritative-v1"]';
 const LEGACY_PAYMENT_EXACT=/^(?:Плат[её]жный статус|Плат[её]жных данных пока нет\.?|Подтвержд[её]нные поступления)$/iu;
-const PRELOAD_LOADER_RE=/^__RONA_(?:LOAD|REFRESH)_CLIENT_[A-Z0-9_]+__$/u;
 const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const upper=v=>norm(v).toUpperCase();
-let lastActive='',queued=false,preloadTimer=0,preloadUntil=0;
-const preloadedFunctions=new WeakSet();
+let lastActive='',queued=false;
 
 function rootFor(section){
   if(section==='deals')return document.querySelector('#page-deals,#dealsPage,[data-page-panel="deals"],[data-page-id="deals"]');
@@ -79,14 +77,33 @@ function dealIds(root){
   }
   return[...ids];
 }
-function selectedContextPath(){
+function selectedContext(){return window.RONA_CLIENT_CONTEXT?.getCurrentContext?.()||null}
+function selectedContextPath(ctx=selectedContext()){
   const html=document.documentElement;
   if(html.dataset.ronaClientContextAuthority&&html.dataset.ronaClientContextSelection!=='selected')return'';
-  const clientId=norm(html.dataset.ronaClientId),contractId=norm(html.dataset.ronaContractId);
+  const clientId=norm(ctx?.client_id||html.dataset.ronaClientId),contractId=norm(ctx?.contract_id||html.dataset.ronaContractId);
   if(!clientId||!contractId)return'';
   return `/v1/client/context?clientId=${encodeURIComponent(clientId)}&contractId=${encodeURIComponent(contractId)}`;
 }
+function projectionMatchesContext(projection,ctx){
+  if(!projection||!ctx)return false;
+  const clientId=norm(ctx.client_id),contractId=norm(ctx.contract_id),contract=projection.contract||{},context=projection.context||{};
+  const clientIds=[projection.client_id,projection.client?.client_id,contract.client_id,context.client_id].map(norm).filter(Boolean);
+  const contractIds=[projection.contract_id,contract.contract_id,context.contract_id].map(norm).filter(Boolean);
+  return(!clientIds.length||clientIds.every(v=>v===clientId))&&(!contractIds.length||contractIds.every(v=>v===contractId));
+}
+function seedCurrentProjectionCache(reason='current-projection'){
+  const authority=window.RONA_CLIENT_CONTEXT,ctx=authority?.getCurrentContext?.(),projection=authority?.getCurrentProjection?.();
+  if(!ctx||!projection||!projectionMatchesContext(projection,ctx))return null;
+  const path=selectedContextPath(ctx);if(!path)return null;
+  let cache=window.__RONA_CLIENT_BACKGROUND_CACHE__;
+  if(!cache||typeof cache!=='object'){cache={};window.__RONA_CLIENT_BACKGROUND_CACHE__=cache;if(window.__RONA_CLIENT_BACKGROUND_STATE__)window.__RONA_CLIENT_BACKGROUND_STATE__.cache=cache}
+  cache[path]={ok:true,status:200,body:{ok:true,data:projection},source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',reason,client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),cached_at:new Date().toISOString()};
+  document.documentElement.dataset.ronaClientFirstPaintProjection='current-authority-cache';
+  return cache[path];
+}
 function authoritativeDealsSnapshot(){
+  seedCurrentProjectionCache('first-paint-read');
   const path=selectedContextPath();if(!path)return null;
   const cache=window.__RONA_CLIENT_BACKGROUND_CACHE__;const entry=cache&&cache[path];
   if(!entry||entry.ok!==true)return null;
@@ -168,42 +185,20 @@ function evaluate(){
 }
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(evaluate)}
 function resetFromNavigation(event){const section=navSection(event.target);if(!section)return;setPending(section);if(section!==lastActive)lastActive='';schedule()}
-
-function runBackgroundPreloaders(){
-  for(const key of Object.getOwnPropertyNames(window)){
-    if(!PRELOAD_LOADER_RE.test(key))continue;
-    const loader=window[key];
-    if(typeof loader!=='function'||preloadedFunctions.has(loader))continue;
-    preloadedFunctions.add(loader);
-    Promise.resolve().then(()=>loader()).catch(()=>{});
-  }
-}
-function backgroundPreloadTick(){
-  runBackgroundPreloaders();
-  if(Date.now()<preloadUntil)preloadTimer=window.setTimeout(backgroundPreloadTick,250);
-  else document.documentElement.dataset.ronaClientBackgroundPreload='ready';
-}
-function startBackgroundPreload(){
-  window.clearTimeout(preloadTimer);
-  preloadUntil=Date.now()+10000;
-  document.documentElement.dataset.ronaClientBackgroundPreload='loading';
-  const begin=()=>backgroundPreloadTick();
-  if(typeof window.requestIdleCallback==='function')window.requestIdleCallback(begin,{timeout:500});
-  else preloadTimer=window.setTimeout(begin,80);
-}
-
-function resetForContext(){lastActive='';setPending('deals');schedule();startBackgroundPreload()}
+function resetForContext(){lastActive='';setPending('deals');schedule()}
+function onCurrentProjection(){seedCurrentProjectionCache('rona:client-current-projection');schedule()}
 function start(){
+  seedCurrentProjectionCache('startup');
   document.addEventListener('pointerdown',resetFromNavigation,true);
   document.addEventListener('click',resetFromNavigation,true);
-  window.addEventListener('popstate',()=>{lastActive='';setPending('deals');setPending('payments');schedule();startBackgroundPreload()},{passive:true});
-  window.addEventListener('hashchange',()=>{lastActive='';setPending('deals');setPending('payments');schedule();startBackgroundPreload()},{passive:true});
-  window.addEventListener('pageshow',()=>{lastActive='';schedule();startBackgroundPreload()},{passive:true});
+  window.addEventListener('popstate',()=>{lastActive='';setPending('deals');setPending('payments');schedule()},{passive:true});
+  window.addEventListener('hashchange',()=>{lastActive='';setPending('deals');setPending('payments');schedule()},{passive:true});
+  window.addEventListener('pageshow',()=>{lastActive='';seedCurrentProjectionCache('pageshow');schedule()},{passive:true});
   window.addEventListener('rona:client:background-sections',schedule,{passive:true});
   window.addEventListener('rona:client-context-changed',resetForContext,{passive:true});
-  new MutationObserver(()=>{schedule();runBackgroundPreloaders()}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-rona-deal-authority','data-rona-deal-summary-ready','data-rona-payments-sanitation','data-rona-client-operations-ready','data-rona-client-payments-ready','data-rona-client-id','data-rona-contract-id','data-rona-client-context-selection','data-rona-client-background-sections']});
+  window.addEventListener('rona:client-current-projection',onCurrentProjection,{passive:true});
+  new MutationObserver(()=>{schedule()}).observe(document.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-rona-deal-authority','data-rona-deal-summary-ready','data-rona-payments-sanitation','data-rona-client-operations-ready','data-rona-client-payments-ready','data-rona-client-id','data-rona-contract-id','data-rona-client-context-selection','data-rona-client-background-sections']});
   evaluate();
-  startBackgroundPreload();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

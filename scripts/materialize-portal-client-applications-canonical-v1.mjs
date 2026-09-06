@@ -1,4 +1,4 @@
-import { readFile, writeFile, copyFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 const htmlPath='dist/portal/client.html';
@@ -8,12 +8,12 @@ const sourceRuntimePath='assets/portal-runtime/portal-client-applications-canoni
 const runtimePath='dist/assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const id='rona-portal-client-applications-canonical-v1';
 const marker='20260904-portal-client-applications-canonical-v3-title-frame-box-model';
-const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260904-title-frame-box-model-v3';
+const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260905-no-background-refresh-v4';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const approval=JSON.parse(await readFile(approvalPath,'utf8'));
 if(approval?.client_applications_live_render_correction?.authorized_source!=='OWNER_IN_CHAT')throw new Error('CLIENT_APPLICATIONS_OWNER_APPROVAL_MISSING');
-const runtime=await readFile(sourceRuntimePath,'utf8');
+const sourceRuntime=await readFile(sourceRuntimePath,'utf8');
 for(const required of [
   marker,
   'applications-projection',
@@ -33,14 +33,21 @@ for(const required of [
   'font-size:13.5px',
   'font:740 12.2px/1',
 ]){
-  if(!runtime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_REQUIRED_MISSING: ${required}`);
+  if(!sourceRuntime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_REQUIRED_MISSING: ${required}`);
 }
 for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены','portal-client-applications-uat-v2','portal-client-applications-uat-v3','rona-live-app-state-lines']){
-  if(runtime.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_FORBIDDEN_OUTPUT: ${forbidden}`);
+  if(sourceRuntime.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_FORBIDDEN_OUTPUT: ${forbidden}`);
 }
-if(/<img|<svg|<canvas|background-image\s*:/iu.test(runtime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_IMAGE_ASSET_FORBIDDEN');
+if(/<img|<svg|<canvas|background-image\s*:/iu.test(sourceRuntime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_IMAGE_ASSET_FORBIDDEN');
 
-await copyFile(sourceRuntimePath,runtimePath);
+const polling="state.timer=setInterval(()=>load(false),REFRESH_MS);";
+const pageShowNetwork="window.addEventListener('pageshow',()=>{load(true);scheduleAlign();setTimeout(observeLayout,0)},{passive:true})";
+if(!sourceRuntime.includes(polling))throw new Error('CLIENT_APPLICATIONS_EXPECTED_POLLING_OWNER_MISSING');
+if(!sourceRuntime.includes(pageShowNetwork))throw new Error('CLIENT_APPLICATIONS_EXPECTED_PAGESHOW_NETWORK_OWNER_MISSING');
+const runtime=sourceRuntime.replace(polling,'').replace(pageShowNetwork,"window.addEventListener('pageshow',()=>{scheduleAlign();setTimeout(observeLayout,0)},{passive:true})");
+if(runtime.includes(polling)||runtime.includes(pageShowNetwork))throw new Error('CLIENT_APPLICATIONS_BACKGROUND_REFRESH_QUARANTINE_FAILED');
+await writeFile(runtimePath,runtime,'utf8');
+
 let html=await readFile(htmlPath,'utf8');
 for(const competing of ['rona-client-applications-live-render-v1','rona-client-applications-live-render-v2','rona-portal-client-applications-uat-v2','rona-portal-client-applications-uat-v3','client-applications-canonical-layout-v1.js']){
   if(html.includes(competing))throw new Error(`CLIENT_APPLICATIONS_COMPETING_RENDERER_PRESENT: ${competing}`);
@@ -71,8 +78,10 @@ integrity.client_runtime.applications_live_render={
   status_layout:'SINGLE_LINE_INDICATOR_STRIP',
   typography:'DEAL_CARD_SCALE',
   competing_renderers:false,
-  refresh_ms:30000,
+  refresh_policy:'INITIAL_CONTEXT_CHANGE_EXPLICIT_SUBMIT_ONLY',
+  periodic_refresh:false,
+  pageshow_network_refresh:false,
   images_added:false
 };
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; visual=DEAL_CARD_VISUAL_PARITY; alignment=APPLICATIONS_TITLE_FRAME; status=SINGLE_LINE_INDICATOR_STRIP`);
+console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; visual=DEAL_CARD_VISUAL_PARITY; alignment=APPLICATIONS_TITLE_FRAME; status=SINGLE_LINE_INDICATOR_STRIP; periodic_refresh=false; pageshow_network_refresh=false`);

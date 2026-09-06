@@ -1,0 +1,15 @@
+import {readFile} from 'node:fs/promises';
+const read=p=>readFile(p,'utf8');
+const deals=await read('assets/portal-runtime/client-deals-authoritative-v1.js');
+const home=await read('assets/portal-runtime/client-home-current-only-v1.js');
+const company=await read('assets/portal-runtime/client-contract-download-v3.js');
+const command=await read('assets/portal-runtime/client-home-command-center-v2.js');
+const responsive=await read('assets/portal-runtime/client-content-responsive-v1.css');
+if(!deals.includes('function retireNonCanonicalDealLayers'))throw new Error('SYSTEM_ADMIN_CANONICAL_DEALS_MISSING');
+if(!home.includes('v8-startup-ready-preserve'))throw new Error('SYSTEM_ADMIN_CANONICAL_HOME_MISSING');
+if(!company.includes("const MARK='20260906-client-contract-v10-kpi-typography-dynamic-owner';"))throw new Error('SYSTEM_ADMIN_CANONICAL_COMPANY_MARKER_MISSING');
+if(!company.includes('function currentCompanyMetrics(entry)'))throw new Error('SYSTEM_ADMIN_CANONICAL_KPI_MISSING');
+if(!company.includes('RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED'))throw new Error('SYSTEM_ADMIN_CANONICAL_TYPOGRAPHY_MISSING');
+if(!command.includes('[data-page=\"home\"]'))throw new Error('SYSTEM_ADMIN_CANONICAL_HOME_REENTRY_MISSING');
+if(responsive.includes('RONA_CLIENT_OWNER_TYPOGRAPHY_110_'))throw new Error('SYSTEM_ADMIN_PARTIAL_TYPOGRAPHY_CSS_REINTRODUCED');
+console.log(JSON.stringify({status:'SYSTEM_ADMIN_OWNER_REMEDIATION=PASS',canonical_source:true,deals_owner:'AUTHORITATIVE_LIST_ONLY_REAL_DEALS_ROOT',company_kpi:'CANONICAL_APPLICATIONS_AND_DEALS_PRODUCT_PREDICATES',typography:{runtime:'RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED',effective_scale:1.1,analytics_effective_scale:1}}));

@@ -1,0 +1,115 @@
+name: Client owner targeted remediation QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [hotfix/client-load-feedback-loop-v1]
+
+permissions:
+  contents: read
+
+jobs:
+  owner-targeted-remediation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install real browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Build production baseline, legacy PRE, Deals PRE, and exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_root=/tmp/rona-owner-retest-base
+          before_root=/tmp/rona-owner-retest-before
+          deals_before_root=/tmp/rona-owner-deals-before
+          candidate_root=/tmp/rona-owner-retest-candidate
+          rm -rf "$base_root" "$before_root" "$deals_before_root" "$candidate_root"
+          git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
+          git worktree add --detach "$before_root" d2a4bd75400cfb5f1f095ee997def21b936bceb2
+          git worktree add --detach "$deals_before_root" 0d205bcf32ea7910ce8be5f30718399cc725f910
+          candidate_sha='${{ github.event.pull_request.head.sha || github.sha }}'
+          git worktree add --detach "$candidate_root" "$candidate_sha"
+          (cd "$base_root" && npm run build)
+          (cd "$before_root" && npm run build)
+          (cd "$deals_before_root" && npm run build)
+          (cd "$candidate_root" && npm run build)
+          {
+            echo "OWNER_BASE_ROOT=$base_root"
+            echo "OWNER_BEFORE_ROOT=$before_root"
+            echo "OWNER_DEALS_BEFORE_ROOT=$deals_before_root"
+            echo "OWNER_CANDIDATE_ROOT=$candidate_root"
+            echo "OWNER_CANDIDATE_SHA=$candidate_sha"
+          } >> "$GITHUB_ENV"
+      - name: Prove SYSTEM_ADMIN PRE d2a4bd7 fails the existing real regression
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/owner-retest-before.log"
+          cd "$OWNER_BEFORE_ROOT"
+          set +e
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='PRE_D2A4BD7' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" >"$log" 2>&1
+          rc=$?
+          set -e
+          cat "$log"
+          test "$rc" -ne 0
+          grep -F 'ASSERTION_FAILED PASSPORT_SOURCE_TO_PROJECTION' "$log"
+          grep -F 'ASSERTION_FAILED CURRENT_COMPANY_CARD_AND_COUNTERS' "$log"
+          grep -F 'ASSERTION_FAILED CLIENT_TYPOGRAPHY_REAL_UI_110' "$log"
+          grep -F 'OWNER_RETEST_REGRESSION_RESULT=FAIL' "$log"
+          echo 'OWNER_RETEST_BEFORE_EXPECTED_FAIL=PASS'
+      - name: Prove exact SYSTEM_ADMIN Deals PRE 0d205bc fails first-paint semantic gate
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/owner-deals-first-paint-before.log"
+          cd "$OWNER_DEALS_BEFORE_ROOT"
+          set +e
+          RONA_DEALS_FIRST_PAINT_LABEL='PRE_0D205BC' RONA_OWNER_ARTIFACT_DIR="$GITHUB_WORKSPACE" node "$GITHUB_WORKSPACE/scripts/qa-client-deals-first-paint-parity-v1.mjs" >"$log" 2>&1
+          rc=$?
+          set -e
+          cat "$log"
+          test "$rc" -ne 0
+          grep -F 'DEALS_FIRST_PAINT_OWNER_PROOF' "$log"
+          grep -F 'ASSERTION_FAILED DEALS_CARD_FIRST_PAINT_SEMANTIC' "$log"
+          grep -F 'DEALS_FIRST_PAINT_PARITY_RESULT=FAIL' "$log"
+          echo 'DEALS_FIRST_PAINT_PRE_EXPECTED_RED=PASS'
+      - name: Prove exact candidate passes the existing real regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
+          cd "$OWNER_CANDIDATE_ROOT"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" | tee "$log"
+          grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
+          grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
+      - name: Prove exact candidate Deals first paint is canonical and parity-stable
+        shell: bash
+        run: |
+          set -euo pipefail
+          log="$GITHUB_WORKSPACE/owner-deals-first-paint-candidate.log"
+          cd "$OWNER_CANDIDATE_ROOT"
+          RONA_DEALS_FIRST_PAINT_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" RONA_OWNER_ARTIFACT_DIR="$GITHUB_WORKSPACE" node "$GITHUB_WORKSPACE/scripts/qa-client-deals-first-paint-parity-v1.mjs" | tee "$log"
+          grep -F 'DEALS_FIRST_PAINT_ASSERTION_SET=PASS' "$log"
+          grep -F 'DEALS_CARD_PRE_OPEN_POST_CLOSE_PARITY=PASS' "$log"
+          grep -F 'DEALS_FIRST_PAINT_PARITY_RESULT=PASS' "$log"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-owner-real-retest-${{ github.run_id }}
+          path: |
+            owner-retest-*.log
+            owner-deals-*.log
+            owner-deals-*.png
+          if-no-files-found: error

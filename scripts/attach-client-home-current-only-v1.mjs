@@ -34,13 +34,24 @@ for(const token of [
   "data-rona-client-home-prepaint','released",
   "'bounded-timeout'",
   'homeStateObserver.observe',
-  'ensureDegradedOwner',
+  'neutralizeOwner',
+  'contextGeneration',
+  'readyBelongsToCurrentGeneration',
+  'currentProjectionConfirmed',
+  "window.addEventListener('rona:client-context-changed'",
+  "window.addEventListener('rona:client-current-projection'",
   'data-rona-client-home-degraded',
   "FIRST_PAINT_GUARD_ID='rona-client-home-first-paint-guard'",
   'setFirstPaintGuardEnabled',
   "guard.media=enabled?'all':'not all'",
-  "first_paint_guard:'REUSABLE_HARD_FAIL_OPEN'"
+  "first_paint_guard:'REUSABLE_FAIL_CLOSED_NEUTRAL'",
+  'stale_business_visibility:false',
+  'context_generation_guard:true',
+  "observer_scope:'HOME_ROOT_ONLY'",
+  'observer.observe(root,{childList:true,subtree:true})'
 ])if(!runtime.includes(token))throw new Error(`CLIENT_HOME_CURRENT_ONLY_CONTRACT_MISSING: ${token}`);
+if(runtime.includes('stale-preserved'))throw new Error('CLIENT_HOME_STALE_PRESERVED_FORBIDDEN');
+if(runtime.includes('observer.observe(document.body'))throw new Error('CLIENT_HOME_WHOLE_BODY_OBSERVER_FORBIDDEN');
 if(runtime.includes("setAttribute('data-rona-home-legacy-hidden'"))throw new Error('CLIENT_HOME_CURRENT_ONLY_HIDE_ONLY_SANITATION_FORBIDDEN');
 if(runtime.includes('guard.remove()')||runtime.includes('removeFirstPaintGuard'))throw new Error('CLIENT_HOME_CURRENT_ONLY_REUSABLE_GUARD_MUST_NOT_BE_REMOVED');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(runtime))throw new Error('CLIENT_HOME_CURRENT_ONLY_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
@@ -75,16 +86,21 @@ integrity.client_runtime.home_current_only={
   legacy_dom:'PHYSICALLY_REMOVED',
   legacy_runtime_asset:'ABSENT',
   navigation_prepaint_reset:true,
-  prepaint_rescue:{mode:'BOUNDED_REUSABLE_HARD_FAIL_OPEN',max_block_ms:5000,release_on:['COMMAND_CENTER_READY','COMMAND_CENTER_ERROR','TIMEOUT'],canonical_fallback:true,reusable_guard:true,hard_release:'STYLE_MEDIA_NOT_ALL',rearm_on_navigation:true},
+  prepaint_rescue:{mode:'BOUNDED_REUSABLE_FAIL_CLOSED_NEUTRAL',max_block_ms:5000,release_on:['COMMAND_CENTER_READY_CURRENT_CONTEXT','COMMAND_CENTER_ERROR','TIMEOUT','SELECTION_REQUIRED'],canonical_fallback:false,neutral_fallback:true,reusable_guard:true,hard_release:'STYLE_MEDIA_NOT_ALL',rearm_on_navigation:true},
   degraded_error_owner:true,
-  error_fallback:'CONTROLLED_DEGRADED_STATE',
+  error_fallback:'CONTROLLED_NEUTRAL_STATE',
+  stale_business_visibility:false,
+  current_projection_required:true,
+  context_generation_guard:true,
+  observer_scope:'HOME_ROOT_ONLY',
+  whole_body_observer:false,
   legacy_clock_tick:'NULL_SAFE_COMPAT',
   reinsertion_policy:'REMOVE_BEFORE_NEXT_PAINT',
-  preserves:['HOME_TITLE_FRAME','HOME_CONTEXT_FRAME','COMMAND_CENTER_V2_OWNER'],
+  preserves:['HOME_TITLE_FRAME','HOME_CONTEXT_FRAME','COMMAND_CENTER_V2_OWNER','LOADED_HOME_VISUAL_CLASSES'],
   business_logic_changed:false,
   business_data_changed:false,
   hardcoded_business_entities:false
 };
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_HOME_CURRENT_ONLY_V1=PASS marker=${marker} src=${src} sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}`);
+console.log(`CLIENT_HOME_CURRENT_ONLY_V1=PASS marker=${marker} src=${src} sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length} stale_business_visibility=false context_generation_guard=true observer_scope=HOME_ROOT_ONLY`);
