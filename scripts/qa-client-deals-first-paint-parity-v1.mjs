@@ -119,6 +119,8 @@ try{
   await page.evaluate(id=>document.querySelector(`[data-rona-deals-authoritative-list] [data-open-deal="${id}"]`)?.click(),DEAL_IDS[0]);
   const passportReady=await wait(page,id=>{const d=document.querySelector(`.rona-deal-command-center-v3[data-rona-authoritative-deal-id="${id}"][data-rona-authoritative-binding="authoritative-binding"]`);return !!d&&d.getBoundingClientRect().width>0},DEAL_IDS[0],5000);
   if(!passportReady)fail('PASSPORT_DID_NOT_OPEN');
+  const lifecycleReady=passportReady&&await wait(page,id=>{const d=document.querySelector(`.rona-deal-command-center-v3[data-rona-authoritative-deal-id="${id}"]`),flow=d?.querySelector('#rona-deal-realization-flow-v3'),text=String(flow?.innerText||'');return /resource fixture status|Подтверждение ресурса/iu.test(text)&&!/Загрузка актуального статуса реализации/u.test(text)},DEAL_IDS[0],5000);
+  if(passportReady&&!lifecycleReady)fail('PASSPORT_LIFECYCLE_NOT_READY');
   const passport=passportReady?await page.evaluate(id=>{const nrm=v=>String(v??'').replace(/\s+/g,' ').trim(),d=document.querySelector(`.rona-deal-command-center-v3[data-rona-authoritative-deal-id="${id}"]`),pairs=[...d.querySelectorAll('.pair,[data-rona-command-field]')].map(n=>nrm(n.innerText)),amountPair=pairs.find(x=>/Сумма/i.test(x))||'',flow=d.querySelector('#rona-deal-realization-flow-v3');return{id,amountPair,lifecycleOwner:flow?.dataset?.ronaRealizationOwner||'',lifecycleText:nrm(flow?.innerText),client:d.dataset.ronaAuthoritativeClientId,contract:d.dataset.ronaAuthoritativeContractId}},DEAL_IDS[0]):null;
   console.log('DEALS_PASSPORT_REGRESSION_PROOF',JSON.stringify(passport));
   const passportAmountDigits=String(passport?.amountPair||'').replace(/\D/g,'');
