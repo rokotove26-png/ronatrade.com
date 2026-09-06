@@ -67,5 +67,6 @@
   ],
   "authorized_functional_delta": {
     "my_companies_kpi_semantics": "CANONICAL_CLIENT_APPLICATIONS_AND_DEALS_PRODUCT_PREDICATES"
-  }
+  },
+  "final_ci_verification_parent": "2fd2bc55fe85a9869c20e659138df36b6f8a5e69"
 }
