@@ -147,8 +147,8 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.authorized_post_blob_sha==='1431234cfaa982d4377d5d85683637c2f870f6f3'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.required_marker==='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V2_REAL_UI'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='2df9c3a413710152ce736e8f2d457ac7bfcb546e'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v9-kpi-typography-owner'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='57e66a343bf199ab2076a0ff5f074ba71e79218c'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v10-kpi-typography-dynamic-owner'&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.client_typography_scale===1.1&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.analytics_effective_scale===1&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.current_company_legal_name_visible===true&&
