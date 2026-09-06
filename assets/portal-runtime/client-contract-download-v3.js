@@ -102,9 +102,7 @@ async function refresh(force=false){
   try{
     const authority=await waitForAuthority(),current=authority.getCurrentContext();
     if(!current){state.entry=null;state.currentKey='';state.lastLoad=Date.now();publishState();render();return}
-    const key=contextKey(current);
-    if(state.currentKey!==key){state.entry=null;state.currentKey=key;state.lastLoad=0;primeCompanyDirectory(current);publishState();render()}
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));
+    const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));
     if(contextKey(authority.getCurrentContext())!==key)return;
     const data=detail?.data||{},context=effectiveContext(current,data);
     state.entry={context,document:currentContractDocument(data.documents)};

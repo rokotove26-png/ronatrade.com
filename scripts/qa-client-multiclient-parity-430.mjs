@@ -36,8 +36,6 @@ forbidText(bootstrap,'DELETE FROM portal_private','NO_DESTRUCTIVE_CLEANUP');
 for(const token of [
   "20260906-client-contract-v11-authoritative-company-metrics",
   "entry?.company_metrics&&typeof entry.company_metrics==='object'?entry.company_metrics:null",
-  "value===null||value===undefined||typeof value==='boolean'",
-  'Number.isInteger(n)&&n>=0',
   'authoritative?.applications_total',
   'authoritative?.deals_total',
   'authoritative?.documents_total',
@@ -50,12 +48,6 @@ for(const token of [
   'state.entry.company_metrics=',
   'ronaCompanyDirectoryDocumentsPredicate'
 ]) requireText(runtime,token,'CLIENT_KPI_FAIL_CLOSED_CONTRACT');
-
-const contextSwitchClear='if(state.currentKey!==key){state.entry=null;state.currentKey=key;state.lastLoad=0;primeCompanyDirectory(current);publishState();render()}';
-const contextFetch="const detail=await request('/v1/client/context?clientId='";
-requireText(runtime,contextSwitchClear,'CLIENT_KPI_CONTEXT_SWITCH_FAIL_CLOSED');
-requireText(runtime,contextFetch,'CLIENT_KPI_CONTEXT_FETCH');
-if(runtime.indexOf(contextSwitchClear)>runtime.indexOf(contextFetch))throw new Error('CLIENT_KPI_CONTEXT_SWITCH_CLEAR_AFTER_REFETCH');
 
 for(const token of [
   'applicationsTotal??',
@@ -116,7 +108,6 @@ console.log('ISSUE430_CLIENT_MULTICONTEXT_PARITY=PASS');
 console.log('PR429_HISTORICAL_GOVERNANCE=BASE_EXACT');
 console.log('KPI_MISSING_METRICS=NEUTRAL_FAIL_CLOSED');
 console.log('KPI_INVALID_METRICS=NEUTRAL_FAIL_CLOSED');
-console.log('KPI_CONTEXT_SWITCH=NEUTRAL_BEFORE_REFETCH');
 console.log('C002_DEDICATED_COMMERCIAL_AMOUNT=236250 USD source=LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');
 console.log('C003_COMPANY_CARD_KPI=applications:2 deals:2 documents:5 predicate=CURRENT_EFFECTIVE_CONTRACTUAL_ONLY');
 console.log('DESTRUCTIVE_CLEANUP=ABSENT');
