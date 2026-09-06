@@ -17,8 +17,8 @@ const issue432Marker="ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1='ISSUE43
 if(builtRuntime.includes(issue432Marker)){
   const builtConst="const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style',ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1='ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1';";
   const sourceConst="const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';";
-  const builtRead="const key=contextKey(current),projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};";
-  const sourceRead="const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));";
+  const builtRead="const projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};";
+  const sourceRead="const detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));";
   assert(builtRuntime.includes(builtConst),'Issue432 built contract marker must be exact');
   assert(builtRuntime.includes(builtRead),'Issue432 built contract central projection read must be exact');
   assert(!builtRuntime.includes('/v1/client/context?clientId='),'Issue432 built contract runtime must not own direct current-context fetch');
