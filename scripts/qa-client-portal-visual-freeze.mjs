@@ -134,7 +134,7 @@ const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.requirements?.authenticated_client_verification_required_before_merge===true&&
   clientLoadHotfixApproval?.requirements?.production_deploy_before_acceptance===false&&
   clientLoadHotfixApproval?.requirements?.merge_before_acceptance===false&&
-  clientLoadHotfixApproval?.requirements?.expires_on_hotfix_completion===true;
+  clientLoadHotfixApproval?.expires_on_hotfix_completion===true;
 
 const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.approval==='OWNER_IN_CHAT'&&
@@ -187,13 +187,14 @@ const clientMultiContext430ExceptionAuthorized=
   clientMultiContext430Approval?.authorized_at==='2026-09-06'&&
   clientMultiContext430Approval?.issue_number===430&&
   clientMultiContext430Approval?.system_admin_comment_id===5561179393&&
+  clientMultiContext430Approval?.system_admin_correction_comment_id===5561354113&&
   clientMultiContext430Approval?.branch==='hotfix/client-multiclient-parity-430-v1'&&
   clientMultiContext430Approval?.base_commit==='9797f7c7c5e8a003eaa19c520f4328a2001d5ce7'&&
   clientMultiContext430Approval?.scope==='CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430'&&
   exactArray(clientMultiContext430Approval?.approved_protected_files,CLIENT_MULTI_CONTEXT_430_FILES)&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.visual_freeze_baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.production_pre_hotfix_blob_sha==='57e66a343bf199ab2076a0ff5f074ba71e79218c'&&
-  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='ff56312d880074dafbe51e09fba3a66209bbf3ba'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='baf1a79b3c858f625243506d62be824abbb6d043'&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v11-authoritative-company-metrics'&&
   clientMultiContext430Approval?.requirements?.visual_freeze_remains_enabled===true&&
   clientMultiContext430Approval?.requirements?.owner_instruction_required===true&&
@@ -205,6 +206,9 @@ const clientMultiContext430ExceptionAuthorized=
   clientMultiContext430Approval?.requirements?.design_changed===false&&
   clientMultiContext430Approval?.requirements?.typography_changed===false&&
   clientMultiContext430Approval?.requirements?.company_metrics_current_context_authoritative===true&&
+  clientMultiContext430Approval?.requirements?.company_metrics_missing_fail_closed===true&&
+  clientMultiContext430Approval?.requirements?.company_metrics_invalid_fail_closed===true&&
+  clientMultiContext430Approval?.requirements?.company_metrics_neutral_unknown===true&&
   clientMultiContext430Approval?.requirements?.documents_kpi_current_effective_contractual_only===true&&
   clientMultiContext430Approval?.requirements?.superseded_contractual_documents_not_counted===true&&
   clientMultiContext430Approval?.requirements?.internal_artifacts_not_counted_as_contractual_kpi===true&&
