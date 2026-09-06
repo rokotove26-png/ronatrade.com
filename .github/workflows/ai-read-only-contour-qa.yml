@@ -64,13 +64,15 @@ jobs:
 
       - name: Validate exact authorized Client contract cache-key delta
         shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            BASE_REF="${{ github.base_ref }}"
-            BASE_REF="$BASE_REF" node --input-type=module <<'NODE'
-            import { execFileSync } from 'node:child_process';
-            import { readFileSync } from 'node:fs';
+          node --input-type=module <<'NODE'
+          import { execFileSync } from 'node:child_process';
+          import { readFileSync } from 'node:fs';
+          if(process.env.EVENT_NAME==='pull_request'){
             const baseRef=process.env.BASE_REF;
             const path='scripts/build-pages-direct-canonical.mjs';
             const baseline=execFileSync('git',['show',`origin/${baseRef}:${path}`],{encoding:'utf8'});
@@ -82,8 +84,8 @@ jobs:
             const expected=baseline.replace(from,to);
             if(actual!==expected) throw new Error('UNAUTHORIZED_BUILD_PAGES_DIRECT_CANONICAL_DELTA');
             console.log('CLIENT_CONTRACT_CACHE_KEY_AUTHORIZED_DELTA=PASS');
-            NODE
-          fi
+          }
+          NODE
           grep -Fq "src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-kpi-typography-v10'," scripts/build-pages-direct-canonical.mjs
 
       - name: Current Admin Agent and Client source non-regression
