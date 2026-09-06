@@ -4,11 +4,10 @@ import { chromium } from 'playwright';
 const REPO=process.env.GITHUB_REPOSITORY||'rokotove26-png/ronatrade.com';
 const HEAD=String(process.env.RONA_EXACT_HEAD||process.env.GITHUB_SHA||'').trim();
 const GH_TOKEN=String(process.env.RONA_GITHUB_TOKEN||'').trim();
-const ISSUER=String(process.env.RONA_QA_ISSUER_URL||'').trim();
+const ISSUER=String(process.env.RONA_QA_ISSUER_URL||'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-inline-auth-qa-credential-20260816').trim();
 const OIDC_AUDIENCE=String(process.env.RONA_OIDC_AUDIENCE||'rona-pr431-client-qa').trim();
 const ARTIFACT='issue430-real-authenticated-candidate-proof.json';
 if(!/^[0-9a-f]{40}$/i.test(HEAD))throw new Error('EXACT_HEAD_REQUIRED');
-if(!GH_TOKEN)throw new Error('GITHUB_TOKEN_REQUIRED');
 if(!ISSUER.startsWith('https://'))throw new Error('QA_ISSUER_URL_REQUIRED');
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -17,7 +16,9 @@ const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const safeUrl=u=>{const x=new URL(u);return `${x.pathname}${x.search}`};
 
 async function githubJson(path){
-  const r=await fetch(`https://api.github.com/repos/${REPO}${path}`,{headers:{authorization:`Bearer ${GH_TOKEN}`,accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'}});
+  const headers={accept:'application/vnd.github+json','x-github-api-version':'2022-11-28'};
+  if(GH_TOKEN)headers.authorization=`Bearer ${GH_TOKEN}`;
+  const r=await fetch(`https://api.github.com/repos/${REPO}${path}`,{headers});
   if(!r.ok)throw new Error(`GITHUB_HTTP_${r.status}`);
   return r.json();
 }
