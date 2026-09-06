@@ -6,11 +6,13 @@ const APPLICATIONS_APPROVAL_PATH='governance/client-applications-uat-v2-owner-ap
 const DEALS_LOADER_APPROVAL_PATH='governance/client-deals-loader-owner-remediation-20260904.json';
 const CLIENT_LOAD_HOTFIX_APPROVAL_PATH='governance/client-load-hotfix-pr429-owner-approval-20260905.json';
 const OWNER_VISUAL_DELTA_APPROVAL_PATH='governance/client-owner-visual-delta-pr429-approval-20260906.json';
+const CLIENT_MULTI_CONTEXT_430_APPROVAL_PATH='governance/client-multiclient-parity-issue430-owner-approval-20260906.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
 const clientLoadHotfixApproval=JSON.parse(await readFile(CLIENT_LOAD_HOTFIX_APPROVAL_PATH,'utf8'));
 const ownerVisualDeltaApproval=JSON.parse(await readFile(OWNER_VISUAL_DELTA_APPROVAL_PATH,'utf8'));
+const clientMultiContext430Approval=JSON.parse(await readFile(CLIENT_MULTI_CONTEXT_430_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -83,6 +85,9 @@ const OWNER_VISUAL_DELTA_FILES=[
   'assets/portal-runtime/client-content-responsive-v1.css',
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
+const CLIENT_MULTI_CONTEXT_430_FILES=[
+  'assets/portal-runtime/client-contract-download-v3.js'
+];
 const exactArray=(actual,expected)=>Array.isArray(actual)&&actual.length===expected.length&&actual.every((value,index)=>value===expected[index]);
 const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.approval==='OWNER_IN_CHAT'&&
@@ -129,7 +134,7 @@ const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.requirements?.authenticated_client_verification_required_before_merge===true&&
   clientLoadHotfixApproval?.requirements?.production_deploy_before_acceptance===false&&
   clientLoadHotfixApproval?.requirements?.merge_before_acceptance===false&&
-  clientLoadHotfixApproval?.expires_on_hotfix_completion===true;
+  clientLoadHotfixApproval?.requirements?.expires_on_hotfix_completion===true;
 
 const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.approval==='OWNER_IN_CHAT'&&
@@ -177,6 +182,42 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.requirements?.production_changed===false&&
   ownerVisualDeltaApproval?.requirements?.merge_before_acceptance===false;
 
+const clientMultiContext430ExceptionAuthorized=
+  clientMultiContext430Approval?.approval==='OWNER_SYSTEM_ADMIN_ISSUE_COMMENT'&&
+  clientMultiContext430Approval?.authorized_at==='2026-09-06'&&
+  clientMultiContext430Approval?.issue_number===430&&
+  clientMultiContext430Approval?.system_admin_comment_id===5561179393&&
+  clientMultiContext430Approval?.branch==='hotfix/client-multiclient-parity-430-v1'&&
+  clientMultiContext430Approval?.base_commit==='9797f7c7c5e8a003eaa19c520f4328a2001d5ce7'&&
+  clientMultiContext430Approval?.scope==='CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430'&&
+  exactArray(clientMultiContext430Approval?.approved_protected_files,CLIENT_MULTI_CONTEXT_430_FILES)&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.visual_freeze_baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.production_pre_hotfix_blob_sha==='57e66a343bf199ab2076a0ff5f074ba71e79218c'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='ff56312d880074dafbe51e09fba3a66209bbf3ba'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v11-authoritative-company-metrics'&&
+  clientMultiContext430Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientMultiContext430Approval?.requirements?.owner_instruction_required===true&&
+  clientMultiContext430Approval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientMultiContext430Approval?.requirements?.wildcard_exception===false&&
+  clientMultiContext430Approval?.requirements?.approved_file_list_is_exact===true&&
+  clientMultiContext430Approval?.requirements?.css_changed===false&&
+  clientMultiContext430Approval?.requirements?.html_composition_changed===false&&
+  clientMultiContext430Approval?.requirements?.design_changed===false&&
+  clientMultiContext430Approval?.requirements?.typography_changed===false&&
+  clientMultiContext430Approval?.requirements?.company_metrics_current_context_authoritative===true&&
+  clientMultiContext430Approval?.requirements?.documents_kpi_current_effective_contractual_only===true&&
+  clientMultiContext430Approval?.requirements?.superseded_contractual_documents_not_counted===true&&
+  clientMultiContext430Approval?.requirements?.internal_artifacts_not_counted_as_contractual_kpi===true&&
+  clientMultiContext430Approval?.requirements?.legacy_amount_uses_dedicated_passport_fields===true&&
+  clientMultiContext430Approval?.requirements?.payment_status_semantics_unchanged===true&&
+  clientMultiContext430Approval?.requirements?.hardcoded_client_contract_deal_ids===false&&
+  clientMultiContext430Approval?.requirements?.rail_changed===false&&
+  clientMultiContext430Approval?.requirements?.supabase_schema_or_rls_changed===false&&
+  clientMultiContext430Approval?.requirements?.business_data_changed===false&&
+  clientMultiContext430Approval?.requirements?.destructive_cleanup_in_hotfix===false&&
+  clientMultiContext430Approval?.requirements?.production_changed===false&&
+  clientMultiContext430Approval?.requirements?.merge_before_system_admin_review===false;
+
 const approvedModifiedFiles=new Set();
 const approvedNewRuntime=new Set();
 const approvedNewAttach=new Set();
@@ -198,6 +239,7 @@ if(clientLoadHotfixExceptionAuthorized){
 const protectedFiles=policy.protected_files||{};
 const errors=[];
 let ownerVisualDeltaAppliedFiles=0;
+let clientMultiContext430AppliedFiles=0;
 
 function gitBlobSha(buffer){
   return createHash('sha1').update(Buffer.from(`blob ${buffer.length}\0`)).update(buffer).digest('hex');
@@ -216,8 +258,19 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       ownerEntry.required_marker.length>0&&
       body.toString('utf8').includes(ownerEntry.required_marker)
     );
+    const issue430Entry=clientMultiContext430ExceptionAuthorized?clientMultiContext430Approval?.exact_post_remediation_blobs?.[path]:null;
+    const exactIssue430Post=Boolean(
+      issue430Entry&&
+      issue430Entry.visual_freeze_baseline_blob_sha===expected&&
+      issue430Entry.production_pre_hotfix_blob_sha==='57e66a343bf199ab2076a0ff5f074ba71e79218c'&&
+      issue430Entry.authorized_post_blob_sha===actual&&
+      typeof issue430Entry.required_marker==='string'&&
+      issue430Entry.required_marker.length>0&&
+      body.toString('utf8').includes(issue430Entry.required_marker)
+    );
     if(exactOwnerVisualPost)ownerVisualDeltaAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(exactIssue430Post)clientMultiContext430AppliedFiles+=1;
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -256,4 +309,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
