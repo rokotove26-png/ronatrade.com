@@ -16,6 +16,8 @@ const oldCard="function card(d,a){const id=norm(d.deal_id),host=document.createE
 const newCard="function appendSemanticTerm(host,slot,value){const text=norm(value);if(!text)return;const existing=host.querySelectorAll('[data-rona-deal-slot]');if(existing.length)host.append(document.createTextNode(' · '));const n=leaf('span',text);n.dataset.ronaDealSlot=slot;host.append(n)}\nfunction card(d,a){const id=norm(d.deal_id),host=document.createElement('article');host.className='rona-deal-card-v5';host.setAttribute(CARD_ATTR,'v9');host.dataset.ronaCanonicalDealId=id;host.dataset.ronaDealProjection='CURRENT_CLIENT_CONTEXT';host.dataset.ronaDealSummaryReady='true';const summary=document.createElement('div');summary.className='rona-deal-card-v5__summary';summary.dataset.ronaDealSummary='canonical-v8';const main=document.createElement('div');main.className='rona-deal-card-v5__summary-main';main.dataset.ronaDealSummaryMain='true';const headline=document.createElement('div');headline.className='rona-deal-card-v5__headline';headline.dataset.ronaDealSummaryHeadline='true';const idEl=leaf('div',id);idEl.className='rona-deal-card-v5__dealid';idEl.dataset.ronaDealSummaryId='true';idEl.dataset.ronaDealSlot='deal-id';headline.append(idEl);const product=norm(a?.product);if(product){const subject=leaf('div',product);subject.className='rona-deal-card-v5__subject';subject.dataset.ronaDealSummarySubject='true';subject.dataset.ronaDealSlot='product';headline.append(subject)}main.append(headline);summary.append(main);const terms=document.createElement('div');terms.className='rona-deal-card-v5__terms';terms.dataset.ronaDealSummaryTerms='true';terms.dataset.ronaDealSlot='detail';const qty=numberText(a?.quantity_tonnes,3),price=numberText(a?.proposed_price,2),currency=upper(a?.proposed_currency);appendSemanticTerm(terms,'quantity',qty?`${qty} т`:'');appendSemanticTerm(terms,'unit-price',price&&currency?`${price} ${currency}/т`:'');appendSemanticTerm(terms,'basis',a?.delivery_basis);appendSemanticTerm(terms,'destination',a?.destination);if(terms.childNodes.length)summary.append(terms);const side=document.createElement('div');side.className='rona-deal-card-v5__summary-side';side.dataset.ronaDealSummarySide='true';const amount=authoritativeAmount(d);if(amount){const amountEl=leaf('div',amount);amountEl.className='rona-deal-card-v5__amount';amountEl.dataset.ronaDealSummaryAmount='true';amountEl.dataset.ronaDealSlot='amount';side.append(amountEl)}const open=document.createElement('button');open.type='button';open.textContent='Открыть';open.className='rona-deal-card-v5__open';open.setAttribute('data-open-deal',id);open.dataset.ronaDealSlot='open';side.append(open);summary.append(side);host.append(summary,stateStrip(d));return host}";
 const oldDecoratePrefix="function decorate(host,id){host.classList.remove('rona-deal-card-v1','rona-deal-card-v2','rona-deal-card-v3','rona-deal-card-v4','rona-deal-card-polished-v1');host.classList.add(HOST);if(host.dataset.ronaCanonicalDealId!==id)host.dataset.ronaCanonicalDealId=id;clearClasses(host);normalizeResource(host);";
 const newDecoratePrefix="function decorate(host,id){host.classList.remove('rona-deal-card-v1','rona-deal-card-v2','rona-deal-card-v3','rona-deal-card-v4','rona-deal-card-polished-v1');host.classList.add(HOST);if(host.dataset.ronaCanonicalDealId!==id)host.dataset.ronaCanonicalDealId=id;const semantic=host.dataset.ronaDealSummaryReady==='true'&&host.querySelector('[data-rona-deal-summary=\"canonical-v8\"]')&&host.querySelector('[data-rona-deal-slot=\"deal-id\"]')&&host.querySelector('[data-rona-deal-slot=\"amount\"]')&&host.querySelector('[data-rona-deal-slot=\"open\"]');if(semantic)return;clearClasses(host);normalizeResource(host);";
+const oldDealsNavTrigger="if(/^СДЕЛКИ$/i.test(t)||legacyLabel(t)){scheduleScan(90);setTimeout(scan,240);setTimeout(scan,600);setTimeout(loadData,0)}";
+const newDealsNavTrigger="if(n?.dataset?.page==='deals'||/^СДЕЛКИ$/i.test(t)||legacyLabel(t)){scheduleScan(90);setTimeout(scan,240);setTimeout(scan,600);setTimeout(loadData,0)}";
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 let firstPaintRuntime=await readFile(firstPaintRuntimePath,'utf8');
@@ -39,8 +41,10 @@ await writeFile(dealsRuntimePath,dealsRuntime,'utf8');
 
 let documentsRuntime=await readFile(documentsRuntimePath,'utf8');
 if((documentsRuntime.split(oldDecoratePrefix).length-1)!==1)throw new Error('CLIENT_DEAL_DOCUMENTS_DECORATE_PREFIX_NOT_SINGLE');
-documentsRuntime=documentsRuntime.replace(oldDecoratePrefix,newDecoratePrefix);
+if((documentsRuntime.split(oldDealsNavTrigger).length-1)!==1)throw new Error('CLIENT_DEAL_DOCUMENTS_DEALS_NAV_TRIGGER_NOT_SINGLE');
+documentsRuntime=documentsRuntime.replace(oldDecoratePrefix,newDecoratePrefix).replace(oldDealsNavTrigger,newDealsNavTrigger);
 if(!documentsRuntime.includes("if(semantic)return;clearClasses(host);normalizeResource(host);"))throw new Error('CLIENT_DEAL_DOCUMENTS_SEMANTIC_GEOMETRY_GUARD_MISSING');
+if(!documentsRuntime.includes("n?.dataset?.page==='deals'"))throw new Error('CLIENT_DEAL_DOCUMENTS_EXPLICIT_DEALS_ACTIVATION_MISSING');
 await writeFile(documentsRuntimePath,documentsRuntime,'utf8');
 
 let html=await readFile(htmlPath,'utf8');
@@ -73,10 +77,11 @@ if(integrity?.client_runtime?.deal_documents_bridge){
   integrity.client_runtime.deal_documents_bridge.basic_card_geometry_owner='client-deals-authoritative-v1';
   integrity.client_runtime.deal_documents_bridge.click_dependent_geometry=false;
   integrity.client_runtime.deal_documents_bridge.semantic_card_mutation=false;
+  integrity.client_runtime.deal_documents_bridge.deals_activation='EXPLICIT_DATA_PAGE_EVENT_ONCE';
 }
 const emitted=Buffer.from(html,'utf8');
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 await writeFile(integrityPath,JSON.stringify(integrity));
 
-console.log(`CLIENT_DEALS_FIRST_PAINT_AUTHORITATIVE_RELEASE=PASS marker=${newMarker}; frozen_visual=UNCHANGED; renderer=SINGLE_AUTHORITATIVE_OWNER; semantic_first_paint=true; click_dependency=false; amount_source=passport_amount+passport_currency; documents_semantic_guard=true; client_html_sha256=${sha256(emitted)}`);
+console.log(`CLIENT_DEALS_FIRST_PAINT_AUTHORITATIVE_RELEASE=PASS marker=${newMarker}; frozen_visual=UNCHANGED; renderer=SINGLE_AUTHORITATIVE_OWNER; semantic_first_paint=true; click_dependency=false; amount_source=passport_amount+passport_currency; documents_semantic_guard=true; documents_deals_activation=explicit-data-page; client_html_sha256=${sha256(emitted)}`);
