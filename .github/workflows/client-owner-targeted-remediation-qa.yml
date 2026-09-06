@@ -27,7 +27,7 @@ jobs:
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install chromium
-      - name: Build production baseline, rejected Owner HEAD, and exact candidate
+      - name: Build production baseline, SYSTEM_ADMIN PRE checkpoint, and exact candidate
         shell: bash
         run: |
           set -euo pipefail
@@ -36,7 +36,7 @@ jobs:
           candidate_root=/tmp/rona-owner-retest-candidate
           rm -rf "$base_root" "$before_root" "$candidate_root"
           git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
-          git worktree add --detach "$before_root" 059af411561528621072822bc52d0a1c976385d0
+          git worktree add --detach "$before_root" d2a4bd75400cfb5f1f095ee997def21b936bceb2
           candidate_sha='${{ github.event.pull_request.head.sha || github.sha }}'
           git worktree add --detach "$candidate_root" "$candidate_sha"
           (cd "$base_root" && npm run build)
@@ -48,19 +48,21 @@ jobs:
             echo "OWNER_CANDIDATE_ROOT=$candidate_root"
             echo "OWNER_CANDIDATE_SHA=$candidate_sha"
           } >> "$GITHUB_ENV"
-      - name: Prove rejected 059af411 HEAD fails the new real regression
+      - name: Prove SYSTEM_ADMIN PRE d2a4bd7 fails the same real regression
         shell: bash
         run: |
           set -uo pipefail
           log="$GITHUB_WORKSPACE/owner-retest-before.log"
           cd "$OWNER_BEFORE_ROOT"
           set +e
-          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='BEFORE_059AF411' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" >"$log" 2>&1
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='PRE_D2A4BD7' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" >"$log" 2>&1
           rc=$?
           set -e
           cat "$log"
           test "$rc" -ne 0
-          grep -F 'ASSERTION_FAILED HOME_REENTRY_READY' "$log"
+          grep -F 'ASSERTION_FAILED PASSPORT_SOURCE_TO_PROJECTION' "$log"
+          grep -F 'ASSERTION_FAILED CURRENT_COMPANY_CARD_AND_COUNTERS' "$log"
+          grep -F 'ASSERTION_FAILED CLIENT_TYPOGRAPHY_REAL_UI_110' "$log"
           grep -F 'OWNER_RETEST_REGRESSION_RESULT=FAIL' "$log"
           echo 'OWNER_RETEST_BEFORE_EXPECTED_FAIL=PASS'
       - name: Prove exact candidate passes the same real regression

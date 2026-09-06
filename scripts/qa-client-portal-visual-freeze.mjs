@@ -147,7 +147,7 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.authorized_post_blob_sha==='1431234cfaa982d4377d5d85683637c2f870f6f3'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-content-responsive-v1.css']?.required_marker==='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V2_REAL_UI'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
-  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='8674f3ba625916dcc230c8c39ed1b9416208ab63'&&
+  ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='bf59802cc91e1e223e3bf9a673c85565e119280a'&&
   ownerVisualDeltaApproval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260905-client-contract-v8-authoritative-company-name-visible'&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.client_typography_scale===1.1&&
   ownerVisualDeltaApproval?.authorized_visual_delta?.analytics_effective_scale===1&&
@@ -162,6 +162,11 @@ const ownerVisualDeltaExceptionAuthorized=
   ownerVisualDeltaApproval?.requirements?.company_component_delta_only_authoritative_legal_name_visibility_and_owner_typography===true&&
   ownerVisualDeltaApproval?.requirements?.analytics_unchanged_effective_typography===true&&
   ownerVisualDeltaApproval?.requirements?.company_name_fail_closed_if_authoritative_unavailable===true&&
+  Array.isArray(ownerVisualDeltaApproval?.system_admin_extension_comment_ids)&&
+  exactArray(ownerVisualDeltaApproval.system_admin_extension_comment_ids,[5558876637,5558955617,5559104106])&&
+  ownerVisualDeltaApproval?.authorized_functional_delta?.my_companies_kpi_semantics==='CANONICAL_CLIENT_APPLICATIONS_AND_DEALS_PRODUCT_PREDICATES'&&
+  ownerVisualDeltaApproval?.requirements?.company_kpi_uses_client_applications_live_render_predicate===true&&
+  ownerVisualDeltaApproval?.requirements?.company_kpi_uses_client_deals_authoritative_predicate===true&&
   ownerVisualDeltaApproval?.requirements?.global_dom_text_replacement===false&&
   ownerVisualDeltaApproval?.requirements?.hardcoded_company_contract_deal_ids===false&&
   ownerVisualDeltaApproval?.requirements?.rail_changed===false&&

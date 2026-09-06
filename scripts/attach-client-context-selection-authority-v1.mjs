@@ -5,7 +5,6 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-context-selection-authority-v1.js';
 const priceRuntimePath='dist/assets/portal-runtime/client-price-sync-v1.js';
-const contractRuntimePath='dist/assets/portal-runtime/client-contract-download-v3.js';
 const id='rona-client-context-selection-authority-v1';
 const priceId='rona-client-price-sync-v1';
 const sourceMarker='20260903-client-context-selection-authority-v4-header-current-context';
@@ -14,17 +13,7 @@ const priceMarker='20260902-authoritative-price-current-context-server-projectio
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 function replaceOnce(source,from,to,label){if(!source.includes(from))throw new Error(`${label}_TARGET_MISSING`);if(source.indexOf(from)!==source.lastIndexOf(from))throw new Error(`${label}_TARGET_NOT_UNIQUE`);return source.replace(from,to)}
 
-// Functional post-build projection correction. Visual-freeze source artifacts remain exact;
-// only current-company KPI values are aligned with the canonical Client Home active subsets.
-let contractRuntime=await readFile(contractRuntimePath,'utf8');
-contractRuntime=replaceOnce(contractRuntime,"const low=v=>norm(v).toLocaleLowerCase('ru-RU');","const low=v=>norm(v).toLocaleLowerCase('ru-RU');\nconst upper=v=>norm(v).toUpperCase();\nconst TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED']);\nconst TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED']);\nfunction currentCompanyMetrics(entry){const applications=Array.isArray(entry?.applications)?entry.applications:[],deals=Array.isArray(entry?.deals)?entry.deals:[],documents=Array.isArray(entry?.documents)?entry.documents:[];return{applications:applications.filter(a=>!norm(a?.deal_id)&&!TERMINAL_APPLICATIONS.has(upper(a?.status))).length,deals:deals.filter(d=>!d?.closed_at&&!TERMINAL_DEALS.has(upper(d?.current_status||d?.business_status||d?.status))).length,documents:documents.length}}",'COMPANY_KPI_HELPER');
-contractRuntime=replaceOnce(contractRuntime,'row.applicationsCount=entry.applications.length;row.dealsCount=entry.deals.length;row.documentsCount=entry.documents.length;','const metrics=currentCompanyMetrics(entry);row.applicationsCount=metrics.applications;row.dealsCount=metrics.deals;row.documentsCount=metrics.documents;','COMPANY_KPI_FROZEN_MODEL');
-contractRuntime=replaceOnce(contractRuntime,'const entry=state.entry,ctx=entry?.context||null;','const entry=state.entry,ctx=entry?.context||null,metrics=currentCompanyMetrics(entry);','COMPANY_KPI_STATE_SOURCE');
-contractRuntime=replaceOnce(contractRuntime,'applications:entry.applications.length,deals:entry.deals.length,documents:entry.documents.length,current:true','applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,current:true','COMPANY_KPI_STATE');
-contractRuntime=replaceOnce(contractRuntime,"  setMetric(card,'заявок',entry.applications.length);\n  setMetric(card,'сделок',entry.deals.length);\n  if(!setMetric(card,'действий',entry.documents.length,'ДОКУМЕНТОВ'))setMetric(card,'документов',entry.documents.length);","  const metrics=currentCompanyMetrics(entry);\n  setMetric(card,'заявок',metrics.applications);\n  setMetric(card,'сделок',metrics.deals);\n  if(!setMetric(card,'действий',metrics.documents,'ДОКУМЕНТОВ'))setMetric(card,'документов',metrics.documents);",'COMPANY_KPI_VISIBLE');
-if(!contractRuntime.includes('function currentCompanyMetrics(entry)'))throw new Error('COMPANY_KPI_SEMANTIC_PATCH_MISSING');
-await writeFile(contractRuntimePath,contractRuntime,'utf8');
-
+// Current-company KPI semantics are materialized in canonical source before build; do not rewrite dist.
 let runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker)){
   if(!runtime.includes(sourceMarker))throw new Error(`CLIENT_CONTEXT_AUTHORITY_SOURCE_MARKER_MISSING: ${sourceMarker}`);
@@ -84,11 +73,11 @@ integrity.client_runtime.context_selection_authority={
   api_rewrite:'SELECTED_AUTHORIZED_CONTEXT',bootstrap_projection:'SELECTED_CONTEXT_ONLY_OR_EMPTY_UNTIL_SELECTION',public_api:'RONA_CLIENT_CONTEXT',execution_order:'HEAD_DEFER_BEFORE_CLIENT_CONSUMERS',
   company_label:'COMPACT_LEGAL_DISPLAY',header_title:'GENERIC_CLIENT_CABINET',header_contract_download:false,legacy_context_zone:'EXPLICIT_SELECTED_CONTEXT_SLOTS',
   hardcoded_business_entities:false,initial_projection_owner:'RONA_CLIENT_CONTEXT',diagnostic_source_tags:true,self_exciting_attribute_observer:false,global_text_replacement:false,
-  visual_context_binding:'CLIENT_ID_CONTRACT_ID_DIRECT_SLOT_RENDER',native_deal_bridge:'CURRENT_PROJECTION_TO_NATIVE_OPEN_DEAL_ONLY',transient_surface_policy:'CLOSE_NATIVE_DRAWER_SYNCHRONOUSLY_ON_CONTEXT_SWITCH',company_kpi_semantics:'CLIENT_HOME_ACTIVE_SUBSET'
+  visual_context_binding:'CLIENT_ID_CONTRACT_ID_DIRECT_SLOT_RENDER',native_deal_bridge:'CURRENT_PROJECTION_TO_NATIVE_OPEN_DEAL_ONLY',transient_surface_policy:'CLOSE_NATIVE_DRAWER_SYNCHRONOUSLY_ON_CONTEXT_SWITCH',company_kpi_semantics:'CANONICAL_APPLICATIONS_LIVE_AND_DEALS_AUTHORITATIVE_PREDICATES'
 };
 integrity.client_runtime.price_sync={
   id:priceId,src:priceSrc,marker:priceMarker,scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY',endpoint:'/portal/api/v1/client/prices',source:'client-price-sync-v1:prices',authority:'SERVER_AUTHORITATIVE_PRICE_PROJECTION',hardcoded_business_entities:false
 };
 await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
-console.log(`CLIENT_CONTEXT_SELECTION_AUTHORITY=PASS marker=${marker} asset=${src} order=head-defer-before-client-consumers header=generic contract-download=removed bootstrap=selected-only initial-projection=single-owner observer=child-list-only current-slots=direct native-deals=current-projection native-drawer-switch=close-sync global-text-replacement=false company-kpi=client-home-active-subset`);
+console.log(`CLIENT_CONTEXT_SELECTION_AUTHORITY=PASS marker=${marker} asset=${src} order=head-defer-before-client-consumers header=generic contract-download=removed bootstrap=selected-only initial-projection=single-owner observer=child-list-only current-slots=direct native-deals=current-projection native-drawer-switch=close-sync global-text-replacement=false company-kpi=canonical-source-product-semantics`);
 console.log(`CLIENT_PRICE_SYNC_ATTACH=PASS marker=${priceMarker} asset=${priceSrc} scope=CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY`);

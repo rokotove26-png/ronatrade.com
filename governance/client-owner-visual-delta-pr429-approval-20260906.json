@@ -7,7 +7,10 @@
   "base_commit": "4e07ad9f2591c6135e6de651bdaa06bb80a82e78",
   "head_before_governance_wiring": "313888560a3cb629dbc30bf810beb1ad7b732545",
   "scope": "CLIENT_OWNER_VISUAL_DELTA_PR429_EXACT",
-  "source_comment_ids": [5554454496, 5554471190],
+  "source_comment_ids": [
+    5554454496,
+    5554471190
+  ],
   "governance_command_comment_id": 5554905119,
   "approved_files": [
     "assets/portal-runtime/client-content-responsive-v1.css",
@@ -21,7 +24,7 @@
     },
     "assets/portal-runtime/client-contract-download-v3.js": {
       "baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
-      "authorized_post_blob_sha": "8674f3ba625916dcc230c8c39ed1b9416208ab63",
+      "authorized_post_blob_sha": "bf59802cc91e1e223e3bf9a673c85565e119280a",
       "required_marker": "20260905-client-contract-v8-authoritative-company-name-visible"
     }
   },
@@ -47,6 +50,16 @@
     "supabase_schema_or_rls_changed": false,
     "business_data_changed": false,
     "production_changed": false,
-    "merge_before_acceptance": false
+    "merge_before_acceptance": false,
+    "company_kpi_uses_client_applications_live_render_predicate": true,
+    "company_kpi_uses_client_deals_authoritative_predicate": true
+  },
+  "system_admin_extension_comment_ids": [
+    5558876637,
+    5558955617,
+    5559104106
+  ],
+  "authorized_functional_delta": {
+    "my_companies_kpi_semantics": "CANONICAL_CLIENT_APPLICATIONS_AND_DEALS_PRODUCT_PREDICATES"
   }
 }

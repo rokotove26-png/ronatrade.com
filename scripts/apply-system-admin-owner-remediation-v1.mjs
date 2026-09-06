@@ -67,6 +67,12 @@ await write('assets/portal-runtime/client-home-current-only-v1.js', homeGuard);
 
 // 3) Company card: stop the build-time alias helper from hiding the authority-populated legal-name leaf.
 let company = await read('assets/portal-runtime/client-contract-download-v3.js');
+company = replaceOnce(
+  company,
+  "const low=v=>norm(v).toLocaleLowerCase('ru-RU');",
+  "const low=v=>norm(v).toLocaleLowerCase('ru-RU');\nconst upper=v=>norm(v).toUpperCase();\nconst CURRENT_DEAL_ID=/^DEAL-\\d{4}-\\d{3,}$/i;\nconst TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED']);\nconst TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);\nfunction currentCompanyMetrics(entry){const applications=Array.isArray(entry?.applications)?entry.applications:[],deals=Array.isArray(entry?.deals)?entry.deals:[],documents=Array.isArray(entry?.documents)?entry.documents:[];return{applications:applications.filter(a=>!norm(a?.deal_id)&&!TERMINAL_APPLICATIONS.has(upper(a?.status))).length,deals:deals.filter(d=>CURRENT_DEAL_ID.test(norm(d?.deal_id))&&!d?.closed_at&&!TERMINAL_DEALS.has(upper(d?.current_status||d?.business_status))).length,documents:documents.length}}",
+  'COMPANY_KPI_CANONICAL_PRODUCT_SEMANTICS'
+);
 company = replaceFunctionBefore(
   company,
   'hideRedundantCompanyAlias',
@@ -80,6 +86,10 @@ company = replaceOnce(
   "const MARK='20260905-client-contract-v8-authoritative-company-name-visible';",
   'COMPANY_MARKER'
 );
+company = replaceOnce(company, 'row.applicationsCount=entry.applications.length;row.dealsCount=entry.deals.length;row.documentsCount=entry.documents.length;', 'const metrics=currentCompanyMetrics(entry);row.applicationsCount=metrics.applications;row.dealsCount=metrics.deals;row.documentsCount=metrics.documents;', 'COMPANY_KPI_FROZEN_MODEL');
+company = replaceOnce(company, 'const entry=state.entry,ctx=entry?.context||null;', 'const entry=state.entry,ctx=entry?.context||null,metrics=currentCompanyMetrics(entry);', 'COMPANY_KPI_STATE_SOURCE');
+company = replaceOnce(company, 'applications:entry.applications.length,deals:entry.deals.length,documents:entry.documents.length,current:true', 'applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,current:true', 'COMPANY_KPI_STATE');
+company = replaceOnce(company, "  setMetric(card,'заявок',entry.applications.length);\n  setMetric(card,'сделок',entry.deals.length);\n  if(!setMetric(card,'действий',entry.documents.length,'ДОКУМЕНТОВ'))setMetric(card,'документов',entry.documents.length);", "  const metrics=currentCompanyMetrics(entry);\n  setMetric(card,'заявок',metrics.applications);\n  setMetric(card,'сделок',metrics.deals);\n  if(!setMetric(card,'действий',metrics.documents,'ДОКУМЕНТОВ'))setMetric(card,'документов',metrics.documents);", 'COMPANY_KPI_VISIBLE');
 const companyScaled = scaleExplicitPxTypography(company, 'COMPANY_TYPOGRAPHY');
 company = companyScaled.source;
 await write('assets/portal-runtime/client-contract-download-v3.js', company);
@@ -117,5 +127,6 @@ console.log(JSON.stringify({
   home_startup_ready:'PRESERVED_IF_EXACT_CURRENT_GENERATION',
   home_navigation_reentry:'EXPLICIT_DATA_PAGE_HOME',
   company_name:'AUTHORITATIVE_LEGAL_NAME_NOT_HIDDEN',
+  company_kpi:'CANONICAL_APPLICATIONS_AND_DEALS_PRODUCT_PREDICATES',
   typography:{inherited_scale:1.1,static_nav_scale:1.1,static_page_head_scale:1.1,analytics_effective_scale:1,home_explicit_scaled:homeScaled.count,company_explicit_scaled:companyScaled.count}
 }));
