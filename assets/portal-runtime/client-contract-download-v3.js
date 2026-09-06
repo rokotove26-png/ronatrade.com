@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260906-client-contract-v10-kpi-typography-dynamic-owner';
+const MARK='20260906-client-contract-v11-authoritative-company-metrics';
 const COMPANY_ALIAS_COMPAT='20260904-client-contract-v6-company-alias-slot-removed';
 const PREVIOUS_MARK='20260902-client-contract-v4-current-context-authority';
 const COMPAT_MARK='20260829-client-contract-v3-authoritative-projection-v5';
@@ -16,7 +16,8 @@ const upper=v=>norm(v).toUpperCase();
 const CURRENT_DEAL_ID=/^DEAL-\d{4}-\d{3,}$/i;
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
-function currentCompanyMetrics(entry){const applications=Array.isArray(entry?.applications)?entry.applications:[],deals=Array.isArray(entry?.deals)?entry.deals:[],documents=Array.isArray(entry?.documents)?entry.documents:[];return{applications:applications.filter(a=>!norm(a?.deal_id)&&!TERMINAL_APPLICATIONS.has(upper(a?.status))).length,deals:deals.filter(d=>CURRENT_DEAL_ID.test(norm(d?.deal_id))&&!d?.closed_at&&!TERMINAL_DEALS.has(upper(d?.current_status||d?.business_status))).length,documents:documents.length}}
+function metricNumber(value){const n=Number(value);return Number.isFinite(n)&&n>=0?Math.trunc(n):null}
+function currentCompanyMetrics(entry){const applications=Array.isArray(entry?.applications)?entry.applications:[],deals=Array.isArray(entry?.deals)?entry.deals:[],documents=Array.isArray(entry?.documents)?entry.documents:[],authoritative=entry?.company_metrics||null,applicationsTotal=metricNumber(authoritative?.applications_total),dealsTotal=metricNumber(authoritative?.deals_total),documentsTotal=metricNumber(authoritative?.documents_total);return{applications:applicationsTotal??applications.filter(a=>!norm(a?.deal_id)&&!TERMINAL_APPLICATIONS.has(upper(a?.status))).length,deals:dealsTotal??deals.filter(d=>CURRENT_DEAL_ID.test(norm(d?.deal_id))&&!d?.closed_at&&!TERMINAL_DEALS.has(upper(d?.current_status||d?.business_status))).length,documents:documentsTotal??documents.length,source:authoritative?.source||'LEGACY_RUNTIME_FALLBACK',documents_predicate:authoritative?.documents_predicate||null}}
 const GENERIC=new Set(['общество','ограниченной','ответственностью','совместное','предприятие','company','limited','liability','joint','venture','contract','контракт','rona','trade','ооо','осоо','сп','с','llc']);
 const APOSTROPHES="'’‘`´ʼ";
 
@@ -41,7 +42,7 @@ function visible(el){if(!el||!el.isConnected)return false;const s=getComputedSty
 function setNodeText(el,value){if(!el)return false;const next=String(value??'');if(String(el.textContent??'')===next)return false;el.textContent=next;return true}
 function tokenKey(v){return low(v).replace(new RegExp('['+APOSTROPHES+']','g'),'').replace(/[^a-zа-яё0-9]+/gi,'')}
 function legalWords(name){return (norm(name).match(/[A-Za-zА-Яа-яЁё0-9]+(?:['’‘`´ʼ-][A-Za-zА-Яа-яЁё0-9]+)*/g)||[]).filter(Boolean)}
-function canonicalBusinessWords(ctx){const words=legalWords(ctx?.legal_name);while(words.length&&GENERIC.has(low(words[0])))words.shift();return words}
+function canonicalBusinessWords(ctx){const words=legalWords(ctx);while(words.length&&GENERIC.has(low(words[0])))words.shift();return words}
 function identityTokens(ctx){return canonicalBusinessWords(ctx).map(tokenKey).filter(x=>x.length>=3&&!GENERIC.has(x)).filter((x,i,a)=>a.indexOf(x)===i)}
 function compactLegalName(ctx){
   const legal=norm(ctx?.legal_name);if(!legal)return norm(ctx?.client_id)||'Компания';
@@ -86,7 +87,7 @@ function hydrateFrozenClientModel(entry){
 }
 function publishState(){
   const entry=state.entry,ctx=entry?.context||null,metrics=currentCompanyMetrics(entry);
-  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,current:true}]:[],loadedAt:new Date().toISOString()};
+  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,metrics_source:metrics.source,documents_predicate:metrics.documents_predicate,current:true}]:[],loadedAt:new Date().toISOString()};
 }
 async function refresh(force=false){
   if(state.loading){if(force)state.pendingImmediate=true;return}if(!force&&Date.now()-state.lastLoad<REFRESH_MS){render();return}state.loading=true;
@@ -101,6 +102,7 @@ async function refresh(force=false){
     state.entry.deals=Array.isArray(data.deals)?data.deals:[];
     state.entry.documents=Array.isArray(data.documents)?data.documents:[];
     state.entry.payments=Array.isArray(data.payments)?data.payments:[];
+    state.entry.company_metrics=data.company_metrics&&typeof data.company_metrics==='object'?data.company_metrics:null;
     state.currentKey=key;state.lastLoad=Date.now();hydrateFrozenClientModel(state.entry);publishState();render();
   }catch(error){console.error('RONA contract current-context projection',error)}finally{state.loading=false;if(state.pendingImmediate){state.pendingImmediate=false;queueMicrotask(()=>refresh(true))}}
 }
@@ -175,7 +177,7 @@ function syncCompanyCard(entry,card){
   setMetric(card,'заявок',metrics.applications);
   setMetric(card,'сделок',metrics.deals);
   if(!setMetric(card,'действий',metrics.documents,'ДОКУМЕНТОВ'))setMetric(card,'документов',metrics.documents);
-  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource='client-context-api';card.dataset.ronaCompanyDirectoryHydration='ready';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
+  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource=metrics.source;card.dataset.ronaCompanyDirectoryDocumentsPredicate=String(metrics.documents_predicate||'');card.dataset.ronaCompanyDirectoryHydration='ready';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
 }
 const unavailableNode=card=>leafByText(card,t=>t.includes('контракт пока недоступен для скачивания')||t==='контракт недоступен для скачивания'||t.includes('файл подписанного контракта не опубликован в кабинете'));
 const contractAnchor=card=>leafByText(card,t=>t==='подписанный контракт');
