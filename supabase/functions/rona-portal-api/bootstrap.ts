@@ -76,9 +76,17 @@ const nativeServe:any = Deno.serve.bind(Deno);
         const payload:any = await response.clone().json();
         const applications = Array.isArray(payload?.data?.applications) ? payload.data.applications : [];
         const deals = Array.isArray(payload?.data?.deals) ? payload.data.deals : [];
-        const ids = [...new Set(applications.map((a:any)=>String(a?.application_id||'').trim()).filter(Boolean))];
+        const requestClientId = String(url.searchParams.get('clientId')||'').trim();
+        const requestContractId = String(url.searchParams.get('contractId')||'').trim();
+        const responseClientId = String(payload?.data?.contract?.client_id||'').trim();
+        const responseContractId = String(payload?.data?.contract?.contract_id||'').trim();
+        const exactContext = !!requestClientId && !!requestContractId && requestClientId===responseClientId && requestContractId===responseContractId;
         let changed = false;
-        if (ids.length) {
+
+        if (exactContext) {
+          // Enrich from the exact authorized current context rather than only application IDs
+          // already present in the upstream applications projection. A legacy DEAL_REGISTERED
+          // application may be omitted there while its linked deal remains current/visible.
           const rows = await enrichmentSql`
             select a.application_id,
                    d.deal_id,
@@ -131,6 +139,8 @@ const nativeServe:any = Deno.serve.bind(Deno);
                      else 'NO_AUTHORITATIVE_RESOURCE_FACT'
                    end as resource_source
               from portal_private.client_applications a
+              join portal_private.clients cl on cl.id=a.client_key
+              join portal_private.contracts ct on ct.id=a.contract_key
               left join portal_private.deals d on d.id=a.linked_deal_key
               left join lateral (
                 select coalesce(al.proposed_price,al.published_price) as application_price,
@@ -142,7 +152,8 @@ const nativeServe:any = Deno.serve.bind(Deno);
               ) line on true
               left join portal_private.owner_application_workflow w on w.application_key=a.id
               left join lateral portal_private.resolve_deal_resource_state(a.linked_deal_key) resource on a.linked_deal_key is not null
-             where a.application_id in (select value from jsonb_array_elements_text(${enrichmentSql.json(ids)}::jsonb))
+             where cl.client_id=${requestClientId}
+               and ct.contract_id=${requestContractId}
           `;
           const byId = new Map(rows.map((r:any)=>[String(r.application_id),r]));
           const byDeal = new Map(rows.filter((r:any)=>r.deal_id).map((r:any)=>[String(r.deal_id),r]));
@@ -168,13 +179,7 @@ const nativeServe:any = Deno.serve.bind(Deno);
               changed = true;
             }
           }
-        }
 
-        const requestClientId = String(url.searchParams.get('clientId')||'').trim();
-        const requestContractId = String(url.searchParams.get('contractId')||'').trim();
-        const responseClientId = String(payload?.data?.contract?.client_id||'').trim();
-        const responseContractId = String(payload?.data?.contract?.contract_id||'').trim();
-        if (requestClientId && requestContractId && requestClientId===responseClientId && requestContractId===responseContractId) {
           const metricRows = await enrichmentSql`
             select
               (select count(*)::int
@@ -222,7 +227,7 @@ const nativeServe:any = Deno.serve.bind(Deno);
         if (changed) {
           const headers = new Headers(response.headers);
           headers.delete('content-length');
-          headers.set('x-rona-client-context-enrichment','prod-incident-430-v1');
+          headers.set('x-rona-client-context-enrichment','prod-incident-430-v2-context-scoped-deals');
           return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
         }
       }
