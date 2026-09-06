@@ -1,4 +1,4 @@
-name: SYSTEM_ADMIN PR429 payment projection remediation v2
+name: SYSTEM_ADMIN PR429 canonical three-defect remediation v3
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
   remediate:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,103 +20,99 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Apply narrow commercial passport projection
+
+      - name: Materialize canonical source and prove branch build
         shell: bash
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re, shutil
+          python3 scripts/system-admin-pr429-materialize-v3.py
+          npm run build
+          git status --short
+          git add \
+            supabase/functions/rona-portal-api/index.ts \
+            assets/portal-runtime/client-deals-authoritative-v1.js \
+            assets/portal-runtime/client-home-current-only-v1.js \
+            assets/portal-runtime/client-home-command-center-v2.js \
+            assets/portal-runtime/client-contract-download-v3.js \
+            scripts/qa-client-owner-retest-real-browser-v4.mjs \
+            scripts/apply-owner-client-company-alias-slot-v2.mjs \
+            scripts/apply-owner-client-company-first-paint-v1.mjs \
+            scripts/apply-system-admin-owner-remediation-v1.mjs \
+            scripts/build-pages-direct-canonical.mjs \
+            scripts/qa-client-portal-visual-freeze.mjs \
+            governance/client-owner-visual-delta-pr429-approval-20260906.json
+          echo 'CANONICAL_SOURCE_DELTA:'
+          git diff --cached --name-only
+          test -n "$(git diff --cached --name-only)"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git commit -m 'fix(client): canonicalize passport KPI and computed typography'
+          post_sha=$(git rev-parse HEAD)
+          git push origin HEAD:hotfix/client-load-feedback-loop-v1
+          echo "POST_SHA=$post_sha" >> "$GITHUB_ENV"
+          echo "SYSTEM_ADMIN_CANONICAL_SOURCE_COMMIT=$post_sha"
 
-          def sub_line(path, pattern, replacement, label):
-              p=Path(path); s=p.read_text(); n=len(re.findall(pattern,s,flags=re.M))
-              if n!=1: raise SystemExit(f'{label}: expected one target, got {n}')
-              p.write_text(re.sub(pattern,replacement,s,count=1,flags=re.M))
-
-          # 1. Restore frozen payment-status semantics exactly. Commercial amount is NOT payment state.
-          payment = r'''function currentPaymentStatus(row:any,finance:any,safePayment:any){const obligation=finiteNumber(finance?.obligation_amount),received=finiteNumber(finance?.received_amount),currency=String(finance?.currency||safePayment?.currency||"").trim().toUpperCase()||null,summary=String(finance?.finance_status||"").trim().toUpperCase();if(obligation!==null&&obligation>0&&received!==null){const percent=Math.max(0,Math.min(100,Math.round(received/obligation*100)));if(received>=obligation)return{payment_status:'PAID',payment_label:'Оплачено 100%',payment_received_amount:received,payment_obligation_amount:obligation,payment_currency:currency,payment_percent:100,payment_source:'OWNER_DEAL_FINANCE_SUMMARY'};if(received>0)return{payment_status:'PARTIALLY_PAID',payment_label:`Оплачено ${percent}%`,payment_received_amount:received,payment_obligation_amount:obligation,payment_currency:currency,payment_percent:percent,payment_source:'OWNER_DEAL_FINANCE_SUMMARY'};if(summary==='OVERDUE')return{payment_status:'OVERDUE',payment_label:'Оплата просрочена',payment_received_amount:received,payment_obligation_amount:obligation,payment_currency:currency,payment_percent:0,payment_source:'OWNER_DEAL_FINANCE_SUMMARY'};return{payment_status:'AWAITING_PAYMENT',payment_label:'Ожидается оплата',payment_received_amount:received,payment_obligation_amount:obligation,payment_currency:currency,payment_percent:0,payment_source:'OWNER_DEAL_FINANCE_SUMMARY'}}if(safePayment)return{payment_status:'PAYMENT_CONFIRMED',payment_label:'Оплата получена',payment_received_amount:finiteNumber(safePayment.allocated_amount??safePayment.amount),payment_obligation_amount:null,payment_currency:currency,payment_percent:null,payment_source:'BANK_CONFIRMED_VERIFIED_ALLOCATION'};const dealFinance=String(row?.finance_status||"").trim().toUpperCase();if(dealFinance==='PAID')return{payment_status:'PAID',payment_label:'Оплачено',payment_received_amount:null,payment_obligation_amount:null,payment_currency:currency,payment_percent:null,payment_source:'DEAL_FINANCE_STATUS'};if(['DUE','PAYMENT_DUE','AWAITING_PAYMENT','OVERDUE'].includes(dealFinance))return{payment_status:dealFinance,payment_label:dealFinance==='OVERDUE'?'Оплата просрочена':'Ожидается оплата',payment_received_amount:null,payment_obligation_amount:null,payment_currency:currency,payment_percent:null,payment_source:'DEAL_FINANCE_STATUS'};if(dealFinance==='NOT_DUE')return{payment_status:'NOT_DUE',payment_label:'Оплата не наступила',payment_received_amount:null,payment_obligation_amount:null,payment_currency:currency,payment_percent:null,payment_source:'DEAL_FINANCE_STATUS'};return{payment_status:'TO_VERIFY',payment_label:'Статус оплаты уточняется',payment_received_amount:null,payment_obligation_amount:null,payment_currency:currency,payment_percent:null,payment_source:'DEAL_FINANCE_STATUS'}}'''
-          sub_line('supabase/functions/rona-portal-api/index.ts',r'^function currentPaymentStatus\(.*$',payment,'payment semantics restore')
-
-          # 2. Project finalized application commercial terms into dedicated Passport fields only.
-          deals = r'''async function projectClientDeals(rows:any[],safePayments:any[]){const ids=[...new Set((rows||[]).map((r:any)=>String(r.deal_id||"")).filter(Boolean))];if(!ids.length)return[];const financeRows=await sql`select distinct on (deal_id) deal_id,obligation_amount,received_amount,currency,client_remaining_amount,finance_status,authority_state,lifecycle_state,updated_at from portal_private.owner_deal_finance_summary where deal_id in (select value from jsonb_array_elements_text(${sql.json(ids)}::jsonb)) and authority_state in ('CONFIRMED','VERIFIED') and lifecycle_state='ACTIVE' order by deal_id,updated_at desc`,commercialRows=await sql`select d.deal_id,a.application_id,(a.quantity_tonnes::numeric*a.proposed_price::numeric) as obligation_amount,a.proposed_currency::text as currency,w.finalized_at from portal_private.deals d join portal_private.client_applications a on a.linked_deal_key=d.id join portal_private.owner_application_workflow w on w.application_key=a.id where d.deal_id in (select value from jsonb_array_elements_text(${sql.json(ids)}::jsonb)) and a.status='DEAL_REGISTERED' and w.business_status='DEAL' and coalesce(w.counter_offer_used,false)=false and w.finalized_at is not null`,resourceRows=await sql`select d.deal_id,rd.resource_decision_id,rd.decision_state,rd.decided_at from portal_private.deals d join portal_private.resource_decisions rd on rd.deal_key=d.id where d.deal_id in (select value from jsonb_array_elements_text(${sql.json(ids)}::jsonb)) order by rd.decided_at desc`;const financeByDeal=new Map(financeRows.map((r:any)=>[String(r.deal_id),r])),commercialByDeal=new Map(commercialRows.map((r:any)=>[String(r.deal_id),r])),resourceByDeal=new Map(resourceRows.map((r:any)=>[String(r.deal_id),r])),paymentByDeal=new Map<string,any>();for(const p of safePayments||[]){const id=String(p.deal_id||"");if(id&&!paymentByDeal.has(id))paymentByDeal.set(id,p)}return(rows||[]).map((row:any)=>{const id=String(row.deal_id),commercial=commercialByDeal.get(id),commercialAmount=finiteNumber(commercial?.obligation_amount),commercialCurrency=String(commercial?.currency||"").trim().toUpperCase()||null,passportReady=commercialAmount!==null&&commercialAmount>0&&Boolean(commercialCurrency);return{deal_id:id,business_status:String(row.business_status),...currentDealStatus(row),...currentPaymentStatus(row,financeByDeal.get(id),paymentByDeal.get(id)),passport_amount:passportReady?commercialAmount:null,passport_currency:passportReady?commercialCurrency:null,passport_amount_source:passportReady?'FINALIZED_APPLICATION_COMMERCIAL_TERMS':null,passport_application_id:passportReady&&commercial?.application_id?String(commercial.application_id):null,...currentResourceStatus(row,resourceByDeal.get(id)),opened_at:row.opened_at,closed_at:row.closed_at,updated_at:row.updated_at}})}'''
-          sub_line('supabase/functions/rona-portal-api/index.ts',r'^async function projectClientDeals\(.*$',deals,'dedicated passport projection')
-
-          # 3. Native Deals/Passport consumer reads only the dedicated commercial fields.
-          p=Path('assets/portal-runtime/client-deals-authoritative-v1.js'); s=p.read_text()
-          old="function authoritativeAmount(d){const amount=numberText(d?.payment_obligation_amount,2),currency=upper(d?.payment_currency);return amount&&currency?`${amount} ${currency}`:''}"
-          new="function authoritativeAmount(d){const amount=numberText(d?.passport_amount,2),currency=upper(d?.passport_currency);return amount&&currency?`${amount} ${currency}`:''}"
-          if s.count(old)!=1: raise SystemExit(f'passport consumer target count={s.count(old)}')
-          s=s.replace(old,new,1)
-          oldsig='d.payment_status,d.finance_status,d.payment_obligation_amount,d.payment_currency,d.updated_at'
-          newsig='d.payment_status,d.finance_status,d.passport_amount,d.passport_currency,d.passport_amount_source,d.updated_at'
-          if s.count(oldsig)!=1: raise SystemExit(f'passport render signature target count={s.count(oldsig)}')
-          p.write_text(s.replace(oldsig,newsig,1))
-
-          # 4. Representative browser discriminator models the real narrow server contract.
-          p=Path('scripts/qa-client-owner-retest-real-browser-v4.mjs'); s=p.read_text()
-          old="const APPLICATION_AMOUNT_PROJECTION=[\"portal_private.owner_application_workflow\",\"a.status='DEAL_REGISTERED'\",\"w.business_status='DEAL'\",\"coalesce(w.counter_offer_used,false)=false\",\"w.finalized_at is not null\",\"FINALIZED_APPLICATION_COMMERCIAL_TERMS\"].every(token=>API_SOURCE.includes(token));"
-          new="const APPLICATION_AMOUNT_PROJECTION=[\"portal_private.owner_application_workflow\",\"a.status='DEAL_REGISTERED'\",\"w.business_status='DEAL'\",\"coalesce(w.counter_offer_used,false)=false\",\"w.finalized_at is not null\",\"passport_amount\",\"passport_currency\",\"passport_amount_source\",\"passport_application_id\",\"FINALIZED_APPLICATION_COMMERCIAL_TERMS\"].every(token=>API_SOURCE.includes(token));"
-          if s.count(old)!=1: raise SystemExit('harness capability target missing')
-          s=s.replace(old,new,1)
-          s=re.sub(r'^function payFromCanonicalApplication\(.*$',"function payFromCanonicalApplication(name,id){const src=commercialSource(name,id),enabled=APPLICATION_AMOUNT_PROJECTION&&src;return{payment_status:'NOT_DUE',payment_label:'Оплата не наступила',payment_received_amount:null,payment_obligation_amount:null,payment_currency:null,payment_percent:null,payment_source:'DEAL_FINANCE_STATUS',passport_amount:enabled?src.obligation_amount:null,passport_currency:enabled?src.currency:null,passport_amount_source:enabled?src.source:null,passport_application_id:enabled?src.application_id:null}}",s,count=1,flags=re.M)
-          replacements={
-            "backend:'projectClientDeals -> currentPaymentStatus'":"backend:'projectClientDeals -> dedicated Passport commercial projection'",
-            "api_amount:'data.deals[].payment_obligation_amount'":"api_amount:'data.deals[].passport_amount'",
-            "api_currency:'data.deals[].payment_currency'":"api_currency:'data.deals[].passport_currency'",
-            "api_source:'data.deals[].payment_obligation_source'":"api_source:'data.deals[].passport_amount_source',api_application:'data.deals[].passport_application_id'",
-            "return{amount:d?.payment_obligation_amount,currency:d?.payment_currency,source:d?.payment_source,obligation_source:d?.payment_obligation_source}":"return{amount:d?.passport_amount,currency:d?.passport_currency,source:d?.passport_amount_source,application_id:d?.passport_application_id,payment_obligation_amount:d?.payment_obligation_amount,payment_source:d?.payment_source}",
-            "if(Number(projection.amount)!==EXP.A.amount||upper(projection.currency)!==EXP.A.currency||projection.obligation_source!=='FINALIZED_APPLICATION_COMMERCIAL_TERMS')fail(failures,'PASSPORT_SOURCE_TO_PROJECTION',{projection});":"if(Number(projection.amount)!==EXP.A.amount||upper(projection.currency)!==EXP.A.currency||projection.source!=='FINALIZED_APPLICATION_COMMERCIAL_TERMS'||projection.application_id!==EXP.A.source_application_id||projection.payment_obligation_amount!==null||projection.payment_source!=='DEAL_FINANCE_STATUS')fail(failures,'PASSPORT_SOURCE_TO_PROJECTION',{projection});"
-          }
-          for old,new in replacements.items():
-              if s.count(old)!=1: raise SystemExit(f'harness replacement missing/duplicate: {old[:70]} count={s.count(old)}')
-              s=s.replace(old,new,1)
-          p.write_text(s)
-
-          # Preserve exact patched source before build-time materializers mutate assets.
-          stash=Path('/tmp/rona-pr429-patched'); shutil.rmtree(stash,ignore_errors=True)
-          for f in ['supabase/functions/rona-portal-api/index.ts','assets/portal-runtime/client-deals-authoritative-v1.js','scripts/qa-client-owner-retest-real-browser-v4.mjs']:
-              dst=stash/f; dst.parent.mkdir(parents=True,exist_ok=True); shutil.copy2(f,dst)
-          print('SYSTEM_ADMIN_NARROW_PASSPORT_SOURCE_PATCH=PASS')
-          PY
-      - name: Build and run exact PRE to POST browser discriminator
+      - name: Install real browser harness
         shell: bash
         run: |
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install chromium
-          npm run build
-          base_root=/tmp/rona-owner-retest-base-v2
-          before_root=/tmp/rona-owner-retest-before-v2
+
+      - name: Build production baseline and exact PRE checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          base_root=/tmp/rona-owner-retest-base-v3
+          before_root=/tmp/rona-owner-retest-before-v3
           rm -rf "$base_root" "$before_root"
           git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
           git worktree add --detach "$before_root" d2a4bd75400cfb5f1f095ee997def21b936bceb2
           (cd "$base_root" && npm run build)
           (cd "$before_root" && npm run build)
+          {
+            echo "OWNER_BASE_ROOT=$base_root"
+            echo "OWNER_BEFORE_ROOT=$before_root"
+          } >> "$GITHUB_ENV"
+
+      - name: Prove PRE d2a4bd7 is representative RED on exactly the Owner defects
+        shell: bash
+        run: |
+          set -uo pipefail
+          log="$GITHUB_WORKSPACE/owner-retest-before.log"
+          cd "$OWNER_BEFORE_ROOT"
           set +e
-          (cd "$before_root" && RONA_OWNER_BASE_ROOT="$base_root" RONA_OWNER_RETEST_LABEL='PRE_D2A4BD7' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs") | tee /tmp/pre.log
-          pre_rc=${PIPESTATUS[0]}
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL='PRE_D2A4BD7' node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" >"$log" 2>&1
+          rc=$?
           set -e
-          test "$pre_rc" -ne 0
-          grep -F 'ASSERTION_FAILED PASSPORT_SOURCE_TO_PROJECTION' /tmp/pre.log
-          grep -F 'ASSERTION_FAILED CURRENT_COMPANY_CARD_AND_COUNTERS' /tmp/pre.log
-          grep -F 'ASSERTION_FAILED CLIENT_TYPOGRAPHY_REAL_UI_110' /tmp/pre.log
-          grep -F 'OWNER_RETEST_REGRESSION_RESULT=FAIL' /tmp/pre.log
-          RONA_OWNER_BASE_ROOT="$base_root" RONA_OWNER_RETEST_LABEL='POST_NARROW_PASSPORT' node scripts/qa-client-owner-retest-real-browser-v4.mjs | tee /tmp/post.log
-          grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' /tmp/post.log
-          grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' /tmp/post.log
-      - name: Commit only canonical source delta and self-remove
+          cat "$log"
+          test "$rc" -ne 0
+          grep -F 'RONA_OWNER_CONTEXT_FIRST_PROJECTION' "$log"
+          grep -F 'ASSERTION_FAILED PASSPORT_SOURCE_TO_PROJECTION' "$log"
+          grep -F 'ASSERTION_FAILED CURRENT_COMPANY_CARD_AND_COUNTERS' "$log"
+          grep -F 'ASSERTION_FAILED CLIENT_TYPOGRAPHY_REAL_UI_110' "$log"
+          grep -F 'OWNER_RETEST_REGRESSION_RESULT=FAIL' "$log"
+          ! grep -F 'RAW_PROJECTION_TIMEOUT' "$log"
+          ! grep -F 'OWNER_CONTEXT_ADAPTER_READINESS' "$log"
+          echo 'OWNER_RETEST_PRE_REPRESENTATIVE_RED=PASS'
+
+      - name: Prove committed POST candidate is GREEN on the same real DOM contract
         shell: bash
         run: |
           set -euo pipefail
-          git reset --hard HEAD
-          cp /tmp/rona-pr429-patched/supabase/functions/rona-portal-api/index.ts supabase/functions/rona-portal-api/index.ts
-          cp /tmp/rona-pr429-patched/assets/portal-runtime/client-deals-authoritative-v1.js assets/portal-runtime/client-deals-authoritative-v1.js
-          cp /tmp/rona-pr429-patched/scripts/qa-client-owner-retest-real-browser-v4.mjs scripts/qa-client-owner-retest-real-browser-v4.mjs
-          git rm .github/workflows/system-admin-pr429-payment-projection-v2.yml
-          git add supabase/functions/rona-portal-api/index.ts assets/portal-runtime/client-deals-authoritative-v1.js scripts/qa-client-owner-retest-real-browser-v4.mjs
-          git diff --cached --name-only
-          test "$(git diff --cached --name-only | sort | tr '\n' ' ')" = ".github/workflows/system-admin-pr429-payment-projection-v2.yml assets/portal-runtime/client-deals-authoritative-v1.js scripts/qa-client-owner-retest-real-browser-v4.mjs supabase/functions/rona-portal-api/index.ts "
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git commit -m 'fix(client): separate passport commercial projection from payment status'
-          git push origin HEAD:hotfix/client-load-feedback-loop-v1
+          test "$(git rev-parse HEAD)" = "$POST_SHA"
+          log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
+          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="POST_${POST_SHA}" node scripts/qa-client-owner-retest-real-browser-v4.mjs | tee "$log"
+          grep -F 'PASSPORT_SOURCE_TO_PROJECTION_PROOF' "$log"
+          grep -F 'MY_COMPANIES_SEMANTIC_SOURCE_PROOF' "$log"
+          grep -F 'REAL_TYPOGRAPHY_PROOF' "$log"
+          grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
+          grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
+          echo "SYSTEM_ADMIN_PRE_RED_POST_GREEN=PASS head=$POST_SHA"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: system-admin-pr429-pre-post-${{ github.run_id }}
+          path: owner-retest-*.log
+          if-no-files-found: warn
