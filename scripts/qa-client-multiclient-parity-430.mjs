@@ -36,6 +36,8 @@ forbidText(bootstrap,'DELETE FROM portal_private','NO_DESTRUCTIVE_CLEANUP');
 for(const token of [
   "20260906-client-contract-v11-authoritative-company-metrics",
   "entry?.company_metrics&&typeof entry.company_metrics==='object'?entry.company_metrics:null",
+  "value===null||value===undefined||typeof value==='boolean'",
+  'Number.isInteger(n)&&n>=0',
   'authoritative?.applications_total',
   'authoritative?.deals_total',
   'authoritative?.documents_total',
