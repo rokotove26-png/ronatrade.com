@@ -42,7 +42,7 @@ function visible(el){if(!el||!el.isConnected)return false;const s=getComputedSty
 function setNodeText(el,value){if(!el)return false;const next=String(value??'');if(String(el.textContent??'')===next)return false;el.textContent=next;return true}
 function tokenKey(v){return low(v).replace(new RegExp('['+APOSTROPHES+']','g'),'').replace(/[^a-zа-яё0-9]+/gi,'')}
 function legalWords(name){return (norm(name).match(/[A-Za-zА-Яа-яЁё0-9]+(?:['’‘`´ʼ-][A-Za-zА-Яа-яЁё0-9]+)*/g)||[]).filter(Boolean)}
-function canonicalBusinessWords(ctx){const words=legalWords(ctx);while(words.length&&GENERIC.has(low(words[0])))words.shift();return words}
+function canonicalBusinessWords(ctx){const words=legalWords(ctx?.legal_name);while(words.length&&GENERIC.has(low(words[0])))words.shift();return words}
 function identityTokens(ctx){return canonicalBusinessWords(ctx).map(tokenKey).filter(x=>x.length>=3&&!GENERIC.has(x)).filter((x,i,a)=>a.indexOf(x)===i)}
 function compactLegalName(ctx){
   const legal=norm(ctx?.legal_name);if(!legal)return norm(ctx?.client_id)||'Компания';
