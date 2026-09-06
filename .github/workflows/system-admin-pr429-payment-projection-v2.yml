@@ -1,4 +1,4 @@
-name: SYSTEM_ADMIN PR429 final PRE POST discriminator v4
+name: SYSTEM_ADMIN PR429 final PRE POST discriminator v5
 
 on:
   push:
@@ -29,12 +29,16 @@ jobs:
           from pathlib import Path
           p=Path('scripts/qa-client-owner-retest-real-browser-v4.mjs')
           s=p.read_text()
-          old='}}, {selector,mark})}'
-          new='}}, {selector,mark:OWNER_TYPO_MARK})}'
-          if s.count(old)!=1:
-              raise SystemExit(f'OWNER_TYPO_ADAPTER_TARGET_COUNT={s.count(old)}')
-          p.write_text(s.replace(old,new,1))
-          print('OWNER_TYPO_ADAPTER_REFERENCE_FIX=PASS')
+          replacements=[
+            ('}}, {selector,mark})}', '}}, {selector,mark:OWNER_TYPO_MARK})}', 'OWNER_TYPO_MARK_ARGUMENT'),
+            ("proof={marker:document.documentElement?.dataset?.ronaClientOwnerTypography,nav:navTypography", "proof={marker:navTypography.html_marker,nav:navTypography", 'OWNER_TYPO_NODE_DOCUMENT_REFERENCE'),
+          ]
+          for old,new,label in replacements:
+              if s.count(old)!=1:
+                  raise SystemExit(f'{label}_TARGET_COUNT={s.count(old)}')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          print('OWNER_TYPO_ADAPTER_REFERENCE_FIXES=PASS')
           PY
           npm run build
           git diff -- scripts/qa-client-owner-retest-real-browser-v4.mjs
@@ -50,8 +54,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base_root=/tmp/rona-owner-retest-base-v4
-          before_root=/tmp/rona-owner-retest-before-v4
+          base_root=/tmp/rona-owner-retest-base-v5
+          before_root=/tmp/rona-owner-retest-before-v5
           rm -rf "$base_root" "$before_root"
           git worktree add --detach "$base_root" 4e07ad9f2591c6135e6de651bdaa06bb80a82e78
           git worktree add --detach "$before_root" d2a4bd75400cfb5f1f095ee997def21b936bceb2
