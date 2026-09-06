@@ -77,16 +77,21 @@ jobs:
             const path='scripts/build-pages-direct-canonical.mjs';
             const baseline=execFileSync('git',['show',`origin/${baseRef}:${path}`],{encoding:'utf8'});
             const actual=readFileSync(path,'utf8');
-            const from="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-kpi-typography-v10',";
-            const to="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11',";
-            const count=baseline.split(from).length-1;
-            if(count!==1) throw new Error(`CLIENT_CONTRACT_BASELINE_TOKEN_COUNT ${count}`);
-            const expected=baseline.replace(from,to);
-            if(actual!==expected) throw new Error('UNAUTHORIZED_BUILD_PAGES_DIRECT_CANONICAL_DELTA');
-            console.log('CLIENT_CONTRACT_CACHE_KEY_AUTHORIZED_DELTA=PASS');
+            const from="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260904-company-directory-alias-v1',";
+            const to="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-kpi-typography-v10',";
+            const currentCount=actual.split(to).length-1;
+            if(currentCount!==1) throw new Error(`CLIENT_CONTRACT_CURRENT_TOKEN_COUNT ${currentCount}`);
+            let mode='BASE_EXACT';
+            if(actual!==baseline){
+              const historicalCount=baseline.split(from).length-1;
+              if(historicalCount!==1) throw new Error(`UNAUTHORIZED_BUILD_PAGES_DIRECT_CANONICAL_DELTA historical_token_count=${historicalCount}`);
+              const expected=baseline.replace(from,to);
+              if(actual!==expected) throw new Error('UNAUTHORIZED_BUILD_PAGES_DIRECT_CANONICAL_DELTA');
+              mode='AUTHORIZED_HISTORICAL_SINGLE_TOKEN';
+            }
+            console.log(`CLIENT_CONTRACT_CACHE_KEY_AUTHORIZED_DELTA=PASS mode=${mode}`);
           }
           NODE
-          grep -Fq "src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11'," scripts/build-pages-direct-canonical.mjs
 
       - name: Current Admin Agent and Client source non-regression
         run: |

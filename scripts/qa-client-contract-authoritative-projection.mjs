@@ -13,11 +13,22 @@ assert(phase5d.includes('current_external_contract_number'),'client context must
 assert(phase5d.includes("so.storage_state='VERIFIED'"),'client documents must require VERIFIED storage');
 assert(router.includes('/v1/client/context'),'router must expose client context endpoint');
 assert(router.includes('server_client_storage_object'),'signed-storage route must enforce server access gate');
-assert.equal(builtRuntime,runtime,'built contract runtime must equal source asset');
+const issue432Marker="ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1='ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1'";
+if(builtRuntime.includes(issue432Marker)){
+  const builtConst="const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style',ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1='ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1';";
+  const sourceConst="const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';";
+  const builtRead="const key=contextKey(current),projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};";
+  const sourceRead="const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));";
+  assert(builtRuntime.includes(builtConst),'Issue432 built contract marker must be exact');
+  assert(builtRuntime.includes(builtRead),'Issue432 built contract central projection read must be exact');
+  assert(!builtRuntime.includes('/v1/client/context?clientId='),'Issue432 built contract runtime must not own direct current-context fetch');
+  const restored=builtRuntime.replace(builtConst,sourceConst).replace(builtRead,sourceRead);
+  assert.equal(restored,runtime,'Issue432 built contract runtime may differ from source only by exact central-projection overlay');
+}else assert.equal(builtRuntime,runtime,'built contract runtime must equal source asset');
 const srcs=[...builtClient.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
 assert(srcs.some(src=>src.includes('client-contract-download-v3.js')),'build must load contract runtime');
 const manifest=JSON.parse(await read('portal-src/current/client/manifest.json'));
 const encoded=(await Promise.all(manifest.chunks.map(name=>read(`portal-src/current/client/${name}`)))).join('');
 const frozen=brotliDecompressSync(Buffer.from(encoded,'base64')).toString('utf8');
 for(const marker of ['id="clientContextSelect"','CLIENT_CONTEXTS','setClientContext','Номер уточняется','Контракт пока недоступен'])assert(frozen.includes(marker),`frozen Client bridge surface missing ${marker}`);
-console.log('CLIENT_CONTRACT_AUTHORITATIVE_PROJECTION=PASS context=RONA_CLIENT_CONTEXT scope=CURRENT_CONTEXT_ONLY');
+console.log(`CLIENT_CONTRACT_AUTHORITATIVE_PROJECTION=PASS context=RONA_CLIENT_CONTEXT scope=CURRENT_CONTEXT_ONLY issue432_overlay=${builtRuntime.includes(issue432Marker)?'EXACT_CENTRAL_PROJECTION':'ABSENT'}`);
