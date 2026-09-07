@@ -32,7 +32,7 @@ jobs:
         env:
           RONA_EXACT_HEAD: ${{ github.sha }}
           RONA_GITHUB_TOKEN: ${{ github.token }}
-          RONA_QA_ISSUER_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-pr431-client-session-qa-20260907
+          RONA_QA_ISSUER_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
           RONA_OIDC_AUDIENCE: rona-pr431-client-qa
         run: |
           set -euo pipefail
@@ -53,7 +53,7 @@ jobs:
         env:
           RONA_EXACT_HEAD: ${{ github.sha }}
           RONA_GITHUB_TOKEN: ${{ github.token }}
-          RONA_QA_ISSUER_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-pr431-client-session-qa-20260907
+          RONA_QA_ISSUER_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
           RONA_OIDC_AUDIENCE: rona-pr431-client-qa
         run: |
           set -euo pipefail
