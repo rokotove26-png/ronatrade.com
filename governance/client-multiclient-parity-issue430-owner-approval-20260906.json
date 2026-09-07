@@ -15,7 +15,7 @@
     "assets/portal-runtime/client-contract-download-v3.js": {
       "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
       "production_pre_hotfix_blob_sha": "57e66a343bf199ab2076a0ff5f074ba71e79218c",
-      "authorized_post_blob_sha": "5d4e889f8becca9d9e17f31433dc915655a7527c",
+      "authorized_post_blob_sha": "6f9c760179a878473f8684db0f47ca75c1d6eaff",
       "required_marker": "20260906-client-contract-v11-authoritative-company-metrics"
     }
   },
