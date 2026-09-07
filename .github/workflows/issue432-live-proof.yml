@@ -32,6 +32,14 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Assert exact production revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git -C prod rev-parse HEAD)"
+          echo "ISSUE432_PROD_CHECKOUT_SHA=$actual"
+          test "$actual" = "fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18"
+
       - name: Build exact production revision
         working-directory: prod
         run: npm run build
@@ -47,6 +55,7 @@ jobs:
         run: node diag/scripts/qa/issue432-live-proof.mjs
 
       - name: Upload diagnostic evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: issue432-live-proof-${{ github.run_id }}
