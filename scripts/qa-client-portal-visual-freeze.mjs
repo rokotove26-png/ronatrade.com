@@ -189,16 +189,14 @@ const clientMultiContext430ExceptionAuthorized=
   clientMultiContext430Approval?.system_admin_comment_id===5561179393&&
   clientMultiContext430Approval?.system_admin_correction_comment_id===5561354113&&
   clientMultiContext430Approval?.system_admin_card_owner_comment_id===5573033812&&
-  clientMultiContext430Approval?.system_admin_company_scope_comment_id===5575067400&&
-  clientMultiContext430Approval?.system_admin_v12_wiring_comment_id===5575242697&&
   clientMultiContext430Approval?.branch==='hotfix/client-multiclient-parity-430-v1'&&
   clientMultiContext430Approval?.base_commit==='9797f7c7c5e8a003eaa19c520f4328a2001d5ce7'&&
   clientMultiContext430Approval?.scope==='CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430'&&
   exactArray(clientMultiContext430Approval?.approved_protected_files,CLIENT_MULTI_CONTEXT_430_FILES)&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.visual_freeze_baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.production_pre_hotfix_blob_sha==='57e66a343bf199ab2076a0ff5f074ba71e79218c'&&
-  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='575e04132009d434899a353562db1558096e5918'&&
-  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260907-client-contract-v12-company-authorization-scope'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='5d4e889f8becca9d9e17f31433dc915655a7527c'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v11-authoritative-company-metrics'&&
   clientMultiContext430Approval?.requirements?.visual_freeze_remains_enabled===true&&
   clientMultiContext430Approval?.requirements?.owner_instruction_required===true&&
   clientMultiContext430Approval?.requirements?.exact_file_enforcement_remains_active===true&&

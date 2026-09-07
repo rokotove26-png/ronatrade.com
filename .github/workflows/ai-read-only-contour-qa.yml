@@ -78,7 +78,7 @@ jobs:
             const baseline=execFileSync('git',['show',`origin/${baseRef}:${path}`],{encoding:'utf8'});
             const actual=readFileSync(path,'utf8');
             const from="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-kpi-typography-v10',";
-            const to="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260907-company-directory-authorization-scope-v12',";
+            const to="src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11',";
             const currentCount=actual.split(to).length-1;
             if(currentCount!==1) throw new Error(`CLIENT_CONTRACT_CURRENT_TOKEN_COUNT ${currentCount}`);
             let mode='BASE_EXACT';

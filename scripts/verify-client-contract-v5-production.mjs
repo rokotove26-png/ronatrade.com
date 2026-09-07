@@ -2,8 +2,8 @@ const base=String(process.env.TARGET_ORIGIN||'https://ronatrade.com').replace(/\
 const sha=String(process.env.GITHUB_SHA||Date.now());
 const assert=(value,message)=>{if(!value)throw new Error(message)};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const CONTRACT_RUNTIME_SRC='/assets/portal-runtime/client-contract-download-v3.js?v=20260907-company-directory-authorization-scope-v12';
-const CONTRACT_RUNTIME_MARK='20260907-client-contract-v12-company-authorization-scope';
+const CONTRACT_RUNTIME_SRC='/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11';
+const CONTRACT_RUNTIME_MARK='20260906-client-contract-v11-authoritative-company-metrics';
 
 async function retry(label,fn,attempts=30,delayMs=3000){
   let last;
@@ -72,4 +72,4 @@ const runtime=await retry('Client authoritative contract runtime',async attempt=
 });
 
 assert(runtime.length>0,'Client authoritative runtime body is empty');
-console.log('CLIENT_CONTRACT_V12_PRODUCTION=PASS',JSON.stringify({base,sha,architecture:integrity.architecture,clientState:integrity.client_runtime.state,bridge:integrity.client_runtime.functional_bridge,sourceSha256:integrity.client_runtime.source_sha256,sourceBytes:integrity.client_runtime.source_bytes,runtimeMarker:CONTRACT_RUNTIME_MARK,contextOwner:'RONA_CLIENT_CONTEXT_AUTHORITY',metricsSource:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documentsPredicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',neutralUnavailable:true}));
+console.log('CLIENT_CONTRACT_V11_PRODUCTION=PASS',JSON.stringify({base,sha,architecture:integrity.architecture,clientState:integrity.client_runtime.state,bridge:integrity.client_runtime.functional_bridge,sourceSha256:integrity.client_runtime.source_sha256,sourceBytes:integrity.client_runtime.source_bytes,runtimeMarker:CONTRACT_RUNTIME_MARK,contextOwner:'RONA_CLIENT_CONTEXT_AUTHORITY',metricsSource:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documentsPredicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',neutralUnavailable:true}));

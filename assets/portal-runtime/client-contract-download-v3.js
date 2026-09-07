@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260907-client-contract-v12-company-authorization-scope';
+const MARK='20260906-client-contract-v11-authoritative-company-metrics';
 const COMPANY_ALIAS_COMPAT='20260904-client-contract-v6-company-alias-slot-removed';
 const PREVIOUS_MARK='20260902-client-contract-v4-current-context-authority';
 const COMPAT_MARK='20260829-client-contract-v3-authoritative-projection-v5';
@@ -159,47 +159,8 @@ function neutralizeCompanyMetrics(resolved,ctx){
   if(!resolved?.slots)return false;clearCompanyDirectoryState(resolved.card);const ok=setMetricSlot(resolved.slots.applications,'—')&&setMetricSlot(resolved.slots.deals,'—')&&setMetricSlot(resolved.slots.documents,'—','ДОКУМЕНТОВ');if(!ok){clearCompanyDirectoryState(resolved.card);return false}return setCompanyDirectoryState(resolved,ctx,'pending','AUTHORITATIVE_METRICS_UNAVAILABLE','');
 }
 function hideRedundantCompanyAlias(){return false}
-const COMPANY_SCOPE_REGISTRY={grid:null,entries:[]};
-const COMPANY_SCOPE_GUARDED=new WeakSet();
-function canonicalCompanyGrid(){return document.querySelector('section#page-companies #clientCompanyGrid')||document.getElementById('clientCompanyGrid')}
-function canonicalCompanyModels(authority){
-  const rows=[],seen=new Set(),add=(clientId,contractId,row={})=>{const client_id=norm(clientId),contract_id=norm(contractId),k=client_id+'|'+contract_id;if(!client_id||!contract_id||seen.has(k))return;seen.add(k);rows.push({client_id,contract_id,...row})};
-  for(const ctx of authority?.getAuthorizedContexts?.()||[])add(ctx?.client_id,ctx?.contract_id,ctx);
-  const model=frozenContexts();if(model&&typeof model==='object')for(const [key,row] of Object.entries(model)){if(!row||typeof row!=='object')continue;add(row.clientId||row.client_id,row.contractId||row.contract_id||key,row)}
-  return rows;
-}
-function canonicalCompanyCardIdentity(card,authority){
-  if(!card)return null;const candidates=new Map(),clients=new Set(),contracts=new Set(),add=(clientId,contractId)=>{const client_id=norm(clientId),contract_id=norm(contractId);if(client_id&&contract_id)candidates.set(client_id+'|'+contract_id,{client_id,contract_id})};
-  const nodes=[card,...card.querySelectorAll('[data-rona-client-id],[data-client-id],[data-rona-client-contract-id],[data-rona-contract-id],[data-contract-id]')];
-  for(const node of nodes){const client=norm(node.getAttribute?.('data-rona-client-id')||node.getAttribute?.('data-client-id')),contract=norm(node.getAttribute?.('data-rona-client-contract-id')||node.getAttribute?.('data-rona-contract-id')||node.getAttribute?.('data-contract-id'));if(client)clients.add(client);if(contract)contracts.add(contract);if(client&&contract)add(client,contract)}
-  const text=String(card.textContent||'');for(const match of text.matchAll(/\bRONA-C\d+\b/gi))clients.add(match[0].toUpperCase());for(const match of text.matchAll(/\bRONA-C\d+-CTR-\d{4}-\d+\b/gi)){const contract=match[0].toUpperCase(),m=contract.match(/^(RONA-C\d+)-CTR-/i);contracts.add(contract);if(m)add(m[1].toUpperCase(),contract)}
-  if(clients.size===1&&contracts.size===1)add([...clients][0],[...contracts][0]);
-  const models=canonicalCompanyModels(authority);for(const row of models)if(contracts.has(row.contract_id))add(row.client_id,row.contract_id);
-  if(clients.size===1&&contracts.size===0){const client=[...clients][0],matches=models.filter(row=>row.client_id===client);if(matches.length===1)add(matches[0].client_id,matches[0].contract_id)}
-  if(candidates.size!==1)return null;return [...candidates.values()][0];
-}
-function authorizedCompanyPairs(authority){const out=new Set();for(const ctx of authority?.getAuthorizedContexts?.()||[]){const client=norm(ctx?.client_id),contract=norm(ctx?.contract_id);if(client&&contract)out.add(client+'|'+contract)}return out}
-function registerCanonicalCompanyCards(grid){
-  if(COMPANY_SCOPE_REGISTRY.grid!==grid){COMPANY_SCOPE_REGISTRY.grid=grid;COMPANY_SCOPE_REGISTRY.entries=[]}
-  COMPANY_SCOPE_REGISTRY.entries=COMPANY_SCOPE_REGISTRY.entries.filter(entry=>entry.marker?.isConnected||entry.card?.isConnected);
-  const known=new Set(COMPANY_SCOPE_REGISTRY.entries.map(entry=>entry.card));
-  for(const card of grid.querySelectorAll('article.company-switch-card')){if(known.has(card))continue;const marker=document.createComment('rona-company-authorization-scope');card.parentNode?.insertBefore(marker,card);COMPANY_SCOPE_REGISTRY.entries.push({card,marker,ariaHidden:card.getAttribute('aria-hidden'),inert:card.hasAttribute('inert'),tabIndex:card.getAttribute('tabindex'),scoped:false});known.add(card)}
-}
-function restoreAuthorizedCompanyCard(entry){
-  const {card,marker}=entry;if(!card.isConnected&&marker?.parentNode)marker.parentNode.insertBefore(card,marker.nextSibling);if(!entry.scoped)return;
-  if(entry.ariaHidden===null)card.removeAttribute('aria-hidden');else card.setAttribute('aria-hidden',entry.ariaHidden);if(entry.inert)card.setAttribute('inert','');else card.removeAttribute('inert');if(entry.tabIndex===null)card.removeAttribute('tabindex');else card.setAttribute('tabindex',entry.tabIndex);entry.scoped=false;
-}
-function excludeUnauthorizedCompanyCard(entry,stateName){
-  const {card}=entry;if(!entry.scoped){entry.ariaHidden=card.getAttribute('aria-hidden');entry.inert=card.hasAttribute('inert');entry.tabIndex=card.getAttribute('tabindex');entry.scoped=true}card.dataset.ronaCompanyAuthorizationScope=stateName;card.setAttribute('aria-hidden','true');card.setAttribute('inert','');card.setAttribute('tabindex','-1');if(card.isConnected)card.remove();
-}
-function scopeCanonicalCompanyGrid(authority=contextAuthority()){
-  const grid=canonicalCompanyGrid();if(!grid||!authority?.getAuthorizedContexts)return false;registerCanonicalCompanyCards(grid);const authorized=authorizedCompanyPairs(authority);let rendered=0;
-  if(!COMPANY_SCOPE_GUARDED.has(grid)){grid.addEventListener('click',event=>{const card=event.target?.closest?.('article.company-switch-card');if(!card||card.closest('#clientCompanyGrid')!==grid)return;const live=contextAuthority(),pair=canonicalCompanyCardIdentity(card,live),allowed=pair&&authorizedCompanyPairs(live).has(pair.client_id+'|'+pair.contract_id);if(allowed)return;event.preventDefault();event.stopImmediatePropagation()},true);COMPANY_SCOPE_GUARDED.add(grid)}
-  for(const entry of COMPANY_SCOPE_REGISTRY.entries){const pair=canonicalCompanyCardIdentity(entry.card,authority),allowed=pair&&authorized.has(pair.client_id+'|'+pair.contract_id);if(allowed){restoreAuthorizedCompanyCard(entry);entry.card.dataset.ronaCompanyAuthorizationScope='authorized';rendered++}else excludeUnauthorizedCompanyCard(entry,pair?'denied':'ambiguous')}
-  document.documentElement.dataset.ronaClientCompanyAuthorizationScope='live-authority';document.documentElement.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true;
-}
 function primeCompanyDirectory(ctx){
-  if(!ctx)return false;const resolved=resolveCompanyCard(ctx);if(!resolved){scopeCanonicalCompanyGrid(contextAuthority());return false}const card=resolved.card;
+  if(!ctx)return false;const resolved=resolveCompanyCard(ctx);if(!resolved)return false;const card=resolved.card;
   const display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from);
   hideRedundantCompanyAlias(card);
   for(const el of leafNodes(card)){
@@ -210,8 +171,8 @@ function primeCompanyDirectory(ctx){
     if((/^(общество с |ооо\b|осоо\b|llc\b)/iu.test(before)||/[«»]/u.test(before))&&!l.includes('контракт')&&!l.includes('договор')){setNodeText(el,display);continue}
   }
   const sameReady=card.dataset.ronaCompanyDirectoryHydration==='ready'&&norm(card.dataset.ronaClientContractId)===norm(ctx.contract_id)&&norm(card.dataset.ronaClientId)===norm(ctx.client_id);
-  if(!sameReady&&!neutralizeCompanyMetrics(resolved,ctx)){scopeCanonicalCompanyGrid(contextAuthority());return false}
-  bindCompanyOwner(resolved,ctx);scopeCanonicalCompanyGrid(contextAuthority());return true;
+  if(!sameReady&&!neutralizeCompanyMetrics(resolved,ctx))return false;
+  bindCompanyOwner(resolved,ctx);return true;
 }
 function syncCompanyCard(entry,resolved){
   if(!entry||!resolved)return false;const card=resolved.card,ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
@@ -256,11 +217,11 @@ function renderEntry(entry){
   const b=makeButton(entry,unavailable);if(unavailable){unavailable.replaceWith(b);return true}anchor.parentElement.appendChild(b);return true;
 }
 function render(){
-  if(state.rendering)return false;state.rendering=true;try{ensureStyle();scopeCanonicalCompanyGrid(contextAuthority());const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;scopeCanonicalCompanyGrid(contextAuthority());document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}finally{state.rendering=false}
+  if(state.rendering)return false;state.rendering=true;try{ensureStyle();const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}finally{state.rendering=false}
 }
 function scheduleRender(delay=120){clearTimeout(state.renderTimer);state.renderTimer=setTimeout(render,delay)}
-function primeFromAuthority(authority){const current=authority?.getCurrentContext?.(),primed=current?primeCompanyDirectory(current):false;scopeCanonicalCompanyGrid(authority);return primed}
-function refreshCompanyDirectoryNow(authority,delay=0){setTimeout(()=>{primeFromAuthority(authority);refresh(true)},delay)}
+function primeFromAuthority(authority){const current=authority?.getCurrentContext?.();return current?primeCompanyDirectory(current):false}
+function refreshCompanyDirectoryNow(authority,delay=0){setTimeout(()=>{if(!primeFromAuthority(authority))return;refresh(true)},delay)}
 function startObserver(){if(state.observer||!document.documentElement)return;state.observer=new MutationObserver(records=>{if(state.rendering)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'))scheduleRender(80)});state.observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true})}
 async function start(){
   startObserver();
