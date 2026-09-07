@@ -123,13 +123,13 @@ function ensureStyle(){
 function leafNodes(root){return [...root.querySelectorAll('button,a,span,small,strong,p,div')].filter(e=>e.childElementCount===0&&norm(e.textContent))}
 function leafByText(root,predicate){return leafNodes(root).find(e=>predicate(low(e.textContent)))||null}
 function eligibleCompanyNode(node){return visible(node)&&!node.closest('header,nav,aside,[role="navigation"]')}
-function companyMetricSlot(owner,labels){
-  if(!owner)return null;const matches=leafNodes(owner).filter(el=>visible(el)&&labels.includes(low(el.textContent)));if(matches.length!==1)return null;const label=matches[0];let box=label.parentElement;
-  for(let depth=0;box&&owner.contains(box)&&depth<3;depth++,box=box.parentElement){const values=leafNodes(box).filter(el=>el!==label&&visible(el)&&/^(?:\d+|—)$/.test(norm(el.textContent)));if(values.length===1)return{label,value:values[0]};if(values.length>1)return null;if(box===owner)break}
+function companyMetricSlot(owner,labels,structural=false){
+  if(!owner)return null;const eligible=el=>structural?el.isConnected:visible(el),matches=leafNodes(owner).filter(el=>eligible(el)&&labels.includes(low(el.textContent)));if(matches.length!==1)return null;const label=matches[0];let box=label.parentElement;
+  for(let depth=0;box&&owner.contains(box)&&depth<3;depth++,box=box.parentElement){const values=leafNodes(box).filter(el=>el!==label&&eligible(el)&&/^(?:\d+|—)$/.test(norm(el.textContent)));if(values.length===1)return{label,value:values[0]};if(values.length>1)return null;if(box===owner)break}
   return null;
 }
-function companyMetricSlots(owner){
-  const applications=companyMetricSlot(owner,['заявок']),deals=companyMetricSlot(owner,['сделок']),documents=companyMetricSlot(owner,['документов','действий']);
+function companyMetricSlots(owner,structural=false){
+  const applications=companyMetricSlot(owner,['заявок'],structural),deals=companyMetricSlot(owner,['сделок'],structural),documents=companyMetricSlot(owner,['документов','действий'],structural);
   return applications&&deals&&documents?{applications,deals,documents}:null;
 }
 function clearCompanyDirectoryState(node){if(!node)return;delete node.dataset.ronaCompanyDirectoryHydration;delete node.dataset.ronaCompanyDirectorySource;delete node.dataset.ronaCompanyDirectoryDocumentsPredicate;delete node.dataset.ronaCompanyDirectoryUpdatedAt}
@@ -142,14 +142,27 @@ function findCompanyIdentityAnchor(ctx){
   for(const node of main.querySelectorAll('article,section,li,div')){if(!eligibleCompanyNode(node))continue;const t=low(node.textContent);if(!t||t.length>9000||(!t.includes('подписанный контракт')&&!t.includes('текущая компания')))continue;const compact=tokenKey(t),hc=contractKey&&t.includes(contractKey),hi=clientKey&&t.includes(clientKey);let tokenScore=0;for(const x of tokens)if(compact.includes(x))tokenScore+=40;if(!hc&&!hi&&tokenScore<40&&!(t.includes('подписанный контракт')&&t.includes('текущая компания')))continue;c.push({node,score:(hc?10000:0)+(hi?3000:0)+tokenScore+500-Math.min(t.length,8000)/8,len:t.length})}
   c.sort((a,b)=>b.score-a.score||a.len-b.len);if(!c.length)return null;if(c.length>1&&c[0].score===c[1].score&&c[0].len===c[1].len)return null;return c[0].node;
 }
+function canonicalCompanyGridExactCard(ctx){
+  const rawClient=norm(ctx?.client_id),rawContract=norm(ctx?.contract_id);if(!rawClient||!rawContract)return null;const grid=document.querySelector('section#page-companies #clientCompanyGrid');if(!grid||!grid.isConnected)return null;
+  const exact=[...grid.querySelectorAll('article.company-switch-card')].filter(card=>card.isConnected&&norm(card.dataset.ronaCompanyAuthorizationScope)==='authorized').filter(card=>{
+    const clientAttrs=[norm(card.dataset.ronaClientId),norm(card.dataset.clientId)].filter(Boolean),contractAttrs=[norm(card.dataset.ronaClientContractId),norm(card.dataset.contractId)].filter(Boolean);
+    if(clientAttrs.some(value=>value!==rawClient)||contractAttrs.some(value=>value!==rawContract))return false;
+    const values=new Set(leafNodes(card).map(el=>norm(el.textContent)).filter(Boolean));
+    return (clientAttrs.includes(rawClient)||values.has(rawClient))&&(contractAttrs.includes(rawContract)||values.has(rawContract));
+  });
+  return exact.length===1?exact[0]:null;
+}
 function bindCompanyOwner(resolved,ctx){
   const {anchor,card}=resolved;if(anchor!==card){clearCompanyDirectoryState(anchor);if(norm(anchor.dataset.ronaClientId)===norm(ctx.client_id))delete anchor.dataset.ronaClientId;if(norm(anchor.dataset.ronaClientContractId)===norm(ctx.contract_id))delete anchor.dataset.ronaClientContractId}
   card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');
 }
+function resolveCanonicalCompanyCardStructurally(ctx){
+  const card=canonicalCompanyGridExactCard(ctx);if(!card)return null;const slots=companyMetricSlots(card,true);if(!slots)return null;const resolved={anchor:card,card,slots,depth:0};bindCompanyOwner(resolved,ctx);return resolved;
+}
 function resolveCompanyCard(ctx){
-  const anchor=findCompanyIdentityAnchor(ctx);if(!anchor)return null;const main=document.querySelector('main,[role="main"]');if(!main)return null;let node=anchor;
-  for(let depth=0;node&&main.contains(node)&&depth<=6;depth++,node=node.parentElement){if(!eligibleCompanyNode(node)){if(node===main)break;continue}const slots=companyMetricSlots(node);if(slots){const resolved={anchor,card:node,slots,depth};bindCompanyOwner(resolved,ctx);return resolved}if(node===main)break}
-  clearCompanyDirectoryState(anchor);return null;
+  const anchor=findCompanyIdentityAnchor(ctx),main=document.querySelector('main,[role="main"]');
+  if(anchor&&main){let node=anchor;for(let depth=0;node&&main.contains(node)&&depth<=6;depth++,node=node.parentElement){if(!eligibleCompanyNode(node)){if(node===main)break;continue}const slots=companyMetricSlots(node);if(slots){const resolved={anchor,card:node,slots,depth};bindCompanyOwner(resolved,ctx);return resolved}if(node===main)break}clearCompanyDirectoryState(anchor)}
+  return resolveCanonicalCompanyCardStructurally(ctx);
 }
 function findCompanyCard(ctx){return resolveCompanyCard(ctx)?.card||null}
 function setMetricSlot(slot,value,relabel){if(!slot?.label||!slot?.value)return false;if(relabel)setNodeText(slot.label,relabel);setNodeText(slot.value,value==null?'—':String(value));return norm(slot.value.textContent)===(value==null?'—':String(value))}
