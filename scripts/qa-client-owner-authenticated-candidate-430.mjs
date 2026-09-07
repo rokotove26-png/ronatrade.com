@@ -9,6 +9,10 @@ const ISSUER=String(process.env.RONA_QA_ISSUER_URL||'https://sxawrwzeobaqwwmlkzw
 const OIDC_AUDIENCE=String(process.env.RONA_OIDC_AUDIENCE||'rona-pr431-client-qa').trim();
 const EXPECTED_BACKEND='PR429_EXISTING_CANDIDATE_SLOT';
 const ARTIFACT='issue430-real-authenticated-candidate-proof.json';
+const CONTRACT_RUNTIME_SRC='/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11';
+const CONTRACT_RUNTIME_MARK='20260906-client-contract-v11-authoritative-company-metrics';
+const IMMUTABLE_ORIGIN_RE=/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i;
+const CF_DEPLOYMENT_ID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 if(!/^[0-9a-f]{40}$/i.test(HEAD))throw new Error('EXACT_HEAD_REQUIRED');
 if(!GH_TOKEN)throw new Error('GITHUB_TOKEN_REQUIRED');
 if(!/^\d+$/.test(PR_NUMBER))throw new Error('PR_NUMBER_REQUIRED');
@@ -25,22 +29,53 @@ async function githubJson(path){
   if(!r.ok)throw new Error(`GITHUB_HTTP_${r.status}`);
   return r.json();
 }
-function previewUrls(text){return[...String(text||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0])}
+function previewUrls(text){return[...new Set([...String(text||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))]}
+function deploymentFromCheck(run){
+  if(run?.app?.slug!=='cloudflare-workers-and-pages')return null;
+  const externalId=String(run?.external_id||'').trim().toLowerCase();
+  if(!CF_DEPLOYMENT_ID_RE.test(externalId))return null;
+  let details;try{details=new URL(String(run?.details_url||''))}catch{return null}
+  if(details.origin!=='https://dash.cloudflare.com')return null;
+  const target=String(details.searchParams.get('to')||'');
+  const match=/^\/[0-9a-f]{32}\/pages\/view\/rona-trade-public\/([0-9a-f-]{36})$/i.exec(target);
+  if(!match||match[1].toLowerCase()!==externalId)return null;
+  const origin=`https://${externalId.slice(0,8)}.rona-trade-public.pages.dev`;
+  return IMMUTABLE_ORIGIN_RE.test(origin)?{origin,externalId}:null;
+}
+async function verifyImmutablePreview(origin){
+  if(!IMMUTABLE_ORIGIN_RE.test(origin))throw new Error('IMMUTABLE_PREVIEW_ORIGIN_INVALID');
+  const integrityUrl=new URL('/canonical-visual-integrity.json',origin);integrityUrl.searchParams.set('_qa_head',HEAD);integrityUrl.searchParams.set('_qa_nonce',String(Date.now()));
+  const integrityResponse=await fetch(integrityUrl,{cache:'no-store',redirect:'error',headers:{'cache-control':'no-cache'}});
+  if(!integrityResponse.ok)throw new Error(`IMMUTABLE_PREVIEW_INTEGRITY_HTTP_${integrityResponse.status}`);
+  const integrity=await integrityResponse.json().catch(()=>null),client=integrity?.client_runtime||{};
+  if(integrity?.architecture!=='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS')throw new Error('IMMUTABLE_PREVIEW_ARCHITECTURE_MISMATCH');
+  if(client?.state!=='CURRENT_ONLY'||client?.legacy_runtime_in_deployment!==false)throw new Error('IMMUTABLE_PREVIEW_CLIENT_STATE_MISMATCH');
+  if(client?.functional_bridge?.src!==CONTRACT_RUNTIME_SRC)throw new Error(`IMMUTABLE_PREVIEW_BRIDGE_SRC_MISMATCH_${String(client?.functional_bridge?.src||'MISSING')}`);
+  const assetUrl=new URL(`${origin}${CONTRACT_RUNTIME_SRC}`);assetUrl.searchParams.set('_qa_head',HEAD);assetUrl.searchParams.set('_qa_nonce',String(Date.now()));
+  const assetResponse=await fetch(assetUrl,{cache:'no-store',redirect:'error',headers:{'cache-control':'no-cache'}});
+  if(!assetResponse.ok)throw new Error(`IMMUTABLE_PREVIEW_CLIENT_ASSET_HTTP_${assetResponse.status}`);
+  const text=await assetResponse.text();
+  for(const marker of [CONTRACT_RUNTIME_MARK,"authority.whenCurrentProjection('client-contract-download-v3')","authoritative?.source==='AUTHORITATIVE_CURRENT_CONTEXT_DB'","authoritative?.documents_predicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'","source:'AUTHORITATIVE_METRICS_UNAVAILABLE'","value==null?'—':String(value)"])if(!text.includes(marker))throw new Error(`IMMUTABLE_PREVIEW_CLIENT_ASSET_MARKER_MISSING_${marker}`);
+  if(text.includes("request('/v1/client/context?clientId='"))throw new Error('IMMUTABLE_PREVIEW_DIRECT_CONTEXT_FETCH_PRESENT');
+  return{architecture:integrity.architecture,client_state:client.state,source_sha256:client.source_sha256||null,source_bytes:client.source_bytes??null,asset:CONTRACT_RUNTIME_SRC};
+}
 async function exactPreview(){
+  let lastError=null;
   for(let attempt=0;attempt<72;attempt++){
     const data=await githubJson(`/commits/${HEAD}/check-runs?per_page=100`);
     const runs=Array.isArray(data?.check_runs)?data.check_runs:[];
-    const run=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===HEAD&&x?.status==='completed'&&x?.conclusion==='success');
-    const urls=previewUrls(run?.output?.summary);
-    if(run&&urls.length===1)return{origin:urls[0],check_run_id:run.id,comment_id:null,source:'CHECK_RUN'};
-    const comments=await githubJson(`/issues/${PR_NUMBER}/comments?per_page=100&page=1`).catch(()=>[]);
-    const short=HEAD.slice(0,7).toLowerCase();
-    const cloudflare=(Array.isArray(comments)?comments:[]).find(x=>String(x?.user?.login||'')==='cloudflare-workers-and-pages[bot]'&&String(x?.body||'').toLowerCase().includes(short));
-    const commentUrls=previewUrls(cloudflare?.body);
-    if(cloudflare&&commentUrls.length===1)return{origin:commentUrls[0],check_run_id:null,comment_id:cloudflare.id||null,source:'CLOUDFLARE_PR_COMMENT'};
+    const run=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===HEAD&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages');
+    if(run){
+      const deployment=deploymentFromCheck(run),outputUrls=previewUrls(run?.output?.summary),candidates=[];
+      if(outputUrls.length>1)lastError=new Error('CLOUDFLARE_CHECK_MULTIPLE_IMMUTABLE_URLS');
+      if(outputUrls.length===1)candidates.push({origin:outputUrls[0],source:'CHECK_OUTPUT'});
+      if(deployment&&outputUrls.length===1&&outputUrls[0]!==deployment.origin)throw new Error('CLOUDFLARE_CHECK_IDENTITY_MISMATCH');
+      if(deployment&&!candidates.some(x=>x.origin===deployment.origin))candidates.push({origin:deployment.origin,source:'CHECK_EXTERNAL_ID'});
+      for(const candidate of candidates){try{const verification=await verifyImmutablePreview(candidate.origin);return{origin:candidate.origin,check_run_id:run.id,external_id:deployment?.externalId||String(run.external_id||''),source:candidate.source,verification}}catch(error){lastError=error}}
+    }
     await sleep(5000);
   }
-  throw new Error('EXACT_HEAD_CLOUDFLARE_PREVIEW_NOT_READY');
+  throw new Error(`EXACT_HEAD_CLOUDFLARE_PREVIEW_NOT_READY${lastError?`_${lastError.message}`:''}`);
 }
 async function oidcToken(){
   const base=String(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||'');
@@ -135,7 +170,7 @@ const targets=[
   {key:'C003',clientId:'RONA-C003',contractId:'RONA-C003-CTR-2026-001'},
   {key:'C004',clientId:'RONA-C004',contractId:'RONA-C004-CTR-2026-001',dealId:'DEAL-2026-007',amount:113500,currency:'USD',source:'FINALIZED_APPLICATION_COMMERCIAL_TERMS',applicationId:'RONA-C004-IN-2026-004'}
 ];
-const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V2',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,cloudflare_comment_id:preview.comment_id,preview_source:preview.source,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
+const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V2',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,cloudflare_external_id:preview.external_id,preview_source:preview.source,preview_verification:preview.verification,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
 try{
   for(const target of targets){
     const session=await issueSession(oidc,target);

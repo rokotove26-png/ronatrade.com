@@ -40,10 +40,11 @@ const runtime=await retry('Client authoritative contract runtime',async attempt=
   const text=await response.text();
   for(const marker of [
     CONTRACT_RUNTIME_MARK,
+    'ISSUE432_CONTRACT_DIRECTORY_CENTRAL_PROJECTION_V1',
+    "authority.whenCurrentProjection('client-contract-download-v3')",
     '20260902-client-contract-v4-current-context-authority',
     '20260829-client-contract-v3-authoritative-projection-v5',
     'RONA_CLIENT_CONTEXT',
-    '/v1/client/context?clientId=',
     'current_external_contract_number',
     'function currentContractDocument',
     'function effectiveContext',
@@ -61,13 +62,14 @@ const runtime=await retry('Client authoritative contract runtime',async attempt=
     'primeCompanyDirectory'
   ])assert(text.includes(marker),`runtime marker missing: ${marker}`);
   for(const forbidden of [
+    "request('/v1/client/context?clientId='",
     '01/РТ-01-1926','01/РТ-02-1926','01/PT-02-1926',
     'RONA-C002','RONA-C003','RONA-C004',
     'DEAL-2026-004','DEAL-2026-007','DEAL-2026-008',
     '236250','113500'
-  ])assert(!text.includes(forbidden),`runtime business hardcode forbidden: ${forbidden}`);
+  ])assert(!text.includes(forbidden),`runtime forbidden token present: ${forbidden}`);
   return text;
 });
 
 assert(runtime.length>0,'Client authoritative runtime body is empty');
-console.log('CLIENT_CONTRACT_V11_PRODUCTION=PASS',JSON.stringify({base,sha,architecture:integrity.architecture,clientState:integrity.client_runtime.state,bridge:integrity.client_runtime.functional_bridge,sourceSha256:integrity.client_runtime.source_sha256,sourceBytes:integrity.client_runtime.source_bytes,runtimeMarker:CONTRACT_RUNTIME_MARK,metricsSource:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documentsPredicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',neutralUnavailable:true}));
+console.log('CLIENT_CONTRACT_V11_PRODUCTION=PASS',JSON.stringify({base,sha,architecture:integrity.architecture,clientState:integrity.client_runtime.state,bridge:integrity.client_runtime.functional_bridge,sourceSha256:integrity.client_runtime.source_sha256,sourceBytes:integrity.client_runtime.source_bytes,runtimeMarker:CONTRACT_RUNTIME_MARK,contextOwner:'RONA_CLIENT_CONTEXT_AUTHORITY',metricsSource:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documentsPredicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',neutralUnavailable:true}));
