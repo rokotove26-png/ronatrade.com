@@ -185,6 +185,7 @@ try{
     const session=await issueSession(oidc,target);
     const host=new URL(preview.origin).hostname;
     const context=await browser.newContext();
+    let releaseDelayedResolve=null;
     try{
       await context.addCookies([
         {name:'rona_portal_at',value:session.access,domain:host,path:'/portal',secure:true,httpOnly:true,sameSite:'Lax'},
@@ -193,8 +194,9 @@ try{
       const page=await context.newPage();
       let apiEvidence=null,delayedResolve=null,delayed=false;
       const delayedStarted=new Promise(resolve=>{delayedResolve=resolve});
+      const delayedGate=new Promise(resolve=>{releaseDelayedResolve=resolve});
       if(target.key==='C003'){
-        await page.route('**/portal/api/v1/client/context?*',async route=>{const u=new URL(route.request().url());if(!delayed&&u.searchParams.get('clientId')===target.clientId&&u.searchParams.get('contractId')===target.contractId){delayed=true;delayedResolve();await sleep(10000)}await route.continue()});
+        await page.route('**/portal/api/v1/client/context?*',async route=>{const u=new URL(route.request().url());if(u.searchParams.get('clientId')===target.clientId&&u.searchParams.get('contractId')===target.contractId){if(!delayed){delayed=true;delayedResolve()}await delayedGate}await route.continue()});
       }
       page.on('response',async response=>{try{const u=new URL(response.url());if(u.origin!==preview.origin||u.pathname!=='/portal/api/v1/client/context')return;if(u.searchParams.get('clientId')!==target.clientId||u.searchParams.get('contractId')!==target.contractId)return;const body=await response.json().catch(()=>null);if(body?.data?.contract?.client_id===target.clientId&&body?.data?.contract?.contract_id===target.contractId)apiEvidence=sanitizedApi(body,response,target)}catch{}});
       const navPromise=page.goto(`${preview.origin}/portal/client`,{waitUntil:'domcontentloaded',timeout:30000});
@@ -204,7 +206,8 @@ try{
         await waitEvaluate(page,()=>Boolean(window.RONA_CLIENT_CONTEXT?.whenReady&&window.RONA_CLIENT_CONTEXT?.getCurrentContext),null,15000,'C003_CONTEXT_AUTHORITY_READY');
         await page.evaluate(async t=>{const a=window.RONA_CLIENT_CONTEXT;await a.whenReady();const c=a.getCurrentContext?.();if(!c||String(c.client_id)!==t.clientId||String(c.contract_id)!==t.contractId)a.select(t.clientId,t.contractId);},target);
         await Promise.race([delayedStarted,(async()=>{await sleep(10000);throw new Error('C003_REAL_CONTEXT_DELAY_NOT_TRIGGERED')})()]);
-        const pending=await pendingCompanyMetrics(page,target);
+        let pending;
+        try{pending=await pendingCompanyMetrics(page,target)}finally{releaseDelayedResolve?.()}
         if(pending.hydration!=='pending'||pending.applications!=='—'||pending.deals!=='—'||pending.documents!=='—')throw new Error(`C003_FAIL_CLOSED_PENDING_MISMATCH_${JSON.stringify(pending)}`);
         proof.targets.C003={fail_closed_before_real_response:pending};
       }else await navPromise;
@@ -230,6 +233,7 @@ try{
       if(foreign.foreign_data_attribute||foreign.foreign_identifier_text)throw new Error(`${target.key}_FOREIGN_CLIENT_DOM_PRESENT_${JSON.stringify(foreign)}`);
       proof.targets[target.key].foreign_dom=foreign;
     }finally{
+      releaseDelayedResolve?.();
       await context.close().catch(()=>{});
       const cleanup=await cleanupSession(oidc,target,session);
       proof.targets[target.key]={...(proof.targets[target.key]||{}),session_cleanup:cleanup};
