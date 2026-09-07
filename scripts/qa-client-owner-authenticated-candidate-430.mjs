@@ -4,12 +4,14 @@ import { chromium } from 'playwright';
 const REPO=process.env.GITHUB_REPOSITORY||'rokotove26-png/ronatrade.com';
 const HEAD=String(process.env.RONA_EXACT_HEAD||process.env.GITHUB_SHA||'').trim();
 const GH_TOKEN=String(process.env.RONA_GITHUB_TOKEN||'').trim();
+const PR_NUMBER=String(process.env.RONA_PR_NUMBER||'431').trim();
 const ISSUER=String(process.env.RONA_QA_ISSUER_URL||'https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-pr431-client-session-qa-20260907').trim();
 const OIDC_AUDIENCE=String(process.env.RONA_OIDC_AUDIENCE||'rona-pr431-client-qa').trim();
 const EXPECTED_BACKEND='PR429_EXISTING_CANDIDATE_SLOT';
 const ARTIFACT='issue430-real-authenticated-candidate-proof.json';
 if(!/^[0-9a-f]{40}$/i.test(HEAD))throw new Error('EXACT_HEAD_REQUIRED');
 if(!GH_TOKEN)throw new Error('GITHUB_TOKEN_REQUIRED');
+if(!/^\d+$/.test(PR_NUMBER))throw new Error('PR_NUMBER_REQUIRED');
 if(!ISSUER.startsWith('https://'))throw new Error('QA_ISSUER_URL_REQUIRED');
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -23,14 +25,19 @@ async function githubJson(path){
   if(!r.ok)throw new Error(`GITHUB_HTTP_${r.status}`);
   return r.json();
 }
+function previewUrls(text){return[...String(text||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0])}
 async function exactPreview(){
   for(let attempt=0;attempt<72;attempt++){
     const data=await githubJson(`/commits/${HEAD}/check-runs?per_page=100`);
     const runs=Array.isArray(data?.check_runs)?data.check_runs:[];
     const run=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===HEAD&&x?.status==='completed'&&x?.conclusion==='success');
-    const summary=String(run?.output?.summary||'');
-    const urls=[...summary.matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0]);
-    if(run&&urls.length===1)return{origin:urls[0],check_run_id:run.id};
+    const urls=previewUrls(run?.output?.summary);
+    if(run&&urls.length===1)return{origin:urls[0],check_run_id:run.id,comment_id:null,source:'CHECK_RUN'};
+    const comments=await githubJson(`/issues/${PR_NUMBER}/comments?per_page=100&page=1`).catch(()=>[]);
+    const short=HEAD.slice(0,7).toLowerCase();
+    const cloudflare=(Array.isArray(comments)?comments:[]).find(x=>String(x?.user?.login||'')==='cloudflare-workers-and-pages[bot]'&&String(x?.body||'').toLowerCase().includes(short));
+    const commentUrls=previewUrls(cloudflare?.body);
+    if(cloudflare&&commentUrls.length===1)return{origin:commentUrls[0],check_run_id:null,comment_id:cloudflare.id||null,source:'CLOUDFLARE_PR_COMMENT'};
     await sleep(5000);
   }
   throw new Error('EXACT_HEAD_CLOUDFLARE_PREVIEW_NOT_READY');
@@ -120,7 +127,7 @@ async function foreignDomProof(page,target,foreignIds){
 }
 
 const preview=await exactPreview();
-console.log(`IMMUTABLE_PREVIEW=${preview.origin}/portal/client`);
+console.log(`IMMUTABLE_PREVIEW=${preview.origin}/portal/client source=${preview.source}`);
 const oidc=await oidcToken();
 const browser=await chromium.launch({headless:true});
 const targets=[
@@ -128,7 +135,7 @@ const targets=[
   {key:'C003',clientId:'RONA-C003',contractId:'RONA-C003-CTR-2026-001'},
   {key:'C004',clientId:'RONA-C004',contractId:'RONA-C004-CTR-2026-001',dealId:'DEAL-2026-007',amount:113500,currency:'USD',source:'FINALIZED_APPLICATION_COMMERCIAL_TERMS',applicationId:'RONA-C004-IN-2026-004'}
 ];
-const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V2',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
+const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V2',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,cloudflare_comment_id:preview.comment_id,preview_source:preview.source,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
 try{
   for(const target of targets){
     const session=await issueSession(oidc,target);
