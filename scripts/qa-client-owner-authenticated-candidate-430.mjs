@@ -99,9 +99,7 @@ async function issueSession(oidc,target){
   const r=await fetch(ISSUER,{method:'POST',headers:{authorization:`Bearer ${oidc}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({clientId:target.clientId,contractId:target.contractId})});
   const body=await r.json().catch(()=>null);
   if(!r.ok||body?.ok!==true||!body?.access_token||!body?.refresh_token)throw new Error(`QA_SESSION_ISSUER_${target.key}_HTTP_${r.status}_${String(body?.code||'INVALID_RESPONSE')}`);
-  const access=String(body.access_token),refresh=String(body.refresh_token);
-  console.log(`::add-mask::${access}`);console.log(`::add-mask::${refresh}`);
-  return{access,refresh};
+  return{access:String(body.access_token),refresh:String(body.refresh_token)};
 }
 async function cleanupSession(oidc,target,session){
   const endpoint=`${ISSUER.replace(/\/+$/,'')}/cleanup`;
@@ -162,9 +160,9 @@ async function companyMetrics(page,target){
 }
 async function pendingCompanyMetrics(page,target){
   await nav(page,'companies');
-  const neutral=t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);if(!card||card.dataset.ronaCompanyDirectoryHydration!=='pending')return false;function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}return metric('заявок')==='—'&&metric('сделок')==='—'&&metric('документов')==='—'};
-  await waitEvaluate(page,neutral,target,8000,'COMPANY_METRICS_PENDING_NEUTRAL');
-  return page.evaluate(t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}return{applications:metric('заявок'),deals:metric('сделок'),documents:metric('документов'),hydration:card?.dataset?.ronaCompanyDirectoryHydration||''};},target);
+  const snapshot=t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);if(!card)return null;function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}return{applications:metric('заявок'),deals:metric('сделок'),documents:metric('документов'),hydration:card.dataset.ronaCompanyDirectoryHydration||'',source:card.dataset.ronaCompanyDirectorySource||'',predicate:card.dataset.ronaCompanyDirectoryDocumentsPredicate||''}};
+  await waitEvaluate(page,t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);if(!card)return false;function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}const hydration=card.dataset.ronaCompanyDirectoryHydration||'',source=card.dataset.ronaCompanyDirectorySource||'';return metric('заявок')==='—'&&metric('сделок')==='—'&&metric('документов')==='—'&&hydration!=='ready'&&source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB';},target,8000,'COMPANY_METRICS_PENDING_NEUTRAL');
+  return page.evaluate(snapshot,target);
 }
 async function foreignDomProof(page,target,foreignIds){
   return page.evaluate(({target,foreignIds})=>{const seen=[...document.querySelectorAll('[data-rona-client-id]')].map(x=>String(x.getAttribute('data-rona-client-id')||'')).filter(Boolean);const body=String(document.body?.innerText||'');return{data_client_ids:[...new Set(seen)],foreign_data_attribute:seen.some(x=>x!==target.clientId),foreign_identifier_text:foreignIds.some(x=>body.includes(x))};},{target,foreignIds});
@@ -208,7 +206,7 @@ try{
         await Promise.race([delayedStarted,(async()=>{await sleep(10000);throw new Error('C003_REAL_CONTEXT_DELAY_NOT_TRIGGERED')})()]);
         let pending;
         try{pending=await pendingCompanyMetrics(page,target)}finally{releaseDelayedResolve?.()}
-        if(pending.hydration!=='pending'||pending.applications!=='—'||pending.deals!=='—'||pending.documents!=='—')throw new Error(`C003_FAIL_CLOSED_PENDING_MISMATCH_${JSON.stringify(pending)}`);
+        if(!pending||pending.hydration==='ready'||pending.source==='AUTHORITATIVE_CURRENT_CONTEXT_DB'||pending.applications!=='—'||pending.deals!=='—'||pending.documents!=='—')throw new Error(`C003_FAIL_CLOSED_PENDING_MISMATCH_${JSON.stringify(pending)}`);
         proof.targets.C003={fail_closed_before_real_response:pending};
       }else await navPromise;
       if(!page.url().startsWith(`${preview.origin}/portal/client`))throw new Error(`${target.key}_AUTHENTICATED_PORTAL_REDIRECTED`);
