@@ -162,7 +162,8 @@ async function companyMetrics(page,target){
 }
 async function pendingCompanyMetrics(page,target){
   await nav(page,'companies');
-  await waitEvaluate(page,t=>{const c=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);return c?.dataset?.ronaCompanyDirectoryHydration==='pending';},target,5000,'COMPANY_METRICS_PENDING');
+  const neutral=t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);if(!card||card.dataset.ronaCompanyDirectoryHydration!=='pending')return false;function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}return metric('заявок')==='—'&&metric('сделок')==='—'&&metric('документов')==='—'};
+  await waitEvaluate(page,neutral,target,8000,'COMPANY_METRICS_PENDING_NEUTRAL');
   return page.evaluate(t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}return{applications:metric('заявок'),deals:metric('сделок'),documents:metric('документов'),hydration:card?.dataset?.ronaCompanyDirectoryHydration||''};},target);
 }
 async function foreignDomProof(page,target,foreignIds){
@@ -193,7 +194,7 @@ try{
       let apiEvidence=null,delayedResolve=null,delayed=false;
       const delayedStarted=new Promise(resolve=>{delayedResolve=resolve});
       if(target.key==='C003'){
-        await page.route('**/portal/api/v1/client/context?*',async route=>{const u=new URL(route.request().url());if(!delayed&&u.searchParams.get('clientId')===target.clientId&&u.searchParams.get('contractId')===target.contractId){delayed=true;delayedResolve();await sleep(3000)}await route.continue()});
+        await page.route('**/portal/api/v1/client/context?*',async route=>{const u=new URL(route.request().url());if(!delayed&&u.searchParams.get('clientId')===target.clientId&&u.searchParams.get('contractId')===target.contractId){delayed=true;delayedResolve();await sleep(10000)}await route.continue()});
       }
       page.on('response',async response=>{try{const u=new URL(response.url());if(u.origin!==preview.origin||u.pathname!=='/portal/api/v1/client/context')return;if(u.searchParams.get('clientId')!==target.clientId||u.searchParams.get('contractId')!==target.contractId)return;const body=await response.json().catch(()=>null);if(body?.data?.contract?.client_id===target.clientId&&body?.data?.contract?.contract_id===target.contractId)apiEvidence=sanitizedApi(body,response,target)}catch{}});
       const navPromise=page.goto(`${preview.origin}/portal/client`,{waitUntil:'domcontentloaded',timeout:30000});
