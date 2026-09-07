@@ -7,11 +7,12 @@ const pairKey=v=>{const p=pair(v);return p?`${p.client_id}|${p.contract_id}`:''}
 function scopedIsolationDecision(input){
   const selected=pair(input?.selected),current=pair(input?.current),projection=pair(input?.projection);
   const authorized=uniq((input?.authorized||[]).map(pairKey)).map(k=>{const [client_id,...rest]=k.split('|');return{client_id,contract_id:rest.join('|')}}).filter(x=>x.client_id&&x.contract_id);
-  const authorizedKeys=new Set(authorized.map(pairKey)),authorizedClients=new Set(authorized.map(x=>x.client_id));
-  const chooserPairs=uniq((input?.chooserPairs||[]).map(pairKey)).filter(Boolean),chooserClientIds=uniq(input?.chooserClientIds);
+  const authorizedKeys=new Set(authorized.map(pairKey)),authorizedClients=new Set(authorized.map(x=>x.client_id)),authorizedContracts=new Set(authorized.map(x=>x.contract_id));
+  const chooserPairs=uniq((input?.chooserPairs||[]).map(pairKey)).filter(Boolean),chooserClientIds=uniq(input?.chooserClientIds),chooserContractIds=uniq(input?.chooserContractIds);
   const businessClientIds=uniq(input?.businessClientIds),businessContractIds=uniq(input?.businessContractIds);
   const businessDealIds=uniq(input?.businessDealIds),projectionDealIds=new Set(uniq(input?.projectionDealIds));
   const unauthorizedChooserPairs=chooserPairs.filter(k=>!authorizedKeys.has(k));
+  const unauthorizedContextContracts=chooserContractIds.filter(id=>!authorizedContracts.has(id));
   const unauthorizedClientIds=uniq([...chooserClientIds,...businessClientIds]).filter(id=>!authorizedClients.has(id));
   const foreignBusinessClientIds=businessClientIds.filter(id=>!selected||id!==selected.client_id);
   const foreignBusinessContractIds=businessContractIds.filter(id=>!selected||id!==selected.contract_id);
@@ -19,33 +20,39 @@ function scopedIsolationDecision(input){
   const selectedAuthorized=!!(selected&&authorizedKeys.has(pairKey(selected)));
   const currentMismatch=!selected||!current||pairKey(current)!==pairKey(selected);
   const projectionMismatch=!selected||!projection||pairKey(projection)!==pairKey(selected);
-  const pass=selectedAuthorized&&!currentMismatch&&!projectionMismatch&&!unauthorizedChooserPairs.length&&!unauthorizedClientIds.length&&!foreignBusinessClientIds.length&&!foreignBusinessContractIds.length&&!unknownBusinessDealIds.length;
-  return{pass,authorized_context_count:authorized.length,selected_authorized:selectedAuthorized,current_context_match:!currentMismatch,projection_context_match:!projectionMismatch,unauthorized_chooser_pair_count:unauthorizedChooserPairs.length,unauthorized_client_ids:unauthorizedClientIds,foreign_business_client_ids:foreignBusinessClientIds,foreign_business_contract_ids:foreignBusinessContractIds,unknown_business_deal_ids:unknownBusinessDealIds};
+  const pass=selectedAuthorized&&!currentMismatch&&!projectionMismatch&&!unauthorizedChooserPairs.length&&!unauthorizedContextContracts.length&&!unauthorizedClientIds.length&&!foreignBusinessClientIds.length&&!foreignBusinessContractIds.length&&!unknownBusinessDealIds.length;
+  return{pass,authorized_context_count:authorized.length,selected_authorized:selectedAuthorized,current_context_match:!currentMismatch,projection_context_match:!projectionMismatch,unauthorized_chooser_pair_count:unauthorizedChooserPairs.length,unauthorized_context_contract_ids:unauthorizedContextContracts,unauthorized_client_ids:unauthorizedClientIds,foreign_business_client_ids:foreignBusinessClientIds,foreign_business_contract_ids:foreignBusinessContractIds,unknown_business_deal_ids:unknownBusinessDealIds};
 }
 function runIsolationPreflight(label){
-  const A={client_id:'RONA-C101',contract_id:'RONA-C101-CTR-2099-001'},B={client_id:'RONA-C202',contract_id:'RONA-C202-CTR-2099-001'};
-  const base={selected:B,current:B,projection:B,authorized:[A,B],chooserPairs:[A,B],chooserClientIds:[A.client_id,B.client_id],businessClientIds:[B.client_id],businessContractIds:[B.contract_id],businessDealIds:['DEAL-2099-202'],projectionDealIds:['DEAL-2099-202']};
-  const authorizedChooser=scopedIsolationDecision(base);
-  if(!authorizedChooser.pass)throw new Error(`${label}_PREFLIGHT_AUTHORIZED_CHOOSER_FAILED`);
-  const authorizedLeak=scopedIsolationDecision({...base,businessClientIds:[B.client_id,A.client_id]});
-  if(authorizedLeak.pass||!authorizedLeak.foreign_business_client_ids.includes(A.client_id))throw new Error(`${label}_PREFLIGHT_AUTHORIZED_BUSINESS_LEAK_NOT_REJECTED`);
-  const unauthorized=scopedIsolationDecision({...base,chooserClientIds:[A.client_id,B.client_id,'RONA-C999']});
-  if(unauthorized.pass||!unauthorized.unauthorized_client_ids.includes('RONA-C999'))throw new Error(`${label}_PREFLIGHT_UNAUTHORIZED_NOT_REJECTED`);
-  const wrongCurrent=scopedIsolationDecision({...base,current:A});
-  if(wrongCurrent.pass||wrongCurrent.current_context_match)throw new Error(`${label}_PREFLIGHT_WRONG_CURRENT_NOT_REJECTED`);
-  const wrongDeal=scopedIsolationDecision({...base,businessDealIds:['DEAL-2099-999']});
-  if(wrongDeal.pass||!wrongDeal.unknown_business_deal_ids.includes('DEAL-2099-999'))throw new Error(`${label}_PREFLIGHT_WRONG_DEAL_NOT_REJECTED`);
-  const classifyFixture=r=>r.authorized!==true?'UNAUTHORIZED_CONTEXT':(r.inside_client_context_select||r.inside_semantic_context_container)?'LEGITIMATE_AUTHORIZED_CONTEXT_UI':'AUTHORIZED_ALTERNATE_BUSINESS_SURFACE';
-  const chooserFixture=classifyFixture({authorized:true,inside_client_context_select:false,inside_semantic_context_container:true});
-  const businessFixture=classifyFixture({authorized:true,inside_client_context_select:false,inside_semantic_context_container:false});
-  const unauthorizedFixture=classifyFixture({authorized:false,inside_client_context_select:false,inside_semantic_context_container:true});
-  if(chooserFixture!=='LEGITIMATE_AUTHORIZED_CONTEXT_UI'||businessFixture!=='AUTHORIZED_ALTERNATE_BUSINESS_SURFACE'||unauthorizedFixture!=='UNAUTHORIZED_CONTEXT')throw new Error(`${label}_PREFLIGHT_PROVENANCE_FIXTURE_FAILED`);
-  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_CHOOSER=PASS`);
-  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_BUSINESS_LEAK_REJECTED=PASS`);
-  console.log(`QA_MULTIBINDING_${label}_UNAUTHORIZED_REJECTED=PASS`);
+  const A={client_id:'RONA-C101',contract_id:'RONA-C101-CTR-2099-001'},B={client_id:'RONA-C202',contract_id:'RONA-C202-CTR-2099-001'},F={client_id:'RONA-C777',contract_id:'RONA-C777-CTR-2099-001'};
+  const base={selected:B,current:B,projection:B,authorized:[A,B],chooserPairs:[A,B],chooserClientIds:[A.client_id,B.client_id],chooserContractIds:[A.contract_id,B.contract_id],businessClientIds:[B.client_id],businessContractIds:[B.contract_id],businessDealIds:['DEAL-2099-202'],projectionDealIds:['DEAL-2099-202']};
+  const authorizedSelect=scopedIsolationDecision(base);
+  if(!authorizedSelect.pass)throw new Error(`${label}_PREFLIGHT_AUTHORIZED_SELECT_SURFACE_FAILED`);
+  const companySurface={...base,chooserPairs:[B,A],chooserClientIds:[B.client_id,A.client_id],chooserContractIds:[B.contract_id,A.contract_id]};
+  if(!scopedIsolationDecision(companySurface).pass)throw new Error(`${label}_PREFLIGHT_AUTHORIZED_COMPANY_SWITCH_SURFACE_FAILED`);
+  let r=scopedIsolationDecision({...companySurface,chooserClientIds:[...companySurface.chooserClientIds,'RONA-C999']});
+  if(r.pass||!r.unauthorized_client_ids.includes('RONA-C999'))throw new Error(`${label}_PREFLIGHT_UNAUTHORIZED_COMPANY_SWITCH_CLIENT_NOT_REJECTED`);
+  r=scopedIsolationDecision({...companySurface,chooserPairs:[B,{client_id:A.client_id,contract_id:B.contract_id}]});
+  if(r.pass||r.unauthorized_chooser_pair_count<1)throw new Error(`${label}_PREFLIGHT_MISMATCHED_COMPANY_SWITCH_PAIR_NOT_REJECTED`);
+  r=scopedIsolationDecision({...base,businessClientIds:[B.client_id,A.client_id]});
+  if(r.pass||!r.foreign_business_client_ids.includes(A.client_id))throw new Error(`${label}_PREFLIGHT_AUTHORIZED_BUSINESS_SURFACE_NOT_REJECTED`);
+  r=scopedIsolationDecision({...base,current:A});
+  if(r.pass||r.current_context_match)throw new Error(`${label}_PREFLIGHT_WRONG_CURRENT_NOT_REJECTED`);
+  r=scopedIsolationDecision({...base,projection:A});
+  if(r.pass||r.projection_context_match)throw new Error(`${label}_PREFLIGHT_WRONG_PROJECTION_NOT_REJECTED`);
+  r=scopedIsolationDecision({...base,businessDealIds:['DEAL-2099-999']});
+  if(r.pass||!r.unknown_business_deal_ids.includes('DEAL-2099-999'))throw new Error(`${label}_PREFLIGHT_UNKNOWN_BUSINESS_DEAL_NOT_REJECTED`);
+  const future={...base,authorized:[A,B,F],chooserPairs:[A,B,F],chooserClientIds:[A.client_id,B.client_id,F.client_id],chooserContractIds:[A.contract_id,B.contract_id,F.contract_id]};
+  if(!scopedIsolationDecision(future).pass)throw new Error(`${label}_PREFLIGHT_SYNTHETIC_FUTURE_CONTEXT_FAILED`);
+  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_SELECT_SURFACE=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_COMPANY_SWITCH_SURFACE=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_UNAUTHORIZED_COMPANY_SWITCH_CLIENT_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_MISMATCHED_COMPANY_SWITCH_PAIR_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_BUSINESS_SURFACE_REJECTED=PASS`);
   console.log(`QA_MULTIBINDING_${label}_WRONG_CURRENT_REJECTED=PASS`);
-  console.log(`QA_MULTIBINDING_${label}_SELECTED_EVIDENCE=PASS`);
-  console.log(`QA_MULTIBINDING_${label}_PROVENANCE_FIXTURE=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_WRONG_PROJECTION_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_UNKNOWN_BUSINESS_DEAL_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_SYNTHETIC_FUTURE_CONTEXT=PASS`);
   console.log(`QA_MULTIBINDING_${label}_DETERMINISTIC_PREFLIGHT=PASS`);
 }
 if(PREFLIGHT){runIsolationPreflight('CANDIDATE');process.exit(0)}
@@ -119,13 +126,16 @@ async function pendingCompanyMetrics(page,target){await nav(page,'companies');aw
 async function companyMetrics(page,target){await nav(page,'companies');return waitCompanyCardSnapshot(page,target,s=>s.applications==='2'&&s.deals==='2'&&s.documents==='5'&&s.hydration==='ready'&&s.source==='AUTHORITATIVE_CURRENT_CONTEXT_DB'&&s.predicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'&&s.bound_client_id===target.clientId&&s.bound_contract_id===target.contractId,15000,'COMPANY_METRICS_READY')}
 async function scopedIsolationProof(page,target){
   const snapshot=await page.evaluate(t=>{
-    const n=v=>String(v??'').trim(),clientTokens=v=>[...String(v||'').matchAll(/\bRONA-C\d+\b/g)].map(m=>m[0]),dealTokens=v=>[...String(v||'').matchAll(/\bDEAL-\d{4}-\d+\b/g)].map(m=>m[0]);
+    const n=v=>String(v??'').trim(),clientTokens=v=>[...String(v||'').matchAll(/\bRONA-C\d+\b/g)].map(m=>m[0]),contractTokens=v=>[...String(v||'').matchAll(/\bRONA-C\d+-CTR-\d{4}-\d+\b/g)].map(m=>m[0]),dealTokens=v=>[...String(v||'').matchAll(/\bDEAL-\d{4}-\d+\b/g)].map(m=>m[0]);
     const authority=window.RONA_CLIENT_CONTEXT;if(!authority?.getAuthorizedContexts||!authority?.getCurrentContext||!authority?.getCurrentProjection)return{authority_missing:true};
     const authorized=(authority.getAuthorizedContexts()||[]).map(c=>({client_id:n(c?.client_id),contract_id:n(c?.contract_id)})).filter(c=>c.client_id&&c.contract_id),authorizedClients=new Set(authorized.map(c=>c.client_id));
     const current=authority.getCurrentContext?.(),projectionData=authority.getCurrentProjection?.(),projection={client_id:n(projectionData?.contract?.client_id),contract_id:n(projectionData?.contract?.contract_id)};
-    const chooser=document.getElementById('clientContextSelect'),chooserClientIds=[],chooserPairs=[];
-    for(const option of chooser?.options||[]){const client_id=n(option.dataset.clientId),contract_id=n(option.dataset.contractId);if(client_id)chooserClientIds.push(client_id);chooserClientIds.push(...clientTokens(option.textContent));if(client_id&&contract_id)chooserPairs.push({client_id,contract_id})}
+    const chooser=document.getElementById('clientContextSelect'),chooserClientIds=[],chooserContractIds=[],chooserPairs=[];
+    for(const option of chooser?.options||[]){const client_id=n(option.dataset.clientId),contract_id=n(option.dataset.contractId);if(client_id)chooserClientIds.push(client_id);if(contract_id)chooserContractIds.push(contract_id);chooserClientIds.push(...clientTokens(option.textContent));chooserContractIds.push(...contractTokens(option.textContent));if(client_id&&contract_id)chooserPairs.push({client_id,contract_id})}
     const inChooser=el=>!!el?.closest?.('#clientContextSelect');
+    const canonicalCompanyCard=el=>{const card=el?.closest?.('article.company-switch-card');if(!card)return null;const grid=card.closest?.('#clientCompanyGrid'),section=grid?.closest?.('section#page-companies');return grid&&section&&grid.contains(card)&&section.contains(grid)?card:null};
+    const inContextSurface=el=>inChooser(el)||!!canonicalCompanyCard(el);
+    for(const card of document.querySelectorAll('section#page-companies #clientCompanyGrid article.company-switch-card')){if(canonicalCompanyCard(card)!==card)continue;const localClients=[],localContracts=[];for(const el of [card,...card.querySelectorAll('[data-rona-client-id],[data-rona-client-contract-id],[data-rona-contract-id]')]){const c=n(el.getAttribute?.('data-rona-client-id')),k=n(el.getAttribute?.('data-rona-client-contract-id')||el.getAttribute?.('data-rona-contract-id'));if(c)localClients.push(c);if(k)localContracts.push(k);if(c&&k)chooserPairs.push({client_id:c,contract_id:k})}const cardText=String(card.textContent||'');localClients.push(...clientTokens(cardText));localContracts.push(...contractTokens(cardText));const cs=[...new Set(localClients.filter(Boolean))],ks=[...new Set(localContracts.filter(Boolean))];chooserClientIds.push(...cs);chooserContractIds.push(...ks);if(cs.length===1)for(const k of ks)chooserPairs.push({client_id:cs[0],contract_id:k})}
     const safeIdent=v=>{const s=String(v||'').trim();if(!s)return'';if(/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s)||s.length>64)return'[redacted]';return s.replace(/[^A-Za-z0-9_-]/g,'').slice(0,64)};
     const classes=el=>[...(el?.classList||[])].map(safeIdent).filter(x=>x&&x!=='[redacted]').slice(0,4);
     const describe=el=>el?{tag:String(el.tagName||'').toLowerCase(),id:safeIdent(el.id),classes:classes(el)}:null;
@@ -135,14 +145,14 @@ async function scopedIsolationProof(page,target){
     const visibilityState=el=>{if(!el||!document.documentElement.contains(el))return'DETACHED';if(el.closest?.('script,style'))return'NON_RENDERED';const s=getComputedStyle(el),r=el.getBoundingClientRect();if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity||1)===0)return'HIDDEN';return r.width>0&&r.height>0?'VISIBLE_RENDERED':'VISIBLE_STYLE_ONLY'};
     const domPath=el=>{const parts=[];for(let node=el,depth=0;node&&node.nodeType===1&&depth<7;node=node.parentElement,depth++){const d=describe(node);if(!d)break;parts.unshift(`${d.tag}${d.id?`#${d.id}`:''}${d.classes.length?`.${d.classes.join('.')}`:''}`)}return parts.join('>')};
     const provenanceRecords=[],provenanceSeen=new Set();
-    const addProvenance=(el,token,mode,attributeName='')=>{if(provenanceRecords.length>=10||!token||token===t.clientId||!authorizedClients.has(token)||inChooser(el))return;const semantic=semanticContainer(el),dealWorkspace=openDealWorkspace(el),record={detection_mode:mode,token,element_tag:String(el?.tagName||'').toLowerCase(),element_id:safeIdent(el?.id),element_classes:classes(el),nearest_structural_ancestor:nearestStructural(el),inside_client_context_select:inChooser(el),inside_semantic_context_container:!!semantic,semantic_container:semantic,inside_open_deal_workspace:!!dealWorkspace,open_deal_workspace:dealWorkspace,visibility_state:visibilityState(el),bounded_dom_path:domPath(el),sanitized_text_excerpt:token};if(mode==='DATA_ATTRIBUTE')record.data_attribute=safeIdent(attributeName);const key=`${mode}|${token}|${record.bounded_dom_path}|${record.data_attribute||''}`;if(provenanceSeen.has(key))return;provenanceSeen.add(key);provenanceRecords.push(record)};
+    const addProvenance=(el,token,mode,attributeName='')=>{if(provenanceRecords.length>=10||!token||token===t.clientId||!authorizedClients.has(token)||inContextSurface(el))return;const semantic=semanticContainer(el),dealWorkspace=openDealWorkspace(el),record={detection_mode:mode,token,element_tag:String(el?.tagName||'').toLowerCase(),element_id:safeIdent(el?.id),element_classes:classes(el),nearest_structural_ancestor:nearestStructural(el),inside_client_context_select:inChooser(el),inside_semantic_context_container:!!semantic,semantic_container:semantic,inside_open_deal_workspace:!!dealWorkspace,open_deal_workspace:dealWorkspace,visibility_state:visibilityState(el),bounded_dom_path:domPath(el),sanitized_text_excerpt:token};if(mode==='DATA_ATTRIBUTE')record.data_attribute=safeIdent(attributeName);const key=`${mode}|${token}|${record.bounded_dom_path}|${record.data_attribute||''}`;if(provenanceSeen.has(key))return;provenanceSeen.add(key);provenanceRecords.push(record)};
     const businessClientIds=[],businessContractIds=[],businessDealIds=[];
-    for(const el of document.querySelectorAll('[data-rona-client-id],[data-rona-client-contract-id],[data-rona-contract-id]')){if(inChooser(el))continue;const c=n(el.getAttribute('data-rona-client-id')),k=n(el.getAttribute('data-rona-client-contract-id')||el.getAttribute('data-rona-contract-id'));if(c){businessClientIds.push(c);for(const token of clientTokens(c))addProvenance(el,token,'DATA_ATTRIBUTE','data-rona-client-id')}if(k)businessContractIds.push(k)}
-    for(const el of document.querySelectorAll('[data-rona-canonical-deal-id],[data-open-deal]')){if(inChooser(el))continue;const id=n(el.getAttribute('data-rona-canonical-deal-id')||el.getAttribute('data-open-deal'));if(id)businessDealIds.push(id)}
-    const visible=el=>{if(!el||inChooser(el)||el.closest('script,style'))return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0};
-    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const node=walker.currentNode,parent=node.parentElement;if(!visible(parent))continue;const text=String(node.nodeValue||''),tokens=clientTokens(text);businessClientIds.push(...tokens);for(const token of tokens)addProvenance(parent,token,'TEXT');businessDealIds.push(...dealTokens(text))}
+    for(const el of document.querySelectorAll('[data-rona-client-id],[data-rona-client-contract-id],[data-rona-contract-id]')){if(inContextSurface(el))continue;const c=n(el.getAttribute('data-rona-client-id')),k=n(el.getAttribute('data-rona-client-contract-id')||el.getAttribute('data-rona-contract-id'));if(c){businessClientIds.push(c);for(const token of clientTokens(c))addProvenance(el,token,'DATA_ATTRIBUTE','data-rona-client-id')}if(k)businessContractIds.push(k)}
+    for(const el of document.querySelectorAll('[data-rona-canonical-deal-id],[data-open-deal]')){const id=n(el.getAttribute('data-rona-canonical-deal-id')||el.getAttribute('data-open-deal'));if(id)businessDealIds.push(id)}
+    const visible=el=>{if(!el||el.closest('script,style'))return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0};
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const node=walker.currentNode,parent=node.parentElement;if(!visible(parent))continue;const text=String(node.nodeValue||''),clients=clientTokens(text),contracts=contractTokens(text);businessDealIds.push(...dealTokens(text));if(inContextSurface(parent))continue;businessClientIds.push(...clients);businessContractIds.push(...contracts);for(const token of clients)addProvenance(parent,token,'TEXT')}
     const projectionText=JSON.stringify(projectionData||{}),projectionDealIds=dealTokens(projectionText);
-    return{selected:{client_id:t.clientId,contract_id:t.contractId},authorized,current,projection,chooserClientIds,chooserPairs,businessClientIds,businessContractIds,businessDealIds,projectionDealIds,provenance_records:provenanceRecords};
+    return{selected:{client_id:t.clientId,contract_id:t.contractId},authorized,current,projection,chooserClientIds,chooserContractIds,chooserPairs,businessClientIds,businessContractIds,businessDealIds,projectionDealIds,provenance_records:provenanceRecords};
   },target);
   if(snapshot?.authority_missing)throw new Error(`${target.key}_SCOPED_ISOLATION_AUTHORITY_MISSING`);
   const result=scopedIsolationDecision(snapshot);
