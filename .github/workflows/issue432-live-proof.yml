@@ -41,6 +41,7 @@ jobs:
           RONA_PROD_ROOT: ${{ github.workspace }}/prod
           RONA_PROD_SHA: fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18
           RONA_PROD_ORIGIN: https://ronatrade.com
+          RONA_PAGES_EXACT_ORIGIN: https://a4447d02.rona-trade-public.pages.dev
           RONA_DIAG_OUT: ${{ github.workspace }}/issue432-live-proof.json
           RONA_AUTH_OUT: ${{ github.workspace }}/issue432-auth-inventory.json
         run: node diag/scripts/qa/issue432-live-proof.mjs
