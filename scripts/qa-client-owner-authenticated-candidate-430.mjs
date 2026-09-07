@@ -22,6 +22,14 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const compact=v=>String(v??'').replace(/\s+/gu,'').toUpperCase();
 const norm=v=>String(v??'').replace(/\s+/gu,' ').trim();
 const safeUrl=u=>{const x=new URL(u);return `${x.pathname}${x.search}`};
+async function waitEvaluate(page,predicate,arg,timeout,label){
+  const deadline=Date.now()+timeout;
+  while(Date.now()<deadline){
+    if(await page.evaluate(predicate,arg).catch(()=>false))return;
+    await sleep(100);
+  }
+  throw new Error(`${label}_TIMEOUT`);
+}
 
 async function githubJson(path){
   const headers={accept:'application/vnd.github+json','x-github-api-version':'2022-11-28',authorization:`Bearer ${GH_TOKEN}`};
@@ -123,9 +131,9 @@ async function nav(page,name){
   const b=page.locator(selector).first();await b.waitFor({state:'visible',timeout:10000});await b.click();
 }
 async function ensureExactContext(page,target){
-  await page.waitForFunction(()=>Boolean(window.RONA_CLIENT_CONTEXT?.whenReady&&window.RONA_CLIENT_CONTEXT?.getCurrentContext),null,{timeout:15000});
+  await waitEvaluate(page,()=>Boolean(window.RONA_CLIENT_CONTEXT?.whenReady&&window.RONA_CLIENT_CONTEXT?.getCurrentContext),null,15000,'CLIENT_CONTEXT_AUTHORITY_READY');
   await page.evaluate(async t=>{const a=window.RONA_CLIENT_CONTEXT;await a.whenReady();const c=a.getCurrentContext?.();if(!c||String(c.client_id)!==t.clientId||String(c.contract_id)!==t.contractId)await a.select(t.clientId,t.contractId);},target);
-  await page.waitForFunction(t=>{const a=window.RONA_CLIENT_CONTEXT,c=a?.getCurrentContext?.(),p=a?.getCurrentProjection?.();return String(c?.client_id||'')===t.clientId&&String(c?.contract_id||'')===t.contractId&&String(p?.contract?.client_id||'')===t.clientId&&String(p?.contract?.contract_id||'')===t.contractId;},target,{timeout:20000});
+  await waitEvaluate(page,t=>{const a=window.RONA_CLIENT_CONTEXT,c=a?.getCurrentContext?.(),p=a?.getCurrentProjection?.();return String(c?.client_id||'')===t.clientId&&String(c?.contract_id||'')===t.contractId&&String(p?.contract?.client_id||'')===t.clientId&&String(p?.contract?.contract_id||'')===t.contractId;},target,20000,'CLIENT_CONTEXT_PROJECTION_READY');
 }
 async function dealDomProof(page,target,expectedAmount){
   await nav(page,'deals');
@@ -149,12 +157,12 @@ async function companyMetrics(page,target){
   await nav(page,'companies');
   const card=page.locator(`[data-rona-client-id="${target.clientId}"][data-rona-client-contract-id="${target.contractId}"]`).first();
   await card.waitFor({state:'visible',timeout:10000});
-  await page.waitForFunction(t=>{const c=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);return c?.dataset?.ronaCompanyDirectoryHydration==='ready'&&c?.dataset?.ronaCompanyDirectorySource==='AUTHORITATIVE_CURRENT_CONTEXT_DB'&&c?.dataset?.ronaCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';},target,{timeout:15000});
+  await waitEvaluate(page,t=>{const c=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);return c?.dataset?.ronaCompanyDirectoryHydration==='ready'&&c?.dataset?.ronaCompanyDirectorySource==='AUTHORITATIVE_CURRENT_CONTEXT_DB'&&c?.dataset?.ronaCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';},target,15000,'COMPANY_METRICS_READY');
   return page.evaluate(t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0);const lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let depth=0;box&&box!==card&&depth<4;depth++,box=box.parentElement){const value=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(value)return n(value.textContent)}return null}return{applications:metric('заявок'),deals:metric('сделок'),documents:metric('документов'),hydration:card?.dataset?.ronaCompanyDirectoryHydration||'',source:card?.dataset?.ronaCompanyDirectorySource||'',predicate:card?.dataset?.ronaCompanyDirectoryDocumentsPredicate||''};},target);
 }
 async function pendingCompanyMetrics(page,target){
   await nav(page,'companies');
-  await page.waitForFunction(t=>{const c=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);return c?.dataset?.ronaCompanyDirectoryHydration==='pending';},target,{timeout:5000});
+  await waitEvaluate(page,t=>{const c=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);return c?.dataset?.ronaCompanyDirectoryHydration==='pending';},target,5000,'COMPANY_METRICS_PENDING');
   return page.evaluate(t=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),low=v=>n(v).toLocaleLowerCase('ru-RU');const card=document.querySelector(`[data-rona-client-id="${t.clientId}"][data-rona-client-contract-id="${t.contractId}"]`);function metric(label){const leaves=[...card.querySelectorAll('*')].filter(x=>x.childElementCount===0),lab=leaves.find(x=>low(x.textContent)===label);if(!lab)return null;let box=lab.parentElement;for(let d=0;box&&box!==card&&d<4;d++,box=box.parentElement){const v=[...box.querySelectorAll('*')].find(x=>x!==lab&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));if(v)return n(v.textContent)}return null}return{applications:metric('заявок'),deals:metric('сделок'),documents:metric('документов'),hydration:card?.dataset?.ronaCompanyDirectoryHydration||''};},target);
 }
 async function foreignDomProof(page,target,foreignIds){
