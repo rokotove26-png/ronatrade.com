@@ -122,34 +122,45 @@ function ensureStyle(){
 }
 function leafNodes(root){return [...root.querySelectorAll('button,a,span,small,strong,p,div')].filter(e=>e.childElementCount===0&&norm(e.textContent))}
 function leafByText(root,predicate){return leafNodes(root).find(e=>predicate(low(e.textContent)))||null}
-function findCompanyCard(ctx){
-  if(!ctx)return null;const main=document.querySelector('main,[role="main"]');if(!main)return null;
-  const contract=CSS.escape(norm(ctx.contract_id)),client=CSS.escape(norm(ctx.client_id));
-  const direct=main.querySelector(`[data-rona-client-contract-id="${contract}"],[data-contract-id="${contract}"],[data-client-id="${client}"]`);
-  if(direct&&visible(direct)&&!direct.closest('header,nav,aside,[role="navigation"]')){const card=direct.closest('article,section,li,div')||direct,t=low(card.textContent);if(t.includes('подписанный контракт')||t.includes('текущая компания'))return card}
-  const contractKey=low(ctx.contract_id),clientKey=low(ctx.client_id),tokens=identityTokens(ctx),c=[];
-  for(const node of main.querySelectorAll('article,section,li,div')){
-    if(!visible(node)||node.closest('header,nav,aside,[role="navigation"]'))continue;
-    const t=low(node.textContent);if(!t||t.length>9000||(!t.includes('подписанный контракт')&&!t.includes('текущая компания')))continue;
-    const compact=tokenKey(t),hc=contractKey&&t.includes(contractKey),hi=clientKey&&t.includes(clientKey);let tokenScore=0;for(const x of tokens)if(compact.includes(x))tokenScore+=40;
-    if(!hc&&!hi&&tokenScore<40&&!(t.includes('подписанный контракт')&&t.includes('текущая компания')))continue;
-    c.push({node,score:(hc?10000:0)+(hi?3000:0)+tokenScore+500-Math.min(t.length,8000)/8,len:t.length});
-  }
-  c.sort((a,b)=>b.score-a.score||a.len-b.len);return c[0]?.node||null;
+function eligibleCompanyNode(node){return visible(node)&&!node.closest('header,nav,aside,[role="navigation"]')}
+function companyMetricSlot(owner,labels){
+  if(!owner)return null;const matches=leafNodes(owner).filter(el=>visible(el)&&labels.includes(low(el.textContent)));if(matches.length!==1)return null;const label=matches[0];let box=label.parentElement;
+  for(let depth=0;box&&owner.contains(box)&&depth<3;depth++,box=box.parentElement){const values=leafNodes(box).filter(el=>el!==label&&visible(el)&&/^(?:\d+|—)$/.test(norm(el.textContent)));if(values.length===1)return{label,value:values[0]};if(values.length>1)return null;if(box===owner)break}
+  return null;
 }
-function setMetric(card,labelText,value,relabel){
-  const label=leafByText(card,t=>t===labelText);if(!label)return false;
-  if(relabel)setNodeText(label,relabel);
-  let box=label.parentElement;
-  for(let depth=0;box&&box!==card&&depth<3;depth++,box=box.parentElement){
-    const n=leafNodes(box).find(el=>el!==label&&/^(?:\d+|—)$/.test(norm(el.textContent)));
-    if(n){setNodeText(n,value==null?'—':String(value));return true}
-  }
-  return false;
+function companyMetricSlots(owner){
+  const applications=companyMetricSlot(owner,['заявок']),deals=companyMetricSlot(owner,['сделок']),documents=companyMetricSlot(owner,['документов','действий']);
+  return applications&&deals&&documents?{applications,deals,documents}:null;
+}
+function clearCompanyDirectoryState(node){if(!node)return;delete node.dataset.ronaCompanyDirectoryHydration;delete node.dataset.ronaCompanyDirectorySource;delete node.dataset.ronaCompanyDirectoryDocumentsPredicate;delete node.dataset.ronaCompanyDirectoryUpdatedAt}
+function findCompanyIdentityAnchor(ctx){
+  if(!ctx)return null;const main=document.querySelector('main,[role="main"]');if(!main)return null;const rawContract=norm(ctx.contract_id),rawClient=norm(ctx.client_id);if(!rawContract||!rawClient)return null;const contract=CSS.escape(rawContract),client=CSS.escape(rawClient);
+  const exact=[...main.querySelectorAll(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`)].filter(eligibleCompanyNode);if(exact.length===1)return exact[0];if(exact.length>1)return null;
+  const direct=[...new Set([...main.querySelectorAll(`[data-rona-client-contract-id="${contract}"]`),...main.querySelectorAll(`[data-contract-id="${contract}"]`),...main.querySelectorAll(`[data-client-id="${client}"]`)])].filter(eligibleCompanyNode);
+  if(direct.length){const scored=direct.map(node=>{const t=low(node.textContent),score=(norm(node.dataset.ronaClientContractId)===rawContract?1000:0)+(norm(node.dataset.contractId)===rawContract?800:0)+(norm(node.dataset.ronaClientId)===rawClient?500:0)+(norm(node.dataset.clientId)===rawClient?400:0)+(t.includes(low(rawContract))?120:0)+(t.includes(low(rawClient))?60:0);return{node,score}}).sort((a,b)=>b.score-a.score);if(scored[0]?.score>0&&(scored.length===1||scored[0].score>scored[1].score))return scored[0].node;if(scored.length===1)return scored[0].node;return null}
+  const contractKey=low(ctx.contract_id),clientKey=low(ctx.client_id),tokens=identityTokens(ctx),c=[];
+  for(const node of main.querySelectorAll('article,section,li,div')){if(!eligibleCompanyNode(node))continue;const t=low(node.textContent);if(!t||t.length>9000||(!t.includes('подписанный контракт')&&!t.includes('текущая компания')))continue;const compact=tokenKey(t),hc=contractKey&&t.includes(contractKey),hi=clientKey&&t.includes(clientKey);let tokenScore=0;for(const x of tokens)if(compact.includes(x))tokenScore+=40;if(!hc&&!hi&&tokenScore<40&&!(t.includes('подписанный контракт')&&t.includes('текущая компания')))continue;c.push({node,score:(hc?10000:0)+(hi?3000:0)+tokenScore+500-Math.min(t.length,8000)/8,len:t.length})}
+  c.sort((a,b)=>b.score-a.score||a.len-b.len);if(!c.length)return null;if(c.length>1&&c[0].score===c[1].score&&c[0].len===c[1].len)return null;return c[0].node;
+}
+function bindCompanyOwner(resolved,ctx){
+  const {anchor,card}=resolved;if(anchor!==card){clearCompanyDirectoryState(anchor);if(norm(anchor.dataset.ronaClientId)===norm(ctx.client_id))delete anchor.dataset.ronaClientId;if(norm(anchor.dataset.ronaClientContractId)===norm(ctx.contract_id))delete anchor.dataset.ronaClientContractId}
+  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');
+}
+function resolveCompanyCard(ctx){
+  const anchor=findCompanyIdentityAnchor(ctx);if(!anchor)return null;const main=document.querySelector('main,[role="main"]');if(!main)return null;let node=anchor;
+  for(let depth=0;node&&main.contains(node)&&depth<=6;depth++,node=node.parentElement){if(!eligibleCompanyNode(node)){if(node===main)break;continue}const slots=companyMetricSlots(node);if(slots){const resolved={anchor,card:node,slots,depth};bindCompanyOwner(resolved,ctx);return resolved}if(node===main)break}
+  clearCompanyDirectoryState(anchor);return null;
+}
+function findCompanyCard(ctx){return resolveCompanyCard(ctx)?.card||null}
+function setMetricSlot(slot,value,relabel){if(!slot?.label||!slot?.value)return false;if(relabel)setNodeText(slot.label,relabel);setNodeText(slot.value,value==null?'—':String(value));return norm(slot.value.textContent)===(value==null?'—':String(value))}
+function setMetric(card,labelText,value,relabel){const slot=companyMetricSlot(card,[labelText]);return setMetricSlot(slot,value,relabel)}
+function setCompanyDirectoryState(resolved,ctx,hydration,source,predicate){const card=resolved?.card;if(!card)return false;bindCompanyOwner(resolved,ctx);card.dataset.ronaCompanyDirectoryHydration=hydration;card.dataset.ronaCompanyDirectorySource=source;card.dataset.ronaCompanyDirectoryDocumentsPredicate=String(predicate||'');card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();return true}
+function neutralizeCompanyMetrics(resolved,ctx){
+  if(!resolved?.slots)return false;clearCompanyDirectoryState(resolved.card);const ok=setMetricSlot(resolved.slots.applications,'—')&&setMetricSlot(resolved.slots.deals,'—')&&setMetricSlot(resolved.slots.documents,'—','ДОКУМЕНТОВ');if(!ok){clearCompanyDirectoryState(resolved.card);return false}return setCompanyDirectoryState(resolved,ctx,'pending','AUTHORITATIVE_METRICS_UNAVAILABLE','');
 }
 function hideRedundantCompanyAlias(){return false}
 function primeCompanyDirectory(ctx){
-  if(!ctx)return false;const card=findCompanyCard(ctx);if(!card)return false;
+  if(!ctx)return false;const resolved=resolveCompanyCard(ctx);if(!resolved)return false;const card=resolved.card;
   const display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from);
   hideRedundantCompanyAlias(card);
   for(const el of leafNodes(card)){
@@ -159,18 +170,12 @@ function primeCompanyDirectory(ctx){
     if(/^контракт\b/iu.test(before)&&!l.includes('подписанный контракт')&&!l.includes('скач')){setNodeText(el,'Контракт '+external+(effective?' · '+effective:''));continue}
     if((/^(общество с |ооо\b|осоо\b|llc\b)/iu.test(before)||/[«»]/u.test(before))&&!l.includes('контракт')&&!l.includes('договор')){setNodeText(el,display);continue}
   }
-  const sameReady=card.dataset.ronaCompanyDirectoryHydration==='ready'&&norm(card.dataset.ronaClientContractId)===norm(ctx.contract_id);
-  if(!sameReady){
-    setMetric(card,'заявок','—');
-    setMetric(card,'сделок','—');
-    if(!setMetric(card,'действий','—','ДОКУМЕНТОВ'))setMetric(card,'документов','—');
-    card.dataset.ronaCompanyDirectoryHydration='pending';
-  }
-  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');
-  return true;
+  const sameReady=card.dataset.ronaCompanyDirectoryHydration==='ready'&&norm(card.dataset.ronaClientContractId)===norm(ctx.contract_id)&&norm(card.dataset.ronaClientId)===norm(ctx.client_id);
+  if(!sameReady&&!neutralizeCompanyMetrics(resolved,ctx))return false;
+  bindCompanyOwner(resolved,ctx);return true;
 }
-function syncCompanyCard(entry,card){
-  if(!entry||!card)return;const ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
+function syncCompanyCard(entry,resolved){
+  if(!entry||!resolved)return false;const card=resolved.card,ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
   for(const el of leaves){
     const before=norm(el.textContent),l=low(before);if(!before)continue;
     if(/^RONA-C\d{3}$/i.test(before)){setNodeText(el,ctx.client_id);continue}
@@ -183,11 +188,10 @@ function syncCompanyCard(entry,card){
     }
   }
   hideRedundantCompanyAlias(card);
-  const metrics=currentCompanyMetrics(entry);
-  setMetric(card,'заявок',metrics.applications);
-  setMetric(card,'сделок',metrics.deals);
-  if(!setMetric(card,'действий',metrics.documents,'ДОКУМЕНТОВ'))setMetric(card,'документов',metrics.documents);
-  card.dataset.ronaClientContractId=String(ctx.contract_id||'');card.dataset.ronaClientId=String(ctx.client_id||'');card.dataset.ronaCompanyDirectorySource=metrics.source;card.dataset.ronaCompanyDirectoryDocumentsPredicate=String(metrics.documents_predicate||'');card.dataset.ronaCompanyDirectoryHydration=metrics.ready?'ready':'pending';card.dataset.ronaCompanyDirectoryUpdatedAt=new Date().toISOString();
+  const metrics=currentCompanyMetrics(entry),hydration=metrics.ready?'ready':'pending';clearCompanyDirectoryState(card);
+  if(!metrics.ready)return neutralizeCompanyMetrics(resolved,ctx);
+  const ok=setMetricSlot(resolved.slots.applications,metrics.applications)&&setMetricSlot(resolved.slots.deals,metrics.deals)&&setMetricSlot(resolved.slots.documents,metrics.documents,'ДОКУМЕНТОВ');if(!ok){clearCompanyDirectoryState(card);return false}
+  return setCompanyDirectoryState(resolved,ctx,hydration,metrics.source,metrics.documents_predicate);
 }
 const unavailableNode=card=>leafByText(card,t=>t.includes('контракт пока недоступен для скачивания')||t==='контракт недоступен для скачивания'||t.includes('файл подписанного контракта не опубликован в кабинете'));
 const contractAnchor=card=>leafByText(card,t=>t==='подписанный контракт');
@@ -206,7 +210,7 @@ function clearRuntimeButtons(entry){
   for(const old of document.querySelectorAll('button[data-rona-contract-download-v3]'))if(!current||norm(old.dataset.ronaContractDownloadV3)!==current)old.remove();
 }
 function renderEntry(entry){
-  const card=findCompanyCard(entry?.context);if(!card)return false;syncCompanyCard(entry,card);
+  const resolved=resolveCompanyCard(entry?.context);if(!resolved||!syncCompanyCard(entry,resolved))return false;const card=resolved.card;
   const unavailable=unavailableNode(card),anchor=contractAnchor(card),active=String(entry.context?.contract_status||'').toUpperCase()==='ACTIVE';if(!active||(!unavailable&&!anchor))return false;
   if(!entry.document?.storage_object_id){if(unavailable){const msg='Файл подписанного контракта не опубликован в кабинете';setNodeText(unavailable,msg);unavailable.setAttribute('aria-disabled','true');unavailable.dataset.ronaContractUnavailable='authoritative-storage-not-materialized'}return false}
   const existing=card.querySelector('button[data-rona-contract-download-v3]');if(existing){existing.dataset.storageObjectId=String(entry.document.storage_object_id);return true}

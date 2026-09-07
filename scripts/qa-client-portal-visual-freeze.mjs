@@ -188,13 +188,14 @@ const clientMultiContext430ExceptionAuthorized=
   clientMultiContext430Approval?.issue_number===430&&
   clientMultiContext430Approval?.system_admin_comment_id===5561179393&&
   clientMultiContext430Approval?.system_admin_correction_comment_id===5561354113&&
+  clientMultiContext430Approval?.system_admin_card_owner_comment_id===5573033812&&
   clientMultiContext430Approval?.branch==='hotfix/client-multiclient-parity-430-v1'&&
   clientMultiContext430Approval?.base_commit==='9797f7c7c5e8a003eaa19c520f4328a2001d5ce7'&&
   clientMultiContext430Approval?.scope==='CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430'&&
   exactArray(clientMultiContext430Approval?.approved_protected_files,CLIENT_MULTI_CONTEXT_430_FILES)&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.visual_freeze_baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.production_pre_hotfix_blob_sha==='57e66a343bf199ab2076a0ff5f074ba71e79218c'&&
-  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='5dd392570b07b428df224f40e3061514b94d05c1'&&
+  clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='5d4e889f8becca9d9e17f31433dc915655a7527c'&&
   clientMultiContext430Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='20260906-client-contract-v11-authoritative-company-metrics'&&
   clientMultiContext430Approval?.requirements?.visual_freeze_remains_enabled===true&&
   clientMultiContext430Approval?.requirements?.owner_instruction_required===true&&
@@ -210,6 +211,14 @@ const clientMultiContext430ExceptionAuthorized=
   clientMultiContext430Approval?.requirements?.company_metrics_invalid_fail_closed===true&&
   clientMultiContext430Approval?.requirements?.company_metrics_neutral_unknown===true&&
   clientMultiContext430Approval?.requirements?.company_metrics_context_switch_fail_closed===true&&
+  clientMultiContext430Approval?.requirements?.company_card_owner_nearest_unique_visible_ancestor===true&&
+  clientMultiContext430Approval?.requirements?.company_card_owner_search_bounded===true&&
+  clientMultiContext430Approval?.requirements?.company_card_owner_shared_pending_ready===true&&
+  clientMultiContext430Approval?.requirements?.company_card_owner_missing_ambiguous_fail_closed===true&&
+  clientMultiContext430Approval?.requirements?.pending_requires_three_visible_neutral_metrics===true&&
+  clientMultiContext430Approval?.requirements?.ready_requires_three_visible_authoritative_metrics===true&&
+  clientMultiContext430Approval?.requirements?.stale_foreign_metrics_during_transition===false&&
+  clientMultiContext430Approval?.requirements?.synthetic_future_context_generic===true&&
   clientMultiContext430Approval?.requirements?.documents_kpi_current_effective_contractual_only===true&&
   clientMultiContext430Approval?.requirements?.superseded_contractual_documents_not_counted===true&&
   clientMultiContext430Approval?.requirements?.internal_artifacts_not_counted_as_contractual_kpi===true&&

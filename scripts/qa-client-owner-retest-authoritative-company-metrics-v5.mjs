@@ -1,6 +1,7 @@
 import {readFile,writeFile,unlink} from 'node:fs/promises';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {chromium} from 'playwright';
 
 const sourceUrl=new URL('./qa-client-owner-retest-real-browser-v4.mjs',import.meta.url);
 const generatedUrl=new URL('./.qa-client-owner-retest-real-browser-v5.generated.mjs',import.meta.url);
@@ -19,7 +20,7 @@ function replaceTextOnce(from,to,label){
 
 replaceTextOnce(
   "const RAW={A:raw('A'),B:raw('B')};\n",
-  "const RAW={A:raw('A'),B:raw('B')};\nconst AUTHORITATIVE_COMPANY_METRICS={A:{applications_total:0,deals_total:2,documents_total:5,source:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'},B:{applications_total:1,deals_total:1,documents_total:3,source:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'}};\n",
+  "const RAW={A:raw('A'),B:raw('B')};\nconst AUTHORITATIVE_COMPANY_METRICS={A:{applications_total:2,deals_total:2,documents_total:5,source:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'},B:{applications_total:1,deals_total:1,documents_total:3,source:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'}};\n",
   'AUTHORITATIVE_COMPANY_METRICS_FIXTURE'
 );
 
@@ -50,6 +51,31 @@ replaceTextOnce(
 if(!source.includes('MY_COMPANIES_MISSING_METRICS_NEUTRAL_PROOF')||!source.includes('MY_COMPANIES_AUTHORITATIVE_METRICS_PROOF'))throw new Error('AUTHORITATIVE_COMPANY_METRICS_PROOF_MARKERS_MISSING');
 if(!source.includes("source:'AUTHORITATIVE_CURRENT_CONTEXT_DB'")||!source.includes("documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'"))throw new Error('AUTHORITATIVE_COMPANY_METRICS_CONTRACT_MISSING');
 
+async function nestedCompanyCardOwnerFixture(){
+  const runtimePath=fileURLToPath(new URL('../assets/portal-runtime/client-contract-download-v3.js',import.meta.url));
+  const browser=await chromium.launch({headless:true});
+  try{
+    const ctx=await browser.newContext({viewport:{width:1200,height:800}}),page=await ctx.newPage();
+    const client='QA-NESTED-CLIENT-001',contract='QA-NESTED-CTR-001';
+    await page.route('**/portal/api/v1/client/context**',async route=>{await new Promise(resolve=>setTimeout(resolve,650));await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{contract:{client_id:client,contract_id:contract,legal_name:'Future Nested Client LLC',current_external_contract_number:'QA-NESTED-EXT-001',contract_status:'ACTIVE',effective_from:'2099-01-01'},applications:[],deals:[],documents:[],payments:[],company_metrics:{applications_total:2,deals_total:2,documents_total:5,source:'AUTHORITATIVE_CURRENT_CONTEXT_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'}}})})});
+    await page.setContent(`<base href="http://fixture.test/"><main><section id="metricOwner" style="display:block;width:640px;height:320px"><div>Текущая компания</div><div>Future Nested Client LLC</div><div id="identityAnchor" data-rona-client-id="${client}" data-rona-client-contract-id="${contract}" style="display:block;width:260px;height:24px">${client} ${contract}</div><div class="metric"><strong>9</strong><span>ЗАЯВОК</span></div><div class="metric"><strong>8</strong><span>СДЕЛОК</span></div><div class="metric"><strong>7</strong><span>ДЕЙСТВИЙ</span></div><div>Подписанный контракт</div></section></main>`,{waitUntil:'domcontentloaded'});
+    const initial=await page.evaluate(({client,contract})=>{const anchor=document.querySelector(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`),owner=document.getElementById('metricOwner');return{depth:anchor?.parentElement===owner?1:null,stale:String(owner?.innerText||'').includes('9')&&String(owner?.innerText||'').includes('8')&&String(owner?.innerText||'').includes('7')}},{client,contract});
+    if(initial.depth!==1||!initial.stale)throw new Error(`NESTED_COMPANY_CARD_OWNER_FIXTURE_INVALID ${JSON.stringify(initial)}`);
+    await page.evaluate(({client,contract})=>{const current={client_id:client,contract_id:contract,legal_name:'Future Nested Client LLC',current_external_contract_number:'QA-NESTED-EXT-001',contract_status:'ACTIVE',effective_from:'2099-01-01'};window.RONA_CLIENT_CONTEXT={whenReady:async()=>true,getCurrentContext:()=>current,getCurrentProjection:()=>null,whenCurrentProjection:async()=>null,subscribe:()=>()=>{}}},{client,contract});
+    await page.addScriptTag({path:runtimePath});
+    await page.waitForFunction(({client,contract})=>{const owner=document.querySelector(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`);return owner?.id==='metricOwner'&&owner.dataset.ronaCompanyDirectoryHydration==='pending'&&owner.dataset.ronaCompanyDirectorySource==='AUTHORITATIVE_METRICS_UNAVAILABLE'},{client,contract},{timeout:3000});
+    const pending=await page.evaluate(({client,contract})=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),owner=document.querySelector(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`),anchor=document.getElementById('identityAnchor');const metric=label=>{const l=[...owner.querySelectorAll('*')].find(x=>x.childElementCount===0&&n(x.textContent).toLocaleLowerCase('ru-RU')===label);const row=l?.parentElement;const value=[...(row?.querySelectorAll('*')||[])].find(x=>x!==l&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));return n(value?.textContent)};return{owner_id:owner?.id||'',exact_count:document.querySelectorAll(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`).length,inner_binding:anchor?.hasAttribute('data-rona-client-id')||anchor?.hasAttribute('data-rona-client-contract-id'),metrics:[metric('заявок'),metric('сделок'),metric('документов')],hydration:owner?.dataset.ronaCompanyDirectoryHydration||'',source:owner?.dataset.ronaCompanyDirectorySource||'',predicate:owner?.dataset.ronaCompanyDirectoryDocumentsPredicate||'',text:n(owner?.innerText)}},{client,contract});
+    if(pending.owner_id!=='metricOwner'||pending.exact_count!==1||pending.inner_binding||pending.metrics.join('/')!=='—/—/—'||pending.hydration!=='pending'||pending.source!=='AUTHORITATIVE_METRICS_UNAVAILABLE'||pending.predicate!==''||/[789]/.test(pending.text))throw new Error(`NESTED_COMPANY_CARD_OWNER_PENDING_FAIL ${JSON.stringify(pending)}`);
+    console.log('NESTED_COMPANY_CARD_OWNER_PENDING=PASS depth=1 metrics=—/—/—');
+    console.log('NESTED_COMPANY_CARD_OWNER_STALE_KPI=ABSENT');
+    await page.waitForFunction(({client,contract})=>{const owner=document.querySelector(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`);return owner?.dataset.ronaCompanyDirectoryHydration==='ready'&&owner.dataset.ronaCompanyDirectorySource==='AUTHORITATIVE_CURRENT_CONTEXT_DB'&&owner.dataset.ronaCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'},{client,contract},{timeout:4000});
+    const ready=await page.evaluate(({client,contract})=>{const n=v=>String(v??'').replace(/\s+/g,' ').trim(),owner=document.querySelector(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`);const metric=label=>{const l=[...owner.querySelectorAll('*')].find(x=>x.childElementCount===0&&n(x.textContent).toLocaleLowerCase('ru-RU')===label);const row=l?.parentElement;const value=[...(row?.querySelectorAll('*')||[])].find(x=>x!==l&&x.childElementCount===0&&/^(?:\d+|—)$/.test(n(x.textContent)));return n(value?.textContent)};return{metrics:[metric('заявок'),metric('сделок'),metric('документов')],exact_count:document.querySelectorAll(`[data-rona-client-id="${client}"][data-rona-client-contract-id="${contract}"]`).length,hydration:owner?.dataset.ronaCompanyDirectoryHydration||'',source:owner?.dataset.ronaCompanyDirectorySource||'',predicate:owner?.dataset.ronaCompanyDirectoryDocumentsPredicate||''}},{client,contract});
+    if(ready.metrics.join('/')!=='2/2/5'||ready.exact_count!==1||ready.hydration!=='ready'||ready.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||ready.predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`NESTED_COMPANY_CARD_OWNER_READY_FAIL ${JSON.stringify(ready)}`);
+    console.log('NESTED_COMPANY_CARD_OWNER_READY=PASS owner=unique metrics=2/2/5');
+    await ctx.close();
+  }finally{await browser.close()}
+}
+
 const generatedPath=fileURLToPath(generatedUrl);
 await writeFile(generatedPath,source,'utf8');
 console.log('OWNER_RETEST_QA_FIXTURE_ADAPTER=AUTHORITATIVE_COMPANY_METRICS_V1');
@@ -63,8 +89,9 @@ if(result.error)throw result.error;
 if(result.signal)throw new Error(`OWNER_RETEST_GENERATED_HARNESS_SIGNAL=${result.signal}`);
 const status=result.status??1;
 if(status===0){
+  await nestedCompanyCardOwnerFixture();
   const productFiles=['assets/portal-runtime/client-contract-download-v3.js','supabase/functions/rona-portal-api/bootstrap.ts','functions/portal/api/v1/client/context.js'];
-  const syntheticBusinessLiterals=/CLIENT-B|CONTRACT-B|BOOTSTRAP ALIAS B|BETA ENERGY LLC|DEAL-2099-201/iu;
+  const syntheticBusinessLiterals=/CLIENT-B|CONTRACT-B|BOOTSTRAP ALIAS B|BETA ENERGY LLC|DEAL-2099-201|QA-NESTED-CLIENT|QA-NESTED-CTR/iu;
   for(const path of productFiles){const text=await readFile(path,'utf8');if(syntheticBusinessLiterals.test(text))throw new Error(`SYNTHETIC_FUTURE_CLIENT_LEAKED_INTO_PRODUCT_RUNTIME ${path}`)}
   console.log('GENERIC_FUTURE_CLIENT_BROWSER_FIXTURE=PASS client=CLIENT-B contract=CONTRACT-B path=CANONICAL_CURRENT_CONTEXT');
   console.log('A_B_A_CURRENT_CONTEXT_ISOLATION=PASS');
