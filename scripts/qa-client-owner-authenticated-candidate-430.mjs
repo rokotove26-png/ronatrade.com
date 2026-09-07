@@ -1,5 +1,49 @@
 import {writeFile} from 'node:fs/promises';
-import {chromium} from 'playwright';
+
+const PREFLIGHT=process.env.RONA_QA_ISOLATION_PREFLIGHT==='1';
+const uniq=values=>[...new Set((values||[]).map(v=>String(v??'').trim()).filter(Boolean))];
+const pair=v=>{if(!v||typeof v!=='object')return null;const client_id=String(v.client_id??v.clientId??'').trim(),contract_id=String(v.contract_id??v.contractId??'').trim();return client_id&&contract_id?{client_id,contract_id}:null};
+const pairKey=v=>{const p=pair(v);return p?`${p.client_id}|${p.contract_id}`:''};
+function scopedIsolationDecision(input){
+  const selected=pair(input?.selected),current=pair(input?.current),projection=pair(input?.projection);
+  const authorized=uniq((input?.authorized||[]).map(pairKey)).map(k=>{const [client_id,...rest]=k.split('|');return{client_id,contract_id:rest.join('|')}}).filter(x=>x.client_id&&x.contract_id);
+  const authorizedKeys=new Set(authorized.map(pairKey)),authorizedClients=new Set(authorized.map(x=>x.client_id));
+  const chooserPairs=uniq((input?.chooserPairs||[]).map(pairKey)).filter(Boolean),chooserClientIds=uniq(input?.chooserClientIds);
+  const businessClientIds=uniq(input?.businessClientIds),businessContractIds=uniq(input?.businessContractIds);
+  const businessDealIds=uniq(input?.businessDealIds),projectionDealIds=new Set(uniq(input?.projectionDealIds));
+  const unauthorizedChooserPairs=chooserPairs.filter(k=>!authorizedKeys.has(k));
+  const unauthorizedClientIds=uniq([...chooserClientIds,...businessClientIds]).filter(id=>!authorizedClients.has(id));
+  const foreignBusinessClientIds=businessClientIds.filter(id=>!selected||id!==selected.client_id);
+  const foreignBusinessContractIds=businessContractIds.filter(id=>!selected||id!==selected.contract_id);
+  const unknownBusinessDealIds=businessDealIds.filter(id=>!projectionDealIds.has(id));
+  const selectedAuthorized=!!(selected&&authorizedKeys.has(pairKey(selected)));
+  const currentMismatch=!selected||!current||pairKey(current)!==pairKey(selected);
+  const projectionMismatch=!selected||!projection||pairKey(projection)!==pairKey(selected);
+  const pass=selectedAuthorized&&!currentMismatch&&!projectionMismatch&&!unauthorizedChooserPairs.length&&!unauthorizedClientIds.length&&!foreignBusinessClientIds.length&&!foreignBusinessContractIds.length&&!unknownBusinessDealIds.length;
+  return{pass,authorized_context_count:authorized.length,selected_authorized:selectedAuthorized,current_context_match:!currentMismatch,projection_context_match:!projectionMismatch,unauthorized_chooser_pair_count:unauthorizedChooserPairs.length,unauthorized_client_ids:unauthorizedClientIds,foreign_business_client_ids:foreignBusinessClientIds,foreign_business_contract_ids:foreignBusinessContractIds,unknown_business_deal_ids:unknownBusinessDealIds};
+}
+function runIsolationPreflight(label){
+  const A={client_id:'RONA-C101',contract_id:'RONA-C101-CTR-2099-001'},B={client_id:'RONA-C202',contract_id:'RONA-C202-CTR-2099-001'};
+  const base={selected:B,current:B,projection:B,authorized:[A,B],chooserPairs:[A,B],chooserClientIds:[A.client_id,B.client_id],businessClientIds:[B.client_id],businessContractIds:[B.contract_id],businessDealIds:['DEAL-2099-202'],projectionDealIds:['DEAL-2099-202']};
+  const authorizedChooser=scopedIsolationDecision(base);
+  if(!authorizedChooser.pass)throw new Error(`${label}_PREFLIGHT_AUTHORIZED_CHOOSER_FAILED`);
+  const authorizedLeak=scopedIsolationDecision({...base,businessClientIds:[B.client_id,A.client_id]});
+  if(authorizedLeak.pass||!authorizedLeak.foreign_business_client_ids.includes(A.client_id))throw new Error(`${label}_PREFLIGHT_AUTHORIZED_BUSINESS_LEAK_NOT_REJECTED`);
+  const unauthorized=scopedIsolationDecision({...base,chooserClientIds:[A.client_id,B.client_id,'RONA-C999']});
+  if(unauthorized.pass||!unauthorized.unauthorized_client_ids.includes('RONA-C999'))throw new Error(`${label}_PREFLIGHT_UNAUTHORIZED_NOT_REJECTED`);
+  const wrongCurrent=scopedIsolationDecision({...base,current:A});
+  if(wrongCurrent.pass||wrongCurrent.current_context_match)throw new Error(`${label}_PREFLIGHT_WRONG_CURRENT_NOT_REJECTED`);
+  const wrongDeal=scopedIsolationDecision({...base,businessDealIds:['DEAL-2099-999']});
+  if(wrongDeal.pass||!wrongDeal.unknown_business_deal_ids.includes('DEAL-2099-999'))throw new Error(`${label}_PREFLIGHT_WRONG_DEAL_NOT_REJECTED`);
+  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_CHOOSER=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_AUTHORIZED_BUSINESS_LEAK_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_UNAUTHORIZED_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_WRONG_CURRENT_REJECTED=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_SELECTED_EVIDENCE=PASS`);
+  console.log(`QA_MULTIBINDING_${label}_DETERMINISTIC_PREFLIGHT=PASS`);
+}
+if(PREFLIGHT){runIsolationPreflight('CANDIDATE');process.exit(0)}
+const {chromium}=await import('playwright');
 
 const REPO=process.env.GITHUB_REPOSITORY||'rokotove26-png/ronatrade.com';
 const HEAD=String(process.env.RONA_EXACT_HEAD||process.env.GITHUB_SHA||'').trim();
@@ -67,14 +111,35 @@ function companyCardProbe(t){
 async function waitCompanyCardSnapshot(page,target,predicate,timeout,label){const deadline=Date.now()+timeout;let lastDiagnostic=null;while(Date.now()<deadline){const probe=await page.evaluate(companyCardProbe,target).catch(()=>null);if(probe){lastDiagnostic=probe.diagnostic||null;if(probe.snapshot&&predicate(probe.snapshot))return probe.snapshot}await sleep(100)}console.log(`${label}_DIAGNOSTIC=${JSON.stringify(lastDiagnostic||{probe_unavailable:true})}`);throw new Error(`${label}_TIMEOUT`)}
 async function pendingCompanyMetrics(page,target){await nav(page,'companies');await waitEvaluate(page,t=>{const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();return String(c?.client_id||'')===t.clientId&&String(c?.contract_id||'')===t.contractId},target,5000,'C003_SELECTED_CONTEXT_PENDING');return waitCompanyCardSnapshot(page,target,s=>s.applications==='—'&&s.deals==='—'&&s.documents==='—'&&s.hydration==='pending'&&s.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'&&s.bound_client_id===target.clientId&&s.bound_contract_id===target.contractId,8000,'COMPANY_METRICS_PENDING_NEUTRAL')}
 async function companyMetrics(page,target){await nav(page,'companies');return waitCompanyCardSnapshot(page,target,s=>s.applications==='2'&&s.deals==='2'&&s.documents==='5'&&s.hydration==='ready'&&s.source==='AUTHORITATIVE_CURRENT_CONTEXT_DB'&&s.predicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'&&s.bound_client_id===target.clientId&&s.bound_contract_id===target.contractId,15000,'COMPANY_METRICS_READY')}
-async function foreignDomProof(page,target,foreignIds){return page.evaluate(({target,foreignIds})=>{const seen=[...document.querySelectorAll('[data-rona-client-id]')].map(x=>String(x.getAttribute('data-rona-client-id')||'')).filter(Boolean),body=String(document.body?.innerText||'');return{data_client_ids:[...new Set(seen)],foreign_data_attribute:seen.some(x=>x!==target.clientId),foreign_identifier_text:foreignIds.some(x=>body.includes(x))}},{target,foreignIds})}
+async function scopedIsolationProof(page,target){
+  const snapshot=await page.evaluate(t=>{
+    const n=v=>String(v??'').trim(),clientTokens=v=>[...String(v||'').matchAll(/\bRONA-C\d+\b/g)].map(m=>m[0]),dealTokens=v=>[...String(v||'').matchAll(/\bDEAL-\d{4}-\d+\b/g)].map(m=>m[0]);
+    const authority=window.RONA_CLIENT_CONTEXT;if(!authority?.getAuthorizedContexts||!authority?.getCurrentContext||!authority?.getCurrentProjection)return{authority_missing:true};
+    const authorized=(authority.getAuthorizedContexts()||[]).map(c=>({client_id:n(c?.client_id),contract_id:n(c?.contract_id)})).filter(c=>c.client_id&&c.contract_id);
+    const current=authority.getCurrentContext?.(),projectionData=authority.getCurrentProjection?.(),projection={client_id:n(projectionData?.contract?.client_id),contract_id:n(projectionData?.contract?.contract_id)};
+    const chooser=document.getElementById('clientContextSelect'),chooserClientIds=[],chooserPairs=[];
+    for(const option of chooser?.options||[]){const client_id=n(option.dataset.clientId),contract_id=n(option.dataset.contractId);if(client_id)chooserClientIds.push(client_id);chooserClientIds.push(...clientTokens(option.textContent));if(client_id&&contract_id)chooserPairs.push({client_id,contract_id})}
+    const inChooser=el=>!!el?.closest?.('#clientContextSelect');
+    const businessClientIds=[],businessContractIds=[],businessDealIds=[];
+    for(const el of document.querySelectorAll('[data-rona-client-id],[data-rona-client-contract-id],[data-rona-contract-id]')){if(inChooser(el))continue;const c=n(el.getAttribute('data-rona-client-id')),k=n(el.getAttribute('data-rona-client-contract-id')||el.getAttribute('data-rona-contract-id'));if(c)businessClientIds.push(c);if(k)businessContractIds.push(k)}
+    for(const el of document.querySelectorAll('[data-rona-canonical-deal-id],[data-open-deal]')){if(inChooser(el))continue;const id=n(el.getAttribute('data-rona-canonical-deal-id')||el.getAttribute('data-open-deal'));if(id)businessDealIds.push(id)}
+    const visible=el=>{if(!el||inChooser(el)||el.closest('script,style'))return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity||1)!==0};
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);while(walker.nextNode()){const node=walker.currentNode,parent=node.parentElement;if(!visible(parent))continue;const text=String(node.nodeValue||'');businessClientIds.push(...clientTokens(text));businessDealIds.push(...dealTokens(text))}
+    const projectionText=JSON.stringify(projectionData||{}),projectionDealIds=dealTokens(projectionText);
+    return{selected:{client_id:t.clientId,contract_id:t.contractId},authorized,current,projection,chooserClientIds,chooserPairs,businessClientIds,businessContractIds,businessDealIds,projectionDealIds};
+  },target);
+  if(snapshot?.authority_missing)throw new Error(`${target.key}_SCOPED_ISOLATION_AUTHORITY_MISSING`);
+  const result=scopedIsolationDecision(snapshot);
+  if(!result.pass)throw new Error(`${target.key}_SCOPED_ISOLATION_FAIL_${JSON.stringify(result)}`);
+  return result;
+}
 
 const targets=[
   {key:'C002',clientId:'RONA-C002',contractId:'RONA-C002-CTR-2026-001',dealId:'DEAL-2026-004',amount:236250,currency:'USD',source:'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS',applicationId:'RONA-C002-IN-2026-001'},
   {key:'C003',clientId:'RONA-C003',contractId:'RONA-C003-CTR-2026-001'},
   {key:'C004',clientId:'RONA-C004',contractId:'RONA-C004-CTR-2026-001',dealId:'DEAL-2026-007',amount:113500,currency:'USD',source:'FINALIZED_APPLICATION_COMMERCIAL_TERMS',applicationId:'RONA-C004-IN-2026-004'}
 ];
-const preview=await exactPreview();console.log(`IMMUTABLE_PREVIEW=${preview.origin}/portal/client source=${preview.source}`);const oidc=await oidcToken(),browser=await chromium.launch({headless:true});const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V3',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,cloudflare_external_id:preview.external_id,preview_source:preview.source,preview_verification:preview.verification,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
+const preview=await exactPreview();console.log(`IMMUTABLE_PREVIEW=${preview.origin}/portal/client source=${preview.source}`);const oidc=await oidcToken(),browser=await chromium.launch({headless:true});const proof={schema:'ISSUE430_REAL_AUTHENTICATED_CANDIDATE_PROOF_V4_SCOPED_ISOLATION',exact_head:HEAD,immutable_preview:`${preview.origin}/portal/client`,cloudflare_check_run_id:preview.check_run_id,cloudflare_external_id:preview.external_id,preview_source:preview.source,preview_verification:preview.verification,expected_candidate_boundary:EXPECTED_BACKEND,targets:{}};
 try{
   for(const target of targets){
     const session=await issueSession(oidc,target),host=new URL(preview.origin).hostname,context=await browser.newContext();let releaseDelayedResolve=null;
@@ -99,7 +164,7 @@ try{
       }else{
         const m=apiEvidence.company_metrics;if(!m||Number(m.applications_total)!==2||Number(m.deals_total)!==2||Number(m.documents_total)!==5||m.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||m.documents_predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`C003_REAL_API_KPI_MISMATCH_${JSON.stringify(m)}`);const dom=await companyMetrics(page,target);if(dom.applications!=='2'||dom.deals!=='2'||dom.documents!=='5'||dom.hydration!=='ready'||dom.source!=='AUTHORITATIVE_CURRENT_CONTEXT_DB'||dom.predicate!=='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')throw new Error(`C003_REAL_DOM_KPI_MISMATCH_${JSON.stringify(dom)}`);proof.targets.C003={...proof.targets.C003,api:apiEvidence,dom,runtime};
       }
-      const foreign=await foreignDomProof(page,target,targets.filter(x=>x.key!==target.key).map(x=>x.clientId));if(foreign.foreign_data_attribute||foreign.foreign_identifier_text)throw new Error(`${target.key}_FOREIGN_CLIENT_DOM_PRESENT_${JSON.stringify(foreign)}`);proof.targets[target.key].foreign_dom=foreign;
+      proof.targets[target.key].scoped_isolation=await scopedIsolationProof(page,target);
     }finally{releaseDelayedResolve?.();await context.close().catch(()=>{});proof.targets[target.key]={...(proof.targets[target.key]||{}),session_cleanup:await cleanupSession(oidc,target,session)}}
   }
 }finally{await browser.close()}
@@ -111,4 +176,4 @@ console.log('C002_REAL_DOM_CARD=236250 USD');console.log('C002_REAL_DOM_PASSPORT
 console.log(`C003_REAL_FAIL_CLOSED=${proof.targets.C003.fail_closed_before_real_response.applications}/${proof.targets.C003.fail_closed_before_real_response.deals}/${proof.targets.C003.fail_closed_before_real_response.documents}`);
 console.log('C003_REAL_API_KPI=2/2/5');console.log('C003_REAL_DOM_KPI=2/2/5');
 console.log(`C004_REAL_API_PASSPORT=${proof.targets.C004.api.deal.passport_amount} ${proof.targets.C004.api.deal.passport_currency}`);console.log('C004_REAL_DOM_CARD=113500 USD');console.log('C004_REAL_DOM_PASSPORT=113500 USD');
-console.log('STALE_FOREIGN_DOM=ABSENT');console.log('QA_SESSION_CLEANUP=PASS');
+console.log('SCOPED_ISOLATION=PASS');console.log('STALE_FOREIGN_DOM=ABSENT');console.log('QA_SESSION_CLEANUP=PASS');
