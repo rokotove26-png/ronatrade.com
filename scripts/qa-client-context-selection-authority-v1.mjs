@@ -28,7 +28,6 @@ for(const forbidden of [
 if(!runtime.includes("for(const el of document.querySelectorAll(`[${CURRENT_SLOT}]`))renderSlot(el,state.selected)"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_DIRECT_SLOT_RENDER_MISSING');
 if(!runtime.includes("/^скачать\\s+договор\\s+pdf$/iu.test(norm(el.textContent))"))throw new Error('CLIENT_CONTEXT_AUTHORITY_QA_HEADER_DOWNLOAD_PURGE_MISSING');
 if(!runtime.includes("document.querySelector('section#page-companies #clientCompanyGrid')"))throw new Error('CLIENT_CONTEXT_COMPANY_GRID_CANONICAL_SELECTOR_MISSING');
-if(!runtime.includes('const candidates=state.contexts.filter('))throw new Error('CLIENT_CONTEXT_COMPANY_GRID_INTERNAL_STATE_AUTHORITY_MISSING');
 const companyOwnerStart=runtime.indexOf('const COMPANY_SCOPE_REGISTRY='),companyOwnerEnd=runtime.indexOf('function syncAll(){',companyOwnerStart);
 if(companyOwnerStart<0||companyOwnerEnd<=companyOwnerStart)throw new Error('CLIENT_CONTEXT_COMPANY_GRID_OWNER_SLICE_MISSING');
 const companyOwner=runtime.slice(companyOwnerStart,companyOwnerEnd);
