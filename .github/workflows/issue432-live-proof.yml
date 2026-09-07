@@ -1,6 +1,9 @@
 name: Issue432 live root cause diagnostic
 
 on:
+  push:
+    branches:
+      - diag/issue-432-live-root-cause-5562501746
   workflow_dispatch:
 
 permissions:
@@ -11,24 +14,41 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact production revision
+        uses: actions/checkout@v4
         with:
           ref: fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18
           fetch-depth: 1
+          path: prod
+
+      - name: Checkout diagnostic harness only
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          path: diag
+
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+
       - name: Build exact production revision
+        working-directory: prod
         run: npm run build
+
       - name: Run non-mutating artifact and auth inventory diagnostic
         env:
+          RONA_PROD_ROOT: ${{ github.workspace }}/prod
           RONA_PROD_SHA: fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18
           RONA_PROD_ORIGIN: https://ronatrade.com
-        run: node scripts/qa/issue432-live-proof.mjs
+          RONA_DIAG_OUT: ${{ github.workspace }}/issue432-live-proof.json
+          RONA_AUTH_OUT: ${{ github.workspace }}/issue432-auth-inventory.json
+        run: node diag/scripts/qa/issue432-live-proof.mjs
+
       - name: Upload diagnostic evidence
         uses: actions/upload-artifact@v4
         with:
-          name: issue432-live-proof
+          name: issue432-live-proof-${{ github.run_id }}
           path: |
             issue432-live-proof.json
             issue432-auth-inventory.json
