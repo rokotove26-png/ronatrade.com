@@ -198,8 +198,11 @@ try{
       page.on('response',async response=>{try{const u=new URL(response.url());if(u.origin!==preview.origin||u.pathname!=='/portal/api/v1/client/context')return;if(u.searchParams.get('clientId')!==target.clientId||u.searchParams.get('contractId')!==target.contractId)return;const body=await response.json().catch(()=>null);if(body?.data?.contract?.client_id===target.clientId&&body?.data?.contract?.contract_id===target.contractId)apiEvidence=sanitizedApi(body,response,target)}catch{}});
       const navPromise=page.goto(`${preview.origin}/portal/client`,{waitUntil:'domcontentloaded',timeout:30000});
       if(target.key==='C003'){
-        await Promise.race([delayedStarted,(async()=>{await sleep(10000);throw new Error('C003_REAL_CONTEXT_DELAY_NOT_TRIGGERED')})()]);
         await navPromise;
+        if(!page.url().startsWith(`${preview.origin}/portal/client`))throw new Error('C003_AUTHENTICATED_PORTAL_REDIRECTED');
+        await waitEvaluate(page,()=>Boolean(window.RONA_CLIENT_CONTEXT?.whenReady&&window.RONA_CLIENT_CONTEXT?.getCurrentContext),null,15000,'C003_CONTEXT_AUTHORITY_READY');
+        await page.evaluate(async t=>{const a=window.RONA_CLIENT_CONTEXT;await a.whenReady();const c=a.getCurrentContext?.();if(!c||String(c.client_id)!==t.clientId||String(c.contract_id)!==t.contractId)a.select(t.clientId,t.contractId);},target);
+        await Promise.race([delayedStarted,(async()=>{await sleep(10000);throw new Error('C003_REAL_CONTEXT_DELAY_NOT_TRIGGERED')})()]);
         const pending=await pendingCompanyMetrics(page,target);
         if(pending.hydration!=='pending'||pending.applications!=='—'||pending.deals!=='—'||pending.documents!=='—')throw new Error(`C003_FAIL_CLOSED_PENDING_MISMATCH_${JSON.stringify(pending)}`);
         proof.targets.C003={fail_closed_before_real_response:pending};
