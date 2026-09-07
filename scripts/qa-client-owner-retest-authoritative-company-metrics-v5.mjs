@@ -42,6 +42,100 @@ replaceRegexOnce(
   'AUTHORITATIVE_COMPANY_METRICS_TWO_PHASE_ASSERTION'
 );
 
+const lifecycleTraceHelper=String.raw`
+async function companyGridLifecycleTrace(page,checkpoint){
+  const snapshot=await page.evaluate(checkpoint=>{
+    const normalize=value=>String(value??'').replace(/\s+/g,' ').trim();
+    const selected=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.()||null;
+    const projection=window.RONA_CLIENT_CONTEXT?.getCurrentProjection?.()||null;
+    const projectionContract=projection?.contract||projection?.current_contract||projection||null;
+    const grid=document.querySelector('#clientCompanyGrid');
+    const connectedCards=[...document.querySelectorAll('article.company-switch-card')].filter(card=>card.isConnected).map(card=>({
+      isConnected:card.isConnected,
+      data_rona_client_id:card.getAttribute('data-rona-client-id'),
+      data_rona_client_contract_id:card.getAttribute('data-rona-client-contract-id'),
+      data_client_id:card.getAttribute('data-client-id'),
+      data_contract_id:card.getAttribute('data-contract-id'),
+      data_rona_company_authorization_scope:card.getAttribute('data-rona-company-authorization-scope'),
+      data_rona_company_directory_hydration:card.getAttribute('data-rona-company-directory-hydration'),
+      data_rona_company_directory_source:card.getAttribute('data-rona-company-directory-source'),
+      data_rona_company_directory_documents_predicate:card.getAttribute('data-rona-company-directory-documents-predicate'),
+      aria_hidden:card.getAttribute('aria-hidden'),
+      inert:card.inert===true||card.hasAttribute('inert'),
+      tabindex:card.getAttribute('tabindex'),
+      text_excerpt:normalize(card.textContent).slice(0,280)
+    }));
+    const markerNodes=[];
+    const walker=document.createTreeWalker(document,NodeFilter.SHOW_COMMENT);
+    for(let node=walker.nextNode();node;node=walker.nextNode()){
+      const body=normalize(node.data);
+      if(!body.includes('rona-company-authorization-scope'))continue;
+      const parent=node.parentNode;
+      const next=node.nextSibling;
+      markerNodes.push({
+        content:body.slice(0,220),
+        parent:{nodeName:parent?.nodeName||null,id:parent?.id||null,className:typeof parent?.className==='string'?parent.className:null,in_grid:Boolean(grid&&parent&&(parent===grid||grid.contains(parent)))},
+        nextSibling:next?{nodeType:next.nodeType,nodeName:next.nodeName||null,isConnected:'isConnected'in next?next.isConnected:null,content:normalize(next.nodeType===Node.COMMENT_NODE?next.data:next.textContent).slice(0,220)}:null
+      });
+    }
+    const html=document.documentElement;
+    const downloadState=window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__||null;
+    const downloadEntries=Array.isArray(downloadState?.entries)?downloadState.entries:(downloadState?.entries&&typeof downloadState.entries==='object'?Object.values(downloadState.entries):[]);
+    const firstEntry=downloadEntries[0]||null;
+    const activeClientContractId=window.activeClientContractId??null;
+    const legacyContexts=window.CLIENT_CONTEXTS&&typeof window.CLIENT_CONTEXTS==='object'?window.CLIENT_CONTEXTS:null;
+    const legacy=activeClientContractId!=null&&legacyContexts?legacyContexts[activeClientContractId]||null:null;
+    return{
+      checkpoint,
+      selected:{client_id:selected?.client_id??null,contract_id:selected?.contract_id??null},
+      current_projection:{client_id:projectionContract?.client_id??projection?.client_id??null,contract_id:projectionContract?.contract_id??projection?.contract_id??null},
+      company_grid:{exists:Boolean(grid),connected_card_count:connectedCards.length,cards:connectedCards},
+      dom_comment_markers:{count:markerNodes.length,markers:markerNodes},
+      documentElement:{
+        ronaClientCompanyAuthorizationScope:html?.dataset?.ronaClientCompanyAuthorizationScope??null,
+        ronaClientCompanyAuthorizedCards:html?.dataset?.ronaClientCompanyAuthorizedCards??null,
+        ronaClientId:html?.dataset?.ronaClientId??null,
+        ronaContractId:html?.dataset?.ronaContractId??null
+      },
+      contract_download_state:{
+        current_contract_id:downloadState?.current_contract_id??null,
+        first_entry:firstEntry?{
+          client_id:firstEntry.client_id??null,
+          contract_id:firstEntry.contract_id??null,
+          metrics_ready:firstEntry.metrics_ready??null,
+          applications:firstEntry.applications??firstEntry.applications_count??null,
+          deals:firstEntry.deals??firstEntry.deals_count??null,
+          documents:firstEntry.documents??firstEntry.documents_count??null,
+          metrics_source:firstEntry.metrics_source??firstEntry.source??null
+        }:null,
+        metrics_source:downloadState?.metrics_source??null
+      },
+      legacy_state:{
+        activeClientContractId,
+        context:legacy?{
+          clientId:legacy.clientId??null,
+          contractId:legacy.contractId??null,
+          company:legacy.company??null,
+          companyName:legacy.companyName??null,
+          legalName:legacy.legalName??null,
+          contractNo:legacy.contractNo??null,
+          applicationsCount:legacy.applicationsCount??null,
+          dealsCount:legacy.dealsCount??null,
+          documentsCount:legacy.documentsCount??null
+        }:null
+      }
+    };
+  },checkpoint);
+  console.log('COMPANY_GRID_LIFECYCLE_TRACE',JSON.stringify(snapshot));
+  return snapshot;
+}
+`;
+replaceRegexOnce(/^const SOURCE_MAP=.*$/m,match=>`${match}\n${lifecycleTraceHelper.trim()}`,'COMPANY_GRID_LIFECYCLE_TRACE_HELPER');
+replaceTextOnce("await nav(page,'companies');await sleep(450);const neutralCp=", "await nav(page,'companies');await sleep(450);await companyGridLifecycleTrace(page,'INITIAL_MISSING_METRICS');const neutralCp=", 'COMPANY_GRID_LIFECYCLE_TRACE_INITIAL');
+replaceTextOnce("FIX.B,3000);await page.evaluate(a=>", "FIX.B,3000);await companyGridLifecycleTrace(page,'AFTER_SWITCH_B');await page.evaluate(a=>", 'COMPANY_GRID_LIFECYCLE_TRACE_AFTER_SWITCH_B');
+replaceTextOnce("FIX.A,4000);const metricsReady=", "FIX.A,4000);await companyGridLifecycleTrace(page,'AFTER_RETURN_A');const metricsReady=", 'COMPANY_GRID_LIFECYCLE_TRACE_AFTER_RETURN_A');
+replaceTextOnce("await sleep(120);const cp=", "await sleep(120);await companyGridLifecycleTrace(page,'BEFORE_AUTHORITATIVE_PROOF');const cp=", 'COMPANY_GRID_LIFECYCLE_TRACE_BEFORE_AUTHORITATIVE_PROOF');
+
 replaceTextOnce(
   "'production-semantic-company-kpis-mixed-status','one-visible-row-per-active-authoritative-deal-terminal-hidden'",
   "'production-semantic-company-kpis-mixed-status','authoritative-company-kpis-neutral-then-ready','one-visible-row-per-active-authoritative-deal-terminal-hidden'",
