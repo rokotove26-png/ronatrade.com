@@ -31,6 +31,8 @@ jobs:
           node --check assets/portal-runtime/client-contract-download-v3.js
           node --check functions/portal/api/v1/client/context.js
           node scripts/qa-client-multiclient-parity-430.mjs
+          RONA_QA_ISOLATION_PREFLIGHT=1 node scripts/qa-client-owner-authenticated-candidate-430.mjs
+          RONA_QA_ISOLATION_PREFLIGHT=1 node scripts/qa-client-owner-authenticated-lifecycle-430.mjs
 
       - name: Visual Freeze exact authorization remains active
         run: node scripts/qa-client-portal-visual-freeze.mjs
@@ -40,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260907-company-directory-authorization-scope-v12' dist/portal/client.html
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const integrity=JSON.parse(await readFile('dist/canonical-visual-integrity.json','utf8'));

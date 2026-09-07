@@ -58,7 +58,7 @@ forbidText(bootstrap,'delete from portal_private','NO_DESTRUCTIVE_CLEANUP');
 forbidText(bootstrap,'DELETE FROM portal_private','NO_DESTRUCTIVE_CLEANUP');
 
 for(const token of [
-  "20260906-client-contract-v11-authoritative-company-metrics",
+  "20260907-client-contract-v12-company-authorization-scope",
   "entry?.company_metrics&&typeof entry.company_metrics==='object'?entry.company_metrics:null",
   "value===null||value===undefined||typeof value==='boolean'",
   'Number.isInteger(n)&&n>=0',
@@ -91,7 +91,7 @@ for(const token of [
 
 requireText(contextProxy,'rona-portal-api-candidate-20260817','PREVIEW_GENERIC_CANDIDATE_ROUTE');
 requireText(contextProxy,'rona-trade-public.pages.dev','PREVIEW_GENERIC_HOST_ROUTE');
-requireText(build,"src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11',",'CACHE_KEY');
+requireText(build,"src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260907-company-directory-authorization-scope-v12',",'CACHE_KEY');
 
 // Universal contract source review: product/runtime paths must not carry business-specific literals.
 const productSources={bootstrap,runtime,contextProxy};

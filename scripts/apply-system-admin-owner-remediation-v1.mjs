@@ -7,7 +7,7 @@ const command=await read('assets/portal-runtime/client-home-command-center-v2.js
 const responsive=await read('assets/portal-runtime/client-content-responsive-v1.css');
 if(!deals.includes('function retireNonCanonicalDealLayers'))throw new Error('SYSTEM_ADMIN_CANONICAL_DEALS_MISSING');
 if(!home.includes('v8-startup-ready-preserve'))throw new Error('SYSTEM_ADMIN_CANONICAL_HOME_MISSING');
-if(!company.includes("const MARK='20260906-client-contract-v11-authoritative-company-metrics';"))throw new Error('SYSTEM_ADMIN_CANONICAL_COMPANY_MARKER_MISSING');
+if(!company.includes("const MARK='20260907-client-contract-v12-company-authorization-scope';"))throw new Error('SYSTEM_ADMIN_CANONICAL_COMPANY_MARKER_MISSING');
 if(!company.includes('function currentCompanyMetrics(entry)'))throw new Error('SYSTEM_ADMIN_CANONICAL_KPI_MISSING');
 if(!company.includes('RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED'))throw new Error('SYSTEM_ADMIN_CANONICAL_TYPOGRAPHY_MISSING');
 if(!command.includes('[data-page=\"home\"]'))throw new Error('SYSTEM_ADMIN_CANONICAL_HOME_REENTRY_MISSING');
