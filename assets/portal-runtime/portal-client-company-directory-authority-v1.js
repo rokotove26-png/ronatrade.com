@@ -156,6 +156,27 @@ function stripContextEvidence(card){
 function clearOwnedButtons(card){
   for(const button of card.querySelectorAll('button[data-rona-company-contract-download],button[data-rona-contract-download-v3]'))button.remove();
 }
+function contractIdentityNodes(card){
+  const leaves=leafNodes(card),eyebrow=card.querySelector('.eyebrow'),legal=card.querySelector('h3');
+  const contractLabel=leaves.find(el=>/^контракт\b/iu.test(norm(el.textContent))&&!/подписан|скач|недоступ/iu.test(norm(el.textContent)))||null;
+  if(!contractLabel)return{eyebrow,legal,client:null,contract:null,contractLabel:null};
+  const before=leaves.slice(0,leaves.indexOf(contractLabel)).filter(el=>el!==eyebrow&&el!==legal);
+  return{eyebrow,legal,client:before.length>=2?before.at(-2):null,contract:before.length>=1?before.at(-1):null,contractLabel};
+}
+function replaceLiteral(text,from,to){
+  const source=norm(text),needle=norm(from);if(!needle)return source;
+  const at=low(source).indexOf(low(needle));
+  return at<0?source:source.slice(0,at)+to+source.slice(at+needle.length);
+}
+function stripUnsupportedBusinessTail(card){
+  const leaves=leafNodes(card),idLabel=leaves.find(el=>/^ид\s+контракта$/iu.test(norm(el.textContent)));
+  if(!idLabel)return;
+  const tail=leaves.slice(leaves.indexOf(idLabel)+1),idValue=tail.find(el=>/^(B|STRONG|SPAN|DIV)$/i.test(el.tagName)&&norm(el.textContent));
+  const opener=leaves.find(el=>/открыть\s+компанию/iu.test(norm(el.textContent))&&/^(BUTTON|A)$/i.test(el.tagName));
+  if(!idValue||!opener)return;
+  const start=leaves.indexOf(idValue),end=leaves.indexOf(opener);if(start<0||end<=start)return;
+  for(const el of leaves.slice(start+1,end))if(el!==opener&&!/^(BUTTON|A)$/i.test(el.tagName))el.remove();
+}
 function setIdentity(card,ctx,row){
   const identity=state.templateIdentity||{};
   const legal=norm(row.legal_name)||norm(ctx.legal_name)||row.client_id;
@@ -163,20 +184,25 @@ function setIdentity(card,ctx,row){
   const external=norm(row.current_external_contract_number)||row.contract_id;
   const effective=formatDate(row.effective_from);
   const contractText=`Контракт № ${external}${effective?` · ${effective}`:''}`;
-  const eyebrow=card.querySelector('.eyebrow');if(eyebrow)eyebrow.textContent=display;
-  const title=card.querySelector('h3');if(title)title.textContent=legal;
-  const oldValues=new Map([
-    [low(identity.client),row.client_id],
-    [low(identity.contract),row.contract_id],
-    [low(identity.contractLabel),contractText],
-    [low(identity.legal),legal],
-    [low(identity.eyebrow),display]
-  ].filter(([token])=>token));
+  const nodes=contractIdentityNodes(card);
+  if(nodes.eyebrow)nodes.eyebrow.textContent=display;
+  if(nodes.legal)nodes.legal.textContent=legal;
+  if(nodes.client)nodes.client.textContent=row.client_id;
+  if(nodes.contract)nodes.contract.textContent=row.contract_id;
+  if(nodes.contractLabel)nodes.contractLabel.textContent=contractText;
+  const replacements=[
+    [identity.client,row.client_id],
+    [identity.contract,row.contract_id],
+    [identity.contractLabel,contractText],
+    [identity.legal,legal],
+    [identity.eyebrow,display]
+  ].filter(([token])=>norm(token));
   for(const el of leafNodes(card)){
-    if(el===eyebrow||el===title)continue;
-    const text=norm(el.textContent),mapped=oldValues.get(low(text));
-    if(mapped){el.textContent=mapped;continue}
-    if(/^контракт\b/iu.test(text)&&!/подписан|скач|недоступ/iu.test(text)){el.textContent=contractText;continue}
+    if(el===nodes.eyebrow||el===nodes.legal||el===nodes.client||el===nodes.contract||el===nodes.contractLabel)continue;
+    let text=norm(el.textContent),next=text;
+    for(const [from,to] of replacements)next=replaceLiteral(next,from,to);
+    if(next!==text)el.textContent=next;
+    if(/^контракт\b/iu.test(next)&&!/подписан|скач|недоступ/iu.test(next))el.textContent=contractText;
   }
   const leaves=leafNodes(card);
   const idLabel=leaves.find(el=>/^ид\s+контракта$/iu.test(norm(el.textContent)));
@@ -185,6 +211,7 @@ function setIdentity(card,ctx,row){
     const idValue=tail.find(el=>/^(B|STRONG|SPAN|DIV)$/i.test(el.tagName)&&norm(el.textContent));
     if(idValue)idValue.textContent=row.contract_id;
   }
+  stripUnsupportedBusinessTail(card);
   return{legal,display,external,effective};
 }
 function findUnavailableNode(card){
