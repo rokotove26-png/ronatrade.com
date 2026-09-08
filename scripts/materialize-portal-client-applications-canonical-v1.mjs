@@ -6,7 +6,7 @@ const approvalPath='governance/client-portal-visual-freeze.json';
 const sourceRuntimePath='assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const runtimePath='dist/assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const id='rona-portal-client-applications-canonical-v1';
-const sourceMarker='20260904-portal-client-applications-canonical-v3-title-frame-box-model';
+const sourceMarker='20260909-portal-client-applications-canonical-v4-single-presentation-owner';
 const marker='20260908-portal-client-applications-canonical-v4-current-projection';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const approval=JSON.parse(await readFile(approvalPath,'utf8'));
