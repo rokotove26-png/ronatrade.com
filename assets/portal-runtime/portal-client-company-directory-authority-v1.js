@@ -5,8 +5,8 @@ const LEGACY_CONTRACT_MARK='20260906-client-contract-v11-authoritative-company-m
 const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
 const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
 const REFRESH_MS=30000;
-if(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__===MARK)return;
-window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;
+if(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__===MARK)return;
+window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__=MARK;
 const state={base:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,rendering:false,observer:null,timer:0,generation:0,renderedGeneration:0,template:null,templateIdentity:null};
 
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
@@ -255,7 +255,25 @@ function installButton(card,row){
   return true;
 }
 function openControl(card){
-  return leafNodes(card).find(el=>/открыть\s+компанию/iu.test(norm(el.textContent))&&/^(BUTTON|A)$/i.test(el.tagName))||null;
+  return leafNodes(card).find(el=>/(?:открыть\s+компанию|текущая\s+компания)/iu.test(norm(el.textContent))&&/^(BUTTON|A)$/i.test(el.tagName))||null;
+}
+function syncActionState(card,current,row){
+  const opener=openControl(card);if(!opener)return false;
+  const isCurrent=same(current,row);
+  card.dataset.ronaCompanyCurrent=isCurrent?'true':'false';
+  opener.textContent=isCurrent?'Текущая компания':'Открыть компанию';
+  if(isCurrent){
+    opener.dataset.ronaCurrentCompanyStatus='true';
+    opener.setAttribute('aria-disabled','true');
+    opener.setAttribute('tabindex','-1');
+    if('disabled' in opener)opener.disabled=true;
+  }else{
+    delete opener.dataset.ronaCurrentCompanyStatus;
+    opener.removeAttribute('aria-disabled');
+    if(opener.getAttribute('tabindex')==='-1')opener.removeAttribute('tabindex');
+    if('disabled' in opener)opener.disabled=false;
+  }
+  return true;
 }
 function materializeCard(template,ctx,row,index,current){
   const card=template.cloneNode(true);
@@ -281,8 +299,8 @@ function materializeCard(template,ctx,row,index,current){
   card.dataset.ronaCompanyDirectorySource=DIRECTORY_SOURCE;
   card.dataset.ronaCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;
   card.dataset.ronaCompanyDirectoryHydration='ready';
-  card.dataset.ronaCompanyCurrent=same(current,row)?'true':'false';
   card.dataset.ronaCompanyDirectoryMaterialization=MATERIALIZATION_MARK;
+  if(!syncActionState(card,current,row))return null;
   installButton(card,row);
   return{ctx,row,card,identity};
 }
@@ -313,7 +331,7 @@ function publishState(){
   const loadedAt=state.lastLoad?new Date(state.lastLoad).toISOString():null;
   window.__RONA_CLIENT_COMPANY_DIRECTORY_STATE__={
     version:MARK,materialization:MATERIALIZATION_MARK,scope:'ALL_AUTHORIZED_CONTEXT_DIRECTORY',
-    source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,validated:state.validated,active:state.active,atomic:true,
+    source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,validated:state.validated,active:state.active,atomic:state.active,
     generation:state.generation,rendered_generation:state.renderedGeneration,entries,loaded_at:loadedAt
   };
   window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={
@@ -324,11 +342,12 @@ function publishState(){
 function syncCurrentMarkers(){
   if(!state.active)return false;
   const grid=canonicalGrid();if(!grid)return false;
-  const current=currentContext();
+  const current=currentContext(),rows=new Map(state.directory.map(row=>[key(row),row]));
   let seen=0;
   for(const card of grid.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]')){
     if(card.dataset.ronaCompanyDirectorySource!==DIRECTORY_SOURCE||card.dataset.ronaCompanyDirectoryDocumentsPredicate!==DOCUMENTS_PREDICATE)continue;
-    card.dataset.ronaCompanyCurrent=(norm(card.dataset.ronaClientId)===norm(current?.client_id)&&norm(card.dataset.ronaClientContractId)===norm(current?.contract_id))?'true':'false';
+    const row=rows.get(norm(card.dataset.ronaClientId)+'|'+norm(card.dataset.ronaClientContractId));
+    if(!row||!syncActionState(card,current,row))continue;
     seen+=1;
   }
   publishState();
@@ -352,6 +371,7 @@ function renderDirectory(generation=state.generation){
     root.dataset.ronaClientCompanyDirectoryAtomic='true';
     root.dataset.ronaClientCompanyDirectoryMaterialization=MATERIALIZATION_MARK;
     root.dataset.ronaClientCompanyDirectoryGeneration=String(generation);
+    window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;
     publishState();
     window.dispatchEvent(new CustomEvent('rona:client-company-directory-ready',{detail:{source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,count:planned.plan.length,generation,materialization:MATERIALIZATION_MARK}}));
     return true;

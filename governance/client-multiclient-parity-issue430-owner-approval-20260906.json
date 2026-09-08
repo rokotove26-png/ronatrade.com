@@ -19,6 +19,53 @@
       "required_marker": "20260906-client-contract-v11-authoritative-company-metrics"
     }
   },
+  "pr431_direct_fix": {
+    "system_admin_comment_id": 5592831513,
+    "parent_sha": "fd56ca2d4fc9d2ea60df454c48de74c4af257ca6",
+    "scope": "CLIENT_PR431_ACTIVE_ONLY_COMPANY_DIRECTORY_AND_CANONICAL_APPLICATIONS_PRESERVATION",
+    "approved_files": [
+      "assets/portal-runtime/portal-client-company-directory-authority-v1.js",
+      "assets/portal-runtime/client-context-selection-authority-v1.js",
+      "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs",
+      ".github/workflows/client-owner-targeted-remediation-qa.yml"
+    ],
+    "exact_post_blobs": {
+      "assets/portal-runtime/portal-client-company-directory-authority-v1.js": {
+        "authorized_post_blob_sha": "6b8759bb9a33dabd2e6a291b6f15d1aecd03b167",
+        "required_marker": "__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__"
+      },
+      "assets/portal-runtime/client-context-selection-authority-v1.js": {
+        "authorized_post_blob_sha": "abe541dbd6162dd7cc03462e1b37ba23d6fb5b60",
+        "required_marker": "rona-applications-canonical-preserved"
+      },
+      "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
+        "authorized_post_blob_sha": "4e906b2519676a14161348abfdb92048528d2435",
+        "required_marker": "BUG2_APPLICATION_OPEN_REFRESH_ROW_SURVIVES_PROOF"
+      },
+      ".github/workflows/client-owner-targeted-remediation-qa.yml": {
+        "authorized_post_blob_sha": "7b9e1697daca02647c53b643b5d41e193fc02e26",
+        "required_marker": "OWNER_RETEST_QA_FIXTURE_ADAPTER_CURRENT=AUTHORITATIVE_COMPANY_DIRECTORY_CENTRAL_SWITCH_V4_IDENTITY_ONLY"
+      }
+    },
+    "requirements": {
+      "visual_freeze_scoped_exception": true,
+      "exact_file_enforcement_remains_active": true,
+      "exact_blob_enforcement_remains_active": true,
+      "wildcard_exception": false,
+      "company_directory_owner_active_only": true,
+      "legacy_current_card_preserved_until_atomic_takeover": true,
+      "current_noncurrent_action_state_generic": true,
+      "signed_contract_source_per_directory_row": true,
+      "canonical_applications_same_node_preserved_during_legacy_render": true,
+      "application_open_then_projection_refresh_row_survives": true,
+      "backend_changed": false,
+      "business_data_changed": false,
+      "rail_changed": false,
+      "css_theme_typography_layout_changed": false,
+      "production_changed": false,
+      "merge_before_owner_retest": false
+    }
+  },
   "requirements": {
     "visual_freeze_remains_enabled": true,
     "owner_instruction_required": true,
