@@ -6,7 +6,7 @@ const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
 const REFRESH_MS=30000;
 if(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__===MARK)return;
 window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;
-const state={base:null,facade:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,rendering:false,observer:null,timer:0,generation:0};
+const state={base:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,rendering:false,observer:null,timer:0,generation:0};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU');
 const pairKey=v=>`${norm(v?.client_id)}|${norm(v?.contract_id)}`;
@@ -47,19 +47,13 @@ function validateCompleteDirectory(body){
   const ordered=authorized.contexts.map(ctx=>byKey.get(pairKey(ctx))||null);if(ordered.some(row=>!row))return null;
   return{authorized,rows:ordered};
 }
-function exposeFacade(){
-  const base=state.base;if(!base)return null;
-  const facade=Object.freeze({...base,getCompanyDirectory:()=>state.directory.map(cloneRow),refreshCompanyDirectory:()=>loadDirectory(true),companyDirectoryVersion:MARK,companyDirectoryActive:()=>state.active});
-  state.facade=facade;window.RONA_CLIENT_CONTEXT=facade;window.getCurrentClientContext=facade.getCurrentContext;return facade;
-}
 async function loadDirectory(force=false){
   if(state.loading)return state.loading;if(!state.base)return[];if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory.map(cloneRow);
   state.loading=(async()=>{
     await state.base.whenReady();
-    const response=await fetch('/portal/api/v1/client/bootstrap',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-source':'portal-client-company-directory-authority-v2:bootstrap'}});
-    const body=await response.json().catch(()=>null);if(!response.ok||body?.ok===false)throw new Error(String(body?.code||`CLIENT_BOOTSTRAP_HTTP_${response.status}`));
+    const body=force?await state.base.refreshCompanyDirectory('portal-client-company-directory-authority-v2'):await state.base.whenCompanyDirectory();
     const validated=validateCompleteDirectory(body);if(!validated)throw new Error('CLIENT_COMPANY_DIRECTORY_INCOMPLETE');
-    state.directory=validated.rows.map(cloneRow);state.validated=true;state.lastLoad=Date.now();state.generation+=1;exposeFacade();
+    state.directory=validated.rows.map(cloneRow);state.validated=true;state.lastLoad=Date.now();state.generation+=1;
     const committed=renderDirectory(state.generation);if(!committed)scheduleRender(0);
     return state.directory.map(cloneRow);
   })().finally(()=>{state.loading=null});
@@ -84,6 +78,7 @@ function installButton(card,row){
   if(legacy&&norm(legacy.dataset.storageObjectId)===norm(contract.storage_object_id)){
     if(existing&&existing!==legacy)existing.remove();legacy.dataset.ronaCompanyContractDownload=norm(row.contract_id);legacy.dataset.storageObjectId=norm(contract.storage_object_id);return true;
   }
+  if(legacy)legacy.remove();
   if(existing&&norm(existing.dataset.storageObjectId)===norm(contract.storage_object_id)&&norm(existing.dataset.ronaCompanyContractDownload)===norm(row.contract_id))return true;
   if(existing)existing.remove();
   const b=document.createElement('button');b.type='button';b.className='btn small';b.dataset.ronaCompanyContractDownload=norm(row.contract_id);b.dataset.storageObjectId=norm(contract.storage_object_id);b.textContent='Скачать договор PDF';b.title=norm(contract.authoritative_filename)||'Скачать действующий подписанный договор';b.setAttribute('aria-label','Скачать подписанный договор '+norm(row.current_external_contract_number||row.contract_id));b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();beginDownload(row,b)},true);
@@ -109,6 +104,6 @@ function renderDirectory(generation=state.generation){
 }
 function scheduleRender(delay=50){if(!state.validated)return;clearTimeout(state.timer);state.timer=setTimeout(()=>renderDirectory(state.generation),delay)}
 function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(records=>{if(state.rendering||!state.validated)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'||r.type==='attributes'))scheduleRender(40)});state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['data-rona-company-directory-hydration','data-rona-company-directory-source','data-rona-company-directory-documents-predicate','data-rona-client-id','data-rona-client-contract-id']})}
-async function start(){const base=window.RONA_CLIENT_CONTEXT;if(!base?.whenReady||!base?.getAuthorizedContexts){console.error('RONA company directory authority unavailable');return}state.base=base;exposeFacade();startObserver();if(typeof base.subscribe==='function')base.subscribe(()=>scheduleRender(0));window.addEventListener('rona:client-context-ready',()=>scheduleRender(0));window.addEventListener('rona:client-context-changed',()=>scheduleRender(0));window.addEventListener('pageshow',()=>loadDirectory(true).catch(error=>console.error('RONA company directory refresh',error)),{passive:true});await loadDirectory(true).catch(error=>console.error('RONA company directory bootstrap',error));setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(error=>console.error('RONA company directory TTL',error))},REFRESH_MS)}
+async function start(){const base=window.RONA_CLIENT_CONTEXT;if(!base?.whenReady||!base?.getAuthorizedContexts||!base?.getCompanyDirectory||!base?.whenCompanyDirectory||!base?.refreshCompanyDirectory){console.error('RONA company directory authority unavailable');return}state.base=base;startObserver();if(typeof base.subscribe==='function')base.subscribe(()=>scheduleRender(0));window.addEventListener('rona:client-context-ready',()=>scheduleRender(0));window.addEventListener('rona:client-context-changed',()=>scheduleRender(0));window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(error=>console.error('RONA company directory central snapshot',error)));window.addEventListener('pageshow',()=>loadDirectory(true).catch(error=>console.error('RONA company directory refresh',error)),{passive:true});await loadDirectory(false).catch(error=>console.error('RONA company directory bootstrap',error));setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(error=>console.error('RONA company directory TTL',error))},REFRESH_MS)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
