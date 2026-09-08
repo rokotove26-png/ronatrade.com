@@ -1,109 +1,362 @@
 (()=>{'use strict';
 const MARK='20260908-pr431-authorized-company-directory-v2-atomic';
+const MATERIALIZATION_MARK='PR431_SERVER_DRIVEN_CARD_MATERIALIZATION_V1';
 const LEGACY_CONTRACT_MARK='20260906-client-contract-v11-authoritative-company-metrics';
 const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
 const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
 const REFRESH_MS=30000;
 if(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__===MARK)return;
 window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;
-const state={base:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,rendering:false,observer:null,timer:0,generation:0};
+const state={base:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,rendering:false,observer:null,timer:0,generation:0,renderedGeneration:0,template:null,templateIdentity:null};
+
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU');
-const pairKey=v=>`${norm(v?.client_id)}|${norm(v?.contract_id)}`;
-const metric=v=>{if(v===null||v===undefined||typeof v==='boolean')return null;const n=Number(v);return Number.isInteger(n)&&n>=0?n:null};
-const cloneRow=row=>row?Object.freeze({...row,current_signed_contract:row.current_signed_contract?Object.freeze({...row.current_signed_contract}):null}):null;
-function authorizedSnapshot(){
-  const contexts=state.base?.getAuthorizedContexts?.()||[];
-  if(!Array.isArray(contexts)||contexts.length===0)return null;
-  const map=new Map(),ordered=[];
-  for(const ctx of contexts){const client_id=norm(ctx?.client_id),contract_id=norm(ctx?.contract_id),key=`${client_id}|${contract_id}`;if(!client_id||!contract_id||map.has(key))return null;const copy={...ctx,client_id,contract_id};map.set(key,copy);ordered.push(copy)}
-  return{contexts:ordered,map};
+const int=v=>{if(v===null||v===undefined||typeof v==='boolean'||(typeof v==='string'&&!/^\d+$/.test(v.trim())))return null;const n=Number(v);return Number.isInteger(n)&&n>=0?n:null};
+const key=v=>norm(v?.client_id)+'|'+norm(v?.contract_id);
+const same=(a,b)=>key(a)!=='|'&&key(a)===key(b);
+const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
+const leafNodes=root=>root?[...root.querySelectorAll('*')].filter(el=>!el.children.length&&norm(el.textContent)):[];
+const currentContext=()=>state.base?.getCurrentContext?.()||null;
+const canonicalGrid=()=>document.querySelector('section#page-companies #clientCompanyGrid');
+
+function compactLegalName(input){
+  const legal=norm(input);if(!legal)return 'Компания';
+  const rules=[
+    [/^общество с ограниченной ответственностью\s+/iu,'ООО '],
+    [/^общество с дополнительной ответственностью\s+/iu,'ОДО '],
+    [/^публичное акционерное общество\s+/iu,'ПАО '],
+    [/^непубличное акционерное общество\s+/iu,'АО '],
+    [/^закрытое акционерное общество\s+/iu,'ЗАО '],
+    [/^открытое акционерное общество\s+/iu,'ОАО '],
+    [/^акционерное общество\s+/iu,'АО '],
+    [/^limited liability company\s+/iu,'LLC ']
+  ];
+  for(const [re,prefix] of rules)if(re.test(legal))return legal.replace(re,prefix);
+  return legal;
 }
-function cleanDirectoryRow(row,authorized){
+function formatDate(v){const s=norm(v);if(!/^\d{4}-\d{2}-\d{2}/.test(s))return'';const [y,m,d]=s.slice(0,10).split('-');return `${d}.${m}.${y}`}
+function contextByIds(clientId,contractId){return (state.base?.getAuthorizedContexts?.()||[]).find(ctx=>norm(ctx?.client_id)===norm(clientId)&&norm(ctx?.contract_id)===norm(contractId))||null}
+function authorizedSnapshot(){
+  const rows=state.base?.getAuthorizedContexts?.();
+  return Array.isArray(rows)?rows.map(ctx=>({...ctx,client_id:norm(ctx?.client_id),contract_id:norm(ctx?.contract_id)})).filter(ctx=>ctx.client_id&&ctx.contract_id):[];
+}
+function cleanDirectoryRow(row){
   if(!row||typeof row!=='object')return null;
-  const key=pairKey(row),ctx=authorized.get(key);if(!ctx)return null;
-  const applications_total=metric(row.applications_total),deals_total=metric(row.deals_total),documents_total=metric(row.documents_total);
+  const applications_total=int(row.applications_total),deals_total=int(row.deals_total),documents_total=int(row.documents_total);
   if(applications_total===null||deals_total===null||documents_total===null)return null;
-  if(norm(row.source)!==DIRECTORY_SOURCE||norm(row.documents_predicate)!==DOCUMENTS_PREDICATE)return null;
+  const client_id=norm(row.client_id),contract_id=norm(row.contract_id);
+  if(!client_id||!contract_id||norm(row.source)!==DIRECTORY_SOURCE||norm(row.documents_predicate)!==DOCUMENTS_PREDICATE)return null;
   let current_signed_contract=null;
   if(row.current_signed_contract!==null&&row.current_signed_contract!==undefined){
-    const contract=row.current_signed_contract;
-    if(!contract||typeof contract!=='object')return null;
-    const document_id=norm(contract.document_id),storage_object_id=norm(contract.storage_object_id),authoritative_filename=norm(contract.authoritative_filename);
+    const value=row.current_signed_contract;if(!value||typeof value!=='object')return null;
+    const document_id=norm(value.document_id),storage_object_id=norm(value.storage_object_id),authoritative_filename=norm(value.authoritative_filename);
     if(!document_id||!storage_object_id||!authoritative_filename)return null;
     current_signed_contract={document_id,storage_object_id,authoritative_filename};
   }
-  return cloneRow({client_id:norm(ctx.client_id),legal_name:norm(row.legal_name||ctx.legal_name),registration_country:norm(row.registration_country||ctx.registration_country),contract_id:norm(ctx.contract_id),current_external_contract_number:norm(row.current_external_contract_number||ctx.current_external_contract_number),contract_status:norm(row.contract_status||ctx.contract_status),effective_from:row.effective_from||ctx.effective_from||null,effective_to:row.effective_to||ctx.effective_to||null,applications_total,deals_total,documents_total,documents_predicate:DOCUMENTS_PREDICATE,source:DIRECTORY_SOURCE,current_signed_contract});
+  return{
+    client_id,contract_id,
+    legal_name:norm(row.legal_name)||null,
+    registration_country:norm(row.registration_country)||null,
+    current_external_contract_number:norm(row.current_external_contract_number)||contract_id,
+    contract_status:norm(row.contract_status)||null,
+    effective_from:row.effective_from||null,
+    effective_to:row.effective_to||null,
+    applications_total,deals_total,documents_total,
+    documents_predicate:DOCUMENTS_PREDICATE,
+    source:DIRECTORY_SOURCE,
+    current_signed_contract
+  };
 }
 function validateCompleteDirectory(body){
-  const authorized=authorizedSnapshot();if(!authorized)return null;
-  if(norm(body?.data?.company_directory_source)!==DIRECTORY_SOURCE)return null;
-  const raw=Array.isArray(body?.data?.company_directory)?body.data.company_directory:null;
-  if(!raw||raw.length!==authorized.contexts.length)return null;
-  const rows=[],seen=new Set();
-  for(const item of raw){const key=pairKey(item);if(!key||seen.has(key))return null;seen.add(key);const clean=cleanDirectoryRow(item,authorized.map);if(!clean)return null;rows.push(clean)}
-  if(seen.size!==authorized.map.size)return null;
-  const byKey=new Map(rows.map(row=>[pairKey(row),row]));
-  const ordered=authorized.contexts.map(ctx=>byKey.get(pairKey(ctx))||null);if(ordered.some(row=>!row))return null;
-  return{authorized,rows:ordered};
+  const authorized=authorizedSnapshot(),data=body?.data&&typeof body.data==='object'?body.data:body;
+  if(!authorized.length||norm(data?.company_directory_source)!==DIRECTORY_SOURCE)return null;
+  const raw=Array.isArray(data?.company_directory)?data.company_directory:null;
+  if(!raw||raw.length!==authorized.length)return null;
+  const rows=raw.map(cleanDirectoryRow);if(rows.some(row=>!row))return null;
+  const map=new Map;
+  for(const row of rows){const k=key(row);if(map.has(k))return null;map.set(k,row)}
+  for(const ctx of authorized)if(!map.has(key(ctx)))return null;
+  for(const row of rows)if(!contextByIds(row.client_id,row.contract_id))return null;
+  return{authorized,rows:authorized.map(ctx=>map.get(key(ctx)))};
 }
 async function loadDirectory(force=false){
-  if(state.loading)return state.loading;if(!state.base)return[];if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory.map(cloneRow);
+  if(state.loading)return state.loading;
+  if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory;
   state.loading=(async()=>{
     await state.base.whenReady();
-    const body=force?await state.base.refreshCompanyDirectory('portal-client-company-directory-authority-v2'):await state.base.whenCompanyDirectory();
-    const validated=validateCompleteDirectory(body);if(!validated)throw new Error('CLIENT_COMPANY_DIRECTORY_INCOMPLETE');
-    state.directory=validated.rows.map(cloneRow);state.validated=true;state.lastLoad=Date.now();state.generation+=1;
-    const committed=renderDirectory(state.generation);if(!committed)scheduleRender(0);
-    return state.directory.map(cloneRow);
-  })().finally(()=>{state.loading=null});
+    const body=force?await state.base.refreshCompanyDirectory('pr431-company-directory-runtime'):await state.base.whenCompanyDirectory();
+    const validated=validateCompleteDirectory(body);
+    if(!validated)throw new Error('CLIENT_COMPANY_DIRECTORY_INCOMPLETE');
+    state.directory=validated.rows.map(clone);
+    state.validated=true;
+    state.lastLoad=Date.now();
+    state.generation+=1;
+    if(!renderDirectory(state.generation))scheduleRender(0);
+    return state.directory;
+  })().catch(error=>{console.error('RONA authorized company directory',error);throw error}).finally(()=>{state.loading=null});
   return state.loading;
 }
-function leafNodes(root){return [...root.querySelectorAll('button,a,span,small,strong,p,div')].filter(el=>el.childElementCount===0&&norm(el.textContent))}
-function metricSlot(card,labels){const matches=leafNodes(card).filter(el=>labels.includes(low(el.textContent)));if(matches.length!==1)return null;const label=matches[0];let box=label.parentElement;for(let depth=0;box&&card.contains(box)&&depth<4;depth++,box=box.parentElement){const values=leafNodes(box).filter(el=>el!==label&&/^(?:\d+|—)$/.test(norm(el.textContent)));if(values.length===1)return{label,value:values[0]};if(values.length>1)return null;if(box===card)break}return null}
-function metricSlots(card){const applications=metricSlot(card,['заявок']),deals=metricSlot(card,['сделок']),documents=metricSlot(card,['документов','действий']);return applications&&deals&&documents?{applications,deals,documents}:null}
-function cardScore(card,ctx,row){const text=low(card.textContent),client=low(ctx.client_id),contract=low(ctx.contract_id),external=low(row?.current_external_contract_number||ctx.current_external_contract_number),legal=low(row?.legal_name||ctx.legal_name);let score=0;const attrs=[norm(card.dataset.ronaClientId),norm(card.dataset.clientId)];const cattrs=[norm(card.dataset.ronaClientContractId),norm(card.dataset.ronaContractId),norm(card.dataset.contractId)];if(attrs.includes(norm(ctx.client_id)))score+=4000;if(cattrs.includes(norm(ctx.contract_id)))score+=8000;if(contract&&text.includes(contract))score+=2000;if(client&&text.includes(client))score+=1000;if(external&&text.includes(external))score+=700;if(legal&&legal.length>=4&&text.includes(legal))score+=400;return score}
-function findCard(ctx,row,used){const grid=document.querySelector('section#page-companies #clientCompanyGrid');if(!grid)return null;const cards=[...grid.querySelectorAll('article.company-switch-card')].filter(card=>card.isConnected&&!used.has(card));const scored=cards.map(card=>({card,score:cardScore(card,ctx,row)})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);if(!scored.length)return null;if(scored.length>1&&scored[0].score===scored[1].score)return null;return scored[0].card}
-function setNodeText(el,value){const next=String(value??'');if(!el||String(el.textContent??'')===next)return false;el.textContent=next;return true}
-function setMetric(slot,value,label){if(!slot)return false;if(label)setNodeText(slot.label,label);setNodeText(slot.value,String(value));return true}
-function unavailableNode(card){return leafNodes(card).find(el=>/контракт.*(?:недоступ|не опубликован)|файл подписанного контракта/iu.test(norm(el.textContent)))||null}
-function contractAnchor(card){return leafNodes(card).find(el=>low(el.textContent)==='подписанный контракт')||null}
-function downloadName(row,issued){return norm(issued?.object?.filename||row?.current_signed_contract?.authoritative_filename||'Договор.pdf')||'Договор.pdf'}
-function withDownloadDisposition(url,filename){try{const u=new URL(String(url));u.searchParams.set('download',filename);return u.toString()}catch{return String(url||'')}}
-async function beginDownload(row,button){const objectId=norm(row?.current_signed_contract?.storage_object_id);if(!objectId||button.disabled)return;const idle='Скачать договор PDF';button.disabled=true;button.textContent='Подготовка PDF…';try{const response=await fetch('/portal/api/v1/client/storage/'+encodeURIComponent(objectId)+'/signed-url',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-source':'portal-client-company-directory-authority-v2:contract-download'}}),body=await response.json().catch(()=>null);if(!response.ok||body?.ok===false)throw new Error(String(body?.code||`HTTP_${response.status}`));const url=body?.signed_url||body?.data?.signed_url;if(!url)throw new Error('SIGNED_URL_MISSING');const filename=downloadName(row,body),a=document.createElement('a');a.href=withDownloadDisposition(url,filename);a.target='_blank';a.rel='noopener';a.download=filename;a.hidden=true;document.body.appendChild(a);a.click();a.remove();button.textContent='Договор открыт'}catch(error){console.error('RONA company directory contract download',error);button.textContent='Не удалось скачать';button.title='Не удалось получить защищённую ссылку. Повторите попытку.'}finally{setTimeout(()=>{if(button.isConnected){button.disabled=false;button.textContent=idle}},1200)}}
-function clearOwnedButton(card){for(const button of card.querySelectorAll('button[data-rona-company-contract-download]'))button.remove()}
-function installButton(card,row){
-  const contract=row?.current_signed_contract,existing=card.querySelector('button[data-rona-company-contract-download]'),legacy=card.querySelector('button[data-rona-contract-download-v3]'),unavailable=unavailableNode(card),anchor=contractAnchor(card);
-  if(!contract?.storage_object_id){clearOwnedButton(card);if(legacy)legacy.remove();return false}
-  if(legacy&&norm(legacy.dataset.storageObjectId)===norm(contract.storage_object_id)){
-    if(existing&&existing!==legacy)existing.remove();legacy.dataset.ronaCompanyContractDownload=norm(row.contract_id);legacy.dataset.storageObjectId=norm(contract.storage_object_id);return true;
+
+function metricSlots(card){
+  const leaves=leafNodes(card);
+  const byLabel=label=>{
+    const labelNode=leaves.find(el=>low(el.textContent)===label);
+    if(!labelNode)return null;
+    const metric=leaves.slice(0,leaves.indexOf(labelNode)).reverse().find(el=>/^\d+$/.test(norm(el.textContent)));
+    return metric?{value:metric,label:labelNode}:null;
+  };
+  const applications=byLabel('заявок'),deals=byLabel('сделок');
+  const documents=byLabel('документов')||byLabel('действий');
+  return applications&&deals&&documents?{applications,deals,documents}:null;
+}
+function templateIdentity(card){
+  const leaves=leafNodes(card);
+  const eyebrow=card.querySelector('.eyebrow');
+  const legal=card.querySelector('h3');
+  const contractLabel=leaves.find(el=>/^контракт\b/iu.test(norm(el.textContent))&&!/подписан|скач/iu.test(norm(el.textContent)));
+  let client='',contract='';
+  if(contractLabel){
+    const before=leaves.slice(0,leaves.indexOf(contractLabel)).filter(el=>el!==eyebrow&&el!==legal);
+    if(before.length>=2){client=norm(before.at(-2)?.textContent);contract=norm(before.at(-1)?.textContent)}
   }
-  if(legacy)legacy.remove();
-  if(existing&&norm(existing.dataset.storageObjectId)===norm(contract.storage_object_id)&&norm(existing.dataset.ronaCompanyContractDownload)===norm(row.contract_id))return true;
-  if(existing)existing.remove();
-  const b=document.createElement('button');b.type='button';b.className='btn small';b.dataset.ronaCompanyContractDownload=norm(row.contract_id);b.dataset.storageObjectId=norm(contract.storage_object_id);b.textContent='Скачать договор PDF';b.title=norm(contract.authoritative_filename)||'Скачать действующий подписанный договор';b.setAttribute('aria-label','Скачать подписанный договор '+norm(row.current_external_contract_number||row.contract_id));b.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();beginDownload(row,b)},true);
-  if(unavailable){unavailable.replaceWith(b);return true}if(anchor?.parentElement){anchor.parentElement.appendChild(b);return true}card.appendChild(b);return true;
+  return{eyebrow:norm(eyebrow?.textContent),legal:norm(legal?.textContent),client,contract,contractLabel:norm(contractLabel?.textContent)};
+}
+function captureTemplate(){
+  if(state.template)return state.template;
+  const grid=canonicalGrid();if(!grid)return null;
+  const cards=[...grid.querySelectorAll('article.company-switch-card')];
+  const card=cards.find(item=>metricSlots(item)&&leafNodes(item).some(el=>/открыть\s+компанию/iu.test(norm(el.textContent))))||cards.find(item=>metricSlots(item))||null;
+  if(!card)return null;
+  state.template=card.cloneNode(true);
+  state.templateIdentity=templateIdentity(card);
+  return state.template;
+}
+function remapIds(card,suffix){
+  const map=new Map;
+  for(const el of [card,...card.querySelectorAll('[id]')]){
+    const old=norm(el.id);if(!old)continue;
+    const next=`${old}-${suffix}`;map.set(old,next);el.id=next;
+  }
+  if(!map.size)return;
+  for(const el of [card,...card.querySelectorAll('*')]){
+    for(const attr of ['for','aria-labelledby','aria-describedby','aria-controls']){
+      const raw=norm(el.getAttribute?.(attr));if(!raw)continue;
+      const next=raw.split(/\s+/).map(token=>map.get(token)||token).join(' ');
+      el.setAttribute(attr,next);
+    }
+    const href=norm(el.getAttribute?.('href'));
+    if(href.startsWith('#')&&map.has(href.slice(1)))el.setAttribute('href','#'+map.get(href.slice(1)));
+  }
+}
+function stripContextEvidence(card){
+  for(const el of [card,...card.querySelectorAll('[data-rona-client-id],[data-client-id],[data-rona-client-contract-id],[data-rona-contract-id],[data-contract-id]')]){
+    for(const attr of ['data-rona-client-id','data-client-id','data-rona-client-contract-id','data-rona-contract-id','data-contract-id'])el.removeAttribute(attr);
+  }
+}
+function clearOwnedButtons(card){
+  for(const button of card.querySelectorAll('button[data-rona-company-contract-download],button[data-rona-contract-download-v3]'))button.remove();
+}
+function setIdentity(card,ctx,row){
+  const identity=state.templateIdentity||{};
+  const legal=norm(row.legal_name)||norm(ctx.legal_name)||row.client_id;
+  const display=compactLegalName(legal);
+  const external=norm(row.current_external_contract_number)||row.contract_id;
+  const effective=formatDate(row.effective_from);
+  const contractText=`Контракт № ${external}${effective?` · ${effective}`:''}`;
+  const eyebrow=card.querySelector('.eyebrow');if(eyebrow)eyebrow.textContent=display;
+  const title=card.querySelector('h3');if(title)title.textContent=legal;
+  const oldValues=new Map([
+    [low(identity.client),row.client_id],
+    [low(identity.contract),row.contract_id],
+    [low(identity.contractLabel),contractText],
+    [low(identity.legal),legal],
+    [low(identity.eyebrow),display]
+  ].filter(([token])=>token));
+  for(const el of leafNodes(card)){
+    if(el===eyebrow||el===title)continue;
+    const text=norm(el.textContent),mapped=oldValues.get(low(text));
+    if(mapped){el.textContent=mapped;continue}
+    if(/^контракт\b/iu.test(text)&&!/подписан|скач|недоступ/iu.test(text)){el.textContent=contractText;continue}
+  }
+  const leaves=leafNodes(card);
+  const idLabel=leaves.find(el=>/^ид\s+контракта$/iu.test(norm(el.textContent)));
+  if(idLabel){
+    const tail=leaves.slice(leaves.indexOf(idLabel)+1);
+    const idValue=tail.find(el=>/^(B|STRONG|SPAN|DIV)$/i.test(el.tagName)&&norm(el.textContent));
+    if(idValue)idValue.textContent=row.contract_id;
+  }
+  return{legal,display,external,effective};
+}
+function findUnavailableNode(card){
+  const leaves=leafNodes(card);
+  return leaves.find(el=>/контракт.*недоступ|файл.*контракт.*не опубликован|скачиван.*недоступ/iu.test(norm(el.textContent)))||null;
+}
+function contractAnchor(card){
+  const leaves=leafNodes(card);
+  const signed=leaves.find(el=>/подписанн(?:ый|ого)\s+контракт/iu.test(norm(el.textContent)))||null;
+  if(signed?.parentElement)return signed.parentElement;
+  return card;
+}
+function installButton(card,row){
+  clearOwnedButtons(card);
+  const doc=row.current_signed_contract;if(!doc?.storage_object_id)return false;
+  const fallback=findUnavailableNode(card);
+  const button=document.createElement('button');
+  button.type='button';
+  if(fallback)button.className=fallback.className||'status amber';
+  button.textContent='Скачать договор PDF';
+  button.dataset.ronaCompanyContractDownload='true';
+  button.dataset.ronaClientId=row.client_id;
+  button.dataset.ronaContractId=row.contract_id;
+  button.dataset.ronaStorageObjectId=doc.storage_object_id;
+  if(doc.document_id)button.dataset.ronaDocumentId=doc.document_id;
+  button.addEventListener('click',async event=>{
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+    const selectedBefore=key(currentContext());
+    button.disabled=true;
+    try{
+      const response=await fetch(`/portal/api/v1/client/storage/${encodeURIComponent(doc.storage_object_id)}/signed-url`,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+      const body=await response.json().catch(()=>null);
+      if(!response.ok||body?.ok===false)throw new Error(String(body?.code||body?.error?.code||`HTTP_${response.status}`));
+      const url=norm(body?.data?.signed_url||body?.signed_url||body?.data?.url||body?.url);if(!url)throw new Error('SIGNED_URL_MISSING');
+      window.open(url,'_blank','noopener,noreferrer');
+    }catch(error){console.error('RONA signed contract download',error)}
+    finally{button.disabled=false}
+    if(key(currentContext())!==selectedBefore)console.error('RONA contract click changed company context');
+  });
+  if(fallback)fallback.replaceWith(button);else contractAnchor(card).append(button);
+  return true;
+}
+function openControl(card){
+  return leafNodes(card).find(el=>/открыть\s+компанию/iu.test(norm(el.textContent))&&/^(BUTTON|A)$/i.test(el.tagName))||null;
+}
+function materializeCard(template,ctx,row,index,current){
+  const card=template.cloneNode(true);
+  remapIds(card,`rona-company-${index+1}`);
+  stripContextEvidence(card);
+  clearOwnedButtons(card);
+  card.removeAttribute('aria-hidden');
+  card.removeAttribute('inert');
+  if(card.getAttribute('tabindex')==='-1')card.removeAttribute('tabindex');
+  const identity=setIdentity(card,ctx,row);
+  const slots=metricSlots(card);if(!slots)return null;
+  slots.applications.value.textContent=String(row.applications_total);
+  slots.deals.value.textContent=String(row.deals_total);
+  slots.documents.value.textContent=String(row.documents_total);
+  slots.documents.label.textContent='ДОКУМЕНТОВ';
+  const opener=openControl(card);if(!opener)return null;
+  opener.removeAttribute('onclick');
+  if('disabled' in opener)opener.disabled=false;
+  opener.removeAttribute('aria-disabled');
+  card.dataset.ronaCompanyAuthorizationScope='authorized-directory';
+  card.dataset.ronaClientId=row.client_id;
+  card.dataset.ronaClientContractId=row.contract_id;
+  card.dataset.ronaCompanyDirectorySource=DIRECTORY_SOURCE;
+  card.dataset.ronaCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;
+  card.dataset.ronaCompanyDirectoryHydration='ready';
+  card.dataset.ronaCompanyCurrent=same(current,row)?'true':'false';
+  card.dataset.ronaCompanyDirectoryMaterialization=MATERIALIZATION_MARK;
+  installButton(card,row);
+  return{ctx,row,card,identity};
 }
 function planDirectory(){
-  if(!state.validated||!state.base||!state.directory.length)return null;
-  const authorized=authorizedSnapshot();if(!authorized||authorized.contexts.length!==state.directory.length)return null;
-  const byKey=new Map(state.directory.map(row=>[pairKey(row),row]));if(byKey.size!==authorized.contexts.length)return null;
-  const used=new Set(),plan=[];
-  for(const ctx of authorized.contexts){const row=byKey.get(pairKey(ctx));if(!row)return null;const card=findCard(ctx,row,used);if(!card)return null;const slots=metricSlots(card);if(!slots)return null;used.add(card);plan.push({ctx,row,card,slots})}
-  return plan;
+  if(!state.validated||!state.directory.length)return null;
+  const grid=canonicalGrid(),template=captureTemplate();if(!grid||!template)return null;
+  const authorized=authorizedSnapshot();if(authorized.length!==state.directory.length)return null;
+  const rows=new Map(state.directory.map(row=>[key(row),row]));
+  if(rows.size!==authorized.length)return null;
+  const current=currentContext(),plan=[];
+  for(let index=0;index<authorized.length;index++){
+    const ctx=authorized[index],row=rows.get(key(ctx));if(!row)return null;
+    const item=materializeCard(template,ctx,row,index,current);if(!item)return null;
+    plan.push(item);
+  }
+  if(plan.length!==authorized.length)return null;
+  return{grid,plan,generation:state.generation};
 }
-function publishState(plan){const current=state.base?.getCurrentContext?.();window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,legacy_owner_marker:LEGACY_CONTRACT_MARK,current_contract_id:norm(current?.contract_id)||null,scope:'ALL_AUTHORIZED_CONTEXT_DIRECTORY',source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,entries:plan.map(({row,ctx})=>({client_id:ctx.client_id,contract_id:ctx.contract_id,applications:row.applications_total,deals:row.deals_total,documents:row.documents_total,metrics_ready:true,current:pairKey(ctx)===pairKey(current),download:!!row.current_signed_contract?.storage_object_id})),loadedAt:new Date().toISOString()}}
+function publishState(){
+  const current=currentContext();
+  const entries=state.directory.map(row=>({
+    client_id:row.client_id,contract_id:row.contract_id,legal_name:row.legal_name,
+    current_external_contract_number:row.current_external_contract_number,
+    applications:row.applications_total,deals:row.deals_total,documents:row.documents_total,
+    source:row.source,documents_predicate:row.documents_predicate,
+    current:same(current,row),signed_contract:Boolean(row.current_signed_contract?.storage_object_id),download:Boolean(row.current_signed_contract?.storage_object_id),metrics_ready:true
+  }));
+  const loadedAt=state.lastLoad?new Date(state.lastLoad).toISOString():null;
+  window.__RONA_CLIENT_COMPANY_DIRECTORY_STATE__={
+    version:MARK,materialization:MATERIALIZATION_MARK,scope:'ALL_AUTHORIZED_CONTEXT_DIRECTORY',
+    source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,validated:state.validated,active:state.active,atomic:true,
+    generation:state.generation,rendered_generation:state.renderedGeneration,entries,loaded_at:loadedAt
+  };
+  window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={
+    version:MARK,legacy_owner_marker:LEGACY_CONTRACT_MARK,current_contract_id:norm(current?.contract_id)||null,
+    scope:'ALL_AUTHORIZED_CONTEXT_DIRECTORY',source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,entries,loadedAt
+  };
+}
+function syncCurrentMarkers(){
+  if(!state.active)return false;
+  const grid=canonicalGrid();if(!grid)return false;
+  const current=currentContext();
+  let seen=0;
+  for(const card of grid.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]')){
+    if(card.dataset.ronaCompanyDirectorySource!==DIRECTORY_SOURCE||card.dataset.ronaCompanyDirectoryDocumentsPredicate!==DOCUMENTS_PREDICATE)continue;
+    card.dataset.ronaCompanyCurrent=(norm(card.dataset.ronaClientId)===norm(current?.client_id)&&norm(card.dataset.ronaClientContractId)===norm(current?.contract_id))?'true':'false';
+    seen+=1;
+  }
+  publishState();
+  return seen===state.directory.length;
+}
 function renderDirectory(generation=state.generation){
-  if(state.rendering||!state.validated||generation!==state.generation)return false;
-  const plan=planDirectory();if(!plan)return false;
+  if(state.rendering)return false;
+  if(state.active&&state.renderedGeneration===generation)return syncCurrentMarkers();
+  const planned=planDirectory();if(!planned||planned.generation!==generation)return false;
   state.rendering=true;
   try{
-    for(const {ctx,row,card,slots} of plan){setMetric(slots.applications,row.applications_total);setMetric(slots.deals,row.deals_total);setMetric(slots.documents,row.documents_total,'ДОКУМЕНТОВ');card.dataset.ronaCompanyDirectoryHydration='ready';card.dataset.ronaCompanyDirectorySource=DIRECTORY_SOURCE;card.dataset.ronaCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;card.dataset.ronaClientId=norm(ctx.client_id);card.dataset.ronaClientContractId=norm(ctx.contract_id);installButton(card,row)}
-    state.active=true;document.documentElement.dataset.ronaClientCompanyDirectory=MARK;document.documentElement.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;document.documentElement.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;document.documentElement.dataset.ronaClientContractDownloads=String(plan.filter(x=>x.row.current_signed_contract?.storage_object_id).length);publishState(plan);window.dispatchEvent(new CustomEvent('rona:client-company-directory-ready',{detail:{source:DIRECTORY_SOURCE,predicate:DOCUMENTS_PREDICATE,count:plan.length,authorized_count:plan.length,generation}}));return true;
+    const fragment=document.createDocumentFragment();
+    for(const item of planned.plan)fragment.append(item.card);
+    if(planned.plan.length!==state.directory.length)return false;
+    planned.grid.replaceChildren(fragment);
+    state.active=true;
+    state.renderedGeneration=generation;
+    const root=document.documentElement;
+    root.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;
+    root.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;
+    root.dataset.ronaClientCompanyDirectoryAtomic='true';
+    root.dataset.ronaClientCompanyDirectoryMaterialization=MATERIALIZATION_MARK;
+    root.dataset.ronaClientCompanyDirectoryGeneration=String(generation);
+    publishState();
+    window.dispatchEvent(new CustomEvent('rona:client-company-directory-ready',{detail:{source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,count:planned.plan.length,generation,materialization:MATERIALIZATION_MARK}}));
+    return true;
   }finally{state.rendering=false}
 }
-function scheduleRender(delay=50){if(!state.validated)return;clearTimeout(state.timer);state.timer=setTimeout(()=>renderDirectory(state.generation),delay)}
-function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(records=>{if(state.rendering||!state.validated)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'||r.type==='attributes'))scheduleRender(40)});state.observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['data-rona-company-directory-hydration','data-rona-company-directory-source','data-rona-company-directory-documents-predicate','data-rona-client-id','data-rona-client-contract-id']})}
-async function start(){const base=window.RONA_CLIENT_CONTEXT;if(!base?.whenReady||!base?.getAuthorizedContexts||!base?.getCompanyDirectory||!base?.whenCompanyDirectory||!base?.refreshCompanyDirectory){console.error('RONA company directory authority unavailable');return}state.base=base;startObserver();if(typeof base.subscribe==='function')base.subscribe(()=>scheduleRender(0));window.addEventListener('rona:client-context-ready',()=>scheduleRender(0));window.addEventListener('rona:client-context-changed',()=>scheduleRender(0));window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(error=>console.error('RONA company directory central snapshot',error)));window.addEventListener('pageshow',()=>loadDirectory(true).catch(error=>console.error('RONA company directory refresh',error)),{passive:true});await loadDirectory(false).catch(error=>console.error('RONA company directory bootstrap',error));setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(error=>console.error('RONA company directory TTL',error))},REFRESH_MS)}
+function scheduleRender(delay=20){
+  clearTimeout(state.timer);
+  state.timer=setTimeout(()=>renderDirectory(state.generation),delay);
+}
+function startObserver(){
+  const body=document.body;if(!body)return;
+  captureTemplate();
+  state.observer=new MutationObserver(records=>{
+    if(state.rendering)return;
+    if(state.active){syncCurrentMarkers();return}
+    if(records.some(record=>record.type==='childList'||record.type==='attributes'))scheduleRender(35);
+  });
+  state.observer.observe(body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','aria-hidden','data-rona-client-id','data-rona-client-contract-id']});
+}
+async function start(){
+  if(window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__===MARK)return;
+  const base=window.RONA_CLIENT_CONTEXT;if(!base?.whenReady||!base?.getAuthorizedContexts||!base?.getCompanyDirectory||!base?.whenCompanyDirectory||!base?.refreshCompanyDirectory)return;
+  window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__=MARK;
+  state.base=base;
+  captureTemplate();
+  startObserver();
+  if(base.subscribe)base.subscribe(()=>state.active?syncCurrentMarkers():scheduleRender(0));
+  window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(()=>{}));
+  window.addEventListener('pageshow',()=>loadDirectory(true).catch(()=>{}));
+  window.addEventListener('rona:client-context-changed',()=>state.active?syncCurrentMarkers():scheduleRender(0));
+  await loadDirectory(false).catch(()=>{});
+  setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

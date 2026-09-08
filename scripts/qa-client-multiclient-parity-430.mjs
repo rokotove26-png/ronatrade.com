@@ -3,6 +3,8 @@ import { execFileSync } from 'node:child_process';
 
 const BASE='fe3f3fa3db5146abacbbd56e59ebd0472ba9fb18';
 const HISTORICAL_PR429_GOVERNANCE='governance/client-load-hotfix-pr429-owner-approval-20260905.json';
+const ISSUE432_INTEGRATOR='scripts/apply-client-context-coherence-432.mjs';
+const ISSUE432_INTEGRATOR_BLOB='40ac11b7b4d8dfa4e0f16eb64d2d440305fc4a5a';
 const ISSUE432_CONSUMER_HELPER='scripts/apply-client-context-coherence-432-consumer-v2.mjs';
 const ISSUE432_OLD_CONTRACT_READ="contract=replaceOnce(contract,\"const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));\",\"const key=contextKey(current),projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};\",'ISSUE432_CONTRACT_CONTEXT_READ');";
 const ISSUE432_NEW_CONTRACT_READ="contract=replaceOnce(contract,\"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));\",\"const projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};\",'ISSUE432_CONTRACT_CONTEXT_READ');";
@@ -189,8 +191,12 @@ try{
     const mergeBase=execFileSync('git',['merge-base',`origin/${baseRef}`,'HEAD'],{encoding:'utf8'}).trim();
     if(mergeBase!==BASE)throw new Error(`ISSUE430_BASE_MISMATCH ${mergeBase}`);
     const changed=execFileSync('git',['diff','--name-only',`${BASE}...HEAD`],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
-    const forbidden=changed.filter(path=>/rail/i.test(path)||path.startsWith('supabase/migrations/')||path.startsWith('db/migrations/')||(path.includes('context-coherence-432')&&path!==ISSUE432_CONSUMER_HELPER));
+    const forbidden=changed.filter(path=>/rail/i.test(path)||path.startsWith('supabase/migrations/')||path.startsWith('db/migrations/')||(path.includes('context-coherence-432')&&path!==ISSUE432_CONSUMER_HELPER&&path!==ISSUE432_INTEGRATOR));
     if(forbidden.length)throw new Error(`OUT_OF_SCOPE_DELTA ${forbidden.join(',')}`);
+    if(changed.includes(ISSUE432_INTEGRATOR)){
+      const integratorBlob=execFileSync('git',['rev-parse',`HEAD:${ISSUE432_INTEGRATOR}`],{encoding:'utf8'}).trim();
+      if(integratorBlob!==ISSUE432_INTEGRATOR_BLOB)throw new Error(`OUT_OF_SCOPE_DELTA ${ISSUE432_INTEGRATOR}`);
+    }
     if(changed.includes(ISSUE432_CONSUMER_HELPER)){
       const helperBase=execFileSync('git',['show',`${BASE}:${ISSUE432_CONSUMER_HELPER}`],{encoding:'utf8'});
       const helperActual=await readFile(ISSUE432_CONSUMER_HELPER,'utf8');
@@ -216,5 +222,5 @@ console.log(`DYNAMIC_CONTEXT_DISCOVERY=PASS contexts=${discoveredContexts.length
 console.log('MULTI_CONTRACT_CONTEXT=PASS');
 console.log('EMPTY_DATA_CONTEXT=PASS');
 console.log('A_B_A_GENERATION_ISOLATION=PASS');
-console.log('ISSUE432_DELTA=EXACT_CONSUMER_TRANSFORM_ONLY');
+console.log('ISSUE432_DELTA=EXACT_AUTHORIZED_INTEGRATOR_PLUS_CONSUMER_TRANSFORM');
 console.log('DESTRUCTIVE_CLEANUP=ABSENT');
