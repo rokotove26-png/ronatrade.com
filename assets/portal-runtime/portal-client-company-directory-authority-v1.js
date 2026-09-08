@@ -113,7 +113,7 @@ function templateIdentity(card){
   const leaves=leafNodes(card);
   const eyebrow=card.querySelector('.eyebrow');
   const legal=card.querySelector('h3');
-  const contractLabel=leaves.find(el=>/^контракт\b/iu.test(norm(el.textContent))&&!/подписан|скач/iu.test(norm(el.textContent)));
+  const contractLabel=leaves.find(el=>/^контракт(?=\s|№|$)/iu.test(norm(el.textContent))&&!/подписан|скач/iu.test(norm(el.textContent)));
   let client='',contract='';
   if(contractLabel){
     const before=leaves.slice(0,leaves.indexOf(contractLabel)).filter(el=>el!==eyebrow&&el!==legal);
@@ -158,7 +158,7 @@ function clearOwnedButtons(card){
 }
 function contractIdentityNodes(card){
   const leaves=leafNodes(card),eyebrow=card.querySelector('.eyebrow'),legal=card.querySelector('h3');
-  const contractLabel=leaves.find(el=>/^контракт\b/iu.test(norm(el.textContent))&&!/подписан|скач|недоступ/iu.test(norm(el.textContent)))||null;
+  const contractLabel=leaves.find(el=>/^контракт(?=\s|№|$)/iu.test(norm(el.textContent))&&!/подписан|скач|недоступ/iu.test(norm(el.textContent)))||null;
   if(!contractLabel)return{eyebrow,legal,client:null,contract:null,contractLabel:null};
   const before=leaves.slice(0,leaves.indexOf(contractLabel)).filter(el=>el!==eyebrow&&el!==legal);
   return{eyebrow,legal,client:before.length>=2?before.at(-2):null,contract:before.length>=1?before.at(-1):null,contractLabel};
@@ -202,7 +202,7 @@ function setIdentity(card,ctx,row){
     let text=norm(el.textContent),next=text;
     for(const [from,to] of replacements)next=replaceLiteral(next,from,to);
     if(next!==text)el.textContent=next;
-    if(/^контракт\b/iu.test(next)&&!/подписан|скач|недоступ/iu.test(next))el.textContent=contractText;
+    if(/^контракт(?=\s|№|$)/iu.test(next)&&!/подписан|скач|недоступ/iu.test(next))el.textContent=contractText;
   }
   const leaves=leafNodes(card);
   const idLabel=leaves.find(el=>/^ид\s+контракта$/iu.test(norm(el.textContent)));
