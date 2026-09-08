@@ -5,6 +5,7 @@ const DATE_ONLY_OR_ISO = /^(\d{4}-\d{2}-\d{2})(?:T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const enrichmentSql = DB ? postgres(DB,{prepare:false,max:1,idle_timeout:1,connect_timeout:3,max_lifetime:15}) : null;
 const CLIENT_READ_SINGLE_FLIGHT_ROUTES = new Set([
+  '/v1/client/bootstrap',
   '/v1/client/context',
   '/v1/client/prices',
   '/v1/client/market',
@@ -62,6 +63,99 @@ Request.prototype.json = async function patchedJson(...args: Parameters<Request[
   return value;
 };
 
+const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
+const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
+
+async function authoritativeCompanyDirectory(contexts:any[]):Promise<any[]> {
+  if(!enrichmentSql)return[];
+  const authorized=(Array.isArray(contexts)?contexts:[]).map((ctx:any,index:number)=>({client_id:String(ctx?.client_id||'').trim(),contract_id:String(ctx?.contract_id||'').trim(),ord:index})).filter((ctx:any)=>ctx.client_id&&ctx.contract_id);
+  if(!authorized.length)return[];
+  const rows=await enrichmentSql`
+    with authorized as (
+      select x.client_id,x.contract_id,x.ord
+      from jsonb_to_recordset(${enrichmentSql.json(authorized)}::jsonb) as x(client_id text,contract_id text,ord int)
+    ), scoped as (
+      select a.ord,
+             cl.id as client_key,cl.client_id,cl.legal_name,cl.registration_country,
+             ct.id as contract_key,ct.contract_id,ct.current_external_contract_number,
+             ct.contract_status::text as contract_status,ct.effective_from,ct.effective_to,
+             ct.current_signed_document_id,ct.signed_contract_confirmed_at
+      from authorized a
+      join portal_private.clients cl on cl.client_id=a.client_id
+      join portal_private.contracts ct on ct.client_key=cl.id and ct.contract_id=a.contract_id
+    )
+    select s.ord,s.client_id,s.legal_name,s.registration_country,s.contract_id,
+           s.current_external_contract_number,s.contract_status,s.effective_from,s.effective_to,
+           (select count(*)::int from portal_private.client_applications a where a.client_key=s.client_key and a.contract_key=s.contract_key) as applications_total,
+           (select count(*)::int from portal_private.deals d where d.client_key=s.client_key and d.contract_key=s.contract_key and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum) as deals_total,
+           (select count(*)::int
+              from portal_private.documents d
+              join portal_private.document_versions dv on dv.id=d.current_version_id
+             where d.client_key=s.client_key and d.contract_key=s.contract_key
+               and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+               and d.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+               and dv.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+               and dv.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+               and dv.is_current is true and dv.is_effective is true
+               and (
+                 upper(d.document_type) like '%CONTRACT%' or upper(d.document_type) like '%КОНТРАКТ%' or upper(d.document_type) like '%ДОГОВОР%'
+                 or upper(d.document_type) like '%ADDENDUM%' or upper(d.document_type) like '%ADDITIONAL AGREEMENT%' or upper(d.document_type) like '%ДОПОЛНИТЕЛЬН%'
+                 or upper(d.document_type) like '%INVOICE%' or upper(d.document_type) like '%ИНВОЙС%'
+               )) as documents_total,
+           signed.document_id as signed_document_id,
+           signed.storage_object_id as signed_storage_object_id,
+           signed.authoritative_filename as signed_authoritative_filename
+      from scoped s
+      left join lateral (
+        select d.document_id,so.storage_object_id,
+               coalesce(nullif(trim(dv.authoritative_filename),''),nullif(trim(d.authoritative_filename),''),'Договор.pdf') as authoritative_filename
+          from portal_private.documents d
+          join portal_private.document_versions dv on dv.id=d.current_version_id
+          join lateral (
+            select obj.storage_object_id
+              from portal_private.storage_objects obj
+             where obj.document_version_key=dv.id
+               and obj.client_key=s.client_key and obj.contract_key=s.contract_key
+               and obj.storage_state::text='VERIFIED'
+             order by obj.created_at desc
+             limit 1
+          ) so on true
+         where s.current_signed_document_id is not null
+           and s.signed_contract_confirmed_at is not null
+           and d.id=s.current_signed_document_id
+           and d.client_key=s.client_key and d.contract_key=s.contract_key
+           and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+           and d.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+           and dv.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+           and dv.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+           and dv.is_current is true and dv.is_effective is true
+         limit 1
+      ) signed on true
+     order by s.ord
+  `;
+  if(rows.length!==authorized.length)throw new Error('CLIENT_COMPANY_DIRECTORY_INCOMPLETE');
+  return rows.map((row:any)=>({
+    client_id:String(row.client_id),
+    legal_name:row.legal_name==null?null:String(row.legal_name),
+    registration_country:row.registration_country==null?null:String(row.registration_country),
+    contract_id:String(row.contract_id),
+    current_external_contract_number:row.current_external_contract_number==null?String(row.contract_id):String(row.current_external_contract_number),
+    contract_status:row.contract_status==null?null:String(row.contract_status),
+    effective_from:row.effective_from??null,
+    effective_to:row.effective_to??null,
+    applications_total:Number(row.applications_total||0),
+    deals_total:Number(row.deals_total||0),
+    documents_total:Number(row.documents_total||0),
+    documents_predicate:DOCUMENTS_PREDICATE,
+    source:DIRECTORY_SOURCE,
+    current_signed_contract:row.signed_storage_object_id?{
+      document_id:String(row.signed_document_id),
+      storage_object_id:String(row.signed_storage_object_id),
+      authoritative_filename:String(row.signed_authoritative_filename||row.signed_document_id)
+    }:null
+  }));
+}
+
 const nativeServe:any = Deno.serve.bind(Deno);
 (Deno as any).serve = function patchedServe(first:any, second?:any) {
   const handler = typeof first === 'function' ? first : second;
@@ -72,6 +166,22 @@ const nativeServe:any = Deno.serve.bind(Deno);
     const response:Response = await handler(req, info);
     try {
       const url = new URL(req.url);
+      if (req.method === 'GET' && url.pathname.endsWith('/v1/client/bootstrap') && response.ok && enrichmentSql && (response.headers.get('content-type')||'').includes('application/json')) {
+        const payload:any=await response.clone().json();
+        const contexts=Array.isArray(payload?.data?.contexts)?payload.data.contexts:[];
+        const directory=await authoritativeCompanyDirectory(contexts);
+        if(contexts.length&&directory.length!==contexts.length)throw new Error('CLIENT_COMPANY_DIRECTORY_INCOMPLETE');
+        if(payload?.data&&typeof payload.data==='object'){
+          payload.data.company_directory=directory;
+          payload.data.company_directory_source=DIRECTORY_SOURCE;
+          payload.data.company_directory_documents_predicate=DOCUMENTS_PREDICATE;
+          payload.data.company_directory_generation='PR431_ALL_AUTHORIZED_CONTEXTS_V1';
+          const headers=new Headers(response.headers);
+          headers.delete('content-length');
+          headers.set('x-rona-client-directory-enrichment','pr431-all-authorized-contexts-v1');
+          return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
+        }
+      }
       if (req.method === 'GET' && url.pathname.endsWith('/v1/client/context') && response.ok && enrichmentSql && (response.headers.get('content-type')||'').includes('application/json')) {
         const payload:any = await response.clone().json();
         const applications = Array.isArray(payload?.data?.applications) ? payload.data.applications : [];

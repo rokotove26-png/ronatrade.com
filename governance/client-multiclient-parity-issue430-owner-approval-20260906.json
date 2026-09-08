@@ -66,6 +66,52 @@
       "merge_before_owner_retest": false
     }
   },
+  "pr431_source_level_fix": {
+    "system_admin_comment_id": 5593150479,
+    "parent_sha": "19ddd80a2519baff595cc013975db3b0c215d8d9",
+    "scope": "CLIENT_PR431_ALL_AUTHORIZED_DIRECTORY_SOURCE_AND_CANONICAL_APPLICATIONS_SINGLE_PRESENTATION_OWNER",
+    "approved_files": [
+      "supabase/functions/rona-portal-api/bootstrap.ts",
+      "assets/portal-runtime/portal-client-applications-canonical-v1.js"
+    ],
+    "wiring_files": [
+      "governance/client-multiclient-parity-issue430-owner-approval-20260906.json"
+    ],
+    "exact_post_blobs": {
+      "supabase/functions/rona-portal-api/bootstrap.ts": {
+        "authorized_post_blob_sha": "a7f986a6058c43b4e06e9dcc799b251a923cc250",
+        "required_marker": "PR431_ALL_AUTHORIZED_CONTEXTS_V1"
+      },
+      "assets/portal-runtime/portal-client-applications-canonical-v1.js": {
+        "authorized_post_blob_sha": "b4014c8a0a32cf0945a6d39709b70356beea1be8",
+        "required_marker": "single-presentation-owner"
+      }
+    },
+    "requirements": {
+      "visual_freeze_scoped_exception": true,
+      "exact_file_enforcement_remains_active": true,
+      "exact_blob_enforcement_remains_active": true,
+      "wildcard_exception": false,
+      "company_cards_local_repair": false,
+      "bootstrap_directory_all_authorized_contexts": true,
+      "directory_same_canonical_metric_predicates_as_current_context": true,
+      "directory_signed_contract_from_current_authoritative_pointer": true,
+      "directory_selected_context_independent": true,
+      "canonical_applications_single_presentation_owner": true,
+      "legacy_application_rows_structurally_retired": true,
+      "applications_selected_company_strip_from_active_context": true,
+      "application_open_projection_refresh_row_survives": true,
+      "candidate_backend_change_authorized": true,
+      "production_edge_function_changed": false,
+      "supabase_schema_or_rls_changed": false,
+      "business_data_changed": false,
+      "rail_changed": false,
+      "css_theme_typography_layout_changed": false,
+      "production_changed": false,
+      "merge_before_owner_retest": false,
+      "targeted_qa_existing_exact_head_suite_retained": true
+    }
+  },
   "requirements": {
     "visual_freeze_remains_enabled": true,
     "owner_instruction_required": true,

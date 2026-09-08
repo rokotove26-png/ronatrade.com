@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260904-portal-client-applications-canonical-v3-title-frame-box-model';
+const MARK='20260909-portal-client-applications-canonical-v4-single-presentation-owner';
 if(window.__RONA_PORTAL_CLIENT_APPLICATIONS_CANONICAL__===MARK)return;
 window.__RONA_PORTAL_CLIENT_APPLICATIONS_CANONICAL__=MARK;
 if(!/^\/portal\/client\/?$/.test(location.pathname))return;
@@ -7,6 +7,7 @@ if(!/^\/portal\/client\/?$/.test(location.pathname))return;
 const API='/portal/api';
 const REFRESH_MS=30000;
 const TERMINAL=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
+const APPLICATION_ID_RE=/\b[A-Z0-9][A-Z0-9-]{2,}-IN-\d{4}-\d{3,}\b/giu;
 const STATUS_LABELS=Object.freeze({
   DRAFT:'Черновик',
   SUBMITTED:'Подана',
@@ -33,6 +34,15 @@ const contextKey=ctx=>`${norm(ctx?.client_id)}|${norm(ctx?.contract_id)}`;
 const priceText=a=>{const p=a?.application_price,c=norm(a?.application_currency||'USD');return p==null?'—':`${fmtNumber(p)} ${c}/т`};
 function authority(){return window.RONA_CLIENT_CONTEXT||null}
 async function currentContext(){const a=authority();if(!a)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return a.getCurrentContext?.()||await a.whenReady?.()}
+function companyDisplayName(ctx){
+  const legal=norm(ctx?.legal_name);if(!legal)return norm(ctx?.client_id)||'Компания';
+  const quoted=legal.match(/[«“"][^»”"]+[»”"]/u)?.[0]||'';
+  const pref=legal.match(/^(ОсОО|ООО|ПАО|НАО|АО|ЗАО|ОАО|ОДО|ИП|LLC)(?:\s+|$)/iu)?.[1];
+  if(pref)return quoted?`${pref} ${quoted}`:legal;
+  const forms=[[/^общество с ограниченной ответственностью(?:\s+|$)/iu,'ООО'],[/^общество с дополнительной ответственностью(?:\s+|$)/iu,'ОДО'],[/^публичное акционерное общество(?:\s+|$)/iu,'ПАО'],[/^непубличное акционерное общество(?:\s+|$)/iu,'АО'],[/^закрытое акционерное общество(?:\s+|$)/iu,'ЗАО'],[/^открытое акционерное общество(?:\s+|$)/iu,'ОАО'],[/^акционерное общество(?:\s+|$)/iu,'АО'],[/^индивидуальный предприниматель(?:\s+|$)/iu,'ИП'],[/^limited liability company(?:\s+|$)/iu,'LLC']];
+  for(const [re,form] of forms)if(re.test(legal)){const rest=legal.replace(re,'').trim();return quoted?`${form} ${quoted}`:(rest?`${form} ${rest}`:form)}
+  return legal;
+}
 async function request(path){const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});const j=await r.json().catch(()=>null);if(!r.ok||j?.ok===false)throw new Error(String(j?.code||j?.error?.code||('HTTP_'+r.status)));return j}
 function root(){return document.getElementById('page-applications')||document.getElementById('applicationsPage')||document.querySelector('[data-page-panel="applications"],[data-page-id="applications"]')}
 function searchInput(r){return [...r.querySelectorAll('input')].find(el=>/ид заявки|товар|ид сделки/i.test(String(el.placeholder||'')))||null}
@@ -115,7 +125,54 @@ function ensureStyle(){if(document.getElementById('rona-portal-client-applicatio
 @media(max-width:650px){#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-row{padding:13px 14px 11px}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-summary{grid-template-columns:1fr;grid-template-rows:auto auto auto auto}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-headline{display:block}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-product{margin-top:5px;white-space:normal}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-price{grid-column:1;grid-row:2;justify-self:start;margin-top:2px}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-terms{grid-column:1;grid-row:3}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-state-strip{grid-column:1;grid-row:4;flex-wrap:wrap;white-space:normal}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-open{grid-column:1;grid-row:5;justify-self:start;margin-top:2px}#page-applications [data-rona-live-applications="canonical-v1"] .rona-live-app-details{grid-template-columns:1fr}}
 `;document.head.appendChild(s)}
 function ensureList(r){let list=r.querySelector('[data-rona-live-applications="canonical-v1"]');if(list)return list;for(const old of r.querySelectorAll('[data-rona-live-applications]'))old.remove();list=document.createElement('section');list.setAttribute('data-rona-live-applications','canonical-v1');list.setAttribute('aria-live','polite');const input=searchInput(r);let anchor=input;while(anchor&&anchor.parentElement&&anchor.parentElement!==r)anchor=anchor.parentElement;if(anchor?.nextSibling)r.insertBefore(list,anchor.nextSibling);else r.appendChild(list);return list}
-function retireLegacyApplicationsPresentation(r){if(!r)return 0;r.dataset.ronaApplicationsCanonicalOwner='canonical-v1';let retired=0;for(const el of r.querySelectorAll('*')){if(el.closest('[data-rona-live-applications="canonical-v1"]'))continue;if(el.dataset.ronaApplicationsLegacyEmptyState==='retired')continue;if(el.childElementCount===0&&/^Заявок пока нет\.?$/iu.test(norm(el.textContent))){el.hidden=true;el.style.display='none';el.setAttribute('aria-hidden','true');el.dataset.ronaApplicationsLegacyEmptyState='retired';retired++}}return retired}
+function applicationIds(text){APPLICATION_ID_RE.lastIndex=0;return[...new Set((norm(text).match(APPLICATION_ID_RE)||[]).map(norm).filter(Boolean))]}
+function retireNode(el,marker){if(!el||!el.isConnected)return 0;let changed=0;if(!el.hidden){el.hidden=true;changed=1}if(el.style.display!=='none'){el.style.display='none';changed=1}if(el.getAttribute('aria-hidden')!=='true'){el.setAttribute('aria-hidden','true');changed=1}if(el.dataset[marker]!=='retired'){el.dataset[marker]='retired';changed=1}return changed}
+function retireLegacyApplicationRows(r){
+  const canonical=r.querySelector('[data-rona-live-applications="canonical-v1"]');let retired=0;
+  const leaves=[...r.querySelectorAll('*')].filter(el=>el.childElementCount===0&&!el.closest('[data-rona-live-applications="canonical-v1"]')&&applicationIds(el.textContent).length===1);
+  for(const leaf of leaves){
+    let row=null,node=leaf;
+    for(let depth=0;node&&node!==r&&depth<10;depth++,node=node.parentElement){
+      if(canonical?.contains(node))break;
+      const text=norm(node.textContent),ids=applicationIds(text);if(ids.length!==1)continue;
+      const action=[...node.querySelectorAll('button,a,[role="button"]')].find(el=>/^(?:открыть|скрыть)(?:\s|$)/iu.test(norm(el.textContent)));
+      if(action&&text.length<5000){row=node;break}
+    }
+    if(row)retired+=retireNode(row,'ronaApplicationsLegacyResult');
+  }
+  return retired;
+}
+function hydrateSelectedCompanyPresentation(r){
+  const a=authority(),ctx=a?.getCurrentContext?.();if(!r||!ctx)return 0;
+  const canonical=r.querySelector('[data-rona-live-applications="canonical-v1"]'),display=companyDisplayName(ctx),clientId=norm(ctx.client_id),contractId=norm(ctx.contract_id);let changed=0;
+  const setText=(el,value)=>{if(!el||canonical?.contains(el)||!value)return;if(norm(el.textContent)!==norm(value)){el.textContent=value;changed++}};
+  for(const el of r.querySelectorAll('[data-rona-current-context-slot="client-name"],[data-rona-context-client],[data-rona-current-client]'))if(el.childElementCount===0)setText(el,display);
+  for(const el of r.querySelectorAll('[data-rona-current-context-slot="client-id"],[data-rona-context-client-id],[data-rona-current-client-id]'))if(el.childElementCount===0)setText(el,clientId);
+  for(const el of r.querySelectorAll('[data-rona-current-context-slot="contract-id"],[data-rona-context-contract],[data-rona-current-contract]'))if(el.childElementCount===0)setText(el,contractId);
+  const anchors=[...r.querySelectorAll('*')].filter(el=>el.childElementCount===0&&!canonical?.contains(el)&&/^(?:выбрана|текущая|активная)\s+компания(?=\s|[:·-]|$)/iu.test(norm(el.textContent)));
+  const authorized=Array.isArray(a?.getAuthorizedContexts?.())?a.getAuthorizedContexts():[];
+  const knownClientIds=new Set(authorized.map(x=>norm(x?.client_id)).filter(Boolean)),knownContractIds=new Set(authorized.map(x=>norm(x?.contract_id)).filter(Boolean));
+  for(const anchor of anchors){
+    const anchorText=norm(anchor.textContent),inline=anchorText.match(/^((?:выбрана|текущая|активная)\s+компания\s*[:·-]?\s*)(.+)$/iu);
+    if(inline&&norm(inline[2])){setText(anchor,inline[1]+display);continue}
+    let box=anchor.parentElement;
+    for(let depth=0;box&&box!==r&&depth<5;depth++,box=box.parentElement){
+      const text=norm(box.textContent);if(applicationIds(text).length)break;if(text.length>900)continue;
+      const leaves=[...box.querySelectorAll('*')].filter(el=>el.childElementCount===0&&el!==anchor&&!canonical?.contains(el)&&norm(el.textContent)&&!/^(?:открыть|скрыть|сбросить|все статусы)$/iu.test(norm(el.textContent)));
+      const clientLeaf=leaves.find(el=>knownClientIds.has(norm(el.textContent)));if(clientLeaf)setText(clientLeaf,clientId);
+      const contractLeaf=leaves.find(el=>knownContractIds.has(norm(el.textContent)));if(contractLeaf)setText(contractLeaf,contractId);
+      const nameLeaf=leaves.find(el=>{const text=norm(el.textContent);return text&&!knownClientIds.has(text)&&!knownContractIds.has(text)&&!/^(?:контракт|ид|статус|заявки|компания)$/iu.test(text)&&!/^\d/.test(text)&&!applicationIds(text).length&&!/^(?:BUTTON|A|OPTION)$/i.test(el.tagName)});
+      if(nameLeaf)setText(nameLeaf,display);
+      box.dataset.ronaApplicationsCanonicalContextStrip='true';break;
+    }
+  }
+  return changed;
+}
+function retireLegacyApplicationsPresentation(r){
+  if(!r)return 0;r.dataset.ronaApplicationsCanonicalOwner='canonical-v1';let retired=retireLegacyApplicationRows(r);
+  for(const el of r.querySelectorAll('*')){if(el.closest('[data-rona-live-applications="canonical-v1"]'))continue;if(el.childElementCount===0&&/^Заявок пока нет\.?$/iu.test(norm(el.textContent)))retired+=retireNode(el,'ronaApplicationsLegacyEmptyState')}
+  retired+=hydrateSelectedCompanyPresentation(r);return retired;
+}
 function updateCounter(r,count){for(const el of r.querySelectorAll('*')){if(el.closest('[data-rona-live-applications]'))continue;if(el.childElementCount===0&&/^\d+\s+зарегистрировано$/iu.test(norm(el.textContent)))el.textContent=`${count} зарегистрировано`}}
 function currentFilter(r){const q=norm(searchInput(r)?.value).toLocaleLowerCase('ru-RU');const sel=statusSelect(r),raw=norm(sel?.value||sel?.selectedOptions?.[0]?.textContent||'');return{q,status:/все статусы/i.test(raw)?'':raw.toLocaleLowerCase('ru-RU')}}
 function matches(app,f){if(f.q){const hay=[app.application_id,app.product,app.destination,app.deal_id,statusLabel(app),resourceLabel(app),priceText(app)].map(norm).join(' ').toLocaleLowerCase('ru-RU');if(!hay.includes(f.q))return false}if(f.status){const code=statusCode(app).toLocaleLowerCase('ru-RU'),label=statusLabel(app).toLocaleLowerCase('ru-RU');if(!code.includes(f.status)&&!label.includes(f.status)&&!f.status.includes(code)&&!f.status.includes(label))return false}return true}
