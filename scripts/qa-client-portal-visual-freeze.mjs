@@ -255,6 +255,21 @@ const errors=[];
 let ownerVisualDeltaAppliedFiles=0;
 let clientMultiContext430AppliedFiles=0;
 
+const functionalRuntimeVisualGuardPaths=['assets/portal-runtime/portal-client-company-directory-authority-v1.js'];
+for(const path of functionalRuntimeVisualGuardPaths){
+  try{
+    const source=await readFile(path,'utf8');
+    const forbidden=[
+      ['GLOBAL_OWNER_TYPOGRAPHY_MARKER',/RONA_CLIENT_OWNER_TYPOGRAPHY/u],
+      ['GLOBAL_FONT_SIZE_STYLE_WRITE',/style\.setProperty\(\s*['"]font-size['"]/u],
+      ['DIRECT_FONT_SIZE_WRITE',/\.style\.fontSize\s*=/u],
+      ['RUNTIME_STYLE_ELEMENT_INJECTION',/createElement\(\s*['"]style['"]\s*\)/u],
+      ['RUNTIME_FONT_SIZE_RULE',/font-size\s*:/iu]
+    ];
+    for(const [label,re] of forbidden)if(re.test(source))errors.push(`FUNCTIONAL_RUNTIME_VISUAL_OWNER ${path} ${label}`);
+  }catch(error){errors.push(`FUNCTIONAL_RUNTIME_VISUAL_GUARD_MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`)}
+}
+
 function gitBlobSha(buffer){
   return createHash('sha1').update(Buffer.from(`blob ${buffer.length}\0`)).update(buffer).digest('hex');
 }
@@ -323,4 +338,4 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);

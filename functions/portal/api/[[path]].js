@@ -6,7 +6,7 @@ const CANDIDATE_API=`${SUPABASE_URL}/functions/v1/rona-portal-api-candidate-2026
 const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-temp-upload-order-20260816`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
-const PREVIEW_SELECTOR='PR431_PREVIEW_HOST_SELECTOR_V1';
+const PREVIEW_SELECTOR='PR431_PREVIEW_HOST_SELECTOR_V2_AUTHORITATIVE';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
 const EXTERNAL_DOCUMENT_TYPES=new Set(['CONTRACT','КОНТРАКТ','ADDENDUM','SIGNED_ADDENDUM','INVOICE','CLOSING_DOCUMENT']);
 const AGENT_AMOUNT_VISIBLE_STAGES=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);
@@ -19,15 +19,14 @@ function secureHeaders(base=new Headers()){const h=new Headers(base);for(const[k
 function json(body,status=200,cookies=[]){const h=secureHeaders(new Headers({'content-type':'application/json; charset=utf-8'}));for(const c of cookies)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
 function sameOrigin(request){const u=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===u.origin;const ref=request.headers.get('referer');if(!ref)return ['GET','HEAD'].includes(request.method);try{return new URL(ref).origin===u.origin}catch{return false}}
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
-function isPreviewHost(host){const h=String(host||'').toLowerCase();return h.endsWith('.rona-trade-public.pages.dev')&&h!=='rona-trade-public.pages.dev'}
+function hostName(host){return String(host||'').trim().toLowerCase()}
+function isProductionHost(host){return hostName(host)==='rona-trade-public.pages.dev'}
+function isPreviewHost(host){const h=hostName(host);return h.endsWith('.rona-trade-public.pages.dev')&&!isProductionHost(h)}
 function isCandidateOverlayRead(path,method){return method==='GET'&&(path==='/v1/client/bootstrap'||path==='/v1/client/context')}
-function backendSelection(context,url,path,method){
-  const configured=String(context?.env?.RONA_PORTAL_API_TARGET||'').trim().toLowerCase();
-  const overlayRead=isCandidateOverlayRead(path,method);
-  if(overlayRead&&configured==='candidate')return{slot:'candidate',fn:'rona-portal-api-candidate-20260817',base:CANDIDATE_API,selector:'ENV_CANDIDATE'};
-  if(configured==='production')return{slot:'production',fn:'rona-portal-api',base:PORTAL_API,selector:'ENV_PRODUCTION'};
-  if(overlayRead&&isPreviewHost(url.hostname))return{slot:'candidate',fn:'rona-portal-api-candidate-20260817',base:CANDIDATE_API,selector:PREVIEW_SELECTOR};
-  return{slot:'production',fn:'rona-portal-api',base:PORTAL_API,selector:'PRODUCTION_DEFAULT'};
+function backendSelection(_context,url,path,method){
+  const overlayRead=isCandidateOverlayRead(path,method),host=url?.hostname||'';
+  if(overlayRead&&isPreviewHost(host))return{slot:'candidate',fn:'rona-portal-api-candidate-20260817',base:CANDIDATE_API,selector:PREVIEW_SELECTOR};
+  return{slot:'production',fn:'rona-portal-api',base:PORTAL_API,selector:isProductionHost(host)?'PRODUCTION_HOST_PIN':'PRODUCTION_DEFAULT'};
 }
 function safePrice(p){return{id:p?.id??p?.publication_item_id??null,publication_item_id:p?.publication_item_id??p?.id??null,publication_id:p?.publication_id??null,product:p?.product??null,producer:p?.producer??null,basis:p?.basis??null,final_station:p?.final_station??null,sale_price:p?.sale_price??p?.price??null,price:p?.price??p?.sale_price??null,currency:p?.currency??null,payment_terms:p?.payment_terms??null,commercial_terms:p?.commercial_terms??null,published_at:p?.published_at??null,valid_from:p?.valid_from??null,valid_to:p?.valid_to??null,delivery_period_from:p?.delivery_period_from??null,delivery_period_to:p?.delivery_period_to??null}}
 function safePriceAuthority(a){const publicationStatus=String(a?.publication_status??'').toUpperCase(),publicationAuthority=String(a?.publication_authority_state??'').toUpperCase(),publicationLifecycle=String(a?.publication_lifecycle_state??'').toUpperCase(),itemAuthority=String(a?.item_authority_state??'').toUpperCase(),itemLifecycle=String(a?.item_lifecycle_state??'').toUpperCase(),businessStatus=String(a?.business_status??'').toUpperCase();if(publicationStatus!=='PUBLISHED'||!['CONFIRMED','VERIFIED'].includes(publicationAuthority)||publicationLifecycle!=='ACTIVE'||!['CONFIRMED','VERIFIED'].includes(itemAuthority)||itemLifecycle!=='ACTIVE'||businessStatus!=='PUBLISHED'||a?.publish_client!==true)return null;return{publication_item_id:a?.publication_item_id??null,publication_id:a?.publication_id??null,publication_status:publicationStatus,publication_authority_state:publicationAuthority,publication_lifecycle_state:publicationLifecycle,item_authority_state:itemAuthority,item_lifecycle_state:itemLifecycle,product:a?.product??null,producer:a?.producer??null,supplier:a?.supplier??null,snapshot_basis:a?.snapshot_basis??null,final_station:a?.final_station??null,snapshot_price:a?.snapshot_price??null,snapshot_currency:a?.snapshot_currency??null,payment_terms:a?.payment_terms??null,commercial_terms:a?.commercial_terms??null,business_status:businessStatus,publish_client:true,client_published_at:a?.client_published_at??null,updated_at:a?.updated_at??null}}
