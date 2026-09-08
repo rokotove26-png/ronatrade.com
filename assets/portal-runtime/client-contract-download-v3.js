@@ -16,6 +16,7 @@ const upper=v=>norm(v).toUpperCase();
 const CURRENT_DEAL_ID=/^DEAL-\d{4}-\d{3,}$/i;
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
+function authoritativeCompanyDirectoryOwnsCards(){const d=document.documentElement.dataset;return Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__)||(d.ronaClientCompanyDirectoryAtomic==='true'&&d.ronaClientCompanyDirectorySource==='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB'&&d.ronaClientCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')}
 function metricNumber(value){if(value===null||value===undefined||typeof value==='boolean'||(typeof value==='string'&&!/^\d+$/.test(value.trim())))return null;const n=Number(value);return Number.isInteger(n)&&n>=0?n:null}
 function currentCompanyMetrics(entry){
   const authoritative=entry?.company_metrics&&typeof entry.company_metrics==='object'?entry.company_metrics:null;
@@ -88,6 +89,7 @@ function currentContractDocument(documents){
 function effectiveContext(base,detail){const dc=detail?.contract||{},number=norm(dc.current_external_contract_number)||norm(base?.current_external_contract_number)||norm(dc.contract_id)||norm(base?.contract_id)||null;return{...base,...dc,current_external_contract_number:number}}
 function frozenContexts(){try{if(typeof CLIENT_CONTEXTS!=='undefined'&&CLIENT_CONTEXTS&&typeof CLIENT_CONTEXTS==='object')return CLIENT_CONTEXTS}catch{}return null}
 function hydrateFrozenClientModel(entry){
+  if(authoritativeCompanyDirectoryOwnsCards())return 0;
   const model=frozenContexts(),ctx=entry?.context||{},id=norm(ctx.contract_id),num=norm(ctx.current_external_contract_number||ctx.contract_id);if(!model||!id)return 0;
   const row=model[id];if(!row||typeof row!=='object')return 0;
   row.clientId=norm(ctx.client_id);row.contractId=id;row.companyName=compactLegalName(ctx);row.legalName=norm(ctx.legal_name);row.contractNo=num.replace(/^№\s*/u,'');row.contractDate=formatDate(ctx.effective_from);const metrics=currentCompanyMetrics(entry);row.applicationsCount=metrics.ready?metrics.applications:'—';row.dealsCount=metrics.ready?metrics.deals:'—';row.documentsCount=metrics.ready?metrics.documents:'—';row.contractStateBlocked=String(ctx.contract_status||'').toUpperCase()!=='ACTIVE';if(!row.contractStateBlocked&&/уточн/i.test(String(row.status||'')))row.status='Действует';
@@ -173,7 +175,7 @@ function neutralizeCompanyMetrics(resolved,ctx){
 }
 function hideRedundantCompanyAlias(){return false}
 function primeCompanyDirectory(ctx){
-  if(!ctx)return false;const resolved=resolveCompanyCard(ctx);if(!resolved)return false;const card=resolved.card;
+  if(!ctx||authoritativeCompanyDirectoryOwnsCards())return false;const resolved=resolveCompanyCard(ctx);if(!resolved)return false;const card=resolved.card;
   const display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from);
   hideRedundantCompanyAlias(card);
   for(const el of leafNodes(card)){
@@ -188,7 +190,7 @@ function primeCompanyDirectory(ctx){
   bindCompanyOwner(resolved,ctx);return true;
 }
 function syncCompanyCard(entry,resolved){
-  if(!entry||!resolved)return false;const card=resolved.card,ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
+  if(authoritativeCompanyDirectoryOwnsCards()||!entry||!resolved)return false;const card=resolved.card,ctx=entry.context,display=compactLegalName(ctx),external=norm(ctx.current_external_contract_number||ctx.contract_id),effective=formatDate(ctx.effective_from),leaves=leafNodes(card);
   for(const el of leaves){
     const before=norm(el.textContent),l=low(before);if(!before)continue;
     if(/^RONA-C\d{3}$/i.test(before)){setNodeText(el,ctx.client_id);continue}
@@ -218,11 +220,13 @@ function makeButton(entry,template){
   ensureStyle();const b=document.createElement('button');b.type='button';if(template&&typeof template.className==='string')b.className=template.className;b.dataset.ronaContractDownloadV3=String(entry.context?.contract_id||'');b.dataset.storageObjectId=String(entry.document?.storage_object_id||'');b.textContent='Скачать договор PDF';b.title=norm(entry.document?.authoritative_filename)||'Скачать действующий подписанный договор';b.setAttribute('aria-label','Скачать подписанный договор '+norm(entry.context?.current_external_contract_number||entry.context?.contract_id));b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();beginDownload(entry,b)},true);return b;
 }
 function clearRuntimeButtons(entry){
+  if(authoritativeCompanyDirectoryOwnsCards())return 0;
   for(const old of document.querySelectorAll('button[data-rona-contract-download],button[data-rona-contract-download-v2]'))old.remove();
   const current=norm(entry?.context?.contract_id);
   for(const old of document.querySelectorAll('button[data-rona-contract-download-v3]'))if(!current||norm(old.dataset.ronaContractDownloadV3)!==current)old.remove();
 }
 function renderEntry(entry){
+  if(authoritativeCompanyDirectoryOwnsCards())return false;
   const resolved=resolveCompanyCard(entry?.context);if(!resolved||!syncCompanyCard(entry,resolved))return false;const card=resolved.card;
   const unavailable=unavailableNode(card),anchor=contractAnchor(card),active=String(entry.context?.contract_status||'').toUpperCase()==='ACTIVE';if(!active||(!unavailable&&!anchor))return false;
   if(!entry.document?.storage_object_id){if(unavailable){const msg='Файл подписанного контракта не опубликован в кабинете';setNodeText(unavailable,msg);unavailable.setAttribute('aria-disabled','true');unavailable.dataset.ronaContractUnavailable='authoritative-storage-not-materialized'}return false}
@@ -230,10 +234,10 @@ function renderEntry(entry){
   const b=makeButton(entry,unavailable);if(unavailable){unavailable.replaceWith(b);return true}anchor.parentElement.appendChild(b);return true;
 }
 function render(){
-  if(state.rendering)return false;state.rendering=true;try{ensureStyle();const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}finally{state.rendering=false}
+  if(state.rendering)return false;state.rendering=true;try{ensureStyle();if(authoritativeCompanyDirectoryOwnsCards()){document.documentElement.dataset.ronaClientContractRuntime='v11-source-standdown-all-authorized-directory';return true}const entry=state.entry;clearRuntimeButtons(entry);if(!entry){document.documentElement.dataset.ronaClientContractDownloads='0';document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}hydrateFrozenClientModel(entry);const count=renderEntry(entry)?1:0;document.documentElement.dataset.ronaClientContractDownloads=String(count);document.documentElement.dataset.ronaClientContractRuntime='v6-company-alias-slot-removed';return true}finally{state.rendering=false}
 }
 function scheduleRender(delay=120){clearTimeout(state.renderTimer);state.renderTimer=setTimeout(render,delay)}
-function primeFromAuthority(authority){const current=authority?.getCurrentContext?.();return current?primeCompanyDirectory(current):false}
+function primeFromAuthority(authority){if(authoritativeCompanyDirectoryOwnsCards())return false;const current=authority?.getCurrentContext?.();return current?primeCompanyDirectory(current):false}
 function refreshCompanyDirectoryNow(authority,delay=0){setTimeout(()=>{if(!primeFromAuthority(authority))return;refresh(true)},delay)}
 function startObserver(){if(state.observer||!document.documentElement)return;state.observer=new MutationObserver(records=>{if(state.rendering)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'))scheduleRender(80)});state.observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true})}
 async function start(){
@@ -241,7 +245,7 @@ async function start(){
   let authority;try{authority=await waitForAuthority()}catch(error){console.error('RONA contract download: context authority unavailable',error);return}
   primeFromAuthority(authority);
   if(typeof authority.subscribe==='function')state.unsubscribe=authority.subscribe(()=>{primeFromAuthority(authority);refresh(true)});
-  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});
+  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-company-directory-ready',()=>scheduleRender(0));
   refresh(true);[120,350,900,1800,3200].forEach(delay=>refreshCompanyDirectoryNow(authority,delay));
   document.addEventListener('click',()=>scheduleRender(140),true);document.addEventListener('click',()=>refreshCompanyDirectoryNow(authority,90),true);document.addEventListener('change',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)},true);
   window.addEventListener('pageshow',()=>{scheduleRender(0);refreshCompanyDirectoryNow(authority,0);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});window.addEventListener('hashchange',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});setInterval(()=>{if(document.visibilityState==='visible')refresh(true)},REFRESH_MS);

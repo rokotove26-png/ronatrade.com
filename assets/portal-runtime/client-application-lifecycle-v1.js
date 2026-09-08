@@ -80,6 +80,7 @@ function applicationsRoot(){
   for(const selector of ['#page-applications','#applicationsPage','[data-page-panel="applications"]','[data-page-id="applications"]']){const el=document.querySelector(selector);if(el)return el}
   let best=null;for(const el of document.querySelectorAll('main section,main div,section,article')){if(!visible(el))continue;const t=norm(el.textContent);if(!t.includes('Заявки')||!t.includes('Все статусы')||!t.includes('зарегистрировано'))continue;if(!best||t.length<norm(best.textContent).length)best=el}return best;
 }
+function canonicalApplicationsOwnsDom(root=applicationsRoot()){return Boolean(window.__RONA_PORTAL_CLIENT_APPLICATIONS_CANONICAL__)||root?.dataset?.ronaApplicationsCanonicalOwner==='canonical-v1'||Boolean(root?.querySelector?.('[data-rona-live-applications="canonical-v1"]'))}
 function dealsRoot(){
   for(const selector of ['#page-deals','#dealsPage','[data-page-panel="deals"]','[data-page-id="deals"]']){const el=document.querySelector(selector);if(el)return el}
   let best=null;for(const el of document.querySelectorAll('main section,main div,section,article')){if(!visible(el))continue;const t=norm(el.textContent);if(!t.includes('Сделки')||!t.includes('Все этапы')||!DEAL_ID_RE.test(t)){DEAL_ID_RE.lastIndex=0;continue}DEAL_ID_RE.lastIndex=0;if(!best||t.length<norm(best.textContent).length)best=el}return best;
@@ -108,7 +109,7 @@ function syncDealStateStrip(row,deal){
 function projectDealRows(root,ids){if(!state.ready)return;for(const id of ids){const deal=state.dealStates.get(id),row=rowFor(root,id,ids,['Сделка','Ресурс','Открыть','Документы']);if(!row)continue;if(!deal){row.hidden=true;row.style.display='none';row.setAttribute('data-rona-deal-projection','authoritative-not-current');continue}if(row.hasAttribute('data-rona-deal-projection')){row.hidden=false;row.style.removeProperty('display');row.removeAttribute('data-rona-deal-projection')}syncDealStateStrip(row,deal);row.setAttribute('data-rona-operations-deal-status',deal.statusCode);row.setAttribute('data-rona-finance-status',deal.paymentCode);row.setAttribute('data-rona-resource-status',deal.resourceCode)}}
 function apply(){
   installStyle();
-  const apps=applicationsRoot();if(apps){const ids=idsFromText(apps,APP_ID_RE);hideStatusLabels(apps);projectApplicationRows(apps,ids);syncApplicationCounter(apps,ids);apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v9-current-context':'authoritative-pending-v9')}
+  const apps=applicationsRoot();if(apps&&!canonicalApplicationsOwnsDom(apps)){const ids=idsFromText(apps,APP_ID_RE);hideStatusLabels(apps);projectApplicationRows(apps,ids);syncApplicationCounter(apps,ids);apps.setAttribute('data-rona-application-lifecycle',state.ready?'authoritative-active-v9-current-context':'authoritative-pending-v9')}
   const deals=dealsRoot();if(deals){const ids=idsFromText(deals,DEAL_ID_RE);styleDealAmounts(deals,ids);projectDealRows(deals,ids);deals.setAttribute('data-rona-deal-authority',state.ready?'current-context-server-v9':'current-context-server-pending')}
   return Boolean(apps||deals);
 }
