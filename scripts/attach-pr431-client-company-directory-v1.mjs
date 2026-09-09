@@ -1,5 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+
 const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/portal-client-company-directory-authority-v1.js';
@@ -7,160 +8,147 @@ const selectionRuntimePath='dist/assets/portal-runtime/client-context-selection-
 const contractRuntimePath='dist/assets/portal-runtime/client-contract-download-v3.js';
 const id='rona-portal-client-company-directory-authority-v1';
 const marker='20260908-pr431-authorized-company-directory-v2-atomic';
-const materializationMarker='PR431_SERVER_DRIVEN_CARD_MATERIALIZATION_V1';
-const ownershipFixMarker='PR431_REAL_AUTH_ALL_CONTEXT_TAKEOVER_V1';
+const factoryMarker='PR431_CANONICAL_COMPANY_CARD_FACTORY_V1';
+const ownershipMarker='PR431_CANONICAL_FACTORY_SINGLE_CARD_OWNER_V1';
 const legacyMarker='20260906-client-contract-v11-authoritative-company-metrics';
+const directorySource='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
+const documentsPredicate='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 function replaceOnce(source,from,to,label){
   if(!source.includes(from))throw new Error(`${label}_TARGET_MISSING`);
   if(source.indexOf(from)!==source.lastIndexOf(from))throw new Error(`${label}_TARGET_NOT_UNIQUE`);
   return source.replace(from,to);
 }
-let runtime=await readFile(runtimePath,'utf8');
-for(const required of [marker,materializationMarker,legacyMarker,'AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB','CURRENT_EFFECTIVE_CONTRACTUAL_ONLY','validateCompleteDirectory','captureTemplate','materializeCard','planDirectory','replaceChildren','getCompanyDirectory','whenCompanyDirectory','refreshCompanyDirectory','data-rona-company-contract-download','/v1/client/storage/','signed-url','CLIENT_COMPANY_DIRECTORY_INCOMPLETE','ALL_AUTHORIZED_CONTEXT_DIRECTORY'])if(!runtime.includes(required))throw new Error(`PR431_COMPANY_DIRECTORY_RUNTIME_CONTRACT_MISSING: ${required}`);
-if(runtime.includes("fetch('/portal/api/v1/client/bootstrap'")||runtime.includes('fetch("/portal/api/v1/client/bootstrap"'))throw new Error('PR431_COMPANY_DIRECTORY_SECOND_WRAPPED_BOOTSTRAP_FORBIDDEN');
-for(const forbidden of ['neutralCard','RONA_CLIENT_OWNER_TYPOGRAPHY','style.setProperty(\'font-size\'','createElement(\'style\')','QUARANTINED_BEFORE_EXECUTION'])if(runtime.includes(forbidden))throw new Error(`PR431_COMPANY_DIRECTORY_DESTRUCTIVE_OR_VISUAL_OWNER_FORBIDDEN: ${forbidden}`);
-if(/RONA-C\d{3}|RONA-C\d{3}-CTR|RONA-C\d{3}-IN|2\s*\/\s*2\s*\/\s*5/iu.test(runtime))throw new Error('PR431_COMPANY_DIRECTORY_HARDCODED_ACCEPTANCE_FIXTURE_FORBIDDEN');
 
-// SYSTEM_ADMIN 5593681625 + 5594008565: real-auth evidence classified BUG-1 as an
-// all-context takeover/retention failure. Preserve the retry fix and keep the last validated
-// all-context directory as the stable owner after first atomic commit. BUG-2 is untouched.
-runtime=replaceOnce(
-  runtime,
-  "const REFRESH_MS=30000;",
-  `const REFRESH_MS=30000;\nconst OWNERSHIP_FIX='${ownershipFixMarker}';`,
-  'PR431_REAL_AUTH_OWNERSHIP_FIX_MARKER'
-);
-runtime=replaceOnce(
-  runtime,
-  "const canonicalGrid=()=>document.querySelector('section#page-companies #clientCompanyGrid');",
-  "const canonicalGrid=()=>document.getElementById('clientCompanyGrid');",
-  'PR431_REAL_AUTH_GRID_RESOLVER'
-);
-runtime=replaceOnce(
-  runtime,
-  "  opener.removeAttribute('aria-disabled');\n  card.dataset.ronaCompanyAuthorizationScope='authorized-directory';",
-  "  opener.removeAttribute('aria-disabled');\n  opener.addEventListener('click',event=>{if(same(currentContext(),row))return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();try{state.base.select(row.client_id,row.contract_id)}catch(error){console.error('RONA company directory selection',error)}});\n  card.dataset.ronaCompanyAuthorizationScope='authorized-directory';",
-  'PR431_REAL_AUTH_DIRECT_DIRECTORY_SELECTION'
-);
-runtime=replaceOnce(
-  runtime,
-  "  if(state.active&&state.renderedGeneration===generation)return syncCurrentMarkers();",
-  "  if(state.active&&state.renderedGeneration===generation){if(syncCurrentMarkers())return true;state.active=false;window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;document.documentElement.dataset.ronaClientCompanyDirectoryAtomic='true'}",
-  'PR431_REAL_AUTH_TAKEOVER_SELF_HEAL'
-);
-runtime=replaceOnce(
-  runtime,
-  "    root.dataset.ronaClientCompanyDirectoryGeneration=String(generation);\n    window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;",
-  "    root.dataset.ronaClientCompanyDirectoryGeneration=String(generation);\n    root.dataset.ronaClientCompanyDirectoryOwnershipFix=OWNERSHIP_FIX;\n    window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;",
-  'PR431_REAL_AUTH_TAKEOVER_MARKER'
-);
-runtime=replaceOnce(
-  runtime,
-  "    if(state.active){syncCurrentMarkers();return}",
-  "    if(state.active){if(!syncCurrentMarkers()){if(!restoreLastValidatedDirectory())scheduleRender(0)}return}",
-  'PR431_REAL_AUTH_MUTATION_RETENTION'
-);
-const oldStart=`async function start(){
-  if(window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__===MARK)return;
-  const base=window.RONA_CLIENT_CONTEXT;if(!base?.whenReady||!base?.getAuthorizedContexts||!base?.getCompanyDirectory||!base?.whenCompanyDirectory||!base?.refreshCompanyDirectory)return;
-  window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__=MARK;
-  state.base=base;
-  captureTemplate();
-  startObserver();
-  if(base.subscribe)base.subscribe(()=>state.active?syncCurrentMarkers():scheduleRender(0));
-  window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(()=>{}));
-  window.addEventListener('pageshow',()=>loadDirectory(true).catch(()=>{}));
-  window.addEventListener('rona:client-context-changed',()=>state.active?syncCurrentMarkers():scheduleRender(0));
-  await loadDirectory(false).catch(()=>{});
-  setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);
+const sourceRuntime=await readFile(runtimePath,'utf8');
+for(const required of [marker,'validateCompleteDirectory','getCompanyDirectory','whenCompanyDirectory','refreshCompanyDirectory','CURRENT_EFFECTIVE_CONTRACTUAL_ONLY']){
+  if(!sourceRuntime.includes(required))throw new Error(`PR431_CANONICAL_FACTORY_SOURCE_CONTRACT_MISSING:${required}`);
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();`;
-const newStart=`function hasLastValidatedDirectory(){
-  const authorized=authorizedSnapshot();
-  if(!state.validated||!authorized.length||state.directory.length!==authorized.length)return false;
-  const allowed=new Set(authorized.map(key));
-  return state.directory.every(row=>allowed.has(key(row)));
-}
-function restoreLastValidatedDirectory(){
-  if(!hasLastValidatedDirectory())return false;
-  const root=document.documentElement;
-  window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;
-  root.dataset.ronaClientCompanyDirectoryAtomic='true';
-  root.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;
-  root.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;
-  root.dataset.ronaClientCompanyDirectoryOwnershipFix=OWNERSHIP_FIX;
-  state.active=false;
-  if(!renderDirectory(state.generation))scheduleRender(0);
-  return true;
-}
-function multiCompanyPending(reason='loading'){
-  if(state.active||authorizedSnapshot().length<=1)return false;
-  if(restoreLastValidatedDirectory())return false;
-  const grid=canonicalGrid();if(!grid)return false;
-  captureTemplate();if(!state.template)return false;
-  const pending=document.createElement('div');pending.dataset.ronaCompanyDirectoryPending=reason;pending.setAttribute('role','status');pending.setAttribute('aria-live','polite');pending.textContent=reason==='error'?'Данные компаний временно недоступны. Повторяем загрузку…':'Данные компаний загружаются…';
-  grid.replaceChildren(pending);
-  const root=document.documentElement;root.dataset.ronaClientCompanyDirectoryAtomic='pending';root.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;root.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;root.dataset.ronaClientCompanyDirectoryOwnershipFix=OWNERSHIP_FIX;
-  delete window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__;
-  return true;
-}
-async function waitForDirectoryBase(timeoutMs=15000){const started=Date.now();while(Date.now()-started<timeoutMs){const base=window.RONA_CLIENT_CONTEXT;if(base?.whenReady&&base?.getAuthorizedContexts&&base?.getCompanyDirectory&&base?.whenCompanyDirectory&&base?.refreshCompanyDirectory&&base?.select)return base;await new Promise(resolve=>setTimeout(resolve,50))}return null}
-async function waitForDirectoryTemplate(timeoutMs=10000){const started=Date.now();while(Date.now()-started<timeoutMs){const template=captureTemplate();if(template)return template;await new Promise(resolve=>setTimeout(resolve,50))}return null}
-let startPromise=null,startRetry=0,started=false;
-async function start(){
-  if(started)return true;if(startPromise)return startPromise;
-  startPromise=(async()=>{
-    const base=await waitForDirectoryBase();if(!base){clearTimeout(startRetry);startRetry=setTimeout(()=>start().catch(()=>{}),150);return false}
-    state.base=base;await base.whenReady();if(!await waitForDirectoryTemplate()){clearTimeout(startRetry);startRetry=setTimeout(()=>start().catch(()=>{}),150);return false}
-    window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__=MARK;
-    startObserver();if(authorizedSnapshot().length>1)multiCompanyPending('loading');
-    if(base.subscribe)base.subscribe(()=>{if(state.active){if(!syncCurrentMarkers()){if(!restoreLastValidatedDirectory())scheduleRender(0)}}else if(!restoreLastValidatedDirectory())scheduleRender(0)});
-    window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(()=>{}));
-    window.addEventListener('pageshow',()=>loadDirectory(true).catch(()=>{}));
-    window.addEventListener('rona:client-context-changed',()=>{if(state.active){if(!syncCurrentMarkers()){if(!restoreLastValidatedDirectory())scheduleRender(0)}}else if(!restoreLastValidatedDirectory())scheduleRender(0)});
-    started=true;
-    await loadDirectory(true).catch(()=>{if(!state.active)multiCompanyPending('error')});
-    setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);
-    return true;
-  })().finally(()=>{startPromise=null});return startPromise;
-}
-function boot(){start().catch(error=>{console.error('RONA company directory boot',error);clearTimeout(startRetry);startRetry=setTimeout(()=>start().catch(()=>{}),150)})}
+
+const canonicalRuntime=String.raw`(()=>{'use strict';
+const MARK='20260908-pr431-authorized-company-directory-v2-atomic';
+const FACTORY_MARK='PR431_CANONICAL_COMPANY_CARD_FACTORY_V1';
+const OWNERSHIP_MARK='PR431_CANONICAL_FACTORY_SINGLE_CARD_OWNER_V1';
+const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
+const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
+const REFRESH_MS=30000;
+if(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__===MARK)return;
+window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__=MARK;
+const state={base:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,generation:0,renderedGeneration:0,rendering:false,template:null,timer:0,observer:null,started:false,startPromise:null,startRetry:0};
+const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
+const low=v=>norm(v).toLocaleLowerCase('ru-RU');
+const int=v=>{if(v===null||v===undefined||typeof v==='boolean'||(typeof v==='string'&&!/^\d+$/.test(v.trim())))return null;const n=Number(v);return Number.isInteger(n)&&n>=0?n:null};
+const key=v=>norm(v?.client_id)+'|'+norm(v?.contract_id);
+const same=(a,b)=>key(a)!=='|'&&key(a)===key(b);
+const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
+const canonicalGrid=()=>document.getElementById('clientCompanyGrid');
+const currentContext=()=>state.base?.getCurrentContext?.()||null;
+const leafNodes=root=>root?[...root.querySelectorAll('*')].filter(el=>!el.children.length&&norm(el.textContent)):[];
+function compactLegalName(input){const legal=norm(input);if(!legal)return'Компания';const rules=[[/^общество с ограниченной ответственностью\s+/iu,'ООО '],[/^общество с дополнительной ответственностью\s+/iu,'ОДО '],[/^публичное акционерное общество\s+/iu,'ПАО '],[/^непубличное акционерное общество\s+/iu,'АО '],[/^закрытое акционерное общество\s+/iu,'ЗАО '],[/^открытое акционерное общество\s+/iu,'ОАО '],[/^акционерное общество\s+/iu,'АО '],[/^limited liability company\s+/iu,'LLC ']];for(const [re,prefix] of rules)if(re.test(legal))return legal.replace(re,prefix);return legal}
+function formatDate(v){const s=norm(v);if(!/^\d{4}-\d{2}-\d{2}/.test(s))return'';const [y,m,d]=s.slice(0,10).split('-');return d+'.'+m+'.'+y}
+function authorizedSnapshot(){const rows=state.base?.getAuthorizedContexts?.();return Array.isArray(rows)?rows.map(ctx=>({...ctx,client_id:norm(ctx?.client_id),contract_id:norm(ctx?.contract_id)})).filter(ctx=>ctx.client_id&&ctx.contract_id):[]}
+function contextByIds(clientId,contractId){return authorizedSnapshot().find(ctx=>norm(ctx.client_id)===norm(clientId)&&norm(ctx.contract_id)===norm(contractId))||null}
+function cleanDirectoryRow(row){if(!row||typeof row!=='object')return null;const applications_total=int(row.applications_total),deals_total=int(row.deals_total),documents_total=int(row.documents_total);if(applications_total===null||deals_total===null||documents_total===null)return null;const client_id=norm(row.client_id),contract_id=norm(row.contract_id);if(!client_id||!contract_id||norm(row.source)!==DIRECTORY_SOURCE||norm(row.documents_predicate)!==DOCUMENTS_PREDICATE)return null;let current_signed_contract=null;if(row.current_signed_contract!==null&&row.current_signed_contract!==undefined){const value=row.current_signed_contract;if(!value||typeof value!=='object')return null;const document_id=norm(value.document_id),storage_object_id=norm(value.storage_object_id),authoritative_filename=norm(value.authoritative_filename);if(!document_id||!storage_object_id||!authoritative_filename)return null;current_signed_contract={document_id,storage_object_id,authoritative_filename}}return{client_id,contract_id,legal_name:norm(row.legal_name)||null,registration_country:norm(row.registration_country)||null,current_external_contract_number:norm(row.current_external_contract_number)||contract_id,contract_status:norm(row.contract_status)||null,effective_from:row.effective_from||null,effective_to:row.effective_to||null,applications_total,deals_total,documents_total,documents_predicate:DOCUMENTS_PREDICATE,source:DIRECTORY_SOURCE,current_signed_contract}}
+function validateCompleteDirectory(body){const authorized=authorizedSnapshot(),data=body?.data&&typeof body.data==='object'?body.data:body;if(!authorized.length||norm(data?.company_directory_source)!==DIRECTORY_SOURCE)return null;const raw=Array.isArray(data?.company_directory)?data.company_directory:null;if(!raw||raw.length!==authorized.length)return null;const rows=raw.map(cleanDirectoryRow);if(rows.some(row=>!row))return null;const map=new Map;for(const row of rows){const k=key(row);if(map.has(k))return null;map.set(k,row)}for(const ctx of authorized)if(!map.has(key(ctx)))return null;for(const row of rows)if(!contextByIds(row.client_id,row.contract_id))return null;return{authorized,rows:authorized.map(ctx=>map.get(key(ctx)))}}
+function metricSlots(card){const leaves=leafNodes(card);const byLabel=label=>{const labelNode=leaves.find(el=>low(el.textContent)===label);if(!labelNode)return null;const metric=leaves.slice(0,leaves.indexOf(labelNode)).reverse().find(el=>/^(?:\d+|—)$/.test(norm(el.textContent)));return metric?{value:metric,label:labelNode}:null};const applications=byLabel('заявок'),deals=byLabel('сделок'),documents=byLabel('документов')||byLabel('действий');return applications&&deals&&documents?{applications,deals,documents}:null}
+function openControl(card){return leafNodes(card).find(el=>/(?:открыть\s+компанию|текущая\s+компания)/iu.test(norm(el.textContent))&&/^(BUTTON|A)$/i.test(el.tagName))||null}
+function contractIdentityNodes(card){const leaves=leafNodes(card),eyebrow=card.querySelector('.eyebrow'),legal=card.querySelector('h3');const contractLabel=leaves.find(el=>/^контракт(?=\s|№|$)/iu.test(norm(el.textContent))&&!/подписан|скач|недоступ/iu.test(norm(el.textContent)))||null;if(!contractLabel)return{eyebrow,legal,client:null,contract:null,contractLabel:null};const before=leaves.slice(0,leaves.indexOf(contractLabel)).filter(el=>el!==eyebrow&&el!==legal);return{eyebrow,legal,client:before.length>=2?before.at(-2):null,contract:before.length>=1?before.at(-1):null,contractLabel}}
+function remapIds(card,suffix){const map=new Map;for(const el of [card,...card.querySelectorAll('[id]')]){const old=norm(el.id);if(!old)continue;const next=old+'-'+suffix;map.set(old,next);el.id=next}if(!map.size)return;for(const el of [card,...card.querySelectorAll('*')]){for(const attr of ['for','aria-labelledby','aria-describedby','aria-controls']){const raw=norm(el.getAttribute?.(attr));if(!raw)continue;el.setAttribute(attr,raw.split(/\s+/).map(token=>map.get(token)||token).join(' '))}const href=norm(el.getAttribute?.('href'));if(href.startsWith('#')&&map.has(href.slice(1)))el.setAttribute('href','#'+map.get(href.slice(1)))}}
+function stripOwnershipAttributes(card){const attrs=['data-rona-client-id','data-client-id','data-rona-client-contract-id','data-rona-contract-id','data-contract-id','data-rona-company-directory-hydration','data-rona-company-directory-source','data-rona-company-directory-documents-predicate','data-rona-company-directory-updated-at','data-rona-company-current','data-rona-current-company-status','data-rona-current-context-slot','data-rona-current-context-scope','data-rona-context-client','data-rona-current-client','data-rona-context-client-id','data-rona-current-client-id','data-rona-context-contract','data-rona-current-contract','data-rona-company-authorization-scope'];for(const el of [card,...card.querySelectorAll('*')]){for(const attr of attrs)el.removeAttribute?.(attr);for(const attr of [...(el.attributes||[])])if(/^on/i.test(attr.name))el.removeAttribute(attr.name)}for(const old of card.querySelectorAll('button[data-rona-company-contract-download],button[data-rona-contract-download-v3],button[data-rona-contract-download],button[data-rona-contract-download-v2]')){const neutral=document.createElement('span');if(typeof old.className==='string')neutral.className=old.className;neutral.textContent='Файл подписанного контракта не опубликован в кабинете';neutral.dataset.ronaCompanyFactorySlot='download';old.replaceWith(neutral)}}
+function replaceLiteral(text,from,to){const source=String(text??''),needle=norm(from);if(!needle)return source;const at=source.toLocaleLowerCase('ru-RU').indexOf(needle.toLocaleLowerCase('ru-RU'));return at<0?source:source.slice(0,at)+to+source.slice(at+needle.length)}
+function scrubAuthorizedBusinessEvidence(card){const tokenMap=[];for(const ctx of authorizedSnapshot()){const legal=norm(ctx.legal_name),display=compactLegalName(legal),external=norm(ctx.current_external_contract_number),date=formatDate(ctx.effective_from);for(const [value,slot] of [[ctx.client_id,'__RONA_CLIENT_ID__'],[ctx.contract_id,'__RONA_CONTRACT_ID__'],[external,'__RONA_EXTERNAL_CONTRACT__'],[legal,'__RONA_LEGAL_NAME__'],[display,'__RONA_DISPLAY_NAME__'],[ctx.registration_country,'__RONA_REGISTRATION_COUNTRY__'],[date,'__RONA_EFFECTIVE_DATE__']])if(norm(value))tokenMap.push([norm(value),slot])}tokenMap.sort((a,b)=>b[0].length-a[0].length);for(const el of leafNodes(card)){let text=String(el.textContent??''),next=text;for(const [from,to] of tokenMap)next=replaceLiteral(next,from,to);if(next!==text)el.textContent=next}}
+function findDownloadSlot(card){let slot=card.querySelector('[data-rona-company-factory-slot="download"]');if(slot)return slot;slot=leafNodes(card).find(el=>/контракт.*недоступ|файл.*контракт.*не опубликован|скачиван.*недоступ/iu.test(norm(el.textContent)))||null;if(slot)slot.dataset.ronaCompanyFactorySlot='download';return slot}
+function sanitizeStructuralTemplate(source){const card=source.cloneNode(true);stripOwnershipAttributes(card);scrubAuthorizedBusinessEvidence(card);card.removeAttribute('aria-hidden');card.removeAttribute('inert');if(card.getAttribute('tabindex')==='-1')card.removeAttribute('tabindex');const slots=metricSlots(card),nodes=contractIdentityNodes(card),opener=openControl(card);if(!slots||!nodes.legal||!nodes.contractLabel||!opener)return null;nodes.eyebrow&&(nodes.eyebrow.dataset.ronaCompanyFactorySlot='display-name');nodes.legal.dataset.ronaCompanyFactorySlot='legal-name';if(nodes.client)nodes.client.dataset.ronaCompanyFactorySlot='client-id';if(nodes.contract)nodes.contract.dataset.ronaCompanyFactorySlot='contract-id';nodes.contractLabel.dataset.ronaCompanyFactorySlot='contract-label';slots.applications.value.dataset.ronaCompanyFactorySlot='applications';slots.deals.value.dataset.ronaCompanyFactorySlot='deals';slots.documents.value.dataset.ronaCompanyFactorySlot='documents';slots.documents.label.dataset.ronaCompanyFactorySlot='documents-label';opener.dataset.ronaCompanyFactorySlot='action';const leaves=leafNodes(card),idLabel=leaves.find(el=>/^ид\s+контракта$/iu.test(norm(el.textContent)));if(idLabel){const tail=leaves.slice(leaves.indexOf(idLabel)+1),idValue=tail.find(el=>/^(B|STRONG|SPAN|DIV)$/i.test(el.tagName)&&norm(el.textContent));if(idValue)idValue.dataset.ronaCompanyFactorySlot='contract-id-secondary'}findDownloadSlot(card);for(const el of card.querySelectorAll('[data-rona-company-factory-slot="display-name"]'))el.textContent='Компания';for(const el of card.querySelectorAll('[data-rona-company-factory-slot="legal-name"]'))el.textContent='Компания';for(const el of card.querySelectorAll('[data-rona-company-factory-slot="client-id"],[data-rona-company-factory-slot="contract-id"],[data-rona-company-factory-slot="contract-id-secondary"]'))el.textContent='—';for(const el of card.querySelectorAll('[data-rona-company-factory-slot="contract-label"]'))el.textContent='Контракт';for(const el of card.querySelectorAll('[data-rona-company-factory-slot="applications"],[data-rona-company-factory-slot="deals"],[data-rona-company-factory-slot="documents"]'))el.textContent='0';for(const el of card.querySelectorAll('[data-rona-company-factory-slot="documents-label"]'))el.textContent='ДОКУМЕНТОВ';opener.textContent='Открыть компанию';opener.removeAttribute('aria-disabled');if('disabled'in opener)opener.disabled=false;return card}
+function captureTemplate(){if(state.template)return state.template;const grid=canonicalGrid();if(!grid)return null;const cards=[...grid.querySelectorAll('article.company-switch-card')];const source=cards.find(card=>metricSlots(card)&&openControl(card))||cards.find(card=>metricSlots(card))||null;if(!source)return null;const sanitized=sanitizeStructuralTemplate(source);if(!sanitized)return null;state.template=sanitized;return state.template}
+function fillSentinels(card,row,ctx){const legal=norm(row.legal_name)||norm(ctx?.legal_name)||row.client_id,display=compactLegalName(legal),external=norm(row.current_external_contract_number)||row.contract_id,date=formatDate(row.effective_from),country=norm(row.registration_country)||norm(ctx?.registration_country);const substitutions=[['__RONA_CLIENT_ID__',row.client_id],['__RONA_CONTRACT_ID__',row.contract_id],['__RONA_EXTERNAL_CONTRACT__',external],['__RONA_LEGAL_NAME__',legal],['__RONA_DISPLAY_NAME__',display],['__RONA_REGISTRATION_COUNTRY__',country],['__RONA_EFFECTIVE_DATE__',date]];for(const el of leafNodes(card)){let text=String(el.textContent??''),next=text;for(const [from,to] of substitutions)next=next.split(from).join(to);if(next!==text)el.textContent=next}return{legal,display,external,date}}
+function setText(card,slot,value){for(const el of card.querySelectorAll('[data-rona-company-factory-slot="'+slot+'"]'))el.textContent=String(value??'')}
+function syncActionState(card,current,row){const opener=card.querySelector('[data-rona-company-factory-slot="action"]')||openControl(card);if(!opener)return false;const isCurrent=same(current,row);card.dataset.ronaCompanyCurrent=isCurrent?'true':'false';opener.textContent=isCurrent?'Текущая компания':'Открыть компанию';if(isCurrent){opener.dataset.ronaCurrentCompanyStatus='true';opener.setAttribute('aria-disabled','true');opener.setAttribute('tabindex','-1');if('disabled'in opener)opener.disabled=true}else{delete opener.dataset.ronaCurrentCompanyStatus;opener.removeAttribute('aria-disabled');if(opener.getAttribute('tabindex')==='-1')opener.removeAttribute('tabindex');if('disabled'in opener)opener.disabled=false}return true}
+function installDownload(card,row){const slot=card.querySelector('[data-rona-company-factory-slot="download"]');if(!slot)return false;const doc=row.current_signed_contract;if(!doc?.storage_object_id){slot.textContent='Файл подписанного контракта не опубликован в кабинете';slot.setAttribute('aria-disabled','true');return true}const button=document.createElement('button');button.type='button';if(typeof slot.className==='string')button.className=slot.className;button.textContent='Скачать договор PDF';button.setAttribute('data-rona-company-contract-download','true');button.dataset.ronaClientId=row.client_id;button.dataset.ronaContractId=row.contract_id;button.dataset.ronaStorageObjectId=doc.storage_object_id;button.dataset.ronaDocumentId=doc.document_id;button.title=doc.authoritative_filename;button.addEventListener('click',async event=>{event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();const before=key(currentContext());button.disabled=true;try{const response=await fetch('/portal/api/v1/client/storage/'+encodeURIComponent(doc.storage_object_id)+'/signed-url',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});const body=await response.json().catch(()=>null);if(!response.ok||body?.ok===false)throw new Error(String(body?.code||body?.error?.code||('HTTP_'+response.status)));const url=norm(body?.data?.signed_url||body?.signed_url||body?.data?.url||body?.url);if(!url)throw new Error('SIGNED_URL_MISSING');window.open(url,'_blank','noopener,noreferrer')}catch(error){console.error('RONA signed contract download',error)}finally{button.disabled=false}if(key(currentContext())!==before)console.error('RONA contract click changed company context')});slot.replaceWith(button);return true}
+function materializeCard(template,ctx,row,index,current){const card=template.cloneNode(true);remapIds(card,'rona-company-'+String(index+1));fillSentinels(card,row,ctx);const legal=norm(row.legal_name)||norm(ctx?.legal_name)||row.client_id,display=compactLegalName(legal),external=norm(row.current_external_contract_number)||row.contract_id,date=formatDate(row.effective_from);setText(card,'display-name',display);setText(card,'legal-name',legal);setText(card,'client-id',row.client_id);setText(card,'contract-id',row.contract_id);setText(card,'contract-id-secondary',row.contract_id);setText(card,'contract-label','Контракт № '+external+(date?' · '+date:''));setText(card,'applications',row.applications_total);setText(card,'deals',row.deals_total);setText(card,'documents',row.documents_total);setText(card,'documents-label','ДОКУМЕНТОВ');card.dataset.ronaCompanyAuthorizationScope='authorized-directory';card.dataset.ronaClientId=row.client_id;card.dataset.ronaClientContractId=row.contract_id;card.dataset.ronaCompanyDirectorySource=DIRECTORY_SOURCE;card.dataset.ronaCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;card.dataset.ronaCompanyDirectoryHydration='ready';card.dataset.ronaCompanyCanonicalFactory=FACTORY_MARK;card.dataset.ronaCompanyBusinessOwner='canonical-directory';if(!syncActionState(card,current,row))return null;if(!installDownload(card,row))return null;return{ctx,row,card}}
+function planDirectory(){if(!state.validated||!state.directory.length||!state.template)return null;const grid=canonicalGrid();if(!grid)return null;const authorized=authorizedSnapshot();if(authorized.length!==state.directory.length)return null;const rows=new Map(state.directory.map(row=>[key(row),row]));if(rows.size!==authorized.length)return null;const current=currentContext(),plan=[];for(let index=0;index<authorized.length;index++){const ctx=authorized[index],row=rows.get(key(ctx));if(!row)return null;const item=materializeCard(state.template,ctx,row,index,current);if(!item)return null;plan.push(item)}return plan.length===authorized.length?{grid,plan,generation:state.generation}:null}
+function publishState(){const current=currentContext(),entries=state.directory.map(row=>({client_id:row.client_id,contract_id:row.contract_id,legal_name:row.legal_name,current_external_contract_number:row.current_external_contract_number,applications:row.applications_total,deals:row.deals_total,documents:row.documents_total,source:row.source,documents_predicate:row.documents_predicate,current:same(current,row),signed_contract:Boolean(row.current_signed_contract?.storage_object_id),download:Boolean(row.current_signed_contract?.storage_object_id),metrics_ready:true}));window.__RONA_CLIENT_COMPANY_DIRECTORY_STATE__={version:MARK,factory:FACTORY_MARK,ownership:OWNERSHIP_MARK,scope:'ALL_AUTHORIZED_CONTEXT_DIRECTORY',source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,validated:state.validated,active:state.active,atomic:state.active,generation:state.generation,rendered_generation:state.renderedGeneration,entries,loaded_at:state.lastLoad?new Date(state.lastLoad).toISOString():null}}
+function syncCurrentMarkers(){if(!state.active)return false;const grid=canonicalGrid();if(!grid)return false;const rows=new Map(state.directory.map(row=>[key(row),row])),current=currentContext();let seen=0;for(const card of grid.querySelectorAll('article.company-switch-card[data-rona-company-canonical-factory="'+FACTORY_MARK+'"]')){const row=rows.get(norm(card.dataset.ronaClientId)+'|'+norm(card.dataset.ronaClientContractId));if(!row||!syncActionState(card,current,row))continue;seen++}publishState();return seen===state.directory.length}
+function commitOwnerState(generation){const root=document.documentElement;state.active=true;state.renderedGeneration=generation;root.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;root.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;root.dataset.ronaClientCompanyDirectoryAtomic='true';root.dataset.ronaClientCompanyDirectoryMaterialization=FACTORY_MARK;root.dataset.ronaClientCompanyDirectoryFactory=FACTORY_MARK;root.dataset.ronaClientCompanyDirectoryOwnershipFix=OWNERSHIP_MARK;root.dataset.ronaClientCompanyDirectoryGeneration=String(generation);window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;publishState()}
+function renderDirectory(generation=state.generation){if(state.rendering)return false;if(state.active&&state.renderedGeneration===generation&&syncCurrentMarkers())return true;const planned=planDirectory();if(!planned||planned.generation!==generation)return false;state.rendering=true;try{const fragment=document.createDocumentFragment();for(const item of planned.plan)fragment.append(item.card);planned.grid.replaceChildren(fragment);commitOwnerState(generation);window.dispatchEvent(new CustomEvent('rona:client-company-directory-ready',{detail:{source:DIRECTORY_SOURCE,documents_predicate:DOCUMENTS_PREDICATE,count:planned.plan.length,generation,factory:FACTORY_MARK,ownership:OWNERSHIP_MARK}}));return true}finally{state.rendering=false}}
+function hasLastValidatedDirectory(){const authorized=authorizedSnapshot();if(!state.validated||!authorized.length||state.directory.length!==authorized.length||!state.template)return false;const allowed=new Set(authorized.map(key));return state.directory.every(row=>allowed.has(key(row)))}
+function restoreLastValidatedDirectory(){if(!hasLastValidatedDirectory())return false;state.active=false;return renderDirectory(state.generation)}
+function scheduleRender(delay=20){clearTimeout(state.timer);state.timer=setTimeout(()=>{if(!renderDirectory(state.generation)&&hasLastValidatedDirectory())restoreLastValidatedDirectory()},delay)}
+function showPending(reason='loading'){if(state.active||hasLastValidatedDirectory())return false;const grid=canonicalGrid();if(!grid||!state.template)return false;const pending=document.createElement('div');pending.dataset.ronaCompanyDirectoryPending=reason;pending.setAttribute('role','status');pending.setAttribute('aria-live','polite');pending.textContent=reason==='error'?'Данные компаний временно недоступны. Повторяем загрузку…':'Данные компаний загружаются…';grid.replaceChildren(pending);const root=document.documentElement;root.dataset.ronaClientCompanyDirectoryAtomic='pending';root.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;root.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;root.dataset.ronaClientCompanyDirectoryFactory=FACTORY_MARK;delete window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__;return true}
+async function loadDirectory(force=false){if(state.loading)return state.loading;if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory;state.loading=(async()=>{await state.base.whenReady();const body=force?await state.base.refreshCompanyDirectory('pr431-canonical-company-card-factory'):await state.base.whenCompanyDirectory();const validated=validateCompleteDirectory(body);if(!validated)throw new Error('CLIENT_COMPANY_DIRECTORY_INCOMPLETE');state.directory=validated.rows.map(clone);state.validated=true;state.lastLoad=Date.now();state.generation+=1;if(!renderDirectory(state.generation))scheduleRender(0);return state.directory})().catch(error=>{console.error('RONA canonical company directory',error);if(!state.active&&!restoreLastValidatedDirectory())showPending('error');throw error}).finally(()=>{state.loading=null});return state.loading}
+function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(records=>{if(state.rendering)return;if(state.active){const grid=canonicalGrid(),valid=grid&&grid.querySelectorAll('article.company-switch-card[data-rona-company-canonical-factory="'+FACTORY_MARK+'"]').length===state.directory.length;if(!valid)scheduleRender(0);else syncCurrentMarkers();return}if(records.some(record=>record.type==='childList'))scheduleRender(20)});state.observer.observe(document.body,{subtree:true,childList:true})}
+async function waitForBase(timeoutMs=15000){const started=Date.now();while(Date.now()-started<timeoutMs){const base=window.RONA_CLIENT_CONTEXT;if(base?.whenReady&&base?.getAuthorizedContexts&&base?.getCompanyDirectory&&base?.whenCompanyDirectory&&base?.refreshCompanyDirectory)return base;await new Promise(resolve=>setTimeout(resolve,50))}return null}
+async function start(){if(state.started)return true;if(state.startPromise)return state.startPromise;state.startPromise=(async()=>{const base=await waitForBase();if(!base){clearTimeout(state.startRetry);state.startRetry=setTimeout(()=>start().catch(()=>{}),150);return false}state.base=base;await base.whenReady();if(!captureTemplate()){clearTimeout(state.startRetry);state.startRetry=setTimeout(()=>start().catch(()=>{}),150);return false}window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__=MARK;startObserver();showPending('loading');if(base.subscribe)base.subscribe(()=>state.active?syncCurrentMarkers():scheduleRender(0));window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(()=>{}));window.addEventListener('pageshow',()=>loadDirectory(true).catch(()=>{}));window.addEventListener('rona:client-context-changed',()=>state.active?syncCurrentMarkers():scheduleRender(0));state.started=true;await loadDirectory(true).catch(()=>{});setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);return true})().finally(()=>{state.startPromise=null});return state.startPromise}
+function boot(){start().catch(error=>{console.error('RONA canonical company card factory boot',error);clearTimeout(state.startRetry);state.startRetry=setTimeout(()=>start().catch(()=>{}),150)})}
 window.addEventListener('rona:client-context-ready',boot);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
-setTimeout(boot,0);`;
-runtime=replaceOnce(runtime,oldStart,newStart,'PR431_REAL_AUTH_START_RETRY_FAIL_CLOSED');
-for(const required of [ownershipFixMarker,"getElementById('clientCompanyGrid')",'multiCompanyPending','hasLastValidatedDirectory','restoreLastValidatedDirectory','waitForDirectoryBase','waitForDirectoryTemplate',"loadDirectory(true)",'state.base.select(row.client_id,row.contract_id)'])if(!runtime.includes(required))throw new Error(`PR431_REAL_AUTH_TAKEOVER_CONTRACT_MISSING: ${required}`);
-await writeFile(runtimePath,runtime,'utf8');
+setTimeout(boot,0);
+})();`;
 
-// Preserve canonical frozen company-card shells until the atomic server-driven directory owns the grid,
-// then stand the central selection grid mutator down while retaining its delegated selection guard.
+for(const forbidden of [/RONA-C\d{3}/u,/FARG(?:[‘'ʼ])?ONA/iu,/UNIVERSAL\s+SOLYARIS/iu,/GazOne/iu,/2\s*\/\s*2\s*\/\s*5/u]){
+  if(forbidden.test(canonicalRuntime))throw new Error(`PR431_CANONICAL_FACTORY_HARDCODE_FORBIDDEN:${forbidden}`);
+}
+for(const required of [marker,factoryMarker,ownershipMarker,'validateCompleteDirectory','planDirectory','DocumentFragment','replaceChildren','ALL_AUTHORIZED_CONTEXT_DIRECTORY','restoreLastValidatedDirectory','data-rona-company-contract-download','signed-url']){
+  if(!canonicalRuntime.includes(required))throw new Error(`PR431_CANONICAL_FACTORY_RUNTIME_CONTRACT_MISSING:${required}`);
+}
+await writeFile(runtimePath,canonicalRuntime,'utf8');
+
 let selection=await readFile(selectionRuntimePath,'utf8');
-const selectionActiveHelper="function allAuthorizedCompanyDirectoryActive(){return d.dataset.ronaClientCompanyDirectorySource===DIRECTORY_SOURCE&&d.dataset.ronaClientCompanyDirectoryDocumentsPredicate===DOCUMENTS_PREDICATE&&d.dataset.ronaClientCompanyDirectoryAtomic==='true'}";
-selection=replaceOnce(selection,'const COMPANY_SCOPE_GUARDED=new WeakSet();','const COMPANY_SCOPE_GUARDED=new WeakSet();\n'+selectionActiveHelper,'PR431_SELECTION_DIRECTORY_ACTIVE_HELPER');
-selection=replaceOnce(selection,"function excludeUnauthorizedCompanyCard(entry,reason){const {card}=entry;if(!entry.scoped){entry.ariaHidden=card.getAttribute('aria-hidden');entry.inert=card.hasAttribute('inert');entry.tabIndex=card.getAttribute('tabindex');entry.scoped=true}card.dataset.ronaCompanyAuthorizationScope=reason;delete card.dataset.ronaCompanyCurrent;card.setAttribute('aria-hidden','true');card.setAttribute('inert','');card.setAttribute('tabindex','-1');if(card.isConnected)card.remove()}","function excludeUnauthorizedCompanyCard(entry,reason){const {card}=entry;if(!entry.scoped){entry.ariaHidden=card.getAttribute('aria-hidden');entry.inert=card.hasAttribute('inert');entry.tabIndex=card.getAttribute('tabindex');entry.scoped=true}card.dataset.ronaCompanyAuthorizationScope=reason;delete card.dataset.ronaCompanyCurrent;card.setAttribute('aria-hidden','true');card.setAttribute('inert','');card.setAttribute('tabindex','-1')}",'PR431_SELECTION_PRETAKEOVER_SHELL_PRESERVE');
-selection=replaceOnce(selection,"function syncCompanyGrid(){const grid=canonicalCompanyGrid();if(!grid)return false;registerCompanyCards(grid);guardCompanyGrid(grid);let rendered=0;for(const entry of COMPANY_SCOPE_REGISTRY.entries){const ctx=companyCardAuthorizedContext(entry.card);if(ctx){restoreAuthorizedCompanyCard(entry,ctx);rendered++}else excludeUnauthorizedCompanyCard(entry,state.ready?'denied-or-ambiguous':'pending-authority')}d.dataset.ronaClientCompanyAuthorizationScope='internal-state-contexts';d.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true}","function syncCompanyGrid(){const grid=canonicalCompanyGrid();if(!grid)return false;if(allAuthorizedCompanyDirectoryActive()){guardCompanyGrid(grid);const rendered=[...grid.querySelectorAll('article.company-switch-card[data-rona-client-id][data-rona-client-contract-id]')].filter(card=>card.dataset.ronaCompanyDirectoryHydration==='ready'&&card.dataset.ronaCompanyDirectorySource===DIRECTORY_SOURCE&&card.dataset.ronaCompanyDirectoryDocumentsPredicate===DOCUMENTS_PREDICATE).length;d.dataset.ronaClientCompanyAuthorizationScope='all-authorized-directory';d.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true}registerCompanyCards(grid);guardCompanyGrid(grid);let rendered=0;for(const entry of COMPANY_SCOPE_REGISTRY.entries){const ctx=companyCardAuthorizedContext(entry.card);if(ctx){restoreAuthorizedCompanyCard(entry,ctx);rendered++}else excludeUnauthorizedCompanyCard(entry,state.ready?'denied-or-ambiguous':'pending-authority')}d.dataset.ronaClientCompanyAuthorizationScope='internal-state-contexts';d.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true}",'PR431_SELECTION_POSTTAKEOVER_STANDDOWN');
-for(const required of [selectionActiveHelper,"ronaClientCompanyAuthorizationScope='all-authorized-directory'","card.setAttribute('tabindex','-1')}"])if(!selection.includes(required))throw new Error(`PR431_SELECTION_COMPOSITION_CONTRACT_MISSING: ${required}`);
-if(selection.includes("card.setAttribute('tabindex','-1');if(card.isConnected)card.remove()"))throw new Error('PR431_SELECTION_PRETAKEOVER_SHELL_REMOVAL_STILL_ACTIVE');
+const activeHelper=`function allAuthorizedCompanyDirectoryActive(){const root=document.documentElement;return Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__)&&root.dataset.ronaClientCompanyDirectoryAtomic==='true'&&root.dataset.ronaClientCompanyDirectorySource===DIRECTORY_SOURCE&&root.dataset.ronaClientCompanyDirectoryDocumentsPredicate===DOCUMENTS_PREDICATE&&root.dataset.ronaClientCompanyDirectoryFactory==='${factoryMarker}'}\nfunction companyGridOwnedNode(el){const grid=canonicalCompanyGrid();return Boolean(el&&grid&&allAuthorizedCompanyDirectoryActive()&&(el===grid||grid.contains(el)))}`;
+selection=replaceOnce(selection,'const COMPANY_SCOPE_GUARDED=new WeakSet();','const COMPANY_SCOPE_GUARDED=new WeakSet();\n'+activeHelper,'PR431_CANONICAL_SELECTION_ACTIVE_HELPER');
+selection=replaceOnce(selection,
+  "function declaredSlots(){for(const el of document.querySelectorAll('[data-rona-context-client],[data-rona-current-client]'))markSlot(el,'client-name');for(const el of document.querySelectorAll('[data-rona-context-client-id],[data-rona-current-client-id]'))markSlot(el,'client-id');for(const el of document.querySelectorAll('[data-rona-context-contract],[data-rona-current-contract]'))markContractSlot(el)}",
+  "function declaredSlots(){for(const el of document.querySelectorAll('[data-rona-context-client],[data-rona-current-client]')){if(companyGridOwnedNode(el))continue;markSlot(el,'client-name')}for(const el of document.querySelectorAll('[data-rona-context-client-id],[data-rona-current-client-id]')){if(companyGridOwnedNode(el))continue;markSlot(el,'client-id')}for(const el of document.querySelectorAll('[data-rona-context-contract],[data-rona-current-contract]')){if(companyGridOwnedNode(el))continue;markContractSlot(el)}",
+  'PR431_CANONICAL_SELECTION_DECLARED_SLOTS_STANDDOWN');
+selection=replaceOnce(selection,
+  "function legacyContextScopes(){return [...document.querySelectorAll(`[${CURRENT_SCOPE}]`)]}",
+  "function legacyContextScopes(){return [...document.querySelectorAll(`[${CURRENT_SCOPE}]`)].filter(scope=>!companyGridOwnedNode(scope))}",
+  'PR431_CANONICAL_SELECTION_LEGACY_SCOPE_STANDDOWN');
+selection=replaceOnce(selection,
+  "function renderSlot(el,ctx){const type=el.getAttribute(CURRENT_SLOT);if(!type||el.childElementCount!==0)return;",
+  "function renderSlot(el,ctx){if(companyGridOwnedNode(el))return;const type=el.getAttribute(CURRENT_SLOT);if(!type||el.childElementCount!==0)return;",
+  'PR431_CANONICAL_SELECTION_RENDER_SLOT_STANDDOWN');
+selection=replaceOnce(selection,
+  "function excludeUnauthorizedCompanyCard(entry,reason){const {card}=entry;if(!entry.scoped){entry.ariaHidden=card.getAttribute('aria-hidden');entry.inert=card.hasAttribute('inert');entry.tabIndex=card.getAttribute('tabindex');entry.scoped=true}card.dataset.ronaCompanyAuthorizationScope=reason;delete card.dataset.ronaCompanyCurrent;card.setAttribute('aria-hidden','true');card.setAttribute('inert','');card.setAttribute('tabindex','-1');if(card.isConnected)card.remove()}",
+  "function excludeUnauthorizedCompanyCard(entry,reason){const {card}=entry;if(!entry.scoped){entry.ariaHidden=card.getAttribute('aria-hidden');entry.inert=card.hasAttribute('inert');entry.tabIndex=card.getAttribute('tabindex');entry.scoped=true}card.dataset.ronaCompanyAuthorizationScope=reason;delete card.dataset.ronaCompanyCurrent;card.setAttribute('aria-hidden','true');card.setAttribute('inert','');card.setAttribute('tabindex','-1')}",
+  'PR431_CANONICAL_SELECTION_TEMPLATE_SHELL_PRESERVE');
+selection=replaceOnce(selection,
+  "function syncCompanyGrid(){const grid=canonicalCompanyGrid();if(!grid)return false;registerCompanyCards(grid);guardCompanyGrid(grid);let rendered=0;for(const entry of COMPANY_SCOPE_REGISTRY.entries){const ctx=companyCardAuthorizedContext(entry.card);if(ctx){restoreAuthorizedCompanyCard(entry,ctx);rendered++}else excludeUnauthorizedCompanyCard(entry,state.ready?'denied-or-ambiguous':'pending-authority')}d.dataset.ronaClientCompanyAuthorizationScope='internal-state-contexts';d.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true}",
+  "function syncCompanyGrid(){const grid=canonicalCompanyGrid();if(!grid)return false;if(allAuthorizedCompanyDirectoryActive()){COMPANY_SCOPE_REGISTRY.grid=grid;COMPANY_SCOPE_REGISTRY.entries=[];guardCompanyGrid(grid);const rendered=[...grid.querySelectorAll('article.company-switch-card[data-rona-company-canonical-factory=\"${factoryMarker}\"]')].length;d.dataset.ronaClientCompanyAuthorizationScope='canonical-directory-selection-guard-only';d.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true}registerCompanyCards(grid);guardCompanyGrid(grid);let rendered=0;for(const entry of COMPANY_SCOPE_REGISTRY.entries){const ctx=companyCardAuthorizedContext(entry.card);if(ctx){restoreAuthorizedCompanyCard(entry,ctx);rendered++}else excludeUnauthorizedCompanyCard(entry,state.ready?'denied-or-ambiguous':'pending-authority')}d.dataset.ronaClientCompanyAuthorizationScope='internal-state-contexts';d.dataset.ronaClientCompanyAuthorizedCards=String(rendered);return true}",
+  'PR431_CANONICAL_SELECTION_GRID_CONTENT_OWNER_RETIRE');
+selection=replaceOnce(selection,
+  "  const grid=canonicalCompanyGrid(),protectGrid=!!(grid&&d.dataset.ronaClientCompanyDirectoryAtomic==='true'),gridId=grid?.id||'';\n  const applications=canonicalApplicationsSurface(),protectApplications=!!applications,parent=applications?.parentNode||null,next=applications?.nextSibling||null,marker=protectApplications?document.createComment('rona-applications-canonical-preserved'):null;\n  if(protectGrid)grid.removeAttribute('id');\n  if(protectApplications&&parent){parent.insertBefore(marker,applications);parent.removeChild(applications)}",
+  "  const grid=canonicalCompanyGrid(),protectGrid=!!(grid&&allAuthorizedCompanyDirectoryActive()),gridParent=grid?.parentNode||null,gridNext=grid?.nextSibling||null,gridMarker=protectGrid?document.createComment('rona-company-grid-canonical-preserved'):null;\n  const applications=canonicalApplicationsSurface(),protectApplications=!!applications,parent=applications?.parentNode||null,next=applications?.nextSibling||null,marker=protectApplications?document.createComment('rona-applications-canonical-preserved'):null;\n  if(protectGrid&&gridParent){gridParent.insertBefore(gridMarker,grid);gridParent.removeChild(grid)}\n  if(protectApplications&&parent){parent.insertBefore(marker,applications);parent.removeChild(applications)}",
+  'PR431_CANONICAL_SELECTION_LEGACY_RENDER_GRID_DETACH');
+selection=replaceOnce(selection,
+  "    if(protectGrid)grid.id=gridId||'clientCompanyGrid';\n    if(protectApplications){",
+  "    if(protectGrid){const legacyGrid=document.getElementById('clientCompanyGrid');if(legacyGrid&&legacyGrid!==grid)legacyGrid.remove();if(gridMarker?.parentNode)gridMarker.parentNode.replaceChild(grid,gridMarker);else if(gridParent?.isConnected)gridParent.insertBefore(grid,gridNext?.parentNode===gridParent?gridNext:null);if(grid.id!=='clientCompanyGrid')grid.id='clientCompanyGrid'}\n    if(protectApplications){",
+  'PR431_CANONICAL_SELECTION_LEGACY_RENDER_GRID_RESTORE');
+for(const required of [factoryMarker,'canonical-directory-selection-guard-only','rona-company-grid-canonical-preserved','rona-applications-canonical-preserved','internal-state-contexts','guardCompanyGrid'])if(!selection.includes(required))throw new Error(`PR431_CANONICAL_SELECTION_CONTRACT_MISSING:${required}`);
 await writeFile(selectionRuntimePath,selection,'utf8');
 
-// v11 Company Directory stand-down is source-native. Do not mutate the emitted product runtime here.
 const contract=await readFile(contractRuntimePath,'utf8');
-for(const required of [legacyMarker,'function authoritativeCompanyDirectoryOwnsCards()','window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__','v11-source-standdown-all-authorized-directory','rona:client-company-directory-ready'])if(!contract.includes(required))throw new Error(`PR431_V11_SOURCE_NATIVE_STANDDOWN_CONTRACT_MISSING: ${required}`);
-for(const forbidden of ["function allCompanyDirectoryActive(){","v11-standdown-all-authorized-directory"])if(contract.includes(forbidden))throw new Error(`PR431_V11_OBSOLETE_EMITTED_STANDDOWN_PRESENT: ${forbidden}`);
-if(!contract.includes('if(!ctx||authoritativeCompanyDirectoryOwnsCards())return false')||!contract.includes('if(authoritativeCompanyDirectoryOwnsCards()||!entry||!resolved)return false')||!contract.includes("if(authoritativeCompanyDirectoryOwnsCards()){document.documentElement.dataset.ronaClientContractRuntime='v11-source-standdown-all-authorized-directory';return true}"))throw new Error('PR431_V11_SOURCE_NATIVE_SINGLE_OWNER_GUARD_INCOMPLETE');
+for(const required of [legacyMarker,'function authoritativeCompanyDirectoryOwnsCards()','if(authoritativeCompanyDirectoryOwnsCards())return false','v11-source-standdown-all-authorized-directory','rona:client-company-directory-ready'])if(!contract.includes(required))throw new Error(`PR431_CANONICAL_LEGACY_RETIREMENT_CONTRACT_MISSING:${required}`);
 
-const digest=sha256(Buffer.from(runtime,'utf8')).slice(0,16),src=`/assets/portal-runtime/portal-client-company-directory-authority-v1.js?v=${digest}`;
-const selectionDigest=sha256(Buffer.from(selection,'utf8')).slice(0,16),selectionSrc=`/assets/portal-runtime/client-context-selection-authority-v1.js?v=${selectionDigest}`;
+const runtimeDigest=sha256(Buffer.from(canonicalRuntime,'utf8')).slice(0,16);
+const selectionDigest=sha256(Buffer.from(selection,'utf8')).slice(0,16);
+const src=`/assets/portal-runtime/portal-client-company-directory-authority-v1.js?v=${runtimeDigest}`;
+const selectionSrc=`/assets/portal-runtime/client-context-selection-authority-v1.js?v=${selectionDigest}`;
 let html=await readFile(htmlPath,'utf8');
 const selectionSrcMatch=html.match(/\/assets\/portal-runtime\/client-context-selection-authority-v1\.js\?v=[a-f0-9]+/i);
-if(!selectionSrcMatch)throw new Error('PR431_SELECTION_CONTENT_ADDRESS_TARGET_MISSING');
-html=replaceOnce(html,selectionSrcMatch[0],selectionSrc,'PR431_SELECTION_CONTENT_ADDRESS_REFRESH');
-if(html.includes(`id="${id}"`)||html.includes('portal-client-company-directory-authority-v1.js'))throw new Error('PR431_COMPANY_DIRECTORY_ALREADY_ATTACHED');
-const headClose=html.toLowerCase().lastIndexOf('</head>');if(headClose<0)throw new Error('PR431_CLIENT_HEAD_CLOSE_MISSING');
+if(!selectionSrcMatch)throw new Error('PR431_CANONICAL_SELECTION_CONTENT_ADDRESS_TARGET_MISSING');
+html=replaceOnce(html,selectionSrcMatch[0],selectionSrc,'PR431_CANONICAL_SELECTION_CONTENT_ADDRESS_REFRESH');
+if(html.includes(`id="${id}"`)||html.includes('portal-client-company-directory-authority-v1.js'))throw new Error('PR431_CANONICAL_FACTORY_ALREADY_ATTACHED');
+const headClose=html.toLowerCase().lastIndexOf('</head>');if(headClose<0)throw new Error('PR431_CANONICAL_FACTORY_HEAD_CLOSE_MISSING');
 html=html.slice(0,headClose)+`<script id="${id}" src="${src}" defer></script>`+html.slice(headClose);
 const authorityIndex=html.indexOf('client-context-selection-authority-v1.js'),directoryIndex=html.indexOf('portal-client-company-directory-authority-v1.js'),legacyIndex=html.indexOf('client-contract-download-v3.js');
-if(authorityIndex<0||directoryIndex<0||legacyIndex<0||!(authorityIndex<directoryIndex&&directoryIndex<legacyIndex))throw new Error(`PR431_COMPANY_DIRECTORY_EXECUTION_ORDER_INVALID authority=${authorityIndex} directory=${directoryIndex} legacy=${legacyIndex}`);
+if(authorityIndex<0||directoryIndex<0||legacyIndex<0||!(authorityIndex<directoryIndex&&directoryIndex<legacyIndex))throw new Error(`PR431_CANONICAL_FACTORY_EXECUTION_ORDER_INVALID:${authorityIndex}:${directoryIndex}:${legacyIndex}`);
 await writeFile(htmlPath,html,'utf8');
-const integrity=JSON.parse(await readFile(integrityPath,'utf8'));integrity.client_runtime=integrity.client_runtime||{};integrity.client_runtime.emitted_sha256=sha256(Buffer.from(html,'utf8'));integrity.client_runtime.emitted_bytes=Buffer.byteLength(html);if(integrity.client_runtime.context_selection_authority)integrity.client_runtime.context_selection_authority.src=selectionSrc;integrity.client_runtime.pr431_company_directory={id,src,marker,materialization:materializationMarker,ownership_fix:ownershipFixMarker,scope:'ALL_SERVER_AUTHORIZED_CLIENT_CONTRACT_CONTEXTS',source:'AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',activation:'COMPLETE_DIRECTORY_ATOMIC_COMMIT_WITH_REAL_AUTH_RETRY',card_materialization:'CLONE_EXISTING_CANONICAL_CARD_STRUCTURE_PER_AUTHORIZED_ROW',pre_takeover_shell_policy:'MULTI_COMPANY_FAIL_CLOSED_PENDING',post_takeover_central_grid_mutator:'STAND_DOWN_KEEP_DELEGATED_SELECTION_GUARD',takeover_retention:'KEEP_STABLE_OWNER_RESTORE_LAST_VALIDATED_DIRECTORY',bootstrap_owner:'RONA_CLIENT_CONTEXT_NATIVE_FETCH',missing_or_partial_projection:'NON_DESTRUCTIVE_KEEP_STABLE_OWNER',refresh_failure:'KEEP_LAST_VALIDATED_DIRECTORY',contract_download:'SERVER_AUTHORIZED_SHORT_LIVED_SIGNED_URL',selected_context_required_for_directory:false,legacy_selected_context_owner:'SOURCE_NATIVE_STAND_DOWN_WHEN_DIRECTORY_OWNER_PRESENT',visual_runtime_owner:false,visual_redesign:false,hardcoded_business_entities:false};await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
-console.log(`PR431_COMPANY_DIRECTORY_ATTACH=PASS marker=${marker} materialization=${materializationMarker} ownership-fix=${ownershipFixMarker} order=authority->directory-atomic->legacy-source-native-standdown source=AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB bootstrap-owner=central-native pre-takeover=fail-closed post-takeover=keep-stable-owner visual-owner=false`);
+
+const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
+integrity.client_runtime=integrity.client_runtime||{};
+integrity.client_runtime.emitted_sha256=sha256(Buffer.from(html,'utf8'));
+integrity.client_runtime.emitted_bytes=Buffer.byteLength(html);
+if(integrity.client_runtime.context_selection_authority)integrity.client_runtime.context_selection_authority.src=selectionSrc;
+integrity.client_runtime.pr431_company_directory={id,src,marker,factory:factoryMarker,ownership:ownershipMarker,scope:'ALL_SERVER_AUTHORIZED_CLIENT_CONTRACT_CONTEXTS',source:directorySource,documents_predicate:documentsPredicate,activation:'COMPLETE_VALIDATED_DIRECTORY_ATOMIC_COMMIT',card_factory:'ONE_SANITIZED_STRUCTURAL_TEMPLATE_DATA_ONLY',legacy_cards_after_materialization:'RETIRED_NOT_OWNERS',selection_authority_after_materialization:'DELEGATED_SELECTION_GUARD_ONLY',context_switch_business_content_rewrite:false,refresh_failure:'KEEP_LAST_VALIDATED_FULL_DIRECTORY',pre_first_valid:'NEUTRAL_LOADING_OR_ERROR',contract_download:'PER_DIRECTORY_ROW_SERVER_SIGNED_URL',future_company_onboarding:'DATA_ONLY_SAME_FACTORY',applications_bug2:'UNCHANGED_NO_TOUCH',visual_runtime_owner:false,visual_redesign:false,hardcoded_business_entities:false};
+await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
+console.log(`PR431_CANONICAL_COMPANY_CARD_FACTORY=PASS marker=${factoryMarker} ownership=${ownershipMarker} legacy-card-owners=retired selection=guard-only atomic=true stable-owner=true future=data-only bug2=unchanged`);
