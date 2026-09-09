@@ -1,0 +1,60 @@
+{
+  "approval": "OWNER_SYSTEM_ADMIN_ISSUE_COMMENT",
+  "authorized_at": "2026-09-09",
+  "pr_number": 431,
+  "branch": "hotfix/client-multiclient-parity-430-v1",
+  "system_admin_comment_id": 5602689478,
+  "parent_sha": "0d3f4363e124647d9f3b72d377eb24240c5a4574",
+  "typography_visual_base_sha": "d1a25b07624dd86633fbdf090afa356683eeb1dd",
+  "scope": "CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_EXACT",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-contract-download-v3.js"
+  ],
+  "finalization_changed_files": [
+    "governance/client-section-typography-110-owner-approval-20260909.json",
+    "scripts/qa-client-portal-visual-freeze.mjs",
+    "scripts/qa-client-section-typography-110-v1.mjs"
+  ],
+  "exact_post_remediation_blobs": {
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "authorized_parent_blob_sha": "2054fb7f54d4727ba5dd0bac2f688c3a90c66e65",
+      "authorized_post_blob_sha": "2054fb7f54d4727ba5dd0bac2f688c3a90c66e65",
+      "required_marker": "RONA_CLIENT_OWNER_SECTION_TYPOGRAPHY_110_V4_EXACT_PARENT"
+    }
+  },
+  "authorized_visual_delta": {
+    "client_section_content_scale": 1.1,
+    "section_titles_effective_scale": 1.0,
+    "analytics_effective_scale": 1.0,
+    "shell_effective_scale": 1.0,
+    "runtime_changed_in_finalization": false
+  },
+  "requirements": {
+    "visual_freeze_status_frozen": true,
+    "owner_instruction_required": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "approved_file_list_is_exact": true,
+    "runtime_changed_in_finalization": false,
+    "frame_geometry_may_expand": false,
+    "horizontal_text_overflow_allowed": false,
+    "ellipsis_or_clipping_allowed": false,
+    "wrapping_required_if_needed": true,
+    "desktop_widths_proven": [1920, 1366],
+    "font_scale_may_shrink": false,
+    "bug1_touch": false,
+    "bug2_touch": false,
+    "background_restoration_touch": false,
+    "backend_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "rail_changed": false,
+    "business_data_changed": false,
+    "html_composition_changed": false,
+    "theme_colors_icons_spacing_changed": false,
+    "agent_xlsx_commission_changed": false,
+    "merge_before_owner_review": false,
+    "production_switch_before_owner_review": false
+  }
+}

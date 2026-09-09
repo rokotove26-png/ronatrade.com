@@ -7,12 +7,14 @@ const DEALS_LOADER_APPROVAL_PATH='governance/client-deals-loader-owner-remediati
 const CLIENT_LOAD_HOTFIX_APPROVAL_PATH='governance/client-load-hotfix-pr429-owner-approval-20260905.json';
 const OWNER_VISUAL_DELTA_APPROVAL_PATH='governance/client-owner-visual-delta-pr429-approval-20260906.json';
 const CLIENT_MULTI_CONTEXT_430_APPROVAL_PATH='governance/client-multiclient-parity-issue430-owner-approval-20260906.json';
+const CLIENT_SECTION_TYPOGRAPHY_110_APPROVAL_PATH='governance/client-section-typography-110-owner-approval-20260909.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
 const clientLoadHotfixApproval=JSON.parse(await readFile(CLIENT_LOAD_HOTFIX_APPROVAL_PATH,'utf8'));
 const ownerVisualDeltaApproval=JSON.parse(await readFile(OWNER_VISUAL_DELTA_APPROVAL_PATH,'utf8'));
 const clientMultiContext430Approval=JSON.parse(await readFile(CLIENT_MULTI_CONTEXT_430_APPROVAL_PATH,'utf8'));
+const clientSectionTypography110Approval=JSON.parse(await readFile(CLIENT_SECTION_TYPOGRAPHY_110_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -88,6 +90,14 @@ const OWNER_VISUAL_DELTA_FILES=[
 const CLIENT_MULTI_CONTEXT_430_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
+const CLIENT_SECTION_TYPOGRAPHY_110_FILES=[
+  'assets/portal-runtime/client-contract-download-v3.js'
+];
+const CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_FILES=[
+  'governance/client-section-typography-110-owner-approval-20260909.json',
+  'scripts/qa-client-portal-visual-freeze.mjs',
+  'scripts/qa-client-section-typography-110-v1.mjs'
+];
 const PR431_DIRECT_FIX_FILES=[
   'assets/portal-runtime/portal-client-company-directory-authority-v1.js',
   'assets/portal-runtime/client-context-selection-authority-v1.js',
@@ -131,6 +141,53 @@ const PR431_TWO_BUG_SCOPED_FREEZE_EXCEPTION={
   }
 };
 const exactArray=(actual,expected)=>Array.isArray(actual)&&actual.length===expected.length&&actual.every((value,index)=>value===expected[index]);
+
+const clientSectionTypography110ExceptionAuthorized=
+  clientSectionTypography110Approval?.approval==='OWNER_SYSTEM_ADMIN_ISSUE_COMMENT'&&
+  clientSectionTypography110Approval?.authorized_at==='2026-09-09'&&
+  clientSectionTypography110Approval?.pr_number===431&&
+  clientSectionTypography110Approval?.branch==='hotfix/client-multiclient-parity-430-v1'&&
+  clientSectionTypography110Approval?.system_admin_comment_id===5602689478&&
+  clientSectionTypography110Approval?.parent_sha==='0d3f4363e124647d9f3b72d377eb24240c5a4574'&&
+  clientSectionTypography110Approval?.typography_visual_base_sha==='d1a25b07624dd86633fbdf090afa356683eeb1dd'&&
+  clientSectionTypography110Approval?.scope==='CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_EXACT'&&
+  exactArray(clientSectionTypography110Approval?.approved_protected_files,CLIENT_SECTION_TYPOGRAPHY_110_FILES)&&
+  exactArray(clientSectionTypography110Approval?.finalization_changed_files,CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_FILES)&&
+  clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.visual_freeze_baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
+  clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_parent_blob_sha==='2054fb7f54d4727ba5dd0bac2f688c3a90c66e65'&&
+  clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='2054fb7f54d4727ba5dd0bac2f688c3a90c66e65'&&
+  clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.required_marker==='RONA_CLIENT_OWNER_SECTION_TYPOGRAPHY_110_V4_EXACT_PARENT'&&
+  clientSectionTypography110Approval?.authorized_visual_delta?.client_section_content_scale===1.1&&
+  clientSectionTypography110Approval?.authorized_visual_delta?.section_titles_effective_scale===1&&
+  clientSectionTypography110Approval?.authorized_visual_delta?.analytics_effective_scale===1&&
+  clientSectionTypography110Approval?.authorized_visual_delta?.shell_effective_scale===1&&
+  clientSectionTypography110Approval?.authorized_visual_delta?.runtime_changed_in_finalization===false&&
+  clientSectionTypography110Approval?.requirements?.visual_freeze_status_frozen===true&&
+  clientSectionTypography110Approval?.requirements?.owner_instruction_required===true&&
+  clientSectionTypography110Approval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientSectionTypography110Approval?.requirements?.exact_blob_enforcement_remains_active===true&&
+  clientSectionTypography110Approval?.requirements?.wildcard_exception===false&&
+  clientSectionTypography110Approval?.requirements?.approved_file_list_is_exact===true&&
+  clientSectionTypography110Approval?.requirements?.runtime_changed_in_finalization===false&&
+  clientSectionTypography110Approval?.requirements?.frame_geometry_may_expand===false&&
+  clientSectionTypography110Approval?.requirements?.horizontal_text_overflow_allowed===false&&
+  clientSectionTypography110Approval?.requirements?.ellipsis_or_clipping_allowed===false&&
+  clientSectionTypography110Approval?.requirements?.wrapping_required_if_needed===true&&
+  exactArray(clientSectionTypography110Approval?.requirements?.desktop_widths_proven,[1920,1366])&&
+  clientSectionTypography110Approval?.requirements?.font_scale_may_shrink===false&&
+  clientSectionTypography110Approval?.requirements?.bug1_touch===false&&
+  clientSectionTypography110Approval?.requirements?.bug2_touch===false&&
+  clientSectionTypography110Approval?.requirements?.background_restoration_touch===false&&
+  clientSectionTypography110Approval?.requirements?.backend_changed===false&&
+  clientSectionTypography110Approval?.requirements?.supabase_schema_or_rls_changed===false&&
+  clientSectionTypography110Approval?.requirements?.rail_changed===false&&
+  clientSectionTypography110Approval?.requirements?.business_data_changed===false&&
+  clientSectionTypography110Approval?.requirements?.html_composition_changed===false&&
+  clientSectionTypography110Approval?.requirements?.theme_colors_icons_spacing_changed===false&&
+  clientSectionTypography110Approval?.requirements?.agent_xlsx_commission_changed===false&&
+  clientSectionTypography110Approval?.requirements?.merge_before_owner_review===false&&
+  clientSectionTypography110Approval?.requirements?.production_switch_before_owner_review===false;
+
 const clientLoadHotfixExceptionAuthorized=
   clientLoadHotfixApproval?.approval==='OWNER_IN_CHAT'&&
   clientLoadHotfixApproval?.authorized_at==='2026-09-05'&&
@@ -340,6 +397,7 @@ const protectedFiles=policy.protected_files||{};
 const errors=[];
 let ownerVisualDeltaAppliedFiles=0;
 let clientMultiContext430AppliedFiles=0;
+let clientSectionTypography110AppliedFiles=0;
 let pr431TwoBugScopedAppliedFiles=0;
 let pr431DirectFixExactFiles=0;
 
@@ -376,6 +434,8 @@ if(!pr431DirectFixGovernanceAuthorized){
   }
 }
 
+if(!clientSectionTypography110ExceptionAuthorized)errors.push('CLIENT_SECTION_TYPOGRAPHY_110_GOVERNANCE_NOT_AUTHORIZED');
+
 for(const [path,expected] of Object.entries(protectedFiles)){
   try{
     const body=await readFile(path);
@@ -399,6 +459,16 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       issue430Entry.required_marker.length>0&&
       body.toString('utf8').includes(issue430Entry.required_marker)
     );
+    const typographyEntry=clientSectionTypography110ExceptionAuthorized?clientSectionTypography110Approval?.exact_post_remediation_blobs?.[path]:null;
+    const exactTypographyPost=Boolean(
+      typographyEntry&&
+      typographyEntry.visual_freeze_baseline_blob_sha===expected&&
+      typographyEntry.authorized_parent_blob_sha==='2054fb7f54d4727ba5dd0bac2f688c3a90c66e65'&&
+      typographyEntry.authorized_post_blob_sha===actual&&
+      typeof typographyEntry.required_marker==='string'&&
+      typographyEntry.required_marker.length>0&&
+      body.toString('utf8').includes(typographyEntry.required_marker)
+    );
     const pr431Entry=pr431TwoBugScopedFreezeExceptionAuthorized?PR431_TWO_BUG_SCOPED_FREEZE_EXCEPTION.exact_post_remediation_blobs?.[path]:null;
     const exactPr431TwoBugScopedPost=Boolean(
       pr431Entry&&
@@ -410,11 +480,16 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     );
     if(exactOwnerVisualPost)ownerVisualDeltaAppliedFiles+=1;
     if(exactIssue430Post)clientMultiContext430AppliedFiles+=1;
+    if(exactTypographyPost)clientSectionTypography110AppliedFiles+=1;
     if(exactPr431TwoBugScopedPost)pr431TwoBugScopedAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactPr431TwoBugScopedPost)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
+}
+
+if(clientSectionTypography110ExceptionAuthorized&&clientSectionTypography110AppliedFiles!==CLIENT_SECTION_TYPOGRAPHY_110_FILES.length){
+  errors.push(`CLIENT_SECTION_TYPOGRAPHY_110_EXACT_BLOB_COUNT expected=${CLIENT_SECTION_TYPOGRAPHY_110_FILES.length} actual=${clientSectionTypography110AppliedFiles}`);
 }
 
 const baselineRuntime=new Set(Object.keys(protectedFiles)
@@ -450,4 +525,5 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log('VISUAL_FREEZE_EXACT_EXCEPTION=PASS');
