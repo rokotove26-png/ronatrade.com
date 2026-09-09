@@ -1,0 +1,14 @@
+import { readFile } from 'node:fs/promises';
+const html=await readFile('dist/portal/client.html','utf8');
+const directory=await readFile('dist/assets/portal-runtime/portal-client-company-directory-authority-v1.js','utf8');
+const apps=await readFile('dist/assets/portal-runtime/portal-client-applications-canonical-v1.js','utf8');
+const order=['client-context-selection-authority-v1.js','portal-client-company-directory-authority-v1.js','client-contract-download-v3.js'].map(x=>html.indexOf(x));
+if(order.some(x=>x<0)||!(order[0]<order[1]&&order[1]<order[2]))throw new Error(`PR431_EMITTED_OWNER_ORDER_INVALID:${order.join(',')}`);
+if((html.match(/portal-client-applications-canonical-v1\.js/g)||[]).length!==1)throw new Error('PR431_APPLICATIONS_RENDERER_NOT_SINGLE');
+for(const competing of ['client-applications-live-render-v1.js','rona-portal-client-applications-uat-v2','rona-portal-client-applications-uat-v3'])if(html.includes(competing))throw new Error(`PR431_COMPETING_APPLICATION_RENDERER_PRESENT:${competing}`);
+if(apps.includes('applications-projection'))throw new Error('PR431_EMITTED_APPLICATIONS_GHOST_ENDPOINT_PRESENT');
+for(const token of ['whenCurrentProjection','invalidateCurrentProjection','state.timer=setInterval(()=>load(false),REFRESH_MS)'])if(!apps.includes(token))throw new Error(`PR431_EMITTED_APPLICATIONS_CURRENT_PROJECTION_MISSING:${token}`);
+for(const token of ['ALL_AUTHORIZED_CONTEXT_DIRECTORY','getCompanyDirectory','AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB','CURRENT_EFFECTIVE_CONTRACTUAL_ONLY','validateCompleteDirectory','CLIENT_COMPANY_DIRECTORY_INCOMPLETE','planDirectory','state.validated','state.active'])if(!directory.includes(token))throw new Error(`PR431_EMITTED_DIRECTORY_CONTRACT_MISSING:${token}`);
+for(const forbidden of ['neutralCard','RONA_CLIENT_OWNER_TYPOGRAPHY','style.setProperty(\'font-size\'','createElement(\'style\')','window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__=LEGACY_CONTRACT_MARK','window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V2__=LEGACY_CONTRACT_MARK','window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__=LEGACY_CONTRACT_MARK'])if(directory.includes(forbidden))throw new Error(`PR431_EMITTED_DIRECTORY_DESTRUCTIVE_OR_VISUAL_OWNER_FORBIDDEN:${forbidden}`);
+if(/RONA-C003|RONA-C005|RONA-C005-IN-2026-001|2\s*\/\s*2\s*\/\s*5/iu.test(directory+apps))throw new Error('PR431_EMITTED_HARDCODED_ACCEPTANCE_FIXTURE_FORBIDDEN');
+console.log('PR431_SYSTEM_ADMIN_ONE_SHOT_EMITTED_QA=PASS owner-order=authority->atomic-directory->legacy-preserved directory=complete-before-commit applications=single-current-projection ghost-endpoint=false visual-owner=false hardcoded-fixtures=false');

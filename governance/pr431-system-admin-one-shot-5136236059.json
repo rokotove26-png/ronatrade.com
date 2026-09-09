@@ -1,0 +1,25 @@
+{
+  "schema": "rona.pr431.system_admin_one_shot.v1",
+  "pr": 431,
+  "system_admin_review_id": 5136236059,
+  "authorized_parent_sha": "c1b368103ed7d3a728e0a5f2305fa6e0fbfbd439",
+  "authorization": "ONE_SHOT_GENERIC_REMEDIATION",
+  "root_cause_lock": "PASS",
+  "scope": {
+    "company_directory": "ALL_SERVER_AUTHORIZED_CLIENT_CONTRACT_CONTEXTS",
+    "company_directory_source": "AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB",
+    "documents_predicate": "CURRENT_EFFECTIVE_CONTRACTUAL_ONLY",
+    "applications_renderer": "RONA_CLIENT_CONTEXT_CURRENT_PROJECTION",
+    "applications_ghost_endpoint": false,
+    "preview_backend": "rona-portal-api-candidate-20260817",
+    "production_backend_deploy": false,
+    "business_data_mutation": false,
+    "schema_or_rls_migration": false,
+    "visual_redesign": false
+  },
+  "release_locks": {
+    "merge": "HOLD",
+    "production_switch": "HOLD",
+    "auth_issuer_reopen": false
+  }
+}

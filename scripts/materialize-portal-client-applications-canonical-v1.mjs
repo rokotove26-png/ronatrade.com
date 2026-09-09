@@ -1,87 +1,37 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-
 const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const approvalPath='governance/client-portal-visual-freeze.json';
 const sourceRuntimePath='assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const runtimePath='dist/assets/portal-runtime/portal-client-applications-canonical-v1.js';
 const id='rona-portal-client-applications-canonical-v1';
-const marker='20260904-portal-client-applications-canonical-v3-title-frame-box-model';
-const src='/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=20260905-no-background-refresh-v4';
+const sourceMarker='20260909-portal-client-applications-canonical-v4-single-presentation-owner';
+const marker='20260908-portal-client-applications-canonical-v4-current-projection';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
-
 const approval=JSON.parse(await readFile(approvalPath,'utf8'));
 if(approval?.client_applications_live_render_correction?.authorized_source!=='OWNER_IN_CHAT')throw new Error('CLIENT_APPLICATIONS_OWNER_APPROVAL_MISSING');
 const sourceRuntime=await readFile(sourceRuntimePath,'utf8');
-for(const required of [
-  marker,
-  'applications-projection',
-  'application_price',
-  'resource_status',
-  'Цена заявки',
-  'Подтверждение ресурса',
-  'applications-title-frame',
-  'contentLeft',
-  'data-rona-live-applications="canonical-v1"',
-  'rona-live-app-summary',
-  'rona-live-app-terms',
-  'rona-live-app-state-strip',
-  'grid-template-columns:minmax(0,1fr) auto auto',
-  'flex-wrap:nowrap',
-  'font-size:14px',
-  'font-size:13.5px',
-  'font:740 12.2px/1',
-]){
-  if(!sourceRuntime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_REQUIRED_MISSING: ${required}`);
-}
-for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены','portal-client-applications-uat-v2','portal-client-applications-uat-v3','rona-live-app-state-lines']){
-  if(sourceRuntime.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_FORBIDDEN_OUTPUT: ${forbidden}`);
-}
+for(const required of [sourceMarker,'applications-projection','application_price','resource_status','Цена заявки','Подтверждение ресурса','applications-title-frame','contentLeft','data-rona-live-applications="canonical-v1"','rona-live-app-summary','rona-live-app-terms','rona-live-app-state-strip','grid-template-columns:minmax(0,1fr) auto auto','flex-wrap:nowrap','font-size:14px','font-size:13.5px','font:740 12.2px/1'])if(!sourceRuntime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_REQUIRED_MISSING: ${required}`);
+for(const forbidden of ['ACCEPT_PUBLISHED_PRICE','price_mode','Режим цены','portal-client-applications-uat-v2','portal-client-applications-uat-v3','rona-live-app-state-lines'])if(sourceRuntime.includes(forbidden))throw new Error(`CLIENT_APPLICATIONS_CANONICAL_FORBIDDEN_OUTPUT: ${forbidden}`);
 if(/<img|<svg|<canvas|background-image\s*:/iu.test(sourceRuntime))throw new Error('CLIENT_APPLICATIONS_CANONICAL_IMAGE_ASSET_FORBIDDEN');
-
-const polling="state.timer=setInterval(()=>load(false),REFRESH_MS);";
-const pageShowNetwork="window.addEventListener('pageshow',()=>{load(true);scheduleAlign();setTimeout(observeLayout,0)},{passive:true})";
-if(!sourceRuntime.includes(polling))throw new Error('CLIENT_APPLICATIONS_EXPECTED_POLLING_OWNER_MISSING');
-if(!sourceRuntime.includes(pageShowNetwork))throw new Error('CLIENT_APPLICATIONS_EXPECTED_PAGESHOW_NETWORK_OWNER_MISSING');
-const runtime=sourceRuntime.replace(polling,'').replace(pageShowNetwork,"window.addEventListener('pageshow',()=>{scheduleAlign();setTimeout(observeLayout,0)},{passive:true})");
-if(runtime.includes(polling)||runtime.includes(pageShowNetwork))throw new Error('CLIENT_APPLICATIONS_BACKGROUND_REFRESH_QUARANTINE_FAILED');
+const ghost="const detail=await request('/v1/client/applications-projection?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));";
+const live="const a=authority();if(!a?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const detail=await a.whenCurrentProjection('applications-canonical');";
+const oldSubmit="window.addEventListener('rona:client-application-submitted',()=>{setTimeout(()=>load(true),120);setTimeout(()=>load(true),900)})";
+const newSubmit="window.addEventListener('rona:client-application-submitted',()=>{authority()?.invalidateCurrentProjection?.();setTimeout(()=>load(true),120);setTimeout(()=>{authority()?.invalidateCurrentProjection?.();load(true)},900)})";
+if(!sourceRuntime.includes(ghost))throw new Error('CLIENT_APPLICATIONS_GHOST_ENDPOINT_TARGET_MISSING');
+if(!sourceRuntime.includes(oldSubmit))throw new Error('CLIENT_APPLICATIONS_SUBMIT_INVALIDATION_TARGET_MISSING');
+let runtime=sourceRuntime.replace(`const MARK='${sourceMarker}';`,`const MARK='${marker}';`).replace(ghost,live).replace(oldSubmit,newSubmit);
+if(runtime.includes('applications-projection'))throw new Error('CLIENT_APPLICATIONS_GHOST_ENDPOINT_NOT_REMOVED');
+for(const required of [marker,'whenCurrentProjection','invalidateCurrentProjection','state.timer=setInterval(()=>load(false),REFRESH_MS)',"window.addEventListener('pageshow',()=>{load(true)"])if(!runtime.includes(required))throw new Error(`CLIENT_APPLICATIONS_CURRENT_PROJECTION_CONTRACT_MISSING: ${required}`);
 await writeFile(runtimePath,runtime,'utf8');
-
 let html=await readFile(htmlPath,'utf8');
-for(const competing of ['rona-client-applications-live-render-v1','rona-client-applications-live-render-v2','rona-portal-client-applications-uat-v2','rona-portal-client-applications-uat-v3','client-applications-canonical-layout-v1.js']){
-  if(html.includes(competing))throw new Error(`CLIENT_APPLICATIONS_COMPETING_RENDERER_PRESENT: ${competing}`);
-}
+for(const competing of ['rona-client-applications-live-render-v1','rona-client-applications-live-render-v2','rona-portal-client-applications-uat-v2','rona-portal-client-applications-uat-v3','client-applications-canonical-layout-v1.js'])if(html.includes(competing))throw new Error(`CLIENT_APPLICATIONS_COMPETING_RENDERER_PRESENT: ${competing}`);
 if(html.includes(id)||html.includes('portal-client-applications-canonical-v1.js'))throw new Error('CLIENT_APPLICATIONS_CANONICAL_ALREADY_PRESENT');
-const close=html.toLowerCase().lastIndexOf('</body>');
-if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
+const digest=sha256(Buffer.from(runtime,'utf8')).slice(0,16),src=`/assets/portal-runtime/portal-client-applications-canonical-v1.js?v=${digest}`;
+const close=html.toLowerCase().lastIndexOf('</body>');if(close<0)throw new Error('CLIENT_BODY_CLOSE_MISSING');
 html=html.slice(0,close)+`<script id="${id}" src="${src}" defer></script>`+html.slice(close);
 if((html.match(/portal-client-applications-canonical-v1\.js/g)||[]).length!==1)throw new Error('CLIENT_APPLICATIONS_CANONICAL_NOT_SINGLE_OWNER');
 await writeFile(htmlPath,html,'utf8');
-
-const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
-const emitted=Buffer.from(html,'utf8');
-integrity.client_runtime.emitted_sha256=sha256(emitted);
-integrity.client_runtime.emitted_bytes=emitted.length;
-integrity.client_runtime.applications_live_render={
-  id,src,marker,
-  ownership:'SINGLE_RENDERER',
-  source:'CLIENT_APPLICATIONS_AUTHORITATIVE_V1',
-  endpoint:'/portal/api/v1/client/applications-projection',
-  alignment:'APPLICATIONS_TITLE_FRAME',
-  alignment_box_model:'CONTENT_BOX_AWARE',
-  price:'IMMUTABLE_SUBMITTED_APPLICATION_PRICE',
-  resource_status:['RESOURCE_NOT_CONFIRMED','RESOURCE_CONFIRMED'],
-  internal_price_mode_visible:false,
-  visual_context:'DEAL_CARD_VISUAL_PARITY',
-  layout:'HEADLINE_PRICE_ACTION_TERMS_STATE_STRIP',
-  status_layout:'SINGLE_LINE_INDICATOR_STRIP',
-  typography:'DEAL_CARD_SCALE',
-  competing_renderers:false,
-  refresh_policy:'INITIAL_CONTEXT_CHANGE_EXPLICIT_SUBMIT_ONLY',
-  periodic_refresh:false,
-  pageshow_network_refresh:false,
-  images_added:false
-};
-await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS sha256=${integrity.client_runtime.emitted_sha256} bytes=${emitted.length}; visual=DEAL_CARD_VISUAL_PARITY; alignment=APPLICATIONS_TITLE_FRAME; status=SINGLE_LINE_INDICATOR_STRIP; periodic_refresh=false; pageshow_network_refresh=false`);
+const integrity=JSON.parse(await readFile(integrityPath,'utf8')),emitted=Buffer.from(html,'utf8');integrity.client_runtime.emitted_sha256=sha256(emitted);integrity.client_runtime.emitted_bytes=emitted.length;integrity.client_runtime.applications_live_render={id,src,marker,ownership:'SINGLE_RENDERER',source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',endpoint:'/portal/api/v1/client/context',alignment:'APPLICATIONS_TITLE_FRAME',alignment_box_model:'CONTENT_BOX_AWARE',price:'IMMUTABLE_SUBMITTED_APPLICATION_PRICE',resource_status:['RESOURCE_NOT_CONFIRMED','RESOURCE_CONFIRMED'],internal_price_mode_visible:false,visual_context:'DEAL_CARD_VISUAL_PARITY',layout:'HEADLINE_PRICE_ACTION_TERMS_STATE_STRIP',status_layout:'SINGLE_LINE_INDICATOR_STRIP',typography:'DEAL_CARD_SCALE',competing_renderers:false,refresh_policy:'INITIAL_CONTEXT_CHANGE_SUBMIT_PAGESHOW_TTL',periodic_refresh:true,pageshow_network_refresh:true,post_submit_projection_invalidation:true,ghost_endpoint:false,images_added:false};await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
+console.log(`CLIENT_APPLICATIONS_CANONICAL=PASS marker=${marker} data=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION ghost-endpoint=false ttl=true submit-invalidation=true single-renderer=true`);

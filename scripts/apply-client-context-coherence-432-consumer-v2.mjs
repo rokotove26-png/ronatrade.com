@@ -44,7 +44,7 @@ await validateAndWrite(applications,applicationsPath,'ISSUE432_APPLICATIONS',[AP
 let contract=await readFile(contractPath,'utf8');
 if(!contract.includes(CONTRACT_MARK)){
   contract=replaceOnce(contract,"const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';",`const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style',${CONTRACT_MARK}='${CONTRACT_MARK}';`,'ISSUE432_CONTRACT_MARK');
-  contract=replaceOnce(contract,"const key=contextKey(current),detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));","const key=contextKey(current),projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_CONTRACT_CONTEXT_READ');
+  contract=replaceOnce(contract,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(current.client_id)+'&contractId='+encodeURIComponent(current.contract_id));","const projected=await authority.whenCurrentProjection('client-contract-download-v3');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_CONTRACT_CONTEXT_READ');
 }
 await validateAndWrite(contract,contractPath,'ISSUE432_CONTRACT',[CONTRACT_MARK,"authority.whenCurrentProjection('client-contract-download-v3')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
 

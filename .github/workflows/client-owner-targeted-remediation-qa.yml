@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
   push:
-    branches: [hotfix/client-load-feedback-loop-v1]
+    branches: [hotfix/client-multiclient-parity-430-v1]
 
 permissions:
   contents: read
@@ -27,6 +27,11 @@ jobs:
           set -euo pipefail
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install chromium
+      - name: Prove exact-parent section typography delta and exclusions
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-section-typography-110-v1.mjs
       - name: Build production baseline, legacy PRE, Deals PRE, and exact candidate
         shell: bash
         run: |
@@ -85,13 +90,19 @@ jobs:
           grep -F 'ASSERTION_FAILED DEALS_CARD_FIRST_PAINT_SEMANTIC' "$log"
           grep -F 'DEALS_FIRST_PAINT_PARITY_RESULT=FAIL' "$log"
           echo 'DEALS_FIRST_PAINT_PRE_EXPECTED_RED=PASS'
-      - name: Prove exact candidate passes the existing real regression
+      - name: Prove exact candidate passes semantic regression
         shell: bash
         run: |
           set -euo pipefail
           log="$GITHUB_WORKSPACE/owner-retest-candidate.log"
           cd "$OWNER_CANDIDATE_ROOT"
-          RONA_OWNER_BASE_ROOT="$OWNER_BASE_ROOT" RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-real-browser-v4.mjs" | tee "$log"
+          RONA_OWNER_RETEST_LABEL="CANDIDATE_${OWNER_CANDIDATE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" | tee "$log"
+          grep -F 'OWNER_RETEST_QA_FIXTURE_ADAPTER_CURRENT=AUTHORITATIVE_COMPANY_DIRECTORY_CENTRAL_SWITCH_V4_IDENTITY_ONLY' "$log"
+          grep -F 'MY_COMPANIES_MISSING_METRICS_NEUTRAL_PROOF' "$log"
+          grep -F 'MY_COMPANIES_AUTHORITATIVE_METRICS_PROOF' "$log"
+          grep -F 'GENERIC_FUTURE_CLIENT_BROWSER_FIXTURE=PASS' "$log"
+          grep -F 'A_B_A_CURRENT_CONTEXT_ISOLATION=PASS' "$log"
+          grep -F 'SYNTHETIC_FUTURE_CLIENT_PRODUCT_HARDCODING=ABSENT' "$log"
           grep -F 'OWNER_RETEST_ASSERTION_SET=PASS' "$log"
           grep -F 'OWNER_RETEST_REGRESSION_RESULT=PASS' "$log"
       - name: Prove exact candidate Deals first paint is canonical and parity-stable

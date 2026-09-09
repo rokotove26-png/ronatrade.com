@@ -1,0 +1,80 @@
+name: Client Owner authenticated candidate QA 430
+
+on:
+  push:
+    branches: [hotfix/client-multiclient-parity-430-v1]
+
+permissions:
+  contents: read
+  checks: read
+  issues: read
+  pull-requests: read
+  id-token: write
+
+jobs:
+  authenticated-candidate-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install real browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Prove exact immutable preview with real authenticated Client sessions
+        shell: bash
+        env:
+          RONA_EXACT_HEAD: ${{ github.sha }}
+          RONA_PR_NUMBER: '431'
+          RONA_GITHUB_TOKEN: ${{ github.token }}
+          RONA_QA_ISSUER_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
+          RONA_OIDC_AUDIENCE: rona-pr431-client-qa
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-owner-authenticated-candidate-430.mjs | tee issue430-real-authenticated-candidate.log
+          grep -F 'ISSUE430_REAL_AUTH_CANDIDATE=PASS' issue430-real-authenticated-candidate.log
+          grep -F 'CANDIDATE_BOUNDARY=PR429_EXISTING_CANDIDATE_SLOT' issue430-real-authenticated-candidate.log
+          grep -F 'C002_REAL_DOM_CARD=236250 USD' issue430-real-authenticated-candidate.log
+          grep -F 'C002_REAL_DOM_PASSPORT=236250 USD' issue430-real-authenticated-candidate.log
+          grep -F 'C003_REAL_FAIL_CLOSED=—/—/—' issue430-real-authenticated-candidate.log
+          grep -F 'C003_REAL_API_KPI=2/2/5' issue430-real-authenticated-candidate.log
+          grep -F 'C003_REAL_DOM_KPI=2/2/5' issue430-real-authenticated-candidate.log
+          grep -F 'C004_REAL_DOM_CARD=113500 USD' issue430-real-authenticated-candidate.log
+          grep -F 'C004_REAL_DOM_PASSPORT=113500 USD' issue430-real-authenticated-candidate.log
+          grep -F 'STALE_FOREIGN_DOM=ABSENT' issue430-real-authenticated-candidate.log
+          grep -F 'QA_SESSION_CLEANUP=PASS' issue430-real-authenticated-candidate.log
+      - name: Prove authenticated cold-load, reload and logout-login isolation
+        shell: bash
+        env:
+          RONA_EXACT_HEAD: ${{ github.sha }}
+          RONA_PR_NUMBER: '431'
+          RONA_GITHUB_TOKEN: ${{ github.token }}
+          RONA_QA_ISSUER_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816
+          RONA_OIDC_AUDIENCE: rona-pr431-client-qa
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-owner-authenticated-lifecycle-430.mjs | tee issue430-real-authenticated-lifecycle.log
+          grep -F 'REAL_AUTH_COLD_LOAD=PASS' issue430-real-authenticated-lifecycle.log
+          grep -F 'REAL_AUTH_RELOAD_CYCLES=PASS count=2' issue430-real-authenticated-lifecycle.log
+          grep -F 'REAL_AUTH_LOGOUT_LOGIN=PASS' issue430-real-authenticated-lifecycle.log
+          grep -F 'REAL_AUTH_CONTEXT_ISOLATION=PASS' issue430-real-authenticated-lifecycle.log
+          grep -F 'REAL_AUTH_CANDIDATE_BOUNDARY=PR429_EXISTING_CANDIDATE_SLOT' issue430-real-authenticated-lifecycle.log
+          grep -F 'REAL_AUTH_SESSION_CLEANUP=PASS' issue430-real-authenticated-lifecycle.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue430-real-authenticated-candidate-${{ github.run_id }}
+          path: |
+            issue430-real-authenticated-candidate-proof.json
+            issue430-real-authenticated-candidate.log
+            issue430-real-authenticated-lifecycle-proof.json
+            issue430-real-authenticated-lifecycle.log
+          if-no-files-found: warn

@@ -1,0 +1,156 @@
+{
+  "approval": "OWNER_SYSTEM_ADMIN_ISSUE_COMMENT",
+  "authorized_at": "2026-09-06",
+  "issue_number": 430,
+  "system_admin_comment_id": 5561179393,
+  "system_admin_correction_comment_id": 5561354113,
+  "system_admin_card_owner_comment_id": 5573033812,
+  "branch": "hotfix/client-multiclient-parity-430-v1",
+  "base_commit": "9797f7c7c5e8a003eaa19c520f4328a2001d5ce7",
+  "scope": "CLIENT_MULTI_CONTEXT_AMOUNT_AND_COMPANY_METRICS_430",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-contract-download-v3.js"
+  ],
+  "exact_post_remediation_blobs": {
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "production_pre_hotfix_blob_sha": "57e66a343bf199ab2076a0ff5f074ba71e79218c",
+      "authorized_post_blob_sha": "6f9c760179a878473f8684db0f47ca75c1d6eaff",
+      "required_marker": "20260906-client-contract-v11-authoritative-company-metrics"
+    }
+  },
+  "pr431_direct_fix": {
+    "system_admin_comment_id": 5592831513,
+    "parent_sha": "fd56ca2d4fc9d2ea60df454c48de74c4af257ca6",
+    "scope": "CLIENT_PR431_ACTIVE_ONLY_COMPANY_DIRECTORY_AND_CANONICAL_APPLICATIONS_PRESERVATION",
+    "approved_files": [
+      "assets/portal-runtime/portal-client-company-directory-authority-v1.js",
+      "assets/portal-runtime/client-context-selection-authority-v1.js",
+      "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs",
+      ".github/workflows/client-owner-targeted-remediation-qa.yml"
+    ],
+    "exact_post_blobs": {
+      "assets/portal-runtime/portal-client-company-directory-authority-v1.js": {
+        "authorized_post_blob_sha": "6b8759bb9a33dabd2e6a291b6f15d1aecd03b167",
+        "required_marker": "__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__"
+      },
+      "assets/portal-runtime/client-context-selection-authority-v1.js": {
+        "authorized_post_blob_sha": "abe541dbd6162dd7cc03462e1b37ba23d6fb5b60",
+        "required_marker": "rona-applications-canonical-preserved"
+      },
+      "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
+        "authorized_post_blob_sha": "4e906b2519676a14161348abfdb92048528d2435",
+        "required_marker": "BUG2_APPLICATION_OPEN_REFRESH_ROW_SURVIVES_PROOF"
+      },
+      ".github/workflows/client-owner-targeted-remediation-qa.yml": {
+        "authorized_post_blob_sha": "7b9e1697daca02647c53b643b5d41e193fc02e26",
+        "required_marker": "OWNER_RETEST_QA_FIXTURE_ADAPTER_CURRENT=AUTHORITATIVE_COMPANY_DIRECTORY_CENTRAL_SWITCH_V4_IDENTITY_ONLY"
+      }
+    },
+    "requirements": {
+      "visual_freeze_scoped_exception": true,
+      "exact_file_enforcement_remains_active": true,
+      "exact_blob_enforcement_remains_active": true,
+      "wildcard_exception": false,
+      "company_directory_owner_active_only": true,
+      "legacy_current_card_preserved_until_atomic_takeover": true,
+      "current_noncurrent_action_state_generic": true,
+      "signed_contract_source_per_directory_row": true,
+      "canonical_applications_same_node_preserved_during_legacy_render": true,
+      "application_open_then_projection_refresh_row_survives": true,
+      "backend_changed": false,
+      "business_data_changed": false,
+      "rail_changed": false,
+      "css_theme_typography_layout_changed": false,
+      "production_changed": false,
+      "merge_before_owner_retest": false
+    }
+  },
+  "pr431_source_level_fix": {
+    "system_admin_comment_id": 5593150479,
+    "parent_sha": "19ddd80a2519baff595cc013975db3b0c215d8d9",
+    "scope": "CLIENT_PR431_ALL_AUTHORIZED_DIRECTORY_SOURCE_AND_CANONICAL_APPLICATIONS_SINGLE_PRESENTATION_OWNER",
+    "approved_files": [
+      "supabase/functions/rona-portal-api/bootstrap.ts",
+      "assets/portal-runtime/portal-client-applications-canonical-v1.js"
+    ],
+    "wiring_files": [
+      "governance/client-multiclient-parity-issue430-owner-approval-20260906.json"
+    ],
+    "exact_post_blobs": {
+      "supabase/functions/rona-portal-api/bootstrap.ts": {
+        "authorized_post_blob_sha": "a7f986a6058c43b4e06e9dcc799b251a923cc250",
+        "required_marker": "PR431_ALL_AUTHORIZED_CONTEXTS_V1"
+      },
+      "assets/portal-runtime/portal-client-applications-canonical-v1.js": {
+        "authorized_post_blob_sha": "b4014c8a0a32cf0945a6d39709b70356beea1be8",
+        "required_marker": "single-presentation-owner"
+      }
+    },
+    "requirements": {
+      "visual_freeze_scoped_exception": true,
+      "exact_file_enforcement_remains_active": true,
+      "exact_blob_enforcement_remains_active": true,
+      "wildcard_exception": false,
+      "company_cards_local_repair": false,
+      "bootstrap_directory_all_authorized_contexts": true,
+      "directory_same_canonical_metric_predicates_as_current_context": true,
+      "directory_signed_contract_from_current_authoritative_pointer": true,
+      "directory_selected_context_independent": true,
+      "canonical_applications_single_presentation_owner": true,
+      "legacy_application_rows_structurally_retired": true,
+      "applications_selected_company_strip_from_active_context": true,
+      "application_open_projection_refresh_row_survives": true,
+      "candidate_backend_change_authorized": true,
+      "production_edge_function_changed": false,
+      "supabase_schema_or_rls_changed": false,
+      "business_data_changed": false,
+      "rail_changed": false,
+      "css_theme_typography_layout_changed": false,
+      "production_changed": false,
+      "merge_before_owner_retest": false,
+      "targeted_qa_existing_exact_head_suite_retained": true
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "owner_instruction_required": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "approved_file_list_is_exact": true,
+    "css_changed": false,
+    "html_composition_changed": false,
+    "design_changed": false,
+    "typography_changed": false,
+    "company_metrics_current_context_authoritative": true,
+    "company_metrics_missing_fail_closed": true,
+    "company_metrics_invalid_fail_closed": true,
+    "company_metrics_neutral_unknown": true,
+    "company_metrics_context_switch_fail_closed": true,
+    "company_card_owner_nearest_unique_visible_ancestor": true,
+    "company_card_owner_search_bounded": true,
+    "company_card_owner_shared_pending_ready": true,
+    "company_card_owner_missing_ambiguous_fail_closed": true,
+    "pending_requires_three_visible_neutral_metrics": true,
+    "ready_requires_three_visible_authoritative_metrics": true,
+    "stale_foreign_metrics_during_transition": false,
+    "synthetic_future_context_generic": true,
+    "applications_kpi_total_current_contract": true,
+    "deals_kpi_total_current_contract": true,
+    "documents_kpi_current_effective_contractual_only": true,
+    "superseded_contractual_documents_not_counted": true,
+    "internal_artifacts_not_counted_as_contractual_kpi": true,
+    "legacy_registered_deal_amount_compatibility_allowed": true,
+    "legacy_amount_uses_dedicated_passport_fields": true,
+    "payment_status_semantics_unchanged": true,
+    "finance_summary_not_used_as_commercial_semantic_source": true,
+    "hardcoded_client_contract_deal_ids": false,
+    "global_dom_text_replacement": false,
+    "rail_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "business_data_changed": false,
+    "destructive_cleanup_in_hotfix": false,
+    "production_changed": false,
+    "merge_before_system_admin_review": false
+  }
+}

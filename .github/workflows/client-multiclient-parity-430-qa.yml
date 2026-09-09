@@ -1,0 +1,53 @@
+name: client-multiclient-parity-430-qa
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity-430:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Syntax and issue 430 regression contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check assets/portal-runtime/client-contract-download-v3.js
+          node --check functions/portal/api/v1/client/context.js
+          node scripts/qa-client-multiclient-parity-430.mjs
+          RONA_QA_ISOLATION_PREFLIGHT=1 node scripts/qa-client-owner-authenticated-candidate-430.mjs
+          RONA_QA_ISOLATION_PREFLIGHT=1 node scripts/qa-client-owner-authenticated-lifecycle-430.mjs
+
+      - name: Visual Freeze exact authorization remains active
+        run: node scripts/qa-client-portal-visual-freeze.mjs
+
+      - name: Canonical build remains visually frozen
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11' dist/portal/client.html
+          node --input-type=module <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          const integrity=JSON.parse(await readFile('dist/canonical-visual-integrity.json','utf8'));
+          if(integrity.client_runtime?.source_sha256!=='d07d7cbee5fd3466c8729861a6e6a6acb4ba463ad6d89dd7f748209cacab6183') throw new Error('CLIENT_VISUAL_SOURCE_SHA_CHANGED');
+          if(integrity.client_runtime?.source_bytes!==484970) throw new Error('CLIENT_VISUAL_SOURCE_BYTES_CHANGED');
+          if(integrity.client_runtime?.visual_transform!=='NONE') throw new Error('CLIENT_VISUAL_TRANSFORM_CHANGED');
+          console.log('ISSUE430_VISUAL_BASELINE=PASS');
+          NODE
