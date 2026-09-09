@@ -1,4 +1,5 @@
 import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js';
+import applicationPassportRuntime from './application-passport-runtime.js';
 
 const BUCKET_FROM="function application2BBucket(a){const owner=String(a?.owner_status||'').toUpperCase(),app=String(a?.status||'').toUpperCase(),deal=String(a?.deal_status||'').toUpperCase();if(owner==='REJECTED'||owner==='CANCELLED'||owner==='SUPPLIER_APPROVED'||owner==='DEAL'||app==='CANCELLED'||(app==='DEAL_REGISTERED'&&deal!=='SUPPLIER_PENDING'))return'COMPLETED';if(owner==='COUNTER_OFFERED'||owner==='SUPPLIER_PENDING'||deal==='SUPPLIER_PENDING')return'DECISION';if(owner==='NEW'||!owner)return'NEW';return'WORK'}";
 const BUCKET_TO="function application2BBucket(a){const owner=String(a?.owner_status||'').toUpperCase(),app=String(a?.status||'').toUpperCase(),deal=String(a?.deal_status||'').toUpperCase();if(owner==='REJECTED'||owner==='CANCELLED'||owner==='DEAL'||app==='CANCELLED'||(app==='DEAL_REGISTERED'&&deal!=='SUPPLIER_PENDING'))return'COMPLETED';if(owner==='COUNTER_OFFERED'||owner==='SUPPLIER_PENDING'||deal==='SUPPLIER_PENDING')return'DECISION';if(owner==='NEW'||!owner)return'NEW';return'WORK'}";
@@ -11,9 +12,10 @@ export async function onRequest(context){
   if(!source.includes(BUCKET_FROM)||!source.includes(ACTIONS_FROM)){
     return new Response('APPLICATION_DEAL_HANDOFF_PATCH_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
-  const patched=source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO);
+  const patched=source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO)+applicationPassportRuntime;
   const headers=new Headers(response.headers);
   headers.set('content-length',String(new TextEncoder().encode(patched).length));
   headers.set('x-rona-application-deal-handoff','approved-to-deal-v1');
+  headers.set('x-rona-application-passport','v1');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
