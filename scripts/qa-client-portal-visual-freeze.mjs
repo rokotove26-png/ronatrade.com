@@ -96,6 +96,12 @@ const CLIENT_SECTION_TYPOGRAPHY_110_FILES=[
 const CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_FILES=[
   'governance/client-section-typography-110-owner-approval-20260909.json',
   'scripts/qa-client-portal-visual-freeze.mjs',
+  'scripts/qa-client-section-typography-110-v1.mjs',
+  'scripts/qa-client-typography-frame-overflow-freeze-v1.mjs'
+];
+const CLIENT_SECTION_TYPOGRAPHY_110_CORRECTIVE_FILES=[
+  'governance/client-section-typography-110-owner-approval-20260909.json',
+  'scripts/qa-client-portal-visual-freeze.mjs',
   'scripts/qa-client-section-typography-110-v1.mjs'
 ];
 const PR431_DIRECT_FIX_FILES=[
@@ -148,11 +154,23 @@ const clientSectionTypography110ExceptionAuthorized=
   clientSectionTypography110Approval?.pr_number===431&&
   clientSectionTypography110Approval?.branch==='hotfix/client-multiclient-parity-430-v1'&&
   clientSectionTypography110Approval?.system_admin_comment_id===5602689478&&
+  clientSectionTypography110Approval?.correction_system_admin_comment_id===5603758040&&
   clientSectionTypography110Approval?.parent_sha==='0d3f4363e124647d9f3b72d377eb24240c5a4574'&&
+  clientSectionTypography110Approval?.typography_finalization_base_sha==='0d3f4363e124647d9f3b72d377eb24240c5a4574'&&
+  clientSectionTypography110Approval?.correction_parent_sha==='15ddfae3b5de2ff98b7ff40c25047bbdb2e7ba6a'&&
+  exactArray(clientSectionTypography110Approval?.exact_factual_chain_to_correction_parent,['0d3f4363e124647d9f3b72d377eb24240c5a4574','ec718aac7efebf03a6d94637d3aa68d5dec276a3','15ddfae3b5de2ff98b7ff40c25047bbdb2e7ba6a'])&&
   clientSectionTypography110Approval?.typography_visual_base_sha==='d1a25b07624dd86633fbdf090afa356683eeb1dd'&&
   clientSectionTypography110Approval?.scope==='CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_EXACT'&&
   exactArray(clientSectionTypography110Approval?.approved_protected_files,CLIENT_SECTION_TYPOGRAPHY_110_FILES)&&
   exactArray(clientSectionTypography110Approval?.finalization_changed_files,CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_FILES)&&
+  exactArray(clientSectionTypography110Approval?.corrective_changed_files,CLIENT_SECTION_TYPOGRAPHY_110_CORRECTIVE_FILES)&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.path==='.github/workflows/client-owner-targeted-remediation-qa.yml'&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.system_admin_comment_id===5602689478&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.authorized_blob_sha==='ae36d39a9081cf0da929c2340312d3098726be35'&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.historical_pr431_direct_fix_blob_sha==='7b9e1697daca02647c53b643b5d41e193fc02e26'&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.required_marker==='node scripts/qa-client-section-typography-110-v1.mjs'&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.scope==='TYPOGRAPHY_FINALIZATION_QA_WIRING_EXACT_ONLY'&&
+  clientSectionTypography110Approval?.approved_qa_workflow_wiring?.wildcard_exception===false&&
   clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.visual_freeze_baseline_blob_sha==='2f420990529e37d0feae88dd33f0753a79b9cc4e'&&
   clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_parent_blob_sha==='2054fb7f54d4727ba5dd0bac2f688c3a90c66e65'&&
   clientSectionTypography110Approval?.exact_post_remediation_blobs?.['assets/portal-runtime/client-contract-download-v3.js']?.authorized_post_blob_sha==='2054fb7f54d4727ba5dd0bac2f688c3a90c66e65'&&
@@ -168,6 +186,7 @@ const clientSectionTypography110ExceptionAuthorized=
   clientSectionTypography110Approval?.requirements?.exact_blob_enforcement_remains_active===true&&
   clientSectionTypography110Approval?.requirements?.wildcard_exception===false&&
   clientSectionTypography110Approval?.requirements?.approved_file_list_is_exact===true&&
+  clientSectionTypography110Approval?.requirements?.exact_correction_parent_control===true&&
   clientSectionTypography110Approval?.requirements?.runtime_changed_in_finalization===false&&
   clientSectionTypography110Approval?.requirements?.frame_geometry_may_expand===false&&
   clientSectionTypography110Approval?.requirements?.horizontal_text_overflow_allowed===false&&
@@ -400,6 +419,7 @@ let clientMultiContext430AppliedFiles=0;
 let clientSectionTypography110AppliedFiles=0;
 let pr431TwoBugScopedAppliedFiles=0;
 let pr431DirectFixExactFiles=0;
+let pr431TypographyQaWiringExactFiles=0;
 
 const functionalRuntimeVisualGuardPaths=['assets/portal-runtime/portal-client-company-directory-authority-v1.js'];
 for(const path of functionalRuntimeVisualGuardPaths){
@@ -426,15 +446,33 @@ if(!pr431DirectFixGovernanceAuthorized){
   const exact=clientMultiContext430Approval.pr431_direct_fix.exact_post_blobs||{};
   for(const path of PR431_DIRECT_FIX_FILES){
     try{
-      const body=await readFile(path),actual=gitBlobSha(body),entry=exact[path];
-      if(!entry||entry.authorized_post_blob_sha!==actual||typeof entry.required_marker!=='string'||!entry.required_marker||!body.toString('utf8').includes(entry.required_marker)){
+      const body=await readFile(path),actual=gitBlobSha(body),entry=exact[path],source=body.toString('utf8');
+      const directFixExact=Boolean(entry&&entry.authorized_post_blob_sha===actual&&typeof entry.required_marker==='string'&&entry.required_marker&&source.includes(entry.required_marker));
+      const qaWiring=clientSectionTypography110ExceptionAuthorized&&path===clientSectionTypography110Approval?.approved_qa_workflow_wiring?.path?clientSectionTypography110Approval.approved_qa_workflow_wiring:null;
+      const typographyQaWiringExact=Boolean(
+        qaWiring&&
+        qaWiring.system_admin_comment_id===5602689478&&
+        qaWiring.authorized_blob_sha==='ae36d39a9081cf0da929c2340312d3098726be35'&&
+        qaWiring.authorized_blob_sha===actual&&
+        qaWiring.historical_pr431_direct_fix_blob_sha===entry?.authorized_post_blob_sha&&
+        qaWiring.scope==='TYPOGRAPHY_FINALIZATION_QA_WIRING_EXACT_ONLY'&&
+        qaWiring.wildcard_exception===false&&
+        typeof qaWiring.required_marker==='string'&&
+        qaWiring.required_marker.length>0&&
+        source.includes(qaWiring.required_marker)
+      );
+      if(!directFixExact&&!typographyQaWiringExact){
         errors.push(`PR431_DIRECT_FIX_EXACT_BLOB ${path} expected=${entry?.authorized_post_blob_sha||'missing'} actual=${actual}`);
-      }else pr431DirectFixExactFiles+=1;
+      }else{
+        pr431DirectFixExactFiles+=1;
+        if(typographyQaWiringExact)pr431TypographyQaWiringExactFiles+=1;
+      }
     }catch(error){errors.push(`PR431_DIRECT_FIX_EXACT_BLOB_MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`)}
   }
 }
 
 if(!clientSectionTypography110ExceptionAuthorized)errors.push('CLIENT_SECTION_TYPOGRAPHY_110_GOVERNANCE_NOT_AUTHORIZED');
+if(clientSectionTypography110ExceptionAuthorized&&pr431TypographyQaWiringExactFiles!==1)errors.push(`CLIENT_SECTION_TYPOGRAPHY_QA_WIRING_EXACT_BLOB_COUNT expected=1 actual=${pr431TypographyQaWiringExactFiles}`);
 
 for(const [path,expected] of Object.entries(protectedFiles)){
   try{
@@ -525,5 +563,5 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} client_section_typography_qa_wiring_exact_files=${pr431TypographyQaWiringExactFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
 console.log('VISUAL_FREEZE_EXACT_EXCEPTION=PASS');

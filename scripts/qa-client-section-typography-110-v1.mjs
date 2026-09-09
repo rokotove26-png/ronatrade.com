@@ -2,13 +2,16 @@ import {execFileSync} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 
-const EXPECTED_PARENT='0d3f4363e124647d9f3b72d377eb24240c5a4574';
+const TYPOGRAPHY_FINALIZATION_BASE='0d3f4363e124647d9f3b72d377eb24240c5a4574';
+const EXPECTED_CORRECTION_PARENT='15ddfae3b5de2ff98b7ff40c25047bbdb2e7ba6a';
 const TYPOGRAPHY_VISUAL_BASE='d1a25b07624dd86633fbdf090afa356683eeb1dd';
 const RUNTIME='assets/portal-runtime/client-contract-download-v3.js';
 const FREEZE='scripts/qa-client-portal-visual-freeze.mjs';
 const GOVERNANCE='governance/client-section-typography-110-owner-approval-20260909.json';
 const SELF='scripts/qa-client-section-typography-110-v1.mjs';
-const ALLOWED=[GOVERNANCE,FREEZE,SELF].sort();
+const FRAME_MARKER='scripts/qa-client-typography-frame-overflow-freeze-v1.mjs';
+const FINALIZATION_CHANGED=[GOVERNANCE,FREEZE,SELF,FRAME_MARKER].sort();
+const CORRECTIVE_CHANGED=[GOVERNANCE,FREEZE,SELF].sort();
 const WIDTHS=[1920,1366];
 const GEOMETRY_TOLERANCE=1;
 const TYPO_BOUNDARY="const OWNER_TYPO_MARK='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED';";
@@ -19,25 +22,42 @@ const near=(value,target,tolerance)=>Number.isFinite(value)&&Math.abs(value-targ
 
 const head=sh('rev-parse','HEAD');
 const headParent=sh('rev-parse','HEAD^');
-assert(headParent===EXPECTED_PARENT,'EXACT_PARENT_GUARD',{expected:EXPECTED_PARENT,actual:headParent,head});
-const changed=sh('diff','--name-only',EXPECTED_PARENT,head).split(/\r?\n/).filter(Boolean).sort();
-assert(JSON.stringify(changed)===JSON.stringify(ALLOWED),'FINALIZATION_CHANGESET_ALLOWLIST',{changed,allowed:ALLOWED});
-assert(!changed.some(path=>path===RUNTIME||path.startsWith('assets/portal-runtime/')),'PRODUCT_RUNTIME_FINALIZATION_DELTA',{changed});
-assert(!changed.some(path=>/agent|xlsx|commission/i.test(path)),'AGENT_XLSX_COMMISSION_SCOPE',{changed});
-assert(!changed.some(path=>/backend|supabase|rail|application|company|context|contract/i.test(path)&&!ALLOWED.includes(path)),'BUSINESS_RUNTIME_SCOPE',{changed});
+assert(headParent===EXPECTED_CORRECTION_PARENT,'EXACT_CORRECTION_PARENT_GUARD',{expected:EXPECTED_CORRECTION_PARENT,actual:headParent,head});
+const correctiveChanged=sh('diff','--name-only',EXPECTED_CORRECTION_PARENT,head).split(/\r?\n/).filter(Boolean).sort();
+assert(JSON.stringify(correctiveChanged)===JSON.stringify(CORRECTIVE_CHANGED),'CORRECTIVE_CHANGESET_ALLOWLIST',{correctiveChanged,allowed:CORRECTIVE_CHANGED});
+const changed=sh('diff','--name-only',TYPOGRAPHY_FINALIZATION_BASE,head).split(/\r?\n/).filter(Boolean).sort();
+assert(JSON.stringify(changed)===JSON.stringify(FINALIZATION_CHANGED),'FINALIZATION_EXACT_FOUR_FILE_SET',{changed,expected:FINALIZATION_CHANGED});
+assert(!correctiveChanged.some(path=>path===RUNTIME||path.startsWith('assets/portal-runtime/')),'PRODUCT_RUNTIME_CORRECTIVE_DELTA',{correctiveChanged});
+assert(!correctiveChanged.some(path=>/agent|xlsx|commission/i.test(path)),'AGENT_XLSX_COMMISSION_SCOPE',{correctiveChanged});
+assert(!correctiveChanged.some(path=>/backend|supabase|rail|application|company|context|contract/i.test(path)&&!CORRECTIVE_CHANGED.includes(path)),'BUSINESS_RUNTIME_SCOPE',{correctiveChanged});
 
 const candidate=await readFile(RUNTIME,'utf8');
-const exactParentRuntime=sh('show',`${EXPECTED_PARENT}:${RUNTIME}`);
+const finalizationBaseRuntime=sh('show',`${TYPOGRAPHY_FINALIZATION_BASE}:${RUNTIME}`);
+const correctionParentRuntime=sh('show',`${EXPECTED_CORRECTION_PARENT}:${RUNTIME}`);
 const visualBase=sh('show',`${TYPOGRAPHY_VISUAL_BASE}:${RUNTIME}`);
-assert(candidate===exactParentRuntime,'RUNTIME_FINALIZATION_MUST_BE_BYTE_IDENTICAL_TO_PARENT');
+assert(candidate===finalizationBaseRuntime,'RUNTIME_FINALIZATION_MUST_BE_BYTE_IDENTICAL_TO_BASE');
+assert(candidate===correctionParentRuntime,'RUNTIME_CORRECTION_MUST_BE_BYTE_IDENTICAL_TO_PARENT');
 assert(candidate.includes(SECTION_MARK),'SECTION_TYPOGRAPHY_RUNTIME_MARKER');
 assert(!visualBase.includes(SECTION_MARK),'TYPOGRAPHY_VISUAL_BASE_MUST_PRECEDE_SECTION_LAYER');
 
 const approval=JSON.parse(await readFile(GOVERNANCE,'utf8'));
-assert(approval?.system_admin_comment_id===5602689478,'GOVERNANCE_COMMENT_ID');
-assert(approval?.parent_sha===EXPECTED_PARENT,'GOVERNANCE_PARENT_SHA');
+assert(approval?.system_admin_comment_id===5602689478,'GOVERNANCE_TYPOGRAPHY_APPROVAL_COMMENT_ID');
+assert(approval?.correction_system_admin_comment_id===5603758040,'GOVERNANCE_CORRECTION_COMMENT_ID');
+assert(approval?.parent_sha===TYPOGRAPHY_FINALIZATION_BASE,'GOVERNANCE_HISTORICAL_BASE_PARENT_SHA');
+assert(approval?.typography_finalization_base_sha===TYPOGRAPHY_FINALIZATION_BASE,'GOVERNANCE_FINALIZATION_BASE_SHA');
+assert(approval?.correction_parent_sha===EXPECTED_CORRECTION_PARENT,'GOVERNANCE_CORRECTION_PARENT_SHA');
+assert(JSON.stringify(approval?.exact_factual_chain_to_correction_parent)===JSON.stringify([TYPOGRAPHY_FINALIZATION_BASE,'ec718aac7efebf03a6d94637d3aa68d5dec276a3',EXPECTED_CORRECTION_PARENT]),'GOVERNANCE_FACTUAL_CHAIN');
 assert(approval?.typography_visual_base_sha===TYPOGRAPHY_VISUAL_BASE,'GOVERNANCE_VISUAL_BASE_SHA');
-assert(JSON.stringify([...(approval?.finalization_changed_files||[])].sort())===JSON.stringify(ALLOWED),'GOVERNANCE_FINALIZATION_FILES');
+assert(JSON.stringify([...(approval?.finalization_changed_files||[])].sort())===JSON.stringify(FINALIZATION_CHANGED),'GOVERNANCE_FINALIZATION_FILES');
+assert(JSON.stringify([...(approval?.corrective_changed_files||[])].sort())===JSON.stringify(CORRECTIVE_CHANGED),'GOVERNANCE_CORRECTIVE_FILES');
+assert(approval?.approved_qa_workflow_wiring?.path==='.github/workflows/client-owner-targeted-remediation-qa.yml','GOVERNANCE_QA_WIRING_PATH');
+assert(approval?.approved_qa_workflow_wiring?.system_admin_comment_id===5602689478,'GOVERNANCE_QA_WIRING_APPROVAL_COMMENT');
+assert(approval?.approved_qa_workflow_wiring?.authorized_blob_sha==='ae36d39a9081cf0da929c2340312d3098726be35','GOVERNANCE_QA_WIRING_BLOB');
+assert(approval?.approved_qa_workflow_wiring?.historical_pr431_direct_fix_blob_sha==='7b9e1697daca02647c53b643b5d41e193fc02e26','GOVERNANCE_HISTORICAL_DIRECT_FIX_BLOB');
+assert(approval?.approved_qa_workflow_wiring?.required_marker==='node scripts/qa-client-section-typography-110-v1.mjs','GOVERNANCE_QA_WIRING_MARKER');
+assert(approval?.approved_qa_workflow_wiring?.scope==='TYPOGRAPHY_FINALIZATION_QA_WIRING_EXACT_ONLY','GOVERNANCE_QA_WIRING_SCOPE');
+assert(approval?.approved_qa_workflow_wiring?.wildcard_exception===false,'GOVERNANCE_QA_WIRING_NO_WILDCARD');
+assert(approval?.requirements?.exact_correction_parent_control===true,'GOVERNANCE_EXACT_CORRECTION_PARENT_CONTROL');
 assert(approval?.requirements?.runtime_changed_in_finalization===false,'GOVERNANCE_RUNTIME_NO_CHANGE');
 assert(JSON.stringify(approval?.requirements?.desktop_widths_proven)===JSON.stringify(WIDTHS),'GOVERNANCE_WIDTHS');
 
@@ -157,7 +177,8 @@ try{
   }
 }finally{await browser.close()}
 
-console.log('EXACT_PARENT_GUARD=PASS',JSON.stringify({parent:EXPECTED_PARENT,head,changed}));
+console.log('EXACT_CORRECTION_PARENT_GUARD=PASS',JSON.stringify({correction_parent:EXPECTED_CORRECTION_PARENT,head,correctiveChanged}));
+console.log('TYPOGRAPHY_FINALIZATION_BASE_CHAIN=PASS',JSON.stringify({base:TYPOGRAPHY_FINALIZATION_BASE,changed}));
 console.log('RUNTIME_FINALIZATION_NO_CHANGE=PASS');
 console.log('TYPOGRAPHY_FRAME_PROOF',JSON.stringify(proofs));
 console.log('TYPOGRAPHY_110_CONTENT=PASS');
@@ -167,6 +188,7 @@ console.log('SHELL_UNCHANGED=PASS');
 console.log('FRAME_GEOMETRY_UNCHANGED=PASS');
 console.log('TEXT_OVERFLOW=ZERO');
 console.log('WRAP_WHERE_REQUIRED=PASS');
+console.log('FRAME_OVERFLOW_ACCEPTANCE_OWNER=SECTION_QA_AUTHORITATIVE');
 console.log('BUG1_NO_TOUCH=PASS');
 console.log('BUG2_NO_TOUCH=PASS');
 console.log('BACKGROUND_RESTORATION_NO_TOUCH=PASS');

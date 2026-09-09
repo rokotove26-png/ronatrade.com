@@ -4,7 +4,15 @@
   "pr_number": 431,
   "branch": "hotfix/client-multiclient-parity-430-v1",
   "system_admin_comment_id": 5602689478,
+  "correction_system_admin_comment_id": 5603758040,
   "parent_sha": "0d3f4363e124647d9f3b72d377eb24240c5a4574",
+  "typography_finalization_base_sha": "0d3f4363e124647d9f3b72d377eb24240c5a4574",
+  "correction_parent_sha": "15ddfae3b5de2ff98b7ff40c25047bbdb2e7ba6a",
+  "exact_factual_chain_to_correction_parent": [
+    "0d3f4363e124647d9f3b72d377eb24240c5a4574",
+    "ec718aac7efebf03a6d94637d3aa68d5dec276a3",
+    "15ddfae3b5de2ff98b7ff40c25047bbdb2e7ba6a"
+  ],
   "typography_visual_base_sha": "d1a25b07624dd86633fbdf090afa356683eeb1dd",
   "scope": "CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_EXACT",
   "approved_protected_files": [
@@ -13,8 +21,23 @@
   "finalization_changed_files": [
     "governance/client-section-typography-110-owner-approval-20260909.json",
     "scripts/qa-client-portal-visual-freeze.mjs",
+    "scripts/qa-client-section-typography-110-v1.mjs",
+    "scripts/qa-client-typography-frame-overflow-freeze-v1.mjs"
+  ],
+  "corrective_changed_files": [
+    "governance/client-section-typography-110-owner-approval-20260909.json",
+    "scripts/qa-client-portal-visual-freeze.mjs",
     "scripts/qa-client-section-typography-110-v1.mjs"
   ],
+  "approved_qa_workflow_wiring": {
+    "path": ".github/workflows/client-owner-targeted-remediation-qa.yml",
+    "system_admin_comment_id": 5602689478,
+    "authorized_blob_sha": "ae36d39a9081cf0da929c2340312d3098726be35",
+    "historical_pr431_direct_fix_blob_sha": "7b9e1697daca02647c53b643b5d41e193fc02e26",
+    "required_marker": "node scripts/qa-client-section-typography-110-v1.mjs",
+    "scope": "TYPOGRAPHY_FINALIZATION_QA_WIRING_EXACT_ONLY",
+    "wildcard_exception": false
+  },
   "exact_post_remediation_blobs": {
     "assets/portal-runtime/client-contract-download-v3.js": {
       "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
@@ -37,6 +60,7 @@
     "exact_blob_enforcement_remains_active": true,
     "wildcard_exception": false,
     "approved_file_list_is_exact": true,
+    "exact_correction_parent_control": true,
     "runtime_changed_in_finalization": false,
     "frame_geometry_may_expand": false,
     "horizontal_text_overflow_allowed": false,
