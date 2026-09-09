@@ -22,9 +22,9 @@ if(runtime.includes("fetch('/portal/api/v1/client/bootstrap'")||runtime.includes
 for(const forbidden of ['neutralCard','RONA_CLIENT_OWNER_TYPOGRAPHY','style.setProperty(\'font-size\'','createElement(\'style\')','QUARANTINED_BEFORE_EXECUTION'])if(runtime.includes(forbidden))throw new Error(`PR431_COMPANY_DIRECTORY_DESTRUCTIVE_OR_VISUAL_OWNER_FORBIDDEN: ${forbidden}`);
 if(/RONA-C\d{3}|RONA-C\d{3}-CTR|RONA-C\d{3}-IN|2\s*\/\s*2\s*\/\s*5/iu.test(runtime))throw new Error('PR431_COMPANY_DIRECTORY_HARDCODED_ACCEPTANCE_FIXTURE_FORBIDDEN');
 
-// SYSTEM_ADMIN 5593681625: real-auth evidence classified BUG-1 as an all-context
-// directory takeover/retention failure (not a bootstrap-data failure). Patch the emitted
-// directory owner itself, generically, without touching BUG-2 Applications or backend data.
+// SYSTEM_ADMIN 5593681625 + 5594008565: real-auth evidence classified BUG-1 as an
+// all-context takeover/retention failure. Preserve the retry fix and keep the last validated
+// all-context directory as the stable owner after first atomic commit. BUG-2 is untouched.
 runtime=replaceOnce(
   runtime,
   "const REFRESH_MS=30000;",
@@ -46,7 +46,7 @@ runtime=replaceOnce(
 runtime=replaceOnce(
   runtime,
   "  if(state.active&&state.renderedGeneration===generation)return syncCurrentMarkers();",
-  "  if(state.active&&state.renderedGeneration===generation){if(syncCurrentMarkers())return true;state.active=false;delete window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__;document.documentElement.dataset.ronaClientCompanyDirectoryAtomic='recovering'}",
+  "  if(state.active&&state.renderedGeneration===generation){if(syncCurrentMarkers())return true;state.active=false;window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;document.documentElement.dataset.ronaClientCompanyDirectoryAtomic='true'}",
   'PR431_REAL_AUTH_TAKEOVER_SELF_HEAL'
 );
 runtime=replaceOnce(
@@ -58,7 +58,7 @@ runtime=replaceOnce(
 runtime=replaceOnce(
   runtime,
   "    if(state.active){syncCurrentMarkers();return}",
-  "    if(state.active){if(!syncCurrentMarkers()){state.active=false;delete window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__;document.documentElement.dataset.ronaClientCompanyDirectoryAtomic='recovering';scheduleRender(0)}return}",
+  "    if(state.active){if(!syncCurrentMarkers()){if(!restoreLastValidatedDirectory())scheduleRender(0)}return}",
   'PR431_REAL_AUTH_MUTATION_RETENTION'
 );
 const oldStart=`async function start(){
@@ -76,8 +76,27 @@ const oldStart=`async function start(){
   setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();`;
-const newStart=`function multiCompanyPending(reason='loading'){
+const newStart=`function hasLastValidatedDirectory(){
+  const authorized=authorizedSnapshot();
+  if(!state.validated||!authorized.length||state.directory.length!==authorized.length)return false;
+  const allowed=new Set(authorized.map(key));
+  return state.directory.every(row=>allowed.has(key(row)));
+}
+function restoreLastValidatedDirectory(){
+  if(!hasLastValidatedDirectory())return false;
+  const root=document.documentElement;
+  window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__=MARK;
+  root.dataset.ronaClientCompanyDirectoryAtomic='true';
+  root.dataset.ronaClientCompanyDirectorySource=DIRECTORY_SOURCE;
+  root.dataset.ronaClientCompanyDirectoryDocumentsPredicate=DOCUMENTS_PREDICATE;
+  root.dataset.ronaClientCompanyDirectoryOwnershipFix=OWNERSHIP_FIX;
+  state.active=false;
+  if(!renderDirectory(state.generation))scheduleRender(0);
+  return true;
+}
+function multiCompanyPending(reason='loading'){
   if(state.active||authorizedSnapshot().length<=1)return false;
+  if(restoreLastValidatedDirectory())return false;
   const grid=canonicalGrid();if(!grid)return false;
   captureTemplate();if(!state.template)return false;
   const pending=document.createElement('div');pending.dataset.ronaCompanyDirectoryPending=reason;pending.setAttribute('role','status');pending.setAttribute('aria-live','polite');pending.textContent=reason==='error'?'Данные компаний временно недоступны. Повторяем загрузку…':'Данные компаний загружаются…';
@@ -96,10 +115,10 @@ async function start(){
     state.base=base;await base.whenReady();if(!await waitForDirectoryTemplate()){clearTimeout(startRetry);startRetry=setTimeout(()=>start().catch(()=>{}),150);return false}
     window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__=MARK;
     startObserver();if(authorizedSnapshot().length>1)multiCompanyPending('loading');
-    if(base.subscribe)base.subscribe(()=>{if(state.active){if(!syncCurrentMarkers()){state.active=false;delete window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__;document.documentElement.dataset.ronaClientCompanyDirectoryAtomic='recovering';scheduleRender(0)}}else scheduleRender(0)});
+    if(base.subscribe)base.subscribe(()=>{if(state.active){if(!syncCurrentMarkers()){if(!restoreLastValidatedDirectory())scheduleRender(0)}}else if(!restoreLastValidatedDirectory())scheduleRender(0)});
     window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(()=>{}));
     window.addEventListener('pageshow',()=>loadDirectory(true).catch(()=>{}));
-    window.addEventListener('rona:client-context-changed',()=>{if(state.active){if(!syncCurrentMarkers()){state.active=false;delete window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__;document.documentElement.dataset.ronaClientCompanyDirectoryAtomic='recovering';scheduleRender(0)}}else scheduleRender(0)});
+    window.addEventListener('rona:client-context-changed',()=>{if(state.active){if(!syncCurrentMarkers()){if(!restoreLastValidatedDirectory())scheduleRender(0)}}else if(!restoreLastValidatedDirectory())scheduleRender(0)});
     started=true;
     await loadDirectory(true).catch(()=>{if(!state.active)multiCompanyPending('error')});
     setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);
@@ -111,7 +130,7 @@ window.addEventListener('rona:client-context-ready',boot);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 setTimeout(boot,0);`;
 runtime=replaceOnce(runtime,oldStart,newStart,'PR431_REAL_AUTH_START_RETRY_FAIL_CLOSED');
-for(const required of [ownershipFixMarker,"getElementById('clientCompanyGrid')",'multiCompanyPending','waitForDirectoryBase','waitForDirectoryTemplate',"loadDirectory(true)","ronaClientCompanyDirectoryAtomic='recovering'",'state.base.select(row.client_id,row.contract_id)'])if(!runtime.includes(required))throw new Error(`PR431_REAL_AUTH_TAKEOVER_CONTRACT_MISSING: ${required}`);
+for(const required of [ownershipFixMarker,"getElementById('clientCompanyGrid')",'multiCompanyPending','hasLastValidatedDirectory','restoreLastValidatedDirectory','waitForDirectoryBase','waitForDirectoryTemplate',"loadDirectory(true)",'state.base.select(row.client_id,row.contract_id)'])if(!runtime.includes(required))throw new Error(`PR431_REAL_AUTH_TAKEOVER_CONTRACT_MISSING: ${required}`);
 await writeFile(runtimePath,runtime,'utf8');
 
 // Preserve canonical frozen company-card shells until the atomic server-driven directory owns the grid,
@@ -143,5 +162,5 @@ html=html.slice(0,headClose)+`<script id="${id}" src="${src}" defer></script>`+h
 const authorityIndex=html.indexOf('client-context-selection-authority-v1.js'),directoryIndex=html.indexOf('portal-client-company-directory-authority-v1.js'),legacyIndex=html.indexOf('client-contract-download-v3.js');
 if(authorityIndex<0||directoryIndex<0||legacyIndex<0||!(authorityIndex<directoryIndex&&directoryIndex<legacyIndex))throw new Error(`PR431_COMPANY_DIRECTORY_EXECUTION_ORDER_INVALID authority=${authorityIndex} directory=${directoryIndex} legacy=${legacyIndex}`);
 await writeFile(htmlPath,html,'utf8');
-const integrity=JSON.parse(await readFile(integrityPath,'utf8'));integrity.client_runtime=integrity.client_runtime||{};integrity.client_runtime.emitted_sha256=sha256(Buffer.from(html,'utf8'));integrity.client_runtime.emitted_bytes=Buffer.byteLength(html);if(integrity.client_runtime.context_selection_authority)integrity.client_runtime.context_selection_authority.src=selectionSrc;integrity.client_runtime.pr431_company_directory={id,src,marker,materialization:materializationMarker,ownership_fix:ownershipFixMarker,scope:'ALL_SERVER_AUTHORIZED_CLIENT_CONTRACT_CONTEXTS',source:'AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',activation:'COMPLETE_DIRECTORY_ATOMIC_COMMIT_WITH_REAL_AUTH_RETRY',card_materialization:'CLONE_EXISTING_CANONICAL_CARD_STRUCTURE_PER_AUTHORIZED_ROW',pre_takeover_shell_policy:'MULTI_COMPANY_FAIL_CLOSED_PENDING',post_takeover_central_grid_mutator:'STAND_DOWN_KEEP_DELEGATED_SELECTION_GUARD',takeover_retention:'SELF_HEAL_ON_LEGACY_RERENDER',bootstrap_owner:'RONA_CLIENT_CONTEXT_NATIVE_FETCH',missing_or_partial_projection:'NON_DESTRUCTIVE_NEUTRAL_PENDING',refresh_failure:'KEEP_LAST_VALIDATED_DIRECTORY',contract_download:'SERVER_AUTHORIZED_SHORT_LIVED_SIGNED_URL',selected_context_required_for_directory:false,legacy_selected_context_owner:'SOURCE_NATIVE_STAND_DOWN_WHEN_DIRECTORY_OWNER_PRESENT',visual_runtime_owner:false,visual_redesign:false,hardcoded_business_entities:false};await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
-console.log(`PR431_COMPANY_DIRECTORY_ATTACH=PASS marker=${marker} materialization=${materializationMarker} ownership-fix=${ownershipFixMarker} order=authority->directory-atomic->legacy-source-native-standdown source=AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB bootstrap-owner=central-native pre-takeover=fail-closed post-takeover=self-heal visual-owner=false`);
+const integrity=JSON.parse(await readFile(integrityPath,'utf8'));integrity.client_runtime=integrity.client_runtime||{};integrity.client_runtime.emitted_sha256=sha256(Buffer.from(html,'utf8'));integrity.client_runtime.emitted_bytes=Buffer.byteLength(html);if(integrity.client_runtime.context_selection_authority)integrity.client_runtime.context_selection_authority.src=selectionSrc;integrity.client_runtime.pr431_company_directory={id,src,marker,materialization:materializationMarker,ownership_fix:ownershipFixMarker,scope:'ALL_SERVER_AUTHORIZED_CLIENT_CONTRACT_CONTEXTS',source:'AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB',documents_predicate:'CURRENT_EFFECTIVE_CONTRACTUAL_ONLY',activation:'COMPLETE_DIRECTORY_ATOMIC_COMMIT_WITH_REAL_AUTH_RETRY',card_materialization:'CLONE_EXISTING_CANONICAL_CARD_STRUCTURE_PER_AUTHORIZED_ROW',pre_takeover_shell_policy:'MULTI_COMPANY_FAIL_CLOSED_PENDING',post_takeover_central_grid_mutator:'STAND_DOWN_KEEP_DELEGATED_SELECTION_GUARD',takeover_retention:'KEEP_STABLE_OWNER_RESTORE_LAST_VALIDATED_DIRECTORY',bootstrap_owner:'RONA_CLIENT_CONTEXT_NATIVE_FETCH',missing_or_partial_projection:'NON_DESTRUCTIVE_KEEP_STABLE_OWNER',refresh_failure:'KEEP_LAST_VALIDATED_DIRECTORY',contract_download:'SERVER_AUTHORIZED_SHORT_LIVED_SIGNED_URL',selected_context_required_for_directory:false,legacy_selected_context_owner:'SOURCE_NATIVE_STAND_DOWN_WHEN_DIRECTORY_OWNER_PRESENT',visual_runtime_owner:false,visual_redesign:false,hardcoded_business_entities:false};await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
+console.log(`PR431_COMPANY_DIRECTORY_ATTACH=PASS marker=${marker} materialization=${materializationMarker} ownership-fix=${ownershipFixMarker} order=authority->directory-atomic->legacy-source-native-standdown source=AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB bootstrap-owner=central-native pre-takeover=fail-closed post-takeover=keep-stable-owner visual-owner=false`);
