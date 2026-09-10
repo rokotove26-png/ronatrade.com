@@ -13,12 +13,14 @@ assert.match(source,/function hasClientSignedAddendum\(d\)\{return !!docKind\(d&
 assert.match(source,/return hasClientSignedAddendum\(d\)\?'GO':'HOLD'/,'GO/HOLD must depend on signed client addendum');
 assert.doesNotMatch(source,/NIK|SOLARIS|FARG|GAZON|DEAL-2026-00[3-9]/i,'implementation must not hardcode business entities');
 
-// Pages preview proves the exact PR commit was built. Dynamic portal functions are Worker-owned
-// and are intentionally not expected to execute on a Pages branch preview.
-const previewAdmin=await fetch(preview+'/portal/admin.html?indicator-proof='+Date.now(),{cache:'no-store'});
-assert.equal(previewAdmin.status,200,'immutable Pages preview must expose the built Admin artifact');
-const previewAdminText=await previewAdmin.text();
-assert.match(previewAdminText,/portal-admin-shell-fast-v1\.js/,'immutable preview Admin shell marker missing');
+// Pages preview proves the exact PR commit was built. Protected Admin HTML redirects to login,
+// so use a public emitted Admin shell asset as immutable-preview evidence. Dynamic portal functions
+// remain Worker-owned and are intentionally exercised from the exact checked-out function module below.
+const previewAsset=await fetch(preview+'/assets/portal-admin-shell-fast-v1.js?indicator-proof='+Date.now(),{cache:'no-store'});
+assert.equal(previewAsset.status,200,'immutable Pages preview must expose the built Admin shell asset');
+const previewAssetText=await previewAsset.text();
+assert.match(previewAssetText,/single-owner-v3/,'immutable preview Admin shell marker missing');
+assert.match(previewAssetText,/\/portal\/deals-current-state-ui/,'immutable preview Deals loader marker missing');
 
 // Exercise the exact function module checked out by this CI run, not a copied implementation.
 const runtimeResponse=await getDealsRuntime();
