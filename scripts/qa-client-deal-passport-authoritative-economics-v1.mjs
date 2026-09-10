@@ -128,6 +128,7 @@ const projectionSource=await readFile('supabase/functions/rona-portal-api/client
 const resolverSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics.js','utf8');
 const clientSource=await readFile('supabase/functions/rona-portal-api/client.ts','utf8');
 const runtimeSource=await readFile('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
+const repairSource=await readFile('scripts/repair-client-deals-first-paint-v1.mjs','utf8');
 const contextProxySource=await readFile('functions/portal/api/v1/client/context.js','utf8');
 
 for(const required of [
@@ -156,6 +157,9 @@ for(const required of ['passport_unit_price','confirmed_quantity_tonnes','counte
 assert.equal(runtimeSource.includes("const price=app?numberText(app.proposed_price,2):''"),false,'drawer still binds price directly from stale application economics');
 assert.ok(runtimeSource.includes('projectedPrice=numberText(deal?.passport_unit_price,2)'),'drawer price is not projection-first');
 assert.ok(runtimeSource.includes('quantity=numberText(deal?.confirmed_quantity_tonnes??app?.quantity_tonnes,3)'),'drawer quantity is not confirmed-deal-first');
+for(const required of ['d?.confirmed_quantity_tonnes??a?.quantity_tonnes','d?.passport_unit_price','d?.passport_currency','accepted=Boolean(d?.counter_offer_used)']){
+  assert.ok(repairSource.includes(required),`semantic first-paint build does not preserve authoritative economics: ${required}`);
+}
 
 for(const forbidden of ['DEAL-2026-009','RONA-C005-IN-2026-001','362600']){
   for(const [path,source] of [
@@ -163,6 +167,7 @@ for(const forbidden of ['DEAL-2026-009','RONA-C005-IN-2026-001','362600']){
     ['client-deal-economics-projection.ts',projectionSource],
     ['client.ts',clientSource],
     ['client-deals-authoritative-v1.js',runtimeSource],
+    ['repair-client-deals-first-paint-v1.mjs',repairSource],
   ])assert.equal(source.includes(forbidden),false,`production source hardcode detected: ${path}:${forbidden}`);
 }
 
@@ -173,6 +178,7 @@ const allowed=new Set([
   '.github/workflows/client-deal-passport-authoritative-economics-qa.yml',
   'assets/portal-runtime/client-deals-authoritative-v1.js',
   'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs',
+  'scripts/repair-client-deals-first-paint-v1.mjs',
   'supabase/functions/rona-portal-api/client-deal-economics.js',
   'supabase/functions/rona-portal-api/client-deal-economics-projection.ts',
   'supabase/functions/rona-portal-api/client.ts',
@@ -200,6 +206,7 @@ const proof={
     currentContextExactPairScope:'PASS',
     tenantDealContractScope:'PASS',
     clientConsumerProjectionFirst:'PASS',
+    semanticFirstPaintProjectionFirst:'PASS',
     genericNoProductionDealHardcode:'PASS',
     changedFilesAllowlist:'PASS',
   },
@@ -207,7 +214,7 @@ const proof={
     accepted:{unitPrice:accepted.passport_unit_price,quantityTonnes:accepted.confirmed_quantity_tonnes,applicationQuantityTonnes:500,staleApplicationUnitPrice:743,amount:accepted.passport_amount,currency:accepted.passport_currency,source:accepted.passport_amount_source},
     fallback:{unitPrice:fallback.passport_unit_price,quantityTonnes:fallback.confirmed_quantity_tonnes,applicationQuantityTonnes:125,amount:fallback.passport_amount,currency:fallback.passport_currency,source:fallback.passport_amount_source},
     failClosed:{nonAcceptedSource:rejectedFinalCounter.passport_amount_source,incompleteAcceptedSource:incompleteAccepted.passport_amount_source},
-    sourceSha256:{resolver:sha256(resolverSource),projection:sha256(projectionSource),runtime:sha256(runtimeSource),contextProxy:sha256(contextProxySource)},
+    sourceSha256:{resolver:sha256(resolverSource),projection:sha256(projectionSource),runtime:sha256(runtimeSource),semanticFirstPaintRepair:sha256(repairSource),contextProxy:sha256(contextProxySource)},
     changedFiles,
   },
   result:'PASS',
