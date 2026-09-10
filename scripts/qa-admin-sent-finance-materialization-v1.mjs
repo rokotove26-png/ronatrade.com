@@ -138,7 +138,11 @@ try{
   assert.equal(f[7],'APPLICATION:QA-APP-001');
 
   const workflow=psqlScalar("select concat_ws('|',payment_handoff_state,payment_expectation_state,payment_expectation_amount::text,btrim(payment_expectation_currency)) from portal_private.owner_deal_workflow w join portal_private.deals d on d.id=w.deal_key where d.deal_id='QA-ACCEPTED-COUNTER-GO'");
-  assert.equal(workflow,'SENT|ACTIVE|362600|USD');
+  const workflowParts=workflow.split('|');
+  assert.equal(workflowParts[0],'SENT');
+  assert.equal(workflowParts[1],'ACTIVE');
+  assert.equal(Number(workflowParts[2]),362600);
+  assert.equal(workflowParts[3],'USD');
   proof.checks.canonicalFinanceAndExpectation='PASS';
 
   const plan=psqlScalar("select string_agg(concat_ws('|',tranche_no::text,planned_amount::text,btrim(currency),status,case when due_at is null then 'DEFERRED' else 'DUE' end,source_system),';' order by tranche_no) from portal_private.owner_payment_plan p join portal_private.deals d on d.id=p.deal_key where d.deal_id='QA-ACCEPTED-COUNTER-GO'");
