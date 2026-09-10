@@ -6,70 +6,69 @@ on:
     paths:
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/owner-api.js'
-      - 'supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql'
-      - 'scripts/qa-admin-go-payment-no-finance-handoff-v1.sql'
+      - 'supabase/migrations/**'
       - 'scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs'
       - '.github/workflows/admin-go-payment-no-finance-handoff-qa.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
-  checks: read
 
 jobs:
   admin-go-payment-no-finance-handoff:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Prove source scope and build contract
-        shell: bash
+      - name: Source and candidate contract checks
         run: |
           set -euo pipefail
           node --check functions/portal/admin-main-ui-current.js
           node --check functions/portal/owner-api.js
           node --check scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs
+          grep -R "owner_r1_send_to_payments" -n supabase/migrations scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs functions/portal/owner-api.js
+          grep -R "PAYMENT_OBLIGATION_NOT_CONFIRMED" -n supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql && exit 1 || true
           npm run build
-          grep -q "v_finance_ready :=" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
-          grep -q "if v_handoff='SENT' then" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
-          ! grep -q "message='PAYMENT_OBLIGATION_NOT_CONFIRMED'" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
-          grep -q "SIGNED_ADDENDUM_REQUIRED" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
-          grep -q "INVOICE_REQUIRED" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
-          grep -q "handoffPending=dealStateRows.filter" functions/portal/admin-main-ui-current.js
-          grep -q "Передано в оплату — сумма формируется" functions/portal/admin-main-ui-current.js
-          grep -q "x-rona-payments-handoff':'go-no-finance-v1'" functions/portal/admin-main-ui-current.js
-          grep -q "owner_r1_send_to_payments" functions/portal/owner-api.js
-          ! grep -Eqi 'DEAL-2026-009|GAZONE|ГАЗОНЭ' functions/portal/admin-main-ui-current.js supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
-          echo 'ADMIN_GO_PAYMENT_NO_FINANCE_SOURCE=PASS'
-      - name: Execute canonical handoff in ephemeral PostgreSQL
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo systemctl start postgresql
-          sudo -u postgres psql -v ON_ERROR_STOP=1 -f scripts/qa-admin-go-payment-no-finance-handoff-v1.sql
-      - name: Install Chromium
+      - name: Install browser
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Resolve exact immutable Cloudflare preview
+      - name: Resolve immutable preview
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        shell: bash
         run: |
           set -euo pipefail
           preview=''
           for i in $(seq 1 60); do
             summaries=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.name=="Cloudflare Pages" and .status=="completed" and .conclusion=="success") | .output.summary' 2>/dev/null || true)
             preview=$(printf '%s\n' "$summaries" | grep -oE 'https://[a-f0-9]+\.rona-trade-public\.pages\.dev' | head -1 || true)
-            if [ -n "$preview" ]; then break; fi
+            [ -n "$preview" ] && break
             sleep 5
           done
           test -n "$preview"
           echo "PREVIEW_ORIGIN=$preview" >> "$GITHUB_ENV"
-          echo "IMMUTABLE_PREVIEW=$preview"
-      - name: Browser/runtime proof through canonical route and Payments projection
+      - name: Candidate backend guard
+        run: |
+          set -euo pipefail
+          test -n "${OWNER_E2E_CANDIDATE_PROJECT:-}" || (echo 'OWNER_E2E_CANDIDATE_PROJECT secret required'; exit 1)
+          test -n "${OWNER_E2E_IDENTIFIER:-}" || (echo 'OWNER_E2E_IDENTIFIER secret required'; exit 1)
+          test -n "${OWNER_E2E_PASSWORD:-}" || (echo 'OWNER_E2E_PASSWORD secret required'; exit 1)
+      - name: Real owner E2E through candidate backend
+        env:
+          OWNER_E2E_CANDIDATE_PROJECT: ${{ secrets.OWNER_E2E_CANDIDATE_PROJECT }}
+          OWNER_E2E_IDENTIFIER: ${{ secrets.OWNER_E2E_IDENTIFIER }}
+          OWNER_E2E_PASSWORD: ${{ secrets.OWNER_E2E_PASSWORD }}
+          OWNER_E2E_GO_DEAL_ID: ${{ secrets.OWNER_E2E_GO_DEAL_ID }}
+          OWNER_E2E_HOLD_DEAL_ID: ${{ secrets.OWNER_E2E_HOLD_DEAL_ID }}
+          OWNER_E2E_MISSING_DOC_DEAL_ID: ${{ secrets.OWNER_E2E_MISSING_DOC_DEAL_ID }}
+          OWNER_E2E_ARTIFACT: artifacts/pr452-owner-candidate-e2e.json
         run: node scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs
+      - name: Upload E2E proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr452-owner-candidate-e2e-proof
+          path: artifacts/pr452-owner-candidate-e2e.json
