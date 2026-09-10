@@ -1,0 +1,28 @@
+name: Client counter-offer visibility hotfix QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/api/v1/client/context.js'
+      - 'functions/portal/client-counter-offer-projection.js'
+      - 'assets/portal-runtime/client-counter-offer-hotfix-v1.js'
+      - 'scripts/attach-client-counter-offer-hotfix-v1.mjs'
+      - 'scripts/qa-client-counter-offer-hotfix-v1.mjs'
+      - 'package.json'
+      - '.github/workflows/client-counter-offer-hotfix-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  counter-offer-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove current-context counter-offer visibility and response flow
+        run: node scripts/qa-client-counter-offer-hotfix-v1.mjs
