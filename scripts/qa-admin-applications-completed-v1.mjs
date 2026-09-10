@@ -37,26 +37,30 @@ assert.equal(restored.proposed_currency,'USD');
 
 const index=await readFile('functions/portal/main-ui/index.js','utf8');
 for(const required of [
-  "call('/admin/workflow-bootstrap')",
-  'mergeAdminCompletedApplications',
+  '/portal/admin-completed-bootstrap',
+  'owner-r1-server-v2',
   "owner==='DEAL'",
   "app==='DEAL_REGISTERED'",
   "return'COMPLETED'",
   'x-rona-admin-completed-applications'
 ])assert.ok(index.includes(required),`Admin main runtime missing ${required}`);
+assert.ok(!index.includes("call('/admin/workflow-bootstrap')"),'browser runtime must not depend on a secondary workflow-bootstrap request');
 
 const emittedResponse=await serveAdminMainUi({});
 assert.equal(emittedResponse.status,200,'materialized Admin main runtime must patch successfully');
-assert.equal(emittedResponse.headers.get('x-rona-admin-completed-applications'),'owner-r1-archived-deal-v1');
+assert.equal(emittedResponse.headers.get('x-rona-admin-completed-applications'),'owner-r1-server-v2');
 const emitted=await emittedResponse.text();
 for(const required of [
-  'function mergeAdminCompletedApplications',
-  "call('/admin/workflow-bootstrap')",
-  "status:'DEAL_REGISTERED'",
-  "owner_status:'DEAL'",
+  '/portal/admin-completed-bootstrap',
+  "owner==='DEAL'",
+  "app==='DEAL_REGISTERED'",
   "return'COMPLETED'",
   'data-rona-app-passport-open'
 ])assert.ok(emitted.includes(required),`materialized Admin runtime missing ${required}`);
+assert.ok(!emitted.includes("call('/admin/workflow-bootstrap')"),'emitted runtime must consume already-materialized server snapshot');
+
+const server=await readFile('functions/portal/admin-completed-bootstrap.js','utf8');
+for(const required of ['owner_r1_admin_bootstrap','mergeAdminCompletedApplications','x-rona-admin-completed-restored'])assert.ok(server.includes(required),`server materialization missing ${required}`);
 
 const passport=await readFile('functions/portal/main-ui/application-passport-runtime.js','utf8');
 for(const required of ['data-rona-app-passport-open','openPassport(id,button)','currentOwnerApplication(id)'])assert.ok(passport.includes(required),`existing application passport integration missing ${required}`);
@@ -64,4 +68,4 @@ for(const required of ['data-rona-app-passport-open','openPassport(id,button)','
 const helper=await readFile('functions/portal/main-ui/admin-completed-applications.js','utf8');
 assert.ok(!/RONA-C\d+|DEAL-2026-00\d/.test(helper),'runtime helper must not contain client/application/deal hardcodes');
 
-console.log('ADMIN_APPLICATIONS_COMPLETED_V1=PASS terminal=existing-DEAL_REGISTERED bucket=COMPLETED reload=workflow-bootstrap dedupe=true passport=existing materialized-runtime=true generic=true');
+console.log('ADMIN_APPLICATIONS_COMPLETED_V2=PASS terminal=DEAL_REGISTERED bucket=COMPLETED source=server-materialized dedupe=true passport=existing materialized-runtime=true generic=true');
