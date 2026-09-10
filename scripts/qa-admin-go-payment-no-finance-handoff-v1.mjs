@@ -130,6 +130,8 @@ try{
   assert.equal(rpcCalls.length,1,'one click must invoke one canonical send RPC');
   assert.equal(rpcCalls[0].p_deal_id,'QA-NOFIN-GO','canonical route must preserve deal id');
 
+  await page.locator('#ronaCurrentDealDrawer .rona-current-deal-drawer-close').click();
+  await page.locator('#ronaCurrentDealDrawer').waitFor({state:'detached',timeout:5000});
   await page.getByRole('button',{name:'Платежи',exact:true}).click();
   await page.waitForFunction(()=>Array.isArray(window.__QA_PAYMENT_PENDING_IDS__)&&window.__QA_PAYMENT_PENDING_IDS__.includes('QA-NOFIN-GO'),null,{timeout:3000});
   const paymentCard=page.locator('#page-payments .rona-owner-card').filter({hasText:'Передано в оплату — сумма формируется'});
@@ -140,7 +142,6 @@ try{
   assert.doesNotMatch(paymentText,/USD|RUB|KGS|EUR|\b0(?:[.,]00)?\b/,'Payments projection must not fabricate amount/currency');
 
   await page.getByRole('button',{name:'Сделки',exact:true}).click();
-  await page.locator('#ronaCurrentDealDrawer .rona-current-deal-drawer-close').click().catch(()=>{});
   await openDeal('QA-HOLD');
   send=await sendButton();
   assert.equal(await send.isDisabled(),true,'HOLD without signed addendum must remain blocked');
