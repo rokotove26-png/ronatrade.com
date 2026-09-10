@@ -10,7 +10,8 @@ export function resolveClientDealPassportEconomics(row={}){
   const workflowBusinessStatus=upper(row.workflow_business_status??row.business_status);
   const confirmedQuantityTonnes=positive(row.confirmed_quantity_tonnes);
   const finalized=Boolean(text(row.finalized_at));
-  const acceptedCounter=bool(row.counter_offer_used)&&finalized;
+  const counterSelected=bool(row.counter_offer_used)&&finalized;
+  const acceptedCounter=counterSelected&&upper(row.client_counter_response)==='ACCEPTED';
 
   if(applicationStatus!=='DEAL_REGISTERED'||workflowBusinessStatus!=='DEAL'||confirmedQuantityTonnes===null){
     return{
@@ -20,6 +21,17 @@ export function resolveClientDealPassportEconomics(row={}){
       passport_amount_source:null,
       confirmed_quantity_tonnes:confirmedQuantityTonnes,
       counter_offer_used:acceptedCounter,
+    };
+  }
+
+  if(counterSelected&&!acceptedCounter){
+    return{
+      passport_amount:null,
+      passport_currency:null,
+      passport_unit_price:null,
+      passport_amount_source:'FINALIZED_COUNTEROFFER_NOT_ACCEPTED',
+      confirmed_quantity_tonnes:confirmedQuantityTonnes,
+      counter_offer_used:false,
     };
   }
 
