@@ -1,6 +1,7 @@
 const asArray=value=>Array.isArray(value)?value:[];
 const text=value=>String(value??'').trim();
 
+// Visibility follows the authoritative client list; contract data is enrichment only.
 export function projectAdminClients(authoritativeClients,ownerClients,currentContracts){
   const ownerByClient=new Map(asArray(ownerClients).map(row=>[text(row?.client_id),row]).filter(([id])=>id));
   const contractByClient=new Map();
