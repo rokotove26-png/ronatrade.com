@@ -32,7 +32,7 @@ jobs:
           const dr=await deals.onRequest();
           const ds=await dr.text();
           new Function(ds);
-          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.7-authoritative-kpis','Deals runtime header');
+          assert(dr.headers.get('x-rona-deals-ui')==='current-state-v1.9-owner-uat-drawer','Deals runtime header');
           assert(ds.includes('function waitsPayment(d)'),'payment-only predicate missing');
           assert(!ds.includes('function waitsAction(d)'),'legacy waitsAction remains');
           assert(ds.includes("'PARTIALLY_PAID','PARTIAL','DUE'"),'authoritative partial-payment rule missing');
