@@ -45,6 +45,7 @@ jobs:
           node --check functions/portal/owner-api.js
           node --check scripts/qa-admin-sent-finance-materialization-v1.mjs
           migration='supabase/migrations/20260910213000_owner_r1_payment_finance_materialization_v1.sql'
+          plan_migration='supabase/migrations/20260910213500_owner_r1_payment_plan_percent_reconcile_v1.sql'
           grep -F 'owner_r1_materialize_payment_finance' "$migration"
           grep -F 'owner_r1_send_to_payments' "$migration"
           grep -F 'ACCEPTED_COUNTEROFFER' "$migration"
@@ -53,8 +54,10 @@ jobs:
           grep -F 'owner_application_workflow' "$migration"
           grep -F 'BANK_CONFIRMED' "$migration"
           grep -F 'ADMIN_DEAL_ACCEPTED_TERMS_R1' "$migration"
-          if grep -E 'DEAL-2026-009|RONA-C005-IN-2026-001|sxawrwzeobaqwwmlkzws' "$migration"; then
-            echo 'corrective migration must stay generic and production-data agnostic'
+          grep -F 'owner_r1_reconcile_generated_payment_plan' "$plan_migration"
+          grep -F "regexp_matches(coalesce(v_payment_terms,''),'([0-9]+([.,][0-9]+)?)\\s*%'" "$plan_migration"
+          if grep -E 'DEAL-2026-009|RONA-C005-IN-2026-001|sxawrwzeobaqwwmlkzws' "$migration" "$plan_migration"; then
+            echo 'corrective migrations must stay generic and production-data agnostic'
             exit 1
           fi
           if grep -F 'handoffPending' functions/portal/admin-main-ui-current.js; then
@@ -67,16 +70,17 @@ jobs:
           fi
           grep -F 'LOCAL_EPHEMERAL_POSTGREST' functions/portal/owner-api.js
           RONA_QA_RPC_MODE=LOCAL_EPHEMERAL_POSTGREST RONA_QA_RPC_UPSTREAM=https://example.com/rpc node --input-type=module -e "import('./functions/portal/owner-api.js').then(()=>process.exit(1)).catch(e=>{if(!String(e).includes('QA_RPC_UPSTREAM_DENIED')){console.error(e);process.exit(1)}})"
-          echo "CANDIDATE_MIGRATION_SHA256=$(sha256sum "$migration" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "CANDIDATE_MIGRATION_SHA256=$(cat "$migration" "$plan_migration" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_ENV"
           npm run build
 
-      - name: Seed released baseline plus exact corrective migration
+      - name: Seed released baseline plus exact corrective migrations
         env:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
           psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f scripts/qa-admin-sent-finance-materialization-v1.sql
-          psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select case when position('owner_r1_materialize_payment_finance' in pg_get_functiondef('public.owner_r1_send_to_payments(text)'::regprocedure))>0 then 'CORRECTIVE_RPC_LOADED=PASS' else 'CORRECTIVE_RPC_LOADED=FAIL' end" | grep -Fx 'CORRECTIVE_RPC_LOADED=PASS'
+          psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260910213500_owner_r1_payment_plan_percent_reconcile_v1.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select case when position('owner_r1_reconcile_generated_payment_plan' in pg_get_functiondef('public.owner_r1_send_to_payments(text)'::regprocedure))>0 then 'CORRECTIVE_RPC_LOADED=PASS' else 'CORRECTIVE_RPC_LOADED=FAIL' end" | grep -Fx 'CORRECTIVE_RPC_LOADED=PASS'
 
       - name: Start free disposable PostgREST
         env:
