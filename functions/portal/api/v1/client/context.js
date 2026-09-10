@@ -1,7 +1,10 @@
+import {mergeClientCounterOffers} from '../../../client-counter-offer-projection.js';
+
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const MAIN_CONTEXT_API=`${SUPABASE_URL}/functions/v1/rona-portal-api/v1/client/context`;
 const PR429_PREVIEW_CONTEXT_API=`${SUPABASE_URL}/functions/v1/rona-portal-api-candidate-20260817/v1/client/context`;
+const COUNTER_OFFER_SOURCE_API=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance/client/bootstrap`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 
@@ -46,6 +49,26 @@ async function callContext(target,accessToken,request){
   for(const name of ['x-request-id','x-correlation-id']){const value=request.headers.get(name);if(value)headers.set(name,value)}
   return fetch(url,{method:'GET',headers});
 }
+async function callCounterOfferSource(accessToken,request){
+  const headers=new Headers({authorization:`Bearer ${accessToken}`,accept:'application/json'});
+  for(const name of ['x-request-id','x-correlation-id']){const value=request.headers.get(name);if(value)headers.set(name,value)}
+  return fetch(COUNTER_OFFER_SOURCE_API,{method:'GET',headers});
+}
+async function enrichCounterOfferProjection(response,accessToken,request){
+  if(!response.ok||!String(response.headers.get('content-type')||'').includes('application/json'))return response;
+  const payload=await response.clone().json().catch(()=>null);
+  if(!payload?.data||!Array.isArray(payload.data.applications))return response;
+  const sourceResponse=await callCounterOfferSource(accessToken,request).catch(()=>null);
+  if(!sourceResponse?.ok)return response;
+  const sourcePayload=await sourceResponse.json().catch(()=>null);
+  const workflowApplications=Array.isArray(sourcePayload?.data?.applications)?sourcePayload.data.applications:[];
+  payload.data.applications=mergeClientCounterOffers(payload.data.applications,workflowApplications);
+  const headers=new Headers(response.headers);
+  headers.set('content-type','application/json; charset=utf-8');
+  headers.set('x-rona-counter-offer-projection','OWNER_APPLICATION_WORKFLOW');
+  headers.delete('content-length');
+  return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
+}
 function isPr429Preview(request){
   const host=new URL(request.url).hostname.toLowerCase();
   return host.endsWith('.rona-trade-public.pages.dev');
@@ -70,5 +93,6 @@ export async function onRequest(context){
       access=next.data.access_token;setCookies=tokenCookies(next.data);response=await callContext(target,access,request);
     }else if(next&&next.status!==429&&Number(next.status||0)<500)setCookies=clearCookies();
   }
+  response=await enrichCounterOfferProjection(response,access,request);
   return secured(response,setCookies,preview);
 }

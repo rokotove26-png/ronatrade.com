@@ -1,0 +1,29 @@
+name: Client counter-offer visibility hotfix QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/api/v1/client/context.js'
+      - 'functions/portal/client-counter-offer-projection.js'
+      - 'assets/portal-runtime/client-applications-live-render-v1.js'
+      - 'scripts/materialize-portal-client-applications-canonical-v1.mjs'
+      - 'scripts/qa-client-counter-offer-hotfix-v1.mjs'
+      - '.github/workflows/client-counter-offer-hotfix-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  counter-offer-build-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build canonical Client artifact
+        run: npm run build
+      - name: Prove counter-offer is in the emitted canonical Applications runtime
+        run: node scripts/qa-client-counter-offer-hotfix-v1.mjs
