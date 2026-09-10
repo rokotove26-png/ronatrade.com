@@ -38,7 +38,7 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Source and corrective contract checks
+      - name: Source and Owner-final contract checks
         run: |
           set -euo pipefail
           node --check functions/portal/admin-main-ui-current.js
@@ -49,25 +49,22 @@ jobs:
           grep -F 'owner_r1_materialize_payment_finance' "$migration"
           grep -F 'owner_r1_send_to_payments' "$migration"
           grep -F 'ACCEPTED_COUNTEROFFER' "$migration"
-          grep -F 'client_applications' "$migration"
-          grep -F 'deal_registrations' "$migration"
-          grep -F 'owner_application_workflow' "$migration"
           grep -F 'BANK_CONFIRMED' "$migration"
           grep -F 'ADMIN_DEAL_ACCEPTED_TERMS_R1' "$migration"
+          grep -F 'v_obligation:=round(v_price*v_confirmed_qty,2);' "$migration"
+          grep -F 'order by dr.registered_at desc' "$migration"
           grep -F 'owner_r1_reconcile_generated_payment_plan' "$plan_migration"
           grep -F "regexp_matches(coalesce(v_payment_terms,''),'([0-9]+([.,][0-9]+)?)\\s*%'" "$plan_migration"
           if grep -E 'DEAL-2026-009|RONA-C005-IN-2026-001|sxawrwzeobaqwwmlkzws' "$migration" "$plan_migration"; then
             echo 'corrective migrations must stay generic and production-data agnostic'
             exit 1
           fi
-          if grep -F 'handoffPending' functions/portal/admin-main-ui-current.js; then
-            echo 'handoffPending workaround must be removed'
-            exit 1
-          fi
-          if grep -F 'Передано в оплату — сумма формируется' functions/portal/admin-main-ui-current.js; then
-            echo 'pseudo Payments section must be removed'
-            exit 1
-          fi
+          for forbidden in 'handoffPending' 'Передано в оплату — сумма формируется' 'Не сформировано'; do
+            if grep -F "$forbidden" functions/portal/admin-main-ui-current.js; then
+              echo "Owner-final forbidden Payments pseudo-state remains: $forbidden"
+              exit 1
+            fi
+          done
           grep -F 'LOCAL_EPHEMERAL_POSTGREST' functions/portal/owner-api.js
           RONA_QA_RPC_MODE=LOCAL_EPHEMERAL_POSTGREST RONA_QA_RPC_UPSTREAM=https://example.com/rpc node --input-type=module -e "import('./functions/portal/owner-api.js').then(()=>process.exit(1)).catch(e=>{if(!String(e).includes('QA_RPC_UPSTREAM_DENIED')){console.error(e);process.exit(1)}})"
           echo "CANDIDATE_MIGRATION_SHA256=$(cat "$migration" "$plan_migration" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_ENV"
@@ -80,14 +77,21 @@ jobs:
           set -euo pipefail
           psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f scripts/qa-admin-sent-finance-materialization-v1.sql
           psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f supabase/migrations/20260910213500_owner_r1_payment_plan_percent_reconcile_v1.sql
-          psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select case when position('owner_r1_reconcile_generated_payment_plan' in pg_get_functiondef('public.owner_r1_send_to_payments(text)'::regprocedure))>0 then 'CORRECTIVE_RPC_LOADED=PASS' else 'CORRECTIVE_RPC_LOADED=FAIL' end" | grep -Fx 'CORRECTIVE_RPC_LOADED=PASS'
+          definition=$(psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select pg_get_functiondef('public.owner_r1_send_to_payments(text)'::regprocedure)")
+          printf '%s\n' "$definition" | grep -F 'owner_r1_materialize_payment_finance'
+          printf '%s\n' "$definition" | grep -F 'owner_r1_reconcile_generated_payment_plan'
+          if printf '%s\n' "$definition" | grep -F 'PAYMENT_OBLIGATION_NOT_CONFIRMED'; then
+            echo 'obsolete pre-existing finance-summary blocker is still loaded'
+            exit 1
+          fi
+          echo 'OWNER_FINAL_CORRECTIVE_RPC_LOADED=PASS'
 
       - name: Start free disposable PostgREST
         env:
-          PGRST_JWT_SECRET: pr448-free-disposable-jwt-secret-minimum-32-bytes
+          PGRST_JWT_SECRET: pr453-free-disposable-jwt-secret-minimum-32-bytes
         run: |
           set -euo pipefail
-          docker run --rm -d --name pr448-postgrest --network host \
+          docker run --rm -d --name pr453-postgrest --network host \
             -e PGRST_DB_URI='postgres://postgres:postgres@127.0.0.1:5432/postgres' \
             -e PGRST_DB_SCHEMAS='public' \
             -e PGRST_DB_ANON_ROLE='postgres' \
@@ -97,10 +101,10 @@ jobs:
             if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
             sleep 1
           done
-          docker logs pr448-postgrest
+          docker logs pr453-postgrest
           exit 1
 
-      - name: Resolve immutable Cloudflare preview when available
+      - name: Resolve immutable Cloudflare preview for UI/source inspection only
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -113,29 +117,25 @@ jobs:
             [ -n "$preview" ] && break
             sleep 5
           done
-          if [ -n "$preview" ]; then
-            echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview" | tee -a "$GITHUB_ENV"
-          else
-            echo 'IMMUTABLE_PREVIEW_UI_ONLY=' >> "$GITHUB_ENV"
-            echo 'Cloudflare preview not resolved during focused QA; free E2E evidence remains authoritative.'
-          fi
+          echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview" | tee -a "$GITHUB_ENV"
+          echo 'NOTICE: Cloudflare preview is production-backed. It is UI/source inspection only and is NOT candidate-backend proof.'
 
-      - name: Real owner-api to real PostgREST corrective E2E
+      - name: Real owner-api to real PostgREST Owner-final E2E
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
           RONA_QA_RPC_MODE: LOCAL_EPHEMERAL_POSTGREST
           RONA_QA_RPC_UPSTREAM: http://127.0.0.1:3000/rpc
-          PGRST_JWT_SECRET: pr448-free-disposable-jwt-secret-minimum-32-bytes
-          OWNER_E2E_ARTIFACT: artifacts/pr448-sent-finance-materialization-e2e.json
+          PGRST_JWT_SECRET: pr453-free-disposable-jwt-secret-minimum-32-bytes
+          OWNER_E2E_ARTIFACT: artifacts/pr453-owner-final-payment-handoff-e2e.json
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/qa-admin-sent-finance-materialization-v1.mjs
 
-      - name: Upload free corrective E2E proof
+      - name: Upload Owner-final free E2E proof
         uses: actions/upload-artifact@v4
         with:
-          name: pr448-sent-finance-materialization-free-e2e-proof
-          path: artifacts/pr448-sent-finance-materialization-e2e.json
+          name: pr453-owner-final-atomic-payment-handoff-free-e2e-proof
+          path: artifacts/pr453-owner-final-payment-handoff-e2e.json
 
       - name: Stop disposable PostgREST
         if: always()
-        run: docker stop pr448-postgrest >/dev/null 2>&1 || true
+        run: docker stop pr453-postgrest >/dev/null 2>&1 || true

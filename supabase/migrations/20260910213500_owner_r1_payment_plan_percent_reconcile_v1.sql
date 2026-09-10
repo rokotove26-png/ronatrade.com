@@ -37,6 +37,7 @@ begin
    where d.deal_id=p_deal_id
      and fs.authority_state='CONFIRMED'
      and fs.lifecycle_state='ACTIVE'
+   order by dr.registered_at desc
    limit 1;
 
   if v_deal is null or v_obligation is null or v_obligation<0
@@ -145,6 +146,7 @@ begin
   if v_invoice=0 then raise exception using errcode='P0001',message='INVOICE_REQUIRED'; end if;
   if v_signed=0 then raise exception using errcode='P0001',message='SIGNED_ADDENDUM_REQUIRED'; end if;
 
+  -- One canonical transaction: authoritative economics and payment expectations first, SENT second.
   v_finance:=portal_private.owner_r1_materialize_payment_finance(p_deal_id);
   if not coalesce((v_finance->>'materialized')::boolean,false) then
     raise exception using errcode='P0001',message='PAYMENT_ECONOMICS_NOT_MATERIALIZED',detail=coalesce(v_finance->>'reason','UNKNOWN');
@@ -154,6 +156,9 @@ begin
 
   v_amount:=(v_finance->>'remaining')::numeric;
   v_currency:=v_finance->>'currency';
+  if v_amount is null or v_amount<0 or coalesce(v_currency,'')!~'^[A-Z]{3}$' then
+    raise exception using errcode='P0001',message='PAYMENT_ECONOMICS_NOT_MATERIALIZED',detail='MATERIALIZED_RESULT_INVALID';
+  end if;
 
   update portal_private.owner_deal_workflow
      set payment_handoff_state='SENT',
@@ -170,6 +175,8 @@ begin
     'state','SENT',
     'amount',v_amount,
     'currency',v_currency,
+    'unitPrice',(v_finance->>'unitPrice')::numeric,
+    'quantityTonnes',(v_finance->>'quantityTonnes')::numeric,
     'obligation',(v_finance->>'obligation')::numeric,
     'received',(v_finance->>'received')::numeric,
     'financePending',false,
@@ -179,8 +186,10 @@ begin
 end
 $$;
 
--- Repair only fallback rows produced by the immediately preceding corrective
--- migration. Canonical pre-existing payment plans are outside this scope.
+comment on function public.owner_r1_send_to_payments(text) is
+'Owner R1 canonical atomic payment handoff. No pre-existing finance summary is required; accepted economics are materialized from authoritative lineage in the same transaction, and SENT is recorded only after successful materialization. Repeated send is an idempotent repair/read path.';
+
+-- Generic reconciliation for fallback rows only. Canonical pre-existing payment plans are outside this scope.
 do $$
 declare r record;
 begin

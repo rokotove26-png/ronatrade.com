@@ -1,5 +1,6 @@
 -- Corrective materialization for Owner R1 payment handoff.
--- Source of truth: the registered application plus finalized Owner application workflow.
+-- OWNER FINAL CLARIFICATION: one send atomically materializes authoritative finance/payment expectations and only then records SENT.
+-- Source of truth: latest registered application + finalized Owner application workflow + confirmed deal quantity.
 -- No deal/client-specific data is embedded here.
 
 create or replace function portal_private.owner_r1_materialize_payment_finance(p_deal_id text)
@@ -36,8 +37,9 @@ declare
   v_bank_currency_mismatch integer := 0;
   v_existing_count integer := 0;
   v_existing_valid boolean := false;
-  v_source_kind text := 'ACCEPTED_TERMS';
-  v_match text[];
+  v_source_kind text := 'ACCEPTED_APPLICATION';
+  v_source_version text;
+  v_shares text[];
   v_share1 numeric;
   v_share2 numeric;
   v_tranche1 numeric;
@@ -77,6 +79,7 @@ begin
     join portal_private.owner_application_workflow aw on aw.application_key=ca.id
     join portal_private.owner_deal_workflow w on w.deal_key=d.id
    where d.deal_id=p_deal_id
+   order by dr.registered_at desc
    limit 1;
 
   if v_deal is null then
@@ -86,9 +89,11 @@ begin
      or v_business_status<>'DEAL' or v_finalized_at is null then
     return jsonb_build_object('materialized',false,'reason','ACCEPTED_TERMS_NOT_FINAL');
   end if;
-  if v_confirmed_qty is null or v_confirmed_qty<=0 or v_app_qty is null or v_app_qty<=0
-     or abs(v_confirmed_qty-v_app_qty)>0.0005 then
-    return jsonb_build_object('materialized',false,'reason','CONFIRMED_QUANTITY_SOURCE_CONFLICT');
+  if v_confirmed_qty is null or v_confirmed_qty<=0 then
+    return jsonb_build_object('materialized',false,'reason','CONFIRMED_QUANTITY_NOT_AUTHORITATIVE');
+  end if;
+  if coalesce(btrim(v_payment_terms),'')='' then
+    return jsonb_build_object('materialized',false,'reason','PAYMENT_TERMS_NOT_AUTHORITATIVE');
   end if;
 
   if coalesce(v_counter_used,false) then
@@ -100,6 +105,7 @@ begin
     v_price:=v_counter_price;
     v_currency:=v_counter_currency;
     v_source_kind:='ACCEPTED_COUNTEROFFER';
+    v_source_version:='OWNER_R1_ACCEPTED_COUNTEROFFER_V2';
   else
     if v_proposed_price is null or v_proposed_price<=0
        or coalesce(v_proposed_currency,'')!~'^[A-Z]{3}$' then
@@ -107,13 +113,17 @@ begin
     end if;
     v_price:=v_proposed_price;
     v_currency:=v_proposed_currency;
+    v_source_version:='OWNER_R1_ACCEPTED_APPLICATION_V2';
   end if;
 
-  v_obligation:=round(v_price*v_app_qty,2);
+  -- Owner-final authority: the confirmed deal quantity drives the obligation.
+  -- Application quantity remains lineage/audit context and is never substituted for the confirmed deal quantity.
+  v_obligation:=round(v_price*v_confirmed_qty,2);
 
   select count(*),
          coalesce(bool_or(authority_state='CONFIRMED' and lifecycle_state='ACTIVE'
                     and obligation_amount is not null and obligation_amount>=0
+                    and received_amount is not null and received_amount>=0
                     and client_remaining_amount is not null and client_remaining_amount>=0
                     and coalesce(btrim(currency),'')~'^[A-Z]{3}$'),false)
     into v_existing_count,v_existing_valid
@@ -156,7 +166,7 @@ begin
       p_deal_id,v_client_id,v_client_name,v_obligation,v_received,v_currency,v_remaining,
       case when v_remaining=0 then 'PAID' when v_received>0 then 'PARTIALLY_PAID' else 'DUE' end,
       'OPEN',null,null,'NOT_APPLICABLE',null,
-      'APPLICATION:'||v_application_id,'OWNER_R1_ACCEPTED_TERMS_V1',coalesce(v_finalized_at,v_registration_at,now()),
+      'APPLICATION:'||v_application_id,v_source_version,coalesce(v_finalized_at,v_registration_at,now()),
       'CONFIRMED','ACTIVE'
     ) on conflict(deal_id) do nothing;
 
@@ -166,7 +176,7 @@ begin
       from portal_private.owner_deal_finance_summary
      where deal_id=p_deal_id and authority_state='CONFIRMED' and lifecycle_state='ACTIVE'
      limit 1;
-    if v_obligation is null or v_remaining is null or coalesce(v_currency,'')='' then
+    if v_obligation is null or v_received is null or v_remaining is null or coalesce(v_currency,'')!~'^[A-Z]{3}$' then
       return jsonb_build_object('materialized',false,'reason','FINANCE_SUMMARY_CONCURRENT_CONFLICT');
     end if;
   end if;
@@ -178,17 +188,19 @@ begin
          updated_at=now()
    where deal_key=v_deal;
 
+  -- Existing plan rows are authoritative and remain untouched. If absent, derive the plan
+  -- from the stored accepted payment terms without creating a parallel payment model.
   if not exists(select 1 from portal_private.owner_payment_plan where deal_key=v_deal) then
-    if v_source_kind<>'EXISTING_CONFIRMED_FINANCE' then
-      v_match:=regexp_match(coalesce(v_payment_terms,''),'([0-9]+([.,][0-9]+)?)\s*%[^%]*([0-9]+([.,][0-9]+)?)\s*%');
+    select array_agg(m[1])
+      into v_shares
+      from regexp_matches(coalesce(v_payment_terms,''),'([0-9]+([.,][0-9]+)?)\s*%','g') as m;
+
+    if coalesce(cardinality(v_shares),0)=2 then
+      v_share1:=replace(v_shares[1],',','.')::numeric;
+      v_share2:=replace(v_shares[2],',','.')::numeric;
     end if;
 
-    if v_match is not null then
-      v_share1:=replace(v_match[1],',','.')::numeric;
-      v_share2:=replace(v_match[3],',','.')::numeric;
-    end if;
-
-    if v_source_kind<>'EXISTING_CONFIRMED_FINANCE' and v_share1>0 and v_share2>0 and abs((v_share1+v_share2)-100)<0.0001 then
+    if v_share1>0 and v_share2>0 and abs((v_share1+v_share2)-100)<0.0001 then
       v_tranche1:=round(v_obligation*v_share1/100,2);
       v_tranche2:=v_obligation-v_tranche1;
       v_terms1:=btrim(split_part(v_payment_terms,';',1));
@@ -216,8 +228,9 @@ begin
     'materialized',true,
     'source',v_source_kind,
     'applicationId',v_application_id,
+    'applicationQuantityTonnes',v_app_qty,
     'unitPrice',v_price,
-    'quantityTonnes',v_app_qty,
+    'quantityTonnes',v_confirmed_qty,
     'obligation',v_obligation,
     'received',v_received,
     'remaining',v_remaining,
@@ -250,7 +263,8 @@ declare
 begin
   v_actor:=portal_private.owner_r1_actor('ADMIN');
 
-  select d.id,w.product_confirmed_at,w.quantity_confirmed_at,coalesce(w.cancellation_state,'ACTIVE'),coalesce(w.payment_handoff_state,'NOT_SENT')
+  select d.id,w.product_confirmed_at,w.quantity_confirmed_at,
+         coalesce(w.cancellation_state,'ACTIVE'),coalesce(w.payment_handoff_state,'NOT_SENT')
     into v_deal,v_prod,v_qty,v_cancel,v_handoff
     from portal_private.deals d
     left join portal_private.owner_deal_workflow w on w.deal_key=d.id
@@ -268,12 +282,14 @@ begin
     into v_addendum,v_invoice,v_signed
     from portal_private.owner_deal_documents odd
     join portal_private.documents doc on doc.id=odd.document_key
-   where odd.deal_key=v_deal and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum;
+   where odd.deal_key=v_deal
+     and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum;
 
   if v_addendum=0 then raise exception using errcode='P0001',message='ADDENDUM_REQUIRED'; end if;
   if v_invoice=0 then raise exception using errcode='P0001',message='INVOICE_REQUIRED'; end if;
   if v_signed=0 then raise exception using errcode='P0001',message='SIGNED_ADDENDUM_REQUIRED'; end if;
 
+  -- Same RPC transaction: materialization must succeed before SENT is written.
   v_finance:=portal_private.owner_r1_materialize_payment_finance(p_deal_id);
   if not coalesce((v_finance->>'materialized')::boolean,false) then
     raise exception using errcode='P0001',message='PAYMENT_ECONOMICS_NOT_MATERIALIZED',detail=coalesce(v_finance->>'reason','UNKNOWN');
@@ -281,6 +297,9 @@ begin
 
   v_amount:=(v_finance->>'remaining')::numeric;
   v_currency:=v_finance->>'currency';
+  if v_amount is null or v_amount<0 or coalesce(v_currency,'')!~'^[A-Z]{3}$' then
+    raise exception using errcode='P0001',message='PAYMENT_ECONOMICS_NOT_MATERIALIZED',detail='MATERIALIZED_RESULT_INVALID';
+  end if;
 
   update portal_private.owner_deal_workflow
      set payment_handoff_state='SENT',
@@ -297,6 +316,8 @@ begin
     'state','SENT',
     'amount',v_amount,
     'currency',v_currency,
+    'unitPrice',(v_finance->>'unitPrice')::numeric,
+    'quantityTonnes',(v_finance->>'quantityTonnes')::numeric,
     'obligation',(v_finance->>'obligation')::numeric,
     'received',(v_finance->>'received')::numeric,
     'financePending',false,
@@ -306,8 +327,11 @@ begin
 end
 $$;
 
--- Generic release-time repair for already-SENT eligible deals that lack an
--- authoritative finance summary. Ambiguous economics are skipped, never guessed.
+comment on function public.owner_r1_send_to_payments(text) is
+'Owner R1 canonical atomic payment handoff: required document/product/volume gates first; then authoritative accepted economics are materialized in the same transaction; SENT is written only after successful finance/payment expectation materialization.';
+
+-- Generic release-time repair for already-SENT eligible deals that lack authoritative finance.
+-- Ambiguous economics are skipped; valid authoritative lineage self-heals without any deal-specific hardcode.
 do $$
 declare
   r record;
@@ -322,6 +346,8 @@ begin
        and w.payment_handoff_state='SENT'
        and w.product_confirmed_at is not null
        and w.quantity_confirmed_at is not null
+       and w.quantity_tonnes_value is not null
+       and w.quantity_tonnes_value>0
        and exists(
          select 1 from portal_private.owner_deal_documents odd
          join portal_private.documents doc on doc.id=odd.document_key
@@ -340,14 +366,9 @@ begin
        )
   loop
     v_result:=portal_private.owner_r1_materialize_payment_finance(r.deal_id);
-    if coalesce((v_result->>'materialized')::boolean,false) then
-      update portal_private.owner_deal_workflow
-         set payment_expectation_state=case when (v_result->>'remaining')::numeric>0 then 'ACTIVE' else 'NOT_CREATED' end,
-             payment_expectation_amount=(v_result->>'remaining')::numeric,
-             payment_expectation_currency=v_result->>'currency',
-             updated_at=now()
-       where deal_key=(select id from portal_private.deals where deal_id=r.deal_id);
-    end if;
+    -- No special-case mutation: successful materialization itself repairs the canonical expectation.
+    -- Failed/ambiguous lineage leaves existing business state untouched for fail-closed review.
+    continue when not coalesce((v_result->>'materialized')::boolean,false);
   end loop;
 end
 $$;
