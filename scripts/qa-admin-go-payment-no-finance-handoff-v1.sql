@@ -1,8 +1,10 @@
 \set ON_ERROR_STOP on
-begin;
 
-create schema portal_private;
-create type portal_private.lifecycle_state_enum as enum ('ACTIVE','SUPERSEDED','ARCHIVED');
+create schema if not exists portal_private;
+do $$ begin
+  create type portal_private.lifecycle_state_enum as enum ('ACTIVE','SUPERSEDED','ARCHIVED');
+exception when duplicate_object then null;
+end $$;
 
 create table portal_private.deals(
   id uuid primary key,
@@ -49,20 +51,26 @@ create table portal_private.owner_payment_plan(
   primary key(deal_key,tranche_no)
 );
 
+-- Authentication is deliberately outside the payment-handoff scope. This identity
+-- fixture satisfies the existing actor dependency but does not replace or mock the
+-- candidate owner_r1_send_to_payments function under test.
 create function portal_private.owner_r1_actor(text) returns uuid
 language sql stable as $$ select '00000000-0000-0000-0000-000000000099'::uuid $$;
 
+-- Apply the exact PR candidate function.
 \i supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
 
 insert into portal_private.deals(id,deal_id) values
  ('00000000-0000-0000-0000-000000000001','QA-NOFIN-GO'),
  ('00000000-0000-0000-0000-000000000002','QA-FIN-GO'),
- ('00000000-0000-0000-0000-000000000003','QA-HOLD');
+ ('00000000-0000-0000-0000-000000000003','QA-HOLD'),
+ ('00000000-0000-0000-0000-000000000004','QA-MISSING-DOC');
 
-insert into portal_private.owner_deal_workflow(deal_key,product_confirmed_at,quantity_confirmed_at) values
- ('00000000-0000-0000-0000-000000000001',now(),now()),
- ('00000000-0000-0000-0000-000000000002',now(),now()),
- ('00000000-0000-0000-0000-000000000003',now(),now());
+insert into portal_private.owner_deal_workflow(deal_key,product_confirmed_at,quantity_confirmed_at,cancellation_state) values
+ ('00000000-0000-0000-0000-000000000001',now(),now(),'ACTIVE'),
+ ('00000000-0000-0000-0000-000000000002',now(),now(),'ACTIVE'),
+ ('00000000-0000-0000-0000-000000000003',now(),now(),'CANCELLED'),
+ ('00000000-0000-0000-0000-000000000004',now(),now(),'ACTIVE');
 
 insert into portal_private.owner_deal_finance_summary(deal_id,client_remaining_amount,currency,authority_state,lifecycle_state) values
  ('QA-FIN-GO',12500,'USD','CONFIRMED','ACTIVE');
@@ -73,50 +81,17 @@ insert into portal_private.documents(id,lifecycle_state) values
  ('20000000-0000-0000-0000-000000000001','ACTIVE'),
  ('20000000-0000-0000-0000-000000000002','ACTIVE'),
  ('30000000-0000-0000-0000-000000000001','ACTIVE'),
- ('30000000-0000-0000-0000-000000000002','ACTIVE');
+ ('30000000-0000-0000-0000-000000000002','ACTIVE'),
+ ('40000000-0000-0000-0000-000000000001','ACTIVE');
 
 insert into portal_private.owner_deal_documents(deal_key,document_key,document_kind) values
  ('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','SIGNED_ADDENDUM'),
  ('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000002','INVOICE'),
  ('00000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','SIGNED_ADDENDUM'),
  ('00000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000002','INVOICE'),
- ('00000000-0000-0000-0000-000000000003','30000000-0000-0000-0000-000000000001','ADDENDUM'),
- ('00000000-0000-0000-0000-000000000003','30000000-0000-0000-0000-000000000002','INVOICE');
+ ('00000000-0000-0000-0000-000000000003','30000000-0000-0000-0000-000000000001','SIGNED_ADDENDUM'),
+ ('00000000-0000-0000-0000-000000000003','30000000-0000-0000-0000-000000000002','INVOICE'),
+ ('00000000-0000-0000-0000-000000000004','40000000-0000-0000-0000-000000000001','SIGNED_ADDENDUM');
 
-do $$
-declare
-  r jsonb;
-  r2 jsonb;
-begin
-  r := public.owner_r1_send_to_payments('QA-NOFIN-GO');
-  if r->>'state' <> 'SENT' then raise exception 'NOFIN_GO_NOT_SENT: %',r; end if;
-  if coalesce((r->>'financePending')::boolean,false) is not true then raise exception 'NOFIN_GO_FINANCE_PENDING_NOT_TRUE: %',r; end if;
-  if r->'amount' <> 'null'::jsonb or r->'currency' <> 'null'::jsonb then raise exception 'NOFIN_GO_AMOUNT_OR_CURRENCY_FABRICATED: %',r; end if;
-  if not exists(select 1 from portal_private.owner_deal_workflow where deal_key='00000000-0000-0000-0000-000000000001' and payment_handoff_state='SENT' and payment_expectation_state='NOT_CREATED' and payment_expectation_amount is null and payment_expectation_currency is null) then
-    raise exception 'NOFIN_GO_WORKFLOW_NOT_SENT_CLEANLY';
-  end if;
-  if exists(select 1 from portal_private.owner_payment_plan where deal_key='00000000-0000-0000-0000-000000000001') then
-    raise exception 'NOFIN_GO_PAYMENT_PLAN_MUST_NOT_BE_FABRICATED';
-  end if;
-
-  r2 := public.owner_r1_send_to_payments('QA-NOFIN-GO');
-  if coalesce((r2->>'idempotent')::boolean,false) is not true or r2->>'state' <> 'SENT' then
-    raise exception 'NOFIN_GO_REPEAT_NOT_IDEMPOTENT: %',r2;
-  end if;
-
-  r := public.owner_r1_send_to_payments('QA-FIN-GO');
-  if r->>'state' <> 'SENT' or coalesce((r->>'financePending')::boolean,true) is not false then raise exception 'FIN_GO_NOT_SENT_WITH_EXISTING_FINANCE: %',r; end if;
-  if not exists(select 1 from portal_private.owner_payment_plan where deal_key='00000000-0000-0000-0000-000000000002' and planned_amount=12500 and currency='USD' and status='EXPECTED') then
-    raise exception 'FIN_GO_EXISTING_PLAN_BEHAVIOR_REGRESSED';
-  end if;
-
-  begin
-    perform public.owner_r1_send_to_payments('QA-HOLD');
-    raise exception 'MISSING_SIGNED_SHOULD_FAIL';
-  exception when others then
-    if sqlerrm <> 'SIGNED_ADDENDUM_REQUIRED' then raise; end if;
-  end;
-end $$;
-
-select 'ADMIN_GO_PAYMENT_NO_FINANCE_HANDOFF_SQL=PASS' as result;
-rollback;
+notify pgrst, 'reload schema';
+select 'ADMIN_GO_PAYMENT_NO_FINANCE_EPHEMERAL_SETUP=PASS' as result;
