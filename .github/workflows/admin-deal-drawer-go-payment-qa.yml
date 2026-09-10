@@ -1,0 +1,59 @@
+name: Admin deal drawer GO payment QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'scripts/qa-admin-deal-drawer-go-payment-v1.mjs'
+      - '.github/workflows/admin-deal-drawer-go-payment-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  admin-deal-drawer-go-payment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prove scoped source and build contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/deals-current-state-ui.js
+          node --check scripts/qa-admin-deal-drawer-go-payment-v1.mjs
+          npm run build
+          grep -q "function syncDealDrawer(d)" functions/portal/deals-current-state-ui.js
+          grep -q "send.disabled=overall(d)!=='GO'" functions/portal/deals-current-state-ui.js
+          grep -q "x-rona-deal-drawer':'right-overlay-go-gated-v1'" functions/portal/deals-current-state-ui.js
+          ! grep -Eqi 'NIK|SOLARIS|FARG|GAZON|DEAL-2026-00[0-9]' functions/portal/deals-current-state-ui.js
+          echo 'ADMIN_DEAL_DRAWER_GO_PAYMENT_SOURCE=PASS'
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Resolve exact immutable Cloudflare preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          preview=''
+          for i in $(seq 1 60); do
+            summaries=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.name=="Cloudflare Pages" and .status=="completed" and .conclusion=="success") | .output.summary' 2>/dev/null || true)
+            preview=$(printf '%s\n' "$summaries" | grep -oE 'https://[a-f0-9]+\.rona-trade-public\.pages\.dev' | head -1 || true)
+            if [ -n "$preview" ]; then break; fi
+            sleep 5
+          done
+          test -n "$preview"
+          echo "PREVIEW_ORIGIN=$preview" >> "$GITHUB_ENV"
+          echo "IMMUTABLE_PREVIEW=$preview"
+      - name: Browser proof for drawer and GO payment gate
+        run: node scripts/qa-admin-deal-drawer-go-payment-v1.mjs
