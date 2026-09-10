@@ -17,7 +17,11 @@ const SCRIPT=RAW
   )
   .replace(
     "function missingDocuments(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM');return !add||!inv||((d&&d.client_addendum_downloaded_at)&&!signed)}",
-    "function missingDocuments(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM');return !(add||signed)||!inv||((d&&d.client_addendum_downloaded_at)&&!signed)}"
+    "function missingDocuments(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM');return !(add||signed)||!inv}"
+  )
+  .replace(
+    "function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(contractConflict(d))return'HOLD';if(needsAttention(d)||waitsPayment(d))return'HOLD';return'GO'}",
+    "function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';return hasClientSignedAddendum(d)?'GO':'HOLD'}"
   )
   .replace(
     "function totalAmount(ds){var scope=ds.filter(includedForTotals),missing=false,totals={};scope.forEach(function(d){var raw=d&&d.obligation_amount,c=String(d&&d.finance_currency||'').trim();if(raw===null||raw===undefined||raw===''||!c){missing=true;return}var n=Number(raw);if(!Number.isFinite(n)){missing=true;return}totals[c]=(totals[c]||0)+n});var entries=Object.entries(totals);if(missing)return{value:'—',caption:'Есть сделки без подтверждённой суммы'};if(!entries.length)return{value:'—',caption:'Подтверждённые суммы не сформированы'};return{value:entries.map(function(p){return money(p[1],p[0])}).join(' · '),caption:'Без отменённых, удалённых и архивных сделок'}}",
@@ -58,9 +62,11 @@ const SCRIPT=RAW
 
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
 if(!SCRIPT.includes("'PARTIALLY_PAID','PARTIAL','DUE'"))throw new Error('DEALS_PARTIAL_PAYMENT_KPI_RULE_MISSING');
-if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_SIGNED_ADDENDUM_COMPLETENESS_RULE_MISSING');
+if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
+if(!SCRIPT.includes("function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}"))throw new Error('DEALS_CLIENT_SIGNED_ADDENDUM_STATUS_SOURCE_MISSING');
+if(!SCRIPT.includes("return hasClientSignedAddendum(d)?'GO':'HOLD'"))throw new Error('DEALS_GO_HOLD_SIGNED_ADDENDUM_RULE_MISSING');
 if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"))throw new Error('DEALS_CONFIRMED_TOTAL_KPI_MISSING');
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.7-authoritative-kpis'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.7-authoritative-kpis','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1'}})}
