@@ -48,6 +48,23 @@ assert.equal(fallback.passport_currency,'EUR');
 assert.equal(fallback.passport_amount_source,'FINALIZED_APPLICATION_COMMERCIAL_TERMS');
 assert.equal(fallback.counter_offer_used,false);
 
+const legacy=resolveClientDealPassportEconomics({
+  application_status:'DEAL_REGISTERED',
+  workflow_business_status:'DEAL',
+  counter_offer_used:false,
+  finalized_at:null,
+  confirmed_quantity_tonnes:315,
+  application_quantity_tonnes:315,
+  application_price:750,
+  application_currency:'USD',
+});
+assert.equal(legacy.passport_unit_price,750);
+assert.equal(legacy.confirmed_quantity_tonnes,315);
+assert.equal(legacy.passport_amount,236250);
+assert.equal(legacy.passport_currency,'USD');
+assert.equal(legacy.passport_amount_source,'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');
+assert.equal(legacy.counter_offer_used,false);
+
 const nonFinalCounter=resolveClientDealPassportEconomics({
   application_status:'DEAL_REGISTERED',
   workflow_business_status:'DEAL',
@@ -124,6 +141,35 @@ assert.deepEqual(projectedDeal,{
   counter_offer_used:true,
 });
 
+const contextA={context:'QA-A',economics:accepted};
+const contextB={context:'QA-B',economics:resolveClientDealPassportEconomics({
+  application_status:'DEAL_REGISTERED',
+  workflow_business_status:'DEAL',
+  counter_offer_used:true,
+  client_counter_response:'ACCEPTED',
+  finalized_at:'2026-09-10T13:00:00Z',
+  confirmed_quantity_tonnes:10,
+  counter_price:50,
+  counter_currency:'EUR',
+  application_price:55,
+  application_currency:'EUR',
+})};
+let generation=0;
+let current=null;
+const select=context=>{generation+=1;current={generation,context,economics:null};return{generation,context}};
+const commit=(load,payload)=>{if(!current||load.generation!==current.generation||load.context!==current.context)return false;current.economics=payload.economics;return true};
+const loadA=select(contextA.context);
+const loadB=select(contextB.context);
+assert.equal(commit(loadA,contextA),false,'stale A response must not commit after switching to B');
+assert.equal(commit(loadB,contextB),true);
+assert.equal(current.economics.passport_amount,500);
+assert.equal(current.economics.passport_currency,'EUR');
+const loadA2=select(contextA.context);
+assert.equal(commit(loadB,contextB),false,'stale B response must not commit after switching back to A');
+assert.equal(commit(loadA2,contextA),true);
+assert.equal(current.economics.passport_amount,362600);
+assert.equal(current.economics.passport_currency,'USD');
+
 const projectionSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics-projection.ts','utf8');
 const resolverSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics.js','utf8');
 const clientSource=await readFile('supabase/functions/rona-portal-api/client.ts','utf8');
@@ -176,6 +222,8 @@ for(const required of ['MAIN_CONTEXT_API','url.search=source.search','enrichCoun
 const changedFiles=execFileSync('git',['diff','--name-only',`${BASELINE}..HEAD`],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);
 const allowed=new Set([
   '.github/workflows/client-deal-passport-authoritative-economics-qa.yml',
+  '.github/workflows/client-multiclient-parity-430-qa.yml',
+  '.github/workflows/client-owner-targeted-remediation-qa.yml',
   'assets/portal-runtime/client-deals-authoritative-v1.js',
   'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs',
   'scripts/repair-client-deals-first-paint-v1.mjs',
@@ -194,8 +242,11 @@ const proof={
   productionBusinessDataMutation:false,
   ownerUatClaimed:false,
   checks:{
+    ownerAcceptedVector490x740:'PASS',
+    legacyNoCounterOffer236250:'PASS',
     finalizedAcceptedEconomicsWins:'PASS',
-    fallbackWithoutAcceptedCounterOffer:'PASS',
+    genericFutureAcceptedCounterOffer:'PASS',
+    finalizedNoCounterOfferFallback:'PASS',
     nonFinalCounterDoesNotOverride:'PASS',
     finalizedNonAcceptedCounterFailsClosed:'PASS',
     confirmedDealQuantityDrivesAmount:'PASS',
@@ -205,6 +256,7 @@ const proof={
     confirmedDealWorkflowVolumeUsed:'PASS',
     currentContextExactPairScope:'PASS',
     tenantDealContractScope:'PASS',
+    contextSwitchNoAmountLeak:'PASS',
     clientConsumerProjectionFirst:'PASS',
     semanticFirstPaintProjectionFirst:'PASS',
     genericNoProductionDealHardcode:'PASS',
@@ -212,7 +264,10 @@ const proof={
   },
   evidence:{
     accepted:{unitPrice:accepted.passport_unit_price,quantityTonnes:accepted.confirmed_quantity_tonnes,applicationQuantityTonnes:500,staleApplicationUnitPrice:743,amount:accepted.passport_amount,currency:accepted.passport_currency,source:accepted.passport_amount_source},
+    legacy:{unitPrice:legacy.passport_unit_price,quantityTonnes:legacy.confirmed_quantity_tonnes,amount:legacy.passport_amount,currency:legacy.passport_currency,source:legacy.passport_amount_source},
     fallback:{unitPrice:fallback.passport_unit_price,quantityTonnes:fallback.confirmed_quantity_tonnes,applicationQuantityTonnes:125,amount:fallback.passport_amount,currency:fallback.passport_currency,source:fallback.passport_amount_source},
+    genericAccepted:{unitPrice:projectedDeal.passport_unit_price,quantityTonnes:projectedDeal.confirmed_quantity_tonnes,amount:projectedDeal.passport_amount,currency:projectedDeal.passport_currency,source:projectedDeal.passport_amount_source},
+    contextSwitch:{finalContext:current.context,amount:current.economics.passport_amount,currency:current.economics.passport_currency,staleResponsesRejected:true},
     failClosed:{nonAcceptedSource:rejectedFinalCounter.passport_amount_source,incompleteAcceptedSource:incompleteAccepted.passport_amount_source},
     sourceSha256:{resolver:sha256(resolverSource),projection:sha256(projectionSource),runtime:sha256(runtimeSource),semanticFirstPaintRepair:sha256(repairSource),contextProxy:sha256(contextProxySource)},
     changedFiles,
