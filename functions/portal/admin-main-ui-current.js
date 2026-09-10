@@ -79,18 +79,6 @@ function patchPayments(script){
     [
       "dealStateById=new Map((Array.isArray(adminData?.deals)?adminData.deals:[]).map(x=>[String(x.deal_id),x])),",
       "dealStateRows=Array.isArray(window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__?.deals)?window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__.deals:(Array.isArray(adminData?.deals)?adminData.deals:[]),dealStateById=new Map(dealStateRows.map(x=>[String(x.deal_id),x])),"
-    ],
-    [
-      "deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});",
-      "deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),handoffPending=dealStateRows.filter(d=>String(d?.payment_handoff_state||'').toUpperCase()==='SENT'&&String(d?.cancellation_state||'ACTIVE').toUpperCase()==='ACTIVE'&&isLive(d)&&!sumByDeal.has(String(d?.deal_id||''))),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});"
-    ],
-    [
-      "expected=e('div',{},expectedCurrent,expectedDeferred);",
-      "expected=e('div',{},expectedCurrent,expectedDeferred);if(handoffPending.length)expected.append(card('Передано в оплату — сумма формируется',tbl(['Deal ID','Клиент','Передача','Сумма','Валюта'],handoffPending.map(d=>[d.deal_id||'—',d.legal_name||d.client_name||d.client_id||'—',financePill('Передано','success'),'Не сформировано','—']))));"
-    ],
-    [
-      "window.__RONA_PAYMENTS_CURRENT_STATE__={generatedAt:window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.generatedAt||null,current:currentExpectedTotals,deferred:deferredExpectedTotals}",
-      "window.__RONA_PAYMENTS_CURRENT_STATE__={generatedAt:window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.generatedAt||null,current:currentExpectedTotals,deferred:deferredExpectedTotals,handoffPending:handoffPending.map(x=>String(x?.deal_id||''))}"
     ]
   ];
   for(const [from,to] of replacements){if(!script.includes(from))throw new Error('PAYMENTS_PATCH_SOURCE_MISMATCH');script=script.replace(from,to)}
@@ -114,6 +102,6 @@ export async function onRequest(){
     'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION,
     'x-rona-deals-owner':'current-only-v1.5',
     'x-rona-payments-ui':'finance-current-v2',
-    'x-rona-payments-handoff':'go-no-finance-v1'
+    'x-rona-payments-handoff':'canonical-finance-v2'
   }});
 }
