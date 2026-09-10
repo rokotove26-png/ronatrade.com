@@ -139,7 +139,7 @@ for(const forbidden of ['DEAL-2026-009','RONA-C005-IN-2026-001','362600']){
   ])assert.equal(source.includes(forbidden),false,`production source hardcode detected: ${path}:${forbidden}`);
 }
 
-for(const required of ['MAIN_CONTEXT_API','clientId','contractId','enrichCounterOfferProjection','cache-control'])assert.ok(contextProxySource.includes(required),`current-context proxy contract missing: ${required}`);
+for(const required of ['MAIN_CONTEXT_API','url.search=source.search','enrichCounterOfferProjection','cache-control'])assert.ok(contextProxySource.includes(required),`current-context proxy contract missing: ${required}`);
 
 const changedFiles=execFileSync('git',['diff','--name-only',`${BASELINE}..HEAD`],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);
 const allowed=new Set([
