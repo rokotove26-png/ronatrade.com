@@ -93,6 +93,7 @@ jobs:
           RONA_QA_RPC_UPSTREAM: http://127.0.0.1:3000/rpc
           PGRST_JWT_SECRET: pr452-free-ephemeral-jwt-secret-minimum-32-bytes
           OWNER_E2E_ARTIFACT: artifacts/pr452-free-ephemeral-route-e2e.json
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: node scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs
 
       - name: Resolve immutable preview for source/UI inspection only
