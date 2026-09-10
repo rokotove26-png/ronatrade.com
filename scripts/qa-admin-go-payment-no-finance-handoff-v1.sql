@@ -69,7 +69,7 @@ insert into portal_private.deals(id,deal_id) values
 insert into portal_private.owner_deal_workflow(deal_key,product_confirmed_at,quantity_confirmed_at,cancellation_state) values
  ('00000000-0000-0000-0000-000000000001',now(),now(),'ACTIVE'),
  ('00000000-0000-0000-0000-000000000002',now(),now(),'ACTIVE'),
- ('00000000-0000-0000-0000-000000000003',now(),now(),'CANCELLED'),
+ ('00000000-0000-0000-0000-000000000003',null,now(),'ACTIVE'),
  ('00000000-0000-0000-0000-000000000004',now(),now(),'ACTIVE');
 
 insert into portal_private.owner_deal_finance_summary(deal_id,client_remaining_amount,currency,authority_state,lifecycle_state) values
