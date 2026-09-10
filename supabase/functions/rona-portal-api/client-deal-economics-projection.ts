@@ -34,39 +34,32 @@ function exactContext(payload:any,clientId:string,contractId:string):boolean{
         select d.deal_id,
                a.application_id,
                a.status::text as application_status,
-               w.business_status::text as workflow_business_status,
-               coalesce(w.counter_offer_used,false) as counter_offer_used,
-               w.finalized_at,
-               d.quantity_tonnes as confirmed_quantity_tonnes,
-               a.counter_price,
-               nullif(trim(a.counter_currency::text),'') as counter_currency,
-               coalesce(a.proposed_price,line.application_price) as application_price,
-               coalesce(nullif(trim(a.proposed_currency::text),''),line.application_currency) as application_currency
+               aw.business_status::text as workflow_business_status,
+               coalesce(aw.counter_offer_used,false) as counter_offer_used,
+               aw.client_counter_response::text as client_counter_response,
+               aw.finalized_at,
+               case when dw.quantity_confirmed_at is not null then dw.quantity_tonnes_value else null end as confirmed_quantity_tonnes,
+               aw.counter_price,
+               nullif(trim(aw.counter_currency::text),'') as counter_currency,
+               a.proposed_price as application_price,
+               nullif(trim(a.proposed_currency::text),'') as application_currency,
+               dr.registered_at
           from portal_private.deals d
-          join portal_private.client_applications a on a.linked_deal_key=d.id
+          join portal_private.deal_registrations dr on dr.deal_key=d.id
+          join portal_private.client_applications a on a.id=dr.application_key
           join portal_private.clients cl on cl.id=d.client_key
           join portal_private.contracts ct on ct.id=d.contract_key
-          left join portal_private.owner_application_workflow w on w.application_key=a.id
-          left join lateral (
-            select coalesce(al.proposed_price,al.published_price) as application_price,
-                   nullif(trim(al.currency::text),'') as application_currency
-              from portal_private.application_lines al
-             where al.application_key=a.id
-             order by al.line_no
-             limit 1
-          ) line on true
+          left join portal_private.owner_application_workflow aw on aw.application_key=a.id
+          left join portal_private.owner_deal_workflow dw on dw.deal_key=d.id
          where cl.client_id=${requestClientId}
            and ct.contract_id=${requestContractId}
            and d.deal_id in (select value from jsonb_array_elements_text(${sql.json(dealIds)}::jsonb))
+           and a.linked_deal_key=d.id
            and d.client_key=a.client_key
            and d.contract_key=a.contract_key
          order by d.deal_id,
-                  case
-                    when coalesce(w.counter_offer_used,false)=true and w.finalized_at is not null then 0
-                    when w.finalized_at is not null then 1
-                    else 2
-                  end,
-                  w.finalized_at desc nulls last,
+                  dr.registered_at desc,
+                  aw.finalized_at desc nulls last,
                   a.application_id desc
       `;
 
