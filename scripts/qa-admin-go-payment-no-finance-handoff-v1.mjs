@@ -61,6 +61,8 @@ const base=`http://127.0.0.1:${server.address().port}`;
 
 const proof={
   version:'pr452-free-ephemeral-route-e2e-v3',
+  head:String(process.env.PR_HEAD_SHA||''),
+  candidateMigrationSha256:String(process.env.CANDIDATE_MIGRATION_SHA256||''),
   proofMode:'free-local-postgres-postgrest',
   testedAt:new Date().toISOString(),
   mockRpc:false,
@@ -87,6 +89,9 @@ async function send(dealId){
 }
 
 try{
+  assert.match(proof.head,/^[0-9a-f]{40}$/,'exact PR HEAD must be bound into proof');
+  assert.match(proof.candidateMigrationSha256,/^[0-9a-f]{64}$/,'candidate migration SHA-256 must be bound into proof');
+
   const health=await fetch(rpcUpstream.replace(/\/rpc$/,'/'));
   assert.equal(health.status,200,'ephemeral PostgREST is not reachable');
   proof.checks.postgrestReachable='PASS';
