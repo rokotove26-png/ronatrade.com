@@ -1,166 +1,149 @@
 import assert from 'node:assert/strict';
+import {createHmac} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 import {mkdir, writeFile} from 'node:fs/promises';
-import {chromium} from 'playwright';
+import {createServer} from 'node:http';
+import {onRequest as ownerApi} from '../functions/portal/owner-api.js';
 
 function required(name){
   const value=String(process.env[name]||'').trim();
   assert.ok(value,`${name} is required`);
   return value;
 }
-function exactPreview(value){
-  const origin=String(value||'').replace(/\/$/,'');
-  assert.match(origin,/^https:\/\/[a-f0-9]+\.rona-trade-public\.pages\.dev$/,'exact immutable Cloudflare preview is required');
-  return origin;
+function b64url(value){return Buffer.from(JSON.stringify(value)).toString('base64url')}
+function jwt(secret){
+  const header=b64url({alg:'HS256',typ:'JWT'});
+  const payload=b64url({role:'postgres',exp:Math.floor(Date.now()/1000)+900});
+  const input=`${header}.${payload}`;
+  const signature=createHmac('sha256',secret).update(input).digest('base64url');
+  return `${input}.${signature}`;
+}
+function psqlScalar(sql){
+  return String(execFileSync('psql',[required('DATABASE_URL'),'-X','-v','ON_ERROR_STOP=1','-Atc',sql],{encoding:'utf8'})).trim();
 }
 async function jsonOf(response){return response.json().catch(()=>null)}
 function codeOf(payload){return String(payload?.code||payload?.message||payload?.error||'')}
 
-const preview=exactPreview(required('PREVIEW_ORIGIN'));
-const identifier=required('OWNER_E2E_IDENTIFIER');
-const password=required('OWNER_E2E_PASSWORD');
-const goDealId=required('OWNER_E2E_GO_DEAL_ID');
-const holdDealId=required('OWNER_E2E_HOLD_DEAL_ID');
-const missingDocDealId=required('OWNER_E2E_MISSING_DOC_DEAL_ID');
-const expectedCandidateProject=required('OWNER_E2E_CANDIDATE_PROJECT');
-const artifactPath=String(process.env.OWNER_E2E_ARTIFACT||'artifacts/pr452-owner-candidate-e2e.json');
+const rpcUpstream=required('RONA_QA_RPC_UPSTREAM').replace(/\/$/,'');
+assert.match(rpcUpstream,/^http:\/\/(127\.0\.0\.1|localhost):\d+\/rpc$/,'RONA_QA_RPC_UPSTREAM must be loopback PostgREST /rpc');
+const jwtSecret=required('PGRST_JWT_SECRET');
+const artifactPath=String(process.env.OWNER_E2E_ARTIFACT||'artifacts/pr452-free-ephemeral-route-e2e.json');
+const accessToken=jwt(jwtSecret);
 
-const browser=await chromium.launch({headless:true});
-const context=await browser.newContext({viewport:{width:1500,height:900}});
-const page=await context.newPage();
-const dialogs=[];
-const pageErrors=[];
-page.on('pageerror',error=>pageErrors.push(String(error?.message||error)));
-page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
+const env={
+  RONA_QA_RPC_MODE:'LOCAL_EPHEMERAL_POSTGREST',
+  RONA_QA_RPC_UPSTREAM:rpcUpstream
+};
+
+const server=createServer(async(req,res)=>{
+  try{
+    const chunks=[];
+    for await(const chunk of req)chunks.push(chunk);
+    const body=chunks.length?Buffer.concat(chunks):undefined;
+    const origin=`http://127.0.0.1:${server.address().port}`;
+    const request=new Request(`${origin}${req.url}`,{
+      method:req.method,
+      headers:req.headers,
+      body:['GET','HEAD'].includes(String(req.method||'GET').toUpperCase())?undefined:body
+    });
+    const response=await ownerApi({request,env});
+    res.statusCode=response.status;
+    for(const [name,value] of response.headers)res.setHeader(name,value);
+    res.end(Buffer.from(await response.arrayBuffer()));
+  }catch(error){
+    res.statusCode=500;
+    res.setHeader('content-type','application/json');
+    res.end(JSON.stringify({ok:false,code:'QA_ROUTE_ADAPTER_ERROR',message:String(error?.message||error)}));
+  }
+});
+await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});
+const base=`http://127.0.0.1:${server.address().port}`;
 
 const proof={
-  version:'pr452-candidate-e2e-v2',
-  preview,
-  candidateProject:expectedCandidateProject,
+  version:'pr452-free-ephemeral-route-e2e-v3',
+  proofMode:'free-local-postgres-postgrest',
   testedAt:new Date().toISOString(),
   mockRpc:false,
-  goDealId,
-  holdDealId,
-  missingDocDealId,
+  rpcIntercept:false,
+  paidResources:false,
+  productionBusinessDataMutation:false,
+  ownerTestableCandidatePreview:false,
   checks:{}
 };
 
-async function requestOwner(path,method='GET'){
-  const headers={accept:'application/json',referer:`${preview}/portal/admin`};
-  if(method==='POST')headers.origin=preview;
-  const url=`${preview}/portal/owner-api?path=${encodeURIComponent(path)}`;
-  return method==='POST'?context.request.post(url,{headers,data:{}}):context.request.get(url,{headers});
-}
-async function assertCandidate(response,label){
-  const mode=String(response.headers()['x-rona-backend-mode']||'');
-  const project=String(response.headers()['x-rona-backend-project']||'');
-  assert.equal(mode,'candidate',`${label}: preview must be candidate-backed`);
-  assert.equal(project,expectedCandidateProject,`${label}: unexpected candidate project`);
-}
-async function openDeal(id){
-  const row=page.locator('.rona-current-deal-table tbody tr').filter({has:page.getByText(id,{exact:true})});
-  await row.waitFor({state:'visible',timeout:20000});
-  await row.locator('button.rona-current-deal-open').click();
-  await page.locator('#ronaCurrentDealDrawer').waitFor({state:'visible',timeout:5000});
-}
-function sendButton(){
-  return page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:/Отправить в оплату|Передано в оплату/});
-}
-async function closeDrawer(){
-  const drawer=page.locator('#ronaCurrentDealDrawer');
-  if(await drawer.count()){
-    await drawer.locator('.rona-current-deal-drawer-close').click();
-    await drawer.waitFor({state:'detached',timeout:5000});
-  }
+async function send(dealId){
+  const response=await fetch(`${base}/portal/owner-api?path=${encodeURIComponent(`/admin/deals/${dealId}/send-to-payments`)}`,{
+    method:'POST',
+    headers:{
+      accept:'application/json',
+      'content-type':'application/json',
+      cookie:`rona_portal_at=${accessToken}`,
+      origin:base,
+      referer:`${base}/portal/admin`
+    },
+    body:'{}'
+  });
+  return {response,payload:await jsonOf(response)};
 }
 
 try{
-  const login=await context.request.post(`${preview}/portal/auth/login`,{
-    headers:{origin:preview,referer:`${preview}/portal/login`,accept:'application/json','content-type':'application/json'},
-    data:{identifier,password,next:'/portal/admin'}
-  });
-  const loginPayload=await jsonOf(login);
-  assert.equal(login.status(),200,`candidate login failed: ${JSON.stringify(loginPayload)}`);
-  assert.equal(loginPayload?.ok,true,'candidate login did not return ok=true');
-  assert.equal(loginPayload?.redirect,'/portal/admin','candidate login did not resolve ADMIN');
-  proof.checks.login='PASS';
+  const health=await fetch(rpcUpstream.replace(/\/rpc$/,'/'));
+  assert.equal(health.status,200,'ephemeral PostgREST is not reachable');
+  proof.checks.postgrestReachable='PASS';
 
-  const bootstrapBefore=await requestOwner('/admin/workflow-bootstrap');
-  await assertCandidate(bootstrapBefore,'bootstrap-before');
-  assert.equal(bootstrapBefore.status(),200,'candidate workflow bootstrap failed');
-  const initial=await jsonOf(bootstrapBefore);
-  assert.equal(initial?.ok,true,'candidate workflow bootstrap did not return ok=true');
-  const deals=Array.isArray(initial?.data?.deals)?initial.data.deals:[];
-  assert.ok(deals.some(d=>String(d?.deal_id||'')===goDealId),'GO fixture missing from candidate bootstrap');
-  assert.ok(deals.some(d=>String(d?.deal_id||'')===holdDealId),'HOLD fixture missing from candidate bootstrap');
-  assert.ok(deals.some(d=>String(d?.deal_id||'')===missingDocDealId),'missing-document fixture missing from candidate bootstrap');
-  proof.checks.candidateBootstrap='PASS';
+  let result=await send('QA-NOFIN-GO');
+  assert.equal(result.response.status,200,`no-finance GO route failed: ${JSON.stringify(result.payload)}`);
+  assert.equal(result.payload?.ok,true,'owner-api did not return ok=true');
+  assert.equal(result.payload?.data?.state,'SENT','no-finance GO did not reach SENT');
+  assert.equal(result.payload?.data?.financePending,true,'no-finance GO must remain financePending');
+  assert.equal(result.payload?.data?.amount,null,'amount was fabricated');
+  assert.equal(result.payload?.data?.currency,null,'currency was fabricated');
+  assert.equal(result.payload?.data?.idempotent,false,'first send must not be idempotent');
+  proof.checks.realRouteNoFinanceGo='PASS';
 
-  await page.goto(`${preview}/portal/admin`,{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>document.documentElement.classList.contains('rona-deals-current-ready'),null,{timeout:20000});
-
-  await openDeal(goDealId);
-  let send=sendButton();
-  assert.equal(await send.isEnabled(),true,'GO + required docs/product/volume must enable send without finance summary');
-  const dialogStart=dialogs.length;
-  await send.click();
-  await page.waitForFunction(id=>window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__?.deals?.some(d=>String(d?.deal_id||'')===id&&String(d?.payment_handoff_state||'').toUpperCase()==='SENT'),goDealId,{timeout:10000});
-  const goDialogs=dialogs.slice(dialogStart);
-  assert.ok(goDialogs.every(text=>!/финансов|обязательств|прикреп|доп\. соглаш/i.test(text)),'GO handoff surfaced a finance/document blocker');
-  assert.ok(goDialogs.some(text=>/передана в оплату/i.test(text)),'GO handoff did not report successful transfer');
-  proof.checks.ownerClickToSent='PASS';
-
-  const repeat=await requestOwner(`/admin/deals/${encodeURIComponent(goDealId)}/send-to-payments`,'POST');
-  await assertCandidate(repeat,'repeat-send');
-  const repeatPayload=await jsonOf(repeat);
-  assert.equal(repeat.status(),200,`repeat send failed: ${JSON.stringify(repeatPayload)}`);
-  assert.equal(repeatPayload?.ok,true,'repeat send did not return ok=true');
-  assert.equal(repeatPayload?.data?.state,'SENT','repeat send lost SENT state');
-  assert.equal(repeatPayload?.data?.idempotent,true,'repeat send must be idempotent');
-  assert.equal(repeatPayload?.data?.amount,null,'repeat send fabricated amount');
-  assert.equal(repeatPayload?.data?.currency,null,'repeat send fabricated currency');
+  result=await send('QA-NOFIN-GO');
+  assert.equal(result.response.status,200,`repeat route failed: ${JSON.stringify(result.payload)}`);
+  assert.equal(result.payload?.data?.state,'SENT','repeat route lost SENT state');
+  assert.equal(result.payload?.data?.idempotent,true,'repeat route must be idempotent');
+  assert.equal(result.payload?.data?.amount,null,'repeat route fabricated amount');
+  assert.equal(result.payload?.data?.currency,null,'repeat route fabricated currency');
   proof.checks.repeatIdempotent='PASS';
 
-  await closeDrawer();
-  await page.getByRole('button',{name:'Платежи',exact:true}).click();
-  const pendingCard=page.locator('#page-payments .rona-owner-card').filter({hasText:'Передано в оплату — сумма формируется'});
-  await pendingCard.waitFor({state:'visible',timeout:10000});
-  const paymentText=String(await pendingCard.textContent());
-  assert.match(paymentText,new RegExp(goDealId.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')),'Payments projection does not contain sent GO deal');
-  assert.match(paymentText,/Не сформировано/,'Payments projection must show amount as not formed');
-  assert.doesNotMatch(paymentText,/USD|RUB|KGS|EUR|\b0(?:[.,]00)?\b/,'Payments projection fabricated amount/currency');
-  proof.checks.paymentsVisibleWithoutFinance='PASS';
-  proof.checks.noFabricatedAmountCurrency='PASS';
+  result=await send('QA-FIN-GO');
+  assert.equal(result.response.status,200,`finance-ready GO route failed: ${JSON.stringify(result.payload)}`);
+  assert.equal(result.payload?.data?.state,'SENT','finance-ready GO did not reach SENT');
+  assert.equal(result.payload?.data?.financePending,false,'finance-ready GO regressed');
+  assert.equal(Number(result.payload?.data?.amount),12500,'existing finance amount changed');
+  assert.equal(result.payload?.data?.currency,'USD','existing finance currency changed');
+  proof.checks.existingFinanceBehaviorPreserved='PASS';
 
-  const holdResponse=await requestOwner(`/admin/deals/${encodeURIComponent(holdDealId)}/send-to-payments`,'POST');
-  await assertCandidate(holdResponse,'hold-negative');
-  const holdPayload=await jsonOf(holdResponse);
-  assert.notEqual(holdResponse.status(),200,'HOLD fixture must fail closed');
-  assert.ok(['PRODUCT_CONFIRMATION_REQUIRED','VOLUME_CONFIRMATION_REQUIRED','DEAL_NOT_ACTIVE'].includes(codeOf(holdPayload)),`unexpected HOLD blocker: ${JSON.stringify(holdPayload)}`);
-  proof.checks.holdFailClosed=codeOf(holdPayload);
+  result=await send('QA-HOLD');
+  assert.notEqual(result.response.status,200,'HOLD/non-active fixture must fail closed');
+  assert.equal(codeOf(result.payload),'DEAL_NOT_ACTIVE',`unexpected HOLD blocker: ${JSON.stringify(result.payload)}`);
+  proof.checks.holdFailClosed='DEAL_NOT_ACTIVE';
 
-  const missingDocResponse=await requestOwner(`/admin/deals/${encodeURIComponent(missingDocDealId)}/send-to-payments`,'POST');
-  await assertCandidate(missingDocResponse,'missing-doc-negative');
-  const missingDocPayload=await jsonOf(missingDocResponse);
-  assert.notEqual(missingDocResponse.status(),200,'missing-document fixture must fail closed');
-  assert.ok(['ADDENDUM_REQUIRED','INVOICE_REQUIRED','SIGNED_ADDENDUM_REQUIRED'].includes(codeOf(missingDocPayload)),`unexpected document blocker: ${JSON.stringify(missingDocPayload)}`);
-  proof.checks.missingDocumentsFailClosed=codeOf(missingDocPayload);
+  result=await send('QA-MISSING-DOC');
+  assert.notEqual(result.response.status,200,'missing-document fixture must fail closed');
+  assert.equal(codeOf(result.payload),'INVOICE_REQUIRED',`unexpected document blocker: ${JSON.stringify(result.payload)}`);
+  proof.checks.missingDocumentFailClosed='INVOICE_REQUIRED';
 
-  await page.getByRole('button',{name:'Сделки',exact:true}).click();
-  await openDeal(holdDealId);
-  send=sendButton();
-  assert.equal(await send.isDisabled(),true,'HOLD fixture send button must remain disabled');
-  await closeDrawer();
-  await openDeal(missingDocDealId);
-  send=sendButton();
-  assert.equal(await send.isDisabled(),true,'missing-document fixture send button must remain disabled');
-  proof.checks.negativeUiFailClosed='PASS';
+  const nofinState=psqlScalar("select concat_ws('|',payment_handoff_state,coalesce(payment_expectation_state,''),coalesce(payment_expectation_amount::text,'NULL'),coalesce(payment_expectation_currency,'NULL')) from portal_private.owner_deal_workflow w join portal_private.deals d on d.id=w.deal_key where d.deal_id='QA-NOFIN-GO'");
+  assert.equal(nofinState,'SENT|NOT_CREATED|NULL|NULL','no-finance workflow state is not clean SENT without amount/currency');
+  assert.equal(psqlScalar("select count(*) from portal_private.owner_payment_plan p join portal_private.deals d on d.id=p.deal_key where d.deal_id='QA-NOFIN-GO'"),'0','no-finance payment plan was fabricated');
+  proof.checks.noFabricatedPaymentPlan='PASS';
 
-  assert.deepEqual(pageErrors,[],'real preview browser runtime threw an error');
-  proof.checks.browserRuntime='PASS';
+  const financePlan=psqlScalar("select concat_ws('|',planned_amount::text,currency,status,source_system) from portal_private.owner_payment_plan p join portal_private.deals d on d.id=p.deal_key where d.deal_id='QA-FIN-GO' and tranche_no=1");
+  assert.equal(financePlan,'12500|USD|EXPECTED|ADMIN_DEAL_HANDOFF_R1','existing finance payment-plan behavior regressed');
+  proof.checks.financePlanPreserved='PASS';
+
+  assert.equal(psqlScalar("select payment_handoff_state from portal_private.owner_deal_workflow w join portal_private.deals d on d.id=w.deal_key where d.deal_id='QA-HOLD'"),'NOT_SENT','HOLD fixture mutated despite rejection');
+  assert.equal(psqlScalar("select payment_handoff_state from portal_private.owner_deal_workflow w join portal_private.deals d on d.id=w.deal_key where d.deal_id='QA-MISSING-DOC'"),'NOT_SENT','missing-document fixture mutated despite rejection');
+  proof.checks.negativeCasesNotMutated='PASS';
+
   proof.result='PASS';
   await mkdir(artifactPath.split('/').slice(0,-1).join('/')||'.',{recursive:true});
   await writeFile(artifactPath,JSON.stringify(proof,null,2)+'\n','utf8');
-  console.log('ADMIN_GO_PAYMENT_NO_FINANCE_REAL_E2E=PASS',JSON.stringify(proof));
+  console.log('ADMIN_GO_PAYMENT_NO_FINANCE_FREE_REAL_ROUTE_E2E=PASS',JSON.stringify(proof));
 }finally{
-  await browser.close();
+  await new Promise(resolve=>server.close(resolve));
 }
