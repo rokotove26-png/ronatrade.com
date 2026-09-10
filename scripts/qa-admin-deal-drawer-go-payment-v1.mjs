@@ -27,6 +27,7 @@ assert.match(runtime,/send\.disabled=overall\(d\)!=='GO'\|\|String\(d\.payment_h
 assert.doesNotMatch(runtime,/send\.disabled=!r\.ready/,'legacy readiness gate must not control payment handoff');
 assert.match(runtime,/postJson\('\/admin\/deals\/'\+encodeURIComponent\(id\)\+'\/send-to-payments',\{\}\)/,'existing send-to-payments browser handoff must remain unchanged');
 assert.match(runtime,/rona-current-deal-drawer-layer/,'emitted runtime must contain drawer presentation');
+assert.match(runtime,/button\(\(r\.add\|\|r\.signed\)\?'Заменить доп\. соглашение':'Прикрепить доп\. соглашение'/,'emitted runtime must show replace addendum when ADDENDUM or SIGNED_ADDENDUM already exists');
 assert.doesNotMatch(runtime,/owned\.append\(buildDetail\(sel\)\)/,'detail must not be appended below the table');
 
 const snapshot={
@@ -153,6 +154,10 @@ try{
   await openDeal('QA-GO');
   let send=await sendButton();
   assert.equal(await send.isEnabled(),true,'GO must enable Отправить в оплату even when finance_status is NOT_DUE');
+  const addendumAction=page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:'Заменить доп. соглашение'});
+  assert.equal(await addendumAction.count(),1,'SIGNED_ADDENDUM successor must render the existing addendum action as Заменить доп. соглашение');
+  assert.equal(await page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:'Прикрепить доп. соглашение'}).count(),0,'uploaded addendum lineage must not render Прикрепить доп. соглашение');
+  assert.equal(await page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:'Заменить инвойс'}).count(),1,'existing invoice replacement action must remain unchanged');
   const docButtons=page.locator('#ronaCurrentDealDrawer .rona-current-deal-doc-download');
   assert.equal(await docButtons.count(),2,'signed addendum and invoice must expose the same download button family');
   const docGeometry=await docButtons.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();const s=getComputedStyle(n);return{h:Math.round(r.height),radius:s.borderRadius,font:s.fontWeight}}));
@@ -167,6 +172,7 @@ try{
   await openDeal('QA-HOLD');
   send=await sendButton();
   assert.equal(await send.isDisabled(),true,'HOLD must disable Отправить в оплату even with finance PAID');
+  assert.equal(await page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:'Заменить доп. соглашение'}).count(),1,'active ADDENDUM must continue to render Заменить доп. соглашение');
   await closeDrawerAndAssertScroll(beforeOpen);
 
   await openDeal('QA-GO');
@@ -190,6 +196,7 @@ try{
   await openDeal('QA-GO');
   send=await sendButton();
   assert.equal(await send.isEnabled(),true,'GO gate must survive reload');
+  assert.equal(await page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:'Заменить доп. соглашение'}).count(),1,'signed-successor replace label must survive reload');
   await page.locator('#ronaCurrentDealDrawer .rona-current-deal-drawer-close').evaluate(el=>el.click());
   await page.locator('#ronaCurrentDealDrawer').waitFor({state:'detached',timeout:5000});
   await openDeal('QA-HOLD');
@@ -198,7 +205,7 @@ try{
 
   assert.ok(bootstrapHits>=3,'actual owner-api projection must refresh on initial load, send and reload');
   assert.deepEqual(pageErrors,[],'drawer runtime must not throw browser errors');
-  console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',bottomDetail:false,scrollRestore:true,goFinanceStatusIgnored:true,holdDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,bootstrapHits}));
+  console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',signedAddendumActionLabel:'REPLACE',bottomDetail:false,scrollRestore:true,goFinanceStatusIgnored:true,holdDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,bootstrapHits}));
 }finally{
   await browser.close();
   globalThis.fetch=nativeFetch;
