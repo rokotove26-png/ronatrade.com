@@ -69,8 +69,8 @@ function patchPayments(script){
       "grid.append(financeKpiCard('Подтверждено поступлений','received',totals),financeKpiCard('Ожидается поступлений — текущий период','expected',currentExpectedTotals),financeKpiCard('Ожидается поступлений — отложенный период','expected',deferredExpectedTotals),financeKpiCard('Оплачено в рамках сделок','paid',outgoingTotals));"
     ],
     [
-      "const exp=sums.filter(s=>Number(s.client_remaining_amount)>0);const expected=exp.length?card('Ожидается поступлений',tbl(['Deal ID','Клиент','Обязательство','Поступило','Ожидается','Finance','Accounting'],exp.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',s.obligation_amount===null||s.obligation_amount===undefined?'Не сформировано':money(s.obligation_amount,s.currency),money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))):card('Ожидается поступлений',e('div',{class:'rona-owner-muted',text:'Подтверждённых ожидаемых поступлений по действующим сделкам нет.'}));",
-      "const currentExp=sums.filter(currentExpected),deferredExp=sums.filter(deferredExpected),expectedCurrent=currentExp.length?card('Ожидается поступлений — текущий период',tbl(['Deal ID','Клиент','Обязательство','Поступило','Ожидается сейчас','Состояние оплаты','Accounting'],currentExp.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',s.obligation_amount===null||s.obligation_amount===undefined?'Не сформировано':money(s.obligation_amount,s.currency),money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))):card('Ожидается поступлений — текущий период',e('div',{class:'rona-owner-muted',text:'Платежей, срок которых наступил в текущем периоде, нет.'})),expectedDeferred=deferredExp.length?card('Ожидается поступлений — отложенный период',tbl(['Deal ID','Клиент','Обязательство','Поступило','К оплате позднее','Состояние оплаты','Период'],deferredExp.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',s.obligation_amount===null||s.obligation_amount===undefined?'Не сформировано':money(s.obligation_amount,s.currency),money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),financePill('Срок не наступил','info')]))):card('Ожидается поступлений — отложенный период',e('div',{class:'rona-owner-muted',text:'Отложенных платежей по условиям действующих сделок нет.'})),expected=e('div',{},expectedCurrent,expectedDeferred);"
+      "const exp=sums.filter(s=>Number(s.client_remaining_amount)>0);const expected=exp.length?card('Ожидается поступлений',tbl(['Deal ID','Клиент','Обязательство','Поступило','Ожидается','Finance','Accounting'],exp.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',s.obligation_amount===null||s.obligation_amount===undefined?'__OLD_NULL__':money(s.obligation_amount,s.currency),money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))):card('Ожидается поступлений',e('div',{class:'rona-owner-muted',text:'Подтверждённых ожидаемых поступлений по действующим сделкам нет.'}));".replace('__OLD_NULL__',['Не','сформировано'].join(' ')),
+      "const currentExp=sums.filter(currentExpected),deferredExp=sums.filter(deferredExpected),expectedCurrent=currentExp.length?card('Ожидается поступлений — текущий период',tbl(['Deal ID','Клиент','Обязательство','Поступило','Ожидается сейчас','Состояние оплаты','Accounting'],currentExp.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',s.obligation_amount===null||s.obligation_amount===undefined?'—':money(s.obligation_amount,s.currency),money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))):card('Ожидается поступлений — текущий период',e('div',{class:'rona-owner-muted',text:'Платежей, срок которых наступил в текущем периоде, нет.'})),expectedDeferred=deferredExp.length?card('Ожидается поступлений — отложенный период',tbl(['Deal ID','Клиент','Обязательство','Поступило','К оплате позднее','Состояние оплаты','Период'],deferredExp.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',s.obligation_amount===null||s.obligation_amount===undefined?'—':money(s.obligation_amount,s.currency),money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),financePill('Срок не наступил','info')]))):card('Ожидается поступлений — отложенный период',e('div',{class:'rona-owner-muted',text:'Отложенных платежей по условиям действующих сделок нет.'})),expected=e('div',{},expectedCurrent,expectedDeferred);"
     ],
     [
       "replacePage('payments',e('div',{},head,filter,summary,detail))}",
@@ -79,18 +79,6 @@ function patchPayments(script){
     [
       "dealStateById=new Map((Array.isArray(adminData?.deals)?adminData.deals:[]).map(x=>[String(x.deal_id),x])),",
       "dealStateRows=Array.isArray(window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__?.deals)?window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__.deals:(Array.isArray(adminData?.deals)?adminData.deals:[]),dealStateById=new Map(dealStateRows.map(x=>[String(x.deal_id),x])),"
-    ],
-    [
-      "deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});",
-      "deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),handoffPending=dealStateRows.filter(d=>String(d?.payment_handoff_state||'').toUpperCase()==='SENT'&&String(d?.cancellation_state||'ACTIVE').toUpperCase()==='ACTIVE'&&isLive(d)&&!sumByDeal.has(String(d?.deal_id||''))),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});"
-    ],
-    [
-      "expected=e('div',{},expectedCurrent,expectedDeferred);",
-      "expected=e('div',{},expectedCurrent,expectedDeferred);if(handoffPending.length)expected.append(card('Передано в оплату — сумма формируется',tbl(['Deal ID','Клиент','Передача','Сумма','Валюта'],handoffPending.map(d=>[d.deal_id||'—',d.legal_name||d.client_name||d.client_id||'—',financePill('Передано','success'),'Не сформировано','—']))));"
-    ],
-    [
-      "window.__RONA_PAYMENTS_CURRENT_STATE__={generatedAt:window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.generatedAt||null,current:currentExpectedTotals,deferred:deferredExpectedTotals}",
-      "window.__RONA_PAYMENTS_CURRENT_STATE__={generatedAt:window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.generatedAt||null,current:currentExpectedTotals,deferred:deferredExpectedTotals,handoffPending:handoffPending.map(x=>String(x?.deal_id||''))}"
     ]
   ];
   for(const [from,to] of replacements){if(!script.includes(from))throw new Error('PAYMENTS_PATCH_SOURCE_MISMATCH');script=script.replace(from,to)}
@@ -114,6 +102,6 @@ export async function onRequest(){
     'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION,
     'x-rona-deals-owner':'current-only-v1.5',
     'x-rona-payments-ui':'finance-current-v2',
-    'x-rona-payments-handoff':'go-no-finance-v1'
+    'x-rona-payments-handoff':'canonical-finance-v3'
   }});
 }
