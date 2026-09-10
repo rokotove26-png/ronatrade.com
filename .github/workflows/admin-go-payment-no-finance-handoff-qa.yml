@@ -1,0 +1,124 @@
+name: Admin GO payment no-finance handoff QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/owner-api.js'
+      - 'supabase/migrations/**'
+      - 'scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs'
+      - 'scripts/qa-admin-go-payment-no-finance-handoff-v1.sql'
+      - '.github/workflows/admin-go-payment-no-finance-handoff-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-go-payment-no-finance-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Source and candidate contract checks
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin-main-ui-current.js
+          node --check functions/portal/owner-api.js
+          node --check scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs
+          grep -F "owner_r1_send_to_payments" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql
+          if grep -F "PAYMENT_OBLIGATION_NOT_CONFIRMED" supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql; then
+            echo 'candidate migration still contains finance pre-handoff blocker'
+            exit 1
+          fi
+          grep -F "Передано в оплату — сумма формируется" functions/portal/admin-main-ui-current.js
+          grep -F "Не сформировано" functions/portal/admin-main-ui-current.js
+          grep -F "LOCAL_EPHEMERAL_POSTGREST" functions/portal/owner-api.js
+          if grep -E "OWNER_E2E_CANDIDATE_PROJECT|OWNER_E2E_IDENTIFIER|OWNER_E2E_PASSWORD" scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs; then
+            echo 'paid/candidate-backend secret dependency must not remain in free proof script'
+            exit 1
+          fi
+          RONA_QA_RPC_MODE=LOCAL_EPHEMERAL_POSTGREST RONA_QA_RPC_UPSTREAM=https://example.com/rpc node --input-type=module -e "import('./functions/portal/owner-api.js').then(()=>process.exit(1)).catch(e=>{if(!String(e).includes('QA_RPC_UPSTREAM_DENIED')){console.error(e);process.exit(1)}})"
+          echo "CANDIDATE_MIGRATION_SHA256=$(sha256sum supabase/migrations/20260910171000_owner_r1_payment_handoff_no_finance_preblock_v1.sql | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          npm run build
+
+      - name: Seed exact candidate RPC in disposable PostgreSQL
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -f scripts/qa-admin-go-payment-no-finance-handoff-v1.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -X -v ON_ERROR_STOP=1 -Atc "select case when position('PAYMENT_OBLIGATION_NOT_CONFIRMED' in pg_get_functiondef('public.owner_r1_send_to_payments(text)'::regprocedure))=0 then 'CANDIDATE_RPC_LOADED=PASS' else 'CANDIDATE_RPC_LOADED=FAIL' end" | grep -Fx 'CANDIDATE_RPC_LOADED=PASS'
+
+      - name: Start free ephemeral PostgREST
+        env:
+          PGRST_JWT_SECRET: pr452-free-ephemeral-jwt-secret-minimum-32-bytes
+        run: |
+          set -euo pipefail
+          docker run --rm -d --name pr452-postgrest --network host \
+            -e PGRST_DB_URI='postgres://postgres:postgres@127.0.0.1:5432/postgres' \
+            -e PGRST_DB_SCHEMAS='public' \
+            -e PGRST_DB_ANON_ROLE='postgres' \
+            -e PGRST_JWT_SECRET="$PGRST_JWT_SECRET" \
+            postgrest/postgrest:v12.2.3
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          docker logs pr452-postgrest
+          exit 1
+
+      - name: Real owner-api route E2E through actual candidate RPC
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          RONA_QA_RPC_MODE: LOCAL_EPHEMERAL_POSTGREST
+          RONA_QA_RPC_UPSTREAM: http://127.0.0.1:3000/rpc
+          PGRST_JWT_SECRET: pr452-free-ephemeral-jwt-secret-minimum-32-bytes
+          OWNER_E2E_ARTIFACT: artifacts/pr452-free-ephemeral-route-e2e.json
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs
+
+      - name: Resolve immutable preview for source/UI inspection only
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          preview=''
+          for i in $(seq 1 60); do
+            summaries=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.name=="Cloudflare Pages" and .status=="completed" and .conclusion=="success") | .output.summary' 2>/dev/null || true)
+            preview=$(printf '%s\n' "$summaries" | grep -oE 'https://[a-f0-9]+\.rona-trade-public\.pages\.dev' | head -1 || true)
+            [ -n "$preview" ] && break
+            sleep 5
+          done
+          test -n "$preview"
+          echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview" | tee -a "$GITHUB_ENV"
+          echo 'NOTICE: this Cloudflare preview remains production-backed and is not the payment-handoff E2E proof.'
+
+      - name: Upload free ephemeral E2E proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr452-free-ephemeral-route-e2e-proof
+          path: artifacts/pr452-free-ephemeral-route-e2e.json
+
+      - name: Stop ephemeral PostgREST
+        if: always()
+        run: docker stop pr452-postgrest >/dev/null 2>&1 || true

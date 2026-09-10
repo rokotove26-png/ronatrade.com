@@ -2,7 +2,9 @@ const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance`;
 const AI_SYNC_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-ai-sync`;
-const RPC_UPSTREAM=`${SUPABASE_URL}/rest/v1/rpc`;
+const PROD_RPC_UPSTREAM=`${SUPABASE_URL}/rest/v1/rpc`;
+function qaRpcUpstream(){const env=globalThis.process?.env;if(env?.RONA_QA_RPC_MODE!=='LOCAL_EPHEMERAL_POSTGREST')return'';const value=String(env.RONA_QA_RPC_UPSTREAM||'').trim().replace(/\/$/,'');if(!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/rpc$/.test(value))throw new Error('QA_RPC_UPSTREAM_DENIED');return value}
+const RPC_UPSTREAM=qaRpcUpstream()||PROD_RPC_UPSTREAM;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
