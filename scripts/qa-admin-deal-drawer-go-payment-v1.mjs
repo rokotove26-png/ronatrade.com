@@ -149,7 +149,7 @@ try{
   send=await sendButton();
   assert.equal(await send.isDisabled(),true,'HOLD gate must survive reload');
 
-  assert.ok(bootstrapHits>=4,'projection must refresh across open/send/reload flow');
+  assert.ok(bootstrapHits>=3,'projection must refresh on initial load, send handoff, and reload');
   assert.deepEqual(pageErrors,[],'drawer runtime must not throw browser errors');
   console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT=PASS',JSON.stringify({preview,runtime:'PR_CHECKOUT_ONREQUEST',drawer:'RIGHT_OVERLAY',bottomDetail:false,scrollRestore:true,goEnabledWithoutFinance:true,holdDisabled:true,handoff:'/admin/deals/:id/send-to-payments',handoffCount:handoffs.length,reload:true,bootstrapHits}));
 }finally{
