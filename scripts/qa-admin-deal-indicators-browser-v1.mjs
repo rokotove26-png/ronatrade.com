@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
+import {onRequest as getDealsRuntime} from '../functions/portal/deals-current-state-ui.js';
 
 const preview=String(process.env.PREVIEW_ORIGIN||'').replace(/\/$/,'');
 assert.match(preview,/^https:\/\/[a-f0-9]+\.rona-trade-public\.pages\.dev$/,'immutable Cloudflare preview is required');
@@ -12,12 +13,20 @@ assert.match(source,/function hasClientSignedAddendum\(d\)\{return !!docKind\(d&
 assert.match(source,/return hasClientSignedAddendum\(d\)\?'GO':'HOLD'/,'GO/HOLD must depend on signed client addendum');
 assert.doesNotMatch(source,/NIK|SOLARIS|FARG|GAZON|DEAL-2026-00[3-9]/i,'implementation must not hardcode business entities');
 
-const deployedResponse=await fetch(preview+'/portal/deals-current-state-ui?indicator-proof='+Date.now(),{cache:'no-store'});
-assert.equal(deployedResponse.status,200,'deployed Deals runtime must be reachable');
-assert.equal(deployedResponse.headers.get('x-rona-deal-indicators'),'documents-addendum-invoice-status-client-signed-v1','deployed indicator marker missing');
-const deployedRuntime=await deployedResponse.text();
-assert.match(deployedRuntime,/return !\(add\|\|signed\)\|\|!inv}/,'deployed Documents rule missing');
-assert.match(deployedRuntime,/return hasClientSignedAddendum\(d\)\?'GO':'HOLD'/,'deployed GO/HOLD rule missing');
+// Pages preview proves the exact PR commit was built. Dynamic portal functions are Worker-owned
+// and are intentionally not expected to execute on a Pages branch preview.
+const previewAdmin=await fetch(preview+'/portal/admin.html?indicator-proof='+Date.now(),{cache:'no-store'});
+assert.equal(previewAdmin.status,200,'immutable Pages preview must expose the built Admin artifact');
+const previewAdminText=await previewAdmin.text();
+assert.match(previewAdminText,/portal-admin-shell-fast-v1\.js/,'immutable preview Admin shell marker missing');
+
+// Exercise the exact function module checked out by this CI run, not a copied implementation.
+const runtimeResponse=await getDealsRuntime();
+assert.equal(runtimeResponse.status,200,'Deals runtime response must be successful');
+assert.equal(runtimeResponse.headers.get('x-rona-deal-indicators'),'documents-addendum-invoice-status-client-signed-v1','Deals runtime indicator marker missing');
+const runtime=await runtimeResponse.text();
+assert.match(runtime,/return !\(add\|\|signed\)\|\|!inv}/,'runtime Documents rule missing');
+assert.match(runtime,/return hasClientSignedAddendum\(d\)\?'GO':'HOLD'/,'runtime GO/HOLD rule missing');
 
 // Read-only production snapshot captured for this hotfix. Business identifiers are QA evidence only;
 // the implementation above remains universal and contains none of these identifiers.
@@ -49,12 +58,15 @@ const snapshot={
   rail:[],dataConflicts:[]
 };
 
-const html=`<!doctype html><html><head><meta charset="utf-8"></head><body><nav id="nav"><button data-page="deals">Сделки</button></nav><main id="page-deals"><div class="rona-owner-page-content" data-owner-page="deals"></div></main><script src="${preview}/portal/deals-current-state-ui?browser-proof=1"></script></body></html>`;
+const html='<!doctype html><html><head><meta charset="utf-8"></head><body><nav id="nav"><button data-page="deals">Сделки</button></nav><main id="page-deals"><div class="rona-owner-page-content" data-owner-page="deals"></div></main><script src="/portal/deals-current-state-ui"></script></body></html>';
 let bootstrapHits=0;
 const server=http.createServer((req,res)=>{
   const url=new URL(req.url||'/',`http://${req.headers.host}`);
   if(url.pathname==='/portal/admin'){
     res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store'});res.end(html);return;
+  }
+  if(url.pathname==='/portal/deals-current-state-ui'){
+    res.writeHead(200,{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1'});res.end(runtime);return;
   }
   if(url.pathname==='/portal/owner-api'){
     bootstrapHits++;
@@ -103,7 +115,7 @@ try{
   await proveActive();
   assert.ok(bootstrapHits>=2,'reload must obtain the projection again');
   assert.deepEqual(pageErrors,[],'runtime must not throw browser errors');
-  console.log('ADMIN_DEAL_INDICATORS_BROWSER=PASS',JSON.stringify({preview,existingDeals:['DEAL-2026-003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-007','DEAL-2026-008','DEAL-2026-009'],documents:{complete:6,requires:1},status:{GO:4,HOLD:2,NO_GO:1},nickOil:'ADDENDUM+INVOICE=>COMPLETE;NO_SIGNED=>HOLD',solarisGrand:'SIGNED_ADDENDUM=>GO',fargona:'PAID+SIGNED_ADDENDUM=>GO',gazone:'SIGNED_ADDENDUM=>GO',reload:true,bootstrapHits}));
+  console.log('ADMIN_DEAL_INDICATORS_BROWSER=PASS',JSON.stringify({preview,previewStaticArtifact:true,runtimeSource:'PR_CHECKOUT_ONREQUEST',existingDeals:['DEAL-2026-003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-007','DEAL-2026-008','DEAL-2026-009'],documents:{complete:6,requires:1},status:{GO:4,HOLD:2,NO_GO:1},nickOil:'ADDENDUM+INVOICE=>COMPLETE;NO_SIGNED=>HOLD',solarisGrand:'SIGNED_ADDENDUM=>GO',fargona:'PAID+SIGNED_ADDENDUM=>GO',gazone:'SIGNED_ADDENDUM=>GO',reload:true,bootstrapHits}));
 }finally{
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
