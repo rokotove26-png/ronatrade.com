@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {mergeAdminCompletedApplications} from '../functions/portal/main-ui/admin-completed-applications.js';
+import {onRequest as serveAdminMainUi} from '../functions/portal/main-ui/index.js';
 
 const active={application_id:'TEST-IN-2026-001',owner_status:'SUPPLIER_APPROVED',status:'ACCEPTED_AWAITING_DEAL_REGISTRATION',product:'Товар'};
 const alreadyCompleted={application_id:'TEST-IN-2026-002',owner_status:'DEAL',status:'DEAL_REGISTERED',deal_id:'DEAL-2026-002',product:'Товар 2'};
@@ -44,10 +45,23 @@ for(const required of [
   'x-rona-admin-completed-applications'
 ])assert.ok(index.includes(required),`Admin main runtime missing ${required}`);
 
+const emittedResponse=await serveAdminMainUi({});
+assert.equal(emittedResponse.status,200,'materialized Admin main runtime must patch successfully');
+assert.equal(emittedResponse.headers.get('x-rona-admin-completed-applications'),'owner-r1-archived-deal-v1');
+const emitted=await emittedResponse.text();
+for(const required of [
+  'function mergeAdminCompletedApplications',
+  "call('/admin/workflow-bootstrap')",
+  "status:'DEAL_REGISTERED'",
+  "owner_status:'DEAL'",
+  "return'COMPLETED'",
+  'data-rona-app-passport-open'
+])assert.ok(emitted.includes(required),`materialized Admin runtime missing ${required}`);
+
 const passport=await readFile('functions/portal/main-ui/application-passport-runtime.js','utf8');
 for(const required of ['data-rona-app-passport-open','openPassport(id,button)','currentOwnerApplication(id)'])assert.ok(passport.includes(required),`existing application passport integration missing ${required}`);
 
 const helper=await readFile('functions/portal/main-ui/admin-completed-applications.js','utf8');
 assert.ok(!/RONA-C\d+|DEAL-2026-00\d/.test(helper),'runtime helper must not contain client/application/deal hardcodes');
 
-console.log('ADMIN_APPLICATIONS_COMPLETED_V1=PASS terminal=existing-DEAL_REGISTERED bucket=COMPLETED reload=workflow-bootstrap dedupe=true passport=existing generic=true');
+console.log('ADMIN_APPLICATIONS_COMPLETED_V1=PASS terminal=existing-DEAL_REGISTERED bucket=COMPLETED reload=workflow-bootstrap dedupe=true passport=existing materialized-runtime=true generic=true');
