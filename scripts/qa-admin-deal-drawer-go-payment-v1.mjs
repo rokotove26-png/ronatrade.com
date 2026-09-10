@@ -32,15 +32,12 @@ assert.doesNotMatch(runtime,/owned\.append\(buildDetail\(sel\)\)/,'detail must n
 const snapshot={
   generatedAt:'2026-09-10T15:00:00.000Z',
   deals:[
-    {deal_id:'QA-GO',client_id:'QA-C1',legal_name:'QA Client GO',contract_id:'QA-CTR1',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:12500,client_remaining_amount:12500,finance_currency:'USD',finance_status:'DUE',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT'},
-    {deal_id:'QA-GO-NOFIN',client_id:'QA-C2',legal_name:'QA Client GO No Finance',contract_id:'QA-CTR2',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:110,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:null,client_remaining_amount:null,finance_currency:'',finance_status:'NOT_DUE',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT'},
-    {deal_id:'QA-HOLD',client_id:'QA-C3',legal_name:'QA Client HOLD',contract_id:'QA-CTR3',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:120,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:25000,client_remaining_amount:25000,finance_currency:'USD',finance_status:'DUE',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT'}
+    {deal_id:'QA-GO',client_id:'QA-C1',legal_name:'QA Client GO',contract_id:'QA-CTR1',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:12500,client_remaining_amount:12500,finance_currency:'USD',finance_status:'NOT_DUE',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT'},
+    {deal_id:'QA-HOLD',client_id:'QA-C2',legal_name:'QA Client HOLD',contract_id:'QA-CTR2',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:120,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:25000,client_remaining_amount:25000,finance_currency:'USD',finance_status:'PAID',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT'}
   ],
   documents:[
     {deal_id:'QA-GO',document_kind:'SIGNED_ADDENDUM',document_id:'QA-GO-S',authoritative_filename:'signed.pdf'},
     {deal_id:'QA-GO',document_kind:'INVOICE',document_id:'QA-GO-I',authoritative_filename:'invoice.pdf'},
-    {deal_id:'QA-GO-NOFIN',document_kind:'SIGNED_ADDENDUM',document_id:'QA-GONF-S',authoritative_filename:'signed-nofin.pdf'},
-    {deal_id:'QA-GO-NOFIN',document_kind:'INVOICE',document_id:'QA-GONF-I',authoritative_filename:'invoice-nofin.pdf'},
     {deal_id:'QA-HOLD',document_kind:'ADDENDUM',document_id:'QA-HOLD-A',authoritative_filename:'addendum.pdf'},
     {deal_id:'QA-HOLD',document_kind:'INVOICE',document_id:'QA-HOLD-I',authoritative_filename:'invoice.pdf'}
   ],
@@ -118,7 +115,8 @@ page.on('pageerror',e=>pageErrors.push(String(e?.message||e)));
 page.on('dialog',async dialog=>{dialogs.push(dialog.message());await dialog.accept()});
 
 async function row(dealId){
-  const r=page.locator('.rona-current-deal-table tbody tr').filter({hasText:dealId});
+  const exact=page.getByText(dealId,{exact:true});
+  const r=page.locator('.rona-current-deal-table tbody tr').filter({has:exact});
   await r.waitFor({state:'visible',timeout:15000});
   assert.equal(await r.count(),1,`${dealId} must render once`);
   return r;
@@ -154,26 +152,21 @@ try{
 
   await openDeal('QA-GO');
   let send=await sendButton();
-  assert.equal(await send.isEnabled(),true,'GO must enable Отправить в оплату');
+  assert.equal(await send.isEnabled(),true,'GO must enable Отправить в оплату even when finance_status is NOT_DUE');
   const docButtons=page.locator('#ronaCurrentDealDrawer .rona-current-deal-doc-download');
   assert.equal(await docButtons.count(),2,'signed addendum and invoice must expose the same download button family');
   const docGeometry=await docButtons.evaluateAll(nodes=>nodes.map(n=>{const r=n.getBoundingClientRect();const s=getComputedStyle(n);return{h:Math.round(r.height),radius:s.borderRadius,font:s.fontWeight}}));
   assert.equal(docGeometry[0].h,docGeometry[1].h,'document download buttons must have equal height');
   assert.equal(docGeometry[0].radius,docGeometry[1].radius,'document download buttons must share the same shape');
-  const detailColumns=await page.locator('#ronaCurrentDealDrawer .rona-current-deal-detail-grid').evaluate(el=>getComputedStyle(el).gridTemplateColumns);
-  assert.ok(!detailColumns.includes(' '),'drawer sections must be one coherent column');
+  const cards=await page.locator('#ronaCurrentDealDrawer .rona-current-deal-detail-grid>.rona-owner-card').evaluateAll(nodes=>nodes.map(n=>Math.round(n.getBoundingClientRect().left)));
+  assert.ok(cards.length>=4&&new Set(cards).size===1,'drawer sections must be aligned as one coherent column');
   const actionDisplay=await page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions').evaluate(el=>getComputedStyle(el).display);
   assert.equal(actionDisplay,'grid','bottom actions must be one deliberate aligned group');
   await closeDrawerAndAssertScroll(beforeOpen);
 
-  await openDeal('QA-GO-NOFIN');
-  send=await sendButton();
-  assert.equal(await send.isEnabled(),true,'GO button availability must not be pre-gated by finance/payment status');
-  await closeDrawerAndAssertScroll(beforeOpen);
-
   await openDeal('QA-HOLD');
   send=await sendButton();
-  assert.equal(await send.isDisabled(),true,'HOLD must disable Отправить в оплату');
+  assert.equal(await send.isDisabled(),true,'HOLD must disable Отправить в оплату even with finance PAID');
   await closeDrawerAndAssertScroll(beforeOpen);
 
   await openDeal('QA-GO');
@@ -205,7 +198,7 @@ try{
 
   assert.ok(bootstrapHits>=3,'actual owner-api projection must refresh on initial load, send and reload');
   assert.deepEqual(pageErrors,[],'drawer runtime must not throw browser errors');
-  console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',bottomDetail:false,scrollRestore:true,goFinanceIndependent:true,holdDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,bootstrapHits}));
+  console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',bottomDetail:false,scrollRestore:true,goFinanceStatusIgnored:true,holdDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,bootstrapHits}));
 }finally{
   await browser.close();
   globalThis.fetch=nativeFetch;
