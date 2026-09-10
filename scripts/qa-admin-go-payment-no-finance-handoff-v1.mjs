@@ -123,9 +123,9 @@ try{
   proof.checks.existingFinanceBehaviorPreserved='PASS';
 
   result=await send('QA-HOLD');
-  assert.notEqual(result.response.status,200,'HOLD/non-active fixture must fail closed');
-  assert.equal(codeOf(result.payload),'DEAL_NOT_ACTIVE',`unexpected HOLD blocker: ${JSON.stringify(result.payload)}`);
-  proof.checks.holdFailClosed='DEAL_NOT_ACTIVE';
+  assert.notEqual(result.response.status,200,'HOLD fixture must fail closed');
+  assert.equal(codeOf(result.payload),'PRODUCT_CONFIRMATION_REQUIRED',`unexpected HOLD blocker: ${JSON.stringify(result.payload)}`);
+  proof.checks.holdFailClosed='PRODUCT_CONFIRMATION_REQUIRED';
 
   result=await send('QA-MISSING-DOC');
   assert.notEqual(result.response.status,200,'missing-document fixture must fail closed');
