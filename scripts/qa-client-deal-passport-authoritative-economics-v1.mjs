@@ -13,6 +13,7 @@ const accepted=resolveClientDealPassportEconomics({
   application_status:'DEAL_REGISTERED',
   workflow_business_status:'DEAL',
   counter_offer_used:true,
+  client_counter_response:'ACCEPTED',
   finalized_at:'2026-09-10T12:00:00Z',
   confirmed_quantity_tonnes:490,
   application_quantity_tonnes:500,
@@ -51,6 +52,7 @@ const nonFinalCounter=resolveClientDealPassportEconomics({
   application_status:'DEAL_REGISTERED',
   workflow_business_status:'DEAL',
   counter_offer_used:true,
+  client_counter_response:'ACCEPTED',
   finalized_at:null,
   confirmed_quantity_tonnes:10,
   counter_price:700,
@@ -63,10 +65,28 @@ assert.equal(nonFinalCounter.passport_amount,7100);
 assert.equal(nonFinalCounter.passport_amount_source,'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');
 assert.equal(nonFinalCounter.counter_offer_used,false);
 
+const rejectedFinalCounter=resolveClientDealPassportEconomics({
+  application_status:'DEAL_REGISTERED',
+  workflow_business_status:'DEAL',
+  counter_offer_used:true,
+  client_counter_response:'REJECTED',
+  finalized_at:'2026-09-10T12:00:00Z',
+  confirmed_quantity_tonnes:25,
+  counter_price:740,
+  counter_currency:'USD',
+  application_price:743,
+  application_currency:'USD',
+});
+assert.equal(rejectedFinalCounter.passport_amount,null,'finalized non-accepted counter-offer must not leak stale application economics');
+assert.equal(rejectedFinalCounter.passport_currency,null);
+assert.equal(rejectedFinalCounter.passport_amount_source,'FINALIZED_COUNTEROFFER_NOT_ACCEPTED');
+assert.equal(rejectedFinalCounter.counter_offer_used,false);
+
 const incompleteAccepted=resolveClientDealPassportEconomics({
   application_status:'DEAL_REGISTERED',
   workflow_business_status:'DEAL',
   counter_offer_used:true,
+  client_counter_response:'ACCEPTED',
   finalized_at:'2026-09-10T12:00:00Z',
   confirmed_quantity_tonnes:25,
   counter_price:740,
@@ -85,6 +105,7 @@ applyClientDealPassportEconomics(projectedDeal,{
   application_status:'DEAL_REGISTERED',
   workflow_business_status:'DEAL',
   counter_offer_used:true,
+  client_counter_response:'ACCEPTED',
   finalized_at:'2026-09-10T12:00:00Z',
   confirmed_quantity_tonnes:7.5,
   counter_price:123.45,
@@ -110,15 +131,21 @@ const runtimeSource=await readFile('assets/portal-runtime/client-deals-authorita
 const contextProxySource=await readFile('functions/portal/api/v1/client/context.js','utf8');
 
 for(const required of [
+  'join portal_private.deal_registrations dr on dr.deal_key=d.id',
+  'aw.business_status::text as workflow_business_status',
+  'coalesce(aw.counter_offer_used,false) as counter_offer_used',
+  'aw.client_counter_response::text as client_counter_response',
+  'case when dw.quantity_confirmed_at is not null then dw.quantity_tonnes_value else null end as confirmed_quantity_tonnes',
+  'aw.counter_price',
+  'aw.counter_currency::text',
+  'a.proposed_price as application_price',
+  'a.proposed_currency::text',
   "cl.client_id=${requestClientId}",
   "ct.contract_id=${requestContractId}",
+  'a.linked_deal_key=d.id',
   'd.client_key=a.client_key',
   'd.contract_key=a.contract_key',
-  'coalesce(w.counter_offer_used,false)=true and w.finalized_at is not null',
-  'd.quantity_tonnes as confirmed_quantity_tonnes',
-  'a.counter_price',
-  'a.counter_currency::text',
-  'coalesce(a.proposed_price,line.application_price) as application_price',
+  'dr.registered_at desc',
   "headers.set('x-rona-client-deal-economics',PROJECTION_VERSION)",
 ])assert.ok(projectionSource.includes(required),`projection contract missing: ${required}`);
 assert.ok(clientSource.startsWith('import "./client-deal-economics-projection.ts";'),'authoritative projection is not installed in the production Client API source');
@@ -164,8 +191,12 @@ const proof={
     finalizedAcceptedEconomicsWins:'PASS',
     fallbackWithoutAcceptedCounterOffer:'PASS',
     nonFinalCounterDoesNotOverride:'PASS',
+    finalizedNonAcceptedCounterFailsClosed:'PASS',
     confirmedDealQuantityDrivesAmount:'PASS',
     incompleteAcceptedEconomicsDoesNotLeakStaleFallback:'PASS',
+    authoritativeWorkflowCounterFieldsUsed:'PASS',
+    dealRegistrationLineageLatestFirst:'PASS',
+    confirmedDealWorkflowVolumeUsed:'PASS',
     currentContextExactPairScope:'PASS',
     tenantDealContractScope:'PASS',
     clientConsumerProjectionFirst:'PASS',
@@ -173,8 +204,9 @@ const proof={
     changedFilesAllowlist:'PASS',
   },
   evidence:{
-    accepted:{unitPrice:accepted.passport_unit_price,quantityTonnes:accepted.confirmed_quantity_tonnes,amount:accepted.passport_amount,currency:accepted.passport_currency,source:accepted.passport_amount_source},
-    fallback:{unitPrice:fallback.passport_unit_price,quantityTonnes:fallback.confirmed_quantity_tonnes,amount:fallback.passport_amount,currency:fallback.passport_currency,source:fallback.passport_amount_source},
+    accepted:{unitPrice:accepted.passport_unit_price,quantityTonnes:accepted.confirmed_quantity_tonnes,applicationQuantityTonnes:500,staleApplicationUnitPrice:743,amount:accepted.passport_amount,currency:accepted.passport_currency,source:accepted.passport_amount_source},
+    fallback:{unitPrice:fallback.passport_unit_price,quantityTonnes:fallback.confirmed_quantity_tonnes,applicationQuantityTonnes:125,amount:fallback.passport_amount,currency:fallback.passport_currency,source:fallback.passport_amount_source},
+    failClosed:{nonAcceptedSource:rejectedFinalCounter.passport_amount_source,incompleteAcceptedSource:incompleteAccepted.passport_amount_source},
     sourceSha256:{resolver:sha256(resolverSource),projection:sha256(projectionSource),runtime:sha256(runtimeSource),contextProxy:sha256(contextProxySource)},
     changedFiles,
   },
