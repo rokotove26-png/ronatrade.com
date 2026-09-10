@@ -19,14 +19,15 @@ for(const response of ['ACCEPTED','DECLINED']){
   assert.equal(responded.client_counter_response,response);
 }
 
-const runtime=await readFile('assets/portal-runtime/client-counter-offer-hotfix-v1.js','utf8');
-for(const required of ['counter_offer_active','counter_price','counter_currency','client_counter_response','Принять','Отклонить','/client/applications/${encodeURIComponent(id)}/counter-offer/${decision}','/portal/owner-api?path=','invalidateCurrentProjection','rona:client-application-submitted'])assert.ok(runtime.includes(required),`runtime missing ${required}`);
+const runtime=await readFile('assets/portal-runtime/client-applications-live-render-v1.js','utf8');
+for(const required of ['20260910-client-counter-offer-applications-v1','counter_offer_active','counter_price','counter_currency','client_counter_response','Принять','Отклонить','/client/applications/${encodeURIComponent(id)}/counter-offer/${decision}','/portal/owner-api?path=','invalidateCurrentProjection','rona:client-application-submitted','data-rona-live-applications="canonical-v1"'])assert.ok(runtime.includes(required),`approved Applications runtime missing ${required}`);
 assert.ok(!/RONA-C\d{3}|APP-\d{4}-\d{3,}/.test(runtime),'runtime must not contain record-specific identifiers');
 
 const context=await readFile('functions/portal/api/v1/client/context.js','utf8');
 for(const required of ['rona-owner-acceptance/client/bootstrap','mergeClientCounterOffers','x-rona-counter-offer-projection'])assert.ok(context.includes(required),`context projection missing ${required}`);
 
 const packageJson=JSON.parse(await readFile('package.json','utf8'));
-assert.ok(packageJson.scripts.build.includes('attach-client-counter-offer-hotfix-v1.mjs'),'Pages build must attach counter-offer runtime');
+assert.ok(packageJson.scripts.build.includes('materialize-portal-client-applications-canonical-v1.mjs'),'canonical Client Applications build owner must remain attached');
+assert.ok(!packageJson.scripts.build.includes('attach-client-counter-offer-hotfix-v1.mjs'),'no new Client attachment is allowed for this scoped hotfix');
 
-console.log('CLIENT_COUNTER_OFFER_HOTFIX_QA=PASS plain=unchanged active=offer+actions responses=generic backend=existing-routes hardcoding=false');
+console.log('CLIENT_COUNTER_OFFER_HOTFIX_QA=PASS plain=unchanged active=offer+actions responses=generic backend=existing-routes canonical-owner=preserved new-attachment=false hardcoding=false');
