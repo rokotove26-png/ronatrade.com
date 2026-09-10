@@ -52,8 +52,8 @@ jobs:
           grep -F "Передано в оплату — сумма формируется" functions/portal/admin-main-ui-current.js
           grep -F "Не сформировано" functions/portal/admin-main-ui-current.js
           grep -F "LOCAL_EPHEMERAL_POSTGREST" functions/portal/owner-api.js
-          if grep -R "OWNER_E2E_CANDIDATE_PROJECT\|OWNER_E2E_IDENTIFIER\|OWNER_E2E_PASSWORD" -n .github/workflows/admin-go-payment-no-finance-handoff-qa.yml scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs; then
-            echo 'paid/candidate-backend secret dependency must not remain in free proof path'
+          if grep -E "OWNER_E2E_CANDIDATE_PROJECT|OWNER_E2E_IDENTIFIER|OWNER_E2E_PASSWORD" scripts/qa-admin-go-payment-no-finance-handoff-v1.mjs; then
+            echo 'paid/candidate-backend secret dependency must not remain in free proof script'
             exit 1
           fi
           RONA_QA_RPC_MODE=LOCAL_EPHEMERAL_POSTGREST RONA_QA_RPC_UPSTREAM=https://example.com/rpc node --input-type=module -e "import('./functions/portal/owner-api.js').then(()=>process.exit(1)).catch(e=>{if(!String(e).includes('QA_RPC_UPSTREAM_DENIED')){console.error(e);process.exit(1)}})"
