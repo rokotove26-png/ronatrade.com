@@ -1,0 +1,79 @@
+name: Client deal passport authoritative economics QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-portal-api/client-deal-economics.js'
+      - 'supabase/functions/rona-portal-api/client-deal-economics-projection.ts'
+      - 'supabase/functions/rona-portal-api/client.ts'
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs'
+      - '.github/workflows/client-deal-passport-authoritative-economics-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  authoritative-passport-economics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASELINE_SHA: 1843477cb66315bdb7ce7b4e5f0ed13f6d68e412
+      ECONOMICS_E2E_ARTIFACT: artifacts/client-deal-passport-authoritative-economics-v1.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Bind exact production baseline and candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$BASELINE_SHA^{commit}"
+          head_sha='${{ github.event.pull_request.head.sha }}'
+          if [ -z "$head_sha" ]; then head_sha="$GITHUB_SHA"; fi
+          echo "PR_HEAD_SHA=$head_sha" >> "$GITHUB_ENV"
+          echo "BASELINE_SHA=$BASELINE_SHA"
+          echo "CANDIDATE_HEAD_SHA=$head_sha"
+
+      - name: Owner production regression source/E2E proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-deal-passport-authoritative-economics-v1.mjs
+
+      - name: Existing client build and isolation regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+
+      - name: Resolve immutable Cloudflare preview for source/UI inspection only
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          preview=''
+          for i in $(seq 1 24); do
+            summaries=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.name=="Cloudflare Pages" and .status=="completed" and .conclusion=="success") | .output.summary' 2>/dev/null || true)
+            preview=$(printf '%s\n' "$summaries" | grep -oE 'https://[a-f0-9]+\.rona-trade-public\.pages\.dev' | head -1 || true)
+            [ -n "$preview" ] && break
+            sleep 5
+          done
+          echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview" >> "$GITHUB_ENV"
+          echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview"
+          echo 'NOTICE: preview is source/UI evidence only; it is not a candidate Supabase backend and is not Owner UAT proof.'
+
+      - name: Upload focused free-resource proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-deal-passport-authoritative-economics-free-proof
+          path: artifacts/client-deal-passport-authoritative-economics-v1.json
+          if-no-files-found: error
