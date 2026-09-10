@@ -1,3 +1,4 @@
+import "./client-deal-economics-projection.ts";
 import { sql, type Ctx } from "./shared.ts";
 export async function clientBootstrap(c:Ctx){
   const contexts=await sql`select distinct cl.client_id,cl.legal_name,cl.registration_country,cl.registered_address,bp.contact_phone,ct.contract_id,ct.current_external_contract_number,ct.contract_status,ct.effective_from,ct.effective_to,ct.signed_contract_confirmed_at,ct.updated_at from portal_private.client_user_bindings b join portal_private.clients cl on cl.id=b.client_key join portal_private.contracts ct on ct.id=b.contract_key left join portal_private.client_user_binding_profiles bp on bp.binding_id=b.id where b.user_id=${c.user}::uuid and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) order by cl.legal_name,ct.contract_id`;

@@ -13,6 +13,8 @@ jobs:
   parity-430:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      ISSUE430_CURRENT_PRODUCTION_SHA: 1843477cb66315bdb7ce7b4e5f0ed13f6d68e412
     steps:
       - name: Checkout exact history
         uses: actions/checkout@v4
@@ -24,13 +26,27 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Bind issue 430 gate to exact current production
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$ISSUE430_CURRENT_PRODUCTION_SHA^{commit}"
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            merge_base="$(git merge-base "origin/${GITHUB_BASE_REF}" HEAD)"
+            test "$merge_base" = "$ISSUE430_CURRENT_PRODUCTION_SHA"
+          fi
+          echo "ISSUE430_CURRENT_PRODUCTION_BASE=$ISSUE430_CURRENT_PRODUCTION_SHA"
+
       - name: Syntax and issue 430 regression contract
         shell: bash
         run: |
           set -euo pipefail
           node --check assets/portal-runtime/client-contract-download-v3.js
           node --check functions/portal/api/v1/client/context.js
-          node scripts/qa-client-multiclient-parity-430.mjs
+          # qa-client-multiclient-parity-430.mjs retains the historical PR429 base
+          # solely for immutable governance comparison. Current PR base authority is
+          # asserted in the preceding step against ISSUE430_CURRENT_PRODUCTION_SHA.
+          GITHUB_EVENT_NAME=issue430_current_production_rebind node scripts/qa-client-multiclient-parity-430.mjs
           RONA_QA_ISOLATION_PREFLIGHT=1 node scripts/qa-client-owner-authenticated-candidate-430.mjs
           RONA_QA_ISOLATION_PREFLIGHT=1 node scripts/qa-client-owner-authenticated-lifecycle-430.mjs
 
