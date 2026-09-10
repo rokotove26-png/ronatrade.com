@@ -31,20 +31,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          base_ref="${GITHUB_BASE_REF:-}"
-          if [ -n "$base_ref" ]; then
-            git fetch --no-tags origin "$base_ref"
-            merge_base="$(git merge-base "origin/$base_ref" HEAD)"
-            typography_delta="$(git diff --name-only "$merge_base"...HEAD -- \
-              governance/client-section-typography-110-owner-approval-20260909.json \
-              scripts/qa-client-section-typography-110-v1.mjs \
-              scripts/qa-client-typography-frame-overflow-freeze-v1.mjs \
-              scripts/qa-client-portal-visual-freeze.mjs)"
-            if [ -z "$typography_delta" ]; then
-              echo 'CLIENT_SECTION_TYPOGRAPHY_110_EXACT_PARENT=SKIP_UNRELATED_PR'
-              exit 0
-            fi
-          fi
           node scripts/qa-client-section-typography-110-v1.mjs
       - name: Build production baseline, legacy PRE, Deals PRE, and exact candidate
         shell: bash
