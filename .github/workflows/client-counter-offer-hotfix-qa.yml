@@ -5,10 +5,8 @@ on:
     paths:
       - 'functions/portal/api/v1/client/context.js'
       - 'functions/portal/client-counter-offer-projection.js'
-      - 'assets/portal-runtime/client-counter-offer-hotfix-v1.js'
-      - 'scripts/attach-client-counter-offer-hotfix-v1.mjs'
+      - 'assets/portal-runtime/client-applications-live-render-v1.js'
       - 'scripts/qa-client-counter-offer-hotfix-v1.mjs'
-      - 'package.json'
       - '.github/workflows/client-counter-offer-hotfix-qa.yml'
   workflow_dispatch:
 
