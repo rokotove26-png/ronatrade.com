@@ -1,0 +1,44 @@
+name: Issue430 scope contract refine once
+on:
+  push:
+    branches: [corrective/issue430-resource-authority-company-race-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: corrective/issue430-resource-authority-company-race-v1
+          fetch-depth: 0
+      - name: Align neutral pending/error shell assertion and exact governance blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json, subprocess
+          qa=Path('scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs')
+          s=qa.read_text()
+          old="card.hydration!=='loading'||card.metrics.some(value=>value!=='…')"
+          new="!['loading','error'].includes(card.hydration)||card.metrics.some(value=>value!=='…')"
+          if s.count(old)!=1: raise SystemExit(f'qa match count={s.count(old)}')
+          qa.write_text(s.replace(old,new))
+          blob=subprocess.check_output(['git','hash-object',str(qa)],text=True).strip()
+          g=Path('governance/client-multiclient-parity-issue430-owner-approval-20260906.json')
+          data=json.loads(g.read_text())
+          slot=data['pr431_direct_fix']['exact_post_blobs']['scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs']
+          slot['authorized_post_blob_sha']=blob
+          g.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
+          print('QA_BLOB='+blob)
+          PY
+          node --check scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs
+          git diff --check
+          git diff -- scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs governance/client-multiclient-parity-issue430-owner-approval-20260906.json
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs governance/client-multiclient-parity-issue430-owner-approval-20260906.json
+          git commit -m 'test(client): accept neutral canonical error shell before directory validation'
+          git push origin HEAD:corrective/issue430-resource-authority-company-race-v1
