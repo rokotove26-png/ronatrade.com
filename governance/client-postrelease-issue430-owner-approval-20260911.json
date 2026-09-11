@@ -3,6 +3,7 @@
   "authorized_at": "2026-09-11",
   "owner_comment_id": 5627234321,
   "system_admin_comment_id": 5627544290,
+  "rework_system_admin_comment_id": 5634978299,
   "communication_rule_comment_id": 5627880412,
   "base_commit": "0f85c0455e2df319fed49b1a84016929a905e025",
   "scope": "CLIENT_POSTRELEASE_RESOURCE_AUTHORITY_AND_COMPANY_RACE_ONLY",
@@ -18,7 +19,7 @@
     },
     ".github/workflows/client-owner-targeted-remediation-qa.yml": {
       "visual_freeze_baseline_blob_sha": "7b9e1697daca02647c53b643b5d41e193fc02e26",
-      "authorized_post_blob_sha": "edeb18945330bd7186d3a1c6822fa24d0865e3f3",
+      "authorized_post_blob_sha": "4f7e703d82dc9810a70f3f7f307219751c878136",
       "required_marker": "CLIENT_SECTION_TYPOGRAPHY_110_EXACT_PARENT=NOT_APPLICABLE_POST_RELEASE"
     }
   },
