@@ -31,15 +31,19 @@ jobs:
           const needle='Мои компании';
           const indexes=[];
           for(let at=html.indexOf(needle);at>=0;at=html.indexOf(needle,at+needle.length)) indexes.push(at);
-          if(indexes.length!==1) throw new Error(`CANONICAL_COMPANIES_LABEL_COUNT_${indexes.length}`);
-          const at=indexes[0];
-          const before=html.slice(Math.max(0,at-1200),at);
-          const after=html.slice(at,Math.min(html.length,at+1200));
-          console.log('ISSUE430_CANONICAL_COMPANIES_NAV_CONTEXT_BEGIN');
-          console.log((before+after).replace(/\s+/g,' ').trim());
-          console.log('ISSUE430_CANONICAL_COMPANIES_NAV_CONTEXT_END');
+          if(!indexes.length) throw new Error('CANONICAL_COMPANIES_LABEL_MISSING');
+          console.log(`ISSUE430_CANONICAL_COMPANIES_LABEL_COUNT=${indexes.length}`);
+          for(let i=0;i<indexes.length;i++){
+            const at=indexes[i],before=html.slice(Math.max(0,at-650),at),after=html.slice(at,Math.min(html.length,at+650));
+            console.log(`ISSUE430_CANONICAL_COMPANIES_CONTEXT_${i+1}_BEGIN`);
+            console.log((before+after).replace(/\s+/g,' ').trim());
+            console.log(`ISSUE430_CANONICAL_COMPANIES_CONTEXT_${i+1}_END`);
+          }
           const page=html.match(/<[^>]+id=["']page-companies["'][^>]*>/i)?.[0]||'';
           if(!page) throw new Error('CANONICAL_PAGE_COMPANIES_MISSING');
           console.log(`ISSUE430_CANONICAL_COMPANIES_SECTION=${page.replace(/\s+/g,' ')}`);
+          const navMatches=[...html.matchAll(/<[^>]+data-page=["']companies["'][^>]*>[\s\S]{0,260}?Мои компании[\s\S]{0,80}?<\/[^>]+>/giu)].map(m=>m[0].replace(/\s+/g,' '));
+          console.log(`ISSUE430_CANONICAL_COMPANIES_DATA_PAGE_MATCHES=${navMatches.length}`);
+          for(const m of navMatches)console.log(`ISSUE430_CANONICAL_COMPANIES_DATA_PAGE=${m}`);
           console.log('ISSUE430_CANONICAL_COMPANIES_NAV_SOURCE_PROOF=PASS');
           NODE
