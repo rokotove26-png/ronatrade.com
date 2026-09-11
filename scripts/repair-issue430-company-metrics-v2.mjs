@@ -7,12 +7,21 @@ const integrityPath='dist/canonical-visual-integrity.json';
 const scriptId='rona-portal-client-company-directory-authority-v1';
 const oldToken="/^(?:\\d+|—)$/.test(norm(el.textContent))";
 const newToken="/^(?:\\d+|—|---|…|\\.\\.\\.)$/.test(norm(el.textContent))";
+const loadToken="async function loadDirectory(force=false){if(state.loading)return state.loading;if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory;";
+const loadRepair="function adoptBaseDirectory(){const rows=state.base?.getCompanyDirectory?.();const validated=validateCompleteDirectory({company_directory_source:DIRECTORY_SOURCE,company_directory:Array.isArray(rows)?rows:[]});if(!validated)return false;state.directory=validated.rows.map(clone);state.validated=true;state.lastLoad=Date.now();state.generation+=1;if(!renderDirectory(state.generation))scheduleRender(0);return true}\\nasync function loadDirectory(force=false){if(!force&&adoptBaseDirectory())return state.directory;if(state.loading)return state.loading;if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory;";
+const startToken="state.started=true;await loadDirectory(true).catch(()=>{});setInterval";
+const startRepair="state.started=true;if(!adoptBaseDirectory())await loadDirectory(true).catch(()=>{});else loadDirectory(true).catch(()=>{});setInterval";
 const sha256=value=>createHash('sha256').update(value).digest('hex');
 
 let runtime=await readFile(runtimePath,'utf8');
 if(runtime.split(oldToken).length!==2)throw new Error('ISSUE430_COMPANY_METRIC_MATCHER_NOT_UNIQUE');
 runtime=runtime.replace(oldToken,newToken);
 if(!runtime.includes(newToken))throw new Error('ISSUE430_COMPANY_METRIC_MATCHER_REPAIR_MISSING');
+if(runtime.split(loadToken).length!==2)throw new Error('ISSUE430_COMPANY_DIRECTORY_LOAD_TARGET_NOT_UNIQUE');
+runtime=runtime.replace(loadToken,loadRepair);
+if(runtime.split(startToken).length!==2)throw new Error('ISSUE430_COMPANY_DIRECTORY_START_TARGET_NOT_UNIQUE');
+runtime=runtime.replace(startToken,startRepair);
+if(!runtime.includes('if(!force&&adoptBaseDirectory())return state.directory')||!runtime.includes('if(!adoptBaseDirectory())await loadDirectory(true)'))throw new Error('ISSUE430_COMPANY_DIRECTORY_RACE_REPAIR_MISSING');
 await writeFile(runtimePath,runtime,'utf8');
 
 const digest=sha256(Buffer.from(runtime,'utf8'));
@@ -33,6 +42,8 @@ integrity.client_runtime.emitted_bytes=Buffer.byteLength(html);
 integrity.client_runtime.pr431_company_directory=integrity.client_runtime.pr431_company_directory||{};
 integrity.client_runtime.pr431_company_directory.src=src;
 integrity.client_runtime.pr431_company_directory.issue430_metric_placeholder_repair='ACCEPT_LEGACY_PLACEHOLDER_BEFORE_AUTHORITATIVE_HYDRATION';
+integrity.client_runtime.pr431_company_directory.issue430_directory_race_repair='ADOPT_VALID_BASE_DIRECTORY_BEFORE_ASYNC_REFRESH_AND_ON_AUTHORITY_EVENT';
 await writeFile(integrityPath,JSON.stringify(integrity,null,2)+'\n','utf8');
 
 console.log(`ISSUE430_COMPANY_METRIC_PLACEHOLDER_REPAIR=PASS src=${src}`);
+console.log('ISSUE430_COMPANY_DIRECTORY_RACE_REPAIR=PASS');
