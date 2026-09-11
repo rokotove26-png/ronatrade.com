@@ -1,0 +1,60 @@
+name: Issue430 test contract patcher once
+on:
+  push:
+    branches: [corrective/issue430-resource-authority-company-race-v1]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: corrective/issue430-resource-authority-company-race-v1
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply exact SYSTEM_ADMIN 5635207763 test-contract corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs')
+          s=p.read_text()
+          def r(a,b,label):
+              global s
+              if s.count(a)!=1: raise SystemExit(f'{label}: expected 1 match, got {s.count(a)}')
+              s=s.replace(a,b)
+          r("const preHandoffReady=await wait(page,()=>Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__)&&!window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__&&document.documentElement.dataset.ronaClientCompanyDirectoryAtomic!=='true'&&!![...document.querySelectorAll('button[data-rona-contract-download-v3]')].find(el=>el.offsetWidth||el.offsetHeight),null,5000);",
+            "const preHandoffReady=await wait(page,()=>Boolean(window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__)&&Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__)&&!window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__&&document.documentElement.dataset.ronaClientCompanyDirectoryAtomic==='pending'&&![...document.querySelectorAll('button[data-rona-contract-download-v3]')].some(el=>el.offsetWidth||el.offsetHeight),null,5000);",'pre-ready')
+          r("const preHandoffState=await page.evaluate(()=>({runtime:Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__),owner:Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__),atomic:document.documentElement.dataset.ronaClientCompanyDirectoryAtomic||'',legacyDownload:!![...document.querySelectorAll('button[data-rona-contract-download-v3]')].find(el=>el.offsetWidth||el.offsetHeight),legacyScope:window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__?.scope||'',directoryState:window.__RONA_CLIENT_COMPANY_DIRECTORY_STATE__||null}));",
+            "const preHandoffState=await page.evaluate(()=>{const visible=el=>Boolean(el&&(el.offsetWidth||el.offsetHeight));const cards=[...document.querySelectorAll('article.company-switch-card')].filter(visible).map(card=>({hydration:card.dataset.ronaCompanyDirectoryHydration||'',source:card.dataset.ronaCompanyDirectorySource||'',metrics:['applications','deals','documents'].map(slot=>String(card.querySelector('[data-rona-company-factory-slot=\"'+slot+'\"]')?.textContent||'').trim())}));return{claim:Boolean(window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__),runtime:Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__),owner:Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__),atomic:document.documentElement.dataset.ronaClientCompanyDirectoryAtomic||'',legacyDownload:!![...document.querySelectorAll('button[data-rona-contract-download-v3]')].find(visible),legacyScope:window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__?.scope||'',directoryState:window.__RONA_CLIENT_COMPANY_DIRECTORY_STATE__||null,cards}});",'pre-state')
+          r("if(!preHandoffProjection.ok||!preHandoffReady||!preHandoffState.runtime||preHandoffState.owner||preHandoffState.atomic==='true'||!preHandoffState.legacyDownload)fail(failures,'COMPANY_DIRECTORY_PREMATURE_HANDOFF',{preHandoffProjection,preHandoffReady,preHandoffState});",
+            "if(!preHandoffProjection.ok||!preHandoffReady||!preHandoffState.claim||!preHandoffState.runtime||preHandoffState.owner||preHandoffState.atomic!=='pending'||preHandoffState.legacyDownload||!preHandoffState.cards.length||preHandoffState.cards.some(card=>card.hydration!=='loading'||card.metrics.some(value=>value!=='…')))fail(failures,'COMPANY_DIRECTORY_FIRST_PAINT_OWNER_CONTRACT',{preHandoffProjection,preHandoffReady,preHandoffState});\nconsole.log('COMPANY_DIRECTORY_FIRST_PAINT_OWNER_CONTRACT=PASS',JSON.stringify(preHandoffState));",'pre-assert')
+          r("&&unsupportedTail.length===0}};return{A:read(A),B:read(B)}},{A:FIX.A,B:FIX.B});",
+            "}};return{A:read(A),B:read(B)}},{A:FIX.A,B:FIX.B});",'identity-tail')
+          anchor="console.log('MY_COMPANIES_AUTHORITATIVE_DIRECTORY_PROOF',JSON.stringify({directoryReady,a:cp.metrics,b:bp.metrics,state:directoryState}));"
+          r(anchor,anchor+"\nconst foreignIdentityLeak=directoryState.some(row=>{const foreign=row.client===FIX.A.client_id?FIX.B:FIX.A;return [foreign.legal,foreign.client_id,foreign.contract_id,foreign.external].filter(Boolean).some(token=>String(row.text||'').includes(String(token)))});\nconsole.log('MY_COMPANIES_FOREIGN_IDENTITY_PROOF',JSON.stringify({foreignIdentityLeak}));",'foreign-proof')
+          r("if(!identityState.A.ok||!identityState.B.ok)fail(failures,'COMPANY_CARD_VISIBLE_IDENTITY_LEAK',identityState);",
+            "if(!identityState.A.ok||!identityState.B.ok||foreignIdentityLeak)fail(failures,'COMPANY_CARD_VISIBLE_IDENTITY_LEAK',{identityState,foreignIdentityLeak});",'foreign-assert')
+          r("||!initialActionState.A.downloadStorage||!initialActionState.B.downloadStorage||initialActionState.A.downloadContract!==FIX.A.contract_id||initialActionState.B.downloadContract!==FIX.B.contract_id)",
+            "||initialActionState.A.downloadStorage!=='QA-STORAGE-A'||initialActionState.B.downloadStorage!=='QA-STORAGE-B'||initialActionState.A.downloadContract!==FIX.A.contract_id||initialActionState.B.downloadContract!==FIX.B.contract_id)",'signed-doc-initial')
+          r("||switchedActionState.A.downloadContract!==FIX.A.contract_id||switchedActionState.B.downloadContract!==FIX.B.contract_id)",
+            "||switchedActionState.A.downloadContract!==FIX.A.contract_id||switchedActionState.B.downloadContract!==FIX.B.contract_id||switchedActionState.A.downloadStorage!=='QA-STORAGE-A'||switchedActionState.B.downloadStorage!=='QA-STORAGE-B')",'signed-doc-switched')
+          r("console.log('BUG2_APPLICATION_OPEN_REFRESH_ROW_SURVIVES_PROOF',JSON.stringify({openedBApplication,beforeRefreshApplication,forcedProjectionRefresh,afterRefreshApplication,refreshTrace}));",
+            "console.log('BUG2_APPLICATION_OPEN_REFRESH_ROW_SURVIVES_PROOF',JSON.stringify({openedBApplication,beforeRefreshApplication,forcedProjectionRefresh,afterRefreshApplication,refreshTrace}));\nconsole.log('APPLICATIONS_LEGACY_EMPTY_OUT_OF_SCOPE_OBSERVATION',JSON.stringify({legacyEmptyVisible:afterRefreshApplication.legacyEmptyVisible}));",'applications-observation')
+          r("if(!openedBApplication||!beforeRefreshApplication.sameRow||!beforeRefreshApplication.detailsVisible||!forcedProjectionRefresh.ok||!refreshTrace.length||!afterRefreshApplication.sameRow||!afterRefreshApplication.rowVisible||!afterRefreshApplication.detailsVisible||afterRefreshApplication.legacyEmptyVisible||afterRefreshApplication.canonicalOwner!=='canonical-v1'||afterRefreshApplication.preserved!=='legacy-render')fail(failures,'B_APPLICATION_ROW_LOST_AFTER_PROJECTION_REFRESH',{openedBApplication,beforeRefreshApplication,forcedProjectionRefresh,afterRefreshApplication,refreshTrace});",
+            "if(!openedBApplication||!beforeRefreshApplication.sameRow||!beforeRefreshApplication.detailsVisible||String(beforeRefreshApplication.buttonText||'').trim()!=='Скрыть'||!forcedProjectionRefresh.ok||!refreshTrace.length||!afterRefreshApplication.sameRow||!afterRefreshApplication.rowVisible||!afterRefreshApplication.detailsVisible||String(afterRefreshApplication.buttonText||'').trim()!=='Скрыть'||afterRefreshApplication.canonicalOwner!=='canonical-v1'||afterRefreshApplication.preserved!=='legacy-render')fail(failures,'B_APPLICATION_ROW_LOST_AFTER_PROJECTION_REFRESH',{openedBApplication,beforeRefreshApplication,forcedProjectionRefresh,afterRefreshApplication,refreshTrace});",'applications-row')
+          p.write_text(s)
+          PY
+          node --check scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs
+          git diff --check
+          git diff -- scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs
+          git commit -m 'test(client): align owner retest contract with system admin scope decision'
+          git push origin HEAD:corrective/issue430-resource-authority-company-race-v1
