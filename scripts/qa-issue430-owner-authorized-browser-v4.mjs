@@ -105,14 +105,23 @@ async function activateCompanies(page){
   return{selector,before,after};
 }
 async function refreshCanonicalDirectory(page,source,expectedCount){
-  const eventBaseline=await page.evaluate(()=>{
-    const key='__ronaIssue430AuthorizedDirectoryEvents';
-    if(!window[key]){
-      const state={count:0};
-      window[key]=state;
+  const baseline=await page.evaluate(()=>{
+    const authorizedKey='__ronaIssue430AuthorizedDirectoryEvents',readyKey='__ronaIssue430RenderedDirectoryEvents';
+    if(!window[authorizedKey]){
+      const state={count:0};window[authorizedKey]=state;
       window.addEventListener('rona:client-authorized-directory',()=>{state.count+=1});
     }
-    return window[key].count;
+    if(!window[readyKey]){
+      const state={count:0,events:[]};window[readyKey]=state;
+      window.addEventListener('rona:client-company-directory-ready',event=>{
+        state.count+=1;
+        const detail=event?.detail||{};
+        state.events.push({sequence:state.count,count:Number(detail.count||0),source:String(detail.source||''),generation:Number(detail.generation||0),materialization:String(detail.materialization||'')});
+        if(state.events.length>32)state.events.shift();
+      });
+    }
+    const root=document.getElementById('clientCompanyGrid');
+    return{authorizedCount:window[authorizedKey].count,readyCount:window[readyKey].count,rootGeneration:Number(root?.dataset?.ronaCompanyDirectoryGeneration||0)};
   });
   const result=await page.evaluate(async({source})=>{
     const api=window.RONA_CLIENT_CONTEXT;
@@ -120,10 +129,19 @@ async function refreshCanonicalDirectory(page,source,expectedCount){
     const payload=await api.refreshCompanyDirectory(source);
     return{source:payload?.data?.company_directory_source||null,count:Array.isArray(payload?.data?.company_directory)?payload.data.company_directory.length:null};
   },{source});
-  await page.waitForFunction(baseline=>(window.__ronaIssue430AuthorizedDirectoryEvents?.count||0)>baseline,eventBaseline,{timeout:30000});
   assert(result?.source===DIRECTORY_SOURCE,`CANONICAL_DIRECTORY_SOURCE_MISMATCH:${JSON.stringify(result)}`);
   assert(result?.count===expectedCount,`CANONICAL_DIRECTORY_COUNT_MISMATCH:${JSON.stringify(result)}`);
-  return result;
+  const rendered=await page.waitForFunction(({baseline,expectedCount,directorySource})=>{
+    const authorized=window.__ronaIssue430AuthorizedDirectoryEvents,ready=window.__ronaIssue430RenderedDirectoryEvents,root=document.getElementById('clientCompanyGrid');
+    if((authorized?.count||0)<=baseline.authorizedCount||!root)return false;
+    const event=(ready?.events||[]).find(x=>x.sequence>baseline.readyCount&&x.source===directorySource&&x.count===expectedCount&&x.generation>baseline.rootGeneration&&String(x.materialization).toUpperCase()==='READY');
+    if(!event)return false;
+    const generation=Number(root.dataset.ronaCompanyDirectoryGeneration||0),readyCards=root.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]').length;
+    if(root.dataset.ronaCompanyDirectorySource!==directorySource||root.dataset.ronaCompanyDirectoryMaterialization!=='ready'||root.dataset.ronaCompanyDirectoryAtomic!=='true')return false;
+    if(generation<event.generation||readyCards!==expectedCount)return false;
+    return{event,generation,readyCards};
+  },{baseline,expectedCount,directorySource:DIRECTORY_SOURCE},{timeout:30000});
+  return{...result,rendered:await rendered.jsonValue()};
 }
 async function stateProof(page){
   return page.evaluate(async target=>{
