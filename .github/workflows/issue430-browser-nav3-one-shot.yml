@@ -1,0 +1,43 @@
+name: issue430 browser nav3 one shot
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'corrective/issue430-owner-uat-resource-metrics-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: corrective/issue430-owner-uat-resource-metrics-v2
+          fetch-depth: 0
+      - name: Use visible semantic navigation evidence without weakening assertions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/qa-issue430-owner-authorized-browser-v2.mjs')
+          s=p.read_text()
+          start=s.find('async function activateCompanies(page){')
+          end=s.find('\nasync function activateDeals(page){',start)
+          if start<0 or end<0: raise SystemExit('COMPANY_NAV_FUNCTION_MISSING')
+          fn=r'''async function activateCompanies(page){const result=await page.evaluate(()=>{const visible=e=>{if(!e||!e.isConnected||e.hidden)return false;const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};const clickable='button,a,[role="button"],[onclick],[data-page],[data-page-id],[data-page-target],[data-target],[data-section],[data-nav],[data-route],[data-tab],[data-tab-id]';const token=e=>[(e.innerText||e.textContent||''),e.getAttribute?.('aria-label')||'',e.getAttribute?.('title')||'',e.getAttribute?.('id')||'',typeof e.className==='string'?e.className:'',e.getAttribute?.('href')||'',e.getAttribute?.('data-page')||'',e.getAttribute?.('data-page-id')||'',e.getAttribute?.('data-page-target')||'',e.getAttribute?.('data-target')||'',e.getAttribute?.('data-section')||'',e.getAttribute?.('data-nav')||'',e.getAttribute?.('data-route')||'',e.getAttribute?.('data-tab')||'',e.getAttribute?.('data-tab-id')||''].join(' ').replace(/\s+/g,' ').trim();const match=e=>/(?:компан|compan(?:y|ies))/iu.test(token(e));let el=[...document.querySelectorAll(clickable)].find(e=>visible(e)&&match(e))||null;if(!el){const semantic=[...document.querySelectorAll('*')].find(e=>visible(e)&&match(e)&&((e.children?.length||0)===0||(e.innerText||'').trim().length<100));el=semantic?.closest?.(clickable)||semantic||null}const sample=[...document.querySelectorAll(clickable)].filter(visible).slice(0,40).map(e=>token(e).slice(0,180));if(!el)return{clicked:false,sample};el.click();return{clicked:true,chosen:token(el).slice(0,240),sample}});assert(result?.clicked,`COMPANIES_NAV_CONTROL_NOT_FOUND:${JSON.stringify(result?.sample||[])}`);await page.waitForFunction(()=>{const grid=document.querySelector('#clientCompanyGrid');if(!grid)return false;const s=getComputedStyle(grid),r=grid.getBoundingClientRect();return !grid.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0},{},{timeout:10000})}'''
+          s=s[:start]+fn+s[end:]
+          p.write_text(s)
+          PY
+          node --check scripts/qa-issue430-owner-authorized-browser-v2.mjs
+          rm .github/workflows/issue430-browser-nav3-one-shot.yml
+          git diff --exit-code -- . ':!scripts/qa-issue430-owner-authorized-browser-v2.mjs' ':!.github/workflows/issue430-browser-nav3-one-shot.yml'
+          git config user.name 'RONA issue430 QA harness'
+          git config user.email 'actions@users.noreply.github.com'
+          git add scripts/qa-issue430-owner-authorized-browser-v2.mjs .github/workflows/issue430-browser-nav3-one-shot.yml
+          git commit -m 'qa(issue430): navigate company section by visible semantic control'
+          git push origin HEAD:corrective/issue430-owner-uat-resource-metrics-v2
