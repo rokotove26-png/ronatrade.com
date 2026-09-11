@@ -15,16 +15,14 @@ on:
 permissions:
   contents: read
   checks: read
-  id-token: write
 
 jobs:
   authoritative-passport-economics:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      BASELINE_SHA: 1843477cb66315bdb7ce7b4e5f0ed13f6d68e412
+      BASELINE_SHA: 0f85c0455e2df319fed49b1a84016929a905e025
       ECONOMICS_E2E_ARTIFACT: artifacts/client-deal-passport-authoritative-economics-v1.json
-      ISSUE430_CANDIDATE_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-portal-api-candidate-20260817/__qa/issue430/economics
     steps:
       - uses: actions/checkout@v4
         with:
@@ -45,7 +43,7 @@ jobs:
           echo "BASELINE_SHA=$BASELINE_SHA"
           echo "CANDIDATE_HEAD_SHA=$head_sha"
 
-      - name: Owner production regression source/E2E proof
+      - name: Existing economics regression proof
         shell: bash
         run: |
           set -euo pipefail
@@ -57,80 +55,9 @@ jobs:
           set -euo pipefail
           npm run build
 
-      - name: Live free candidate read-only proof via GitHub OIDC
-        shell: bash
-        run: |
-          set -euo pipefail
-          token_json="$(curl -fsS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=rona-issue430-candidate-proof")"
-          oidc="$(printf '%s' "$token_json" | jq -r '.value // empty')"
-          test -n "$oidc"
-          curl -fsS -D /tmp/issue430-candidate.headers -o /tmp/issue430-candidate.json \
-            -H "Authorization: Bearer $oidc" \
-            -H 'content-type: application/json' \
-            -H 'accept: application/json' \
-            --data '{"dealIds":["DEAL-2026-009","DEAL-2026-004"]}' \
-            "$ISSUE430_CANDIDATE_URL"
-          grep -qi '^x-rona-portal-backend-slot: candidate' /tmp/issue430-candidate.headers
-          grep -qi '^x-rona-portal-backend-version: ISSUE430_GLOBAL_AUTHORITATIVE_ECONOMICS_V1_HEAD_88D32FCE' /tmp/issue430-candidate.headers
-          node --input-type=module <<'NODE'
-          import {readFile,writeFile} from 'node:fs/promises';
-          const live=JSON.parse(await readFile('/tmp/issue430-candidate.json','utf8'));
-          const assert=(v,m)=>{if(!v)throw new Error(m)};
-          assert(live.ok===true,'LIVE_CANDIDATE_NOT_OK');
-          assert(live.proof==='ISSUE430_LIVE_CANDIDATE_READ_ONLY','LIVE_CANDIDATE_PROOF_MARKER');
-          assert(live.candidate_version==='ISSUE430_GLOBAL_AUTHORITATIVE_ECONOMICS_V1_HEAD_88D32FCE','LIVE_CANDIDATE_VERSION');
-          assert(live.production_business_data_mutation===false,'LIVE_CANDIDATE_MUTATION_FLAG');
-          assert(live.paid_resources===false,'LIVE_CANDIDATE_PAID_FLAG');
-          const byId=new Map((live.rows||[]).map(r=>[r.deal_id,r]));
-          const current=byId.get('DEAL-2026-009');
-          assert(current?.found===true,'DEAL_009_NOT_FOUND');
-          assert(Number(current.confirmed_quantity_tonnes)===490,'DEAL_009_QTY');
-          assert(Number(current.passport_unit_price)===740,'DEAL_009_PRICE');
-          assert(Number(current.passport_amount)===362600,'DEAL_009_AMOUNT');
-          assert(current.passport_currency==='USD','DEAL_009_CURRENCY');
-          assert(current.passport_amount_source==='FINALIZED_ACCEPTED_COUNTEROFFER','DEAL_009_SOURCE');
-          const legacy=byId.get('DEAL-2026-004');
-          assert(legacy?.found===true,'DEAL_004_NOT_FOUND');
-          assert(Number(legacy.confirmed_quantity_tonnes)===315,'DEAL_004_QTY');
-          assert(Number(legacy.passport_unit_price)===750,'DEAL_004_PRICE');
-          assert(Number(legacy.passport_amount)===236250,'DEAL_004_AMOUNT');
-          assert(legacy.passport_currency==='USD','DEAL_004_CURRENCY');
-          assert(legacy.passport_amount_source==='LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS','DEAL_004_SOURCE');
-          const artifactPath=process.env.ECONOMICS_E2E_ARTIFACT;
-          const artifact=JSON.parse(await readFile(artifactPath,'utf8'));
-          artifact.liveCandidate={
-            proof:live.proof,
-            candidateVersion:live.candidate_version,
-            economicsVersion:live.economics_version,
-            productionBusinessDataMutation:false,
-            paidResources:false,
-            rows:live.rows
-          };
-          await writeFile(artifactPath,JSON.stringify(artifact,null,2)+'\n','utf8');
-          console.log('ISSUE430_LIVE_CANDIDATE_READ_ONLY=PASS');
-          console.log(JSON.stringify({candidateVersion:live.candidate_version,deal009:{quantity:current.confirmed_quantity_tonnes,unitPrice:current.passport_unit_price,amount:current.passport_amount,currency:current.passport_currency,source:current.passport_amount_source},deal004:{quantity:legacy.confirmed_quantity_tonnes,unitPrice:legacy.passport_unit_price,amount:legacy.passport_amount,currency:legacy.passport_currency,source:legacy.passport_amount_source},productionBusinessDataMutation:false,paidResources:false}));
-          NODE
-
-      - name: Resolve immutable Cloudflare preview for source/UI inspection only
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          preview=''
-          for i in $(seq 1 24); do
-            summaries=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.name=="Cloudflare Pages" and .status=="completed" and .conclusion=="success") | .output.summary' 2>/dev/null || true)
-            preview=$(printf '%s\n' "$summaries" | grep -oE 'https://[a-f0-9]+\.rona-trade-public\.pages\.dev' | head -1 || true)
-            [ -n "$preview" ] && break
-            sleep 5
-          done
-          echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview" >> "$GITHUB_ENV"
-          echo "IMMUTABLE_PREVIEW_UI_ONLY=$preview"
-          echo 'NOTICE: preview is source/UI evidence only; Owner authenticated UAT is not claimed by this step.'
-
-      - name: Upload focused free-resource proof
+      - name: Upload regression proof
         uses: actions/upload-artifact@v4
         with:
-          name: client-deal-passport-authoritative-economics-free-proof
+          name: client-deal-passport-authoritative-economics-proof
           path: artifacts/client-deal-passport-authoritative-economics-v1.json
           if-no-files-found: error

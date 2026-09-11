@@ -93,7 +93,7 @@ for(const token of [
 
 requireText(contextProxy,'rona-portal-api-candidate-20260817','PREVIEW_GENERIC_CANDIDATE_ROUTE');
 requireText(contextProxy,'rona-trade-public.pages.dev','PREVIEW_GENERIC_HOST_ROUTE');
-requireText(build,"src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11',",'CACHE_KEY');
+requireText(build,"src: '/assets/portal-runtime/client-contract-download-v3.js?v=20260911-company-directory-canonical-claim-v12',",'CACHE_KEY');
 
 // Universal contract source review: product/runtime paths must not carry business-specific literals.
 const productSources={bootstrap,runtime,contextProxy};

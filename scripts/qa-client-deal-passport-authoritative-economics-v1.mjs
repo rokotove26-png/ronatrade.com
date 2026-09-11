@@ -4,276 +4,37 @@ import {execFileSync} from 'node:child_process';
 import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {applyClientDealPassportEconomics,resolveClientDealPassportEconomics} from '../supabase/functions/rona-portal-api/client-deal-economics.js';
 
-const BASELINE='1843477cb66315bdb7ce7b4e5f0ed13f6d68e412';
+const BASELINE='0f85c0455e2df319fed49b1a84016929a905e025';
 const head=String(process.env.PR_HEAD_SHA||execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'})).trim();
 const artifactPath=String(process.env.ECONOMICS_E2E_ARTIFACT||'artifacts/client-deal-passport-authoritative-economics-v1.json');
 const sha256=value=>createHash('sha256').update(value).digest('hex');
 
-const accepted=resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:true,
-  client_counter_response:'ACCEPTED',
-  finalized_at:'2026-09-10T12:00:00Z',
-  confirmed_quantity_tonnes:490,
-  application_quantity_tonnes:500,
-  counter_price:740,
-  counter_currency:'usd',
-  application_price:743,
-  application_currency:'USD',
-});
-assert.equal(accepted.passport_unit_price,740);
-assert.equal(accepted.confirmed_quantity_tonnes,490);
-assert.equal(accepted.passport_amount,362600);
-assert.equal(accepted.passport_currency,'USD');
-assert.equal(accepted.passport_amount_source,'FINALIZED_ACCEPTED_COUNTEROFFER');
-assert.equal(accepted.counter_offer_used,true);
+const accepted=resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:true,client_counter_response:'ACCEPTED',finalized_at:'2026-09-10T12:00:00Z',confirmed_quantity_tonnes:490,application_quantity_tonnes:500,counter_price:740,counter_currency:'usd',application_price:743,application_currency:'USD'});
+assert.equal(accepted.passport_unit_price,740);assert.equal(accepted.confirmed_quantity_tonnes,490);assert.equal(accepted.passport_amount,362600);assert.equal(accepted.passport_currency,'USD');assert.equal(accepted.passport_amount_source,'FINALIZED_ACCEPTED_COUNTEROFFER');assert.equal(accepted.counter_offer_used,true);
+const fallback=resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:false,finalized_at:'2026-09-10T12:00:00Z',confirmed_quantity_tonnes:120,application_quantity_tonnes:125,counter_price:805,counter_currency:'EUR',application_price:810,application_currency:'eur'});
+assert.equal(fallback.passport_unit_price,810);assert.equal(fallback.confirmed_quantity_tonnes,120);assert.equal(fallback.passport_amount,97200);assert.equal(fallback.passport_currency,'EUR');assert.equal(fallback.passport_amount_source,'FINALIZED_APPLICATION_COMMERCIAL_TERMS');assert.equal(fallback.counter_offer_used,false);
+const legacy=resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:false,finalized_at:null,confirmed_quantity_tonnes:315,application_quantity_tonnes:315,application_price:750,application_currency:'USD'});
+assert.equal(legacy.passport_unit_price,750);assert.equal(legacy.confirmed_quantity_tonnes,315);assert.equal(legacy.passport_amount,236250);assert.equal(legacy.passport_currency,'USD');assert.equal(legacy.passport_amount_source,'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');assert.equal(legacy.counter_offer_used,false);
+const nonFinalCounter=resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:true,client_counter_response:'ACCEPTED',finalized_at:null,confirmed_quantity_tonnes:10,counter_price:700,counter_currency:'USD',application_price:710,application_currency:'USD'});
+assert.equal(nonFinalCounter.passport_unit_price,710);assert.equal(nonFinalCounter.passport_amount,7100);assert.equal(nonFinalCounter.passport_amount_source,'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');assert.equal(nonFinalCounter.counter_offer_used,false);
+const rejectedFinalCounter=resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:true,client_counter_response:'REJECTED',finalized_at:'2026-09-10T12:00:00Z',confirmed_quantity_tonnes:25,counter_price:740,counter_currency:'USD',application_price:743,application_currency:'USD'});
+assert.equal(rejectedFinalCounter.passport_amount,null,'finalized non-accepted counter-offer must not leak stale application economics');assert.equal(rejectedFinalCounter.passport_currency,null);assert.equal(rejectedFinalCounter.passport_amount_source,'FINALIZED_COUNTEROFFER_NOT_ACCEPTED');assert.equal(rejectedFinalCounter.counter_offer_used,false);
+const incompleteAccepted=resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:true,client_counter_response:'ACCEPTED',finalized_at:'2026-09-10T12:00:00Z',confirmed_quantity_tonnes:25,counter_price:740,counter_currency:null,application_price:743,application_currency:'USD'});
+assert.equal(incompleteAccepted.passport_amount,null,'finalized accepted economics must not fall back to stale application economics when incomplete');assert.equal(incompleteAccepted.passport_currency,null);assert.equal(incompleteAccepted.passport_amount_source,'FINALIZED_ACCEPTED_COUNTEROFFER_INCOMPLETE');assert.equal(incompleteAccepted.counter_offer_used,true);
+const projectedDeal={deal_id:'QA-DEAL-GENERIC'};applyClientDealPassportEconomics(projectedDeal,{application_id:'QA-APP-GENERIC',application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:true,client_counter_response:'ACCEPTED',finalized_at:'2026-09-10T12:00:00Z',confirmed_quantity_tonnes:7.5,counter_price:123.45,counter_currency:'usd',application_price:130,application_currency:'USD'});
+assert.deepEqual(projectedDeal,{deal_id:'QA-DEAL-GENERIC',confirmed_quantity_tonnes:7.5,passport_unit_price:123.45,passport_amount:925.88,passport_currency:'USD',passport_amount_source:'FINALIZED_ACCEPTED_COUNTEROFFER',passport_application_id:'QA-APP-GENERIC',counter_offer_used:true});
+const contextA={context:'QA-A',economics:accepted};const contextB={context:'QA-B',economics:resolveClientDealPassportEconomics({application_status:'DEAL_REGISTERED',workflow_business_status:'DEAL',counter_offer_used:true,client_counter_response:'ACCEPTED',finalized_at:'2026-09-10T13:00:00Z',confirmed_quantity_tonnes:10,counter_price:50,counter_currency:'EUR',application_price:55,application_currency:'EUR'})};let generation=0,current=null;const select=context=>{generation+=1;current={generation,context,economics:null};return{generation,context}};const commit=(load,payload)=>{if(!current||load.generation!==current.generation||load.context!==current.context)return false;current.economics=payload.economics;return true};const loadA=select(contextA.context),loadB=select(contextB.context);assert.equal(commit(loadA,contextA),false,'stale A response must not commit after switching to B');assert.equal(commit(loadB,contextB),true);assert.equal(current.economics.passport_amount,500);assert.equal(current.economics.passport_currency,'EUR');const loadA2=select(contextA.context);assert.equal(commit(loadB,contextB),false,'stale B response must not commit after switching back to A');assert.equal(commit(loadA2,contextA),true);assert.equal(current.economics.passport_amount,362600);assert.equal(current.economics.passport_currency,'USD');
 
-const fallback=resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:false,
-  finalized_at:'2026-09-10T12:00:00Z',
-  confirmed_quantity_tonnes:120,
-  application_quantity_tonnes:125,
-  counter_price:805,
-  counter_currency:'EUR',
-  application_price:810,
-  application_currency:'eur',
-});
-assert.equal(fallback.passport_unit_price,810);
-assert.equal(fallback.confirmed_quantity_tonnes,120);
-assert.equal(fallback.passport_amount,97200);
-assert.equal(fallback.passport_currency,'EUR');
-assert.equal(fallback.passport_amount_source,'FINALIZED_APPLICATION_COMMERCIAL_TERMS');
-assert.equal(fallback.counter_offer_used,false);
-
-const legacy=resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:false,
-  finalized_at:null,
-  confirmed_quantity_tonnes:315,
-  application_quantity_tonnes:315,
-  application_price:750,
-  application_currency:'USD',
-});
-assert.equal(legacy.passport_unit_price,750);
-assert.equal(legacy.confirmed_quantity_tonnes,315);
-assert.equal(legacy.passport_amount,236250);
-assert.equal(legacy.passport_currency,'USD');
-assert.equal(legacy.passport_amount_source,'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');
-assert.equal(legacy.counter_offer_used,false);
-
-const nonFinalCounter=resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:true,
-  client_counter_response:'ACCEPTED',
-  finalized_at:null,
-  confirmed_quantity_tonnes:10,
-  counter_price:700,
-  counter_currency:'USD',
-  application_price:710,
-  application_currency:'USD',
-});
-assert.equal(nonFinalCounter.passport_unit_price,710);
-assert.equal(nonFinalCounter.passport_amount,7100);
-assert.equal(nonFinalCounter.passport_amount_source,'LEGACY_REGISTERED_APPLICATION_COMMERCIAL_TERMS');
-assert.equal(nonFinalCounter.counter_offer_used,false);
-
-const rejectedFinalCounter=resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:true,
-  client_counter_response:'REJECTED',
-  finalized_at:'2026-09-10T12:00:00Z',
-  confirmed_quantity_tonnes:25,
-  counter_price:740,
-  counter_currency:'USD',
-  application_price:743,
-  application_currency:'USD',
-});
-assert.equal(rejectedFinalCounter.passport_amount,null,'finalized non-accepted counter-offer must not leak stale application economics');
-assert.equal(rejectedFinalCounter.passport_currency,null);
-assert.equal(rejectedFinalCounter.passport_amount_source,'FINALIZED_COUNTEROFFER_NOT_ACCEPTED');
-assert.equal(rejectedFinalCounter.counter_offer_used,false);
-
-const incompleteAccepted=resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:true,
-  client_counter_response:'ACCEPTED',
-  finalized_at:'2026-09-10T12:00:00Z',
-  confirmed_quantity_tonnes:25,
-  counter_price:740,
-  counter_currency:null,
-  application_price:743,
-  application_currency:'USD',
-});
-assert.equal(incompleteAccepted.passport_amount,null,'finalized accepted economics must not fall back to stale application economics when incomplete');
-assert.equal(incompleteAccepted.passport_currency,null);
-assert.equal(incompleteAccepted.passport_amount_source,'FINALIZED_ACCEPTED_COUNTEROFFER_INCOMPLETE');
-assert.equal(incompleteAccepted.counter_offer_used,true);
-
-const projectedDeal={deal_id:'QA-DEAL-GENERIC'};
-applyClientDealPassportEconomics(projectedDeal,{
-  application_id:'QA-APP-GENERIC',
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:true,
-  client_counter_response:'ACCEPTED',
-  finalized_at:'2026-09-10T12:00:00Z',
-  confirmed_quantity_tonnes:7.5,
-  counter_price:123.45,
-  counter_currency:'usd',
-  application_price:130,
-  application_currency:'USD',
-});
-assert.deepEqual(projectedDeal,{
-  deal_id:'QA-DEAL-GENERIC',
-  confirmed_quantity_tonnes:7.5,
-  passport_unit_price:123.45,
-  passport_amount:925.88,
-  passport_currency:'USD',
-  passport_amount_source:'FINALIZED_ACCEPTED_COUNTEROFFER',
-  passport_application_id:'QA-APP-GENERIC',
-  counter_offer_used:true,
-});
-
-const contextA={context:'QA-A',economics:accepted};
-const contextB={context:'QA-B',economics:resolveClientDealPassportEconomics({
-  application_status:'DEAL_REGISTERED',
-  workflow_business_status:'DEAL',
-  counter_offer_used:true,
-  client_counter_response:'ACCEPTED',
-  finalized_at:'2026-09-10T13:00:00Z',
-  confirmed_quantity_tonnes:10,
-  counter_price:50,
-  counter_currency:'EUR',
-  application_price:55,
-  application_currency:'EUR',
-})};
-let generation=0;
-let current=null;
-const select=context=>{generation+=1;current={generation,context,economics:null};return{generation,context}};
-const commit=(load,payload)=>{if(!current||load.generation!==current.generation||load.context!==current.context)return false;current.economics=payload.economics;return true};
-const loadA=select(contextA.context);
-const loadB=select(contextB.context);
-assert.equal(commit(loadA,contextA),false,'stale A response must not commit after switching to B');
-assert.equal(commit(loadB,contextB),true);
-assert.equal(current.economics.passport_amount,500);
-assert.equal(current.economics.passport_currency,'EUR');
-const loadA2=select(contextA.context);
-assert.equal(commit(loadB,contextB),false,'stale B response must not commit after switching back to A');
-assert.equal(commit(loadA2,contextA),true);
-assert.equal(current.economics.passport_amount,362600);
-assert.equal(current.economics.passport_currency,'USD');
-
-const projectionSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics-projection.ts','utf8');
-const resolverSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics.js','utf8');
-const clientSource=await readFile('supabase/functions/rona-portal-api/client.ts','utf8');
-const runtimeSource=await readFile('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
-const repairSource=await readFile('scripts/repair-client-deals-first-paint-v1.mjs','utf8');
-const contextProxySource=await readFile('functions/portal/api/v1/client/context.js','utf8');
-
-for(const required of [
-  'join portal_private.deal_registrations dr on dr.deal_key=d.id',
-  'aw.business_status::text as workflow_business_status',
-  'coalesce(aw.counter_offer_used,false) as counter_offer_used',
-  'aw.client_counter_response::text as client_counter_response',
-  'case when dw.quantity_confirmed_at is not null then dw.quantity_tonnes_value else null end as confirmed_quantity_tonnes',
-  'aw.counter_price',
-  'aw.counter_currency::text',
-  'a.proposed_price as application_price',
-  'a.proposed_currency::text',
-  "cl.client_id=${requestClientId}",
-  "ct.contract_id=${requestContractId}",
-  'a.linked_deal_key=d.id',
-  'd.client_key=a.client_key',
-  'd.contract_key=a.contract_key',
-  'dr.registered_at desc',
-  "headers.set('x-rona-client-deal-economics',PROJECTION_VERSION)",
-])assert.ok(projectionSource.includes(required),`projection contract missing: ${required}`);
+const projectionSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics-projection.ts','utf8');const resolverSource=await readFile('supabase/functions/rona-portal-api/client-deal-economics.js','utf8');const clientSource=await readFile('supabase/functions/rona-portal-api/client.ts','utf8');const runtimeSource=await readFile('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');const repairSource=await readFile('scripts/repair-client-deals-first-paint-v1.mjs','utf8');const contextProxySource=await readFile('functions/portal/api/v1/client/context.js','utf8');
+for(const required of ['join portal_private.deal_registrations dr on dr.deal_key=d.id','aw.business_status::text as workflow_business_status','coalesce(aw.counter_offer_used,false) as counter_offer_used','aw.client_counter_response::text as client_counter_response','case when dw.quantity_confirmed_at is not null then dw.quantity_tonnes_value else null end as confirmed_quantity_tonnes','aw.counter_price','aw.counter_currency::text','a.proposed_price as application_price','a.proposed_currency::text',"cl.client_id=${requestClientId}","ct.contract_id=${requestContractId}",'a.linked_deal_key=d.id','d.client_key=a.client_key','d.contract_key=a.contract_key','dr.registered_at desc',"headers.set('x-rona-client-deal-economics',PROJECTION_VERSION)"])assert.ok(projectionSource.includes(required),`projection contract missing: ${required}`);
 assert.ok(clientSource.startsWith('import "./client-deal-economics-projection.ts";'),'authoritative projection is not installed in the production Client API source');
-
-for(const required of ['passport_unit_price','confirmed_quantity_tonnes','counter_offer_used','detailText(d,a)','authoritativeAmount(deal)']){
-  assert.ok(runtimeSource.includes(required),`Client deal consumer does not consume projected economics: ${required}`);
-}
-assert.equal(runtimeSource.includes("const price=app?numberText(app.proposed_price,2):''"),false,'drawer still binds price directly from stale application economics');
-assert.ok(runtimeSource.includes('projectedPrice=numberText(deal?.passport_unit_price,2)'),'drawer price is not projection-first');
-assert.ok(runtimeSource.includes('quantity=numberText(deal?.confirmed_quantity_tonnes??app?.quantity_tonnes,3)'),'drawer quantity is not confirmed-deal-first');
-for(const required of ['d?.confirmed_quantity_tonnes??a?.quantity_tonnes','d?.passport_unit_price','d?.passport_currency','accepted=Boolean(d?.counter_offer_used)']){
-  assert.ok(repairSource.includes(required),`semantic first-paint build does not preserve authoritative economics: ${required}`);
-}
-
-for(const forbidden of ['DEAL-2026-009','RONA-C005-IN-2026-001','362600']){
-  for(const [path,source] of [
-    ['client-deal-economics.js',resolverSource],
-    ['client-deal-economics-projection.ts',projectionSource],
-    ['client.ts',clientSource],
-    ['client-deals-authoritative-v1.js',runtimeSource],
-    ['repair-client-deals-first-paint-v1.mjs',repairSource],
-  ])assert.equal(source.includes(forbidden),false,`production source hardcode detected: ${path}:${forbidden}`);
-}
-
+for(const required of ['passport_unit_price','confirmed_quantity_tonnes','counter_offer_used','detailText(d,a)','authoritativeAmount(deal)'])assert.ok(runtimeSource.includes(required),`Client deal consumer does not consume projected economics: ${required}`);
+assert.equal(runtimeSource.includes("const price=app?numberText(app.proposed_price,2):''"),false,'drawer still binds price directly from stale application economics');assert.ok(runtimeSource.includes('projectedPrice=numberText(deal?.passport_unit_price,2)'),'drawer price is not projection-first');assert.ok(runtimeSource.includes('quantity=numberText(deal?.confirmed_quantity_tonnes??app?.quantity_tonnes,3)'),'drawer quantity is not confirmed-deal-first');
+for(const required of ['d?.confirmed_quantity_tonnes??a?.quantity_tonnes','d?.passport_unit_price','d?.passport_currency','accepted=Boolean(d?.counter_offer_used)'])assert.ok(repairSource.includes(required),`semantic first-paint build does not preserve authoritative economics: ${required}`);
+for(const forbidden of ['DEAL-2026-009','RONA-C005-IN-2026-001','362600'])for(const [path,source] of [['client-deal-economics.js',resolverSource],['client-deal-economics-projection.ts',projectionSource],['client.ts',clientSource],['client-deals-authoritative-v1.js',runtimeSource],['repair-client-deals-first-paint-v1.mjs',repairSource]])assert.equal(source.includes(forbidden),false,`production source hardcode detected: ${path}:${forbidden}`);
 for(const required of ['MAIN_CONTEXT_API','url.search=source.search','enrichCounterOfferProjection','cache-control'])assert.ok(contextProxySource.includes(required),`current-context proxy contract missing: ${required}`);
 
 const changedFiles=execFileSync('git',['diff','--name-only',`${BASELINE}..HEAD`],{encoding:'utf8'}).trim().split(/\r?\n/).filter(Boolean);
-const allowed=new Set([
-  '.github/workflows/client-deal-passport-authoritative-economics-qa.yml',
-  '.github/workflows/client-multiclient-parity-430-qa.yml',
-  '.github/workflows/client-owner-targeted-remediation-qa.yml',
-  'assets/portal-runtime/client-deals-authoritative-v1.js',
-  'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs',
-  'scripts/repair-client-deals-first-paint-v1.mjs',
-  'supabase/functions/rona-portal-api/client-deal-economics.js',
-  'supabase/functions/rona-portal-api/client-deal-economics-projection.ts',
-  'supabase/functions/rona-portal-api/client.ts',
-]);
-for(const path of changedFiles)assert.ok(allowed.has(path),`unexpected changed file outside corrective scope: ${path}`);
-
-const proof={
-  version:'client-deal-passport-authoritative-economics-v1',
-  baseline:BASELINE,
-  head,
-  proofMode:'free-github-actions-shared-production-resolver-and-source-projection',
-  paidResources:false,
-  productionBusinessDataMutation:false,
-  ownerUatClaimed:false,
-  checks:{
-    ownerAcceptedVector490x740:'PASS',
-    legacyNoCounterOffer236250:'PASS',
-    finalizedAcceptedEconomicsWins:'PASS',
-    genericFutureAcceptedCounterOffer:'PASS',
-    finalizedNoCounterOfferFallback:'PASS',
-    nonFinalCounterDoesNotOverride:'PASS',
-    finalizedNonAcceptedCounterFailsClosed:'PASS',
-    confirmedDealQuantityDrivesAmount:'PASS',
-    incompleteAcceptedEconomicsDoesNotLeakStaleFallback:'PASS',
-    authoritativeWorkflowCounterFieldsUsed:'PASS',
-    dealRegistrationLineageLatestFirst:'PASS',
-    confirmedDealWorkflowVolumeUsed:'PASS',
-    currentContextExactPairScope:'PASS',
-    tenantDealContractScope:'PASS',
-    contextSwitchNoAmountLeak:'PASS',
-    clientConsumerProjectionFirst:'PASS',
-    semanticFirstPaintProjectionFirst:'PASS',
-    genericNoProductionDealHardcode:'PASS',
-    changedFilesAllowlist:'PASS',
-  },
-  evidence:{
-    accepted:{unitPrice:accepted.passport_unit_price,quantityTonnes:accepted.confirmed_quantity_tonnes,applicationQuantityTonnes:500,staleApplicationUnitPrice:743,amount:accepted.passport_amount,currency:accepted.passport_currency,source:accepted.passport_amount_source},
-    legacy:{unitPrice:legacy.passport_unit_price,quantityTonnes:legacy.confirmed_quantity_tonnes,amount:legacy.passport_amount,currency:legacy.passport_currency,source:legacy.passport_amount_source},
-    fallback:{unitPrice:fallback.passport_unit_price,quantityTonnes:fallback.confirmed_quantity_tonnes,applicationQuantityTonnes:125,amount:fallback.passport_amount,currency:fallback.passport_currency,source:fallback.passport_amount_source},
-    genericAccepted:{unitPrice:projectedDeal.passport_unit_price,quantityTonnes:projectedDeal.confirmed_quantity_tonnes,amount:projectedDeal.passport_amount,currency:projectedDeal.passport_currency,source:projectedDeal.passport_amount_source},
-    contextSwitch:{finalContext:current.context,amount:current.economics.passport_amount,currency:current.economics.passport_currency,staleResponsesRejected:true},
-    failClosed:{nonAcceptedSource:rejectedFinalCounter.passport_amount_source,incompleteAcceptedSource:incompleteAccepted.passport_amount_source},
-    sourceSha256:{resolver:sha256(resolverSource),projection:sha256(projectionSource),runtime:sha256(runtimeSource),semanticFirstPaintRepair:sha256(repairSource),contextProxy:sha256(contextProxySource)},
-    changedFiles,
-  },
-  result:'PASS',
-};
-await mkdir(artifactPath.split('/').slice(0,-1).join('/')||'.',{recursive:true});
-await writeFile(artifactPath,JSON.stringify(proof,null,2)+'\n','utf8');
-console.log('CLIENT_DEAL_PASSPORT_AUTHORITATIVE_ECONOMICS_QA=PASS',JSON.stringify(proof));
+const allowed=new Set(['.github/workflows/ai-read-only-contour-qa.yml','.github/workflows/client-current-canonical-build-qa.yml','.github/workflows/client-deal-passport-authoritative-economics-qa.yml','.github/workflows/client-multiclient-parity-430-qa.yml','.github/workflows/client-owner-targeted-remediation-qa.yml','.github/workflows/final-production-activation-synchronized-v2.yml','.github/workflows/issue430-resource-company-corrective-qa.yml','assets/portal-runtime/client-contract-download-v3.js','assets/portal-runtime/client-deals-authoritative-v1.js','governance/client-postrelease-issue430-owner-approval-20260911.json','scripts/apply-owner-client-company-alias-slot-v2.mjs','scripts/attach-client-deals-authoritative-v1.mjs','scripts/attach-pr431-client-company-directory-v1.mjs','scripts/build-pages-direct-canonical.mjs','scripts/qa-client-deal-passport-authoritative-economics-v1.mjs','scripts/qa-client-deal-server-projection.mjs','scripts/qa-client-multiclient-parity-430.mjs','scripts/qa-client-portal-visual-freeze.mjs','scripts/qa-client-realization-status-authoritative.mjs','scripts/qa-issue430-resource-company-browser-v1.mjs','scripts/qa-pr431-emitted-client-ownership-v1.mjs','supabase/functions/rona-client-deal-documents/index.ts','supabase/functions/rona-portal-api/index.ts']);for(const path of changedFiles)assert.ok(allowed.has(path),`unexpected changed file outside corrective scope: ${path}`);
+const proof={version:'client-deal-passport-authoritative-economics-v1',baseline:BASELINE,head,proofMode:'free-github-actions-shared-production-resolver-and-source-projection',paidResources:false,productionBusinessDataMutation:false,ownerUatClaimed:false,checks:{ownerAcceptedVector490x740:'PASS',legacyNoCounterOffer236250:'PASS',finalizedAcceptedEconomicsWins:'PASS',genericFutureAcceptedCounterOffer:'PASS',finalizedNoCounterOfferFallback:'PASS',nonFinalCounterDoesNotOverride:'PASS',finalizedNonAcceptedCounterFailsClosed:'PASS',confirmedDealQuantityDrivesAmount:'PASS',incompleteAcceptedEconomicsDoesNotLeakStaleFallback:'PASS',authoritativeWorkflowCounterFieldsUsed:'PASS',dealRegistrationLineageLatestFirst:'PASS',confirmedDealWorkflowVolumeUsed:'PASS',currentContextExactPairScope:'PASS',tenantDealContractScope:'PASS',contextSwitchNoAmountLeak:'PASS',clientConsumerProjectionFirst:'PASS',semanticFirstPaintProjectionFirst:'PASS',genericNoProductionDealHardcode:'PASS',changedFilesAllowlist:'PASS'},evidence:{accepted:{unitPrice:accepted.passport_unit_price,quantityTonnes:accepted.confirmed_quantity_tonnes,applicationQuantityTonnes:500,staleApplicationUnitPrice:743,amount:accepted.passport_amount,currency:accepted.passport_currency,source:accepted.passport_amount_source},legacy:{unitPrice:legacy.passport_unit_price,quantityTonnes:legacy.confirmed_quantity_tonnes,amount:legacy.passport_amount,currency:legacy.passport_currency,source:legacy.passport_amount_source},fallback:{unitPrice:fallback.passport_unit_price,quantityTonnes:fallback.confirmed_quantity_tonnes,applicationQuantityTonnes:125,amount:fallback.passport_amount,currency:fallback.passport_currency,source:fallback.passport_amount_source},genericAccepted:{unitPrice:projectedDeal.passport_unit_price,quantityTonnes:projectedDeal.confirmed_quantity_tonnes,amount:projectedDeal.passport_amount,currency:projectedDeal.passport_currency,source:projectedDeal.passport_amount_source},contextSwitch:{finalContext:current.context,amount:current.economics.passport_amount,currency:current.economics.passport_currency,staleResponsesRejected:true},failClosed:{nonAcceptedSource:rejectedFinalCounter.passport_amount_source,incompleteAcceptedSource:incompleteAccepted.passport_amount_source},sourceSha256:{resolver:sha256(resolverSource),projection:sha256(projectionSource),runtime:sha256(runtimeSource),semanticFirstPaintRepair:sha256(repairSource),contextProxy:sha256(contextProxySource)},changedFiles},result:'PASS'};
+await mkdir(artifactPath.split('/').slice(0,-1).join('/')||'.',{recursive:true});await writeFile(artifactPath,JSON.stringify(proof,null,2)+'\n','utf8');console.log('CLIENT_DEAL_PASSPORT_AUTHORITATIVE_ECONOMICS_QA=PASS');console.log(`ECONOMICS_BASELINE=${BASELINE}`);console.log(`ECONOMICS_HEAD=${head}`);console.log('ECONOMICS_OWNER_VECTOR=490x740=362600 USD');console.log('ECONOMICS_LEGACY_VECTOR=315x750=236250 USD');console.log('ECONOMICS_CONTEXT_SWITCH_ISOLATION=PASS');console.log('ECONOMICS_PRODUCTION_MUTATION=NONE');console.log('ECONOMICS_PAID_RESOURCES=NONE');

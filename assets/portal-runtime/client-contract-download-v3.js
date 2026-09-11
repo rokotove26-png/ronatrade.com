@@ -16,7 +16,7 @@ const upper=v=>norm(v).toUpperCase();
 const CURRENT_DEAL_ID=/^DEAL-\d{4}-\d{3,}$/i;
 const TERMINAL_DEALS=new Set(['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED']);
 const TERMINAL_APPLICATIONS=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
-function authoritativeCompanyDirectoryOwnsCards(){const d=document.documentElement.dataset;return Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__)||(d.ronaClientCompanyDirectoryAtomic==='true'&&d.ronaClientCompanyDirectorySource==='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB'&&d.ronaClientCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')}
+function authoritativeCompanyDirectoryOwnsCards(){const d=document.documentElement.dataset;return Boolean(window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__)||Boolean(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY__)||(d.ronaClientCompanyDirectoryAtomic==='true'&&d.ronaClientCompanyDirectorySource==='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB'&&d.ronaClientCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY')}
 function metricNumber(value){if(value===null||value===undefined||typeof value==='boolean'||(typeof value==='string'&&!/^\d+$/.test(value.trim())))return null;const n=Number(value);return Number.isInteger(n)&&n>=0?n:null}
 function currentCompanyMetrics(entry){
   const authoritative=entry?.company_metrics&&typeof entry.company_metrics==='object'?entry.company_metrics:null;

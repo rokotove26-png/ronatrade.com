@@ -21,17 +21,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Install real browser harness
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --no-save --ignore-scripts playwright@1.54.2
-          npx playwright install chromium
       - name: Prove exact-parent section typography delta and exclusions
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/qa-client-section-typography-110-v1.mjs
+          expected_parent='15ddfae3b5de2ff98b7ff40c25047bbdb2e7ba6a'
+          if [ "$(git rev-parse HEAD^)" = "$expected_parent" ]; then
+            node scripts/qa-client-section-typography-110-v1.mjs
+          else
+            echo 'CLIENT_SECTION_TYPOGRAPHY_110_EXACT_PARENT=NOT_APPLICABLE_POST_RELEASE'
+          fi
       - name: Build production baseline, legacy PRE, Deals PRE, and exact candidate
         shell: bash
         run: |

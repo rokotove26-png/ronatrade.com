@@ -8,6 +8,7 @@ const CLIENT_LOAD_HOTFIX_APPROVAL_PATH='governance/client-load-hotfix-pr429-owne
 const OWNER_VISUAL_DELTA_APPROVAL_PATH='governance/client-owner-visual-delta-pr429-approval-20260906.json';
 const CLIENT_MULTI_CONTEXT_430_APPROVAL_PATH='governance/client-multiclient-parity-issue430-owner-approval-20260906.json';
 const CLIENT_SECTION_TYPOGRAPHY_110_APPROVAL_PATH='governance/client-section-typography-110-owner-approval-20260909.json';
+const CLIENT_POSTRELEASE_ISSUE430_APPROVAL_PATH='governance/client-postrelease-issue430-owner-approval-20260911.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
@@ -15,6 +16,7 @@ const clientLoadHotfixApproval=JSON.parse(await readFile(CLIENT_LOAD_HOTFIX_APPR
 const ownerVisualDeltaApproval=JSON.parse(await readFile(OWNER_VISUAL_DELTA_APPROVAL_PATH,'utf8'));
 const clientMultiContext430Approval=JSON.parse(await readFile(CLIENT_MULTI_CONTEXT_430_APPROVAL_PATH,'utf8'));
 const clientSectionTypography110Approval=JSON.parse(await readFile(CLIENT_SECTION_TYPOGRAPHY_110_APPROVAL_PATH,'utf8'));
+const clientPostreleaseIssue430Approval=JSON.parse(await readFile(CLIENT_POSTRELEASE_ISSUE430_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -93,6 +95,13 @@ const CLIENT_MULTI_CONTEXT_430_FILES=[
 const CLIENT_SECTION_TYPOGRAPHY_110_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
 ];
+const CLIENT_POSTRELEASE_ISSUE430_FILES=[
+  'assets/portal-runtime/client-contract-download-v3.js'
+];
+const CLIENT_POSTRELEASE_ISSUE430_QA_WIRING_FILES=[
+  '.github/workflows/client-owner-targeted-remediation-qa.yml'
+];
+const CLIENT_POSTRELEASE_ISSUE430_APPROVED_FILES=[...CLIENT_POSTRELEASE_ISSUE430_FILES,...CLIENT_POSTRELEASE_ISSUE430_QA_WIRING_FILES];
 const CLIENT_SECTION_TYPOGRAPHY_110_FINALIZATION_FILES=[
   'governance/client-section-typography-110-owner-approval-20260909.json',
   'scripts/qa-client-portal-visual-freeze.mjs',
@@ -147,6 +156,35 @@ const PR431_TWO_BUG_SCOPED_FREEZE_EXCEPTION={
   }
 };
 const exactArray=(actual,expected)=>Array.isArray(actual)&&actual.length===expected.length&&actual.every((value,index)=>value===expected[index]);
+
+const clientPostreleaseIssue430ExceptionAuthorized=
+  clientPostreleaseIssue430Approval?.approval==='OWNER_SYSTEM_ADMIN_ISSUE_COMMENT'&&
+  clientPostreleaseIssue430Approval?.authorized_at==='2026-09-11'&&
+  clientPostreleaseIssue430Approval?.owner_comment_id===5627234321&&
+  clientPostreleaseIssue430Approval?.system_admin_comment_id===5627544290&&
+  clientPostreleaseIssue430Approval?.communication_rule_comment_id===5627880412&&
+  clientPostreleaseIssue430Approval?.base_commit==='0f85c0455e2df319fed49b1a84016929a905e025'&&
+  clientPostreleaseIssue430Approval?.scope==='CLIENT_POSTRELEASE_RESOURCE_AUTHORITY_AND_COMPANY_RACE_ONLY'&&
+  exactArray(clientPostreleaseIssue430Approval?.approved_protected_files,CLIENT_POSTRELEASE_ISSUE430_APPROVED_FILES)&&
+  clientPostreleaseIssue430Approval?.requirements?.historical_pr431_exact_parent_gate_rebound_only===true&&
+  clientPostreleaseIssue430Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientPostreleaseIssue430Approval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientPostreleaseIssue430Approval?.requirements?.exact_blob_enforcement_remains_active===true&&
+  clientPostreleaseIssue430Approval?.requirements?.wildcard_exception===false&&
+  clientPostreleaseIssue430Approval?.requirements?.minimal_company_card_stabilization_only===true&&
+  clientPostreleaseIssue430Approval?.requirements?.redesign===false&&
+  clientPostreleaseIssue430Approval?.requirements?.css_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.theme_typography_layout_redesign_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.images_added===false&&
+  clientPostreleaseIssue430Approval?.requirements?.resource_authority_scope_only===true&&
+  clientPostreleaseIssue430Approval?.requirements?.company_race_scope_only===true&&
+  clientPostreleaseIssue430Approval?.requirements?.business_data_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.production_business_data_mutation===false&&
+  clientPostreleaseIssue430Approval?.requirements?.supabase_schema_or_rls_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.auth_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.rail_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.production_changed===false&&
+  clientPostreleaseIssue430Approval?.requirements?.merge_before_system_admin_review===false;
 
 const clientSectionTypography110ExceptionAuthorized=
   clientSectionTypography110Approval?.approval==='OWNER_SYSTEM_ADMIN_ISSUE_COMMENT'&&
@@ -417,6 +455,7 @@ const errors=[];
 let ownerVisualDeltaAppliedFiles=0;
 let clientMultiContext430AppliedFiles=0;
 let clientSectionTypography110AppliedFiles=0;
+let clientPostreleaseIssue430AppliedFiles=0;
 let pr431TwoBugScopedAppliedFiles=0;
 let pr431DirectFixExactFiles=0;
 let pr431TypographyQaWiringExactFiles=0;
@@ -461,11 +500,21 @@ if(!pr431DirectFixGovernanceAuthorized){
         qaWiring.required_marker.length>0&&
         source.includes(qaWiring.required_marker)
       );
-      if(!directFixExact&&!typographyQaWiringExact){
+      const postreleaseQaEntry=clientPostreleaseIssue430ExceptionAuthorized?clientPostreleaseIssue430Approval?.exact_post_remediation_blobs?.[path]:null;
+      const postreleaseQaWiringExact=Boolean(
+        CLIENT_POSTRELEASE_ISSUE430_QA_WIRING_FILES.includes(path)&&
+        postreleaseQaEntry&&
+        postreleaseQaEntry.visual_freeze_baseline_blob_sha===entry?.authorized_post_blob_sha&&
+        postreleaseQaEntry.authorized_post_blob_sha===actual&&
+        typeof postreleaseQaEntry.required_marker==='string'&&
+        postreleaseQaEntry.required_marker.length>0&&
+        source.includes(postreleaseQaEntry.required_marker)
+      );
+      if(!directFixExact&&!typographyQaWiringExact&&!postreleaseQaWiringExact){
         errors.push(`PR431_DIRECT_FIX_EXACT_BLOB ${path} expected=${entry?.authorized_post_blob_sha||'missing'} actual=${actual}`);
       }else{
         pr431DirectFixExactFiles+=1;
-        if(typographyQaWiringExact)pr431TypographyQaWiringExactFiles+=1;
+        if(typographyQaWiringExact||postreleaseQaWiringExact)pr431TypographyQaWiringExactFiles+=1;
       }
     }catch(error){errors.push(`PR431_DIRECT_FIX_EXACT_BLOB_MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`)}
   }
@@ -516,18 +565,31 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       pr431Entry.required_marker.length>0&&
       body.toString('utf8').includes(pr431Entry.required_marker)
     );
+    const postreleaseEntry=clientPostreleaseIssue430ExceptionAuthorized?clientPostreleaseIssue430Approval?.exact_post_remediation_blobs?.[path]:null;
+    const exactClientPostreleaseIssue430=Boolean(
+      postreleaseEntry&&
+      postreleaseEntry.visual_freeze_baseline_blob_sha===expected&&
+      postreleaseEntry.authorized_post_blob_sha===actual&&
+      typeof postreleaseEntry.required_marker==='string'&&
+      postreleaseEntry.required_marker.length>0&&
+      body.toString('utf8').includes(postreleaseEntry.required_marker)
+    );
     if(exactOwnerVisualPost)ownerVisualDeltaAppliedFiles+=1;
     if(exactIssue430Post)clientMultiContext430AppliedFiles+=1;
     if(exactTypographyPost)clientSectionTypography110AppliedFiles+=1;
     if(exactPr431TwoBugScopedPost)pr431TwoBugScopedAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(exactClientPostreleaseIssue430&&CLIENT_POSTRELEASE_ISSUE430_FILES.includes(path))clientPostreleaseIssue430AppliedFiles+=1;
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
 }
 
-if(clientSectionTypography110ExceptionAuthorized&&clientSectionTypography110AppliedFiles!==CLIENT_SECTION_TYPOGRAPHY_110_FILES.length){
-  errors.push(`CLIENT_SECTION_TYPOGRAPHY_110_EXACT_BLOB_COUNT expected=${CLIENT_SECTION_TYPOGRAPHY_110_FILES.length} actual=${clientSectionTypography110AppliedFiles}`);
+if(!clientPostreleaseIssue430ExceptionAuthorized)errors.push('CLIENT_POSTRELEASE_ISSUE430_GOVERNANCE_NOT_AUTHORIZED');
+if(clientPostreleaseIssue430ExceptionAuthorized&&clientPostreleaseIssue430AppliedFiles!==CLIENT_POSTRELEASE_ISSUE430_FILES.length)errors.push(`CLIENT_POSTRELEASE_ISSUE430_EXACT_BLOB_COUNT expected=${CLIENT_POSTRELEASE_ISSUE430_FILES.length} actual=${clientPostreleaseIssue430AppliedFiles}`);
+const clientSectionTypography110EffectiveFiles=clientSectionTypography110AppliedFiles+clientPostreleaseIssue430AppliedFiles;
+if(clientSectionTypography110ExceptionAuthorized&&clientSectionTypography110EffectiveFiles!==CLIENT_SECTION_TYPOGRAPHY_110_FILES.length){
+  errors.push(`CLIENT_SECTION_TYPOGRAPHY_110_EXACT_BLOB_COUNT expected=${CLIENT_SECTION_TYPOGRAPHY_110_FILES.length} actual=${clientSectionTypography110EffectiveFiles}`);
 }
 
 const baselineRuntime=new Set(Object.keys(protectedFiles)
