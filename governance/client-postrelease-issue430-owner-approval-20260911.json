@@ -1,0 +1,47 @@
+{
+  "approval": "OWNER_SYSTEM_ADMIN_ISSUE_COMMENT",
+  "authorized_at": "2026-09-11",
+  "owner_comment_id": 5627234321,
+  "system_admin_comment_id": 5627544290,
+  "rework_system_admin_comment_id": 5634978299,
+  "communication_rule_comment_id": 5627880412,
+  "base_commit": "0f85c0455e2df319fed49b1a84016929a905e025",
+  "scope": "CLIENT_POSTRELEASE_RESOURCE_AUTHORITY_AND_COMPANY_RACE_ONLY",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-contract-download-v3.js",
+    ".github/workflows/client-owner-targeted-remediation-qa.yml"
+  ],
+  "exact_post_remediation_blobs": {
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "authorized_post_blob_sha": "7668e879bff5dfcb5dac71222ed09fe94eb35b51",
+      "required_marker": "window.__RONA_CLIENT_COMPANY_DIRECTORY_AUTHORITY__"
+    },
+    ".github/workflows/client-owner-targeted-remediation-qa.yml": {
+      "visual_freeze_baseline_blob_sha": "7b9e1697daca02647c53b643b5d41e193fc02e26",
+      "authorized_post_blob_sha": "4f7e703d82dc9810a70f3f7f307219751c878136",
+      "required_marker": "CLIENT_SECTION_TYPOGRAPHY_110_EXACT_PARENT=NOT_APPLICABLE_POST_RELEASE"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "minimal_company_card_stabilization_only": true,
+    "historical_pr431_exact_parent_gate_rebound_only": true,
+    "redesign": false,
+    "css_changed": false,
+    "theme_typography_layout_redesign_changed": false,
+    "images_added": false,
+    "resource_authority_scope_only": true,
+    "company_race_scope_only": true,
+    "business_data_changed": false,
+    "production_business_data_mutation": false,
+    "supabase_schema_or_rls_changed": false,
+    "auth_changed": false,
+    "rail_changed": false,
+    "production_changed": false,
+    "merge_before_system_admin_review": false
+  }
+}

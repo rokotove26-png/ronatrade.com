@@ -5,7 +5,7 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260905-authoritative-v9-native-passport-strict';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260911-authoritative-v10-canonical-resource';
 const marker='20260905-client-deals-authoritative-live-render-v9-native-passport-strict';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -15,7 +15,7 @@ for(const required of [
   '/v1/client/deal-documents/state?clientId=',
   'data-rona-deals-authoritative-list','data-rona-deals-authoritative-rendered','data-rona-canonical-deal-id','data-open-deal',
   'authoritative-v9','classList.contains(\'active\')','function visible(','function canonicalIn(r,id)',
-  'function openAuthoritativeDeal(id)','function effectiveResource(d)','function drawerFor(id,key)',
+  'function openAuthoritativeDeal(id)','function effectiveResource(d)','function workflowResource(workflow)','ronaResourceAuthority','function drawerFor(id,key)',
   'function contextMatchesPayload(data,ctx,deal)','function workflowRowValid(workflow,id)','function passportSlotsReady(r)',
   'function clearDrawerBinding(drawer','function renderExplicitContextSlots(r,data,ctx)','function waitForExactDrawer(id,key,token',
   'ronaAuthoritativeClientId','ronaAuthoritativeContractId','current-context-v8','unauthorized-deal','authoritative-binding','state.payload=projection',
@@ -71,6 +71,7 @@ integrity.client_runtime.deals_authoritative_renderer={
   cross_context_drawer_reuse:false,
   authoritative_context_markers:['data-rona-authoritative-client-id','data-rona-authoritative-contract-id'],
   inferred_resource_confirmation_blocked:true,
+  passport_resource_authority:'SERVER_AUTHORITATIVE_REALIZATION_RESOURCE_STAGE',
   hardcoded_business_entities:false
 };
 const emitted=Buffer.from(html,'utf8');

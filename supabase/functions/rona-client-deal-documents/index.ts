@@ -67,10 +67,9 @@ function paymentStage(row:any):RealizationStage{
   return{key:"payment",state:"PENDING",detail:"Оплата ещё не подтверждена"};
 }
 function resourceStage(row:any):RealizationStage{
-  const state=String(row.resource_decision_state||"").toUpperCase();
+  const state=String(row.resource_status||"").toUpperCase();
   if(state==="RESOURCE_CONFIRMED")return{key:"resource",state:"DONE",detail:"Ресурс подтверждён"};
   if(state==="RESOURCE_DENIED")return{key:"resource",state:"BLOCKED",detail:"Ресурс не подтверждён"};
-  if(state)return{key:"resource",state:"CURRENT",detail:"Решение по ресурсу обрабатывается"};
   return{key:"resource",state:"PENDING",detail:"Ресурс пока не подтверждён"};
 }
 function shipmentStage(row:any):RealizationStage{
@@ -113,7 +112,7 @@ async function workflowState(c:Ctx,clientId:string,contractId:string){
       coalesce(w.payment_handoff_state,'NOT_SENT') as payment_handoff_state,coalesce(w.payment_expectation_state,'NOT_CREATED') as payment_expectation_state,w.client_addendum_downloaded_at,w.client_invoice_downloaded_at,w.signed_supplement_document_key,w.updated_at as workflow_updated_at,
       sd.document_id as signed_addendum_document_id,sd.authority_state::text as signed_authority_state,sd.lifecycle_state::text as signed_lifecycle_state,
       fs.obligation_amount,fs.received_amount,fs.client_remaining_amount,fs.currency as finance_currency,fs.finance_status as finance_summary_status,fs.updated_at as finance_updated_at,
-      rd.decision_state as resource_decision_state,rd.decided_at as resource_decided_at,
+      rs.resource_status,rs.resource_source,rs.resource_confirmed_at,
       sh.shipment_status::text as shipment_status,sh.actual_departure_at,sh.actual_arrival_at,sh.closed_at as shipment_closed_at,sh.updated_at as shipment_updated_at,
       case when sd.id is not null and sd.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum then 'DOCUMENTS_SIGNED' when coalesce(w.payment_handoff_state,'NOT_SENT')='SENT' then 'PAYMENTS' else 'DEAL_DOCUMENTS' end as client_stage
     from portal_private.deals d
@@ -128,11 +127,9 @@ async function workflowState(c:Ctx,clientId:string,contractId:string){
       order by f.updated_at desc limit 1
     ) fs on true
     left join lateral (
-      select r.decision_state,r.decided_at
-      from portal_private.resource_decisions r
-      where r.deal_key=d.id
-      order by r.decided_at desc nulls last,r.created_at desc limit 1
-    ) rd on true
+      select r.resource_status,r.resource_source,r.resource_confirmed_at
+      from portal_private.resolve_deal_resource_state(d.id) r
+    ) rs on true
     left join lateral (
       select s.shipment_status,s.actual_departure_at,s.actual_arrival_at,s.closed_at,s.updated_at
       from portal_private.shipments s

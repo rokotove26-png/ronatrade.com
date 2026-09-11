@@ -1,0 +1,147 @@
+name: issue430 resource-company corrective QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+
+jobs:
+  corrective-proof:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ISSUE430_BASE_SHA: 0f85c0455e2df319fed49b1a84016929a905e025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Bind candidate to exact authorized production baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$ISSUE430_BASE_SHA^{commit}"
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            merge_base="$(git merge-base "origin/${GITHUB_BASE_REF}" HEAD)"
+            test "$merge_base" = "$ISSUE430_BASE_SHA"
+          fi
+          echo "ISSUE430_EXACT_BASE=$ISSUE430_BASE_SHA"
+          echo "ISSUE430_EXACT_HEAD=$(git rev-parse HEAD)"
+
+      - name: Canonical build and source regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build | tee issue430-canonical-build.log
+          grep -Fq 'CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS' issue430-canonical-build.log
+          grep -Fq 'PR431_SYSTEM_ADMIN_ONE_SHOT_EMITTED_QA=PASS' issue430-canonical-build.log
+          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260911-company-directory-canonical-claim-v12' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260911-authoritative-v10-canonical-resource' dist/portal/client.html
+          test "$(grep -o 'portal-client-company-directory-authority-v1.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
+          node --check scripts/qa-issue430-resource-company-browser-v1.mjs
+          echo 'ISSUE430_CANONICAL_BUILD=PASS'
+
+      - name: Install real browser harness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+
+      - name: Real Chromium resource authority and company race proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-issue430-resource-company-browser-v1.mjs | tee issue430-browser-proof.log
+          grep -F 'ISSUE430_REAL_BROWSER_QA=PASS' issue430-browser-proof.log
+          grep -F 'RESOURCE_AUTHORITY_CONFIRMED_PENDING_DENIED=PASS' issue430-browser-proof.log
+          grep -F 'RESOURCE_STALE_A_B_A=PASS' issue430-browser-proof.log
+          grep -F 'MY_COMPANIES_COLD_LOAD=PASS' issue430-browser-proof.log
+          grep -F 'MY_COMPANIES_HARD_REFRESH=PASS' issue430-browser-proof.log
+          grep -F 'MY_COMPANIES_DELAYED_RECOVERY=PASS' issue430-browser-proof.log
+          grep -F 'MY_COMPANIES_A_B_A=PASS' issue430-browser-proof.log
+          grep -F 'RONA_C005_KPI=1/1/3' issue430-browser-proof.log
+          grep -F 'COMPANY_CARD_GEOMETRY_STABLE=PASS' issue430-browser-proof.log
+
+      - name: Bind tested runtime bytes to immutable Cloudflare preview
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RONA_HEAD: ${{ github.event.pull_request.head.sha }}
+          RONA_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE' | tee issue430-immutable-preview.log
+          import {readFile,writeFile} from 'node:fs/promises';
+          import {createHash} from 'node:crypto';
+          const token=process.env.GH_TOKEN,head=String(process.env.RONA_HEAD||''),repo=process.env.RONA_REPO;
+          if(!/^[0-9a-f]{40}$/i.test(head))throw new Error('ISSUE430_HEAD_REQUIRED');
+          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          const sha=b=>createHash('sha256').update(b).digest('hex');
+          let run=null;
+          for(let i=0;i<120;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
+            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
+            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
+            run=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
+            if(run)break;
+            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
+            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
+            await sleep(5000);
+          }
+          if(!run)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
+          const urls=[...new Set([...String(run?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
+          let origin=urls.length===1?urls[0]:'';
+          const external=String(run?.external_id||'').trim().toLowerCase();
+          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
+          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
+          const paths=[
+            'assets/portal-runtime/portal-client-company-directory-authority-v1.js',
+            'assets/portal-runtime/client-contract-download-v3.js',
+            'assets/portal-runtime/client-deals-authoritative-v1.js',
+            'assets/portal-runtime/client-deal-lifecycle-v1.js'
+          ];
+          const parity=[];
+          for(const path of paths){
+            const local=await readFile(`dist/${path}`),remoteResponse=await fetch(`${origin}/${path}?_qa_head=${head}&_qa_nonce=${Date.now()}`,{cache:'no-store',redirect:'error',headers:{'cache-control':'no-cache'}});
+            if(!remoteResponse.ok)throw new Error(`PREVIEW_ASSET_HTTP_${remoteResponse.status}_${path}`);
+            const remote=Buffer.from(await remoteResponse.arrayBuffer()),localSha=sha(local),remoteSha=sha(remote);
+            if(localSha!==remoteSha)throw new Error(`PREVIEW_ASSET_SHA_MISMATCH_${path}`);
+            parity.push({path,sha256:localSha,bytes:local.length});
+          }
+          const integrityResponse=await fetch(`${origin}/canonical-visual-integrity.json?_qa_head=${head}&_qa_nonce=${Date.now()}`,{cache:'no-store',redirect:'error'});
+          if(!integrityResponse.ok)throw new Error(`PREVIEW_INTEGRITY_HTTP_${integrityResponse.status}`);
+          const integrity=await integrityResponse.json();
+          if(integrity?.client_runtime?.visual_transform!=='NONE')throw new Error('VISUAL_FREEZE_TRANSFORM_CHANGED');
+          const proof={pass:true,head,origin,check_run_id:run.id,external_id:external,asset_parity:parity,visual_transform:integrity?.client_runtime?.visual_transform||null};
+          await writeFile('issue430-immutable-preview-proof.json',JSON.stringify(proof,null,2));
+          console.log(`ISSUE430_IMMUTABLE_PREVIEW=${origin}`);
+          console.log('ISSUE430_PREVIEW_ASSET_PARITY=PASS');
+          console.log('ISSUE430_VISUAL_FREEZE=PASS');
+          NODE
+          grep -F 'ISSUE430_PREVIEW_ASSET_PARITY=PASS' issue430-immutable-preview.log
+          grep -F 'ISSUE430_VISUAL_FREEZE=PASS' issue430-immutable-preview.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue430-corrective-proof-${{ github.run_id }}
+          path: |
+            issue430-canonical-build.log
+            issue430-browser-proof.log
+            issue430-resource-company-browser-proof.json
+            issue430-immutable-preview.log
+            issue430-immutable-preview-proof.json
+          if-no-files-found: warn

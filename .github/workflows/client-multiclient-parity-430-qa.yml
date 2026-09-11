@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      ISSUE430_CURRENT_PRODUCTION_SHA: 1843477cb66315bdb7ce7b4e5f0ed13f6d68e412
+      ISSUE430_CURRENT_PRODUCTION_SHA: 0f85c0455e2df319fed49b1a84016929a905e025
     steps:
       - name: Checkout exact history
         uses: actions/checkout@v4
@@ -58,7 +58,7 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260911-company-directory-canonical-claim-v12' dist/portal/client.html
           node --input-type=module <<'NODE'
           import { readFile } from 'node:fs/promises';
           const integrity=JSON.parse(await readFile('dist/canonical-visual-integrity.json','utf8'));
