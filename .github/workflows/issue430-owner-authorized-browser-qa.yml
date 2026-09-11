@@ -1,0 +1,130 @@
+name: issue430 owner authorized browser QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+  id-token: write
+
+jobs:
+  owner-authorized-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      ISSUE430_BASE_SHA: 77588541119bb1a96375beed3e853e067ab1422f
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Bind exact corrective head and current release base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git fetch --no-tags origin "${GITHUB_BASE_REF}"
+          test "$(git merge-base "origin/${GITHUB_BASE_REF}" HEAD)" = "$ISSUE430_BASE_SHA"
+          echo "ISSUE430_EXACT_BASE=$ISSUE430_BASE_SHA"
+          echo "ISSUE430_EXACT_HEAD=$EXPECTED_HEAD"
+
+      - name: Build and verify narrow corrective source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build | tee issue430-owner-build.log
+          grep -Fq 'ISSUE430_COMPANY_METRIC_PLACEHOLDER_REPAIR=PASS' issue430-owner-build.log
+          node --check functions/portal/api/v1/client/deal-documents/state.js
+          node --check scripts/repair-issue430-company-metrics-v2.mjs
+          node --check scripts/qa-issue430-owner-authorized-browser-v2.mjs
+          grep -Fq "PORTAL_CONTEXT_CANONICAL_RESOURCE_V1" functions/portal/api/v1/client/deal-documents/state.js
+          grep -Fq "resolve_deal_resource_state" supabase/functions/rona-portal-api/index.ts
+          grep -Fq "|---|…|" scripts/repair-issue430-company-metrics-v2.mjs
+          if grep -E 'DEAL-2026-009|RONA-C005|RONA-C005-CTR-2026-001' functions/portal/api/v1/client/deal-documents/state.js scripts/repair-issue430-company-metrics-v2.mjs; then
+            echo 'ISSUE430_FUNCTIONAL_HARDCODE=FAIL'
+            exit 1
+          fi
+          echo 'ISSUE430_FUNCTIONAL_HARDCODE=ABSENT'
+          echo 'ISSUE430_NARROW_SOURCE_CONTRACT=PASS'
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Resolve immutable exact-head Cloudflare preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RONA_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {appendFile} from 'node:fs/promises';
+          const token=process.env.GH_TOKEN,head=process.env.EXPECTED_HEAD,repo=process.env.RONA_REPO;
+          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          let check=null;
+          for(let i=0;i<120;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
+            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
+            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
+            check=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
+            if(check)break;
+            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
+            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
+            await sleep(5000);
+          }
+          if(!check)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
+          const urls=[...new Set([...String(check?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
+          let origin=urls.length===1?urls[0]:'';
+          const external=String(check?.external_id||'').trim().toLowerCase();
+          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
+          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
+          const probe=await fetch(`${origin}/portal/api/v1/client/deal-documents/state?clientId=x&contractId=y&_qa=${Date.now()}`,{redirect:'manual',cache:'no-store'});
+          if(probe.status!==401)throw new Error(`EXACT_ROUTE_FAIL_CLOSED_${probe.status}`);
+          await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\n`);
+          await appendFile(process.env.GITHUB_ENV,`CLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
+          console.log(`ISSUE430_IMMUTABLE_PREVIEW=${origin}`);
+          console.log(`ISSUE430_CLOUDFLARE_CHECK_RUN_ID=${check.id}`);
+          console.log('ISSUE430_EXACT_ROUTE_FAIL_CLOSED=PASS');
+          NODE
+
+      - name: Owner-authorized exact-head real browser proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-issue430-owner-authorized-browser-v2.mjs | tee issue430-owner-browser.log
+          grep -Fq 'ISSUE430_AUTHORIZED_BROWSER_PROOF=PASS' issue430-owner-browser.log
+          grep -Fq 'RESOURCE_PASSPORT_TIMELINE=PASS' issue430-owner-browser.log
+          grep -Fq 'COMPANY_KPI_1_1_3=PASS' issue430-owner-browser.log
+          grep -Fq 'COMPANY_CARD_GEOMETRY_STABLE=PASS' issue430-owner-browser.log
+          grep -Fq 'COLD_LOAD=PASS' issue430-owner-browser.log
+          grep -Fq 'HARD_REFRESH=PASS' issue430-owner-browser.log
+          grep -Fq 'DELAYED_RECOVERY=PASS' issue430-owner-browser.log
+          grep -Fq 'A_B_A_CONTEXT_ISOLATION=PASS' issue430-owner-browser.log
+          grep -Fq 'QA_SESSION_CLEANUP=PASS' issue430-owner-browser.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue430-owner-authorized-browser-${{ github.run_id }}
+          path: |
+            issue430-owner-build.log
+            issue430-owner-browser.log
+            issue430-owner-authorized-browser-proof.json
+          if-no-files-found: warn
+          retention-days: 7
