@@ -1,0 +1,115 @@
+name: Client postrelease state consistency QA
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'scripts/apply-client-postrelease-state-consistency-v1.mjs'
+      - 'scripts/qa-client-postrelease-state-consistency-v1.mjs'
+      - 'supabase/functions/rona-portal-api/client-deal-economics-projection.ts'
+      - 'supabase/functions/rona-portal-api/client-deal-state.js'
+      - '.github/workflows/client-postrelease-state-consistency-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+  id-token: write
+
+jobs:
+  postrelease-state-consistency:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BASELINE_SHA: 0f85c0455e2df319fed49b1a84016929a905e025
+      PROOF_ARTIFACT: artifacts/client-postrelease-state-consistency-v1.json
+      CANDIDATE_QA_URL: https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-portal-api-candidate-20260817/__qa/issue430/postrelease-state
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Bind exact production baseline and candidate HEAD
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$BASELINE_SHA^{commit}"
+          head_sha='${{ github.event.pull_request.head.sha }}'
+          if [ -z "$head_sha" ]; then head_sha="$GITHUB_SHA"; fi
+          echo "PR_HEAD_SHA=$head_sha" >> "$GITHUB_ENV"
+          echo "BASELINE_SHA=$BASELINE_SHA"
+          echo "CANDIDATE_HEAD_SHA=$head_sha"
+
+      - name: Build exact Client candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+
+      - name: Focused source and emitted-runtime proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-postrelease-state-consistency-v1.mjs
+
+      - name: Live read-only canonical resource proof via GitHub OIDC
+        shell: bash
+        run: |
+          set -euo pipefail
+          token_json="$(curl -fsS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=rona-issue430-postrelease-proof")"
+          oidc="$(printf '%s' "$token_json" | jq -r '.value // empty')"
+          test -n "$oidc"
+          curl -fsS -D /tmp/candidate.headers -o /tmp/candidate.json \
+            -H "Authorization: Bearer $oidc" \
+            -H 'content-type: application/json' \
+            -H 'accept: application/json' \
+            --data '{"dealIds":["DEAL-2026-009","DEAL-2026-004"]}' \
+            "$CANDIDATE_QA_URL"
+          grep -qi '^x-rona-portal-backend-slot: candidate' /tmp/candidate.headers
+          node --input-type=module <<'NODE'
+          import {readFile,writeFile} from 'node:fs/promises';
+          const live=JSON.parse(await readFile('/tmp/candidate.json','utf8'));
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          assert(live.ok===true,'LIVE_CANDIDATE_NOT_OK');
+          assert(live.proof==='ISSUE430_POSTRELEASE_STATE_READ_ONLY','LIVE_PROOF_MARKER');
+          assert(live.production_business_data_mutation===false,'LIVE_MUTATION_FLAG');
+          assert(live.paid_resources===false,'LIVE_PAID_FLAG');
+          const rows=Array.isArray(live.rows)?live.rows:[];
+          assert(rows.length>=1,'LIVE_ROWS_EMPTY');
+          for(const row of rows.filter(r=>r.found)){
+            assert(['RESOURCE_CONFIRMED','RESOURCE_DENIED','RESOURCE_PENDING'].includes(row.resource_status),'LIVE_RESOURCE_STATUS_INVALID');
+            assert(row.resource_source,'LIVE_RESOURCE_SOURCE_MISSING');
+          }
+          const artifact=JSON.parse(await readFile(process.env.PROOF_ARTIFACT,'utf8'));
+          artifact.liveCandidate={proof:live.proof,version:live.candidate_version,rows,productionBusinessDataMutation:false,paidResources:false};
+          await writeFile(process.env.PROOF_ARTIFACT,JSON.stringify(artifact,null,2)+'\n');
+          console.log('ISSUE430_POSTRELEASE_LIVE_READ_ONLY=PASS');
+          NODE
+
+      - name: Resolve immutable Cloudflare preview
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          preview=''
+          for i in $(seq 1 36); do
+            summaries=$(gh api "repos/$GITHUB_REPOSITORY/commits/$PR_HEAD_SHA/check-runs?per_page=100" --jq '.check_runs[] | select(.name=="Cloudflare Pages" and .status=="completed" and .conclusion=="success") | .output.summary' 2>/dev/null || true)
+            preview=$(printf '%s\n' "$summaries" | grep -oE 'https://[a-f0-9]+\.rona-trade-public\.pages\.dev' | head -1 || true)
+            [ -n "$preview" ] && break
+            sleep 5
+          done
+          test -n "$preview"
+          echo "IMMUTABLE_PREVIEW=$preview" >> "$GITHUB_ENV"
+          printf '%s\n' "$preview"
+
+      - name: Upload focused free-resource proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-postrelease-state-consistency-free-proof
+          path: artifacts/client-postrelease-state-consistency-v1.json
+          if-no-files-found: error
