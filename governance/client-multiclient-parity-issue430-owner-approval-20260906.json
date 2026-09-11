@@ -39,7 +39,7 @@
         "required_marker": "rona-applications-canonical-preserved"
       },
       "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
-        "authorized_post_blob_sha": "4e906b2519676a14161348abfdb92048528d2435",
+        "authorized_post_blob_sha": "b8a178411394ac806f975c37f81cf365df97e16e",
         "required_marker": "BUG2_APPLICATION_OPEN_REFRESH_ROW_SURVIVES_PROOF"
       },
       ".github/workflows/client-owner-targeted-remediation-qa.yml": {
