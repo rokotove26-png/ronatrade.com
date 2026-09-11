@@ -1,0 +1,40 @@
+name: issue430 base rebind one-shot
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  rebind:
+    if: github.event.pull_request.head.ref == 'corrective/issue430-owner-uat-resource-metrics-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: corrective/issue430-owner-uat-resource-metrics-v2
+          fetch-depth: 0
+      - name: Replace only stale issue430 production base bindings
+        shell: bash
+        run: |
+          set -euo pipefail
+          old='0f85c0455e2df319fed49b1a84016929a905e025'
+          new='77588541119bb1a96375beed3e853e067ab1422f'
+          files='.github/workflows/issue430-resource-company-corrective-qa.yml .github/workflows/client-multiclient-parity-430-qa.yml'
+          for file in $files; do
+            grep -F "$old" "$file"
+            sed -i "s/$old/$new/g" "$file"
+            grep -F "$new" "$file"
+            if grep -F "$old" "$file"; then exit 1; fi
+          done
+          rm .github/workflows/issue430-base-rebind-one-shot.yml
+          git diff --exit-code -- . ':!.github/workflows/issue430-resource-company-corrective-qa.yml' ':!.github/workflows/client-multiclient-parity-430-qa.yml' ':!.github/workflows/issue430-base-rebind-one-shot.yml'
+          git config user.name 'RONA issue430 QA rebind'
+          git config user.email 'actions@users.noreply.github.com'
+          git add .github/workflows/issue430-resource-company-corrective-qa.yml .github/workflows/client-multiclient-parity-430-qa.yml .github/workflows/issue430-base-rebind-one-shot.yml
+          git commit -m 'ci(issue430): rebind gates to current production base'
+          git push origin HEAD:corrective/issue430-owner-uat-resource-metrics-v2
