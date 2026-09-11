@@ -1,0 +1,45 @@
+name: issue430 company navigation diagnostic
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  navigation-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Prove canonical My Companies navigation contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFile} from 'node:fs/promises';
+          import {brotliDecompressSync} from 'node:zlib';
+          const chunks=[];
+          for(let i=0;i<10;i++) chunks.push(await readFile(`portal-src/current/client/payload.${String(i).padStart(2,'0')}`,'utf8'));
+          const html=brotliDecompressSync(Buffer.from(chunks.join(''),'base64')).toString('utf8');
+          const needle='Мои компании';
+          const indexes=[];
+          for(let at=html.indexOf(needle);at>=0;at=html.indexOf(needle,at+needle.length)) indexes.push(at);
+          if(indexes.length!==1) throw new Error(`CANONICAL_COMPANIES_LABEL_COUNT_${indexes.length}`);
+          const at=indexes[0];
+          const before=html.slice(Math.max(0,at-1200),at);
+          const after=html.slice(at,Math.min(html.length,at+1200));
+          console.log('ISSUE430_CANONICAL_COMPANIES_NAV_CONTEXT_BEGIN');
+          console.log((before+after).replace(/\s+/g,' ').trim());
+          console.log('ISSUE430_CANONICAL_COMPANIES_NAV_CONTEXT_END');
+          const page=html.match(/<[^>]+id=["']page-companies["'][^>]*>/i)?.[0]||'';
+          if(!page) throw new Error('CANONICAL_PAGE_COMPANIES_MISSING');
+          console.log(`ISSUE430_CANONICAL_COMPANIES_SECTION=${page.replace(/\s+/g,' ')}`);
+          console.log('ISSUE430_CANONICAL_COMPANIES_NAV_SOURCE_PROOF=PASS');
+          NODE
