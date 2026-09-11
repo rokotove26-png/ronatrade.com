@@ -1,0 +1,41 @@
+name: issue430 browser csp one shot
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [synchronize]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.event.pull_request.head.ref == 'corrective/issue430-owner-uat-resource-metrics-v2'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: corrective/issue430-owner-uat-resource-metrics-v2
+          fetch-depth: 0
+      - name: Replace CSP-sensitive visibility wait only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('scripts/qa-issue430-owner-authorized-browser-v2.mjs')
+          s=p.read_text()
+          old="await page.waitForFunction(()=>{const grid=document.querySelector('#clientCompanyGrid');if(!grid)return false;const s=getComputedStyle(grid),r=grid.getBoundingClientRect();return !grid.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0},{},{timeout:10000})"
+          new="await page.locator('#clientCompanyGrid').waitFor({state:'visible',timeout:10000})"
+          if s.count(old)!=1: raise SystemExit(f'CSP_WAIT_ANCHOR_COUNT_{s.count(old)}')
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check scripts/qa-issue430-owner-authorized-browser-v2.mjs
+          rm .github/workflows/issue430-browser-csp-one-shot.yml
+          git diff --exit-code -- . ':!scripts/qa-issue430-owner-authorized-browser-v2.mjs' ':!.github/workflows/issue430-browser-csp-one-shot.yml'
+          git config user.name 'RONA issue430 QA harness'
+          git config user.email 'actions@users.noreply.github.com'
+          git add scripts/qa-issue430-owner-authorized-browser-v2.mjs .github/workflows/issue430-browser-csp-one-shot.yml
+          git commit -m 'qa(issue430): use CSP-safe company grid visibility wait'
+          git push origin HEAD:corrective/issue430-owner-uat-resource-metrics-v2
