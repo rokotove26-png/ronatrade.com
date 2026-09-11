@@ -48,6 +48,7 @@ jobs:
           node --check functions/portal/api/v1/client/deal-documents/state.js
           node --check scripts/repair-issue430-company-metrics-v2.mjs
           node --check scripts/qa-issue430-owner-authorized-browser-v2.mjs
+          node --check scripts/qa-issue430-company-live-diagnostic.mjs
           grep -Fq "PORTAL_CONTEXT_CANONICAL_RESOURCE_V1" functions/portal/api/v1/client/deal-documents/state.js
           grep -Fq "resolve_deal_resource_state" supabase/functions/rona-portal-api/index.ts
           grep -Fq "|---|…|" scripts/repair-issue430-company-metrics-v2.mjs
@@ -107,6 +108,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node scripts/qa-issue430-company-live-diagnostic.mjs | tee issue430-company-live-diagnostic.log
           node scripts/qa-issue430-owner-authorized-browser-v2.mjs | tee issue430-owner-browser.log
           grep -Fq 'ISSUE430_AUTHORIZED_BROWSER_PROOF=PASS' issue430-owner-browser.log
           grep -Fq 'RESOURCE_PASSPORT_TIMELINE=PASS' issue430-owner-browser.log
@@ -124,6 +126,7 @@ jobs:
           name: issue430-owner-authorized-browser-${{ github.run_id }}
           path: |
             issue430-owner-build.log
+            issue430-company-live-diagnostic.log
             issue430-owner-browser.log
             issue430-owner-authorized-browser-proof.json
           if-no-files-found: warn
