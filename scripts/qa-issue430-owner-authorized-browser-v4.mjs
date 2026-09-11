@@ -105,43 +105,53 @@ async function activateCompanies(page){
   return{selector,before,after};
 }
 async function refreshCanonicalDirectory(page,source,expectedCount){
-  const baseline=await page.evaluate(()=>{
-    const authorizedKey='__ronaIssue430AuthorizedDirectoryEvents',readyKey='__ronaIssue430RenderedDirectoryEvents';
-    if(!window[authorizedKey]){
-      const state={count:0};window[authorizedKey]=state;
-      window.addEventListener('rona:client-authorized-directory',()=>{state.count+=1});
-    }
-    if(!window[readyKey]){
-      const state={count:0,events:[]};window[readyKey]=state;
-      window.addEventListener('rona:client-company-directory-ready',event=>{
-        state.count+=1;
-        const detail=event?.detail||{};
-        state.events.push({sequence:state.count,count:Number(detail.count||0),source:String(detail.source||''),generation:Number(detail.generation||0),materialization:String(detail.materialization||'')});
-        if(state.events.length>32)state.events.shift();
-      });
-    }
-    const root=document.getElementById('clientCompanyGrid');
-    return{authorizedCount:window[authorizedKey].count,readyCount:window[readyKey].count,rootGeneration:Number(root?.dataset?.ronaCompanyDirectoryGeneration||0)};
-  });
-  const result=await page.evaluate(async({source})=>{
-    const api=window.RONA_CLIENT_CONTEXT;
+  const result=await page.evaluate(async({source,expectedCount,directorySource})=>{
+    const api=window.RONA_CLIENT_CONTEXT,root=document.getElementById('clientCompanyGrid');
     if(!api?.refreshCompanyDirectory)throw new Error('CANONICAL_COMPANY_DIRECTORY_REFRESH_API_MISSING');
-    const payload=await api.refreshCompanyDirectory(source);
-    return{source:payload?.data?.company_directory_source||null,count:Array.isArray(payload?.data?.company_directory)?payload.data.company_directory.length:null};
-  },{source});
+    if(!root)throw new Error('CANONICAL_COMPANY_DIRECTORY_ROOT_MISSING');
+    const baselineGeneration=Number(root.dataset.ronaCompanyDirectoryGeneration||0);
+    return await new Promise((resolve,reject)=>{
+      let settled=false,payloadResult=null,authorizedSeen=false,readyEvent=null,timer=null;
+      const snapshot=()=>{
+        const generation=Number(root.dataset.ronaCompanyDirectoryGeneration||0),readyCards=root.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]').length;
+        return{generation,readyCards,source:root.dataset.ronaCompanyDirectorySource||null,materialization:root.dataset.ronaCompanyDirectoryMaterialization||null,atomic:root.dataset.ronaCompanyDirectoryAtomic||null};
+      };
+      const cleanup=()=>{
+        if(timer!==null)clearTimeout(timer);
+        window.removeEventListener('rona:client-authorized-directory',onAuthorized);
+        window.removeEventListener('rona:client-company-directory-ready',onReady);
+        observer.disconnect();
+      };
+      const finish=(fn,value)=>{if(settled)return;settled=true;cleanup();fn(value)};
+      const check=()=>{
+        if(!payloadResult||!authorizedSeen)return;
+        const state=snapshot();
+        const readyBoundary=state.source===directorySource&&state.materialization==='ready'&&state.atomic==='true'&&state.generation>baselineGeneration&&state.readyCards===expectedCount;
+        if(!readyBoundary)return;
+        finish(resolve,{...payloadResult,rendered:{boundary:'rona:client-authorized-directory+data-rona-company-directory-hydration=ready',event:readyEvent,generation:state.generation,readyCards:state.readyCards}});
+      };
+      const onAuthorized=()=>{authorizedSeen=true;check()};
+      const onReady=event=>{
+        const detail=event?.detail||{};
+        if(String(detail.source||'')===directorySource&&Number(detail.count||0)===expectedCount&&Number(detail.generation||0)>baselineGeneration&&String(detail.materialization||'').toUpperCase()==='READY'){
+          readyEvent={count:Number(detail.count||0),source:String(detail.source||''),generation:Number(detail.generation||0),materialization:String(detail.materialization||'')};
+        }
+        check();
+      };
+      const observer=new MutationObserver(check);
+      window.addEventListener('rona:client-authorized-directory',onAuthorized);
+      window.addEventListener('rona:client-company-directory-ready',onReady);
+      observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['data-rona-company-directory-hydration','data-rona-company-directory-generation','data-rona-company-directory-materialization','data-rona-company-directory-atomic','data-rona-company-directory-source']});
+      timer=setTimeout(()=>finish(reject,new Error(`CANONICAL_DIRECTORY_READY_TIMEOUT:${JSON.stringify(snapshot())}`)),30000);
+      Promise.resolve(api.refreshCompanyDirectory(source)).then(payload=>{
+        payloadResult={source:payload?.data?.company_directory_source||null,count:Array.isArray(payload?.data?.company_directory)?payload.data.company_directory.length:null};
+        check();
+      }).catch(error=>finish(reject,error));
+    });
+  },{source,expectedCount,directorySource:DIRECTORY_SOURCE});
   assert(result?.source===DIRECTORY_SOURCE,`CANONICAL_DIRECTORY_SOURCE_MISMATCH:${JSON.stringify(result)}`);
   assert(result?.count===expectedCount,`CANONICAL_DIRECTORY_COUNT_MISMATCH:${JSON.stringify(result)}`);
-  const rendered=await page.waitForFunction(({baseline,expectedCount,directorySource})=>{
-    const authorized=window.__ronaIssue430AuthorizedDirectoryEvents,ready=window.__ronaIssue430RenderedDirectoryEvents,root=document.getElementById('clientCompanyGrid');
-    if((authorized?.count||0)<=baseline.authorizedCount||!root)return false;
-    const event=(ready?.events||[]).find(x=>x.sequence>baseline.readyCount&&x.source===directorySource&&x.count===expectedCount&&x.generation>baseline.rootGeneration&&String(x.materialization).toUpperCase()==='READY');
-    if(!event)return false;
-    const generation=Number(root.dataset.ronaCompanyDirectoryGeneration||0),readyCards=root.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]').length;
-    if(root.dataset.ronaCompanyDirectorySource!==directorySource||root.dataset.ronaCompanyDirectoryMaterialization!=='ready'||root.dataset.ronaCompanyDirectoryAtomic!=='true')return false;
-    if(generation<event.generation||readyCards!==expectedCount)return false;
-    return{event,generation,readyCards};
-  },{baseline,expectedCount,directorySource:DIRECTORY_SOURCE},{timeout:30000});
-  return{...result,rendered:await rendered.jsonValue()};
+  return result;
 }
 async function stateProof(page){
   return page.evaluate(async target=>{
