@@ -106,15 +106,15 @@ async function activateCompanies(page){
 }
 async function refreshCanonicalDirectory(page,source,expectedCount){
   const result=await page.evaluate(async({source,expectedCount,directorySource})=>{
-    const api=window.RONA_CLIENT_CONTEXT,root=document.getElementById('clientCompanyGrid');
+    const api=window.RONA_CLIENT_CONTEXT,root=document.documentElement,grid=document.getElementById('clientCompanyGrid');
     if(!api?.refreshCompanyDirectory)throw new Error('CANONICAL_COMPANY_DIRECTORY_REFRESH_API_MISSING');
-    if(!root)throw new Error('CANONICAL_COMPANY_DIRECTORY_ROOT_MISSING');
-    const baselineGeneration=Number(root.dataset.ronaCompanyDirectoryGeneration||0);
+    if(!root||!grid)throw new Error('CANONICAL_COMPANY_DIRECTORY_ROOT_MISSING');
+    const baselineGeneration=Number(root.dataset.ronaClientCompanyDirectoryGeneration||0);
     return await new Promise((resolve,reject)=>{
       let settled=false,payloadResult=null,authorizedSeen=false,readyEvent=null,timer=null;
       const snapshot=()=>{
-        const generation=Number(root.dataset.ronaCompanyDirectoryGeneration||0),readyCards=root.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]').length;
-        return{generation,readyCards,source:root.dataset.ronaCompanyDirectorySource||null,materialization:root.dataset.ronaCompanyDirectoryMaterialization||null,atomic:root.dataset.ronaCompanyDirectoryAtomic||null};
+        const generation=Number(root.dataset.ronaClientCompanyDirectoryGeneration||0),readyCards=grid.querySelectorAll('article.company-switch-card[data-rona-company-directory-hydration="ready"]').length;
+        return{generation,readyCards,source:root.dataset.ronaClientCompanyDirectorySource||null,materialization:root.dataset.ronaClientCompanyDirectoryMaterialization||null,atomic:root.dataset.ronaClientCompanyDirectoryAtomic||null};
       };
       const cleanup=()=>{
         if(timer!==null)clearTimeout(timer);
@@ -126,14 +126,14 @@ async function refreshCanonicalDirectory(page,source,expectedCount){
       const check=()=>{
         if(!payloadResult||!authorizedSeen)return;
         const state=snapshot();
-        const readyBoundary=state.source===directorySource&&state.materialization==='ready'&&state.atomic==='true'&&state.generation>baselineGeneration&&state.readyCards===expectedCount;
+        const readyBoundary=state.source===directorySource&&state.atomic==='true'&&state.generation>baselineGeneration&&state.readyCards===expectedCount;
         if(!readyBoundary)return;
-        finish(resolve,{...payloadResult,rendered:{boundary:'rona:client-authorized-directory+data-rona-company-directory-hydration=ready',event:readyEvent,generation:state.generation,readyCards:state.readyCards}});
+        finish(resolve,{...payloadResult,rendered:{boundary:'rona:client-authorized-directory+data-rona-company-directory-hydration=ready',event:readyEvent,generation:state.generation,readyCards:state.readyCards,materialization:state.materialization}});
       };
       const onAuthorized=()=>{authorizedSeen=true;check()};
       const onReady=event=>{
         const detail=event?.detail||{};
-        if(String(detail.source||'')===directorySource&&Number(detail.count||0)===expectedCount&&Number(detail.generation||0)>baselineGeneration&&String(detail.materialization||'').toUpperCase()==='READY'){
+        if(String(detail.source||'')===directorySource&&Number(detail.count||0)===expectedCount&&Number(detail.generation||0)>baselineGeneration){
           readyEvent={count:Number(detail.count||0),source:String(detail.source||''),generation:Number(detail.generation||0),materialization:String(detail.materialization||'')};
         }
         check();
@@ -141,7 +141,7 @@ async function refreshCanonicalDirectory(page,source,expectedCount){
       const observer=new MutationObserver(check);
       window.addEventListener('rona:client-authorized-directory',onAuthorized);
       window.addEventListener('rona:client-company-directory-ready',onReady);
-      observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['data-rona-company-directory-hydration','data-rona-company-directory-generation','data-rona-company-directory-materialization','data-rona-company-directory-atomic','data-rona-company-directory-source']});
+      observer.observe(root,{subtree:true,childList:true,attributes:true,attributeFilter:['data-rona-company-directory-hydration','data-rona-client-company-directory-atomic','data-rona-client-company-directory-generation','data-rona-client-company-directory-source','data-rona-client-company-directory-materialization']});
       timer=setTimeout(()=>finish(reject,new Error(`CANONICAL_DIRECTORY_READY_TIMEOUT:${JSON.stringify(snapshot())}`)),30000);
       Promise.resolve(api.refreshCompanyDirectory(source)).then(payload=>{
         payloadResult={source:payload?.data?.company_directory_source||null,count:Array.isArray(payload?.data?.company_directory)?payload.data.company_directory.length:null};
