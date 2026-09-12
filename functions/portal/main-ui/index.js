@@ -1,5 +1,6 @@
 import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js';
 import applicationPassportRuntime from './application-passport-runtime.js';
+import paymentPassportRuntime from './payment-passport-runtime-v1.js';
 import paymentScheduleRuntime from './payment-schedule-runtime-v1.js';
 
 // Issue #442: keep finalized source applications visible through the existing Completed projection.
@@ -10,18 +11,37 @@ const ACTIONS_TO="function application2BActions(a){const bucket=application2BBuc
 const ADMIN_BOOTSTRAP_FROM="async function call(path,options={}){const init={credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'},...options};const r=await fetch(`${API}?path=${encodeURIComponent(path)}`,init);const ct=String(r.headers.get('content-type')||'');if(ct.includes('application/pdf'))return r;const j=await r.json().catch(()=>({}));if(!r.ok||j?.ok===false){const err=new Error(String(j?.code||`HTTP_${r.status}`));err.code=String(j?.code||'REQUEST_FAILED');err.status=r.status;throw err}const data=j.data;if(path==='/admin/bootstrap'&&Array.isArray(data?.rail)){data.rail=data.rail.map(x=>({...x,gu12_number:x.gu12_number??x.gu12Number??x.document_number??x.documentNumber??x.rail_document_id??x.railDocumentId,document_number:x.document_number??x.documentNumber,rail_document_id:x.rail_document_id??x.railDocumentId,deal_id:x.deal_id??x.dealId,route_text:x.route_text??x.routeText}))}return data}";
 const ADMIN_BOOTSTRAP_TO="async function call(path,options={}){const init={credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'},...options},target=path==='/admin/bootstrap'?'/portal/admin-completed-bootstrap':`${API}?path=${encodeURIComponent(path)}`,r=await fetch(target,init),ct=String(r.headers.get('content-type')||'');if(ct.includes('application/pdf'))return r;const j=await r.json().catch(()=>({}));if(!r.ok||j?.ok===false){const err=new Error(String(j?.code||`HTTP_${r.status}`));err.code=String(j?.code||'REQUEST_FAILED');err.status=r.status;throw err}const data=j.data;if(path==='/admin/bootstrap'&&Array.isArray(data?.rail)){data.rail=data.rail.map(x=>({...x,gu12_number:x.gu12_number??x.gu12Number??x.document_number??x.documentNumber??x.rail_document_id??x.railDocumentId,document_number:x.document_number??x.documentNumber,rail_document_id:x.rail_document_id??x.railDocumentId,deal_id:x.deal_id??x.dealId,route_text:x.route_text??x.routeText}));window.__RONA_ADMIN_COMPLETED_APPLICATIONS_PROJECTION__=String(r.headers.get('x-rona-admin-completed-applications')||'SERVER_MATERIALIZED')}return data}";
 
+const PAYMENTS_TOTALS_FROM="const totals=canonicalFinanceArray(f.paymentTotalsByCurrency),outs=canonicalFinanceArray(f.outgoingPayments),sums=canonicalFinanceArray(f.dealFinanceSummaries);";
+const PAYMENTS_TOTALS_TO="const totals=canonicalFinanceArray(f.clientReceiptTotalsByCurrency),outs=canonicalFinanceArray(f.outgoingPayments),sums=canonicalFinanceArray(f.dealFinanceCurrentState);";
+const PAYMENTS_EXPECTED_FROM="const currentExpected=s=>isLive(s)&&Number(s?.client_remaining_amount)>0&&['DUE','OVERDUE','PAYMENT_DUE','AWAITING_PAYMENT'].includes(dueStatus(s)),deferredExpected=s=>isLive(s)&&Number(s?.client_remaining_amount)>0&&dueStatus(s)==='NOT_DUE';";
+const PAYMENTS_EXPECTED_TO="const currentExpected=s=>String(s?.payment_schedule_projection_status||'').toUpperCase()==='AUTHORITATIVE'&&Number(s?.current_due_amount)>0,deferredExpected=s=>String(s?.payment_schedule_projection_status||'').toUpperCase()==='AUTHORITATIVE'&&Number(s?.deferred_not_due_amount)>0;";
+const PAYMENTS_KPI_FROM="const currentExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',currentExpected),deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()==='CONFIRMED');";
+const PAYMENTS_KPI_TO="const currentExpectedTotals=canonicalFinanceArray(f.currentDueTotalsByCurrency),deferredExpectedTotals=canonicalFinanceArray(f.deferredNotDueTotalsByCurrency),outgoingTotals=canonicalFinanceArray(f.paidDealTotalsByCurrency);";
+const PAYMENTS_SUMMARY_FROM="let summary=null;if(visibleSums.length)summary=card('Финансовая картина по сделкам',tbl(['Deal ID','Клиент','Получено','Обязательство клиента','Остаток клиента к оплате','Оплачено в рамках сделки','Распределение поступлений','Finance','Accounting'],visibleSums.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',money(s.received_amount,s.currency),s.obligation_amount===null||s.obligation_amount===undefined?'—':money(s.obligation_amount,s.currency),s.client_remaining_amount===null||s.client_remaining_amount===undefined?'—':money(s.client_remaining_amount,s.currency),dealOutgoingText(String(s.deal_id||''),outs),dealIncomingAllocationCell(f,s),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)])));";
+const PAYMENTS_SUMMARY_TO="let summary=null;if(visibleSums.length)summary=card('Финансовая картина по сделкам',tbl(['Deal ID','Клиент','Получено','Обязательство клиента','Остаток клиента к оплате','Оплачено в рамках сделки','Распределение поступлений','Finance','Accounting','Паспорт'],visibleSums.map(s=>[s.deal_id||'—',s.client_name||s.client_id||'—',money(s.verified_received_amount,s.currency),s.obligation_amount===null||s.obligation_amount===undefined?'—':money(s.obligation_amount,s.currency),s.client_remaining_amount===null||s.client_remaining_amount===undefined?'—':money(s.client_remaining_amount,s.currency),dealOutgoingText(String(s.deal_id||''),outs),dealIncomingAllocationCell(f,s),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status),e('button',{type:'button','data-rona-payment-passport-open':String(s.deal_id||''),text:'Открыть'})])));";
+const PAYMENTS_CURRENT_ROW_FROM="money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))";
+const PAYMENTS_CURRENT_ROW_TO="money(s.verified_received_amount,s.currency),money(s.current_due_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))";
+const PAYMENTS_DEFERRED_ROW_FROM="money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),financePill('Срок не наступил','info')]))";
+const PAYMENTS_DEFERRED_ROW_TO="money(s.verified_received_amount,s.currency),money(s.deferred_not_due_amount,s.currency),financeStatusCell(s.finance_status),financePill('Срок не наступил','info')]))";
+
 export async function onRequest(context){
   const response=await serveCurrentAdminUi(context);
-  const source=await response.text();
-  if(!source.includes(BUCKET_FROM)||!source.includes(ACTIONS_FROM)||!source.includes(ADMIN_BOOTSTRAP_FROM)){
-    return new Response('APPLICATION_DEAL_HANDOFF_PATCH_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  let source=await response.text();
+  const required=[BUCKET_FROM,ACTIONS_FROM,ADMIN_BOOTSTRAP_FROM,PAYMENTS_TOTALS_FROM,PAYMENTS_EXPECTED_FROM,PAYMENTS_KPI_FROM,PAYMENTS_SUMMARY_FROM,PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_DEFERRED_ROW_FROM];
+  if(required.some(token=>!source.includes(token))){
+    return new Response('ADMIN_PAYMENT_OWNER_SCREEN_PATCH_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
-  const patched=source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO).replace(ADMIN_BOOTSTRAP_FROM,ADMIN_BOOTSTRAP_TO)+applicationPassportRuntime+paymentScheduleRuntime;
+  source=source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO).replace(ADMIN_BOOTSTRAP_FROM,ADMIN_BOOTSTRAP_TO)
+    .replace(PAYMENTS_TOTALS_FROM,PAYMENTS_TOTALS_TO).replace(PAYMENTS_EXPECTED_FROM,PAYMENTS_EXPECTED_TO).replace(PAYMENTS_KPI_FROM,PAYMENTS_KPI_TO)
+    .replace(PAYMENTS_SUMMARY_FROM,PAYMENTS_SUMMARY_TO).replace(PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_CURRENT_ROW_TO).replace(PAYMENTS_DEFERRED_ROW_FROM,PAYMENTS_DEFERRED_ROW_TO);
+  const patched=source+applicationPassportRuntime+paymentPassportRuntime+paymentScheduleRuntime;
   const headers=new Headers(response.headers);
   headers.set('content-length',String(new TextEncoder().encode(patched).length));
   headers.set('x-rona-application-deal-handoff','approved-to-deal-v1');
   headers.set('x-rona-application-passport','first-render-v2');
   headers.set('x-rona-admin-completed-applications','owner-r1-server-v2');
   headers.set('x-rona-admin-payment-schedule','dynamic-finance-current-state-v2');
+  headers.set('x-rona-admin-payment-owner-screen','final-owner-current-v1');
+  headers.set('x-rona-payment-passport','server-projection-v1');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
