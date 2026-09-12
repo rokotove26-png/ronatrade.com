@@ -1,0 +1,31 @@
+name: Payment allocation fresh authority materialization V1 QA
+
+on:
+  push:
+    branches: [tech/payment-allocation-fresh-authority-materialization-v1]
+    paths:
+      - 'supabase/migrations/20260913005000_payment_allocation_fresh_authority_materialization_v1.sql'
+      - 'scripts/qa-payment-allocation-fresh-authority-materialization-v1.mjs'
+      - '.github/workflows/payment-allocation-fresh-authority-materialization-v1.yml'
+  pull_request:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths:
+      - 'supabase/migrations/20260913005000_payment_allocation_fresh_authority_materialization_v1.sql'
+      - 'scripts/qa-payment-allocation-fresh-authority-materialization-v1.mjs'
+      - '.github/workflows/payment-allocation-fresh-authority-materialization-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-materialization-source-and-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source contract and transactional model QA
+        run: node scripts/qa-payment-allocation-fresh-authority-materialization-v1.mjs
