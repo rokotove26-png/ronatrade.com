@@ -29,7 +29,11 @@ create table if not exists portal_private.finance_deal_execution_usd_links_v5 (
     or
     (execution_state='CONVERTED_EXECUTION_PENDING'
       and execution_payment_id is null
-      and obligation_reference is not null and btrim(obligation_reference)<>'')
+      and (
+        (obligation_reference is not null and btrim(obligation_reference)<>'')
+        or
+        (treasury_source_reference is not null and btrim(treasury_source_reference)<>'')
+      ))
   )
 );
 
@@ -63,4 +67,4 @@ before update or delete on portal_private.finance_deal_execution_usd_links_v5
 for each row execute function portal_private.finance_deal_execution_usd_links_v5_immutable();
 
 comment on table portal_private.finance_deal_execution_usd_links_v5 is
-'Immutable Finance/Treasury factual USD resource-consumption evidence for Owner Payments. Native-currency legs remain evidence detail. COMPLETED means exact USD source is tied to an executed Deal obligation; CONVERTED_EXECUTION_PENDING is excluded from completed actual spend.';
+'Immutable Finance/Treasury factual USD resource-consumption evidence for Owner Payments. Native-currency legs remain evidence detail. COMPLETED means exact USD source is tied to an executed Deal obligation. CONVERTED_EXECUTION_PENDING is source-locked to the Deal/treasury purpose, is excluded from completed actual spend, and may precede a finalized execution-payment or obligation reference.';
