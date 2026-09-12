@@ -12,6 +12,7 @@ on:
       - 'scripts/qa-admin-applications-completed-v1.mjs'
       - 'scripts/qa-admin-applications-completed-runtime-v2.mjs'
       - 'scripts/qa-admin-applications-completed-browser-v2.mjs'
+      - 'scripts/qa-admin-application-passport-source-regression.mjs'
       - '.github/workflows/admin-applications-completed-hotfix-qa.yml'
   workflow_dispatch:
 
@@ -35,5 +36,7 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
+      - name: Prove restored passport source contract without current core application
+        run: node scripts/qa-admin-application-passport-source-regression.mjs
       - name: Prove completed bucket, passport and reload in authenticated browser runtime
         run: node scripts/qa-admin-applications-completed-browser-v2.mjs
