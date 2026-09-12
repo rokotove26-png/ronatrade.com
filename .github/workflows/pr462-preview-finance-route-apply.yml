@@ -1,0 +1,42 @@
+name: PR462 preview Finance route apply
+
+on:
+  push:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths:
+      - 'scripts/patch-pr462-preview-finance-route.mjs'
+      - '.github/workflows/pr462-preview-finance-route-apply.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-preview-route:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/admin-payments-final-owner-screen-passport-v1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply exact preview-only Finance backend route
+        run: node scripts/patch-pr462-preview-finance-route.mjs
+      - name: Verify and commit route patch if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq 'PR462_PREVIEW_FINANCE_AUTHORITY' functions/portal/owner-api.js
+          grep -Fq 'rona-admin-source-eval-candidate-20260817' functions/portal/owner-api.js
+          if git diff --quiet -- functions/portal/owner-api.js; then
+            echo 'PR462_PREVIEW_FINANCE_ROUTE_COMMIT=ALREADY_PRESENT'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add functions/portal/owner-api.js
+          git commit -m 'fix: route PR462 preview Finance sync to trusted candidate'
+          git push origin HEAD:feat/admin-payments-final-owner-screen-passport-v1
+          echo 'PR462_PREVIEW_FINANCE_ROUTE_COMMIT=CREATED'
