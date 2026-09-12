@@ -14,7 +14,7 @@ const workflow={
   ],
   deals:[
     {application_id:'TEST-IN-2026-002',deal_id:'DEAL-2026-002',business_status:'EXECUTING',client_id:'TEST-C002',legal_name:'Клиент 2',contract_id:'TEST-CTR-002',source_product:'Товар 2',source_quantity_tonnes:20},
-    {application_id:'TEST-IN-2026-003',deal_id:'DEAL-2026-003',business_status:'EXECUTING',client_id:'TEST-C003',legal_name:'Клиент 3',contract_id:'TEST-CTR-003',source_product:'Товар 3',source_quantity_tonnes:30,delivery_basis:'CPT',destination:'Станция',source_proposed_price:740,source_proposed_currency:'USD'},
+    {application_id:'TEST-IN-2026-003',deal_id:'DEAL-2026-003',business_status:'EXECUTING',client_id:'TEST-C003',legal_name:'Клиент 3',contract_id:'TEST-CTR-003',source_product:'Товар 3',source_quantity_tonnes:30,source_delivery_period_from:'2026-09-10',source_delivery_period_to:'2026-09-30',source_delivery_basis:'CPT',source_destination:'Станция',source_delivery_method:'RAIL',source_payment_terms:'100% предоплата',source_price_mode:'CLIENT_PRICE',source_proposed_price:740,source_proposed_currency:'USD'},
     {application_id:'TEST-IN-2026-004',deal_id:'DEAL-2026-004',business_status:'REGISTERED',client_id:'TEST-C004'}
   ]
 };
@@ -32,6 +32,13 @@ assert.equal(restored.lifecycle_state,'ARCHIVED');
 assert.equal(restored.deal_id,'DEAL-2026-003');
 assert.equal(restored.product,'Товар 3');
 assert.equal(restored.quantity_tonnes,30);
+assert.equal(restored.delivery_period_from,'2026-09-10');
+assert.equal(restored.delivery_period_to,'2026-09-30');
+assert.equal(restored.delivery_basis,'CPT');
+assert.equal(restored.destination,'Станция');
+assert.equal(restored.delivery_method,'RAIL');
+assert.equal(restored.payment_terms,'100% предоплата');
+assert.equal(restored.price_mode,'CLIENT_PRICE');
 assert.equal(restored.proposed_price,740);
 assert.equal(restored.proposed_currency,'USD');
 
@@ -62,7 +69,8 @@ for(const required of [
   "return'COMPLETED'",
   'data-rona-app-passport-open',
   'openApplicationPassport',
-  'authoritativeOwnerApplication'
+  'authoritativeOwnerApplication',
+  'canonicalPassportResolver'
 ])assert.ok(emitted.includes(required),`materialized Admin runtime missing ${required}`);
 assert.ok(!emitted.includes("call('/admin/workflow-bootstrap')"),'emitted runtime must consume already-materialized server snapshot');
 
@@ -74,15 +82,31 @@ for(const required of [
   'data-rona-app-passport-open',
   'openApplicationPassport(id,button=null)',
   'authoritativeOwnerApplication(id)',
+  'canonicalPassportResolver(id)',
+  'optionalCorePassportEnrichment(id)',
   "authoritativeJson('/portal/admin-completed-bootstrap'",
   "authoritativeJson('/portal/api/v1/admin/bootstrap'",
+  "addField(context.grid,'ID заявки'",
+  "addField(context.grid,'Deal ID'",
   "document.addEventListener('click'",
   'window.openApplicationPassport'
 ])assert.ok(passport.includes(required),`application passport integration missing ${required}`);
+assert.ok(!passport.includes("throw new Error('ADMIN_APPLICATION_PASSPORT_SOURCE_MISSING')"),'restored historical passport must not require an exact current-core application');
+assert.ok(!passport.includes('usableCore('),'passport resolver must not gate opening on current core membership');
 for(const forbidden of ['MutationObserver','requestAnimationFrame','waitPassport','__RONA_OWNER_ADMIN_READY__','applyButtons','scheduleButtons'])assert.ok(!passport.includes(forbidden),`passport action must not depend on post-render injection primitive ${forbidden}`);
+
+const regression=await readFile('scripts/qa-admin-application-passport-source-regression.mjs','utf8');
+for(const required of [
+  'mergeAdminCompletedApplications(baseAdminData,workflowProjection)',
+  "assert.equal(core.applications.some(a=>a.application_id===restoredCompleted.application_id),false",
+  'completed_projection_present=true',
+  'core_application_present=false',
+  'passport_open=true',
+  'optional_intake_missing_graceful=true'
+])assert.ok(regression.includes(required),`passport source regression fixture missing ${required}`);
 
 const helper=await readFile('functions/portal/main-ui/admin-completed-applications.js','utf8');
 assert.ok(!/RONA-C\d+|DEAL-2026-00\d/.test(helper),'runtime helper must not contain client/application/deal hardcodes');
 assert.ok(!/RONA-C\d+|TEST-IN-DONE|TEST-DEAL-DONE/.test(passport),'passport runtime must remain generic');
 
-console.log('ADMIN_APPLICATIONS_COMPLETED_V3=PASS first_render_action=true delegated_handler=true authoritative_owner_fallback=true observer_owner=false generic=true');
+console.log('ADMIN_APPLICATIONS_COMPLETED_V4=PASS first_render_action=true canonical_passport_resolver=true restored_without_core_supported=true current_core_enrichment=true optional_intake_graceful=true observer_owner=false generic=true');
