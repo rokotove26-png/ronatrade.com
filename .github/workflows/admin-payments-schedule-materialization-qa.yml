@@ -44,7 +44,10 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.54.2
           npx playwright install --with-deps chromium
       - name: Payment schedule real browser runtime QA
-        run: node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-schedule-materialization-browser-v1.mjs
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/admin-payments
+          node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-schedule-materialization-browser-v1.mjs 2>&1 | tee artifacts/admin-payments/payment-schedule-browser-qa.log
       - name: Inherited Finance allocation browser regression
         run: node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-finance-allocation-browser-v1.mjs
       - name: Broad Admin runtime regression
@@ -54,5 +57,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: admin-payments-schedule-materialization-v1-browser-proof
-          path: artifacts/admin-payments/ADMIN_PAYMENTS_SCHEDULE_MATERIALIZATION_V1.png
+          path: artifacts/admin-payments/
           if-no-files-found: warn
