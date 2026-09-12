@@ -1,0 +1,57 @@
+name: Payment allocation authority exclusivity V1 QA
+
+on:
+  push:
+    branches: [tech/payment-allocation-fresh-authority-materialization-v1]
+  pull_request:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-exclusivity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Static authority exclusivity contract
+        run: node scripts/qa-payment-allocation-authority-exclusivity-v1.mjs
+      - name: Seed prior materialization QA state
+        run: psql -v ON_ERROR_STOP=1 -f scripts/qa-payment-allocation-fresh-authority-materialization-v1.sql
+      - name: Production-equivalent privilege and bypass QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa-payment-allocation-authority-exclusivity-v1.sql | tee /tmp/authority-exclusivity.log
+          grep -Fq 'PRODUCTION_EQUIVALENT_PRIVILEGES=PASS' /tmp/authority-exclusivity.log
+          grep -Fq 'DIRECT_FRESH_INSERT_BYPASS_BLOCKED=PASS' /tmp/authority-exclusivity.log
+          grep -Fq 'MANUAL_GUC_UPDATE_BYPASS_BLOCKED=PASS' /tmp/authority-exclusivity.log
+          grep -Fq 'DIRECT_HISTORY_WRITE_BLOCKED=PASS' /tmp/authority-exclusivity.log
+          grep -Fq 'CONTROLLED_RPC_ONLY_COMMIT=PASS' /tmp/authority-exclusivity.log
+          grep -Fq 'ROLLBACK_HISTORY_ATOMIC=PASS' /tmp/authority-exclusivity.log
+          grep -Fq 'SERVER_ONLY_AUTHORITY_EXCLUSIVITY=PASS' /tmp/authority-exclusivity.log
