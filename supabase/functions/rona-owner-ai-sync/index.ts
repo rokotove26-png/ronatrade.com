@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import { buildPaymentScheduleAuthority } from "./payment-schedule-authority.ts";
+import { buildPaymentOwnerScreenState } from "./payment-owner-screen.ts";
 const DB=Deno.env.get("SUPABASE_DB_URL"),SUPA_URL=Deno.env.get("SUPABASE_URL");if(!DB||!SUPA_URL)throw new Error("runtime vars missing");const sql=postgres(DB,{prepare:false,max:1,idle_timeout:1,max_lifetime:30,connect_timeout:5});const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function runtimeKey(kind){const legacy=kind==="pub"?Deno.env.get("SUPABASE_ANON_KEY"):Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");if(legacy)return legacy;const raw=Deno.env.get(kind==="pub"?"SUPABASE_PUBLISHABLE_KEYS":"SUPABASE_SECRET_KEYS");if(raw){const p=JSON.parse(raw);if(p.default)return p.default}throw new Error("key missing")}
 function send(status,body){return new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}})}function claims(token){try{const p=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return JSON.parse(atob(p+"=".repeat((4-p.length%4)%4)))}catch{return{}}}
@@ -129,11 +130,14 @@ async function adminSync(){
 
   const payments=await sql`
     select p.payment_id,p.payment_at,p.amount,p.currency,
-           nullif(p.payer_name,'') payer_name,
-           p.original_payment_purpose,p.bank_transaction_reference,
-           p.bank_fact_status::text bank_fact_status,p.finance_status::text finance_status,
-           p.accounting_closure_status::text accounting_closure_status,
-           p.source_system,p.source_version,p.source_timestamp
+           nullif(p.payer_name,'') payer_name,nullif(p.beneficiary_name,'') beneficiary_name,
+           nullif(p.counterparty_name,'') counterparty_name,nullif(p.counterparty_role,'') counterparty_role,
+           p.original_payment_purpose,p.bank_transaction_reference,p.bank_account_reference,p.bank_statement_date,
+           p.bank_fact_status::text bank_fact_status,p.finance_status::text finance_status,p.accounting_closure_status::text accounting_closure_status,
+           p.payment_direction::text payment_direction,p.payment_kind::text payment_kind,p.finance_verification_status::text finance_verification_status,
+           p.deal_allocation_applicability::text deal_allocation_applicability,p.allocation_review_status::text allocation_review_status,
+           p.fx_equivalent_amount,p.fx_equivalent_currency,p.fx_rate,p.fx_source_reference,p.candidate_deal_ids,
+           p.source_system,p.source_version,p.source_timestamp,p.authority_state::text authority_state,p.lifecycle_state::text lifecycle_state
     from portal_private.payments p
     where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
@@ -141,27 +145,26 @@ async function adminSync(){
     order by p.payment_at desc,p.payment_id desc`;
   const incomingPayments=await sql`
     select p.payment_id,p.payment_at,p.amount,p.currency,
-           nullif(p.payer_name,'') payer_name,
-           p.original_payment_purpose,p.bank_transaction_reference,
-           p.bank_fact_status::text bank_fact_status,p.finance_status::text finance_status,
-           p.accounting_closure_status::text accounting_closure_status,
-           p.source_system,p.source_version,p.source_timestamp
+           nullif(p.payer_name,'') payer_name,nullif(p.beneficiary_name,'') beneficiary_name,
+           nullif(p.counterparty_name,'') counterparty_name,nullif(p.counterparty_role,'') counterparty_role,
+           p.original_payment_purpose,p.bank_transaction_reference,p.bank_account_reference,p.bank_statement_date,
+           p.bank_fact_status::text bank_fact_status,p.finance_status::text finance_status,p.accounting_closure_status::text accounting_closure_status,
+           p.payment_direction::text payment_direction,p.payment_kind::text payment_kind,p.finance_verification_status::text finance_verification_status,
+           p.deal_allocation_applicability::text deal_allocation_applicability,p.allocation_review_status::text allocation_review_status,
+           p.source_system,p.source_version,p.source_timestamp,p.authority_state::text authority_state,p.lifecycle_state::text lifecycle_state
     from portal_private.payments p
     where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
-      and not exists (
-        select 1 from portal_private.owner_outgoing_payment_facts op
-        where op.fact_id=p.payment_id
-          and op.lifecycle_state='ACTIVE'
-          and op.authority_state='CONFIRMED'
-          and op.bank_fact_status='BANK_CONFIRMED'
-      )
+      and p.finance_verification_status='VERIFIED'::portal_private.finance_verification_state_enum
+      and p.payment_direction='INCOMING'::portal_private.payment_direction_enum
+      and p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum
     order by p.payment_at desc,p.payment_id desc`;
   const paymentAllocations=await sql`
     select p.payment_id,p.currency,
            cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
-           pa.allocated_amount,pa.allocation_status::text allocation_status,
+           pa.allocated_amount,pa.allocation_status::text allocation_status,pa.finance_status::text finance_status,
+           pa.accounting_closure_status::text accounting_closure_status,pa.allocation_reference,pa.allocated_at,
            pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state
     from portal_private.payment_allocations pa
     join portal_private.payments p on p.id=pa.payment_key
@@ -177,7 +180,8 @@ async function adminSync(){
   const incomingPaymentAllocations=await sql`
     select p.payment_id,p.currency,
            cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
-           pa.allocated_amount,pa.allocation_status::text allocation_status,
+           pa.allocated_amount,pa.allocation_status::text allocation_status,pa.finance_status::text finance_status,
+           pa.accounting_closure_status::text accounting_closure_status,pa.allocation_reference,pa.allocated_at,
            pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state
     from portal_private.payment_allocations pa
     join portal_private.payments p on p.id=pa.payment_key
@@ -189,13 +193,9 @@ async function adminSync(){
       and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
-      and not exists (
-        select 1 from portal_private.owner_outgoing_payment_facts op
-        where op.fact_id=p.payment_id
-          and op.lifecycle_state='ACTIVE'
-          and op.authority_state='CONFIRMED'
-          and op.bank_fact_status='BANK_CONFIRMED'
-      )
+      and p.finance_verification_status='VERIFIED'::portal_private.finance_verification_state_enum
+      and p.payment_direction='INCOMING'::portal_private.payment_direction_enum
+      and p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum
     order by p.payment_id,d.deal_id nulls last`;
   const paymentAllocationSummaries=await sql`
     with allocation_totals as (
@@ -231,13 +231,9 @@ async function adminSync(){
     where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
-      and not exists (
-        select 1 from portal_private.owner_outgoing_payment_facts op
-        where op.fact_id=p.payment_id
-          and op.lifecycle_state='ACTIVE'
-          and op.authority_state='CONFIRMED'
-          and op.bank_fact_status='BANK_CONFIRMED'
-      )
+      and p.finance_verification_status='VERIFIED'::portal_private.finance_verification_state_enum
+      and p.payment_direction='INCOMING'::portal_private.payment_direction_enum
+      and p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum
     order by p.payment_at desc,p.payment_id desc`;
   const dealAllocationTotals=await sql`
     select d.deal_id,p.currency,sum(pa.allocated_amount) allocated_amount
@@ -250,17 +246,15 @@ async function adminSync(){
       and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
-      and not exists (
-        select 1 from portal_private.owner_outgoing_payment_facts op
-        where op.fact_id=p.payment_id
-          and op.lifecycle_state='ACTIVE'
-          and op.authority_state='CONFIRMED'
-          and op.bank_fact_status='BANK_CONFIRMED'
-      )
+      and p.finance_verification_status='VERIFIED'::portal_private.finance_verification_state_enum
+      and p.payment_direction='INCOMING'::portal_private.payment_direction_enum
+      and p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum
     group by d.deal_id,p.currency
     order by d.deal_id,p.currency`;
   const outgoingPayments=await sql`
-    select fact_id,payment_at,beneficiary_name,beneficiary_role,amount,currency,purpose,bank_document,deal_ids,deal_allocation_status,flow_kind,bank_fact_status,source_document,source_version,source_timestamp,authority_state,lifecycle_state
+    select fact_id,payment_at,beneficiary_name,beneficiary_role,amount,currency,purpose,bank_document,
+           case when deal_allocation_status='CONFIRMED' then deal_ids else array[]::text[] end deal_ids,
+           deal_ids source_deal_ids,deal_allocation_status,flow_kind,bank_fact_status,source_document,source_version,source_timestamp,authority_state,lifecycle_state
     from portal_private.owner_outgoing_payment_facts
     where lifecycle_state='ACTIVE' and authority_state='CONFIRMED' and bank_fact_status='BANK_CONFIRMED'
     order by payment_at desc,fact_id desc`;
@@ -270,25 +264,33 @@ async function adminSync(){
     where lifecycle_state='ACTIVE' and authority_state='CONFIRMED'
     order by deal_id`;
   const paymentTotalsByCurrency=await sql`
-    select p.currency,sum(p.amount) amount
-    from portal_private.payments p
-    where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    select p.currency,sum(pa.allocated_amount) amount
+    from portal_private.payment_allocations pa
+    join portal_private.payments p on p.id=pa.payment_key
+    where pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum
+      and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
-      and not exists (
-        select 1 from portal_private.owner_outgoing_payment_facts op
-        where op.fact_id=p.payment_id
-          and op.lifecycle_state='ACTIVE'
-          and op.authority_state='CONFIRMED'
-          and op.bank_fact_status='BANK_CONFIRMED'
-      )
+      and p.finance_verification_status='VERIFIED'::portal_private.finance_verification_state_enum
+      and p.payment_direction='INCOMING'::portal_private.payment_direction_enum
+      and p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum
     group by p.currency order by p.currency`;
+  const paidDealTotalsByCurrency=await sql`
+    select currency,sum(amount) amount
+    from portal_private.owner_outgoing_payment_facts
+    where lifecycle_state='ACTIVE' and authority_state='CONFIRMED' and bank_fact_status='BANK_CONFIRMED'
+      and deal_allocation_status='CONFIRMED'
+      and (flow_kind='COUNTERPARTY_PAYMENT' or (flow_kind='BANK_FEE' and currency='RUB'))
+    group by currency order by currency`;
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
   const paymentScheduleAuthority=await buildPaymentScheduleAuthority(sql,{incomingPayments,incomingPaymentAllocations,dealAllocationTotals,dealFinanceSummaries});
-  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',sourceAsOf:cash[0]?.snapshot_date||null,payments,incomingPayments,paymentAllocations,incomingPaymentAllocations,paymentAllocationSummaries,dealAllocationTotals,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE',...paymentScheduleAuthority};
+  const ownerPaymentScreen=buildPaymentOwnerScreenState({payments,paymentAllocations,outgoingPayments,dealFinanceSummaries,paymentScheduleAuthority,paidDealTotalsByCurrency});
+  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',sourceAsOf:cash[0]?.snapshot_date||null,payments,paymentAllocations,outgoingPayments,dealFinanceSummaries,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE',...paymentScheduleAuthority,...ownerPaymentScreen};
   return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,homeCoordination,agentRewardsFragment,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
-async function agentSync(ctx){const rawPolicy=(await sql`select numeric_value,applies_to,status,updated_at from portal_private.owner_agent_display_policies where policy_key='POSITIVE_ACTUAL_FX_EFFECT_AGENT_VISIBLE_SHARE' and agent_visible=true and status='ACTIVE_DISPLAY_ONLY' limit 1`)[0]||null;const share=rawPolicy?normalizedShare(rawPolicy.numeric_value):null;const displayPolicy=rawPolicy&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:String(rawPolicy.applies_to),status:String(rawPolicy.status),updatedAt:rawPolicy.updated_at,note:'При подтвержденном положительном фактическом курсовом эффекте в ЛК Агента учитывается только разрешенная доля подтвержденной суммы. Прогнозные и неподтвержденные значения не используются.'}:null;const settlements=await sql`select s.settlement_id,d.deal_id,cl.client_id,s.settlement_state::text,s.amount,s.currency,s.payable_confirmed_at,s.paid_at,s.updated_at from portal_private.agent_settlements s join portal_private.deals d on d.id=s.deal_key join portal_private.clients cl on cl.id=d.client_key where s.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.agent_user_has_deal_access(${ctx.userId}::uuid,s.deal_key,now()) order by s.created_at desc`;const amountVisible=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);return{generatedAt:new Date().toISOString(),displayPolicy,settlements:settlements.map(r=>{const stage=String(r.settlement_state);const visible=amountVisible.has(stage);return{settlementId:String(r.settlement_id),dealId:String(r.deal_id),clientId:String(r.client_id),stage,amount:visible?r.amount:null,currency:visible?r.currency:null,paymentObligationConfirmed:r.payable_confirmed_at!=null,paymentFactConfirmed:r.paid_at!=null,updatedAt:r.updated_at}}),positiveActualFxEffects:[]}}
+async function agentSync(ctx){const rawPolicy=(await sql`select numeric_value,applies_to,status,updated_at from portal_private.owner_agent_display_policies where policy_key='POSITIVE_ACTUAL_FX_EFFECT_AGENT_VISIBLE_SHARE' and agent_visible=true and status='ACTIVE_DISPLAY_ONLY' limit 1`)[0]||null;const share=rawPolicy?normalizedShare(rawPolicy.numeric_value):null;const displayPolicy=rawPolicy&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:String(rawPolicy.applies_to),status:String(rawPolicy.status),updatedAt:rawPolicy.updated_at,note:'При подтвержденном положительном фактическом курсовом эффекте в ЛК Агента учитывается только разрешенная доля подтвержденной суммы. Прогнозные и неподтвержденные значения не публикуются.'}:null;const settlements=await sql`select s.settlement_id,d.deal_id,cl.client_id,s.settlement_state::text,s.amount,s.currency,s.payable_confirmed_at,s.paid_at,s.updated_at from portal_private.agent_settlements s join portal_private.deals d on d.id=s.deal_key join portal_private.clients cl on cl.id=d.client_key where s.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and portal_private.agent_user_has_deal_access(${ctx.userId}::uuid,s.deal_key,now()) order by s.created_at desc`;const amountVisible=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);return{generatedAt:new Date().toISOString(),displayPolicy,settlements:settlements.map(r=>{const stage=String(r.settlement_state);const visible=amountVisible.has(stage);return{settlementId:String(r.settlement_id),dealId:String(r.deal_id),clientId:String(r.client_id),stage,amount:visible?r.amount:null,currency:visible?r.currency:null:null,paymentObligationConfirmed:r.payable_confirmed_at!=null,paymentFactConfirmed:r.paid_at!=null,updatedAt:r.updated_at}}),positiveActualFxEffects:[]}}
 Deno.serve(async req=>{const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:"PORTAL_ACCESS_DENIED"});if(req.method!=="GET")return send(405,{ok:false,code:"METHOD_NOT_ALLOWED"});try{const path=pathOf(req);if(path==="/admin/sync"){requireRole(ctx,"ADMIN");return send(200,{ok:true,data:await adminSync()})}if(path==="/agent/sync"){requireRole(ctx,"AGENT");return send(200,{ok:true,data:await agentSync(ctx)})}return send(404,{ok:false,code:"ROUTE_NOT_FOUND"})}catch(e){console.error("rona-owner-ai-sync error",e);const status=Number(e?.status||500);return send(status>=400&&status<600?status:500,{ok:false,code:String(e?.message||"SERVER_ERROR")})}});
