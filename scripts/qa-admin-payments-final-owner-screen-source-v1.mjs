@@ -69,9 +69,10 @@ assert(total(splitOwner.clientReceiptTotalsByCurrency,'USD')===100000,'full clie
 assert(dealTotalFrom(splitOwner,'DEAL-QA-A')===30000&&dealTotalFrom(splitOwner,'DEAL-QA-B')===50000,'split allocation mismatch');
 assert(splitSummary?.allocated_total===80000&&splitSummary?.unallocated_amount===20000&&splitSummary?.allocation_projection_status==='PARTIALLY_ALLOCATED','unallocated residue mismatch');
 
-const [ai,ownerSource,passportSource,ui,runtime]=await Promise.all([
-  readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts','utf8'),readFile('functions/portal/payment-passport-current.js','utf8'),readFile('functions/portal/main-ui/index.js','utf8'),readFile('functions/portal/main-ui/payment-passport-runtime-v1.js','utf8')
+const [aiEntry,aiRuntime,ownerSource,passportSource,ui,runtime]=await Promise.all([
+  readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/runtime.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts','utf8'),readFile('functions/portal/payment-passport-current.js','utf8'),readFile('functions/portal/main-ui/index.js','utf8'),readFile('functions/portal/main-ui/payment-passport-runtime-v1.js','utf8')
 ]);
+const ai=aiEntry+'\n'+aiRuntime;
 const production=[ai,ownerSource,passportSource,ui,runtime].join('\n');
 assert(ai.includes("p.payment_direction='INCOMING'::portal_private.payment_direction_enum")&&ai.includes("p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum"),'strict client receipt SQL missing');
 assert(ai.includes("pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum"),'verified allocation SQL missing');
