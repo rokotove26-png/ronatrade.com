@@ -1,133 +1,117 @@
-const SCHEDULE_PROJECTION_CONTRACT='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V1';
+const SCHEDULE_PROJECTION_CONTRACT='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2';
 const FINANCE_PROJECTION_CONTRACT='ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1';
-const FINANCE_GOVERNANCE_REF='81609307-26e7-4366-874f-b882df88656d';
-
-const MATERIALIZED_SCHEDULES=Object.freeze([
-  Object.freeze({
-    dealId:'DEAL-2026-004',currency:'USD',paymentId:'PAYEV-2026-000001',
-    obligationAmount:236250,verifiedReceivedAmount:236250,remainingAmount:0,currentDueAmount:0,deferredNotDueAmount:0,
-    scheduleState:'PAID',triggerState:'NOT_APPLICABLE',nextTrancheCondition:'Исполнено',
-    financeProposalId:null,financeConclusionId:null,operationsDecisionId:null
-  }),
-  Object.freeze({
-    dealId:'DEAL-2026-005',currency:'USD',paymentId:'PAYEV-2026-000002',
-    obligationAmount:672500,verifiedReceivedAmount:201750,remainingAmount:470750,currentDueAmount:0,deferredNotDueAmount:470750,
-    scheduleState:'DEFERRED_NOT_DUE',triggerState:'NOT_CONFIRMED',
-    nextTrancheCondition:'После выдачи/подтверждения согласованной GU transportation application и до отгрузки',
-    financeProposalId:'0dddcff8-99d7-4a51-bd23-2ba02b8d8cc3',financeConclusionId:'6d1cac49-e5b6-49f6-8282-9bc37f6e8e97',operationsDecisionId:'b291371f-4d6e-4bc5-8aa8-bb801bf90b43'
-  }),
-  Object.freeze({
-    dealId:'DEAL-2026-006',currency:'USD',paymentId:'PAYEV-2026-000003',
-    obligationAmount:164400,verifiedReceivedAmount:49320,remainingAmount:115080,currentDueAmount:0,deferredNotDueAmount:115080,
-    scheduleState:'DEFERRED_NOT_DUE',triggerState:'NOT_CONFIRMED',
-    nextTrancheCondition:'После выдачи/подтверждения согласованной GU transportation application и до отгрузки',
-    financeProposalId:'f2912b70-df16-4d77-956d-9a247c3823dd',financeConclusionId:'e72308be-3b07-4033-812a-329db4682404',operationsDecisionId:'dc2f028e-e57f-4b8e-b410-7e0373461a6d'
-  })
-]);
+const FINANCE_SCHEDULE_CONTRACT='FINANCE_PAYMENT_SCHEDULE_CURRENT_STATE_V1';
 
 const asArray=value=>Array.isArray(value)?value:[];
 const asNumber=value=>{const n=Number(value);return Number.isFinite(n)?n:null};
 const eqAmount=(a,b)=>{const x=asNumber(a),y=asNumber(b);return x!==null&&y!==null&&Math.abs(x-y)<0.000001};
 const normalize=value=>String(value??'').trim().toUpperCase();
+const round=value=>Math.round((Number(value)+Number.EPSILON)*1000000)/1000000;
 
 function financeSummary(finance,dealId){return asArray(finance?.dealFinanceSummaries).find(row=>String(row?.deal_id||'')===dealId)||null}
-function dealState(deals,dealId){return asArray(deals).find(row=>String(row?.deal_id||'')===dealId)||null}
-function allocationTotal(finance,spec){return asArray(finance?.dealAllocationTotals).find(row=>String(row?.deal_id||'')===spec.dealId&&String(row?.currency||'')===spec.currency)||null}
-function paymentAllocation(finance,spec){return asArray(finance?.incomingPaymentAllocations).find(row=>String(row?.payment_id||'')===spec.paymentId&&String(row?.deal_id||'')===spec.dealId&&String(row?.currency||'')===spec.currency&&normalize(row?.allocation_status)==='VERIFIED')||null}
-function incomingPayment(finance,spec){return asArray(finance?.incomingPayments).find(row=>String(row?.payment_id||'')===spec.paymentId&&String(row?.currency||'')===spec.currency&&normalize(row?.bank_fact_status)==='BANK_CONFIRMED')||null}
-
-function failClosedSchedule(spec,summary,deal,errors){
+function dealAllocationTotal(finance,dealId,currency){return asArray(finance?.dealAllocationTotals).find(row=>String(row?.deal_id||'')===dealId&&normalize(row?.currency)===currency)||null}
+function bankPaymentMap(finance){
+  const map=new Map();
+  for(const row of asArray(finance?.incomingPayments)){
+    if(normalize(row?.bank_fact_status)!=='BANK_CONFIRMED')continue;
+    map.set(String(row?.payment_id||''),row);
+  }
+  return map;
+}
+function verifiedAllocations(finance,dealId,currency){
+  const bank=bankPaymentMap(finance),rows=[];
+  for(const row of asArray(finance?.incomingPaymentAllocations)){
+    if(String(row?.deal_id||'')!==dealId||normalize(row?.currency)!==currency)continue;
+    if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state)))continue;
+    const payment=bank.get(String(row?.payment_id||''));if(!payment||normalize(payment?.currency)!==currency)continue;
+    const amount=asNumber(row?.allocated_amount);if(amount===null||amount<0)continue;
+    rows.push({paymentId:String(row.payment_id),amount});
+  }
+  return{rows,total:round(rows.reduce((sum,row)=>sum+row.amount,0)),paymentIds:[...new Set(rows.map(row=>row.paymentId))]};
+}
+function failClosed(row,finance,errors){
+  const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId);
   return{
-    dealId:spec.dealId,currency:spec.currency,paymentId:spec.paymentId,
+    dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],
     obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
     scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:'TO_VERIFY',projectionStatus:'TO_VERIFY',
-    bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',
-    financeStatus:deal?.finance_status??summary?.finance_status??null,
-    accountingClosureStatus:deal?.accounting_closure_status??summary?.accounting_closure_status??summary?.accounting_status??null,
-    outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',
-    validationErrors:errors,
-    provenance:{authority:'FINANCE',financeGovernanceRef:FINANCE_GOVERNANCE_REF,financeProposalId:spec.financeProposalId,financeConclusionId:spec.financeConclusionId,operationsDecisionId:spec.operationsDecisionId}
+    bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',financeStatus:row?.financeStatus??summary?.finance_status??null,
+    accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
+    outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',validationErrors:errors,
+    provenance:{authority:'FINANCE_CURRENT_STATE',sourceKind:row?.sourceKind??null,sourceRecordId:row?.sourceRecordId??null,sourceDecisionRecordId:row?.sourceDecisionRecordId??null,triggerRecordId:row?.triggerRecordId??null}
   };
 }
-
-function authoritativeSchedule(finance,deals,spec){
-  const summary=financeSummary(finance,spec.dealId),deal=dealState(deals,spec.dealId),total=allocationTotal(finance,spec),allocation=paymentAllocation(finance,spec),payment=incomingPayment(finance,spec),errors=[];
-  if(String(finance?.paymentProjectionContract||'')!==FINANCE_PROJECTION_CONTRACT)errors.push('FINANCE_PROJECTION_CONTRACT_MISMATCH');
+function validateAuthoritativeRow(finance,row){
+  const dealId=String(row?.dealId||''),currency=normalize(row?.currency),summary=financeSummary(finance,dealId),verified=verifiedAllocations(finance,dealId,currency),aggregate=dealAllocationTotal(finance,dealId,currency),errors=[];
+  const obligation=asNumber(row?.obligationAmount),received=asNumber(row?.verifiedReceivedAmount),remaining=asNumber(row?.remainingAmount),currentDue=asNumber(row?.currentDueAmount),deferred=asNumber(row?.deferredNotDueAmount),state=normalize(row?.scheduleState),trigger=normalize(row?.triggerState);
+  if(!dealId)errors.push('DEAL_ID_MISSING');
+  if(!currency)errors.push('CURRENCY_MISSING');
+  if(obligation===null||obligation<0)errors.push('OBLIGATION_INVALID');
+  if(received===null||received<0)errors.push('VERIFIED_RECEIVED_INVALID');
+  if(remaining===null||remaining<0)errors.push('REMAINING_INVALID');
+  if(currentDue===null||currentDue<0)errors.push('CURRENT_DUE_INVALID');
+  if(deferred===null||deferred<0)errors.push('NOT_DUE_INVALID');
   if(!summary)errors.push('FINANCE_SUMMARY_MISSING');
-  if(summary&&!eqAmount(summary.obligation_amount,spec.obligationAmount))errors.push('OBLIGATION_MISMATCH');
-  if(summary&&!eqAmount(summary.received_amount,spec.verifiedReceivedAmount))errors.push('SUMMARY_RECEIVED_MISMATCH');
-  if(summary&&!eqAmount(summary.client_remaining_amount,spec.remainingAmount))errors.push('SUMMARY_REMAINING_MISMATCH');
-  if(!total||!eqAmount(total.allocated_amount,spec.verifiedReceivedAmount))errors.push('VERIFIED_DEAL_ALLOCATION_TOTAL_MISMATCH');
-  if(!allocation||!eqAmount(allocation.allocated_amount,spec.verifiedReceivedAmount))errors.push('VERIFIED_PAYMENT_ALLOCATION_MISMATCH');
-  if(!payment)errors.push('BANK_CONFIRMED_PAYMENT_MISSING');
-  if(errors.length)return failClosedSchedule(spec,summary,deal,errors);
+  if(summary&&normalize(summary.currency)!==currency)errors.push('SUMMARY_CURRENCY_MISMATCH');
+  if(summary&&!eqAmount(summary.obligation_amount,obligation))errors.push('SUMMARY_OBLIGATION_MISMATCH');
+  if(!eqAmount(verified.total,received))errors.push('VERIFIED_PAYMENT_ALLOCATION_SUM_MISMATCH');
+  if(received>0&&verified.paymentIds.length===0)errors.push('BANK_CONFIRMED_PAYMENT_MISSING');
+  if(aggregate&&!eqAmount(aggregate.allocated_amount,received))errors.push('DEAL_ALLOCATION_TOTAL_MISMATCH');
+  if(!eqAmount(remaining,Math.max(0,(obligation??0)-(received??0))))errors.push('REMAINING_FORMULA_MISMATCH');
+  if(!eqAmount((currentDue??0)+(deferred??0),remaining))errors.push('DUE_BUCKETS_MISMATCH');
+  if(state==='PAID'&&(!eqAmount(remaining,0)||!eqAmount(currentDue,0)||!eqAmount(deferred,0)))errors.push('PAID_STATE_MISMATCH');
+  if(state==='DEFERRED_NOT_DUE'&&(!eqAmount(currentDue,0)||!eqAmount(deferred,remaining)))errors.push('DEFERRED_STATE_MISMATCH');
+  if(state==='DUE'&&(!eqAmount(currentDue,remaining)||!eqAmount(deferred,0)))errors.push('DUE_STATE_MISMATCH');
+  if(state==='DUE'&&trigger&&trigger!=='CONFIRMED'&&trigger!=='NOT_APPLICABLE')errors.push('DUE_WITHOUT_AUTHORITATIVE_TRIGGER');
+  if(trigger==='SENT')errors.push('SENT_IS_NOT_TRIGGER_CONFIRMATION');
+  if(!['PAID','DEFERRED_NOT_DUE','DUE'].includes(state))errors.push('SCHEDULE_STATE_INVALID');
+  if(errors.length)return failClosed(row,finance,errors);
+  const fxStatus=normalize(row?.outgoingUsdEquivalentStatus),fx=asNumber(row?.outgoingUsdEquivalent),allowFx=fx!==null&&['BANK_CONFIRMED','TREASURY_CONFIRMED','BANK_TREASURY_CONFIRMED'].includes(fxStatus);
   return{
-    dealId:spec.dealId,currency:spec.currency,paymentId:spec.paymentId,
-    obligationAmount:spec.obligationAmount,verifiedReceivedAmount:spec.verifiedReceivedAmount,remainingAmount:spec.remainingAmount,
-    currentDueAmount:spec.currentDueAmount,deferredNotDueAmount:spec.deferredNotDueAmount,
-    scheduleState:spec.scheduleState,triggerState:spec.triggerState,nextTrancheCondition:spec.nextTrancheCondition,projectionStatus:'AUTHORITATIVE',
-    bankFactStatus:'BANK_CONFIRMED',allocationStatus:'VERIFIED',
-    financeStatus:deal?.finance_status??summary?.finance_status??null,
-    accountingClosureStatus:deal?.accounting_closure_status??summary?.accounting_closure_status??summary?.accounting_status??null,
-    outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',
-    triggerPolicy:spec.dealId==='DEAL-2026-005'||spec.dealId==='DEAL-2026-006'?'SENT_DOES_NOT_CONFIRM_GU_TRIGGER':'NOT_APPLICABLE',
-    provenance:{authority:'FINANCE',financeGovernanceRef:FINANCE_GOVERNANCE_REF,financeProposalId:spec.financeProposalId,financeConclusionId:spec.financeConclusionId,operationsDecisionId:spec.operationsDecisionId}
+    dealId,currency,paymentIds:verified.paymentIds,obligationAmount:obligation,verifiedReceivedAmount:received,remainingAmount:remaining,currentDueAmount:currentDue,deferredNotDueAmount:deferred,
+    scheduleState:state,triggerState:trigger||'NOT_APPLICABLE',nextTrancheCondition:row?.nextTrancheCondition??null,projectionStatus:'AUTHORITATIVE',
+    bankFactStatus:received>0?'BANK_CONFIRMED':'NO_VERIFIED_RECEIPT',allocationStatus:received>0?'VERIFIED':'NO_VERIFIED_ALLOCATION',
+    financeStatus:row?.financeStatus??summary?.finance_status??null,accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
+    outgoingUsdEquivalent:allowFx?fx:null,outgoingUsdEquivalentStatus:allowFx?fxStatus:'TO_VERIFY',
+    validationErrors:[],provenance:{authority:'FINANCE_CURRENT_STATE',sourceKind:row?.sourceKind??null,sourceRecordId:row?.sourceRecordId??null,sourceDecisionRecordId:row?.sourceDecisionRecordId??null,triggerRecordId:row?.triggerRecordId??null}
   };
 }
-
-function failClosedDeal009(finance,deals){
-  const summary=financeSummary(finance,'DEAL-2026-009'),deal=dealState(deals,'DEAL-2026-009');
+function validateHold(finance,row){
+  const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId),errors=[];
+  if(!dealId)errors.push('DEAL_ID_MISSING');
+  if(!summary)errors.push('FINANCE_SUMMARY_MISSING');
   return{
-    dealId:'DEAL-2026-009',currency:summary?.currency??null,paymentId:null,
-    obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
-    scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:'Finance reconciliation required',projectionStatus:'TO_VERIFY',
-    bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',
-    financeStatus:deal?.finance_status??summary?.finance_status??null,
-    accountingClosureStatus:deal?.accounting_closure_status??summary?.accounting_closure_status??summary?.accounting_status??null,
-    outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',
-    validationErrors:['FINANCE_RECONCILIATION_PENDING'],
-    provenance:{authority:'FINANCE',financeConclusionId:'18f3f8dd-7438-4d9f-b057-f3e5e19c5050'}
+    dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
+    scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:null,projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',
+    financeStatus:row?.financeStatus??summary?.finance_status??null,accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
+    outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',validationErrors:errors.length?errors:[String(row?.reason||'FINANCE_PAYMENT_SCHEDULE_AUTHORITY_MISSING_OR_RECONCILING')],
+    provenance:{authority:'FINANCE_CURRENT_STATE',authorityState:'FAIL_CLOSED'}
   };
 }
-
 function scheduleTotals(schedules){
   const map=new Map();
   for(const row of schedules){
     if(row?.projectionStatus!=='AUTHORITATIVE'||!row?.currency)continue;
-    const key=String(row.currency),current=asNumber(row.currentDueAmount),deferred=asNumber(row.deferredNotDueAmount);
-    if(current===null||deferred===null)continue;
-    const prev=map.get(key)||{currency:key,currentDueAmount:0,deferredNotDueAmount:0};
-    prev.currentDueAmount+=current;prev.deferredNotDueAmount+=deferred;map.set(key,prev);
+    const current=asNumber(row.currentDueAmount),deferred=asNumber(row.deferredNotDueAmount);if(current===null||deferred===null)continue;
+    const key=String(row.currency),prev=map.get(key)||{currency:key,currentDueAmount:0,deferredNotDueAmount:0};prev.currentDueAmount=round(prev.currentDueAmount+current);prev.deferredNotDueAmount=round(prev.deferredNotDueAmount+deferred);map.set(key,prev);
   }
-  return [...map.values()];
+  return[...map.values()];
 }
-
-export function buildPaymentScheduleProjection(financeFragment,deals=[],generatedAt=new Date().toISOString()){
-  const schedules=MATERIALIZED_SCHEDULES.map(spec=>authoritativeSchedule(financeFragment,deals,spec));
-  schedules.push(failClosedDeal009(financeFragment,deals));
-  return{
-    generatedAt,
-    projectionContract:SCHEDULE_PROJECTION_CONTRACT,
-    sourceProjectionContract:String(financeFragment?.paymentProjectionContract||''),
-    authority:'FINANCE',
-    scheduleMaterialization:'PAYMENT_SCHEDULE_2026-09-12_V1',
-    schedulePolicy:{frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false},
-    schedules,
-    totalsByCurrency:scheduleTotals(schedules)
-  };
+export function buildPaymentScheduleProjection(financeFragment,generatedAt=new Date().toISOString()){
+  if(String(financeFragment?.paymentProjectionContract||'')!==FINANCE_PROJECTION_CONTRACT)return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:String(financeFragment?.paymentProjectionContract||''),sourceScheduleContract:String(financeFragment?.paymentScheduleContract||''),authority:'FINANCE',schedulePolicy:{frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false},schedules:[],totalsByCurrency:[],projectionStatus:'TO_VERIFY',validationErrors:['FINANCE_PROJECTION_CONTRACT_MISMATCH']};
+  if(String(financeFragment?.paymentScheduleContract||'')!==FINANCE_SCHEDULE_CONTRACT)return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:FINANCE_PROJECTION_CONTRACT,sourceScheduleContract:String(financeFragment?.paymentScheduleContract||''),authority:'FINANCE',schedulePolicy:{frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false},schedules:[],totalsByCurrency:[],projectionStatus:'TO_VERIFY',validationErrors:['FINANCE_SCHEDULE_CURRENT_STATE_MISSING']};
+  const authoritative=asArray(financeFragment?.paymentSchedules).map(row=>validateAuthoritativeRow(financeFragment,row));
+  const seen=new Set(authoritative.map(row=>row.dealId));
+  const holds=asArray(financeFragment?.paymentScheduleHolds).filter(row=>!seen.has(String(row?.dealId||''))).map(row=>validateHold(financeFragment,row));
+  const schedules=[...authoritative,...holds].sort((a,b)=>String(a.dealId).localeCompare(String(b.dealId)));
+  return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:FINANCE_PROJECTION_CONTRACT,sourceScheduleContract:FINANCE_SCHEDULE_CONTRACT,authority:'FINANCE',scheduleMaterialization:'DYNAMIC_FINANCE_CURRENT_STATE',schedulePolicy:{frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false},schedules,totalsByCurrency:scheduleTotals(schedules),projectionStatus:'AUTHORITATIVE',validationErrors:[]};
 }
-
 function responseHeaders(base){const headers=new Headers(base||{});headers.set('content-type','application/json; charset=utf-8');headers.set('cache-control','no-store, no-cache, must-revalidate');headers.set('pragma','no-cache');headers.set('x-rona-payment-schedule',SCHEDULE_PROJECTION_CONTRACT);return headers}
 async function fetchTrusted(request,path){const target=new URL('/portal/owner-api',request.url);target.searchParams.set('path',path);const headers=new Headers({accept:'application/json'}),cookie=request.headers.get('cookie');if(cookie)headers.set('cookie',cookie);const requestId=request.headers.get('x-request-id');if(requestId)headers.set('x-request-id',requestId);return fetch(target,{method:'GET',headers,cache:'no-store'})}
-
 export async function onRequest(context){
-  const request=context.request;
-  if(request.method!=='GET')return new Response(JSON.stringify({ok:false,code:'METHOD_NOT_ALLOWED'}),{status:405,headers:responseHeaders()});
-  const [syncResponse,bootstrapResponse]=await Promise.all([fetchTrusted(request,'/admin/ai-sync'),fetchTrusted(request,'/admin/bootstrap')]);
-  if(!syncResponse.ok||!bootstrapResponse.ok){const status=syncResponse.status===401||bootstrapResponse.status===401?401:502;return new Response(JSON.stringify({ok:false,code:'PAYMENT_SCHEDULE_SOURCE_UNAVAILABLE'}),{status,headers:responseHeaders()})}
-  const [syncPayload,bootstrapPayload]=await Promise.all([syncResponse.json().catch(()=>null),bootstrapResponse.json().catch(()=>null)]);
-  const finance=syncPayload?.data?.financeFragment,deals=asArray(bootstrapPayload?.data?.deals);
+  const request=context.request;if(request.method!=='GET')return new Response(JSON.stringify({ok:false,code:'METHOD_NOT_ALLOWED'}),{status:405,headers:responseHeaders()});
+  const syncResponse=await fetchTrusted(request,'/admin/ai-sync');if(!syncResponse.ok){const status=syncResponse.status===401?401:502;return new Response(JSON.stringify({ok:false,code:'PAYMENT_SCHEDULE_SOURCE_UNAVAILABLE'}),{status,headers:responseHeaders()})}
+  const syncPayload=await syncResponse.json().catch(()=>null),finance=syncPayload?.data?.financeFragment;
   if(!finance||typeof finance!=='object')return new Response(JSON.stringify({ok:false,code:'FINANCE_PROJECTION_MISSING'}),{status:502,headers:responseHeaders()});
-  const data=buildPaymentScheduleProjection(finance,deals,syncPayload?.data?.generatedAt||new Date().toISOString());
-  return new Response(JSON.stringify({ok:true,data}),{status:200,headers:responseHeaders()});
+  const data=buildPaymentScheduleProjection(finance,syncPayload?.data?.generatedAt||new Date().toISOString());return new Response(JSON.stringify({ok:true,data}),{status:200,headers:responseHeaders()});
 }
