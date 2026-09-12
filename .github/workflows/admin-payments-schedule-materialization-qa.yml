@@ -1,4 +1,5 @@
 # Focused same-HEAD authority + real-browser QA for dynamic Admin Payments schedules.
+# Browser QA serves the real Admin shell runtime from dist; the shell loader is not asset-stubbed.
 name: Admin Payments schedule materialization QA
 
 on:
