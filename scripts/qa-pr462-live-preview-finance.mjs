@@ -48,13 +48,30 @@ async function apiProof(page,path,label){
   assert(result.status===200,`${label}_HTTP_${result.status}_${String(result.body?.code||'')}`);
   return result;
 }
-async function openPayments(page){const b=page.locator('#nav button[data-page="payments"]');await b.waitFor({state:'visible',timeout:30000});await b.click();await page.locator('#page-payments.active').waitFor({state:'visible',timeout:15000});await page.waitForFunction(()=>window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.financeFragment?.ownerPaymentScreenContract==='ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1',null,{timeout:30000});await page.waitForFunction(()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__==='20260912-payment-schedule-v2',null,{timeout:30000});await page.evaluate(()=>window.__RONA_PAYMENT_SCHEDULE_REFRESH__?.());await page.locator('#rona-payment-schedule-v1').waitFor({state:'attached',timeout:20000});}
+async function waitForPageState(page,predicate,label,timeout=30000){
+  const deadline=Date.now()+timeout;
+  while(Date.now()<deadline){
+    if(await page.evaluate(predicate).catch(()=>false))return;
+    await page.waitForTimeout(250);
+  }
+  throw new Error(label);
+}
+async function openPayments(page){
+  const b=page.locator('#nav button[data-page="payments"]');
+  await b.waitFor({state:'visible',timeout:30000});await b.click();
+  await page.locator('#page-payments.active').waitFor({state:'visible',timeout:15000});
+  await waitForPageState(page,()=>window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.financeFragment?.ownerPaymentScreenContract==='ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1','OWNER_PAYMENT_SCREEN_RUNTIME_TIMEOUT');
+  await waitForPageState(page,()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__==='20260912-payment-schedule-v2','PAYMENT_SCHEDULE_RUNTIME_TIMEOUT');
+  await page.evaluate(()=>window.__RONA_PAYMENT_SCHEDULE_REFRESH__?.());
+  await page.locator('#rona-payment-schedule-v1').waitFor({state:'attached',timeout:20000});
+}
 try{
   session=await broker();
   const access=String(session?.session?.access_token||''),refresh=String(session?.session?.refresh_token||'');assert(access&&refresh,'ADMIN_BROKER_SESSION_TOKENS_MISSING');
   browser=await chromium.launch({headless:true});context=await browser.newContext({viewport:{width:1600,height:1000}});await context.addCookies([{name:'rona_portal_at',value:access,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'},{name:'rona_portal_rt',value:refresh,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'}]);
   const page=await context.newPage();page.on('pageerror',e=>runtimeErrors.push(`pageerror:${String(e?.message||e)}`));page.on('console',m=>{if(m.type()==='error'&&!m.text().startsWith('Failed to load resource:'))runtimeErrors.push(`console:${m.text()}`)});page.on('response',r=>{if(r.status()>=500)runtimeErrors.push(`http:${r.status()}:${r.url()}`)});
   await page.goto(ORIGIN+'/portal/admin?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});
+  const online=page.getByText('ONLINE',{exact:true}).last();await online.waitFor({state:'visible',timeout:30000});const onlineBox=await online.boundingBox();assert(onlineBox&&onlineBox.y>500,'ADMIN_BOTTOM_INDICATOR_NOT_LOWER_SCREEN');console.log('ADMIN_BOTTOM_INDICATOR_ONLINE=PASS');
   const me=await apiProof(page,'/portal/api/session/me','SESSION_ME');assert(Array.isArray(me.body?.user?.roles)&&me.body.user.roles.includes('ADMIN'),'PREVIEW_ADMIN_SESSION_ROLE_MISSING');
   const sync=await apiProof(page,'/portal/owner-api?path=/admin/ai-sync','LIVE_AI_SYNC');assert(sync.headers.backend==='PR462_PREVIEW_FINANCE_AUTHORITY','LIVE_AI_SYNC_BACKEND_MISMATCH');assert(sync.body?.data?.financeFragment?.paymentProjectionContract==='ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1','LIVE_AI_SYNC_FINANCE_CONTRACT_MISSING');console.log('LIVE_AI_SYNC_AVAILABLE=PASS');
   const schedule=await apiProof(page,'/portal/payment-schedule-current','LIVE_PAYMENT_SCHEDULE');assert(schedule.body?.data?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2','LIVE_PAYMENT_SCHEDULE_CONTRACT_MISSING');console.log('LIVE_PAYMENT_SCHEDULE_AVAILABLE=PASS');
