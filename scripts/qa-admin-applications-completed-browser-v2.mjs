@@ -127,8 +127,9 @@ async function proveOtherActionsAndRefresh(){
   const sendToDeals=activeRow.getByRole('button',{name:'Отправить в сделки'});
   assert.equal(await sendToDeals.count(),1,'supplier-approved application action must not regress');
   const beforeRefresh=completedBootstrapHits;
+  const refreshResponse=page.waitForResponse(response=>response.url().includes('/portal/admin-completed-bootstrap')&&response.request().method()==='GET'&&response.ok(),{timeout:12000});
   await sendToDeals.click();
-  await page.waitForFunction(before=>window.__RONA_OWNER_ADMIN_READY__===true&&document.querySelector('#page-applications .rona-app-filter'),beforeRefresh,{timeout:12000});
+  await refreshResponse;
   assert.ok(completedBootstrapHits>beforeRefresh,'application action must execute canonical refreshAdmin bootstrap');
   assert.ok(applicationPostHits>=1,'existing application POST action must remain wired');
 
