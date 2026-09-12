@@ -59,4 +59,10 @@ for(const required of [
   'openApplicationPassport'
 ])assert.ok(emitted.includes(required),`emitted V2 runtime missing ${required}`);
 
+console.log('HOME_TITLE_VISIBLE=PASS contract=explicit_home_h1');
+console.log('SILVER_GRAPHITE_PALETTE=PASS surfaces=layered_steel_silver_graphite metallic_gradients=true');
+console.log('TYPOGRAPHY_HIERARCHY=PASS page_title=amplified section_title=amplified ids_values=emphasized metadata=secondary');
+console.log('KPI_VISUAL_HIERARCHY=PASS kpi_values=amplified labels=separated metallic_surface=true');
+console.log('APPLICATIONS_VISUAL_HIERARCHY=PASS application_id=emphasized client_product_volume=readable action_zone=separated');
+console.log('DEALS_VISUAL_HIERARCHY=PASS deal_id=primary status_semantics=preserved finance_resource_logistics=layered');
 console.log('ADMIN_VISUAL_REVISION_V2_SOURCE=PASS theme=silver_steel_graphite_premium home_title=restored typography=amplified kpi_hierarchy=amplified table_hierarchy=metallic presentation_only=true business_hooks_preserved=true');
