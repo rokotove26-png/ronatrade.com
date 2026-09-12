@@ -1,8 +1,9 @@
 export default String.raw`
 (()=>{
-  const RUNTIME='20260912-payment-schedule-v1';
+  const RUNTIME='20260912-payment-schedule-v2';
   const ENDPOINT='/portal/payment-schedule-current';
   window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V1__=RUNTIME;
+  window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__=RUNTIME;
   let current=null,inflight=null,lastError=null;
 
   const text=value=>value===null||value===undefined||value===''?'TO_VERIFY':String(value);
@@ -66,7 +67,7 @@ export default String.raw`
         const response=await fetch(ENDPOINT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
         const payload=await response.json().catch(()=>null);
         if(!response.ok||payload?.ok===false||!payload?.data)throw new Error(String(payload?.code||('HTTP_'+response.status)));
-        if(payload.data.projectionContract!=='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V1')throw new Error('PAYMENT_SCHEDULE_CONTRACT_MISMATCH');
+        if(payload.data.projectionContract!=='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2')throw new Error('PAYMENT_SCHEDULE_CONTRACT_MISMATCH');
         current=payload.data;lastError=null;window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__=current;render();
       }catch(error){lastError=String(error?.message||error);window.__RONA_PAYMENT_SCHEDULE_LAST_ERROR__=lastError}
       finally{inflight=null}
