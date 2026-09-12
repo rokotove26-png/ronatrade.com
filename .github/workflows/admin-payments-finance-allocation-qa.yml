@@ -8,6 +8,7 @@ on:
       - 'supabase/functions/rona-owner-ai-sync/index.ts'
       - 'scripts/qa-admin-payments-finance-allocation-source-v1.mjs'
       - 'scripts/qa-admin-payments-finance-allocation-browser-v1.mjs'
+      - 'scripts/qa-admin-pages-runtime-shim-v1.mjs'
       - '.github/workflows/admin-payments-finance-allocation-qa.yml'
   pull_request:
     branches: [release/public-go-live-v1.1]
@@ -16,6 +17,7 @@ on:
       - 'supabase/functions/rona-owner-ai-sync/index.ts'
       - 'scripts/qa-admin-payments-finance-allocation-source-v1.mjs'
       - 'scripts/qa-admin-payments-finance-allocation-browser-v1.mjs'
+      - 'scripts/qa-admin-pages-runtime-shim-v1.mjs'
       - '.github/workflows/admin-payments-finance-allocation-qa.yml'
   workflow_dispatch:
 
@@ -40,9 +42,9 @@ jobs:
           npm install --no-save --no-package-lock playwright@1.54.2
           npx playwright install --with-deps chromium
       - name: Split allocation real browser runtime QA
-        run: node scripts/qa-admin-payments-finance-allocation-browser-v1.mjs
+        run: node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-finance-allocation-browser-v1.mjs
       - name: Broad Admin runtime regression
-        run: node scripts/qa-admin-browser-runtime.mjs
+        run: node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-browser-runtime.mjs
       - name: Admin access functional regression
         run: node scripts/qa-admin-access-functional-browser.mjs
       - name: Upload Payments runtime proof
