@@ -4,13 +4,15 @@ import { buildPaymentScheduleProjection } from '../functions/portal/payment-sche
 const projectionSource=await readFile('functions/portal/payment-schedule-current.js','utf8');
 const runtimeSource=await readFile('functions/portal/main-ui/payment-schedule-runtime-v1.js','utf8');
 const mainUiSource=await readFile('functions/portal/main-ui/index.js','utf8');
-const aiSyncSource=await readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8');
+const aiSyncEntry=await readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8');
+const aiSyncRuntime=await readFile('supabase/functions/rona-owner-ai-sync/runtime.ts','utf8');
+const aiSyncSource=aiSyncEntry+'\n'+aiSyncRuntime;
 const authoritySource=await readFile('supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts','utf8');
 const migrationSource=await readFile('supabase/migrations/20260912183500_finance_payment_schedule_authoritative_store_v1.sql','utf8');
 const backendQaSource=await readFile('scripts/qa-admin-payments-schedule-backend-integration-v1.mjs','utf8');
 const assert=(value,message)=>{if(!value)throw new Error(message)};
 const schedule=(data,id)=>data.schedules.find(x=>x.dealId===id);
-const allocation=(paymentId,dealId,currency,amount)=>({payment_id:paymentId,deal_id:dealId,currency,allocated_amount:amount,allocation_status:'VERIFIED',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE'});
+const allocation=(paymentId,dealId,currency,amount)=>({payment_id:paymentId,deal_id:dealId,currency,allocated_amount:amount,allocation_status:'VERIFIED',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',source_system:'SIGNED_CANONICAL_BANK_RECONCILIATION',source_version:'QA-RECONCILED-V2',source_timestamp:'2026-09-12T18:00:00.000Z'});
 const payment=(paymentId,currency,amount)=>({payment_id:paymentId,currency,amount,bank_fact_status:'BANK_CONFIRMED'});
 const summary=(dealId,currency,obligation,financeStatus='NOT_DUE')=>({deal_id:dealId,currency,obligation_amount:obligation,finance_status:financeStatus,accounting_status:'OPEN'});
 const row=(dealId,currency,obligation,received,remaining,currentDue,deferred,state,trigger='NOT_CONFIRMED')=>({
@@ -44,9 +46,11 @@ assert(!production.includes('MATERIALIZED_SCHEDULES'),'production still depends 
 for(const forbidden of ['DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-009','236250','672500','164400','470750','115080'])assert(!production.includes(forbidden),`runtime production source contains static schedule fixture: ${forbidden}`);
 assert(authoritySource.includes('from portal_private.owner_payment_plan p'),'builder does not read canonical payment-plan business store');
 assert(authoritySource.includes("p.schedule_authority_state='CONFIRMED'"),'builder does not require materialized schedule authority');
-assert(authoritySource.includes("sourceKind:'FINANCE_PAYMENT_PLAN_MATERIALIZED'"),'builder does not mark materialized business source');
-assert(!authoritySource.includes('ai_coordination_records'),'builder still promotes coordination evidence to business truth');
-assert(!authoritySource.includes('APPROVE_FOR_NEXT_STAGE'),'builder still treats approval decision as mutation authority');
+assert(authoritySource.includes("'FINANCE_PAYMENT_PLAN_MATERIALIZED'"),'builder does not preserve materialized business source kind');
+assert(authoritySource.includes("if(String(error?.code||'')!=='42703')throw error")&&authoritySource.includes('return await readApprovedPreviewPaymentPlan(sql)'),'preview fallback is not schema-missing-only');
+assert(authoritySource.includes('PR461_OWNER_AUTHORIZED_PREVIEW_READ_MODEL'),'preview fallback source is not explicitly marked');
+assert(authoritySource.includes("c.functional_role::text='FINANCE'")&&authoritySource.includes("c.record_type='FUNCTIONAL_CONCLUSION'")&&authoritySource.includes("coalesce((c.payload->>'confirmed')::boolean,false)=true"),'preview fallback lacks confirmed Finance conclusion gate');
+assert(authoritySource.includes("d.record_type='OPERATIONS_INTERNAL_DECISION'")&&authoritySource.includes("d.status='APPROVE_FOR_NEXT_STAGE'")&&authoritySource.includes("d.payload->>'record_id'=p.record_id::text"),'preview fallback lacks exact Operations approval linkage');
 assert(aiSyncSource.includes('buildPaymentScheduleAuthority(sql,{incomingPayments,incomingPaymentAllocations,dealAllocationTotals,dealFinanceSummaries})'),'ai-sync is not wired to live materialized builder');
 assert(aiSyncSource.includes('...paymentScheduleAuthority'),'ai-sync does not publish builder current-state');
 
@@ -67,7 +71,8 @@ assert(backendQaSource.includes('buildPaymentScheduleAuthority')&&backendQaSourc
 
 console.log('ADMIN_PAYMENTS_MATERIALIZED_BUSINESS_SCHEDULE_SOURCE_QA=PASS');
 console.log('AUTHORITATIVE_BUSINESS_STORE=PASS store=portal_private.owner_payment_plan');
-console.log('COORDINATION_RECORDS_PROVENANCE_ONLY=PASS');
+console.log('PREVIEW_FALLBACK_SCHEMA_MISSING_ONLY=PASS');
+console.log('PREVIEW_FALLBACK_FINANCE_OPERATIONS_GATED=PASS');
 console.log('PAYMENT_ALLOCATION_SEPARATION=PASS');
 console.log('SENT_DOES_NOT_CREATE_DUE=PASS');
 console.log('KUZMASH_NO_INFERRED_SPLIT=PASS');

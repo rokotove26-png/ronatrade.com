@@ -1,0 +1,5 @@
+PR462 preview Finance backend source marker.
+Routing is slug-agnostic; candidate deployment must be pinned to this branch exact HEAD.
+Authenticated deployed-preview Finance proof is required after exact candidate pin.
+Canonical lower connection indicator is the ONLINE acceptance marker.
+No production deployment is authorized.
