@@ -1,0 +1,41 @@
+name: PR462 owner correction v2 commit
+
+on:
+  push:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths: ['.github/workflows/pr462-owner-correction-v2-commit.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/admin-payments-final-owner-screen-passport-v1
+          fetch-depth: 0
+      - name: Reapply exact correction and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/pr462-owner-correction-v2-apply.yml')
+          lines=p.read_text().splitlines()
+          start=next(i for i,x in enumerate(lines) if x.strip()=='- name: Apply owner correction v2')
+          run=next(i for i in range(start+1,len(lines)) if lines[i].strip()=='run: |')
+          end=next(i for i in range(run+1,len(lines)) if lines[i].startswith('      - name:'))
+          block=[]
+          for x in lines[run+1:end]:
+            block.append(x[10:] if x.startswith('          ') else x)
+          Path('/tmp/pr462-owner-correction-v2.sh').write_text('\n'.join(block)+'\n')
+          PY
+          bash /tmp/pr462-owner-correction-v2.sh
+          git rm .github/workflows/pr462-owner-correction-v2-commit.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: owner payment passport v2 and reconciled allocations'
+          git push origin HEAD:feat/admin-payments-final-owner-screen-passport-v1
