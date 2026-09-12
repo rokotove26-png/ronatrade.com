@@ -1,6 +1,6 @@
 const PASSPORT_CONTRACT='ADMIN_PAYMENT_PASSPORT_AUTHORITY_V1';
 const SCREEN_CONTRACT='ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1';
-const CLIENT_RECEIPT_CONTRACT='FINANCE_CLIENT_RECEIPTS_VERIFIED_ALLOCATION_V1';
+const CLIENT_RECEIPT_CONTRACT='FINANCE_CLIENT_RECEIPTS_PAYMENT_AMOUNT_V2';
 const asArray=value=>Array.isArray(value)?value:[];
 const s=value=>String(value??'').trim();
 const upper=value=>s(value).toUpperCase();
@@ -47,8 +47,11 @@ export function buildPaymentPassportProjection(finance,dealId,generatedAt=new Da
   const receiptIds=[...new Set(allocations.map(row=>row.paymentId))];
   const clientReceipts=receiptIds.map(paymentId=>canonicalPayment(payments.get(paymentId))).filter(row=>row.paymentId);
   const verifiedReceivedAmount=round(allocations.reduce((sum,row)=>sum+Number(row.allocatedAmount||0),0));
-  const schedule=scheduleRow(finance,id),hold=scheduleHold(finance,id),scheduleAuthoritative=!!schedule;
-  const obligation=n(schedule?.obligationAmount??summary?.obligation_amount),remaining=scheduleAuthoritative?n(schedule?.remainingAmount):(obligation===null?null:round(Math.max(0,obligation-verifiedReceivedAmount)));
+  const schedule=scheduleRow(finance,id),hold=scheduleHold(finance,id),scheduleAuthoritative=upper(summary?.payment_schedule_projection_status)==='AUTHORITATIVE'&&!!schedule;
+  const scheduleStatus=scheduleAuthoritative?'AUTHORITATIVE':'TO_VERIFY';
+  const obligation=scheduleAuthoritative?n(schedule?.obligationAmount):null,remaining=scheduleAuthoritative?n(schedule?.remainingAmount):null;
+  const allocationCurrencies=[...new Set(allocations.map(row=>upper(row?.currency)).filter(Boolean))];
+  const totalsCurrency=scheduleAuthoritative?upper(schedule?.currency):(allocationCurrencies.length===1?allocationCurrencies[0]:null);
 
   const related=asArray(finance?.outgoingPayments).filter(row=>upper(row?.deal_allocation_status)==='CONFIRMED'&&asArray(row?.deal_ids).map(s).includes(id));
   const relatedOutgoings=related.filter(row=>upper(row?.flow_kind)!=='BANK_FEE').map(row=>outgoingPayment(finance,row));
@@ -59,10 +62,9 @@ export function buildPaymentPassportProjection(finance,dealId,generatedAt=new Da
   const fxConversions=canonical.filter(row=>upper(row?.payment_kind)==='FX_CONVERSION').map(canonicalPayment);
   const unallocatedOutgoings=canonical.filter(row=>upper(row?.payment_direction)==='OUTGOING'&&upper(row?.payment_kind)==='COUNTERPARTY_PAYMENT'&&upper(row?.allocation_review_status)!=='VERIFIED').map(canonicalPayment);
 
-  const scheduleStatus=scheduleAuthoritative?'AUTHORITATIVE':'TO_VERIFY';
-  const passport={generatedAt,passportContract:PASSPORT_CONTRACT,projectionStatus:'AUTHORITATIVE',validationErrors:[],
-    dealId:id,client:{clientId:s(summary?.client_id)||null,clientName:s(summary?.client_name)||null},financeStatus:s(summary?.finance_status)||null,accountingClosureStatus:s(summary?.accounting_status)||null,
-    clientReceipts,allocations,totals:{currency:upper(summary?.currency),obligationAmount:obligation,verifiedReceivedAmount,remainingAmount:remaining,currentDueAmount:scheduleAuthoritative?n(schedule?.currentDueAmount):null,deferredNotDueAmount:scheduleAuthoritative?n(schedule?.deferredNotDueAmount):null,scheduleStatus,scheduleState:schedule?.scheduleState??'TO_VERIFY'},
+  const passport={generatedAt,passportContract:PASSPORT_CONTRACT,projectionStatus:scheduleAuthoritative?'AUTHORITATIVE':'TO_VERIFY',validationErrors:[],
+    dealId:id,client:{clientId:s(summary?.client_id)||null,clientName:s(summary?.client_name)||null},financeStatus:scheduleAuthoritative?(s(summary?.finance_status)||null):'TO_VERIFY',accountingClosureStatus:s(summary?.accounting_status)||null,
+    clientReceipts,allocations,totals:{currency:totalsCurrency,obligationAmount:obligation,verifiedReceivedAmount,remainingAmount:remaining,currentDueAmount:scheduleAuthoritative?n(schedule?.currentDueAmount):null,deferredNotDueAmount:scheduleAuthoritative?n(schedule?.deferredNotDueAmount):null,scheduleStatus,scheduleState:scheduleAuthoritative?(schedule?.scheduleState??'TO_VERIFY'):'TO_VERIFY'},
     relatedOutgoings,bankFees,unallocatedBankFees,fxConversions,unallocatedOutgoings,
     scheduleEvidence:scheduleAuthoritative?{sourceKind:s(schedule?.sourceKind)||null,sourceRecordId:s(schedule?.sourceRecordId)||null,sourceVersion:s(schedule?.sourceVersion)||null,sourceTimestamp:schedule?.sourceTimestamp??null,materializedAt:schedule?.materializedAt??null}:{reason:s(hold?.reason)||'FINANCE_PAYMENT_SCHEDULE_NOT_MATERIALIZED',validationErrors:asArray(hold?.validationErrors)},
     fundsTrace:{status:'NOT_ESTABLISHED',directSourceUseLinks:[],label:'Связанные расходы по сделке',note:'Прямая трассировка source → use не утверждается без authoritative Treasury/bank source-lock.'}
