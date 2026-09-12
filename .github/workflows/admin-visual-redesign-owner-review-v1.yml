@@ -1,0 +1,57 @@
+name: Admin Home Applications Deals visual redesign QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/main-ui/admin-visual-redesign-v1.js'
+      - 'functions/portal/main-ui/admin-visual-status-chips-v1.js'
+      - 'functions/portal/main-ui/admin-visual-polish-v1.js'
+      - 'functions/portal/main-ui/admin-visual-revision-v2.js'
+      - 'functions/portal/main-ui/admin-visual-revision-v2-polish.js'
+      - 'functions/portal/main-ui/admin-visual-revision-v3-fix.js'
+      - 'functions/portal/main-ui/admin-visual-v4-finalize.js'
+      - 'functions/portal/main-ui/index.js'
+      - 'scripts/qa-admin-visual-redesign-source-v1.mjs'
+      - 'scripts/qa-admin-visual-revision-v2-source.mjs'
+      - 'scripts/qa-admin-visual-revision-v2-browser.mjs'
+      - 'scripts/qa-admin-visual-redesign-browser-v1.mjs'
+      - '.github/workflows/admin-visual-redesign-owner-review-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  visual-redesign-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove visual scope and business-hook preservation
+        run: node scripts/qa-admin-visual-redesign-source-v1.mjs
+      - name: Prove V5 semi-opaque frosted glass and semantic accents are presentation-only
+        run: node scripts/qa-admin-visual-revision-v2-source.mjs
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove computed V5 hierarchy and canonical page titles
+        run: node scripts/qa-admin-visual-revision-v2-browser.mjs
+      - name: Prove Admin V5 functional regression and responsive layouts
+        run: node scripts/qa-admin-visual-redesign-browser-v1.mjs
+      - name: Materialize V5 Owner review screenshot names
+        run: |
+          cp artifacts/admin-redesign/ADMIN_HOME_REDESIGN.png artifacts/admin-redesign/ADMIN_HOME_FROSTED_GLASS_V5.png
+          cp artifacts/admin-redesign/ADMIN_APPLICATIONS_REDESIGN.png artifacts/admin-redesign/ADMIN_APPLICATIONS_FROSTED_GLASS_V5.png
+          cp artifacts/admin-redesign/ADMIN_DEALS_REDESIGN.png artifacts/admin-redesign/ADMIN_DEALS_FROSTED_GLASS_V5.png
+      - name: Upload V5 Owner visual review screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-home-applications-deals-frosted-glass-v5-1440x900
+          path: artifacts/admin-redesign/*.png
+          if-no-files-found: error
+          retention-days: 14
