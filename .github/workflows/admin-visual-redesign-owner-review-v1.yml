@@ -7,9 +7,11 @@ on:
       - 'functions/portal/main-ui/admin-visual-status-chips-v1.js'
       - 'functions/portal/main-ui/admin-visual-polish-v1.js'
       - 'functions/portal/main-ui/admin-visual-revision-v2.js'
+      - 'functions/portal/main-ui/admin-visual-revision-v2-polish.js'
       - 'functions/portal/main-ui/index.js'
       - 'scripts/qa-admin-visual-redesign-source-v1.mjs'
       - 'scripts/qa-admin-visual-revision-v2-source.mjs'
+      - 'scripts/qa-admin-visual-revision-v2-browser.mjs'
       - 'scripts/qa-admin-visual-redesign-browser-v1.mjs'
       - '.github/workflows/admin-visual-redesign-owner-review-v1.yml'
   workflow_dispatch:
@@ -34,6 +36,8 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
+      - name: Prove computed V2 silver steel hierarchy
+        run: node scripts/qa-admin-visual-revision-v2-browser.mjs
       - name: Prove Admin redesign browser regression and responsive layouts
         run: node scripts/qa-admin-visual-redesign-browser-v1.mjs
       - name: Materialize V2 Owner review screenshot names
