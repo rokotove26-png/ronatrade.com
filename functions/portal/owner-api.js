@@ -2,6 +2,8 @@ const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance`;
 const AI_SYNC_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-owner-ai-sync`;
+const PREVIEW_AI_SYNC_UPSTREAM=`${SUPABASE_URL}/functions/v1/rona-admin-source-eval-candidate-20260817`;
+function isPagesPreview(requestUrl){try{return new URL(requestUrl).hostname.endsWith('.rona-trade-public.pages.dev')}catch{return false}}
 const PROD_RPC_UPSTREAM=`${SUPABASE_URL}/rest/v1/rpc`;
 function qaRpcUpstream(){const env=globalThis.process?.env;if(env?.RONA_QA_RPC_MODE!=='LOCAL_EPHEMERAL_POSTGREST')return'';const value=String(env.RONA_QA_RPC_UPSTREAM||'').trim().replace(/\/$/,'');if(!/^http:\/\/(127\.0\.0\.1|localhost):\d+\/rpc$/.test(value))throw new Error('QA_RPC_UPSTREAM_DENIED');return value}
 const RPC_UPSTREAM=qaRpcUpstream()||PROD_RPC_UPSTREAM;
@@ -20,7 +22,7 @@ function json(body,status=200,cookies=[]){const h=headers(new Headers({'content-
 function sameOriginPost(request){const url=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===url.origin;const ref=request.headers.get('referer');if(!ref)return false;try{return new URL(ref).origin===url.origin}catch{return false}}
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
 function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf','/admin/ai-sync','/agent/ai-sync'].includes(path)}
-function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
+function upstreamFor(path,requestUrl){if(path==='/admin/ai-sync')return`${isPagesPreview(requestUrl)?PREVIEW_AI_SYNC_UPSTREAM:AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function safePrice(p){return{id:p?.id??null,product:p?.product??null,producer:p?.producer??null,basis:p?.basis??null,final_station:p?.final_station??null,sale_price:p?.sale_price??null,currency:p?.currency??null,payment_terms:p?.payment_terms??null,commercial_terms:p?.commercial_terms??null,agreed_at:p?.agreed_at??null}}
 function safeClientCompany(c){return{client_id:c?.client_id??null,legal_name:c?.legal_name??null,contract_id:c?.contract_id??null,current_external_contract_number:c?.current_external_contract_number??null,contract_document_id:c?.contract_document_id??null,contract_filename:c?.contract_filename??null,verification_status:c?.current_external_contract_number?'CONFIRMED_CURRENT':'TO_VERIFY'}}
@@ -51,11 +53,11 @@ export async function onRequest(context){
   const body=request.method==='POST'?await request.clone().arrayBuffer():null;
   const spec=r1Spec(path,request.method,parseJsonBytes(body));
   if(spec){let response=await rpcCall(access,spec[0],spec[1]);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await rpcCall(access,spec[0],spec[1])}}if(response.status===401&&!setCookies.length)return r1Response(response,clearCookies());return r1Response(response,setCookies)}
-  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
+  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path,request.url),init)};
   const forwardReadResilient=async token=>{let r=await forward(token);if(request.method==='GET'&&[502,503,504].includes(r.status)){await r.arrayBuffer().catch(()=>{});await sleep(500);r=await forward(token)}return r};
   let response=await forwardReadResilient(access);
   if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forwardReadResilient(access)}}
   response=await sanitizeExternalProjection(path,response);
-  const outHeaders=headers(response.headers);for(const c of setCookies)outHeaders.append('set-cookie',c);if(response.status===401&&!setCookies.length){for(const c of clearCookies())outHeaders.append('set-cookie',c)}
+  const outHeaders=headers(response.headers);if(path==='/admin/ai-sync')outHeaders.set('x-rona-owner-ai-sync-backend',isPagesPreview(request.url)?'PR462_PREVIEW_FINANCE_AUTHORITY':'PRODUCTION_SHARED');for(const c of setCookies)outHeaders.append('set-cookie',c);if(response.status===401&&!setCookies.length){for(const c of clearCookies())outHeaders.append('set-cookie',c)}
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:outHeaders});
 }
