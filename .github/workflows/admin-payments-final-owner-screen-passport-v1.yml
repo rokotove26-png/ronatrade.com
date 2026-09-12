@@ -63,3 +63,5 @@ jobs:
           name: admin-payments-final-owner-screen-passport-v1-proof
           path: artifacts/admin-payments-owner-passport/
           if-no-files-found: warn
+
+# PR462 Owner Correction V2 final same-HEAD gate.

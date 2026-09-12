@@ -87,10 +87,28 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/admin-payments-live-preview
           node scripts/qa-pr462-live-preview-finance.mjs 2>&1 | tee artifacts/admin-payments-live-preview/live-preview-qa.log
-          grep -Fq 'LIVE_PREVIEW_FINANCE_DATA=PASS' artifacts/admin-payments-live-preview/live-preview-qa.log
-          grep -Fq 'LIVE_AI_SYNC_AVAILABLE=PASS' artifacts/admin-payments-live-preview/live-preview-qa.log
-          grep -Fq 'LIVE_PAYMENT_SCHEDULE_AVAILABLE=PASS' artifacts/admin-payments-live-preview/live-preview-qa.log
-          grep -Fq 'LIVE_PAYMENT_PASSPORT_AVAILABLE=PASS' artifacts/admin-payments-live-preview/live-preview-qa.log
+          for marker in \
+            LIVE_PREVIEW_FINANCE_DATA \
+            PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC \
+            PASSPORT_QUERY_BY_PAYMENT_ID \
+            ONE_PASSPORT_ONE_PAYMENT \
+            NO_OTHER_PAYMENT_DATA_IN_PASSPORT \
+            NO_GLOBAL_BANK_FEES_IN_PASSPORT \
+            NO_GLOBAL_FX_IN_PASSPORT \
+            PAYMENT_AMOUNT_EXACT \
+            ALLOCATED_TOTAL_EXACT \
+            UNALLOCATED_RESIDUE_EXACT \
+            MULTI_DEAL_SPLIT_EXACT \
+            NO_FALSE_SOURCE_USE_TRACE \
+            PAYMENT_SCHEDULE_OWNER_SIMPLE \
+            NO_TECHNICAL_ENUMS_ON_OWNER_SCREEN \
+            NO_INTERNAL_TRIGGER_TEXT_ON_OWNER_SCREEN \
+            FINANCE_ALLOCATION_DYNAMIC \
+            NO_HARDCODED_ALLOCATION \
+            NO_DUPLICATES \
+            NO_RUNTIME_ERRORS; do
+            grep -Fq "${marker}=PASS" artifacts/admin-payments-live-preview/live-preview-qa.log
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
