@@ -35,10 +35,22 @@ function isConfirmedDealOutgoing(row){
 function allocationKey(paymentId,currency){return s(paymentId)+'\u0000'+upper(currency)}
 
 export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],outgoingPayments=[],dealFinanceSummaries=[],paymentScheduleAuthority={}}={}){
-  const allPayments=asArray(payments),allAllocations=asArray(paymentAllocations),clientPayments=allPayments.filter(isClientPayment),outgoings=asArray(outgoingPayments);
+  const allPayments=asArray(payments),allAllocations=asArray(paymentAllocations),outgoings=asArray(outgoingPayments);
+  const clientPaymentById=new Map(),conflictedClientPaymentIds=new Set();
+  for(const row of allPayments){
+    if(!isClientPayment(row))continue;const id=s(row?.payment_id);if(!id)continue;
+    const previous=clientPaymentById.get(id);
+    if(!previous){clientPaymentById.set(id,row);continue}
+    if(upper(previous?.currency)!==upper(row?.currency)||n(previous?.amount)!==n(row?.amount))conflictedClientPaymentIds.add(id);
+  }
+  const clientPayments=[...clientPaymentById.entries()].filter(([id])=>!conflictedClientPaymentIds.has(id)).map(([,row])=>row);
   const clientByKey=new Map(clientPayments.map(row=>[allocationKey(row.payment_id,row.currency),row]));
   const incomingPaymentAllocations=[],dealTotals=new Map(),receiptTotals=new Map(),allocationRowsByPayment=new Map(),paidTotals=new Map();
 
+  // Receipt KPI is PAYMENT truth, not allocation truth. Count each canonical client PAYMENT once in full.
+  for(const payment of clientPayments)addCurrency(receiptTotals,payment?.currency,payment?.amount);
+
+  // PAYMENT_ALLOCATION is used only for deal distribution / received-by-deal / residue.
   for(const row of allAllocations){
     if(!isVerifiedAllocation(row))continue;
     const key=allocationKey(row?.payment_id,row?.currency),payment=clientByKey.get(key);if(!payment)continue;
@@ -47,7 +59,6 @@ export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],
     incomingPaymentAllocations.push(normalized);
     if(!allocationRowsByPayment.has(key))allocationRowsByPayment.set(key,[]);allocationRowsByPayment.get(key).push(normalized);
     const dkey=s(row.deal_id)+'\u0000'+upper(row.currency),d=dealTotals.get(dkey)||{deal_id:s(row.deal_id),currency:upper(row.currency),allocated_amount:0};d.allocated_amount=round(d.allocated_amount+amount);dealTotals.set(dkey,d);
-    addCurrency(receiptTotals,row.currency,amount);
   }
   for(const row of outgoings)if(isConfirmedDealOutgoing(row))addCurrency(paidTotals,row?.currency,row?.amount);
 
@@ -63,20 +74,26 @@ export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],
   for(const row of schedules){addCurrency(currentMap,row?.currency,row?.currentDueAmount);addCurrency(deferredMap,row?.currency,row?.deferredNotDueAmount)}
 
   const dealFinanceCurrentState=asArray(dealFinanceSummaries).map(summary=>{
-    const dealId=s(summary?.deal_id),schedule=scheduleByDeal.get(dealId)||null,hold=holdByDeal.get(dealId)||null,dealAllocation=[...dealTotals.values()].find(x=>x.deal_id===dealId&&upper(x.currency)===upper(summary?.currency))||null;
+    const dealId=s(summary?.deal_id),schedule=scheduleByDeal.get(dealId)||null,hold=holdByDeal.get(dealId)||null,dealAllocations=[...dealTotals.values()].filter(x=>x.deal_id===dealId);
+    const scheduleCurrency=upper(schedule?.currency),dealAllocation=schedule?dealAllocations.find(x=>upper(x.currency)===scheduleCurrency)||null:(dealAllocations.length===1?dealAllocations[0]:null),scheduleAuthoritative=!!schedule;
+    const projectedCurrency=scheduleAuthoritative?scheduleCurrency:(dealAllocation?.currency||null);
     return{...summary,
+      currency:projectedCurrency,
+      obligation_amount:scheduleAuthoritative?n(schedule?.obligationAmount):null,
+      client_remaining_amount:scheduleAuthoritative?n(schedule?.remainingAmount):null,
       verified_received_amount:dealAllocation?dealAllocation.allocated_amount:0,
-      payment_schedule_projection_status:schedule?'AUTHORITATIVE':hold?'TO_VERIFY':'TO_VERIFY',
+      finance_status:scheduleAuthoritative?s(schedule?.financeStatus||summary?.finance_status):'TO_VERIFY',
+      payment_schedule_projection_status:scheduleAuthoritative?'AUTHORITATIVE':'TO_VERIFY',
       payment_schedule_state:schedule?.scheduleState??'TO_VERIFY',
-      current_due_amount:schedule?.currentDueAmount??null,
-      deferred_not_due_amount:schedule?.deferredNotDueAmount??null,
+      current_due_amount:scheduleAuthoritative?n(schedule?.currentDueAmount):null,
+      deferred_not_due_amount:scheduleAuthoritative?n(schedule?.deferredNotDueAmount):null,
       payment_schedule_validation_errors:hold?.validationErrors??(hold?.reason?[hold.reason]:[])
     };
   });
 
   return{
     ownerPaymentScreenContract:'ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1',
-    clientReceiptContract:'FINANCE_CLIENT_RECEIPTS_VERIFIED_ALLOCATION_V1',
+    clientReceiptContract:'FINANCE_CLIENT_RECEIPTS_PAYMENT_AMOUNT_V2',
     clientPayments,
     incomingPayments:clientPayments,
     incomingPaymentAllocations:incomingPaymentAllocations.sort((a,b)=>a.payment_id.localeCompare(b.payment_id)||a.deal_id.localeCompare(b.deal_id)),
