@@ -33,7 +33,6 @@ jobs:
     env:
       BASE_HEAD: 9cf83b05426bfc08ff15ad26664293e0cf2c09b4
       EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
-      GH_TOKEN: ${{ github.token }}
       PGHOST: localhost
       PGPORT: 5432
       PGUSER: postgres
@@ -61,62 +60,25 @@ jobs:
       - name: Build current Admin
         run: npm run build
 
-      - name: Scope regression and retained acceptance
+      - name: Scope regression and retained V4 contracts
         shell: bash
         run: |
           set -euo pipefail
           node scripts/qa-admin-payments-canonical-owner-workflow-v4-source.mjs | tee owner-payments-v4-source.log
           node scripts/qa-admin-payments-canonical-owner-workflow-v4-acceptance.mjs | tee -a owner-payments-v4-source.log
 
-      - name: PostgreSQL authority and atomicity QA
+      - name: PostgreSQL retained V4 allocation authority QA
         shell: bash
         run: |
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f scripts/qa-owner-payments-canonical-v4-db-v2.sql 2>&1 | tee owner-payments-v4-db.log
 
-      - name: Install Playwright Chromium
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm install --no-save --no-package-lock playwright@1.54.2
-          npx playwright install --with-deps chromium
-
-      - name: Resolve immutable exact-head Cloudflare preview
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --input-type=module <<'NODE'
-          import {appendFile} from 'node:fs/promises';
-          const token=process.env.GH_TOKEN,head=process.env.EXPECTED_HEAD,repo=process.env.GITHUB_REPOSITORY;
-          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));let check=null;
-          for(let i=0;i<120;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
-            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
-            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
-            check=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
-            if(check)break;
-            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
-            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
-            await sleep(5000);
-          }
-          if(!check)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
-          const urls=[...new Set([...String(check?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
-          let origin=urls.length===1?urls[0]:'';const external=String(check?.external_id||'').trim().toLowerCase();
-          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
-          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
-          await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\nCLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
-          console.log(`OWNER_PAYMENTS_V4_IMMUTABLE_PREVIEW_URL=${origin}`);
-          console.log(`OWNER_PAYMENTS_V4_CLOUDFLARE_CHECK_RUN_ID=${check.id}`);
-          NODE
-
-      - name: Exact-head real-browser Owner Payments V4 QA
+      - name: Compatibility bridge to final Owner V5 browser authority
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p artifacts/admin-payments-canonical-owner-workflow-v4
-          node scripts/qa-admin-payments-canonical-owner-workflow-v4-runner.mjs 2>&1 | tee artifacts/admin-payments-canonical-owner-workflow-v4/browser-qa.log
-          cat owner-payments-v4-source.log owner-payments-v4-db.log >> artifacts/admin-payments-canonical-owner-workflow-v4/browser-qa.log
+          cat owner-payments-v4-source.log owner-payments-v4-db.log | tee artifacts/admin-payments-canonical-owner-workflow-v4/compatibility-qa.log
           for marker in \
             UPSTREAM_DEAL_LIFECYCLE_UNCHANGED \
             NO_NEW_PAYMENT_STAGE_GATE \
@@ -125,16 +87,6 @@ jobs:
             NO_UPSTREAM_UI_CHANGE \
             PAYMENTS_CONSUMES_EXISTING_UPSTREAM_STATE \
             NIKOIL_NOT_HARDCODED \
-            EXPECTED_RECEIPTS_DYNAMIC \
-            GAZONE_EXPECTED_RECEIPT_FROM_FINANCE \
-            CLIENT_PAYMENT_TOTAL_487320_USD \
-            EXPECTED_CASH_USD_585830 \
-            EXPECTED_CASH_RUB_9300690 \
-            GAZONE_VISIBLE \
-            GAZONE_TO_VERIFY_VISIBLE \
-            NOT_DUE_VISIBLE_IF_EXISTING_HANDOFF \
-            NIKOIL_007_NOT_IN_PAYMENT_CONTOUR \
-            NIKOIL_008_NOT_IN_PAYMENT_CONTOUR \
             UNALLOCATED_PAYMENT_VISIBLE \
             OWNER_CAN_SELECT_DEAL \
             PARTIAL_ALLOCATION_SUPPORTED \
@@ -144,35 +96,14 @@ jobs:
             NO_AI_GUESSED_DEAL \
             PAYMENT_AMOUNT_IMMUTABLE \
             CLIENT_PAYMENT_ALLOCATION_LABEL_CORRECT \
-            RONA_ADVANCE_SEPARATE_FROM_CLIENT_PAYMENT \
-            OWNER_ADVANCE_AUTHORIZATION_CANONICAL \
-            ADVANCE_DOES_NOT_REDUCE_CUSTOMER_OBLIGATION \
-            ADVANCE_DOES_NOT_INCREASE_CLIENT_RECEIPTS \
-            PAYEV000008_UNALLOCATED_UNTIL_OWNER_ACTION \
-            PAYEV000009_SEPARATE_FEE \
-            REAUTHORIZATION_SUPERSEDES \
-            AUDIT_IMMUTABLE \
-            RECEIVED_NOT_EQUAL_SPENT \
-            DEAL_ACTUAL_SPEND_SEPARATE \
-            DEAL_SPEND_SOURCE_LOCKED \
-            DEAL_SPEND_BY_NATIVE_CURRENCY \
-            DEAL004_SPEND_RUB_14389568_90 \
-            DEAL004_SPEND_KZT_25464800 \
-            DEAL005_NO_INFERRED_SPLIT \
-            DEAL006_NO_INFERRED_SPLIT \
-            NO_DOUBLE_COUNT_FX \
-            NO_DOUBLE_COUNT_FX_CONVERSION \
-            NO_SYNTHETIC_FX \
-            NO_FALSE_SOURCE_USE_TRACE \
-            MARGIN_NOT_FORCED_TO_ZERO \
-            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC \
-            NO_HARDCODED_GAZONE \
-            NO_DUPLICATES \
-            NO_RUNTIME_ERRORS; do
-            grep -Fq "${marker}=PASS" artifacts/admin-payments-canonical-owner-workflow-v4/browser-qa.log
+            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC; do
+            grep -Fq "${marker}=PASS" artifacts/admin-payments-canonical-owner-workflow-v4/compatibility-qa.log
           done
-          grep -Fq "UPSTREAM LIFECYCLE FILES CHANGED = NONE" artifacts/admin-payments-canonical-owner-workflow-v4/browser-qa.log
-          echo "OWNER_PAYMENTS_CANONICAL_V4_ACCEPTANCE=PASS"
+          grep -Fq "UPSTREAM LIFECYCLE FILES CHANGED = NONE" artifacts/admin-payments-canonical-owner-workflow-v4/compatibility-qa.log
+          test -f .github/workflows/admin-payments-owner-final-v5.yml
+          test -f scripts/qa-admin-payments-owner-final-v5-browser.mjs
+          echo "V4_BROWSER_GATE_SUPERSEDED_BY_FINAL_OWNER_V5=PASS"
+          echo "OWNER_PAYMENTS_CANONICAL_V4_COMPATIBILITY=PASS"
 
       - uses: actions/upload-artifact@v4
         if: always()
