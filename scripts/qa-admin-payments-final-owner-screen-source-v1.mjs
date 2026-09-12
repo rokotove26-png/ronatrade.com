@@ -33,16 +33,20 @@ const paymentScheduleAuthority={paymentScheduleContract:'FINANCE_PAYMENT_SCHEDUL
 const owner=buildPaymentOwnerScreenState({payments,paymentAllocations,outgoingPayments,dealFinanceSummaries,paymentScheduleAuthority});
 const finance={paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',payments,paymentAllocations,outgoingPayments,dealFinanceSummaries,...paymentScheduleAuthority,...owner};
 const total=(rows,c)=>rows.find(x=>x.currency===c)?.amount;
-const dealTotal=id=>owner.dealAllocationTotals.find(x=>x.deal_id===id)?.allocated_amount||0;
+const dealTotalFrom=(state,id)=>state.dealAllocationTotals.find(x=>x.deal_id===id)?.allocated_amount||0;
+const dealTotal=id=>dealTotalFrom(owner,id);
 assert(total(owner.clientReceiptTotalsByCurrency,'USD')===487320,'client receipts total mismatch');
 assert(owner.incomingPayments.length===3&&owner.incomingPayments.every(x=>x.payment_kind==='CLIENT_PAYMENT'),'non-client payment leaked into incoming');
 assert(dealTotal('DEAL-2026-004')===236250&&dealTotal('DEAL-2026-005')===201750&&dealTotal('DEAL-2026-006')===49320&&dealTotal('DEAL-2026-009')===0,'deal allocation mismatch');
 assert(total(owner.currentDueTotalsByCurrency,'USD')===0,'current due must be zero');
 assert(total(owner.deferredNotDueTotalsByCurrency,'USD')===585830,'deferred total mismatch');
-const d9=owner.dealFinanceCurrentState.find(x=>x.deal_id==='DEAL-2026-009');assert(d9.payment_schedule_projection_status==='TO_VERIFY'&&d9.current_due_amount===null,'009 did not fail closed');
+const d9=owner.dealFinanceCurrentState.find(x=>x.deal_id==='DEAL-2026-009');
+assert(d9.payment_schedule_projection_status==='TO_VERIFY'&&d9.payment_schedule_state==='TO_VERIFY','009 did not fail closed');
+assert(d9.obligation_amount===null&&d9.client_remaining_amount===null&&d9.current_due_amount===null&&d9.deferred_not_due_amount===null,'009 stale schedule-dependent values leaked');
+assert(d9.currency===null&&d9.finance_status==='TO_VERIFY','009 stale USD/DUE summary leaked');
 assert(total(owner.paidDealTotalsByCurrency,'RUB')===14389568.9,'RUB paid-deal total mismatch');
 assert(total(owner.paidDealTotalsByCurrency,'KZT')===25464800,'KZT paid-deal total mismatch');
-const p4=buildPaymentPassportProjection(finance,'DEAL-2026-004'),p5=buildPaymentPassportProjection(finance,'DEAL-2026-005');
+const p4=buildPaymentPassportProjection(finance,'DEAL-2026-004'),p5=buildPaymentPassportProjection(finance,'DEAL-2026-005'),p9=buildPaymentPassportProjection(finance,'DEAL-2026-009');
 assert(p4.clientReceipts.length===1&&p4.clientReceipts[0].paymentId==='PAYEV-2026-000001','004 receipt mismatch');
 assert(p4.allocations.length===1&&p4.allocations[0].allocatedAmount===236250,'004 allocation mismatch');
 assert(p4.relatedOutgoings.length===3&&p4.bankFees.length===3,'004 outgoing/fee separation mismatch');
@@ -50,7 +54,20 @@ assert(p4.fxConversions.length===4&&p4.fxConversions.every(x=>x.paymentKind==='F
 assert(p5.clientReceipts.length===1&&p5.clientReceipts[0].paymentId==='PAYEV-2026-000002'&&p5.totals.deferredNotDueAmount===470750,'005 passport mismatch');
 assert(p5.relatedOutgoings.length===0,'unallocated KUZMASH leaked into 005 related outgoings');
 assert(p5.unallocatedOutgoings.some(x=>x.paymentId==='PAYEV-2026-000008')&&p5.unallocatedBankFees.some(x=>x.paymentId==='PAYEV-2026-000009'),'unallocated 008/009 missing');
+assert(p9.projectionStatus==='TO_VERIFY'&&p9.financeStatus==='TO_VERIFY'&&p9.totals.scheduleStatus==='TO_VERIFY'&&p9.totals.scheduleState==='TO_VERIFY','009 passport not fail closed');
+assert(p9.totals.currency===null&&p9.totals.obligationAmount===null&&p9.totals.remainingAmount===null&&p9.totals.currentDueAmount===null&&p9.totals.deferredNotDueAmount===null,'009 passport leaked stale schedule values');
 assert(p4.fundsTrace.status==='NOT_ESTABLISHED'&&p4.fundsTrace.directSourceUseLinks.length===0,'false funds trace');
+
+const splitPayment=payment('PAYEV-QA-SPLIT-001',100000,'USD','INCOMING','CLIENT_PAYMENT');
+const splitOwner=buildPaymentOwnerScreenState({
+  payments:[splitPayment],
+  paymentAllocations:[allocation(splitPayment.payment_id,'DEAL-QA-A',30000,'USD'),allocation(splitPayment.payment_id,'DEAL-QA-B',50000,'USD')],
+  outgoingPayments:[],dealFinanceSummaries:[],paymentScheduleAuthority:{paymentSchedules:[],paymentScheduleHolds:[]}
+});
+const splitSummary=splitOwner.paymentAllocationSummaries.find(x=>x.payment_id===splitPayment.payment_id);
+assert(total(splitOwner.clientReceiptTotalsByCurrency,'USD')===100000,'full client payment KPI reduced by partial allocation');
+assert(dealTotalFrom(splitOwner,'DEAL-QA-A')===30000&&dealTotalFrom(splitOwner,'DEAL-QA-B')===50000,'split allocation mismatch');
+assert(splitSummary?.allocated_total===80000&&splitSummary?.unallocated_amount===20000&&splitSummary?.allocation_projection_status==='PARTIALLY_ALLOCATED','unallocated residue mismatch');
 
 const [ai,ownerSource,passportSource,ui,runtime]=await Promise.all([
   readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts','utf8'),readFile('functions/portal/payment-passport-current.js','utf8'),readFile('functions/portal/main-ui/index.js','utf8'),readFile('functions/portal/main-ui/payment-passport-runtime-v1.js','utf8')
@@ -59,11 +76,14 @@ const production=[ai,ownerSource,passportSource,ui,runtime].join('\n');
 assert(ai.includes("p.payment_direction='INCOMING'::portal_private.payment_direction_enum")&&ai.includes("p.payment_kind='CLIENT_PAYMENT'::portal_private.payment_kind_enum"),'strict client receipt SQL missing');
 assert(ai.includes("pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum"),'verified allocation SQL missing');
 assert(ownerSource.includes("upper(row?.payment_direction)==='INCOMING'")&&ownerSource.includes("upper(row?.payment_kind)==='CLIENT_PAYMENT'"),'server revalidation missing');
+assert(ownerSource.includes("for(const payment of clientPayments)addCurrency(receiptTotals,payment?.currency,payment?.amount)"),'receipt KPI is not full PAYMENT amount');
 assert(!ownerSource.includes('candidate_deal_ids')&&!passportSource.includes('candidate_deal_ids'),'candidateDealIds used by projection');
 assert(ai.includes("case when deal_allocation_status='CONFIRMED' then deal_ids else array[]::text[] end deal_ids"),'unconfirmed outgoing deal ids not stripped');
 assert(ui.includes('clientReceiptTotalsByCurrency')&&ui.includes('currentDueTotalsByCurrency')&&ui.includes('deferredNotDueTotalsByCurrency')&&ui.includes('paidDealTotalsByCurrency'),'Admin KPI does not consume server totals');
+assert(ui.includes("payment_schedule_projection_status||'').toUpperCase()==='AUTHORITATIVE'?financeStatusCell")&&ui.includes("financePill('TO_VERIFY','neutral')"),'Admin unresolved deal row does not expose TO_VERIFY');
 assert(ui.includes('data-rona-payment-passport-open')&&runtime.includes('/portal/payment-passport-current?dealId='),'payment passport button/runtime missing');
 assert(passportSource.includes("fetchTrusted(request,'/admin/ai-sync')"),'passport does not use trusted Admin Finance source');
+assert(passportSource.includes("scheduleAuthoritative=upper(summary?.payment_schedule_projection_status)==='AUTHORITATIVE'&&!!schedule"),'passport does not fail closed on projection status');
 assert(passportSource.includes("label:'Связанные расходы по сделке'")&&passportSource.includes("status:'NOT_ESTABLISHED'"),'false funds trace guard missing');
 for(const forbidden of ['487320','236250','201750','49320','470750','115080','585830','14389568','25464800','PAYEV-2026-000001','PAYEV-2026-000008'])assert(!production.includes(forbidden),`production hardcode detected: ${forbidden}`);
 console.log('CLIENT_RECEIPTS_TOTAL_487320_USD=PASS');
@@ -78,6 +98,13 @@ console.log('DEFERRED_005_470750=PASS');
 console.log('DEFERRED_006_115080=PASS');
 console.log('DEFERRED_TOTAL_585830=PASS');
 console.log('DEAL009_FAIL_CLOSED_TO_VERIFY=PASS');
+console.log('DEAL009_STALE_SUMMARY_SUPPRESSED=PASS');
+console.log('DEAL009_PASSPORT_TO_VERIFY=PASS');
+console.log('DEAL009_OLD_USD_NOT_RENDERED=PASS');
+console.log('FULL_CLIENT_PAYMENT_KPI=PASS');
+console.log('PARTIAL_ALLOCATION_DOES_NOT_REDUCE_RECEIPT_KPI=PASS');
+console.log('UNALLOCATED_RESIDUE=PASS');
+console.log('PAYMENT_ALLOCATION_SEPARATION=PASS');
 console.log('PAID_DEAL_RUB_14389568_90=PASS');
 console.log('PAID_DEAL_KZT_25464800=PASS');
 console.log('PAYMENT_PASSPORT_SERVER_PROJECTION=PASS');
