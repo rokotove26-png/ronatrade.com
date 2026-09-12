@@ -26,9 +26,9 @@ function rowProvenance(row){return{authority:'FINANCE_CURRENT_STATE',sourceKind:
   triggerRecordId:row?.triggerRecordId??null,sourceVersion:row?.sourceVersion??null,sourceTimestamp:row?.sourceTimestamp??null,materializedAt:row?.materializedAt??null,sourceRefs:asArray(row?.sourceRefs)}}
 function failClosed(row,finance,errors){
   const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId);
-  return{dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
+  return{dealId,currency:null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
     scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:'TO_VERIFY',projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',
-    financeStatus:row?.financeStatus??summary?.finance_status??null,accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
+    financeStatus:'TO_VERIFY',accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
     outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',validationErrors:errors,provenance:rowProvenance(row)};
 }
 function validateAuthoritativeRow(finance,row){
@@ -52,8 +52,8 @@ function validateAuthoritativeRow(finance,row){
 }
 function validateHold(finance,row){
   const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId),errors=[];if(!dealId)errors.push('DEAL_ID_MISSING');if(!summary)errors.push('FINANCE_SUMMARY_MISSING');
-  return{dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
-    scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:null,projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',financeStatus:row?.financeStatus??summary?.finance_status??null,
+  return{dealId,currency:null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
+    scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:null,projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',financeStatus:'TO_VERIFY',
     accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',validationErrors:errors.length?errors:[String(row?.reason||'FINANCE_PAYMENT_SCHEDULE_NOT_MATERIALIZED')],
     provenance:{authority:'FINANCE_CURRENT_STATE',authorityState:'FAIL_CLOSED'}};
 }
