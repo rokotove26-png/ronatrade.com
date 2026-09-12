@@ -1,4 +1,4 @@
-# Focused same-HEAD authority + real-browser QA for Admin Payments schedule materialization.
+# Focused same-HEAD authority + real-browser QA for dynamic Admin Payments schedules.
 name: Admin Payments schedule materialization QA
 
 on:
@@ -8,6 +8,8 @@ on:
       - 'functions/portal/payment-schedule-current.js'
       - 'functions/portal/main-ui/payment-schedule-runtime-v1.js'
       - 'functions/portal/main-ui/index.js'
+      - 'supabase/functions/rona-owner-ai-sync/index.ts'
+      - 'supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts'
       - 'scripts/qa-admin-payments-schedule-materialization-source-v1.mjs'
       - 'scripts/qa-admin-payments-schedule-materialization-browser-v2.mjs'
       - '.github/workflows/admin-payments-schedule-materialization-qa.yml'
@@ -17,6 +19,8 @@ on:
       - 'functions/portal/payment-schedule-current.js'
       - 'functions/portal/main-ui/payment-schedule-runtime-v1.js'
       - 'functions/portal/main-ui/index.js'
+      - 'supabase/functions/rona-owner-ai-sync/index.ts'
+      - 'supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts'
       - 'scripts/qa-admin-payments-schedule-materialization-source-v1.mjs'
       - 'scripts/qa-admin-payments-schedule-materialization-browser-v2.mjs'
       - '.github/workflows/admin-payments-schedule-materialization-qa.yml'
@@ -36,7 +40,7 @@ jobs:
           node-version: '24'
       - name: Build current Admin
         run: npm run build
-      - name: Payment schedule source authority QA
+      - name: Dynamic Finance schedule source authority QA
         run: node scripts/qa-admin-payments-schedule-materialization-source-v1.mjs
       - name: Inherited PAYMENT / PAYMENT_ALLOCATION boundary QA
         run: node scripts/qa-admin-payments-finance-allocation-source-v1.mjs
@@ -44,15 +48,15 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Payment schedule real browser runtime QA
+      - name: Dynamic Finance schedule real browser runtime QA
         run: |
           set -o pipefail
           mkdir -p artifacts/admin-payments
           node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-schedule-materialization-browser-v2.mjs 2>&1 | tee artifacts/admin-payments/payment-schedule-browser-qa.log
-      - name: Upload Payments schedule runtime proof
+      - name: Upload dynamic Payments schedule runtime proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-payments-schedule-materialization-v1-browser-proof
+          name: admin-payments-dynamic-finance-schedule-authority-browser-proof
           path: artifacts/admin-payments/
           if-no-files-found: warn
