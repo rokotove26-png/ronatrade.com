@@ -1,14 +1,18 @@
 const ADMIN_VISUAL_V4_FINALIZE=String.raw`
 (()=>{'use strict';
 if(location.pathname!=='/portal/admin'||window.__RONA_ADMIN_VISUAL_V5_FINALIZE__)return;
-window.__RONA_ADMIN_VISUAL_V5_FINALIZE__='20260912-v5.1';
-window.__RONA_ADMIN_VISUAL_V4_FINALIZE__='20260912-v5.1-compat';
+window.__RONA_ADMIN_VISUAL_V5_FINALIZE__='20260912-v5.2';
+window.__RONA_ADMIN_VISUAL_V4_FINALIZE__='20260912-v5.2-compat';
 document.documentElement.classList.add('rona-admin-visual-v5');
 const id='ronaAdminVisualV5FinalizeStyle';
 if(!document.getElementById(id)){
   const s=document.createElement('style');s.id=id;s.textContent=''
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 .rona-admin-v4-page-hero{border:1px solid rgba(220,241,250,.28)!important;background:radial-gradient(620px 230px at 88% -24%,rgba(154,230,249,.085),transparent 66%),linear-gradient(145deg,rgba(14,43,63,.64),rgba(4,22,37,.52))!important;-webkit-backdrop-filter:blur(19px) saturate(134%)!important;backdrop-filter:blur(19px) saturate(134%)!important;box-shadow:inset 0 1px 0 rgba(247,253,255,.18),inset 1px 0 0 rgba(195,233,247,.095),0 20px 56px rgba(0,7,18,.20),0 0 24px rgba(104,218,247,.045)!important}'
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 .rona-admin-v4-page-hero h1{font-size:42px!important;line-height:.98!important;font-weight:950!important;letter-spacing:-.048em!important}'
+  +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home #ronaAdminV2HomeTitle.rona-admin-v5-canonical-home-hero{display:block!important;visibility:visible!important;opacity:1!important;min-height:136px!important;align-items:initial!important;justify-content:initial!important;margin:0!important;padding:22px 24px!important;position:relative!important;z-index:3!important;border-radius:22px!important}'
+  +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home #ronaAdminV2HomeTitle.rona-admin-v5-canonical-home-hero h1{display:block!important;visibility:visible!important;opacity:1!important;margin:10px 0 0!important;font-size:42px!important;line-height:.98!important;font-weight:950!important;letter-spacing:-.048em!important;color:#f8fdff!important}'
+  +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home #ronaAdminV2HomeTitle .rona-admin-v5-canonical-eyebrow{position:relative;z-index:1;color:#67d9f7;font-size:11px;font-weight:900;letter-spacing:.17em;text-transform:uppercase}'
+  +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home #ronaAdminV2HomeTitle .rona-admin-v5-canonical-subtitle{position:relative;z-index:1;margin:12px 0 0;color:rgba(158,185,200,.82);font-size:13px;line-height:1.35}'
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home .rona-ops-v4__commandbar{border:1px solid rgba(214,239,249,.24)!important;background:radial-gradient(700px 250px at 90% -28%,rgba(111,215,243,.055),transparent 66%),linear-gradient(146deg,rgba(12,43,63,.59),rgba(3,21,35,.45))!important;-webkit-backdrop-filter:blur(17px) saturate(132%)!important;backdrop-filter:blur(17px) saturate(132%)!important;box-shadow:inset 0 1px 0 rgba(245,252,255,.15),inset 1px 0 0 rgba(181,230,247,.075),0 18px 48px rgba(0,7,18,.18)!important}'
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home .rona-ops-v4-metric,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home .rona-home-kpis>.rona-owner-card,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-current-deal-kpi{border:1px solid rgba(211,238,248,.20)!important;background:linear-gradient(150deg,rgba(17,55,76,.50),rgba(3,25,41,.38))!important;-webkit-backdrop-filter:blur(13px) saturate(128%)!important;backdrop-filter:blur(13px) saturate(128%)!important;box-shadow:inset 0 1px 0 rgba(245,252,255,.14),inset 1px 0 0 rgba(178,230,247,.07),0 12px 31px rgba(0,7,18,.14)!important}'
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home .rona-ops-v4-panel,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home .rona-owner-card,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-applications .rona-owner-card,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-owner-card,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-current-deal-queue{border:1px solid rgba(208,235,247,.21)!important;background:radial-gradient(520px 180px at 8% -8%,rgba(220,245,253,.045),transparent 64%),linear-gradient(148deg,rgba(11,44,64,.58),rgba(3,23,39,.46))!important;-webkit-backdrop-filter:blur(15px) saturate(130%)!important;backdrop-filter:blur(15px) saturate(130%)!important;box-shadow:inset 0 1px 0 rgba(242,251,255,.13),inset 1px 0 0 rgba(172,228,246,.06),0 16px 42px rgba(0,7,18,.16)!important}'
@@ -30,42 +34,28 @@ if(!document.getElementById(id)){
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-current-deal-table tbody tr:has(.rona-fin-pill.is-ok) td:first-child{box-shadow:inset 2px 0 0 rgba(85,215,160,.66),inset 0 1px 0 rgba(241,251,255,.065)!important}'
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-current-deal-table tbody tr:has(.rona-fin-pill.is-warn) td:first-child,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-current-deal-table tbody tr:has(.rona-admin-status-chip[data-tone="attention"]) td:first-child{box-shadow:inset 2px 0 0 rgba(240,189,103,.72),inset 0 1px 0 rgba(241,251,255,.065)!important}'
   +'.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-deals .rona-current-deal-table tbody tr:has(.rona-admin-status-chip[data-tone="danger"]) td:first-child{box-shadow:inset 2px 0 0 rgba(239,125,145,.74),inset 0 1px 0 rgba(241,251,255,.065)!important}'
-  +'@media(max-width:1440px){.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 .rona-admin-v4-page-hero h1{font-size:42px!important}}@media(max-width:1180px){.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 .rona-admin-v4-page-hero h1{font-size:40px!important}}';
+  +'@media(max-width:1440px){.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 .rona-admin-v4-page-hero h1,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home #ronaAdminV2HomeTitle.rona-admin-v5-canonical-home-hero h1{font-size:42px!important}}@media(max-width:1180px){.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 .rona-admin-v4-page-hero h1,.rona-admin-redesign-v1.rona-admin-visual-v2.rona-admin-visual-v3.rona-admin-visual-v4.rona-admin-visual-v5 #page-home #ronaAdminV2HomeTitle.rona-admin-v5-canonical-home-hero h1{font-size:40px!important}}';
   document.head.appendChild(s);
 }
-function canonicalApplicationsHero(){
-  const page=document.getElementById('page-applications');
-  const h=page&&Array.from(page.querySelectorAll('h1')).find(x=>String(x.textContent||'').trim()==='Заявки');
-  return h&&(h.closest('.rona-admin-v4-page-hero')||h.closest('.rona-admin-v2-hero')||h.closest('.rona-admin-dashboard__hero')||h.parentElement);
-}
-function canonicalizeHomeOnce(){
+function canonicalizeHome(){
   const page=document.getElementById('page-home');if(!page)return;
   const host=page.querySelector(':scope > .rona-owner-page-content')||page;
-  let current=document.getElementById('ronaAdminV2HomeTitle');
-  if(current?.dataset.ronaVisualPresentation==='home-title-canonical-v5')return;
-  const source=canonicalApplicationsHero();
-  if(source){
-    const clone=source.cloneNode(true);
-    clone.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
-    clone.id='ronaAdminV2HomeTitle';
-    clone.dataset.ronaVisualPresentation='home-title-canonical-v5';
-    clone.dataset.ronaCanonicalSource='applications';
-    clone.classList.add('rona-admin-v2-hero','rona-admin-v4-page-hero','rona-admin-v5-canonical-home-hero');
-    const h=clone.querySelector('h1');if(h)h.textContent='Главная';
-    const p=clone.querySelector('p');if(p)p.textContent='Операционный центр и актуальное состояние исполнения.';
-    if(current)current.replaceWith(clone);else host.prepend(clone);
-    return;
-  }
-  if(current){
-    current.querySelectorAll('.rona-admin-v4-home-eyebrow,.rona-admin-v4-home-subtitle').forEach(node=>node.remove());
-    current.classList.add('rona-admin-v2-hero','rona-admin-v4-page-hero','rona-admin-v5-canonical-home-hero');
-    current.dataset.ronaVisualPresentation='home-title-canonical-v5-pending-source';
-    const h=current.querySelector('h1');if(h)h.textContent='Главная';
-  }
+  let header=document.getElementById('ronaAdminV2HomeTitle');
+  if(!header){header=document.createElement('header');header.id='ronaAdminV2HomeTitle';host.prepend(header)}
+  if(header.dataset.ronaVisualPresentation==='home-title-canonical-v5.2')return;
+  header.className='rona-admin-dashboard__hero rona-admin-v2-hero rona-admin-v4-page-hero rona-admin-v5-canonical-home-hero';
+  header.dataset.ronaVisualPresentation='home-title-canonical-v5.2';
+  header.dataset.ronaCanonicalSource='shared-admin-dashboard-hero';
+  header.replaceChildren();
+  const eyebrow=document.createElement('div');eyebrow.className='rona-admin-v5-canonical-eyebrow';eyebrow.textContent='RONA TRADE · OPERATIONS';
+  const title=document.createElement('h1');title.textContent='Главная';
+  const subtitle=document.createElement('p');subtitle.className='rona-admin-v5-canonical-subtitle';subtitle.textContent='Операционный центр и актуальное состояние исполнения.';
+  header.append(eyebrow,title,subtitle);
+  if(header.parentElement!==host||host.firstElementChild!==header)host.prepend(header);
 }
-const run=()=>queueMicrotask(canonicalizeHomeOnce);
+const run=()=>queueMicrotask(canonicalizeHome);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();
-window.addEventListener('rona:admin-pagechange',()=>{const home=document.getElementById('ronaAdminV2HomeTitle');if(home?.dataset.ronaVisualPresentation!=='home-title-canonical-v5')run()});
+window.addEventListener('rona:admin-pagechange',run);
 })();
 `;
 export default ADMIN_VISUAL_V4_FINALIZE;
