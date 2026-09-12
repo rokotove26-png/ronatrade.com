@@ -38,6 +38,11 @@ for(const required of [
 for(const required of [
   '__RONA_ADMIN_VISUAL_POLISH_V1__',
   '.rona-admin-dashboard__hero{display:none!important}',
+  '.rona-admin-visual-duplicate-hero{display:none!important}',
+  'function dedupeHomeHero()',
+  "page.querySelector('.rona-ops-v4__commandbar')",
+  "node.dataset.ronaVisualDuplicateHero='hidden'",
+  'queueMicrotask(()=>{queued=false;dedupeHomeHero()})',
   '.rona-current-deal-kpi-grid',
   '.rona-current-deal-filter',
   '.rona-current-deal-queue',
@@ -78,4 +83,4 @@ for(const required of [
   'openApplicationPassport'
 ])assert.ok(emitted.includes(required),`emitted runtime missing ${required}`);
 
-console.log('ADMIN_VISUAL_REDESIGN_SOURCE_V3=PASS scope=home_applications_deals client_design_tokens=reused presentation_only=true single_home_hero=true current_deals_polished=true semantic_status_chips=true business_hooks_preserved=true passport_preserved=true');
+console.log('ADMIN_VISUAL_REDESIGN_SOURCE_V4=PASS scope=home_applications_deals client_design_tokens=reused presentation_only=true single_home_hero=true current_deals_polished=true semantic_status_chips=true business_hooks_preserved=true passport_preserved=true');
