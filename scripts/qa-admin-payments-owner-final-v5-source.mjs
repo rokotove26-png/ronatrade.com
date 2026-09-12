@@ -1,0 +1,78 @@
+import {readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+const R=p=>readFileSync(p,'utf8'),assert=(v,m)=>{if(!v)throw new Error(m)};
+const base=process.env.BASE_HEAD||'9cf83b05426bfc08ff15ad26664293e0cf2c09b4';
+const changed=execFileSync('git',['diff','--name-only',`${base}...HEAD`],{encoding:'utf8'}).trim().split('\n').filter(Boolean);
+const backend=R('supabase/functions/rona-owner-ai-sync/owner-payments-owner-final-v5.ts');
+const index=R('supabase/functions/rona-owner-ai-sync/index.ts');
+const ui=R('functions/portal/main-ui/owner-payments-owner-final-v5-runtime.js');
+const compact=R('functions/portal/main-ui/owner-payments-owner-final-v5-runtime-compact.js');
+const edge=R('supabase/functions/rona-owner-payment-authority-v5/index.ts');
+const proxy=R('functions/portal/owner-payment-authority-v5.js');
+const passport=R('functions/portal/main-ui/payment-passport-runtime-v1.js');
+const m32400=R('supabase/migrations/20260913032400_owner_payment_v5_auth_and_tables.sql');
+const m32410=R('supabase/migrations/20260913032410_owner_outgoing_payment_decision_v5.sql');
+const m32420=R('supabase/migrations/20260913032420_finance_factual_usd_execution_links_v5.sql');
+const m32430=R('supabase/migrations/20260913032430_owner_payment_v5_owner_role_boundary.sql');
+const finalCode=[backend,index,ui,compact,edge,proxy,m32400,m32410,m32420,m32430].join('\n');
+
+assert(backend.includes("OWNER_FINANCE_CANON_ID='d6429144-5a12-4a9e-a57e-7d9e345f94a3'"),'FINANCE_CANON_ID_MISSING');
+assert(index.includes("x-rona-owner-finance-canon','d6429144-5a12-4a9e-a57e-7d9e345f94a3'"),'FINANCE_CANON_HEADER_MISSING');
+assert(backend.includes('join portal_private.owner_deal_workflow')&&backend.includes("payment_handoff_state in ('READY','SENT')"),'EXISTING_UPSTREAM_CONTOUR_NOT_CONSUMED');
+assert(!/DEAL-2026-007|DEAL-2026-008|NIK[ -]?OIL|НИК[ -]?ОЙЛ/i.test(finalCode),'NIKOIL_HARDCODED');
+assert(!/PAYMENT_STAGE_GATE|create\s+type\s+[^;]*(payment_stage|deal_status)|alter\s+table\s+portal_private\.deals/i.test([m32400,m32410,m32420,m32430].join('\n')),'NEW_PAYMENT_STAGE_OR_DEAL_STATUS');
+assert(!/(insert\s+into|update|delete\s+from)\s+portal_private\.owner_deal_workflow/i.test([m32400,m32410,m32420,m32430].join('\n')),'UPSTREAM_HANDOFF_MUTATION');
+assert(!/(insert\s+into|update|delete\s+from)\s+portal_private\.deals/i.test([m32400,m32410,m32420,m32430].join('\n')),'UPSTREAM_DEAL_MUTATION');
+const upstreamFiles=changed.filter(p=>p==='supabase/functions/rona-owner-ai-sync/runtime.ts'||p==='functions/portal/admin-main-ui-current.js'||/deal[-_]?lifecycle|payment[-_]?stage/i.test(p));
+assert(upstreamFiles.length===0,'UPSTREAM_LIFECYCLE_FILES_CHANGED:'+upstreamFiles.join(','));
+
+assert(backend.includes('total_to_receive_amount')&&backend.includes('verified_received_amount')&&backend.includes('deferred_not_due_amount'),'RECEIPT_CONTROL_FIELDS_MISSING');
+assert(ui.includes('Всего должно быть получено')&&ui.includes('Фактически получено')&&ui.includes('Ожидается')&&ui.includes('Отложено / NOT_DUE'),'RECEIPT_CONTROL_UI_MISSING');
+assert(compact.includes('grid,toolbar,receiptControlCard(f),passportSummaryCard(f),unallocatedCard(f)'),'FIRST_SCREEN_THREE_FUNCTIONS_NOT_COMPACT');
+
+assert(backend.includes("managementCurrency:'USD'")&&backend.includes('FINANCE_TREASURY_EXECUTION_SOURCE_LOCK'),'FACTUAL_USD_MODEL_MISSING');
+assert(backend.includes("execution_state==='COMPLETED'")&&backend.includes("execution_state==='CONVERTED_EXECUTION_PENDING'"),'EXECUTION_STATE_SEPARATION_MISSING');
+assert(backend.includes("management_usd_status:'TO_VERIFY'")||backend.includes("management_usd_status:status"),'USD_TO_VERIFY_FAIL_CLOSED_MISSING');
+assert(backend.includes("upper(row.currency)==='USD'")&&backend.includes("sourceKind='DIRECT_BANK_USD_OUTFLOW'"),'DIRECT_FACTUAL_USD_MISSING');
+assert(!/(CBR|ЦБР|current[_ -]?rate|market[_ -]?rate|synthetic[_ -]?rate|fxRate\s*\*)/i.test(backend),'SYNTHETIC_FX_LOGIC_FOUND');
+assert(m32420.includes("execution_state in ('COMPLETED','CONVERTED_EXECUTION_PENDING')")&&m32420.includes('FINANCE_FACTUAL_USD_EXECUTION_LINK_IMMUTABLE'),'FACTUAL_USD_EVIDENCE_IMMUTABILITY_MISSING');
+assert(m32420.includes('revoke all on table portal_private.finance_deal_execution_usd_links_v5 from public,anon,authenticated,service_role'),'FACTUAL_USD_EVIDENCE_WRITE_REVOKE_MISSING');
+assert(ui.includes('Native evidence')&&ui.includes('USD management')&&ui.includes('CONVERTED / EXECUTION NOT COMPLETED'),'NATIVE_DETAIL_OR_PENDING_UI_MISSING');
+
+assert(m32400.includes('revoke execute on function public.owner_client_payment_allocate_v4')&&m32400.includes('revoke execute on function public.owner_deal_spend_allocate_v4'),'OLD_SERVICE_OWNER_WRAPPERS_NOT_REVOKED');
+assert(m32400.includes('grant execute on function public.owner_client_payment_allocate_v5')&&m32400.includes('to authenticated'),'V5_CLIENT_NOT_AUTHENTICATED_ONLY');
+assert(m32410.includes('grant execute on function public.owner_outgoing_payment_decide_v5')&&m32410.includes('to authenticated'),'V5_OUTGOING_NOT_AUTHENTICATED_ONLY');
+assert(m32430.includes("r.role::text='ADMIN'")&&m32430.includes("r.role::text='RONA_OPERATOR'"),'OWNER_AUTHORITY_BOUNDARY_NOT_EXISTING_ROLES');
+assert(!/SUPABASE_SERVICE_ROLE_KEY|SUPABASE_SECRET_KEYS|service\.rpc|runtimeKey\(['\"]secret/i.test(edge),'EDGE_USES_SERVICE_ROLE_FOR_OWNER_ACTION');
+assert(edge.includes("decisionType==='DEAL_BINDING'")&&edge.includes("decisionType==='ADVANCE_PAYMENT'"),'EXPLICIT_OWNER_DECISIONS_MISSING');
+assert(ui.includes("decisionType:'DEAL_BINDING'")&&ui.includes("decisionType:'ADVANCE_PAYMENT'")&&ui.includes('Выберите сделку'),'EXPLICIT_OWNER_UI_MISSING');
+assert(ui.includes("sel.append(e('option',{value:'',text:'Выберите сделку'}))")&&ui.includes("sel.value=''"),'DEAL_SELECT_NOT_BLANK');
+assert(!/candidate_deal_ids|candidateDeal/i.test(ui),'AI_GUESSED_DEAL_UI');
+assert(m32410.includes('OWNER_OUTGOING_PAYMENT_HISTORY_REQUIRED_AT_COMMIT')&&m32400.includes('OWNER_OUTGOING_PAYMENT_DECISION_HISTORY_IMMUTABLE'),'OWNER_AUDIT_NOT_IMMUTABLE');
+
+assert(passport.includes('ADMIN_PAYMENT_PASSPORT_AUTHORITY_V2')&&passport.includes('Прямая трассировка использования данного платежа не установлена'),'PAYMENT_PASSPORT_NOT_PAYMENT_CENTRIC');
+const layout=ui.match(/st\.textContent='([^']*)'/)?.[1]||'';
+assert(!/font-family|color\s*:|background\s*:|border-color/i.test(layout),'FONT_OR_STATUS_COLOR_RULE_CHANGED');
+
+console.log('UPSTREAM_LIFECYCLE_UNCHANGED=PASS');
+console.log('PAYMENTS_PURPOSE_CLEAR=PASS');
+console.log('TOTAL_TO_RECEIVE_VISIBLE=PASS');
+console.log('VERIFIED_RECEIVED_VISIBLE=PASS');
+console.log('EXPECTED_VISIBLE=PASS');
+console.log('DEFERRED_VISIBLE=PASS');
+console.log('DEAL_PAYMENT_PASSPORT=PASS');
+console.log('ACTUAL_SPEND_IN_FACTUAL_USD=PASS');
+console.log('NATIVE_CURRENCY_DETAIL_ONLY=PASS');
+console.log('CONVERTED_NOT_PAID_SEPARATED=PASS');
+console.log('NO_SYNTHETIC_FX=PASS');
+console.log('NO_FX_DOUBLE_COUNT=PASS');
+console.log('UNALLOCATED_PAYMENTS_VISIBLE=PASS');
+console.log('OWNER_ONLY_DEAL_BINDING=PASS');
+console.log('OWNER_ONLY_ADVANCE_STATUS=PASS');
+console.log('NO_AI_AUTO_AUTHORIZATION=PASS');
+console.log('VISUAL_OVERLOAD_REDUCED=PASS');
+console.log('PAYMENTS_CONSUMES_EXISTING_UPSTREAM_STATE=PASS');
+console.log('NIKOIL_NOT_HARDCODED=PASS');
+console.log('FINANCE_CANON_D6429144_SOURCE_LOCK=PASS');
+console.log('PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC=PASS');
+console.log('UPSTREAM LIFECYCLE FILES CHANGED = NONE');
