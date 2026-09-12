@@ -1,0 +1,54 @@
+name: PR462 final live backend fixes
+
+on:
+  push:
+    branches:
+      - feat/admin-payments-final-owner-screen-passport-v1
+    paths:
+      - .github/workflows/pr462-final-live-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/admin-payments-final-owner-screen-passport-v1
+          fetch-depth: 0
+      - name: Fix preview schedule JSONB lookup and source QA runtime split
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts')
+          s=p.read_text()
+          old="c.source_refs @> array['BUSINESS_CHANGE_PROPOSAL:'||p.record_id::text]::text[]"
+          new="c.source_refs @> to_jsonb(array['BUSINESS_CHANGE_PROPOSAL:'||p.record_id::text]::text[])"
+          if old not in s:
+              raise SystemExit('JSONB_CONTAINMENT_SOURCE_NOT_FOUND')
+          p.write_text(s.replace(old,new,1))
+
+          q=Path('scripts/qa-admin-payments-final-owner-screen-source-v1.mjs')
+          t=q.read_text()
+          old2="const [ai,ownerSource,passportSource,ui,runtime]=await Promise.all([\n  readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts','utf8'),readFile('functions/portal/payment-passport-current.js','utf8'),readFile('functions/portal/main-ui/index.js','utf8'),readFile('functions/portal/main-ui/payment-passport-runtime-v1.js','utf8')\n]);\nconst production=[ai,ownerSource,passportSource,ui,runtime].join('\\n');"
+          new2="const [aiEntry,aiRuntime,ownerSource,passportSource,ui,runtime]=await Promise.all([\n  readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/runtime.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts','utf8'),readFile('functions/portal/payment-passport-current.js','utf8'),readFile('functions/portal/main-ui/index.js','utf8'),readFile('functions/portal/main-ui/payment-passport-runtime-v1.js','utf8')\n]);\nconst ai=aiEntry+'\\n'+aiRuntime;\nconst production=[ai,ownerSource,passportSource,ui,runtime].join('\\n');"
+          if old2 not in t:
+              raise SystemExit('SOURCE_QA_READ_BLOCK_NOT_FOUND')
+          q.write_text(t.replace(old2,new2,1))
+          PY
+          grep -Fq "c.source_refs @> to_jsonb(array['BUSINESS_CHANGE_PROPOSAL:'||p.record_id::text]::text[])" supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts
+          grep -Fq "readFile('supabase/functions/rona-owner-ai-sync/runtime.ts','utf8')" scripts/qa-admin-payments-final-owner-screen-source-v1.mjs
+          node scripts/qa-admin-payments-final-owner-screen-source-v1.mjs
+      - name: Commit fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts scripts/qa-admin-payments-final-owner-screen-source-v1.mjs
+          git commit -m 'fix: complete PR462 live Finance projection'
+          git push origin HEAD:feat/admin-payments-final-owner-screen-passport-v1
