@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
-import { onRequest as mainUiRequest } from '../functions/portal/main-ui.js';
+import { onRequest as mainUiRequest } from '../functions/portal/main-ui/index.js';
 
 const ROOT=process.cwd();
 const DIST=join(ROOT,'dist');
@@ -135,15 +135,15 @@ try{
   const create=page.locator('#page-access #rona-ca4 button[data-rona-create-access="primary"]');
   await create.waitFor({state:'visible',timeout:10000});
   await create.click();
-  const modal=page.locator('.ca-modal');
+  const modal=page.locator('.rona-current-access-modal');
   await modal.waitFor({state:'visible',timeout:5000});
   assert((await modal.innerText()).includes('Тип доступа'),'access modal: Тип доступа missing');
-  assert((await modal.innerText()).includes('Договоры клиента'),'access modal: Договоры клиента missing');
+  assert((await modal.innerText()).includes('Разрешённые компании / контракты'),'access modal: contracts section missing');
   const role=modal.locator('select').first();
   await role.selectOption({label:'Агент'});
   await page.waitForTimeout(100);
   assert((await modal.innerText()).includes('Профиль агента'),'access modal: Профиль агента missing');
-  await modal.locator('button:has-text("Отмена")').click();
+  await modal.locator('button[aria-label="Закрыть"]').click();
   await stableSelection(page,'access',1200);
 
   // Deliberately emulate a late competing runtime mutation. The current router must restore the user's explicit page.

@@ -128,29 +128,136 @@ async function adminSync(){
 
   const payments=await sql`
     select p.payment_id,p.payment_at,p.amount,p.currency,
-           coalesce(nullif(p.payer_name,''),cl.legal_name) payer_name,
+           nullif(p.payer_name,'') payer_name,
            p.original_payment_purpose,p.bank_transaction_reference,
            p.bank_fact_status::text bank_fact_status,p.finance_status::text finance_status,
            p.accounting_closure_status::text accounting_closure_status,
-           p.source_system,p.source_version,p.source_timestamp,
-           cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
-           pa.allocated_amount,pa.allocation_status::text allocation_status,
-           plan.obligation_amount,
-           case when plan.obligation_amount is null then null else greatest(plan.obligation_amount-coalesce(dr.deal_received_total,0),0) end remaining_amount
+           p.source_system,p.source_version,p.source_timestamp
     from portal_private.payments p
-    left join portal_private.payment_allocations pa on pa.payment_key=p.id
-      and pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
-      and pa.allocation_status in ('ALLOCATED'::portal_private.payment_allocation_state_enum,'VERIFIED'::portal_private.payment_allocation_state_enum)
-    left join portal_private.clients cl on cl.id=pa.client_key
-    left join portal_private.contracts ct on ct.id=pa.contract_key
-    left join portal_private.deals d on d.id=pa.deal_key
-    left join lateral (select sum(pp.planned_amount) obligation_amount from portal_private.owner_payment_plan pp where pp.deal_key=d.id and pp.status<>'CANCELLED') plan on true
-    left join lateral (select sum(x.allocated_amount) deal_received_total from portal_private.payment_allocations x where x.deal_key=d.id and x.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and x.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum) and x.allocation_status in ('ALLOCATED'::portal_private.payment_allocation_state_enum,'VERIFIED'::portal_private.payment_allocation_state_enum)) dr on true
     where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
       and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
-    order by p.payment_at desc,p.payment_id desc,d.deal_id nulls last`;
+    order by p.payment_at desc,p.payment_id desc`;
+  const incomingPayments=await sql`
+    select p.payment_id,p.payment_at,p.amount,p.currency,
+           nullif(p.payer_name,'') payer_name,
+           p.original_payment_purpose,p.bank_transaction_reference,
+           p.bank_fact_status::text bank_fact_status,p.finance_status::text finance_status,
+           p.accounting_closure_status::text accounting_closure_status,
+           p.source_system,p.source_version,p.source_timestamp
+    from portal_private.payments p
+    where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+      and not exists (
+        select 1 from portal_private.owner_outgoing_payment_facts op
+        where op.fact_id=p.payment_id
+          and op.lifecycle_state='ACTIVE'
+          and op.authority_state='CONFIRMED'
+          and op.bank_fact_status='BANK_CONFIRMED'
+      )
+    order by p.payment_at desc,p.payment_id desc`;
+  const paymentAllocations=await sql`
+    select p.payment_id,p.currency,
+           cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
+           pa.allocated_amount,pa.allocation_status::text allocation_status,
+           pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state
+    from portal_private.payment_allocations pa
+    join portal_private.payments p on p.id=pa.payment_key
+    left join portal_private.clients cl on cl.id=pa.client_key
+    left join portal_private.contracts ct on ct.id=pa.contract_key
+    left join portal_private.deals d on d.id=pa.deal_key
+    where pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+    order by p.payment_id,d.deal_id nulls last`;
+  const incomingPaymentAllocations=await sql`
+    select p.payment_id,p.currency,
+           cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
+           pa.allocated_amount,pa.allocation_status::text allocation_status,
+           pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state
+    from portal_private.payment_allocations pa
+    join portal_private.payments p on p.id=pa.payment_key
+    left join portal_private.clients cl on cl.id=pa.client_key
+    left join portal_private.contracts ct on ct.id=pa.contract_key
+    left join portal_private.deals d on d.id=pa.deal_key
+    where pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+      and not exists (
+        select 1 from portal_private.owner_outgoing_payment_facts op
+        where op.fact_id=p.payment_id
+          and op.lifecycle_state='ACTIVE'
+          and op.authority_state='CONFIRMED'
+          and op.bank_fact_status='BANK_CONFIRMED'
+      )
+    order by p.payment_id,d.deal_id nulls last`;
+  const paymentAllocationSummaries=await sql`
+    with allocation_totals as (
+      select pa.payment_key,
+             coalesce(sum(pa.allocated_amount) filter (
+               where pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                 and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+                 and pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum
+             ),0) allocated_total,
+             count(*) filter (
+               where pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                 and not (
+                   pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+                   and pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum
+                 )
+             )::int unverified_allocation_rows
+      from portal_private.payment_allocations pa
+      group by pa.payment_key
+    )
+    select p.payment_id,p.currency,p.amount payment_amount,
+           coalesce(a.allocated_total,0) allocated_total,
+           p.amount-coalesce(a.allocated_total,0) unallocated_amount,
+           case
+             when coalesce(a.allocated_total,0)>p.amount then 'TO_VERIFY'
+             when coalesce(a.unverified_allocation_rows,0)>0 then 'TO_VERIFY'
+             when coalesce(a.allocated_total,0)=0 then 'UNALLOCATED'
+             when coalesce(a.allocated_total,0)<p.amount then 'PARTIALLY_ALLOCATED'
+             when coalesce(a.allocated_total,0)=p.amount then 'ALLOCATED'
+             else 'TO_VERIFY'
+           end allocation_projection_status
+    from portal_private.payments p
+    left join allocation_totals a on a.payment_key=p.id
+    where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+      and not exists (
+        select 1 from portal_private.owner_outgoing_payment_facts op
+        where op.fact_id=p.payment_id
+          and op.lifecycle_state='ACTIVE'
+          and op.authority_state='CONFIRMED'
+          and op.bank_fact_status='BANK_CONFIRMED'
+      )
+    order by p.payment_at desc,p.payment_id desc`;
+  const dealAllocationTotals=await sql`
+    select d.deal_id,p.currency,sum(pa.allocated_amount) allocated_amount
+    from portal_private.payment_allocations pa
+    join portal_private.payments p on p.id=pa.payment_key
+    join portal_private.deals d on d.id=pa.deal_key
+    where pa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and pa.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and pa.allocation_status='VERIFIED'::portal_private.payment_allocation_state_enum
+      and p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+      and not exists (
+        select 1 from portal_private.owner_outgoing_payment_facts op
+        where op.fact_id=p.payment_id
+          and op.lifecycle_state='ACTIVE'
+          and op.authority_state='CONFIRMED'
+          and op.bank_fact_status='BANK_CONFIRMED'
+      )
+    group by d.deal_id,p.currency
+    order by d.deal_id,p.currency`;
   const outgoingPayments=await sql`
     select fact_id,payment_at,beneficiary_name,beneficiary_role,amount,currency,purpose,bank_document,deal_ids,deal_allocation_status,flow_kind,bank_fact_status,source_document,source_version,source_timestamp,authority_state,lifecycle_state
     from portal_private.owner_outgoing_payment_facts
@@ -161,10 +268,23 @@ async function adminSync(){
     from portal_private.owner_deal_finance_summary
     where lifecycle_state='ACTIVE' and authority_state='CONFIRMED'
     order by deal_id`;
-  const paymentTotalsByCurrency=await sql`select currency,sum(amount) amount from portal_private.payments where lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum) and bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum group by currency order by currency`;
+  const paymentTotalsByCurrency=await sql`
+    select p.currency,sum(p.amount) amount
+    from portal_private.payments p
+    where p.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and p.authority_state in ('VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+      and p.bank_fact_status='BANK_CONFIRMED'::portal_private.payment_bank_state_enum
+      and not exists (
+        select 1 from portal_private.owner_outgoing_payment_facts op
+        where op.fact_id=p.payment_id
+          and op.lifecycle_state='ACTIVE'
+          and op.authority_state='CONFIRMED'
+          and op.bank_fact_status='BANK_CONFIRMED'
+      )
+    group by p.currency order by p.currency`;
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
-  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',sourceAsOf:cash[0]?.snapshot_date||null,payments,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
+  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',sourceAsOf:cash[0]?.snapshot_date||null,payments,incomingPayments,paymentAllocations,incomingPaymentAllocations,paymentAllocationSummaries,dealAllocationTotals,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
   return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,homeCoordination,agentRewardsFragment,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
