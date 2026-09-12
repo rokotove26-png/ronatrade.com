@@ -4,7 +4,9 @@ import { buildPaymentScheduleProjection } from '../functions/portal/payment-sche
 const projectionSource=await readFile('functions/portal/payment-schedule-current.js','utf8');
 const runtimeSource=await readFile('functions/portal/main-ui/payment-schedule-runtime-v1.js','utf8');
 const mainUiSource=await readFile('functions/portal/main-ui/index.js','utf8');
-const aiSyncSource=await readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8');
+const aiSyncEntry=await readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8');
+const aiSyncRuntime=await readFile('supabase/functions/rona-owner-ai-sync/runtime.ts','utf8');
+const aiSyncSource=aiSyncEntry+'\n'+aiSyncRuntime;
 const authoritySource=await readFile('supabase/functions/rona-owner-ai-sync/payment-schedule-authority.ts','utf8');
 const migrationSource=await readFile('supabase/migrations/20260912183500_finance_payment_schedule_authoritative_store_v1.sql','utf8');
 const backendQaSource=await readFile('scripts/qa-admin-payments-schedule-backend-integration-v1.mjs','utf8');
