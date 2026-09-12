@@ -2,7 +2,7 @@ import http from 'node:http';
 import { mkdir, readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
-import { onRequest as mainUiRequest } from '../functions/portal/main-ui.js';
+import { onRequest as mainUiRequest } from '../functions/portal/main-ui/index.js';
 
 const ROOT=process.cwd(),DIST=join(ROOT,'dist'),now=new Date().toISOString();
 let financeRevision=1,syncCalls=0;
