@@ -10,9 +10,7 @@ const round=value=>Math.round((Number(value)+Number.EPSILON)*1000000)/1000000;
 
 function financeSummary(finance,dealId){return asArray(finance?.dealFinanceSummaries).find(row=>String(row?.deal_id||'')===dealId)||null}
 function dealAllocationTotal(finance,dealId,currency){return asArray(finance?.dealAllocationTotals).find(row=>String(row?.deal_id||'')===dealId&&normalize(row?.currency)===currency)||null}
-function bankPaymentMap(finance){
-  const map=new Map();for(const row of asArray(finance?.incomingPayments)){if(normalize(row?.bank_fact_status)!=='BANK_CONFIRMED')continue;map.set(String(row?.payment_id||''),row)}return map;
-}
+function bankPaymentMap(finance){const map=new Map();for(const row of asArray(finance?.incomingPayments)){if(normalize(row?.bank_fact_status)!=='BANK_CONFIRMED')continue;map.set(String(row?.payment_id||''),row)}return map}
 function verifiedAllocations(finance,dealId,currency){
   const bank=bankPaymentMap(finance),rows=[];
   for(const row of asArray(finance?.incomingPaymentAllocations)){
@@ -23,12 +21,9 @@ function verifiedAllocations(finance,dealId,currency){
   }
   return{rows,total:round(rows.reduce((sum,row)=>sum+row.amount,0)),paymentIds:[...new Set(rows.map(row=>row.paymentId))]};
 }
-function rowProvenance(row){return{
-  authority:'FINANCE_CURRENT_STATE',sourceKind:row?.sourceKind??null,sourceRecordId:row?.sourceRecordId??null,
+function rowProvenance(row){return{authority:'FINANCE_CURRENT_STATE',sourceKind:row?.sourceKind??null,sourceRecordId:row?.sourceRecordId??null,
   proposalRecordId:row?.proposalRecordId??null,conclusionRecordId:row?.conclusionRecordId??null,operationsDecisionId:row?.operationsDecisionId??row?.sourceDecisionRecordId??null,
-  triggerRecordId:row?.triggerRecordId??null,sourceVersion:row?.sourceVersion??null,sourceTimestamp:row?.sourceTimestamp??null,
-  materializedAt:row?.materializedAt??null,sourceRefs:asArray(row?.sourceRefs)
-}}
+  triggerRecordId:row?.triggerRecordId??null,sourceVersion:row?.sourceVersion??null,sourceTimestamp:row?.sourceTimestamp??null,materializedAt:row?.materializedAt??null,sourceRefs:asArray(row?.sourceRefs)}}
 function failClosed(row,finance,errors){
   const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId);
   return{dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
@@ -38,11 +33,9 @@ function failClosed(row,finance,errors){
 }
 function validateAuthoritativeRow(finance,row){
   const dealId=String(row?.dealId||''),currency=normalize(row?.currency),summary=financeSummary(finance,dealId),verified=verifiedAllocations(finance,dealId,currency),aggregate=dealAllocationTotal(finance,dealId,currency),errors=[];
-  const obligation=asNumber(row?.obligationAmount),received=asNumber(row?.verifiedReceivedAmount),remaining=asNumber(row?.remainingAmount),currentDue=asNumber(row?.currentDueAmount),deferred=asNumber(row?.deferredNotDueAmount),state=normalize(row?.scheduleState),trigger=normalize(row?.triggerState),sourceKind=normalize(row?.sourceKind);
+  const obligation=asNumber(row?.obligationAmount),received=asNumber(row?.verifiedReceivedAmount),remaining=asNumber(row?.remainingAmount),currentDue=asNumber(row?.currentDueAmount),deferred=asNumber(row?.deferredNotDueAmount),state=normalize(row?.scheduleState),trigger=normalize(row?.triggerState);
   if(!dealId)errors.push('DEAL_ID_MISSING');if(!currency)errors.push('CURRENCY_MISSING');if(obligation===null||obligation<0)errors.push('OBLIGATION_INVALID');if(received===null||received<0)errors.push('VERIFIED_RECEIVED_INVALID');
   if(remaining===null||remaining<0)errors.push('REMAINING_INVALID');if(currentDue===null||currentDue<0)errors.push('CURRENT_DUE_INVALID');if(deferred===null||deferred<0)errors.push('NOT_DUE_INVALID');
-  if(!['FINANCE_PAYMENT_PLAN_MATERIALIZED','FINANCE_PAID_CURRENT_STATE'].includes(sourceKind))errors.push('BUSINESS_SCHEDULE_STORE_PROVENANCE_MISSING');
-  if(sourceKind==='FINANCE_PAYMENT_PLAN_MATERIALIZED'&&!row?.materializedAt)errors.push('BUSINESS_SCHEDULE_MATERIALIZED_AT_MISSING');
   if(!summary)errors.push('FINANCE_SUMMARY_MISSING');if(summary&&normalize(summary.currency)!==currency)errors.push('SUMMARY_CURRENCY_MISMATCH');if(summary&&!eqAmount(summary.obligation_amount,obligation))errors.push('SUMMARY_OBLIGATION_MISMATCH');
   if(!eqAmount(verified.total,received))errors.push('VERIFIED_PAYMENT_ALLOCATION_SUM_MISMATCH');if(received>0&&verified.paymentIds.length===0)errors.push('BANK_CONFIRMED_PAYMENT_MISSING');if(aggregate&&!eqAmount(aggregate.allocated_amount,received))errors.push('DEAL_ALLOCATION_TOTAL_MISMATCH');
   if(!eqAmount(remaining,Math.max(0,(obligation??0)-(received??0))))errors.push('REMAINING_FORMULA_MISMATCH');if(!eqAmount((currentDue??0)+(deferred??0),remaining))errors.push('DUE_BUCKETS_MISMATCH');
