@@ -1,2 +1,2 @@
-import ownerPaymentsCanonicalV4Runtime from './owner-payments-canonical-v4-runtime.js';
-export default ownerPaymentsCanonicalV4Runtime;
+import ownerPaymentsOwnerFinalV5Runtime from './owner-payments-owner-final-v5-runtime.js';
+export default ownerPaymentsOwnerFinalV5Runtime;
