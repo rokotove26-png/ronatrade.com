@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'functions/portal/main-ui/admin-visual-redesign-v1.js'
+      - 'functions/portal/main-ui/admin-visual-status-chips-v1.js'
+      - 'functions/portal/main-ui/admin-visual-polish-v1.js'
       - 'functions/portal/main-ui/index.js'
       - 'scripts/qa-admin-visual-redesign-source-v1.mjs'
       - 'scripts/qa-admin-visual-redesign-browser-v1.mjs'
