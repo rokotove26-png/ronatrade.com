@@ -22,6 +22,6 @@ export async function onRequest(context){
   headers.set('x-rona-application-deal-handoff','approved-to-deal-v1');
   headers.set('x-rona-application-passport','first-render-v2');
   headers.set('x-rona-admin-completed-applications','owner-r1-server-v2');
-  headers.set('x-rona-payment-schedule-ui','server-projection-v1');
+  headers.set('x-rona-admin-payment-schedule','dynamic-finance-current-state-v2');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
