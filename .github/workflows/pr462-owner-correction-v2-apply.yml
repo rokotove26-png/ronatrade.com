@@ -1,0 +1,476 @@
+name: PR462 owner correction v2 apply
+
+on:
+  push:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths: ['.github/workflows/pr462-owner-correction-v2-apply.yml']
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/admin-payments-final-owner-screen-passport-v1
+          fetch-depth: 0
+      - name: Apply owner correction v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts <<'EOF'
+          // @ts-nocheck
+
+          const ACTIVE_AUTHORITY=new Set(['CONFIRMED','VERIFIED']);
+          const n=value=>{const x=Number(value);return Number.isFinite(x)?x:null};
+          const s=value=>String(value??'').trim();
+          const upper=value=>s(value).toUpperCase();
+          const round=value=>Math.round((Number(value)+Number.EPSILON)*1000000)/1000000;
+          const asArray=value=>Array.isArray(value)?value:[];
+          const sameMoney=(a,b)=>{const x=n(a),y=n(b);return x!==null&&y!==null&&Math.abs(x-y)<0.000001};
+
+          function addCurrency(map,currency,amount){
+            const key=upper(currency),value=n(amount);if(!key||value===null)return;
+            const row=map.get(key)||{currency:key,amount:0};row.amount=round(row.amount+value);map.set(key,row);
+          }
+          function sortedTotals(map){return[...map.values()].sort((a,b)=>a.currency.localeCompare(b.currency))}
+          function isClientPayment(row){
+            return upper(row?.payment_direction)==='INCOMING'
+              && upper(row?.payment_kind)==='CLIENT_PAYMENT'
+              && upper(row?.bank_fact_status)==='BANK_CONFIRMED'
+              && upper(row?.finance_verification_status)==='VERIFIED'
+              && ACTIVE_AUTHORITY.has(upper(row?.authority_state))
+              && (!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE');
+          }
+          function isVerifiedAllocation(row){
+            return upper(row?.allocation_status)==='VERIFIED'
+              && ACTIVE_AUTHORITY.has(upper(row?.authority_state))
+              && (!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE');
+          }
+          export function isReconciledPaymentAllocation(row){
+            return isVerifiedAllocation(row)
+              && upper(row?.source_system).includes('RECONCIL')
+              && !!s(row?.source_version)
+              && !!row?.source_timestamp;
+          }
+          function isConfirmedDealOutgoing(row){
+            return upper(row?.deal_allocation_status)==='CONFIRMED'
+              && upper(row?.bank_fact_status)==='BANK_CONFIRMED'
+              && upper(row?.authority_state)==='CONFIRMED'
+              && (!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE')
+              && ['COUNTERPARTY_PAYMENT','BANK_FEE'].includes(upper(row?.flow_kind));
+          }
+          function allocationKey(paymentId,currency){return s(paymentId)+'\u0000'+upper(currency)}
+
+          export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],outgoingPayments=[],dealFinanceSummaries=[],paymentScheduleAuthority={}}={}){
+            const allPayments=asArray(payments),allAllocations=asArray(paymentAllocations),outgoings=asArray(outgoingPayments);
+            const clientPaymentById=new Map(),conflictedClientPaymentIds=new Set();
+            for(const row of allPayments){
+              if(!isClientPayment(row))continue;const id=s(row?.payment_id);if(!id)continue;
+              const previous=clientPaymentById.get(id);
+              if(!previous){clientPaymentById.set(id,row);continue}
+              if(upper(previous?.currency)!==upper(row?.currency)||n(previous?.amount)!==n(row?.amount))conflictedClientPaymentIds.add(id);
+            }
+            const clientPayments=[...clientPaymentById.entries()].filter(([id])=>!conflictedClientPaymentIds.has(id)).map(([,row])=>row);
+            const clientByKey=new Map(clientPayments.map(row=>[allocationKey(row.payment_id,row.currency),row]));
+            const incomingPaymentAllocations=[],dealTotals=new Map(),receiptTotals=new Map(),allocationRowsByPayment=new Map(),rawRowsByPayment=new Map(),paidTotals=new Map();
+
+            // Receipt KPI is full PAYMENT truth. Allocation is a separate authority.
+            for(const payment of clientPayments)addCurrency(receiptTotals,payment?.currency,payment?.amount);
+
+            // Only reconciled Finance PAYMENT_ALLOCATION may be projected as confirmed distribution.
+            for(const row of allAllocations){
+              const key=allocationKey(row?.payment_id,row?.currency),payment=clientByKey.get(key);if(!payment)continue;
+              if(!rawRowsByPayment.has(key))rawRowsByPayment.set(key,[]);rawRowsByPayment.get(key).push(row);
+              if(!isReconciledPaymentAllocation(row))continue;
+              const amount=n(row?.allocated_amount);if(amount===null||amount<0||!s(row?.deal_id))continue;
+              const normalized={...row,payment_id:s(row.payment_id),deal_id:s(row.deal_id),currency:upper(row.currency),allocated_amount:amount,
+                source_system:s(row?.source_system),source_version:s(row?.source_version),source_timestamp:row?.source_timestamp??null};
+              incomingPaymentAllocations.push(normalized);
+              if(!allocationRowsByPayment.has(key))allocationRowsByPayment.set(key,[]);allocationRowsByPayment.get(key).push(normalized);
+              const dkey=s(row.deal_id)+'\u0000'+upper(row.currency),d=dealTotals.get(dkey)||{deal_id:s(row.deal_id),currency:upper(row.currency),allocated_amount:0};d.allocated_amount=round(d.allocated_amount+amount);dealTotals.set(dkey,d);
+            }
+            for(const row of outgoings)if(isConfirmedDealOutgoing(row))addCurrency(paidTotals,row?.currency,row?.amount);
+
+            const paymentAllocationSummaries=clientPayments.map(payment=>{
+              const key=allocationKey(payment.payment_id,payment.currency),rows=allocationRowsByPayment.get(key)||[],rawRows=rawRowsByPayment.get(key)||[],allocated=round(rows.reduce((sum,row)=>sum+Number(row.allocated_amount||0),0)),amount=n(payment.amount),hasUnreconciled=rawRows.some(row=>!isReconciledPaymentAllocation(row));
+              let status='TO_VERIFY',residue=null;
+              if(amount!==null&&amount>=0){
+                residue=round(amount-allocated);
+                if(hasUnreconciled||allocated>amount+0.000001)status='TO_VERIFY';
+                else if(allocated===0)status='UNALLOCATED';
+                else if(residue>0.000001)status='PARTIALLY_ALLOCATED';
+                else status='ALLOCATED';
+              }
+              return{payment_id:s(payment.payment_id),currency:upper(payment.currency),payment_amount:amount,allocated_total:allocated,unallocated_amount:residue,allocation_projection_status:status,
+                allocation_authority:'FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1',unreconciled_allocation_rows:rawRows.filter(row=>!isReconciledPaymentAllocation(row)).length};
+            });
+
+            const schedules=asArray(paymentScheduleAuthority?.paymentSchedules),holds=asArray(paymentScheduleAuthority?.paymentScheduleHolds),scheduleByDeal=new Map(schedules.map(row=>[s(row.dealId),row])),holdByDeal=new Map(holds.map(row=>[s(row.dealId),row]));
+            const currentMap=new Map(),deferredMap=new Map();
+            const allDealTotals=[...dealTotals.values()];
+            const dealFinanceCurrentState=asArray(dealFinanceSummaries).map(summary=>{
+              const dealId=s(summary?.deal_id),schedule=scheduleByDeal.get(dealId)||null,hold=holdByDeal.get(dealId)||null,dealAllocations=allDealTotals.filter(x=>x.deal_id===dealId);
+              const scheduleCurrency=upper(schedule?.currency),dealAllocation=schedule?dealAllocations.find(x=>upper(x.currency)===scheduleCurrency)||null:(dealAllocations.length===1?dealAllocations[0]:null),verifiedReceived=dealAllocation?dealAllocation.allocated_amount:0;
+              const scheduleAuthoritative=!!schedule&&n(schedule?.verifiedReceivedAmount)!==null&&sameMoney(schedule?.verifiedReceivedAmount,verifiedReceived);
+              if(scheduleAuthoritative){addCurrency(currentMap,schedule?.currency,schedule?.currentDueAmount);addCurrency(deferredMap,schedule?.currency,schedule?.deferredNotDueAmount)}
+              const projectedCurrency=scheduleAuthoritative?scheduleCurrency:(dealAllocation?.currency||null);
+              const validationErrors=schedule&&!scheduleAuthoritative?['FINANCE_RECONCILED_ALLOCATION_MISMATCH']:(hold?.validationErrors??(hold?.reason?[hold.reason]:[]));
+              return{...summary,
+                currency:projectedCurrency,
+                obligation_amount:scheduleAuthoritative?n(schedule?.obligationAmount):null,
+                client_remaining_amount:scheduleAuthoritative?n(schedule?.remainingAmount):null,
+                verified_received_amount:verifiedReceived,
+                finance_status:scheduleAuthoritative?s(schedule?.financeStatus||summary?.finance_status):'TO_VERIFY',
+                payment_schedule_projection_status:scheduleAuthoritative?'AUTHORITATIVE':'TO_VERIFY',
+                payment_schedule_state:scheduleAuthoritative?(schedule?.scheduleState??'TO_VERIFY'):'TO_VERIFY',
+                current_due_amount:scheduleAuthoritative?n(schedule?.currentDueAmount):null,
+                deferred_not_due_amount:scheduleAuthoritative?n(schedule?.deferredNotDueAmount):null,
+                payment_schedule_validation_errors:validationErrors
+              };
+            });
+
+            return{
+              ownerPaymentScreenContract:'ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1',
+              clientReceiptContract:'FINANCE_CLIENT_RECEIPTS_PAYMENT_AMOUNT_V2',
+              allocationReconciliationContract:'FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1',
+              clientPayments,
+              incomingPayments:clientPayments,
+              incomingPaymentAllocations:incomingPaymentAllocations.sort((a,b)=>a.payment_id.localeCompare(b.payment_id)||a.deal_id.localeCompare(b.deal_id)),
+              paymentAllocationSummaries,
+              dealAllocationTotals:allDealTotals.sort((a,b)=>a.deal_id.localeCompare(b.deal_id)||a.currency.localeCompare(b.currency)),
+              clientReceiptTotalsByCurrency:sortedTotals(receiptTotals),
+              paymentTotalsByCurrency:sortedTotals(receiptTotals),
+              currentDueTotalsByCurrency:sortedTotals(currentMap),
+              deferredNotDueTotalsByCurrency:sortedTotals(deferredMap),
+              paidDealTotalsByCurrency:sortedTotals(paidTotals),
+              dealFinanceCurrentState,
+              outgoingPayments:outgoings
+            };
+          }
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('supabase/functions/rona-owner-ai-sync/runtime.ts')
+          s=p.read_text()
+          old="pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state"
+          new="pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state,\n           pa.source_system,pa.source_version,pa.source_timestamp"
+          if s.count(old)!=2:
+              raise SystemExit(f'RUNTIME_ALLOCATION_SELECT_COUNT_{s.count(old)}')
+          p.write_text(s.replace(old,new))
+          PY
+
+          cat > functions/portal/payment-passport-current.js <<'EOF'
+          const PASSPORT_CONTRACT='ADMIN_PAYMENT_PASSPORT_AUTHORITY_V2';
+          const SCREEN_CONTRACT='ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1';
+          const CLIENT_RECEIPT_CONTRACT='FINANCE_CLIENT_RECEIPTS_PAYMENT_AMOUNT_V2';
+          const ALLOCATION_CONTRACT='FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1';
+          const asArray=value=>Array.isArray(value)?value:[];
+          const s=value=>String(value??'').trim();
+          const upper=value=>s(value).toUpperCase();
+          const n=value=>{const x=Number(value);return Number.isFinite(x)?x:null};
+          const round=value=>Math.round((Number(value)+Number.EPSILON)*1000000)/1000000;
+          const activeAuthority=value=>['CONFIRMED','VERIFIED'].includes(upper(value));
+          const samePayment=(row,id)=>s(row?.payment_id)===id;
+          function allocationReconciled(row){return upper(row?.allocation_status)==='VERIFIED'&&activeAuthority(row?.authority_state)&&(!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE')&&upper(row?.source_system).includes('RECONCIL')&&!!s(row?.source_version)&&!!row?.source_timestamp}
+          function canonicalPayment(row){return{
+            paymentId:s(row?.payment_id),date:row?.payment_at??null,direction:upper(row?.payment_direction)||null,paymentKind:upper(row?.payment_kind)||null,
+            payer:s(row?.payer_name)||null,beneficiary:s(row?.beneficiary_name)||null,counterparty:s(row?.counterparty_name)||null,purpose:s(row?.original_payment_purpose)||null,
+            amount:n(row?.amount),currency:upper(row?.currency),bankReference:s(row?.bank_transaction_reference)||null,bankFactStatus:upper(row?.bank_fact_status)||null,
+            financeStatus:upper(row?.finance_status)||null,financeVerificationStatus:upper(row?.finance_verification_status)||null,accountingStatus:upper(row?.accounting_closure_status)||null,
+            dealAllocationApplicability:upper(row?.deal_allocation_applicability)||null,allocationReviewStatus:upper(row?.allocation_review_status)||null,
+            sourceSystem:s(row?.source_system)||null,sourceVersion:s(row?.source_version)||null,sourceTimestamp:row?.source_timestamp??null
+          }}
+          function explicitLinkedPayments(finance,paymentId,kind){
+            return asArray(finance?.payments).filter(row=>upper(row?.payment_kind)===kind&&activeAuthority(row?.authority_state)&&(!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE')&&[row?.source_payment_id,row?.linked_payment_id,row?.parent_payment_id].some(v=>s(v)===paymentId)).map(canonicalPayment);
+          }
+          export function buildPaymentPassportProjection(finance,paymentId,generatedAt=new Date().toISOString()){
+            const id=s(paymentId),errors=[];
+            if(!/^[A-Z0-9][A-Z0-9-]{3,100}$/.test(id))errors.push('PAYMENT_ID_INVALID');
+            if(String(finance?.ownerPaymentScreenContract||'')!==SCREEN_CONTRACT)errors.push('OWNER_PAYMENT_SCREEN_CONTRACT_MISMATCH');
+            if(String(finance?.clientReceiptContract||'')!==CLIENT_RECEIPT_CONTRACT)errors.push('CLIENT_RECEIPT_CONTRACT_MISMATCH');
+            if(String(finance?.allocationReconciliationContract||'')!==ALLOCATION_CONTRACT)errors.push('ALLOCATION_RECONCILIATION_CONTRACT_MISMATCH');
+            const sourceRows=asArray(finance?.payments).filter(row=>samePayment(row,id));
+            if(sourceRows.length!==1)errors.push(sourceRows.length?'PAYMENT_ID_NOT_UNIQUE':'PAYMENT_NOT_FOUND');
+            const paymentRow=sourceRows[0]||null,payment=paymentRow?canonicalPayment(paymentRow):null;
+            if(paymentRow&&(!activeAuthority(paymentRow?.authority_state)||upper(paymentRow?.bank_fact_status)!=='BANK_CONFIRMED'||(paymentRow?.lifecycle_state&&upper(paymentRow.lifecycle_state)!=='ACTIVE')))errors.push('PAYMENT_NOT_AUTHORITATIVE');
+            if(errors.length)return{generatedAt,passportContract:PASSPORT_CONTRACT,paymentId:id,projectionStatus:'TO_VERIFY',validationErrors:errors,payment,allocations:[],totals:{paymentAmount:payment?.amount??null,currency:payment?.currency??null,allocatedTotal:null,unallocatedResidue:null,allocationProjectionStatus:'TO_VERIFY'},linkedBankFees:[],linkedFxConversions:[],fundsTrace:{status:'NOT_ESTABLISHED',directSourceUseLinks:[],note:'Прямая трассировка использования данного платежа не установлена'}};
+            const currency=upper(paymentRow?.currency),rawAllocations=asArray(finance?.paymentAllocations).filter(row=>samePayment(row,id)&&upper(row?.currency)===currency&&(!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE'));
+            const allocations=rawAllocations.filter(allocationReconciled).map(row=>({paymentId:id,dealId:s(row?.deal_id)||null,allocatedAmount:n(row?.allocated_amount),currency,allocationStatus:upper(row?.allocation_status)||null,financeStatus:upper(row?.finance_status)||null,accountingStatus:upper(row?.accounting_closure_status)||null,allocationReference:s(row?.allocation_reference)||null,allocatedAt:row?.allocated_at??null,sourceSystem:s(row?.source_system)||null,sourceVersion:s(row?.source_version)||null,sourceTimestamp:row?.source_timestamp??null})).filter(row=>row.dealId&&row.allocatedAmount!==null&&row.allocatedAmount>=0);
+            const amount=n(paymentRow?.amount),allocatedTotal=round(allocations.reduce((sum,row)=>sum+Number(row.allocatedAmount||0),0)),hasUnreconciled=rawAllocations.some(row=>!allocationReconciled(row));
+            let unallocatedResidue=amount===null?null:round(amount-allocatedTotal),allocationProjectionStatus='TO_VERIFY';
+            const notApplicable=upper(paymentRow?.deal_allocation_applicability)==='NOT_APPLICABLE';
+            if(notApplicable&&rawAllocations.length===0){allocationProjectionStatus='NOT_APPLICABLE';unallocatedResidue=null}
+            else if(amount!==null&&amount>=0&&!hasUnreconciled&&allocatedTotal<=amount+0.000001){allocationProjectionStatus=allocatedTotal===0?'UNALLOCATED':unallocatedResidue>0.000001?'PARTIALLY_ALLOCATED':'ALLOCATED'}
+            const linkedBankFees=explicitLinkedPayments(finance,id,'BANK_FEE'),linkedFxConversions=explicitLinkedPayments(finance,id,'FX_CONVERSION');
+            return{generatedAt,passportContract:PASSPORT_CONTRACT,paymentId:id,projectionStatus:'AUTHORITATIVE',validationErrors:[],payment,allocations,
+              totals:{paymentAmount:amount,currency,allocatedTotal,unallocatedResidue,allocationProjectionStatus,allocationAuthority:ALLOCATION_CONTRACT,unreconciledAllocationRows:rawAllocations.filter(row=>!allocationReconciled(row)).length},
+              linkedBankFees,linkedFxConversions,
+              fundsTrace:{status:'NOT_ESTABLISHED',directSourceUseLinks:[],note:'Прямая трассировка использования данного платежа не установлена'}
+            };
+          }
+          function responseHeaders(base){const headers=new Headers(base||{});headers.set('content-type','application/json; charset=utf-8');headers.set('cache-control','no-store, no-cache, must-revalidate');headers.set('pragma','no-cache');headers.set('x-rona-payment-passport',PASSPORT_CONTRACT);return headers}
+          async function fetchTrusted(request,path){const target=new URL('/portal/owner-api',request.url);target.searchParams.set('path',path);const headers=new Headers({accept:'application/json'}),cookie=request.headers.get('cookie');if(cookie)headers.set('cookie',cookie);const requestId=request.headers.get('x-request-id');if(requestId)headers.set('x-request-id',requestId);return fetch(target,{method:'GET',headers,cache:'no-store'})}
+          export async function onRequest(context){
+            const request=context.request;if(request.method!=='GET')return new Response(JSON.stringify({ok:false,code:'METHOD_NOT_ALLOWED'}),{status:405,headers:responseHeaders()});
+            const paymentId=s(new URL(request.url).searchParams.get('paymentId'));if(!/^[A-Z0-9][A-Z0-9-]{3,100}$/.test(paymentId))return new Response(JSON.stringify({ok:false,code:'PAYMENT_PASSPORT_PAYMENT_ID_INVALID'}),{status:400,headers:responseHeaders()});
+            const syncResponse=await fetchTrusted(request,'/admin/ai-sync');if(!syncResponse.ok){const status=[401,403].includes(syncResponse.status)?syncResponse.status:502;return new Response(JSON.stringify({ok:false,code:status===403?'PAYMENT_PASSPORT_ACCESS_DENIED':'PAYMENT_PASSPORT_SOURCE_UNAVAILABLE'}),{status,headers:responseHeaders()})}
+            const syncPayload=await syncResponse.json().catch(()=>null),finance=syncPayload?.data?.financeFragment;if(!finance||typeof finance!=='object')return new Response(JSON.stringify({ok:false,code:'FINANCE_PROJECTION_MISSING'}),{status:502,headers:responseHeaders()});
+            const data=buildPaymentPassportProjection(finance,paymentId,syncPayload?.data?.generatedAt||new Date().toISOString());if(data.validationErrors?.includes('PAYMENT_NOT_FOUND'))return new Response(JSON.stringify({ok:false,code:'PAYMENT_PASSPORT_PAYMENT_NOT_FOUND'}),{status:404,headers:responseHeaders()});
+            return new Response(JSON.stringify({ok:true,data}),{status:200,headers:responseHeaders()});
+          }
+          EOF
+
+          cat > functions/portal/main-ui/payment-passport-runtime-v1.js <<'EOF'
+          const PAYMENT_PASSPORT_RUNTIME=String.raw`
+          (()=>{'use strict';
+          if(window.__RONA_PAYMENT_PASSPORT__)return;window.__RONA_PAYMENT_PASSPORT__='20260913-payment-passport-v2';
+          const C='ADMIN_PAYMENT_PASSPORT_AUTHORITY_V2',A=v=>Array.isArray(v)?v:[],T=v=>v===null||v===undefined||v===''?'—':String(v),M=(v,c)=>v===null||v===undefined||!Number.isFinite(Number(v))?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(Number(v))+(c?' '+c:''),D=v=>{const d=new Date(v);return!v?'—':Number.isNaN(d.getTime())?String(v):new Intl.DateTimeFormat('ru-RU').format(d)};let modal=null;
+          const direction=v=>({INCOMING:'Входящий',OUTGOING:'Исходящий'}[String(v||'').toUpperCase()]||T(v));
+          const kind=v=>({CLIENT_PAYMENT:'Платёж клиента',COUNTERPARTY_PAYMENT:'Платёж контрагенту',BANK_FEE:'Банковская комиссия',FX_CONVERSION:'Валютная конверсия'}[String(v||'').toUpperCase()]||T(v));
+          const allocationStatus=v=>({VERIFIED:'Подтверждено',ALLOCATED:'Распределено полностью',PARTIALLY_ALLOCATED:'Распределено частично',UNALLOCATED:'Не распределено',TO_VERIFY:'Требует проверки',NOT_APPLICABLE:'Не применяется'}[String(v||'').toUpperCase()]||T(v));
+          function E(tag,a={},kids=[]){const n=document.createElement(tag);for(const[k,v]of Object.entries(a)){if(k==='class')n.className=v;else if(k==='text')n.textContent=v;else if(k==='onclick')n.onclick=v;else n.setAttribute(k,String(v))}A(kids).forEach(x=>x&&n.append(x));return n}
+          function S(title){return E('section',{class:'rona-app-passport-section'},[E('h3',{text:title})])}
+          function F(g,l,v){g.append(E('div',{class:'rona-app-passport-field'},[E('div',{class:'rona-app-passport-label',text:l}),E('div',{class:'rona-app-passport-value',text:T(v)})]))}
+          function Q(h,rows,buttons=false){if(!rows.length)return E('div',{class:'rona-app-passport-empty',text:'Подтверждённых данных для этого раздела нет.'});const t=E('table',{class:'rona-owner-table'}),hr=E('tr');h.forEach(x=>hr.append(E('th',{text:x})));t.append(E('thead',{},[hr]));const b=E('tbody');rows.forEach(r=>{const tr=E('tr');r.forEach((x,i)=>{const td=E('td');if(buttons&&i===r.length-1&&x instanceof HTMLElement)td.append(x);else td.textContent=T(x);tr.append(td)});b.append(tr)});t.append(b);return E('div',{class:'rona-owner-table-wrap'},[t])}
+          function close(){modal?.remove();modal=null}
+          function render(p){close();const back=E('div',{class:'rona-app-passport-backdrop'}),panel=E('section',{class:'rona-app-passport-modal',role:'dialog','aria-modal':'true'}),head=E('div',{class:'rona-app-passport-head'}),x=E('button',{type:'button',text:'Закрыть'}),body=E('div',{class:'rona-app-passport-body'});x.onclick=close;head.append(E('h2',{text:'Паспорт платежа '+T(p?.paymentId)}),x);
+          const payment=p?.payment||{},a=S('Основные данные'),g=E('div',{class:'rona-app-passport-grid'});F(g,'Payment ID',payment.paymentId);F(g,'Дата',D(payment.date));F(g,'Направление',direction(payment.direction));F(g,'Тип платежа',kind(payment.paymentKind));F(g,'Плательщик',payment.payer);F(g,'Получатель',payment.beneficiary||payment.counterparty);F(g,'Назначение',payment.purpose);F(g,'Сумма',M(payment.amount,payment.currency));F(g,'Bank reference',payment.bankReference);F(g,'Банковский факт',payment.bankFactStatus);F(g,'Finance status',[payment.financeStatus,payment.financeVerificationStatus].filter(Boolean).join(' / '));F(g,'Accounting status',payment.accountingStatus);a.append(g);body.append(a);
+          const b=S('Распределение этого платежа'),alloc=A(p?.allocations);if(String(p?.totals?.allocationProjectionStatus||'').toUpperCase()==='TO_VERIFY')b.append(E('div',{class:'rona-app-passport-empty',text:'Распределение требует проверки Finance.'}));if(alloc.length)b.append(Q(['Deal ID','Сумма распределения','Статус'],alloc.map(r=>[r.dealId,M(r.allocatedAmount,r.currency),allocationStatus(r.allocationStatus)])));body.append(b);
+          const c=S('Итоги распределения'),cg=E('div',{class:'rona-app-passport-grid'}),cc=p?.totals?.currency;F(cg,'PAYMENT amount',M(p?.totals?.paymentAmount,cc));F(cg,'ALLOCATED TOTAL',M(p?.totals?.allocatedTotal,cc));F(cg,'UNALLOCATED RESIDUE',p?.totals?.unallocatedResidue===null?'—':M(p?.totals?.unallocatedResidue,cc));F(cg,'Статус распределения',allocationStatus(p?.totals?.allocationProjectionStatus));c.append(cg);body.append(c);
+          const trace=S('Куда направлены деньги');trace.append(E('div',{class:'rona-app-passport-empty','data-funds-trace-status':T(p?.fundsTrace?.status),text:p?.fundsTrace?.note||'Прямая трассировка использования данного платежа не установлена'}));body.append(trace);
+          if(A(p?.linkedBankFees).length){const f=S('Банковская комиссия, связанная именно с этим платежом');f.append(Q(['Payment ID','Дата','Сумма','Bank reference'],A(p.linkedBankFees).map(r=>[r.paymentId,D(r.date),M(r.amount,r.currency),r.bankReference])));body.append(f)}
+          if(A(p?.linkedFxConversions).length){const z=S('Связанная банковская конверсия');z.append(Q(['Payment ID','Дата','Направление','Сумма','Bank reference'],A(p.linkedFxConversions).map(r=>[r.paymentId,D(r.date),direction(r.direction),M(r.amount,r.currency),r.bankReference])));body.append(z)}
+          panel.append(head,body);back.append(panel);back.onclick=ev=>{if(ev.target===back)close()};document.body.append(back);modal=back;window.__RONA_PAYMENT_PASSPORT_CURRENT__=p;x.focus()}
+          async function open(id,b){const old=b?.textContent||'Открыть';if(b){b.disabled=true;b.textContent='Загрузка…'}try{const r=await fetch('/portal/payment-passport-current?paymentId='+encodeURIComponent(id),{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}),j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok||!j.data||j.data.passportContract!==C)throw new Error(j?.code||'PAYMENT_PASSPORT_SOURCE_INVALID');render(j.data)}finally{if(b){b.disabled=false;b.textContent=old}}}
+          function dealPayments(dealId){close();const f=window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.financeFragment||{},rows=A(f.incomingPaymentAllocations).filter(r=>String(r?.deal_id||'')===String(dealId)),payments=new Map(A(f.incomingPayments).map(p=>[String(p?.payment_id||''),p]));const back=E('div',{class:'rona-app-passport-backdrop'}),panel=E('section',{class:'rona-app-passport-modal',role:'dialog','aria-modal':'true'}),head=E('div',{class:'rona-app-passport-head'}),x=E('button',{type:'button',text:'Закрыть'}),body=E('div',{class:'rona-app-passport-body'});x.onclick=close;head.append(E('h2',{text:'Платежи сделки '+T(dealId)}),x);const sec=S('Подтверждённые распределения PAYMENT_ALLOCATION');if(!rows.length)sec.append(E('div',{class:'rona-app-passport-empty',text:'Подтверждённых reconciled распределений по этой сделке сейчас нет.'}));else sec.append(Q(['Payment ID','Дата','Распределено','Статус','Действие'],rows.map(r=>{const p=payments.get(String(r.payment_id))||{};const btn=E('button',{type:'button','data-rona-payment-passport-open':String(r.payment_id),text:'Открыть'});return[r.payment_id,D(p.payment_at),M(r.allocated_amount,r.currency),allocationStatus(r.allocation_status),btn]}),true));body.append(sec);panel.append(head,body);back.append(panel);back.onclick=ev=>{if(ev.target===back)close()};document.body.append(back);modal=back;x.focus()}
+          document.addEventListener('click',ev=>{const pb=ev.target?.closest?.('button[data-rona-payment-passport-open]');if(pb){const id=pb.getAttribute('data-rona-payment-passport-open');if(id){ev.preventDefault();ev.stopPropagation();open(id,pb).catch(console.error)}return}const db=ev.target?.closest?.('button[data-rona-deal-payments-open]');if(db){const id=db.getAttribute('data-rona-deal-payments-open');if(id){ev.preventDefault();ev.stopPropagation();dealPayments(id)}}},true);
+          window.openPaymentPassport=id=>open(id,null);window.__RONA_PAYMENT_PASSPORT_RENDER__=render;window.__RONA_DEAL_PAYMENTS_OPEN__=dealPayments;
+          })();
+          `;
+          export default PAYMENT_PASSPORT_RUNTIME;
+          EOF
+
+          cat > functions/portal/main-ui/payment-schedule-runtime-v1.js <<'EOF'
+          export default String.raw`
+          (()=>{
+            const RUNTIME='20260913-payment-schedule-owner-simple-v3';
+            const ENDPOINT='/portal/payment-schedule-current';
+            window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V1__=RUNTIME;
+            window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__=RUNTIME;
+            window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V3__=RUNTIME;
+            let current=null,inflight=null,lastError=null;
+            const amount=(value,currency)=>value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'—':new Intl.NumberFormat('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:2}).format(Number(value))+(currency?' '+currency:'');
+            const node=(tag,attrs={},children=[])=>{const el=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='class')el.className=v;else if(k==='text')el.textContent=v;else el.setAttribute(k,String(v))}for(const child of children){if(child)el.append(child)}return el};
+            const cell=value=>node('td',{text:value});
+            function conditionLabel(row){if(String(row?.projectionStatus||'').toUpperCase()!=='AUTHORITATIVE')return'—';const raw=String(row?.nextTrancheCondition||'').trim();if(!raw||raw==='NO_FURTHER_TRANCHE')return'—';if(raw==='AFTER_AUTHORITATIVE_GU_CONFIRMATION')return'70% после подтверждения ГУ, до отгрузки';if(/^[A-Z0-9_ -]+$/.test(raw)&&raw.includes('_'))return'Условие платежа подтверждается Finance';let text=raw.replace(/GU-?12/gi,'ГУ-12').replace(/SMGS/gi,'СМГС').replace(/AUTHORITATIVE/gi,'подтверждённого');return text.length>160?text.slice(0,157)+'…':text}
+            function statusLabel(row){if(String(row?.projectionStatus||'').toUpperCase()!=='AUTHORITATIVE')return'Требует проверки';const state=String(row?.scheduleState||'').toUpperCase(),trigger=String(row?.triggerState||'').toUpperCase(),next=String(row?.nextTrancheCondition||'').toUpperCase();if(state==='PAID'||next==='NO_FURTHER_TRANCHE')return'Расчёты по графику завершены';if(state==='DEFERRED_NOT_DUE'||trigger==='NOT_CONFIRMED')return'Условие ещё не наступило';if(state==='DUE')return'К оплате сейчас';return'Требует проверки'}
+            function projectionHost(){const page=document.querySelector('#page-payments');if(!page)return null;return page.querySelector(':scope > .rona-owner-page-content[data-owner-page="payments"]')||page.querySelector(':scope > .rona-owner-page-content')||page.firstElementChild||page}
+            function render(){const host=projectionHost();if(!host||!current)return;const existing=document.getElementById('rona-payment-schedule-v1'),revision=String(current.generatedAt||'unknown');if(existing&&existing.dataset.revision===revision)return;if(existing)existing.remove();const card=node('div',{id:'rona-payment-schedule-v1',class:'rona-owner-card','data-revision':revision});card.append(node('h3',{text:'График платежей по сделкам'}));const wrap=node('div',{class:'rona-owner-table-wrap'}),table=node('table',{class:'rona-owner-table'}),thead=node('thead'),head=node('tr');for(const label of ['Deal','Обязательство','Получено','К оплате сейчас','Отложено','Следующий платеж','Статус'])head.append(node('th',{text:label}));thead.append(head);table.append(thead);const tbody=node('tbody');for(const row of Array.isArray(current.schedules)?current.schedules:[]){const tr=node('tr',{'data-schedule-deal':String(row?.dealId||''),'data-schedule-state':String(row?.scheduleState||''),'data-projection-status':String(row?.projectionStatus||'')});tr.append(cell(String(row?.dealId||'—')),cell(amount(row?.obligationAmount,row?.currency)),cell(amount(row?.verifiedReceivedAmount,row?.currency)),cell(amount(row?.currentDueAmount,row?.currency)),cell(amount(row?.deferredNotDueAmount,row?.currency)),cell(conditionLabel(row)),cell(statusLabel(row)));tbody.append(tr)}table.append(tbody);wrap.append(table);card.append(wrap);const anchor=host.querySelector('.rona-fin-filter');if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(card,anchor.nextSibling);else host.prepend(card);window.__RONA_PAYMENT_SCHEDULE_RENDERED_AT__=revision}
+            async function refresh(){if(inflight)return inflight;inflight=(async()=>{try{const response=await fetch(ENDPOINT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}),payload=await response.json().catch(()=>null);if(!response.ok||payload?.ok===false||!payload?.data)throw new Error(String(payload?.code||('HTTP_'+response.status)));if(payload.data.projectionContract!=='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2')throw new Error('PAYMENT_SCHEDULE_CONTRACT_MISMATCH');current=payload.data;lastError=null;window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__=current;render()}catch(error){lastError=String(error?.message||error);window.__RONA_PAYMENT_SCHEDULE_LAST_ERROR__=lastError}finally{inflight=null}})();return inflight}
+            const observer=new MutationObserver(()=>{if(current)queueMicrotask(render)});const start=()=>{observer.observe(document.documentElement,{subtree:true,childList:true});refresh();window.setInterval(refresh,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh()});window.addEventListener('pageshow',refresh)};if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();window.__RONA_PAYMENT_SCHEDULE_REFRESH__=refresh;
+          })();
+          `;
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('functions/portal/payment-schedule-current.js')
+          s=p.read_text()
+          old="if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state)))continue;"
+          new="if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state))||!normalize(row?.source_system).includes('RECONCIL')||!String(row?.source_version||'').trim()||!row?.source_timestamp)continue;"
+          if old not in s: raise SystemExit('SCHEDULE_RECONCILIATION_ANCHOR_MISSING')
+          s=s.replace(old,new,1)
+          s=s.replace("syntheticFx:false,sentApplicationCreatesDue:false","syntheticFx:false,sentApplicationCreatesDue:false,reconciledFinanceAllocationOnly:true",1)
+          p.write_text(s)
+          PY
+
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('functions/portal/main-ui/index.js')
+          s=p.read_text()
+          s=s.replace("'Finance','Accounting','Паспорт'","'Finance','Accounting','Действия'",1)
+          old="e('button',{type:'button','data-rona-payment-passport-open':String(s.deal_id||''),text:'Открыть'})"
+          new="e('button',{type:'button','data-rona-deal-payments-open':String(s.deal_id||''),text:'Платежи сделки'})"
+          if old not in s: raise SystemExit('DEAL_PASSPORT_BUTTON_ANCHOR_MISSING')
+          s=s.replace(old,new,1)
+          insert_before="const PAYMENTS_CURRENT_ROW_FROM=\"money(s.received_amount,s.currency),money(s.client_remaining_amount,s.currency),financeStatusCell(s.finance_status),accountingStatusCell(s.accounting_status)]))\";"
+          if insert_before not in s: raise SystemExit('MAIN_UI_INSERT_ANCHOR_MISSING')
+          extra=r'''const PAYMENTS_ALLOCATION_CELL_FROM="function incomingAllocationCell(f,p){const rows=paymentAllocationRows(f,p).filter(x=>x.deal_id);if(!rows.length)return financePill('Нераспределено','neutral');const box=e('div',{class:'rona-fin-allocation-list'});for(const x of rows)box.append(e('div',{class:'rona-fin-allocation-line'},e('strong',{text:String(x.deal_id)}),e('span',{text:' — '+money(x.allocated_amount,x.currency)})));return box}";
+          const PAYMENTS_ALLOCATION_CELL_TO="function incomingAllocationCell(f,p){const sm=paymentAllocationSummary(f,p),status=String(sm?.allocation_projection_status||'').toUpperCase();if(status==='TO_VERIFY')return financePill('Требует проверки','warn');const rows=paymentAllocationRows(f,p).filter(x=>x.deal_id);if(!rows.length)return financePill('Не распределено','neutral');const box=e('div',{class:'rona-fin-allocation-list'});for(const x of rows)box.append(e('div',{class:'rona-fin-allocation-line'},e('strong',{text:String(x.deal_id)}),e('span',{text:' — '+money(x.allocated_amount,x.currency)})));return box}";
+          const PAYMENTS_DEAL_ALLOCATION_FROM="function dealIncomingAllocationCell(f,s){const dealId=String(s?.deal_id||''),rows=canonicalFinanceArray(f?.dealAllocationTotals).filter(x=>String(x.deal_id||'')===dealId);if(!rows.length){const received=Number(s?.received_amount);if(Number.isFinite(received)&&received===0)return financePill('Поступлений нет','neutral');return financePill('Нераспределено / требует верификации','warn')}const box=e('div',{},financePill('Распределено по сделке','success'));for(const x of rows)box.append(e('div',{class:'rona-owner-muted',text:money(x.allocated_amount,x.currency)}));return box}";
+          const PAYMENTS_DEAL_ALLOCATION_TO="function dealIncomingAllocationCell(f,s){const dealId=String(s?.deal_id||''),rows=canonicalFinanceArray(f?.dealAllocationTotals).filter(x=>String(x.deal_id||'')===dealId);if(!rows.length)return financePill('Требует проверки','warn');const box=e('div',{},financePill('Распределено по сделке','success'));for(const x of rows)box.append(e('div',{class:'rona-owner-muted',text:money(x.allocated_amount,x.currency)}));return box}";
+          const PAYMENTS_INCOMING_FROM="const incomingBody=xs.length?tbl(['Дата','Плательщик','PAYMENT ID','Сумма поступления','Валюта','Назначение / банковский документ','Банковский факт','Распределение по сделкам','Нераспределено','Finance','Accounting'],xs.map(x=>[date(x.payment_at),x.payer_name||'—',x.payment_id||'—',money(x.amount,x.currency),x.currency||'—',e('div',{},e('div',{text:x.original_payment_purpose||'—'}),x.bank_transaction_reference?e('div',{class:'rona-owner-muted',text:x.bank_transaction_reference}):null),bankStatusCell(x.bank_fact_status),incomingAllocationCell(f,x),unallocatedCell(f,x),financeStatusCell(x.finance_status),accountingStatusCell(x.accounting_closure_status)])):e('div',{class:'rona-owner-muted',text:financeSearchText?'По запросу ничего не найдено.':'Подтверждённых банковских поступлений пока нет.'});";
+          const PAYMENTS_INCOMING_TO="const incomingBody=xs.length?tbl(['Дата','Плательщик','PAYMENT ID','Сумма поступления','Валюта','Назначение / банковский документ','Банковский факт','Распределение по сделкам','Нераспределено','Finance','Accounting','Паспорт'],xs.map(x=>[date(x.payment_at),x.payer_name||'—',x.payment_id||'—',money(x.amount,x.currency),x.currency||'—',e('div',{},e('div',{text:x.original_payment_purpose||'—'}),x.bank_transaction_reference?e('div',{class:'rona-owner-muted',text:x.bank_transaction_reference}):null),bankStatusCell(x.bank_fact_status),incomingAllocationCell(f,x),unallocatedCell(f,x),financeStatusCell(x.finance_status),accountingStatusCell(x.accounting_closure_status),e('button',{type:'button','data-rona-payment-passport-open':String(x.payment_id||''),text:'Открыть'})])):e('div',{class:'rona-owner-muted',text:financeSearchText?'По запросу ничего не найдено.':'Подтверждённых банковских поступлений пока нет.'});";
+
+          '''
+          s=s.replace(insert_before,extra+insert_before,1)
+          old_req="PAYMENTS_SUMMARY_FROM,PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_DEFERRED_ROW_FROM"
+          new_req="PAYMENTS_SUMMARY_FROM,PAYMENTS_ALLOCATION_CELL_FROM,PAYMENTS_DEAL_ALLOCATION_FROM,PAYMENTS_INCOMING_FROM,PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_DEFERRED_ROW_FROM"
+          if old_req not in s: raise SystemExit('MAIN_UI_REQUIRED_ANCHOR_MISSING')
+          s=s.replace(old_req,new_req,1)
+          old_chain=".replace(PAYMENTS_SUMMARY_FROM,PAYMENTS_SUMMARY_TO).replace(PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_CURRENT_ROW_TO).replace(PAYMENTS_DEFERRED_ROW_FROM,PAYMENTS_DEFERRED_ROW_TO);"
+          new_chain=".replace(PAYMENTS_SUMMARY_FROM,PAYMENTS_SUMMARY_TO).replace(PAYMENTS_ALLOCATION_CELL_FROM,PAYMENTS_ALLOCATION_CELL_TO).replace(PAYMENTS_DEAL_ALLOCATION_FROM,PAYMENTS_DEAL_ALLOCATION_TO).replace(PAYMENTS_INCOMING_FROM,PAYMENTS_INCOMING_TO).replace(PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_CURRENT_ROW_TO).replace(PAYMENTS_DEFERRED_ROW_FROM,PAYMENTS_DEFERRED_ROW_TO);"
+          if old_chain not in s: raise SystemExit('MAIN_UI_REPLACE_CHAIN_ANCHOR_MISSING')
+          s=s.replace(old_chain,new_chain,1)
+          s=s.replace("headers.set('x-rona-payment-passport','server-projection-v1')","headers.set('x-rona-payment-passport','server-projection-v2')",1)
+          p.write_text(s)
+          PY
+
+          cat > scripts/qa-admin-payments-final-owner-screen-source-v1.mjs <<'EOF'
+          import { readFile } from 'node:fs/promises';
+          import { buildPaymentOwnerScreenState } from '../supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts';
+          import { buildPaymentPassportProjection } from '../functions/portal/payment-passport-current.js';
+          const assert=(v,m)=>{if(!v)throw new Error(m)};
+          const payment=(id,amount,currency,direction='INCOMING',kind='CLIENT_PAYMENT',extra={})=>({payment_id:id,payment_at:'2026-09-12T12:00:00.000Z',amount,currency,payer_name:'QA payer',beneficiary_name:'RONA Trade LLC',counterparty_name:'QA counterparty',original_payment_purpose:'QA payment',bank_transaction_reference:'QA-'+id,bank_fact_status:'BANK_CONFIRMED',finance_status:'PAID',accounting_closure_status:'OPEN',finance_verification_status:'VERIFIED',payment_direction:direction,payment_kind:kind,deal_allocation_applicability:kind==='FX_CONVERSION'?'NOT_APPLICABLE':'DEAL_ALLOCATABLE',allocation_review_status:'VERIFIED',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',source_system:'SIGNED_CANONICAL_BANK_RECONCILIATION',source_version:'QA-BANK-V2',source_timestamp:'2026-09-12T12:00:00.000Z',...extra});
+          const allocation=(paymentId,dealId,amount,currency,reconciled=true)=>({payment_id:paymentId,deal_id:dealId,allocated_amount:amount,currency,allocation_status:'VERIFIED',finance_status:'PAID',accounting_closure_status:'OPEN',allocation_reference:'QA-'+paymentId,allocated_at:'2026-09-12T12:00:00.000Z',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',source_system:reconciled?'SIGNED_CANONICAL_BANK_RECONCILIATION':'SOURCE_FREEZE_V5/ACCOUNTING',source_version:reconciled?'QA-RECONCILED-V2':'v006',source_timestamp:reconciled?'2026-09-12T12:00:00.000Z':'2026-08-13T17:16:00.000Z'});
+          const summary=(dealId,obligation,received,remaining,finance='PARTIALLY_PAID')=>({deal_id:dealId,client_id:'QA-CLIENT',client_name:'QA Client',obligation_amount:obligation,received_amount:received,currency:'USD',client_remaining_amount:remaining,finance_status:finance,accounting_status:'OPEN',authority_state:'CONFIRMED'});
+          const sched=(dealId,obligation,received,remaining,deferred,state='DEFERRED_NOT_DUE')=>({dealId,currency:'USD',obligationAmount:obligation,verifiedReceivedAmount:received,remainingAmount:remaining,currentDueAmount:0,deferredNotDueAmount:deferred,scheduleState:state,triggerState:remaining?'NOT_CONFIRMED':'NOT_APPLICABLE',nextTrancheCondition:remaining?'AFTER_AUTHORITATIVE_GU_CONFIRMATION':'NO_FURTHER_TRANCHE',financeStatus:remaining?'PARTIALLY_PAID':'PAID',accountingClosureStatus:'OPEN'});
+          const payments=[payment('PAYEV-2026-000001',236250,'USD'),payment('PAYEV-2026-000002',201750,'USD'),payment('PAYEV-2026-000003',49320,'USD'),payment('OTHER-FEE-001',3000,'RUB','OUTGOING','BANK_FEE'),payment('OTHER-FX-001',11800,'USD','OUTGOING','FX_CONVERSION')];
+          const paymentAllocations=[allocation('PAYEV-2026-000001','DEAL-2026-004',236250,'USD',false),allocation('PAYEV-2026-000002','DEAL-2026-005',201750,'USD',true),allocation('PAYEV-2026-000003','DEAL-2026-006',49320,'USD',true)];
+          const dealFinanceSummaries=[summary('DEAL-2026-004',236250,236250,0,'PAID'),summary('DEAL-2026-005',672500,201750,470750),summary('DEAL-2026-006',164400,49320,115080),summary('DEAL-2026-009',362600,0,362600,'DUE')];
+          const paymentScheduleAuthority={paymentScheduleContract:'FINANCE_PAYMENT_SCHEDULE_CURRENT_STATE_V1',paymentSchedules:[sched('DEAL-2026-004',236250,236250,0,0,'PAID'),sched('DEAL-2026-005',672500,201750,470750,470750),sched('DEAL-2026-006',164400,49320,115080,115080)],paymentScheduleHolds:[{dealId:'DEAL-2026-009',reason:'FINANCE_PAYMENT_SCHEDULE_NOT_MATERIALIZED',validationErrors:[]}]};
+          const owner=buildPaymentOwnerScreenState({payments,paymentAllocations,outgoingPayments:[],dealFinanceSummaries,paymentScheduleAuthority});
+          const total=(rows,c)=>rows.find(x=>x.currency===c)?.amount;
+          assert(total(owner.clientReceiptTotalsByCurrency,'USD')===487320,'PAYMENT amount KPI mismatch');
+          assert(owner.allocationReconciliationContract==='FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1','reconciliation contract missing');
+          assert(!owner.incomingPaymentAllocations.some(x=>x.payment_id==='PAYEV-2026-000001'),'unreconciled allocation leaked');
+          assert(owner.incomingPaymentAllocations.some(x=>x.payment_id==='PAYEV-2026-000002'&&x.deal_id==='DEAL-2026-005'&&x.allocated_amount===201750),'reconciled allocation missing');
+          assert(owner.paymentAllocationSummaries.find(x=>x.payment_id==='PAYEV-2026-000001')?.allocation_projection_status==='TO_VERIFY','disputed allocation not fail closed');
+          assert((owner.dealAllocationTotals.find(x=>x.deal_id==='DEAL-2026-004')?.allocated_amount||0)===0,'unreconciled deal total leaked');
+          const d4=owner.dealFinanceCurrentState.find(x=>x.deal_id==='DEAL-2026-004');assert(d4.payment_schedule_projection_status==='TO_VERIFY','deal schedule did not fail closed on unreconciled allocation');
+          const finance={paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',payments,paymentAllocations,outgoingPayments:[],dealFinanceSummaries,...paymentScheduleAuthority,...owner};
+          const p1=buildPaymentPassportProjection(finance,'PAYEV-2026-000001'),p2=buildPaymentPassportProjection(finance,'PAYEV-2026-000002');
+          assert(p1.passportContract==='ADMIN_PAYMENT_PASSPORT_AUTHORITY_V2'&&p1.paymentId==='PAYEV-2026-000001','payment passport v2 mismatch');
+          assert(p1.payment.amount===236250&&p1.allocations.length===0&&p1.totals.allocatedTotal===0&&p1.totals.unallocatedResidue===236250&&p1.totals.allocationProjectionStatus==='TO_VERIFY','unreconciled payment passport mismatch');
+          assert(p2.payment.amount===201750&&p2.allocations.length===1&&p2.allocations[0].dealId==='DEAL-2026-005'&&p2.totals.allocatedTotal===201750&&p2.totals.unallocatedResidue===0,'reconciled passport mismatch');
+          assert(!('relatedOutgoings' in p2)&&!('unallocatedOutgoings' in p2)&&!('bankFees' in p2)&&!('fxConversions' in p2),'global operations leaked into passport');
+          assert(p2.linkedBankFees.length===0&&p2.linkedFxConversions.length===0,'unrelated fee/fx leaked');
+          assert(p2.fundsTrace.status==='NOT_ESTABLISHED'&&p2.fundsTrace.directSourceUseLinks.length===0,'false source-use trace');
+          const splitPayment=payment('PAYEV-QA-SPLIT-001',100000,'USD'),splitAlloc=[allocation('PAYEV-QA-SPLIT-001','DEAL-QA-A',30000,'USD',true),allocation('PAYEV-QA-SPLIT-001','DEAL-QA-B',50000,'USD',true)];
+          const splitOwner=buildPaymentOwnerScreenState({payments:[splitPayment],paymentAllocations:splitAlloc,outgoingPayments:[],dealFinanceSummaries:[],paymentScheduleAuthority:{paymentSchedules:[],paymentScheduleHolds:[]}}),splitFinance={paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',payments:[splitPayment],paymentAllocations:splitAlloc,...splitOwner},split=buildPaymentPassportProjection(splitFinance,'PAYEV-QA-SPLIT-001');
+          assert(split.allocations.length===2&&split.allocations.find(x=>x.dealId==='DEAL-QA-A')?.allocatedAmount===30000&&split.allocations.find(x=>x.dealId==='DEAL-QA-B')?.allocatedAmount===50000,'multi deal split mismatch');
+          assert(split.totals.paymentAmount===100000&&split.totals.allocatedTotal===80000&&split.totals.unallocatedResidue===20000&&split.totals.allocationProjectionStatus==='PARTIALLY_ALLOCATED','split totals mismatch');
+          const [aiEntry,aiRuntime,ownerSource,passportSource,ui,passportRuntime,scheduleRuntime,scheduleSource]=await Promise.all([readFile('supabase/functions/rona-owner-ai-sync/index.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/runtime.ts','utf8'),readFile('supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts','utf8'),readFile('functions/portal/payment-passport-current.js','utf8'),readFile('functions/portal/main-ui/index.js','utf8'),readFile('functions/portal/main-ui/payment-passport-runtime-v1.js','utf8'),readFile('functions/portal/main-ui/payment-schedule-runtime-v1.js','utf8'),readFile('functions/portal/payment-schedule-current.js','utf8')]);
+          const production=[aiEntry,aiRuntime,ownerSource,passportSource,ui,passportRuntime,scheduleRuntime,scheduleSource].join('\n');
+          assert(aiRuntime.includes('pa.source_system,pa.source_version,pa.source_timestamp'),'allocation source-lock fields missing');
+          assert(ownerSource.includes("includes('RECONCIL')")&&ownerSource.includes('FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1'),'reconciliation gate missing');
+          assert(scheduleSource.includes("source_system).includes('RECONCIL')"),'schedule reconciliation revalidation missing');
+          assert(passportSource.includes("searchParams.get('paymentId')")&&!passportSource.includes("searchParams.get('dealId')"),'passport is not payment-centric');
+          assert(passportRuntime.includes('/portal/payment-passport-current?paymentId=')&&!passportRuntime.includes('/portal/payment-passport-current?dealId='),'passport runtime query mismatch');
+          assert(ui.includes('data-rona-deal-payments-open')&&ui.includes("text:'Платежи сделки'")&&ui.includes("'data-rona-payment-passport-open':String(x.payment_id"),'navigation v2 missing');
+          assert(scheduleRuntime.includes("['Deal','Обязательство','Получено','К оплате сейчас','Отложено','Следующий платеж','Статус']"),'owner simple schedule headers missing');
+          for(const forbidden of ['Банковский факт\',\'Allocation\',\'Finance\',\'Accounting\',\'Outgoing USD-equivalent','Статус trigger'])assert(!scheduleRuntime.includes(forbidden),`technical schedule column leaked: ${forbidden}`);
+          for(const forbidden of ['487320','236250','201750','49320','585830','PAYEV-2026-000001','DEAL-QA-A'])assert(!production.includes(forbidden),`production hardcode detected: ${forbidden}`);
+          console.log('PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC=PASS');
+          console.log('PASSPORT_QUERY_BY_PAYMENT_ID=PASS');
+          console.log('ONE_PASSPORT_ONE_PAYMENT=PASS');
+          console.log('NO_OTHER_PAYMENT_DATA_IN_PASSPORT=PASS');
+          console.log('NO_GLOBAL_BANK_FEES_IN_PASSPORT=PASS');
+          console.log('NO_GLOBAL_FX_IN_PASSPORT=PASS');
+          console.log('PAYMENT_AMOUNT_EXACT=PASS');
+          console.log('ALLOCATED_TOTAL_EXACT=PASS');
+          console.log('UNALLOCATED_RESIDUE_EXACT=PASS');
+          console.log('MULTI_DEAL_SPLIT_EXACT=PASS');
+          console.log('NO_FALSE_SOURCE_USE_TRACE=PASS');
+          console.log('PAYMENT_SCHEDULE_OWNER_SIMPLE=PASS');
+          console.log('NO_TECHNICAL_ENUMS_ON_OWNER_SCREEN=PASS');
+          console.log('NO_INTERNAL_TRIGGER_TEXT_ON_OWNER_SCREEN=PASS');
+          console.log('FINANCE_ALLOCATION_DYNAMIC=PASS');
+          console.log('NO_HARDCODED_ALLOCATION=PASS');
+          console.log('ADMIN_PAYMENTS_OWNER_CORRECTION_V2_SOURCE_QA=PASS');
+          EOF
+
+          cat > scripts/qa-admin-payments-final-owner-screen-browser-v2.mjs <<'EOF'
+          import http from 'node:http';
+          import { mkdir, readFile } from 'node:fs/promises';
+          import { extname, join, normalize } from 'node:path';
+          import { chromium } from 'playwright';
+          import { onRequest as mainUiRequest } from '../functions/portal/main-ui/index.js';
+          import { onRequest as paymentScheduleRequest } from '../functions/portal/payment-schedule-current.js';
+          import { onRequest as paymentPassportRequest } from '../functions/portal/payment-passport-current.js';
+          import { buildPaymentOwnerScreenState } from '../supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts';
+          const DIST=join(process.cwd(),'dist'),errors=[];let browser,server;
+          const assert=(v,m)=>{if(!v)throw new Error(m)},now=()=>new Date().toISOString(),compact=v=>String(v||'').replace(/[\s\u00a0\u202f]/g,'').replace(/,/g,'.');
+          const pay=(id,amount,currency,extra={})=>({payment_id:id,payment_at:'2026-09-12T12:00:00.000Z',amount,currency,payer_name:extra.payer||'QA payer',beneficiary_name:'RONA Trade LLC',counterparty_name:'QA counterparty',original_payment_purpose:'QA payment',bank_transaction_reference:'QA-'+id,bank_fact_status:'BANK_CONFIRMED',finance_status:'PAID',accounting_closure_status:'OPEN',finance_verification_status:'VERIFIED',payment_direction:'INCOMING',payment_kind:'CLIENT_PAYMENT',deal_allocation_applicability:'DEAL_ALLOCATABLE',allocation_review_status:'VERIFIED',source_system:'SIGNED_CANONICAL_BANK_RECONCILIATION',source_version:'QA-BANK',source_timestamp:now(),authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',...extra});
+          const alloc=(paymentId,dealId,amount,reconciled=true)=>({payment_id:paymentId,deal_id:dealId,allocated_amount:amount,currency:'USD',allocation_status:'VERIFIED',finance_status:'PAID',accounting_closure_status:'OPEN',allocation_reference:'QA-'+paymentId,allocated_at:now(),authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',source_system:reconciled?'SIGNED_CANONICAL_BANK_RECONCILIATION':'SOURCE_FREEZE_V5/ACCOUNTING',source_version:reconciled?'QA-RECONCILED':'v006',source_timestamp:reconciled?now():'2026-08-13T17:16:00.000Z'});
+          const summary=(dealId,name,obligation,received,remaining,finance='PARTIALLY_PAID')=>({deal_id:dealId,client_id:'QA-'+dealId,client_name:name,obligation_amount:obligation,received_amount:received,currency:'USD',client_remaining_amount:remaining,finance_status:finance,accounting_status:'OPEN',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE'});
+          const sched=(dealId,obligation,received,remaining,deferred,state='DEFERRED_NOT_DUE')=>({dealId,currency:'USD',obligationAmount:obligation,verifiedReceivedAmount:received,remainingAmount:remaining,currentDueAmount:0,deferredNotDueAmount:deferred,scheduleState:state,nextTrancheCondition:remaining?'AFTER_AUTHORITATIVE_GU_CONFIRMATION':'NO_FURTHER_TRANCHE',triggerState:remaining?'NOT_CONFIRMED':'NOT_APPLICABLE',financeStatus:remaining?'PARTIALLY_PAID':'PAID',accountingClosureStatus:'OPEN'});
+          const payments=[pay('PAYEV-2026-000001',236250,'USD',{payer:'FARGONA'}),pay('PAYEV-2026-000002',201750,'USD',{payer:'SOLARIS'}),pay('PAYEV-2026-000003',49320,'USD',{payer:'SOLARIS'}),pay('PAYEV-QA-SPLIT-001',100000,'USD',{payer:'SPLIT QA'})];
+          const paymentAllocations=[alloc('PAYEV-2026-000001','DEAL-2026-004',236250,false),alloc('PAYEV-2026-000002','DEAL-2026-005',201750,true),alloc('PAYEV-2026-000003','DEAL-2026-006',49320,true),alloc('PAYEV-QA-SPLIT-001','DEAL-QA-A',30000,true),alloc('PAYEV-QA-SPLIT-001','DEAL-QA-B',50000,true)];
+          const dealFinanceSummaries=[summary('DEAL-2026-004','FARGONA',236250,236250,0,'PAID'),summary('DEAL-2026-005','SOLARIS',672500,201750,470750),summary('DEAL-2026-006','SOLARIS',164400,49320,115080),summary('DEAL-2026-009','GazOne',362600,0,362600,'DUE')];
+          const paymentScheduleAuthority={paymentScheduleContract:'FINANCE_PAYMENT_SCHEDULE_CURRENT_STATE_V1',paymentSchedules:[sched('DEAL-2026-004',236250,236250,0,0,'PAID'),sched('DEAL-2026-005',672500,201750,470750,470750),sched('DEAL-2026-006',164400,49320,115080,115080)],paymentScheduleHolds:[{dealId:'DEAL-2026-009',reason:'FINANCE_PAYMENT_SCHEDULE_NOT_MATERIALIZED',validationErrors:[]}]};
+          const owner=buildPaymentOwnerScreenState({payments,paymentAllocations,outgoingPayments:[],dealFinanceSummaries,paymentScheduleAuthority});
+          const financeFragment={authoritativeSource:'QA',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',payments,paymentAllocations,outgoingPayments:[],dealFinanceSummaries,obligationPlanAvailable:true,...paymentScheduleAuthority,...owner};
+          const z={sent:0,responses:0,awaiting:0,slaBreached:0,errors:0,portalRequests:0};
+          const aiSync=()=>({generatedAt:now(),marketAnalystFragment:{analytics:[],news:[],currentPublications:[]},homeCoordination:{totals:{TODAY:z,'7D':z,'30D':z,ALL:z},periods:{TODAY:[],'7D':[],'30D':[],ALL:[]},recent:[]},agentRewardsFragment:{rows:[]},aiRuntime:{enabled:true},financeFragment});
+          const bootstrap=()=>({clients:[],companies:[],agents:[],applications:[],documents:[],payments:[],cash:[],rail:[],publications:[],operationalConflicts:[],claims:[],deals:dealFinanceSummaries.map(x=>({deal_id:x.deal_id,client_id:x.client_id,client_name:x.client_name,business_status:'EXECUTING',finance_status:x.finance_status,accounting_closure_status:'OPEN',lifecycle_state:'ACTIVE'}))});
+          const mainUiResponse=await mainUiRequest();if(!mainUiResponse.ok)throw new Error('MAIN_UI_BUILD_FAILED_'+mainUiResponse.status+':'+await mainUiResponse.text());const mainUi=await mainUiResponse.text();assert(mainUi.includes('20260913-payment-passport-v2'),'PASSPORT_V2_RUNTIME_NOT_MATERIALIZED');
+          const send=(res,status,body,type='text/plain; charset=utf-8',headers={})=>{res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});res.end(body)},json=(res,data,status=200,headers={})=>send(res,status,JSON.stringify(data),'application/json; charset=utf-8',headers);
+          function safePath(pathname){const clean=normalize(pathname).replace(/^([.][.][/\\])+/, '').replace(/^[/\\]+/,'');const full=join(DIST,clean);return full.startsWith(DIST)?full:null}function mime(path){const x=extname(path).toLowerCase();return x==='.html'?'text/html; charset=utf-8':x==='.js'?'application/javascript; charset=utf-8':x==='.css'?'text/css; charset=utf-8':x==='.svg'?'image/svg+xml':x==='.png'?'image/png':'application/octet-stream'}async function serveFile(res,path,type){try{const b=await readFile(path);send(res,200,b,type||mime(path));return true}catch{return false}}async function bridge(response,res){const body=Buffer.from(await response.arrayBuffer()),headers={};for(const[k,v]of response.headers.entries())headers[k]=v;res.writeHead(response.status,headers);res.end(body)}
+          const optional=new Set(['/portal/deals-current-state-ui','/portal/deals-r1-r11-ui','/portal/cash-r2-ui','/portal/rail-current-v81-maplibre-ui','/portal/applications-total-kpi-ui','/portal/prices-current-ui']);
+          server=http.createServer(async(req,res)=>{const u=new URL(req.url||'/','http://127.0.0.1'),p=u.pathname;if(p==='/favicon.ico')return send(res,204,'');if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');if(p==='/portal/payment-schedule-current'||p==='/portal/payment-passport-current'){const port=server.address().port,headers=new Headers();for(const[k,v]of Object.entries(req.headers)){if(Array.isArray(v))headers.set(k,v.join(', '));else if(v!==undefined)headers.set(k,String(v))}const handler=p.includes('schedule')?paymentScheduleRequest:paymentPassportRequest;return void await bridge(await handler({request:new Request(`http://127.0.0.1:${port}${req.url}`,{method:'GET',headers})}),res)}if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui'||p==='/portal/remaining-sections-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');if(optional.has(p))return send(res,200,'/* QA optional current module */','application/javascript; charset=utf-8');if(p==='/portal/api/session/me')return json(res,{ok:true,user:{roles:['ADMIN'],display_name:'QA Admin'}});if(p==='/portal/api/v1/admin/bootstrap'||p==='/portal/admin-completed-bootstrap')return json(res,{ok:true,data:bootstrap()},200,p.endsWith('completed-bootstrap')?{'x-rona-admin-completed-applications':'QA'}:{});if(p==='/portal/logout')return json(res,{ok:true});if(p==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:{accessUsers:[],contracts:[]}});if(p==='/portal/admin-authority/agent-readiness')return json(res,{ok:true,data:{matrixReady:true}});if(p.startsWith('/portal/admin-authority/'))return json(res,{ok:true,data:{}});if(p==='/portal/owner-api'){const op=u.searchParams.get('path')||'';if(op==='/admin/bootstrap')return json(res,{ok:true,data:bootstrap()});if(op==='/admin/ai-sync')return json(res,{ok:true,data:aiSync()});if(op==='/admin/claims')return json(res,{ok:true,data:{claims:[]}});if(op==='/admin/analytics-bootstrap')return json(res,{ok:true,data:{generatedAt:now(),marketNewsFeed:[]}});return json(res,{ok:true,data:{}})}const file=safePath(p);if(file&&await serveFile(res,file))return;send(res,404,'not found')});
+          await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve)});const origin=`http://127.0.0.1:${server.address().port}`;
+          try{browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1600,height:1000}});page.on('pageerror',e=>errors.push(String(e?.message||e)));await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});const nav=page.locator('#nav button[data-page="payments"]');await nav.waitFor({state:'visible',timeout:20000});await nav.click();await page.locator('#page-payments.active').waitFor({state:'visible',timeout:10000});await page.evaluate(()=>window.__RONA_PAYMENT_SCHEDULE_REFRESH__?.());await page.locator('#rona-payment-schedule-v1').waitFor({state:'attached',timeout:10000});
+          const headers=await page.locator('#rona-payment-schedule-v1 thead th').allTextContents();assert(JSON.stringify(headers)===JSON.stringify(['Deal','Обязательство','Получено','К оплате сейчас','Отложено','Следующий платеж','Статус']),'PAYMENT_SCHEDULE_OWNER_SIMPLE');const scheduleText=await page.locator('#rona-payment-schedule-v1').innerText();for(const forbidden of ['BANK_CONFIRMED','VERIFIED','DEFERRED_NOT_DUE','NOT_CONFIRMED','TO_VERIFY','Outgoing USD-equivalent','Статус trigger','Accounting'])assert(!scheduleText.includes(forbidden),'TECHNICAL_ENUM_VISIBLE_'+forbidden);console.log('PAYMENT_SCHEDULE_OWNER_SIMPLE=PASS');console.log('NO_TECHNICAL_ENUMS_ON_OWNER_SCREEN=PASS');console.log('NO_INTERNAL_TRIGGER_TEXT_ON_OWNER_SCREEN=PASS');
+          const incomingCard=page.getByText('Поступило от клиентов',{exact:true}).locator('xpath=ancestor::*[contains(@class,"rona-owner-card")]');const row1=incomingCard.locator('tbody tr').filter({hasText:'PAYEV-2026-000001'}).first(),row2=incomingCard.locator('tbody tr').filter({hasText:'PAYEV-2026-000002'}).first();assert((await row1.innerText()).includes('Требует проверки'),'UNRECONCILED_ALLOCATION_VISIBLE_AS_FACT');assert((await row2.innerText()).includes('DEAL-2026-005'),'RECONCILED_ALLOCATION_MISSING');assert(await incomingCard.locator('button[data-rona-payment-passport-open]').count()===payments.length,'PAYMENT_BUTTON_PER_PAYMENT');console.log('FINANCE_ALLOCATION_DYNAMIC=PASS');console.log('NO_HARDCODED_ALLOCATION=PASS');
+          await mkdir('artifacts/admin-payments-owner-passport',{recursive:true});await page.screenshot({path:'artifacts/admin-payments-owner-passport/ADMIN_PAYMENTS_OWNER_CORRECTION_V2.png',fullPage:true});
+          const modal=page.locator('.rona-app-passport-modal');await row1.locator('button[data-rona-payment-passport-open]').click();await modal.waitFor({state:'visible',timeout:10000});let mt=compact(await modal.innerText());assert(mt.includes('ПаспортплатежаPAYEV-2026-000001')&&mt.includes('236250USD')&&mt.includes('Требуетпроверки'),'PAYMENT1_PASSPORT');assert(!mt.includes('PAYEV-2026-000002')&&!mt.includes('OTHER-FEE')&&!mt.includes('OTHER-FX'),'OTHER_PAYMENT_LEAK');await page.screenshot({path:'artifacts/admin-payments-owner-passport/PAYMENT_PASSPORT_PAYEV-2026-000001.png',fullPage:true});await modal.getByRole('button',{name:'Закрыть'}).click();
+          await row2.locator('button[data-rona-payment-passport-open]').click();await modal.waitFor({state:'visible',timeout:10000});mt=compact(await modal.innerText());assert(mt.includes('PAYEV-2026-000002')&&mt.includes('201750USD')&&mt.includes('DEAL-2026-005')&&!mt.includes('PAYEV-2026-000001'),'PAYMENT2_PASSPORT');assert(!mt.includes('Банковскиекомиссии')&&!mt.includes('FXconversions'),'GLOBAL_FEE_FX_LEAK');await page.screenshot({path:'artifacts/admin-payments-owner-passport/PAYMENT_PASSPORT_PAYEV-2026-000002.png',fullPage:true});await modal.getByRole('button',{name:'Закрыть'}).click();
+          const splitRow=incomingCard.locator('tbody tr').filter({hasText:'PAYEV-QA-SPLIT-001'}).first();await splitRow.locator('button[data-rona-payment-passport-open]').click();await modal.waitFor({state:'visible',timeout:10000});mt=compact(await modal.innerText());assert(mt.includes('DEAL-QA-A')&&mt.includes('30000USD')&&mt.includes('DEAL-QA-B')&&mt.includes('50000USD')&&mt.includes('80000USD')&&mt.includes('20000USD'),'MULTI_DEAL_SPLIT_EXACT');await page.screenshot({path:'artifacts/admin-payments-owner-passport/PAYMENT_PASSPORT_SPLIT_EXAMPLE.png',fullPage:true});await modal.getByRole('button',{name:'Закрыть'}).click();console.log('MULTI_DEAL_SPLIT_EXACT=PASS');
+          const dealButton=page.locator('button[data-rona-deal-payments-open="DEAL-2026-005"]');assert(await dealButton.count()===1&&await dealButton.innerText()==='Платежи сделки','DEAL_NAV_LABEL');await dealButton.click();await modal.waitFor({state:'visible',timeout:10000});assert(compact(await modal.innerText()).includes('PAYEV-2026-000002'),'DEAL_PAYMENT_LIST_MISSING');await modal.getByRole('button',{name:'Закрыть'}).click();
+          assert(errors.length===0,'NO_RUNTIME_ERRORS:'+errors.join('|'));console.log('PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC=PASS');console.log('PASSPORT_QUERY_BY_PAYMENT_ID=PASS');console.log('ONE_PASSPORT_ONE_PAYMENT=PASS');console.log('NO_OTHER_PAYMENT_DATA_IN_PASSPORT=PASS');console.log('NO_GLOBAL_BANK_FEES_IN_PASSPORT=PASS');console.log('NO_GLOBAL_FX_IN_PASSPORT=PASS');console.log('NO_FALSE_SOURCE_USE_TRACE=PASS');console.log('NO_DUPLICATES=PASS');console.log('NO_RUNTIME_ERRORS=PASS');
+          }finally{if(browser)await browser.close().catch(()=>{});if(server)await new Promise(r=>server.close(r))}
+          EOF
+
+          cat > scripts/qa-pr462-live-preview-finance.mjs <<'EOF'
+          import {chromium} from 'playwright';
+          import {mkdir,writeFile} from 'node:fs/promises';
+          import {buildPaymentPassportProjection} from '../functions/portal/payment-passport-current.js';
+          const ORIGIN=String(process.env.TARGET_ORIGIN||'').replace(/\/$/,''),HEAD=String(process.env.EXPECTED_HEAD||''),SECRET=String(process.env.RONA_ADMIN_SESSION_SECRET||''),REPO=String(process.env.GITHUB_REPOSITORY||'rokotove26-png/ronatrade.com'),RUN_ID=String(process.env.GITHUB_RUN_ID||'');
+          const LEGACY_BROKER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-ci-admin-session-broker',OIDC_BROKER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816',OIDC_AUDIENCE='rona-pr462-live-preview';
+          const assert=(v,m)=>{if(!v)throw new Error(m)},compact=v=>String(v||'').replace(/[\s\u00a0\u202f]/g,'').replace(/,/g,'.'),artifacts='artifacts/admin-payments-live-preview';assert(/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(ORIGIN),'IMMUTABLE_PREVIEW_REQUIRED');assert(/^[0-9a-f]{40}$/i.test(HEAD),'EXACT_HEAD_REQUIRED');assert(/^\d+$/.test(RUN_ID),'GITHUB_RUN_ID_REQUIRED');await mkdir(artifacts,{recursive:true});
+          async function githubOidcToken(){const requestUrl=String(process.env.ACTIONS_ID_TOKEN_REQUEST_URL||''),requestToken=String(process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN||'');assert(requestUrl&&requestToken,'GITHUB_OIDC_REQUEST_CONTEXT_MISSING');const u=new URL(requestUrl);u.searchParams.set('audience',OIDC_AUDIENCE);const r=await fetch(u,{headers:{authorization:`Bearer ${requestToken}`,accept:'application/json'}}),j=await r.json().catch(()=>null);assert(r.ok&&j?.value,`GITHUB_OIDC_HTTP_${r.status}`);return String(j.value)}
+          async function broker(path=''){if(SECRET){const headers={authorization:`Bearer ${SECRET}`,'content-type':'application/json','x-github-repository':REPO,'x-github-sha':HEAD,'x-github-ref':'refs/heads/release/public-go-live-v1.1','x-github-run-id':RUN_ID};const r=await fetch(LEGACY_BROKER+path,{method:'POST',headers,body:'{}'}),j=await r.json().catch(()=>null);if(!r.ok||j?.ok!==true)throw new Error(`ADMIN_BROKER${path||'/'}_HTTP_${r.status}_${String(j?.code||'INVALID_RESPONSE')}`);return j}const oidc=await githubOidcToken(),r=await fetch(OIDC_BROKER+path,{method:'POST',headers:{authorization:`Bearer ${oidc}`,'content-type':'application/json'},body:JSON.stringify({expectedHead:HEAD,origin:ORIGIN})}),j=await r.json().catch(()=>null);if(!r.ok||j?.ok!==true)throw new Error(`OIDC_ADMIN_BROKER${path||'/'}_HTTP_${r.status}_${String(j?.code||'INVALID_RESPONSE')}`);if(!path)assert(String(j?.head||'')===HEAD,'OIDC_ADMIN_BROKER_HEAD_MISMATCH');return j}
+          let session=null,browser=null,context=null;const network=[],runtimeErrors=[];
+          async function apiProof(page,path,label){const result=await page.evaluate(async({path,label})=>{const r=await fetch(path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-request-id':`pr462-v2-${label}-${Date.now()}`}}),text=await r.text();let body=null;try{body=JSON.parse(text)}catch{};return{status:r.status,headers:{backend:r.headers.get('x-rona-owner-ai-sync-backend'),schedule:r.headers.get('x-rona-payment-schedule'),passport:r.headers.get('x-rona-payment-passport')},body}},{path,label});network.push({label,path,status:result.status,headers:result.headers,contract:result.body?.data?.passportContract||result.body?.data?.projectionContract||null,paymentId:result.body?.data?.paymentId||null});assert(result.status===200,`${label}_HTTP_${result.status}_${String(result.body?.code||'')}`);return result}
+          async function waitForPageState(page,predicate,label,timeout=30000){const deadline=Date.now()+timeout;while(Date.now()<deadline){if(await page.evaluate(predicate).catch(()=>false))return;await page.waitForTimeout(250)}throw new Error(label)}
+          async function openPayments(page){const b=page.locator('#nav button[data-page="payments"]');await b.waitFor({state:'visible',timeout:30000});await b.click();await page.locator('#page-payments.active').waitFor({state:'visible',timeout:15000});await waitForPageState(page,()=>window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.financeFragment?.allocationReconciliationContract==='FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1','OWNER_PAYMENT_SCREEN_RUNTIME_TIMEOUT');await waitForPageState(page,()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V3__==='20260913-payment-schedule-owner-simple-v3','PAYMENT_SCHEDULE_RUNTIME_TIMEOUT');await page.evaluate(()=>window.__RONA_PAYMENT_SCHEDULE_REFRESH__?.());await page.locator('#rona-payment-schedule-v1').waitFor({state:'attached',timeout:20000})}
+          try{session=await broker();const access=String(session?.session?.access_token||''),refresh=String(session?.session?.refresh_token||'');assert(access&&refresh,'ADMIN_BROKER_SESSION_TOKENS_MISSING');browser=await chromium.launch({headless:true});context=await browser.newContext({viewport:{width:1600,height:1000}});await context.addCookies([{name:'rona_portal_at',value:access,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'},{name:'rona_portal_rt',value:refresh,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'}]);const page=await context.newPage();page.on('pageerror',e=>runtimeErrors.push(`pageerror:${String(e?.message||e)}`));page.on('console',m=>{if(m.type()==='error'&&!m.text().startsWith('Failed to load resource:'))runtimeErrors.push(`console:${m.text()}`)});page.on('response',r=>{if(r.status()>=500)runtimeErrors.push(`http:${r.status()}:${r.url()}`)});await page.goto(ORIGIN+'/portal/admin?_qa='+Date.now(),{waitUntil:'domcontentloaded',timeout:45000});const online=page.locator('#rona-owner-build-indicator');await online.waitFor({state:'visible',timeout:30000});await waitForPageState(page,()=>{const n=document.querySelector('#rona-owner-build-indicator');return n?.dataset?.state==='ok'&&/Данные:\s*загружены/i.test(String(n?.textContent||''))},'ADMIN_BOTTOM_INDICATOR_NOT_ONLINE');console.log('ADMIN_BOTTOM_INDICATOR_ONLINE=PASS');
+          const sync=await apiProof(page,'/portal/owner-api?path=/admin/ai-sync','LIVE_AI_SYNC');assert(sync.headers.backend==='PR462_PREVIEW_FINANCE_AUTHORITY','LIVE_AI_SYNC_BACKEND_MISMATCH');const f=sync.body?.data?.financeFragment;assert(f?.paymentProjectionContract==='ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1'&&f?.allocationReconciliationContract==='FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1','LIVE_FINANCE_CONTRACT_MISSING');assert((f?.incomingPaymentAllocations||[]).every(x=>String(x?.source_system||'').toUpperCase().includes('RECONCIL')),'UNRECONCILED_ALLOCATION_LEAKED');assert(!(f?.incomingPaymentAllocations||[]).some(x=>x?.payment_id==='PAYEV-2026-000001'),'PAYEV1_OLD_ALLOCATION_LEAKED');console.log('FINANCE_ALLOCATION_DYNAMIC=PASS');console.log('NO_HARDCODED_ALLOCATION=PASS');
+          const schedule=await apiProof(page,'/portal/payment-schedule-current','LIVE_PAYMENT_SCHEDULE');assert(schedule.body?.data?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2','LIVE_PAYMENT_SCHEDULE_CONTRACT_MISSING');const p1=await apiProof(page,'/portal/payment-passport-current?paymentId=PAYEV-2026-000001','PASSPORT_1'),p2=await apiProof(page,'/portal/payment-passport-current?paymentId=PAYEV-2026-000002','PASSPORT_2');for(const [result,id] of [[p1,'PAYEV-2026-000001'],[p2,'PAYEV-2026-000002']]){const d=result.body?.data;assert(d?.passportContract==='ADMIN_PAYMENT_PASSPORT_AUTHORITY_V2'&&d?.paymentId===id&&d?.payment?.paymentId===id,'PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC');assert(!('relatedOutgoings'in d)&&!('unallocatedOutgoings'in d)&&!('bankFees'in d)&&!('fxConversions'in d),'GLOBAL_PAYMENT_DATA_LEAK');assert((d?.linkedBankFees||[]).length===0,'GLOBAL_BANK_FEES_LEAK');assert((d?.linkedFxConversions||[]).length===0,'GLOBAL_FX_LEAK');assert(d?.fundsTrace?.status==='NOT_ESTABLISHED','FALSE_SOURCE_USE_TRACE')}
+          assert(p1.body.data.payment.amount===236250&&p1.body.data.totals.allocatedTotal===0&&p1.body.data.totals.unallocatedResidue===236250&&p1.body.data.totals.allocationProjectionStatus==='TO_VERIFY','PAYMENT1_TOTALS');assert(p2.body.data.payment.amount===201750&&p2.body.data.totals.allocatedTotal===201750&&p2.body.data.totals.unallocatedResidue===0&&p2.body.data.allocations.length===1&&p2.body.data.allocations[0].dealId==='DEAL-2026-005','PAYMENT2_TOTALS');console.log('PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC=PASS');console.log('PASSPORT_QUERY_BY_PAYMENT_ID=PASS');console.log('ONE_PASSPORT_ONE_PAYMENT=PASS');console.log('NO_OTHER_PAYMENT_DATA_IN_PASSPORT=PASS');console.log('NO_GLOBAL_BANK_FEES_IN_PASSPORT=PASS');console.log('NO_GLOBAL_FX_IN_PASSPORT=PASS');console.log('PAYMENT_AMOUNT_EXACT=PASS');console.log('ALLOCATED_TOTAL_EXACT=PASS');console.log('UNALLOCATED_RESIDUE_EXACT=PASS');console.log('NO_FALSE_SOURCE_USE_TRACE=PASS');
+          await openPayments(page);const headers=await page.locator('#rona-payment-schedule-v1 thead th').allTextContents();assert(JSON.stringify(headers)===JSON.stringify(['Deal','Обязательство','Получено','К оплате сейчас','Отложено','Следующий платеж','Статус']),'PAYMENT_SCHEDULE_OWNER_SIMPLE');const scheduleText=await page.locator('#rona-payment-schedule-v1').innerText();for(const forbidden of ['BANK_CONFIRMED','VERIFIED','DEFERRED_NOT_DUE','NOT_CONFIRMED','TO_VERIFY','Outgoing USD-equivalent','Статус trigger','Accounting'])assert(!scheduleText.includes(forbidden),'TECH_ENUM_VISIBLE_'+forbidden);console.log('PAYMENT_SCHEDULE_OWNER_SIMPLE=PASS');console.log('NO_TECHNICAL_ENUMS_ON_OWNER_SCREEN=PASS');console.log('NO_INTERNAL_TRIGGER_TEXT_ON_OWNER_SCREEN=PASS');
+          const incoming=page.getByText('Поступило от клиентов',{exact:true}).locator('xpath=ancestor::*[contains(@class,"rona-owner-card")]');const expectedButtons=(f?.incomingPayments||[]).length;assert(await incoming.locator('button[data-rona-payment-passport-open]').count()===expectedButtons,'PAYMENT_OPEN_BUTTON_COUNT');await page.screenshot({path:`${artifacts}/ADMIN_PAYMENTS_LIVE_PREVIEW.png`,fullPage:true});const modal=page.locator('.rona-app-passport-modal');for(const id of ['PAYEV-2026-000001','PAYEV-2026-000002']){const row=incoming.locator('tbody tr').filter({hasText:id}).first();await row.locator('button[data-rona-payment-passport-open]').click();await modal.waitFor({state:'visible',timeout:15000});const mt=compact(await modal.innerText());assert(mt.includes('Паспортплатежа'+id),'PASSPORT_MODAL_TITLE_'+id);for(const other of ['PAYEV-2026-000001','PAYEV-2026-000002','PAYEV-2026-000003'])if(other!==id)assert(!mt.includes(other),'OTHER_PAYMENT_IN_MODAL_'+id);await page.screenshot({path:`${artifacts}/PAYMENT_PASSPORT_${id}.png`,fullPage:true});await modal.getByRole('button',{name:'Закрыть'}).click()}
+          const splitPayment={payment_id:'PAYEV-QA-SPLIT-001',payment_at:'2026-09-12T12:00:00.000Z',amount:100000,currency:'USD',payer_name:'QA Split',beneficiary_name:'RONA Trade LLC',original_payment_purpose:'QA split contract proof',bank_transaction_reference:'QA-SPLIT',bank_fact_status:'BANK_CONFIRMED',finance_status:'PAID',accounting_closure_status:'OPEN',finance_verification_status:'VERIFIED',payment_direction:'INCOMING',payment_kind:'CLIENT_PAYMENT',deal_allocation_applicability:'DEAL_ALLOCATABLE',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE'},mk=(deal,amount)=>({payment_id:'PAYEV-QA-SPLIT-001',deal_id:deal,allocated_amount:amount,currency:'USD',allocation_status:'VERIFIED',finance_status:'PAID',accounting_closure_status:'OPEN',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',source_system:'SIGNED_CANONICAL_BANK_RECONCILIATION',source_version:'QA-SPLIT-V1',source_timestamp:'2026-09-12T12:00:00.000Z'}),splitFinance={ownerPaymentScreenContract:'ADMIN_PAYMENTS_OWNER_CURRENT_STATE_V1',clientReceiptContract:'FINANCE_CLIENT_RECEIPTS_PAYMENT_AMOUNT_V2',allocationReconciliationContract:'FINANCE_RECONCILED_PAYMENT_ALLOCATION_V1',payments:[splitPayment],paymentAllocations:[mk('DEAL-QA-A',30000),mk('DEAL-QA-B',50000)]},split=buildPaymentPassportProjection(splitFinance,'PAYEV-QA-SPLIT-001');assert(split.allocations.length===2&&split.totals.allocatedTotal===80000&&split.totals.unallocatedResidue===20000,'MULTI_DEAL_SPLIT_EXACT');await page.evaluate(p=>window.__RONA_PAYMENT_PASSPORT_RENDER__?.(p),split);await modal.waitFor({state:'visible',timeout:10000});const splitText=compact(await modal.innerText());assert(splitText.includes('DEAL-QA-A')&&splitText.includes('30000USD')&&splitText.includes('DEAL-QA-B')&&splitText.includes('50000USD')&&splitText.includes('80000USD')&&splitText.includes('20000USD'),'SPLIT_RENDER_MISMATCH');await page.screenshot({path:`${artifacts}/PAYMENT_PASSPORT_SPLIT_EXAMPLE.png`,fullPage:true});await modal.getByRole('button',{name:'Закрыть'}).click();console.log('MULTI_DEAL_SPLIT_EXACT=PASS');
+          const mainSrc=await (await page.request.get(ORIGIN+'/portal/main-ui?qa='+Date.now())).text();assert(!/487320|236250|201750|49320|585830/.test(mainSrc),'FRONTEND_FINANCE_HARDCODE');await page.reload({waitUntil:'domcontentloaded',timeout:45000});await openPayments(page);assert(await page.locator('#rona-payment-schedule-v1').count()===1,'SCHEDULE_DUPLICATE');const f2=await page.evaluate(()=>window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.financeFragment),incoming2=page.getByText('Поступило от клиентов',{exact:true}).locator('xpath=ancestor::*[contains(@class,"rona-owner-card")]');assert(await incoming2.locator('button[data-rona-payment-passport-open]').count()===(f2?.incomingPayments||[]).length,'PASSPORT_BUTTON_DUPLICATE');console.log('NO_DUPLICATES=PASS');assert(runtimeErrors.length===0,'NO_RUNTIME_ERRORS:'+runtimeErrors.join('|'));console.log('NO_RUNTIME_ERRORS=PASS');await writeFile(`${artifacts}/network-proof.json`,JSON.stringify({origin:ORIGIN,head:HEAD,authMode:SECRET?'LEGACY_SECRET':'GITHUB_OIDC',network,runtimeErrors},null,2));console.log('LIVE_PREVIEW_FINANCE_DATA=PASS');
+          }finally{if(context)await context.close().catch(()=>{});if(browser)await browser.close().catch(()=>{});if(session)await broker('/cleanup').catch(e=>console.error('BROKER_CLEANUP_FAIL',e?.message||e))}
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/admin-payments-final-owner-screen-passport-v1.yml')
+          s=p.read_text()
+          for anchor,new in [
+            ("      - 'functions/portal/main-ui/payment-passport-runtime-v1.js'\n","      - 'functions/portal/main-ui/payment-passport-runtime-v1.js'\n      - 'functions/portal/main-ui/payment-schedule-runtime-v1.js'\n"),
+            ("      - 'supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts'\n","      - 'supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts'\n      - 'supabase/functions/rona-owner-ai-sync/runtime.ts'\n")
+          ]:
+            if s.count(anchor)!=2: raise SystemExit('WORKFLOW_PATH_ANCHOR_COUNT')
+            s=s.replace(anchor,new)
+          p.write_text(s)
+          PY
+
+          git rm .github/workflows/pr462-owner-correction-v2-apply.yml
+          git status --short
+      - name: Commit owner correction v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add functions/portal/main-ui/index.js functions/portal/main-ui/payment-passport-runtime-v1.js functions/portal/main-ui/payment-schedule-runtime-v1.js functions/portal/payment-passport-current.js functions/portal/payment-schedule-current.js supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts supabase/functions/rona-owner-ai-sync/runtime.ts scripts/qa-admin-payments-final-owner-screen-source-v1.mjs scripts/qa-admin-payments-final-owner-screen-browser-v2.mjs scripts/qa-pr462-live-preview-finance.mjs .github/workflows/admin-payments-final-owner-screen-passport-v1.yml .github/workflows/pr462-owner-correction-v2-apply.yml
+          git commit -m 'fix: owner payment passport v2 and reconciled allocations'
+          git push origin HEAD:feat/admin-payments-final-owner-screen-passport-v1
