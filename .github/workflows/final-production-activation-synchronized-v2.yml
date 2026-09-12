@@ -167,7 +167,7 @@ jobs:
       - name: Verify Client v11 contract projection in production
         if: github.ref == 'refs/heads/release/public-go-live-v1.1'
         env:
-          TARGET_ORIGIN: https://ronatrade.com
+          TARGET_ORIGIN: https://ronaoil.com
         run: node scripts/verify-client-contract-v5-production.mjs
 
       - name: Publish target production status (legacy best effort)
