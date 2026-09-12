@@ -3,6 +3,7 @@ import http from 'node:http';
 import {mkdir,readFile} from 'node:fs/promises';
 import {chromium} from 'playwright';
 import {onRequest as serveAdminMainUi} from '../functions/portal/main-ui/index.js';
+import {onRequest as serveDealsCurrentUi} from '../functions/portal/deals-current-state-ui.js';
 
 const completed={application_id:'VIS-IN-DONE',client_id:'VIS-C-DONE',legal_name:'Север Энерго',contract_id:'VIS-CTR-DONE',deal_id:'VIS-DEAL-1024',deal_status:'EXECUTING',product:'СУГ СПБТ',quantity_tonnes:240,delivery_basis:'CPT',destination:'ст. Тестовая',payment_terms:'100% предоплата',proposed_price:725,proposed_currency:'USD',status:'DEAL_REGISTERED',owner_status:'DEAL',lifecycle_state:'ARCHIVED'};
 const active={application_id:'VIS-IN-ACTIVE',client_id:'VIS-C-ACTIVE',legal_name:'Транс Нефть Сервис',contract_id:'VIS-CTR-ACTIVE',deal_id:null,product:'ДТ',quantity_tonnes:120,status:'ACCEPTED_AWAITING_DEAL_REGISTRATION',owner_status:'SUPPLIER_APPROVED',lifecycle_state:'ACTIVE'};
@@ -14,10 +15,24 @@ const deals=[
 ];
 const adminData={
   generatedAt:'2026-09-12T09:00:00.000Z',applications:[fresh,active,decision,completed],clients:[{client_id:'VIS-C-DONE'},{client_id:'VIS-C-ACTIVE'},{client_id:'VIS-C-NEW'}],agents:[],prices:[],deals,
-  dealDocuments:[{document_id:'VIS-DOC-1',deal_id:'VIS-DEAL-1024',document_kind:'SIGNED_ADDENDUM',authoritative_filename:'addendum.pdf'}],
+  dealDocuments:[{document_id:'VIS-DOC-1',deal_id:'VIS-DEAL-1024',document_kind:'SIGNED_ADDENDUM',authoritative_filename:'signed-addendum.pdf'}],
   paymentPlan:[],paymentTotals:{received:0,planned:0},cash:[],rail:[{deal_id:'VIS-DEAL-1024',gu12_number:'GU12-1',route_text:'A → B',wagons:[{wagonNumber:'001',status:'WAIT'}]}],operationalConflicts:[{kind:'Проверка документа',entity_id:'VIS-DEAL-1025',reason:'Требует внимания'}],radio:[],analytics:[],news:[],exchange:{status:'HEALTHY',last_success:'2026-09-12T08:55:00Z'}
 };
 const core={applications:[{...completed,current_external_contract_number:'HIST-CTR-2026-77'}],client_intake:[{authority_target_id:'VIS-IN-DONE',event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'APPLICATION',authority_target_type:'APPLICATION',payload:{message_type:'APPLICATION_DETAILS_V5',product:'СУГ СПБТ',quantity_tonnes:240,comment:'Комментарий клиента',railway:{special_statements:'Особые условия'}}}],contracts:[],deals,clients:[]};
+const currentDealsData={
+  generatedAt:'2026-09-12T09:00:00.000Z',
+  deals:[
+    {deal_id:'VIS-DEAL-1024',application_id:'VIS-IN-DONE',client_id:'VIS-C-DONE',legal_name:'Север Энерго',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',contract_id:'VIS-CTR-DONE',contract_status:'ACTIVE',contract_client_conflict:false,source_product:'СУГ СПБТ',product_value:'СУГ СПБТ',producer_value:'Производитель',product_confirmed_at:'2026-09-11T10:00:00Z',source_quantity_tonnes:240,quantity_tonnes_value:240,quantity_confirmed_at:'2026-09-11T10:00:00Z',delivery_basis:'CPT, Incoterms 2020',obligation_amount:174000,received_amount:170000,client_remaining_amount:4000,finance_currency:'USD',finance_status:'DUE',accounting_status:'OPEN',payment_expectation_state:'ACTIVE',payment_handoff_state:'NOT_SENT'},
+    {deal_id:'VIS-DEAL-1025',application_id:'VIS-IN-SECOND',client_id:'VIS-C-SECOND',legal_name:'Волга Ресурс',business_status:'REGISTERED',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',contract_id:'VIS-CTR-SECOND',contract_status:'ACTIVE',contract_client_conflict:false,source_product:'ДТ',source_quantity_tonnes:90,delivery_basis:'FCA',obligation_amount:90000,received_amount:0,client_remaining_amount:90000,finance_currency:'USD',finance_status:'NOT_DUE',accounting_status:'OPEN',payment_expectation_state:'INACTIVE',payment_handoff_state:'NOT_SENT'}
+  ],
+  documents:[
+    {document_id:'VIS-ADD-1',deal_id:'VIS-DEAL-1024',document_kind:'ADDENDUM',authoritative_filename:'addendum.pdf'},
+    {document_id:'VIS-INV-1',deal_id:'VIS-DEAL-1024',document_kind:'INVOICE',authoritative_filename:'invoice.pdf'},
+    {document_id:'VIS-SIGNED-1',deal_id:'VIS-DEAL-1024',document_kind:'SIGNED_ADDENDUM',authoritative_filename:'signed-addendum.pdf'}
+  ],
+  rail:[{deal_id:'VIS-DEAL-1024',gu12_number:'GU12-1',route_text:'A → B',wagons:[{wagonNumber:'001',status:'WAIT'}]}],
+  dataConflicts:[]
+};
 const homeRows=[{role:'OPERATIONS_DIRECTOR',display_name:'Операционный директор',sent:7,responses:6,awaiting:1,sla_breached:0,errors:0,last_response_at:'2026-09-12T08:58:00Z'}];
 const aiSync={
   generatedAt:'2026-09-12T09:00:00Z',railTariffs:[],financeFragment:null,agentRewardsFragment:{rows:[]},aiRuntime:{enabled:true,scheduler_state:'ENABLED',worker_version:'v1'},
@@ -26,19 +41,23 @@ const aiSync={
 
 let shell=await readFile('portal-src/current/admin.html','utf8');
 shell=shell.replace(/<script id="rona-[^>]+src="[^"]+"[^>]*><\/script>\s*/g,'');
-shell=shell.replace('</body>','<script src="/portal/main-ui"></script></body>');
+shell=shell.replace('</body>','<script src="/portal/main-ui"></script><script src="/portal/deals-current-state-ui"></script></body>');
 const mainResponse=await serveAdminMainUi({});
 assert.equal(mainResponse.status,200,'Admin main UI must materialize');
 assert.equal(mainResponse.headers.get('x-rona-admin-visual-redesign'),'home-applications-deals-v1');
 const mainScript=await mainResponse.text();
+const dealsCurrentResponse=await serveDealsCurrentUi({});
+assert.equal(dealsCurrentResponse.status,200,'canonical current Deals UI must materialize');
+const dealsCurrentScript=await dealsCurrentResponse.text();
 
-let bootstrapHits=0,postHits=0;
+let bootstrapHits=0,postHits=0,workflowHits=0;
 const server=http.createServer((req,res)=>{
   const url=new URL(req.url||'/',`http://${req.headers.host}`);
   const send=(status,type,body,headers={})=>{res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});res.end(body)};
   if(url.pathname==='/portal/admin')return send(200,'text/html; charset=utf-8',shell);
   if(url.pathname==='/portal/client')return send(200,'text/html; charset=utf-8','<!doctype html><html><body><main id="client-sentinel">CLIENT_CONTEXT_SENTINEL</main></body></html>');
   if(url.pathname==='/portal/main-ui')return send(200,'application/javascript; charset=utf-8',mainScript,{'x-rona-admin-visual-redesign':'home-applications-deals-v1'});
+  if(url.pathname==='/portal/deals-current-state-ui')return send(200,'application/javascript; charset=utf-8',dealsCurrentScript,{'x-rona-deals-ui':'current-state-v1.9-owner-uat-drawer'});
   if(url.pathname==='/portal/admin-completed-bootstrap'){
     bootstrapHits++;
     if(!String(req.headers.cookie||'').includes('rona_portal_at=runtime-admin-token'))return send(401,'application/json',JSON.stringify({ok:false,code:'PORTAL_ACCESS_DENIED'}));
@@ -50,6 +69,7 @@ const server=http.createServer((req,res)=>{
     if(String(req.method||'GET').toUpperCase()==='POST'){postHits++;return send(200,'application/json',JSON.stringify({ok:true,data:{}}))}
     if(path==='/admin/ai-sync')return send(200,'application/json',JSON.stringify({ok:true,data:aiSync}));
     if(path==='/admin/bootstrap')return send(200,'application/json',JSON.stringify({ok:true,data:adminData}));
+    if(path==='/admin/workflow-bootstrap'){workflowHits++;return send(200,'application/json',JSON.stringify({ok:true,data:currentDealsData}))}
     return send(200,'application/json',JSON.stringify({ok:true,data:{}}));
   }
   if(url.pathname.startsWith('/assets/'))return send(204,'text/plain','');
@@ -70,6 +90,7 @@ async function newAdminPage(viewport){
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true&&window.__RONA_ADMIN_VISUAL_REDESIGN_V1__&&document.documentElement.classList.contains('rona-admin-redesign-v1'),null,{timeout:12000});
   await page.waitForFunction(()=>['home','applications','deals'].every(id=>document.getElementById('page-'+id)?.dataset.ronaAdminVisualRedesign==='ready'),null,{timeout:12000});
+  await page.waitForFunction(()=>window.__RONA_DEALS_CURRENT_STATE__&&document.documentElement.classList.contains('rona-deals-current-ready'),null,{timeout:12000});
   return{context,page,errors};
 }
 
@@ -126,16 +147,27 @@ async function proveFullFlow(viewport,withScreenshots=false){
     assert.equal(decisionActions,true,'supplier decision actions must remain available');
 
     await activate(page,'deals');
-    const dealRow=page.locator('#page-deals table tbody tr').filter({hasText:'VIS-DEAL-1024'});await dealRow.waitFor({state:'visible',timeout:8000});
+    const currentOwner=page.locator('#page-deals .rona-current-deals-owned');await currentOwner.waitFor({state:'visible',timeout:8000});
+    const dealRow=page.locator('#page-deals .rona-current-deal-table tbody tr').filter({hasText:'VIS-DEAL-1024'});await dealRow.waitFor({state:'visible',timeout:8000});
     assert.equal(await dealRow.getAttribute('data-rona-visual-row'),'deal');
     assert.ok(await dealRow.locator('td[data-rona-col="deal-id"]').count()>=1,'Deal ID must be the emphasized identifier');
-    assert.ok(await dealRow.getByRole('button',{name:'Прикрепить допсоглашение'}).count()>=1,'deal addendum action must remain');
-    assert.ok(await dealRow.getByRole('button',{name:'Прикрепить инвойс'}).count()>=1,'deal invoice action must remain');
+    assert.ok(await page.locator('#page-deals .rona-admin-status-chip').count()>=1,'current Deal status must keep semantic visual hierarchy');
     await noDocumentOverflow(page,`${viewport.width}x${viewport.height} deals`);
     if(withScreenshots)await page.screenshot({path:'artifacts/admin-redesign/ADMIN_DEALS_REDESIGN.png',fullPage:false});
+    const details=dealRow.getByRole('button',{name:'Открыть'});assert.equal(await details.count(),1,'canonical current Deals detail action must remain');
+    await details.click();
+    const drawer=page.locator('#ronaCurrentDealDrawer');await drawer.waitFor({state:'visible',timeout:5000});
+    assert.match(String(await drawer.getAttribute('data-deal')),/VIS-DEAL-1024/,'drawer must preserve exact Deal ID');
+    const dealActions=drawer.locator('.rona-current-deal-actions button');
+    assert.ok(await dealActions.count()>=4,'canonical current deal action set must remain available');
+    assert.equal(await drawer.getByRole('button',{name:/Заменить доп\. соглашение|Прикрепить доп\. соглашение/}).count(),1,'current addendum action must remain');
+    assert.equal(await drawer.getByRole('button',{name:/Заменить инвойс|Прикрепить инвойс/}).count(),1,'current invoice action must remain');
+    assert.equal(await drawer.getByRole('button',{name:/Отправить в оплату|Передано в оплату/}).count(),1,'current payment handoff action must remain');
+    assert.equal(await drawer.getByRole('button',{name:/Удалить|HOLD — финансовое урегулирование/}).count(),1,'current deal cancellation action must remain');
+    await drawer.getByRole('button',{name:'Закрыть'}).click();
 
     await page.reload({waitUntil:'domcontentloaded'});
-    await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true&&window.__RONA_ADMIN_VISUAL_REDESIGN_V1__,null,{timeout:12000});
+    await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true&&window.__RONA_ADMIN_VISUAL_REDESIGN_V1__&&window.__RONA_DEALS_CURRENT_STATE__,null,{timeout:12000});
     await activate(page,'applications');await filterByText(page,'Завершённые').click();await completedRow(page).waitFor({state:'visible',timeout:5000});
     assert.equal(await completedRow(page).locator('button[data-rona-app-passport-open="VIS-IN-DONE"]').count(),1,'hard refresh must retain exactly one passport action');
     assert.deepEqual(errors,[],`runtime errors at ${viewport.width}x${viewport.height}: ${errors.join(' | ')}`);
@@ -153,7 +185,8 @@ try{
   assert.equal(await clientPage.evaluate(()=>document.documentElement.classList.contains('rona-admin-redesign-v1')),false,'Admin visual runtime must not leak into Client context');
   await clientContext.close();
   assert.ok(bootstrapHits>=6,'cold/hard responsive passes must exercise canonical Admin bootstrap');
-  console.log(`ADMIN_VISUAL_REDESIGN_BROWSER_V1=PASS ADMIN_NAVIGATION=true APPLICATION_FILTERS=true COMPLETED_OPEN_FIRST_RENDER=true APPLICATION_PASSPORT_OPEN=true APPLICATION_ACTIONS=true DEALS_RENDER=true DEAL_ACTIONS=true CLIENT_CONTEXT_ISOLATION=true HARD_REFRESH=true NO_RUNTIME_ERRORS=true responsive=1920x1080,1440x900,1366x768 screenshots=3 bootstrap_hits=${bootstrapHits} post_hits=${postHits}`);
+  assert.ok(workflowHits>=3,'responsive passes must exercise canonical current Deals workflow source');
+  console.log(`ADMIN_VISUAL_REDESIGN_BROWSER_V2=PASS ADMIN_NAVIGATION=true APPLICATION_FILTERS=true COMPLETED_OPEN_FIRST_RENDER=true APPLICATION_PASSPORT_OPEN=true APPLICATION_ACTIONS=true DEALS_RENDER=true DEAL_ACTIONS=true CLIENT_CONTEXT_ISOLATION=true HARD_REFRESH=true NO_RUNTIME_ERRORS=true responsive=1920x1080,1440x900,1366x768 screenshots=3 bootstrap_hits=${bootstrapHits} workflow_hits=${workflowHits} post_hits=${postHits}`);
 }finally{
   await browser.close();await new Promise(resolve=>server.close(resolve));
 }
