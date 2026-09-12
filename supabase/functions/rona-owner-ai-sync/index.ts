@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
+import { buildPaymentScheduleAuthority } from "./payment-schedule-authority.ts";
 const DB=Deno.env.get("SUPABASE_DB_URL"),SUPA_URL=Deno.env.get("SUPABASE_URL");if(!DB||!SUPA_URL)throw new Error("runtime vars missing");const sql=postgres(DB,{prepare:false,max:1,idle_timeout:1,max_lifetime:30,connect_timeout:5});const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 function runtimeKey(kind){const legacy=kind==="pub"?Deno.env.get("SUPABASE_ANON_KEY"):Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");if(legacy)return legacy;const raw=Deno.env.get(kind==="pub"?"SUPABASE_PUBLISHABLE_KEYS":"SUPABASE_SECRET_KEYS");if(raw){const p=JSON.parse(raw);if(p.default)return p.default}throw new Error("key missing")}
 function send(status,body){return new Response(JSON.stringify(body),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}})}function claims(token){try{const p=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return JSON.parse(atob(p+"=".repeat((4-p.length%4)%4)))}catch{return{}}}
@@ -47,7 +48,7 @@ async function coordinationDashboard(){
   const periods={TODAY:[],"7D":[],"30D":[],ALL:[]};
   for(const row of roleMetrics){const key=String(row.period);if(periods[key])periods[key].push(row)}
   const totals={};
-  for(const [key,rows] of Object.entries(periods))totals[key]=rows.reduce((a,r)=>({sent:a.sent+Number(r.sent||0),delivered:a.delivered+Number(r.delivered||0),responses:a.responses+Number(r.responses||0),awaiting:a.awaiting+Number(r.awaiting||0),slaBreached:a.slaBreached+Number(r.sla_breached||0),errors:a.errors+Number(r.errors||0),portalRequests:a.portalRequests+Number(r.portal_requests||0)}),{sent:0,delivered:0,responses:0,awaiting:0,slaBreached:0,errors:0,portalRequests:0});
+  for(const [key,rows]of Object.entries(periods))totals[key]=rows.reduce((a,r)=>({sent:a.sent+Number(r.sent||0),delivered:a.delivered+Number(r.delivered||0),responses:a.responses+Number(r.responses||0),awaiting:a.awaiting+Number(r.awaiting||0),slaBreached:a.slaBreached+Number(r.sla_breached||0),errors:a.errors+Number(r.errors||0),portalRequests:a.portalRequests+Number(r.portal_requests||0)}),{sent:0,delivered:0,responses:0,awaiting:0,slaBreached:0,errors:0,portalRequests:0});
   return{generatedAt:new Date().toISOString(),semantics:{sent:"Business queue records: PORTAL_REVERSE_EVENT + STAFF_TASK + COORDINATION; HEARTBEAT and SYSTEM_CHECK excluded",responses:"Only queue records settled to PROCESSED by authoritative response/terminal triggers",awaiting:"Non-terminal queue records excluding DEAD_LETTER",sla:"Authoritative ai_runtime_queue.sla_breached_at"},periods,totals,recent};
 }
 async function agentRewardsDashboard(){
@@ -284,7 +285,8 @@ async function adminSync(){
     group by p.currency order by p.currency`;
   const planState=(await sql`select count(*)::int plan_rows from portal_private.owner_payment_plan where status<>'CANCELLED'`)[0]||{plan_rows:0};
   const cash=await sql`select snapshot_date,currency,opening_balance,received_amount,paid_amount,closing_balance,source_system,updated_at from portal_private.owner_cash_snapshots where snapshot_date=(select max(snapshot_date) from portal_private.owner_cash_snapshots) order by currency`;
-  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',sourceAsOf:cash[0]?.snapshot_date||null,payments,incomingPayments,paymentAllocations,incomingPaymentAllocations,paymentAllocationSummaries,dealAllocationTotals,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE'};
+  const paymentScheduleAuthority=await buildPaymentScheduleAuthority(sql,{incomingPayments,incomingPaymentAllocations,dealAllocationTotals,dealFinanceSummaries});
+  const financeFragment={authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',sourceAsOf:cash[0]?.snapshot_date||null,payments,incomingPayments,paymentAllocations,incomingPaymentAllocations,paymentAllocationSummaries,dealAllocationTotals,outgoingPayments,dealFinanceSummaries,paymentTotalsByCurrency,obligationPlanAvailable:Number(planState.plan_rows||0)>0||dealFinanceSummaries.length>0,cash,cashSemantics:'Q3_CUMULATIVE_BANK_TURNS_WITH_CLOSING_BALANCE_AS_OF_SNAPSHOT_DATE',...paymentScheduleAuthority};
   return{generatedAt:new Date().toISOString(),railTariffs,aiRuntime,aiEmployees,homeCoordination,agentRewardsFragment,latestAiConclusions:latestAiConclusions.sort((a,b)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()).slice(0,20),marketAnalystFragment,financeFragment}
 }
 function normalizedShare(v){const n=Number(v);if(!Number.isFinite(n)||n<0)return null;return n>1?n/100:n}
