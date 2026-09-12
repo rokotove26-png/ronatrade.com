@@ -2,14 +2,15 @@
 // Slug-agnostic entrypoint for rona-owner-ai-sync.
 // The runtime implementation is preserved in runtime.ts; this entrypoint normalizes
 // only the two public sync routes before the registered handler sees the request.
+// This deliberately does not depend on the deployed Supabase function slug.
 
 const nativeServe = Deno.serve.bind(Deno);
 let runtimeHandler = null;
 
 function normalizeAiSyncPath(pathname) {
   const p = String(pathname || '');
-  if (p.endsWith('/admin/sync')) return '/admin/sync';
-  if (p.endsWith('/agent/sync')) return '/agent/sync';
+  if (/\/admin\/sync\/?$/.test(p)) return '/admin/sync';
+  if (/\/agent\/sync\/?$/.test(p)) return '/agent/sync';
   return p;
 }
 
