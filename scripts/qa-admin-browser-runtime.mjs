@@ -2,7 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
-import { onRequest as mainUiRequest } from '../functions/portal/main-ui.js';
+import { onRequest as mainUiRequest } from '../functions/portal/main-ui/index.js';
 
 const ROOT=process.cwd();
 const DIST=join(ROOT,'dist');
