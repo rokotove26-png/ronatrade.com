@@ -27,7 +27,7 @@ assert(ui.includes('f?.dealAllocationTotals'),'UI must consume server deal alloc
 assert(ui.includes('canonicalArray(f.outgoingPayments)'),'outgoingPayments must remain distinct');
 assert(!ui.includes('canonicalArray(f.payments)'),'UI must not infer incoming rows from generic payments');
 assert(!ui.includes('frag?.payments'),'UI must not infer allocations from generic payments');
-assert(ui.includes("String(x.allocation_status||'').toUpperCase()==='VERIFIED'"),'UI must display only VERIFIED deal allocations');
+assert(ui.includes("String(a.allocation_status||'').toUpperCase()==='VERIFIED'"),'UI must display only VERIFIED deal allocations');
 assert(ui.includes("String(x.deal_allocation_status||'').toUpperCase()==='CONFIRMED'"),'outgoing KPI must require confirmed deal allocation');
 assert(ui.includes("financePill('Требует верификации','warn')"),'fail-closed TO_VERIFY presentation missing');
 assert(!/usd\s*equivalent|market\s*fx|цб\s*рф/i.test(ui),'frontend FX synthesis marker detected');
