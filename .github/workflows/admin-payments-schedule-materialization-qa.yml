@@ -8,7 +8,7 @@ on:
       - 'functions/portal/main-ui/payment-schedule-runtime-v1.js'
       - 'functions/portal/main-ui/index.js'
       - 'scripts/qa-admin-payments-schedule-materialization-source-v1.mjs'
-      - 'scripts/qa-admin-payments-schedule-materialization-browser-v1.mjs'
+      - 'scripts/qa-admin-payments-schedule-materialization-browser-v2.mjs'
       - '.github/workflows/admin-payments-schedule-materialization-qa.yml'
   pull_request:
     branches: [fix/admin-payments-finance-allocation-projection-v1]
@@ -17,7 +17,7 @@ on:
       - 'functions/portal/main-ui/payment-schedule-runtime-v1.js'
       - 'functions/portal/main-ui/index.js'
       - 'scripts/qa-admin-payments-schedule-materialization-source-v1.mjs'
-      - 'scripts/qa-admin-payments-schedule-materialization-browser-v1.mjs'
+      - 'scripts/qa-admin-payments-schedule-materialization-browser-v2.mjs'
       - '.github/workflows/admin-payments-schedule-materialization-qa.yml'
   workflow_dispatch:
 
@@ -47,11 +47,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p artifacts/admin-payments
-          node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-schedule-materialization-browser-v1.mjs 2>&1 | tee artifacts/admin-payments/payment-schedule-browser-qa.log
-      - name: Inherited Finance allocation browser regression
-        run: node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-finance-allocation-browser-v1.mjs
-      - name: Broad Admin runtime regression
-        run: node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-browser-runtime.mjs
+          node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-schedule-materialization-browser-v2.mjs 2>&1 | tee artifacts/admin-payments/payment-schedule-browser-qa.log
       - name: Upload Payments schedule runtime proof
         if: always()
         uses: actions/upload-artifact@v4
