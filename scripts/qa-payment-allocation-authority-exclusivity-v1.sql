@@ -22,17 +22,19 @@ begin
 end $$;
 \echo PRODUCTION_EQUIVALENT_PRIVILEGES=PASS
 
--- A. Direct fresh INSERT is permitted by table grant, but COMMIT must fail without history.
+-- A. Direct fresh INSERT is permitted by the payment_allocations grant itself, but COMMIT
+-- must fail without history. No SELECT privilege on other business tables is needed.
 set role service_role;
 \set ON_ERROR_STOP off
 begin;
 insert into portal_private.payment_allocations(
   id,payment_key,client_key,contract_key,deal_key,allocated_amount,allocation_status,finance_status,
   accounting_closure_status,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
-select 'aaaaaaaa-0000-4000-8000-000000000001',p.id,d.client_key,d.contract_key,d.id,p.amount,
-       'VERIFIED','PAID','OPEN','FINANCE_SOURCE_LOCKED_RECONCILIATION','DIRECT-BYPASS',now(),'CONFIRMED','ACTIVE'
-  from portal_private.payments p join portal_private.deals d on d.deal_id='DEAL-2026-004'
- where p.payment_id='PAYEV-2026-000001';
+values(
+  'aaaaaaaa-0000-4000-8000-000000000001','8a757f03-3ad4-5656-984a-c942d91b07db',
+  'f4029d84-325d-5fb0-8347-a77ffd6a4824','97dc00d5-6fae-5eab-a987-7a6ea0cec6fa',
+  '17503586-9909-58cc-99f6-92b2ba4d8797',236250,'VERIFIED','PAID','OPEN',
+  'FINANCE_SOURCE_LOCKED_RECONCILIATION','DIRECT-BYPASS',now(),'CONFIRMED','ACTIVE');
 commit;
 \set direct_fresh_insert_state :SQLSTATE
 \set ON_ERROR_STOP on
@@ -70,7 +72,13 @@ commit;
 reset role;
 select case when :'manual_guc_update_state'='23514' then 1 else 1/0 end;
 do $$ begin
-  if (select authority_state::text||'/'||lifecycle_state::text from portal_private.payment_allocations where id=:'fresh_allocation_id'::uuid)<>'CONFIRMED/ACTIVE' then raise exception 'MANUAL_GUC_UPDATE_SURVIVED'; end if;
+  if not exists(
+    select 1 from portal_private.payment_allocations
+     where payment_key='8a757f03-3ad4-5656-984a-c942d91b07db'
+       and source_system='FINANCE_SOURCE_LOCKED_RECONCILIATION'
+       and authority_state='CONFIRMED' and lifecycle_state='ACTIVE') then
+    raise exception 'MANUAL_GUC_UPDATE_SURVIVED';
+  end if;
 end $$;
 \echo MANUAL_GUC_UPDATE_BYPASS_BLOCKED=PASS
 
