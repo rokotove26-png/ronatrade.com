@@ -1,0 +1,3 @@
+PR462 preview Finance backend source marker.
+Routing is slug-agnostic; candidate deployment must be pinned to this branch exact HEAD.
+No production deployment is authorized.
