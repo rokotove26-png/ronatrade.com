@@ -40,7 +40,7 @@ for(const required of [
   '.rona-admin-dashboard__hero{display:none!important}',
   '.rona-admin-visual-duplicate-hero{display:none!important}',
   'function dedupeHomeHero()',
-  "page.querySelector('.rona-ops-v4__commandbar')",
+  "querySelector('.rona-ops-v4__commandbar')",
   "node.dataset.ronaVisualDuplicateHero='hidden'",
   'queueMicrotask(()=>{queued=false;dedupeHomeHero()})',
   '.rona-current-deal-kpi-grid',
