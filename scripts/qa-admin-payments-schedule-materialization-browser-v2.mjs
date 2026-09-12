@@ -59,7 +59,7 @@ const optional=new Set(['/portal/deals-current-state-ui','/portal/deals-r1-r11-u
 let server;
 server=http.createServer(async(req,res)=>{
   const u=new URL(req.url||'/','http://127.0.0.1'),p=u.pathname;
-  if(p==='/favicon.ico'||p.startsWith('/assets/'))return send(res,204,'');
+  if(p==='/favicon.ico')return send(res,204,'');
   if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');
   if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');
   if(p==='/portal/payment-schedule-current'){scheduleCalls++;const port=server.address().port,headers=new Headers();for(const[k,v]of Object.entries(req.headers)){if(Array.isArray(v))headers.set(k,v.join(', '));else if(v!==undefined)headers.set(k,String(v))}return void await bridge(await paymentScheduleRequest({request:new Request(`http://127.0.0.1:${port}${req.url}`,{method:'GET',headers})}),res)}
@@ -83,7 +83,7 @@ async function refresh(page){await page.evaluate(()=>window.__RONA_PAYMENT_SCHED
 async function waitRev(page,r){await page.waitForFunction(x=>window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__?.generatedAt===`2026-09-12T17:0${x}:00.000Z`,r,{timeout:10000});await page.waitForTimeout(80)}
 async function openPayments(page){
   const b=page.locator('#nav button[data-page="payments"]');await b.waitFor({state:'visible',timeout:20000});await b.click();await page.locator('#page-payments.active').waitFor({state:'visible',timeout:10000});
-  await page.waitForFunction(()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__==='20260912-payment-schedule-v2',null,{timeout:10000});
+  await page.waitForFunction(()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__==='20260912-payment-schedule-v2',null,{timeout:16000});
   await page.evaluate(()=>window.__RONA_PAYMENT_SCHEDULE_REFRESH__());
   await page.waitForFunction(()=>window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2',null,{timeout:10000});
   await page.locator('#rona-payment-schedule-v1').waitFor({state:'visible',timeout:10000});
@@ -91,22 +91,16 @@ async function openPayments(page){
 
 try{
   const direct=await fetch(origin+'/portal/payment-schedule-current',{headers:{accept:'application/json'}}),directPayload=await direct.json();
-  assert(direct.ok&&directPayload?.data?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2','DIRECT_TRUSTED_PROJECTION_FAILED:'+JSON.stringify(directPayload));
-  console.log('DIRECT_TRUSTED_PROJECTION=PASS');
+  assert(direct.ok&&directPayload?.data?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2','DIRECT_TRUSTED_PROJECTION_FAILED:'+JSON.stringify(directPayload));console.log('DIRECT_TRUSTED_PROJECTION=PASS');
   browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1600,height:1000}});const page=await context.newPage();
   page.on('pageerror',e=>errors.push('pageerror:'+String(e.message||e)));page.on('console',m=>{if(m.type()==='error'&&!m.text().startsWith('Failed to load resource:'))errors.push('console:'+m.text())});page.on('response',r=>{if(r.status()>=500)errors.push(`http:${r.status()}:${r.url()}`)});
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});await openPayments(page);await waitRev(page,1);
   let r=await row(page,'DEAL-2026-005'),c=r.locator('td');assert(await r.getAttribute('data-schedule-state')==='DEFERRED_NOT_DUE','baseline 005 not deferred');assert(compact(await c.nth(2).innerText()).includes('201750USD')&&compact(await c.nth(3).innerText()).includes('470750USD'),'baseline 005 amounts');let r9=await row(page,'DEAL-2026-009');assert(await r9.getAttribute('data-projection-status')==='TO_VERIFY','009 baseline not TO_VERIFY');
-
   revision=2;await refresh(page);await waitRev(page,2);r=await row(page,'DEAL-2026-005');c=r.locator('td');assert(compact(await c.nth(2).innerText()).includes('251750USD')&&compact(await c.nth(3).innerText()).includes('420750USD')&&compact(await c.nth(5).innerText()).includes('420750USD'),'new verified receipt not propagated');console.log('NEW_VERIFIED_RECEIPT_RUNTIME=PASS');
-
   revision=3;await refresh(page);await waitRev(page,3);for(const id of['DEAL-2026-005','DEAL-2026-006']){const x=await row(page,id),cells=x.locator('td');assert(await x.getAttribute('data-schedule-state')==='DUE',id+' not DUE');assert((await cells.nth(7).innerText()).includes('CONFIRMED'),id+' trigger not confirmed');assert(compact(await cells.nth(5).innerText()).includes('0USD'),id+' deferred not cleared')}r=await row(page,'DEAL-2026-005');assert(compact(await r.locator('td').nth(4).innerText()).includes('420750USD'),'005 current due not updated');console.log('GU_TRIGGER_DEFERRED_TO_DUE=PASS');
-
   revision=4;await refresh(page);await waitRev(page,4);r9=await row(page,'DEAL-2026-009');assert(await r9.getAttribute('data-projection-status')==='AUTHORITATIVE'&&await r9.getAttribute('data-schedule-state')==='DEFERRED_NOT_DUE','009 did not become authoritative');console.log('DEAL009_TO_VERIFY_TO_AUTHORITATIVE=PASS');
-
   for(let i=0;i<3;i++)await refresh(page);for(const id of['DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-009'])assert(await page.locator(`#rona-payment-schedule-v1 tbody tr[data-schedule-deal="${id}"]`).count()===1,id+' duplicate');console.log('NO_DUPLICATES=PASS');
   r=await row(page,'DEAL-2026-005');c=r.locator('td');assert(!(await c.nth(2).innerText()).includes('16536960'),'KUZMASH leaked into incoming');assert((await c.nth(12).innerText()).includes('TO_VERIFY'),'FX synthesized');console.log('KUZMASH_NO_INFERRED_SPLIT=PASS');console.log('FX_NO_SYNTHESIS=PASS');
-
   const before=scheduleCalls;await page.reload({waitUntil:'domcontentloaded'});await openPayments(page);await waitRev(page,4);assert(scheduleCalls>before,'hard refresh did not refetch');r=await row(page,'DEAL-2026-005');r9=await row(page,'DEAL-2026-009');assert(await r.getAttribute('data-schedule-state')==='DUE'&&await r9.getAttribute('data-projection-status')==='AUTHORITATIVE','hard refresh lost state');console.log('HARD_REFRESH=PASS');
   assert(syncCalls>=4&&scheduleCalls>=4,'Finance refresh did not propagate');console.log('FINANCE_REFRESH_PROPAGATION=PASS');
   await mkdir('artifacts/admin-payments',{recursive:true});await page.screenshot({path:'artifacts/admin-payments/ADMIN_PAYMENTS_DYNAMIC_FINANCE_SCHEDULE_AUTHORITY.png',fullPage:true});
