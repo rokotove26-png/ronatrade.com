@@ -2,12 +2,13 @@ const ADMIN_VISUAL_POLISH_V1=String.raw`
 (()=>{'use strict';
 if(window.__RONA_ADMIN_VISUAL_POLISH_V1__)return;
 if(location.pathname!=='/portal/admin')return;
-window.__RONA_ADMIN_VISUAL_POLISH_V1__='20260912-v1';
+window.__RONA_ADMIN_VISUAL_POLISH_V1__='20260912-v2';
 const s=document.createElement('style');
 s.id='ronaAdminVisualPolishV1Style';
 s.textContent=''
 +'/* Home: canonical operations command center is the single visual page hero. */'
 +'.rona-admin-redesign-v1 #page-home .rona-admin-dashboard__hero{display:none!important}'
++'.rona-admin-redesign-v1 #page-home .rona-admin-visual-duplicate-hero{display:none!important}'
 +'.rona-admin-redesign-v1 #page-home .rona-admin-dashboard{gap:14px!important;padding-top:0!important}'
 +'.rona-admin-redesign-v1 #page-home .rona-ops-v4__commandbar{margin-top:0!important}'
 +'/* Canonical current Deals owner: keep dense data, but give it the same surface hierarchy as the redesigned Admin. */'
@@ -57,6 +58,29 @@ s.textContent=''
 +'@media(max-width:1180px){.rona-admin-redesign-v1 #page-deals .rona-current-deal-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}'
 +'@media(prefers-reduced-motion:reduce){.rona-admin-redesign-v1 #page-deals .rona-current-deal-open{transition:none!important}}';
 document.head.appendChild(s);
+
+function dedupeHomeHero(){
+  const page=document.getElementById('page-home'),canonical=page?.querySelector('.rona-ops-v4__commandbar');
+  if(!page||!canonical)return;
+  const canonicalTitle=String(canonical.querySelector('h1')?.textContent||'').replace(/\s+/g,' ').trim();
+  if(!canonicalTitle)return;
+  const candidates=Array.from(page.querySelectorAll('section,header,div'));
+  for(const node of candidates){
+    if(node===canonical||node.contains(canonical)||canonical.contains(node))continue;
+    const h1=node.querySelector(':scope > h1, :scope > div > h1');
+    if(!h1||String(h1.textContent||'').replace(/\s+/g,' ').trim()!==canonicalTitle)continue;
+    if(node.compareDocumentPosition(canonical)&Node.DOCUMENT_POSITION_FOLLOWING){
+      node.classList.add('rona-admin-visual-duplicate-hero');
+      node.dataset.ronaVisualDuplicateHero='hidden';
+    }
+  }
+}
+let queued=false;
+function scheduleDedupe(){if(queued)return;queued=true;queueMicrotask(()=>{queued=false;dedupeHomeHero()})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scheduleDedupe,{once:true});else scheduleDedupe();
+const home=document.getElementById('page-home');
+if(home)new MutationObserver(scheduleDedupe).observe(home,{childList:true,subtree:true});
+window.addEventListener('rona:admin-pagechange',scheduleDedupe);
 })();
 `;
 
