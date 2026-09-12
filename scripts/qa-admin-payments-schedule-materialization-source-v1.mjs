@@ -59,6 +59,7 @@ assert(!projectionSource.includes('MATERIALIZED_SCHEDULES'),'production still de
 for(const forbidden of ['DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-009','236250','672500','164400','470750','115080'])assert(!production.includes(forbidden),`production contains static schedule fixture: ${forbidden}`);
 assert(financeServerSource.includes('buildPaymentScheduleAuthority'),'Finance ai-sync does not build payment schedule authority');
 assert(financeServerSource.includes('...paymentScheduleAuthority'),'Finance ai-sync does not publish schedule current-state');
+assert(financeServerSource.includes('appliesTo:String(rawPolicy.applies_to)'),'unrelated Agent display policy projection regressed');
 assert(financeScheduleSource.includes("p.payload->>'proposed_field'='finance.payment_schedule'"),'approved Finance payment schedule source missing');
 assert(financeScheduleSource.includes("x.status='APPROVE_FOR_NEXT_STAGE'"),'Operations approval boundary missing');
 assert(financeScheduleSource.includes("r.functional_role::text in ('FINANCE','RAIL_LOGISTICS')"),'Finance/Rail explicit trigger source missing');
