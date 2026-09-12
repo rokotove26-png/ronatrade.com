@@ -11,6 +11,7 @@ on:
       - 'supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts'
       - 'scripts/qa-admin-payments-final-owner-screen-source-v1.mjs'
       - 'scripts/qa-admin-payments-final-owner-screen-browser-v1.mjs'
+      - 'scripts/qa-admin-payments-final-owner-screen-browser-v2.mjs'
       - '.github/workflows/admin-payments-final-owner-screen-passport-v1.yml'
   pull_request:
     branches: [feat/admin-payments-payment-schedule-materialization-v1]
@@ -22,6 +23,7 @@ on:
       - 'supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts'
       - 'scripts/qa-admin-payments-final-owner-screen-source-v1.mjs'
       - 'scripts/qa-admin-payments-final-owner-screen-browser-v1.mjs'
+      - 'scripts/qa-admin-payments-final-owner-screen-browser-v2.mjs'
       - '.github/workflows/admin-payments-final-owner-screen-passport-v1.yml'
   workflow_dispatch:
 
@@ -51,7 +53,7 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p artifacts/admin-payments-owner-passport
-          node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-final-owner-screen-browser-v1.mjs 2>&1 | tee artifacts/admin-payments-owner-passport/browser-qa.log
+          node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-final-owner-screen-browser-v2.mjs 2>&1 | tee artifacts/admin-payments-owner-passport/browser-qa.log
       - name: Upload final Owner screen + payment passport proof
         if: always()
         uses: actions/upload-artifact@v4
