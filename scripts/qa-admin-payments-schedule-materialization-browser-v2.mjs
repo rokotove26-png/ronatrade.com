@@ -37,28 +37,30 @@ function finance(){
   const paymentScheduleHolds=[];
   if(reconciled)paymentSchedules.push(schedule('DEAL-2026-009','RUB',31002300,0,31002300,0,31002300,'DEFERRED_NOT_DUE','NOT_APPLICABLE','NOT_DUE'));
   else paymentScheduleHolds.push({dealId:'DEAL-2026-009',currency:'RUB',scheduleState:'TO_VERIFY',financeStatus:'NOT_DUE',accountingClosureStatus:'OPEN',reason:'QA_FINANCE_RECONCILIATION_PENDING'});
+  const dealAllocationTotals=[{deal_id:'DEAL-2026-004',currency:'USD',allocated_amount:236250},{deal_id:'DEAL-2026-005',currency:'USD',allocated_amount:received005},{deal_id:'DEAL-2026-006',currency:'USD',allocated_amount:49320}];
+  const paymentAllocationSummaries=incomingPayments.map(p=>{const total=allocations.filter(a=>a.payment_id===p.payment_id).reduce((sum,a)=>sum+a.allocated_amount,0);return{payment_id:p.payment_id,currency:p.currency,payment_amount:p.amount,allocated_total:total,unallocated_amount:p.amount-total,allocation_projection_status:total?'ALLOCATED':'UNALLOCATED'}});
   return{
     authoritativeSource:'ACCOUNTING_FINANCE_CANONICAL_V011',paymentProjectionContract:'ADMIN_PAYMENTS_FINANCE_AUTHORITY_V1',paymentScheduleContract:'FINANCE_PAYMENT_SCHEDULE_CURRENT_STATE_V1',sourceAsOf:now(),
-    payments:incomingPayments,incomingPayments,paymentAllocations:allocations,incomingPaymentAllocations:allocations,
-    paymentAllocationSummaries:incomingPayments.map(p=>{const total=allocations.filter(a=>a.payment_id===p.payment_id).reduce((sum,a)=>sum+a.allocated_amount,0);return{payment_id:p.payment_id,currency:p.currency,payment_amount:p.amount,allocated_total:total,unallocated_amount:p.amount-total,allocation_projection_status:total?'ALLOCATED':'UNALLOCATED'}}),
-    dealAllocationTotals:[{deal_id:'DEAL-2026-004',currency:'USD',allocated_amount:236250},{deal_id:'DEAL-2026-005',currency:'USD',allocated_amount:received005},{deal_id:'DEAL-2026-006',currency:'USD',allocated_amount:49320}],
+    payments:incomingPayments,incomingPayments,paymentAllocations:allocations,incomingPaymentAllocations:allocations,paymentAllocationSummaries,dealAllocationTotals,
     outgoingPayments:[
       {fact_id:'OUT-QA-KUZMASH',payment_at:now(),beneficiary_name:'КУЗМАШ',beneficiary_role:'SUPPLIER',amount:16536960,currency:'RUB',purpose:'Combined 005/006 supplier payment',bank_document:'QA-KUZ',deal_ids:['DEAL-2026-005','DEAL-2026-006'],deal_allocation_status:'TO_VERIFY',flow_kind:'OUTGOING',bank_fact_status:'BANK_CONFIRMED'},
       {fact_id:'OUT-QA-KUZMASH-FEE',payment_at:now(),beneficiary_name:'Банк',beneficiary_role:'BANK',amount:3000,currency:'RUB',purpose:'KUZMASH bank fee',bank_document:'QA-KUZ-FEE',deal_ids:['DEAL-2026-005','DEAL-2026-006'],deal_allocation_status:'TO_VERIFY',flow_kind:'OUTGOING',bank_fact_status:'BANK_CONFIRMED'}
     ],
     dealFinanceSummaries:[
-      {deal_id:'DEAL-2026-004',client_id:'RONA-C002',client_name:'FARGONA',obligation_amount:236250,currency:'USD',finance_status:'PAID',accounting_status:'OPEN'},
-      {deal_id:'DEAL-2026-005',client_id:'RONA-C003',client_name:'SOLARIS — URTAUL',obligation_amount:672500,currency:'USD',finance_status:triggered?'DUE':'NOT_DUE',accounting_status:'OPEN'},
-      {deal_id:'DEAL-2026-006',client_id:'RONA-C003',client_name:'SOLARIS — MARGILAN',obligation_amount:164400,currency:'USD',finance_status:triggered?'DUE':'NOT_DUE',accounting_status:'OPEN'},
-      {deal_id:'DEAL-2026-009',client_id:'RONA-C005',client_name:'GazOne',obligation_amount:31002300,currency:'RUB',finance_status:'NOT_DUE',accounting_status:'OPEN'}
+      {deal_id:'DEAL-2026-004',client_id:'RONA-C002',client_name:'FARGONA',obligation_amount:236250,received_amount:236250,client_remaining_amount:0,currency:'USD',finance_status:'PAID',accounting_status:'OPEN'},
+      {deal_id:'DEAL-2026-005',client_id:'RONA-C003',client_name:'SOLARIS — URTAUL',obligation_amount:672500,received_amount:received005,client_remaining_amount:remaining005,currency:'USD',finance_status:triggered?'DUE':'NOT_DUE',accounting_status:'OPEN'},
+      {deal_id:'DEAL-2026-006',client_id:'RONA-C003',client_name:'SOLARIS — MARGILAN',obligation_amount:164400,received_amount:49320,client_remaining_amount:115080,currency:'USD',finance_status:triggered?'DUE':'NOT_DUE',accounting_status:'OPEN'},
+      {deal_id:'DEAL-2026-009',client_id:'RONA-C005',client_name:'GazOne',obligation_amount:31002300,received_amount:0,client_remaining_amount:31002300,currency:'RUB',finance_status:'NOT_DUE',accounting_status:'OPEN'}
     ],
     paymentSchedules,paymentScheduleHolds,paymentTotalsByCurrency:[],obligationPlanAvailable:true,cash:[]
   };
 }
 function aiSync(){syncCalls++;return{generatedAt:`2026-09-12T17:0${financeRevision}:00.000Z`,marketAnalystFragment:{generatedAt:now(),analytics:[],news:[],currentPublications:[]},homeCoordination:{generatedAt:now(),totals:{TODAY:zero,'7D':zero,'30D':zero,ALL:zero},periods:{TODAY:[],'7D':[],'30D':[],ALL:[]},recent:[]},agentRewardsFragment:{generatedAt:now(),rows:[]},aiRuntime:{enabled:true,scheduler_state:'ENABLED',worker_version:'dynamic-schedule-qa'},financeFragment:finance()}}
 
+const mainUiResponse=await mainUiRequest();
+if(!mainUiResponse.ok)throw new Error('MAIN_UI_BUILD_FAILED_'+mainUiResponse.status+':'+await mainUiResponse.text());
+const mainUi=await mainUiResponse.text();
 const authority={accessUsers:[],contracts:[]};
-const mainUi=await (await mainUiRequest()).text();
 const send=(res,status,body,type='text/plain; charset=utf-8',headers={})=>{res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});res.end(body)};
 const json=(res,data,status=200,headers={})=>send(res,status,JSON.stringify(data),'application/json; charset=utf-8',headers);
 function safeDistPath(pathname){const clean=normalize(pathname).replace(/^([.][.][/\\])+/, '').replace(/^[/\\]+/,'');const full=join(DIST,clean);return full.startsWith(DIST)?full:null}
@@ -101,19 +103,20 @@ const assert=(value,message)=>{if(!value)throw new Error(message)};
 const compact=value=>String(value||'').replace(/[\s\u00a0\u202f]/g,'').replace(/,/g,'.');
 async function openPayments(page){
   const button=page.locator('#nav button[data-page="payments"]');await button.waitFor({state:'visible',timeout:15000});await button.click();await page.locator('#page-payments.active').waitFor({state:'visible',timeout:10000});
-  await page.waitForFunction(()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__==='20260912-payment-schedule-v2'&&window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2',{timeout:15000});
+  await page.waitForFunction(()=>window.__RONA_ADMIN_PAYMENT_SCHEDULE_RUNTIME_V2__==='20260912-payment-schedule-v2'&&window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__?.projectionContract==='ADMIN_PAYMENTS_SCHEDULE_AUTHORITY_V2',null,{timeout:15000});
   await page.locator('#rona-payment-schedule-v1').waitFor({state:'visible',timeout:10000});
 }
 async function dealRow(page,id){const row=page.locator(`#rona-payment-schedule-v1 tbody tr[data-schedule-deal="${id}"]`);assert(await row.count()===1,`${id} schedule duplicate/missing`);return row}
 async function waitRevision(page,revision){await page.waitForFunction(r=>window.__RONA_PAYMENT_SCHEDULE_CURRENT_STATE__?.generatedAt===`2026-09-12T17:0${r}:00.000Z`,revision,{timeout:10000});await page.waitForTimeout(100)}
 async function forceRefresh(page){await page.evaluate(()=>window.__RONA_PAYMENT_SCHEDULE_REFRESH__());await page.waitForTimeout(120)}
+async function waitAdminSurface(page){await page.locator('#nav button[data-page="payments"]').waitFor({state:'visible',timeout:20000})}
 
 try{
   browser=await chromium.launch({headless:true});const context=await browser.newContext({viewport:{width:1600,height:1000}});const page=await context.newPage();
   page.on('pageerror',error=>errors.push('pageerror:'+String(error.message||error)));
   page.on('console',message=>{if(message.type()==='error'&&!message.text().startsWith('Failed to load resource:'))errors.push('console:'+message.text())});
   page.on('response',response=>{if(response.status()>=500)errors.push(`http:${response.status()}:${response.url()}`)});
-  await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:15000});await openPayments(page);await waitRevision(page,1);
+  await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});await waitAdminSurface(page);await openPayments(page);await waitRevision(page,1);
 
   let d5=await dealRow(page,'DEAL-2026-005'),c=d5.locator('td');assert(await d5.getAttribute('data-schedule-state')==='DEFERRED_NOT_DUE','baseline 005 not deferred');assert(compact(await c.nth(2).innerText()).includes('201750USD')&&compact(await c.nth(3).innerText()).includes('470750USD')&&compact(await c.nth(4).innerText()).includes('0USD')&&compact(await c.nth(5).innerText()).includes('470750USD'),'baseline 005 amounts');
   let d9=await dealRow(page,'DEAL-2026-009');assert(await d9.getAttribute('data-projection-status')==='TO_VERIFY','009 baseline must be TO_VERIFY');
@@ -128,7 +131,7 @@ try{
 
   d5=await dealRow(page,'DEAL-2026-005');c=d5.locator('td');assert(!(await c.nth(2).innerText()).includes('16536960'),'KUZMASH outgoing leaked into client received');assert((await c.nth(12).innerText()).includes('TO_VERIFY'),'outgoing FX was synthesized');console.log('KUZMASH_NO_INFERRED_SPLIT=PASS');console.log('FX_NO_SYNTHESIS=PASS');
 
-  const beforeReload=scheduleEndpointCalls;await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:15000});await openPayments(page);await waitRevision(page,4);assert(scheduleEndpointCalls>beforeReload,'hard refresh did not refetch schedule');d5=await dealRow(page,'DEAL-2026-005');d9=await dealRow(page,'DEAL-2026-009');assert(await d5.getAttribute('data-schedule-state')==='DUE'&&await d9.getAttribute('data-projection-status')==='AUTHORITATIVE','hard refresh lost latest Finance state');console.log('HARD_REFRESH=PASS');
+  const beforeReload=scheduleEndpointCalls;await page.reload({waitUntil:'domcontentloaded'});await waitAdminSurface(page);await openPayments(page);await waitRevision(page,4);assert(scheduleEndpointCalls>beforeReload,'hard refresh did not refetch schedule');d5=await dealRow(page,'DEAL-2026-005');d9=await dealRow(page,'DEAL-2026-009');assert(await d5.getAttribute('data-schedule-state')==='DUE'&&await d9.getAttribute('data-projection-status')==='AUTHORITATIVE','hard refresh lost latest Finance state');console.log('HARD_REFRESH=PASS');
 
   assert(syncCalls>=4&&scheduleEndpointCalls>=4,'Finance refresh did not propagate through trusted projection');console.log('FINANCE_REFRESH_PROPAGATION=PASS');
   await mkdir('artifacts/admin-payments',{recursive:true});await page.screenshot({path:'artifacts/admin-payments/ADMIN_PAYMENTS_DYNAMIC_FINANCE_SCHEDULE_AUTHORITY.png',fullPage:true});
