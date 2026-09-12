@@ -165,7 +165,8 @@ async function adminSync(){
            cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
            pa.allocated_amount,pa.allocation_status::text allocation_status,pa.finance_status::text finance_status,
            pa.accounting_closure_status::text accounting_closure_status,pa.allocation_reference,pa.allocated_at,
-           pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state
+           pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state,
+           pa.source_system,pa.source_version,pa.source_timestamp
     from portal_private.payment_allocations pa
     join portal_private.payments p on p.id=pa.payment_key
     left join portal_private.clients cl on cl.id=pa.client_key
@@ -182,7 +183,8 @@ async function adminSync(){
            cl.client_id,cl.legal_name,ct.contract_id,d.deal_id,
            pa.allocated_amount,pa.allocation_status::text allocation_status,pa.finance_status::text finance_status,
            pa.accounting_closure_status::text accounting_closure_status,pa.allocation_reference,pa.allocated_at,
-           pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state
+           pa.authority_state::text authority_state,pa.lifecycle_state::text lifecycle_state,
+           pa.source_system,pa.source_version,pa.source_timestamp
     from portal_private.payment_allocations pa
     join portal_private.payments p on p.id=pa.payment_key
     left join portal_private.clients cl on cl.id=pa.client_key

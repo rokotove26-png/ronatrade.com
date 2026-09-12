@@ -15,7 +15,7 @@ function verifiedAllocations(finance,dealId,currency){
   const bank=bankPaymentMap(finance),rows=[];
   for(const row of asArray(finance?.incomingPaymentAllocations)){
     if(String(row?.deal_id||'')!==dealId||normalize(row?.currency)!==currency)continue;
-    if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state)))continue;
+    if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state))||!normalize(row?.source_system).includes('RECONCIL')||!String(row?.source_version||'').trim()||!row?.source_timestamp)continue;
     const payment=bank.get(String(row?.payment_id||''));if(!payment||normalize(payment?.currency)!==currency)continue;
     const amount=asNumber(row?.allocated_amount);if(amount===null||amount<0)continue;rows.push({paymentId:String(row.payment_id),amount});
   }
@@ -62,7 +62,7 @@ function scheduleTotals(schedules){
     const key=String(row.currency),prev=map.get(key)||{currency:key,currentDueAmount:0,deferredNotDueAmount:0};prev.currentDueAmount=round(prev.currentDueAmount+current);prev.deferredNotDueAmount=round(prev.deferredNotDueAmount+deferred);map.set(key,prev)}return[...map.values()];
 }
 export function buildPaymentScheduleProjection(financeFragment,generatedAt=new Date().toISOString()){
-  const policy={frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false};
+  const policy={frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false,reconciledFinanceAllocationOnly:true};
   if(String(financeFragment?.paymentProjectionContract||'')!==FINANCE_PROJECTION_CONTRACT)return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:String(financeFragment?.paymentProjectionContract||''),sourceScheduleContract:String(financeFragment?.paymentScheduleContract||''),authority:'FINANCE',schedulePolicy:policy,schedules:[],totalsByCurrency:[],projectionStatus:'TO_VERIFY',validationErrors:['FINANCE_PROJECTION_CONTRACT_MISMATCH']};
   if(String(financeFragment?.paymentScheduleContract||'')!==FINANCE_SCHEDULE_CONTRACT)return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:FINANCE_PROJECTION_CONTRACT,sourceScheduleContract:String(financeFragment?.paymentScheduleContract||''),authority:'FINANCE',schedulePolicy:policy,schedules:[],totalsByCurrency:[],projectionStatus:'TO_VERIFY',validationErrors:['FINANCE_SCHEDULE_CURRENT_STATE_MISSING']};
   const authoritative=asArray(financeFragment?.paymentSchedules).map(row=>validateAuthoritativeRow(financeFragment,row)),seen=new Set(authoritative.map(row=>row.dealId));
