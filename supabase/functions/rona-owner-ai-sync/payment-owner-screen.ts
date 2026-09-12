@@ -25,12 +25,19 @@ function isVerifiedAllocation(row){
     && ACTIVE_AUTHORITY.has(upper(row?.authority_state))
     && (!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE');
 }
+function isConfirmedDealOutgoing(row){
+  return upper(row?.deal_allocation_status)==='CONFIRMED'
+    && upper(row?.bank_fact_status)==='BANK_CONFIRMED'
+    && upper(row?.authority_state)==='CONFIRMED'
+    && (!row?.lifecycle_state||upper(row.lifecycle_state)==='ACTIVE')
+    && ['COUNTERPARTY_PAYMENT','BANK_FEE'].includes(upper(row?.flow_kind));
+}
 function allocationKey(paymentId,currency){return s(paymentId)+'\u0000'+upper(currency)}
 
-export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],outgoingPayments=[],dealFinanceSummaries=[],paymentScheduleAuthority={},paidDealTotalsByCurrency=[]}={}){
-  const allPayments=asArray(payments),allAllocations=asArray(paymentAllocations),clientPayments=allPayments.filter(isClientPayment);
+export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],outgoingPayments=[],dealFinanceSummaries=[],paymentScheduleAuthority={}}={}){
+  const allPayments=asArray(payments),allAllocations=asArray(paymentAllocations),clientPayments=allPayments.filter(isClientPayment),outgoings=asArray(outgoingPayments);
   const clientByKey=new Map(clientPayments.map(row=>[allocationKey(row.payment_id,row.currency),row]));
-  const incomingPaymentAllocations=[],dealTotals=new Map(),receiptTotals=new Map(),allocationRowsByPayment=new Map();
+  const incomingPaymentAllocations=[],dealTotals=new Map(),receiptTotals=new Map(),allocationRowsByPayment=new Map(),paidTotals=new Map();
 
   for(const row of allAllocations){
     if(!isVerifiedAllocation(row))continue;
@@ -42,6 +49,7 @@ export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],
     const dkey=s(row.deal_id)+'\u0000'+upper(row.currency),d=dealTotals.get(dkey)||{deal_id:s(row.deal_id),currency:upper(row.currency),allocated_amount:0};d.allocated_amount=round(d.allocated_amount+amount);dealTotals.set(dkey,d);
     addCurrency(receiptTotals,row.currency,amount);
   }
+  for(const row of outgoings)if(isConfirmedDealOutgoing(row))addCurrency(paidTotals,row?.currency,row?.amount);
 
   const paymentAllocationSummaries=clientPayments.map(payment=>{
     const key=allocationKey(payment.payment_id,payment.currency),rows=allocationRowsByPayment.get(key)||[],allocated=round(rows.reduce((sum,row)=>sum+Number(row.allocated_amount||0),0)),amount=n(payment.amount);
@@ -78,8 +86,8 @@ export function buildPaymentOwnerScreenState({payments=[],paymentAllocations=[],
     paymentTotalsByCurrency:sortedTotals(receiptTotals),
     currentDueTotalsByCurrency:sortedTotals(currentMap),
     deferredNotDueTotalsByCurrency:sortedTotals(deferredMap),
-    paidDealTotalsByCurrency:asArray(paidDealTotalsByCurrency).map(row=>({currency:upper(row?.currency),amount:n(row?.amount)})).filter(row=>row.currency&&row.amount!==null),
+    paidDealTotalsByCurrency:sortedTotals(paidTotals),
     dealFinanceCurrentState,
-    outgoingPayments:asArray(outgoingPayments)
+    outgoingPayments:outgoings
   };
 }
