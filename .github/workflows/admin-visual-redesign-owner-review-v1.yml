@@ -32,26 +32,26 @@ jobs:
           node-version: '22'
       - name: Prove visual scope and business-hook preservation
         run: node scripts/qa-admin-visual-redesign-source-v1.mjs
-      - name: Prove V4 frosted glass is presentation-only
+      - name: Prove V5 semi-opaque frosted glass and semantic accents are presentation-only
         run: node scripts/qa-admin-visual-revision-v2-source.mjs
       - name: Install Chromium runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Prove computed V4 hierarchy and canonical page titles
+      - name: Prove computed V5 hierarchy and canonical page titles
         run: node scripts/qa-admin-visual-revision-v2-browser.mjs
-      - name: Prove Admin V4 functional regression and responsive layouts
+      - name: Prove Admin V5 functional regression and responsive layouts
         run: node scripts/qa-admin-visual-redesign-browser-v1.mjs
-      - name: Materialize V4 Owner review screenshot names
+      - name: Materialize V5 Owner review screenshot names
         run: |
-          cp artifacts/admin-redesign/ADMIN_HOME_REDESIGN.png artifacts/admin-redesign/ADMIN_HOME_FROSTED_GLASS_V4.png
-          cp artifacts/admin-redesign/ADMIN_APPLICATIONS_REDESIGN.png artifacts/admin-redesign/ADMIN_APPLICATIONS_FROSTED_GLASS_V4.png
-          cp artifacts/admin-redesign/ADMIN_DEALS_REDESIGN.png artifacts/admin-redesign/ADMIN_DEALS_FROSTED_GLASS_V4.png
-      - name: Upload V4 Owner visual review screenshots
+          cp artifacts/admin-redesign/ADMIN_HOME_REDESIGN.png artifacts/admin-redesign/ADMIN_HOME_FROSTED_GLASS_V5.png
+          cp artifacts/admin-redesign/ADMIN_APPLICATIONS_REDESIGN.png artifacts/admin-redesign/ADMIN_APPLICATIONS_FROSTED_GLASS_V5.png
+          cp artifacts/admin-redesign/ADMIN_DEALS_REDESIGN.png artifacts/admin-redesign/ADMIN_DEALS_FROSTED_GLASS_V5.png
+      - name: Upload V5 Owner visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-home-applications-deals-frosted-glass-v4-1440x900
+          name: admin-home-applications-deals-frosted-glass-v5-1440x900
           path: artifacts/admin-redesign/*.png
           if-no-files-found: error
           retention-days: 14
