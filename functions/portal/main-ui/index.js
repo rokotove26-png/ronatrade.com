@@ -31,5 +31,6 @@ export async function onRequest(context){
   headers.set('x-rona-admin-visual-redesign','home-applications-deals-v1');
   headers.set('x-rona-admin-visual-revision','silver-steel-v2');
   headers.set('x-rona-admin-visual-v3','frosted-glass-v3.2');
+  headers.set('x-rona-admin-visual-v4','layered-frosted-glass-v4');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
