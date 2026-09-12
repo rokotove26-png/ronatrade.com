@@ -1,0 +1,71 @@
+name: Payment allocation fresh authority materialization V1 QA
+
+on:
+  push:
+    branches: [tech/payment-allocation-fresh-authority-materialization-v1]
+    paths:
+      - 'supabase/migrations/20260913005000_payment_allocation_fresh_authority_materialization_v1.sql'
+      - 'scripts/qa-payment-allocation-fresh-authority-materialization-v1.mjs'
+      - 'scripts/qa-payment-allocation-fresh-authority-materialization-v1.sql'
+      - '.github/workflows/payment-allocation-fresh-authority-materialization-v1.yml'
+  pull_request:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths:
+      - 'supabase/migrations/20260913005000_payment_allocation_fresh_authority_materialization_v1.sql'
+      - 'scripts/qa-payment-allocation-fresh-authority-materialization-v1.mjs'
+      - 'scripts/qa-payment-allocation-fresh-authority-materialization-v1.sql'
+      - '.github/workflows/payment-allocation-fresh-authority-materialization-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authority-materialization-source-and-model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source contract and transactional model QA
+        run: node scripts/qa-payment-allocation-fresh-authority-materialization-v1.mjs
+      - name: Migration syntax + RPC CAS/idempotency/rollback proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa-payment-allocation-fresh-authority-materialization-v1.sql | tee /tmp/payment-allocation-fresh-authority-db.log
+          for marker in \
+            DRY_RUN_DB_PURITY \
+            AUTHORIZATION_SERVICE_ROLE_ONLY \
+            CAS_DB_CONFLICT_ABORT \
+            IDEMPOTENCY_DB_REPLAY \
+            IDEMPOTENCY_DB_CONFLICT \
+            EXACTLY_ONE_ACTIVE_AUTHORITY_DB \
+            PAYMENT_AMOUNT_IMMUTABLE_DB \
+            ROLLBACK_DB_ATOMIC \
+            IMMUTABLE_AUDIT_DB \
+            PAYMENT_ALLOCATION_FRESH_AUTHORITY_DB_HARNESS; do
+            grep -Fq "${marker}=PASS" /tmp/payment-allocation-fresh-authority-db.log
+          done
