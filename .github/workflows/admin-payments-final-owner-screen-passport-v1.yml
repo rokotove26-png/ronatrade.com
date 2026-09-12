@@ -1,0 +1,61 @@
+name: Admin Payments final owner screen + passport QA
+
+on:
+  push:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths:
+      - 'functions/portal/main-ui/index.js'
+      - 'functions/portal/main-ui/payment-passport-runtime-v1.js'
+      - 'functions/portal/payment-passport-current.js'
+      - 'supabase/functions/rona-owner-ai-sync/index.ts'
+      - 'supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts'
+      - 'scripts/qa-admin-payments-final-owner-screen-source-v1.mjs'
+      - 'scripts/qa-admin-payments-final-owner-screen-browser-v1.mjs'
+      - '.github/workflows/admin-payments-final-owner-screen-passport-v1.yml'
+  pull_request:
+    branches: [feat/admin-payments-payment-schedule-materialization-v1]
+    paths:
+      - 'functions/portal/main-ui/index.js'
+      - 'functions/portal/main-ui/payment-passport-runtime-v1.js'
+      - 'functions/portal/payment-passport-current.js'
+      - 'supabase/functions/rona-owner-ai-sync/index.ts'
+      - 'supabase/functions/rona-owner-ai-sync/payment-owner-screen.ts'
+      - 'scripts/qa-admin-payments-final-owner-screen-source-v1.mjs'
+      - 'scripts/qa-admin-payments-final-owner-screen-browser-v1.mjs'
+      - '.github/workflows/admin-payments-final-owner-screen-passport-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owner-screen-passport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current Admin
+        run: npm run build
+      - name: Final Owner screen + payment passport source QA
+        run: node scripts/qa-admin-payments-final-owner-screen-source-v1.mjs
+      - name: Inherited PR461 payment schedule authority QA
+        run: node scripts/qa-admin-payments-schedule-materialization-source-v1.mjs
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Real-browser Admin Payments + payment passport QA
+        run: |
+          set -o pipefail
+          mkdir -p artifacts/admin-payments-owner-passport
+          node --import ./scripts/qa-admin-pages-runtime-shim-v1.mjs scripts/qa-admin-payments-final-owner-screen-browser-v1.mjs 2>&1 | tee artifacts/admin-payments-owner-passport/browser-qa.log
+      - name: Upload final Owner screen + payment passport proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-payments-final-owner-screen-passport-v1-proof
+          path: artifacts/admin-payments-owner-passport/
+          if-no-files-found: warn
