@@ -45,8 +45,8 @@ jobs:
           grep -Fq "PR462_PREVIEW_FINANCE_AUTHORITY" functions/portal/owner-api.js
           grep -Fq "hostname.endsWith('.rona-trade-public.pages.dev')" functions/portal/owner-api.js
           grep -Fq "PRODUCTION_SHARED" functions/portal/owner-api.js
-          grep -Eq "endsWith\((['\"])\/admin\/sync\1\)" supabase/functions/rona-owner-ai-sync/index.ts
-          grep -Eq "endsWith\((['\"])\/agent\/sync\1\)" supabase/functions/rona-owner-ai-sync/index.ts
+          grep -Fq "if (/\\/admin\\/sync\\/?$/.test(p)) return '/admin/sync';" supabase/functions/rona-owner-ai-sync/index.ts
+          grep -Fq "if (/\\/agent\\/sync\\/?$/.test(p)) return '/agent/sync';" supabase/functions/rona-owner-ai-sync/index.ts
           if grep -E '487320|585830' functions/portal/owner-api.js; then echo 'PREVIEW_ROUTE_FINANCE_HARDCODE=FAIL'; exit 1; fi
           echo 'PREVIEW_ROUTE_SOURCE_CONTRACT=PASS'
           echo 'AI_SYNC_ROUTING_SLUG_AGNOSTIC=PASS'
