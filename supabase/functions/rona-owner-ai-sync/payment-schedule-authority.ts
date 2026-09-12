@@ -46,7 +46,7 @@ async function readApprovedPreviewPaymentPlan(sql){
            where c.target_type='DEAL' and c.target_id=p.target_id
              and c.functional_role::text='FINANCE' and c.record_type='FUNCTIONAL_CONCLUSION'
              and c.status='APPROVED_WITH_CONDITIONS' and coalesce((c.payload->>'confirmed')::boolean,false)=true
-             and (c.source_refs @> array['BUSINESS_CHANGE_PROPOSAL:'||p.record_id::text]::text[]
+             and (c.source_refs @> to_jsonb(array['BUSINESS_CHANGE_PROPOSAL:'||p.record_id::text]::text[])
                   or c.payload->'source_refs' @> to_jsonb(array['BUSINESS_CHANGE_PROPOSAL:'||p.record_id::text]::text[]))
            order by c.version desc,c.created_at desc limit 1
         ) c on true
