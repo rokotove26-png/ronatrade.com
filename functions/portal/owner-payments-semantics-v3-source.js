@@ -1,6 +1,6 @@
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
-const PREVIEW_FUNCTION='rona-admin-owner-payments-v3-preview-20260913';
+const PREVIEW_FUNCTION='rona-admin-exact-module-candidate-20260817';
 const ACCESS_COOKIE='rona_portal_at',REFRESH_COOKIE='rona_portal_rt';
 function parseCookies(header){const out={};for(const item of String(header||'').split(';')){const i=item.indexOf('=');if(i<1)continue;const k=item.slice(0,i).trim(),v=item.slice(i+1).trim();if(k)out[k]=v}return out}
 function accessCookie(token,maxAge=3600){return`${ACCESS_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
