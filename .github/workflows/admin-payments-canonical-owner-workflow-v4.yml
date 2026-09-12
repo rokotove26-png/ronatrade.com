@@ -1,0 +1,113 @@
+name: Admin Payments Canonical Owner Workflow V4 QA
+
+on:
+  push:
+    branches:
+      - feat/admin-payments-canonical-owner-workflow-v4-scope-fix
+  pull_request:
+    branches:
+      - feat/admin-payments-owner-semantics-v3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  owner-payments-canonical-v4:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      BASE_HEAD: 9cf83b05426bfc08ff15ad26664293e0cf2c09b4
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Exact-head and base guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git merge-base --is-ancestor "$BASE_HEAD" HEAD
+          echo "OWNER_PAYMENTS_V4_EXACT_HEAD=$EXPECTED_HEAD"
+          echo "OWNER_PAYMENTS_V4_BASE_HEAD=$BASE_HEAD"
+
+      - name: Build current Admin
+        run: npm run build
+
+      - name: Scope regression and retained V4 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-admin-payments-canonical-owner-workflow-v4-source.mjs | tee owner-payments-v4-source.log
+          node scripts/qa-admin-payments-canonical-owner-workflow-v4-acceptance.mjs | tee -a owner-payments-v4-source.log
+
+      - name: PostgreSQL retained V4 allocation authority QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa-owner-payments-canonical-v4-db-v2.sql 2>&1 | tee owner-payments-v4-db.log
+
+      - name: Compatibility bridge to final Owner V5 browser authority
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/admin-payments-canonical-owner-workflow-v4
+          cat owner-payments-v4-source.log owner-payments-v4-db.log | tee artifacts/admin-payments-canonical-owner-workflow-v4/compatibility-qa.log
+          for marker in \
+            UPSTREAM_DEAL_LIFECYCLE_UNCHANGED \
+            NO_NEW_PAYMENT_STAGE_GATE \
+            NO_NEW_DEAL_STATUS \
+            NO_DEAL_LIFECYCLE_MUTATION \
+            NO_UPSTREAM_UI_CHANGE \
+            PAYMENTS_CONSUMES_EXISTING_UPSTREAM_STATE \
+            NIKOIL_NOT_HARDCODED \
+            UNALLOCATED_PAYMENT_VISIBLE \
+            OWNER_CAN_SELECT_DEAL \
+            PARTIAL_ALLOCATION_SUPPORTED \
+            MULTI_DEAL_ALLOCATION_SUPPORTED \
+            RESIDUE_PRESERVED \
+            NO_AUTO_SPLIT \
+            NO_AI_GUESSED_DEAL \
+            PAYMENT_AMOUNT_IMMUTABLE \
+            CLIENT_PAYMENT_ALLOCATION_LABEL_CORRECT \
+            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC; do
+            grep -Fq "${marker}=PASS" artifacts/admin-payments-canonical-owner-workflow-v4/compatibility-qa.log
+          done
+          grep -Fq "UPSTREAM LIFECYCLE FILES CHANGED = NONE" artifacts/admin-payments-canonical-owner-workflow-v4/compatibility-qa.log
+          test -f .github/workflows/admin-payments-owner-final-v5.yml
+          test -f scripts/qa-admin-payments-owner-final-v5-browser.mjs
+          echo "V4_BROWSER_GATE_SUPERSEDED_BY_FINAL_OWNER_V5=PASS"
+          echo "OWNER_PAYMENTS_CANONICAL_V4_COMPATIBILITY=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-payments-canonical-owner-workflow-v4-proof-${{ github.run_id }}
+          path: artifacts/admin-payments-canonical-owner-workflow-v4/
+          retention-days: 30

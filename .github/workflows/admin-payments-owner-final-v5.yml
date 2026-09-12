@@ -1,0 +1,167 @@
+name: Admin Payments Owner Final V5 QA
+
+on:
+  push:
+    branches:
+      - feat/admin-payments-canonical-owner-workflow-v4-scope-fix
+  pull_request:
+    branches:
+      - feat/admin-payments-owner-semantics-v3
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  owner-payments-final-v5:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      BASE_HEAD: 9cf83b05426bfc08ff15ad26664293e0cf2c09b4
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Exact-head and stacked-base guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git merge-base --is-ancestor "$BASE_HEAD" HEAD
+          echo "OWNER_PAYMENTS_FINAL_EXACT_HEAD=$EXPECTED_HEAD"
+          echo "OWNER_PAYMENTS_FINAL_BASE_HEAD=$BASE_HEAD"
+
+      - name: Build current Admin
+        run: npm run build
+
+      - name: Source, scope and Owner-authority regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-admin-payments-owner-final-v5-source.mjs | tee owner-payments-final-source.log
+
+      - name: PostgreSQL Owner-only authority and immutable audit QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa-owner-payments-owner-final-v5-db.sql 2>&1 | tee owner-payments-final-db.log
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Resolve immutable exact-head Cloudflare preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {appendFile} from 'node:fs/promises';
+          const token=process.env.GH_TOKEN,head=process.env.EXPECTED_HEAD,repo=process.env.GITHUB_REPOSITORY;
+          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));let check=null;
+          for(let i=0;i<120;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
+            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
+            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
+            check=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
+            if(check)break;
+            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
+            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
+            await sleep(5000);
+          }
+          if(!check)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
+          const urls=[...new Set([...String(check?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
+          let origin=urls.length===1?urls[0]:'';const external=String(check?.external_id||'').trim().toLowerCase();
+          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
+          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
+          await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\nCLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
+          console.log(`OWNER_PAYMENTS_FINAL_IMMUTABLE_PREVIEW_URL=${origin}`);
+          console.log(`OWNER_PAYMENTS_FINAL_CLOUDFLARE_CHECK_RUN_ID=${check.id}`);
+          NODE
+
+      - name: Exact-head factual USD and real-browser Owner acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/admin-payments-owner-final-v5
+          node scripts/qa-admin-payments-owner-final-v5-browser.mjs 2>&1 | tee artifacts/admin-payments-owner-final-v5/browser-qa.log
+          cat owner-payments-final-source.log owner-payments-final-db.log >> artifacts/admin-payments-owner-final-v5/browser-qa.log
+          for marker in \
+            UPSTREAM_LIFECYCLE_UNCHANGED \
+            PAYMENTS_PURPOSE_CLEAR \
+            TOTAL_TO_RECEIVE_VISIBLE \
+            VERIFIED_RECEIVED_VISIBLE \
+            EXPECTED_VISIBLE \
+            DEFERRED_VISIBLE \
+            DEAL_PAYMENT_PASSPORT \
+            ACTUAL_SPEND_IN_FACTUAL_USD \
+            NATIVE_CURRENCY_DETAIL_ONLY \
+            CONVERTED_NOT_PAID_SEPARATED \
+            NO_SYNTHETIC_FX \
+            NO_FX_DOUBLE_COUNT \
+            UNALLOCATED_PAYMENTS_VISIBLE \
+            OWNER_ONLY_DEAL_BINDING \
+            OWNER_ONLY_ADVANCE_STATUS \
+            NO_AI_AUTO_AUTHORIZATION \
+            VISUAL_OVERLOAD_REDUCED \
+            PAYMENTS_CONSUMES_EXISTING_UPSTREAM_STATE \
+            NIKOIL_NOT_HARDCODED \
+            FINANCE_CANON_D6429144_SOURCE_LOCK \
+            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC \
+            NON_OWNER_ADMIN_DENIED \
+            NO_AUTO_ADVANCE_STATUS \
+            NO_AUTO_DEAL_BINDING \
+            PARTIAL_ALLOCATION_SUPPORTED \
+            MULTI_DEAL_ALLOCATION_SUPPORTED \
+            RESIDUE_PRESERVED \
+            PAYMENT_AMOUNT_IMMUTABLE \
+            OWNER_DEAL_BINDING_SERVER_AUTHORIZED \
+            OWNER_ADVANCE_STATUS_EXPLICIT \
+            BANK_FEE_ADVANCE_FORBIDDEN \
+            DIRECT_OWNER_DECISION_DML_BLOCKED \
+            IMMUTABLE_AUDIT_TRAIL \
+            FACTUAL_USD_EVIDENCE_NOT_AI_WRITABLE \
+            OWNER_ONLY_ADVANCE_STATUS_BROWSER \
+            NO_DUPLICATES \
+            NO_RUNTIME_ERRORS; do
+            grep -Fq "${marker}=PASS" artifacts/admin-payments-owner-final-v5/browser-qa.log
+          done
+          grep -Fq "UPSTREAM LIFECYCLE FILES CHANGED = NONE" artifacts/admin-payments-owner-final-v5/browser-qa.log
+          echo "ADMIN_PAYMENTS_OWNER_FINAL_V5_ACCEPTANCE=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-payments-owner-final-v5-proof-${{ github.run_id }}
+          path: artifacts/admin-payments-owner-final-v5/
+          retention-days: 30
