@@ -6,8 +6,10 @@ on:
       - 'functions/portal/main-ui/admin-visual-redesign-v1.js'
       - 'functions/portal/main-ui/admin-visual-status-chips-v1.js'
       - 'functions/portal/main-ui/admin-visual-polish-v1.js'
+      - 'functions/portal/main-ui/admin-visual-revision-v2.js'
       - 'functions/portal/main-ui/index.js'
       - 'scripts/qa-admin-visual-redesign-source-v1.mjs'
+      - 'scripts/qa-admin-visual-revision-v2-source.mjs'
       - 'scripts/qa-admin-visual-redesign-browser-v1.mjs'
       - '.github/workflows/admin-visual-redesign-owner-review-v1.yml'
   workflow_dispatch:
@@ -26,17 +28,24 @@ jobs:
           node-version: '22'
       - name: Prove visual scope and business-hook preservation
         run: node scripts/qa-admin-visual-redesign-source-v1.mjs
+      - name: Prove V2 silver steel revision is presentation-only
+        run: node scripts/qa-admin-visual-revision-v2-source.mjs
       - name: Install Chromium runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
       - name: Prove Admin redesign browser regression and responsive layouts
         run: node scripts/qa-admin-visual-redesign-browser-v1.mjs
+      - name: Materialize V2 Owner review screenshot names
+        run: |
+          cp artifacts/admin-redesign/ADMIN_HOME_REDESIGN.png artifacts/admin-redesign/ADMIN_HOME_REDESIGN_V2.png
+          cp artifacts/admin-redesign/ADMIN_APPLICATIONS_REDESIGN.png artifacts/admin-redesign/ADMIN_APPLICATIONS_REDESIGN_V2.png
+          cp artifacts/admin-redesign/ADMIN_DEALS_REDESIGN.png artifacts/admin-redesign/ADMIN_DEALS_REDESIGN_V2.png
       - name: Upload Owner visual review screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-home-applications-deals-redesign-1440x900
+          name: admin-home-applications-deals-redesign-v2-1440x900
           path: artifacts/admin-redesign/*.png
           if-no-files-found: error
           retention-days: 14
