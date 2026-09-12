@@ -66,21 +66,21 @@ for each row when (old.source_system='OWNER_AUTHORIZED_CLIENT_PAYMENT_ALLOCATION
 
 create or replace function portal_private.owner_client_payment_allocation_commit_integrity_v4()
 returns trigger language plpgsql security definer set search_path to 'pg_catalog','public','portal_private' as $$
-declare v_count integer; v_payment_id text; v_deal_id text;
+declare v_count integer; v_payment_id text; v_currency char(3); v_deal_id text;
 begin
   if coalesce(new.source_system,'')<>'OWNER_AUTHORIZED_CLIENT_PAYMENT_ALLOCATION_V4' then return new; end if;
-  select p.payment_id into v_payment_id from portal_private.payments p where p.id=new.payment_key;
+  select p.payment_id,p.currency into v_payment_id,v_currency from portal_private.payments p where p.id=new.payment_key;
   select d.deal_id into v_deal_id from portal_private.deals d where d.id=new.deal_key;
   if tg_op='INSERT' then
     select count(*) into v_count from portal_private.owner_payment_authority_history_v4 h
     where h.event_type='CLIENT_PAYMENT_ALLOCATION' and h.action='AUTHORIZE' and h.entity_id=new.id
-      and h.payment_id=v_payment_id and h.deal_id=v_deal_id and h.allocated_amount=new.allocated_amount and h.currency=new.currency;
+      and h.payment_id=v_payment_id and h.deal_id=v_deal_id and h.allocated_amount=new.allocated_amount and h.currency=v_currency;
     if v_count<>1 then raise exception using errcode='23514',message='OWNER_CLIENT_ALLOCATION_HISTORY_REQUIRED_AT_COMMIT'; end if;
   elsif old.authority_state='CONFIRMED'::portal_private.authority_state_enum and old.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
     and new.authority_state='SUPERSEDED'::portal_private.authority_state_enum and new.lifecycle_state='SUPERSEDED'::portal_private.lifecycle_state_enum then
     select count(*) into v_count from portal_private.owner_payment_authority_history_v4 h
     where h.event_type='CLIENT_PAYMENT_ALLOCATION' and h.action='SUPERSEDE' and h.entity_id=old.id
-      and h.payment_id=v_payment_id and h.deal_id=v_deal_id and h.allocated_amount=old.allocated_amount and h.currency=old.currency;
+      and h.payment_id=v_payment_id and h.deal_id=v_deal_id and h.allocated_amount=old.allocated_amount and h.currency=v_currency;
     if v_count<>1 then raise exception using errcode='23514',message='OWNER_CLIENT_ALLOCATION_SUPERSEDE_HISTORY_REQUIRED_AT_COMMIT'; end if;
   end if;
   return new;
