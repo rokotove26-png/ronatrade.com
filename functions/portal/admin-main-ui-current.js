@@ -1,4 +1,5 @@
 import { patchAdminOperationsCommandCenterV4, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v4.js';
+import adminPaymentsFinanceProjectionV1 from './admin-payments-finance-projection-v1.js';
 import c0 from './owner-ui-chunks/chunk0.js';
 import c1 from './owner-ui-chunks/chunk1.js';
 import c2 from './owner-ui-chunks/chunk2.js';
@@ -21,6 +22,7 @@ const BUILD='owner-main-v2-20260824-0150';
 const RAW=[
   "window.__RONA_MAIN_UI_ENTRY__=true;window.__RONA_UI_BUILD__="+JSON.stringify(BUILD)+";",
   c0,c1,c2,c3,c4,c5,c6,c7,c8,c9,c10,c11,c12,c13,c14,c15,c16,
+  adminPaymentsFinanceProjectionV1,
   "window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;"
 ].join('');
 
@@ -42,7 +44,7 @@ function patchPayments(script){
     ],
     [
       "function allocationStatusCell(v){const k=String(v||'').toUpperCase(),tone=k==='CONFIRMED'?'success':k==='TO_VERIFY'?'warn':k==='NOT_DEAL'?'neutral':'neutral';return financePill(allocationStatusRu(v),tone)}",
-      "function allocationStatusCell(v){const k=String(v||'').toUpperCase(),tone=k==='CONFIRMED'?'success':'neutral';return financePill(allocationStatusRu(v),tone)}"
+      "function allocationStatusCell(v){const k=String(v||'').toUpperCase(),tone=k==='CONFIRMED'?'success':k==='TO_VERIFY'?'warn':'neutral';return financePill(allocationStatusRu(v),tone)}"
     ],
     [
       "if(rel.some(x=>String(x.deal_allocation_status||'').toUpperCase()==='TO_VERIFY'))parts.push('Есть платеж без подтверждённого распределения')",
@@ -50,7 +52,7 @@ function patchPayments(script){
     ],
     [
       "function cashResidualCell(s){if(s&&String(s.cash_residual_status||'').toUpperCase()==='CONFIRMED'&&s.cash_residual_amount!==null&&s.cash_residual_amount!==undefined)return financePill(money(s.cash_residual_amount,s.cash_residual_currency||s.currency),'success');return e('div',{},financePill('Требует подтверждения','warn'),s?.cash_residual_note?e('div',{class:'rona-owner-muted',text:s.cash_residual_note}):null)}",
-      "function cashResidualCell(s){const frag=financeFragment(),xs=Array.isArray(frag?.payments)?frag.payments:[],dealId=String(s?.deal_id||''),rel=xs.filter(x=>String(x.deal_id||'')===dealId&&String(x.bank_fact_status||'').toUpperCase()==='BANK_CONFIRMED'&&['ALLOCATED','VERIFIED'].includes(String(x.allocation_status||'').toUpperCase())),valid=rel.filter(x=>x.allocated_amount!==null&&x.allocated_amount!==undefined&&Number.isFinite(Number(x.allocated_amount))),total=valid.reduce((n,x)=>n+Number(x.allocated_amount),0),currency=String(valid[0]?.currency||s?.currency||'');if(valid.length)return e('div',{},financePill('Распределено по сделке','success'),e('div',{class:'rona-owner-muted',text:money(total,currency)}));if(s?.received_amount===null||s?.received_amount===undefined||s?.received_amount==='')return financePill('Нет подтверждённых данных','neutral');const received=Number(s.received_amount);if(!Number.isFinite(received))return financePill('Нет подтверждённых данных','neutral');if(received>0)return financePill('Поступление подтверждено','success');if(received===0)return financePill('Поступлений нет','neutral');return financePill('Нет подтверждённых данных','neutral')}"
+      "function cashResidualCell(s){const frag=financeFragment(),dealId=String(s?.deal_id||''),rows=(Array.isArray(frag?.dealAllocationTotals)?frag.dealAllocationTotals:[]).filter(x=>String(x.deal_id||'')===dealId);if(rows.length){const box=e('div',{},financePill('Распределено по сделке','success'));for(const x of rows)box.append(e('div',{class:'rona-owner-muted',text:money(x.allocated_amount,x.currency)}));return box}if(Number(s?.received_amount)===0)return financePill('Поступлений нет','neutral');return financePill('Нераспределено / требует верификации','warn')}"
     ],
     [
       "'Остаток денежных средств внутри сделки'",
@@ -58,11 +60,11 @@ function patchPayments(script){
     ],
     [
       "let financeFlowFilter='RECEIVED';\nfunction renderPayments(){const f=financeFragment();",
-      "function isolatePaymentsPage(){const p=page('payments');if(!p)return;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"payments\\\"]',p)||q(':scope > .rona-owner-page-content',p);for(const child of Array.from(p.children)){if(child===host)continue;child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}if(host){host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');host.dataset.ownerPage='payments';host.dataset.ronaPaymentsOwner='finance-current-v2'}}\nlet financeFlowFilter='RECEIVED';\nfunction renderPayments(){isolatePaymentsPage();const f=financeFragment();"
+      "function isolatePaymentsPage(){const p=page('payments');if(!p)return;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"payments\\\"]',p)||q(':scope > .rona-owner-page-content',p);for(const child of Array.from(p.children)){if(child===host)continue;child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}if(host){host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');host.dataset.ownerPage='payments';host.dataset.ronaPaymentsOwner='finance-authoritative-allocation-v1'}}\nlet financeFlowFilter='RECEIVED';\nfunction renderPayments(){isolatePaymentsPage();const f=financeFragment();"
     ],
     [
       "const totals=Array.isArray(f.paymentTotalsByCurrency)?f.paymentTotalsByCurrency:[],outs=Array.isArray(f.outgoingPayments)?f.outgoingPayments:[],sums=Array.isArray(f.dealFinanceSummaries)?f.dealFinanceSummaries:[],sumByDeal=new Map(sums.map(x=>[String(x.deal_id),x])),expectedTotals=totalsByCurrency(sums,'client_remaining_amount',x=>Number(x.client_remaining_amount)>0),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});",
-      "const totals=Array.isArray(f.paymentTotalsByCurrency)?f.paymentTotalsByCurrency:[],outs=Array.isArray(f.outgoingPayments)?f.outgoingPayments:[],sums=Array.isArray(f.dealFinanceSummaries)?f.dealFinanceSummaries:[],sumByDeal=new Map(sums.map(x=>[String(x.deal_id),x])),dealStateById=new Map((Array.isArray(adminData?.deals)?adminData.deals:[]).map(x=>[String(x.deal_id),x])),dueStatus=s=>String(dealStateById.get(String(s?.deal_id||''))?.finance_status||'').toUpperCase(),isLive=s=>{const d=dealStateById.get(String(s?.deal_id||''));if(!d)return true;const b=String(d.business_status||'').toUpperCase(),l=String(d.lifecycle_state||'').toUpperCase();return !['CANCELLED','CANCELED','ARCHIVED','CLOSED','VOID','TERMINATED'].includes(b)&&!['ARCHIVED','CLOSED','SUPERSEDED'].includes(l)},currentExpected=s=>isLive(s)&&Number(s?.client_remaining_amount)>0&&['DUE','OVERDUE','PAYMENT_DUE','AWAITING_PAYMENT'].includes(dueStatus(s)),deferredExpected=s=>isLive(s)&&Number(s?.client_remaining_amount)>0&&dueStatus(s)==='NOT_DUE',currentExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',currentExpected),deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()!=='NOT_DEAL'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});"
+      "const totals=Array.isArray(f.paymentTotalsByCurrency)?f.paymentTotalsByCurrency:[],outs=Array.isArray(f.outgoingPayments)?f.outgoingPayments:[],sums=Array.isArray(f.dealFinanceSummaries)?f.dealFinanceSummaries:[],sumByDeal=new Map(sums.map(x=>[String(x.deal_id),x])),dealStateById=new Map((Array.isArray(adminData?.deals)?adminData.deals:[]).map(x=>[String(x.deal_id),x])),dueStatus=s=>String(dealStateById.get(String(s?.deal_id||''))?.finance_status||'').toUpperCase(),isLive=s=>{const d=dealStateById.get(String(s?.deal_id||''));if(!d)return true;const b=String(d.business_status||'').toUpperCase(),l=String(d.lifecycle_state||'').toUpperCase();return !['CANCELLED','CANCELED','ARCHIVED','CLOSED','VOID','TERMINATED'].includes(b)&&!['ARCHIVED','CLOSED','SUPERSEDED'].includes(l)},currentExpected=s=>isLive(s)&&Number(s?.client_remaining_amount)>0&&['DUE','OVERDUE','PAYMENT_DUE','AWAITING_PAYMENT'].includes(dueStatus(s)),deferredExpected=s=>isLive(s)&&Number(s?.client_remaining_amount)>0&&dueStatus(s)==='NOT_DUE',currentExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',currentExpected),deferredExpectedTotals=totalsByCurrency(sums,'client_remaining_amount',deferredExpected),outgoingTotals=totalsByCurrency(outs,'amount',x=>String(x.deal_allocation_status||'').toUpperCase()==='CONFIRMED'),grid=e('div',{class:'rona-owner-grid rona-fin-kpi-grid'});"
     ],
     [
       "grid.append(financeKpiCard('Подтверждено поступлений','received',totals),financeKpiCard('Ожидается поступлений','expected',expectedTotals),financeKpiCard('Оплачено в рамках сделок','paid',outgoingTotals));",
@@ -101,7 +103,7 @@ export async function onRequest(){
     'x-rona-ui-build':BUILD,
     'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION,
     'x-rona-deals-owner':'current-only-v1.5',
-    'x-rona-payments-ui':'finance-current-v2',
-    'x-rona-payments-handoff':'canonical-finance-v3'
+    'x-rona-payments-ui':'finance-authoritative-allocation-v1',
+    'x-rona-payments-handoff':'finance-authoritative-v1'
   }});
 }
