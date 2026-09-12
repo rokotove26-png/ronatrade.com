@@ -12,7 +12,7 @@ const migrationSource=await readFile('supabase/migrations/20260912183500_finance
 const backendQaSource=await readFile('scripts/qa-admin-payments-schedule-backend-integration-v1.mjs','utf8');
 const assert=(value,message)=>{if(!value)throw new Error(message)};
 const schedule=(data,id)=>data.schedules.find(x=>x.dealId===id);
-const allocation=(paymentId,dealId,currency,amount)=>({payment_id:paymentId,deal_id:dealId,currency,allocated_amount:amount,allocation_status:'VERIFIED',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE'});
+const allocation=(paymentId,dealId,currency,amount)=>({payment_id:paymentId,deal_id:dealId,currency,allocated_amount:amount,allocation_status:'VERIFIED',authority_state:'CONFIRMED',lifecycle_state:'ACTIVE',source_system:'SIGNED_CANONICAL_BANK_RECONCILIATION',source_version:'QA-RECONCILED-V2',source_timestamp:'2026-09-12T18:00:00.000Z'});
 const payment=(paymentId,currency,amount)=>({payment_id:paymentId,currency,amount,bank_fact_status:'BANK_CONFIRMED'});
 const summary=(dealId,currency,obligation,financeStatus='NOT_DUE')=>({deal_id:dealId,currency,obligation_amount:obligation,finance_status:financeStatus,accounting_status:'OPEN'});
 const row=(dealId,currency,obligation,received,remaining,currentDue,deferred,state,trigger='NOT_CONFIRMED')=>({
