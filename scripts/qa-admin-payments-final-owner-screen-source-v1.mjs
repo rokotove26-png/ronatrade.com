@@ -40,7 +40,7 @@ assert(passportSource.includes("searchParams.get('paymentId')")&&!passportSource
 assert(passportRuntime.includes('/portal/payment-passport-current?paymentId=')&&!passportRuntime.includes('/portal/payment-passport-current?dealId='),'passport runtime query mismatch');
 assert(ui.includes('data-rona-deal-payments-open')&&ui.includes("text:'Платежи сделки'")&&ui.includes("'data-rona-payment-passport-open':String(x.payment_id"),'navigation v2 missing');
 assert(scheduleRuntime.includes("['Deal','Обязательство','Получено','К оплате сейчас','Отложено','Следующий платеж','Статус']"),'owner simple schedule headers missing');
-for(const forbidden of ['Банковский факт\',\'Allocation\',\'Finance\',\'Accounting\',\'Outgoing USD-equivalent','Статус trigger'])assert(!scheduleRuntime.includes(forbidden),`technical schedule column leaked: ${forbidden}`);
+for(const forbidden of ['Bank fact','Allocation','Accounting','Outgoing USD-equivalent','trigger_state','Статус trigger'])assert(!scheduleRuntime.includes(forbidden),`technical schedule column leaked: ${forbidden}`);
 for(const forbidden of ['487320','236250','201750','49320','585830','PAYEV-2026-000001','DEAL-QA-A'])assert(!production.includes(forbidden),`production hardcode detected: ${forbidden}`);
 console.log('PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC=PASS');
 console.log('PASSPORT_QUERY_BY_PAYMENT_ID=PASS');
