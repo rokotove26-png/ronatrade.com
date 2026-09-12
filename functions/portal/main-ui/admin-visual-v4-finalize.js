@@ -1,8 +1,8 @@
 const ADMIN_VISUAL_V4_FINALIZE=String.raw`
 (()=>{'use strict';
 if(location.pathname!=='/portal/admin'||window.__RONA_ADMIN_VISUAL_V5_FINALIZE__)return;
-window.__RONA_ADMIN_VISUAL_V5_FINALIZE__='20260912-v5';
-window.__RONA_ADMIN_VISUAL_V4_FINALIZE__='20260912-v5-compat';
+window.__RONA_ADMIN_VISUAL_V5_FINALIZE__='20260912-v5.1';
+window.__RONA_ADMIN_VISUAL_V4_FINALIZE__='20260912-v5.1-compat';
 document.documentElement.classList.add('rona-admin-visual-v5');
 const id='ronaAdminVisualV5FinalizeStyle';
 if(!document.getElementById(id)){
@@ -36,38 +36,36 @@ if(!document.getElementById(id)){
 function canonicalApplicationsHero(){
   const page=document.getElementById('page-applications');
   const h=page&&Array.from(page.querySelectorAll('h1')).find(x=>String(x.textContent||'').trim()==='Заявки');
-  return h&&(h.closest('.rona-admin-v4-page-hero')||h.closest('.rona-admin-v2-hero')||h.parentElement);
+  return h&&(h.closest('.rona-admin-v4-page-hero')||h.closest('.rona-admin-v2-hero')||h.closest('.rona-admin-dashboard__hero')||h.parentElement);
 }
-function syncCanonicalHome(){
+function canonicalizeHomeOnce(){
   const page=document.getElementById('page-home');if(!page)return;
   const host=page.querySelector(':scope > .rona-owner-page-content')||page;
   let current=document.getElementById('ronaAdminV2HomeTitle');
+  if(current?.dataset.ronaVisualPresentation==='home-title-canonical-v5')return;
   const source=canonicalApplicationsHero();
-  if(source&&(!current||current.dataset.ronaVisualPresentation!=='home-title-canonical-v5')){
+  if(source){
     const clone=source.cloneNode(true);
     clone.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
     clone.id='ronaAdminV2HomeTitle';
     clone.dataset.ronaVisualPresentation='home-title-canonical-v5';
     clone.dataset.ronaCanonicalSource='applications';
-    clone.classList.add('rona-admin-v4-page-hero','rona-admin-v5-canonical-home-hero');
-    const h=Array.from(clone.querySelectorAll('h1')).find(Boolean);if(h)h.textContent='Главная';
+    clone.classList.add('rona-admin-v2-hero','rona-admin-v4-page-hero','rona-admin-v5-canonical-home-hero');
+    const h=clone.querySelector('h1');if(h)h.textContent='Главная';
     const p=clone.querySelector('p');if(p)p.textContent='Операционный центр и актуальное состояние исполнения.';
     if(current)current.replaceWith(clone);else host.prepend(clone);
-    current=clone;
+    return;
   }
   if(current){
     current.querySelectorAll('.rona-admin-v4-home-eyebrow,.rona-admin-v4-home-subtitle').forEach(node=>node.remove());
-    current.classList.add('rona-admin-v4-page-hero','rona-admin-v5-canonical-home-hero');
-    current.dataset.ronaVisualPresentation='home-title-canonical-v5';
-    current.dataset.ronaCanonicalSource='applications';
+    current.classList.add('rona-admin-v2-hero','rona-admin-v4-page-hero','rona-admin-v5-canonical-home-hero');
+    current.dataset.ronaVisualPresentation='home-title-canonical-v5-pending-source';
     const h=current.querySelector('h1');if(h)h.textContent='Главная';
   }
 }
-let queued=false;const apply=()=>{if(queued)return;queued=true;queueMicrotask(()=>{queued=false;syncCanonicalHome()})};
-syncCanonicalHome();
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});
-window.addEventListener('rona:admin-pagechange',apply);
-for(const id of ['page-home','page-applications']){const node=document.getElementById(id);if(node)new MutationObserver(apply).observe(node,{childList:true,subtree:true})}
+const run=()=>queueMicrotask(canonicalizeHomeOnce);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',run,{once:true});else run();
+window.addEventListener('rona:admin-pagechange',()=>{const home=document.getElementById('ronaAdminV2HomeTitle');if(home?.dataset.ronaVisualPresentation!=='home-title-canonical-v5')run()});
 })();
 `;
 export default ADMIN_VISUAL_V4_FINALIZE;
