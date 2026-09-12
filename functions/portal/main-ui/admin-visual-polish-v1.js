@@ -2,7 +2,7 @@ const ADMIN_VISUAL_POLISH_V1=String.raw`
 (()=>{'use strict';
 if(window.__RONA_ADMIN_VISUAL_POLISH_V1__)return;
 if(location.pathname!=='/portal/admin')return;
-window.__RONA_ADMIN_VISUAL_POLISH_V1__='20260912-v2';
+window.__RONA_ADMIN_VISUAL_POLISH_V1__='20260912-v3';
 const s=document.createElement('style');
 s.id='ronaAdminVisualPolishV1Style';
 s.textContent=''
@@ -12,6 +12,7 @@ s.textContent=''
 +'.rona-admin-redesign-v1 #page-home .rona-admin-dashboard{gap:14px!important;padding-top:0!important}'
 +'.rona-admin-redesign-v1 #page-home .rona-ops-v4__commandbar{margin-top:0!important}'
 +'/* Canonical current Deals owner: keep dense data, but give it the same surface hierarchy as the redesigned Admin. */'
++'.rona-deals-current-ready.rona-admin-redesign-v1 #page-deals,.rona-deals-current-ready.rona-admin-redesign-v1 #page-deals>.rona-owner-page-content,.rona-deals-current-ready.rona-admin-redesign-v1 #page-deals .rona-current-deals-owned{opacity:1!important;filter:none!important}'
 +'.rona-admin-redesign-v1 #page-deals .rona-current-deals-owned{display:grid;gap:14px}'
 +'.rona-admin-redesign-v1 #page-deals .rona-current-deal-kpi-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:9px;margin:0!important}'
 +'.rona-admin-redesign-v1 #page-deals .rona-current-deal-kpi{position:relative;overflow:hidden;min-height:116px!important;padding:16px 16px 14px!important;border:1px solid var(--ra-line)!important;border-radius:16px!important;background:linear-gradient(155deg,rgba(14,32,52,.92),rgba(8,20,35,.96))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025),0 12px 30px rgba(0,7,18,.10)!important}'
