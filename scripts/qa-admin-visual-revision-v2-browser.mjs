@@ -67,14 +67,14 @@ try{
   const appHero=page.locator('#page-applications .rona-admin-v2-hero').first();await appHero.waitFor({state:'visible',timeout:8000});
   const appHeroBg=await appHero.evaluate(el=>getComputedStyle(el).backgroundImage);assert.match(appHeroBg,/radial-gradient/);assert.match(appHeroBg,/linear-gradient/);
   assert.ok(px(await appHero.locator('h1').evaluate(el=>getComputedStyle(el).fontSize))>=40,'Applications page title must be amplified');
-  const appId=page.locator('#page-applications [data-rona-col="application-id"]').first();await appId.waitFor({state:'visible',timeout:8000});assert.ok(px(await appId.evaluate(el=>getComputedStyle(el).fontSize))>=13,'Application ID must be visually emphasized');
+  const appId=page.locator('#page-applications tbody [data-rona-col="application-id"]').first();await appId.waitFor({state:'visible',timeout:8000});assert.ok(px(await appId.evaluate(el=>getComputedStyle(el).fontSize))>=13,'Application ID must be visually emphasized');
   const appCellBg=await appId.evaluate(el=>getComputedStyle(el).backgroundImage);assert.match(appCellBg,/linear-gradient/,'Applications row must use steel gradient hierarchy');
 
   await activate('deals');
   const dealHero=page.locator('#page-deals .rona-admin-v2-hero').first();await dealHero.waitFor({state:'visible',timeout:8000});
   const dealHeroBg=await dealHero.evaluate(el=>getComputedStyle(el).backgroundImage);assert.match(dealHeroBg,/radial-gradient/);assert.match(dealHeroBg,/linear-gradient/);
   assert.ok(px(await dealHero.locator('h1').evaluate(el=>getComputedStyle(el).fontSize))>=40,'Deals page title must be amplified');
-  const dealId=page.locator('#page-deals [data-rona-col="deal-id"],#page-deals .rona-current-deal-table tbody td:first-child').first();await dealId.waitFor({state:'visible',timeout:8000});assert.ok(px(await dealId.evaluate(el=>getComputedStyle(el).fontSize))>=13,'Deal ID must remain primary');
+  const dealId=page.locator('#page-deals tbody [data-rona-col="deal-id"],#page-deals .rona-current-deal-table tbody td:first-child').first();await dealId.waitFor({state:'visible',timeout:8000});assert.ok(px(await dealId.evaluate(el=>getComputedStyle(el).fontSize))>=13,'Deal ID must remain primary');
   const dealCellBg=await dealId.evaluate(el=>getComputedStyle(el).backgroundImage);assert.match(dealCellBg,/linear-gradient/,'Deals row must use steel gradient hierarchy');
   const dealKpi=page.locator('#page-deals .rona-current-deal-kpi .rona-owner-kpi').first();if(await dealKpi.count())assert.ok(px(await dealKpi.evaluate(el=>getComputedStyle(el).fontSize))>=34,'Deals KPI must be amplified');
   assert.deepEqual(errors,[],'V2 visual runtime must not add browser errors');
