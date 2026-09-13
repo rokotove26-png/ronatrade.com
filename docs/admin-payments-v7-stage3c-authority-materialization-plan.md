@@ -2,6 +2,8 @@
 
 Status: `PLAN_ONLY / NO_PRODUCTION_WRITE`.
 
+Stage 3D addendum: the Owner high-level truth for PAYEV-2026-000008/000009 is now source-addressable as `OWNER_CONFIRMATION_2026-09-13_PAYEV_000008_000009_HIGH_LEVEL_ALLOCATION`, captured in `docs/admin-payments-v7-stage3d-owner-source-record.md` by commit `84eb1d04f9a00145ce603ca1612cb3c35a935831`. This supersedes the prior `OWNER_FACT_REQUIRED` blocker only for the high-level non-exact business assertion. It does **not** establish any exact Deal/amount split.
+
 This is the exact source-lock manifest for future normalized V7 authority persistence. It is not a migration execution record and it does not authorize production DDL, DML, deployment, UI work, or lifecycle changes.
 
 ## Governing rules
@@ -12,10 +14,11 @@ This is the exact source-lock manifest for future normalized V7 authority persis
 4. Shared scope is not an exact split. Arithmetic/proportional/residual allocation is prohibited.
 5. FX conversion facts do not establish a Deal resource chain by themselves.
 6. `TO_VERIFY` is a valid current output. Missing documentary/attribution/resource-chain truth is never inferred.
+7. A source-locked `SCOPE_ONLY` authority may express known high-level business truth without a fake Deal only when it has a known Deal scope, a non-empty authoritative `business_scope_refs`, or (for an associated fee) an authoritative `principal_payment_key`. Such authority always has `lines_snapshot=[]` and cannot feed exact Deal spend.
 
 ## Finance authority manifest
 
-The proposed normalized rows below are the only Finance rows classified `materializable=YES` for the Stage-3C preview.
+The proposed normalized rows below are the only Finance rows classified `materializable=YES` for the Stage-3C/3D preview.
 
 | Entity | Field | Proposed current value | Source authority | Current / supersession basis | Provenance | Materializable | Blocker |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -59,10 +62,10 @@ Historical GazOne values `362600 USD / 108780 USD / 253820 USD` are audit proven
 | PAYEV-2026-000003 | yes | DEAL-2026-006 exact, 49320 USD | no duplicate V7 row | current active VERIFIED `PAYMENT_ALLOCATION`; current Finance schedule | NO — NOT_REQUIRED | existing field-specific authority already sufficient |
 | OUT-2026-005006-KUZMASH | shared 005/006 business scope is known | **NO** exact split | retain existing `SHARED_DEAL_SCOPE_SPLIT_TO_VERIFY`; do not create exact lines | current `owner_outgoing_payment_facts`: 16536960 RUB, deal_ids 005/006, `deal_allocation_status=TO_VERIFY`, BANK_CONFIRMED | NO — DUPLICATE_NOT_REQUIRED | exact split remains `TO_VERIFY`; no later/current superseding exact authority found |
 | OUT-2026-005006-KUZMASH-FEE | associated 005/006 transaction scope known | **NO** exact fee split | retain associated fee/shared scope; no exact lines | current `owner_outgoing_payment_facts`: 3000 RUB fee, deal_ids 005/006, `TO_VERIFY` | NO — DUPLICATE_NOT_REQUIRED | exact fee attribution missing |
-| PAYEV-2026-000008 | bank/payment purpose and KUZMASH/Spec-2 business context known | **NO** Deal/amount binding | **do not materialize a normalized Owner-allocated fact yet** | repository Stage-1 audit records a later Owner assertion, but current persisted Finance authority `337da7f2-fcc2-4819-9ee8-a37b9878d3b2` still states `TO_VERIFY / UNALLOCATED until Owner authorization`; no source-addressable later Owner authorization record was recovered | **NO** | `OWNER_FACT_REQUIRED` |
-| PAYEV-2026-000009 | fee is associated with the 000008 bank transfer | **NO** Deal/amount attribution | preserve associated-fee evidence only; no Deal lines/split | BANK_CONFIRMED fee record references document 2539516; current Finance authority keeps it unallocated pending Owner authorization | **NO** | `OWNER_FACT_REQUIRED` for any Owner allocation; exact fee attribution separately missing |
+| PAYEV-2026-000008 | high-level business allocation fact is known | **NO** Deal/amount binding | `SCOPE_ONLY`; `classification=OWNER_ASSERTED_ALLOCATED_SYSTEM_AUTHORITY_NOT_MATERIALIZED`; `business_scope_refs=[OWNER_ASSERTION:PAYEV-2026-000008:BUSINESS_ALLOCATION_KNOWN]`; `scope_deal_keys=[]`; `lines_snapshot=[]` | `OWNER_CONFIRMATION_2026-09-13_PAYEV_000008_000009_HIGH_LEVEL_ALLOCATION`; source record commit `84eb1d04f9a00145ce603ca1612cb3c35a935831`; BANK_CONFIRMED `PAYEV-2026-000008` / BAKAI doc 2539516 | **YES — HIGH_LEVEL_ONLY** | exact Deal attribution remains `TO_VERIFY`; no fake Deal permitted |
+| PAYEV-2026-000009 | fee is associated with PAYEV-2026-000008 | **NO** Deal/amount attribution | `SCOPE_ONLY`; `classification=ASSOCIATED_BANK_FEE`; `principal_payment_key=9fda9905-e782-42f3-8441-71ca866bee0d`; `scope_deal_keys=[]`; `lines_snapshot=[]` | same Owner source ref; BANK_CONFIRMED `PAYEV-2026-000009` / BAKAI doc 2539518 | **YES — HIGH_LEVEL_ONLY** | exact fee Deal attribution remains `TO_VERIFY`; no proportional split |
 
-The Stage-1 audit text is not itself used as a production business mutation authority. Until a current source-addressable Owner authorization supersedes the persisted `337da...` state, PAYEV-000008/000009 receive no normalized Owner allocation row. This avoids both a fictitious exact split and a false claim that the current Owner fact is technically materialized.
+The Stage-1 audit markdown is not a runtime authority. The Stage-3D Owner source record above is the current source-addressable basis for only the high-level 000008/000009 assertions. Exact Deal attribution still requires a later source-lock.
 
 ## Resource-chain manifest
 
@@ -77,11 +80,12 @@ Accordingly `actual_spend` remains `TO_VERIFY` wherever a cross-currency attribu
 
 ## Materialization preview input
 
-The Stage-3C QA preview uses only:
+The Stage-3D QA preview uses only:
 
 - existing authoritative bank facts and active VERIFIED receipt allocations;
 - current shared 005/006 outgoing scope exactly as stored (`TO_VERIFY`, no split);
 - the four Finance authority rows marked `YES` above;
+- the two high-level, non-exact 000008/000009 rows described above;
 - zero proposed resource-chain rows;
 - zero proposed exact payment-attribution rows for 000008/000009 or 005/006.
 
@@ -97,9 +101,9 @@ Acceptance snapshot is calculated by the canonical projection, not stored as con
 ## Remaining blockers before production materialization
 
 1. Production DDL is still HOLD; normalized relations are not present in production.
-2. PAYEV-2026-000008 requires a current source-addressable Owner allocation fact before any normalized Owner authority can be written (`OWNER_FACT_REQUIRED`).
-3. PAYEV-2026-000009 requires the same Owner fact for any Deal attribution and separately lacks fee-split authority.
-4. OUT-2026-005006-KUZMASH principal and fee remain shared-scope `TO_VERIFY`; no exact split may be materialized.
+2. Production business-data mutation is still HOLD; the four Finance rows and two high-level 000008/000009 rows have not been written.
+3. OUT-2026-005006-KUZMASH principal and fee remain shared-scope `TO_VERIFY`; no exact split may be materialized.
+4. PAYEV-2026-000008/000009 exact Deal attribution remains `TO_VERIFY`; the high-level rows must never be promoted to exact lines without new source evidence.
 5. No exact Deal resource-chain authority is available for the cross-currency spend gaps.
 6. Documentary status stronger than `TO_VERIFY` is not materialized where a current source does not prove it.
 
