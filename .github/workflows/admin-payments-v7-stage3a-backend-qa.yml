@@ -1,0 +1,35 @@
+name: Admin Payments V7 Stage 3A Backend QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-portal-api/admin-payments-v7/**'
+      - 'supabase/migrations/*admin_payments_v7_stage3a*'
+      - 'tests/admin-payments-v7/**'
+      - 'scripts/check-admin-payments-v7-no-hardcode.mjs'
+      - 'package.json'
+  push:
+    branches:
+      - feat/admin-payments-v7-clean-rebuild
+    paths:
+      - 'supabase/functions/rona-portal-api/admin-payments-v7/**'
+      - 'supabase/migrations/*admin_payments_v7_stage3a*'
+      - 'tests/admin-payments-v7/**'
+      - 'scripts/check-admin-payments-v7-no-hardcode.mjs'
+      - 'package.json'
+
+permissions:
+  contents: read
+
+jobs:
+  backend-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: A-Q backend tests
+        run: npm run test:payments-v7
+      - name: NO-HARDCODE runtime scan
+        run: npm run scan:payments-v7

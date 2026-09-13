@@ -1,0 +1,9 @@
+{
+  "name": "rona-admin-payments-v7-stage3a",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:payments-v7": "node --test tests/admin-payments-v7/*.test.mjs",
+    "scan:payments-v7": "node scripts/check-admin-payments-v7-no-hardcode.mjs"
+  }
+}
