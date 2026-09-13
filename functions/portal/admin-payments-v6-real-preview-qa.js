@@ -1,7 +1,7 @@
 const PREVIEW_HOST=/^[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i;
 const QA_HEADER='x-rona-v6-real-preview-qa';
 
-function json(status,body){return new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}})}
+function json(status,body){return new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-rona-v6-real-preview-route':'reached'}})}
 
 export async function onRequest(context){
   const request=context.request;
@@ -12,11 +12,12 @@ export async function onRequest(context){
   if(!context.env?.ASSETS?.fetch)return json(503,{ok:false,code:'ASSET_BINDING_UNAVAILABLE'});
 
   const assetUrl=new URL(request.url);
-  assetUrl.pathname='/portal/admin';
+  assetUrl.pathname='/portal/admin.html';
   assetUrl.search='';
   const asset=await context.env.ASSETS.fetch(new Request(assetUrl.toString(),{method:request.method,headers:{accept:'text/html,application/xhtml+xml'}}));
   const headers=new Headers(asset.headers);
   headers.set('cache-control','no-store');
+  headers.set('x-rona-v6-real-preview-route','reached');
   headers.set('x-rona-v6-real-preview-asset','DEPLOYED_ADMIN_CURRENT');
   headers.set('x-content-type-options','nosniff');
   headers.delete('content-length');
