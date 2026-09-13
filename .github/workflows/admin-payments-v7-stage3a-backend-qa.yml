@@ -9,6 +9,20 @@ env:
 jobs:
   backend-qa:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -24,8 +38,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: A-AF backend regression, real runtime and snapshot suite
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: AG — Deno target import graph check
+        run: |
+          deno check --config supabase/functions/rona-owner-ai-sync/deno.json supabase/functions/rona-owner-ai-sync/index.ts
+          deno check --config supabase/functions/rona-owner-ai-sync/deno.json \
+            supabase/functions/rona-owner-ai-sync/runtime.ts \
+            supabase/functions/rona-owner-ai-sync/runtime-handler.mjs \
+            supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
+            supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
+            supabase/functions/_shared/admin-payments-v7/index.mjs
+      - name: A-AF plus AJ-AK backend regression and materialization preview suite
         run: npm run test:payments-v7
+      - name: AH-AI — PostgreSQL authority persistence integration
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3c-persistence.sql
       - name: NO-HARDCODE changed production runtime scan
         env:
           NO_HARDCODE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
