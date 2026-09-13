@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: A-X backend regression and correction suite
+      - name: A-Y backend regression and correction suite
         run: npm run test:payments-v7
       - name: NO-HARDCODE changed production runtime scan
         env:
