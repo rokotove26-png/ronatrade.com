@@ -21,6 +21,11 @@ function normalizeRequest(req, normalizedPath) {
   url.pathname = normalizedPath;
   return new Request(url.toString(), req);
 }
+function ownerAuthProbeRequest(req) {
+  const url = new URL(req.url);
+  url.pathname = ADMIN_PAYMENTS_V7_OWNER_DECISION_PATH;
+  return new Request(url.toString(), { method: 'POST', headers: req.headers });
+}
 
 function jsonResponse(status, body) {
   return new Response(JSON.stringify(body), {
@@ -30,13 +35,10 @@ function jsonResponse(status, body) {
 }
 function jsonError(status, code) { return jsonResponse(status, { ok: false, code, component: 'ADMIN_PAYMENTS_V7' }); }
 function text(value) { return String(value ?? '').trim(); }
-function roleSet(ctx) { return new Set(Array.isArray(ctx?.roles) ? ctx.roles.map((role) => text(role).toUpperCase()) : []); }
 function ownerMutationStatus(error) {
   const code = String(error?.message || 'SERVER_ERROR');
-  if (code === 'PORTAL_ACCESS_DENIED') return 401;
-  if (code === 'OWNER_ACTION_FORBIDDEN' || code === 'ROLE_MISMATCH') return 403;
   if (/STALE_OWNER_DECISION|RECONCILIATION_NOT_ACTIONABLE|CURRENT_AUTHORITY_CONFLICT|IDEMPOTENCY_CONFLICT/.test(code)) return 409;
-  if (/REQUIRED|INVALID|NOT_ALLOWED|NOT_ACTIONABLE|NOT_IN_PAYMENTS_CONTOUR|ATTRIBUTION_INTEGRITY_ERROR|CLIENT_AUTHORITY_FIELDS_FORBIDDEN/.test(code)) return 400;
+  if (/REQUIRED|INVALID|NOT_ALLOWED|NOT_ACTIONABLE|NOT_IN_PAYMENTS_CONTOUR|ATTRIBUTION_INTEGRITY_ERROR|CLIENT_AUTHORITY_FIELDS_FORBIDDEN|DEAL_BINDING_FORBIDDEN/.test(code)) return 400;
   return 500;
 }
 
@@ -69,12 +71,16 @@ function currentAuthorityFor(sourceBundle, reconciliation) {
 
 async function handleOwnerDecision(req, options) {
   if (req.method !== 'POST') return jsonError(405, 'METHOD_NOT_ALLOWED');
-  const { authorizeOwnerDecision, readRawSources, buildProjection, buildSourceBundle, persistOwnerDecision, logger } = options;
-  if (typeof authorizeOwnerDecision !== 'function' || typeof persistOwnerDecision !== 'function') return jsonError(503, 'OWNER_DECISION_ENDPOINT_NOT_CONFIGURED');
+  const { runtimeHandler, readRawSources, buildProjection, buildSourceBundle, persistOwnerDecision, logger } = options;
+  if (typeof persistOwnerDecision !== 'function') return jsonError(503, 'OWNER_DECISION_ENDPOINT_NOT_CONFIGURED');
 
-  const ctx = await authorizeOwnerDecision(req);
-  if (!ctx) return jsonError(401, 'PORTAL_ACCESS_DENIED');
-  if (!roleSet(ctx).has('ADMIN')) return jsonError(403, 'ROLE_MISMATCH');
+  // Reuse the canonical runtime authentication/session/ADMIN authorization path. The probe response
+  // is consumed here and never exposed as the mutation result.
+  const authResponse = await runtimeHandler(ownerAuthProbeRequest(req));
+  if (!authResponse.ok) return authResponse;
+  const authPayload = await authResponse.json().catch(() => null);
+  const ctx = authPayload?.data?.ownerMutationAuth;
+  if (!ctx?.userId || !Array.isArray(ctx.roles) || !ctx.roles.includes('ADMIN')) return jsonError(403, 'ROLE_MISMATCH');
 
   let requestBody;
   try {
@@ -110,8 +116,8 @@ async function handleOwnerDecision(req, options) {
       if (!requestBody.deal_key) throw new Error('BIND_TARGET_DEAL_REQUIRED');
       const target = (sourceBundle.contour || []).find((deal) => String(deal?.deal_key) === requestBody.deal_key);
       if (!target) throw new Error('BIND_TARGET_DEAL_NOT_IN_PAYMENTS_CONTOUR');
-      // Single-deal Owner binding is always exact full-payment coverage. Amount/currency come only
-      // from the current authoritative bank fact; candidate_deal_ids are not consumed here.
+      // Single-deal Owner binding is exact full-payment coverage. Amount/currency come only from the
+      // fresh bank fact. candidate_deal_ids are presentation hints and are not consumed here.
       payload.lines = [{ deal_key: requestBody.deal_key, amount: payment.amount, currency: payment.currency }];
     } else if (requestBody.deal_key) {
       throw new Error('OWNER_ADVANCE_DEAL_BINDING_FORBIDDEN');
@@ -149,7 +155,6 @@ export function createRonaOwnerAiSyncV7Handler(options) {
   const readRawSources = options?.readRawSources;
   const buildProjection = options?.buildProjection || buildAdminPaymentsV7FromRawSources;
   const buildSourceBundle = options?.buildSourceBundle || createAdminPaymentsV7SourceBundle;
-  const authorizeOwnerDecision = options?.authorizeOwnerDecision;
   const persistOwnerDecision = options?.persistOwnerDecision;
   const logger = options?.logger || console;
   if (typeof runtimeHandler !== 'function') throw new TypeError('AI_SYNC_RUNTIME_HANDLER_REQUIRED');
@@ -160,7 +165,7 @@ export function createRonaOwnerAiSyncV7Handler(options) {
   return async function handleRonaOwnerAiSync(req) {
     const normalizedPath = normalizeRonaOwnerAiSyncPath(new URL(req.url).pathname);
     if (normalizedPath === ADMIN_PAYMENTS_V7_OWNER_DECISION_PATH) {
-      return handleOwnerDecision(req, { authorizeOwnerDecision, readRawSources, buildProjection, buildSourceBundle, persistOwnerDecision, logger });
+      return handleOwnerDecision(req, { runtimeHandler, readRawSources, buildProjection, buildSourceBundle, persistOwnerDecision, logger });
     }
 
     const response = await runtimeHandler(normalizeRequest(req, normalizedPath));
