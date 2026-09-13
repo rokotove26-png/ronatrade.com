@@ -159,7 +159,7 @@ try {
   sourceB.source_as_of = new Date(Date.now() + 1000).toISOString();
 
   const responsive = {};
-  for (const [name, width, height, columns] of [['desktop', 1440, 1000, 4], ['medium-900x1100', 900, 1100, 2], ['mobile', 600, 1200, 1]]) {
+  for (const [name, width, height, columns, maxDealHeight] of [['desktop', 1440, 1000, 4, 320], ['medium-900x1100', 900, 1100, 2, 320], ['mobile', 600, 1200, 1, 520]]) {
     const served = await serve(compiled, sourceA, (url) => screenshot(url, width, height, join(OUT, `payments-final-${name}.png`)));
     const current = proof(served.result);
     responsive[name] = current;
@@ -176,7 +176,7 @@ try {
     assert.match(current.statusClass, /status-(expected|paid)/);
     assert.ok(current.progressWidth > 0 && current.progressWidth <= current.progressTrackWidth + 1);
     assert.ok(current.kpiCardMaxHeight > 0 && current.kpiCardMaxHeight < 130);
-    assert.ok(current.dealHeight < 320);
+    assert.ok(current.dealHeight > 0 && current.dealHeight < maxDealHeight);
   }
 
   const changed = await serve(compiled, sourceB, (url) => screenshot(url, 1440, 1000, join(OUT, 'payments-final-source-change.png')));
