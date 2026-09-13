@@ -28,9 +28,16 @@ export function createRonaOwnerAiSyncRuntimeHandler(options = {}) {
   return async function ronaOwnerAiSyncRuntimeHandler(req) {
     const ctx = await authContext(req);
     if (!ctx) return send(401, { ok: false, code: 'PORTAL_ACCESS_DENIED' });
-    if (req.method !== 'GET') return send(405, { ok: false, code: 'METHOD_NOT_ALLOWED' });
     try {
       const path = pathOf(req);
+      if (path === '/admin/payments-v7/owner-decision') {
+        if (req.method !== 'POST') return send(405, { ok: false, code: 'METHOD_NOT_ALLOWED' });
+        requireRole(ctx, 'ADMIN');
+        // This is an authentication/authorization handoff only. The outer V7 handler consumes it
+        // server-side, re-reads authoritative Payment/reconciliation state and owns persistence.
+        return send(200, { ok: true, data: { ownerMutationAuth: { userId: String(ctx.userId), roles: ctx.roles || [] } } });
+      }
+      if (req.method !== 'GET') return send(405, { ok: false, code: 'METHOD_NOT_ALLOWED' });
       if (path === '/admin/sync') {
         requireRole(ctx, 'ADMIN');
         return send(200, { ok: true, data: await adminSync() });
