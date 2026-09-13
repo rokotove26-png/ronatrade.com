@@ -82,7 +82,7 @@ function classifyResolvedClaim(claim, canonicalLines) {
   if (canonicalLines.length === 1) return { reconciliationClass: 'RESOLVED', businessDisposition: disposition || 'BIND_TO_DEAL', scope };
   return { reconciliationClass: classification || 'AUTHORITY_MATERIALIZATION_REQUIRED', businessDisposition: disposition || null, scope };
 }
-function reconciliationBase(payment) { return { payment_key: String(payment.payment_key), payment_id: payment.payment_id, owner_action_required: false, allowed_owner_actions: [], current_lines: [], scope_deal_keys: [], authority_refs: payment.authority_refs || [] }; }
+function reconciliationBase(payment) { return { payment_key: String(payment.payment_key), payment_id: payment.payment_id, owner_action_required: false, allowed_owner_actions: [], current_lines: [], scope_deal_keys: [], business_scope_refs: [], authority_refs: payment.authority_refs || [] }; }
 
 export function reconcilePaymentEvent(payment, allClaims, physicalAllocations, capabilities = {}, validDealKeys = []) {
   const base = reconciliationBase(payment);
@@ -90,17 +90,21 @@ export function reconcilePaymentEvent(payment, allClaims, physicalAllocations, c
   const paymentKey = String(payment.payment_key); const claims = (allClaims || []).filter((claim) => String(claim.payment_key) === paymentKey); const resolved = resolveAuthorityClaims(claims, stableAttributionSignature); const claim = resolved.claim;
   if (resolved.status === 'TO_VERIFY') {
     const candidateDealKeys = unique(claims.flatMap((c) => [...(c.scope_deal_keys || []), ...(c.lines || []).map((line) => line.deal_key)]));
-    return { ...base, reconciliation_class: 'AUTHORITY_CONFLICT', status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', integrity_status: 'TO_VERIFY', scope_deal_keys: candidateDealKeys, materialization_status: 'AUTHORITY_CONFLICT', business_disposition: null, fee_attribution_state: null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: null };
+    const businessScopeRefs = unique(claims.flatMap((c) => c.business_scope_refs || []));
+    return { ...base, reconciliation_class: 'AUTHORITY_CONFLICT', status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', integrity_status: 'TO_VERIFY', scope_deal_keys: candidateDealKeys, business_scope_refs: businessScopeRefs, materialization_status: 'AUTHORITY_CONFLICT', business_disposition: null, fee_attribution_state: null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: null };
   }
   if (!claim) {
-    const hasKnownCandidateScope = (payment.candidate_deal_ids || []).length > 0; const capabilityPresent = capabilities.paymentBusinessAuthority === true;
-    const classification = capabilityPresent && !hasKnownCandidateScope ? 'GENUINELY_UNALLOCATED' : 'AUTHORITY_MATERIALIZATION_REQUIRED';
+    const hasKnownCandidateScope = (payment.candidate_deal_ids || []).length > 0;
+    const capabilityPresent = capabilities.paymentBusinessAuthority === true;
+    const explicitUnallocated = ['UNALLOCATED', 'GENUINELY_UNALLOCATED'].includes(upper(payment.allocation_review_status));
+    const classification = capabilityPresent && !hasKnownCandidateScope && explicitUnallocated ? 'GENUINELY_UNALLOCATED' : 'AUTHORITY_MATERIALIZATION_REQUIRED';
     return { ...base, reconciliation_class: classification, status: classification === 'GENUINELY_UNALLOCATED' ? 'AUTHORITATIVE' : 'TO_VERIFY', reason: classification === 'GENUINELY_UNALLOCATED' ? null : 'AUTHORITY_MATERIALIZATION_REQUIRED', integrity_status: 'NOT_APPLICABLE', owner_action_required: classification === 'GENUINELY_UNALLOCATED', allowed_owner_actions: classification === 'GENUINELY_UNALLOCATED' ? ['BIND_TO_DEAL', 'ASSIGN_ADVANCE_PAYMENT'] : [], scope_deal_keys: unique(payment.candidate_deal_ids || []), materialization_status: 'NO_CURRENT_BUSINESS_AUTHORITY', business_disposition: null, fee_attribution_state: null, current_authority_id: null };
   }
+  const businessScopeRefs = unique(claim.business_scope_refs || []);
   const disposition = upper(claim.disposition || claim.decision_type);
-  if (disposition === 'ASSIGN_ADVANCE_PAYMENT') return { ...base, reconciliation_class: 'RESOLVED', status: 'AUTHORITATIVE', reason: null, integrity_status: 'NOT_APPLICABLE', scope_deal_keys: [], materialization_status: 'NOT_APPLICABLE', business_disposition: 'ASSIGN_ADVANCE_PAYMENT', fee_attribution_state: null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: claim.id || null };
+  if (disposition === 'ASSIGN_ADVANCE_PAYMENT') return { ...base, reconciliation_class: 'RESOLVED', status: 'AUTHORITATIVE', reason: null, integrity_status: 'NOT_APPLICABLE', scope_deal_keys: [], business_scope_refs: businessScopeRefs, materialization_status: 'NOT_APPLICABLE', business_disposition: 'ASSIGN_ADVANCE_PAYMENT', fee_attribution_state: null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: claim.id || null };
   const integrity = validateAttributionIntegrity({ payment, claim, validDealKeys }); const hasExactLines = rawExactLines(claim).length > 0;
-  if (hasExactLines && integrity.status !== 'AUTHORITATIVE') return { ...base, reconciliation_class: 'ATTRIBUTION_INTEGRITY_ERROR', status: 'TO_VERIFY', reason: 'ATTRIBUTION_INTEGRITY_ERROR', integrity_status: 'TO_VERIFY', integrity_reason: integrity.reason, scope_deal_keys: unique([...(claim.scope_deal_keys || []), ...(claim.lines || []).map((line) => line.deal_key)]), materialization_status: 'NOT_EVALUATED_INTEGRITY_ERROR', business_disposition: disposition || null, fee_attribution_state: upper(claim.classification) === 'ASSOCIATED_BANK_FEE' ? 'TO_VERIFY' : null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: claim.id || null };
+  if (hasExactLines && integrity.status !== 'AUTHORITATIVE') return { ...base, reconciliation_class: 'ATTRIBUTION_INTEGRITY_ERROR', status: 'TO_VERIFY', reason: 'ATTRIBUTION_INTEGRITY_ERROR', integrity_status: 'TO_VERIFY', integrity_reason: integrity.reason, scope_deal_keys: unique([...(claim.scope_deal_keys || []), ...(claim.lines || []).map((line) => line.deal_key)]), business_scope_refs: businessScopeRefs, materialization_status: 'NOT_EVALUATED_INTEGRITY_ERROR', business_disposition: disposition || null, fee_attribution_state: upper(claim.classification) === 'ASSOCIATED_BANK_FEE' ? 'TO_VERIFY' : null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: claim.id || null };
   const canonicalLines = integrity.status === 'AUTHORITATIVE' ? integrity.lines : []; const classified = classifyResolvedClaim(claim, canonicalLines);
   const materialization = classified.reconciliationClass === 'ASSOCIATED_BANK_FEE' && !canonicalLines.length ? 'ATTRIBUTION_TO_VERIFY' : materializationStatus(payment, claim, canonicalLines, physicalAllocations || []);
   let status = 'AUTHORITATIVE'; let reason = null; let feeAttributionState = null;
@@ -111,7 +115,7 @@ export function reconcilePaymentEvent(payment, allClaims, physicalAllocations, c
     if (feeAttributionState === 'SHARED_SCOPE' || feeAttributionState === 'TO_VERIFY') { status = 'TO_VERIFY'; reason = 'FEE_ATTRIBUTION_TO_VERIFY'; }
   }
   if (classified.reconciliationClass === 'AUTHORITY_MATERIALIZATION_REQUIRED') { status = 'TO_VERIFY'; reason = 'AUTHORITY_MATERIALIZATION_REQUIRED'; }
-  return { ...base, reconciliation_class: classified.reconciliationClass, status, reason, integrity_status: canonicalLines.length ? 'AUTHORITATIVE' : 'NOT_APPLICABLE', current_lines: canonicalLines, scope_deal_keys: classified.scope, materialization_status: materialization, business_disposition: classified.businessDisposition, principal_payment_key: claim.principal_payment_key || null, fee_attribution_state: feeAttributionState, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: claim.id || null };
+  return { ...base, reconciliation_class: classified.reconciliationClass, status, reason, integrity_status: canonicalLines.length ? 'AUTHORITATIVE' : 'NOT_APPLICABLE', current_lines: canonicalLines, scope_deal_keys: classified.scope, business_scope_refs: businessScopeRefs, materialization_status: materialization, business_disposition: classified.businessDisposition, principal_payment_key: claim.principal_payment_key || null, fee_attribution_state: feeAttributionState, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: claim.id || null };
 }
 
 export function reconcileAllPayments(payments, attributionClaims, physicalAllocations, capabilities, validDealKeys = []) { return (payments || []).map((payment) => reconcilePaymentEvent(payment, attributionClaims, physicalAllocations, capabilities, validDealKeys)); }
