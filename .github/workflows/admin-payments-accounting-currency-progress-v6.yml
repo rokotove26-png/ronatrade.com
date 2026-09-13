@@ -1,12 +1,12 @@
-name: Admin Payments Deal Accounting Currency Progress V6 QA
+name: Admin Payments V6 Authority Real Preview QA
 
 on:
   push:
     branches:
-      - feat/admin-payments-deal-accounting-currency-progress-v6
+      - fix/admin-payments-v6-authority-real-preview-r1
   pull_request:
     branches:
-      - feat/admin-payments-canonical-owner-workflow-v4-scope-fix
+      - feat/admin-payments-deal-accounting-currency-progress-v6
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
   checks: read
 
 jobs:
-  owner-payments-v6:
+  owner-payments-v6-authority-real-preview:
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -31,7 +31,7 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     env:
-      BASE_HEAD: 0988c47b4f330d244ea004cd037badb1e9ead1b8
+      BASE_HEAD: 7378f20d131a003efcb54d883715b91003d3ea7f
       EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
       GH_TOKEN: ${{ github.token }}
       PGHOST: localhost
@@ -54,9 +54,9 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
-          git merge-base --is-ancestor "$BASE_HEAD" HEAD
-          echo "OWNER_PAYMENTS_V6_EXACT_HEAD=$EXPECTED_HEAD"
-          echo "OWNER_PAYMENTS_V6_BASE_HEAD=$BASE_HEAD"
+          test "$(git merge-base "$BASE_HEAD" HEAD)" = "$BASE_HEAD"
+          echo "OWNER_PAYMENTS_V6_REVISION_EXACT_HEAD=$EXPECTED_HEAD"
+          echo "OWNER_PAYMENTS_V6_REVISION_BASE_HEAD=$BASE_HEAD"
 
       - name: Build current Admin
         run: npm run build
@@ -67,6 +67,12 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/admin-payments-accounting-currency-progress-v6
           node scripts/qa-admin-payments-accounting-currency-progress-v6-source.mjs | tee artifacts/admin-payments-accounting-currency-progress-v6/source-qa.log
+
+      - name: Semantic integration QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-admin-payments-accounting-currency-progress-v6-semantic.mjs | tee artifacts/admin-payments-accounting-currency-progress-v6/semantic-qa.log
 
       - name: PostgreSQL generic evidence contract QA
         shell: bash
@@ -109,18 +115,29 @@ jobs:
           console.log(`OWNER_PAYMENTS_V6_IMMUTABLE_PREVIEW_URL=${origin}`);
           NODE
 
-      - name: Real-browser V6 acceptance
+      - name: Real immutable-preview browser acceptance
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/qa-admin-payments-accounting-currency-progress-v6-browser-runner.mjs 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log
+          node scripts/qa-admin-payments-accounting-currency-progress-v6-browser.mjs 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log
 
-      - name: Required V6 gates
+      - name: Required V6 revision gates
         shell: bash
         run: |
           set -euo pipefail
-          cat artifacts/admin-payments-accounting-currency-progress-v6/source-qa.log artifacts/admin-payments-accounting-currency-progress-v6/db-qa.log artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log > artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
+          cat \
+            artifacts/admin-payments-accounting-currency-progress-v6/source-qa.log \
+            artifacts/admin-payments-accounting-currency-progress-v6/semantic-qa.log \
+            artifacts/admin-payments-accounting-currency-progress-v6/db-qa.log \
+            artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log \
+            > artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
           for marker in \
+            FINANCE_CANON_SOURCE_LOCK_FIELDS \
+            FINANCE_CANON_FAIL_CLOSED \
+            FRONTEND_FINANCE_V23_AUTHORITY_GUARD \
+            PROPOSAL_V23_SOURCE_LOCK \
+            STALE_RETURNED_PROPOSAL_EXCLUDED \
+            DEAL_009_V23_DIRECT_SOURCE_LOCK \
             DEAL_ACCOUNTING_CURRENCY_FOLLOWS_CLIENT_PAYMENT \
             DEAL_004_USD \
             DEAL_005_USD \
@@ -141,14 +158,33 @@ jobs:
             NIKOIL_NOT_HARDCODED \
             OWNER_UNALLOCATED_PARTIAL_MULTI_DEAL_WORKFLOW \
             PAYMENT_AMOUNT_IMMUTABLE \
-            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC; do
+            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC \
+            SEMANTIC_VERIFIED_USD_PAYMENT_TO_USD \
+            SEMANTIC_RUB_FALLBACK_UNDER_V23 \
+            SEMANTIC_MIXED_INBOUND_TO_VERIFY \
+            SEMANTIC_CANON_ABSENT_FAIL_CLOSED \
+            SEMANTIC_CANON_UNLOCKED_FAIL_CLOSED \
+            SEMANTIC_STALE_REJECTED_PROPOSAL_NOT_AUTHORITY \
+            SEMANTIC_CROSS_CURRENCY_WITHOUT_EXACT_LINK_TO_VERIFY \
+            SEMANTIC_PROGRESS_RECEIVED_OVER_TOTAL_ONLY \
+            REAL_PREVIEW_QA_ROUTE_PREVIEW_ONLY \
+            REAL_PREVIEW_BROWSER_NO_SYNTHETIC_DOM \
+            REAL_PREVIEW_DOCUMENT_200 \
+            REAL_PREVIEW_DEPLOYED_ADMIN_ASSET \
+            REAL_PREVIEW_MAIN_UI_200 \
+            REAL_PREVIEW_MAIN_UI_HEADER \
+            REAL_PREVIEW_DEPLOYED_ADMIN_DOM \
+            REAL_PREVIEW_DEPLOYED_V6_RUNTIME \
+            REAL_PREVIEW_NO_PAGEERROR \
+            REAL_PREVIEW_NO_CONSOLE_ERRORS \
+            REAL_PREVIEW_BROWSER_ACCEPTANCE; do
             grep -Fq "${marker}=PASS" artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
           done
-          echo "OWNER_PAYMENTS_V6_REQUIRED_GATES=PASS"
+          echo "OWNER_PAYMENTS_V6_REVISION_REQUIRED_GATES=PASS"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: admin-payments-accounting-currency-progress-v6-proof-${{ github.run_id }}
+          name: admin-payments-v6-authority-real-preview-proof-${{ github.run_id }}
           path: artifacts/admin-payments-accounting-currency-progress-v6/
           retention-days: 30
