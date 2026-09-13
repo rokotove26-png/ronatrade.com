@@ -34,7 +34,8 @@ const adminBootstrap={ok:true,data:{applications:[],deals:[],rail:[],clients:[],
 
 function pass(name,cond){if(!cond)throw new Error(name+'=FAIL');console.log(name+'=PASS')}
 const browser=await chromium.launch({headless:true});
-const page=await browser.newPage({viewport:{width:1440,height:1000}});
+const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-rona-v6-real-preview-qa':'exact-head-v6'}});
+const page=await context.newPage();
 const pageErrors=[],consoleErrors=[],ownerPosts=[];
 page.on('pageerror',err=>pageErrors.push(String(err?.stack||err?.message||err)));
 page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text())});
@@ -54,9 +55,12 @@ await page.route('**/portal/**',async route=>{
 const mainUiResponsePromise=page.waitForResponse(response=>{
   try{return new URL(response.url()).pathname==='/portal/main-ui'}catch{return false}
 },{timeout:60000});
-const documentResponse=await page.goto(origin+'/portal/admin.html',{waitUntil:'domcontentloaded',timeout:60000});
+const documentResponse=await page.goto(origin+'/portal/admin-payments-v6-real-preview-qa',{waitUntil:'domcontentloaded',timeout:60000});
+console.log('REAL_PREVIEW_DOCUMENT_STATUS='+(documentResponse?.status()??'none'));
+console.log('REAL_PREVIEW_DOCUMENT_URL_ACTUAL='+page.url());
 pass('REAL_PREVIEW_DOCUMENT_200',!!documentResponse&&documentResponse.ok());
-pass('REAL_PREVIEW_DOCUMENT_URL',new URL(page.url()).pathname==='/portal/admin.html');
+pass('REAL_PREVIEW_DOCUMENT_URL',new URL(page.url()).pathname==='/portal/admin-payments-v6-real-preview-qa');
+pass('REAL_PREVIEW_DEPLOYED_ADMIN_ASSET',String(documentResponse.headers()['x-rona-v6-real-preview-asset']||'')==='DEPLOYED_ADMIN_CURRENT');
 const nav=page.locator('#nav button[data-page="payments"]');await nav.waitFor({state:'attached',timeout:15000});
 pass('REAL_PREVIEW_DEPLOYED_ADMIN_DOM',await page.locator('#page-payments').count()===1&&await nav.count()===1);
 const mainUiResponse=await mainUiResponsePromise;
@@ -111,7 +115,7 @@ pass('PAYMENT_AMOUNT_IMMUTABLE',ownerPosts.every(x=>!x.body.includes('PAYMENT.am
 
 pass('REAL_PREVIEW_NO_PAGEERROR',pageErrors.length===0);
 pass('REAL_PREVIEW_NO_CONSOLE_ERRORS',consoleErrors.length===0);
-const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),pageErrors,consoleErrors,ownerPosts};
+const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,deployedAdminAsset:documentResponse?.headers()?.['x-rona-v6-real-preview-asset']||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),pageErrors,consoleErrors,ownerPosts};
 fs.writeFileSync(path.join(out,'real-preview-browser-proof.json'),JSON.stringify(proof,null,2));
 console.log('REAL_PREVIEW_BROWSER_ACCEPTANCE=PASS');
 console.log('IMMUTABLE_PREVIEW='+origin);
