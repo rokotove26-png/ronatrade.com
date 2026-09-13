@@ -16,7 +16,7 @@ const passports=control.map(r=>({...r,verified_received_amount:r.verified_receiv
 const fixture={ok:true,data:{financeFragment:{ownerPaymentSemanticsContract:'ADMIN_PAYMENTS_DEAL_ACCOUNTING_CURRENCY_PROGRESS_V6',ownerFinanceCanon:{record_id:'eabba23f-70b9-4d40-86ef-3d0578c71d4a',status:'AUTHORITATIVE',version:23},paymentContourDealIds:control.map(x=>x.deal_id),dealPaymentControlRows:control,dealPaymentPassports:passports,totalToReceiveTotalsByCurrency:[{currency:'RUB',amount:31002300},{currency:'USD',amount:1073150}],verifiedReceivedTotalsByCurrency:[{currency:'RUB',amount:0},{currency:'USD',amount:487320}],expectedReceiptTotalsByCurrency:[{currency:'RUB',amount:9300690},{currency:'USD',amount:585830}],dueNowTotalsByCurrency:[{currency:'RUB',amount:0},{currency:'USD',amount:0}],deferredNotDueTotalsByCurrency:[{currency:'RUB',amount:21701610},{currency:'USD',amount:585830}],dealActualSpendTotalsByAccountingCurrency:[{currency:'USD',amount:150000}],unallocatedPaymentRows:[{payment_id:'PAYEV-2026-000008',payment_at:'2026-09-12T10:00:00Z',direction:'OUTGOING',kind:'COUNTERPARTY_PAYMENT',amount:3644000,currency:'RUB',allocated_total:0,unallocated_residue:3644000,counterparty_name:'КУЗМАШ'},{payment_id:'PAYEV-2026-000010',payment_at:'2026-09-13T01:00:00Z',direction:'INCOMING',kind:'CLIENT_PAYMENT',amount:100000,currency:'USD',allocated_total:20000,unallocated_residue:80000,counterparty_name:'Test client'}]}}};
 
 const browser=await chromium.launch({headless:true});const page=await browser.newPage({viewport:{width:1440,height:900}});let ownerPosts=[];
-page.on('request',req=>{if(req.url().includes('/portal/owner-payment-authority-v5/'))ownerPosts.push({url:req.url(),body:req.postData()})});
+page.on('request',req=>{if(req.url().includes('/portal/owner-payment-authority-v5/'))ownerPosts.push({url:req.url(),body:req.postData()||''})});
 await page.route('**/portal/owner-payments-accounting-currency-progress-v6-source**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(fixture)}));
 await page.route('**/portal/owner-payment-authority-v5/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{accepted:true}})}));
 await page.goto(origin,{waitUntil:'domcontentloaded',timeout:60000});
@@ -30,15 +30,15 @@ window.financePill=(text)=>e('span',{text});window.financeKpiCard=(title,kind,ro
 await page.addScriptTag({content:runtime});
 await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true,{timeout:10000});
 
-const text=await page.locator('body').innerText();
+const text=await page.locator('body').innerText(),norm=text.replace(/[\s\u00a0\u202f]/g,'');
 function pass(name,cond){if(!cond)throw new Error(name+'=FAIL');console.log(name+'=PASS')}
 pass('DEAL_ACCOUNTING_CURRENCY_FOLLOWS_CLIENT_PAYMENT',text.includes('Валюта учета'));
 pass('DEAL_004_USD',(await page.locator('tr',{hasText:'DEAL-2026-004'}).first().innerText()).includes('USD'));
 pass('DEAL_005_USD',(await page.locator('tr',{hasText:'DEAL-2026-005'}).first().innerText()).includes('USD'));
 pass('DEAL_006_USD',(await page.locator('tr',{hasText:'DEAL-2026-006'}).first().innerText()).includes('USD'));
-const gaz=await page.locator('tr',{hasText:'DEAL-2026-009'}).first().innerText();pass('DEAL_009_RUB',gaz.includes('RUB')&&gaz.includes('31 002 300')&&gaz.includes('9 300 690')&&gaz.includes('21 701 610'));
+const gaz=await page.locator('tr',{hasText:'DEAL-2026-009'}).first().innerText();pass('DEAL_009_RUB',gaz.includes('RUB')&&gaz.replace(/[\s\u00a0\u202f]/g,'').includes('31002300')&&gaz.replace(/[\s\u00a0\u202f]/g,'').includes('9300690')&&gaz.replace(/[\s\u00a0\u202f]/g,'').includes('21701610'));
 pass('GAZONE_NO_PARALLEL_USD_MANAGEMENT',!gaz.includes('362 600')&&!gaz.includes('108 780')&&!gaz.includes('253 820')&&!gaz.includes('USD'));
-pass('GLOBAL_TOTALS_GROUPED_BY_CURRENCY',text.includes('31 002 300 RUB')&&text.includes('1 073 150 USD'));
+pass('GLOBAL_TOTALS_GROUPED_BY_CURRENCY',norm.includes('31002300RUB')&&norm.includes('1073150USD'));
 for(const [deal,pct] of [['DEAL-2026-004','100'],['DEAL-2026-005','30'],['DEAL-2026-006','30'],['DEAL-2026-009','0']]){const el=page.locator('[data-rona-progress-deal="'+deal+'"]');pass('PROGRESS_'+deal.replaceAll('-','_')+'_'+pct,await el.getAttribute('data-progress-pct')===pct)}
 pass('PAYMENT_PROGRESS_VISUAL_ONLY',text.includes('Заполняется только VERIFIED_RECEIVED / TOTAL_TO_RECEIVE'));
 pass('PROGRESS_FILL_VERIFIED_RECEIVED_ONLY',await page.locator('[data-rona-progress-deal="DEAL-2026-005"] .rona-pay-v6-progress-fill').evaluate(el=>el.style.width)==='30%');
