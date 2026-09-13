@@ -61,16 +61,18 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs
-      - name: A-BD plus Stage 4B/5A/5B regression and live-source integration suite
+      - name: A-BD plus Stage 4B/5A/5B/5C regression and Owner-cycle suite
         run: npm run test:payments-v7
-      - name: Stage 5B real live-shell browser route proof
+      - name: Stage 5B live-shell regression proof
         run: node scripts/admin-payments-v7-stage5b-browser-proof.mjs
-      - name: Upload Stage 5B visual proof
+      - name: Stage 5C live-shell responsive and Owner-action browser proof
+        run: node scripts/admin-payments-v7-stage5c-browser-proof.mjs
+      - name: Upload Stage 5C responsive visual proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-payments-v7-stage5b-visual-${{ github.event.pull_request.head.sha || github.sha }}
-          path: stage5b-artifacts/
+          name: admin-payments-v7-stage5c-visual-${{ github.event.pull_request.head.sha || github.sha }}
+          path: stage5c-artifacts/
           if-no-files-found: error
           retention-days: 14
       - name: Stage 4A migration-lineage aliases for historical PG harness
@@ -93,7 +95,7 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage4b-owner-persistence-delta.sql
-      - name: NO-HARDCODE changed production runtime scan
+      - name: NO-HARDCODE backend and actual Stage 5C browser runtime scan
         env:
           NO_HARDCODE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: npm run scan:payments-v7
