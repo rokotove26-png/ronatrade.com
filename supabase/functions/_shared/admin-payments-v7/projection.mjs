@@ -105,7 +105,10 @@ function paymentException(reconciliation) {
     payment_ids: [reconciliation.payment_id].filter(Boolean), reconciliation_class: reconciliation.reconciliation_class,
     status: reconciliation.status, reason: reconciliation.reason, integrity_reason: reconciliation.integrity_reason || null,
     owner_action_required: reconciliation.owner_action_required, allowed_owner_actions: reconciliation.allowed_owner_actions,
-    candidate_deal_ids: reconciliation.scope_deal_keys, known_scope_refs: [], technical_gap: reconciliation.materialization_status,
+    candidate_deal_ids: reconciliation.candidate_deal_ids || [],
+    scope_deal_keys: reconciliation.scope_deal_keys || [],
+    known_scope_refs: reconciliation.business_scope_refs || [],
+    technical_gap: reconciliation.materialization_status,
     fee_attribution_state: reconciliation.fee_attribution_state || null, authority_refs: reconciliation.authority_refs || [],
   };
 }
