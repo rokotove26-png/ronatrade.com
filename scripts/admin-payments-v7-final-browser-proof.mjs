@@ -130,7 +130,7 @@ async function screenshot(url, width, height, file) {
 }
 
 function decodeHtml(text) {
-  return text.replaceAll('&quot;', '"').replaceAll('&amp;', '&').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+  return text.replaceAll('&quot;', '"').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&').replaceAll('&nbsp;', '\u00a0');
 }
 
 function proof(dom) {
