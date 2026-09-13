@@ -51,14 +51,21 @@ create table portal_private.payment_business_attributions_v7 (
   -- Source/system authorities may be exact, or may preserve only a known business scope for
   -- the explicitly non-exact business classes below. NO_DEAL_BINDING is reserved for RONA ADVANCE.
   check (
-    (decision_type = 'BIND_TO_DEAL' and attribution_mode = 'EXACT' and classification in ('RESOLVED','KNOWN_MULTI_DEAL_EXACT_SPLIT'))
-    or (decision_type = 'ASSIGN_ADVANCE_PAYMENT' and attribution_mode = 'NO_DEAL_BINDING' and classification = 'RONA_ADVANCE_DEAL_SPEND')
-    or (decision_type is null and attribution_mode = 'EXACT')
-    or (
-      decision_type is null
-      and attribution_mode = 'SCOPE_ONLY'
-      and classification in ('SHARED_DEAL_SCOPE_SPLIT_TO_VERIFY','ASSOCIATED_BANK_FEE','OWNER_ASSERTED_ALLOCATED_SYSTEM_AUTHORITY_NOT_MATERIALIZED')
-    )
+    case
+      when decision_type = 'BIND_TO_DEAL' then
+        attribution_mode = 'EXACT'
+        and classification in ('RESOLVED','KNOWN_MULTI_DEAL_EXACT_SPLIT')
+      when decision_type = 'ASSIGN_ADVANCE_PAYMENT' then
+        attribution_mode = 'NO_DEAL_BINDING'
+        and classification = 'RONA_ADVANCE_DEAL_SPEND'
+      when decision_type is null then
+        attribution_mode = 'EXACT'
+        or (
+          attribution_mode = 'SCOPE_ONLY'
+          and classification in ('SHARED_DEAL_SCOPE_SPLIT_TO_VERIFY','ASSOCIATED_BANK_FEE','OWNER_ASSERTED_ALLOCATED_SYSTEM_AUTHORITY_NOT_MATERIALIZED')
+        )
+      else false
+    end
   )
 );
 
