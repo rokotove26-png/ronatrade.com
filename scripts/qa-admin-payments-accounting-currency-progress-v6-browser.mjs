@@ -36,10 +36,13 @@ function pass(name,cond){if(!cond)throw new Error(name+'=FAIL');console.log(name
 const browser=await chromium.launch({headless:true});
 const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-rona-v6-real-preview-qa':'exact-head-v6'}});
 const page=await context.newPage();
-const pageErrors=[],consoleErrors=[],ownerPosts=[];
+const pageErrors=[],consoleErrors=[],ownerPosts=[],financeRequests=[];
 page.on('pageerror',err=>pageErrors.push(String(err?.stack||err?.message||err)));
 page.on('console',msg=>{if(msg.type()==='error')consoleErrors.push(msg.text())});
-page.on('request',req=>{if(req.url().includes('/portal/owner-payment-authority-v5/'))ownerPosts.push({url:req.url(),body:req.postData()||''})});
+page.on('request',req=>{
+  if(req.url().includes('/portal/owner-payment-authority-v5/'))ownerPosts.push({url:req.url(),body:req.postData()||''});
+  if(req.url().includes('/portal/owner-payments-accounting-currency-progress-v6-source'))financeRequests.push(req.url());
+});
 
 await page.route('**/portal/**',async route=>{
   const req=route.request(),url=new URL(req.url());
@@ -69,8 +72,16 @@ pass('REAL_PREVIEW_MAIN_UI_HEADER',String(mainUiResponse.headers()['x-rona-admin
 pass('REAL_PREVIEW_MAIN_UI_ORIGIN',new URL(mainUiResponse.url()).origin===origin);
 await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6',{timeout:20000});
 pass('REAL_PREVIEW_DEPLOYED_V6_RUNTIME',await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6'));
-await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true,{timeout:20000});
 await nav.click({force:true});
+pass('REAL_PREVIEW_DEPLOYED_RENDER_HOOK',await page.evaluate(()=>typeof window.__RONA_OWNER_PAYMENTS_V6_RENDER__==='function'));
+await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RENDER__());
+try{
+  await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true,{timeout:15000});
+}catch(err){
+  console.log('REAL_PREVIEW_READY_DIAG='+JSON.stringify({pageErrors,consoleErrors,financeRequests,currentState:await page.evaluate(()=>window.__RONA_PAYMENTS_CURRENT_STATE__||null),paymentsText:(await page.locator('#page-payments').innerText().catch(()=>'' )).slice(0,1500)}));
+  throw err;
+}
+pass('REAL_PREVIEW_DEPLOYED_RENDER_READY',await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true));
 await page.locator('#page-payments .rona-pay-v6-stack').waitFor({state:'visible',timeout:10000});
 
 const text=await page.locator('#page-payments').innerText(),norm=text.replace(/[\s\u00a0\u202f]/g,'');
@@ -115,7 +126,7 @@ pass('PAYMENT_AMOUNT_IMMUTABLE',ownerPosts.every(x=>!x.body.includes('PAYMENT.am
 
 pass('REAL_PREVIEW_NO_PAGEERROR',pageErrors.length===0);
 pass('REAL_PREVIEW_NO_CONSOLE_ERRORS',consoleErrors.length===0);
-const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,deployedAdminAsset:documentResponse?.headers()?.['x-rona-v6-real-preview-asset']||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),pageErrors,consoleErrors,ownerPosts};
+const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,deployedAdminAsset:documentResponse?.headers()?.['x-rona-v6-real-preview-asset']||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),financeRequests,pageErrors,consoleErrors,ownerPosts};
 fs.writeFileSync(path.join(out,'real-preview-browser-proof.json'),JSON.stringify(proof,null,2));
 console.log('REAL_PREVIEW_BROWSER_ACCEPTANCE=PASS');
 console.log('IMMUTABLE_PREVIEW='+origin);
