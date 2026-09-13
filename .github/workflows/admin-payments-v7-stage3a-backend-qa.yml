@@ -63,6 +63,14 @@ jobs:
             supabase/functions/_shared/admin-payments-v7/index.mjs
       - name: A-BD backend regression, readiness and activation simulation suite
         run: npm run test:payments-v7
+      - name: Stage 4A migration-lineage aliases for historical PG harness
+        run: |
+          ln -s 20260913160703_admin_payments_v7_stage3a_authority_core.sql \
+            supabase/migrations/20260913143000_admin_payments_v7_stage3a_authority.sql
+          ln -s 20260913161057_admin_payments_v7_stage3d_shape.sql \
+            supabase/migrations/20260913160000_admin_payments_v7_stage3d_activation_gate.sql
+          ln -s 20260913161257_admin_payments_v7_stage3d1_provider_readiness.sql \
+            supabase/migrations/20260913173000_admin_payments_v7_stage3d1_provider_readiness.sql
       - name: AH-AI, AN-AO, AT and Stage 3D.1 — PostgreSQL 17 persistence, privilege and readiness integration
         env:
           PGPASSWORD: postgres
