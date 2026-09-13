@@ -86,6 +86,10 @@ function reconciliationBase(payment) {
   return {
     payment_key: String(payment.payment_key),
     payment_id: payment.payment_id,
+    payment_amount: payment.amount,
+    payment_currency: payment.currency,
+    payment_at: payment.payment_at || null,
+    counterparty_name: payment.counterparty_name || null,
     candidate_deal_ids: unique(payment.candidate_deal_ids || []),
     owner_action_required: false,
     allowed_owner_actions: [],
