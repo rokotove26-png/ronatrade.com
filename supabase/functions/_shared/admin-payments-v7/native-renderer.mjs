@@ -18,11 +18,17 @@ function projectionFrom(data) {
   return projection;
 }
 
-function numberText(value) {
+function finiteNumber(value) {
+  if (value === null || value === undefined) return null;
   const raw = text(value);
   if (!raw) return null;
   const number = Number(raw);
-  if (!Number.isFinite(number)) return raw;
+  return Number.isFinite(number) ? number : null;
+}
+
+function numberText(value) {
+  const number = finiteNumber(value);
+  if (number === null) return null;
   return new Intl.NumberFormat('ru-RU', {
     minimumFractionDigits: Number.isInteger(number) ? 0 : 2,
     maximumFractionDigits: 2,
@@ -30,13 +36,16 @@ function numberText(value) {
 }
 
 function moneyText(value) {
-  if (!value || upper(value.status) !== 'AUTHORITATIVE' || value.amount === null || !text(value.currency)) return 'TO_VERIFY';
-  return `${numberText(value.amount)} ${upper(value.currency)}`;
+  const amount = numberText(value?.amount);
+  const currency = upper(value?.currency);
+  if (!value || upper(value.status) !== 'AUTHORITATIVE' || amount === null || !currency) return 'TO_VERIFY';
+  return `${amount} ${currency}`;
 }
 
 function percentText(progress) {
-  if (!progress || upper(progress.status) !== 'AUTHORITATIVE' || progress.percent === null) return 'TO_VERIFY';
-  return `${numberText(progress.percent)}%`;
+  const percent = numberText(progress?.percent);
+  if (!progress || upper(progress.status) !== 'AUTHORITATIVE' || percent === null) return 'TO_VERIFY';
+  return `${percent}%`;
 }
 
 function spendText(deal) {
@@ -61,7 +70,9 @@ function refsFromDeal(deal) {
 
 function normalizedDeal(deal) {
   const spend = spendText(deal);
+  const conditionalAmount = finiteNumber(deal?.future_conditional?.amount);
   return {
+    deal_key: text(deal?.deal_key),
     deal_id: text(deal?.deal_id),
     client_display: text(deal?.client_display) || '—',
     total: moneyText(deal?.total_to_receive),
@@ -69,7 +80,7 @@ function normalizedDeal(deal) {
     expected: moneyText(deal?.expected_not_due),
     due_now: moneyText(deal?.due_now),
     conditional: moneyText(deal?.future_conditional),
-    conditional_present: !!deal?.future_conditional && upper(deal.future_conditional.status) === 'AUTHORITATIVE' && Number(deal.future_conditional.amount) !== 0,
+    conditional_present: upper(deal?.future_conditional?.status) === 'AUTHORITATIVE' && conditionalAmount !== null && conditionalAmount !== 0,
     spend: spend.spend,
     execution_remaining: spend.remaining,
     progress: percentText(deal?.payment_progress),
@@ -87,10 +98,9 @@ function aggregateMoney(deals, field) {
   let toVerify = false;
   for (const deal of deals) {
     const value = deal?.[field];
-    if (!value || upper(value.status) !== 'AUTHORITATIVE' || value.amount === null || !text(value.currency)) { toVerify = true; continue; }
-    const currency = upper(value.currency);
-    const amount = Number(value.amount);
-    if (!Number.isFinite(amount)) { toVerify = true; continue; }
+    const currency = upper(value?.currency);
+    const amount = finiteNumber(value?.amount);
+    if (!value || upper(value.status) !== 'AUTHORITATIVE' || !currency || amount === null) { toVerify = true; continue; }
     totals.set(currency, (totals.get(currency) || 0) + amount);
   }
   return {
@@ -144,7 +154,7 @@ function kpiRowsHtml(rows, toVerify) {
 }
 
 function globalKpiHtml(kpis) {
-  const conditionalRows = kpis.expected.conditional.rows.filter((row) => Number(String(row.amount).replace(/[^0-9,.-]/g, '').replace(',', '.')) !== 0);
+  const conditionalRows = kpis.expected.conditional.rows.filter((row) => finiteNumber(String(row.amount).replace(/\s/g, '').replace(',', '.')) !== 0);
   const conditional = conditionalRows.length
     ? `<div class="payments-v7-kpi-sub">Conditional: ${conditionalRows.map((row) => `${esc(row.amount)} ${esc(row.currency)}`).join(' · ')}</div>`
     : '';
@@ -161,7 +171,7 @@ function globalKpiHtml(kpis) {
 
 function dealRowHtml(deal) {
   const conditional = deal.conditional_present ? `<span class="payments-v7-subvalue">Conditional: ${esc(deal.conditional)}</span>` : '';
-  return `<article class="payments-v7-deal" data-deal-id="${esc(deal.deal_id)}">
+  return `<article class="payments-v7-deal" data-deal-key="${esc(deal.deal_key)}" data-deal-id="${esc(deal.deal_id)}">
     <header class="payments-v7-deal-head">
       <div><div class="payments-v7-deal-id">${esc(deal.deal_id || 'Deal')}</div><div class="payments-v7-client">${esc(deal.client_display)}</div></div>
       <div class="payments-v7-status">${esc(deal.financial_status)}</div>
@@ -179,18 +189,23 @@ function dealRowHtml(deal) {
   </article>`;
 }
 
-function ownerQueueHtml(queue) {
+function ownerQueueHtml(queue, deals) {
   if (!queue.length) return '';
-  return `<section class="payments-v7-owner-queue" aria-label="Owner queue"><h3>Требуется решение Owner</h3>${queue.map((item) => `<article><strong>${esc(asArray(item.payment_ids).join(', ') || item.exception_id)}</strong><span>${esc(item.reconciliation_class)}</span></article>`).join('')}</section>`;
+  return `<section class="payments-v7-owner-queue" aria-label="Owner queue"><h3>Требуется решение Owner</h3>${queue.map((item) => {
+    const candidates = new Set(asArray(item?.candidate_deal_ids).map(String));
+    const options = deals.filter((deal) => deal.deal_key).map((deal) => `<option value="${esc(deal.deal_key)}">${esc(deal.deal_id || 'Deal')} · ${esc(deal.client_display)}${candidates.has(deal.deal_key) ? ' · подсказка' : ''}</option>`).join('');
+    const payment = asArray(item?.payment_ids).join(', ') || item?.exception_id || 'Payment';
+    const amount = moneyText({ amount: item?.payment_amount, currency: item?.payment_currency, status: 'AUTHORITATIVE' });
+    return `<article class="payments-v7-owner-item" data-payment-key="${esc(item?.payment_key)}"><div><strong>${esc(payment)}</strong><span>${esc(amount)}</span></div><div class="payments-v7-owner-actions"><select data-owner-deal><option value="">Выберите сделку</option>${options}</select><button type="button" data-owner-action="BIND_TO_DEAL">Привязать к сделке</button><button type="button" data-owner-action="ASSIGN_ADVANCE_PAYMENT">Авансовый платеж</button></div></article>`;
+  }).join('')}</section>`;
 }
 
 export function renderAdminPaymentsV7NativeHtml(data) {
   const view = createAdminPaymentsV7NativeView(data);
   return `<section class="payments-v7-native" data-payments-route-owner="${OWNER}" data-contract="${esc(view.contract)}">
-    <header class="payments-v7-title"><h2>Платежи</h2></header>
     ${globalKpiHtml(view.kpis)}
     <div class="payments-v7-board">${view.deals.map(dealRowHtml).join('')}</div>
-    ${ownerQueueHtml(view.owner_exception_queue)}
+    ${ownerQueueHtml(view.owner_exception_queue, view.deals)}
   </section>`;
 }
 
