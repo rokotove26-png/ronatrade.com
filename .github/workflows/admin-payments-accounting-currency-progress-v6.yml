@@ -1,12 +1,12 @@
-name: Admin Payments V6 Authority Real Preview QA
+name: Admin Payments V6 R2 Full Automation Summary QA
 
 on:
   push:
     branches:
-      - fix/admin-payments-v6-authority-real-preview-r1
+      - feat/admin-payments-v6-r2-full-automation-summary-ui
   pull_request:
     branches:
-      - feat/admin-payments-deal-accounting-currency-progress-v6
+      - fix/admin-payments-v6-authority-real-preview-r1
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ permissions:
   checks: read
 
 jobs:
-  owner-payments-v6-authority-real-preview:
+  owner-payments-v6-r2-full-automation-summary:
     runs-on: ubuntu-24.04
     services:
       postgres:
@@ -31,7 +31,7 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     env:
-      BASE_HEAD: 7378f20d131a003efcb54d883715b91003d3ea7f
+      BASE_HEAD: 31f330aaae09aad47c23113cd4148dca1e70af5e
       EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
       GH_TOKEN: ${{ github.token }}
       PGHOST: localhost
@@ -55,8 +55,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           test "$(git merge-base "$BASE_HEAD" HEAD)" = "$BASE_HEAD"
-          echo "OWNER_PAYMENTS_V6_REVISION_EXACT_HEAD=$EXPECTED_HEAD"
-          echo "OWNER_PAYMENTS_V6_REVISION_BASE_HEAD=$BASE_HEAD"
+          echo "OWNER_PAYMENTS_V6_R2_EXACT_HEAD=$EXPECTED_HEAD"
+          echo "OWNER_PAYMENTS_V6_R2_BASE_HEAD=$BASE_HEAD"
 
       - name: Build current Admin
         run: npm run build
@@ -68,7 +68,7 @@ jobs:
           mkdir -p artifacts/admin-payments-accounting-currency-progress-v6
           node scripts/qa-admin-payments-accounting-currency-progress-v6-source.mjs | tee artifacts/admin-payments-accounting-currency-progress-v6/source-qa.log
 
-      - name: Semantic integration QA
+      - name: Semantic integration and automation QA
         shell: bash
         run: |
           set -euo pipefail
@@ -112,7 +112,7 @@ jobs:
           if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
           if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
           await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\nCLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
-          console.log(`OWNER_PAYMENTS_V6_IMMUTABLE_PREVIEW_URL=${origin}`);
+          console.log(`OWNER_PAYMENTS_V6_R2_IMMUTABLE_PREVIEW_URL=${origin}`);
           NODE
 
       - name: Real immutable-preview browser acceptance
@@ -121,7 +121,7 @@ jobs:
           set -euo pipefail
           node scripts/qa-admin-payments-accounting-currency-progress-v6-browser.mjs 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log
 
-      - name: Required V6 revision gates
+      - name: Required V6 R2 gates
         shell: bash
         run: |
           set -euo pipefail
@@ -132,12 +132,17 @@ jobs:
             artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log \
             > artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
           for marker in \
+            NO_PRODUCTION_DEAL_FINANCIAL_HARDCODE \
+            NO_DEAL_SPECIFIC_AMOUNT_CONSTANTS_IN_RUNTIME \
+            GAZONE_VALUES_FROM_STRUCTURED_FINANCE_AUTHORITY \
+            FINANCE_VALUE_CHANGE_REQUIRES_NO_CODE_CHANGE \
+            ABSENT_STRUCTURED_FINANCE_PROJECTION_FAILS_CLOSED \
+            VERIFIED_CLIENT_PAYMENT_AUTOMATIC_RECALC \
             FINANCE_CANON_SOURCE_LOCK_FIELDS \
             FINANCE_CANON_FAIL_CLOSED \
             FRONTEND_FINANCE_V23_AUTHORITY_GUARD \
             PROPOSAL_V23_SOURCE_LOCK \
             STALE_RETURNED_PROPOSAL_EXCLUDED \
-            DEAL_009_V23_DIRECT_SOURCE_LOCK \
             DEAL_ACCOUNTING_CURRENCY_FOLLOWS_CLIENT_PAYMENT \
             DEAL_004_USD \
             DEAL_005_USD \
@@ -159,6 +164,12 @@ jobs:
             OWNER_UNALLOCATED_PARTIAL_MULTI_DEAL_WORKFLOW \
             PAYMENT_AMOUNT_IMMUTABLE \
             PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC \
+            SUMMARY_KPI_DESKTOP_HORIZONTAL \
+            SUMMARY_KPI_DESKTOP_FOUR_COLUMNS \
+            SUMMARY_KPI_EQUAL_CARD_HEIGHT \
+            SUMMARY_KPI_MULTI_CURRENCY_INSIDE_CARD \
+            SUMMARY_KPI_MEDIUM_2X2 \
+            SUMMARY_KPI_MOBILE_SINGLE_COLUMN \
             SEMANTIC_VERIFIED_USD_PAYMENT_TO_USD \
             SEMANTIC_RUB_FALLBACK_UNDER_V23 \
             SEMANTIC_MIXED_INBOUND_TO_VERIFY \
@@ -174,17 +185,17 @@ jobs:
             REAL_PREVIEW_MAIN_UI_200 \
             REAL_PREVIEW_MAIN_UI_HEADER \
             REAL_PREVIEW_DEPLOYED_ADMIN_DOM \
-            REAL_PREVIEW_DEPLOYED_V6_RUNTIME \
+            REAL_PREVIEW_DEPLOYED_V6_R2_RUNTIME \
             REAL_PREVIEW_NO_PAGEERROR \
             REAL_PREVIEW_NO_CONSOLE_ERRORS \
             REAL_PREVIEW_BROWSER_ACCEPTANCE; do
             grep -Fq "${marker}=PASS" artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
           done
-          echo "OWNER_PAYMENTS_V6_REVISION_REQUIRED_GATES=PASS"
+          echo "OWNER_PAYMENTS_V6_R2_REQUIRED_GATES=PASS"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: admin-payments-v6-authority-real-preview-proof-${{ github.run_id }}
+          name: admin-payments-v6-r2-full-automation-summary-proof-${{ github.run_id }}
           path: artifacts/admin-payments-accounting-currency-progress-v6/
           retention-days: 30

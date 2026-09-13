@@ -14,24 +14,6 @@ const U=v=>S(v).toUpperCase();
 const N=v=>{const x=Number(v);return Number.isFinite(x)?x:null};
 const R=v=>Math.round((Number(v)+Number.EPSILON)*1000000)/1000000;
 
-// Direct materialization of the exact, source-locked Finance v23 Owner rule. This is used only
-// when no fresh structured proposal linked to the same v23 canon exists. It deliberately does
-// not reuse the older DEAL-009 proposal that was returned for revision.
-const CANON_V23_DIRECT_PAYMENT_TERMS=Object.freeze({
-  'DEAL-2026-009':Object.freeze({
-    currency:'RUB',
-    invoice_gross_basis:31002300,
-    verified_client_received:0,
-    due_now:0,
-    next_expected_payment:9300690,
-    expected_not_due:9300690,
-    nominal_future_70_percent:21701610,
-    projection_status:'EXPECTED_TO_VERIFY',
-    finance_status:'NOT_DUE',
-    document_dispatch_status:'NOT_SENT_TO_VERIFY'
-  })
-});
-
 function addMoney(map,currency,amount){const c=U(currency),v=N(amount);if(!c||v===null||v<0)return;map.set(c,R((map.get(c)||0)+v))}
 function moneyRows(map){return[...map.entries()].map(([currency,amount])=>({currency,amount})).sort((a,b)=>a.currency.localeCompare(b.currency))}
 function cleanNativeEvidence(row){const out={...row};for(const k of Object.keys(out)){if(/^management_usd/i.test(k)||/^usd_execution_links$/i.test(k))delete out[k]}return out}
@@ -112,24 +94,9 @@ function proposalAuthorityEligible(row){
   if(REJECTED_PROPOSAL_DECISIONS.has(U(row.authority_decision_status)))return false;
   return A(row.source_refs).map(S).includes(OWNER_FINANCE_CANON_REF)||S(row.parent_record_id)===OWNER_FINANCE_CANON_ID;
 }
-function directCanonPaymentCurrencyRows(canon){
-  if(!canon?.source_locked)return[];
-  const refs=new Set([...A(canon.source_refs),...A(canon.payload?.source_refs)].map(S));
-  if(!refs.has('OWNER_CONFIRMATION_2026-09-13_GAZONE_RUB_ACCOUNTING')||!refs.has('DEAL:DEAL-2026-009'))return[];
-  return Object.entries(CANON_V23_DIRECT_PAYMENT_TERMS).map(([deal_id,state])=>({
-    proposal_record_id:null,
-    proposal_status:'CANON_DIRECT',
-    deal_id,
-    state:{...state},
-    source_timestamp:canon.created_at??null,
-    source_refs:[OWNER_FINANCE_CANON_REF,...refs],
-    authority_source:'FINANCE_CANON_V23_DIRECT'
-  }));
-}
 function currentPaymentCurrencyAuthorityRows(canon,proposalRows){
-  const fresh=A(proposalRows).filter(proposalAuthorityEligible),seen=new Set(fresh.map(x=>S(x.deal_id))),rows=[...fresh];
-  for(const row of directCanonPaymentCurrencyRows(canon))if(!seen.has(S(row.deal_id)))rows.push(row);
-  return rows;
+  if(!canon?.source_locked||!financeCanonSourceLocked(canon))return[];
+  return A(proposalRows).filter(proposalAuthorityEligible);
 }
 
 function verifiedIncomingPaymentMap(finance){
@@ -158,14 +125,27 @@ function deriveAccountingCurrencies(finance,contour,authorityMap){
     if(set.size===1){out.set(dealId,{currency:[...set][0],status:'AUTHORITATIVE',source:'VERIFIED_INCOMING_CLIENT_PAYMENT'});continue}
     if(set.size>1){out.set(dealId,{currency:null,status:'TO_VERIFY',source:'MIXED_INBOUND_CURRENCIES'});continue}
     const authority=authorityMap.get(dealId),state=authority?.state||{},currency=U(state.currency);
-    if(currency)out.set(dealId,{currency,status:'AUTHORITATIVE',source:authority?.authority_source==='FINANCE_CANON_V23_DIRECT'?'FINANCE_CANON_V23_DIRECT':'OWNER_FINANCE_PAYMENT_CURRENCY',proposal_record_id:authority?.proposal_record_id??null,source_timestamp:authority?.source_timestamp??null});
+    if(currency)out.set(dealId,{currency,status:'AUTHORITATIVE',source:'OWNER_FINANCE_PAYMENT_CURRENCY',proposal_record_id:authority?.proposal_record_id??null,source_timestamp:authority?.source_timestamp??null});
     else out.set(dealId,{currency:null,status:'TO_VERIFY',source:'NO_AUTHORITATIVE_PAYMENT_CURRENCY'});
   }
   return out;
 }
+function verifiedReceivedByDeal(finance,contour,accounting){
+  const payments=verifiedIncomingPaymentMap(finance),allocs=activeAllocations(finance,contour),out=new Map();
+  for(const a of allocs){
+    const deal=S(a.deal_id),payment=payments.get(S(a.payment_id)),acct=accounting.get(deal),accountingCurrency=U(acct?.currency);
+    if(!deal||!payment||!accountingCurrency)continue;
+    const paymentCurrency=U(payment.currency||a.currency),allocated=N(a.allocated_amount??a.allocatedAmount);
+    if(!paymentCurrency||paymentCurrency!==accountingCurrency||allocated===null||allocated<0){out.set(deal,{amount:null,status:'TO_VERIFY',reason:'VERIFIED_RECEIPT_SOURCE_MISMATCH'});continue}
+    const prior=out.get(deal);
+    if(prior?.status==='TO_VERIFY')continue;
+    out.set(deal,{amount:R((N(prior?.amount)||0)+allocated),status:'AUTHORITATIVE',reason:'VERIFIED_BANK_PAYMENT_ALLOCATION'});
+  }
+  return out;
+}
 
-function buildControlRows(v5,accounting,authorityMap){
-  const old=new Map(A(v5?.dealPaymentControlRows).map(x=>[S(x.deal_id),x])),rows=[];
+function buildControlRows(v5,finance,accounting,authorityMap){
+  const old=new Map(A(v5?.dealPaymentControlRows).map(x=>[S(x.deal_id),x])),rows=[],contour=A(v5?.paymentContourDealIds).map(S).filter(Boolean),receivedByDeal=verifiedReceivedByDeal(finance,contour,accounting);
   for(const membership of A(v5?.paymentContourMembership)){
     const dealId=S(membership?.deal_id);if(!dealId)continue;
     const prior=old.get(dealId)||{},acct=accounting.get(dealId)||{currency:null,status:'TO_VERIFY'},authority=authorityMap.get(dealId),state=authority?.state||{},currency=acct.currency;
@@ -173,17 +153,17 @@ function buildControlRows(v5,accounting,authorityMap){
       rows.push({...prior,deal_id:dealId,currency:null,accounting_currency:null,accounting_currency_status:'TO_VERIFY',accounting_currency_source:acct.source||'NO_AUTHORITATIVE_PAYMENT_CURRENCY',total_to_receive_amount:null,verified_received_amount:null,expected_amount:null,due_now_amount:null,deferred_not_due_amount:null,remaining_obligation_amount:null,projection_status:'TO_VERIFY',payment_progress_pct:null,payment_progress_status:'TO_VERIFY',payment_handoff_state:membership.payment_handoff_state});
       continue;
     }
-    const samePrior=U(prior.currency)===currency;
+    const samePrior=U(prior.currency)===currency,receipt=receivedByDeal.get(dealId);
     const total=N(state.invoice_gross_basis??state.client_obligation)??(samePrior?N(prior.total_to_receive_amount):null);
-    const received=N(state.verified_client_received)??(samePrior?N(prior.verified_received_amount):0)??0;
+    const received=receipt?.status==='TO_VERIFY'?null:(N(receipt?.amount)??0);
     const due=N(state.due_now)??(samePrior?N(prior.due_now_amount):0)??0;
     const next=N(state.next_expected_payment??state.expected_not_due);
     const expected=next!==null?next:(samePrior?N(prior.expected_amount):0)??0;
     const future=N(state.nominal_future_70_percent??state.future_conditional_balance);
     const deferred=future!==null?future:(samePrior?N(prior.deferred_not_due_amount):0)??0;
-    const sourceStatus=U(state.projection_status),projectionStatus=sourceStatus.includes('TO_VERIFY')?'TO_VERIFY':(samePrior?U(prior.projection_status)||'AUTHORITATIVE':'AUTHORITATIVE');
-    const progress=total!==null&&total>0?R(Math.max(0,Math.min(100,received/total*100))):null;
-    rows.push({...prior,deal_id:dealId,currency,accounting_currency:currency,accounting_currency_status:acct.status,accounting_currency_source:acct.source,total_to_receive_amount:total,verified_received_amount:R(received),expected_amount:R(expected),due_now_amount:R(due),deferred_not_due_amount:R(deferred),remaining_obligation_amount:total===null?null:R(Math.max(0,total-received)),projection_status:projectionStatus,payment_progress_pct:progress,payment_progress_status:progress===null?'TO_VERIFY':'VERIFIED_RECEIVED_ONLY',payment_progress_semantics:'VISUAL_ONLY_NO_TRANCHE_NO_OVERDUE',payment_handoff_state:membership.payment_handoff_state,source_proposal_record_id:authority?.proposal_record_id??null,source_payment_currency_authority:authority?.authority_source??null});
+    const sourceStatus=U(state.projection_status),projectionStatus=received===null?'TO_VERIFY':(sourceStatus.includes('TO_VERIFY')?'TO_VERIFY':(samePrior?U(prior.projection_status)||'AUTHORITATIVE':'AUTHORITATIVE'));
+    const progress=received!==null&&total!==null&&total>0?R(Math.max(0,Math.min(100,received/total*100))):null;
+    rows.push({...prior,deal_id:dealId,currency,accounting_currency:currency,accounting_currency_status:acct.status,accounting_currency_source:acct.source,total_to_receive_amount:total,verified_received_amount:received===null?null:R(received),verified_received_source:receipt?.reason??'NO_VERIFIED_CLIENT_PAYMENT',expected_amount:R(expected),due_now_amount:R(due),deferred_not_due_amount:R(deferred),remaining_obligation_amount:total===null||received===null?null:R(Math.max(0,total-received)),projection_status:projectionStatus,payment_progress_pct:progress,payment_progress_status:progress===null?'TO_VERIFY':'VERIFIED_RECEIVED_ONLY',payment_progress_semantics:'VISUAL_ONLY_NO_TRANCHE_NO_OVERDUE',payment_handoff_state:membership.payment_handoff_state,source_proposal_record_id:authority?.proposal_record_id??null,source_payment_currency_authority:authority?.authority_source??null});
   }
   return rows.sort((a,b)=>S(a.deal_id).localeCompare(S(b.deal_id)));
 }
@@ -238,7 +218,7 @@ function stripV5UsdPresentation(out){
   return out;
 }
 function commonV6Policy(out){
-  out.ownerPaymentsPolicy={...out.ownerPaymentsPolicy,dealAccountingCurrencyFollowsClientPayment:true,mixedInboundCurrenciesFailClosed:true,crossCurrencySourceLockRequired:true,syntheticFx:false,fxPrincipalDoubleCount:false,convertedNotPaidIsActualSpend:false,upstreamLifecycleReadOnly:true};
+  out.ownerPaymentsPolicy={...out.ownerPaymentsPolicy,dealAccountingCurrencyFollowsClientPayment:true,mixedInboundCurrenciesFailClosed:true,crossCurrencySourceLockRequired:true,syntheticFx:false,fxPrincipalDoubleCount:false,convertedNotPaidIsActualSpend:false,upstreamLifecycleReadOnly:true,businessValuesDataDriven:true};
   out.accountingCurrencyEvidenceContract='FINANCE_DEAL_EXECUTION_ACCOUNTING_CURRENCY_LINKS_V6';
   out.historicalExecutionEvidenceContracts=['FINANCE_DEAL_EXECUTION_USD_LINKS_V5'];
   out.paymentProgressPolicy={formula:'VERIFIED_RECEIVED/TOTAL_TO_RECEIVE',visualOnly:true,fillVerifiedReceivedOnly:true,deferredUnfilledNeutral:true,trancheSegmentation:false,overdueSemantics:false};
@@ -261,6 +241,7 @@ function failClosedV6(v5,canon){
   out.expectedReceiptTotalsByCurrency=[];
   out.dueNowTotalsByCurrency=[];
   out.deferredNotDueTotalsByCurrency=[];
+  out.remainingToReceiveTotalsByCurrency=[];
   out.dealActualSpendTotalsByAccountingCurrency=[];
   out.dealAccountingCurrencyRows=[];
   return out;
@@ -278,7 +259,7 @@ export async function enrichOwnerPaymentsAccountingCurrencyProgressV6(financeFra
 
   const [rawProposalRows,links]=await Promise.all([readProposals(sql),readLinks(sql)]);
   const authorityRows=currentPaymentCurrencyAuthorityRows(canon,rawProposalRows),authorityMap=new Map(authorityRows.map(x=>[S(x.deal_id),x]));
-  const contour=A(v5?.paymentContourDealIds).map(S).filter(Boolean),accounting=deriveAccountingCurrencies(v5,contour,authorityMap),control=buildControlRows(v5,accounting,authorityMap),spend=buildSpend(v5,control,links),passports=buildPassports(v5,control,spend);
+  const contour=A(v5?.paymentContourDealIds).map(S).filter(Boolean),accounting=deriveAccountingCurrencies(v5,contour,authorityMap),control=buildControlRows(v5,v5,accounting,authorityMap),spend=buildSpend(v5,control,links),passports=buildPassports(v5,control,spend);
   const out=commonV6Policy(stripV5UsdPresentation({...v5}));
   out.ownerPaymentSemanticsContract=CONTRACT;
   out.ownerFinanceCanon={record_id:canon.record_id,status:'AUTHORITATIVE',version:canon.version,source_refs:canon.source_refs??[],created_at:canon.created_at??null};
@@ -293,6 +274,7 @@ export async function enrichOwnerPaymentsAccountingCurrencyProgressV6(financeFra
   out.expectedReceiptTotalsByCurrency=groupedTotals(control,'expected_amount');
   out.dueNowTotalsByCurrency=groupedTotals(control,'due_now_amount');
   out.deferredNotDueTotalsByCurrency=groupedTotals(control,'deferred_not_due_amount');
+  out.remainingToReceiveTotalsByCurrency=groupedTotals(control,'remaining_obligation_amount');
   out.dealActualSpendTotalsByAccountingCurrency=groupedSpend(passports);
   out.dealAccountingCurrencyRows=control.map(x=>({deal_id:x.deal_id,accounting_currency:x.accounting_currency,status:x.accounting_currency_status,source:x.accounting_currency_source,payment_progress_pct:x.payment_progress_pct}));
   return out;
@@ -303,5 +285,9 @@ export const __ownerPaymentsV6Test={
   OWNER_FINANCE_CANON_VERSION,
   financeCanonSourceLocked,
   proposalAuthorityEligible,
-  currentPaymentCurrencyAuthorityRows
+  currentPaymentCurrencyAuthorityRows,
+  verifiedIncomingPaymentMap,
+  activeAllocations,
+  deriveAccountingCurrencies,
+  verifiedReceivedByDeal
 };
