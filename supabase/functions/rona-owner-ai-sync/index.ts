@@ -1,6 +1,6 @@
 // @ts-nocheck
 import postgres from 'postgres';
-import { createAdminPaymentsV7SourceReader } from './admin-payments-v7-source-reader.mjs';
+import { createAdminPaymentsV7TruthSourceReader } from './admin-payments-v7-source-reader-truth.mjs';
 import { createRonaOwnerAiSyncV7Handler } from './admin-payments-v7-integration.mjs';
 
 const nativeServe = Deno.serve.bind(Deno);
@@ -46,7 +46,7 @@ async function persistOwnerDecision({ envelope }) {
   return rows[0];
 }
 
-const readRawSources = createAdminPaymentsV7SourceReader(v7Sql);
+const readRawSources = createAdminPaymentsV7TruthSourceReader(v7Sql);
 nativeServe(createRonaOwnerAiSyncV7Handler({
   runtimeHandler,
   readRawSources,
