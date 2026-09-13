@@ -82,9 +82,9 @@ begin
     raise exception 'PAYMENT_AUTHORITY_PAYMENT_CURRENCY_INVALID';
   end if;
 
-  select count(*), count(distinct value)
+  select count(*), count(distinct scope.deal_key)
     into scope_count, scope_distinct
-  from unnest(new.scope_deal_keys) as value;
+  from unnest(new.scope_deal_keys) as scope(deal_key);
 
   if scope_count <> scope_distinct then
     raise exception 'PAYMENT_AUTHORITY_DUPLICATE_SCOPE_DEAL';
@@ -141,10 +141,10 @@ begin
 
     if scope_count <> line_distinct
        or exists (
-         select 1 from unnest(new.scope_deal_keys) s
+         select 1 from unnest(new.scope_deal_keys) as scope(deal_key)
          where not exists (
            select 1 from jsonb_array_elements(new.lines_snapshot) item
-           where (item->>'deal_key')::uuid = s
+           where (item->>'deal_key')::uuid = scope.deal_key
          )
        )
        or exists (
