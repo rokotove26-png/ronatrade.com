@@ -61,7 +61,7 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs
-      - name: A-AZ backend regression, readiness and activation simulation suite
+      - name: A-BD backend regression, readiness and activation simulation suite
         run: npm run test:payments-v7
       - name: AH-AI, AN-AO, AT and Stage 3D.1 — PostgreSQL 17 persistence, privilege and readiness integration
         env:
