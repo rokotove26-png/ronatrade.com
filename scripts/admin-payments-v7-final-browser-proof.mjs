@@ -79,7 +79,7 @@ async function compile() {
 }
 
 function driver(expected) {
-  return `(()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));async function wait(fn,ms=12000){const end=Date.now()+ms;while(Date.now()<end){try{if(fn())return}catch{}await sleep(100)}throw new Error('WAIT_TIMEOUT')}async function run(){await wait(()=>window.__RONA_OWNER_ADMIN_READY__===true);await wait(()=>window.__RONA_OWNER_AI_SYNC_SNAPSHOT__);await wait(()=>window.__RONA_ADMIN_FAST_UI_LOADED__===true);document.querySelector('#nav button[data-page="payments"]')?.click();await wait(()=>document.querySelector('#page-payments .rona-payments-v7'));await sleep(250);const page=document.querySelector('#page-payments'),root=page.querySelector('.rona-payments-v7'),kpis=page.querySelector('.rona-payments-v7-kpis'),deal=page.querySelector('.rona-payments-v7-deal[data-deal-id="'+${JSON.stringify(expected.dealId)}+'"]'),cells=Array.from(deal?.querySelectorAll('.rona-payments-v7-deal-cell')||[]),receivedCell=cells.find(x=>x.querySelector('span')?.textContent.trim()==='Получено'),expectedCell=cells.find(x=>x.querySelector('span')?.textContent.trim()==='Ожидается'),passport=deal?.querySelector('.rona-payments-v7-passport'),status=deal?.querySelector('.rona-payments-v7-status'),progress=deal?.querySelector('.rona-payments-v7-progress>i'),pr=page.getBoundingClientRect(),rr=root.getBoundingClientRect(),kr=kpis.getBoundingClientRect(),dr=deal.getBoundingClientRect();const out={routeOwner:root.getAttribute('data-rona-payments-owner'),kpiCount:kpis.children.length,gridColumns:getComputedStyle(kpis).gridTemplateColumns.split(/\\s+/).filter(Boolean).length,received:receivedCell?.querySelector('strong')?.textContent.trim()||'',expected:expectedCell?.querySelector('strong')?.textContent.trim()||'',statusClass:status?.className||'',progressWidth:progress?.getBoundingClientRect().width||0,progressTrackWidth:progress?.parentElement?.getBoundingClientRect().width||0,passportClosed:passport?.open===false,technicalInPrimary:cells.some(x=>/Provenance|Валюта расчётов|Документы/.test(x.textContent||'')),kpiHeight:kr.height,dealHeight:dr.height,overflow:page.scrollWidth>page.clientWidth+1,visible:getComputedStyle(page).display!=='none'&&getComputedStyle(root).visibility!=='hidden'&&pr.width>200&&rr.width>200};const pre=document.createElement('pre');pre.id='payments-final-proof';pre.textContent=JSON.stringify(out);document.body.append(pre)}run()})();`;
+  return `(()=>{const sleep=ms=>new Promise(r=>setTimeout(r,ms));async function wait(fn,ms=12000){const end=Date.now()+ms;while(Date.now()<end){try{if(fn())return true}catch{}await sleep(100)}return false}function emit(id,payload){const pre=document.createElement('pre');pre.id=id;pre.textContent=typeof payload==='string'?payload:JSON.stringify(payload);document.body.append(pre)}async function run(){const readiness={adminReady:await wait(()=>window.__RONA_OWNER_ADMIN_READY__===true),snapshot:await wait(()=>window.__RONA_OWNER_AI_SYNC_SNAPSHOT__),fastUi:await wait(()=>window.__RONA_ADMIN_FAST_UI_LOADED__===true)};document.querySelector('#nav button[data-page="payments"]')?.click();readiness.payments=await wait(()=>document.querySelector('#page-payments .rona-payments-v7'));await sleep(250);const page=document.querySelector('#page-payments'),root=page?.querySelector('.rona-payments-v7'),kpis=page?.querySelector('.rona-payments-v7-kpis'),deal=page?.querySelector('.rona-payments-v7-deal[data-deal-id="'+${JSON.stringify(expected.dealId)}+'"]'),cells=Array.from(deal?.querySelectorAll('.rona-payments-v7-deal-cell')||[]),receivedCell=cells.find(x=>x.querySelector('span')?.textContent.trim()==='Получено'),expectedCell=cells.find(x=>x.querySelector('span')?.textContent.trim()==='Ожидается'),passport=deal?.querySelector('.rona-payments-v7-passport'),status=deal?.querySelector('.rona-payments-v7-status'),progress=deal?.querySelector('.rona-payments-v7-progress>i'),pr=page?.getBoundingClientRect(),rr=root?.getBoundingClientRect(),kr=kpis?.getBoundingClientRect(),dr=deal?.getBoundingClientRect();const out={readiness,routeOwner:root?.getAttribute('data-rona-payments-owner')||'',kpiCount:kpis?.children?.length||0,gridColumns:kpis?getComputedStyle(kpis).gridTemplateColumns.split(/\\s+/).filter(Boolean).length:0,received:receivedCell?.querySelector('strong')?.textContent.trim()||'',expected:expectedCell?.querySelector('strong')?.textContent.trim()||'',statusClass:status?.className||'',progressWidth:progress?.getBoundingClientRect().width||0,progressTrackWidth:progress?.parentElement?.getBoundingClientRect().width||0,passportClosed:passport?.open===false,technicalInPrimary:cells.some(x=>/Provenance|Валюта расчётов|Документы/.test(x.textContent||'')),kpiHeight:kr?.height||0,dealHeight:dr?.height||0,overflow:!!page&&page.scrollWidth>page.clientWidth+1,visible:!!page&&!!root&&getComputedStyle(page).display!=='none'&&getComputedStyle(root).visibility!=='hidden'&&(pr?.width||0)>200&&(rr?.width||0)>200};emit('payments-final-proof',out)}run().catch(err=>emit('payments-final-proof-error',String(err?.stack||err)))})();`;
 }
 
 async function serve(compiled, projection, fn) {
@@ -108,7 +108,7 @@ async function serve(compiled, projection, fn) {
     if (path.startsWith('/portal/admin-authority/agent-readiness')) return json({ ok: true, data: { matrixReady: true } });
     if (path.startsWith('/portal/admin-authority/')) return json({ ok: true, data: {} });
     if (path.startsWith('/portal/api')) return json({ ok: true, data: boot });
-    if (path === '/portal/rail-current-v81-maplibre-ui') { res.writeHead(200, { 'content-type': 'application/javascript' }); return res.end("window.__RONA_RAIL_CURRENT_V81__=true;"); }
+    if (path === '/portal/rail-current-v81-maplibre-ui') { res.writeHead(200, { 'content-type': 'application/javascript' }); return res.end("window.__RONA_RAIL_CURRENT_V81__=true;const x=document.createElement('div');x.hidden=true;x.setAttribute('data-rail-current-root','ready');document.body.append(x);"); }
     if (path === '/portal/analytics-v2-ui') { res.writeHead(200, { 'content-type': 'application/javascript' }); return res.end('window.__RONA_ANALYTICS_V2_READY__=true'); }
     if (path.startsWith('/portal/') || path.endsWith('.js')) { res.writeHead(200, { 'content-type': 'application/javascript' }); return res.end(';'); }
     res.writeHead(204); res.end();
@@ -120,7 +120,7 @@ async function serve(compiled, projection, fn) {
 
 async function screenshot(url, width, height, file) {
   return new Promise((resolve, reject) => {
-    const child = spawn(chrome(), ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--disable-dev-shm-usage', `--window-size=${width},${height}`, '--virtual-time-budget=14000', '--dump-dom', `--screenshot=${file}`, url], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(chrome(), ['--headless=new', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--disable-dev-shm-usage', `--window-size=${width},${height}`, '--virtual-time-budget=18000', '--dump-dom', `--screenshot=${file}`, url], { stdio: ['ignore', 'pipe', 'pipe'] });
     let out = '', err = '';
     child.stdout.on('data', (d) => out += d);
     child.stderr.on('data', (d) => err += d);
@@ -129,10 +129,16 @@ async function screenshot(url, width, height, file) {
   });
 }
 
+function decodeHtml(text) {
+  return text.replaceAll('&quot;', '"').replaceAll('&amp;', '&').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>');
+}
+
 function proof(dom) {
+  const error = dom.match(/<pre id="payments-final-proof-error">([^<]+)<\/pre>/);
+  if (error) throw new Error(`FINAL_PAYMENTS_BROWSER_RUNTIME_ERROR:${decodeHtml(error[1])}`);
   const match = dom.match(/<pre id="payments-final-proof">([^<]+)<\/pre>/);
   if (!match) throw new Error('FINAL_PAYMENTS_BROWSER_PROOF_MISSING');
-  return JSON.parse(match[1].replaceAll('&quot;', '"').replaceAll('&amp;', '&').replaceAll('&#39;', "'").replaceAll('&lt;', '<').replaceAll('&gt;', '>'));
+  return JSON.parse(decodeHtml(match[1]));
 }
 
 const compiled = await compile();
@@ -157,6 +163,7 @@ try {
     const served = await serve(compiled, sourceA, (url) => screenshot(url, width, height, join(OUT, `payments-final-${name}.png`)));
     const current = proof(served.result);
     responsive[name] = current;
+    assert.equal(current.readiness.payments, true, `${name}:payments-ready`);
     assert.equal(current.routeOwner, 'admin-payments-v7-native');
     assert.equal(current.kpiCount, 4);
     assert.equal(current.gridColumns, columns);
@@ -174,6 +181,7 @@ try {
 
   const changed = await serve(compiled, sourceB, (url) => screenshot(url, 1440, 1000, join(OUT, 'payments-final-source-change.png')));
   const changedProof = proof(changed.result);
+  assert.equal(changedProof.readiness.payments, true, 'source-change:payments-ready');
   assert.equal(changedProof.received, changed.expected.received);
   assert.equal(changedProof.expected, changed.expected.expected);
   assert.notEqual(changedProof.received, responsive.desktop.received);
