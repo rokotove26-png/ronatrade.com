@@ -82,9 +82,21 @@ function classifyResolvedClaim(claim, canonicalLines) {
   if (canonicalLines.length === 1) return { reconciliationClass: 'RESOLVED', businessDisposition: disposition || 'BIND_TO_DEAL', scope };
   return { reconciliationClass: classification || 'AUTHORITY_MATERIALIZATION_REQUIRED', businessDisposition: disposition || null, scope };
 }
-function reconciliationBase(payment) { return { payment_key: String(payment.payment_key), payment_id: payment.payment_id, owner_action_required: false, allowed_owner_actions: [], current_lines: [], scope_deal_keys: [], business_scope_refs: [], authority_refs: payment.authority_refs || [] }; }
-function noClaimGap(base, payment, reason) {
-  return { ...base, reconciliation_class: 'AUTHORITY_MATERIALIZATION_REQUIRED', status: 'TO_VERIFY', reason, integrity_status: 'NOT_APPLICABLE', owner_action_required: false, allowed_owner_actions: [], scope_deal_keys: unique(payment.candidate_deal_ids || []), materialization_status: 'NO_CURRENT_BUSINESS_AUTHORITY', business_disposition: null, fee_attribution_state: null, current_authority_id: null };
+function reconciliationBase(payment) {
+  return {
+    payment_key: String(payment.payment_key),
+    payment_id: payment.payment_id,
+    candidate_deal_ids: unique(payment.candidate_deal_ids || []),
+    owner_action_required: false,
+    allowed_owner_actions: [],
+    current_lines: [],
+    scope_deal_keys: [],
+    business_scope_refs: [],
+    authority_refs: payment.authority_refs || [],
+  };
+}
+function noClaimGap(base, reason) {
+  return { ...base, reconciliation_class: 'AUTHORITY_MATERIALIZATION_REQUIRED', status: 'TO_VERIFY', reason, integrity_status: 'NOT_APPLICABLE', owner_action_required: false, allowed_owner_actions: [], scope_deal_keys: [], materialization_status: 'NO_CURRENT_BUSINESS_AUTHORITY', business_disposition: null, fee_attribution_state: null, current_authority_id: null };
 }
 
 export function reconcilePaymentEvent(payment, allClaims, physicalAllocations, capabilities = {}, validDealKeys = []) {
@@ -92,27 +104,25 @@ export function reconcilePaymentEvent(payment, allClaims, physicalAllocations, c
   if (upper(payment.kind) === 'FX_CONVERSION') return { ...base, reconciliation_class: 'FX_CONVERSION_NOT_APPLICABLE', status: 'AUTHORITATIVE', reason: null, integrity_status: 'NOT_APPLICABLE', materialization_status: 'NOT_APPLICABLE', business_disposition: 'NOT_APPLICABLE', fee_attribution_state: null, current_authority_id: null };
   const paymentKey = String(payment.payment_key); const claims = (allClaims || []).filter((claim) => String(claim.payment_key) === paymentKey); const resolved = resolveAuthorityClaims(claims, stableAttributionSignature); const claim = resolved.claim;
   if (resolved.status === 'TO_VERIFY') {
-    const candidateDealKeys = unique(claims.flatMap((c) => [...(c.scope_deal_keys || []), ...(c.lines || []).map((line) => line.deal_key)]));
+    const authoritativeScopeDealKeys = unique(claims.flatMap((c) => [...(c.scope_deal_keys || []), ...(c.lines || []).map((line) => line.deal_key)]));
     const businessScopeRefs = unique(claims.flatMap((c) => c.business_scope_refs || []));
-    return { ...base, reconciliation_class: 'AUTHORITY_CONFLICT', status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', integrity_status: 'TO_VERIFY', scope_deal_keys: candidateDealKeys, business_scope_refs: businessScopeRefs, materialization_status: 'AUTHORITY_CONFLICT', business_disposition: null, fee_attribution_state: null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: null };
+    return { ...base, reconciliation_class: 'AUTHORITY_CONFLICT', status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', integrity_status: 'TO_VERIFY', scope_deal_keys: authoritativeScopeDealKeys, business_scope_refs: businessScopeRefs, materialization_status: 'AUTHORITY_CONFLICT', business_disposition: null, fee_attribution_state: null, authority_refs: [...base.authority_refs, ...resolved.authority_refs], current_authority_id: null };
   }
   if (!claim) {
     const review = upper(payment.allocation_review_status);
     const applicability = upper(payment.allocation_applicability);
     const providerPresent = capabilities.paymentBusinessAuthorityPresent === true || (capabilities.paymentBusinessAuthorityPresent === undefined && capabilities.paymentBusinessAuthority === true);
     const providerReady = capabilities.paymentBusinessAuthorityReady === true;
-    const hasKnownCandidateScope = (payment.candidate_deal_ids || []).length > 0;
     const authoritativeBankFact = upper(payment.bank_fact_status) === 'BANK_CONFIRMED' && payment.source_locked === true;
     const dealAllocatable = applicability === 'DEAL_ALLOCATABLE' || applicability === 'APPLICABLE';
 
     if (applicability === 'NOT_APPLICABLE' || review === 'NOT_APPLICABLE') {
       return { ...base, reconciliation_class: 'ALLOCATION_NOT_APPLICABLE', status: 'AUTHORITATIVE', reason: null, integrity_status: 'NOT_APPLICABLE', materialization_status: 'NOT_APPLICABLE', business_disposition: 'NOT_APPLICABLE', fee_attribution_state: null, current_authority_id: null };
     }
-    if (review === 'VERIFIED') return noClaimGap(base, payment, 'VERIFIED_WITHOUT_BACKING_AUTHORITY');
-    if (!providerPresent) return noClaimGap(base, payment, 'PAYMENT_BUSINESS_AUTHORITY_PROVIDER_ABSENT');
-    if (!providerReady) return noClaimGap(base, payment, 'PAYMENT_BUSINESS_AUTHORITY_NOT_READY');
-    if (hasKnownCandidateScope) return noClaimGap(base, payment, 'KNOWN_SCOPE_AUTHORITY_MATERIALIZATION_REQUIRED');
-    if (!authoritativeBankFact || !dealAllocatable || review !== 'TO_VERIFY') return noClaimGap(base, payment, 'SOURCE_RECONSTRUCTION_REQUIRED');
+    if (review === 'VERIFIED') return noClaimGap(base, 'VERIFIED_WITHOUT_BACKING_AUTHORITY');
+    if (!providerPresent) return noClaimGap(base, 'PAYMENT_BUSINESS_AUTHORITY_PROVIDER_ABSENT');
+    if (!providerReady) return noClaimGap(base, 'PAYMENT_BUSINESS_AUTHORITY_NOT_READY');
+    if (!authoritativeBankFact || !dealAllocatable || review !== 'TO_VERIFY') return noClaimGap(base, 'SOURCE_RECONSTRUCTION_REQUIRED');
 
     return { ...base, reconciliation_class: 'GENUINELY_UNALLOCATED', status: 'AUTHORITATIVE', reason: null, integrity_status: 'NOT_APPLICABLE', owner_action_required: true, allowed_owner_actions: ['BIND_TO_DEAL', 'ASSIGN_ADVANCE_PAYMENT'], scope_deal_keys: [], materialization_status: 'OWNER_DECISION_REQUIRED', business_disposition: null, fee_attribution_state: null, current_authority_id: null };
   }
