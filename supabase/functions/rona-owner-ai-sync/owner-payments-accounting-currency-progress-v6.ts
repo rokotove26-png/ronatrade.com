@@ -59,6 +59,7 @@ async function readCurrentPaymentCurrencyProposals(sql){
   return await sql`
     select distinct on (p.target_id)
       p.record_id proposal_record_id,
+      p.parent_record_id,
       p.target_id deal_id,
       p.status::text proposal_status,
       p.payload->'proposed_state' state,
@@ -109,7 +110,7 @@ async function readAccountingCurrencyLinks(sql){
 function proposalAuthorityEligible(row){
   if(!row||U(row.proposal_status||'PROPOSED')!=='PROPOSED')return false;
   if(REJECTED_PROPOSAL_DECISIONS.has(U(row.authority_decision_status)))return false;
-  return A(row.source_refs).map(S).includes(OWNER_FINANCE_CANON_REF);
+  return A(row.source_refs).map(S).includes(OWNER_FINANCE_CANON_REF)||S(row.parent_record_id)===OWNER_FINANCE_CANON_ID;
 }
 function directCanonPaymentCurrencyRows(canon){
   if(!canon?.source_locked)return[];
