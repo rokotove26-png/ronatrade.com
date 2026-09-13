@@ -33,6 +33,7 @@ const financeFixture={ok:true,data:{financeFragment}};
 const adminBootstrap={ok:true,data:{applications:[],deals:[],rail:[],clients:[],counterparties:[],payments:[],tasks:[],documents:[],users:[],operationalConflicts:[],financeFragment:{}}};
 
 function pass(name,cond){if(!cond)throw new Error(name+'=FAIL');console.log(name+'=PASS')}
+const compact=s=>String(s||'').replace(/[\s\u00a0\u202f]/g,'');
 const browser=await chromium.launch({headless:true});
 const context=await browser.newContext({viewport:{width:1440,height:1000},extraHTTPHeaders:{'x-rona-v6-real-preview-qa':'exact-head-v6'}});
 const page=await context.newPage();
@@ -84,15 +85,17 @@ try{
 pass('REAL_PREVIEW_DEPLOYED_RENDER_READY',await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true));
 await page.locator('#page-payments .rona-pay-v6-stack').waitFor({state:'visible',timeout:10000});
 
-const text=await page.locator('#page-payments').innerText(),norm=text.replace(/[\s\u00a0\u202f]/g,'');
+const text=await page.locator('#page-payments').innerText();
 pass('DEAL_ACCOUNTING_CURRENCY_FOLLOWS_CLIENT_PAYMENT',text.includes('Валюта учета'));
 pass('DEAL_004_USD',(await page.locator('#page-payments tr',{hasText:'DEAL-2026-004'}).first().innerText()).includes('USD'));
 pass('DEAL_005_USD',(await page.locator('#page-payments tr',{hasText:'DEAL-2026-005'}).first().innerText()).includes('USD'));
 pass('DEAL_006_USD',(await page.locator('#page-payments tr',{hasText:'DEAL-2026-006'}).first().innerText()).includes('USD'));
-const gaz=await page.locator('#page-payments tr',{hasText:'DEAL-2026-009'}).first().innerText(),gazNorm=gaz.replace(/[\s\u00a0\u202f]/g,'');
+const gaz=await page.locator('#page-payments tr',{hasText:'DEAL-2026-009'}).first().innerText(),gazNorm=compact(gaz);
 pass('DEAL_009_RUB',gaz.includes('RUB')&&gazNorm.includes('31002300')&&gazNorm.includes('9300690')&&gazNorm.includes('21701610'));
 pass('GAZONE_NO_PARALLEL_USD_MANAGEMENT',!gaz.includes('USD')&&!gazNorm.includes('362600')&&!gazNorm.includes('108780')&&!gazNorm.includes('253820'));
-pass('GLOBAL_TOTALS_GROUPED_BY_CURRENCY',norm.includes('31002300RUB')&&norm.includes('1073150USD'));
+const receivedKpi=compact(await page.locator('#page-payments .rona-owner-card',{hasText:'Получено от клиентов'}).first().innerText());
+const expectedKpi=compact(await page.locator('#page-payments .rona-owner-card',{hasText:'Ожидается поступление'}).first().innerText());
+pass('GLOBAL_TOTALS_GROUPED_BY_CURRENCY',receivedKpi.includes('0RUB')&&receivedKpi.includes('487320USD')&&expectedKpi.includes('9300690RUB')&&expectedKpi.includes('585830USD'));
 for(const [deal,pct] of [['DEAL-2026-004','100'],['DEAL-2026-005','30'],['DEAL-2026-006','30'],['DEAL-2026-009','0']]){
   const el=page.locator(`[data-rona-progress-deal="${deal}"]`);
   pass('PROGRESS_'+deal.replaceAll('-','_')+'_'+pct,await el.getAttribute('data-progress-pct')===pct);
@@ -126,7 +129,7 @@ pass('PAYMENT_AMOUNT_IMMUTABLE',ownerPosts.every(x=>!x.body.includes('PAYMENT.am
 
 pass('REAL_PREVIEW_NO_PAGEERROR',pageErrors.length===0);
 pass('REAL_PREVIEW_NO_CONSOLE_ERRORS',consoleErrors.length===0);
-const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,deployedAdminAsset:documentResponse?.headers()?.['x-rona-v6-real-preview-asset']||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),financeRequests,pageErrors,consoleErrors,ownerPosts};
+const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,deployedAdminAsset:documentResponse?.headers()?.['x-rona-v6-real-preview-asset']||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),receivedKpi,expectedKpi,financeRequests,pageErrors,consoleErrors,ownerPosts};
 fs.writeFileSync(path.join(out,'real-preview-browser-proof.json'),JSON.stringify(proof,null,2));
 console.log('REAL_PREVIEW_BROWSER_ACCEPTANCE=PASS');
 console.log('IMMUTABLE_PREVIEW='+origin);
