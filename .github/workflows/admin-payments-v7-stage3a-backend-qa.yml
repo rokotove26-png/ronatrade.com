@@ -61,8 +61,18 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs
-      - name: A-BD backend regression, readiness and activation simulation suite
+      - name: A-BD plus Stage 5A/5B regression and live-source integration suite
         run: npm run test:payments-v7
+      - name: Stage 5B real live-shell browser route proof
+        run: node scripts/admin-payments-v7-stage5b-browser-proof.mjs
+      - name: Upload Stage 5B visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-payments-v7-stage5b-visual-${{ github.event.pull_request.head.sha || github.sha }}
+          path: stage5b-artifacts/
+          if-no-files-found: error
+          retention-days: 14
       - name: Stage 4A migration-lineage aliases for historical PG harness
         run: |
           ln -s 20260913160703_admin_payments_v7_stage3a_authority_core.sql \
