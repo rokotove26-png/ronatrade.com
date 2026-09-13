@@ -1,35 +1,20 @@
 name: Admin Payments V7 Stage 3A Backend QA
-
 on:
   pull_request:
-    paths:
-      - 'supabase/functions/rona-portal-api/admin-payments-v7/**'
-      - 'supabase/migrations/*admin_payments_v7_stage3a*'
-      - 'tests/admin-payments-v7/**'
-      - 'scripts/check-admin-payments-v7-no-hardcode.mjs'
-      - 'package.json'
-  push:
-    branches:
-      - feat/admin-payments-v7-clean-rebuild
-    paths:
-      - 'supabase/functions/rona-portal-api/admin-payments-v7/**'
-      - 'supabase/migrations/*admin_payments_v7_stage3a*'
-      - 'tests/admin-payments-v7/**'
-      - 'scripts/check-admin-payments-v7-no-hardcode.mjs'
-      - 'package.json'
-
-permissions:
-  contents: read
-
+  workflow_dispatch:
 jobs:
   backend-qa:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-      - name: A-Q backend tests
+          node-version: 22
+      - name: A-X backend regression and correction suite
         run: npm run test:payments-v7
-      - name: NO-HARDCODE runtime scan
+      - name: NO-HARDCODE changed production runtime scan
+        env:
+          NO_HARDCODE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: npm run scan:payments-v7

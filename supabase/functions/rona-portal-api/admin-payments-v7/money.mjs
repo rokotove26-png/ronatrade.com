@@ -1,4 +1,4 @@
-import { decimalToString, parseDecimal } from './decimal.mjs';
+import { canonicalDecimalString } from './decimal.mjs';
 
 export function authorityRef(source = {}) {
   return {
@@ -13,18 +13,12 @@ export function authorityRef(source = {}) {
 
 export function moneyValue(amount, currency, status = 'AUTHORITATIVE', reason = null, authorityRefs = []) {
   return {
-    amount: amount === null || amount === undefined ? null : decimalToString(parseDecimal(String(amount))),
-    currency: currency || null,
+    amount: amount === null || amount === undefined ? null : canonicalDecimalString(amount),
+    currency: currency ? String(currency).trim().toUpperCase() : null,
     status,
     reason,
     authority_refs: authorityRefs,
   };
 }
-
-export function toVerifyMoney(currency = null, reason = 'TO_VERIFY', authorityRefs = []) {
-  return moneyValue(null, currency, 'TO_VERIFY', reason, authorityRefs);
-}
-
-export function notApplicableMoney(reason = 'NOT_APPLICABLE', authorityRefs = []) {
-  return moneyValue(null, null, 'NOT_APPLICABLE', reason, authorityRefs);
-}
+export function toVerifyMoney(currency = null, reason = 'TO_VERIFY', authorityRefs = []) { return moneyValue(null, currency, 'TO_VERIFY', reason, authorityRefs); }
+export function notApplicableMoney(reason = 'NOT_APPLICABLE', authorityRefs = []) { return moneyValue(null, null, 'NOT_APPLICABLE', reason, authorityRefs); }

@@ -1,4 +1,4 @@
--- Admin Payments V7 Stage 3A generic authority models.
+-- Admin Payments V7 Stage 3A/3A.1 generic authority models.
 -- Branch migration only. PRODUCTION_DDL remains HOLD.
 
 create table if not exists portal_private.payment_business_attributions_v7 (
@@ -15,14 +15,16 @@ create table if not exists portal_private.payment_business_attributions_v7 (
   authority_state text not null,
   lifecycle_state text not null,
   effective_at timestamptz not null,
+  -- Same-table convenience link plus generic typed cross-source supersession references.
   supersedes_id uuid null references portal_private.payment_business_attributions_v7(id),
+  supersedes_authority_refs jsonb not null default '[]'::jsonb,
   source_version text null,
   source_timestamp timestamptz null,
   source_refs jsonb not null default '[]'::jsonb,
   source_locked boolean not null default false,
   actor_id uuid null,
   actor_role text null,
-  idempotency_key text null,
+  idempotency_key text not null,
   created_at timestamptz not null default now(),
   unique (payment_key, idempotency_key)
 );
@@ -36,7 +38,11 @@ create table if not exists portal_private.payment_business_attribution_lines_v7 
   amount_status text not null check (amount_status in ('EXACT','SCOPE_ONLY')),
   source_refs jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now(),
-  check ((amount_status = 'EXACT' and amount is not null and currency is not null) or amount_status = 'SCOPE_ONLY')
+  unique (attribution_id, deal_key),
+  check (
+    (amount_status = 'EXACT' and amount is not null and amount > 0 and currency is not null)
+    or (amount_status = 'SCOPE_ONLY' and amount is null)
+  )
 );
 
 create index if not exists payment_business_attributions_v7_payment_idx
@@ -60,41 +66,33 @@ create table if not exists portal_private.deal_finance_authority_v7 (
   lifecycle_state text not null,
   effective_at timestamptz not null,
   supersedes_id uuid null references portal_private.deal_finance_authority_v7(id),
+  supersedes_authority_refs jsonb not null default '[]'::jsonb,
   source_version text null,
   source_timestamp timestamptz null,
   source_refs jsonb not null default '[]'::jsonb,
   source_locked boolean not null default false,
   created_at timestamptz not null default now(),
-  check (
-    (total_to_receive is null and obligation_currency is null)
-    or (total_to_receive is not null and obligation_currency is not null)
-  )
+  check ((total_to_receive is null and obligation_currency is null) or (total_to_receive is not null and obligation_currency is not null))
 );
 
 create index if not exists deal_finance_authority_v7_deal_idx
   on portal_private.deal_finance_authority_v7(deal_key, lifecycle_state, effective_at);
 
--- Immutable authority rows: supersession is append-only. Updates/deletes are rejected.
 create or replace function portal_private.reject_v7_authority_mutation()
-returns trigger
-language plpgsql
-as $$
+returns trigger language plpgsql as $$
 begin
   raise exception 'V7 authority records are immutable; append a superseding record instead';
 end;
 $$;
 
 drop trigger if exists payment_business_attributions_v7_immutable on portal_private.payment_business_attributions_v7;
-create trigger payment_business_attributions_v7_immutable
-before update or delete on portal_private.payment_business_attributions_v7
+create trigger payment_business_attributions_v7_immutable before update or delete on portal_private.payment_business_attributions_v7
 for each row execute function portal_private.reject_v7_authority_mutation();
 
 drop trigger if exists payment_business_attribution_lines_v7_immutable on portal_private.payment_business_attribution_lines_v7;
-create trigger payment_business_attribution_lines_v7_immutable
-before update or delete on portal_private.payment_business_attribution_lines_v7
+create trigger payment_business_attribution_lines_v7_immutable before update or delete on portal_private.payment_business_attribution_lines_v7
 for each row execute function portal_private.reject_v7_authority_mutation();
 
 drop trigger if exists deal_finance_authority_v7_immutable on portal_private.deal_finance_authority_v7;
-create trigger deal_finance_authority_v7_immutable
-before update or delete on portal_private.deal_finance_authority_v7
+create trigger deal_finance_authority_v7_immutable before update or delete on portal_private.deal_finance_authority_v7
 for each row execute function portal_private.reject_v7_authority_mutation();
