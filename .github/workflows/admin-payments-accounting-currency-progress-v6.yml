@@ -1,0 +1,154 @@
+name: Admin Payments Deal Accounting Currency Progress V6 QA
+
+on:
+  push:
+    branches:
+      - feat/admin-payments-deal-accounting-currency-progress-v6
+  pull_request:
+    branches:
+      - feat/admin-payments-canonical-owner-workflow-v4-scope-fix
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  owner-payments-v6:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      BASE_HEAD: 0988c47b4f330d244ea004cd037badb1e9ead1b8
+      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.EXPECTED_HEAD }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Exact-head and stacked-base guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          git merge-base --is-ancestor "$BASE_HEAD" HEAD
+          echo "OWNER_PAYMENTS_V6_EXACT_HEAD=$EXPECTED_HEAD"
+          echo "OWNER_PAYMENTS_V6_BASE_HEAD=$BASE_HEAD"
+
+      - name: Build current Admin
+        run: npm run build
+
+      - name: Source and scope QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/admin-payments-accounting-currency-progress-v6
+          node scripts/qa-admin-payments-accounting-currency-progress-v6-source.mjs | tee artifacts/admin-payments-accounting-currency-progress-v6/source-qa.log
+
+      - name: PostgreSQL generic evidence contract QA
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f scripts/qa-owner-payments-accounting-currency-progress-v6-db.sql 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/db-qa.log
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --no-package-lock playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Resolve immutable exact-head Cloudflare preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {appendFile} from 'node:fs/promises';
+          const token=process.env.GH_TOKEN,head=process.env.EXPECTED_HEAD,repo=process.env.GITHUB_REPOSITORY;
+          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));let check=null;
+          for(let i=0;i<120;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
+            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
+            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
+            check=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
+            if(check)break;
+            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
+            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
+            await sleep(5000);
+          }
+          if(!check)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
+          const urls=[...new Set([...String(check?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
+          let origin=urls.length===1?urls[0]:'';const external=String(check?.external_id||'').trim().toLowerCase();
+          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
+          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
+          await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\nCLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
+          console.log(`OWNER_PAYMENTS_V6_IMMUTABLE_PREVIEW_URL=${origin}`);
+          NODE
+
+      - name: Real-browser V6 acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-admin-payments-accounting-currency-progress-v6-browser-runner.mjs 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log
+
+      - name: Required V6 gates
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat artifacts/admin-payments-accounting-currency-progress-v6/source-qa.log artifacts/admin-payments-accounting-currency-progress-v6/db-qa.log artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log > artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
+          for marker in \
+            DEAL_ACCOUNTING_CURRENCY_FOLLOWS_CLIENT_PAYMENT \
+            DEAL_004_USD \
+            DEAL_005_USD \
+            DEAL_006_USD \
+            DEAL_009_RUB \
+            GAZONE_NO_PARALLEL_USD_MANAGEMENT \
+            MIXED_CURRENCY_FAIL_CLOSED \
+            CROSS_CURRENCY_SOURCE_LOCK_REQUIRED \
+            NO_SYNTHETIC_FX \
+            NO_FX_DOUBLE_COUNT \
+            GLOBAL_TOTALS_GROUPED_BY_CURRENCY \
+            PAYMENT_PROGRESS_VISUAL_ONLY \
+            PROGRESS_FILL_VERIFIED_RECEIVED_ONLY \
+            DEFERRED_UNFILLED_NEUTRAL \
+            NO_PROGRESS_TRANCHE_SEGMENTATION \
+            UPSTREAM_LIFECYCLE_READ_ONLY \
+            NO_NEW_PAYMENT_STAGE_GATE \
+            NIKOIL_NOT_HARDCODED \
+            OWNER_UNALLOCATED_PARTIAL_MULTI_DEAL_WORKFLOW \
+            PAYMENT_AMOUNT_IMMUTABLE \
+            PAYMENT_PASSPORT_REMAINS_PAYMENT_CENTRIC; do
+            grep -Fq "${marker}=PASS" artifacts/admin-payments-accounting-currency-progress-v6/all-qa.log
+          done
+          echo "OWNER_PAYMENTS_V6_REQUIRED_GATES=PASS"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-payments-accounting-currency-progress-v6-proof-${{ github.run_id }}
+          path: artifacts/admin-payments-accounting-currency-progress-v6/
+          retention-days: 30
