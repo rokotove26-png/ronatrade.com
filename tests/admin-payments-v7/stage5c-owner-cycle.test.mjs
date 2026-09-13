@@ -77,7 +77,7 @@ function claimFromDecision(decision) {
   };
 }
 
-function harness(initial = source()) {
+function harness(initial = source(), allowedOwnerActions = null) {
   const state = structuredClone(initial);
   const persisted = [];
   let adminSyncReads = 0;
@@ -96,7 +96,13 @@ function harness(initial = source()) {
     runtimeHandler,
     readRawSources: async () => structuredClone(state),
     buildSourceBundle: (value) => value,
-    buildProjection: (value) => buildAdminPaymentsV7Projection(value),
+    buildProjection: (value) => {
+      const projection = buildAdminPaymentsV7Projection(value);
+      if (allowedOwnerActions !== null && projection.owner_exception_queue?.[0]) {
+        projection.owner_exception_queue[0].allowed_owner_actions = structuredClone(allowedOwnerActions);
+      }
+      return projection;
+    },
     persistOwnerDecision: async ({ envelope, decision }) => {
       persisted.push(structuredClone({ envelope, decision }));
       state.attributionClaims.push(claimFromDecision(decision));
@@ -118,6 +124,59 @@ async function postOwner(handler, body) {
 async function getSync(handler) {
   return handler(new Request('https://example.test/admin/sync', { method: 'GET', headers: { authorization: 'Bearer synthetic' } }));
 }
+
+function renderOwnerControls(allowedOwnerActions) {
+  return renderAdminPaymentsV7NativeHtml({
+    paymentsV7Projection: {
+      contract: 'ADMIN_PAYMENTS_V7',
+      deals: [{
+        deal_key: '10000000-0000-4000-8000-000000000001',
+        deal_id: 'DEAL-A',
+        client_display: 'Client A',
+      }],
+      owner_exception_queue: [{
+        payment_key: '20000000-0000-4000-8000-000000000001',
+        payment_ids: ['PAY-OWNER-1'],
+        payment_amount: '70',
+        payment_currency: 'USD',
+        allowed_owner_actions: allowedOwnerActions,
+        candidate_deal_ids: ['10000000-0000-4000-8000-000000000001'],
+      }],
+    },
+  });
+}
+
+test('Stage 5C.1 — BOTH authoritative Owner actions render both controls', () => {
+  const html = renderOwnerControls(['BIND_TO_DEAL', 'ASSIGN_ADVANCE_PAYMENT']);
+  assert.match(html, /data-owner-deal/);
+  assert.match(html, /data-owner-action="BIND_TO_DEAL"/);
+  assert.match(html, /data-owner-action="ASSIGN_ADVANCE_PAYMENT"/);
+  assert.match(html, /подсказка/);
+});
+
+test('Stage 5C.1 — BIND only renders selector and bind control only', () => {
+  const html = renderOwnerControls(['BIND_TO_DEAL']);
+  assert.match(html, /data-owner-deal/);
+  assert.match(html, /data-owner-action="BIND_TO_DEAL"/);
+  assert.doesNotMatch(html, /data-owner-action="ASSIGN_ADVANCE_PAYMENT"/);
+});
+
+test('Stage 5C.1 — ADVANCE only renders advance control without Deal selector', () => {
+  const html = renderOwnerControls(['ASSIGN_ADVANCE_PAYMENT']);
+  assert.doesNotMatch(html, /data-owner-deal/);
+  assert.doesNotMatch(html, /data-owner-action="BIND_TO_DEAL"/);
+  assert.match(html, /data-owner-action="ASSIGN_ADVANCE_PAYMENT"/);
+});
+
+test('Stage 5C.1 — empty or invalid allowed actions render zero mutation controls', () => {
+  for (const actions of [[], 'BIND_TO_DEAL', null]) {
+    const html = renderOwnerControls(actions);
+    assert.doesNotMatch(html, /data-owner-deal/);
+    assert.doesNotMatch(html, /data-owner-action=/);
+  }
+  assert.match(PAYMENTS_V7_BROWSER_RUNTIME, /allowed_owner_actions/);
+  assert.match(PAYMENTS_V7_BROWSER_RUNTIME, /paymentsV7AllowedOwnerActions/);
+});
 
 test('Stage 5C — full Owner BIND cycle rechecks current server state, ignores candidate hint and refreshes authoritative sync', async () => {
   const h = harness();
@@ -173,6 +232,19 @@ test('Stage 5C — endpoint rejects browser authority arithmetic and non-contour
   });
   assert.equal(response.status, 400);
   assert.equal((await response.json()).code, 'BIND_TARGET_DEAL_NOT_IN_PAYMENTS_CONTOUR');
+  assert.equal(h.persisted.length, 0);
+});
+
+test('Stage 5C.1 — server rejects action absent from authoritative allowed_owner_actions', async () => {
+  const h = harness(source(), ['BIND_TO_DEAL']);
+  const response = await postOwner(h.handler, {
+    payment_key: h.state.payments[0].payment_key,
+    action: 'ASSIGN_ADVANCE_PAYMENT',
+    expected_current_authority_id: null,
+    idempotency_key: 'advance-not-allowed',
+  });
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).code, 'OWNER_ACTION_NOT_ALLOWED_FOR_CURRENT_STATE');
   assert.equal(h.persisted.length, 0);
 });
 
