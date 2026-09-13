@@ -22,7 +22,7 @@ CREATE TEMP TABLE stage4b_before AS SELECT
  (SELECT count(*) FROM portal_private.admin_payments_v7_provider_readiness) readiness_rows,
  (SELECT is_ready FROM portal_private.admin_payments_v7_provider_readiness WHERE provider_key='PAYMENT_BUSINESS_AUTHORITY') readiness_value;
 
-\ir ../../supabase/migrations/20260913181100_admin_payments_v7_stage4b_owner_persistence_delta.sql
+\ir ../../supabase/migrations/20260913182849_admin_payments_v7_stage4b_owner_persistence_delta.sql
 
 DO $$
 DECLARE fn oid; cfg text[];
