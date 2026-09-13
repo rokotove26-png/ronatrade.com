@@ -24,7 +24,7 @@ function recordR2Diag(patch={}){window.__RONA_OWNER_PAYMENTS_V6_DIAGNOSTICS__=Ob
 function r2SummaryPresent(){return !!document.querySelector('#page-payments [data-rona-summary-kpis="v6-r2"]')}
 let r2RecoveryQueued=false;
 function scheduleR2Recovery(reason){if(r2RecoveryQueued)return;r2RecoveryQueued=true;queueMicrotask(()=>{r2RecoveryQueued=false;if(!window.__RONA_OWNER_PAYMENTS_V6_READY__||r2SummaryPresent())return;recordR2Diag({legacyOverwriteDetected:true,lastRecoveryReason:String(reason||'unknown')});render()})}
-function installR2OwnerGuard(){const host=document.getElementById('page-payments');if(!host||host.__ronaV6R2OwnerGuard)return;host.__ronaV6R2OwnerGuard=true;const observer=new MutationObserver(()=>scheduleR2Recovery('payments-dom-mutation'));observer.observe(host,{childList:true,subtree:false});window.__RONA_OWNER_PAYMENTS_V6_OWNER_GUARD__=observer;recordR2Diag({ownerGuardInstalled:true})}
+function installR2OwnerGuard(){const host=document.getElementById('page-payments');if(!host||host.__ronaV6R2OwnerGuard)return;host.__ronaV6R2OwnerGuard=true;const observer=new MutationObserver(()=>scheduleR2Recovery('payments-dom-mutation'));observer.observe(host,{childList:true,subtree:true});window.__RONA_OWNER_PAYMENTS_V6_OWNER_GUARD__=observer;recordR2Diag({ownerGuardInstalled:true})}
 function onR2PageChange(event){if(S(event?.detail?.page)!=='payments')return;recordR2Diag({pageChangeObserved:true});if(state.finance)renderFinance(state.finance);else render()}
 function onR2FinanceSync(){if(S(document.documentElement?.dataset?.ronaAdminPage)!=='payments')return;recordR2Diag({financeSyncObserved:true});refreshAfter().catch(err=>{recordR2Diag({financeSyncRefreshError:S(err?.message||err)});console.error('owner payments v6 r2 finance sync',err)})}
 `;
@@ -46,6 +46,7 @@ if(!ownerPaymentsV6R2Runtime.includes('@media(max-width:680px){.rona-pay-v6-summ
 if(!ownerPaymentsV6R2Runtime.includes("window.__RONA_OWNER_PAYMENTS_V6_REFRESH__=()=>refreshAfter()"))throw new Error('OWNER_PAYMENTS_V6_R2_REFRESH_HOOK_MISSING');
 if(!ownerPaymentsV6R2Runtime.includes("window.addEventListener('rona:admin-pagechange',onR2PageChange)"))throw new Error('OWNER_PAYMENTS_V6_R2_PAGECHANGE_OWNER_MISSING');
 if(!ownerPaymentsV6R2Runtime.includes('new MutationObserver(()=>scheduleR2Recovery'))throw new Error('OWNER_PAYMENTS_V6_R2_DOM_OWNER_GUARD_MISSING');
+if(!ownerPaymentsV6R2Runtime.includes('subtree:true'))throw new Error('OWNER_PAYMENTS_V6_R2_NESTED_DOM_GUARD_MISSING');
 if(!ownerPaymentsV6R2Runtime.includes('financeAuthorityOk:authorityOk'))throw new Error('OWNER_PAYMENTS_V6_R2_AUTHORITY_DIAGNOSTIC_MISSING');
 
 export default ownerPaymentsV6R2Runtime;
