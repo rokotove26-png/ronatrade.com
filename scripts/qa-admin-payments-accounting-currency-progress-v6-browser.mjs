@@ -45,20 +45,27 @@ await page.route('**/portal/**',async route=>{
   if(req.resourceType()==='document')return route.continue();
   if(url.pathname==='/portal/owner-payments-accounting-currency-progress-v6-source')return route.fulfill({status:200,contentType:'application/json',headers:{'cache-control':'no-store','x-qa-fixture':'finance-v23'},body:JSON.stringify(financeFixture)});
   if(url.pathname==='/portal/admin-completed-bootstrap')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(adminBootstrap)});
+  if(url.pathname==='/portal/api/session/me')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,user:{roles:['ADMIN']}})});
   if(url.pathname.startsWith('/portal/owner-payment-authority-v5/'))return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{accepted:true}})});
   if(req.resourceType()==='fetch'||req.resourceType()==='xhr')return route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ok:true,data:{}})});
   return route.continue();
 });
 
-const documentResponse=await page.goto(origin+'/portal/main-ui',{waitUntil:'domcontentloaded',timeout:60000});
+const mainUiResponsePromise=page.waitForResponse(response=>{
+  try{return new URL(response.url()).pathname==='/portal/main-ui'}catch{return false}
+},{timeout:60000});
+const documentResponse=await page.goto(origin+'/portal/admin.html',{waitUntil:'domcontentloaded',timeout:60000});
 pass('REAL_PREVIEW_DOCUMENT_200',!!documentResponse&&documentResponse.ok());
-pass('REAL_PREVIEW_MAIN_UI_HEADER',String(documentResponse?.headers()?.['x-rona-admin-payment-owner-screen']||'')==='owner-semantics-v3');
-pass('REAL_PREVIEW_DOCUMENT_URL',new URL(page.url()).pathname.replace(/\/$/,'')==='/portal/main-ui');
+pass('REAL_PREVIEW_DOCUMENT_URL',new URL(page.url()).pathname==='/portal/admin.html');
 const nav=page.locator('#nav button[data-page="payments"]');await nav.waitFor({state:'attached',timeout:15000});
 pass('REAL_PREVIEW_DEPLOYED_ADMIN_DOM',await page.locator('#page-payments').count()===1&&await nav.count()===1);
-await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6',{timeout:15000});
+const mainUiResponse=await mainUiResponsePromise;
+pass('REAL_PREVIEW_MAIN_UI_200',mainUiResponse.ok());
+pass('REAL_PREVIEW_MAIN_UI_HEADER',String(mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||'')==='owner-semantics-v3');
+pass('REAL_PREVIEW_MAIN_UI_ORIGIN',new URL(mainUiResponse.url()).origin===origin);
+await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6',{timeout:20000});
 pass('REAL_PREVIEW_DEPLOYED_V6_RUNTIME',await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6'));
-await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true,{timeout:15000});
+await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true,{timeout:20000});
 await nav.click({force:true});
 await page.locator('#page-payments .rona-pay-v6-stack').waitFor({state:'visible',timeout:10000});
 
@@ -104,9 +111,10 @@ pass('PAYMENT_AMOUNT_IMMUTABLE',ownerPosts.every(x=>!x.body.includes('PAYMENT.am
 
 pass('REAL_PREVIEW_NO_PAGEERROR',pageErrors.length===0);
 pass('REAL_PREVIEW_NO_CONSOLE_ERRORS',consoleErrors.length===0);
-const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,mainUiHeader:documentResponse?.headers()?.['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),pageErrors,consoleErrors,ownerPosts};
+const proof={immutablePreview:origin,documentUrl:page.url(),head:process.env.EXPECTED_HEAD||null,documentStatus:documentResponse?.status()||null,mainUiUrl:mainUiResponse.url(),mainUiStatus:mainUiResponse.status(),mainUiHeader:mainUiResponse.headers()['x-rona-admin-payment-owner-screen']||null,v6Runtime:await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null),pageErrors,consoleErrors,ownerPosts};
 fs.writeFileSync(path.join(out,'real-preview-browser-proof.json'),JSON.stringify(proof,null,2));
 console.log('REAL_PREVIEW_BROWSER_ACCEPTANCE=PASS');
 console.log('IMMUTABLE_PREVIEW='+origin);
 console.log('REAL_PREVIEW_DOCUMENT='+page.url());
+console.log('REAL_PREVIEW_MAIN_UI='+mainUiResponse.url());
 await browser.close();
