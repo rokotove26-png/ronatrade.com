@@ -113,7 +113,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/qa-admin-payments-accounting-currency-progress-v6-browser.mjs 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log
+          node scripts/qa-admin-payments-accounting-currency-progress-v6-browser-runner.mjs 2>&1 | tee artifacts/admin-payments-accounting-currency-progress-v6/browser-qa.log
 
       - name: Required V6 gates
         shell: bash
