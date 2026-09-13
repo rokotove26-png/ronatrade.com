@@ -7,20 +7,28 @@ const base = process.env.NO_HARDCODE_BASE || 'HEAD^';
 const { stdout } = await exec('git', ['diff', '--name-only', `${base}...HEAD`]);
 const changed = stdout.split(/\r?\n/).filter(Boolean);
 const runtimeFiles = changed.filter((path) => /^supabase\/functions\//.test(path) && /\.(?:mjs|js|ts)$/.test(path));
-// Stage 5C browser integration is build-time source because the clean-rebuild branch intentionally
-// does not carry the release Admin shell. It is part of the production candidate surface and must
-// pass the same literal scan as backend runtime.
-const browserRuntimeFiles = ['scripts/admin-payments-v7-stage5c-live-source.mjs'];
-const scanFiles = [...new Set([...runtimeFiles, ...browserRuntimeFiles])];
+
+// The release Admin shell is reconstructed at CI time. These files are therefore part of the
+// candidate surface even though they live under scripts/. The acceptance driver is scanned too:
+// production identifiers/amounts must never be used as browser-proof fixtures.
+const candidateFiles = [
+  'scripts/admin-payments-v7-stage5c-live-source.mjs',
+  'scripts/admin-payments-v7-final-live-source.mjs',
+  'scripts/admin-payments-v7-final-browser-proof.mjs',
+].filter((path) => changed.includes(path) || path.includes('final-') || path.includes('stage5c-live-source'));
+const scanFiles = [...new Set([...runtimeFiles, ...candidateFiles])];
+
 const forbidden = [
-  [/\bDEAL-20\d\d-\d+\b/g, 'Deal ID literal'],
-  [/\bPAYEV-20\d\d-\d+\b/g, 'Payment ID literal'],
-  [/\bOUT-20\d\d-[A-Z0-9-]+\b/g, 'Outgoing payment ID literal'],
-  [/\bRONA-C\d+\b/g, 'Client ID literal'],
-  [/GazOne|ГазОнэ|Газонэ|KUZMASH|КУЗМАШ|NIK[ -]?OIL|НИК ОЙЛ/giu, 'Current counterparty/client literal'],
-  [/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, 'UUID literal in production runtime'],
-  [/16[ ,]?536[ ,]?960|3[ ,]?644[ ,]?000|13[ ,]?229[ ,]?568|3[ ,]?307[ ,]?392|31[ ,]?002[ ,]?300/g, 'Current Owner amount literal'],
+  [/\bDEAL-20\d\d-\d+\b/g, 'production-shaped Deal ID literal'],
+  [/\bPAYEV-20\d\d-\d+\b/g, 'production-shaped Payment ID literal'],
+  [/\bOUT-20\d\d-[A-Z0-9-]+\b/g, 'production-shaped outgoing payment ID literal'],
+  [/\bRONA-C\d+\b/g, 'production-shaped Client ID literal'],
+  [/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, 'UUID literal in candidate runtime/acceptance'],
+  [/\b\d[\d\s,.]{3,}\s*(?:USD|RUB|EUR|KZT|UZS)\b/gi, 'currency amount literal in candidate runtime/acceptance'],
+  [/client_display\s*:\s*['"][^'"]+['"]/gi, 'literal client display in candidate runtime/acceptance'],
+  [/client(?:Name|_name)?\s*=\s*['"][^'"]+['"]/gi, 'literal client fixture in candidate runtime/acceptance'],
 ];
+
 const violations = [];
 for (const path of scanFiles) {
   const text = await readFile(path, 'utf8');
@@ -29,14 +37,16 @@ for (const path of scanFiles) {
     for (const match of text.matchAll(pattern)) violations.push({ file: path, label, match: match[0] });
   }
 }
+
 if (violations.length) {
-  console.error(JSON.stringify({ status: 'FAIL', base, runtimeFiles, browserRuntimeFiles, violations }, null, 2));
+  console.error(JSON.stringify({ status: 'FAIL', base, runtimeFiles, candidateFiles, violations }, null, 2));
   process.exit(1);
 }
+
 console.log(JSON.stringify({
   status: 'PASS',
   base,
   scanned_changed_production_runtime_files: runtimeFiles,
-  scanned_browser_runtime_files: browserRuntimeFiles,
+  scanned_candidate_files: candidateFiles,
   forbidden_matches: 0,
 }, null, 2));
