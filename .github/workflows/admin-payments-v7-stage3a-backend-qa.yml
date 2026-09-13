@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -41,6 +41,17 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: PostgreSQL 17 target parity
+        env:
+          PGPASSWORD: postgres
+        run: |
+          major="$(psql -h 127.0.0.1 -U postgres -d postgres -Atqc "select current_setting('server_version_num')::int / 10000")"
+          version="$(psql -h 127.0.0.1 -U postgres -d postgres -Atqc "select current_setting('server_version')")"
+          echo "postgres_version=$version"
+          echo "postgres_major=$major"
+          echo "postgres_version=$version" >> "$GITHUB_STEP_SUMMARY"
+          echo "postgres_major=$major" >> "$GITHUB_STEP_SUMMARY"
+          test "$major" = "17"
       - name: AG — Deno target import graph check
         run: |
           deno check --config supabase/functions/rona-owner-ai-sync/deno.json supabase/functions/rona-owner-ai-sync/index.ts
@@ -50,14 +61,15 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs
-      - name: A-AT backend regression, activation preflight and materialization preview suite
+      - name: A-AZ backend regression, readiness and activation simulation suite
         run: npm run test:payments-v7
-      - name: AH-AI, AN-AO and AT — PostgreSQL authority and privilege integration
+      - name: AH-AI, AN-AO, AT and Stage 3D.1 — PostgreSQL 17 persistence, privilege and readiness integration
         env:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3c-persistence.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3d-preproduction.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3d1-readiness.sql
       - name: NO-HARDCODE changed production runtime scan
         env:
           NO_HARDCODE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}

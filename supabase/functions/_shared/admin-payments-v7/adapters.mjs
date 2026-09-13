@@ -209,10 +209,16 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
   const financeAuthorities = adaptNormalizedFinanceRows(raw.dealFinanceAuthorities || []);
   const resourceChains = adaptResourceChains(raw.resourceChains || []);
   const validDealKeys = (raw.deals || []).filter(isLiveDeal).map((deal) => String(deal.id));
+  const paymentBusinessAuthorityPresent = raw.capabilities?.paymentBusinessAuthorityPresent
+    ?? raw.capabilities?.paymentBusinessAuthority
+    ?? (raw.paymentBusinessAttributions !== undefined && raw.paymentBusinessAttributionLines !== undefined);
+  const paymentBusinessAuthorityReady = raw.capabilities?.paymentBusinessAuthorityReady === true;
   return {
     generatedAt: raw.generatedAt || new Date().toISOString(), sourceAsOf: raw.sourceAsOf || new Date().toISOString(),
     capabilities: {
-      paymentBusinessAuthority: raw.capabilities?.paymentBusinessAuthority ?? (raw.paymentBusinessAttributions !== undefined),
+      paymentBusinessAuthority: paymentBusinessAuthorityPresent,
+      paymentBusinessAuthorityPresent,
+      paymentBusinessAuthorityReady,
       financeAuthority: raw.capabilities?.financeAuthority ?? (raw.dealFinanceAuthorities !== undefined),
       resourceChain: raw.capabilities?.resourceChain ?? (raw.resourceChains !== undefined),
     },

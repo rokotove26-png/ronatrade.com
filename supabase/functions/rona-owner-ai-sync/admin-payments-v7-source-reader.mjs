@@ -1,14 +1,17 @@
 const RELATIONS = Object.freeze({
   paymentBusinessAttributions: 'portal_private.payment_business_attributions_v7',
   paymentBusinessAttributionLines: 'portal_private.payment_business_attribution_lines_v7',
+  providerReadiness: 'portal_private.admin_payments_v7_provider_readiness',
   financeAuthority: 'portal_private.deal_finance_authority_v7',
   resourceChain: 'portal_private.payment_resource_chains_v7',
 });
+const PROVIDERS = Object.freeze({ paymentBusinessAuthority: 'PAYMENT_BUSINESS_AUTHORITY' });
 
 export const ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS = 'isolation level repeatable read read only';
 export const ADMIN_PAYMENTS_V7_READ_ROLE = 'rona_payments_v7_reader';
 
 function cloneRows(rows) { return Array.isArray(rows) ? rows : []; }
+function asBool(value) { return value === true || value === 't' || value === 'true' || value === 1; }
 
 export async function activateAdminPaymentsV7ReadRole(sql) {
   if (typeof sql !== 'function') throw new TypeError('POSTGRES_TRANSACTION_SQL_REQUIRED');
@@ -23,15 +26,25 @@ export async function readAdminPaymentsV7RawSources(port) {
   const snapshotTimestamp = await port.readSnapshotTimestamp();
   if (!snapshotTimestamp) throw new Error('ADMIN_PAYMENTS_V7_SNAPSHOT_TIMESTAMP_REQUIRED');
 
-  const [paymentHeadersPresent, paymentLinesPresent, financePresent, resourceChainPresent] = await Promise.all([
+  const [paymentHeadersPresent, paymentLinesPresent, readinessPresent, financePresent, resourceChainPresent] = await Promise.all([
     port.relationExists(RELATIONS.paymentBusinessAttributions),
     port.relationExists(RELATIONS.paymentBusinessAttributionLines),
+    port.relationExists(RELATIONS.providerReadiness),
     port.relationExists(RELATIONS.financeAuthority),
     port.relationExists(RELATIONS.resourceChain),
   ]);
 
+  const paymentBusinessAuthorityPresent = paymentHeadersPresent && paymentLinesPresent;
+  let readinessRow = null;
+  if (readinessPresent && typeof port.readProviderReadiness === 'function') {
+    readinessRow = await port.readProviderReadiness(PROVIDERS.paymentBusinessAuthority);
+  }
+  const paymentBusinessAuthorityReady = paymentBusinessAuthorityPresent && asBool(readinessRow?.is_ready);
+
   const capabilities = {
-    paymentBusinessAuthority: paymentHeadersPresent && paymentLinesPresent,
+    paymentBusinessAuthority: paymentBusinessAuthorityPresent,
+    paymentBusinessAuthorityPresent,
+    paymentBusinessAuthorityReady,
     financeAuthority: financePresent,
     resourceChain: resourceChainPresent,
   };
@@ -42,8 +55,8 @@ export async function readAdminPaymentsV7RawSources(port) {
   ]);
 
   const [paymentBusinessAttributions, paymentBusinessAttributionLines, dealFinanceAuthorities, resourceChains] = await Promise.all([
-    capabilities.paymentBusinessAuthority ? port.readPaymentBusinessAttributions() : [],
-    capabilities.paymentBusinessAuthority ? port.readPaymentBusinessAttributionLines() : [],
+    paymentBusinessAuthorityPresent ? port.readPaymentBusinessAttributions() : [],
+    paymentBusinessAuthorityPresent ? port.readPaymentBusinessAttributionLines() : [],
     capabilities.financeAuthority ? port.readDealFinanceAuthorities() : [],
     capabilities.resourceChain ? port.readResourceChains() : [],
   ]);
@@ -62,8 +75,18 @@ export async function readAdminPaymentsV7RawSources(port) {
     providerPresence: {
       paymentBusinessAttributions: paymentHeadersPresent,
       paymentBusinessAttributionLines: paymentLinesPresent,
+      providerReadiness: readinessPresent,
       financeAuthority: financePresent,
       resourceChain: resourceChainPresent,
+    },
+    providerReadiness: {
+      paymentBusinessAuthority: {
+        providerKey: PROVIDERS.paymentBusinessAuthority,
+        relationPresent: readinessPresent,
+        ready: paymentBusinessAuthorityReady,
+        readyAt: readinessRow?.ready_at || null,
+        validationRef: readinessRow?.validation_ref || null,
+      },
     },
     capabilities,
     deals: cloneRows(deals),
@@ -91,6 +114,14 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
     async relationExists(qualifiedName) {
       const rows = await sql`select to_regclass(${qualifiedName})::text as relation`;
       return Boolean(rows?.[0]?.relation);
+    },
+    async readProviderReadiness(providerKey) {
+      const rows = await sql`
+        select provider_key, is_ready, ready_at, validation_ref, updated_at
+        from portal_private.admin_payments_v7_provider_readiness
+        where provider_key = ${providerKey}
+        limit 1`;
+      return rows?.[0] || null;
     },
     readDeals: () => sql`
       select id::text id, deal_id, client_key::text client_key, contract_key::text contract_key,
@@ -201,4 +232,4 @@ export function createAdminPaymentsV7SourceReader(sql, options = {}) {
   });
 }
 
-export { RELATIONS as ADMIN_PAYMENTS_V7_OPTIONAL_RELATIONS };
+export { RELATIONS as ADMIN_PAYMENTS_V7_OPTIONAL_RELATIONS, PROVIDERS as ADMIN_PAYMENTS_V7_PROVIDER_KEYS };
