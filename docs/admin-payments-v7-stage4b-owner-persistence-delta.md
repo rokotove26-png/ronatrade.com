@@ -46,9 +46,7 @@ Contract after delta:
 
 `tests/admin-payments-v7/stage4b-production-substrate.sql` models an already-existing split production substrate with function absent and current seed present.
 
-`tests/admin-payments-v7/stage4b-owner-persistence-delta.sql` checks exact signature/return/security/search_path/ACL, zero business-row change, trusted server invocation, idempotent replay, stale rejection, atomic rollback on audit failure and audit immutability. Synthetic mutations are transaction-rolled-back.
-
-`tests/admin-payments-v7/stage4b-delta-static.test.mjs` proves the function block is source-locked to the sealed branch contract and forbids substrate replay, business DML and GRANT in the delta.
+`tests/admin-payments-v7/stage4b-owner-persistence-delta.sql` checks the split-lineage + pg_catalog precondition, exact signature/return/security/search_path/ACL, zero business-row change, trusted server invocation, idempotent replay, stale rejection, atomic rollback on audit failure and audit immutability. Synthetic mutations are transaction-rolled-back.
 
 Expected marker: `business_rows_changed=0`.
 
