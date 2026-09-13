@@ -13,17 +13,17 @@ function payment([key,id,amount,currency,direction,kind,review='VERIFIED',candid
   return { payment_key:key,payment_id:id,payment_at:'2026-09-13T00:00:00Z',amount:String(amount),currency,direction,kind,bank_fact_status:'BANK_CONFIRMED',finance_verification_status:'VERIFIED',allocation_applicability:fx?'NOT_APPLICABLE':'DEAL_ALLOCATABLE',allocation_review_status:fx?'NOT_APPLICABLE':review,candidate_deal_ids:candidates,current:true,source_locked:true,authority_state:'AUTHORITATIVE',lifecycle_state:'CURRENT',authority_refs:[] };
 }
 const CURRENT=[
- ['p001','PAYEV-2026-000001','236250','USD','INCOMING','CLIENT_PAYMENT','VERIFIED',[D004]],
- ['p004-bnk','OUT-2026-004-BNK','8484210','RUB','OUTGOING','COUNTERPARTY_PAYMENT','VERIFIED',[D004]],
- ['p004-bnk-fee','OUT-2026-004-BNK-FEE','3000','RUB','OUTGOING','BANK_FEE','VERIFIED',[D004]],
- ['p004-orient','OUT-2026-004-ORIENT','25444800','KZT','OUTGOING','COUNTERPARTY_PAYMENT','VERIFIED',[D004]],
- ['p004-orient-fee','OUT-2026-004-ORIENT-FEE','20000','KZT','OUTGOING','BANK_FEE','VERIFIED',[D004]],
- ['p002','PAYEV-2026-000002','201750','USD','INCOMING','CLIENT_PAYMENT','VERIFIED',[D005]],
- ['p003','PAYEV-2026-000003','49320','USD','INCOMING','CLIENT_PAYMENT','VERIFIED',[D006]],
- ['p004-sg','OUT-2026-004-SGTRANS','5899358.9','RUB','OUTGOING','COUNTERPARTY_PAYMENT','VERIFIED',[D004]],
- ['p004-sg-fee','OUT-2026-004-SGTRANS-FEE','3000','RUB','OUTGOING','BANK_FEE','VERIFIED',[D004]],
- ['pkuz','OUT-2026-005006-KUZMASH','16536960','RUB','OUTGOING','COUNTERPARTY_PAYMENT','TO_VERIFY',[D005,D006]],
- ['pkuz-fee','OUT-2026-005006-KUZMASH-FEE','3000','RUB','OUTGOING','BANK_FEE','TO_VERIFY',[D005,D006]],
+ ['p001','PAYEV-2026-000001','236250','USD','INCOMING','CLIENT_PAYMENT','VERIFIED',['DEAL-2026-004']],
+ ['p004-bnk','OUT-2026-004-BNK','8484210','RUB','OUTGOING','COUNTERPARTY_PAYMENT','VERIFIED',['DEAL-2026-004']],
+ ['p004-bnk-fee','OUT-2026-004-BNK-FEE','3000','RUB','OUTGOING','BANK_FEE','VERIFIED',['DEAL-2026-004']],
+ ['p004-orient','OUT-2026-004-ORIENT','25444800','KZT','OUTGOING','COUNTERPARTY_PAYMENT','VERIFIED',['DEAL-2026-004']],
+ ['p004-orient-fee','OUT-2026-004-ORIENT-FEE','20000','KZT','OUTGOING','BANK_FEE','VERIFIED',['DEAL-2026-004']],
+ ['p002','PAYEV-2026-000002','201750','USD','INCOMING','CLIENT_PAYMENT','VERIFIED',['DEAL-2026-005']],
+ ['p003','PAYEV-2026-000003','49320','USD','INCOMING','CLIENT_PAYMENT','VERIFIED',['DEAL-2026-006']],
+ ['p004-sg','OUT-2026-004-SGTRANS','5899358.9','RUB','OUTGOING','COUNTERPARTY_PAYMENT','VERIFIED',['DEAL-2026-004']],
+ ['p004-sg-fee','OUT-2026-004-SGTRANS-FEE','3000','RUB','OUTGOING','BANK_FEE','VERIFIED',['DEAL-2026-004']],
+ ['pkuz','OUT-2026-005006-KUZMASH','16536960','RUB','OUTGOING','COUNTERPARTY_PAYMENT','TO_VERIFY',['DEAL-2026-005','DEAL-2026-006']],
+ ['pkuz-fee','OUT-2026-005006-KUZMASH-FEE','3000','RUB','OUTGOING','BANK_FEE','TO_VERIFY',['DEAL-2026-005','DEAL-2026-006']],
  ['fx004','PAYEV-2026-000004','11800','USD','OUTGOING','FX_CONVERSION'],
  ['fx005','PAYEV-2026-000005','1003000','RUB','INCOMING','FX_CONVERSION'],
  ['fx006','PAYEV-2026-000006','30000','USD','OUTGOING','FX_CONVERSION'],
@@ -32,10 +32,25 @@ const CURRENT=[
  [P009,'PAYEV-2026-000009','3000','RUB','OUTGOING','BANK_FEE','TO_VERIFY',[]],
 ].map(payment);
 
+const CURRENT_AUTHORITY = new Map([
+ ['p001',{scope:[D004],exact:true,kind:'PAYMENT_ALLOCATION'}],
+ ['p002',{scope:[D005],exact:true,kind:'PAYMENT_ALLOCATION'}],
+ ['p003',{scope:[D006],exact:true,kind:'PAYMENT_ALLOCATION'}],
+ ['p004-bnk',{scope:[D004],exact:true,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['p004-bnk-fee',{scope:[D004],exact:true,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['p004-orient',{scope:[D004],exact:true,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['p004-orient-fee',{scope:[D004],exact:true,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['p004-sg',{scope:[D004],exact:true,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['p004-sg-fee',{scope:[D004],exact:true,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['pkuz',{scope:[D005,D006],exact:false,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+ ['pkuz-fee',{scope:[D005,D006],exact:false,kind:'OWNER_OUTGOING_PAYMENT_FACT'}],
+]);
 function claim(p) {
-  if (p.kind==='FX_CONVERSION' || [P008,P009].includes(p.payment_key)) return null;
-  if (p.candidate_deal_ids.length>1) return { id:`scope:${p.payment_key}`,payment_key:p.payment_key,classification:p.kind==='BANK_FEE'?'ASSOCIATED_BANK_FEE':'SHARED_DEAL_SCOPE_SPLIT_TO_VERIFY',disposition:null,lines:[],scope_deal_keys:p.candidate_deal_ids,principal_payment_key:p.kind==='BANK_FEE'?'pkuz':null,current:true,source_locked:true,authority_state:'AUTHORITATIVE',lifecycle_state:'CURRENT',authority_refs:[] };
-  return { id:`exact:${p.payment_key}`,payment_key:p.payment_key,classification:p.kind==='BANK_FEE'?'ASSOCIATED_BANK_FEE':'RESOLVED',disposition:'BIND_TO_DEAL',lines:[{deal_key:p.candidate_deal_ids[0],amount:p.amount,currency:p.currency,amount_status:'EXACT'}],scope_deal_keys:p.candidate_deal_ids,current:true,source_locked:true,authority_state:'AUTHORITATIVE',lifecycle_state:'CURRENT',authority_refs:[] };
+  const authority=CURRENT_AUTHORITY.get(p.payment_key);
+  if (!authority) return null;
+  const isFee=p.kind==='BANK_FEE';
+  if (!authority.exact) return { id:`scope:${p.payment_key}`,payment_key:p.payment_key,classification:isFee?'ASSOCIATED_BANK_FEE':'SHARED_DEAL_SCOPE_SPLIT_TO_VERIFY',disposition:null,lines:[],scope_deal_keys:authority.scope,business_scope_refs:[`${authority.kind}:${p.payment_id}`],principal_payment_key:isFee?'pkuz':null,current:true,source_locked:true,authority_state:'AUTHORITATIVE',lifecycle_state:'CURRENT',authority_kind:authority.kind,authority_refs:[] };
+  return { id:`exact:${p.payment_key}`,payment_key:p.payment_key,classification:isFee?'ASSOCIATED_BANK_FEE':'RESOLVED',disposition:'BIND_TO_DEAL',lines:[{deal_key:authority.scope[0],amount:p.amount,currency:p.currency,amount_status:'EXACT'}],scope_deal_keys:authority.scope,current:true,source_locked:true,authority_state:'AUTHORITATIVE',lifecycle_state:'CURRENT',authority_kind:authority.kind,authority_refs:[] };
 }
 const BASE_CLAIMS=CURRENT.map(claim).filter(Boolean);
 function seedClaims(){ return [
