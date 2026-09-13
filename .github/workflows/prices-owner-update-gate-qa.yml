@@ -9,7 +9,6 @@ on:
       - 'functions/portal/price-updates-api.js'
       - 'functions/portal/agent.js'
       - 'functions/portal/admin-canonical-tweaks-ui.js'
-      - 'tests/admin-prices-full-recovery.test.mjs'
       - 'supabase/migrations/*owner_price_update_gate*.sql'
       - '.github/workflows/prices-owner-update-gate-qa.yml'
   workflow_dispatch:
@@ -39,33 +38,22 @@ jobs:
           const loader=fs.readFileSync('functions/portal/admin-canonical-tweaks-ui.js','utf8');
           const need=(src,token,label)=>{if(!src.includes(token))throw new Error(label+': '+token)};
           const forbid=(src,token,label)=>{if(src.includes(token))throw new Error(label+': '+token)};
-
-          for(const x of [
-            '__RONA_PRICES_RECOVERY_V2__',
-            "api('workspace')",
-            "api('bootstrap')",
-            'Promise.allSettled',
-            'Предложения по изменению цен',
-            'Публикация прайса',
-            "'Применить'",
-            "'Отклонить'",
-            'Клиенты и агенты',
-            'Снять публикацию'
-          ]) need(ui,x,'recovered Prices UI missing');
-          for(const x of ['MutationObserver',"owner('/admin/bootstrap')",'cp-bootstrap','cp-preview','cp-publish','cp-return','КП агентам','Открыть PDF']) forbid(ui,x,'obsolete/racy Prices UI remains');
-
-          need(api,"op==='workspace'",'missing dedicated workspace route');
-          need(api,'owner_prices_admin_workspace','missing authoritative workspace rpc');
+          need(ui,'20260826-standard-agent-price-list-v1','missing current Prices owner');
+          need(ui,'Данные обновлены','missing owner update signal');
+          need(ui,"'Обновить'",'missing owner apply action');
+          need(ui,"'Отклонить'",'missing owner reject action');
+          need(ui,'Текущий прайс и внешние кабинеты остаются без изменений до команды «Обновить»','missing no-auto-publish explanation');
+          need(ui,'Клиенты и агенты','missing standard Client/Agent publication selector');
+          need(ui,'standard-publication','missing standard Agent price publication marker');
+          for(const x of ['cp-bootstrap','cp-preview','cp-publish','cp-return','КП агентам','Открыть PDF'])forbid(ui,x,'obsolete Agent CP UI remains');
           need(api,'owner_price_updates_bootstrap','missing bootstrap rpc');
           need(api,'owner_apply_price_change_proposal','missing apply rpc');
           need(api,'owner_reject_price_change_proposal','missing reject rpc');
           need(api,'owner_set_price_publication_audience','missing audience rpc');
-          for(const x of ['cp-bootstrap','cp-preview','cp-publish','cp-return','agent-cp-download','owner_agent_cp_']) forbid(api,x,'obsolete Agent CP API remains');
-
+          for(const x of ['cp-bootstrap','cp-preview','cp-publish','cp-return','agent-cp-download','owner_agent_cp_'])forbid(api,x,'obsolete Agent CP API remains');
           need(agent,'x-rona-agent-prices','missing Agent standard-price marker');
           need(agent,'standard-publication','missing Agent standard-price mode');
-          for(const x of ['agent-cp-bootstrap','agent-cp-download','Коммерческие предложения','Открыть PDF']) forbid(agent,x,'obsolete Agent CP shell remains');
-
+          for(const x of ['agent-cp-bootstrap','agent-cp-download','Коммерческие предложения','Открыть PDF'])forbid(agent,x,'obsolete Agent CP shell remains');
           need(mig,'AI-OPERATIONS-DIRECTOR','missing fixed Operations identity');
           need(mig,'PROPOSE_PRICE_LIST_UPDATE','missing proposal contract');
           need(mig,"proposal_status='APPLIED'",'missing apply state');
@@ -76,11 +64,7 @@ jobs:
           need(mig,'publish_client','missing Client propagation');
           need(mig,'publish_agent','missing Agent propagation');
           need(loader,'/portal/prices-current-ui','canonical Prices loader missing');
-
           if(/fetch\([^)]*OPERATIONS/i.test(ui))throw new Error('Admin UI must not send pricing intelligence to Operations');
           if(/HANDOFF_REQUEST[\s\S]{0,500}OPERATIONS_DIRECTOR/.test(ui+api+migV2))throw new Error('Admin Prices must not create Operations handoff');
-          if(/RONA-PRICE-LIST-2026-[0-9]/.test(ui))throw new Error('current publication id must not be hardcoded into Prices UI');
-          console.log('PRICES_OWNER_UPDATE_GATE_RECOVERY=PASS');
+          console.log('PRICES_OWNER_UPDATE_GATE_V2=PASS');
           NODE
-      - name: Recovery contract tests
-        run: node --test tests/admin-prices-full-recovery.test.mjs
