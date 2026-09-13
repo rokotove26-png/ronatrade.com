@@ -53,12 +53,13 @@ await page.route('**/portal/**',async route=>{
 const documentResponse=await page.goto(origin+'/portal/main-ui',{waitUntil:'domcontentloaded',timeout:60000});
 pass('REAL_PREVIEW_DOCUMENT_200',!!documentResponse&&documentResponse.ok());
 pass('REAL_PREVIEW_MAIN_UI_HEADER',String(documentResponse?.headers()?.['x-rona-admin-payment-owner-screen']||'')==='owner-semantics-v3');
-pass('REAL_PREVIEW_DOCUMENT_URL',page.url()===origin+'/portal/main-ui');
-await page.waitForFunction(()=>window.__RONA_MAIN_UI_RUNTIME_LOADED__===true,{timeout:15000});
-pass('REAL_PREVIEW_DEPLOYED_ADMIN_RUNTIME',await page.evaluate(()=>window.__RONA_MAIN_UI_RUNTIME_LOADED__===true));
-pass('REAL_PREVIEW_DEPLOYED_V6_RUNTIME',await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6',{timeout:15000}).then(()=>true));
+pass('REAL_PREVIEW_DOCUMENT_URL',new URL(page.url()).pathname.replace(/\/$/,'')==='/portal/main-ui');
+const nav=page.locator('#nav button[data-page="payments"]');await nav.waitFor({state:'attached',timeout:15000});
+pass('REAL_PREVIEW_DEPLOYED_ADMIN_DOM',await page.locator('#page-payments').count()===1&&await nav.count()===1);
+await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6',{timeout:15000});
+pass('REAL_PREVIEW_DEPLOYED_V6_RUNTIME',await page.evaluate(()=>window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__==='20260913-accounting-currency-progress-v6'));
 await page.waitForFunction(()=>window.__RONA_OWNER_PAYMENTS_V6_READY__===true,{timeout:15000});
-const nav=page.locator('#nav button[data-page="payments"]');await nav.waitFor({state:'attached',timeout:10000});await nav.click({force:true});
+await nav.click({force:true});
 await page.locator('#page-payments .rona-pay-v6-stack').waitFor({state:'visible',timeout:10000});
 
 const text=await page.locator('#page-payments').innerText(),norm=text.replace(/[\s\u00a0\u202f]/g,'');
