@@ -68,7 +68,8 @@ test('Stage 5A — Owner queue renders only when projection provides it',()=>{
 
 test('Stage 5A — passport exposes V7 provenance without legacy finance truth',()=>{
   const html=renderAdminPaymentsV7NativeHtml(data);
-  assert.match(html,/Паспорт \/ provenance/);
+  assert.match(html,/Паспорт/);
+  assert.match(html,/Provenance/);
   assert.match(html,/TEST · USD:236250 · V7/);
   assert.doesNotMatch(html,/financeFragment/);
 });
@@ -81,4 +82,17 @@ test('Stage 5A — native route mount has one owner and one write to the route r
   assert.equal(attrs['data-payments-route-owner'],ADMIN_PAYMENTS_V7_ROUTE_OWNER);
   assert.equal(result.route_owner,ADMIN_PAYMENTS_V7_ROUTE_OWNER);
   assert.doesNotMatch(root.innerHTML,/MutationObserver|rebind|takeover/i);
+});
+
+test('Stage 5B — global KPI cards precede one Deal board and aggregate currencies without FX',()=>{
+  const view=createAdminPaymentsV7NativeView(data);
+  assert.deepEqual(view.kpis.total.rows,[{currency:'RUB',amount:'31 002 300'},{currency:'USD',amount:'1 073 150'}]);
+  assert.deepEqual(view.kpis.received.rows,[{currency:'RUB',amount:'0'},{currency:'USD',amount:'487 320'}]);
+  assert.deepEqual(view.kpis.expected.rows,[{currency:'RUB',amount:'9 300 690'},{currency:'USD',amount:'585 830'}]);
+  assert.deepEqual(view.kpis.expected.conditional.rows,[{currency:'RUB',amount:'21 701 610'},{currency:'USD',amount:'0'}]);
+  assert.equal(view.kpis.spend.to_verify,true);
+  const html=renderAdminPaymentsV7NativeHtml(data);
+  assert.equal((html.match(/class="payments-v7-kpi"/g)||[]).length,4);
+  assert.ok(html.indexOf('class="payments-v7-kpis"') < html.indexOf('class="payments-v7-board"'));
+  assert.doesNotMatch(html,/Authoritative V7 projection|Accounting currency/);
 });
