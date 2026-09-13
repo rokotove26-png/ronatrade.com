@@ -22,6 +22,7 @@ export async function onRequest({request}){
   if(!['GET','POST'].includes(request.method))return out({ok:false,code:'METHOD_NOT_ALLOWED'},405);
   if(request.method==='POST'&&!sameOrigin(request))return out({ok:false,code:'ORIGIN_DENIED'},403);
   const u=new URL(request.url),op=String(u.searchParams.get('op')||''),id=String(u.searchParams.get('id')||'');
+  if(op==='workspace'&&request.method==='GET')return invoke(request,'owner_prices_admin_workspace',{});
   if(op==='bootstrap'&&request.method==='GET')return invoke(request,'owner_price_updates_bootstrap',{});
   if(op==='apply'&&request.method==='POST'){
     if(!uuid(id))return out({ok:false,code:'INVALID_PROPOSAL_ID'},400);
