@@ -29,5 +29,27 @@ else Object.defineProperty(Deno, 'serve', { value: nativeServe, configurable: tr
 if (typeof runtimeHandler !== 'function') throw new Error('AI_SYNC_HANDLER_NOT_REGISTERED');
 if (!v7Sql) throw new Error('ADMIN_PAYMENTS_V7_DB_UNAVAILABLE');
 
+async function persistOwnerDecision({ envelope }) {
+  // The authenticated runtime authorizes the request first. This trusted backend DB context then
+  // performs exactly one business mutation call: the sealed Stage 4B persistence primitive.
+  const expected = envelope.p_expected_current_authority_id || null;
+  const authority = JSON.stringify(envelope.p_authority);
+  const audit = JSON.stringify(envelope.p_audit);
+  const rows = await v7Sql`
+    select p.id::text as id,p.payment_key::text as payment_key,p.decision_type,p.idempotency_key
+    from portal_private.persist_owner_payment_decision_v7(
+      ${expected}::uuid,
+      ${authority}::jsonb,
+      ${audit}::jsonb
+    ) p`;
+  if (rows.length !== 1) throw new Error('OWNER_DECISION_PERSISTENCE_RESULT_INVALID');
+  return rows[0];
+}
+
 const readRawSources = createAdminPaymentsV7SourceReader(v7Sql);
-nativeServe(createRonaOwnerAiSyncV7Handler({ runtimeHandler, readRawSources }));
+nativeServe(createRonaOwnerAiSyncV7Handler({
+  runtimeHandler,
+  readRawSources,
+  persistOwnerDecision,
+  logger: console,
+}));
