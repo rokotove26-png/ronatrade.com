@@ -53,12 +53,53 @@ export function adaptAllocationMaterialization(rows = [], history = []) {
     amount: canonicalDecimalString(row.allocated_amount), currency: row.currency ? upper(row.currency) : null,
     allocation_status: upper(row.allocation_status), finance_status: upper(row.finance_status),
     authority_state: row.authority_state ? String(row.authority_state) : null, lifecycle_state: row.lifecycle_state ? String(row.lifecycle_state) : null,
-    source_version: row.source_version || null, superseded_by_allocation_id: supersededByNew.get(String(row.id)) || null,
+    source_version: row.source_version || null, source_timestamp: row.source_timestamp || row.updated_at || row.created_at || null,
+    superseded_by_allocation_id: supersededByNew.get(String(row.id)) || null,
     current: isCurrentLifecycle(row.lifecycle_state) && isAuthoritative(row.authority_state) && upper(row.allocation_status) === 'VERIFIED' && !supersededByNew.has(String(row.id)),
     source_locked: upper(row.allocation_status) === 'VERIFIED',
     authority_ref: { source_type: 'PAYMENT_ALLOCATION', source_id: String(row.id) },
     authority_refs: [authorityRef(row)],
   }));
+}
+
+export function allocationRowsToAuthorityClaims(materialization = [], payments = []) {
+  const paymentByKey = new Map((payments || []).map((payment) => [String(payment.payment_key), payment]));
+  const grouped = new Map();
+  for (const row of (materialization || []).filter((item) => item.current === true && item.source_locked === true && item.deal_key)) {
+    const key = String(row.payment_key);
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(row);
+  }
+  return [...grouped.entries()].map(([paymentKey, rows]) => {
+    const sorted = [...rows].sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const ids = sorted.map((row) => String(row.id));
+    const typedAllocationRefs = ids.map((id) => ({ source_type: 'PAYMENT_ALLOCATION', source_id: id }));
+    const payment = paymentByKey.get(paymentKey);
+    const isFee = upper(payment?.kind) === 'BANK_FEE';
+    return {
+      id: `PAYMENT_ALLOCATION_SET:${ids.join('+')}`,
+      payment_key: paymentKey,
+      classification: isFee ? 'ASSOCIATED_BANK_FEE' : (sorted.length > 1 ? 'KNOWN_MULTI_DEAL_EXACT_SPLIT' : 'RESOLVED'),
+      disposition: 'BIND_TO_DEAL',
+      lines: sorted.map((row) => ({
+        deal_key: String(row.deal_key), amount: canonicalDecimalString(row.amount), currency: upper(row.currency),
+        amount_status: 'EXACT', materialization_id: row.id,
+      })),
+      scope_deal_keys: [...new Set(sorted.map((row) => String(row.deal_key)))],
+      current: true,
+      source_locked: true,
+      authority_kind: 'PAYMENT_ALLOCATION',
+      authority_ref: typedAllocationRefs.length === 1
+        ? typedAllocationRefs[0]
+        : { source_type: 'PAYMENT_ALLOCATION_SET', source_id: ids.join('+') },
+      authority_identity_refs: typedAllocationRefs,
+      authority_state: 'AUTHORITATIVE',
+      lifecycle_state: 'CURRENT',
+      effective_at: sorted.map((row) => row.source_timestamp).filter(Boolean).sort().at(-1) || null,
+      source_version: [...new Set(sorted.map((row) => row.source_version).filter(Boolean))].join('|') || null,
+      authority_refs: sorted.flatMap((row) => row.authority_refs || []),
+    };
+  });
 }
 
 export function adaptOutgoingPaymentFactsAuthority(rows = [], payments = [], contour = []) {
@@ -160,6 +201,7 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
   const paymentCurrencyByKey = new Map(payments.map((item) => [String(item.payment_key), item.currency]));
   const physicalAllocations = adaptAllocationMaterialization(raw.paymentAllocations || [], raw.paymentAllocationHistory || [])
     .map((row) => ({ ...row, currency: row.currency || paymentCurrencyByKey.get(String(row.payment_key)) || null }));
+  const allocationAuthorityClaims = allocationRowsToAuthorityClaims(physicalAllocations, payments);
   const normalizedAttribution = adaptNormalizedAttributionRows(raw.paymentBusinessAttributions || [], raw.paymentBusinessAttributionLines || []);
   const outgoingFactClaims = adaptOutgoingPaymentFactsAuthority(raw.ownerOutgoingPaymentFacts || [], payments, contour);
   const financeAuthorities = adaptNormalizedFinanceRows(raw.dealFinanceAuthorities || []);
@@ -173,7 +215,7 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
       resourceChain: raw.capabilities?.resourceChain ?? (raw.resourceChains !== undefined),
     },
     contour, validDealKeys, payments,
-    attributionClaims: [...outgoingFactClaims, ...normalizedAttribution, ...(raw.additionalAttributionClaims || [])],
+    attributionClaims: [...allocationAuthorityClaims, ...outgoingFactClaims, ...normalizedAttribution, ...(raw.additionalAttributionClaims || [])],
     physicalAllocations, financeAuthorities: [...financeAuthorities, ...(raw.additionalFinanceAuthorities || [])],
     resourceChains: [...resourceChains, ...(raw.additionalResourceChains || [])], paymentReferences: raw.paymentReferences || [],
   };

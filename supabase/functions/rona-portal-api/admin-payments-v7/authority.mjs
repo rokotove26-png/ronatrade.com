@@ -27,6 +27,10 @@ export function authorityIdentityKeys(claim) {
   if (claim?.id) keys.push(`ID:${String(claim.id)}`);
   const typed = typedRefKey(claim?.authority_ref || (claim?.id ? { source_type: claim.authority_kind || claim.source_type || 'AUTHORITY', source_id: claim.id } : null));
   if (typed) keys.push(typed);
+  for (const ref of claim?.authority_identity_refs || []) {
+    const key = typedRefKey(ref);
+    if (key) keys.push(key);
+  }
   return [...new Set(keys)];
 }
 
@@ -67,7 +71,7 @@ export function resolveAuthorityClaims(claims, signatureFn) {
     if (!signatures.has(signature)) signatures.set(signature, []);
     signatures.get(signature).push(claim);
   }
-  const refs = survivors.map(authorityRef);
+  const refs = survivors.flatMap((claim) => claim.authority_refs?.length ? claim.authority_refs : [authorityRef(claim)]);
   if (signatures.size > 1) return { status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', claim: null, claims: survivors, authority_refs: refs };
   const compatible = [...survivors].sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
   return { status: 'AUTHORITATIVE', reason: null, claim: compatible[0], claims: compatible, authority_refs: refs };
