@@ -50,9 +50,9 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs
-      - name: A-AF plus AJ-AK backend regression and materialization preview suite
+      - name: A-AO backend regression, sealed Owner contract and materialization preview suite
         run: npm run test:payments-v7
-      - name: AH-AI — PostgreSQL authority persistence integration
+      - name: AH-AI plus AN-AO — PostgreSQL authority persistence integration
         env:
           PGPASSWORD: postgres
         run: |
