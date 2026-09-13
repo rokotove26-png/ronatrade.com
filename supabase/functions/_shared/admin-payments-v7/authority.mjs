@@ -85,10 +85,13 @@ export function stableAttributionSignature(claim) {
     amount_status: upper(line.amount_status || 'EXACT'),
   })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   const scope = [...new Set((claim.scope_deal_keys || []).filter(Boolean).map(String))].sort();
+  const businessScopeRefs = [...new Set((claim.business_scope_refs || []).filter(Boolean).map(String))].sort();
   return JSON.stringify({
     classification: upper(claim.classification) || null,
+    attribution_mode: upper(claim.attribution_mode) || null,
     disposition: upper(claim.disposition || claim.decision_type) || null,
     principal_payment_key: claim.principal_payment_key || null,
+    business_scope_refs: businessScopeRefs,
     lines,
     scope,
   });
