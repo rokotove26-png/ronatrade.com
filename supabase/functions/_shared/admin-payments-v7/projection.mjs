@@ -102,7 +102,14 @@ function isNormalReconciliation(item) {
 function paymentException(reconciliation) {
   return {
     exception_id: `payment:${reconciliation.payment_key}:${reconciliation.reconciliation_class}`,
-    payment_ids: [reconciliation.payment_id].filter(Boolean), reconciliation_class: reconciliation.reconciliation_class,
+    payment_key: reconciliation.payment_key,
+    payment_ids: [reconciliation.payment_id].filter(Boolean),
+    payment_amount: reconciliation.payment_amount,
+    payment_currency: reconciliation.payment_currency,
+    payment_at: reconciliation.payment_at || null,
+    counterparty_name: reconciliation.counterparty_name || null,
+    current_authority_id: reconciliation.current_authority_id || null,
+    reconciliation_class: reconciliation.reconciliation_class,
     status: reconciliation.status, reason: reconciliation.reason, integrity_reason: reconciliation.integrity_reason || null,
     owner_action_required: reconciliation.owner_action_required, allowed_owner_actions: reconciliation.allowed_owner_actions,
     candidate_deal_ids: reconciliation.candidate_deal_ids || [],
@@ -141,7 +148,7 @@ export function buildAdminPaymentsV7Projection(source) {
     });
     if (finance.reason === 'AUTHORITY_MATERIALIZATION_REQUIRED') materializationGaps.push({ domain: 'FINANCE_AUTHORITY', deal_id: contourDeal.deal_id, reason: 'AUTHORITY_MATERIALIZATION_REQUIRED', required_model: 'DealFinanceAuthorityV7' });
     deals.push({
-      deal_id: contourDeal.deal_id, client_display: contourDeal.client_display, payment_handoff_state: contourDeal.payment_handoff_state,
+      deal_key: contourDeal.deal_key, deal_id: contourDeal.deal_id, client_display: contourDeal.client_display, payment_handoff_state: contourDeal.payment_handoff_state,
       accounting_currency: accountingCurrency, total_to_receive: total, verified_received: verifiedReceived, due_now: due, expected_not_due: expected, future_conditional: future, remaining_to_receive: remaining,
       actual_spend: spend.value, actual_spend_status: spend.status, remaining_execution: remainingExecution, payment_progress: progress,
       financial_status: financialStatus, documentary_status: finance.documentary_status || 'TO_VERIFY', financial_exceptions: financialExceptions, exceptions: dealExceptions,
