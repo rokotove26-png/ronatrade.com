@@ -9,7 +9,7 @@ const GRID_TO="const grid=summaryGrid(f);";
 const PURPOSE_FROM="const purpose=e('div',{class:'rona-pay-v6-purpose'});purpose.append(card('Учет в валюте сделки',e('div',{class:'rona-owner-muted',text:'Валюта учета = валюта подтвержденного входящего клиентского платежа. Mixed currency → TO_VERIFY.'})),card('Cross-currency spend',e('div',{class:'rona-owner-muted',text:'Пересчет только по exact bank/Treasury source-lock. Synthetic FX запрещен.'})),card('Шкала платежа',e('div',{class:'rona-owner-muted',text:'Заполняется только VERIFIED_RECEIVED / TOTAL_TO_RECEIVE. Отложенное остается нейтральным.'})));";
 const PURPOSE_TO="const purpose=summaryPolicyStrip();";
 const READY_FROM="window.__RONA_OWNER_PAYMENTS_V6_READY__=true}";
-const READY_TO="window.__RONA_OWNER_PAYMENTS_V6_READY__=true;recordR2Diag({rendered:true,renderOwner:'V6_R2',markerPresent:r2SummaryPresent(),legacyOverwriteDetected:false})}";
+const READY_TO="window.__RONA_OWNER_PAYMENTS_V6_READY__=true;recordR2Diag({rendered:true,renderOwner:'V6_R2',markerPresent:r2SummaryPresent()})}";
 const RENDER_HOOK_FROM="window.__RONA_OWNER_PAYMENTS_V6_RENDER__=render;";
 const RENDER_HOOK_TO="window.__RONA_OWNER_PAYMENTS_V6_RENDER__=render;window.__RONA_OWNER_PAYMENTS_V6_REFRESH__=()=>refreshAfter();installR2OwnerGuard();window.addEventListener('rona:admin-pagechange',onR2PageChange);window.addEventListener('rona:finance-sync',onR2FinanceSync);window.addEventListener('rona:admin-single-owner-ready',()=>render(),{once:true});";
 
@@ -23,7 +23,7 @@ function summaryPolicyStrip(){return e('div',{class:'rona-pay-v6-policy-strip','
 function recordR2Diag(patch={}){window.__RONA_OWNER_PAYMENTS_V6_DIAGNOSTICS__=Object.assign({},window.__RONA_OWNER_PAYMENTS_V6_DIAGNOSTICS__||{},patch,{runtime:window.__RONA_OWNER_PAYMENTS_V6_RUNTIME__||null,pathname:location.pathname,at:new Date().toISOString()})}
 function r2SummaryPresent(){return !!document.querySelector('#page-payments [data-rona-summary-kpis="v6-r2"]')}
 let r2RecoveryQueued=false;
-function scheduleR2Recovery(reason){if(r2RecoveryQueued)return;r2RecoveryQueued=true;queueMicrotask(()=>{r2RecoveryQueued=false;if(!window.__RONA_OWNER_PAYMENTS_V6_READY__||r2SummaryPresent())return;recordR2Diag({legacyOverwriteDetected:true,lastRecoveryReason:String(reason||'unknown')});render()})}
+function scheduleR2Recovery(reason){if(r2RecoveryQueued)return;r2RecoveryQueued=true;queueMicrotask(()=>{r2RecoveryQueued=false;if(!window.__RONA_OWNER_PAYMENTS_V6_READY__||r2SummaryPresent())return;recordR2Diag({legacyOverwriteDetected:true,legacyOverwriteCount:Number(window.__RONA_OWNER_PAYMENTS_V6_DIAGNOSTICS__?.legacyOverwriteCount||0)+1,lastRecoveryReason:String(reason||'unknown')});render()})}
 function installR2OwnerGuard(){const host=document.getElementById('page-payments');if(!host||host.__ronaV6R2OwnerGuard)return;host.__ronaV6R2OwnerGuard=true;const observer=new MutationObserver(()=>scheduleR2Recovery('payments-dom-mutation'));observer.observe(host,{childList:true,subtree:true});window.__RONA_OWNER_PAYMENTS_V6_OWNER_GUARD__=observer;recordR2Diag({ownerGuardInstalled:true})}
 function onR2PageChange(event){if(S(event?.detail?.page)!=='payments')return;recordR2Diag({pageChangeObserved:true});if(state.finance)renderFinance(state.finance);else render()}
 function onR2FinanceSync(){if(S(document.documentElement?.dataset?.ronaAdminPage)!=='payments')return;recordR2Diag({financeSyncObserved:true});refreshAfter().catch(err=>{recordR2Diag({financeSyncRefreshError:S(err?.message||err)});console.error('owner payments v6 r2 finance sync',err)})}
@@ -47,6 +47,7 @@ if(!ownerPaymentsV6R2Runtime.includes("window.__RONA_OWNER_PAYMENTS_V6_REFRESH__
 if(!ownerPaymentsV6R2Runtime.includes("window.addEventListener('rona:admin-pagechange',onR2PageChange)"))throw new Error('OWNER_PAYMENTS_V6_R2_PAGECHANGE_OWNER_MISSING');
 if(!ownerPaymentsV6R2Runtime.includes('new MutationObserver(()=>scheduleR2Recovery'))throw new Error('OWNER_PAYMENTS_V6_R2_DOM_OWNER_GUARD_MISSING');
 if(!ownerPaymentsV6R2Runtime.includes('subtree:true'))throw new Error('OWNER_PAYMENTS_V6_R2_NESTED_DOM_GUARD_MISSING');
+if(!ownerPaymentsV6R2Runtime.includes('legacyOverwriteCount'))throw new Error('OWNER_PAYMENTS_V6_R2_OVERWRITE_DIAGNOSTIC_MISSING');
 if(!ownerPaymentsV6R2Runtime.includes('financeAuthorityOk:authorityOk'))throw new Error('OWNER_PAYMENTS_V6_R2_AUTHORITY_DIAGNOSTIC_MISSING');
 
 export default ownerPaymentsV6R2Runtime;
