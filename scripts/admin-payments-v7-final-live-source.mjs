@@ -24,23 +24,21 @@ function patchPaymentsV7Executive(script){
 }
 `;
 
-export function patchFinalAdminMainUiSource(source) {
-  const marker = 'const SCRIPT=patchPaymentsV7(';
-  const exportMarker = '\n\nexport async function onRequest';
-  const a = source.indexOf(marker);
-  const b = source.indexOf(exportMarker, a);
-  if (a < 0 || b < 0) throw new Error('PAYMENTS_V7_FINAL_MAIN_UI_SOURCE_MISMATCH');
-  const statement = source.slice(a, b).trim();
-  if (!statement.startsWith('const SCRIPT=') || !statement.endsWith(';')) throw new Error('PAYMENTS_V7_FINAL_SCRIPT_STATEMENT_MISMATCH');
-  const baseStatement = statement.replace(/^const SCRIPT=/, 'const BASE_PAYMENTS_V7_SCRIPT=');
-  const replacement = `${EXECUTIVE_PATCH_FN}\n${baseStatement}\nconst SCRIPT=patchPaymentsV7Executive(BASE_PAYMENTS_V7_SCRIPT);`;
-  return source.slice(0, a) + replacement + source.slice(b);
+const MAIN_UI_PATCH_FROM = "const patched=source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO).replace(ADMIN_BOOTSTRAP_FROM,ADMIN_BOOTSTRAP_TO)+applicationPassportRuntime;";
+const MAIN_UI_PATCH_TO = "const patched=patchPaymentsV7Executive(source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO).replace(ADMIN_BOOTSTRAP_FROM,ADMIN_BOOTSTRAP_TO)+applicationPassportRuntime);";
+
+export function patchFinalMainUiIndexSource(source) {
+  const exportMarker = 'export async function onRequest';
+  const at = source.indexOf(exportMarker);
+  if (at < 0 || !source.includes(MAIN_UI_PATCH_FROM)) throw new Error('PAYMENTS_V7_FINAL_MAIN_UI_SOURCE_MISMATCH');
+  const withPatchFn = source.slice(0, at) + EXECUTIVE_PATCH_FN + '\n' + source.slice(at);
+  return withPatchFn.replace(MAIN_UI_PATCH_FROM, MAIN_UI_PATCH_TO);
 }
 
 export function recoverLiveAdminWorkspace(root) {
   const recovered = recoverStage5CLiveAdminWorkspace(root);
-  const mainPath = join(root, 'functions/portal/admin-main-ui-current.js');
-  const source = readFileSync(mainPath, 'utf8');
-  writeFileSync(mainPath, patchFinalAdminMainUiSource(source));
+  const indexPath = join(root, 'functions/portal/main-ui/index.js');
+  const source = readFileSync(indexPath, 'utf8');
+  writeFileSync(indexPath, patchFinalMainUiIndexSource(source));
   return { ...recovered, presentation: 'ADMIN_PAYMENTS_V7_EXECUTIVE_DENSE_V1' };
 }
