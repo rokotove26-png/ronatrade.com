@@ -189,14 +189,36 @@ function dealRowHtml(deal) {
   </article>`;
 }
 
+function allowedOwnerActions(item) {
+  if (!Array.isArray(item?.allowed_owner_actions)) return new Set();
+  const allowed = new Set();
+  for (const value of item.allowed_owner_actions) {
+    const action = upper(value);
+    if (action === 'BIND_TO_DEAL' || action === 'ASSIGN_ADVANCE_PAYMENT') allowed.add(action);
+  }
+  return allowed;
+}
+
 function ownerQueueHtml(queue, deals) {
   if (!queue.length) return '';
   return `<section class="payments-v7-owner-queue" aria-label="Owner queue"><h3>Требуется решение Owner</h3>${queue.map((item) => {
-    const candidates = new Set(asArray(item?.candidate_deal_ids).map(String));
-    const options = deals.filter((deal) => deal.deal_key).map((deal) => `<option value="${esc(deal.deal_key)}">${esc(deal.deal_id || 'Deal')} · ${esc(deal.client_display)}${candidates.has(deal.deal_key) ? ' · подсказка' : ''}</option>`).join('');
+    const allowed = allowedOwnerActions(item);
+    const bindAllowed = allowed.has('BIND_TO_DEAL');
+    const advanceAllowed = allowed.has('ASSIGN_ADVANCE_PAYMENT');
+    let controls = '';
+    if (bindAllowed || advanceAllowed) {
+      let bindControls = '';
+      if (bindAllowed) {
+        const candidates = new Set(asArray(item?.candidate_deal_ids).map(String));
+        const options = deals.filter((deal) => deal.deal_key).map((deal) => `<option value="${esc(deal.deal_key)}">${esc(deal.deal_id || 'Deal')} · ${esc(deal.client_display)}${candidates.has(deal.deal_key) ? ' · подсказка' : ''}</option>`).join('');
+        bindControls = `<select data-owner-deal><option value="">Выберите сделку</option>${options}</select><button type="button" data-owner-action="BIND_TO_DEAL">Привязать к сделке</button>`;
+      }
+      const advanceControl = advanceAllowed ? '<button type="button" data-owner-action="ASSIGN_ADVANCE_PAYMENT">Авансовый платеж</button>' : '';
+      controls = `<div class="payments-v7-owner-actions">${bindControls}${advanceControl}</div>`;
+    }
     const payment = asArray(item?.payment_ids).join(', ') || item?.exception_id || 'Payment';
     const amount = moneyText({ amount: item?.payment_amount, currency: item?.payment_currency, status: 'AUTHORITATIVE' });
-    return `<article class="payments-v7-owner-item" data-payment-key="${esc(item?.payment_key)}"><div><strong>${esc(payment)}</strong><span>${esc(amount)}</span></div><div class="payments-v7-owner-actions"><select data-owner-deal><option value="">Выберите сделку</option>${options}</select><button type="button" data-owner-action="BIND_TO_DEAL">Привязать к сделке</button><button type="button" data-owner-action="ASSIGN_ADVANCE_PAYMENT">Авансовый платеж</button></div></article>`;
+    return `<article class="payments-v7-owner-item" data-payment-key="${esc(item?.payment_key)}"><div><strong>${esc(payment)}</strong><span>${esc(amount)}</span></div>${controls}</article>`;
   }).join('')}</section>`;
 }
 
