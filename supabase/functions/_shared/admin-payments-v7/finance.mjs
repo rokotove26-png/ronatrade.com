@@ -1,22 +1,68 @@
 import { resolveAuthorityClaims, stableFinanceSignature } from './authority.mjs';
+import { decimalAdd, decimalCompare, parseDecimal } from './decimal.mjs';
 import { authorityRef, moneyValue, toVerifyMoney } from './money.mjs';
+
+const CURRENCY_RE = /^[A-Z]{3}$/;
+function upper(value) { return value === null || value === undefined ? null : String(value).trim().toUpperCase(); }
+
+export function validateDealFinanceAuthorityIntegrity(claim) {
+  try {
+    if (!claim || typeof claim !== 'object') return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+    const fields = ['total_to_receive', 'due_now', 'expected_not_due', 'future_conditional'];
+    const values = {};
+    let obligationCurrency = null;
+    for (const field of fields) {
+      const value = claim[field];
+      const currency = upper(value?.currency);
+      if (!value || value.status !== 'AUTHORITATIVE' || value.amount === null || value.amount === undefined || !currency || !CURRENCY_RE.test(currency)) {
+        return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+      }
+      if (obligationCurrency === null) obligationCurrency = currency;
+      if (currency !== obligationCurrency) return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+      values[field] = parseDecimal(String(value.amount));
+      if (decimalCompare(values[field], '0') < 0) return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+    }
+
+    const total = values.total_to_receive;
+    for (const field of ['due_now', 'expected_not_due', 'future_conditional']) {
+      if (decimalCompare(values[field], total) > 0) return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+    }
+    const bucketSum = decimalAdd(decimalAdd(values.due_now, values.expected_not_due), values.future_conditional);
+    if (decimalCompare(bucketSum, total) > 0) return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+
+    for (const currency of [claim.contractual_payment_currency, claim.mixed_inbound_accounting_currency]) {
+      if (currency !== null && currency !== undefined && !CURRENCY_RE.test(upper(currency) || '')) {
+        return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+      }
+    }
+    return { valid: true, reason: null, obligation_currency: obligationCurrency };
+  } catch {
+    return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
+  }
+}
 
 export function resolveDealFinanceAuthority(dealKey, financeAuthorities = [], capability = true) {
   const claims = financeAuthorities.filter((claim) => String(claim.deal_key) === String(dealKey));
-  const resolved = resolveAuthorityClaims(claims, stableFinanceSignature);
+  let resolved;
+  try {
+    resolved = resolveAuthorityClaims(claims, stableFinanceSignature);
+  } catch {
+    return financeToVerify('FINANCE_AUTHORITY_INTEGRITY_ERROR', claims.flatMap((claim) => claim.authority_refs || [authorityRef(claim)]));
+  }
   if (resolved.status === 'TO_VERIFY') return financeToVerify('AUTHORITY_CONFLICT', resolved.authority_refs);
   if (resolved.status === 'MISSING') return financeToVerify(capability ? 'NO_CURRENT_FINANCE_AUTHORITY' : 'AUTHORITY_MATERIALIZATION_REQUIRED', []);
   const claim = resolved.claim; const refs = resolved.authority_refs.length ? resolved.authority_refs : [authorityRef(claim)];
-  const normalize = (value, field) => {
-    if (!value || value.amount === null || !value.currency || value.status !== 'AUTHORITATIVE') return toVerifyMoney(value?.currency || null, `FINANCE_${field.toUpperCase()}_TO_VERIFY`, refs);
-    return moneyValue(value.amount, value.currency, 'AUTHORITATIVE', null, refs);
-  };
+  const integrity = validateDealFinanceAuthorityIntegrity(claim);
+  if (!integrity.valid) return financeToVerify('FINANCE_AUTHORITY_INTEGRITY_ERROR', refs);
+
+  const normalize = (value) => moneyValue(value.amount, integrity.obligation_currency, 'AUTHORITATIVE', null, refs);
   return {
     status: 'AUTHORITATIVE', reason: null,
-    total_to_receive: normalize(claim.total_to_receive, 'total_to_receive'), due_now: normalize(claim.due_now, 'due_now'),
-    expected_not_due: normalize(claim.expected_not_due, 'expected_not_due'), future_conditional: normalize(claim.future_conditional, 'future_conditional'),
+    total_to_receive: normalize(claim.total_to_receive), due_now: normalize(claim.due_now),
+    expected_not_due: normalize(claim.expected_not_due), future_conditional: normalize(claim.future_conditional),
     finance_status: claim.finance_status || 'TO_VERIFY', documentary_status: claim.documentary_status || 'TO_VERIFY',
-    contractual_payment_currency: claim.contractual_payment_currency || null, mixed_inbound_accounting_currency: claim.mixed_inbound_accounting_currency || null,
+    contractual_payment_currency: claim.contractual_payment_currency ? upper(claim.contractual_payment_currency) : null,
+    mixed_inbound_accounting_currency: claim.mixed_inbound_accounting_currency ? upper(claim.mixed_inbound_accounting_currency) : null,
     authority_state: claim.authority_state || null, lifecycle_state: claim.lifecycle_state || null, effective_at: claim.effective_at || null,
     version: claim.source_version || null, supersedes_id: claim.supersedes_id || null, authority_refs: refs,
   };
