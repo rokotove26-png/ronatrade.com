@@ -146,7 +146,9 @@ export function adaptNormalizedAttributionRows(headers = [], lines = []) {
   }
   return headers.map((row) => ({
     id: String(row.id), payment_key: String(row.payment_key), classification: row.classification,
+    attribution_mode: upper(row.attribution_mode),
     disposition: row.decision_type || row.disposition || null, lines: linesByHeader.get(String(row.id)) || [],
+    business_scope_refs: Array.isArray(row.business_scope_refs) ? row.business_scope_refs.map(String) : [],
     scope_deal_keys: Array.isArray(row.scope_deal_keys) ? row.scope_deal_keys.map(String) : [],
     principal_payment_key: row.principal_payment_key ? String(row.principal_payment_key) : null,
     current: isCurrentLifecycle(row.lifecycle_state) && isAuthoritative(row.authority_state), source_locked: row.source_locked !== false,
