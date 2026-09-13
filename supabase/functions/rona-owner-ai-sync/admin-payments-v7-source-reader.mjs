@@ -6,8 +6,14 @@ const RELATIONS = Object.freeze({
 });
 
 export const ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS = 'isolation level repeatable read read only';
+export const ADMIN_PAYMENTS_V7_READ_ROLE = 'rona_payments_v7_reader';
 
 function cloneRows(rows) { return Array.isArray(rows) ? rows : []; }
+
+export async function activateAdminPaymentsV7ReadRole(sql) {
+  if (typeof sql !== 'function') throw new TypeError('POSTGRES_TRANSACTION_SQL_REQUIRED');
+  await sql`set local role rona_payments_v7_reader`;
+}
 
 export async function readAdminPaymentsV7RawSources(port) {
   if (!port || typeof port.relationExists !== 'function' || typeof port.readSnapshotTimestamp !== 'function') {
@@ -51,6 +57,7 @@ export async function readAdminPaymentsV7RawSources(port) {
       isolation: 'REPEATABLE READ',
       access: 'READ ONLY',
       sourceAsOf: 'DB_TRANSACTION_TIMESTAMP',
+      dbRole: ADMIN_PAYMENTS_V7_READ_ROLE,
     },
     providerPresence: {
       paymentBusinessAttributions: paymentHeadersPresent,
@@ -149,11 +156,12 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
         and bank_fact_status::text = 'BANK_CONFIRMED'
       order by payment_at, fact_id`,
     readPaymentBusinessAttributions: () => sql`
-      select id::text id, payment_key::text payment_key, classification, decision_type, authority_kind,
+      select id::text id, payment_key::text payment_key, classification, attribution_mode, decision_type, authority_kind,
              authority_source_ref, business_scope_refs, scope_deal_keys, principal_payment_key::text principal_payment_key,
              materialization_status, authority_state, lifecycle_state, effective_at,
              supersedes_id::text supersedes_id, supersedes_authority_refs,
-             source_version, source_timestamp, source_refs, source_locked, actor_id::text actor_id, actor_role, created_at
+             source_version, source_timestamp, source_refs, source_locked, actor_id::text actor_id, actor_role,
+             idempotency_key, created_at
       from portal_private.payment_business_attributions_v7
       order by effective_at, id`,
     readPaymentBusinessAttributionLines: () => sql`
@@ -185,7 +193,9 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
 export function createAdminPaymentsV7SourceReader(sql, options = {}) {
   if (typeof sql !== 'function' || typeof sql.begin !== 'function') throw new TypeError('POSTGRES_TRANSACTION_SQL_REQUIRED');
   const createReadPort = options.createReadPort || createPostgresAdminPaymentsV7ReadPort;
+  const activateReadRole = options.activateReadRole || activateAdminPaymentsV7ReadRole;
   return () => sql.begin(ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS, async (transactionSql) => {
+    await activateReadRole(transactionSql);
     const port = createReadPort(transactionSql);
     return readAdminPaymentsV7RawSources(port);
   });
