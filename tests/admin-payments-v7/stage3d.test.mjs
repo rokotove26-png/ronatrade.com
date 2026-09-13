@@ -16,7 +16,7 @@ const P008 = '9fda9905-e782-42f3-8441-71ca866bee0d';
 const P009 = '7c6dba20-eb9f-47fe-a077-ec3bbf17bf29';
 
 function deal(id, deal_id, client_key, contract_key, payment_handoff_state) {
-  return { id, deal_id, client_key, contract_key, business_status: 'EXECUTING', authority_state: 'CONFIRMED', lifecycle_state: 'ACTIVE', source_system: 'PRODUCTION_SNAPSHOT', source_version: '2026-09-13' , payment_handoff_state };
+  return { id, deal_id, client_key, contract_key, business_status: 'EXECUTING', authority_state: 'CONFIRMED', lifecycle_state: 'ACTIVE', source_system: 'PRODUCTION_SNAPSHOT', source_version: '2026-09-13', payment_handoff_state };
 }
 const DEAL_ROWS = [
   deal(D004, 'DEAL-2026-004', 'c004', 'ct004', 'READY'),
@@ -220,6 +220,9 @@ test('AS — POST-MATERIALIZATION CURRENT SNAPSHOT', () => {
     assert.equal(deal.expected_not_due.amount, e[2]);
     assert.equal(deal.future_conditional.amount, e[3]);
     assert.equal(deal.payment_progress.percent, e[4]);
+  }
+  for (const dealId of ['DEAL-2026-004','DEAL-2026-005','DEAL-2026-006']) {
+    const deal = projection.deals.find((item) => item.deal_id === dealId);
     assert.equal(deal.actual_spend.status, 'TO_VERIFY');
   }
 
