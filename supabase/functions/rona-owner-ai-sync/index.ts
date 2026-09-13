@@ -4,7 +4,7 @@
 // Deal handoff state read-only and applies the final Owner Finance canon inside Payments only.
 
 import postgres from 'postgres';
-import { enrichOwnerPaymentsOwnerFinalV5 } from './owner-payments-owner-final-v5.ts';
+import { enrichOwnerPaymentsAccountingCurrencyProgressV6 } from './owner-payments-accounting-currency-progress-v6.ts';
 
 const nativeServe = Deno.serve.bind(Deno);
 const DB = Deno.env.get('SUPABASE_DB_URL');
@@ -48,13 +48,13 @@ nativeServe(async (req) => {
   if (normalizedPath !== '/admin/sync' || !response.ok || !ownerPaymentsSql) return response;
   const payload = await response.json().catch(()=>null);
   if (!payload?.data?.financeFragment) return new Response(JSON.stringify({ok:false,code:'OWNER_PAYMENTS_FINANCE_FRAGMENT_MISSING'}),{status:502,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
-  payload.data.financeFragment = await enrichOwnerPaymentsOwnerFinalV5(payload.data.financeFragment,ownerPaymentsSql);
+  payload.data.financeFragment = await enrichOwnerPaymentsAccountingCurrencyProgressV6(payload.data.financeFragment,ownerPaymentsSql);
   const headers = new Headers(response.headers);
   headers.set('content-type','application/json; charset=utf-8');
   headers.set('cache-control','no-store');
-  headers.set('x-rona-owner-payments-semantics','ADMIN_PAYMENTS_CANONICAL_OWNER_WORKFLOW_V4');
+  headers.set('x-rona-owner-payments-semantics','ADMIN_PAYMENTS_DEAL_ACCOUNTING_CURRENCY_PROGRESS_V6');
   headers.set('x-rona-payments-upstream-lifecycle','READ_ONLY_EXISTING_HANDOFF');
-  headers.set('x-rona-owner-finance-canon','d6429144-5a12-4a9e-a57e-7d9e345f94a3');
+  headers.set('x-rona-owner-finance-canon','eabba23f-70b9-4d40-86ef-3d0578c71d4a');
   headers.delete('content-length');
   return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
 });
