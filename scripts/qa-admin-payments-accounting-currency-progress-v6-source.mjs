@@ -9,6 +9,7 @@ const browser=read('scripts/qa-admin-payments-accounting-currency-progress-v6-br
 const semantic=read('scripts/qa-admin-payments-accounting-currency-progress-v6-semantic.mjs');
 const migration=read('supabase/migrations/20260913040500_finance_accounting_currency_execution_links_v6.sql');
 const source=read('functions/portal/owner-payments-accounting-currency-progress-v6-source.js');
+const previewQa=read('functions/portal/admin-payments-v6-real-preview-qa.js');
 function pass(name,cond){if(!cond)throw new Error(name+'=FAIL');console.log(name+'=PASS')}
 
 pass('FINANCE_CANON_V23',v6.includes("OWNER_FINANCE_CANON_ID='eabba23f-70b9-4d40-86ef-3d0578c71d4a'")&&v6.includes('OWNER_FINANCE_CANON_VERSION=23'));
@@ -40,5 +41,6 @@ pass('PROGRESS_FILL_VERIFIED_RECEIVED_ONLY',v6.includes("formula:'VERIFIED_RECEI
 pass('DEFERRED_UNFILLED_NEUTRAL',v6.includes('deferredUnfilledNeutral:true')&&uiBase.includes('rona-pay-v6-progress'));
 pass('NO_PROGRESS_TRANCHE_SEGMENTATION',v6.includes('trancheSegmentation:false')&&!uiBase.includes('progress-segment'));
 pass('SEMANTIC_INTEGRATION_QA_PRESENT',semantic.includes('SEMANTIC_VERIFIED_USD_PAYMENT_TO_USD')&&semantic.includes('SEMANTIC_RUB_FALLBACK_UNDER_V23')&&semantic.includes('SEMANTIC_CANON_ABSENT_FAIL_CLOSED')&&semantic.includes('SEMANTIC_STALE_REJECTED_PROPOSAL_NOT_AUTHORITY')&&semantic.includes('SEMANTIC_CROSS_CURRENCY_WITHOUT_EXACT_LINK_TO_VERIFY')&&semantic.includes('SEMANTIC_PROGRESS_RECEIVED_OVER_TOTAL_ONLY'));
-pass('REAL_PREVIEW_BROWSER_NO_SYNTHETIC_DOM',browser.includes("origin+'/portal/admin.html'")&&browser.includes("pathname==='/portal/main-ui'")&&browser.includes('REAL_PREVIEW_MAIN_UI_ORIGIN')&&!browser.includes('page.setContent(')&&!browser.includes('addScriptTag(')&&!browser.includes("import runtime from '../functions"));
+pass('REAL_PREVIEW_QA_ROUTE_PREVIEW_ONLY',previewQa.includes("/^[0-9a-f]{8}\\.rona-trade-public\\.pages\\.dev$/i")&&previewQa.includes("QA_HEADER='x-rona-v6-real-preview-qa'")&&previewQa.includes("assetUrl.pathname='/portal/admin'")&&previewQa.includes('context.env?.ASSETS?.fetch')&&previewQa.includes("x-rona-v6-real-preview-asset','DEPLOYED_ADMIN_CURRENT"));
+pass('REAL_PREVIEW_BROWSER_NO_SYNTHETIC_DOM',browser.includes("origin+'/portal/admin-payments-v6-real-preview-qa'")&&browser.includes("pathname==='/portal/main-ui'")&&browser.includes('REAL_PREVIEW_MAIN_UI_ORIGIN')&&browser.includes('REAL_PREVIEW_DEPLOYED_ADMIN_ASSET')&&!browser.includes('page.setContent(')&&!browser.includes('addScriptTag(')&&!browser.includes("import runtime from '../functions"));
 pass('REAL_PREVIEW_BROWSER_RUNTIME_ERROR_COLLECTION',browser.includes("page.on('pageerror'")&&browser.includes("msg.type()==='error'")&&browser.includes('REAL_PREVIEW_NO_PAGEERROR')&&browser.includes('REAL_PREVIEW_NO_CONSOLE_ERRORS')&&!browser.includes("NO_RUNTIME_ERRORS',true"));
