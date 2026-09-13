@@ -1,33 +1,71 @@
-# Admin Payments V7 — Stage 3A.1/3A.2 real Admin integration gate
+# Admin Payments V7 — Stage 3B real Admin integration gate
 
-Status: `REAL_ADMIN_ENTRYPOINT_INTEGRATION=BLOCKED_SOURCE_NOT_RECOVERED_IN_V7_BRANCH`.
+Status: `REAL_ADMIN_ENTRYPOINT_INTEGRATION=COMPLETE_STAGE_3B`.
 
-`CURRENT_STATE_FIRST` on clean branch `feat/admin-payments-v7-clean-rebuild` confirms that the V7 branch still does not contain the production `supabase/functions/rona-owner-ai-sync/` runtime subtree. Stage 3A.2 does not copy that subtree and does not create a replacement Admin handler, QA-only endpoint, or second financial path.
+Stage 3B recovers the production-pinned `rona-owner-ai-sync` lineage from repository commit `32136088553ed99ab3426f743238cf17f4c26f7e` and integrates the single canonical Admin Payments V7 backend projection into the existing authenticated Owner/Admin runtime.
 
-The source lineage is no longer unknown. Read-only production inspection identifies the deployed function as `rona-owner-ai-sync` version 14. Its deployed wrapper imports repository commit `32136088553ed99ab3426f743238cf17f4c26f7e`, file `supabase/functions/rona-owner-ai-sync/index.ts`, which delegates to `runtime.ts` and then applies the current V6 Payments enrichment.
+The recovered production `runtime.ts` remains unchanged and continues to own authentication, ADMIN authorization, method enforcement, `/admin/sync`, `/agent/sync`, and unrelated Admin/Agent business reads.
 
-The production-pinned `runtime.ts` enforces `req.method === "GET"` before routing and serves the ordinary authenticated Admin sync at:
+The authoritative Admin route is and remains:
 
 `GET /admin/sync`
 
-Stage 3A.1 documentation that described this route as `POST /admin/sync` was incorrect. V7 must not change the production route semantics.
+`POST /admin/sync` remains `405 METHOD_NOT_ALLOWED` under the recovered runtime. V7 does not change route semantics.
 
-## Stage 3A.2 authority correction
+## Runtime pipeline
 
-Active/current/source-locked VERIFIED `payment_allocations` are field-specific attribution authority for their exact allocation facts, while remaining physical materialization rows as well. They participate in current authority resolution as typed `PAYMENT_ALLOCATION:<id>` identities. They do not receive unconditional priority: current/effective filtering, explicit typed supersession, source-lock and compatibility resolution still run before the winning truth is compared back to physical materialization.
+The Stage 3B wrapper captures the recovered production runtime handler and, only after a successful authenticated ADMIN `GET /admin/sync`, performs:
 
-A later current Owner/business authority may explicitly supersede a PAYMENT_ALLOCATION using `supersedes_authority_refs`. In that case the later authority is business truth and the still-present allocation row is reported as `STALE_SUPERSEDED_MATERIALIZATION`, without double counting or `AUTHORITY_CONFLICT` merely because the row exists.
+`existing runtime response -> direct authoritative V7 raw-source read -> buildAdminPaymentsV7FromRawSources(raw) -> payload.data.paymentsV7Projection`
 
-No duplicate V7 authority row is required merely to make an existing authoritative VERIFIED payment allocation visible to V7.
+The raw reader does not build V7 from `financeFragment` or another legacy projection. It preserves internal relational keys (`deal.id`, `payment.id`, `deal_key`, `payment_key`, allocation IDs) and reads current authoritative database relations directly.
 
-## Correct integration prerequisite / Stage 3B
+## Optional normalized authority providers
 
-The next backend integration stage is **Stage 3B — recover production-pinned runtime lineage into the V7 branch and integrate V7 into the existing authenticated GET `/admin/sync`**.
+Production DDL remains on HOLD. Stage 3B therefore capability-detects optional normalized providers before reading them:
 
-Recover the canonical repository runtime source from commit `32136088553ed99ab3426f743238cf17f4c26f7e`, including `supabase/functions/rona-owner-ai-sync/index.ts`, `runtime.ts`, and the relative dependencies required by that production-pinned runtime. Then modify that existing authenticated GET response path so that one ordinary Admin request performs:
+- `payment_business_attributions_v7` + `payment_business_attribution_lines_v7`;
+- `deal_finance_authority_v7`;
+- exact payment resource-chain provider.
 
-`authenticated GET /admin/sync -> authoritative raw source reads -> buildAdminPaymentsV7FromRawSources(...) -> payload.data.paymentsV7Projection`
+`relation absent` means capability `false` and the projection fails closed under the Stage 2/2.1 contract. An existing relation with zero current rows means capability `true` with an empty current provider. These states are intentionally distinct.
 
-The integration must replace/retire the V6 Payments enrichment on that same route rather than adding a second financial path. The real-entrypoint Test U must invoke the production-shaped authenticated GET handler and assert exactly one `ADMIN_PAYMENTS_V7` projection.
+Active/current/source-locked VERIFIED `payment_allocations` remain field-specific payment-attribution authority under Stage 3A.2; optional V7 attribution persistence is not required merely to recognize those existing allocations.
 
-Until Stage 3B recovers that pinned runtime subtree into this branch, Test U remains intentionally blocked/skipped and `UI_IMPLEMENTATION=HOLD` remains mandatory.
+## V6 retirement
+
+The production-pinned V6 wrapper previously called `enrichOwnerPaymentsAccountingCurrencyProgressV6(...)` after `runtimeHandler`. Stage 3B retires that Payments-authority path. The final V7 `index.ts` neither imports nor calls that V6 enrichment and contains no hardcoded Finance canon UUID/version.
+
+`financeFragment` remains untouched as existing Admin payload for unrelated compatibility, but it is not input financial truth for `paymentsV7Projection`.
+
+Canonical Owner Payments backend truth after Stage 3B is exactly one field:
+
+`payload.data.paymentsV7Projection`
+
+## Canonical core
+
+There is one implementation engine at:
+
+`supabase/functions/_shared/admin-payments-v7/`
+
+The old `rona-portal-api/admin-payments-v7/index.mjs` is only a compatibility re-export; no duplicate projection modules remain there.
+
+## Verification gate
+
+Stage 3B requires:
+
+- Test U PASS against the production-shaped wrapper path, including 401/403/405/200 and one V7 projection;
+- A–Y regression PASS;
+- Z–AD source-reader/integration PASS;
+- NO-HARDCODE PASS;
+- read-only current-production source verification;
+- no UI/CSS, production DDL, production data mutation, production deployment or merge.
+
+Current holds remain:
+
+- `UI_IMPLEMENTATION=HOLD`
+- `PRODUCTION_DDL=HOLD`
+- `PRODUCTION_BUSINESS_DATA_MUTATION=HOLD`
+- `PRODUCTION_DEPLOY=HOLD`
+- `MERGE=HOLD`
+- `V7_VISUAL_ACCEPTANCE=NOT_READY`

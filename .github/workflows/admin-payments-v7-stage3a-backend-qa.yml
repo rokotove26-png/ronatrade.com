@@ -1,4 +1,4 @@
-name: Admin Payments V7 Stage 3A Backend QA
+name: Admin Payments V7 Stage 3 Backend QA
 on:
   pull_request:
   workflow_dispatch:
@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: A-Y backend regression and correction suite
+      - name: A-AD backend regression and real integration suite
         run: npm run test:payments-v7
       - name: NO-HARDCODE changed production runtime scan
         env:
