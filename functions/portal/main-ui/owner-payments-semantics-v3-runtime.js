@@ -1,2 +1,2 @@
-import ownerPaymentsOwnerFinalV5Runtime from './owner-payments-owner-final-v5-runtime-fixed.js';
-export default ownerPaymentsOwnerFinalV5Runtime;
+import ownerPaymentsAccountingCurrencyProgressV6Runtime from './owner-payments-accounting-currency-progress-v6-runtime.js';
+export default ownerPaymentsAccountingCurrencyProgressV6Runtime;
