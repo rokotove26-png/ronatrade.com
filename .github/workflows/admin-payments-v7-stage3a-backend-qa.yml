@@ -61,7 +61,7 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs
-      - name: A-BD plus Stage 5A/5B regression and live-source integration suite
+      - name: A-BD plus Stage 4B/5A/5B regression and live-source integration suite
         run: npm run test:payments-v7
       - name: Stage 5B real live-shell browser route proof
         run: node scripts/admin-payments-v7-stage5b-browser-proof.mjs
@@ -88,6 +88,11 @@ jobs:
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3c-persistence.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3d-preproduction.sql
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3d1-readiness.sql
+      - name: Stage 4B — PostgreSQL 17 production-substrate Owner persistence delta
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage4b-owner-persistence-delta.sql
       - name: NO-HARDCODE changed production runtime scan
         env:
           NO_HARDCODE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
