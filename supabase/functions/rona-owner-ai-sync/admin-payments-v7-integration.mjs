@@ -15,7 +15,7 @@ function normalizeRequest(req, normalizedPath) {
 }
 
 function jsonError(status, code) {
-  return new Response(JSON.stringify({ ok: false, code }), {
+  return new Response(JSON.stringify({ ok: false, code, component: 'ADMIN_PAYMENTS_V7' }), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   });
@@ -25,6 +25,7 @@ export function createRonaOwnerAiSyncV7Handler(options) {
   const runtimeHandler = options?.runtimeHandler;
   const readRawSources = options?.readRawSources;
   const buildProjection = options?.buildProjection || buildAdminPaymentsV7FromRawSources;
+  const logger = options?.logger || console;
   if (typeof runtimeHandler !== 'function') throw new TypeError('AI_SYNC_RUNTIME_HANDLER_REQUIRED');
   if (typeof readRawSources !== 'function') throw new TypeError('ADMIN_PAYMENTS_V7_SOURCE_READER_REQUIRED');
   if (typeof buildProjection !== 'function') throw new TypeError('ADMIN_PAYMENTS_V7_PROJECTION_BUILDER_REQUIRED');
@@ -36,7 +37,23 @@ export function createRonaOwnerAiSyncV7Handler(options) {
 
     const payload = await response.json().catch(() => null);
     if (!payload?.data || typeof payload.data !== 'object') return jsonError(502, 'ADMIN_SYNC_PAYLOAD_INVALID');
-    const projection = buildProjection(await readRawSources());
+
+    let rawSources;
+    try {
+      rawSources = await readRawSources();
+    } catch (error) {
+      logger.error?.('admin-payments-v7 source read failed', error);
+      return jsonError(502, 'ADMIN_PAYMENTS_V7_SOURCE_FAILURE');
+    }
+
+    let projection;
+    try {
+      projection = buildProjection(rawSources);
+    } catch (error) {
+      logger.error?.('admin-payments-v7 projection build failed', error);
+      return jsonError(502, 'ADMIN_PAYMENTS_V7_PROJECTION_FAILURE');
+    }
+
     if (!projection || projection.contract !== 'ADMIN_PAYMENTS_V7') return jsonError(502, 'ADMIN_PAYMENTS_V7_PROJECTION_INVALID');
     payload.data.paymentsV7Projection = projection;
 

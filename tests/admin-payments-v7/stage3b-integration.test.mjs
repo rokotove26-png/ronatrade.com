@@ -1,8 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildAdminPaymentsV7FromRawSources } from '../../supabase/functions/_shared/admin-payments-v7/index.mjs';
-import { readAdminPaymentsV7RawSources } from '../../supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs';
+import {
+  ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS,
+  createAdminPaymentsV7SourceReader,
+  readAdminPaymentsV7RawSources,
+} from '../../supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs';
 import { createRonaOwnerAiSyncV7Handler } from '../../supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs';
+
+const SNAPSHOT_TS = '2026-09-13 12:00:00+00';
 
 function rows({ includeUnscopedOutgoing = false } = {}) {
   const payments = [{ id: 'payment-key', payment_id: 'PAYEV-2026-000001', payment_at: '2026-09-13T10:00:00Z', payment_direction: 'INCOMING', payment_kind: 'CLIENT_PAYMENT', amount: '40.0000', currency: 'USD', bank_fact_status: 'BANK_CONFIRMED', finance_verification_status: 'VERIFIED', deal_allocation_applicability: 'DEAL_ALLOCATABLE', allocation_review_status: 'VERIFIED', candidate_deal_ids: ['DEAL-2026-004'], authority_state: 'CONFIRMED', lifecycle_state: 'ACTIVE' }];
@@ -22,6 +28,7 @@ function makePort({ paymentProvider = false, financeProvider = false, resourcePr
   const data = rows({ includeUnscopedOutgoing });
   const calls = { optional: 0 };
   const port = {
+    readSnapshotTimestamp: async () => SNAPSHOT_TS,
     relationExists: async (name) => {
       if (name.endsWith('payment_business_attributions_v7')) return paymentProvider;
       if (name.endsWith('payment_business_attribution_lines_v7')) return paymentProvider;
@@ -45,17 +52,15 @@ function makePort({ paymentProvider = false, financeProvider = false, resourcePr
   return { port, calls };
 }
 
-const clock = () => '2026-09-13T12:00:00Z';
-
 async function projectedRaw(options = {}) {
   const { port } = makePort(options);
-  const raw = await readAdminPaymentsV7RawSources(port, { clock });
+  const raw = await readAdminPaymentsV7RawSources(port);
   return { raw, projection: buildAdminPaymentsV7FromRawSources(raw) };
 }
 
 test('Z — ABSENT AUTHORITY PROVIDER fails closed without source-reader crash', async () => {
   const { port, calls } = makePort({ includeUnscopedOutgoing: true });
-  const raw = await readAdminPaymentsV7RawSources(port, { clock });
+  const raw = await readAdminPaymentsV7RawSources(port);
   assert.equal(raw.capabilities.paymentBusinessAuthority, false);
   assert.equal(raw.capabilities.financeAuthority, false);
   assert.equal(raw.providerPresence.paymentBusinessAttributions, false);
@@ -73,7 +78,7 @@ test('Z — ABSENT AUTHORITY PROVIDER fails closed without source-reader crash',
 
 test('AA — EMPTY EXISTING PROVIDER is capability=true and differs from relation absent', async () => {
   const { port, calls } = makePort({ paymentProvider: true, financeProvider: true, includeUnscopedOutgoing: true });
-  const raw = await readAdminPaymentsV7RawSources(port, { clock });
+  const raw = await readAdminPaymentsV7RawSources(port);
   assert.equal(raw.capabilities.paymentBusinessAuthority, true);
   assert.equal(raw.capabilities.financeAuthority, true);
   assert.equal(raw.paymentBusinessAttributions.length, 0);
@@ -88,6 +93,8 @@ test('AA — EMPTY EXISTING PROVIDER is capability=true and differs from relatio
 test('AB — REAL RAW SOURCE SHAPE preserves internal keys and projection consumes raw rows', async () => {
   const { raw, projection } = await projectedRaw();
   assert.equal(raw.sourceReaderContract, 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V1');
+  assert.equal(raw.sourceAsOf, SNAPSHOT_TS);
+  assert.deepEqual(raw.snapshotContract, { isolation: 'REPEATABLE READ', access: 'READ ONLY', sourceAsOf: 'DB_TRANSACTION_TIMESTAMP' });
   assert.equal(raw.deals[0].id, 'deal-key');
   assert.equal(raw.payments[0].id, 'payment-key');
   assert.equal(raw.paymentAllocations[0].payment_key, 'payment-key');
@@ -104,7 +111,7 @@ function legacyRuntime(legacyValue, unrelated = {}) {
 
 async function runIntegrated(legacyValue, unrelated = {}) {
   const { raw } = await projectedRaw();
-  const handler = createRonaOwnerAiSyncV7Handler({ runtimeHandler: legacyRuntime(legacyValue, unrelated), readRawSources: async () => structuredClone(raw) });
+  const handler = createRonaOwnerAiSyncV7Handler({ runtimeHandler: legacyRuntime(legacyValue, unrelated), readRawSources: async () => structuredClone(raw), logger: { error() {} } });
   const response = await handler(new Request('https://example.test/admin/sync', { headers: { authorization: 'Bearer admin' } }));
   return response.json();
 }
@@ -129,4 +136,72 @@ test('AD — NON-PAYMENTS ADMIN REGRESSION preserves unrelated Admin payload', a
   const payload = await runIntegrated('legacy', unrelated);
   for (const [key, value] of Object.entries(unrelated)) assert.deepEqual(payload.data[key], value);
   assert.equal(payload.data.paymentsV7Projection.contract, 'ADMIN_PAYMENTS_V7');
+});
+
+test('AE — CONSISTENT READ SNAPSHOT CONTRACT uses one REPEATABLE READ READ ONLY transaction-scoped port', async () => {
+  const { port } = makePort({ paymentProvider: true, financeProvider: true, resourceProvider: true });
+  let insideTransaction = false;
+  let beginCalls = 0;
+  let readCalls = 0;
+  let outsideReads = 0;
+  let beginOptions = null;
+  const transactionSql = function transactionSql() { throw new Error('DIRECT_TRANSACTION_SQL_NOT_EXPECTED_IN_INJECTED_PORT_TEST'); };
+  const instrumentedPort = {};
+  for (const [name, fn] of Object.entries(port)) {
+    instrumentedPort[name] = async (...args) => {
+      readCalls += 1;
+      if (!insideTransaction) outsideReads += 1;
+      return fn(...args);
+    };
+  }
+  const rootSql = function rootSql() { throw new Error('AUTHORITATIVE_READ_OUTSIDE_TRANSACTION'); };
+  rootSql.begin = async (options, callback) => {
+    beginCalls += 1;
+    beginOptions = options;
+    insideTransaction = true;
+    try { return await callback(transactionSql); }
+    finally { insideTransaction = false; }
+  };
+  const reader = createAdminPaymentsV7SourceReader(rootSql, {
+    createReadPort: (sql) => {
+      assert.equal(sql, transactionSql);
+      return instrumentedPort;
+    },
+  });
+  const raw = await reader();
+  assert.equal(beginCalls, 1);
+  assert.equal(beginOptions, ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS);
+  assert.equal(beginOptions, 'isolation level repeatable read read only');
+  assert.equal(outsideReads, 0);
+  assert.ok(readCalls >= 17);
+  assert.equal(raw.sourceAsOf, SNAPSHOT_TS);
+  assert.equal(raw.generatedAt, SNAPSHOT_TS);
+  assert.deepEqual(raw.snapshotContract, { isolation: 'REPEATABLE READ', access: 'READ ONLY', sourceAsOf: 'DB_TRANSACTION_TIMESTAMP' });
+});
+
+test('AF — V7 SOURCE FAILURE IS CONTROLLED and never falls back to legacy Payments truth', async () => {
+  const request = new Request('https://example.test/admin/sync', { headers: { authorization: 'Bearer admin' } });
+  const runtimeHandler = legacyRuntime('legacy-should-not-fallback', { railTariffs: [{ tariff_key: 'kept-only-on-success' }] });
+  const sourceFailure = createRonaOwnerAiSyncV7Handler({
+    runtimeHandler,
+    readRawSources: async () => { throw new Error('DB_READ_FAILED'); },
+    logger: { error() {} },
+  });
+  let response = await sourceFailure(request);
+  assert.equal(response.status, 502);
+  let body = await response.json();
+  assert.deepEqual(body, { ok: false, code: 'ADMIN_PAYMENTS_V7_SOURCE_FAILURE', component: 'ADMIN_PAYMENTS_V7' });
+  assert.equal(Object.hasOwn(body, 'paymentsV7Projection'), false);
+
+  const projectionFailure = createRonaOwnerAiSyncV7Handler({
+    runtimeHandler,
+    readRawSources: async () => ({ sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V1' }),
+    buildProjection: () => { throw new Error('PROJECTION_FAILED'); },
+    logger: { error() {} },
+  });
+  response = await projectionFailure(new Request('https://example.test/admin/sync', { headers: { authorization: 'Bearer admin' } }));
+  assert.equal(response.status, 502);
+  body = await response.json();
+  assert.deepEqual(body, { ok: false, code: 'ADMIN_PAYMENTS_V7_PROJECTION_FAILURE', component: 'ADMIN_PAYMENTS_V7' });
+  assert.equal(Object.hasOwn(body, 'paymentsV7Projection'), false);
 });

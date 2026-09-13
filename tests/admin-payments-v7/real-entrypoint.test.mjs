@@ -1,11 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createRonaOwnerAiSyncRuntimeHandler } from '../../supabase/functions/rona-owner-ai-sync/runtime-handler.mjs';
 import { createRonaOwnerAiSyncV7Handler } from '../../supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs';
-
-function response(status, body) {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-}
 
 function rawSources() {
   return {
@@ -21,15 +18,24 @@ function rawSources() {
   };
 }
 
-function productionShapedRuntime() {
-  return async (req) => {
+function productionRuntimeHandler() {
+  const authContext = async (req) => {
     const auth = req.headers.get('authorization');
-    if (!auth) return response(401, { ok: false, code: 'PORTAL_ACCESS_DENIED' });
-    if (req.method !== 'GET') return response(405, { ok: false, code: 'METHOD_NOT_ALLOWED' });
-    if (new URL(req.url).pathname !== '/admin/sync') return response(404, { ok: false, code: 'ROUTE_NOT_FOUND' });
-    if (auth !== 'Bearer admin') return response(403, { ok: false, code: 'ROLE_MISMATCH' });
-    return response(200, { ok: true, data: { railTariffs: [{ tariff_key: 'rail-1' }], aiRuntime: { enabled: true }, aiEmployees: [{ identity_id: 'AI-1' }], homeCoordination: { totals: {} }, agentRewardsFragment: { rows: [] }, marketAnalystFragment: { analytics: [] }, financeFragment: { legacyPaymentsState: 'PRESERVED_NON_CANONICAL' } } });
+    if (auth === 'Bearer admin') return { userId: 'admin-user', roles: ['ADMIN'] };
+    if (auth === 'Bearer agent') return { userId: 'agent-user', roles: ['AGENT'] };
+    return null;
   };
+  const adminSync = async () => ({
+    railTariffs: [{ tariff_key: 'rail-1' }],
+    aiRuntime: { enabled: true },
+    aiEmployees: [{ identity_id: 'AI-1' }],
+    homeCoordination: { totals: {} },
+    agentRewardsFragment: { rows: [] },
+    marketAnalystFragment: { analytics: [] },
+    financeFragment: { legacyPaymentsState: 'PRESERVED_NON_CANONICAL' },
+  });
+  const agentSync = async () => ({ settlements: [] });
+  return createRonaOwnerAiSyncRuntimeHandler({ authContext, adminSync, agentSync, logger: { error() {} } });
 }
 
 function countV7Contracts(value) {
@@ -39,19 +45,20 @@ function countV7Contracts(value) {
   return count;
 }
 
-test('U — REAL AUTHENTICATED GET /admin/sync production-shaped entrypoint', async () => {
+test('U — REAL AUTHENTICATED GET /admin/sync uses the same production runtime-handler factory', async () => {
   const runtimeSource = await readFile(new URL('../../supabase/functions/rona-owner-ai-sync/runtime.ts', import.meta.url), 'utf8');
   const indexSource = await readFile(new URL('../../supabase/functions/rona-owner-ai-sync/index.ts', import.meta.url), 'utf8');
-  assert.match(runtimeSource, /req\.method!==\"GET\"/);
-  assert.match(runtimeSource, /path===\"\/admin\/sync\"/);
-  assert.match(runtimeSource, /requireRole\(ctx,\"ADMIN\"\)/);
+  assert.match(runtimeSource, /createRonaOwnerAiSyncRuntimeHandler/);
+  assert.match(runtimeSource, /Deno\.serve\(createRonaOwnerAiSyncRuntimeHandler/);
+  assert.doesNotMatch(runtimeSource, /path===\"\/admin\/sync\"/);
   assert.doesNotMatch(indexSource, /enrichOwnerPaymentsAccountingCurrencyProgressV6/);
   assert.match(indexSource, /createRonaOwnerAiSyncV7Handler/);
 
   let sourceReads = 0;
   const handler = createRonaOwnerAiSyncV7Handler({
-    runtimeHandler: productionShapedRuntime(),
+    runtimeHandler: productionRuntimeHandler(),
     readRawSources: async () => { sourceReads += 1; return rawSources(); },
+    logger: { error() {} },
   });
   const url = 'https://example.test/functions/v1/rona-owner-ai-sync/admin/sync';
 

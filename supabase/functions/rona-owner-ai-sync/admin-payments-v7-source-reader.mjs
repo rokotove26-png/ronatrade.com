@@ -5,10 +5,17 @@ const RELATIONS = Object.freeze({
   resourceChain: 'portal_private.payment_resource_chains_v7',
 });
 
+export const ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS = 'isolation level repeatable read read only';
+
 function cloneRows(rows) { return Array.isArray(rows) ? rows : []; }
 
-export async function readAdminPaymentsV7RawSources(port, { clock = () => new Date().toISOString() } = {}) {
-  if (!port || typeof port.relationExists !== 'function') throw new TypeError('ADMIN_PAYMENTS_V7_READ_PORT_REQUIRED');
+export async function readAdminPaymentsV7RawSources(port) {
+  if (!port || typeof port.relationExists !== 'function' || typeof port.readSnapshotTimestamp !== 'function') {
+    throw new TypeError('ADMIN_PAYMENTS_V7_READ_PORT_REQUIRED');
+  }
+
+  const snapshotTimestamp = await port.readSnapshotTimestamp();
+  if (!snapshotTimestamp) throw new Error('ADMIN_PAYMENTS_V7_SNAPSHOT_TIMESTAMP_REQUIRED');
 
   const [paymentHeadersPresent, paymentLinesPresent, financePresent, resourceChainPresent] = await Promise.all([
     port.relationExists(RELATIONS.paymentBusinessAttributions),
@@ -35,11 +42,16 @@ export async function readAdminPaymentsV7RawSources(port, { clock = () => new Da
     capabilities.resourceChain ? port.readResourceChains() : [],
   ]);
 
-  const asOf = clock();
+  const asOf = String(snapshotTimestamp);
   return {
     generatedAt: asOf,
     sourceAsOf: asOf,
     sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V1',
+    snapshotContract: {
+      isolation: 'REPEATABLE READ',
+      access: 'READ ONLY',
+      sourceAsOf: 'DB_TRANSACTION_TIMESTAMP',
+    },
     providerPresence: {
       paymentBusinessAttributions: paymentHeadersPresent,
       paymentBusinessAttributionLines: paymentLinesPresent,
@@ -65,6 +77,10 @@ export async function readAdminPaymentsV7RawSources(port, { clock = () => new Da
 export function createPostgresAdminPaymentsV7ReadPort(sql) {
   if (typeof sql !== 'function') throw new TypeError('POSTGRES_SQL_TAG_REQUIRED');
   return {
+    async readSnapshotTimestamp() {
+      const rows = await sql`select transaction_timestamp()::text as source_as_of`;
+      return rows?.[0]?.source_as_of || null;
+    },
     async relationExists(qualifiedName) {
       const rows = await sql`select to_regclass(${qualifiedName})::text as relation`;
       return Boolean(rows?.[0]?.relation);
@@ -167,8 +183,12 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
 }
 
 export function createAdminPaymentsV7SourceReader(sql, options = {}) {
-  const port = createPostgresAdminPaymentsV7ReadPort(sql);
-  return () => readAdminPaymentsV7RawSources(port, options);
+  if (typeof sql !== 'function' || typeof sql.begin !== 'function') throw new TypeError('POSTGRES_TRANSACTION_SQL_REQUIRED');
+  const createReadPort = options.createReadPort || createPostgresAdminPaymentsV7ReadPort;
+  return () => sql.begin(ADMIN_PAYMENTS_V7_SNAPSHOT_OPTIONS, async (transactionSql) => {
+    const port = createReadPort(transactionSql);
+    return readAdminPaymentsV7RawSources(port);
+  });
 }
 
 export { RELATIONS as ADMIN_PAYMENTS_V7_OPTIONAL_RELATIONS };
