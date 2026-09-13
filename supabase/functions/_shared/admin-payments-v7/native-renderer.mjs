@@ -14,9 +14,7 @@ const esc = (value) => text(value)
 
 function projectionFrom(data) {
   const projection = data?.paymentsV7Projection;
-  if (!projection || projection.contract !== 'ADMIN_PAYMENTS_V7') {
-    throw new Error('ADMIN_PAYMENTS_V7_PROJECTION_REQUIRED');
-  }
+  if (!projection || projection.contract !== 'ADMIN_PAYMENTS_V7') throw new Error('ADMIN_PAYMENTS_V7_PROJECTION_REQUIRED');
   return projection;
 }
 
@@ -84,14 +82,49 @@ function normalizedDeal(deal) {
   };
 }
 
+function aggregateMoney(deals, field) {
+  const totals = new Map();
+  let toVerify = false;
+  for (const deal of deals) {
+    const value = deal?.[field];
+    if (!value || upper(value.status) !== 'AUTHORITATIVE' || value.amount === null || !text(value.currency)) { toVerify = true; continue; }
+    const currency = upper(value.currency);
+    const amount = Number(value.amount);
+    if (!Number.isFinite(amount)) { toVerify = true; continue; }
+    totals.set(currency, (totals.get(currency) || 0) + amount);
+  }
+  return {
+    rows: [...totals.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([currency, amount]) => ({ currency, amount: numberText(amount) })),
+    to_verify: toVerify,
+  };
+}
+
+function globalKpis(deals) {
+  const total = aggregateMoney(deals, 'total_to_receive');
+  const received = aggregateMoney(deals, 'verified_received');
+  const expected = aggregateMoney(deals, 'expected_not_due');
+  const conditional = aggregateMoney(deals, 'future_conditional');
+  const spendReady = deals.length > 0 && deals.every((deal) => upper(deal?.actual_spend_status) === 'AUTHORITATIVE');
+  const spend = spendReady ? aggregateMoney(deals, 'actual_spend') : { rows: [], to_verify: true };
+  const remaining = spendReady ? aggregateMoney(deals, 'remaining_execution') : { rows: [], to_verify: true };
+  return {
+    total: { label: 'К получению', ...total },
+    received: { label: 'Получено', ...received },
+    expected: { label: 'Ожидается', ...expected, conditional },
+    spend: { label: 'Потрачено / Остаток', spend, remaining, to_verify: !spendReady || spend.to_verify || remaining.to_verify },
+  };
+}
+
 export function createAdminPaymentsV7NativeView(data) {
   const projection = projectionFrom(data);
+  const rawDeals = asArray(projection.deals);
   return {
     route_owner: OWNER,
     contract: projection.contract,
     generated_at: projection.generated_at || null,
     source_as_of: projection.source_as_of || null,
-    deals: asArray(projection.deals).map(normalizedDeal),
+    kpis: globalKpis(rawDeals),
+    deals: rawDeals.map(normalizedDeal),
     owner_exception_queue: asArray(projection.owner_exception_queue),
   };
 }
@@ -103,6 +136,27 @@ function provenanceHtml(refs) {
     const timestamp = text(ref?.source_timestamp);
     return `<li><strong>${esc(label)}</strong>${timestamp ? `<span>${esc(timestamp)}</span>` : ''}</li>`;
   }).join('')}</ul>`;
+}
+
+function kpiRowsHtml(rows, toVerify) {
+  const body = rows.map((row) => `<div class="payments-v7-kpi-line"><strong>${esc(row.amount)} ${esc(row.currency)}</strong></div>`).join('');
+  return body || (toVerify ? '<strong>TO_VERIFY</strong>' : '<strong>—</strong>');
+}
+
+function globalKpiHtml(kpis) {
+  const conditionalRows = kpis.expected.conditional.rows.filter((row) => Number(String(row.amount).replace(/[^0-9,.-]/g, '').replace(',', '.')) !== 0);
+  const conditional = conditionalRows.length
+    ? `<div class="payments-v7-kpi-sub">Conditional: ${conditionalRows.map((row) => `${esc(row.amount)} ${esc(row.currency)}`).join(' · ')}</div>`
+    : '';
+  const spend = kpis.spend.to_verify
+    ? '<strong>TO_VERIFY</strong>'
+    : `<div class="payments-v7-kpi-pair"><span>Потрачено</span>${kpiRowsHtml(kpis.spend.spend.rows, false)}<span>Остаток</span>${kpiRowsHtml(kpis.spend.remaining.rows, false)}</div>`;
+  return `<div class="payments-v7-kpis" aria-label="Сводные показатели">
+    <section class="payments-v7-kpi"><span>${esc(kpis.total.label)}</span>${kpiRowsHtml(kpis.total.rows, kpis.total.to_verify)}</section>
+    <section class="payments-v7-kpi"><span>${esc(kpis.received.label)}</span>${kpiRowsHtml(kpis.received.rows, kpis.received.to_verify)}</section>
+    <section class="payments-v7-kpi"><span>${esc(kpis.expected.label)}</span>${kpiRowsHtml(kpis.expected.rows, kpis.expected.to_verify)}${conditional}</section>
+    <section class="payments-v7-kpi"><span>${esc(kpis.spend.label)}</span>${spend}</section>
+  </div>`;
 }
 
 function dealRowHtml(deal) {
@@ -118,9 +172,9 @@ function dealRowHtml(deal) {
       <div class="payments-v7-cell"><span>Ожидается</span><strong>${esc(deal.expected)}</strong>${conditional}</div>
       <div class="payments-v7-cell"><span>Потрачено / Остаток</span><strong>${esc(deal.spend)}</strong><small>${esc(deal.execution_remaining)}</small></div>
     </div>
-    <details class="payments-v7-passport"><summary>Паспорт / provenance</summary>
-      <div class="payments-v7-passport-meta"><span>Accounting currency: ${esc(deal.accounting_currency)} (${esc(deal.accounting_currency_status)})</span><span>Documentary: ${esc(deal.documentary_status)}</span><span>Due now: ${esc(deal.due_now)}</span></div>
-      ${provenanceHtml(deal.authority_refs)}
+    <details class="payments-v7-passport"><summary>Паспорт</summary>
+      <div class="payments-v7-passport-meta"><span>Валюта расчётов: ${esc(deal.accounting_currency)} (${esc(deal.accounting_currency_status)})</span><span>Документы: ${esc(deal.documentary_status)}</span><span>К оплате сейчас: ${esc(deal.due_now)}</span></div>
+      <div class="payments-v7-passport-tech"><strong>Provenance</strong>${provenanceHtml(deal.authority_refs)}</div>
     </details>
   </article>`;
 }
@@ -133,7 +187,8 @@ function ownerQueueHtml(queue) {
 export function renderAdminPaymentsV7NativeHtml(data) {
   const view = createAdminPaymentsV7NativeView(data);
   return `<section class="payments-v7-native" data-payments-route-owner="${OWNER}" data-contract="${esc(view.contract)}">
-    <header class="payments-v7-title"><div><h2>Платежи</h2><p>Authoritative V7 projection</p></div></header>
+    <header class="payments-v7-title"><h2>Платежи</h2></header>
+    ${globalKpiHtml(view.kpis)}
     <div class="payments-v7-board">${view.deals.map(dealRowHtml).join('')}</div>
     ${ownerQueueHtml(view.owner_exception_queue)}
   </section>`;
