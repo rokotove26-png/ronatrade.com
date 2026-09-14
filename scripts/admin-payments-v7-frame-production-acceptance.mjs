@@ -108,7 +108,7 @@ async function measure(browser, token, width, height) {
     assert(!proof.horizontalOverflow, 'HORIZONTAL_OVERFLOW');
     assert(Math.abs(proof.host.width - proof.root.width) <= 2, `HOST_ROOT_WIDTH_MISMATCH_${proof.host.width}_${proof.root.width}`);
     assert(Math.abs(proof.titleFrame.width - proof.root.width) <= 2, `TITLE_BODY_WIDTH_MISMATCH_${proof.titleFrame.width}_${proof.root.width}`);
-    if (width > 760) assert(proof.ratio >= 0.58 && proof.ratio <= 0.62, `DESKTOP_RATIO_${proof.ratio}`);
+    if (width > 760) assert(proof.ratio >= 0.73 && proof.ratio <= 0.77, `DESKTOP_RATIO_${proof.ratio}`);
     else assert(proof.ratio >= 0.98 && proof.ratio <= 1.01, `MOBILE_RATIO_${proof.ratio}`);
     return proof;
   } finally {
