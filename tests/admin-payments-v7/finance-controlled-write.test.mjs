@@ -50,9 +50,10 @@ test('shared payment never receives an inferred proportional split',()=>{
  assert.doesNotMatch(migration,/50\s*\/\s*50|proportional|ratio|weight/i);
 });
 
-test('gateway delegates exact production semantics and browser never becomes Finance authority',()=>{
- assert.match(gateway,/FINANCE_GATEWAY_UPSTREAM_COMMIT='736a535fe245decdf79de06d32940c2cb17370aa'/);
- assert.match(gateway,/raw\.githubusercontent\.com\/rokotove26-png\/ronatrade\.com/);
+test('gateway preserves canonical production semantics and browser never becomes Finance authority',()=>{
+ assert.match(gateway,/36727a94820e1e85e95d4abfc5d6aab8234c5c18\/supabase\/functions\/rona-mcp-gateway\/index\.js/);
+ assert.equal((gateway.match(/\(Deno\)\.serve = function/g)||[]).length,1);
+ assert.doesNotMatch(gateway,/mutableDeno|financeServe|FINANCE_GATEWAY_UPSTREAM_HANDLER_NOT_CAPTURED/);
  assert.match(extension,/mcp_oauth_tokens/);
  assert.match(extension,/persist_finance_event_v7/);
  assert.doesNotMatch(extension,/amount.*window|window.*amount|document\.querySelector/i);
