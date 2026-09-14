@@ -6,6 +6,7 @@ on:
       - feat/admin-payments-final-owner-screen-passport-v1
     paths:
       - 'scripts/admin-payments-v7-frame-production-acceptance.mjs'
+      - 'scripts/admin-payments-v7-native-spend-diagnostic.mjs'
       - '.github/workflows/admin-payments-v7-frame-production-acceptance.yml'
   workflow_dispatch:
 
@@ -30,6 +31,12 @@ jobs:
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
+      - name: Run native spend production diagnostic
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+        run: node scripts/admin-payments-v7-native-spend-diagnostic.mjs
       - name: Run authenticated production frame acceptance
         env:
           TARGET_ORIGIN: https://ronaoil.com
