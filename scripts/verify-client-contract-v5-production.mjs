@@ -1,4 +1,4 @@
-const base=String(process.env.TARGET_ORIGIN||'https://ronatrade.com').replace(/\/$/,'');
+const base=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 const sha=String(process.env.GITHUB_SHA||Date.now());
 const assert=(value,message)=>{if(!value)throw new Error(message)};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -21,6 +21,8 @@ const fetchNoStore=(path,attempt=0)=>fetch(`${base}${path}${path.includes('?')?'
 const integrity=await retry('Client CURRENT_ONLY integrity',async attempt=>{
   const response=await fetchNoStore('/canonical-visual-integrity.json',attempt);
   assert(response.ok,`status ${response.status}`);
+  const contentType=String(response.headers.get('content-type')||'').toLowerCase();
+  assert(contentType.includes('application/json'),`content-type ${contentType||'<none>'}`);
   const data=await response.json();
   const client=data.client_runtime||{};
   assert(data.architecture==='CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS',`architecture ${data.architecture}`);
