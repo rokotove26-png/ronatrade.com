@@ -1,21 +1,15 @@
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import {
-  LIVE_OWNER_API,
-  STAGE5C_ROUTE_OWNER,
-  recoverLiveAdminWorkspace as recoverStage5CLiveAdminWorkspace,
-} from './admin-payments-v7-stage5c-live-source.mjs';
 
-export const FINAL_PAYMENTS_ROUTE_OWNER = STAGE5C_ROUTE_OWNER;
+export const FINAL_PAYMENTS_ROUTE_OWNER = 'admin-payments-v7-native';
 export const FINAL_LIVE_ADMIN_SOURCE_COMMIT = '0c136582cbe825149257994465d784f28a24ab0c';
-export const FINAL_LIVE_OWNER_API = LIVE_OWNER_API;
+export const FINAL_LIVE_OWNER_API = 'functions/portal/owner-api.js';
 
-function currentReleaseUiClosure() {
+function currentReleasePortalFiles() {
   return execFileSync('git', [
     'ls-tree', '-r', '--name-only', FINAL_LIVE_ADMIN_SOURCE_COMMIT,
-    'functions/portal/main-ui',
-    'functions/portal/owner-ui-chunks',
+    'functions/portal',
   ], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
     .split(/\r?\n/)
     .map((x) => x.trim())
@@ -31,22 +25,21 @@ function materializeCurrentReleaseFile(root, path) {
   }));
 }
 
-// CURRENT_STATE_FIRST: the current release already contains the Owner-accepted
-// Payments V7 renderer. The Finance automation stage must therefore preserve the
-// complete current release Admin UI module closure byte-for-byte. Stage 5C is used
-// only to recover the known shell file set; every release-owned UI module is then
-// replaced with the exact current-release version so no stale presentation patch,
-// missing auxiliary module, or unrelated UI rollback can enter this candidate.
+// CURRENT_STATE_FIRST: the approved release already owns the Owner-accepted
+// Payments V7 renderer and proxy. Finance-driven automation does not modify the
+// Admin frontend. Materialize only the exact current-release Admin portal closure;
+// do not depend on any historical Stage 5C source commit or presentation patch.
 export function recoverLiveAdminWorkspace(root) {
-  const recovered = recoverStage5CLiveAdminWorkspace(root);
   const releaseFiles = [
-    ...(recovered.files || []),
-    ...currentReleaseUiClosure(),
+    'assets/portal-admin-shell-fast-v1.js',
+    'portal-src/current/admin.html',
+    ...currentReleasePortalFiles(),
   ];
-  for (const path of [...new Set(releaseFiles)]) materializeCurrentReleaseFile(root, path);
+  const files = [...new Set(releaseFiles)];
+  for (const path of files) materializeCurrentReleaseFile(root, path);
   return {
-    ...recovered,
-    files: [...new Set(releaseFiles)],
+    root,
+    files,
     liveCommit: FINAL_LIVE_ADMIN_SOURCE_COMMIT,
     presentation: 'ADMIN_PAYMENTS_V7_RELEASE_NATIVE_PARITY',
   };
