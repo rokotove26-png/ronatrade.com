@@ -21,7 +21,7 @@ test('Finance Pilot exposes one typed Finance-to-Payments mutation surface',()=>
  assert.match(extension,/ctx\.role!=='FINANCE'/);
  assert.match(extension,/ctx\.identity_id!=='AI-FINANCE'/);
  assert.match(extension,/ctx\.server_slug!=='rona-mcp-finance-pilot'/);
- assert.doesNotMatch(extension,/browser|localStorage|sessionStorage/i);
+ assert.doesNotMatch(extension,/window\.|localStorage|sessionStorage|document\./i);
 });
 
 test('sealed persistence is append-only, stale guarded, idempotent and source locked',()=>{
