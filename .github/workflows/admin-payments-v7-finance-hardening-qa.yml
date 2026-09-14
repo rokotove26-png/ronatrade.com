@@ -1,0 +1,57 @@
+name: Admin Payments V7 Finance Authority Hardening QA
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/20260914210000_admin_payments_v7_finance_controlled_write.sql'
+      - 'supabase/migrations/20260914213000_admin_payments_v7_finance_current_authority_hardening.sql'
+      - 'tests/admin-payments-v7/finance-controlled-write.sql'
+      - 'tests/admin-payments-v7/finance-current-authority-hardening.sql'
+      - '.github/workflows/admin-payments-v7-finance-hardening-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  finance-current-authority-hardening:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact branch HEAD
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "tested_sha=$actual"
+          if [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            test "$actual" = "${{ github.event.pull_request.head.sha }}"
+          fi
+      - name: PostgreSQL 17 current-authority regression
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/finance-current-authority-hardening.sql
+      - name: No frontend visual scope in hardening delta
+        shell: bash
+        run: |
+          git diff --name-only "${{ github.event.pull_request.base.sha || 'HEAD^' }}"...HEAD > /tmp/changed.txt
+          ! grep -E '^(portal-src/|assets/|functions/portal/main-ui/)' /tmp/changed.txt

@@ -1,0 +1,10 @@
+{
+  "name": "rona-admin-payments-v7-stage3a1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/admin-payments-v7-cloudflare-build.mjs",
+    "test:payments-v7": "node --test tests/admin-payments-v7/*.test.mjs",
+    "scan:payments-v7": "node scripts/check-admin-payments-v7-no-hardcode.mjs"
+  }
+}

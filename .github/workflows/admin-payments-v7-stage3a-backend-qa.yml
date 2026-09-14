@@ -1,0 +1,116 @@
+name: Admin Payments V7 Stage 3 Backend QA
+on:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  EXPECTED_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+
+jobs:
+  backend-qa:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact branch HEAD
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "tested_sha=$actual"
+          echo "tested_sha=$actual" >> "$GITHUB_STEP_SUMMARY"
+          test "$actual" = "$EXPECTED_HEAD_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: PostgreSQL 17 target parity
+        env:
+          PGPASSWORD: postgres
+        run: |
+          major="$(psql -h 127.0.0.1 -U postgres -d postgres -Atqc "select current_setting('server_version_num')::int / 10000")"
+          version="$(psql -h 127.0.0.1 -U postgres -d postgres -Atqc "select current_setting('server_version')")"
+          echo "postgres_version=$version"
+          echo "postgres_major=$major"
+          echo "postgres_version=$version" >> "$GITHUB_STEP_SUMMARY"
+          echo "postgres_major=$major" >> "$GITHUB_STEP_SUMMARY"
+          test "$major" = "17"
+      - name: AG — Deno target import graph check
+        run: |
+          deno check --config supabase/functions/rona-owner-ai-sync/deno.json supabase/functions/rona-owner-ai-sync/index.ts
+          deno check --config supabase/functions/rona-owner-ai-sync/deno.json \
+            supabase/functions/rona-owner-ai-sync/runtime.ts \
+            supabase/functions/rona-owner-ai-sync/runtime-handler.mjs \
+            supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs \
+            supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader.mjs \
+            supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader-truth.mjs \
+            supabase/functions/_shared/admin-payments-v7/index.mjs \
+            supabase/functions/_shared/admin-payments-v7/truth.mjs
+          deno check --config supabase/functions/rona-mcp-gateway/deno.json \
+            supabase/functions/rona-mcp-gateway/index.ts \
+            supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs
+      - name: Cloudflare build-command parity
+        run: npm run build
+      - name: A-BD plus final data-truth, Owner-cycle and projection regression suite
+        run: npm run test:payments-v7
+      - name: Final live-shell executive responsive and data-driven browser proof
+        run: node scripts/admin-payments-v7-final-browser-proof.mjs
+      - name: Upload final Payments V7 visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-payments-v7-final-visual-${{ github.event.pull_request.head.sha || github.sha }}
+          path: final-payments-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Stage 4A migration-lineage aliases for historical PG harness
+        run: |
+          ln -s 20260913160703_admin_payments_v7_stage3a_authority_core.sql \
+            supabase/migrations/20260913143000_admin_payments_v7_stage3a_authority.sql
+          ln -s 20260913161057_admin_payments_v7_stage3d_shape.sql \
+            supabase/migrations/20260913160000_admin_payments_v7_stage3d_activation_gate.sql
+          ln -s 20260913161257_admin_payments_v7_stage3d1_provider_readiness.sql \
+            supabase/migrations/20260913173000_admin_payments_v7_stage3d1_provider_readiness.sql
+      - name: AH-AI, AN-AO, AT and Stage 3D.1 — PostgreSQL 17 persistence, privilege and readiness integration
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3c-persistence.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3d-preproduction.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage3d1-readiness.sql
+      - name: Stage 4B — PostgreSQL 17 production-substrate Owner persistence delta
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/stage4b-owner-persistence-delta.sql
+      - name: Finance controlled write — PostgreSQL 17 E2E matrix
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/finance-controlled-write.sql
+      - name: Final reader RLS visibility — PostgreSQL 17 read-only boundary proof
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/reader-rls-visibility.sql
+      - name: NO-HARDCODE final backend and browser candidate scan
+        env:
+          NO_HARDCODE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
+        run: npm run scan:payments-v7
