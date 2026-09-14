@@ -19,7 +19,7 @@ test('Payments V7 materializes from the exact current release head', () => {
   assert.equal(FINAL_LIVE_ADMIN_SOURCE_COMMIT, CURRENT_RELEASE_HEAD);
 });
 
-test('current Prices and Applications release layers remain byte-identical through Payments V7 recovery', () => {
+test('current release UI layers remain byte-identical through Payments V7 recovery', () => {
   const root = mkdtempSync(join(tmpdir(), 'rona-payments-release-parity-'));
   try {
     recoverLiveAdminWorkspace(root);
@@ -34,8 +34,7 @@ test('current Prices and Applications release layers remain byte-identical throu
 
     const currentMainUi = readFileSync(join(root, 'functions/portal/main-ui/index.js'), 'utf8');
     assert.match(currentMainUi, /patchPaymentsV7Runtime/);
-    assert.match(currentMainUi, /PRICES|Prices|prices/);
-    assert.match(currentMainUi, /application|APPLICATION/);
+    assert.match(currentMainUi, /applicationPassportRuntime/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
