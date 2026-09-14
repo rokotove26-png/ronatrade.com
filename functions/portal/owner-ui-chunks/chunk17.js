@@ -23,7 +23,18 @@ function applyPaymentsFrame(){
     host.style.setProperty('min-width','0','important');
     host.style.setProperty('margin-left','auto','important');
     host.style.setProperty('margin-right','auto','important');
+    host.style.setProperty('padding-left','0','important');
+    host.style.setProperty('padding-right','0','important');
     host.style.setProperty('box-sizing','border-box','important');
+    for(const child of Array.from(host.children)){
+      if(!child||child.nodeType!==1)continue;
+      child.style.setProperty('width','100%','important');
+      child.style.setProperty('max-width','100%','important');
+      child.style.setProperty('min-width','0','important');
+      child.style.setProperty('margin-left','0','important');
+      child.style.setProperty('margin-right','0','important');
+      child.style.setProperty('box-sizing','border-box','important');
+    }
   }
   const payments=page.querySelector('.rona-payments-v7');
   if(payments){
