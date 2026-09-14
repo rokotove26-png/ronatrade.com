@@ -1,0 +1,1 @@
+MCP cross-role coordination fix branch marker.
