@@ -6,8 +6,60 @@ function ensurePaymentsPresentationStyle(){
   if(style)return;
   style=document.createElement('style');
   style.id='ronaPaymentsFramePresentationV3';
-  style.textContent='#page-payments .rona-payments-v7{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;gap:0!important;overflow:visible!important}#page-payments .rona-payments-v7::before{display:none!important;content:none!important}#page-payments .rona-payments-v7-board{margin-top:40px!important}@media(max-width:760px){#page-payments .rona-payments-v7-board{margin-top:26px!important}}';
+  style.textContent='#page-payments .rona-payments-v7{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;gap:0!important;overflow:visible!important}#page-payments .rona-payments-v7::before{display:none!important;content:none!important}#page-payments .rona-payments-v7-board{margin-top:40px!important}#page-payments .rona-payments-v7-native-spend{display:grid;gap:3px}#page-payments .rona-payments-v7-native-spend strong{display:block;font-variant-numeric:tabular-nums}#page-payments .rona-payments-v7-native-note{display:block;margin-top:4px;font-size:9px;line-height:1.25;font-weight:750;color:#7894aa}#page-payments .rona-payments-v7-native-note.warn{color:#ffc169}@media(max-width:760px){#page-payments .rona-payments-v7-board{margin-top:26px!important}}';
   document.head.appendChild(style);
+}
+
+function nativeMoney(v){
+  const n=Number(v?.amount),c=String(v?.currency||'').trim().toUpperCase();
+  return Number.isFinite(n)&&c?new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)+' '+c:'TO_VERIFY';
+}
+function nativeMoneyList(rows){
+  return (Array.isArray(rows)?rows:[]).map(nativeMoney).filter(Boolean).join(' · ')||'TO_VERIFY';
+}
+function spendCell(article){
+  return Array.from(article?.querySelectorAll?.('.rona-payments-v7-deal-cell')||[]).find(cell=>String(cell.querySelector('span')?.textContent||'').trim()==='Потрачено / Остаток')||null;
+}
+function applyNativeSpendProjection(payments){
+  const projection=window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection;
+  if(!projection||projection.contract!=='ADMIN_PAYMENTS_V7'||!projection.actual_spend_native_summary)return;
+  const deals=new Map((Array.isArray(projection.deals)?projection.deals:[]).map(d=>[String(d?.deal_id||''),d]));
+  for(const article of payments.querySelectorAll('.rona-payments-v7-deal[data-deal-id]')){
+    const deal=deals.get(String(article.dataset.dealId||''));
+    if(!deal)continue;
+    const cell=spendCell(article);
+    if(!cell)continue;
+    const strong=cell.querySelector('strong');
+    let small=cell.querySelector('small');
+    if(!small){small=document.createElement('small');cell.appendChild(small)}
+    const status=String(deal.actual_spend_native_status||'').toUpperCase();
+    const native=Array.isArray(deal.actual_spend_native)?deal.actual_spend_native:[];
+    const unresolved=Array.isArray(deal.actual_spend_native_unresolved_scope)?deal.actual_spend_native_unresolved_scope:[];
+    if((status==='AUTHORITATIVE'||status==='PARTIAL_TO_VERIFY')&&native.length){
+      strong.textContent=nativeMoneyList(native);
+      const remaining=deal?.remaining_execution;
+      const remainingReady=String(remaining?.status||'').toUpperCase()==='AUTHORITATIVE';
+      small.textContent='Остаток: '+(remainingReady?nativeMoney(remaining):'TO_VERIFY');
+      if(status==='PARTIAL_TO_VERIFY'&&unresolved.length)small.textContent+=' · Без распределения: '+nativeMoneyList(unresolved);
+    }else if(status==='TO_VERIFY'&&unresolved.length){
+      strong.textContent='TO_VERIFY';
+      small.textContent='Общий расход без распределения: '+nativeMoneyList(unresolved);
+    }
+  }
+  const summary=projection.actual_spend_native_summary;
+  const spendKpi=Array.from(payments.querySelectorAll('.rona-payments-v7-kpi')).find(k=>String(k.querySelector('.rona-payments-v7-kpi-label')?.textContent||'').trim()==='Потрачено / Остаток');
+  if(spendKpi){
+    const label=spendKpi.querySelector('.rona-payments-v7-kpi-label');
+    for(const child of Array.from(spendKpi.children))if(child!==label)child.remove();
+    const box=document.createElement('div');box.className='rona-payments-v7-native-spend';
+    const exact=document.createElement('strong');exact.className='rona-payments-v7-kpi-value';exact.textContent=nativeMoneyList(summary.totals);
+    box.appendChild(exact);
+    const note=document.createElement('small');note.className='rona-payments-v7-native-note';note.textContent='Подтвержденный фактический расход';box.appendChild(note);
+    const unresolved=Array.isArray(summary.unresolved_scope_totals)?summary.unresolved_scope_totals:[];
+    if(unresolved.length){const warn=document.createElement('small');warn.className='rona-payments-v7-native-note warn';warn.textContent='Без распределения по сделкам: '+nativeMoneyList(unresolved);box.appendChild(warn)}
+    const residue=document.createElement('small');residue.className='rona-payments-v7-native-note';residue.textContent='Остаток в валюте учета: TO_VERIFY до точной bank/Treasury связи';box.appendChild(residue);
+    spendKpi.appendChild(box);
+  }
 }
 
 function applyPaymentsFrame(){
@@ -44,6 +96,7 @@ function applyPaymentsFrame(){
     for(const label of payments.querySelectorAll('.rona-payments-v7-kpi-label,.rona-payments-v7-deal-cell>span')){
       if(String(label.textContent||'').trim()==='К получению')label.textContent='Сумма по сделке';
     }
+    applyNativeSpendProjection(payments);
   }
   page.dataset.ronaPaymentsFrameWidth=target;
 }
