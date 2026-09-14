@@ -27,6 +27,17 @@ export const FINANCE_PAYMENTS_V7_TOOL=Object.freeze({
   annotations:{readOnlyHint:false,destructiveHint:false,idempotentHint:true,openWorldHint:false}
 });
 
+export const FINANCE_PILOT_LEGACY_TOOL_NAMES=Object.freeze([
+  'current_state',
+  'history',
+  'document_read',
+  'task_acknowledge',
+  'task_progress_submit',
+  'functional_conclusion_submit',
+  'handoff_request_submit',
+  'business_change_proposal_submit'
+]);
+
 async function sha256Hex(value){const d=new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(String(value))));return[...d].map(x=>x.toString(16).padStart(2,'0')).join('')}
 function bearer(req){const h=req.headers.get('authorization')||'';return h.startsWith('Bearer ')?h.slice(7).trim():''}
 function requestIds(req){const r=req.headers.get('x-request-id')||'',c=req.headers.get('x-correlation-id')||'';return{mcpRequestId:UUID_RE.test(r)?r:crypto.randomUUID(),correlationId:UUID_RE.test(c)?c:crypto.randomUUID()}}
@@ -37,18 +48,78 @@ async function authFinance(req,sql){const token=bearer(req);if(!token)return nul
 async function rateAllowed(ctx,sql){const rows=await sql`select count(*)::int n from portal_private.mcp_gateway_request_events where token_id=${ctx.token_id}::uuid and event_at>now()-interval '60 seconds'`;return Number(rows[0]?.n||0)<Number(ctx.max_requests_per_minute||60)}
 async function audit(ctx,ids,sql,result,metadata={}){try{await sql`insert into portal_private.mcp_gateway_request_events(server_slug,functional_role,identity_id,token_id,client_id,owner_portal_user_id,tool_name,mcp_request_id,backend_request_id,correlation_id,result,http_status,metadata) values(${ctx.server_slug},${ctx.role}::portal_private.ai_business_role_enum,${ctx.identity_id},${ctx.token_id}::uuid,${ctx.client_id},${ctx.owner_portal_user_id??null}::uuid,'finance_event_submit',${ids.mcpRequestId}::uuid,null,${ids.correlationId}::uuid,${result},200,${sql.json(metadata)}::jsonb)`}catch(e){console.error('finance Payments V7 gateway audit failed',String(e?.message||e))}}
 
+function isFinancePilotMcpRoute(req){
+  try{
+    const path=new URL(req.url).pathname.replace(/\/+$/,'');
+    return path==='/finance-pilot/mcp'||path.endsWith('/rona-mcp-gateway/finance-pilot/mcp');
+  }catch{return false}
+}
+
+async function submitFinanceEvent(ctx,req,msg,sql){
+  const ids=requestIds(req);
+  if(!ctx)return rpc(msg.id,{ok:false,code:'FINANCE_ROLE_BINDING_REQUIRED',status:403},true);
+  if(!await rateAllowed(ctx,sql))return rpc(msg.id,{ok:false,code:'RATE_LIMITED',status:429},true);
+  const event=validEvent(msg.params?.arguments);if(!event){await audit(ctx,ids,sql,'DENIED',{code:'FINANCE_EVENT_INVALID'});return rpc(msg.id,{ok:false,code:'FINANCE_EVENT_INVALID',status:400},true)}
+  const actor={role:'FINANCE',identity_id:'AI-FINANCE',correlation_id:ids.correlationId,mcp_request_id:ids.mcpRequestId,server_slug:ctx.server_slug};
+  try{const rows=await sql`select portal_private.persist_finance_event_v7(${sql.json(actor)}::jsonb,${sql.json(event)}::jsonb) result`;const result=rows[0]?.result||{accepted:false,reason_code:'FINANCE_EVENT_RESULT_MISSING',action_class:'TECHNICAL_MATERIALIZATION_REQUIRED'};await audit(ctx,ids,sql,result.accepted?'SUCCESS':'DENIED',{event_type:event.event_type,reason_code:result.reason_code??null,finance_event_id:result.finance_event_id??null});return rpc(msg.id,{ok:result.accepted===true,data:result,status:result.accepted===true?200:409},result.accepted!==true)}catch(e){const code=String(e?.message||e).includes('persist_finance_event_v7')?'TECHNICAL_MATERIALIZATION_REQUIRED':'FINANCE_EVENT_PERSISTENCE_FAILED';await audit(ctx,ids,sql,'ERROR',{code,error:String(e?.message||e).slice(0,500)});return rpc(msg.id,{ok:false,code,status:503},true)}
+}
+
+export async function augmentFinancePilotToolsList(req,upstream){
+  if(!isFinancePilotMcpRoute(req)||!upstream.ok)return upstream;
+  let body;try{body=await upstream.clone().json()}catch{return upstream}
+  const tools=body?.result?.tools;
+  if(!Array.isArray(tools))return upstream;
+
+  const legacySet=new Set(FINANCE_PILOT_LEGACY_TOOL_NAMES);
+  const legacy=[];
+  const seen=new Set();
+  const unexpected=[];
+  for(const tool of tools){
+    const name=String(tool?.name||'');
+    if(legacySet.has(name)){
+      if(seen.has(name))return upstream;
+      seen.add(name);
+      legacy.push(tool);
+      continue;
+    }
+    if(name==='coordination_detail'||name===FINANCE_PAYMENTS_V7_TOOL.name)continue;
+    unexpected.push(tool);
+  }
+  if(unexpected.length||legacy.length!==FINANCE_PILOT_LEGACY_TOOL_NAMES.length||FINANCE_PILOT_LEGACY_TOOL_NAMES.some(name=>!seen.has(name)))return upstream;
+
+  body.result.tools=[...legacy,FINANCE_PAYMENTS_V7_TOOL];
+  const serialized=JSON.stringify(body);
+  const headers=new Headers(upstream.headers);
+  headers.set('content-length',String(encoder.encode(serialized).length));
+  headers.set('cache-control','no-store, no-cache, must-revalidate');
+  headers.set('pragma','no-cache');
+  headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_FINANCE_CONTROLLED_WRITE_V1');
+  headers.set('x-rona-finance-tools-count','9');
+  return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
+}
+
+export function createFinancePaymentsV7NativeHooks({sql}){
+  return Object.freeze({
+    async toolsList(req,res){return augmentFinancePilotToolsList(req,res)},
+    async toolCall(req,msg){
+      if(msg?.method!=='tools/call'||msg?.params?.name!=='finance_event_submit')return null;
+      let ctx=null;
+      try{ctx=await authFinance(req,sql)}catch(e){console.error('finance Payments V7 auth extension failed',String(e?.message||e));return rpc(msg.id,{ok:false,code:'FINANCE_EXTENSION_AUTH_UNAVAILABLE',status:503},true,503)}
+      return submitFinanceEvent(ctx,req,msg,sql);
+    }
+  });
+}
+
 export function createFinancePaymentsV7GatewayExtension({upstreamHandler,sql}){
   if(typeof upstreamHandler!=='function')throw new Error('FINANCE_PAYMENTS_V7_UPSTREAM_HANDLER_REQUIRED');
+  const hooks=createFinancePaymentsV7NativeHooks({sql});
   return async function financePaymentsV7Gateway(req){
     const msg=await inspect(req);if(!msg)return upstreamHandler(req);
-    const ctx=await authFinance(req,sql);
-    if(msg.method==='tools/list'&&ctx){const upstream=await upstreamHandler(req.clone());let body;try{body=await upstream.clone().json()}catch{return upstream}if(Array.isArray(body?.result?.tools)&&!body.result.tools.some(t=>t?.name===FINANCE_PAYMENTS_V7_TOOL.name)){body.result.tools.push(FINANCE_PAYMENTS_V7_TOOL);const headers=new Headers(upstream.headers);headers.set('content-length',String(new TextEncoder().encode(JSON.stringify(body)).length));headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_FINANCE_CONTROLLED_WRITE_V1');return new Response(JSON.stringify(body),{status:upstream.status,statusText:upstream.statusText,headers})}return upstream}
-    if(msg.method!=='tools/call'||msg.params?.name!=='finance_event_submit')return upstreamHandler(req);
-    const ids=requestIds(req);
-    if(!ctx)return rpc(msg.id,{ok:false,code:'FINANCE_ROLE_BINDING_REQUIRED',status:403},true);
-    if(!await rateAllowed(ctx,sql))return rpc(msg.id,{ok:false,code:'RATE_LIMITED',status:429},true);
-    const event=validEvent(msg.params?.arguments);if(!event){await audit(ctx,ids,sql,'DENIED',{code:'FINANCE_EVENT_INVALID'});return rpc(msg.id,{ok:false,code:'FINANCE_EVENT_INVALID',status:400},true)}
-    const actor={role:'FINANCE',identity_id:'AI-FINANCE',correlation_id:ids.correlationId,mcp_request_id:ids.mcpRequestId,server_slug:ctx.server_slug};
-    try{const rows=await sql`select portal_private.persist_finance_event_v7(${sql.json(actor)}::jsonb,${sql.json(event)}::jsonb) result`;const result=rows[0]?.result||{accepted:false,reason_code:'FINANCE_EVENT_RESULT_MISSING',action_class:'TECHNICAL_MATERIALIZATION_REQUIRED'};await audit(ctx,ids,sql,result.accepted?'SUCCESS':'DENIED',{event_type:event.event_type,reason_code:result.reason_code??null,finance_event_id:result.finance_event_id??null});return rpc(msg.id,{ok:result.accepted===true,data:result,status:result.accepted===true?200:409},result.accepted!==true)}catch(e){const code=String(e?.message||e).includes('persist_finance_event_v7')?'TECHNICAL_MATERIALIZATION_REQUIRED':'FINANCE_EVENT_PERSISTENCE_FAILED';await audit(ctx,ids,sql,'ERROR',{code,error:String(e?.message||e).slice(0,500)});return rpc(msg.id,{ok:false,code,status:503},true)}
+    const listRequest=msg.method==='tools/list';
+    const submitRequest=msg.method==='tools/call'&&msg.params?.name==='finance_event_submit';
+    if(!listRequest&&!submitRequest)return upstreamHandler(req);
+    if(submitRequest)return hooks.toolCall(req,msg);
+    const upstream=await upstreamHandler(req);
+    return hooks.toolsList(req,upstream);
   }
 }
