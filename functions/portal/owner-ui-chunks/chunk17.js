@@ -1,12 +1,59 @@
 export default `(()=>{'use strict';
-if(location.pathname==='/portal/admin'){
-  let s=document.getElementById('ronaPaymentsWidthOverrideActualV3');
-  if(!s){s=document.createElement('style');s.id='ronaPaymentsWidthOverrideActualV3';document.head.appendChild(s)}
-  s.textContent='html body div.page.active#page-payments>*{width:60%!important;max-width:60%!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}html body div.page.active#page-payments>div.rona-owner-page-content[data-owner-page="payments"],html body div.page.active#page-payments>div.rona-owner-page-content{width:60%!important;max-width:60%!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}html body div.page.active#page-payments .rona-payments-v7{width:100%!important;max-width:100%!important}@media(max-width:760px){html body div.page.active#page-payments>*,html body div.page.active#page-payments>div.rona-owner-page-content[data-owner-page="payments"],html body div.page.active#page-payments>div.rona-owner-page-content{width:100%!important;max-width:100%!important}}';
+if(location.pathname!=='/portal/admin')return;
+
+function applyPaymentsFrame(){
+  const page=document.getElementById('page-payments');
+  if(!page)return;
+  const mobile=window.innerWidth<=760;
+  const pageWidth=Math.max(0,page.clientWidth||page.getBoundingClientRect().width||0);
+  const target=mobile?'100%':Math.max(1,Math.round(pageWidth*0.60))+'px';
+  const children=Array.from(page.children).filter(el=>el&&el.nodeType===1);
+  for(const el of children){
+    el.style.setProperty('width',target,'important');
+    el.style.setProperty('max-width',target,'important');
+    el.style.setProperty('min-width','0','important');
+    el.style.setProperty('margin-left','auto','important');
+    el.style.setProperty('margin-right','auto','important');
+    el.style.setProperty('box-sizing','border-box','important');
+  }
+  const host=page.querySelector(':scope > .rona-owner-page-content[data-owner-page="payments"],:scope > .rona-owner-page-content');
+  if(host){
+    host.style.setProperty('width',target,'important');
+    host.style.setProperty('max-width',target,'important');
+    host.style.setProperty('min-width','0','important');
+    host.style.setProperty('margin-left','auto','important');
+    host.style.setProperty('margin-right','auto','important');
+    host.style.setProperty('box-sizing','border-box','important');
+  }
+  const payments=page.querySelector('.rona-payments-v7');
+  if(payments){
+    payments.style.setProperty('width','100%','important');
+    payments.style.setProperty('max-width','100%','important');
+    payments.style.setProperty('min-width','0','important');
+    payments.style.setProperty('margin-left','0','important');
+    payments.style.setProperty('margin-right','0','important');
+    payments.style.setProperty('box-sizing','border-box','important');
+    const board=payments.querySelector('.rona-payments-v7-board');
+    if(board)board.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+  }
+  page.dataset.ronaPaymentsFrameWidth=target;
 }
+
+let paymentsFrameQueued=false;
+function schedulePaymentsFrame(){
+  if(paymentsFrameQueued)return;
+  paymentsFrameQueued=true;
+  requestAnimationFrame(()=>{paymentsFrameQueued=false;applyPaymentsFrame()});
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedulePaymentsFrame,{once:true});else schedulePaymentsFrame();
+window.addEventListener('resize',schedulePaymentsFrame,{passive:true});
+window.addEventListener('rona:finance-sync',schedulePaymentsFrame);
+document.addEventListener('click',ev=>{if(ev.target?.closest?.('#nav button[data-page="payments"],#nav a[data-page="payments"],#nav [role="button"][data-page="payments"]'))[0,60,180,500].forEach(ms=>setTimeout(schedulePaymentsFrame,ms))},true);
+new MutationObserver(schedulePaymentsFrame).observe(document.documentElement,{childList:true,subtree:true});
+setInterval(()=>{const p=document.getElementById('page-payments');if(p&&getComputedStyle(p).display!=='none')schedulePaymentsFrame()},1500);
+
 if(window.__RONA_APPLICATION_RESOURCE_STAGE_LABELS_V1__)return;
 window.__RONA_APPLICATION_RESOURCE_STAGE_LABELS_V1__=true;
-if(location.pathname!=='/portal/admin')return;
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 function apply(){
   const root=document.getElementById('page-applications');
