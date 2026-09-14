@@ -1,0 +1,64 @@
+name: Admin approved v4.5.5 runtime parity QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'portal-src/current/admin.html'
+      - 'functions/portal/admin-approved-*-v455-ui.js'
+      - 'tests/admin-approved-v455-runtime-parity.test.mjs'
+      - '.github/workflows/admin-approved-v455-runtime-parity-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'portal-src/current/admin.html'
+      - 'functions/portal/admin-approved-*-v455-ui.js'
+      - 'tests/admin-approved-v455-runtime-parity.test.mjs'
+      - '.github/workflows/admin-approved-v455-runtime-parity-qa.yml'
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+jobs:
+  approved-v455-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify repository parity contract
+        run: node --test tests/admin-approved-v455-runtime-parity.test.mjs
+      - name: Wait for exact Cloudflare deployment
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Verify approved v4.5.5 modules on production
+        if: github.event_name == 'push'
+        shell: bash
+        run: |
+          set -euo pipefail
+          nonce="${GITHUB_SHA}-$(date +%s)"
+
+          curl -fsS -D /tmp/shell.headers -o /tmp/shell.body "https://ronaoil.com/portal/admin-approved-shell-v455-ui?_qa=${nonce}"
+          grep -qi '^x-rona-admin-shell-visual: approved-v4.5.5' /tmp/shell.headers
+          grep -q "__RONA_ADMIN_SHELL_V455__='20260827'" /tmp/shell.body
+
+          curl -fsS -D /tmp/claims.headers -o /tmp/claims.body "https://ronaoil.com/portal/admin-approved-claims-v455-ui?_qa=${nonce}"
+          grep -qi '^x-rona-claims-visual: approved-v4.5.5' /tmp/claims.headers
+          grep -q "__RONA_CLAIMS_VISUAL_V455__='20260827'" /tmp/claims.body
+
+          curl -fsS -D /tmp/analytics.headers -o /tmp/analytics.body "https://ronaoil.com/portal/admin-approved-analytics-v455-ui?_qa=${nonce}"
+          grep -qi '^x-rona-analytics-approved: v4.5.5' /tmp/analytics.headers
+          grep -q "__RONA_ANALYTICS_APPROVED_V455__='20260827'" /tmp/analytics.body
+          ! grep -Eq 'retired-(single-owner|compat-guard)' /tmp/analytics.body
+          grep -q 'rona-visual-kicker' /tmp/analytics.body
+          grep -q 'ronaApprovedData' /tmp/analytics.body
+          grep -q 'function makeSvg' /tmp/analytics.body
+          grep -q 'function patch' /tmp/analytics.body
+
+          echo 'ADMIN_APPROVED_V455_LIVE_PARITY=PASS'
