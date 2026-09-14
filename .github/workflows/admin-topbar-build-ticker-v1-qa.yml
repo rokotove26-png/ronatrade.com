@@ -1,4 +1,4 @@
-name: Admin topbar build ticker v1 QA
+name: Admin topbar lifecycle isolation v2 QA
 
 on:
   pull_request:
@@ -6,11 +6,12 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/owner-ui-chunks/chunk15.js'
+      - 'functions/portal/owner-ui-chunks/chunk18.js'
       - 'tests/admin-topbar-build-ticker-v1.test.mjs'
       - '.github/workflows/admin-topbar-build-ticker-v1-qa.yml'
 
 jobs:
-  admin-topbar-build-ticker-v1:
+  admin-topbar-lifecycle-isolation-v2:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -20,16 +21,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Enforce topbar visual-only scope
+      - name: Enforce lifecycle isolation scope
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin release/public-go-live-v1.1 --depth=1
           changed="$(git diff --name-only origin/release/public-go-live-v1.1...HEAD)"
           printf '%s\n' "$changed"
-          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
+          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|functions/portal/owner-ui-chunks/chunk18\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
           if [ -n "$bad" ]; then
-            echo 'Unexpected files in Admin topbar visual-only PR:'
+            echo 'Unexpected files in Admin topbar lifecycle-isolation PR:'
             printf '%s\n' "$bad"
             exit 1
           fi
@@ -37,9 +38,16 @@ jobs:
             echo 'Protected backend/API/DB/canonical Admin shell surface changed unexpectedly'
             exit 1
           fi
+      - name: Prove prepaint lifecycle byte identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 736a535fe245decdf79de06d32940c2cb17370aa:functions/portal/owner-ui-chunks/chunk15.js > /tmp/chunk15.baseline.js
+          cmp -s functions/portal/owner-ui-chunks/chunk15.js /tmp/chunk15.baseline.js
+          echo 'ADMIN_PREPAINT_LIFECYCLE_BASELINE=PASS'
       - name: Install browser QA runtime
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Prove compact search and live ticker placement
+      - name: Prove cold-start, hard-reload and isolated ticker
         run: node tests/admin-topbar-build-ticker-v1.test.mjs
