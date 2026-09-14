@@ -2,21 +2,25 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
-  LIVE_ADMIN_SOURCE_COMMIT,
   LIVE_OWNER_API,
   STAGE5C_ROUTE_OWNER,
   recoverLiveAdminWorkspace as recoverStage5CLiveAdminWorkspace,
 } from './admin-payments-v7-stage5c-live-source.mjs';
 
 export const FINAL_PAYMENTS_ROUTE_OWNER = STAGE5C_ROUTE_OWNER;
-export const FINAL_LIVE_ADMIN_SOURCE_COMMIT = LIVE_ADMIN_SOURCE_COMMIT;
+export const FINAL_LIVE_ADMIN_SOURCE_COMMIT = '0c136582cbe825149257994465d784f28a24ab0c';
 export const FINAL_LIVE_OWNER_API = LIVE_OWNER_API;
 
-const CURRENT_RELEASE_UI_DEPENDENCIES = Object.freeze([
-  'functions/portal/main-ui/application-passport-runtime-base.js',
-  'functions/portal/main-ui/admin-applications-premium-v1.js',
-  'functions/portal/main-ui/admin-applications-readability-v5.js',
-]);
+function currentReleaseUiClosure() {
+  return execFileSync('git', [
+    'ls-tree', '-r', '--name-only', FINAL_LIVE_ADMIN_SOURCE_COMMIT,
+    'functions/portal/main-ui',
+    'functions/portal/owner-ui-chunks',
+  ], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
+    .split(/\r?\n/)
+    .map((x) => x.trim())
+    .filter((x) => x.endsWith('.js'));
+}
 
 function materializeCurrentReleaseFile(root, path) {
   const target = join(root, path);
@@ -27,16 +31,23 @@ function materializeCurrentReleaseFile(root, path) {
   }));
 }
 
-// CURRENT_STATE_FIRST: the current release already owns the accepted Payments V7
-// command-center presentation in functions/portal/main-ui/index.js. Do not replay
-// an older presentation patch over it. Stage 5C only rematerializes the V7 route
-// and owner-action proxy on top of the exact current release source.
+// CURRENT_STATE_FIRST: the current release already contains the Owner-accepted
+// Payments V7 renderer. The Finance automation stage must therefore preserve the
+// complete current release Admin UI module closure byte-for-byte. Stage 5C is used
+// only to recover the known shell file set; every release-owned UI module is then
+// replaced with the exact current-release version so no stale presentation patch,
+// missing auxiliary module, or unrelated UI rollback can enter this candidate.
 export function recoverLiveAdminWorkspace(root) {
   const recovered = recoverStage5CLiveAdminWorkspace(root);
-  for (const path of CURRENT_RELEASE_UI_DEPENDENCIES) materializeCurrentReleaseFile(root, path);
+  const releaseFiles = [
+    ...(recovered.files || []),
+    ...currentReleaseUiClosure(),
+  ];
+  for (const path of [...new Set(releaseFiles)]) materializeCurrentReleaseFile(root, path);
   return {
     ...recovered,
-    files: [...new Set([...(recovered.files || []), ...CURRENT_RELEASE_UI_DEPENDENCIES])],
+    files: [...new Set(releaseFiles)],
+    liveCommit: FINAL_LIVE_ADMIN_SOURCE_COMMIT,
     presentation: 'ADMIN_PAYMENTS_V7_RELEASE_NATIVE_PARITY',
   };
 }
