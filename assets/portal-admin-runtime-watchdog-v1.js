@@ -13,44 +13,14 @@ function ready(p){const n=pageNode(p);if(!n)return false;if(p==='home')return wi
 function moduleFor(p){if(p==='home')return'main';if(p==='access')return'clients-agents-current';if(p==='claims')return'claims';if(p==='monitoring')return'rail';if(p==='analytics')return'analytics';if(p==='market-news')return'market-news-current';if(['agent-settlements','messages'].includes(p))return'remaining';if(p==='prices')return'prices';return''}
 function clearError(p){pageNode(p)?.querySelector(':scope > .rona-module-error')?.remove()}
 function activateMarketNews(source='watchdog-content-repair'){if(selected()!=='market-news')return;window.dispatchEvent(new CustomEvent('rona:admin-pagechange',{detail:{page:'market-news',source}}))}
-function retryMarketNews(){
-  if(marketNewsRecoveryLoading||marketNewsReady())return;
-  if(window.__RONA_MARKET_NEWS_CURRENT_V1__&&marketNewsRoot()){activateMarketNews('watchdog-content-repair');return}
-  marketNewsRecoveryLoading=true;
-  clearError('market-news');
-  const host=pageNode('market-news');
-  host?.querySelector(':scope > #rona-market-news-current')?.remove();
-  document.getElementById('rona-market-news-current-recovery')?.remove();
-  window.__RONA_MARKET_NEWS_CURRENT_V1__=null;
-  const s=document.createElement('script');
-  s.id='rona-market-news-current-recovery';
-  s.src='/assets/portal-market-news-current-v1.js?v=20260827-content-health-v6&ts='+Date.now();
-  s.async=false;
-  s.dataset.ronaMarketNewsRecovery='watchdog-v5';
-  s.onload=()=>{marketNewsRecoveryLoading=false;activateMarketNews('watchdog-recovery-load-v5');schedule(350)};
-  s.onerror=()=>{marketNewsRecoveryLoading=false;note('market-news-recovery','SCRIPT_LOAD_FAILED');schedule(900)};
-  document.body.appendChild(s)
-}
-function repairMarketNews(){
-  if(marketNewsReady())return;
-  clearError('market-news');
-  if(window.__RONA_MARKET_NEWS_CURRENT_V1__&&marketNewsRoot()){activateMarketNews('watchdog-content-repair');return}
-  retryMarketNews()
-}
+function retryMarketNews(){if(marketNewsRecoveryLoading||marketNewsReady())return;if(window.__RONA_MARKET_NEWS_CURRENT_V1__&&marketNewsRoot()){activateMarketNews('watchdog-content-repair');return}marketNewsRecoveryLoading=true;clearError('market-news');const host=pageNode('market-news');host?.querySelector(':scope > #rona-market-news-current')?.remove();document.getElementById('rona-market-news-current-recovery')?.remove();window.__RONA_MARKET_NEWS_CURRENT_V1__=null;const s=document.createElement('script');s.id='rona-market-news-current-recovery';s.src='/assets/portal-market-news-current-v1.js?v=20260827-content-health-v6&ts='+Date.now();s.async=false;s.onload=()=>{marketNewsRecoveryLoading=false;activateMarketNews('watchdog-recovery-load-v5');schedule(350)};s.onerror=()=>{marketNewsRecoveryLoading=false;note('market-news-recovery','SCRIPT_LOAD_FAILED');schedule(900)};document.body.appendChild(s)}
+function repairMarketNews(){if(marketNewsReady())return;clearError('market-news');if(window.__RONA_MARKET_NEWS_CURRENT_V1__&&marketNewsRoot()){activateMarketNews('watchdog-content-repair');return}retryMarketNews()}
 function showError(p,module){const host=pageNode(p);if(!host||host.querySelector(':scope > .rona-module-error')||ready(p))return;const wrap=document.createElement('div');wrap.className='rona-module-error';wrap.dataset.ronaModuleError=module;const box=document.createElement('div'),title=document.createElement('strong'),text=document.createElement('div'),btn=document.createElement('button');title.textContent='Раздел не завершил загрузку';text.textContent='Сессия и выбранный раздел сохранены. Можно повторить загрузку модуля без перехода на «Главную».';text.style.marginTop='7px';btn.type='button';btn.textContent='Повторить загрузку';btn.onclick=()=>{wrap.remove();state.pageAttempts[p]=0;if(p==='market-news'){repairMarketNews();schedule(450)}else{window.dispatchEvent(new CustomEvent('rona:admin-module-retry',{detail:{module,page:p}}));schedule(400)}};box.append(title,text,btn);wrap.append(box);host.prepend(wrap)}
 function requestRetry(p){const module=moduleFor(p);if(!module)return;state.pageAttempts[p]=(state.pageAttempts[p]||0)+1;if(p==='market-news'){repairMarketNews();return}window.dispatchEvent(new CustomEvent('rona:admin-module-retry',{detail:{module,page:p,attempt:state.pageAttempts[p]}}))}
 function schedule(ms=1000){clearTimeout(timer);timer=setTimeout(run,ms)}
 async function run(){if(running)return;running=true;try{const p=selected();state.status='CHECKING:'+p;if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.status='READY:'+p;window.__RONA_ADMIN_RUNTIME_RECOVERY_READY__=true;return}const module=moduleFor(p);if(!module)return;const attempt=state.pageAttempts[p]||0;if(attempt<3){requestRetry(p);await sleep(p==='market-news'?650:1800+attempt*800);if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.status='RECOVERED:'+p;return}}if((state.pageAttempts[p]||0)>=3&&!ready(p)){state.status='DEGRADED:'+p;showError(p,module)}}catch(e){note('watchdog',e)}finally{running=false;schedule(5000)}}
-function loadRadioIcc(){
-  if(document.getElementById('rona-admin-radio-icc-loader')||window.__RONA_ADMIN_RADIO_ICC_V2__)return;
-  const s=document.createElement('script');
-  s.id='rona-admin-radio-icc-loader';
-  s.src='/assets/portal-admin-radio-icc-v1.js?v=20260915-space-center-v2';
-  s.async=false;
-  s.dataset.ronaVisualOnly='radio-space-center-v2';
-  s.onerror=()=>note('radio-icc','SCRIPT_LOAD_FAILED');
-  document.body.appendChild(s)
-}
-function boot(){loadRadioIcc();window.addEventListener('rona:admin-pagechange',event=>{const p=String(event?.detail?.page||'');if(p==='market-news'&&!marketNewsReady())setTimeout(()=>{if(selected()==='market-news'&&!marketNewsReady())repairMarketNews()},180);schedule(450)},{passive:true});window.addEventListener('rona:admin-single-owner-ready',()=>schedule(300),{passive:true});window.addEventListener('online',()=>schedule(500),{passive:true});window.addEventListener('pageshow',()=>schedule(500),{passive:true});schedule(1000)}
+function loadRadioIcc(){if(document.getElementById('rona-admin-radio-icc-loader')||window.__RONA_ADMIN_RADIO_ICC_V2__)return;const s=document.createElement('script');s.id='rona-admin-radio-icc-loader';s.src='/assets/portal-admin-radio-icc-v1.js?v=20260915-space-center-v2';s.async=false;s.dataset.ronaVisualOnly='radio-space-center-v2';s.onerror=()=>note('radio-icc','SCRIPT_LOAD_FAILED');document.body.appendChild(s)}
+function loadRadioHeaderFlat(){if(document.getElementById('rona-admin-radio-header-flat-loader')||window.__RONA_ADMIN_RADIO_HEADER_FLAT_V1__)return;const s=document.createElement('script');s.id='rona-admin-radio-header-flat-loader';s.src='/assets/portal-admin-radio-header-flat-v1.js?v=20260915-cash-header-v1';s.async=false;s.dataset.ronaVisualOnly='radio-header-flat-v1';s.onerror=()=>note('radio-header-flat','SCRIPT_LOAD_FAILED');document.body.appendChild(s)}
+function boot(){loadRadioIcc();loadRadioHeaderFlat();window.addEventListener('rona:admin-pagechange',event=>{const p=String(event?.detail?.page||'');if(p==='market-news'&&!marketNewsReady())setTimeout(()=>{if(selected()==='market-news'&&!marketNewsReady())repairMarketNews()},180);schedule(450)},{passive:true});window.addEventListener('rona:admin-single-owner-ready',()=>schedule(300),{passive:true});window.addEventListener('online',()=>schedule(500),{passive:true});window.addEventListener('pageshow',()=>schedule(500),{passive:true});schedule(1000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
