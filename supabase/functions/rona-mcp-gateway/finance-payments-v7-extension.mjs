@@ -44,14 +44,16 @@ export async function augmentFinancePilotToolsList(req,upstream){
   return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
 }
 
-export function createFinancePaymentsV7NativeHooks(){
+export function createFinancePaymentsV7NativeHooks({sql}={}){
+  void sql;
   return Object.freeze({
     async toolsList(req,res){return augmentFinancePilotToolsList(req,res)},
-    async toolCall(){return null}
+    async toolCall(req,msg){void req;void msg;return null}
   });
 }
 
-export function createFinancePaymentsV7GatewayExtension({upstreamHandler}){
+export function createFinancePaymentsV7GatewayExtension({upstreamHandler,sql}={}){
+  void sql;
   if(typeof upstreamHandler!=='function')throw new Error('FINANCE_PAYMENTS_V7_UPSTREAM_HANDLER_REQUIRED');
   return async function financePaymentsV7Gateway(req){
     let msg=null;
