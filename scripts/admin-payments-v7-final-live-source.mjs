@@ -32,6 +32,7 @@ function materializeCurrentReleaseFile(root, path) {
 export function recoverLiveAdminWorkspace(root) {
   const releaseFiles = [
     'assets/portal-admin-shell-fast-v1.js',
+    'assets/portal-market-news-no-gray-bands-v1.css',
     'portal-src/current/admin.html',
     ...currentReleasePortalFiles(),
   ];
