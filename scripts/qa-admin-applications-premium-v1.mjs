@@ -4,6 +4,7 @@ const runtimePath='functions/portal/main-ui/admin-applications-premium-v1.js';
 const wrapperPath='functions/portal/main-ui/application-passport-runtime.js';
 const basePath='functions/portal/main-ui/application-passport-runtime-base.js';
 const runtime=fs.readFileSync(runtimePath,'utf8');
+const runtimeLower=runtime.toLocaleLowerCase('ru-RU');
 const wrapper=fs.readFileSync(wrapperPath,'utf8');
 const base=fs.readFileSync(basePath,'utf8');
 
@@ -20,9 +21,9 @@ assert(!runtime.includes("post("),'visual runtime must not perform business muta
 assert(!runtime.includes("call("),'visual runtime must not call backend APIs');
 assert(!runtime.includes('replacePage('),'visual runtime must not replace the Applications renderer');
 assert(runtime.includes('data-rona-app-passport-open'),'completed application Open action must remain a styled existing action');
-assert(runtime.includes('Ресурс одобрен'),'supplier approval action must remain recognized');
-assert(runtime.includes('В ресурсе отказано'),'supplier denial action must remain recognized');
-assert(runtime.includes('Отправить в сделки'),'deal handoff action must remain recognized');
+assert(runtimeLower.includes('ресурс одобрен'),'supplier approval action must remain recognized');
+assert(runtimeLower.includes('в ресурсе отказано'),'supplier denial action must remain recognized');
+assert(runtimeLower.includes('отправить в сделки'),'deal handoff action must remain recognized');
 assert(runtime.includes('prefers-reduced-motion'),'reduced-motion support must remain present');
 assert(wrapper.includes("./application-passport-runtime-base.js"),'passport wrapper must preserve original runtime');
 assert(wrapper.includes("./admin-applications-premium-v1.js"),'passport wrapper must append Applications visual runtime');
