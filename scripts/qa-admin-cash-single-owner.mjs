@@ -22,11 +22,16 @@ need(wrappedResponse.ok,'Cash single-owner middleware returned non-OK response: 
 need(wrappedResponse.headers.get('x-rona-cash-owner')===cashOwnerTest.CASH_OWNER,'Canonical Cash owner response header is missing');
 need(wrappedResponse.headers.get('x-rona-cash-legacy-owner')==='disabled','Legacy Cash owner is not disabled in response contract');
 need(wrappedResponse.headers.get('x-rona-cash-single-owner')==='enforced','Cash single-owner enforcement marker is missing');
+need(wrappedResponse.headers.get('x-rona-cash-host')==='r2-owned-shell','Cash R2 host ownership marker is missing');
 need(wrapped.includes("window.__RONA_CASH_RUNTIME_OWNER__='cash-r2-exclusive-v1'"),'Browser Cash owner marker is missing');
 need(!wrapped.includes('function renderCash(){'),'Legacy renderCash function remains in emitted Admin runtime');
 need(!wrapped.includes('accounting:renderCash'),'Legacy accounting route still owns Cash');
+need(wrapped.includes('accounting:ensureCashR2Host'),'Accounting route does not provision the Cash R2 host');
+need(wrapped.includes('function ensureCashR2Host(){'),'Cash R2 host provisioner is missing from emitted Admin runtime');
+need(wrapped.includes('data-rona-cash-host'),'Cash R2 host marker is missing from emitted Admin runtime');
 need(!wrapped.includes('renderPayments();renderCash()'),'Finance sync still calls legacy Cash renderer');
 need(!wrapped.includes('renderPayments();renderCash();renderRail();'),'Admin boot still calls legacy Cash renderer');
+need(wrapped.includes('renderPayments();ensureCashR2Host();renderRail();'),'Admin boot does not provision the Cash R2 host');
 need(count(wrapped,'renderCash')===0,'Competing renderCash marker remains in emitted Admin runtime');
 need(wrapped.includes('ADMIN_PAYMENTS_V7'),'Payments V7 runtime was damaged by Cash single-owner patch');
 need(wrapped.includes("data-rona-payments-owner':'admin-payments-v7-native"),'Payments V7 native visual/runtime owner was damaged');
@@ -56,5 +61,6 @@ if(failures.length){
 console.log('ADMIN_CASH_SINGLE_OWNER_QA=PASS');
 console.log('cashOwner='+cashOwnerTest.CASH_OWNER);
 console.log('legacyRenderer=removed-from-emitted-main-ui');
+console.log('cashHost=r2-owned-shell');
 console.log('cashR2LoadCount='+count(shell,"/portal/cash-r2-ui"));
 console.log('paymentsV7=preserved');
