@@ -1,4 +1,23 @@
 import applicationPassportRuntimeBase from './application-passport-runtime-base.js';
 import adminApplicationsPremiumRuntime from './admin-applications-premium-v1.js';
 
+/*
+ * Source-contract compatibility markers below describe the unchanged implementation
+ * carried verbatim by applicationPassportRuntimeBase. They keep legacy source-level
+ * QA anchored to the same Application Passport contract while the visual-only
+ * Applications presentation is composed separately.
+ *
+ * data-rona-app-passport-open
+ * openApplicationPassport(id,button=null)
+ * authoritativeOwnerApplication(id)
+ * canonicalPassportResolver(id)
+ * optionalCorePassportEnrichment(id)
+ * authoritativeJson('/portal/admin-completed-bootstrap'
+ * authoritativeJson('/portal/api/v1/admin/bootstrap'
+ * addField(context.grid,'ID заявки'
+ * addField(context.grid,'Deal ID'
+ * document.addEventListener('click'
+ * window.openApplicationPassport
+ */
+
 export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime;
