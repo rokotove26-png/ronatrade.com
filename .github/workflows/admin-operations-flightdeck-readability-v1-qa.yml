@@ -22,6 +22,7 @@ jobs:
           node-version: '22'
       - name: Syntax checks
         run: |
+          node --check functions/portal/main-ui/admin-operations-flightdeck-readability-v1.js
           node --check scripts/qa-admin-operations-flightdeck-readability-v1.mjs
       - name: Verify visual-only readability contract
         run: node scripts/qa-admin-operations-flightdeck-readability-v1.mjs
