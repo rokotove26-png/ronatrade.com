@@ -9,14 +9,22 @@ const dealChunk1=fs.readFileSync('functions/portal/deals-current-state-chunks/ch
 const dealChunk3=fs.readFileSync('functions/portal/deals-current-state-chunks/chunk3.js','utf8');
 
 assert.match(premium,/__RONA_ADMIN_DEAL_PASSPORT_PREMIUM_V1__/);
-assert.match(premium,/20260914-executive-passport-v1/);
+assert.match(premium,/20260914-executive-passport-v1-readable-type/);
 assert.match(premium,/rona-current-deal-drawer-layer/);
-assert.match(premium,/width:min\(980px,calc\(100vw - 40px\)\)/,'desktop passport width must be upgraded');
-assert.match(premium,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'passport content must use a two-column executive grid on wide screens');
+assert.match(premium,/width:min\(980px,calc\(100vw - 40px\)\)/,'desktop passport width must be preserved');
+assert.match(premium,/grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/,'passport content must preserve the two-column executive grid on wide screens');
 assert.match(premium,/\.rona-current-deal-detail-grid>\.rona-owner-card:nth-child\(1\).*#63dcff/,'commercial card accent missing');
 assert.match(premium,/\.rona-current-deal-detail-grid>\.rona-owner-card:nth-child\(2\).*#ffc86f/,'finance card accent missing');
 assert.match(premium,/\.rona-current-deal-detail-grid>\.rona-owner-card:nth-child\(3\).*#65a9ff/,'rail card accent missing');
 assert.match(premium,/\.rona-current-deal-detail-grid>\.rona-owner-card:nth-child\(4\).*#58e3bc/,'documents card accent missing');
+assert.match(premium,/\.rona-current-deal-drawer-head>strong\{[^}]*font-size:20px!important/,'drawer title must be readable at desktop scale');
+assert.match(premium,/\.rona-current-deal-detail-grid>\.rona-owner-card>h2\{[^}]*font-size:16px!important/,'section headings must use readable typography');
+assert.match(premium,/\.rona-current-deal-detail-label\{[^}]*font-size:11\.5px!important/,'passport labels must not use microtype');
+assert.match(premium,/\.rona-current-deal-detail-row>div:last-child\{[^}]*font-size:15px!important/,'passport values must be readable');
+assert.match(premium,/\.rona-fin-pill\{[^}]*font-size:11px!important/,'status pills must be readable');
+assert.match(premium,/\.rona-current-deal-doc-item strong\{[^}]*font-size:13px!important/,'document titles must be readable');
+assert.match(premium,/\.rona-current-deal-doc-item button\{[^}]*font-size:11\.5px!important/,'document actions must be readable');
+assert.match(premium,/\.rona-current-deal-actions button\{[^}]*font-size:11\.5px!important/,'passport action labels must be readable');
 assert.match(premium,/rona-current-deal-doc-item/,'document tiles must be styled');
 assert.match(premium,/rona-current-deal-primary/,'primary payment action must remain visually distinct');
 assert.match(premium,/rona-current-deal-danger/,'destructive action must remain visually distinct');
@@ -41,6 +49,6 @@ assert.match(dealChunk3,/ЖД \/ исполнение/);
 assert.match(dealChunk3,/Документы/);
 
 const expectedWrapper="import baseRuntime from './chunk18-base.js';\nimport adminDealsPremiumRuntime from '../main-ui/admin-deals-premium-v1.js';\nimport adminDealPassportPremiumRuntime from '../main-ui/admin-deal-passport-premium-v1.js';\n\nexport default baseRuntime + adminDealsPremiumRuntime + adminDealPassportPremiumRuntime;";
-assert.equal(wrapper.trim(),expectedWrapper,'owner UI wrapper must only compose existing runtimes with the new presentation layer');
+assert.equal(wrapper.trim(),expectedWrapper,'owner UI wrapper must only compose existing runtimes with the presentation layer');
 
-console.log('ADMIN_DEAL_PASSPORT_PREMIUM_V1_QA=PASS drawer=PREMIUM content=UNCHANGED business_logic=UNCHANGED api=UNCHANGED title=UNCHANGED');
+console.log('ADMIN_DEAL_PASSPORT_PREMIUM_V1_QA=PASS drawer=PREMIUM typography=READABLE content=UNCHANGED business_logic=UNCHANGED api=UNCHANGED title=UNCHANGED');
