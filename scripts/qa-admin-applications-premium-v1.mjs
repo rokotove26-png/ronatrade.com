@@ -29,8 +29,21 @@ assert(wrapper.includes("./application-passport-runtime-base.js"),'passport wrap
 assert(wrapper.includes("./admin-applications-premium-v1.js"),'passport wrapper must append Applications visual runtime');
 assert(base.length>10000,'preserved passport runtime unexpectedly small');
 
+// Layout regression gates from owner screenshot 2026-09-14.
+assert(runtime.includes("window.__RONA_ADMIN_APPLICATIONS_PREMIUM_V1__='20260914-v3'"),'Applications visual runtime must be v3');
+assert(runtime.includes("for(const hero of root.querySelectorAll('.rona-applications-hero-v2'))hero.remove()"),'legacy duplicate hero must be removed');
+assert(!runtime.includes('host.prepend(hero)'),'visual runtime must not inject a second Applications hero');
+assert(runtime.includes('if(children.length!==6)continue'),'KPI decoration must require exactly six direct cards');
+assert(runtime.includes('if(!texts.every(t=>KPI_LABELS.some(label=>t.includes(label))))continue'),'KPI decoration must reject mixed layout containers');
+assert(runtime.includes('if(children.length!==4)continue'),'lifecycle decoration must require exactly four direct stages');
+assert(runtime.includes('STAGE_LABELS.every((stage,i)=>texts[i]?.includes(stage))'),'lifecycle stages must be matched in direct-child order');
+assert(runtime.includes('grid-template-columns:repeat(3,minmax(0,1fr))'),'normal-width KPI layout must use readable three-column grid');
+assert(runtime.includes('grid-template-columns:repeat(6,minmax(0,1fr))'),'wide-screen KPI layout may use six columns');
+assert(runtime.includes('#page-applications>.rona-owner-page-content>*{grid-column:1/-1!important'),'top-level Applications blocks must remain full-width');
+
 console.log('ADMIN_APPLICATIONS_SCOPE=PASS');
 console.log('ADMIN_APPLICATIONS_NO_API_MUTATION=PASS');
 console.log('ADMIN_APPLICATIONS_ACTIONS_PRESERVED=PASS');
 console.log('ADMIN_APPLICATIONS_PASSPORT_RUNTIME_PRESERVED=PASS');
+console.log('ADMIN_APPLICATIONS_LAYOUT_STRUCTURE_GUARD=PASS');
 console.log('ADMIN_APPLICATIONS_PREMIUM_VISUAL_SOURCE=PASS');
