@@ -1,0 +1,59 @@
+name: admin-prices-premium-visual-only-qa
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - assets/portal-market-news-no-gray-bands-v1.css
+      - tests/admin-prices-premium-visual-only.test.mjs
+      - .github/workflows/admin-prices-premium-visual-only-qa.yml
+      - functions/portal/prices-current-ui.js
+      - functions/portal/price-updates-api.js
+      - functions/portal/owner-api.js
+      - supabase/**
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  visual-only-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Lock production Prices runtime and backend surface
+        shell: bash
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'release/public-go-live-v1.1' }}
+        run: |
+          set -euo pipefail
+          git fetch origin "$BASE_REF" --no-tags
+          BASE="origin/$BASE_REF"
+          echo "base=$BASE"
+          echo "head=$(git rev-parse HEAD)"
+          test "$(git hash-object functions/portal/prices-current-ui.js)" = "5bf18d32a8b129727e686ba0d7790f90e943b424"
+          git diff --exit-code "$BASE"...HEAD -- functions/portal/prices-current-ui.js
+          git diff --exit-code "$BASE"...HEAD -- functions/portal/price-updates-api.js
+          git diff --exit-code "$BASE"...HEAD -- functions/portal/owner-api.js
+          git diff --exit-code "$BASE"...HEAD -- supabase
+          changed="$(git diff --name-only "$BASE"...HEAD)"
+          printf '%s\n' "$changed"
+          forbidden="$(printf '%s\n' "$changed" | grep -Ev '^(assets/portal-market-news-no-gray-bands-v1\.css|tests/admin-prices-premium-visual-only\.test\.mjs|\.github/workflows/admin-prices-premium-visual-only-qa\.yml)$' || true)"
+          test -z "$forbidden"
+      - name: Install browser QA dependency
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run current-runtime browser regression for Prices
+        run: node tests/admin-prices-premium-visual-only.test.mjs
+      - name: Upload premium visual proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-prices-premium-visual-${{ github.event.pull_request.head.sha || github.sha }}
+          path: prices-premium-visual-proof/
+          if-no-files-found: warn
+          retention-days: 14
