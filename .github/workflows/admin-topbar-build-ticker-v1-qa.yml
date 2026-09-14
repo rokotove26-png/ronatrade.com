@@ -1,0 +1,45 @@
+name: Admin topbar build ticker v1 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/owner-ui-chunks/chunk15.js'
+      - 'tests/admin-topbar-build-ticker-v1.test.mjs'
+      - '.github/workflows/admin-topbar-build-ticker-v1-qa.yml'
+
+jobs:
+  admin-topbar-build-ticker-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce topbar visual-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          changed="$(git diff --name-only origin/release/public-go-live-v1.1...HEAD)"
+          printf '%s\n' "$changed"
+          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
+          if [ -n "$bad" ]; then
+            echo 'Unexpected files in Admin topbar visual-only PR:'
+            printf '%s\n' "$bad"
+            exit 1
+          fi
+          if printf '%s\n' "$changed" | grep -E '(^supabase/|owner-api|price-updates-api|admin-payments|migrations|schema|\.sql$|portal-src/current/admin\.html)' >/dev/null; then
+            echo 'Protected backend/API/DB/canonical Admin shell surface changed unexpectedly'
+            exit 1
+          fi
+      - name: Install browser QA runtime
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Prove compact search and live ticker placement
+        run: node tests/admin-topbar-build-ticker-v1.test.mjs
