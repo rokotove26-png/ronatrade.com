@@ -49,7 +49,10 @@ const contradicted=mergeAdminCompletedApplications(
 assert.equal(contradicted.applications.length,0,'present workflow application state must stay authoritative over fallback');
 
 assert.match(readabilityRuntime,/__RONA_ADMIN_APPLICATIONS_READABILITY_V5__/);
-assert.match(readabilityRuntime,/20260914-v6-balanced-color/,'balanced visual pass must be the active readability overlay');
+assert.match(readabilityRuntime,/20260914-v7-hero-clean/,'clean hero visual pass must be the active readability overlay');
+assert.match(readabilityRuntime,/rona-app-existing-hero-v3\{width:100%!important;min-height:0!important/,'nested title card must flatten into the existing full-width hero');
+assert.match(readabilityRuntime,/rona-app-title-v3\{margin:1px 0 5px!important;color:#fff!important;font-size:30px!important/,'Applications title must have clear but balanced hierarchy');
+assert.match(readabilityRuntime,/background:transparent!important;box-shadow:none!important/,'nested hero card chrome must be removed');
 assert.match(readabilityRuntime,/rona-app-lifecycle-v3>\*\{font-size:13px!important/,'lifecycle typography must be balanced at 13px');
 assert.match(readabilityRuntime,/rona-app-filter button\{font-size:12\.5px!important/,'filter typography must be balanced at 12.5px');
 assert.match(readabilityRuntime,/rona-owner-table\{font-size:13\.5px!important/,'queue body typography must be balanced at 13.5px');
@@ -72,4 +75,4 @@ const readabilityAt=wrapper.lastIndexOf('adminApplicationsReadabilityV5');
 assert.ok(premiumAt>=0&&readabilityAt>premiumAt,'readability overlay must compose after the existing premium runtime');
 assert.match(wrapper,/applicationPassportRuntimeBase \+ adminApplicationsPremiumRuntime \+ adminApplicationsReadabilityV5/,'existing passport and premium runtime must remain composed');
 
-console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
+console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 hero=clean-integrated typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
