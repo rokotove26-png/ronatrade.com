@@ -5,7 +5,7 @@ import safeTickerRuntime from '../functions/portal/main-ui/admin-topbar-ticker-s
 
 const prepaintSrc=fs.readFileSync('functions/portal/owner-ui-chunks/chunk15.js','utf8');
 const tickerSrc=fs.readFileSync('functions/portal/main-ui/admin-topbar-ticker-safe-v2.js','utf8');
-const chunk18=fs.readFileSync('functions/portal/owner-ui-chunks/chunk18.js','utf8');
+const applicationRuntime=fs.readFileSync('functions/portal/main-ui/application-passport-runtime.js','utf8');
 const admin=fs.readFileSync('portal-src/current/admin.html','utf8');
 
 assert.match(admin,/class="topbar"/,'canonical Admin topbar must remain present');
@@ -22,8 +22,8 @@ assert.match(tickerSrc,/@keyframes ronaAdminTopbarTickerV2/,'ticker must have ru
 assert.match(tickerSrc,/track\.appendChild\(indicator\)/,'existing build indicator must be moved, not recreated');
 assert.match(tickerSrc,/prefers-reduced-motion:reduce/,'ticker must respect reduced-motion preference');
 assert.doesNotMatch(tickerSrc,/fetch\s*\(|\/portal\/owner-api|\/api\//,'topbar recovery layer must not access backend/API surfaces');
-assert.match(chunk18,/adminTopbarTickerSafeRuntime/,'safe ticker runtime must be composed into the current main UI');
-assert.match(chunk18,/adminDealPassportPremiumRuntime \+ adminTopbarTickerSafeRuntime/,'safe ticker must run after accepted premium Deal Passport runtime');
+assert.match(applicationRuntime,/import adminTopbarTickerSafeRuntime from '\.\/admin-topbar-ticker-safe-v2\.js';/,'safe ticker must be imported by the post-base application runtime composition');
+assert.match(applicationRuntime,/adminApplicationsReadabilityV5 \+ adminTopbarTickerSafeRuntime;/,'safe ticker must run after accepted Applications premium/readability runtimes');
 
 const {chromium}=await import('playwright');
 const browser=await chromium.launch({headless:true});
