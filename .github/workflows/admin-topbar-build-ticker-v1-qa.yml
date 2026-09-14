@@ -1,4 +1,4 @@
-name: Admin topbar build ticker v1 QA
+name: Admin topbar runtime recovery v2 QA
 
 on:
   pull_request:
@@ -6,11 +6,13 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/owner-ui-chunks/chunk15.js'
+      - 'functions/portal/owner-ui-chunks/chunk15-base.js'
+      - 'functions/portal/main-ui/admin-topbar-ticker-safe-v2.js'
       - 'tests/admin-topbar-build-ticker-v1.test.mjs'
       - '.github/workflows/admin-topbar-build-ticker-v1-qa.yml'
 
 jobs:
-  admin-topbar-build-ticker-v1:
+  admin-topbar-runtime-recovery-v2:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -20,26 +22,38 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Enforce topbar visual-only scope
+      - name: Enforce runtime recovery scope
         shell: bash
         run: |
           set -euo pipefail
           git fetch origin release/public-go-live-v1.1 --depth=1
           changed="$(git diff --name-only origin/release/public-go-live-v1.1...HEAD)"
           printf '%s\n' "$changed"
-          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
+          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|functions/portal/owner-ui-chunks/chunk15-base\.js|functions/portal/main-ui/admin-topbar-ticker-safe-v2\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
           if [ -n "$bad" ]; then
-            echo 'Unexpected files in Admin topbar visual-only PR:'
+            echo 'Unexpected files in Admin topbar runtime recovery PR:'
             printf '%s\n' "$bad"
             exit 1
           fi
-          if printf '%s\n' "$changed" | grep -E '(^supabase/|owner-api|price-updates-api|admin-payments|migrations|schema|\.sql$|portal-src/current/admin\.html)' >/dev/null; then
-            echo 'Protected backend/API/DB/canonical Admin shell surface changed unexpectedly'
+          if printf '%s\n' "$changed" | grep -E '(^supabase/|owner-api|price-updates-api|admin-payments|migrations|schema|\.sql$|portal-src/current/admin\.html|application-passport-runtime\.js)' >/dev/null; then
+            echo 'Protected backend/API/DB/canonical Admin or accepted Applications runtime surface changed unexpectedly'
             exit 1
           fi
+      - name: Verify immutable safe prepaint base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk15-base.js)" = "dc5606859fd0193b3dc428d17957439273bd571b"
+          grep -F "export default basePrepaintRuntime + adminTopbarTickerSafeRuntime;" functions/portal/owner-ui-chunks/chunk15.js
+      - name: Verify accepted premium compositions remain untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk18.js)" = "e5e920deb9323507ef8e22ac9cfa8be7b0f55062"
+          test "$(git rev-parse HEAD:functions/portal/main-ui/application-passport-runtime.js)" = "4b0c40a59161617b47d1930b82dda277182523b3"
       - name: Install browser QA runtime
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Prove compact search and live ticker placement
+      - name: Prove full-runtime recovery and safe ticker relocation
         run: node tests/admin-topbar-build-ticker-v1.test.mjs
