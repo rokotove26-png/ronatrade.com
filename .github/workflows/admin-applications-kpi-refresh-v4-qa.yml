@@ -1,0 +1,42 @@
+name: Admin Applications KPI refresh v4 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/applications-total-kpi-ui.js'
+      - 'scripts/qa-admin-applications-kpi-refresh-v4.mjs'
+      - '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  applications-kpi-refresh-v4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce Applications-only scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA='${{ github.event.pull_request.base.sha }}'
+          git diff --name-only "$BASE_SHA...HEAD" > /tmp/changed.txt
+          cat /tmp/changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              functions/portal/applications-total-kpi-ui.js|scripts/qa-admin-applications-kpi-refresh-v4.mjs|.github/workflows/admin-applications-kpi-refresh-v4-qa.yml) ;;
+              *) echo "OUT_OF_SCOPE_FILE: $path" >&2; exit 1 ;;
+            esac
+          done < /tmp/changed.txt
+      - name: Verify refresh lifecycle and totals source
+        run: node scripts/qa-admin-applications-kpi-refresh-v4.mjs
