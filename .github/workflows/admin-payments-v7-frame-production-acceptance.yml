@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: admin-payments-v7-frame-production-acceptance
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   authenticated-live-frame-acceptance:
