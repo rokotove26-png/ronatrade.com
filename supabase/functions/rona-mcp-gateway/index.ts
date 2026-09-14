@@ -2,8 +2,8 @@ import postgres from "postgres";
 import { createFinancePaymentsV7GatewayExtension } from './finance-payments-v7-extension.mjs';
 
 // Preserve the exact current release gateway and extend only FINANCE / AI-FINANCE Pilot.
-// This source pin must move only after CURRENT_STATE_FIRST confirms a newer approved release.
-export const FINANCE_GATEWAY_UPSTREAM_COMMIT='0c136582cbe825149257994465d784f28a24ab0c';
+// CURRENT_STATE_FIRST: release/public-go-live-v1.1@e697e6c034ed24eed30229655dd2fb12857571c5.
+export const FINANCE_GATEWAY_UPSTREAM_COMMIT='e697e6c034ed24eed30229655dd2fb12857571c5';
 const UPSTREAM=`https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/${FINANCE_GATEWAY_UPSTREAM_COMMIT}/supabase/functions/rona-mcp-gateway/index.ts`;
 
 type RequestHandler=(req:Request)=>Response|Promise<Response>;
