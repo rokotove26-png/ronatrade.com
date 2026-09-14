@@ -41,6 +41,16 @@ function showError(p,module){const host=pageNode(p);if(!host||host.querySelector
 function requestRetry(p){const module=moduleFor(p);if(!module)return;state.pageAttempts[p]=(state.pageAttempts[p]||0)+1;if(p==='market-news'){repairMarketNews();return}window.dispatchEvent(new CustomEvent('rona:admin-module-retry',{detail:{module,page:p,attempt:state.pageAttempts[p]}}))}
 function schedule(ms=1000){clearTimeout(timer);timer=setTimeout(run,ms)}
 async function run(){if(running)return;running=true;try{const p=selected();state.status='CHECKING:'+p;if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.status='READY:'+p;window.__RONA_ADMIN_RUNTIME_RECOVERY_READY__=true;return}const module=moduleFor(p);if(!module)return;const attempt=state.pageAttempts[p]||0;if(attempt<3){requestRetry(p);await sleep(p==='market-news'?650:1800+attempt*800);if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.status='RECOVERED:'+p;return}}if((state.pageAttempts[p]||0)>=3&&!ready(p)){state.status='DEGRADED:'+p;showError(p,module)}}catch(e){note('watchdog',e)}finally{running=false;schedule(5000)}}
-function boot(){window.addEventListener('rona:admin-pagechange',event=>{const p=String(event?.detail?.page||'');if(p==='market-news'&&!marketNewsReady())setTimeout(()=>{if(selected()==='market-news'&&!marketNewsReady())repairMarketNews()},180);schedule(450)},{passive:true});window.addEventListener('rona:admin-single-owner-ready',()=>schedule(300),{passive:true});window.addEventListener('online',()=>schedule(500),{passive:true});window.addEventListener('pageshow',()=>schedule(500),{passive:true});schedule(1000)}
+function loadRadioIcc(){
+  if(document.getElementById('rona-admin-radio-icc-loader')||window.__RONA_ADMIN_RADIO_ICC_V1__)return;
+  const s=document.createElement('script');
+  s.id='rona-admin-radio-icc-loader';
+  s.src='/assets/portal-admin-radio-icc-v1.js?v=20260915-icc-v1';
+  s.async=false;
+  s.dataset.ronaVisualOnly='radio-icc-v1';
+  s.onerror=()=>note('radio-icc','SCRIPT_LOAD_FAILED');
+  document.body.appendChild(s)
+}
+function boot(){loadRadioIcc();window.addEventListener('rona:admin-pagechange',event=>{const p=String(event?.detail?.page||'');if(p==='market-news'&&!marketNewsReady())setTimeout(()=>{if(selected()==='market-news'&&!marketNewsReady())repairMarketNews()},180);schedule(450)},{passive:true});window.addEventListener('rona:admin-single-owner-ready',()=>schedule(300),{passive:true});window.addEventListener('online',()=>schedule(500),{passive:true});window.addEventListener('pageshow',()=>schedule(500),{passive:true});schedule(1000)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
