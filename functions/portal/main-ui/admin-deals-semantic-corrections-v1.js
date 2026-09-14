@@ -6,6 +6,8 @@ window.__RONA_ADMIN_DEALS_SEMANTIC_CORRECTIONS_V1__='20260914-column-map-v1';
 const id='ronaAdminDealsSemanticCorrectionsV1Style';
 if(document.getElementById(id))return;
 const s=document.createElement('style');s.id=id;s.textContent=[
+'html.rona-deals-premium-v1 #page-deals .rona-deal-filter{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:12px!important}',
+'html.rona-deals-premium-v1 #page-deals .rona-deal-filter button{min-height:48px!important;border-radius:13px!important;font-size:12.5px!important}',
 'html.rona-deals-premium-v1 #page-deals .rona-deal-table .rona-owner-table thead th:nth-child(1){color:#86e8ff!important}',
 'html.rona-deals-premium-v1 #page-deals .rona-deal-table .rona-owner-table thead th:nth-child(2){color:#d2c8ff!important}',
 'html.rona-deals-premium-v1 #page-deals .rona-deal-table .rona-owner-table thead th:nth-child(3){color:#a9ecff!important}',
