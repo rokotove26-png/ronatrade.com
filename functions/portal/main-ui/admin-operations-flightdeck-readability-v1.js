@@ -1,12 +1,4 @@
-export default String.raw`
-(()=>{
-  if(window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_READABILITY_V1__)return;
-  window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_READABILITY_V1__='20260914-readable-flightdeck-v1';
-  const id='ronaAdminOperationsFlightdeckReadabilityV1Style';
-  if(document.getElementById(id))return;
-  const s=document.createElement('style');
-  s.id=id;
-  s.textContent=String.raw`
+const css=String.raw`
 #page-home .rona-flightdeck-v5{
   max-width:1900px!important;
   gap:14px!important;
@@ -117,6 +109,16 @@ export default String.raw`
   #page-home .rona-fd-v5__vector{grid-template-columns:1fr!important}
 }
 `;
+
+export default String.raw`
+(()=>{
+  if(window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_READABILITY_V1__)return;
+  window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_READABILITY_V1__='20260914-readable-flightdeck-v1';
+  const id='ronaAdminOperationsFlightdeckReadabilityV1Style';
+  if(document.getElementById(id))return;
+  const s=document.createElement('style');
+  s.id=id;
+  s.textContent=${JSON.stringify(css)};
   document.head.appendChild(s);
 })();
 `;
