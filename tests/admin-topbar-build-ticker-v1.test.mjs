@@ -14,70 +14,82 @@ assert.match(admin,/class="role-pill"/,'canonical role pill must remain present'
 assert.match(prepaintSrc,/position:fixed;right:12px;bottom:12px/,'immutable pre-paint base must retain fixed loading position');
 assert.doesNotMatch(prepaintSrc,/rona-owner-build-ticker|mountAdminTicker|top\.insertBefore\(host,anchor\)/,'immutable prepaint base must not mutate the Admin topbar');
 assert.match(wrapperSrc,/import basePrepaintRuntime from '\.\/chunk15-base\.js';/,'chunk15 must use the immutable safe prepaint base');
-assert.match(wrapperSrc,/import adminTopbarTickerSafeRuntime from '\.\.\/main-ui\/admin-topbar-ticker-safe-v2\.js';/,'chunk15 must compose the isolated post-ready ticker runtime');
-assert.match(wrapperSrc,/export default basePrepaintRuntime \+ adminTopbarTickerSafeRuntime;/,'safe ticker must be appended after prepaint without replacing it');
-assert.match(tickerSrc,/__RONA_MAIN_UI_RUNTIME_LOADED__===true/,'ticker relocation must wait until the complete main runtime has loaded');
-assert.match(tickerSrc,/window\.__RONA_VISUAL_V2__===true/,'ticker relocation must wait for premium visual runtime');
-assert.match(tickerSrc,/directChildOf\(top,top\.querySelector\('\.role-pill'\)\)/,'role fallback must be normalized to a direct topbar child');
-assert.match(tickerSrc,/try\{if\(!readyForRelocation\(\)\)return false/,'post-ready relocation must fail safely');
+assert.match(wrapperSrc,/import adminTopbarTickerSafeRuntime from '\.\.\/main-ui\/admin-topbar-ticker-safe-v2\.js';/,'chunk15 must compose isolated post-ready ticker runtime');
+assert.match(wrapperSrc,/export default basePrepaintRuntime \+ adminTopbarTickerSafeRuntime;/,'ticker must be appended after prepaint without replacing it');
+assert.match(tickerSrc,/__RONA_MAIN_UI_RUNTIME_LOADED__===true/,'ticker mirror must wait until complete main runtime is loaded');
+assert.match(tickerSrc,/window\.__RONA_VISUAL_V2__===true/,'ticker mirror must wait for premium visual runtime');
+assert.match(tickerSrc,/readyForMirror/,'post-ready mirror gate must exist');
+assert.match(tickerSrc,/new MutationObserver\(sync\)/,'ticker must mirror authoritative status updates');
+assert.doesNotMatch(tickerSrc,/track\.appendChild\(indicator\)|insertBefore\(indicator|appendChild\(indicator\)/,'system lifecycle indicator must never be reparented');
 assert.match(tickerSrc,/width:min\(34vw,640px\)!important;max-width:640px!important/,'desktop search must be intentionally narrower');
 assert.match(tickerSrc,/@keyframes ronaAdminTopbarTickerV2/,'ticker must have running-line animation');
-assert.match(tickerSrc,/track\.appendChild\(indicator\)/,'existing build indicator must be moved, not recreated');
 assert.match(tickerSrc,/prefers-reduced-motion:reduce/,'ticker must respect reduced-motion preference');
-assert.doesNotMatch(tickerSrc,/fetch\s*\(|\/portal\/owner-api|\/api\//,'topbar recovery layer must not access backend/API surfaces');
+assert.doesNotMatch(tickerSrc,/fetch\s*\(|\/portal\/owner-api|\/api\//,'topbar presentation layer must not access backend/API surfaces');
 
 const {chromium}=await import('playwright');
 const browser=await chromium.launch({headless:true});
+async function runCycle(page,{reload=false}={}){
+  if(reload)await page.reload();
+  await page.addScriptTag({content:prepaintRuntime});
+  await page.addScriptTag({content:safeTickerRuntime});
+  await page.waitForFunction(()=>document.getElementById('rona-owner-build-indicator'));
+  const cold=await page.evaluate(()=>{const i=document.getElementById('rona-owner-build-indicator');return{paintReady:document.documentElement.classList.contains('rona-owner-paint-ready'),ticker:!!document.getElementById('rona-admin-topbar-ticker-v2'),parentIsBody:i?.parentElement===document.body,position:getComputedStyle(i).position}});
+  assert.equal(cold.paintReady,false,'cold load must stay behind prepaint guard');
+  assert.equal(cold.ticker,false,'ticker must not mount during cold load');
+  assert.equal(cold.parentIsBody,true);
+  assert.equal(cold.position,'fixed');
+
+  await page.waitForTimeout(180);
+  await page.evaluate(()=>{window.__RONA_OWNER_ADMIN_READY__=true});
+  await page.waitForFunction(()=>document.documentElement.classList.contains('rona-owner-paint-ready'));
+  await page.waitForTimeout(120);
+  assert.equal(await page.evaluate(()=>!!document.getElementById('rona-admin-topbar-ticker-v2')),false,'ticker must still wait for the complete premium runtime');
+  assert.equal(await page.evaluate(()=>document.getElementById('rona-owner-build-indicator')?.parentElement===document.body),true);
+
+  await page.evaluate(()=>{window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;window.__RONA_VISUAL_V2__=true});
+  await page.waitForFunction(()=>document.documentElement.classList.contains('rona-admin-topbar-ticker-v2-ready')&&document.getElementById('rona-admin-topbar-ticker-v2'));
+  await page.waitForTimeout(80);
+  return page.evaluate(()=>{
+    const top=document.querySelector('.topbar'),search=document.querySelector('.topbar>.search'),ticker=document.getElementById('rona-admin-topbar-ticker-v2'),track=ticker?.querySelector('.rona-admin-topbar-ticker-v2__track'),indicator=document.getElementById('rona-owner-build-indicator'),role=document.querySelector('.role-pill'),searchButton=document.getElementById('searchButton'),text=ticker?.querySelector('.rona-admin-topbar-ticker-v2__text');
+    return{tickerParentIsTop:ticker?.parentElement===top,tickerImmediatelyBeforeRole:ticker?.nextElementSibling===role,tickerImmediatelyAfterSearchButton:ticker?.previousElementSibling===searchButton,indicatorCount:document.querySelectorAll('#rona-owner-build-indicator').length,indicatorStillBodyChild:indicator?.parentElement===document.body,indicatorPosition:getComputedStyle(indicator).position,indicatorVisibility:getComputedStyle(indicator).visibility,indicatorText:indicator?.textContent||'',tickerText:text?.textContent||'',searchWidth:search.getBoundingClientRect().width,topbarWidth:top.getBoundingClientRect().width,tickerWidth:ticker.getBoundingClientRect().width,animationName:getComputedStyle(track).animationName,runtimeError:window.__RONA_ADMIN_TOPBAR_TICKER_SAFE_V2_ERROR__||null,lifecycleReady:window.__RONA_OWNER_FIRST_PAINT_READY__===true,mode:document.documentElement.dataset.ronaAdminTopbarTicker||''};
+  });
+}
 try{
   const page=await browser.newPage({viewport:{width:1800,height:900}});
-  const fixture=`<!doctype html><html><head><style>
-  html,body{margin:0;background:#06101a;color:#fff;font-family:Arial,sans-serif}.app{min-height:100vh}.topbar{display:flex;align-items:center;gap:12px;width:1700px;height:66px;padding:10px 18px;box-sizing:border-box}.search{flex:1;min-width:0;height:40px}.role-pill,.logout,#searchButton{height:36px;white-space:nowrap}
-  </style></head><body><header class="topbar"><input class="search" type="search"><button id="searchButton">ПОИСК</button><span class="role-pill">ВНУТРЕННИЙ КОНТУР · Администратор</span><button class="logout" data-action="logout">Выход</button></header><div class="app"></div><script>window.__RONA_OWNER_ADMIN_READY__=true;window.__RONA_OWNER_AI_SYNC_SNAPSHOT__={};window.__RONA_UI_BUILD__='owner-main-v4-test';</script></body></html>`;
+  const errors=[];page.on('pageerror',e=>errors.push(String(e?.message||e)));
+  const fixture=`<!doctype html><html><head><style>html,body{margin:0;background:#06101a;color:#fff;font-family:Arial,sans-serif}.app{min-height:100vh}.topbar{display:flex;align-items:center;gap:12px;width:1700px;height:66px;padding:10px 18px;box-sizing:border-box}.search{flex:1;min-width:0;height:40px}.role-pill,.logout,#searchButton{height:36px;white-space:nowrap}</style></head><body><header class="topbar"><input class="search" type="search"><button id="searchButton">ПОИСК</button><span class="role-pill">ВНУТРЕННИЙ КОНТУР · Администратор</span><button class="logout" data-action="logout">Выход</button></header><div class="app"></div><script>window.__RONA_OWNER_ADMIN_READY__=false;window.__RONA_OWNER_AI_SYNC_SNAPSHOT__={};window.__RONA_MAIN_UI_RUNTIME_LOADED__=false;window.__RONA_VISUAL_V2__=false;window.__RONA_UI_BUILD__='owner-main-v4-test';</script></body></html>`;
   await page.route('http://rona.test/**',r=>r.fulfill({status:200,contentType:'text/html',body:fixture}));
   await page.goto('http://rona.test/portal/admin');
-  await page.addScriptTag({content:prepaintRuntime});
-  await page.waitForFunction(()=>document.documentElement.classList.contains('rona-owner-paint-ready')&&document.getElementById('rona-owner-build-indicator'));
-  const loadingProof=await page.evaluate(()=>{const i=document.getElementById('rona-owner-build-indicator');return{parentIsBody:i?.parentElement===document.body,position:getComputedStyle(i).position,text:i?.textContent||''}});
-  assert.equal(loadingProof.parentIsBody,true,'loading indicator must stay in bottom fail-safe position until full runtime completion');
-  assert.equal(loadingProof.position,'fixed');
-  assert.match(loadingProof.text,/Сборка: owner-main-v4-test · Данные: загружены/);
-  await page.evaluate(()=>{window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;window.__RONA_VISUAL_V2__=true});
-  await page.addScriptTag({content:safeTickerRuntime});
-  await page.waitForFunction(()=>document.documentElement.classList.contains('rona-admin-topbar-ticker-v2-ready')&&document.getElementById('rona-admin-topbar-ticker-v2'));
-  const proof=await page.evaluate(()=>{
-    const top=document.querySelector('.topbar');
-    const search=document.querySelector('.topbar>.search');
-    const ticker=document.getElementById('rona-admin-topbar-ticker-v2');
-    const track=ticker?.querySelector('.rona-admin-topbar-ticker-v2__track');
-    const indicator=document.getElementById('rona-owner-build-indicator');
-    const role=document.querySelector('.role-pill');
-    const searchButton=document.getElementById('searchButton');
-    return {
-      tickerParentIsTop:ticker?.parentElement===top,
-      tickerImmediatelyBeforeRole:ticker?.nextElementSibling===role,
-      tickerImmediatelyAfterSearchButton:ticker?.previousElementSibling===searchButton,
-      indicatorCount:document.querySelectorAll('#rona-owner-build-indicator').length,
-      indicatorMovedIntoTrack:indicator?.parentElement===track,
-      indicatorPosition:getComputedStyle(indicator).position,
-      searchWidth:search.getBoundingClientRect().width,
-      topbarWidth:top.getBoundingClientRect().width,
-      tickerWidth:ticker.getBoundingClientRect().width,
-      animationName:getComputedStyle(track).animationName,
-      runtimeError:window.__RONA_ADMIN_TOPBAR_TICKER_SAFE_V2_ERROR__||null
-    };
-  });
+  const proof=await runCycle(page);
   assert.equal(proof.runtimeError,null);
   assert.equal(proof.tickerParentIsTop,true);
   assert.equal(proof.tickerImmediatelyBeforeRole,true);
   assert.equal(proof.tickerImmediatelyAfterSearchButton,true);
   assert.equal(proof.indicatorCount,1);
-  assert.equal(proof.indicatorMovedIntoTrack,true);
-  assert.equal(proof.indicatorPosition,'static');
+  assert.equal(proof.indicatorStillBodyChild,true,'post-ready ticker must mirror, never move, the lifecycle indicator');
+  assert.equal(proof.indicatorPosition,'fixed');
+  assert.equal(proof.indicatorVisibility,'hidden','desktop mirror may hide only the original presentation');
+  assert.equal(proof.tickerText,proof.indicatorText,'ticker text must mirror the authoritative indicator');
   assert.ok(proof.searchWidth<=641,`search remains too wide: ${proof.searchWidth}`);
   assert.ok(proof.searchWidth<proof.topbarWidth*.50,`search should leave a visible ticker zone: ${proof.searchWidth}/${proof.topbarWidth}`);
   assert.ok(proof.tickerWidth>=279,`ticker should retain useful visual width: ${proof.tickerWidth}`);
   assert.equal(proof.animationName,'ronaAdminTopbarTickerV2');
-  console.log('ADMIN_TOPBAR_RUNTIME_RECOVERY_V2_QA=PASS',JSON.stringify({loadingProof,proof}));
-}finally{
-  await browser.close();
-}
+  assert.equal(proof.lifecycleReady,true);
+  assert.equal(proof.mode,'safe-mirror-v3');
+
+  await page.evaluate(()=>{window.__RONA_OWNER_AI_SYNC_ERROR__='TEST_SYNC_ERROR'});
+  await page.waitForFunction(()=>document.getElementById('rona-admin-topbar-ticker-v2')?.dataset.state==='error',{timeout:2500});
+  assert.match(await page.locator('.rona-admin-topbar-ticker-v2__text').textContent(),/Данные: ошибка/,'mirrored ticker must follow live lifecycle status');
+
+  await page.reload();
+  await page.addScriptTag({content:prepaintRuntime});
+  await page.addScriptTag({content:safeTickerRuntime});
+  await page.waitForFunction(()=>document.getElementById('rona-owner-build-indicator'));
+  assert.equal(await page.evaluate(()=>document.getElementById('rona-owner-build-indicator')?.parentElement===document.body),true,'hard reload must preserve body ownership before READY');
+  assert.equal(await page.evaluate(()=>!!document.getElementById('rona-admin-topbar-ticker-v2')),false,'hard reload ticker must remain absent before READY');
+  await page.evaluate(()=>{window.__RONA_OWNER_ADMIN_READY__=true;window.__RONA_MAIN_UI_RUNTIME_LOADED__=true;window.__RONA_VISUAL_V2__=true});
+  await page.waitForFunction(()=>document.documentElement.classList.contains('rona-admin-topbar-ticker-v2-ready'));
+  assert.equal(await page.evaluate(()=>document.getElementById('rona-owner-build-indicator')?.parentElement===document.body),true,'hard reload must preserve lifecycle indicator ownership after READY');
+  assert.deepEqual(errors,[],'cold load and hard reload must produce no page errors');
+  console.log('ADMIN_TOPBAR_LIFECYCLE_MIRROR_V3_QA=PASS',JSON.stringify(proof));
+}finally{await browser.close()}
