@@ -7,8 +7,7 @@ function applyPaymentsFrame(){
   const mobile=window.innerWidth<=760;
   const pageWidth=Math.max(0,page.clientWidth||page.getBoundingClientRect().width||0);
   const target=mobile?'100%':Math.max(1,Math.round(pageWidth*0.75))+'px';
-  const children=Array.from(page.children).filter(el=>el&&el.nodeType===1);
-  for(const el of children){
+  for(const el of Array.from(page.children).filter(el=>el&&el.nodeType===1)){
     el.style.setProperty('width',target,'important');
     el.style.setProperty('max-width',target,'important');
     el.style.setProperty('min-width','0','important');
@@ -18,34 +17,20 @@ function applyPaymentsFrame(){
   }
   const host=page.querySelector(':scope > .rona-owner-page-content[data-owner-page="payments"],:scope > .rona-owner-page-content');
   if(host){
-    host.style.setProperty('width',target,'important');
-    host.style.setProperty('max-width',target,'important');
-    host.style.setProperty('min-width','0','important');
-    host.style.setProperty('margin-left','auto','important');
-    host.style.setProperty('margin-right','auto','important');
-    host.style.setProperty('padding-left','0','important');
-    host.style.setProperty('padding-right','0','important');
-    host.style.setProperty('box-sizing','border-box','important');
+    for(const [k,v] of [['width',target],['max-width',target],['min-width','0'],['margin-left','auto'],['margin-right','auto'],['padding-left','0'],['padding-right','0'],['box-sizing','border-box']])host.style.setProperty(k,v,'important');
     for(const child of Array.from(host.children)){
       if(!child||child.nodeType!==1)continue;
-      child.style.setProperty('width','100%','important');
-      child.style.setProperty('max-width','100%','important');
-      child.style.setProperty('min-width','0','important');
-      child.style.setProperty('margin-left','0','important');
-      child.style.setProperty('margin-right','0','important');
-      child.style.setProperty('box-sizing','border-box','important');
+      for(const [k,v] of [['width','100%'],['max-width','100%'],['min-width','0'],['margin-left','0'],['margin-right','0'],['box-sizing','border-box']])child.style.setProperty(k,v,'important');
     }
   }
   const payments=page.querySelector('.rona-payments-v7');
   if(payments){
-    payments.style.setProperty('width','100%','important');
-    payments.style.setProperty('max-width','100%','important');
-    payments.style.setProperty('min-width','0','important');
-    payments.style.setProperty('margin-left','0','important');
-    payments.style.setProperty('margin-right','0','important');
-    payments.style.setProperty('box-sizing','border-box','important');
+    for(const [k,v] of [['width','100%'],['max-width','100%'],['min-width','0'],['margin-left','0'],['margin-right','0'],['box-sizing','border-box']])payments.style.setProperty(k,v,'important');
     const board=payments.querySelector('.rona-payments-v7-board');
     if(board)board.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+    for(const label of payments.querySelectorAll('.rona-payments-v7-kpi-label,.rona-payments-v7-deal-cell>span')){
+      if(String(label.textContent||'').trim()==='К получению')label.textContent='Сумма по сделке';
+    }
   }
   page.dataset.ronaPaymentsFrameWidth=target;
 }
@@ -80,7 +65,8 @@ function apply(){
     else if(t==='Поставщик одобрил'&&el.childElementCount===0)el.textContent='Ресурс подтвержден';
   }
 }
-let queued=false;const schedule=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})};
+let queued=false;
+const schedule=()=>{if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});else schedule();
 window.addEventListener('rona:admin-authority-refresh',schedule);
 document.addEventListener('click',ev=>{if(ev.target?.closest?.('#nav button[data-page="applications"],#page-applications button'))setTimeout(schedule,0)},true);
