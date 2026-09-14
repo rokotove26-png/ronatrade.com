@@ -1,7 +1,6 @@
 import applicationPassportRuntimeBase from './application-passport-runtime-base.js';
 import adminApplicationsPremiumRuntime from './admin-applications-premium-v1.js';
 import adminApplicationsReadabilityV5 from './admin-applications-readability-v5.js';
-import adminTopbarTickerSafeRuntime from './admin-topbar-ticker-safe-v2.js';
 
 /*
  * Source-contract compatibility markers below describe the unchanged implementation
@@ -22,4 +21,4 @@ import adminTopbarTickerSafeRuntime from './admin-topbar-ticker-safe-v2.js';
  * window.openApplicationPassport
  */
 
-export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime + adminApplicationsReadabilityV5 + adminTopbarTickerSafeRuntime;
+export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime + adminApplicationsReadabilityV5;
