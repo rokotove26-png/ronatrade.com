@@ -7,8 +7,12 @@ on:
     paths:
       - 'supabase/migrations/20260914210000_admin_payments_v7_finance_controlled_write.sql'
       - 'supabase/migrations/20260914213000_admin_payments_v7_finance_current_authority_hardening.sql'
+      - 'supabase/migrations/20260915010000_admin_payments_v7_server_materializer.sql'
+      - 'supabase/functions/rona-finance-payments-v7-materializer/**'
       - 'tests/admin-payments-v7/finance-controlled-write.sql'
       - 'tests/admin-payments-v7/finance-current-authority-hardening.sql'
+      - 'tests/admin-payments-v7/server-materializer.sql'
+      - 'tests/admin-payments-v7/server-materializer.test.mjs'
       - '.github/workflows/admin-payments-v7-finance-hardening-qa.yml'
   workflow_dispatch:
 
@@ -50,6 +54,18 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/finance-current-authority-hardening.sql
+      - name: PostgreSQL 17 server materializer E2E
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer.sql
+      - name: Server materializer static contract
+        run: node tests/admin-payments-v7/server-materializer.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno import graph — server materializer
+        run: deno check supabase/functions/rona-finance-payments-v7-materializer/index.ts
       - name: No frontend visual scope in hardening delta
         shell: bash
         run: |
