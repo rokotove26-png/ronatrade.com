@@ -1,0 +1,44 @@
+name: Admin Deal passport premium visual v1 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/main-ui/admin-deal-passport-premium-v1.js'
+      - 'functions/portal/owner-ui-chunks/chunk18.js'
+      - 'scripts/qa-admin-deal-passport-premium-v1.mjs'
+      - '.github/workflows/admin-deal-passport-premium-v1-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-deal-passport-premium-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce visual-only Deal passport scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          changed="$(git diff --name-only origin/release/public-go-live-v1.1...HEAD)"
+          printf '%s\n' "$changed"
+          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/main-ui/admin-deal-passport-premium-v1\.js|functions/portal/owner-ui-chunks/chunk18\.js|scripts/qa-admin-deal-passport-premium-v1\.mjs|\.github/workflows/admin-deal-passport-premium-v1-qa\.yml)$' || true)"
+          if [ -n "$bad" ]; then
+            echo 'Unexpected files in Deal passport visual-only PR:'
+            printf '%s\n' "$bad"
+            exit 1
+          fi
+          test -z "$(git diff --name-only origin/release/public-go-live-v1.1...HEAD -- functions/portal/deals-current-state-ui.js functions/portal/deals-current-state-chunks functions/portal/owner-api.js supabase)"
+          echo 'DEAL_PASSPORT_VISUAL_SCOPE=LOCKED'
+      - name: Prove premium passport presentation and functional lock
+        run: node scripts/qa-admin-deal-passport-premium-v1.mjs
