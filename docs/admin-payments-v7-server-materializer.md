@@ -1,4 +1,4 @@
-# Admin → Payments V7 — manifest-bound Finance materializer
+# Admin → Payments V7 — automatic manifest-bound Finance materialization
 
 Status: **IMPLEMENTED CANDIDATE / EXACT-HEAD QA REQUIRED**  
 Production gateway v28: **UNCHANGED**  
@@ -7,137 +7,126 @@ Payments UI: **FROZEN / NO VISUAL SCOPE**
 
 ## Purpose
 
-Remove both ChatGPT tool-registry dependency and caller-controlled business content from the authoritative Payments V7 write path.
+Payments V7 materialization must not depend on ChatGPT tool discovery or on a separate action by the Finance AI after source-lock.
 
-The authority chain is now:
+The authoritative flow is:
 
-`FINANCE / AI-FINANCE source-lock → business_change_proposal_submit exact materialization manifest → functional_conclusion_submit confirms that exact manifest → server receives manifest_id + conclusion_id only → server loads immutable manifest payload → portal_private.persist_finance_event_v7 → Payments V7`
+`FINANCE / AI-FINANCE source-lock → business_change_proposal_submit exact PAYMENTS_V7_MATERIALIZE manifest → functional_conclusion_submit confirms that exact manifest → server-side AFTER INSERT automation → materialize_finance_manifest_v7 → persist_finance_event_v7 → Payments V7`
 
-Finance remains read / prepare / source-lock. Proposal and conclusion semantics are not changed: both remain immutable coordination records and neither directly mutates Payments business data.
+Finance remains a read / prepare / source-lock contour. Its ChatGPT surface remains the existing eight tools. There is no ninth Payments write tool and no manual Finance materialization call after the conclusion.
 
-## Finance Pilot workflow
+## Finance Pilot surface
 
-The existing Finance Pilot tools are used without changing their contracts.
+The candidate Finance Pilot surface is exactly the existing eight tools, unchanged:
 
-### 1. Materialization manifest
+1. `current_state`
+2. `history`
+3. `document_read`
+4. `task_acknowledge`
+5. `task_progress_submit`
+6. `functional_conclusion_submit`
+7. `handoff_request_submit`
+8. `business_change_proposal_submit`
 
-Finance creates a `business_change_proposal_submit` record targeting the existing Finance task:
+The Payments V7 flow uses only `business_change_proposal_submit` and `functional_conclusion_submit`. Tool discovery is not part of the write authority path.
 
-- `target_entity_type = TASK`;
-- `target_entity_id = TASK-PAYMENTS-V7-FINANCE-20260915`;
+## Exact materialization manifest
+
+Finance creates a `BUSINESS_CHANGE_PROPOSAL` on the Finance task with:
+
 - `proposed_action = PAYMENTS_V7_MATERIALIZE`;
 - `proposed_field = payments_v7_materialization_manifest`;
 - `proposed_state.schema = PAYMENTS_V7_MATERIALIZATION_MANIFEST_V1`;
-- `proposed_state.source_lock_task_id` equals the task ID;
-- `proposed_state.source_lock_record_ids[]` carries the applicable Finance source-lock lineage;
-- `proposed_state.events[]` contains the exact Payments V7 events.
+- `proposed_state.source_lock_task_id` equal to the target Finance task;
+- `proposed_state.source_lock_record_ids[]` containing the applicable immutable Finance source-lock lineage;
+- `proposed_state.events[]` containing the exact canonical Payments V7 event payloads.
 
-Each event entry contains only two semantic layers:
+Each event has `confirmation_status = CONFIRMED | TO_VERIFY` and an exact event envelope accepted by `portal_private.persist_finance_event_v7`, including source provenance, source version/timestamp and idempotency key.
 
-- `confirmation_status = CONFIRMED | TO_VERIFY`;
-- `event` = exact canonical event envelope accepted by `portal_private.persist_finance_event_v7`, including `event_type`, Deal/payment/current-authority identifiers, source provenance, idempotency key and exact payload.
+The proposal is only preparation/source-lock. It does not itself mutate Payments.
 
-The proposal's `evidence_refs` must contain the Finance task and every referenced source-lock record.
+## Confirming conclusion and automatic start
 
-### 2. Manifest confirmation
+Finance then saves a `FUNCTIONAL_CONCLUSION` through `functional_conclusion_submit` on the same task. Automatic materialization is eligible only when all of the following are true:
 
-Finance then creates `functional_conclusion_submit` on the same Finance task with `confirmed=true` and status `APPROVED` or `APPROVED_WITH_CONDITIONS`.
+- `functional_role = FINANCE`;
+- `identity_id = AI-FINANCE`;
+- `tool_name = functional_conclusion_submit`;
+- status is `APPROVED` or `APPROVED_WITH_CONDITIONS`;
+- `confirmed = true`;
+- target type is `TASK`;
+- `source_refs` explicitly bind the conclusion to the exact Payments V7 manifest;
+- the manifest is a current Finance / AI-FINANCE `BUSINESS_CHANGE_PROPOSAL` created through `business_change_proposal_submit`;
+- action/field/schema match the Payments V7 materialization contract;
+- the manifest is not superseded and no later matching manifest exists.
 
-Its `source_refs` must explicitly bind the conclusion to the exact manifest record ID, for example:
+`portal_private.finance_auto_materialize_after_conclusion_v7` is an `AFTER INSERT` trigger on immutable coordination records. Unrelated conclusions are ignored.
 
-`BUSINESS_CHANGE_PROPOSAL:<manifest UUID>`
+## Fail-isolated execution
 
-The materializer accepts only a current conclusion that is not superseded and for which no later Finance conclusion exists on the same task.
+The trigger creates or resolves one internal job in `portal_private.finance_materialization_jobs_v7`, keyed uniquely by `manifest_record_id`, then calls `portal_private.attempt_finance_materialization_job_v7`.
 
-## Execution request: IDs only
+That server-side function supplies only the stored `manifest_id` and `conclusion_id` to `portal_private.materialize_finance_manifest_v7`. Business content is never copied from the caller/conclusion into the execution request. The materializer reloads the exact immutable manifest and revalidates Finance role, source-lock lineage, exact conclusion binding and current/superseded state before any canonical persistence.
 
-The private Edge endpoint accepts exactly:
+Materialization errors are isolated from the Finance conclusion transaction. Trigger-side errors are caught, the conclusion remains saved, and the internal job is moved to `RETRY` with audit evidence. Finance does not need to resubmit or perform another action.
 
-```json
-{
-  "manifest_id": "<uuid>",
-  "conclusion_id": "<uuid>"
-}
-```
+## Idempotency and repeated conclusions
 
-No caller-supplied amount, currency, `deal_id`, `payment_id`, allocation, FX data, `event_type`, event payload or source provenance is accepted. Any extra field is rejected as `CALLER_PAYLOAD_OVERRIDE_FORBIDDEN`.
+Idempotency exists at two layers:
 
-The Edge endpoint fixes the actor server-side to `FINANCE / AI-FINANCE` and calls:
+- the automatic job table has one job per exact `manifest_record_id`;
+- every canonical Finance event keeps its existing Finance event `idempotency_key` enforcement in `persist_finance_event_v7`.
 
-`portal_private.materialize_finance_manifest_v7(actor, {manifest_id, conclusion_id})`
+Once a manifest job reaches a terminal state (`MATERIALIZED`, `SKIPPED`, `DENIED`, `PARTIAL`), a repeated confirming conclusion for the same manifest does not call canonical persistence again. It records an `IDEMPOTENT_REPLAY` attempt only.
 
-The DB function re-validates the actor and loads the exact business content directly from immutable `portal_private.ai_coordination_records`.
+If a transient attempt fails before a terminal outcome, a later confirming conclusion may update the current conclusion reference for the pending job, but it cannot create a second job for the same manifest.
 
-## Current/superseded binding
+## Retry / recovery
 
-A manifest is rejected when:
+`portal_private.recover_finance_materialization_jobs_v7(limit)` is the separate internal recovery path. It processes only `QUEUED`/`RETRY` jobs whose retry time has arrived, using `FOR UPDATE SKIP LOCKED` and the same `attempt_finance_materialization_job_v7` function.
 
-- it is not a Finance / AI-FINANCE `BUSINESS_CHANGE_PROPOSAL` created through `business_change_proposal_submit`;
-- it is not targeted to a Finance task;
-- action/field/schema do not match the Payments V7 manifest contract;
-- an explicit coordination record has `supersedes_id = manifest_id`;
-- a later Finance Payments V7 materialization proposal exists for the same task.
+Recovery is not a ChatGPT tool and requires no Finance AI action. Replays remain safe because the manifest job is unique and canonical Finance events are idempotent.
 
-The confirming conclusion is rejected when:
+## Audit trail
 
-- it is not a Finance / AI-FINANCE `FUNCTIONAL_CONCLUSION` created through `functional_conclusion_submit`;
-- it is not `confirmed=true` and approved;
-- it does not reference the exact manifest;
-- it predates the manifest;
-- it is explicitly superseded;
-- a later Finance conclusion exists for the same task.
+Two audit layers are retained:
 
-This means a valid generic Finance conclusion cannot authorize arbitrary caller-supplied content.
+- `portal_private.finance_materializer_audit_v7` — immutable per-event materializer audit, including manifest/conclusion IDs, exact SHA-256 hashes, snapshots, outcome and actual `persist_invoked`;
+- `portal_private.finance_materialization_attempts_v7` — immutable automation/recovery attempt audit with invocation source, attempt number, manifest SHA, result/error and actual persistence observation.
 
-## Exact content hashes
+`portal_private.finance_materialization_jobs_v7` stores current operational job/retry state. It is not a Payments authority table.
 
-The server computes SHA-256 over the exact immutable JSONB content it reads from the proposal:
+Top-level and attempt `persist_invoked` are true only when at least one event actually entered the canonical `persist_finance_event_v7` call path.
 
-- `manifest_payload_sha256` — exact `proposed_state`;
-- `event_payload_sha256` — exact canonical event passed to `persist_finance_event_v7`.
+## Fail-closed business semantics
 
-Both hashes are written to immutable `portal_private.finance_materializer_audit_v7`, together with the manifest/conclusion IDs, event index, exact event snapshot, result and whether canonical persistence was invoked.
-
-The existing coordination record `payload_hash` is also captured as audit evidence, but the materializer's exact event authority is determined from the immutable stored manifest itself, not from caller data.
+- `TO_VERIFY` → `SKIPPED`; canonical persistence is not called.
+- Wrong role/identity or unconfirmed/unbound conclusion → no automatic launch or materializer denial.
+- Superseded/not-current manifest or conclusion → denied.
+- Caller-supplied business overrides remain forbidden by the manifest-bound materializer.
+- Unresolved confirmed allocation stays unresolved (`SCOPE_ONLY / TO_VERIFY`); no inferred split is created.
+- Synthetic/CBR/market/contractual/approximate FX is denied before persistence.
+- No automatic layer performs direct DML into `payments`, `payment_allocations`, `finance_events_v7`, `deal_finance_authority_v7`, `payment_business_attributions_v7` or `payment_resource_chains_v7`.
+- The authoritative mutation primitive remains `portal_private.persist_finance_event_v7(jsonb,jsonb)` through `materialize_finance_manifest_v7`.
+- Proposal/conclusion semantics remain unchanged; automation only reacts after a valid conclusion has been saved.
 
 ## Existing source-lock lineage
 
-Production materialization, if separately authorized later, must be prepared under `TASK-PAYMENTS-V7-FINANCE-20260915` from the applicable current lineage, including:
-
-- Finance v24 `b1efe7e7-ad4a-494a-afb7-36c07b820c87` — original pre-materialization matrix;
-- Finance v25 `f9911be7-c8bd-4964-8c41-e0999d33dcdc` — Owner correction for executed Deal-verified payments;
-- `c9d44eb5-c775-466b-87f9-864f095e482c` — Owner-approved KUZMASH fee allocation correction;
-- `4e73e2c9-6748-44df-a025-592e50b00d58` — PAYEV-2026-000009 unresolved allocation correction;
-- `2e9a8b1e-b020-4603-a0dd-e11ff7519132` and any later Owner-approved Payments rule correction applicable to the facts.
-
-The manifest may preserve superseded records as lineage evidence where later records explicitly correct them; authority to execute comes from the current exact manifest plus its current confirming conclusion.
-
-## Fail-closed semantics
-
-- `TO_VERIFY` event → `SKIPPED`; canonical persistence is not called.
-- A confirmed bank payment with unresolved Deal allocation may be materialized only with the existing `SCOPE_ONLY` semantics; no inferred split is created.
-- `PAYMENT_RESOURCE_CHAIN_CONFIRMED` rejects CBR, market, contractual, approximate or synthetic FX bases before persistence.
-- Missing provenance, malformed idempotency/timestamp, invalid source-lock lineage, wrong actor, invalid manifest binding, superseded manifest/conclusion or caller payload override fail closed.
-- There is no direct DML from the materializer into `payments`, `payment_allocations`, `deal_finance_authority_v7`, `payment_business_attributions_v7` or `payment_resource_chains_v7`.
-- There is no DML from the materializer into `ai_coordination_records`; proposal/conclusion records remain immutable source-lock evidence.
-- The only authoritative Payments mutation primitive is `portal_private.persist_finance_event_v7(jsonb,jsonb)`.
+Production manifests, if separately authorized later, must be prepared under `TASK-PAYMENTS-V7-FINANCE-20260915` from the applicable current lineage, including Finance v24 `b1efe7e7-ad4a-494a-afb7-36c07b820c87`, Finance v25 `f9911be7-c8bd-4964-8c41-e0999d33dcdc`, Owner-approved KUZMASH correction `c9d44eb5-c775-466b-87f9-864f095e482c`, unresolved allocation correction `4e73e2c9-6748-44df-a025-592e50b00d58`, current Payments rule `2e9a8b1e-b020-4603-a0dd-e11ff7519132`, and every later Owner-approved correction applicable to the fact.
 
 ## QA gate
 
-`tests/admin-payments-v7/server-materializer.sql` must prove on PostgreSQL 17:
+Exact-head PostgreSQL 17 and static QA must prove:
 
-1. caller changes amount after source-lock → `DENIED`, no persistence;
-2. caller changes Deal/payment IDs after source-lock → `DENIED`, no persistence;
-3. manifest without confirmed conclusion → `DENIED`;
-4. superseded manifest → `DENIED`;
-5. exact current confirmed manifest → `MATERIALIZED` from server-loaded payload;
-6. exact manifest/event SHA-256 values match the stored immutable payload;
-7. `TO_VERIFY` event → `SKIPPED`, no payment/event;
-8. unresolved confirmed allocation remains `SCOPE_ONLY / TO_VERIFY` without inferred split;
-9. synthetic FX → `DENIED` before persistence;
-10. non-Finance actor → `DENIED`;
-11. audit and privilege boundaries remain intact.
+1. Finance Pilot surface = existing eight tools; no Payments write tool;
+2. manifest proposal alone does not write Payments;
+3. exact confirmed Finance conclusion automatically materializes the manifest into Payments V7;
+4. `TO_VERIFY` automatically skips with no canonical event/payment;
+5. non-Finance conclusion cannot create an automatic job;
+6. repeated conclusion creates no duplicate Finance event/payment and records idempotent replay;
+7. forced materialization failure does not roll back the saved Finance conclusion;
+8. failed job enters `RETRY` and separate recovery subsequently materializes it;
+9. source-lock/content-binding, superseded/current, SHA-256, no synthetic FX, unresolved allocation and aggregate `persist_invoked` regressions remain green;
+10. no direct Payments DML exists in the automation layer and all legacy Payments V7 regressions remain green.
 
-`tests/admin-payments-v7/server-materializer.test.mjs` additionally enforces the static contract: ID-only endpoint, no old caller-fact function, no direct Payments DML, no coordination DML, one canonical `persist_finance_event_v7` call and no dependency on `finance_event_submit` or ChatGPT tool discovery.
-
-No production materializer deployment, migration application, secret provisioning or business event is authorized by this implementation/QA work.
+No production migration, Edge deployment, secret change, Finance manifest creation or business-data materialization is authorized by this candidate work.
