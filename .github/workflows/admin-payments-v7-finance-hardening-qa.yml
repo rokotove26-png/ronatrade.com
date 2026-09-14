@@ -65,7 +65,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Deno import graph — server materializer
-        run: deno check supabase/functions/rona-finance-payments-v7-materializer/index.ts
+        run: deno check --config supabase/functions/rona-finance-payments-v7-materializer/deno.json supabase/functions/rona-finance-payments-v7-materializer/index.ts
       - name: No frontend visual scope in hardening delta
         shell: bash
         run: |
