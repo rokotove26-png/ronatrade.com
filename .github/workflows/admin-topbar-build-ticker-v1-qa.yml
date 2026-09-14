@@ -6,7 +6,7 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/owner-ui-chunks/chunk15.js'
-      - 'functions/portal/owner-ui-chunks/chunk18.js'
+      - 'functions/portal/main-ui/application-passport-runtime.js'
       - 'functions/portal/main-ui/admin-topbar-ticker-safe-v2.js'
       - 'tests/admin-topbar-build-ticker-v1.test.mjs'
       - '.github/workflows/admin-topbar-build-ticker-v1-qa.yml'
@@ -29,7 +29,7 @@ jobs:
           git fetch origin release/public-go-live-v1.1 --depth=1
           changed="$(git diff --name-only origin/release/public-go-live-v1.1...HEAD)"
           printf '%s\n' "$changed"
-          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|functions/portal/owner-ui-chunks/chunk18\.js|functions/portal/main-ui/admin-topbar-ticker-safe-v2\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
+          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|functions/portal/main-ui/application-passport-runtime\.js|functions/portal/main-ui/admin-topbar-ticker-safe-v2\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
           if [ -n "$bad" ]; then
             echo 'Unexpected files in Admin topbar runtime recovery PR:'
             printf '%s\n' "$bad"
@@ -44,6 +44,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk15.js)" = "dc5606859fd0193b3dc428d17957439273bd571b"
+      - name: Verify Deals premium composition remains untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk18.js)" = "e5e920deb9323507ef8e22ac9cfa8be7b0f55062"
       - name: Install browser QA runtime
         run: |
           npm install --no-save playwright@1.55.0
