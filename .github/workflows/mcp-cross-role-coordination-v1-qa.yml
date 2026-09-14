@@ -45,3 +45,4 @@ jobs:
           if(src.includes('ENTITY_SCOPE[targetRole] =')) throw new Error('recipient authority mutation detected');
           console.log('MCP_CROSS_ROLE_COORDINATION_V1=PASS');
           NODE
+# Production E2E verified 2026-09-14
