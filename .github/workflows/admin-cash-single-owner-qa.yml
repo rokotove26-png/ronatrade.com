@@ -1,0 +1,49 @@
+name: admin-cash-single-owner-qa
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'functions/portal/main-ui/index.js'
+      - 'functions/portal/cash-r2-ui.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'scripts/qa-admin-cash-single-owner.mjs'
+      - 'scripts/qa-admin-single-owner.mjs'
+      - '.github/workflows/admin-cash-single-owner-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'functions/portal/main-ui/index.js'
+      - 'functions/portal/cash-r2-ui.js'
+      - 'assets/portal-admin-shell-fast-v1.js'
+      - 'scripts/qa-admin-cash-single-owner.mjs'
+      - 'scripts/qa-admin-single-owner.mjs'
+      - '.github/workflows/admin-cash-single-owner-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-cash-single-owner:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check functions/portal/main-ui/_middleware.js
+          node --check functions/portal/main-ui/index.js
+          node --check functions/portal/cash-r2-ui.js
+          node --check scripts/qa-admin-cash-single-owner.mjs
+      - name: Cash single-owner regression QA
+        run: node scripts/qa-admin-cash-single-owner.mjs
+      - name: Existing Admin single-owner regression QA
+        run: node scripts/qa-admin-single-owner.mjs
+      - name: Canonical production build
+        run: npm run build
