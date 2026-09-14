@@ -42,12 +42,12 @@ function requestRetry(p){const module=moduleFor(p);if(!module)return;state.pageA
 function schedule(ms=1000){clearTimeout(timer);timer=setTimeout(run,ms)}
 async function run(){if(running)return;running=true;try{const p=selected();state.status='CHECKING:'+p;if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.status='READY:'+p;window.__RONA_ADMIN_RUNTIME_RECOVERY_READY__=true;return}const module=moduleFor(p);if(!module)return;const attempt=state.pageAttempts[p]||0;if(attempt<3){requestRetry(p);await sleep(p==='market-news'?650:1800+attempt*800);if(ready(p)){clearError(p);state.pageAttempts[p]=0;state.status='RECOVERED:'+p;return}}if((state.pageAttempts[p]||0)>=3&&!ready(p)){state.status='DEGRADED:'+p;showError(p,module)}}catch(e){note('watchdog',e)}finally{running=false;schedule(5000)}}
 function loadRadioIcc(){
-  if(document.getElementById('rona-admin-radio-icc-loader')||window.__RONA_ADMIN_RADIO_ICC_V1__)return;
+  if(document.getElementById('rona-admin-radio-icc-loader')||window.__RONA_ADMIN_RADIO_ICC_V2__)return;
   const s=document.createElement('script');
   s.id='rona-admin-radio-icc-loader';
-  s.src='/assets/portal-admin-radio-icc-v1.js?v=20260915-icc-v1';
+  s.src='/assets/portal-admin-radio-icc-v1.js?v=20260915-space-center-v2';
   s.async=false;
-  s.dataset.ronaVisualOnly='radio-icc-v1';
+  s.dataset.ronaVisualOnly='radio-space-center-v2';
   s.onerror=()=>note('radio-icc','SCRIPT_LOAD_FAILED');
   document.body.appendChild(s)
 }
