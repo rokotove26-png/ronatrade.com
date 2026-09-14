@@ -41,9 +41,32 @@ export function createFinancePaymentsV7GatewayExtension({upstreamHandler,sql}){
   if(typeof upstreamHandler!=='function')throw new Error('FINANCE_PAYMENTS_V7_UPSTREAM_HANDLER_REQUIRED');
   return async function financePaymentsV7Gateway(req){
     const msg=await inspect(req);if(!msg)return upstreamHandler(req);
-    const ctx=await authFinance(req,sql);
-    if(msg.method==='tools/list'&&ctx){const upstream=await upstreamHandler(req.clone());let body;try{body=await upstream.clone().json()}catch{return upstream}if(Array.isArray(body?.result?.tools)&&!body.result.tools.some(t=>t?.name===FINANCE_PAYMENTS_V7_TOOL.name)){body.result.tools.push(FINANCE_PAYMENTS_V7_TOOL);const headers=new Headers(upstream.headers);headers.set('content-length',String(new TextEncoder().encode(JSON.stringify(body)).length));headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_FINANCE_CONTROLLED_WRITE_V1');return new Response(JSON.stringify(body),{status:upstream.status,statusText:upstream.statusText,headers})}return upstream}
-    if(msg.method!=='tools/call'||msg.params?.name!=='finance_event_submit')return upstreamHandler(req);
+    const listRequest=msg.method==='tools/list';
+    const submitRequest=msg.method==='tools/call'&&msg.params?.name==='finance_event_submit';
+    if(!listRequest&&!submitRequest)return upstreamHandler(req);
+
+    let ctx=null;
+    try{ctx=await authFinance(req,sql)}catch(e){
+      console.error('finance Payments V7 auth extension failed',String(e?.message||e));
+      if(listRequest)return upstreamHandler(req);
+      return rpc(msg.id,{ok:false,code:'FINANCE_EXTENSION_AUTH_UNAVAILABLE',status:503},true,503);
+    }
+
+    if(listRequest){
+      if(!ctx)return upstreamHandler(req);
+      const upstream=await upstreamHandler(req.clone());let body;
+      try{body=await upstream.clone().json()}catch{return upstream}
+      if(Array.isArray(body?.result?.tools)&&!body.result.tools.some(t=>t?.name===FINANCE_PAYMENTS_V7_TOOL.name)){
+        body.result.tools.push(FINANCE_PAYMENTS_V7_TOOL);
+        const serialized=JSON.stringify(body);
+        const headers=new Headers(upstream.headers);
+        headers.set('content-length',String(encoder.encode(serialized).length));
+        headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_FINANCE_CONTROLLED_WRITE_V1');
+        return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
+      }
+      return upstream;
+    }
+
     const ids=requestIds(req);
     if(!ctx)return rpc(msg.id,{ok:false,code:'FINANCE_ROLE_BINDING_REQUIRED',status:403},true);
     if(!await rateAllowed(ctx,sql))return rpc(msg.id,{ok:false,code:'RATE_LIMITED',status:429},true);
