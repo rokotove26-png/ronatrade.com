@@ -1,8 +1,12 @@
 export default `(()=>{'use strict';
+if(location.pathname==='/portal/admin'){
+  let s=document.getElementById('ronaPaymentsWidthOverrideActualV3');
+  if(!s){s=document.createElement('style');s.id='ronaPaymentsWidthOverrideActualV3';document.head.appendChild(s)}
+  s.textContent='html body div.page.active#page-payments>*{width:60%!important;max-width:60%!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}html body div.page.active#page-payments>div.rona-owner-page-content[data-owner-page="payments"],html body div.page.active#page-payments>div.rona-owner-page-content{width:60%!important;max-width:60%!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}html body div.page.active#page-payments .rona-payments-v7{width:100%!important;max-width:100%!important}@media(max-width:760px){html body div.page.active#page-payments>*,html body div.page.active#page-payments>div.rona-owner-page-content[data-owner-page="payments"],html body div.page.active#page-payments>div.rona-owner-page-content{width:100%!important;max-width:100%!important}}';
+}
 if(window.__RONA_APPLICATION_RESOURCE_STAGE_LABELS_V1__)return;
 window.__RONA_APPLICATION_RESOURCE_STAGE_LABELS_V1__=true;
 if(location.pathname!=='/portal/admin')return;
-if(!document.getElementById('ronaPaymentsWidthOverride20')){const s=document.createElement('style');s.id='ronaPaymentsWidthOverride20';s.textContent='html body div.page.active#page-payments>*{width:min(100%,353.28px)!important;max-width:353.28px!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}html body div.page.active#page-payments>div.rona-owner-page-content[data-owner-page="payments"],html body div.page.active#page-payments>div.rona-owner-page-content{width:min(100%,353.28px)!important;max-width:353.28px!important;margin-left:auto!important;margin-right:auto!important}html body div.page.active#page-payments .rona-payments-v7{width:100%!important;max-width:100%!important}';document.head.appendChild(s)}
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 function apply(){
   const root=document.getElementById('page-applications');
