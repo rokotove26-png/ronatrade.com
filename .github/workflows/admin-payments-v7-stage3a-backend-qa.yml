@@ -63,7 +63,9 @@ jobs:
             supabase/functions/rona-owner-ai-sync/admin-payments-v7-source-reader-truth.mjs \
             supabase/functions/_shared/admin-payments-v7/index.mjs \
             supabase/functions/_shared/admin-payments-v7/truth.mjs
-          deno check supabase/functions/rona-mcp-gateway/index.ts supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs
+          deno check --config supabase/functions/rona-mcp-gateway/deno.json \
+            supabase/functions/rona-mcp-gateway/index.ts \
+            supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs
       - name: A-BD plus final data-truth, Owner-cycle and projection regression suite
         run: npm run test:payments-v7
       - name: Final live-shell executive responsive and data-driven browser proof
