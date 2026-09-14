@@ -1,4 +1,4 @@
-name: Admin topbar runtime recovery v2 QA
+name: Admin topbar lifecycle mirror v3 QA
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ on:
       - '.github/workflows/admin-topbar-build-ticker-v1-qa.yml'
 
 jobs:
-  admin-topbar-runtime-recovery-v2:
+  admin-topbar-lifecycle-mirror-v3:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -31,7 +31,7 @@ jobs:
           printf '%s\n' "$changed"
           bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/owner-ui-chunks/chunk15\.js|functions/portal/owner-ui-chunks/chunk15-base\.js|functions/portal/main-ui/admin-topbar-ticker-safe-v2\.js|tests/admin-topbar-build-ticker-v1\.test\.mjs|\.github/workflows/admin-topbar-build-ticker-v1-qa\.yml)$' || true)"
           if [ -n "$bad" ]; then
-            echo 'Unexpected files in Admin topbar runtime recovery PR:'
+            echo 'Unexpected files in Admin topbar lifecycle-mirror PR:'
             printf '%s\n' "$bad"
             exit 1
           fi
@@ -45,6 +45,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk15-base.js)" = "dc5606859fd0193b3dc428d17957439273bd571b"
           grep -F "export default basePrepaintRuntime + adminTopbarTickerSafeRuntime;" functions/portal/owner-ui-chunks/chunk15.js
+          ! grep -q 'appendChild(indicator)' functions/portal/main-ui/admin-topbar-ticker-safe-v2.js
+          ! grep -q 'insertBefore(indicator' functions/portal/main-ui/admin-topbar-ticker-safe-v2.js
       - name: Verify accepted premium compositions remain untouched
         shell: bash
         run: |
@@ -55,5 +57,5 @@ jobs:
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Prove full-runtime recovery and safe ticker relocation
+      - name: Prove cold-start hard-reload and non-invasive ticker mirror
         run: node tests/admin-topbar-build-ticker-v1.test.mjs
