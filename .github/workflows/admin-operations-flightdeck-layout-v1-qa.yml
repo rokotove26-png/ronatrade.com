@@ -1,0 +1,36 @@
+name: Admin Operations Flightdeck layout v1 QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/main-ui/admin-operations-flightdeck-layout-v1.js'
+      - 'functions/portal/owner-ui-chunks/chunk18.js'
+      - 'scripts/qa-admin-operations-flightdeck-layout-v1.mjs'
+      - '.github/workflows/admin-operations-flightdeck-layout-v1-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  admin-operations-flightdeck-layout-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax checks
+        run: |
+          node --check functions/portal/main-ui/admin-operations-flightdeck-layout-v1.js
+          node --check functions/portal/owner-ui-chunks/chunk18.js
+          node --check scripts/qa-admin-operations-flightdeck-layout-v1.mjs
+      - name: Verify visual-only layout contract
+        run: node scripts/qa-admin-operations-flightdeck-layout-v1.mjs
+      - name: Scope guard
+        run: |
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | tee /tmp/changed.txt
+          if grep -E '^(supabase/|.*\.sql$|.*owner-api.*|.*backend.*|.*edge.*function.*|.*authority.*|.*payments.*semantics.*|.*business.*projection.*)' /tmp/changed.txt; then
+            echo 'Functional scope violation detected'
+            exit 1
+          fi
