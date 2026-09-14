@@ -10,12 +10,13 @@ function cookies(v){const o={};for(const x of String(v||'').split(';')){const i=
 function accessCookie(token,maxAge=3600){return `${ACCESS_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
 function refreshCookie(token,maxAge=604800){return `${REFRESH_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
 function clear(){return[`${ACCESS_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,`${REFRESH_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`]}
-function headers(base={}){const h=new Headers({...SEC,...base});return h}
+function headers(base={}){return new Headers({...SEC,...base})}
 function out(body,status=200,set=[]){const h=headers({'content-type':'application/json; charset=utf-8'});for(const c of set)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
 function raw(body,status=200,set=[],extra={}){const h=headers(extra);for(const c of set)h.append('set-cookie',c);return new Response(body,{status,headers:h})}
 function sameOrigin(req){const u=new URL(req.url),o=req.headers.get('origin');if(o)return o===u.origin;const r=req.headers.get('referer');if(!r)return false;try{return new URL(r).origin===u.origin}catch{return false}}
 function uuid(v){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(v||''))}
 function cpId(v){return /^[A-Za-z0-9._:-]{1,160}$/.test(String(v||''))}
+function publicationId(v){return /^RONA-PRICE-LIST-[A-Za-z0-9._:-]{1,120}$/.test(String(v||''))}
 function encPath(v){return String(v||'').split('/').map(encodeURIComponent).join('/')}
 function decodePdf(v){let s=String(v||'').replace(/\s+/g,'').replace(/=+$/,'');if(!s||s.length%4===1)throw Object.assign(new Error('CP_PDF_BASE64_INVALID'),{status:409});s+='='.repeat((4-s.length%4)%4);let r;try{r=atob(s)}catch{throw Object.assign(new Error('CP_PDF_BASE64_INVALID'),{status:409})}const b=new Uint8Array(r.length);for(let i=0;i<r.length;i++)b[i]=r.charCodeAt(i);if(b.length<5||b.length>524288||String.fromCharCode(...b.slice(0,5))!=='%PDF-')throw Object.assign(new Error('CP_PDF_INVALID'),{status:409});return b}
 async function renew(token){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:token})});return{ok:r.ok,data:await r.json().catch(()=>({}))}}
@@ -34,6 +35,7 @@ export async function onRequest({request}){
   if(!['GET','POST'].includes(request.method))return out({ok:false,code:'METHOD_NOT_ALLOWED'},405);
   if(request.method==='POST'&&!sameOrigin(request))return out({ok:false,code:'ORIGIN_DENIED'},403);
   const u=new URL(request.url),op=String(u.searchParams.get('op')||''),id=String(u.searchParams.get('id')||'');
+  if(op==='workspace'&&request.method==='GET')return invoke(request,'owner_prices_admin_workspace',{});
   if(op==='bootstrap'&&request.method==='GET')return invoke(request,'owner_price_updates_bootstrap',{});
   if(op==='cp-bootstrap'&&request.method==='GET')return invoke(request,'owner_agent_cp_owner_gate_bootstrap',{});
   if(op==='cp-preview'&&request.method==='GET'){if(!uuid(id))return out({ok:false,code:'INVALID_PROPOSAL_ID'},400);return cpPreview(request,id)}
@@ -41,6 +43,12 @@ export async function onRequest({request}){
   if(op==='cp-return'&&request.method==='POST'){if(!uuid(id))return out({ok:false,code:'INVALID_PROPOSAL_ID'},400);const b=await body(request);return invoke(request,'owner_agent_cp_return_for_revision',{p_coordination_record_id:id,p_reason:String(b?.reason||'').trim()||null})}
   if(op==='agent-cp-bootstrap'&&request.method==='GET')return invoke(request,'agent_current_commercial_proposals',{});
   if(op==='agent-cp-download'&&request.method==='GET'){if(!cpId(id))return out({ok:false,code:'INVALID_CP_ID'},400);return agentCpDownload(request,id)}
+  if(op==='list-decision'&&request.method==='POST'){
+    const b=await body(request),pid=String(b?.publicationId||'').trim(),decision=String(b?.decision||'').trim().toUpperCase();
+    if(!publicationId(pid))return out({ok:false,code:'INVALID_PUBLICATION_ID'},400);
+    if(!['ACCEPT','REJECT'].includes(decision))return out({ok:false,code:'INVALID_DECISION'},400);
+    return invoke(request,'owner_decide_received_price_list',{p_publication_id:pid,p_decision:decision,p_reason:String(b?.reason||'').trim()||null});
+  }
   if(op==='apply'&&request.method==='POST'){
     if(!uuid(id))return out({ok:false,code:'INVALID_PROPOSAL_ID'},400);
     return invoke(request,'owner_apply_price_change_proposal',{p_proposal_id:id});
