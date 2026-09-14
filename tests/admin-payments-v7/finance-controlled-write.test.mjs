@@ -50,8 +50,8 @@ test('shared payment never receives an inferred proportional split',()=>{
  assert.doesNotMatch(migration,/50\s*\/\s*50|proportional|ratio|weight/i);
 });
 
-test('gateway delegates current release semantics and browser never becomes Finance authority',()=>{
- assert.match(gateway,/FINANCE_GATEWAY_UPSTREAM_COMMIT='e697e6c034ed24eed30229655dd2fb12857571c5'/);
+test('gateway delegates exact production semantics and browser never becomes Finance authority',()=>{
+ assert.match(gateway,/FINANCE_GATEWAY_UPSTREAM_COMMIT='736a535fe245decdf79de06d32940c2cb17370aa'/);
  assert.match(gateway,/raw\.githubusercontent\.com\/rokotove26-png\/ronatrade\.com/);
  assert.match(extension,/mcp_oauth_tokens/);
  assert.match(extension,/persist_finance_event_v7/);
