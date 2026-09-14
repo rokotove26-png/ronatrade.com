@@ -1,9 +1,19 @@
 export default `(()=>{'use strict';
 if(location.pathname!=='/portal/admin')return;
 
+function ensurePaymentsPresentationStyle(){
+  let style=document.getElementById('ronaPaymentsFramePresentationV3');
+  if(style)return;
+  style=document.createElement('style');
+  style.id='ronaPaymentsFramePresentationV3';
+  style.textContent='#page-payments .rona-payments-v7{background:transparent!important;border:0!important;box-shadow:none!important;padding:0!important;gap:0!important;overflow:visible!important}#page-payments .rona-payments-v7::before{display:none!important;content:none!important}#page-payments .rona-payments-v7-board{margin-top:40px!important}@media(max-width:760px){#page-payments .rona-payments-v7-board{margin-top:26px!important}}';
+  document.head.appendChild(style);
+}
+
 function applyPaymentsFrame(){
   const page=document.getElementById('page-payments');
   if(!page)return;
+  ensurePaymentsPresentationStyle();
   const mobile=window.innerWidth<=760;
   const pageWidth=Math.max(0,page.clientWidth||page.getBoundingClientRect().width||0);
   const target=mobile?'100%':Math.max(1,Math.round(pageWidth*0.75))+'px';
@@ -25,11 +35,11 @@ function applyPaymentsFrame(){
   }
   const payments=page.querySelector('.rona-payments-v7');
   if(payments){
-    for(const [k,v] of [['width','100%'],['max-width','100%'],['min-width','0'],['margin-left','0'],['margin-right','0'],['box-sizing','border-box']])payments.style.setProperty(k,v,'important');
+    for(const [k,v] of [['width','100%'],['max-width','100%'],['min-width','0'],['margin-left','0'],['margin-right','0'],['box-sizing','border-box'],['background','transparent'],['border','0'],['box-shadow','none'],['padding','0'],['gap','0'],['overflow','visible']])payments.style.setProperty(k,v,'important');
     const board=payments.querySelector('.rona-payments-v7-board');
     if(board){
       board.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
-      board.style.setProperty('margin-top',mobile?'12px':'18px','important');
+      board.style.setProperty('margin-top',mobile?'26px':'40px','important');
     }
     for(const label of payments.querySelectorAll('.rona-payments-v7-kpi-label,.rona-payments-v7-deal-cell>span')){
       if(String(label.textContent||'').trim()==='К получению')label.textContent='Сумма по сделке';
