@@ -68,11 +68,17 @@ async function measure(browser, token, width, height) {
       const root = pageEl?.querySelector('.rona-payments-v7');
       const h1 = [...(pageEl?.querySelectorAll('h1') || [])].find(el => (el.textContent || '').trim() === 'Платежи') || null;
       let titleFrame = h1;
-      while (titleFrame && titleFrame.parentElement && titleFrame.parentElement !== pageEl) titleFrame = titleFrame.parentElement;
-      if (titleFrame?.parentElement !== pageEl) titleFrame = h1?.closest('.rona-visual-hero,.page-head,.page-header,.hero,section,header') || h1;
+      while (titleFrame && titleFrame.parentElement && host && titleFrame.parentElement !== host) titleFrame = titleFrame.parentElement;
+      if (!titleFrame || titleFrame.parentElement !== host) titleFrame = h1?.closest('.rona-visual-hero,.page-head,.page-header,.hero,section,header') || h1;
       const board = root?.querySelector('.rona-payments-v7-board');
       const boardCols = board ? getComputedStyle(board).gridTemplateColumns.split(' ').filter(Boolean).length : 0;
       const rect = el => el ? ({ width: el.getBoundingClientRect().width, left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right }) : null;
+      const ancestors = [];
+      let a = h1;
+      while (a && a !== pageEl) {
+        ancestors.push({ tag: a.tagName, cls: a.className || '', rect: rect(a) });
+        a = a.parentElement;
+      }
       return {
         viewport: { width: innerWidth, height: innerHeight },
         page: rect(pageEl),
@@ -80,6 +86,9 @@ async function measure(browser, token, width, height) {
         root: rect(root),
         title: h1?.textContent?.trim() || null,
         titleFrame: rect(titleFrame),
+        titleFrameClass: titleFrame?.className || '',
+        titleAncestors: ancestors,
+        hostPadding: host ? { left: getComputedStyle(host).paddingLeft, right: getComputedStyle(host).paddingRight } : null,
         frameDataset: pageEl?.dataset?.ronaPaymentsFrameWidth || null,
         boardCols,
         dealCount: root?.querySelectorAll('.rona-payments-v7-deal').length || 0,
@@ -98,7 +107,7 @@ async function measure(browser, token, width, height) {
     assert(proof.boardCols === 1, `DEAL_BOARD_NOT_SINGLE_COLUMN_${proof.boardCols}`);
     assert(!proof.horizontalOverflow, 'HORIZONTAL_OVERFLOW');
     assert(Math.abs(proof.host.width - proof.root.width) <= 2, `HOST_ROOT_WIDTH_MISMATCH_${proof.host.width}_${proof.root.width}`);
-    assert(Math.abs(proof.titleFrame.width - proof.host.width) <= 2, `TITLE_BODY_WIDTH_MISMATCH_${proof.titleFrame.width}_${proof.host.width}`);
+    assert(Math.abs(proof.titleFrame.width - proof.root.width) <= 2, `TITLE_BODY_WIDTH_MISMATCH_${proof.titleFrame.width}_${proof.root.width}`);
     if (width > 760) assert(proof.ratio >= 0.58 && proof.ratio <= 0.62, `DESKTOP_RATIO_${proof.ratio}`);
     else assert(proof.ratio >= 0.98 && proof.ratio <= 1.01, `MOBILE_RATIO_${proof.ratio}`);
     return proof;
