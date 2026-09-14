@@ -6,7 +6,7 @@ function applyPaymentsFrame(){
   if(!page)return;
   const mobile=window.innerWidth<=760;
   const pageWidth=Math.max(0,page.clientWidth||page.getBoundingClientRect().width||0);
-  const target=mobile?'100%':Math.max(1,Math.round(pageWidth*0.60))+'px';
+  const target=mobile?'100%':Math.max(1,Math.round(pageWidth*0.75))+'px';
   const children=Array.from(page.children).filter(el=>el&&el.nodeType===1);
   for(const el of children){
     el.style.setProperty('width',target,'important');
