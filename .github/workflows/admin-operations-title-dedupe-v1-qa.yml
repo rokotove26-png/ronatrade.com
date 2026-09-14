@@ -1,0 +1,35 @@
+name: Admin Operations title dedupe v1 QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/main-ui/admin-operations-flightdeck-title-dedupe-v1.js'
+      - 'functions/portal/owner-ui-chunks/chunk18.js'
+      - 'functions/portal/admin-operations-command-center-v4.js'
+      - 'scripts/qa-admin-operations-title-dedupe-v1.mjs'
+      - '.github/workflows/admin-operations-title-dedupe-v1-qa.yml'
+  push:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'functions/portal/main-ui/admin-operations-flightdeck-title-dedupe-v1.js'
+      - 'functions/portal/owner-ui-chunks/chunk18.js'
+      - 'functions/portal/admin-operations-command-center-v4.js'
+      - 'scripts/qa-admin-operations-title-dedupe-v1.mjs'
+      - '.github/workflows/admin-operations-title-dedupe-v1-qa.yml'
+
+jobs:
+  admin-operations-title-dedupe-v1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Syntax checks
+        run: |
+          node --check functions/portal/main-ui/admin-operations-flightdeck-title-dedupe-v1.js
+          node --check functions/portal/owner-ui-chunks/chunk18.js
+          node --check scripts/qa-admin-operations-title-dedupe-v1.mjs
+      - name: Verify canonical title-only contract
+        run: node scripts/qa-admin-operations-title-dedupe-v1.mjs
