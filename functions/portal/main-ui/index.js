@@ -2,6 +2,7 @@ import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js';
 import applicationPassportRuntime from './application-passport-runtime.js';
 import paymentPassportRuntime from './payment-passport-runtime-v1.js';
 import paymentScheduleRuntime from './payment-schedule-runtime-v1.js';
+import ownerPaymentsSemanticsV3Runtime from './owner-payments-semantics-v3-runtime.js';
 
 // Issue #442: keep finalized source applications visible through the existing Completed projection.
 const BUCKET_FROM="function application2BBucket(a){const owner=String(a?.owner_status||'').toUpperCase(),app=String(a?.status||'').toUpperCase(),deal=String(a?.deal_status||'').toUpperCase();if(owner==='REJECTED'||owner==='CANCELLED'||owner==='SUPPLIER_APPROVED'||owner==='DEAL'||app==='CANCELLED'||(app==='DEAL_REGISTERED'&&deal!=='SUPPLIER_PENDING'))return'COMPLETED';if(owner==='COUNTER_OFFERED'||owner==='SUPPLIER_PENDING'||deal==='SUPPLIER_PENDING')return'DECISION';if(owner==='NEW'||!owner)return'NEW';return'WORK'}";
@@ -41,14 +42,14 @@ export async function onRequest(context){
   source=source.replace(BUCKET_FROM,BUCKET_TO).replace(ACTIONS_FROM,ACTIONS_TO).replace(ADMIN_BOOTSTRAP_FROM,ADMIN_BOOTSTRAP_TO)
     .replace(PAYMENTS_TOTALS_FROM,PAYMENTS_TOTALS_TO).replace(PAYMENTS_EXPECTED_FROM,PAYMENTS_EXPECTED_TO).replace(PAYMENTS_KPI_FROM,PAYMENTS_KPI_TO)
     .replace(PAYMENTS_SUMMARY_FROM,PAYMENTS_SUMMARY_TO).replace(PAYMENTS_ALLOCATION_CELL_FROM,PAYMENTS_ALLOCATION_CELL_TO).replace(PAYMENTS_DEAL_ALLOCATION_FROM,PAYMENTS_DEAL_ALLOCATION_TO).replace(PAYMENTS_INCOMING_FROM,PAYMENTS_INCOMING_TO).replace(PAYMENTS_CURRENT_ROW_FROM,PAYMENTS_CURRENT_ROW_TO).replace(PAYMENTS_DEFERRED_ROW_FROM,PAYMENTS_DEFERRED_ROW_TO);
-  const patched=source+applicationPassportRuntime+paymentPassportRuntime+paymentScheduleRuntime;
+  const patched=source+applicationPassportRuntime+paymentPassportRuntime+paymentScheduleRuntime+ownerPaymentsSemanticsV3Runtime;
   const headers=new Headers(response.headers);
   headers.set('content-length',String(new TextEncoder().encode(patched).length));
   headers.set('x-rona-application-deal-handoff','approved-to-deal-v1');
   headers.set('x-rona-application-passport','first-render-v2');
   headers.set('x-rona-admin-completed-applications','owner-r1-server-v2');
   headers.set('x-rona-admin-payment-schedule','dynamic-finance-current-state-v2');
-  headers.set('x-rona-admin-payment-owner-screen','final-owner-current-v2');
+  headers.set('x-rona-admin-payment-owner-screen','owner-semantics-v3');
   headers.set('x-rona-payment-passport','server-projection-v2');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
