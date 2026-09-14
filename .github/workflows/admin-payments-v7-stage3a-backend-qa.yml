@@ -66,6 +66,8 @@ jobs:
           deno check --config supabase/functions/rona-mcp-gateway/deno.json \
             supabase/functions/rona-mcp-gateway/index.ts \
             supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs
+      - name: Cloudflare build-command parity
+        run: npm run build
       - name: A-BD plus final data-truth, Owner-cycle and projection regression suite
         run: npm run test:payments-v7
       - name: Final live-shell executive responsive and data-driven browser proof
