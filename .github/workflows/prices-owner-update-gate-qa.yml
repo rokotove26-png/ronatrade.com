@@ -32,17 +32,18 @@ jobs:
           const migV1=fs.readFileSync('supabase/migrations/20260825183000_owner_price_update_gate_v1.sql','utf8');
           const migV2=fs.readFileSync('supabase/migrations/20260825190000_owner_price_update_gate_v2.sql','utf8');
           const mig=migV1+'\n'+migV2;
-          const loader=fs.readFileSync('functions/portal/admin-canonical-tweaks-ui.js','utf8');
           const need=(src,token,label)=>{if(!src.includes(token))throw new Error(label+': '+token)};
-          need(ui,'20260825-owner-update-gate-v2','missing current Prices owner');
-          need(ui,'Данные обновлены','missing owner update signal');
-          need(ui,"'Обновить'",'missing owner apply action');
-          need(ui,"'Отклонить'",'missing owner reject action');
-          need(ui,'Текущий прайс и внешние кабинеты остаются без изменений до команды «Обновить»','missing no-auto-publish explanation');
+          need(ui,'20260914-owner-gate-recovery-v1','missing recovered Prices owner gate');
+          need(ui,'prices-owner-gate-canonical-v5','missing canonical Prices structure');
+          need(ui,'Ожидает решения Администратора','missing explicit Admin decision state');
+          need(ui,'Принять и опубликовать','missing Admin accept/publish action');
+          need(ui,"'Отклонить'",'missing Admin reject action');
+          need(ui,'До вашего решения действующим остаётся текущий опубликованный прайс','missing no-auto-publish explanation');
           need(api,'owner_price_updates_bootstrap','missing bootstrap rpc');
           need(api,'owner_apply_price_change_proposal','missing apply rpc');
           need(api,'owner_reject_price_change_proposal','missing reject rpc');
           need(api,'owner_set_price_publication_audience','missing audience rpc');
+          need(api,'owner_decide_received_price_list','missing received-list Admin decision rpc');
           need(mig,"AI-OPERATIONS-DIRECTOR",'missing fixed Operations identity');
           need(mig,"PROPOSE_PRICE_LIST_UPDATE",'missing proposal contract');
           need(mig,"proposal_status='APPLIED'",'missing apply state');
@@ -53,8 +54,8 @@ jobs:
           need(mig,"OWNER_PRICE_UPDATE_REJECTED",'missing reject audit event');
           need(mig,"publish_client",'missing Client propagation');
           need(mig,"publish_agent",'missing Agent propagation');
-          need(loader,'/portal/prices-current-ui?v=20260825-1900','canonical Prices v2 loader missing');
+          if(ui.includes('Требует подтверждения'))throw new Error('obsolete confirmation UI returned');
           if(/fetch\([^)]*OPERATIONS/i.test(ui))throw new Error('Admin UI must not send pricing intelligence to Operations');
           if(/HANDOFF_REQUEST[\s\S]{0,500}OPERATIONS_DIRECTOR/.test(ui+api+migV2))throw new Error('Admin Prices must not create Operations handoff');
-          console.log('PRICES_OWNER_UPDATE_GATE_V2=PASS');
+          console.log('PRICES_OWNER_UPDATE_GATE_RECOVERY=PASS');
           NODE
