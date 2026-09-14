@@ -135,12 +135,12 @@ DO $$ DECLARE r jsonb; attr uuid; BEGIN
  IF NOT EXISTS(SELECT 1 FROM portal_private.payment_business_attribution_lines_v7 WHERE attribution_id=attr AND deal_key='10000000-0000-4000-8000-000000000002' AND amount=20 AND currency='USD') THEN RAISE EXCEPTION 'CASE5 exact spend attribution missing'; END IF;
 END $$;
 
-DO $$ DECLARE r jsonb; payment_key uuid; BEGIN
+DO $$ DECLARE r jsonb; vpk uuid; BEGIN
  -- CASE 6: cross-currency outgoing gets exact Finance resource chain; no synthetic FX.
  r:=portal_private.persist_finance_event_v7(jsonb_build_object('role','FINANCE','identity_id','AI-FINANCE','correlation_id','f2222222-2222-4222-8222-222222222222'),jsonb_build_object('event_type','OUTGOING_PAYMENT_CONFIRMED','payment_id','FIN-OUT-RUB-1','effective_at','2026-09-14T18:06:00Z','source_refs',jsonb_build_array(jsonb_build_object('source_type','PAYMENT_ORDER','source_id','PO-RUB-1')),'source_version','QA-V6A','source_timestamp','2026-09-14T18:05:30Z','idempotency_key','qa-outgoing-rub-001','payload',jsonb_build_object('amount',100,'currency','RUB','payment_kind','COUNTERPARTY_PAYMENT','bank_transaction_reference','BANK-OUT-RUB-1','beneficiary','QA Supplier RUB','attribution_mode','EXACT','lines',jsonb_build_array(jsonb_build_object('deal_id','DEAL-TEST-1','amount',100)))));
- IF coalesce((r->>'accepted')::boolean,false) IS DISTINCT FROM true THEN RAISE EXCEPTION 'CASE6A rejected: %',r; END IF; payment_key:=(r->>'payment_key')::uuid;
+ IF coalesce((r->>'accepted')::boolean,false) IS DISTINCT FROM true THEN RAISE EXCEPTION 'CASE6A rejected: %',r; END IF; vpk:=(r->>'payment_key')::uuid;
  r:=portal_private.persist_finance_event_v7(jsonb_build_object('role','FINANCE','identity_id','AI-FINANCE','correlation_id','f3333333-3333-4333-8333-333333333333'),jsonb_build_object('event_type','PAYMENT_RESOURCE_CHAIN_CONFIRMED','deal_id','DEAL-TEST-1','payment_id','FIN-OUT-RUB-1','effective_at','2026-09-14T18:07:00Z','source_refs',jsonb_build_array(jsonb_build_object('source_type','FINANCE_RESOURCE_CHAIN','source_id','CHAIN-1')),'source_version','QA-V6B','source_timestamp','2026-09-14T18:06:30Z','idempotency_key','qa-resource-chain-001','payload',jsonb_build_object('native_amount',100,'native_currency','RUB','accounting_amount',1,'accounting_currency','USD','conversion_source_basis','ACTUAL_SETTLEMENT_FACT')));
- IF coalesce((r->>'accepted')::boolean,false) IS DISTINCT FROM true OR NOT EXISTS(SELECT 1 FROM portal_private.payment_resource_chains_v7 WHERE payment_key=payment_key AND native_amount=100 AND native_currency='RUB' AND accounting_amount=1 AND accounting_currency='USD') THEN RAISE EXCEPTION 'CASE6 resource chain failed: %',r; END IF;
+ IF coalesce((r->>'accepted')::boolean,false) IS DISTINCT FROM true OR NOT EXISTS(SELECT 1 FROM portal_private.payment_resource_chains_v7 c WHERE c.payment_key=vpk AND c.native_amount=100 AND c.native_currency='RUB' AND c.accounting_amount=1 AND c.accounting_currency='USD') THEN RAISE EXCEPTION 'CASE6 resource chain failed: %',r; END IF;
 END $$;
 
 DO $$ DECLARE r jsonb; current_attr uuid; BEGIN
