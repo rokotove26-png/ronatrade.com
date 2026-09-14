@@ -21,7 +21,10 @@ jobs:
         with:
           node-version: '22'
       - name: Syntax checks
-        run: node --check scripts/qa-admin-operations-flightdeck-layout-v1.mjs
+        run: |
+          node --check functions/portal/main-ui/admin-operations-flightdeck-layout-v1.js
+          node --check functions/portal/owner-ui-chunks/chunk18.js
+          node --check scripts/qa-admin-operations-flightdeck-layout-v1.mjs
       - name: Verify visual-only layout contract
         run: node scripts/qa-admin-operations-flightdeck-layout-v1.mjs
       - name: Scope guard
