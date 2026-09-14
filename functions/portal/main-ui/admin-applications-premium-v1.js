@@ -117,10 +117,12 @@ function decorateStatus(cell,text){
   if(cell.querySelector('button,input,select,textarea,a'))return;
   const value=String(text||'').replace(/\s+/g,' ').trim();
   if(!value||value==='—')return;
+  const tone=toneFor(value);
   let chip=cell.querySelector(':scope>.rona-app-status-chip');
+  if(chip&&chip.textContent===value&&chip.dataset.tone===tone){cell.dataset.ronaAppPremiumStatus='2';return}
   if(!chip){chip=document.createElement('span');chip.className='rona-app-status-chip';cell.replaceChildren(chip)}
-  chip.dataset.tone=toneFor(value);
-  chip.textContent=value;
+  chip.dataset.tone=tone;
+  if(chip.textContent!==value)chip.textContent=value;
   cell.dataset.ronaAppPremiumStatus='2';
 }
 function ensureHero(root){
