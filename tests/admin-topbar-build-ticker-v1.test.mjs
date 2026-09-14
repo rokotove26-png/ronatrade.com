@@ -1,18 +1,21 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import prepaintRuntime from '../functions/portal/owner-ui-chunks/chunk15.js';
+import prepaintRuntime from '../functions/portal/owner-ui-chunks/chunk15-base.js';
 import safeTickerRuntime from '../functions/portal/main-ui/admin-topbar-ticker-safe-v2.js';
 
-const prepaintSrc=fs.readFileSync('functions/portal/owner-ui-chunks/chunk15.js','utf8');
+const prepaintSrc=fs.readFileSync('functions/portal/owner-ui-chunks/chunk15-base.js','utf8');
+const wrapperSrc=fs.readFileSync('functions/portal/owner-ui-chunks/chunk15.js','utf8');
 const tickerSrc=fs.readFileSync('functions/portal/main-ui/admin-topbar-ticker-safe-v2.js','utf8');
-const applicationRuntime=fs.readFileSync('functions/portal/main-ui/application-passport-runtime.js','utf8');
 const admin=fs.readFileSync('portal-src/current/admin.html','utf8');
 
 assert.match(admin,/class="topbar"/,'canonical Admin topbar must remain present');
 assert.match(admin,/class="search"[^>]*type="search"/,'canonical global search must remain present');
 assert.match(admin,/class="role-pill"/,'canonical role pill must remain present');
-assert.match(prepaintSrc,/position:fixed;right:12px;bottom:12px/,'pre-paint build indicator must retain fixed loading position');
-assert.doesNotMatch(prepaintSrc,/rona-owner-build-ticker|mountAdminTicker|top\.insertBefore\(host,anchor\)/,'prepaint runtime must not mutate the Admin topbar');
+assert.match(prepaintSrc,/position:fixed;right:12px;bottom:12px/,'immutable pre-paint base must retain fixed loading position');
+assert.doesNotMatch(prepaintSrc,/rona-owner-build-ticker|mountAdminTicker|top\.insertBefore\(host,anchor\)/,'immutable prepaint base must not mutate the Admin topbar');
+assert.match(wrapperSrc,/import basePrepaintRuntime from '\.\/chunk15-base\.js';/,'chunk15 must use the immutable safe prepaint base');
+assert.match(wrapperSrc,/import adminTopbarTickerSafeRuntime from '\.\.\/main-ui\/admin-topbar-ticker-safe-v2\.js';/,'chunk15 must compose the isolated post-ready ticker runtime');
+assert.match(wrapperSrc,/export default basePrepaintRuntime \+ adminTopbarTickerSafeRuntime;/,'safe ticker must be appended after prepaint without replacing it');
 assert.match(tickerSrc,/__RONA_MAIN_UI_RUNTIME_LOADED__===true/,'ticker relocation must wait until the complete main runtime has loaded');
 assert.match(tickerSrc,/window\.__RONA_VISUAL_V2__===true/,'ticker relocation must wait for premium visual runtime');
 assert.match(tickerSrc,/directChildOf\(top,top\.querySelector\('\.role-pill'\)\)/,'role fallback must be normalized to a direct topbar child');
@@ -22,8 +25,6 @@ assert.match(tickerSrc,/@keyframes ronaAdminTopbarTickerV2/,'ticker must have ru
 assert.match(tickerSrc,/track\.appendChild\(indicator\)/,'existing build indicator must be moved, not recreated');
 assert.match(tickerSrc,/prefers-reduced-motion:reduce/,'ticker must respect reduced-motion preference');
 assert.doesNotMatch(tickerSrc,/fetch\s*\(|\/portal\/owner-api|\/api\//,'topbar recovery layer must not access backend/API surfaces');
-assert.match(applicationRuntime,/import adminTopbarTickerSafeRuntime from '\.\/admin-topbar-ticker-safe-v2\.js';/,'safe ticker must be imported by the post-base application runtime composition');
-assert.match(applicationRuntime,/adminApplicationsReadabilityV5 \+ adminTopbarTickerSafeRuntime;/,'safe ticker must run after accepted Applications premium/readability runtimes');
 
 const {chromium}=await import('playwright');
 const browser=await chromium.launch({headless:true});
