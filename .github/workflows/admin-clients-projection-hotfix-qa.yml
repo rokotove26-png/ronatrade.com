@@ -1,0 +1,25 @@
+name: Admin Clients projection hotfix QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - functions/portal/owner-api.js
+      - functions/portal/admin-clients-projection.js
+      - scripts/qa-admin-clients-projection-hotfix.mjs
+      - .github/workflows/admin-clients-projection-hotfix-qa.yml
+
+permissions:
+  contents: read
+
+jobs:
+  projection-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Prove clients survive optional contract enrichment
+        run: node scripts/qa-admin-clients-projection-hotfix.mjs
