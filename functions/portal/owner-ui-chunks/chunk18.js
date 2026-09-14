@@ -6,5 +6,6 @@ import adminDealPassportPremiumRuntime from '../main-ui/admin-deal-passport-prem
 import adminOperationsPremiumNightRuntime from '../main-ui/admin-operations-premium-night-v1.js';
 import adminOperationsFlightdeckTitleDedupeRuntime from '../main-ui/admin-operations-flightdeck-title-dedupe-v1.js';
 import adminOperationsFlightdeckReadabilityRuntime from '../main-ui/admin-operations-flightdeck-readability-v1.js';
+import adminOperationsFlightdeckLayoutRuntime from '../main-ui/admin-operations-flightdeck-layout-v1.js';
 
-export default baseRuntime + adminDealsPremiumRuntime + adminDealsSemanticButtonsRuntime + adminDealsSemanticCorrectionsRuntime + adminDealPassportPremiumRuntime + adminOperationsPremiumNightRuntime + adminOperationsFlightdeckTitleDedupeRuntime + adminOperationsFlightdeckReadabilityRuntime;
+export default baseRuntime + adminDealsPremiumRuntime + adminDealsSemanticButtonsRuntime + adminDealsSemanticCorrectionsRuntime + adminDealPassportPremiumRuntime + adminOperationsPremiumNightRuntime + adminOperationsFlightdeckTitleDedupeRuntime + adminOperationsFlightdeckReadabilityRuntime + adminOperationsFlightdeckLayoutRuntime;
