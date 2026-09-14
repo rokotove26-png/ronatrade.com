@@ -27,32 +27,8 @@ const FLIGHTDECK_CSS=String.raw`
 #page-home .rona-flightdeck-v5 *{box-sizing:border-box}
 #page-home .rona-flightdeck-v5 button{font:inherit}
 #page-home .rona-ops-v4__title{position:relative;z-index:1;margin:7px 0 0;font-size:clamp(28px,3vw,46px);line-height:1;font-weight:950;letter-spacing:-.045em;color:#fff}
-#page-home .rona-fd-v5__overhead{
-  position:relative;
-  overflow:hidden;
-  display:grid;
-  grid-template-columns:minmax(0,1fr) auto;
-  align-items:center;
-  gap:24px;
-  min-height:118px;
-  padding:18px 20px 18px 22px;
-  border:1px solid rgba(125,211,244,.23);
-  border-radius:8px;
-  background:
-    linear-gradient(90deg,rgba(110,231,255,.045) 1px,transparent 1px) 0 0/38px 100%,
-    linear-gradient(180deg,rgba(112,165,255,.055),transparent 18%,transparent 82%,rgba(110,231,255,.035)),
-    linear-gradient(112deg,#040c14 0%,#071522 58%,#04101b 100%);
-  box-shadow:0 24px 70px rgba(0,4,10,.34),inset 0 1px 0 rgba(226,249,255,.055),inset 0 -1px 0 rgba(77,180,224,.08);
-}
-#page-home .rona-fd-v5__overhead:before,
-#page-home .rona-fd-v5__overhead:after{
-  content:'';
-  position:absolute;
-  left:18px;
-  right:18px;
-  height:1px;
-  pointer-events:none;
-}
+#page-home .rona-fd-v5__overhead{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:24px;min-height:118px;padding:18px 20px 18px 22px;border:1px solid rgba(125,211,244,.23);border-radius:8px;background:linear-gradient(90deg,rgba(110,231,255,.045) 1px,transparent 1px) 0 0/38px 100%,linear-gradient(180deg,rgba(112,165,255,.055),transparent 18%,transparent 82%,rgba(110,231,255,.035)),linear-gradient(112deg,#040c14 0%,#071522 58%,#04101b 100%);box-shadow:0 24px 70px rgba(0,4,10,.34),inset 0 1px 0 rgba(226,249,255,.055),inset 0 -1px 0 rgba(77,180,224,.08)}
+#page-home .rona-fd-v5__overhead:before,#page-home .rona-fd-v5__overhead:after{content:'';position:absolute;left:18px;right:18px;height:1px;pointer-events:none}
 #page-home .rona-fd-v5__overhead:before{top:0;background:linear-gradient(90deg,transparent,var(--fd-cyan) 18%,rgba(112,165,255,.38) 52%,transparent 86%);opacity:.72}
 #page-home .rona-fd-v5__overhead:after{bottom:0;background:linear-gradient(90deg,var(--fd-red) 0 5%,transparent 5% 74%,var(--fd-cyan) 74% 86%,transparent 86%);opacity:.54}
 #page-home .rona-fd-v5__identity{position:relative;z-index:1;min-width:0}
@@ -61,19 +37,7 @@ const FLIGHTDECK_CSS=String.raw`
 #page-home .rona-fd-v5__subtitle{display:flex;align-items:center;gap:9px;margin-top:10px;font-size:9px;font-weight:750;letter-spacing:.12em;text-transform:uppercase;color:rgba(183,214,231,.48)}
 #page-home .rona-fd-v5__bus-dot{width:6px;height:6px;border-radius:50%;background:var(--fd-green);box-shadow:0 0 0 3px rgba(103,240,181,.055),0 0 10px rgba(103,240,181,.36)}
 #page-home .rona-fd-v5__top-controls{position:relative;z-index:1;display:grid;grid-template-columns:auto auto;gap:8px;align-items:stretch}
-#page-home .rona-fd-v5__annunciator{
-  min-width:202px;
-  min-height:58px;
-  display:grid;
-  grid-template-columns:auto 1fr;
-  gap:11px;
-  align-items:center;
-  padding:10px 13px;
-  border:1px solid rgba(103,240,181,.28);
-  border-radius:6px;
-  background:linear-gradient(180deg,rgba(19,68,54,.22),rgba(4,24,20,.38));
-  box-shadow:inset 0 0 0 1px rgba(103,240,181,.025),inset 0 1px 0 rgba(220,255,242,.04);
-}
+#page-home .rona-fd-v5__annunciator{min-width:202px;min-height:58px;display:grid;grid-template-columns:auto 1fr;gap:11px;align-items:center;padding:10px 13px;border:1px solid rgba(103,240,181,.28);border-radius:6px;background:linear-gradient(180deg,rgba(19,68,54,.22),rgba(4,24,20,.38));box-shadow:inset 0 0 0 1px rgba(103,240,181,.025),inset 0 1px 0 rgba(220,255,242,.04)}
 #page-home .rona-fd-v5__annunciator.is-amber{border-color:rgba(255,209,106,.36);background:linear-gradient(180deg,rgba(90,64,17,.26),rgba(31,20,3,.4))}
 #page-home .rona-fd-v5__annunciator.is-red{border-color:rgba(255,111,134,.42);background:linear-gradient(180deg,rgba(95,27,40,.29),rgba(34,7,14,.44))}
 #page-home .rona-fd-v5__ann-lamp{width:11px;height:11px;border-radius:3px;background:var(--fd-green);box-shadow:0 0 0 4px rgba(103,240,181,.055),0 0 18px rgba(103,240,181,.42)}
@@ -81,42 +45,11 @@ const FLIGHTDECK_CSS=String.raw`
 #page-home .rona-fd-v5__annunciator.is-red .rona-fd-v5__ann-lamp{background:var(--fd-red);box-shadow:0 0 0 4px rgba(255,111,134,.055),0 0 20px rgba(255,111,134,.48)}
 #page-home .rona-fd-v5__ann-label{font-size:8px;font-weight:950;letter-spacing:.16em;text-transform:uppercase;color:rgba(212,237,248,.56)}
 #page-home .rona-fd-v5__ann-value{margin-top:4px;font-size:11px;font-weight:900;color:#f4fbff}
-#page-home .rona-fd-v5__refresh{
-  appearance:none;
-  min-width:88px;
-  border:1px solid rgba(110,231,255,.3);
-  border-radius:6px;
-  background:linear-gradient(180deg,rgba(31,94,121,.23),rgba(5,31,45,.42));
-  color:#e9fbff;
-  cursor:pointer;
-  font-size:9px;
-  font-weight:950;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-  box-shadow:inset 0 1px 0 rgba(229,250,255,.05);
-  transition:border-color .14s ease,background .14s ease,box-shadow .14s ease;
-}
+#page-home .rona-fd-v5__refresh{appearance:none;min-width:88px;border:1px solid rgba(110,231,255,.3);border-radius:6px;background:linear-gradient(180deg,rgba(31,94,121,.23),rgba(5,31,45,.42));color:#e9fbff;cursor:pointer;font-size:9px;font-weight:950;letter-spacing:.08em;text-transform:uppercase;box-shadow:inset 0 1px 0 rgba(229,250,255,.05);transition:border-color .14s ease,background .14s ease,box-shadow .14s ease}
 #page-home .rona-fd-v5__refresh:hover{border-color:rgba(110,231,255,.58);background:linear-gradient(180deg,rgba(38,122,158,.3),rgba(7,42,61,.48));box-shadow:0 0 22px rgba(110,231,255,.08),inset 0 1px 0 rgba(229,250,255,.07)}
 #page-home .rona-fd-v5__refresh:focus-visible,#page-home .rona-flightdeck-v5 button:focus-visible,#page-home .rona-fd-v5-strip:focus-visible{outline:2px solid rgba(110,231,255,.78);outline-offset:2px}
 #page-home .rona-fd-v5__instruments{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px}
-#page-home .rona-fd-v5-gauge{
-  appearance:none;
-  position:relative;
-  overflow:hidden;
-  min-width:0;
-  min-height:124px;
-  padding:11px 12px 10px;
-  border:1px solid rgba(116,199,232,.17);
-  border-radius:7px;
-  background:
-    repeating-linear-gradient(90deg,transparent 0,transparent 31px,rgba(110,231,255,.018) 32px),
-    linear-gradient(150deg,rgba(8,25,39,.98),rgba(3,12,21,.98));
-  color:inherit;
-  text-align:left;
-  cursor:pointer;
-  box-shadow:inset 0 1px 0 rgba(226,249,255,.035),inset 0 -18px 28px rgba(0,0,0,.14);
-  transition:transform .14s ease,border-color .14s ease,background .14s ease;
-}
+#page-home .rona-fd-v5-gauge{appearance:none;position:relative;overflow:hidden;min-width:0;min-height:124px;padding:11px 12px 10px;border:1px solid rgba(116,199,232,.17);border-radius:7px;background:repeating-linear-gradient(90deg,transparent 0,transparent 31px,rgba(110,231,255,.018) 32px),linear-gradient(150deg,rgba(8,25,39,.98),rgba(3,12,21,.98));color:inherit;text-align:left;cursor:pointer;box-shadow:inset 0 1px 0 rgba(226,249,255,.035),inset 0 -18px 28px rgba(0,0,0,.14);transition:transform .14s ease,border-color .14s ease,background .14s ease}
 #page-home .rona-fd-v5-gauge:before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--fd-cyan);box-shadow:0 0 10px rgba(110,231,255,.22)}
 #page-home .rona-fd-v5-gauge.is-green:before{background:var(--fd-green);box-shadow:0 0 10px rgba(103,240,181,.2)}
 #page-home .rona-fd-v5-gauge.is-amber:before{background:var(--fd-amber);box-shadow:0 0 10px rgba(255,209,106,.23)}
@@ -138,34 +71,8 @@ const FLIGHTDECK_CSS=String.raw`
 #page-home .rona-fd-v5-gauge__rail span{height:2px;background:rgba(110,231,255,.15)}
 #page-home .rona-fd-v5-gauge__rail span:first-child{background:currentColor;opacity:.55}
 #page-home .rona-fd-v5__workspace{display:grid;grid-template-columns:minmax(280px,.88fr) minmax(520px,1.52fr) minmax(290px,.88fr);gap:8px;align-items:stretch}
-#page-home .rona-fd-v5-screen{
-  position:relative;
-  overflow:hidden;
-  min-width:0;
-  min-height:410px;
-  border:1px solid rgba(115,198,232,.18);
-  border-radius:8px;
-  background:
-    linear-gradient(90deg,rgba(110,231,255,.014) 1px,transparent 1px),
-    linear-gradient(rgba(110,231,255,.012) 1px,transparent 1px),
-    radial-gradient(520px 240px at 14% 0%,rgba(76,153,205,.055),transparent 72%),
-    linear-gradient(160deg,rgba(5,18,30,.985),rgba(2,10,18,.985));
-  background-size:42px 42px,42px 42px,auto,auto;
-  box-shadow:inset 0 1px 0 rgba(230,249,255,.035),0 12px 30px rgba(0,4,10,.2);
-}
-#page-home .rona-fd-v5-screen:before,
-#page-home .rona-fd-v5-system:before{
-  content:'';
-  position:absolute;
-  inset:0;
-  pointer-events:none;
-  background:
-    linear-gradient(var(--fd-cyan),var(--fd-cyan)) left top/20px 1px no-repeat,
-    linear-gradient(var(--fd-cyan),var(--fd-cyan)) left top/1px 20px no-repeat,
-    linear-gradient(rgba(112,165,255,.76),rgba(112,165,255,.76)) right bottom/20px 1px no-repeat,
-    linear-gradient(rgba(112,165,255,.76),rgba(112,165,255,.76)) right bottom/1px 20px no-repeat;
-  opacity:.38;
-}
+#page-home .rona-fd-v5-screen{position:relative;overflow:hidden;min-width:0;min-height:410px;border:1px solid rgba(115,198,232,.18);border-radius:8px;background:linear-gradient(90deg,rgba(110,231,255,.014) 1px,transparent 1px),linear-gradient(rgba(110,231,255,.012) 1px,transparent 1px),radial-gradient(520px 240px at 14% 0%,rgba(76,153,205,.055),transparent 72%),linear-gradient(160deg,rgba(5,18,30,.985),rgba(2,10,18,.985));background-size:42px 42px,42px 42px,auto,auto;box-shadow:inset 0 1px 0 rgba(230,249,255,.035),0 12px 30px rgba(0,4,10,.2)}
+#page-home .rona-fd-v5-screen:before,#page-home .rona-fd-v5-system:before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(var(--fd-cyan),var(--fd-cyan)) left top/20px 1px no-repeat,linear-gradient(var(--fd-cyan),var(--fd-cyan)) left top/1px 20px no-repeat,linear-gradient(rgba(112,165,255,.76),rgba(112,165,255,.76)) right bottom/20px 1px no-repeat,linear-gradient(rgba(112,165,255,.76),rgba(112,165,255,.76)) right bottom/1px 20px no-repeat;opacity:.38}
 #page-home .rona-fd-v5-screen__head{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:11px 13px 10px;border-bottom:1px solid rgba(117,203,237,.12);background:linear-gradient(90deg,rgba(110,231,255,.045),transparent 54%)}
 #page-home .rona-fd-v5-screen__code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:7.5px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(110,231,255,.63)}
 #page-home .rona-fd-v5-screen__title{margin-top:4px;font-size:13px;font-weight:950;letter-spacing:-.01em;color:#f5fcff}
@@ -322,57 +229,18 @@ function renderAdminHome(){
   const stateCode=criticalCount?'MASTER WARNING':attentionCount?'MASTER CAUTION':'SYSTEM NORMAL';
   const stateText=criticalCount?'Критические события: '+criticalCount:attentionCount?'Требует внимания: '+attentionCount:'Контур стабилен';
   const now=new Date(),timeText=now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-  const top=e('header',{class:'rona-fd-v5__overhead'},
-    e('div',{class:'rona-fd-v5__identity'},
-      e('div',{class:'rona-fd-v5__overline',text:'RONA TRADE · OPERATIONS FLIGHTDECK'}),
-      e('h1',{class:'rona-ops-v4__title',text:'Операционный центр'}),
-      e('div',{class:'rona-fd-v5__subtitle'},e('span',{class:'rona-fd-v5__bus-dot'}),e('span',{text:'LIVE OPERATIONS BUS'}),e('span',{text:'·'}),e('span',{text:'FACTUAL STATE ONLY'}))
-    ),
-    e('div',{class:'rona-fd-v5__top-controls'},
-      e('div',{class:'rona-fd-v5__annunciator is-'+stateTone},e('span',{class:'rona-fd-v5__ann-lamp'}),e('div',{},e('div',{class:'rona-fd-v5__ann-label',text:stateCode}),e('div',{class:'rona-fd-v5__ann-value',text:stateText}))),
-      e('button',{class:'rona-fd-v5__refresh',type:'button',onclick:async()=>{try{await refreshAdmin()}catch(err){notify(err?.message||String(err),'Ошибка обновления')}}},e('span',{text:'↻'}),e('span',{text:'Refresh'}))
-    )
-  );
+  const top=e('header',{class:'rona-fd-v5__overhead'},e('div',{class:'rona-fd-v5__identity'},e('div',{class:'rona-fd-v5__overline',text:'RONA TRADE · OPERATIONS FLIGHTDECK'}),e('h1',{class:'rona-ops-v4__title',text:'Операционный центр'}),e('div',{class:'rona-fd-v5__subtitle'},e('span',{class:'rona-fd-v5__bus-dot'}),e('span',{text:'LIVE OPERATIONS BUS'}),e('span',{text:'·'}),e('span',{text:'FACTUAL STATE ONLY'}))),e('div',{class:'rona-fd-v5__top-controls'},e('div',{class:'rona-fd-v5__annunciator is-'+stateTone},e('span',{class:'rona-fd-v5__ann-lamp'}),e('div',{},e('div',{class:'rona-fd-v5__ann-label',text:stateCode}),e('div',{class:'rona-fd-v5__ann-value',text:stateText}))),e('button',{class:'rona-fd-v5__refresh',type:'button',onclick:async()=>{try{await refreshAdmin()}catch(err){notify(err?.message||String(err),'Ошибка обновления')}}},e('span',{text:'↻'}),e('span',{text:'Refresh'}))));
   const instruments=e('section',{class:'rona-fd-v5__instruments','aria-label':'Операционные показатели'});
   const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button',onclick:()=>adminHomeNavigate(target)},e('div',{class:'rona-fd-v5-gauge__top'},e('span',{class:'rona-fd-v5-gauge__code',text:code}),e('span',{class:'rona-fd-v5-gauge__lamp'})),e('div',{class:'rona-fd-v5-gauge__label',text:label}),e('div',{class:'rona-fd-v5-gauge__value',text:String(value)}),e('div',{class:'rona-fd-v5-gauge__foot',text:foot}),e('div',{class:'rona-fd-v5-gauge__rail'},e('span'),e('span'),e('span'),e('span'),e('span')));
-  instruments.append(
-    gauge('FLT-01','Активные сделки',activeDeals.length,'Текущий портфель','deals','cyan'),
-    gauge('FLT-02','В исполнении',executionDeals.length,'Фактический статус','deals',executionDeals.length?'green':'cyan'),
-    gauge('CAUT-03','Требует действия',attentionCount,'Подтверждённые сигналы','home',attentionCount?'amber':'green'),
-    gauge('RAIL-04','Вагоны на контроле',railKnown?allWagons.length:'—',railKnown?'ЖД-контур':'Нет снимка','monitoring',waitingWagons.length?'amber':'cyan'),
-    gauge('FIN-05','Платежи на контроле',financeKnown?paymentControl.length:'—',financeKnown?'Срок наступил / просрочено':'Нет снимка','payments',paymentControl.length?'amber':'cyan'),
-    gauge('WARN-06','Критические события',criticalCount,'Операционные конфликты','home',criticalCount?'red':'green')
-  );
+  instruments.append(gauge('FLT-01','Активные сделки',activeDeals.length,'Текущий портфель','deals','cyan'),gauge('FLT-02','В исполнении',executionDeals.length,'Фактический статус','deals',executionDeals.length?'green':'cyan'),gauge('CAUT-03','Требует действия',attentionCount,'Подтверждённые сигналы','home',attentionCount?'amber':'green'),gauge('RAIL-04','Вагоны на контроле',railKnown?allWagons.length:'—',railKnown?'ЖД-контур':'Нет снимка','monitoring',waitingWagons.length?'amber':'cyan'),gauge('FIN-05','Платежи на контроле',financeKnown?paymentControl.length:'—',financeKnown?'Срок наступил / просрочено':'Нет снимка','payments',paymentControl.length?'amber':'cyan'),gauge('WARN-06','Критические события',criticalCount,'Операционные конфликты','home',criticalCount?'red':'green'));
   const dealList=e('div',{});
   dealList.append(e('div',{class:'rona-fd-v5-list-head'},e('span',{text:'Flight / Deal'}),e('span',{text:'Execution state'}),e('span',{text:'Telemetry'})));
   const dealScroll=e('div',{class:'rona-fd-v5-list'});
-  if(activeDeals.length){for(const x of activeDeals.slice(0,10)){
-    const id=String(x?.deal_id||''),summary=financeMap.get(id),payment=ronaFdV5PaymentStatus(x,summary),railRows=ronaFdV5RailForDeal(id,rail),wagons=ronaFdV5Wagons(railRows),dealDocs=ronaFdV5DocsForDeal(id,docs),stage=ronaFdV5Stage(x),isSelected=selected&&String(selected?.deal_id||'')===id;
-    const row=e('div',{class:'rona-fd-v5-strip '+(isSelected?'is-selected':''),role:'button',tabindex:'0','aria-label':'Выбрать '+(id||'сделку'),onclick:()=>{window.__RONA_ADMIN_OPS_SELECTED_DEAL__=id;renderAdminHome()},onkeydown:ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();window.__RONA_ADMIN_OPS_SELECTED_DEAL__=id;renderAdminHome()}}},
-      e('div',{},e('div',{class:'rona-fd-v5-strip__id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5-strip__client',text:x?.legal_name||x?.client_name||x?.client_id||'—'})),
-      e('div',{class:'rona-fd-v5-strip__states'},
-        e('div',{class:'rona-fd-v5-strip__state'},e('span',{class:'rona-fd-v5-strip__signal is-'+ronaFdV5Tone(stage)}),e('span',{text:'STG'}),e('b',{text:ronaFdV5Text(stage)})),
-        e('div',{class:'rona-fd-v5-strip__state'},e('span',{class:'rona-fd-v5-strip__signal is-'+ronaFdV5Tone(payment)}),e('span',{text:'PAY'}),e('b',{text:ronaFdV5Text(payment)})),
-        e('div',{class:'rona-fd-v5-strip__next',text:'NEXT · '+String(ronaFdV5NextAction(x)))
-      ),
-      e('div',{class:'rona-fd-v5-strip__telemetry'},e('span',{class:'rona-fd-v5-strip__chip',text:railKnown?(wagons.length?String(wagons.length)+' WGN':railRows.length?String(railRows.length)+' GU12':'RAIL —'):'RAIL —'}),e('span',{class:'rona-fd-v5-strip__chip',text:docsKnown?String(dealDocs.length)+' DOC':'DOC —'}))
-    );
-    dealScroll.append(row)
-  }}else dealScroll.append(ronaFdV5Empty('NO ACTIVE FLIGHTS','Активных сделок в текущем Admin bootstrap нет.'));
+  if(activeDeals.length){for(const x of activeDeals.slice(0,10)){const id=String(x?.deal_id||''),summary=financeMap.get(id),payment=ronaFdV5PaymentStatus(x,summary),railRows=ronaFdV5RailForDeal(id,rail),wagons=ronaFdV5Wagons(railRows),dealDocs=ronaFdV5DocsForDeal(id,docs),stage=ronaFdV5Stage(x),isSelected=selected&&String(selected?.deal_id||'')===id;const row=e('div',{class:'rona-fd-v5-strip '+(isSelected?'is-selected':''),role:'button',tabindex:'0','aria-label':'Выбрать '+(id||'сделку'),onclick:()=>{window.__RONA_ADMIN_OPS_SELECTED_DEAL__=id;renderAdminHome()},onkeydown:ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();window.__RONA_ADMIN_OPS_SELECTED_DEAL__=id;renderAdminHome()}}},e('div',{},e('div',{class:'rona-fd-v5-strip__id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5-strip__client',text:x?.legal_name||x?.client_name||x?.client_id||'—'})),e('div',{class:'rona-fd-v5-strip__states'},e('div',{class:'rona-fd-v5-strip__state'},e('span',{class:'rona-fd-v5-strip__signal is-'+ronaFdV5Tone(stage)}),e('span',{text:'STG'}),e('b',{text:ronaFdV5Text(stage)})),e('div',{class:'rona-fd-v5-strip__state'},e('span',{class:'rona-fd-v5-strip__signal is-'+ronaFdV5Tone(payment)}),e('span',{text:'PAY'}),e('b',{text:ronaFdV5Text(payment)})),e('div',{class:'rona-fd-v5-strip__next',text:'NEXT · '+String(ronaFdV5NextAction(x))})),e('div',{class:'rona-fd-v5-strip__telemetry'},e('span',{class:'rona-fd-v5-strip__chip',text:railKnown?(wagons.length?String(wagons.length)+' WGN':railRows.length?String(railRows.length)+' GU12':'RAIL —'):'RAIL —'}),e('span',{class:'rona-fd-v5-strip__chip',text:docsKnown?String(dealDocs.length)+' DOC':'DOC —'})));dealScroll.append(row)}}else dealScroll.append(ronaFdV5Empty('NO ACTIVE FLIGHTS','Активных сделок в текущем Admin bootstrap нет.'));
   dealList.append(dealScroll);
   const dealsScreen=ronaFdV5Screen('ACTIVE FLIGHT SELECTOR','Активный контур сделок',activeDeals.length,dealList,'rona-fd-v5__deals');
   let mission;
-  if(selected){
-    const id=String(selected?.deal_id||''),summary=financeMap.get(id),railRows=ronaFdV5RailForDeal(id,rail),wagons=ronaFdV5Wagons(railRows),dealDocs=ronaFdV5DocsForDeal(id,docs),resource=selected?.resource_status||selected?.resource_state||selected?.resource_confirmation_status||'—',payment=ronaFdV5PaymentStatus(selected,summary),delivery=selected?.delivery_status||selected?.logistics_status||selected?.fulfillment_status||'—',closeState=selected?.lifecycle_state||selected?.business_status||selected?.status||'—',stage=ronaFdV5Stage(selected),nextAction=ronaFdV5NextAction(selected);
-    const steps=[['Ресурс',ronaFdV5Text(resource),ronaFdV5Tone(resource)],['Договор',selected?.contract_id?String(selected.contract_id):'—','cyan'],['Оплата',ronaFdV5Text(payment),ronaFdV5Tone(payment)],['ЖД',railKnown?(wagons.length?String(wagons.length)+' вагонов':railRows.length?String(railRows.length)+' ГУ-12':'—'):'—','cyan'],['Доставка',ronaFdV5Text(delivery),ronaFdV5Tone(delivery)],['Документы',docsKnown?(dealDocs.length?String(dealDocs.length)+' документов':'—'):'—','cyan'],['Закрытие',ronaFdV5Text(closeState),ronaFdV5Tone(closeState)]];
-    const vector=e('div',{class:'rona-fd-v5__vector'});for(const step of steps)vector.append(e('div',{class:'rona-fd-v5-stage','data-tone':step[2]},e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]})));
-    mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},
-      e('div',{class:'rona-fd-v5__mission-head'},e('div',{},e('div',{class:'rona-fd-v5__mission-kicker',text:'EXECUTION VECTOR · SELECTED FLIGHT'}),e('div',{class:'rona-fd-v5__mission-id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5__mission-client',text:selected?.legal_name||selected?.client_name||selected?.client_id||'—'})),e('button',{class:'rona-fd-v5__mission-open',type:'button',onclick:()=>adminHomeNavigate('deals'),text:'Deal Control'})),
-      e('div',{class:'rona-fd-v5__mission-status'},e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Current stage'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(stage)})),e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Payment'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(payment)})),e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Documents'}),e('div',{class:'rona-fd-v5__status-value',text:docsKnown?String(dealDocs.length):'—'}))),
-      vector,
-      e('div',{class:'rona-fd-v5__next-action'},e('span',{class:'rona-fd-v5__next-label',text:'NEXT ACTION'}),e('span',{class:'rona-fd-v5__next-value',text:String(nextAction)}))
-    )
-  }else mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty('NO SELECTED FLIGHT','Когда появится сделка, здесь будет показана подтверждённая фактическая цепочка исполнения.'));
+  if(selected){const id=String(selected?.deal_id||''),summary=financeMap.get(id),railRows=ronaFdV5RailForDeal(id,rail),wagons=ronaFdV5Wagons(railRows),dealDocs=ronaFdV5DocsForDeal(id,docs),resource=selected?.resource_status||selected?.resource_state||selected?.resource_confirmation_status||'—',payment=ronaFdV5PaymentStatus(selected,summary),delivery=selected?.delivery_status||selected?.logistics_status||selected?.fulfillment_status||'—',closeState=selected?.lifecycle_state||selected?.business_status||selected?.status||'—',stage=ronaFdV5Stage(selected),nextAction=ronaFdV5NextAction(selected);const steps=[['Ресурс',ronaFdV5Text(resource),ronaFdV5Tone(resource)],['Договор',selected?.contract_id?String(selected.contract_id):'—','cyan'],['Оплата',ronaFdV5Text(payment),ronaFdV5Tone(payment)],['ЖД',railKnown?(wagons.length?String(wagons.length)+' вагонов':railRows.length?String(railRows.length)+' ГУ-12':'—'):'—','cyan'],['Доставка',ronaFdV5Text(delivery),ronaFdV5Tone(delivery)],['Документы',docsKnown?(dealDocs.length?String(dealDocs.length)+' документов':'—'):'—','cyan'],['Закрытие',ronaFdV5Text(closeState),ronaFdV5Tone(closeState)]];const vector=e('div',{class:'rona-fd-v5__vector'});for(const step of steps)vector.append(e('div',{class:'rona-fd-v5-stage','data-tone':step[2]},e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]})));mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5__mission-head'},e('div',{},e('div',{class:'rona-fd-v5__mission-kicker',text:'EXECUTION VECTOR · SELECTED FLIGHT'}),e('div',{class:'rona-fd-v5__mission-id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5__mission-client',text:selected?.legal_name||selected?.client_name||selected?.client_id||'—'})),e('button',{class:'rona-fd-v5__mission-open',type:'button',onclick:()=>adminHomeNavigate('deals'),text:'Deal Control'})),e('div',{class:'rona-fd-v5__mission-status'},e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Current stage'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(stage)})),e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Payment'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(payment)})),e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Documents'}),e('div',{class:'rona-fd-v5__status-value',text:docsKnown?String(dealDocs.length):'—'}))),vector,e('div',{class:'rona-fd-v5__next-action'},e('span',{class:'rona-fd-v5__next-label',text:'NEXT ACTION'}),e('span',{class:'rona-fd-v5__next-value',text:String(nextAction)})))}else mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty('NO SELECTED FLIGHT','Когда появится сделка, здесь будет показана подтверждённая фактическая цепочка исполнения.'));
   const masterBody=e('div',{});
   masterBody.append(e('div',{class:'rona-fd-v5__master-banner is-'+stateTone},e('span',{class:'rona-fd-v5__master-lamp'}),e('div',{},e('div',{class:'rona-fd-v5__master-code',text:stateCode}),e('div',{class:'rona-fd-v5__master-text',text:stateText}))));
   const queue=e('div',{class:'rona-fd-v5-queue'});
@@ -383,11 +251,7 @@ function renderAdminHome(){
   const overdueCount=paymentControl.filter(x=>{const deal=dealById.get(String(x?.deal_id||''));return ronaFdV5Key(deal?.finance_status||x?.finance_status||x?.payment_status)==='OVERDUE'}).length;
   const systems=e('section',{class:'rona-fd-v5__systems'});
   const system=(code,title,value,meta,target,tone)=>e('button',{class:'rona-fd-v5-system is-'+(tone||'cyan'),type:'button',onclick:()=>adminHomeNavigate(target)},e('div',{},e('div',{class:'rona-fd-v5-system__head'},e('span',{class:'rona-fd-v5-system__lamp'}),e('span',{class:'rona-fd-v5-system__code',text:code})),e('div',{class:'rona-fd-v5-system__title',text:title}),e('div',{class:'rona-fd-v5-system__meta',text:meta})),e('div',{class:'rona-fd-v5-system__value',text:String(value)}));
-  systems.append(
-    system('RAIL CONTROL','Онлайн ЖД',railKnown?allWagons.length:'—',railKnown?(String(rail.length)+' ГУ-12 · '+String(waitingWagons.length)+' позиций требуют проверки'):'ЖД-снимок не получен','monitoring',waitingWagons.length?'amber':railKnown?'green':'cyan'),
-    system('FINANCE CONTROL','Платежи',financeKnown?paymentControl.length:'—',financeKnown?(String(financeRows.length)+' сделок в финансовом снимке · просрочено: '+String(overdueCount)):'Финансовый снимок не получен','payments',overdueCount?'red':paymentControl.length?'amber':financeKnown?'green':'cyan'),
-    system('DOCUMENT CONTROL','Документы',docsKnown?docs.length:'—',docsKnown?(String(uncheckedDocs.length)+' требуют контроля'):'Снимок документов не получен','documents',uncheckedDocs.length?'amber':docsKnown?'green':'cyan')
-  );
+  systems.append(system('RAIL CONTROL','Онлайн ЖД',railKnown?allWagons.length:'—',railKnown?(String(rail.length)+' ГУ-12 · '+String(waitingWagons.length)+' позиций требуют проверки'):'ЖД-снимок не получен','monitoring',waitingWagons.length?'amber':railKnown?'green':'cyan'),system('FINANCE CONTROL','Платежи',financeKnown?paymentControl.length:'—',financeKnown?(String(financeRows.length)+' сделок в финансовом снимке · просрочено: '+String(overdueCount)):'Финансовый снимок не получен','payments',overdueCount?'red':paymentControl.length?'amber':financeKnown?'green':'cyan'),system('DOCUMENT CONTROL','Документы',docsKnown?docs.length:'—',docsKnown?(String(uncheckedDocs.length)+' требуют контроля'):'Снимок документов не получен','documents',uncheckedDocs.length?'amber':docsKnown?'green':'cyan'));
   const generated=d.generated_at||d.generatedAt||d.as_of||null;
   const footer=e('footer',{class:'rona-fd-v5__footer'},e('span',{},'DATA BUS · ',e('strong',{text:'CURRENT ADMIN RUNTIME'}),' · business values are not synthesized'),e('span',{text:generated?'CURRENT STATE · '+String(generated):'LOCAL PANEL TIME · '+timeText}));
   root.append(top,instruments,workspace,systems,footer);
