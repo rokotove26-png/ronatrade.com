@@ -1,0 +1,47 @@
+name: MCP cross-role coordination v1 QA
+
+on:
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - '.github/workflows/mcp-cross-role-coordination-v1-qa.yml'
+  pull_request:
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - '.github/workflows/mcp-cross-role-coordination-v1-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  coordination-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          cp supabase/functions/rona-mcp-gateway/index.ts /tmp/rona-mcp-gateway.mjs
+          node --check /tmp/rona-mcp-gateway.mjs
+      - name: Contract assertions
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const src=fs.readFileSync('supabase/functions/rona-mcp-gateway/index.ts','utf8');
+          const need=(s)=>{if(!src.includes(s))throw new Error('missing: '+s)};
+          need('RONA_CROSS_ROLE_COORDINATION_V1');
+          need('coordination_detail');
+          need('notification_only: true');
+          need('authority_granted: false');
+          need('if (!roleCanUseEntity(ctx.role, type)) return null;');
+          need('if (roleCanUseEntity(targetRole, type)) return null;');
+          need('TARGET_NOT_FOUND_OR_OUT_OF_SCOPE');
+          need('COORDINATION_RECORD_NOT_VISIBLE');
+          need("target_type<>'SYSTEM'");
+          need('RONA_ROLE_STATE_RECOVERY_V2');
+          if(src.includes('ENTITY_SCOPE[targetRole] =')) throw new Error('recipient authority mutation detected');
+          console.log('MCP_CROSS_ROLE_COORDINATION_V1=PASS');
+          NODE
