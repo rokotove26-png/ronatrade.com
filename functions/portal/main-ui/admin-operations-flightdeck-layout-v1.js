@@ -1,12 +1,4 @@
-export default String.raw`
-(()=>{
-  if(window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_LAYOUT_V1__)return;
-  window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_LAYOUT_V1__='20260914-active-fullwidth-vector-right-v1';
-  const id='ronaAdminOperationsFlightdeckLayoutV1Style';
-  if(document.getElementById(id))return;
-  const s=document.createElement('style');
-  s.id=id;
-  s.textContent=String.raw`
+const css=String.raw`
 /* VISUAL_ONLY — Flightdeck layout refinement. No data, handlers or lifecycle ownership. */
 #page-home .rona-flightdeck-v5 .rona-fd-v5__workspace{
   display:grid!important;
@@ -288,6 +280,16 @@ export default String.raw`
   #page-home .rona-flightdeck-v5 .rona-fd-v5-event{width:100%!important;min-width:0!important}
 }
 `;
+
+export default String.raw`
+(()=>{
+  if(window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_LAYOUT_V1__)return;
+  window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK_LAYOUT_V1__='20260914-active-fullwidth-vector-right-v1';
+  const id='ronaAdminOperationsFlightdeckLayoutV1Style';
+  if(document.getElementById(id))return;
+  const s=document.createElement('style');
+  s.id=id;
+  s.textContent=${JSON.stringify(css)};
   document.head.appendChild(s);
 })();
 `;
