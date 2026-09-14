@@ -9,6 +9,7 @@ on:
       - 'functions/portal/price-updates-api.js'
       - 'functions/portal/admin-canonical-tweaks-ui.js'
       - 'supabase/migrations/*owner_price_update_gate*.sql'
+      - 'supabase/migrations/*price_updates_bootstrap*.sql'
       - '.github/workflows/prices-owner-update-gate-qa.yml'
   workflow_dispatch:
 
@@ -31,9 +32,10 @@ jobs:
           const api=fs.readFileSync('functions/portal/price-updates-api.js','utf8');
           const migV1=fs.readFileSync('supabase/migrations/20260825183000_owner_price_update_gate_v1.sql','utf8');
           const migV2=fs.readFileSync('supabase/migrations/20260825190000_owner_price_update_gate_v2.sql','utf8');
+          const periodMig=fs.readFileSync('supabase/migrations/20260914195000_price_updates_bootstrap_current_period_v3.sql','utf8');
           const mig=migV1+'\n'+migV2;
           const need=(src,token,label)=>{if(!src.includes(token))throw new Error(label+': '+token)};
-          need(ui,'20260914-pending-canonical-matrix-v1','missing pending canonical matrix revision');
+          need(ui,'20260914-canonical-period-v2','missing canonical period revision');
           need(ui,'prices-2a-canonical-v4','missing restored canonical Prices structure');
           need(ui,'function isFullPriceProposal(p)','missing full-list proposal classifier');
           need(ui,'function proposalMatrix(p)','missing full-list proposal matrix');
@@ -41,6 +43,8 @@ jobs:
           need(ui,"table(['Продукт',...bases.map(b=>b.label)]",'pending list is not product-row/station-column matrix');
           need(ui,'gs.map(g=>[g.product,...bases.map(b=>priceValue(g.bases[b.key]))])','pending list rows are not grouped by product');
           need(ui,'if(isFullPriceProposal(p))details.append(proposalMatrix(p));else','full-list proposal is not routed to matrix renderer');
+          need(ui,'currentDeliveryPeriod','UI is not bound to structured current delivery period');
+          need(ui,"String(p.status||'').toUpperCase()==='AUTHORITATIVE'",'period UI is not fail-closed on authoritative status');
           need(ui,"'Отклонить'",'missing Admin reject action');
           need(ui,"'Обновить'",'missing Admin apply action');
           need(api,'owner_price_updates_bootstrap','missing bootstrap rpc');
@@ -58,6 +62,12 @@ jobs:
           need(mig,"OWNER_PRICE_UPDATE_REJECTED",'missing reject audit event');
           need(mig,"publish_client",'missing Client propagation');
           need(mig,"publish_agent",'missing Agent propagation');
+          need(periodMig,"'currentDeliveryPeriod'",'bootstrap does not expose structured period');
+          need(periodMig,"pi.delivery_period_from",'bootstrap does not read canonical period start');
+          need(periodMig,"pi.delivery_period_to",'bootstrap does not read canonical period end');
+          need(periodMig,"v_period_missing=0",'bootstrap does not require complete period rows');
+          need(periodMig,"v_period_variants=1",'bootstrap does not require one period variant');
+          need(periodMig,"v_period_status:='AUTHORITATIVE'",'bootstrap does not mark verified period authoritative');
           if(/fetch\([^)]*OPERATIONS/i.test(ui))throw new Error('Admin UI must not send pricing intelligence to Operations');
           if(/HANDOFF_REQUEST[\s\S]{0,500}OPERATIONS_DIRECTOR/.test(ui+api+migV2))throw new Error('Admin Prices must not create Operations handoff');
           console.log('PRICES_OWNER_UPDATE_GATE_RECOVERY=PASS');

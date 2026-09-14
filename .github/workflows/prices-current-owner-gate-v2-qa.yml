@@ -8,6 +8,7 @@ on:
       - 'functions/portal/prices-current-ui.js'
       - 'functions/portal/price-updates-api.js'
       - 'supabase/migrations/*prices*owner*gate*.sql'
+      - 'supabase/migrations/*price_updates_bootstrap*.sql'
       - '.github/workflows/prices-current-owner-gate-v2-qa.yml'
   workflow_dispatch:
 
@@ -31,10 +32,11 @@ jobs:
           const ui=fs.readFileSync('functions/portal/prices-current-ui.js','utf8');
           const api=fs.readFileSync('functions/portal/price-updates-api.js','utf8');
           const mig=fs.readFileSync('supabase/migrations/20260914002125_recover_admin_prices_owner_gate_20260914.sql','utf8');
+          const periodMig=fs.readFileSync('supabase/migrations/20260914195000_price_updates_bootstrap_current_period_v3.sql','utf8');
           const need=(text,patterns,label)=>{for(const p of patterns){if(!text.includes(p))throw new Error(label+': missing '+p)}};
 
           need(ui,[
-            '20260914-pending-canonical-matrix-v1',
+            '20260914-canonical-period-v2',
             'prices-2a-canonical-v4',
             'function isFullPriceProposal(p)',
             'function proposalMatrix(p)',
@@ -46,7 +48,9 @@ jobs:
             'Ожидает решения',
             'Отклонить',
             'Обновить',
-            'currentPublicationId'
+            'currentPublicationId',
+            'currentDeliveryPeriod',
+            "String(p.status||'').toUpperCase()==='AUTHORITATIVE'"
           ],'Prices UI');
 
           need(api,[
@@ -83,6 +87,15 @@ jobs:
             "revoke all on function public.owner_decide_received_price_list(text,text,text) from anon",
             "grant execute on function public.owner_decide_received_price_list(text,text,text) to authenticated,service_role"
           ],'recovery migration');
+
+          need(periodMig,[
+            "'currentDeliveryPeriod'",
+            'pi.delivery_period_from',
+            'pi.delivery_period_to',
+            'v_period_missing=0',
+            'v_period_variants=1',
+            "v_period_status:='AUTHORITATIVE'"
+          ],'canonical period migration');
 
           if(/CREATE_SUPERSEDING_PRICE_PUBLICATION_AND_PUBLISH_TO_LK/.test(ui+api)) throw new Error('Operations auto-publication path leaked into Admin runtime');
           console.log('PRICES_CANONICAL_ADMIN_OWNER_GATE=PASS');
