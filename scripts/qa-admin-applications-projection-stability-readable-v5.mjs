@@ -23,13 +23,10 @@ assert.equal(full.applications.length,6,'full authoritative projection must rest
 assert.ok(full.applications.every(x=>x.owner_status==='DEAL'&&x.status==='DEAL_REGISTERED'&&x.lifecycle_state==='ARCHIVED'));
 assert.equal(full.applications.reduce((n,x)=>n+Number(x.quantity_tonnes||0),0),2145,'restored tonnage must remain stable');
 
-// Critical regression: one workflow projection may transiently omit both application and deal arrays.
-// The base Admin registered deals are still durable evidence and must prevent a 6 -> 0 UI collapse.
 const transient=mergeAdminCompletedApplications(base,{applications:[],deals:[]});
 assert.equal(transient.applications.length,6,'transient workflow omission must not collapse completed applications to zero');
 assert.deepEqual(transient.applications.map(x=>x.application_id),full.applications.map(x=>x.application_id));
 
-// Repeated reads must produce the same application set instead of oscillating.
 let repeated=base;
 for(const workflow of [{applications:workflowApps,deals},{applications:[],deals:[]},{applications:workflowApps,deals}]){
   repeated=mergeAdminCompletedApplications({...base,applications:[]},workflow);
@@ -52,13 +49,20 @@ const contradicted=mergeAdminCompletedApplications(
 assert.equal(contradicted.applications.length,0,'present workflow application state must stay authoritative over fallback');
 
 assert.match(readabilityRuntime,/__RONA_ADMIN_APPLICATIONS_READABILITY_V5__/);
-assert.match(readabilityRuntime,/rona-app-lifecycle-v3>\*\{font-size:20px!important/,'lifecycle typography must be doubled from 10px to 20px');
-assert.match(readabilityRuntime,/rona-app-filter button\{font-size:20px!important/,'filter typography must be doubled from 10px to 20px');
-assert.match(readabilityRuntime,/rona-owner-table\{font-size:22px!important/,'queue body typography must be doubled from 11px to 22px');
-assert.match(readabilityRuntime,/thead th\{font-size:17px!important/,'queue header typography must be doubled from 8.5px to 17px');
-assert.match(readabilityRuntime,/rona-app-status-chip\{font-size:17px!important/,'status typography must be doubled from 8.5px to 17px');
-assert.match(readabilityRuntime,/font-size:19px!important/,'queue action typography must be doubled from 9.5px to 19px');
+assert.match(readabilityRuntime,/20260914-v6-balanced-color/,'balanced visual pass must be the active readability overlay');
+assert.match(readabilityRuntime,/rona-app-lifecycle-v3>\*\{font-size:13px!important/,'lifecycle typography must be balanced at 13px');
+assert.match(readabilityRuntime,/rona-app-filter button\{font-size:12\.5px!important/,'filter typography must be balanced at 12.5px');
+assert.match(readabilityRuntime,/rona-owner-table\{font-size:13\.5px!important/,'queue body typography must be balanced at 13.5px');
+assert.match(readabilityRuntime,/thead th\{font-size:10\.5px!important/,'queue header typography must be balanced at 10.5px');
+assert.match(readabilityRuntime,/rona-app-status-chip\{font-size:10\.5px!important/,'status typography must be balanced at 10.5px');
+assert.match(readabilityRuntime,/font-size:11\.5px!important/,'queue actions and supporting price text must remain compact but readable');
+assert.doesNotMatch(readabilityRuntime,/font-size:20px!important|font-size:22px!important|font-size:19px!important/,'rejected oversized typography must be absent');
 assert.match(readabilityRuntime,/-webkit-line-clamp:2!important/,'company names must wrap/clamp to two lines');
+assert.match(readabilityRuntime,/nth-child\(1\).*#78ddff/,'table header must carry cyan hierarchy accent');
+assert.match(readabilityRuntime,/nth-child\(4\).*#ffd58b/,'table header must carry amber hierarchy accent');
+assert.match(readabilityRuntime,/nth-child\(7\).*#8fe8c9/,'table header must carry green hierarchy accent');
+assert.match(readabilityRuntime,/nth-child\(8\).*#bdaeff/,'table header must carry violet hierarchy accent');
+assert.match(readabilityRuntime,/rona-app-lifecycle-v3>\*:nth-child\(4\).*#c7f6e6/,'deal lifecycle stage must carry success color');
 assert.doesNotMatch(readabilityRuntime,/\.rona-queue-card-v3\{/,'readability overlay must not resize/redefine the queue outer frame');
 assert.doesNotMatch(readabilityRuntime,/\.rona-app-lifecycle-v3\{/,'readability overlay must not resize/redefine the lifecycle outer frame');
 
@@ -68,4 +72,4 @@ const readabilityAt=wrapper.lastIndexOf('adminApplicationsReadabilityV5');
 assert.ok(premiumAt>=0&&readabilityAt>premiumAt,'readability overlay must compose after the existing premium runtime');
 assert.match(wrapper,/applicationPassportRuntimeBase \+ adminApplicationsPremiumRuntime \+ adminApplicationsReadabilityV5/,'existing passport and premium runtime must remain composed');
 
-console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 typography=2x company_wrap=2_lines outer_frames=unchanged');
+console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
