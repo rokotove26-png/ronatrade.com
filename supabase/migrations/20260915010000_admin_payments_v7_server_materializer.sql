@@ -56,7 +56,7 @@ declare
   v_task_id text;
   v_lock_ids jsonb;
   v_manifest_sha text;
-  v_request_sha text:=encode(digest(convert_to(coalesce(p_request,'{}'::jsonb)::text,'UTF8'),'sha256'),'hex');
+  v_request_sha text:=encode(sha256(convert_to(coalesce(p_request,'{}'::jsonb)::text,'UTF8')),'hex');
   v_global_reason text;
   v_event_item jsonb;
   v_event jsonb;
@@ -85,7 +85,6 @@ declare
   v_lock_ref_count integer:=0;
   v_audit_id uuid;
 begin
-  -- Server-side role binding remains mandatory even though the Edge endpoint fixes it too.
   if v_actor_role<>'FINANCE' or v_actor_id<>'AI-FINANCE' then
     v_global_reason:='FINANCE_ROLE_BINDING_REQUIRED';
   end if;
@@ -98,7 +97,6 @@ begin
     end;
   end if;
 
-  -- The execution request may contain IDs only. Any business field supplied by a caller is denied.
   if v_global_reason is null and (
        p_request is null
        or jsonb_typeof(p_request)<>'object'
@@ -173,7 +171,7 @@ begin
   if v_global_reason is null then
     v_lock_ids:=v_manifest_state->'source_lock_record_ids';
     v_events:=v_manifest_state->'events';
-    v_manifest_sha:=encode(digest(convert_to(v_manifest_state::text,'UTF8'),'sha256'),'hex');
+    v_manifest_sha:=encode(sha256(convert_to(v_manifest_state::text,'UTF8')),'hex');
 
     if not exists(
       select 1 from portal_private.staff_tasks t
@@ -185,8 +183,6 @@ begin
     end if;
   end if;
 
-  -- A manifest is current only while no explicit superseder and no later materialization
-  -- proposal for the same Finance task exists.
   if v_global_reason is null and exists(
     select 1 from portal_private.ai_coordination_records n
      where n.supersedes_id=v_manifest_id
@@ -235,7 +231,6 @@ begin
     end if;
   end if;
 
-  -- The immutable proposal must itself carry the Finance source-lock lineage used to build it.
   if v_global_reason is null and not exists(
     select 1 from jsonb_array_elements_text(coalesce(v_manifest.evidence_refs,'[]'::jsonb)) e(value)
      where e.value=v_task_id or e.value=('TASK:'||v_task_id)
@@ -354,7 +349,7 @@ begin
     v_source_refs:=coalesce(v_event->'source_refs','[]'::jsonb);
     v_source_version:=coalesce(v_event->>'source_version','');
     v_event_payload:=coalesce(v_event->'payload','{}'::jsonb);
-    v_event_sha:=case when v_event is null then null else encode(digest(convert_to(v_event::text,'UTF8'),'sha256'),'hex') end;
+    v_event_sha:=case when v_event is null then null else encode(sha256(convert_to(v_event::text,'UTF8')),'hex') end;
 
     if v_reason is null and (
          v_event_type=''
@@ -491,4 +486,4 @@ revoke all on portal_private.finance_materializer_audit_v7 from public,anon,auth
 revoke all on function portal_private.materialize_finance_manifest_v7(jsonb,jsonb) from public,anon,authenticated,service_role;
 
 comment on function portal_private.materialize_finance_manifest_v7(jsonb,jsonb) is
-'Payments V7 manifest-bound server materializer. Caller supplies only immutable Finance manifest/conclusion IDs. Exact event payload is loaded from the current business_change_proposal_submit manifest, verified against a current confirmed functional_conclusion_submit, hashed and audited, then canonical business mutation delegates only to persist_finance_event_v7.';
+'Payments V7 manifest-bound server materializer. Caller supplies only immutable Finance manifest/conclusion IDs. Exact event payload is loaded from the current business_change_proposal_submit manifest, verified against a current confirmed functional_conclusion_submit, SHA-256 hashed and audited, then canonical business mutation delegates only to persist_finance_event_v7.';
