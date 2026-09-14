@@ -32,11 +32,14 @@ try{
     try{
       const r=await fetch('/portal/owner-api?path=/admin/ai-sync&_diag='+Date.now(),{cache:'no-store',headers:{'cache-control':'no-store'}});
       const j=await r.json().catch(()=>null);
-      const candidates=[j?.paymentsV7Projection,j?.data?.paymentsV7Projection,j?.data?.data?.paymentsV7Projection,j?.result?.paymentsV7Projection].filter(Boolean);
+      const data=j?.data||null;
+      const candidates=[j?.paymentsV7Projection,data?.paymentsV7Projection,data?.data?.paymentsV7Projection,j?.result?.paymentsV7Projection].filter(Boolean);
       const p=candidates[0]||null;
-      direct={status:r.status,headers:{sem:r.headers.get('x-rona-owner-payments-semantics'),native:r.headers.get('x-rona-payments-native-spend')},topKeys:j&&typeof j==='object'?Object.keys(j):[],dataKeys:j?.data&&typeof j.data==='object'?Object.keys(j.data):[],contract:p?.contract||null,nativeSummary:p?.actual_spend_native_summary||null};
+      const f=data?.financeFragment||j?.financeFragment||null;
+      const outs=Array.isArray(f?.outgoingPayments)?f.outgoingPayments:[];
+      direct={status:r.status,headers:{sem:r.headers.get('x-rona-owner-payments-semantics'),native:r.headers.get('x-rona-payments-native-spend')},topKeys:j&&typeof j==='object'?Object.keys(j):[],dataKeys:data&&typeof data==='object'?Object.keys(data):[],contract:p?.contract||null,nativeSummary:p?.actual_spend_native_summary||null,financeKeys:f&&typeof f==='object'?Object.keys(f):[],outgoingCount:outs.length,outgoingPayments:outs};
     }catch(e){direct={error:String(e)}}
-    return {snapshot:{topKeys:snap&&typeof snap==='object'?Object.keys(snap):[],contract:sp?.contract||null,nativeSummary:sp?.actual_spend_native_summary||null,deal004:sp?.deals?.find(d=>d?.deal_id==='DEAL-2026-004')||null},direct};
+    return {snapshot:{topKeys:snap&&typeof snap==='object'?Object.keys(snap):[],contract:sp?.contract||null,nativeSummary:sp?.actual_spend_native_summary||null},direct};
   });
   console.log('NATIVE_SPEND_DIAGNOSTIC='+JSON.stringify(diag));
   await ctx.close();
