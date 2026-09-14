@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FINANCE_PAYMENTS_V7_TOOL } from '../../supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs';
+import { FINANCE_PILOT_LEGACY_TOOL_NAMES } from '../../supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs';
 
 const migration=readFileSync('supabase/migrations/20260914210000_admin_payments_v7_finance_controlled_write.sql','utf8');
+const materializer=readFileSync('supabase/migrations/20260915010000_admin_payments_v7_server_materializer.sql','utf8');
+const auto=readFileSync('supabase/migrations/20260915023000_admin_payments_v7_auto_materialization.sql','utf8');
 const gateway=readFileSync('supabase/functions/rona-mcp-gateway/index.ts','utf8');
 const extension=readFileSync('supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs','utf8');
 const uiRuntime=readFileSync('scripts/admin-payments-v7-final-live-source.mjs','utf8');
@@ -13,15 +15,30 @@ const EVENT_TYPES=[
  'OUTGOING_PAYMENT_CONFIRMED','OUTGOING_PAYMENT_DEAL_ALLOCATION_CONFIRMED','PAYMENT_RESOURCE_CHAIN_CONFIRMED','DOCUMENTARY_STATUS_CONFIRMED'
 ];
 
-test('Finance Pilot exposes one typed Finance-to-Payments mutation surface',()=>{
- assert.equal(FINANCE_PAYMENTS_V7_TOOL.name,'finance_event_submit');
- assert.deepEqual(new Set(FINANCE_PAYMENTS_V7_TOOL.inputSchema.properties.event_type.enum),new Set(EVENT_TYPES));
- assert.equal(FINANCE_PAYMENTS_V7_TOOL.annotations.readOnlyHint,false);
- assert.equal(FINANCE_PAYMENTS_V7_TOOL.annotations.idempotentHint,true);
- assert.match(extension,/ctx\.role!=='FINANCE'/);
- assert.match(extension,/ctx\.identity_id!=='AI-FINANCE'/);
- assert.match(extension,/ctx\.server_slug!=='rona-mcp-finance-pilot'/);
+const LEGACY_EIGHT=[
+ 'current_state','history','document_read','task_acknowledge','task_progress_submit','functional_conclusion_submit','handoff_request_submit','business_change_proposal_submit'
+];
+
+test('Finance Pilot remains the existing eight-tool source-lock surface with no Payments write tool',()=>{
+ assert.deepEqual([...FINANCE_PILOT_LEGACY_TOOL_NAMES],LEGACY_EIGHT);
+ assert.equal(FINANCE_PILOT_LEGACY_TOOL_NAMES.length,8);
+ assert.doesNotMatch(extension,/name:\s*['"]finance_event_submit['"]/);
+ assert.doesNotMatch(extension,/persist_finance_event_v7/);
+ assert.match(extension,/x-rona-finance-tools-count','8'/);
  assert.doesNotMatch(extension,/window\.|localStorage|sessionStorage|document\./i);
+});
+
+test('Finance proposal plus confirmed conclusion drives the manifest-bound canonical persistence path server-side',()=>{
+ assert.match(auto,/new\.functional_role::text<>'FINANCE'/);
+ assert.match(auto,/new\.identity_id<>'AI-FINANCE'/);
+ assert.match(auto,/business_change_proposal_submit/);
+ assert.match(auto,/functional_conclusion_submit/);
+ assert.match(auto,/PAYMENTS_V7_MATERIALIZE/);
+ assert.match(auto,/materialize_finance_manifest_v7\(v_actor,v_request\)/);
+ assert.match(materializer,/persist_finance_event_v7\(v_persist_actor,v_event\)/);
+ assert.equal((materializer.match(/persist_finance_event_v7\(v_persist_actor,v_event\)/g)||[]).length,1);
+ assert.doesNotMatch(auto,/insert\s+into\s+portal_private\.finance_events_v7\b/i);
+ assert.doesNotMatch(auto,/insert\s+into\s+portal_private\.payments\b/i);
 });
 
 test('sealed persistence is append-only, stale guarded, idempotent and source locked',()=>{
@@ -50,17 +67,27 @@ test('shared payment never receives an inferred proportional split',()=>{
  assert.doesNotMatch(migration,/50\s*\/\s*50|proportional|ratio|weight/i);
 });
 
-test('gateway preserves canonical production semantics and browser never becomes Finance authority',()=>{
+test('automatic materialization is idempotent, audited and separately recoverable',()=>{
+ assert.match(auto,/unique\(manifest_record_id\)/i);
+ assert.match(auto,/IDEMPOTENT_REPLAY/);
+ assert.match(auto,/finance_materialization_attempts_v7/);
+ assert.match(auto,/recover_finance_materialization_jobs_v7/);
+ assert.match(auto,/for update skip locked/i);
+ assert.match(auto,/status='RETRY'/);
+ assert.match(auto,/Materialization automation must never invalidate an already valid Finance conclusion/);
+});
+
+test('gateway preserves canonical production semantics while Finance Payments authority is no longer a ChatGPT tool',()=>{
  assert.match(gateway,/36727a94820e1e85e95d4abfc5d6aab8234c5c18\/supabase\/functions\/rona-mcp-gateway\/index\.js/);
  assert.equal((gateway.match(/\(Deno\)\.serve = function/g)||[]).length,1);
  assert.doesNotMatch(gateway,/mutableDeno|financeServe|FINANCE_GATEWAY_UPSTREAM_HANDLER_NOT_CAPTURED/);
- assert.match(extension,/mcp_oauth_tokens/);
- assert.match(extension,/persist_finance_event_v7/);
+ assert.doesNotMatch(extension,/mcp_oauth_tokens/);
+ assert.doesNotMatch(extension,/persist_finance_event_v7/);
  assert.doesNotMatch(extension,/amount.*window|window.*amount|document\.querySelector/i);
 });
 
 test('Finance automation delta does not modify the visually accepted Payments renderer',()=>{
  assert.match(uiRuntime,/ADMIN_PAYMENTS_V7_EXECUTIVE_DENSE_V1|ADMIN_PAYMENTS_V7/);
- const financeFiles=[migration,gateway,extension].join('\n');
+ const financeFiles=[migration,materializer,auto,gateway,extension].join('\n');
  assert.doesNotMatch(financeFiles,/rona-payments-v7-kpi|rona-payments-v7-deal-grid|paymentsV7InstallStyle|renderPayments\(/);
 });
