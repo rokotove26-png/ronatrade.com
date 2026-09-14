@@ -5,6 +5,7 @@ on:
     paths:
       - 'functions/portal/main-ui/admin-operations-flightdeck-layout-v1.js'
       - 'functions/portal/main-ui/admin-operations-flightdeck-packed-v1.js'
+      - 'functions/portal/main-ui/admin-operations-flightdeck-scale-120-v1.js'
       - 'functions/portal/owner-ui-chunks/chunk18.js'
       - 'scripts/qa-admin-operations-flightdeck-layout-v1.mjs'
       - '.github/workflows/admin-operations-flightdeck-layout-v1-qa.yml'
@@ -25,6 +26,7 @@ jobs:
         run: |
           node --check functions/portal/main-ui/admin-operations-flightdeck-layout-v1.js
           node --check functions/portal/main-ui/admin-operations-flightdeck-packed-v1.js
+          node --check functions/portal/main-ui/admin-operations-flightdeck-scale-120-v1.js
           node --check functions/portal/owner-ui-chunks/chunk18.js
           node --check scripts/qa-admin-operations-flightdeck-layout-v1.mjs
       - name: Verify visual-only layout contract
