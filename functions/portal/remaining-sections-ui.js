@@ -4,6 +4,43 @@ export async function onRequest(context){
   const response=await baseRemaining(context);
   let source=await response.text();
 
+  // Radio keeps the already-rendered native header. The remaining-sections
+  // renderer owns only the functional body below it. This prevents the late
+  // replacement that was visibly swapping the correct header for a generated hero.
+  const rootInsert=source.indexOf('function grid(){');
+  const radioCall="r=root('radio','Радиорубка','Оперативные сообщения, уведомления и объявления клиентам и агентам.');if(!r)return;";
+  if(rootInsert<0||!source.includes('function root(kind,title,sub){')||!source.includes(radioCall)){
+    return new Response('REMAINING_RADIO_HEADER_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
+  }
+  const radioRoot=String.raw`function radioRoot(){
+  const p=page('radio');if(!p)return null;style();
+  let r=q(':scope>.rona-rs-root[data-kind="radio"]',p);
+  if(!r){r=el('div','rona-rs-root');r.dataset.kind='radio';p.append(r)}
+  let title=qa('h1,h2,h3,h4,h5,h6,.rona-visual-title,[class*="title"],[class*="Title"]',p).find(n=>!r.contains(n)&&norm(n.textContent)==='радиорубка')||null;
+  let header=null;
+  if(title){
+    header=title.closest('.rona-visual-hero,[class*="hero"],[class*="Hero"],header,[class*="head"],[class*="Head"]')||title.parentElement;
+    if(header===p||r.contains(header))header=null;
+  }
+  if(!header){
+    header=qa(':scope>*',p).find(n=>n!==r&&!n.classList.contains('rona-rs-loading')&&(()=>{const t=norm(n.textContent);return t.includes('радиорубка')&&t.length<240})())||null;
+  }
+  if(header&&header.parentElement!==p)p.insertBefore(header,r);
+  r.replaceChildren();
+  p.classList.remove('rona-rs-gated');
+  q(':scope>.rona-rs-loading',p)?.remove();
+  qa(':scope>*',p).forEach(n=>{
+    if(n===r)return;
+    if(n===header){n.style.removeProperty('display');n.removeAttribute('aria-hidden');return}
+    n.style.display='none';
+  });
+  if(header)header.after(r);
+  return r
+}
+`;
+  source=source.slice(0,rootInsert)+radioRoot+source.slice(rootInsert);
+  source=source.replace(radioCall,'r=radioRoot();if(!r)return;');
+
   // Analytics and Market News are owned by dedicated current-only modules.
   // remaining-sections must not render, gate, refresh, or mutate either page.
   source=source.replaceAll("'аналитика':'analytics',",'');
@@ -99,6 +136,7 @@ setInterval(()=>{if(selected())schedule()},500);
     "root('analytics'",
     "root('news'",
     "kind==='analytics'",
+    "r=root('radio','Радиорубка'",
     'ronaMarketNewsTopRuntimeV8',
     '__RONA_MARKET_NEWS_TOP_RUNTIME_V8__'
   ];
@@ -110,7 +148,8 @@ setInterval(()=>{if(selected())schedule()},500);
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('expires','0');
-  headers.set('x-rona-remaining-sections','r2-canonical-split-no-analytics-no-news-v6');
+  headers.set('x-rona-remaining-sections','r2-radio-native-header-v1-no-analytics-no-news');
+  headers.set('x-rona-radio-header-owner','native-shell-preserved-v1');
   headers.set('x-rona-market-news-owner','dedicated-current-content-health-v6');
   headers.delete('content-length');
   headers.delete('etag');
