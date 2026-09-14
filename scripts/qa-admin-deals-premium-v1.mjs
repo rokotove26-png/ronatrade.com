@@ -33,7 +33,7 @@ assert.match(dealsBase,/Требует внимания ·/);
 assert.match(dealsBase,/Завершённые ·/);
 assert.match(dealsBase,/Аннулированные ·/);
 assert.match(visualBase,/deals:\['Сделки','Документы, статусы и действия по активным контрактам\.'\]/,'global Deals hero content must remain unchanged');
-assert.match(visualBase,/\.rona-visual-title\{margin:0;font-size:clamp\(28px,3\.1vw,44px\)/,'global title size authority must remain unchanged');
+assert.match(visualBase,/\.rona-visual-v2 \.rona-visual-title\{[\s\S]*?font-size:clamp\(28px,3\.1vw,44px\);[\s\S]*?line-height:1\.02;/,'global title size authority must remain unchanged');
 
 assert.equal(wrapper.trim(),"import baseRuntime from './chunk18-base.js';\nimport adminDealsPremiumRuntime from '../main-ui/admin-deals-premium-v1.js';\n\nexport default baseRuntime + adminDealsPremiumRuntime;",'chunk18 wrapper must only compose the preserved runtime with the Deals visual layer');
 assert.match(preserved,/__RONA_AGENT_REWARDS_CANONICAL_V1__/,'preserved chunk18 runtime must remain intact');
