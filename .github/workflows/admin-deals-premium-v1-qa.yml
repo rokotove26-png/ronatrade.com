@@ -6,6 +6,8 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/main-ui/admin-deals-premium-v1.js'
+      - 'functions/portal/main-ui/admin-deals-semantic-buttons-v1.js'
+      - 'functions/portal/main-ui/admin-deals-semantic-corrections-v1.js'
       - 'functions/portal/owner-ui-chunks/chunk18.js'
       - 'functions/portal/owner-ui-chunks/chunk18-base.js'
       - 'scripts/qa-admin-deals-premium-v1.mjs'
@@ -28,7 +30,7 @@ jobs:
           git fetch origin release/public-go-live-v1.1 --depth=1
           changed="$(git diff --name-only origin/release/public-go-live-v1.1...HEAD)"
           printf '%s\n' "$changed"
-          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/main-ui/admin-deals-premium-v1\.js|functions/portal/owner-ui-chunks/chunk18\.js|functions/portal/owner-ui-chunks/chunk18-base\.js|scripts/qa-admin-deals-premium-v1\.mjs|\.github/workflows/admin-deals-premium-v1-qa\.yml)$' || true)"
+          bad="$(printf '%s\n' "$changed" | grep -Ev '^(functions/portal/main-ui/admin-deals-premium-v1\.js|functions/portal/main-ui/admin-deals-semantic-buttons-v1\.js|functions/portal/main-ui/admin-deals-semantic-corrections-v1\.js|functions/portal/owner-ui-chunks/chunk18\.js|functions/portal/owner-ui-chunks/chunk18-base\.js|scripts/qa-admin-deals-premium-v1\.mjs|\.github/workflows/admin-deals-premium-v1-qa\.yml)$' || true)"
           if [ -n "$bad" ]; then
             echo "Unexpected files in visual-only PR:"
             printf '%s\n' "$bad"
