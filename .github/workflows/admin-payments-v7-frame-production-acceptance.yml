@@ -36,3 +36,10 @@ jobs:
           ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
           ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
         run: node scripts/admin-payments-v7-frame-production-acceptance.mjs
+      - name: Upload frame acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-payments-v7-frame-production-evidence
+          path: payments-frame-proof.json
+          if-no-files-found: warn
