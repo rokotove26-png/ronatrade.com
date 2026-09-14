@@ -9,7 +9,7 @@ import {
   recoverLiveAdminWorkspace,
 } from '../../scripts/admin-payments-v7-final-live-source.mjs';
 
-const CURRENT_RELEASE_HEAD = '736a535fe245decdf79de06d32940c2cb17370aa';
+const CURRENT_RELEASE_HEAD = '0c136582cbe825149257994465d784f28a24ab0c';
 const show = (path) => execFileSync('git', ['show', `${FINAL_LIVE_ADMIN_SOURCE_COMMIT}:${path}`], {
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
@@ -26,6 +26,9 @@ test('current release UI layers remain byte-identical through Payments V7 recove
     for (const path of [
       'functions/portal/main-ui/index.js',
       'functions/portal/main-ui/application-passport-runtime.js',
+      'functions/portal/main-ui/application-passport-runtime-base.js',
+      'functions/portal/owner-ui-chunks/chunk18.js',
+      'functions/portal/owner-ui-chunks/chunk18-base.js',
       'assets/portal-admin-shell-fast-v1.js',
       'portal-src/current/admin.html',
     ]) {
