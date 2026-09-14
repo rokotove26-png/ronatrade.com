@@ -49,9 +49,10 @@ const contradicted=mergeAdminCompletedApplications(
 assert.equal(contradicted.applications.length,0,'present workflow application state must stay authoritative over fallback');
 
 assert.match(readabilityRuntime,/__RONA_ADMIN_APPLICATIONS_READABILITY_V5__/);
-assert.match(readabilityRuntime,/20260914-v7-hero-clean/,'clean hero visual pass must be the active readability overlay');
+assert.match(readabilityRuntime,/20260914-v8-title-2x/,'2x Applications title visual pass must be the active readability overlay');
 assert.match(readabilityRuntime,/rona-app-existing-hero-v3\{width:100%!important;min-height:0!important/,'nested title card must flatten into the existing full-width hero');
-assert.match(readabilityRuntime,/rona-app-title-v3\{margin:1px 0 5px!important;color:#fff!important;font-size:30px!important/,'Applications title must have clear but balanced hierarchy');
+assert.match(readabilityRuntime,/rona-app-title-v3\{margin:1px 0 5px!important;color:#fff!important;font-size:60px!important/,'Applications title must be exactly doubled from 30px to 60px');
+assert.match(readabilityRuntime,/@media\(max-width:900px\).*rona-app-title-v3\{font-size:52px!important/,'responsive Applications title must be exactly doubled from 26px to 52px');
 assert.match(readabilityRuntime,/background:transparent!important;box-shadow:none!important/,'nested hero card chrome must be removed');
 assert.match(readabilityRuntime,/rona-app-lifecycle-v3>\*\{font-size:13px!important/,'lifecycle typography must be balanced at 13px');
 assert.match(readabilityRuntime,/rona-app-filter button\{font-size:12\.5px!important/,'filter typography must be balanced at 12.5px');
@@ -59,7 +60,7 @@ assert.match(readabilityRuntime,/rona-owner-table\{font-size:13\.5px!important/,
 assert.match(readabilityRuntime,/thead th\{font-size:10\.5px!important/,'queue header typography must be balanced at 10.5px');
 assert.match(readabilityRuntime,/rona-app-status-chip\{font-size:10\.5px!important/,'status typography must be balanced at 10.5px');
 assert.match(readabilityRuntime,/font-size:11\.5px!important/,'queue actions and supporting price text must remain compact but readable');
-assert.doesNotMatch(readabilityRuntime,/font-size:20px!important|font-size:22px!important|font-size:19px!important/,'rejected oversized typography must be absent');
+assert.doesNotMatch(readabilityRuntime,/font-size:20px!important|font-size:22px!important|font-size:19px!important/,'rejected oversized queue typography must be absent');
 assert.match(readabilityRuntime,/-webkit-line-clamp:2!important/,'company names must wrap/clamp to two lines');
 assert.match(readabilityRuntime,/nth-child\(1\).*#78ddff/,'table header must carry cyan hierarchy accent');
 assert.match(readabilityRuntime,/nth-child\(4\).*#ffd58b/,'table header must carry amber hierarchy accent');
@@ -75,4 +76,4 @@ const readabilityAt=wrapper.lastIndexOf('adminApplicationsReadabilityV5');
 assert.ok(premiumAt>=0&&readabilityAt>premiumAt,'readability overlay must compose after the existing premium runtime');
 assert.match(wrapper,/applicationPassportRuntimeBase \+ adminApplicationsPremiumRuntime \+ adminApplicationsReadabilityV5/,'existing passport and premium runtime must remain composed');
 
-console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 hero=clean-integrated typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
+console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 hero=clean-integrated title=60px responsive_title=52px typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
