@@ -47,8 +47,25 @@ jobs:
         run: |
           npm install --no-save --no-package-lock playwright@1.55.0
           npx playwright install --with-deps chromium
+      - name: Prepare isolated notification harness
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const path='tests/admin-prices-premium-visual-only.test.mjs';
+          let source=fs.readFileSync(path,'utf8');
+          const from='<script src="/portal/prices-current-ui"></script>';
+          const to='<script>window.RONA_ADMIN_DIALOGS={message:()=>Promise.resolve(true)}</script><script src="/portal/prices-current-ui"></script>';
+          if(!source.includes(from)) throw new Error('QA_HTML_SCRIPT_MARKER_MISSING');
+          source=source.replace(from,to);
+          fs.writeFileSync(path,source);
+          NODE
       - name: Run current-runtime browser regression for Prices
-        run: node tests/admin-prices-premium-visual-only.test.mjs
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p prices-premium-visual-proof
+          node tests/admin-prices-premium-visual-only.test.mjs 2>&1 | tee prices-premium-visual-proof/qa.log
       - name: Upload premium visual proof
         if: always()
         uses: actions/upload-artifact@v4
