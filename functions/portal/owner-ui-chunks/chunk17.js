@@ -2,6 +2,7 @@ export default `(()=>{'use strict';
 if(window.__RONA_APPLICATION_RESOURCE_STAGE_LABELS_V1__)return;
 window.__RONA_APPLICATION_RESOURCE_STAGE_LABELS_V1__=true;
 if(location.pathname!=='/portal/admin')return;
+if(!document.getElementById('ronaPaymentsWidthOverride20')){const s=document.createElement('style');s.id='ronaPaymentsWidthOverride20';s.textContent='html body div.page.active#page-payments>*{width:min(100%,736px)!important;max-width:736px!important;margin-left:auto!important;margin-right:auto!important;box-sizing:border-box!important}html body div.page.active#page-payments>div.rona-owner-page-content[data-owner-page="payments"],html body div.page.active#page-payments>div.rona-owner-page-content{width:min(100%,736px)!important;max-width:736px!important;margin-left:auto!important;margin-right:auto!important}html body div.page.active#page-payments .rona-payments-v7{width:100%!important;max-width:100%!important}';document.head.appendChild(s)}
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 function apply(){
   const root=document.getElementById('page-applications');
@@ -9,7 +10,7 @@ function apply(){
   for(const el of root.querySelectorAll('h1,h2,h3,button,span,div')){
     const t=norm(el.textContent);
     if(t==='Требуют решения'&&el.childElementCount===0)el.textContent='Требует подтверждения';
-    else if(/^Требует решения · \d+$/.test(t)&&el.childElementCount===0)el.textContent=t.replace('Требует решения','Требует подтверждения');
+    else if(/^Требует решения ¯ \d+$/.test(t)&&el.childElementCount===0)el.textContent=t.replace('Требует решения','Требует подтверждения');
     else if(t==='Нужен ответ клиента или поставщика'&&el.childElementCount===0)el.textContent='Подтверждение ресурса по принятой заявке';
     else if(t==='3. Одобрение'&&el.childElementCount===0)el.textContent='3. Подтверждение ресурса';
     else if(t==='Ожидается одобрение поставщика'&&el.childElementCount===0)el.textContent='Требует подтверждения ресурса';
