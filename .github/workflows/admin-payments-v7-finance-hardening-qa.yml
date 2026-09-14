@@ -12,6 +12,7 @@ on:
       - 'tests/admin-payments-v7/finance-controlled-write.sql'
       - 'tests/admin-payments-v7/finance-current-authority-hardening.sql'
       - 'tests/admin-payments-v7/server-materializer.sql'
+      - 'tests/admin-payments-v7/server-materializer-observability.sql'
       - 'tests/admin-payments-v7/server-materializer.test.mjs'
       - '.github/workflows/admin-payments-v7-finance-hardening-qa.yml'
   workflow_dispatch:
@@ -59,6 +60,11 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer.sql
+      - name: PostgreSQL 17 aggregate persist observability
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer-observability.sql
       - name: Server materializer static contract
         run: node tests/admin-payments-v7/server-materializer.test.mjs
       - uses: denoland/setup-deno@v2
