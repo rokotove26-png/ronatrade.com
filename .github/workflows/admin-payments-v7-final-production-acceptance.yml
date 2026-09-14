@@ -1,0 +1,45 @@
+name: Admin Payments V7 Final Production Acceptance
+
+on:
+  push:
+    branches:
+      - feat/admin-payments-final-owner-screen-passport-v1
+    paths:
+      - 'scripts/admin-payments-v7-final-production-acceptance.mjs'
+      - '.github/workflows/admin-payments-v7-final-production-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: admin-payments-v7-final-production-acceptance
+  cancel-in-progress: false
+
+jobs:
+  authenticated-live-acceptance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run authenticated production acceptance
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
+          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
+        run: node scripts/admin-payments-v7-final-production-acceptance.mjs
+      - name: Upload acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-payments-v7-final-production-acceptance
+          path: artifacts/admin-payments-v7-final-production
+          if-no-files-found: warn
