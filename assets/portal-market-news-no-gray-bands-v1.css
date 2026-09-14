@@ -54,3 +54,489 @@ html body #page-market-news .mn-title.rona-global-title-duplicate-heading {
   visibility: visible !important;
   opacity: 1 !important;
 }
+
+/* ADMIN_PRICES_PREMIUM_EXECUTIVE_V1
+   Presentation-only overlay for the locked Admin -> Prices runtime.
+   Scope is strictly #page-prices. No structure, data, state, API or behavior changes. */
+html body #page-prices {
+  --prx-brand: #e51f2c;
+  --prx-brand-soft: rgba(229,31,44,.16);
+  --prx-accent: #63dcff;
+  --prx-accent-soft: rgba(99,220,255,.14);
+  --prx-success: #58e3bc;
+  --prx-warning: #ffc86f;
+  --prx-danger: #ff7180;
+  --prx-text: #f5f9fc;
+  --prx-muted: #93a8b8;
+  --prx-line: rgba(150,203,229,.16);
+  --prx-line-strong: rgba(137,220,255,.28);
+  --prx-glass: rgba(8,19,31,.74);
+  --prx-glass-strong: rgba(10,24,38,.88);
+  --prx-radius: 18px;
+  --prx-radius-sm: 12px;
+  --prx-shadow: 0 22px 54px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.035);
+  --prx-shadow-hover: 0 26px 66px rgba(0,0,0,.34), 0 0 0 1px rgba(99,220,255,.06), inset 0 1px 0 rgba(255,255,255,.055);
+  color: var(--prx-text);
+}
+
+html body #page-prices > #rona-prices-current {
+  position: relative;
+  isolation: isolate;
+  padding: 28px 30px 44px !important;
+}
+html body #page-prices > #rona-prices-current::before,
+html body #page-prices > #rona-prices-current::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(10px);
+  opacity: .72;
+}
+html body #page-prices > #rona-prices-current::before {
+  width: 520px;
+  height: 310px;
+  top: -95px;
+  right: 1%;
+  background: radial-gradient(circle, rgba(74,180,230,.12) 0, rgba(74,180,230,.035) 52%, transparent 74%);
+}
+html body #page-prices > #rona-prices-current::after {
+  width: 420px;
+  height: 260px;
+  top: 26px;
+  left: -130px;
+  background: radial-gradient(circle, rgba(229,31,44,.10) 0, rgba(229,31,44,.022) 56%, transparent 76%);
+}
+
+html body #page-prices > #rona-prices-current .rona-visual-hero {
+  position: relative;
+  margin: 0 0 18px !important;
+  padding: 24px 26px !important;
+  overflow: hidden;
+  border: 1px solid rgba(137,220,255,.18) !important;
+  border-radius: 20px !important;
+  background:
+    radial-gradient(700px 260px at 100% 0, rgba(72,173,219,.13), transparent 64%),
+    radial-gradient(420px 220px at 0 100%, rgba(229,31,44,.075), transparent 68%),
+    linear-gradient(145deg, rgba(12,27,43,.90), rgba(6,15,25,.78)) !important;
+  box-shadow: 0 24px 62px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.045) !important;
+  backdrop-filter: blur(22px) saturate(135%);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+}
+html body #page-prices > #rona-prices-current .rona-visual-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.035), transparent 28%, transparent 74%, rgba(99,220,255,.025));
+}
+html body #page-prices > #rona-prices-current .rona-visual-kicker {
+  color: #8fb7cc !important;
+  font-size: 10.5px !important;
+  font-weight: 900 !important;
+  letter-spacing: .17em !important;
+  text-transform: uppercase;
+}
+html body #page-prices > #rona-prices-current .rona-visual-title {
+  margin-top: 7px !important;
+  color: #fff !important;
+  font-size: clamp(30px, 2.7vw, 42px) !important;
+  line-height: 1.05 !important;
+  font-weight: 900 !important;
+  letter-spacing: -.035em !important;
+  text-shadow: 0 8px 28px rgba(0,0,0,.30);
+}
+html body #page-prices > #rona-prices-current .rona-visual-sub {
+  max-width: 900px;
+  margin-top: 9px !important;
+  color: #a9bdca !important;
+  font-size: 13px !important;
+  line-height: 1.55 !important;
+}
+
+html body #page-prices > #rona-prices-current .rona-owner-card {
+  position: relative;
+  border: 1px solid var(--prx-line) !important;
+  border-radius: var(--prx-radius) !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.026), transparent 36%),
+    linear-gradient(180deg, rgba(11,25,39,.82), rgba(6,16,26,.74)) !important;
+  box-shadow: var(--prx-shadow) !important;
+  backdrop-filter: blur(18px) saturate(128%);
+  -webkit-backdrop-filter: blur(18px) saturate(128%);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease, background-color .18s ease;
+}
+html body #page-prices > #rona-prices-current .rona-owner-card:hover {
+  border-color: rgba(137,220,255,.22) !important;
+  box-shadow: var(--prx-shadow-hover) !important;
+}
+html body #page-prices > #rona-prices-current .rona-owner-card > h2,
+html body #page-prices > #rona-prices-current .rona-prices-card-head > h2 {
+  margin: 0;
+  color: #f8fbfd !important;
+  font-size: 15px !important;
+  line-height: 1.25 !important;
+  font-weight: 900 !important;
+  letter-spacing: -.012em;
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-signal {
+  border-color: rgba(99,220,255,.30) !important;
+  background:
+    radial-gradient(540px 210px at 100% 0, rgba(65,178,228,.16), transparent 67%),
+    linear-gradient(145deg, rgba(13,34,51,.92), rgba(7,18,29,.82)) !important;
+  box-shadow: inset 3px 0 0 rgba(99,220,255,.72), 0 22px 60px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.04) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-signal-title {
+  color: #b7efff !important;
+  font-size: 17px !important;
+  letter-spacing: -.015em;
+}
+html body #page-prices > #rona-prices-current .rona-prices-meta,
+html body #page-prices > #rona-prices-current .rona-prices-signal-sub,
+html body #page-prices > #rona-prices-current .rona-prices-proposal-meta,
+html body #page-prices > #rona-prices-current .rona-prices-card-sub,
+html body #page-prices > #rona-prices-current .rona-prices-source {
+  color: var(--prx-muted) !important;
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-kpi-grid {
+  gap: 12px !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-kpi {
+  min-height: 132px !important;
+  padding: 17px 18px !important;
+  border-color: rgba(142,202,230,.17) !important;
+  background:
+    radial-gradient(220px 125px at 100% 0, rgba(77,181,227,.10), transparent 70%),
+    linear-gradient(145deg, rgba(13,29,44,.88), rgba(7,17,28,.78)) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-kpi:hover {
+  transform: translateY(-1px);
+}
+html body #page-prices > #rona-prices-current .rona-prices-kpi-label {
+  color: #91a8b8 !important;
+  font-size: 10.5px !important;
+  font-weight: 900 !important;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+html body #page-prices > #rona-prices-current .rona-prices-kpi-value {
+  margin-top: 11px !important;
+  color: #fff !important;
+  font-size: clamp(27px, 2vw, 34px) !important;
+  line-height: 1.04 !important;
+  font-weight: 900 !important;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 10px 24px rgba(0,0,0,.30);
+}
+html body #page-prices > #rona-prices-current .rona-prices-kpi-caption {
+  color: #8da3b3 !important;
+  font-size: 10.5px !important;
+  line-height: 1.4;
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-proposal {
+  padding: 18px !important;
+  border-color: rgba(117,199,236,.20) !important;
+  background:
+    radial-gradient(380px 180px at 100% 0, rgba(76,177,222,.08), transparent 68%),
+    linear-gradient(145deg, rgba(11,27,42,.87), rgba(6,17,28,.80)) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-proposal-title {
+  color: #f8fbfd !important;
+  font-size: 16px !important;
+  letter-spacing: -.015em;
+}
+html body #page-prices > #rona-prices-current .rona-prices-reason {
+  color: #d7e3ea;
+}
+html body #page-prices > #rona-prices-current .rona-prices-details {
+  border-top-color: rgba(141,204,232,.13) !important;
+}
+
+html body #page-prices > #rona-prices-current .rona-owner-table-wrap {
+  overflow: auto;
+  margin-top: 12px;
+  border: 1px solid rgba(142,202,230,.14);
+  border-radius: 14px;
+  background: rgba(3,10,17,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.018);
+}
+html body #page-prices > #rona-prices-current .rona-owner-table {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  font-variant-numeric: tabular-nums;
+}
+html body #page-prices > #rona-prices-current .rona-owner-table th {
+  padding: 12px 13px !important;
+  border-bottom: 1px solid rgba(142,202,230,.16) !important;
+  background: rgba(13,29,43,.76) !important;
+  color: #8fa8b9 !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+html body #page-prices > #rona-prices-current .rona-owner-table td {
+  padding: 13px !important;
+  border-bottom: 1px solid rgba(142,202,230,.075) !important;
+  color: #dce7ed !important;
+  background: rgba(4,12,20,.10);
+  transition: background-color .15s ease, color .15s ease;
+}
+html body #page-prices > #rona-prices-current .rona-owner-table tbody tr:last-child td {
+  border-bottom: 0 !important;
+}
+html body #page-prices > #rona-prices-current .rona-owner-table tbody tr:hover td {
+  background: rgba(74,168,211,.075) !important;
+  color: #f7fbfd !important;
+}
+html body #page-prices > #rona-prices-current .rona-owner-table td strong {
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 900;
+  letter-spacing: -.01em;
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-pill {
+  gap: 6px;
+  min-height: 29px !important;
+  padding: 5px 10px !important;
+  border-color: rgba(144,199,225,.18) !important;
+  background: rgba(5,14,23,.48) !important;
+  color: #c2d1db;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+html body #page-prices > #rona-prices-current .rona-prices-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 999px;
+  background: #7e96a7;
+  box-shadow: 0 0 10px rgba(126,150,167,.22);
+}
+html body #page-prices > #rona-prices-current .rona-prices-pill.ok {
+  border-color: rgba(88,227,188,.29) !important;
+  color: #c9fff0 !important;
+  background: rgba(41,159,127,.09) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-pill.ok::before { background: var(--prx-success); box-shadow: 0 0 12px rgba(88,227,188,.38); }
+html body #page-prices > #rona-prices-current .rona-prices-pill.warn {
+  border-color: rgba(255,200,111,.30) !important;
+  color: #ffe4af !important;
+  background: rgba(182,120,24,.09) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-pill.warn::before { background: var(--prx-warning); box-shadow: 0 0 12px rgba(255,200,111,.32); }
+html body #page-prices > #rona-prices-current .rona-prices-pill.bad {
+  border-color: rgba(255,113,128,.33) !important;
+  color: #ffd0d5 !important;
+  background: rgba(176,44,58,.10) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-pill.bad::before { background: var(--prx-danger); box-shadow: 0 0 12px rgba(255,113,128,.34); }
+html body #page-prices > #rona-prices-current .rona-prices-pill.attention {
+  border-color: rgba(99,220,255,.34) !important;
+  color: #cff5ff !important;
+  background: rgba(55,161,209,.11) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-pill.attention::before { background: var(--prx-accent); box-shadow: 0 0 12px rgba(99,220,255,.40); }
+
+html body #page-prices > #rona-prices-current .rona-prices-filter {
+  gap: 7px !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-filter button,
+html body #page-prices > #rona-prices-current .rona-prices-actions button,
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls button,
+html body .rona-prices-modal-actions button {
+  min-height: 36px;
+  border: 1px solid rgba(148,201,226,.20) !important;
+  border-radius: 10px !important;
+  background: linear-gradient(180deg, rgba(21,38,52,.82), rgba(8,19,30,.78)) !important;
+  color: #d8e5ed !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.035), 0 8px 20px rgba(0,0,0,.12);
+  transition: transform .14s ease, border-color .14s ease, background .14s ease, box-shadow .14s ease, color .14s ease, filter .14s ease;
+}
+html body #page-prices > #rona-prices-current .rona-prices-filter button:hover,
+html body #page-prices > #rona-prices-current .rona-prices-actions button:hover,
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls button:hover,
+html body .rona-prices-modal-actions button:hover {
+  border-color: rgba(120,219,255,.38) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 26px rgba(0,0,0,.18), 0 0 20px rgba(74,178,226,.06);
+  transform: translateY(-1px);
+}
+html body #page-prices > #rona-prices-current .rona-prices-filter button:active,
+html body #page-prices > #rona-prices-current .rona-prices-actions button:active,
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls button:active,
+html body .rona-prices-modal-actions button:active {
+  transform: translateY(0);
+}
+html body #page-prices > #rona-prices-current .rona-prices-filter button:focus-visible,
+html body #page-prices > #rona-prices-current .rona-prices-actions button:focus-visible,
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls button:focus-visible,
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls select:focus-visible,
+html body .rona-prices-modal-actions button:focus-visible,
+html body .rona-prices-modal-input:focus-visible {
+  outline: none !important;
+  border-color: rgba(99,220,255,.62) !important;
+  box-shadow: 0 0 0 3px rgba(99,220,255,.12), 0 10px 28px rgba(0,0,0,.20) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-filter button[aria-pressed="true"] {
+  border-color: rgba(99,220,255,.46) !important;
+  background: linear-gradient(180deg, rgba(55,165,214,.26), rgba(31,91,123,.22)) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(99,220,255,.05), 0 10px 28px rgba(30,129,174,.10);
+}
+html body #page-prices > #rona-prices-current .rona-prices-apply,
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls button,
+html body .rona-prices-modal-actions .primary {
+  border-color: rgba(99,220,255,.44) !important;
+  background: linear-gradient(135deg, rgba(38,157,208,.88), rgba(42,100,174,.84)) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.13), 0 12px 30px rgba(27,119,174,.21) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-reject {
+  border-color: rgba(255,113,128,.32) !important;
+  background: linear-gradient(180deg, rgba(107,31,42,.32), rgba(50,17,25,.32)) !important;
+  color: #ffccd2 !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-reject:hover {
+  border-color: rgba(255,113,128,.52) !important;
+  background: linear-gradient(180deg, rgba(139,40,53,.40), rgba(66,20,30,.38)) !important;
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-terms {
+  gap: 9px !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-term {
+  padding: 14px !important;
+  border: 1px solid rgba(142,202,230,.13) !important;
+  border-radius: var(--prx-radius-sm) !important;
+  background: linear-gradient(145deg, rgba(11,27,41,.62), rgba(5,15,24,.52)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.022);
+}
+html body #page-prices > #rona-prices-current .rona-prices-term span {
+  color: #869dac !important;
+  font-size: 10px !important;
+  font-weight: 850;
+  letter-spacing: .045em;
+  text-transform: uppercase;
+}
+html body #page-prices > #rona-prices-current .rona-prices-term strong {
+  color: #f5fafc;
+  font-size: 14px !important;
+  font-weight: 900;
+}
+html body #page-prices > #rona-prices-current .rona-prices-payment {
+  color: #b5c5cf;
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-publication {
+  gap: 18px !important;
+  padding: 17px 18px !important;
+  border-color: rgba(88,227,188,.19) !important;
+  background:
+    radial-gradient(300px 150px at 100% 50%, rgba(56,180,145,.075), transparent 70%),
+    linear-gradient(145deg, rgba(10,27,38,.86), rgba(6,17,26,.77)) !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-publication-title {
+  color: #effbf7 !important;
+  font-size: 14px !important;
+  font-weight: 900 !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-publication-controls select {
+  min-height: 38px;
+  border: 1px solid rgba(142,202,230,.22) !important;
+  border-radius: 10px !important;
+  background: rgba(5,14,23,.72) !important;
+  color: #e5eef3 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.025);
+}
+
+html body #page-prices > #rona-prices-current .rona-prices-history-row {
+  padding: 13px 4px !important;
+  border-bottom-color: rgba(142,202,230,.09) !important;
+  transition: background-color .15s ease, padding .15s ease;
+}
+html body #page-prices > #rona-prices-current .rona-prices-history-row:hover {
+  padding-left: 9px !important;
+  padding-right: 9px !important;
+  background: rgba(79,167,207,.045);
+  border-radius: 10px;
+}
+html body #page-prices > #rona-prices-current .rona-prices-empty {
+  border-color: rgba(142,202,230,.20) !important;
+  background: rgba(5,14,23,.34);
+  color: #94a8b6 !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-diff-old {
+  color: #7f95a5 !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-diff-new {
+  color: #fff !important;
+  font-weight: 900 !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-internal {
+  color: #91a4b1 !important;
+}
+html body #page-prices > #rona-prices-current .rona-prices-external {
+  color: #78e5c3 !important;
+}
+
+html body .rona-prices-modal-backdrop {
+  background: rgba(2,7,12,.78) !important;
+  backdrop-filter: blur(14px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(120%) !important;
+}
+html body .rona-prices-modal {
+  border-color: rgba(137,220,255,.26) !important;
+  border-radius: 20px !important;
+  background:
+    radial-gradient(460px 190px at 100% 0, rgba(64,177,226,.14), transparent 65%),
+    radial-gradient(280px 170px at 0 100%, rgba(229,31,44,.065), transparent 72%),
+    linear-gradient(180deg, rgba(13,29,44,.98), rgba(5,14,23,.98)) !important;
+  box-shadow: 0 38px 110px rgba(0,0,0,.62), inset 0 1px 0 rgba(255,255,255,.05) !important;
+}
+html body .rona-prices-modal-input {
+  border-color: rgba(142,202,230,.22) !important;
+  background: rgba(3,11,19,.76) !important;
+  color: #f7fbfd !important;
+}
+
+html body #nav button[data-page="prices"] .rona-price-update-nav {
+  border: 1px solid rgba(117,224,255,.28);
+  background: linear-gradient(135deg, #287fa8, #225b8a) !important;
+  color: #f0fbff !important;
+  box-shadow: 0 0 0 3px rgba(68,171,219,.06), 0 6px 14px rgba(0,0,0,.18);
+}
+
+@media (max-width: 1180px) {
+  html body #page-prices > #rona-prices-current { padding: 22px 20px 36px !important; }
+  html body #page-prices > #rona-prices-current .rona-prices-kpi-value { font-size: 28px !important; }
+}
+@media (max-width: 900px) {
+  html body #page-prices > #rona-prices-current { padding: 18px 14px 30px !important; }
+  html body #page-prices > #rona-prices-current .rona-visual-hero { padding: 20px !important; }
+  html body #page-prices > #rona-prices-current .rona-prices-kpi-grid,
+  html body #page-prices > #rona-prices-current .rona-prices-terms { grid-template-columns: 1fr !important; }
+  html body #page-prices > #rona-prices-current .rona-prices-kpi { min-height: 112px !important; }
+}
+@media (max-width: 620px) {
+  html body #page-prices > #rona-prices-current { padding: 14px 8px 26px !important; }
+  html body #page-prices > #rona-prices-current .rona-visual-title { font-size: 30px !important; }
+  html body #page-prices > #rona-prices-current .rona-prices-card-head,
+  html body #page-prices > #rona-prices-current .rona-prices-proposal-head,
+  html body #page-prices > #rona-prices-current .rona-prices-publication { align-items: stretch !important; }
+  html body #page-prices > #rona-prices-current .rona-prices-publication-controls { width: 100%; }
+  html body #page-prices > #rona-prices-current .rona-prices-publication-controls select,
+  html body #page-prices > #rona-prices-current .rona-prices-publication-controls button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html body #page-prices > #rona-prices-current *,
+  html body .rona-prices-modal * { transition: none !important; }
+}
