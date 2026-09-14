@@ -4,8 +4,11 @@ const LEGACY_RENDER_END='\nif(!window.__RONA_FINANCE_FRAGMENT_UI_LISTENER__)';
 const LEGACY_FINANCE_LISTENER="window.addEventListener('rona:finance-sync',()=>{try{renderPayments();renderCash()}catch(_e){}})";
 const PAYMENTS_ONLY_FINANCE_LISTENER="window.addEventListener('rona:finance-sync',()=>{try{renderPayments()}catch(_e){}})";
 const LEGACY_ACCOUNTING_ROUTE='accounting:renderCash,';
+const CASH_R2_ACCOUNTING_ROUTE='accounting:ensureCashR2Host,';
 const LEGACY_BOOT_SEQUENCE='renderPayments();renderCash();renderRail();';
-const CASH_R2_BOOT_SEQUENCE='renderPayments();renderRail();';
+const CASH_R2_BOOT_SEQUENCE='renderPayments();ensureCashR2Host();renderRail();';
+const OWNED_PAGE_MARKER='function renderOwnedAdminPage(id){';
+const CASH_R2_HOST_FUNCTION="function ensureCashR2Host(){const p=page('accounting');if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"accounting\\\"]',p)||q(':scope > .rona-owner-page-content',p);if(!host){for(const child of Array.from(p.children))child.classList.add('rona-owner-original-hidden');host=e('div',{class:'rona-owner-page-content','data-owner-page':'accounting','data-rona-cash-host':'r2'});p.append(host)}host.dataset.ronaCashHost='r2';host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');return host}\n";
 
 function patchCashSingleOwner(source){
   let script=String(source||'');
@@ -15,13 +18,16 @@ function patchCashSingleOwner(source){
   script=script.slice(0,start)+script.slice(end);
   for(const [from,to,label] of [
     [LEGACY_FINANCE_LISTENER,PAYMENTS_ONLY_FINANCE_LISTENER,'FINANCE_LISTENER'],
-    [LEGACY_ACCOUNTING_ROUTE,'','ACCOUNTING_ROUTE'],
+    [LEGACY_ACCOUNTING_ROUTE,CASH_R2_ACCOUNTING_ROUTE,'ACCOUNTING_ROUTE'],
     [LEGACY_BOOT_SEQUENCE,CASH_R2_BOOT_SEQUENCE,'BOOT_SEQUENCE']
   ]){
     if(!script.includes(from))throw new Error('ADMIN_CASH_'+label+'_SOURCE_MISMATCH');
     script=script.replace(from,to);
   }
+  if(!script.includes(OWNED_PAGE_MARKER))throw new Error('ADMIN_CASH_HOST_INSERTION_SOURCE_MISMATCH');
+  script=script.replace(OWNED_PAGE_MARKER,CASH_R2_HOST_FUNCTION+OWNED_PAGE_MARKER);
   if(script.includes('renderCash'))throw new Error('ADMIN_CASH_COMPETING_RENDERER_REMAINS');
+  if(!script.includes(CASH_R2_ACCOUNTING_ROUTE)||!script.includes(CASH_R2_BOOT_SEQUENCE)||!script.includes('data-rona-cash-host'))throw new Error('ADMIN_CASH_R2_HOST_MISSING');
   return "window.__RONA_CASH_RUNTIME_OWNER__='"+CASH_OWNER+"';\n"+script;
 }
 
@@ -47,6 +53,7 @@ export async function onRequest(context){
   headers.set('x-rona-cash-owner',CASH_OWNER);
   headers.set('x-rona-cash-legacy-owner','disabled');
   headers.set('x-rona-cash-single-owner','enforced');
+  headers.set('x-rona-cash-host','r2-owned-shell');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
