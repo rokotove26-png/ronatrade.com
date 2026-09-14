@@ -7,7 +7,8 @@ const UPSTREAM=`https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/$
 const DB=Deno.env.get('SUPABASE_DB_URL');
 if(!DB)throw new Error('MCP_RUNTIME_VARS_MISSING');
 const financeSql=postgres(DB,{prepare:false,max:3});
-globalThis['__RONA_FINANCE_V7_HOOKS__']=createFinancePaymentsV7NativeHooks({sql:financeSql});
+const financeHookRegistry=globalThis as unknown as Record<string,unknown>;
+financeHookRegistry['__RONA_FINANCE_V7_HOOKS__']=createFinancePaymentsV7NativeHooks({sql:financeSql});
 
 const OLD_WRAPPED_REQUEST=`async function wrappedRequest(handler, req) {
   const msg = await inspectMcp(req);
