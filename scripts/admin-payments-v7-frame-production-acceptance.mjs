@@ -36,17 +36,24 @@ async function broker(path, body = {}) {
 
 async function waitReady(page) {
   const started = Date.now();
-  while (Date.now() - started < 60000) {
+  while (Date.now() - started < 180000) {
     const ready = await page.evaluate(() => {
       const p = window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection;
       const root = document.querySelector('#page-payments .rona-payments-v7');
-      return p?.contract === 'ADMIN_PAYMENTS_V7' && root?.dataset?.paymentsContract === 'ADMIN_PAYMENTS_V7';
+      const s = p?.actual_spend_native_summary;
+      return p?.contract === 'ADMIN_PAYMENTS_V7' && root?.dataset?.paymentsContract === 'ADMIN_PAYMENTS_V7' && s?.source === 'OWNER_OUTGOING_PAYMENT_FACTS';
     }).catch(() => false);
     if (ready) return;
-    await sleep(250);
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => null);
+    const nav = page.locator('button[data-page="payments"]').first();
+    await nav.waitFor({ state: 'visible', timeout: 60000 });
+    await nav.click().catch(() => null);
+    await sleep(2500);
   }
-  throw new Error('PAYMENTS_V7_READY_TIMEOUT');
+  throw new Error('PAYMENTS_V7_NATIVE_SPEND_READY_TIMEOUT');
 }
+
+const rowMap = rows => Object.fromEntries((Array.isArray(rows) ? rows : []).map(x => [String(x?.currency || '').toUpperCase(), Number(x?.amount)]));
 
 async function measure(browser, token, width, height) {
   const context = await browser.newContext({ viewport: { width, height } });
@@ -73,43 +80,77 @@ async function measure(browser, token, width, height) {
       const board = root?.querySelector('.rona-payments-v7-board');
       const boardCols = board ? getComputedStyle(board).gridTemplateColumns.split(' ').filter(Boolean).length : 0;
       const rect = el => el ? ({ width: el.getBoundingClientRect().width, left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right }) : null;
-      const ancestors = [];
-      let a = h1;
-      while (a && a !== pageEl) {
-        ancestors.push({ tag: a.tagName, cls: a.className || '', rect: rect(a) });
-        a = a.parentElement;
-      }
+      const p = window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection || null;
+      const deal004 = p?.deals?.find(d => d?.deal_id === 'DEAL-2026-004') || null;
+      const deal005 = p?.deals?.find(d => d?.deal_id === 'DEAL-2026-005') || null;
+      const deal006 = p?.deals?.find(d => d?.deal_id === 'DEAL-2026-006') || null;
+      const deal009 = p?.deals?.find(d => d?.deal_id === 'DEAL-2026-009') || null;
+      const topSpend = [...(root?.querySelectorAll('.rona-payments-v7-kpi') || [])].find(k => (k.querySelector('.rona-payments-v7-kpi-label')?.textContent || '').trim() === 'Потрачено / Остаток') || null;
+      const dealSpendText = id => {
+        const a = root?.querySelector(`.rona-payments-v7-deal[data-deal-id="${id}"]`);
+        const c = [...(a?.querySelectorAll('.rona-payments-v7-deal-cell') || [])].find(x => (x.querySelector('span')?.textContent || '').trim() === 'Потрачено / Остаток');
+        return c?.textContent?.replace(/\s+/g, ' ').trim() || null;
+      };
       return {
         viewport: { width: innerWidth, height: innerHeight },
-        page: rect(pageEl),
-        host: rect(host),
-        root: rect(root),
+        page: rect(pageEl), host: rect(host), root: rect(root),
         title: h1?.textContent?.trim() || null,
         titleFrame: rect(titleFrame),
-        titleFrameClass: titleFrame?.className || '',
-        titleAncestors: ancestors,
-        hostPadding: host ? { left: getComputedStyle(host).paddingLeft, right: getComputedStyle(host).paddingRight } : null,
         frameDataset: pageEl?.dataset?.ronaPaymentsFrameWidth || null,
         boardCols,
         dealCount: root?.querySelectorAll('.rona-payments-v7-deal').length || 0,
         horizontalOverflow: pageEl ? pageEl.scrollWidth > pageEl.clientWidth + 2 : true,
-        childWidths: pageEl ? [...pageEl.children].filter(el => getComputedStyle(el).display !== 'none').map(el => ({ tag: el.tagName, cls: el.className, width: el.getBoundingClientRect().width })) : [],
+        nativeSummary: p?.actual_spend_native_summary || null,
+        deal004Native: deal004 ? { rows: deal004.actual_spend_native, status: deal004.actual_spend_native_status, unresolved: deal004.actual_spend_native_unresolved_scope } : null,
+        deal005Native: deal005 ? { rows: deal005.actual_spend_native, status: deal005.actual_spend_native_status, unresolved: deal005.actual_spend_native_unresolved_scope } : null,
+        deal006Native: deal006 ? { rows: deal006.actual_spend_native, status: deal006.actual_spend_native_status, unresolved: deal006.actual_spend_native_unresolved_scope } : null,
+        deal009Native: deal009 ? { rows: deal009.actual_spend_native, status: deal009.actual_spend_native_status, unresolved: deal009.actual_spend_native_unresolved_scope } : null,
+        topSpendText: topSpend?.textContent?.replace(/\s+/g, ' ').trim() || null,
+        deal004SpendText: dealSpendText('DEAL-2026-004'),
+        deal005SpendText: dealSpendText('DEAL-2026-005'),
+        deal006SpendText: dealSpendText('DEAL-2026-006'),
+        deal009SpendText: dealSpendText('DEAL-2026-009'),
       };
     });
     proof.ratio = proof.page?.width ? proof.host?.width / proof.page.width : 0;
     evidence.proofs.push(proof);
     persist();
-    console.log('FRAME_PROOF=' + JSON.stringify(proof));
+    console.log('FRAME_SPEND_PROOF=' + JSON.stringify(proof));
 
     assert(proof.title === 'Платежи', `TITLE_CHANGED_${proof.title}`);
     assert(proof.host && proof.root && proof.titleFrame, 'FRAME_ELEMENTS_MISSING');
-    assert(proof.dealCount > 0, 'NO_DEALS');
+    assert(proof.dealCount === 4, `DEAL_COUNT_${proof.dealCount}`);
     assert(proof.boardCols === 1, `DEAL_BOARD_NOT_SINGLE_COLUMN_${proof.boardCols}`);
     assert(!proof.horizontalOverflow, 'HORIZONTAL_OVERFLOW');
     assert(Math.abs(proof.host.width - proof.root.width) <= 2, `HOST_ROOT_WIDTH_MISMATCH_${proof.host.width}_${proof.root.width}`);
     assert(Math.abs(proof.titleFrame.width - proof.root.width) <= 2, `TITLE_BODY_WIDTH_MISMATCH_${proof.titleFrame.width}_${proof.root.width}`);
     if (width > 760) assert(proof.ratio >= 0.73 && proof.ratio <= 0.77, `DESKTOP_RATIO_${proof.ratio}`);
     else assert(proof.ratio >= 0.98 && proof.ratio <= 1.01, `MOBILE_RATIO_${proof.ratio}`);
+
+    assert(proof.nativeSummary?.source === 'OWNER_OUTGOING_PAYMENT_FACTS', 'NATIVE_SPEND_SOURCE_MISSING');
+    assert(proof.nativeSummary?.no_synthetic_fx === true, 'NATIVE_SPEND_SYNTHETIC_FX_GUARD_MISSING');
+    assert(proof.nativeSummary?.no_proportional_split === true, 'NATIVE_SPEND_SPLIT_GUARD_MISSING');
+    const totals = rowMap(proof.nativeSummary?.totals);
+    const unresolved = rowMap(proof.nativeSummary?.unresolved_scope_totals);
+    assert(Math.abs((totals.RUB ?? NaN) - 14389568.9) < 0.001, `RUB_SPEND_${totals.RUB}`);
+    assert(Math.abs((totals.KZT ?? NaN) - 25464800) < 0.001, `KZT_SPEND_${totals.KZT}`);
+    assert(Math.abs((unresolved.RUB ?? NaN) - 16539960) < 0.001, `UNRESOLVED_RUB_${unresolved.RUB}`);
+
+    const d4 = rowMap(proof.deal004Native?.rows);
+    assert(proof.deal004Native?.status === 'AUTHORITATIVE', `D004_STATUS_${proof.deal004Native?.status}`);
+    assert(Math.abs((d4.RUB ?? NaN) - 14389568.9) < 0.001 && Math.abs((d4.KZT ?? NaN) - 25464800) < 0.001, 'D004_NATIVE_TOTALS');
+    assert(proof.deal005Native?.status === 'TO_VERIFY', `D005_STATUS_${proof.deal005Native?.status}`);
+    assert(proof.deal006Native?.status === 'TO_VERIFY', `D006_STATUS_${proof.deal006Native?.status}`);
+    assert(Math.abs((rowMap(proof.deal005Native?.unresolved).RUB ?? NaN) - 16539960) < 0.001, 'D005_UNRESOLVED');
+    assert(Math.abs((rowMap(proof.deal006Native?.unresolved).RUB ?? NaN) - 16539960) < 0.001, 'D006_UNRESOLVED');
+    assert(proof.deal009Native?.status === 'AUTHORITATIVE', `D009_STATUS_${proof.deal009Native?.status}`);
+    assert(Math.abs((rowMap(proof.deal009Native?.rows).RUB ?? NaN) - 0) < 0.001, 'D009_ZERO_SPEND');
+
+    assert(proof.topSpendText?.includes('14') && proof.topSpendText?.includes('RUB') && proof.topSpendText?.includes('KZT'), `TOP_SPEND_DOM_${proof.topSpendText}`);
+    assert(proof.deal004SpendText?.includes('RUB') && proof.deal004SpendText?.includes('KZT'), `D004_DOM_${proof.deal004SpendText}`);
+    assert(proof.deal005SpendText?.includes('16') && proof.deal005SpendText?.includes('RUB'), `D005_DOM_${proof.deal005SpendText}`);
+    assert(proof.deal006SpendText?.includes('16') && proof.deal006SpendText?.includes('RUB'), `D006_DOM_${proof.deal006SpendText}`);
+    assert(proof.deal009SpendText?.includes('0') && proof.deal009SpendText?.includes('RUB'), `D009_DOM_${proof.deal009SpendText}`);
     return proof;
   } finally {
     await context.close();
@@ -127,12 +168,12 @@ try {
   await measure(browser, issued.session.access_token, 600, 1100);
   evidence.ok = true;
   persist();
-  console.log('ADMIN_PAYMENTS_V7_FRAME_PRODUCTION_ACCEPTANCE=PASS');
+  console.log('ADMIN_PAYMENTS_V7_NATIVE_SPEND_PRODUCTION_ACCEPTANCE=PASS');
   console.log(JSON.stringify(evidence));
 } catch (error) {
   evidence.error = String(error?.message || error);
   persist();
-  console.error('ADMIN_PAYMENTS_V7_FRAME_PRODUCTION_ACCEPTANCE=FAIL', evidence.error);
+  console.error('ADMIN_PAYMENTS_V7_NATIVE_SPEND_PRODUCTION_ACCEPTANCE=FAIL', evidence.error);
   throw error;
 } finally {
   if (browser) await browser.close().catch(() => {});
