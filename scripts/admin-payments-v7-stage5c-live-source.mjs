@@ -2,16 +2,16 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-export const LIVE_ADMIN_SOURCE_COMMIT = '86133bfa66f044944434aeb0baed07af5d84621e';
+export const LIVE_ADMIN_SOURCE_COMMIT = '736a535fe245decdf79de06d32940c2cb17370aa';
 export const LIVE_ADMIN_ENTRYPOINT = 'assets/portal-admin-shell-fast-v1.js';
 export const LIVE_PAYMENTS_RENDERER = 'functions/portal/owner-ui-chunks/chunk3.js::renderPayments';
 export const LIVE_OWNER_API = 'functions/portal/owner-api.js';
 export const STAGE5C_ROUTE_OWNER = 'admin-payments-v7-native';
 export const LIVE_BLOBS = Object.freeze({
   [LIVE_ADMIN_ENTRYPOINT]: '995c4b51db010fea9f1a8ee047db386d4cd94f9d',
-  'functions/portal/admin-main-ui-current.js': '11f5da8ad96272a69f882a2ff66fdf0a1f5d8d1c',
+  'functions/portal/admin-main-ui-current.js': 'dd815f6cf7bfa2a68bfb2650398b89e7faab02e5',
   'functions/portal/owner-ui-chunks/chunk3.js': '653f7dbec0d19aee55274567aee9dd03a8a88f05',
-  [LIVE_OWNER_API]: '751252a1b006e817c3f822e142ea90e15e6ea65a',
+  [LIVE_OWNER_API]: 'c6bedf94f2eb1ef7b40e348af565e389946b64ca',
 });
 
 export const PAYMENTS_V7_BROWSER_RUNTIME = String.raw`
@@ -58,17 +58,14 @@ function patchPaymentsV7(script){
 
 export function patchLiveAdminMainUiSource(source) {
   const sourceMarker = 'const SCRIPT=';
-  const exportMarker = '\
-\
-export async function onRequest';
+  const exportMarker = '\n\nexport async function onRequest';
   const a = source.indexOf(sourceMarker);
   const b = source.indexOf(exportMarker, a);
   if (a < 0 || b < 0) throw new Error('STAGE5C_MAIN_UI_SOURCE_MISMATCH');
   const statement = source.slice(a, b).trim();
   if (!statement.endsWith(';')) throw new Error('STAGE5C_MAIN_UI_SCRIPT_STATEMENT_MISMATCH');
   const rhs = statement.slice(sourceMarker.length, -1);
-  const patchedStatement = `${PATCH_FN}\
-const SCRIPT=patchPaymentsV7(${rhs});`;
+  const patchedStatement = `${PATCH_FN}\nconst SCRIPT=patchPaymentsV7(${rhs});`;
   let out = source.slice(0, a) + patchedStatement + source.slice(b);
   out = out.replace("'x-rona-payments-ui':'finance-current-v2'", "'x-rona-payments-ui':'admin-payments-v7-native'")
     .replace("'x-rona-payments-handoff':'canonical-finance-v3'", "'x-rona-payments-handoff':'payments-v7-projection'");
@@ -79,8 +76,10 @@ const SCRIPT=patchPaymentsV7(${rhs});`;
 export function patchLiveOwnerApiSource(source) {
   const oldRoute = "function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}";
   const newRoute = "function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/admin/payments-v7/owner-decision')return`${AI_SYNC_UPSTREAM}/admin/payments-v7/owner-decision`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}";
-  if (!source.includes(oldRoute)) throw new Error('STAGE5C_OWNER_API_SOURCE_MISMATCH');
-  const out = source.replace(oldRoute, newRoute);
+  let out = source;
+  if (source.includes(newRoute)) out = source;
+  else if (source.includes(oldRoute)) out = source.replace(oldRoute, newRoute);
+  else throw new Error('STAGE5C_OWNER_API_SOURCE_MISMATCH');
   if (out.includes("PROD_RPC_UPSTREAM+'/persist_owner_payment_decision_v7'")) throw new Error('STAGE5C_DIRECT_BROWSER_RPC_FORBIDDEN');
   return out;
 }
