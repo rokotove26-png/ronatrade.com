@@ -26,6 +26,8 @@ const RAW=[
 
 const DEALS_SHELL="function isolateDealsShell(p){if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\"deals\"]',p)||q(':scope > .rona-owner-page-content',p);for(const child of Array.from(p.children)){if(child===host)continue;child.classList.add('rona-owner-original-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}if(host){host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display')}return host}function renderDealsCurrentShell(){const p=page('deals');if(!p)return;const ready=window.__RONA_DEALS_CURRENT_STATE__||document.documentElement.classList.contains('rona-deals-current-ready');if(!ready&&!q(':scope > .rona-owner-page-content[data-owner-page=\"deals\"]',p))replacePage('deals',card('Сделки',e('div',{class:'rona-owner-muted',text:'Загрузка актуальных данных…'})));isolateDealsShell(p)}\n";
 
+const PRICES_SHELL="function isolatePricesCurrentShell(p){if(!p)return null;const host=q(':scope > #rona-prices-current',p);for(const child of Array.from(p.children)){if(child===host){child.classList.remove('rona-owner-original-hidden','rona-prices-legacy-hidden');child.removeAttribute('aria-hidden');child.style.removeProperty('display')}else{child.classList.add('rona-owner-original-hidden','rona-prices-legacy-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}}return host}function ensurePricesCurrentRuntime(){const p=page('prices');if(!p)return null;let host=isolatePricesCurrentShell(p);if(host)return host;const existing=q('script[data-rona-prices-current-loader]');if(existing&&existing.dataset.ronaPricesSingleOwner==='1')return null;if(existing)existing.remove();window.__RONA_PRICES_CURRENT_UI__=null;window.__RONA_PRICES_STRUCTURE__=null;q('#ronaPricesCurrentStyle')?.remove();const s=document.createElement('script');s.src='/portal/prices-current-ui?v=20260914-single-owner-v1';s.defer=true;s.dataset.ronaPricesCurrentLoader='single-owner-v1';s.dataset.ronaPricesSingleOwner='1';s.onload=()=>{const live=page('prices');if(live)isolatePricesCurrentShell(live)};s.onerror=()=>{window.__RONA_PRICES_CURRENT_LOADER_ERROR__='SINGLE_OWNER_LOAD_FAILED'};document.body.appendChild(s);return null}function renderPricesCurrentShell(){const p=page('prices');if(!p)return;const host=ensurePricesCurrentRuntime();if(host){isolatePricesCurrentShell(p);return}for(const child of Array.from(p.children)){child.classList.add('rona-owner-original-hidden','rona-prices-legacy-hidden');child.setAttribute('aria-hidden','true');child.style.setProperty('display','none','important')}}\n";
+
 function patchPayments(script){
   const replacements=[
     [
@@ -86,9 +88,10 @@ function patchPayments(script){
 }
 
 const SCRIPT=patchAdminOperationsCommandCenterV4(patchPayments(RAW
-  .replace('function renderOwnedAdminPage(id){',DEALS_SHELL+'function renderOwnedAdminPage(id){')
+  .replace('function renderOwnedAdminPage(id){',DEALS_SHELL+PRICES_SHELL+'function renderOwnedAdminPage(id){')
+  .replace('prices:renderPrices,','prices:renderPricesCurrentShell,')
   .replace('deals:renderDeals,','deals:renderDealsCurrentShell,')
-  .replace('renderAdminHome();renderPrices();renderApplications();renderDeals();renderDocuments();','renderAdminHome();renderPrices();renderApplications();renderDealsCurrentShell();renderDocuments();')));
+  .replace('renderAdminHome();renderPrices();renderApplications();renderDeals();renderDocuments();','renderAdminHome();renderPricesCurrentShell();renderApplications();renderDealsCurrentShell();renderDocuments();')));
 
 export async function onRequest(){
   return new Response(SCRIPT,{status:200,headers:{
@@ -101,6 +104,7 @@ export async function onRequest(){
     'x-rona-ui-build':BUILD,
     'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION,
     'x-rona-deals-owner':'current-only-v1.5',
+    'x-rona-prices-owner':'current-only-single-owner-v1',
     'x-rona-payments-ui':'finance-current-v2',
     'x-rona-payments-handoff':'canonical-finance-v3'
   }});
