@@ -27,7 +27,10 @@ function applyPaymentsFrame(){
   if(payments){
     for(const [k,v] of [['width','100%'],['max-width','100%'],['min-width','0'],['margin-left','0'],['margin-right','0'],['box-sizing','border-box']])payments.style.setProperty(k,v,'important');
     const board=payments.querySelector('.rona-payments-v7-board');
-    if(board)board.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+    if(board){
+      board.style.setProperty('grid-template-columns','minmax(0,1fr)','important');
+      board.style.setProperty('margin-top',mobile?'12px':'18px','important');
+    }
     for(const label of payments.querySelectorAll('.rona-payments-v7-kpi-label,.rona-payments-v7-deal-cell>span')){
       if(String(label.textContent||'').trim()==='К получению')label.textContent='Сумма по сделке';
     }
