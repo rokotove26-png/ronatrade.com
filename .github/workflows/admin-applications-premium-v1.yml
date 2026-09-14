@@ -1,0 +1,26 @@
+name: Admin Applications premium visual QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/main-ui/admin-applications-premium-v1.js'
+      - 'functions/portal/main-ui/application-passport-runtime.js'
+      - 'functions/portal/main-ui/application-passport-runtime-base.js'
+      - 'scripts/qa-admin-applications-premium-v1.mjs'
+      - '.github/workflows/admin-applications-premium-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  applications-premium-source-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Applications visual-only scope and preserved actions
+        run: node scripts/qa-admin-applications-premium-v1.mjs
