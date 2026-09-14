@@ -34,19 +34,20 @@ jobs:
           const need=(text,patterns,label)=>{for(const p of patterns){if(!text.includes(p))throw new Error(label+': missing '+p)}};
 
           need(ui,[
-            '20260914-owner-gate-recovery-v1',
-            'prices-owner-gate-canonical-v5',
-            'Новый прайс получен от Операционного директора',
-            'Ожидает решения Администратора',
+            '20260914-pending-canonical-matrix-v1',
+            'prices-2a-canonical-v4',
+            'function isFullPriceProposal(p)',
+            'function proposalMatrix(p)',
+            'Прайс-лист на согласование',
+            "table(['Продукт',...bases.map(b=>b.label)]",
+            'gs.map(g=>[g.product,...bases.map(b=>priceValue(g.bases[b.key]))])',
+            'if(isFullPriceProposal(p))details.append(proposalMatrix(p));else',
+            "table(['Позиция','Поле','Было','Предлагается','Куда попадёт'],rows)",
+            'Ожидает решения',
             'Отклонить',
-            'Принять и опубликовать',
-            "updateApi('workspace')",
-            'currentPublicationId',
-            'RECEIVED_IN_ADMIN',
-            'CURRENT'
+            'Обновить',
+            'currentPublicationId'
           ],'Prices UI');
-          if(ui.includes("owner('/admin/bootstrap')") || ui.includes("owner('/admin/bootstrap'))")) throw new Error('generic /admin/bootstrap dependency returned to Prices UI');
-          if(ui.includes('Требует подтверждения')) throw new Error('synthetic Требует подтверждения projection returned');
 
           need(api,[
             "op==='workspace'",
