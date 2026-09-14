@@ -9,8 +9,8 @@ const LEGACY_BOOT_SEQUENCE='renderPayments();renderCash();renderRail();';
 const CASH_R2_BOOT_SEQUENCE='renderPayments();ensureCashR2Host();renderRail();';
 const OWNED_PAGE_MARKER='function renderOwnedAdminPage(id){';
 const CASH_R2_HOST_FUNCTION="function ensureCashR2Host(){const p=page('accounting');if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"accounting\\\"]',p)||q(':scope > .rona-owner-page-content',p);if(!host){for(const child of Array.from(p.children))child.classList.add('rona-owner-original-hidden');host=e('div',{class:'rona-owner-page-content','data-owner-page':'accounting','data-rona-cash-host':'r2'});p.append(host)}host.dataset.ronaCashHost='r2';host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');return host}\n";
-const RADIO_VISUAL_VERSION='20260915-space-center-v2-direct';
-const RADIO_VISUAL_LOADER="\n;(()=>{try{if(window.__RONA_ADMIN_RADIO_ICC_V2__||document.getElementById('rona-admin-radio-icc-v2-direct'))return;const s=document.createElement('script');s.id='rona-admin-radio-icc-v2-direct';s.src='/assets/portal-admin-radio-icc-v1.js?v="+RADIO_VISUAL_VERSION+"';s.async=false;s.dataset.ronaVisualOnly='radio-space-center-v2';document.body.appendChild(s)}catch(_e){}})();\n";
+const RADIO_VISUAL_VERSION='20260915-mission-control-v3';
+const RADIO_VISUAL_LOADER="\n;(()=>{try{if(window.__RONA_ADMIN_RADIO_MISSION_CONTROL_V3__||document.getElementById('rona-admin-radio-mission-control-v3'))return;const s=document.createElement('script');s.id='rona-admin-radio-mission-control-v3';s.src='/assets/portal-admin-radio-space-center-v3.js?v="+RADIO_VISUAL_VERSION+"';s.async=false;s.dataset.ronaVisualOnly='radio-mission-control-v3';document.body.appendChild(s)}catch(_e){}})();\n";
 
 function patchCashSingleOwner(source){
   let script=String(source||'');
@@ -56,7 +56,7 @@ export async function onRequest(context){
   headers.set('x-rona-cash-legacy-owner','disabled');
   headers.set('x-rona-cash-single-owner','enforced');
   headers.set('x-rona-cash-host','r2-owned-shell');
-  headers.set('x-rona-radio-visual','space-center-v2-direct');
+  headers.set('x-rona-radio-visual','mission-control-v3');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
