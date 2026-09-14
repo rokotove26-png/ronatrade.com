@@ -29,6 +29,11 @@ assert.match(migration,/SYNTHETIC_FX_FORBIDDEN/);
 assert.match(migration,/persist_finance_event_v7\(v_persist_actor,v_event\)/);
 assert.equal((migration.match(/persist_finance_event_v7\(v_persist_actor,v_event\)/g)||[]).length,1,'materializer must have one canonical persistence call');
 
+assert.match(migration,/v_any_persist_invoked boolean:=false;/,'aggregate persistence flag must start false');
+assert.match(migration,/v_persist_invoked:=true;\s*v_any_persist_invoked:=true;\s*begin\s*v_result:=portal_private\.persist_finance_event_v7\(v_persist_actor,v_event\)/s,'aggregate flag must flip only on the actual persistence path');
+assert.match(migration,/'persist_invoked',v_any_persist_invoked/,'top-level observability must report the actual aggregate persistence flag');
+assert.doesNotMatch(migration,/'persist_invoked',\(v_materialized\+v_denied\+v_errors\)>0/,'denied/error counters must not masquerade as a persistence call');
+
 const forbiddenDirectDml=[
   /insert\s+into\s+portal_private\.payments\b/i,
   /update\s+portal_private\.payments\b/i,
@@ -75,6 +80,7 @@ assert.doesNotMatch(edge,/finance_event_submit/,'server materializer must not de
 assert.doesNotMatch(edge,/mcp_oauth_tokens/,'server materializer is an internal execution contour, not a ChatGPT OAuth surface');
 
 console.log('SERVER MATERIALIZER MANIFEST CONTENT BINDING PASS');
+console.log('AGGREGATE persist_invoked = ACTUAL CANONICAL PERSISTENCE PATH ONLY');
 console.log('CALLER BUSINESS PAYLOAD OVERRIDE: FORBIDDEN');
 console.log('ONLY persist_finance_event_v7 performs authoritative Payments writes');
 console.log('PROPOSAL/CONCLUSION SEMANTICS: READ-ONLY SOURCE LOCK');
