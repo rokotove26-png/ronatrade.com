@@ -71,6 +71,7 @@ declare
   v_result jsonb;
   v_persist_actor jsonb;
   v_persist_invoked boolean;
+  v_any_persist_invoked boolean:=false;
   v_outcome text;
   v_reason text;
   v_index integer:=0;
@@ -422,6 +423,7 @@ begin
 
     if v_reason is null then
       v_persist_invoked:=true;
+      v_any_persist_invoked:=true;
       begin
         v_result:=portal_private.persist_finance_event_v7(v_persist_actor,v_event);
         if coalesce((v_result->>'accepted')::boolean,false) then
@@ -477,7 +479,7 @@ begin
       'total',v_index,'materialized',v_materialized,'skipped',v_skipped,'denied',v_denied,'errors',v_errors
     ),
     'events',v_event_results,
-    'persist_invoked',(v_materialized+v_denied+v_errors)>0
+    'persist_invoked',v_any_persist_invoked
   );
 end
 $$;
