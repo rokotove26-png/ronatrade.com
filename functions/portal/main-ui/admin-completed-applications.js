@@ -1,28 +1,51 @@
 export function mergeAdminCompletedApplications(baseData,workflowData){
   const asArray=value=>Array.isArray(value)?value:[];
   const text=value=>String(value??'').trim();
+  const upper=value=>text(value).toUpperCase();
   const current=asArray(baseData?.applications);
   const existing=new Set(current.map(row=>text(row?.application_id)).filter(Boolean));
   const workflowApps=asArray(workflowData?.applications);
-  const deals=asArray(workflowData?.deals);
-  const dealByApplication=new Map(deals.map(row=>[text(row?.application_id),row]).filter(([id,row])=>id&&text(row?.deal_id)));
-  const additions=[];
+  const workflowByApplication=new Map(workflowApps.map(row=>[text(row?.application_id),row]).filter(([id])=>id));
+  const baseDeals=asArray(baseData?.deals);
+  const workflowDeals=asArray(workflowData?.deals);
+  const dealByApplication=new Map();
 
-  for(const workflow of workflowApps){
-    const applicationId=text(workflow?.application_id);
-    if(!applicationId||existing.has(applicationId))continue;
-    if(text(workflow?.owner_status).toUpperCase()!=='DEAL')continue;
-    const deal=dealByApplication.get(applicationId);
-    if(!deal)continue;
+  // The registered deal is itself durable evidence that a source application crossed
+  // into the deal lifecycle. Prefer workflow deal fields, but retain the base Admin
+  // deal as a fallback when one workflow projection is transiently incomplete.
+  for(const deal of [...baseDeals,...workflowDeals]){
+    const applicationId=text(deal?.application_id);
     const dealId=text(deal?.deal_id);
-    if(!dealId||text(workflow?.deal_id)!==dealId)continue;
+    if(!applicationId||!dealId)continue;
+    dealByApplication.set(applicationId,deal);
+  }
+
+  const additions=[];
+  for(const [applicationId,deal] of dealByApplication){
+    if(existing.has(applicationId))continue;
+    const dealId=text(deal?.deal_id);
+    if(!dealId)continue;
+
+    const workflow=workflowByApplication.get(applicationId)||null;
+    if(workflow){
+      // When the workflow application row is present it remains authoritative.
+      if(upper(workflow?.owner_status)!=='DEAL')continue;
+      const workflowDealId=text(workflow?.deal_id);
+      if(workflowDealId&&workflowDealId!==dealId)continue;
+    }else{
+      // Fallback is only for a registered, non-pending deal. This closes the
+      // read-projection gap without promoting applications still awaiting resource.
+      const dealStatus=upper(deal?.business_status??deal?.status);
+      if(dealStatus==='SUPPLIER_PENDING')continue;
+    }
+
     additions.push({
       application_id:applicationId,
       client_id:deal?.client_id??null,
-      legal_name:deal?.legal_name??null,
+      legal_name:deal?.legal_name??deal?.client_name??null,
       contract_id:deal?.contract_id??null,
       deal_id:dealId,
-      deal_status:deal?.business_status??null,
+      deal_status:deal?.business_status??deal?.status??null,
       product:deal?.source_product??deal?.product??null,
       quantity_tonnes:deal?.source_quantity_tonnes??deal?.quantity_tonnes??null,
       delivery_period_from:deal?.source_delivery_period_from??deal?.delivery_period_from??null,

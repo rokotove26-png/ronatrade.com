@@ -1,0 +1,43 @@
+name: Admin Applications projection stability readable v5
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/main-ui/admin-completed-applications.js'
+      - 'functions/portal/main-ui/admin-applications-readability-v5.js'
+      - 'functions/portal/main-ui/application-passport-runtime.js'
+      - 'scripts/qa-admin-applications-projection-stability-readable-v5.mjs'
+      - '.github/workflows/admin-applications-projection-stability-readable-v5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  applications-projection-stability-readable-v5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce Applications-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" | sort > /tmp/changed.txt
+          cat /tmp/changed.txt
+          while IFS= read -r path; do
+            case "$path" in
+              functions/portal/main-ui/admin-completed-applications.js|functions/portal/main-ui/admin-applications-readability-v5.js|functions/portal/main-ui/application-passport-runtime.js|scripts/qa-admin-applications-projection-stability-readable-v5.mjs|.github/workflows/admin-applications-projection-stability-readable-v5.yml) ;;
+              *) echo "OUT_OF_SCOPE: $path"; exit 1 ;;
+            esac
+          done < /tmp/changed.txt
+      - name: Prove stable six-row projection and 2x readability contract
+        run: node scripts/qa-admin-applications-projection-stability-readable-v5.mjs
