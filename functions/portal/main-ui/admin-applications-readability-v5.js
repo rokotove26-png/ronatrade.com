@@ -2,26 +2,57 @@ const ADMIN_APPLICATIONS_READABILITY_V5=String.raw`
 (()=>{'use strict';
 if(window.__RONA_ADMIN_APPLICATIONS_READABILITY_V5__)return;
 if(location.pathname!=='/portal/admin')return;
-window.__RONA_ADMIN_APPLICATIONS_READABILITY_V5__='20260914-v5';
+window.__RONA_ADMIN_APPLICATIONS_READABILITY_V5__='20260914-v6-balanced-color';
 const STYLE_ID='ronaAdminApplicationsReadabilityV5Style';
 function install(){
   if(document.getElementById(STYLE_ID))return;
   const s=document.createElement('style');
   s.id=STYLE_ID;
   s.textContent=[
-    /* Second block: exactly double the small operational typography while keeping its frame geometry. */
-    'html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*{font-size:20px!important;line-height:1!important;height:42px!important;min-height:42px!important;padding:0 8px!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button{font-size:20px!important;line-height:1!important;height:36px!important;min-height:36px!important;padding:0 14px!important}',
-    /* Last block: double table/status/action typography; outer queue frame dimensions/border/radius stay untouched. */
-    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table{font-size:22px!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table thead th{font-size:17px!important;line-height:1.05!important;padding:6px 10px!important;letter-spacing:.055em!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table tbody td{font-size:22px!important;line-height:1.08!important;padding:5px 10px!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-app-status-chip{font-size:17px!important;line-height:1.05!important;min-height:27px!important;padding:3px 8px!important;letter-spacing:.02em!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-actions button,html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 button[data-rona-app-passport-open]{font-size:19px!important;line-height:1!important;min-height:34px!important;padding:0 12px!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-app-price .rona-owner-muted{font-size:20px!important;line-height:1.08!important}',
+    /* Balanced operational typography. Outer frame geometry stays owned by the premium runtime. */
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*{font-size:13px!important;line-height:1.12!important;height:42px!important;min-height:42px!important;padding:0 10px!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*:nth-child(1){color:#c8f4ff!important;border-color:rgba(99,220,255,.28)!important;background:linear-gradient(180deg,rgba(31,118,157,.18),rgba(7,24,37,.82))!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*:nth-child(2){color:#ddd4ff!important;border-color:rgba(174,147,255,.26)!important;background:linear-gradient(180deg,rgba(106,78,190,.16),rgba(13,21,38,.82))!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*:nth-child(3){color:#ffe0a6!important;border-color:rgba(255,200,111,.27)!important;background:linear-gradient(180deg,rgba(174,116,33,.15),rgba(28,22,18,.82))!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*:nth-child(4){color:#c7f6e6!important;border-color:rgba(88,227,188,.27)!important;background:linear-gradient(180deg,rgba(36,143,110,.16),rgba(8,28,29,.82))!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button{font-size:12.5px!important;line-height:1!important;height:36px!important;min-height:36px!important;padding:0 13px!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(1){color:#bfeeff!important;background:rgba(46,165,218,.06)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(2){color:#d5cbff!important;background:rgba(120,91,211,.06)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(3){color:#ffd89b!important;background:rgba(199,128,31,.06)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(4){color:#bdf2df!important;background:rgba(38,160,114,.06)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(1).active,html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(1)[aria-pressed="true"]{background:linear-gradient(180deg,rgba(49,168,222,.27),rgba(25,106,149,.18))!important;box-shadow:inset 0 0 0 1px rgba(99,220,255,.36),0 7px 18px rgba(0,0,0,.14)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(2).active,html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(2)[aria-pressed="true"]{background:linear-gradient(180deg,rgba(123,92,214,.25),rgba(64,49,130,.17))!important;box-shadow:inset 0 0 0 1px rgba(181,154,255,.34),0 7px 18px rgba(0,0,0,.14)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(3).active,html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(3)[aria-pressed="true"]{background:linear-gradient(180deg,rgba(199,128,31,.27),rgba(113,70,22,.18))!important;box-shadow:inset 0 0 0 1px rgba(255,200,111,.36),0 7px 18px rgba(0,0,0,.14)!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(4).active,html.rona-applications-premium-pass3 #page-applications .rona-app-filter button:nth-child(4)[aria-pressed="true"]{background:linear-gradient(180deg,rgba(40,171,123,.26),rgba(24,102,80,.18))!important;box-shadow:inset 0 0 0 1px rgba(88,227,188,.36),0 7px 18px rgba(0,0,0,.14)!important}',
+    /* Queue typography is deliberately between the original compact pass and the rejected 2x pass. */
+    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table{font-size:13.5px!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table thead th{font-size:10.5px!important;line-height:1.15!important;padding:7px 10px!important;letter-spacing:.055em!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table tbody td{font-size:13.5px!important;line-height:1.22!important;padding:7px 10px!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-app-status-chip{font-size:10.5px!important;line-height:1.1!important;min-height:27px!important;padding:4px 8px!important;letter-spacing:.025em!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-actions button,html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 button[data-rona-app-passport-open]{font-size:11.5px!important;line-height:1!important;min-height:34px!important;padding:0 12px!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-app-price .rona-owner-muted{font-size:11.5px!important;line-height:1.15!important}',
+    /* Column color hierarchy: restrained accents, not rainbow fills. */
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(1){color:#78ddff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(2){color:#c9c2ff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(3){color:#9ddcff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(4){color:#ffd58b!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(5){color:#ffbd79!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(6){color:#9fdfff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(7){color:#8fe8c9!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(8){color:#bdaeff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table thead th:nth-child(9){color:#83e5ff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(1){color:#e6f9ff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(2){color:#eeeaff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(3){color:#d9f2ff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(4){color:#ffe1a6!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(5){color:#ffc985!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(6){color:#d1edff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody td:nth-child(8){color:#d8d0ff!important}',
+    'html.rona-applications-premium-pass3 #page-applications .rona-owner-table tbody tr:hover td{background:linear-gradient(180deg,rgba(13,35,53,.99),rgba(7,23,36,.99))!important}',
+    /* Company names stay readable in two lines instead of a single long ribbon. */
     'html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 td[data-app-col="client"]{white-space:normal!important;max-width:360px!important}',
-    'html.rona-applications-premium-pass3 #page-applications .rona-app-client-wrap-v5{display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;line-height:1.08!important;max-width:360px!important}',
-    '@media(max-width:900px){html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*{font-size:18px!important}html.rona-applications-premium-pass3 #page-applications .rona-app-filter button{font-size:18px!important}}'
+    'html.rona-applications-premium-pass3 #page-applications .rona-app-client-wrap-v5{display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important;overflow:hidden!important;white-space:normal!important;overflow-wrap:anywhere!important;word-break:normal!important;line-height:1.22!important;max-width:360px!important}',
+    '@media(max-width:900px){html.rona-applications-premium-pass3 #page-applications .rona-app-lifecycle-v3>*{font-size:12px!important}html.rona-applications-premium-pass3 #page-applications .rona-app-filter button{font-size:11.5px!important}html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table{font-size:12.5px!important}html.rona-applications-premium-pass3 #page-applications .rona-queue-card-v3 .rona-owner-table tbody td{font-size:12.5px!important}}'
   ].join('');
   document.head.appendChild(s);
 }
