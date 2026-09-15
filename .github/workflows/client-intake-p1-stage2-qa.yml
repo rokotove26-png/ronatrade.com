@@ -8,6 +8,7 @@ on:
       - 'supabase/functions/_shared/client-intake-v1/**'
       - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
       - 'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql'
+      - 'supabase/migrations/20260915123200_client_intake_correction_api_v1.sql'
       - 'tests/client-intake-v1/**'
       - 'scripts/check-client-intake-no-hardcode.mjs'
       - 'docs/client-intake-p1-stage2-*.md'
@@ -26,6 +27,8 @@ jobs:
           node-version: '22'
       - name: Global Client Intake regressions and recovery rehearsal
         run: node tests/client-intake-v1/client-intake.test.mjs
+      - name: Mandatory P1 regression completion
+        run: node tests/client-intake-v1/mandatory-regressions.test.mjs
       - name: Candidate migration architecture contract
         run: node tests/client-intake-v1/migration-contract.test.mjs
       - name: Global actionable submit-path matrix
