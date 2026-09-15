@@ -1,7 +1,7 @@
 const CSS=String.raw`
 html.rona-visual-v2 body #page-claims>.rona-claims-r2-root{
-  width:min(100%,1360px)!important;
-  max-width:1360px!important;
+  width:min(100%,1480px)!important;
+  max-width:1480px!important;
   margin:0 auto 34px!important;
   padding-left:0!important;
   padding-right:0!important;
@@ -324,7 +324,7 @@ html.rona-visual-v2 body #page-claims .rona-claims-divider{margin:5px 0!importan
 
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_CLAIMS_VISUAL_V510__)return;
-window.__RONA_CLAIMS_VISUAL_V510__='20260915-unified-workspace-v2';
+window.__RONA_CLAIMS_VISUAL_V510__='20260915-unified-workspace-v3';
 const q=(s,r=document)=>r.querySelector(s);
 function apply(){
   q('#ronaClaimsV455Style')?.remove();
@@ -334,7 +334,7 @@ function apply(){
   s.textContent=${JSON.stringify(CSS)};
   document.head.append(s);
   const root=q('#page-claims>.rona-claims-r2-root');
-  if(root)root.dataset.claimsVisual='unified-workspace-v2';
+  if(root)root.dataset.claimsVisual='unified-workspace-v3';
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
 window.addEventListener('rona:admin-pagechange',e=>{if(e.detail?.page==='claims')setTimeout(apply,50)});
@@ -345,5 +345,5 @@ export async function onRequest(){return new Response(SCRIPT,{status:200,headers
   'content-type':'application/javascript; charset=utf-8',
   'cache-control':'no-store',
   'x-content-type-options':'nosniff',
-  'x-rona-claims-visual':'approved-v5.1.1'
+  'x-rona-claims-visual':'approved-v5.1.2'
 }})}
