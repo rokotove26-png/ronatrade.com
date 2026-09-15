@@ -1,11 +1,12 @@
-name: P1 Client Intake Stage 2 QA
+name: P1 Client Intake Stage 2.1 QA
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'supabase/functions/_shared/client-intake-v1/**'
+      - 'supabase/functions/rona-portal-api/stage21-bootstrap.ts'
+      - 'supabase/functions/rona-portal-api/deno.json'
       - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
       - 'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql'
       - 'supabase/migrations/20260915123200_client_intake_correction_api_v1.sql'
@@ -18,7 +19,8 @@ permissions:
   contents: read
 
 jobs:
-  client-intake-stage2:
+  p1-client-intake-regressions:
+    name: P1 Client Intake regressions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,9 +31,48 @@ jobs:
         run: node tests/client-intake-v1/client-intake.test.mjs
       - name: Mandatory P1 regression completion
         run: node tests/client-intake-v1/mandatory-regressions.test.mjs
-      - name: Candidate migration architecture contract
+      - name: Candidate migration and real-LK contract
         run: node tests/client-intake-v1/migration-contract.test.mjs
       - name: Global actionable submit-path matrix
         run: node tests/client-intake-v1/submit-path-audit.test.mjs
       - name: No incident hardcode / no expected-value injection
         run: node scripts/check-client-intake-no-hardcode.mjs
+
+  postgres17-integration:
+    name: PostgreSQL 17 migration + integration QA
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply production-shape disposable baseline
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/baseline.sql
+      - name: Apply candidate migrations to PostgreSQL 17
+        run: |
+          set -euo pipefail
+          for migration in \
+            supabase/migrations/20260915123000_client_intake_unified_v1.sql \
+            supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql \
+            supabase/migrations/20260915123200_client_intake_correction_api_v1.sql
+          do
+            docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
+              psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          echo 'REAL_POSTGRES_MIGRATION_APPLY=PASS'
+      - name: Execute real INSERT RPC projection recovery rehearsal
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/integration.sql
