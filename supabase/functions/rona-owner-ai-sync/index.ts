@@ -2,6 +2,7 @@
 import postgres from 'postgres';
 import { createAdminPaymentsV7TruthSourceReader } from './admin-payments-v7-source-reader-truth.mjs';
 import { createRonaOwnerAiSyncV7Handler } from './admin-payments-v7-integration.mjs';
+import { createPaymentPassportLinesReader } from './payment-passport-lines.mjs';
 
 const nativeServe = Deno.serve.bind(Deno);
 const DB = Deno.env.get('SUPABASE_DB_URL');
@@ -47,9 +48,11 @@ async function persistOwnerDecision({ envelope }) {
 }
 
 const readRawSources = createAdminPaymentsV7TruthSourceReader(v7Sql);
+const readPaymentPassportLines = createPaymentPassportLinesReader(v7Sql);
 nativeServe(createRonaOwnerAiSyncV7Handler({
   runtimeHandler,
   readRawSources,
+  readPaymentPassportLines,
   persistOwnerDecision,
   logger: console,
 }));

@@ -153,12 +153,14 @@ async function handleOwnerDecision(req, options) {
 export function createRonaOwnerAiSyncV7Handler(options) {
   const runtimeHandler = options?.runtimeHandler;
   const readRawSources = options?.readRawSources;
+  const readPaymentPassportLines = options?.readPaymentPassportLines;
   const buildProjection = options?.buildProjection || buildAdminPaymentsV7FromRawSources;
   const buildSourceBundle = options?.buildSourceBundle || createAdminPaymentsV7SourceBundle;
   const persistOwnerDecision = options?.persistOwnerDecision;
   const logger = options?.logger || console;
   if (typeof runtimeHandler !== 'function') throw new TypeError('AI_SYNC_RUNTIME_HANDLER_REQUIRED');
   if (typeof readRawSources !== 'function') throw new TypeError('ADMIN_PAYMENTS_V7_SOURCE_READER_REQUIRED');
+  if (readPaymentPassportLines !== undefined && typeof readPaymentPassportLines !== 'function') throw new TypeError('PAYMENT_PASSPORT_LINES_READER_INVALID');
   if (typeof buildProjection !== 'function') throw new TypeError('ADMIN_PAYMENTS_V7_PROJECTION_BUILDER_REQUIRED');
   if (typeof buildSourceBundle !== 'function') throw new TypeError('ADMIN_PAYMENTS_V7_SOURCE_BUNDLE_BUILDER_REQUIRED');
 
@@ -193,10 +195,23 @@ export function createRonaOwnerAiSyncV7Handler(options) {
     if (!projection || projection.contract !== 'ADMIN_PAYMENTS_V7') return jsonError(502, 'ADMIN_PAYMENTS_V7_PROJECTION_INVALID');
     payload.data.paymentsV7Projection = projection;
 
+    let paymentPassportLines = [];
+    if (typeof readPaymentPassportLines === 'function') {
+      try {
+        const readyLines = await readPaymentPassportLines();
+        if (Array.isArray(readyLines)) paymentPassportLines = readyLines;
+        else logger.error?.('payment passport lines reader returned non-array payload');
+      } catch (error) {
+        logger.error?.('payment passport lines read failed', error);
+      }
+    }
+    payload.data.paymentPassportLines = paymentPassportLines;
+
     const headers = new Headers(response.headers);
     headers.set('content-type', 'application/json; charset=utf-8');
     headers.set('cache-control', 'no-store');
     headers.set('x-rona-owner-payments-semantics', 'ADMIN_PAYMENTS_V7');
+    headers.set('x-rona-payment-passport-lines', 'READ_ONLY_CURRENT_FINANCE_RESOURCE_CHAIN');
     headers.set('x-rona-payments-upstream-lifecycle', 'READ_ONLY_EXISTING_HANDOFF');
     headers.delete('content-length');
     return new Response(JSON.stringify(payload), { status: response.status, statusText: response.statusText, headers });
