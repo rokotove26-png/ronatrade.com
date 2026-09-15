@@ -1,0 +1,31 @@
+name: P1 Client Intake Stage 2 QA
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/_shared/client-intake-v1/**'
+      - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
+      - 'tests/client-intake-v1/**'
+      - 'scripts/check-client-intake-no-hardcode.mjs'
+      - 'docs/client-intake-p1-stage2-*.md'
+      - '.github/workflows/client-intake-p1-stage2-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  client-intake-stage2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Global Client Intake regressions and recovery rehearsal
+        run: node tests/client-intake-v1/client-intake.test.mjs
+      - name: Candidate migration architecture contract
+        run: node tests/client-intake-v1/migration-contract.test.mjs
+      - name: No incident hardcode / no expected-value injection
+        run: node scripts/check-client-intake-no-hardcode.mjs
