@@ -5,10 +5,12 @@ const runtimeFiles=[
   'functions/portal/main-ui/payments-v7-final-display-contract.js',
   'functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js',
   'functions/portal/main-ui/payments-v7-passport-recovery-ui.js',
+  'functions/portal/main-ui/payments-v7-passport-activation-fix.js',
 ];
 const source=runtimeFiles.map(file=>fs.readFileSync(file,'utf8')).join('\n');
 const aggregateUi=fs.readFileSync('functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js','utf8');
 const recoveryUi=fs.readFileSync('functions/portal/main-ui/payments-v7-passport-recovery-ui.js','utf8');
+const activationUi=fs.readFileSync('functions/portal/main-ui/payments-v7-passport-activation-fix.js','utf8');
 const applicationRuntime=fs.readFileSync('functions/portal/main-ui/application-passport-runtime.js','utf8');
 const failures=[];
 
@@ -29,7 +31,7 @@ const forbiddenKnownAmounts=[
 ];
 for(const amount of forbiddenKnownAmounts)if(source.includes(amount))failures.push(`EXPECTED_VALUE_INJECTION:${amount}`);
 
-// The main Payments board remains server-aggregate-only and is not replaced by the passport recovery.
+// The main Payments board remains server-aggregate-only and is not replaced by the passport recovery/activation path.
 if(aggregateUi.includes('paymentsV7Aggregate('))failures.push('BROWSER_AGGREGATE_REUSE_FORBIDDEN');
 if(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateUi))failures.push('GLOBAL_TO_VERIFY_SPEND_GATE_FORBIDDEN');
 for(const required of ['currency_aggregates','funding_aggregate','completeness_status','unresolved_deal_ids']){
@@ -37,7 +39,7 @@ for(const required of ['currency_aggregates','funding_aggregate','completeness_s
 }
 if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
 
-// Recovery is a last-mile passport renderer only. It must supersede the old provenance wrapper without touching renderPayments.
+// Recovery keeps the approved Passport presentation; activation only routes the live click to that renderer.
 if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_RECOVERY_UI_V1'))failures.push('PASSPORT_RECOVERY_MARKER_MISSING');
 if(!recoveryUi.includes('paymentsV7OwnerPassportBody=function paymentsV7OwnerPassportBodyRecovered'))failures.push('PASSPORT_RECOVERY_BODY_MISSING');
 if(recoveryUi.includes('renderPayments=function')||recoveryUi.includes('function renderPayments'))failures.push('MAIN_PAYMENTS_BOARD_MUTATION_FORBIDDEN');
@@ -46,7 +48,22 @@ if(!recoveryUi.includes("e('summary',{text:'Технические основа�
 const techIndex=recoveryUi.indexOf('function paymentsV7PassportTechnical');
 if(techIndex<0)failures.push('PASSPORT_TECHNICAL_BLOCK_MISSING');
 else if(recoveryUi.slice(0,techIndex).includes('authority_refs'))failures.push('AUTHORITY_REFS_OUTSIDE_TECHNICAL_BLOCK');
-if(!applicationRuntime.includes('paymentsV7AuthoritativeAggregateUi + paymentsV7PassportRecoveryUi'))failures.push('PASSPORT_RECOVERY_NOT_COMPOSED_LAST');
+
+if(!activationUi.includes('PAYMENTS_V7_PASSPORT_SCOPE_BRIDGE_V1'))failures.push('PASSPORT_SCOPE_BRIDGE_MARKER_MISSING');
+if(!activationUi.includes('PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION_V1'))failures.push('PASSPORT_ACTIVATION_MARKER_MISSING');
+if(!activationUi.includes('window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection'))failures.push('CURRENT_PROJECTION_LOOKUP_MISSING');
+if(!activationUi.includes('paymentsV7OwnerPassport(deal)'))failures.push('PAYMENT_PASSPORT_RESOLUTION_MISSING');
+if(!activationUi.includes("renderer.name!=='paymentsV7OwnerPassportBodyRecovered'"))failures.push('RECOVERED_RENDERER_GUARD_MISSING');
+if(!activationUi.includes(".rona-payments-v7-passport > summary"))failures.push('PASSPORT_CLICK_ACTIVATION_MISSING');
+if(activationUi.includes('renderPayments=function')||activationUi.includes('function renderPayments'))failures.push('ACTIVATION_MUTATES_MAIN_PAYMENTS_BOARD');
+
+const preludeCompose=applicationRuntime.indexOf('+ paymentsV7PassportActivationPrelude');
+const ownerCompose=applicationRuntime.indexOf('+ paymentsV7OwnerPassportUi');
+const recoveryCompose=applicationRuntime.indexOf('+ paymentsV7PassportRecoveryUi');
+const activationCompose=applicationRuntime.indexOf('+ paymentsV7PassportActivationRuntime');
+if(preludeCompose<0||ownerCompose<0||recoveryCompose<0||activationCompose<0||!(preludeCompose<ownerCompose&&ownerCompose<recoveryCompose&&recoveryCompose<activationCompose)){
+  failures.push('PASSPORT_ACTIVATION_COMPOSITION_ORDER_INVALID');
+}
 
 // Display formatting and branch selection are allowed. Financial derivation in the browser is not.
 const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|expected_not_due|total_to_receive|verified_received|future_conditional)';
@@ -103,7 +120,8 @@ console.log(`REVERSE_FX_PRIMARY_COUNT=${reverseFxPrimaryCount}`);
 console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCount}`);
 console.log('SERVER_AGGREGATE_ONLY=PASS');
 console.log('MAIN_PAYMENTS_BOARD_UNCHANGED=PASS');
-console.log('PASSPORT_RECOVERY_COMPOSED_LAST=PASS');
+console.log('PASSPORT_RECOVERY_ACTIVATION_ORDER=PASS');
+console.log('PASSPORT_CLICK_TO_RECOVERED_RENDERER=PASS');
 console.log('RAW_PROVENANCE_PRIMARY_UI=ABSENT');
 console.log('GLOBAL_TO_VERIFY_SPEND_GATE_REMOVED=PASS');
 console.log('TO_VERIFY_PRESERVED=PASS');
