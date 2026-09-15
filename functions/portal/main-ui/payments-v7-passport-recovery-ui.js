@@ -23,15 +23,16 @@ function paymentsV7PassportFundingSplit(row){
 
 function paymentsV7PassportSettlementRow(row,linkState='LINKED'){
   const status=paymentsV7Upper(row?.status)||'TO_VERIFY';
-  const wrap=e('div',{class:'rona-payments-v7-owner-settlement-row'+(linkState==='UNLINKED'?' is-unlinked':'')});
+  const fee=paymentsV7Upper(row?.row_type)==='COMMISSION';
+  const wrap=e('div',{class:'rona-payments-v7-owner-settlement-row'+(fee?' is-fee':'')+(linkState==='UNLINKED'?' is-unlinked':'')});
   wrap.append(
     paymentsV7OwnerField('Получатель',paymentsV7Text(row?.recipient)||'Не указан'),
     paymentsV7OwnerField('Дата',paymentsV7OwnerDate(row?.payment_at)),
-    paymentsV7OwnerField('Фактическая оплата',paymentsV7OwnerRawMoney(row?.amount,row?.currency,status,row?.reason)),
+    paymentsV7OwnerField(fee?'Комиссия':'Фактическая оплата',paymentsV7OwnerRawMoney(row?.amount,row?.currency,status,row?.reason)),
     paymentsV7OwnerField('Назначение',paymentsV7Text(row?.purpose)||'Не указано',{wide:true}),
     paymentsV7OwnerField('Банковский документ',paymentsV7Text(row?.bank_document)||'Не указан')
   );
-  const split=paymentsV7PassportFundingSplit(row);
+  const split=fee?null:paymentsV7PassportFundingSplit(row);
   if(split)wrap.append(paymentsV7OwnerField('Authoritative funding split',split));
   if(linkState==='UNLINKED')wrap.append(e('div',{class:'rona-payments-v7-owner-link-note',text:'Факт оплаты показан отдельно; связь с конкретной funding-side операцией требует подтверждения.'}));
   return wrap;
