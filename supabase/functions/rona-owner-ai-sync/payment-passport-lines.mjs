@@ -2,29 +2,52 @@ export const PAYMENT_PASSPORT_LINES_CONTRACT = 'ADMIN_PAYMENTS_V7_PAYMENT_PASSPO
 export const PAYMENT_PASSPORT_LINES_READ_ROLE = 'rona_payments_v7_reader';
 export const PAYMENT_PASSPORT_LINES_SNAPSHOT_OPTIONS = 'isolation level repeatable read read only';
 
+const HUMAN_REASON = Object.freeze({
+  EXACT_RESOURCE_CHAIN_MISSING: 'Нет подтверждённого фактического пересчёта в валюту сделки',
+  RESOURCE_CHAIN_AUTHORITY_CONFLICT: 'Есть конфликт подтверждённых данных пересчёта',
+  RESOURCE_CHAIN_SCOPE_MISMATCH: 'Данные фактического пересчёта не совпадают с платежом или сделкой',
+  PAYMENT_PASSPORT_LINE_TO_VERIFY: 'Готовая строка расхода требует проверки',
+});
+
 function text(value) { return String(value ?? '').trim(); }
 function upper(value) { return text(value).toUpperCase(); }
+function humanReason(value) { return HUMAN_REASON[upper(value)] || 'Недостаточно подтверждённых данных'; }
+function conversionLabel(value) { return upper(value) === 'BANK_ACTUAL' ? 'Пересчёт по фактическому банковскому курсу' : (text(value) ? 'Подтверждённый валютный пересчёт' : null); }
+function documentLabel(row) {
+  const transaction = text(row?.bank_transaction_reference);
+  if (transaction) return transaction;
+  const statement = text(row?.bank_statement_date);
+  if (statement) return `Банковская выписка от ${statement}`;
+  const account = text(row?.bank_account_reference);
+  return account || null;
+}
 
 export function normalizePaymentPassportLines(rows = []) {
   return (Array.isArray(rows) ? rows : []).map((row) => {
     const status = upper(row?.line_status) === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'TO_VERIFY';
+    const isFee = upper(row?.payment_kind) === 'BANK_FEE';
+    const basis = status === 'AUTHORITATIVE' ? (upper(row?.conversion_source_basis) || null) : null;
     return {
       deal_id: text(row?.deal_id) || null,
       payment_id: text(row?.payment_id) || null,
       payment_at: row?.payment_at ?? null,
-      row_type: upper(row?.payment_kind) === 'BANK_FEE' ? 'COMMISSION' : 'EXPENSE',
+      row_type: isFee ? 'COMMISSION' : 'EXPENSE',
+      is_fee: isFee,
       recipient: text(row?.recipient) || null,
       purpose: text(row?.original_payment_purpose) || null,
       native_amount: row?.attributed_amount === null || row?.attributed_amount === undefined ? null : text(row.attributed_amount),
       native_currency: upper(row?.attributed_currency) || null,
       deal_equivalent_amount: status === 'AUTHORITATIVE' && row?.accounting_amount !== null && row?.accounting_amount !== undefined ? text(row.accounting_amount) : null,
       deal_equivalent_currency: status === 'AUTHORITATIVE' ? (upper(row?.accounting_currency) || null) : null,
-      conversion_source_basis: status === 'AUTHORITATIVE' ? (upper(row?.conversion_source_basis) || null) : null,
+      conversion_source_basis: basis,
+      conversion_label: conversionLabel(basis),
+      document: documentLabel(row),
       bank_transaction_reference: text(row?.bank_transaction_reference) || null,
       bank_account_reference: text(row?.bank_account_reference) || null,
       bank_statement_date: row?.bank_statement_date ?? null,
       status,
-      reason: status === 'AUTHORITATIVE' ? null : (text(row?.line_reason) || 'PAYMENT_PASSPORT_LINE_TO_VERIFY'),
+      status_label: status === 'AUTHORITATIVE' ? 'Подтверждено' : 'Требуется проверка',
+      reason: status === 'AUTHORITATIVE' ? null : humanReason(row?.line_reason || 'PAYMENT_PASSPORT_LINE_TO_VERIFY'),
     };
   });
 }
