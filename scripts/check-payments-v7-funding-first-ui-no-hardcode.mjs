@@ -86,7 +86,7 @@ if(!activationUi.includes("role:'dialog'"))failures.push('DESIGNER_DIALOG_MISSIN
 if(!activationUi.includes('data-passport-modal-close'))failures.push('DESIGNER_MODAL_CLOSE_MISSING');
 if(activationUi.includes('const renderer=typeof paymentsV7OwnerPassportBody'))failures.push('GENERIC_STALE_RENDERER_LOOKUP_FORBIDDEN');
 if(activationUi.includes('renderPayments=function')||activationUi.includes('function renderPayments'))failures.push('ACTIVATION_MUTATES_MAIN_PAYMENTS_BOARD');
-for(const modalVisualToken of ['max-height:90vh','backdrop-filter:blur(10px)','summary:focus-visible','@media(max-width:1180px)','@media(max-width:820px)']){
+for(const modalVisualToken of ['max-height:90vh','backdrop-filter:blur(10px)','.rona-payments-v7-designer-close:focus-visible','@media(max-width:1180px)','@media(max-width:820px)']){
   if(!activationUi.includes(modalVisualToken))failures.push(`MODAL_VISUAL_TOKEN_MISSING:${modalVisualToken}`);
 }
 
