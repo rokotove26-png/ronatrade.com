@@ -1,5 +1,6 @@
 import { createAdminPaymentsV7SourceBundle as createBaseSourceBundle } from './adapters.mjs';
 import { buildAdminPaymentsV7Projection as buildBaseProjection } from './projection.mjs';
+import { buildConfirmedFundingAggregate, buildPaymentsCurrencyAggregates } from './confirmed-funding-aggregate.mjs';
 import { toVerifyMoney } from './money.mjs';
 
 function truthAware(raw) { return Boolean(raw?.sourceVisibility); }
@@ -114,7 +115,13 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
 }
 
 export function buildAdminPaymentsV7Projection(source) {
-  return enforceTruth(buildBaseProjection(source), source);
+  const projection = enforceTruth(buildBaseProjection(source), source);
+  const deals = projection.deals || [];
+  return {
+    ...projection,
+    funding_aggregate: buildConfirmedFundingAggregate(deals),
+    currency_aggregates: buildPaymentsCurrencyAggregates(deals),
+  };
 }
 
 export function buildAdminPaymentsV7FromRawSources(raw = {}) {
