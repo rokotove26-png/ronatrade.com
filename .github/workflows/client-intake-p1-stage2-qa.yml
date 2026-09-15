@@ -7,6 +7,7 @@ on:
     paths:
       - 'supabase/functions/_shared/client-intake-v1/**'
       - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
+      - 'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql'
       - 'tests/client-intake-v1/**'
       - 'scripts/check-client-intake-no-hardcode.mjs'
       - 'docs/client-intake-p1-stage2-*.md'
@@ -27,5 +28,7 @@ jobs:
         run: node tests/client-intake-v1/client-intake.test.mjs
       - name: Candidate migration architecture contract
         run: node tests/client-intake-v1/migration-contract.test.mjs
+      - name: Global actionable submit-path matrix
+        run: node tests/client-intake-v1/submit-path-audit.test.mjs
       - name: No incident hardcode / no expected-value injection
         run: node scripts/check-client-intake-no-hardcode.mjs
