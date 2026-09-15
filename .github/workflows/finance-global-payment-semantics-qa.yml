@@ -1,0 +1,23 @@
+name: Finance Global Payment Semantics QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/20260915033000_finance_global_payment_semantics_v1.sql'
+      - 'tests/finance-global-payment-semantics/**'
+      - 'package.json'
+      - '.github/workflows/finance-global-payment-semantics-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm run test:finance-global-payment-semantics
