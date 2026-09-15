@@ -234,6 +234,9 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
              due_now::text due_now, expected_not_due::text expected_not_due,
              future_conditional::text future_conditional, obligation_currency,
              contractual_payment_currency, mixed_inbound_accounting_currency,
+             actual_spend::text actual_spend, actual_spend_status,
+             remaining_execution::text remaining_execution, remaining_execution_status,
+             execution_currency, execution_status,
              finance_status, documentary_status, authority_state, lifecycle_state, effective_at,
              supersedes_id::text supersedes_id, supersedes_authority_refs,
              source_version, source_timestamp, source_refs, source_locked, created_at

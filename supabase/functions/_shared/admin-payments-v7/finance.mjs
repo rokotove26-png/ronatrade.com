@@ -5,6 +5,21 @@ import { authorityRef, moneyValue, toVerifyMoney } from './money.mjs';
 const CURRENCY_RE = /^[A-Z]{3}$/;
 function upper(value) { return value === null || value === undefined ? null : String(value).trim().toUpperCase(); }
 
+function validateExecutionMoney(claim, field, statusField) {
+  const status = upper(claim?.[statusField] || claim?.[field]?.status);
+  if (!status) return { valid: true, present: false, status: null, currency: null };
+  if (!['AUTHORITATIVE', 'TO_VERIFY'].includes(status)) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+  const value = claim?.[field];
+  const currency = upper(claim?.execution_currency || value?.currency);
+  if (!currency || !CURRENCY_RE.test(currency)) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+  if (status === 'AUTHORITATIVE') {
+    if (!value || value.amount === null || value.amount === undefined) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+    const amount = parseDecimal(String(value.amount));
+    if (field === 'actual_spend' && decimalCompare(amount, '0') < 0) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+  }
+  return { valid: true, present: true, status, currency };
+}
+
 export function validateDealFinanceAuthorityIntegrity(claim) {
   try {
     if (!claim || typeof claim !== 'object') return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
@@ -35,7 +50,20 @@ export function validateDealFinanceAuthorityIntegrity(claim) {
         return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
       }
     }
-    return { valid: true, reason: null, obligation_currency: obligationCurrency };
+
+    const spend = validateExecutionMoney(claim, 'actual_spend', 'actual_spend_status');
+    const remaining = validateExecutionMoney(claim, 'remaining_execution', 'remaining_execution_status');
+    if (!spend.valid || !remaining.valid) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+    if (spend.present !== remaining.present) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+    if (spend.present && spend.currency !== remaining.currency) return { valid: false, reason: 'FINANCE_EXECUTION_AUTHORITY_INTEGRITY_ERROR' };
+
+    return {
+      valid: true,
+      reason: null,
+      obligation_currency: obligationCurrency,
+      execution_authority_present: spend.present && remaining.present,
+      execution_currency: spend.present ? spend.currency : null,
+    };
   } catch {
     return { valid: false, reason: 'FINANCE_AUTHORITY_INTEGRITY_ERROR' };
   }
@@ -53,13 +81,28 @@ export function resolveDealFinanceAuthority(dealKey, financeAuthorities = [], ca
   if (resolved.status === 'MISSING') return financeToVerify(capability ? 'NO_CURRENT_FINANCE_AUTHORITY' : 'AUTHORITY_MATERIALIZATION_REQUIRED', []);
   const claim = resolved.claim; const refs = resolved.authority_refs.length ? resolved.authority_refs : [authorityRef(claim)];
   const integrity = validateDealFinanceAuthorityIntegrity(claim);
-  if (!integrity.valid) return financeToVerify('FINANCE_AUTHORITY_INTEGRITY_ERROR', refs);
+  if (!integrity.valid) return financeToVerify(integrity.reason || 'FINANCE_AUTHORITY_INTEGRITY_ERROR', refs);
 
   const normalize = (value) => moneyValue(value.amount, integrity.obligation_currency, 'AUTHORITATIVE', null, refs);
+  const normalizeExecution = (field, statusField) => {
+    if (!integrity.execution_authority_present) return null;
+    const status = upper(claim?.[statusField] || claim?.[field]?.status);
+    if (status === 'AUTHORITATIVE') return moneyValue(claim[field].amount, integrity.execution_currency, 'AUTHORITATIVE', null, refs);
+    return toVerifyMoney(integrity.execution_currency, claim?.[field]?.reason || 'FINANCE_EXECUTION_TO_VERIFY', refs);
+  };
+  const actualSpend = normalizeExecution('actual_spend', 'actual_spend_status');
+  const remainingExecution = normalizeExecution('remaining_execution', 'remaining_execution_status');
   return {
     status: 'AUTHORITATIVE', reason: null,
     total_to_receive: normalize(claim.total_to_receive), due_now: normalize(claim.due_now),
     expected_not_due: normalize(claim.expected_not_due), future_conditional: normalize(claim.future_conditional),
+    actual_spend: actualSpend,
+    actual_spend_status: actualSpend?.status || null,
+    remaining_execution: remainingExecution,
+    remaining_execution_status: remainingExecution?.status || null,
+    execution_currency: integrity.execution_currency,
+    execution_status: claim.execution_status || null,
+    execution_authority_present: integrity.execution_authority_present,
     finance_status: claim.finance_status || 'TO_VERIFY', documentary_status: claim.documentary_status || 'TO_VERIFY',
     contractual_payment_currency: claim.contractual_payment_currency ? upper(claim.contractual_payment_currency) : null,
     mixed_inbound_accounting_currency: claim.mixed_inbound_accounting_currency ? upper(claim.mixed_inbound_accounting_currency) : null,
@@ -68,7 +111,14 @@ export function resolveDealFinanceAuthority(dealKey, financeAuthorities = [], ca
   };
 }
 function financeToVerify(reason, refs) {
-  return { status: 'TO_VERIFY', reason, total_to_receive: toVerifyMoney(null, reason, refs), due_now: toVerifyMoney(null, reason, refs), expected_not_due: toVerifyMoney(null, reason, refs), future_conditional: toVerifyMoney(null, reason, refs), finance_status: 'TO_VERIFY', documentary_status: 'TO_VERIFY', contractual_payment_currency: null, mixed_inbound_accounting_currency: null, authority_state: null, lifecycle_state: null, effective_at: null, version: null, supersedes_id: null, authority_refs: refs };
+  return {
+    status: 'TO_VERIFY', reason,
+    total_to_receive: toVerifyMoney(null, reason, refs), due_now: toVerifyMoney(null, reason, refs), expected_not_due: toVerifyMoney(null, reason, refs), future_conditional: toVerifyMoney(null, reason, refs),
+    actual_spend: null, actual_spend_status: null, remaining_execution: null, remaining_execution_status: null,
+    execution_currency: null, execution_status: null, execution_authority_present: false,
+    finance_status: 'TO_VERIFY', documentary_status: 'TO_VERIFY', contractual_payment_currency: null, mixed_inbound_accounting_currency: null,
+    authority_state: null, lifecycle_state: null, effective_at: null, version: null, supersedes_id: null, authority_refs: refs,
+  };
 }
 
 export function normalizeFinanceSourceRecordV1(record) {
