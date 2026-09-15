@@ -6,6 +6,7 @@ import {
 } from '../functions/portal/main-ui/payments-v7-passport-activation-fix.js';
 
 const listeners = new Map();
+const rendererCalls = [];
 const oldTechnicalBody = { kind: 'OLD_TECHNICAL_PASSPORT_BODY' };
 const recoveredBody = { kind: 'RECOVERED_FUNDING_FIRST_BODY' };
 const passport = { contract: 'ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2', funding_currency: 'USD' };
@@ -53,6 +54,15 @@ const document = {
   addEventListener(type, handler) { listeners.set(type, handler); },
 };
 
+function paymentsV7OwnerPassport(deal) {
+  const value = deal?.payment_passport;
+  return value?.contract === 'ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2' ? value : null;
+}
+function paymentsV7OwnerPassportBodyRecovered(deal, paymentPassport) {
+  rendererCalls.push({ deal, paymentPassport });
+  return recoveredBody;
+}
+
 const sandbox = {
   console,
   Intl,
@@ -70,54 +80,25 @@ const sandbox = {
     },
   },
   setTimeout(fn) { fn(); return 1; },
-  rendererCalls: [],
+  paymentsV7OwnerPassport,
+  paymentsV7OwnerPassportBody: paymentsV7OwnerPassportBodyRecovered,
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(paymentsV7PassportActivationPrelude, sandbox);
-vm.runInContext(`
-function paymentsV7OwnerPassport(deal){
-  const value=deal?.payment_passport;
-  return value?.contract==='ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2'?value:null;
-}
-function paymentsV7OwnerPassportBodyRecovered(deal, paymentPassport){
-  rendererCalls.push({deal,paymentPassport});
-  return recoveredBody;
-}
-this.recoveredBody=recoveredBody;
-this.paymentsV7OwnerPassportBody=paymentsV7OwnerPassportBodyRecovered;
-`, vm.createContext({ ...sandbox, recoveredBody }));
-
-// Re-create one shared context so the named recovered renderer and activation handler use the same globals.
-const runtimeSandbox = {
-  ...sandbox,
-  recoveredBody,
-  paymentsV7OwnerPassport(deal) {
-    const value = deal?.payment_passport;
-    return value?.contract === 'ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2' ? value : null;
-  },
-  paymentsV7OwnerPassportBody: function paymentsV7OwnerPassportBodyRecovered(deal, paymentPassport) {
-    sandbox.rendererCalls.push({ deal, paymentPassport });
-    return recoveredBody;
-  },
-};
-runtimeSandbox.globalThis = runtimeSandbox;
-vm.createContext(runtimeSandbox);
-vm.runInContext(paymentsV7PassportActivationPrelude + '\n' + paymentsV7PassportActivationRuntime, runtimeSandbox);
+vm.runInContext(paymentsV7PassportActivationPrelude + '\n' + paymentsV7PassportActivationRuntime, sandbox);
 
 const click = listeners.get('click');
 assert.equal(typeof click, 'function');
 click({ target: clickTarget });
 
-assert.equal(sandbox.rendererCalls.length, 1);
-assert.equal(sandbox.rendererCalls[0].deal, selectedDeal);
-assert.equal(sandbox.rendererCalls[0].paymentPassport, passport);
+assert.equal(rendererCalls.length, 1);
+assert.equal(rendererCalls[0].deal, selectedDeal);
+assert.equal(rendererCalls[0].paymentPassport, passport);
 assert.deepEqual(details.children, [summary, recoveredBody]);
 assert.equal(details.dataset.passportRenderer, 'paymentsV7OwnerPassportBodyRecovered');
 assert.equal(details.dataset.passportRendererContract, 'PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION_V1');
 assert.equal(details.children.includes(oldTechnicalBody), false);
 
-// Genericity: production Deal IDs and expected monetary values must not be embedded in activation source.
 const activationSource = paymentsV7PassportActivationPrelude + paymentsV7PassportActivationRuntime;
 assert.doesNotMatch(activationSource, /DEAL-2026-00(?:4|5|6|9)/);
 assert.doesNotMatch(activationSource, /229862\.96|168000|42000|6387\.04|33750|7320|439862\.96|47457\.04/);
