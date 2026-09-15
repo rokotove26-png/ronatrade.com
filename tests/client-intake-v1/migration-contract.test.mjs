@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const sql=fs.readFileSync(new URL('../../supabase/migrations/20260915123000_client_intake_unified_v1.sql',import.meta.url),'utf8');
+const correction=fs.readFileSync(new URL('../../supabase/migrations/20260915123200_client_intake_correction_api_v1.sql',import.meta.url),'utf8');
 const required=[
   'client_intake_v1','client_intake_routing_registry_v1','client_intake_routing_outbox_v1','client_intake_task_links_v1',
   'client_intake_corrections_v1','client_intake_audit_v1','client_intake_client_projection_v1','client_intake_admin_projection_v1',
@@ -20,6 +21,11 @@ assert.doesNotMatch(sql,/10000\s*\/\s*10/);
 assert.doesNotMatch(sql,/PORTAL-EVT-2d898|PORTAL-EVT-d5cee/);
 assert.doesNotMatch(sql,/update\s+portal_private\.portal_reverse_events\s+set\s+payload/i);
 assert.doesNotMatch(sql,/update\s+portal_private\.client_applications\s+set\s+quantity_tonnes/i);
+assert.match(correction,/append_client_intake_correction_v1/);
+assert.match(correction,/correction_authority[\s\S]*OWNER/i);
+assert.match(correction,/CLIENT_INTAKE_CORRECTION_SOURCE_VALUE_MISMATCH/);
+assert.doesNotMatch(correction,/update\s+portal_private\.(portal_reverse_events|client_applications)/i);
 console.log('CLIENT_INTAKE_MIGRATION_CONTRACT=PASS');
 console.log('BLANKET_CLIENT_SUPPRESSION_REMOVED=PASS');
+console.log('CORRECTION_APPEND_API=PASS');
 console.log('RAW_SOURCE_IMMUTABILITY_CONTRACT=PASS');
