@@ -33,6 +33,7 @@ const details = {
   querySelector(selector) { return selector === ':scope > summary' || selector === 'summary' ? summary : null; },
   append(node) { this.children.push(node); },
 };
+oldTechnicalBody.remove = () => { details.children = details.children.filter(child => child !== oldTechnicalBody); };
 summary.parentElement = details;
 const clickTarget = {
   closest(selector) { return selector === '.rona-payments-v7-passport > summary' ? summary : null; },
