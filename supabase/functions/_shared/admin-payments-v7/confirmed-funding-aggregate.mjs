@@ -103,3 +103,68 @@ export function buildConfirmedFundingAggregate(deals = []) {
     };
   });
 }
+
+export function buildAuthoritativeMoneyAggregate(deals = [], field) {
+  const groups = new Map();
+  const unresolvedWithoutCurrency = [];
+
+  for (const deal of deals || []) {
+    const value = deal?.[field];
+    const currency = upper(value?.currency || deal?.accounting_currency?.currency || deal?.funding_currency);
+    const dealId = deal?.deal_id ? String(deal.deal_id) : null;
+    if (!currency) {
+      if (dealId) unresolvedWithoutCurrency.push(dealId);
+      continue;
+    }
+    if (!groups.has(currency)) {
+      groups.set(currency, {
+        currency,
+        confirmedDealIds: [],
+        unresolvedDealIds: [],
+        total: parseDecimal('0'),
+      });
+    }
+    const group = groups.get(currency);
+    if (!authoritativeMoney(value, currency)) {
+      if (dealId) group.unresolvedDealIds.push(dealId);
+      continue;
+    }
+    if (dealId) group.confirmedDealIds.push(dealId);
+    group.total = decimalAdd(group.total, value.amount);
+  }
+
+  const aggregateGroups = [...groups.values()].map((group) => {
+    const confirmedDealIds = unique(group.confirmedDealIds);
+    const unresolvedDealIds = unique(group.unresolvedDealIds);
+    const hasConfirmed = confirmedDealIds.length > 0;
+    const hasUnresolved = unresolvedDealIds.length > 0;
+    return {
+      currency: group.currency,
+      amount: hasConfirmed ? decimalToString(group.total) : null,
+      status: hasConfirmed ? 'AUTHORITATIVE' : 'TO_VERIFY',
+      completeness_status: hasUnresolved ? (hasConfirmed ? 'PARTIAL' : 'UNRESOLVED') : 'COMPLETE',
+      confirmed_deal_ids: confirmedDealIds,
+      unresolved_deal_ids: unresolvedDealIds,
+    };
+  });
+
+  const unresolvedDealIds = unique([
+    ...unresolvedWithoutCurrency,
+    ...aggregateGroups.flatMap((group) => group.unresolved_deal_ids || []),
+  ]);
+  const confirmedCount = aggregateGroups.reduce((total, group) => total + (group.confirmed_deal_ids?.length || 0), 0);
+  return {
+    groups: aggregateGroups,
+    unresolved_deal_ids: unresolvedDealIds,
+    completeness_status: unresolvedDealIds.length ? (confirmedCount > 0 ? 'PARTIAL' : 'UNRESOLVED') : 'COMPLETE',
+  };
+}
+
+export function buildPaymentsCurrencyAggregates(deals = []) {
+  return {
+    total_to_receive: buildAuthoritativeMoneyAggregate(deals, 'total_to_receive'),
+    verified_received: buildAuthoritativeMoneyAggregate(deals, 'verified_received'),
+    expected_not_due: buildAuthoritativeMoneyAggregate(deals, 'expected_not_due'),
+    future_conditional: buildAuthoritativeMoneyAggregate(deals, 'future_conditional'),
+  };
+}
