@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import { pathToFileURL } from 'node:url';
@@ -7,7 +9,22 @@ import { spawnSync } from 'node:child_process';
 import paymentsRuntime from '../functions/portal/main-ui/payments-v7-owner-passport-ui.js';
 import finalDisplayRuntime from '../functions/portal/main-ui/payments-v7-final-display-contract.js';
 
-const PRODUCTION_SOURCE_ROOT = path.resolve('.qa/payments-v7-source');
+const PRODUCTION_SOURCE_REF = 'c16cefce4e3b8f653b9a7b369f6c6e76a195b45a';
+const PRODUCTION_SOURCE_ROOT = path.join(os.tmpdir(), `rona-payments-v7-source-${process.pid}`);
+
+function runGit(args) {
+  const result = spawnSync('git', args, { encoding: 'utf8' });
+  assert.equal(result.status, 0, `git ${args.join(' ')} failed: ${result.stderr || result.stdout}`);
+}
+function ensureExactProductionSource() {
+  const entry = path.join(PRODUCTION_SOURCE_ROOT, 'supabase/functions/_shared/admin-payments-v7/index.mjs');
+  if (fs.existsSync(entry)) return;
+  runGit(['fetch', '--no-tags', '--depth=1', 'origin', PRODUCTION_SOURCE_REF]);
+  runGit(['worktree', 'add', '--detach', PRODUCTION_SOURCE_ROOT, PRODUCTION_SOURCE_REF]);
+  assert.ok(fs.existsSync(entry), 'exact Payments V7 source checkout missing');
+}
+ensureExactProductionSource();
+
 const paymentsModule = await import(pathToFileURL(path.join(PRODUCTION_SOURCE_ROOT, 'supabase/functions/_shared/admin-payments-v7/index.mjs')).href);
 const integrationModule = await import(pathToFileURL(path.join(PRODUCTION_SOURCE_ROOT, 'supabase/functions/rona-owner-ai-sync/admin-payments-v7-integration.mjs')).href);
 const { buildAdminPaymentsV7Projection } = paymentsModule;
@@ -281,8 +298,8 @@ async function runOneDiscovery(iteration) {
   assert.equal(apiDeal.payment_passport.funding_remaining.amount, '15');
 
   const rendered = textOf(ui.paymentsV7Deal(apiDeal));
-  assert.match(rendered, new RegExp(dealId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  for (const expected of ['40 USD', '25 USD', '15 USD', '60 USD']) assert.match(rendered, new RegExp(expected.replace(' ', '\\s*')));
+  assert.ok(rendered.includes(dealId));
+  for (const expected of ['40 USD', '25 USD', '15 USD', '60 USD']) assert.ok(rendered.includes(expected), `render missing ${expected}`);
 
   const failClosedProjection = await apiProjection(sourceFor(dealId, dealKey, { includeFundingEvent: false }));
   const failClosedDeal = failClosedProjection.deals.find((deal) => deal.deal_id === dealId);
