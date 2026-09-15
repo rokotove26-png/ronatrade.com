@@ -10,6 +10,7 @@ on:
       - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
       - 'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql'
       - 'supabase/migrations/20260915123200_client_intake_correction_api_v1.sql'
+      - 'supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql'
       - 'tests/client-intake-v1/**'
       - 'scripts/check-client-intake-no-hardcode.mjs'
       - 'docs/client-intake-p1-stage2-*.md'
@@ -66,7 +67,8 @@ jobs:
           for migration in \
             supabase/migrations/20260915123000_client_intake_unified_v1.sql \
             supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql \
-            supabase/migrations/20260915123200_client_intake_correction_api_v1.sql
+            supabase/migrations/20260915123200_client_intake_correction_api_v1.sql \
+            supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql
           do
             docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
               psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
