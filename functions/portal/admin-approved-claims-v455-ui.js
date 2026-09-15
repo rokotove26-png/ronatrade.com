@@ -1,6 +1,6 @@
 const CSS=String.raw`
 html.rona-visual-v2 body #page-claims>.rona-claims-r2-root{
-  width:min(calc(100% - 36px),1360px)!important;
+  width:min(100%,1360px)!important;
   max-width:1360px!important;
   margin:0 auto 34px!important;
   display:grid!important;
@@ -34,7 +34,7 @@ html.rona-visual-v2 body #page-claims .rona-claims-kpi{
 html.rona-visual-v2 body #page-claims .rona-claims-kpi:last-child{border-right:0!important}
 html.rona-visual-v2 body #page-claims .rona-claims-kpi:before{
   content:"";
-  position:absolute;
+  position:absolute!important;
   left:18px;right:18px;top:0;
   height:2px;
   border-radius:0 0 3px 3px;
@@ -289,7 +289,7 @@ html.rona-visual-v2 body #page-claims .rona-claims-divider{margin:5px 0!importan
   html.rona-visual-v2 body #page-claims .rona-claims-side>.rona-claims-detail-card{grid-column:1/-1!important;border-right:0!important}
 }
 @container(max-width:700px){
-  html.rona-visual-v2 body #page-claims>.rona-claims-r2-root{width:calc(100% - 16px)!important}
+  html.rona-visual-v2 body #page-claims>.rona-claims-r2-root{width:calc(100% - 24px)!important}
   html.rona-visual-v2 body #page-claims .rona-claims-kpis{grid-template-columns:1fr!important}
   html.rona-visual-v2 body #page-claims .rona-claims-kpi{border-right:0!important}
   html.rona-visual-v2 body #page-claims .rona-claims-toolbar{grid-template-columns:1fr!important}
