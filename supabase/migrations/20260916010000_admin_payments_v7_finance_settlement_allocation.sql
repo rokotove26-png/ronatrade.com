@@ -194,7 +194,7 @@ begin
   end if;
 
   v_deal_id := v_conclusion.target_id;
-  select count(*), min(id) into v_deal_count, v_deal_key
+  select count(*) into v_deal_count
   from portal_private.deals
   where deal_id = v_deal_id
     and lifecycle_state::text <> 'ARCHIVED';
@@ -202,6 +202,11 @@ begin
   if v_deal_count <> 1 then
     raise exception 'FINANCE_SETTLEMENT_ALLOCATION_DEAL_NOT_UNIQUE';
   end if;
+
+  select id into v_deal_key
+  from portal_private.deals
+  where deal_id = v_deal_id
+    and lifecycle_state::text <> 'ARCHIVED';
 
   v_funding_currency := upper(btrim(v_value->>'funding_currency'));
   v_authority_status := upper(btrim(v_value->>'authority_status'));
@@ -256,8 +261,8 @@ begin
       and a.lifecycle_state::text = 'CURRENT'
       and a.authority_state::text = 'AUTHORITATIVE'
       and a.source_locked = true
-      and upper(a.attribution_mode) = 'EXACT'
-      and replace(upper(a.authority_kind), '_', '-') in ('FINANCE', 'FINANCE-AI', 'AI-FINANCE')
+      and upper(a.attribution_mode::text) = 'EXACT'
+      and replace(upper(a.authority_kind::text), '_', '-') in ('FINANCE', 'FINANCE-AI', 'AI-FINANCE')
       and upper(coalesce(l.amount_status, 'EXACT')) = 'EXACT'
       and l.amount::numeric = v_payment.amount::numeric
       and upper(l.currency) = upper(v_payment.currency);
