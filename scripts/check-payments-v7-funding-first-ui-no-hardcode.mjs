@@ -31,7 +31,7 @@ const forbiddenKnownAmounts=[
 ];
 for(const amount of forbiddenKnownAmounts)if(source.includes(amount))failures.push(`EXPECTED_VALUE_INJECTION:${amount}`);
 
-// The main Payments board remains server-aggregate-only and is not replaced by the passport recovery/activation path.
+// The main Payments board remains server-aggregate-only and is not replaced by the passport UX path.
 if(aggregateUi.includes('paymentsV7Aggregate('))failures.push('BROWSER_AGGREGATE_REUSE_FORBIDDEN');
 if(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateUi))failures.push('GLOBAL_TO_VERIFY_SPEND_GATE_FORBIDDEN');
 for(const required of ['currency_aggregates','funding_aggregate','completeness_status','unresolved_deal_ids']){
@@ -39,8 +39,8 @@ for(const required of ['currency_aggregates','funding_aggregate','completeness_s
 }
 if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
 
-// Recovery keeps the approved Passport presentation; activation only routes the live click to that renderer.
-if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_RECOVERY_UI_V1'))failures.push('PASSPORT_RECOVERY_MARKER_MISSING');
+// Designer document keeps the funding-first renderer; activation only changes presentation from inline to modal.
+if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_DESIGNER_DOCUMENT_V1'))failures.push('PASSPORT_DESIGNER_DOCUMENT_MARKER_MISSING');
 if(!recoveryUi.includes('paymentsV7OwnerPassportBody=function paymentsV7OwnerPassportBodyRecovered'))failures.push('PASSPORT_RECOVERY_BODY_MISSING');
 if(recoveryUi.includes('renderPayments=function')||recoveryUi.includes('function renderPayments'))failures.push('MAIN_PAYMENTS_BOARD_MUTATION_FORBIDDEN');
 if(recoveryUi.includes('Источник и provenance'))failures.push('RAW_PROVENANCE_PRIMARY_LABEL_FORBIDDEN');
@@ -50,11 +50,14 @@ if(techIndex<0)failures.push('PASSPORT_TECHNICAL_BLOCK_MISSING');
 else if(recoveryUi.slice(0,techIndex).includes('authority_refs'))failures.push('AUTHORITY_REFS_OUTSIDE_TECHNICAL_BLOCK');
 
 if(!activationUi.includes('PAYMENTS_V7_PASSPORT_SCOPE_BRIDGE_V1'))failures.push('PASSPORT_SCOPE_BRIDGE_MARKER_MISSING');
-if(!activationUi.includes('PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION_V1'))failures.push('PASSPORT_ACTIVATION_MARKER_MISSING');
+if(!activationUi.includes('PAYMENTS_V7_PASSPORT_DESIGNER_MODAL_V1'))failures.push('PASSPORT_DESIGNER_MODAL_MARKER_MISSING');
 if(!activationUi.includes('window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection'))failures.push('CURRENT_PROJECTION_LOOKUP_MISSING');
 if(!activationUi.includes('paymentsV7OwnerPassport(deal)'))failures.push('PAYMENT_PASSPORT_RESOLUTION_MISSING');
 if(!activationUi.includes("renderer.name!=='paymentsV7OwnerPassportBodyRecovered'"))failures.push('RECOVERED_RENDERER_GUARD_MISSING');
 if(!activationUi.includes(".rona-payments-v7-passport > summary"))failures.push('PASSPORT_CLICK_ACTIVATION_MISSING');
+if(!activationUi.includes('paymentsV7PassportStripInlineBody'))failures.push('INLINE_PASSPORT_REMOVAL_MISSING');
+if(!activationUi.includes("role:'dialog'"))failures.push('DESIGNER_DIALOG_MISSING');
+if(!activationUi.includes('data-passport-modal-close'))failures.push('DESIGNER_MODAL_CLOSE_MISSING');
 if(activationUi.includes('renderPayments=function')||activationUi.includes('function renderPayments'))failures.push('ACTIVATION_MUTATES_MAIN_PAYMENTS_BOARD');
 
 const preludeCompose=applicationRuntime.indexOf('+ paymentsV7PassportActivationPrelude');
@@ -103,7 +106,7 @@ const requiredServerFields=[
 ];
 for(const serverField of requiredServerFields)if(!source.includes(serverField))failures.push(`SERVER_FIELD_NOT_RENDERED:${serverField}`);
 
-for(const required of ['Получено от клиента','Потрачено средств сделки','Остаток средств сделки','Использование средств сделки','Конвертация','Фактические оплаты','Комиссии','Native residuals']){
+for(const required of ['Получено от клиента','Потрачено средств сделки','Остаток средств сделки','ИСПОЛЬЗОВАНИЕ СРЕДСТВ СДЕЛКИ','КОНВЕРТАЦИЯ','ФАКТИЧЕСКИЕ ОПЛАТЫ','КОМИССИИ','Остатки в иных валютах']){
   if(!recoveryUi.includes(required))failures.push(`PASSPORT_OWNER_SECTION_MISSING:${required}`);
 }
 if(!source.includes('ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2'))failures.push('PASSPORT_V2_CONTRACT_MISSING');
@@ -120,7 +123,8 @@ console.log(`REVERSE_FX_PRIMARY_COUNT=${reverseFxPrimaryCount}`);
 console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCount}`);
 console.log('SERVER_AGGREGATE_ONLY=PASS');
 console.log('MAIN_PAYMENTS_BOARD_UNCHANGED=PASS');
-console.log('PASSPORT_RECOVERY_ACTIVATION_ORDER=PASS');
+console.log('PASSPORT_DESIGNER_MODAL=PASS');
+console.log('INLINE_PASSPORT_REMOVED=PASS');
 console.log('PASSPORT_CLICK_TO_RECOVERED_RENDERER=PASS');
 console.log('RAW_PROVENANCE_PRIMARY_UI=ABSENT');
 console.log('GLOBAL_TO_VERIFY_SPEND_GATE_REMOVED=PASS');
