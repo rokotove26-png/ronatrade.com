@@ -5,6 +5,7 @@
   "scripts": {
     "build": "node scripts/admin-payments-v7-cloudflare-build.mjs",
     "test:payments-v7": "node --test tests/admin-payments-v7/*.test.mjs",
+    "test:finance-global-payment-semantics": "node --test tests/finance-global-payment-semantics/*.test.mjs",
     "scan:payments-v7": "node scripts/check-admin-payments-v7-no-hardcode.mjs"
   }
 }
