@@ -375,6 +375,7 @@ revoke all on function portal_private.materialize_payment_passport_finance_alloc
 
 revoke all on portal_private.payment_passport_finance_allocations_v7 from public;
 revoke all on portal_private.payment_passport_finance_allocations_current_v7 from public;
+grant usage on schema portal_private to rona_payments_v7_reader;
 grant select on portal_private.payment_passport_finance_allocations_current_v7 to rona_payments_v7_reader;
 
 -- Backfill only already-approved structured Finance proposals. Values are copied from immutable
