@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const runtimePaths=[
   'supabase/functions/_shared/client-intake-v1/index.mjs',
   'supabase/migrations/20260915123000_client_intake_unified_v1.sql',
+  'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql',
 ];
 const runtime=runtimePaths.map(p=>fs.readFileSync(p,'utf8')).join('\n');
 const forbidden=[
