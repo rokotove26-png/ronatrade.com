@@ -171,6 +171,24 @@ function cellTexts(body, className) {
   assert.deepEqual(cellTexts(body, 'is-actual'), ['1 000 000 RUB', '900 000 RUB', '630 000 RUB']);
 }
 
+// C2. BANK_CONFIRMED + VERIFIED settlement amounts remain visible when only funding linkage/split is unresolved.
+// The server emits unlinked settlement rows only after exact authoritative Finance attribution to the Deal;
+// SETTLEMENT_LINKAGE_* may therefore affect only the middle funding column, never the actual bank debit.
+{
+  const unresolvedFundingRows = [
+    settlement({ recipient: 'Supplier Confirmed A', amount: '987654.32', currency: 'RUB', status: 'TO_VERIFY', reason: 'SETTLEMENT_LINKAGE_MISSING' }),
+    settlement({ recipient: 'Supplier Confirmed B', amount: '765432.10', currency: 'KZT', status: 'TO_VERIFY', reason: 'SETTLEMENT_LINKAGE_AMBIGUOUS' }),
+  ];
+  const body = render(passport({
+    funding_events: [],
+    unlinked_settlement_lines: unresolvedFundingRows,
+    settlement_status: 'TO_VERIFY',
+    settlement_reason: 'SETTLEMENT_LINKAGE_MISSING',
+  }));
+  assert.deepEqual(cellTexts(body, 'is-funding'), ['Требуется подтверждение', 'Требуется подтверждение']);
+  assert.deepEqual(cellTexts(body, 'is-actual'), ['987 654,32 RUB', '765 432,1 KZT']);
+}
+
 // D. One conversion -> several settlements with exact Finance split: show only server-provided allocations.
 {
   const rows = [
@@ -285,6 +303,8 @@ console.log('PRIMARY_TABLE_READABILITY=PASS');
 console.log('TOTALS_VISUAL_PRIORITY=PASS');
 console.log('FUNDING_AMOUNT_COLUMN=PASS');
 console.log('ACTUAL_SETTLEMENT_COLUMN=PASS');
+console.log('CONFIRMED_SETTLEMENT_ALWAYS_VISIBLE=PASS');
+console.log('FUNDING_SPLIT_ONLY_AFFECTS_MIDDLE_COLUMN=PASS');
 console.log('TOTAL_SPENT_VISIBLE=PASS');
 console.log('REMAINING_VISIBLE=PASS');
 console.log('TECHNICAL_DETAILS_COLLAPSED=PASS');
