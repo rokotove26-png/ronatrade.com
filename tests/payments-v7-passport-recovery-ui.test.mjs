@@ -105,6 +105,11 @@ function deal(passportValue = passport(), overrides = {}) {
 }
 
 function render(passportValue = passport(), dealOverrides = {}) {
+  const currentDeal = deal(passportValue, dealOverrides);
+  return ui.paymentsV7OwnerPassportBody(currentDeal, passportValue);
+}
+
+function renderDeal(passportValue = passport(), dealOverrides = {}) {
   return ui.paymentsV7Deal(deal(passportValue, dealOverrides));
 }
 
@@ -218,19 +223,19 @@ function visible(passportValue = passport(), dealOverrides = {}) {
 }
 
 // K. Arbitrary future Deal ID renders through the same path.
-assert.match(visible(passport(), { deal_id: 'FUTURE-UNSEEN-DEAL-X91' }), /FUTURE-UNSEEN-DEAL-X91/);
+assert.match(textOf(renderDeal(passport(), { deal_id: 'FUTURE-UNSEEN-DEAL-X91' })), /FUTURE-UNSEEN-DEAL-X91/);
 
 // Raw provenance exists only inside the collapsed Technical Grounds details.
 {
   const marker = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
   const p = passport({ funding_events: [fundingEvent({ technical_basis: { finance_event_id: marker, source_refs: [{ source_type: 'BANK', source_id: marker }] } })] });
-  const card = render(p, { authority_refs: [{ source_type: 'FINANCE_AUTHORITY', source_id: marker }] });
-  const visibleText = textOf(card, { visibleOnly: true });
-  const fullText = textOf(card);
+  const body = render(p, { authority_refs: [{ source_type: 'FINANCE_AUTHORITY', source_id: marker }] });
+  const visibleText = textOf(body, { visibleOnly: true });
+  const fullText = textOf(body);
   assert.doesNotMatch(visibleText, new RegExp(marker));
   assert.match(fullText, new RegExp(marker));
   assert.doesNotMatch(fullText, /Источник и provenance/);
-  const details = findAll(card, (item) => item.tag === 'details');
+  const details = findAll(body, (item) => item.tag === 'details');
   assert.equal(details.length, 1);
   assert.match(textOf(details[0]), /Технические основания/);
 }
