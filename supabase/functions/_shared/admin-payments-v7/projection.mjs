@@ -3,7 +3,12 @@ import { decimalAbs, decimalAdd, decimalCompare, decimalDivide, decimalMulIntege
 import { resolveDealFinanceAuthority } from './finance.mjs';
 import { moneyValue, toVerifyMoney } from './money.mjs';
 import { reconcileAllPayments } from './reconciliation.mjs';
-import { computeDealSpend } from './spend.mjs';
+import {
+  buildFundingAggregate,
+  buildFundingSideReadModel,
+  buildNativeResidualAggregate,
+  FUNDING_PASSPORT_CONTRACT,
+} from './funding-side-read-model.mjs';
 
 function unique(values) { return [...new Set((values || []).filter(Boolean).map(String))]; }
 function paymentIsVerifiedClientReceipt(payment) {
@@ -126,6 +131,7 @@ export function buildAdminPaymentsV7Projection(source) {
   const reconciliationByPayment = new Map(reconciled.map((item) => [String(item.payment_key), item]));
   const globalPaymentExceptions = reconciled.filter((item) => !isNormalReconciliation(item)).map(paymentException);
   const ownerExceptionQueue = reconciled.filter((item) => item.reconciliation_class === 'GENUINELY_UNALLOCATED' && item.owner_action_required === true).map(paymentException);
+  const fundingModel = buildFundingSideReadModel(source);
   const deals = []; const materializationGaps = [];
 
   for (const contourDeal of source.contour || []) {
@@ -138,8 +144,10 @@ export function buildAdminPaymentsV7Projection(source) {
     const expected = validateFinanceMoney(finance.expected_not_due, accountingCurrency, 'expected_not_due');
     const future = validateFinanceMoney(finance.future_conditional, accountingCurrency, 'future_conditional');
     const remaining = computeRemaining(total, verifiedReceived); const progress = computeProgress(total, verifiedReceived);
-    const spend = computeDealSpend({ dealKey: contourDeal.deal_key, accountingCurrency: accountingCurrency.currency, payments: source.payments || [], reconciliations: reconciliationByPayment, resourceChains: source.resourceChains || [], capability: source.capabilities?.resourceChain === true });
+    const spend = fundingModel.computeDealSpend(contourDeal.deal_key, accountingCurrency.currency);
     const remainingExecution = computeRemainingExecution(verifiedReceived, spend);
+    const settlementLayer = fundingModel.settlementStatusForDeal(contourDeal.deal_key);
+    const residualLayer = fundingModel.residualStatusForDeal(contourDeal.deal_key);
     const financialStatus = computeFinancialState({ finance, total, received: verifiedReceived, remaining, due, expected, future });
     const financialExceptions = buildOverreceiptException(total, verifiedReceived);
     const dealExceptions = globalPaymentExceptions.filter((exception) => {
@@ -147,12 +155,39 @@ export function buildAdminPaymentsV7Projection(source) {
       return rec ? rec.scope_deal_keys.includes(String(contourDeal.deal_key)) : false;
     });
     if (finance.reason === 'AUTHORITY_MATERIALIZATION_REQUIRED') materializationGaps.push({ domain: 'FINANCE_AUTHORITY', deal_id: contourDeal.deal_id, reason: 'AUTHORITY_MATERIALIZATION_REQUIRED', required_model: 'DealFinanceAuthorityV7' });
+    const unlinkedSettlements = (fundingModel.unlinkedSettlementLinesByDeal.get(String(contourDeal.deal_key)) || []).map(({ deal_key, ...line }) => line);
+    const passportStatus = spend.status === 'AUTHORITATIVE'
+      && remainingExecution.status === 'AUTHORITATIVE'
+      && settlementLayer.status === 'AUTHORITATIVE'
+      && residualLayer.status === 'AUTHORITATIVE'
+      ? 'AUTHORITATIVE'
+      : 'TO_VERIFY';
+    const passport = {
+      contract: FUNDING_PASSPORT_CONTRACT,
+      deal_id: contourDeal.deal_id,
+      funding_currency: accountingCurrency.currency,
+      funding_received: verifiedReceived,
+      funding_spent: spend.value,
+      funding_remaining: remainingExecution,
+      funding_status: spend.status,
+      funding_reason: spend.issues?.[0] || null,
+      settlement_status: settlementLayer.status,
+      settlement_reason: settlementLayer.reason,
+      residual_status: residualLayer.status,
+      residual_reason: residualLayer.reason,
+      funding_events: fundingModel.passportEventsForDeal(contourDeal.deal_key),
+      unlinked_settlement_lines: unlinkedSettlements,
+      status: passportStatus,
+      reason: spend.issues?.[0] || remainingExecution.reason || settlementLayer.reason || residualLayer.reason || null,
+    };
     deals.push({
       deal_key: contourDeal.deal_key, deal_id: contourDeal.deal_id, client_display: contourDeal.client_display, payment_handoff_state: contourDeal.payment_handoff_state,
-      accounting_currency: accountingCurrency, total_to_receive: total, verified_received: verifiedReceived, due_now: due, expected_not_due: expected, future_conditional: future, remaining_to_receive: remaining,
+      accounting_currency: accountingCurrency, funding_currency: accountingCurrency.currency,
+      total_to_receive: total, verified_received: verifiedReceived, due_now: due, expected_not_due: expected, future_conditional: future, remaining_to_receive: remaining,
       actual_spend: spend.value, actual_spend_status: spend.status, remaining_execution: remainingExecution, payment_progress: progress,
+      payment_passport: passport,
       financial_status: financialStatus, documentary_status: finance.documentary_status || 'TO_VERIFY', financial_exceptions: financialExceptions, exceptions: dealExceptions,
-      authority_refs: uniqueRefs([...(contourDeal.authority_refs || []), ...(finance.authority_refs || []), ...(verifiedReceived.authority_refs || [])]),
+      authority_refs: uniqueRefs([...(contourDeal.authority_refs || []), ...(finance.authority_refs || []), ...(verifiedReceived.authority_refs || []), ...(spend.value.authority_refs || [])]),
     });
   }
 
@@ -165,8 +200,22 @@ export function buildAdminPaymentsV7Projection(source) {
     }
   }
 
+  const fundingAggregate = buildFundingAggregate(deals);
+  const nativeResidualAggregate = buildNativeResidualAggregate(fundingModel.nativeResiduals);
   return {
     contract: 'ADMIN_PAYMENTS_V7', generated_at: source.generatedAt, source_as_of: source.sourceAsOf, deals,
+    funding_semantics: {
+      policy_key: fundingModel.policy.policy_key || null,
+      policy_id: fundingModel.policy.policy_id || fundingModel.policy.entry?.policy_id || fundingModel.policy.entry?.policy?.policy_id || null,
+      policy_version: fundingModel.policy.policy_version ?? fundingModel.policy.entry?.version ?? fundingModel.policy.entry?.policy?.version ?? null,
+      status: fundingModel.policy.status,
+      reason: fundingModel.policy.reason,
+      reverse_fx_primary_count: fundingModel.reverseFxPrimaryCount,
+    },
+    funding_aggregate: fundingAggregate,
+    native_residuals: fundingModel.nativeResiduals,
+    native_residual_aggregate: nativeResidualAggregate,
+    payment_passports: deals.map((deal) => deal.payment_passport),
     owner_exception_queue: ownerExceptionQueue, payment_exceptions: globalPaymentExceptions, materialization_gaps: materializationGaps,
     reconciliation_summary: {
       genuinely_unallocated_count: reconciled.filter((item) => item.reconciliation_class === 'GENUINELY_UNALLOCATED').length,
@@ -179,4 +228,43 @@ export function buildAdminPaymentsV7Projection(source) {
   };
 }
 function uniqueRefs(refs) { const seen = new Set(); return refs.filter((ref) => { const key = JSON.stringify(ref); if (seen.has(key)) return false; seen.add(key); return true; }); }
-export function buildAdminPaymentsV7FromRawSources(raw) { return buildAdminPaymentsV7Projection(createAdminPaymentsV7SourceBundle(raw)); }
+function fundingAwareSourceBundle(raw) {
+  const source = createAdminPaymentsV7SourceBundle(raw);
+  const rawPaymentByKey = new Map((raw?.payments || []).map((row) => [String(row.id), row]));
+  const rawResourceChainById = new Map((raw?.resourceChains || []).map((row) => [String(row.id), row]));
+  const payments = (source.payments || []).map((payment) => {
+    const rawPayment = rawPaymentByKey.get(String(payment.payment_key)) || {};
+    return {
+      ...payment,
+      recipient: rawPayment.beneficiary_name || rawPayment.counterparty_name || payment.counterparty_name || null,
+      original_payment_purpose: rawPayment.original_payment_purpose || null,
+      bank_account_reference: rawPayment.bank_account_reference || null,
+      bank_statement_date: rawPayment.bank_statement_date || null,
+    };
+  });
+  const resourceChains = (source.resourceChains || []).map((chain) => {
+    const rawChain = rawResourceChainById.get(String(chain.id)) || {};
+    return {
+      ...chain,
+      conversion_source_basis: rawChain.conversion_source_basis || null,
+      source_refs: Array.isArray(rawChain.source_refs) ? rawChain.source_refs : [],
+      correlation_id: rawChain.correlation_id ? String(rawChain.correlation_id) : null,
+      effective_at: rawChain.effective_at || null,
+      source_version: rawChain.source_version || null,
+      source_timestamp: rawChain.source_timestamp || null,
+    };
+  });
+  return {
+    ...source,
+    payments,
+    resourceChains,
+    financeEvents: Array.isArray(raw?.financeEvents) ? raw.financeEvents : [],
+    globalFinancePolicies: Array.isArray(raw?.globalFinancePolicies) ? raw.globalFinancePolicies : [],
+    capabilities: {
+      ...(source.capabilities || {}),
+      financeEvents: raw?.capabilities?.financeEvents === true,
+      globalFinancePolicy: raw?.capabilities?.globalFinancePolicy === true,
+    },
+  };
+}
+export function buildAdminPaymentsV7FromRawSources(raw) { return buildAdminPaymentsV7Projection(fundingAwareSourceBundle(raw)); }
