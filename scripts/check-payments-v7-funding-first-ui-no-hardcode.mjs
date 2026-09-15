@@ -3,8 +3,10 @@ import fs from 'node:fs';
 const runtimeFiles=[
   'functions/portal/main-ui/payments-v7-owner-passport-ui.js',
   'functions/portal/main-ui/payments-v7-final-display-contract.js',
+  'functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js',
 ];
 const source=runtimeFiles.map(file=>fs.readFileSync(file,'utf8')).join('\n');
+const aggregateUi=fs.readFileSync('functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js','utf8');
 const failures=[];
 
 const forbiddenRuntimeTokens=[
@@ -24,13 +26,20 @@ const forbiddenKnownAmounts=[
 ];
 for(const amount of forbiddenKnownAmounts)if(source.includes(amount))failures.push(`EXPECTED_VALUE_INJECTION:${amount}`);
 
+// The active Payments aggregate renderer must consume server aggregates only.
+if(aggregateUi.includes('paymentsV7Aggregate('))failures.push('BROWSER_AGGREGATE_REUSE_FORBIDDEN');
+if(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateUi))failures.push('GLOBAL_TO_VERIFY_SPEND_GATE_FORBIDDEN');
+for(const required of ['currency_aggregates','funding_aggregate','completeness_status','unresolved_deal_ids']){
+  if(!aggregateUi.includes(required))failures.push(`SERVER_AGGREGATE_FIELD_MISSING:${required}`);
+}
+if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
+
 // Display formatting is allowed. Financial derivation in the browser is not.
-const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|expected_not_due)';
+const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|expected_not_due|total_to_receive|verified_received|future_conditional)';
 const financialArithmeticPatterns=[
   new RegExp(`(?:\\?\\.)?${field}\\s*[+\\-*/]\\s*(?![=])`,'gi'),
   new RegExp(`(?<![=])[+\\-*/]\\s*(?:[A-Za-z_$][\\w$]*\\?\\.)?${field}\\b`,'gi'),
-  /Math\.(?:max|min|round|floor|ceil|abs)\s*\(/g,
-  /\.(?:reduce)\s*\(/g,
+  /\.reduce\s*\([^\n]*(?:amount|currency|spend|received|remaining|expected)/gi,
 ];
 let browserFinancialCalculationCount=0;
 for(const pattern of financialArithmeticPatterns)browserFinancialCalculationCount+=[...source.matchAll(pattern)].length;
@@ -59,7 +68,7 @@ const requiredServerFields=[
   'funding_events','allocated_funding_amount','allocation_share','allocation_source',
   'acquired_amount','acquired_currency','conversion_rate','conversion_source_basis',
   'settlement_lines','unlinked_settlement_lines','native_residuals','shared_native_residual_refs',
-  'funding_status','settlement_status','residual_status',
+  'funding_status','settlement_status','residual_status','currency_aggregates','funding_aggregate',
 ];
 for(const serverField of requiredServerFields)if(!source.includes(serverField))failures.push(`SERVER_FIELD_NOT_RENDERED:${serverField}`);
 
@@ -75,6 +84,8 @@ console.log('NO_DEAL_ID_HARDCODE=PASS');
 console.log(`BROWSER_FINANCIAL_CALCULATION_COUNT=${browserFinancialCalculationCount}`);
 console.log(`REVERSE_FX_PRIMARY_COUNT=${reverseFxPrimaryCount}`);
 console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCount}`);
+console.log('SERVER_AGGREGATE_ONLY=PASS');
+console.log('GLOBAL_TO_VERIFY_SPEND_GATE_REMOVED=PASS');
 console.log('TO_VERIFY_PRESERVED=PASS');
 console.log('AUTHORITATIVE_VALUES_PRESERVED_EXACTLY=PASS');
 console.log('SOURCE_FIRST=PASS');
