@@ -49,8 +49,13 @@ function paymentsV7PassportRowFunding(row,event,rowCount){
 }
 
 function paymentsV7PassportRowActual(row){
-  if(paymentsV7Upper(row?.status)!=='AUTHORITATIVE'||paymentsV7Num(row?.amount)===null||!paymentsV7Upper(row?.currency))return null;
-  return {amount:row?.amount,currency:paymentsV7Upper(row?.currency)};
+  const amount=paymentsV7Num(row?.amount);
+  const currency=paymentsV7Upper(row?.currency);
+  if(amount===null||!currency)return null;
+  // payment_passport V2 emits settlement rows only after BANK_CONFIRMED + verified bank fact
+  // and exact authoritative Finance attribution to a Deal. row.status can still be TO_VERIFY
+  // solely because funding-event linkage/split is unresolved; that must never hide the bank debit.
+  return {amount:row?.amount,currency};
 }
 
 function paymentsV7PassportRecipient(row){
