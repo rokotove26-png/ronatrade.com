@@ -3,7 +3,8 @@ name: Finance Global Payment Semantics QA
 on:
   pull_request:
     paths:
-      - 'supabase/migrations/20260915033000_finance_global_payment_semantics_v1.sql'
+      - 'supabase/migrations/*finance_global_payment_semantics*.sql'
+      - 'supabase/migrations/*finance_global_policy*.sql'
       - 'tests/finance-global-payment-semantics/**'
       - 'package.json'
       - '.github/workflows/finance-global-payment-semantics-qa.yml'
