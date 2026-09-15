@@ -39,8 +39,8 @@ for(const required of ['currency_aggregates','funding_aggregate','completeness_s
 }
 if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
 
-// Designer document keeps the funding-first renderer; activation only changes presentation from inline to modal.
-if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_DESIGNER_DOCUMENT_V1'))failures.push('PASSPORT_DESIGNER_DOCUMENT_MARKER_MISSING');
+// Owner table remains a presentation-only funding-first renderer.
+if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_OWNER_TABLE_V1'))failures.push('PASSPORT_OWNER_TABLE_MARKER_MISSING');
 if(!recoveryUi.includes('paymentsV7OwnerPassportBody=function paymentsV7OwnerPassportBodyRecovered'))failures.push('PASSPORT_RECOVERY_BODY_MISSING');
 if(recoveryUi.includes('renderPayments=function')||recoveryUi.includes('function renderPayments'))failures.push('MAIN_PAYMENTS_BOARD_MUTATION_FORBIDDEN');
 if(recoveryUi.includes('Источник и provenance'))failures.push('RAW_PROVENANCE_PRIMARY_LABEL_FORBIDDEN');
@@ -48,6 +48,12 @@ if(!recoveryUi.includes("e('summary',{text:'Технические основа�
 const techIndex=recoveryUi.indexOf('function paymentsV7PassportTechnical');
 if(techIndex<0)failures.push('PASSPORT_TECHNICAL_BLOCK_MISSING');
 else if(recoveryUi.slice(0,techIndex).includes('authority_refs'))failures.push('AUTHORITY_REFS_OUTSIDE_TECHNICAL_BLOCK');
+for(const forbidden of ['ИСПОЛЬЗОВАНИЕ СРЕДСТВ СДЕЛКИ','ФАКТИЧЕСКИЕ ОПЛАТЫ','Остатки в иных валютах','rona-payments-v7-owner-layer-statuses','rona-payments-v7-owner-conversion']){
+  if(recoveryUi.includes(forbidden))failures.push(`OWNER_TABLE_OLD_PRIMARY_UI_PRESENT:${forbidden}`);
+}
+for(const required of ['СУММА ПОСТУПЛЕНИЯ','Получатель','Сумма в валюте поступления','Сумма фактического списания','ИТОГО ПОТРАЧЕНО','ОСТАТОК','Требуется подтверждение']){
+  if(!recoveryUi.includes(required))failures.push(`OWNER_TABLE_FIELD_MISSING:${required}`);
+}
 
 if(!activationUi.includes('PAYMENTS_V7_PASSPORT_SCOPE_BRIDGE_V1'))failures.push('PASSPORT_SCOPE_BRIDGE_MARKER_MISSING');
 if(!activationUi.includes('PAYMENTS_V7_PASSPORT_DESIGNER_MODAL_V1'))failures.push('PASSPORT_DESIGNER_MODAL_MARKER_MISSING');
@@ -106,9 +112,6 @@ const requiredServerFields=[
 ];
 for(const serverField of requiredServerFields)if(!source.includes(serverField))failures.push(`SERVER_FIELD_NOT_RENDERED:${serverField}`);
 
-for(const required of ['Получено от клиента','Потрачено средств сделки','Остаток средств сделки','ИСПОЛЬЗОВАНИЕ СРЕДСТВ СДЕЛКИ','КОНВЕРТАЦИЯ','ФАКТИЧЕСКИЕ ОПЛАТЫ','КОМИССИИ','Остатки в иных валютах']){
-  if(!recoveryUi.includes(required))failures.push(`PASSPORT_OWNER_SECTION_MISSING:${required}`);
-}
 if(!source.includes('ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2'))failures.push('PASSPORT_V2_CONTRACT_MISSING');
 for(const code of ['DIRECT_FUNDING_SIDE_DEBIT_MISSING','SETTLEMENT_LINKAGE_MISSING','SETTLEMENT_LINKAGE_AMBIGUOUS','POLICY_CONTRACT_UNSUPPORTED']){
   if(!source.includes(code))failures.push(`REASON_TRANSLATION_MISSING:${code}`);
@@ -125,7 +128,10 @@ console.log('SERVER_AGGREGATE_ONLY=PASS');
 console.log('MAIN_PAYMENTS_BOARD_UNCHANGED=PASS');
 console.log('PASSPORT_DESIGNER_MODAL=PASS');
 console.log('INLINE_PASSPORT_REMOVED=PASS');
-console.log('PASSPORT_CLICK_TO_RECOVERED_RENDERER=PASS');
+console.log('OWNER_TABLE=PASS');
+console.log('FUNDING_AMOUNT_COLUMN=PASS');
+console.log('ACTUAL_SETTLEMENT_COLUMN=PASS');
+console.log('TECHNICAL_DETAILS_COLLAPSED=PASS');
 console.log('RAW_PROVENANCE_PRIMARY_UI=ABSENT');
 console.log('GLOBAL_TO_VERIFY_SPEND_GATE_REMOVED=PASS');
 console.log('TO_VERIFY_PRESERVED=PASS');
