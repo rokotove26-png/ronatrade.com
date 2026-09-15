@@ -1,5 +1,6 @@
 -- Stage 2.1 PostgreSQL 17 runtime correction for the outbox executor.
--- The RETURNS TABLE output names are PL/pgSQL variables, so every source column is qualified.
+-- RETURNS TABLE output names are PL/pgSQL variables, so source columns are qualified and
+-- conflict targets use named constraints rather than output-variable-like column names.
 create or replace function portal_private.process_client_intake_outbox_v1(p_limit integer default 100)
 returns table(intake_id uuid,stage_key text,state text,staff_task_id uuid)
 language plpgsql security definer set search_path='pg_catalog','portal_private' as $$
@@ -54,7 +55,7 @@ begin
         end if;
         insert into portal_private.client_intake_task_links_v1(intake_id,stage_key,staff_task_id)
         values(i.intake_id,o.stage_key,t.id)
-        on conflict(intake_id,stage_key) do nothing;
+        on conflict on constraint client_intake_task_links_v1_pkey do nothing;
       end if;
 
       update portal_private.client_intake_routing_outbox_v1 q
