@@ -4,9 +4,12 @@ const runtimeFiles=[
   'functions/portal/main-ui/payments-v7-owner-passport-ui.js',
   'functions/portal/main-ui/payments-v7-final-display-contract.js',
   'functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js',
+  'functions/portal/main-ui/payments-v7-passport-recovery-ui.js',
 ];
 const source=runtimeFiles.map(file=>fs.readFileSync(file,'utf8')).join('\n');
 const aggregateUi=fs.readFileSync('functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js','utf8');
+const recoveryUi=fs.readFileSync('functions/portal/main-ui/payments-v7-passport-recovery-ui.js','utf8');
+const applicationRuntime=fs.readFileSync('functions/portal/main-ui/application-passport-runtime.js','utf8');
 const failures=[];
 
 const forbiddenRuntimeTokens=[
@@ -26,7 +29,7 @@ const forbiddenKnownAmounts=[
 ];
 for(const amount of forbiddenKnownAmounts)if(source.includes(amount))failures.push(`EXPECTED_VALUE_INJECTION:${amount}`);
 
-// The active Payments aggregate renderer must consume server aggregates only.
+// The main Payments board remains server-aggregate-only and is not replaced by the passport recovery.
 if(aggregateUi.includes('paymentsV7Aggregate('))failures.push('BROWSER_AGGREGATE_REUSE_FORBIDDEN');
 if(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateUi))failures.push('GLOBAL_TO_VERIFY_SPEND_GATE_FORBIDDEN');
 for(const required of ['currency_aggregates','funding_aggregate','completeness_status','unresolved_deal_ids']){
@@ -34,7 +37,18 @@ for(const required of ['currency_aggregates','funding_aggregate','completeness_s
 }
 if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
 
-// Display formatting is allowed. Financial derivation in the browser is not.
+// Recovery is a last-mile passport renderer only. It must supersede the old provenance wrapper without touching renderPayments.
+if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_RECOVERY_UI_V1'))failures.push('PASSPORT_RECOVERY_MARKER_MISSING');
+if(!recoveryUi.includes('paymentsV7OwnerPassportBody=function paymentsV7OwnerPassportBodyRecovered'))failures.push('PASSPORT_RECOVERY_BODY_MISSING');
+if(recoveryUi.includes('renderPayments=function')||recoveryUi.includes('function renderPayments'))failures.push('MAIN_PAYMENTS_BOARD_MUTATION_FORBIDDEN');
+if(recoveryUi.includes('Источник и provenance'))failures.push('RAW_PROVENANCE_PRIMARY_LABEL_FORBIDDEN');
+if(!recoveryUi.includes("e('summary',{text:'Технические основания'})"))failures.push('COLLAPSED_TECHNICAL_GROUNDS_MISSING');
+const techIndex=recoveryUi.indexOf('function paymentsV7PassportTechnical');
+if(techIndex<0)failures.push('PASSPORT_TECHNICAL_BLOCK_MISSING');
+else if(recoveryUi.slice(0,techIndex).includes('authority_refs'))failures.push('AUTHORITY_REFS_OUTSIDE_TECHNICAL_BLOCK');
+if(!applicationRuntime.includes('paymentsV7AuthoritativeAggregateUi + paymentsV7PassportRecoveryUi'))failures.push('PASSPORT_RECOVERY_NOT_COMPOSED_LAST');
+
+// Display formatting and branch selection are allowed. Financial derivation in the browser is not.
 const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|expected_not_due|total_to_receive|verified_received|future_conditional)';
 const financialArithmeticPatterns=[
   new RegExp(`(?:\\?\\.)?${field}\\s*[+\\-*/]\\s*(?![=])`,'gi'),
@@ -72,6 +86,9 @@ const requiredServerFields=[
 ];
 for(const serverField of requiredServerFields)if(!source.includes(serverField))failures.push(`SERVER_FIELD_NOT_RENDERED:${serverField}`);
 
+for(const required of ['Получено от клиента','Потрачено средств сделки','Остаток средств сделки','Использование средств сделки','Конвертация','Фактические оплаты','Комиссии','Native residuals']){
+  if(!recoveryUi.includes(required))failures.push(`PASSPORT_OWNER_SECTION_MISSING:${required}`);
+}
 if(!source.includes('ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2'))failures.push('PASSPORT_V2_CONTRACT_MISSING');
 for(const code of ['DIRECT_FUNDING_SIDE_DEBIT_MISSING','SETTLEMENT_LINKAGE_MISSING','SETTLEMENT_LINKAGE_AMBIGUOUS','POLICY_CONTRACT_UNSUPPORTED']){
   if(!source.includes(code))failures.push(`REASON_TRANSLATION_MISSING:${code}`);
@@ -85,6 +102,9 @@ console.log(`BROWSER_FINANCIAL_CALCULATION_COUNT=${browserFinancialCalculationCo
 console.log(`REVERSE_FX_PRIMARY_COUNT=${reverseFxPrimaryCount}`);
 console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCount}`);
 console.log('SERVER_AGGREGATE_ONLY=PASS');
+console.log('MAIN_PAYMENTS_BOARD_UNCHANGED=PASS');
+console.log('PASSPORT_RECOVERY_COMPOSED_LAST=PASS');
+console.log('RAW_PROVENANCE_PRIMARY_UI=ABSENT');
 console.log('GLOBAL_TO_VERIFY_SPEND_GATE_REMOVED=PASS');
 console.log('TO_VERIFY_PRESERVED=PASS');
 console.log('AUTHORITATIVE_VALUES_PRESERVED_EXACTLY=PASS');
