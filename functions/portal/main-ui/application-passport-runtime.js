@@ -4,6 +4,7 @@ import adminApplicationsReadabilityV5 from './admin-applications-readability-v5.
 import paymentsV7OwnerPassportUi from './payments-v7-owner-passport-ui.js';
 import paymentsV7FinalDisplayContract from './payments-v7-final-display-contract.js';
 import paymentsV7AuthoritativeAggregateUi from './payments-v7-authoritative-aggregate-ui.js';
+import paymentsV7PassportRecoveryUi from './payments-v7-passport-recovery-ui.js';
 
 /*
  * Source-contract compatibility markers below describe the unchanged implementation
@@ -24,4 +25,4 @@ import paymentsV7AuthoritativeAggregateUi from './payments-v7-authoritative-aggr
  * window.openApplicationPassport
  */
 
-export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime + adminApplicationsReadabilityV5 + paymentsV7OwnerPassportUi + paymentsV7FinalDisplayContract + paymentsV7AuthoritativeAggregateUi;
+export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime + adminApplicationsReadabilityV5 + paymentsV7OwnerPassportUi + paymentsV7FinalDisplayContract + paymentsV7AuthoritativeAggregateUi + paymentsV7PassportRecoveryUi;

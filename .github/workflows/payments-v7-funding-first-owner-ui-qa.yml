@@ -9,10 +9,12 @@ on:
       - 'functions/portal/main-ui/payments-v7-owner-passport-ui.js'
       - 'functions/portal/main-ui/payments-v7-final-display-contract.js'
       - 'functions/portal/main-ui/payments-v7-authoritative-aggregate-ui.js'
+      - 'functions/portal/main-ui/payments-v7-passport-recovery-ui.js'
       - 'tests/payments-v7-funding-first-owner-ui.test.mjs'
       - 'tests/payments-v7-final-display-contract.test.mjs'
       - 'tests/payments-v7-future-deal-discovery.test.mjs'
       - 'tests/payments-v7-authoritative-aggregate-ui.test.mjs'
+      - 'tests/payments-v7-passport-recovery-ui.test.mjs'
       - 'scripts/check-payments-v7-funding-first-ui-no-hardcode.mjs'
       - '.github/workflows/payments-v7-funding-first-owner-ui-qa.yml'
 
@@ -29,6 +31,8 @@ jobs:
           node-version: '22'
       - name: Funding passport UI regressions
         run: node tests/payments-v7-funding-first-owner-ui.test.mjs
+      - name: Recovered passport scenarios A-K
+        run: node tests/payments-v7-passport-recovery-ui.test.mjs
       - name: Final data-contract display regressions
         run: node tests/payments-v7-final-display-contract.test.mjs
       - name: Generic future deal discovery proof
