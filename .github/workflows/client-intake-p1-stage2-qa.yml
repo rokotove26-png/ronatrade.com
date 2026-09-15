@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'supabase/functions/_shared/client-intake-v1/**'
+      - 'supabase/functions/rona-portal-api/bootstrap.ts'
       - 'supabase/functions/rona-portal-api/stage21-bootstrap.ts'
       - 'supabase/functions/rona-portal-api/deno.json'
       - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
