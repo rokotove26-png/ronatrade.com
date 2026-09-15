@@ -5,6 +5,7 @@ const RELATIONS = Object.freeze({
   financeAuthority: 'portal_private.deal_finance_authority_v7',
   resourceChain: 'portal_private.payment_resource_chains_v7',
   financeEvents: 'portal_private.finance_events_v7',
+  settlementFundingAllocation: 'portal_private.payment_passport_finance_allocations_current_v7',
 });
 const PROVIDERS = Object.freeze({ paymentBusinessAuthority: 'PAYMENT_BUSINESS_AUTHORITY' });
 
@@ -27,13 +28,14 @@ export async function readAdminPaymentsV7RawSources(port) {
   const snapshotTimestamp = await port.readSnapshotTimestamp();
   if (!snapshotTimestamp) throw new Error('ADMIN_PAYMENTS_V7_SNAPSHOT_TIMESTAMP_REQUIRED');
 
-  const [paymentHeadersPresent, paymentLinesPresent, readinessPresent, financePresent, resourceChainPresent, financeEventsPresent, globalPolicyResolverPresent] = await Promise.all([
+  const [paymentHeadersPresent, paymentLinesPresent, readinessPresent, financePresent, resourceChainPresent, financeEventsPresent, settlementFundingAllocationPresent, globalPolicyResolverPresent] = await Promise.all([
     port.relationExists(RELATIONS.paymentBusinessAttributions),
     port.relationExists(RELATIONS.paymentBusinessAttributionLines),
     port.relationExists(RELATIONS.providerReadiness),
     port.relationExists(RELATIONS.financeAuthority),
     port.relationExists(RELATIONS.resourceChain),
     port.relationExists(RELATIONS.financeEvents),
+    port.relationExists(RELATIONS.settlementFundingAllocation),
     typeof port.globalPolicyResolverAvailable === 'function' ? port.globalPolicyResolverAvailable() : false,
   ]);
 
@@ -51,6 +53,7 @@ export async function readAdminPaymentsV7RawSources(port) {
     financeAuthority: financePresent,
     resourceChain: resourceChainPresent,
     financeEvents: financeEventsPresent,
+    settlementFundingAllocation: settlementFundingAllocationPresent,
     globalFinancePolicy: globalPolicyResolverPresent === true,
   };
 
@@ -59,12 +62,13 @@ export async function readAdminPaymentsV7RawSources(port) {
     port.readPayments(), port.readPaymentAllocations(), port.readPaymentAllocationHistory(), port.readOwnerOutgoingPaymentFacts(),
   ]);
 
-  const [paymentBusinessAttributions, paymentBusinessAttributionLines, dealFinanceAuthorities, resourceChains, financeEvents, globalFinancePolicies] = await Promise.all([
+  const [paymentBusinessAttributions, paymentBusinessAttributionLines, dealFinanceAuthorities, resourceChains, financeEvents, settlementFundingAllocations, globalFinancePolicies] = await Promise.all([
     paymentBusinessAuthorityPresent ? port.readPaymentBusinessAttributions() : [],
     paymentBusinessAuthorityPresent ? port.readPaymentBusinessAttributionLines() : [],
     capabilities.financeAuthority ? port.readDealFinanceAuthorities() : [],
     capabilities.resourceChain ? port.readResourceChains() : [],
     capabilities.financeEvents && typeof port.readFinanceEvents === 'function' ? port.readFinanceEvents() : [],
+    capabilities.settlementFundingAllocation && typeof port.readSettlementFundingAllocations === 'function' ? port.readSettlementFundingAllocations() : [],
     capabilities.globalFinancePolicy && typeof port.readGlobalFinancePolicies === 'function' ? port.readGlobalFinancePolicies() : [],
   ]);
 
@@ -72,7 +76,7 @@ export async function readAdminPaymentsV7RawSources(port) {
   return {
     generatedAt: asOf,
     sourceAsOf: asOf,
-    sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V2_FUNDING_SIDE',
+    sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V3_FINANCE_SETTLEMENT_ALLOCATION',
     snapshotContract: {
       isolation: 'REPEATABLE READ',
       access: 'READ ONLY',
@@ -86,6 +90,7 @@ export async function readAdminPaymentsV7RawSources(port) {
       financeAuthority: financePresent,
       resourceChain: resourceChainPresent,
       financeEvents: financeEventsPresent,
+      settlementFundingAllocation: settlementFundingAllocationPresent,
       globalFinancePolicyResolver: globalPolicyResolverPresent === true,
     },
     providerReadiness: {
@@ -111,6 +116,7 @@ export async function readAdminPaymentsV7RawSources(port) {
     dealFinanceAuthorities: cloneRows(dealFinanceAuthorities),
     resourceChains: cloneRows(resourceChains),
     financeEvents: cloneRows(financeEvents),
+    settlementFundingAllocations: cloneRows(settlementFundingAllocations),
     globalFinancePolicies: cloneRows(globalFinancePolicies),
   };
 }
@@ -261,6 +267,16 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
         and event_type = 'OUTGOING_PAYMENT_CONFIRMED'
         and coalesce((result_snapshot->>'accepted')::boolean, false) = true
       order by effective_at, created_at, id`,
+    readSettlementFundingAllocations: () => sql`
+      select id::text id, proposal_record_id::text proposal_record_id,
+             finance_conclusion_id::text finance_conclusion_id, approval_record_id::text approval_record_id,
+             deal_key::text deal_key, deal_id, payment_key::text payment_key, payment_id,
+             calculated_funding_amount::text calculated_funding_amount, funding_currency,
+             conversion_event_id, actual_conversion_rate::text actual_conversion_rate,
+             calculation_method, authority_status, funding_allocation_status,
+             source_locked, source_version, source_timestamp, source_refs, created_at
+      from portal_private.payment_passport_finance_allocations_current_v7
+      order by deal_key, payment_key`,
   };
 }
 

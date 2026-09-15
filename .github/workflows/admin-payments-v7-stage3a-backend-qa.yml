@@ -105,6 +105,12 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/finance-controlled-write.sql
+      - name: Finance settlement allocation — PostgreSQL 17 materialization proof
+        env:
+          PGPASSWORD: postgres
+        run: |
+          createdb -h 127.0.0.1 -U postgres payments_v7_finance_allocation
+          psql -h 127.0.0.1 -U postgres -d payments_v7_finance_allocation -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/finance-settlement-allocation-materialization.sql
       - name: Final reader RLS visibility — PostgreSQL 17 read-only boundary proof
         env:
           PGPASSWORD: postgres
