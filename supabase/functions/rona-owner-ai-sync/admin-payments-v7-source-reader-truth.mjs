@@ -20,6 +20,7 @@ export const ADMIN_PAYMENTS_V7_TRUTH_RELATIONS = Object.freeze({
   providerReadiness: 'portal_private.admin_payments_v7_provider_readiness',
   financeAuthority: 'portal_private.deal_finance_authority_v7',
   resourceChain: 'portal_private.payment_resource_chains_v7',
+  financeEvents: 'portal_private.finance_events_v7',
 });
 
 const relationKeyByName = new Map(Object.entries(ADMIN_PAYMENTS_V7_TRUTH_RELATIONS).map(([key, value]) => [value, key]));
@@ -58,21 +59,35 @@ async function inspectRelation(sql, qualifiedName) {
   return { ...state, readable: readable(state) };
 }
 
+async function inspectPolicyResolver(sql) {
+  const rows = await sql`
+    select has_function_privilege(
+      current_user,
+      'portal_private.ai_role_global_policies_current_v1(portal_private.ai_business_role_enum)',
+      'EXECUTE'
+    ) as execute_granted`;
+  return { execute_granted: rows?.[0]?.execute_granted === true };
+}
+
 export async function inspectAdminPaymentsV7SourceVisibility(sql) {
   if (typeof sql !== 'function') throw new TypeError('POSTGRES_TRANSACTION_SQL_REQUIRED');
   const relations = {};
   for (const [key, name] of Object.entries(ADMIN_PAYMENTS_V7_TRUTH_RELATIONS)) {
     relations[key] = await inspectRelation(sql, name);
   }
+  const policyResolver = await inspectPolicyResolver(sql);
   const allReadable = (...keys) => keys.every((key) => readable(relations[key]));
   return {
     db_role: ADMIN_PAYMENTS_V7_READ_ROLE,
     relations,
+    policyResolver,
     contourAuthority: allReadable('deals', 'workflows', 'clients', 'contracts'),
     bankReceiptAuthority: allReadable('payments', 'paymentAllocations', 'paymentAllocationHistory'),
     paymentBusinessAuthority: allReadable('paymentBusinessAttributions', 'paymentBusinessAttributionLines', 'providerReadiness'),
     financeAuthority: allReadable('financeAuthority'),
     resourceChain: allReadable('resourceChain'),
+    financeEvents: allReadable('financeEvents'),
+    globalFinancePolicy: policyResolver.execute_granted === true,
     ownerOutgoingPaymentFacts: allReadable('ownerOutgoingPaymentFacts'),
   };
 }
@@ -87,6 +102,8 @@ function guardedPort(base, visibility) {
   return {
     ...base,
     relationExists: optionalRelationExists,
+    globalPolicyResolverAvailable: () => visibility.globalFinancePolicy === true,
+    readGlobalFinancePolicies: () => visibility.globalFinancePolicy === true ? base.readGlobalFinancePolicies() : [],
     readDeals: () => can('deals') ? base.readDeals() : [],
     readWorkflows: () => can('workflows') ? base.readWorkflows() : [],
     readClients: () => can('clients') ? base.readClients() : [],
@@ -100,6 +117,7 @@ function guardedPort(base, visibility) {
     readProviderReadiness: (providerKey) => can('providerReadiness') ? base.readProviderReadiness(providerKey) : null,
     readDealFinanceAuthorities: () => can('financeAuthority') ? base.readDealFinanceAuthorities() : [],
     readResourceChains: () => can('resourceChain') ? base.readResourceChains() : [],
+    readFinanceEvents: () => can('financeEvents') ? base.readFinanceEvents() : [],
   };
 }
 
@@ -118,6 +136,8 @@ export function decorateAdminPaymentsV7RawTruth(raw, visibility) {
       paymentBusinessAuthorityReady: baseCapabilities.paymentBusinessAuthorityReady === true && visibility.paymentBusinessAuthority === true,
       financeAuthority: baseCapabilities.financeAuthority === true && visibility.financeAuthority === true,
       resourceChain: baseCapabilities.resourceChain === true && visibility.resourceChain === true,
+      financeEvents: baseCapabilities.financeEvents === true && visibility.financeEvents === true,
+      globalFinancePolicy: baseCapabilities.globalFinancePolicy === true && visibility.globalFinancePolicy === true,
     },
   };
 }
