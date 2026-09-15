@@ -208,6 +208,11 @@ grant usage on schema portal_private to rona_finance_materializer_worker_v7;
 grant execute on function portal_private.run_finance_materialization_maintenance_v7(integer,integer,text)
   to rona_finance_materializer_worker_v7;
 
+-- Supabase's managed postgres role is not a true superuser and pg_cron therefore cannot
+-- schedule a job directly as another database role. The cron connection is owned by the
+-- current migration role, then immediately SET ROLEs to the dedicated least-privilege worker.
+grant rona_finance_materializer_worker_v7 to postgres;
+
 -- Production gate: pg_cron must exist. Plain PostgreSQL QA may explicitly opt out of cron registration
 -- while exercising this exact maintenance entrypoint through the CI periodic-worker harness.
 do $payments_v7_scheduler$
@@ -225,9 +230,9 @@ begin
   perform cron.schedule_in_database(
     'payments-v7-finance-materialization-maintenance-v7',
     '* * * * *',
-    $cron$select portal_private.run_finance_materialization_maintenance_v7(50,50,'PG_CRON');$cron$,
+    $cron$set role rona_finance_materializer_worker_v7; select portal_private.run_finance_materialization_maintenance_v7(50,50,'PG_CRON');$cron$,
     current_database(),
-    'rona_finance_materializer_worker_v7',
+    null,
     true
   );
 end
