@@ -1,4 +1,4 @@
-// PR #528 Stage 2.1 candidate entrypoint for the EXISTING rona-portal-api function slug.
+// PR #528 Stage 2.2 candidate entrypoint for the EXISTING rona-portal-api function slug.
 // DO NOT deploy from this PR. It wraps the exact active production source lineage instead of main.
 // Active production source pin verified before this change:
 // 77588541119bb1a96375beed3e853e067ab1422f
@@ -43,6 +43,14 @@ async function lkIntakes(audience:'CLIENT'|'ADMIN',clientId:string|null,contract
     from portal_private.client_intake_projection_for_lk_v1(${audience},${clientId},${contractId})
   `;
 }
+async function lkLogicalApplications(audience:'CLIENT'|'ADMIN',clientId:string|null,contractId:string|null){
+  if(!intakeSql)return[];
+  return await intakeSql`
+    select application_key::text,application_id,product,quantity_tonnes,destination,price_mode,
+           application_status,submitted_at,updated_at,linked_intakes
+    from portal_private.client_intake_application_projection_for_lk_v1(${audience},${clientId},${contractId})
+  `;
+}
 function effectiveQuantity(row:any){
   const value=row?.effective_payload?.quantity_tonnes;
   if(value===null||value===undefined||value==='')return null;
@@ -51,8 +59,27 @@ function effectiveQuantity(row:any){
 function intakeFields(row:any){
   return {intake_id:String(row.intake_id),durable_id:String(row.durable_id),source_id:String(row.source_id),actionable_type:String(row.actionable_type),intake_status:String(row.status),intake_submitted_at:row.submitted_at,intake_routing_reason:row.routing_reason??null,intake_responsible_role:row.responsible_role??null,intake_contract:'RONA_CLIENT_INTAKE_V1'};
 }
-function mergeIntoApplications(existing:any[],intakes:any[]){
-  const rows=Array.isArray(existing)?existing.map((x:any)=>({...x})):[],byApplication=new Map(rows.map((x:any)=>[String(x.application_id||''),x]));
+function applicationDetailType(value:any){return String(value||'').toUpperCase().startsWith('APPLICATION_DETAILS_')}
+function mergeIntoApplications(existing:any[],intakes:any[],logicalApplications:any[]){
+  const rows=Array.isArray(existing)?existing.map((x:any)=>({...x})):[];
+  const byApplication=new Map(rows.map((x:any)=>[String(x.application_id||''),x]));
+
+  // Authoritative application-key projection is one row per existing client_applications.id.
+  // Detail reverse-events remain durable linked intake identities; they never become a second app row.
+  for(const logical of Array.isArray(logicalApplications)?logicalApplications:[]){
+    const applicationId=String(logical?.application_id||'');if(!applicationId)continue;
+    let target=byApplication.get(applicationId);
+    if(!target){
+      target={application_id:applicationId,record_kind:'CLIENT_APPLICATION',product:logical.product??null,quantity_tonnes:logical.quantity_tonnes==null?null:Number(logical.quantity_tonnes),destination:logical.destination??null,price_mode:logical.price_mode??null,status:logical.application_status??null,submitted_at:logical.submitted_at??null,updated_at:logical.updated_at??logical.submitted_at??null};
+      rows.push(target);byApplication.set(applicationId,target);
+    }
+    const linked=Array.isArray(logical.linked_intakes)?logical.linked_intakes:[];
+    target.client_intakes=linked;
+    target.application_details_intakes=linked.filter((x:any)=>applicationDetailType(x?.actionable_type));
+    const primary=linked.find((x:any)=>x?.source_kind==='CLIENT_APPLICATION')||linked[0];
+    if(primary)Object.assign(target,intakeFields(primary));
+  }
+
   for(const intake of intakes){
     if(intake.source_kind==='CLIENT_APPLICATION'){
       const target=byApplication.get(String(intake.source_id));
@@ -61,7 +88,19 @@ function mergeIntoApplications(existing:any[],intakes:any[]){
     }
     if(intake.source_kind!=='PORTAL_REVERSE_EVENT')continue;
     const q=effectiveQuantity(intake),p=intake.effective_payload||{};
-    rows.push({application_id:String(intake.source_id),request_id:String(intake.source_id),record_kind:'CLIENT_REQUEST',product:p.product??null,quantity_tonnes:q,destination:p?.destination?.station??p.destination??null,price_mode:p?.commercial?.price_mode??null,status:String(intake.status),submitted_at:intake.submitted_at,updated_at:intake.submitted_at,effective_payload:p,...intakeFields(intake)});
+    if(applicationDetailType(intake.actionable_type)){
+      const linkedApplicationId=String(p.application_id||'');
+      const target=linkedApplicationId?byApplication.get(linkedApplicationId):null;
+      if(target){
+        const linked=Array.isArray(target.application_details_intakes)?target.application_details_intakes:[];
+        if(!linked.some((x:any)=>String(x?.intake_id||'')===String(intake.intake_id)))linked.push({...intakeFields(intake),source_kind:intake.source_kind});
+        target.application_details_intakes=linked;
+        continue;
+      }
+      // A malformed/unresolved application-details event stays visible as a failed request record;
+      // it is never projected as an authoritative application.
+    }
+    rows.push({application_id:String(intake.source_id),request_id:String(intake.source_id),record_kind:'CLIENT_REQUEST',linked_application_id:applicationDetailType(intake.actionable_type)?String(p.application_id||'')||null:null,product:p.product??null,quantity_tonnes:q,destination:p?.destination?.station??p.destination??null,price_mode:p?.commercial?.price_mode??null,status:String(intake.status),submitted_at:intake.submitted_at,updated_at:intake.submitted_at,effective_payload:p,...intakeFields(intake)});
   }
   return rows;
 }
@@ -90,16 +129,24 @@ async function enrich(req:Request,response:Response){
 
   if(req.method==='GET'&&route==='/v1/client/context'){
     const url=new URL(req.url),clientId=String(url.searchParams.get('clientId')||''),contractId=String(url.searchParams.get('contractId')||'');
-    if(payload?.data&&clientId&&contractId){const intakes=await lkIntakes('CLIENT',clientId,contractId);payload.data.applications=mergeIntoApplications(payload.data.applications,intakes);payload.data.client_intake_projection_contract=CLIENT_INTAKE_STAGE21_CONTRACT;return replaceJson(response,payload)}
+    if(payload?.data&&clientId&&contractId){
+      const [intakes,logicalApplications]=await Promise.all([lkIntakes('CLIENT',clientId,contractId),lkLogicalApplications('CLIENT',clientId,contractId)]);
+      payload.data.applications=mergeIntoApplications(payload.data.applications,intakes,logicalApplications);
+      payload.data.client_intake_projection_contract=CLIENT_INTAKE_STAGE21_CONTRACT;
+      return replaceJson(response,payload);
+    }
   }
   if(req.method==='GET'&&route==='/v1/admin/bootstrap'&&payload?.data){
-    const intakes=await lkIntakes('ADMIN',null,null);payload.data.applications=mergeIntoApplications(payload.data.applications,intakes);payload.data.client_intake_projection_contract=CLIENT_INTAKE_STAGE21_CONTRACT;return replaceJson(response,payload);
+    const [intakes,logicalApplications]=await Promise.all([lkIntakes('ADMIN',null,null),lkLogicalApplications('ADMIN',null,null)]);
+    payload.data.applications=mergeIntoApplications(payload.data.applications,intakes,logicalApplications);
+    payload.data.client_intake_projection_contract=CLIENT_INTAKE_STAGE21_CONTRACT;
+    return replaceJson(response,payload);
   }
   return response;
 }
 
 // Outer wrapper is installed first. The pinned production bootstrap installs its own Deno.serve
-// wrapper and ultimately registers through this one, so Stage 2.1 decorates the real handlers.
+// wrapper and ultimately registers through this one, so Stage 2.2 decorates the real handlers.
 (Deno as any).serve=function stage21Serve(first:any,second?:any){
   const handler=typeof first==='function'?first:second,options=typeof first==='function'?undefined:first;
   if(typeof handler!=='function')return originalServe(first,second);
