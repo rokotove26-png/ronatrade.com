@@ -22,7 +22,9 @@ test('Payment Passport lines — DEAL-004 exposes six confirmed BANK_ACTUAL equi
   ]);
   assert.equal(rows.length,6);
   assert.equal(rows.filter(x=>x.row_type==='COMMISSION').length,3);
-  assert.ok(rows.every(x=>x.status==='AUTHORITATIVE'&&x.conversion_source_basis==='BANK_ACTUAL'&&x.deal_equivalent_currency==='USD'));
+  assert.equal(rows.filter(x=>x.is_fee).length,3);
+  assert.ok(rows.every(x=>x.status==='AUTHORITATIVE'&&x.status_label==='Подтверждено'));
+  assert.ok(rows.every(x=>x.conversion_source_basis==='BANK_ACTUAL'&&x.conversion_label==='Пересчёт по фактическому банковскому курсу'&&x.deal_equivalent_currency==='USD'));
   assert.equal(rows.reduce((sum,x)=>sum+Number(x.deal_equivalent_amount),0).toFixed(2),'229736.29');
 });
 
@@ -38,19 +40,23 @@ test('Payment Passport lines — 005/006 consume normalized 80/20 Finance lines,
   assert.deepEqual(d6.map(x=>x.native_amount),['3307392','600']);
   assert.equal(d5.reduce((sum,x)=>sum+Number(x.deal_equivalent_amount),0).toFixed(2),'162738.00');
   assert.equal(d6.reduce((sum,x)=>sum+Number(x.deal_equivalent_amount),0).toFixed(2),'40684.50');
+  assert.deepEqual(d5.map(x=>x.document),['BAKAI doc 5631125','BAKAI doc 5631127']);
+  assert.deepEqual(d6.map(x=>x.document),['BAKAI doc 5631125','BAKAI doc 5631127']);
   assert.ok(rows.every(x=>x.conversion_source_basis==='BANK_ACTUAL'));
 });
 
-test('Payment Passport lines — unresolved resource chain fails closed without client-side equivalent', () => {
+test('Payment Passport lines — unresolved resource chain fails closed with human-safe reason and no client-side equivalent', () => {
   const [row]=normalizePaymentPassportLines([{
     deal_id:'QA-DEAL',payment_id:'QA-PAY',payment_kind:'COUNTERPARTY_PAYMENT',attributed_amount:'10',attributed_currency:'RUB',
     accounting_amount:'1',accounting_currency:'USD',conversion_source_basis:'BANK_ACTUAL',line_status:'TO_VERIFY',line_reason:'RESOURCE_CHAIN_AUTHORITY_CONFLICT',
   }]);
   assert.equal(row.status,'TO_VERIFY');
+  assert.equal(row.status_label,'Требуется проверка');
   assert.equal(row.deal_equivalent_amount,null);
   assert.equal(row.deal_equivalent_currency,null);
   assert.equal(row.conversion_source_basis,null);
-  assert.equal(row.reason,'RESOURCE_CHAIN_AUTHORITY_CONFLICT');
+  assert.equal(row.conversion_label,null);
+  assert.equal(row.reason,'Есть конфликт подтверждённых данных пересчёта');
 });
 
 test('Payment Passport reader source is read-only Finance attribution + resource chain + bank metadata, with no legacy owner fact dependency', () => {
