@@ -27,6 +27,8 @@ function prepareRaw(raw = {}) {
   }
   if (capabilities.financeAuthority !== true) next.dealFinanceAuthorities = [];
   if (capabilities.resourceChain !== true) next.resourceChains = [];
+  if (capabilities.financeEvents !== true) next.financeEvents = [];
+  if (capabilities.globalFinancePolicy !== true) next.globalFinancePolicies = [];
   return next;
 }
 
@@ -37,7 +39,9 @@ function sourceTruthState(source) {
     contour: status(c.contourAuthority),
     bank_receipts_and_allocations: status(c.bankReceiptAuthority),
     finance_authority: status(c.financeAuthority),
-    spend_resource_chain: status(c.resourceChain),
+    funding_events: status(c.financeEvents),
+    global_finance_policy: status(c.globalFinancePolicy),
+    settlement_resource_chain: status(c.resourceChain),
   };
 }
 
@@ -56,13 +60,17 @@ function enforceTruth(projection, source) {
         financial_status: 'TO_VERIFY',
       };
     }
-    if (c.resourceChain !== true) {
-      const currency = next?.accounting_currency?.currency || next?.verified_received?.currency || null;
+    if (c.financeEvents !== true || c.globalFinancePolicy !== true || c.paymentBusinessAuthority !== true) {
+      const currency = next?.funding_currency || next?.accounting_currency?.currency || next?.verified_received?.currency || null;
+      const reason = c.globalFinancePolicy !== true
+        ? 'GLOBAL_FINANCE_POLICY_NOT_VISIBLE'
+        : (c.financeEvents !== true ? 'FUNDING_EVENTS_NOT_VISIBLE' : 'CURRENT_FINANCE_ATTRIBUTION_NOT_VISIBLE');
       next = {
         ...next,
-        actual_spend: toVerifyMoney(currency, 'SPEND_RESOURCE_CHAIN_NOT_VISIBLE', []),
+        actual_spend: toVerifyMoney(currency, reason, []),
         actual_spend_status: 'TO_VERIFY',
-        remaining_execution: toVerifyMoney(currency, 'SPEND_RESOURCE_CHAIN_NOT_VISIBLE', []),
+        remaining_execution: toVerifyMoney(currency, reason, []),
+        payment_passport: next.payment_passport ? { ...next.payment_passport, status: 'TO_VERIFY', reason } : next.payment_passport,
       };
     }
     return next;
@@ -70,6 +78,7 @@ function enforceTruth(projection, source) {
   return {
     ...projection,
     deals,
+    payment_passports: deals.map((deal) => deal.payment_passport).filter(Boolean),
     owner_exception_queue: c.bankReceiptAuthority === true ? (projection.owner_exception_queue || []) : [],
     source_truth: sourceTruthState(source),
   };
@@ -78,10 +87,29 @@ function enforceTruth(projection, source) {
 export function createAdminPaymentsV7SourceBundle(raw = {}) {
   const prepared = prepareRaw(raw);
   const source = createBaseSourceBundle(prepared);
+  const rawPaymentByKey = new Map((prepared?.payments || []).map((row) => [String(row.id), row]));
+  const payments = (source.payments || []).map((payment) => {
+    const rawPayment = rawPaymentByKey.get(String(payment.payment_key)) || {};
+    return {
+      ...payment,
+      recipient: rawPayment.beneficiary_name || rawPayment.counterparty_name || payment.counterparty_name || null,
+      original_payment_purpose: rawPayment.original_payment_purpose || null,
+      bank_account_reference: rawPayment.bank_account_reference || null,
+      bank_statement_date: rawPayment.bank_statement_date || null,
+    };
+  });
   return {
     ...source,
+    payments,
+    financeEvents: Array.isArray(prepared.financeEvents) ? prepared.financeEvents : [],
+    globalFinancePolicies: Array.isArray(prepared.globalFinancePolicies) ? prepared.globalFinancePolicies : [],
     sourceVisibility: raw.sourceVisibility || null,
-    capabilities: { ...source.capabilities, ...(prepared.capabilities || {}) },
+    capabilities: {
+      ...source.capabilities,
+      ...(prepared.capabilities || {}),
+      financeEvents: prepared.capabilities?.financeEvents ?? (prepared.financeEvents !== undefined),
+      globalFinancePolicy: prepared.capabilities?.globalFinancePolicy ?? (prepared.globalFinancePolicies !== undefined),
+    },
   };
 }
 
