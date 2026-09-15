@@ -4,6 +4,7 @@ import { authorityRef } from './money.mjs';
 const INELIGIBLE_LIFECYCLE = new Set(['SUPERSEDED', 'REVERSED', 'REJECTED', 'CANCELLED', 'INACTIVE', 'ARCHIVED']);
 const INELIGIBLE_AUTHORITY = new Set(['REJECTED', 'REVERSED', 'INVALID', 'INACTIVE', 'SUPERSEDED']);
 const LEGACY_OWNER_OUTGOING_FACT_KIND = 'OWNER_OUTGOING_PAYMENT_FACT';
+const PHYSICAL_PAYMENT_ALLOCATION_KIND = 'PAYMENT_ALLOCATION';
 const NORMALIZED_FINANCE_ATTRIBUTION_KINDS = new Set(['FINANCE', 'FINANCE-AI', 'AI-FINANCE']);
 
 function upper(value) { return value === null || value === undefined ? null : String(value).trim().toUpperCase(); }
@@ -72,7 +73,10 @@ function isCurrentExactNormalizedFinanceAttribution(claim) {
 
 function applyAttributionAuthorityPrecedence(survivors) {
   if (!survivors.some(isCurrentExactNormalizedFinanceAttribution)) return survivors;
-  return survivors.filter((claim) => upper(claim?.authority_kind) !== LEGACY_OWNER_OUTGOING_FACT_KIND);
+  return survivors.filter((claim) => {
+    const kind = upper(claim?.authority_kind);
+    return kind !== LEGACY_OWNER_OUTGOING_FACT_KIND && kind !== PHYSICAL_PAYMENT_ALLOCATION_KIND;
+  });
 }
 
 export function resolveAuthorityClaims(claims, signatureFn) {
