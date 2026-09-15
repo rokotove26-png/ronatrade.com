@@ -76,6 +76,24 @@ jobs:
               psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
           done
           echo 'REAL_POSTGRES_MIGRATION_APPLY=PASS'
+      - name: Diagnose automatic application routing in rollback transaction
+        run: |
+          cat > /tmp/diag.sql <<'SQL'
+          begin;
+          insert into portal_private.clients(id,client_id,legal_name) values('31111111-1111-4111-8111-111111111111','QA-DIAG-CLIENT','diag');
+          insert into portal_private.contracts(id,contract_id,client_key) values('32222222-2222-4222-8222-222222222222','QA-DIAG-CONTRACT','31111111-1111-4111-8111-111111111111');
+          insert into portal_private.client_applications(application_id,client_key,contract_key,product,quantity_tonnes,price_mode,submitted_at,source_publication_item_id)
+          values('APP-PG17-DIAG','31111111-1111-4111-8111-111111111111','32222222-2222-4222-8222-222222222222','LPG',25,'ACCEPT_PUBLISHED_PRICE',now(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+          select i.source_record_id,i.actionable_type,i.routing_state,i.routing_reason,q.state as outbox_state,q.last_error_code,q.last_error_text,t.task_id
+          from portal_private.client_intake_v1 i
+          left join portal_private.client_intake_routing_outbox_v1 q on q.intake_id=i.intake_id
+          left join portal_private.client_intake_task_links_v1 l on l.intake_id=i.intake_id and l.stage_key=q.stage_key
+          left join portal_private.staff_tasks t on t.id=l.staff_task_id
+          where i.source_record_id='APP-PG17-DIAG';
+          rollback;
+          SQL
+          docker run --rm --network host -v "$PWD:/repo" -v /tmp/diag.sql:/tmp/diag.sql -w /repo -e PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/diag.sql
       - name: Execute real INSERT RPC projection recovery rehearsal
         run: >-
           docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
