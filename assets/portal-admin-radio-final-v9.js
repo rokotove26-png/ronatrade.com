@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_ADMIN_RADIO_FINAL_V9__)return;
-window.__RONA_ADMIN_RADIO_FINAL_V9__='20260915-final-v9';
+window.__RONA_ADMIN_RADIO_FINAL_V9__='20260915-final-v9-clean-header-r2';
 
 const PAGE_ID='page-messages';
 const STYLE_ID='rona-admin-radio-final-v9-style';
@@ -20,13 +20,15 @@ radial-gradient(700px 380px at 76% -2%,rgba(27,157,220,.13),transparent 70%),
 radial-gradient(520px 360px at 9% 96%,rgba(127,78,255,.08),transparent 72%),
 linear-gradient(180deg,#020811 0%,#04101a 54%,#020912 100%)!important;min-height:calc(100vh - 66px)}
 #${PAGE_ID}:before,#${PAGE_ID}:after{display:none!important;content:none!important}
-#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:min(calc(100% - 42px),1040px)!important;max-width:1040px!important;margin:18px auto 34px!important;display:grid!important;gap:14px!important;background:transparent!important;background-image:none!important;position:relative!important}
+#${PAGE_ID}>.rona-radio-clean-head{width:min(calc(100% - 42px),1040px)!important;max-width:1040px!important;margin:18px auto 0!important;padding:0!important;display:flex!important;align-items:flex-end!important;justify-content:space-between!important;gap:24px!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important;position:relative!important;overflow:visible!important}
+#${PAGE_ID}>.rona-radio-clean-head:before,#${PAGE_ID}>.rona-radio-clean-head:after,#${PAGE_ID}>.rona-radio-clean-head>*:before,#${PAGE_ID}>.rona-radio-clean-head>*:after{display:none!important;content:none!important}
+#${PAGE_ID} .rona-radio-clean-title{margin:0!important;padding:0!important;font-size:28px!important;line-height:1.05!important;font-weight:900!important;letter-spacing:-.04em!important;color:#f7fbff!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important;text-shadow:0 3px 24px rgba(79,211,255,.10)!important}
+#${PAGE_ID} .rona-radio-clean-sub{margin:0 0 3px!important;padding:0!important;max-width:520px!important;font-size:11.5px!important;line-height:1.45!important;color:#7895a6!important;text-align:right!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important}
+#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:min(calc(100% - 42px),1040px)!important;max-width:1040px!important;margin:12px auto 34px!important;display:grid!important;gap:14px!important;background:transparent!important;background-image:none!important;position:relative!important}
 #${PAGE_ID}>.rona-rs-root[data-kind="radio"]:before{content:"";position:absolute;inset:-12px -16px;z-index:0;pointer-events:none;border-radius:30px;background-image:linear-gradient(rgba(93,218,255,.026) 1px,transparent 1px),linear-gradient(90deg,rgba(93,218,255,.026) 1px,transparent 1px);background-size:32px 32px;mask-image:linear-gradient(to bottom,#000,transparent 88%)}
 #${PAGE_ID}>.rona-rs-root[data-kind="radio"]>*{position:relative;z-index:1}
-#${PAGE_ID} .rf-hero{min-height:76px!important;margin:0!important;padding:17px 21px!important;border-radius:18px!important;border:1px solid rgba(100,205,243,.18)!important;background:radial-gradient(360px 140px at 95% 0,rgba(74,211,255,.12),transparent 68%),linear-gradient(135deg,rgba(8,26,41,.98),rgba(4,14,24,.98))!important;box-shadow:0 16px 42px rgba(0,0,0,.24),inset 0 1px rgba(255,255,255,.03)!important;overflow:hidden!important}
-#${PAGE_ID} .rf-hero:after{content:"";position:absolute;right:-42px;top:-76px;width:168px;height:168px;border:1px solid rgba(88,219,255,.22);border-radius:50%;box-shadow:0 0 0 25px rgba(88,219,255,.022),0 0 0 52px rgba(117,98,255,.015);pointer-events:none}
-#${PAGE_ID} .rf-hero .rona-visual-title{font-size:28px!important;line-height:1.05!important;font-weight:900!important;letter-spacing:-.04em!important;color:#f7fbff!important;text-shadow:0 3px 24px rgba(79,211,255,.10)!important}
-#${PAGE_ID} .rf-hero .rona-rs-sub{font-size:11.5px!important;line-height:1.45!important;color:#7895a6!important;margin-top:6px!important;max-width:650px!important;opacity:1!important}
+#${PAGE_ID} .rf-hero,#${PAGE_ID}>.rona-rs-root[data-kind="radio"]>.rona-rs-hero{display:none!important;background:none!important;background-image:none!important;border:0!important;box-shadow:none!important;filter:none!important}
+#${PAGE_ID} .rf-hero:before,#${PAGE_ID} .rf-hero:after,#${PAGE_ID}>.rona-rs-root[data-kind="radio"]>.rona-rs-hero:before,#${PAGE_ID}>.rona-rs-root[data-kind="radio"]>.rona-rs-hero:after{display:none!important;content:none!important}
 #${PAGE_ID} .rf-kpis{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:10px!important;margin:0!important}
 #${PAGE_ID} .rf-kpis>.rona-rs-kpi{min-height:92px!important;margin:0!important;padding:13px 14px 12px 17px!important;border-radius:15px!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important;position:relative!important;overflow:hidden!important;box-shadow:0 11px 28px rgba(0,0,0,.18),inset 0 1px rgba(255,255,255,.028)!important}
 #${PAGE_ID} .rf-kpis>.rona-rs-kpi:before{content:"";position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:3px;background:var(--rf-accent);box-shadow:0 0 17px var(--rf-glow)}
@@ -85,8 +87,8 @@ linear-gradient(180deg,#020811 0%,#04101a 54%,#020912 100%)!important;min-height
 #${PAGE_ID} .rf-audience{margin-top:2px;padding:11px;border-radius:12px;background:linear-gradient(135deg,rgba(40,94,127,.15),rgba(20,31,54,.18));border:1px solid rgba(95,187,225,.11)}
 #${PAGE_ID} .rf-audience small{display:block;font-size:9.5px;color:#7290a0;margin-bottom:5px}.rf-audience strong{display:block;font-size:12.5px;color:#e2eff4}
 @keyframes rfSweep{to{transform:rotate(332deg)}}@keyframes rfPulse{0%,100%{opacity:.55;transform:scale(.85)}50%{opacity:1;transform:scale(1.12)}}@keyframes rfWave{0%{filter:brightness(.75);transform:scaleY(.72)}100%{filter:brightness(1.12);transform:scaleY(1)}}
-@media(max-width:980px){#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:min(calc(100% - 24px),1040px)!important}.rf-main,.rf-bottom{grid-template-columns:1fr!important}.rf-network-body{min-height:220px!important}.rf-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
-@media(max-width:640px){#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:calc(100% - 14px)!important;margin-top:8px!important}.rf-kpis{grid-template-columns:1fr!important}.rf-control-row{grid-template-columns:1fr!important}.rf-editor-actions{align-items:stretch!important;flex-direction:column!important}.rf-editor-actions button{width:100%!important}.rf-secure{justify-content:flex-start!important}.rf-hero{padding:15px 16px!important}.rf-hero .rona-visual-title{font-size:25px!important}}
+@media(max-width:980px){#${PAGE_ID}>.rona-radio-clean-head,#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:min(calc(100% - 24px),1040px)!important}.rf-main,.rf-bottom{grid-template-columns:1fr!important}.rf-network-body{min-height:220px!important}.rf-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:640px){#${PAGE_ID}>.rona-radio-clean-head{align-items:flex-start!important;flex-direction:column!important;gap:6px!important}#${PAGE_ID} .rona-radio-clean-sub{text-align:left!important}#${PAGE_ID}>.rona-rs-root[data-kind="radio"]{width:calc(100% - 14px)!important;margin-top:8px!important}.rf-kpis{grid-template-columns:1fr!important}.rf-control-row{grid-template-columns:1fr!important}.rf-editor-actions{align-items:stretch!important;flex-direction:column!important}.rf-editor-actions button{width:100%!important}.rf-secure{justify-content:flex-start!important}}
 `;(document.head||document.documentElement).appendChild(s)
 }
 
@@ -94,13 +96,14 @@ function headingCard(root,label){const h=$$('h1,h2,h3,h4,h5,h6',root).find(x=>tx
 function field(label,control){const w=document.createElement('label');w.className='rf-field';const s=document.createElement('span');s.textContent=label;w.append(s,control);return w}
 function panelHead(title){const h=document.createElement('div');h.className='rf-panel-head';const t=document.createElement('div');t.className='rf-panel-title';t.textContent=title;const ready=document.createElement('div');ready.className='rf-ready';ready.textContent='Канал готов';h.append(t,ready);return h}
 function cleanupOld(){['rona-admin-radio-icc-v1-style','rona-admin-radio-mission-control-v3-style','rona-admin-radio-designer-v5-style','rona-admin-radio-designer-v6-style','rona-admin-radio-designer-v7-style','rona-admin-radio-designer-v8-style','ronaRadioCommandStyle'].forEach(id=>document.getElementById(id)?.remove())}
+function ensureCleanHead(page,root){let head=$(':scope>.rona-radio-clean-head',page);if(head)return head;head=document.createElement('div');head.className='rona-radio-clean-head';const title=document.createElement('h1');title.className='rona-radio-clean-title';title.textContent='Радиорубка';const sub=document.createElement('div');sub.className='rona-radio-clean-sub';sub.textContent='Оперативные сообщения, уведомления и объявления клиентам и агентам.';head.append(title,sub);page.insertBefore(head,root);return head}
 
 function apply(){
   if(busy)return;const page=document.getElementById(PAGE_ID);const root=$(':scope>.rona-rs-root[data-kind="radio"]',page);if(!page||!root)return;
-  if($('.rf-main',root)&&$('.rf-bottom',root))return;
+  if($('.rf-main',root)&&$('.rf-bottom',root)){const old=$(':scope>.rona-rs-hero',root)||$('.rf-hero',root);old?.remove();ensureCleanHead(page,root);return}
   busy=true;try{
-    cleanupOld();style();root.dataset.radioFinalV9='1';
-    const hero=$(':scope>.rona-rs-hero',root)||$('.rona-rs-hero',root);if(hero)hero.classList.add('rf-hero');
+    cleanupOld();style();ensureCleanHead(page,root);root.dataset.radioFinalV9='1';
+    const hero=$(':scope>.rona-rs-hero',root)||$('.rona-rs-hero',root);hero?.remove();
     let kgrid=$(':scope>.rona-rs-kpis',root)||$('.radio-kpi-grid',root);const kpis=kgrid?$$(':scope>.rona-rs-kpi',kgrid):$$('.rona-rs-kpi',root).slice(0,4);const compact=document.createElement('div');compact.className='rf-kpis';kpis.forEach(x=>compact.append(x));
 
     const composerOld=headingCard(root,'Новое сообщение');
@@ -118,7 +121,7 @@ function apply(){
 
     const routing=document.createElement('aside');routing.className='rf-routing';routing.append(panelHead('Каналы доставки'));const rb=document.createElement('div');rb.className='rf-routing-body';[['r1','Сообщения','Оперативный канал'],['r2','Уведомления','Служебный канал'],['r3','Объявления','Публичный канал']].forEach(([c,a,b])=>{const n=document.createElement('div');n.className='rf-route '+c;const i=document.createElement('i');const bx=document.createElement('b');bx.textContent=a;const sp=document.createElement('span');sp.textContent=b;n.append(i,bx,sp);rb.append(n)});const aud=document.createElement('div');aud.className='rf-audience';const sm=document.createElement('small');sm.textContent='Текущая аудитория';const av=document.createElement('strong');const updateAudience=()=>{const op=scope.options?.[scope.selectedIndex];av.textContent=op?.textContent||'Все клиенты'};updateAudience();scope.addEventListener('change',updateAudience);aud.append(sm,av);rb.append(aud);routing.append(rb);bottom.append(feed,routing);
 
-    const nodes=[hero,compact,main,bottom].filter(Boolean);root.replaceChildren(...nodes);
+    const nodes=[compact,main,bottom].filter(Boolean);root.replaceChildren(...nodes);
   }finally{busy=false}
 }
 function schedule(){clearTimeout(timer);timer=setTimeout(apply,70)}
