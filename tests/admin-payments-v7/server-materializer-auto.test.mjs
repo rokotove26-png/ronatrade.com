@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const auto=fs.readFileSync('supabase/migrations/20260915023000_admin_payments_v7_auto_materialization.sql','utf8');
+const maintenance=fs.readFileSync('supabase/migrations/20260915030000_admin_payments_v7_materialization_maintenance.sql','utf8');
 const gateway=fs.readFileSync('supabase/functions/rona-mcp-gateway/index.ts','utf8');
 const finance=fs.readFileSync('supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs','utf8');
 
@@ -21,6 +22,21 @@ assert.match(auto,/status='RETRY'/);
 assert.match(auto,/Materialization automation must never invalidate an already valid Finance conclusion/);
 assert.match(auto,/finance_materialization_attempts_v7/);
 
+assert.match(maintenance,/reconcile_finance_materialization_jobs_v7/);
+assert.match(maintenance,/run_finance_materialization_maintenance_v7/);
+assert.match(maintenance,/finance_materialization_maintenance_audit_v7/);
+assert.match(maintenance,/not exists\(\s*select 1\s*from portal_private\.finance_materialization_jobs_v7/s);
+assert.match(maintenance,/on conflict\(manifest_record_id\) do nothing/);
+assert.match(maintenance,/recover_finance_materialization_jobs_v7\(p_recovery_limit\)/);
+assert.match(maintenance,/cron\.schedule_in_database/);
+assert.match(maintenance,/payments-v7-finance-materialization-maintenance-v7/);
+assert.match(maintenance,/'\* \* \* \* \*'/);
+assert.match(maintenance,/rona_finance_materializer_worker_v7/);
+assert.match(maintenance,/grant execute on function portal_private\.run_finance_materialization_maintenance_v7/);
+assert.match(maintenance,/PAYMENTS_V7_PG_CRON_REQUIRED/);
+assert.match(maintenance,/QA_PERIODIC_WORKER/);
+assert.match(maintenance,/PG_CRON/);
+
 for(const pattern of [
   /insert\s+into\s+portal_private\.payments\b/i,
   /update\s+portal_private\.payments\b/i,
@@ -33,6 +49,7 @@ for(const pattern of [
   /delete\s+from\s+portal_private\.finance_events_v7\b/i,
 ]){
   assert.doesNotMatch(auto,pattern,'auto layer must delegate business persistence to canonical materializer only');
+  assert.doesNotMatch(maintenance,pattern,'maintenance layer must delegate business persistence to canonical materializer only');
 }
 
 assert.doesNotMatch(finance,/name:\s*['"]finance_event_submit['"]/,'Finance Pilot must not expose a ninth Payments write tool');
@@ -41,5 +58,7 @@ assert.match(finance,/x-rona-finance-tools-count','8'/);
 assert.match(gateway,/createFinancePaymentsV7NativeHooks/,'gateway compatibility wrapper remains structurally stable');
 
 console.log('PAYMENTS V7 AUTOMATIC MATERIALIZATION STATIC CONTRACT PASS');
+console.log('SERVER PERIODIC RECOVERY = PG_CRON / LEAST-PRIVILEGE ROLE');
+console.log('ORPHAN CONCLUSION RECONCILIATION = IDEMPOTENT JOB CREATION');
 console.log('FINANCE PILOT = LEGACY 8 TOOLS');
 console.log('PROPOSAL + CONCLUSION => SERVER MATERIALIZER; CHATGPT WRITE TOOL = NONE');
