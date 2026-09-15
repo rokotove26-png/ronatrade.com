@@ -3,11 +3,20 @@ html.rona-visual-v2 body #page-claims>.rona-claims-r2-root{
   width:min(100%,1360px)!important;
   max-width:1360px!important;
   margin:0 auto 34px!important;
+  padding-left:0!important;
+  padding-right:0!important;
   display:grid!important;
   gap:0!important;
+  box-sizing:border-box!important;
   container-type:inline-size;
 }
 html.rona-visual-v2 body #page-claims .rona-claims-kpis{
+  width:100%!important;
+  max-width:none!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  justify-self:stretch!important;
+  box-sizing:border-box!important;
   display:grid!important;
   grid-template-columns:repeat(5,minmax(0,1fr))!important;
   gap:0!important;
@@ -62,6 +71,12 @@ html.rona-visual-v2 body #page-claims .rona-claims-kpi .rona-owner-kpi{
   font-variant-numeric:tabular-nums!important;
 }
 html.rona-visual-v2 body #page-claims .rona-claims-toolbar{
+  width:100%!important;
+  max-width:none!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  justify-self:stretch!important;
+  box-sizing:border-box!important;
   display:grid!important;
   grid-template-columns:minmax(320px,1.75fr) repeat(3,minmax(145px,.72fr)) auto auto!important;
   gap:9px!important;
@@ -114,6 +129,12 @@ html.rona-visual-v2 body #page-claims .rona-claims-toolbar .rona-claims-primary{
   box-shadow:0 10px 22px rgba(31,133,191,.16)!important;
 }
 html.rona-visual-v2 body #page-claims .rona-claims-work{
+  width:100%!important;
+  max-width:none!important;
+  margin-left:0!important;
+  margin-right:0!important;
+  justify-self:stretch!important;
+  box-sizing:border-box!important;
   display:grid!important;
   grid-template-columns:minmax(0,2.08fr) minmax(340px,.82fr)!important;
   gap:0!important;
@@ -303,7 +324,7 @@ html.rona-visual-v2 body #page-claims .rona-claims-divider{margin:5px 0!importan
 
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_CLAIMS_VISUAL_V510__)return;
-window.__RONA_CLAIMS_VISUAL_V510__='20260915-unified-workspace-v1';
+window.__RONA_CLAIMS_VISUAL_V510__='20260915-unified-workspace-v2';
 const q=(s,r=document)=>r.querySelector(s);
 function apply(){
   q('#ronaClaimsV455Style')?.remove();
@@ -313,7 +334,7 @@ function apply(){
   s.textContent=${JSON.stringify(CSS)};
   document.head.append(s);
   const root=q('#page-claims>.rona-claims-r2-root');
-  if(root)root.dataset.claimsVisual='unified-workspace-v1';
+  if(root)root.dataset.claimsVisual='unified-workspace-v2';
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',apply,{once:true});else apply();
 window.addEventListener('rona:admin-pagechange',e=>{if(e.detail?.page==='claims')setTimeout(apply,50)});
@@ -324,5 +345,5 @@ export async function onRequest(){return new Response(SCRIPT,{status:200,headers
   'content-type':'application/javascript; charset=utf-8',
   'cache-control':'no-store',
   'x-content-type-options':'nosniff',
-  'x-rona-claims-visual':'approved-v5.1.0'
+  'x-rona-claims-visual':'approved-v5.1.1'
 }})}
