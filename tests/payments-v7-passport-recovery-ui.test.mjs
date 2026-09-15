@@ -41,6 +41,10 @@ function findAll(value, predicate, out = []) {
   return out;
 }
 
+function hasClass(value, className) {
+  return String(value?.attrs?.class || '').split(/\s+/).includes(className);
+}
+
 const sandbox = {
   console,
   Intl,
@@ -117,68 +121,73 @@ function visible(passportValue = passport(), dealOverrides = {}) {
   return textOf(render(passportValue, dealOverrides), { visibleOnly: true });
 }
 
-// A. USD -> USD: funding currency remains the primary passport currency.
+// Owner-facing structure: one received amount, one payment table, totals, collapsed details.
 {
-  const p = passport({ funding_events: [fundingEvent({ settlement_lines: [settlement({ amount: '30000', currency: 'USD' })] })] });
-  const text = visible(p);
-  assert.match(text, /Получено от клиента[\s\S]*100[\s\u00a0]*000\s*USD/);
-  assert.match(text, /Потрачено средств сделки[\s\S]*30[\s\u00a0]*000\s*USD/);
-  assert.match(text, /Валюта поступления[\s\S]*USD/);
-  assert.match(text, /Фактически оплачено[\s\S]*30[\s\u00a0]*000\s*USD/);
-  assert.doesNotMatch(text, /КОНВЕРТАЦИЯ/);
+  const body = render(passport({ funding_events: [fundingEvent({ settlement_lines: [settlement()] })] }));
+  const text = textOf(body, { visibleOnly: true });
+  for (const label of ['СУММА ПОСТУПЛЕНИЯ', 'Получатель', 'Сумма в валюте поступления', 'Сумма фактического списания', 'ИТОГО ПОТРАЧЕНО', 'ОСТАТОК']) assert.match(text, new RegExp(label));
+  assert.equal(findAll(body, (item) => item.tag === 'table').length, 1);
+  assert.doesNotMatch(text, /Funding-side|ИСПОЛЬЗОВАНИЕ СРЕДСТВ СДЕЛКИ|ФАКТИЧЕСКИЕ ОПЛАТЫ|КОМИССИИ|Остатки в иных валютах|Internal status|Source basis/);
 }
 
-// B. USD funding -> RUB conversion -> RUB settlement. RUB is secondary settlement money only.
+// A. Direct USD payment: one linked settlement may use the authoritative event amount without any split calculation.
 {
-  const p = passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', conversion_rate: '84.33333333', conversion_source_basis: 'BANK_ACTUAL', settlement_lines: [settlement()] })] });
-  const text = visible(p);
-  assert.match(text, /Первичный расход средств сделки[\s\S]*30[\s\u00a0]*000\s*USD/);
-  assert.match(text, /Фактически оплачено[\s\S]*2[\s\u00a0]*530[\s\u00a0]*000\s*RUB/);
-  assert.match(text, /КОНВЕРТАЦИЯ/);
-  assert.match(text, /30[\s\u00a0]*000\s*USD[\s\S]*→[\s\S]*2[\s\u00a0]*530[\s\u00a0]*000\s*RUB/);
-  assert.match(text, /Фактический курс/);
+  const event = fundingEvent({ funding_amount: '20000', allocated_funding_amount: '20000', settlement_lines: [settlement({ recipient: 'Supplier Direct', amount: '20000', currency: 'USD' })] });
+  const body = render(passport({ funding_spent: money('20000'), funding_remaining: money('80000'), funding_events: [event] }));
+  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
+  const actualCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-actual')).map(textOf);
+  assert.deepEqual(fundingCells, ['20 000 USD']);
+  assert.deepEqual(actualCells, ['20 000 USD']);
 }
 
-// C. One conversion -> several settlements: no invented per-payment funding split.
+// B. USD funding -> RUB settlement: funding is primary, actual settlement is secondary.
 {
-  const rows = [
-    settlement({ amount: '1000000', bank_document: 'BANK-S1' }),
-    settlement({ amount: '900000', bank_document: 'BANK-S2' }),
-    settlement({ amount: '630000', bank_document: 'BANK-S3' }),
-  ];
-  const text = visible(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', conversion_rate: '84.33333333', settlement_lines: rows })] }));
-  assert.match(text, /Несколько оплат — см. раздел «Фактические оплаты»/);
-  assert.match(text, /1[\s\u00a0]*000[\s\u00a0]*000\s*RUB/);
-  assert.match(text, /900[\s\u00a0]*000\s*RUB/);
-  assert.match(text, /630[\s\u00a0]*000\s*RUB/);
-  assert.doesNotMatch(text, /12[\s\u00a0]*000\s*USD/);
-  assert.doesNotMatch(text, /10[\s\u00a0]*000\s*USD/);
-  assert.doesNotMatch(text, /8[\s\u00a0]*000\s*USD/);
+  const event = fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', conversion_rate: '84.33333333', conversion_source_basis: 'BANK_ACTUAL', settlement_lines: [settlement({ recipient: 'Supplier FX' })] });
+  const body = render(passport({ funding_events: [event] }));
+  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
+  const actualCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-actual')).map(textOf);
+  assert.deepEqual(fundingCells, ['30 000 USD']);
+  assert.deepEqual(actualCells, ['2 530 000 RUB']);
+  assert.doesNotMatch(textOf(body, { visibleOnly: true }), /84,33333333|Курс конвертации/);
+  assert.match(textOf(body), /Курс конвертации[\s\S]*84,33333333/);
 }
 
-// D. Exact per-payment funding allocation is shown only when supplied by the server.
+// C. One conversion -> several settlements without authoritative split: every funding column stays unresolved.
 {
   const rows = [
-    settlement({ amount: '1000000', allocated_funding_amount: '12000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
-    settlement({ amount: '900000', allocated_funding_amount: '10000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
-    settlement({ amount: '630000', allocated_funding_amount: '8000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
+    settlement({ recipient: 'Supplier A', amount: '1000000', bank_document: 'BANK-S1' }),
+    settlement({ recipient: 'Supplier B', amount: '900000', bank_document: 'BANK-S2' }),
+    settlement({ recipient: 'Supplier C', amount: '630000', bank_document: 'BANK-S3' }),
   ];
-  const text = visible(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', settlement_lines: rows })] }));
-  assert.match(text, /12[\s\u00a0]*000\s*USD/);
-  assert.match(text, /10[\s\u00a0]*000\s*USD/);
-  assert.match(text, /8[\s\u00a0]*000\s*USD/);
+  const body = render(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', conversion_rate: '84.33333333', settlement_lines: rows })] }));
+  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
+  assert.deepEqual(fundingCells, ['Требуется подтверждение', 'Требуется подтверждение', 'Требуется подтверждение']);
+  const actualCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-actual')).map(textOf);
+  assert.deepEqual(actualCells, ['1 000 000 RUB', '900 000 RUB', '630 000 RUB']);
 }
 
-// E. Finance authoritative zero stays zero without synthetic events.
+// D. Exact per-settlement funding allocation is shown only when supplied by the server.
+{
+  const rows = [
+    settlement({ recipient: 'Supplier A', amount: '1000000', allocated_funding_amount: '12000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
+    settlement({ recipient: 'Supplier B', amount: '900000', allocated_funding_amount: '10000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
+    settlement({ recipient: 'Supplier C', amount: '630000', allocated_funding_amount: '8000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
+  ];
+  const body = render(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', settlement_lines: rows })] }));
+  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
+  assert.deepEqual(fundingCells, ['12 000 USD', '10 000 USD', '8 000 USD']);
+}
+
+// E. Finance authoritative zero stays exact zero without synthetic rows.
 {
   const p = passport({ funding_currency: 'RUB', funding_received: money('0', 'RUB'), funding_spent: money('0', 'RUB'), funding_remaining: money('0', 'RUB'), funding_events: [] });
   const text = visible(p);
-  assert.match(text, /Потрачено средств сделки[\s\S]*0\s*RUB/);
-  assert.match(text, /Подтвержденных операций расходования нет/);
-  assert.doesNotMatch(text, /Требуется проверка/);
+  assert.match(text, /СУММА ПОСТУПЛЕНИЯ[\s\S]*0 RUB/);
+  assert.match(text, /ИТОГО ПОТРАЧЕНО[\s\S]*0 RUB/);
+  assert.match(text, /ОСТАТОК[\s\S]*0 RUB/);
 }
 
-// F. Finance TO_VERIFY stays unresolved; internal status code is not exposed in the main document.
+// F. Finance TO_VERIFY stays unresolved and internal status tokens do not leak into the main document.
 {
   const p = passport({
     funding_spent: money(undefined, 'USD', 'TO_VERIFY', 'CURRENT_FINANCE_AUTHORITY_TO_VERIFY'),
@@ -186,79 +195,76 @@ function visible(passportValue = passport(), dealOverrides = {}) {
     funding_status: 'TO_VERIFY', funding_reason: 'CURRENT_FINANCE_AUTHORITY_TO_VERIFY', funding_events: [], status: 'TO_VERIFY',
   });
   const text = visible(p);
-  assert.match(text, /Требуется проверка/);
-  assert.doesNotMatch(text, /TO_VERIFY/);
-  assert.doesNotMatch(text, /Потрачено средств сделки[\s\S]{0,80}0\s*USD/);
+  assert.match(text, /ИТОГО ПОТРАЧЕНО[\s\S]*Требуется подтверждение/);
+  assert.match(text, /ОСТАТОК[\s\S]*Требуется подтверждение/);
+  assert.doesNotMatch(text, /TO_VERIFY|CURRENT_FINANCE/);
 }
 
-// G. Multiple funding events remain separate operations.
+// G. Multiple funding events produce the same generic table rows without operation cards.
 {
-  const text = visible(passport({ funding_events: [fundingEvent(), fundingEvent({ funding_event_id: 'FUNDING-GENERIC-B', bank_document: 'BANK-FUND-B', funding_amount: '5000', allocated_funding_amount: '5000' })] }));
-  assert.match(text, /ОПЕРАЦИЯ 1/);
-  assert.match(text, /ОПЕРАЦИЯ 2/);
+  const events = [
+    fundingEvent({ funding_amount: '12000', allocated_funding_amount: '12000', settlement_lines: [settlement({ recipient: 'Supplier One', amount: '12000', currency: 'USD' })] }),
+    fundingEvent({ funding_event_id: 'FUNDING-GENERIC-B', funding_amount: '5000', allocated_funding_amount: '5000', settlement_lines: [settlement({ recipient: 'Supplier Two', amount: '5000', currency: 'USD' })] }),
+  ];
+  const text = visible(passport({ funding_events: events }));
+  assert.match(text, /Supplier One/);
+  assert.match(text, /Supplier Two/);
+  assert.doesNotMatch(text, /ОПЕРАЦИЯ 1|ОПЕРАЦИЯ 2/);
 }
 
-// H. Shared funding uses only the server-supplied allocation/share.
+// H. Shared funding uses the server-supplied deal allocation for a single linked settlement.
 {
-  const event = fundingEvent({ funding_amount: '50000', allocated_funding_amount: '30000', allocation_share: '0.6', allocation_source: 'PROPORTIONAL_TO_CONFIRMED_SHARES' });
-  const text = visible(passport({ funding_events: [event] }));
-  assert.match(text, /Первичный расход средств сделки[\s\S]*30[\s\u00a0]*000\s*USD/);
-  assert.match(text, /Общий банковский дебет[\s\S]*50[\s\u00a0]*000\s*USD/);
-  assert.match(text, /Доля сделки[\s\S]*0,6/);
+  const event = fundingEvent({ funding_amount: '50000', allocated_funding_amount: '30000', allocation_share: '0.6', allocation_source: 'PROPORTIONAL_TO_CONFIRMED_SHARES', settlement_lines: [settlement({ recipient: 'Shared Supplier' })] });
+  const body = render(passport({ funding_events: [event] }));
+  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
+  assert.deepEqual(fundingCells, ['30 000 USD']);
+  assert.doesNotMatch(textOf(body, { visibleOnly: true }), /50 000 USD|0,6|PROPORTIONAL_TO_CONFIRMED_SHARES/);
 }
 
-// I. Commissions are isolated from supplier settlements.
+// I. Commission is a table row, not a separate visual section.
 {
-  const fee = settlement({ row_type: 'COMMISSION', amount: '15', currency: 'USD', purpose: 'Bank fee' });
+  const fee = settlement({ recipient: '', row_type: 'COMMISSION', amount: '15', currency: 'USD', purpose: 'Bank fee', allocated_funding_amount: '15', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' });
+  const body = render(passport({ funding_events: [fundingEvent({ settlement_lines: [fee] })] }));
   const text = visible(passport({ funding_events: [fundingEvent({ settlement_lines: [fee] })] }));
-  assert.match(text, /КОМИССИИ/);
-  assert.match(text, /15\s*USD/);
-  assert.doesNotMatch(text, /Фактически оплачено[\s\S]{0,80}15\s*USD/);
+  assert.match(text, /Банк \/ комиссия/);
+  assert.match(text, /15 USD/);
+  assert.equal(findAll(body, (item) => item.tag === 'table').length, 1);
 }
 
-// J. Native residuals are separate from the primary funding-currency remainder.
-{
-  const residual = { amount: '1250', currency: 'RUB', status: 'AUTHORITATIVE', reason: null, related_deal_ids: [] };
-  const text = visible(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', native_residuals: [residual] })] }));
-  assert.match(text, /Основной остаток[\s\S]*70[\s\u00a0]*000\s*USD/);
-  assert.match(text, /Остатки в иных валютах/);
-  assert.match(text, /1[\s\u00a0]*250\s*RUB/);
-}
-
-// K. Arbitrary future Deal renders through the same generic renderer path.
-assert.match(textOf(renderDeal(passport(), { deal_id: 'FUTURE-UNSEEN-DEAL-X91' })), /FUTURE-UNSEEN-DEAL-X91/);
-
-// Required executive operation fields are present in the main document.
-{
-  const text = visible(passport({ funding_events: [fundingEvent({ settlement_lines: [settlement()] })] }));
-  for (const label of ['Дата', 'Назначение', 'Получатель', 'Первичный расход средств сделки', 'Фактически оплачено', 'Документ']) assert.match(text, new RegExp(label));
-}
-
-// Technical IDs/provenance exist only inside the collapsed Technical Grounds accordion.
+// J. Native residuals and provenance are outside the main visual level and remain inside Technical Grounds.
 {
   const marker = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
-  const p = passport({ funding_events: [fundingEvent({ technical_basis: { finance_event_id: marker, source_refs: [{ source_type: 'BANK', source_id: marker }] } })] });
+  const residual = { amount: '1250', currency: 'RUB', status: 'AUTHORITATIVE', reason: null, source_id: marker };
+  const p = passport({ funding_events: [fundingEvent({ settlement_lines: [settlement()], native_residuals: [residual], technical_basis: { finance_event_id: marker } })] });
   const body = render(p, { authority_refs: [{ source_type: 'FINANCE_AUTHORITY', source_id: marker }] });
   const visibleText = textOf(body, { visibleOnly: true });
   const fullText = textOf(body);
-  assert.doesNotMatch(visibleText, new RegExp(marker));
-  assert.doesNotMatch(visibleText, /Passport contract|Internal status|Internal reason|Authority refs|Provenance/);
-  assert.match(fullText, new RegExp(marker));
-  const details = findAll(body, (item) => item.tag === 'details');
-  assert.equal(details.length, 1);
-  assert.match(textOf(details[0]), /Технические основания/);
+  assert.doesNotMatch(visibleText, /1 250 RUB|aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee|Passport contract|Internal status|Authority refs|Provenance/);
+  assert.match(fullText, /aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/);
+  const technical = findAll(body, (item) => item.tag === 'details' && hasClass(item, 'rona-payments-v7-passport-technical'));
+  assert.equal(technical.length, 1);
+  assert.match(textOf(technical[0]), /Технические основания/);
 }
 
+// K. Arbitrary future Deal renders through the existing generic Payments path.
+assert.match(textOf(renderDeal(passport(), { deal_id: 'FUTURE-UNSEEN-DEAL-X91' })), /FUTURE-UNSEEN-DEAL-X91/);
+
 const source = String(recoveryRuntime);
+assert.match(source, /PAYMENTS_V7_PASSPORT_OWNER_TABLE_V1/);
 assert.doesNotMatch(source, /DEAL-2026-00(?:4|5|6|9)/);
 assert.doesNotMatch(source, /229862\.96|168000|42000|6387\.04|33750|7320|439862\.96|47457\.04/);
+assert.doesNotMatch(source, /acquired_amount\s*\/|funding_amount\s*\/|conversion_rate\s*\*/);
 
-console.log('PASSPORT_DESIGNER_SCENARIOS_A_K=PASS');
+console.log('OWNER_TABLE=PASS');
+console.log('FUNDING_AMOUNT_COLUMN=PASS');
+console.log('ACTUAL_SETTLEMENT_COLUMN=PASS');
+console.log('TOTAL_SPENT_VISIBLE=PASS');
+console.log('REMAINING_VISIBLE=PASS');
+console.log('TECHNICAL_DETAILS_COLLAPSED=PASS');
 console.log('FUNDING_CURRENCY_PRIMARY=PASS');
 console.log('SETTLEMENT_SECONDARY=PASS');
 console.log('MULTI_SETTLEMENT_NO_INFERRED_SPLIT=PASS');
 console.log('ZERO_FROM_FINANCE=PASS');
 console.log('TO_VERIFY_FROM_FINANCE=PASS');
-console.log('TECHNICAL_DATA_COLLAPSED=PASS');
 console.log('FUTURE_DEAL_GENERIC=PASS');
 console.log('NO_HARDCODE=PASS');

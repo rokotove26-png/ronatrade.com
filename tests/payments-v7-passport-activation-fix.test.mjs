@@ -118,7 +118,7 @@ article.append(details);
 body.append(article);
 
 const recoveredBody = fakeNode('div');
-recoveredBody.textContent = 'RECOVERED_FUNDING_FIRST_BODY';
+recoveredBody.textContent = 'RECOVERED_OWNER_TABLE_BODY';
 function paymentsV7OwnerPassport(deal) {
   const value = deal?.payment_passport;
   return value?.contract === 'ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2' ? value : null;
@@ -127,7 +127,6 @@ function paymentsV7OwnerPassportBodyRecovered(deal, paymentPassport) {
   rendererCalls.push({ deal, paymentPassport });
   return recoveredBody;
 }
-function paymentsV7OwnerDealStatusText(value) { return value === 'OPEN' ? 'Открыта' : 'Статус уточняется'; }
 
 const sandbox = {
   console,
@@ -147,7 +146,6 @@ const sandbox = {
   },
   paymentsV7OwnerPassport,
   paymentsV7OwnerPassportBody: paymentsV7OwnerPassportBodyRecovered,
-  paymentsV7OwnerDealStatusText,
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
@@ -175,11 +173,12 @@ assert.ok(modal);
 assert.equal(modal.dataset.passportRenderer, 'paymentsV7OwnerPassportBodyRecovered');
 assert.equal(modal.dataset.passportRendererContract, 'PAYMENTS_V7_PASSPORT_DESIGNER_MODAL_V1');
 assert.match(textOf(modal), /ПАСПОРТ ПЛАТЕЖА/);
+assert.match(textOf(modal), /Deal ID/);
 assert.match(textOf(modal), /FUTURE-DEAL-RENDERER-X91/);
 assert.match(textOf(modal), /Future Client/);
-assert.match(textOf(modal), /Открыта/);
+assert.doesNotMatch(textOf(modal), /Статус сделки|Открыта/);
 assert.match(textOf(modal), /Закрыть/);
-assert.match(textOf(modal), /RECOVERED_FUNDING_FIRST_BODY/);
+assert.match(textOf(modal), /RECOVERED_OWNER_TABLE_BODY/);
 assert.equal(documentElement.classList.contains('rona-payments-v7-modal-open'), true);
 
 const activationSource = paymentsV7PassportActivationPrelude + paymentsV7PassportActivationRuntime;
@@ -195,6 +194,7 @@ assert.match(activationSource, /overflow:auto/);
 
 console.log('INLINE_PASSPORT_REMOVED=PASS');
 console.log('DESIGNER_MODAL=PASS');
+console.log('OWNER_HEADER_SIMPLIFIED=PASS');
 console.log('SELECTED_DEAL_FROM_CURRENT_PROJECTION=PASS');
 console.log('PAYMENT_PASSPORT_TO_RECOVERED_RENDERER=PASS');
 console.log('FUTURE_DEAL_GENERIC=PASS');
