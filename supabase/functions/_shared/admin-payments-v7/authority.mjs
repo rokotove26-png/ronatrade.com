@@ -3,8 +3,11 @@ import { authorityRef } from './money.mjs';
 
 const INELIGIBLE_LIFECYCLE = new Set(['SUPERSEDED', 'REVERSED', 'REJECTED', 'CANCELLED', 'INACTIVE', 'ARCHIVED']);
 const INELIGIBLE_AUTHORITY = new Set(['REJECTED', 'REVERSED', 'INVALID', 'INACTIVE', 'SUPERSEDED']);
+const LEGACY_OWNER_OUTGOING_FACT_KIND = 'OWNER_OUTGOING_PAYMENT_FACT';
+const NORMALIZED_FINANCE_ATTRIBUTION_KINDS = new Set(['FINANCE', 'FINANCE-AI', 'AI-FINANCE']);
 
 function upper(value) { return value === null || value === undefined ? null : String(value).trim().toUpperCase(); }
+function normalizedAuthorityKind(value) { return upper(value)?.replaceAll('_', '-') || null; }
 
 export function isEligibleAuthorityClaim(claim) {
   if (!claim || claim.qa_only === true || claim.rejected === true || claim.reversed === true) return false;
@@ -59,21 +62,36 @@ function transitiveSupersededKeys(claims) {
   return superseded;
 }
 
+function isCurrentExactNormalizedFinanceAttribution(claim) {
+  return claim?.current === true
+    && claim?.source_locked === true
+    && upper(claim?.authority_state) === 'AUTHORITATIVE'
+    && upper(claim?.attribution_mode) === 'EXACT'
+    && NORMALIZED_FINANCE_ATTRIBUTION_KINDS.has(normalizedAuthorityKind(claim?.authority_kind));
+}
+
+function applyAttributionAuthorityPrecedence(survivors) {
+  if (!survivors.some(isCurrentExactNormalizedFinanceAttribution)) return survivors;
+  return survivors.filter((claim) => upper(claim?.authority_kind) !== LEGACY_OWNER_OUTGOING_FACT_KIND);
+}
+
 export function resolveAuthorityClaims(claims, signatureFn) {
   const eligible = (claims || []).filter(isEligibleAuthorityClaim);
   if (!eligible.length) return { status: 'MISSING', reason: 'NO_ELIGIBLE_AUTHORITY', claim: null, claims: [], authority_refs: [] };
   const superseded = transitiveSupersededKeys(eligible);
   const survivors = eligible.filter((claim) => !authorityIdentityKeys(claim).some((key) => superseded.has(key)));
   if (!survivors.length) return { status: 'MISSING', reason: 'NO_CURRENT_AUTHORITY_AFTER_SUPERSESSION', claim: null, claims: [], authority_refs: [] };
+  const contenders = applyAttributionAuthorityPrecedence(survivors);
+  if (!contenders.length) return { status: 'MISSING', reason: 'NO_CURRENT_AUTHORITY_AFTER_PRECEDENCE', claim: null, claims: [], authority_refs: [] };
   const signatures = new Map();
-  for (const claim of survivors) {
+  for (const claim of contenders) {
     const signature = signatureFn(claim);
     if (!signatures.has(signature)) signatures.set(signature, []);
     signatures.get(signature).push(claim);
   }
   const refs = survivors.flatMap((claim) => claim.authority_refs?.length ? claim.authority_refs : [authorityRef(claim)]);
-  if (signatures.size > 1) return { status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', claim: null, claims: survivors, authority_refs: refs };
-  const compatible = [...survivors].sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
+  if (signatures.size > 1) return { status: 'TO_VERIFY', reason: 'AUTHORITY_CONFLICT', claim: null, claims: contenders, authority_refs: refs };
+  const compatible = [...contenders].sort((a, b) => String(a.id || '').localeCompare(String(b.id || '')));
   return { status: 'AUTHORITATIVE', reason: null, claim: compatible[0], claims: compatible, authority_refs: refs };
 }
 
