@@ -243,8 +243,9 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
       select id::text id, payment_key::text payment_key, deal_key::text deal_key,
              native_amount::text native_amount, native_currency,
              accounting_amount::text accounting_amount, accounting_currency,
-             source_locked, authority_state, lifecycle_state,
-             supersedes_id::text supersedes_id, supersedes_authority_refs
+             conversion_source_basis, source_locked, authority_state, lifecycle_state, effective_at,
+             supersedes_id::text supersedes_id, supersedes_authority_refs,
+             source_refs, source_version, source_timestamp, correlation_id::text correlation_id
       from portal_private.payment_resource_chains_v7
       order by payment_key, deal_key, id`,
     readFinanceEvents: () => sql`
