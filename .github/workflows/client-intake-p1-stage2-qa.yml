@@ -1,4 +1,4 @@
-name: P1 Client Intake Stage 2.1 QA
+name: P1 Client Intake Stage 2.2 QA
 
 on:
   pull_request:
@@ -13,6 +13,7 @@ on:
       - 'supabase/migrations/20260915123200_client_intake_correction_api_v1.sql'
       - 'supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql'
       - 'supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql'
+      - 'supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql'
       - 'tests/client-intake-v1/**'
       - 'scripts/check-client-intake-no-hardcode.mjs'
       - 'docs/client-intake-p1-stage2-*.md'
@@ -27,6 +28,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -38,7 +41,7 @@ jobs:
         run: node tests/client-intake-v1/migration-contract.test.mjs
       - name: Global actionable submit-path matrix
         run: node tests/client-intake-v1/submit-path-audit.test.mjs
-      - name: No incident hardcode / no expected-value injection
+      - name: Full changed-runtime no-hardcode / no expected-value injection
         run: node scripts/check-client-intake-no-hardcode.mjs
 
   postgres17-integration:
@@ -59,6 +62,8 @@ jobs:
           --health-retries 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Apply production-shape disposable baseline
         run: >-
           docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
@@ -71,7 +76,8 @@ jobs:
             supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql \
             supabase/migrations/20260915123200_client_intake_correction_api_v1.sql \
             supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql \
-            supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql
+            supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql \
+            supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql
           do
             docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
               psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
@@ -99,3 +105,7 @@ jobs:
         run: >-
           docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/integration.sql
+      - name: Execute Stage 2.2 source/application convergence regressions
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/stage22-global-coverage.sql
