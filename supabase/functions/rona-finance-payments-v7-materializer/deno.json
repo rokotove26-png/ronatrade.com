@@ -1,0 +1,9 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {
+    "postgres": "npm:postgres@3.4.7"
+  },
+  "compilerOptions": {
+    "strict": true
+  }
+}

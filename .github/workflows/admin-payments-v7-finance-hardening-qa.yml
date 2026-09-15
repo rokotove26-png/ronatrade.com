@@ -7,8 +7,20 @@ on:
     paths:
       - 'supabase/migrations/20260914210000_admin_payments_v7_finance_controlled_write.sql'
       - 'supabase/migrations/20260914213000_admin_payments_v7_finance_current_authority_hardening.sql'
+      - 'supabase/migrations/20260915010000_admin_payments_v7_server_materializer.sql'
+      - 'supabase/migrations/20260915023000_admin_payments_v7_auto_materialization.sql'
+      - 'supabase/migrations/20260915030000_admin_payments_v7_materialization_maintenance.sql'
+      - 'supabase/functions/rona-finance-payments-v7-materializer/**'
+      - 'supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs'
       - 'tests/admin-payments-v7/finance-controlled-write.sql'
       - 'tests/admin-payments-v7/finance-current-authority-hardening.sql'
+      - 'tests/admin-payments-v7/server-materializer.sql'
+      - 'tests/admin-payments-v7/server-materializer-observability.sql'
+      - 'tests/admin-payments-v7/server-materializer-auto.sql'
+      - 'tests/admin-payments-v7/server-materializer-maintenance.sql'
+      - 'tests/admin-payments-v7/server-materializer.test.mjs'
+      - 'tests/admin-payments-v7/server-materializer-auto.test.mjs'
+      - 'tests/admin-payments-v7/mcp-gateway-finance-extension-regression.test.mjs'
       - '.github/workflows/admin-payments-v7-finance-hardening-qa.yml'
   workflow_dispatch:
 
@@ -50,6 +62,53 @@ jobs:
           PGPASSWORD: postgres
         run: |
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/finance-current-authority-hardening.sql
+      - name: PostgreSQL 17 server materializer E2E
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer.sql
+      - name: PostgreSQL 17 aggregate persist observability
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer-observability.sql
+      - name: PostgreSQL 17 automatic Finance materialization E2E
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer-auto.sql
+      - name: PostgreSQL 17 periodic recovery and reconciliation E2E
+        shell: bash
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "drop database if exists payments_v7_maintenance with (force)"
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "create database payments_v7_maintenance"
+          (
+            while true; do
+              psql -h 127.0.0.1 -U postgres -d payments_v7_maintenance -Atqc "select portal_private.run_finance_materialization_maintenance_v7(25,25,'QA_PERIODIC_WORKER')" >/tmp/payments-v7-maintenance-worker.log 2>&1 || true
+              sleep 1
+            done
+          ) &
+          worker_pid=$!
+          cleanup() {
+            kill "$worker_pid" 2>/dev/null || true
+            wait "$worker_pid" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+          psql -h 127.0.0.1 -U postgres -d payments_v7_maintenance -v ON_ERROR_STOP=1 -f tests/admin-payments-v7/server-materializer-maintenance.sql
+          cleanup
+          trap - EXIT
+      - name: Server materializer static contract
+        run: |
+          node tests/admin-payments-v7/server-materializer.test.mjs
+          node tests/admin-payments-v7/server-materializer-auto.test.mjs
+          node --test tests/admin-payments-v7/mcp-gateway-finance-extension-regression.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Deno import graph — server materializer
+        run: deno check --config supabase/functions/rona-finance-payments-v7-materializer/deno.json supabase/functions/rona-finance-payments-v7-materializer/index.ts
       - name: No frontend visual scope in hardening delta
         shell: bash
         run: |
