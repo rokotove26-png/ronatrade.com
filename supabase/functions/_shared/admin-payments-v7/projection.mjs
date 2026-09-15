@@ -146,6 +146,8 @@ export function buildAdminPaymentsV7Projection(source) {
     const remaining = computeRemaining(total, verifiedReceived); const progress = computeProgress(total, verifiedReceived);
     const spend = fundingModel.computeDealSpend(contourDeal.deal_key, accountingCurrency.currency);
     const remainingExecution = computeRemainingExecution(verifiedReceived, spend);
+    const settlementLayer = fundingModel.settlementStatusForDeal(contourDeal.deal_key);
+    const residualLayer = fundingModel.residualStatusForDeal(contourDeal.deal_key);
     const financialStatus = computeFinancialState({ finance, total, received: verifiedReceived, remaining, due, expected, future });
     const financialExceptions = buildOverreceiptException(total, verifiedReceived);
     const dealExceptions = globalPaymentExceptions.filter((exception) => {
@@ -154,6 +156,12 @@ export function buildAdminPaymentsV7Projection(source) {
     });
     if (finance.reason === 'AUTHORITY_MATERIALIZATION_REQUIRED') materializationGaps.push({ domain: 'FINANCE_AUTHORITY', deal_id: contourDeal.deal_id, reason: 'AUTHORITY_MATERIALIZATION_REQUIRED', required_model: 'DealFinanceAuthorityV7' });
     const unlinkedSettlements = (fundingModel.unlinkedSettlementLinesByDeal.get(String(contourDeal.deal_key)) || []).map(({ deal_key, ...line }) => line);
+    const passportStatus = spend.status === 'AUTHORITATIVE'
+      && remainingExecution.status === 'AUTHORITATIVE'
+      && settlementLayer.status === 'AUTHORITATIVE'
+      && residualLayer.status === 'AUTHORITATIVE'
+      ? 'AUTHORITATIVE'
+      : 'TO_VERIFY';
     const passport = {
       contract: FUNDING_PASSPORT_CONTRACT,
       deal_id: contourDeal.deal_id,
@@ -161,10 +169,16 @@ export function buildAdminPaymentsV7Projection(source) {
       funding_received: verifiedReceived,
       funding_spent: spend.value,
       funding_remaining: remainingExecution,
+      funding_status: spend.status,
+      funding_reason: spend.issues?.[0] || null,
+      settlement_status: settlementLayer.status,
+      settlement_reason: settlementLayer.reason,
+      residual_status: residualLayer.status,
+      residual_reason: residualLayer.reason,
       funding_events: fundingModel.passportEventsForDeal(contourDeal.deal_key),
       unlinked_settlement_lines: unlinkedSettlements,
-      status: spend.status === 'AUTHORITATIVE' && remainingExecution.status === 'AUTHORITATIVE' ? 'AUTHORITATIVE' : 'TO_VERIFY',
-      reason: spend.issues?.[0] || remainingExecution.reason || null,
+      status: passportStatus,
+      reason: spend.issues?.[0] || remainingExecution.reason || settlementLayer.reason || residualLayer.reason || null,
     };
     deals.push({
       deal_key: contourDeal.deal_key, deal_id: contourDeal.deal_id, client_display: contourDeal.client_display, payment_handoff_state: contourDeal.payment_handoff_state,
@@ -191,7 +205,9 @@ export function buildAdminPaymentsV7Projection(source) {
   return {
     contract: 'ADMIN_PAYMENTS_V7', generated_at: source.generatedAt, source_as_of: source.sourceAsOf, deals,
     funding_semantics: {
-      policy_id: fundingModel.policy.entry?.policy_id || fundingModel.policy.entry?.policy?.policy_id || null,
+      policy_key: fundingModel.policy.policy_key || null,
+      policy_id: fundingModel.policy.policy_id || fundingModel.policy.entry?.policy_id || fundingModel.policy.entry?.policy?.policy_id || null,
+      policy_version: fundingModel.policy.policy_version ?? fundingModel.policy.entry?.version ?? fundingModel.policy.entry?.policy?.version ?? null,
       status: fundingModel.policy.status,
       reason: fundingModel.policy.reason,
       reverse_fx_primary_count: fundingModel.reverseFxPrimaryCount,
@@ -215,6 +231,7 @@ function uniqueRefs(refs) { const seen = new Set(); return refs.filter((ref) => 
 function fundingAwareSourceBundle(raw) {
   const source = createAdminPaymentsV7SourceBundle(raw);
   const rawPaymentByKey = new Map((raw?.payments || []).map((row) => [String(row.id), row]));
+  const rawResourceChainById = new Map((raw?.resourceChains || []).map((row) => [String(row.id), row]));
   const payments = (source.payments || []).map((payment) => {
     const rawPayment = rawPaymentByKey.get(String(payment.payment_key)) || {};
     return {
@@ -225,9 +242,22 @@ function fundingAwareSourceBundle(raw) {
       bank_statement_date: rawPayment.bank_statement_date || null,
     };
   });
+  const resourceChains = (source.resourceChains || []).map((chain) => {
+    const rawChain = rawResourceChainById.get(String(chain.id)) || {};
+    return {
+      ...chain,
+      conversion_source_basis: rawChain.conversion_source_basis || null,
+      source_refs: Array.isArray(rawChain.source_refs) ? rawChain.source_refs : [],
+      correlation_id: rawChain.correlation_id ? String(rawChain.correlation_id) : null,
+      effective_at: rawChain.effective_at || null,
+      source_version: rawChain.source_version || null,
+      source_timestamp: rawChain.source_timestamp || null,
+    };
+  });
   return {
     ...source,
     payments,
+    resourceChains,
     financeEvents: Array.isArray(raw?.financeEvents) ? raw.financeEvents : [],
     globalFinancePolicies: Array.isArray(raw?.globalFinancePolicies) ? raw.globalFinancePolicies : [],
     capabilities: {
