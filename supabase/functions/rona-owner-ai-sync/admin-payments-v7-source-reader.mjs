@@ -4,6 +4,7 @@ const RELATIONS = Object.freeze({
   providerReadiness: 'portal_private.admin_payments_v7_provider_readiness',
   financeAuthority: 'portal_private.deal_finance_authority_v7',
   resourceChain: 'portal_private.payment_resource_chains_v7',
+  financeEvents: 'portal_private.finance_events_v7',
 });
 const PROVIDERS = Object.freeze({ paymentBusinessAuthority: 'PAYMENT_BUSINESS_AUTHORITY' });
 
@@ -26,12 +27,14 @@ export async function readAdminPaymentsV7RawSources(port) {
   const snapshotTimestamp = await port.readSnapshotTimestamp();
   if (!snapshotTimestamp) throw new Error('ADMIN_PAYMENTS_V7_SNAPSHOT_TIMESTAMP_REQUIRED');
 
-  const [paymentHeadersPresent, paymentLinesPresent, readinessPresent, financePresent, resourceChainPresent] = await Promise.all([
+  const [paymentHeadersPresent, paymentLinesPresent, readinessPresent, financePresent, resourceChainPresent, financeEventsPresent, globalPolicyResolverPresent] = await Promise.all([
     port.relationExists(RELATIONS.paymentBusinessAttributions),
     port.relationExists(RELATIONS.paymentBusinessAttributionLines),
     port.relationExists(RELATIONS.providerReadiness),
     port.relationExists(RELATIONS.financeAuthority),
     port.relationExists(RELATIONS.resourceChain),
+    port.relationExists(RELATIONS.financeEvents),
+    typeof port.globalPolicyResolverAvailable === 'function' ? port.globalPolicyResolverAvailable() : false,
   ]);
 
   const paymentBusinessAuthorityPresent = paymentHeadersPresent && paymentLinesPresent;
@@ -47,6 +50,8 @@ export async function readAdminPaymentsV7RawSources(port) {
     paymentBusinessAuthorityReady,
     financeAuthority: financePresent,
     resourceChain: resourceChainPresent,
+    financeEvents: financeEventsPresent,
+    globalFinancePolicy: globalPolicyResolverPresent === true,
   };
 
   const [deals, workflows, clients, contracts, payments, paymentAllocations, paymentAllocationHistory, ownerOutgoingPaymentFacts] = await Promise.all([
@@ -54,18 +59,20 @@ export async function readAdminPaymentsV7RawSources(port) {
     port.readPayments(), port.readPaymentAllocations(), port.readPaymentAllocationHistory(), port.readOwnerOutgoingPaymentFacts(),
   ]);
 
-  const [paymentBusinessAttributions, paymentBusinessAttributionLines, dealFinanceAuthorities, resourceChains] = await Promise.all([
+  const [paymentBusinessAttributions, paymentBusinessAttributionLines, dealFinanceAuthorities, resourceChains, financeEvents, globalFinancePolicies] = await Promise.all([
     paymentBusinessAuthorityPresent ? port.readPaymentBusinessAttributions() : [],
     paymentBusinessAuthorityPresent ? port.readPaymentBusinessAttributionLines() : [],
     capabilities.financeAuthority ? port.readDealFinanceAuthorities() : [],
     capabilities.resourceChain ? port.readResourceChains() : [],
+    capabilities.financeEvents && typeof port.readFinanceEvents === 'function' ? port.readFinanceEvents() : [],
+    capabilities.globalFinancePolicy && typeof port.readGlobalFinancePolicies === 'function' ? port.readGlobalFinancePolicies() : [],
   ]);
 
   const asOf = String(snapshotTimestamp);
   return {
     generatedAt: asOf,
     sourceAsOf: asOf,
-    sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V1',
+    sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V2_FUNDING_SIDE',
     snapshotContract: {
       isolation: 'REPEATABLE READ',
       access: 'READ ONLY',
@@ -78,6 +85,8 @@ export async function readAdminPaymentsV7RawSources(port) {
       providerReadiness: readinessPresent,
       financeAuthority: financePresent,
       resourceChain: resourceChainPresent,
+      financeEvents: financeEventsPresent,
+      globalFinancePolicyResolver: globalPolicyResolverPresent === true,
     },
     providerReadiness: {
       paymentBusinessAuthority: {
@@ -101,6 +110,8 @@ export async function readAdminPaymentsV7RawSources(port) {
     paymentBusinessAttributionLines: cloneRows(paymentBusinessAttributionLines),
     dealFinanceAuthorities: cloneRows(dealFinanceAuthorities),
     resourceChains: cloneRows(resourceChains),
+    financeEvents: cloneRows(financeEvents),
+    globalFinancePolicies: cloneRows(globalFinancePolicies),
   };
 }
 
@@ -114,6 +125,22 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
     async relationExists(qualifiedName) {
       const rows = await sql`select to_regclass(${qualifiedName})::text as relation`;
       return Boolean(rows?.[0]?.relation);
+    },
+    async globalPolicyResolverAvailable() {
+      const rows = await sql`
+        select has_function_privilege(
+          current_user,
+          'portal_private.ai_role_global_policies_current_v1(portal_private.ai_business_role_enum)',
+          'EXECUTE'
+        ) as allowed`;
+      return rows?.[0]?.allowed === true;
+    },
+    async readGlobalFinancePolicies() {
+      const rows = await sql`
+        select portal_private.ai_role_global_policies_current_v1(
+          'FINANCE'::portal_private.ai_business_role_enum
+        ) as policies`;
+      return Array.isArray(rows?.[0]?.policies) ? rows[0].policies : [];
     },
     async readProviderReadiness(providerKey) {
       const rows = await sql`
@@ -154,7 +181,9 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
              finance_verification_status::text finance_verification_status,
              deal_allocation_applicability::text deal_allocation_applicability,
              allocation_review_status::text allocation_review_status, candidate_deal_ids,
-             counterparty_name, bank_transaction_reference, source_system, source_version, source_timestamp,
+             beneficiary_name, counterparty_name, original_payment_purpose,
+             bank_transaction_reference, bank_account_reference, bank_statement_date,
+             source_system, source_version, source_timestamp,
              authority_state::text authority_state, lifecycle_state::text lifecycle_state
       from portal_private.payments
       where lifecycle_state::text = 'ACTIVE'
@@ -218,6 +247,16 @@ export function createPostgresAdminPaymentsV7ReadPort(sql) {
              supersedes_id::text supersedes_id, supersedes_authority_refs
       from portal_private.payment_resource_chains_v7
       order by payment_key, deal_key, id`,
+    readFinanceEvents: () => sql`
+      select id::text id, event_type, event_identity, deal_key::text deal_key, payment_key::text payment_key,
+             actor_id, actor_role, correlation_id::text correlation_id, idempotency_key,
+             source_refs, source_version, source_timestamp, effective_at,
+             request_snapshot, result_snapshot, created_at
+      from portal_private.finance_events_v7
+      where actor_role = 'FINANCE'
+        and event_type = 'OUTGOING_PAYMENT_CONFIRMED'
+        and coalesce((result_snapshot->>'accepted')::boolean, false) = true
+      order by effective_at, created_at, id`,
   };
 }
 
