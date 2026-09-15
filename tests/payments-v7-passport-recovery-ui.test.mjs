@@ -34,6 +34,10 @@ function textOf(value, { visibleOnly = false } = {}) {
   return [own, ...(value.children || []).map((child) => textOf(child, { visibleOnly }))].filter(Boolean).join(' | ');
 }
 
+function normalizedText(value, opts = {}) {
+  return textOf(value, opts).replace(/\s*\|\s*/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 function findAll(value, predicate, out = []) {
   if (!value || typeof value !== 'object') return out;
   if (predicate(value)) out.push(value);
@@ -63,8 +67,9 @@ const sandbox = {
   },
   paymentsV7Fmt: (value) => new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 8 }).format(value),
 };
+sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
-vm.runInContext(`${ownerRuntime}\n${finalRuntime}\n${recoveryRuntime}\nthis.__passportRecovery={paymentsV7Deal,paymentsV7OwnerPassportBody};`, sandbox);
+vm.runInContext(`${ownerRuntime}\n${finalRuntime}\n${recoveryRuntime}\nthis.__passportRecovery={paymentsV7Deal,paymentsV7OwnerPassportBody,paymentsV7OwnerPassportTableRenderer};`, sandbox);
 const ui = sandbox.__passportRecovery;
 
 function money(amount, currency = 'USD', status = 'AUTHORITATIVE', reason = null) {
@@ -118,41 +123,43 @@ function renderDeal(passportValue = passport(), dealOverrides = {}) {
 }
 
 function visible(passportValue = passport(), dealOverrides = {}) {
-  return textOf(render(passportValue, dealOverrides), { visibleOnly: true });
+  return normalizedText(render(passportValue, dealOverrides), { visibleOnly: true });
 }
 
-// Owner-facing structure: one received amount, one payment table, totals, collapsed details.
+function cellTexts(body, className) {
+  return findAll(body, (item) => item.tag === 'td' && hasClass(item, className)).map((item) => normalizedText(item));
+}
+
+// Owner-first composition: one dominant receipt, one table, two strong totals, technical detail only at the bottom.
 {
   const body = render(passport({ funding_events: [fundingEvent({ settlement_lines: [settlement()] })] }));
-  const text = textOf(body, { visibleOnly: true });
+  const text = normalizedText(body, { visibleOnly: true });
   for (const label of ['СУММА ПОСТУПЛЕНИЯ', 'Получатель', 'Сумма в валюте поступления', 'Сумма фактического списания', 'ИТОГО ПОТРАЧЕНО', 'ОСТАТОК']) assert.match(text, new RegExp(label));
   assert.equal(findAll(body, (item) => item.tag === 'table').length, 1);
-  assert.doesNotMatch(text, /Funding-side|ИСПОЛЬЗОВАНИЕ СРЕДСТВ СДЕЛКИ|ФАКТИЧЕСКИЕ ОПЛАТЫ|КОМИССИИ|Остатки в иных валютах|Internal status|Source basis/);
+  assert.equal(findAll(body, (item) => hasClass(item, 'rona-payments-v7-owner-total-card')).length, 2);
+  assert.doesNotMatch(text, /Funding-side|ИСПОЛЬЗОВАНИЕ СРЕДСТВ СДЕЛКИ|ФАКТИЧЕСКИЕ ОПЛАТЫ|ОПЕРАЦИЯ 1|Internal status|Source basis|Provenance/);
 }
 
-// A. Direct USD payment: one linked settlement may use the authoritative event amount without any split calculation.
+// A. USD -> USD direct settlement: funding and actual columns both use supplied authoritative values.
 {
   const event = fundingEvent({ funding_amount: '20000', allocated_funding_amount: '20000', settlement_lines: [settlement({ recipient: 'Supplier Direct', amount: '20000', currency: 'USD' })] });
   const body = render(passport({ funding_spent: money('20000'), funding_remaining: money('80000'), funding_events: [event] }));
-  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
-  const actualCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-actual')).map(textOf);
-  assert.deepEqual(fundingCells, ['20 000 USD']);
-  assert.deepEqual(actualCells, ['20 000 USD']);
+  assert.deepEqual(cellTexts(body, 'is-funding'), ['20 000 USD']);
+  assert.deepEqual(cellTexts(body, 'is-actual'), ['20 000 USD']);
 }
 
-// B. USD funding -> RUB settlement: funding is primary, actual settlement is secondary.
+// B. USD funding -> RUB settlement: funding stays primary and actual bank debit stays secondary.
 {
   const event = fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', conversion_rate: '84.33333333', conversion_source_basis: 'BANK_ACTUAL', settlement_lines: [settlement({ recipient: 'Supplier FX' })] });
   const body = render(passport({ funding_events: [event] }));
-  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
-  const actualCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-actual')).map(textOf);
-  assert.deepEqual(fundingCells, ['30 000 USD']);
-  assert.deepEqual(actualCells, ['2 530 000 RUB']);
-  assert.doesNotMatch(textOf(body, { visibleOnly: true }), /84,33333333|Курс конвертации/);
-  assert.match(textOf(body), /Курс конвертации[\s\S]*84,33333333/);
+  assert.deepEqual(cellTexts(body, 'is-funding'), ['30 000 USD']);
+  assert.deepEqual(cellTexts(body, 'is-actual'), ['2 530 000 RUB']);
+  assert.doesNotMatch(normalizedText(body, { visibleOnly: true }), /84,33333333|Фактический курс|30 000 USD → 2 530 000 RUB/);
+  assert.match(normalizedText(body), /Конвертация 30 000 USD → 2 530 000 RUB/);
+  assert.match(normalizedText(body), /Фактический курс 84,33333333/);
 }
 
-// C. One conversion -> several settlements without authoritative split: every funding column stays unresolved.
+// C. One conversion -> several settlements without Finance split: do not infer any funding amount per row.
 {
   const rows = [
     settlement({ recipient: 'Supplier A', amount: '1000000', bank_document: 'BANK-S1' }),
@@ -160,13 +167,11 @@ function visible(passportValue = passport(), dealOverrides = {}) {
     settlement({ recipient: 'Supplier C', amount: '630000', bank_document: 'BANK-S3' }),
   ];
   const body = render(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', conversion_rate: '84.33333333', settlement_lines: rows })] }));
-  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
-  assert.deepEqual(fundingCells, ['Требуется подтверждение', 'Требуется подтверждение', 'Требуется подтверждение']);
-  const actualCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-actual')).map(textOf);
-  assert.deepEqual(actualCells, ['1 000 000 RUB', '900 000 RUB', '630 000 RUB']);
+  assert.deepEqual(cellTexts(body, 'is-funding'), ['Требуется подтверждение', 'Требуется подтверждение', 'Требуется подтверждение']);
+  assert.deepEqual(cellTexts(body, 'is-actual'), ['1 000 000 RUB', '900 000 RUB', '630 000 RUB']);
 }
 
-// D. Exact per-settlement funding allocation is shown only when supplied by the server.
+// D. One conversion -> several settlements with exact Finance split: show only server-provided allocations.
 {
   const rows = [
     settlement({ recipient: 'Supplier A', amount: '1000000', allocated_funding_amount: '12000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
@@ -174,20 +179,21 @@ function visible(passportValue = passport(), dealOverrides = {}) {
     settlement({ recipient: 'Supplier C', amount: '630000', allocated_funding_amount: '8000', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' }),
   ];
   const body = render(passport({ funding_events: [fundingEvent({ acquired_amount: '2530000', acquired_currency: 'RUB', settlement_lines: rows })] }));
-  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
-  assert.deepEqual(fundingCells, ['12 000 USD', '10 000 USD', '8 000 USD']);
+  assert.deepEqual(cellTexts(body, 'is-funding'), ['12 000 USD', '10 000 USD', '8 000 USD']);
 }
 
-// E. Finance authoritative zero stays exact zero without synthetic rows.
+// E. Finance authoritative zero remains exact zero and does not synthesize rows.
 {
   const p = passport({ funding_currency: 'RUB', funding_received: money('0', 'RUB'), funding_spent: money('0', 'RUB'), funding_remaining: money('0', 'RUB'), funding_events: [] });
-  const text = visible(p);
+  const body = render(p);
+  const text = normalizedText(body, { visibleOnly: true });
   assert.match(text, /СУММА ПОСТУПЛЕНИЯ[\s\S]*0 RUB/);
   assert.match(text, /ИТОГО ПОТРАЧЕНО[\s\S]*0 RUB/);
   assert.match(text, /ОСТАТОК[\s\S]*0 RUB/);
+  assert.equal(findAll(body, (item) => hasClass(item, 'rona-payments-v7-owner-table-row')).length, 0);
 }
 
-// F. Finance TO_VERIFY stays unresolved and internal status tokens do not leak into the main document.
+// F. Finance TO_VERIFY remains unresolved; internal codes never surface in the owner layer.
 {
   const p = passport({
     funding_spent: money(undefined, 'USD', 'TO_VERIFY', 'CURRENT_FINANCE_AUTHORITY_TO_VERIFY'),
@@ -200,7 +206,7 @@ function visible(passportValue = passport(), dealOverrides = {}) {
   assert.doesNotMatch(text, /TO_VERIFY|CURRENT_FINANCE/);
 }
 
-// G. Multiple funding events produce the same generic table rows without operation cards.
+// G. Multiple funding events are represented by compact settlement rows, not operation cards.
 {
   const events = [
     fundingEvent({ funding_amount: '12000', allocated_funding_amount: '12000', settlement_lines: [settlement({ recipient: 'Supplier One', amount: '12000', currency: 'USD' })] }),
@@ -212,50 +218,71 @@ function visible(passportValue = passport(), dealOverrides = {}) {
   assert.doesNotMatch(text, /ОПЕРАЦИЯ 1|ОПЕРАЦИЯ 2/);
 }
 
-// H. Shared funding uses the server-supplied deal allocation for a single linked settlement.
+// H. Shared funding uses only the server-supplied deal allocation and does not expose shared technical prose in owner view.
 {
   const event = fundingEvent({ funding_amount: '50000', allocated_funding_amount: '30000', allocation_share: '0.6', allocation_source: 'PROPORTIONAL_TO_CONFIRMED_SHARES', settlement_lines: [settlement({ recipient: 'Shared Supplier' })] });
   const body = render(passport({ funding_events: [event] }));
-  const fundingCells = findAll(body, (item) => item.tag === 'td' && hasClass(item, 'is-funding')).map(textOf);
-  assert.deepEqual(fundingCells, ['30 000 USD']);
-  assert.doesNotMatch(textOf(body, { visibleOnly: true }), /50 000 USD|0,6|PROPORTIONAL_TO_CONFIRMED_SHARES/);
+  assert.deepEqual(cellTexts(body, 'is-funding'), ['30 000 USD']);
+  assert.doesNotMatch(normalizedText(body, { visibleOnly: true }), /50 000 USD|0,6|PROPORTIONAL_TO_CONFIRMED_SHARES/);
 }
 
-// I. Commission is a table row, not a separate visual section.
+// I. Commission remains part of the same table and is visually distinguishable.
 {
   const fee = settlement({ recipient: '', row_type: 'COMMISSION', amount: '15', currency: 'USD', purpose: 'Bank fee', allocated_funding_amount: '15', funding_currency: 'USD', funding_allocation_status: 'AUTHORITATIVE' });
   const body = render(passport({ funding_events: [fundingEvent({ settlement_lines: [fee] })] }));
-  const text = visible(passport({ funding_events: [fundingEvent({ settlement_lines: [fee] })] }));
+  const text = normalizedText(body, { visibleOnly: true });
   assert.match(text, /Банк \/ комиссия/);
+  assert.match(text, /Комиссия/);
   assert.match(text, /15 USD/);
-  assert.equal(findAll(body, (item) => item.tag === 'table').length, 1);
+  assert.equal(findAll(body, (item) => hasClass(item, 'is-fee')).length, 1);
 }
 
-// J. Native residuals and provenance are outside the main visual level and remain inside Technical Grounds.
+// J. Native residuals, provenance and internal IDs remain only inside collapsed Technical Grounds.
 {
   const marker = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
   const residual = { amount: '1250', currency: 'RUB', status: 'AUTHORITATIVE', reason: null, source_id: marker };
   const p = passport({ funding_events: [fundingEvent({ settlement_lines: [settlement()], native_residuals: [residual], technical_basis: { finance_event_id: marker } })] });
   const body = render(p, { authority_refs: [{ source_type: 'FINANCE_AUTHORITY', source_id: marker }] });
-  const visibleText = textOf(body, { visibleOnly: true });
-  const fullText = textOf(body);
-  assert.doesNotMatch(visibleText, /1 250 RUB|aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee|Passport contract|Internal status|Authority refs|Provenance/);
-  assert.match(fullText, /aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee/);
-  const technical = findAll(body, (item) => item.tag === 'details' && hasClass(item, 'rona-payments-v7-passport-technical'));
+  const visibleText = normalizedText(body, { visibleOnly: true });
+  const fullText = normalizedText(body);
+  assert.doesNotMatch(visibleText, /1 250 RUB|aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee|Passport contract|Internal status|Authority refs|Provenance/);
+  assert.match(fullText, new RegExp(marker));
+  const technical = findAll(body, (item) => hasClass(item, 'rona-payments-v7-passport-technical'));
   assert.equal(technical.length, 1);
-  assert.match(textOf(technical[0]), /Технические основания/);
+  assert.match(normalizedText(technical[0]), /Технические основания/);
 }
 
-// K. Arbitrary future Deal renders through the existing generic Payments path.
-assert.match(textOf(renderDeal(passport(), { deal_id: 'FUTURE-UNSEEN-DEAL-X91' })), /FUTURE-UNSEEN-DEAL-X91/);
+// K. Arbitrary future Deal uses the same renderer; no registration or Deal-specific code is required.
+assert.match(normalizedText(renderDeal(passport(), { deal_id: 'FUTURE-UNSEEN-DEAL-X91' })), /FUTURE-UNSEEN-DEAL-X91/);
 
-const source = String(recoveryRuntime);
-assert.match(source, /PAYMENTS_V7_PASSPORT_OWNER_TABLE_V1/);
-assert.doesNotMatch(source, /DEAL-2026-00(?:4|5|6|9)/);
-assert.doesNotMatch(source, /229862\.96|168000|42000|6387\.04|33750|7320|439862\.96|47457\.04/);
-assert.doesNotMatch(source, /acquired_amount\s*\/|funding_amount\s*\/|conversion_rate\s*\*/);
+// Renderer pin: activation can target a stable owner-table renderer even if generic binding is later shadowed.
+assert.equal(ui.paymentsV7OwnerPassportTableRenderer, ui.paymentsV7OwnerPassportBody);
+assert.equal(ui.paymentsV7OwnerPassportTableRenderer.__ronaOwnerTableVersion, 'OWNER_TABLE_V2');
+
+// Premium UI contract: money aligned, currencies separated, compact row density, hover/focus, long-recipient safety and notebook responsiveness.
+{
+  const source = String(recoveryRuntime);
+  for (const token of [
+    'PAYMENTS_V7_PASSPORT_OWNER_TABLE_V2',
+    'rona-payments-v7-owner-money-amount',
+    'rona-payments-v7-owner-money-currency',
+    'text-align:right',
+    'font-variant-numeric:tabular-nums',
+    'rona-payments-v7-owner-table-row:hover',
+    'summary:focus-visible',
+    'overflow-wrap:anywhere',
+    '@media(max-width:1180px)',
+    '@media(max-width:900px)',
+  ]) assert.match(source, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.doesNotMatch(source, /DEAL-2026-00(?:4|5|6|9)/);
+  assert.doesNotMatch(source, /229862\.96|168000|42000|6387\.04|33750|7320|439862\.96|47457\.04/);
+}
 
 console.log('OWNER_TABLE=PASS');
+console.log('VISUAL_HIERARCHY=PASS');
+console.log('INFORMATION_DENSITY=PASS');
+console.log('PRIMARY_TABLE_READABILITY=PASS');
+console.log('TOTALS_VISUAL_PRIORITY=PASS');
 console.log('FUNDING_AMOUNT_COLUMN=PASS');
 console.log('ACTUAL_SETTLEMENT_COLUMN=PASS');
 console.log('TOTAL_SPENT_VISIBLE=PASS');

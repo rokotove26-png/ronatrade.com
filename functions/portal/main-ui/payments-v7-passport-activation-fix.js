@@ -26,7 +26,8 @@ if(typeof globalThis.paymentsV7Projection!=='function')globalThis.paymentsV7Proj
 `;
 
 export const paymentsV7PassportActivationRuntime = String.raw`
-const PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION='PAYMENTS_V7_PASSPORT_DESIGNER_MODAL_V1';
+const PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION='PAYMENTS_V7_PASSPORT_OWNER_TABLE_MODAL_V2';
+const PAYMENTS_V7_PASSPORT_OWNER_TABLE_VERSION='OWNER_TABLE_V2';
 const PAYMENTS_V7_PASSPORT_MODAL_ID='ronaPaymentsV7PassportDesignerModal';
 
 function paymentsV7PassportDealFromTrigger(trigger){
@@ -41,10 +42,17 @@ function paymentsV7PassportDealFromTrigger(trigger){
     ||null;
 }
 
+function paymentsV7PassportOwnerTableRenderer(){
+  const renderer=globalThis.paymentsV7OwnerPassportTableRenderer;
+  if(typeof renderer!=='function')return null;
+  if(renderer.__ronaOwnerTableVersion!==PAYMENTS_V7_PASSPORT_OWNER_TABLE_VERSION)return null;
+  return renderer;
+}
+
 function paymentsV7PassportInstallDesignerModalStyle(){
   if(q('#ronaPaymentsV7PassportDesignerModalStyle'))return;
   const s=e('style',{id:'ronaPaymentsV7PassportDesignerModalStyle'});
-  s.textContent='.rona-payments-v7-passport[open]>:not(summary){display:none!important}.rona-payments-v7-passport>summary{cursor:pointer}.rona-payments-v7-designer-overlay{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:24px;background:rgba(1,7,12,.78);backdrop-filter:blur(8px)}.rona-payments-v7-designer-modal{width:min(1180px,calc(100vw - 48px));max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(126,170,203,.22);border-radius:20px;background:linear-gradient(180deg,rgba(10,24,36,.99),rgba(4,13,21,.99));box-shadow:0 28px 90px rgba(0,0,0,.55)}.rona-payments-v7-designer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;padding:24px 26px 20px;border-bottom:1px solid rgba(121,157,187,.14)}.rona-payments-v7-designer-eyebrow{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#7fa2bb}.rona-payments-v7-designer-deal-label{margin-top:11px;font-size:9px;font-weight:850;letter-spacing:.08em;text-transform:uppercase;color:#718da3}.rona-payments-v7-designer-title{margin:4px 0 0;font-size:30px;line-height:1.05;color:#f2f7fb}.rona-payments-v7-designer-meta{display:flex;gap:10px 20px;flex-wrap:wrap;margin-top:10px;color:#9fb3c2;font-size:12px}.rona-payments-v7-designer-meta strong{color:#dce9f3}.rona-payments-v7-designer-close{appearance:none;border:1px solid rgba(126,170,203,.22);border-radius:10px;padding:9px 13px;background:rgba(13,31,45,.92);color:#dce9f3;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.rona-payments-v7-designer-close:hover{background:rgba(19,43,60,.98)}.rona-payments-v7-designer-scroll{min-height:0;overflow:auto;padding:20px 22px 26px;overscroll-behavior:contain}.rona-payments-v7-designer-unavailable{padding:20px;border:1px dashed rgba(242,187,103,.28);border-radius:12px;color:#e8cb99;background:rgba(43,30,13,.28)}html.rona-payments-v7-modal-open{overflow:hidden}@media(max-width:760px){.rona-payments-v7-designer-overlay{padding:10px}.rona-payments-v7-designer-modal{width:calc(100vw - 20px);max-height:96vh;border-radius:15px}.rona-payments-v7-designer-head{padding:18px;gap:14px}.rona-payments-v7-designer-title{font-size:22px}.rona-payments-v7-designer-meta{display:grid;gap:5px}.rona-payments-v7-designer-scroll{padding:14px}}';
+  s.textContent='.rona-payments-v7-passport[open]>:not(summary){display:none!important}.rona-payments-v7-passport>summary{cursor:pointer}.rona-payments-v7-designer-overlay{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:rgba(1,7,12,.74);backdrop-filter:blur(10px)}.rona-payments-v7-designer-modal{width:min(1120px,calc(100vw - 40px));max-height:90vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(126,170,203,.20);border-radius:18px;background:linear-gradient(180deg,rgba(9,23,34,.995),rgba(4,13,21,.995));box-shadow:0 30px 90px rgba(0,0,0,.58)}.rona-payments-v7-designer-head{flex:0 0 auto;display:flex;align-items:flex-start;justify-content:space-between;gap:22px;padding:17px 20px 16px;border-bottom:1px solid rgba(121,157,187,.12);background:rgba(8,21,32,.92)}.rona-payments-v7-designer-title-block{min-width:0}.rona-payments-v7-designer-eyebrow{font-size:10px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#7fa2bb}.rona-payments-v7-designer-title{margin:5px 0 0;font-size:23px;line-height:1.08;letter-spacing:-.015em;color:#f2f7fb;overflow-wrap:anywhere}.rona-payments-v7-designer-meta{display:flex;gap:8px 18px;flex-wrap:wrap;margin-top:7px;color:#8fa8ba;font-size:11px}.rona-payments-v7-designer-meta strong{color:#dce9f3;font-weight:750}.rona-payments-v7-designer-close{appearance:none;min-height:36px;border:1px solid rgba(126,170,203,.20);border-radius:9px;padding:8px 12px;background:rgba(13,31,45,.88);color:#dce9f3;font:inherit;font-size:11px;font-weight:850;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}.rona-payments-v7-designer-close:hover{background:rgba(19,43,60,.98);border-color:rgba(126,170,203,.34)}.rona-payments-v7-designer-close:focus-visible{outline:2px solid rgba(106,178,229,.62);outline-offset:2px}.rona-payments-v7-designer-scroll{min-height:0;overflow:auto;padding:16px 18px 20px;overscroll-behavior:contain;scrollbar-gutter:stable}.rona-payments-v7-designer-unavailable{padding:18px;border:1px dashed rgba(242,187,103,.28);border-radius:11px;color:#e8cb99;background:rgba(43,30,13,.28)}html.rona-payments-v7-modal-open{overflow:hidden}@media(max-width:1180px){.rona-payments-v7-designer-overlay{padding:14px}.rona-payments-v7-designer-modal{width:min(1060px,calc(100vw - 28px));max-height:92vh}.rona-payments-v7-designer-head{padding:15px 17px}.rona-payments-v7-designer-scroll{padding:14px 16px 18px}}@media(max-width:820px){.rona-payments-v7-designer-overlay{padding:8px}.rona-payments-v7-designer-modal{width:calc(100vw - 16px);max-height:96vh;border-radius:14px}.rona-payments-v7-designer-head{padding:14px;gap:12px}.rona-payments-v7-designer-title{font-size:20px}.rona-payments-v7-designer-meta{display:grid;gap:4px}.rona-payments-v7-designer-scroll{padding:12px}}';
   document.head?.appendChild?.(s)||document.head?.append?.(s);
 }
 
@@ -68,32 +76,30 @@ function paymentsV7PassportStripInlineBody(trigger){
 function paymentsV7OpenDesignerPassport(trigger){
   const deal=paymentsV7PassportDealFromTrigger(trigger);
   const passport=deal&&typeof paymentsV7OwnerPassport==='function'?paymentsV7OwnerPassport(deal):null;
-  const renderer=typeof paymentsV7OwnerPassportBody==='function'?paymentsV7OwnerPassportBody:null;
+  const renderer=paymentsV7PassportOwnerTableRenderer();
   paymentsV7PassportCloseDesignerModal({restoreFocus:false});
   paymentsV7PassportInstallDesignerModalStyle();
   window.__ronaPaymentsV7PassportLastTrigger=trigger||null;
 
-  const overlay=e('div',{id:PAYMENTS_V7_PASSPORT_MODAL_ID,class:'rona-payments-v7-designer-overlay','data-passport-renderer-contract':PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION});
+  const overlay=e('div',{id:PAYMENTS_V7_PASSPORT_MODAL_ID,class:'rona-payments-v7-designer-overlay','data-passport-renderer-contract':PAYMENTS_V7_PASSPORT_RENDERER_ACTIVATION,'data-owner-table-version':PAYMENTS_V7_PASSPORT_OWNER_TABLE_VERSION});
   const panel=e('section',{class:'rona-payments-v7-designer-modal',role:'dialog','aria-modal':'true','aria-labelledby':'ronaPaymentsV7PassportDesignerTitle'});
   const head=e('header',{class:'rona-payments-v7-designer-head'});
-  const titleBlock=e('div',{},
+  const titleBlock=e('div',{class:'rona-payments-v7-designer-title-block'},
     e('div',{class:'rona-payments-v7-designer-eyebrow',text:'ПАСПОРТ ПЛАТЕЖА'}),
-    e('div',{class:'rona-payments-v7-designer-deal-label',text:'Deal ID'}),
     e('h2',{id:'ronaPaymentsV7PassportDesignerTitle',class:'rona-payments-v7-designer-title',text:paymentsV7Text(deal?.deal_id)||'Сделка'}),
-    e('div',{class:'rona-payments-v7-designer-meta'},
-      e('span',{},'Клиент: ',e('strong',{text:paymentsV7Text(deal?.client_display)||'—'}))
-    )
+    e('div',{class:'rona-payments-v7-designer-meta'},e('span',{},'Клиент: ',e('strong',{text:paymentsV7Text(deal?.client_display)||'—'})))
   );
   const close=e('button',{type:'button',class:'rona-payments-v7-designer-close','data-passport-modal-close':'true',text:'Закрыть'});
   head.append(titleBlock,close);
   const scroll=e('div',{class:'rona-payments-v7-designer-scroll'});
 
-  if(!deal||!passport||!renderer||renderer.name!=='paymentsV7OwnerPassportBodyRecovered'){
-    scroll.append(e('div',{class:'rona-payments-v7-designer-unavailable',text:'Платёжный паспорт временно недоступен: owner renderer не активирован.'}));
+  if(!deal||!passport||!renderer){
+    scroll.append(e('div',{class:'rona-payments-v7-designer-unavailable',text:'Платёжный паспорт временно недоступен: актуальное представление не активировано.'}));
     overlay.dataset.passportRenderer='TO_VERIFY';
   }else{
     scroll.append(renderer(deal,passport));
     overlay.dataset.passportRenderer=renderer.name;
+    overlay.dataset.passportRendererVersion=renderer.__ronaOwnerTableVersion;
   }
   panel.append(head,scroll);
   overlay.append(panel);
@@ -103,13 +109,15 @@ function paymentsV7OpenDesignerPassport(trigger){
   return overlay;
 }
 
-if(!document.__ronaPaymentsV7PassportActivationBound){
+if(!document.__ronaPaymentsV7PassportOwnerTableV2Bound){
+  document.__ronaPaymentsV7PassportOwnerTableV2Bound=true;
   document.__ronaPaymentsV7PassportActivationBound=true;
-  document.addEventListener('click',event=>{
+  const ownerTableClickHandler=event=>{
     const target=event.target;
     const trigger=target?.closest?.('.rona-payments-v7-passport-trigger')||target?.closest?.('.rona-payments-v7-passport > summary');
     if(trigger){
       event.preventDefault?.();
+      event.stopImmediatePropagation?.();
       event.stopPropagation?.();
       paymentsV7PassportStripInlineBody(trigger);
       paymentsV7OpenDesignerPassport(trigger);
@@ -117,15 +125,23 @@ if(!document.__ronaPaymentsV7PassportActivationBound){
     }
     if(target?.closest?.('[data-passport-modal-close="true"]')){
       event.preventDefault?.();
+      event.stopImmediatePropagation?.();
       paymentsV7PassportCloseDesignerModal();
       return;
     }
     const overlay=q('#'+PAYMENTS_V7_PASSPORT_MODAL_ID);
-    if(overlay&&target===overlay)paymentsV7PassportCloseDesignerModal();
-  },true);
+    if(overlay&&target===overlay){
+      event.preventDefault?.();
+      event.stopImmediatePropagation?.();
+      paymentsV7PassportCloseDesignerModal();
+    }
+  };
+  document.__ronaPaymentsV7PassportOwnerTableV2Handler=ownerTableClickHandler;
+  document.addEventListener('click',ownerTableClickHandler,true);
   document.addEventListener('keydown',event=>{
     if(event.key==='Escape'&&q('#'+PAYMENTS_V7_PASSPORT_MODAL_ID)){
       event.preventDefault?.();
+      event.stopImmediatePropagation?.();
       paymentsV7PassportCloseDesignerModal();
     }
   },true);

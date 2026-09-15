@@ -6,7 +6,8 @@ import {
 } from '../functions/portal/main-ui/payments-v7-passport-activation-fix.js';
 
 const listeners = new Map();
-const rendererCalls = [];
+const recoveredRendererCalls = [];
+const oldRendererCalls = [];
 
 function classListFor(node) {
   return {
@@ -84,6 +85,7 @@ const document = {
   documentElement,
   head,
   body,
+  __ronaPaymentsV7PassportActivationBound: true, // simulate stale prior activation already bound in a long-lived page
   createElement: fakeNode,
   createTextNode(text) { return { nodeType: 3, text: String(text), parentElement: null }; },
   addEventListener(type, handler) { listeners.set(type, handler); },
@@ -118,15 +120,23 @@ article.append(details);
 body.append(article);
 
 const recoveredBody = fakeNode('div');
-recoveredBody.textContent = 'RECOVERED_OWNER_TABLE_BODY';
+recoveredBody.textContent = 'PREMIUM_OWNER_TABLE_BODY';
+const oldDesignerBody = fakeNode('div');
+oldDesignerBody.textContent = 'OLD_DESIGNER_BODY';
+
 function paymentsV7OwnerPassport(deal) {
   const value = deal?.payment_passport;
   return value?.contract === 'ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2' ? value : null;
 }
+function oldRecoveredRenderer(deal, paymentPassport) {
+  oldRendererCalls.push({ deal, paymentPassport });
+  return oldDesignerBody;
+}
 function paymentsV7OwnerPassportBodyRecovered(deal, paymentPassport) {
-  rendererCalls.push({ deal, paymentPassport });
+  recoveredRendererCalls.push({ deal, paymentPassport });
   return recoveredBody;
 }
+paymentsV7OwnerPassportBodyRecovered.__ronaOwnerTableVersion = 'OWNER_TABLE_V2';
 
 const sandbox = {
   console,
@@ -145,40 +155,51 @@ const sandbox = {
     },
   },
   paymentsV7OwnerPassport,
-  paymentsV7OwnerPassportBody: paymentsV7OwnerPassportBodyRecovered,
+  paymentsV7OwnerPassportBody: oldRecoveredRenderer, // generic binding deliberately points at stale renderer
+  paymentsV7OwnerPassportTableRenderer: paymentsV7OwnerPassportBodyRecovered,
 };
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 vm.runInContext(paymentsV7PassportActivationPrelude + '\n' + paymentsV7PassportActivationRuntime, sandbox);
 
+// Versioned listener must bind even if the old boolean guard was already true.
+assert.equal(document.__ronaPaymentsV7PassportActivationBound, true);
+assert.equal(document.__ronaPaymentsV7PassportOwnerTableV2Bound, true);
+assert.equal(typeof document.__ronaPaymentsV7PassportOwnerTableV2Handler, 'function');
+
 const click = listeners.get('click');
 assert.equal(typeof click, 'function');
 let prevented = false;
+let immediateStopped = false;
 click({
   target: summary,
   preventDefault() { prevented = true; },
+  stopImmediatePropagation() { immediateStopped = true; },
   stopPropagation() {},
 });
 
 assert.equal(prevented, true);
+assert.equal(immediateStopped, true);
 assert.equal(details.open, false);
 assert.deepEqual(details.children, [summary]);
 assert.equal(details.dataset.passportPresentation, 'MODAL_ONLY');
-assert.equal(rendererCalls.length, 1);
-assert.equal(rendererCalls[0].deal, selectedDeal);
-assert.equal(rendererCalls[0].paymentPassport, passport);
+assert.equal(oldRendererCalls.length, 0);
+assert.equal(recoveredRendererCalls.length, 1);
+assert.equal(recoveredRendererCalls[0].deal, selectedDeal);
+assert.equal(recoveredRendererCalls[0].paymentPassport, passport);
 
 const modal = document.querySelector('#ronaPaymentsV7PassportDesignerModal');
 assert.ok(modal);
 assert.equal(modal.dataset.passportRenderer, 'paymentsV7OwnerPassportBodyRecovered');
-assert.equal(modal.dataset.passportRendererContract, 'PAYMENTS_V7_PASSPORT_DESIGNER_MODAL_V1');
+assert.equal(modal.dataset.passportRendererContract, 'PAYMENTS_V7_PASSPORT_OWNER_TABLE_MODAL_V2');
+assert.equal(modal.dataset.ownerTableVersion, 'OWNER_TABLE_V2');
+assert.equal(modal.dataset.passportRendererVersion, 'OWNER_TABLE_V2');
 assert.match(textOf(modal), /ПАСПОРТ ПЛАТЕЖА/);
-assert.match(textOf(modal), /Deal ID/);
 assert.match(textOf(modal), /FUTURE-DEAL-RENDERER-X91/);
 assert.match(textOf(modal), /Future Client/);
-assert.doesNotMatch(textOf(modal), /Статус сделки|Открыта/);
 assert.match(textOf(modal), /Закрыть/);
-assert.match(textOf(modal), /RECOVERED_OWNER_TABLE_BODY/);
+assert.match(textOf(modal), /PREMIUM_OWNER_TABLE_BODY/);
+assert.doesNotMatch(textOf(modal), /OLD_DESIGNER_BODY|OLD_TECHNICAL_PASSPORT_BODY/);
 assert.equal(documentElement.classList.contains('rona-payments-v7-modal-open'), true);
 
 const activationSource = paymentsV7PassportActivationPrelude + paymentsV7PassportActivationRuntime;
@@ -186,16 +207,23 @@ assert.doesNotMatch(activationSource, /DEAL-2026-00(?:4|5|6|9)/);
 assert.doesNotMatch(activationSource, /229862\.96|168000|42000|6387\.04|33750|7320|439862\.96|47457\.04/);
 assert.match(activationSource, /__RONA_OWNER_AI_SYNC_SNAPSHOT__\?\.paymentsV7Projection/);
 assert.match(activationSource, /paymentsV7OwnerPassport\(deal\)/);
-assert.match(activationSource, /paymentsV7OwnerPassportBodyRecovered/);
+assert.match(activationSource, /paymentsV7OwnerPassportTableRenderer/);
+assert.match(activationSource, /__ronaOwnerTableVersion/);
+assert.match(activationSource, /__ronaPaymentsV7PassportOwnerTableV2Bound/);
+assert.match(activationSource, /stopImmediatePropagation/);
 assert.match(activationSource, /role:'dialog'/);
 assert.match(activationSource, /aria-modal/);
-assert.match(activationSource, /max-height:92vh/);
+assert.match(activationSource, /max-height:90vh/);
 assert.match(activationSource, /overflow:auto/);
+assert.match(activationSource, /@media\(max-width:1180px\)/);
+assert.match(activationSource, /@media\(max-width:820px\)/);
 
+console.log('LIVE_OWNER_TABLE_ACTIVATION=PASS');
+console.log('STALE_RENDERER_BYPASS=PASS');
 console.log('INLINE_PASSPORT_REMOVED=PASS');
 console.log('DESIGNER_MODAL=PASS');
-console.log('OWNER_HEADER_SIMPLIFIED=PASS');
 console.log('SELECTED_DEAL_FROM_CURRENT_PROJECTION=PASS');
-console.log('PAYMENT_PASSPORT_TO_RECOVERED_RENDERER=PASS');
+console.log('PAYMENT_PASSPORT_TO_OWNER_TABLE_RENDERER=PASS');
+console.log('RESPONSIVE_DESKTOP=PASS');
 console.log('FUTURE_DEAL_GENERIC=PASS');
 console.log('NO_HARDCODE=PASS');
