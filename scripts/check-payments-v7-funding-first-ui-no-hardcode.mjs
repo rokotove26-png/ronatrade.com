@@ -21,15 +21,18 @@ const forbiddenKnownAmounts = [
 ];
 for (const amount of forbiddenKnownAmounts) if (source.includes(amount)) failures.push(`EXPECTED_VALUE_INJECTION:${amount}`);
 
-const financialNames = '(?:funding_(?:received|spent|remaining|amount)|allocated_funding_amount|acquired_amount|allocation_share|native_residual|remaining_execution|actual_spend)';
-const arithmeticPatterns = [
-  new RegExp(`${financialNames}[^\\n;]{0,100}[+\\-*/][^=]`, 'gi'),
-  new RegExp(`[+\\-*/][^=][^\\n;]{0,100}${financialNames}`, 'gi'),
+// Display formatting is allowed. Financial derivation in the browser is not.
+// Match only arithmetic where a server financial field itself is an operand;
+// do not count ordinary string concatenation or the display-only event index.
+const field = '(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend)';
+const financialArithmeticPatterns = [
+  new RegExp(`(?:\\?\\.)?${field}\\s*[+\\-*/]\\s*(?![=])`, 'gi'),
+  new RegExp(`(?<![=])[+\\-*/]\\s*(?:[A-Za-z_$][\\w$]*\\?\\.)?${field}\\b`, 'gi'),
   /Math\.(?:max|min|round|floor|ceil|abs)\s*\(/g,
-  /\.reduce\s*\(/g,
+  /\.(?:reduce)\s*\(/g,
 ];
 let browserFinancialCalculationCount = 0;
-for (const pattern of arithmeticPatterns) browserFinancialCalculationCount += [...source.matchAll(pattern)].length;
+for (const pattern of financialArithmeticPatterns) browserFinancialCalculationCount += [...source.matchAll(pattern)].length;
 if (browserFinancialCalculationCount) failures.push(`BROWSER_FINANCIAL_CALCULATION_COUNT:${browserFinancialCalculationCount}`);
 
 const requiredServerFields = [
@@ -39,13 +42,12 @@ const requiredServerFields = [
   'settlement_lines', 'unlinked_settlement_lines', 'native_residuals', 'shared_native_residual_refs',
   'funding_status', 'settlement_status', 'residual_status',
 ];
-for (const field of requiredServerFields) if (!source.includes(field)) failures.push(`SERVER_FIELD_NOT_RENDERED:${field}`);
+for (const serverField of requiredServerFields) if (!source.includes(serverField)) failures.push(`SERVER_FIELD_NOT_RENDERED:${serverField}`);
 
 if (!source.includes('ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2')) failures.push('PASSPORT_V2_CONTRACT_MISSING');
-if (!source.includes('DIRECT_FUNDING_SIDE_DEBIT_MISSING')) failures.push('REASON_TRANSLATION_MISSING:DIRECT_FUNDING_SIDE_DEBIT_MISSING');
-if (!source.includes('SETTLEMENT_LINKAGE_MISSING')) failures.push('REASON_TRANSLATION_MISSING:SETTLEMENT_LINKAGE_MISSING');
-if (!source.includes('SETTLEMENT_LINKAGE_AMBIGUOUS')) failures.push('REASON_TRANSLATION_MISSING:SETTLEMENT_LINKAGE_AMBIGUOUS');
-if (!source.includes('POLICY_CONTRACT_UNSUPPORTED')) failures.push('REASON_TRANSLATION_MISSING:POLICY_CONTRACT_UNSUPPORTED');
+for (const code of ['DIRECT_FUNDING_SIDE_DEBIT_MISSING','SETTLEMENT_LINKAGE_MISSING','SETTLEMENT_LINKAGE_AMBIGUOUS','POLICY_CONTRACT_UNSUPPORTED']) {
+  if (!source.includes(code)) failures.push(`REASON_TRANSLATION_MISSING:${code}`);
+}
 
 if (failures.length) {
   console.error(failures.join('\n'));
