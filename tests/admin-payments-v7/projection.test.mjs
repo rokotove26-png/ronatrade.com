@@ -11,6 +11,20 @@ import {
 
 const ref = (id) => ({ source_type: 'TEST', source_id: id, source_version: '1', source_timestamp: '2026-09-13T00:00:00Z', authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT' });
 const mv = (amount, currency = 'USD') => ({ amount: String(amount), currency, status: 'AUTHORITATIVE', reason: null, authority_refs: [ref(`money-${amount}`)] });
+function globalFinancePolicy() {
+  return {
+    policy_id: 'FINANCE_GLOBAL_PAYMENT_SEMANTICS_V1', scope: 'GLOBAL_FINANCE_ROLE', task_scoped: false,
+    policy: {
+      policy_id: 'FINANCE_GLOBAL_PAYMENT_SEMANTICS_V1', scope: 'GLOBAL_FINANCE_ROLE', task_scoped: false,
+      rules: {
+        FUNDING_CURRENCY_PRIMARY_SEMANTICS: {
+          primary_actual_spend_source: 'BANK_CONFIRMED_FUNDING_SIDE_DEBIT', reverse_fx_as_primary: 'FORBIDDEN', resource_chain_accounting_amount_as_primary: 'FORBIDDEN',
+        },
+        MULTI_DEAL_PROPORTIONAL_ALLOCATION: { default_method: 'PROPORTIONAL_TO_CONFIRMED_SHARES', synthetic_allocation: false },
+      },
+    },
+  };
+}
 function deal(key = 'deal-a', id = 'D-A') { return { deal_key: key, deal_id: id, client_display: `Client ${id}`, payment_handoff_state: 'READY', current: true, authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT', authority_refs: [ref(key)] }; }
 function financeClaim({ id = 'fin-a', dealKey = 'deal-a', total = '100', due = '0', expected = '60', future = '0', currency = 'USD', supersedes = null, status = 'OPEN', documentary = 'CONFIRMED' } = {}) {
   return { id, deal_key: dealKey, total_to_receive: mv(total, currency), due_now: mv(due, currency), expected_not_due: mv(expected, currency), future_conditional: mv(future, currency), finance_status: status, documentary_status: documentary, contractual_payment_currency: currency, current: true, source_locked: true, authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT', effective_at: '2026-09-13T00:00:00Z', supersedes_id: supersedes, source_version: '1', authority_refs: [ref(id)] };
@@ -25,7 +39,7 @@ function physical({ id, paymentKey, dealKey, amount, currency = 'USD', current =
   return { id, payment_key: paymentKey, deal_key: dealKey, amount, currency, allocation_status: 'VERIFIED', current, source_locked: true, authority_state: current ? 'AUTHORITATIVE' : 'SUPERSEDED', lifecycle_state: current ? 'CURRENT' : 'SUPERSEDED', authority_refs: [ref(id)] };
 }
 function baseSource() {
-  return { generatedAt: '2026-09-13T00:00:00Z', sourceAsOf: '2026-09-13T00:00:00Z', capabilities: { paymentBusinessAuthority: true, financeAuthority: true, resourceChain: true }, contour: [deal()], payments: [payment({ key: 'pay-in-1', amount: '40' })], attributionClaims: [attribution({ id: 'attr-in-1', paymentKey: 'pay-in-1', lines: [{ deal_key: 'deal-a', amount: '40', currency: 'USD', amount_status: 'EXACT' }] })], physicalAllocations: [physical({ id: 'mat-in-1', paymentKey: 'pay-in-1', dealKey: 'deal-a', amount: '40' })], financeAuthorities: [financeClaim()], resourceChains: [] };
+  return { generatedAt: '2026-09-13T00:00:00Z', sourceAsOf: '2026-09-13T00:00:00Z', capabilities: { paymentBusinessAuthority: true, financeAuthority: true, resourceChain: true, financeEvents: true, globalFinancePolicy: true }, contour: [deal()], payments: [payment({ key: 'pay-in-1', amount: '40' })], attributionClaims: [attribution({ id: 'attr-in-1', paymentKey: 'pay-in-1', lines: [{ deal_key: 'deal-a', amount: '40', currency: 'USD', amount_status: 'EXACT' }] })], physicalAllocations: [physical({ id: 'mat-in-1', paymentKey: 'pay-in-1', dealKey: 'deal-a', amount: '40' })], financeAuthorities: [financeClaim()], resourceChains: [], financeEvents: [], globalFinancePolicies: [globalFinancePolicy()] };
 }
 function project(source) { return buildAdminPaymentsV7Projection(structuredClone(source)); }
 function genuineRec() { return { payment_key: 'p', payment_id: 'p', reconciliation_class: 'GENUINELY_UNALLOCATED', status: 'AUTHORITATIVE', owner_action_required: true, allowed_owner_actions: ['BIND_TO_DEAL', 'ASSIGN_ADVANCE_PAYMENT'], current_authority_id: null }; }
@@ -36,12 +50,13 @@ test('A — Finance projection mutation is data-driven', () => {
 });
 test('B — new Deal enters contour without code branch', () => { const s = baseSource(); s.contour.push(deal('deal-b', 'D-B')); s.financeAuthorities.push(financeClaim({ id: 'fin-b', dealKey: 'deal-b', total: '25', expected: '25' })); const o = project(s); assert.equal(o.deals.length, 2); assert.equal(o.deals[1].deal_id, 'D-B'); });
 test('C — new verified client payment recomputes receipt and progress only', () => { const s = baseSource(); s.payments.push(payment({ key: 'pay-in-2', amount: '10' })); s.attributionClaims.push(attribution({ id: 'attr-in-2', paymentKey: 'pay-in-2', lines: [{ deal_key: 'deal-a', amount: '10', currency: 'USD' }] })); s.physicalAllocations.push(physical({ id: 'mat-in-2', paymentKey: 'pay-in-2', dealKey: 'deal-a', amount: '10' })); const o = project(s); assert.equal(o.deals[0].verified_received.amount, '50'); assert.equal(o.deals[0].remaining_to_receive.amount, '50'); assert.equal(o.deals[0].payment_progress.percent, '50'); assert.equal(o.deals[0].actual_spend.amount, '0'); });
-test('D — Deal spend same currency and exact cross-currency chain; missing chain fails closed', () => {
+test('D — settlement/resource-chain accounting cannot create primary spend without direct funding authority', () => {
   const s = baseSource();
   s.payments.push(payment({ key: 'pay-out-usd', direction: 'OUTGOING', kind: 'COUNTERPARTY_PAYMENT', amount: '10' })); s.attributionClaims.push(attribution({ id: 'attr-out-usd', paymentKey: 'pay-out-usd', lines: [{ deal_key: 'deal-a', amount: '10', currency: 'USD' }] }));
   s.payments.push(payment({ key: 'pay-out-rub', direction: 'OUTGOING', kind: 'COUNTERPARTY_PAYMENT', amount: '1000', currency: 'RUB' })); s.attributionClaims.push(attribution({ id: 'attr-out-rub', paymentKey: 'pay-out-rub', lines: [{ deal_key: 'deal-a', amount: '1000', currency: 'RUB' }] }));
   s.resourceChains.push({ id: 'chain-1', payment_key: 'pay-out-rub', deal_key: 'deal-a', native_amount: '1000', native_currency: 'RUB', accounting_amount: '12.5', accounting_currency: 'USD', current: true, source_locked: true, authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT', authority_refs: [ref('chain-1')] });
-  const good = project(s); assert.equal(good.deals[0].actual_spend.amount, '22.5'); assert.equal(good.deals[0].actual_spend_status, 'AUTHORITATIVE'); s.resourceChains = []; const bad = project(s); assert.equal(bad.deals[0].actual_spend_status, 'PARTIAL_TO_VERIFY'); assert.equal(bad.deals[0].remaining_execution.status, 'TO_VERIFY');
+  const withChain = project(s); assert.equal(withChain.deals[0].actual_spend_status, 'TO_VERIFY'); assert.equal(withChain.deals[0].actual_spend.amount, null); assert.equal(withChain.deals[0].remaining_execution.status, 'TO_VERIFY');
+  s.resourceChains = []; const withoutChain = project(s); assert.equal(withoutChain.deals[0].actual_spend_status, 'TO_VERIFY'); assert.equal(withoutChain.deals[0].actual_spend.amount, null);
 });
 test('E — genuine unresolved appears then disappears when scope authority arrives', () => {
   const s = baseSource();
@@ -122,7 +137,7 @@ test('V — EXCEPTION SEMANTICS: FX, aligned exact split and assigned advance ar
   const o = project(s); for (const id of ['fx-v', 'split-v', 'adv-v']) assert.equal(o.payment_exceptions.some((e) => e.payment_ids.includes(id)), false); assert.equal(o.owner_exception_queue.length, 0);
 });
 test('W — DECIMAL CANONICALIZATION prevents scale-only conflict/stale mismatch', () => { const s = baseSource(); s.attributionClaims = [attribution({ id: 'w1', paymentKey: 'pay-in-1', lines: [{ deal_key: 'deal-a', amount: '40.0', currency: 'USD' }] }), attribution({ id: 'w2', paymentKey: 'pay-in-1', lines: [{ deal_key: 'deal-a', amount: '40.0000', currency: 'USD' }] })]; s.physicalAllocations = [physical({ id: 'wm', paymentKey: 'pay-in-1', dealKey: 'deal-a', amount: '40.000' })]; const o = project(s); assert.equal(o.deals[0].verified_received.amount, '40'); assert.equal(o.reconciliation_summary.authority_conflict_count, 0); assert.equal(o.payment_exceptions.some((e) => e.payment_ids.includes('pay-in-1')), false); });
-test('X — ASSOCIATED FEE exact is spend-eligible; shared scope is TO_VERIFY with no inferred split', () => {
-  const exact = baseSource(); exact.payments.push(payment({ key: 'fee-x', direction: 'OUTGOING', kind: 'BANK_FEE', amount: '2' })); exact.attributionClaims.push(attribution({ id: 'fee-x-a', paymentKey: 'fee-x', classification: 'ASSOCIATED_BANK_FEE', principal: 'principal-x', lines: [{ deal_key: 'deal-a', amount: '2', currency: 'USD' }] })); exact.physicalAllocations.push(physical({ id: 'fee-x-m', paymentKey: 'fee-x', dealKey: 'deal-a', amount: '2' })); let o = project(exact); assert.equal(o.deals[0].actual_spend_status, 'AUTHORITATIVE'); assert.equal(o.deals[0].actual_spend.amount, '2'); assert.equal(o.payment_exceptions.some((e) => e.payment_ids.includes('fee-x')), false);
-  const shared = structuredClone(exact); shared.payments.push(payment({ key: 'fee-shared', direction: 'OUTGOING', kind: 'BANK_FEE', amount: '3' })); shared.attributionClaims.push(attribution({ id: 'fee-shared-a', paymentKey: 'fee-shared', classification: 'ASSOCIATED_BANK_FEE', principal: 'principal-x', scope: ['deal-a'], lines: [], disposition: null })); o = project(shared); const ex = o.payment_exceptions.find((e) => e.payment_ids.includes('fee-shared')); assert.equal(ex.fee_attribution_state, 'SHARED_SCOPE'); assert.equal(ex.status, 'TO_VERIFY'); assert.equal(o.deals[0].actual_spend_status, 'PARTIAL_TO_VERIFY'); assert.equal(o.deals[0].actual_spend.amount, '2');
+test('X — settlement-side bank fees never become primary spend; unresolved fee scope remains TO_VERIFY', () => {
+  const exact = baseSource(); exact.payments.push(payment({ key: 'fee-x', direction: 'OUTGOING', kind: 'BANK_FEE', amount: '2' })); exact.attributionClaims.push(attribution({ id: 'fee-x-a', paymentKey: 'fee-x', classification: 'ASSOCIATED_BANK_FEE', principal: 'principal-x', lines: [{ deal_key: 'deal-a', amount: '2', currency: 'USD' }] })); exact.physicalAllocations.push(physical({ id: 'fee-x-m', paymentKey: 'fee-x', dealKey: 'deal-a', amount: '2' })); let o = project(exact); assert.equal(o.deals[0].actual_spend_status, 'TO_VERIFY'); assert.equal(o.deals[0].actual_spend.amount, null); assert.equal(o.payment_exceptions.some((e) => e.payment_ids.includes('fee-x')), false);
+  const shared = structuredClone(exact); shared.payments.push(payment({ key: 'fee-shared', direction: 'OUTGOING', kind: 'BANK_FEE', amount: '3' })); shared.attributionClaims.push(attribution({ id: 'fee-shared-a', paymentKey: 'fee-shared', classification: 'ASSOCIATED_BANK_FEE', principal: 'principal-x', scope: ['deal-a'], lines: [], disposition: null })); o = project(shared); const ex = o.payment_exceptions.find((e) => e.payment_ids.includes('fee-shared')); assert.equal(ex.fee_attribution_state, 'SHARED_SCOPE'); assert.equal(ex.status, 'TO_VERIFY'); assert.equal(o.deals[0].actual_spend_status, 'TO_VERIFY'); assert.equal(o.deals[0].actual_spend.amount, null);
 });
