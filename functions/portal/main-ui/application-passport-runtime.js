@@ -1,6 +1,7 @@
 import applicationPassportRuntimeBase from './application-passport-runtime-base.js';
 import adminApplicationsPremiumRuntime from './admin-applications-premium-v1.js';
 import adminApplicationsReadabilityV5 from './admin-applications-readability-v5.js';
+import paymentsV7OwnerPassportUi from './payments-v7-owner-passport-ui.js';
 
 /*
  * Source-contract compatibility markers below describe the unchanged implementation
@@ -21,4 +22,4 @@ import adminApplicationsReadabilityV5 from './admin-applications-readability-v5.
  * window.openApplicationPassport
  */
 
-export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime + adminApplicationsReadabilityV5;
+export default applicationPassportRuntimeBase + adminApplicationsPremiumRuntime + adminApplicationsReadabilityV5 + paymentsV7OwnerPassportUi;
