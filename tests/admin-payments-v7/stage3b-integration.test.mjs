@@ -94,7 +94,7 @@ test('AA — EMPTY EXISTING PROVIDER is capability=true but does not assert auth
 
 test('AB — REAL RAW SOURCE SHAPE preserves internal keys and projection consumes raw rows', async () => {
   const { raw, projection } = await projectedRaw();
-  assert.equal(raw.sourceReaderContract, 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V1');
+  assert.equal(raw.sourceReaderContract, 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V2_FUNDING_SIDE');
   assert.equal(raw.sourceAsOf, SNAPSHOT_TS);
   assert.deepEqual(raw.snapshotContract, { isolation: 'REPEATABLE READ', access: 'READ ONLY', sourceAsOf: 'DB_TRANSACTION_TIMESTAMP', dbRole: ADMIN_PAYMENTS_V7_READ_ROLE });
   assert.equal(raw.deals[0].id, 'deal-key');
@@ -200,7 +200,7 @@ test('AF — V7 SOURCE FAILURE IS CONTROLLED and never falls back to legacy Paym
 
   const projectionFailure = createRonaOwnerAiSyncV7Handler({
     runtimeHandler,
-    readRawSources: async () => ({ sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V1' }),
+    readRawSources: async () => ({ sourceReaderContract: 'ADMIN_PAYMENTS_V7_RAW_SOURCE_V2_FUNDING_SIDE' }),
     buildProjection: () => { throw new Error('PROJECTION_FAILED'); },
     logger: { error() {} },
   });
