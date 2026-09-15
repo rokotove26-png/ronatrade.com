@@ -2,6 +2,10 @@ import { createAdminPaymentsV7SourceBundle as createBaseSourceBundle } from './a
 import { buildAdminPaymentsV7Projection as buildBaseProjection } from './projection.mjs';
 import { buildConfirmedFundingAggregate, buildPaymentsCurrencyAggregates } from './confirmed-funding-aggregate.mjs';
 import { resolveDealFinanceAuthority } from './finance.mjs';
+import {
+  ADMIN_PAYMENTS_V7_PROJECTION_VERSION,
+  applyFinanceSettlementAllocations,
+} from './finance-settlement-allocation.mjs';
 import { moneyValue, toVerifyMoney } from './money.mjs';
 
 const FINANCE_POLICY_KEY = 'FINANCE_GLOBAL_PAYMENT_SEMANTICS';
@@ -33,6 +37,7 @@ function prepareRaw(raw = {}) {
   if (capabilities.resourceChain !== true) next.resourceChains = [];
   if (capabilities.financeEvents !== true) next.financeEvents = [];
   if (capabilities.globalFinancePolicy !== true) next.globalFinancePolicies = [];
+  if (capabilities.settlementFundingAllocation !== true) next.settlementFundingAllocations = [];
   return next;
 }
 
@@ -46,6 +51,7 @@ function sourceTruthState(source) {
     funding_events: status(c.financeEvents),
     global_finance_policy: status(c.globalFinancePolicy),
     settlement_resource_chain: status(c.resourceChain),
+    settlement_funding_allocation: status(c.settlementFundingAllocation),
   };
 }
 
@@ -212,21 +218,26 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
     financeAuthorities: attachRawExecutionAuthority(source, prepared),
     financeEvents: Array.isArray(prepared.financeEvents) ? prepared.financeEvents : [],
     globalFinancePolicies: Array.isArray(prepared.globalFinancePolicies) ? prepared.globalFinancePolicies : [],
+    settlementFundingAllocations: Array.isArray(prepared.settlementFundingAllocations) ? prepared.settlementFundingAllocations : [],
     sourceVisibility: raw.sourceVisibility || null,
     capabilities: {
       ...source.capabilities,
       ...(prepared.capabilities || {}),
       financeEvents: prepared.capabilities?.financeEvents ?? (prepared.financeEvents !== undefined),
       globalFinancePolicy: prepared.capabilities?.globalFinancePolicy ?? (prepared.globalFinancePolicies !== undefined),
+      settlementFundingAllocation: prepared.capabilities?.settlementFundingAllocation ?? (prepared.settlementFundingAllocations !== undefined),
     },
   };
 }
 
 export function buildAdminPaymentsV7Projection(source) {
-  const projection = enforceTruth(applyFinanceExecutionAuthority(buildBaseProjection(source), source), source);
+  const base = buildBaseProjection(source);
+  const withAllocations = applyFinanceSettlementAllocations(base, source);
+  const projection = enforceTruth(applyFinanceExecutionAuthority(withAllocations, source), source);
   const deals = projection.deals || [];
   return {
     ...projection,
+    projection_version: ADMIN_PAYMENTS_V7_PROJECTION_VERSION,
     funding_aggregate: buildConfirmedFundingAggregate(deals),
     currency_aggregates: buildPaymentsCurrencyAggregates(deals),
   };
