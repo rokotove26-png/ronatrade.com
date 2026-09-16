@@ -1,0 +1,46 @@
+name: Client Applications isolated PostgreSQL 17
+on:
+  push:
+    branches: [fix/client-intake-reliability-p1]
+    paths: [.github/workflows/client-applications-isolated-pg17.yml]
+permissions:
+  contents: read
+jobs:
+  environment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Export isolated test server binaries and exact UI build sources
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/pg-bundle /tmp/app-env
+          docker run --rm -v /tmp/pg-bundle:/bundle postgres:17-bookworm bash -lc '
+            mkdir -p /bundle/bin /bundle/lib /bundle/share
+            cp -a /usr/lib/postgresql/17/bin/. /bundle/bin/
+            cp -a /usr/lib/postgresql/17/lib/. /bundle/lib/
+            cp -a /usr/share/postgresql/17/. /bundle/share/
+            for f in /bundle/bin/postgres /bundle/bin/initdb /bundle/bin/pg_ctl /bundle/bin/psql /bundle/lib/pgcrypto.so /usr/lib/x86_64-linux-gnu/libpq.so.5; do
+              ldd "$f" | awk "/=> \\/|^\\s*\\// {for(i=1;i<=NF;i++) if(\$i ~ /^\\//) print \$i}"
+            done | sort -u | while read -r lib; do
+              case "$(basename "$lib")" in libc.so.*|libm.so.*|libpthread.so.*|libdl.so.*|librt.so.*|libresolv.so.*|ld-linux*) continue;; esac
+              cp -L "$lib" /bundle/lib/
+            done
+            cp -L /usr/lib/x86_64-linux-gnu/libpq.so.5 /bundle/lib/
+            /bundle/bin/postgres --version > /bundle/VERSION.txt
+          '
+          tar -C /tmp/pg-bundle -czf /tmp/app-env/postgresql17-test-only.tar.gz .
+          REF=2d47e08a8420331672692507a74db6c6484ef04d
+          git archive -o /tmp/app-env/release-build-sources.tar "$REF" portal-src assets governance en investments pages index.html _routes.json
+          printf '%s\n' "$REF" > /tmp/app-env/RELEASE_HEAD.txt
+          sha256sum /tmp/app-env/*.tar* > /tmp/app-env/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-applications-isolated-test-environment
+          path: /tmp/app-env/
+          retention-days: 3
+          if-no-files-found: error
