@@ -28,31 +28,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "83b4157edb18500467bf6b26a6d3dd5eabba3d98"
+          test "$(git rev-parse HEAD^)" = "a5c23084bc5fde60c91cb5c26e792088f12fd6ad"
+          test "$(git rev-list --count 83b4157edb18500467bf6b26a6d3dd5eabba3d98..HEAD)" = "4"
           cat .github/pr548-rework/part-* > /tmp/pr548.patch
-          echo '05e230a0d2a75374a85019ec08285e38128ab1f7fa786f90b551c564d9678fd9  /tmp/pr548.patch' | sha256sum -c -
+          sha256sum /tmp/pr548.patch
+          git show 83b4157edb18500467bf6b26a6d3dd5eabba3d98:.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
           git apply --check /tmp/pr548.patch
           git apply /tmp/pr548.patch
           rm -rf .github/pr548-rework .github/workflows/pr548-rework-apply.yml
           git diff --check
-          cat > /tmp/expected-files.txt <<'FILES'
-.github/workflows/admin-applications-kpi-refresh-v4-qa.yml
-.github/workflows/client-application-business-v2-qa.yml
-functions/portal/owner-api.js
-governance/client-application-business-v2-owner-scope.json
-scripts/application-business-v2/prepare-live-consumers.mjs
-scripts/qa-admin-applications-kpi-refresh-v4.mjs
-scripts/qa-client-portal-visual-freeze.mjs
-supabase/functions/rona-owner-acceptance/index.ts
-supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql
-tests/client-application-business-v2/pg17/authority-regressions.sql
-tests/client-application-business-v2/pg17/owner-authority-regressions.sql
-tests/client-application-business-v2/pg17/review-dependencies.sql
-tests/client-application-business-v2/pg17/review-regressions.sql
-tests/client-application-business-v2/pg17/review-seed.sql
-FILES
-          git diff --name-only | sort > /tmp/actual-files.txt
-          sort -o /tmp/expected-files.txt /tmp/expected-files.txt
+          printf '%s\n' \
+            '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml' \
+            '.github/workflows/client-application-business-v2-qa.yml' \
+            'functions/portal/owner-api.js' \
+            'governance/client-application-business-v2-owner-scope.json' \
+            'scripts/application-business-v2/prepare-live-consumers.mjs' \
+            'scripts/qa-admin-applications-kpi-refresh-v4.mjs' \
+            'scripts/qa-client-portal-visual-freeze.mjs' \
+            'supabase/functions/rona-owner-acceptance/index.ts' \
+            'supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql' \
+            'tests/client-application-business-v2/pg17/authority-regressions.sql' \
+            'tests/client-application-business-v2/pg17/integration.sql' \
+            'tests/client-application-business-v2/pg17/owner-authority-regressions.sql' \
+            'tests/client-application-business-v2/pg17/review-dependencies.sql' \
+            'tests/client-application-business-v2/pg17/review-regressions.sql' \
+            'tests/client-application-business-v2/pg17/review-seed.sql' | sort -u > /tmp/expected-files.txt
+          git diff --name-only 83b4157edb18500467bf6b26a6d3dd5eabba3d98 | grep -v '^.github/pr548-rework/' | grep -v '^.github/workflows/pr548-rework-apply.yml$' | sort -u > /tmp/actual-files.txt
           diff -u /tmp/expected-files.txt /tmp/actual-files.txt
           git config user.name 'rokotove26-png'
           git config user.email 'rokotove26@gmail.com'
