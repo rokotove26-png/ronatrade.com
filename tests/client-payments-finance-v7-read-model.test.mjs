@@ -34,19 +34,23 @@ applyClientPaymentAuthorityV7(mismatch,[finance009],[{currency:'USD',amount:'1'}
 assert.equal(mismatch.payment_status,'TO_VERIFY');
 assert.equal(mismatch.payment_source,'FINANCE_V7_RECEIPT_RECONCILIATION_REQUIRED');
 
-const wrapper=await readFile('supabase/functions/rona-portal-api/client-payments-v7-projection.ts','utf8');
+const active=await readFile('supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts','utf8');
 for(const marker of [
+  'CLIENT_PAYMENTS_FINANCE_V7_AUTHORITATIVE_V1',
   'deal_finance_authority_v7',
   "p.payment_direction::text='INCOMING'",
   "p.payment_kind::text='CLIENT_PAYMENT'",
   "p.bank_fact_status::text='BANK_CONFIRMED'",
   "pa.allocation_status::text='VERIFIED'",
   'newer.supersedes_id=a.id',
-  "targetRoute(url.pathname)",
-  "route==='context'",
-  "route==='deals'",
-  "route==='payments'",
-  'FINANCE_V7_PROJECTION_ERROR'
-])assert.ok(wrapper.includes(marker),`missing ${marker}`);
-assert.ok(!wrapper.includes('owner_deal_finance_summary'),'Finance V7 projection must not read legacy owner summary');
+  "'/v1/client/context'",
+  "'/v1/client/deals'",
+  "'/v1/client/payments'",
+  'FINANCE_V7_PROJECTION_ERROR',
+  'applyClientPaymentAuthorityV7'
+])assert.ok(active.includes(marker),`active entrypoint missing ${marker}`);
+assert.ok(!active.includes('owner_deal_finance_summary'),'active Finance V7 projection must not read legacy owner summary');
+
+const config=await readFile('supabase/config.toml','utf8');
+assert.ok(config.includes('entrypoint = "./functions/rona-portal-api/application-business-bootstrap-v2.ts"'),'Finance V7 must be attached to deployed rona-portal-api entrypoint');
 console.log('CLIENT_PAYMENTS_FINANCE_V7_READ_MODEL=PASS');
