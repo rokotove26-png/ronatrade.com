@@ -1,0 +1,31 @@
+name: Admin Applications terminal request bucket QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/main-ui/admin-applications-terminal-bucket-v1.js'
+      - 'functions/portal/main-ui/application-passport-runtime.js'
+      - 'tests/admin-applications-terminal-bucket-v1.test.mjs'
+      - '.github/workflows/admin-applications-terminal-bucket-v1-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  terminal-request-bucket:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          set -euo pipefail
+          node --check functions/portal/main-ui/admin-applications-terminal-bucket-v1.js
+          node --check functions/portal/main-ui/application-passport-runtime.js
+          node --check tests/admin-applications-terminal-bucket-v1.test.mjs
+      - name: Terminal request lifecycle contract
+        run: node tests/admin-applications-terminal-bucket-v1.test.mjs
