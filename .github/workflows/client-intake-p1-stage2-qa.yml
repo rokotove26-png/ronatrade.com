@@ -67,9 +67,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Apply production-shape disposable baseline
-        run: >-
-          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
-          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/baseline.sql
+        run: |
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/baseline.sql
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/client-projection-dependencies.sql
       - name: Apply candidate migrations to PostgreSQL 17
         run: |
           set -euo pipefail
