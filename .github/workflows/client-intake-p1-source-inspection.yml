@@ -14,20 +14,18 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Exact source and intake history
+      - name: Exact candidate and source lineage
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/intake-source
-          git rev-parse HEAD > /tmp/intake-source/HEAD.txt
-          git archive HEAD -o /tmp/intake-source/repository.tar
-          git log --all --format='%H %aI %s' -G 'CLIENT_.*then|enqueue_reverse_event_staff_task|quantity_tonnes' -- supabase/migrations public/js > /tmp/intake-source/intake-history.txt
-          git ls-tree -r --name-only HEAD | grep -E 'client|reverse|intake|portal-api' > /tmp/intake-source/relevant-paths.txt
-          sha256sum /tmp/intake-source/repository.tar > /tmp/intake-source/SHA256SUMS
-          cat /tmp/intake-source/HEAD.txt
+          git archive 6411619a55507d912672e02392fbe512a63dc90d supabase docs tests scripts public/js .github package.json -o /tmp/intake-source/candidate.tar
+          git diff --stat 6411619a55507d912672e02392fbe512a63dc90d HEAD > /tmp/intake-source/source-diff.txt
+          git show 4f0fde1c35fddabe02797f22e165c135fcfa09fb -- supabase/migrations/20260902233000_client_communication_admin_gate_v1.sql > /tmp/intake-source/routing-regression.txt
+          sha256sum /tmp/intake-source/candidate.tar > /tmp/intake-source/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: client-intake-exact-source
+          name: client-intake-candidate-source
           path: /tmp/intake-source/
           retention-days: 3
           if-no-files-found: error
