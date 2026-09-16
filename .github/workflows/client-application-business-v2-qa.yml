@@ -27,6 +27,20 @@ jobs:
           set -euo pipefail
           git merge-base --is-ancestor 83b4157edb18500467bf6b26a6d3dd5eabba3d98 HEAD
           cat .github/pr548-rework/part-* > /tmp/pr548.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/pr548.patch')
+          s=p.read_text()
+          repairs={
+            "if(path==='/client/analytics-feed'&&method==='GET')retur['owner_analytics_client_feed',{}]":"if(path==='/client/analytics-feed'&&method==='GET')return['owner_analytics_client_feed',{}]",
+            "fetch(`${RPC_UPSTREAM=/${encodeURIComponent(name)}`":"fetch(`${RPC_UPSTREAM}/${encodeURIComponent(name)}`",
+          }
+          for old,new in repairs.items():
+              if old not in s:
+                  raise SystemExit(f'EXPECTED_TRANSPORT_REPAIR_SOURCE_MISSING: {old}')
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
           sha256sum /tmp/pr548.patch
           git show 83b4157edb18500467bf6b26a6d3dd5eabba3d98:.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
           git apply --check /tmp/pr548.patch
