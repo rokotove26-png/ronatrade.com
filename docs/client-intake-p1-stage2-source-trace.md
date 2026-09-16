@@ -1,29 +1,31 @@
 # P1 Client Intake Stage 2 — quantity source trace
 
-Status: candidate/rehearsal only. Production records were read only. No recovery or correction was applied.
+Status: candidate/rehearsal only until production recovery. Raw production source is immutable.
 
 ## Production provenance correction
 
 Production migration authority reports `20260902234211 client_communication_admin_gate_v1`.
 
-The matching repository migration on the current release lineage is `supabase/migrations/20260902233000_client_communication_admin_gate_v1.sql`. Git history for that path identifies introducing commit `4f0fde1c35fddabe02797f22e165c135fcfa09fb` (`feat(portal): gate client communications through Admin`). This is the proven provenance for this audit. The previously reported production version `20260902233605` and commit `f340f4ee...` are not used.
+The matching repository migration on the current release lineage is `supabase/migrations/20260902233000_client_communication_admin_gate_v1.sql`. Git history for that path identifies introducing commit `4f0fde1c35fddabe02797f22e165c135fcfa09fb` (`feat(portal): gate client communications through Admin`). This is the proven provenance for this audit.
 
-## Incident 1 trace
+## Incident A quantity authority
 
-Source record: the immutable business payload of the incident was inspected read-only. Persisted `payload.quantity_tonnes` is `10000`.
+Source event: `PORTAL-EVT-2d8981c549484ec7a4b91dc22da78d96`.
 
-| Stage | Value | Evidence level | Source-level finding |
+The immutable source payload contains `payload.quantity_tonnes=10000`.
+
+Owner clarification on 2026-09-16 is authoritative for the business correction: **the client entered 10000 tonnes by mistake; the correct requested quantity is 1000 tonnes**.
+
+This is therefore not classified as a frontend/backend numeric transformation defect. The source record remains 10000 for audit; current business projection is corrected to 1000 by the append-only Owner correction overlay.
+
+| Stage | Value | Evidence level | Finding |
 |---|---:|---|---|
-| Human keystrokes / historical DOM input at incident time | NOT_RETAINED | unavailable | No browser telemetry or request-body capture retains the historical DOM value. It is not safe to assert either 1000 or 10000 here. |
+| Client-entered incident value | 10000 | Owner clarification + persisted source | Client input error. |
 | Current DOM control contract | pass-through number input | source | `type=number`, `min=0.001`, `step=0.001`; no unit conversion. |
-| Frontend normalization `q` | 10000 (deterministic reconstruction) | inferred from exact pass-through chain | Current source computes `Number(String(value).replace(',','.'))`. No later stage can multiply the value, while persisted payload is 10000. |
-| Request payload before `fetch` | 10000 (deterministic reconstruction) | inferred | `quantity_tonnes:q`, then `JSON.stringify(payload)`; no numeric transform between `q` and body. |
-| Portal API `req.json()` parser | 10000 (deterministic reconstruction) | inferred | `/v1/events` reads JSON and passes `body.payload` to SQL as JSONB without quantity normalization. |
-| RPC argument `p_payload` | 10000 (deterministic reconstruction) | inferred | `sql.json(body.payload||{})::jsonb`; no conversion. |
-| `server_submit_reverse_event` | 10000 | source contract + downstream observation | Function inserts `coalesce(p_payload,'{}'::jsonb)` unchanged. |
-| Persisted `portal_reverse_events.payload.quantity_tonnes` | 10000 | observed production source | Read-only production query. |
-
-The exact historical human-entered DOM value is therefore **not recoverable from retained evidence**. What is recoverable is the transform boundary: no `1000 -> 10000` conversion exists from the current Client form normalization through the production API, RPC function, and persistence layer. The value persisted as 10000 necessarily reached the event submission payload as 10000 under the audited code path.
+| Frontend normalization | pass-through numeric | source | `Number(String(value).replace(',','.'))`; no scale change. |
+| Portal API / JSON / JSONB persistence | pass-through numeric | source | No quantity scaling. |
+| Immutable persisted source | 10000 | production observation | Must not be rewritten. |
+| Authoritative current business quantity | 1000 | OWNER | Applied through correction overlay only. |
 
 ## Generic transform audit
 
@@ -37,18 +39,22 @@ Findings:
 
 - decimal comma: `12,5 -> 12.5`; no scale change;
 - decimal dot: preserved;
-- plain whitespace or NBSP thousands separator is not stripped by this function; `1 000`/`1\u00a0000` fails numeric validation rather than becoming 10000;
+- plain whitespace or NBSP thousands separator is not stripped; invalid formatted input fails numeric validation instead of being scaled;
 - no tonnes/kg conversion exists in this submit path;
 - no `*10`, `*1000`, `/10` or `/1000` conversion exists in the submit block;
-- no repeated quantity normalization exists between modal value and request body;
-- no `parseFloat`; normalization uses `Number` after comma-to-dot replacement;
-- `JSON.stringify` / `req.json()` / JSONB serialization do not scale the number;
+- `JSON.stringify`, `req.json()` and JSONB serialization do not scale the number;
 - `server_submit_reverse_event` persists the JSONB payload unchanged.
 
 ## Root-cause classification
 
-`QUANTITY_ROOT_CAUSE=NO_SERVER_OR_SERIALIZATION_TRANSFORM_FOUND__HISTORICAL_DOM_VALUE_NOT_RETAINED`
+`QUANTITY_ROOT_CAUSE=CLIENT_INPUT_ERROR_OWNER_CONFIRMED`
 
-`QUANTITY_TRANSFORM_STAGE=NONE_DETECTED_FROM_FRONTEND_NORMALIZED_VALUE_THROUGH_PERSISTENCE`
+`QUANTITY_TRANSFORM_STAGE=NONE`
 
-This classification deliberately does not invent a `10000/10` repair and does not branch on an incident event ID. The candidate correction layer represents an Owner-authorized append-only correction independently of root-cause speculation.
+`IMMUTABLE_SOURCE_QUANTITY=10000`
+
+`AUTHORITATIVE_CORRECTED_QUANTITY=1000`
+
+`CORRECTION_AUTHORITY=OWNER`
+
+The implementation must not divide source values heuristically and must not branch on the incident event ID. The generic append-only correction layer supplies the corrected current projection while preserving source provenance.
