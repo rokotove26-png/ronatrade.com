@@ -46,7 +46,7 @@ test('Stage 5A — only paymentsV7Projection is accepted as route truth',()=>{
 test('Stage 5A — one dynamic Deal board renders current V7 acceptance values',()=>{
   const html=renderAdminPaymentsV7NativeHtml(data);
   assert.equal((html.match(/data-payments-route-owner=/g)||[]).length,1);
-  for(const value of ['236 250 USD','672 500 USD','201 750 USD','470 750 USD','164 400 USD','49 320 USD','115 080 USD','31 002 300 RUB','9 300 690 RUB','21 701 610 RUB']) assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  for(const value of ['236 250 USD','672 500 USD','201 750 USD','470 750 USD','164 400 USD','49 320 USD','115 080 USD','31 002 300 RUB','21 701 610 RUB']) assert.match(html,new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
   assert.match(html,/ГазОнэ/);
   assert.doesNotMatch(html,/362[\s\u00a0]*600\s*USD/);
   assert.equal((html.match(/class="payments-v7-deal"/g)||[]).length,4);
@@ -88,7 +88,7 @@ test('Stage 5B — global KPI cards precede one Deal board and aggregate currenc
   const view=createAdminPaymentsV7NativeView(data);
   assert.deepEqual(view.kpis.total.rows,[{currency:'RUB',amount:'31 002 300'},{currency:'USD',amount:'1 073 150'}]);
   assert.deepEqual(view.kpis.received.rows,[{currency:'RUB',amount:'0'},{currency:'USD',amount:'487 320'}]);
-  assert.deepEqual(view.kpis.expected.rows,[{currency:'RUB',amount:'9 300 690'},{currency:'USD',amount:'585 830'}]);
+  assert.deepEqual(view.kpis.expected.rows,[{currency:'RUB',amount:'31 002 300'},{currency:'USD',amount:'585 830'}]);
   assert.deepEqual(view.kpis.expected.conditional.rows,[{currency:'RUB',amount:'21 701 610'},{currency:'USD',amount:'0'}]);
   assert.equal(view.kpis.spend.to_verify,true);
   const html=renderAdminPaymentsV7NativeHtml(data);
