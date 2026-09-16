@@ -11,6 +11,10 @@ const base={ok:true,data:{applications:[{application_id:'TECHNICAL-MUST-NOT-LEAK
 function handler(n=1){return createApplicationBusinessHandler(async()=>Response.json(structuredClone(base)),{sql,apiRoute:route,authenticate:async()=>n?{auth:f['auth'+n],sid:f['session'+n],roles:[n===3?'ADMIN':'CLIENT']}:null})}
 async function bundle(n=1,key=randomUUID(),quantity=27.29){return (await sql`select test_application_v2.bundle(${n},${key},${quantity}) as body`)[0].body}
 async function send(h,path,body){return h(new Request('https://ronaoil.com'+path,body?{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':body.idempotencyKey||body.idempotency_key},body:JSON.stringify(body)}:{}))}
+async function ownerAction(applicationId,action,payload={}){
+ const claims=JSON.stringify({sub:f.auth3,session_id:f.session3,role:'authenticated'});
+ await execute(`select set_config('request.jwt.claims',${literal(claims)},false);select public.owner_r1_application_business_action_v2(${literal(applicationId)},${literal(action)},${literal(payload)}::jsonb);`);
+}
 let receipt;
 test('actual handler commits atomic standard bundle and exposes one canonical ID',async()=>{
  const body=await bundle();const result=await send(handler(),'/v1/client/applications',body);assert.equal(result.status,200);receipt=(await result.json()).application;
@@ -63,9 +67,9 @@ test('real concurrent sessions retry same intent exactly once; different clients
  const other=await send(handler(2),'/v1/client/applications',await bundle(2,key,19.45));assert.equal(other.status,200);assert.notEqual((await other.json()).application.application_id,ids[0]);
  const reserve=await rows('select count(*)::integer as n from portal_private.client_application_number_reservations_v2 where application_id='+literal(ids[0]));assert.equal(reserve[0].n,1);
 });
-test('immediate rejection is physically deleted before response and retry cannot resurrect it',async()=>{
+test('immediate Owner rejection is physically deleted before response and retry cannot resurrect it',async()=>{
  const body=await bundle(1,randomUUID(),31.19);const id=(await (await send(handler(),'/v1/client/applications',body)).json()).application.application_id;
- await execute('update portal_private.client_applications set status=\'REJECTED\' where application_id='+literal(id)+';');
+ await ownerAction(id,'REJECT',{reason:'ISOLATED_HANDLER_OWNER_REJECT'});
  assert.equal((await send(handler(),'/v1/client/applications',body)).status,410);
  const exists=await rows('select exists(select 1 from portal_private.client_applications where application_id='+literal(id)+') as alive');assert.equal(exists[0].alive,false);
  const common=await sql`select portal_private.canonical_target_snapshot('APPLICATION',${id}) as item`;assert.equal(common[0].item.business_visible,false);
