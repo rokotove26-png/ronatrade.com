@@ -1,4 +1,4 @@
-name: P1 Client Intake Stage 2.2 QA
+name: P1 Client Intake Stage 2.3 QA
 
 on:
   pull_request:
@@ -7,6 +7,7 @@ on:
       - 'supabase/functions/_shared/client-intake-v1/**'
       - 'supabase/functions/rona-portal-api/bootstrap.ts'
       - 'supabase/functions/rona-portal-api/stage21-bootstrap.ts'
+      - 'supabase/functions/rona-portal-api/stage23-bootstrap.ts'
       - 'supabase/functions/rona-portal-api/deno.json'
       - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
       - 'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql'
@@ -14,6 +15,7 @@ on:
       - 'supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql'
       - 'supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql'
       - 'supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql'
+      - 'supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql'
       - 'tests/client-intake-v1/**'
       - 'scripts/check-client-intake-no-hardcode.mjs'
       - 'docs/client-intake-p1-stage2-*.md'
@@ -77,7 +79,8 @@ jobs:
             supabase/migrations/20260915123200_client_intake_correction_api_v1.sql \
             supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql \
             supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql \
-            supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql
+            supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql \
+            supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql
           do
             docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
               psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
@@ -109,3 +112,7 @@ jobs:
         run: >-
           docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/stage22-global-coverage.sql
+      - name: Execute P1 completion bounded-history regressions
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/p1-completion.sql
