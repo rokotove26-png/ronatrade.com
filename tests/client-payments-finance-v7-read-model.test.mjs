@@ -1,0 +1,52 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { applyClientPaymentAuthorityV7 } from '../supabase/functions/rona-portal-api/client-payments-v7.js';
+
+const finance009={
+  id:'6b10de98-e6df-43de-9339-9f6f724f0094',
+  total_to_receive:'31002300',obligation_currency:'RUB',finance_status:'NOT_DUE',documentary_status:'TO_VERIFY',
+  due_now:'0',expected_not_due:'9300690',future_conditional:'21701610',source_version:'FINANCE_GLOBAL_PAYMENT_SEMANTICS_V2'
+};
+const deal009={deal_id:'DEAL-2026-009',payment_obligation_amount:362600,payment_received_amount:0,payment_currency:'USD',payment_source:'OWNER_DEAL_FINANCE_SUMMARY'};
+applyClientPaymentAuthorityV7(deal009,[finance009],[]);
+assert.deepEqual(
+  [deal009.payment_obligation_amount,deal009.payment_received_amount,deal009.payment_remaining_amount,deal009.payment_currency,deal009.payment_source],
+  [31002300,0,31002300,'RUB','FINANCE_V7_AUTHORITATIVE']
+);
+assert.equal(deal009.payment_expected_not_due,9300690);
+assert.equal(deal009.payment_future_conditional,21701610);
+
+const finance004={id:'v7-004',total_to_receive:'236250',obligation_currency:'USD',finance_status:'PAID',documentary_status:'CONFIRMED',due_now:'0',expected_not_due:'0',future_conditional:'0'};
+const deal004={deal_id:'DEAL-2026-004'};
+applyClientPaymentAuthorityV7(deal004,[finance004],[{currency:'USD',amount:'236250'}]);
+assert.equal(deal004.payment_status,'PAID');
+assert.equal(deal004.payment_percent,100);
+assert.equal(deal004.payment_received_amount,236250);
+
+const missing={deal_id:'DEAL-2026-999',payment_obligation_amount:999,payment_currency:'USD',payment_source:'OWNER_DEAL_FINANCE_SUMMARY'};
+applyClientPaymentAuthorityV7(missing,[],[]);
+assert.equal(missing.payment_status,'TO_VERIFY');
+assert.equal(missing.payment_obligation_amount,'TO_VERIFY');
+assert.equal(missing.payment_source,'FINANCE_V7_AUTHORITY_MISSING');
+
+const mismatch={deal_id:'DEAL-2026-998'};
+applyClientPaymentAuthorityV7(mismatch,[finance009],[{currency:'USD',amount:'1'}]);
+assert.equal(mismatch.payment_status,'TO_VERIFY');
+assert.equal(mismatch.payment_source,'FINANCE_V7_RECEIPT_RECONCILIATION_REQUIRED');
+
+const wrapper=await readFile('supabase/functions/rona-portal-api/client-payments-v7-projection.ts','utf8');
+for(const marker of [
+  'deal_finance_authority_v7',
+  "p.payment_direction::text='INCOMING'",
+  "p.payment_kind::text='CLIENT_PAYMENT'",
+  "p.bank_fact_status::text='BANK_CONFIRMED'",
+  "pa.allocation_status::text='VERIFIED'",
+  'newer.supersedes_id=a.id',
+  "targetRoute(url.pathname)",
+  "route==='context'",
+  "route==='deals'",
+  "route==='payments'",
+  'FINANCE_V7_PROJECTION_ERROR'
+])assert.ok(wrapper.includes(marker),`missing ${marker}`);
+assert.ok(!wrapper.includes('owner_deal_finance_summary'),'Finance V7 projection must not read legacy owner summary');
+console.log('CLIENT_PAYMENTS_FINANCE_V7_READ_MODEL=PASS');
