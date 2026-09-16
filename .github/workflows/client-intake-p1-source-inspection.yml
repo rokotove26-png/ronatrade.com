@@ -14,18 +14,24 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Exact candidate and source lineage
+      - name: Capture exact current release and backend sources
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p /tmp/intake-source
-          git archive 6411619a55507d912672e02392fbe512a63dc90d -o /tmp/intake-source/candidate.tar
-          git diff --stat 6411619a55507d912672e02392fbe512a63dc90d HEAD > /tmp/intake-source/source-diff.txt
-          git show 4f0fde1c35fddabe02797f22e165c135fcfa09fb -- supabase/migrations/20260902233000_client_communication_admin_gate_v1.sql > /tmp/intake-source/routing-regression.txt
-          sha256sum /tmp/intake-source/candidate.tar > /tmp/intake-source/SHA256SUMS
+          RELEASE=2d47e08a8420331672692507a74db6c6484ef04d
+          MAIN=c4e93c8445a84aa987588558823533be2d1f4511
+          printf 'RELEASE=%s\nMAIN=%s\n' "$RELEASE" "$MAIN" > /tmp/intake-source/refs.txt
+          for pair in "release:$RELEASE" "main:$MAIN"; do
+            label=${pair%%:*}; ref=${pair#*:}
+            git archive "$ref" .github functions supabase scripts tests assets/portal-runtime package.json -o "/tmp/intake-source/$label.tar"
+            git log -30 --format='%H %aI %s' "$ref" > "/tmp/intake-source/$label-history.txt"
+            git ls-tree -r "$ref" > "/tmp/intake-source/$label-tree.txt"
+          done
+          sha256sum /tmp/intake-source/*.tar > /tmp/intake-source/SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
-          name: client-intake-candidate-source
+          name: client-applications-systemic-current-source
           path: /tmp/intake-source/
           retention-days: 3
           if-no-files-found: error
