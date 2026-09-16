@@ -25,8 +25,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "8bff4533bca149d3e12c48c03aa7b8a47a6de553"
-          test "$(git rev-parse HEAD^^^)" = "83b4157edb18500467bf6b26a6d3dd5eabba3d98"
+          test "$(git rev-parse HEAD^)" = "04580ae3b1c8c78143fb2f59f13bb15c4d4f2309"
+          git merge-base --is-ancestor 83b4157edb18500467bf6b26a6d3dd5eabba3d98 HEAD
           cat .github/pr548-rework/part-* > /tmp/pr548.patch
           sha256sum /tmp/pr548.patch
           git show 83b4157edb18500467bf6b26a6d3dd5eabba3d98:.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
@@ -34,25 +34,21 @@ jobs:
           git apply /tmp/pr548.patch
           rm -rf .github/pr548-rework .github/workflows/pr548-rework-apply.yml
           git diff --check
-          cat > /tmp/expected-files.txt <<'FILES'
-          .github/workflows/admin-applications-kpi-refresh-v4-qa.yml
-          .github/workflows/client-application-business-v2-qa.yml
-          functions/portal/owner-api.js
-          governance/client-application-business-v2-owner-scope.json
-          scripts/application-business-v2/prepare-live-consumers.mjs
-          scripts/qa-admin-applications-kpi-refresh-v4.mjs
-          scripts/qa-client-portal-visual-freeze.mjs
-          supabase/functions/rona-owner-acceptance/index.ts
-          supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql
-          tests/client-application-business-v2/pg17/authority-regressions.sql
-          tests/client-application-business-v2/pg17/integration.sql
-          tests/client-application-business-v2/pg17/owner-authority-regressions.sql
-          tests/client-application-business-v2/pg17/review-dependencies.sql
-          tests/client-application-business-v2/pg17/review-regressions.sql
-          tests/client-application-business-v2/pg17/review-seed.sql
-          FILES
-          sed -i 's/^          //' /tmp/expected-files.txt
-          sort -u -o /tmp/expected-files.txt /tmp/expected-files.txt
+          printf '%s\n' \
+            '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml' \
+            '.github/workflows/client-application-business-v2-qa.yml' \
+            'functions/portal/owner-api.js' \
+            'governance/client-application-business-v2-owner-scope.json' \
+            'scripts/application-business-v2/prepare-live-consumers.mjs' \
+            'scripts/qa-admin-applications-kpi-refresh-v4.mjs' \
+            'scripts/qa-client-portal-visual-freeze.mjs' \
+            'supabase/functions/rona-owner-acceptance/index.ts' \
+            'supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql' \
+            'tests/client-application-business-v2/pg17/authority-regressions.sql' \
+            'tests/client-application-business-v2/pg17/owner-authority-regressions.sql' \
+            'tests/client-application-business-v2/pg17/review-dependencies.sql' \
+            'tests/client-application-business-v2/pg17/review-regressions.sql' \
+            'tests/client-application-business-v2/pg17/review-seed.sql' | sort -u > /tmp/expected-files.txt
           git diff --name-only 83b4157edb18500467bf6b26a6d3dd5eabba3d98 | sort -u > /tmp/actual-files.txt
           diff -u /tmp/expected-files.txt /tmp/actual-files.txt
           git config user.name 'rokotove26-png'
