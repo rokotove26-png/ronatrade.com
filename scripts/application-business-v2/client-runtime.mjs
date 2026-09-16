@@ -43,7 +43,7 @@ export function wireClientBusinessRuntime(source,validator){
  s=s.replace("window.addEventListener('pageshow',()=>{load(true);scheduleAlign();setTimeout(observeLayout,0)},{passive:true})","window.addEventListener('pageshow',()=>{render();scheduleAlign();setTimeout(observeLayout,0)},{passive:true})");
  s=s.replace("window.addEventListener('pageshow',queueDecorate,{passive:true});",'');
  const helpers=String.raw`
-function applicationPriceMarkup(app){if(app.application_price===null)return '\u2014';return '<span'+(app.price_is_owner_agreed===true?' style="color:#2563eb" data-application-agreed-price="true"':'')+'>'+esc(fmtNumber(app.application_price))+'</span> '+esc(app.application_currency)+'/\u0442'}
+function applicationPriceMarkup(app){if(app.application_price===null)return '\u2014';const value=esc(fmtNumber(app.application_price))+' '+esc(app.application_currency)+'/\u0442';return '<span'+(app.price_is_owner_agreed===true?' style="color:#2563eb;white-space:nowrap" data-application-agreed-price="true"':'')+'>'+value+'</span>'}
 async function openCanonicalApplicationPassport(button){
  if(button.disabled)return;
  const id=norm(button.getAttribute('data-rona-open-application')),ctx=authority()?.getCurrentContext?.(),key=contextKey(ctx);
