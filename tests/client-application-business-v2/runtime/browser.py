@@ -20,6 +20,10 @@ def sql(statement):
     p=subprocess.run(args,input=statement,text=True,capture_output=True,timeout=30,check=True)
     return p.stdout.strip()
 def quote(s): return "'"+str(s).replace("'","''")+"'"
+def owner_action(application_id, action, payload=None):
+    claims=sql("select jsonb_build_object('sub',u.auth_user_id,'session_id',s.id,'role','authenticated') from portal_private.portal_users u join portal_private.qa_session_roles r on r.user_id=u.id join auth.sessions s on s.user_id=u.auth_user_id where 'ADMIN'=any(r.roles) order by u.id limit 1;")
+    assert claims
+    sql("select set_config('request.jwt.claims',"+quote(claims)+",false); select public.owner_r1_application_business_action_v2("+quote(application_id)+","+quote(action)+","+quote(json.dumps(payload or {}))+"::jsonb);")
 def login(context, n):
     assert context.request.get(BASE+'/test/login?user='+str(n)).ok
 
@@ -96,9 +100,11 @@ with sync_playwright() as p:
         login(client,1);page.goto(BASE+'/portal/client');expect(row(page,aid)).to_be_visible();check('fresh login preserves existing application',True)
         other=browser.new_context();contexts.append(other);login(other,2);otherpage=other.new_page();otherpage.goto(BASE+'/portal/client')
         expect(otherpage.locator('[data-application-bucket=ACTIVE]')).to_be_visible();check('second client cannot see first client business rows',otherpage.locator('[data-rona-live-application-id="'+aid+'"]').count()==0)
-        # A source-backed accepted counter-offer. The value differs from the submitted snapshot.
+        # A source-backed accepted counter-offer. Owner/Admin sets the commercial price;
+        # the client-response update is the explicitly allowed counter-response transition.
         agreed=617.43
-        sql("insert into portal_private.owner_application_workflow(application_key,business_status,counter_offer_used,client_counter_response,counter_price,counter_currency) select id,'REVIEW',true,'ACCEPTED',"+str(agreed)+",'USD' from portal_private.client_applications where application_id="+quote(aid)+" on conflict(application_key) do update set counter_offer_used=true,client_counter_response='ACCEPTED',counter_price=excluded.counter_price,counter_currency='USD';")
+        owner_action(aid,'COUNTER_OFFER',{'price':agreed,'currency':'USD'})
+        sql("update portal_private.owner_application_workflow set business_status='CLIENT_COUNTER_ACCEPTED',client_counter_response='ACCEPTED' where application_key=(select id from portal_private.client_applications where application_id="+quote(aid)+");")
         page.reload();expect(row(page,aid)).to_be_visible()
         price=row(page,aid).locator('[data-application-agreed-price=true]');expect(price).to_be_visible()
         check('Client numeric agreed price uses existing blue digits only','617,43'==price.inner_text() and price.evaluate('(e)=>getComputedStyle(e).color')=='rgb(37, 99, 235)')
@@ -126,7 +132,7 @@ with sync_playwright() as p:
         page.reload();page.locator('[data-application-bucket=COMPLETED]').click();expect(row(page,aid)).to_be_visible();row(page,aid).locator('[data-rona-open-application]').click();expect(row(page,aid).locator('[data-rona-application-details]')).to_be_visible()
         check('retained Completed row keeps universal Open',True)
         # Real commit-boundary lifecycle deletion with UI refresh and repeated recovery.
-        delete_id=lost['id'];sql("update portal_private.client_applications set status='REJECTED' where application_id="+quote(delete_id)+';')
+        delete_id=lost['id'];owner_action(delete_id,'REJECT',{'reason':'ISOLATED_BROWSER_OWNER_REJECT'})
         check('rejection physically deletes without waiting for reconciliation',int(sql('select count(*) from portal_private.client_applications where application_id='+quote(delete_id)+';'))==0)
         for _ in range(2):sql('select portal_private.reconcile_client_intake_v1(500); select portal_private.reconcile_client_applications_v2(500);')
         page.reload();expect(page.locator('[data-application-bucket=ACTIVE]')).to_be_visible()
