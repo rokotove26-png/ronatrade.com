@@ -107,7 +107,7 @@ with sync_playwright() as p:
         sql("update portal_private.owner_application_workflow set business_status='CLIENT_COUNTER_ACCEPTED',client_counter_response='ACCEPTED' where application_key=(select id from portal_private.client_applications where application_id="+quote(aid)+");")
         page.reload();expect(row(page,aid)).to_be_visible()
         price=row(page,aid).locator('[data-application-agreed-price=true]');expect(price).to_be_visible()
-        check('Client numeric agreed price uses existing blue digits only','617,43'==price.inner_text() and price.evaluate('(e)=>getComputedStyle(e).color')=='rgb(37, 99, 235)')
+        check('Client agreed price and currency render as one blue nowrap value','617,43 USD/т'==price.inner_text() and price.evaluate('(e)=>getComputedStyle(e).color')=='rgb(37, 99, 235)' and price.evaluate('(e)=>getComputedStyle(e).whiteSpace')=='nowrap')
         check('Client removed Price RONA text label','\u0426\u0435\u043d\u0430 RONA' not in page.locator('#page-applications').inner_text())
         admin=browser.new_context(viewport={'width':1600,'height':1100});contexts.append(admin);login(admin,3);ap=admin.new_page();ap.on('pageerror',lambda e:errors.append('ADMIN:'+str(e)))
         ap.goto(BASE+'/portal/admin');ap.wait_for_function('window.__RONA_OWNER_ADMIN_READY__===true',timeout=15000)
