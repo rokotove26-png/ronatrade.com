@@ -71,10 +71,11 @@ assert.doesNotMatch(readabilityRuntime,/\.rona-queue-card-v3\{/,'readability ove
 assert.doesNotMatch(readabilityRuntime,/\.rona-app-lifecycle-v3\{/,'readability overlay must not resize/redefine the lifecycle outer frame');
 
 const wrapper=fs.readFileSync(new URL('../functions/portal/main-ui/application-passport-runtime.js',import.meta.url),'utf8');
+const terminalAt=wrapper.indexOf('adminApplicationsTerminalBucketV1');
 const actionAt=wrapper.indexOf('adminApplicationsPassportActionV2');
 const premiumAt=wrapper.indexOf('adminApplicationsPremiumRuntime');
 const readabilityAt=wrapper.lastIndexOf('adminApplicationsReadabilityV5');
-assert.ok(actionAt>=0&&premiumAt>actionAt&&readabilityAt>premiumAt,'universal passport trigger must compose before premium/readability overlays');
-assert.match(wrapper,/applicationPassportRuntimeBase\s*\+\s*adminApplicationsPassportActionV2\s*\+\s*adminApplicationsPremiumRuntime\s*\+\s*adminApplicationsReadabilityV5/,'passport, universal trigger, premium and readability runtimes must remain composed in order');
+assert.ok(terminalAt>=0&&actionAt>terminalAt&&premiumAt>actionAt&&readabilityAt>premiumAt,'terminal lifecycle guard and universal passport trigger must compose before premium/readability overlays');
+assert.match(wrapper,/applicationPassportRuntimeBase\s*\+\s*adminApplicationsTerminalBucketV1\s*\+\s*adminApplicationsPassportActionV2\s*\+\s*adminApplicationsPremiumRuntime\s*\+\s*adminApplicationsReadabilityV5/,'passport, terminal lifecycle guard, universal trigger, premium and readability runtimes must remain composed in order');
 
-console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 passport_open=universal hero=clean-integrated title=60px responsive_title=52px typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
+console.log('ADMIN_APPLICATIONS_PROJECTION_STABILITY_READABLE_V5=PASS completed=6 repeated_stable=true tonnage=2145 terminal_bucket_guard=active passport_open=universal hero=clean-integrated title=60px responsive_title=52px typography=balanced color_hierarchy=cyan-violet-amber-green company_wrap=2_lines outer_frames=unchanged');
