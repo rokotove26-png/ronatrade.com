@@ -66,21 +66,21 @@
 +          for f in supabase/migrations/20260916110[6-9]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
            psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-seed.sql
            psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-lifecycle.log"
-          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-authority.log"
+           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-authority.log"
 +          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/owner-authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-admin-authority.log"
-      - name: Build actual release consumers and enforce unrelated scope freeze
+       - name: Build actual release consumers and enforce unrelated scope freeze
          shell: bash
          run: |
 @@ -122,6 +128,7 @@
          run: |
            set -euo pipefail
-          deno info --json --config supabase/functions/rona-portal-api/deno.json supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts > "$APPLICATION_EVIDENCE_DIR/deno-import-graph.json"
+           deno info --json --config supabase/functions/rona-portal-api/deno.json supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts > "$APPLICATION_EVIDENCE_DIR/deno-import-graph.json"
 +          deno check --config supabase/functions/rona-owner-acceptance/deno.json supabase/functions/rona-owner-acceptance/index.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-action-deno-check.log"
-          deno run --allow-env --allow-net --allow-read --config supabase/functions/rona-portal-api/deno.json tests/client-application-business-v2/runtime/deno-auth.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/deno-auth-driver.log"
+           deno run --allow-env --allow-net --allow-read --config supabase/functions/rona-portal-api/deno.json tests/client-application-business-v2/runtime/deno-auth.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/deno-auth-driver.log"
        - name: Actual compiled Client and Admin browser regression
          shell: bash
 --- a/functions/portal/owner-api.js
 +++ b/functions/portal/owner-api.js
 @@ -35,7 +35,7 @@
- function sanitizeAgentAi(data){const raw=data?.displayPolicy||null,share=normalizeShare(raw?.positiveActualFxVisibleShare);const displayPolicy=raw&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:raw?.appliesTo??'ACTUAL_CONFIRMED_POSITIVE_FX_ONLY',status:raw?.status??null,updatedAt:raw?.updatedAt??null,note:'В ЛК Агента учитывается только разрешенная доля подтвержденного фактического положительного курсового эфекта. Прогнозные и неподтвержденные значения не публикуются.'}:null;const settlements=Array.isArray(data?.settlements)?data.settlements.map(s=>{const stage=String(s?.stage??'');const amountVisible=AGENT_AMOUNT_VISIBLE_STAGES.has(stage);return{settlementId:s?.settlementId??null,dealId:s?.dealId??null,clientId:s?.clientId??null,stage,amount:amountVisible?s?.amount??null:null,currency:amountVisible?s?.currency??null:null,paymentObligationConfirmed:!!s?.paymentObligationConfirmed,paymentFactConfirmed:!!s?.paymentFactConfirmed,updatedAt:s?.updatedAt??null}}):[];return{generatedAt:data?.generatedAt??null,displayPolicy,settlements,positiveActualFxEffects:[]}}
+ function sanitizeAgentAi(data){const raw=data?.displayPolicy||null,share=normalizeShare(raw?.positiveActualFxVisibleShare);const displayPolicy=raw&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:raw?.appliesTo??'ACTUAL_CONFIRMED_POSITIVE_FX_ONLY',status:raw?.status??null,updatedAt:raw?.updatedAt??null,note:'В ЛК Агента учитывается только разрешенная доля подтвержденного фактического положительного курсового эффекта. Прогнозные и неподтвержденные значения не публикуются.'}:null;const settlements=Array.isArray(data?.settlements)?data.settlements.map(s=>{const stage=String(s?.stage??'');const amountVisible=AGENT_AMOUNT_VISIBLE_STAGES.has(stage);return{settlementId:s?.settlementId??null,dealId:s?.dealId??null,clientId:s?.clientId??null,stage,amount:amountVisible?s?.amount??null:null,currency:amountVisible?s?.currency??null:null,paymentObligationConfirmed:!!s?.paymentObligationConfirmed,paymentFactConfirmed:!!s?.paymentFactConfirmed,updatedAt:s?.updatedAt??null}}):[];return{generatedAt:data?.generatedAt??null,displayPolicy,settlements,positiveActualFxEffects:[]}}
  async function sanitizeExternalProjection(path,response){if(!response.ok)return response;const ct=String(response.headers.get('content-type')||'');if(!ct.includes('application/json'))return response;if(!['/client/bootstrap','/agent/bootstrap','/agent/ai-sync'].includes(path))return response;const payload=await response.json().catch((

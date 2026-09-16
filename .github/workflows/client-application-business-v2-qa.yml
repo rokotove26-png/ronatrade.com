@@ -25,10 +25,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "cb6bd163ebec09a3e062cde5f76a860b16d6faee"
-          test "$(git rev-parse HEAD^^)" = "83b4157edb18500467bf6b26a6d3dd5eabba3d98"
+          test "$(git rev-parse HEAD^)" = "8bff4533bca149d3e12c48c03aa7b8a47a6de553"
+          test "$(git rev-parse HEAD^^^)" = "83b4157edb18500467bf6b26a6d3dd5eabba3d98"
           cat .github/pr548-rework/part-* > /tmp/pr548.patch
-          echo '05e230a0d2a75374a85019ec08285e38128ab1f7fa786f90b551c564d9678fd9  /tmp/pr548.patch' | sha256sum -c -
+          sha256sum /tmp/pr548.patch
           git show 83b4157edb18500467bf6b26a6d3dd5eabba3d98:.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
           git apply --check /tmp/pr548.patch
           git apply /tmp/pr548.patch
@@ -45,6 +45,7 @@ jobs:
           supabase/functions/rona-owner-acceptance/index.ts
           supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql
           tests/client-application-business-v2/pg17/authority-regressions.sql
+          tests/client-application-business-v2/pg17/integration.sql
           tests/client-application-business-v2/pg17/owner-authority-regressions.sql
           tests/client-application-business-v2/pg17/review-dependencies.sql
           tests/client-application-business-v2/pg17/review-regressions.sql
