@@ -39,8 +39,7 @@ export function wireClientBusinessRuntime(source,validator){
  if(start<0||end<0)throw new Error('CLIENT_PASSPORT_HANDLER_MISSING');
  s=s.slice(0,start)+'openCanonicalApplicationPassport(button)'+s.slice(end);
  s=s.replace("state.apps=[];state.contextKey='';state.lastLoad=0;load(true)","const next=a.getCurrentContext?.(),nextKey=contextKey(next),changed=!!nextKey&&nextKey!=='|'&&nextKey!==state.contextKey;if(changed){state.apps=[];state.kpi=null;state.openPassportId=null;state.contextKey='';state.lastLoad=0;render()}load(true)");
- // RONA_CLIENT_CONTEXT is the single projection refresh owner. This consumer must not create its own poll/pageshow fetch fanout.
- s=s.replace("state.timer=setInterval(()=>load(false),REFRESH_MS);",'');
+ // RONA_CLIENT_CONTEXT is the projection authority. Keep the existing bounded TTL check, but pageshow/decorators must not create a second forced fetch owner.
  s=s.replace("window.addEventListener('pageshow',()=>{load(true);scheduleAlign();setTimeout(observeLayout,0)},{passive:true})","window.addEventListener('pageshow',()=>{render();scheduleAlign();setTimeout(observeLayout,0)},{passive:true})");
  s=s.replace("window.addEventListener('pageshow',queueDecorate,{passive:true});",'');
  const helpers=String.raw`
@@ -66,7 +65,6 @@ document.addEventListener('click',event=>{const button=event.target?.closest?.('
 `;
  s=s.replace('function observeLayout()',helpers+'\nfunction observeLayout()');
  if(s.includes("if(force)a.invalidateCurrentProjection?.()"))throw new Error('CLIENT_APPLICATION_RUNTIME_FORCE_INVALIDATION_NOT_RETIRED');
- if(s.includes("state.timer=setInterval(()=>load(false),REFRESH_MS)"))throw new Error('CLIENT_APPLICATION_RUNTIME_POLL_NOT_RETIRED');
  if(s.includes("window.addEventListener('pageshow',()=>{load(true)"))throw new Error('CLIENT_APPLICATION_RUNTIME_PAGESHOW_FETCH_NOT_RETIRED');
  if(s.includes("window.addEventListener('pageshow',queueDecorate"))throw new Error('CLIENT_COUNTER_OFFER_PAGESHOW_FETCH_NOT_RETIRED');
  return s;
