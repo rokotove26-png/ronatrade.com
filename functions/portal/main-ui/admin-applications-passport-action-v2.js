@@ -2,7 +2,7 @@ const ADMIN_APPLICATIONS_PASSPORT_ACTION_V2=String.raw`
 (()=>{'use strict';
 if(window.__RONA_ADMIN_APPLICATIONS_PASSPORT_ACTION_V2__)return;
 if(location.pathname!=='/portal/admin')return;
-window.__RONA_ADMIN_APPLICATIONS_PASSPORT_ACTION_V2__='20260916-v2-universal-open';
+window.__RONA_ADMIN_APPLICATIONS_PASSPORT_ACTION_V2__='20260916-v3-open-after-currency';
 const text=v=>String(v??'').replace(/\s+/g,' ').trim();
 const norm=v=>text(v).toLocaleLowerCase('ru-RU');
 let observer=null,queued=false;
@@ -26,17 +26,32 @@ function actionHost(row){
   if(!cell)return null;
   return cell.querySelector('.rona-owner-actions,.rona-app-actions')||cell;
 }
+function currencyControl(host){
+  const controls=Array.from(host.children).filter(node=>
+    node instanceof HTMLElement&&(node.matches('select')||Boolean(node.querySelector('select')))
+  );
+  return controls[controls.length-1]||null;
+}
+function placeButton(host,button){
+  const anchor=currencyControl(host);
+  if(anchor){
+    if(anchor.nextElementSibling!==button)anchor.insertAdjacentElement('afterend',button);
+    return;
+  }
+  if(button.parentElement!==host||host.lastElementChild!==button)host.append(button);
+}
 function ensureButton(row){
   if(!(row instanceof HTMLElement))return;
   const id=applicationId(row);if(!id||id==='—')return;
   const host=actionHost(row);if(!host)return;
-  if(host.querySelector('button[data-rona-app-passport-open]'))return;
+  const existing=host.querySelector('button[data-rona-app-passport-open]');
+  if(existing){placeButton(host,existing);return}
   const button=document.createElement('button');
   button.type='button';
   button.textContent='Открыть';
   button.setAttribute('data-rona-app-passport-open',id);
   button.className='rona-app-action--primary rona-app-passport-open-v2';
-  host.prepend(button);
+  placeButton(host,button);
 }
 function sync(){
   queued=false;
