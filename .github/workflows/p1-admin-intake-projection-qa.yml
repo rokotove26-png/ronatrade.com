@@ -1,0 +1,27 @@
+name: P1 Admin Intake Projection QA
+
+on:
+  pull_request:
+    paths:
+      - 'functions/portal/admin-completed-bootstrap.js'
+      - 'functions/portal/main-ui/admin-durable-intake-applications.js'
+      - 'tests/admin-durable-intake-projection.test.mjs'
+      - '.github/workflows/p1-admin-intake-projection-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  admin-intake-projection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax and projection contract
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin-completed-bootstrap.js
+          node --check functions/portal/main-ui/admin-durable-intake-applications.js
+          node tests/admin-durable-intake-projection.test.mjs
