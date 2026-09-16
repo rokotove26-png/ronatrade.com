@@ -1,0 +1,33 @@
+name: Client Intake P1 Source Inspection
+on:
+  push:
+    branches: [fix/client-intake-reliability-p1]
+    paths: [.github/workflows/client-intake-p1-source-inspection.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Exact source and intake history
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/intake-source
+          git rev-parse HEAD > /tmp/intake-source/HEAD.txt
+          git archive HEAD -o /tmp/intake-source/repository.tar
+          git log --all --format='%H %aI %s' -G 'CLIENT_.*then|enqueue_reverse_event_staff_task|quantity_tonnes' -- supabase/migrations public/js > /tmp/intake-source/intake-history.txt
+          git ls-tree -r --name-only HEAD | grep -E 'client|reverse|intake|portal-api' > /tmp/intake-source/relevant-paths.txt
+          sha256sum /tmp/intake-source/repository.tar > /tmp/intake-source/SHA256SUMS
+          cat /tmp/intake-source/HEAD.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-intake-exact-source
+          path: /tmp/intake-source/
+          retention-days: 3
+          if-no-files-found: error
