@@ -5,9 +5,11 @@ const sql=fs.readFileSync('supabase/migrations/20260915123000_client_intake_unif
 const correction=fs.readFileSync('supabase/migrations/20260915123200_client_intake_correction_api_v1.sql','utf8');
 const runtimeFix=fs.readFileSync('supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql','utf8');
 const executor=fs.readFileSync('supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql','utf8');
+const completion=fs.readFileSync('supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql','utf8');
 const bootstrap=fs.readFileSync('supabase/functions/rona-portal-api/bootstrap.ts','utf8');
 const api=fs.readFileSync('supabase/functions/rona-portal-api/stage21-bootstrap.ts','utf8');
-const allSql=[sql,correction,runtimeFix,executor].join('\n');
+const stage23=fs.readFileSync('supabase/functions/rona-portal-api/stage23-bootstrap.ts','utf8');
+const allSql=[sql,correction,runtimeFix,executor,completion].join('\n');
 
 for(const token of [
   'client_intake_v1','client_intake_routing_registry_v1','client_intake_routing_outbox_v1','client_intake_task_links_v1',
@@ -42,7 +44,10 @@ assert.match(correction,/append_client_intake_correction_v1/);
 assert.match(correction,/CLIENT_INTAKE_CORRECTION_SOURCE_VALUE_MISMATCH/);
 assert.doesNotMatch(correction,/update\s+portal_private\.(portal_reverse_events|client_applications)/i);
 
-assert.match(bootstrap,/import "\.\/stage21-bootstrap\.ts"/);
+assert.match(bootstrap,/import "\.\/stage23-bootstrap\.ts"/);
+assert.match(stage23,/import\("\.\/stage21-bootstrap\.ts"\)/);
+assert.match(stage23,/CLIENT_INTAKE_DURABILITY_UNAVAILABLE/);
+assert.match(stage23,/CLIENT_INTAKE_DURABILITY_MISSING/);
 assert.match(api,/77588541119bb1a96375beed3e853e067ab1422f/);
 assert.match(api,/\/v1\/client\/applications/);
 assert.match(api,/\/v1\/events/);
@@ -53,6 +58,11 @@ assert.match(api,/client_intake_submit_contract_v1/);
 assert.match(api,/mergeIntoApplications/);
 for(const field of ['intake_id','durable_id','source_id','submitted_at','status'])assert.ok(api.includes(field),`submit response field missing ${field}`);
 
+assert.match(completion,/not exists\([\s\S]*source_kind='PORTAL_REVERSE_EVENT'/i);
+assert.match(completion,/not exists\([\s\S]*source_kind='CLIENT_APPLICATION'/i);
+assert.match(completion,/rona_client_application_projection/);
+assert.match(completion,/client_intake_effective_payload_v1/);
+
 console.log('DIGEST_SCHEMA_FIX=PASS');
 console.log('PRICE_MODE_PRODUCTION_ENUM=PASS');
 console.log('AUTOMATIC_OUTBOX_CONSUMER_CONTRACT=PASS');
@@ -60,4 +70,6 @@ console.log('RECONCILIATION_EXECUTOR_CONTRACT=PASS');
 console.log('REAL_LK_PROJECTION_WIRING_CONTRACT=PASS');
 console.log('SUBMIT_DURABLE_RESPONSE_CONTRACT=PASS');
 console.log('PRODUCTION_LINEAGE_PIN_CONTRACT=PASS');
+console.log('STAGE23_FAIL_CLOSED_CONTRACT=PASS');
+console.log('BOUNDED_HISTORY_PROGRESS_CONTRACT=PASS');
 console.log('RAW_SOURCE_IMMUTABILITY_CONTRACT=PASS');
