@@ -87,23 +87,7 @@ const edits=[
         "after": "_MISSING');\n\nconst sandbox={URL,Headers,Response,Blob,FormData,console,validateApplicationProjection,projectionFromData};vm.createContext(sandbox);\nconst executable=text.proxy.replace(/^import .*application-business-contract-v2.*;\\n/m,'').replace('export async function onRequest','async function onRequest')"
       }
     ]
-  },
-  {
-    "path": "scripts/qa-client-portal-visual-freeze.mjs",
-    "edits": [
-      {
-        "before": "11.json';\nconst policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));\nconst applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APP",
-        "after": "11.json';\nconst policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));\n// Owner's current systemic Applications directive authorizes only this exact functional delta.\n// This is an implementation scope, NOT independent acceptance or permission to deploy.\nconst applicationBusinessScope=JSON.parse(await readFile('governance/client-application-business-v2-owner-scope.json','utf8'));\nconst applicationBusinessAuthorized=applicationBusinessScope.authorization==='OWNER_IN_CHAT'&&\n applicationBusinessScope.task==='RONA-P1-CLIENT-INTAKE-2026-09-16-001'&&\n applicationBusinessScope.scope==='CLIENT_APPLICATIONS_LIFECYCLE_SYSTEMIC_FIX'&&\n applicationBusinessScope.review_id===5222916720&&applicationBusinessScope.unrelated_visual_changes===false;\nconst applicationBusinessPaths=new Set(['assets/portal-runtime/client-application-form-v2.js','assets/portal-runtime/client-application-form-v3.js','assets/portal-runtime/client-application-intent-v2.js']);\nconst exactApplicationBusiness=(path,body)=>applicationBusinessAuthorized&&applicationBusinessPaths.has(path)&&\n applicationBusinessScope.candidate_exact_blobs[path]===gitBlobSha(body);\n\nconst applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APP"
-      },
-      {
-        "before": ")clientPostreleaseIssue430AppliedFiles+=1;\n    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430",
-        "after": ")clientPostreleaseIssue430AppliedFiles+=1;\n    if(actual!==expected&&!exactApplicationBusiness(path,body)&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430"
-      },
-      {
-        "before": "untime){\n  if(!baselineRuntime.has(name)&&!approvedNewRuntime.has(name))errors.push(`NEW_CLIENT_RUNTIME assets/portal-runtime/${name}`);\n}\n\n",
-        "after": "untime){\n  if(!baselineRuntime.has(name)&&!approvedNewRuntime.has(name)&&!exactApplicationBusiness('assets/portal-runtime/'+name,await readFile('assets/portal-runtime/'+name)))errors.push(`NEW_CLIENT_RUNTIME assets/portal-runtime/${name}`);\n}\n\n"
-      }
-    ]
   }
+
 ];
 prepareApplicationConsumers();

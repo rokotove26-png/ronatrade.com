@@ -15,11 +15,11 @@ begin
  insert into portal_private.publication_items(publication_key,product,price,currency,payment_terms,basis)
  values(p,'ISOLATED-LPG',628.17,'USD','TEST_TERMS','CPT TEST') returning id into pi;
  insert into test_application_v2.fixture values('publication_item',pi::text);
- for n in 1..3 loop
+ for n in 1..4 loop
   au:=gen_random_uuid();s:=gen_random_uuid();
   insert into portal_private.portal_users(auth_user_id,display_name) values(au,'Isolated user '||n) returning id into u;
   insert into auth.sessions(id,user_id,not_after) values(s,au,now()+interval '1 day');
-  insert into portal_private.qa_session_roles values(u,case when n=3 then array['ADMIN'] else array['CLIENT'] end);
+  insert into portal_private.qa_session_roles values(u,case when n=3 then array['ADMIN'] when n=4 then array['OPERATIONS_DIRECTOR'] else array['CLIENT'] end);
   insert into test_application_v2.fixture values('auth'||n,au::text),('session'||n,s::text),('user'||n,u::text);
   if n<3 then
    cid:='QA-C-'||replace(gen_random_uuid()::text,'-','');ctid:=cid||'-CTR';

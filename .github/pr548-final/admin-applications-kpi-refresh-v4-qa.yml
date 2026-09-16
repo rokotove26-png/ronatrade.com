@@ -1,0 +1,61 @@
+name: Admin Applications KPI refresh v4 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/applications-total-kpi-ui.js'
+      - 'scripts/qa-admin-applications-kpi-refresh-v4.mjs'
+      - '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml'
+      - 'governance/client-application-business-v2-owner-scope.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  applications-kpi-refresh-v4:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Enforce Applications-only scope
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA='${{ github.event.pull_request.base.sha }}'
+          git diff --name-only "$BASE_SHA...HEAD" > /tmp/changed.txt
+          cat /tmp/changed.txt
+          SCOPE='governance/client-application-business-v2-owner-scope.json'
+          if jq -e '
+            .authorization=="OWNER_IN_CHAT_SYSTEM_ADMIN_REREVIEW" and
+            .task=="RONA-P1-CLIENT-INTAKE-2026-09-16-001" and
+            .scope=="CLIENT_APPLICATIONS_LIFECYCLE_SYSTEMIC_FIX" and
+            .owner_authority_correction_comment_id==5699785446 and
+            .merge=="HOLD" and .deploy=="HOLD" and
+            (.authorized_changed_files|type=="array" and length>0)
+          ' "$SCOPE" >/dev/null 2>&1; then
+            sort -u /tmp/changed.txt > /tmp/changed.sorted
+            jq -r '.authorized_changed_files[]' "$SCOPE" | sort -u > /tmp/authorized.sorted
+            if ! diff -u /tmp/authorized.sorted /tmp/changed.sorted; then
+              echo 'SYSTEMIC_APPLICATION_SCOPE_MISMATCH' >&2
+              exit 1
+            fi
+            echo 'APPLICATIONS_SYSTEMIC_OWNER_SCOPE=PASS'
+          else
+            while IFS= read -r path; do
+              case "$path" in
+                functions/portal/applications-total-kpi-ui.js|scripts/qa-admin-applications-kpi-refresh-v4.mjs|.github/workflows/admin-applications-kpi-refresh-v4-qa.yml) ;;
+                *) echo "OUT_OF_SCOPE_FILE: $path" >&2; exit 1 ;;
+              esac
+            done < /tmp/changed.txt
+          fi
+      - name: Verify refresh lifecycle and totals source
+        run: node scripts/qa-admin-applications-kpi-refresh-v4.mjs
