@@ -52,6 +52,17 @@ begin
     end if;
   end loop;
 end $$;
+-- A genuine legacy business identity exists before the admission inventory is sealed.
+-- It must survive without retrospective Operations attribution or a replacement number.
+do $$ declare c uuid; ct uuid; id text; begin
+ c:=(select v::uuid from fixture where k='client2');ct:=(select v::uuid from fixture where k='contract2');
+ id:=(select v from fixture where k='client_id2')||'-IN-'||extract(year from current_date)::text||'-047';
+ insert into portal_private.client_applications(application_id,client_key,contract_key,product,quantity_tonnes,
+  payment_terms,price_mode,status,submitted_at,source_system)
+ values(id,c,ct,'ISOLATED_LEGACY_PRODUCT',73.125,'HISTORICAL_TERMS','ACCEPT_PUBLISHED_PRICE','CLOSED',
+  now()-interval '1 day','ISOLATED_AUTHORITATIVE_LEGACY');
+ insert into fixture values('legacy_application',id);
+end $$;
 -- Install the actual review delta over historical sources, exactly as a future rollout will.
 -- Both schema changes and fixture data are rolled back at the end of this isolated test.
 \ir ../../../supabase/migrations/20260916110600_client_application_review_lifecycle_v2.sql
@@ -86,8 +97,13 @@ begin
   perform pg_temp.check_true(not exists(select 1 from raw_before rb join portal_private.portal_reverse_events e using(event_id)
     where (rb.payload,rb.created_at,rb.source_timestamp) is distinct from (e.payload,e.created_at,e.source_timestamp)),'immutable raw content and timestamps preserved');
   perform pg_temp.check_true((select count(*)=2 from portal_private.client_application_number_reservations_v2),'reconciliation does not reserve duplicate numbers');
-  perform pg_temp.check_true(not exists(select 1 from portal_private.client_application_registry_v2 where
+  perform pg_temp.check_true(not exists(select 1 from portal_private.client_application_registry_v2 where numbering_origin='OPERATIONS_EXECUTOR' and
     numbering_identity_key is distinct from (select v::uuid from fixture where k='authority')),'numbering belongs to actual Operations executor identity');
+  perform pg_temp.check_true(exists(select 1 from portal_private.client_application_registry_v2 r
+    join portal_private.client_applications x on x.id=r.application_key
+    where x.application_id=(select v from fixture where k='legacy_application')
+     and x.quantity_tonnes=73.125 and r.numbering_origin='AUTHORITATIVE_LEGACY'
+     and r.numbering_identity_key is null),'sealed legacy admission preserves the original number without false AI attribution');
   select count(*) into task_count from portal_private.staff_tasks where application_key in (a.id,b.id);
   perform pg_temp.check_true(task_count=2,'existing Operations work reused exactly once');
   cl:=(select v from fixture where k='client_id1');ct:=(select v from fixture where k='contract_id1');

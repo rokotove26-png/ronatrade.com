@@ -106,8 +106,15 @@ begin
 end $$;
 alter function portal_private.operations_issue_application_number_v2(uuid) owner to rona_application_executor_v2;
 revoke create on schema portal_private from rona_application_executor_v2;
-revoke all on function portal_private.operations_issue_application_number_v2(uuid) from public,anon,authenticated,service_role;
-grant execute on function portal_private.operations_issue_application_number_v2(uuid) to postgres;
+-- Ownership was transferred. A non-superuser migration principal must explicitly
+-- SET the protected role to revoke PUBLIC and grant the sole internal caller.
+-- Otherwise PostgreSQL emits only a warning and could leave the PUBLIC default grant.
+do $$ declare previous_role name:=current_user; begin
+ execute 'set local role rona_application_executor_v2';
+ revoke all on function portal_private.operations_issue_application_number_v2(uuid) from public,anon,authenticated,service_role;
+ grant execute on function portal_private.operations_issue_application_number_v2(uuid) to postgres;
+ execute format('set local role %I',previous_role);
+end $$;
 create function portal_private.next_application_business_id(p_client_key uuid)
 returns text language sql security definer set search_path='pg_catalog','portal_private' as $$
  select portal_private.operations_issue_application_number_v2(p_client_key)

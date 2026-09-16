@@ -24,11 +24,12 @@ jobs:
       postgres:
         image: postgres:17
         env:
+          POSTGRES_USER: supabase_admin
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-cmd "pg_isready -U supabase_admin -d postgres"
           --health-interval 5s --health-timeout 5s --health-retries 20
     env:
       BASELINE_SHA: c4e93c8445a84aa987588558823533be2d1f4511
@@ -67,6 +68,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Disposable service only. Match production's non-superuser postgres role;
+          # otherwise ownership-transfer ACL mistakes are hidden by superuser bypass.
+          test "$PGHOST" = "127.0.0.1"
+          psql -U supabase_admin -v ON_ERROR_STOP=1 -c "create role postgres login nosuperuser createdb createrole bypassrls password 'postgres'; alter database postgres owner to postgres; grant all on schema public to postgres;"
+          test "$(psql -X -A -t -v ON_ERROR_STOP=1 -c 'select rolsuper from pg_roles where rolname=current_user')" = "f"
+          psql -X -A -t -c "select jsonb_build_object('current_user',current_user,'superuser',rolsuper,'create_role',rolcreaterole,'bypass_rls',rolbypassrls) from pg_roles where rolname=current_user" > "$APPLICATION_EVIDENCE_DIR/migration-principal.json"
           B="$RUNNER_TEMP/intake-baseline"
           psql -v ON_ERROR_STOP=1 -f "$B/tests/client-intake-v1/pg17/baseline.sql"
           psql -v ON_ERROR_STOP=1 -f "$B/tests/client-intake-v1/pg17/client-projection-dependencies.sql"
