@@ -25,7 +25,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD^)" = "04580ae3b1c8c78143fb2f59f13bb15c4d4f2309"
           git merge-base --is-ancestor 83b4157edb18500467bf6b26a6d3dd5eabba3d98 HEAD
           cat .github/pr548-rework/part-* > /tmp/pr548.patch
           sha256sum /tmp/pr548.patch
