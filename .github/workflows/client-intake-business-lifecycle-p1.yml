@@ -1,0 +1,31 @@
+name: P1 Client Intake Business Lifecycle QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/_shared/client-intake-v1/business-lifecycle-v1.mjs'
+      - 'supabase/functions/rona-portal-api/stage24-bootstrap.ts'
+      - 'tests/client-intake-v1/business-lifecycle-v1.test.mjs'
+      - '.github/workflows/client-intake-business-lifecycle-p1.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle-projection:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Business lifecycle regressions
+        run: node tests/client-intake-v1/business-lifecycle-v1.test.mjs
+      - name: No incident hardcoding
+        run: |
+          set -euo pipefail
+          ! grep -R "2d8981c549484ec7a4b91dc22da78d96\|d5cee7b90c1e4ce689f114b76814d208\|1a4e6091f47c4e26a86a1b3ab9dd2b9c" \
+            supabase/functions/_shared/client-intake-v1/business-lifecycle-v1.mjs \
+            supabase/functions/rona-portal-api/stage24-bootstrap.ts
+          echo CLIENT_INTAKE_BUSINESS_LIFECYCLE_NO_HARDCODE=PASS
