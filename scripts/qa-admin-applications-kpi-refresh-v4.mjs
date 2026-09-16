@@ -14,16 +14,16 @@ assert.match(runtime, /setTimeout\(apply,180\)/, 'short fallback missing');
 assert.match(runtime, /setTimeout\(apply,900\)/, 'medium fallback missing');
 assert.match(runtime, /setTimeout\(apply,3000\)/, 'long fallback missing');
 
-assert.match(runtime, /function applicationPrice\(a\)/, 'application price resolver missing');
-assert.match(runtime, /const explicit=explicitConfirmedPrice\(a\);if\(explicit\)return explicit/, 'authoritative price precedence missing');
-assert.match(runtime, /response==='ACCEPTED'&&finite\(a\?\.counter_price\)/, 'accepted counter price fallback missing');
-assert.match(runtime, /if\(finite\(a\?\.proposed_price\)\)/, 'submitted application price fallback missing');
-assert.match(runtime, /for\(const pk of \['application_price','unit_price','price'\]\)/, 'generic application price fallback missing');
-assert.doesNotMatch(runtime, /\['ACCEPTED','DEAL'\]\.includes\(owner\)&&finite\(a\?\.proposed_price\)/, 'submitted price is still incorrectly gated by owner status');
-assert.doesNotMatch(runtime, /status==='DEAL_REGISTERED'\|\|deal/, 'submitted price is still incorrectly gated by deal state');
+assert.match(runtime, /application_business_contract==='RONA_APPLICATION_BUSINESS_V2'/, 'canonical business contract gate missing');
+assert.match(runtime, /kpi\?\.source==='RONA_APPLICATION_BUSINESS_V2'/, 'server KPI source gate missing');
+assert.match(runtime, /fmt\(kpi\.tonnage,3\)/, 'server tonnage KPI missing');
+assert.match(runtime, /Array\.isArray\(kpi\.amounts\)/, 'server authoritative amount collection missing');
+assert.match(runtime, /fmt\(item\.amount,2\)\+' '\+item\.currency/, 'server amount/currency rendering missing');
+assert.doesNotMatch(runtime, /function applicationPrice\(a\)/, 'legacy browser price resolver must not return');
+assert.doesNotMatch(runtime, /applications\.(?:reduce|map).*price/s, 'browser financial aggregation over application prices is forbidden');
 
-assert.match(runtime, /card\('Тоннаж общий'/, 'tonnage KPI missing');
-assert.match(runtime, /card\('Сумма общая'/, 'amount KPI missing');
+assert.match(runtime, /rona-app-total-kpi--tonnage/, 'tonnage KPI missing');
+assert.match(runtime, /rona-app-total-kpi--amount-(?:ok|warn)/, 'amount KPI missing');
 assert.match(runtime, /grid\.prepend\(amt\);grid\.prepend\(ton\)/, 'totals are not reinserted into KPI grid');
 assert.match(runtime, /x-rona-applications-total-kpi':'lifecycle-v4'/, 'response version header missing');
 

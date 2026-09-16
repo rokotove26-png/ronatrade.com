@@ -1,0 +1,5 @@
+# PR548 candidate source binding only. MERGE/DEPLOY remain HOLD.
+[functions.rona-portal-api]
+verify_jwt = true
+entrypoint = "./functions/rona-portal-api/application-business-bootstrap-v2.ts"
+import_map = "./functions/rona-portal-api/deno.json"

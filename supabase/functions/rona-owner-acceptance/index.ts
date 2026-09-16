@@ -57,7 +57,7 @@ async function authContext(req) {
     where a.session_allowed and (s.not_after is null or s.not_after>now())
   `;
   if (rows.length !== 1) return null;
-  return { authUserId: String(data.user.id), userId: String(rows[0].portal_user_id), displayName: String(rows[0].display_name || ""), roles: (rows[0].roles || []).map(String), sessionId: sid };
+  return { authUserId: String(data.user.id), userId: String(rows[0].portal_user_id), displayName: String(rows[0].display_name || ""), roles: (rows[0].roles || []).map(String), sessionId: sid, authorization };
 }
 function requireRole(ctx, role) {
   if (!ctx?.roles?.includes(role)) throw Object.assign(new Error("ROLE_MISMATCH"), { status: 403 });
@@ -221,31 +221,29 @@ async function adminSnapshot() {
 }
 
 async function updateApplication(ctx, req, applicationId, action) {
-  const rows = await sql`select a.id,a.status::text,a.linked_deal_key,d.deal_id,d.business_status from portal_private.client_applications a left join portal_private.deals d on d.id=a.linked_deal_key where a.application_id=${applicationId} limit 1`;
-  if (!rows.length) throw Object.assign(new Error("APPLICATION_NOT_FOUND"), { status: 404 });
-  const a = rows[0], body = req.method === 'POST' ? await jsonBody(req) : {};
-  return sql.begin(async tx => {
-    await tx`insert into portal_private.owner_application_workflow(application_key) values(${a.id}::uuid) on conflict(application_key) do nothing`;
-    if (action === 'accept') {
-      if (a.status !== 'DEAL_REGISTERED') await tx`update portal_private.client_applications set status='ACCEPTED_AWAITING_DEAL_REGISTRATION'::portal_private.application_status_enum,decision_at=now(),decision_by=${ctx.userId}::uuid,decision_reason='ADMIN_ACCEPTED',updated_at=now() where id=${a.id}::uuid`;
-      await tx`update portal_private.owner_application_workflow set business_status='SUPPLIER_REVIEW',admin_decided_by=${ctx.userId}::uuid,admin_decided_at=now(),updated_at=now() where application_key=${a.id}::uuid`;
-    } else if (action === 'reject') {
-      if (a.status === 'DEAL_REGISTERED') throw Object.assign(new Error("REGISTERED_APPLICATION_CANNOT_BE_REJECTED"), { status: 409 });
-      await tx`update portal_private.client_applications set status='REJECTED'::portal_private.application_status_enum,decision_at=now(),decision_by=${ctx.userId}::uuid,decision_reason=${String(body.reason || 'ADMIN_REJECTED').slice(0,500)},updated_at=now() where id=${a.id}::uuid`;
-      await tx`update portal_private.owner_application_workflow set business_status='REJECTED',admin_decided_by=${ctx.userId}::uuid,admin_decided_at=now(),updated_at=now() where application_key=${a.id}::uuid`;
-    } else if (action === 'counter-offer') {
-      const price = nnum(body.price, 'PRICE'), currency = text(body.currency || 'USD', 'CURRENCY', 3).toUpperCase();
-      if (!/^[A-Z]{3}$/.test(currency)) throw Object.assign(new Error("INVALID_CURRENCY"), { status: 400 });
-      if (a.status !== 'DEAL_REGISTERED') await tx`update portal_private.client_applications set status='UNDER_REVIEW'::portal_private.application_status_enum,updated_at=now() where id=${a.id}::uuid`;
-      await tx`update portal_private.owner_application_workflow set business_status='COUNTER_OFFERED',counter_price=${price},counter_currency=${currency},counter_offer_used=true,client_counter_response=null,admin_decided_by=${ctx.userId}::uuid,admin_decided_at=now(),updated_at=now() where application_key=${a.id}::uuid`;
-    } else if (action === 'supplier-approved') {
-      if (!a.linked_deal_key || !a.deal_id) throw Object.assign(new Error("DEAL_REGISTRATION_REQUIRED"), { status: 409 });
-      await tx`update portal_private.deals set business_status='EXECUTING',updated_at=now() where id=${a.linked_deal_key}::uuid and upper(business_status) in ('SUPPLIER_PENDING','REGISTERED','APPROVED')`;
-      await tx`update portal_private.owner_application_workflow set business_status='DEAL',supplier_approved_by=${ctx.userId}::uuid,supplier_approved_at=now(),finalized_at=now(),updated_at=now() where application_key=${a.id}::uuid`;
-    } else throw Object.assign(new Error("INVALID_ACTION"), { status: 400 });
-    await audit(tx,ctx,`OWNER_APPLICATION_${action.toUpperCase().replace(/-/g,'_')}`,'APPLICATION',applicationId,req,{dealId:a.deal_id||null});
-    return { applicationId, action, dealId: a.deal_id || null };
+  requireRole(ctx, 'ADMIN');
+  const body = req.method === 'POST' ? await jsonBody(req) : {};
+  const actionMap = {
+    accept: 'ACCEPT', reject: 'REJECT', 'counter-offer': 'COUNTER_OFFER',
+    'supplier-approved': 'RESOURCE_APPROVED', cancel: 'RESOURCE_DENIED'
+  };
+  const canonicalAction = actionMap[action];
+  if (!canonicalAction) throw Object.assign(new Error('INVALID_ACTION'), { status: 400 });
+  const userClient = createClient(SUPA_URL, runtimeKey('pub'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: ctx.authorization } },
   });
+  const { data, error } = await userClient.rpc('owner_r1_application_business_action_v2', {
+    p_application_id: applicationId,
+    p_action: canonicalAction,
+    p_payload: body,
+  });
+  if (error) {
+    const message = String(error.message || error.code || 'OWNER_APPLICATION_ACTION_FAILED');
+    const denied = /OWNER_ADMIN_REQUIRED|OWNER_ADMIN_ACTION_REQUIRED|42501|permission denied/i.test(message);
+    throw Object.assign(new Error(message), { status: denied ? 403 : 409 });
+  }
+  return data;
 }
 
 async function clientCounterDecision(ctx, req, applicationId, decision) {
@@ -343,7 +341,7 @@ Deno.serve(async req=>{
   try{
     if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
     if(path==='/admin/claims'||path.startsWith('/admin/claims/')){requireRole(ctx,'ADMIN');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
-    let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
+    let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved|cancel)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
     m=path.match(/^\/admin\/prices\/([0-9a-f-]+)\/publication$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await publishPrice(ctx,req,m[1])})}
     m=path.match(/^\/admin\/clients\/([^/]+)\/agent$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await setAgentAssignment(ctx,req,decodeURIComponent(m[1]))})}
     if(path==='/admin/radio'&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await postRadio(ctx,req)})}

@@ -1,11 +1,9 @@
-import { mergeAdminCompletedApplications } from './main-ui/admin-completed-applications.js';
-import { mergeAdminDurableIntakeApplications } from './main-ui/admin-durable-intake-applications.js';
+import { applyCanonicalApplications, projectionFromData, APPLICATION_BUSINESS_CONTRACT } from './application-business-contract-v2.js';
 
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const OWNER_ACCEPTANCE=`${SUPABASE_URL}/functions/v1/rona-owner-acceptance`;
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
-const RPC=`${SUPABASE_URL}/rest/v1/rpc`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 
@@ -18,9 +16,8 @@ function json(body,status=200,cookies=[],extra={}){const h=responseHeaders(new H
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});return{ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}
 async function baseBootstrap(token){return fetch(`${OWNER_ACCEPTANCE}/admin/bootstrap`,{headers:{authorization:`Bearer ${token}`,accept:'application/json'}})}
 async function intakeBootstrap(token){return fetch(`${PORTAL_API}/v1/admin/bootstrap`,{headers:{authorization:`Bearer ${token}`,accept:'application/json'}})}
-async function workflowBootstrap(token){return fetch(`${RPC}/owner_r1_admin_bootstrap`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json'},body:'{}'})}
 async function readJson(response){return response.json().catch(()=>null)}
-async function readSet(token){const [base,intake,workflow]=await Promise.all([baseBootstrap(token),intakeBootstrap(token),workflowBootstrap(token)]);return{base,intake,workflow}}
+async function readSet(token){const [base,intake]=await Promise.all([baseBootstrap(token),intakeBootstrap(token)]);return{base,intake}}
 
 export async function onRequest(context){
   const request=context.request;
@@ -31,28 +28,21 @@ export async function onRequest(context){
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401);
 
   let set=await readSet(access);
-  if((set.base.status===401||set.intake.status===401||set.workflow.status===401)&&refresh){
+  if((set.base.status===401||set.intake.status===401)&&refresh){
     const next=await authRefresh(refresh);
     if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);set=await readSet(access)}
   }
   if(!set.base.ok){const body=await readJson(set.base);return json(body&&typeof body==='object'?body:{ok:false,code:`ADMIN_BOOTSTRAP_${set.base.status}`},set.base.status,setCookies)}
   if(!set.intake.ok){const body=await readJson(set.intake);return json({ok:false,code:String(body?.code||body?.message||`ADMIN_INTAKE_BOOTSTRAP_${set.intake.status}`)},set.intake.status,setCookies)}
-  if(!set.workflow.ok){const body=await readJson(set.workflow);return json({ok:false,code:String(body?.message||body?.code||`WORKFLOW_BOOTSTRAP_${set.workflow.status}`)},set.workflow.status,setCookies)}
 
-  const basePayload=await readJson(set.base),intakePayload=await readJson(set.intake),workflowData=await readJson(set.workflow);
-  if(!basePayload||typeof basePayload!=='object'||!basePayload.data||!intakePayload||typeof intakePayload!=='object'||!intakePayload.data||!workflowData||typeof workflowData!=='object')return json({ok:false,code:'ADMIN_COMPLETED_PROJECTION_INVALID'},502,setCookies);
-
-  const intakeMerge=mergeAdminDurableIntakeApplications(basePayload.data,intakePayload.data);
-  const before=Array.isArray(intakeMerge.data.applications)?intakeMerge.data.applications.length:0;
-  const merged=mergeAdminCompletedApplications(intakeMerge.data,workflowData);
-  const after=Array.isArray(merged?.applications)?merged.applications.length:0;
-  const completed=Math.max(0,after-before);
-  basePayload.data=merged;
-  return json(basePayload,200,setCookies,{
-    'x-rona-admin-durable-intake':'client-intake-v1',
-    'x-rona-admin-intake-restored':intakeMerge.restored,
-    'x-rona-admin-intake-updated':intakeMerge.updated,
-    'x-rona-admin-completed-applications':'owner-r1-server-v2',
-    'x-rona-admin-completed-restored':completed
-  });
+  const basePayload=await readJson(set.base),intakePayload=await readJson(set.intake);
+  if(!basePayload?.data||!intakePayload?.data)return json({ok:false,code:'ADMIN_CANONICAL_PROJECTION_INVALID'},502,setCookies);
+  try{
+    // Preserve every non-application field from the existing authenticated bootstrap.
+    // Never reconstruct Applications from Deals, events or historical workflow rows.
+    basePayload.data=applyCanonicalApplications(basePayload.data,projectionFromData(intakePayload.data));
+    return json(basePayload,200,setCookies,{'x-rona-application-business':APPLICATION_BUSINESS_CONTRACT});
+  }catch{
+    return json({ok:false,code:'ADMIN_CANONICAL_APPLICATIONS_UNAVAILABLE'},503,setCookies);
+  }
 }
