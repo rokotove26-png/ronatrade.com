@@ -26,7 +26,9 @@ test('Operational Center UI exposes functional controls', () => {
   assert.match(main, /\/admin\/documents\/'\+encodeURIComponent\(x\.document_id\)\+'\/review/);
   assert.match(main, /authority-v1-30s-safe/);
   assert.match(shell, /__RONA_ADMIN_GLOBAL_SEARCH__/);
-  assert.match(shell, /addEventListener\('click',run\)/);
+  assert.match(shell, /__RONA_ADMIN_SEARCH_CLICK_BOUND__/);
+  assert.match(shell, /document\.addEventListener\('click',ev=>/);
+  assert.match(shell, /ev\.target\?\.closest\?\.\('\.rona-search-focus'\)/);
   assert.doesNotMatch(shell, /\.onclick=run/);
   assert.match(deals, /rona:deal-select/);
   assert.match(html, /data-page="documents"/);
