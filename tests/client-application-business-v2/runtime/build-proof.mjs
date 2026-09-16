@@ -22,13 +22,22 @@ assert.match(client,/list\.replaceChildren\(\.\.\.nodes\)/,'canonical row reconc
 assert.match(client,/nextKey!==state\.contextKey/,'context-key boundary missing');
 assert.match(client,/state\.openPassportId===id\?"Скрыть":"Открыть"/,'open passport presentation state missing');
 assert.match(client,/state\.timer=setInterval\(\(\)=>load\(false\),REFRESH_MS\)/,'bounded canonical TTL refresh contract missing');
+// Active/Completed are first-class section controls above the card list, never a synthetic row inside it.
+assert.match(client,/data-rona-application-business-sections/,'application section navigation missing');
+assert.match(client,/list\.before\(nav\)/,'application section navigation must be a sibling above the list');
+assert.doesNotMatch(client,/const tabs=.*data-rona-application-business-controls/,'legacy in-list bucket strip must be retired');
+// Counter-offer presentation is rendered synchronously from the same canonical row snapshot.
+assert.match(client,/counterOfferMarkup\(app\)/,'canonical inline counter-offer renderer missing');
+assert.match(client,/data-rona-counter-offer-panel=\\?"v2\\?"/,'stable counter-offer panel marker missing');
+assert.doesNotMatch(client,/whenCurrentProjection\('client-counter-offer-canonical'\)/,'counter offer must not launch a second projection fetch');
+assert.doesNotMatch(client,/rona:client-applications-rendered',queueDecorate/,'async post-render counter decorator must be retired');
 assert.doesNotMatch(client,/if\(force\)a\.invalidateCurrentProjection\?\.\(\)/,'application consumer must not invalidate shared projection on read');
 assert.doesNotMatch(client,/window\.addEventListener\('pageshow',\(\)=>\{load\(true\)/,'pageshow must not force an application projection fetch');
 assert.doesNotMatch(client,/window\.addEventListener\('pageshow',queueDecorate/,'counter-offer decorator must not fetch on pageshow');
 for(const v of ['v2','v3']){
  const text=read('dist/assets/portal-runtime/client-application-form-'+v+'.js');
  assert.match(text,/RONA_ATOMIC_APPLICATION_FORM_V2/);assert.match(text,/RonaApplicationIntentV2.submit/);
- assert.doesNotMatch(text,/idempotency_key:detailKey|uid\('PRICE-APP-'\)/);
+ assert.doesNotMatch(text,/idempotency_key:detailKey|uid\('PRICE-APP-'/);
 }
 assert.doesNotMatch(read('functions/portal/admin-completed-bootstrap.js'),/mergeAdminCompletedApplications|mergeAdminDurableIntakeApplications/);
 assert.doesNotMatch(read('functions/portal/applications-total-kpi-ui.js'),/sum\s*\+|quantity_tonnes\s*\*|applicationPrice/);
@@ -40,5 +49,5 @@ for(const file of ['assets/portal-runtime/client-application-intent-v2.js','asse
 }
 const hashes={};for(const [name,text]of Object.entries({admin,client,payments:payments(current)}))hashes[name]=createHash('sha256').update(text).digest('hex');
 fs.writeFileSync(root+'/emitted-admin.js',admin);fs.writeFileSync(root+'/emitted-client.js',client);fs.writeFileSync(root+'/emitted-sha256.json',JSON.stringify(hashes,null,2));
-console.log('APPLICATION_PROJECTION_CONVERGENCE=PASS shared_owner=true keyed_rows=true open_passport=true pageshow_fanout=false bounded_ttl=true');
+console.log('APPLICATION_PROJECTION_CONVERGENCE=PASS shared_owner=true keyed_rows=true open_passport=true pageshow_fanout=false bounded_ttl=true sections_above_list=true counter_offer_inline=true');
 console.log('ACTUAL_BUILD_SCOPE=PASS Payments_byte_identity=true Client_real_path=true Admin_real_path=true freeze_negatives=true');
