@@ -5,7 +5,9 @@ import actionRuntime from '../functions/portal/main-ui/admin-applications-passpo
 assert.match(actionRuntime,/data-rona-app-passport-open/,'universal action must bind to canonical passport delegated handler');
 assert.match(actionRuntime,/textContent='Открыть'/,'visible Open label must be restored');
 assert.match(actionRuntime,/\.rona-owner-table tbody tr/,'all rendered application rows must be covered');
-assert.match(actionRuntime,/host\.prepend\(button\)/,'Open action must coexist with current business actions');
+assert.match(actionRuntime,/function currencyControl\(host\)/,'layout must resolve the currency selector inside the existing action host');
+assert.match(actionRuntime,/insertAdjacentElement\('afterend',button\)/,'Open action must be placed immediately after the currency selector');
+assert.match(actionRuntime,/if\(existing\)\{placeButton\(host,existing\);return\}/,'existing Open trigger must be repositioned idempotently after re-render');
 assert.match(actionRuntime,/MutationObserver/,'action must survive application table re-render');
 assert.ok(!/RONA-C\d+|DEAL-2026-|PORTAL-EVT-[0-9a-f]{8}/i.test(actionRuntime),'runtime must not hardcode production records');
 assert.ok(!/\bpost\s*\(|\/admin\/applications\//.test(actionRuntime),'passport action overlay must not mutate application business state');
