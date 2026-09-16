@@ -1,0 +1,88 @@
+ED',updated_at=now() where id=a.id;
++  -- The existing technical Operations bridge may register the Deal after this Owner authorization.
++  if exists(select 1 from portal_private.client_applications x where x.id=a.id and x.linked_deal_key is not null) then
++   update portal_private.owner_application_workflow set business_status='DEAL',finalized_at=coalesce(finalized_at,now()),updated_at=now()
++    where application_key=a.id;
++  end if;
++ elsif normalized='REJECT' then
++  if a.status='DEAL_REGISTERED' then raise exception 'REGISTERED_APPLICATION_CANNOT_BE_REJECTED'; end if;
++  reason:=left(coalesce(nullif(btrim(payload->>'reason'),''),'ADMIN_REJECTED'),500);
++  update portal_private.client_applications set status='REJECTED',decision_at=now(),decision_by=actor.portal_user_id,
++   decision_reason=reason,updated_at=now() where id=a.id;
++  insert into portal_private.owner_application_workflow(application_key,business_status,admin_decided_by,admin_decided_at,updated_at)
++   values(a.id,'REJECTED',actor.portal_user_id,now(),now())
++   on conflict(application_key) do update set business_status='REJECTED',admin_decided_by=excluded.admin_decided_by,
++    admin_decided_at=excluded.admin_decided_at,updated_at=now();
++ elsif normalized='RESOURCE_DENIED' then
++  if a.status='DEAL_REGISTERED' and coalesce(a.deal_lifecycle,'')<>'CLOSED' then raise exception 'ACTIVE_DEAL_RESOURCE_DENIAL_FORBIDDEN'; end if;
++  reason:=left(coalesce(nullif(btrim(payload->>'reason'),''),'SUPPLIER_RESOURCE_DENIED'),500);
++  update portal_private.client_applications set status='CANCELLED',decision_at=now(),decision_by=actor.portal_user_id,
++   decision_reason=reason,updated_at=now() where id=a.id;
++  insert into portal_private.owner_application_workflow(application_key,business_status,admin_decided_by,admin_decided_at,updated_at)
++   values(a.id,'REJECTED',actor.portal_user_id,now(),now())
++   on conflict(application_key) do update set business_status='REJECTED',admin_decided_by=excluded.admin_decided_by,
++    admin_decided_at=excluded.admin_decided_at,updated_at=now();
++ elsif normalized='COUNTER_OFFER' then
++  begin price:=(payload->>'price')::numeric; exception when others then price:=null; end;
++  currency:=upper(btrim(coalesce(payload->>'currency','')));
++  if price is null or price<=0 then raise exception 'INVALID_PRICE'; end if;
++  if currency !~ '^[A-Z]{3}$' then raise exception 'INVALID_CURRENCY'; end if;
++  if a.status<>'DEAL_REGISTERED' then update portal_private.client_applications set status='UNDER_REVIEW',updated_at=now() where id=a.id; end if;
++  insert into portal_private.owner_application_workflow(application_key,business_status,counter_price,counter_currency,counter_offer_used,
++   client_counter_response,admin_decided_by,admin_decided_at,updated_at)
++  values(a.id,'COUNTER_OFFERED',price,currency,true,null,actor.portal_user_id,now(),now())
++  on conflict(application_key) do update set business_status='COUNTER_OFFERED',counter_price=excluded.counter_price,
++   counter_currency=excluded.counter_currency,counter_offer_used=true,client_counter_response=null,
++   admin_decided_by=excluded.admin_decided_by,admin_decided_at=excluded.admin_decided_at,updated_at=now();
++ elsif normalized='RESOURCE_APPROVED' then
++  if a.linked_deal_key is null then
++   insert into portal_private.owner_application_workflow(application_key,business_status,supplier_approved_by,supplier_approved_at,updated_at)
++    values(a.id,'SUPPLIER_APPROVED',actor.portal_user_id,now(),now())
++    on conflict(application_key) do update set business_status='SUPPLIER_APPROVED',supplier_approved_by=excluded.supplier_approved_by,
++     supplier_approved_at=excluded.supplier_approved_at,updated_at=now();
++  else
++   update portal_private.deals set business_status='EXECUTING',updated_at=now() where id=a.linked_deal_key
++    and upper(business_status) in ('SUPPLIER_PENDING','REGISTERED','APPROVED');
++   update portal_private.owner_application_workflow set business_status='DEAL',supplier_approved_by=actor.portal_user_id,
++    supplier_approved_at=coalesce(supplier_approved_at,now()),finalized_at=coalesce(finalized_at,now()),updated_at=now()
++    where application_key=a.id;
++  end if;
++ end if;
++
++ insert into portal_private.audit_events(actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata)
++ values(actor.portal_user_id,'ADMIN','OWNER_APPLICATION_'||normalized,'APPLICATION',a.application_id,gen_random_uuid(),null,
++  jsonb_build_object('owner_action_id',action_id,'authority_contract','OWNER_ADMIN_APPLICATION_BUSINESS_V2','payload',payload));
++ perform set_config('rona.application_owner_action',coalesce(token_before,''),true);
++ return jsonb_build_object('applicationId',a.application_id,'action',normalized,'ownerActionId',action_id,
++  'authority','OWNER_ADMIN','actorPortalUserId',actor.portal_user_id);
++end $$;
++revoke all on function public.owner_r1_application_business_action_v2(text,text,jsonb) from public,anon,service_role;
++grant execute on function public.owner_r1_application_business_action_v2(text,text,jsonb) to authenticated;
++
++-- Keep the legacy resource RPC as a compatibility alias but bind it to the same Owner/Admin action contract.
++create or replace function public.owner_r1_confirm_application_resource(p_application_id text)
++returns jsonb language sql security definer set search_path='pg_catalog','public','portal_private','auth' as $$
++ select public.owner_r1_application_business_action_v2(p_application_id,'RESOURCE_APPROVED','{}'::jsonb)
++$$;
++revoke all on function public.owner_r1_confirm_application_resource(text) from public,anon,service_role;
++grant execute on function public.owner_r1_confirm_application_resource(text) to authenticated;
++
++-- A rejected/cancelled row is not deletion authority by itself. The lifecycle executor may
++-- physically retire it only when an immutable Owner/Admin decision proves the business cause.
++alter function portal_private.application_retention_decision_v2(uuid) rename to application_retention_decision_owner_base_v2;
++create function portal_private.application_retention_decision_v2(p_application_key uuid)
++returns jsonb language plpgsql stable security definer set search_path='pg_catalog','portal_private' as $$
++declare decision jsonb;
++begin
++ decision:=portal_private.application_retention_decision_owner_base_v2(p_application_key);
++ if decision->>'decision' in ('DELETE','BLOCKED') and coalesce(decision->>'business_reason',decision->>'reason')
++  in ('REJECTED_BY_BUSINESS_PROCESS','CANCELLED_BY_BUSINESS_PROCESS') then
++  if not exists(select 1 from portal_private.client_application_owner_actions_v2 x
++    where x.application_key=p_application_key and x.action_code in ('REJECT','RESOURCE_DENIED')) then
++   return decision||jsonb_build_object('decision','BLOCKED','reason','OWNER_ADMIN_DECISION_PROVENANCE_REQUIRED');
++  end if;
++ end if;
++ return decision;
++end $$;
++
++revoke all on function portal_private.application_retention_decision_owner_base_v2(uui

@@ -1,0 +1,102 @@
+or } = await userClient.rpc('owner_r1_application_business_action_v2', {
++    p_application_id: applicationId,
++    p_action: canonicalAction,
++    p_payload: body,
++  });
++  if (error) {
++    const message = String(error.message || error.code || 'OWNER_APPLICATION_ACTION_FAILED');
++    const denied = /OWNER_ADMIN_REQUIRED|OWNER_ADMIN_ACTION_REQUIRED|42501|permission denied/i.test(message);
++    throw Object.assign(new Error(message), { status: denied ? 403 : 409 });
++  }
++  return data;
+ }
+ 
+ async function clientCounterDecision(ctx, req, applicationId, decision) {
+@@ -343,7 +341,7 @@
+   try{
+     if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
+     if(path==='/admin/claims'||path.startsWith('/admin/claims/')){requireRole(ctx,'ADMIN');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
+-    let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
++    let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved|cancel)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
+     m=path.match(/^\/admin\/prices\/([0-9a-f-]+)\/publication$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await publishPrice(ctx,req,m[1])})}
+     m=path.match(/^\/admin\/clients\/([^/]+)\/agent$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await setAgentAssignment(ctx,req,decodeURIComponent(m[1]))})}
+     if(path==='/admin/radio'&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await postRadio(ctx,req)})}
+--- /dev/null
++++ b/supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql
+@@ -0,0 +1,256 @@
++-- PR548 SYSTEM_ADMIN re-review 5699785446.
++-- Explicit Owner/Admin business-action boundary. Operations Director remains AI-only
++-- numbering/routing/identity authority and cannot originate commercial/resource decisions.
++-- Candidate only: no policy activation, recovery, deletion or business mutation is executed here.
++
++create table portal_private.client_application_owner_actions_v2 (
++  action_id uuid primary key default gen_random_uuid(),
++  application_key uuid not null references portal_private.client_application_registry_v2(application_key) on delete restrict,
++  application_id text not null,
++  action_code text not null check(action_code in ('ACCEPT','REJECT','COUNTER_OFFER','RESOURCE_APPROVED','RESOURCE_DENIED','DEAL_HANDOFF')),
++  actor_portal_user_id uuid not null references portal_private.portal_users(id),
++  actor_auth_user_id uuid not null,
++  actor_role text not null default 'ADMIN' check(actor_role='ADMIN'),
++  session_id uuid not null,
++  source_system text not null default 'OWNER_ADMIN_PORTAL' check(source_system='OWNER_ADMIN_PORTAL'),
++  source_path text not null,
++  decision_payload jsonb not null default '{}'::jsonb,
++  request_id uuid not null default gen_random_uuid(),
++  correlation_id uuid,
++  recorded_at timestamptz not null default clock_timestamp(),
++  unique(application_key,action_id)
++);
++alter table portal_private.client_application_owner_actions_v2 enable row level security;
++revoke all on portal_private.client_application_owner_actions_v2 from public,anon,authenticated,service_role;
++create trigger application_owner_actions_immutable_v2 before update or delete
++ on portal_private.client_application_owner_actions_v2 for each row
++ execute function portal_private.guard_application_append_only_v2();
++
++create or replace function portal_private.application_owner_admin_actor_v2()
++returns table(portal_user_id uuid,auth_user_id uuid,session_id uuid)
++language plpgsql stable security definer
++set search_path='pg_catalog','public','portal_private','auth' as $$
++declare v_auth uuid; v_session uuid; n integer;
++begin
++ v_auth:=auth.uid();
++ begin v_session:=nullif(auth.jwt()->>'session_id','')::uuid; exception when others then v_session:=null; end;
++ if v_auth is null or v_session is null then raise exception 'APPLICATION_OWNER_ADMIN_REQUIRED'; end if;
++ select count(*),(array_agg(a.portal_user_id))[1] into n,portal_user_id
++ from portal_private.resolve_portal_auth(v_auth,v_session) a
++ join auth.sessions s on s.id=v_session and s.user_id=v_auth
++ where a.session_allowed and 'ADMIN'=any(a.roles) and (s.not_after is null or s.not_after>now());
++ if n<>1 or portal_user_id is null then raise exception 'APPLICATION_OWNER_ADMIN_REQUIRED'; end if;
++ auth_user_id:=v_auth;session_id:=v_session;return next;
++end $$;
++revoke all on function portal_private.application_owner_admin_actor_v2() from public,anon,authenticated,service_role;
++
++-- An Owner action token exists only inside the authenticated business-action transaction.
++-- Workflow changes by the client counter-response path remain valid, but AI/Operations cannot
++-- write Owner decision fields or resource/commercial state directly.
++create or replace function portal_private.guard_owner_application_workflow_boundary_v2()
++returns trigger language plpgsql security definer set search_path='pg_catalog','portal_private' as $$
++declare token uuid; evidence portal_private.client_application_owner_actions_v2; client_response boolean;
++begin
++ if tg_op='INSERT' then
++  if new.business_status='NEW' and new.counter_price is null and new.counter_currency is null
++   and coalesce(new.counter_offer_used,false)=false and new.client_counter_response is null
++   and new.admin_decided_by is null and new.admin_decided_at is null
++   and new.supplier_approved_by is null and new.supplier_approved_at is null and new.finalized_at is null then
++   return new;
++  end if;
++ else
++  client_response:=old.business_status='COUNTER_OFFERED'
++   and ((new.business_status='CLIENT_COUNTER_ACCEPTED' and new.client_counter_response='ACCEPTED')
++     or (new.business_status='NEW' and new.client_counter_response='DECLINED'))
++   and new.counter_price is not distinct from old.counter_price
++   and new.counter_currency is not distinct from old.counter_currency
++   and new.counter_offer_used is not distinct from old.counter_offer_used
++   and new.admin_decided_by is not distinct from old.admin_decided_by
++   and new.admin_decided_at is not distinct from old.admin_decided_at
++   and new.supplier_approved_by is not distinct from old.supplier_approved_by
++   and new.supplier_approved_at is not distinct from old.supplier_approved_at
++   and new.finalized_at is not distinct from old.finalized_at;
++  if client_response then return new; end if;
++  if new is not distinct from old then return new; end if;
++ end if;
++ begin token:=nullif(current_setting('rona.application_owner_action',true),'')::uuid; exception when others 

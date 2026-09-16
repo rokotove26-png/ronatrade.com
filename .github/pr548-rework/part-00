@@ -1,0 +1,86 @@
+--- a/.github/workflows/admin-applications-kpi-refresh-v4-qa.yml
++++ b/.github/workflows/admin-applications-kpi-refresh-v4-qa.yml
+@@ -8,6 +8,7 @@
+       - 'functions/portal/applications-total-kpi-ui.js'
+       - 'scripts/qa-admin-applications-kpi-refresh-v4.mjs'
+       - '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml'
++      - 'governance/client-application-business-v2-owner-scope.json'
+   workflow_dispatch:
+ 
+ permissions:
+@@ -32,11 +33,29 @@
+           BASE_SHA='${{ github.event.pull_request.base.sha }}'
+           git diff --name-only "$BASE_SHA...HEAD" > /tmp/changed.txt
+           cat /tmp/changed.txt
+-          while IFS= read -r path; do
+-            case "$path" in
+-              functions/portal/applications-total-kpi-ui.js|scripts/qa-admin-applications-kpi-refresh-v4.mjs|.github/workflows/admin-applications-kpi-refresh-v4-qa.yml) ;;
+-              *) echo "OUT_OF_SCOPE_FILE: $path" >&2; exit 1 ;;
+-            esac
+-          done < /tmp/changed.txt
++          SCOPE='governance/client-application-business-v2-owner-scope.json'
++          if jq -e '
++            .authorization=="OWNER_IN_CHAT_SYSTEM_ADMIN_REREVIEW" and
++            .task=="RONA-P1-CLIENT-INTAKE-2026-09-16-001" and
++            .scope=="CLIENT_APPLICATIONS_LIFECYCLE_SYSTEMIC_FIX" and
++            .owner_authority_correction_comment_id==5699785446 and
++            .merge=="HOLD" and .deploy=="HOLD" and
++            (.authorized_changed_files|type=="array" and length>0)
++          ' "$SCOPE" >/dev/null 2>&1; then
++            sort -u /tmp/changed.txt > /tmp/changed.sorted
++            jq -r '.authorized_changed_files[]' "$SCOPE" | sort -u > /tmp/authorized.sorted
++            if ! diff -u /tmp/authorized.sorted /tmp/changed.sorted; then
++              echo 'SYSTEMIC_APPLICATION_SCOPE_MISMATCH' >&2
++              exit 1
++            fi
++            echo 'APPLICATIONS_SYSTEMIC_OWNER_SCOPE=PASS'
++          else
++            while IFS= read -r path; do
++              case "$path" in
++                functions/portal/applications-total-kpi-ui.js|scripts/qa-admin-applications-kpi-refresh-v4.mjs|.github/workflows/admin-applications-kpi-refresh-v4-qa.yml) ;;
++                *) echo "OUT_OF_SCOPE_FILE: $path" >&2; exit 1 ;;
++              esac
++            done < /tmp/changed.txt
++          fi
+       - name: Verify refresh lifecycle and totals source
+         run: node scripts/qa-admin-applications-kpi-refresh-v4.mjs
+--- a/.github/workflows/client-application-business-v2-qa.yml
++++ b/.github/workflows/client-application-business-v2-qa.yml
+@@ -8,6 +8,11 @@
+       - 'supabase/migrations/2026091611*_client_application*.sql'
+       - 'supabase/functions/_shared/client-application-business-v2/**'
+       - 'supabase/functions/rona-portal-api/application-business*'
++      - 'functions/portal/owner-api.js'
++      - 'supabase/functions/rona-owner-acceptance/**'
++      - 'governance/client-application-business-v2-owner-scope.json'
++      - 'scripts/qa-client-portal-visual-freeze.mjs'
++      - '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml'
+       - 'scripts/application-business-v2/**'
+       - 'tests/client-application-business-v2/**'
+       - '.github/workflows/client-application-business-v2-qa.yml'
+@@ -88,10 +93,11 @@
+           # Historical source fixture predates the review policy; the test applies the
+           # real review migrations over it inside its rollback transaction.
+           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/integration.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/historical-recovery.log"
+-          for f in supabase/migrations/20260916110[6-8]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
++          for f in supabase/migrations/20260916110[6-9]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-seed.sql
+           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-lifecycle.log"
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-authority.log"
++          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/owner-authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-admin-authority.log"
+      - name: Build actual release consumers and enforce unrelated scope freeze
+         shell: bash
+         run: |
+@@ -122,6 +128,7 @@
+         run: |
+           set -euo pipefail
+          deno info --json --config supabase/functions/rona-portal-api/deno.json supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts > "$APPLICATION_EVIDENCE_DIR/deno-import-graph.json"
++          deno check --config supabase/functions/rona-owner-acceptance/deno.json supabase/functions/rona-owner-acceptance/index.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-action-deno-check.log"
+          deno run --allow-env --allow-net --allow-read --config supabase/functions/rona-portal-api/deno.json tests/client-application-business-v2/runtime/deno-auth.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/deno-auth-driver.log"
+       - name: Actual compiled Client and Admin browser regression
+         shell: bash
+--- a/functions/portal/owner-api.js
++++ b/functions/portal/owner-api.js
+@@ -35,7 +35,7 @@
+ function sanitizeAgentAi(data){const raw=data?.displayPolicy||null,share=normalizeShare(raw?.positiveActualFxVisibleShare);const displayPolicy=raw&&share!==null?{positiveActualFxVisibleShare:share,appliesTo:raw?.appliesTo??'ACTUAL_CONFIRMED_POSITIVE_FX_ONLY',status:raw?.status??null,updatedAt:raw?.updatedAt??null,note:'В ЛК Агента учитывается только разрешенная доля подтвержденного фактического положительного курсового эфекта. Прогнозные и неподтвержденные значения не публикуются.'}:null;const settlements=Array.isArray(data?.settlements)?data.settlements.map(s=>{const stage=String(s?.stage??'');const amountVisible=AGENT_AMOUNT_VISIBLE_STAGES.has(stage);return{settlementId:s?.settlementId??null,dealId:s?.dealId??null,clientId:s?.clientId??null,stage,amount:amountVisible?s?.amount??null:null,currency:amountVisible?s?.currency??null:null,paymentObligationConfirmed:!!s?.paymentObligationConfirmed,paymentFactConfirmed:!!s?.paymentFactConfirmed,updatedAt:s?.updatedAt??null}}):[];return{generatedAt:data?.generatedAt??null,displayPolicy,settlements,positiveActualFxEffects:[]}}
+ async function sanitizeExternalProjection(path,response){if(!response.ok)return response;const ct=String(response.headers.get('content-type')||'');if(!ct.includes('application/json'))return response;if(!['/client/bootstrap','/agent/bootstrap','/agent/ai-sync'].includes(path))return response;const payload=await response.json().catch((

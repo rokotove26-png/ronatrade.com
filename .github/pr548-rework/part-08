@@ -1,0 +1,62 @@
+d),
++ portal_private.application_retention_decision_v2(uuid) from public,anon,authenticated,service_role;
+--- a/tests/client-application-business-v2/pg17/authority-regressions.sql
++++ b/tests/client-application-business-v2/pg17/authority-regressions.sql
+@@ -63,7 +63,10 @@
+ insert into test_application_v2.fixture values('authority_receipt',test_application_v2.request(1,test_application_v2.delivered(1,'AUTHORITY_REVIEW',29.843))::text);
+ select test_application_v2.check_true(portal_private.application_common_snapshot_v2(test_application_v2.get('authority_receipt')::jsonb->>'application_id')#>>'{numbering_execution,mode}'='REVIEWED_INTERNAL_DELEGATION','common snapshot declares real delegated execution rather than an AI signature');
+ select test_application_v2.check_true(portal_private.application_common_snapshot_v2(test_application_v2.get('authority_receipt')::jsonb->>'application_id')#>>'{numbering_execution,approval_source_ref}'='ISOLATED_TEST_APPROVAL_NOT_PRODUCTION','common identity retains exact independent approval reference');
+-select test_application_v2.expect_error($q$update portal_private.client_applications set status='ACCEPTED_AWAITING_DEAL_REGISTRATION' where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id'$q$,'APPLICATION_PRICE_AGREEMENT_REQUIRED');
++select set_config('request.jwt.claims',jsonb_build_object('sub',test_application_v2.get('auth3'),'session_id',test_application_v2.get('session3'))::text,false);
++select test_application_v2.expect_error(
++ $$select public.owner_r1_application_business_action_v2(test_application_v2.get('authority_receipt')::jsonb->>'application_id','ACCEPT','{}')$$,
++ 'APPLICATION_PRICE_AGREEMENT_REQUIRED');
+ 
+ -- Owner correction updates the business projection, never the immutable submitted payload.
+ create temp table correction_raw_before as select i.intake_id,i.source_payload,e.payload event_payload
+@@ -76,10 +79,14 @@
+  where a.application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id'),'Owner pre-deal correction updates canonical quantity');
+ select test_application_v2.check_true(not exists(select 1 from correction_raw_before b join portal_private.client_intake_v1 i using(intake_id)
+  join portal_private.portal_reverse_events e on e.id=i.source_internal_key where b.source_payload<>i.source_payload or b.event_payload<>e.payload),'Owner correction preserves both immutable source payloads');
+-insert into portal_private.owner_application_workflow(application_key,business_status,counter_offer_used,client_counter_response,counter_price,counter_currency)
+- select id,'REVIEW',true,'ACCEPTED',617.43,'USD' from portal_private.client_applications
+- where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id';
+-update portal_private.client_applications set status='ACCEPTED_AWAITING_DEAL_REGISTRATION'
++select set_config('request.jwt.claims',jsonb_build_object('sub',test_application_v2.get('auth3'),'session_id',test_application_v2.get('session3'))::text,false);
++select public.owner_r1_application_business_action_v2(
++ test_application_v2.get('authority_receipt')::jsonb->>'application_id','COUNTER_OFFER',
++ jsonb_build_object('price',617.43,'currency','USD'));
++-- Simulate the authenticated client response path only; the Owner counter was already recorded.
++update portal_private.owner_application_workflow set business_status='CLIENT_COUNTER_ACCEPTED',client_counter_response='ACCEPTED',updated_at=now()
++ where application_key=(select id from portal_private.client_applications where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id');
++update portal_private.client_applications set status='ACCEPTED_AWAITING_DEAL_REGISTRATION',decision_reason='CLIENT_ACCEPTED_ADMIN_COUNTER'
+  where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id';
+ select test_application_v2.check_true((select a.price_mode::text='CLIENT_PROPOSED_PRICE' and a.proposed_price=617.43 and a.proposed_currency='USD'
+  from portal_private.client_applications a where a.application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id'),'delivered request becomes agreed application only through recorded acceptance');
+@@ -87,7 +94,12 @@
+  where application_key=(select id from portal_private.client_applications where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id')),'agreement creates exactly one line with the effective quantity');
+ select test_application_v2.check_true((portal_private.application_common_snapshot_v2(test_application_v2.get('authority_receipt')::jsonb->>'application_id')->>'price_is_owner_agreed')::boolean,'numeric price carries the accepted-owner colour flag');
+ 
+--- Active registered Deal is protected. A rejected transaction must not tear its lineage.
++-- Owner explicitly authorizes resource and Deal handoff; Operations may then perform the technical registration.
++select public.owner_r1_application_business_action_v2(
++ test_application_v2.get('authority_receipt')::jsonb->>'application_id','RESOURCE_APPROVED','{}'::jsonb);
++select public.owner_r1_application_business_action_v2(
++ test_application_v2.get('authority_receipt')::jsonb->>'application_id','DEAL_HANDOFF','{}'::jsonb);
++-- Active registered Deal is protected. Even Owner cannot tear active Deal lineage through a refusal action.
+ do $$ declare a uuid;d uuid;begin
+  select id into a from portal_private.client_applications where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id';
+  insert into portal_private.deals(deal_id,client_key,contract_key,business_status,lifecycle_state)
+@@ -96,9 +108,8 @@
+  insert into portal_private.deal_registrations(application_key,deal_key) values(a,d);
+ end $$;
+ select test_application_v2.expect_error($q$select portal_private.append_client_intake_correction_v1((test_application_v2.get('authority_receipt')::jsonb->>'intake_id')::uuid,'payload.quantity_tonnes','29.843','26','OWNER','ISOLATED_POST_DEAL')$q$,'APPLICATION_CORRECTION_REQUIRES_POST_DEAL_REVIEW');
+-begin;
+-update portal_private.client_applications set status='REJECTED' where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id';
+-select test_application_v2.expect_error('set constraints all immediate','APPLICATION_RETIREMENT_BLOCKED');
+-rollback;
+-select test_application_v2.check_true((select status::text='DEAL_REGISTERED' from portal_private.client_applications where application_id=test_application_v2.get('authority_receipt')::jsonb->>'application_id'),'blocked active-Deal deletion rolls back the entire lifecycle action');
++select test_application_v2.expect_error(
++ $$select public.owner_r1_application_business_action_v2(test_application_v2.get('authority_receipt')::jsonb->>'application_id','RESOURCE_DENIED',jsonb_build_object('reason','ISOLATED_ACTIVE_DEAL_DENIAL'))$$,
++ 'ACTIVE_DEAL_RESOURCE_DENIAL_FORBIDDEN');
++select test_application_v
