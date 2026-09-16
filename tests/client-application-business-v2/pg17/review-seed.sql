@@ -29,6 +29,17 @@ begin
    insert into test_application_v2.fixture values('client'||n,c::text),('client_id'||n,cid),('contract'||n,ct::text),('contract_id'||n,ctid);
   end if;
  end loop;
+
+-- Explicit simulated independent approval, permitted ONLY in this disposable fixture.
+insert into portal_private.client_application_numbering_delegations_v2
+ (operations_identity_key,executor_role,executor_entrypoint,approval_source_type,
+  approval_source_ref,approved_release_sha,approved_at)
+ select id,'rona_application_executor_v2','portal_private.operations_issue_application_number_v2(uuid)',
+  'SYSTEM_ADMIN_INDEPENDENT_REVIEW','ISOLATED_TEST_APPROVAL_NOT_PRODUCTION',repeat('a',40),now()
+ from portal_private.ai_service_identities where business_role::text='OPERATIONS_DIRECTOR' and revoked_at is null;
+update portal_private.client_application_policy_v2
+ set numbering_delegation_id=(select delegation_id from portal_private.client_application_numbering_delegations_v2);
+
  update portal_private.client_application_policy_v2 set enabled=true,activated_at=now() where singleton;
 end $$;
 create function test_application_v2.bundle(n integer,intent text,quantity numeric) returns jsonb language sql stable as $$

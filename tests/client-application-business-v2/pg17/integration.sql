@@ -56,6 +56,17 @@ end $$;
 -- Both schema changes and fixture data are rolled back at the end of this isolated test.
 \ir ../../../supabase/migrations/20260916110600_client_application_review_lifecycle_v2.sql
 \ir ../../../supabase/migrations/20260916110700_client_application_review_contract_v2.sql
+\ir ../../../supabase/migrations/20260916110800_client_application_review_authority_v2.sql
+-- Explicit simulated independent approval, permitted ONLY in this disposable fixture.
+insert into portal_private.client_application_numbering_delegations_v2
+ (operations_identity_key,executor_role,executor_entrypoint,approval_source_type,
+  approval_source_ref,approved_release_sha,approved_at)
+ select id,'rona_application_executor_v2','portal_private.operations_issue_application_number_v2(uuid)',
+  'SYSTEM_ADMIN_INDEPENDENT_REVIEW','ISOLATED_TEST_APPROVAL_NOT_PRODUCTION',repeat('a',40),now()
+ from portal_private.ai_service_identities where business_role::text='OPERATIONS_DIRECTOR' and revoked_at is null;
+update portal_private.client_application_policy_v2
+ set numbering_delegation_id=(select delegation_id from portal_private.client_application_numbering_delegations_v2);
+
 create temp table raw_before as select event_id,payload,created_at,source_timestamp from portal_private.portal_reverse_events;
 update portal_private.client_application_policy_v2 set enabled=true,activated_at=now();
 select portal_private.reconcile_client_applications_v2(500);

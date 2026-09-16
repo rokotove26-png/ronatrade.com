@@ -1,11 +1,14 @@
 function line(source,prefix,next){const start=source.indexOf(prefix);if(start<0||source.indexOf(prefix,start+prefix.length)>=0)throw new Error('CLIENT_APPLICATION_ANCHOR_INVALID:'+prefix);const end=source.indexOf('\n',start);if(end<0)throw new Error('CLIENT_APPLICATION_LINE_END_MISSING');return source.slice(0,start)+next+source.slice(end)}
 export function wireClientBusinessRuntime(source,validator){
  if(source.includes('RONA_CLIENT_APPLICATION_BUSINESS_CONSUMER_V2'))return source;
- let s=source.replace("const state={apps:[]","const state={kpi:null,bucket:'ACTIVE',reloadRequested:false,error:null,apps:[]");
+ let s=source.replace("const state={apps:[]","const state={kpi:null,bucket:'ACTIVE',openPassportId:null,reloadRequested:false,error:null,apps:[]");
  s=s.replace("(()=>{'use strict';","(()=>{'use strict';\nconst BUSINESS_CONSUMER='RONA_CLIENT_APPLICATION_BUSINESS_CONSUMER_V2';\nconst validateBusinessProjection=(()=>{\n"+validator.replace(/export /g,'')+"\nreturn validateApplicationProjection;})();\n");
  s=s.replace("c=norm(a?.application_currency||'USD')","c=norm(a?.application_currency)");
  s=s.replace('${esc(priceText(app))}</div><button', '${applicationPriceMarkup(app)}</div><button');
  s=s.replace('${esc(terms)}</div>','${esc(terms)}<br>${esc(app.client_name)} / ${esc(app.contract_id)}</div>');
+ // Preserve the open passport across scheduled canonical refreshes; never only mutate DOM.
+ s=s.replace('aria-expanded="false">','aria-expanded="${String(state.openPassportId===id)}">');
+ s=s.replace('data-rona-application-details="${esc(id)}" hidden','data-rona-application-details="${esc(id)}" ${state.openPassportId===id?"":"hidden"}');
  s=line(s,'function render(){',String.raw`function render(){
  const r=root();if(!r)return false;ensureStyle();retireLegacyApplicationsPresentation(r);const list=ensureList(r);
  if(!state.kpi){list.innerHTML='<div class="rona-live-app-empty" role="status">'+(state.error?'\u0414\u0430\u043d\u043d\u044b\u0435 \u0437\u0430\u044f\u0432\u043e\u043a \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b.':'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430\u2026')+'</div>';return false}
@@ -34,7 +37,7 @@ export function wireClientBusinessRuntime(source,validator){
  const start=s.indexOf("const id=button.getAttribute('data-rona-open-application'),r=root(),detail="),end=s.indexOf('},true);window.addEventListener',start);
  if(start<0||end<0)throw new Error('CLIENT_PASSPORT_HANDLER_MISSING');
  s=s.slice(0,start)+'openCanonicalApplicationPassport(button)'+s.slice(end);
- s=s.replace("state.apps=[];state.contextKey='';state.lastLoad=0;load(true)","state.apps=[];state.kpi=null;state.contextKey='';state.lastLoad=0;render();load(true)");
+ s=s.replace("state.apps=[];state.contextKey='';state.lastLoad=0;load(true)","state.apps=[];state.kpi=null;state.openPassportId=null;state.contextKey='';state.lastLoad=0;render();load(true)");
  const helpers=String.raw`
 function applicationPriceMarkup(app){if(app.application_price===null)return '\u2014';return '<span'+(app.price_is_owner_agreed===true?' style="color:#2563eb" data-application-agreed-price="true"':'')+'>'+esc(fmtNumber(app.application_price))+'</span> '+esc(app.application_currency)+'/\u0442'}
 async function openCanonicalApplicationPassport(button){
@@ -47,10 +50,9 @@ async function openCanonicalApplicationPassport(button){
   if(contextKey(authority()?.getCurrentContext?.())!==key)return;
   const app=result?.data?.application;
   if(result?.data?.business_contract!=='RONA_APPLICATION_BUSINESS_V2'||app?.application_id!==id||app?.client_id!==ctx.client_id||app?.contract_id!==ctx.contract_id)throw new Error('APPLICATION_PASSPORT_SCOPE_INVALID');
-  const row=button.closest('[data-rona-live-application-id]');if(!row)return;row.outerHTML=rowHtml(app);
-  const current=root()?.querySelector('[data-rona-live-application-id="'+CSS.escape(id)+'"]');
-  const detail=current?.querySelector('[data-rona-application-details]');if(detail)detail.hidden=false;
-  current?.querySelector('[data-rona-open-application]')?.setAttribute('aria-expanded','true');scheduleAlign();
+  if(!state.apps.some(row=>row.application_id===id))return;
+  state.apps=state.apps.map(row=>row.application_id===id?app:row);
+  state.openPassportId=id;render();
  }catch(error){state.error=String(error?.message||'APPLICATION_PASSPORT_UNAVAILABLE');await load(true)}
  finally{button.disabled=false}
 }

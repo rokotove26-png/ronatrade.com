@@ -81,9 +81,10 @@ jobs:
           # Historical source fixture predates the review policy; the test applies the
           # real review migrations over it inside its rollback transaction.
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/integration.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/historical-recovery.log"
-          for f in supabase/migrations/20260916110[6-7]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+          for f in supabase/migrations/20260916110[6-8]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-seed.sql
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-lifecycle.log"
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-authority.log"
       - name: Build actual release consumers and enforce unrelated scope freeze
         shell: bash
         run: |
