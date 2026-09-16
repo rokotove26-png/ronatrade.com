@@ -1,4 +1,4 @@
-// Production entrypoint: application business contract + Finance V7 payments projection.
+// Production entrypoint: application business contract + Finance V8 signed-schedule-gated payments projection.
 // Non-payment behavior delegates to the exact verified production predecessor.
 import {sql,authenticate,apiRoute} from 'https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/77588541119bb1a96375beed3e853e067ab1422f/supabase/functions/rona-portal-api/shared.ts';
 import {createApplicationBusinessHandler} from '../_shared/client-application-business-v2/handler.mjs';
@@ -25,6 +25,7 @@ function paymentResponse(base:Response,payload:any,state:string){
   headers.set('content-type','application/json; charset=utf-8');
   headers.set('cache-control','no-store');
   headers.set('x-rona-client-payments-v7',`${CLIENT_PAYMENTS_V7_CONTRACT}:${state}`);
+  headers.set('x-rona-client-payment-schedule','FINANCE_SIGNED_DOCUMENT_PAYMENT_SCHEDULE_V8');
   return new Response(JSON.stringify(payload),{status:base.status,statusText:base.statusText,headers});
 }
 
@@ -51,25 +52,23 @@ async function projectClientPaymentsV7(req:Request,response:Response){
     const dealIds=[...new Set([...deals.map((d:any)=>String(d?.deal_id||'').trim()),...payments.map((p:any)=>String(p?.deal_id||'').trim())].filter(Boolean))];
     if(!dealIds.length)return paymentResponse(response,payload,'authoritative-empty');
 
+    // Finance V8 read gate deliberately nulls contractual receivable buckets while the current
+    // confirmed signed document has not yet produced a MATERIALIZED canonical schedule. This keeps
+    // the client portal fail-closed instead of exposing stale application/offer payment terms.
     const authorities=await sql`
       select d.deal_id,a.id::text as id,a.total_to_receive,trim(a.obligation_currency::text) as obligation_currency,
              a.finance_status,a.documentary_status,a.due_now,a.expected_not_due,a.future_conditional,a.source_version,a.source_timestamp
         from portal_private.deals d
         join portal_private.clients cl on cl.id=d.client_key
         join portal_private.contracts ct on ct.id=d.contract_key
-        join portal_private.deal_finance_authority_v7 a on a.deal_key=d.id
+        join portal_private.deal_finance_authority_payments_v8_read_v1 a on a.deal_key=d.id
        where cl.client_id=${clientId}
          and ct.contract_id=${contractId}
          and d.deal_id in (select value from jsonb_array_elements_text(${sql.json(dealIds)}::jsonb))
          and a.source_locked=true
+         and a.is_terminal=true
          and upper(a.authority_state) not in ('SUPERSEDED','REJECTED','REVERSED','INVALID','INACTIVE')
          and upper(a.lifecycle_state) not in ('SUPERSEDED','REJECTED','REVERSED','ARCHIVED','INACTIVE')
-         and not exists(
-           select 1 from portal_private.deal_finance_authority_v7 newer
-            where newer.supersedes_id=a.id and newer.source_locked=true
-              and upper(newer.authority_state) not in ('SUPERSEDED','REJECTED','REVERSED','INVALID','INACTIVE')
-              and upper(newer.lifecycle_state) not in ('SUPERSEDED','REJECTED','REVERSED','ARCHIVED','INACTIVE')
-         )
        order by d.deal_id,a.effective_at desc,a.created_at desc
     `;
 
