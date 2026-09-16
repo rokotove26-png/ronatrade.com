@@ -21,11 +21,13 @@ jobs:
           ref: feat/client-applications-systemic-lifecycle-p1
           fetch-depth: 0
           persist-credentials: true
-      - name: Apply System Admin reviewed rework exactly once
+      - name: Apply System Admin reviewed rework without workflow-file push
         shell: bash
         run: |
           set -euo pipefail
-          git merge-base --is-ancestor 83b4157edb18500467bf6b26a6d3dd5eabba3d98 HEAD
+          TRANSPORT_HEAD="$(git rev-parse HEAD)"
+          BASE=83b4157edb18500467bf6b26a6d3dd5eabba3d98
+          git merge-base --is-ancestor "$BASE" HEAD
           cat .github/pr548-rework/part-* > /tmp/pr548.patch
           python3 - <<'PY'
           from pathlib import Path
@@ -42,29 +44,45 @@ jobs:
           p.write_text(s)
           PY
           sha256sum /tmp/pr548.patch
-          git show 83b4157edb18500467bf6b26a6d3dd5eabba3d98:.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
+          git show "$BASE":.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
           git apply --check /tmp/pr548.patch
           git apply /tmp/pr548.patch
-          rm -rf .github/pr548-rework .github/workflows/pr548-rework-apply.yml
+
+          # Preserve the two final reviewed workflow payloads outside workflows so the connected
+          # Owner GitHub session can install them after this App-limited transport commit.
+          mkdir -p .github/pr548-final
+          cp .github/workflows/admin-applications-kpi-refresh-v4-qa.yml .github/pr548-final/admin-applications-kpi-refresh-v4-qa.yml
+          cp .github/workflows/client-application-business-v2-qa.yml .github/pr548-final/client-application-business-v2-qa.yml
+
+          # GitHub Actions token has contents:write but no workflows permission. Do not weaken
+          # GitHub's workflow-file protection: restore every workflow path to the triggering HEAD.
+          git show "$TRANSPORT_HEAD":.github/workflows/admin-applications-kpi-refresh-v4-qa.yml > .github/workflows/admin-applications-kpi-refresh-v4-qa.yml
+          git show "$TRANSPORT_HEAD":.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
+          git show "$TRANSPORT_HEAD":.github/workflows/pr548-rework-apply.yml > .github/workflows/pr548-rework-apply.yml
+          rm -rf .github/pr548-rework
           git diff --check
-          printf '%s\n' \
-            '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml' \
-            '.github/workflows/client-application-business-v2-qa.yml' \
-            'functions/portal/owner-api.js' \
-            'governance/client-application-business-v2-owner-scope.json' \
-            'scripts/application-business-v2/prepare-live-consumers.mjs' \
-            'scripts/qa-admin-applications-kpi-refresh-v4.mjs' \
-            'scripts/qa-client-portal-visual-freeze.mjs' \
-            'supabase/functions/rona-owner-acceptance/index.ts' \
-            'supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql' \
-            'tests/client-application-business-v2/pg17/authority-regressions.sql' \
-            'tests/client-application-business-v2/pg17/owner-authority-regressions.sql' \
-            'tests/client-application-business-v2/pg17/review-dependencies.sql' \
-            'tests/client-application-business-v2/pg17/review-regressions.sql' \
-            'tests/client-application-business-v2/pg17/review-seed.sql' | sort -u > /tmp/expected-files.txt
           git add -A
-          git diff --cached --name-only 83b4157edb18500467bf6b26a6d3dd5eabba3d98 | sort -u > /tmp/actual-files.txt
-          diff -u /tmp/expected-files.txt /tmp/actual-files.txt
+
+          if git diff --cached --name-only "$TRANSPORT_HEAD" | grep -q '^.github/workflows/'; then
+            echo 'WORKFLOW_PATH_STAGED_BY_APP_TRANSPORT' >&2
+            exit 1
+          fi
+          for required in \
+            functions/portal/owner-api.js \
+            governance/client-application-business-v2-owner-scope.json \
+            scripts/application-business-v2/prepare-live-consumers.mjs \
+            scripts/qa-admin-applications-kpi-refresh-v4.mjs \
+            scripts/qa-client-portal-visual-freeze.mjs \
+            supabase/functions/rona-owner-acceptance/index.ts \
+            supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql \
+            tests/client-application-business-v2/pg17/authority-regressions.sql \
+            tests/client-application-business-v2/pg17/owner-authority-regressions.sql \
+            tests/client-application-business-v2/pg17/review-dependencies.sql \
+            tests/client-application-business-v2/pg17/review-regressions.sql \
+            tests/client-application-business-v2/pg17/review-seed.sql; do
+            git diff --cached --name-only "$TRANSPORT_HEAD" | grep -Fx "$required" >/dev/null || { echo "REQUIRED_SEMANTIC_PATH_NOT_STAGED: $required" >&2; exit 1; }
+          done
+          git diff --cached --name-only "$TRANSPORT_HEAD"
           git config user.name 'rokotove26-png'
           git config user.email 'rokotove26@gmail.com'
           git commit -m 'fix(applications): enforce Owner business authority boundary'
