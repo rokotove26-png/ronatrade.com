@@ -56,7 +56,7 @@ function spendText(deal) {
 function refsFromDeal(deal) {
   const refs = [];
   for (const ref of asArray(deal?.authority_refs)) refs.push(ref);
-  for (const field of ['total_to_receive', 'verified_received', 'due_now', 'expected_not_due', 'future_conditional', 'actual_spend', 'remaining_execution']) {
+  for (const field of ['total_to_receive', 'verified_received', 'remaining_to_receive', 'due_now', 'expected_not_due', 'future_conditional', 'actual_spend', 'remaining_execution']) {
     for (const ref of asArray(deal?.[field]?.authority_refs)) refs.push(ref);
   }
   const seen = new Set();
@@ -77,7 +77,7 @@ function normalizedDeal(deal) {
     client_display: text(deal?.client_display) || '—',
     total: moneyText(deal?.total_to_receive),
     received: moneyText(deal?.verified_received),
-    expected: moneyText(deal?.expected_not_due),
+    expected: moneyText(deal?.remaining_to_receive),
     due_now: moneyText(deal?.due_now),
     conditional: moneyText(deal?.future_conditional),
     conditional_present: upper(deal?.future_conditional?.status) === 'AUTHORITATIVE' && conditionalAmount !== null && conditionalAmount !== 0,
@@ -112,7 +112,7 @@ function aggregateMoney(deals, field) {
 function globalKpis(deals) {
   const total = aggregateMoney(deals, 'total_to_receive');
   const received = aggregateMoney(deals, 'verified_received');
-  const expected = aggregateMoney(deals, 'expected_not_due');
+  const expected = aggregateMoney(deals, 'remaining_to_receive');
   const conditional = aggregateMoney(deals, 'future_conditional');
   const spendReady = deals.length > 0 && deals.every((deal) => upper(deal?.actual_spend_status) === 'AUTHORITATIVE');
   const spend = spendReady ? aggregateMoney(deals, 'actual_spend') : { rows: [], to_verify: true };
