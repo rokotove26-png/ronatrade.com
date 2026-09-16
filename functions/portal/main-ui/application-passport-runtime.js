@@ -1,4 +1,5 @@
 import applicationPassportRuntimeBase from './application-passport-runtime-base.js';
+import adminApplicationsPassportActionV2 from './admin-applications-passport-action-v2.js';
 import adminApplicationsPremiumRuntime from './admin-applications-premium-v1.js';
 import adminApplicationsReadabilityV5 from './admin-applications-readability-v5.js';
 import paymentsV7OwnerPassportUi from './payments-v7-owner-passport-ui.js';
@@ -30,6 +31,7 @@ import {
  */
 
 export default applicationPassportRuntimeBase
+  + adminApplicationsPassportActionV2
   + adminApplicationsPremiumRuntime
   + adminApplicationsReadabilityV5
   + paymentsV7PassportActivationPrelude

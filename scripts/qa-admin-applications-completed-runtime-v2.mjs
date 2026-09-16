@@ -11,7 +11,7 @@ const base={
 const intake={
   applications:[{
     application_id:'PORTAL-EVT-REQUEST',request_id:'PORTAL-EVT-REQUEST',record_kind:'CLIENT_REQUEST',
-    product:'СУГ',quantity_tonnes:1000,destination:'Киргили',status:'APPLIED',
+    product:'СУГ',quantity_tonnes:1000,destination:'Киргили',status:'SUBMITTED',owner_status:'NEW',lifecycle_state:'ACTIVE',
     intake_id:'11111111-1111-4111-8111-111111111111',durable_id:'22222222-2222-4222-8222-222222222222',
     source_id:'PORTAL-EVT-REQUEST',actionable_type:'DELIVERED_PRICE_CALCULATION_REQUEST_V1',
     intake_status:'APPLIED',intake_responsible_role:'OPERATIONS_DIRECTOR',intake_contract:'RONA_CLIENT_INTAKE_V1',

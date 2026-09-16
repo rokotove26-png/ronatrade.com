@@ -1,0 +1,29 @@
+name: Admin Application Passport Universal Action QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/main-ui/application-passport-runtime.js'
+      - 'functions/portal/main-ui/admin-applications-passport-action-v2.js'
+      - 'tests/admin-application-passport-universal-action.test.mjs'
+      - '.github/workflows/admin-application-passport-universal-action-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  passport-open-action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          set -euo pipefail
+          node --check functions/portal/main-ui/admin-applications-passport-action-v2.js
+          node --check functions/portal/main-ui/application-passport-runtime.js
+      - name: Universal action contract
+        run: node tests/admin-application-passport-universal-action.test.mjs
