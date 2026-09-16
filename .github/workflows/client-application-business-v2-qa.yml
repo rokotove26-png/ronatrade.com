@@ -134,6 +134,7 @@ jobs:
           python -m pip install playwright==1.55.0
           python -m playwright install --with-deps chromium
           python tests/client-application-business-v2/runtime/browser.py 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/browser.log"
+          python tests/client-application-business-v2/runtime/presentation.py 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/presentation.log"
       - name: Stop disposable HTTP process
         if: always()
         run: |
