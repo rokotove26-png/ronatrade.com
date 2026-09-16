@@ -94,7 +94,7 @@ do $$ declare a uuid; d uuid; begin
 end $$;
 update portal_private.client_applications set status='CANCELLED',decision_reason='ISOLATED_CLOSED_DEAL_CANCELLATION'
  where id=test_application_v2.get('retired_app_key')::uuid;
-select test_application_v2.check_true(not exists(select 1 from portal_private.client_applications where id=test_application_v2.get('retired_app_key')::uuid'),'cancelled application with closed cancelled Deal physically retired');
+select test_application_v2.check_true(not exists(select 1 from portal_private.client_applications where id=test_application_v2.get('retired_app_key')::uuid),'cancelled application with closed cancelled Deal physically retired');
 select test_application_v2.check_true((select to_jsonb(x)::text=test_application_v2.get('deal_before') from portal_private.deals x where id=test_application_v2.get('retained_deal_key')::uuid),'linked Deal row byte-equivalent JSON before/after deletion');
 select test_application_v2.check_true((select to_jsonb(x)::text=test_application_v2.get('registration_before') from portal_private.deal_registrations x where application_key=test_application_v2.get('retired_app_key')::uuid),'registration row and original application key preserved');
 select test_application_v2.check_true(exists(select 1 from portal_private.client_application_deal_provenance_v2 where application_key=test_application_v2.get('retired_app_key')::uuid),'immutable application-to-deal provenance recorded');
