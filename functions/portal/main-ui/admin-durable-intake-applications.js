@@ -17,6 +17,9 @@ export function mergeAdminDurableIntakeApplications(baseData,intakeData){
     intake_routing_reason:row?.intake_routing_reason??null,
     intake_responsible_role:row?.intake_responsible_role??row?.responsible_role??null,
     intake_contract:row?.intake_contract??null,
+    intake_task_status:row?.intake_task_status??null,
+    intake_task_decision:row?.intake_task_decision??null,
+    intake_task_decision_at:row?.intake_task_decision_at??null,
     effective_payload:row?.effective_payload??null,
     client_intakes:row?.client_intakes??null,
     application_details_intakes:row?.application_details_intakes??null,
@@ -41,20 +44,29 @@ export function mergeAdminDurableIntakeApplications(baseData,intakeData){
 
     const payload=source?.effective_payload&&typeof source.effective_payload==='object'?source.effective_payload:{};
     const commercial=payload?.commercial&&typeof payload.commercial==='object'?payload.commercial:{};
+    const recordKind=upper(source?.record_kind);
+    const sourceKind=upper(source?.source_kind);
+    const actionableType=upper(source?.actionable_type);
+    const linkedApplicationId=text(payload?.application_id||source?.linked_application_id);
+
+    // APPLICATION_DETAILS_* is a technical/audit mirror of a canonical application.
+    // It must never be rendered as an independent business row.
+    if(actionableType.startsWith('APPLICATION_DETAILS_')&&linkedApplicationId)continue;
+
     const clientId=text(source?.client_id||payload?.client_id)||null;
     const contractId=text(source?.contract_id||payload?.contract_id)||null;
     const client=clientId?clients.get(clientId):null;
-    const requestLike=upper(source?.record_kind)==='CLIENT_REQUEST'||upper(source?.source_kind)==='PORTAL_REVERSE_EVENT'||upper(source?.actionable_type)!=='CLIENT_APPLICATION_SUBMIT';
+    const requestLike=recordKind==='CLIENT_REQUEST'||sourceKind==='PORTAL_REVERSE_EVENT';
 
     const row={
       application_id:applicationId,
       request_id:text(source?.request_id||source?.source_id)||applicationId,
-      record_kind:requestLike?'CLIENT_REQUEST':upper(source?.record_kind)||'CLIENT_APPLICATION',
+      record_kind:requestLike?'CLIENT_REQUEST':recordKind||'CLIENT_APPLICATION',
       client_id:clientId,
       legal_name:source?.legal_name??client?.legal_name??null,
       contract_id:contractId,
-      deal_id:null,
-      deal_status:null,
+      deal_id:source?.deal_id??null,
+      deal_status:source?.deal_status??null,
       product:source?.product??payload?.product??null,
       quantity_tonnes:source?.quantity_tonnes??payload?.quantity_tonnes??null,
       delivery_period_from:source?.delivery_period_from??payload?.shipment?.period_from??null,
@@ -66,9 +78,9 @@ export function mergeAdminDurableIntakeApplications(baseData,intakeData){
       price_mode:source?.price_mode??commercial?.price_mode??null,
       proposed_price:source?.proposed_price??commercial?.proposed_price??null,
       proposed_currency:source?.proposed_currency??commercial?.currency??null,
-      status:requestLike?'SUBMITTED':(source?.status??'SUBMITTED'),
-      owner_status:requestLike?'NEW':(source?.owner_status??'NEW'),
-      lifecycle_state:'ACTIVE',
+      status:source?.status??'SUBMITTED',
+      owner_status:source?.owner_status??'NEW',
+      lifecycle_state:source?.lifecycle_state??'ACTIVE',
       submitted_at:source?.submitted_at??source?.intake_submitted_at??null,
       updated_at:source?.updated_at??source?.submitted_at??source?.intake_submitted_at??null,
       ...intakeFields(source),
