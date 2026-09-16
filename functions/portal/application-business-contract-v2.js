@@ -20,6 +20,11 @@ export function validateApplicationProjection(projection,scope=null){
   }
   const kpi=projection.application_kpi;
   if(kpi?.source!==APPLICATION_BUSINESS_CONTRACT||Number(kpi.total)!==seen.size)throw new Error('APPLICATION_KPI_PROJECTION_CONFLICT');
+  for(const key of ['total','active','new','in_work','decision','completed','deal_registered']){
+    if(!Number.isSafeInteger(kpi[key])||kpi[key]<0)throw new Error('APPLICATION_KPI_FIELD_INVALID:'+key);
+  }
+  if(kpi.tonnage===null||kpi.tonnage===''||!Number.isFinite(Number(kpi.tonnage))||Number(kpi.tonnage)<0)throw new Error('APPLICATION_KPI_TONNAGE_INVALID');
+  if(kpi.amounts!==null&&(!Array.isArray(kpi.amounts)||kpi.amounts.some(x=>!Number.isFinite(Number(x.amount))||! /^[A-Z]{3}$/.test(x.currency||''))))throw new Error('APPLICATION_KPI_AMOUNTS_INVALID');
   return projection;
 }
 export function applyCanonicalApplications(base,projection,scope=null){

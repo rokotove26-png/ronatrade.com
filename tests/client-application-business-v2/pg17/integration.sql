@@ -1,5 +1,7 @@
 \set ON_ERROR_STOP on
 begin;
+-- Disposable fixture writer only; live HTTP paths are tested without this context.
+set local rona.application_atomic_bundle='on';
 create function pg_temp.check_true(value boolean,label text) returns void language plpgsql as $$
 begin if value is distinct from true then raise exception 'ASSERTION_FAILED: %',label; end if; raise notice 'CHECK_OK: %',label; end $$;
 
@@ -50,6 +52,10 @@ begin
     end if;
   end loop;
 end $$;
+-- Install the actual review delta over historical sources, exactly as a future rollout will.
+-- Both schema changes and fixture data are rolled back at the end of this isolated test.
+\ir ../../../supabase/migrations/20260916110600_client_application_review_lifecycle_v2.sql
+\ir ../../../supabase/migrations/20260916110700_client_application_review_contract_v2.sql
 create temp table raw_before as select event_id,payload,created_at,source_timestamp from portal_private.portal_reverse_events;
 update portal_private.client_application_policy_v2 set enabled=true,activated_at=now();
 select portal_private.reconcile_client_applications_v2(500);

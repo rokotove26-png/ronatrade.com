@@ -1,3 +1,4 @@
+import { validateApplicationProjection } from '../../../application-business-contract-v2.js';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const ACCESS_COOKIE='rona_portal_at';
@@ -12,7 +13,7 @@ function secureHeaders(base=new Headers()){const h=new Headers(base);for(const[k
 function json(body,status=200,cookies=[]){const h=secureHeaders(new Headers({'content-type':'application/json; charset=utf-8'}));for(const c of cookies)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
 function sameOrigin(request){const u=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===u.origin;const ref=request.headers.get('referer');if(!ref)return request.method==='GET';try{return new URL(ref).origin===u.origin}catch{return false}}
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
-function safeApplication(a){return{application_id:a?.application_id??null,product:a?.product??null,quantity_tonnes:a?.quantity_tonnes??null,delivery_period_from:a?.delivery_period_from??null,delivery_period_to:a?.delivery_period_to??null,delivery_basis:a?.delivery_basis??null,destination:a?.destination??null,payment_terms:a?.payment_terms??null,application_price:a?.application_price??null,application_currency:a?.application_currency??null,status:a?.status??null,resource_status:a?.resource_status??'RESOURCE_NOT_CONFIRMED',resource_label:a?.resource_label??null,resource_source:a?.resource_source??null,deal_id:a?.deal_id??null,submitted_at:a?.submitted_at??null,updated_at:a?.updated_at??null}}
+
 export async function onRequestGet(context){
   const request=context.request;
   if(!sameOrigin(request))return json({ok:false,code:'ORIGIN_DENIED'},403);
@@ -22,11 +23,11 @@ export async function onRequestGet(context){
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
-  const call=token=>fetch(`${SUPABASE_URL}/rest/v1/rpc/rona_client_application_projection`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({p_client_id:clientId,p_contract_id:contractId})});
+  const call=token=>fetch(`${SUPABASE_URL}/rest/v1/rpc/application_business_client_v2`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({p_client_id:clientId,p_contract_id:contractId})});
   let response=await call(access);
   if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await call(access)}}
   if(!response.ok){const code=response.status===401?'PORTAL_ACCESS_DENIED':'APPLICATION_PROJECTION_UNAVAILABLE';return json({ok:false,code},response.status===401?401:502,response.status===401?clearCookies():setCookies)}
-  const rows=await response.json().catch(()=>null);
-  if(!Array.isArray(rows))return json({ok:false,code:'APPLICATION_PROJECTION_INVALID'},502,setCookies);
-  return json({ok:true,projection_contract:'CLIENT_APPLICATIONS_AUTHORITATIVE_V1',applications:rows.map(safeApplication)},200,setCookies);
+  const projection=await response.json().catch(()=>null);
+  try{validateApplicationProjection(projection,{clientId,contractId})}catch{return json({ok:false,code:'APPLICATION_CANONICAL_PROJECTION_REQUIRED'},503,setCookies)}
+  return json({ok:true,projection_contract:'CLIENT_APPLICATIONS_AUTHORITATIVE_V1',...projection,application_business_contract:projection.contract},200,setCookies);
 }

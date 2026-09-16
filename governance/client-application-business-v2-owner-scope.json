@@ -1,0 +1,15 @@
+{
+  "authorization": "OWNER_IN_CHAT",
+  "task": "RONA-P1-CLIENT-INTAKE-2026-09-16-001",
+  "scope": "CLIENT_APPLICATIONS_LIFECYCLE_SYSTEMIC_FIX",
+  "review_id": 5222916720,
+  "production_acceptance": "PENDING",
+  "merge": "HOLD",
+  "deploy": "HOLD",
+  "unrelated_visual_changes": false,
+  "candidate_exact_blobs": {
+    "assets/portal-runtime/client-application-form-v2.js": "50d02356bb706b816c5d58d71ffac50b73e01872",
+    "assets/portal-runtime/client-application-form-v3.js": "0c4350251b9ab579d3daa37d9e38b6f3ff2c643d",
+    "assets/portal-runtime/client-application-intent-v2.js": "2207ecf205b95cf37ee192cb96615a5aea250868"
+  }
+}
