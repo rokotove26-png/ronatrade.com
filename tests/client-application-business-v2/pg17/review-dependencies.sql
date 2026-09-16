@@ -9,5 +9,5 @@ create function portal_private.canonical_target_snapshot(p_type text,p_id text) 
  language sql stable as $$ select jsonb_build_object('legacy_type',p_type,'legacy_id',p_id) $$;
 create function portal_private.ai_role_state_current_v2(p_role portal_private.ai_business_role_enum,p_task_limit integer default 10,p_coord_limit integer default 20)
  returns jsonb language sql stable as $$ select jsonb_build_object('functional_role',p_role::text,'unrelated_sentinel','UNCHANGED') $$;
-create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
-create function auth.uid() returns uuid language sql stable as $$ select nullif(auth.jwt()->>'sub','')::uuid $$;
+create or replace function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
+create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(auth.jwt()->>'sub','')::uuid $$;
