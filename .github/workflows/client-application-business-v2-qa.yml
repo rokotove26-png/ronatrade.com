@@ -1,89 +1,145 @@
 name: Client Application Business V2 QA
-
 on:
   push:
     branches: [feat/client-applications-systemic-lifecycle-p1]
-
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/2026091611*_client_application*.sql'
+      - 'supabase/functions/_shared/client-application-business-v2/**'
+      - 'supabase/functions/rona-portal-api/application-business*'
+      - 'functions/portal/owner-api.js'
+      - 'supabase/functions/rona-owner-acceptance/**'
+      - 'governance/client-application-business-v2-owner-scope.json'
+      - 'scripts/qa-client-portal-visual-freeze.mjs'
+      - '.github/workflows/admin-applications-kpi-refresh-v4-qa.yml'
+      - 'scripts/application-business-v2/**'
+      - 'tests/client-application-business-v2/**'
+      - '.github/workflows/client-application-business-v2-qa.yml'
 permissions:
-  contents: write
-
+  contents: read
 concurrency:
-  group: pr548-reviewed-rework-transport-registered
-  cancel-in-progress: false
-
+  group: client-business-v2-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   postgres17-lifecycle:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: supabase_admin
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U supabase_admin -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      BASELINE_SHA: c4e93c8445a84aa987588558823533be2d1f4511
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGDATABASE: postgres
+      APPLICATION_TEST_PORT: '8768'
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: feat/client-applications-systemic-lifecycle-p1
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-          persist-credentials: true
-      - name: Apply System Admin reviewed rework without workflow-file push
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Exact source and disposable baseline
         shell: bash
         run: |
           set -euo pipefail
-          TRANSPORT_HEAD="$(git rev-parse HEAD)"
-          BASE=83b4157edb18500467bf6b26a6d3dd5eabba3d98
-          git merge-base --is-ancestor "$BASE" HEAD
-          cat .github/pr548-rework/part-* > /tmp/pr548.patch
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('/tmp/pr548.patch')
-          s=p.read_text()
-          repairs={
-            "if(path==='/client/analytics-feed'&&method==='GET')retur['owner_analytics_client_feed',{}]":"if(path==='/client/analytics-feed'&&method==='GET')return['owner_analytics_client_feed',{}]",
-            "fetch(`${RPC_UPSTREAM=/${encodeURIComponent(name)}`":"fetch(`${RPC_UPSTREAM}/${encodeURIComponent(name)}`",
-          }
-          for old,new in repairs.items():
-              if old not in s:
-                  raise SystemExit(f'EXPECTED_TRANSPORT_REPAIR_SOURCE_MISSING: {old}')
-              s=s.replace(old,new,1)
-          p.write_text(s)
-          PY
-          sha256sum /tmp/pr548.patch
-          git show "$BASE":.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
-          git apply --check /tmp/pr548.patch
-          git apply /tmp/pr548.patch
-
-          # Preserve the two final reviewed workflow payloads outside workflows so the connected
-          # Owner GitHub session can install them after this App-limited transport commit.
-          mkdir -p .github/pr548-final
-          cp .github/workflows/admin-applications-kpi-refresh-v4-qa.yml .github/pr548-final/admin-applications-kpi-refresh-v4-qa.yml
-          cp .github/workflows/client-application-business-v2-qa.yml .github/pr548-final/client-application-business-v2-qa.yml
-
-          # GitHub Actions token has contents:write but no workflows permission. Do not weaken
-          # GitHub's workflow-file protection: restore every workflow path to the triggering HEAD.
-          git show "$TRANSPORT_HEAD":.github/workflows/admin-applications-kpi-refresh-v4-qa.yml > .github/workflows/admin-applications-kpi-refresh-v4-qa.yml
-          git show "$TRANSPORT_HEAD":.github/workflows/client-application-business-v2-qa.yml > .github/workflows/client-application-business-v2-qa.yml
-          git show "$TRANSPORT_HEAD":.github/workflows/pr548-rework-apply.yml > .github/workflows/pr548-rework-apply.yml
-          rm -rf .github/pr548-rework
-          git diff --check
-          git add -A
-
-          if git diff --cached --name-only "$TRANSPORT_HEAD" | grep -q '^.github/workflows/'; then
-            echo 'WORKFLOW_PATH_STAGED_BY_APP_TRANSPORT' >&2
-            exit 1
-          fi
-          for required in \
-            functions/portal/owner-api.js \
-            governance/client-application-business-v2-owner-scope.json \
-            scripts/application-business-v2/prepare-live-consumers.mjs \
-            scripts/qa-admin-applications-kpi-refresh-v4.mjs \
-            scripts/qa-client-portal-visual-freeze.mjs \
-            supabase/functions/rona-owner-acceptance/index.ts \
-            supabase/migrations/20260916110900_client_application_owner_business_authority_v2.sql \
-            tests/client-application-business-v2/pg17/authority-regressions.sql \
-            tests/client-application-business-v2/pg17/owner-authority-regressions.sql \
-            tests/client-application-business-v2/pg17/review-dependencies.sql \
-            tests/client-application-business-v2/pg17/review-regressions.sql \
-            tests/client-application-business-v2/pg17/review-seed.sql; do
-            git diff --cached --name-only "$TRANSPORT_HEAD" | grep -Fx "$required" >/dev/null || { echo "REQUIRED_SEMANTIC_PATH_NOT_STAGED: $required" >&2; exit 1; }
-          done
-          git diff --cached --name-only "$TRANSPORT_HEAD"
-          git config user.name 'rokotove26-png'
-          git config user.email 'rokotove26@gmail.com'
-          git commit -m 'fix(applications): enforce Owner business authority boundary'
-          git push origin HEAD:feat/client-applications-systemic-lifecycle-p1
+          E="$RUNNER_TEMP/application-business-evidence"
+          mkdir -p "$E" "$RUNNER_TEMP/intake-baseline"
+          echo "APPLICATION_EVIDENCE_DIR=$E" >> "$GITHUB_ENV"
+          echo "ISOLATED_CONTROL_FILE=$RUNNER_TEMP/isolated-application-control" >> "$GITHUB_ENV"
+          git rev-parse HEAD | tee "$E/HEAD.txt"
+          git diff --name-status 2d47e08a8420331672692507a74db6c6484ef04d HEAD > "$E/changed-files.txt"
+          git archive "$BASELINE_SHA" tests/client-intake-v1 supabase/migrations | tar -x -C "$RUNNER_TEMP/intake-baseline"
+          git archive HEAD scripts functions supabase tests assets/portal-runtime .github package.json portal-src governance | gzip > "$E/source.tar.gz"
+          tar -czf "$E/baseline.tar.gz" -C "$RUNNER_TEMP/intake-baseline" .
+      - name: Install baseline and candidate foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$PGHOST" = "127.0.0.1"
+          psql -U supabase_admin -v ON_ERROR_STOP=1 -c "create role postgres login nosuperuser createdb createrole bypassrls; alter database postgres owner to postgres; grant all on schema public to postgres;"
+          test "$(psql -X -A -t -v ON_ERROR_STOP=1 -c 'select rolsuper from pg_roles where rolname=current_user')" = "f"
+          psql -X -A -t -c "select jsonb_build_object('current_user',current_user,'superuser',rolsuper,'create_role',rolcreaterole,'bypass_rls',rolbypassrls) from pg_roles where rolname=current_user" > "$APPLICATION_EVIDENCE_DIR/migration-principal.json"
+          B="$RUNNER_TEMP/intake-baseline"
+          psql -v ON_ERROR_STOP=1 -f "$B/tests/client-intake-v1/pg17/baseline.sql"
+          psql -v ON_ERROR_STOP=1 -f "$B/tests/client-intake-v1/pg17/client-projection-dependencies.sql"
+          for f in "$B"/supabase/migrations/20260915123*_client_intake*.sql "$B"/supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/production-shape-extension.sql
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-dependencies.sql
+          for f in supabase/migrations/20260916110[0-5]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+      - name: Historical recovery and authority regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/integration.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/historical-recovery.log"
+          for f in supabase/migrations/20260916110[6-9]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-seed.sql
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-lifecycle.log"
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-authority.log"
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/owner-authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-admin-authority.log"
+      - name: Build actual release consumers and scope proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/build.log"
+          node tests/client-application-business-v2/runtime/build-proof.mjs 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/build-scope.log"
+          node --check "$APPLICATION_EVIDENCE_DIR/emitted-admin.js"
+          node --check "$APPLICATION_EVIDENCE_DIR/emitted-client.js"
+      - name: Handler policy authentication and concurrency
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --test tests/client-application-business-v2/runtime/handler.test.mjs 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/handler-concurrency.log"
+      - name: Start isolated authenticated preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/client-application-business-v2/runtime/server.mjs > "$APPLICATION_EVIDENCE_DIR/isolated-server.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/application-server.pid"
+          for i in $(seq 1 40); do if curl --fail --silent http://127.0.0.1:8768/health > "$APPLICATION_EVIDENCE_DIR/isolation-boundary.json"; then exit 0; fi; sleep 1; done
+          exit 1
+      - name: Deno production auth source and import graph
+        env:
+          SUPABASE_DB_URL: postgres://postgres@127.0.0.1:5432/postgres
+          SUPABASE_URL: http://127.0.0.1:8768
+          SUPABASE_ANON_KEY: qa-public-anon
+        shell: bash
+        run: |
+          set -euo pipefail
+          deno info --json --config supabase/functions/rona-portal-api/deno.json supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts > "$APPLICATION_EVIDENCE_DIR/deno-import-graph.json"
+          deno check --config supabase/functions/rona-owner-acceptance/deno.json supabase/functions/rona-owner-acceptance/index.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-action-deno-check.log"
+          deno run --allow-env --allow-net --allow-read --config supabase/functions/rona-portal-api/deno.json tests/client-application-business-v2/runtime/deno-auth.ts 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/deno-auth-driver.log"
+      - name: Compiled Client and Admin browser regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install playwright==1.55.0
+          python -m playwright install --with-deps chromium
+          python tests/client-application-business-v2/runtime/browser.py 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/browser.log"
+      - name: Stop disposable HTTP process
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/application-server.pid" ]; then kill "$(cat "$RUNNER_TEMP/application-server.pid")" || true; fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: application-business-v2-exact-head-evidence
+          path: ${{ runner.temp }}/application-business-evidence/
+          retention-days: 7
+          if-no-files-found: error
