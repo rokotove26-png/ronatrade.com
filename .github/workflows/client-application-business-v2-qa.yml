@@ -5,7 +5,7 @@ on:
   pull_request:
     branches: [release/public-go-live-v1.1]
     paths:
-      - 'supabase/migrations/2026091611*_client_application*.sql'
+      - 'supabase/migrations/*client_application*.sql'
       - 'supabase/functions/_shared/client-application-business-v2/**'
       - 'supabase/functions/rona-portal-api/application-business*'
       - 'functions/portal/owner-api.js'
@@ -89,7 +89,9 @@ jobs:
           set -euo pipefail
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/integration.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/historical-recovery.log"
           for f in supabase/migrations/20260916110[6-9]00_client_application*.sql; do psql -v ON_ERROR_STOP=1 -f "$f"; done
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260916194500_client_application_resource_projection_authority_v3.sql
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-seed.sql
+          psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/resource-projection-authority-regression.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/resource-authority.log"
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/review-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-lifecycle.log"
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/review-authority.log"
           psql -v ON_ERROR_STOP=1 -f tests/client-application-business-v2/pg17/owner-authority-regressions.sql 2>&1 | tee "$APPLICATION_EVIDENCE_DIR/owner-admin-authority.log"
