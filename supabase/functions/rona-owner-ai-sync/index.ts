@@ -51,11 +51,34 @@ async function persistOwnerDecision({ envelope }) {
   return rows[0];
 }
 
+async function readPaymentsV8FinanceAuthorityGate() {
+  // Safety overlay: if a current confirmed signed document has not yet produced a MATERIALIZED V8
+  // schedule, receivable amounts are deliberately NULL/TO_VERIFY instead of exposing stale legacy
+  // application/offer terms. Execution/spend facts remain Finance-owned and are not rewritten here.
+  return v7Sql`
+    select id::text id, deal_key::text deal_key,
+           total_to_receive::text total_to_receive,
+           due_now::text due_now, expected_not_due::text expected_not_due,
+           future_conditional::text future_conditional, obligation_currency,
+           contractual_payment_currency, mixed_inbound_accounting_currency,
+           actual_spend::text actual_spend, actual_spend_status,
+           remaining_execution::text remaining_execution, remaining_execution_status,
+           execution_currency, execution_status,
+           finance_status, documentary_status, authority_state, lifecycle_state, effective_at,
+           supersedes_id::text supersedes_id, supersedes_authority_refs,
+           source_version, source_timestamp, source_refs, source_locked, created_at
+      from portal_private.deal_finance_authority_payments_v8_read_v1
+     order by deal_key, effective_at, id`;
+}
+
 const readBaseRawSources = createAdminPaymentsV7TruthSourceReader(v7Sql);
 async function readRawSources() {
   const raw = await readBaseRawSources();
-  const ownerConfirmedReceipts = await readOwnerConfirmedReceiptsV7(v7Sql, raw?.sourceAsOf || null);
-  return { ...raw, ownerConfirmedReceipts };
+  const [ownerConfirmedReceipts, gatedFinanceAuthorities] = await Promise.all([
+    readOwnerConfirmedReceiptsV7(v7Sql, raw?.sourceAsOf || null),
+    readPaymentsV8FinanceAuthorityGate(),
+  ]);
+  return { ...raw, dealFinanceAuthorities: gatedFinanceAuthorities, ownerConfirmedReceipts };
 }
 
 function buildProjection(raw) {
