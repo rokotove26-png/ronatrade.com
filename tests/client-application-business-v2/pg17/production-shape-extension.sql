@@ -26,6 +26,7 @@ alter table portal_private.owner_application_workflow add column client_counter_
 alter table portal_private.owner_application_workflow add column admin_decided_by uuid;
 alter table portal_private.owner_application_workflow add column admin_decided_at timestamptz;
 alter table portal_private.owner_application_workflow add column supplier_approved_by uuid;
+alter table portal_private.owner_application_workflow add column updated_at timestamptz;
 alter table portal_private.owner_application_workflow add column finalized_at timestamptz;
 create table portal_private.ai_service_identities(id uuid primary key default gen_random_uuid(),identity_id text not null unique,
   business_role portal_private.staff_functional_role_enum not null,status text not null,not_before timestamptz,revoked_at timestamptz);
