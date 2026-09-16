@@ -1,0 +1,120 @@
+name: P1 Client Intake Stage 2.3 QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'supabase/functions/_shared/client-intake-v1/**'
+      - 'supabase/functions/rona-portal-api/bootstrap.ts'
+      - 'supabase/functions/rona-portal-api/stage21-bootstrap.ts'
+      - 'supabase/functions/rona-portal-api/stage23-bootstrap.ts'
+      - 'supabase/functions/rona-portal-api/deno.json'
+      - 'supabase/migrations/20260915123000_client_intake_unified_v1.sql'
+      - 'supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql'
+      - 'supabase/migrations/20260915123200_client_intake_correction_api_v1.sql'
+      - 'supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql'
+      - 'supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql'
+      - 'supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql'
+      - 'supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql'
+      - 'tests/client-intake-v1/**'
+      - 'scripts/check-client-intake-no-hardcode.mjs'
+      - 'docs/client-intake-p1-stage2-*.md'
+      - '.github/workflows/client-intake-p1-stage2-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  p1-client-intake-regressions:
+    name: P1 Client Intake regressions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Global Client Intake regressions and recovery rehearsal
+        run: node tests/client-intake-v1/client-intake.test.mjs
+      - name: Mandatory P1 regression completion
+        run: node tests/client-intake-v1/mandatory-regressions.test.mjs
+      - name: Candidate migration and real-LK contract
+        run: node tests/client-intake-v1/migration-contract.test.mjs
+      - name: Global actionable submit-path matrix
+        run: node tests/client-intake-v1/submit-path-audit.test.mjs
+      - name: Full changed-runtime no-hardcode / no expected-value injection
+        run: node scripts/check-client-intake-no-hardcode.mjs
+
+  postgres17-integration:
+    name: PostgreSQL 17 migration + integration QA
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply production-shape disposable baseline
+        run: |
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/baseline.sql
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/client-projection-dependencies.sql
+      - name: Apply candidate migrations to PostgreSQL 17
+        run: |
+          set -euo pipefail
+          for migration in \
+            supabase/migrations/20260915123000_client_intake_unified_v1.sql \
+            supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql \
+            supabase/migrations/20260915123200_client_intake_correction_api_v1.sql \
+            supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql \
+            supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql \
+            supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql \
+            supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql
+          do
+            docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17 \
+              psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$migration"
+          done
+          echo 'REAL_POSTGRES_MIGRATION_APPLY=PASS'
+      - name: Diagnose automatic application routing in rollback transaction
+        run: |
+          cat > /tmp/diag.sql <<'SQL'
+          begin;
+          insert into portal_private.clients(id,client_id,legal_name) values('31111111-1111-4111-8111-111111111111','QA-DIAG-CLIENT','diag');
+          insert into portal_private.contracts(id,contract_id,client_key) values('32222222-2222-4222-8222-222222222222','QA-DIAG-CONTRACT','31111111-1111-4111-8111-111111111111');
+          insert into portal_private.client_applications(application_id,client_key,contract_key,product,quantity_tonnes,price_mode,submitted_at,source_publication_item_id)
+          values('APP-PG17-DIAG','31111111-1111-4111-8111-111111111111','32222222-2222-4222-8222-222222222222','LPG',25,'ACCEPT_PUBLISHED_PRICE',now(),'cccccccc-cccc-4ccc-8ccc-cccccccccccc');
+          select i.source_record_id,i.actionable_type,i.routing_state,i.routing_reason,q.state as outbox_state,q.last_error_code,q.last_error_text,t.task_id
+          from portal_private.client_intake_v1 i
+          left join portal_private.client_intake_routing_outbox_v1 q on q.intake_id=i.intake_id
+          left join portal_private.client_intake_task_links_v1 l on l.intake_id=i.intake_id and l.stage_key=q.stage_key
+          left join portal_private.staff_tasks t on t.id=l.staff_task_id
+          where i.source_record_id='APP-PG17-DIAG';
+          rollback;
+          SQL
+          docker run --rm --network host -v "$PWD:/repo" -v /tmp/diag.sql:/tmp/diag.sql -w /repo -e PGPASSWORD=postgres postgres:17 \
+            psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/diag.sql
+      - name: Execute real INSERT RPC projection recovery rehearsal
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/integration.sql
+      - name: Execute Stage 2.2 source/application convergence regressions
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/stage22-global-coverage.sql
+      - name: Execute P1 completion bounded-history regressions
+        run: >-
+          docker run --rm --network host -v "$PWD:/repo" -w /repo -e PGPASSWORD=postgres postgres:17
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f tests/client-intake-v1/pg17/p1-completion.sql
