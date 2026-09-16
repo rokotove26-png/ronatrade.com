@@ -14,6 +14,17 @@ const admin=await (await onRequest({request:new Request('https://ronaoil.com/por
 const client=read('dist/assets/portal-runtime/portal-client-applications-canonical-v1.js');
 assert.match(admin,/RONA_ADMIN_APPLICATION_BUSINESS_V2/);assert.match(client,/RONA_CLIENT_APPLICATION_BUSINESS_CONSUMER_V2/);
 assert.match(client,/whenCurrentProjection\('applications-canonical'\)/);assert.doesNotMatch(client,/request\('\/v1\/client\/applications-projection/);
+// Applications consumes the shared current projection without becoming a second refresh owner.
+// Same-context refreshes must retain the canonical row object/open passport while context switches clear it.
+assert.match(client,/reloadRequested=Math\.max/,'application projection convergence retry missing');
+assert.match(client,/const previous=new Map/,'keyed canonical application reconciliation missing');
+assert.match(client,/list\.replaceChildren\(\.\.\.nodes\)/,'canonical row reconciliation commit missing');
+assert.match(client,/nextKey!==state\.contextKey/,'context-key boundary missing');
+assert.match(client,/state\.openPassportId===id\?"Скрыть":"Открыть"/,'open passport presentation state missing');
+assert.doesNotMatch(client,/if\(force\)a\.invalidateCurrentProjection\?\.\(\)/,'application consumer must not invalidate shared projection on read');
+assert.doesNotMatch(client,/state\.timer=setInterval\(\(\)=>load\(false\),REFRESH_MS\)/,'application consumer must not own a polling refresh loop');
+assert.doesNotMatch(client,/window\.addEventListener\('pageshow',\(\)=>\{load\(true\)/,'pageshow must not force an application projection fetch');
+assert.doesNotMatch(client,/window\.addEventListener\('pageshow',queueDecorate/,'counter-offer decorator must not fetch on pageshow');
 for(const v of ['v2','v3']){
  const text=read('dist/assets/portal-runtime/client-application-form-'+v+'.js');
  assert.match(text,/RONA_ATOMIC_APPLICATION_FORM_V2/);assert.match(text,/RonaApplicationIntentV2.submit/);
@@ -29,4 +40,5 @@ for(const file of ['assets/portal-runtime/client-application-intent-v2.js','asse
 }
 const hashes={};for(const [name,text]of Object.entries({admin,client,payments:payments(current)}))hashes[name]=createHash('sha256').update(text).digest('hex');
 fs.writeFileSync(root+'/emitted-admin.js',admin);fs.writeFileSync(root+'/emitted-client.js',client);fs.writeFileSync(root+'/emitted-sha256.json',JSON.stringify(hashes,null,2));
+console.log('APPLICATION_PROJECTION_CONVERGENCE=PASS shared_owner=true keyed_rows=true open_passport=true pageshow_fanout=false polling_fanout=false');
 console.log('ACTUAL_BUILD_SCOPE=PASS Payments_byte_identity=true Client_real_path=true Admin_real_path=true freeze_negatives=true');
