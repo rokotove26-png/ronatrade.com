@@ -1,0 +1,93 @@
+name: Client Application Business V2 QA
+on:
+  push:
+    branches: [feat/client-applications-systemic-lifecycle-p1]
+    paths:
+      - 'supabase/migrations/2026091611*_client_application*.sql'
+      - 'supabase/functions/rona-portal-api/application-business*'
+      - 'supabase/functions/_shared/client-application-business-v2/**'
+      - 'tests/client-application-business-v2/**'
+      - 'scripts/*application-business*'
+      - 'functions/portal/**'
+      - 'assets/portal-runtime/**'
+      - 'package.json'
+      - '.github/workflows/client-application-business-v2-qa.yml'
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'supabase/migrations/2026091611*_client_application*.sql'
+      - 'tests/client-application-business-v2/**'
+      - '.github/workflows/client-application-business-v2-qa.yml'
+permissions:
+  contents: read
+concurrency:
+  group: client-business-v2-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres17-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      BASELINE_SHA: c4e93c8445a84aa987588558823533be2d1f4511
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact source checkpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/application-business-evidence" "$RUNNER_TEMP/intake-baseline"
+          git rev-parse HEAD | tee "$RUNNER_TEMP/application-business-evidence/HEAD.txt"
+          git diff --name-status 2d47e08a8420331672692507a74db6c6484ef04d HEAD > "$RUNNER_TEMP/application-business-evidence/changed-files.txt"
+          git archive "$BASELINE_SHA" tests/client-intake-v1 supabase/migrations | tar -x -C "$RUNNER_TEMP/intake-baseline"
+          git archive HEAD scripts functions supabase tests assets/portal-runtime .github package.json portal-src governance | gzip > "$RUNNER_TEMP/application-business-evidence/source.tar.gz"
+          tar -czf "$RUNNER_TEMP/application-business-evidence/baseline.tar.gz" -C "$RUNNER_TEMP/intake-baseline" .
+      - name: Install the pinned disposable Client Intake baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql_file() { docker run --rm --network host -e PGPASSWORD=postgres -v "$1:/input.sql:ro" postgres:17 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /input.sql; }
+          B="$RUNNER_TEMP/intake-baseline"
+          psql_file "$B/tests/client-intake-v1/pg17/baseline.sql"
+          psql_file "$B/tests/client-intake-v1/pg17/client-projection-dependencies.sql"
+          for f in "$B"/supabase/migrations/20260915123*_client_intake*.sql "$B"/supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql; do psql_file "$f"; done
+          psql_file "$PWD/tests/client-application-business-v2/pg17/production-shape-extension.sql"
+      - name: Apply the actual candidate migrations
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in "$PWD"/supabase/migrations/2026091611*_client_application*.sql; do
+            echo "APPLYING=$f"
+            docker run --rm --network host -e PGPASSWORD=postgres -v "$f:/input.sql:ro" postgres:17 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /input.sql
+          done
+      - name: Execute lifecycle, recovery and scope regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f tests/client-application-business-v2/pg17/integration.sql
+          docker run --rm --network host -e PGPASSWORD=postgres -v "$PWD:/repo:ro" postgres:17 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /repo/tests/client-application-business-v2/pg17/integration.sql 2>&1 | tee "$RUNNER_TEMP/application-business-evidence/postgres-integration.log"
+      - name: Build the actual release pipeline
+        run: npm run build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: application-business-v2-exact-head-evidence
+          path: ${{ runner.temp }}/application-business-evidence/
+          retention-days: 7
+          if-no-files-found: error
