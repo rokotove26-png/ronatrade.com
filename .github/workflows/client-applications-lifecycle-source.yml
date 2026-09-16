@@ -1,0 +1,31 @@
+name: Client Applications Lifecycle Source
+on:
+  push:
+    branches: [feat/client-applications-systemic-lifecycle-p1]
+    paths: [.github/workflows/client-applications-lifecycle-source.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Capture source only, without credentials or production data
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lifecycle-source"
+          git rev-parse HEAD > "$RUNNER_TEMP/lifecycle-source/HEAD.txt"
+          git archive HEAD scripts functions supabase tests assets/portal-runtime .github package.json | gzip > "$RUNNER_TEMP/lifecycle-source/source.tar.gz"
+          git log -15 --format='%H %aI %s' > "$RUNNER_TEMP/lifecycle-source/history.txt"
+          sha256sum "$RUNNER_TEMP/lifecycle-source/source.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: client-applications-lifecycle-source
+          path: ${{ runner.temp }}/lifecycle-source
+          retention-days: 3
+          if-no-files-found: error
