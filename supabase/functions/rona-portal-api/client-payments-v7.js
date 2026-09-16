@@ -114,10 +114,9 @@ export function dedupeClientPaymentRowsV7(payments,allowedPaymentIds,allowedPaym
     const paymentId=String(payment?.payment_id||'').trim();
     if(!paymentId||!ids.has(paymentId))continue;
     const dealId=String(payment?.deal_id||'').trim();
-    const scopeKey=dealId?`${paymentId}\u001f${dealId}`:paymentId;
-    if(dealId&&scopes.size&&!scopes.has(scopeKey))continue;
-    if(seen.has(scopeKey))continue;
-    seen.add(scopeKey);
+    if(dealId&&scopes.size&&!scopes.has(`${paymentId}\u001f${dealId}`))continue;
+    if(seen.has(paymentId))continue;
+    seen.add(paymentId);
     result.push(payment);
   }
   return result;
