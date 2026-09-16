@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {
   ADMIN_PAYMENTS_V7_PROJECTION_VERSION,
+  FINANCE_RESOURCE_CHAIN_DISPLAY_AUTHORITY,
   applyFinanceSettlementAllocations,
 } from '../../supabase/functions/_shared/admin-payments-v7/finance-settlement-allocation.mjs';
 
@@ -35,7 +36,7 @@ const originalProjection = {
 };
 
 const source = {
-  capabilities: { settlementFundingAllocation: true },
+  capabilities: { settlementFundingAllocation: true, resourceChain: true },
   settlementFundingAllocations: [
     {
       id: 'allocation-a',
@@ -74,6 +75,7 @@ const source = {
       source_refs: ['finance-source-b'],
     },
   ],
+  resourceChains: [],
 };
 
 const projected = applyFinanceSettlementAllocations(originalProjection, source);
@@ -98,7 +100,7 @@ assert.equal(unlinked.reason, 'SETTLEMENT_LINKAGE_MISSING');
 
 // Non-authoritative derived data is never promoted into the middle column.
 const rejected = applyFinanceSettlementAllocations(originalProjection, {
-  capabilities: { settlementFundingAllocation: true },
+  capabilities: { settlementFundingAllocation: true, resourceChain: false },
   settlementFundingAllocations: [{
     ...source.settlementFundingAllocations[0],
     authority_status: 'TO_VERIFY',
@@ -108,7 +110,7 @@ assert.equal(rejected.deals[0].payment_passport.funding_events[0].settlement_lin
 
 // Conflicting current allocation rows fail closed rather than choosing a value.
 const ambiguous = applyFinanceSettlementAllocations(originalProjection, {
-  capabilities: { settlementFundingAllocation: true },
+  capabilities: { settlementFundingAllocation: true, resourceChain: false },
   settlementFundingAllocations: [
     source.settlementFundingAllocations[0],
     { ...source.settlementFundingAllocations[0], id: 'allocation-a-duplicate', calculated_funding_amount: '124.00' },
@@ -116,9 +118,89 @@ const ambiguous = applyFinanceSettlementAllocations(originalProjection, {
 });
 assert.equal(ambiguous.deals[0].payment_passport.funding_events[0].settlement_lines[0].allocated_funding_amount, undefined);
 
-assert.equal(ADMIN_PAYMENTS_V7_PROJECTION_VERSION, 'ADMIN_PAYMENTS_V7_PROJECTION_FINANCE_SETTLEMENT_ALLOCATION_V1');
+// Finance-authoritative current resource chains may supply a secondary display equivalent
+// when there is no dedicated settlement allocation. They never become primary actual_spend.
+const resourceChainProjection = applyFinanceSettlementAllocations(originalProjection, {
+  capabilities: { settlementFundingAllocation: true, resourceChain: true },
+  settlementFundingAllocations: [],
+  resourceChains: [
+    {
+      id: 'chain-a',
+      payment_key: 'payment-key-a',
+      deal_key: 'deal-key-generic-alpha',
+      native_amount: '9840.25',
+      native_currency: 'RUB',
+      accounting_amount: '117.84730539',
+      accounting_currency: 'USD',
+      source_locked: true,
+      current: true,
+      authority_state: 'AUTHORITATIVE',
+      lifecycle_state: 'CURRENT',
+      authority_refs: [{ source_type: 'PAYMENT_RESOURCE_CHAIN', source_id: 'chain-a' }],
+    },
+    {
+      id: 'chain-b',
+      payment_key: 'payment-key-b',
+      deal_key: 'deal-key-generic-alpha',
+      native_amount: '4200.0000',
+      native_currency: 'KZT',
+      accounting_amount: '8.4',
+      accounting_currency: 'USD',
+      source_locked: true,
+      current: true,
+      authority_state: 'AUTHORITATIVE',
+      lifecycle_state: 'CURRENT',
+      authority_refs: [{ source_type: 'PAYMENT_RESOURCE_CHAIN', source_id: 'chain-b' }],
+    },
+  ],
+});
+const chainLinked = resourceChainProjection.deals[0].payment_passport.funding_events[0].settlement_lines[0];
+const chainUnlinked = resourceChainProjection.deals[0].payment_passport.unlinked_settlement_lines[0];
+assert.equal(chainLinked.allocated_funding_amount, '117.84730539');
+assert.equal(chainLinked.funding_currency, 'USD');
+assert.equal(chainLinked.funding_allocation_status, 'AUTHORITATIVE');
+assert.equal(chainLinked.funding_allocation_source, FINANCE_RESOURCE_CHAIN_DISPLAY_AUTHORITY);
+assert.equal(chainLinked.amount, '9840.25');
+assert.equal(chainLinked.currency, 'RUB');
+assert.equal(chainUnlinked.allocated_funding_amount, '8.4');
+assert.equal(chainUnlinked.funding_currency, 'USD');
+assert.equal(chainUnlinked.status, 'TO_VERIFY');
+assert.equal(chainUnlinked.reason, 'SETTLEMENT_LINKAGE_MISSING');
+
+// A superseded resource chain is ignored; only the single newest chain can populate display equivalence.
+const superseded = applyFinanceSettlementAllocations(originalProjection, {
+  capabilities: { settlementFundingAllocation: false, resourceChain: true },
+  resourceChains: [
+    {
+      id: 'old-chain', payment_key: 'payment-key-a', deal_key: 'deal-key-generic-alpha',
+      native_amount: '9840.25', native_currency: 'RUB', accounting_amount: '100', accounting_currency: 'USD',
+      source_locked: true, current: true, authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT',
+    },
+    {
+      id: 'new-chain', supersedes_id: 'old-chain', payment_key: 'payment-key-a', deal_key: 'deal-key-generic-alpha',
+      native_amount: '9840.25', native_currency: 'RUB', accounting_amount: '123.45', accounting_currency: 'USD',
+      source_locked: true, current: true, authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT',
+    },
+  ],
+});
+assert.equal(superseded.deals[0].payment_passport.funding_events[0].settlement_lines[0].allocated_funding_amount, '123.45');
+
+// Dedicated Finance allocation remains higher precedence than a resource-chain display equivalent.
+const precedence = applyFinanceSettlementAllocations(originalProjection, {
+  ...source,
+  resourceChains: [{
+    id: 'chain-a', payment_key: 'payment-key-a', deal_key: 'deal-key-generic-alpha',
+    native_amount: '9840.25', native_currency: 'RUB', accounting_amount: '999', accounting_currency: 'USD',
+    source_locked: true, current: true, authority_state: 'AUTHORITATIVE', lifecycle_state: 'CURRENT',
+  }],
+});
+assert.equal(precedence.deals[0].payment_passport.funding_events[0].settlement_lines[0].allocated_funding_amount, '123.45');
+assert.equal(precedence.deals[0].payment_passport.funding_events[0].settlement_lines[0].funding_allocation_source, 'FINANCE_AUTHORITATIVE_DERIVED');
+
+assert.equal(ADMIN_PAYMENTS_V7_PROJECTION_VERSION, 'ADMIN_PAYMENTS_V7_PROJECTION_FINANCE_SETTLEMENT_ALLOCATION_V2');
 
 console.log('MATERIALIZATION_SOURCE_TO_PROJECTION=PASS');
+console.log('RESOURCE_CHAIN_SECONDARY_DISPLAY_FALLBACK=PASS');
 console.log('PASSPORT_MIDDLE_COLUMN_FILLED=PASS');
 console.log('ACTUAL_SETTLEMENT_COLUMN_PRESERVED=PASS');
 console.log('FINANCE_AUTHORITY_FAIL_CLOSED=PASS');
