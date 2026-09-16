@@ -1,7 +1,12 @@
 // @ts-nocheck
 import postgres from 'postgres';
+import { buildAdminPaymentsV7FromRawSources } from '../_shared/admin-payments-v7/index.mjs';
 import { createAdminPaymentsV7TruthSourceReader } from './admin-payments-v7-source-reader-truth.mjs';
 import { createRonaOwnerAiSyncV7Handler } from './admin-payments-v7-integration.mjs';
+import {
+  applyOwnerConfirmedReceiptsV7,
+  readOwnerConfirmedReceiptsV7,
+} from './owner-confirmed-receipt-projection.mjs';
 
 const nativeServe = Deno.serve.bind(Deno);
 const DB = Deno.env.get('SUPABASE_DB_URL');
@@ -46,10 +51,22 @@ async function persistOwnerDecision({ envelope }) {
   return rows[0];
 }
 
-const readRawSources = createAdminPaymentsV7TruthSourceReader(v7Sql);
+const readBaseRawSources = createAdminPaymentsV7TruthSourceReader(v7Sql);
+async function readRawSources() {
+  const raw = await readBaseRawSources();
+  const ownerConfirmedReceipts = await readOwnerConfirmedReceiptsV7(v7Sql, raw?.sourceAsOf || null);
+  return { ...raw, ownerConfirmedReceipts };
+}
+
+function buildProjection(raw) {
+  const base = buildAdminPaymentsV7FromRawSources(raw);
+  return applyOwnerConfirmedReceiptsV7(base, raw?.ownerConfirmedReceipts || []);
+}
+
 nativeServe(createRonaOwnerAiSyncV7Handler({
   runtimeHandler,
   readRawSources,
+  buildProjection,
   persistOwnerDecision,
   logger: console,
 }));
