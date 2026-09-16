@@ -1,0 +1,25 @@
+name: P1 migrations source package
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/p1-migrations-package.yml'
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: p1-client-intake-migrations
+          path: |
+            supabase/migrations/20260915123000_client_intake_unified_v1.sql
+            supabase/migrations/20260915123100_client_intake_reverse_application_policy_v1.sql
+            supabase/migrations/20260915123200_client_intake_correction_api_v1.sql
+            supabase/migrations/20260915123300_client_intake_stage21_runtime_fix.sql
+            supabase/migrations/20260915123400_client_intake_automatic_executor_v1.sql
+            supabase/migrations/20260915123500_client_intake_stage22_global_coverage.sql
+            supabase/migrations/20260916010000_client_intake_p1_completion_v1.sql
+          retention-days: 1
