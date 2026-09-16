@@ -62,10 +62,10 @@ jobs:
             'tests/client-application-business-v2/pg17/review-dependencies.sql' \
             'tests/client-application-business-v2/pg17/review-regressions.sql' \
             'tests/client-application-business-v2/pg17/review-seed.sql' | sort -u > /tmp/expected-files.txt
-          git diff --name-only 83b4157edb18500467bf6b26a6d3dd5eabba3d98 | sort -u > /tmp/actual-files.txt
+          git add -A
+          git diff --cached --name-only 83b4157edb18500467bf6b26a6d3dd5eabba3d98 | sort -u > /tmp/actual-files.txt
           diff -u /tmp/expected-files.txt /tmp/actual-files.txt
           git config user.name 'rokotove26-png'
           git config user.email 'rokotove26@gmail.com'
-          git add -A
           git commit -m 'fix(applications): enforce Owner business authority boundary'
           git push origin HEAD:feat/client-applications-systemic-lifecycle-p1
