@@ -7,7 +7,7 @@ export function wireClientBusinessRuntime(source,validator){
  s=s.replace('${esc(priceText(app))}</div><button', '${applicationPriceMarkup(app)}</div><button');
  s=s.replace('${esc(terms)}</div>','${esc(terms)}<br>${esc(app.client_name)} / ${esc(app.contract_id)}</div>');
  // Preserve the open passport across canonical refreshes; context changes clear it explicitly.
- s=s.replace('aria-expanded="false">','aria-expanded="${String(state.openPassportId===id)}">');
+ s=s.replace('aria-expanded="false">Открыть</button>','aria-expanded="${String(state.openPassportId===id)}">${state.openPassportId===id?"Скрыть":"Открыть"}</button>');
  s=s.replace('data-rona-application-details="${esc(id)}" hidden','data-rona-application-details="${esc(id)}" ${state.openPassportId===id?"":"hidden"}');
  s=line(s,'function render(){',String.raw`function render(){
  const r=root();if(!r)return false;ensureStyle();retireLegacyApplicationsPresentation(r);const list=ensureList(r);
@@ -48,7 +48,8 @@ function applicationPriceMarkup(app){if(app.application_price===null)return '\u2
 async function openCanonicalApplicationPassport(button){
  if(button.disabled)return;
  const id=norm(button.getAttribute('data-rona-open-application')),ctx=authority()?.getCurrentContext?.(),key=contextKey(ctx);
- if(!/^.+-IN-[0-9]{4}-[0-9]{3,}$/.test(id)||!ctx)return;
+ if(!id||!ctx)return;
+ if(state.openPassportId===id){state.openPassportId=null;render();return}
  button.disabled=true;
  try{
   const result=await request('/v1/client/applications/'+encodeURIComponent(id)+'/passport?clientId='+encodeURIComponent(ctx.client_id)+'&contractId='+encodeURIComponent(ctx.contract_id));
