@@ -3,6 +3,10 @@ import { readFile, mkdir } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { chromium } from 'playwright';
 import { onRequest as mainUiRequest } from '../functions/portal/main-ui/index.js';
+import { onRequest as approvedPolishRequest } from '../functions/portal/admin-approved-polish-ui.js';
+import { onRequest as approvedShellRequest } from '../functions/portal/admin-approved-shell-v455-ui.js';
+import { onRequest as approvedClaimsRequest } from '../functions/portal/admin-approved-claims-v455-ui.js';
+import { onRequest as approvedAnalyticsRequest } from '../functions/portal/admin-approved-analytics-v455-ui.js';
 
 const ROOT=process.cwd();
 const DIST=join(ROOT,'dist');
@@ -49,6 +53,10 @@ const authority={
 
 const mainResponse=await mainUiRequest();
 const mainUi=await mainResponse.text();
+const approvedPolishUi=await (await approvedPolishRequest()).text();
+const approvedShellUi=await (await approvedShellRequest()).text();
+const approvedClaimsUi=await (await approvedClaimsRequest()).text();
+const approvedAnalyticsUi=await (await approvedAnalyticsRequest()).text();
 
 function send(res,status,body,type='text/plain; charset=utf-8',headers={}){
   res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});
@@ -72,6 +80,10 @@ const server=http.createServer(async(req,res)=>{
   if(p==='/favicon.ico')return send(res,204,'');
   if(p==='/portal/admin')return void await serveFile(res,join(DIST,'portal','admin.html'),'text/html; charset=utf-8');
   if(p==='/portal/main-ui')return send(res,200,mainUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/admin-approved-polish-ui')return send(res,200,approvedPolishUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/admin-approved-shell-v455-ui')return send(res,200,approvedShellUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/admin-approved-claims-v455-ui')return send(res,200,approvedClaimsUi,'application/javascript; charset=utf-8');
+  if(p==='/portal/admin-approved-analytics-v455-ui')return send(res,200,approvedAnalyticsUi,'application/javascript; charset=utf-8');
   if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui'||p==='/portal/remaining-sections-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');
   if(optionalUiPaths.has(p))return send(res,200,'/* QA optional current module */','application/javascript; charset=utf-8');
   if(p==='/portal/api/session/me')return json(res,{ok:true,user:{roles:['ADMIN'],display_name:'QA Admin'}});
