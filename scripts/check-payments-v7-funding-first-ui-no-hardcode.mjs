@@ -123,10 +123,8 @@ const crossCurrencySumPatterns=[
   /\.reduce\s*\([^\n]*(?:currency|acquired_currency|funding_currency)/gi,
 ];
 let crossCurrencySumCount=0;
-for(const pattern of crossCurrencySumPatterns)browserFinancialCalculationCount+=[...source.matchAll(pattern)].length;
-let crossCurrencySumCountValue=0;
-for(const pattern of crossCurrencySumPatterns)crossCurrencySumCountValue+=[...source.matchAll(pattern)].length;
-if(crossCurrencySumCountValue)failures.push(`CROSS_CURRENCY_SUM_COUNT:${crossCurrencySumCountValue}`);
+for(const pattern of crossCurrencySumPatterns)crossCurrencySumCount+=[...source.matchAll(pattern)].length;
+if(crossCurrencySumCount)failures.push(`CROSS_CURRENCY_SUM_COUNT:${crossCurrencySumCount}`);
 
 const requiredServerFields=[
   'payment_passport','funding_received','funding_spent','funding_remaining','funding_currency',
@@ -148,7 +146,7 @@ console.log('NO_EXPECTED_VALUE_INJECTION=PASS');
 console.log('NO_DEAL_ID_HARDCODE=PASS');
 console.log(`BROWSER_FINANCIAL_CALCULATION_COUNT=${browserFinancialCalculationCount}`);
 console.log(`REVERSE_FX_PRIMARY_COUNT=${reverseFxPrimaryCount}`);
-console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCountValue}`);
+console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCount}`);
 console.log('SERVER_AGGREGATE_ONLY=PASS');
 console.log('MAIN_PAYMENTS_BOARD_UNCHANGED=PASS');
 console.log('LIVE_OWNER_TABLE_ACTIVATION=PASS');
