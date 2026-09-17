@@ -1,0 +1,41 @@
+name: Payments V8 Recovery QA
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'scripts/admin-payments-v7-live-runtime-current.mjs'
+      - 'scripts/admin-payments-v7-cloudflare-build.mjs'
+      - 'supabase/migrations/20260917012000_payments_v8_atomic_canonical_state_executor_v1.sql'
+      - 'supabase/migrations/20260917012100_payments_v8_atomic_event_type_v1.sql'
+      - 'supabase/migrations/20260917012200_payments_v8_health_accept_atomic_canonical_state_v1.sql'
+      - 'tests/admin-payments-v7/**'
+      - '.github/workflows/payments-v8-recovery-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  payments-v8-recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact branch HEAD
+        shell: bash
+        run: |
+          actual="$(git rev-parse HEAD)"
+          echo "tested_sha=$actual"
+          if [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            test "$actual" = "${{ github.event.pull_request.head.sha }}"
+          fi
+      - name: Payments regression suite
+        run: npm run test:payments-v7
+      - name: No-hardcode gate
+        run: npm run scan:payments-v7
+      - name: Cloudflare recovery build
+        run: npm run build

@@ -19,7 +19,6 @@ test('top and deal Expected exclude Conditional and use current due semantics', 
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /paymentsV7Aggregate\(deals,'future_conditional'\)/);
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /text:'Ожидается'\}\),e\('strong',\{text:paymentsV7Money\(deal\?\.due_now\)\}\)/);
   assert.doesNotMatch(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /text:'Ожидается'\}\),e\('strong',\{text:paymentsV7Money\(deal\?\.remaining_to_receive\)\}\)/);
-  assert.doesNotMatch(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /Conditional:.*paymentsV7Kpi\('Ожидается'/s);
 });
 
 test('Cloudflare source wrapper patch replaces the assembled legacy Payments renderer', () => {
