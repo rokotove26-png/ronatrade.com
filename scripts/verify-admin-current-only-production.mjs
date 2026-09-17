@@ -35,7 +35,7 @@ const main=await retry('main-v2 semantic convergence',async attempt=>{
   assert(r.ok&&r.headers.get('x-rona-ui')==='main-v2',`status ${r.status} ui ${r.headers.get('x-rona-ui')}`);
   assert(r.headers.get('x-rona-deals-owner')==='current-only-v1.5',`deals owner ${r.headers.get('x-rona-deals-owner')}`);
   assert(r.headers.get('x-rona-payments-ui')==='admin-payments-v7-native-v2',`payments owner ${r.headers.get('x-rona-payments-ui')}`);
-  assert(r.headers.get('x-rona-payments-current-runtime')==='conditional-aware-v2',`payments runtime ${r.headers.get('x-rona-payments-current-runtime')}`);
+  assert(r.headers.get('x-rona-payments-current-runtime')==='due-now-conditional-v3',`payments runtime ${r.headers.get('x-rona-payments-current-runtime')}`);
   const t=await r.text();
   assert(t.length>0,'main-v2 body empty');
   for(const marker of ['PAYMENTS_V7_SERVER_AGGREGATE_UI_V2','paymentsV7MergeServerAggregateRows',"paymentsV7Kpi('Conditional'",'paymentsV7OwnerMoney(deal?.remaining_to_receive','grid-template-columns:repeat(5,minmax(0,1fr))'])assert(t.includes(marker),`Payments v2 live marker missing: ${marker}`);
