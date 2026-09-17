@@ -26,6 +26,52 @@ async function readPaymentsV8FinanceAuthorities(sql) {
      order by deal_key, effective_at, id`;
 }
 
+export function normalizeFinanceReconciliationDifferenceBreakdown(rows) {
+  if (!Array.isArray(rows)) return [];
+  const out = [];
+  const seen = new Set();
+  for (const row of rows) {
+    const currency = String(row?.currency || '').trim().toUpperCase();
+    const direction = String(row?.direction || '').trim().toUpperCase();
+    const publisherIdentity = String(row?.publisher_identity || '').trim().toUpperCase();
+    const functionalRole = String(row?.functional_role || '').trim().toUpperCase();
+    const amount = row?.amount === null || row?.amount === undefined ? null : String(row.amount).trim();
+    const amountNumber = amount === null ? null : Number(amount);
+    const sourceRefs = Array.isArray(row?.source_refs) ? row.source_refs : [];
+    const valid = (
+      ['USD', 'RUB'].includes(currency)
+      && ['PROFICIT', 'DEFICIT'].includes(direction)
+      && publisherIdentity === 'AI-FINANCE'
+      && functionalRole === 'FINANCE'
+      && row?.source_locked === true
+      && amount !== null
+      && Number.isFinite(amountNumber)
+      && ((direction === 'PROFICIT' && amountNumber > 0) || (direction === 'DEFICIT' && amountNumber < 0))
+      && String(row?.source_version || '').trim()
+      && String(row?.source_set_identity || '').trim()
+      && sourceRefs.length > 0
+      && !seen.has(currency)
+    );
+    if (!valid) return [];
+    seen.add(currency);
+    out.push({
+      currency,
+      direction,
+      amount,
+      source_version: String(row.source_version),
+      source_set_identity: String(row.source_set_identity),
+      source_refs: sourceRefs,
+      publisher_identity: 'AI-FINANCE',
+      functional_role: 'FINANCE',
+      source_locked: true,
+      recorded_by: row?.recorded_by ? String(row.recorded_by) : null,
+      published_at: row?.published_at || null,
+    });
+  }
+  if (out.length !== 2 || !seen.has('USD') || !seen.has('RUB')) return [];
+  return out;
+}
+
 export function normalizeFinanceReconciliationDifferencePublication(row) {
   const fallback = {
     source_contract: FINANCE_RECONCILIATION_DIFFERENCE_SOURCE,
@@ -41,6 +87,7 @@ export function normalizeFinanceReconciliationDifferencePublication(row) {
     functional_role: row?.functional_role ? String(row.functional_role) : null,
     source_locked: row?.source_locked === true,
     published_at: row?.published_at || null,
+    breakdown: [],
   };
   if (!row) return fallback;
 
@@ -73,15 +120,39 @@ export function normalizeFinanceReconciliationDifferencePublication(row) {
     publisher_identity: 'AI-FINANCE',
     functional_role: 'FINANCE',
     source_locked: true,
+    breakdown: normalizeFinanceReconciliationDifferenceBreakdown(row?.breakdown),
   };
 }
 
 export async function readFinanceReconciliationDifference(sql) {
   const rows = await sql`
-    select id::text id, result_status, amount::text amount, currency, snapshot_at,
-           source_version, source_set_identity, source_refs,
-           publisher_identity, functional_role, source_locked, published_at
-      from portal_private.finance_reconciliation_difference_current_v1
+    select p.id::text id, p.result_status, p.amount::text amount, p.currency, p.snapshot_at,
+           p.source_version, p.source_set_identity, p.source_refs,
+           p.publisher_identity, p.functional_role, p.source_locked, p.published_at,
+           coalesce(
+             (
+               select jsonb_agg(
+                 jsonb_build_object(
+                   'currency', c.currency,
+                   'direction', c.direction,
+                   'amount', c.amount::text,
+                   'source_version', c.source_version,
+                   'source_set_identity', c.source_set_identity,
+                   'source_refs', c.source_refs,
+                   'publisher_identity', c.publisher_identity,
+                   'functional_role', c.functional_role,
+                   'source_locked', c.source_locked,
+                   'recorded_by', c.recorded_by,
+                   'published_at', c.published_at
+                 )
+                 order by c.currency desc
+               )
+                 from portal_private.finance_reconciliation_difference_components_v1 c
+                where c.publication_id = p.id
+             ),
+             '[]'::jsonb
+           ) breakdown
+      from portal_private.finance_reconciliation_difference_current_v1 p
      limit 1`;
   return normalizeFinanceReconciliationDifferencePublication(rows?.[0] || null);
 }
