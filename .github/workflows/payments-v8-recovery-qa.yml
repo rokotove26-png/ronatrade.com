@@ -7,6 +7,8 @@ on:
     paths:
       - 'scripts/admin-payments-v7-live-runtime-current.mjs'
       - 'scripts/admin-payments-v7-cloudflare-build.mjs'
+      - 'supabase/functions/rona-owner-ai-sync/index.ts'
+      - 'supabase/functions/rona-owner-ai-sync/finance-authority-projection-v8.mjs'
       - 'supabase/migrations/20260917012000_payments_v8_atomic_canonical_state_executor_v1.sql'
       - 'supabase/migrations/20260917012100_payments_v8_atomic_event_type_v1.sql'
       - 'supabase/migrations/20260917012200_payments_v8_health_accept_atomic_canonical_state_v1.sql'
