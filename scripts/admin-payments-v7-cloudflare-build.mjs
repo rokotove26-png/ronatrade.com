@@ -1,11 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import {
   FINAL_LIVE_ADMIN_SOURCE_COMMIT,
   recoverLiveAdminWorkspace,
 } from './admin-payments-v7-final-live-source.mjs';
+import { patchAdminPaymentsRuntimeCurrentSource } from './admin-payments-v7-live-runtime-current.mjs';
 
 const ROOT = process.cwd();
 const LIVE_COMMIT = FINAL_LIVE_ADMIN_SOURCE_COMMIT;
@@ -67,6 +68,15 @@ try {
     cpSync(source, destination, { force: true });
   }
   console.log('OPERATIONS_CENTER_V5_OVERRIDES=READY');
+
+  // The release worktree is intentionally pinned, but Payments must not be.
+  // Always derive the browser renderer from the current canonical runtime so
+  // new Finance/read-model semantics are reflected without per-deal UI fixes.
+  const adminMainPath = join(worktree, 'functions/portal/admin-main-ui-current.js');
+  const adminMainSource = readFileSync(adminMainPath, 'utf8');
+  const patchedAdminMainSource = patchAdminPaymentsRuntimeCurrentSource(adminMainSource);
+  writeFileSync(adminMainPath, patchedAdminMainSource);
+  console.log('PAYMENTS_V7_CURRENT_RUNTIME_PATCH=READY');
 
   run(npmBin, ['run', 'build'], { cwd: worktree });
 
