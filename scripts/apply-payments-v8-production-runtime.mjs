@@ -141,7 +141,12 @@ const wrapperCurrent = `  // PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2
   patchedBase+=applicationPassportRuntime;`;
 if (wrapper.includes(wrapperLegacy)) wrapper = wrapper.replace(wrapperLegacy, wrapperCurrent);
 else if (!wrapper.includes('PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2')) throw new Error('PAYMENTS_V8_MAIN_UI_WRAPPER_SOURCE_MISMATCH');
-for (const required of ['PAYMENTS_V8_STAGE5C_IDEMPOTENT_RUNTIME_V1','PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2']) {
+
+const oldWrapperOwnerHeader = "headers.set('x-rona-payments-ui','admin-payments-v7-native');";
+const newWrapperOwnerHeader = "headers.set('x-rona-payments-ui','admin-payments-v7-native-v2');";
+if (wrapper.includes(oldWrapperOwnerHeader)) wrapper = wrapper.replace(oldWrapperOwnerHeader, newWrapperOwnerHeader);
+else if (!wrapper.includes(newWrapperOwnerHeader)) throw new Error('PAYMENTS_V8_MAIN_UI_WRAPPER_OWNER_HEADER_MISMATCH');
+for (const required of ['PAYMENTS_V8_STAGE5C_IDEMPOTENT_RUNTIME_V1','PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2',newWrapperOwnerHeader]) {
   if (!wrapper.includes(required)) throw new Error(`PAYMENTS_V8_MAIN_UI_WRAPPER_PATCH_MISSING: ${required}`);
 }
 await writeFile(MAIN_UI_WRAPPER_TARGET, wrapper, 'utf8');
