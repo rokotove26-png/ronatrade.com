@@ -1,7 +1,7 @@
 export default String.raw`
 (()=>{'use strict';
-if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V9__)return;
-window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V9__=true;
+if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V10__)return;
+window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V10__=true;
 if(location.pathname!=='/portal/admin')return;
 const ROOT='#page-payments .rona-payments-v7';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim().toUpperCase();
@@ -20,8 +20,8 @@ function installStyle(){
   const s=document.createElement('style');
   s.id='ronaAdminPaymentsColorRestoreV8';
   s.textContent='#page-payments .rona-payments-v7{--pay-violet:#86eee6!important}'+
-  '#page-payments .rona-payments-v7-board{gap:6px!important;row-gap:6px!important;column-gap:6px!important}'+
-  '#page-payments .rona-payments-v7-board>.rona-payments-v7-deal{margin:0!important}'+
+  '#page-payments .rona-payments-v7-board,#page-payments .rona-payments-v7-list,#page-payments .rona-payments-v7-deals{gap:2px!important;row-gap:2px!important;column-gap:2px!important}'+
+  '#page-payments .rona-payments-v7-deal{margin:0!important;margin-block:0!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]{--pay-tone:#86eee6!important;border-color:rgba(134,238,230,.24)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 20px rgba(94,225,215,.045)!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-value{color:#d9fffb!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]{display:inline-flex!important;align-items:center!important;width:max-content!important;max-width:100%!important;margin-top:5px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font-size:9.3px!important;line-height:1.15!important;font-weight:880!important;letter-spacing:.085em!important;text-transform:uppercase!important;white-space:nowrap!important}'+
@@ -42,8 +42,11 @@ function installStyle(){
 function dedupePaymentsTitle(){
   const page=document.getElementById('page-payments');
   if(!page)return;
-  const nodes=[...page.querySelectorAll('h1,h2,h3,h4,h5,h6,[class*="title" i],[class*="heading" i]')]
-    .filter(n=>norm(n.textContent)==='ПЛАТЕЖИ'&&getComputedStyle(n).display!=='none');
+  const nodes=[...page.querySelectorAll('*')].filter(n=>{
+    if(norm(n.textContent)!=='ПЛАТЕЖИ')return false;
+    if(getComputedStyle(n).display==='none'||getComputedStyle(n).visibility==='hidden')return false;
+    return ![...n.children].some(c=>norm(c.textContent)==='ПЛАТЕЖИ');
+  });
   if(nodes.length<2)return;
   let keep=nodes[0],keepSize=parseFloat(getComputedStyle(keep).fontSize)||0;
   for(const n of nodes.slice(1)){
@@ -54,12 +57,28 @@ function dedupePaymentsTitle(){
     if(n===keep)continue;
     n.dataset.ronaPaymentsDuplicateTitle='hidden';
     n.style.setProperty('display','none','important');
+    n.setAttribute('aria-hidden','true');
+  }
+}
+function compactDealStack(root){
+  const deals=[...root.querySelectorAll('.rona-payments-v7-deal')];
+  if(!deals.length)return;
+  const parent=deals[0].parentElement;
+  if(parent&&deals.every(d=>d.parentElement===parent)){
+    parent.style.setProperty('gap','2px','important');
+    parent.style.setProperty('row-gap','2px','important');
+    parent.style.setProperty('column-gap','2px','important');
+  }
+  for(const deal of deals){
+    deal.style.setProperty('margin','0','important');
+    deal.style.setProperty('margin-block','0','important');
   }
 }
 function decorate(){
   const root=document.querySelector(ROOT);if(!root)return false;
   installStyle();
   dedupePaymentsTitle();
+  compactDealStack(root);
   root.style.setProperty('--pay-violet','#86eee6','important');
   for(const status of root.querySelectorAll('.rona-payments-v7-status')){
     delete status.dataset.nativeStatusTone;
@@ -74,7 +93,7 @@ function decorate(){
     const tone=toneForStatus(status?.textContent||'');
     if(tone)head.dataset.firstColTone=tone;
   }
-  root.dataset.colorRestore='v9-first-column-compact';
+  root.dataset.colorRestore='v10-first-column-tight-stack';
   return true;
 }
 let queued=false;
