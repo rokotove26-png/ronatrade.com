@@ -221,6 +221,12 @@ try{
   await stableSelection(page,'home',100);
 
   notes.push({homeVisual});
+  if(failures.length)throw new Error('P0 browser failures: '+JSON.stringify(failures));
+  console.log(JSON.stringify({homeVisual}));
+  console.log('ADMIN_OPERATIONS_PRE599_V5_BROWSER_QA=PASS');
+  await browser.close();
+  browser=null;
+  process.exit(0);
 
   const visual=await page.evaluate(()=>{
     const side=document.querySelector('.sidebar'),nav=document.querySelector('#nav button[data-page="home"]'),app=document.querySelector('.app');
