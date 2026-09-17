@@ -21,7 +21,7 @@ assert.match(paymentsPatched, /paymentsV7Kpi\('Conditional'/,'Conditional must b
 assert.match(paymentsPatched, /paymentsV7Aggregate\(deals,'future_conditional'\)/,'Base Conditional must use future_conditional');
 assert.match(paymentsPatched, /paymentsV7OwnerMoney\(deal\?\.due_now/,'Final deal/passport display must use due_now');
 assert.match(paymentsPatched, /paymentsV7OwnerMoney\(deal\?\.future_conditional/,'Final deal/passport display must expose future_conditional separately');
-assert.match(paymentsPatched, /text:'Сумма по сделке'/,'Deal total label must be explicit');
+assert.match(paymentsPatched, /paymentsV7Kpi\('Сумма по сделке'/,'Deal total KPI label must be explicit');
 assert.match(paymentsPatched, /data-rona-payments-owner':'admin-payments-v7-native-v2'/,'Updated Payments route owner marker missing');
 
 const finalDealStart = paymentsPatched.indexOf('paymentsV7Deal=function paymentsV7DealFinalDisplay(deal){');
