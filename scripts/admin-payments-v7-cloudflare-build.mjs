@@ -7,6 +7,7 @@ import {
   recoverLiveAdminWorkspace,
 } from './admin-payments-v7-final-live-source.mjs';
 import { patchAdminPaymentsRuntimeCurrentSource } from './admin-payments-v7-live-runtime-current.mjs';
+import { stripOwnerBuildIndicator } from './admin-owner-production-diagnostics-policy.mjs';
 
 const ROOT = process.cwd();
 const LIVE_COMMIT = FINAL_LIVE_ADMIN_SOURCE_COMMIT;
@@ -68,6 +69,18 @@ try {
     cpSync(source, destination, { force: true });
   }
   console.log('OPERATIONS_CENTER_V5_OVERRIDES=READY');
+
+  // Production owner portals must never expose the internal build/data badge.
+  // Enforce this against the pinned prepaint runtime before bundling. If the
+  // upstream runtime changes shape, fail the build instead of shipping a new
+  // diagnostic badge by accident.
+  const ownerPrepaintPath = join(worktree, 'functions/portal/owner-ui-chunks/chunk15-base.js');
+  if (!existsSync(ownerPrepaintPath)) {
+    throw new Error('OWNER_BUILD_INDICATOR_POLICY_RUNTIME_MISSING');
+  }
+  const ownerPrepaintSource = readFileSync(ownerPrepaintPath, 'utf8');
+  writeFileSync(ownerPrepaintPath, stripOwnerBuildIndicator(ownerPrepaintSource));
+  console.log('OWNER_PRODUCTION_BUILD_INDICATOR=DISABLED');
 
   // The release worktree is intentionally pinned, but Payments must not be.
   // Always derive the browser renderer from the current canonical runtime so
