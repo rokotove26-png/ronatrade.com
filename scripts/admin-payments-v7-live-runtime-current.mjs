@@ -5,7 +5,7 @@ function paymentsV7Projection(){const p=window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.
 function paymentsV7Array(v){return Array.isArray(v)?v:[]}
 function paymentsV7Upper(v){return String(v??'').trim().toUpperCase()}
 function paymentsV7Num(v){const n=Number(v);return Number.isFinite(n)?n:null}
-function paymentsV7Fmt(v){const n=paymentsV7Num(v);return n===null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)}
+function paymentsV7Fmt(v){const n=paymentsV7Num(v);return n===null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(n)}
 function paymentsV7Money(v){return v&&paymentsV7Upper(v.status)==='AUTHORITATIVE'&&v.amount!==null&&v.currency?paymentsV7Fmt(v.amount)+' '+paymentsV7Upper(v.currency):'TO_VERIFY'}
 function paymentsV7Percent(v){return v&&paymentsV7Upper(v.status)==='AUTHORITATIVE'&&v.percent!==null?paymentsV7Fmt(v.percent)+'%':'TO_VERIFY'}
 function paymentsV7Rows(map){return[...map.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([currency,amount])=>({currency,amount}))}
