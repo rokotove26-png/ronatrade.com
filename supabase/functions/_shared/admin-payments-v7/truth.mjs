@@ -206,7 +206,7 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
     const rawPayment = rawPaymentByKey.get(String(payment.payment_key)) || {};
     return {
       ...payment,
-      recipient: rawPayment.beneficiary_name || rawPayment.counterparty_name || payment.counterparty_name || null,
+      recipient: rawPayment.counterparty_name || rawPayment.beneficiary_name || payment.counterparty_name || null,
       original_payment_purpose: rawPayment.original_payment_purpose || null,
       bank_account_reference: rawPayment.bank_account_reference || null,
       bank_statement_date: rawPayment.bank_statement_date || null,
