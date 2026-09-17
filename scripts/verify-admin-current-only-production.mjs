@@ -34,8 +34,12 @@ const main=await retry('main-v2 semantic convergence',async attempt=>{
   const r=await fetchNoStore('/portal/main-ui',attempt);
   assert(r.ok&&r.headers.get('x-rona-ui')==='main-v2',`status ${r.status} ui ${r.headers.get('x-rona-ui')}`);
   assert(r.headers.get('x-rona-deals-owner')==='current-only-v1.5',`deals owner ${r.headers.get('x-rona-deals-owner')}`);
-  assert(r.headers.get('x-rona-payments-ui')==='admin-payments-v7-native',`payments owner ${r.headers.get('x-rona-payments-ui')}`);
-  const t=await r.text();assert(t.length>0,'main-v2 body empty');return t;
+  assert(r.headers.get('x-rona-payments-ui')==='admin-payments-v7-native-v2',`payments owner ${r.headers.get('x-rona-payments-ui')}`);
+  assert(r.headers.get('x-rona-payments-current-runtime')==='conditional-aware-v2',`payments runtime ${r.headers.get('x-rona-payments-current-runtime')}`);
+  const t=await r.text();
+  assert(t.length>0,'main-v2 body empty');
+  for(const marker of ['PAYMENTS_V7_SERVER_AGGREGATE_UI_V2','paymentsV7MergeServerAggregateRows',"paymentsV7Kpi('Conditional'",'paymentsV7OwnerMoney(deal?.remaining_to_receive','grid-template-columns:repeat(5,minmax(0,1fr))'])assert(t.includes(marker),`Payments v2 live marker missing: ${marker}`);
+  return t;
 });
 
 const runtimeSrc=await retry('single-owner runtime semantic convergence',async attempt=>{
@@ -48,7 +52,7 @@ const runtimeSrc=await retry('single-owner runtime semantic convergence',async a
 
 const watchdogSrc=await retry('page-aware watchdog semantic convergence',async attempt=>{
   const r=await fetchNoStore('/assets/portal-admin-runtime-watchdog-v1.js',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();
-  assert(t.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v8-radio-final-v9'"),'page-aware-v8-radio-final-v9 marker missing');
+  assert(t.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'page-aware-v10-radio-payments-heading marker missing');
   assert(t.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')"),'Analytics rendered-ready marker missing');
   assert(t.includes("if(p==='market-news')return marketNewsReady()"),'market-news owner marker missing');
   assert(t.includes("root.querySelector(':scope > .mn-masthead')"),'market-news health marker missing');
@@ -94,11 +98,11 @@ const analytics=await retry('Canonical Analytics semantic convergence',async att
 });
 
 const approvedShell=await retry('Approved shell visual convergence',async attempt=>{const r=await fetchNoStore('/portal/admin-approved-shell-v455-ui',attempt);assert(r.ok,`status ${r.status}`);optionalHeader(r,'x-rona-admin-shell-visual','approved-v4.5.5-admin-home');const t=await r.text();for(const marker of ['RONA_NAV_ATTENTION','rona-topbar-premium','ronaAuroraNight','/assets/portal-canonical/background.png'])assert(t.includes(marker),`approved shell marker missing: ${marker}`);return t});
-const approvedClaims=await retry('Approved Claims visual convergence',async attempt=>{const r=await fetchNoStore('/portal/admin-approved-claims-v455-ui',attempt);assert(r.ok,`status ${r.status}`);optionalHeader(r,'x-rona-claims-visual','approved-v4.5.5');const t=await r.text();assert(t.includes('ronaClaimsV455Style')&&t.includes('1140px')&&t.includes('372px'),'approved Claims geometry missing');return t});
+const approvedClaims=await retry('Approved Claims visual convergence',async attempt=>{const r=await fetchNoStore('/portal/admin-approved-claims-v455-ui',attempt);assert(r.ok,`status ${r.status}`);optionalHeader(r,'x-rona-claims-visual','approved-v5.1.2');const t=await r.text();assert(t.includes('ronaClaimsV455Style')&&t.includes('1480px')&&t.includes('minmax(340px,.82fr)')&&t.includes('grid-template-columns:repeat(5,minmax(0,1fr))'),'approved Claims v5.1.2 geometry missing');return t});
 const retiredAnalytics=await retry('Retired Analytics compatibility guard convergence',async attempt=>{const r=await fetchNoStore('/portal/admin-approved-analytics-v455-ui',attempt);assert(r.ok,`status ${r.status}`);optionalHeader(r,'x-rona-analytics-approved','retired-compat-guard-v5');const t=await r.text();assert(t.includes("__RONA_ANALYTICS_APPROVED_V455__==='retired-compat-guard-v5'"),'retired Analytics compatibility guard marker missing');for(const stale of ['A92.map(x=>x+40)','Platts propane · CIF NWE','прогнозный рыночный нетбек'])assert(!t.includes(stale),`retired Analytics renderer still active: ${stale}`);return t});
 
 const modalStack=await retry('Admin modal stack convergence',async attempt=>{const r=await fetchNoStore('/assets/portal-admin-modal-stack-v1.css',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();assert(t.includes('.ca-modal-backdrop{z-index:2147483600!important}'),'Admin access modal-stack fix missing');return t});
 await retry('canonical visual assets semantic convergence',async attempt=>{const [bg,logo]=await Promise.all([fetchNoStore('/assets/portal-canonical/background.png',attempt),fetchNoStore('/assets/portal-canonical/logo.svg',attempt)]);assert(bg.ok&&logo.ok,`bg ${bg.status} logo ${logo.status}`);return true});
 
 assert(main.length>0&&runtimeSrc.length>0&&watchdogSrc.length>0&&access.length>0&&claims.length>0&&remaining.length>0&&analytics.length>0&&approvedShell.length>0&&approvedClaims.length>0&&retiredAnalytics.length>0&&modalStack.length>0,'semantic proof body unexpectedly empty');
-console.log('ADMIN_CLIENT_CURRENT_ONLY_CUSTOM_DOMAIN_SEMANTIC_CONVERGENCE=PASS',JSON.stringify({base,sha,architecture:integrity.architecture,adminState:integrity.admin_runtime.state,clientState:integrity.client_runtime.state,adminBytes:integrity.admin_runtime.emitted_bytes,legacyRuntime:false,shell:'current-only-v2',runtime:'single-owner-v3',watchdog:'page-aware-v8-radio-final-v9',access:'clients-agents-current-v5',claims:true,rewards:true,analytics:'approved-v4.3.2-pricing-bridge-single-owner',analyticsOwner:'approved-v432-exclusive',analyticsSource:'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html',analyticsCompatGuard:'retired-compat-guard-v5',approvedVisual:'v4.5.5-admin-home',modalStack:'v1',nav:'current-only-router-v2',staticHeaders:'advisory',semanticRetryAttempts:15,semanticRetryDelayMs:2000}));
+console.log('ADMIN_CLIENT_CURRENT_ONLY_CUSTOM_DOMAIN_SEMANTIC_CONVERGENCE=PASS',JSON.stringify({base,sha,architecture:integrity.architecture,adminState:integrity.admin_runtime.state,clientState:integrity.client_runtime.state,adminBytes:integrity.admin_runtime.emitted_bytes,legacyRuntime:false,shell:'current-only-v2',runtime:'single-owner-v3',watchdog:'page-aware-v10-radio-payments-heading',access:'clients-agents-current-v5',claims:true,rewards:true,analytics:'approved-v4.3.2-pricing-bridge-single-owner',analyticsOwner:'approved-v432-exclusive',analyticsSource:'RONA_Admin_LK_LOCAL_v4_3_2_Analytics_PricingBridge_Ready_Local.html',analyticsCompatGuard:'retired-compat-guard-v5',approvedVisual:'v4.5.5-admin-home',modalStack:'v1',nav:'current-only-router-v2',staticHeaders:'advisory',semanticRetryAttempts:15,semanticRetryDelayMs:2000}));
