@@ -1,6 +1,6 @@
 import paymentsMoneyDisplayContract from './main-ui/payments-money-display-contract.js';
 
-const BUILD='payments-v8-admin-ui-v7-headless-bridge-20260917';
+const BUILD='payments-v8-admin-ui-v8-visual-handoff-20260917';
 
 const SCRIPT=paymentsMoneyDisplayContract+String.raw`(()=>{'use strict';
 if(window.__RONA_PAYMENTS_V8_UI_INSTALLED__)return;
@@ -13,6 +13,7 @@ const LEGACY_PASSPORT_MODAL_ID='ronaPaymentsV7PassportDesignerModal';
 let projection=null;
 let loading=null;
 let retryTimer=null;
+let visualRetryTimer=null;
 let publishing=false;
 
 function asArray(v){return Array.isArray(v)?v:[]}
@@ -22,7 +23,7 @@ function authoritative(m){return !!m&&upper(m.status)==='AUTHORITATIVE'&&m.amoun
 function fmtNumber(v){const formatted=globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.formatAmount(v);return formatted===null||formatted===undefined?'—':formatted}
 function money(m){return authoritative(m)?fmtNumber(m.amount)+' '+upper(m.currency):'Требует проверки'}
 function rawMoney(amount,currency){return amount!==null&&amount!==undefined&&Number.isFinite(Number(amount))&&text(currency)?fmtNumber(amount)+' '+upper(currency):'Требует проверки'}
-function node(tag,attrs,...children){const el=document.createElement(tag);for(const [k,v] of Object.entries(attrs||{})){if(v===null||v===undefined)continue;if(k==='class')el.className=String(v);else if(k==='text')el.textContent=String(v);else if(k==='dataset'&&v&&typeof v==='object'){for(const [dk,dv] of Object.entries(v))el.dataset[dk]=String(dv)}else el.setAttribute(k,String(v))}for(const child of children.flat()){if(child===null||child===undefined)continue;el.append(child instanceof Node?child:document.createTextNode(String(child)))}return el}
+function node(tag,attrs,...children){const el=document.createElement(tag);for(const [k,v] of Object.entries(attrs||{})){if(v===null||v===undefined)continue;if(k==='class')el.className=String(v);else if(k==='text')el.textContent=String(v);else if(k==='dataset'&&v&&typeof v==='object'){for(const [dk,dv]of Object.entries(v))el.dataset[dk]=String(dv)}else el.setAttribute(k,String(v))}for(const child of children.flat()){if(child===null||child===undefined)continue;el.append(child instanceof Node?child:document.createTextNode(String(child)))}return el}
 function versionKey(){return String(projection?.source_as_of||projection?.generated_at||projection?.generatedAt||'current')}
 
 function installPassportStyle(){if(document.getElementById('ronaPaymentsV8PassportStyle'))return;const s=node('style',{id:'ronaPaymentsV8PassportStyle'});s.textContent='.rona-payments-v8-passport-trigger{appearance:none;border:1px solid rgba(126,170,203,.24);border-radius:8px;padding:7px 10px;background:rgba(12,31,45,.9);color:#dce9f3;font:inherit;font-size:11px;font-weight:800;cursor:pointer}.rona-payments-v8-passport-overlay{position:fixed;inset:0;z-index:2147483100;display:grid;place-items:center;padding:20px;background:rgba(1,7,12,.78);backdrop-filter:blur(10px)}.rona-payments-v8-passport-modal{width:min(1120px,calc(100vw - 40px));max-height:92vh;display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(126,170,203,.22);border-radius:18px;background:linear-gradient(180deg,rgba(9,23,34,.995),rgba(4,13,21,.995));box-shadow:0 30px 90px rgba(0,0,0,.58);color:#e8f0f6}.rona-payments-v8-passport-head{display:flex;justify-content:space-between;gap:18px;padding:17px 20px;border-bottom:1px solid rgba(126,170,203,.13)}.rona-payments-v8-passport-head h2{margin:0;font-size:22px}.rona-payments-v8-passport-close{appearance:none;border:1px solid rgba(126,170,203,.24);border-radius:8px;padding:8px 12px;background:rgba(13,31,45,.9);color:#dce9f3;font:inherit;font-weight:800;cursor:pointer}.rona-payments-v8-passport-scroll{overflow:auto;padding:16px 18px 20px}.rona-payments-v8-passport-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.rona-payments-v8-passport-card{border:1px solid rgba(126,170,203,.14);border-radius:11px;padding:12px;background:rgba(8,22,33,.72)}.rona-payments-v8-passport-card h3{margin:0 0 8px;font-size:13px}.rona-payments-v8-passport-kv{display:grid;grid-template-columns:minmax(150px,.44fr) minmax(0,1fr);gap:6px 12px;font-size:12px;line-height:1.35}.rona-payments-v8-passport-kv dt{color:#82a1b7}.rona-payments-v8-passport-kv dd{margin:0;color:#edf5fa;overflow-wrap:anywhere}.rona-payments-v8-passport-empty{padding:14px;border:1px dashed rgba(242,187,103,.3);border-radius:10px;color:#e8cb99}.rona-payments-v8-passport-section-title{margin:18px 0 8px;font-size:13px;color:#a9c0d0}.rona-payments-v8-passport-list{display:grid;gap:10px}@media(max-width:980px){.rona-payments-v8-passport-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:820px){.rona-payments-v8-passport-overlay{padding:8px}.rona-payments-v8-passport-modal{width:calc(100vw - 16px)}.rona-payments-v8-passport-summary{grid-template-columns:1fr}.rona-payments-v8-passport-kv{grid-template-columns:1fr}.rona-payments-v8-passport-kv dd{margin-bottom:5px}}';document.head.appendChild(s)}
@@ -53,6 +54,17 @@ function legacyPassportDealId(trigger){const article=trigger?.closest?.('.rona-p
 function disableLegacyPassportRuntime(){const handler=document.__ronaPaymentsV7PassportOwnerTableV2Handler;if(typeof handler==='function'){document.removeEventListener('click',handler,true);document.__ronaPaymentsV7PassportOwnerTableV2Handler=null}document.getElementById(LEGACY_PASSPORT_MODAL_ID)?.remove();document.documentElement.classList.remove('rona-payments-v7-modal-open');window.__RONA_PAYMENTS_V8_LEGACY_PASSPORT_DISABLED__=true}
 function openCanonicalPassport(dealId){const id=text(dealId);if(!id)return false;if(projection)return openPassport(id);load().then(p=>{if(p)openPassport(id)});return true}
 function openCanonicalPassportForLegacyTrigger(trigger){const dealId=legacyPassportDealId(trigger);return dealId?openCanonicalPassport(dealId):false}
+function visualReady(){return !!document.querySelector('#page-payments .rona-payments-v7')}
+function requestVisualRender(attempt=0){
+  if(visualReady()){if(visualRetryTimer){clearTimeout(visualRetryTimer);visualRetryTimer=null}return true}
+  const direct=window.__RONA_RENDER_PAYMENTS_V7__||window.renderPayments;
+  if(typeof direct==='function'){try{direct()}catch(_e){}}
+  if(visualReady())return true;
+  const nav=document.querySelector('#nav button[data-page="payments"],#nav a[data-page="payments"],#nav [role="button"][data-page="payments"],[data-page="payments"]');
+  if(nav){try{nav.dispatchEvent(new MouseEvent('click',{bubbles:true,cancelable:true,view:window}))}catch(_e){try{nav.click()}catch(_ignored){}}}
+  if(!visualReady()&&attempt<7){const delays=[40,90,180,320,550,900,1500,2400];if(visualRetryTimer)clearTimeout(visualRetryTimer);visualRetryTimer=setTimeout(()=>requestVisualRender(attempt+1),delays[Math.min(attempt,delays.length-1)])}
+  return visualReady();
+}
 
 function bridgeProjection(){
   if(!projection||projection.contract!=='ADMIN_PAYMENTS_V7')return false;
@@ -62,8 +74,8 @@ function bridgeProjection(){
   const page=document.getElementById('page-payments');
   if(page){page.dataset.ronaPaymentsV8DataOwner=OWNER;page.dataset.ronaPaymentsVisualOwner=VISUAL_OWNER;page.querySelector(':scope > #ronaPaymentsV8Root')?.remove()}
   window.__RONA_PAYMENTS_V8_UI__={status:'READY',owner:OWNER,mode:'DATA_AND_PASSPORT_BRIDGE',visualOwner:VISUAL_OWNER,sourceAsOf:projection.source_as_of||null,dealCount:asArray(projection.deals).length,moneyDisplayContract:globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.contract||null,passportModal:'CANONICAL_V8',legacyPassportDisabled:true,renderedAt:new Date().toISOString()};
-  if(typeof window.renderPayments==='function'){try{window.renderPayments()}catch(_e){}}
   if(!publishing){publishing=true;try{window.dispatchEvent(new CustomEvent('rona:finance-sync',{detail:{source:OWNER,projectionKey:versionKey()}}))}finally{publishing=false}}
+  requestVisualRender(0);
   return true;
 }
 function extract(payload){const direct=payload?.data?.paymentsV7Projection||payload?.paymentsV7Projection||null;if(direct?.contract==='ADMIN_PAYMENTS_V7'&&Array.isArray(direct.deals))return direct;return null}
@@ -76,7 +88,7 @@ function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTi
 function scheduleLoad(){setTimeout(()=>{if(projection)bridgeProjection();else load()},0)}
 window.__RONA_PAYMENTS_V8_OPEN_PASSPORT__=openCanonicalPassport;
 disableLegacyPassportRuntime();
-document.addEventListener('click',event=>{const legacy=event.target?.closest?.('.rona-payments-v7-passport-trigger,.rona-payments-v7-passport > summary');if(legacy){event.preventDefault();event.stopImmediatePropagation();event.stopPropagation();openCanonicalPassportForLegacyTrigger(legacy);return}const passport=event.target?.closest?.('[data-payments-v8-passport-deal]');if(passport){event.preventDefault();event.stopImmediatePropagation();openCanonicalPassport(passport.dataset.paymentsV8PassportDeal);return}if(event.target?.closest?.('[data-payments-v8-passport-close]')||event.target?.id===PASSPORT_MODAL_ID){event.preventDefault();closePassport();return}const b=event.target?.closest?.('#nav button[data-page="payments"],[data-page="payments"]');if(b)scheduleLoad()},true);
+document.addEventListener('click',event=>{const legacy=event.target?.closest?.('.rona-payments-v7-passport-trigger,.rona-payments-v7-passport > summary');if(legacy){event.preventDefault();event.stopImmediatePropagation();event.stopPropagation();openCanonicalPassportForLegacyTrigger(legacy);return}const passport=event.target?.closest?.('[data-payments-v8-passport-deal]');if(passport){event.preventDefault();event.stopImmediatePropagation();openCanonicalPassport(passport.dataset.paymentsV8PassportDeal);return}if(event.target?.closest?.('[data-payments-v8-passport-close]')||event.target?.id===PASSPORT_MODAL_ID){event.preventDefault();closePassport();return}const b=event.target?.closest?.('#nav button[data-page="payments"],[data-page="payments"]');if(b&&event.isTrusted)scheduleLoad()},true);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.getElementById(PASSPORT_MODAL_ID)){event.preventDefault();event.stopImmediatePropagation();closePassport()}},true);
 window.addEventListener('rona:admin-app-ready',scheduleLoad);
 window.addEventListener('rona:finance-sync',event=>{if(publishing||event?.detail?.source===OWNER)return;setTimeout(load,0)});
@@ -90,7 +102,7 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-payments-ui':'v8-bootstrap-bridge-v1',
+    'x-rona-payments-ui':'v8-bootstrap-bridge-v2',
     'x-rona-payments-money-display':'max-1-v1',
     'x-rona-payments-passport-routing':'canonical-v8-takeover-v3-native-total',
     'x-rona-payments-visual-owner':'admin-payments-v7-native-v2',
