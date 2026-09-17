@@ -15,21 +15,63 @@ jobs:
   compare-hosts:
     runs-on: ubuntu-latest
     steps:
-      - name: Compare production, branch preview, deployment preview, and custom domain
+      - name: Gate production Pages host and ronaoil.com on V8 runtime parity
         shell: bash
         run: |
           set -euo pipefail
-          for u in \
-            'https://rona-trade-public.pages.dev/portal/admin-main-ui-current' \
-            'https://main.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
-            'https://5b7011a4.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
-            'https://ronaoil.com/portal/admin-main-ui-current'; do
+          urls=(
+            'https://rona-trade-public.pages.dev/portal/admin-main-ui-current'
+            'https://ronaoil.com/portal/admin-main-ui-current'
+          )
+          hashes=()
+          for i in "${!urls[@]}"; do
+            u="${urls[$i]}"
             echo "=== $u ==="
-            curl -fsS -D /tmp/h -o /tmp/b "$u"
-            grep -Ei '^(HTTP/|server:|cf-ray:|cf-cache-status:|etag:|last-modified:|cache-control:|content-length:|x-)' /tmp/h || true
-            printf 'sha256='; sha256sum /tmp/b | awk '{print $1}'
-            printf 'bytes='; wc -c < /tmp/b | tr -d ' '; echo
-            printf 'renderer_marker='; if grep -q 'admin-payments-v7-native-v2' /tmp/b; then echo true; else echo false; fi
-            printf 'due_now_marker='; if grep -Fq "paymentsV7Money(deal?.due_now)" /tmp/b; then echo true; else echo false; fi
-            printf 'conditional_marker='; if grep -q "paymentsV7Kpi('Conditional'" /tmp/b; then echo true; else echo false; fi
+            curl -fsS -D "/tmp/h$i" -o "/tmp/b$i" "$u"
+            tr -d '\r' < "/tmp/h$i" > "/tmp/hn$i"
+            cat "/tmp/hn$i"
+            hash="$(sha256sum "/tmp/b$i" | awk '{print $1}')"
+            hashes+=("$hash")
+            echo "sha256=$hash"
+            echo "bytes=$(wc -c < "/tmp/b$i" | tr -d ' ')"
+            grep -Fxi 'x-rona-payments-ui: admin-payments-v7-native-v2' "/tmp/hn$i" >/dev/null
+            echo 'payments_ui_header=true'
+            grep -Fxi 'x-rona-payments-handoff: payments-v7-projection' "/tmp/hn$i" >/dev/null
+            echo 'payments_handoff_header=true'
+            node --input-type=module "/tmp/b$i" <<'NODE'
+            NODE
+            BODY="/tmp/b$i" node --input-type=module <<'NODE'
+            import { readFileSync } from 'node:fs';
+            const s = readFileSync(process.env.BODY,'utf8');
+            const from = s.indexOf('function paymentsV7Projection(){');
+            const to = s.indexOf('function renderCash(){', from);
+            if (from < 0 || to < 0 || to <= from) throw new Error('ACTIVE_PAYMENTS_V8_SECTION_NOT_FOUND');
+            const p = s.slice(from,to);
+            for (const marker of [
+              'admin-payments-v7-native-v2',
+              'paymentsV7Money(deal?.due_now)',
+              "paymentsV7Kpi('Conditional'",
+              "paymentsV7Aggregate(deals,'future_conditional')",
+            ]) {
+              if (!p.includes(marker)) throw new Error(`REQUIRED_MARKER_MISSING:${marker}`);
+              console.log(`required_marker=true ${marker}`);
+            }
+            for (const marker of [
+              "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})",
+              'spendMoney(d.remaining.amount,d.currency)',
+              'DEAL-2026-',
+            ]) {
+              if (p.includes(marker)) throw new Error(`ACTIVE_RENDERER_FORBIDDEN_MARKER:${marker}`);
+              console.log(`active_forbidden_marker=false ${marker}`);
+            }
+            const count=(s.match(/function renderPayments\(/g)||[]).length;
+            console.log(`renderPayments_definition_count=${count}`);
+            if(count!==1) throw new Error(`RENDER_PAYMENTS_DEFINITION_COUNT:${count}`);
+            NODE
           done
+          if [ "${hashes[0]}" != "${hashes[1]}" ]; then
+            echo "PRODUCTION_RUNTIME_HASH_PARITY=false pages=${hashes[0]} ronaoil=${hashes[1]}"
+            exit 12
+          fi
+          echo "PRODUCTION_RUNTIME_HASH_PARITY=true sha256=${hashes[0]}"
+          echo 'PAYMENTS_V8_PRODUCTION_HOSTS=PASS'
