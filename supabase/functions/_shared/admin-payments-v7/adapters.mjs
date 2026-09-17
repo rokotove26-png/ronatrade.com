@@ -1,5 +1,6 @@
 import { canonicalDecimalString } from './decimal.mjs';
 import { authorityRef, moneyValue } from './money.mjs';
+import { applyPaymentRecipientSemantics } from './recipient.mjs';
 
 function upper(value) { return value === null || value === undefined ? null : String(value).trim().toUpperCase(); }
 function isCurrentLifecycle(value) { return !['SUPERSEDED', 'REVERSED', 'REJECTED', 'CANCELLED', 'INACTIVE', 'ARCHIVED'].includes(upper(value)); }
@@ -31,18 +32,21 @@ export function adaptPaymentsContour({ deals = [], workflows = [], clients = [],
 }
 
 export function adaptBankFacts(rows = []) {
-  return rows.filter((row) => isCurrentLifecycle(row.lifecycle_state) && isAuthoritative(row.authority_state)).map((row) => ({
+  return rows.filter((row) => isCurrentLifecycle(row.lifecycle_state) && isAuthoritative(row.authority_state)).map((row) => applyPaymentRecipientSemantics({
     payment_key: String(row.id), payment_id: row.payment_id, payment_at: row.payment_at,
     direction: upper(row.payment_direction), kind: upper(row.payment_kind), amount: canonicalDecimalString(row.amount),
     currency: upper(row.currency), bank_fact_status: upper(row.bank_fact_status),
     finance_verification_status: upper(row.finance_verification_status || row.finance_status),
     allocation_applicability: upper(row.deal_allocation_applicability), allocation_review_status: upper(row.allocation_review_status),
     candidate_deal_ids: Array.isArray(row.candidate_deal_ids) ? row.candidate_deal_ids.map(String) : [],
-    counterparty_name: row.counterparty_name || null, bank_transaction_reference: row.bank_transaction_reference || null,
+    bank_transaction_reference: row.bank_transaction_reference || null,
+    original_payment_purpose: row.original_payment_purpose || null,
+    bank_account_reference: row.bank_account_reference || null,
+    bank_statement_date: row.bank_statement_date || null,
     current: true, source_locked: upper(row.bank_fact_status) === 'BANK_CONFIRMED',
     authority_state: row.authority_state || null, lifecycle_state: row.lifecycle_state || null,
     authority_refs: [authorityRef(row)],
-  }));
+  }, row));
 }
 
 export function adaptAllocationMaterialization(rows = [], history = []) {
