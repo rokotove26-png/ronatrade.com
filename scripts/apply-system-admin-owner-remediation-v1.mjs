@@ -1,3 +1,4 @@
+import './apply-owner-production-diagnostics-policy.mjs';
 import {readFile} from 'node:fs/promises';
 const read=p=>readFile(p,'utf8');
 const deals=await read('assets/portal-runtime/client-deals-authoritative-v1.js');
