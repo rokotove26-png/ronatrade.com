@@ -7,6 +7,7 @@ import {
   applyOwnerConfirmedReceiptsV7,
   readOwnerConfirmedReceiptsV7,
 } from './owner-confirmed-receipt-projection.mjs';
+import { applyFinanceAuthorityProjectionV8 } from './finance-authority-projection-v8.mjs';
 
 const nativeServe = Deno.serve.bind(Deno);
 const DB = Deno.env.get('SUPABASE_DB_URL');
@@ -83,7 +84,8 @@ async function readRawSources() {
 
 function buildProjection(raw) {
   const base = buildAdminPaymentsV7FromRawSources(raw);
-  return applyOwnerConfirmedReceiptsV7(base, raw?.ownerConfirmedReceipts || []);
+  const receipts = applyOwnerConfirmedReceiptsV7(base, raw?.ownerConfirmedReceipts || []);
+  return applyFinanceAuthorityProjectionV8(receipts, raw?.dealFinanceAuthorities || []);
 }
 
 nativeServe(createRonaOwnerAiSyncV7Handler({
