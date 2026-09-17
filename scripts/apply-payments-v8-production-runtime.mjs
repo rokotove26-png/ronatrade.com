@@ -11,13 +11,27 @@ const MAIN_UI_WRAPPER_TARGET = join(ROOT, 'functions', 'portal', 'main-ui', 'ind
 const OWNER_ACCEPTANCE_VERIFIER_TARGET = join(ROOT, 'scripts', 'verify-admin-current-only-production.mjs');
 const FUNDING_FIRST_CHECKER_TARGET = join(ROOT, 'scripts', 'check-payments-v7-funding-first-ui-no-hardcode.mjs');
 
-// Keep the production hotfix deterministic and source-controlled. This one
-// normalization only corrects a transcription typo in the copied canonical
-// runtime source; it does not contain any deal/client/amount business data.
-const RUNTIME = PAYMENTS_V7_BROWSER_RUNTIME_CURRENT.replace(
-  "(deal?.documentary_status||'TO_VERIFY'}),",
-  "(deal?.documentary_status||'TO_VERIFY')}),",
-);
+// Keep the production hotfix deterministic and source-controlled. These
+// normalizations correct the copied canonical runtime contract only; they do
+// not contain or mutate any deal/client/amount business data.
+const RUNTIME = PAYMENTS_V7_BROWSER_RUNTIME_CURRENT
+  .replace(
+    "(deal?.documentary_status||'TO_VERIFY'}),",
+    "(deal?.documentary_status||'TO_VERIFY')}),",
+  )
+  .replace(
+    "for(const d of deals){for(const field of ['due_now','expected_not_due']){",
+    "for(const d of deals){for(const field of ['due_now']){",
+  )
+  .replace(
+    "e('span',{text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.due_now)})",
+    "e('span',{text:'Ожидается сейчас'}),e('strong',{text:paymentsV7Money(deal?.due_now)})",
+  )
+  .replace(
+    "paymentsV7Kpi('Ожидается',paymentsV7MoneyLines(expected.rows,expected.verify))",
+    "paymentsV7Kpi('Ожидается сейчас',paymentsV7MoneyLines(expected.rows,expected.verify))",
+  )
+  .replace("text:'Условно ожидается'", "text:'Условно / будущий срок'");
 
 if (CURRENT_PAYMENTS_ROUTE_OWNER !== 'admin-payments-v7-native-v2') {
   throw new Error('PAYMENTS_V8_PRODUCTION_OWNER_MISMATCH');
@@ -27,11 +41,19 @@ if (RUNTIME === PAYMENTS_V7_BROWSER_RUNTIME_CURRENT) {
 }
 for (const required of [
   "paymentsV7Money(deal?.due_now)",
+  "paymentsV7Kpi('Ожидается сейчас'",
   "paymentsV7Kpi('Conditional'",
   "paymentsV7Aggregate(deals,'future_conditional')",
+  "for(const field of ['due_now'])",
   "window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection",
 ]) {
   if (!RUNTIME.includes(required)) throw new Error(`PAYMENTS_V8_RUNTIME_REQUIRED_MARKER_MISSING: ${required}`);
+}
+for (const stale of [
+  "for(const field of ['due_now','expected_not_due'])",
+  "e('span',{text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.due_now)})",
+]) {
+  if (RUNTIME.includes(stale)) throw new Error(`PAYMENTS_V8_STALE_SEMANTICS_PRESENT: ${stale}`);
 }
 for (const forbidden of [
   /DEAL-2026-/,
