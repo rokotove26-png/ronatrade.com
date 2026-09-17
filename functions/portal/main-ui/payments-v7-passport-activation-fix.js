@@ -20,7 +20,7 @@ if(typeof globalThis.paymentsV7Array!=='function')globalThis.paymentsV7Array=val
 if(typeof globalThis.paymentsV7Text!=='function')globalThis.paymentsV7Text=value=>String(value??'').trim();
 if(typeof globalThis.paymentsV7Upper!=='function')globalThis.paymentsV7Upper=value=>globalThis.paymentsV7Text(value).toUpperCase();
 if(typeof globalThis.paymentsV7Num!=='function')globalThis.paymentsV7Num=value=>{if(value===null||value===undefined||globalThis.paymentsV7Text(value)==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null};
-if(typeof globalThis.paymentsV7Fmt!=='function')globalThis.paymentsV7Fmt=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:8}).format(Number(value));
+if(typeof globalThis.paymentsV7Fmt!=='function')globalThis.paymentsV7Fmt=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(Number(value));
 // The active Payments board is scoped inside the current Admin runtime IIFE. Keep appended aggregate renderers inert here.
 if(typeof globalThis.paymentsV7Projection!=='function')globalThis.paymentsV7Projection=()=>null;
 `;
