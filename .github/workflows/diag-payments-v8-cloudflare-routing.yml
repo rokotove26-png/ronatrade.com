@@ -1,0 +1,84 @@
+name: Diagnose Payments V8 Cloudflare Routing
+
+on:
+  push:
+    branches:
+      - diag/payments-v8-cloudflare-routing
+    paths:
+      - '.github/workflows/diag-payments-v8-cloudflare-routing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CF_ACCOUNT_ID: '5334f0f7109d4536c55e91712dcaec88'
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+jobs:
+  inspect-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Cloudflare token availability
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
+            echo 'CLOUDFLARE_API_TOKEN_PRESENT=false'
+            exit 2
+          fi
+          echo 'CLOUDFLARE_API_TOKEN_PRESENT=true'
+
+      - name: Inspect Pages project and account projects
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/rona-trade-public" > /tmp/project.json
+          echo '=== RONA_TRADE_PUBLIC ==='
+          jq '{success,errors,result:{name:.result.name,subdomain:.result.subdomain,production_branch:.result.production_branch,domains:.result.domains,source:.result.source,latest_deployment:(.result.latest_deployment|if .==null then null else {id,environment,url,aliases,created_on,latest_stage,source} end)}}' /tmp/project.json
+
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects" > /tmp/projects.json
+          echo '=== ACCOUNT_PAGES_PROJECTS ==='
+          jq '{success,errors,result:[.result[]|{name,subdomain,production_branch,domains}]}' /tmp/projects.json
+
+      - name: Inspect ronaoil.com zone routes and DNS
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json')
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/zones?name=ronaoil.com" > /tmp/zones.json
+          echo '=== ZONE_LOOKUP ==='
+          jq '{success,errors,result:[.result[]|{id,name,status,paused,type}]}' /tmp/zones.json
+          zone_id="$(jq -r '.result[0].id // empty' /tmp/zones.json)"
+          if [ -z "$zone_id" ]; then
+            echo 'ZONE_FOUND=false'
+            exit 3
+          fi
+          echo 'ZONE_FOUND=true'
+
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/zones/$zone_id/workers/routes" > /tmp/routes.json
+          echo '=== WORKER_ROUTES ==='
+          jq '{success,errors,result:[.result[]|{id,pattern,script,environment} ]}' /tmp/routes.json
+
+          curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?per_page=100" > /tmp/dns.json
+          echo '=== RELEVANT_DNS ==='
+          jq '{success,errors,result:[.result[]|select(.name=="ronaoil.com" or .name=="www.ronaoil.com")|{id,type,name,content,proxied,ttl,comment,tags}]}' /tmp/dns.json
+
+      - name: Public endpoint parity probe
+        shell: bash
+        run: |
+          set -euo pipefail
+          for u in \
+            'https://5b7011a4.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
+            'https://main.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
+            'https://ronaoil.com/portal/admin-main-ui-current'; do
+            echo "=== $u ==="
+            curl -fsS -D /tmp/h -o /tmp/b "$u"
+            grep -Ei '^(HTTP/|server:|cf-ray:|cf-cache-status:|etag:|last-modified:|cache-control:|content-length:|x-)' /tmp/h || true
+            printf 'sha256='; sha256sum /tmp/b | awk '{print $1}'
+            printf 'renderer_marker='; if grep -q 'admin-payments-v7-native-v2' /tmp/b; then echo true; else echo false; fi
+            printf 'due_now_marker='; if grep -Fq "paymentsV7Money(deal?.due_now)" /tmp/b; then echo true; else echo false; fi
+            printf 'remaining_expected_marker='; if grep -Fq "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})" /tmp/b; then echo true; else echo false; fi
+            printf 'conditional_marker='; if grep -q "paymentsV7Kpi('Conditional'" /tmp/b; then echo true; else echo false; fi
+          done
