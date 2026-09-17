@@ -38,7 +38,7 @@ const main=await retry('main-v2 semantic convergence',async attempt=>{
   assert(r.headers.get('x-rona-payments-current-runtime')==='due-now-conditional-v3',`payments runtime ${r.headers.get('x-rona-payments-current-runtime')}`);
   const t=await r.text();
   assert(t.length>0,'main-v2 body empty');
-  for(const marker of ['PAYMENTS_V7_SERVER_AGGREGATE_UI_V2','paymentsV7MergeServerAggregateRows',"paymentsV7Kpi('Conditional'",'paymentsV7OwnerMoney(deal?.remaining_to_receive','grid-template-columns:repeat(5,minmax(0,1fr))'])assert(t.includes(marker),`Payments v2 live marker missing: ${marker}`);
+  for(const marker of ['PAYMENTS_V7_SERVER_AGGREGATE_UI_V2','paymentsV7MergeServerAggregateRows',"paymentsV7Kpi('Conditional'",'paymentsV7Money(deal?.due_now)','grid-template-columns:repeat(5,minmax(0,1fr))'])assert(t.includes(marker),`Payments v2 live marker missing: ${marker}`);
   return t;
 });
 
