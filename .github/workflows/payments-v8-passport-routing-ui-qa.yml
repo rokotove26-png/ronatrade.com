@@ -1,0 +1,29 @@
+name: Payments V8 Passport Routing UI QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/payments-v8-ui.js'
+      - 'tests/admin-payments-v7/payments-v8-passport-routing-ui.test.mjs'
+      - '.github/workflows/payments-v8-passport-routing-ui-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  passport-routing-ui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: node --check functions/portal/payments-v8-ui.js
+      - name: Payment Passport routing presentation regression
+        run: node --test tests/admin-payments-v7/payments-v8-passport-routing-ui.test.mjs
