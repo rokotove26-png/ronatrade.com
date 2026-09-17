@@ -1,15 +1,16 @@
-export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V4';
+export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V5';
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_REFRESH_MS = 30000;
 
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()=>{
-  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V4';
+  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V5';
   const sourceContract='FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1';
   const refreshMs=30000;
   const pageSelector='#page-payments';
   const rootSelector='#page-payments #ronaPaymentsV8Root';
-  const headingId='rona-payments-reconciliation-heading';
-  const valueClass='rona-payments-reconciliation-value';
-  const styleId='rona-payments-reconciliation-style';
+  const heroSelector='#page-payments #ronaPaymentsV8Root > .rona-visual-hero';
+  const tickerId='rona-payments-reconciliation-ticker';
+  const trackClass='rona-payments-reconciliation-ticker-track';
+  const styleId='rona-payments-reconciliation-ticker-style';
   const bootstrapPath='/portal/api/v1/admin/bootstrap';
 
   function normalize(metric){
@@ -27,12 +28,13 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
       &&role==='FINANCE'
       &&source===sourceContract
       &&metric?.source_locked===true;
-    if(!authoritative)return{status:'TO_VERIFY',text:'—',sourceId:String(metric?.source_id||''),sourceVersion:String(metric?.source_version||'')};
+    if(!authoritative)return{status:'TO_VERIFY',tone:'verify',text:'Сверочная разница: —',sourceId:String(metric?.source_id||''),sourceVersion:String(metric?.source_version||'')};
     const formatted=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(n));
     const sign=n>0?'+':n<0?'−':'';
     return{
       status:'AUTHORITATIVE',
-      text:sign+formatted+' '+currency,
+      tone:n<0?'negative':'positive',
+      text:'Сверочная разница: '+sign+formatted+' '+currency,
       sourceId:String(metric?.source_id||''),
       sourceVersion:String(metric?.source_version||''),
     };
@@ -49,44 +51,51 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     if(document.getElementById(styleId))return;
     const style=document.createElement('style');
     style.id=styleId;
-    style.textContent='#'+headingId+'{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;margin:0 0 14px;pointer-events:none;border:1px solid rgba(93,138,178,.20);border-radius:16px;background:linear-gradient(180deg,rgba(8,21,34,.96),rgba(6,16,27,.94));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}#'+headingId+' h1{margin:0;font-size:24px;line-height:1.1;font-weight:900;letter-spacing:-.025em;color:#f7fbff}#'+headingId+' .rona-payments-reconciliation{display:flex;align-items:baseline;gap:9px;margin-left:auto;white-space:nowrap;text-align:right}#'+headingId+' .rona-payments-reconciliation-label{font-size:11px;color:#829bb0}#'+headingId+' .'+valueClass+'{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;color:#f7fbff}@media(max-width:640px){#'+headingId+'{align-items:flex-start;flex-direction:column}#'+headingId+' .rona-payments-reconciliation{margin-left:0;text-align:left}}';
+    style.textContent='#page-payments #ronaPaymentsV8Root > .rona-visual-hero{position:relative!important;overflow:hidden!important}#page-payments #ronaPaymentsV8Root > .rona-visual-hero > div:first-child{padding-right:360px;box-sizing:border-box}#'+tickerId+'{position:absolute;right:20px;top:50%;transform:translateY(-50%);width:min(330px,36%);height:30px;display:flex;align-items:center;overflow:hidden;pointer-events:none;border-left:1px solid rgba(135,174,199,.18);padding-left:14px;mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 92%,transparent 100%);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 92%,transparent 100%)}#'+tickerId+' .'+trackClass+'{display:inline-block;min-width:max-content;padding-left:100%;font-size:13px;line-height:30px;font-weight:850;letter-spacing:.025em;font-variant-numeric:tabular-nums;white-space:nowrap;animation:ronaPaymentsReconciliationTicker 10s linear infinite}#'+tickerId+'[data-tone="positive"] .'+trackClass+'{color:#50e6a6;text-shadow:0 0 12px rgba(80,230,166,.20)}#'+tickerId+'[data-tone="negative"] .'+trackClass+'{color:#ff6473;text-shadow:0 0 12px rgba(255,100,115,.20)}#'+tickerId+'[data-tone="verify"] .'+trackClass+'{color:#8ba3b6}@keyframes ronaPaymentsReconciliationTicker{from{transform:translateX(0)}to{transform:translateX(-100%)}}@media(max-width:980px){#page-payments #ronaPaymentsV8Root > .rona-visual-hero > div:first-child{padding-right:250px}#'+tickerId+'{width:min(230px,34%);right:14px}}@media(max-width:720px){#page-payments #ronaPaymentsV8Root > .rona-visual-hero > div:first-child{padding-right:0}#'+tickerId+'{position:relative;right:auto;top:auto;transform:none;width:100%;height:28px;margin-top:10px;border-left:0;padding-left:0}}@media(prefers-reduced-motion:reduce){#'+tickerId+' .'+trackClass+'{animation:none;padding-left:0}}';
     document.head.appendChild(style);
   }
 
-  function ensureHeading(){
+  function ensureRootObserver(){
     const root=document.querySelector(rootSelector);
     if(!root)return null;
+    if(root.__ronaReconciliationTickerObserver)return root;
+    const observer=new MutationObserver(()=>renderMetric(currentMetric()));
+    observer.observe(root,{childList:true});
+    root.__ronaReconciliationTickerObserver=observer;
+    return root;
+  }
+
+  function ensureTicker(){
+    document.getElementById('rona-payments-reconciliation-heading')?.remove();
+    const root=ensureRootObserver();
+    if(!root)return null;
+    const hero=root.querySelector(':scope > .rona-visual-hero');
+    if(!hero)return null;
     installStyle();
-    let heading=root.querySelector(':scope > #'+headingId);
-    if(!heading){
-      heading=document.createElement('header');
-      heading.id=headingId;
-      const title=document.createElement('h1');
-      title.textContent='Платежи';
-      const right=document.createElement('div');
-      right.className='rona-payments-reconciliation';
-      const label=document.createElement('span');
-      label.className='rona-payments-reconciliation-label';
-      label.textContent='Сверочная разница';
-      const value=document.createElement('strong');
-      value.className=valueClass;
-      value.textContent='—';
-      right.append(label,value);
-      heading.append(title,right);
-      root.prepend(heading);
+    let ticker=hero.querySelector(':scope > #'+tickerId);
+    if(!ticker){
+      ticker=document.createElement('div');
+      ticker.id=tickerId;
+      ticker.setAttribute('aria-label','Сверочная разница');
+      const track=document.createElement('span');
+      track.className=trackClass;
+      track.textContent='Сверочная разница: —';
+      ticker.appendChild(track);
+      hero.appendChild(ticker);
     }
-    return heading;
+    return ticker;
   }
 
   function renderMetric(metric){
-    const heading=ensureHeading();
-    if(!heading)return;
+    const ticker=ensureTicker();
+    if(!ticker)return;
     const normalized=normalize(metric);
-    const value=heading.querySelector('.'+valueClass);
-    if(value&&value.textContent!==normalized.text)value.textContent=normalized.text;
-    if(heading.dataset.status!==normalized.status)heading.dataset.status=normalized.status;
-    if(heading.dataset.sourceId!==normalized.sourceId)heading.dataset.sourceId=normalized.sourceId;
-    if(heading.dataset.sourceVersion!==normalized.sourceVersion)heading.dataset.sourceVersion=normalized.sourceVersion;
+    const track=ticker.querySelector('.'+trackClass);
+    if(track&&track.textContent!==normalized.text)track.textContent=normalized.text;
+    ticker.dataset.status=normalized.status;
+    ticker.dataset.tone=normalized.tone;
+    ticker.dataset.sourceId=normalized.sourceId;
+    ticker.dataset.sourceVersion=normalized.sourceVersion;
   }
 
   async function refresh(){
@@ -112,6 +121,8 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
       window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__=observer;
     }
     renderMetric(currentMetric());
+    setTimeout(()=>renderMetric(currentMetric()),120);
+    setTimeout(()=>renderMetric(currentMetric()),500);
     if(window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__)clearInterval(window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__);
     window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__=setInterval(refresh,refreshMs);
     window.addEventListener('focus',refresh);
