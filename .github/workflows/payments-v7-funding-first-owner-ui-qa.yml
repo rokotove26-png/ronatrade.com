@@ -32,6 +32,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Assemble production V8 runtime and acceptance compatibility
+        run: npm run build
       - name: Funding passport UI regressions
         run: node tests/payments-v7-funding-first-owner-ui.test.mjs
       - name: Recovered passport scenarios A-K
@@ -50,7 +52,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm run build
           node scripts/check-payments-v7-funding-first-ui-no-hardcode.mjs
           node --input-type=module <<'NODE'
           import { onRequest } from './functions/portal/main-ui/index.js';
@@ -68,11 +69,8 @@ jobs:
             'paymentsV7Money(deal?.due_now)',
             "paymentsV7Kpi('Conditional'",
             "paymentsV7Aggregate(deals,'future_conditional')",
-            'PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2',
           ]) {
-            if (!text.includes(marker) && marker !== 'PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2') {
-              throw new Error(`V8_RUNTIME_MARKER_MISSING:${marker}`);
-            }
+            if (!text.includes(marker)) throw new Error(`V8_RUNTIME_MARKER_MISSING:${marker}`);
           }
           console.log('PAYMENTS_V8_PRODUCTION_ASSEMBLY_ACCEPTANCE=PASS');
           NODE
