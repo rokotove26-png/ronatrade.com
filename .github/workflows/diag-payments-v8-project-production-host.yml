@@ -1,0 +1,35 @@
+name: Diagnose Payments V8 Project Production Host
+
+on:
+  push:
+    branches:
+      - diag/payments-v8-cloudflare-routing
+    paths:
+      - '.github/workflows/diag-payments-v8-project-production-host.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare-hosts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare production, branch preview, deployment preview, and custom domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for u in \
+            'https://rona-trade-public.pages.dev/portal/admin-main-ui-current' \
+            'https://main.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
+            'https://5b7011a4.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
+            'https://ronaoil.com/portal/admin-main-ui-current'; do
+            echo "=== $u ==="
+            curl -fsS -D /tmp/h -o /tmp/b "$u"
+            grep -Ei '^(HTTP/|server:|cf-ray:|cf-cache-status:|etag:|last-modified:|cache-control:|content-length:|x-)' /tmp/h || true
+            printf 'sha256='; sha256sum /tmp/b | awk '{print $1}'
+            printf 'bytes='; wc -c < /tmp/b | tr -d ' '; echo
+            printf 'renderer_marker='; if grep -q 'admin-payments-v7-native-v2' /tmp/b; then echo true; else echo false; fi
+            printf 'due_now_marker='; if grep -Fq "paymentsV7Money(deal?.due_now)" /tmp/b; then echo true; else echo false; fi
+            printf 'conditional_marker='; if grep -q "paymentsV7Kpi('Conditional'" /tmp/b; then echo true; else echo false; fi
+          done
