@@ -13,11 +13,12 @@ test('current live Payments runtime has five summary tiles with separate Conditi
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /text:'Условно ожидается'/);
 });
 
-test('top Expected excludes Conditional while deal Expected remains net outstanding', () => {
+test('top and deal Expected exclude Conditional and use current due semantics', () => {
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /function paymentsV7AggregateExpected\(deals\)/);
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /\['due_now','expected_not_due'\]/);
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /paymentsV7Aggregate\(deals,'future_conditional'\)/);
-  assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /paymentsV7Money\(deal\?\.remaining_to_receive\)/);
+  assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /text:'Ожидается'\}\),e\('strong',\{text:paymentsV7Money\(deal\?\.due_now\)\}\)/);
+  assert.doesNotMatch(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /text:'Ожидается'\}\),e\('strong',\{text:paymentsV7Money\(deal\?\.remaining_to_receive\)\}\)/);
   assert.doesNotMatch(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /Conditional:.*paymentsV7Kpi\('Ожидается'/s);
 });
 
