@@ -4,9 +4,11 @@ import {sql,authenticate,apiRoute} from 'https://raw.githubusercontent.com/rokot
 import {createApplicationBusinessHandler} from '../_shared/client-application-business-v2/handler.mjs';
 import {applyClientPaymentAuthorityV7,failClosedClientPaymentV7,dedupeClientPaymentRowsV7} from './client-payments-v7.js';
 import {projectAdminOwnerConfirmedReceiptsV7} from './owner-confirmed-receipts-v7.js';
+import {createAdminPaymentsV8BootstrapProjector} from './admin-payments-v8-bootstrap-projection.mjs';
 
 const CLIENT_PAYMENTS_V7_CONTRACT='CLIENT_PAYMENTS_FINANCE_V7_AUTHORITATIVE_V1';
 const paymentsNativeServe:any=Deno.serve.bind(Deno);
+const projectAdminPaymentsV8Bootstrap=createAdminPaymentsV8BootstrapProjector({sql,apiRoute});
 
 function paymentRoute(url:URL){
   const route=apiRoute(url);
@@ -135,7 +137,8 @@ async function projectClientPaymentsV7(req:Request,response:Response){
   const wrapped=async(req:Request,info:any)=>{
     const base:Response=await handler(req,info);
     const clientProjected:Response=await projectClientPaymentsV7(req,base);
-    return await projectAdminOwnerConfirmedReceiptsV7(req,clientProjected,{sql,apiRoute});
+    const adminProjected:Response=await projectAdminPaymentsV8Bootstrap(req,clientProjected);
+    return await projectAdminOwnerConfirmedReceiptsV7(req,adminProjected,{sql,apiRoute});
   };
   return options===undefined?paymentsNativeServe(wrapped):paymentsNativeServe(options,wrapped);
 };
