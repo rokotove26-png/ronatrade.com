@@ -15,7 +15,7 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
 
   function exactDecimalString(value){
     const raw=String(value??'').trim().replace(',', '.');
-    return /^-?\\d+(?:\\.\\d+)?$/.test(raw)?raw:null;
+    return /^-?\d+(?:\.\d+)?$/.test(raw)?raw:null;
   }
 
   function formatExactDecimal(value){
@@ -24,7 +24,7 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     const negative=raw.startsWith('-');
     const unsigned=negative?raw.slice(1):raw;
     const [whole,fraction='']=unsigned.split('.');
-    const grouped=whole.replace(/\\B(?=(\\d{3})+(?!\\d))/g,' ');
+    const grouped=whole.replace(/\B(?=(\d{3})+(?!\d))/g,' ');
     return (negative?'−':'')+grouped+(fraction?','+fraction:'');
   }
 
