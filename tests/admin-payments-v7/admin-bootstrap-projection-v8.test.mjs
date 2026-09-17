@@ -8,6 +8,7 @@ import {
   FINANCE_RECONCILIATION_DIFFERENCE_SOURCE,
   createAdminPaymentsV8BootstrapProjector,
   normalizeFinanceReconciliationDifferencePublication,
+  normalizeFinanceReconciliationDifferenceBreakdown,
 } from '../../supabase/functions/rona-portal-api/admin-payments-v8-bootstrap-projection.mjs';
 
 const route = (url) => url.pathname;
@@ -89,6 +90,45 @@ test('Finance reconciliation difference passes through exact Finance publication
   assert.equal(metric.source_locked, true);
 });
 
+test('Finance reconciliation primary breakdown passes through only complete source-locked USD/RUB components', () => {
+  const breakdown = normalizeFinanceReconciliationDifferenceBreakdown([
+    {
+      currency: 'USD',
+      direction: 'PROFICIT',
+      amount: '12.3456',
+      source_version: 'QA-FINANCE-V2',
+      source_set_identity: 'QA-USD-RUB-SOURCE-SET',
+      source_refs: ['QA:USD:BANK', 'QA:FINANCE'],
+      publisher_identity: 'AI-FINANCE',
+      functional_role: 'FINANCE',
+      source_locked: true,
+      recorded_by: 'SYSTEM_ADMIN',
+    },
+    {
+      currency: 'RUB',
+      direction: 'DEFICIT',
+      amount: '-78.9',
+      source_version: 'QA-FINANCE-V2',
+      source_set_identity: 'QA-USD-RUB-SOURCE-SET',
+      source_refs: ['QA:RUB:BANK', 'QA:FINANCE'],
+      publisher_identity: 'AI-FINANCE',
+      functional_role: 'FINANCE',
+      source_locked: true,
+      recorded_by: 'SYSTEM_ADMIN',
+    },
+  ]);
+  assert.deepEqual(breakdown.map(({ currency, direction, amount }) => ({ currency, direction, amount })), [
+    { currency: 'USD', direction: 'PROFICIT', amount: '12.3456' },
+    { currency: 'RUB', direction: 'DEFICIT', amount: '-78.9' },
+  ]);
+
+  assert.deepEqual(normalizeFinanceReconciliationDifferenceBreakdown([breakdown[0]]), []);
+  assert.deepEqual(normalizeFinanceReconciliationDifferenceBreakdown([
+    { ...breakdown[0], currency: 'KZT' },
+    breakdown[1],
+  ]), []);
+});
+
 test('Finance reconciliation difference fails closed to TO_VERIFY when publication is absent or not Finance-owned', () => {
   const missing = normalizeFinanceReconciliationDifferencePublication(null);
   assert.equal(missing.status, 'TO_VERIFY');
@@ -119,6 +159,7 @@ test('bootstrap projection runtime contains no local reconciliation calculation 
   const entrySource = await readFile(new URL('../../supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts', import.meta.url), 'utf8');
   const source = `${moduleSource}\n${entrySource}`;
   assert.match(moduleSource, /finance_reconciliation_difference_current_v1/);
+  assert.match(moduleSource, /finance_reconciliation_difference_components_v1/);
   for (const forbidden of [
     'DEAL-2026-011', '225900', '527100', '35574.47', '190325.53', '6225.53', 'owner_deal_finance_summary',
     'owner_cash_snapshots', 'RECONCILIATION_DIFFERENCE_EQUALS_BANK_BALANCE_MINUS_MANAGEMENT_BALANCE', 'bank_balance[currency]', 'management_balance[currency]',
