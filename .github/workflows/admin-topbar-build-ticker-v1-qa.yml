@@ -1,4 +1,4 @@
-name: Admin topbar lifecycle mirror v3 QA
+name: Admin topbar lifecycle mirror v4 QA
 
 on:
   pull_request:
@@ -12,7 +12,7 @@ on:
       - '.github/workflows/admin-topbar-build-ticker-v1-qa.yml'
 
 jobs:
-  admin-topbar-lifecycle-mirror-v3:
+  admin-topbar-lifecycle-mirror-v4:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -44,18 +44,19 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk15-base.js)" = "dc5606859fd0193b3dc428d17957439273bd571b"
-          grep -F "export default basePrepaintRuntime + adminTopbarTickerSafeRuntime;" functions/portal/owner-ui-chunks/chunk15.js
+          grep -F "import adminTopbarTickerSafeRuntime from '../main-ui/admin-topbar-ticker-safe-v2.js';" functions/portal/owner-ui-chunks/chunk15.js
+          grep -F "export default basePrepaintRuntime + adminTopbarTickerSafeRuntime + paymentsCanonicalFirstPaintGuardRuntime;" functions/portal/owner-ui-chunks/chunk15.js
           ! grep -q 'appendChild(indicator)' functions/portal/main-ui/admin-topbar-ticker-safe-v2.js
           ! grep -q 'insertBefore(indicator' functions/portal/main-ui/admin-topbar-ticker-safe-v2.js
       - name: Verify accepted premium compositions remain untouched
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk18.js)" = "e5e920deb9323507ef8e22ac9cfa8be7b0f55062"
-          test "$(git rev-parse HEAD:functions/portal/main-ui/application-passport-runtime.js)" = "4b0c40a59161617b47d1930b82dda277182523b3"
+          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk18.js)" = "b07433cb9fe8e0520f532779c555c9b167fdbfb0"
+          test "$(git rev-parse HEAD:functions/portal/main-ui/application-passport-runtime.js)" = "a24456b11eb642bb987c2ee4cddda8df5d45e601"
       - name: Install browser QA runtime
         run: |
           npm install --no-save playwright@1.55.0
           npx playwright install --with-deps chromium
-      - name: Prove cold-start hard-reload and non-invasive ticker mirror
+      - name: Prove cold-start hard-reload and production-policy ticker fallback
         run: node tests/admin-topbar-build-ticker-v1.test.mjs
