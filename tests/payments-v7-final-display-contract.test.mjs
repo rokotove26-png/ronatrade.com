@@ -55,7 +55,7 @@ const passport={
 };
 const deal={
   deal_key:'future-key',deal_id:'DEAL-FUTURE-CONTRACT',client_display:'Future Client',financial_status:'EXPECTED',documentary_status:'TO_VERIFY',
-  funding_currency:'USD',due_now:money('0'),expected_not_due:money('55'),authority_refs:[{source_type:'FINANCE_CONCLUSION',source_id:'CONCLUSION-FUTURE'}],payment_passport:passport,
+  funding_currency:'USD',due_now:money('0'),future_conditional:money('55'),authority_refs:[{source_type:'FINANCE_CONCLUSION',source_id:'CONCLUSION-FUTURE'}],payment_passport:passport,
 };
 const text=textOf(sandbox.__ui.paymentsV7Deal(deal));
 assert.match(text,/Ожидается сейчас/);
