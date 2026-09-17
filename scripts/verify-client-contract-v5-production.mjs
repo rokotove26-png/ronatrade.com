@@ -2,7 +2,7 @@ const base=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$
 const sha=String(process.env.GITHUB_SHA||Date.now());
 const assert=(value,message)=>{if(!value)throw new Error(message)};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const CONTRACT_RUNTIME_SRC='/assets/portal-runtime/client-contract-download-v3.js?v=20260906-company-directory-authoritative-metrics-v11';
+const CONTRACT_RUNTIME_SRC='/assets/portal-runtime/client-contract-download-v3.js?v=20260911-company-directory-canonical-claim-v12';
 const CONTRACT_RUNTIME_MARK='20260906-client-contract-v11-authoritative-company-metrics';
 
 async function retry(label,fn,attempts=30,delayMs=3000){
