@@ -19,17 +19,22 @@ jobs:
   inspect-routing:
     runs-on: ubuntu-latest
     steps:
-      - name: Verify Cloudflare token availability
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Report Cloudflare token availability
         shell: bash
         run: |
           set -euo pipefail
           if [ -z "${CLOUDFLARE_API_TOKEN:-}" ]; then
             echo 'CLOUDFLARE_API_TOKEN_PRESENT=false'
-            exit 2
+          else
+            echo 'CLOUDFLARE_API_TOKEN_PRESENT=true'
           fi
-          echo 'CLOUDFLARE_API_TOKEN_PRESENT=true'
 
       - name: Inspect Pages project and account projects
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -42,7 +47,8 @@ jobs:
           echo '=== ACCOUNT_PAGES_PROJECTS ==='
           jq '{success,errors,result:[.result[]|{name,subdomain,production_branch,domains}]}' /tmp/projects.json
 
-      - name: Inspect ronaoil.com zone routes and DNS
+      - name: Inspect ronaoil.com zone routes and DNS via API
+        if: ${{ env.CLOUDFLARE_API_TOKEN != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -59,16 +65,24 @@ jobs:
 
           curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/zones/$zone_id/workers/routes" > /tmp/routes.json
           echo '=== WORKER_ROUTES ==='
-          jq '{success,errors,result:[.result[]|{id,pattern,script,environment} ]}' /tmp/routes.json
+          jq '{success,errors,result:[.result[]|{id,pattern,script,environment}]}' /tmp/routes.json
 
           curl -fsS "${auth[@]}" "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?per_page=100" > /tmp/dns.json
           echo '=== RELEVANT_DNS ==='
           jq '{success,errors,result:[.result[]|select(.name=="ronaoil.com" or .name=="www.ronaoil.com")|{id,type,name,content,proxied,ttl,comment,tags}]}' /tmp/dns.json
 
-      - name: Public endpoint parity probe
+      - name: Public DNS and endpoint parity probe
         shell: bash
         run: |
           set -euo pipefail
+          echo '=== DNS ==='
+          for h in ronaoil.com www.ronaoil.com main.rona-trade-public.pages.dev 5b7011a4.rona-trade-public.pages.dev; do
+            echo "--- $h"
+            printf 'CNAME='; dig +short CNAME "$h" | tr '\n' ' '; echo
+            printf 'A='; dig +short A "$h" | tr '\n' ' '; echo
+            printf 'AAAA='; dig +short AAAA "$h" | tr '\n' ' '; echo
+          done
+
           for u in \
             'https://5b7011a4.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
             'https://main.rona-trade-public.pages.dev/portal/admin-main-ui-current' \
@@ -77,8 +91,28 @@ jobs:
             curl -fsS -D /tmp/h -o /tmp/b "$u"
             grep -Ei '^(HTTP/|server:|cf-ray:|cf-cache-status:|etag:|last-modified:|cache-control:|content-length:|x-)' /tmp/h || true
             printf 'sha256='; sha256sum /tmp/b | awk '{print $1}'
+            printf 'bytes='; wc -c < /tmp/b | tr -d ' '
             printf 'renderer_marker='; if grep -q 'admin-payments-v7-native-v2' /tmp/b; then echo true; else echo false; fi
             printf 'due_now_marker='; if grep -Fq "paymentsV7Money(deal?.due_now)" /tmp/b; then echo true; else echo false; fi
             printf 'remaining_expected_marker='; if grep -Fq "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})" /tmp/b; then echo true; else echo false; fi
+            printf 'legacy_spend_remaining_marker='; if grep -Fq 'spendMoney(d.remaining.amount,d.currency)' /tmp/b; then echo true; else echo false; fi
             printf 'conditional_marker='; if grep -q "paymentsV7Kpi('Conditional'" /tmp/b; then echo true; else echo false; fi
           done
+
+          echo '=== CDN TRACE RONAOIL ==='
+          curl -fsS https://ronaoil.com/cdn-cgi/trace | grep -E '^(fl|h|ip|ts|visit_scheme|uag|colo|http|loc|tls|sni)=' || true
+          echo '=== CDN TRACE PAGES ==='
+          curl -fsS https://main.rona-trade-public.pages.dev/cdn-cgi/trace | grep -E '^(fl|h|ip|ts|visit_scheme|uag|colo|http|loc|tls|sni)=' || true
+
+      - name: Locate legacy Payments renderer in repository history
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== HISTORY legacy spendMoney remaining ==='
+          git log --all --oneline -S'spendMoney(d.remaining.amount,d.currency)' -- functions/portal scripts tests | head -40 || true
+          echo '=== HISTORY current renderer owner marker ==='
+          git log --all --oneline -S'admin-payments-v7-native-v2' -- functions/portal scripts tests | head -40 || true
+          echo '=== CURRENT occurrences of legacy marker ==='
+          git grep -n -F 'spendMoney(d.remaining.amount,d.currency)' HEAD -- functions scripts tests || true
+          echo '=== CURRENT occurrences of current marker ==='
+          git grep -n -F 'admin-payments-v7-native-v2' HEAD -- functions scripts tests || true
