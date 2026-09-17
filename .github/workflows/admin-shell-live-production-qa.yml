@@ -49,4 +49,4 @@ jobs:
         if: github.event_name == 'push'
         env:
           TARGET_ORIGIN: https://ronaoil.com
-        run: node scripts/verify-admin-current-only-production.mjs
+        run: node scripts/verify-admin-current-only-production-v2.mjs
