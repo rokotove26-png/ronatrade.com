@@ -66,6 +66,14 @@ const SCRIPT=RAW
   .replace(
     "if(location.pathname==='/portal/admin'){var tries=0;(function wait(){if(window.__RONA_OWNER_ADMIN_READY__===true){start();return}if(++tries<1200)setTimeout(wait,100)})()}",
     "if(location.pathname==='/portal/admin'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}"
+  )
+  .replace(
+    "function bindNavigation(){if(window.__RONA_DEALS_CURRENT_NAV_BOUND__)return;window.__RONA_DEALS_CURRENT_NAV_BOUND__=true;document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest?ev.target.closest('#nav button[data-page]'):null;if(!b||b.dataset.page!=='deals')return;queueMicrotask(function(){if(state)render();else refresh(true)})},true)}",
+    "function openRequestedDeal(id){id=String(id||'').trim();if(!id||!state)return false;var match=deals().find(function(d){return String(d.deal_id||'')===id});if(!match)return false;filter='ACTIVE';selected=String(match.deal_id);window.__RONA_DEALS_REQUESTED_ID__=selected;render();return true}function bindNavigation(){if(window.__RONA_DEALS_CURRENT_NAV_BOUND__)return;window.__RONA_DEALS_CURRENT_NAV_BOUND__=true;document.addEventListener('click',function(ev){var b=ev.target&&ev.target.closest?ev.target.closest('#nav button[data-page]'):null;if(!b||b.dataset.page!=='deals')return;queueMicrotask(function(){var requested=window.__RONA_DEALS_REQUESTED_ID__;if(state){if(!requested||!openRequestedDeal(requested))render()}else refresh(true).then(function(){if(requested)openRequestedDeal(requested)})})},true);window.addEventListener('rona:deal-select',function(ev){var id=ev&&ev.detail&&ev.detail.dealId;if(!id)return;window.__RONA_DEALS_REQUESTED_ID__=String(id);if(state)openRequestedDeal(id);else refresh(true).then(function(){openRequestedDeal(id)})})}"
+  )
+  .replace(
+    "state=next;window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__=state;render();window.__RONA_DEALS_CURRENT_STATE_ERROR__=null",
+    "state=next;window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__=state;var requested=window.__RONA_DEALS_REQUESTED_ID__;if(requested){var found=deals().find(function(d){return String(d.deal_id||'')===String(requested)});if(found){filter='ACTIVE';selected=String(found.deal_id)}}render();window.__RONA_DEALS_CURRENT_STATE_ERROR__=null"
   );
 
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
@@ -81,4 +89,4 @@ if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v1.9-owner-uat-drawer','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1'}})}

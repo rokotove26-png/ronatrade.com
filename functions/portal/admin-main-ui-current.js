@@ -1,4 +1,4 @@
-import { patchAdminOperationsCommandCenterV4, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v4.js';
+import { patchAdminOperationsCommandCenterV5, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v5.js';
 import c0 from './owner-ui-chunks/chunk0.js';
 import c1 from './owner-ui-chunks/chunk1.js';
 import c2 from './owner-ui-chunks/chunk2.js';
@@ -87,11 +87,30 @@ function patchPayments(script){
   return script;
 }
 
-const SCRIPT=patchAdminOperationsCommandCenterV4(patchPayments(RAW
+function patchOperationsFunctionalRuntime(script){
+  const replacements=[
+    [
+      "function renderDocuments(){const rows=(adminData?.dealDocuments||[]).map(x=>[x.deal_id,x.document_kind,x.authoritative_filename,x.checked_by_admin?'Проверено':'В работе',docButton(x,'Скачать')]);replacePage('documents',card('Документы сделок',tbl(['Сделка','Документ','Файл','Статус','Действие'],rows)))}",
+      "function renderDocuments(){const rows=(adminData?.dealDocuments||[]).map(x=>{const actions=e('div',{class:'rona-owner-actions'}),review=e('button',{text:x.checked_by_admin?'Снять отметку':'Отметить проверенным',onclick:async()=>{review.disabled=true;try{await post('/admin/documents/'+encodeURIComponent(x.document_id)+'/review',{checked:!x.checked_by_admin});await refreshAdmin()}catch(err){review.disabled=false;await notify(err.code||err.message,'Ошибка')}}});actions.append(docButton(x,'Скачать'),review);return[x.deal_id,x.document_kind,x.authoritative_filename,x.checked_by_admin?('Проверено'+(x.checked_at?' · '+date(x.checked_at):'')):'Требует проверки',actions]});replacePage('documents',card('Документы сделок',rows.length?tbl(['Сделка','Документ','Файл','Статус','Действия'],rows):e('div',{class:'rona-owner-muted',text:'Документы сделок отсутствуют.'})))}"
+    ],
+    [
+      "function ensureAdminHomeAutoRefresh(){if(window.__RONA_ADMIN_HOME_AUTOREFRESH__)return;window.__RONA_ADMIN_HOME_AUTOREFRESH__=setInterval(async()=>{if(document.visibilityState!=='visible')return;const p=page('home');if(!p||getComputedStyle(p).display==='none')return;try{await refreshAdmin()}catch(_){}},60000)}",
+      "function ensureAdminHomeAutoRefresh(){window.__RONA_ADMIN_HOME_AUTOREFRESH__='authority-v1-30s-safe'}"
+    ],
+    [
+      "async function ownerAdminRefreshTick(force=false){if(ownerAdminRefreshBusy||(!force&&!ownerAdminRefreshSafe()))return;if(force&&location.pathname!=='/portal/admin')return;ownerAdminRefreshBusy=true;try{const next=await call('/admin/bootstrap');adminData=next;window.__RONA_OWNER_ADMIN_SNAPSHOT__=next;if(ownerAdminRefreshSafe())ownerAdminRenderCurrent();window.dispatchEvent(new CustomEvent('rona:admin-authority-refresh',{detail:{generatedAt:next?.generatedAt||next?.generated_at||null}}));window.__RONA_OWNER_ADMIN_LAST_REFRESH__=Date.now()}catch(err){window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=String(err.code||err.message||err)}finally{ownerAdminRefreshBusy=false}}",
+      "async function ownerAdminRefreshTick(force=false){if(ownerAdminRefreshBusy||(!force&&!ownerAdminRefreshSafe()))return;if(force&&location.pathname!=='/portal/admin')return;ownerAdminRefreshBusy=true;try{const next=await call('/admin/bootstrap');adminData=next;window.__RONA_OWNER_ADMIN_SNAPSHOT__=next;window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=null;if(ownerAdminRefreshSafe())ownerAdminRenderCurrent();window.dispatchEvent(new CustomEvent('rona:admin-authority-refresh',{detail:{generatedAt:next?.generatedAt||next?.generated_at||null,sourceAsOf:next?.operations?.freshness?.source_as_of||null}}));window.__RONA_OWNER_ADMIN_LAST_REFRESH__=Date.now();return next}catch(err){window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=String(err.code||err.message||err);window.dispatchEvent(new CustomEvent('rona:admin-refresh-error',{detail:{code:window.__RONA_OWNER_ADMIN_REFRESH_ERROR__}}));if(force)throw err;return null}finally{ownerAdminRefreshBusy=false}}"
+    ]
+  ];
+  for(const [from,to] of replacements){if(!script.includes(from))throw new Error('OPERATIONS_FUNCTIONAL_PATCH_SOURCE_MISMATCH');script=script.replace(from,to)}
+  return script;
+}
+
+const SCRIPT=patchAdminOperationsCommandCenterV5(patchOperationsFunctionalRuntime(patchPayments(RAW
   .replace('function renderOwnedAdminPage(id){',DEALS_SHELL+PRICES_SHELL+'function renderOwnedAdminPage(id){')
   .replace('prices:renderPrices,','prices:renderPricesCurrentShell,')
   .replace('deals:renderDeals,','deals:renderDealsCurrentShell,')
-  .replace('renderAdminHome();renderPrices();renderApplications();renderDeals();renderDocuments();','renderAdminHome();renderPricesCurrentShell();renderApplications();renderDealsCurrentShell();renderDocuments();')));
+  .replace('renderAdminHome();renderPrices();renderApplications();renderDeals();renderDocuments();','renderAdminHome();renderPricesCurrentShell();renderApplications();renderDealsCurrentShell();renderDocuments();'))));
 
 export async function onRequest(){
   return new Response(SCRIPT,{status:200,headers:{
