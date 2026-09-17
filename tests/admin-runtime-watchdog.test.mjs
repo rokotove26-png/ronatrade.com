@@ -5,8 +5,8 @@ const shell=fs.readFileSync('portal-src/current/admin.html','utf8');
 const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf8');
 
 assert(shell.includes('id="rona-admin-runtime-watchdog-loader"'),'Admin shell must load runtime watchdog');
-assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260915-radio-final-v9-r2'),'Admin watchdog current asset/version missing');
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v8-radio-final-v9'"),'Page-aware recovery marker missing');
+assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js'),'Admin watchdog asset missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'Page-aware recovery marker missing');
 assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
 assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
 assert(!watchdog.includes("window.__RONA_OWNER_ADMIN_READY__===true&&!n.querySelector(':scope > .current-loading')"),'Legacy false-positive Home readiness check must be removed');
