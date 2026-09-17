@@ -25,7 +25,7 @@ test('current-only main UI hands Payments to the isolated V8 bootstrap renderer'
   assert.match(mainUiMiddleware, /PAYMENTS_V8_BOOTSTRAP_OWNER='payments-v8-bootstrap-v1'/);
   assert.match(mainUiMiddleware, /\/portal\/payments-v8-ui\?v=20260917-v1/);
   assert.match(mainUiMiddleware, /canonical-v8-bootstrap/);
-  assert.match(mainUiMiddleware, /bootstrap-authoritative-v1/);
+  assert.match(mainUiMiddleware, /x-rona-payments-current-runtime','due-now-conditional-v3/);
   assert.match(ui, /data-page=\\"payments\\"|data-page=\"payments\"/);
 });
 
