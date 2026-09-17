@@ -24,7 +24,7 @@ function patchPaymentsCurrentSemantics(source){
     "paymentsV7Kpi('Conditional'",
     "paymentsV7Aggregate(deals,'future_conditional')",
     'paymentsV7OwnerMoney(deal?.due_now',
-    'paymentsV7OwnerMoney(deal?.expected_not_due',
+    'paymentsV7OwnerMoney(deal?.future_conditional',
   ];
   for(const marker of required){
     if(!script.includes(marker))throw new Error('ADMIN_PAYMENTS_V8_RUNTIME_REQUIRED:'+marker.slice(0,72));
@@ -34,7 +34,7 @@ function patchPaymentsCurrentSemantics(source){
   if(finalDealStart<0||finalDealEnd<=finalDealStart)throw new Error('ADMIN_PAYMENTS_V8_FINAL_DISPLAY_SOURCE_MISMATCH');
   const finalDealRenderer=script.slice(finalDealStart,finalDealEnd);
   if(!finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.due_now'))throw new Error('ADMIN_PAYMENTS_V8_DUE_NOW_DISPLAY_MISSING');
-  if(!finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.expected_not_due'))throw new Error('ADMIN_PAYMENTS_V8_CONDITIONAL_DISPLAY_MISSING');
+  if(!finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.future_conditional'))throw new Error('ADMIN_PAYMENTS_V8_CONDITIONAL_DISPLAY_MISSING');
   if(finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.remaining_to_receive'))throw new Error('ADMIN_PAYMENTS_V8_STALE_REMAINING_DISPLAY_PRESENT');
   return script;
 }
