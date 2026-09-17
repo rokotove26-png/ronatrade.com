@@ -26,14 +26,15 @@ jobs:
           echo '=== FINGERPRINT ==='
           sha256sum /tmp/b
           wc -c /tmp/b
-          echo '=== MARKERS ==='
-          grep -F "'x-rona-payments-ui':'admin-payments-v7-native-v2'" /tmp/b >/dev/null
-          echo 'payments_ui_header_source=true'
-          grep -F "'x-rona-payments-handoff':'payments-v7-projection'" /tmp/b >/dev/null
-          echo 'payments_handoff_header_source=true'
-          grep -F "admin-payments-v7-native-v2" /tmp/b >/dev/null
+          echo '=== RESPONSE HEADER GATES ==='
+          grep -Eiq '^x-rona-payments-ui: admin-payments-v7-native-v2\r?$' /tmp/h
+          echo 'payments_ui_header=true'
+          grep -Eiq '^x-rona-payments-handoff: payments-v7-projection\r?$' /tmp/h
+          echo 'payments_handoff_header=true'
+          echo '=== BODY MARKERS ==='
+          grep -F 'admin-payments-v7-native-v2' /tmp/b >/dev/null
           echo 'renderer_marker=true'
-          grep -F "paymentsV7Money(deal?.due_now)" /tmp/b >/dev/null
+          grep -F 'paymentsV7Money(deal?.due_now)' /tmp/b >/dev/null
           echo 'due_now_marker=true'
           grep -F "paymentsV7Kpi('Conditional'" /tmp/b >/dev/null
           echo 'conditional_marker=true'
