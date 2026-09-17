@@ -4,6 +4,7 @@ import {
   CURRENT_PAYMENTS_ROUTE_OWNER,
   PAYMENTS_V7_BROWSER_RUNTIME_CURRENT,
 } from './admin-payments-v7-live-runtime-current.mjs';
+import { patchAdminPaymentsReconciliationDifferenceSource } from './admin-payments-reconciliation-difference-ui.mjs';
 
 const ROOT = process.cwd();
 const TARGET = join(ROOT, 'functions', 'portal', 'admin-main-ui-current.js');
@@ -100,6 +101,10 @@ for (const required of [
   'patchPaymentsRuntimeCurrent',
 ]) {
   if (!source.includes(required)) throw new Error(`PAYMENTS_V8_PRODUCTION_PATCH_MISSING: ${required}`);
+}
+source = patchAdminPaymentsReconciliationDifferenceSource(source);
+if (!source.includes('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V2')) {
+  throw new Error('PAYMENTS_RECONCILIATION_DIFFERENCE_RUNTIME_MISSING');
 }
 await writeFile(TARGET, source, 'utf8');
 
