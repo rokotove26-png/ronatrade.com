@@ -1,5 +1,5 @@
 const paymentsV7AuthoritativeAggregateUi = String.raw`
-const PAYMENTS_V7_SERVER_AGGREGATE_UI='PAYMENTS_V7_SERVER_AGGREGATE_UI_V1';
+const PAYMENTS_V7_SERVER_AGGREGATE_UI='PAYMENTS_V7_SERVER_AGGREGATE_UI_V2';
 
 function paymentsV7ServerAggregateRows(aggregate){
   const groups=paymentsV7Array(aggregate?.groups),rows=[];
@@ -12,6 +12,22 @@ function paymentsV7ServerAggregateRows(aggregate){
   }
   if(paymentsV7Array(aggregate?.unresolved_deal_ids).length)verify=true;
   return {rows,verify};
+}
+
+function paymentsV7MergeServerAggregateRows(...aggregates){
+  const totals=new Map();
+  let verify=false;
+  for(const aggregate of aggregates){
+    const resolved=paymentsV7ServerAggregateRows(aggregate);
+    if(resolved.verify)verify=true;
+    for(const row of resolved.rows){
+      totals.set(row.currency,(totals.get(row.currency)||0)+Number(row.amount));
+    }
+  }
+  return {
+    rows:[...totals.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([currency,amount])=>({currency,amount})),
+    verify,
+  };
 }
 
 function paymentsV7ServerFundingRows(projection,field){
@@ -31,27 +47,26 @@ renderPayments=function renderPayments(){
   paymentsV7InstallStyle();
   const projection=paymentsV7Projection();
   if(!projection){
-    const root=e('div',{class:'rona-payments-v7','data-rona-payments-owner':'admin-payments-v7-native'},e('div',{class:'rona-owner-muted',text:'Синхронизация платежного контура…'}));
+    const root=e('div',{class:'rona-payments-v7','data-rona-payments-owner':'admin-payments-v7-native-v2'},e('div',{class:'rona-owner-muted',text:'Синхронизация платежного контура…'}));
     replacePage('payments',root);
     return;
   }
-  const deals=paymentsV7Array(projection.deals),root=e('div',{class:'rona-payments-v7','data-rona-payments-owner':'admin-payments-v7-native','data-payments-contract':'ADMIN_PAYMENTS_V7','data-payments-aggregate-owner':PAYMENTS_V7_SERVER_AGGREGATE_UI});
+  const deals=paymentsV7Array(projection.deals),root=e('div',{class:'rona-payments-v7','data-rona-payments-owner':'admin-payments-v7-native-v2','data-payments-contract':'ADMIN_PAYMENTS_V7','data-payments-aggregate-owner':PAYMENTS_V7_SERVER_AGGREGATE_UI});
   const currencyAggregates=projection?.currency_aggregates||{};
   const total=paymentsV7ServerAggregateRows(currencyAggregates?.total_to_receive);
   const received=paymentsV7ServerAggregateRows(currencyAggregates?.verified_received);
-  const expected=paymentsV7ServerAggregateRows(currencyAggregates?.expected_not_due);
+  const expected=paymentsV7MergeServerAggregateRows(currencyAggregates?.due_now,currencyAggregates?.expected_not_due);
   const conditional=paymentsV7ServerAggregateRows(currencyAggregates?.future_conditional);
   const spent=paymentsV7ServerFundingRows(projection,'funding_spent');
   const remaining=paymentsV7ServerFundingRows(projection,'funding_remaining');
   const kpis=e('div',{class:'rona-payments-v7-kpis'});
-  const conditionalRows=conditional.rows.filter(x=>paymentsV7Num(x.amount)!==null&&paymentsV7Num(x.amount)!==0);
-  const conditionalSub=conditionalRows.length?e('div',{class:'rona-payments-v7-kpi-sub',text:'Conditional: '+conditionalRows.map(x=>paymentsV7Fmt(x.amount)+' '+x.currency).join(' · ')}):null;
   const spendNode=e('div',{class:'rona-payments-v7-money-lines'});
   spendNode.append(e('small',{text:'Потрачено'}),paymentsV7MoneyLines(spent.rows,spent.verify),e('small',{text:'Остаток'}),paymentsV7MoneyLines(remaining.rows,remaining.verify));
   kpis.append(
-    paymentsV7Kpi('К получению',paymentsV7MoneyLines(total.rows,total.verify)),
+    paymentsV7Kpi('Сумма по сделке',paymentsV7MoneyLines(total.rows,total.verify)),
     paymentsV7Kpi('Получено',paymentsV7MoneyLines(received.rows,received.verify)),
-    paymentsV7Kpi('Ожидается',paymentsV7MoneyLines(expected.rows,expected.verify),conditionalSub),
+    paymentsV7Kpi('Ожидается',paymentsV7MoneyLines(expected.rows,expected.verify)),
+    paymentsV7Kpi('Conditional',paymentsV7MoneyLines(conditional.rows,conditional.verify),e('div',{class:'rona-payments-v7-kpi-sub',text:'Условно ожидается'})),
     paymentsV7Kpi('Потрачено / Остаток',spendNode),
   );
   root.append(kpis);
@@ -62,8 +77,8 @@ renderPayments=function renderPayments(){
   if(owner)root.append(owner);
   replacePage('payments',root);
   const host=page('payments')?.querySelector(':scope > .rona-owner-page-content[data-owner-page="payments"],:scope > .rona-owner-page-content');
-  if(host){host.dataset.ronaPaymentsOwner='admin-payments-v7-native';host.dataset.paymentsContract='ADMIN_PAYMENTS_V7';host.dataset.paymentsAggregateOwner=PAYMENTS_V7_SERVER_AGGREGATE_UI}
-  window.__RONA_PAYMENTS_CURRENT_STATE__={contract:'ADMIN_PAYMENTS_V7',routeOwner:'admin-payments-v7-native',aggregateOwner:PAYMENTS_V7_SERVER_AGGREGATE_UI,generatedAt:projection.generated_at||null,dealCount:deals.length,ownerQueueCount:queue.length};
+  if(host){host.dataset.ronaPaymentsOwner='admin-payments-v7-native-v2';host.dataset.paymentsContract='ADMIN_PAYMENTS_V7';host.dataset.paymentsAggregateOwner=PAYMENTS_V7_SERVER_AGGREGATE_UI}
+  window.__RONA_PAYMENTS_CURRENT_STATE__={contract:'ADMIN_PAYMENTS_V7',routeOwner:'admin-payments-v7-native-v2',aggregateOwner:PAYMENTS_V7_SERVER_AGGREGATE_UI,generatedAt:projection.generated_at||null,dealCount:deals.length,ownerQueueCount:queue.length};
 };
 
 if(paymentsV7Projection())queueMicrotask(()=>{try{renderPayments()}catch(error){console.error('PAYMENTS_V7_SERVER_AGGREGATE_RENDER_FAILED',error)}});
