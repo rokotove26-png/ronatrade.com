@@ -1,0 +1,118 @@
+name: PR462 deployed preview Finance QA
+
+on:
+  push:
+    branches: [feat/admin-payments-final-owner-screen-passport-v1]
+    paths:
+      - 'functions/portal/owner-api.js'
+      - 'functions/portal/payment-schedule-current.js'
+      - 'functions/portal/payment-passport-current.js'
+      - 'functions/portal/main-ui/**'
+      - 'supabase/functions/rona-owner-ai-sync/**'
+      - 'scripts/qa-pr462-live-preview-finance.mjs'
+      - '.github/workflows/pr462-live-preview-finance-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+  id-token: write
+
+jobs:
+  live-preview-finance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      EXPECTED_HEAD: ${{ github.sha }}
+      GH_TOKEN: ${{ github.token }}
+      RONA_ADMIN_SESSION_SECRET: ${{ secrets.RONA_ADMIN_SESSION_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current Admin
+        run: npm run build
+      - name: Verify preview-only Finance route source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Fq "rona-admin-source-eval-candidate-20260817" functions/portal/owner-api.js
+          grep -Fq "PR462_PREVIEW_FINANCE_AUTHORITY" functions/portal/owner-api.js
+          grep -Fq "hostname.endsWith('.rona-trade-public.pages.dev')" functions/portal/owner-api.js
+          grep -Fq "PRODUCTION_SHARED" functions/portal/owner-api.js
+          grep -Fq "if (/\\/admin\\/sync\\/?$/.test(p)) return '/admin/sync';" supabase/functions/rona-owner-ai-sync/index.ts
+          grep -Fq "if (/\\/agent\\/sync\\/?$/.test(p)) return '/agent/sync';" supabase/functions/rona-owner-ai-sync/index.ts
+          if grep -E '487320|585830' functions/portal/owner-api.js; then echo 'PREVIEW_ROUTE_FINANCE_HARDCODE=FAIL'; exit 1; fi
+          echo 'PREVIEW_ROUTE_SOURCE_CONTRACT=PASS'
+          echo 'AI_SYNC_ROUTING_SLUG_AGNOSTIC=PASS'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --no-package-lock playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Resolve immutable exact-head Cloudflare preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {appendFile} from 'node:fs/promises';
+          const token=process.env.GH_TOKEN,head=process.env.EXPECTED_HEAD,repo=process.env.GITHUB_REPOSITORY;
+          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));let check=null;
+          for(let i=0;i<120;i++){
+            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
+            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
+            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
+            check=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
+            if(check)break;
+            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
+            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
+            await sleep(5000);
+          }
+          if(!check)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
+          const urls=[...new Set([...String(check?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
+          let origin=urls.length===1?urls[0]:'';const external=String(check?.external_id||'').trim().toLowerCase();
+          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
+          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
+          await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\nCLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
+          console.log(`PR462_IMMUTABLE_PREVIEW=${origin}`);console.log(`PR462_CLOUDFLARE_CHECK_RUN_ID=${check.id}`);
+          NODE
+      - name: Exact-head authenticated deployed-preview Finance browser proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/admin-payments-live-preview
+          node scripts/qa-pr462-live-preview-finance.mjs 2>&1 | tee artifacts/admin-payments-live-preview/live-preview-qa.log
+          for marker in \
+            LIVE_PREVIEW_FINANCE_DATA \
+            PAYMENT_PASSPORT_IS_PAYMENT_CENTRIC \
+            PASSPORT_QUERY_BY_PAYMENT_ID \
+            ONE_PASSPORT_ONE_PAYMENT \
+            NO_OTHER_PAYMENT_DATA_IN_PASSPORT \
+            NO_GLOBAL_BANK_FEES_IN_PASSPORT \
+            NO_GLOBAL_FX_IN_PASSPORT \
+            PAYMENT_AMOUNT_EXACT \
+            ALLOCATED_TOTAL_EXACT \
+            UNALLOCATED_RESIDUE_EXACT \
+            MULTI_DEAL_SPLIT_EXACT \
+            NO_FALSE_SOURCE_USE_TRACE \
+            PAYMENT_SCHEDULE_OWNER_SIMPLE \
+            NO_TECHNICAL_ENUMS_ON_OWNER_SCREEN \
+            NO_INTERNAL_TRIGGER_TEXT_ON_OWNER_SCREEN \
+            FINANCE_ALLOCATION_DYNAMIC \
+            NO_HARDCODED_ALLOCATION \
+            NO_DUPLICATES \
+            NO_RUNTIME_ERRORS; do
+            grep -Fq "${marker}=PASS" artifacts/admin-payments-live-preview/live-preview-qa.log
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr462-live-preview-finance-proof-${{ github.run_id }}
+          path: artifacts/admin-payments-live-preview/
+          if-no-files-found: warn
+          retention-days: 14

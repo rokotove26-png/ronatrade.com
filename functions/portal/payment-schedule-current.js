@@ -15,7 +15,7 @@ function verifiedAllocations(finance,dealId,currency){
   const bank=bankPaymentMap(finance),rows=[];
   for(const row of asArray(finance?.incomingPaymentAllocations)){
     if(String(row?.deal_id||'')!==dealId||normalize(row?.currency)!==currency)continue;
-    if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state)))continue;
+    if(normalize(row?.allocation_status)!=='VERIFIED'||!['CONFIRMED','VERIFIED'].includes(normalize(row?.authority_state))||!normalize(row?.source_system).includes('RECONCIL')||!String(row?.source_version||'').trim()||!row?.source_timestamp)continue;
     const payment=bank.get(String(row?.payment_id||''));if(!payment||normalize(payment?.currency)!==currency)continue;
     const amount=asNumber(row?.allocated_amount);if(amount===null||amount<0)continue;rows.push({paymentId:String(row.payment_id),amount});
   }
@@ -26,9 +26,9 @@ function rowProvenance(row){return{authority:'FINANCE_CURRENT_STATE',sourceKind:
   triggerRecordId:row?.triggerRecordId??null,sourceVersion:row?.sourceVersion??null,sourceTimestamp:row?.sourceTimestamp??null,materializedAt:row?.materializedAt??null,sourceRefs:asArray(row?.sourceRefs)}}
 function failClosed(row,finance,errors){
   const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId);
-  return{dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
+  return{dealId,currency:null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
     scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:'TO_VERIFY',projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',
-    financeStatus:row?.financeStatus??summary?.finance_status??null,accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
+    financeStatus:'TO_VERIFY',accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,
     outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',validationErrors:errors,provenance:rowProvenance(row)};
 }
 function validateAuthoritativeRow(finance,row){
@@ -52,8 +52,8 @@ function validateAuthoritativeRow(finance,row){
 }
 function validateHold(finance,row){
   const dealId=String(row?.dealId||''),summary=financeSummary(finance,dealId),errors=[];if(!dealId)errors.push('DEAL_ID_MISSING');if(!summary)errors.push('FINANCE_SUMMARY_MISSING');
-  return{dealId,currency:row?.currency??summary?.currency??null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
-    scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:null,projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',financeStatus:row?.financeStatus??summary?.finance_status??null,
+  return{dealId,currency:null,paymentIds:[],obligationAmount:null,verifiedReceivedAmount:null,remainingAmount:null,currentDueAmount:null,deferredNotDueAmount:null,
+    scheduleState:'TO_VERIFY',triggerState:'TO_VERIFY',nextTrancheCondition:null,projectionStatus:'TO_VERIFY',bankFactStatus:'TO_VERIFY',allocationStatus:'TO_VERIFY',financeStatus:'TO_VERIFY',
     accountingClosureStatus:row?.accountingClosureStatus??summary?.accounting_status??null,outgoingUsdEquivalent:null,outgoingUsdEquivalentStatus:'TO_VERIFY',validationErrors:errors.length?errors:[String(row?.reason||'FINANCE_PAYMENT_SCHEDULE_NOT_MATERIALIZED')],
     provenance:{authority:'FINANCE_CURRENT_STATE',authorityState:'FAIL_CLOSED'}};
 }
@@ -62,7 +62,7 @@ function scheduleTotals(schedules){
     const key=String(row.currency),prev=map.get(key)||{currency:key,currentDueAmount:0,deferredNotDueAmount:0};prev.currentDueAmount=round(prev.currentDueAmount+current);prev.deferredNotDueAmount=round(prev.deferredNotDueAmount+deferred);map.set(key,prev)}return[...map.values()];
 }
 export function buildPaymentScheduleProjection(financeFragment,generatedAt=new Date().toISOString()){
-  const policy={frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false};
+  const policy={frontendCalculation:false,candidateDealIdsAreAllocation:false,proportionalSplit:false,syntheticFx:false,sentApplicationCreatesDue:false,reconciledFinanceAllocationOnly:true};
   if(String(financeFragment?.paymentProjectionContract||'')!==FINANCE_PROJECTION_CONTRACT)return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:String(financeFragment?.paymentProjectionContract||''),sourceScheduleContract:String(financeFragment?.paymentScheduleContract||''),authority:'FINANCE',schedulePolicy:policy,schedules:[],totalsByCurrency:[],projectionStatus:'TO_VERIFY',validationErrors:['FINANCE_PROJECTION_CONTRACT_MISMATCH']};
   if(String(financeFragment?.paymentScheduleContract||'')!==FINANCE_SCHEDULE_CONTRACT)return{generatedAt,projectionContract:SCHEDULE_PROJECTION_CONTRACT,sourceProjectionContract:FINANCE_PROJECTION_CONTRACT,sourceScheduleContract:String(financeFragment?.paymentScheduleContract||''),authority:'FINANCE',schedulePolicy:policy,schedules:[],totalsByCurrency:[],projectionStatus:'TO_VERIFY',validationErrors:['FINANCE_SCHEDULE_CURRENT_STATE_MISSING']};
   const authoritative=asArray(financeFragment?.paymentSchedules).map(row=>validateAuthoritativeRow(financeFragment,row)),seen=new Set(authoritative.map(row=>row.dealId));
