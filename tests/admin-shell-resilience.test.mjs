@@ -52,7 +52,8 @@ assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("roo
 assert(!runtime.includes("['agent-settlements','messages','analytics','market-news'].includes(p)"),'Analytics/News must not be routed back to Remaining owner');
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
 
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v8-radio-final-v9'"),'Page-aware watchdog missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'Current page-aware watchdog marker missing');
+assert(watchdog.includes("state=window.__RONA_ADMIN_RUNTIME_RECOVERY__={version:'page-aware-v10-radio-payments-heading'"),'Current watchdog recovery-state version missing');
 assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
 assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
 assert(watchdog.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness check missing');
