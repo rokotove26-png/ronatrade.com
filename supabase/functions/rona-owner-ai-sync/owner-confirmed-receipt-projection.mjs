@@ -243,8 +243,7 @@ export async function readOwnerConfirmedReceiptsV7(sql, sourceAsOf = null) {
         and attr.actor_role='FINANCE'
         and nullif(btrim(attr.source_version),'') is not null
         and attr.source_version=p.source_version
-        and jsonb_typeof(attr.lines_snapshot)='array'
-        and jsonb_array_length(attr.lines_snapshot)=1
+        and jsonb_array_length(case when jsonb_typeof(attr.lines_snapshot)='array' then attr.lines_snapshot else '[]'::jsonb end)=1
         and attr.lines_snapshot @> jsonb_build_array(jsonb_build_object(
           'deal_key',pa.deal_key::text,
           'amount',pa.allocated_amount,
@@ -259,7 +258,6 @@ export async function readOwnerConfirmedReceiptsV7(sql, sourceAsOf = null) {
       from portal_private.finance_events_v7 fe
       where fe.payment_key=p.id
         and fe.event_type=${OWNER_EVENT_TYPE}
-        and fe.event_identity='OWNER_CONFIRMED_RECEIPT:'||p.payment_id
         and fe.actor_id='AI-FINANCE'
         and fe.actor_role='FINANCE'
         and nullif(btrim(fe.source_version),'') is not null
@@ -271,7 +269,11 @@ export async function readOwnerConfirmedReceiptsV7(sql, sourceAsOf = null) {
         and fe.result_snapshot->>'allocation_id'=pa.id::text
         and fe.result_snapshot->>'deal_id'=d.deal_id
         and upper(coalesce(fe.result_snapshot->>'currency',''))=upper(btrim(p.currency::text))
-        and coalesce(nullif(fe.result_snapshot->>'amount','')::numeric,0)=p.amount
+        and case
+          when coalesce(fe.result_snapshot->>'amount','') ~ '^[+-]?[0-9]+([.][0-9]+)?$'
+            then (fe.result_snapshot->>'amount')::numeric=p.amount
+          else false
+        end
       order by fe.created_at desc,fe.id desc
       limit 1
     ) e on true
@@ -314,7 +316,6 @@ export async function readOwnerConfirmedReceiptsV7(sql, sourceAsOf = null) {
         from portal_private.finance_events_v7 fx
         where fx.payment_key=p.id
           and fx.event_type=${OWNER_EVENT_TYPE}
-          and fx.event_identity='OWNER_CONFIRMED_RECEIPT:'||p.payment_id
           and fx.actor_id='AI-FINANCE'
           and fx.actor_role='FINANCE'
           and coalesce((fx.result_snapshot->>'accepted')::boolean,false)=true
