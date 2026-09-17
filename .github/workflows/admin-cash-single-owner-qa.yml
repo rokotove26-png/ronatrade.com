@@ -7,10 +7,13 @@ on:
     paths:
       - 'functions/portal/main-ui/_middleware.js'
       - 'functions/portal/main-ui/index.js'
+      - 'functions/portal/main-ui/payments-money-display-contract.js'
+      - 'functions/portal/payments-v8-ui.js'
       - 'functions/portal/cash-r2-ui.js'
       - 'assets/portal-admin-shell-fast-v1.js'
       - 'scripts/qa-admin-cash-single-owner.mjs'
       - 'scripts/qa-admin-single-owner.mjs'
+      - 'tests/admin-payments-v7/payments-money-display-precision.test.mjs'
       - '.github/workflows/admin-cash-single-owner-qa.yml'
   push:
     branches:
@@ -18,10 +21,13 @@ on:
     paths:
       - 'functions/portal/main-ui/_middleware.js'
       - 'functions/portal/main-ui/index.js'
+      - 'functions/portal/main-ui/payments-money-display-contract.js'
+      - 'functions/portal/payments-v8-ui.js'
       - 'functions/portal/cash-r2-ui.js'
       - 'assets/portal-admin-shell-fast-v1.js'
       - 'scripts/qa-admin-cash-single-owner.mjs'
       - 'scripts/qa-admin-single-owner.mjs'
+      - 'tests/admin-payments-v7/payments-money-display-precision.test.mjs'
       - '.github/workflows/admin-cash-single-owner-qa.yml'
 
 permissions:
@@ -39,8 +45,13 @@ jobs:
         run: |
           node --check functions/portal/main-ui/_middleware.js
           node --check functions/portal/main-ui/index.js
+          node --check functions/portal/main-ui/payments-money-display-contract.js
+          node --check functions/portal/payments-v8-ui.js
+          node --check tests/admin-payments-v7/payments-money-display-precision.test.mjs
           node --check functions/portal/cash-r2-ui.js
           node --check scripts/qa-admin-cash-single-owner.mjs
+      - name: Payments money precision regression QA
+        run: node --test tests/admin-payments-v7/payments-money-display-precision.test.mjs
       - name: Cash single-owner regression QA
         run: node scripts/qa-admin-cash-single-owner.mjs
       - name: Canonical production build
