@@ -21,15 +21,16 @@ jobs:
           set -euo pipefail
           u='https://dbd0b39c.rona-trade-public.pages.dev/portal/admin-main-ui-current'
           curl -fsS -D /tmp/h -o /tmp/b "$u"
+          tr -d '\r' < /tmp/h > /tmp/hn
           echo '=== HEADERS ==='
-          cat /tmp/h
+          cat /tmp/hn
           echo '=== FINGERPRINT ==='
           sha256sum /tmp/b
           wc -c /tmp/b
           echo '=== RESPONSE HEADER GATES ==='
-          grep -Eiq '^x-rona-payments-ui: admin-payments-v7-native-v2\r?$' /tmp/h
+          grep -Fxi 'x-rona-payments-ui: admin-payments-v7-native-v2' /tmp/hn >/dev/null
           echo 'payments_ui_header=true'
-          grep -Eiq '^x-rona-payments-handoff: payments-v7-projection\r?$' /tmp/h
+          grep -Fxi 'x-rona-payments-handoff: payments-v7-projection' /tmp/hn >/dev/null
           echo 'payments_handoff_header=true'
           echo '=== BODY MARKERS ==='
           grep -F 'admin-payments-v7-native-v2' /tmp/b >/dev/null
