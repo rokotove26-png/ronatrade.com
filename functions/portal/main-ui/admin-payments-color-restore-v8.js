@@ -1,7 +1,7 @@
 export default String.raw`
 (()=>{'use strict';
-if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V13__)return;
-window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V13__=true;
+if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V14__)return;
+window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V14__=true;
 if(location.pathname!=='/portal/admin')return;
 const ROOT='#page-payments .rona-payments-v7';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim().toUpperCase();
@@ -15,6 +15,15 @@ function toneForStatus(v){
   if(t==='OVERDUE'||t==='ПРОСРОЧЕНО')return'overdue';
   return'';
 }
+function kpiTone(v){
+  const t=norm(v);
+  if(t==='СУММА ПО СДЕЛКЕ')return'total';
+  if(t==='ПОЛУЧЕНО')return'received';
+  if(t==='ОЖИДАЕТСЯ СЕЙЧАС')return'due';
+  if(t==='CONDITIONAL'||t==='УСЛОВНОЕ')return'conditional';
+  if(t==='ПОТРАЧЕНО / ОСТАТОК')return'funding';
+  return'';
+}
 function installStyle(){
   document.getElementById('ronaAdminPaymentsColorRestoreV8')?.remove();
   const s=document.createElement('style');
@@ -22,10 +31,26 @@ function installStyle(){
   s.textContent='#page-payments .rona-payments-v7{--pay-violet:#5ec8ff!important}'+
   '#page-payments .rona-payments-v7-board,#page-payments .rona-payments-v7-list,#page-payments .rona-payments-v7-deals{gap:2px!important;row-gap:2px!important;column-gap:2px!important}'+
   '#page-payments .rona-payments-v7-deal{margin:0!important;margin-block:0!important}'+
-  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]{--pay-tone:#5ec8ff!important;border-color:rgba(94,200,255,.34)!important;background:linear-gradient(180deg,rgba(8,27,43,.88),rgba(6,18,31,.92))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 22px rgba(94,200,255,.10)!important}'+
-  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]>.rona-payments-v7-kpi-label{display:block!important;position:static!important;top:auto!important;transform:none!important;min-height:0!important;margin:0 0 13px!important;padding:0!important;font-size:10px!important;line-height:1.2!important;font-weight:900!important;letter-spacing:.13em!important;text-transform:uppercase!important;color:#8ed8ff!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone]{transition:border-color .18s ease,box-shadow .18s ease,background .18s ease!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="total"]{--accent:#5ec8ff!important;border-color:rgba(94,200,255,.30)!important;background:linear-gradient(180deg,rgba(8,26,42,.88),rgba(6,18,31,.93))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 20px rgba(94,200,255,.07)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="received"]{--accent:#56dda1!important;border-color:rgba(86,221,161,.30)!important;background:linear-gradient(180deg,rgba(8,31,30,.88),rgba(6,19,27,.93))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 20px rgba(86,221,161,.07)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="due"]{--accent:#ffc861!important;border-color:rgba(255,200,97,.31)!important;background:linear-gradient(180deg,rgba(38,31,15,.70),rgba(18,21,27,.93))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 20px rgba(255,200,97,.07)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]{--pay-tone:#86eee6!important;--accent:#86eee6!important;border-color:rgba(134,238,230,.34)!important;background:linear-gradient(180deg,rgba(8,31,43,.88),rgba(6,18,31,.92))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 23px rgba(134,238,230,.10)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="funding"]{--accent:#61d8ff!important;border-color:rgba(97,216,255,.28)!important;background:linear-gradient(180deg,rgba(10,26,39,.88),rgba(7,18,29,.93))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 20px rgba(97,216,255,.06)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="total"]>.rona-payments-v7-kpi-label{color:#79d8ff!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="received"]>.rona-payments-v7-kpi-label{color:#80e8b1!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="due"]>.rona-payments-v7-kpi-label{color:#ffd06f!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]>.rona-payments-v7-kpi-label{display:block!important;position:static!important;top:auto!important;transform:none!important;min-height:0!important;margin:0 0 13px!important;padding:0!important;font-size:10px!important;line-height:1.2!important;font-weight:900!important;letter-spacing:.13em!important;text-transform:uppercase!important;color:#86eee6!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]>.rona-payments-v7-kpi-label::before{content:none!important;display:none!important}'+
-  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-value{color:#e6f7ff!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="funding"]>.rona-payments-v7-kpi-label{color:#88dcff!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="total"] .rona-payments-v7-kpi-value{color:#dff7ff!important;text-shadow:0 0 18px rgba(94,200,255,.24)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="received"] .rona-payments-v7-kpi-value{color:#b8ffd8!important;text-shadow:0 0 18px rgba(86,221,161,.24)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="due"] .rona-payments-v7-kpi-value{color:#ffe29a!important;text-shadow:0 0 18px rgba(255,200,97,.22)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-value{color:#c8fffb!important;text-shadow:0 0 19px rgba(134,238,230,.28)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="funding"]>.rona-payments-v7-money-lines>small:nth-of-type(1){color:#ffb77a!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="funding"]>.rona-payments-v7-money-lines>small:nth-of-type(2){color:#8ed8ff!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="funding"]>.rona-payments-v7-money-lines>div:nth-of-type(1) .rona-payments-v7-kpi-value{color:#ffd0aa!important;text-shadow:0 0 16px rgba(255,163,91,.18)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="funding"]>.rona-payments-v7-money-lines>div:nth-of-type(2) .rona-payments-v7-kpi-value{color:#cbeeff!important;text-shadow:0 0 16px rgba(97,216,255,.20)!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]{display:inline-flex!important;align-items:center!important;width:max-content!important;max-width:100%!important;margin-top:5px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font-size:9.3px!important;line-height:1.15!important;font-weight:880!important;letter-spacing:.085em!important;text-transform:uppercase!important;white-space:nowrap!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]::before{content:none!important;display:none!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone="paid"]{color:#8ff0be!important;text-shadow:0 0 10px rgba(86,221,161,.20)!important}'+
@@ -38,7 +63,7 @@ function installStyle(){
   '#page-payments .rona-payments-v7-deal-head[data-first-col-tone="conditional"]{border-color:rgba(94,200,255,.62)!important;background:linear-gradient(180deg,rgba(8,31,48,.66),rgba(6,18,31,.76))!important;box-shadow:inset 3px 0 0 #5ec8ff,inset 0 0 0 1px rgba(94,200,255,.08),0 0 22px rgba(94,200,255,.14)!important}'+
   '#page-payments .rona-payments-v7-deal-head[data-first-col-tone="verify"],#page-payments .rona-payments-v7-deal-head[data-first-col-tone="overdue"]{border-color:rgba(255,127,143,.48)!important;background:linear-gradient(180deg,rgba(42,18,29,.50),rgba(17,17,28,.72))!important;box-shadow:inset 3px 0 0 #ff7f8f,inset 0 0 0 1px rgba(255,127,143,.055),0 0 19px rgba(255,113,128,.10)!important}'+
   '#page-payments .rona-payments-v7-deal-head[data-first-col-tone="partial"],#page-payments .rona-payments-v7-deal-head[data-first-col-tone="expected"]{border-color:rgba(255,200,97,.48)!important;background:linear-gradient(180deg,rgba(42,33,15,.43),rgba(18,21,27,.72))!important;box-shadow:inset 3px 0 0 #ffc861,inset 0 0 0 1px rgba(255,200,97,.055),0 0 19px rgba(255,200,97,.09)!important}'+
-  '@media(prefers-reduced-motion:reduce){#page-payments .rona-payments-v7-deal-head[data-first-col-tone]{transition:none!important}}';
+  '@media(prefers-reduced-motion:reduce){#page-payments .rona-payments-v7-deal-head[data-first-col-tone],#page-payments .rona-payments-v7-kpi[data-tone]{transition:none!important}}';
   document.head.appendChild(s);
 }
 function dedupePaymentsTitle(){
@@ -81,8 +106,8 @@ function markKpis(root){
     delete kpi.dataset.tone;
     const label=kpi.querySelector(':scope > .rona-payments-v7-kpi-label')||kpi.querySelector('.rona-payments-v7-kpi-label');
     if(!label)continue;
-    const tone=toneForStatus(label.textContent);
-    if(tone==='conditional')kpi.dataset.tone='conditional';
+    const tone=kpiTone(label.textContent);
+    if(tone)kpi.dataset.tone=tone;
   }
 }
 function decorate(){
@@ -105,7 +130,7 @@ function decorate(){
     const tone=toneForStatus(status?.textContent||'');
     if(tone)head.dataset.firstColTone=tone;
   }
-  root.dataset.colorRestore='v13-conditional-kpi-native-align';
+  root.dataset.colorRestore='v14-semantic-kpi-colors';
   return true;
 }
 let queued=false;
