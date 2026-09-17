@@ -1,5 +1,6 @@
 const CASH_OWNER='cash-r2-exclusive-v1';
 const PAYMENTS_OWNER='admin-payments-v7-native-v2';
+const PAYMENTS_V8_BOOTSTRAP_OWNER='payments-v8-bootstrap-v1';
 const LEGACY_RENDER_START='function renderCash(){';
 const LEGACY_RENDER_END='\nif(!window.__RONA_FINANCE_FRAGMENT_UI_LISTENER__)';
 const LEGACY_FINANCE_LISTENER="window.addEventListener('rona:finance-sync',()=>{try{renderPayments();renderCash()}catch(_e){}})";
@@ -12,6 +13,7 @@ const OWNED_PAGE_MARKER='function renderOwnedAdminPage(id){';
 const CASH_R2_HOST_FUNCTION="function ensureCashR2Host(){const p=page('accounting');if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"accounting\\\"]',p)||q(':scope > .rona-owner-page-content',p);if(!host){for(const child of Array.from(p.children))child.classList.add('rona-owner-original-hidden');host=e('div',{class:'rona-owner-page-content','data-owner-page':'accounting','data-rona-cash-host':'r2'});p.append(host)}host.dataset.ronaCashHost='r2';host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');return host}\n";
 const RADIO_VISUAL_VERSION='20260915-radio-wide-v10-r1';
 const RADIO_VISUAL_LOADER="\n;(()=>{try{if(!window.__RONA_ADMIN_RADIO_WIDE_V10__&&!document.getElementById('rona-admin-radio-wide-v10')){const s=document.createElement('script');s.id='rona-admin-radio-wide-v10';s.src='/assets/portal-admin-radio-wide-v10.js?v="+RADIO_VISUAL_VERSION+"';s.async=false;s.dataset.ronaVisualOnly='radio-wide-v10';document.body.appendChild(s)}}catch(_e){}})();\n";
+const PAYMENTS_V8_BOOTSTRAP_LOADER="\n;(()=>{try{if(!window.__RONA_PAYMENTS_V8_UI_INSTALLED__&&!document.getElementById('rona-payments-v8-bootstrap-ui')){const s=document.createElement('script');s.id='rona-payments-v8-bootstrap-ui';s.src='/portal/payments-v8-ui?v=20260917-v1';s.async=false;s.dataset.ronaPaymentsOwner='"+PAYMENTS_V8_BOOTSTRAP_OWNER+"';document.body.appendChild(s)}}catch(error){window.__RONA_PAYMENTS_V8_UI_ERROR__=String(error&&error.message?error.message:error)}})();\n";
 
 function patchPaymentsCurrentSemantics(source){
   const script=String(source||'');
@@ -57,7 +59,7 @@ function patchCashSingleOwner(source){
   script=script.replace(OWNED_PAGE_MARKER,CASH_R2_HOST_FUNCTION+OWNED_PAGE_MARKER);
   if(script.includes('renderCash'))throw new Error('ADMIN_CASH_COMPETING_RENDERER_REMAINS');
   if(!script.includes(CASH_R2_ACCOUNTING_ROUTE)||!script.includes(CASH_R2_BOOT_SEQUENCE)||!script.includes('data-rona-cash-host'))throw new Error('ADMIN_CASH_R2_HOST_MISSING');
-  return "window.__RONA_CASH_RUNTIME_OWNER__='"+CASH_OWNER+"';\n"+script+RADIO_VISUAL_LOADER;
+  return "window.__RONA_CASH_RUNTIME_OWNER__='"+CASH_OWNER+"';\n"+script+RADIO_VISUAL_LOADER+PAYMENTS_V8_BOOTSTRAP_LOADER;
 }
 
 export async function onRequest(context){
@@ -85,10 +87,10 @@ export async function onRequest(context){
   headers.set('x-rona-cash-single-owner','enforced');
   headers.set('x-rona-cash-host','r2-owned-shell');
   headers.set('x-rona-radio-visual','wide-v10');
-  headers.set('x-rona-payments-ui',PAYMENTS_OWNER);
-  headers.set('x-rona-payments-handoff','payments-v7-projection');
-  headers.set('x-rona-payments-current-runtime','due-now-conditional-v3');
+  headers.set('x-rona-payments-ui',PAYMENTS_V8_BOOTSTRAP_OWNER);
+  headers.set('x-rona-payments-handoff','canonical-v8-bootstrap');
+  headers.set('x-rona-payments-current-runtime','bootstrap-authoritative-v1');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
-export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,CASH_OWNER,PAYMENTS_OWNER,RADIO_VISUAL_VERSION};
+export const __test={patchCashSingleOwner,patchPaymentsCurrentSemantics,CASH_OWNER,PAYMENTS_OWNER,PAYMENTS_V8_BOOTSTRAP_OWNER,RADIO_VISUAL_VERSION};
