@@ -14,7 +14,7 @@ test('reconciliation indicator is append-only and preserves the Payments rendere
   assert.equal(patched.slice(0,renderer.length),renderer);
   assert.match(patched,new RegExp(PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT));
   assert.match(patched,/Сверочная разница/);
-  assert.match(patched,/position:absolute;top:2px;right:0/);
+  assert.match(patched,/#page-payments #ronaPaymentsV8Root/);\n  assert.match(patched,/rona-payments-reconciliation-heading/);
 });
 
 test('assembled Admin source gets only an appended reconciliation runtime', () => {
@@ -44,7 +44,7 @@ test('indicator is display-only: no drill-down, no local component calculation, 
   assert.doesNotMatch(source,/openDrilldown|normalizeBreakdown|allowedCurrencies|allowedDirections|primary_breakdown|components/);
   assert.doesNotMatch(source,/KZT/);
   assert.doesNotMatch(source,/58902|4712762|2913\.488/);
-  assert.match(source,/pointer-events:none/);
+  assert.match(source,/pointer-events:none/);\n  assert.match(source,/observer\.observe\(page,\{childList:true\}\)/);\n  assert.doesNotMatch(source,/subtree:true/);
 });
 
 test('indicator overlay does not alter Payments KPI, cards, deal grid or renderer styles', () => {
