@@ -87,6 +87,7 @@ const server=http.createServer(async(req,res)=>{
   if(p==='/portal/clients-agents-current-ui'||p==='/portal/claims-r2-ui'||p==='/portal/remaining-sections-ui')return void await serveFile(res,join(DIST,p),'application/javascript; charset=utf-8');
   if(optionalUiPaths.has(p))return send(res,200,'/* QA optional current module */','application/javascript; charset=utf-8');
   if(p==='/portal/api/session/me')return json(res,{ok:true,user:{roles:['ADMIN'],display_name:'QA Admin'}});
+  if(p==='/portal/admin-completed-bootstrap')return send(res,200,JSON.stringify({ok:true,data:adminBootstrap}),'application/json; charset=utf-8',{'x-rona-admin-completed-applications':'SERVER_MATERIALIZED'});
   if(p==='/portal/api/v1/admin/bootstrap')return json(res,{ok:true,data:adminBootstrap});
   if(p==='/portal/logout')return json(res,{ok:true});
   if(p==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority});
