@@ -3,7 +3,8 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 
 const ui = readFileSync(new URL('../../functions/portal/payments-v8-ui.js', import.meta.url), 'utf8');
-const admin = readFileSync(new URL('../../functions/portal/admin.js', import.meta.url), 'utf8');
+const mainUiMiddleware = readFileSync(new URL('../../functions/portal/main-ui/_middleware.js', import.meta.url), 'utf8');
+const adminRoute = readFileSync(new URL('../../functions/portal/admin.js', import.meta.url), 'utf8');
 
 test('Admin Payments V8 renderer reads only the canonical authenticated bootstrap projection', () => {
   assert.match(ui, /\/portal\/api\/v1\/admin\/bootstrap/);
@@ -20,13 +21,26 @@ test('Admin Payments V8 renderer reads only the canonical authenticated bootstra
   assert.doesNotMatch(ui, /owner_deal_finance_summary/);
 });
 
-test('Admin shell installs the isolated V8 Payments renderer without business hardcodes', () => {
-  assert.match(admin, /\/portal\/payments-v8-ui/);
-  assert.match(admin, /x-rona-payments-ui-loader/);
-  assert.match(ui, /data-page=\"payments\"/);
-  for (const forbidden of [
-    /DEAL-2026-\d+/,
-    /PAYEV-2026-\d+/,
-    /94125|131775|225900|35574\.47|190325\.53|527100/,
-  ]) assert.doesNotMatch(ui, forbidden);
+test('current-only main UI hands Payments to the isolated V8 bootstrap renderer', () => {
+  assert.match(mainUiMiddleware, /PAYMENTS_V8_BOOTSTRAP_OWNER='payments-v8-bootstrap-v1'/);
+  assert.match(mainUiMiddleware, /\/portal\/payments-v8-ui\?v=20260917-v1/);
+  assert.match(mainUiMiddleware, /canonical-v8-bootstrap/);
+  assert.match(mainUiMiddleware, /bootstrap-authoritative-v1/);
+  assert.match(ui, /data-page=\\"payments\\"|data-page=\"payments\"/);
+});
+
+test('Admin route remains current-only and non-rewriting', () => {
+  assert.match(adminRoute, /ASSETS\?\.fetch/);
+  assert.doesNotMatch(adminRoute, /HTMLRewriter/);
+  assert.doesNotMatch(adminRoute, /payments-v8-ui/);
+});
+
+test('Payments V8 UI contains no production business hardcodes', () => {
+  for (const source of [ui, mainUiMiddleware]) {
+    for (const forbidden of [
+      /DEAL-2026-\d+/,
+      /PAYEV-2026-\d+/,
+      /94125|131775|225900|35574\.47|190325\.53|527100/,
+    ]) assert.doesNotMatch(source, forbidden);
+  }
 });
