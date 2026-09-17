@@ -52,8 +52,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk18.js)" = "e5e920deb9323507ef8e22ac9cfa8be7b0f55062"
-          test "$(git rev-parse HEAD:functions/portal/main-ui/application-passport-runtime.js)" = "4b0c40a59161617b47d1930b82dda277182523b3"
+          test "$(git rev-parse HEAD:functions/portal/owner-ui-chunks/chunk18.js)" = "b07433cb9fe8e0520f532779c555c9b167fdbfb0"
+          test "$(git rev-parse HEAD:functions/portal/main-ui/application-passport-runtime.js)" = "a24456b11eb642bb987c2ee4cddda8df5d45e601"
       - name: Install browser QA runtime
         run: |
           npm install --no-save playwright@1.55.0
