@@ -16,7 +16,10 @@ const CASH_R2_HOST_FUNCTION="function ensureCashR2Host(){const p=page('accountin
 const RADIO_VISUAL_VERSION='20260915-radio-wide-v10-r1';
 const RADIO_VISUAL_LOADER="\n;(()=>{try{if(!window.__RONA_ADMIN_RADIO_WIDE_V10__&&!document.getElementById('rona-admin-radio-wide-v10')){const s=document.createElement('script');s.id='rona-admin-radio-wide-v10';s.src='/assets/portal-admin-radio-wide-v10.js?v="+RADIO_VISUAL_VERSION+"';s.async=false;s.dataset.ronaVisualOnly='radio-wide-v10';document.body.appendChild(s)}}catch(_e){}})();\n";
 const PAYMENTS_V8_BOOTSTRAP_LOADER="\n;(()=>{try{if(!window.__RONA_PAYMENTS_V8_UI_INSTALLED__&&!document.getElementById('rona-payments-v8-bootstrap-ui')){const s=document.createElement('script');s.id='rona-payments-v8-bootstrap-ui';s.src='/portal/payments-v8-ui?v=20260917-v1';s.async=false;s.dataset.ronaPaymentsOwner='"+PAYMENTS_V8_BOOTSTRAP_OWNER+"';document.body.appendChild(s)}}catch(error){window.__RONA_PAYMENTS_V8_UI_ERROR__=String(error&&error.message?error.message:error)}})();\n";
-const LEGACY_PAYMENTS_V7_FORMATTER="function paymentsV7Fmt(v){const n=paymentsV7Num(v);return n===null?'TO_VERIFY':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)}";
+const LEGACY_PAYMENTS_V7_FORMATTERS=[
+  "function paymentsV7Fmt(v){const n=paymentsV7Num(v);return n===null?'TO_VERIFY':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)}",
+  "function paymentsV7Fmt(v){const n=paymentsV7Num(v);return n===null?'—':new Intl.NumberFormat('ru-RU',{maximumFractionDigits:2}).format(n)}",
+];
 const CANONICAL_PAYMENTS_V7_FORMATTER="function paymentsV7Fmt(v){const n=paymentsV7Num(v);if(n===null)return'TO_VERIFY';const formatted=globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.formatAmount(n);return formatted===null||formatted===undefined?'TO_VERIFY':formatted}";
 const PASSPORT_FALLBACK_FORMATTER="if(typeof globalThis.paymentsV7Fmt!=='function')globalThis.paymentsV7Fmt=value=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:1}).format(Number(value));";
 const CANONICAL_PASSPORT_FORMATTER="if(typeof globalThis.paymentsV7Fmt!=='function')globalThis.paymentsV7Fmt=value=>{const formatted=globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.formatAmount(value);return formatted===null||formatted===undefined?'TO_VERIFY':formatted};";
@@ -41,11 +44,24 @@ function patchPaymentsCurrentSemantics(source){
   if(!finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.due_now'))throw new Error('ADMIN_PAYMENTS_V8_DUE_NOW_DISPLAY_MISSING');
   if(!finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.future_conditional'))throw new Error('ADMIN_PAYMENTS_V8_CONDITIONAL_DISPLAY_MISSING');
   if(finalDealRenderer.includes('paymentsV7OwnerMoney(deal?.remaining_to_receive'))throw new Error('ADMIN_PAYMENTS_V8_STALE_REMAINING_DISPLAY_PRESENT');
-  if(!script.includes(LEGACY_PAYMENTS_V7_FORMATTER))throw new Error('ADMIN_PAYMENTS_MONEY_BOARD_FORMATTER_SOURCE_MISMATCH');
-  if(!script.includes(PASSPORT_FALLBACK_FORMATTER))throw new Error('ADMIN_PAYMENTS_MONEY_PASSPORT_FORMATTER_SOURCE_MISMATCH');
-  script=script.replace(LEGACY_PAYMENTS_V7_FORMATTER,CANONICAL_PAYMENTS_V7_FORMATTER);
-  script=script.replace(PASSPORT_FALLBACK_FORMATTER,CANONICAL_PASSPORT_FORMATTER);
-  if(script.includes(LEGACY_PAYMENTS_V7_FORMATTER)||script.includes(PASSPORT_FALLBACK_FORMATTER))throw new Error('ADMIN_PAYMENTS_COMPETING_FORMATTER_REMAINS');
+
+  let boardFormatterReady=script.includes(CANONICAL_PAYMENTS_V7_FORMATTER);
+  for(const legacy of LEGACY_PAYMENTS_V7_FORMATTERS){
+    if(script.includes(legacy)){
+      script=script.replace(legacy,CANONICAL_PAYMENTS_V7_FORMATTER);
+      boardFormatterReady=true;
+    }
+  }
+  if(!boardFormatterReady)throw new Error('ADMIN_PAYMENTS_MONEY_BOARD_FORMATTER_SOURCE_MISMATCH');
+
+  let passportFormatterReady=script.includes(CANONICAL_PASSPORT_FORMATTER);
+  if(script.includes(PASSPORT_FALLBACK_FORMATTER)){
+    script=script.replace(PASSPORT_FALLBACK_FORMATTER,CANONICAL_PASSPORT_FORMATTER);
+    passportFormatterReady=true;
+  }
+  if(!passportFormatterReady)throw new Error('ADMIN_PAYMENTS_MONEY_PASSPORT_FORMATTER_SOURCE_MISMATCH');
+
+  if(LEGACY_PAYMENTS_V7_FORMATTERS.some(legacy=>script.includes(legacy))||script.includes(PASSPORT_FALLBACK_FORMATTER))throw new Error('ADMIN_PAYMENTS_COMPETING_FORMATTER_REMAINS');
   return paymentsMoneyDisplayContract+'\n'+script;
 }
 
