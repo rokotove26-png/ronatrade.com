@@ -1,4 +1,4 @@
-name: Issue 557 OIDC Authenticated Production E2E
+name: Payments V8 OIDC Authenticated Production E2E
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 15
     env:
       BASELINE_RELEASE_SHA: 92f8d5e381e34e84b7c14aa3f6d7480a60eae24c
-      EXPECTED_RELEASE_SHA: b4285b5795fc73f24c86b565dd49dc8203a4caeb
+      EXPECTED_RELEASE_SHA: 10fdd07ba79d5d0a1da8c9510b6d659acc115713
       QA_CHECKPOINT_SHA: 5741b811160e0ca76a348579bc898c730493a9ca
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +52,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: issue557-oidc-production-e2e-${{ github.run_id }}
+          name: payments-v8-money-display-production-e2e-${{ github.run_id }}
           path: artifacts/issue557-oidc-e2e/
           if-no-files-found: warn
           retention-days: 14
