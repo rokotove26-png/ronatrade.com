@@ -17,9 +17,6 @@ const PAYMENTS_V8_BOOTSTRAP_LOADER="\n;(()=>{try{if(!window.__RONA_PAYMENTS_V8_U
 
 function patchPaymentsCurrentSemantics(source){
   const script=String(source||'');
-  // Payments V8 is assembled before this middleware. The middleware must not
-  // recalculate or rewrite Finance semantics. It only verifies that the active
-  // source is the V8 contract and fails closed if the build regresses.
   const required=[
     "data-rona-payments-owner':'admin-payments-v7-native-v2'",
     'paymentsV7Money(deal?.due_now)',
@@ -89,7 +86,7 @@ export async function onRequest(context){
   headers.set('x-rona-radio-visual','wide-v10');
   headers.set('x-rona-payments-ui',PAYMENTS_V8_BOOTSTRAP_OWNER);
   headers.set('x-rona-payments-handoff','canonical-v8-bootstrap');
-  headers.set('x-rona-payments-current-runtime','bootstrap-authoritative-v1');
+  headers.set('x-rona-payments-current-runtime','due-now-conditional-v3');
   return new Response(patched,{status:response.status,statusText:response.statusText,headers});
 }
 
