@@ -14,7 +14,7 @@ test('reconciliation indicator is append-only and preserves the Payments rendere
   assert.equal(patched.slice(0,renderer.length),renderer);
   assert.match(patched,new RegExp(PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT));
   assert.match(patched,/Сверочная разница/);
-  assert.match(patched,/position:absolute;top:0;right:0/);
+  assert.match(patched,/position:absolute;top:2px;right:0/);
 });
 
 test('assembled Admin source gets only an appended reconciliation runtime', () => {
@@ -26,7 +26,7 @@ test('assembled Admin source gets only an appended reconciliation runtime', () =
   assert.match(patched,/const SCRIPT=\(patchExisting\(RAW\)\)\+/);
 });
 
-test('runtime reads only Finance publication payload, refreshes every 30s, and contains no cross-currency calculation', () => {
+test('runtime reads only Finance publication payload and refreshes every 30s', () => {
   const source=PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME;
   assert.match(source,/FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1/);
   assert.match(source,/finance_reconciliation_difference/);
@@ -39,15 +39,12 @@ test('runtime reads only Finance publication payload, refreshes every 30s, and c
   assert.doesNotMatch(source,/bank_balance|management_balance|exchange_rate|fx_rate|reverse_fx/);
 });
 
-test('drill-down is source-pass-through, USD/RUB only, exact-decimal presentation, no KZT path', () => {
+test('indicator is display-only: no drill-down, no local component calculation, no production hardcode', () => {
   const source=PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME;
-  assert.match(source,/allowedCurrencies=new Set\(\['USD','RUB'\]\)/);
-  assert.match(source,/allowedDirections=new Set\(\['PROFICIT','DEFICIT'\]\)/);
-  assert.match(source,/metric\?\.breakdown\|\|metric\?\.primary_breakdown\|\|metric\?\.components/);
-  assert.match(source,/formatExactDecimal/);
-  assert.match(source,/line\.direction==='PROFICIT'\?'\+':'−'/);
+  assert.doesNotMatch(source,/openDrilldown|normalizeBreakdown|allowedCurrencies|allowedDirections|primary_breakdown|components/);
   assert.doesNotMatch(source,/KZT/);
   assert.doesNotMatch(source,/58902|4712762|2913\.488/);
+  assert.match(source,/pointer-events:none/);
 });
 
 test('indicator overlay does not alter Payments KPI, cards, deal grid or renderer styles', () => {
