@@ -16,6 +16,7 @@ const candidateFiles = [
   'scripts/admin-payments-v7-stage5c-live-source.mjs',
   'scripts/admin-payments-v7-final-live-source.mjs',
   'scripts/admin-payments-v7-final-browser-proof.mjs',
+  'scripts/admin-payments-reconciliation-difference-ui.mjs',
 ].filter((path) => changed.includes(path) || path.includes('final-') || path.includes('stage5c-live-source'));
 const scanFiles = [...new Set([...runtimeFiles, ...candidateFiles])];
 

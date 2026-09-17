@@ -5,7 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
   ADMIN_PAYMENTS_V8_BOOTSTRAP_CONTRACT,
+  FINANCE_RECONCILIATION_DIFFERENCE_SOURCE,
   createAdminPaymentsV8BootstrapProjector,
+  normalizeFinanceReconciliationDifferencePublication,
 } from '../../supabase/functions/rona-portal-api/admin-payments-v8-bootstrap-projection.mjs';
 
 const route = (url) => url.pathname;
@@ -63,13 +65,65 @@ test('admin bootstrap fails closed when the authoritative Payments projection ca
   assert.equal(JSON.stringify(body).includes('QA-DEAL-STALE'), false);
 });
 
-test('bootstrap projection runtime contains no production-deal or production-amount hardcode and does not read legacy owner summary', async () => {
+test('Finance reconciliation difference passes through exact Finance publication only', () => {
+  const metric = normalizeFinanceReconciliationDifferencePublication({
+    id: 'qa-source-id',
+    result_status: 'AUTHORITATIVE',
+    amount: '123.4567',
+    currency: 'USD',
+    snapshot_at: '2026-09-17T20:00:00.000Z',
+    source_version: 'QA-FINANCE-V1',
+    source_set_identity: 'QA-SOURCE-SET',
+    source_refs: ['QA:BANK', 'QA:FINANCE'],
+    publisher_identity: 'AI-FINANCE',
+    functional_role: 'FINANCE',
+    source_locked: true,
+    published_at: '2026-09-17T20:01:00.000Z',
+  });
+  assert.equal(metric.source_contract, FINANCE_RECONCILIATION_DIFFERENCE_SOURCE);
+  assert.equal(metric.status, 'AUTHORITATIVE');
+  assert.equal(metric.amount, '123.4567');
+  assert.equal(metric.currency, 'USD');
+  assert.equal(metric.publisher_identity, 'AI-FINANCE');
+  assert.equal(metric.functional_role, 'FINANCE');
+  assert.equal(metric.source_locked, true);
+});
+
+test('Finance reconciliation difference fails closed to TO_VERIFY when publication is absent or not Finance-owned', () => {
+  const missing = normalizeFinanceReconciliationDifferencePublication(null);
+  assert.equal(missing.status, 'TO_VERIFY');
+  assert.equal(missing.amount, null);
+  assert.equal(missing.currency, null);
+
+  const foreign = normalizeFinanceReconciliationDifferencePublication({
+    id: 'qa-source-id',
+    result_status: 'AUTHORITATIVE',
+    amount: '999',
+    currency: 'USD',
+    snapshot_at: '2026-09-17T20:00:00.000Z',
+    source_version: 'QA-NON-FINANCE',
+    source_set_identity: 'QA-SOURCE-SET',
+    source_refs: ['QA:OTHER'],
+    publisher_identity: 'AI-OPERATIONS',
+    functional_role: 'OPERATIONS_DIRECTOR',
+    source_locked: true,
+  });
+  assert.equal(foreign.status, 'TO_VERIFY');
+  assert.equal(foreign.amount, null);
+  assert.equal(foreign.currency, null);
+});
+
+test('bootstrap projection runtime contains no local reconciliation calculation and no production hardcode', async () => {
   const here = fileURLToPath(new URL('.', import.meta.url));
   const moduleSource = await readFile(new URL('../../supabase/functions/rona-portal-api/admin-payments-v8-bootstrap-projection.mjs', import.meta.url), 'utf8');
   const entrySource = await readFile(new URL('../../supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts', import.meta.url), 'utf8');
   const source = `${moduleSource}\n${entrySource}`;
-  for (const forbidden of ['DEAL-2026-011', '225900', '527100', '35574.47', '190325.53', '6225.53', 'owner_deal_finance_summary']) {
-    assert.equal(source.includes(forbidden), false, `${forbidden} must not be hardcoded in runtime source`);
+  assert.match(moduleSource, /finance_reconciliation_difference_current_v1/);
+  for (const forbidden of [
+    'DEAL-2026-011', '225900', '527100', '35574.47', '190325.53', '6225.53', 'owner_deal_finance_summary',
+    'owner_cash_snapshots', 'RECONCILIATION_DIFFERENCE_EQUALS_BANK_BALANCE_MINUS_MANAGEMENT_BALANCE', 'bank_balance[currency]', 'management_balance[currency]',
+  ]) {
+    assert.equal(source.includes(forbidden), false, `${forbidden} must not be hardcoded or recalculated in runtime source`);
   }
   assert.ok(here);
 });

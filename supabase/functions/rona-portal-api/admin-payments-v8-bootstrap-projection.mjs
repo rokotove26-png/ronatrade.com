@@ -7,6 +7,7 @@ import {
 import { applyFinanceAuthorityProjectionV8 } from '../rona-owner-ai-sync/finance-authority-projection-v8.mjs';
 
 export const ADMIN_PAYMENTS_V8_BOOTSTRAP_CONTRACT = 'ADMIN_PAYMENTS_V8_BOOTSTRAP_PROJECTION_V1';
+export const FINANCE_RECONCILIATION_DIFFERENCE_SOURCE = 'FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1';
 
 async function readPaymentsV8FinanceAuthorities(sql) {
   return sql`
@@ -25,13 +26,74 @@ async function readPaymentsV8FinanceAuthorities(sql) {
      order by deal_key, effective_at, id`;
 }
 
+export function normalizeFinanceReconciliationDifferencePublication(row) {
+  const fallback = {
+    source_contract: FINANCE_RECONCILIATION_DIFFERENCE_SOURCE,
+    status: 'TO_VERIFY',
+    amount: null,
+    currency: null,
+    snapshot_at: row?.snapshot_at || null,
+    source_id: row?.id ? String(row.id) : null,
+    source_version: row?.source_version ? String(row.source_version) : null,
+    source_set_identity: row?.source_set_identity ? String(row.source_set_identity) : null,
+    source_refs: Array.isArray(row?.source_refs) ? row.source_refs : [],
+    publisher_identity: row?.publisher_identity ? String(row.publisher_identity) : null,
+    functional_role: row?.functional_role ? String(row.functional_role) : null,
+    source_locked: row?.source_locked === true,
+    published_at: row?.published_at || null,
+  };
+  if (!row) return fallback;
+
+  const status = String(row.result_status || '').trim().toUpperCase();
+  const publisherIdentity = String(row.publisher_identity || '').trim().toUpperCase();
+  const functionalRole = String(row.functional_role || '').trim().toUpperCase();
+  const currency = String(row.currency || '').trim().toUpperCase();
+  const sourceRefs = Array.isArray(row.source_refs) ? row.source_refs : [];
+  const amount = row.amount === null || row.amount === undefined ? null : String(row.amount);
+  const amountNumber = amount === null ? null : Number(amount);
+  const financeOwned = publisherIdentity === 'AI-FINANCE' && functionalRole === 'FINANCE' && row.source_locked === true;
+
+  if (
+    status !== 'AUTHORITATIVE'
+    || !financeOwned
+    || amount === null
+    || !Number.isFinite(amountNumber)
+    || !/^[A-Z]{3}$/.test(currency)
+    || !String(row.source_version || '').trim()
+    || !String(row.source_set_identity || '').trim()
+    || sourceRefs.length === 0
+  ) return fallback;
+
+  return {
+    ...fallback,
+    status: 'AUTHORITATIVE',
+    amount,
+    currency,
+    source_refs: sourceRefs,
+    publisher_identity: 'AI-FINANCE',
+    functional_role: 'FINANCE',
+    source_locked: true,
+  };
+}
+
+export async function readFinanceReconciliationDifference(sql) {
+  const rows = await sql`
+    select id::text id, result_status, amount::text amount, currency, snapshot_at,
+           source_version, source_set_identity, source_refs,
+           publisher_identity, functional_role, source_locked, published_at
+      from portal_private.finance_reconciliation_difference_current_v1
+     limit 1`;
+  return normalizeFinanceReconciliationDifferencePublication(rows?.[0] || null);
+}
+
 export async function readAdminPaymentsV8Projection(sql) {
   if (typeof sql !== 'function' || typeof sql.begin !== 'function') throw new TypeError('POSTGRES_TRANSACTION_SQL_REQUIRED');
   const readBaseRawSources = createAdminPaymentsV7TruthSourceReader(sql);
   const raw = await readBaseRawSources();
-  const [ownerConfirmedReceipts, dealFinanceAuthorities] = await Promise.all([
+  const [ownerConfirmedReceipts, dealFinanceAuthorities, financeReconciliationDifference] = await Promise.all([
     readOwnerConfirmedReceiptsV7(sql, raw?.sourceAsOf || null),
     readPaymentsV8FinanceAuthorities(sql),
+    readFinanceReconciliationDifference(sql),
   ]);
   const completeRaw = { ...raw, ownerConfirmedReceipts, dealFinanceAuthorities };
   const base = buildAdminPaymentsV7FromRawSources(completeRaw);
@@ -40,7 +102,10 @@ export async function readAdminPaymentsV8Projection(sql) {
   if (!projection || projection.contract !== 'ADMIN_PAYMENTS_V7' || !Array.isArray(projection.deals)) {
     throw new Error('ADMIN_PAYMENTS_V8_BOOTSTRAP_PROJECTION_INVALID');
   }
-  return projection;
+  return {
+    ...projection,
+    finance_reconciliation_difference: financeReconciliationDifference,
+  };
 }
 
 function jsonResponse(base, payload, state) {
