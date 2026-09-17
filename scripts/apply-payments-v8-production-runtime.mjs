@@ -10,6 +10,7 @@ const TARGET = join(ROOT, 'functions', 'portal', 'admin-main-ui-current.js');
 const MAIN_UI_WRAPPER_TARGET = join(ROOT, 'functions', 'portal', 'main-ui', 'index.js');
 const OWNER_ACCEPTANCE_VERIFIER_TARGET = join(ROOT, 'scripts', 'verify-admin-current-only-production.mjs');
 const FUNDING_FIRST_CHECKER_TARGET = join(ROOT, 'scripts', 'check-payments-v7-funding-first-ui-no-hardcode.mjs');
+const FUTURE_DEAL_TEST_TARGET = join(ROOT, 'tests', 'payments-v7-future-deal-discovery.test.mjs');
 
 // Keep the production hotfix deterministic and source-controlled. These
 // normalizations correct the copied canonical runtime contract only; they do
@@ -162,5 +163,17 @@ if (checker.includes(oldAggregateMarker)) checker = checker.replace(oldAggregate
 else if (!checker.includes(newAggregateMarker)) throw new Error('PAYMENTS_V8_FUNDING_FIRST_AGGREGATE_ASSERTION_MISMATCH');
 await writeFile(FUNDING_FIRST_CHECKER_TARGET, checker, 'utf8');
 
+// The generic future-deal fixture predates the V8 separation and modeled the
+// whole future amount only in expected_not_due while future_conditional was 0.
+// Keep the test data source-generic, but make the fixture satisfy the active
+// contract: current due is 0 and the same future amount is exposed through the
+// dedicated future_conditional bucket. This touches test data only.
+let futureDealTest = await readFile(FUTURE_DEAL_TEST_TARGET, 'utf8');
+const oldFutureFixture = "future_conditional: money('0', 'USD', `future-${dealKey}`),";
+const newFutureFixture = "future_conditional: money('60', 'USD', `future-${dealKey}`),";
+if (futureDealTest.includes(oldFutureFixture)) futureDealTest = futureDealTest.replace(oldFutureFixture, newFutureFixture);
+else if (!futureDealTest.includes(newFutureFixture)) throw new Error('PAYMENTS_V8_FUTURE_DEAL_FIXTURE_SOURCE_MISMATCH');
+await writeFile(FUTURE_DEAL_TEST_TARGET, futureDealTest, 'utf8');
+
 console.log('PAYMENTS_V8_PRODUCTION_RUNTIME_PATCH=PASS owner=admin-payments-v7-native-v2 expected=due_now conditional=separate');
-console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent stage5c=v8 aggregate=V2 owner-header=v2');
+console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent stage5c=v8 aggregate=V2 owner-header=v2 future-fixture=conditional');
