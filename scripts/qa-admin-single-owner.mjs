@@ -11,6 +11,7 @@ const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
 const mainUi=read('functions/portal/admin-main-ui-current.js');
 const operations=read('functions/portal/admin-operations-command-center-v4.js')+'\n'+read('functions/portal/admin-operations-command-center-v4-base.js');
+const operationsV5=read('functions/portal/admin-operations-command-center-v5.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -32,8 +33,11 @@ need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV4(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV5(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V5 patch after source assembly');
 need(has(mainUi,"'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION"),'Operations Command Center response marker is missing');
+need(has(operationsV5,"OPERATIONS_COMMAND_CENTER_VERSION='v5-operational-automation'"),'Operations Command Center V5 version marker is missing');
+need(has(operationsV5,"window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation'"),'Operations Command Center V5 browser marker is missing');
+need(has(operationsV5,"'data-rona-operations-command-center':'v5'")&&has(operationsV5,"'data-rona-single-owner':'true'"),'Operations Command Center V5 DOM ownership marker is missing');
 need(has(operations,"OPERATIONS_COMMAND_CENTER_VERSION='v4-canonical-single-owner'"),'Operations Command Center version marker is missing');
 need(has(operations,"window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v4-canonical-single-owner'"),'Operations Command Center browser marker is missing');
 need(has(operations,"window.__RONA_ADMIN_OPERATIONS_FLIGHTDECK__='v5-full-rebuild'"),'Operations Flightdeck v5 visual marker is missing');
@@ -86,6 +90,6 @@ console.log('ADMIN_SINGLE_OWNER_QA=PASS');
 console.log('routes=access,claims,agent-settlements,analytics,market-news');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
-console.log('operations-command-center=v4-canonical-single-owner; visual=flightdeck-v5-full-rebuild');
+console.log('operations-command-center=v5-operational-automation; legacy-visual-contract=flightdeck-v5-full-rebuild');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
 console.log('watchdog=page-aware-v10-radio-payments-heading/non-destructive');
