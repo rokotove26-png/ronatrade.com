@@ -1,7 +1,7 @@
 export default String.raw`
 (()=>{'use strict';
-if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V11__)return;
-window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V11__=true;
+if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V12__)return;
+window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V12__=true;
 if(location.pathname!=='/portal/admin')return;
 const ROOT='#page-payments .rona-payments-v7';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim().toUpperCase();
@@ -23,6 +23,7 @@ function installStyle(){
   '#page-payments .rona-payments-v7-board,#page-payments .rona-payments-v7-list,#page-payments .rona-payments-v7-deals{gap:2px!important;row-gap:2px!important;column-gap:2px!important}'+
   '#page-payments .rona-payments-v7-deal{margin:0!important;margin-block:0!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]{--pay-tone:#5ec8ff!important;border-color:rgba(94,200,255,.34)!important;background:linear-gradient(180deg,rgba(8,27,43,.88),rgba(6,18,31,.92))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 22px rgba(94,200,255,.10)!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-label{display:flex!important;align-items:center!important;position:relative!important;top:-2px!important;margin-top:0!important;line-height:1.15!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-value{color:#e6f7ff!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]{display:inline-flex!important;align-items:center!important;width:max-content!important;max-width:100%!important;margin-top:5px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font-size:9.3px!important;line-height:1.15!important;font-weight:880!important;letter-spacing:.085em!important;text-transform:uppercase!important;white-space:nowrap!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]::before{content:none!important;display:none!important}'+
@@ -93,7 +94,7 @@ function decorate(){
     const tone=toneForStatus(status?.textContent||'');
     if(tone)head.dataset.firstColTone=tone;
   }
-  root.dataset.colorRestore='v11-conditional-blue';
+  root.dataset.colorRestore='v12-conditional-kpi-align';
   return true;
 }
 let queued=false;
