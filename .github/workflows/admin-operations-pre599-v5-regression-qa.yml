@@ -32,6 +32,15 @@ jobs:
           npm run build
           node --test tests/admin-operations-center-v5-production.test.mjs
           node --check scripts/qa-admin-operations-pre599-v5-browser.mjs
+          node --input-type=module <<'NODE'
+          import { writeFile } from 'node:fs/promises';
+          import { onRequest } from './functions/portal/main-ui/index.js';
+          const response=await onRequest();
+          const source=await response.text();
+          await writeFile('/tmp/rona-admin-main-ui-exact.js',source);
+          console.log('ADMIN_MAIN_UI_EMITTED_BYTES='+Buffer.byteLength(source));
+          NODE
+          node --check /tmp/rona-admin-main-ui-exact.js
       - name: Install Chromium runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
