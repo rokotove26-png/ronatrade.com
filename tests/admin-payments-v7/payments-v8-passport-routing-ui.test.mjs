@@ -15,10 +15,26 @@ test('passport presents business recipient and bank routing as separate fields',
   assert.match(source, /kv\('Получатель',recipient,'recipient'\)/);
   assert.match(source, /kv\('Банковский получатель',beneficiary,'bank-beneficiary'\)/);
   assert.match(source, /kv\('Банковский маршрут',route,'bank-route'\)/);
-  assert.match(source, /const recipient=text\(item\?\.recipient\)/);
-  assert.match(source, /const beneficiary=text\(item\?\.bank_beneficiary_name\|\|item\?\.beneficiary_name\)/);
-  assert.match(source, /const route=text\(item\?\.bank_route_reference\|\|item\?\.bank_document\)/);
-  assert.doesNotMatch(source, /const recipient=text\(item\?\.(?:bank_beneficiary_name|beneficiary_name)\)/);
+  assert.match(source, /recipient=text\(item\?\.recipient\)/);
+  assert.match(source, /beneficiary=text\(item\?\.bank_beneficiary_name\|\|item\?\.beneficiary_name\)/);
+  assert.match(source, /route=text\(item\?\.bank_route_reference\|\|item\?\.bank_document\)/);
+  assert.doesNotMatch(source, /recipient=text\(item\?\.(?:bank_beneficiary_name|beneficiary_name)\)/);
+});
+
+test('canonical V8 disables the legacy V7 passport capture runtime', () => {
+  assert.match(source, /LEGACY_PASSPORT_MODAL_ID='ronaPaymentsV7PassportDesignerModal'/);
+  assert.match(source, /document\.__ronaPaymentsV7PassportOwnerTableV2Handler/);
+  assert.match(source, /removeEventListener\('click',handler,true\)/);
+  assert.match(source, /\.rona-payments-v7-passport-trigger,\.rona-payments-v7-passport > summary/);
+  assert.match(source, /__RONA_PAYMENTS_V8_OPEN_PASSPORT__/);
+  assert.match(source, /__RONA_PAYMENTS_V8_LEGACY_PASSPORT_DISABLED__/);
+});
+
+test('multi-currency passport shows native debit and deal-accounting amount together', () => {
+  assert.match(source, /kv\('Фактическое списание'/);
+  assert.match(source, /kv\('В валюте сделки'/);
+  assert.match(source, /allocated_funding_amount/);
+  assert.match(source, /funding_currency/);
 });
 
 test('passport remains projection-only and has no business mutation path', () => {
