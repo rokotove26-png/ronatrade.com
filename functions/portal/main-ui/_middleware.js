@@ -15,7 +15,12 @@ const RADIO_VISUAL_LOADER="\n;(()=>{try{if(!window.__RONA_ADMIN_RADIO_WIDE_V10__
 
 function patchPaymentsCurrentSemantics(source){
   let script=String(source||'');
-  if(script.includes("data-rona-payments-owner':'admin-payments-v7-native-v2'")&&script.includes("paymentsV7Kpi('Conditional'"))return script;
+  const alreadyCurrent=script.includes("data-rona-payments-owner':'admin-payments-v7-native-v2'")
+    &&script.includes("paymentsV7Kpi('Conditional'")
+    &&script.includes('grid-template-columns:repeat(5,minmax(0,1fr))')
+    &&script.includes('paymentsV7AggregateExpected(deals)')
+    &&script.includes('paymentsV7Money(deal?.remaining_to_receive)');
+  if(alreadyCurrent)return script;
   const aggregateExpected="function paymentsV7AggregateExpected(deals){const m=new Map();let verify=false;for(const d of deals){for(const field of ['due_now','expected_not_due']){const v=d?.[field],c=paymentsV7Upper(v?.currency),n=paymentsV7Num(v?.amount);if(!v||paymentsV7Upper(v.status)!=='AUTHORITATIVE'||!c||n===null){verify=true;continue}m.set(c,(m.get(c)||0)+n)}}return{rows:[...m.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([currency,amount])=>({currency,amount})),verify}}\n";
   const replacements=[
     [
@@ -52,7 +57,7 @@ function patchPaymentsCurrentSemantics(source){
     script=script.replace(from,to);
   }
   script=script.replaceAll("'admin-payments-v7-native'","'admin-payments-v7-native-v2'");
-  if(!script.includes("paymentsV7Money(deal?.remaining_to_receive)")||!script.includes("paymentsV7Kpi('Conditional'")||!script.includes('paymentsV7AggregateExpected(deals)'))throw new Error('ADMIN_PAYMENTS_CURRENT_SEMANTICS_PATCH_INCOMPLETE');
+  if(!script.includes("paymentsV7Money(deal?.remaining_to_receive)")||!script.includes("paymentsV7Kpi('Conditional'")||!script.includes('paymentsV7AggregateExpected(deals)')||!script.includes('grid-template-columns:repeat(5,minmax(0,1fr))'))throw new Error('ADMIN_PAYMENTS_CURRENT_SEMANTICS_PATCH_INCOMPLETE');
   return script;
 }
 
