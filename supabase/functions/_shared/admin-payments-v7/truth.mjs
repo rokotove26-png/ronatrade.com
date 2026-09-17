@@ -7,6 +7,7 @@ import {
   applyFinanceSettlementAllocations,
 } from './finance-settlement-allocation.mjs';
 import { moneyValue, toVerifyMoney } from './money.mjs';
+import { applyPaymentRecipientSemantics } from './recipient.mjs';
 
 const FINANCE_POLICY_KEY = 'FINANCE_GLOBAL_PAYMENT_SEMANTICS';
 function upper(value) { return value === null || value === undefined ? null : String(value).trim().toUpperCase(); }
@@ -204,13 +205,12 @@ export function createAdminPaymentsV7SourceBundle(raw = {}) {
   const rawPaymentByKey = new Map((prepared?.payments || []).map((row) => [String(row.id), row]));
   const payments = (source.payments || []).map((payment) => {
     const rawPayment = rawPaymentByKey.get(String(payment.payment_key)) || {};
-    return {
+    return applyPaymentRecipientSemantics({
       ...payment,
-      recipient: rawPayment.counterparty_name || rawPayment.beneficiary_name || payment.counterparty_name || null,
-      original_payment_purpose: rawPayment.original_payment_purpose || null,
-      bank_account_reference: rawPayment.bank_account_reference || null,
-      bank_statement_date: rawPayment.bank_statement_date || null,
-    };
+      original_payment_purpose: rawPayment.original_payment_purpose || payment.original_payment_purpose || null,
+      bank_account_reference: rawPayment.bank_account_reference || payment.bank_account_reference || null,
+      bank_statement_date: rawPayment.bank_statement_date || payment.bank_statement_date || null,
+    }, rawPayment);
   });
   return {
     ...source,

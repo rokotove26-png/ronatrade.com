@@ -1,0 +1,36 @@
+name: Payments V8 Recipient Routing QA
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/_shared/admin-payments-v7/adapters.mjs'
+      - 'supabase/functions/_shared/admin-payments-v7/truth.mjs'
+      - 'supabase/functions/_shared/admin-payments-v7/projection.mjs'
+      - 'supabase/functions/_shared/admin-payments-v7/recipient.mjs'
+      - 'tests/admin-payments-v7/recipient-routing-semantics.test.mjs'
+      - '.github/workflows/payments-v8-recipient-routing-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recipient-routing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check supabase/functions/_shared/admin-payments-v7/recipient.mjs
+          node --check supabase/functions/_shared/admin-payments-v7/adapters.mjs
+          node --check supabase/functions/_shared/admin-payments-v7/truth.mjs
+          node --check supabase/functions/_shared/admin-payments-v7/projection.mjs
+      - name: Recipient routing semantic regression
+        run: node --test tests/admin-payments-v7/recipient-routing-semantics.test.mjs
