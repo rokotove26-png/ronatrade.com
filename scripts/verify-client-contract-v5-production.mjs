@@ -1,4 +1,4 @@
-const base=String(process.env.TARGET_ORIGIN||'https://ronatrade.com').replace(/\/$/,'');
+const base=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 const sha=String(process.env.GITHUB_SHA||Date.now());
 const assert=(value,message)=>{if(!value)throw new Error(message)};
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
