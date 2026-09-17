@@ -1,13 +1,15 @@
-export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V3';
+export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V4';
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_REFRESH_MS = 30000;
 
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()=>{
-  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V3';
+  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V4';
   const sourceContract='FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1';
   const refreshMs=30000;
-  const rootSelector='#page-payments .rona-payments-v7';
-  const elementId='rona-payments-reconciliation-difference';
-  const styleId='rona-payments-reconciliation-difference-style';
+  const pageSelector='#page-payments';
+  const rootSelector='#page-payments #ronaPaymentsV8Root';
+  const headingId='rona-payments-reconciliation-heading';
+  const valueClass='rona-payments-reconciliation-value';
+  const styleId='rona-payments-reconciliation-style';
   const bootstrapPath='/portal/api/v1/admin/bootstrap';
 
   function normalize(metric){
@@ -36,8 +38,9 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     };
   }
 
-  function currentSnapshotMetric(){
+  function currentMetric(){
     return window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE__
+      || window.__RONA_PAYMENTS_V8_PROJECTION__?.finance_reconciliation_difference
       || window.__RONA_OWNER_AI_SYNC_SNAPSHOT__?.paymentsV7Projection?.finance_reconciliation_difference
       || null;
   }
@@ -46,45 +49,48 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     if(document.getElementById(styleId))return;
     const style=document.createElement('style');
     style.id=styleId;
-    style.textContent='#page-payments .rona-payments-v7{position:relative}#page-payments .rona-payments-reconciliation-difference{position:absolute;top:2px;right:0;z-index:1;display:flex;align-items:baseline;gap:8px;white-space:nowrap;max-width:calc(100% - 150px);padding:0;border:0;background:transparent;color:inherit;text-align:right;font:inherit;pointer-events:none}#page-payments .rona-payments-reconciliation-difference-value{overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}@media(max-width:640px){#page-payments .rona-payments-reconciliation-difference{position:static;justify-content:flex-start;max-width:100%;margin-top:-4px;margin-bottom:2px;text-align:left}}';
+    style.textContent='#'+headingId+'{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;margin:0 0 14px;border:1px solid rgba(93,138,178,.20);border-radius:16px;background:linear-gradient(180deg,rgba(8,21,34,.96),rgba(6,16,27,.94));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}#'+headingId+' h1{margin:0;font-size:24px;line-height:1.1;font-weight:900;letter-spacing:-.025em;color:#f7fbff}#'+headingId+' .rona-payments-reconciliation{display:flex;align-items:baseline;gap:9px;margin-left:auto;white-space:nowrap;text-align:right}#'+headingId+' .rona-payments-reconciliation-label{font-size:11px;color:#829bb0}#'+headingId+' .'+valueClass+'{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;color:#f7fbff}@media(max-width:640px){#'+headingId+'{align-items:flex-start;flex-direction:column}#'+headingId+' .rona-payments-reconciliation{margin-left:0;text-align:left}}';
     document.head.appendChild(style);
   }
 
-  function ensureIndicator(){
+  function ensureHeading(){
     const root=document.querySelector(rootSelector);
     if(!root)return null;
     installStyle();
-    let node=root.querySelector('#'+elementId);
-    if(!node){
-      node=document.createElement('div');
-      node.id=elementId;
-      node.className='rona-payments-reconciliation-difference';
-      node.setAttribute('data-rona-payments-reconciliation-difference',sourceContract);
+    let heading=root.querySelector(':scope > #'+headingId);
+    if(!heading){
+      heading=document.createElement('header');
+      heading.id=headingId;
+      const title=document.createElement('h1');
+      title.textContent='Платежи';
+      const right=document.createElement('div');
+      right.className='rona-payments-reconciliation';
       const label=document.createElement('span');
-      label.className='rona-owner-muted';
+      label.className='rona-payments-reconciliation-label';
       label.textContent='Сверочная разница';
       const value=document.createElement('strong');
-      value.className='rona-payments-reconciliation-difference-value';
+      value.className=valueClass;
       value.textContent='—';
-      node.append(label,value);
-      root.appendChild(node);
+      right.append(label,value);
+      heading.append(title,right);
+      root.prepend(heading);
     }
-    return node;
+    return heading;
   }
 
   function renderMetric(metric){
-    const node=ensureIndicator();
-    if(!node)return;
+    const heading=ensureHeading();
+    if(!heading)return;
     const normalized=normalize(metric);
-    const value=node.querySelector('.rona-payments-reconciliation-difference-value');
-    if(value)value.textContent=normalized.text;
-    node.dataset.status=normalized.status;
-    node.dataset.sourceId=normalized.sourceId;
-    node.dataset.sourceVersion=normalized.sourceVersion;
+    const value=heading.querySelector('.'+valueClass);
+    if(value&&value.textContent!==normalized.text)value.textContent=normalized.text;
+    if(heading.dataset.status!==normalized.status)heading.dataset.status=normalized.status;
+    if(heading.dataset.sourceId!==normalized.sourceId)heading.dataset.sourceId=normalized.sourceId;
+    if(heading.dataset.sourceVersion!==normalized.sourceVersion)heading.dataset.sourceVersion=normalized.sourceVersion;
   }
 
   async function refresh(){
-    if(!document.querySelector(rootSelector))return;
+    if(!document.querySelector(pageSelector))return;
     try{
       const response=await fetch(bootstrapPath,{method:'GET',credentials:'include',cache:'no-store',headers:{accept:'application/json'}});
       if(!response.ok)throw new Error('FINANCE_RECONCILIATION_BOOTSTRAP_UNAVAILABLE');
@@ -93,20 +99,24 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
       window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE__=metric;
       renderMetric(metric);
     }catch{
-      window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE__=null;
-      renderMetric(null);
+      renderMetric(currentMetric());
     }
   }
 
   function start(){
     window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_RUNTIME__=contract;
-    renderMetric(currentSnapshotMetric());
-    const observer=new MutationObserver(()=>renderMetric(currentSnapshotMetric()));
-    if(document.body)observer.observe(document.body,{childList:true,subtree:true});
+    const page=document.querySelector(pageSelector);
+    if(page&&!window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__){
+      const observer=new MutationObserver(()=>renderMetric(currentMetric()));
+      observer.observe(page,{childList:true});
+      window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__=observer;
+    }
+    renderMetric(currentMetric());
     if(window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__)clearInterval(window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__);
     window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__=setInterval(refresh,refreshMs);
     window.addEventListener('focus',refresh);
     document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh()});
+    window.addEventListener('rona:finance-sync',refresh);
     setTimeout(refresh,0);
   }
 
