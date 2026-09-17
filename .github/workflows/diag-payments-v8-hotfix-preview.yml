@@ -32,25 +32,37 @@ jobs:
           echo 'payments_ui_header=true'
           grep -Fxi 'x-rona-payments-handoff: payments-v7-projection' /tmp/hn >/dev/null
           echo 'payments_handoff_header=true'
-          echo '=== BODY MARKERS ==='
-          grep -F 'admin-payments-v7-native-v2' /tmp/b >/dev/null
-          echo 'renderer_marker=true'
-          grep -F 'paymentsV7Money(deal?.due_now)' /tmp/b >/dev/null
-          echo 'due_now_marker=true'
-          grep -F "paymentsV7Kpi('Conditional'" /tmp/b >/dev/null
-          echo 'conditional_marker=true'
-          grep -F "paymentsV7Aggregate(deals,'future_conditional')" /tmp/b >/dev/null
-          echo 'future_conditional_marker=true'
-          if grep -F "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})" /tmp/b >/dev/null; then
-            echo 'stale_per_deal_expected_marker=true'
-            exit 9
-          else
-            echo 'stale_per_deal_expected_marker=false'
-          fi
-          if grep -F 'spendMoney(d.remaining.amount,d.currency)' /tmp/b >/dev/null; then
-            echo 'legacy_spend_remaining_marker=true'
-            exit 10
-          else
-            echo 'legacy_spend_remaining_marker=false'
-          fi
-          echo 'HOTFIX_PREVIEW_PAYMENTS_V8=PASS'
+          echo '=== ACTIVE PAYMENTS RENDERER GATES ==='
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const s = readFileSync('/tmp/b','utf8');
+          const from = s.indexOf('function paymentsV7Projection(){');
+          const to = s.indexOf('function renderCash(){', from);
+          if (from < 0 || to < 0 || to <= from) throw new Error('ACTIVE_PAYMENTS_V8_SECTION_NOT_FOUND');
+          const p = s.slice(from,to);
+          const required = [
+            'admin-payments-v7-native-v2',
+            'paymentsV7Money(deal?.due_now)',
+            "paymentsV7Kpi('Conditional'",
+            "paymentsV7Aggregate(deals,'future_conditional')",
+          ];
+          for (const marker of required) {
+            if (!p.includes(marker)) throw new Error(`REQUIRED_MARKER_MISSING:${marker}`);
+            console.log(`required_marker=true ${marker}`);
+          }
+          const forbidden = [
+            "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})",
+            'spendMoney(d.remaining.amount,d.currency)',
+            'DEAL-2026-',
+          ];
+          for (const marker of forbidden) {
+            if (p.includes(marker)) throw new Error(`ACTIVE_RENDERER_FORBIDDEN_MARKER:${marker}`);
+            console.log(`active_forbidden_marker=false ${marker}`);
+          }
+          const renderPaymentsCount = (s.match(/function renderPayments\(/g) || []).length;
+          const legacySpendCount = (s.match(/spendMoney\(d\.remaining\.amount,d\.currency\)/g) || []).length;
+          console.log(`renderPayments_definition_count=${renderPaymentsCount}`);
+          console.log(`whole_script_legacy_spend_marker_count=${legacySpendCount}`);
+          if (renderPaymentsCount !== 1) throw new Error(`RENDER_PAYMENTS_DEFINITION_COUNT:${renderPaymentsCount}`);
+          console.log('HOTFIX_PREVIEW_PAYMENTS_V8=PASS');
+          NODE
