@@ -63,7 +63,8 @@ test('live Payments board, passport, funding events and details converge on one 
   assert.match(middleware,/paymentsMoneyDisplayContract\+'\\n'\+script/);
   assert.match(middleware,/CANONICAL_PAYMENTS_V7_FORMATTER/);
   assert.match(middleware,/CANONICAL_PASSPORT_FORMATTER/);
-  assert.match(middleware,/ADMIN_PAYMENTS_COMPETING_TWO_DECIMAL_FORMATTER_REMAINS/);
+  assert.match(middleware,/ADMIN_PAYMENTS_COMPETING_FORMATTER_REMAINS/);
+  assert.match(middleware,/script\.includes\(LEGACY_PAYMENTS_V7_FORMATTER\)\|\|script\.includes\(PASSPORT_FALLBACK_FORMATTER\)/);
   assert.match(middleware,/x-rona-payments-money-display','max-1-v1/);
 
   assert.match(passportActivation,/maximumFractionDigits:1/,'existing passport precision is the presentation baseline');
