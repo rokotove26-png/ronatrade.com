@@ -1,4 +1,4 @@
-const BUILD='owner-current-only-v2-20260917-payments-v8';
+const BUILD='owner-current-only-v2-20260826-1308';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
@@ -6,7 +6,6 @@ const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self'; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
 const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000]);
-const PAYMENTS_V8_RUNTIME='<script id="rona-payments-v8-bootstrap-ui" src="/portal/payments-v8-ui?v=20260917-v1" defer></script>';
 
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 function parseCookies(header){
@@ -41,7 +40,6 @@ function securityHeaders(source,cookies=[]){
   h.set('x-rona-admin-auth','server-verified-v1');
   h.set('x-rona-admin-current-only','main-v2-shell-v2');
   h.set('x-rona-ui-build',BUILD);
-  h.set('x-rona-payments-ui-loader','v8-bootstrap-v1');
   h.delete('content-length');
   h.delete('etag');
   for(const cookie of cookies)h.append('set-cookie',cookie);
@@ -128,7 +126,6 @@ async function currentAdminAsset(context){
   }
   return context.next();
 }
-class PaymentsV8RuntimeAppender{element(element){element.append(PAYMENTS_V8_RUNTIME,{html:true});}}
 
 export async function onRequest(context){
   const request=context.request;
@@ -143,11 +140,7 @@ export async function onRequest(context){
   if(!rolesOf(session.me).includes('ADMIN'))return deniedPage(session.setCookies);
 
   const started=Date.now();
-  let response=await currentAdminAsset(context);
-  const contentType=String(response.headers.get('content-type')||'').toLowerCase();
-  if(request.method==='GET'&&response.ok&&contentType.includes('text/html')){
-    response=new HTMLRewriter().on('body',new PaymentsV8RuntimeAppender()).transform(response);
-  }
+  const response=await currentAdminAsset(context);
   const h=securityHeaders(response.headers,session.setCookies);
   h.set('server-timing',`admin_shell;dur=${Math.max(0,Date.now()-started)}`);
   return new Response(request.method==='HEAD'?null:response.body,{status:response.status,statusText:response.statusText,headers:h});
