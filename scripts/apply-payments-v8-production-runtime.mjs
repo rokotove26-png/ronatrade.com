@@ -178,3 +178,19 @@ await writeFile(FUNDING_FIRST_CHECKER_TARGET, checker, 'utf8');
 // future_conditional cannot exceed total_to_receive. Model the future amount in
 // the dedicated conditional bucket, with zero in expected_not_due. Test data only.
 let futureDealTest = await readFile(FUTURE_DEAL_TEST_TARGET, 'utf8');
+const oldExpectedFixture = "expected_not_due: money('60', 'USD', `expected-${dealKey}`),";
+const newExpectedFixture = "expected_not_due: money('0', 'USD', `expected-${dealKey}`),";
+if (futureDealTest.includes(oldExpectedFixture)) futureDealTest = futureDealTest.replace(oldExpectedFixture, newExpectedFixture);
+else if (!futureDealTest.includes(newExpectedFixture)) throw new Error('PAYMENTS_V8_EXPECTED_FIXTURE_SOURCE_MISMATCH');
+const oldFutureFixture = "future_conditional: money('0', 'USD', `future-${dealKey}`),";
+const newFutureFixture = "future_conditional: money('60', 'USD', `future-${dealKey}`),";
+if (futureDealTest.includes(oldFutureFixture)) futureDealTest = futureDealTest.replace(oldFutureFixture, newFutureFixture);
+else if (!futureDealTest.includes(newFutureFixture)) throw new Error('PAYMENTS_V8_FUTURE_DEAL_FIXTURE_SOURCE_MISMATCH');
+const oldFutureAssertion = "assert.equal(apiDeal.expected_not_due.amount, '60');";
+const newFutureAssertion = "assert.equal(apiDeal.expected_not_due.amount, '0');\n  assert.equal(apiDeal.future_conditional.amount, '60');";
+if (futureDealTest.includes(oldFutureAssertion)) futureDealTest = futureDealTest.replace(oldFutureAssertion, newFutureAssertion);
+else if (!futureDealTest.includes("assert.equal(apiDeal.future_conditional.amount, '60');")) throw new Error('PAYMENTS_V8_FUTURE_DEAL_ASSERTION_SOURCE_MISMATCH');
+await writeFile(FUTURE_DEAL_TEST_TARGET, futureDealTest, 'utf8');
+
+console.log('PAYMENTS_V8_PRODUCTION_RUNTIME_PATCH=PASS owner=admin-payments-v7-native-v2 expected=due_now conditional=separate');
+console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent stage5c=v8 aggregate=V2 owner-header=v2 future-fixture=conditional');
