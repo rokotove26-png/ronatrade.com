@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_APPROVED_POLISH__)return;
-window.__RONA_ADMIN_APPROVED_POLISH__='20260918-access-visual-v1';
+window.__RONA_ADMIN_APPROVED_POLISH__='20260918-access-visual-v2';
 if(location.pathname!=='/portal/admin')return;
 
 const q=(s,r=document)=>r.querySelector(s);
@@ -78,6 +78,40 @@ function ensureStyle(){
     '#page-access #rona-ca4 .rona-fin-pill{min-height:24px!important;padding:3px 8px!important;border-radius:999px!important;font-size:9px!important;line-height:1.2!important;font-weight:820!important;white-space:nowrap!important}',
     '#page-access #rona-ca4 .rona-fin-pill--success{color:#bdf4d8!important;background:rgba(42,129,88,.17)!important;border-color:rgba(97,221,160,.27)!important}#page-access #rona-ca4 .rona-fin-pill--neutral{color:#a7bac7!important;background:rgba(113,142,160,.10)!important;border-color:rgba(139,170,189,.17)!important}',
 
+    '#page-access #rona-ca4{gap:19px!important}',
+    '#page-access #rona-ca4 .ca-kpis{gap:14px!important}',
+    '#page-access #rona-ca4 .ca-kpis>.ca-card>h2{font-size:12.8px!important;font-weight:760!important;letter-spacing:.055em!important;margin-bottom:10px!important}',
+    '#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(1)>h2{color:#8fe8ff!important}#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(2)>h2{color:#8ef0df!important}#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(3)>h2{color:#92eab9!important}#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(4)>h2{color:#ffd78d!important}',
+    '#page-access #rona-ca4 .ca-kpis .rona-owner-kpi{font-size:clamp(31px,2.25vw,41px)!important;font-weight:820!important;line-height:1!important}',
+    '#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(1) .rona-owner-kpi{color:#7fe3ff!important;text-shadow:0 0 14px rgba(99,216,255,.13)!important}#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(2) .rona-owner-kpi{color:#79eadb!important;text-shadow:0 0 14px rgba(94,231,213,.12)!important}#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(3) .rona-owner-kpi{color:#80e4ad!important;text-shadow:0 0 14px rgba(97,221,160,.12)!important}#page-access #rona-ca4 .ca-kpis>.ca-card:nth-child(4) .rona-owner-kpi{color:#ffd078!important;text-shadow:0 0 14px rgba(255,200,106,.11)!important}',
+    '#page-access #rona-ca4 .ca-kpis .rona-owner-muted{font-size:12px!important;line-height:1.4!important;color:#90a8b8!important}',
+    '#page-access #rona-ca4>.ca-card:has(.ca-toolbar){padding:10px!important}',
+    '#page-access #rona-ca4 .ca-toolbar{gap:10px!important}',
+    '#page-access #rona-ca4 .ca-search{height:42px!important;font-size:14px!important;color:#eef8fd!important}#page-access #rona-ca4 .ca-search::placeholder{color:#7796a9!important;opacity:1!important}',
+    '#page-access #rona-ca4 .ca-tabs{gap:5px!important;padding:4px!important}',
+    '#page-access #rona-ca4 .ca-tabs button{height:35px!important;padding:0 11px!important;font-size:13px!important;font-weight:700!important;color:#a3bac8!important}',
+    '#page-access #rona-ca4 .ca-tabs button:nth-child(1)[aria-pressed="true"]{color:#a4ecff!important;border-color:rgba(99,216,255,.34)!important}#page-access #rona-ca4 .ca-tabs button:nth-child(2)[aria-pressed="true"]{color:#9cf2e3!important;border-color:rgba(94,231,213,.34)!important;background:linear-gradient(145deg,rgba(18,88,93,.74),rgba(10,52,66,.74))!important}#page-access #rona-ca4 .ca-tabs button:nth-child(3)[aria-pressed="true"]{color:#a1ecc1!important;border-color:rgba(97,221,160,.30)!important;background:linear-gradient(145deg,rgba(24,88,63,.72),rgba(10,54,47,.72))!important}#page-access #rona-ca4 .ca-tabs button:nth-child(4)[aria-pressed="true"]{color:#ffe09b!important;border-color:rgba(255,200,106,.30)!important;background:linear-gradient(145deg,rgba(93,70,24,.72),rgba(58,45,17,.72))!important}',
+    '#page-access #rona-ca4 .ca-toolbar>.ca-btn{height:40px!important;font-size:13px!important;font-weight:720!important;color:#ffd98d!important;border-color:rgba(255,200,106,.25)!important;background:rgba(72,52,17,.30)!important}#page-access #rona-ca4 .ca-toolbar>.ca-btn:hover{color:#fff1c8!important;border-color:rgba(255,200,106,.45)!important;background:rgba(92,66,20,.42)!important}',
+    '#page-access #rona-ca4 .ca-grid{gap:16px!important}',
+    '#page-access #rona-ca4 .ca-grid>.ca-card{box-shadow:0 10px 30px rgba(0,0,0,.13),inset 2px 0 0 rgba(99,216,255,.18),inset 0 1px 0 rgba(255,255,255,.025)!important}#page-access #rona-ca4 .ca-grid>.ca-card:nth-child(even){box-shadow:0 10px 30px rgba(0,0,0,.13),inset 2px 0 0 rgba(94,231,213,.18),inset 0 1px 0 rgba(255,255,255,.025)!important}',
+    '#page-access #rona-ca4 .ca-head{gap:16px!important;margin-bottom:12px!important}',
+    '#page-access #rona-ca4 .ca-name{font-size:17.5px!important;line-height:1.32!important;font-weight:800!important;color:#f4f9fc!important}',
+    '#page-access #rona-ca4 .ca-id{font-size:12px!important;line-height:1.42!important;color:#8ba5b5!important}',
+    '#page-access #rona-ca4 .ca-meta{gap:9px!important}',
+    '#page-access #rona-ca4 .ca-cell{padding:10px 11px!important}',
+    '#page-access #rona-ca4 .ca-cell span{font-size:11.5px!important;font-weight:680!important;letter-spacing:.03em!important;color:#79bfd5!important}',
+    '#page-access #rona-ca4 .ca-cell strong{font-size:14px!important;line-height:1.42!important;font-weight:690!important;color:#e4eef4!important}',
+    '#page-access #rona-ca4 .ca-actions{gap:10px!important;margin-top:13px!important}',
+    '#page-access #rona-ca4 .ca-actions select{height:39px!important;font-size:13px!important;color:#dcebf2!important;border-color:rgba(94,231,213,.19)!important}',
+    '#page-access #rona-ca4 .ca-actions .ca-primary{height:39px!important;font-size:13px!important;font-weight:760!important;color:#bff6e7!important;border-color:rgba(94,231,213,.34)!important;background:linear-gradient(145deg,rgba(20,93,84,.64),rgba(13,63,69,.66))!important;box-shadow:0 7px 18px rgba(15,82,80,.12)!important}#page-access #rona-ca4 .ca-actions .ca-primary:hover{color:#ecfffa!important;border-color:rgba(94,231,213,.58)!important;background:linear-gradient(145deg,rgba(25,112,99,.76),rgba(16,76,82,.78))!important}',
+    '#page-access #rona-ca4 #ca-current-body>.ca-card>h2,#page-access #rona-ca4 .ca-history-grid>.ca-card>h2{font-size:16.3px!important;line-height:1.35!important;font-weight:780!important;color:#aeeaff!important}',
+    '#page-access #rona-ca4 th{font-size:11px!important;font-weight:740!important;color:#86b8ca!important}',
+    '#page-access #rona-ca4 td{font-size:13px!important;line-height:1.45!important;color:#e1ebf1!important}',
+    '#page-access #rona-ca4 .ca-binding{padding:8px 9px!important;font-size:12.5px!important}',
+    '#page-access #rona-ca4 .ca-empty{font-size:13.5px!important;color:#92aaba!important}',
+    '#page-access #rona-ca4 .rona-fin-pill{min-height:26px!important;padding:4px 9px!important;font-size:11.3px!important;font-weight:760!important;letter-spacing:.01em!important}',
+    '#page-access #rona-ca4 .rona-fin-pill--success{color:#9df0c5!important;background:rgba(42,129,88,.20)!important;border-color:rgba(97,221,160,.38)!important;box-shadow:0 0 12px rgba(97,221,160,.07)!important}#page-access #rona-ca4 .rona-fin-pill--neutral{color:#9fdff0!important;background:rgba(52,111,139,.14)!important;border-color:rgba(99,216,255,.24)!important}',
+
     '.rona-admin-dialog-mask{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,14,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}',
     '.rona-admin-dialog{width:min(500px,calc(100vw - 32px));max-height:calc(100vh - 48px);overflow:auto;border:1px solid rgba(222,236,248,.30);border-radius:18px;background:rgba(5,16,28,.99);color:#f7fbff;box-shadow:0 28px 90px rgba(0,0,0,.52)}',
     '.rona-admin-dialog-head{padding:20px 22px 12px}.rona-admin-dialog-head h2{margin:0;font-size:22px;line-height:1.2}.rona-admin-dialog-body{padding:4px 22px 20px;color:#b6c4d1;font-size:14px;line-height:1.55;white-space:pre-wrap}',
@@ -140,7 +174,7 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-admin-polish':'access-visual-v1',
+    'x-rona-admin-polish':'access-visual-v2',
     'x-rona-access-create-owner':'none',
     'x-rona-dialog-layer':'above-access-v1',
     'x-rona-shell-mutation':'claims-layout-radio-dialog-service-access-visual-only'
