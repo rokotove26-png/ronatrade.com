@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 15
     env:
       BASELINE_RELEASE_SHA: 92f8d5e381e34e84b7c14aa3f6d7480a60eae24c
+      EXPECTED_RELEASE_SHA: b4285b5795fc73f24c86b565dd49dc8203a4caeb
       QA_CHECKPOINT_SHA: 5741b811160e0ca76a348579bc898c730493a9ca
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +33,7 @@ jobs:
           live_release="$(git rev-parse origin/release/public-go-live-v1.1)"
           test "$(git rev-parse origin/qa/issue557-oidc-production-e2e-v2)" = "$QA_CHECKPOINT_SHA"
           git merge-base --is-ancestor "$BASELINE_RELEASE_SHA" "$live_release"
+          test "$live_release" = "$EXPECTED_RELEASE_SHA"
           echo "LIVE_RELEASE_SHA=$live_release" >> "$GITHUB_ENV"
           echo "baseline_release=$BASELINE_RELEASE_SHA"
           echo "live_release=$live_release"
