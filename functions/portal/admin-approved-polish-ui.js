@@ -1,6 +1,6 @@
 const SCRIPT=String.raw`(()=>{'use strict';
 if(window.__RONA_ADMIN_APPROVED_POLISH__)return;
-window.__RONA_ADMIN_APPROVED_POLISH__='20260918-access-visual-v3';
+window.__RONA_ADMIN_APPROVED_POLISH__='20260918-access-visual-v4';
 if(location.pathname!=='/portal/admin')return;
 
 const q=(s,r=document)=>r.querySelector(s);
@@ -112,7 +112,7 @@ function ensureStyle(){
     '#page-access #rona-ca4 td{font-size:14.5px!important;line-height:1.5!important;color:#e6eff4!important}',
     '#page-access #rona-ca4 .ca-binding{padding:9px 10px!important;font-size:14px!important}',
     '#page-access #rona-ca4 .ca-empty{font-size:14.5px!important;color:#a3b8c5!important}',
-    '#page-access #rona-ca4 .rona-fin-pill{min-height:29px!important;padding:5px 10px!important;font-size:12.5px!important;font-weight:760!important;letter-spacing:.01em!important}',
+    '#page-access #rona-ca4 .rona-fin-pill{display:inline-flex!important;align-items:center!important;justify-content:center!important;text-align:center!important;vertical-align:middle!important;min-height:29px!important;padding:5px 10px!important;font-size:12.5px!important;font-weight:760!important;letter-spacing:.01em!important}',
     '#page-access #rona-ca4 .rona-fin-pill--success{color:#9df0c5!important;background:rgba(42,129,88,.20)!important;border-color:rgba(97,221,160,.38)!important;box-shadow:0 0 12px rgba(97,221,160,.07)!important}#page-access #rona-ca4 .rona-fin-pill--neutral{color:#a9e6f5!important;background:rgba(52,111,139,.14)!important;border-color:rgba(99,216,255,.24)!important}',
 
     '.rona-admin-dialog-mask{position:fixed;inset:0;z-index:2147483600;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(2,8,14,.78);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}',
@@ -177,7 +177,7 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-admin-polish':'access-visual-v3',
+    'x-rona-admin-polish':'access-visual-v4',
     'x-rona-access-create-owner':'none',
     'x-rona-dialog-layer':'above-access-v1',
     'x-rona-shell-mutation':'claims-layout-radio-dialog-service-access-visual-only'
