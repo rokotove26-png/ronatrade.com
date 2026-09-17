@@ -102,11 +102,30 @@ for (const required of [
 }
 await writeFile(TARGET, source, 'utf8');
 
-// The /portal/main-ui wrapper historically patched three application handoff
-// fragments by exact source text. Current canonical builds may already contain
-// one or more target fragments. Make that wrapper idempotent instead of
-// returning HTTP 500 when a fragment is already at its canonical target form.
+// The /portal/main-ui wrapper historically owned a Stage5C renderer patch and
+// three exact application handoff patches. The canonical Admin source now
+// arrives with Payments V8 already assembled, so the wrapper must accept that
+// current source instead of replacing it with the stale embedded renderer.
 let wrapper = await readFile(MAIN_UI_WRAPPER_TARGET, 'utf8');
+const stage5Legacy = `function patchPaymentsV7Runtime(script){
+  const start='function renderPayments(){isolatePaymentsPage();const f=financeFragment();';
+  const end='function renderCash(){';
+  const from=script.indexOf(start),to=script.indexOf(end,from);
+  if(from<0||to<0||to<=from)throw new Error('STAGE5C_LIVE_PAYMENTS_RENDERER_SOURCE_MISMATCH');
+  return script.slice(0,from)+PAYMENTS_V7_BROWSER_RUNTIME+script.slice(to);
+}`;
+const stage5Current = `function patchPaymentsV7Runtime(script){
+  // PAYMENTS_V8_STAGE5C_IDEMPOTENT_RUNTIME_V1
+  const current=script.includes("data-rona-payments-owner':'admin-payments-v7-native-v2'")
+    &&script.includes('paymentsV7Money(deal?.due_now)')
+    &&script.includes("paymentsV7Kpi('Conditional'")
+    &&script.includes("paymentsV7Aggregate(deals,'future_conditional')");
+  if(current)return script;
+  throw new Error('STAGE5C_PAYMENTS_V8_RUNTIME_REQUIRED');
+}`;
+if (wrapper.includes(stage5Legacy)) wrapper = wrapper.replace(stage5Legacy, stage5Current);
+else if (!wrapper.includes('PAYMENTS_V8_STAGE5C_IDEMPOTENT_RUNTIME_V1')) throw new Error('PAYMENTS_V8_STAGE5C_WRAPPER_SOURCE_MISMATCH');
+
 const wrapperLegacy = `  if(!source.includes(BUCKET_FROM)||!source.includes(ACTIONS_FROM)||!source.includes(ADMIN_BOOTSTRAP_FROM)){
     return new Response('APPLICATION_DEAL_HANDOFF_PATCH_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
@@ -121,6 +140,9 @@ const wrapperCurrent = `  // PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2
   patchedBase+=applicationPassportRuntime;`;
 if (wrapper.includes(wrapperLegacy)) wrapper = wrapper.replace(wrapperLegacy, wrapperCurrent);
 else if (!wrapper.includes('PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2')) throw new Error('PAYMENTS_V8_MAIN_UI_WRAPPER_SOURCE_MISMATCH');
+for (const required of ['PAYMENTS_V8_STAGE5C_IDEMPOTENT_RUNTIME_V1','PAYMENTS_V8_MAIN_UI_IDEMPOTENT_HANDOFF_V2']) {
+  if (!wrapper.includes(required)) throw new Error(`PAYMENTS_V8_MAIN_UI_WRAPPER_PATCH_MISSING: ${required}`);
+}
 await writeFile(MAIN_UI_WRAPPER_TARGET, wrapper, 'utf8');
 
 // Keep production acceptance checks synchronized with the active Payments V8
@@ -141,4 +163,4 @@ else if (!checker.includes(newAggregateMarker)) throw new Error('PAYMENTS_V8_FUN
 await writeFile(FUNDING_FIRST_CHECKER_TARGET, checker, 'utf8');
 
 console.log('PAYMENTS_V8_PRODUCTION_RUNTIME_PATCH=PASS owner=admin-payments-v7-native-v2 expected=due_now conditional=separate');
-console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent aggregate=V2 owner-header=v2');
+console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent stage5c=v8 aggregate=V2 owner-header=v2');
