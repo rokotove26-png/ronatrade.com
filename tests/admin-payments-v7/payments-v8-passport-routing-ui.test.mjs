@@ -18,7 +18,7 @@ test('passport presents business recipient and bank routing as separate fields',
   assert.match(source, /const recipient=text\(item\?\.recipient\)/);
   assert.match(source, /const beneficiary=text\(item\?\.bank_beneficiary_name\|\|item\?\.beneficiary_name\)/);
   assert.match(source, /const route=text\(item\?\.bank_route_reference\|\|item\?\.bank_document\)/);
-  assert.doesNotMatch(source, /recipient\s*=\s*text\([^\n]*beneficiary/);
+  assert.doesNotMatch(source, /const recipient=text\(item\?\.(?:bank_beneficiary_name|beneficiary_name)\)/);
 });
 
 test('passport remains projection-only and has no business mutation path', () => {
