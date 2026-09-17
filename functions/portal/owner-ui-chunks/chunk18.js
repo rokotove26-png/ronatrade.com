@@ -5,5 +5,6 @@ import adminDealsSemanticCorrectionsRuntime from '../main-ui/admin-deals-semanti
 import adminDealPassportPremiumRuntime from '../main-ui/admin-deal-passport-premium-v1.js';
 import adminOperationsFlightdeckTitleDedupeRuntime from '../main-ui/admin-operations-flightdeck-title-dedupe-v1.js';
 import adminPaymentsPaymentFrameRuntime from '../main-ui/admin-payments-payment-frame-v7.js';
+import adminPaymentsColorRestoreRuntime from '../main-ui/admin-payments-color-restore-v8.js';
 
-export default baseRuntime + adminDealsPremiumRuntime + adminDealsSemanticButtonsRuntime + adminDealsSemanticCorrectionsRuntime + adminDealPassportPremiumRuntime + adminOperationsFlightdeckTitleDedupeRuntime + adminPaymentsPaymentFrameRuntime;
+export default baseRuntime + adminDealsPremiumRuntime + adminDealsSemanticButtonsRuntime + adminDealsSemanticCorrectionsRuntime + adminDealPassportPremiumRuntime + adminOperationsFlightdeckTitleDedupeRuntime + adminPaymentsPaymentFrameRuntime + adminPaymentsColorRestoreRuntime;
