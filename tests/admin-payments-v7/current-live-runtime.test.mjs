@@ -13,6 +13,11 @@ test('current live Payments runtime has five summary tiles with separate Conditi
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /text:'Условно ожидается'/);
 });
 
+test('Payments money and percentage display is rounded to tenths', () => {
+  assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /function paymentsV7Fmt\(v\).*maximumFractionDigits:1/);
+  assert.doesNotMatch(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /function paymentsV7Fmt\(v\).*maximumFractionDigits:2/);
+});
+
 test('top and deal Expected exclude Conditional and use current due semantics', () => {
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /function paymentsV7AggregateExpected\(deals\)/);
   assert.match(PAYMENTS_V7_BROWSER_RUNTIME_CURRENT, /\['due_now','expected_not_due'\]/);
