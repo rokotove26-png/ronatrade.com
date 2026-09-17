@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { applyOwnerConfirmedReceiptsV7 } from '../../supabase/functions/rona-owner-ai-sync/owner-confirmed-receipt-projection.mjs';
+import {
+  applyOwnerConfirmedReceiptsV7,
+  OWNER_CONFIRMED_RECEIPT_PROVENANCE_CONTRACT,
+  OWNER_CONFIRMED_RECEIPT_RESOLVER_VERSION,
+} from '../../supabase/functions/rona-owner-ai-sync/owner-confirmed-receipt-projection.mjs';
 
 function money(amount, currency = 'RUB') {
   return { amount: String(amount), currency, status: 'AUTHORITATIVE', reason: null, authority_refs: [] };
@@ -76,6 +80,38 @@ test('owner-confirmed receipt is projected as received without changing bank evi
   assert.equal(output.funding_aggregate[0].funding_received, '10000000');
   assert.equal(output.funding_aggregate[0].funding_spent, '0');
   assert.equal(output.funding_aggregate[0].funding_remaining, '10000000');
+});
+
+test('atomic canonical writer provenance is projected through the same receipt contract', () => {
+  const atomic = {
+    ...receipt,
+    payment_key: 'qa-payment-key-atomic',
+    payment_id: 'QA-PAYMENT-ATOMIC',
+    amount: '1250000',
+    source_version: 'ATOMIC_PAYMENTS_V7_CANONICAL_STATE_V1',
+    allocation_id: 'qa-allocation-atomic',
+    allocation_source_version: 'ATOMIC_PAYMENTS_V7_CANONICAL_STATE_V1',
+    attribution_id: 'qa-attribution-atomic',
+    attribution_source_version: 'ATOMIC_PAYMENTS_V7_CANONICAL_STATE_V1',
+    finance_event_id: 'qa-finance-event-atomic',
+    event_source_version: 'ATOMIC_PAYMENTS_V7_CANONICAL_STATE_V1',
+  };
+  const output = applyOwnerConfirmedReceiptsV7(baseProjection(), [atomic]);
+  const deal = output.deals[0];
+
+  assert.equal(deal.verified_received.amount, '1250000');
+  assert.equal(deal.owner_confirmed_receipt_authority.status, 'AUTHORITATIVE');
+  assert.equal(deal.owner_confirmed_receipt_authority.resolver_version, OWNER_CONFIRMED_RECEIPT_RESOLVER_VERSION);
+  assert.equal(deal.owner_confirmed_receipt_authority.provenance_contract, OWNER_CONFIRMED_RECEIPT_PROVENANCE_CONTRACT);
+  assert.equal(output.owner_confirmed_receipt_projection.status, 'AUTHORITATIVE');
+  assert.equal(output.owner_confirmed_receipt_projection.resolver_version, OWNER_CONFIRMED_RECEIPT_RESOLVER_VERSION);
+  assert.equal(output.owner_confirmed_receipt_projection.provenance_contract, OWNER_CONFIRMED_RECEIPT_PROVENANCE_CONTRACT);
+
+  const refs = new Map(deal.verified_received.authority_refs.map((ref) => [ref.source_type, ref]));
+  assert.equal(refs.get('OWNER_CONFIRMED_RECEIPT')?.source_version, 'ATOMIC_PAYMENTS_V7_CANONICAL_STATE_V1');
+  assert.equal(refs.get('PAYMENT_ALLOCATION')?.source_id, 'qa-allocation-atomic');
+  assert.equal(refs.get('PAYMENT_BUSINESS_ATTRIBUTION')?.source_id, 'qa-attribution-atomic');
+  assert.equal(refs.get('FINANCE_EVENT')?.source_id, 'qa-finance-event-atomic');
 });
 
 test('receipt with a different currency fails closed and is not added to the deal', () => {
