@@ -14,6 +14,8 @@ import {
 
 export const FINANCE_AUTHORITY_PROJECTION_V8_VERSION = 'FINANCE_AUTHORITY_PROJECTION_RECONCILIATION_V8';
 const MISMATCH = 'FINANCE_AUTHORITY_PAYMENTS_PROJECTION_MISMATCH';
+const CURRENT_LIFECYCLE_EXCLUSIONS = new Set(['SUPERSEDED', 'REVERSED', 'REJECTED', 'CANCELLED', 'INACTIVE', 'ARCHIVED']);
+const AUTHORITY_EXCLUSIONS = new Set(['REJECTED', 'REVERSED', 'INVALID', 'INACTIVE', 'SUPERSEDED']);
 
 function text(value) { return value === null || value === undefined ? '' : String(value).trim(); }
 function upper(value) { return text(value).toUpperCase(); }
@@ -27,6 +29,60 @@ function uniqueRefs(refs) {
     seen.add(key);
     return true;
   });
+}
+function sourceRefs(row) {
+  return uniqueRefs([
+    ...(asArray(row?.source_refs)),
+    row?.id ? {
+      source_type: 'FINANCE_AUTHORITY',
+      source_id: String(row.id),
+      source_version: row.source_version || null,
+      source_timestamp: row.source_timestamp || row.effective_at || null,
+    } : null,
+  ]);
+}
+function rawMoney(amount, currency, status, refs, reason = null) {
+  const normalizedStatus = upper(status || 'AUTHORITATIVE');
+  if (normalizedStatus === 'TO_VERIFY') return toVerifyMoney(currency || null, reason || 'FINANCE_EXECUTION_TO_VERIFY', refs);
+  if (amount === null || amount === undefined || !currency) return null;
+  return moneyValue(String(amount), currency, 'AUTHORITATIVE', null, refs);
+}
+function normalizeFinanceAuthority(row) {
+  if (!row || typeof row !== 'object') return row;
+  if (row.total_to_receive && typeof row.total_to_receive === 'object' && Object.prototype.hasOwnProperty.call(row.total_to_receive, 'status')) return row;
+  const obligationCurrency = upper(row.obligation_currency || row.contractual_payment_currency) || null;
+  const executionCurrency = upper(row.execution_currency) || null;
+  const refs = sourceRefs(row);
+  const lifecycle = upper(row.lifecycle_state || 'CURRENT');
+  const authority = upper(row.authority_state || 'AUTHORITATIVE');
+  return {
+    id: row.id ? String(row.id) : null,
+    deal_key: row.deal_key ? String(row.deal_key) : null,
+    total_to_receive: rawMoney(row.total_to_receive, obligationCurrency, 'AUTHORITATIVE', refs),
+    due_now: rawMoney(row.due_now, obligationCurrency, 'AUTHORITATIVE', refs),
+    expected_not_due: rawMoney(row.expected_not_due, obligationCurrency, 'AUTHORITATIVE', refs),
+    future_conditional: rawMoney(row.future_conditional, obligationCurrency, 'AUTHORITATIVE', refs),
+    actual_spend: rawMoney(row.actual_spend, executionCurrency, row.actual_spend_status, refs),
+    actual_spend_status: upper(row.actual_spend_status) || null,
+    remaining_execution: rawMoney(row.remaining_execution, executionCurrency, row.remaining_execution_status, refs),
+    remaining_execution_status: upper(row.remaining_execution_status) || null,
+    execution_currency: executionCurrency,
+    execution_status: row.execution_status || null,
+    finance_status: row.finance_status || 'TO_VERIFY',
+    documentary_status: row.documentary_status || 'TO_VERIFY',
+    contractual_payment_currency: row.contractual_payment_currency ? upper(row.contractual_payment_currency) : null,
+    mixed_inbound_accounting_currency: row.mixed_inbound_accounting_currency ? upper(row.mixed_inbound_accounting_currency) : null,
+    current: !CURRENT_LIFECYCLE_EXCLUSIONS.has(lifecycle) && !AUTHORITY_EXCLUSIONS.has(authority),
+    source_locked: row.source_locked !== false,
+    authority_state: row.authority_state || 'AUTHORITATIVE',
+    lifecycle_state: row.lifecycle_state || 'CURRENT',
+    effective_at: row.effective_at || row.source_timestamp || row.created_at || null,
+    supersedes_id: row.supersedes_id ? String(row.supersedes_id) : null,
+    supersedes_authority_refs: asArray(row.supersedes_authority_refs),
+    source_version: row.source_version || null,
+    source_timestamp: row.source_timestamp || null,
+    authority_refs: refs,
+  };
 }
 function authoritativeMoney(value, currency = null) {
   if (!value || upper(value.status) !== 'AUTHORITATIVE' || value.amount === null || value.amount === undefined) return false;
@@ -73,7 +129,8 @@ function paymentProgress(total, received) {
 }
 function financialState(finance, received, remaining, due, expected, future) {
   if (![received, remaining, due, expected, future].every((value) => authoritativeMoney(value))) return 'TO_VERIFY';
-  if (upper(received.currency) !== upper(finance.total_to_receive?.currency)) return 'TO_VERIFY';
+  const currency = upper(finance.total_to_receive?.currency);
+  if (![received, remaining, due, expected, future].every((value) => upper(value.currency) === currency)) return 'TO_VERIFY';
   if (decimalCompare(received.amount, finance.total_to_receive.amount) > 0) return 'OVERRECEIVED';
   if (decimalCompare(remaining.amount, '0') === 0) return 'PAID';
   if (upper(finance.finance_status) === 'OVERDUE') return 'OVERDUE';
@@ -213,8 +270,9 @@ function applyFinanceAuthorityToDeal(deal, financeAuthorities) {
   return { deal: next, reconciliation };
 }
 
-export function applyFinanceAuthorityProjectionV8(projection, financeAuthorities = []) {
+export function applyFinanceAuthorityProjectionV8(projection, financeAuthorityRows = []) {
   if (!projection || projection.contract !== 'ADMIN_PAYMENTS_V7') throw new Error('ADMIN_PAYMENTS_V7_PROJECTION_REQUIRED');
+  const financeAuthorities = asArray(financeAuthorityRows).map(normalizeFinanceAuthority);
   const results = asArray(projection.deals).map((deal) => applyFinanceAuthorityToDeal(deal, financeAuthorities));
   const deals = results.map((item) => item.deal);
   const rows = results.map((item) => item.reconciliation);
