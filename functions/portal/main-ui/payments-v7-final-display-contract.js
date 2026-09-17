@@ -15,7 +15,8 @@ paymentsV7OwnerPassportBody=function paymentsV7OwnerPassportBodyFinalDisplay(dea
   const summary=body?.querySelector?.('.rona-payments-v7-owner-funding-summary');
   if(summary){
     summary.append(
-      paymentsV7OwnerField('Ожидается',paymentsV7OwnerMoney(deal?.remaining_to_receive,deal?.funding_currency||passport?.funding_currency)),
+      paymentsV7OwnerField('Ожидается сейчас',paymentsV7OwnerMoney(deal?.due_now,deal?.funding_currency||passport?.funding_currency)),
+      paymentsV7OwnerField('Условно / будущий срок',paymentsV7OwnerMoney(deal?.future_conditional,deal?.funding_currency||passport?.funding_currency)),
       paymentsV7OwnerField('Статус сделки',paymentsV7OwnerDealStatusText(deal?.financial_status)),
       paymentsV7OwnerField('Документарный статус',paymentsV7Text(deal?.documentary_status)||'TO_VERIFY')
     );
@@ -37,10 +38,15 @@ paymentsV7Deal=function paymentsV7DealFinalDisplay(deal){
   const passport=paymentsV7OwnerPassport(deal);
   const summary=card?.querySelector?.('.rona-payments-v7-deal-owner-summary');
   if(summary&&passport){
-    summary.append(e('div',{class:'rona-payments-v7-deal-cell'},
-      e('span',{text:'Ожидается'}),
-      e('strong',{text:paymentsV7OwnerMoney(deal?.remaining_to_receive,deal?.funding_currency||passport?.funding_currency)}),
-      e('small',{text:paymentsV7OwnerDealStatusText(deal?.financial_status)})));
+    summary.append(
+      e('div',{class:'rona-payments-v7-deal-cell'},
+        e('span',{text:'Ожидается сейчас'}),
+        e('strong',{text:paymentsV7OwnerMoney(deal?.due_now,deal?.funding_currency||passport?.funding_currency)}),
+        e('small',{text:paymentsV7OwnerDealStatusText(deal?.financial_status)})),
+      e('div',{class:'rona-payments-v7-deal-cell'},
+        e('span',{text:'Условно / будущий срок'}),
+        e('strong',{text:paymentsV7OwnerMoney(deal?.future_conditional,deal?.funding_currency||passport?.funding_currency)}))
+    );
   }
   return card;
 };

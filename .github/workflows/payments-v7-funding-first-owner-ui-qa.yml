@@ -18,6 +18,7 @@ on:
       - 'tests/payments-v7-passport-recovery-ui.test.mjs'
       - 'tests/payments-v7-passport-activation-fix.test.mjs'
       - 'scripts/check-payments-v7-funding-first-ui-no-hardcode.mjs'
+      - 'scripts/apply-payments-v8-production-runtime.mjs'
       - '.github/workflows/payments-v7-funding-first-owner-ui-qa.yml'
 
 permissions:
@@ -30,7 +31,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
+      - name: Assemble production V8 runtime and acceptance compatibility
+        run: npm run build
       - name: Funding passport UI regressions
         run: node tests/payments-v7-funding-first-owner-ui.test.mjs
       - name: Recovered passport scenarios A-K
@@ -45,3 +48,29 @@ jobs:
         run: node tests/payments-v7-authoritative-aggregate-ui.test.mjs
       - name: Source-first / no hardcode / no browser finance
         run: node scripts/check-payments-v7-funding-first-ui-no-hardcode.mjs
+      - name: Production V8 assembly and wrapper acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/check-payments-v7-funding-first-ui-no-hardcode.mjs
+          node --input-type=module <<'NODE'
+          import { onRequest } from './functions/portal/main-ui/index.js';
+          const response = await onRequest();
+          if (response.status !== 200) throw new Error(`MAIN_UI_STATUS_${response.status}: ${await response.text()}`);
+          if (response.headers.get('x-rona-payments-ui') !== 'admin-payments-v7-native-v2') {
+            throw new Error(`PAYMENTS_OWNER_${response.headers.get('x-rona-payments-ui')}`);
+          }
+          if (response.headers.get('x-rona-payments-handoff') !== 'payments-v7-projection') {
+            throw new Error(`PAYMENTS_HANDOFF_${response.headers.get('x-rona-payments-handoff')}`);
+          }
+          const text = await response.text();
+          for (const marker of [
+            'admin-payments-v7-native-v2',
+            'paymentsV7Money(deal?.due_now)',
+            "paymentsV7Kpi('Conditional'",
+            "paymentsV7Aggregate(deals,'future_conditional')",
+          ]) {
+            if (!text.includes(marker)) throw new Error(`V8_RUNTIME_MARKER_MISSING:${marker}`);
+          }
+          console.log('PAYMENTS_V8_PRODUCTION_ASSEMBLY_ACCEPTANCE=PASS');
+          NODE

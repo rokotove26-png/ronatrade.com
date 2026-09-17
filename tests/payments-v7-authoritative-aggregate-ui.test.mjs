@@ -60,8 +60,14 @@ for (const forbidden of ['DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2
 }
 assert.equal(aggregateRuntime.includes('paymentsV7Aggregate('), false);
 assert.equal(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateRuntime), false);
+assert.match(aggregateRuntime,/expected=paymentsV7ServerAggregateRows\(currencyAggregates\?\.due_now\)/);
+assert.match(aggregateRuntime,/conditional=paymentsV7ServerAggregateRows\(currencyAggregates\?\.future_conditional\)/);
+assert.doesNotMatch(aggregateRuntime,/expected=paymentsV7MergeServerAggregateRows\(currencyAggregates\?\.due_now,currencyAggregates\?\.expected_not_due\)/);
+assert.match(aggregateRuntime,/paymentsV7Kpi\('Ожидается сейчас'/);
 
 console.log('SERVER_AGGREGATE_UI=PASS');
+console.log('DUE_NOW_ONLY_AGGREGATE=PASS');
+console.log('CONDITIONAL_SEPARATE_AGGREGATE=PASS');
 console.log('FUTURE_ZERO_UI=PASS');
 console.log('FUTURE_NONZERO_UI=PASS');
 console.log('FUTURE_UNKNOWN_UI=PASS');

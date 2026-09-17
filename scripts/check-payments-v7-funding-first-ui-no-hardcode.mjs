@@ -34,7 +34,7 @@ if(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateUi))failures.push('GLO
 for(const required of ['currency_aggregates','funding_aggregate','completeness_status','unresolved_deal_ids']){
   if(!aggregateUi.includes(required))failures.push(`SERVER_AGGREGATE_FIELD_MISSING:${required}`);
 }
-if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
+if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V2'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
 
 // Owner table presentation contract.
 if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_OWNER_TABLE_V2'))failures.push('OWNER_TABLE_V2_MARKER_MISSING');
@@ -99,7 +99,7 @@ if(preludeCompose<0||ownerCompose<0||recoveryCompose<0||activationCompose<0||!(p
 }
 
 // Formatting and branch selection are allowed. Financial derivation in the browser is not.
-const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|expected_not_due|total_to_receive|verified_received|future_conditional)';
+const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|due_now|expected_not_due|total_to_receive|verified_received|future_conditional)';
 const financialArithmeticPatterns=[
   new RegExp(`(?:\\?\\.)?${field}\\s*[+\\-*/]\\s*(?![=])`,'gi'),
   new RegExp(`(?<![=])[+\\-*/]\\s*(?:[A-Za-z_$][\\w$]*\\?\\.)?${field}\\b`,'gi'),
@@ -128,7 +128,7 @@ if(crossCurrencySumCount)failures.push(`CROSS_CURRENCY_SUM_COUNT:${crossCurrency
 
 const requiredServerFields=[
   'payment_passport','funding_received','funding_spent','funding_remaining','funding_currency',
-  'expected_not_due','financial_status','documentary_status','authority_refs',
+  'due_now','future_conditional','financial_status','documentary_status','authority_refs',
   'funding_events','allocated_funding_amount','allocation_share','allocation_source',
   'acquired_amount','acquired_currency','conversion_rate','conversion_source_basis',
   'settlement_lines','unlinked_settlement_lines','native_residuals','shared_native_residual_refs',

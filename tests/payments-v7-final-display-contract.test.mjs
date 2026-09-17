@@ -55,10 +55,12 @@ const passport={
 };
 const deal={
   deal_key:'future-key',deal_id:'DEAL-FUTURE-CONTRACT',client_display:'Future Client',financial_status:'EXPECTED',documentary_status:'TO_VERIFY',
-  funding_currency:'USD',expected_not_due:money('55'),authority_refs:[{source_type:'FINANCE_CONCLUSION',source_id:'CONCLUSION-FUTURE'}],payment_passport:passport,
+  funding_currency:'USD',due_now:money('0'),future_conditional:money('55'),authority_refs:[{source_type:'FINANCE_CONCLUSION',source_id:'CONCLUSION-FUTURE'}],payment_passport:passport,
 };
 const text=textOf(sandbox.__ui.paymentsV7Deal(deal));
-assert.match(text,/Ожидается/);
+assert.match(text,/Ожидается сейчас/);
+assert.match(text,/0\s*USD/);
+assert.match(text,/Условно \/ будущий срок/);
 assert.match(text,/55\s*USD/);
 assert.match(text,/Статус распределения/);
 assert.match(text,/Подтверждено/);
@@ -72,7 +74,8 @@ assert.match(text,/50\s*RUB/);
 
 console.log('AUTHORITATIVE_VALUES_PRESERVED_EXACTLY=PASS');
 console.log('TO_VERIFY_PRESERVED=PASS');
-console.log('EXPECTED_FIELD_TO_UI=PASS');
+console.log('DUE_NOW_FIELD_TO_UI=PASS');
+console.log('CONDITIONAL_FIELD_TO_UI=PASS');
 console.log('ALLOCATION_STATUS_TO_UI=PASS');
 console.log('SOURCE_PROVENANCE_TO_UI=PASS');
 console.log('FINAL_DATA_CONTRACT_UI=PASS');

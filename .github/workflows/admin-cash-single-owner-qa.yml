@@ -43,7 +43,7 @@ jobs:
           node --check scripts/qa-admin-cash-single-owner.mjs
       - name: Cash single-owner regression QA
         run: node scripts/qa-admin-cash-single-owner.mjs
-      - name: Existing Admin single-owner regression QA
-        run: node scripts/qa-admin-single-owner.mjs
       - name: Canonical production build
         run: npm run build
+      - name: Existing Admin single-owner regression QA
+        run: node scripts/qa-admin-single-owner.mjs

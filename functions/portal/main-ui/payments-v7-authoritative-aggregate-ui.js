@@ -55,7 +55,7 @@ renderPayments=function renderPayments(){
   const currencyAggregates=projection?.currency_aggregates||{};
   const total=paymentsV7ServerAggregateRows(currencyAggregates?.total_to_receive);
   const received=paymentsV7ServerAggregateRows(currencyAggregates?.verified_received);
-  const expected=paymentsV7MergeServerAggregateRows(currencyAggregates?.due_now,currencyAggregates?.expected_not_due);
+  const expected=paymentsV7ServerAggregateRows(currencyAggregates?.due_now);
   const conditional=paymentsV7ServerAggregateRows(currencyAggregates?.future_conditional);
   const spent=paymentsV7ServerFundingRows(projection,'funding_spent');
   const remaining=paymentsV7ServerFundingRows(projection,'funding_remaining');
@@ -65,8 +65,8 @@ renderPayments=function renderPayments(){
   kpis.append(
     paymentsV7Kpi('Сумма по сделке',paymentsV7MoneyLines(total.rows,total.verify)),
     paymentsV7Kpi('Получено',paymentsV7MoneyLines(received.rows,received.verify)),
-    paymentsV7Kpi('Ожидается',paymentsV7MoneyLines(expected.rows,expected.verify)),
-    paymentsV7Kpi('Conditional',paymentsV7MoneyLines(conditional.rows,conditional.verify),e('div',{class:'rona-payments-v7-kpi-sub',text:'Условно ожидается'})),
+    paymentsV7Kpi('Ожидается сейчас',paymentsV7MoneyLines(expected.rows,expected.verify)),
+    paymentsV7Kpi('Conditional',paymentsV7MoneyLines(conditional.rows,conditional.verify),e('div',{class:'rona-payments-v7-kpi-sub',text:'Условно / будущий срок'})),
     paymentsV7Kpi('Потрачено / Остаток',spendNode),
   );
   root.append(kpis);
