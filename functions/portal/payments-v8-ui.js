@@ -1,6 +1,8 @@
-const BUILD='payments-v8-admin-ui-v1-20260917';
+import paymentsMoneyDisplayContract from './main-ui/payments-money-display-contract.js';
 
-const SCRIPT=String.raw`(()=>{'use strict';
+const BUILD='payments-v8-admin-ui-v2-money-display-20260917';
+
+const SCRIPT=paymentsMoneyDisplayContract+String.raw`(()=>{'use strict';
 if(window.__RONA_PAYMENTS_V8_UI_INSTALLED__)return;
 window.__RONA_PAYMENTS_V8_UI_INSTALLED__=true;
 const ENDPOINT='/portal/api/v1/admin/bootstrap';
@@ -14,7 +16,7 @@ let retryTimer=null;
 function asArray(v){return Array.isArray(v)?v:[]}
 function upper(v){return String(v==null?'':v).trim().toUpperCase()}
 function authoritative(m){return !!m&&upper(m.status)==='AUTHORITATIVE'&&m.amount!==null&&m.amount!==undefined&&Number.isFinite(Number(m.amount))&&!!String(m.currency||'').trim()}
-function fmtNumber(v){const n=Number(v);return Number.isFinite(n)?new Intl.NumberFormat('ru-RU',{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2}).format(n):'—'}
+function fmtNumber(v){const formatted=globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.formatAmount(v);return formatted===null||formatted===undefined?'—':formatted}
 function money(m){return authoritative(m)?fmtNumber(m.amount)+' '+upper(m.currency):'Требует проверки'}
 function node(tag,attrs,...children){const el=document.createElement(tag);for(const [k,v] of Object.entries(attrs||{})){if(v===null||v===undefined)continue;if(k==='class')el.className=String(v);else if(k==='text')el.textContent=String(v);else if(k==='dataset'&&v&&typeof v==='object'){for(const [dk,dv] of Object.entries(v))el.dataset[dk]=String(dv)}else el.setAttribute(k,String(v))}for(const child of children.flat()){if(child===null||child===undefined)continue;el.append(child instanceof Node?child:document.createTextNode(String(child)))}return el}
 function aggregate(field){const map=new Map();for(const d of asArray(projection?.deals)){const m=d?.[field];if(!authoritative(m))continue;const c=upper(m.currency);map.set(c,(map.get(c)||0)+Number(m.amount))}return Array.from(map.entries()).map(([currency,amount])=>({currency,amount})).sort((a,b)=>{const rank={USD:1,RUB:2,KZT:3};return(rank[a.currency]||99)-(rank[b.currency]||99)||a.currency.localeCompare(b.currency)})}
@@ -29,13 +31,13 @@ function render(){
   const key=versionKey(),existing=page.querySelector(':scope > #ronaPaymentsV8Root');if(existing&&existing.dataset.versionKey===key)return true;
   rendering=true;
   try{
-    const root=node('div',{id:'ronaPaymentsV8Root',class:'rona-owner-page-content',dataset:{ownerPage:'payments',ronaPaymentsOwner:OWNER,versionKey:key}});
+    const root=node('div',{id:'ronaPaymentsV8Root',class:'rona-owner-page-content',dataset:{ownerPage:'payments',ronaPaymentsOwner:OWNER,versionKey:key,moneyDisplayContract:globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.contract||'missing'}});
     const grid=node('div',{class:'rona-owner-grid rona-fin-kpi-grid'},kpi('Получено','verified_received','received'),kpi('Ожидается сейчас','due_now','expected'),kpi('Условно','future_conditional','expected'),kpi('Потрачено','actual_spend','paid'),kpi('Остаток финансирования','remaining_execution','received'));
     const summary=node('section',{class:'rona-owner-card'},node('h2',{text:'Финансовая картина по сделкам'}),table());
     const meta=node('div',{class:'rona-owner-muted',text:'Источник: каноническая V8 Finance authority projection · '+key});
     root.append(grid,summary,meta);
     page.replaceChildren(root);
-    window.__RONA_PAYMENTS_V8_UI__={status:'READY',owner:OWNER,sourceAsOf:projection.source_as_of||null,dealCount:asArray(projection.deals).length,renderedAt:new Date().toISOString()};
+    window.__RONA_PAYMENTS_V8_UI__={status:'READY',owner:OWNER,sourceAsOf:projection.source_as_of||null,dealCount:asArray(projection.deals).length,moneyDisplayContract:globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.contract||null,renderedAt:new Date().toISOString()};
     return true;
   }finally{rendering=false;observePage()}
 }
@@ -62,6 +64,7 @@ export async function onRequest(){
     'expires':'0',
     'x-content-type-options':'nosniff',
     'x-rona-payments-ui':'v8-bootstrap-v1',
+    'x-rona-payments-money-display':'max-1-v1',
     'x-rona-ui-build':BUILD,
   }});
 }
