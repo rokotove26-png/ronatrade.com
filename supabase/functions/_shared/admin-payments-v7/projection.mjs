@@ -3,6 +3,7 @@ import { decimalAbs, decimalAdd, decimalCompare, decimalDivide, decimalMulIntege
 import { resolveDealFinanceAuthority } from './finance.mjs';
 import { moneyValue, toVerifyMoney } from './money.mjs';
 import { reconcileAllPayments } from './reconciliation.mjs';
+import { applyPaymentRecipientSemantics } from './recipient.mjs';
 import {
   buildFundingAggregate,
   buildFundingSideReadModel,
@@ -125,6 +126,34 @@ function paymentException(reconciliation) {
   };
 }
 
+function passportPaymentMaps(source) {
+  return {
+    byKey: new Map((source.payments || []).map((payment) => [String(payment.payment_key), payment])),
+    byId: new Map((source.payments || []).filter((payment) => payment.payment_id).map((payment) => [String(payment.payment_id), payment])),
+  };
+}
+
+function decoratePassportLine(line, maps) {
+  const payment = maps.byKey.get(String(line?.payment_key || '')) || maps.byId.get(String(line?.payment_id || '')) || {};
+  const routed = applyPaymentRecipientSemantics({ ...line }, payment);
+  return {
+    ...routed,
+    bank_beneficiary_name: routed.beneficiary_name || null,
+    bank_route_reference: line?.bank_document || payment.bank_transaction_reference || payment.bank_account_reference || payment.bank_statement_date || null,
+  };
+}
+
+function decoratePassportEvent(event, maps) {
+  const payment = maps.byKey.get(String(event?.payment_key || '')) || maps.byId.get(String(event?.funding_event_id || '')) || {};
+  const routed = applyPaymentRecipientSemantics({ ...event }, payment);
+  return {
+    ...routed,
+    bank_beneficiary_name: routed.beneficiary_name || null,
+    bank_route_reference: event?.bank_document || payment.bank_transaction_reference || payment.bank_account_reference || payment.bank_statement_date || null,
+    settlement_lines: (event?.settlement_lines || []).map((line) => decoratePassportLine(line, maps)),
+  };
+}
+
 export function buildAdminPaymentsV7Projection(source) {
   const validDealKeys = source.validDealKeys?.length ? source.validDealKeys : (source.contour || []).map((deal) => deal.deal_key);
   const reconciled = reconcileAllPayments(source.payments || [], source.attributionClaims || [], source.physicalAllocations || [], source.capabilities || {}, validDealKeys);
@@ -132,6 +161,7 @@ export function buildAdminPaymentsV7Projection(source) {
   const globalPaymentExceptions = reconciled.filter((item) => !isNormalReconciliation(item)).map(paymentException);
   const ownerExceptionQueue = reconciled.filter((item) => item.reconciliation_class === 'GENUINELY_UNALLOCATED' && item.owner_action_required === true).map(paymentException);
   const fundingModel = buildFundingSideReadModel(source);
+  const passportMaps = passportPaymentMaps(source);
   const deals = []; const materializationGaps = [];
 
   for (const contourDeal of source.contour || []) {
@@ -155,7 +185,8 @@ export function buildAdminPaymentsV7Projection(source) {
       return rec ? rec.scope_deal_keys.includes(String(contourDeal.deal_key)) : false;
     });
     if (finance.reason === 'AUTHORITY_MATERIALIZATION_REQUIRED') materializationGaps.push({ domain: 'FINANCE_AUTHORITY', deal_id: contourDeal.deal_id, reason: 'AUTHORITY_MATERIALIZATION_REQUIRED', required_model: 'DealFinanceAuthorityV7' });
-    const unlinkedSettlements = (fundingModel.unlinkedSettlementLinesByDeal.get(String(contourDeal.deal_key)) || []).map(({ deal_key, ...line }) => line);
+    const unlinkedSettlements = (fundingModel.unlinkedSettlementLinesByDeal.get(String(contourDeal.deal_key)) || [])
+      .map(({ deal_key, ...line }) => decoratePassportLine(line, passportMaps));
     const passportStatus = spend.status === 'AUTHORITATIVE'
       && remainingExecution.status === 'AUTHORITATIVE'
       && settlementLayer.status === 'AUTHORITATIVE'
@@ -175,7 +206,7 @@ export function buildAdminPaymentsV7Projection(source) {
       settlement_reason: settlementLayer.reason,
       residual_status: residualLayer.status,
       residual_reason: residualLayer.reason,
-      funding_events: fundingModel.passportEventsForDeal(contourDeal.deal_key),
+      funding_events: fundingModel.passportEventsForDeal(contourDeal.deal_key).map((event) => decoratePassportEvent(event, passportMaps)),
       unlinked_settlement_lines: unlinkedSettlements,
       status: passportStatus,
       reason: spend.issues?.[0] || remainingExecution.reason || settlementLayer.reason || residualLayer.reason || null,
@@ -234,13 +265,12 @@ function fundingAwareSourceBundle(raw) {
   const rawResourceChainById = new Map((raw?.resourceChains || []).map((row) => [String(row.id), row]));
   const payments = (source.payments || []).map((payment) => {
     const rawPayment = rawPaymentByKey.get(String(payment.payment_key)) || {};
-    return {
+    return applyPaymentRecipientSemantics({
       ...payment,
-      recipient: rawPayment.beneficiary_name || rawPayment.counterparty_name || payment.counterparty_name || null,
-      original_payment_purpose: rawPayment.original_payment_purpose || null,
-      bank_account_reference: rawPayment.bank_account_reference || null,
-      bank_statement_date: rawPayment.bank_statement_date || null,
-    };
+      original_payment_purpose: rawPayment.original_payment_purpose || payment.original_payment_purpose || null,
+      bank_account_reference: rawPayment.bank_account_reference || payment.bank_account_reference || null,
+      bank_statement_date: rawPayment.bank_statement_date || payment.bank_statement_date || null,
+    }, rawPayment);
   });
   const resourceChains = (source.resourceChains || []).map((chain) => {
     const rawChain = rawResourceChainById.get(String(chain.id)) || {};
