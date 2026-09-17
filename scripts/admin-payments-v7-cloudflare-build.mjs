@@ -7,6 +7,7 @@ import {
   recoverLiveAdminWorkspace,
 } from './admin-payments-v7-final-live-source.mjs';
 import { patchAdminPaymentsRuntimeCurrentSource } from './admin-payments-v7-live-runtime-current.mjs';
+import { patchAdminPaymentsReconciliationDifferenceSource } from './admin-payments-reconciliation-difference-ui.mjs';
 import { stripOwnerBuildIndicator } from './admin-owner-production-diagnostics-policy.mjs';
 
 const ROOT = process.cwd();
@@ -87,9 +88,12 @@ try {
   // new Finance/read-model semantics are reflected without per-deal UI fixes.
   const adminMainPath = join(worktree, 'functions/portal/admin-main-ui-current.js');
   const adminMainSource = readFileSync(adminMainPath, 'utf8');
-  const patchedAdminMainSource = patchAdminPaymentsRuntimeCurrentSource(adminMainSource);
+  const patchedAdminMainSource = patchAdminPaymentsReconciliationDifferenceSource(
+    patchAdminPaymentsRuntimeCurrentSource(adminMainSource),
+  );
   writeFileSync(adminMainPath, patchedAdminMainSource);
   console.log('PAYMENTS_V7_CURRENT_RUNTIME_PATCH=READY');
+  console.log('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI=READY');
 
   run(npmBin, ['run', 'build'], { cwd: worktree });
 
