@@ -19,6 +19,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          cat > /tmp/check-payments-v8.mjs <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const s = readFileSync(process.env.BODY,'utf8');
+          const from = s.indexOf('function paymentsV7Projection(){');
+          const to = s.indexOf('function renderCash(){', from);
+          if (from < 0 || to < 0 || to <= from) throw new Error('ACTIVE_PAYMENTS_V8_SECTION_NOT_FOUND');
+          const p = s.slice(from,to);
+          for (const marker of [
+            'admin-payments-v7-native-v2',
+            'paymentsV7Money(deal?.due_now)',
+            "paymentsV7Kpi('Conditional'",
+            "paymentsV7Aggregate(deals,'future_conditional')",
+          ]) {
+            if (!p.includes(marker)) throw new Error(`REQUIRED_MARKER_MISSING:${marker}`);
+            console.log(`required_marker=true ${marker}`);
+          }
+          for (const marker of [
+            "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})",
+            'spendMoney(d.remaining.amount,d.currency)',
+            'DEAL-2026-',
+          ]) {
+            if (p.includes(marker)) throw new Error(`ACTIVE_RENDERER_FORBIDDEN_MARKER:${marker}`);
+            console.log(`active_forbidden_marker=false ${marker}`);
+          }
+          const count=(s.match(/function renderPayments\(/g)||[]).length;
+          console.log(`renderPayments_definition_count=${count}`);
+          if(count!==1) throw new Error(`RENDER_PAYMENTS_DEFINITION_COUNT:${count}`);
+          NODE
+
           urls=(
             'https://rona-trade-public.pages.dev/portal/admin-main-ui-current'
             'https://ronaoil.com/portal/admin-main-ui-current'
@@ -38,34 +67,7 @@ jobs:
             echo 'payments_ui_header=true'
             grep -Fxi 'x-rona-payments-handoff: payments-v7-projection' "/tmp/hn$i" >/dev/null
             echo 'payments_handoff_header=true'
-            BODY="/tmp/b$i" node --input-type=module <<'NODE'
-            import { readFileSync } from 'node:fs';
-            const s = readFileSync(process.env.BODY,'utf8');
-            const from = s.indexOf('function paymentsV7Projection(){');
-            const to = s.indexOf('function renderCash(){', from);
-            if (from < 0 || to < 0 || to <= from) throw new Error('ACTIVE_PAYMENTS_V8_SECTION_NOT_FOUND');
-            const p = s.slice(from,to);
-            for (const marker of [
-              'admin-payments-v7-native-v2',
-              'paymentsV7Money(deal?.due_now)',
-              "paymentsV7Kpi('Conditional'",
-              "paymentsV7Aggregate(deals,'future_conditional')",
-            ]) {
-              if (!p.includes(marker)) throw new Error(`REQUIRED_MARKER_MISSING:${marker}`);
-              console.log(`required_marker=true ${marker}`);
-            }
-            for (const marker of [
-              "text:'Ожидается'}),e('strong',{text:paymentsV7Money(deal?.remaining_to_receive)})",
-              'spendMoney(d.remaining.amount,d.currency)',
-              'DEAL-2026-',
-            ]) {
-              if (p.includes(marker)) throw new Error(`ACTIVE_RENDERER_FORBIDDEN_MARKER:${marker}`);
-              console.log(`active_forbidden_marker=false ${marker}`);
-            }
-            const count=(s.match(/function renderPayments\(/g)||[]).length;
-            console.log(`renderPayments_definition_count=${count}`);
-            if(count!==1) throw new Error(`RENDER_PAYMENTS_DEFINITION_COUNT:${count}`);
-            NODE
+            BODY="/tmp/b$i" node /tmp/check-payments-v8.mjs
           done
           if [ "${hashes[0]}" != "${hashes[1]}" ]; then
             echo "PRODUCTION_RUNTIME_HASH_PARITY=false pages=${hashes[0]} ronaoil=${hashes[1]}"
