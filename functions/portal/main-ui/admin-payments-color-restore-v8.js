@@ -1,7 +1,7 @@
 export default String.raw`
 (()=>{'use strict';
-if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V12__)return;
-window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V12__=true;
+if(window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V13__)return;
+window.__RONA_ADMIN_PAYMENTS_COLOR_RESTORE_V13__=true;
 if(location.pathname!=='/portal/admin')return;
 const ROOT='#page-payments .rona-payments-v7';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim().toUpperCase();
@@ -23,7 +23,8 @@ function installStyle(){
   '#page-payments .rona-payments-v7-board,#page-payments .rona-payments-v7-list,#page-payments .rona-payments-v7-deals{gap:2px!important;row-gap:2px!important;column-gap:2px!important}'+
   '#page-payments .rona-payments-v7-deal{margin:0!important;margin-block:0!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]{--pay-tone:#5ec8ff!important;border-color:rgba(94,200,255,.34)!important;background:linear-gradient(180deg,rgba(8,27,43,.88),rgba(6,18,31,.92))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 10px 28px rgba(0,0,0,.16),0 0 22px rgba(94,200,255,.10)!important}'+
-  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-label{display:flex!important;align-items:center!important;position:relative!important;top:-2px!important;margin-top:0!important;line-height:1.15!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]>.rona-payments-v7-kpi-label{display:block!important;position:static!important;top:auto!important;transform:none!important;min-height:0!important;margin:0 0 13px!important;padding:0!important;font-size:10px!important;line-height:1.2!important;font-weight:900!important;letter-spacing:.13em!important;text-transform:uppercase!important;color:#8ed8ff!important}'+
+  '#page-payments .rona-payments-v7-kpi[data-tone="conditional"]>.rona-payments-v7-kpi-label::before{content:none!important;display:none!important}'+
   '#page-payments .rona-payments-v7-kpi[data-tone="conditional"] .rona-payments-v7-kpi-value{color:#e6f7ff!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]{display:inline-flex!important;align-items:center!important;width:max-content!important;max-width:100%!important;margin-top:5px!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font-size:9.3px!important;line-height:1.15!important;font-weight:880!important;letter-spacing:.085em!important;text-transform:uppercase!important;white-space:nowrap!important}'+
   '#page-payments .rona-payments-v7-status[data-native-status-tone]::before{content:none!important;display:none!important}'+
@@ -75,11 +76,21 @@ function compactDealStack(root){
     deal.style.setProperty('margin-block','0','important');
   }
 }
+function markKpis(root){
+  for(const kpi of root.querySelectorAll('.rona-payments-v7-kpi')){
+    delete kpi.dataset.tone;
+    const label=kpi.querySelector(':scope > .rona-payments-v7-kpi-label')||kpi.querySelector('.rona-payments-v7-kpi-label');
+    if(!label)continue;
+    const tone=toneForStatus(label.textContent);
+    if(tone==='conditional')kpi.dataset.tone='conditional';
+  }
+}
 function decorate(){
   const root=document.querySelector(ROOT);if(!root)return false;
   installStyle();
   dedupePaymentsTitle();
   compactDealStack(root);
+  markKpis(root);
   root.style.setProperty('--pay-violet','#5ec8ff','important');
   for(const status of root.querySelectorAll('.rona-payments-v7-status')){
     delete status.dataset.nativeStatusTone;
@@ -94,7 +105,7 @@ function decorate(){
     const tone=toneForStatus(status?.textContent||'');
     if(tone)head.dataset.firstColTone=tone;
   }
-  root.dataset.colorRestore='v12-conditional-kpi-align';
+  root.dataset.colorRestore='v13-conditional-kpi-native-align';
   return true;
 }
 let queued=false;
