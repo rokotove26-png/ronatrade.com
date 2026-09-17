@@ -45,7 +45,7 @@ function patchPaymentsCurrentSemantics(source){
   if(!script.includes(PASSPORT_FALLBACK_FORMATTER))throw new Error('ADMIN_PAYMENTS_MONEY_PASSPORT_FORMATTER_SOURCE_MISMATCH');
   script=script.replace(LEGACY_PAYMENTS_V7_FORMATTER,CANONICAL_PAYMENTS_V7_FORMATTER);
   script=script.replace(PASSPORT_FALLBACK_FORMATTER,CANONICAL_PASSPORT_FORMATTER);
-  if(script.includes("maximumFractionDigits:2"))throw new Error('ADMIN_PAYMENTS_COMPETING_TWO_DECIMAL_FORMATTER_REMAINS');
+  if(script.includes(LEGACY_PAYMENTS_V7_FORMATTER)||script.includes(PASSPORT_FALLBACK_FORMATTER))throw new Error('ADMIN_PAYMENTS_COMPETING_FORMATTER_REMAINS');
   return paymentsMoneyDisplayContract+'\n'+script;
 }
 
