@@ -10,7 +10,7 @@ const analyticsCompat=read('functions/portal/admin-approved-analytics-v455-ui.js
 const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
 const mainUi=read('functions/portal/admin-main-ui-current.js');
-const operations=read('functions/portal/admin-operations-command-center-v4.js');
+const operations=read('functions/portal/admin-operations-command-center-v4.js')+'\n'+read('functions/portal/admin-operations-command-center-v4-base.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -47,7 +47,7 @@ need(has(operations,"const start='function renderAdminHome(){'")&&has(operations
 need(!has(homeCompat,'chunk19.js')&&!has(homeCompat,'operationsCenterV3'),'Retired chunk17 re-enables the broken Operations Center override');
 need(!has(operations,'/portal/client')&&!has(operations,'client-deal-passport')&&!has(operations,'client-section-first-paint'),'Admin Operations Command Center reaches into frozen Client runtime');
 
-need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v7-analytics-rendered-ready'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'Page-aware watchdog marker is missing');
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
 need(has(watchdog,"if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness contract is missing');
 need(!has(watchdog,'location.reload(')&&!has(watchdog,'location.replace('),'Watchdog still performs destructive navigation/reload');
@@ -88,4 +88,4 @@ console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
 console.log('operations-command-center=v4-canonical-single-owner; visual=flightdeck-v5-full-rebuild');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
-console.log('watchdog=page-aware-v7-analytics-rendered-ready/non-destructive');
+console.log('watchdog=page-aware-v10-radio-payments-heading/non-destructive');
