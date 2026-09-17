@@ -144,6 +144,8 @@ try{
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded',timeout:30000});
   await page.waitForFunction(()=>window.__RONA_ADMIN_CURRENT_ROUTER__==='current-only-router-v2',{timeout:10000});
   await page.waitForFunction(()=>window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__==='v5-operational-automation',{timeout:15000});
+  await page.evaluate(()=>window.__RONA_ADMIN_NAVIGATE__('home'));
+  await page.locator('#page-home.active').waitFor({state:'visible',timeout:10000});
   await page.waitForTimeout(600);
   await page.locator('#page-home .rona-flightdeck-v5').waitFor({state:'visible',timeout:10000});
   await page.locator('.rona-topbar-premium').waitFor({state:'visible',timeout:10000});
