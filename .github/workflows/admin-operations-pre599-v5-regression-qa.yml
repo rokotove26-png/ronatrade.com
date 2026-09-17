@@ -1,0 +1,80 @@
+name: Admin Operations pre-599 V5 regression QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-operations-command-center-v5.js'
+      - 'tests/admin-operations-center-v5-production.test.mjs'
+      - 'scripts/qa-admin-operations-pre599-v5-browser.mjs'
+      - '.github/workflows/admin-operations-pre599-v5-regression-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pre599-flightdeck-v5:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact candidate and run source regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          node --test tests/admin-operations-center-v5-production.test.mjs
+          node --check scripts/qa-admin-operations-pre599-v5-browser.mjs
+          node --input-type=module <<'NODE'
+          import { writeFile } from 'node:fs/promises';
+          import { onRequest } from './functions/portal/main-ui/index.js';
+          const response=await onRequest();
+          const source=await response.text();
+          await writeFile('/tmp/rona-admin-main-ui-exact.js',source);
+          console.log('ADMIN_MAIN_UI_EMITTED_BYTES='+Buffer.byteLength(source));
+          NODE
+          node --check /tmp/rona-admin-main-ui-exact.js
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove pre-599 visual plus V5 functionality in real browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-admin-operations-pre599-v5-browser.mjs | tee admin-operations-pre599-v5-browser.log
+          grep -F 'ADMIN_OPERATIONS_PRE599_V5_BROWSER_QA=PASS' admin-operations-pre599-v5-browser.log
+      - name: Scope guard
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git diff --name-only "$BASE_SHA"...HEAD | tee /tmp/changed.txt
+          allowed='^(functions/portal/admin-operations-command-center-v5\.js|tests/admin-operations-center-v5-production\.test\.mjs|scripts/qa-admin-operations-pre599-v5-browser\.mjs|\.github/workflows/admin-operations-pre599-v5-regression-qa\.yml)$'
+          if grep -Ev "$allowed" /tmp/changed.txt | grep -q .; then
+            echo 'UNRELATED_DELTA_DETECTED'
+            grep -Ev "$allowed" /tmp/changed.txt
+            exit 1
+          fi
+          if grep -E '^(supabase/|.*\.sql$|.*payments.*|.*finance.*|functions/portal/deals-current-state-ui\.js|functions/portal/admin-approved-shell-v455-ui\.js|functions/portal/clients-agents-current-ui\.js)' /tmp/changed.txt; then
+            echo 'PROTECTED_SCOPE_CHANGED'
+            exit 1
+          fi
+          echo 'P0_HOME_SCOPE_GUARD=PASS'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-home-pre599-v5-${{ github.run_id }}
+          path: |
+            artifacts/admin-home-pre599-v5.png
+            admin-operations-pre599-v5-browser.log
+          if-no-files-found: warn

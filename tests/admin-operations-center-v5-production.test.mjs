@@ -38,3 +38,31 @@ test('production UI patch introduces no Finance write or browser calculation', (
   assert.doesNotMatch(combined, /finance_event_submit/i);
   assert.doesNotMatch(read('functions/portal/admin-operations-command-center-v5.js'), /purchase_price|sale_price|rona_margin|exchange_rate|reverse_fx/i);
 });
+
+
+test('Operational Center V5 preserves pre-#599 Flightdeck presentation with current functionality', () => {
+  const center = read('functions/portal/admin-operations-command-center-v5.js');
+  const main = read('functions/portal/admin-main-ui-current.js');
+  const shell = read('functions/portal/admin-approved-shell-v455-ui.js');
+
+  assert.match(center, /rona-flightdeck-v5/);
+  assert.match(center, /RONA TRADE · OPERATIONS FLIGHTDECK/);
+  assert.match(center, /data-rona-flightdeck':'v5-full-rebuild/);
+  assert.match(center, /rona-fd-v5__instruments\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\);gap:10px/);
+  assert.match(center, /rona-fd-v5-gauge__value\{[^}]*font-size:40px/);
+  assert.match(center, /rona-fd-v5-screen__title\{[^}]*font-size:17px/);
+  assert.doesNotMatch(center, /rona-ops-v4__metrics\{display:grid;grid-template-columns:repeat\(6,minmax\(0,1fr\)\)/);
+
+  assert.match(center, /__RONA_ADMIN_GLOBAL_SEARCH__/);
+  assert.match(center, /ronaOpsV5OpenDeal\(id\)/);
+  assert.match(center, /rona:deal-select/);
+  assert.match(center, /opsMetrics=ops\.metrics\|\|\{\}/);
+  assert.match(center, /for\(const x of opsAlerts\)queueRows\.push/);
+  assert.match(center, /AUTOMATION · /);
+  assert.match(center, /ops\?\.freshness\?\.source_as_of/);
+  assert.match(center, /ownerAdminRefreshTick\(true\)/);
+  assert.match(main, /authority-v1-30s-safe/);
+
+  assert.match(shell, /grid-template-columns:46px minmax\(160px,220px\) minmax\(360px,480px\) 1fr auto/);
+  assert.match(shell, /\.rona-search-focus\{grid-column:5/);
+});
