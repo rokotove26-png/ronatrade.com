@@ -38,8 +38,6 @@ jobs:
             echo 'payments_ui_header=true'
             grep -Fxi 'x-rona-payments-handoff: payments-v7-projection' "/tmp/hn$i" >/dev/null
             echo 'payments_handoff_header=true'
-            node --input-type=module "/tmp/b$i" <<'NODE'
-            NODE
             BODY="/tmp/b$i" node --input-type=module <<'NODE'
             import { readFileSync } from 'node:fs';
             const s = readFileSync(process.env.BODY,'utf8');
