@@ -34,7 +34,7 @@ if(/\.every\s*\([^\n]*actual_spend_status/i.test(aggregateUi))failures.push('GLO
 for(const required of ['currency_aggregates','funding_aggregate','completeness_status','unresolved_deal_ids']){
   if(!aggregateUi.includes(required))failures.push(`SERVER_AGGREGATE_FIELD_MISSING:${required}`);
 }
-if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V1'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
+if(!aggregateUi.includes('PAYMENTS_V7_SERVER_AGGREGATE_UI_V2'))failures.push('SERVER_AGGREGATE_RUNTIME_MARKER_MISSING');
 
 // Owner table presentation contract.
 if(!recoveryUi.includes('PAYMENTS_V7_PASSPORT_OWNER_TABLE_V2'))failures.push('OWNER_TABLE_V2_MARKER_MISSING');
@@ -99,7 +99,7 @@ if(preludeCompose<0||ownerCompose<0||recoveryCompose<0||activationCompose<0||!(p
 }
 
 // Formatting and branch selection are allowed. Financial derivation in the browser is not.
-const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|expected_not_due|total_to_receive|verified_received|future_conditional)';
+const field='(?:funding_received|funding_spent|funding_remaining|funding_amount|allocated_funding_amount|acquired_amount|allocation_share|native_residuals|remaining_execution|actual_spend|due_now|expected_not_due|total_to_receive|verified_received|future_conditional)';
 const financialArithmeticPatterns=[
   new RegExp(`(?:\\?\\.)?${field}\\s*[+\\-*/]\\s*(?![=])`,'gi'),
   new RegExp(`(?<![=])[+\\-*/]\\s*(?:[A-Za-z_$][\\w$]*\\?\\.)?${field}\\b`,'gi'),
@@ -123,12 +123,14 @@ const crossCurrencySumPatterns=[
   /\.reduce\s*\([^\n]*(?:currency|acquired_currency|funding_currency)/gi,
 ];
 let crossCurrencySumCount=0;
-for(const pattern of crossCurrencySumPatterns)crossCurrencySumCount+=[...source.matchAll(pattern)].length;
-if(crossCurrencySumCount)failures.push(`CROSS_CURRENCY_SUM_COUNT:${crossCurrencySumCount}`);
+for(const pattern of crossCurrencySumPatterns)browserFinancialCalculationCount+=[...source.matchAll(pattern)].length;
+let crossCurrencySumCountValue=0;
+for(const pattern of crossCurrencySumPatterns)crossCurrencySumCountValue+=[...source.matchAll(pattern)].length;
+if(crossCurrencySumCountValue)failures.push(`CROSS_CURRENCY_SUM_COUNT:${crossCurrencySumCountValue}`);
 
 const requiredServerFields=[
   'payment_passport','funding_received','funding_spent','funding_remaining','funding_currency',
-  'expected_not_due','financial_status','documentary_status','authority_refs',
+  'due_now','future_conditional','financial_status','documentary_status','authority_refs',
   'funding_events','allocated_funding_amount','allocation_share','allocation_source',
   'acquired_amount','acquired_currency','conversion_rate','conversion_source_basis',
   'settlement_lines','unlinked_settlement_lines','native_residuals','shared_native_residual_refs',
@@ -146,7 +148,7 @@ console.log('NO_EXPECTED_VALUE_INJECTION=PASS');
 console.log('NO_DEAL_ID_HARDCODE=PASS');
 console.log(`BROWSER_FINANCIAL_CALCULATION_COUNT=${browserFinancialCalculationCount}`);
 console.log(`REVERSE_FX_PRIMARY_COUNT=${reverseFxPrimaryCount}`);
-console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCount}`);
+console.log(`CROSS_CURRENCY_SUM_COUNT=${crossCurrencySumCountValue}`);
 console.log('SERVER_AGGREGATE_ONLY=PASS');
 console.log('MAIN_PAYMENTS_BOARD_UNCHANGED=PASS');
 console.log('LIVE_OWNER_TABLE_ACTIVATION=PASS');
