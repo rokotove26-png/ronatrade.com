@@ -6,6 +6,7 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const latest=(runs,name)=>runs.filter(x=>x.name===name).sort((a,b)=>Date.parse(b.started_at||b.completed_at||0)-Date.parse(a.started_at||a.completed_at||0))[0]||null;
 let last={};
 let pagesReadyAt=0;
+let workerReadyAt=0;
 for(let i=0;i<60;i++){
   const headers={accept:'application/vnd.github+json','x-github-api-version':'2022-11-28','user-agent':'RONA-CURRENT-ONLY-DEPLOY-SIGNAL'};
   if(token)headers.authorization=`Bearer ${token}`;
@@ -22,15 +23,22 @@ for(let i=0;i<60;i++){
     const worker=latest(runs,'Workers Builds: ronatrade-com');
     last={pages:pages?{status:pages.status,conclusion:pages.conclusion,id:pages.id}:null,worker:worker?{status:worker.status,conclusion:worker.conclusion,id:worker.id}:null};
     for(const x of [pages,worker])if(x?.status==='completed'&&x.conclusion!=='success')throw new Error(`${x.name} deployment ${x.conclusion}`);
+    if(pages?.status==='completed'&&pages.conclusion==='success'&&worker?.status==='completed'&&worker.conclusion==='success'){
+      await sleep(5000);
+      console.log(`CLOUDFLARE_DEPLOY_SIGNALS_READY ${sha} pages=${pages.id} worker=${worker.id}`);
+      process.exit(0);
+    }
     if(pages?.status==='completed'&&pages.conclusion==='success'){
-      if(worker?.status==='completed'&&worker.conclusion==='success'){
-        await sleep(5000);
-        console.log(`CLOUDFLARE_DEPLOY_SIGNALS_READY ${sha} pages=${pages.id} worker=${worker.id}`);
-        process.exit(0);
-      }
       if(!pagesReadyAt)pagesReadyAt=Date.now();
       if(Date.now()-pagesReadyAt>=15000){
         console.warn(`CLOUDFLARE_PAGES_READY_WORKER_SIGNAL_NOT_REQUIRED_OR_NOT_EMITTED ${sha} pages=${pages.id}; semantic custom-domain proof will be authoritative`);
+        process.exit(0);
+      }
+    }
+    if(worker?.status==='completed'&&worker.conclusion==='success'){
+      if(!workerReadyAt)workerReadyAt=Date.now();
+      if(Date.now()-workerReadyAt>=15000){
+        console.warn(`CLOUDFLARE_WORKER_READY_PAGES_SIGNAL_NOT_REQUIRED_OR_NOT_EMITTED ${sha} worker=${worker.id}; semantic custom-domain proof will be authoritative`);
         process.exit(0);
       }
     }
