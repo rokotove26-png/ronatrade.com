@@ -94,6 +94,6 @@ test('Issue 639 Cash UI retries stale-session races through existing bounded tra
   assert.ok(cash.includes("window.__RONA_CASH_AUTH_CONVERGENCE__='issue639-v1'"));
   assert.ok(cash.includes('status===409'));
   assert.ok(cash.includes('portal_session_stale'));
-  assert.ok(cash.includes('INITIAL_RETRY_DELAYS=[2000,5000,15000,30000]'));
+  assert.ok(cash.includes('INITIAL_RETRY_DELAYS=[1000,2000,4000,8000]'));
   assert.ok(cash.includes('CHECK_MS=60000'));
 });
