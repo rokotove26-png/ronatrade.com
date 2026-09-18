@@ -1,0 +1,120 @@
+name: issue644 online rail stage A QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/rail-current-v6-ui.js'
+      - 'functions/portal/rail-current-v7-real-map-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'tests/online-rail-stage-a-644.test.mjs'
+      - 'scripts/qa-online-rail-stage-a-644-browser.mjs'
+      - '.github/workflows/issue644-online-rail-stage-a-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/rail-current-v6-ui.js'
+      - 'functions/portal/rail-current-v7-real-map-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'tests/online-rail-stage-a-644.test.mjs'
+      - 'scripts/qa-online-rail-stage-a-644-browser.mjs'
+      - '.github/workflows/issue644-online-rail-stage-a-qa.yml'
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  stage-a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: DELTA ONLY scope guard
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          git diff --name-only origin/release/public-go-live-v1.1...HEAD | sort > /tmp/changed.txt
+          cat /tmp/changed.txt
+          allowed='^(\.github/workflows/issue644-online-rail-stage-a-qa\.yml|functions/portal/rail-current-v6-ui\.js|functions/portal/rail-current-v7-real-map-ui\.js|functions/portal/rail-current-v81-maplibre-ui\.js|scripts/qa-online-rail-stage-a-644-browser\.mjs|tests/online-rail-stage-a-644\.test\.mjs)$'
+          if grep -Ev "$allowed" /tmp/changed.txt; then
+            echo "ISSUE644_DELTA_ONLY=FAIL"
+            exit 1
+          fi
+          echo "ISSUE644_DELTA_ONLY=PASS"
+
+      - name: Static Stage A contract
+        run: |
+          set -euo pipefail
+          node --check functions/portal/rail-current-v6-ui.js
+          node --check functions/portal/rail-current-v7-real-map-ui.js
+          node --check functions/portal/rail-current-v81-maplibre-ui.js
+          node --check tests/online-rail-stage-a-644.test.mjs
+          node --check scripts/qa-online-rail-stage-a-644-browser.mjs
+          node --test tests/online-rail-stage-a-644.test.mjs
+
+      - name: Admin shell regression
+        run: node --test tests/admin-shell-resilience.test.mjs
+
+      - name: Canonical production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Deal-owned map persistence browser proof
+        run: node scripts/qa-online-rail-stage-a-644-browser.mjs
+
+      - name: Wait for exact production deploy
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+
+      - name: Public production convergence proof
+        if: github.event_name == 'push'
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const base=process.env.TARGET_ORIGIN;
+          const sha=process.env.GITHUB_SHA;
+          const text=async path=>{
+            const r=await fetch(base+path+(path.includes('?')?'&':'?')+'_issue644='+Date.now(),{cache:'no-store'});
+            if(!r.ok)throw new Error(path+' HTTP '+r.status);
+            return r.text();
+          };
+          const rail=await text('/portal/rail-current-v81-maplibre-ui');
+          const main=await text('/portal/main-ui');
+          const requiredRail=[
+            "20260918-deal-owned-map-state-v1",
+            "20260918-deal-map-persistence-v1",
+            "RAIL_MAP_VIEWPORT_STATE_V1",
+            "RAIL_MAP_DATA_CONTRACT_V1",
+            "EXPEDITOR_XLSX_VIA_RAIL_AI",
+            "selectionKey:'deal_key'",
+            "sourcePolicy:'EXPEDITOR_XLSX_VIA_RAIL_AI'",
+            "productionPolling:false",
+            "mode:'DATA_CHANGE_ONLY'",
+            "rona-rail-v6-select-label','Сделка'"
+          ];
+          for(const marker of requiredRail)if(!rail.includes(marker))throw new Error('RAIL_STAGE_A_MARKER_MISSING:'+marker);
+          if(/MOVIZOR/i.test(rail))throw new Error('FORBIDDEN_DIRECT_PROVIDER_MARKER_PRESENT');
+          if(rail.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('GU12_TOP_LEVEL_SELECTOR_PRESENT');
+          if(!main.includes('monitoring:renderRailCurrentShell,'))throw new Error('CURRENT_RAIL_OWNER_MISSING');
+          console.log('ISSUE644_PUBLIC_PRODUCTION_SOURCE=PASS sha='+sha);
+          NODE
