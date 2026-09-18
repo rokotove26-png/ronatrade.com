@@ -42,7 +42,7 @@ need(cashResponse.ok,'Cash R2 endpoint did not render');
 need(cashResponse.headers.get('x-rona-cash-ui')==='isolated-r2','Cash R2 endpoint contract changed');
 need(cashResponse.headers.get('x-rona-cash-source')==='FINANCE_CASH_SOURCE_PROJECTION_V1','Cash Finance source contract header is missing');
 need(cash.includes('window.__RONA_CASH_R2_UI__'),'Cash R2 browser guard is missing');
-need(cash.includes('function render(){'),'Cash R2 canonical renderer is missing');
+need(cash.includes('function renderPayload(p){'),'Cash R2 canonical Finance renderer is missing');
 need(cash.includes('/portal/owner-api?path=/admin/cash-source'),'Cash R2 must call the guarded Finance source route');
 need(cash.includes('FINANCE_CASH_SOURCE_PROJECTION_V1')&&cash.includes('AI-FINANCE/BANK_STATEMENT'),'Cash R2 must lock the canonical Finance source contract');
 need(cash.includes('periodSummary')&&cash.includes('external_inflow')&&cash.includes('external_payment'),'Cash R2 must render Finance-provided period totals');
