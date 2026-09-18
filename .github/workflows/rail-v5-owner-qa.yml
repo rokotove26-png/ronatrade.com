@@ -6,6 +6,7 @@ on:
     paths:
       - 'functions/portal/client-rail-current-ui.js'
       - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'functions/portal/admin-main-ui-current.js'
       - 'scripts/attach-client-rail-production-v1.mjs'
       - 'scripts/emit-client-runtime-cache-policy.mjs'
       - 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
@@ -15,6 +16,7 @@ on:
     paths:
       - 'functions/portal/client-rail-current-ui.js'
       - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - 'functions/portal/admin-main-ui-current.js'
       - 'scripts/attach-client-rail-production-v1.mjs'
       - 'scripts/emit-client-runtime-cache-policy.mjs'
       - 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
