@@ -40,8 +40,13 @@ const cashResponse=await serveCashR2({});
 const cash=await cashResponse.text();
 need(cashResponse.ok,'Cash R2 endpoint did not render');
 need(cashResponse.headers.get('x-rona-cash-ui')==='isolated-r2','Cash R2 endpoint contract changed');
+need(cashResponse.headers.get('x-rona-cash-projection')==='ADMIN_CASH_FINANCE_V1','Cash Finance projection contract header is missing');
 need(cash.includes('window.__RONA_CASH_R2_UI__'),'Cash R2 browser guard is missing');
 need(cash.includes('function render(){'),'Cash R2 canonical renderer is missing');
+need(cash.includes('cashProjection'),'Cash R2 must consume Finance cashProjection');
+need(cash.includes('counts_in_received')&&cash.includes('counts_in_paid'),'Cash R2 must consume Finance-owned KPI inclusion flags');
+need(!cash.includes('.payment_kind')&&!cash.includes('.payment_direction'),'Cash UI must not classify raw bank operations');
+need(!cash.includes('original_payment_purpose'),'Cash UI must not infer bank semantics from payment purpose');
 
 const shell=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
 need(count(shell,"/portal/cash-r2-ui")===1,'Admin shell must load Cash R2 exactly once');
@@ -60,6 +65,7 @@ if(failures.length){
 }
 console.log('ADMIN_CASH_SINGLE_OWNER_QA=PASS');
 console.log('cashOwner='+cashOwnerTest.CASH_OWNER);
+console.log('cashProjection=ADMIN_CASH_FINANCE_V1');
 console.log('legacyRenderer=removed-from-emitted-main-ui');
 console.log('cashHost=r2-owned-shell');
 console.log('cashR2LoadCount='+count(shell,"/portal/cash-r2-ui"));
