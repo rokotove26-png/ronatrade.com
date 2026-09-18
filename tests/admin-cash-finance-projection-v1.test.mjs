@@ -8,21 +8,22 @@ const ownerApiSource=await readFile(new URL('../functions/portal/owner-api.js',i
 
 const finance1709={
   modelVersion:'FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE',
+  effectivePaymentVersion:'FINANCE_EFFECTIVE_PAYMENT_V1',
   authoritativeSource:'AI-FINANCE/BANK_STATEMENT',
   period:{from:'2026-09-17',to:'2026-09-17'},
-  controls:{ledger_start:'2026-08-01',ledger_end:'2026-09-17',source_lock:'PASS',calendar_rows:144,zero_turnover_rows:126,max_daily_balance_difference:0,statement_checkpoint_count:2,statement_checkpoint_pass_count:2,max_statement_checkpoint_difference:0},
+  controls:{ledger_start:'2026-08-01',ledger_end:'2026-09-17',source_lock:'PASS',calendar_rows:144,zero_turnover_rows:126,max_daily_balance_difference:0,statement_checkpoint_count:2,statement_checkpoint_pass_count:2,max_statement_checkpoint_difference:0,reversal_count:6,matched_reversal_count:6,unresolved_reversal_count:0},
   periodSummary:[
-    {currency:'KZT',opening_balance:0.91,external_inflow:0,external_payment:0,closing_balance:0.91,balance_check:0,max_daily_balance_difference:0,operation_count:0,calendar_day_count:1,zero_turnover_day_count:1},
-    {currency:'RUB',opening_balance:10106237.63,external_inflow:0,external_payment:8350000,closing_balance:1756237.63,balance_check:0,max_daily_balance_difference:0,operation_count:4,calendar_day_count:1,zero_turnover_day_count:0},
-    {currency:'USD',opening_balance:5657.04,external_inflow:225900,external_payment:0,closing_balance:231557.04,balance_check:0,max_daily_balance_difference:0,operation_count:2,calendar_day_count:1,zero_turnover_day_count:0},
+    {currency:'KZT',opening_balance:0.91,external_inflow:0,external_payment:0,gross_external_payment:0,matched_external_payment_reversal:0,effective_external_payment:0,effective_external_payment_operation_count:0,reversal_pair_unresolved_count:0,effective_payment_unresolved_count:0,closing_balance:0.91,balance_check:0,max_daily_balance_difference:0,operation_count:0,calendar_day_count:1,zero_turnover_day_count:1},
+    {currency:'RUB',opening_balance:10106237.63,external_inflow:0,external_payment:8350000,gross_external_payment:8350000,matched_external_payment_reversal:0,effective_external_payment:8350000,effective_external_payment_operation_count:4,reversal_pair_unresolved_count:0,effective_payment_unresolved_count:0,closing_balance:1756237.63,balance_check:0,max_daily_balance_difference:0,operation_count:4,calendar_day_count:1,zero_turnover_day_count:0},
+    {currency:'USD',opening_balance:5657.04,external_inflow:225900,external_payment:0,gross_external_payment:0,matched_external_payment_reversal:0,effective_external_payment:0,effective_external_payment_operation_count:0,reversal_pair_unresolved_count:0,effective_payment_unresolved_count:0,closing_balance:231557.04,balance_check:0,max_daily_balance_difference:0,operation_count:2,calendar_day_count:1,zero_turnover_day_count:0},
   ],
   operations:[
-    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:07:17',currency:'RUB',amount:4816000,direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',counterparty:'ЧПТУП «КУЗМАШ»',bank_document_number:'2390305'},
-    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:07:17',currency:'RUB',amount:3000,direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',counterparty:'ОАО «БАКАЙ БАНК»',bank_document_number:'2390307'},
-    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:06:54',currency:'RUB',amount:3000,direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',counterparty:'ОАО «БАКАЙ БАНК»',bank_document_number:'2389794'},
-    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:06:54',currency:'RUB',amount:3528000,direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',counterparty:'ЧПТУП «КУЗМАШ»',bank_document_number:'2389792'},
-    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T16:10:09',currency:'USD',amount:94125,direction:'INCOMING',operation_type:'EXTERNAL_INFLOW',counterparty:'FARGONA GAZ TULDIRISH STANTSIYASI LLC',bank_document_number:'2304421'},
-    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T16:08:28',currency:'USD',amount:131775,direction:'INCOMING',operation_type:'EXTERNAL_INFLOW',counterparty:'FARGONA GAZ TULDIRISH STANTSIYASI LLC',bank_document_number:'2301886'},
+    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:07:17',currency:'RUB',amount:4816000,gross_amount:4816000,reversed_amount:0,effective_external_payment_amount:4816000,effective_payment_status:'SETTLED',direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',raw_operation_type:'EXTERNAL_PAYMENT',counterparty:'ЧПТУП «КУЗМАШ»',bank_document_number:'2390305'},
+    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:07:17',currency:'RUB',amount:3000,gross_amount:3000,reversed_amount:0,effective_external_payment_amount:3000,effective_payment_status:'SETTLED',direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',raw_operation_type:'EXTERNAL_PAYMENT',counterparty:'ОАО «БАКАЙ БАНК»',bank_document_number:'2390307'},
+    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:06:54',currency:'RUB',amount:3000,gross_amount:3000,reversed_amount:0,effective_external_payment_amount:3000,effective_payment_status:'SETTLED',direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',raw_operation_type:'EXTERNAL_PAYMENT',counterparty:'ОАО «БАКАЙ БАНК»',bank_document_number:'2389794'},
+    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:06:54',currency:'RUB',amount:3528000,gross_amount:3528000,reversed_amount:0,effective_external_payment_amount:3528000,effective_payment_status:'SETTLED',direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',raw_operation_type:'EXTERNAL_PAYMENT',counterparty:'ЧПТУП «КУЗМАШ»',bank_document_number:'2389792'},
+    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T16:10:09',currency:'USD',amount:94125,gross_amount:94125,reversed_amount:0,effective_external_payment_amount:0,effective_payment_status:'NOT_APPLICABLE',direction:'INCOMING',operation_type:'EXTERNAL_INFLOW',raw_operation_type:'EXTERNAL_INFLOW',counterparty:'FARGONA GAZ TULDIRISH STANTSIYASI LLC',bank_document_number:'2304421'},
+    {operation_date:'2026-09-17',executed_at_local:'2026-09-17T16:08:28',currency:'USD',amount:131775,gross_amount:131775,reversed_amount:0,effective_external_payment_amount:0,effective_payment_status:'NOT_APPLICABLE',direction:'INCOMING',operation_type:'EXTERNAL_INFLOW',raw_operation_type:'EXTERNAL_INFLOW',counterparty:'FARGONA GAZ TULDIRISH STANTSIYASI LLC',bank_document_number:'2301886'},
   ],
 };
 
@@ -34,6 +35,9 @@ test('Cash UI consumes only canonical Finance source projection contract',()=>{
   assert.match(ui,/opening_balance/);
   assert.match(ui,/external_inflow/);
   assert.match(ui,/external_payment/);
+  assert.match(ui,/effective_external_payment/);
+  assert.match(ui,/effective_external_payment_amount/);
+  assert.match(ui,/FINANCE_EFFECTIVE_PAYMENT_V1/);
   assert.match(ui,/closing_balance/);
   assert.match(ui,/operation_type/);
   assert.match(ui,/REVERSAL/);
@@ -78,6 +82,7 @@ test('Cash route forwards selected dates to Finance RPC with current portal toke
     assert.equal(response.status,200);
     assert.equal(payload.ok,true);
     assert.equal(payload.data.modelVersion,'FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE');
+    assert.equal(payload.data.effectivePaymentVersion,'FINANCE_EFFECTIVE_PAYMENT_V1');
     assert.equal(captured.url,'https://sxawrwzeobaqwwmlkzws.supabase.co/rest/v1/rpc/rona_admin_cash_source_projection_v1');
     assert.equal(captured.method,'POST');
     assert.equal(captured.authorization,'Bearer test-access');
@@ -92,19 +97,22 @@ test('17.09 Finance control is represented without UI-side reclassification',()=
   assert.equal(byCurrency.KZT.opening_balance,0.91);
   assert.equal(byCurrency.KZT.external_inflow,0);
   assert.equal(byCurrency.KZT.external_payment,0);
+  assert.equal(byCurrency.KZT.effective_external_payment,0);
   assert.equal(byCurrency.KZT.closing_balance,0.91);
   assert.equal(byCurrency.USD.opening_balance,5657.04);
   assert.equal(byCurrency.USD.external_inflow,225900);
   assert.equal(byCurrency.USD.external_payment,0);
+  assert.equal(byCurrency.USD.effective_external_payment,0);
   assert.equal(byCurrency.USD.closing_balance,231557.04);
   assert.equal(byCurrency.RUB.opening_balance,10106237.63);
   assert.equal(byCurrency.RUB.external_inflow,0);
   assert.equal(byCurrency.RUB.external_payment,8350000);
+  assert.equal(byCurrency.RUB.effective_external_payment,8350000);
   assert.equal(byCurrency.RUB.closing_balance,1756237.63);
   assert.ok(finance1709.periodSummary.every(x=>x.balance_check===0));
   assert.equal(finance1709.controls.source_lock,'PASS');
   assert.equal(finance1709.controls.max_daily_balance_difference,0);
   assert.equal(finance1709.controls.max_statement_checkpoint_difference,0);
-  assert.equal(finance1709.operations.filter(x=>x.operation_type==='EXTERNAL_PAYMENT').reduce((s,x)=>s+x.amount,0),8350000);
+  assert.equal(finance1709.operations.filter(x=>x.raw_operation_type==='EXTERNAL_PAYMENT').reduce((s,x)=>s+x.effective_external_payment_amount,0),8350000);
   assert.equal(finance1709.operations.filter(x=>x.operation_type==='EXTERNAL_INFLOW').reduce((s,x)=>s+x.amount,0),225900);
 });
