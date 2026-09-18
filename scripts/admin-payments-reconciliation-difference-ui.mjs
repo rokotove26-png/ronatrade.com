@@ -1,8 +1,8 @@
-export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V6';
+export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V7';
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_REFRESH_MS = 30000;
 
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()=>{
-  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V6';
+  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V7';
   const sourceContract='FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1';
   const refreshMs=30000;
   const pageSelector='#page-payments';
@@ -68,7 +68,7 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     if(document.getElementById(styleId))return;
     const style=document.createElement('style');
     style.id=styleId;
-    style.textContent='@keyframes ronaReconTickerV6{0%{transform:translateX(100%)}14%,72%{transform:translateX(0)}100%{transform:translateX(-100%)}}.rona-visual-hero.'+hostClass+'{position:relative}.rona-visual-hero.'+hostClass+'>div:first-child{max-width:calc(100% - 400px)}#'+tickerId+'{position:absolute;right:22px;top:50%;transform:translateY(-50%);width:min(360px,40%);height:30px;overflow:hidden;display:flex;align-items:center;justify-content:flex-start;pointer-events:none;z-index:3}#'+tickerId+' .rona-recon-ticker-track{display:inline-block;min-width:max-content;padding-left:8px;font-size:13px;font-weight:900;letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;animation:ronaReconTickerV6 8s linear infinite}#'+tickerId+'[data-tone="positive"] .rona-recon-ticker-track{color:#4ade80;text-shadow:0 0 12px rgba(74,222,128,.20)}#'+tickerId+'[data-tone="negative"] .rona-recon-ticker-track{color:#fb7185;text-shadow:0 0 12px rgba(251,113,133,.20)}#'+tickerId+'[data-tone="neutral"] .rona-recon-ticker-track{color:#8fa8ba}@media(max-width:900px){.rona-visual-hero.'+hostClass+'>div:first-child{max-width:calc(100% - 330px)}#'+tickerId+'{width:min(300px,42%);right:16px}#'+tickerId+' .rona-recon-ticker-track{font-size:12px}}@media(max-width:640px){.rona-visual-hero.'+hostClass+'>div:first-child{max-width:none}#'+tickerId+'{position:static;transform:none;width:100%;height:24px;margin-top:8px}#'+tickerId+' .rona-recon-ticker-track{animation:none}}@media(prefers-reduced-motion:reduce){#'+tickerId+' .rona-recon-ticker-track{animation:none}}';
+    style.textContent='@keyframes ronaReconTickerV7{0%{transform:translateX(100%)}14%,72%{transform:translateX(0)}100%{transform:translateX(-100%)}}.rona-visual-hero.'+hostClass+'{position:relative}.rona-visual-hero.'+hostClass+'>div:first-child{max-width:calc(100% - 400px)}#'+tickerId+'{position:absolute;right:22px;top:50%;transform:translateY(-50%);width:min(360px,40%);height:30px;overflow:hidden;display:flex;align-items:center;justify-content:flex-start;pointer-events:none;z-index:3}#'+tickerId+' .rona-recon-ticker-track{display:inline-block;min-width:max-content;padding-left:8px;font-size:13px;font-weight:900;letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;animation:ronaReconTickerV7 8s linear infinite}#'+tickerId+'[data-tone="positive"] .rona-recon-ticker-track{color:#4ade80;text-shadow:0 0 12px rgba(74,222,128,.20)}#'+tickerId+'[data-tone="negative"] .rona-recon-ticker-track{color:#fb7185;text-shadow:0 0 12px rgba(251,113,133,.20)}#'+tickerId+'[data-tone="neutral"] .rona-recon-ticker-track{color:#8fa8ba}@media(max-width:900px){.rona-visual-hero.'+hostClass+'>div:first-child{max-width:calc(100% - 330px)}#'+tickerId+'{width:min(300px,42%);right:16px}#'+tickerId+' .rona-recon-ticker-track{font-size:12px}}@media(max-width:640px){.rona-visual-hero.'+hostClass+'>div:first-child{max-width:none}#'+tickerId+'{position:static;transform:none;width:100%;height:24px;margin-top:8px}#'+tickerId+' .rona-recon-ticker-track{animation:none}}@media(prefers-reduced-motion:reduce){#'+tickerId+' .rona-recon-ticker-track{animation:none}}';
     document.head.appendChild(style);
   }
 
@@ -164,8 +164,23 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
 
     const page=document.querySelector(pageSelector);
     if(page){
-      const observer=new MutationObserver(()=>queueMicrotask(()=>renderMetric(currentMetric())));
-      observer.observe(page,{childList:true,subtree:false});
+      let cleanupQueued=false;
+      const observer=new MutationObserver(records=>{
+        const duplicateAdded=records.some(record=>Array.from(record.addedNodes||[]).some(node=>{
+          if(!(node instanceof Element))return false;
+          if(node.id===tickerId||node.classList?.contains(tickerClass))return true;
+          return Boolean(node.querySelector?.('[id="'+tickerId+'"],.'+tickerClass));
+        }));
+        const frameReplaced=records.some(record=>record.target===page);
+        if(!duplicateAdded&&!frameReplaced)return;
+        if(cleanupQueued)return;
+        cleanupQueued=true;
+        queueMicrotask(()=>{
+          cleanupQueued=false;
+          renderMetric(currentMetric());
+        });
+      });
+      observer.observe(page,{childList:true,subtree:true});
       window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__=observer;
     }
   }
