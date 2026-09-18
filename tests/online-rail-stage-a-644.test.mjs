@@ -55,7 +55,7 @@ test('Map viewport lives outside DOM and persists per deal',()=>{
   assert.match(v81,/return key\?'DEAL:'\+key:'DEAL:UNBOUND'/);
   assert.match(v81,/function railMapPersistViewport\(state,reason,userTouched\)/);
   assert.match(v81,/function railMapInitialViewport\(context,width,height,minZoom,maxZoom\)/);
-  assert.match(v81,/railMapPersistViewport\(state,'USER_ZOOM',true\)/);
+  assert.match(v81,/railMapPersistViewport\(state,reason\|\|'USER_ZOOM',true\)/);
   assert.match(v81,/railMapPersistViewport\(state,'USER_PAN',true\)/);
   assert.match(v81,/railMapPersistViewport\(state,'HOME',true\)/);
   assert.match(v81,/function railMapDefaultViewport\(\)\{return\{lat:52\.5,lng:68,zoom:3\}\}/);
