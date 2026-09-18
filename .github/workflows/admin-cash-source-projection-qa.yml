@@ -8,6 +8,8 @@ on:
       - 'supabase/functions/rona-accounting-mail-bridge/**'
       - 'supabase/functions/rona-role-mail-bridge/**'
       - 'tests/admin-cash-source-projection/**'
+      - 'tests/admin-cash-one-entity-grouping-629.test.mjs'
+      - 'functions/portal/cash-r2-ui.js'
       - '.github/workflows/admin-cash-source-projection-qa.yml'
   push:
     branches:
@@ -28,4 +30,6 @@ jobs:
         with:
           node-version: '24'
       - name: Run Admin Cash source projection contract tests
-        run: node --test tests/admin-cash-source-projection/*.test.mjs
+        run: |
+          node --test tests/admin-cash-source-projection/*.test.mjs
+          node --test tests/admin-cash-one-entity-grouping-629.test.mjs
