@@ -63,7 +63,7 @@ with object_defs as (
 
   select
     'POLICY|'||n.nspname||'.'||c.relname||'|'||p.polname||'|'||
-    p.polcmd||'|'||
+    p.polcmd::text||'|'||
     array_to_string(array(select pg_get_userbyid(x) from unnest(p.polroles) x),',')||'|'||
     coalesce(pg_get_expr(p.polqual,p.polrelid),'')||'|'||
     coalesce(pg_get_expr(p.polwithcheck,p.polrelid),'')
