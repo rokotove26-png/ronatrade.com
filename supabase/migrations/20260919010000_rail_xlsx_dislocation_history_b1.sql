@@ -579,6 +579,32 @@ revoke all on table portal_private.rail_xlsx_dislocation_latest_state_v1
 grant select on table portal_private.rail_xlsx_dislocation_latest_state_v1
   to service_role;
 
+create or replace view portal_private.rail_xlsx_dislocation_latest_trusted_v1
+with (security_invoker = false)
+as
+select distinct on (e.deal_key, e.rail_document_key, e.wagon_number)
+  e.*
+from portal_private.rail_xlsx_dislocation_effective_v1 e
+where e.deal_key is not null
+  and e.rail_document_key is not null
+  and e.position_status='TRUSTED'
+  and e.parsed_event_at is not null
+order by
+  e.deal_key,
+  e.rail_document_key,
+  e.wagon_number,
+  e.parsed_event_at desc,
+  e.ingested_at desc,
+  e.id desc;
+
+comment on view portal_private.rail_xlsx_dislocation_latest_trusted_v1 is
+'Latest trusted XLSX position per Deal + GU-12/document + wagon. Used only to materialize rail_wagons current position. A newer CONFLICT/TO_VERIFY observation never overwrites this trusted projection.';
+
+revoke all on table portal_private.rail_xlsx_dislocation_latest_trusted_v1
+  from public, anon, authenticated;
+grant select on table portal_private.rail_xlsx_dislocation_latest_trusted_v1
+  to service_role;
+
 -- rail_wagons remains the current projection. Position-source fields are separate
 -- from original row provenance so registration source is never overwritten.
 alter table portal_private.rail_wagons
@@ -704,12 +730,12 @@ begin
   select
     s.wagon_number,
     s.rail_document_key,
-    case when s.latest_position_status='TRUSTED' then s.station_name else null end,
-    case when s.latest_position_status='TRUSTED' then s.station_code else null end,
-    case when s.latest_position_status='TRUSTED' then s.operation else null end,
-    case when s.latest_position_status='TRUSTED' then s.parsed_event_at else null end,
+    s.station_name,
+    s.station_code,
+    s.operation,
+    s.parsed_event_at,
     'REGISTERED',
-    case when s.latest_position_status='TRUSTED' then s.parsed_event_at else null end,
+    s.parsed_event_at,
     'EXPEDITOR_XLSX_VIA_RAIL_AI',
     'RAIL_XLSX_DISLOCATION_V1',
     s.parsed_event_at,
@@ -718,11 +744,8 @@ begin
     s.id,
     s.source_object_id,
     s.semantic_fingerprint,
-    case
-      when s.latest_position_status='TRUSTED' then 'MATCHED'
-      else s.latest_position_status
-    end
-  from portal_private.rail_xlsx_dislocation_latest_state_v1 s
+    'MATCHED'
+  from portal_private.rail_xlsx_dislocation_latest_trusted_v1 s
   where (p_deal_key is null or s.deal_key=p_deal_key)
     and not exists (
       select 1
@@ -736,21 +759,18 @@ begin
   -- Refresh only XLSX-owned (or position-unowned) projections.
   update portal_private.rail_wagons rw
   set
-    current_station_name = case when s.latest_position_status='TRUSTED' then s.station_name else null end,
-    current_station_code = case when s.latest_position_status='TRUSTED' then s.station_code else null end,
-    operation_code = case when s.latest_position_status='TRUSTED' then s.operation else null end,
-    operation_at = case when s.latest_position_status='TRUSTED' then s.parsed_event_at else null end,
-    last_position_at = case when s.latest_position_status='TRUSTED' then s.parsed_event_at else null end,
+    current_station_name = s.station_name,
+    current_station_code = s.station_code,
+    operation_code = s.operation,
+    operation_at = s.parsed_event_at,
+    last_position_at = s.parsed_event_at,
     position_source_system = 'EXPEDITOR_XLSX_VIA_RAIL_AI',
     position_source_event_id = s.id,
     position_source_object_id = s.source_object_id,
     position_semantic_fingerprint = s.semantic_fingerprint,
-    position_resolution_status = case
-      when s.latest_position_status='TRUSTED' then 'MATCHED'
-      else s.latest_position_status
-    end,
+    position_resolution_status = 'MATCHED',
     updated_at = now()
-  from portal_private.rail_xlsx_dislocation_latest_state_v1 s
+  from portal_private.rail_xlsx_dislocation_latest_trusted_v1 s
   where rw.wagon_number=s.wagon_number
     and rw.rail_document_key=s.rail_document_key
     and (p_deal_key is null or s.deal_key=p_deal_key)
@@ -760,8 +780,7 @@ begin
     )
     and (
       rw.position_source_event_id is distinct from s.id
-      or rw.position_resolution_status is distinct from
-        case when s.latest_position_status='TRUSTED' then 'MATCHED' else s.latest_position_status end
+      or rw.position_resolution_status is distinct from 'MATCHED'
     );
 
   get diagnostics v_updated = row_count;
@@ -825,15 +844,40 @@ begin
       on rd.deal_key=sd.deal_key
      and rd.lifecycle_state::text='ACTIVE'
   ),
-  deal_wagons as (
+  wagon_inventory as (
     select
       dd.deal_key,
       dd.deal_id,
       dd.rail_document_key,
       dd.rail_document_id,
       dd.gu12_number,
+      rw.wagon_number
+    from deal_docs dd
+    join portal_private.rail_wagons rw
+      on rw.rail_document_key=dd.rail_document_key
+     and rw.lifecycle_state::text='ACTIVE'
+    union
+    select
+      dd.deal_key,
+      dd.deal_id,
+      dd.rail_document_key,
+      dd.rail_document_id,
+      dd.gu12_number,
+      ls.wagon_number
+    from deal_docs dd
+    join portal_private.rail_xlsx_dislocation_latest_state_v1 ls
+      on ls.deal_key=dd.deal_key
+     and ls.rail_document_key=dd.rail_document_key
+  ),
+  deal_wagons as (
+    select
+      wi.deal_key,
+      wi.deal_id,
+      wi.rail_document_key,
+      wi.rail_document_id,
+      wi.gu12_number,
       rw.id as wagon_key,
-      rw.wagon_number,
+      wi.wagon_number,
       rw.current_station_name,
       rw.current_station_code,
       rw.operation_code,
@@ -852,13 +896,22 @@ begin
       ev.source_timezone,
       ev.source_timezone_status,
       ev.resolution_status as source_resolution_status,
-      ev.provenance as source_provenance
-    from deal_docs dd
+      ev.provenance as source_provenance,
+      ls.latest_position_status as latest_observation_status,
+      ls.parsed_event_at as latest_observation_at,
+      ls.semantic_variant_count as latest_observation_variant_count,
+      ls.id as latest_observation_event_id
+    from wagon_inventory wi
     left join portal_private.rail_wagons rw
-      on rw.rail_document_key=dd.rail_document_key
+      on rw.rail_document_key=wi.rail_document_key
+     and rw.wagon_number=wi.wagon_number
      and rw.lifecycle_state::text='ACTIVE'
     left join portal_private.rail_xlsx_dislocation_events_v1 ev
       on ev.id=rw.position_source_event_id
+    left join portal_private.rail_xlsx_dislocation_latest_state_v1 ls
+      on ls.deal_key=wi.deal_key
+     and ls.rail_document_key=wi.rail_document_key
+     and ls.wagon_number=wi.wagon_number
   )
   select jsonb_build_object(
     'modelVersion','RONA_ADMIN_RAIL_DEAL_READ_MODEL_V1',
@@ -929,11 +982,14 @@ begin
                 'railDocumentKey',dw.rail_document_key,
                 'railDocumentId',dw.rail_document_id,
                 'gu12Number',dw.gu12_number,
-                'station',dw.current_station_name,
-                'stationCode',dw.current_station_code,
-                'operation',dw.operation_code,
-                'eventTimestamp',dw.last_position_at,
-                'positionStatus',coalesce(dw.position_resolution_status,'UNRESOLVED'),
+                'station',case when dw.latest_observation_status='TRUSTED' then dw.current_station_name else null end,
+                'stationCode',case when dw.latest_observation_status='TRUSTED' then dw.current_station_code else null end,
+                'operation',case when dw.latest_observation_status='TRUSTED' then dw.operation_code else null end,
+                'eventTimestamp',dw.latest_observation_at,
+                'latestTrustedEventTimestamp',dw.last_position_at,
+                'positionStatus',coalesce(dw.latest_observation_status,dw.position_resolution_status,'UNRESOLVED'),
+                'latestObservationEventId',dw.latest_observation_event_id,
+                'latestObservationVariantCount',coalesce(dw.latest_observation_variant_count,0),
                 'trustedCoordinates',null,
                 'coordinateProvenance',null,
                 'provenance',case
@@ -960,7 +1016,6 @@ begin
             )
             from deal_wagons dw
             where dw.deal_key=sd.deal_key
-              and dw.wagon_key is not null
           ),'[]'::jsonb),
 
           -- Grouping contract for one marker/cluster per station.
@@ -986,7 +1041,7 @@ begin
               max(dw.current_station_name) as station_name
               from deal_wagons dw
               where dw.deal_key=sd.deal_key
-                and dw.wagon_key is not null
+                and dw.latest_observation_status='TRUSTED'
                 and dw.position_resolution_status='MATCHED'
                 and dw.current_station_name is not null
               group by
