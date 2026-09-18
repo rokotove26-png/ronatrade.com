@@ -120,10 +120,6 @@ begin
     raise exception using errcode='23503', message='RAIL_XLSX_EVIDENCE_EVENT_NOT_FOUND';
   end if;
 
-  if v_event.overlay_resolution_status<>'TO_VERIFY' then
-    raise exception using errcode='23514', message='RAIL_XLSX_OWNER_BRIDGE_REQUIRES_TO_VERIFY';
-  end if;
-
   select rd.deal_key into v_doc_deal
   from portal_private.rail_documents rd
   join portal_private.deals d on d.id=rd.deal_key
@@ -172,6 +168,10 @@ begin
 
     v_authority:=v_existing;
   else
+    if v_event.overlay_resolution_status<>'TO_VERIFY' then
+      raise exception using errcode='23514', message='RAIL_XLSX_OWNER_BRIDGE_REQUIRES_TO_VERIFY';
+    end if;
+
     v_metadata:=jsonb_build_object(
       'authority_contract','RAIL_XLSX_OWNER_AUTHORITY_V1',
       'authorityType','OWNER_EXPLICIT_INSTRUCTION',
@@ -346,10 +346,6 @@ begin
     raise exception using errcode='23503', message='RAIL_XLSX_EVIDENCE_EVENT_NOT_FOUND';
   end if;
 
-  if v_event.overlay_resolution_status<>'TO_VERIFY' then
-    raise exception using errcode='23514', message='RAIL_XLSX_RAIL_BRIDGE_REQUIRES_TO_VERIFY';
-  end if;
-
   select rd.deal_key into v_doc_deal
   from portal_private.rail_documents rd
   join portal_private.deals d on d.id=rd.deal_key
@@ -412,6 +408,10 @@ begin
 
     v_record:=v_existing;
   else
+    if v_event.overlay_resolution_status<>'TO_VERIFY' then
+      raise exception using errcode='23514', message='RAIL_XLSX_RAIL_BRIDGE_REQUIRES_TO_VERIFY';
+    end if;
+
     select coalesce(max(version),0)+1 into v_next_version
     from portal_private.ai_coordination_records
     where functional_role::text='RAIL_LOGISTICS'
