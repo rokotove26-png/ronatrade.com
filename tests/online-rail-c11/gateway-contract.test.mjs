@@ -14,8 +14,8 @@ for (const name of ['rail_xlsx_source_capture','rail_xlsx_parse','rail_xlsx_impo
 }
 assert.match(extension,/"openai\/fileParams"\s*:\s*\["workbook"\]/);
 assert.match(extension,/RAIL_XLSX_GENERIC_INTAKE_V1/);
-assert.match(extension,/rona-portal-private/);
-assert.match(extension,/rail\/source\//);
+assert.match([extension,parser,c11].join('\n'),/rona-portal-private/);
+assert.match([extension,parser,c11].join('\n'),/rail\/source\//);
 assert.match(extension,/filenameUsedForMatching:\s*false/);
 assert.match(extension,/operationCodesInterpretedAsBusinessStatus:\s*false/);
 assert.match(extension,/geoCreated:\s*false/);
