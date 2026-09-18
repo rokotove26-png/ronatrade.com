@@ -16,6 +16,8 @@ test('reconciliation indicator is append-only and preserves the Payments rendere
   assert.match(patched,/Сверочная разница/);
   assert.match(patched,/rona-payments-reconciliation-title-ticker/);
   assert.match(patched,/findTitleFrame/);
+  assert.match(patched,/title\.closest\('\.rona-visual-hero'\)/);
+  assert.match(patched,/rona-has-reconciliation-ticker/);
   assert.doesNotMatch(patched,/heading\.append\(title,right\)/);
 });
 
