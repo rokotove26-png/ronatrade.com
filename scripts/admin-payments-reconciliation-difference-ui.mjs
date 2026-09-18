@@ -49,14 +49,16 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     if(!page)return null;
     const title=Array.from(page.querySelectorAll('h1,h2')).find(el=>String(el.textContent||'').trim()==='Платежи');
     if(!title)return null;
-    return title.closest('.rona-owner-card,.rona-fd-v5__hero,.rona-page-hero,header,section,div')||title.parentElement;
+    return title.closest('.rona-visual-hero')
+      || title.closest('.page-header,.page-head,.rona-owner-card,header,section')
+      || title.parentElement;
   }
 
   function installStyle(){
     if(document.getElementById(styleId))return;
     const style=document.createElement('style');
     style.id=styleId;
-    style.textContent='@keyframes ronaReconTickerV5{0%{transform:translateX(100%)}12%,72%{transform:translateX(0)}100%{transform:translateX(-100%)}}#'+tickerId+'{position:absolute;right:16px;top:50%;transform:translateY(-50%);width:min(360px,42%);height:28px;overflow:hidden;display:flex;align-items:center;pointer-events:none;z-index:3}#'+tickerId+' .rona-recon-ticker-track{display:inline-block;min-width:max-content;padding-left:8px;font-size:13px;font-weight:900;letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;animation:ronaReconTickerV5 8s linear infinite}#'+tickerId+'[data-tone="positive"] .rona-recon-ticker-track{color:#4ade80;text-shadow:0 0 12px rgba(74,222,128,.20)}#'+tickerId+'[data-tone="negative"] .rona-recon-ticker-track{color:#fb7185;text-shadow:0 0 12px rgba(251,113,133,.20)}#'+tickerId+'[data-tone="neutral"] .rona-recon-ticker-track{color:#8fa8ba}@media(max-width:900px){#'+tickerId+'{width:min(300px,46%);right:12px}#'+tickerId+' .rona-recon-ticker-track{font-size:12px}}@media(max-width:640px){#'+tickerId+'{position:static;transform:none;width:100%;height:24px;margin-top:6px}#'+tickerId+' .rona-recon-ticker-track{animation:none}}@media(prefers-reduced-motion:reduce){#'+tickerId+' .rona-recon-ticker-track{animation:none}}';
+    style.textContent='@keyframes ronaReconTickerV5{0%{transform:translateX(100%)}14%,72%{transform:translateX(0)}100%{transform:translateX(-100%)}}.rona-visual-hero.rona-has-reconciliation-ticker{position:relative}.rona-visual-hero.rona-has-reconciliation-ticker>div:first-child{max-width:calc(100% - 400px)}#'+tickerId+'{position:absolute;right:22px;top:50%;transform:translateY(-50%);width:min(360px,40%);height:30px;overflow:hidden;display:flex;align-items:center;justify-content:flex-start;pointer-events:none;z-index:3}#'+tickerId+' .rona-recon-ticker-track{display:inline-block;min-width:max-content;padding-left:8px;font-size:13px;font-weight:900;letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;animation:ronaReconTickerV5 8s linear infinite}#'+tickerId+'[data-tone="positive"] .rona-recon-ticker-track{color:#4ade80;text-shadow:0 0 12px rgba(74,222,128,.20)}#'+tickerId+'[data-tone="negative"] .rona-recon-ticker-track{color:#fb7185;text-shadow:0 0 12px rgba(251,113,133,.20)}#'+tickerId+'[data-tone="neutral"] .rona-recon-ticker-track{color:#8fa8ba}@media(max-width:900px){.rona-visual-hero.rona-has-reconciliation-ticker>div:first-child{max-width:calc(100% - 330px)}#'+tickerId+'{width:min(300px,42%);right:16px}#'+tickerId+' .rona-recon-ticker-track{font-size:12px}}@media(max-width:640px){.rona-visual-hero.rona-has-reconciliation-ticker>div:first-child{max-width:none}#'+tickerId+'{position:static;transform:none;width:100%;height:24px;margin-top:8px}#'+tickerId+' .rona-recon-ticker-track{animation:none}}@media(prefers-reduced-motion:reduce){#'+tickerId+' .rona-recon-ticker-track{animation:none}}';
     document.head.appendChild(style);
   }
 
@@ -71,6 +73,7 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     installStyle();
     const computed=getComputedStyle(frame);
     if(computed.position==='static')frame.style.position='relative';
+    if(frame.classList.contains('rona-visual-hero'))frame.classList.add('rona-has-reconciliation-ticker');
     let ticker=frame.querySelector('#'+tickerId);
     if(!ticker){
       ticker=document.createElement('div');
