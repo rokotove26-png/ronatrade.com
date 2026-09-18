@@ -18,7 +18,10 @@ on:
       - 'supabase/migrations/*finance*cash*.sql'
       - 'supabase/functions/rona-accounting-statement-intake/**'
       - 'supabase/functions/rona-accounting-mail-bridge/**'
+      - 'supabase/functions/rona-role-mail-bridge/**'
       - 'tests/admin-cash-source-projection/**'
+      - 'tests/admin-cash-one-entity-grouping-629.test.mjs'
+      - 'functions/portal/cash-r2-ui.js'
       - '.github/workflows/admin-cash-source-projection-qa.yml'
 
 jobs:
