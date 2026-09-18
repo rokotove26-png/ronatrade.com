@@ -1390,29 +1390,34 @@ revoke all on table portal_private.rail_xlsx_dislocation_latest_trusted_v1
 grant select on table portal_private.rail_xlsx_dislocation_latest_trusted_v1
   to service_role;
 
--- B1.3 business-current position:
--- EXACTLY ONE result per effective Deal + wagon across ALL ACTIVE rail documents.
--- Multiple incomparable active comparison domains => CROSS_DOMAIN_AMBIGUOUS.
+-- B1.5 business-current position:
+-- EXACTLY ONE business-current result per effective Deal + wagon across ALL ACTIVE
+-- rail documents, but current eligibility is TRUSTED-only.
+--
+-- Pending TO_VERIFY / UNRESOLVED / CONFLICT observations never participate in
+-- current selection and therefore cannot nullify a single TRUSTED current.
+-- >=2 TRUSTED incomparable domains => CROSS_DOMAIN_AMBIGUOUS.
+-- 0 TRUSTED observations => no row in the business-current view.
 create or replace view portal_private.rail_xlsx_dislocation_current_position_v1
 with (security_invoker=false)
 as
-with active_candidates as (
+with active_trusted_candidates as (
   select l.*
-  from portal_private.rail_xlsx_dislocation_latest_state_v1 l
+  from portal_private.rail_xlsx_dislocation_latest_trusted_v1 l
   join portal_private.rail_documents rd
     on rd.id=l.effective_rail_document_key
    and rd.lifecycle_state::text='ACTIVE'
 ),
-stats as (
+trusted_stats as (
   select
     c.effective_deal_key,
     c.wagon_number,
     count(*) as candidate_observation_count,
     count(distinct c.comparison_domain) as comparison_domain_count
-  from active_candidates c
+  from active_trusted_candidates c
   group by c.effective_deal_key,c.wagon_number
 ),
-ranked as (
+trusted_ranked as (
   select
     c.*,
     row_number() over (
@@ -1424,7 +1429,7 @@ ranked as (
         c.ingested_at desc,
         c.id desc
     ) as rn
-  from active_candidates c
+  from active_trusted_candidates c
 )
 select
   s.effective_deal_key,
@@ -1433,7 +1438,7 @@ select
   s.comparison_domain_count,
   case
     when s.comparison_domain_count>1 then 'CROSS_DOMAIN_AMBIGUOUS'
-    else r.position_status
+    else 'TRUSTED'
   end as position_status,
 
   case when s.comparison_domain_count=1 then r.id end as current_event_id,
@@ -1484,31 +1489,42 @@ select
   case when s.comparison_domain_count=1 then r.resolution_authority_type end as resolution_authority_type,
   case when s.comparison_domain_count=1 then r.resolution_actor_ref end as resolution_actor_ref,
   case when s.comparison_domain_count=1 then r.provenance end as source_provenance
-from stats s
-join ranked r
+from trusted_stats s
+join trusted_ranked r
   on r.effective_deal_key=s.effective_deal_key
  and r.wagon_number=s.wagon_number
  and r.rn=1;
 
 comment on view portal_private.rail_xlsx_dislocation_current_position_v1 is
-'Exactly one current result per effective Deal + wagon across active rail-document scopes. More than one incomparable domain fails closed as CROSS_DOMAIN_AMBIGUOUS with no current station/operation.';
+'B1.5 TRUSTED-only business-current result per effective Deal + wagon. Pending observations never nullify a single trusted current. More than one incomparable TRUSTED domain fails closed as CROSS_DOMAIN_AMBIGUOUS. Zero TRUSTED observations produce no business-current row.';
 
 revoke all on table portal_private.rail_xlsx_dislocation_current_position_v1
   from public, anon, authenticated;
 grant select on table portal_private.rail_xlsx_dislocation_current_position_v1
   to service_role;
 
--- Candidate observations are audit/details only; main wagonPositions never emits
--- multiple current rows for one Deal+wagon.
+-- Audit/details retains every active latest observation that is NOT the selected
+-- single current event. This includes:
+--   * all observations for CROSS_DOMAIN_AMBIGUOUS wagons;
+--   * pending TO_VERIFY / UNRESOLVED / CONFLICT observations alongside a TRUSTED current;
+--   * all observations when there is no TRUSTED current;
+--   * non-selected TRUSTED candidates inside the one comparable trusted domain.
 create or replace view portal_private.rail_xlsx_dislocation_current_audit_v1
 with (security_invoker=false)
 as
+with active_latest as (
+  select l.*
+  from portal_private.rail_xlsx_dislocation_latest_state_v1 l
+  join portal_private.rail_documents rd
+    on rd.id=l.effective_rail_document_key
+   and rd.lifecycle_state::text='ACTIVE'
+)
 select
-  cp.effective_deal_key,
-  cp.wagon_number,
-  cp.position_status as current_position_status,
-  cp.comparison_domain_count,
-  cp.candidate_observation_count,
+  l.effective_deal_key,
+  l.wagon_number,
+  coalesce(cp.position_status,'NO_TRUSTED_CURRENT') as current_position_status,
+  coalesce(cp.comparison_domain_count,0) as comparison_domain_count,
+  coalesce(cp.candidate_observation_count,0) as candidate_observation_count,
   l.id as candidate_event_id,
   l.effective_rail_document_key,
   l.rail_document_id_snapshot,
@@ -1529,11 +1545,12 @@ select
   l.source_row_locator,
   l.source_checksum_sha256,
   l.semantic_fingerprint
-from portal_private.rail_xlsx_dislocation_current_position_v1 cp
-join portal_private.rail_xlsx_dislocation_latest_state_v1 l
-  on l.effective_deal_key=cp.effective_deal_key
- and l.wagon_number=cp.wagon_number
-where cp.position_status='CROSS_DOMAIN_AMBIGUOUS';
+from active_latest l
+left join portal_private.rail_xlsx_dislocation_current_position_v1 cp
+  on cp.effective_deal_key=l.effective_deal_key
+ and cp.wagon_number=l.wagon_number
+where cp.current_event_id is null
+   or l.id<>cp.current_event_id;
 
 revoke all on table portal_private.rail_xlsx_dislocation_current_audit_v1
   from public, anon, authenticated;
@@ -1650,7 +1667,7 @@ begin
     and (p_deal_key is null or cp.effective_deal_key=p_deal_key);
 
   return jsonb_build_object(
-    'projectionVersion','RAIL_XLSX_WAGON_PROJECTION_V1_3',
+    'projectionVersion','RAIL_XLSX_WAGON_PROJECTION_V1_5',
     'updatedExistingRows',v_updated,
     'missingWagonRowsNotCreated',v_missing_wagon_rows,
     'crossDomainAmbiguousBlocked',v_cross_domain_ambiguous,
@@ -1713,7 +1730,7 @@ begin
     join scoped_deals sd on sd.deal_key=a.effective_deal_key
   )
   select jsonb_build_object(
-    'modelVersion','RONA_ADMIN_RAIL_DEAL_READ_MODEL_V1_3',
+    'modelVersion','RONA_ADMIN_RAIL_DEAL_READ_MODEL_V1_5',
     'selectionOwner','DEAL',
     'selectionKey','deal_key',
     'sourcePolicy','EXPEDITOR_XLSX_VIA_RAIL_AI',
@@ -1897,10 +1914,18 @@ begin
           ),'[]'::jsonb),
 
           'unresolvedOrConflictCount',(
-            select count(*)
-            from current_positions cp
-            where cp.effective_deal_key=sd.deal_key
-              and cp.position_status<>'TRUSTED'
+            select count(distinct q.wagon_number)
+            from (
+              select cp.wagon_number
+              from current_positions cp
+              where cp.effective_deal_key=sd.deal_key
+                and cp.position_status='CROSS_DOMAIN_AMBIGUOUS'
+              union all
+              select a.wagon_number
+              from current_audit a
+              where a.effective_deal_key=sd.deal_key
+                and a.candidate_position_status in ('TO_VERIFY','UNRESOLVED','CONFLICT')
+            ) q
           )
         )
         order by sd.deal_id
@@ -1915,7 +1940,7 @@ end
 $$;
 
 comment on function public.rona_admin_rail_deal_read_model_v1(text) is
-'Admin-only Deal rail read model B1.3. wagonPositions has exactly one row per Deal+wagon; incomparable domains fail closed as CROSS_DOMAIN_AMBIGUOUS and candidates appear only in positionAuditDetails.';
+'Admin-only Deal rail read model B1.5. Business-current selection is TRUSTED-only. Pending observations remain in positionAuditDetails and cannot nullify a single trusted current; multiple incomparable TRUSTED domains fail closed as CROSS_DOMAIN_AMBIGUOUS.';
 
 revoke all on function public.rona_admin_rail_deal_read_model_v1(text)
   from public, anon;
