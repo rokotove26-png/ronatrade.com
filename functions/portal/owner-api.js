@@ -18,7 +18,7 @@ function tokenCookies(t){const e=Math.min(Math.max(Number(t?.expires_in||3600),6
 function headers(base=new Headers()){const h=new Headers(base);for(const[k,v]of Object.entries(SECURITY_HEADERS))h.set(k,v);h.delete('access-control-allow-origin');h.delete('access-control-allow-credentials');h.delete('content-length');h.delete('etag');return h}
 function json(body,status=200,cookies=[]){const h=headers(new Headers({'content-type':'application/json; charset=utf-8'}));for(const c of cookies)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
 function sameOriginPost(request){const url=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===url.origin;const ref=request.headers.get('referer');if(!ref)return false;try{return new URL(ref).origin===url.origin}catch{return false}}
-async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
+async function authRefresh(refreshToken){try{const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,status:r.status,data}}catch(_){return{ok:false,status:503,data:{}}}}
 function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf','/admin/ai-sync','/agent/ai-sync'].includes(path)}
 function upstreamFor(path){if(path==='/admin/ai-sync')return`${AI_SYNC_UPSTREAM}/admin/sync`;if(path==='/admin/payments-v7/owner-decision')return`${AI_SYNC_UPSTREAM}/admin/payments-v7/owner-decision`;if(path==='/agent/ai-sync')return`${AI_SYNC_UPSTREAM}/agent/sync`;return`${UPSTREAM}${path}`}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
@@ -37,6 +37,9 @@ async function sanitizeExternalProjection(path,response){if(!response.ok)return 
 function parseJsonBytes(body){if(!body||!body.byteLength)return{};try{return JSON.parse(new TextDecoder().decode(body))}catch{return{}}}
 function r1Spec(path,method,body){if(path==='/admin/cash-source'&&method==='POST')return['rona_admin_cash_source_projection_v1',{p_from:body?.from||null,p_to:body?.to||null}];if(path==='/admin/workflow-bootstrap'&&method==='GET')return['owner_r1_admin_bootstrap',{}];if(path==='/admin/access-workspace'&&method==='GET')return['owner_access_workspace_bootstrap',{p_limit:300}];if(path==='/client/workflow-bootstrap'&&method==='GET')return['owner_r1_client_bootstrap',{}];if(path==='/admin/analytics-bootstrap'&&method==='GET')return['owner_analytics_admin_bootstrap',{}];if(path==='/client/analytics-feed'&&method==='GET')return['owner_analytics_client_feed',{}];let m=path.match(/^\/admin\/analytics-publications\/([^/]+)\/(approve|publish)$/);if(m&&method==='POST')return['owner_analytics_publication_action',{p_publication_id:decodeURIComponent(m[1]),p_action:m[2]}];m=path.match(/^\/admin\/deals\/([^/]+)\/confirm-(product|volume)$/);if(m&&method==='POST')return['owner_r1_confirm_deal_field',{p_deal_id:decodeURIComponent(m[1]),p_kind:m[2]}];m=path.match(/^\/admin\/deals\/([^/]+)\/send-to-payments$/);if(m&&method==='POST')return['owner_r1_send_to_payments',{p_deal_id:decodeURIComponent(m[1])}];m=path.match(/^\/admin\/deals\/([^/]+)\/cancel$/);if(m&&method==='POST')return['owner_r1_cancel_deal',{p_deal_id:decodeURIComponent(m[1]),p_reason:String(body?.reason||''),p_source_entity:'DEAL'}];m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved|cancel)$/);if(m&&method==='POST'){const action={accept:'ACCEPT',reject:'REJECT','counter-offer':'COUNTER_OFFER','supplier-approved':'RESOURCE_APPROVED',cancel:'RESOURCE_DENIED'}[m[2]];return['owner_r1_application_business_action_v2',{p_application_id:decodeURIComponent(m[1]),p_action:action,p_payload:body&&typeof body==='object'?body:{}}]}m=path.match(/^\/admin\/payment-expectations\/([^/]+)\/cancel$/);if(m&&method==='POST')return['owner_r1_cancel_deal',{p_deal_id:decodeURIComponent(m[1]),p_reason:String(body?.reason||''),p_source_entity:'PAYMENT_EXPECTATION'}];m=path.match(/^\/client\/deals\/([^/]+)\/mark-download$/);if(m&&method==='POST')return['owner_r1_mark_client_download',{p_deal_id:decodeURIComponent(m[1]),p_kind:String(body?.kind||'')}];return null}
 async function rpcCall(token,name,args){return fetch(`${RPC_UPSTREAM}/${encodeURIComponent(name)}`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify(args||{})})}
+async function rpcAuthFailure(response){if(!response||![401,403].includes(response.status))return false;const data=await response.clone().json().catch(()=>null);const code=String(data?.message||data?.code||'');return response.status===401||code==='PORTAL_ACCESS_DENIED'||code==='42501'}
+function staleSessionStatus(refreshResult){const s=Number(refreshResult?.status||0);return s===429||s>=500?503:409}
+function staleSessionResponse(refreshResult){return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},staleSessionStatus(refreshResult))}
 async function r1Response(response,cookies=[]){const data=await response.json().catch(()=>null);if(!response.ok){const code=String(data?.message||data?.code||('HTTP_'+response.status));return json({ok:false,code},response.status,cookies)}return json({ok:true,data},200,cookies)}
 export async function onRequest(context){
   const request=context.request;
@@ -46,16 +49,36 @@ export async function onRequest(context){
   if(!path.startsWith('/')||path.includes('..')||!allowedPath(path))return json({ok:false,code:'ROUTE_NOT_ALLOWED'},404);
   const cookies=parseCookies(request.headers.get('cookie'));
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
-  if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
-  if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
+  if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}else return staleSessionResponse(next)}
+  if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401);
   const body=request.method==='POST'?await request.clone().arrayBuffer():null;
   const spec=r1Spec(path,request.method,parseJsonBytes(body));
-  if(spec){let response=await rpcCall(access,spec[0],spec[1]);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await rpcCall(access,spec[0],spec[1])}}if(response.status===401&&!setCookies.length)return r1Response(response,clearCookies());return r1Response(response,setCookies)}
+  if(spec){
+    let response=await rpcCall(access,spec[0],spec[1]);
+    if(refresh&&await rpcAuthFailure(response)){
+      const next=await authRefresh(refresh);
+      if(next.ok&&next.data?.access_token&&next.data?.refresh_token){
+        access=next.data.access_token;
+        refresh=next.data.refresh_token;
+        setCookies=tokenCookies(next.data);
+        response=await rpcCall(access,spec[0],spec[1]);
+      }else return staleSessionResponse(next);
+    }
+    return r1Response(response,setCookies)
+  }
   const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
   const forwardReadResilient=async token=>{let r=await forward(token);if(request.method==='GET'&&[502,503,504].includes(r.status)){await r.arrayBuffer().catch(()=>{});await sleep(500);r=await forward(token)}return r};
   let response=await forwardReadResilient(access);
-  if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forwardReadResilient(access)}}
+  if(response.status===401&&refresh){
+    const next=await authRefresh(refresh);
+    if(next.ok&&next.data?.access_token&&next.data?.refresh_token){
+      access=next.data.access_token;
+      refresh=next.data.refresh_token;
+      setCookies=tokenCookies(next.data);
+      response=await forwardReadResilient(access);
+    }else return staleSessionResponse(next)
+  }
   response=await sanitizeExternalProjection(path,response);
-  const outHeaders=headers(response.headers);for(const c of setCookies)outHeaders.append('set-cookie',c);if(response.status===401&&!setCookies.length){for(const c of clearCookies())outHeaders.append('set-cookie',c)}
+  const outHeaders=headers(response.headers);for(const c of setCookies)outHeaders.append('set-cookie',c);
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:outHeaders});
 }
