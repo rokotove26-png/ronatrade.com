@@ -1,7 +1,7 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_CASH_R2_UI__)return;
-window.__RONA_CASH_R2_UI__='20260918-issue635-transient-recovery-v1';
+window.__RONA_CASH_R2_UI__='20260918-issue639-auth-convergence-v1';
 var ENDPOINT='/portal/owner-api?path=/admin/cash-source';
 var MODEL='FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE';
 var SOURCE='AI-FINANCE/BANK_STATEMENT';
@@ -24,7 +24,7 @@ function hashText(v){var h=2166136261,s=String(v||'');for(var i=0;i<s.length;i++
 function payloadSignature(p){try{return hashText(JSON.stringify(stableValue(p)))}catch(_e){return''}}
 function publishRuntime(extra){if(extra&&typeof extra==='object')Object.assign(runtime,extra);runtime.checkMs=CHECK_MS;runtime.lastSignature=currentSignature||null;runtime.ownerFinanceSignature=lastOwnerFinanceSignature||null;runtime.hasCurrent=!!current;window.__RONA_CASH_R2_RUNTIME__=Object.assign({},runtime)}
 function clearInitialRetryTimer(){if(initialRetryTimer){clearTimeout(initialRetryTimer);initialRetryTimer=null}runtime.retryTimerActive=false;publishRuntime()}
-function isTransientError(e){var status=Number(e&&e.status||0),m=String(e&&e.message||e||'').toLowerCase();return status===408||status===429||status>=500||/statement timeout|canceling statement|timed out|timeout|network|failed to fetch|fetch failed|cash_source_network|cash_source_timeout/.test(m)}
+function isTransientError(e){var status=Number(e&&e.status||0),m=String(e&&e.message||e||'').toLowerCase();return status===408||status===409||status===429||status>=500||/statement timeout|canceling statement|timed out|timeout|network|failed to fetch|fetch failed|cash_source_network|cash_source_timeout|portal_session_stale/.test(m)}
 function clearDegraded(){var page=q('#page-accounting'),host=page&&q(':scope > .rona-owner-page-content',page),node=host&&q('.rona-cash-degraded',host);if(node)node.remove();if(window.__RONA_CASH_R2_STATE__&&window.__RONA_CASH_R2_STATE__.status==='READY')window.__RONA_CASH_R2_STATE__=Object.assign({},window.__RONA_CASH_R2_STATE__,{degraded:false,backgroundError:null})}
 function setDegraded(message){var page=q('#page-accounting'),host=page&&q(':scope > .rona-owner-page-content',page);if(!host||!current)return;var source=q('.rona-cash-source',host)||q('.rona-cash-r2-root',host);if(!source)return;var node=q('.rona-cash-degraded',source);if(!node){node=el('span','rona-cash-degraded');source.append(node);runtime.degradedCount++}node.textContent=message||'Временная задержка Finance. Последние подтверждённые данные сохранены.';publishRuntime({lastError:message||null});window.__RONA_CASH_R2_STATE__=Object.assign({},window.__RONA_CASH_R2_STATE__||{status:'READY'},{status:'READY',degraded:true,backgroundError:message||null})}
 function retryDelayText(ms){return ms>=CHECK_MS?'Автоматическая проверка продолжится примерно через 60 сек.':'Следующая автоматическая попытка через '+Math.round(ms/1000)+' сек.'}
