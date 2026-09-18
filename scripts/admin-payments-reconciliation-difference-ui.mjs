@@ -1,15 +1,13 @@
-export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V4';
+export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V5';
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_REFRESH_MS = 30000;
 
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()=>{
-  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V4';
+  const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V5';
   const sourceContract='FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1';
   const refreshMs=30000;
   const pageSelector='#page-payments';
-  const rootSelector='#page-payments #ronaPaymentsV8Root';
-  const headingId='rona-payments-reconciliation-heading';
-  const valueClass='rona-payments-reconciliation-value';
-  const styleId='rona-payments-reconciliation-style';
+  const tickerId='rona-payments-reconciliation-title-ticker';
+  const styleId='rona-payments-reconciliation-title-ticker-style';
   const bootstrapPath='/portal/api/v1/admin/bootstrap';
 
   function normalize(metric){
@@ -27,12 +25,13 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
       &&role==='FINANCE'
       &&source===sourceContract
       &&metric?.source_locked===true;
-    if(!authoritative)return{status:'TO_VERIFY',text:'—',sourceId:String(metric?.source_id||''),sourceVersion:String(metric?.source_version||'')};
+    if(!authoritative)return{status:'TO_VERIFY',text:'Сверочная разница —',tone:'neutral',sourceId:String(metric?.source_id||''),sourceVersion:String(metric?.source_version||'')};
     const formatted=new Intl.NumberFormat('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}).format(Math.abs(n));
     const sign=n>0?'+':n<0?'−':'';
     return{
       status:'AUTHORITATIVE',
-      text:sign+formatted+' '+currency,
+      text:'Сверочная разница '+sign+formatted+' '+currency,
+      tone:n<0?'negative':'positive',
       sourceId:String(metric?.source_id||''),
       sourceVersion:String(metric?.source_version||''),
     };
@@ -45,48 +44,56 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
       || null;
   }
 
+  function findTitleFrame(){
+    const page=document.querySelector(pageSelector);
+    if(!page)return null;
+    const title=Array.from(page.querySelectorAll('h1,h2')).find(el=>String(el.textContent||'').trim()==='Платежи');
+    if(!title)return null;
+    return title.closest('.rona-owner-card,.rona-fd-v5__hero,.rona-page-hero,header,section,div')||title.parentElement;
+  }
+
   function installStyle(){
     if(document.getElementById(styleId))return;
     const style=document.createElement('style');
     style.id=styleId;
-    style.textContent='#'+headingId+'{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;margin:0 0 14px;pointer-events:none;border:1px solid rgba(93,138,178,.20);border-radius:16px;background:linear-gradient(180deg,rgba(8,21,34,.96),rgba(6,16,27,.94));box-shadow:inset 0 1px 0 rgba(255,255,255,.035)}#'+headingId+' h1{margin:0;font-size:24px;line-height:1.1;font-weight:900;letter-spacing:-.025em;color:#f7fbff}#'+headingId+' .rona-payments-reconciliation{display:flex;align-items:baseline;gap:9px;margin-left:auto;white-space:nowrap;text-align:right}#'+headingId+' .rona-payments-reconciliation-label{font-size:11px;color:#829bb0}#'+headingId+' .'+valueClass+'{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;color:#f7fbff}@media(max-width:640px){#'+headingId+'{align-items:flex-start;flex-direction:column}#'+headingId+' .rona-payments-reconciliation{margin-left:0;text-align:left}}';
+    style.textContent='@keyframes ronaReconTickerV5{0%{transform:translateX(100%)}12%,72%{transform:translateX(0)}100%{transform:translateX(-100%)}}#'+tickerId+'{position:absolute;right:16px;top:50%;transform:translateY(-50%);width:min(360px,42%);height:28px;overflow:hidden;display:flex;align-items:center;pointer-events:none;z-index:3}#'+tickerId+' .rona-recon-ticker-track{display:inline-block;min-width:max-content;padding-left:8px;font-size:13px;font-weight:900;letter-spacing:.01em;font-variant-numeric:tabular-nums;white-space:nowrap;animation:ronaReconTickerV5 8s linear infinite}#'+tickerId+'[data-tone="positive"] .rona-recon-ticker-track{color:#4ade80;text-shadow:0 0 12px rgba(74,222,128,.20)}#'+tickerId+'[data-tone="negative"] .rona-recon-ticker-track{color:#fb7185;text-shadow:0 0 12px rgba(251,113,133,.20)}#'+tickerId+'[data-tone="neutral"] .rona-recon-ticker-track{color:#8fa8ba}@media(max-width:900px){#'+tickerId+'{width:min(300px,46%);right:12px}#'+tickerId+' .rona-recon-ticker-track{font-size:12px}}@media(max-width:640px){#'+tickerId+'{position:static;transform:none;width:100%;height:24px;margin-top:6px}#'+tickerId+' .rona-recon-ticker-track{animation:none}}@media(prefers-reduced-motion:reduce){#'+tickerId+' .rona-recon-ticker-track{animation:none}}';
     document.head.appendChild(style);
   }
 
-  function ensureHeading(){
-    const root=document.querySelector(rootSelector);
-    if(!root)return null;
+  function removeLegacyHeading(){
+    document.getElementById('rona-payments-reconciliation-heading')?.remove();
+  }
+
+  function ensureTicker(){
+    removeLegacyHeading();
+    const frame=findTitleFrame();
+    if(!frame)return null;
     installStyle();
-    let heading=root.querySelector(':scope > #'+headingId);
-    if(!heading){
-      heading=document.createElement('header');
-      heading.id=headingId;
-      const title=document.createElement('h1');
-      title.textContent='Платежи';
-      const right=document.createElement('div');
-      right.className='rona-payments-reconciliation';
-      const label=document.createElement('span');
-      label.className='rona-payments-reconciliation-label';
-      label.textContent='Сверочная разница';
-      const value=document.createElement('strong');
-      value.className=valueClass;
-      value.textContent='—';
-      right.append(label,value);
-      heading.append(title,right);
-      root.prepend(heading);
+    const computed=getComputedStyle(frame);
+    if(computed.position==='static')frame.style.position='relative';
+    let ticker=frame.querySelector('#'+tickerId);
+    if(!ticker){
+      ticker=document.createElement('div');
+      ticker.id=tickerId;
+      ticker.setAttribute('aria-label','Сверочная разница');
+      const track=document.createElement('span');
+      track.className='rona-recon-ticker-track';
+      ticker.appendChild(track);
+      frame.appendChild(ticker);
     }
-    return heading;
+    return ticker;
   }
 
   function renderMetric(metric){
-    const heading=ensureHeading();
-    if(!heading)return;
+    const ticker=ensureTicker();
+    if(!ticker)return;
     const normalized=normalize(metric);
-    const value=heading.querySelector('.'+valueClass);
-    if(value&&value.textContent!==normalized.text)value.textContent=normalized.text;
-    if(heading.dataset.status!==normalized.status)heading.dataset.status=normalized.status;
-    if(heading.dataset.sourceId!==normalized.sourceId)heading.dataset.sourceId=normalized.sourceId;
-    if(heading.dataset.sourceVersion!==normalized.sourceVersion)heading.dataset.sourceVersion=normalized.sourceVersion;
+    const track=ticker.querySelector('.rona-recon-ticker-track');
+    if(track&&track.textContent!==normalized.text)track.textContent=normalized.text;
+    ticker.dataset.tone=normalized.tone;
+    ticker.dataset.status=normalized.status;
+    ticker.dataset.sourceId=normalized.sourceId;
+    ticker.dataset.sourceVersion=normalized.sourceVersion;
   }
 
   async function refresh(){
@@ -108,7 +115,7 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     const page=document.querySelector(pageSelector);
     if(page&&!window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__){
       const observer=new MutationObserver(()=>renderMetric(currentMetric()));
-      observer.observe(page,{childList:true});
+      observer.observe(page,{childList:true,subtree:false});
       window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__=observer;
     }
     renderMetric(currentMetric());
