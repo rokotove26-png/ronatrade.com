@@ -110,8 +110,8 @@ jobs:
         run: |
           set -euo pipefail
           node tests/online-rail-c12/candidate-index-regression.test.mjs | tee /tmp/c12-index-regression.log
-          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/index.ts > /tmp/c12-full-gateway-deno-check.log 2>&1
-          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs >> /tmp/c12-full-gateway-deno-check.log 2>&1
+          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/index.ts 2>&1 | tee /tmp/c12-full-gateway-deno-check.log
+          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs 2>&1 | tee -a /tmp/c12-full-gateway-deno-check.log
           echo "C12_FULL_GATEWAY_PACKAGE=PASS"
 
       - name: C1.2 migration reapply and drift proof
