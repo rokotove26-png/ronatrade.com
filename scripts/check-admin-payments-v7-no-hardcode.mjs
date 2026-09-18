@@ -3,6 +3,11 @@ import { readFile } from 'node:fs/promises';
 const files=[
   'scripts/admin-payments-reconciliation-difference-ui.mjs',
   'scripts/apply-payments-v8-production-runtime.mjs',
+  'functions/portal/payments-v8-ui.js',
+  'supabase/functions/_shared/admin-payments-v7/confirmed-funding-aggregate.mjs',
+  'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts',
+  'supabase/functions/rona-role-mail-bridge/index.ts',
+  'supabase/migrations/20260918005000_payments_final_automation_hardening.sql',
 ];
 const forbidden=[
   /\\bDEAL-20\\d\\d-\\d+\\b/g,
