@@ -2,7 +2,7 @@
   'use strict';
   if(location.pathname!=='/portal/client')return;
   const MARK='20260831-client-rail-canonical-hero-v1';
-  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:min(100%,1240px)!important font-size:28px!important';
+  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:100%!important max-width:1584px!important square-map-aligned font-size:28px!important';
   if(window.__RONA_CLIENT_RAIL_CANONICAL_HERO__===MARK)return;
   window.__RONA_CLIENT_RAIL_CANONICAL_HERO__=MARK;
 
@@ -114,24 +114,34 @@
     style.id='rona-client-rail-canonical-hero-v1-style';
     style.textContent=`
       ${HOST} .rona-rail-v4-root{
-        width:min(100%,var(--rona-rail-canon-width,1240px))!important;
-        max-width:var(--rona-rail-canon-width,1240px)!important;
+        width:100%!important;
+        max-width:1584px!important;
         margin-left:auto!important;
         margin-right:auto!important;
       }
       ${HOST} .rona-rail-v4-work{
-        grid-template-columns:minmax(320px,360px) minmax(0,1fr)!important;
-        gap:16px!important;
+        grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important;
+        gap:18px!important;
+        align-items:stretch!important;
       }
-      ${HOST} .rona-rail-v4-left{min-width:0!important;max-width:360px!important}
-      ${HOST} .rona-rail-v4-work > *{min-width:0!important}
+      ${HOST} .rona-rail-v4-left{
+        display:grid!important;
+        grid-template-rows:1fr 1fr!important;
+        gap:16px!important;
+        min-width:0!important;
+        max-width:none!important;
+        height:100%!important;
+        align-self:stretch!important;
+      }
+      ${HOST} .rona-rail-v4-work > *{min-width:0!important;height:100%!important}
       ${HOST} .rona-rail-v4-hero{
         display:flex!important;
         align-items:flex-end!important;
         justify-content:space-between!important;
         gap:16px!important;
         padding:var(--rona-rail-canon-pt,18px) var(--rona-rail-canon-pr,20px) var(--rona-rail-canon-pb,18px) var(--rona-rail-canon-pl,20px)!important;
-        margin:0 0 14px!important;
+        margin:0 0 18px!important;
+        min-height:118px!important;
         border:1px solid rgba(113,169,194,.18)!important;
         border-radius:var(--rona-rail-canon-radius,16px)!important;
         background:linear-gradient(135deg,rgba(10,31,43,.94),rgba(6,18,27,.9))!important;
@@ -165,7 +175,7 @@
       ${HOST} .rona-client-rail-hero-btn{padding:7px 11px!important;cursor:pointer!important}
       ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.9)!important;color:#fff!important}
       ${HOST} .rona-client-rail-hero-btn:disabled{opacity:.55!important;cursor:default!important}
-      @media(max-width:1100px){${HOST} .rona-rail-v4-root{width:100%!important;max-width:100%!important}${HOST} .rona-rail-v4-work{grid-template-columns:1fr!important}${HOST} .rona-rail-v4-left{max-width:none!important}}
+      @media(max-width:1100px){${HOST} .rona-rail-v4-root{width:100%!important;max-width:100%!important}${HOST} .rona-rail-v4-work{grid-template-columns:1fr!important;align-items:stretch!important}${HOST} .rona-rail-v4-left{grid-template-rows:auto auto!important;max-width:none!important}}
       @media(max-width:720px){${HOST} .rona-rail-v4-hero{align-items:flex-start!important;flex-direction:column!important}${HOST} .rona-client-rail-hero-actions{justify-content:flex-start!important}}
     `;
     document.head.appendChild(style);
