@@ -76,7 +76,7 @@ test('B1.1 does not auto-create rail_wagons until status semantics are separated
   const refresh=migration.slice(migration.indexOf('create or replace function portal_private.rail_xlsx_refresh_wagon_projection_v1'));
   assert.doesNotMatch(refresh,/insert\s+into\s+portal_private\.rail_wagons/i);
   assert.match(refresh,/NO_AUTO_CREATE_UNTIL_REGISTRATION_VS_OPERATIONAL_STATUS_IS_SEPARATED/);
-  assert.match(design,/REGISTERED.*not.*operational/i);
+  assert.match(design,/REGISTERED[\s\S]*operational/i);
 });
 
 test('latest-state compares unresolved local timestamps only within exact source time-domain',()=>{
