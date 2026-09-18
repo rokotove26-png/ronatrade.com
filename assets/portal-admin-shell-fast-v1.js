@@ -181,3 +181,53 @@ if(!window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__){
 })();
 window.addEventListener('pageshow',event=>{const nav=performance.getEntriesByType?.('navigation')?.[0];if(event.persisted||nav?.type==='back_forward')probeSessionOnce()});
 })();
+
+;(()=>{'use strict';
+if(location.pathname!=='/portal/admin')return;
+if(window.__RONA_PAYMENTS_RECONCILIATION_STATIC_SINGLETON_GUARD__==='PAYMENTS_RECONCILIATION_STATIC_SINGLETON_GUARD_V1')return;
+window.__RONA_PAYMENTS_RECONCILIATION_STATIC_SINGLETON_GUARD__='PAYMENTS_RECONCILIATION_STATIC_SINGLETON_GUARD_V1';
+const pageId='page-payments',tickerId='rona-payments-reconciliation-title-ticker',styleId='ronaPaymentsReconciliationSingletonGuardV1';
+let observedPage=null,observer=null;
+function isPaymentsTitle(el){return String(el?.textContent||'').trim()==='Платежи'}
+function titleFrame(page){
+  if(!page)return null;
+  const heroes=Array.from(page.querySelectorAll('.rona-visual-hero'));
+  const hero=heroes.find(x=>Array.from(x.querySelectorAll('h1,h2')).some(isPaymentsTitle));
+  if(hero)return hero;
+  const title=Array.from(page.querySelectorAll('h1,h2')).find(isPaymentsTitle);
+  return title?.closest('.page-header,.page-head,.rona-owner-card,header,section')||title?.parentElement||null;
+}
+function installStyle(){
+  if(document.getElementById(styleId))return;
+  const st=document.createElement('style');st.id=styleId;
+  st.textContent='#'+pageId+' [id="'+tickerId+'"]{display:none!important}#'+pageId+' .rona-visual-hero>[id="'+tickerId+'"]{display:flex!important}';
+  document.head.appendChild(st);
+}
+function cleanup(){
+  const page=document.getElementById(pageId);if(!page)return;
+  const frame=titleFrame(page);
+  const nodes=Array.from(page.querySelectorAll('[id="'+tickerId+'"]'));
+  let keeper=null;
+  for(const node of nodes){
+    const valid=!keeper&&frame&&node.parentElement===frame;
+    if(valid){keeper=node;continue}
+    node.remove();
+  }
+}
+function bind(){
+  installStyle();
+  const page=document.getElementById(pageId);
+  if(page!==observedPage){
+    observer?.disconnect();observer=null;observedPage=page||null;
+    if(page){
+      observer=new MutationObserver(()=>queueMicrotask(cleanup));
+      observer.observe(page,{childList:true,subtree:false});
+    }
+  }
+  cleanup();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
+document.addEventListener('click',e=>{if(e.target?.closest?.('[data-page="payments"],#nav button[data-page="payments"]'))setTimeout(bind,0)},true);
+window.addEventListener('rona:finance-sync',cleanup);
+window.addEventListener('rona:admin-authority-refresh',cleanup);
+})();
