@@ -1,0 +1,129 @@
+{
+  "fixtureType": "SOURCE_CONFIRMED_REFERENCE_FACTS_NOT_RAW_XLSX",
+  "fileName": "Рона Трейд (5).xlsx",
+  "sha256": "bc7429db2fbc411cb43607c54f87b824d4c8ad928353914c6e94c935870d5cc5",
+  "sheetName": "дисл",
+  "rawWorkbookBytesAvailableToC1Runner": false,
+  "exactExcelRowNumbersAvailable": false,
+  "dataRowCount": 9,
+  "uniqueWagonCount": 9,
+  "destination": {
+    "name": "Киргили",
+    "esr": "742705"
+  },
+  "initialResolution": "TO_VERIFY",
+  "sourceTimezoneStatus": "UNRESOLVED",
+  "parsedEventAt": null,
+  "rows": [
+    {
+      "wagonNumber": "58214776",
+      "operation": "V0057",
+      "rawTimestamp": "1809260451",
+      "eventAtLocal": "2026-09-18T04:51:00",
+      "stationName": "Анисовка",
+      "stationCode": "625501",
+      "dispatchRaw": 0,
+      "originCodeRaw": 0,
+      "originNameRaw": 0
+    },
+    {
+      "wagonNumber": "58253568",
+      "operation": "V0057",
+      "rawTimestamp": "1809260451",
+      "eventAtLocal": "2026-09-18T04:51:00",
+      "stationName": "Анисовка",
+      "stationCode": "625501",
+      "dispatchRaw": 0,
+      "originCodeRaw": 0,
+      "originNameRaw": 0
+    },
+    {
+      "wagonNumber": "76626902",
+      "operation": "V0057",
+      "rawTimestamp": "1809260451",
+      "eventAtLocal": "2026-09-18T04:51:00",
+      "stationName": "Анисовка",
+      "stationCode": "625501",
+      "dispatchRaw": 0,
+      "originCodeRaw": 0,
+      "originNameRaw": 0
+    },
+    {
+      "wagonNumber": "78249349",
+      "operation": "V0057",
+      "rawTimestamp": "1809260451",
+      "eventAtLocal": "2026-09-18T04:51:00",
+      "stationName": "Анисовка",
+      "stationCode": "625501",
+      "dispatchRaw": 0,
+      "originCodeRaw": 0,
+      "originNameRaw": 0
+    },
+    {
+      "wagonNumber": "50810837",
+      "operation": "P0005",
+      "rawTimestamp": "1709262012",
+      "eventAtLocal": "2026-09-17T20:12:00",
+      "stationName": "Могилев I",
+      "stationCode": "156505",
+      "dispatchRaw": "40015330",
+      "originCodeRaw": "151408",
+      "originNameRaw": "Барбаров"
+    },
+    {
+      "wagonNumber": "50821149",
+      "operation": "P0005",
+      "rawTimestamp": "1709262012",
+      "eventAtLocal": "2026-09-17T20:12:00",
+      "stationName": "Могилев I",
+      "stationCode": "156505",
+      "dispatchRaw": "40015332",
+      "originCodeRaw": "151408",
+      "originNameRaw": "Барбаров"
+    },
+    {
+      "wagonNumber": "50853928",
+      "operation": "P0005",
+      "rawTimestamp": "1709262012",
+      "eventAtLocal": "2026-09-17T20:12:00",
+      "stationName": "Могилев I",
+      "stationCode": "156505",
+      "dispatchRaw": "40015331",
+      "originCodeRaw": "151408",
+      "originNameRaw": "Барбаров"
+    },
+    {
+      "wagonNumber": "58170051",
+      "operation": "P0005",
+      "rawTimestamp": "1709262012",
+      "eventAtLocal": "2026-09-17T20:12:00",
+      "stationName": "Могилев I",
+      "stationCode": "156505",
+      "dispatchRaw": "40015333",
+      "originCodeRaw": "151408",
+      "originNameRaw": "Барбаров"
+    },
+    {
+      "wagonNumber": "58227752",
+      "operation": "P0005",
+      "rawTimestamp": "1709262012",
+      "eventAtLocal": "2026-09-17T20:12:00",
+      "stationName": "Могилев I",
+      "stationCode": "156505",
+      "dispatchRaw": "40015334",
+      "originCodeRaw": "151408",
+      "originNameRaw": "Барбаров"
+    }
+  ],
+  "otherConfirmedFacts": {
+    "cargoCode": "226074",
+    "rawWeightTotal": 308,
+    "rawWeightUnit": "NOT_SPECIFIED_IN_XLSX",
+    "operationCodesAreRawOnly": true,
+    "geoPresent": false,
+    "candidateDealId": "DEAL-2026-004",
+    "candidateGu12": "1308903120",
+    "candidateRailDocumentId": "RONA-S002-IN-2026-002"
+  },
+  "c1Limiter": "This fixture is derived from the prior read-only XLSX dry-run. It is not the original workbook bytes and cannot prove the file SHA or exact Excel row numbers."
+}
