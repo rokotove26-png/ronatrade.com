@@ -1,18 +1,18 @@
 import paymentsMoneyDisplayContract from './main-ui/payments-money-display-contract.js';
 
-const BUILD='payments-v8-admin-ui-v5-native-debit-summary-20260917';
+const BUILD='payments-v8-data-bridge-v6-single-visual-owner-20260918';
 
 const SCRIPT=paymentsMoneyDisplayContract+String.raw`(()=>{'use strict';
 if(window.__RONA_PAYMENTS_V8_UI_INSTALLED__)return;
 window.__RONA_PAYMENTS_V8_UI_INSTALLED__=true;
 const ENDPOINT='/portal/api/v1/admin/bootstrap';
 const OWNER='payments-v8-bootstrap-v1';
+const VISUAL_OWNER='admin-payments-v7-native-v2';
 const PASSPORT_MODAL_ID='ronaPaymentsV8PassportModal';
 const LEGACY_PASSPORT_MODAL_ID='ronaPaymentsV7PassportDesignerModal';
 let projection=null;
 let loading=null;
-let rendering=false;
-let pageObserver=null;
+let publishing=false;
 let retryTimer=null;
 let refreshTimer=null;
 const REFRESH_MS=30000;
@@ -63,21 +63,36 @@ function disableLegacyPassportRuntime(){const handler=document.__ronaPaymentsV7P
 function openCanonicalPassport(dealId){const id=text(dealId);if(!id)return false;if(projection)return openPassport(id);load().then(p=>{if(p)openPassport(id)});return true}
 function openCanonicalPassportForLegacyTrigger(trigger){const dealId=legacyPassportDealId(trigger);return dealId?openCanonicalPassport(dealId):false}
 
-function render(){
+function bridgeProjection(reason='manual',changed=true){
   if(!projection||projection.contract!=='ADMIN_PAYMENTS_V7')return false;
-  const page=document.getElementById('page-payments');if(!page)return false;
-  const key=versionKey(),existing=page.querySelector(':scope > #ronaPaymentsV8Root');if(existing&&existing.dataset.versionKey===key)return true;
-  rendering=true;
-  try{
-    const root=node('div',{id:'ronaPaymentsV8Root',class:'rona-owner-page-content',dataset:{ownerPage:'payments',ronaPaymentsOwner:OWNER,versionKey:key,moneyDisplayContract:globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.contract||'missing'}});
-    const grid=node('div',{class:'rona-owner-grid rona-fin-kpi-grid'},kpi('Получено','verified_received','received'),kpi('Ожидается сейчас','due_now','expected'),kpi('Условно','future_conditional','expected'),kpi('Потрачено','actual_spend','paid'),kpi('Остаток финансирования','remaining_execution','received'));
-    const summary=node('section',{class:'rona-owner-card'},node('h2',{text:'Финансовая картина по сделкам'}),table());
-    const meta=node('div',{class:'rona-owner-muted',text:'Источник: каноническая V8 Finance authority projection · '+key});
-    root.append(grid,summary,meta);
-    page.replaceChildren(root);
-    window.__RONA_PAYMENTS_V8_UI__={status:'READY',owner:OWNER,sourceAsOf:projection.source_as_of||null,dealCount:asArray(projection.deals).length,moneyDisplayContract:globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.contract||null,passportModal:'CANONICAL_V8',legacyPassportDisabled:true,renderedAt:new Date().toISOString()};
-    return true;
-  }finally{rendering=false;observePage()}
+  const current=window.__RONA_OWNER_AI_SYNC_SNAPSHOT__;
+  try{window.__RONA_OWNER_AI_SYNC_SNAPSHOT__={...(current&&typeof current==='object'?current:{}),paymentsV7Projection:projection}}catch(_e){return false}
+  window.__RONA_PAYMENTS_V8_PROJECTION__=projection;
+  const page=document.getElementById('page-payments');
+  if(page){
+    page.dataset.ronaPaymentsV8DataOwner=OWNER;
+    page.dataset.ronaPaymentsVisualOwner=VISUAL_OWNER;
+    page.querySelector(':scope > #ronaPaymentsV8Root')?.remove();
+  }
+  window.__RONA_PAYMENTS_V8_UI__={
+    status:'READY',
+    owner:OWNER,
+    mode:'DATA_AND_PASSPORT_BRIDGE',
+    visualOwner:VISUAL_OWNER,
+    sourceAsOf:projection.source_as_of||null,
+    dealCount:asArray(projection.deals).length,
+    moneyDisplayContract:globalThis.__RONA_PAYMENTS_MONEY_DISPLAY__?.contract||null,
+    passportModal:'CANONICAL_V8',
+    legacyPassportDisabled:true,
+    lastBridgeReason:reason,
+    renderedAt:new Date().toISOString()
+  };
+  if(changed&&!publishing){
+    publishing=true;
+    try{window.dispatchEvent(new CustomEvent('rona:finance-sync',{detail:{source:OWNER,projectionKey:versionKey(),reason}}))}
+    finally{publishing=false}
+  }
+  return true;
 }
 function extract(payload){const direct=payload?.data?.paymentsV7Projection||payload?.paymentsV7Projection||null;if(direct?.contract==='ADMIN_PAYMENTS_V7'&&Array.isArray(direct.deals))return direct;return null}
 async function load(reason='manual'){
@@ -89,8 +104,9 @@ async function load(reason='manual'){
     const next=extract(j);
     if(!next)throw new Error('PAYMENTS_V8_PROJECTION_MISSING');
     const previous=projection,previousKey=versionKeyOf(previous),nextKey=versionKeyOf(next),changed=!previous||previousKey!==nextKey;
-    if(changed){projection=next;window.__RONA_PAYMENTS_V8_PROJECTION__=next;disableLegacyPassportRuntime();render()}
-    else if(previous)window.__RONA_PAYMENTS_V8_PROJECTION__=previous;
+    projection=changed?next:(previous||next);
+    disableLegacyPassportRuntime();
+    bridgeProjection(reason,changed);
     window.__RONA_PAYMENTS_V8_UI_ERROR__=null;
     window.__RONA_PAYMENTS_V8_LAST_REFRESH__={reason,changed,versionKey:changed?nextKey:previousKey,at:new Date().toISOString()};
     return projection;
@@ -105,18 +121,17 @@ async function load(reason='manual'){
 function paymentsOpen(){const page=document.getElementById('page-payments');if(!page)return false;if(page.hidden||page.getAttribute('aria-hidden')==='true')return false;try{return getComputedStyle(page).display!=='none'&&getComputedStyle(page).visibility!=='hidden'}catch{return true}}
 function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTimer=null;if(!projection||paymentsOpen())load('retry')},3000)}
 function refreshIfOpen(reason){if(paymentsOpen())return load(reason);return Promise.resolve(projection)}
-function observePage(){const page=document.getElementById('page-payments');if(!page||pageObserver)return;pageObserver=new MutationObserver(()=>{if(rendering||!projection)return;const root=page.querySelector(':scope > #ronaPaymentsV8Root');if(!root||root.dataset.versionKey!==versionKey())queueMicrotask(render)});pageObserver.observe(page,{childList:true})}
-function scheduleRefresh(reason){setTimeout(()=>{load(reason);observePage()},0)}
+function scheduleRefresh(reason){setTimeout(()=>load(reason),0)}
 window.__RONA_PAYMENTS_V8_OPEN_PASSPORT__=openCanonicalPassport;
 disableLegacyPassportRuntime();
 document.addEventListener('click',event=>{const legacy=event.target?.closest?.('.rona-payments-v7-passport-trigger,.rona-payments-v7-passport > summary');if(legacy){event.preventDefault();event.stopImmediatePropagation();event.stopPropagation();openCanonicalPassportForLegacyTrigger(legacy);return}const passport=event.target?.closest?.('[data-payments-v8-passport-deal]');if(passport){event.preventDefault();event.stopImmediatePropagation();openCanonicalPassport(passport.dataset.paymentsV8PassportDeal);return}if(event.target?.closest?.('[data-payments-v8-passport-close]')||event.target?.id===PASSPORT_MODAL_ID){event.preventDefault();closePassport();return}const b=event.target?.closest?.('#nav button[data-page="payments"],[data-page="payments"]');if(b)scheduleRefresh('navigation')},true);
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.getElementById(PASSPORT_MODAL_ID)){event.preventDefault();event.stopImmediatePropagation();closePassport()}},true);
 window.addEventListener('rona:admin-app-ready',()=>scheduleRefresh('admin-app-ready'));
-window.addEventListener('rona:finance-sync',()=>refreshIfOpen('finance-sync'));
+window.addEventListener('rona:finance-sync',event=>{if(publishing||event?.detail?.source===OWNER)return;refreshIfOpen('finance-sync')});
 window.addEventListener('focus',()=>refreshIfOpen('focus'));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfOpen('visibilitychange')});
 refreshTimer=setInterval(()=>refreshIfOpen('interval'),REFRESH_MS);
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{disableLegacyPassportRuntime();load('initial');observePage()},{once:true});else{disableLegacyPassportRuntime();load('initial');observePage()}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{disableLegacyPassportRuntime();load('initial')},{once:true});else{disableLegacyPassportRuntime();load('initial')}
 
 })();`;
 
@@ -127,7 +142,8 @@ export async function onRequest(){
     'pragma':'no-cache',
     'expires':'0',
     'x-content-type-options':'nosniff',
-    'x-rona-payments-ui':'v8-bootstrap-v1',
+    'x-rona-payments-ui':'v8-bootstrap-bridge-v2',
+    'x-rona-payments-visual-owner':'admin-payments-v7-native-v2',
     'x-rona-payments-money-display':'max-1-v1',
     'x-rona-payments-passport-routing':'canonical-v8-takeover-v3-native-total',
     'x-rona-ui-build':BUILD,
