@@ -115,9 +115,10 @@ jobs:
           const requiredCash=[
             "20260918-issue635-transient-recovery-v1",
             "issue639-v1",
+            "FINANCE_CASH_PROJECTION_CACHE_V1",
             "var CHECK_MS=60000",
             "SOURCE_SIGNATURE_CHANGE_ONLY_TRANSIENT_RECOVERY",
-            "INITIAL_RETRY_DELAYS=[2000,5000,15000,30000]",
+            "INITIAL_RETRY_DELAYS=[1000,2000,4000,8000]",
             "Временная задержка Finance, повторяем...",
             "ownerSignature===lastOwnerFinanceSignature",
             "runtime.unchangedCount++",

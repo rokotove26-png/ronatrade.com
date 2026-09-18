@@ -3,10 +3,11 @@ const SCRIPT=String.raw`(function(){
 if(window.__RONA_CASH_R2_UI__)return;
 window.__RONA_CASH_R2_UI__='20260918-issue635-transient-recovery-v1';
 window.__RONA_CASH_AUTH_CONVERGENCE__='issue639-v1';
+window.__RONA_CASH_SOURCE_CACHE__='FINANCE_CASH_PROJECTION_CACHE_V1';
 var ENDPOINT='/portal/owner-api?path=/admin/cash-source';
 var MODEL='FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE';
 var SOURCE='AI-FINANCE/BANK_STATEMENT';
-var CHECK_MS=60000,REQUEST_TIMEOUT_MS=20000,INITIAL_RETRY_DELAYS=[2000,5000,15000,30000],loadSeq=0,bounds=null,current=null,currentSignature='',lastOwnerFinanceSignature='',lastCheckAt=0,checkBusy=false,pollTimer=null,initialRetryTimer=null,runtime={checkCount:0,unchangedCount:0,applyCount:0,loadingCount:0,errorCount:0,skippedBusy:0,initialRetryCount:0,initialRetryScheduled:0,degradedCount:0,pollTimerCount:0,versionCheckCount:0,versionUnchangedCount:0,retryTimerActive:false,lastReason:null,lastCheckAt:null,lastAppliedAt:null,lastSignature:null,lastError:null};
+var CHECK_MS=60000,REQUEST_TIMEOUT_MS=5000,INITIAL_RETRY_DELAYS=[1000,2000,4000,8000],loadSeq=0,bounds=null,current=null,currentSignature='',lastOwnerFinanceSignature='',lastCheckAt=0,checkBusy=false,pollTimer=null,initialRetryTimer=null,runtime={checkCount:0,unchangedCount:0,applyCount:0,loadingCount:0,errorCount:0,skippedBusy:0,initialRetryCount:0,initialRetryScheduled:0,degradedCount:0,pollTimerCount:0,versionCheckCount:0,versionUnchangedCount:0,retryTimerActive:false,lastReason:null,lastCheckAt:null,lastAppliedAt:null,lastSignature:null,lastError:null};
 function q(s,r){return(r||document).querySelector(s)}
 function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined&&text!==null)n.textContent=String(text);return n}
 function arr(v){return Array.isArray(v)?v:[]}
