@@ -35,10 +35,6 @@ with authority as (
 ),
 x as (
   select o.*,
-    (select p.counterparty_role from portal_private.payments p
-      where p.payment_id=o.finance_payment_id and p.authority_state::text='CONFIRMED'
-        and p.lifecycle_state::text='ACTIVE' and p.bank_fact_status::text='BANK_CONFIRMED'
-      order by p.source_timestamp desc nulls last limit 1) as exact_payment_role,
     (upper(btrim(coalesce(o.purpose,''))) ~ '^(СТОРНО[[:space:]]+)?КОМИССИЯ' or o.finance_payment_kind='BANK_FEE') as bank_fee,
     (o.finance_payment_id='PAYEV-2026-000001' or (
       o.operation_type='EXTERNAL_INFLOW' and upper(coalesce(o.purpose,'')) like '%01/PT-01-1926%'
@@ -78,10 +74,23 @@ select x.*,
   case
     when x.bank_fee then 'Банк'
     when x.fargona then 'CLIENT'
-    when x.sgtrans then coalesce(x.exact_payment_role,'ЖД / вагонный оператор')
-    when x.orient then coalesce(x.exact_payment_role,'Логистический контрагент')
+    when x.sgtrans then coalesce((
+      select p.counterparty_role from portal_private.payments p
+      where p.payment_id='OUT-2026-004-SGTRANS' and p.authority_state::text='CONFIRMED'
+        and p.lifecycle_state::text='ACTIVE' and p.bank_fact_status::text='BANK_CONFIRMED'
+      order by p.source_timestamp desc nulls last limit 1),'ЖД / вагонный оператор')
+    when x.orient then coalesce((
+      select p.counterparty_role from portal_private.payments p
+      where p.payment_id='OUT-2026-004-ORIENT' and p.authority_state::text='CONFIRMED'
+        and p.lifecycle_state::text='ACTIVE' and p.bank_fact_status::text='BANK_CONFIRMED'
+      order by p.source_timestamp desc nulls last limit 1),'Логистический контрагент')
     when x.bnk then 'Поставщик'
-    else x.exact_payment_role
+    when x.finance_payment_id is not null then (
+      select p.counterparty_role from portal_private.payments p
+      where p.payment_id=x.finance_payment_id and p.authority_state::text='CONFIRMED'
+        and p.lifecycle_state::text='ACTIVE' and p.bank_fact_status::text='BANK_CONFIRMED'
+      order by p.source_timestamp desc nulls last limit 1)
+    else null
   end as counterparty_role,
   x.source_counterparty as raw_source_counterparty,
   x.bank_name as bank_intermediary_name,
