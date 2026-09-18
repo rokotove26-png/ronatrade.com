@@ -40,6 +40,9 @@ test('Cash UI consumes only canonical Finance source projection contract',()=>{
   assert.match(ui,/source_lock/);
   assert.match(ui,/max_daily_balance_difference/);
   assert.match(ui,/counterparty/);
+  assert.ok(ui.includes('canonical_counterparty_id'));
+  assert.ok(ui.includes('canonical_counterparty_name'));
+  assert.ok(ui.includes('Сторно / возвраты'));
   assert.match(ui,/Последний день/);
   assert.match(ui,/Весь период/);
   assert.doesNotMatch(ui,/cashProjection/);
