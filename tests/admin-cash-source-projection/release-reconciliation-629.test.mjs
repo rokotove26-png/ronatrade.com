@@ -7,6 +7,7 @@ const mustExist=[
   'supabase/migrations/20260918132500_finance_admin_cash_cumulative_ledger_v2.sql',
   'supabase/migrations/20260918171000_finance_cash_counterparty_identity_v1.sql',
   'supabase/migrations/20260918184500_finance_cash_stable_entity_identity_hold_629.sql',
+  'supabase/migrations/20260918195000_finance_cash_reversal_effective_payment_v1.sql',
   'supabase/functions/rona-accounting-statement-intake/index.ts',
   'supabase/functions/rona-accounting-mail-bridge/index.ts',
   'supabase/functions/rona-role-mail-bridge/index.ts',
@@ -14,7 +15,9 @@ const mustExist=[
   'tests/admin-cash-source-projection/cumulative-ledger-v2.test.mjs',
   'tests/admin-cash-source-projection/counterparty-identity-v1.test.mjs',
   'tests/admin-cash-source-projection/hold-629-stable-entity-id.test.mjs',
-  'tests/admin-cash-source-projection/hold-629-production-regression.sql'
+  'tests/admin-cash-source-projection/hold-629-production-regression.sql',
+  'tests/admin-cash-source-projection/reversal-effective-payment-v1.test.mjs',
+  'tests/admin-cash-source-projection/reversal-effective-payment-production-regression.sql'
 ];
 
 test('release baseline contains the selected Finance Cash artifacts only by explicit path',()=>{
@@ -43,8 +46,12 @@ test('reconciled migrations preserve source-lock and Admin RPC boundaries',()=>{
   assert.doesNotMatch(stable,/then 'PAYMENT:'\|\|x\.finance_payment_id/);
 });
 
-test('repository reconciliation does not embed effective-payment semantics before Finance handoff',()=>{
+test('Admin consumes the accepted Finance effective-payment contract without frontend netting',()=>{
   const ui=fs.readFileSync('functions/portal/cash-r2-ui.js','utf8');
-  assert.ok(ui.includes("summaryMap(p,'external_payment')"));
-  assert.doesNotMatch(ui,/effective_external_payment|effective_payment_amount|reversal_match_id/);
+  assert.ok(ui.includes("p.effectivePaymentVersion==='FINANCE_EFFECTIVE_PAYMENT_V1'"));
+  assert.ok(ui.includes("paid=summaryMap(p,'effective_external_payment')"));
+  assert.ok(ui.includes("groupCounterparties(payments,'effective_external_payment_amount')"));
+  assert.ok(ui.includes("x.raw_operation_type==='EXTERNAL_PAYMENT'"));
+  assert.ok(ui.includes("num(x.effective_external_payment_amount)>0"));
+  assert.doesNotMatch(ui,/effective_external_payment_amount\s*=|reversed_amount\s*=|gross_amount\s*-/);
 });
