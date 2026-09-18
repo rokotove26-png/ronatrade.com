@@ -24,6 +24,7 @@ on:
       - 'functions/portal/admin-approved-shell-v455-ui.js'
       - 'tests/admin-runtime-stable-refresh-635.test.mjs'
       - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
+      - 'scripts/qa-admin-cash-transient-recovery-635-browser.mjs'
       - 'scripts/qa-admin-cash-effective-grouping-629-browser.mjs'
       - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
 
