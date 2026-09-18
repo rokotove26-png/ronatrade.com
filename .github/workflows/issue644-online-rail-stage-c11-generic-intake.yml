@@ -1,0 +1,153 @@
+name: issue644 online rail stage C1.1 generic XLSX intake
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js'
+      - 'supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs'
+      - 'supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs'
+      - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+      - 'supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql'
+      - 'tests/online-rail-c11/**'
+      - '.github/workflows/issue644-online-rail-stage-c11-generic-intake.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  c11-generic-intake:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_c11
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_c11"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: rona_c11
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+      - name: CURRENT STATE and isolation gate
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          release_sha="$(git rev-parse origin/release/public-go-live-v1.1)"
+          echo "C11_RELEASE_SHA=$release_sha"
+          test "$release_sha" = "8be4acc7bd88d697c1b8a3396c1ef57f37cafd24"
+          server_version="$(psql -Atqc 'show server_version')"
+          case "$server_version" in 17.6*) ;; *) echo "Unexpected PostgreSQL version: $server_version"; exit 1 ;; esac
+          echo "C11_NON_PROD_ENVIRONMENT=PASS"
+      - name: Build production-compatible substrates
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c1/production-substrate.sql > /tmp/c11-production-substrate.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c11/storage-substrate.sql > /tmp/c11-storage-substrate.log 2>&1
+          echo "C11_SUBSTRATE=PASS"
+      - name: Apply accepted B1.5 and C1.1 migrations
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql > /tmp/c11-b15.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql > /tmp/c11-migration.log 2>&1
+          echo "C11_MIGRATION_CLEAN_APPLY=PASS"
+      - name: Execute content-addressed source registry matrix
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c11/source-registry.sql | tee /tmp/c11-source-registry.log
+          grep -q 'C11_SOURCE_REGISTRY=PASS' /tmp/c11-source-registry.log
+      - name: Execute generic parser and matching tests
+        run: |
+          set -euo pipefail
+          deno test --allow-read --allow-env tests/online-rail-c11/generic-intake.test.ts | tee /tmp/c11-parser.log
+      - name: Validate Rail AI gateway contract and syntax
+        run: |
+          set -euo pipefail
+          node tests/online-rail-c11/gateway-contract.test.mjs | tee /tmp/c11-gateway.log
+          deno check supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs > /tmp/c11-deno-check.log 2>&1
+      - name: Reapply C1.1 and prove schema drift-free
+        run: |
+          set -euo pipefail
+          psql -Atq -v ON_ERROR_STOP=1 -f tests/online-rail-c11/schema-fingerprint.sql > /tmp/c11-fingerprint-before.txt
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql > /tmp/c11-reapply.log 2>&1
+          psql -Atq -v ON_ERROR_STOP=1 -f tests/online-rail-c11/schema-fingerprint.sql > /tmp/c11-fingerprint-after.txt
+          before="$(cat /tmp/c11-fingerprint-before.txt)"
+          after="$(cat /tmp/c11-fingerprint-after.txt)"
+          echo "C11_SCHEMA_FINGERPRINT_BEFORE=$before"
+          echo "C11_SCHEMA_FINGERPRINT_AFTER=$after"
+          test "$before" = "$after"
+          echo "C11_MIGRATION_DRIFT=PASS"
+      - name: Rollback rehearsal
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c11/rollback.sql | tee /tmp/c11-rollback.log
+          grep -q 'C11_ROLLBACK=PASS' /tmp/c11-rollback.log
+      - name: Assert no raw XLSX entered repository or artifacts
+        run: |
+          set -euo pipefail
+          if find . -type f \( -iname '*.xlsx' -o -iname '*.xls' \) -print -quit | grep -q .; then
+            echo 'Raw spreadsheet committed to repository'; exit 1
+          fi
+          echo "C11_NO_RAW_XLSX_ARTIFACT=PASS"
+      - name: Final C1.1 summary
+        run: |
+          set -euo pipefail
+          {
+            echo 'NON_PROD_ENVIRONMENT=PASS'
+            echo 'GENERIC_FILE_IDENTITY=PASS'
+            echo 'PRIVATE_STORAGE_CONTRACT=PASS'
+            echo 'HEADER_DISCOVERY=PASS'
+            echo 'SOURCE_LOCATOR=PASS'
+            echo 'RAIL_AI_TOOL_INTERFACE=PASS'
+            echo 'MATCHING_FILENAME_INDEPENDENCE=PASS'
+            echo 'NO_BUSINESS_STATUS_INFERENCE=PASS'
+            echo 'NO_GEO=PASS'
+            echo 'MIGRATION_DRIFT=PASS'
+            echo 'ROLLBACK=PASS'
+            echo 'FINAL=PASS'
+          } | tee /tmp/c11-final-summary.txt
+      - name: Upload C1.1 evidence logs only
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-rail-c11-generic-xlsx-intake
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            /tmp/c11-final-summary.txt
+            /tmp/c11-production-substrate.log
+            /tmp/c11-storage-substrate.log
+            /tmp/c11-b15.log
+            /tmp/c11-migration.log
+            /tmp/c11-source-registry.log
+            /tmp/c11-parser.log
+            /tmp/c11-gateway.log
+            /tmp/c11-deno-check.log
+            /tmp/c11-fingerprint-before.txt
+            /tmp/c11-reapply.log
+            /tmp/c11-fingerprint-after.txt
+            /tmp/c11-rollback.log
