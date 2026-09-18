@@ -1,0 +1,64 @@
+name: issue635 production acceptance
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: read
+  id-token: write
+
+jobs:
+  production-acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Verify QA-only scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check scripts/qa-issue635-production-acceptance.mjs
+          test -f supabase/functions/rona-issue635-production-acceptance/index.ts
+          test -f supabase/functions/rona-issue635-production-acceptance/deno.json
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Run authenticated non-mutating production proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-issue635-production-acceptance.mjs 2>&1 | tee issue635-production-acceptance.log
+          grep -Fq 'ISSUE635_PRODUCTION_3MIN_STABLE=PASS' issue635-production-acceptance.log
+          grep -Fq 'ISSUE635_NO_30S_REPAINT=PASS' issue635-production-acceptance.log
+          grep -Fq 'ISSUE635_UNCHANGED_60S_ZERO_DOM=PASS' issue635-production-acceptance.log
+          grep -Fq 'ISSUE635_BACKGROUND_PERSISTENT=PASS' issue635-production-acceptance.log
+          grep -Fq 'ISSUE635_HOME_PAYMENTS_DEALS_ACCESS=PASS' issue635-production-acceptance.log
+          grep -Fq 'ISSUE635_QA_SESSION_CLEANUP=PASS' issue635-production-acceptance.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: issue635-production-acceptance-${{ github.run_id }}
+          path: |
+            issue635-production-acceptance.log
+            issue635-production-proof/
+          if-no-files-found: warn
+          retention-days: 14
