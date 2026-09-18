@@ -47,7 +47,7 @@ assert(runtime.includes("if(r.status===401||r.status===403)"),'Only explicit aut
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='DEGRADED_BACKEND'"),'Transient backend degradation state missing');
 for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui','/portal/prices-current-ui','/portal/analytics-v2-ui','/portal/rail-current-v81-maplibre-ui','/portal/rail-safe-fallback-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!runtime.includes(forbidden),`Competing Admin module returned: ${forbidden}`);
-assert(runtime.includes('async function loadRail()')&&runtime.includes("root.dataset.ronaRailOwner='safe-fallback-direct-child-v1'"),'Rail primary/fallback recovery missing');
+assert(runtime.includes('async function loadRail()')&&runtime.includes("root.dataset.ronaRailOwner='safe-fallback-direct-child-v2'")&&runtime.includes("window.__RONA_RAIL_CURRENT_REPAIR__"),'Rail primary/repair/fallback recovery missing');
 assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("root.dataset.ronaAnalyticsOwner='analytics-v2'"),'Dedicated Analytics owner missing');
 assert(!runtime.includes("['agent-settlements','messages','analytics','market-news'].includes(p)"),'Analytics/News must not be routed back to Remaining owner');
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
@@ -65,11 +65,11 @@ assert(remaining.includes("window.__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-
 assert(remaining.includes("if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')"),'Market News empty-root repair missing');
 assert(remaining.includes("headers.set('x-rona-market-news-owner','dedicated-current-content-health-v6')"),'Market News no-store owner header missing');
 
-assert(railSafe.includes('const WATCH_FROM=')&&railSafe.includes('const WATCH_TO='),'Rail fallback safe observer contract missing');
-assert(railSafe.includes("observer.observe(host,{childList:true})"),'Rail fallback replacement observer must be direct-child only');
-assert(railSafe.includes("if(!q('[data-rail-current-root]',host))queueRepair()"),'Rail fallback may repair only when current root is lost');
-assert(railSafe.includes('.replace(WATCH_FROM,WATCH_TO)'),'Rail fallback must replace the recursive observer before serving runtime code');
-assert(railSafe.includes("window.__RONA_RAIL_SAFE_FALLBACK__='20260826-direct-child-v1'"),'Rail safe fallback marker missing');
+assert(railSafe.includes("window.__RONA_RAIL_SAFE_FALLBACK__='20260918-direct-child-v2'"),'Rail safe fallback marker missing');
+assert(railSafe.includes("window.__RONA_OWNER_ADMIN_SNAPSHOT__"),'Rail fallback must use the authoritative Admin snapshot');
+assert(railSafe.includes("data-rail-current-root")&&railSafe.includes("ready"),'Rail fallback current-root readiness marker missing');
+assert(railSafe.includes("Подтверждённые ГУ-12 отсутствуют.")&&railSafe.includes("движение вагонов не моделируется"),'Rail fallback must fail closed without fabricated movement data');
+assert(!railSafe.includes('const WATCH_FROM=')&&!railSafe.includes("baseRail(context)"),'Rail fallback must no longer depend on superseded legacy source transforms');
 
 assert(access.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'"),'Current Clients/Agents owner missing');
 assert(access.includes("const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority'"),'Current access UI must use current server APIs');
