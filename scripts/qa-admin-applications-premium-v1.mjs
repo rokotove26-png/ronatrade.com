@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import premiumRuntime from '../functions/portal/main-ui/admin-applications-premium-v1.js';
+import readabilityRuntime from '../functions/portal/main-ui/admin-applications-readability-v5.js';
 
 const runtimePath='functions/portal/main-ui/admin-applications-premium-v1.js';
 const wrapperPath='functions/portal/main-ui/application-passport-runtime.js';
@@ -28,6 +30,8 @@ assert(runtime.includes('prefers-reduced-motion'),'reduced-motion support must r
 assert(wrapper.includes("./application-passport-runtime-base.js"),'passport wrapper must preserve original runtime');
 assert(wrapper.includes("./admin-applications-premium-v1.js"),'passport wrapper must append Applications visual runtime');
 assert(base.length>10000,'preserved passport runtime unexpectedly small');
+assert.doesNotThrow(()=>new Function(premiumRuntime),'Applications premium runtime must parse as JavaScript');
+assert.doesNotThrow(()=>new Function(readabilityRuntime),'Applications readability runtime must parse as JavaScript');
 
 // Layout regression gates from owner screenshot 2026-09-14.
 assert(runtime.includes("window.__RONA_ADMIN_APPLICATIONS_PREMIUM_V1__='20260914-v3'"),'Applications visual runtime must be v3');
@@ -47,3 +51,4 @@ console.log('ADMIN_APPLICATIONS_ACTIONS_PRESERVED=PASS');
 console.log('ADMIN_APPLICATIONS_PASSPORT_RUNTIME_PRESERVED=PASS');
 console.log('ADMIN_APPLICATIONS_LAYOUT_STRUCTURE_GUARD=PASS');
 console.log('ADMIN_APPLICATIONS_PREMIUM_VISUAL_SOURCE=PASS');
+console.log('ADMIN_APPLICATIONS_RUNTIME_SYNTAX=PASS');
