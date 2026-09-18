@@ -1,14 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequest as adminMainUi } from '../functions/portal/admin-main-ui-current.js';
+import { onRequest as serveMainUi } from '../functions/portal/main-ui/index.js';
+import { onRequest as enforceMainUi } from '../functions/portal/main-ui/_middleware.js';
 import { onRequest as cashR2Ui } from '../functions/portal/cash-r2-ui.js';
 import { onRequest as shellUi } from '../functions/portal/admin-approved-shell-v455-ui.js';
-import { __test as mainUiMiddleware } from '../functions/portal/main-ui/_middleware.js';
 
 const adminRaw=await (await adminMainUi()).text();
 const cash=await (await cashR2Ui()).text();
 const shell=await (await shellUi()).text();
-const admin=mainUiMiddleware.patchCashSingleOwner(mainUiMiddleware.patchPaymentsCurrentSemantics(adminRaw));
+const adminResponse=await enforceMainUi({request:new Request('https://ronaoil.com/portal/main-ui?issue635=qa'),next:()=>serveMainUi({})});
+const admin=await adminResponse.text();
+assert.equal(adminResponse.status,200,admin.slice(0,240));
 
 test('Issue 635 removes unconditional Admin repaint and body-wide render observer',()=>{
   new Function(adminRaw);
