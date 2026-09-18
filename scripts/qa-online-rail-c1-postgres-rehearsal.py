@@ -25,13 +25,13 @@ DB_URL = os.environ.get(
 
 report = {
     "NON_PROD_ENVIRONMENT": {},
-    "MIGRATION_EXECUTION_RESULT": "NOT_RUN_BY_SCRIPT",
+    "MIGRATION_EXECUTION_RESULT": os.environ.get("C1_MIGRATION_EXECUTION_RESULT", "PRECONDITION_NOT_REPORTED"),
     "OBJECT_INVENTORY": {},
     "REFERENCE_XLSX_INGEST_RESULT": {},
     "IDEMPOTENCY_RESULT": {},
     "NEGATIVE_TEST_MATRIX": {},
     "RLS_GRANTS_AUDIT": {},
-    "MIGRATION_DRIFT_RESULT": "RUN_BY_WORKFLOW",
+    "MIGRATION_DRIFT_RESULT": os.environ.get("C1_MIGRATION_DRIFT_RESULT", "PENDING_WORKFLOW_CHECK"),
     "REHEARSAL_GAPS": [],
     "FINAL": None,
 }
@@ -695,6 +695,8 @@ def run():
                 },
                 "rawNumericZeroRowsAtLeast": source_lock[10],
                 "railWagonsAutoCreated": scalar(cur, "select count(*) from portal_private.rail_wagons"),
+                "operationCodesKeptRawOnly": sorted({x["operation"] for x in rows}) == ["P0005", "V0057"],
+                "geoCreated": False,
             }
             report["IDEMPOTENCY_RESULT"] = {
                 "rowReplay": "PASS",
