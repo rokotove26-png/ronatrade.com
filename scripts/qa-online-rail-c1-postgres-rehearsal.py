@@ -826,13 +826,14 @@ def run():
                 reset_role(cur)
 
             # Test 10: unauthorized correction with invalid authority type.
+            corr_deal, corr_doc = seed_qa_deal(cur, "CORR-SAME", "C1-GU12-CORR-SAME")
             corr_batch, corr_source = make_source(cur, "CORR_SAME", "C1:CORR:SAME")
             corr_old_row = synthetic_row("99000012", 1, "QA-OLD", "900001", "RAW1", "1909260010")
             corr_new_row = synthetic_row("99000012", 2, "QA-NEW", "900002", "RAW2", "1909260011")
             ingest_event(cur, batch=corr_batch, source=corr_source, row=corr_old_row,
-                         deal=ref_deal, doc=ref_doc, provenance_mode="C1_CORR")
+                         deal=corr_deal, doc=corr_doc, provenance_mode="C1_CORR")
             ingest_event(cur, batch=corr_batch, source=corr_source, row=corr_new_row,
-                         deal=ref_deal, doc=ref_doc, provenance_mode="C1_CORR")
+                         deal=corr_deal, doc=corr_doc, provenance_mode="C1_CORR")
             corr_old = event_id_for(cur, corr_source, 1)
             corr_new = event_id_for(cur, corr_source, 2)
             set_role(cur, "service_role")
