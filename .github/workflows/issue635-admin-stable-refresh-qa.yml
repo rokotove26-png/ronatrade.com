@@ -11,6 +11,7 @@ on:
       - 'functions/portal/admin-approved-shell-v455-ui.js'
       - 'tests/admin-runtime-stable-refresh-635.test.mjs'
       - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
+      - 'scripts/qa-admin-cash-transient-recovery-635-browser.mjs'
       - 'scripts/qa-admin-cash-effective-grouping-629-browser.mjs'
       - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
   push:
@@ -51,6 +52,7 @@ jobs:
           node --check functions/portal/main-ui/_middleware.js
           node --check tests/admin-runtime-stable-refresh-635.test.mjs
           node --check scripts/qa-admin-stable-refresh-635-browser.mjs
+          node --check scripts/qa-admin-cash-transient-recovery-635-browser.mjs
           node --check scripts/qa-admin-cash-effective-grouping-629-browser.mjs
           node --test tests/admin-runtime-stable-refresh-635.test.mjs
 
@@ -65,6 +67,9 @@ jobs:
 
       - name: Deterministic Cash unchanged/change browser proof
         run: node scripts/qa-admin-stable-refresh-635-browser.mjs
+
+      - name: Initial transient recovery and retained-valid-Cash proof
+        run: node scripts/qa-admin-cash-transient-recovery-635-browser.mjs
 
       - name: Effective payment and one-entity Cash browser proof
         run: node scripts/qa-admin-cash-effective-grouping-629-browser.mjs
@@ -100,9 +105,11 @@ jobs:
             "ownerAiStableSignature"
           ];
           const requiredCash=[
-            "20260918-issue629-effective-payment-one-entity-v1",
+            "20260918-issue635-transient-recovery-v1",
             "var CHECK_MS=60000",
-            "SOURCE_SIGNATURE_CHANGE_ONLY",
+            "SOURCE_SIGNATURE_CHANGE_ONLY_TRANSIENT_RECOVERY",
+            "INITIAL_RETRY_DELAYS=[2000,5000,15000,30000]",
+            "Временная задержка Finance, повторяем...",
             "runtime.unchangedCount++",
             "renderPayload(p,signature,reason)"
           ];
