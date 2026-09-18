@@ -1,307 +1,312 @@
-# Online Rail #644 — Stage B1.1 XLSX dislocation architecture
+# Online Rail #644 — Stage B1.3 XLSX dislocation architecture
 
 Status: **ARCHITECTURE CANDIDATE / NOT MERGED / NOT DEPLOYED / MIGRATION NOT APPLIED**
 
-Base release remains:
+Base release:
 `release/public-go-live-v1.1@8be4acc7bd88d697c1b8a3396c1ef57f37cafd24`.
 
 PR:
 `#648`.
 
-## Preserved contracts
-
-B1.1 does not change Stage A/A.1 runtime.
-
-Preserved:
-- `RAIL_MAP_VIEWPORT_STATE_V1`;
-- Deal-owned selector;
-- `DATA_CHANGE_ONLY`;
-- `RAIL_MAP_DATA_CONTRACT_V1`;
-- source policy `EXPEDITOR_XLSX_VIA_RAIL_AI`;
-- single-owner Rail;
+Accepted baseline remains unchanged:
+- separate XLSX history;
 - MOVIZOR isolation;
-- no fabricated coordinates;
+- Deal ownership;
+- unresolved local-time support without fabricated UTC;
+- append-only resolution/correction overlays;
+- no fabricated GEO;
+- Stage A/A.1 untouched;
 - no Finance / Payments / Cash / Deals semantic change.
 
-`portal_private.rail_movement_events` remains MOVIZOR-only and is not reused for XLSX.
+## 1. Immutable evidence and canonical row locator
 
-## 1. Immutable XLSX evidence
-
-Table:
+Evidence table:
 `portal_private.rail_xlsx_dislocation_events_v1`.
 
-Each evidence row keeps:
-- import batch;
-- source object/file;
-- file checksum;
-- raw source row;
-- source row fingerprint;
-- wagon number;
-- canonical Deal/document relation if known;
-- station name / ESR code;
-- operation;
-- raw timestamp;
-- parsed local wall-clock;
-- UTC timestamp only when timezone is actually known;
-- source timezone state;
-- source time-domain;
-- verified source policy/system/type/version/contract snapshots;
-- provenance;
-- semantic and event-identity fingerprints.
+The canonical row locator is:
 
-UPDATE and DELETE are blocked.
+`source_object_id + source_sheet_name + source_row_number`.
 
-Direct table INSERT by `service_role` is revoked.
-Evidence can be inserted only through:
+The unique source locator is therefore file/object-scoped and sheet-aware. Reference sheet:
+`дисл`.
+
+Direct INSERT to evidence is not granted to `service_role`.
+Evidence writes go through:
 `portal_private.rail_xlsx_dislocation_ingest_v1(...)`.
 
-## 2. Local railway time / unresolved timezone
+Evidence remains UPDATE/DELETE protected.
 
-New field:
-`event_at_local timestamp without time zone`.
+## 2. Canonical source_row
 
-`raw_timestamp` is always retained.
+`source_row` must satisfy:
+`RAIL_XLSX_SOURCE_ROW_V1`.
 
-If timezone is absent:
+Exact top-level shape:
+
+```json
+{
+  "schemaVersion": "RAIL_XLSX_SOURCE_ROW_V1",
+  "sheetName": "дисл",
+  "rowNumber": 2,
+  "cells": [
+    {
+      "columnIndex": 1,
+      "header": "номер вагона",
+      "rawType": "STRING",
+      "rawValue": "12345678"
+    }
+  ]
+}
+```
+
+Cells must be strictly ordered by `columnIndex`.
+Each cell contains exactly:
+- `columnIndex`;
+- `header`;
+- `rawType`;
+- `rawValue`.
+
+Allowed raw types:
+`STRING / NUMBER / BOOLEAN / BLANK / DATE_SERIAL / ERROR`.
+
+Raw XLSX values are preserved. Numeric `rawValue: 0` remains numeric zero even when a later normalization maps an optional business code to NULL.
+
+Leading zeros are never reconstructed by guess. If Excel supplied a numeric value that has already lost a leading zero, ingest must not pad it to manufacture a valid business identifier.
+
+`source_row_fingerprint` is calculated from this validated deterministic JSONB representation.
+
+## 3. Wagon number
+
+Normalized canonical `wagon_number` must satisfy exactly:
+
+`^[0-9]{8}$`.
+
+The rule exists both:
+- as a table CHECK constraint;
+- inside guarded ingest.
+
+The normalized value must also equal the raw `номер вагона` cell after whitespace-only normalization. No zero-padding or other reconstruction is permitted.
+
+## 4. Time contract
+
+Evidence always keeps:
+- `raw_timestamp`;
+- `event_at_local timestamp without time zone`.
+
+When timezone is unresolved:
 - `source_timezone_status='UNRESOLVED'`;
-- `event_at_local` contains the parsed local wall-clock;
-- `parsed_event_at` MUST remain NULL;
-- no UTC/timestamptz value is fabricated.
+- `parsed_event_at=NULL`;
+- no UTC/timestamptz is fabricated.
 
-Unresolved local events are comparable only inside the same exact:
-`source_time_domain`.
+Unresolved local events are comparable only inside the exact `source_time_domain`.
 
-There is deliberately no cross-domain ordering for unresolved local time.
+Reference domain:
 
-If timezone later becomes authoritative, that does not rewrite evidence. A new source/evidence or later architecture step may carry resolved UTC with its own provenance.
+`EXPEDITOR_XLSX_FILE_SHA256:bc7429db2fbc411cb43607c54f87b824d4c8ad928353914c6e94c935870d5cc5:LOCAL_WALL_CLOCK_UNRESOLVED_V1`.
 
-## 3. Verified XLSX source policy
+## 5. Source-policy verification
 
-The read model may label data:
-`EXPEDITOR_XLSX_VIA_RAIL_AI`
-only because ingest verifies the canonical source object contract.
+Ingest accepts evidence only when canonical `source_objects` metadata verifies:
 
-Required source object metadata:
 - `source_system='RAIL_AI'`;
 - `source_object_type='XLSX_WAGON_DISLOCATION'`;
 - `source_version='RAIL_XLSX_DISLOCATION_V1'`;
 - `raw_snapshot.sourcePolicy='EXPEDITOR_XLSX_VIA_RAIL_AI'`;
 - `raw_snapshot.sourceContractVersion='RAIL_XLSX_DISLOCATION_CONTRACT_V1'`;
 - non-empty `raw_snapshot.sourceTimeDomain`;
-- valid SHA-256 checksum;
-- canonical source receipt timestamp from `source_objects.source_timestamp`, falling back only to `import_batches.source_timestamp`.
+- valid SHA-256;
+- canonical source receipt timestamp.
 
-Mismatch fails closed with:
-`RAIL_XLSX_SOURCE_POLICY_CONTRACT_MISMATCH`.
+`rail_wagons.source_timestamp` uses this source receipt timestamp, never the railway event timestamp.
 
-## 4. Append-only resolution decisions
+Duplicate-file SHA rejection remains the responsibility of the importer/import-batch admission layer and is explicitly covered by QA. The B1.3 evidence row does not silently collapse different source objects solely because they share a semantic event.
 
-Evidence resolution is immutable.
+## 6. Resolution decisions and business authority
 
-Table:
+Resolution table:
 `portal_private.rail_xlsx_resolution_decisions_v1`.
 
-A decision records:
-- evidence event ID;
-- resulting status;
-- canonical Deal binding;
-- canonical rail document / GU-12 binding;
-- actor source;
-- actor reference;
-- decided_at;
-- reason/evidence;
-- provenance;
-- decision fingerprint.
+Allowed business authority types are closed:
 
-Legal transition example:
-original evidence remains `TO_VERIFY`;
-an owner/Rail-AI confirmation appends a decision with `resulting_status='MATCHED'`.
+- `OWNER_EXPLICIT_INSTRUCTION`;
+- `RAIL_LOGISTICS_VERIFIED_DECISION`.
 
-Effective state is derived from evidence + latest valid decision.
-The original XLSX row is never modified.
+`actor_ref uuid` is mandatory.
 
-## 5. Explicit correction / supersession
+No new authority registry is introduced. B1.3 reuses the existing immutable audited substrate:
 
-Table:
+### Owner authority
+
+`actor_ref` resolves to:
+`portal_private.audit_events.event_id`.
+
+Required owner authority record:
+- append-only existing audit table;
+- `actor_role='ADMIN'`;
+- non-null `actor_user_id`;
+- `result='SUCCESS'`;
+- `action='RAIL_XLSX_OWNER_RESOLUTION_INSTRUCTION'`;
+- entity is the exact XLSX evidence event;
+- metadata uses `RAIL_XLSX_OWNER_AUTHORITY_V1`;
+- metadata must match evidence ID, resulting status, Deal and rail document.
+
+### Rail Logistics authority
+
+`actor_ref` resolves to:
+`portal_private.ai_coordination_records.record_id`.
+
+Required record:
+- immutable existing coordination table;
+- `functional_role='RAIL_LOGISTICS'`;
+- `identity_id='AI-RAIL-LOGISTICS'`;
+- `record_type='FUNCTIONAL_CONCLUSION'`;
+- `status='APPROVED'`;
+- exact evidence target;
+- payload contract `RAIL_XLSX_RAIL_LOGISTICS_AUTHORITY_V1`;
+- payload must match evidence ID, resulting status, Deal and rail document.
+
+`service_role` and `SYSTEM_ADMIN` are technical executors only. They are not accepted as independent business-authority values.
+
+The immutable evidence row is not modified by a later `TO_VERIFY -> MATCHED` decision.
+
+## 7. Correction / supersession
+
+Correction table:
 `portal_private.rail_xlsx_correction_decisions_v1`.
 
-A correction decision records:
-- new correction evidence event;
-- `correction_of_event_id`;
-- relation `CORRECTION_OF` or `SUPERSEDES`;
-- actor/source;
-- decided_at;
-- reason/evidence;
-- provenance.
+Allowed authorities:
+- `OWNER_EXPLICIT_CORRECTION`;
+- `RAIL_LOGISTICS_VERIFIED_EXPEDITOR_CORRECTION`.
 
-A new file or differing later row is **never automatically treated as a correction**.
+`actor_ref` is mandatory and resolves to the same existing audited substrates:
+- Owner correction -> immutable `audit_events`;
+- Rail correction -> immutable approved `RAIL_LOGISTICS` coordination record.
 
-Old evidence remains immutable.
-Effective/latest views exclude explicitly superseded evidence only after an append-only correction decision exists.
+A correction is legal only when:
 
-## 6. Conflict rules
+- old and new evidence IDs are different;
+- wagon number is identical;
+- effective Deal is resolved and identical;
+- effective rail document / GU-12 is resolved and identical;
+- old evidence has not already been superseded by an incompatible successor;
+- new evidence has its own source provenance and canonical row locator;
+- authority reference is valid;
+- non-empty reason/evidence and provenance are supplied.
 
-Same source object + same row:
-- identical raw/semantic fingerprints => `IDEMPOTENT_REPLAY`;
-- different interpretation => `RAIL_XLSX_SOURCE_ROW_REINTERPRETATION_CONFLICT`.
+A correction does **not** require the same `event_identity_fingerprint` or the same `source_time_domain`. The correction may be correcting time/domain itself.
 
-Same wagon + same event-time identity with different active semantic facts:
-effective state = `CONFLICT`.
+Deal/GU-12 rebinding through correction is forbidden. Rebinding belongs to the resolution-decision layer.
 
-A confirmed explicit correction may supersede old evidence; until then the conflict remains fail closed.
+A new file is never automatically considered a correction.
 
-## 7. Latest-state vs latest-trusted
+## 8. Latest candidates vs one business-current position
 
-`rail_xlsx_dislocation_latest_state_v1`:
-- includes timezone-unresolved evidence;
-- orders unresolved local time only within the exact source time-domain;
-- exposes TO_VERIFY / UNRESOLVED / CONFLICT;
-- supports the reference XLSX before timezone resolution.
+Candidate/audit layers remain:
 
-`rail_xlsx_dislocation_latest_trusted_v1`:
-- only effective `MATCHED` / trusted evidence;
-- still remains scoped to a comparison domain;
-- does not fabricate UTC for unresolved local time.
+- `rail_xlsx_dislocation_latest_state_v1`;
+- `rail_xlsx_dislocation_latest_trusted_v1`.
 
-## 8. rail_wagons integration
+Those can still contain one candidate per comparison domain and rail-document scope.
 
-`rail_wagons` stays a current projection and not a history table.
+B1.3 adds:
 
-B1.1 adds position provenance fields including:
-- position source system/event/object;
-- semantic fingerprint;
-- position resolution;
-- local event time;
-- source time-domain;
-- timezone status.
+`portal_private.rail_xlsx_dislocation_current_position_v1`.
 
-Critical correction:
-`rail_wagons.source_timestamp` is populated from canonical source-file receipt timestamp
-(`source_objects.source_timestamp`, fallback `import_batches.source_timestamp`),
-NOT from railway event time.
+This is the business-current layer and returns **exactly one row for each effective Deal + wagon_number across all active rail documents**.
 
-Railway event time remains in:
-- `operation_at` / `last_position_at` only when UTC is actually known;
-- `position_event_at_local` when only local wall-clock is known.
+If all active candidates are inside one comparable domain, the newest comparable observation becomes the current result.
 
-### rail_wagons.status safety
+If more than one incomparable active `comparison_domain` remains:
 
-The current production constraint allows:
-`REGISTERED, LOADED, IN_TRANSIT, DELAYED, DETACHED, ARRIVED, UNLOADED, EMPTY_RETURN, CLOSED`.
+`position_status='CROSS_DOMAIN_AMBIGUOUS'`.
 
-There is no separate production column proving that `REGISTERED` is purely a technical registration lifecycle distinct from railway operational status.
+In that state:
 
-Therefore B1.1 **does not create new rail_wagons rows**.
+- current station = NULL;
+- current station code = NULL;
+- current operation = NULL;
+- current event/document provenance is not selected;
+- only one row appears in `wagonPositions[]`;
+- candidate observations are available only in `positionAuditDetails[]`;
+- wagon is excluded from `positionGroups[]`;
+- wagon is not written to `rail_wagons`;
+- `unresolvedOrConflictCount` includes the wagon.
 
-`rail_xlsx_refresh_wagon_projection_v1()` updates an existing compatible wagon row only.
-Missing canonical wagon rows are reported as:
-`missingWagonRowsNotCreated`.
+Even identical station/operation values in two different incomparable domains do not remove the ambiguity.
 
-This avoids presenting `REGISTERED` as inferred operational railway state.
+## 9. rail_wagons
 
-## 9. Deal read model
+`rail_wagons` remains a current projection, never history.
+
+B1.3 does not create missing `rail_wagons` rows because the current production `status` column does not safely separate technical registration lifecycle from railway operational status.
+
+Projection refresh consumes only:
+
+`rail_xlsx_dislocation_current_position_v1`
+
+with:
+- `position_status='TRUSTED'`;
+- `comparison_domain_count=1`.
+
+Cross-domain ambiguity therefore cannot update the current projection.
+
+Source provenance fields are separated:
+- `position_source_system='RAIL_AI'`;
+- `position_source_policy='EXPEDITOR_XLSX_VIA_RAIL_AI'`.
+
+V0057 / P0005 remain raw operation codes only and are not mapped to `rail_wagons.status`.
+
+## 10. Deal read model
 
 RPC:
 `public.rona_admin_rail_deal_read_model_v1`.
 
-Authorization:
-existing `portal_private.owner_r1_actor('ADMIN')`.
+`wagonPositions[]` is driven by the single-current layer and therefore contains one row per Deal+wagon.
 
-Hierarchy:
-`Deal -> rail documents / GU-12 -> XLSX latest-state / latest-trusted`.
+`positionAuditDetails[]` contains cross-domain candidate observations only.
 
-The read model does not require a `rail_wagons` row in order to expose XLSX evidence.
+`positionGroups[]` contains trusted single-current wagons only.
 
-This is required for the initial reference XLSX where the canonical Deal relation is still TO_VERIFY.
+Planned route remains independent from actual dislocation.
 
-### plannedRoute[]
+Coordinates remain NULL until a separate source-locked station directory supplies trusted GEO.
 
-Independent from actual dislocation.
+## 11. Reference XLSX
 
-B1.1 does not geocode route text.
-It returns:
-- source route text;
-- source document relation;
-- `points=[]`;
-- `geometry=null`;
-- source provenance.
+Reference SHA-256:
 
-### wagonPositions[]
+`bc7429db2fbc411cb43607c54f87b824d4c8ad928353914c6e94c935870d5cc5`.
 
-Includes:
-- wagon number;
-- rail document / GU-12;
-- station;
-- station code / ESR;
-- operation;
-- `eventTimestamp` (nullable UTC);
-- `eventAtLocal`;
-- raw timestamp;
-- timezone / timezone status;
-- source time-domain;
-- comparison domain;
-- position status;
-- effective resolution status;
-- resolution decision;
-- trusted coordinates = null;
-- source provenance.
+Reference facts remain:
 
-Therefore the reference XLSX remains visible in `wagonPositions[]` before timezone is resolved.
-
-## 10. Grouping contract
-
-Trusted rows group by:
-1. `ESR:<station_code>`;
-2. otherwise normalized `STATION:<station_name>`.
-
-Group contains:
-- cluster key;
-- station;
-- station code;
-- wagon count;
-- wagon numbers;
-- UTC timestamp when available;
-- local wall-clock;
-- source time-domains;
-- coordinates null.
-
-A visible map point may appear only after an independent source-locked station directory supplies trusted coordinates.
-
-## 11. Reference XLSX architecture dry-run
-
-Required reference case:
 - 9 rows / 9 wagons;
-- 4 rows: Анисовка `625501`;
-- 5 rows: Могилев I `156505`;
-- timezone absent;
-- canonical business context: `DEAL-2026-004`;
-- initial resolution: `TO_VERIFY`.
+- 4 × Анисовка `625501`;
+- 5 × Могилев I `156505`;
+- destination Киргили `742705`;
+- sheet `дисл`;
+- initial resolution `TO_VERIFY`;
+- timezone unresolved;
+- `parsed_event_at=NULL`;
+- Анисовка raw time `1809260451` -> local wall-clock `2026-09-18 04:51`;
+- Могилев I raw time `1709262012` -> local wall-clock `2026-09-17 20:12`;
+- Deal candidate remains `DEAL-2026-004`;
+- GU-12 candidate remains `1308903120`;
+- V0057/P0005 are operation codes only.
 
-The deterministic QA fixture uses explicit `QA-REF-WAGON-...` identifiers rather than inventing production wagon numbers.
-
-Dry-run proves:
-- all 9 rows retain local wall-clock;
-- all 9 have NULL UTC;
-- all 9 remain queryable in latest/read model inside one source time-domain;
-- an append-only owner/Rail-AI resolution decision can overlay one or more evidence rows from `TO_VERIFY` to effective `MATCHED`;
-- evidence itself stays unchanged;
-- a later differing row is not correction until explicit correction/supersession decision is appended.
-
-Reference canonical relation verified read-only:
-- Deal: `DEAL-2026-004`;
-- GU-12: `1308903120`;
-- rail document: `RONA-S002-IN-2026-002`.
+The QA fixture uses synthetic 8-digit `99xxxxxx` wagon identifiers solely to test schema semantics. They are not production business facts.
 
 ## 12. Production gate
 
-Migration is repository-only.
+No production migration/write is authorized.
 
-Before any production apply:
-1. System Administrator B1.1 architecture acceptance.
-2. Rail AI field-by-field mapping review.
+Required next gates:
+
+1. System Administrator B1.3 source review.
+2. Rail AI narrow re-review of cross-domain, correction and authority semantics.
 3. Non-production PostgreSQL migration rehearsal.
-4. Reference XLSX dry-run against the actual importer mapping.
-5. RLS/security and regression checks.
-6. Separate authorization to merge/apply.
+4. Actual reference XLSX dry-run through the real importer mapping.
+5. Security/RLS/regression review.
+6. Separate merge/apply authorization.
 
-#644 remains OPEN.
+PR #648 remains open.
+#644 remains open.
