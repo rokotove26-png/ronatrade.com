@@ -161,7 +161,7 @@ await writeFile(MAIN_UI_WRAPPER_TARGET, wrapper, 'utf8');
 // any financial or business data.
 let verifier = await readFile(OWNER_ACCEPTANCE_VERIFIER_TARGET, 'utf8');
 const oldOwnerAssertion = "assert(r.headers.get('x-rona-payments-ui')==='admin-payments-v7-native',`payments owner ${r.headers.get('x-rona-payments-ui')}`);";
-const newOwnerAssertion = "assert(r.headers.get('x-rona-payments-ui')==='admin-payments-v7-native-v2',`payments owner ${r.headers.get('x-rona-payments-ui')}`);";
+const newOwnerAssertion = "assert(r.headers.get('x-rona-payments-ui')==='payments-v8-bootstrap-v1',`payments owner ${r.headers.get('x-rona-payments-ui')}`);";
 if (verifier.includes(oldOwnerAssertion)) verifier = verifier.replace(oldOwnerAssertion, newOwnerAssertion);
 else if (!verifier.includes(newOwnerAssertion)) throw new Error('PAYMENTS_V8_OWNER_ACCEPTANCE_HEADER_ASSERTION_MISMATCH');
 await writeFile(OWNER_ACCEPTANCE_VERIFIER_TARGET, verifier, 'utf8');
@@ -193,4 +193,4 @@ else if (!futureDealTest.includes("assert.equal(apiDeal.future_conditional.amoun
 await writeFile(FUTURE_DEAL_TEST_TARGET, futureDealTest, 'utf8');
 
 console.log('PAYMENTS_V8_PRODUCTION_RUNTIME_PATCH=PASS owner=admin-payments-v7-native-v2 expected=due_now conditional=separate');
-console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent stage5c=v8 aggregate=V2 owner-header=v2 future-fixture=conditional');
+console.log('PAYMENTS_V8_PRODUCTION_ACCEPTANCE_COMPAT=PASS main-ui=idempotent stage5c=v8 aggregate=V2 owner-header=payments-v8-bootstrap-v1 future-fixture=conditional');
