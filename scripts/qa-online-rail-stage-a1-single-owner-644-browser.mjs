@@ -146,7 +146,11 @@ async function watchdogCycle(page,label,expectedView){
   await assertStable(page,label,expectedView);
 }
 async function adminRefresh(page,label,expectedView){
-  await page.evaluate(async()=>{if(typeof ownerAdminRefreshTick!=='function')throw new Error('ownerAdminRefreshTick missing');await ownerAdminRefreshTick(true)});
+  await page.evaluate(async()=>{if(typeof window.__RONA_OWNER_ADMIN_REFRESH_TICK__!=='function')throw new Error('ownerAdminRefreshTick hook missing');await window.__RONA_OWNER_ADMIN_REFRESH_TICK__(true)});
+  await assertStable(page,label,expectedView);
+}
+async function aiRefresh(page,label,expectedView){
+  await page.evaluate(async()=>{if(typeof window.__RONA_OWNER_AI_REFRESH__!=='function')throw new Error('AI refresh hook missing');await window.__RONA_OWNER_AI_REFRESH__(false)});
   await assertStable(page,label,expectedView);
 }
 
@@ -169,14 +173,17 @@ try{
   await page.waitForFunction(()=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey&&document.querySelector('#page-monitoring .rona-rail-v7-map-viewport'),{timeout:12000});
   await page.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,{timeout:12000});
 
+  await page.waitForFunction(()=>typeof window.__RONA_OWNER_ADMIN_RENDER__==='function'&&typeof window.__RONA_OWNER_ADMIN_REFRESH_TICK__==='function'&&typeof window.__RONA_OWNER_AI_REFRESH__==='function',{timeout:12000});
   const runtimeFns=await page.evaluate(()=>({
-    renderAdmin:typeof renderAdmin,
-    ownerAdminRefreshTick:typeof ownerAdminRefreshTick,
+    renderAdmin:typeof window.__RONA_OWNER_ADMIN_RENDER__,
+    ownerAdminRefreshTick:typeof window.__RONA_OWNER_ADMIN_REFRESH_TICK__,
+    aiRefresh:typeof window.__RONA_OWNER_AI_REFRESH__,
     legacyRenderRail:typeof window.renderRail,
     owner:window.__RONA_RAIL_SINGLE_OWNER__||null
   }));
-  assert(runtimeFns.renderAdmin==='function','renderAdmin is not callable');
-  assert(runtimeFns.ownerAdminRefreshTick==='function','Admin refresh is not callable');
+  assert(runtimeFns.renderAdmin==='function','renderAdmin hook is not callable');
+  assert(runtimeFns.ownerAdminRefreshTick==='function','Admin refresh hook is not callable');
+  assert(runtimeFns.aiRefresh==='function','AI refresh hook is not callable');
   assert(runtimeFns.legacyRenderRail==='undefined','legacy renderRail is present in active runtime');
   assert(runtimeFns.owner==='stage-a1-current-only-v1','Stage A.1 owner marker missing');
 
@@ -211,18 +218,19 @@ try{
 
   // Direct legacy trigger path: renderAdmin() repeatedly.
   for(let i=0;i<3;i++){
-    await page.evaluate(()=>renderAdmin());
+    await page.evaluate(()=>window.__RONA_OWNER_ADMIN_RENDER__());
     await assertStable(page,'renderAdmin-'+(i+1),baseline.view);
   }
 
   await adminRefresh(page,'admin-refresh-1',baseline.view);
+  await aiRefresh(page,'ai-refresh-1',baseline.view);
   await railSync(page,'rail-sync-1',baseline.view);
   await watchdogCycle(page,'watchdog-1',baseline.view);
 
   // Let the runtime live; this window also allows the real AI-sync startup/interval path to execute.
   await sleep(30000);
 
-  await page.evaluate(()=>renderAdmin());
+  await page.evaluate(()=>window.__RONA_OWNER_ADMIN_RENDER__());
   await assertStable(page,'renderAdmin-t30',baseline.view);
   await railSync(page,'rail-sync-2',baseline.view);
   await watchdogCycle(page,'watchdog-2',baseline.view);
@@ -237,7 +245,8 @@ try{
   await sleep(30000);
 
   await adminRefresh(page,'admin-refresh-2',baseline.view);
-  await page.evaluate(()=>renderAdmin());
+  await aiRefresh(page,'ai-refresh-2',baseline.view);
+  await page.evaluate(()=>window.__RONA_OWNER_ADMIN_RENDER__());
   await assertStable(page,'renderAdmin-t60',baseline.view);
   await railSync(page,'rail-sync-3',baseline.view);
   await watchdogCycle(page,'watchdog-3',baseline.view);
@@ -268,6 +277,7 @@ try{
   console.log('ISSUE644_A1_ACTIVE_LEGACY_RENDERER_ABSENT=PASS');
   console.log('ISSUE644_A1_RENDER_ADMIN_SINGLE_OWNER=PASS');
   console.log('ISSUE644_A1_ADMIN_REFRESH_SINGLE_OWNER=PASS');
+  console.log('ISSUE644_A1_AI_REFRESH_2X_SINGLE_OWNER=PASS');
   console.log('ISSUE644_A1_AI_REFRESH_90S_SINGLE_OWNER=PASS');
   console.log('ISSUE644_A1_RAIL_SYNC_3X_SINGLE_OWNER=PASS');
   console.log('ISSUE644_A1_WATCHDOG_3X_SINGLE_OWNER=PASS');
