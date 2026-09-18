@@ -106,6 +106,9 @@ test('Stage A.1 active Admin runtime physically retires the legacy Rail renderer
   assert.doesNotMatch(admin,/monitoring:renderRail,/);
   assert.doesNotMatch(admin,/renderRail\(\);/);
   assert.doesNotMatch(admin,/replacePage\('monitoring',/);
+  assert.match(admin,/window\.__RONA_OWNER_ADMIN_RENDER__=renderAdmin/);
+  assert.match(admin,/window\.__RONA_OWNER_ADMIN_REFRESH_TICK__=ownerAdminRefreshTick/);
+  assert.match(admin,/window\.__RONA_OWNER_AI_REFRESH__=refreshAdmin/);
 });
 
 test('Stage A markers are exposed without removing prior current owner markers',()=>{
