@@ -83,11 +83,11 @@ Deno.test("missing header contract fails closed", async()=>{
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([["foo","bar"],[1,2]]),"Sheet A");
   const bytes=new Uint8Array(XLSX.write(wb,{type:"array",bookType:"xlsx"}));
-  await assertRejects(
+  const error=await assertRejects(
     ()=>parseRailWorkbookBytes(bytes),
     RailXlsxIntakeError,
-    "RAIL_XLSX_HEADER_CONTRACT_NOT_FOUND",
-  );
+  ) as RailXlsxIntakeError;
+  assertEquals(error.code,"RAIL_XLSX_HEADER_CONTRACT_NOT_FOUND");
 });
 
 Deno.test("ambiguous matching sheets fail closed", async()=>{
@@ -96,9 +96,9 @@ Deno.test("ambiguous matching sheets fail closed", async()=>{
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(row),"A");
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(row),"B");
   const bytes=new Uint8Array(XLSX.write(wb,{type:"array",bookType:"xlsx"}));
-  await assertRejects(
+  const error=await assertRejects(
     ()=>parseRailWorkbookBytes(bytes),
     RailXlsxIntakeError,
-    "RAIL_XLSX_HEADER_CONTRACT_AMBIGUOUS",
-  );
+  ) as RailXlsxIntakeError;
+  assertEquals(error.code,"RAIL_XLSX_HEADER_CONTRACT_AMBIGUOUS");
 });
