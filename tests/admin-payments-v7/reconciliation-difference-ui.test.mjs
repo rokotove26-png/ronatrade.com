@@ -1,5 +1,5 @@
 import test from 'node:test';
-// Deployment retry marker: PAYMENTS_RECONCILIATION_SINGLETON_V6_20260918.
+// Deployment retry marker: PAYMENTS_RECONCILIATION_SINGLETON_V7_20260918.
 import assert from 'node:assert/strict';
 
 import {
@@ -51,11 +51,11 @@ test('indicator is display-only: no drill-down, no local component calculation, 
   assert.doesNotMatch(source,/KZT/);
   assert.doesNotMatch(source,/58902|4712762|2913\.488/);
   assert.match(source,/pointer-events:none/);
-  assert.match(source,/observer\.observe\(page,\{childList:true,subtree:false\}\)/);
+  assert.match(source,/observer\.observe\(page,\{childList:true,subtree:true\}\)/);
   assert.match(source,/tone:n<0\?'negative':'positive'/);
   assert.match(source,/data-tone="positive"/);
   assert.match(source,/data-tone="negative"/);
-  assert.match(source,/@keyframes ronaReconTickerV6/);
+  assert.match(source,/@keyframes ronaReconTickerV7/);
   assert.match(source,/function cleanupSingleton\(frame\)/);
   assert.match(source,/document\.querySelectorAll\('\[id="'\+tickerId\+'"\],\.'\+tickerClass\)/);
   assert.match(source,/if\(valid\)\{keeper=node;continue\}/);
@@ -83,4 +83,13 @@ test('reconciliation ticker runtime enforces exactly one canonical ticker host',
   assert.match(source,/if\(host!==frame\)host\.classList\.remove\(hostClass\)/);
   assert.match(source,/removeLegacyNodes\(\)/);
   assert.match(source,/#rona-payments-reconciliation-difference/);
+});
+
+test('nested reconciliation ticker duplicates are removed without re-rendering the Payments board', () => {
+  const source=PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME;
+  assert.match(source,/const duplicateAdded=records\.some/);
+  assert.match(source,/node\.id===tickerId\|\|node\.classList\?\.contains\(tickerClass\)/);
+  assert.match(source,/node\.querySelector\?\.\('\[id="'\+tickerId\+'"\],\.'\+tickerClass\)/);
+  assert.match(source,/if\(!duplicateAdded&&!frameReplaced\)return/);
+  assert.doesNotMatch(source,/replaceChildren\(/);
 });
