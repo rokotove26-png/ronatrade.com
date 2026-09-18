@@ -1,4 +1,4 @@
-# Online Rail #644 — Stage B1.3 XLSX dislocation architecture
+# Online Rail #644 — Stage B1.5 XLSX dislocation architecture
 
 Status: **ARCHITECTURE CANDIDATE / NOT MERGED / NOT DEPLOYED / MIGRATION NOT APPLIED**
 
@@ -206,33 +206,40 @@ Candidate/audit layers remain:
 - `rail_xlsx_dislocation_latest_state_v1`;
 - `rail_xlsx_dislocation_latest_trusted_v1`.
 
-Those can still contain one candidate per comparison domain and rail-document scope.
+B1.5 narrows **business-current eligibility** to the TRUSTED subset only.
 
-B1.3 adds:
+`portal_private.rail_xlsx_dislocation_current_position_v1`
+is built from active rows of `rail_xlsx_dislocation_latest_trusted_v1`, not from every latest observation.
 
-`portal_private.rail_xlsx_dislocation_current_position_v1`.
+The business rule is:
 
-This is the business-current layer and returns **exactly one row for each effective Deal + wagon_number across all active rail documents**.
+- exactly one TRUSTED comparison domain for an effective Deal + wagon -> that TRUSTED observation remains current;
+- two or more TRUSTED incomparable comparison domains -> `CROSS_DOMAIN_AMBIGUOUS`;
+- zero TRUSTED observations -> no trusted business-current row;
+- TO_VERIFY / UNRESOLVED / CONFLICT observations never participate in business-current selection.
 
-If all active candidates are inside one comparable domain, the newest comparable observation becomes the current result.
+Therefore a pending observation in another domain cannot nullify an existing single TRUSTED current.
 
-If more than one incomparable active `comparison_domain` remains:
-
-`position_status='CROSS_DOMAIN_AMBIGUOUS'`.
-
-In that state:
-
+For `CROSS_DOMAIN_AMBIGUOUS`:
 - current station = NULL;
 - current station code = NULL;
 - current operation = NULL;
-- current event/document provenance is not selected;
-- only one row appears in `wagonPositions[]`;
-- candidate observations are available only in `positionAuditDetails[]`;
+- current event/document provenance = NULL;
 - wagon is excluded from `positionGroups[]`;
-- wagon is not written to `rail_wagons`;
-- `unresolvedOrConflictCount` includes the wagon.
+- wagon is excluded from `rail_wagons` projection.
 
-Even identical station/operation values in two different incomparable domains do not remove the ambiguity.
+Even identical station/operation values in two different TRUSTED incomparable domains remain ambiguous.
+
+`portal_private.rail_xlsx_dislocation_current_audit_v1`
+is intentionally broader than current selection. It is built from all active rows of `rail_xlsx_dislocation_latest_state_v1` and retains every observation that is not the selected current event.
+
+This means audit/details retains:
+- all candidates for CROSS_DOMAIN_AMBIGUOUS wagons;
+- TO_VERIFY / UNRESOLVED / CONFLICT observations alongside a TRUSTED current;
+- all observations when no TRUSTED current exists;
+- non-selected TRUSTED candidates within the one comparable trusted domain.
+
+Pending evidence is never hidden merely because a trusted current exists.
 
 ## 9. rail_wagons
 
@@ -263,7 +270,7 @@ RPC:
 
 `wagonPositions[]` is driven by the single-current layer and therefore contains one row per Deal+wagon.
 
-`positionAuditDetails[]` contains cross-domain candidate observations only.
+`positionAuditDetails[]` contains all non-current active candidates, including pending TO_VERIFY / UNRESOLVED / CONFLICT observations even when a TRUSTED current exists.
 
 `positionGroups[]` contains trusted single-current wagons only.
 
@@ -301,8 +308,8 @@ No production migration/write is authorized.
 
 Required next gates:
 
-1. System Administrator B1.3 source review.
-2. Rail AI narrow re-review of cross-domain, correction and authority semantics.
+1. System Administrator B1.5 source review.
+2. Rail AI narrow re-review of the TRUSTED current-eligibility delta.
 3. Non-production PostgreSQL migration rehearsal.
 4. Actual reference XLSX dry-run through the real importer mapping.
 5. Security/RLS/regression review.
