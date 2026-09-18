@@ -1,0 +1,32 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-18",
+  "scope": "CLIENT_RAIL_ADMIN_VISUAL_MIRROR_20260918",
+  "owner_instruction": "Mirror the approved Admin Online Rail visual treatment in the Client cabinet without changing business logic or data.",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-rail-canonical-hero-v1.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
+      "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
+      "authorized_post_blob_sha": "c70e3b38c78a0600c1a829e978798b1224265eb7",
+      "required_marker": "CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:100%!important max-width:1584px!important square-map-aligned"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "scope_client_online_rail_only": true,
+    "mirror_admin_online_rail_geometry": true,
+    "square_map": true,
+    "aligned_left_frames": true,
+    "expanded_shared_width": true,
+    "preserve_client_authoritative_data_sources": true,
+    "preserve_business_logic": true,
+    "business_data_changed": false,
+    "auth_changed": false,
+    "images_added": false,
+    "unrelated_visual_changes": false
+  }
+}
