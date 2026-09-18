@@ -11,6 +11,8 @@ const LEGACY_ACCOUNTING_ROUTE='accounting:renderCash,';
 const CASH_R2_ACCOUNTING_ROUTE='accounting:ensureCashR2Host,';
 const LEGACY_BOOT_SEQUENCE='renderPayments();renderCash();renderRail();';
 const CASH_R2_BOOT_SEQUENCE='renderPayments();ensureCashR2Host();renderRail();';
+const CURRENT_RAIL_BOOT_SEQUENCE='renderPayments();renderCash();renderRailCurrentShell();';
+const CASH_R2_CURRENT_RAIL_BOOT_SEQUENCE='renderPayments();ensureCashR2Host();renderRailCurrentShell();';
 const OWNED_PAGE_MARKER='function renderOwnedAdminPage(id){';
 const CASH_R2_HOST_FUNCTION="function ensureCashR2Host(){const p=page('accounting');if(!p)return null;let host=q(':scope > .rona-owner-page-content[data-owner-page=\\\"accounting\\\"]',p)||q(':scope > .rona-owner-page-content',p);if(!host){for(const child of Array.from(p.children))child.classList.add('rona-owner-original-hidden');host=e('div',{class:'rona-owner-page-content','data-owner-page':'accounting','data-rona-cash-host':'r2'});p.append(host)}host.dataset.ronaCashHost='r2';host.classList.remove('rona-owner-original-hidden');host.removeAttribute('aria-hidden');host.style.removeProperty('display');return host}\n";
 const RADIO_VISUAL_VERSION='20260915-radio-wide-v10-r1';
@@ -73,16 +75,23 @@ function patchCashSingleOwner(source){
   script=script.slice(0,start)+script.slice(end);
   for(const [from,to,label] of [
     [LEGACY_FINANCE_LISTENER,PAYMENTS_ONLY_FINANCE_LISTENER,'FINANCE_LISTENER'],
-    [LEGACY_ACCOUNTING_ROUTE,CASH_R2_ACCOUNTING_ROUTE,'ACCOUNTING_ROUTE'],
-    [LEGACY_BOOT_SEQUENCE,CASH_R2_BOOT_SEQUENCE,'BOOT_SEQUENCE']
+    [LEGACY_ACCOUNTING_ROUTE,CASH_R2_ACCOUNTING_ROUTE,'ACCOUNTING_ROUTE']
   ]){
     if(!script.includes(from))throw new Error('ADMIN_CASH_'+label+'_SOURCE_MISMATCH');
     script=script.replace(from,to);
   }
+  const currentRailBoot=script.includes(CURRENT_RAIL_BOOT_SEQUENCE);
+  const legacyRailBoot=script.includes(LEGACY_BOOT_SEQUENCE);
+  if(currentRailBoot===legacyRailBoot)throw new Error('ADMIN_CASH_BOOT_SEQUENCE_SOURCE_MISMATCH');
+  script=script.replace(
+    currentRailBoot?CURRENT_RAIL_BOOT_SEQUENCE:LEGACY_BOOT_SEQUENCE,
+    currentRailBoot?CASH_R2_CURRENT_RAIL_BOOT_SEQUENCE:CASH_R2_BOOT_SEQUENCE
+  );
   if(!script.includes(OWNED_PAGE_MARKER))throw new Error('ADMIN_CASH_HOST_INSERTION_SOURCE_MISMATCH');
   script=script.replace(OWNED_PAGE_MARKER,CASH_R2_HOST_FUNCTION+OWNED_PAGE_MARKER);
   if(script.includes('renderCash'))throw new Error('ADMIN_CASH_COMPETING_RENDERER_REMAINS');
-  if(!script.includes(CASH_R2_ACCOUNTING_ROUTE)||!script.includes(CASH_R2_BOOT_SEQUENCE)||!script.includes('data-rona-cash-host'))throw new Error('ADMIN_CASH_R2_HOST_MISSING');
+  const cashBootReady=script.includes(CASH_R2_CURRENT_RAIL_BOOT_SEQUENCE)||script.includes(CASH_R2_BOOT_SEQUENCE);
+  if(!script.includes(CASH_R2_ACCOUNTING_ROUTE)||!cashBootReady||!script.includes('data-rona-cash-host'))throw new Error('ADMIN_CASH_R2_HOST_MISSING');
   return "window.__RONA_CASH_RUNTIME_OWNER__='"+CASH_OWNER+"';\n"+script+RADIO_VISUAL_LOADER+PAYMENTS_V8_BOOTSTRAP_LOADER;
 }
 
