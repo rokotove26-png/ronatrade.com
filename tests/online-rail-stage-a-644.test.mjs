@@ -97,6 +97,17 @@ test('Admin single-owner rail shell remains intact and neighboring owners are un
   assert.match(admin,/authority-change-only-v2/);
 });
 
+
+test('Stage A.1 active Admin runtime physically retires the legacy Rail renderer',()=>{
+  assert.match(admin,/__RONA_RAIL_SINGLE_OWNER__='stage-a1-current-only-v1'/);
+  assert.match(admin,/monitoring:renderRailCurrentShell,/);
+  assert.match(admin,/renderPayments\(\);renderCash\(\);renderRailCurrentShell\(\);renderRadio\(\);renderAnalytics\(\);/);
+  assert.doesNotMatch(admin,/function renderRail\(\)\{/);
+  assert.doesNotMatch(admin,/monitoring:renderRail,/);
+  assert.doesNotMatch(admin,/renderRail\(\);/);
+  assert.doesNotMatch(admin,/replacePage\('monitoring',/);
+});
+
 test('Stage A markers are exposed without removing prior current owner markers',()=>{
   assert.match(v81,/20260918-deal-owned-map-state-v1/);
   assert.match(v81,/20260918-deal-map-persistence-v1/);
