@@ -10,8 +10,7 @@ on:
       - 'functions/portal/main-ui/payments-money-display-contract.js'
       - 'functions/portal/payments-v8-ui.js'
       - 'functions/portal/cash-r2-ui.js'
-      - 'supabase/functions/rona-owner-ai-sync/cash-projection-v1.mjs'
-      - 'supabase/functions/rona-owner-ai-sync/cash-projection-overlay-entry.ts'
+      - 'functions/portal/owner-api.js'
       - 'assets/portal-admin-shell-fast-v1.js'
       - 'scripts/qa-admin-cash-single-owner.mjs'
       - 'scripts/qa-admin-single-owner.mjs'
@@ -27,8 +26,6 @@ on:
       - 'functions/portal/main-ui/payments-money-display-contract.js'
       - 'functions/portal/payments-v8-ui.js'
       - 'functions/portal/cash-r2-ui.js'
-      - 'supabase/functions/rona-owner-ai-sync/cash-projection-v1.mjs'
-      - 'supabase/functions/rona-owner-ai-sync/cash-projection-overlay-entry.ts'
       - 'assets/portal-admin-shell-fast-v1.js'
       - 'scripts/qa-admin-cash-single-owner.mjs'
       - 'scripts/qa-admin-single-owner.mjs'
@@ -55,7 +52,7 @@ jobs:
           node --check functions/portal/payments-v8-ui.js
           node --check tests/admin-payments-v7/payments-money-display-precision.test.mjs
           node --check functions/portal/cash-r2-ui.js
-          node --check supabase/functions/rona-owner-ai-sync/cash-projection-v1.mjs
+          node --check functions/portal/owner-api.js
           node --check scripts/qa-admin-cash-single-owner.mjs
           node --check tests/admin-cash-finance-projection-v1.test.mjs
       - name: Payments money precision regression QA
