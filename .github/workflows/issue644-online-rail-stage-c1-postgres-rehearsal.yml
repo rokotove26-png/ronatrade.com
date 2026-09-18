@@ -72,7 +72,10 @@ jobs:
           pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
           server_version="$(psql -Atqc "show server_version")"
           echo "C1_POSTGRES_VERSION=$server_version"
-          test "$server_version" = "17.6"
+          case "$server_version" in
+            17.6*) ;;
+            *) echo "Unexpected PostgreSQL version: $server_version"; exit 1 ;;
+          esac
           echo "C1_NON_PROD_ENVIRONMENT=PASS"
 
       - name: Build production-compatible dependency substrate
