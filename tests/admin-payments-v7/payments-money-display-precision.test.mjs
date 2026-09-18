@@ -50,7 +50,8 @@ test('aggregate arithmetic keeps raw precision and formatting is applied only af
   assert.equal(numericDisplay(shown),3.5);
   assert.notEqual(preciseTotal,numericDisplay(shown),'display-rounded value must not feed aggregate arithmetic');
 
-  assert.match(v8Ui,/projection\?\.currency_aggregates\?\.\[field\]/,'V8 board must consume server-computed currency aggregates');\n  assert.doesNotMatch(v8Ui,/map\.set\(c,\(map\.get\(c\)\|\|0\)\+Number\(m\.amount\)\)/,'V8 UI must not recompute authoritative currency aggregates client-side');
+  assert.match(v8Ui,/projection\?\.currency_aggregates\?\.\[field\]/,'V8 board must consume server-computed currency aggregates');
+  assert.doesNotMatch(v8Ui,/map\.set\(c,\(map\.get\(c\)\|\|0\)\+Number\(m\.amount\)\)/,'V8 UI must not recompute authoritative currency aggregates client-side');
   assert.match(aggregateUi,/totals\.set\(row\.currency,\(totals\.get\(row\.currency\)\|\|0\)\+Number\(row\.amount\)\)/);
   assert.doesNotMatch(v8Ui,/map\.set\([^\n]+formatAmount/);
 });
