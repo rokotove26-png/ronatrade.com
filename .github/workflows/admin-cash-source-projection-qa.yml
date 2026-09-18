@@ -1,0 +1,31 @@
+name: Admin Cash Source Projection QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*finance*cash*.sql'
+      - 'supabase/functions/rona-accounting-statement-intake/**'
+      - 'supabase/functions/rona-accounting-mail-bridge/**'
+      - 'supabase/functions/rona-role-mail-bridge/**'
+      - 'tests/admin-cash-source-projection/**'
+      - '.github/workflows/admin-cash-source-projection-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/*finance*cash*.sql'
+      - 'supabase/functions/rona-accounting-statement-intake/**'
+      - 'supabase/functions/rona-accounting-mail-bridge/**'
+      - 'tests/admin-cash-source-projection/**'
+      - '.github/workflows/admin-cash-source-projection-qa.yml'
+
+jobs:
+  cash-source-projection-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Run Admin Cash source projection contract tests
+        run: node --test tests/admin-cash-source-projection/*.test.mjs
