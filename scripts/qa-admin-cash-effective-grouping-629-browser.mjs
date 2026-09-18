@@ -96,7 +96,7 @@ try{
     };
   });
 
-  const find=(rows,needle)=>rows.filter(r=>r.join(' ').includes(needle));
+  const find=(rows,needle)=>rows.filter(r=>String(r[0]||'').includes(needle));
   assert(proof.state.status==='READY','Cash not READY');
   assert(proof.payments.length===4,'effective payment entity rows='+proof.payments.length);
   const bakai=find(proof.payments,'БАКАЙ');
