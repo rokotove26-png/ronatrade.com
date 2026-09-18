@@ -1,27 +1,42 @@
-import { onRequest as baseRail } from './rail-r2-ui.js';
-
-const ISOLATE_FROM="function isolateLegacy(page,host){var matrix=findTariffMatrix(page);if(matrix&&host.contains(matrix)&&!matrix.closest('[data-rail-current-root]'))matrix.remove();Array.from(page.children).forEach(function(n){if(n===host)return;n.classList.add('rona-owner-original-hidden');n.setAttribute('aria-hidden','true')});if(matrix&&!host.contains(matrix)){matrix.classList.remove('rona-owner-original-hidden');matrix.removeAttribute('aria-hidden');host.append(matrix)}return matrix}";
-const ISOLATE_TO="function isolateLegacy(page,host){var matrix=findTariffMatrix(page);Array.from(page.children).forEach(function(n){if(n===host)return;n.classList.add('rona-owner-original-hidden');n.setAttribute('aria-hidden','true')});if(matrix&&!host.contains(matrix)){matrix.classList.remove('rona-owner-original-hidden');matrix.removeAttribute('aria-hidden');host.append(matrix)}return matrix}";
-const WATCH_FROM="function watch(){var page=q('#page-monitoring');if(!page||observer)return;observer=new MutationObserver(queueRepair);observer.observe(page,{childList:true,subtree:true});window.__RONA_RAIL_CURRENT_OBSERVER__=observer}";
-const WATCH_TO="function watch(){var page=q('#page-monitoring'),host=page?getHost(page):null;if(!page||!host||observer)return;observer=new MutationObserver(function(){if(!q('[data-rail-current-root]',host))queueRepair()});observer.observe(host,{childList:true});window.__RONA_RAIL_CURRENT_OBSERVER__=observer}";
-
-export async function onRequest(context){
-  const response=await baseRail(context);
-  let source=await response.text();
-  if(response.status!==200||!source.includes(ISOLATE_FROM)||!source.includes(WATCH_FROM)||!source.includes("window.__RONA_RAIL_CURRENT_FIRST__='20260824-0231-v3'")){
-    return new Response('RAIL_SAFE_FALLBACK_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
-  }
-  source=source
-    .replace(ISOLATE_FROM,ISOLATE_TO)
-    .replace(WATCH_FROM,WATCH_TO)
-    .replace("window.__RONA_RAIL_CURRENT_FIRST__='20260824-0231-v3';","window.__RONA_RAIL_CURRENT_FIRST__='20260824-0231-v3';window.__RONA_RAIL_SAFE_FALLBACK__='20260826-direct-child-v1';");
-  const headers=new Headers(response.headers);
-  headers.set('cache-control','no-store, no-cache, must-revalidate');
-  headers.set('pragma','no-cache');
-  headers.set('expires','0');
-  headers.set('x-rona-rail-ui','safe-fallback-direct-child-v1');
-  headers.set('x-rona-rail-observer','direct-child-root-loss-only');
-  headers.delete('content-length');
-  headers.delete('etag');
-  return new Response(source,{status:response.status,statusText:response.statusText,headers});
+const SCRIPT=String.raw`(()=>{'use strict';
+if(window.__RONA_RAIL_SAFE_FALLBACK__)return;
+window.__RONA_RAIL_SAFE_FALLBACK__='20260918-direct-child-v2';
+function q(s,r){return(r||document).querySelector(s)}
+function el(tag,cls,text){var n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined&&text!==null)n.textContent=String(text);return n}
+function hostFor(page){var h=q(':scope > .rona-owner-page-content',page);if(!h){h=el('div','rona-owner-page-content');h.setAttribute('data-owner-page','monitoring');page.append(h)}return h}
+function table(rows){var w=el('div','rona-owner-table-wrap'),t=el('table','rona-owner-table'),thead=el('thead'),hr=el('tr'),tb=el('tbody');['ГУ-12','Сделка','Маршрут','Вагоны','Состояние'].forEach(function(h){hr.append(el('th','',h))});thead.append(hr);rows.forEach(function(r){var tr=el('tr');r.forEach(function(v){tr.append(el('td','',v))});tb.append(tr)});t.append(thead,tb);w.append(t);return w}
+function render(){
+  var page=q('#page-monitoring');if(!page)return;
+  var host=hostFor(page),data=window.__RONA_OWNER_ADMIN_SNAPSHOT__||{},rail=Array.isArray(data.rail)?data.rail:[];
+  var root=el('section','rona-owner-card');root.setAttribute('data-rail-current-root','ready');root.setAttribute('data-rail-safe-fallback','20260918-direct-child-v2');
+  root.append(el('h2','','Онлайн ЖД'));
+  root.append(el('div','rona-owner-muted','Основной интерфейс ЖД временно недоступен. Показаны только подтверждённые данные текущего Admin snapshot; движение вагонов не моделируется.'));
+  if(rail.length){
+    var rows=rail.map(function(x){var wagons=Array.isArray(x&&x.wagons)?x.wagons:[];return[
+      x.gu12_number||x.document_number||x.rail_document_id||'—',
+      x.deal_id||'—',
+      x.route_text||'—',
+      String(wagons.length),
+      wagons.length?'Подтверждённые вагоны доступны':'Мониторинг вагонов не запущен'
+    ]});
+    root.append(table(rows))
+  }else root.append(el('div','rona-owner-muted','Подтверждённые ГУ-12 отсутствуют.'));
+  host.replaceChildren(root);
+  Array.from(page.children).forEach(function(n){if(n===host)return;n.classList.add('rona-owner-original-hidden');n.setAttribute('aria-hidden','true')});
+  page.classList.remove('rona-owner-hide');
+  window.__RONA_RAIL_CURRENT_STATE__={version:'safe-fallback-v2',railCount:rail.length,source:'OWNER_ADMIN_SNAPSHOT',generatedAt:new Date().toISOString()}
+}
+window.__RONA_RAIL_CURRENT_REPAIR__=window.__RONA_RAIL_CURRENT_REPAIR__||render;
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render,{once:true});else render();
+window.addEventListener('rona:admin-authority-refresh',render);
+})();`;
+export async function onRequest(){
+  return new Response(SCRIPT,{status:200,headers:{
+    'content-type':'application/javascript; charset=utf-8',
+    'cache-control':'no-store, no-cache, must-revalidate',
+    'pragma':'no-cache',
+    'expires':'0',
+    'x-content-type-options':'nosniff',
+    'x-rona-rail-ui':'safe-fallback-direct-child-v2'
+  }})
 }
