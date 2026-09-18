@@ -47,10 +47,10 @@ test('Cash R2 is the sole emitted accounting owner after middleware',()=>{
 test('Cash background refresh is 60s max, signature-gated, and keeps current DOM visible',()=>{
   new Function(cash);
   assert.ok(cash.includes('var CHECK_MS=60000'));
-  assert.ok(cash.includes("mode:'SOURCE_SIGNATURE_CHANGE_ONLY'"));
+  assert.ok(cash.includes("mode:'SOURCE_SIGNATURE_CHANGE_ONLY_TRANSIENT_RECOVERY'"));
   assert.ok(cash.includes("if(current&&currentSignature&&signature===currentSignature){runtime.unchangedCount++"));
   assert.ok(cash.includes("if(!current&&!background)renderLoading()"));
-  assert.ok(cash.includes("if(!current)renderError("));
+  assert.ok(cash.includes("if(!current){if(transient){scheduleInitialRetry"));
   assert.ok(cash.includes("setInterval(function(){checkCurrent('fallback-poll',false)},CHECK_MS)"));
   assert.ok(cash.includes("window.addEventListener('rona:finance-sync'"));
   assert.ok(cash.includes("if(ev&&ev.detail&&ev.detail.changed===false)return"));
@@ -59,8 +59,31 @@ test('Cash background refresh is 60s max, signature-gated, and keeps current DOM
   const loadEnd=cash.indexOf('function initialLoad()',loadStart);
   const loadBody=cash.slice(loadStart,loadEnd);
   assert.equal((loadBody.match(/renderLoading\(\)/g)||[]).length,1);
+  assert.ok(loadBody.includes("setDegraded(transient?'Временная задержка Finance. Последние подтверждённые данные сохранены.'"));
   assert.ok(loadBody.indexOf('await requestProjection')>loadBody.indexOf('renderLoading()'));
   assert.ok(loadBody.indexOf('renderPayload(p,signature,reason)')>loadBody.indexOf('payloadSignature(p)'));
+});
+
+test('Cash initial transient failures auto-retry with bounded backoff and one healthy poll timer',()=>{
+  assert.ok(cash.includes('INITIAL_RETRY_DELAYS=[2000,5000,15000,30000]'));
+  assert.ok(cash.includes('REQUEST_TIMEOUT_MS=20000'));
+  assert.ok(cash.includes('function isTransientError(e)'));
+  assert.ok(cash.includes('statement timeout|canceling statement'));
+  assert.ok(cash.includes("msg.textContent='Временная задержка Finance, повторяем...'"));
+  assert.ok(cash.includes('function scheduleInitialRetry(from,to,retryAttempt,reason,message)'));
+  assert.ok(cash.includes('if(retryAttempt>=INITIAL_RETRY_DELAYS.length)'));
+  assert.ok(cash.includes("window.__RONA_CASH_R2_POLL_TIMER__"));
+  assert.ok(cash.includes('runtime.pollTimerCount=1'));
+  assert.ok(cash.includes("if(current||initialRetryTimer||(window.__RONA_CASH_R2_STATE__&&window.__RONA_CASH_R2_STATE__.status==='RETRYING'))return"));
+});
+
+test('Cash keeps a valid payload visible on transient background failure',()=>{
+  assert.ok(cash.includes('function setDegraded(message)'));
+  assert.ok(cash.includes('function clearDegraded()'));
+  assert.ok(cash.includes("status:'READY',degraded:true"));
+  assert.ok(cash.includes("Последние подтверждённые данные сохранены"));
+  assert.ok(cash.includes("if(current&&currentSignature&&signature===currentSignature){clearInitialRetryTimer();clearDegraded();"));
+  assert.doesNotMatch(cash,/if\(current\).*renderError\(/s);
 });
 
 test('canonical Admin background remains a session-level static shell concern',()=>{
