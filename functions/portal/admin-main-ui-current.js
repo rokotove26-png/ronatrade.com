@@ -117,7 +117,7 @@ function patchOperationsFunctionalRuntime(script){
     ],
     [
       "function startAdmin(){renderAdmin();refreshAdmin();setInterval(refreshAdmin,60000);new MutationObserver(renderAdmin).observe(document.body,{childList:true,subtree:true})}",
-      "function startAdmin(){window.__RONA_OWNER_AI_SYNC_POLL_MS__=60000;refreshAdmin(true);setInterval(()=>refreshAdmin(false),60000)}"
+      "function startAdmin(){window.__RONA_OWNER_AI_SYNC_POLL_MS__=60000;window.__RONA_OWNER_AI_REFRESH__=refreshAdmin;refreshAdmin(true);setInterval(()=>refreshAdmin(false),60000)}"
     ]
   ];
   for(const [from,to] of replacements){if(!script.includes(from))throw new Error('OPERATIONS_FUNCTIONAL_PATCH_SOURCE_MISMATCH');script=script.replace(from,to)}
@@ -145,6 +145,9 @@ function patchRailSingleOwner(script){
   if(patched.includes('function renderRail(){'))throw new Error('RAIL_STAGE_A1_LEGACY_FUNCTION_REMAINS');
   if(patched.includes('renderRail();'))throw new Error('RAIL_STAGE_A1_LEGACY_CALL_REMAINS');
   if(patched.includes("replacePage('monitoring',"))throw new Error('RAIL_STAGE_A1_LEGACY_REPLACE_REMAINS');
+  const hookAnchor='function bindOwnerAdminAutoRefresh(){';
+  if(!patched.includes(hookAnchor))throw new Error('RAIL_STAGE_A1_ADMIN_HOOK_SOURCE_MISMATCH');
+  patched=patched.replace(hookAnchor,"window.__RONA_OWNER_ADMIN_RENDER__=renderAdmin;window.__RONA_OWNER_ADMIN_REFRESH_TICK__=ownerAdminRefreshTick;\n"+hookAnchor);
 
   return "window.__RONA_RAIL_SINGLE_OWNER__='stage-a1-current-only-v1';\n"+patched;
 }
