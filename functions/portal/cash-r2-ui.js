@@ -1,7 +1,7 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_CASH_R2_UI__)return;
-window.__RONA_CASH_R2_UI__='20260918-issue629-finance-rpc-v2';
+window.__RONA_CASH_R2_UI__='20260918-issue629-canonical-party-reversal-v3';
 var ENDPOINT='/portal/owner-api?path=/admin/cash-source';
 var MODEL='FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE';
 var SOURCE='AI-FINANCE/BANK_STATEMENT';
@@ -28,8 +28,9 @@ function table(headers,rows){var wrap=el('div','rona-owner-table-wrap rona-cash-
 function kindLabel(v){return{EXTERNAL_INFLOW:'Внешнее поступление',EXTERNAL_PAYMENT:'Оплата',REVERSAL:'Сторно / возврат',FX_CONVERSION:'Конвертация',OWN_ACCOUNT_TRANSFER:'Перевод между своими счетами',UNCLASSIFIED:'Требует проверки'}[txt(v)]||txt(v)||'—'}
 function kindNode(v){var k=txt(v),tone=k==='FX_CONVERSION'||k==='REVERSAL'?'fx':k==='OWN_ACCOUNT_TRANSFER'?'internal':k==='EXTERNAL_INFLOW'?'in':k==='EXTERNAL_PAYMENT'?'out':'';return el('span','rona-cash-kind'+(tone?' rona-cash-kind--'+tone:''),kindLabel(k))}
 function directionLabel(v){return txt(v)==='INCOMING'?'Зачисление':txt(v)==='OUTGOING'?'Списание':txt(v)||'—'}
-function detail(rows){var d=el('details','rona-cash-detail'),summary=el('summary','',String(rows.length)+' опер.'),list=el('div','rona-cash-detail-list');rows.forEach(function(x){list.append(el('div','',ruDate(x.operation_date)+' '+localTime(x.executed_at_local)+' · '+money(x.amount,x.currency)+' · '+(x.bank_document_number||x.finance_payment_id||x.source_ref||'—')))});d.append(summary,list);return d}
-function groupCounterparties(rows){var map=new Map();rows.forEach(function(x){var key=normParty(x.counterparty||x.source_counterparty||'—')+'|'+txt(x.currency);if(!map.has(key))map.set(key,[]);map.get(key).push(x)});return Array.from(map.values()).map(function(xs){var first=xs[0],total=xs.reduce(function(a,x){var n=num(x.amount);return a+(n===null?0:n)},0);return[first.counterparty||first.source_counterparty||'—',money(total,first.currency),String(xs.length),detail(xs)]}).sort(function(a,b){return String(a[0]).localeCompare(String(b[0]))})}
+function detail(rows){var d=el('details','rona-cash-detail'),summary=el('summary','',String(rows.length)+' опер.'),list=el('div','rona-cash-detail-list');rows.forEach(function(x){var raw=txt(x.source_counterparty),bank=txt(x.bank_name),meta=[];if(raw)meta.push('источник: '+raw);if(bank&&normParty(bank)!==normParty(raw))meta.push('банк: '+bank);list.append(el('div','',ruDate(x.operation_date)+' '+localTime(x.executed_at_local)+' · '+money(x.amount,x.currency)+' · '+(x.bank_document_number||x.finance_payment_id||x.source_ref||'—')+(meta.length?' · '+meta.join(' · '):'')))});d.append(summary,list);return d}
+function partyIdentity(x){var id=txt(x.canonical_counterparty_id),name=txt(x.canonical_counterparty_name)||txt(x.counterparty)||txt(x.source_counterparty)||'—';return{id:id||('NAME:'+normParty(name)),name:name}}
+function groupCounterparties(rows){var map=new Map();rows.forEach(function(x){var party=partyIdentity(x),key=party.id+'|'+txt(x.currency);if(!map.has(key))map.set(key,[]);map.get(key).push(x)});return Array.from(map.values()).map(function(xs){var first=xs[0],party=partyIdentity(first),total=xs.reduce(function(a,x){var n=num(x.amount);return a+(n===null?0:n)},0);return[party.name,money(total,first.currency),String(xs.length),detail(xs)]}).sort(function(a,b){return String(a[0]).localeCompare(String(b[0]))})}
 function rawRows(rows){return rows.map(function(x){return[ruDate(x.operation_date),localTime(x.executed_at_local),kindNode(x.operation_type),directionLabel(x.direction),x.counterparty||x.source_counterparty||'—',money(x.amount,x.currency),x.bank_document_number||x.finance_payment_id||'—']})}
 function section(title,node){var s=el('section','rona-owner-card rona-cash-section');s.append(el('h3','',title),node);return s}
 function empty(text){return el('div','rona-owner-muted',text)}
@@ -38,6 +39,7 @@ function operationsView(p){var rows=arr(p.operations),day=p.period&&p.period.fro
   var payments=rows.filter(function(x){return x.operation_type==='EXTERNAL_PAYMENT'}),inflows=rows.filter(function(x){return x.operation_type==='EXTERNAL_INFLOW'}),reversals=rows.filter(function(x){return x.operation_type==='REVERSAL'}),fx=rows.filter(function(x){return x.operation_type==='FX_CONVERSION'}),own=rows.filter(function(x){return x.operation_type==='OWN_ACCOUNT_TRANSFER'}),unknown=rows.filter(function(x){return x.operation_type==='UNCLASSIFIED'});
   movement.append(section('Оплаты контрагентам',payments.length?table(['Контрагент','Сумма','Операций','Детали'],groupCounterparties(payments)):empty('Внешних оплат за период нет.')));
   movement.append(section('Внешние поступления',inflows.length?table(['Контрагент','Сумма','Операций','Детали'],groupCounterparties(inflows)):empty('Внешних поступлений за период нет.')));
+  movement.append(section('Сторно / возвраты',reversals.length?table(['Дата','Время','Тип','Направление','Контрагент','Сумма','Банк / ID'],rawRows(reversals)):empty('Сторно / возвратов за период нет.')));
   movement.append(section('Конвертации',fx.length?table(['Дата','Время','Тип','Направление','Контрагент','Сумма','Банк / ID'],rawRows(fx)):empty('Конвертаций за период нет.')));
   if(own.length)movement.append(section('Переводы между собственными счетами',table(['Дата','Время','Тип','Направление','Контрагент','Сумма','Банк / ID'],rawRows(own))));
   if(unknown.length)movement.append(section('Требуют проверки Finance',table(['Дата','Время','Тип','Направление','Контрагент','Сумма','Банк / ID'],rawRows(unknown))));
