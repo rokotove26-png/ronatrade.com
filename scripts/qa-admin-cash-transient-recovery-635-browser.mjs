@@ -97,7 +97,7 @@ try{
   const page=await context.newPage();
   const errors=[];
   page.on('pageerror',e=>errors.push(String(e?.message||e)));
-  page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+  page.on('console',m=>{if(m.type()==='error'){const t=m.text();if(!/Failed to load resource: the server responded with a status of 503/.test(t))errors.push(t)}});
 
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
 
