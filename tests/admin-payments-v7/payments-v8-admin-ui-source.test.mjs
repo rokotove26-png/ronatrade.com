@@ -21,14 +21,15 @@ test('Admin Payments V8 renderer reads only the canonical authenticated bootstra
   assert.doesNotMatch(ui, /owner_deal_finance_summary/);
 });
 
-test('current-only main UI hands Payments to the isolated V8 bootstrap renderer', () => {
+test('current-only main UI loads the V8 bootstrap as a data/passport bridge while V7 remains visual owner', () => {
   assert.match(mainUiMiddleware, /PAYMENTS_V8_BOOTSTRAP_OWNER='payments-v8-bootstrap-v1'/);
   assert.match(mainUiMiddleware, /\/portal\/payments-v8-ui\?v=20260917-v1/);
   assert.match(mainUiMiddleware, /canonical-v8-bootstrap/);
   assert.match(mainUiMiddleware, /x-rona-payments-current-runtime','due-now-conditional-v3/);
-  assert.match(ui, /data-page=\\"payments\\"|data-page=\"payments\"/);
+  assert.match(ui, /DATA_AND_PASSPORT_BRIDGE/);
+  assert.match(ui, /VISUAL_OWNER='admin-payments-v7-native-v2'/);
+  assert.doesNotMatch(ui, /page\.replaceChildren\(/);
 });
-
 test('Admin route remains current-only and non-rewriting', () => {
   assert.match(adminRoute, /ASSETS\?\.fetch/);
   assert.doesNotMatch(adminRoute, /HTMLRewriter/);

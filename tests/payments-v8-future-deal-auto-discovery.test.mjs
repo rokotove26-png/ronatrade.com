@@ -13,5 +13,5 @@ test('generic future deal is picked up by the next server projection aggregate',
 test('open Payments navigation requests a fresh bootstrap rather than rendering stale local projection',async()=>{
   const ui=await readFile(new URL('../functions/portal/payments-v8-ui.js',import.meta.url),'utf8');
   assert.match(ui,/if\(b\)scheduleRefresh\('navigation'\)/);
-  assert.match(ui,/function scheduleRefresh\(reason\)\{setTimeout\(\(\)=>\{load\(reason\)/);
+  assert.match(ui,/function scheduleRefresh\(reason\)\{setTimeout\(\(\)=>load\(reason\),0\)\}/);
 });
