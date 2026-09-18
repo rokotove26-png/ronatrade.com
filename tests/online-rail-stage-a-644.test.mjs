@@ -8,7 +8,10 @@ import { onRequest as adminMainUi } from '../functions/portal/admin-main-ui-curr
 
 async function scriptOf(fn){
   const response=await fn({});
-  assert.equal(response.status,200,await response.text().catch(()=>'')); // unreachable after text read only on failure
+  if(response.status!==200){
+    const body=await response.text().catch(()=>'');
+    assert.equal(response.status,200,body);
+  }
   return response.text();
 }
 
