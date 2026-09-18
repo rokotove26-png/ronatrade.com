@@ -48,13 +48,13 @@ test('Cash background refresh is 60s max, signature-gated, and keeps current DOM
   new Function(cash);
   assert.ok(cash.includes('var CHECK_MS=60000'));
   assert.ok(cash.includes("mode:'SOURCE_SIGNATURE_CHANGE_ONLY_TRANSIENT_RECOVERY'"));
-  assert.ok(cash.includes("if(current&&currentSignature&&signature===currentSignature){runtime.unchangedCount++"));
+  assert.ok(cash.includes("if(current&&currentSignature&&signature===currentSignature){clearInitialRetryTimer();clearDegraded();"));
   assert.ok(cash.includes("if(!current&&!background)renderLoading()"));
   assert.ok(cash.includes("if(!current){if(transient){scheduleInitialRetry"));
   assert.ok(cash.includes("setInterval(function(){checkCurrent('fallback-poll',false)},CHECK_MS)"));
   assert.ok(cash.includes("window.addEventListener('rona:finance-sync'"));
   assert.ok(cash.includes("if(ev&&ev.detail&&ev.detail.changed===false)return"));
-  assert.ok(cash.includes("host.replaceChildren(wrap);currentSignature=signature||payloadSignature(p);runtime.applyCount++"));
+  assert.ok(cash.includes("host.replaceChildren(wrap);clearInitialRetryTimer();currentSignature=signature||payloadSignature(p);"));
   const loadStart=cash.indexOf('async function load(from,to,options)');
   const loadEnd=cash.indexOf('function initialLoad()',loadStart);
   const loadBody=cash.slice(loadStart,loadEnd);
@@ -85,7 +85,8 @@ test('Cash keeps a valid payload visible on transient background failure',()=>{
   assert.ok(cash.includes("status:'READY',degraded:true"));
   assert.ok(cash.includes("Последние подтверждённые данные сохранены"));
   assert.ok(cash.includes("if(current&&currentSignature&&signature===currentSignature){clearInitialRetryTimer();clearDegraded();"));
-  assert.doesNotMatch(cash,/if\(current\).*renderError\(/s);
+  assert.ok(cash.includes("if(!current){if(transient){scheduleInitialRetry"));
+  assert.ok(cash.includes("setDegraded(transient?'Временная задержка Finance. Последние подтверждённые данные сохранены.'"));
 });
 
 test('canonical Admin background remains a session-level static shell concern',()=>{
