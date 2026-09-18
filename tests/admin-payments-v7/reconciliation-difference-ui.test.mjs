@@ -16,7 +16,8 @@ test('reconciliation indicator is append-only and preserves the Payments rendere
   assert.match(patched,/Сверочная разница/);
   assert.match(patched,/rona-payments-reconciliation-title-ticker/);
   assert.match(patched,/findTitleFrame/);
-  assert.match(patched,/title\.closest\('\.rona-visual-hero'\)/);
+  assert.match(patched,/querySelectorAll\(':scope > \.rona-visual-hero'\)/);
+  assert.match(patched,/heroes\.find\(candidate=>Array\.from\(candidate\.querySelectorAll\('h1,h2'\)\)\.some\(exactPaymentsTitle\)\)/);
   assert.match(patched,/rona-has-reconciliation-ticker/);
   assert.doesNotMatch(patched,/heading\.append\(title,right\)/);
 });
@@ -53,7 +54,15 @@ test('indicator is display-only: no drill-down, no local component calculation, 
   assert.match(source,/tone:n<0\?'negative':'positive'/);
   assert.match(source,/data-tone="positive"/);
   assert.match(source,/data-tone="negative"/);
-  assert.match(source,/@keyframes ronaReconTickerV5/);
+  assert.match(source,/@keyframes ronaReconTickerV6/);
+  assert.match(source,/function cleanupSingleton\(frame\)/);
+  assert.match(source,/document\.querySelectorAll\('\[id="'\+tickerId\+'"\],\.'\+tickerClass\)/);
+  assert.match(source,/if\(valid\)\{keeper=node;continue\}/);
+  assert.match(source,/node\.remove\(\)/);
+  assert.match(source,/oldObserver&&typeof oldObserver\.disconnect==='function'/);
+  assert.match(source,/window\.removeEventListener\('focus',oldFocus\)/);
+  assert.match(source,/document\.removeEventListener\('visibilitychange',oldVisibility\)/);
+  assert.match(source,/window\.removeEventListener\('rona:finance-sync',oldFinanceSync\)/);
   assert.doesNotMatch(source,/rona-payments-reconciliation-heading'\);/);
 });
 
@@ -62,4 +71,15 @@ test('indicator overlay does not alter Payments KPI, cards, deal grid or rendere
   for(const forbidden of ['.rona-payments-v7-kpis','.rona-payments-v7-kpi','.rona-payments-v7-deal','rona-payments-v7-deal-grid','grid-template-columns:repeat(5']) {
     assert.equal(source.includes(forbidden),false,forbidden+' must remain owned by Payments V8');
   }
+});
+
+test('reconciliation ticker runtime enforces exactly one canonical ticker host', () => {
+  const source=PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME;
+  assert.match(source,/const tickerClass='rona-payments-reconciliation-title-ticker'/);
+  assert.match(source,/const all=Array\.from\(document\.querySelectorAll/);
+  assert.match(source,/node\.parentElement===frame/);
+  assert.match(source,/for\(const host of document\.querySelectorAll\('\.'\+hostClass\)\)/);
+  assert.match(source,/if\(host!==frame\)host\.classList\.remove\(hostClass\)/);
+  assert.match(source,/removeLegacyNodes\(\)/);
+  assert.match(source,/#rona-payments-reconciliation-difference/);
 });
