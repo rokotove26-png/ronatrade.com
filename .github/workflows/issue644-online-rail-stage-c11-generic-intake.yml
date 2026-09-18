@@ -90,7 +90,8 @@ jobs:
         run: |
           set -euo pipefail
           node tests/online-rail-c11/gateway-contract.test.mjs | tee /tmp/c11-gateway.log
-          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/index.ts supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs 2>&1 | tee /tmp/c11-deno-check.log
+          deno cache --node-modules-dir=auto supabase/functions/rona-mcp-gateway/index.ts 2>&1 | tee /tmp/c11-deno-check.log
+          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs 2>&1 | tee -a /tmp/c11-deno-check.log
       - name: Reapply C1.1 and prove schema drift-free
         run: |
           set -euo pipefail
