@@ -287,14 +287,19 @@ with effective_day as (
 )
 select
   d.*,
-  coalesce(e.effective_external_payment,0)::numeric(30,8) as effective_external_payment,
+  case when e.operation_date is null then 0::numeric else e.effective_external_payment end::numeric(30,8) as effective_external_payment,
   coalesce(e.matched_external_payment_reversal,0)::numeric(30,8) as matched_external_payment_reversal,
   coalesce(e.effective_external_payment_operation_count,0)::int as effective_external_payment_operation_count,
   coalesce(e.reversal_pair_unresolved_count,0)::int as reversal_pair_unresolved_count,
   coalesce(e.effective_payment_unresolved_count,0)::int as effective_payment_unresolved_count,
-  sum(coalesce(e.effective_external_payment,0)) over(
-    partition by d.currency order by d.operation_date rows unbounded preceding
-  )::numeric(30,8) as cumulative_effective_external_payment,
+  case
+    when sum(coalesce(e.effective_payment_unresolved_count,0)) over(
+      partition by d.currency order by d.operation_date rows unbounded preceding
+    )>0 then null::numeric
+    else sum(coalesce(e.effective_external_payment,0)) over(
+      partition by d.currency order by d.operation_date rows unbounded preceding
+    )::numeric(30,8)
+  end as cumulative_effective_external_payment,
   sum(coalesce(e.matched_external_payment_reversal,0)) over(
     partition by d.currency order by d.operation_date rows unbounded preceding
   )::numeric(30,8) as cumulative_matched_external_payment_reversal
@@ -396,7 +401,7 @@ period_rollup as (
     sum(external_payment)::numeric(30,8) as external_payment,
     sum(external_payment)::numeric(30,8) as gross_external_payment,
     sum(matched_external_payment_reversal)::numeric(30,8) as matched_external_payment_reversal,
-    sum(effective_external_payment)::numeric(30,8) as effective_external_payment,
+    case when sum(effective_payment_unresolved_count)>0 then null::numeric else sum(effective_external_payment)::numeric(30,8) end as effective_external_payment,
     sum(effective_external_payment_operation_count)::int as effective_external_payment_operation_count,
     sum(reversal_pair_unresolved_count)::int as reversal_pair_unresolved_count,
     sum(effective_payment_unresolved_count)::int as effective_payment_unresolved_count,
