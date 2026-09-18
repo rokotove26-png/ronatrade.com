@@ -24,7 +24,7 @@ async function verifyGithubOidc(token){
   const key=await crypto.subtle.importKey("jwk",jwk,{name:"RSASSA-PKCS1-v1_5",hash:"SHA-256"},false,["verify"]);
   const ok=await crypto.subtle.verify("RSASSA-PKCS1-v1_5",key,b64(parts[2]),new TextEncoder().encode(parts[0]+"."+parts[1]));if(!ok)throw Object.assign(new Error("OIDC_SIGNATURE_INVALID"),{status:401});
   const now=Math.floor(Date.now()/1000);if(claims.iss!=="https://token.actions.githubusercontent.com"||claims.aud!==AUD||claims.repository!==REPO||claims.ref!==REF||!claims.sha||!/^[0-9a-f]{40}$/i.test(claims.sha)||Number(claims.exp||0)<now-30||Number(claims.nbf||0)>now+30)throw Object.assign(new Error("OIDC_CLAIMS_DENIED"),{status:403});
-  if(!String(claims.event_name||"").match(/^(push|pull_request)$/))throw Object.assign(new Error("OIDC_EVENT_DENIED"),{status:403});
+  if(String(claims.event_name||"")!=="push")throw Object.assign(new Error("OIDC_EVENT_DENIED"),{status:403});
   return claims;
 }
 function bearer(req){const h=req.headers.get("authorization")||"";return h.startsWith("Bearer ")?h.slice(7):""}
