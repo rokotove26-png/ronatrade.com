@@ -65,6 +65,9 @@ create table if not exists portal_private.finance_counterparty_aliases_v1 (
 create index if not exists finance_counterparty_aliases_v1_lookup_idx
   on portal_private.finance_counterparty_aliases_v1(alias_scope,normalized_alias,priority desc);
 
+create index if not exists finance_counterparty_aliases_v1_canonical_idx
+  on portal_private.finance_counterparty_aliases_v1(canonical_counterparty_id);
+
 alter table portal_private.finance_counterparty_identities_v1 enable row level security;
 alter table portal_private.finance_counterparty_aliases_v1 enable row level security;
 revoke all on portal_private.finance_counterparty_identities_v1 from public,anon,authenticated;
