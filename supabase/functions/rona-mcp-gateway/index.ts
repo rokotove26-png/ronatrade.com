@@ -1,12 +1,21 @@
 import postgres from "npm:postgres@3.4.7";
 import { createFinancePaymentsV7NativeHooks } from "./finance-payments-v7-extension.mjs";
 import { createRailXlsxIntakeHooks } from "./rail-xlsx-intake-extension.mjs";
+import { createRailXlsxResolutionHooks } from "./rail-xlsx-resolution-extension.mjs";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 if (!DB) throw new Error("MCP_RUNTIME_VARS_MISSING");
 const sql = postgres(DB, { prepare: false, max: 3 });
 const financeHooks = createFinancePaymentsV7NativeHooks({ sql });
 const railXlsxHooks = createRailXlsxIntakeHooks({
+  sql,
+  authContext,
+  rateAllowed,
+  recordMcpEvent,
+  requestIds,
+  sha256Hex,
+});
+const railXlsxResolutionHooks = createRailXlsxResolutionHooks({
   sql,
   authContext,
   rateAllowed,
@@ -316,6 +325,8 @@ async function wrappedRequest(handler, req) {
       if (direct) return direct;
     }
   }
+  const railResolutionDirect = await railXlsxResolutionHooks.toolCall(req, msg);
+  if (railResolutionDirect) return railResolutionDirect;
   const railDirect = await railXlsxHooks.toolCall(req, msg);
   if (railDirect) return railDirect;
   if (name === "finance_event_submit") {
@@ -327,6 +338,7 @@ async function wrappedRequest(handler, req) {
     res = await augmentToolsListResponse(res);
     res = await financeHooks.toolsList(req, res);
     res = await railXlsxHooks.toolsList(req, res);
+    res = await railXlsxResolutionHooks.toolsList(req, res);
   }
   if (name === "current_state") res = await compactCurrentStateResponse(res);
   return res;
