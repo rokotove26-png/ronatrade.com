@@ -155,7 +155,8 @@ try{
     const v=window.__RONA_RAIL_MAP_ACTIVE_VIEW__;
     return v?{...v}:null;
   });
-  assert(userView&&userView.zoom>=6,'map did not zoom by at least 3 levels');
+  console.log('ISSUE644_VIEWPORT_DEBUG='+JSON.stringify({initialMap:initial.map,userView}));
+  assert(userView&&initial.map&&userView.zoom>=Number(initial.map.zoom)+3,'map did not zoom by at least 3 levels');
   assert(!close(userView.lat,52.5)||!close(userView.lng,68),'map center did not move');
   assert(userView.userTouched===true,'user map interaction was not persisted');
 
