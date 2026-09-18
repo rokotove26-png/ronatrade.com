@@ -107,22 +107,26 @@ test('ingest verifies exact source policy contract and receipt timestamp',()=>{
   assert.doesNotMatch(migration,/source_timestamp\s*=\s*cp\.current_event_at/);
 });
 
-test('single current layer returns one Deal+wagon result and fails closed across domains',()=>{
+test('B1.5 current eligibility is built only from TRUSTED latest observations',()=>{
   assert.match(migration,/rail_xlsx_dislocation_current_position_v1/);
+  assert.match(migration,/from portal_private\.rail_xlsx_dislocation_latest_trusted_v1 l/i);
   assert.match(migration,/group by c\.effective_deal_key,c\.wagon_number/i);
   assert.match(migration,/count\(distinct c\.comparison_domain\) as comparison_domain_count/i);
   assert.match(migration,/when s\.comparison_domain_count>1 then 'CROSS_DOMAIN_AMBIGUOUS'/);
-  assert.match(migration,/case when s\.comparison_domain_count=1 then r\.station_name end/i);
-  assert.match(migration,/case when s\.comparison_domain_count=1 then r\.operation end/i);
+  assert.match(migration,/else 'TRUSTED'/);
+  assert.match(migration,/0 TRUSTED observations => no row in the business-current view/i);
 });
 
-test('ambiguous current is audit-only, excluded from groups and projection',()=>{
+test('B1.5 audit retains pending and non-current candidates even when trusted current exists',()=>{
   assert.match(migration,/rail_xlsx_dislocation_current_audit_v1/);
-  assert.match(migration,/where cp\.position_status='CROSS_DOMAIN_AMBIGUOUS'/);
+  assert.match(migration,/from portal_private\.rail_xlsx_dislocation_latest_state_v1 l/i);
+  assert.match(migration,/left join portal_private\.rail_xlsx_dislocation_current_position_v1 cp/i);
+  assert.match(migration,/where cp\.current_event_id is null[\s\S]*or l\.id<>cp\.current_event_id/i);
+  assert.match(migration,/coalesce\(cp\.position_status,'NO_TRUSTED_CURRENT'\)/i);
   assert.match(migration,/'positionAuditDetails'/);
+  assert.match(migration,/candidate_position_status in \('TO_VERIFY','UNRESOLVED','CONFLICT'\)/i);
   assert.match(migration,/where cp\.position_status='TRUSTED'[\s\S]*comparison_domain_count=1/i);
   assert.match(migration,/position_status='TRUSTED'[\s\S]*current_station_name is not null/i);
-  assert.match(migration,/position_status<>'TRUSTED'/);
 });
 
 test('rail_wagons is not auto-created and source system/policy are separated',()=>{
