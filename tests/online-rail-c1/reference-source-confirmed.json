@@ -1,5 +1,5 @@
 {
-  "fixtureType": "SOURCE_CONFIRMED_REFERENCE_FACTS_NOT_RAW_XLSX",
+  "fixtureType": "REGRESSION_FIXTURE_SOURCE_CONFIRMED_NOT_PRODUCTION_IDENTITY",
   "fileName": "Рона Трейд (5).xlsx",
   "sha256": "bc7429db2fbc411cb43607c54f87b824d4c8ad928353914c6e94c935870d5cc5",
   "sheetName": "дисл",
@@ -125,5 +125,7 @@
     "candidateGu12": "1308903120",
     "candidateRailDocumentId": "RONA-S002-IN-2026-002"
   },
-  "c1Limiter": "This fixture is derived from the prior read-only XLSX dry-run. It is not the original workbook bytes and cannot prove the file SHA or exact Excel row numbers."
+  "c1Limiter": "Regression fixture only. Derived from the prior read-only XLSX dry-run; not a production filename/sheet identity contract and not the original workbook bytes.",
+  "productionIdentityRole": "NONE",
+  "referenceUse": "REGRESSION_ONLY"
 }
