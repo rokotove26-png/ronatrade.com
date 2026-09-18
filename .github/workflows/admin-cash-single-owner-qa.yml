@@ -15,6 +15,7 @@ on:
       - 'scripts/qa-admin-cash-single-owner.mjs'
       - 'scripts/qa-admin-single-owner.mjs'
       - 'tests/admin-cash-finance-projection-v1.test.mjs'
+      - 'tests/admin-cash-one-entity-grouping-629.test.mjs'
       - 'tests/admin-cash-source-projection/canonical-counterparty-identity-v1.test.mjs'
       - 'supabase/migrations/20260918145500_finance_admin_cash_canonical_counterparty_identity_v1.sql'
       - 'tests/admin-payments-v7/payments-money-display-precision.test.mjs'
@@ -32,6 +33,7 @@ on:
       - 'scripts/qa-admin-cash-single-owner.mjs'
       - 'scripts/qa-admin-single-owner.mjs'
       - 'tests/admin-cash-finance-projection-v1.test.mjs'
+      - 'tests/admin-cash-one-entity-grouping-629.test.mjs'
       - 'tests/admin-payments-v7/payments-money-display-precision.test.mjs'
       - '.github/workflows/admin-cash-single-owner-qa.yml'
 
@@ -57,11 +59,14 @@ jobs:
           node --check functions/portal/owner-api.js
           node --check scripts/qa-admin-cash-single-owner.mjs
           node --check tests/admin-cash-finance-projection-v1.test.mjs
+          node --check tests/admin-cash-one-entity-grouping-629.test.mjs
           node --check tests/admin-cash-source-projection/canonical-counterparty-identity-v1.test.mjs
       - name: Payments money precision regression QA
         run: node --test tests/admin-payments-v7/payments-money-display-precision.test.mjs
       - name: Cash Finance projection QA
-        run: node --test tests/admin-cash-finance-projection-v1.test.mjs
+        run: |
+          node --test tests/admin-cash-finance-projection-v1.test.mjs
+          node --test tests/admin-cash-one-entity-grouping-629.test.mjs
       - name: Cash canonical counterparty identity QA
         run: node --test tests/admin-cash-source-projection/canonical-counterparty-identity-v1.test.mjs
       - name: Cash single-owner regression QA

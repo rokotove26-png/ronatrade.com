@@ -34,7 +34,7 @@ const main=await retry('main-v2 semantic convergence',async attempt=>{
   const r=await fetchNoStore('/portal/main-ui',attempt);
   assert(r.ok&&r.headers.get('x-rona-ui')==='main-v2',`status ${r.status} ui ${r.headers.get('x-rona-ui')}`);
   assert(r.headers.get('x-rona-deals-owner')==='current-only-v1.5',`deals owner ${r.headers.get('x-rona-deals-owner')}`);
-  assert(r.headers.get('x-rona-payments-ui')==='admin-payments-v7-native-v2',`payments owner ${r.headers.get('x-rona-payments-ui')}`);
+  assert(r.headers.get('x-rona-payments-ui')==='payments-v8-bootstrap-v1',`payments owner ${r.headers.get('x-rona-payments-ui')}`);
   assert(r.headers.get('x-rona-payments-current-runtime')==='due-now-conditional-v3',`payments runtime ${r.headers.get('x-rona-payments-current-runtime')}`);
   const t=await r.text();
   assert(t.length>0,'main-v2 body empty');
