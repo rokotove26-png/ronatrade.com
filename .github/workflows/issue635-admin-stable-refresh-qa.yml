@@ -1,0 +1,91 @@
+name: issue635 admin stable refresh QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/cash-r2-ui.js'
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'functions/portal/admin-approved-shell-v455-ui.js'
+      - 'tests/admin-runtime-stable-refresh-635.test.mjs'
+      - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
+      - 'scripts/qa-issue635-admin-production-browser.mjs'
+      - 'supabase/functions/rona-issue635-github-oidc-admin-qa/**'
+      - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/cash-r2-ui.js'
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'functions/portal/admin-approved-shell-v455-ui.js'
+      - 'tests/admin-runtime-stable-refresh-635.test.mjs'
+      - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
+      - 'scripts/qa-issue635-admin-production-browser.mjs'
+      - 'supabase/functions/rona-issue635-github-oidc-admin-qa/**'
+      - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
+
+permissions:
+  contents: read
+  checks: read
+  id-token: write
+
+jobs:
+  stable-refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Static current-runtime regression
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin-main-ui-current.js
+          node --check functions/portal/cash-r2-ui.js
+          node --check functions/portal/main-ui/_middleware.js
+          node --check tests/admin-runtime-stable-refresh-635.test.mjs
+          node --check scripts/qa-admin-stable-refresh-635-browser.mjs
+          node --check scripts/qa-issue635-admin-production-browser.mjs
+          node --test tests/admin-runtime-stable-refresh-635.test.mjs
+
+      - name: Canonical production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Deterministic Cash unchanged/change browser proof
+        run: node scripts/qa-admin-stable-refresh-635-browser.mjs
+
+      - name: Wait for exact production deploy
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+
+      - name: Three-minute authenticated production proof
+        if: github.event_name == 'push'
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+          EXPECTED_HEAD: ${{ github.sha }}
+        run: node scripts/qa-issue635-admin-production-browser.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always() && github.event_name == 'push'
+        with:
+          name: issue635-production-proof-${{ github.run_id }}
+          path: issue635-proof/
+          if-no-files-found: warn
+          retention-days: 14
