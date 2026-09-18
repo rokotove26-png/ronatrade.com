@@ -1,0 +1,109 @@
+name: issue635 admin stable refresh QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/cash-r2-ui.js'
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'functions/portal/admin-approved-shell-v455-ui.js'
+      - 'tests/admin-runtime-stable-refresh-635.test.mjs'
+      - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
+      - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/cash-r2-ui.js'
+      - 'functions/portal/main-ui/_middleware.js'
+      - 'functions/portal/admin-approved-shell-v455-ui.js'
+      - 'tests/admin-runtime-stable-refresh-635.test.mjs'
+      - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
+      - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
+
+permissions:
+  contents: read
+  checks: read
+
+jobs:
+  stable-refresh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Static current-runtime regression
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin-main-ui-current.js
+          node --check functions/portal/cash-r2-ui.js
+          node --check functions/portal/main-ui/_middleware.js
+          node --check tests/admin-runtime-stable-refresh-635.test.mjs
+          node --check scripts/qa-admin-stable-refresh-635-browser.mjs
+          node --test tests/admin-runtime-stable-refresh-635.test.mjs
+
+      - name: Canonical production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Deterministic Cash unchanged/change browser proof
+        run: node scripts/qa-admin-stable-refresh-635-browser.mjs
+
+      - name: Wait for exact production deploy
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+
+      - name: Production semantic convergence proof
+        if: github.event_name == 'push'
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+        run: |
+          set -euo pipefail
+          node scripts/verify-admin-current-only-production-v2.mjs
+          node --input-type=module <<'NODE'
+          const base='https://ronaoil.com';
+          const sha=process.env.GITHUB_SHA;
+          const fetchText=async path=>{
+            const r=await fetch(base+path+(path.includes('?')?'&':'?')+'_issue635='+Date.now(),{cache:'no-store'});
+            if(!r.ok)throw new Error(path+' HTTP '+r.status);
+            return {text:await r.text(),headers:r.headers};
+          };
+          const main=await fetchText('/portal/main-ui');
+          const cash=await fetchText('/portal/cash-r2-ui');
+          const requiredMain=[
+            "authority-change-only-v2",
+            "CHANGE_ONLY_60S",
+            "setInterval(()=>refreshAdmin(false),60000)",
+            "ownerAdminSnapshotSignature",
+            "ownerAiStableSignature"
+          ];
+          const requiredCash=[
+            "20260918-issue635-stable-refresh-v1",
+            "var CHECK_MS=60000",
+            "SOURCE_SIGNATURE_CHANGE_ONLY",
+            "runtime.unchangedCount++",
+            "renderPayload(p,signature,reason)"
+          ];
+          for(const marker of requiredMain)if(!main.text.includes(marker))throw new Error('MAIN_MARKER_MISSING:'+marker);
+          for(const marker of requiredCash)if(!cash.text.includes(marker))throw new Error('CASH_MARKER_MISSING:'+marker);
+          if(main.text.includes("setInterval(()=>ownerAdminRefreshTick(false),30000)"))throw new Error('LEGACY_30S_REPAINT_PRESENT');
+          if(main.text.includes('new MutationObserver(renderAdmin)'))throw new Error('LEGACY_BODY_RENDER_OBSERVER_PRESENT');
+          if(main.text.includes('function renderCash()')||main.text.includes('accounting:renderCash,'))throw new Error('LEGACY_CASH_OWNER_PRESENT');
+          console.log('ISSUE635_PRODUCTION_SOURCE_SEMANTICS=PASS sha='+sha);
+          NODE
