@@ -74,6 +74,8 @@ test('Cash initial transient failures auto-retry with bounded backoff and one he
   assert.ok(cash.includes('if(retryAttempt>=INITIAL_RETRY_DELAYS.length)'));
   assert.ok(cash.includes("window.__RONA_CASH_R2_POLL_TIMER__"));
   assert.ok(cash.includes('runtime.pollTimerCount=1'));
+  assert.ok(cash.includes("ownerSignature===lastOwnerFinanceSignature"));
+  assert.ok(cash.includes('runtime.versionUnchangedCount++'));
   assert.ok(cash.includes("if(current||initialRetryTimer||(window.__RONA_CASH_R2_STATE__&&window.__RONA_CASH_R2_STATE__.status==='RETRYING'))return"));
 });
 
