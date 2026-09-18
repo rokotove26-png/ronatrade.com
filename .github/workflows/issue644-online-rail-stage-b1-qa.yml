@@ -36,12 +36,12 @@ jobs:
           cat /tmp/changed.txt
           allowed='^(supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1\.sql|docs/online-rail-stage-b1-xlsx-dislocation\.md|tests/online-rail-stage-b1-xlsx-dislocation\.test\.mjs|tests/online-rail-stage-b11-reference-dry-run\.test\.mjs|tests/online-rail-stage-b13-semantic\.test\.mjs|\.github/workflows/issue644-online-rail-stage-b1-qa\.yml)$'
           if grep -Ev "$allowed" /tmp/changed.txt; then
-            echo "ISSUE644_B13_DELTA_ONLY=FAIL"
+            echo "ISSUE644_B15_DELTA_ONLY=FAIL"
             exit 1
           fi
-          echo "ISSUE644_B13_DELTA_ONLY=PASS"
+          echo "ISSUE644_B15_DELTA_ONLY=PASS"
 
-      - name: Stage B1.3 static architecture contract
+      - name: Stage B1.5 static architecture contract
         run: |
           set -euo pipefail
           node --check tests/online-rail-stage-b1-xlsx-dislocation.test.mjs
@@ -59,7 +59,7 @@ jobs:
           node --check functions/portal/rail-current-v81-maplibre-ui.js
           node --test tests/online-rail-stage-a-644.test.mjs
 
-      - name: B1.3 safety gates
+      - name: B1.5 safety gates
         run: |
           set -euo pipefail
           sql='supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
@@ -72,8 +72,8 @@ jobs:
           grep -Eq "RAIL_LOGISTICS_VERIFIED_DECISION" "$sql"
           grep -Eq "OWNER_EXPLICIT_CORRECTION" "$sql"
           grep -Eq "RAIL_LOGISTICS_VERIFIED_EXPEDITOR_CORRECTION" "$sql"
-          echo "ISSUE644_B13_NO_PROVIDER_ACTIVATION=PASS"
-          echo "ISSUE644_B13_NO_MOVIZOR_HISTORY_REUSE=PASS"
-          echo "ISSUE644_B13_DIRECT_EVIDENCE_INSERT_BLOCKED=PASS"
-          echo "ISSUE644_B13_CROSS_DOMAIN_FAIL_CLOSED=PASS"
-          echo "ISSUE644_B13_AUTHORITY_CLOSED_SET=PASS"
+          echo "ISSUE644_B15_NO_PROVIDER_ACTIVATION=PASS"
+          echo "ISSUE644_B15_NO_MOVIZOR_HISTORY_REUSE=PASS"
+          echo "ISSUE644_B15_DIRECT_EVIDENCE_INSERT_BLOCKED=PASS"
+          echo "ISSUE644_B15_CROSS_DOMAIN_FAIL_CLOSED=PASS"
+          echo "ISSUE644_B15_AUTHORITY_CLOSED_SET=PASS"
