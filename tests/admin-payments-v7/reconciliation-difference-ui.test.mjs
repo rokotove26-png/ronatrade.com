@@ -1,4 +1,5 @@
 import test from 'node:test';
+// Deployment retry marker: PAYMENTS_RECONCILIATION_SINGLETON_V6_20260918.
 import assert from 'node:assert/strict';
 
 import {
