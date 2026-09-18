@@ -44,7 +44,7 @@ test('Deal identity is canonical deal_key, not GU-12 text',()=>{
   assert.match(v81,/selectionOwner:'DEAL'/);
   assert.match(v81,/selectionKey:'deal_key'/);
   assert.match(v81,/function railDealForDoc\(doc,data\)/);
-  assert.match(v81,/String\(d\.deal_key\|\|''\)/);
+  assert.match(v81,/String\(d\.deal_key\|\|d\.deal_id\|\|''\)/);
   assert.match(v81,/railDealById\(data,doc\.deal_id\)/);
   assert.match(v81,/window\.__RONA_RAIL_SELECTED_DEAL_KEY__/);
 });
