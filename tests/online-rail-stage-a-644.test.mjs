@@ -1,0 +1,102 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { onRequest as railV6 } from '../functions/portal/rail-current-v6-ui.js';
+import { onRequest as railV7 } from '../functions/portal/rail-current-v7-real-map-ui.js';
+import { onRequest as railV81 } from '../functions/portal/rail-current-v81-maplibre-ui.js';
+import { onRequest as adminMainUi } from '../functions/portal/admin-main-ui-current.js';
+
+async function scriptOf(fn){
+  const response=await fn({});
+  assert.equal(response.status,200,await response.text().catch(()=>'')); // unreachable after text read only on failure
+  return response.text();
+}
+
+const [v6,v7,v81,admin]=await Promise.all([
+  scriptOf(railV6),
+  scriptOf(railV7),
+  scriptOf(railV81),
+  scriptOf(adminMainUi),
+]);
+
+test('Issue 644 Stage A generated rail runtimes compile',()=>{
+  new Function(v6);
+  new Function(v7);
+  new Function(v81);
+});
+
+test('Deal is the sole top-level Online Rail selection owner',()=>{
+  assert.match(v81,/rona-rail-v6-select-label','Сделка'/);
+  assert.match(v81,/o\.value=d\.dealKey/);
+  assert.match(v81,/railDealKey\(x,data\)===selectedDeal\.dealKey/);
+  assert.match(v81,/selectedDealKey:selectedDeal&&selectedDeal\.dealKey/);
+  assert.match(v81,/railCount:visible\.length/);
+  assert.match(v81,/wagonCount:dealWagons\.length/);
+  assert.match(v81,/chosenW=dealWagons/);
+  assert.match(v81,/\['ГУ-12','Вагон','Текущая станция'/);
+  assert.doesNotMatch(v81,/Все ГУ-12/);
+});
+
+test('Deal identity is canonical deal_key, not GU-12 text',()=>{
+  assert.match(v81,/selectionOwner:'DEAL'/);
+  assert.match(v81,/selectionKey:'deal_key'/);
+  assert.match(v81,/function railDealForDoc\(doc,data\)/);
+  assert.match(v81,/String\(d\.deal_key\|\|''\)/);
+  assert.match(v81,/railDealById\(data,doc\.deal_id\)/);
+  assert.match(v81,/window\.__RONA_RAIL_SELECTED_DEAL_KEY__/);
+});
+
+test('Map viewport lives outside DOM and persists per deal',()=>{
+  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V1/);
+  assert.match(v81,/window\.__RONA_RAIL_MAP_VIEWPORT_STATE__/);
+  assert.match(v81,/return key\?'DEAL:'\+key:'DEAL:UNBOUND'/);
+  assert.match(v81,/function railMapPersistViewport\(state,reason,userTouched\)/);
+  assert.match(v81,/function railMapInitialViewport\(context,width,height,minZoom,maxZoom\)/);
+  assert.match(v81,/railMapPersistViewport\(state,'USER_ZOOM',true\)/);
+  assert.match(v81,/railMapPersistViewport\(state,'USER_PAN',true\)/);
+  assert.match(v81,/railMapPersistViewport\(state,'HOME',true\)/);
+  assert.match(v81,/function railMapDefaultViewport\(\)\{return\{lat:52\.5,lng:68,zoom:3\}\}/);
+});
+
+test('Route fit is one-time per deal and yields to user pan/zoom',()=>{
+  assert.match(v81,/routeFitApplied/);
+  assert.match(v81,/!saved\.userTouched&&!saved\.routeFitApplied&&route\.length>=2/);
+  assert.match(v81,/reason:'ROUTE_FIT'/);
+  assert.match(v81,/routeFitApplied:reason==='HOME'\?true:/);
+});
+
+test('Background rail sync is data-change-only and repair is viewport-safe',()=>{
+  assert.match(v81,/function railDataSignature\(data\)/);
+  assert.match(v81,/if\(!railRootReady\(\)\|\|sig!==lastRailSignature\)\{render\(snapshot\);lastRailSignature=sig\}/);
+  assert.match(v81,/mode:'DATA_CHANGE_ONLY'/);
+  assert.match(v81,/var page=q\('#page-monitoring'\),ready=page&&q\('\[data-rail-current-v4="ready"\],\[data-rail-current-root="ready"\]'/);
+  assert.match(v81,/if\(!ready\)paint\(\)/);
+  assert.doesNotMatch(v81,/ensureRailCompactDarkStyle\(\);\s*paint\(\);\s*ensureRailTariffPanel\(\);\s*sync\(\)/);
+});
+
+test('Map data contract is source-only and prepared for expeditor XLSX via Rail AI',()=>{
+  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V1/);
+  assert.match(v81,/EXPEDITOR_XLSX_VIA_RAIL_AI/);
+  assert.match(v81,/geometryPolicy:'SOURCE_ONLY_NO_GEOCODING'/);
+  assert.match(v81,/coordinatesPolicy:'TRUSTED_SOURCE_ONLY'/);
+  assert.match(v81,/externalProviderIntegration:false/);
+  assert.match(v81,/productionPolling:false/);
+  assert.match(v81,/plannedRoute:\{status:/);
+  assert.match(v81,/wagonPositions:positions/);
+  assert.doesNotMatch(v81,/MOVIZOR/i);
+});
+
+test('Admin single-owner rail shell remains intact and neighboring owners are untouched',()=>{
+  assert.match(admin,/monitoring:renderRailCurrentShell,/);
+  assert.match(admin,/deals:renderDealsCurrentShell,/);
+  assert.match(admin,/prices:renderPricesCurrentShell,/);
+  assert.match(admin,/payments/);
+  assert.match(admin,/authority-change-only-v2/);
+});
+
+test('Stage A markers are exposed without removing prior current owner markers',()=>{
+  assert.match(v81,/20260918-deal-owned-map-state-v1/);
+  assert.match(v81,/20260918-deal-map-persistence-v1/);
+  assert.match(v81,/20260918-square-map-aligned-v8\.9/);
+  assert.match(v81,/20260825-raster-first-v8\.2/);
+});
