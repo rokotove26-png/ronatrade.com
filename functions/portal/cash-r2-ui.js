@@ -1,7 +1,8 @@
 const SCRIPT=String.raw`(function(){
 'use strict';
 if(window.__RONA_CASH_R2_UI__)return;
-window.__RONA_CASH_R2_UI__='20260918-issue639-auth-convergence-v1';
+window.__RONA_CASH_R2_UI__='20260918-issue635-transient-recovery-v1';
+window.__RONA_CASH_AUTH_CONVERGENCE__='issue639-v1';
 var ENDPOINT='/portal/owner-api?path=/admin/cash-source';
 var MODEL='FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE';
 var SOURCE='AI-FINANCE/BANK_STATEMENT';
