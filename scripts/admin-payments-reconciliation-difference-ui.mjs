@@ -164,8 +164,23 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
 
     const page=document.querySelector(pageSelector);
     if(page){
-      const observer=new MutationObserver(()=>queueMicrotask(()=>renderMetric(currentMetric())));
-      observer.observe(page,{childList:true,subtree:false});
+      let cleanupQueued=false;
+      const observer=new MutationObserver(records=>{
+        const duplicateAdded=records.some(record=>Array.from(record.addedNodes||[]).some(node=>{
+          if(!(node instanceof Element))return false;
+          if(node.id===tickerId||node.classList?.contains(tickerClass))return true;
+          return Boolean(node.querySelector?.('[id="'+tickerId+'"],.'+tickerClass));
+        }));
+        const frameReplaced=records.some(record=>record.target===page);
+        if(!duplicateAdded&&!frameReplaced)return;
+        if(cleanupQueued)return;
+        cleanupQueued=true;
+        queueMicrotask(()=>{
+          cleanupQueued=false;
+          renderMetric(currentMetric());
+        });
+      });
+      observer.observe(page,{childList:true,subtree:true});
       window.__RONA_PAYMENTS_RECONCILIATION_PAGE_OBSERVER__=observer;
     }
   }
