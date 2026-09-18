@@ -22,14 +22,11 @@ on:
       - 'functions/portal/admin-approved-shell-v455-ui.js'
       - 'tests/admin-runtime-stable-refresh-635.test.mjs'
       - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
-      - 'scripts/qa-issue635-admin-production-browser.mjs'
-      - 'supabase/functions/rona-issue635-github-oidc-admin-qa/**'
       - '.github/workflows/issue635-admin-stable-refresh-qa.yml'
 
 permissions:
   contents: read
   checks: read
-  id-token: write
 
 jobs:
   stable-refresh:
