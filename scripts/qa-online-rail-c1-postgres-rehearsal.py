@@ -14,7 +14,7 @@ from psycopg.types.json import Jsonb
 EXPECTED_SHA = "bc7429db2fbc411cb43607c54f87b824d4c8ad928353914c6e94c935870d5cc5"
 EXPECTED_SHEET = "дисл"
 SOURCE_TIME_DOMAIN = f"EXPEDITOR_XLSX_FILE_SHA256:{EXPECTED_SHA}:LOCAL_WALL_CLOCK_UNRESOLVED_V1"
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_PATH = ROOT / "tests/online-rail-c1/reference-source-confirmed.json"
 REFERENCE_XLSX_PATH = os.environ.get("REFERENCE_XLSX_PATH", "")
 
