@@ -8,6 +8,7 @@ on:
       - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
       - 'docs/online-rail-stage-b1-xlsx-dislocation.md'
       - 'tests/online-rail-stage-b1-xlsx-dislocation.test.mjs'
+      - 'tests/online-rail-stage-b11-reference-dry-run.test.mjs'
       - '.github/workflows/issue644-online-rail-stage-b1-qa.yml'
 
 permissions:
@@ -32,7 +33,38 @@ jobs:
           git fetch origin release/public-go-live-v1.1 --depth=1
           git diff --name-only origin/release/public-go-live-v1.1...HEAD | sort > /tmp/changed.txt
           cat /tmp/changed.txt
-          allowed='^(supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1\.sql|docs/online-rail-stage-b1-xlsx-dislocation\.md|tests/online-rail-stage-b1-xlsx-dislocation\.test\.mjs|\.github/workflows/issue644-online-rail-stage-b1-qa\.yml)$'
+          allowed='^(supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1\.sql|docs/online-rail-stage-b1-xlsx-dislocation\.md|tests/online-rail-stage-b1-xlsx-dislocation\.test\.mjs|tests/online-rail-stage-b11-reference-dry-run\.test\.mjs|\.github/workflows/issue644-online-rail-stage-b1-qa\.yml)
+          if grep -Ev "$allowed" /tmp/changed.txt; then
+            echo "ISSUE644_B1_DELTA_ONLY=FAIL"
+            exit 1
+          fi
+          echo "ISSUE644_B1_DELTA_ONLY=PASS"
+
+      - name: Stage B1 static architecture contract
+        run: |
+          set -euo pipefail
+          node --check tests/online-rail-stage-b1-xlsx-dislocation.test.mjs
+          node --check tests/online-rail-stage-b11-reference-dry-run.test.mjs
+          node --test tests/online-rail-stage-b1-xlsx-dislocation.test.mjs
+          node --test tests/online-rail-stage-b11-reference-dry-run.test.mjs
+
+      - name: Stage A / A.1 preservation
+        run: |
+          set -euo pipefail
+          node --check functions/portal/rail-current-v6-ui.js
+          node --check functions/portal/rail-current-v7-real-map-ui.js
+          node --check functions/portal/rail-current-v81-maplibre-ui.js
+          node --test tests/online-rail-stage-a-644.test.mjs
+
+      - name: No production-activation artifacts
+        run: |
+          set -euo pipefail
+          sql='supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+          ! grep -Eiq 'cron\.schedule|provider_poll|client publication|publication_client_targets[[:space:]]*\(' "$sql"
+          ! grep -Eiq 'insert[[:space:]]+into[[:space:]]+portal_private\.rail_movement_events' "$sql"
+          echo "ISSUE644_B1_NO_PROVIDER_ACTIVATION=PASS"
+          echo "ISSUE644_B1_NO_MOVIZOR_HISTORY_REUSE=PASS"
+
           if grep -Ev "$allowed" /tmp/changed.txt; then
             echo "ISSUE644_B1_DELTA_ONLY=FAIL"
             exit 1
