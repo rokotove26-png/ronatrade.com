@@ -7,9 +7,11 @@ on:
     paths:
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/cash-r2-ui.js'
+      - 'functions/portal/owner-api.js'
       - 'functions/portal/main-ui/_middleware.js'
       - 'functions/portal/admin-approved-shell-v455-ui.js'
       - 'tests/admin-runtime-stable-refresh-635.test.mjs'
+      - 'tests/admin-auth-session-convergence-639.test.mjs'
       - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
       - 'scripts/qa-admin-cash-transient-recovery-635-browser.mjs'
       - 'scripts/qa-admin-cash-effective-grouping-629-browser.mjs'
@@ -20,9 +22,11 @@ on:
     paths:
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/cash-r2-ui.js'
+      - 'functions/portal/owner-api.js'
       - 'functions/portal/main-ui/_middleware.js'
       - 'functions/portal/admin-approved-shell-v455-ui.js'
       - 'tests/admin-runtime-stable-refresh-635.test.mjs'
+      - 'tests/admin-auth-session-convergence-639.test.mjs'
       - 'scripts/qa-admin-stable-refresh-635-browser.mjs'
       - 'scripts/qa-admin-cash-transient-recovery-635-browser.mjs'
       - 'scripts/qa-admin-cash-effective-grouping-629-browser.mjs'
@@ -50,12 +54,15 @@ jobs:
           set -euo pipefail
           node --check functions/portal/admin-main-ui-current.js
           node --check functions/portal/cash-r2-ui.js
+          node --check functions/portal/owner-api.js
           node --check functions/portal/main-ui/_middleware.js
           node --check tests/admin-runtime-stable-refresh-635.test.mjs
+          node --check tests/admin-auth-session-convergence-639.test.mjs
           node --check scripts/qa-admin-stable-refresh-635-browser.mjs
           node --check scripts/qa-admin-cash-transient-recovery-635-browser.mjs
           node --check scripts/qa-admin-cash-effective-grouping-629-browser.mjs
           node --test tests/admin-runtime-stable-refresh-635.test.mjs
+          node --test tests/admin-auth-session-convergence-639.test.mjs
 
       - name: Canonical production build
         run: npm run build
@@ -107,6 +114,7 @@ jobs:
           ];
           const requiredCash=[
             "20260918-issue635-transient-recovery-v1",
+            "issue639-v1",
             "var CHECK_MS=60000",
             "SOURCE_SIGNATURE_CHANGE_ONLY_TRANSIENT_RECOVERY",
             "INITIAL_RETRY_DELAYS=[2000,5000,15000,30000]",
