@@ -84,12 +84,12 @@ jobs:
       - name: Execute generic parser and matching tests
         run: |
           set -euo pipefail
-          deno test --allow-read --allow-env tests/online-rail-c11/generic-intake.test.ts | tee /tmp/c11-parser.log
+          deno test --node-modules-dir=auto --allow-read --allow-env tests/online-rail-c11/generic-intake.test.ts | tee /tmp/c11-parser.log
       - name: Validate Rail AI gateway contract and syntax
         run: |
           set -euo pipefail
           node tests/online-rail-c11/gateway-contract.test.mjs | tee /tmp/c11-gateway.log
-          deno check supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs > /tmp/c11-deno-check.log 2>&1
+          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs > /tmp/c11-deno-check.log 2>&1
       - name: Reapply C1.1 and prove schema drift-free
         run: |
           set -euo pipefail
