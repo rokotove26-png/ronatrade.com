@@ -65,8 +65,9 @@ test('Cash background refresh is 60s max, signature-gated, and keeps current DOM
 });
 
 test('Cash initial transient failures auto-retry with bounded backoff and one healthy poll timer',()=>{
-  assert.ok(cash.includes('INITIAL_RETRY_DELAYS=[2000,5000,15000,30000]'));
-  assert.ok(cash.includes('REQUEST_TIMEOUT_MS=20000'));
+  assert.ok(cash.includes('INITIAL_RETRY_DELAYS=[1000,2000,4000,8000]'));
+  assert.ok(cash.includes('REQUEST_TIMEOUT_MS=5000'));
+  assert.ok(cash.includes("window.__RONA_CASH_SOURCE_CACHE__='FINANCE_CASH_PROJECTION_CACHE_V1'"));
   assert.ok(cash.includes('function isTransientError(e)'));
   assert.ok(cash.includes('statement timeout|canceling statement'));
   assert.ok(cash.includes("msg.textContent='Временная задержка Finance, повторяем...'"));
