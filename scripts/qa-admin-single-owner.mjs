@@ -64,7 +64,7 @@ need(has(access,"__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'"),'Cu
 need(has(access,"dataset.ronaCreateAccess='primary'")&&has(access,"'Создать пользователь'".replace('пользователь','пользователя')),'Primary create-user entry is missing');
 need(has(access,"['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']"),'Access history/rights tab is missing');
 need(has(access,"'Сменить пароль'")&&has(access,"setPasswordFor"),'Admin password reset control is missing');
-need(has(access,"const clientContract=kind===''||kind==='CLIENT_CONTRACT'")&&has(access,"clientContract&&status==='ACTIVE'")&&has(access,"clientContract&&['REVOKED','SUSPENDED'].includes(status)"),'Agent binding must remain outside Client contract revoke/restore routes');
+need(has(access,"const clientContract=kind===''||kind==='CLIENT_CONTRACT'")&&has(access,"clientContract&&['REVOKED','SUSPENDED'].includes(status)")&&!has(access,"/contracts/'+encodeURIComponent(b.contractId)+'/revoke"),'Access binding contract must keep active revoke retired and restore limited to Client contracts');
 need(has(access,"makeField('Ф.И.О. пользователя',name)")&&has(access,"makeField('Единый логин',login)")&&has(access,"makeField('Электронная почта',email)")&&has(access,"makeField('Телефон',phone)"),'Canonical identity fields are incomplete');
 need(has(access,"makeField('Пароль',password)")&&has(access,"makeField('Повторите пароль',repeat)")&&has(access,'initialPassword:pw1'),'Initial password form/payload is incomplete');
 need(has(access,"await mutate('/access/users',payload)"),'Access creation must use current authority directly');
@@ -73,7 +73,7 @@ for(const forbidden of ['openCanonicalAccessModal','installCanonicalAccessCreate
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
 need(has(access,"'x-rona-shell-mutation':'none'")&&has(access,"'x-rona-access-create-owner':'clients-agents-current-v5'"),'Page-scoped single-owner contract is missing');
 
-need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260828-polish-no-access-owner-v6'"),'Approved polish no-access-owner marker is missing');
+need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260918-access-applications-visual-v5'"),'Approved polish current visual marker is missing');
 need(has(polish,"window.RONA_ADMIN_DIALOGS=Object.freeze({message,notify:message,confirm,password})"),'In-app Admin dialog service is missing');
 need(has(polish,"'x-rona-access-create-owner':'none'")&&!has(polish,'installCanonicalAccessCreate')&&!has(polish,'openCanonicalAccessModal'),'Polish runtime still owns access creation');
 need(has(analyticsCompat,"'x-rona-access-loader':'none'")&&!has(analyticsCompat,'loadCanonicalAccess')&&!has(analyticsCompat,'admin-canonical-create-access-v441-ui'),'Analytics compatibility runtime still loads access UI');
