@@ -87,17 +87,79 @@ The Admin period presentation is corrected independently of Finance payment sema
 
 This presentation delta does **not** net reversals and does not calculate effective payments.
 
-## Effective payment hold
+## Effective payment integration
 
-System Admin comment `5733149859` requires Finance-owned source-locked reversal matching and effective-payment fields.
+Finance handoff `5733339302` and System Admin acceptance `5733354652` supersede the earlier hold.
 
-As of this reconciliation there is no newer Finance handoff comment in issue #629 and the production Finance projection exposes gross `external_payment`, but no effective-payment/status/reversal-match fields.
+Production Finance contract is verified as:
 
-Therefore:
+- `effectivePaymentVersion = FINANCE_EFFECTIVE_PAYMENT_V1`;
+- operation fields:
+  - `raw_operation_type`
+  - `gross_amount`
+  - `reversed_amount`
+  - `effective_external_payment_amount`
+  - `effective_payment_status`
+  - `matched_original_operation_fingerprint`
+  - `matched_original_operation_ref`
+  - `matched_reversal_operation_refs`
+  - `reversal_pair_status`
+  - `reversal_pair_evidence`
+- period/day fields:
+  - `gross_external_payment`
+  - `matched_external_payment_reversal`
+  - `effective_external_payment`
+  - `effective_external_payment_operation_count`
+  - `reversal_pair_unresolved_count`
+  - `effective_payment_unresolved_count`
+  - cumulative effective/reversal fields;
+- controls:
+  - `reversal_count`
+  - `matched_reversal_count`
+  - `unresolved_reversal_count`.
 
-- KPI `Оплачено` remains unchanged for now;
-- `Оплаты контрагентам` remains on the existing Finance gross field for now;
-- no reversal netting is implemented in frontend;
-- the separate raw `Сторно / возвраты` audit section remains.
+The release baseline also contains the exact Finance artifact:
 
-The effective-payment UI delta must be implemented only after Finance posts a new handoff after comment `5733149859` and the exact effective fields are verified in the production Finance contract.
+- `supabase/migrations/20260918195000_finance_cash_reversal_effective_payment_v1.sql`
+- `tests/admin-cash-source-projection/reversal-effective-payment-v1.test.mjs`
+- `tests/admin-cash-source-projection/reversal-effective-payment-production-regression.sql`.
+
+Production originally recorded the managed apply as migration version
+`20260918165540 / finance_cash_reversal_effective_payment_v1`.
+
+The repository artifact is timestamped `20260918195000`. The historical
+`20260918165540` record was preserved unchanged. To prevent the repository
+migration from replaying already-active DDL, a metadata-only reconciliation
+record was added for `20260918195000` with
+`created_by=system-admin-release-reconciliation-629`.
+
+Before and after that metadata reconciliation the effective-object hashes were unchanged:
+
+- reversal pairs view: `4ccf57be0b55a9193aa6dfff39a18fe5`;
+- effective operations view: `27f4e72c918d289af8c65ed090ad3665`;
+- effective daily view: `a42a44f2caf8ae742103836ce49efb5e`;
+- payload v1 function: `431183985411849de43a7fe58d55ef8f`.
+
+## Admin consumption
+
+Admin Cash now consumes Finance semantics directly:
+
+- KPI `Оплачено` reads `periodSummary[].effective_external_payment`;
+- period `Оплаты контрагентам` includes only operations with a positive
+  `effective_external_payment_amount` and sums that field;
+- no reversal matching or netting is recreated in frontend;
+- fully reversed attempts remain available in Finance/raw audit data but do not
+  increase effective paid;
+- raw `Сторно / возвраты` remains a separate section;
+- resolved counterparties group by canonical entity only;
+- multi-currency entities render separate currency subtotals inside one row;
+- `TO_VERIFY` rows remain safely separated by source-operation identity;
+- if Finance reports unresolved reversal/effective-payment controls, Cash fails closed.
+
+Production Finance acceptance values used for regression:
+
+- ORIENT: 25,444,800 KZT effective principal / 1 effective operation;
+- SG-TRANS: 5,899,358.90 RUB effective principal / 1 effective operation;
+- BAKAI: 20,000 KZT and 18,000 RUB effective fees in one entity row;
+- KUZMASH: 28,524,960 RUB / 4 effective operations;
+- raw reversals: 6 matched / 0 unresolved.
