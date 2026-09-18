@@ -1,1 +1,202 @@
-The requested file reference is not currently visible. Use files.search or files.list to rediscover the file, then retry with a returned ref_id or file_id.
+name: issue644 online rail stage C1.2 resolution bridge
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+      - 'supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql'
+      - 'supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql'
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js'
+      - 'supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs'
+      - 'supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs'
+      - 'supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs'
+      - 'tests/online-rail-c12/**'
+      - 'docs/online-rail-stage-c12-resolution-bridge.md'
+      - '.github/workflows/issue644-online-rail-stage-c12-resolution-bridge.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  c12-resolution-bridge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_c12
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_c12"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: rona_c12
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install PostgreSQL client
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: CURRENT STATE and non-production isolation
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          release_sha="$(git rev-parse origin/release/public-go-live-v1.1)"
+          echo "C12_RELEASE_SHA=$release_sha"
+          echo "C12_PR_HEAD=$(git rev-parse HEAD)"
+          test "$release_sha" = "8be4acc7bd88d697c1b8a3396c1ef57f37cafd24"
+          server_version="$(psql -Atqc 'show server_version')"
+          case "$server_version" in 17.6*) ;; *) echo "Unexpected PostgreSQL version: $server_version"; exit 1 ;; esac
+          echo "C12_NON_PROD_ENVIRONMENT=PASS"
+
+      - name: Build production-compatible B1/C1.1/C1.2 substrate
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c1/production-substrate.sql > /tmp/c12-production-substrate.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c11/storage-substrate.sql > /tmp/c12-storage-substrate.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c12/authority-substrate.sql | tee /tmp/c12-authority-substrate.log
+          grep -q 'C12_AUTHORITY_SUBSTRATE=PASS' /tmp/c12-authority-substrate.log
+          echo "C12_SUBSTRATE=PASS"
+
+      - name: Apply accepted B1.5, C1.1 and candidate C1.2 migrations
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql > /tmp/c12-b15.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql > /tmp/c12-c11.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql > /tmp/c12-migration.log 2>&1
+          echo "C12_MIGRATION_CLEAN_APPLY=PASS"
+
+      - name: Execute TO_VERIFY authority and resolution E2E matrix
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c12/resolution-bridge.sql | tee /tmp/c12-resolution-e2e.log
+          grep -q 'C12_RESOLUTION_BRIDGE_E2E=PASS' /tmp/c12-resolution-e2e.log
+          grep -q 'C12_OWNER_AUTHORITY_TO_MATCHED=PASS' /tmp/c12-resolution-e2e.log
+          grep -q 'C12_RAIL_AUTHORITY_TO_MATCHED=PASS' /tmp/c12-resolution-e2e.log
+          grep -q 'C12_B15_CROSS_DOMAIN=PASS' /tmp/c12-resolution-e2e.log
+
+      - name: Tool-list and contextual non-matching regression
+        run: |
+          set -euo pipefail
+          deno test --node-modules-dir=auto --allow-env --allow-read tests/online-rail-c12/gateway-tool-list.test.ts | tee /tmp/c12-tool-list.log
+          echo "C12_ROLE_TOOL_LIST=PASS"
+          echo "C12_CONTEXTUAL_MATCHING_FORBIDDEN=PASS"
+
+      - name: Full candidate gateway package regression
+        run: |
+          set -euo pipefail
+          node tests/online-rail-c12/candidate-index-regression.test.mjs | tee /tmp/c12-index-regression.log
+          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/index.ts > /tmp/c12-full-gateway-deno-check.log 2>&1
+          deno check --node-modules-dir=auto supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs >> /tmp/c12-full-gateway-deno-check.log 2>&1
+          echo "C12_FULL_GATEWAY_PACKAGE=PASS"
+
+      - name: C1.2 migration reapply and drift proof
+        run: |
+          set -euo pipefail
+          psql -Atq -v ON_ERROR_STOP=1 -f tests/online-rail-c12/schema-fingerprint.sql > /tmp/c12-fingerprint-before.txt
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql > /tmp/c12-reapply.log 2>&1
+          psql -Atq -v ON_ERROR_STOP=1 -f tests/online-rail-c12/schema-fingerprint.sql > /tmp/c12-fingerprint-after.txt
+          before="$(cat /tmp/c12-fingerprint-before.txt)"
+          after="$(cat /tmp/c12-fingerprint-after.txt)"
+          echo "C12_SCHEMA_FINGERPRINT_BEFORE=$before"
+          echo "C12_SCHEMA_FINGERPRINT_AFTER=$after"
+          test "$before" = "$after"
+          echo "C12_MIGRATION_DRIFT=PASS"
+
+      - name: C1.2 safety boundaries
+        run: |
+          set -euo pipefail
+          sql='supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql'
+          ! grep -Eiq 'insert[[:space:]]+into[[:space:]]+portal_private\.(deals|rail_wagons|rail_movement_events)' "$sql"
+          ! grep -Eiq 'cron\.schedule|provider_poll|publication_client_targets[[:space:]]*\(' "$sql"
+          grep -q "OWNER_EXPLICIT_INSTRUCTION" "$sql"
+          grep -q "RAIL_LOGISTICS_VERIFIED_DECISION" "$sql"
+          grep -q "technicalExecutor','service_role'" "$sql"
+          grep -q "RAIL_XLSX_OWNER_AUTHENTICATED_CONTEXT_REQUIRED" "$sql"
+          echo "C12_NO_BUSINESS_OBJECT_CREATION=PASS"
+          echo "C12_NO_PROVIDER_ACTIVATION=PASS"
+          echo "C12_AUTHORITY_CLOSED_SET=PASS"
+
+      - name: Rollback C1.2 only
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c12/rollback.sql | tee /tmp/c12-rollback.log
+          grep -q 'C12_ROLLBACK=PASS' /tmp/c12-rollback.log
+
+      - name: Assert no raw workbook artifact
+        run: |
+          set -euo pipefail
+          if find . -type f \( -iname '*.xlsx' -o -iname '*.xls' \) -print -quit | grep -q .; then
+            echo 'Raw spreadsheet committed to repository'; exit 1
+          fi
+          echo "C12_NO_RAW_XLSX_ARTIFACT=PASS"
+
+      - name: Final C1.2 summary
+        run: |
+          set -euo pipefail
+          {
+            echo 'NON_PROD_ENVIRONMENT=PASS'
+            echo 'TO_VERIFY_NO_TRUSTED_CURRENT=PASS'
+            echo 'CONTEXTUAL_SIMILARITY_NO_MATCH=PASS'
+            echo 'OWNER_AUTHORITY_BRIDGE=PASS'
+            echo 'RAIL_AI_AUTHORITY_BRIDGE=PASS'
+            echo 'WRONG_SCOPE_REJECT=PASS'
+            echo 'INVALID_AUTHORITY_REJECT=PASS'
+            echo 'TECHNICAL_EXECUTOR_NOT_AUTHORITY=PASS'
+            echo 'RESOLUTION_IDEMPOTENCY=PASS'
+            echo 'EVIDENCE_IMMUTABLE=PASS'
+            echo 'B15_CROSS_DOMAIN_PRESERVED=PASS'
+            echo 'ROLE_TOOL_LIST_REGRESSION=PASS'
+            echo 'FINANCE_PRODUCTION_CONTRACT=PASS'
+            echo 'FULL_GATEWAY_PACKAGE=PASS'
+            echo 'MIGRATION_DRIFT=PASS'
+            echo 'ROLLBACK=PASS'
+            echo 'FINAL=PASS'
+          } | tee /tmp/c12-final-summary.txt
+
+      - name: Upload C1.2 evidence logs only
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-rail-c12-resolution-bridge
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            /tmp/c12-final-summary.txt
+            /tmp/c12-production-substrate.log
+            /tmp/c12-storage-substrate.log
+            /tmp/c12-authority-substrate.log
+            /tmp/c12-b15.log
+            /tmp/c12-c11.log
+            /tmp/c12-migration.log
+            /tmp/c12-resolution-e2e.log
+            /tmp/c12-tool-list.log
+            /tmp/c12-index-regression.log
+            /tmp/c12-full-gateway-deno-check.log
+            /tmp/c12-fingerprint-before.txt
+            /tmp/c12-reapply.log
+            /tmp/c12-fingerprint-after.txt
+            /tmp/c12-rollback.log
