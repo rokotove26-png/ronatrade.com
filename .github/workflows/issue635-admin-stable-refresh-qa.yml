@@ -94,7 +94,7 @@ jobs:
             "ownerAiStableSignature"
           ];
           const requiredCash=[
-            "20260918-issue635-stable-refresh-v1",
+            "20260918-issue629-effective-payment-one-entity-v1",
             "var CHECK_MS=60000",
             "SOURCE_SIGNATURE_CHANGE_ONLY",
             "runtime.unchangedCount++",
