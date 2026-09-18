@@ -30,8 +30,9 @@ need(wrapped.includes('accounting:ensureCashR2Host'),'Accounting route does not 
 need(wrapped.includes('function ensureCashR2Host(){'),'Cash R2 host provisioner is missing from emitted Admin runtime');
 need(wrapped.includes('data-rona-cash-host'),'Cash R2 host marker is missing from emitted Admin runtime');
 need(!wrapped.includes('renderPayments();renderCash()'),'Finance sync still calls legacy Cash renderer');
-need(!wrapped.includes('renderPayments();renderCash();renderRail();'),'Admin boot still calls legacy Cash renderer');
-need(wrapped.includes('renderPayments();ensureCashR2Host();renderRail();'),'Admin boot does not provision the Cash R2 host');
+need(!wrapped.includes('renderPayments();renderCash();renderRail();')&&!wrapped.includes('renderRail();'),'Admin boot still calls a legacy Cash/Rail renderer');
+need(wrapped.includes('renderPayments();ensureCashR2Host();renderRailCurrentShell();'),'Admin boot does not preserve Cash R2 + current Rail ownership');
+need(!wrapped.includes("replacePage('monitoring',"),'Legacy Rail page replacement remains in emitted Admin runtime');
 need(count(wrapped,'renderCash')===0,'Competing renderCash marker remains in emitted Admin runtime');
 need(wrapped.includes('ADMIN_PAYMENTS_V7'),'Payments V7 runtime was damaged by Cash single-owner patch');
 need(wrapped.includes("data-rona-payments-owner':'admin-payments-v7-native"),'Payments V7 native visual/runtime owner was damaged');
