@@ -181,7 +181,7 @@ from portal_private.rail_xlsx_dislocation_events_v1 e
 where id=:'owner_event_id'::uuid;
 
 do $$
-declare v_event uuid:=:'owner_event_id'::uuid;
+declare v_event uuid:=(select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000001' limit 1);
 begin
   if (select resolution_status from portal_private.rail_xlsx_dislocation_events_v1 where id=v_event)<>'TO_VERIFY' then
     raise exception 'C12_EXPECT_INITIAL_TO_VERIFY';
@@ -232,7 +232,7 @@ reset role;
 
 do $$
 declare
-  v_event uuid:=:'owner_event_id'::uuid;
+  v_event uuid:=(select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000001' limit 1);
   v_before text;
   v_after text;
 begin
@@ -306,7 +306,7 @@ select portal_private.rail_xlsx_rail_resolution_bridge_v1(
 reset role;
 
 do $$
-declare v_event uuid:=:'rail_event_id'::uuid;
+declare v_event uuid:=(select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000002' limit 1);
 begin
   if (select resolution_status from portal_private.rail_xlsx_dislocation_events_v1 where id=v_event)<>'TO_VERIFY' then
     raise exception 'C12_RAIL_SOURCE_EVIDENCE_MUTATED';
@@ -355,7 +355,7 @@ do $$
 begin
   begin
     perform portal_private.rail_xlsx_owner_resolution_bridge_v1(
-      :'wrong_event_id'::uuid,
+      (select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1),
       '31000000-0000-0000-0000-000000000001'::uuid,
       '41000000-0000-0000-0000-000000000002'::uuid,
       '71000000-0000-0000-0000-000000000001'::uuid,
@@ -365,7 +365,7 @@ begin
       'CHAT:C12:WRONG',
       jsonb_build_object('reason','wrong scope negative'),
       jsonb_build_array('CHAT:C12:WRONG'),
-      jsonb_build_array('RAIL_XLSX_EVIDENCE:'||:'wrong_event_id')
+      jsonb_build_array('RAIL_XLSX_EVIDENCE:'||(select id::text from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1))
     );
     raise exception 'C12_WRONG_SCOPE_UNEXPECTEDLY_ACCEPTED';
   exception when check_violation then
@@ -381,7 +381,7 @@ do $$
 begin
   begin
     perform portal_private.rail_xlsx_resolution_decide_v1(
-      :'wrong_event_id'::uuid,'MATCHED',
+      (select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1),'MATCHED',
       '31000000-0000-0000-0000-000000000001'::uuid,
       '41000000-0000-0000-0000-000000000001'::uuid,
       'OWNER_EXPLICIT_INSTRUCTION',gen_random_uuid(),now(),
@@ -394,7 +394,7 @@ begin
 
   begin
     perform portal_private.rail_xlsx_resolution_decide_v1(
-      :'wrong_event_id'::uuid,'MATCHED',
+      (select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1),'MATCHED',
       '31000000-0000-0000-0000-000000000001'::uuid,
       '41000000-0000-0000-0000-000000000001'::uuid,
       'SYSTEM_ADMIN',gen_random_uuid(),now(),
@@ -407,7 +407,7 @@ begin
 
   begin
     perform portal_private.rail_xlsx_resolution_decide_v1(
-      :'wrong_event_id'::uuid,'MATCHED',
+      (select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1),'MATCHED',
       '31000000-0000-0000-0000-000000000001'::uuid,
       '41000000-0000-0000-0000-000000000001'::uuid,
       'service_role',gen_random_uuid(),now(),
@@ -443,7 +443,7 @@ do $$
 begin
   begin
     perform portal_private.rail_xlsx_owner_resolution_bridge_v1(
-      :'wrong_event_id'::uuid,
+      (select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1),
       '31000000-0000-0000-0000-000000000001'::uuid,
       '41000000-0000-0000-0000-000000000001'::uuid,
       '71000000-0000-0000-0000-000000000002'::uuid,
@@ -452,7 +452,7 @@ begin
       'CHAT:C12:NO_ADMIN',
       jsonb_build_object('reason','non-admin owner negative'),
       jsonb_build_array('CHAT:C12:NO_ADMIN'),
-      jsonb_build_array('RAIL_XLSX_EVIDENCE:'||:'wrong_event_id')
+      jsonb_build_array('RAIL_XLSX_EVIDENCE:'||(select id::text from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000004' limit 1))
     );
     raise exception 'C12_NON_ADMIN_OWNER_UNEXPECTEDLY_ACCEPTED';
   exception when insufficient_privilege then
@@ -492,7 +492,7 @@ begin
     where effective_deal_key='31000000-0000-0000-0000-000000000001'::uuid
       and wagon_number='90000003'
       and position_status='TRUSTED'
-      and current_event_id=:'domain_a_event_id'::uuid
+      and current_event_id=(select id from portal_private.rail_xlsx_dislocation_events_v1 where wagon_number='90000003' and source_time_domain='C12:DOMAIN:A' limit 1)
   ) then raise exception 'C12_SINGLE_TRUSTED_DOMAIN_NOT_CURRENT'; end if;
 end
 $$;
