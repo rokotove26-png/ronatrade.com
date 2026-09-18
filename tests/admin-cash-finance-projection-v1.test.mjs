@@ -7,12 +7,14 @@ const ui=await readFile(new URL('../functions/portal/cash-r2-ui.js',import.meta.
 const ownerApiSource=await readFile(new URL('../functions/portal/owner-api.js',import.meta.url),'utf8');
 
 const finance1709={
-  modelVersion:'FINANCE_CASH_SOURCE_PROJECTION_V1',
+  modelVersion:'FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE',
   authoritativeSource:'AI-FINANCE/BANK_STATEMENT',
   period:{from:'2026-09-17',to:'2026-09-17'},
+  controls:{ledger_start:'2026-08-01',ledger_end:'2026-09-17',source_lock:'PASS',calendar_rows:144,zero_turnover_rows:126,max_daily_balance_difference:0,statement_checkpoint_count:2,statement_checkpoint_pass_count:2,max_statement_checkpoint_difference:0},
   periodSummary:[
-    {currency:'RUB',opening_balance:10106237.63,external_inflow:0,external_payment:8350000,closing_balance:1756237.63,balance_check:0,balance_source_status:'SOURCE_DECLARED_RUNNING_BALANCE',operation_count:4},
-    {currency:'USD',opening_balance:5657.04,external_inflow:225900,external_payment:0,closing_balance:231557.04,balance_check:0,balance_source_status:'SOURCE_DECLARED_RUNNING_BALANCE',operation_count:2},
+    {currency:'KZT',opening_balance:0.91,external_inflow:0,external_payment:0,closing_balance:0.91,balance_check:0,max_daily_balance_difference:0,operation_count:0,calendar_day_count:1,zero_turnover_day_count:1},
+    {currency:'RUB',opening_balance:10106237.63,external_inflow:0,external_payment:8350000,closing_balance:1756237.63,balance_check:0,max_daily_balance_difference:0,operation_count:4,calendar_day_count:1,zero_turnover_day_count:0},
+    {currency:'USD',opening_balance:5657.04,external_inflow:225900,external_payment:0,closing_balance:231557.04,balance_check:0,max_daily_balance_difference:0,operation_count:2,calendar_day_count:1,zero_turnover_day_count:0},
   ],
   operations:[
     {operation_date:'2026-09-17',executed_at_local:'2026-09-17T17:07:17',currency:'RUB',amount:4816000,direction:'OUTGOING',operation_type:'EXTERNAL_PAYMENT',counterparty:'ЧПТУП «КУЗМАШ»',bank_document_number:'2390305'},
@@ -26,7 +28,7 @@ const finance1709={
 
 test('Cash UI consumes only canonical Finance source projection contract',()=>{
   assert.match(ui,/\/portal\/owner-api\?path=\/admin\/cash-source/);
-  assert.match(ui,/FINANCE_CASH_SOURCE_PROJECTION_V1/);
+  assert.match(ui,/FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE/);
   assert.match(ui,/AI-FINANCE\/BANK_STATEMENT/);
   assert.match(ui,/periodSummary/);
   assert.match(ui,/opening_balance/);
@@ -34,6 +36,9 @@ test('Cash UI consumes only canonical Finance source projection contract',()=>{
   assert.match(ui,/external_payment/);
   assert.match(ui,/closing_balance/);
   assert.match(ui,/operation_type/);
+  assert.match(ui,/REVERSAL/);
+  assert.match(ui,/source_lock/);
+  assert.match(ui,/max_daily_balance_difference/);
   assert.match(ui,/counterparty/);
   assert.match(ui,/Последний день/);
   assert.match(ui,/Весь период/);
@@ -69,7 +74,7 @@ test('Cash route forwards selected dates to Finance RPC with current portal toke
     const payload=await response.json();
     assert.equal(response.status,200);
     assert.equal(payload.ok,true);
-    assert.equal(payload.data.modelVersion,'FINANCE_CASH_SOURCE_PROJECTION_V1');
+    assert.equal(payload.data.modelVersion,'FINANCE_CASH_SOURCE_PROJECTION_V2_CUMULATIVE');
     assert.equal(captured.url,'https://sxawrwzeobaqwwmlkzws.supabase.co/rest/v1/rpc/rona_admin_cash_source_projection_v1');
     assert.equal(captured.method,'POST');
     assert.equal(captured.authorization,'Bearer test-access');
@@ -81,6 +86,10 @@ test('Cash route forwards selected dates to Finance RPC with current portal toke
 
 test('17.09 Finance control is represented without UI-side reclassification',()=>{
   const byCurrency=Object.fromEntries(finance1709.periodSummary.map(x=>[x.currency,x]));
+  assert.equal(byCurrency.KZT.opening_balance,0.91);
+  assert.equal(byCurrency.KZT.external_inflow,0);
+  assert.equal(byCurrency.KZT.external_payment,0);
+  assert.equal(byCurrency.KZT.closing_balance,0.91);
   assert.equal(byCurrency.USD.opening_balance,5657.04);
   assert.equal(byCurrency.USD.external_inflow,225900);
   assert.equal(byCurrency.USD.external_payment,0);
@@ -90,6 +99,9 @@ test('17.09 Finance control is represented without UI-side reclassification',()=
   assert.equal(byCurrency.RUB.external_payment,8350000);
   assert.equal(byCurrency.RUB.closing_balance,1756237.63);
   assert.ok(finance1709.periodSummary.every(x=>x.balance_check===0));
+  assert.equal(finance1709.controls.source_lock,'PASS');
+  assert.equal(finance1709.controls.max_daily_balance_difference,0);
+  assert.equal(finance1709.controls.max_statement_checkpoint_difference,0);
   assert.equal(finance1709.operations.filter(x=>x.operation_type==='EXTERNAL_PAYMENT').reduce((s,x)=>s+x.amount,0),8350000);
   assert.equal(finance1709.operations.filter(x=>x.operation_type==='EXTERNAL_INFLOW').reduce((s,x)=>s+x.amount,0),225900);
 });
