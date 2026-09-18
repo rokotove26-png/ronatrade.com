@@ -3,13 +3,13 @@ import { onRequest as baseRailV7 } from './rail-current-v7-real-map-ui.js';
 const TILE_FROM="img.src='https://tile.openstreetmap.org/'+z+'/'+wrap+'/'+ty+'.png';";
 const TILE_TO="img.src='/portal/map-assets/osm/'+z+'/'+wrap+'/'+ty+'.png';";
 const V7_MARKER="window.__RONA_RAIL_REAL_MAP__='20260824-1026-v7';";
-const V82_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';window.__RONA_RAIL_VISUAL_V88__='20260918-wide-airy-tariff-toggle-v8.8';";
+const V82_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';window.__RONA_RAIL_VISUAL_V89__='20260918-square-map-aligned-v8.9';";
 const TITLE_STYLE_FROM='.rona-rail-v7-real .rona-rail-v4-map-title{color:#16232b;background:rgba(255,255,255,.91);padding:7px 10px;border-radius:9px;box-shadow:0 4px 18px rgba(18,38,48,.12)}';
 const TITLE_STYLE_TO='.rona-rail-v7-real .rona-rail-v4-map-title{color:#07141c!important;background:rgba(255,255,255,.96);padding:7px 10px;border-radius:9px;box-shadow:0 4px 18px rgba(18,38,48,.12);font-family:Inter,Arial,sans-serif!important;font-size:13px!important;font-weight:800!important;line-height:1.25!important;opacity:1!important;text-shadow:none!important}';
 const NOTE_STYLE_FROM='.rona-rail-v7-real .rona-rail-v4-map-note{color:#24343e!important;opacity:.82!important;font-weight:650}';
 const NOTE_STYLE_TO='.rona-rail-v7-real .rona-rail-v4-map-note{color:#08161f!important;opacity:1!important;font-family:Inter,Arial,sans-serif!important;font-size:12.5px!important;font-weight:750!important;line-height:1.35!important;text-shadow:none!important}';
 const REPAIR_ANCHOR="function waitAdminReady(){";
-const REPAIR_RUNTIME=String.raw`window.__RONA_RAIL_CURRENT_REPAIR_VERSION__='20260918-owner-v6-wide-airy-tariff-toggle';
+const REPAIR_RUNTIME=String.raw`window.__RONA_RAIL_CURRENT_REPAIR_VERSION__='20260918-owner-v7-square-map-aligned';
 function ensureRailCompactDarkStyle(){
   var current=q('#ronaRailCompactDarkStyle');
   if(current){
@@ -19,11 +19,15 @@ function ensureRailCompactDarkStyle(){
   var s=el('style');s.id='ronaRailCompactDarkStyle';s.textContent=[
     '#page-monitoring>.rona-owner-page-content{width:100%!important;max-width:1584px!important;margin:0 auto!important;padding-bottom:34px!important}',
     '.rona-rail-v4-root{gap:18px!important;width:100%!important;max-width:1584px!important;margin:0 auto!important}',
-    '.rona-rail-v4-work{display:grid!important;width:100%!important;max-width:1584px!important;grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important;gap:18px!important;align-items:start!important}',
-    '.rona-rail-v4-left{gap:16px!important;min-width:0!important}',
+    '.rona-rail-v4-work{display:grid!important;width:100%!important;max-width:1584px!important;grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important;gap:18px!important;align-items:stretch!important}',
+    '.rona-rail-v4-left{display:grid!important;grid-template-rows:1fr 1fr!important;gap:16px!important;min-width:0!important;height:100%!important;align-self:stretch!important}',
     '.rona-rail-v4-hero{width:100%!important;max-width:1584px!important;min-height:118px!important;margin-left:auto!important;margin-right:auto!important;padding-top:24px!important;padding-bottom:22px!important}',
     '.rona-rail-v4-card{margin:0!important;padding:18px!important;border-radius:15px!important;background:linear-gradient(160deg,rgba(7,21,34,.95),rgba(4,14,24,.91))!important;border-color:rgba(104,183,219,.16)!important;box-shadow:0 12px 28px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.026)!important}',
     '.rona-rail-v4-card h2{margin:0 0 14px!important;color:#e9f6fb!important;font-size:19px!important;line-height:1.18!important;font-weight:840!important;letter-spacing:-.012em!important}',
+    '.rona-rail-v4-left>.rona-rail-v4-card{height:100%!important;min-height:0!important;display:flex!important;flex-direction:column!important}',
+    '.rona-rail-v4-left>.rona-rail-v4-card .rona-rail-v4-table-wrap{flex:1 1 auto!important}',
+    '.rona-rail-v4-work>.rona-rail-v4-card{height:100%!important;align-self:stretch!important;display:flex!important;flex-direction:column!important}',
+
     '.rona-rail-v4-kpis{gap:10px!important}',
     '.rona-rail-v4-kpi{position:relative!important;overflow:hidden!important;min-height:78px!important;padding:14px 14px 13px 16px!important;border-radius:11px!important;background:rgba(5,17,29,.55)!important;border-color:rgba(110,190,220,.12)!important}',
     '.rona-rail-v4-kpi:before{content:""!important;position:absolute!important;left:0!important;top:9px!important;bottom:9px!important;width:2px!important;border-radius:0 3px 3px 0!important;background:#63d8ff!important;box-shadow:0 0 10px rgba(99,216,255,.24)!important}',
@@ -43,8 +47,10 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v6-wagon-count{min-width:24px!important;height:24px!important;background:rgba(99,216,255,.10)!important;border-color:rgba(99,216,255,.22)!important;color:#b7f0ff!important}',
     '.rona-rail-v6-wagon-chip{padding:4px 8px!important;font-size:11.5px!important;border-radius:8px!important}',
     '.rona-rail-v6-wagon-placeholder{font-size:11.5px!important;color:#839ca9!important;opacity:1!important}',
-    '.rona-rail-v7-real{min-height:430px!important;margin-bottom:12px!important;border:1px solid rgba(86,189,219,.16)!important;border-radius:14px!important;background:#071825!important;box-shadow:0 14px 32px rgba(0,0,0,.22)!important}',
+    '.rona-rail-v7-real{width:100%!important;aspect-ratio:1/1!important;height:auto!important;min-height:0!important;max-height:none!important;margin-bottom:12px!important;border:1px solid rgba(86,189,219,.16)!important;border-radius:14px!important;background:#071825!important;box-shadow:0 14px 32px rgba(0,0,0,.22)!important}',
     '.rona-rail-v7-real .rona-rail-v4-map-canvas{inset:42px 8px 46px!important;border:0!important;border-radius:10px!important;background:#0a1d2a!important;box-shadow:0 8px 20px rgba(0,0,0,.20)!important}',
+    '.rona-rail-v4-work>.rona-rail-v4-card>.rona-rail-v7-real{flex:0 0 auto!important}',
+
     '.rona-rail-v7-map-viewport{border:0!important;outline:0!important;border-radius:9px!important;background:#0a1d2a!important;box-shadow:none!important}',
     '.rona-rail-v7-map-viewport:after{display:none!important;content:none!important}',
     '.rona-rail-v7-tile{filter:none!important;opacity:1!important}',
@@ -89,16 +95,70 @@ function ensureRailCompactDarkStyle(){
   document.head.appendChild(s);
   return s
 }
+function ensureRailTariffPanel(){
+  try{
+    var page=q('#page-monitoring');if(!page)return false;
+    var existing=q('.rona-rail-tariff-section',page);
+    if(existing){
+      var summary=q('.rona-rail-tariff-toggle',existing);
+      if(!summary){
+        summary=document.createElement('summary');
+        summary.className='rona-rail-tariff-toggle';
+        summary.textContent='Матрица ЖД-тарифов';
+        existing.insertBefore(summary,existing.firstChild);
+      }
+      if(existing.tagName!=='DETAILS'){
+        var replacement=document.createElement('details');
+        replacement.className='rona-rail-tariff-section';
+        replacement.setAttribute('data-rail-subsection','tariffs');
+        var toggle=document.createElement('summary');
+        toggle.className='rona-rail-tariff-toggle';
+        toggle.textContent='Матрица ЖД-тарифов';
+        var body=el('div','rona-rail-tariff-body');
+        while(existing.firstChild)body.append(existing.firstChild);
+        replacement.append(toggle,body);
+        existing.parentNode.replaceChild(replacement,existing);
+      }
+      return true
+    }
+    var hs=qa('h1,h2,h3,h4,h5,.section-title,.card-title',page);
+    var matrix=null;
+    for(var i=0;i<hs.length;i++){
+      var t=String(hs[i].textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+      if(t.indexOf('матриц')>=0&&t.indexOf('тариф')>=0){
+        matrix=hs[i].closest('section,.rona-owner-card,.card,.panel,[data-section]')||hs[i].parentElement;
+        if(matrix)break
+      }
+    }
+    if(!matrix||matrix.closest('.rona-rail-tariff-section'))return false;
+    var tariff=document.createElement('details');
+    tariff.className='rona-rail-tariff-section';
+    tariff.setAttribute('data-rail-subsection','tariffs');
+    var toggle=document.createElement('summary');
+    toggle.className='rona-rail-tariff-toggle';
+    toggle.textContent='Матрица ЖД-тарифов';
+    var body=el('div','rona-rail-tariff-body');
+    matrix.classList.add('rona-rail-v4-matrix-preserved');
+    matrix.parentNode.insertBefore(tariff,matrix);
+    body.append(matrix);
+    tariff.append(toggle,body);
+    return true
+  }catch(_e){return false}
+}
 function bumpRailCompactDarkStyle(){
   [0,80,220,700].forEach(function(ms){setTimeout(function(){ensureRailCompactDarkStyle()},ms)})
 }
 ensureRailCompactDarkStyle();
+ensureRailTariffPanel();
+[120,420,900].forEach(function(ms){setTimeout(function(){ensureRailTariffPanel()},ms)});
 bumpRailCompactDarkStyle();
 window.__RONA_RAIL_CURRENT_REPAIR__=function(){
   try{
     ensureRailCompactDarkStyle();
     paint();
+    ensureRailTariffPanel();
     sync();
+    [0,120,420,900].forEach(function(ms){setTimeout(function(){ensureRailTariffPanel()},ms)});
     bumpRailCompactDarkStyle();
     return true
   }catch(_e){return false}
@@ -139,7 +199,7 @@ export async function onRequest(context){
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('expires','0');
-  headers.set('x-rona-rail-ui','current-v8.8-wide-airy-tariff-toggle');
+  headers.set('x-rona-rail-ui','current-v8.9-square-map-aligned');
   headers.delete('content-length');
   headers.delete('etag');
   return new Response(source,{status:response.status,statusText:response.statusText,headers});
