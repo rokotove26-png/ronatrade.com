@@ -146,7 +146,7 @@ jobs:
           if(rail.operational_body_canon!=='/portal/rail-current-v81-maplibre-ui')throw new Error('wrong Rail operational body source');
           if(rail.visual_source_mode!=='ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE'||rail.static_title_owner!=='CLIENT_CANONICAL_HERO_RUNTIME_V1'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false)throw new Error('Rail current-only ownership drifted');
           const hero=rail.canonical_hero;
-          if(hero?.marker!=='20260919-client-rail-admin-visual-parity-v2'||hero?.kicker!=='RONA Trade · Operations'||hero?.title!=='Онлайн ЖД'||hero?.subtitle!=='Операционная картина железнодорожных отправок по данным клиентского контура.'||hero?.refresh_label!=='Автообновление · 30 с'||hero?.refresh_action!==null)throw new Error('canonical Client Rail hero metadata mismatch');
+          if(hero?.marker!=='20260919-client-rail-admin-visual-parity-v2'||hero?.kicker!=='RONA Trade · Operations'||hero?.title!=='Онлайн ЖД'||hero?.subtitle!=='Операционная картина железнодорожных отправок по данным клиентского контура.'||hero?.refresh_label!==null||hero?.refresh_action!==null)throw new Error('canonical Client Rail hero metadata mismatch');
           if(rail.client_data_source!=='/portal/api/v1/client/rail-canonical'||rail.client_authority!=='AUTHENTICATED_CLIENT_CONTRACT')throw new Error('wrong Client Rail data authority');
           console.log('CLIENT_RAIL_CANONICAL_HERO_BUILD=PASS host='+hostId+' removed_bytes='+rail.static_removed_bytes);
           NODE
