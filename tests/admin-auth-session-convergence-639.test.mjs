@@ -157,6 +157,56 @@ test('Admin shell falls back to isolated Admin control-plane when primary sessio
   assert.equal(fallbackCalls,1);
 });
 
+test('Admin owner shell falls back to Supabase Auth owner identity when both Edge authorities are transiently unavailable',async()=>{
+  let primaryCalls=0,controlCalls=0,authCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      primaryCalls++;
+      return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    }
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){
+      controlCalls++;
+      return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    }
+    if(u.includes('/auth/v1/user')){
+      authCalls++;
+      return jsonResponse({id:'owner-auth-user',app_metadata:{portal_identity:'OWNER_ADMIN'}},200);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',
+    headers:{cookie:'rona_portal_at=access-valid; rona_portal_rt=refresh-valid'}
+  });
+  const response=await portalRouter({
+    request,
+    next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})
+  });
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),'ADMIN_SHELL_OK');
+  assert.equal(primaryCalls,6);
+  assert.equal(controlCalls,1);
+  assert.equal(authCalls,1);
+});
+
+test('Admin direct Auth fallback does not elevate a valid non-owner identity',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:false},503);
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness'))return jsonResponse({ok:false},503);
+    if(u.includes('/auth/v1/user'))return jsonResponse({id:'regular-user',app_metadata:{}},200);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',headers:{cookie:'rona_portal_at=access-valid; rona_portal_rt=refresh-valid'}
+  });
+  const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED')});
+  assert.equal(response.status,503);
+  assert.match(await response.text(),/Восстанавливаю соединение/);
+});
+
 test('Issue 663 exact login session probe uses publishable key and returns Admin redirect',async()=>{
   let sawApiKey=false;
   globalThis.fetch=async(url,init={})=>{

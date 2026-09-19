@@ -39,7 +39,7 @@ function securityHeaders(source,cookies=[]){
   h.set('content-security-policy',ADMIN_CSP);
   h.set('x-rona-admin-shell','current-only-v2');
   h.set('x-rona-admin-auth','server-verified-v1');
-  h.set('x-rona-admin-auth-resilience','dual-authority-v1');
+  h.set('x-rona-admin-auth-resilience','triple-authority-owner-v2');
   h.set('x-rona-admin-current-only','main-v2-shell-v2');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
@@ -57,7 +57,7 @@ function loginRedirect(request,cookies=[]){
 function recoveryPage(request,cookies=[]){
   const h=securityHeaders({'content-type':'text/html; charset=utf-8'},cookies);
   const target=new URL('/portal/admin',request.url).pathname;
-  return new Response(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="2;url=${target}"><title>RONA Trade — Восстановление соединения</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07121f;color:#f7fbff;font:16px Inter,Arial,sans-serif}.box{width:min(520px,calc(100vw - 32px));padding:28px;border:1px solid rgba(222,236,248,.24);border-radius:16px;background:rgba(6,16,28,.9)}p{color:#b6c4d1}</style></head><body><main class="box"><h1>Восстанавливаю соединение</h1><p>Сессия сохранена. Сервер авторизации временно недоступен; повторная проверка выполняется автоматически.</p></main></body></html>`,{status:503,headers:h});
+  return new Response(`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="10;url=${target}"><title>RONA Trade — Восстановление соединения</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07121f;color:#f7fbff;font:16px Inter,Arial,sans-serif}.box{width:min(520px,calc(100vw - 32px));padding:28px;border:1px solid rgba(222,236,248,.24);border-radius:16px;background:rgba(6,16,28,.9)}p{color:#b6c4d1}</style></head><body><main class="box"><h1>Восстанавливаю соединение</h1><p>Сессия сохранена. Сервер авторизации временно недоступен; повторная проверка выполняется автоматически.</p></main></body></html>`,{status:503,headers:h});
 }
 function deniedPage(cookies=[]){
   const h=securityHeaders({'content-type':'text/html; charset=utf-8'},cookies);
@@ -97,6 +97,30 @@ async function adminFallbackProbe(accessToken){
   }
 }
 
+async function authOwnerProbe(accessToken){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),3500);
+  try{
+    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
+      signal:controller.signal
+    });
+    if(r.ok){
+      const user=await r.json().catch(()=>null);
+      const identity=String(user?.app_metadata?.portal_identity||'').toUpperCase();
+      if(identity==='OWNER_ADMIN')return {state:'VALID',me:{user:{roles:['ADMIN']},authority:'SUPABASE_AUTH_OWNER_FALLBACK'},status:r.status};
+      return {state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
+    }
+    if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};
+    if(r.status===429||r.status>=500)return {state:'UNAVAILABLE',me:null,status:r.status};
+    return {state:'UNAVAILABLE',me:null,status:r.status};
+  }catch(_){
+    return {state:'UNAVAILABLE',me:null,status:503};
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function sessionProbe(accessToken){
   if(!accessToken)return {state:'INVALID',me:null,status:401};
   let lastStatus=503;
@@ -120,7 +144,9 @@ async function sessionProbe(accessToken){
   }
   const fallback=await adminFallbackProbe(accessToken);
   if(fallback.state!=='UNAVAILABLE')return fallback;
-  return {state:'UNAVAILABLE',me:null,status:lastStatus||fallback.status||503};
+  const ownerFallback=await authOwnerProbe(accessToken);
+  if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback;
+  return {state:'UNAVAILABLE',me:null,status:lastStatus||fallback.status||ownerFallback.status||503};
 }
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie'));
