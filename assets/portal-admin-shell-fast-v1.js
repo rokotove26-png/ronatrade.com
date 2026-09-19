@@ -90,7 +90,8 @@ const MODULES=Object.freeze({
   claims:{src:'/portal/claims-r2-ui?v=20260826-single-owner'},
   remaining:{src:'/portal/remaining-sections-ui?v=20260826-single-owner'},
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
-  prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'}
+  prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
+  access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}
 });
 const railPrimaryReady=()=>!!window.__RONA_RAIL_CURRENT_V81__&&!!document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root]');
 const railFallbackReady=()=>!!window.__RONA_RAIL_SAFE_FALLBACK__&&!!document.querySelector('[data-rail-current-root="ready"]');
@@ -115,14 +116,30 @@ async function loadAnalytics(){
   if(ok)root.dataset.ronaAnalyticsOwner='analytics-v2';
   return ok
 }
+const accessReady=()=>!!window.__RONA_CLIENTS_AGENTS_CURRENT__&&!!document.querySelector('#page-access > #rona-ca4 [data-rona-create-access="primary"]');
+async function loadAccess(){
+  if(accessReady()){root.dataset.ronaAccessOwner='clients-agents-current-v5';return true}
+  if(window.__RONA_CLIENTS_AGENTS_CURRENT__){
+    const deadline=Date.now()+2500;
+    while(Date.now()<deadline&&!accessReady())await sleep(100);
+    if(accessReady()){root.dataset.ronaAccessOwner='clients-agents-current-v5';return true}
+    window.__RONA_CLIENTS_AGENTS_CURRENT__=null;
+    document.getElementById('rona-clients-agents-current-loader')?.remove();
+    document.getElementById('rona-single-access')?.remove();
+  }
+  const ok=await loadModule('access',MODULES.access.src,{attempts:3,ready:accessReady,timeout:14000});
+  if(ok)root.dataset.ronaAccessOwner='clients-agents-current-v5';
+  return ok
+}
 async function bootUi(){
+  const accessWarm=loadAccess();
   await loadModule('main',MODULES.main.src,{attempts:3,ready:MODULES.main.ready,timeout:16000});
   restoreSelectedPage();
   await Promise.allSettled([
-    loadModule('deals',MODULES.deals.src),loadModule('deals-r11',MODULES.dealsR11.src),loadModule('cash',MODULES.cash.src),loadRail(),loadModule('applications',MODULES.applications.src)
+    accessWarm,loadModule('deals',MODULES.deals.src),loadModule('deals-r11',MODULES.dealsR11.src),loadModule('cash',MODULES.cash.src),loadRail(),loadModule('applications',MODULES.applications.src)
   ]);
   await Promise.allSettled([
-    loadModule('claims',MODULES.claims.src),loadModule('remaining',MODULES.remaining.src),loadModule('prices',MODULES.prices.src)
+    loadAccess(),loadModule('claims',MODULES.claims.src),loadModule('remaining',MODULES.remaining.src),loadModule('prices',MODULES.prices.src)
   ]);
   await loadAnalytics();
   window.__RONA_ADMIN_FAST_UI_LOADED__=true;window.__RONA_POSTCORE_ENHANCEMENTS_READY__=true;restoreSelectedPage();revealShell('ui-ready');window.dispatchEvent(new CustomEvent('rona:admin-single-owner-ready'))
@@ -136,12 +153,16 @@ window.addEventListener('rona:admin-pagechange',event=>{
   if(p==='analytics')loadAnalytics();
   if(p==='monitoring')loadRail();
   if(p==='prices')loadModule('prices',MODULES.prices.src);
+  if(p==='access')loadAccess();
 });
 window.addEventListener('rona:admin-module-retry',event=>{
   const m=String(event?.detail?.module||''),p=String(event?.detail?.page||selectedPage());
   if(m==='clients-agents-current'){
-    const old=document.getElementById('rona-clients-agents-current-loader');if(old)old.remove();window.__RONA_CLIENTS_AGENTS_CURRENT__=null;
-    scriptOnce('/portal/clients-agents-current-ui?v=20260826-single-owner-retry&ts='+Date.now(),'rona-clients-agents-current-loader',14000).then(restoreSelectedPage).catch(e=>recordError('clients-agents-current-retry',e));return
+    const old=document.getElementById('rona-clients-agents-current-loader');if(old)old.remove();
+    document.getElementById('rona-single-access')?.remove();
+    window.__RONA_CLIENTS_AGENTS_CURRENT__=null;
+    const st=window.__RONA_ADMIN_MODULES__.access;if(st){st.status='PENDING';st.promise=null}
+    loadAccess().then(restoreSelectedPage).catch(e=>recordError('clients-agents-current-retry',e));return
   }
   if(p==='monitoring'){
     for(const key of ['rail','railFallback']){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}}
