@@ -119,14 +119,34 @@ test('Stage A markers are exposed without removing prior current owner markers',
 });
 
 
-test('Owner-approved planned corridor is rendered as an explicitly non-GPS route and station markers are clustered',()=>{
+test('Route is visually restrained, unlabeled, and station wagon markers stay clustered',()=>{
   assert.match(v81,/function railMapClusterKey\(w,coord\)/);
   assert.match(v81,/groups=new Map\(\)/);
   assert.match(v81,/el\('button','rona-rail-v7-marker',String\(g\.wagons\.length\)\)/);
   assert.match(v81,/g\.station\+': '\+g\.wagons\.length\+' вагонов'/);
   assert.match(v81,/function railMapRouteDraw\(state,left,top,width,height,z\)/);
+  assert.match(v81,/rona-rail-v7-route-casing/);
   assert.match(v81,/rona-rail-v7-route-line/);
-  assert.match(v81,/Плановый маршрут/);
-  assert.match(v81,/пунктир — плановый маршрут, не фактический GPS-трек/i);
+  assert.doesNotMatch(v81,/Плановый маршрут/);
+  assert.doesNotMatch(v81,/пунктир — плановый маршрут/i);
+  assert.match(v81,/\.rona-rail-v7-map-status\{display:none!important\}/);
+  assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-note\{display:none!important\}/);
   assert.doesNotMatch(v81,/actualRoute|actualTrack|GPS_TRACK_CONFIRMED/);
+});
+
+test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
+  assert.match(v81,/Array\.isArray\(data&&data\.deals\)\?data\.deals:\[\]/);
+  assert.match(v81,/life==='CLOSED'\|\|business==='CANCELLED'/);
+  assert.match(v81,/function railDealMonitoringState\(dealWagons\)/);
+  assert.match(v81,/active=monitorState\.count/);
+  assert.match(v81,/attention=monitorState\.attention/);
+  assert.match(v81,/Мониторинг активен/);
+  assert.match(v81,/Мониторинг не запущен/);
+  assert.doesNotMatch(v81,/Онлайн-мониторинг пока не запущен/);
+});
+
+test('Compact wagon table is owned by the left control card and has only the approved columns',()=>{
+  assert.match(v81,/\['ГУ-12','Вагон','Текущая станция','Код станции','Последнее обновление'\]/);
+  assert.match(v81,/compact\.classList\.add\('rona-rail-v6-position-table'\);control\.append\(compact\)/);
+  assert.doesNotMatch(v81,/\['ГУ-12','Вагон','Текущая станция','Код','Операция','Статус','Последнее обновление'\]/);
 });
