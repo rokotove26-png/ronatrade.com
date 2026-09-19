@@ -41,6 +41,7 @@ function securityHeaders(source,cookies=[]){
   h.set('x-rona-admin-auth','server-verified-v1');
   h.set('x-rona-admin-auth-resilience','triple-authority-owner-v2');
   h.set('x-rona-admin-current-only','main-v2-shell-v2');
+  h.set('x-rona-admin-runtime-delivery','worker-failsafe-v1');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
   h.delete('etag');
@@ -207,8 +208,6 @@ export async function onRequest(context){
   const response=await currentAdminAsset(context);
   const h=securityHeaders(response.headers,session.setCookies);
   h.set('server-timing',`admin_shell;dur=${Math.max(0,Date.now()-started)}`);
-  h.set('x-rona-admin-runtime-delivery','worker-failsafe-v1');
-
   let body=null;
   if(request.method!=='HEAD'){
     const contentType=String(response.headers.get('content-type')||'').toLowerCase();
