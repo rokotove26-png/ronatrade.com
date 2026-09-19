@@ -31,6 +31,7 @@ jobs:
       - name: Run Admin current-only regression guards
         run: |
           node tests/admin-shell-resilience.test.mjs
+          node tests/admin-auth-session-convergence-639.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
