@@ -16,6 +16,9 @@ assert.ok(!/\bpost\s*\(|\/admin\/applications\//.test(actionRuntime),'passport a
 
 const composer=await readFile('functions/portal/main-ui/application-passport-runtime.js','utf8');
 assert.match(composer,/admin-applications-passport-action-v2\.js/,'passport action runtime must be mounted');
-assert.match(composer,/applicationPassportRuntimeBase\s*\+\s*adminApplicationsPassportActionV2/,'delegated passport handler must load before the universal trigger overlay');
+const baseAt=composer.indexOf('applicationPassportRuntimeBase');
+const terminalAt=composer.lastIndexOf('adminApplicationsTerminalBucketV1');
+const actionAt=composer.lastIndexOf('adminApplicationsPassportActionV2');
+assert.ok(baseAt>=0&&terminalAt>baseAt&&actionAt>terminalAt,'delegated passport handler must load before lifecycle guard and universal trigger overlay');
 
-console.log('ADMIN_APPLICATION_PASSPORT_UNIVERSAL_ACTION=PASS');
+console.log('ADMIN_APPLICATION_PASSPORT_UNIVERSAL_ACTION=PASS terminal_bucket_guard=compatible');
