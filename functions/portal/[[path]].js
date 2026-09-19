@@ -133,17 +133,34 @@ async function upstream(accessToken, path, request = null) {
 }
 const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000,2000,2500]);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function sessionProbe(accessToken){
+async function adminControlPlaneProbe(accessToken){
+  try{
+    const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/readiness`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}
+    });
+    if(r.ok){
+      const j=await r.json().catch(()=>null);
+      if(j?.ok===true)return{state:'VALID',me:{user:{roles:['ADMIN']},authority:'ADMIN_CONTROL_PLANE_FALLBACK'},status:r.status};
+      return{state:'UNAVAILABLE',me:null,status:r.status||502};
+    }
+    if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
+    if(r.status===429||r.status>=500)return{state:'UNAVAILABLE',me:null,status:r.status};
+    return{state:'INVALID',me:null,status:r.status};
+  }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
+}
+async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
   if(!accessToken)return{state:'INVALID',me:null,status:401};let lastStatus=503;
-  for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
+  for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
+  if(allowAdminFallback){const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback}
   return{state:'UNAVAILABLE',me:null,status:lastStatus};
 }
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie')),access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
-  if(access){const probe=await sessionProbe(access);if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};if(probe.state==='UNAVAILABLE')return{unavailable:true,access,refresh,me:null,setCookies:[]}}
+  const requestedPath=canonicalProtectedPath(new URL(request.url).pathname),allowAdminFallback=requestedPath==='/portal/admin';
+  if(access){const probe=await sessionProbe(access,{allowAdminFallback});if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};if(probe.state==='UNAVAILABLE')return{unavailable:true,access,refresh,me:null,setCookies:[]}}
   if(!refresh)return null;let next;try{next=await authRefresh(refresh)}catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
   if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return{unavailable:true,access,refresh,me:null,setCookies:[],reason:'SESSION_REFRESH_CONVERGENCE'};return null}
-  const probe=await sessionProbe(next.data.access_token);if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};if(probe.state!=='VALID')return null;
+  const probe=await sessionProbe(next.data.access_token,{allowAdminFallback});if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};if(probe.state!=='VALID')return null;
   return{access:next.data.access_token,refresh:next.data.refresh_token,me:probe.me,setCookies:tokenCookies(next.data)};
 }
 function rolesOf(me) { return Array.isArray(me?.user?.roles) ? me.user.roles.map(String) : []; }
