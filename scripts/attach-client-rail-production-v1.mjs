@@ -22,11 +22,10 @@ const adapter=await readFile(adapterPath,'utf8');
 for(const required of [
   marker,
   "import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js'",
-  "'/portal/api/v1/client/shipments'",
-  "'/portal/api/v1/client/rail'",
+  "'/portal/api/v1/client/rail-canonical'",
   "ADMIN_CURRENT_V81_CANONICAL",
   "admin-current-v81-client-authority-v1",
-  "AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS",
+  "AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1",
   "x-rona-client-rail-visual-canon",
   "rona-rail-v4-root",
   "rona-rail-v4-work",
@@ -63,7 +62,7 @@ for(const required of [
   'Автообновление · 30 с',
   'Обновить',
   'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY',
-  'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'
+  'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'
 ]){
   if(!heroRuntime.includes(required))throw new Error(`CLIENT_RAIL_CANONICAL_HERO_CONTRACT_MISSING: ${required}`);
 }
@@ -173,12 +172,12 @@ integrity.client_runtime.rail_client_admin_canonical={
     refresh_label:'Автообновление · 30 с',
     refresh_action:'Обновить'
   },
-  client_data_source:'/portal/api/v1/client/shipments',
-  provider_state_source:'/portal/api/v1/client/rail',
+  client_data_source:'/portal/api/v1/client/rail-canonical',
+  client_authority:'AUTHENTICATED_CLIENT_CONTRACT',
   authoritative_refresh_ms:30000,
   auto_refresh:true,
   map_tile_source:'/portal/map-assets/osm/{z}/{x}/{y}.png',
-  movement_publication:'FAIL_CLOSED_FROM_CLIENT_PROVIDER_STATE',
+  movement_publication:'SERVER_SCOPED_CANONICAL_READ_MODEL',
   legacy_client_visual_owner:false,
   separate_movizor_visual_gate:false,
   business_data_changed:false,

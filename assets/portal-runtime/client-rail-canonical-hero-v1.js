@@ -215,7 +215,7 @@
       if(hero.getAttribute('data-rona-client-rail-canonical-hero')!=='v1')hero.setAttribute('data-rona-client-rail-canonical-hero','v1');
       document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY';
       document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V1';
-      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'};
+      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'};
       return true;
     }finally{applying=false}
   }

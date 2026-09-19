@@ -11,6 +11,7 @@ const CLIENT_SECTION_TYPOGRAPHY_110_APPROVAL_PATH='governance/client-section-typ
 const CLIENT_POSTRELEASE_ISSUE430_APPROVAL_PATH='governance/client-postrelease-issue430-owner-approval-20260911.json';
 const APPLICATION_BUSINESS_V2_SCOPE_PATH='governance/client-application-business-v2-owner-scope.json';
 const CLIENT_RAIL_ADMIN_MIRROR_APPROVAL_PATH='governance/client-rail-admin-mirror-owner-approval-20260918.json';
+const CLIENT_RAIL_670_APPROVAL_PATH='governance/client-online-rail-670-owner-approval-20260919.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
@@ -21,6 +22,7 @@ const clientSectionTypography110Approval=JSON.parse(await readFile(CLIENT_SECTIO
 const clientPostreleaseIssue430Approval=JSON.parse(await readFile(CLIENT_POSTRELEASE_ISSUE430_APPROVAL_PATH,'utf8'));
 const applicationBusinessV2Scope=JSON.parse(await readFile(APPLICATION_BUSINESS_V2_SCOPE_PATH,'utf8'));
 const clientRailAdminMirrorApproval=JSON.parse(await readFile(CLIENT_RAIL_ADMIN_MIRROR_APPROVAL_PATH,'utf8'));
+const clientRail670Approval=JSON.parse(await readFile(CLIENT_RAIL_670_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -470,6 +472,41 @@ const clientRailAdminMirrorExceptionAuthorized=
   clientRailAdminMirrorApproval?.requirements?.images_added===false&&
   clientRailAdminMirrorApproval?.requirements?.unrelated_visual_changes===false;
 
+const CLIENT_RAIL_670_FILES=[
+  'assets/portal-runtime/client-rail-canonical-hero-v1.js',
+  'scripts/attach-client-rail-production-v1.mjs'
+];
+const clientRail670ExceptionAuthorized=
+  clientRail670Approval?.approval==='OWNER_GITHUB_ISSUE'&&
+  clientRail670Approval?.authorized_at==='2026-09-19'&&
+  clientRail670Approval?.issue_number===670&&
+  clientRail670Approval?.issue_url==='https://github.com/rokotove26-png/ronatrade.com/issues/670'&&
+  clientRail670Approval?.owner_login==='rokotove26-png'&&
+  clientRail670Approval?.scope==='CLIENT_ONLINE_RAIL_PRODUCTION_PARITY_WITH_ADMIN'&&
+  Array.isArray(clientRail670Approval?.approved_protected_files)&&
+  clientRail670Approval.approved_protected_files.length===CLIENT_RAIL_670_FILES.length&&
+  CLIENT_RAIL_670_FILES.every(path=>clientRail670Approval.approved_protected_files.includes(path))&&
+  clientRail670Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientRail670Approval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientRail670Approval?.requirements?.wildcard_exception===false&&
+  clientRail670Approval?.requirements?.scope_client_online_rail_only===true&&
+  clientRail670Approval?.requirements?.mirror_admin_online_rail_visual_structure===true&&
+  clientRail670Approval?.requirements?.preserve_authenticated_client_contract_authority===true&&
+  clientRail670Approval?.requirements?.preserve_cross_client_fail_closed===true&&
+  clientRail670Approval?.requirements?.preserve_admin_online_rail_business_logic===true&&
+  clientRail670Approval?.requirements?.preserve_finance_payments_access_prices===true&&
+  clientRail670Approval?.requirements?.business_data_changed===false&&
+  clientRail670Approval?.requirements?.supabase_schema_changed===false&&
+  clientRail670Approval?.requirements?.images_added===false&&
+  clientRail670Approval?.requirements?.unrelated_visual_changes===false&&
+  clientRail670Approval?.requirements?.system_admin_independent_qa_required===true&&
+  clientRail670Approval?.requirements?.owner_visual_acceptance_required===true&&
+  clientRail670Approval?.requirements?.merge==='HOLD'&&
+  clientRail670Approval?.requirements?.deploy==='HOLD';
+const clientRailAdminMirrorSupersededBy670=
+  clientRail670ExceptionAuthorized&&
+  clientRail670Approval.approved_protected_files.includes('assets/portal-runtime/client-rail-canonical-hero-v1.js');
+
 const approvedModifiedFiles=new Set();
 const approvedNewRuntime=new Set();
 const approvedNewAttach=new Set();
@@ -505,6 +542,7 @@ let pr431TwoBugScopedAppliedFiles=0;
 let pr431DirectFixExactFiles=0;
 let pr431TypographyQaWiringExactFiles=0;
 let clientRailAdminMirrorAppliedFiles=0;
+let clientRail670AppliedFiles=0;
 
 const functionalRuntimeVisualGuardPaths=['assets/portal-runtime/portal-client-company-directory-authority-v1.js'];
 for(const path of functionalRuntimeVisualGuardPaths){
@@ -629,20 +667,32 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientRailMirrorEntry.required_marker.length>0&&
       body.toString('utf8').includes(clientRailMirrorEntry.required_marker)
     );
+    const clientRail670Entry=clientRail670ExceptionAuthorized?clientRail670Approval?.exact_post_blobs?.[path]:null;
+    const exactClientRail670=Boolean(
+      clientRail670Entry&&
+      clientRail670Entry.visual_freeze_baseline_blob_sha===expected&&
+      clientRail670Entry.authorized_post_blob_sha===actual&&
+      typeof clientRail670Entry.required_marker==='string'&&
+      clientRail670Entry.required_marker.length>0&&
+      body.toString('utf8').includes(clientRail670Entry.required_marker)
+    );
     if(exactOwnerVisualPost)ownerVisualDeltaAppliedFiles+=1;
     if(exactIssue430Post)clientMultiContext430AppliedFiles+=1;
     if(exactTypographyPost)clientSectionTypography110AppliedFiles+=1;
     if(exactPr431TwoBugScopedPost)pr431TwoBugScopedAppliedFiles+=1;
     if(exactClientPostreleaseIssue430&&CLIENT_POSTRELEASE_ISSUE430_FILES.includes(path))clientPostreleaseIssue430AppliedFiles+=1;
     if(exactClientRailAdminMirror)clientRailAdminMirrorAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(exactClientRail670)clientRail670AppliedFiles+=1;
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
 }
 
 if(!clientRailAdminMirrorExceptionAuthorized)errors.push('CLIENT_RAIL_ADMIN_MIRROR_GOVERNANCE_NOT_AUTHORIZED');
-if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==1)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=1 actual=${clientRailAdminMirrorAppliedFiles}`);
+if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==1&&!clientRailAdminMirrorSupersededBy670)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=1 actual=${clientRailAdminMirrorAppliedFiles}`);
+if(!clientRail670ExceptionAuthorized)errors.push('CLIENT_RAIL_670_GOVERNANCE_NOT_AUTHORIZED');
+if(clientRail670ExceptionAuthorized&&clientRail670AppliedFiles!==CLIENT_RAIL_670_FILES.length)errors.push(`CLIENT_RAIL_670_EXACT_BLOB_COUNT expected=${CLIENT_RAIL_670_FILES.length} actual=${clientRail670AppliedFiles}`);
 if(!clientPostreleaseIssue430ExceptionAuthorized)errors.push('CLIENT_POSTRELEASE_ISSUE430_GOVERNANCE_NOT_AUTHORIZED');
 if(clientPostreleaseIssue430ExceptionAuthorized&&clientPostreleaseIssue430AppliedFiles!==CLIENT_POSTRELEASE_ISSUE430_FILES.length)errors.push(`CLIENT_POSTRELEASE_ISSUE430_EXACT_BLOB_COUNT expected=${CLIENT_POSTRELEASE_ISSUE430_FILES.length} actual=${clientPostreleaseIssue430AppliedFiles}`);
 const clientSectionTypography110EffectiveFiles=clientSectionTypography110AppliedFiles+clientPostreleaseIssue430AppliedFiles;
@@ -683,5 +733,5 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} client_section_typography_qa_wiring_exact_files=${pr431TypographyQaWiringExactFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass application_business_v2_owner_scope=${applicationBusinessV2VisualExceptionAuthorized?'approved':'none'} client_rail_admin_mirror=${clientRailAdminMirrorExceptionAuthorized?'approved':'none'} client_rail_admin_mirror_applied_files=${clientRailAdminMirrorAppliedFiles} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} client_section_typography_qa_wiring_exact_files=${pr431TypographyQaWiringExactFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass application_business_v2_owner_scope=${applicationBusinessV2VisualExceptionAuthorized?'approved':'none'} client_rail_admin_mirror=${clientRailAdminMirrorExceptionAuthorized?'approved':'none'} client_rail_admin_mirror_applied_files=${clientRailAdminMirrorAppliedFiles} client_rail_670=${clientRail670ExceptionAuthorized?'approved':'none'} client_rail_670_applied_files=${clientRail670AppliedFiles} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
 console.log('VISUAL_FREEZE_EXACT_EXCEPTION=PASS');
