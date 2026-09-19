@@ -1,3 +1,5 @@
+// #670 frontend-only fixture regression harness. It does NOT prove backend acceptance.
+// Backend acceptance is owned by issue670-client-rail-real-integration.yml.
 import http from 'node:http';
 import { chromium } from 'playwright';
 import { onRequest as clientRailRequest } from '../functions/portal/client-rail-current-ui.js';
