@@ -284,9 +284,30 @@ class BootServerAuthenticatedAdminBody {
     el.append(ADMIN_SESSION_BRIDGE+SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP,{html:true});
   }
 }
-async function requireRealClientContext(session) {
+async function resolveAdminImpersonationForRequest(request,session){
+  const cookies=parseCookies(request.headers.get('cookie'));
+  const token=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+  if(!token)return{state:'NONE',token:''};
+  const roles=rolesOf(session.me);
+  if(!roles.includes('ADMIN'))return{state:'INVALID',token};
+  try{
+    const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/impersonation/resolve`,{
+      headers:{authorization:`Bearer ${session.access}`,accept:'application/json','x-rona-admin-impersonation-token':token},
+      cache:'no-store'
+    });
+    const body=await r.json().catch(()=>null);
+    if(r.ok&&body?.ok&&body?.data)return{state:'VALID',token,data:body.data};
+    if([401,403,404,409].includes(r.status))return{state:'INVALID',token};
+    return{state:'UNAVAILABLE',token};
+  }catch(_){return{state:'UNAVAILABLE',token}}
+}
+function impersonationReturnBridge(returnView){
+  const target='/portal/admin?accessView='+(returnView==='agents'?'agents':'companies');
+  return `<script id="rona-admin-impersonation-return">(()=>{'use strict';const TARGET=${JSON.stringify(target)};const nativeFetch=window.fetch.bind(window);window.fetch=async(...args)=>{const r=await nativeFetch(...args);if(r.headers.get('x-rona-impersonation-ended')==='1'){location.replace(TARGET)}return r};function bind(){if(document.getElementById('ronaReturnAdmin'))return;const candidates=[...document.querySelectorAll('button,a')];const logout=candidates.find(x=>/^(выход|выйти|logout)$/i.test(String(x.textContent||'').trim()))||document.querySelector('#logoutBtn,#ronaLogout,[data-action="logout"]');if(!logout)return;const b=document.createElement('button');b.id='ronaReturnAdmin';b.type='button';b.className=logout.className||'';b.textContent='Вернуться в раздел администратора';b.setAttribute('aria-label','Вернуться в раздел администратора');b.addEventListener('click',async e=>{e.preventDefault();b.disabled=true;try{await nativeFetch('/portal/admin-authority/impersonation/end',{method:'POST',credentials:'same-origin',headers:{accept:'application/json'}})}finally{location.replace(TARGET)}});logout.parentNode?.insertBefore(b,logout)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
+}
+async function requireRealClientContext(session,impersonationToken='') {
   try {
-    const r=await upstream(session.access,'/v1/client/bootstrap');
+    const r=await upstream(session.access,'/v1/client/bootstrap',null,impersonationToken);
     const j=await r.json().catch(()=>null);
     const contexts=Array.isArray(j?.data?.contexts)?j.data.contexts:[];
     return { ok:r.ok && j?.ok===true && contexts.length>0, contexts };
@@ -296,12 +317,24 @@ async function requireRealClientContext(session) {
 async function serveStaticProtected(context, session, kind) {
   const roles = rolesOf(session.me);
   const expected = kind === 'admin' ? '/portal/admin' : kind === 'agent' ? '/portal/agent' : '/portal/client';
-  if (!roleAllows(expected, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, session.setCookies);
+  const normalAllowed=roleAllows(expected,roles);
+  let impersonation=null;
+  if(!normalAllowed&&kind!=='admin'&&roles.includes('ADMIN')){
+    impersonation=await resolveAdminImpersonationForRequest(context.request,session);
+    if(impersonation.state==='UNAVAILABLE')return html(unavailablePage(expected),503,session.setCookies);
+    const expectedRole=kind==='agent'?'AGENT':'CLIENT';
+    if(impersonation.state!=='VALID'||String(impersonation.data?.effectiveRole)!==expectedRole){
+      return redirect('/portal/admin?accessView='+(kind==='agent'?'agents':'companies'),303,[...session.setCookies,clearImpersonationCookie()]);
+    }
+  }
+  if(!normalAllowed&&!impersonation?.data)return html(deniedPage('ROLE_MISMATCH'),403,session.setCookies);
 
-  // CLIENT is fail-closed before any canonical standalone snapshot can be served.
   if (kind === 'client') {
-    const gate = await requireRealClientContext(session);
-    if (!gate.ok) return html(deniedPage('CLIENT_CONTEXT_NOT_AUTHORIZED'), 403, session.setCookies);
+    const gate = await requireRealClientContext(session,impersonation?.token||'');
+    if (!gate.ok) {
+      if(impersonation?.data)return redirect('/portal/admin?accessView=companies',303,[...session.setCookies,clearImpersonationCookie()]);
+      return html(deniedPage('CLIENT_CONTEXT_NOT_AUTHORIZED'), 403, session.setCookies);
+    }
   }
 
   const response = await context.next();
@@ -310,7 +343,6 @@ async function serveStaticProtected(context, session, kind) {
   if (!contentType.toLowerCase().includes('text/html')) return secureResponse(response, session.setCookies, false);
 
   if (kind === 'admin') {
-    // Server session/role is authoritative. Remove only the frozen file's standalone local auth, then boot canonical application modules.
     const transformed = new HTMLRewriter()
       .on('body', new BootServerAuthenticatedAdminBody())
       .on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())
@@ -318,9 +350,12 @@ async function serveStaticProtected(context, session, kind) {
       .transform(response);
     return secureResponse(transformed, session.setCookies, true);
   }
-  if (kind === 'client') return secureResponse(response, session.setCookies, true);
-
-  const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE)).transform(response);
+  const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||'')):'';
+  if(kind==='client'){
+    const transformed=bridge?new HTMLRewriter().on('body',new BodyAppend(bridge)).transform(response):response;
+    return secureResponse(transformed,session.setCookies,true);
+  }
+  const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE+bridge)).transform(response);
   return secureResponse(transformed, session.setCookies, true);
 }
 async function serveStaff(session) {
