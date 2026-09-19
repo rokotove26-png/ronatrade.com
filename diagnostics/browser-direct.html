@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><title>RONA Auth Browser Diagnostic</title><pre id="out">RUNNING</pre><script>
+(async()=>{
+const out=document.getElementById('out');
+const base='https://sxawrwzeobaqwwmlkzws.supabase.co';
+const key='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
+const probe=async(name,url,init={})=>{
+ const started=Date.now(),c=new AbortController(),t=setTimeout(()=>c.abort(),10000);
+ try{
+  const r=await fetch(url,{...init,signal:c.signal});
+  const body=(await r.text()).slice(0,500);
+  return {name,status:r.status,ms:Date.now()-started,body};
+ }catch(e){return {name,error:String(e?.name||'Error'),message:String(e?.message||e),ms:Date.now()-started}}
+ finally{clearTimeout(t)}
+};
+const results=[];
+results.push(await probe('auth',base+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:key,'content-type':'application/json'},body:JSON.stringify({email:'qa-browser-direct@example.invalid',password:'wrong-password'})}));
+results.push(await probe('edge',base+'/functions/v1/rona-portal-api/session/me',{headers:{apikey:key,authorization:'Bearer invalid.qa.token',accept:'application/json'}}));
+out.textContent='DONE '+JSON.stringify(results);
+document.documentElement.dataset.done='1';
+})().catch(e=>{document.getElementById('out').textContent='FATAL '+String(e?.stack||e)});
+</script>
