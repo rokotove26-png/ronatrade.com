@@ -117,3 +117,16 @@ test('Stage A markers are exposed without removing prior current owner markers',
   assert.match(v81,/20260918-square-map-aligned-v8\.9/);
   assert.match(v81,/20260825-raster-first-v8\.2/);
 });
+
+
+test('Owner-approved planned corridor is rendered as an explicitly non-GPS route and station markers are clustered',()=>{
+  assert.match(v81,/function railMapClusterKey\(w,coord\)/);
+  assert.match(v81,/groups=new Map\(\)/);
+  assert.match(v81,/el\('button','rona-rail-v7-marker',String\(g\.wagons\.length\)\)/);
+  assert.match(v81,/g\.station\+' · '\+g\.wagons\.length\+' ваг\.'/);
+  assert.match(v81,/function railMapRouteDraw\(state,left,top,width,height,z\)/);
+  assert.match(v81,/rona-rail-v7-route-line/);
+  assert.match(v81,/Плановый маршрут/);
+  assert.match(v81,/пунктир — плановый маршрут, не фактический GPS-трек/i);
+  assert.doesNotMatch(v81,/actualRoute|actualTrack|GPS_TRACK_CONFIRMED/);
+});
