@@ -113,7 +113,7 @@ test("read model cannot be rebound across a different deal",()=>{
   }),/CLIENT_RAIL_CANONICAL_DEAL_MISSING/);
 });
 
-test("production wrapper preserves v56 and derives authority server-side",()=>{
+test("production wrapper preserves v56 and authorizes before the internal Rail core",()=>{
   const source=fs.readFileSync("supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts","utf8");
   for(const required of [
     "53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts",
@@ -121,10 +121,15 @@ test("production wrapper preserves v56 and derives authority server-side",()=>{
     "client_user_has_contract_access",
     "client_user_has_deal_access",
     "d.lifecycle_state='ACTIVE'",
-    "rona_admin_rail_deal_map_read_model_v4",
+    "rona_rail_deal_map_read_model_core_v1",
+    "${deal.deal_key}::uuid",
+    "${deal.deal_id}::text",
     'route === "/v1/client/rail-canonical"',
     "return await liveV56Handler(req, info)",
   ]) assert.ok(source.includes(required),required);
+
+  assert.equal(source.includes("rona_admin_rail_deal_map_read_model_v4"),false,"Client handler must never call Admin-only V4");
+
   for(const forbidden of [
     "DEAL-2026-",
     "RONA-C00",
@@ -133,6 +138,50 @@ test("production wrapper preserves v56 and derives authority server-side",()=>{
     "update portal_private",
     "delete from portal_private",
   ]) assert.equal(source.toLowerCase().includes(forbidden.toLowerCase()),false,forbidden);
+});
+
+test("internal core is private and Admin V4 keeps the ADMIN gate",()=>{
+  const migration=fs.readFileSync("supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql","utf8");
+  assert.ok(migration.includes("create or replace function portal_private.rona_rail_deal_map_read_model_core_v1("));
+  const coreStart=migration.indexOf("create or replace function portal_private.rona_rail_deal_map_read_model_core_v1(");
+  const coreEnd=migration.indexOf("comment on function portal_private.rona_rail_deal_map_read_model_core_v1",coreStart);
+  assert.ok(coreStart>=0&&coreEnd>coreStart,"core function segment missing");
+  const core=migration.slice(coreStart,coreEnd);
+  assert.match(core,/security invoker/i);
+  assert.equal(/owner_r1_actor\s*\(/i.test(core),false,"internal generation core must not make an authority decision");
+  assert.ok(migration.includes("revoke all on function portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)\nfrom public,anon,authenticated;"));
+  assert.ok(migration.includes("grant execute on function portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)\nto service_role;"));
+  assert.equal(/grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v1\(uuid,text\)[\s\S]{0,80}authenticated/i.test(migration),false);
+
+  const adminPrivate=migration.indexOf("create or replace function portal_private.rona_admin_rail_deal_map_read_model_v4");
+  const adminPublic=migration.indexOf("create or replace function public.rona_admin_rail_deal_map_read_model_v4");
+  assert.ok(adminPrivate>coreEnd&&adminPublic>adminPrivate,"Admin wrappers missing");
+  const privateBody=migration.slice(adminPrivate,adminPublic);
+  const publicBody=migration.slice(adminPublic);
+  for(const body of [privateBody,publicBody]){
+    assert.ok(body.includes("owner_r1_actor('ADMIN')"),"Admin V4 lost ADMIN actor gate");
+    assert.ok(body.includes("rona_rail_deal_map_read_model_core_v1"),"Admin V4 must delegate canonical generation to shared core");
+  }
+});
+
+test("real integration harness uses real Auth, candidate Edge and PostgreSQL rather than a mocked canonical endpoint",()=>{
+  const source=fs.readFileSync("scripts/qa-client-online-rail-670-real-integration.mjs","utf8");
+  for(const required of [
+    "/auth/v1/admin/users",
+    "/auth/v1/token?grant_type=password",
+    "ISSUE670_EDGE_URL",
+    "docker",
+    "psql",
+    "authorization:'Bearer '+accessToken",
+    "edgeUrl+'/v1/client/rail-canonical",
+    "rona_admin_rail_deal_map_read_model_v4",
+    "rona_rail_deal_map_read_model_core_v1",
+    "CLIENT_RAIL_CANONICAL_READ_MODEL_UNAVAILABLE",
+    "DEGRADED_REFRESH_DID_NOT_PRESERVE_LAST_GOOD",
+  ]) assert.ok(source.includes(required),required);
+  assert.equal(source.includes("function dataFor("),false,"mock canonical payload generator is forbidden as backend acceptance proof");
+  assert.equal(source.includes("ISSUE670_QA_FIXTURE"),false,"old mocked Rail response must not be used by real integration gate");
+  assert.ok(source.includes("fetch(edgeUrl+'/v1/client/rail-canonical'+u.search"),"browser proxy must forward to candidate Edge handler");
 });
 
 test("Client adapter consumes only canonical endpoint and inherits degraded preservation",async()=>{
