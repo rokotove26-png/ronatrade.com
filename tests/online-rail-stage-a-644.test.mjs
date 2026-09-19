@@ -119,6 +119,17 @@ test('Stage A markers are exposed without removing prior current owner markers',
 });
 
 
+
+test('Operational route line is forced through trusted current wagon stations',()=>{
+  assert.match(v81,/function railMapPlannedRoutePoints\(context\)/);
+  assert.match(v81,/function railMapObservedRoutePoints\(context\)/);
+  assert.match(v81,/waypointRole:'OBSERVED_CURRENT'/);
+  assert.match(v81,/sourceKind:'OBSERVED_CURRENT'/);
+  assert.match(v81,/function railMapSegmentProjection\(point,a,b\)/);
+  assert.match(v81,/buckets\[best\.segment\]\.push/);
+  assert.match(v81,/out\.push\(x\.point\)/);
+});
+
 test('Route is visually restrained, unlabeled, and station wagon markers stay clustered',()=>{
   assert.match(v81,/function railMapClusterKey\(w,coord\)/);
   assert.match(v81,/groups=new Map\(\)/);
