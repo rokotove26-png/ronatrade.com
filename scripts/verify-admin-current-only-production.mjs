@@ -69,13 +69,15 @@ const access=await retry('Clients/Agents current semantic convergence',async att
   const r=await fetchNoStore('/portal/clients-agents-current-ui',attempt);assert(r.ok,`status ${r.status}`);
   optionalHeader(r,'x-rona-delivery','static-build-v1');
   optionalHeader(r,'x-rona-clients-agents-ui','single-owner-v5');
-  optionalHeader(r,'x-rona-access-create','single-owner-create-user-v6');
+  optionalHeader(r,'x-rona-access-create','single-owner-create-agent-v7');
   optionalHeader(r,'x-rona-access-create-owner','clients-agents-current-v5');
   optionalHeader(r,'x-rona-admin-nav-owner','external-current-router-v2');
   optionalHeader(r,'x-rona-shell-mutation','none');
   optionalHeader(r,'x-rona-legacy-dependency','none');
   const t=await r.text();
-  for(const marker of ["window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'","window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'","window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-user-v6-20260828'","window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'","window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair","window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'","window.__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard",'ronaCreateAccess','admin-authority','Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Пароль','Повторите пароль','Разрешённые компании / контракты','Профиль агента','openWithoutContract','История и права','Сменить пароль','Создать пользователя',"await mutate('/access/users',payload)"])assert(t.includes(marker),`missing static access semantic: ${marker}`);
+  for(const marker of ["window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'","window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'","window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-agent-v7-20260919'","window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'","window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair","window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'","window.__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard",'ronaCreateAccess','admin-authority','Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Пароль','Повторите пароль','Разрешённые компании / контракты' ,'Компании назначаются агентам отдельно','openWithoutContract','История и права','Сменить пароль','Создать пользователя',"await mutate('/access/users',payload)"])assert(t.includes(marker),`missing static access semantic: ${marker}`);
+  assert(!t.includes('Профиль агента'),'legacy Agent profile field returned');
+  assert(!t.includes('agentScope'),'legacy Agent profile payload returned');
   for(const legacy of ['harvestLegacy','rona-admin-auth-v3413','installNavigationStability','installShellParity','openCanonicalAccessModal','installCanonicalAccessCreate','approved-canonical-v3.4.13','admin-canonical-create-access-v441-ui'])assert(!t.includes(legacy),`legacy/competing dependency ${legacy}`);
   return t;
 });
