@@ -103,6 +103,13 @@ async function authRefresh(refreshToken) {
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
+function refreshFailureIsRetryable(result) {
+  const status = Number(result?.status || 0);
+  if (status === 429 || status >= 500) return true;
+  const code = String(result?.data?.error_code || result?.data?.code || '').trim().toLowerCase();
+  const message = String(result?.data?.message || result?.data?.error_description || '').trim().toLowerCase();
+  return code === 'refresh_token_already_used' || message.includes('refresh token already used');
+}
 async function authLogout(accessToken) {
   if (!accessToken) return;
   try {
@@ -113,7 +120,7 @@ async function authLogout(accessToken) {
   } catch (_) {}
 }
 async function upstream(accessToken, path, request = null) {
-  const headers = new Headers({ authorization: `Bearer ${accessToken}`, accept: 'application/json' });
+  const headers = new Headers({ apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}`, accept: 'application/json' });
   if (request) {
     for (const name of ['content-type', 'x-request-id', 'x-correlation-id', 'x-idempotency-key']) {
       const value = request.headers.get(name);
@@ -135,7 +142,7 @@ async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie')),access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
   if(access){const probe=await sessionProbe(access);if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};if(probe.state==='UNAVAILABLE')return{unavailable:true,access,refresh,me:null,setCookies:[]}}
   if(!refresh)return null;let next;try{next=await authRefresh(refresh)}catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
-  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(next.status===429||Number(next.status||0)>=500)return{unavailable:true,access,refresh,me:null,setCookies:[]};return null}
+  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return{unavailable:true,access,refresh,me:null,setCookies:[],reason:'SESSION_REFRESH_CONVERGENCE'};return null}
   const probe=await sessionProbe(next.data.access_token);if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};if(probe.state!=='VALID')return null;
   return{access:next.data.access_token,refresh:next.data.refresh_token,me:probe.me,setCookies:tokenCookies(next.data)};
 }
@@ -293,7 +300,7 @@ async function proxyApi(request) {
   if (!upstreamResponse || upstreamResponse.status === 401) {
     if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
     let next;try{next=await authRefresh(refresh)}catch(_){return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503)}
-    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(next.status===429||Number(next.status||0)>=500)return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies())}
+    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},409);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies())}
     access = next.data.access_token;
     setCookies = tokenCookies(next.data);
     upstreamResponse = await upstream(access, path, request);
