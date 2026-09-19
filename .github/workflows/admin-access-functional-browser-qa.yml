@@ -25,7 +25,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Check Admin control-plane source
-        run: deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/index.ts
+        run: deno check --node-modules-dir=auto --config supabase/functions/rona-admin-control-plane/deno.json supabase/functions/rona-admin-control-plane/index.ts
       - name: Build current Admin artifact
         run: npm run build
       - name: Install Chromium runtime
