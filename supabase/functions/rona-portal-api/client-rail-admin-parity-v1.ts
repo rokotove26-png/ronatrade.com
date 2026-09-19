@@ -1,28 +1,28 @@
-// #670 Client Online Rail — production-v55 preserving wrapper.
+// #670 Client Online Rail — production-v56 preserving wrapper.
 // Repository candidate only. System Administrator owns deploy.
-// Every non-Rail request is delegated to the exact deployed v55 source.
+// Every non-Rail request is delegated to the exact deployed v56 source.
 import {
   sql,
   authenticate,
   apiRoute,
   send,
   origins,
-} from "https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/77588541119bb1a96375beed3e853e067ab1422f/supabase/functions/rona-portal-api/shared.ts";
+} from "https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/shared.ts";
 import {
   CLIENT_RAIL_CANONICAL_CONTRACT,
   projectClientRailCanonical,
 } from "./client-rail-canonical-projection-v1.mjs";
 
-const LIVE_V55_SOURCE =
-  "https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/1c356872f3640f35c40158d01ae363521272ce3d/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts";
+const LIVE_V56_SOURCE =
+  "https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts";
 
 const nativeServe = Deno.serve.bind(Deno);
-let liveV55Handler:any = null;
+let liveV56Handler:any = null;
 
-(Deno as any).serve = function captureLiveV55(first:any, second?:any) {
+(Deno as any).serve = function captureLiveV56(first:any, second?:any) {
   const handler = typeof first === "function" ? first : second;
-  if (typeof handler !== "function") throw new Error("CLIENT_RAIL_LIVE_V55_HANDLER_REQUIRED");
-  liveV55Handler = handler;
+  if (typeof handler !== "function") throw new Error("CLIENT_RAIL_LIVE_V56_HANDLER_REQUIRED");
+  liveV56Handler = handler;
   return {
     finished: Promise.resolve(),
     shutdown() {},
@@ -31,11 +31,11 @@ let liveV55Handler:any = null;
   };
 };
 
-await import(LIVE_V55_SOURCE);
+await import(LIVE_V56_SOURCE);
 (Deno as any).serve = nativeServe;
 
-if (typeof liveV55Handler !== "function") {
-  throw new Error("CLIENT_RAIL_LIVE_V55_HANDLER_CAPTURE_FAILED");
+if (typeof liveV56Handler !== "function") {
+  throw new Error("CLIENT_RAIL_LIVE_V56_HANDLER_CAPTURE_FAILED");
 }
 
 function clean(value:unknown, max = 200) {
@@ -97,7 +97,7 @@ async function exactDealReadModel(deal:any) {
     String(modelDeals[0]?.dealId || "") !== String(deal.deal_id) ||
     String(modelDeals[0]?.dealKey || "") !== String(deal.deal_key)
   ) {
-    const error = new Error("CLIENT_RAIL_CANONICAL_READ_MODEL_DEGRADED");
+    const error:any = new Error("CLIENT_RAIL_CANONICAL_READ_MODEL_DEGRADED");
     error.status = 503;
     throw error;
   }
@@ -149,7 +149,7 @@ async function clientRailCanonical(req:Request) {
     console.error("CLIENT_RAIL_CANONICAL_READ_MODEL_FAILED", error);
     return send(origin, 503, {
       ok:false,
-      code:"CLIENT_RAIL_CANONICAL_READ_MODD_UNAVAILABLIE",
+      code:"CLIENT_RAIL_CANONICAL_READ_MODEL_UNAVAILABLE",
       retryable:true,
     });
   }
@@ -158,5 +158,5 @@ async function clientRailCanonical(req:Request) {
 nativeServe(async (req:Request, info:any) => {
   const route = apiRoute(new URL(req.url));
   if (route === "/v1/client/rail-canonical") return await clientRailCanonical(req);
-  return await liveV55Handler(req, info);
+  return await liveV56Handler(req, info);
 });
