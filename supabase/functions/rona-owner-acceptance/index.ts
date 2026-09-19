@@ -65,6 +65,8 @@ async function authContext(req) {
   if(!actorRoles.includes("ADMIN"))return null;
   const impersonation=await resolveAdminImpersonation(sql,{authUserId:String(data.user.id),portalUserId:actorUserId,sessionId:sid,displayName:actorName,roles:actorRoles},impToken);
   if(!impersonation)return null;
+  const tabId=String(req.headers.get("x-rona-impersonation-tab")||"").trim();
+  if(tabId!==impersonation.id)return null;
   const effective=await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;
   return{...base,userId:impersonation.effectiveUserId,displayName:String(effective[0]?.display_name||""),roles:[impersonation.effectiveRole],impersonation};
 }
