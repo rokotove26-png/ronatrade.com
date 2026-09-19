@@ -29,3 +29,6 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Exercise direct compact-page inline login
         run: node scripts/qa-home-inline-auth-browser.mjs
+      - name: Probe production home auth endpoint contract
+        if: github.event_name == 'pull_request'
+        run: node scripts/qa-production-home-auth-endpoint.mjs
