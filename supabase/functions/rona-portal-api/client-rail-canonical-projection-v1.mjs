@@ -1,5 +1,7 @@
 export const CLIENT_RAIL_CANONICAL_CONTRACT="RONA_CLIENT_RAIL_ADMIN_PARITY_V1";
 export const CLIENT_RAIL_OVERLAY_MODE="DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1";
+export const ADMIN_RAIL_MODEL_VERSION="RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4";
+export const ADMIN_RAIL_SOURCE_POLICY="PUBLIC_SOURCE_ROUTE_GRAPH_PLUS_TRUSTED_DISLOCATION_HISTORY_V1";
 
 function text(value){return value===null||value===undefined?"":String(value).trim()}
 function array(value){return Array.isArray(value)?value:[]}
@@ -106,8 +108,8 @@ export function projectClientRailCanonical({context,deals,readModels}){
   const exchangeByDeal={};
   let activeTargets=0;
   let conflicts=0;
-  let modelVersion=null;
-  let sourcePolicy=null;
+  let modelVersion=scopes.length?null:ADMIN_RAIL_MODEL_VERSION;
+  let sourcePolicy=scopes.length?null:ADMIN_RAIL_SOURCE_POLICY;
   let generatedAt=null;
 
   scopes.forEach((scope,index)=>{
