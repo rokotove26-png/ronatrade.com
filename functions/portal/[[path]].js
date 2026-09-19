@@ -5,6 +5,7 @@ const STAFF_WORKSPACE = `${SUPABASE_URL}/functions/v1/rona-staff-workspace`;
 const ADMIN_CONTROL_PLANE_API = `${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
+const IMPERSONATION_COOKIE = 'rona_admin_imp';
 
 const SECURITY_HEADERS = Object.freeze({
   'cache-control': 'no-store, no-cache, must-revalidate',
@@ -40,6 +41,12 @@ function clearCookies() {
     `${ACCESS_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,
     `${REFRESH_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,
   ];
+}
+function impersonationCookie(token,maxAge=900){
+  return `${IMPERSONATION_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Strict`;
+}
+function clearImpersonationCookie(){
+  return `${IMPERSONATION_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Strict`;
 }
 function tokenCookies(tokens) {
   const expires = Math.min(Math.max(Number(tokens?.expires_in || 3600), 60), 7200);
@@ -119,7 +126,7 @@ async function authLogout(accessToken) {
     });
   } catch (_) {}
 }
-async function upstream(accessToken, path, request = null) {
+async function upstream(accessToken, path, request = null, impersonationToken = '') {
   const headers = new Headers({ apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}`, accept: 'application/json' });
   if (request) {
     for (const name of ['content-type', 'x-request-id', 'x-correlation-id', 'x-idempotency-key']) {
@@ -127,6 +134,7 @@ async function upstream(accessToken, path, request = null) {
       if (value) headers.set(name, value);
     }
   }
+  if(impersonationToken)headers.set('x-rona-admin-impersonation-token',impersonationToken);
   const init = { method: request?.method || 'GET', headers };
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   return fetch(`${PORTAL_API}${path}`, init);
