@@ -106,6 +106,16 @@ export async function resolveAdminImpersonation(
               and b.valid_from<=now()
               and (b.valid_to is null or b.valid_to>now())
               and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+              and (
+                select count(distinct b2.agent_person_key)
+                from portal_private.agent_user_bindings b2
+                where b2.user_id=effective.id
+                  and b2.status='ACTIVE'::portal_private.binding_status_enum
+                  and b2.revoked_at is null
+                  and b2.valid_from<=now()
+                  and (b2.valid_to is null or b2.valid_to>now())
+                  and b2.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+              )=1
           )
         )
       )
