@@ -17,10 +17,12 @@ const remaining=read('functions/portal/remaining-sections-ui.js');
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
 assert(!admin.includes("u.pathname='/portal/admin.html';"),'Direct .html Static Assets path must not return to Admin route');
-for(const marker of ["'x-rona-admin-shell','current-only-v2'","'x-rona-admin-auth','server-verified-v1'","'x-rona-admin-current-only','main-v2-shell-v2'",'async function sessionProbe(accessToken)','async function ensureSession(request)'])assert(admin.includes(marker),`Admin route marker missing: ${marker}`);
+for(const marker of ["'x-rona-admin-shell','current-only-v2'","'x-rona-admin-auth','server-verified-v1'","'x-rona-admin-auth-resilience','dual-authority-v1'","'x-rona-admin-current-only','main-v2-shell-v2'",'async function adminFallbackProbe(accessToken)','async function sessionProbe(accessToken)','async function ensureSession(request)'])assert(admin.includes(marker),`Admin route marker missing: ${marker}`);
 assert(!admin.includes('HTMLRewriter')&&!admin.includes('adminLoginGate')&&!admin.includes('rona-admin-auth-v3413'),'Legacy Admin route behavior returned');
 assert(admin.includes("if(!rolesOf(session.me).includes('ADMIN'))"),'Admin role must be verified server-side');
-assert(admin.includes("if(session?.unavailable)return recoveryPage(request,session.setCookies)"),'Transient auth failures must preserve the session');
+assert(admin.includes("const fallback=await adminFallbackProbe(accessToken)"),'Primary Admin auth degradation must try the isolated Admin control-plane authority before recovery mode');
+assert(admin.includes("if(fallback.state!=='UNAVAILABLE')return fallback"),'Explicit fallback allow/deny must be honored before recovery mode');
+assert(admin.includes("if(session?.unavailable)return recoveryPage(request,session.setCookies)"),'Dual-authority transient auth failures must preserve the session');
 assert(admin.includes("if(!session)return loginRedirect(request,clearCookies())"),'Invalid sessions must return to canonical login');
 
 assert(middleware.includes("if(url.pathname!=='/portal/client')return response;"),'Portal middleware must leave non-Client routes untouched');
