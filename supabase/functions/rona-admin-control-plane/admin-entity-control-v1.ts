@@ -163,6 +163,19 @@ export function createAdminEntityControl(deps:{
     if(kind==="COMPANY"&&users.length>1&&!requested)fail("TARGET_PORTAL_USER_SELECTION_REQUIRED",409);
     const selected=users.length===1?users[0]:users.find((u:any)=>String(u.portal_user_id)===requested);
     if(!selected)fail("TARGET_PORTAL_USER_NOT_FOUND",409);
+    if(kind==="AGENT"){
+      const activePersons=await sql`
+        select count(distinct agent_person_key)::int n
+        from portal_private.agent_user_bindings
+        where user_id=${selected.portal_user_id}::uuid
+          and status='ACTIVE'::portal_private.binding_status_enum
+          and revoked_at is null
+          and valid_from<=now()
+          and (valid_to is null or valid_to>now())
+          and lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      `;
+      if(Number(activePersons[0]?.n||0)!==1)fail("AGENT_PORTAL_USER_INVARIANT_VIOLATION",409);
+    }
     const token=opaqueToken(),tokenHash=await sha256Hex(token);
     const correlationId=crypto.randomUUID();
     const expiresAt=new Date(Date.now()+IMPERSONATION_TTL_MS).toISOString();
