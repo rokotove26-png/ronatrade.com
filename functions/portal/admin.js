@@ -182,9 +182,9 @@ async function currentAdminAsset(context){
 }
 
 const ADMIN_RUNTIME_REWRITES=Object.freeze([
-  [/\/assets\/portal-admin-shell-fast-v1\.js(?:\?[^"'<>]*)?/g,'/portal/admin-shell-runtime-v3'],
-  [/\/portal\/clients-agents-current-ui(?:\?[^"'<>]*)?/g,'/portal/admin-access-runtime-v3'],
-  [/\/assets\/portal-admin-runtime-watchdog-v1\.js(?:\?[^"'<>]*)?/g,'/portal/admin-watchdog-runtime-v3']
+  [/\/assets\/portal-admin-shell-fast-v1\.js(?:\?[^"'<>]*)?/g,'/admin-runtime-shell-v3'],
+  [/\/portal\/clients-agents-current-ui(?:\?[^"'<>]*)?/g,'/admin-runtime-access-v3'],
+  [/\/assets\/portal-admin-runtime-watchdog-v1\.js(?:\?[^"'<>]*)?/g,'/admin-runtime-watchdog-v3']
 ]);
 function rewriteAdminRuntimeSources(source){
   let html=String(source||'');
