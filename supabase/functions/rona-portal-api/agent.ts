@@ -149,7 +149,10 @@ async function agentPricePublication(c:Ctx){
           join portal_private.agent_client_assignments aca on aca.client_key=pct.client_key
           join portal_private.agent_user_bindings aub
             on aub.agent_person_key=aca.agent_person_key
-           and aub.agent_legal_entity_key=aca.agent_legal_entity_key
+           and (
+             aub.agent_legal_entity_key is null
+             or aca.agent_legal_entity_key is not distinct from aub.agent_legal_entity_key
+           )
           where aub.user_id=${c.user}::uuid
             and aub.status='ACTIVE'::portal_private.binding_status_enum
             and aub.revoked_at is null
@@ -218,7 +221,7 @@ export async function agentBootstrap(c:Ctx){
       ale.legal_name
     from portal_private.agent_user_bindings ub
     join portal_private.agent_persons ap on ap.id=ub.agent_person_key
-    join portal_private.agent_legal_entities ale on ale.id=ub.agent_legal_entity_key
+    left join portal_private.agent_legal_entities ale on ale.id=ub.agent_legal_entity_key
     where ub.user_id=${c.user}::uuid
       and ub.status='ACTIVE'::portal_private.binding_status_enum
       and ub.revoked_at is null
@@ -233,7 +236,10 @@ export async function agentBootstrap(c:Ctx){
     from portal_private.agent_client_assignments a
     join portal_private.clients cl on cl.id=a.client_key
     where a.agent_person_key=${identity.agent_person_key}::uuid
-      and a.agent_legal_entity_key=${identity.agent_legal_entity_key}::uuid
+      and (
+        ${identity.agent_legal_entity_key}::uuid is null
+        or a.agent_legal_entity_key is not distinct from ${identity.agent_legal_entity_key}::uuid
+      )
       and a.status='ACTIVE'::portal_private.binding_status_enum
       and a.valid_from<=now()
       and (a.valid_to is null or a.valid_to>now())
@@ -304,10 +310,10 @@ export async function agentBootstrap(c:Ctx){
     userId:c.user,
     agentPersonId:String(identity.agent_person_id),
     displayAlias:String(identity.display_alias),
-    legalEntity:{
+    legalEntity:identity.agent_legal_entity_id?{
       id:String(identity.agent_legal_entity_id),
-      name:String(identity.legal_name)
-    },
+      name:String(identity.legal_name||"")
+    }:null,
     dataUpdatedAt:new Date().toISOString(),
     clients:assignedClients.map((row:any)=>({
       clientId:String(row.client_id),
