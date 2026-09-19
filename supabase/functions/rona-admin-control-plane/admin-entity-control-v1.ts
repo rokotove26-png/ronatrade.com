@@ -258,6 +258,8 @@ export function createAdminEntityControl(deps:{
   async function end(ctx:AdminCtx,req:Request){
     const imp=await resolveAdminImpersonation(sql,actor(ctx),headerToken(req));
     if(!imp)fail("IMPERSONATION_SESSION_INVALID",401);
+    const tabId=String(req.headers.get("x-rona-impersonation-tab")||"").trim();
+    if(tabId!==imp.id)fail("IMPERSONATION_TAB_INVALID",409);
     await sql.begin(async(tx:any)=>{
       await tx`
         update portal_private.admin_impersonation_sessions
