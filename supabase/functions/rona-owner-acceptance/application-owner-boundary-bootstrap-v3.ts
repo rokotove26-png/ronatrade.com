@@ -1,6 +1,7 @@
 // Production compatibility wrapper: application authority boundary + current-actionable Operational Center KPIs.
 // No business-data mutation. The wrapper only narrows the Admin bootstrap read projection.
 import { createClient } from "@supabase/supabase-js";
+import { overlayRailReadModel } from "./rail-admin-read-model-overlay.mjs";
 
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
 if (!SUPA_URL) throw new Error("SUPABASE_URL_MISSING");
@@ -126,7 +127,21 @@ function normalizeOperationsPayload(body: any) {
   return body;
 }
 
-async function normalizeAdminBootstrapResponse(response: Response) {
+async function railReadModel(req: Request) {
+  const authorization = req.headers.get("authorization");
+  if (!authorization?.startsWith("Bearer ")) return null;
+  const userClient = createClient(SUPA_URL, publicKey(), {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: authorization } },
+  });
+  const { data, error } = await userClient.rpc("rona_admin_rail_deal_read_model_v1", {
+    p_deal_id: null,
+  });
+  if (error) return null;
+  return data;
+}
+
+async function normalizeAdminBootstrapResponse(req: Request, response: Response) {
   if (!response.ok) return response;
   const contentType = String(response.headers.get("content-type") || "");
   if (!contentType.includes("application/json")) return response;
@@ -136,12 +151,17 @@ async function normalizeAdminBootstrapResponse(response: Response) {
   } catch {
     return response;
   }
-  if (!body?.data?.operations) return response;
-  normalizeOperationsPayload(body);
+  if (!body || typeof body !== "object") return response;
+  if (body?.data?.operations) normalizeOperationsPayload(body);
+
+  const readModel = await railReadModel(req);
+  if (readModel) overlayRailReadModel(body, readModel);
+
   const headers = new Headers(response.headers);
   headers.delete("content-length");
   headers.set("cache-control", "no-store");
   headers.set("x-rona-operations-kpi-scope", "current-actionable-v1");
+  headers.set("x-rona-rail-read-model-overlay", readModel ? "RONA_ADMIN_RAIL_DEAL_READ_MODEL_V1_5" : "UNAVAILABLE");
   return new Response(JSON.stringify(body), {
     status: response.status,
     statusText: response.statusText,
@@ -201,7 +221,7 @@ const nativeServe: any = Deno.serve.bind(Deno);
 
     const response = await handler(req, info);
     if (req.method === "GET" && route === "/admin/bootstrap") {
-      return normalizeAdminBootstrapResponse(response);
+      return normalizeAdminBootstrapResponse(req, response);
     }
     return response;
   };
