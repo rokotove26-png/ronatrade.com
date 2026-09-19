@@ -1,0 +1,135 @@
+name: issue685 Agent identity real integration
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'supabase/functions/rona-admin-control-plane/index.ts'
+      - 'supabase/functions/rona-owner-acceptance/index.ts'
+      - 'supabase/functions/rona-portal-api/agent.ts'
+      - 'supabase/migrations/20260919211000_agent_person_identity_decouple_v2.sql'
+      - 'tests/fixtures/issue685-agent-identity-base.sql'
+      - 'scripts/qa-agent-identity-685-real-integration.mjs'
+      - '.github/workflows/issue685-agent-identity-real-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-agent-identity-authority:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: CURRENT_STATE exact candidate scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          echo "ISSUE685_BASE_SHA=$(git merge-base origin/release/public-go-live-v1.1 HEAD)"
+          echo "ISSUE685_HEAD_SHA=$(git rev-parse HEAD)"
+          test -s supabase/migrations/20260919211000_agent_person_identity_decouple_v2.sql
+          test -s tests/fixtures/issue685-agent-identity-base.sql
+          node --check scripts/qa-agent-identity-685-real-integration.mjs
+          deno check --node-modules-dir=auto --config supabase/functions/rona-admin-control-plane/deno.json supabase/functions/rona-admin-control-plane/index.ts
+          deno check --node-modules-dir=auto --config supabase/functions/rona-owner-acceptance/deno.json supabase/functions/rona-owner-acceptance/index.ts
+
+      - name: Start isolated Supabase with candidate migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/issue685-supabase
+          mkdir -p /tmp/issue685-supabase
+          cd /tmp/issue685-supabase
+          supabase init
+          mkdir -p supabase/migrations
+          cp "$GITHUB_WORKSPACE/tests/fixtures/issue685-agent-identity-base.sql" supabase/migrations/20260919210000_issue685_fixture.sql
+          cp "$GITHUB_WORKSPACE/supabase/migrations/20260919211000_agent_person_identity_decouple_v2.sql" supabase/migrations/20260919211000_agent_person_identity_decouple_v2.sql
+          supabase start
+          supabase status -o env > /tmp/issue685-supabase.env
+          set -a
+          . /tmp/issue685-supabase.env
+          set +a
+          DB_CONTAINER="$(docker ps --format '{{.ID}} {{.Names}}' | awk '$2 ~ /^supabase_db_/ {print $1; exit}')"
+          test -n "$API_URL"
+          test -n "$DB_URL"
+          test -n "$ANON_KEY"
+          test -n "$SERVICE_ROLE_KEY"
+          test -n "$DB_CONTAINER"
+          {
+            echo "ISSUE685_SUPABASE_URL=$API_URL"
+            echo "ISSUE685_ANON_KEY=$ANON_KEY"
+            echo "ISSUE685_DB_URL=$DB_URL"
+            echo "ISSUE685_DB_CONTAINER=$DB_CONTAINER"
+            echo "SUPABASE_URL=$API_URL"
+            echo "SUPABASE_ANON_KEY=$ANON_KEY"
+            echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_ROLE_KEY"
+            echo "SUPABASE_DB_URL=$DB_URL"
+          } >> "$GITHUB_ENV"
+          echo "ISSUE685_LOCAL_SUPABASE=READY"
+
+      - name: Prove migrated authority model
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker exec -i "$ISSUE685_DB_CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -At <<'SQL' | tee /tmp/issue685-db-boundary.log
+          select 'USER_LEGAL_NULLABLE='||(select is_nullable from information_schema.columns where table_schema='portal_private' and table_name='agent_user_bindings' and column_name='agent_legal_entity_key');
+          select 'ASSIGN_LEGAL_NULLABLE='||(select is_nullable from information_schema.columns where table_schema='portal_private' and table_name='agent_client_assignments' and column_name='agent_legal_entity_key');
+          select 'PERSON_BINDING_INDEX='||(to_regclass('portal_private.agent_user_one_active_person_binding_v2') is not null);
+          select 'CLIENT_GATE_PERSON_FALLBACK='||(position('ub.agent_legal_entity_key is null' in lower(pg_get_functiondef('portal_private.agent_user_has_client_access(uuid,uuid,timestamp with time zone)'::regprocedure)))>0);
+          select 'DEAL_GATE_PERSON_FALLBACK='||(position('ub.agent_legal_entity_key is null' in lower(pg_get_functiondef('portal_private.agent_user_has_deal_access(uuid,uuid,timestamp with time zone)'::regprocedure)))>0);
+          SQL
+          grep -q '^USER_LEGAL_NULLABLE=YES$' /tmp/issue685-db-boundary.log
+          grep -q '^ASSIGN_LEGAL_NULLABLE=YES$' /tmp/issue685-db-boundary.log
+          grep -q '^PERSON_BINDING_INDEX=true$' /tmp/issue685-db-boundary.log
+          grep -q '^CLIENT_GATE_PERSON_FALLBACK=true$' /tmp/issue685-db-boundary.log
+          grep -q '^DEAL_GATE_PERSON_FALLBACK=true$' /tmp/issue685-db-boundary.log
+
+      - name: Real Admin create -> no scope -> separate company assignment
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-agent-identity-685-real-integration.mjs | tee /tmp/issue685-real-integration.log
+          grep -q '^ISSUE685_REAL_INTEGRATION=PASS$' /tmp/issue685-real-integration.log
+          test -s /tmp/issue685-real-integration-summary.json
+
+      - name: Upload #685 real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue685-agent-identity-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue685-db-boundary.log
+            /tmp/issue685-real-integration.log
+            /tmp/issue685-real-integration-summary.json
+            /tmp/issue685-rona-admin-control-plane.log
+            /tmp/issue685-rona-owner-acceptance.log
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -d /tmp/issue685-supabase; then
+            cd /tmp/issue685-supabase
+            supabase stop --no-backup || true
+          fi
