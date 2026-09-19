@@ -134,7 +134,7 @@ async function railReadModel(req: Request) {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: authorization } },
   });
-  const { data, error } = await userClient.rpc("rona_admin_rail_deal_map_read_model_v2", {
+  const { data, error } = await userClient.rpc("rona_admin_rail_deal_map_read_model_v3", {
     p_deal_id: null,
   });
   if (error) return null;
@@ -161,7 +161,7 @@ async function normalizeAdminBootstrapResponse(req: Request, response: Response)
   headers.delete("content-length");
   headers.set("cache-control", "no-store");
   headers.set("x-rona-operations-kpi-scope", "current-actionable-v1");
-  headers.set("x-rona-rail-read-model-overlay", readModel ? "RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V2" : "UNAVAILABLE");
+  headers.set("x-rona-rail-read-model-overlay", readModel ? "RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V3" : "UNAVAILABLE");
   return new Response(JSON.stringify(body), {
     status: response.status,
     statusText: response.statusText,
