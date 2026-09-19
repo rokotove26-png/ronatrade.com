@@ -1,0 +1,19 @@
+name: client rail isolated backend after incident
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/api/[[path]].js'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/**'
+      - 'tests/client-rail-isolated-backend-after-incident.test.mjs'
+      - '.github/workflows/client-rail-isolated-backend-after-incident.yml'
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node tests/client-rail-isolated-backend-after-incident.test.mjs
