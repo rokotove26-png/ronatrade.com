@@ -26,7 +26,7 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v4-card h2{margin:0 0 14px!important;color:#e9f6fb!important;font-size:19px!important;line-height:1.18!important;font-weight:840!important;letter-spacing:-.012em!important}',
     '.rona-rail-v4-left>.rona-rail-v4-card{height:auto!important;min-height:0!important;display:flex!important;flex-direction:column!important}',
     '.rona-rail-v4-left>.rona-rail-v4-card .rona-rail-v4-table-wrap{flex:1 1 auto!important}',
-    '.rona-rail-v4-work>.rona-rail-v4-card{height:100%!important;align-self:stretch!important;display:flex!important;flex-direction:column!important}',
+    '.rona-rail-v4-work>.rona-rail-v4-card{height:560px!important;max-height:560px!important;min-height:560px!important;overflow:hidden!important;align-self:start!important;display:flex!important;flex-direction:column!important}',
 
     '.rona-rail-v4-kpis{gap:10px!important}',
     '.rona-rail-v4-kpi{position:relative!important;overflow:hidden!important;min-height:78px!important;padding:14px 14px 13px 16px!important;border-radius:11px!important;background:rgba(5,17,29,.55)!important;border-color:rgba(110,190,220,.12)!important}',
@@ -49,7 +49,7 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v6-wagon-placeholder{font-size:11.5px!important;color:#839ca9!important;opacity:1!important}',
     '.rona-rail-v7-real{width:100%!important;aspect-ratio:auto!important;height:auto!important;min-height:260px!important;max-height:none!important;margin-bottom:0!important;border:1px solid rgba(86,189,219,.16)!important;border-radius:14px!important;background:#071825!important;box-shadow:0 14px 32px rgba(0,0,0,.22)!important}',
     '.rona-rail-v7-real .rona-rail-v4-map-canvas{inset:42px 8px 8px!important;border:0!important;border-radius:10px!important;background:#0a1d2a!important;box-shadow:0 8px 20px rgba(0,0,0,.20)!important}',
-    '.rona-rail-v4-work>.rona-rail-v4-card>.rona-rail-v7-real{flex:1 1 auto!important;aspect-ratio:auto!important;height:auto!important;min-height:260px!important;margin-bottom:0!important}',
+    '.rona-rail-v4-work>.rona-rail-v4-card>.rona-rail-v7-real{flex:1 1 0!important;aspect-ratio:auto!important;height:auto!important;min-height:0!important;max-height:none!important;margin-bottom:0!important}',
 
     '.rona-rail-v7-map-viewport{border:0!important;outline:0!important;border-radius:9px!important;background:#0a1d2a!important;box-shadow:none!important}',
     '.rona-rail-v7-map-viewport:after{display:none!important;content:none!important}',
@@ -88,8 +88,8 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v4-matrix-preserved th{color:#83b8ca!important;font-size:9.5px!important;letter-spacing:.04em!important;text-transform:uppercase!important}',
     '.rona-rail-v4-matrix-preserved th,.rona-rail-v4-matrix-preserved td{padding:8px 8px!important;line-height:1.35!important}',
     '#page-monitoring>.rona-owner-page-content>section,#page-monitoring>.rona-owner-page-content>.rona-owner-card{width:100%!important;max-width:1584px!important;margin-left:auto!important;margin-right:auto!important}',
-    '@media(max-width:1180px){#page-monitoring>.rona-owner-page-content{max-width:100%!important}.rona-rail-v4-work{grid-template-columns:minmax(340px,.96fr) minmax(480px,1.36fr)!important}.rona-rail-v7-real{min-height:260px!important}}',
-    '@media(max-width:1040px){.rona-rail-v4-work{grid-template-columns:1fr!important}.rona-rail-v4-work>.rona-rail-v4-card{height:auto!important;max-height:none!important;overflow:visible!important}.rona-rail-v7-real{height:auto!important;min-height:380px!important}}',
+    '@media(max-width:1180px){#page-monitoring>.rona-owner-page-content{max-width:100%!important}.rona-rail-v4-work{grid-template-columns:minmax(340px,.96fr) minmax(480px,1.36fr)!important}.rona-rail-v4-work>.rona-rail-v4-card{height:560px!important;min-height:560px!important;max-height:560px!important}.rona-rail-v7-real{min-height:0!important}}',
+    '@media(max-width:1040px){.rona-rail-v4-work{grid-template-columns:1fr!important}.rona-rail-v4-work>.rona-rail-v4-card{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.rona-rail-v7-real{height:auto!important;min-height:380px!important}}',
     '@media(max-width:680px){.rona-rail-v7-real{min-height:340px!important}.rona-rail-v7-real .rona-rail-v4-map-canvas{inset:40px 6px 6px!important}}'
   ].join('');
   document.head.appendChild(s);
@@ -145,33 +145,42 @@ function ensureRailTariffPanel(){
     return true
   }catch(_e){return false}
 }
+var RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT=560;
 function alignRailMapHeightToOperations(){
   try{
     var page=q('#page-monitoring');if(!page)return false;
-    var work=q('.rona-rail-v4-work',page),left=work&&q('.rona-rail-v4-left',work),right=work&&q(':scope > .rona-rail-v4-card',work);
-    if(!work||!left||!right)return false;
+    var work=q('.rona-rail-v4-work',page),right=work&&q(':scope > .rona-rail-v4-card',work);
+    if(!work||!right)return false;
     var map=q('.rona-rail-v7-real',right);
     if(window.matchMedia&&window.matchMedia('(max-width:1040px)').matches){
-      right.style.removeProperty('height');right.style.removeProperty('max-height');right.style.removeProperty('overflow');
-      if(map){map.style.removeProperty('height');map.style.removeProperty('max-height')}
+      right.style.removeProperty('height');
+      right.style.removeProperty('min-height');
+      right.style.removeProperty('max-height');
+      right.style.removeProperty('overflow');
+      if(map){
+        map.style.removeProperty('height');
+        map.style.removeProperty('min-height');
+        map.style.removeProperty('max-height');
+        map.style.removeProperty('flex');
+      }
       return true
     }
-    var leftHeight=Math.round(left.getBoundingClientRect().height);
-    if(leftHeight<320)return false;
-    right.style.setProperty('height',leftHeight+'px','important');
-    right.style.setProperty('max-height',leftHeight+'px','important');
+    var fixedHeight=RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT;
+    right.style.setProperty('height',fixedHeight+'px','important');
+    right.style.setProperty('min-height',fixedHeight+'px','important');
+    right.style.setProperty('max-height',fixedHeight+'px','important');
     right.style.setProperty('overflow','hidden','important');
     if(map){
-      map.style.setProperty('flex','1 1 auto','important');
+      map.style.setProperty('flex','1 1 0','important');
       map.style.setProperty('aspect-ratio','auto','important');
       map.style.setProperty('height','auto','important');
-      map.style.setProperty('min-height','260px','important');
+      map.style.setProperty('min-height','0','important');
       map.style.setProperty('max-height','none','important');
       map.style.setProperty('margin-bottom','0','important');
       var state=q('.rona-rail-v4-map-canvas',map);
       if(state&&state.__ronaRailMapState&&typeof railMapRequestDraw==='function')railMapRequestDraw(state.__ronaRailMapState)
     }
-    window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT__={leftHeight:leftHeight,appliedAt:new Date().toISOString()};
+    window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT__={mode:'FIXED_DESKTOP',fixedHeight:fixedHeight,dealKey:window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,appliedAt:new Date().toISOString()};
     return true
   }catch(_e){return false}
 }
@@ -248,7 +257,7 @@ export async function onRequest(context){
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('expires','0');
-  headers.set('x-rona-rail-ui','current-v8.9-square-map-aligned');
+  headers.set('x-rona-rail-ui','current-v8.10-fixed-map-size');headers.set('x-rona-rail-map-size','fixed-desktop-560-v1');
   headers.set('x-rona-rail-stage-a','deal-owned-map-persistence-v1');
   headers.delete('content-length');
   headers.delete('etag');
