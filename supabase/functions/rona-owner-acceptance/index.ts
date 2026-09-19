@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import { createClaimsRuntime } from "./claims.ts";
+import { resolveAdminImpersonation, recordImpersonationEvent, impersonationMetadata } from "../_shared/admin-impersonation-authority-v1.ts";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
@@ -57,7 +58,15 @@ async function authContext(req) {
     where a.session_allowed and (s.not_after is null or s.not_after>now())
   `;
   if (rows.length !== 1) return null;
-  return { authUserId: String(data.user.id), userId: String(rows[0].portal_user_id), displayName: String(rows[0].display_name || ""), roles: (rows[0].roles || []).map(String), sessionId: sid, authorization };
+  const actorUserId=String(rows[0].portal_user_id),actorRoles=(rows[0].roles||[]).map(String),actorName=String(rows[0].display_name||"");
+  const base={authUserId:String(data.user.id),userId:actorUserId,displayName:actorName,roles:actorRoles,sessionId:sid,authorization,actorAuthUserId:String(data.user.id),actorUserId,actorDisplayName:actorName,actorRoles,impersonation:null};
+  const impToken=String(req.headers.get("x-rona-admin-impersonation-token")||"").trim();
+  if(!impToken)return base;
+  if(!actorRoles.includes("ADMIN"))return null;
+  const impersonation=await resolveAdminImpersonation(sql,{authUserId:String(data.user.id),portalUserId:actorUserId,sessionId:sid,displayName:actorName,roles:actorRoles},impToken);
+  if(!impersonation)return null;
+  const effective=await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;
+  return{...base,userId:impersonation.effectiveUserId,displayName:String(effective[0]?.display_name||""),roles:[impersonation.effectiveRole],impersonation};
 }
 function requireRole(ctx, role) {
   if (!ctx?.roles?.includes(role)) throw Object.assign(new Error("ROLE_MISMATCH"), { status: 403 });
@@ -82,23 +91,28 @@ function reqIds(req) {
 }
 async function audit(tx, ctx, action, entityType, entityId, req, metadata = {}) {
   const { requestId, correlationId } = reqIds(req);
+  const actorUserId=ctx.actorUserId||ctx.userId;
+  const actorRole=ctx.impersonation?"ADMIN":ctx.roles.includes("ADMIN")?"ADMIN":ctx.roles.includes("CLIENT")?"CLIENT":ctx.roles.includes("AGENT")?"AGENT":"RONA_OPERATOR";
+  const provenance=ctx.impersonation?impersonationMetadata({authUserId:ctx.actorAuthUserId,portalUserId:actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation):{};
   await tx`insert into portal_private.audit_events(actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata)
-    values(${ctx.userId}::uuid,${ctx.roles.includes("ADMIN") ? "ADMIN" : ctx.roles.includes("CLIENT") ? "CLIENT" : ctx.roles.includes("AGENT") ? "AGENT" : "RONA_OPERATOR"},${action},${entityType},${entityId},${requestId}::uuid,${correlationId}::uuid,${sql.json(metadata)})`;
+    values(${actorUserId}::uuid,${actorRole},${action},${entityType},${entityId},${requestId}::uuid,${correlationId||ctx.impersonation?.correlationId||null}::uuid,${sql.json({...metadata,...provenance})})`;
 }
 
 async function clientScope(ctx) {
+  const bound=ctx.impersonation?.effectiveRole==="CLIENT"?ctx.impersonation.targetClientKey:null;
   const rows = await sql`
     select distinct b.client_key,b.contract_key,cl.client_id,cl.legal_name,ct.contract_id,ct.current_signed_document_id
     from portal_private.client_user_bindings b
     join portal_private.clients cl on cl.id=b.client_key
     join portal_private.contracts ct on ct.id=b.contract_key
-    where b.user_id=${ctx.userId}::uuid and b.status='ACTIVE'::portal_private.binding_status_enum
+    where b.user_id=${ctx.userId}::uuid and (${bound}::uuid is null or b.client_key=${bound}::uuid) and b.status='ACTIVE'::portal_private.binding_status_enum
       and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
       and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
   `;
   return rows;
 }
 async function agentScope(ctx) {
+  const bound=ctx.impersonation?.effectiveRole==="AGENT"?ctx.impersonation.targetAgentPersonKey:null;
   const rows = await sql`
     select distinct aca.client_key,cl.client_id,cl.legal_name,ap.agent_person_id,
            ale.agent_legal_entity_id,ale.legal_name agent_legal_name
@@ -112,7 +126,7 @@ async function agentScope(ctx) {
     join portal_private.agent_persons ap on ap.id=aub.agent_person_key
     left join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
     join portal_private.clients cl on cl.id=aca.client_key
-    where aub.user_id=${ctx.userId}::uuid and aub.status='ACTIVE'::portal_private.binding_status_enum and aub.revoked_at is null
+    where aub.user_id=${ctx.userId}::uuid and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid) and aub.status='ACTIVE'::portal_private.binding_status_enum and aub.revoked_at is null
       and aub.valid_from<=now() and (aub.valid_to is null or aub.valid_to>now())
       and aca.status='ACTIVE'::portal_private.binding_status_enum and aca.valid_from<=now() and (aca.valid_to is null or aca.valid_to>now())
       and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
