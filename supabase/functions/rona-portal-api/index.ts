@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { origins, headers, send, apiRoute, authenticate, sessionScope, sql, SUPA_URL, runtimeKey, uuid, type Ctx } from "./shared.ts";
-import { clientBootstrap, clientShipments, clientRailReadModel } from "./client.ts";
+import { clientBootstrap, clientShipments } from "./client.ts";
+import { clientRailReadModel } from "./client.ts";
 import { agentBootstrap, agentDocument, agentPayment } from "./agent.ts";
 import { adminBootstrap } from "./admin.ts";
 import { reverseEvent } from "./events.ts";
