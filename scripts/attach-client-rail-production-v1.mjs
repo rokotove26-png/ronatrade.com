@@ -8,8 +8,8 @@ const adminCanonPath='functions/portal/rail-current-v81-maplibre-ui.js';
 const adminBasePath='functions/portal/rail-current-v4-ui.js';
 const heroRuntimePath='dist/assets/portal-runtime/client-rail-canonical-hero-v1.js';
 const id='rona-client-rail-admin-canonical-v1';
-const src='/portal/client-rail-current-ui?v=20260919-admin-visual-parity-route-v2';
-const marker='20260919-admin-visual-parity-route-v2';
+const src='/portal/client-rail-current-ui?v=20260919-route-overlay-v3';
+const marker='20260919-route-overlay-v3';
 const heroId='rona-client-rail-canonical-hero-v1';
 const heroSrc='/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2';
 const heroMarker='20260919-client-rail-admin-visual-parity-v2';
@@ -27,6 +27,10 @@ for(const required of [
   "admin-current-v81-client-authority-v1",
   "AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1",
   "CLIENT_ADMIN_ROUTE_PARITY_V2",
+  "CLIENT_ADMIN_ROUTE_PARITY_V3",
+  "CLIENT_RAIL_ROUTE_OVERLAY_V3",
+  "clientRailRenderAuthoritativeRouteOverlay",
+  "clientRailPatchRouteDraw",
   "clientRailNormalizeRouteParity",
   "clientRailRepairMapParity",
   "x-rona-client-rail-visual-canon",
