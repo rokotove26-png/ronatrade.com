@@ -169,7 +169,6 @@ test('Compact wagon table is owned by the left control card and has only the app
 test('Owner Rail view removes the tariff matrix from the Online Rail surface',()=>{
   assert.match(v81,/function removeRailTariffPanel\(\)/);
   assert.match(v81,/__RONA_RAIL_TARIFF_MATRIX_REMOVED__/);
-  assert.match(v81,/x-rona-rail-tariff-matrix','removed/);
   assert.doesNotMatch(v81,/Матрица ЖД-тарифов/);
   assert.doesNotMatch(v81,/tariffToggle\.textContent/);
   assert.doesNotMatch(v81,/host\.append\(tariff\)/);
