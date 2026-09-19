@@ -31,6 +31,9 @@ if(!controlPlane.includes('ADMIN_SELF_DELETE_DENIED'))throw new Error('ADMIN_USE
 if(!controlPlane.includes("auth_user_id=null"))throw new Error('ADMIN_USER_AUTH_LINK_CLEAR_MISSING');
 if(!controlPlane.includes("login_name=null"))throw new Error('ADMIN_USER_LOGIN_CLEAR_MISSING');
 if(!controlPlane.includes('PORTAL_USER_DELETED_BY_ADMIN'))throw new Error('ADMIN_USER_DELETE_AUDIT_MISSING');
+if(controlPlane.includes('AGENT_PROFILE_NOT_FOUND')||controlPlane.includes('resolveAgentProfile('))throw new Error('LEGACY_AGENT_PROFILE_MODEL_REMAINS');
+if(!controlPlane.includes('AGENT_PERSON_IDENTITY_V2'))throw new Error('AGENT_PERSON_IDENTITY_V2_MISSING');
+if(!controlPlane.includes('company_assignment_created: false'))throw new Error('AGENT_CREATE_NO_COMPANY_ASSIGNMENT_PROOF_MISSING');
 if(!modalCss.includes('.ca-modal-backdrop{z-index:2147483600!important}'))throw new Error('ADMIN_MODAL_STACK_CSS_MISSING');
 if(!builtAdmin.includes('data-rona-admin-modal-stack="v1"'))throw new Error('ADMIN_MODAL_STACK_BUILD_ATTACHMENT_MISSING');
 const html=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/admin-modal-stack.css"><style>body{margin:0;background:#050b13;color:#fff;font:14px Arial,sans-serif;padding:40px}.rona-owner-card{border:1px solid #234;padding:12px;border-radius:12px}</style></head><body><section id="page-access"></section><script src="/current-access.js"></script></body></html>`;
@@ -74,7 +77,7 @@ try{
   const page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push('pageerror:'+String(e.message||e)));page.on('console',m=>{if(m.type()==='error')errors.push('console:'+m.text())});
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-create-user-v6-20260828'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
+  await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-create-agent-v7-20260919'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
   assert(await page.locator('.rona-canonical-access-mask,.rona-approved-access-mask').count()===0,'legacy access overlay present before open');
 
   await page.getByRole('button',{name:'Создать пользователя'}).first().click();
@@ -106,10 +109,12 @@ try{
   assert(created.length===1,'client create request missing');assert(created[0].role==='Клиент','client role payload');assert(created[0].login==='qa.client','client login missing');assert(created[0].email==='qa.client@example.com','client email missing');assert(created[0].initialPassword==='Qa!Password1','client initialPassword missing');assert(created[0].contractIds?.[0]===contractId,'client contract binding missing');await clientDone.getByRole('button',{name:'Закрыть'}).click();
 
   await page.getByRole('button',{name:'Создать пользователя'}).first().click();const agentModal=page.locator('.rona-current-access-modal');await agentModal.waitFor({state:'visible'});await page.getByLabel('Тип доступа').selectOption('Агент');
-  assert(await page.getByLabel('Профиль агента').isVisible(),'agent profile must be visible');assert(!(await page.locator('.rona-current-contract-grid').isVisible()),'contract grid must be hidden for agent');
-  await page.getByLabel('Ф.И.О. пользователя').fill('QA Agent User');await page.getByLabel('Единый логин').fill('qa.agent');await page.getByLabel('Электронная почта').fill('qa.agent@example.com');await page.getByLabel('Пароль',{exact:true}).fill('Qa!Password2');await page.getByLabel('Повторите пароль').fill('Qa!Password2');await page.getByLabel('Профиль агента').selectOption('RONA-QA-A001');
-  await agentModal.getByRole('button',{name:'Создать единую учётную запись'}).click();const agentDone=page.locator('.ca-modal-backdrop').last();await agentDone.waitFor({state:'visible'});assert((await agentDone.innerText()).includes('Доступ агента создан'),'agent creation success missing');
-  assert(created.length===2,'agent create request missing');assert(created[1].role==='Агент','agent role payload');assert(created[1].agentScope==='RONA-QA-A001','agentScope missing');assert(created[1].login==='qa.agent','agent login missing');assert(created[1].email==='qa.agent@example.com','agent email missing');assert(created[1].initialPassword==='Qa!Password2','agent initialPassword missing');assert(Array.isArray(created[1].contractIds)&&created[1].contractIds.length===0,'agent must not get client contract binding');
+  assert(await page.getByText('Профиль агента',{exact:true}).count()===0,'legacy Agent profile label must not exist');
+  assert(!(await page.locator('.rona-current-contract-grid').isVisible()),'contract grid must be hidden for agent');
+  assert((await agentModal.innerText()).includes('Компании назначаются отдельно'),'Agent form must explain separate company assignment');
+  await page.getByLabel('Ф.И.О. пользователя').fill('QA Agent User');await page.getByLabel('Единый логин').fill('qa.agent');await page.getByLabel('Электронная почта').fill('qa.agent@example.com');await page.getByLabel('Телефон').fill('+996700000002');await page.getByLabel('Пароль',{exact:true}).fill('Qa!Password2');await page.getByLabel('Повторите пароль').fill('Qa!Password2');
+  await agentModal.getByRole('button',{name:'Создать единую учётную запись'}).click();const agentDone=page.locator('.ca-modal-backdrop').last();await agentDone.waitFor({state:'visible'});assert((await agentDone.innerText()).includes('Агент создан'),'agent creation success missing');
+  assert(created.length===2,'agent create request missing');assert(created[1].role==='Агент','agent role payload');assert(!Object.prototype.hasOwnProperty.call(created[1],'agentScope'),'legacy agentScope must not be submitted');assert(created[1].login==='qa.agent','agent login missing');assert(created[1].email==='qa.agent@example.com','agent email missing');assert(created[1].phone==='+996700000002','agent phone missing');assert(created[1].initialPassword==='Qa!Password2','agent initialPassword missing');assert(Array.isArray(created[1].contractIds)&&created[1].contractIds.length===0,'agent must not get client contract binding');
 
   await page.getByRole('button',{name:'Закрыть'}).click();
   await page.getByRole('button',{name:'Пользователи и доступы'}).click();
@@ -133,6 +138,6 @@ try{
   console.log('ADMIN_ACCESS_DELETE_USER_UI=PASS');
   console.log('ADMIN_ACCESS_DELETE_USER_AUTH_CONTRACT=PASS');
   console.log('ADMIN_ACCESS_SINGLE_OWNER_FUNCTIONAL_BROWSER_QA=PASS');
-  console.log(JSON.stringify({uploadRequests,deleteRequests,created:created.map(x=>({role:x.role,login:x.login,email:x.email,contractIds:x.contractIds,agentScope:x.agentScope,hasInitialPassword:!!x.initialPassword})),errors}));
+  console.log(JSON.stringify({uploadRequests,deleteRequests,created:created.map(x=>({role:x.role,login:x.login,email:x.email,phone:x.phone,contractIds:x.contractIds,hasAgentScope:Object.prototype.hasOwnProperty.call(x,'agentScope'),hasInitialPassword:!!x.initialPassword})),errors}));
   await context.close();
 }catch(e){console.error('ADMIN_ACCESS_SINGLE_OWNER_FUNCTIONAL_BROWSER_QA=FAIL',e?.stack||e);process.exitCode=1}finally{if(browser)await browser.close().catch(()=>{});await new Promise(resolve=>server.close(resolve))}
