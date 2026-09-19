@@ -25,14 +25,14 @@ const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=202
 const homeSrc='/assets/portal-runtime/client-home-command-center-v2.js?v=20260902-current-context-v3';
 const homeVisualSrc='/assets/portal-runtime/client-home-tablet-visual-v3.js?v=20260830-tablet-dashboard-v3';
 const paymentsSanitationSrc='/assets/portal-runtime/client-payments-sanitation-v1.js?v=20260830-current-only-v1';
-const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260902-current-context-v2';
+const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260919-receipt-reconciliation-v1';
 const paymentsCanonicalSrc='/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v3';
 const marker='20260902-client-admin-authoritative-deal-projection-v9-current-context';
 const connectionMarker='20260830-client-server-connection-v1';
 const homeMarker='20260902-client-home-command-center-v3-current-context';
 const homeVisualMarker='20260830-client-home-tablet-visual-v3';
 const paymentsSanitationMarker='20260830-client-payments-sanitation-v1';
-const paymentsMarker='20260902-client-payments-authoritative-v2-current-context';
+const paymentsMarker='20260919-client-payments-authoritative-v3-receipt-reconciliation';
 const paymentsCanonicalMarker='20260830-client-payments-canonical-layout-v3';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -61,6 +61,7 @@ const paymentsRuntime=await readFile(paymentsRuntimePath,'utf8');
 if(!paymentsRuntime.includes(paymentsMarker))throw new Error(`CLIENT_PAYMENTS_MARKER_MISSING: ${paymentsMarker}`);
 if(!paymentsRuntime.includes("source:'CURRENT_CONTEXT_FINANCE_PROJECTION'")||!paymentsRuntime.includes('RONA_CLIENT_CONTEXT')||!paymentsRuntime.includes('authority.subscribe'))throw new Error('CLIENT_PAYMENTS_FINANCE_CURRENT_CONTEXT_SOURCE_MISSING');
 if(paymentsRuntime.includes('/v1/client/bootstrap')||!paymentsRuntime.includes('/v1/client/context?clientId='))throw new Error('CLIENT_PAYMENTS_CURRENT_CONTEXT_SERVER_CONTRACT_INVALID');
+if(!paymentsRuntime.includes('client_receipt_status')||!paymentsRuntime.includes('FINANCE_CONFIRMED'))throw new Error('CLIENT_PAYMENTS_RECEIPT_DETAIL_RECONCILIATION_MISSING');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(paymentsRuntime))throw new Error('CLIENT_PAYMENTS_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 const paymentsCanonicalRuntime=await readFile(paymentsCanonicalRuntimePath,'utf8');
 if(!paymentsCanonicalRuntime.includes(paymentsCanonicalMarker))throw new Error(`CLIENT_PAYMENTS_CANONICAL_LAYOUT_MARKER_MISSING: ${paymentsCanonicalMarker}`);
