@@ -75,4 +75,20 @@ try{body=JSON.parse(portalResult.body)}catch{}
 assert(body.code==='LOGIN_DENIED','PROD_LOGIN_WRONG_CONTRACT '+portalResult.body);
 assert(!directResult?.error,'DIRECT_SUPABASE_AUTH_NETWORK_FAIL '+JSON.stringify(directResult));
 assert([400,401].includes(directResult.status),'DIRECT_SUPABASE_AUTH_UNEXPECTED_'+directResult.status);
+
+const source=await readFile('functions/portal/auth/login.js','utf8');
+const key=source.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*'([^']+)'/)?.[1]||'';
+const supabase=source.match(/SUPABASE_URL\s*=\s*'([^']+)'/)?.[1]||'';
+for(const [label,path,headers] of [
+  ['DIRECT_SUPABASE_REST','/rest/v1/',{apikey:key,accept:'application/json'}],
+  ['DIRECT_SUPABASE_EDGE','/functions/v1/rona-portal-api/session/me',{apikey:key,authorization:'Bearer invalid.qa.token',accept:'application/json'}]
+]){
+  const t=Date.now();
+  try{
+    const r=await timed(supabase+path,{headers,redirect:'manual',cache:'no-store'});
+    console.log(label+'_RESPONSE='+JSON.stringify({status:r.status,ms:Date.now()-t,body:(await r.text()).slice(0,300)}));
+  }catch(e){
+    console.log(label+'_RESPONSE='+JSON.stringify({error:String(e?.name||'Error'),message:String(e?.message||e),ms:Date.now()-t}));
+  }
+}
 console.log('PRODUCTION_HOME_AUTH_ENDPOINT_QA=PASS');
