@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { onRequest as ownerApi } from '../functions/portal/owner-api.js';
 import { onRequest as cashR2Ui } from '../functions/portal/cash-r2-ui.js';
+import { onRequest as portalRouter } from '../functions/portal/[[path]].js';
+import { onRequestPost as portalLogin } from '../functions/portal/auth/login.js';
 
 const realFetch=globalThis.fetch;
 const cash=await (await cashR2Ui()).text();
@@ -96,4 +98,61 @@ test('Issue 639 Cash UI retries stale-session races through existing bounded tra
   assert.ok(cash.includes('portal_session_stale'));
   assert.ok(cash.includes('INITIAL_RETRY_DELAYS=[1000,2000,4000,8000]'));
   assert.ok(cash.includes('CHECK_MS=60000'));
+});
+
+
+test('Issue 663 top-level Admin shell preserves cookies during concurrent refresh-token rotation',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      return jsonResponse({ok:false,code:'PORTAL_ACCESS_DENIED'},401);
+    }
+    if(u.includes('/auth/v1/token?grant_type=refresh_token')){
+      return jsonResponse({error_code:'refresh_token_already_used',message:'Refresh Token Already Used'},400);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',
+    headers:{cookie:'rona_portal_at=access-old; rona_portal_rt=refresh-old'}
+  });
+  const response=await portalRouter({
+    request,
+    next:async()=>new Response('SHOULD_NOT_BE_REACHED',{status:200,headers:{'content-type':'text/html'}})
+  });
+  assert.equal(response.status,503);
+  const body=await response.text();
+  assert.match(body,/Восстанавливаю соединение/);
+  assert.equal(response.headers.get('set-cookie'),null);
+  assert.doesNotMatch(body,/Доступ запрещён/);
+});
+
+test('Issue 663 exact login session probe uses publishable key and returns Admin redirect',async()=>{
+  let sawApiKey=false;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password')){
+      return jsonResponse({access_token:'access-new',refresh_token:'refresh-new',expires_in:3600},200);
+    }
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      const h=new Headers(init.headers||{});
+      sawApiKey=Boolean(h.get('apikey'));
+      return jsonResponse({ok:true,user:{roles:['ADMIN']}},200);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'text/html'},
+    body:JSON.stringify({email:'qa-owner@example.invalid',password:'fixture-only',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,303);
+  assert.equal(response.headers.get('location'),'/portal/admin');
+  assert.equal(sawApiKey,true);
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=access-new/);
+  assert.match(setCookie,/rona_portal_rt=refresh-new/);
 });
