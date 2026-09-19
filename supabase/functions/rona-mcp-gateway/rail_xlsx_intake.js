@@ -29,6 +29,7 @@ const OPTIONAL_LOGICAL_HEADERS = Object.freeze({
 const ALLOWED_DOWNLOAD_HOST_SUFFIXES = Object.freeze([
   "oaiusercontent.com",
   "openai.com",
+  "chatgpt.com",
 ]);
 
 export class RailXlsxIntakeError extends Error {
@@ -122,6 +123,7 @@ export function normalizeChatFileParam(file) {
       "RAIL_XLSX_FILE_URL_NOT_ALLOWED",
       "file URL must be a supported HTTPS ChatGPT/OpenAI download URL",
       403,
+      { hostname: parsed.hostname },
     );
   }
   return {
