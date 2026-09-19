@@ -1,8 +1,8 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260831-client-rail-canonical-hero-v1';
-  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:100%!important max-width:1584px!important square-map-aligned font-size:28px!important';
+  const MARK='20260919-client-rail-admin-visual-parity-v2';
+  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2 width:100%!important max-width:1584px!important square-map-aligned font-size:28px!important';
   if(window.__RONA_CLIENT_RAIL_CANONICAL_HERO__===MARK)return;
   window.__RONA_CLIENT_RAIL_CANONICAL_HERO__=MARK;
 
@@ -119,21 +119,6 @@
         margin-left:auto!important;
         margin-right:auto!important;
       }
-      ${HOST} .rona-rail-v4-work{
-        grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important;
-        gap:18px!important;
-        align-items:stretch!important;
-      }
-      ${HOST} .rona-rail-v4-left{
-        display:grid!important;
-        grid-template-rows:1fr 1fr!important;
-        gap:16px!important;
-        min-width:0!important;
-        max-width:none!important;
-        height:100%!important;
-        align-self:stretch!important;
-      }
-      ${HOST} .rona-rail-v4-work > *{min-width:0!important;height:100%!important}
       ${HOST} .rona-rail-v4-hero{
         display:flex!important;
         align-items:flex-end!important;
@@ -166,6 +151,15 @@
         display:block!important;margin:7px 0 0!important;color:#8ea6b2!important;font-family:Inter,Arial,sans-serif!important;
         font-size:12px!important;line-height:1.5!important;font-weight:400!important;
       }
+      ${HOST} .rona-rail-v7-route-layer{display:block!important;visibility:visible!important;opacity:1!important;z-index:3!important}
+      ${HOST} .rona-rail-v7-route-svg{display:block!important;visibility:visible!important;opacity:1!important}
+      ${HOST} .rona-rail-v7-route-casing{fill:none!important;stroke:rgba(35,43,48,.42)!important;stroke-width:7!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-line{fill:none!important;stroke:#a93d38!important;stroke-width:3.4!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-remaining-casing{fill:none!important;stroke:rgba(39,45,48,.28)!important;stroke-width:6!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-remaining{fill:none!important;stroke:rgba(126,82,76,.72)!important;stroke-width:2.6!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-actual-casing{fill:none!important;stroke:rgba(31,35,37,.52)!important;stroke-width:8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-actual{fill:none!important;stroke:#9f332f!important;stroke-width:4.2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-node{fill:#fff!important;stroke:#9f332f!important;stroke-width:2.2!important}
       ${HOST} .rona-client-rail-hero-actions{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-end!important}
       ${HOST} .rona-client-rail-hero-pill,${HOST} .rona-client-rail-hero-btn{
         border:1px solid rgba(111,188,218,.25)!important;border-radius:999px!important;background:rgba(12,34,46,.72)!important;color:#b9d5df!important;
@@ -175,7 +169,6 @@
       ${HOST} .rona-client-rail-hero-btn{padding:7px 11px!important;cursor:pointer!important}
       ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.9)!important;color:#fff!important}
       ${HOST} .rona-client-rail-hero-btn:disabled{opacity:.55!important;cursor:default!important}
-      @media(max-width:1100px){${HOST} .rona-rail-v4-root{width:100%!important;max-width:100%!important}${HOST} .rona-rail-v4-work{grid-template-columns:1fr!important;align-items:stretch!important}${HOST} .rona-rail-v4-left{grid-template-rows:auto auto!important;max-width:none!important}}
       @media(max-width:720px){${HOST} .rona-rail-v4-hero{align-items:flex-start!important;flex-direction:column!important}${HOST} .rona-client-rail-hero-actions{justify-content:flex-start!important}}
     `;
     document.head.appendChild(style);
@@ -211,11 +204,11 @@
       if(kicker.textContent!==KICKER)kicker.textContent=KICKER;
       if(title.textContent!==TITLE)title.textContent=TITLE;
       if(subtitle.textContent!==SUBTITLE)subtitle.textContent=SUBTITLE;
-      addActions(hero);removeCompetingTitle(host,hero);
+      const oldActions=hero.querySelector(':scope > .rona-client-rail-hero-actions');if(oldActions)oldActions.remove();removeCompetingTitle(host,hero);
       if(hero.getAttribute('data-rona-client-rail-canonical-hero')!=='v1')hero.setAttribute('data-rona-client-rail-canonical-hero','v1');
       document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY';
       document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V1';
-      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'};
+      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'ADMIN_CURRENT_V81_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',layout_override:'NONE_OPERATIONAL_BODY',client_authority:'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'};
       return true;
     }finally{applying=false}
   }
