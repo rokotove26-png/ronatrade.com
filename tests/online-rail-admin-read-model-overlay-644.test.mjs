@@ -17,13 +17,20 @@ test("admin rail overlay exposes trusted current positions without creating cano
     },
   };
   const readModel = {
-    modelVersion: "RONA_ADMIN_RAIL_DEAL_READ_MODEL_V1_5",
-    sourcePolicy: "EXPEDITOR_XLSX_VIA_RAIL_AI",
+    modelVersion: "RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V2",
+    sourcePolicy: "EXPEDITOR_XLSX_WITH_TRUSTED_STATION_GEO",
     generatedAt: "2026-09-19T00:00:00Z",
     deals: [{
       dealKey: "deal-key-1",
       dealId: "DEAL-2026-004",
-      plannedRoute: [{ status: "TEXT_ONLY_NOT_GEOCODED", points: [], geometry: null }],
+      plannedRoute: [{
+        status: "TRUSTED_STATION_POINTS",
+        points: [
+          { lat: 51.900985717773, lng: 29.2730469, station: "Барбаров", stationCode: "151408", trusted: true, trust: "CONFIRMED" },
+          { lat: 40.437599182129, lng: 71.8068342, station: "Киргили", stationCode: "742705", trusted: true, trust: "CONFIRMED" },
+        ],
+        geometry: null,
+      }],
       wagonPositions: [{
         wagonNumber: "58214776",
         railDocumentKey: "doc-key-1",
@@ -36,8 +43,15 @@ test("admin rail overlay exposes trusted current positions without creating cano
         sourceTimezoneStatus: "UNRESOLVED",
         positionStatus: "TRUSTED",
         effectiveResolutionStatus: "MATCHED",
-        trustedCoordinates: null,
-        provenance: { sourcePolicy: "EXPEDITOR_XLSX_VIA_RAIL_AI" },
+        trustedCoordinates: {
+          lat: 51.409244537354,
+          lng: 46.0820729,
+          trusted: true,
+          trust: "CONFIRMED",
+          stationCode: "625501",
+          canonicalStationName: "Анисовка",
+        },
+        provenance: { sourcePolicy: "EXPEDITOR_XLSX_WITH_TRUSTED_STATION_GEO" },
       }],
     }],
   };
@@ -50,7 +64,12 @@ test("admin rail overlay exposes trusted current positions without creating cano
   assert.equal(out.data.rail[0].wagons[0].displayProjectionOnly, true);
   assert.equal(out.data.rail[0].wagons[0].sourceTimezoneStatus, "UNRESOLVED");
   assert.equal(out.data.railReadModel.overlayMode, "DISPLAY_ONLY_CURRENT_POSITION");
-  assert.equal(out.data.plannedRouteByDeal["deal-key-1"].status, "TEXT_ONLY_NOT_GEOCODED");
+  assert.equal(out.data.rail[0].wagons[0].trustedCoordinates.stationCode, "625501");
+  assert.equal(out.data.rail[0].wagons[0].trustedCoordinates.trust, "CONFIRMED");
+  assert.equal(out.data.plannedRouteByDeal["deal-key-1"].status, "TRUSTED_STATION_POINTS");
+  assert.equal(out.data.plannedRouteByDeal["deal-key-1"].points.length, 2);
+  assert.equal(out.data.plannedRouteByDeal["deal-key-1"].points[0].stationCode, "151408");
+  assert.equal(out.data.plannedRouteByDeal["deal-key-1"].points[1].stationCode, "742705");
 });
 
 test("production resolution key attaches positions even when source railDocumentId snapshot is null", () => {
