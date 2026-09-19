@@ -90,7 +90,7 @@ assertIncludes(shared,'actorAuth:string;actorUser:string;actorName:string;actorR
 assertIncludes(shared,'user:impersonation.effectiveUserId','effective target identity');
 assertIncludes(shared,'roles:[impersonation.effectiveRole]','no Admin privilege bleed');
 assertIncludes(owner,'actorUserId=ctx.actorUserId||ctx.userId','owner audit real actor');
-assertIncludes(owner,'effective_role','owner audit effective subject');
+assertIncludes(owner,'impersonationMetadata','owner audit effective subject provenance');
 assertIncludes(portalApi,'recordImpersonationEvent','Portal API immutable request provenance');
 
 // Company is hard-bound even when a Client user owns more than one Company.
