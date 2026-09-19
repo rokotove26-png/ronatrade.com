@@ -74,6 +74,24 @@ try{
   console.log('PROD_LOGIN_RESPONSE='+JSON.stringify(portalResult));
 }
 
+let directRefreshProbe=null;
+try{
+  const source=await readFile('functions/portal/auth/login.js','utf8');
+  const key=source.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*'([^']+)'/)?.[1]||'';
+  const url=source.match(/SUPABASE_URL\s*=\s*'([^']+)'/)?.[1]||'';
+  const t=Date.now();
+  const r=await timed(url+'/auth/v1/token?grant_type=refresh_token',{
+    method:'POST',
+    headers:{apikey:key,'content-type':'application/json'},
+    body:JSON.stringify({refresh_token:'invalid-refresh-token-probe'})
+  });
+  directRefreshProbe={status:r.status,ms:Date.now()-t,body:(await r.text()).slice(0,500)};
+  console.log('DIRECT_SUPABASE_REFRESH_PROBE='+JSON.stringify(directRefreshProbe));
+}catch(e){
+  directRefreshProbe={error:String(e?.name||'Error'),message:String(e?.message||e)};
+  console.log('DIRECT_SUPABASE_REFRESH_PROBE='+JSON.stringify(directRefreshProbe));
+}
+
 let directResult=null;
 try{
   const source=await readFile('functions/portal/auth/login.js','utf8');
