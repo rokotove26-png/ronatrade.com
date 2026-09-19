@@ -113,17 +113,17 @@ test("read model cannot be rebound across a different deal",()=>{
   }),/CLIENT_RAIL_CANONICAL_DEAL_MISSING/);
 });
 
-test("production wrapper preserves v55 and derives authority server-side",()=>{
+test("production wrapper preserves v56 and derives authority server-side",()=>{
   const source=fs.readFileSync("supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts","utf8");
   for(const required of [
-    "1c356872f3640f35c40158d01ae363521272ce3d/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts",
+    "53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts",
     "client_user_bindings",
     "client_user_has_contract_access",
     "client_user_has_deal_access",
     "d.lifecycle_state='ACTIVE'",
     "rona_admin_rail_deal_map_read_model_v4",
     'route === "/v1/client/rail-canonical"',
-    "return await liveV55Handler(req, info)",
+    "return await liveV56Handler(req, info)",
   ]) assert.ok(source.includes(required),required);
   for(const forbidden of [
     "DEAL-2026-",
