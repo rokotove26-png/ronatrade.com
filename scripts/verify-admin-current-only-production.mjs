@@ -46,6 +46,9 @@ const runtimeSrc=await retry('single-owner runtime semantic convergence',async a
   const r=await fetchNoStore('/assets/portal-admin-shell-fast-v1.js',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();
   assert(t.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'single-owner marker missing');
   for(const marker of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui','/portal/analytics-v2-ui'])assert(t.includes(marker),`current module missing ${marker}`);
+  assert(t.includes("const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()"),'stable Access readiness missing from live shell runtime');
+  assert(t.includes('CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN'),'non-destructive Access wait marker missing from live shell runtime');
+  assert(!t.includes('window.__RONA_CLIENTS_AGENTS_CURRENT__=null'),'live shell runtime still tears down Access owner');
   for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!t.includes(forbidden),`competing Admin runtime returned: ${forbidden}`);
   return t;
 });
@@ -53,6 +56,8 @@ const runtimeSrc=await retry('single-owner runtime semantic convergence',async a
 const watchdogSrc=await retry('page-aware watchdog semantic convergence',async attempt=>{
   const r=await fetchNoStore('/assets/portal-admin-runtime-watchdog-v1.js',attempt);assert(r.ok,`status ${r.status}`);const t=await r.text();
   assert(t.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'page-aware-v10-radio-payments-heading marker missing');
+  assert(t.includes("if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'stable Access watchdog readiness missing');
+  assert(!t.includes("if(p==='access')return !!n.querySelector('#rona-ca4 [data-rona-create-access=\"primary\"]')"),'stale transient-child Access watchdog returned');
   assert(t.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')"),'Analytics rendered-ready marker missing');
   assert(t.includes("if(p==='market-news')return marketNewsReady()"),'market-news owner marker missing');
   assert(t.includes("root.querySelector(':scope > .mn-masthead')"),'market-news health marker missing');
@@ -70,7 +75,7 @@ const access=await retry('Clients/Agents current semantic convergence',async att
   optionalHeader(r,'x-rona-shell-mutation','none');
   optionalHeader(r,'x-rona-legacy-dependency','none');
   const t=await r.text();
-  for(const marker of ["window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'","window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'","window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-user-v6-20260828'",'ronaCreateAccess','admin-authority','Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Пароль','Повторите пароль','Разрешённые компании / контракты','Профиль агента','openWithoutContract','История и права','Сменить пароль','Создать пользователя',"await mutate('/access/users',payload)"])assert(t.includes(marker),`missing static access semantic: ${marker}`);
+  for(const marker of ["window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'","window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'","window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-user-v6-20260828'","window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'","window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair","window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'","window.__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard",'ronaCreateAccess','admin-authority','Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Пароль','Повторите пароль','Разрешённые компании / контракты','Профиль агента','openWithoutContract','История и права','Сменить пароль','Создать пользователя',"await mutate('/access/users',payload)"])assert(t.includes(marker),`missing static access semantic: ${marker}`);
   for(const legacy of ['harvestLegacy','rona-admin-auth-v3413','installNavigationStability','installShellParity','openCanonicalAccessModal','installCanonicalAccessCreate','approved-canonical-v3.4.13','admin-canonical-create-access-v441-ui'])assert(!t.includes(legacy),`legacy/competing dependency ${legacy}`);
   return t;
 });
