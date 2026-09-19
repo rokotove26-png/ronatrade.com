@@ -1,7 +1,8 @@
 import { sql, type Ctx } from "./shared.ts";
 
 export async function clientClaims(c:Ctx,clientId:string,contractId:string){
-  const context=await sql`select cl.id as client_key,ct.id as contract_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;
+  const bound=c.impersonation?.effectiveRole==="CLIENT"?c.impersonation.targetClientKey:null;
+  const context=await sql`select cl.id as client_key,ct.id as contract_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and (${bound}::uuid is null or cl.id=${bound}::uuid) and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;
   if(context.length!==1)return null;
   return await sql`
     select
