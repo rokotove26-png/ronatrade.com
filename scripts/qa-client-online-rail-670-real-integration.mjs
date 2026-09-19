@@ -271,17 +271,17 @@ try{
   assert(after>before,'REAL_BACKGROUND_REFRESH_NOT_RUNNING');
   evidence.backgroundRefresh=true;
 
-  await page.evaluate(()=>window.__qaSetContext({client_id:'${CLIENT_U}',contract_id:'${CONTRACT_U}'}));
+  await page.evaluate(({clientId,contractId})=>window.__qaSetContext({client_id:clientId,contract_id:contractId}),{clientId:CLIENT_U,contractId:CONTRACT_U});
   await sleep(500);
   view=await page.evaluate(()=>({text:document.querySelector('#page-monitoring')?.textContent||'',selected:window.__RONA_RAIL_SELECTED_DEAL_KEY__,context:window.__RONA_CLIENT_RAIL_CONTEXT_KEY__}));
-  assert(view.context==='${CLIENT_U}|${CONTRACT_U}'&&view.selected===null,'UNAUTHORIZED_CONTEXT_NOT_CLEARED');
+  assert(view.context===CLIENT_U+'|'+CONTRACT_U&&view.selected===null,'UNAUTHORIZED_CONTEXT_NOT_CLEARED');
   assert(!view.text.includes(DEAL_A2_ID)&&!view.text.includes('90000002'),'UNAUTHORIZED_CONTEXT_RETAINED_OLD_RAIL');
   evidence.contextSwitchClears=true;
 
-  await page.evaluate(()=>window.__qaSetContext({client_id:'${CLIENT_B}',contract_id:'${CONTRACT_B}'}));
+  await page.evaluate(({clientId,contractId})=>window.__qaSetContext({client_id:clientId,contract_id:contractId}),{clientId:CLIENT_B,contractId:CONTRACT_B});
   await page.waitForFunction(key=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey===key,DEAL_B1,{timeout:8000});
   view=await page.evaluate(()=>({text:document.querySelector('#page-monitoring')?.textContent||'',context:window.__RONA_CLIENT_RAIL_CONTEXT_KEY__}));
-  assert(view.context==='${CLIENT_B}|${CONTRACT_B}'&&view.text.includes(DEAL_B1_ID)&&view.text.includes('90000003'),'AUTHORIZED_CONTEXT_B_NOT_LOADED');
+  assert(view.context===CLIENT_B+'|'+CONTRACT_B&&view.text.includes(DEAL_B1_ID)&&view.text.includes('90000003'),'AUTHORIZED_CONTEXT_B_NOT_LOADED');
   assert(!view.text.includes(DEAL_A1_ID)&&!view.text.includes(DEAL_A2_ID),'CONTEXT_B_INHERITED_CONTEXT_A');
 
   await page.evaluate(()=>window.__RONA_CLIENT_RAIL_REFRESH__());
