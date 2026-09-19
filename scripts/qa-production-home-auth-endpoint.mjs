@@ -1,4 +1,19 @@
 import { readFile } from 'node:fs/promises';
+import { resolve4, resolve6 } from 'node:dns/promises';
+import { execFileSync } from 'node:child_process';
+
+
+const SUPABASE_HOST='sxawrwzeobaqwwmlkzws.supabase.co';
+try{console.log('SUPABASE_DNS_A='+JSON.stringify(await resolve4(SUPABASE_HOST)))}catch(e){console.log('SUPABASE_DNS_A_ERROR='+String(e?.message||e))}
+try{console.log('SUPABASE_DNS_AAAA='+JSON.stringify(await resolve6(SUPABASE_HOST)))}catch(e){console.log('SUPABASE_DNS_AAAA_ERROR='+String(e?.message||e))}
+for(const family of ['-4','-6']){
+  try{
+    const out=execFileSync('curl',[family,'-sS','-o','/dev/null','-w','%{http_code} %{time_total}','--max-time','10','https://'+SUPABASE_HOST+'/auth/v1/health'],{encoding:'utf8'});
+    console.log('SUPABASE_CURL_'+family.slice(1)+'='+out.trim());
+  }catch(e){
+    console.log('SUPABASE_CURL_'+family.slice(1)+'_ERROR='+String(e?.stderr||e?.message||e).trim().slice(0,500));
+  }
+}
 
 const ORIGIN='https://ronaoil.com';
 const HOME='/pages/home_large?layout=large';
