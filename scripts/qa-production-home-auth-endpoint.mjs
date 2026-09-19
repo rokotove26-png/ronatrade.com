@@ -1,0 +1,78 @@
+import { readFile } from 'node:fs/promises';
+
+const ORIGIN='https://ronaoil.com';
+const HOME='/pages/home_large?layout=large';
+const LOGIN='/portal/auth/login';
+const TIMEOUT_MS=15000;
+const invalid={identifier:'qa-inline-prod@example.invalid',password:'wrong-password'};
+const assert=(v,m)=>{if(!v)throw new Error(m)};
+const timed=(url,init={})=>fetch(url,{...init,signal:AbortSignal.timeout(TIMEOUT_MS)});
+
+let home;
+try{
+  home=await timed(ORIGIN+HOME,{cache:'no-store',redirect:'manual'});
+}catch(e){
+  console.error('PROD_HOME_FETCH_FAIL',e?.name,e?.message);
+  process.exit(1);
+}
+const homeText=await home.text();
+console.log('PROD_HOME_STATUS='+home.status);
+console.log('PROD_HOME_INLINE_HEADER='+(home.headers.get('x-rona-inline-auth-entry')||''));
+console.log('PROD_HOME_INLINE_SCRIPT='+String(homeText.includes('/assets/g82/portal-home-inline-auth-v2.js')));
+console.log('PROD_HOME_REAL_ENTRY_SCRIPT='+String(homeText.includes('/assets/g82/portal-real-auth-entry-v1.js')));
+
+let portalResult=null;
+const started=Date.now();
+try{
+  const r=await timed(ORIGIN+LOGIN,{
+    method:'POST',
+    redirect:'manual',
+    cache:'no-store',
+    headers:{
+      origin:ORIGIN,
+      referer:ORIGIN+HOME,
+      'content-type':'application/json',
+      accept:'application/json'
+    },
+    body:JSON.stringify(invalid)
+  });
+  const text=await r.text();
+  portalResult={status:r.status,ms:Date.now()-started,contentType:r.headers.get('content-type')||'',body:text.slice(0,500)};
+  console.log('PROD_LOGIN_RESPONSE='+JSON.stringify(portalResult));
+}catch(e){
+  portalResult={error:String(e?.name||'Error'),message:String(e?.message||e),ms:Date.now()-started};
+  console.log('PROD_LOGIN_RESPONSE='+JSON.stringify(portalResult));
+}
+
+let directResult=null;
+try{
+  const source=await readFile('functions/portal/auth/login.js','utf8');
+  const key=source.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*'([^']+)'/)?.[1]||'';
+  const url=source.match(/SUPABASE_URL\s*=\s*'([^']+)'/)?.[1]||'';
+  assert(key&&url,'SUPABASE_PUBLIC_AUTH_CONFIG_MISSING');
+  const t=Date.now();
+  const r=await timed(url+'/auth/v1/token?grant_type=password',{
+    method:'POST',
+    headers:{apikey:key,'content-type':'application/json'},
+    body:JSON.stringify({email:invalid.identifier,password:invalid.password})
+  });
+  const text=await r.text();
+  directResult={status:r.status,ms:Date.now()-t,contentType:r.headers.get('content-type')||'',body:text.slice(0,500)};
+  console.log('DIRECT_SUPABASE_AUTH_RESPONSE='+JSON.stringify(directResult));
+}catch(e){
+  directResult={error:String(e?.name||'Error'),message:String(e?.message||e)};
+  console.log('DIRECT_SUPABASE_AUTH_RESPONSE='+JSON.stringify(directResult));
+}
+
+assert(home.status===200,'PROD_HOME_HTTP_'+home.status);
+assert(home.headers.get('x-rona-inline-auth-entry')==='g8.2-inline-auth-v2','PROD_HOME_INLINE_HEADER_MISSING');
+assert(homeText.includes('/assets/g82/portal-home-inline-auth-v2.js'),'PROD_HOME_INLINE_SCRIPT_MISSING');
+assert(!portalResult?.error,'PROD_LOGIN_ENDPOINT_TIMEOUT_OR_NETWORK_FAIL '+JSON.stringify(portalResult));
+assert(portalResult.status===401,'PROD_LOGIN_EXPECTED_401_GOT_'+portalResult.status+' BODY '+portalResult.body);
+assert(/application\/json/i.test(portalResult.contentType),'PROD_LOGIN_NOT_JSON '+portalResult.contentType);
+let body={};
+try{body=JSON.parse(portalResult.body)}catch{}
+assert(body.code==='LOGIN_DENIED','PROD_LOGIN_WRONG_CONTRACT '+portalResult.body);
+assert(!directResult?.error,'DIRECT_SUPABASE_AUTH_NETWORK_FAIL '+JSON.stringify(directResult));
+assert([400,401].includes(directResult.status),'DIRECT_SUPABASE_AUTH_UNEXPECTED_'+directResult.status);
+console.log('PRODUCTION_HOME_AUTH_ENDPOINT_QA=PASS');
