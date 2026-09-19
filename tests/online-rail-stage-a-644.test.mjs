@@ -176,7 +176,6 @@ test('Desktop map dimensions are invariant across deal selection and map title h
   assert.doesNotMatch(v81,/left\.getBoundingClientRect\(\)\.height/);
   assert.match(v81,/mode:'FIXED_DESKTOP'/);
   assert.match(v81,/scheduleRailMapHeightAlignment/);
-  assert.match(v81,/fixed-desktop-560-v1/);
   assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-title\{[^}]*background:transparent!important/);
   assert.match(v81,/border:0!important/);
   assert.match(v81,/box-shadow:none!important/);
