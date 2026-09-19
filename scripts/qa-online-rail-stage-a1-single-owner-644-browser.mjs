@@ -26,6 +26,12 @@ function snapshot(){
       ]}
     ],
     prices:[],applications:[],documents:[],payments:[],clients:[],agents:[],radio:[],analytics:[],
+    railReadModel:{
+      modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',
+      sourcePolicy:'QA_FIXTURE_ONLY',
+      generatedAt:'2026-09-18T12:00:00.000Z',
+      overlayMode:'DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1'
+    },
     exchange:{status:'HEALTHY',active_targets:0,conflicts:0,last_success:null},
     operations:{freshness:{source_as_of:'2026-09-18T12:00:00.000Z'}},
     plannedRouteByDeal:{}
