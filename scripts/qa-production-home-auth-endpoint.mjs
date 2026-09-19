@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve4, resolve6 } from 'node:dns/promises';
 import { execFileSync } from 'node:child_process';
+import { chromium } from 'playwright';
 
 
 const SUPABASE_HOST='sxawrwzeobaqwwmlkzws.supabase.co';
@@ -115,4 +116,35 @@ for(const [label,path,headers] of [
     console.log(label+'_RESPONSE='+JSON.stringify({error:String(e?.name||'Error'),message:String(e?.message||e),ms:Date.now()-t}));
   }
 }
+
+let browserResult=null;
+let browser;
+try{
+  browser=await chromium.launch({headless:true});
+  const context=await browser.newContext({viewport:{width:1280,height:800}});
+  const page=await context.newPage();
+  await page.goto(ORIGIN+HOME,{waitUntil:'domcontentloaded',timeout:30000});
+  browserResult=await page.evaluate(async({supabase,key})=>{
+    const started=Date.now();
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),10000);
+    try{
+      const r=await fetch(supabase+'/auth/v1/token?grant_type=password',{
+        method:'POST',
+        headers:{apikey:key,'content-type':'application/json'},
+        body:JSON.stringify({email:'qa-browser-direct@example.invalid',password:'wrong-password'}),
+        signal:controller.signal
+      });
+      const text=await r.text();
+      return {status:r.status,ms:Date.now()-started,body:text.slice(0,500)};
+    }catch(e){
+      return {error:String(e?.name||'Error'),message:String(e?.message||e),ms:Date.now()-started};
+    }finally{clearTimeout(timer)}
+  },{supabase:'https://sxawrwzeobaqwwmlkzws.supabase.co',key:(await readFile('functions/portal/auth/login.js','utf8')).match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*'([^']+)'/)?.[1]||''});
+  console.log('BROWSER_DIRECT_SUPABASE_AUTH='+JSON.stringify(browserResult));
+  await context.close();
+}catch(e){
+  console.log('BROWSER_DIRECT_SUPABASE_AUTH='+JSON.stringify({error:String(e?.name||'Error'),message:String(e?.message||e)}));
+}finally{if(browser)await browser.close().catch(()=>{})}
+
 console.log('PRODUCTION_HOME_AUTH_ENDPOINT_QA=PASS');
