@@ -5,6 +5,7 @@ import { onRequest as railV6 } from '../functions/portal/rail-current-v6-ui.js';
 import { onRequest as railV7 } from '../functions/portal/rail-current-v7-real-map-ui.js';
 import { onRequest as railV81 } from '../functions/portal/rail-current-v81-maplibre-ui.js';
 import { onRequest as adminMainUi } from '../functions/portal/admin-main-ui-current.js';
+import { overlayRailReadModel } from '../supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs';
 
 async function scriptOf(fn){
   const response=await fn({});
@@ -77,14 +78,15 @@ test('Background rail sync is data-change-only and repair is viewport-safe',()=>
   assert.doesNotMatch(v81,/ensureRailCompactDarkStyle\(\);\s*paint\(\);\s*ensureRailTariffPanel\(\);\s*sync\(\)/);
 });
 
-test('Map data contract is source-only and prepared for expeditor XLSX via Rail AI',()=>{
-  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V1/);
-  assert.match(v81,/EXPEDITOR_XLSX_VIA_RAIL_AI/);
-  assert.match(v81,/geometryPolicy:'SOURCE_ONLY_NO_GEOCODING'/);
-  assert.match(v81,/coordinatesPolicy:'TRUSTED_SOURCE_ONLY'/);
-  assert.match(v81,/externalProviderIntegration:false/);
-  assert.match(v81,/productionPolling:false/);
-  assert.match(v81,/plannedRoute:\{status:/);
+test('Map data contract projects planned, traversed and remaining source-backed route state',()=>{
+  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V2/);
+  assert.match(v81,/function railDealMapValue\(data,name,dealKey,dealId\)/);
+  assert.match(v81,/actualRouteByDeal/);
+  assert.match(v81,/remainingRouteByDeal/);
+  assert.match(v81,/routeProgressByDeal/);
+  assert.match(v81,/routeStationsByDeal/);
+  assert.match(v81,/routeAssignmentByDeal/);
+  assert.match(v81,/plannedRoute:planned,actualRoute:actual,remainingRoute:remaining/);
   assert.match(v81,/wagonPositions:positions/);
   assert.doesNotMatch(v81,/MOVIZOR/i);
 });
@@ -130,19 +132,20 @@ test('Operational route line is forced through trusted current wagon stations',(
   assert.match(v81,/out\.push\(x\.point\)/);
 });
 
-test('Route is visually restrained, unlabeled, and station wagon markers stay clustered',()=>{
+test('Route is split into observed traversal and remaining corridor without fake GPS semantics',()=>{
   assert.match(v81,/function railMapClusterKey\(w,coord\)/);
   assert.match(v81,/groups=new Map\(\)/);
   assert.match(v81,/el\('button','rona-rail-v7-marker',String\(g\.wagons\.length\)\)/);
   assert.match(v81,/g\.station\+': '\+g\.wagons\.length\+' вагонов'/);
-  assert.match(v81,/function railMapRouteDraw\(state,left,top,width,height,z\)/);
-  assert.match(v81,/rona-rail-v7-route-casing/);
-  assert.match(v81,/rona-rail-v7-route-line/);
+  assert.match(v81,/function railMapActualRoutePoints\(context\)/);
+  assert.match(v81,/function railMapRemainingRoutePoints\(context\)/);
+  assert.match(v81,/rona-rail-v7-route-actual/);
+  assert.match(v81,/rona-rail-v7-route-remaining/);
+  assert.match(v81,/hasSplit=actual\.length>=2\|\|remaining\.length>=2/);
   assert.doesNotMatch(v81,/Плановый маршрут/);
-  assert.doesNotMatch(v81,/пунктир — плановый маршрут/i);
+  assert.doesNotMatch(v81,/GPS_TRACK_CONFIRMED|actualTrack/);
   assert.match(v81,/\.rona-rail-v7-map-status\{display:none!important\}/);
   assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-note\{display:none!important\}/);
-  assert.doesNotMatch(v81,/actualRoute|actualTrack|GPS_TRACK_CONFIRMED/);
 });
 
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
@@ -172,4 +175,32 @@ test('Map height follows the left operations boundary and map title has no backi
   assert.match(v81,/border:0!important/);
   assert.match(v81,/box-shadow:none!important/);
   assert.match(v81,/aspect-ratio:auto!important/);
+});
+
+
+test('Read-model overlay publishes per-deal route engine products without mutating business records',()=>{
+  const body={data:{rail:[{rail_document_key:'doc-1',rail_document_id:'R1',wagons:[]}]}};
+  const model={
+    modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',
+    sourcePolicy:'PUBLIC_SOURCE_ROUTE_GRAPH_PLUS_TRUSTED_DISLOCATION_HISTORY_V1',
+    generatedAt:'2026-09-19T00:00:00Z',
+    deals:[{
+      dealKey:'deal-key-1',dealId:'DEAL-1',
+      plannedRoute:[{status:'PUBLIC_SOURCE_ROUTE_RESOLVED',points:[{stationCode:'151408',lat:51,lng:29}]}],
+      actualRoute:{status:'OBSERVED_HISTORY',points:[{stationCode:'151408',lat:51,lng:29},{stationCode:'625501',lat:51.4,lng:46.08}]},
+      remainingRoute:{status:'ROUTE_REMAINDER',points:[{stationCode:'625501',lat:51.4,lng:46.08},{stationCode:'742705',lat:40.4,lng:71.8}]},
+      routeProgress:{state:'OBSERVED_AND_MATCHED',furthestMatchedSequence:51},
+      routeStations:[{sequence:1,stationCode:'151408'},{sequence:85,stationCode:'742705'}],
+      routeAssignment:{resolutionState:'RESOLVED',originEsr:'151408',destinationEsr:'742705'},
+      wagonPositions:[{wagonNumber:'1',railDocumentKey:'doc-1',railDocumentId:'R1',station:'Анисовка',stationCode:'625501',positionStatus:'TRUSTED',trustedCoordinates:{lat:51.4,lng:46.08,trusted:true}}]
+    }]
+  };
+  const out=overlayRailReadModel(body,model);
+  assert.equal(out.data.railReadModel.modelVersion,'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4');
+  assert.equal(out.data.railReadModel.overlayMode,'DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1');
+  assert.equal(out.data.actualRouteByDeal['deal-key-1'].points.length,2);
+  assert.equal(out.data.remainingRouteByDeal['DEAL-1'].points.length,2);
+  assert.equal(out.data.routeProgressByDeal['deal-key-1'].furthestMatchedSequence,51);
+  assert.equal(out.data.routeAssignmentByDeal['DEAL-1'].destinationEsr,'742705');
+  assert.equal(out.data.rail[0].wagons[0].stationCode,'625501');
 });
