@@ -1,6 +1,6 @@
 import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js';
 
-const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1';";
+const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-admin-parity-v2';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;";
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;";
@@ -61,32 +61,26 @@ function ensureClientRailMount(){
 
 const CLIENT_API=String.raw`
 function clientRailText(v){return v===null||v===undefined?'':String(v).trim()}
-function clientRailUpper(v){return clientRailText(v).toUpperCase()}
-function clientRailArray(v){return Array.isArray(v)?v:[]}
-function clientRailPick(o,keys){if(!o)return'';for(var i=0;i<keys.length;i++){var v=o[keys[i]];if(v!==null&&v!==undefined&&String(v).trim()!=='')return v}return''}
-function clientRailNumber(v,fallback){var n=Number(v);return Number.isFinite(n)?n:(fallback===undefined?0:fallback)}
-function clientRailShipmentKey(row){return clientRailText(clientRailPick(row,['gu12_number','gu12Number','document_number','documentNumber','rail_document_id','railDocumentId','shipment_id','shipmentId','id']))}
-function clientRailMovementKey(row){return clientRailText(clientRailPick(row,['shipment_id','shipmentId','gu12_number','gu12Number','document_number','documentNumber','rail_document_id','railDocumentId','parent_shipment_id','parentShipmentId']))}
-function clientRailRoute(row){var direct=clientRailText(clientRailPick(row,['route_text','routeText','route']));if(direct)return direct;var from=clientRailText(clientRailPick(row,['origin_location','originLocation','origin','departure_station','departureStation'])),to=clientRailText(clientRailPick(row,['destination_location','destinationLocation','destination','arrival_station','arrivalStation']));return[from,to].filter(Boolean).join(' → ')||'—'}
-function clientRailWagon(row){var copy=Object.assign({},row||{});copy.wagonNumber=clientRailText(clientRailPick(row,['wagonNumber','wagon_number','number','railcar_number','railcarNumber']))||'—';copy.station=clientRailText(clientRailPick(row,['station','currentStation','current_station','stationName','station_name']))||'—';copy.stationCode=clientRailText(clientRailPick(row,['stationCode','station_code','currentStationCode','current_station_code']))||'—';copy.operation=clientRailText(clientRailPick(row,['operation','lastOperation','last_operation']))||'—';copy.status=clientRailText(clientRailPick(row,['status','movement_status','movementStatus']))||'—';copy.lastPositionAt=clientRailPick(row,['lastPositionAt','last_position_at','position_at','positionAt','updated_at','updatedAt'])||null;return copy}
-function clientRailUniqueWagons(rows){var out=[],seen=new Set();clientRailArray(rows).forEach(function(row){var w=clientRailWagon(row),key=clientRailText(w.wagonNumber);if(key&&key!=='—'){if(seen.has(key))return;seen.add(key)}out.push(w)});return out}
-function clientRailProviderBody(payload){return payload&&payload.data&&typeof payload.data==='object'?Object.assign({},payload,payload.data):payload||{}}
-async function clientRailFetch(url,required){try{var r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}),j=await r.json().catch(function(){return{}});if(required&&(!r.ok||j&&j.ok===false))throw new Error(String(j&&j.code||'HTTP_'+r.status));return{ok:r.ok&&(!j||j.ok!==false),payload:j||{},status:r.status}}catch(e){if(required)throw e;return{ok:false,payload:{code:String(e&&e.message||e||'REQUEST_FAILED')},status:0}}}
 function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}
 function clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}
-function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;if(typeof sync==='function')setTimeout(function(){sync()},0)})}
+function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;lastRailSignature='';if(typeof sync==='function')setTimeout(function(){sync()},0)})}
 async function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');return ctx}
 function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}
+async function clientRailFetch(url){var r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}),j=await r.json().catch(function(){return{}});if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j&&j.data&&typeof j.data==='object'?j.data:{}}
 async function api(path){
-  var context=await clientRailCurrentContext(),contextKey=clientRailContextKey(context),query=clientRailContextQuery(context);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=contextKey;var shipmentResult=await clientRailFetch('/portal/api/v1/client/shipments'+query,true),providerResult=await clientRailFetch('/portal/api/v1/client/rail'+query,false),shipmentPayload=shipmentResult.payload||{},provider=clientRailProviderBody(providerResult.payload),shipments=clientRailArray(shipmentPayload.shipments),declared=clientRailUpper(clientRailPick(provider,['provider','movement_source','movementSource'])),production=providerResult.ok&&declared==='MOVIZOR'&&(provider.production_enabled===true||provider.enabled===true),publication=provider.movement_publication===true||provider.client_publication_enabled===true||provider.publication_enabled===true,movementSource=declared==='MOVIZOR'?'MOVIZOR':'NOT_CONNECTED',movementRows=publication?clientRailArray(provider.movements||provider.positions||provider.wagons||provider.railcars):[],byKey=new Map();var activeAuthority=clientRailAuthority(),activeContext=activeAuthority&&typeof activeAuthority.getCurrentContext==='function'?activeAuthority.getCurrentContext():null;if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');
-  movementRows.forEach(function(row){var key=clientRailMovementKey(row);if(!key)return;if(!byKey.has(key))byKey.set(key,[]);byKey.get(key).push(row)});
-  var rail=shipments.map(function(row){var key=clientRailShipmentKey(row),nested=clientRailArray(row.wagons||row.railcars||row.cars||row.positions),matched=key&&byKey.has(key)?byKey.get(key):[],wagons=clientRailUniqueWagons(nested.concat(matched));return{gu12_number:clientRailPick(row,['gu12_number','gu12Number'])||null,document_number:clientRailPick(row,['document_number','documentNumber'])||null,rail_document_id:clientRailPick(row,['rail_document_id','railDocumentId','shipment_id','shipmentId','id'])||null,deal_id:clientRailPick(row,['deal_id','dealId'])||null,route_text:clientRailRoute(row),wagons:wagons}}),activeRaw=clientRailPick(provider,['active_targets','activeTargets']),active=production&&publication?(activeRaw!==''?clientRailNumber(activeRaw,0):1):0,exchange={active_targets:active,conflicts:clientRailNumber(clientRailPick(provider,['conflicts','attention_count','attentionCount']),0)};
-  window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),shipment_source:'/portal/api/v1/client/shipments',provider_source:'/portal/api/v1/client/rail',provider:declared||'NOT_CONNECTED',provider_live:production,movement_publication:publication,movement_source:movementSource,movement_count:movementRows.length,rail_count:rail.length,active_targets:active,updated_at:new Date().toISOString()};
-  document.documentElement.dataset.ronaClientRailSource='AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS';
-  document.documentElement.dataset.ronaClientRailProvider=declared||'NOT_CONNECTED';
-  document.documentElement.dataset.ronaClientRailOperational=production&&publication?'true':'false';
+  var context=await clientRailCurrentContext(),contextKey=clientRailContextKey(context),query=clientRailContextQuery(context);
+  window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=contextKey;
+  var data=await clientRailFetch('/portal/api/v1/client/rail'+query);
+  var activeAuthority=clientRailAuthority(),activeContext=activeAuthority&&typeof activeAuthority.getCurrentContext==='function'?activeAuthority.getCurrentContext():null;
+  if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');
+  if(!data||!data.railReadModel||!data.railReadModel.modelVersion||!data.railReadModel.overlayMode)throw new Error('CLIENT_RAIL_READ_MODEL_UNAVAILABLE');
+  var rail=Array.isArray(data.rail)?data.rail:[],deals=Array.isArray(data.deals)?data.deals:[],wagonCount=rail.reduce(function(sum,doc){return sum+(Array.isArray(doc&&doc.wagons)?doc.wagons.length:0)},0);
+  window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORIZED_CLIENT_RAIL_READ_MODEL',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),projection_contract:data.projection_contract||'CLIENT_RAIL_ADMIN_PARITY_V1',model_version:data.railReadModel.modelVersion,deal_count:deals.length,rail_document_count:rail.length,wagon_count:wagonCount,updated_at:new Date().toISOString()};
+  document.documentElement.dataset.ronaClientRailSource='AUTHORIZED_CLIENT_RAIL_READ_MODEL';
+  document.documentElement.dataset.ronaClientRailOperational='true';
+  document.documentElement.dataset.ronaClientRailVisual='ADMIN_CURRENT_V81_CANONICAL';
   window.dispatchEvent(new CustomEvent('rona:client-rail:authority',{detail:window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__}));
-  return{rail:rail,exchange:exchange}
+  return data
 }
 `;
 
@@ -125,8 +119,8 @@ export async function onRequest(context){
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('expires','0');
-  headers.set('x-rona-client-rail-ui','admin-current-v81-canonical-client-authority-v1');
-  headers.set('x-rona-client-rail-visual-canon','/portal/rail-current-v81-maplibre-ui');
+  headers.set('x-rona-client-rail-ui','admin-current-v81-client-parity-v2');
+  headers.set('x-rona-client-rail-visual-canon','/portal/rail-current-v81-maplibre-ui');headers.set('x-rona-client-rail-data','authorized-read-model-v1');
   headers.delete('content-length');
   headers.delete('etag');
   return new Response(source,{status:200,headers});

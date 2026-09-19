@@ -1,16 +1,23 @@
 {
   "approval": "OWNER_IN_CHAT",
   "authorized_at": "2026-09-18",
-  "scope": "CLIENT_RAIL_ADMIN_VISUAL_MIRROR_20260918",
-  "owner_instruction": "Mirror the approved Admin Online Rail visual treatment in the Client cabinet without changing business logic or data.",
+  "extended_at": "2026-09-19",
+  "scope": "CLIENT_RAIL_ADMIN_FULL_PARITY_20260919",
+  "owner_instruction": "Client Portal Online Rail must be fully developed and launched with visual, functional and automation parity to the current Admin Online Rail, while server-side scope shows only the authenticated client's own deals.",
   "approved_protected_files": [
-    "assets/portal-runtime/client-rail-canonical-hero-v1.js"
+    "assets/portal-runtime/client-rail-canonical-hero-v1.js",
+    "scripts/attach-client-rail-production-v1.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
       "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
       "authorized_post_blob_sha": "c70e3b38c78a0600c1a829e978798b1224265eb7",
       "required_marker": "CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:100%!important max-width:1584px!important square-map-aligned"
+    },
+    "scripts/attach-client-rail-production-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
+      "authorized_post_blob_sha": "4354148d6a4b20ba425b873fe1367fcce7f98afe",
+      "required_marker": "ADMIN_CURRENT_ONLINE_RAIL_FULL_VISUAL_PARITY_CLIENT_SCOPE_V1"
     }
   },
   "requirements": {
@@ -19,14 +26,20 @@
     "wildcard_exception": false,
     "scope_client_online_rail_only": true,
     "mirror_admin_online_rail_geometry": true,
-    "square_map": true,
-    "aligned_left_frames": true,
-    "expanded_shared_width": true,
-    "preserve_client_authoritative_data_sources": true,
-    "preserve_business_logic": true,
+    "mirror_admin_online_rail_full_visual": true,
+    "mirror_admin_online_rail_functionality": true,
+    "mirror_admin_online_rail_automation": true,
+    "admin_current_visual_owner_required": true,
+    "client_specific_visual_owner_forbidden": true,
+    "server_side_client_deal_scope_required": true,
+    "cross_client_deal_visibility_forbidden": true,
+    "future_client_deal_auto_discovery_required": true,
     "business_data_changed": false,
-    "auth_changed": false,
+    "finance_payments_prices_access_changed": false,
     "images_added": false,
-    "unrelated_visual_changes": false
-  }
+    "unrelated_visual_changes": false,
+    "owner_final_visual_acceptance_required": true
+  },
+  "pr_number": 669,
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_RAIL_ADMIN_FULL_PARITY_20260919"
 }
