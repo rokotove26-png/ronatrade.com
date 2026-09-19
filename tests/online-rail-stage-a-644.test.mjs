@@ -167,7 +167,7 @@ test('Compact wagon table is owned by the left control card and has only the app
 
 
 test('Desktop map dimensions are invariant across deal selection and map title has no backing plate',()=>{
-  assert.match(v81,/RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT=560/);
+  assert.match(v81,/RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT=810/);
   assert.match(v81,/function alignRailMapHeightToOperations\(\)/);
   assert.match(v81,/var fixedHeight=RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT/);
   assert.match(v81,/right\.style\.setProperty\('height',fixedHeight\+'px','important'\)/);
