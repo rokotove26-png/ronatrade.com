@@ -9,7 +9,7 @@ async function probe(name,path,headers={}){
       redirect:'manual',
       cache:'no-store',
       headers,
-      signal:AbortSignal.timeout(7000)
+      signal:AbortSignal.timeout(4000)
     });
     const body=await response.text().catch(()=> '');
     return {name,status:response.status,ms:Date.now()-started,body:body.slice(0,160)};
@@ -19,14 +19,15 @@ async function probe(name,path,headers={}){
 }
 
 export async function onRequestGet(){
-  const probes=[];
-  probes.push(await probe('auth-health','/auth/v1/health'));
-  probes.push(await probe('rest-root','/rest/v1/',{apikey:SUPABASE_PUBLISHABLE_KEY,accept:'application/json'}));
-  probes.push(await probe('portal-session-me','/functions/v1/rona-portal-api/session/me',{
-    apikey:SUPABASE_PUBLISHABLE_KEY,
-    authorization:'Bearer invalid.qa.token',
-    accept:'application/json'
-  }));
+  const probes=await Promise.all([
+    probe('auth-health','/auth/v1/health'),
+    probe('rest-root','/rest/v1/',{apikey:SUPABASE_PUBLISHABLE_KEY,accept:'application/json'}),
+    probe('portal-session-me','/functions/v1/rona-portal-api/session/me',{
+      apikey:SUPABASE_PUBLISHABLE_KEY,
+      authorization:'Bearer invalid.qa.token',
+      accept:'application/json'
+    })
+  ]);
   return new Response(JSON.stringify({ok:true,source:'CLOUDFLARE_PAGES_PREVIEW_DIAGNOSTIC',probes}),{
     status:200,
     headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}
