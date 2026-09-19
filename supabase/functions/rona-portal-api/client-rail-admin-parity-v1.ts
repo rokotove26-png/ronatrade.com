@@ -17,9 +17,9 @@ const LIVE_V55_SOURCE =
   "https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/1c356872f3640f35c40158d01ae363521272ce3d/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts";
 
 const nativeServe = Deno.serve.bind(Deno);
-let liveV55Handler = null;
+let liveV55Handler:any = null;
 
-(Deno).serve = function captureLiveV55(first, second) {
+(Deno as any).serve = function captureLiveV55(first:any, second?:any) {
   const handler = typeof first === "function" ? first : second;
   if (typeof handler !== "function") throw new Error("CLIENT_RAIL_LIVE_V55_HANDLER_REQUIRED");
   liveV55Handler = handler;
@@ -32,18 +32,18 @@ let liveV55Handler = null;
 };
 
 await import(LIVE_V55_SOURCE);
-(Deno).serve = nativeServe;
+(Deno as any).serve = nativeServe;
 
 if (typeof liveV55Handler !== "function") {
   throw new Error("CLIENT_RAIL_LIVE_V55_HANDLER_CAPTURE_FAILED");
 }
 
-function clean(value, max = 200) {
+function clean(value:unknown, max = 200) {
   const valueText = String(value ?? "").trim();
   return valueText && valueText.length <= max ? valueText : null;
 }
 
-async function authorizedContext(c, clientId, contractId) {
+async function authorizedContext(c:any, clientId:string, contractId:string) {
   const rows = await sql`
     select distinct
       cl.id as client_key,
@@ -68,7 +68,7 @@ async function authorizedContext(c, clientId, contractId) {
   return rows[0];
 }
 
-async function authorizedDeals(c, context) {
+async function authorizedDeals(c:any, context:any) {
   return await sql`
     select distinct
       d.id as deal_key,
@@ -84,7 +84,7 @@ async function authorizedDeals(c, context) {
   `;
 }
 
-async function exactDealReadModel(deal) {
+async function exactDealReadModel(deal:any) {
   const rows = await sql`
     select portal_private.rona_admin_rail_deal_map_read_model_v4(${deal.deal_id}) as data
   `;
@@ -104,7 +104,7 @@ async function exactDealReadModel(deal) {
   return model;
 }
 
-async function clientRailCanonical(req) {
+async function clientRailCanonical(req:Request) {
   const origin = req.headers.get("origin");
   if (origin && !origins.has(origin)) return send(null, 403, { ok:false, code:"ORIGIN_DENIED" });
   if (req.method !== "GET") return send(origin, 405, { ok:false, code:"METHOD_NOT_ALLOWED" });
@@ -128,7 +128,7 @@ async function clientRailCanonical(req) {
 
   try {
     const deals = await authorizedDeals(c, context);
-    const readModels = [];
+    const readModels:any[] = [];
     for (const deal of deals) readModels.push(await exactDealReadModel(deal));
 
     const data = projectClientRailCanonical({
@@ -145,7 +145,7 @@ async function clientRailCanonical(req) {
       data,
       projection_contract:CLIENT_RAIL_CANONICAL_CONTRACT,
     });
-  } catch (error) {
+  } catch (error:any) {
     console.error("CLIENT_RAIL_CANONICAL_READ_MODEL_FAILED", error);
     return send(origin, 503, {
       ok:false,
@@ -155,7 +155,7 @@ async function clientRailCanonical(req) {
   }
 }
 
-nativeServe(async (req, info) => {
+nativeServe(async (req:Request, info:any) => {
   const route = apiRoute(new URL(req.url));
   if (route === "/v1/client/rail-canonical") return await clientRailCanonical(req);
   return await liveV55Handler(req, info);
