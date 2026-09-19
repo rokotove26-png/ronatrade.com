@@ -8,7 +8,7 @@ Architecture was derived from production release `release/public-go-live-v1.1@34
 
 The Client UI already reuses the Admin Online Rail operational body, but its data adapter still composed the page from legacy `/v1/client/shipments` plus the disabled MOVIZOR client endpoint. The current Admin UI rejects that payload because it has no authoritative `railReadModel` marker. This is the direct cause of the persistent Client loading shell.
 
-Production `rona-portal-api` is not the repository branch `index.ts`; deployed v55 is the wrapper rooted at commit `1c356872f3640f35c40158d01ae363521272ce3d`. The #670 server candidate therefore wraps that exact deployed source and intercepts only the new Client Rail canonical read endpoint.
+Production `rona-portal-api` is not the repository branch `index.ts`; CURRENT_STATE_FIRST on 2026-09-19 confirmed deployed `rona-portal-api` is ACTIVE v56 with entrypoint pinned to commit `53a3266f64bdf4e44d5daf09507a6fd46c0678ad`. The #670 server candidate therefore wraps that exact deployed v56 source and intercepts only the new Client Rail canonical read endpoint.
 
 ## Authority model
 
@@ -63,15 +63,19 @@ It inherits the Admin 30-second/data-change-only Rail runtime and its last-good 
 
 A change of authenticated Client context is different: the previous snapshot, selected Deal and map data are cleared before the new context is requested. This prevents a failed or unauthorized context switch from leaving another client/contract's Rail state visible.
 
-## Production-v55 preservation
+## Production-v56 preservation
 
-`client-rail-admin-parity-v1.ts` captures and delegates to the exact deployed v55 source:
+`client-rail-admin-parity-v1.ts` captures and delegates to the exact deployed v56 source:
 
-`1c356872.../payments-v8-production-hardening.ts`.
+`53a3266f64bdf4e44d5daf09507a6fd46c0678ad/.../payments-v8-production-hardening.ts`.
 
-Every route except `/v1/client/rail-canonical` is passed unchanged to that live handler. The #670 candidate therefore does not replace or reconstruct Finance, Payments, Access, Prices or other existing portal behavior.
+Every route except `/v1/client/rail-canonical` is passed unchanged to that live handler. The #670 candidate therefore does not replace or reconstruct Finance, Payments, Access, Prices or other existing portal behavior. This v56 lock supersedes the stale v55 assumption that existed in the first draft of PR #672.
 
 No authoritative business write is performed by the new endpoint.
+
+## Visual-freeze authority
+
+Issue #670 is an explicit owner requirement to make Client Online Rail visually and functionally equivalent to the current Admin Online Rail while preserving client isolation. The Client visual freeze remains active. A dedicated exact-blob governance record authorizes only the two already-protected Client Rail presentation/build files changed by #670; wildcard exceptions and unrelated Client visual changes remain prohibited.
 
 ## Frozen surfaces
 
