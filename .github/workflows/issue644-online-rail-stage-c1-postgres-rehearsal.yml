@@ -6,6 +6,10 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'supabase/functions/rona-mcp-gateway/index.js'
+      - 'tests/online-rail-c13/**'
+      - '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
       - 'scripts/qa-online-rail-c1-postgres-rehearsal.py'
       - 'tests/online-rail-c1/**'
       - '.github/workflows/issue644-online-rail-stage-c1-postgres-rehearsal.yml'
