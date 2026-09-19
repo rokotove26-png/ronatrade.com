@@ -69,6 +69,14 @@ test('Route fit is one-time per deal and yields to user pan/zoom',()=>{
   assert.match(v81,/routeFitApplied:reason==='HOME'\?true:/);
 });
 
+test('First open never commits a non-authoritative inherited Admin snapshot',()=>{
+  assert.match(v81,/if\(!railReadModelReady\(snapshot\)\)\{/);
+  assert.match(v81,/__RONA_RAIL_FIRST_PAINT_AUTHORITY__/);
+  assert.match(v81,/mode:'WAIT_FOR_AUTHORITATIVE_READ_MODEL'/);
+  assert.match(v81,/mode:'AUTHORITATIVE_READ_MODEL'/);
+  assert.match(v81,/if\(!railRootReady\(\)\)renderShell\(\);return false/);
+});
+
 test('Background refresh preserves the last authoritative Rail read model when the overlay degrades',()=>{
   assert.match(v81,/function railReadModelReady\(data\)/);
   assert.match(v81,/function railRefreshAcceptable\(next\)/);
@@ -80,7 +88,7 @@ test('Background refresh preserves the last authoritative Rail read model when t
 
 test('Background rail sync is data-change-only and repair is viewport-safe',()=>{
   assert.match(v81,/function railDataSignature\(data\)/);
-  assert.match(v81,/if\(!railRootReady\(\)\|\|sig!==lastRailSignature\)\{render\(snapshot\);lastRailSignature=sig\}/);
+  assert.match(v81,/if\(!railRootReady\(\)\|\|sig!==lastRailSignature\)\{render\(snapshot\);lastRailSignature=sig;/);
   assert.match(v81,/mode:'DATA_CHANGE_ONLY'/);
   assert.match(v81,/var page=q\('#page-monitoring'\),ready=page&&q\('\[data-rail-current-v4="ready"\],\[data-rail-current-root="ready"\]'/);
   assert.match(v81,/if\(!ready\)paint\(\)/);
