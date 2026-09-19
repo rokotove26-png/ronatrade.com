@@ -85,9 +85,9 @@ async function authorizedDeals(c:any, context:any) {
 }
 
 async function exactDealReadModel(deal:any) {
-  // This is deliberately NOT the Admin-only rona_admin_rail_deal_map_read_model_v4().
   // Authority has already been resolved above for the exact CLIENT user/context/deal.
-  // The internal core is server-only and is not executable by anon/authenticated roles.
+  // Generation uses the internal server-only core; the Admin wrapper is never invoked here.
+  // The core is not executable by anon/authenticated roles.
   const rows = await sql`
     select portal_private.rona_rail_deal_map_read_model_core_v1(
       ${deal.deal_key}::uuid,
