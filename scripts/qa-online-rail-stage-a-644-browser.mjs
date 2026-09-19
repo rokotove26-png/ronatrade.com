@@ -9,6 +9,7 @@ const railScript=await railResponse.text();
 const DEAL_A='11111111-1111-4111-8111-111111111111';
 const DEAL_B='22222222-2222-4222-8222-222222222222';
 let bootstrapRequests=0;
+let degradeRailReadModel=false;
 
 function snapshot(){
   return {
@@ -22,6 +23,12 @@ function snapshot(){
       {rail_document_key:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2',rail_document_id:'QA-RAIL-A2',gu12_number:'QA-GU12-A2',document_number:'QA-GU12-A2',document_date:'2026-09-18',route_text:'QA A origin -> QA A destination',deal_id:'DEAL-QA-A',wagons:[{wagonNumber:'QA000002',station:'QA Station A2',stationCode:'QA002',operation:'TRANSIT',status:'ACTIVE',lastPositionAt:null}]},
       {rail_document_key:'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1',rail_document_id:'QA-RAIL-B1',gu12_number:'QA-GU12-B1',document_number:'QA-GU12-B1',document_date:'2026-09-18',route_text:'QA B origin -> QA B destination',deal_id:'DEAL-QA-B',wagons:[]}
     ],
+    railReadModel:{
+      modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',
+      sourcePolicy:'QA_FIXTURE_ONLY',
+      generatedAt:new Date().toISOString(),
+      overlayMode:'DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1'
+    },
     exchange:{status:'HEALTHY',active_targets:0,conflicts:0,last_success:null},
     plannedRouteByDeal:{
       [DEAL_B]:{
@@ -83,9 +90,17 @@ const server=http.createServer((req,res)=>{
   if(u.pathname==='/portal/rail-current-v81-maplibre-ui.js')return send(res,200,railScript,'application/javascript; charset=utf-8');
   if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/bootstrap'){
     bootstrapRequests++;
-    return json(res,{ok:true,data:snapshot()});
+    const data=snapshot();
+    if(degradeRailReadModel){
+      delete data.railReadModel;
+      delete data.plannedRouteByDeal;
+      data.rail=data.rail.map(doc=>({...doc,wagons:[]}));
+    }
+    return json(res,{ok:true,data});
   }
-  if(u.pathname==='/qa/count')return json(res,{bootstrapRequests});
+  if(u.pathname==='/qa/degrade'){degradeRailReadModel=true;return json(res,{ok:true,degradeRailReadModel});}
+  if(u.pathname==='/qa/restore'){degradeRailReadModel=false;return json(res,{ok:true,degradeRailReadModel});}
+  if(u.pathname==='/qa/count')return json(res,{bootstrapRequests,degradeRailReadModel});
   if(u.pathname.startsWith('/portal/map-assets/osm/'))return send(res,204,'','image/png');
   return send(res,404,'not found');
 });
@@ -215,6 +230,31 @@ try{
   const dealBAfter=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
   assert(dealBAfter.zoom===dealBUser.zoom&&close(dealBAfter.lat,dealBUser.lat)&&close(dealBAfter.lng,dealBUser.lng),'background refresh overrode manual deal B pan/zoom');
 
+  await selector.selectOption(DEAL_A);
+  await page.waitForFunction(key=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey===key,DEAL_A,{timeout:5000});
+  const beforeDegradedRefresh=await page.evaluate(()=>({
+    state:{...window.__RONA_RAIL_CURRENT_STATE__},
+    text:document.querySelector('#page-monitoring')?.textContent||'',
+    node:document.querySelector('.rona-rail-v7-map-viewport')
+  }));
+  assert(beforeDegradedRefresh.state.railCount===2&&beforeDegradedRefresh.state.wagonCount===2,'precondition: authoritative deal A projection missing');
+
+  await fetch(origin+'/qa/degrade').then(r=>r.json());
+  await repairAndWait(page);
+  await page.waitForFunction(()=>window.__RONA_RAIL_CURRENT_SYNC_STATE__?.mode==='PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL'&&window.__RONA_RAIL_CURRENT_V4_ERROR__==='RAIL_READ_MODEL_DEGRADED',{timeout:3000});
+  const afterDegradedRefresh=await page.evaluate(()=>({
+    state:{...window.__RONA_RAIL_CURRENT_STATE__},
+    text:document.querySelector('#page-monitoring')?.textContent||'',
+    sync:{...window.__RONA_RAIL_CURRENT_SYNC_STATE__},
+    error:window.__RONA_RAIL_CURRENT_V4_ERROR__,
+    sameNode:document.querySelector('.rona-rail-v7-map-viewport')===window.__QA_RAIL_VIEWPORT_NODE__
+  }));
+  assert(afterDegradedRefresh.state.railCount===2&&afterDegradedRefresh.state.wagonCount===2,'degraded bootstrap erased the last authoritative Rail projection');
+  assert(afterDegradedRefresh.text.includes('QA000001')&&afterDegradedRefresh.text.includes('QA000002'),'degraded bootstrap erased visible wagon state');
+  assert(afterDegradedRefresh.sync.mode==='PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL','degraded refresh was not fail-closed');
+  assert(afterDegradedRefresh.error==='RAIL_READ_MODEL_DEGRADED','degraded read-model condition was not surfaced');
+  await fetch(origin+'/qa/restore').then(r=>r.json());
+
   assert(errors.length===0,'browser errors: '+errors.join(' | '));
   console.log('ISSUE644_DEAL_OWNER=PASS');
   console.log('ISSUE644_MAP_PERSIST_3_REFRESH=PASS');
@@ -223,6 +263,7 @@ try{
   console.log('ISSUE644_HOME_RESET=PASS');
   console.log('ISSUE644_ONE_TIME_ROUTE_FIT=PASS');
   console.log('ISSUE644_MAP_DATA_CONTRACT=PASS');
+  console.log('ISSUE644_DEGRADED_READ_MODEL_PRESERVE=PASS');
   console.log(JSON.stringify({bootstrapRequests,initialState:initial.state,userView,afterThreeRefresh,afterRecreate,homeView,dealBState:dealB.state,dealBUser,dealBAfter}));
   await context.close();
 }catch(error){
