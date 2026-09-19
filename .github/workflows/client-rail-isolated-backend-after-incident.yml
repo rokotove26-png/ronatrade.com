@@ -4,7 +4,7 @@ on:
     branches:
       - release/public-go-live-v1.1
     paths:
-      - 'functions/portal/api/[[path]].js'
+      - 'functions/portal/api/**'
       - 'supabase/functions/rona-portal-api-candidate-20260817/**'
       - 'tests/client-rail-isolated-backend-after-incident.test.mjs'
       - '.github/workflows/client-rail-isolated-backend-after-incident.yml'
