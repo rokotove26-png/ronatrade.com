@@ -84,6 +84,7 @@ export async function resolveAdminImpersonation(
               and b.valid_from<=now()
               and (b.valid_to is null or b.valid_to>now())
               and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+              and portal_private.client_user_has_contract_access(effective.id,b.contract_key,now())
           )
         )
         or
