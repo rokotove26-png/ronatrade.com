@@ -294,7 +294,7 @@ async function main(){
   assert(String(eventAudit[0].metadata.effective_portal_user_id)===U.agent,"Agent audit retains effective subject");
 
   // Expiry fails closed.
-  await sql`update portal_private.admin_impersonation_sessions set expires_at=now()-interval '1 second' where id=${impAgent.impersonation.id}::uuid`;
+  await sql`update portal_private.admin_impersonation_sessions set started_at=now()-interval '2 minutes',expires_at=now()-interval '1 second',updated_at=now() where id=${impAgent.impersonation.id}::uuid`;
   await expectCode(()=>service.resolve(ctx,request(null,{"x-rona-admin-impersonation-token":impAgent.impersonationToken})),"IMPERSONATION_SESSION_INVALID");
 
   // Active Deal Company delete is a hard blocker with zero mutation.
