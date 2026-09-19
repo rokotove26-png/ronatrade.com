@@ -21,6 +21,7 @@ test('production Operational Center exposes functional controls', () => {
   assert.match(shell, /\.rona-topbar-search-shell\{position:relative;z-index:2\}/);
   assert.match(shell, /\.rona-admin-topbar-ticker-v2\{pointer-events:none!important;z-index:1!important\}/);
   assert.match(deals, /rona:deal-select/);
+  assert.match(deals, /selected=null;window\.__RONA_DEALS_REQUESTED_ID__=null;unmountDealDrawer\(\)/);
   assert.match(html, /data-page="documents"/);
   assert.doesNotMatch(html, /id="page-documents" class="page current-only-hidden-page"/);
   assert.match(html, /portal-admin-radio-final-v9\.js/);
