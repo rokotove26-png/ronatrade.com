@@ -75,6 +75,8 @@ No authoritative business write is performed by the new endpoint.
 
 ## Visual-freeze authority
 
+Owner marker: `OWNER_VISUAL_APPROVAL: CLIENT_ONLINE_RAIL_PRODUCTION_PARITY_WITH_ADMIN_20260919`.
+
 Issue #670 is an explicit owner requirement to make Client Online Rail visually and functionally equivalent to the current Admin Online Rail while preserving client isolation. The Client visual freeze remains active. A dedicated exact-blob governance record authorizes only the two already-protected Client Rail presentation/build files changed by #670; wildcard exceptions and unrelated Client visual changes remain prohibited.
 
 ## Frozen surfaces
