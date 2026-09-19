@@ -47,15 +47,15 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v6-wagon-count{min-width:24px!important;height:24px!important;background:rgba(99,216,255,.10)!important;border-color:rgba(99,216,255,.22)!important;color:#b7f0ff!important}',
     '.rona-rail-v6-wagon-chip{padding:4px 8px!important;font-size:11.5px!important;border-radius:8px!important}',
     '.rona-rail-v6-wagon-placeholder{font-size:11.5px!important;color:#839ca9!important;opacity:1!important}',
-    '.rona-rail-v7-real{width:100%!important;aspect-ratio:1/1!important;height:auto!important;min-height:0!important;max-height:none!important;margin-bottom:12px!important;border:1px solid rgba(86,189,219,.16)!important;border-radius:14px!important;background:#071825!important;box-shadow:0 14px 32px rgba(0,0,0,.22)!important}',
+    '.rona-rail-v7-real{width:100%!important;aspect-ratio:auto!important;height:auto!important;min-height:260px!important;max-height:none!important;margin-bottom:0!important;border:1px solid rgba(86,189,219,.16)!important;border-radius:14px!important;background:#071825!important;box-shadow:0 14px 32px rgba(0,0,0,.22)!important}',
     '.rona-rail-v7-real .rona-rail-v4-map-canvas{inset:42px 8px 8px!important;border:0!important;border-radius:10px!important;background:#0a1d2a!important;box-shadow:0 8px 20px rgba(0,0,0,.20)!important}',
-    '.rona-rail-v4-work>.rona-rail-v4-card>.rona-rail-v7-real{flex:0 0 auto!important}',
+    '.rona-rail-v4-work>.rona-rail-v4-card>.rona-rail-v7-real{flex:1 1 auto!important;aspect-ratio:auto!important;height:auto!important;min-height:260px!important;margin-bottom:0!important}',
 
     '.rona-rail-v7-map-viewport{border:0!important;outline:0!important;border-radius:9px!important;background:#0a1d2a!important;box-shadow:none!important}',
     '.rona-rail-v7-map-viewport:after{display:none!important;content:none!important}',
     '.rona-rail-v7-tile{filter:none!important;opacity:1!important}',
     '.rona-rail-v7-markers,.rona-rail-v7-controls,.rona-rail-v7-map-status,.rona-rail-v7-attribution{z-index:8!important}',
-    '.rona-rail-v7-real .rona-rail-v4-map-title{left:11px!important;top:10px!important;padding:5px 8px!important;color:#dff8ff!important;background:rgba(4,18,29,.92)!important;border:1px solid rgba(96,210,238,.18)!important;border-radius:8px!important;box-shadow:0 4px 14px rgba(0,0,0,.23)!important;font-size:11.5px!important}',
+    '.rona-rail-v7-real .rona-rail-v4-map-title{left:11px!important;top:11px!important;padding:0!important;color:#dff8ff!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;font-size:11.5px!important}',
     '.rona-rail-v7-real .rona-rail-v4-map-badge{right:10px!important;top:9px!important;padding:2px!important;background:rgba(4,18,29,.88)!important;border:1px solid rgba(96,210,238,.13)!important}',
     '.rona-rail-v7-real .rona-rail-v4-map-note{left:10px!important;right:10px!important;bottom:7px!important;padding:5px 7px!important;color:#a9c5d2!important;background:rgba(3,14,22,.88)!important;border:1px solid rgba(96,210,238,.10)!important;border-radius:7px!important;font-size:9.8px!important;line-height:1.25!important}',
     '.rona-rail-v7-controls{left:9px!important;top:9px!important;gap:5px!important}',
@@ -88,8 +88,8 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v4-matrix-preserved th{color:#83b8ca!important;font-size:9.5px!important;letter-spacing:.04em!important;text-transform:uppercase!important}',
     '.rona-rail-v4-matrix-preserved th,.rona-rail-v4-matrix-preserved td{padding:8px 8px!important;line-height:1.35!important}',
     '#page-monitoring>.rona-owner-page-content>section,#page-monitoring>.rona-owner-page-content>.rona-owner-card{width:100%!important;max-width:1584px!important;margin-left:auto!important;margin-right:auto!important}',
-    '@media(max-width:1180px){#page-monitoring>.rona-owner-page-content{max-width:100%!important}.rona-rail-v4-work{grid-template-columns:minmax(340px,.96fr) minmax(480px,1.36fr)!important}.rona-rail-v7-real{min-height:390px!important}}',
-    '@media(max-width:1040px){.rona-rail-v4-work{grid-template-columns:1fr!important}.rona-rail-v7-real{min-height:380px!important}}',
+    '@media(max-width:1180px){#page-monitoring>.rona-owner-page-content{max-width:100%!important}.rona-rail-v4-work{grid-template-columns:minmax(340px,.96fr) minmax(480px,1.36fr)!important}.rona-rail-v7-real{min-height:260px!important}}',
+    '@media(max-width:1040px){.rona-rail-v4-work{grid-template-columns:1fr!important}.rona-rail-v4-work>.rona-rail-v4-card{height:auto!important;max-height:none!important;overflow:visible!important}.rona-rail-v7-real{height:auto!important;min-height:380px!important}}',
     '@media(max-width:680px){.rona-rail-v7-real{min-height:340px!important}.rona-rail-v7-real .rona-rail-v4-map-canvas{inset:40px 6px 6px!important}}'
   ].join('');
   document.head.appendChild(s);
@@ -145,16 +145,62 @@ function ensureRailTariffPanel(){
     return true
   }catch(_e){return false}
 }
+function alignRailMapHeightToOperations(){
+  try{
+    var page=q('#page-monitoring');if(!page)return false;
+    var work=q('.rona-rail-v4-work',page),left=work&&q('.rona-rail-v4-left',work),right=work&&q(':scope > .rona-rail-v4-card',work);
+    if(!work||!left||!right)return false;
+    var map=q('.rona-rail-v7-real',right);
+    if(window.matchMedia&&window.matchMedia('(max-width:1040px)').matches){
+      right.style.removeProperty('height');right.style.removeProperty('max-height');right.style.removeProperty('overflow');
+      if(map){map.style.removeProperty('height');map.style.removeProperty('max-height')}
+      return true
+    }
+    var leftHeight=Math.round(left.getBoundingClientRect().height);
+    if(leftHeight<320)return false;
+    right.style.setProperty('height',leftHeight+'px','important');
+    right.style.setProperty('max-height',leftHeight+'px','important');
+    right.style.setProperty('overflow','hidden','important');
+    if(map){
+      map.style.setProperty('flex','1 1 auto','important');
+      map.style.setProperty('aspect-ratio','auto','important');
+      map.style.setProperty('height','auto','important');
+      map.style.setProperty('min-height','260px','important');
+      map.style.setProperty('max-height','none','important');
+      map.style.setProperty('margin-bottom','0','important');
+      var state=q('.rona-rail-v4-map-canvas',map);
+      if(state&&state.__ronaRailMapState&&typeof railMapRequestDraw==='function')railMapRequestDraw(state.__ronaRailMapState)
+    }
+    window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT__={leftHeight:leftHeight,appliedAt:new Date().toISOString()};
+    return true
+  }catch(_e){return false}
+}
+function scheduleRailMapHeightAlignment(){
+  [0,60,180,420].forEach(function(ms){setTimeout(alignRailMapHeightToOperations,ms)})
+}
+function bindRailMapHeightAlignment(){
+  if(window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT_BOUND__)return;
+  window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT_BOUND__=true;
+  window.addEventListener('resize',scheduleRailMapHeightAlignment,{passive:true});
+  document.addEventListener('change',function(ev){
+    var t=ev&&ev.target;
+    if(t&&t.matches&&t.matches('.rona-rail-v6-select'))scheduleRailMapHeightAlignment()
+  },true)
+}
 function bumpRailCompactDarkStyle(){
   [0,80,220,700].forEach(function(ms){setTimeout(function(){ensureRailCompactDarkStyle()},ms)})
 }
 ensureRailCompactDarkStyle();
 ensureRailTariffPanel();
+bindRailMapHeightAlignment();
+scheduleRailMapHeightAlignment();
 [120,420,900].forEach(function(ms){setTimeout(function(){ensureRailTariffPanel()},ms)});
 bumpRailCompactDarkStyle();
 window.__RONA_RAIL_CURRENT_REPAIR__=function(){
   try{
     ensureRailCompactDarkStyle();
+    bindRailMapHeightAlignment();
+    scheduleRailMapHeightAlignment();
     var page=q('#page-monitoring'),ready=page&&q('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]',page);
     if(!ready)paint();
     ensureRailTariffPanel();
@@ -178,7 +224,8 @@ export async function onRequest(context){
     !source.includes('rona-rail-v7-map-viewport')||
     !source.includes(TITLE_STYLE_FROM)||
     !source.includes(NOTE_STYLE_FROM)||
-    !source.includes(REPAIR_ANCHOR)
+    !source.includes(REPAIR_ANCHOR)||
+    !source.includes('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);')
   ){
     return new Response('RAIL_V82_SOURCE_MISMATCH',{status:500,headers:{
       'content-type':'text/plain; charset=utf-8',
@@ -193,7 +240,8 @@ export async function onRequest(context){
     .replace('Интерактивная карта','Интерактивная ЖД-карта')
     .replace(TITLE_STYLE_FROM,TITLE_STYLE_TO)
     .replace(NOTE_STYLE_FROM,NOTE_STYLE_TO)
-    .replace(REPAIR_ANCHOR,REPAIR_RUNTIME);
+    .replace(REPAIR_ANCHOR,REPAIR_RUNTIME)
+    .replace('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);','host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);if(typeof scheduleRailMapHeightAlignment===\'function\')scheduleRailMapHeightAlignment();');
   source=source.split('if(matrix)host.append(matrix);').join("if(matrix){var tariff=document.createElement('details');tariff.className='rona-rail-tariff-section';tariff.setAttribute('data-rail-subsection','tariffs');var tariffToggle=document.createElement('summary');tariffToggle.className='rona-rail-tariff-toggle';tariffToggle.textContent='Матрица ЖД-тарифов';var tariffBody=el('div','rona-rail-tariff-body');matrix.classList.add('rona-rail-v4-matrix-preserved');tariffBody.append(matrix);tariff.append(tariffToggle,tariffBody);host.append(tariff);}");
 
   const headers=new Headers(response.headers);
