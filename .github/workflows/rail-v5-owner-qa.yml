@@ -82,7 +82,7 @@ jobs:
           ])assert(server.includes(token),`Client Rail server scope missing ${token}`);
           assert(index.includes('route==="/v1/client/rail"')&&index.includes('clientRailReadModel'),'Client Rail endpoint is not wired to authorized read model');
 
-          for(const token of ["window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",'/portal/map-assets/osm/','mountRealRailMap','Интерактивная ЖД-карта','PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL'])assert(admin.includes(token),`Admin Rail operational body missing ${token}`);
+          for(const token of ["window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",'/portal/map-assets/osm/','mountRealRailMap','Интерактивная ЖД-карта'])assert(admin.includes(token),`Admin Rail operational body missing ${token}`);
           assert(cache.includes('/portal/client-rail-current-ui'),'Client Rail cache route missing');
           assert(!cache.includes('/assets/portal-runtime/client-rail-production-v1.js')&&!cache.includes('/assets/portal-runtime/client-rail-movizor-gate-v1.js'),'retired Client Rail cache owner remains');
           console.log('ONLINE_RAIL_CURRENT_OWNER_STATIC=PASS admin=V8_2 client=ADMIN_PARITY_V2 scope=AUTHORIZED_CLIENT_READ_MODEL');
@@ -107,7 +107,7 @@ jobs:
           const response=await clientRail({});
           assert(response.status===200,'Client Rail adapter endpoint '+response.status);
           const src=await response.text();
-          for(const token of ["window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/rail','AUTHORIZED_CLIENT_RAIL_READ_MODEL','CLIENT_RAIL_ADMIN_PARITY_V1'])assert(src.includes(token),`built Client Rail marker missing ${token}`);
+          for(const token of ["window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/rail','AUTHORIZED_CLIENT_RAIL_READ_MODEL','CLIENT_RAIL_ADMIN_PARITY_V1','PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL'])assert(src.includes(token),`built Client Rail marker missing ${token}`);
           for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','client-rail-canonical-hero-v1.js'])assert(!src.includes(forbidden),`retired/divergent built Client Rail output remains ${forbidden}`);
           assert(response.headers.get('x-rona-client-rail-visual-canon')==='/portal/rail-current-v81-maplibre-ui','Admin operational-body header changed');
           assert(response.headers.get('x-rona-client-rail-data')==='authorized-read-model-v1','Client Rail authorized data header missing');
