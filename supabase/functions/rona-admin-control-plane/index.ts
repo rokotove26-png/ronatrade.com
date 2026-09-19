@@ -245,9 +245,10 @@ async function agentIdentities(db = sql) {
   }));
 }
 
-async function matchAgentIdentity(db, name, email) {
+async function matchAgentIdentity(db, name, email, phone) {
   const identities = await agentIdentities(db);
   const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedPhone = String(phone || "").replace(/[^0-9+]/g, "");
   const byEmail = normalizedEmail
     ? identities.filter((p) => String(p.contactEmail || "").trim().toLowerCase() === normalizedEmail)
     : [];
@@ -259,7 +260,17 @@ async function matchAgentIdentity(db, name, email) {
     [p.displayAlias, p.fullName].filter(Boolean).some((v) => normalizeName(v) === normalizedName)
   );
   if (byName.length > 1) throw Object.assign(new Error("AGENT_IDENTITY_AMBIGUOUS"), { status: 409 });
-  return byName[0] || null;
+  if (byName.length === 1) {
+    const candidate = byName[0];
+    const existingEmail = String(candidate.contactEmail || "").trim().toLowerCase();
+    const existingPhone = String(candidate.contactPhone || "").replace(/[^0-9+]/g, "");
+    if ((existingEmail && normalizedEmail && existingEmail !== normalizedEmail) ||
+        (existingPhone && normalizedPhone && existingPhone !== normalizedPhone)) {
+      throw Object.assign(new Error("AGENT_IDENTITY_CONFLICT"), { status: 409 });
+    }
+    return candidate;
+  }
+  return null;
 }
 
 async function nextAgentPersonId(tx) {
@@ -282,7 +293,7 @@ async function nextAgentPersonId(tx) {
 
 async function resolveOrCreateAgentIdentity(tx, name, email, phone) {
   await tx`select pg_advisory_xact_lock(hashtext('portal_private.agent_identity_match_v2'))`;
-  const existing = await matchAgentIdentity(tx, name, email);
+  const existing = await matchAgentIdentity(tx, name, email, phone);
   if (existing) {
     await tx`
       update portal_private.agent_persons
