@@ -1,0 +1,54 @@
+name: Admin Worker Runtime Failsafe QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin.js'
+      - 'functions/portal/admin-shell-runtime-v3.js'
+      - 'functions/portal/admin-watchdog-runtime-v3.js'
+      - 'functions/portal/admin-access-runtime-v3.js'
+      - 'scripts/verify-admin-worker-failsafe-production.mjs'
+      - 'tests/admin-shell-resilience.test.mjs'
+      - 'tests/admin-current-only-shell-contract.test.mjs'
+      - '.github/workflows/admin-worker-runtime-failsafe-qa.yml'
+
+permissions:
+  actions: read
+  checks: read
+  contents: read
+
+jobs:
+  admin-worker-runtime-failsafe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify Worker failsafe source contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin.js
+          node --check functions/portal/admin-shell-runtime-v3.js
+          node --check functions/portal/admin-watchdog-runtime-v3.js
+          node --check functions/portal/admin-access-runtime-v3.js
+          node --check scripts/verify-admin-worker-failsafe-production.mjs
+          node tests/admin-shell-resilience.test.mjs
+          node tests/admin-current-only-shell-contract.test.mjs
+          grep -q "x-rona-admin-runtime-delivery','worker-failsafe-v1" functions/portal/admin.js
+          grep -q '/portal/admin-shell-runtime-v3' functions/portal/admin.js
+          grep -q '/portal/admin-access-runtime-v3' functions/portal/admin.js
+          grep -q '/portal/admin-watchdog-runtime-v3' functions/portal/admin.js
+          grep -q 'CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN' functions/portal/admin-shell-runtime-v3.js
+          grep -q 'READY_STALE' functions/portal/admin-access-runtime-v3.js functions/portal/clients-agents-current-ui.js
+          echo 'ADMIN_WORKER_RUNTIME_FAILSAFE_SOURCE=PASS'
+      - name: Verify Worker failsafe on production
+        if: github.event_name == 'push'
+        env:
+          TARGET_ORIGIN: https://ronaoil.com
+        run: node scripts/verify-admin-worker-failsafe-production.mjs

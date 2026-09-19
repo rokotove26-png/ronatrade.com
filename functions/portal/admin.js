@@ -41,6 +41,7 @@ function securityHeaders(source,cookies=[]){
   h.set('x-rona-admin-auth','server-verified-v1');
   h.set('x-rona-admin-auth-resilience','triple-authority-owner-v2');
   h.set('x-rona-admin-current-only','main-v2-shell-v2');
+  h.set('x-rona-admin-runtime-delivery','worker-failsafe-v1');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
   h.delete('etag');
@@ -180,6 +181,17 @@ async function currentAdminAsset(context){
   return context.next();
 }
 
+const ADMIN_RUNTIME_REWRITES=Object.freeze([
+  [/\/assets\/portal-admin-shell-fast-v1\.js(?:\?[^"'<>]*)?/g,'/portal/admin-shell-runtime-v3'],
+  [/\/portal\/clients-agents-current-ui(?:\?[^"'<>]*)?/g,'/portal/admin-access-runtime-v3'],
+  [/\/assets\/portal-admin-runtime-watchdog-v1\.js(?:\?[^"'<>]*)?/g,'/portal/admin-watchdog-runtime-v3']
+]);
+function rewriteAdminRuntimeSources(source){
+  let html=String(source||'');
+  for(const [pattern,target] of ADMIN_RUNTIME_REWRITES)html=html.replace(pattern,target);
+  return html;
+}
+
 export async function onRequest(context){
   const request=context.request;
   if(!['GET','HEAD'].includes(request.method)){
@@ -196,5 +208,15 @@ export async function onRequest(context){
   const response=await currentAdminAsset(context);
   const h=securityHeaders(response.headers,session.setCookies);
   h.set('server-timing',`admin_shell;dur=${Math.max(0,Date.now()-started)}`);
-  return new Response(request.method==='HEAD'?null:response.body,{status:response.status,statusText:response.statusText,headers:h});
+  let body=null;
+  if(request.method!=='HEAD'){
+    const contentType=String(response.headers.get('content-type')||'').toLowerCase();
+    if(response.status===200&&contentType.includes('text/html')){
+      const source=await response.text();
+      body=rewriteAdminRuntimeSources(source);
+    }else{
+      body=response.body;
+    }
+  }
+  return new Response(body,{status:response.status,statusText:response.statusText,headers:h});
 }

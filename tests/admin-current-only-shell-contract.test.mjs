@@ -24,6 +24,8 @@ assert(route.includes('async function adminFallbackProbe(accessToken)'),'Admin c
 assert(route.includes('async function authOwnerProbe(accessToken)'),'Admin owner Auth fallback probe missing');
 assert(route.includes("identity==='OWNER_ADMIN'"),'Admin owner Auth fallback must require trusted OWNER_ADMIN app metadata');
 assert(route.includes("'x-rona-admin-current-only','main-v2-shell-v2'"),'Admin route lifecycle marker missing');
+assert(route.includes("'x-rona-admin-runtime-delivery','worker-failsafe-v1'"),'Admin route Worker failsafe marker missing');
+for(const target of ['/portal/admin-shell-runtime-v3','/portal/admin-access-runtime-v3','/portal/admin-watchdog-runtime-v3'])assert(route.includes(target),`Admin route critical runtime rewrite missing: ${target}`);
 assert(build.includes("path: 'portal-src/current/admin.html'"));
 assert(build.includes('current-only-router-v2'),'Pages build must require authoritative current router');
 assert(!build.includes("path: 'portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html',\n    sha256"),'Legacy Admin must not be a build source');
