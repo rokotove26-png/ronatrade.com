@@ -99,9 +99,15 @@ async function hardenClientReceiptDetails(req:Request,response:Response){
         count(distinct d.id) as deal_count,
         min(d.deal_id) as single_deal_id,
         bool_or(
+          p.bank_fact_status::text='BANK_CONFIRMED'
+          and pa.allocation_status::text='VERIFIED'
+        ) as bank_confirmed,
+        bool_or(
           p.bank_fact_status::text='RECEIVED_UNVERIFIED'
           and p.finance_verification_status::text='VERIFIED'
           and p.source_system='OWNER_CONFIRMED_FINANCE_AI_V7'
+          and pa.source_system='OWNER_CONFIRMED_FINANCE_AI_V7'
+          and pa.allocation_status::text in ('ALLOCATED','VERIFIED')
           and exists (
             select 1
             from portal_private.finance_events_v7 fe
@@ -164,12 +170,12 @@ async function hardenClientReceiptDetails(req:Request,response:Response){
       source_version,
       case when deal_count=1 then single_deal_id else null end as deal_id,
       case
-        when bank_fact_status='BANK_CONFIRMED' then 'BANK_CONFIRMED'
+        when bank_confirmed then 'BANK_CONFIRMED'
         when owner_confirmed then 'FINANCE_CONFIRMED'
         else null
       end as client_receipt_status
     from scoped
-    where bank_fact_status='BANK_CONFIRMED' or owner_confirmed=true
+    where bank_confirmed=true or owner_confirmed=true
     order by payment_at,payment_id
   `;
 
