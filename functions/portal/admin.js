@@ -2,6 +2,7 @@ const BUILD='owner-current-only-v2-20260826-1308';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
+const ADMIN_FALLBACK_API=`${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const ADMIN_CSP="default-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tiles.openfreemap.org; connect-src 'self'; font-src 'self' data: https://tiles.openfreemap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'";
@@ -38,6 +39,7 @@ function securityHeaders(source,cookies=[]){
   h.set('content-security-policy',ADMIN_CSP);
   h.set('x-rona-admin-shell','current-only-v2');
   h.set('x-rona-admin-auth','server-verified-v1');
+  h.set('x-rona-admin-auth-resilience','dual-authority-v1');
   h.set('x-rona-admin-current-only','main-v2-shell-v2');
   h.set('x-rona-ui-build',BUILD);
   h.delete('content-length');
@@ -72,6 +74,29 @@ async function authRefresh(refreshToken){
     return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))};
   }catch(_){return {ok:false,status:503,data:{}};}
 }
+async function adminFallbackProbe(accessToken){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),3500);
+  try{
+    const r=await fetch(`${ADMIN_FALLBACK_API}/readiness`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
+      signal:controller.signal
+    });
+    if(r.ok){
+      const j=await r.json().catch(()=>null);
+      if(j?.ok===true)return {state:'VALID',me:{user:{roles:['ADMIN']},authority:'ADMIN_CONTROL_PLANE_FALLBACK'},status:r.status};
+      return {state:'UNAVAILABLE',me:null,status:r.status||502};
+    }
+    if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};
+    if(r.status!==429&&r.status<500)return {state:'INVALID',me:null,status:r.status};
+    return {state:'UNAVAILABLE',me:null,status:r.status};
+  }catch(_){
+    return {state:'UNAVAILABLE',me:null,status:503};
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 async function sessionProbe(accessToken){
   if(!accessToken)return {state:'INVALID',me:null,status:401};
   let lastStatus=503;
@@ -84,7 +109,7 @@ async function sessionProbe(accessToken){
       lastStatus=r.status;
       if(r.ok){
         const j=await r.json().catch(()=>null);
-        if(j?.ok&&j?.user)return {state:'VALID',me:j,status:r.status};
+        if(j?.ok&&j?.user)return {state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};
       }else if(r.status===401||r.status===403){
         return {state:'INVALID',me:null,status:r.status};
       }else if(r.status!==429&&r.status<500){
@@ -93,7 +118,9 @@ async function sessionProbe(accessToken){
     }catch(_){lastStatus=503;}
     finally{clearTimeout(timer);}
   }
-  return {state:'UNAVAILABLE',me:null,status:lastStatus};
+  const fallback=await adminFallbackProbe(accessToken);
+  if(fallback.state!=='UNAVAILABLE')return fallback;
+  return {state:'UNAVAILABLE',me:null,status:lastStatus||fallback.status||503};
 }
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie'));

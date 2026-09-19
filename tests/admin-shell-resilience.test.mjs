@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const read=p=>fs.readFileSync(p,'utf8');
 const admin=read('functions/portal/admin.js');
+const portalRouter=read('functions/portal/[[path]].js');
 const middleware=read('functions/portal/_middleware.js');
 const runtime=read('assets/portal-admin-shell-fast-v1.js');
 const watchdog=read('assets/portal-admin-runtime-watchdog-v1.js');
@@ -17,10 +18,16 @@ const remaining=read('functions/portal/remaining-sections-ui.js');
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
 assert(!admin.includes("u.pathname='/portal/admin.html';"),'Direct .html Static Assets path must not return to Admin route');
-for(const marker of ["'x-rona-admin-shell','current-only-v2'","'x-rona-admin-auth','server-verified-v1'","'x-rona-admin-current-only','main-v2-shell-v2'",'async function sessionProbe(accessToken)','async function ensureSession(request)'])assert(admin.includes(marker),`Admin route marker missing: ${marker}`);
+for(const marker of ["'x-rona-admin-shell','current-only-v2'","'x-rona-admin-auth','server-verified-v1'","'x-rona-admin-auth-resilience','dual-authority-v1'","'x-rona-admin-current-only','main-v2-shell-v2'",'async function adminFallbackProbe(accessToken)','async function sessionProbe(accessToken)','async function ensureSession(request)'])assert(admin.includes(marker),`Admin route marker missing: ${marker}`);
 assert(!admin.includes('HTMLRewriter')&&!admin.includes('adminLoginGate')&&!admin.includes('rona-admin-auth-v3413'),'Legacy Admin route behavior returned');
 assert(admin.includes("if(!rolesOf(session.me).includes('ADMIN'))"),'Admin role must be verified server-side');
-assert(admin.includes("if(session?.unavailable)return recoveryPage(request,session.setCookies)"),'Transient auth failures must preserve the session');
+assert(admin.includes("const fallback=await adminFallbackProbe(accessToken)"),'Primary Admin auth degradation must try the isolated Admin control-plane authority before recovery mode');
+assert(admin.includes("if(fallback.state!=='UNAVAILABLE')return fallback"),'Explicit fallback allow/deny must be honored before recovery mode');
+assert(admin.includes("if(session?.unavailable)return recoveryPage(request,session.setCookies)"),'Dual-authority transient auth failures must preserve the session');
+assert(portalRouter.includes("const ADMIN_CONTROL_PLANE_API = \`${SUPABASE_URL}/functions/v1/rona-admin-control-plane\`;"),'Portal router Admin control-plane authority missing');
+assert(portalRouter.includes('async function adminControlPlaneProbe(accessToken)'),'Portal router Admin fallback probe missing');
+assert(portalRouter.includes("const requestedPath=canonicalProtectedPath(new URL(request.url).pathname),allowAdminFallback=requestedPath==='/portal/admin'"),'Admin fallback must be scoped only to /portal/admin');
+assert(portalRouter.includes("if(allowAdminFallback){const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback}"),'Portal router must use isolated Admin fallback only after primary transient exhaustion');
 assert(admin.includes("if(!session)return loginRedirect(request,clearCookies())"),'Invalid sessions must return to canonical login');
 
 assert(middleware.includes("if(url.pathname!=='/portal/client')return response;"),'Portal middleware must leave non-Client routes untouched');
