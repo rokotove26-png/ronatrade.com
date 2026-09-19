@@ -89,18 +89,6 @@ try{
   console.log('DIRECT_SUPABASE_AUTH_RESPONSE='+JSON.stringify(directResult));
 }
 
-assert(home.status===200,'PROD_HOME_HTTP_'+home.status);
-assert(home.headers.get('x-rona-inline-auth-entry')==='g8.2-inline-auth-v2','PROD_HOME_INLINE_HEADER_MISSING');
-assert(homeText.includes('/assets/g82/portal-home-inline-auth-v2.js'),'PROD_HOME_INLINE_SCRIPT_MISSING');
-assert(!portalResult?.error,'PROD_LOGIN_ENDPOINT_TIMEOUT_OR_NETWORK_FAIL '+JSON.stringify(portalResult));
-assert(portalResult.status===401,'PROD_LOGIN_EXPECTED_401_GOT_'+portalResult.status+' BODY '+portalResult.body);
-assert(/application\/json/i.test(portalResult.contentType),'PROD_LOGIN_NOT_JSON '+portalResult.contentType);
-let body={};
-try{body=JSON.parse(portalResult.body)}catch{}
-assert(body.code==='LOGIN_DENIED','PROD_LOGIN_WRONG_CONTRACT '+portalResult.body);
-assert(!directResult?.error,'DIRECT_SUPABASE_AUTH_NETWORK_FAIL '+JSON.stringify(directResult));
-assert([400,401].includes(directResult.status),'DIRECT_SUPABASE_AUTH_UNEXPECTED_'+directResult.status);
-
 const source=await readFile('functions/portal/auth/login.js','utf8');
 const key=source.match(/SUPABASE_PUBLISHABLE_KEY\s*=\s*'([^']+)'/)?.[1]||'';
 const supabase=source.match(/SUPABASE_URL\s*=\s*'([^']+)'/)?.[1]||'';
@@ -146,5 +134,19 @@ try{
 }catch(e){
   console.log('BROWSER_DIRECT_SUPABASE_AUTH='+JSON.stringify({error:String(e?.name||'Error'),message:String(e?.message||e)}));
 }finally{if(browser)await browser.close().catch(()=>{})}
+
+assert(home.status===200,'PROD_HOME_HTTP_'+home.status);
+assert(home.headers.get('x-rona-inline-auth-entry')==='g8.2-inline-auth-v2','PROD_HOME_INLINE_HEADER_MISSING');
+assert(homeText.includes('/assets/g82/portal-home-inline-auth-v2.js'),'PROD_HOME_INLINE_SCRIPT_MISSING');
+assert(!directResult?.error,'DIRECT_SUPABASE_AUTH_NETWORK_FAIL '+JSON.stringify(directResult));
+assert([400,401].includes(directResult.status),'DIRECT_SUPABASE_AUTH_UNEXPECTED_'+directResult.status);
+assert(!browserResult?.error,'BROWSER_DIRECT_SUPABASE_AUTH_FAIL '+JSON.stringify(browserResult));
+assert([400,401].includes(browserResult.status),'BROWSER_DIRECT_SUPABASE_AUTH_UNEXPECTED_'+JSON.stringify(browserResult));
+assert(!portalResult?.error,'PROD_LOGIN_ENDPOINT_TIMEOUT_OR_NETWORK_FAIL '+JSON.stringify(portalResult));
+assert(portalResult.status===401,'PROD_LOGIN_EXPECTED_401_GOT_'+portalResult.status+' BODY '+portalResult.body);
+assert(/application\/json/i.test(portalResult.contentType),'PROD_LOGIN_NOT_JSON '+portalResult.contentType);
+let body={};
+try{body=JSON.parse(portalResult.body)}catch{}
+assert(body.code==='LOGIN_DENIED','PROD_LOGIN_WRONG_CONTRACT '+portalResult.body);
 
 console.log('PRODUCTION_HOME_AUTH_ENDPOINT_QA=PASS');
