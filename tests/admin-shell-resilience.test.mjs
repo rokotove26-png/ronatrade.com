@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 const read=p=>fs.readFileSync(p,'utf8');
 const admin=read('functions/portal/admin.js');
+const portalRouter=read('functions/portal/[[path]].js');
 const middleware=read('functions/portal/_middleware.js');
 const runtime=read('assets/portal-admin-shell-fast-v1.js');
 const watchdog=read('assets/portal-admin-runtime-watchdog-v1.js');
@@ -23,6 +24,10 @@ assert(admin.includes("if(!rolesOf(session.me).includes('ADMIN'))"),'Admin role 
 assert(admin.includes("const fallback=await adminFallbackProbe(accessToken)"),'Primary Admin auth degradation must try the isolated Admin control-plane authority before recovery mode');
 assert(admin.includes("if(fallback.state!=='UNAVAILABLE')return fallback"),'Explicit fallback allow/deny must be honored before recovery mode');
 assert(admin.includes("if(session?.unavailable)return recoveryPage(request,session.setCookies)"),'Dual-authority transient auth failures must preserve the session');
+assert(portalRouter.includes("const ADMIN_CONTROL_PLANE_API = \`${SUPABASE_URL}/functions/v1/rona-admin-control-plane\`;"),'Portal router Admin control-plane authority missing');
+assert(portalRouter.includes('async function adminControlPlaneProbe(accessToken)'),'Portal router Admin fallback probe missing');
+assert(portalRouter.includes("const requestedPath=canonicalProtectedPath(new URL(request.url).pathname),allowAdminFallback=requestedPath==='/portal/admin'"),'Admin fallback must be scoped only to /portal/admin');
+assert(portalRouter.includes("if(allowAdminFallback){const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback}"),'Portal router must use isolated Admin fallback only after primary transient exhaustion');
 assert(admin.includes("if(!session)return loginRedirect(request,clearCookies())"),'Invalid sessions must return to canonical login');
 
 assert(middleware.includes("if(url.pathname!=='/portal/client')return response;"),'Portal middleware must leave non-Client routes untouched');
