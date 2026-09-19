@@ -195,11 +195,15 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL"));
   assert.ok(source.includes("RAIL_READ_MODEL_DEGRADED"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V2"));
+  assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V3"));
+  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V3"));
   assert.ok(source.includes("clientRailNormalizeRouteParity"));
   assert.ok(source.includes("clientRailRepairMapParity"));
+  assert.ok(source.includes("clientRailRenderAuthoritativeRouteOverlay"));
+  assert.ok(source.includes("clientRailPatchRouteDraw"));
   assert.ok(source.includes("railMapRequestDraw"));
   assert.ok(source.includes("railMapFitRoute"));
-  assert.ok(source.includes("20260919-admin-visual-parity-route-v2"));
+  assert.ok(source.includes("20260919-route-overlay-v3"));
   assert.equal(source.includes("/portal/api/v1/client/shipments"),false);
   assert.equal(source.includes("/portal/api/v1/client/rail'"),false);
   assert.equal(/MOVIZOR|movement_publication|provider_live/i.test(source),false);
