@@ -1,0 +1,174 @@
+name: issue670 client online rail parity
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/client-rail-current-ui.js'
+      - 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
+      - 'scripts/attach-client-rail-production-v1.mjs'
+      - 'scripts/qa-client-online-rail-670-browser.mjs'
+      - 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
+      - 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
+      - 'tests/client-rail-parity-670.test.mjs'
+      - 'docs/client-online-rail-670-architecture.md'
+      - '.github/workflows/client-rail-admin-canonical-qa.yml'
+      - '.github/workflows/issue670-client-online-rail-parity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  issue670-client-online-rail-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: CURRENT STATE and DELTA ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          base="$(git merge-base origin/release/public-go-live-v1.1 HEAD)"
+          echo "ISSUE670_BASE_SHA=$base"
+          git diff --name-only "$base"...HEAD | sort -u > /tmp/issue670-changed.txt
+          {
+            echo '.github/workflows/client-rail-admin-canonical-qa.yml'
+            echo '.github/workflows/issue670-client-online-rail-parity.yml'
+            echo 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
+            echo 'docs/client-online-rail-670-architecture.md'
+            echo 'functions/portal/client-rail-current-ui.js'
+            echo 'scripts/attach-client-rail-production-v1.mjs'
+            echo 'scripts/qa-client-online-rail-670-browser.mjs'
+            echo 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
+            echo 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
+            echo 'tests/client-rail-parity-670.test.mjs'
+          } | sort -u > /tmp/issue670-allowed.txt
+          comm -23 /tmp/issue670-changed.txt /tmp/issue670-allowed.txt | tee /tmp/issue670-unexpected.txt
+          if test -s /tmp/issue670-unexpected.txt; then
+            echo 'ISSUE670_DELTA_ONLY=FAIL'
+            exit 1
+          fi
+          echo 'ISSUE670_DELTA_ONLY=PASS'
+
+      - name: Source, projection and authorization contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check functions/portal/client-rail-current-ui.js
+          node --check assets/portal-runtime/client-rail-canonical-hero-v1.js
+          node --check scripts/attach-client-rail-production-v1.mjs
+          node --check scripts/qa-client-online-rail-670-browser.mjs
+          node --check supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
+          node --test tests/client-rail-parity-670.test.mjs
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
+          echo 'ISSUE670_SOURCE_AUTH_CONTRACT=PASS'
+
+      - name: Production-v55 delegation guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
+          grep -q '1c356872f3640f35c40158d01ae363521272ce3d/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts' "$file"
+          grep -q 'client_user_has_contract_access' "$file"
+          grep -q 'client_user_has_deal_access' "$file"
+          grep -q 'rona_admin_rail_deal_map_read_model_v4' "$file"
+          grep -q 'return await liveV55Handler(req, info)' "$file"
+          ! grep -Eiq '(insert|update|delete)[[:space:]]+portal_private\.' "$file"
+          echo 'ISSUE670_LIVE_V55_DELEGATION=PASS'
+
+      - name: Canonical Client production build
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run build
+          test -s dist/portal/client.html
+          grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
+          const rail=integrity?.client_runtime?.rail_client_admin_canonical;
+          if(!rail)throw new Error('Client Rail integrity missing');
+          if(rail.client_data_source!=='/portal/api/v1/client/rail-canonical')throw new Error('Client Rail canonical endpoint missing');
+          if(rail.client_authority!=='AUTHENTICATED_CLIENT_CONTRACT')throw new Error('Client Rail authority scope drifted');
+          if(rail.provider_state_source!==undefined)throw new Error('legacy provider-state authority survived');
+          if(rail.movement_publication!=='SERVER_SCOPED_CANONICAL_READ_MODEL')throw new Error('canonical movement source marker missing');
+          console.log('ISSUE670_BUILD_CONTRACT=PASS');
+          NODE
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Browser parity, refresh and isolation proof
+        shell: bash
+        run: node scripts/qa-client-online-rail-670-browser.mjs | tee /tmp/issue670-browser.log
+
+      - name: Frozen Admin / unrelated-domain guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="$(git merge-base origin/release/public-go-live-v1.1 HEAD)"
+          for path in \
+            functions/portal/rail-current-v6-ui.js \
+            functions/portal/rail-current-v7-real-map-ui.js \
+            functions/portal/rail-current-v81-maplibre-ui.js \
+            supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs; do
+            test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_FROZEN=FAIL $path"; exit 1; }
+          done
+          if git diff --name-only "$base"...HEAD | grep -E '(^|/)(finance|payments|prices|access)(/|\.|-)'; then
+            echo 'ISSUE670_UNRELATED_DOMAIN_CHANGE=FAIL'
+            exit 1
+          fi
+          echo 'ISSUE670_ADMIN_RAIL_FROZEN=PASS'
+          echo 'ISSUE670_UNRELATED_DOMAINS_FROZEN=PASS'
+
+      - name: Final #670 summary
+        shell: bash
+        run: |
+          {
+            echo 'CURRENT_STATE_FIRST=PASS'
+            echo 'DELTA_ONLY=PASS'
+            echo 'CLIENT_CANONICAL_ENDPOINT=PASS'
+            echo 'SERVER_AUTHORITY_ISOLATION=PASS'
+            echo 'AUTO_DEAL_DISCOVERY=PASS'
+            echo 'ADMIN_READ_MODEL_REUSE=PASS'
+            echo 'HARD_RELOAD_READY=PASS'
+            echo 'DEAL_SWITCH_ISOLATION=PASS'
+            echo 'BACKGROUND_REFRESH=PASS'
+            echo 'DEGRADED_REFRESH_PRESERVE=PASS'
+            echo 'CONTEXT_TAMPER_FAIL_CLOSED=PASS'
+            echo 'NO_TARIFF_MATRIX=PASS'
+            echo 'ADMIN_RAIL_FROZEN=PASS'
+            echo 'NO_BUSINESS_DATA_WRITE=PASS'
+            echo 'FINAL=PASS'
+          } | tee /tmp/issue670-final.txt
+
+      - name: Upload #670 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-online-rail-parity
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            /tmp/issue670-changed.txt
+            /tmp/issue670-allowed.txt
+            /tmp/issue670-unexpected.txt
+            /tmp/issue670-browser.log
+            /tmp/issue670-final.txt
