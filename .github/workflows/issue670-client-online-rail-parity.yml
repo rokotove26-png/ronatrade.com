@@ -11,12 +11,16 @@ on:
       - 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
       - 'scripts/attach-client-rail-production-v1.mjs'
       - 'scripts/qa-client-online-rail-670-browser.mjs'
+      - 'scripts/qa-client-online-rail-670-real-integration.mjs'
+      - 'tests/fixtures/issue670-client-rail-real-integration-base.sql'
+      - 'supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
       - 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
       - 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
       - 'tests/client-rail-parity-670.test.mjs'
       - 'docs/client-online-rail-670-architecture.md'
       - '.github/workflows/client-rail-admin-canonical-qa.yml'
       - '.github/workflows/issue670-client-online-rail-parity.yml'
+      - '.github/workflows/issue670-client-rail-real-integration.yml'
   workflow_dispatch:
 
 permissions:
@@ -50,6 +54,7 @@ jobs:
           {
             echo '.github/workflows/client-rail-admin-canonical-qa.yml'
             echo '.github/workflows/issue670-client-online-rail-parity.yml'
+            echo '.github/workflows/issue670-client-rail-real-integration.yml'
             echo 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
             echo 'docs/client-online-rail-670-architecture.md'
             echo 'functions/portal/client-rail-current-ui.js'
@@ -57,6 +62,9 @@ jobs:
             echo 'governance/client-online-rail-670-owner-approval-20260919.json'
             echo 'scripts/attach-client-rail-production-v1.mjs'
             echo 'scripts/qa-client-online-rail-670-browser.mjs'
+            echo 'scripts/qa-client-online-rail-670-real-integration.mjs'
+            echo 'tests/fixtures/issue670-client-rail-real-integration-base.sql'
+            echo 'supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
             echo 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
             echo 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
             echo 'tests/client-rail-parity-670.test.mjs'
@@ -76,6 +84,7 @@ jobs:
           node --check assets/portal-runtime/client-rail-canonical-hero-v1.js
           node --check scripts/attach-client-rail-production-v1.mjs
           node --check scripts/qa-client-online-rail-670-browser.mjs
+          node --check scripts/qa-client-online-rail-670-real-integration.mjs
           node --check supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
           node --test tests/client-rail-parity-670.test.mjs
           deno check --node-modules-dir=auto supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
@@ -89,7 +98,12 @@ jobs:
           grep -q '53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts' "$file"
           grep -q 'client_user_has_contract_access' "$file"
           grep -q 'client_user_has_deal_access' "$file"
-          grep -q 'rona_admin_rail_deal_map_read_model_v4' "$file"
+          grep -q 'rona_rail_deal_map_read_model_core_v1' "$file"
+          ! grep -q 'rona_admin_rail_deal_map_read_model_v4' "$file"
+          migration='supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
+          grep -q 'create or replace function portal_private.rona_rail_deal_map_read_model_core_v1' "$migration"
+          grep -q "owner_r1_actor('ADMIN')" "$migration"
+          grep -qi 'security invoker' "$migration"
           grep -q 'return await liveV56Handler(req, info)' "$file"
           ! grep -Eiq '(insert|update|delete)[[:space:]]+portal_private\.' "$file"
           echo 'ISSUE670_LIVE_V56_DELEGATION=PASS'
@@ -120,9 +134,12 @@ jobs:
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
 
-      - name: Browser parity, refresh and isolation proof
+      - name: Frontend-only fixture parity and last-good proof (not backend acceptance)
         shell: bash
-        run: node scripts/qa-client-online-rail-670-browser.mjs | tee /tmp/issue670-browser.log
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-browser.mjs | tee /tmp/issue670-frontend-fixture-browser.log
+          echo 'ISSUE670_MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
 
       - name: Frozen Admin / unrelated-domain guard
         shell: bash
@@ -150,9 +167,10 @@ jobs:
             echo 'CURRENT_STATE_FIRST=PASS'
             echo 'DELTA_ONLY=PASS'
             echo 'CLIENT_CANONICAL_ENDPOINT=PASS'
-            echo 'SERVER_AUTHORITY_ISOLATION=PASS'
-            echo 'AUTO_DEAL_DISCOVERY=PASS'
-            echo 'ADMIN_READ_MODEL_REUSE=PASS'
+            echo 'SERVER_AUTHORITY_SOURCE_CONTRACT=PASS'
+            echo 'INTERNAL_CANONICAL_CORE=PASS'
+            echo 'REAL_BACKEND_ACCEPTANCE=SEPARATE_REQUIRED'
+            echo 'MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
             echo 'HARD_RELOAD_READY=PASS'
             echo 'DEAL_SWITCH_ISOLATION=PASS'
             echo 'BACKGROUND_REFRESH=PASS'
@@ -174,5 +192,5 @@ jobs:
             /tmp/issue670-changed.txt
             /tmp/issue670-allowed.txt
             /tmp/issue670-unexpected.txt
-            /tmp/issue670-browser.log
+            /tmp/issue670-frontend-fixture-browser.log
             /tmp/issue670-final.txt
