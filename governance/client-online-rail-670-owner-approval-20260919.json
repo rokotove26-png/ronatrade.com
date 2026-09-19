@@ -5,7 +5,7 @@
   "issue_url": "https://github.com/rokotove26-png/ronatrade.com/issues/670",
   "owner_login": "rokotove26-png",
   "scope": "CLIENT_ONLINE_RAIL_PRODUCTION_PARITY_WITH_ADMIN",
-  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation. Corrective owner instruction after live production comparison: remove Client-only Rail layout divergence and restore the same route rendering/geometry visible in Admin Online Rail.",
+  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation. Corrective owner instruction after live production comparison: remove Client-only Rail layout divergence and restore the same route rendering/geometry visible in Admin Online Rail. Owner production screenshot series 6 confirms that the route polyline is still not visible in Client Online Rail although wagon positions render; apply a Client-only route-overlay correction without changing Admin Rail or business data.",
   "approved_protected_files": [
     "assets/portal-runtime/client-rail-canonical-hero-v1.js",
     "scripts/attach-client-rail-production-v1.mjs"
@@ -18,8 +18,8 @@
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "a374227b94836eec3bd24546083172bda3e96126",
-      "required_marker": "20260919-admin-visual-parity-route-v2"
+      "authorized_post_blob_sha": "c44a8578217541e66c3771f098332a64dcd3dc1e",
+      "required_marker": "20260919-route-overlay-v3"
     }
   },
   "requirements": {
@@ -43,7 +43,9 @@
     "route_geometry_must_match_admin_online_rail": true,
     "client_only_operational_layout_overrides": false,
     "primary_admin_backend_unchanged": true,
-    "paid_resources_used": false
+    "paid_resources_used": false,
+    "visible_route_polyline_required": true,
+    "owner_screenshot_series_6_reproduced_defect": true
   },
   "corrective_owner_context": {
     "authorized_in_chat": true,
@@ -51,6 +53,17 @@
     "production_baseline": "f3ce11c59778384bf9c83fc9df09e7376dc324d5",
     "scope": "CLIENT_RAIL_ADMIN_VISUAL_PARITY_ROUTE_CORRECTION_V2",
     "admin_backend_must_remain_unchanged": true,
+    "paid_resources_forbidden": true
+  },
+  "corrective_owner_context_v3": {
+    "authorized_in_chat": true,
+    "authorized_at": "2026-09-19",
+    "evidence": "OWNER_SCREENSHOT_SERIES_6_ROUTE_POLYLINE_NOT_VISIBLE",
+    "production_baseline": "288a3c09176f7db8e8185e0aa0d3788643793a53",
+    "scope": "CLIENT_RAIL_VISIBLE_ROUTE_OVERLAY_CORRECTION_V3",
+    "admin_backend_must_remain_unchanged": true,
+    "admin_rail_source_files_must_remain_unchanged": true,
+    "business_data_mutation_forbidden": true,
     "paid_resources_forbidden": true
   }
 }

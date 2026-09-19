@@ -89,18 +89,19 @@ try{
   const errors=[];page.on('pageerror',e=>errors.push(String(e?.message||e)));page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text())});
   await page.goto(origin+'/portal/client',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey&&document.querySelector('.rona-rail-v6-select'),{timeout:8000});
-  await page.waitForFunction(()=>document.querySelectorAll('.rona-rail-v7-route-svg polyline').length>=2&&window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__?.plannedPoints>=2,{timeout:8000});
+  await page.waitForFunction(()=>document.querySelectorAll('.rona-client-rail-route-overlay-v3 polyline').length>=2&&window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__?.plannedPoints>=2&&window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__?.renderedPointCount>=2,{timeout:8000});
 
   let options=await page.locator('.rona-rail-v6-select option').evaluateAll(xs=>xs.map(x=>({value:x.value,text:x.textContent})));
   assert(options.length===2&&options[0].value===DEAL_A&&options[1].value===DEAL_B,'server-derived deal selector mismatch '+JSON.stringify(options));
-  let view=await page.evaluate(()=>({state:{...window.__RONA_RAIL_CURRENT_STATE__},text:document.querySelector('#page-monitoring')?.textContent||'',authority:{...window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__},routeParity:{...window.__RONA_CLIENT_RAIL_ROUTE_PARITY__},mapParity:{...window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__},routeLines:document.querySelectorAll('.rona-rail-v7-route-svg polyline').length,workColumns:getComputedStyle(document.querySelector('.rona-rail-v4-work')).gridTemplateColumns,leftRows:getComputedStyle(document.querySelector('.rona-rail-v4-left')).gridTemplateRows}));
+  let view=await page.evaluate(()=>{const lines=[...document.querySelectorAll('.rona-client-rail-route-overlay-v3 polyline')];return{state:{...window.__RONA_RAIL_CURRENT_STATE__},text:document.querySelector('#page-monitoring')?.textContent||'',authority:{...window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__},routeParity:{...window.__RONA_CLIENT_RAIL_ROUTE_PARITY__},mapParity:{...window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__},overlay:{...window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__},routeLines:lines.length,visibleRouteLines:lines.filter(n=>{const cs=getComputedStyle(n);return cs.display!=='none'&&cs.visibility!=='hidden'&&parseFloat(cs.opacity||'1')>0&&cs.stroke!=='none'&&parseFloat(cs.strokeWidth||'0')>0}).length,workColumns:getComputedStyle(document.querySelector('.rona-rail-v4-work')).gridTemplateColumns,leftRows:getComputedStyle(document.querySelector('.rona-rail-v4-left')).gridTemplateRows}});
   assert(view.state.railCount===1&&view.state.wagonCount===1,'initial deal state not ready '+JSON.stringify(view.state));
   assert(view.text.includes('GU12-DEAL-QA-A')&&view.text.includes('90000001'),'initial canonical Rail content missing');
   assert(!view.text.includes('GU12-DEAL-QA-B'),'other own deal leaked before selector switch');
   assert(view.authority.source==='AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','wrong client authority source');
   assert(view.routeParity.version==='CLIENT_ADMIN_ROUTE_PARITY_V2'&&view.routeParity.routeReadyDeals===2,'route parity normalization missing '+JSON.stringify(view.routeParity));
-  assert(view.mapParity.version==='CLIENT_ADMIN_ROUTE_PARITY_V2'&&view.mapParity.plannedPoints>=2,'map route parity state missing '+JSON.stringify(view.mapParity));
-  assert(view.routeLines>=2,'Admin route geometry was not rendered '+JSON.stringify(view));
+  assert(view.mapParity.version==='CLIENT_ADMIN_ROUTE_PARITY_V3'&&view.mapParity.plannedPoints>=2,'map route parity state missing '+JSON.stringify(view.mapParity));
+  assert(view.overlay.version==='CLIENT_RAIL_ROUTE_OVERLAY_V3'&&view.overlay.renderedPointCount>=2,'production route overlay state missing '+JSON.stringify(view.overlay));
+  assert(view.routeLines>=2&&view.visibleRouteLines>=2,'Admin route geometry was not visibly rendered '+JSON.stringify(view));
   assert(view.workColumns&&!view.workColumns.includes('1.55fr'),'Client-only operational grid override survived '+JSON.stringify(view));
   assert(view.leftRows!=='1fr 1fr','Client-only equal-height left rows survived '+JSON.stringify(view));
   assert(!view.text.includes('Получаем актуальные ГУ-12 и позиции вагонов.'),'loading shell survived successful load');
@@ -108,10 +109,10 @@ try{
 
   await page.locator('.rona-rail-v6-select').selectOption(DEAL_B);
   await page.waitForFunction(key=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey===key,DEAL_B);
-  await page.waitForFunction(key=>window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__?.dealKey===key&&document.querySelectorAll('.rona-rail-v7-route-svg polyline').length>=2,DEAL_B,{timeout:5000});
-  view=await page.evaluate(()=>({state:{...window.__RONA_RAIL_CURRENT_STATE__},text:document.querySelector('#page-monitoring')?.textContent||'',map:{...window.__RONA_RAIL_MAP_ACTIVE_VIEW__},mapParity:{...window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__},routeLines:document.querySelectorAll('.rona-rail-v7-route-svg polyline').length}));
+  await page.waitForFunction(key=>window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__?.dealKey===key&&window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__?.dealKey===key&&document.querySelectorAll('.rona-client-rail-route-overlay-v3 polyline').length>=2,DEAL_B,{timeout:5000});
+  view=await page.evaluate(()=>({state:{...window.__RONA_RAIL_CURRENT_STATE__},text:document.querySelector('#page-monitoring')?.textContent||'',map:{...window.__RONA_RAIL_MAP_ACTIVE_VIEW__},mapParity:{...window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__},overlay:{...window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__},routeLines:document.querySelectorAll('.rona-client-rail-route-overlay-v3 polyline').length}));
   assert(view.text.includes('GU12-DEAL-QA-B')&&!view.text.includes('GU12-DEAL-QA-A'),'deal switch inherited another deal');
-  assert(view.mapParity.dealKey===DEAL_B&&view.routeLines>=2,'route geometry did not follow deal switch '+JSON.stringify(view));
+  assert(view.mapParity.dealKey===DEAL_B&&view.overlay.dealKey===DEAL_B&&view.routeLines>=2,'route geometry did not follow deal switch '+JSON.stringify(view));
 
   const beforeAuto=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
   await sleep(520);
@@ -143,6 +144,7 @@ try{
   console.log('ISSUE670_HARD_RELOAD_READY=PASS');
   console.log('ISSUE670_SERVER_DEAL_SELECTOR=PASS');
   console.log('ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS');
+  console.log('ISSUE670_ROUTE_OVERLAY_V3_VISIBLE=PASS');
   console.log('ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS');
   console.log('ISSUE670_DEAL_SWITCH_ISOLATION=PASS');
   console.log('ISSUE670_BACKGROUND_REFRESH=PASS');
