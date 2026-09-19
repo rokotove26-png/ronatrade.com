@@ -31,6 +31,15 @@ function snapshot(){
     },
     exchange:{status:'HEALTHY',active_targets:0,conflicts:0,last_success:null},
     plannedRouteByDeal:{
+      [DEAL_A]:{
+        points:[
+          {lat:53.90,lng:27.56,station:'AUTH Route A Start',stationCode:'QA-A100'},
+          {lat:51.17,lng:71.43,station:'AUTH Route A Mid',stationCode:'QA-A150'},
+          {lat:41.31,lng:69.28,station:'AUTH Route A End',stationCode:'QA-A200'}
+        ],
+        geometry:{type:'LineString',coordinates:[[27.56,53.90],[71.43,51.17],[69.28,41.31]]},
+        provenance:{source:'QA_FIXTURE_ONLY',sourceRef:'issue-644-browser-authoritative'}
+      },
       [DEAL_B]:{
         points:[
           {lat:55.75,lng:37.62,station:'QA Route Start',stationCode:'QA100'},
@@ -42,6 +51,24 @@ function snapshot(){
     }
   };
 }
+
+function staleSnapshot(){
+  const data=snapshot();
+  delete data.railReadModel;
+  data.plannedRouteByDeal={
+    [DEAL_A]:{
+      points:[
+        {lat:44.82,lng:20.46,station:'STALE Route A Start',stationCode:'STALE-A100'},
+        {lat:39.93,lng:32.86,station:'STALE Route A Wrong Mid',stationCode:'STALE-A150'},
+        {lat:28.61,lng:77.21,station:'STALE Route A Wrong End',stationCode:'STALE-A200'}
+      ],
+      geometry:{type:'LineString',coordinates:[[20.46,44.82],[32.86,39.93],[77.21,28.61]]},
+      provenance:{source:'STALE_ADMIN_SNAPSHOT',sourceRef:'first-open-regression'}
+    }
+  };
+  return data;
+}
+const initialStaleSnapshot=staleSnapshot();
 
 const html=[
 '<!doctype html>',
@@ -57,7 +84,7 @@ const html=[
 '</style>',
 '<script>',
 'window.__RONA_OWNER_ADMIN_READY__=true;',
-'window.__RONA_OWNER_ADMIN_SNAPSHOT__=null;',
+'window.__RONA_OWNER_ADMIN_SNAPSHOT__='+JSON.stringify(initialStaleSnapshot)+';',
 'document.addEventListener("click",function(e){const b=e.target.closest&&e.target.closest("#nav button[data-page]");if(!b)return;const id=b.dataset.page;document.querySelectorAll(".page").forEach(p=>p.classList.toggle("active",p.id==="page-"+id));document.querySelectorAll("#nav button[data-page]").forEach(x=>x.classList.toggle("active",x===b));document.documentElement.dataset.ronaAdminPage=id;});',
 '</script></head><body class="admin-auth-server-verified">',
 '<nav id="nav">',
@@ -96,6 +123,7 @@ const server=http.createServer((req,res)=>{
       delete data.plannedRouteByDeal;
       data.rail=data.rail.map(doc=>({...doc,wagons:[]}));
     }
+    if(bootstrapRequests===1)return setTimeout(()=>json(res,{ok:true,data}),350);
     return json(res,{ok:true,data});
   }
   if(u.pathname==='/qa/degrade'){degradeRailReadModel=true;return json(res,{ok:true,degradeRailReadModel});}
@@ -134,6 +162,19 @@ try{
   page.on('console',m=>{if(m.type()==='error'&&!/Failed to load resource/.test(m.text()))errors.push(m.text())});
 
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
+  await sleep(100);
+  const firstOpenGuard=await page.evaluate(()=>({
+    ready:!!document.querySelector('#page-monitoring [data-rail-current-v4="ready"],#page-monitoring [data-rail-current-root="ready"]'),
+    loading:!!document.querySelector('#page-monitoring [data-rail-current-v4="loading"]'),
+    map:!!document.querySelector('.rona-rail-v7-map-viewport'),
+    authority:window.__RONA_RAIL_FIRST_PAINT_AUTHORITY__?{...window.__RONA_RAIL_FIRST_PAINT_AUTHORITY__}:null,
+    staleVisible:(document.querySelector('#page-monitoring')?.textContent||'').includes('STALE Route A')
+  }));
+  assert(firstOpenGuard.ready===false,'stale owner snapshot rendered a ready Rail workspace before authoritative bootstrap');
+  assert(firstOpenGuard.loading===true,'first open did not hold the loading shell while waiting for authoritative Rail read model');
+  assert(firstOpenGuard.map===false,'stale first-open map mounted before authoritative Rail read model');
+  assert(firstOpenGuard.authority?.mode==='WAIT_FOR_AUTHORITATIVE_READ_MODEL','first-open authority guard did not block stale owner snapshot');
+  assert(firstOpenGuard.staleVisible===false,'stale first-open route leaked into the visible Rail workspace');
   await page.waitForFunction(()=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey&&document.querySelector('.rona-rail-v7-map-viewport'),{timeout:6000});
 
   const selector=page.locator('.rona-rail-v6-select');
@@ -158,6 +199,13 @@ try{
   assert(initial.contract?.selectionKey==='deal_key','map contract does not use canonical deal key');
   assert(initial.contract?.wagonPositions?.sourcePolicy==='EXPEDITOR_XLSX_VIA_RAIL_AI','wrong wagon-position source policy');
   assert(initial.contract?.wagonPositions?.productionPolling===false,'production polling must remain disabled');
+  const firstAuthoritative=await page.evaluate(()=>({
+    authority:window.__RONA_RAIL_FIRST_PAINT_AUTHORITY__?{...window.__RONA_RAIL_FIRST_PAINT_AUTHORITY__}:null,
+    route:JSON.parse(JSON.stringify(window.__RONA_RAIL_MAP_DATA__?.plannedRoute||null))
+  }));
+  assert(firstAuthoritative.authority?.mode==='AUTHORITATIVE_READ_MODEL','first-open Rail workspace was not committed from the authoritative read model');
+  assert(firstAuthoritative.route?.points?.[0]?.station==='AUTH Route A Start','first-open map did not use the authoritative selected-deal route');
+  assert(!(firstAuthoritative.route?.points||[]).some(p=>String(p?.station||'').startsWith('STALE')),'stale route survived authoritative first paint');
 
   const plus=page.getByRole('button',{name:'Приблизить карту'});
   await plus.click();await plus.click();await plus.click();
