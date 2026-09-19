@@ -26,7 +26,7 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v4-card h2{margin:0 0 14px!important;color:#e9f6fb!important;font-size:19px!important;line-height:1.18!important;font-weight:840!important;letter-spacing:-.012em!important}',
     '.rona-rail-v4-left>.rona-rail-v4-card{height:auto!important;min-height:0!important;display:flex!important;flex-direction:column!important}',
     '.rona-rail-v4-left>.rona-rail-v4-card .rona-rail-v4-table-wrap{flex:1 1 auto!important}',
-    '.rona-rail-v4-work>.rona-rail-v4-card{height:810px!important;max-height:810px!important;min-height:810px!important;overflow:hidden!important;align-self:start!important;display:flex!important;flex-direction:column!important}',
+    '.rona-rail-v4-work>.rona-rail-v4-card{height:960px!important;max-height:960px!important;min-height:960px!important;overflow:hidden!important;align-self:start!important;display:flex!important;flex-direction:column!important}',
 
     '.rona-rail-v4-kpis{gap:10px!important}',
     '.rona-rail-v4-kpi{position:relative!important;overflow:hidden!important;min-height:78px!important;padding:14px 14px 13px 16px!important;border-radius:11px!important;background:rgba(5,17,29,.55)!important;border-color:rgba(110,190,220,.12)!important}',
@@ -88,7 +88,7 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v4-matrix-preserved th{color:#83b8ca!important;font-size:9.5px!important;letter-spacing:.04em!important;text-transform:uppercase!important}',
     '.rona-rail-v4-matrix-preserved th,.rona-rail-v4-matrix-preserved td{padding:8px 8px!important;line-height:1.35!important}',
     '#page-monitoring>.rona-owner-page-content>section,#page-monitoring>.rona-owner-page-content>.rona-owner-card{width:100%!important;max-width:1584px!important;margin-left:auto!important;margin-right:auto!important}',
-    '@media(max-width:1180px){#page-monitoring>.rona-owner-page-content{max-width:100%!important}.rona-rail-v4-work{grid-template-columns:minmax(340px,.96fr) minmax(480px,1.36fr)!important}.rona-rail-v4-work>.rona-rail-v4-card{height:810px!important;min-height:810px!important;max-height:810px!important}.rona-rail-v7-real{min-height:0!important}}',
+    '@media(max-width:1180px){#page-monitoring>.rona-owner-page-content{max-width:100%!important}.rona-rail-v4-work{grid-template-columns:minmax(340px,.96fr) minmax(480px,1.36fr)!important}.rona-rail-v4-work>.rona-rail-v4-card{height:960px!important;min-height:960px!important;max-height:960px!important}.rona-rail-v7-real{min-height:0!important}}',
     '@media(max-width:1040px){.rona-rail-v4-work{grid-template-columns:1fr!important}.rona-rail-v4-work>.rona-rail-v4-card{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}.rona-rail-v7-real{height:auto!important;min-height:380px!important}}',
     '@media(max-width:680px){.rona-rail-v7-real{min-height:340px!important}.rona-rail-v7-real .rona-rail-v4-map-canvas{inset:40px 6px 6px!important}}'
   ].join('');
@@ -145,12 +145,32 @@ function ensureRailTariffPanel(){
     return true
   }catch(_e){return false}
 }
-var RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT=810;
+var RONA_RAIL_FALLBACK_DESKTOP_CARD_HEIGHT=960;
+function railFrozenDesktopCardHeight(left,right){
+  var frozen=Number(window.__RONA_RAIL_FROZEN_DESKTOP_CARD_HEIGHT__);
+  if(Number.isFinite(frozen)&&frozen>=320)return Math.round(frozen);
+  var selectedId=String(window.__RONA_RAIL_SELECTED_DEAL_ID__||'');
+  if(selectedId==='DEAL-2026-004'&&left&&right){
+    var leftRect=left.getBoundingClientRect(),rightRect=right.getBoundingClientRect();
+    var measured=Math.round(leftRect.bottom-rightRect.top);
+    if(measured>=700&&measured<=1400){
+      window.__RONA_RAIL_FROZEN_DESKTOP_CARD_HEIGHT__=measured;
+      window.__RONA_RAIL_MAP_HEIGHT_BASELINE__={
+        mode:'OWNER_FRAME_BOTTOM_FROZEN',
+        sourceDealId:selectedId,
+        fixedHeight:measured,
+        capturedAt:new Date().toISOString()
+      };
+      return measured
+    }
+  }
+  return RONA_RAIL_FALLBACK_DESKTOP_CARD_HEIGHT
+}
 function alignRailMapHeightToOperations(){
   try{
     var page=q('#page-monitoring');if(!page)return false;
-    var work=q('.rona-rail-v4-work',page),right=work&&q(':scope > .rona-rail-v4-card',work);
-    if(!work||!right)return false;
+    var work=q('.rona-rail-v4-work',page),left=work&&q('.rona-rail-v4-left',work),right=work&&q(':scope > .rona-rail-v4-card',work);
+    if(!work||!left||!right)return false;
     var map=q('.rona-rail-v7-real',right);
     if(window.matchMedia&&window.matchMedia('(max-width:1040px)').matches){
       right.style.removeProperty('height');
@@ -165,7 +185,7 @@ function alignRailMapHeightToOperations(){
       }
       return true
     }
-    var fixedHeight=RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT;
+    var fixedHeight=railFrozenDesktopCardHeight(left,right);
     right.style.setProperty('height',fixedHeight+'px','important');
     right.style.setProperty('min-height',fixedHeight+'px','important');
     right.style.setProperty('max-height',fixedHeight+'px','important');
@@ -180,7 +200,12 @@ function alignRailMapHeightToOperations(){
       var state=q('.rona-rail-v4-map-canvas',map);
       if(state&&state.__ronaRailMapState&&typeof railMapRequestDraw==='function')railMapRequestDraw(state.__ronaRailMapState)
     }
-    window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT__={mode:'FIXED_DESKTOP',fixedHeight:fixedHeight,dealKey:window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,appliedAt:new Date().toISOString()};
+    window.__RONA_RAIL_MAP_HEIGHT_ALIGNMENT__={
+      mode:'FROZEN_OWNER_FRAME_BOTTOM',
+      fixedHeight:fixedHeight,
+      dealKey:window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,
+      appliedAt:new Date().toISOString()
+    };
     return true
   }catch(_e){return false}
 }
@@ -257,7 +282,7 @@ export async function onRequest(context){
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('expires','0');
-  headers.set('x-rona-rail-ui','current-v8.11-accepted-map-height');headers.set('x-rona-rail-map-size','fixed-desktop-810-v1');
+  headers.set('x-rona-rail-ui','current-v8.12-frozen-owner-frame-height');headers.set('x-rona-rail-map-size','frozen-owner-frame-bottom-v2');
   headers.set('x-rona-rail-stage-a','deal-owned-map-persistence-v1');
   headers.delete('content-length');
   headers.delete('etag');
