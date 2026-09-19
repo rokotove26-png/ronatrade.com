@@ -231,6 +231,7 @@ export async function onRequest(context){
     .replace(NOTE_STYLE_FROM,NOTE_STYLE_TO)
     .replace(REPAIR_ANCHOR,REPAIR_RUNTIME)
     .replace('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);','host.replaceChildren(root);isolate(page,host);dedupeOnlineRail(host);if(typeof removeRailTariffPanel===\'function\')removeRailTariffPanel();if(typeof scheduleRailMapHeightAlignment===\'function\')scheduleRailMapHeightAlignment();');
+  source=source.split('if(matrix)host.append(matrix);').join('if(matrix)matrix.remove();');
 
   const headers=new Headers(response.headers);
   headers.set('cache-control','no-store, no-cache, must-revalidate');
