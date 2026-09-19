@@ -573,8 +573,8 @@ begin
 
   with ev as (
     select e.station_code,max(e.station_name) station_name,
-           min(coalesce(e.parsed_event_at,e.source_received_at)) first_seen_at,
-           max(coalesce(e.parsed_event_at,e.source_received_at)) last_seen_at
+           min(coalesce(e.parsed_event_at,e.event_at_local at time zone 'UTC',e.source_received_at)) first_seen_at,
+           max(coalesce(e.parsed_event_at,e.event_at_local at time zone 'UTC',e.source_received_at)) last_seen_at
     from portal_private.rail_xlsx_dislocation_effective_v1 e
     where e.effective_deal_key=p_deal_key and e.position_status='TRUSTED' and coalesce(e.is_superseded,false)=false
       and e.station_code is not null
