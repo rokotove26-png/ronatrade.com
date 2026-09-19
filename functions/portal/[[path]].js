@@ -126,7 +126,7 @@ async function authLogout(accessToken) {
     });
   } catch (_) {}
 }
-async function upstream(accessToken, path, request = null, impersonationToken = '') {
+async function upstream(accessToken, path, request = null, impersonationToken = '', impersonationTab = '') {
   const headers = new Headers({ apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}`, accept: 'application/json' });
   if (request) {
     for (const name of ['content-type', 'x-request-id', 'x-correlation-id', 'x-idempotency-key']) {
@@ -134,7 +134,12 @@ async function upstream(accessToken, path, request = null, impersonationToken = 
       if (value) headers.set(name, value);
     }
   }
-  if(impersonationToken){headers.set('x-rona-admin-impersonation-token',impersonationToken);if(!headers.has('x-request-id'))headers.set('x-request-id',crypto.randomUUID());if(!headers.has('x-correlation-id'))headers.set('x-correlation-id',crypto.randomUUID());}
+  if(impersonationToken){
+    headers.set('x-rona-admin-impersonation-token',impersonationToken);
+    if(impersonationTab)headers.set('x-rona-impersonation-tab',impersonationTab);
+    if(!headers.has('x-request-id'))headers.set('x-request-id',crypto.randomUUID());
+    if(!headers.has('x-correlation-id'))headers.set('x-correlation-id',crypto.randomUUID());
+  }
   const init = { method: request?.method || 'GET', headers };
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   return fetch(`${PORTAL_API}${path}`, init);
@@ -301,13 +306,13 @@ async function resolveAdminImpersonationForRequest(request,session){
     return{state:'UNAVAILABLE',token};
   }catch(_){return{state:'UNAVAILABLE',token}}
 }
-function impersonationReturnBridge(returnView){
+function impersonationReturnBridge(returnView,sessionId){
   const target='/portal/admin?accessView='+(returnView==='agents'?'agents':'companies');
-  return `<script id="rona-admin-impersonation-return">(()=>{'use strict';const TARGET=${JSON.stringify(target)};const nativeFetch=window.fetch.bind(window);window.fetch=async(...args)=>{const r=await nativeFetch(...args);if(r.headers.get('x-rona-impersonation-ended')==='1'){location.replace(TARGET)}return r};function bind(){if(document.getElementById('ronaReturnAdmin'))return;const candidates=[...document.querySelectorAll('button,a')];const logout=candidates.find(x=>/^(выход|выйти|logout)$/i.test(String(x.textContent||'').trim()))||document.querySelector('#logoutBtn,#ronaLogout,[data-action="logout"]');if(!logout)return;const b=document.createElement('button');b.id='ronaReturnAdmin';b.type='button';b.className=logout.className||'';b.textContent='Вернуться в раздел администратора';b.setAttribute('aria-label','Вернуться в раздел администратора');b.addEventListener('click',async e=>{e.preventDefault();b.disabled=true;try{await nativeFetch('/portal/admin-authority/impersonation/end',{method:'POST',credentials:'same-origin',headers:{accept:'application/json'}})}finally{location.replace(TARGET)}});logout.parentNode?.insertBefore(b,logout)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
+  return `<script id="rona-admin-impersonation-return">(()=>{'use strict';const TARGET=${JSON.stringify(target)},SESSION=${JSON.stringify(sessionId)};const nativeFetch=window.fetch.bind(window);window.fetch=async(input,init={})=>{let nextInput=input,nextInit=init;try{const raw=typeof input==='string'?input:(input&&input.url)||'',u=new URL(raw,location.href);if(u.origin===location.origin&&(u.pathname.startsWith('/portal/api/')||u.pathname==='/portal/owner-api')){const h=new Headers((init&&init.headers)||(input instanceof Request?input.headers:undefined));h.set('x-rona-impersonation-tab',SESSION);if(input instanceof Request){nextInput=new Request(input,{...init,headers:h});nextInit=undefined}else nextInit={...init,headers:h}}}catch(_e){}const r=await nativeFetch(nextInput,nextInit);if(r.headers.get('x-rona-impersonation-ended')==='1'){location.replace(TARGET)}return r};function bind(){if(document.getElementById('ronaReturnAdmin'))return;const candidates=[...document.querySelectorAll('button,a')];const logout=candidates.find(x=>/^(выход|выйти|logout)$/i.test(String(x.textContent||'').trim()))||document.querySelector('#logoutBtn,#ronaLogout,[data-action="logout"]');if(!logout)return;const b=document.createElement('button');b.id='ronaReturnAdmin';b.type='button';b.className=logout.className||'';b.textContent='Вернуться в раздел администратора';b.setAttribute('aria-label','Вернуться в раздел администратора');b.addEventListener('click',async e=>{e.preventDefault();b.disabled=true;try{await nativeFetch('/portal/admin-authority/impersonation/end',{method:'POST',credentials:'same-origin',headers:{accept:'application/json'}})}finally{location.replace(TARGET)}});logout.parentNode?.insertBefore(b,logout)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
 }
-async function requireRealClientContext(session,impersonationToken='') {
+async function requireRealClientContext(session,impersonationToken='',impersonationTab='') {
   try {
-    const r=await upstream(session.access,'/v1/client/bootstrap',null,impersonationToken);
+    const r=await upstream(session.access,'/v1/client/bootstrap',null,impersonationToken,impersonationTab);
     const j=await r.json().catch(()=>null);
     const contexts=Array.isArray(j?.data?.contexts)?j.data.contexts:[];
     return { ok:r.ok && j?.ok===true && contexts.length>0, contexts };
@@ -323,14 +328,16 @@ async function serveStaticProtected(context, session, kind) {
     impersonation=await resolveAdminImpersonationForRequest(context.request,session);
     if(impersonation.state==='UNAVAILABLE')return html(unavailablePage(expected),503,session.setCookies);
     const expectedRole=kind==='agent'?'AGENT':'CLIENT';
-    if(impersonation.state!=='VALID'||String(impersonation.data?.effectiveRole)!==expectedRole){
+    const tabSession=String(new URL(context.request.url).searchParams.get('impSession')||'');
+    if(impersonation.state!=='VALID'||String(impersonation.data?.effectiveRole)!==expectedRole||tabSession!==String(impersonation.data?.id||'')){
       return redirect('/portal/admin?accessView='+(kind==='agent'?'agents':'companies'),303,[...session.setCookies,clearImpersonationCookie()]);
     }
+    impersonation.tabSession=tabSession;
   }
   if(!normalAllowed&&!impersonation?.data)return html(deniedPage('ROLE_MISMATCH'),403,session.setCookies);
 
   if (kind === 'client') {
-    const gate = await requireRealClientContext(session,impersonation?.token||'');
+    const gate = await requireRealClientContext(session,impersonation?.token||'',impersonation?.tabSession||'');
     if (!gate.ok) {
       if(impersonation?.data)return redirect('/portal/admin?accessView=companies',303,[...session.setCookies,clearImpersonationCookie()]);
       return html(deniedPage('CLIENT_CONTEXT_NOT_AUTHORIZED'), 403, session.setCookies);
@@ -350,7 +357,7 @@ async function serveStaticProtected(context, session, kind) {
       .transform(response);
     return secureResponse(transformed, session.setCookies, true);
   }
-  const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||'')):'';
+  const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||''),String(impersonation.data.id||'')):'';
   if(kind==='client'){
     const transformed=bridge?new HTMLRewriter().on('body',new BodyAppend(bridge)).transform(response):response;
     return secureResponse(transformed,session.setCookies,true);
@@ -372,10 +379,19 @@ async function proxyApi(request) {
   const cookies = parseCookies(request.headers.get('cookie'));
   let access = cookies[ACCESS_COOKIE] || '';
   const refresh = cookies[REFRESH_COOKIE] || '';
-  const impersonationToken=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+  const cookieImpersonation=String(cookies[IMPERSONATION_COOKIE]||'').trim();
   if (!access && !refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, [...clearCookies(),clearImpersonationCookie()]);
   const path = new URL(request.url).pathname.slice('/portal/api'.length) || '/';
-  let upstreamResponse = access ? await upstream(access, path, request, impersonationToken) : null;
+  const targetRoute=/^\/v1\/(client|agent)(\/|$)/.test(path)||path==='/v1/events';
+  const impersonationToken=targetRoute?cookieImpersonation:'';
+  const tabHeader=String(request.headers.get('x-rona-impersonation-tab')||'').trim();
+  const impersonationTab=impersonationToken&&UUID_RE.test(tabHeader)?tabHeader:'';
+  if(impersonationToken&&!impersonationTab){
+    const h=withSecurity(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));
+    h.append('set-cookie',clearImpersonationCookie());
+    return new Response(JSON.stringify({ok:false,code:'IMPERSONATION_TAB_INVALID',returnTo:'/portal/admin'}),{status:409,headers:h});
+  }
+  let upstreamResponse = access ? await upstream(access, path, request, impersonationToken, impersonationTab) : null;
   let setCookies = [];
   if (!upstreamResponse || upstreamResponse.status === 401) {
     if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, [...clearCookies(),clearImpersonationCookie()]);
@@ -383,7 +399,7 @@ async function proxyApi(request) {
     if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},409);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,[...clearCookies(),clearImpersonationCookie()])}
     access = next.data.access_token;
     setCookies = tokenCookies(next.data);
-    upstreamResponse = await upstream(access, path, request, impersonationToken);
+    upstreamResponse = await upstream(access, path, request, impersonationToken, impersonationTab);
   }
   if(impersonationToken&&upstreamResponse.status===401){
     const headers=withSecurity(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));
