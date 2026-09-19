@@ -8,11 +8,11 @@ const adminCanonPath='functions/portal/rail-current-v81-maplibre-ui.js';
 const adminBasePath='functions/portal/rail-current-v4-ui.js';
 const heroRuntimePath='dist/assets/portal-runtime/client-rail-canonical-hero-v1.js';
 const id='rona-client-rail-admin-canonical-v1';
-const src='/portal/client-rail-current-ui?v=20260831-admin-canonical-v1';
-const marker='20260831-admin-canonical-v1';
+const src='/portal/client-rail-current-ui?v=20260919-admin-visual-parity-route-v2';
+const marker='20260919-admin-visual-parity-route-v2';
 const heroId='rona-client-rail-canonical-hero-v1';
-const heroSrc='/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260831-client-canonical-hero-v1';
-const heroMarker='20260831-client-rail-canonical-hero-v1';
+const heroSrc='/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2';
+const heroMarker='20260919-client-rail-admin-visual-parity-v2';
 const staticHostMarker='current-only-v2';
 const staticStyleId='rona-client-rail-current-only-v2-style';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
@@ -26,6 +26,9 @@ for(const required of [
   "ADMIN_CURRENT_V81_CANONICAL",
   "admin-current-v81-client-authority-v1",
   "AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1",
+  "CLIENT_ADMIN_ROUTE_PARITY_V2",
+  "clientRailNormalizeRouteParity",
+  "clientRailRepairMapParity",
   "x-rona-client-rail-visual-canon",
   "rona-rail-v4-root",
   "rona-rail-v4-work",
@@ -62,6 +65,8 @@ for(const required of [
   'Автообновление · 30 с',
   'Обновить',
   'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY',
+  'CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2',
+  "layout_override:'NONE_OPERATIONAL_BODY'",
   'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'
 ]){
   if(!heroRuntime.includes(required))throw new Error(`CLIENT_RAIL_CANONICAL_HERO_CONTRACT_MISSING: ${required}`);
@@ -151,9 +156,9 @@ integrity.client_runtime.rail_client_admin_canonical={
   marker,
   route:'/portal/client',
   scope:'ONLINE_RAIL_CURRENT_ONLY_SOURCE_HOST',
-  visual_canon:'CLIENT_CANONICAL_RAIL_HERO_V1',
-  visual_contract:'CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY',
-  visual_source_mode:'CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER',
+  visual_canon:'ADMIN_CURRENT_V81_EXACT_OPERATIONAL_LAYOUT',
+  visual_contract:'ADMIN_CURRENT_V8_2_OPERATIONAL_BODY_PLUS_CLIENT_AUTHORITY',
+  visual_source_mode:'ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE',
   operational_body_canon:'/portal/rail-current-v81-maplibre-ui',
   host_mode:'BUILD_TIME_CURRENT_ONLY_SOURCE_HOST',
   static_host:before.id,
@@ -170,7 +175,7 @@ integrity.client_runtime.rail_client_admin_canonical={
     title:'Онлайн ЖД',
     subtitle:'Операционная картина железнодорожных отправок по данным клиентского контура.',
     refresh_label:'Автообновление · 30 с',
-    refresh_action:'Обновить'
+    refresh_action:null
   },
   client_data_source:'/portal/api/v1/client/rail-canonical',
   client_authority:'AUTHENTICATED_CLIENT_CONTRACT',
