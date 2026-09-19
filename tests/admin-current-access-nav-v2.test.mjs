@@ -41,6 +41,9 @@ assert(!source.includes('installNavigationStability'),'Access page must not inst
 assert(!source.includes('installShellParity'),'Access page must not restyle the global shell');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Navigation must be owned by current shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must live in shell');
+assert(shell.includes('/assets/portal-admin-shell-fast-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the stability shell runtime');
+assert(shell.includes('/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the Access current runtime');
+assert(shell.includes('/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell must cache-bust the stability watchdog runtime');
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'"),'Access runtime boot lifecycle marker missing');
 assert(source.includes('window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair'),'Access runtime in-place repair hook missing');
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'"),'Access runtime must preserve last-good workspace on transient refresh failure');
