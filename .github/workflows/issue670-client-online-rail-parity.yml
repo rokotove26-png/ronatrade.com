@@ -21,10 +21,11 @@ on:
       - '.github/workflows/client-rail-admin-canonical-qa.yml'
       - '.github/workflows/issue670-client-online-rail-parity.yml'
       - '.github/workflows/issue670-client-rail-real-integration.yml'
-      - 'functions/portal/api/[[path]].js'
+      - 'functions/portal/api/**'
       - 'supabase/functions/rona-portal-api-candidate-20260817/**'
       - 'tests/client-rail-isolated-backend-after-incident.test.mjs'
       - '.github/workflows/client-rail-isolated-backend-after-incident.yml'
+      - '.github/workflows/client-rail-admin-visual-parity-v2.yml'
   workflow_dispatch:
 
 permissions:
@@ -77,6 +78,7 @@ jobs:
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-canonical-projection-v1.mjs'
             echo 'tests/client-rail-isolated-backend-after-incident.test.mjs'
             echo '.github/workflows/client-rail-isolated-backend-after-incident.yml'
+            echo '.github/workflows/client-rail-admin-visual-parity-v2.yml'
           } | sort -u > /tmp/issue670-allowed.txt
           comm -23 /tmp/issue670-changed.txt /tmp/issue670-allowed.txt | tee /tmp/issue670-unexpected.txt
           if test -s /tmp/issue670-unexpected.txt; then
@@ -125,7 +127,7 @@ jobs:
           set -euo pipefail
           npm run build
           test -s dist/portal/client.html
-          grep -q '/portal/client-rail-current-ui?v=20260831-admin-canonical-v1' dist/portal/client.html
+          grep -q '/portal/client-rail-current-ui?v=20260919-admin-visual-parity-route-v2' dist/portal/client.html
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
@@ -150,6 +152,8 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/qa-client-online-rail-670-browser.mjs | tee /tmp/issue670-frontend-fixture-browser.log
+          grep -F 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/issue670-frontend-fixture-browser.log
+          grep -F 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/issue670-frontend-fixture-browser.log
           echo 'ISSUE670_MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
 
       - name: Frozen Admin / unrelated-domain guard
@@ -184,6 +188,8 @@ jobs:
             echo 'MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
             echo 'HARD_RELOAD_READY=PASS'
             echo 'DEAL_SWITCH_ISOLATION=PASS'
+            echo 'ADMIN_ROUTE_GEOMETRY=PASS'
+            echo 'ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS'
             echo 'BACKGROUND_REFRESH=PASS'
             echo 'DEGRADED_REFRESH_PRESERVE=PASS'
             echo 'CONTEXT_TAMPER_FAIL_CLOSED=PASS'

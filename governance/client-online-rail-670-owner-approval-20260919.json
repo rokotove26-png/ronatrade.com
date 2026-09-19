@@ -5,7 +5,7 @@
   "issue_url": "https://github.com/rokotove26-png/ronatrade.com/issues/670",
   "owner_login": "rokotove26-png",
   "scope": "CLIENT_ONLINE_RAIL_PRODUCTION_PARITY_WITH_ADMIN",
-  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation.",
+  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation. Corrective owner instruction after live production comparison: remove Client-only Rail layout divergence and restore the same route rendering/geometry visible in Admin Online Rail.",
   "approved_protected_files": [
     "assets/portal-runtime/client-rail-canonical-hero-v1.js",
     "scripts/attach-client-rail-production-v1.mjs"
@@ -13,13 +13,13 @@
   "exact_post_blobs": {
     "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
       "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
-      "authorized_post_blob_sha": "0846e0b2ae751254f92e20fc6fa8b1f0c92a1887",
-      "required_marker": "CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY"
+      "authorized_post_blob_sha": "1e591b0432c897881e3bc765335979f287d12cbe",
+      "required_marker": "CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "090d2706ad7e938207b074747492db9a8b286d6a",
-      "required_marker": "client_data_source:'/portal/api/v1/client/rail-canonical'"
+      "authorized_post_blob_sha": "a374227b94836eec3bd24546083172bda3e96126",
+      "required_marker": "20260919-admin-visual-parity-route-v2"
     }
   },
   "requirements": {
@@ -39,6 +39,18 @@
     "system_admin_independent_qa_required": true,
     "owner_visual_acceptance_required": true,
     "merge": "HOLD",
-    "deploy": "HOLD"
+    "deploy": "HOLD",
+    "route_geometry_must_match_admin_online_rail": true,
+    "client_only_operational_layout_overrides": false,
+    "primary_admin_backend_unchanged": true,
+    "paid_resources_used": false
+  },
+  "corrective_owner_context": {
+    "authorized_in_chat": true,
+    "authorized_at": "2026-09-19",
+    "production_baseline": "f3ce11c59778384bf9c83fc9df09e7376dc324d5",
+    "scope": "CLIENT_RAIL_ADMIN_VISUAL_PARITY_ROUTE_CORRECTION_V2",
+    "admin_backend_must_remain_unchanged": true,
+    "paid_resources_forbidden": true
   }
 }

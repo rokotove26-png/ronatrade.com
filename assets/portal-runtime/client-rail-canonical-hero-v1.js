@@ -1,8 +1,8 @@
 (()=>{
   'use strict';
   if(location.pathname!=='/portal/client')return;
-  const MARK='20260831-client-rail-canonical-hero-v1';
-  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY width:100%!important max-width:1584px!important square-map-aligned font-size:28px!important';
+  const MARK='20260919-client-rail-admin-visual-parity-v2';
+  const QA_COMPAT='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2';
   if(window.__RONA_CLIENT_RAIL_CANONICAL_HERO__===MARK)return;
   window.__RONA_CLIENT_RAIL_CANONICAL_HERO__=MARK;
 
@@ -10,184 +10,26 @@
   const KICKER='RONA Trade · Operations';
   const TITLE='Онлайн ЖД';
   const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.';
-  const PAYMENTS_TITLE='Платежи и взаиморасчёты';
-  let timer=0,observer=null,applying=false,paymentsCanon=null;
+  let timer=0,observer=null,applying=false;
 
   const norm=value=>String(value??'').replace(/\s+/g,' ').trim();
-  const num=value=>{const n=parseFloat(value);return Number.isFinite(n)?n:null};
-
-  function decorated(el){
-    if(!el)return false;
-    const s=getComputedStyle(el),bg=s.backgroundColor||'';
-    const alpha=/rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/i.exec(bg);
-    const visibleBg=bg&&bg!=='transparent'&&bg!=='rgba(0, 0, 0, 0)'&&(!alpha||Number(alpha[1])>0);
-    return visibleBg||num(s.borderLeftWidth)>0||num(s.borderTopWidth)>0||s.boxShadow!=='none'||num(s.borderRadius)>0;
-  }
-
-  function paymentsRoot(){
-    for(const selector of ['#page-payments','#paymentsPage','[data-page-panel="payments"]','[data-page-id="payments"]']){
-      const el=document.querySelector(selector);if(el)return el;
-    }
-    return [...document.querySelectorAll('main section,main div,section')].find(el=>norm(el.textContent).includes(PAYMENTS_TITLE))||null;
-  }
-
-  function exactTextLeaf(root,text){
-    if(!root)return null;
-    return [...root.querySelectorAll('*')].find(el=>el.childElementCount===0&&norm(el.textContent)===text)||null;
-  }
-
-  function paymentsTitleFrame(root,title){
-    if(!root||!title)return null;
-    const rr=root.getBoundingClientRect();
-    let node=title;
-    while(node&&node!==root){
-      const r=node.getBoundingClientRect();
-      if(r.width>=Math.min(420,Math.max(rr.width,1)*.45)&&decorated(node))return node;
-      node=node.parentElement;
-    }
-    return title.parentElement||null;
-  }
-
-  function withPaymentsMeasurable(fn){
-    const root=paymentsRoot();if(!root)return null;
-    const changed=[];
-    for(let node=root;node&&node!==document.body;node=node.parentElement){
-      if(getComputedStyle(node).display==='none'){
-        changed.push([node,node.getAttribute('style')]);
-        node.style.setProperty('display','block','important');
-      }
-    }
-    changed.push([root,root.getAttribute('style')]);
-    root.style.setProperty('visibility','hidden','important');
-    root.style.setProperty('pointer-events','none','important');
-    try{return fn(root)}finally{
-      for(let i=changed.length-1;i>=0;i--){
-        const [node,style]=changed[i];
-        if(style===null)node.removeAttribute('style');else node.setAttribute('style',style);
-      }
-    }
-  }
-
-  function readPaymentsCanon(){
-    return withPaymentsMeasurable(root=>{
-      const title=exactTextLeaf(root,PAYMENTS_TITLE);if(!title)return null;
-      const frame=paymentsTitleFrame(root,title);if(!frame)return null;
-      const fr=frame.getBoundingClientRect();if(fr.width<200)return null;
-      const ts=getComputedStyle(title),fs=getComputedStyle(frame);
-      return {
-        width:fr.width,
-        titleFontSize:ts.fontSize,
-        titleLineHeight:ts.lineHeight,
-        titleFontWeight:ts.fontWeight,
-        titleLetterSpacing:ts.letterSpacing,
-        radius:fs.borderRadius,
-        paddingTop:fs.paddingTop,
-        paddingRight:fs.paddingRight,
-        paddingBottom:fs.paddingBottom,
-        paddingLeft:fs.paddingLeft
-      };
-    });
-  }
-
-  function applyPaymentsCanon(){
-    if(!paymentsCanon)paymentsCanon=readPaymentsCanon();
-    const canon=paymentsCanon;if(!canon)return false;
-    const root=document.documentElement;
-    root.style.setProperty('--rona-rail-canon-width',`${canon.width}px`);
-    root.style.setProperty('--rona-rail-canon-radius',canon.radius||'16px');
-    root.style.setProperty('--rona-rail-canon-pt',canon.paddingTop||'18px');
-    root.style.setProperty('--rona-rail-canon-pr',canon.paddingRight||'20px');
-    root.style.setProperty('--rona-rail-canon-pb',canon.paddingBottom||'18px');
-    root.style.setProperty('--rona-rail-canon-pl',canon.paddingLeft||'20px');
-    root.style.setProperty('--rona-rail-canon-title-size',canon.titleFontSize||'28px');
-    root.style.setProperty('--rona-rail-canon-title-line',canon.titleLineHeight||'1.2');
-    root.style.setProperty('--rona-rail-canon-title-weight',canon.titleFontWeight||'800');
-    root.style.setProperty('--rona-rail-canon-title-spacing',canon.titleLetterSpacing||'normal');
-    root.dataset.ronaClientRailPaymentsReference='MATCHED';
-    window.__RONA_CLIENT_RAIL_PAYMENTS_CANON__=canon;
-    return true;
-  }
 
   function ensureStyle(){
     if(document.getElementById('rona-client-rail-canonical-hero-v1-style'))return;
     const style=document.createElement('style');
     style.id='rona-client-rail-canonical-hero-v1-style';
     style.textContent=`
-      ${HOST} .rona-rail-v4-root{
-        width:100%!important;
-        max-width:1584px!important;
-        margin-left:auto!important;
-        margin-right:auto!important;
-      }
-      ${HOST} .rona-rail-v4-work{
-        grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important;
-        gap:18px!important;
-        align-items:stretch!important;
-      }
-      ${HOST} .rona-rail-v4-left{
-        display:grid!important;
-        grid-template-rows:1fr 1fr!important;
-        gap:16px!important;
-        min-width:0!important;
-        max-width:none!important;
-        height:100%!important;
-        align-self:stretch!important;
-      }
-      ${HOST} .rona-rail-v4-work > *{min-width:0!important;height:100%!important}
-      ${HOST} .rona-rail-v4-hero{
-        display:flex!important;
-        align-items:flex-end!important;
-        justify-content:space-between!important;
-        gap:16px!important;
-        padding:var(--rona-rail-canon-pt,18px) var(--rona-rail-canon-pr,20px) var(--rona-rail-canon-pb,18px) var(--rona-rail-canon-pl,20px)!important;
-        margin:0 0 18px!important;
-        min-height:118px!important;
-        border:1px solid rgba(113,169,194,.18)!important;
-        border-radius:var(--rona-rail-canon-radius,16px)!important;
-        background:linear-gradient(135deg,rgba(10,31,43,.94),rgba(6,18,27,.9))!important;
-        box-shadow:0 14px 40px rgba(0,0,0,.18)!important;
-        color:#eaf4f8!important;
-        font-family:Inter,Arial,sans-serif!important;
-        box-sizing:border-box!important;
-      }
-      ${HOST} .rona-rail-v4-hero .rona-visual-kicker{
-        display:block!important;margin:0 0 6px!important;color:#71b9d2!important;
-        font-family:Inter,Arial,sans-serif!important;font-size:10px!important;font-weight:800!important;
-        letter-spacing:.14em!important;text-transform:uppercase!important;
-      }
-      ${HOST} .rona-rail-v4-hero .rona-visual-title{
-        display:block!important;margin:0!important;color:#eaf4f8!important;font-family:Inter,Arial,sans-serif!important;
-        font-size:var(--rona-rail-canon-title-size,28px)!important;
-        line-height:var(--rona-rail-canon-title-line,1.2)!important;
-        font-weight:var(--rona-rail-canon-title-weight,800)!important;
-        letter-spacing:var(--rona-rail-canon-title-spacing,normal)!important;
-      }
-      ${HOST} .rona-rail-v4-hero .rona-visual-sub{
-        display:block!important;margin:7px 0 0!important;color:#8ea6b2!important;font-family:Inter,Arial,sans-serif!important;
-        font-size:12px!important;line-height:1.5!important;font-weight:400!important;
-      }
-      ${HOST} .rona-client-rail-hero-actions{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-end!important}
-      ${HOST} .rona-client-rail-hero-pill,${HOST} .rona-client-rail-hero-btn{
-        border:1px solid rgba(111,188,218,.25)!important;border-radius:999px!important;background:rgba(12,34,46,.72)!important;color:#b9d5df!important;
-        font-family:Inter,Arial,sans-serif!important;font-size:10px!important;font-weight:750!important;line-height:normal!important;white-space:nowrap!important;box-sizing:border-box!important;
-      }
-      ${HOST} .rona-client-rail-hero-pill{padding:7px 10px!important}
-      ${HOST} .rona-client-rail-hero-btn{padding:7px 11px!important;cursor:pointer!important}
-      ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.9)!important;color:#fff!important}
-      ${HOST} .rona-client-rail-hero-btn:disabled{opacity:.55!important;cursor:default!important}
-      @media(max-width:1100px){${HOST} .rona-rail-v4-root{width:100%!important;max-width:100%!important}${HOST} .rona-rail-v4-work{grid-template-columns:1fr!important;align-items:stretch!important}${HOST} .rona-rail-v4-left{grid-template-rows:auto auto!important;max-width:none!important}}
-      @media(max-width:720px){${HOST} .rona-rail-v4-hero{align-items:flex-start!important;flex-direction:column!important}${HOST} .rona-client-rail-hero-actions{justify-content:flex-start!important}}
+      ${HOST} .rona-rail-v7-route-layer{display:block!important;visibility:visible!important;opacity:1!important;z-index:3!important}
+      ${HOST} .rona-rail-v7-route-svg{display:block!important;visibility:visible!important;opacity:1!important}
+      ${HOST} .rona-rail-v7-route-casing{fill:none!important;stroke:rgba(35,43,48,.42)!important;stroke-width:7!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-line{fill:none!important;stroke:#a93d38!important;stroke-width:3.4!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-remaining-casing{fill:none!important;stroke:rgba(39,45,48,.28)!important;stroke-width:6!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-remaining{fill:none!important;stroke:rgba(126,82,76,.72)!important;stroke-width:2.6!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-actual-casing{fill:none!important;stroke:rgba(31,35,37,.52)!important;stroke-width:8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-actual{fill:none!important;stroke:#9f332f!important;stroke-width:4.2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+      ${HOST} .rona-rail-v7-route-node{fill:#fff!important;stroke:#9f332f!important;stroke-width:2.2!important}
     `;
     document.head.appendChild(style);
-  }
-
-  function addActions(hero){
-    let actions=hero.querySelector(':scope > .rona-client-rail-hero-actions');if(actions)return actions;
-    actions=document.createElement('div');actions.className='rona-client-rail-hero-actions';
-    const pill=document.createElement('span');pill.className='rona-client-rail-hero-pill';pill.textContent='Автообновление · 30 с';
-    const button=document.createElement('button');button.type='button';button.className='rona-client-rail-hero-btn';button.textContent='Обновить';
-    button.addEventListener('click',()=>{const refresh=window.__RONA_CLIENT_RAIL_REFRESH__;if(typeof refresh==='function')refresh()});
-    actions.append(pill,button);hero.append(actions);return actions;
   }
 
   function removeCompetingTitle(host,hero){
@@ -203,7 +45,6 @@
     applying=true;
     try{
       ensureStyle();
-      applyPaymentsCanon();
       const host=document.querySelector(HOST);if(!host)return false;
       const hero=host.querySelector('.rona-rail-v4-hero');if(!hero)return false;
       const kicker=hero.querySelector('.rona-visual-kicker'),title=hero.querySelector('.rona-visual-title'),subtitle=hero.querySelector('.rona-visual-sub');
@@ -211,17 +52,24 @@
       if(kicker.textContent!==KICKER)kicker.textContent=KICKER;
       if(title.textContent!==TITLE)title.textContent=TITLE;
       if(subtitle.textContent!==SUBTITLE)subtitle.textContent=SUBTITLE;
-      addActions(hero);removeCompetingTitle(host,hero);
+      const oldActions=hero.querySelector(':scope > .rona-client-rail-hero-actions');if(oldActions)oldActions.remove();
+      removeCompetingTitle(host,hero);
       if(hero.getAttribute('data-rona-client-rail-canonical-hero')!=='v1')hero.setAttribute('data-rona-client-rail-canonical-hero','v1');
       document.documentElement.dataset.ronaClientRailVisual='CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY';
       document.documentElement.dataset.ronaClientRailTitleOwner='CLIENT_CANONICAL_HERO_V1';
-      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,visual_reference:'CLIENT_PAYMENTS_CANONICAL',qa_compat:QA_COMPAT,operational_body:'ADMIN_CURRENT_V81_CANONICAL',client_authority:'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'};
+      window.__RONA_CLIENT_RAIL_CANONICAL_HERO_STATE__={
+        version:MARK,kicker:KICKER,title:TITLE,subtitle:SUBTITLE,
+        visual_reference:'ADMIN_CURRENT_V81_CANONICAL',
+        qa_compat:QA_COMPAT,
+        operational_body:'ADMIN_CURRENT_V81_CANONICAL',
+        layout_override:'NONE_OPERATIONAL_BODY',
+        client_authority:'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'
+      };
       return true;
     }finally{applying=false}
   }
 
   function schedule(){clearTimeout(timer);timer=window.setTimeout(canonicalize,0)}
-  function invalidatePaymentsCanon(){paymentsCanon=null;schedule()}
   function isRailNav(target){
     const node=target?.closest?.('button,a,[role="button"]');if(!node)return false;
     const key=norm(node.getAttribute('data-page')||node.getAttribute('data-section')||node.getAttribute('data-target')).toLowerCase();
@@ -247,6 +95,7 @@
   document.addEventListener('click',event=>{if(isRailNav(event.target)){schedule();setTimeout(canonicalize,140);setTimeout(canonicalize,420)}},true);
   window.addEventListener('pageshow',()=>{schedule();setTimeout(canonicalize,160)});
   window.addEventListener('focus',schedule);
-  window.addEventListener('resize',invalidatePaymentsCanon,{passive:true});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{ensureObserver();schedule();setTimeout(canonicalize,180)},{once:true});else{ensureObserver();schedule()}
+  window.addEventListener('resize',schedule,{passive:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{ensureObserver();schedule();setTimeout(canonicalize,180)},{once:true});
+  else{ensureObserver();schedule()}
 })();

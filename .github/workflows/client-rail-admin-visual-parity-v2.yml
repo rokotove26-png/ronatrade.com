@@ -1,0 +1,68 @@
+name: Client Rail Admin visual parity v2
+
+on:
+  push:
+    branches:
+      - fix/client-rail-admin-visual-parity-route-v1
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - functions/portal/client-rail-current-ui.js
+      - assets/portal-runtime/client-rail-canonical-hero-v1.js
+      - scripts/attach-client-rail-production-v1.mjs
+      - scripts/qa-client-online-rail-670-browser.mjs
+      - tests/client-rail-parity-670.test.mjs
+      - governance/client-online-rail-670-owner-approval-20260919.json
+      - .github/workflows/client-rail-admin-visual-parity-v2.yml
+
+permissions:
+  contents: read
+
+jobs:
+  visual-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Source and route parity contract
+        run: |
+          set -euo pipefail
+          node --check functions/portal/client-rail-current-ui.js
+          node --check assets/portal-runtime/client-rail-canonical-hero-v1.js
+          node --check scripts/attach-client-rail-production-v1.mjs
+          node --check scripts/qa-client-online-rail-670-browser.mjs
+          node --test tests/client-rail-parity-670.test.mjs
+          grep -Fq 'CLIENT_ADMIN_ROUTE_PARITY_V2' functions/portal/client-rail-current-ui.js
+          grep -Fq "layout_override:'NONE_OPERATIONAL_BODY'" assets/portal-runtime/client-rail-canonical-hero-v1.js
+          ! grep -Fq 'grid-template-rows:1fr 1fr!important' assets/portal-runtime/client-rail-canonical-hero-v1.js
+          ! grep -Fq 'grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important' assets/portal-runtime/client-rail-canonical-hero-v1.js
+          echo 'CLIENT_RAIL_ADMIN_VISUAL_SOURCE=PASS'
+      - name: Canonical Client build
+        run: |
+          set -euo pipefail
+          npm run build
+          grep -Fq '/portal/client-rail-current-ui?v=20260919-admin-visual-parity-route-v2' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2' dist/portal/client.html
+          echo 'CLIENT_RAIL_ADMIN_VISUAL_BUILD=PASS'
+      - name: Install Playwright Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Render Admin route geometry in Client
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-browser.mjs | tee /tmp/client-rail-admin-visual-parity-v2.log
+          grep -Fq 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/client-rail-admin-visual-parity-v2.log
+          grep -Fq 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/client-rail-admin-visual-parity-v2.log
+          grep -Fq 'ISSUE670_DEAL_SWITCH_ISOLATION=PASS' /tmp/client-rail-admin-visual-parity-v2.log
+          echo 'CLIENT_RAIL_ADMIN_VISUAL_PARITY_V2=PASS'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: client-rail-admin-visual-parity-v2
+          path: /tmp/client-rail-admin-visual-parity-v2.log
+          if-no-files-found: warn

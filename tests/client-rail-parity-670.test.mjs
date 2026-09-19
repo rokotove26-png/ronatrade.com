@@ -45,11 +45,11 @@ function model(scope,{station,wagons=1,unresolved=0}={}){
         documentDate:"2026-09-19",
         routeText:"111111 -> 222222",
       }],
-      plannedRoute:[{status:"PUBLIC_SOURCE_ROUTE_RESOLVED",points:[{stationCode:"111111"},{stationCode:"222222"}]}],
-      actualRoute:{status:"OBSERVED_HISTORY",points:[{stationCode:"111111"}]},
-      remainingRoute:{status:"ROUTE_REMAINDER",points:[{stationCode:"222222"}]},
-      routeProgress:{state:"OBSERVED_AND_MATCHED"},
-      routeStations:[{sequence:1,esrCode:"111111"},{sequence:2,esrCode:"222222"}],
+      plannedRoute:[{status:"PUBLIC_SOURCE_ROUTE_RESOLVED",points:[{lat:54,lng:26,station:"Origin",stationCode:"111111",sequence:1},{lat:53,lng:27,station:station||"QA Station",stationCode:"222222",sequence:2}]}],
+      actualRoute:{status:"OBSERVED_HISTORY",points:[{lat:54,lng:26,station:"Origin",stationCode:"111111"},{lat:53.5,lng:26.5,station:"Observed",stationCode:"121212"}]},
+      remainingRoute:{status:"ROUTE_REMAINDER",points:[{lat:53.5,lng:26.5,station:"Observed",stationCode:"121212"},{lat:53,lng:27,station:station||"QA Station",stationCode:"222222"}]},
+      routeProgress:{state:"OBSERVED_AND_MATCHED",actualPoints:[{lat:54,lng:26,stationCode:"111111"},{lat:53.5,lng:26.5,stationCode:"121212"}],remainingPoints:[{lat:53.5,lng:26.5,stationCode:"121212"},{lat:53,lng:27,stationCode:"222222"}]},
+      routeStations:[{lat:54,lng:26,sequence:1,stationCode:"111111"},{lat:53,lng:27,sequence:2,stationCode:"222222"}],
       routeAssignment:{resolutionState:"RESOLVED"},
       wagonPositions:positions,
       unresolvedOrConflictCount:unresolved,
@@ -194,6 +194,12 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("CLIENT_RAIL_CANONICAL_CONTEXT_MISMATCH"));
   assert.ok(source.includes("PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL"));
   assert.ok(source.includes("RAIL_READ_MODEL_DEGRADED"));
+  assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V2"));
+  assert.ok(source.includes("clientRailNormalizeRouteParity"));
+  assert.ok(source.includes("clientRailRepairMapParity"));
+  assert.ok(source.includes("railMapRequestDraw"));
+  assert.ok(source.includes("railMapFitRoute"));
+  assert.ok(source.includes("20260919-admin-visual-parity-route-v2"));
   assert.equal(source.includes("/portal/api/v1/client/shipments"),false);
   assert.equal(source.includes("/portal/api/v1/client/rail'"),false);
   assert.equal(/MOVIZOR|movement_publication|provider_live/i.test(source),false);
@@ -209,4 +215,10 @@ test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   assert.ok(attach.includes("client_data_source:'/portal/api/v1/client/rail-canonical'"));
   assert.ok(attach.includes("client_authority:'AUTHENTICATED_CLIENT_CONTRACT'"));
   assert.ok(hero.includes("AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1"));
+  assert.ok(hero.includes("CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"));
+  assert.ok(hero.includes("layout_override:'NONE_OPERATIONAL_BODY'"));
+  assert.equal(hero.includes("grid-template-rows:1fr 1fr!important"),false,"Client-only equal-height Rail layout must not return");
+  assert.equal(hero.includes("grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important"),false,"Client-only Rail work-grid override must not return");
+  assert.ok(attach.includes("visual_canon:'ADMIN_CURRENT_V81_EXACT_OPERATIONAL_LAYOUT'"));
+  assert.ok(attach.includes("visual_source_mode:'ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE'"));
 });
