@@ -4,6 +4,7 @@ import { onRequest as ownerApi } from '../functions/portal/owner-api.js';
 import { onRequest as cashR2Ui } from '../functions/portal/cash-r2-ui.js';
 import { onRequest as portalRouter } from '../functions/portal/[[path]].js';
 import { onRequestPost as portalLogin } from '../functions/portal/auth/login.js';
+import { onRequestPost as portalHandoff } from '../functions/portal/auth/handoff.js';
 
 const realFetch=globalThis.fetch;
 const cash=await (await cashR2Ui()).text();
@@ -155,4 +156,57 @@ test('Issue 663 exact login session probe uses publishable key and returns Admin
   const setCookie=response.headers.get('set-cookie')||'';
   assert.match(setCookie,/rona_portal_at=access-new/);
   assert.match(setCookie,/rona_portal_rt=refresh-new/);
+});
+
+
+test('Issue 663 protected portal falls back to PostgREST current-session authority when portal edge probe is unavailable',async()=>{
+  let edgeCalls=0,rpcCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      edgeCalls++;
+      return jsonResponse({ok:false,code:'UPSTREAM_UNAVAILABLE'},503);
+    }
+    if(u.includes('/rest/v1/rpc/rona_portal_session_me_fallback_v1')){
+      rpcCalls++;
+      return jsonResponse([{portal_user_id:'1eb4902b-3dea-4a04-ad30-2ba47d76cda8',display_name:'RONA Trade Owner Administrator',roles:['ADMIN','RONA_OPERATOR'],session_allowed:true}],200);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/',{headers:{cookie:'rona_portal_at=access-current; rona_portal_rt=refresh-current'}});
+  const response=await portalRouter({request,next:async()=>new Response('unused')});
+  assert.equal(response.status,303);
+  assert.equal(response.headers.get('location'),'/portal/select');
+  assert.equal(edgeCalls,1);
+  assert.equal(rpcCalls,1);
+  assert.doesNotMatch(response.headers.get('set-cookie')||'',/Max-Age=0/);
+});
+
+test('Issue 663 browser-auth handoff only stores structurally current Supabase session tokens; protected route remains authority boundary',async()=>{
+  const payload={
+    iss:'https://sxawrwzeobaqwwmlkzws.supabase.co/auth/v1',
+    aud:'authenticated',
+    role:'authenticated',
+    sub:'c4a167ae-cd4f-4296-8f13-ef09ced41968',
+    session_id:'26b88620-e01e-4298-9a8c-e898fdfb70ef',
+    exp:Math.floor(Date.now()/1000)+1800
+  };
+  const b64=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
+  const access=b64({alg:'ES256',typ:'JWT'})+'.'+b64(payload)+'.'+'signature-placeholder-for-handoff-only';
+  const refresh='refresh-token-fixture-1234567890';
+  const request=new Request('https://ronaoil.com/portal/auth/handoff',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json'},
+    body:JSON.stringify({access_token:access,refresh_token:refresh,expires_in:1800})
+  });
+  const response=await portalHandoff({request});
+  assert.equal(response.status,200);
+  const body=await response.json();
+  assert.equal(body.ok,true);
+  assert.equal(body.mode,'BROWSER_AUTH_HTTPONLY_HANDOFF_V1');
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=/);
+  assert.match(setCookie,/rona_portal_rt=/);
+  assert.match(setCookie,/HttpOnly/);
+  assert.match(setCookie,/SameSite=Lax/);
 });
