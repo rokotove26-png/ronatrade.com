@@ -26,7 +26,8 @@ test("admin rail overlay exposes trusted current positions without creating cano
       plannedRoute: [{ status: "TEXT_ONLY_NOT_GEOCODED", points: [], geometry: null }],
       wagonPositions: [{
         wagonNumber: "58214776",
-        railDocumentId: "RONA-S002-IN-2026-002",
+        railDocumentKey: "doc-key-1",
+        railDocumentId: null,
         station: "Анисовка",
         stationCode: "625501",
         operation: "V0057",
@@ -52,7 +53,7 @@ test("admin rail overlay exposes trusted current positions without creating cano
   assert.equal(out.data.plannedRouteByDeal["deal-key-1"].status, "TEXT_ONLY_NOT_GEOCODED");
 });
 
-test("existing canonical wagon business status is preserved while current position is refreshed", () => {
+test("production resolution key attaches positions even when source railDocumentId snapshot is null", () => {
   const body = {
     ok: true,
     data: {
