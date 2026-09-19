@@ -30,6 +30,10 @@ need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single 
 
 need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owner shell marker is missing');
 need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules are not loaded');
+need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
+need(has(shell,"const accessReady=()=>!!window.__RONA_CLIENTS_AGENTS_CURRENT__")&&has(shell,"async function loadAccess()"),'Clients/Agents access readiness/self-heal contract is missing');
+need(has(shell,"const accessWarm=loadAccess();")&&has(shell,"if(p==='access')loadAccess();"),'Clients/Agents access module is not warmed on boot and page navigation');
+need(has(shell,"window.__RONA_CLIENTS_AGENTS_CURRENT__=null")&&has(shell,"window.__RONA_ADMIN_MODULES__.access"),'Clients/Agents stale-owner reset/retry contract is missing');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
