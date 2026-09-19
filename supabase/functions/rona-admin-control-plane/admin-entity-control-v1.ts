@@ -74,7 +74,7 @@ export function createAdminEntityControl(deps:{
         and u.status='ACTIVE'::portal_private.portal_user_status_enum
         and u.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
         and u.authority_state='CONFIRMED'::portal_private.authority_state_enum
-      order by u.display_name,u.id
+      order by u.display_name,u.id::text
     `;
   }
 
@@ -103,7 +103,7 @@ export function createAdminEntityControl(deps:{
         and u.status='ACTIVE'::portal_private.portal_user_status_enum
         and u.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
         and u.authority_state='CONFIRMED'::portal_private.authority_state_enum
-      order by u.display_name,u.id
+      order by u.display_name,u.id::text
     `;
   }
 
