@@ -51,6 +51,7 @@ jobs:
             echo '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
             echo 'supabase/functions/rona-mcp-gateway/index.js'
             echo 'supabase/functions/rona-mcp-gateway/index.ts'
+            echo 'tests/online-rail-c12/candidate-index-regression.test.mjs'
             echo 'tests/online-rail-c13/live-v32-runtime-snapshot.json'
             echo 'tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs'
           } | sort -u > /tmp/c13-allowed.txt
@@ -67,7 +68,7 @@ jobs:
       - name: Execute live-v32 Finance and shared-gateway parity regression
         run: |
           set -euo pipefail
-          deno test --allow-read --allow-run=git tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs | tee /tmp/c13-parity.log
+          deno test --allow-read --allow-env --allow-run=git tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs | tee /tmp/c13-parity.log
           echo 'C13_FINANCE_DOCUMENT_SCOPE=PASS'
           echo 'C13_FINANCE_EXACT_8_TOOLS=PASS'
           echo 'C13_DOCUMENT_RUNTIME_AUTH=PASS'
