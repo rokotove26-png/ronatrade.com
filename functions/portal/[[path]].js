@@ -134,7 +134,7 @@ async function upstream(accessToken, path, request = null, impersonationToken = 
       if (value) headers.set(name, value);
     }
   }
-  if(impersonationToken)headers.set('x-rona-admin-impersonation-token',impersonationToken);
+  if(impersonationToken){headers.set('x-rona-admin-impersonation-token',impersonationToken);if(!headers.has('x-request-id'))headers.set('x-request-id',crypto.randomUUID());if(!headers.has('x-correlation-id'))headers.set('x-correlation-id',crypto.randomUUID());}
   const init = { method: request?.method || 'GET', headers };
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   return fetch(`${PORTAL_API}${path}`, init);
@@ -372,22 +372,28 @@ async function proxyApi(request) {
   const cookies = parseCookies(request.headers.get('cookie'));
   let access = cookies[ACCESS_COOKIE] || '';
   const refresh = cookies[REFRESH_COOKIE] || '';
-  if (!access && !refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
+  const impersonationToken=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+  if (!access && !refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, [...clearCookies(),clearImpersonationCookie()]);
   const path = new URL(request.url).pathname.slice('/portal/api'.length) || '/';
-  let upstreamResponse = access ? await upstream(access, path, request) : null;
+  let upstreamResponse = access ? await upstream(access, path, request, impersonationToken) : null;
   let setCookies = [];
   if (!upstreamResponse || upstreamResponse.status === 401) {
-    if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
+    if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, [...clearCookies(),clearImpersonationCookie()]);
     let next;try{next=await authRefresh(refresh)}catch(_){return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503)}
-    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},409);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies())}
+    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},409);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,[...clearCookies(),clearImpersonationCookie()])}
     access = next.data.access_token;
     setCookies = tokenCookies(next.data);
-    upstreamResponse = await upstream(access, path, request);
+    upstreamResponse = await upstream(access, path, request, impersonationToken);
+  }
+  if(impersonationToken&&upstreamResponse.status===401){
+    const headers=withSecurity(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));
+    for(const cookie of [...setCookies,clearImpersonationCookie()])headers.append('set-cookie',cookie);
+    return new Response(JSON.stringify({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'}),{status:409,headers});
   }
   const headers = withSecurity(new Headers());
   const ct = upstreamResponse.headers.get('content-type'); if (ct) headers.set('content-type', ct);
   const requestId = upstreamResponse.headers.get('x-request-id'); if (requestId) headers.set('x-request-id', requestId);
-  for (const c of setCookies) headers.append('set-cookie', c);
+  for (const cookie of setCookies) headers.append('set-cookie', cookie);
   return new Response(upstreamResponse.body, { status: upstreamResponse.status, statusText: upstreamResponse.statusText, headers });
 }
 async function proxyAdminAuthority(request) {
@@ -395,20 +401,41 @@ async function proxyAdminAuthority(request) {
   if (request.method === 'POST' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
   const session=await ensureSession(request);
   if(session?.unavailable)return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503,session.setCookies);
-  if(!session)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
+  if(!session)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,[...clearCookies(),clearImpersonationCookie()]);
   const roles=rolesOf(session.me);
   if (!roles.includes('ADMIN')) return json({ ok:false, code:'ROLE_MISMATCH' }, 403, session.setCookies);
   const url = new URL(request.url);
   const prefix = '/portal/admin-authority';
   const upstreamPath = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
+  const cookies=parseCookies(request.headers.get('cookie'));
+  const impersonationToken=String(cookies[IMPERSONATION_COOKIE]||'').trim();
   const headers = new Headers({ authorization: `Bearer ${session.access}`, accept: 'application/json' });
   for (const name of ['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  if((upstreamPath==='/impersonation/end'||upstreamPath==='/impersonation/resolve')&&impersonationToken){
+    headers.set('x-rona-admin-impersonation-token',impersonationToken);
+  }
   const init = { method: request.method, headers };
   if (!['GET','HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   const upstreamResponse = await fetch(`${ADMIN_CONTROL_PLANE_API}${upstreamPath}${url.search}`, init);
+
+  if(upstreamPath==='/impersonation/start'){
+    const payload=await upstreamResponse.json().catch(()=>null);
+    if(!upstreamResponse.ok||!payload?.ok||!payload?.data?.impersonationToken){
+      return json(payload||{ok:false,code:'IMPERSONATION_START_FAILED'},upstreamResponse.status,session.setCookies);
+    }
+    const opaque=String(payload.data.impersonationToken);
+    delete payload.data.impersonationToken;
+    const expires=Date.parse(String(payload.data?.impersonation?.expiresAt||''));
+    const maxAge=Number.isFinite(expires)?Math.max(1,Math.min(900,Math.floor((expires-Date.now())/1000))):720;
+    return json(payload,upstreamResponse.status,[...session.setCookies,impersonationCookie(opaque,maxAge)]);
+  }
+  if(upstreamPath==='/impersonation/end'){
+    const payload=await upstreamResponse.json().catch(()=>({ok:upstreamResponse.ok}));
+    return json(payload,upstreamResponse.status,[...session.setCookies,clearImpersonationCookie()]);
+  }
   return secureResponse(upstreamResponse, session.setCookies, false);
 }
 
