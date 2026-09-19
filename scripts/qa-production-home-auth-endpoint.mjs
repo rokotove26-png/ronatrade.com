@@ -25,6 +25,11 @@ for(const ip of ['104.18.38.10','172.64.149.246']){
   }
 }
 
+try{
+  const jwks=execFileSync('curl',['-4','-sS','--max-time','10','https://'+SUPABASE_HOST+'/auth/v1/.well-known/jwks.json'],{encoding:'utf8'});
+  console.log('SUPABASE_JWKS='+jwks.trim().slice(0,8000));
+}catch(e){console.log('SUPABASE_JWKS_ERROR='+String(e?.stderr||e?.message||e).trim().slice(0,1000))}
+
 const ORIGIN='https://ronaoil.com';
 const HOME='/pages/home_large?layout=large';
 const LOGIN='/portal/auth/login';
