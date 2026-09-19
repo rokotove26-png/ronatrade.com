@@ -166,6 +166,15 @@ test('Compact wagon table is owned by the left control card and has only the app
 });
 
 
+test('Owner Rail view removes the tariff matrix from the Online Rail surface',()=>{
+  assert.match(v81,/function removeRailTariffPanel\(\)/);
+  assert.match(v81,/__RONA_RAIL_TARIFF_MATRIX_REMOVED__/);
+  assert.doesNotMatch(v81,/Матрица ЖД-тарифов/);
+  assert.doesNotMatch(v81,/tariffToggle\.textContent/);
+  assert.doesNotMatch(v81,/host\.append\(tariff\)/);
+  assert.doesNotMatch(v81,/if\(matrix\)host\.append\(matrix\)/);
+});
+
 test('Desktop map captures the owner DEAL-2026-004 frame-bottom baseline once and freezes it across deal selection',()=>{
   assert.match(v81,/RONA_RAIL_FALLBACK_DESKTOP_CARD_HEIGHT=960/);
   assert.match(v81,/function railFrozenDesktopCardHeight\(left,right\)/);
