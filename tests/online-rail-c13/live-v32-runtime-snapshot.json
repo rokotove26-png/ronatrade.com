@@ -1,0 +1,53 @@
+{
+  "observed_at": "2026-09-19T00:10:00Z",
+  "production_release": "8be4acc7bd88d697c1b8a3396c1ef57f37cafd24",
+  "gateway": {
+    "slug": "rona-mcp-gateway",
+    "status": "ACTIVE",
+    "version": 32,
+    "ezbr_sha256": "4f4dfeff21885ce50c4c96090955a04df7c3f90fbb46507c70364adcdaf45d7b",
+    "source_commit": "bfdab570b45e1375fe3a1c38bb638240c1751a56",
+    "base_source_commit": "36727a94820e1e85e95d4abfc5d6aab8234c5c18",
+    "entrypoint": "const NativeSet = globalThis.Set;\nclass RonaFinanceDocumentScopeSet extends NativeSet {\n  constructor(iterable) {\n    super(iterable);\n    const values = Array.from(iterable ?? []);\n    if (\n      values.length === 5 &&\n      values[0] === \"CONTRACT\" &&\n      values[1] === \"APPLICATION\" &&\n      values[2] === \"DEAL\" &&\n      values[3] === \"PAYMENT\" &&\n      values[4] === \"TASK\"\n    ) this.add(\"DOCUMENT\");\n  }\n}\nglobalThis.Set = RonaFinanceDocumentScopeSet;\ntry {\n  await import(\"https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/bfdab570b45e1375fe3a1c38bb638240c1751a56/supabase/functions/rona-mcp-gateway/index.ts\");\n} finally {\n  globalThis.Set = NativeSet;\n}\n"
+  },
+  "read_extras": {
+    "slug": "rona-ai-read-extras",
+    "status": "ACTIVE",
+    "version": 20,
+    "ezbr_sha256": "e4f0a5f14e2146dcd2eeb5a3e1479d0b3c013aa226ab04b02b811af13bc9c639",
+    "source_commit": "36d2c573a7170637e3275af2e95c4dd81193b6d0",
+    "entrypoint": "const NativeSet = globalThis.Set;\nclass RonaFinanceSignedDocumentSet extends NativeSet {\n  constructor(iterable) {\n    super(iterable);\n    const values = Array.from(iterable ?? []);\n    if (\n      values.length === 4 &&\n      values.includes(\"ИНВОЙС\") &&\n      values.includes(\"КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ\") &&\n      values.includes(\"КОНТРАКТ\") &&\n      values.includes(\"ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ\")\n    ) {\n      this.add(\"SIGNED_ADDENDUM\");\n      this.add(\"SIGNED_SPECIFICATION\");\n      this.add(\"SIGNED_CONTRACT\");\n    }\n  }\n}\nglobalThis.Set = RonaFinanceSignedDocumentSet;\ntry {\n  await import(\"https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36d2c573a7170637e3275af2e95c4dd81193b6d0/supabase/functions/rona-ai-read-extras/index.js\");\n} finally {\n  globalThis.Set = NativeSet;\n}\n",
+    "base_finance_document_types": [
+      "ИНВОЙС",
+      "КЛИЕНТСКИЙ ПАСПОРТ СДЕЛКИ",
+      "КОНТРАКТ",
+      "ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ"
+    ]
+  },
+  "production_document_proof": {
+    "allowed": {
+      "document_id": "DEAL-2026-004-SIGNED-ADDENDUM-3C186085",
+      "document_type": "SIGNED_ADDENDUM",
+      "document_authority": "CONFIRMED",
+      "document_lifecycle": "ACTIVE",
+      "version_number": 1,
+      "is_current": true,
+      "version_authority": "CONFIRMED",
+      "version_lifecycle": "ACTIVE",
+      "storage_state": "VERIFIED",
+      "has_deal": true
+    },
+    "denied": {
+      "document_id": "DEAL-2026-007-INVOICE-603f9513",
+      "document_type": "INVOICE",
+      "document_authority": "CONFIRMED",
+      "document_lifecycle": "ACTIVE",
+      "version_number": 1,
+      "is_current": true,
+      "version_authority": "CONFIRMED",
+      "version_lifecycle": "ACTIVE",
+      "storage_state": "VERIFIED",
+      "has_deal": true
+    }
+  }
+}
