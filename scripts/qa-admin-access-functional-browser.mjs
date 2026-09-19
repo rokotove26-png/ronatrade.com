@@ -12,7 +12,10 @@ const business={
 };
 let pdfReady=false;
 const created=[];
+const deleteUserId='11111111-1111-4111-8111-111111111111';
 let uploadRequests=0;
+let deleteRequests=0;
+let deleted=false;
 const authority=()=>({
   contracts:[{contractId,id:contractId,clientId,contractStatus:'ACTIVE',status:'ACTIVE',companyName:'QA Client LLC',externalContractNumber:'QA-001'}],
   signedContractGate:{contracts:[{contractId,clientId,bilateralSignedConfirmed:pdfReady,serverConfirmed:pdfReady,documentId:pdfReady?'DOC-QA-001':''}]},
@@ -21,6 +24,13 @@ const authority=()=>({
 const ui=await (await currentUiRequest()).text();
 const modalCss=await readFile('assets/portal-admin-modal-stack-v1.css','utf8');
 const builtAdmin=await readFile('dist/portal/admin.html','utf8');
+const controlPlane=await readFile('supabase/functions/rona-admin-control-plane/index.ts','utf8');
+if(!controlPlane.includes('async function deleteUser(ctx, req, userId)'))throw new Error('ADMIN_USER_DELETE_HANDLER_MISSING');
+if(!controlPlane.includes('service.auth.admin.deleteUser(snapshot.authUserId)'))throw new Error('ADMIN_USER_AUTH_DELETE_MISSING');
+if(!controlPlane.includes('ADMIN_SELF_DELETE_DENIED'))throw new Error('ADMIN_USER_SELF_DELETE_GUARD_MISSING');
+if(!controlPlane.includes("auth_user_id=null"))throw new Error('ADMIN_USER_AUTH_LINK_CLEAR_MISSING');
+if(!controlPlane.includes("login_name=null"))throw new Error('ADMIN_USER_LOGIN_CLEAR_MISSING');
+if(!controlPlane.includes('PORTAL_USER_DELETED_BY_ADMIN'))throw new Error('ADMIN_USER_DELETE_AUDIT_MISSING');
 if(!modalCss.includes('.ca-modal-backdrop{z-index:2147483600!important}'))throw new Error('ADMIN_MODAL_STACK_CSS_MISSING');
 if(!builtAdmin.includes('data-rona-admin-modal-stack="v1"'))throw new Error('ADMIN_MODAL_STACK_BUILD_ATTACHMENT_MISSING');
 const html=`<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/admin-modal-stack.css"><style>body{margin:0;background:#050b13;color:#fff;font:14px Arial,sans-serif;padding:40px}.rona-owner-card{border:1px solid #234;padding:12px;border-radius:12px}</style></head><body><section id="page-access"></section><script src="/current-access.js"></script></body></html>`;
@@ -35,7 +45,7 @@ const server=http.createServer(async(req,res)=>{
   if(u.pathname==='/current-access.js')return send(res,200,ui,'application/javascript; charset=utf-8');
   if(u.pathname==='/admin-modal-stack.css')return send(res,200,modalCss,'text/css; charset=utf-8');
   if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/bootstrap')return json(res,{ok:true,data:business});
-  if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/access-workspace')return json(res,{ok:true,data:{users:[],events:[],rightsModel:{clientRoles:['Уполномоченный представитель','Директор','Бухгалтер','Логистика']}}});
+  if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/access-workspace')return json(res,{ok:true,data:{users:deleted?[]:[{id:deleteUserId,name:'QA Delete User',login:'qa.delete.user',role:'Клиент',status:'ACTIVE',bindings:[{id:'BIND-QA-DELETE',company:'QA Client LLC',clientId,contractId,status:'ACTIVE',representationRole:'Уполномоченный представитель',rights:'ALL_CONTRACT_DEALS',kind:'CLIENT_CONTRACT'}]}],events:[],rightsModel:{clientRoles:['Уполномоченный представитель','Директор','Бухгалтер','Логистика']}}});
   if(u.pathname==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority()});
   if(req.method==='POST'&&u.pathname===`/portal/admin-authority/contracts/${encodeURIComponent(contractId)}/signed-document/attach`){
     const body=await readBody(req);uploadRequests++;
@@ -46,6 +56,11 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='POST'&&u.pathname==='/portal/admin-authority/access/users'){
     const body=await readBody(req);let payload={};try{payload=JSON.parse(body.toString('utf8'))}catch{return json(res,{ok:false,code:'INVALID_JSON'},400)}
     created.push(payload);return json(res,{ok:true,data:{userId:'RONA-QA-U'+created.length,pendingContractIds:[]}})
+  }
+  if(req.method==='POST'&&u.pathname===`/portal/admin-authority/access/users/${deleteUserId}/delete`){
+    const body=await readBody(req);let payload={};try{payload=JSON.parse(body.toString('utf8'))}catch{return json(res,{ok:false,code:'INVALID_JSON'},400)}
+    if(payload.confirm!==true)return json(res,{ok:false,code:'DELETE_CONFIRMATION_REQUIRED'},400);
+    deleteRequests++;deleted=true;return json(res,{ok:true,data:{userId:deleteUserId,deleted:true,credentialsDeleted:true,accessDeleted:true,auditTombstoneRetained:true}})
   }
   return send(res,404,'not found');
 });
@@ -95,8 +110,29 @@ try{
   await page.getByLabel('Ф.И.О. пользователя').fill('QA Agent User');await page.getByLabel('Единый логин').fill('qa.agent');await page.getByLabel('Электронная почта').fill('qa.agent@example.com');await page.getByLabel('Пароль',{exact:true}).fill('Qa!Password2');await page.getByLabel('Повторите пароль').fill('Qa!Password2');await page.getByLabel('Профиль агента').selectOption('RONA-QA-A001');
   await agentModal.getByRole('button',{name:'Создать единую учётную запись'}).click();const agentDone=page.locator('.ca-modal-backdrop').last();await agentDone.waitFor({state:'visible'});assert((await agentDone.innerText()).includes('Доступ агента создан'),'agent creation success missing');
   assert(created.length===2,'agent create request missing');assert(created[1].role==='Агент','agent role payload');assert(created[1].agentScope==='RONA-QA-A001','agentScope missing');assert(created[1].login==='qa.agent','agent login missing');assert(created[1].email==='qa.agent@example.com','agent email missing');assert(created[1].initialPassword==='Qa!Password2','agent initialPassword missing');assert(Array.isArray(created[1].contractIds)&&created[1].contractIds.length===0,'agent must not get client contract binding');
+
+  await page.getByRole('button',{name:'Закрыть'}).click();
+  await page.getByRole('button',{name:'Пользователи и доступы'}).click();
+  await page.getByText('QA Delete User',{exact:true}).waitFor({state:'visible'});
+  assert(await page.getByRole('button',{name:'Заблокировать'}).count()===0,'legacy block button must be removed');
+  assert(await page.getByRole('button',{name:'Разблокировать'}).count()===0,'legacy unblock button must be removed');
+  const deleteButton=page.getByRole('button',{name:'Удалить'}).first();
+  assert(await deleteButton.isVisible(),'red delete button missing');
+  assert(await deleteButton.evaluate(el=>el.classList.contains('ca-danger')),'delete button must use danger style');
+  await deleteButton.click();
+  const deleteConfirm=page.locator('.ca-modal-backdrop').last();await deleteConfirm.waitFor({state:'visible'});
+  assert((await deleteConfirm.innerText()).includes('Учётная запись, пароль и все права доступа будут удалены'),'delete confirmation text missing');
+  await deleteConfirm.getByRole('button',{name:'Подтвердить'}).click();
+  const deleteDone=page.locator('.ca-modal-backdrop').last();await deleteDone.waitFor({state:'visible'});
+  assert((await deleteDone.innerText()).includes('Пользователь, пароль и права доступа удалены'),'delete success notice missing');
+  await deleteDone.getByRole('button',{name:'Закрыть'}).click();
+  assert(deleteRequests===1,'expected one delete request');
+  assert(await page.getByText('QA Delete User',{exact:true}).count()===0,'deleted user remained in access workspace');
+
   assert(errors.length===0,'browser errors: '+errors.join(' | '));
+  console.log('ADMIN_ACCESS_DELETE_USER_UI=PASS');
+  console.log('ADMIN_ACCESS_DELETE_USER_AUTH_CONTRACT=PASS');
   console.log('ADMIN_ACCESS_SINGLE_OWNER_FUNCTIONAL_BROWSER_QA=PASS');
-  console.log(JSON.stringify({uploadRequests,created:created.map(x=>({role:x.role,login:x.login,email:x.email,contractIds:x.contractIds,agentScope:x.agentScope,hasInitialPassword:!!x.initialPassword})),errors}));
+  console.log(JSON.stringify({uploadRequests,deleteRequests,created:created.map(x=>({role:x.role,login:x.login,email:x.email,contractIds:x.contractIds,agentScope:x.agentScope,hasInitialPassword:!!x.initialPassword})),errors}));
   await context.close();
 }catch(e){console.error('ADMIN_ACCESS_SINGLE_OWNER_FUNCTIONAL_BROWSER_QA=FAIL',e?.stack||e);process.exitCode=1}finally{if(browser)await browser.close().catch(()=>{});await new Promise(resolve=>server.close(resolve))}
