@@ -495,6 +495,7 @@ async function deleteUser(ctx, req, userId) {
       update portal_private.portal_users
       set status='REVOKED'::portal_private.portal_user_status_enum,
           lifecycle_state='ARCHIVED'::portal_private.lifecycle_state_enum,
+          revoked_at=coalesce(revoked_at,now()),
           suspended_at=coalesce(suspended_at,now()),
           updated_at=now()
       where id=${userId}::uuid
@@ -510,14 +511,30 @@ async function deleteUser(ctx, req, userId) {
   });
 
   if (snapshot.authUserId) {
+    await sql.begin(async (tx) => {
+      await tx`
+        update portal_private.portal_users
+        set auth_user_id=null,
+            updated_at=now()
+        where id=${userId}::uuid
+      `;
+    });
+
     const { error } = await service.auth.admin.deleteUser(snapshot.authUserId);
     if (error && !authDeleteAlreadyGone(error)) {
       await sql.begin(async (tx) => {
+        await tx`
+          update portal_private.portal_users
+          set auth_user_id=${snapshot.authUserId}::uuid,
+              updated_at=now()
+          where id=${userId}::uuid
+        `;
         await audit(tx, ctx, "PORTAL_USER_DELETE_AUTH_FAILED_BY_ADMIN", "PORTAL_USER", userId, req, {
           login: snapshot.login,
           display_name: snapshot.displayName,
           roles: snapshot.roles,
           auth_user_deleted: false,
+          auth_link_restored: true,
         });
       });
       throw Object.assign(new Error("AUTH_USER_DELETE_FAILED"), { status: 502 });
@@ -527,11 +544,11 @@ async function deleteUser(ctx, req, userId) {
   await sql.begin(async (tx) => {
     await tx`
       update portal_private.portal_users
-      set auth_user_id=null,
-          login_name=null,
+      set login_name=null,
           display_name='Удалённый пользователь',
           status='ARCHIVED'::portal_private.portal_user_status_enum,
           lifecycle_state='ARCHIVED'::portal_private.lifecycle_state_enum,
+          revoked_at=coalesce(revoked_at,now()),
           must_change_password=false,
           password_change_required_at=null,
           updated_at=now()

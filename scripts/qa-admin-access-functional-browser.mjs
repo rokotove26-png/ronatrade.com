@@ -28,7 +28,10 @@ const controlPlane=await readFile('supabase/functions/rona-admin-control-plane/i
 if(!controlPlane.includes('async function deleteUser(ctx, req, userId)'))throw new Error('ADMIN_USER_DELETE_HANDLER_MISSING');
 if(!controlPlane.includes('service.auth.admin.deleteUser(snapshot.authUserId)'))throw new Error('ADMIN_USER_AUTH_DELETE_MISSING');
 if(!controlPlane.includes('ADMIN_SELF_DELETE_DENIED'))throw new Error('ADMIN_USER_SELF_DELETE_GUARD_MISSING');
+if(!controlPlane.includes("revoked_at=coalesce(revoked_at,now())"))throw new Error('ADMIN_USER_DELETE_REVOKED_AT_MISSING');
 if(!controlPlane.includes("auth_user_id=null"))throw new Error('ADMIN_USER_AUTH_LINK_CLEAR_MISSING');
+if(!controlPlane.includes("auth_user_id=${snapshot.authUserId}::uuid"))throw new Error('ADMIN_USER_AUTH_LINK_COMPENSATION_MISSING');
+if(!controlPlane.includes("auth_link_restored: true"))throw new Error('ADMIN_USER_AUTH_DELETE_COMPENSATION_AUDIT_MISSING');
 if(!controlPlane.includes("login_name=null"))throw new Error('ADMIN_USER_LOGIN_CLEAR_MISSING');
 if(!controlPlane.includes('PORTAL_USER_DELETED_BY_ADMIN'))throw new Error('ADMIN_USER_DELETE_AUDIT_MISSING');
 if(!modalCss.includes('.ca-modal-backdrop{z-index:2147483600!important}'))throw new Error('ADMIN_MODAL_STACK_CSS_MISSING');
