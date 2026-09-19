@@ -335,7 +335,7 @@ returns table(
 language plpgsql
 security definer
 set search_path to 'pg_catalog','portal_private','auth'
-as $
+as $imp$
 declare
   v_role portal_private.portal_role_enum;
   v_target_client uuid;
@@ -504,7 +504,7 @@ begin
   reused:=false;
   return next;
 end;
-$;
+$imp$;
 
 revoke all on function portal_private.server_admin_impersonated_submit_reverse_event(
   uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,text,jsonb,text,uuid,uuid
