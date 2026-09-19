@@ -6,6 +6,8 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'functions/portal/client-rail-current-ui.js'
+      - 'scripts/qa-client-portal-visual-freeze.mjs'
+      - 'governance/client-online-rail-670-owner-approval-20260919.json'
       - 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
       - 'scripts/attach-client-rail-production-v1.mjs'
       - 'scripts/qa-client-online-rail-670-browser.mjs'
@@ -51,6 +53,8 @@ jobs:
             echo 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
             echo 'docs/client-online-rail-670-architecture.md'
             echo 'functions/portal/client-rail-current-ui.js'
+            echo 'scripts/qa-client-portal-visual-freeze.mjs'
+            echo 'governance/client-online-rail-670-owner-approval-20260919.json'
             echo 'scripts/attach-client-rail-production-v1.mjs'
             echo 'scripts/qa-client-online-rail-670-browser.mjs'
             echo 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
@@ -77,18 +81,18 @@ jobs:
           deno check --node-modules-dir=auto supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
           echo 'ISSUE670_SOURCE_AUTH_CONTRACT=PASS'
 
-      - name: Production-v55 delegation guard
+      - name: Production-v56 delegation guard
         shell: bash
         run: |
           set -euo pipefail
           file='supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
-          grep -q '1c356872f3640f35c40158d01ae363521272ce3d/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts' "$file"
+          grep -q '53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts' "$file"
           grep -q 'client_user_has_contract_access' "$file"
           grep -q 'client_user_has_deal_access' "$file"
           grep -q 'rona_admin_rail_deal_map_read_model_v4' "$file"
-          grep -q 'return await liveV55Handler(req, info)' "$file"
+          grep -q 'return await liveV56Handler(req, info)' "$file"
           ! grep -Eiq '(insert|update|delete)[[:space:]]+portal_private\.' "$file"
-          echo 'ISSUE670_LIVE_V55_DELEGATION=PASS'
+          echo 'ISSUE670_LIVE_V56_DELEGATION=PASS'
 
       - name: Canonical Client production build
         shell: bash
