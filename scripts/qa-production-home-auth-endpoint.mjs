@@ -8,10 +8,19 @@ try{console.log('SUPABASE_DNS_A='+JSON.stringify(await resolve4(SUPABASE_HOST)))
 try{console.log('SUPABASE_DNS_AAAA='+JSON.stringify(await resolve6(SUPABASE_HOST)))}catch(e){console.log('SUPABASE_DNS_AAAA_ERROR='+String(e?.message||e))}
 for(const family of ['-4','-6']){
   try{
-    const out=execFileSync('curl',[family,'-sS','-o','/dev/null','-w','%{http_code} %{time_total}','--max-time','10','https://'+SUPABASE_HOST+'/auth/v1/health'],{encoding:'utf8'});
+    const out=execFileSync('curl',[family,'-sS','-o','/dev/null','-w','%{http_code} %{time_total} %{remote_ip}','--max-time','10','https://'+SUPABASE_HOST+'/auth/v1/health'],{encoding:'utf8'});
     console.log('SUPABASE_CURL_'+family.slice(1)+'='+out.trim());
   }catch(e){
     console.log('SUPABASE_CURL_'+family.slice(1)+'_ERROR='+String(e?.stderr||e?.message||e).trim().slice(0,500));
+  }
+}
+
+for(const ip of ['104.18.38.10','172.64.149.246']){
+  try{
+    const out=execFileSync('curl',['-4','-sS','-o','/dev/null','-w','%{http_code} %{time_total} %{remote_ip}','--max-time','10','--resolve',SUPABASE_HOST+':443:'+ip,'https://'+SUPABASE_HOST+'/auth/v1/health'],{encoding:'utf8'});
+    console.log('SUPABASE_CURL_RESOLVE_'+ip+'='+out.trim());
+  }catch(e){
+    console.log('SUPABASE_CURL_RESOLVE_'+ip+'_ERROR='+String(e?.stderr||e?.message||e).trim().slice(0,500));
   }
 }
 
