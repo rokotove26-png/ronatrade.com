@@ -61,7 +61,16 @@ async function jsonBody(req){return await req.json()}
 
 const service=createAdminEntityControl({
   sql,
-  service:{auth:{admin:{deleteUser:async authUserId=>{deletedAuthUsers.push(String(authUserId));return{data:{user:null},error:null}}}},
+  service:{
+    auth:{
+      admin:{
+        deleteUser:async authUserId=>{
+          deletedAuthUsers.push(String(authUserId));
+          return{data:{user:null},error:null};
+        }
+      }
+    }
+  },
   audit,
   jsonBody
 });
