@@ -64,7 +64,7 @@ const server=http.createServer((req,res)=>{
   if(u.pathname==='/portal/api/v1/client/rail-canonical'){
     requests++;
     const clientId=u.searchParams.get('clientId'),contractId=u.searchParams.get('contractId');
-    if(degraded)return json(res,{ok:false,code:'CLIENT_RAIL_CANONICAL_READ_MODD_UNAVAILABLIE'},503);
+    if(degraded)return json(res,{ok:false,code:'CLIENT_RAIL_CANONICAL_READ_MODEL_UNAVAILABLE'},503);
     if(clientId==='CLIENT-A'&&contractId==='CONTRACT-A')return json(res,{ok:true,data:dataFor(clientId,contractId)});
     if(clientId==='CLIENT-B'&&contractId==='CONTRACT-B')return json(res,{ok:true,data:dataFor(clientId,contractId)});
     return json(res,{ok:false,code:'CONTEXT_NOT_FOUND'},404);
@@ -94,8 +94,8 @@ try{
   assert(view.state.railCount===1&&view.state.wagonCount===1,'initial deal state not ready '+JSON.stringify(view.state));
   assert(view.text.includes('GU12-DEAL-QA-A')&&view.text.includes('90000001'),'initial canonical Rail content missing');
   assert(!view.text.includes('GU12-DEAL-QA-B'),'other own deal leaked before selector switch');
-  assert(view.authority.source==='AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODD_V1','wrong client authority source');
-  assert(!view.text.includes('Получаем актуальные ГС-12 и позиции вагонов.'),'loading shell survived successful load');
+  assert(view.authority.source==='AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','wrong client authority source');
+  assert(!view.text.includes('Получаем актуальные ГУ-12 и позиции вагонов.'),'loading shell survived successful load');
   assert(!view.text.includes('Матрица ЖД-тарифов'),'tariff matrix returned');
 
   await page.locator('.rona-rail-v6-select').selectOption(DEAL_B);
