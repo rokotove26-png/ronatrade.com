@@ -20,7 +20,7 @@ await retry('Admin Worker route marker',async attempt=>{
 });
 
 const shell=await retry('Admin Worker shell runtime',async attempt=>{
-  const r=await get('/portal/admin-shell-runtime-v3',attempt);
+  const r=await get('/admin-runtime-shell-v3',attempt);
   assert(r.ok,`status ${r.status}`);
   assert(r.headers.get('x-rona-admin-runtime-delivery')==='worker-failsafe-v1','Worker shell delivery header missing');
   assert(r.headers.get('x-rona-admin-worker-runtime')==='shell-stability-v3','Worker shell identity missing');
@@ -32,7 +32,7 @@ const shell=await retry('Admin Worker shell runtime',async attempt=>{
 });
 
 const watchdog=await retry('Admin Worker watchdog runtime',async attempt=>{
-  const r=await get('/portal/admin-watchdog-runtime-v3',attempt);
+  const r=await get('/admin-runtime-watchdog-v3',attempt);
   assert(r.ok,`status ${r.status}`);
   assert(r.headers.get('x-rona-admin-runtime-delivery')==='worker-failsafe-v1','Worker watchdog delivery header missing');
   assert(r.headers.get('x-rona-admin-worker-runtime')==='watchdog-stability-v3','Worker watchdog identity missing');
@@ -43,7 +43,7 @@ const watchdog=await retry('Admin Worker watchdog runtime',async attempt=>{
 });
 
 const access=await retry('Admin Worker Access runtime',async attempt=>{
-  const r=await get('/portal/admin-access-runtime-v3',attempt);
+  const r=await get('/admin-runtime-access-v3',attempt);
   assert(r.ok,`status ${r.status}`);
   const t=await r.text();
   for(const marker of [
