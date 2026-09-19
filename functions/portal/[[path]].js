@@ -148,10 +148,29 @@ async function adminControlPlaneProbe(accessToken){
     return{state:'INVALID',me:null,status:r.status};
   }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
 }
+async function authOwnerProbe(accessToken){
+  try{
+    const r=await fetch(`${SUPABASE_URL}/auth/v1/user`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}
+    });
+    if(r.ok){
+      const user=await r.json().catch(()=>null);
+      const identity=String(user?.app_metadata?.portal_identity||'').toUpperCase();
+      if(identity==='OWNER_ADMIN')return{state:'VALID',me:{user:{roles:['ADMIN']},authority:'SUPABASE_AUTH_OWNER_FALLBACK'},status:r.status};
+      return{state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
+    }
+    if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
+    if(r.status===429||r.status>=500)return{state:'UNAVAILABLE',me:null,status:r.status};
+    return{state:'UNAVAILABLE',me:null,status:r.status};
+  }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
+}
 async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
   if(!accessToken)return{state:'INVALID',me:null,status:401};let lastStatus=503;
   for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
-  if(allowAdminFallback){const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback}
+  if(allowAdminFallback){
+    const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback;
+    const ownerFallback=await authOwnerProbe(accessToken);if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback
+  }
   return{state:'UNAVAILABLE',me:null,status:lastStatus};
 }
 async function ensureSession(request){
