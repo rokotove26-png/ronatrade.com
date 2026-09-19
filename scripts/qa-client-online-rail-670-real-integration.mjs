@@ -14,8 +14,11 @@ for(const [name,value] of Object.entries({apiUrl,anonKey,serviceKey,dbContainer}
 }
 
 const EMAIL='issue670-client@example.test';
+const ADMIN_EMAIL='issue670-admin@example.test';
 const PASSWORD='Issue670-'+crypto.randomUUID()+'!aA1';
+const ADMIN_PASSWORD='Issue670-Admin-'+crypto.randomUUID()+'!aA1';
 const PORTAL_USER='90000000-0000-4000-8000-000000000001';
+const ADMIN_PORTAL_USER='90000000-0000-4000-8000-000000000002';
 const CLIENT_A='CLIENT-QA-A', CONTRACT_A='CONTRACT-QA-A';
 const CLIENT_B='CLIENT-QA-B', CONTRACT_B='CONTRACT-QA-B';
 const CLIENT_U='CLIENT-QA-UNAUTHORIZED', CONTRACT_U='CONTRACT-QA-UNAUTHORIZED';
@@ -45,18 +48,18 @@ async function jsonFetch(url,options={}){
   const body=await response.json().catch(()=>({}));
   return {response,body};
 }
-async function createAuthenticatedClient(){
+async function createAuthenticatedUser(email,password){
   const create=await jsonFetch(apiUrl+'/auth/v1/admin/users',{
     method:'POST',
     headers:{apikey:serviceKey,authorization:'Bearer '+serviceKey,'content-type':'application/json'},
-    body:JSON.stringify({email:EMAIL,password:PASSWORD,email_confirm:true}),
+    body:JSON.stringify({email,password,email_confirm:true}),
   });
   assert(create.response.ok,'AUTH_ADMIN_CREATE_FAILED '+create.response.status+' '+JSON.stringify(create.body));
   const authUserId=String(create.body?.id||create.body?.user?.id||'');
   assert(authUserId,'AUTH_USER_ID_MISSING');
   const login=await jsonFetch(apiUrl+'/auth/v1/token?grant_type=password',{
     method:'POST',headers:{apikey:anonKey,'content-type':'application/json'},
-    body:JSON.stringify({email:EMAIL,password:PASSWORD}),
+    body:JSON.stringify({email,password}),
   });
   assert(login.response.ok,'AUTH_PASSWORD_LOGIN_FAILED '+login.response.status+' '+JSON.stringify(login.body));
   const accessToken=String(login.body?.access_token||'');
@@ -79,12 +82,16 @@ const deals=[
   {key:DEAL_U1,id:DEAL_U1_ID,client:CLIENT_U_KEY,contract:CONTRACT_U_KEY,doc:'40000000-0000-4000-8000-000000000004',wagon:'90000004',o:'444441',on:'Origin U1',olat:50.1,olng:33.1,d:'444442',dn:'Station U1',dlat:49.1,dlng:34.1},
 ];
 
-function seedSql(authUserId){
+function seedSql(authUserId,adminAuthUserId){
   const geo=deals.flatMap(d=>[[d.o,d.on,d.olat,d.olng],[d.d,d.dn,d.dlat,d.dlng]]);
   return `
 begin;
-insert into portal_private.portal_users(id,auth_user_id,display_name) values ('${PORTAL_USER}'::uuid,'${q(authUserId)}'::uuid,'Issue 670 Client');
-insert into portal_private.portal_user_roles(user_id,role,status) values ('${PORTAL_USER}'::uuid,'CLIENT','ACTIVE');
+insert into portal_private.portal_users(id,auth_user_id,display_name) values
+('${PORTAL_USER}'::uuid,'${q(authUserId)}'::uuid,'Issue 670 Client'),
+('${ADMIN_PORTAL_USER}'::uuid,'${q(adminAuthUserId)}'::uuid,'Issue 670 Admin');
+insert into portal_private.portal_user_roles(user_id,role,status) values
+('${PORTAL_USER}'::uuid,'CLIENT','ACTIVE'),
+('${ADMIN_PORTAL_USER}'::uuid,'ADMIN','ACTIVE');
 insert into portal_private.clients(id,client_id,lifecycle_state,authority_state) values
 ('${CLIENT_A_KEY}'::uuid,'${CLIENT_A}','ACTIVE','CONFIRMED'),
 ('${CLIENT_B_KEY}'::uuid,'${CLIENT_B}','ACTIVE','CONFIRMED'),
@@ -148,8 +155,9 @@ async function edgeGet(accessToken,clientId,contractId,extra=''){
   });
 }
 
-const auth=await createAuthenticatedClient();
-execSql(seedSql(auth.authUserId));
+const auth=await createAuthenticatedUser(EMAIL,PASSWORD);
+const adminAuth=await createAuthenticatedUser(ADMIN_EMAIL,ADMIN_PASSWORD);
+execSql(seedSql(auth.authUserId,adminAuth.authUserId));
 await waitForEdge(auth.accessToken);
 
 assert(execSql("select has_function_privilege('authenticated','portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)','EXECUTE');")==='f','CORE_EXECUTE_NOT_REVOKED_FROM_AUTHENTICATED');
@@ -173,6 +181,14 @@ const adminRpc=await jsonFetch(apiUrl+'/rest/v1/rpc/rona_admin_rail_deal_map_rea
   body:JSON.stringify({p_deal_id:DEAL_A1_ID})
 });
 assert(!adminRpc.response.ok,'CLIENT_EXECUTED_ADMIN_V4');
+
+const adminAllowed=await jsonFetch(apiUrl+'/rest/v1/rpc/rona_admin_rail_deal_map_read_model_v4',{
+  method:'POST',headers:{apikey:anonKey,authorization:'Bearer '+adminAuth.accessToken,'content-type':'application/json'},
+  body:JSON.stringify({p_deal_id:DEAL_A1_ID})
+});
+assert(adminAllowed.response.ok,'ADMIN_V4_REJECTED_REAL_ADMIN '+adminAllowed.response.status+' '+JSON.stringify(adminAllowed.body));
+assert(adminAllowed.body?.modelVersion==='RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4','ADMIN_V4_MODEL_VERSION_CHANGED');
+assert(Array.isArray(adminAllowed.body?.deals)&&adminAllowed.body.deals.length===1&&adminAllowed.body.deals[0]?.dealId===DEAL_A1_ID,'ADMIN_V4_SCOPE_CHANGED');
 
 const coreRpc=await jsonFetch(apiUrl+'/rest/v1/rpc/rona_rail_deal_map_read_model_core_v1',{
   method:'POST',headers:{apikey:anonKey,authorization:'Bearer '+auth.accessToken,'content-type':'application/json'},
@@ -221,7 +237,7 @@ const proxy=http.createServer(async(req,res)=>{
 await new Promise((resolve,reject)=>{proxy.once('error',reject);proxy.listen(0,'127.0.0.1',resolve)});
 const origin='http://127.0.0.1:'+proxy.address().port;
 
-const evidence={authenticated:true,sessionId:auth.sessionId,authorizedHttp200:true,adminV4ClientDenied:true,internalCoreClientDenied:true,crossClientFailClosed:true,dealQueryTamperFailClosed:true,autoDealDiscovery:true,hardReloadReady:false,dealSwitchIsolation:false,backgroundRefresh:false,contextSwitchClears:false,degradedHttp503:false,degradedRefreshPreservesLastGood:false,tariffMatrixAbsent:false};
+const evidence={authenticated:true,sessionId:auth.sessionId,authorizedHttp200:true,adminV4ClientDenied:true,adminV4AdminAllowed:true,internalCoreClientDenied:true,crossClientFailClosed:true,dealQueryTamperFailClosed:true,autoDealDiscovery:true,hardReloadReady:false,dealSwitchIsolation:false,backgroundRefresh:false,contextSwitchClears:false,degradedHttp503:false,degradedRefreshPreservesLastGood:false,tariffMatrixAbsent:false};
 let browser;
 try{
   browser=await chromium.launch({headless:true});
