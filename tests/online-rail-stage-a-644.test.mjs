@@ -161,3 +161,15 @@ test('Compact wagon table is owned by the left control card and has only the app
   assert.match(v81,/compact\.classList\.add\('rona-rail-v6-position-table'\);control\.append\(compact\)/);
   assert.doesNotMatch(v81,/\['ГУ-12','Вагон','Текущая станция','Код','Операция','Статус','Последнее обновление'\]/);
 });
+
+
+test('Map height follows the left operations boundary and map title has no backing plate',()=>{
+  assert.match(v81,/function alignRailMapHeightToOperations\(\)/);
+  assert.match(v81,/left\.getBoundingClientRect\(\)\.height/);
+  assert.match(v81,/right\.style\.setProperty\('height',leftHeight\+'px','important'\)/);
+  assert.match(v81,/scheduleRailMapHeightAlignment/);
+  assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-title\{[^}]*background:transparent!important/);
+  assert.match(v81,/border:0!important/);
+  assert.match(v81,/box-shadow:none!important/);
+  assert.match(v81,/aspect-ratio:auto!important/);
+});
