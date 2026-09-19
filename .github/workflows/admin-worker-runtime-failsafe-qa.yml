@@ -7,9 +7,9 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin.js'
-      - 'functions/portal/admin-shell-runtime-v3.js'
-      - 'functions/portal/admin-watchdog-runtime-v3.js'
-      - 'functions/portal/admin-access-runtime-v3.js'
+      - 'functions/admin-runtime-shell-v3.js'
+      - 'functions/admin-runtime-watchdog-v3.js'
+      - 'functions/admin-runtime-access-v3.js'
       - 'scripts/verify-admin-worker-failsafe-production.mjs'
       - 'tests/admin-shell-resilience.test.mjs'
       - 'tests/admin-current-only-shell-contract.test.mjs'
@@ -34,18 +34,18 @@ jobs:
         run: |
           set -euo pipefail
           node --check functions/portal/admin.js
-          node --check functions/portal/admin-shell-runtime-v3.js
-          node --check functions/portal/admin-watchdog-runtime-v3.js
-          node --check functions/portal/admin-access-runtime-v3.js
+          node --check functions/admin-runtime-shell-v3.js
+          node --check functions/admin-runtime-watchdog-v3.js
+          node --check functions/admin-runtime-access-v3.js
           node --check scripts/verify-admin-worker-failsafe-production.mjs
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           grep -q "x-rona-admin-runtime-delivery','worker-failsafe-v1" functions/portal/admin.js
-          grep -q '/portal/admin-shell-runtime-v3' functions/portal/admin.js
-          grep -q '/portal/admin-access-runtime-v3' functions/portal/admin.js
-          grep -q '/portal/admin-watchdog-runtime-v3' functions/portal/admin.js
-          grep -q 'CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN' functions/portal/admin-shell-runtime-v3.js
-          grep -q 'READY_STALE' functions/portal/admin-access-runtime-v3.js functions/portal/clients-agents-current-ui.js
+          grep -q '/admin-runtime-shell-v3' functions/portal/admin.js
+          grep -q '/admin-runtime-access-v3' functions/portal/admin.js
+          grep -q '/admin-runtime-watchdog-v3' functions/portal/admin.js
+          grep -q 'CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN' functions/admin-runtime-shell-v3.js
+          grep -q 'READY_STALE' functions/admin-runtime-access-v3.js functions/portal/clients-agents-current-ui.js
           echo 'ADMIN_WORKER_RUNTIME_FAILSAFE_SOURCE=PASS'
       - name: Verify Worker failsafe on production
         if: github.event_name == 'push'
