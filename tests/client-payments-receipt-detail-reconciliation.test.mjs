@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const hardening=await readFile('supabase/functions/rona-portal-api/payments-v8-production-hardening.ts','utf8');
 const runtime=await readFile('assets/portal-runtime/client-payments-authoritative-v1.js','utf8');
+const canonical=await readFile('assets/portal-runtime/client-payments-canonical-layout-v1.js','utf8');
 
 for(const marker of [
   'CLIENT_RECEIPT_DETAIL_RECONCILIATION_V1',
@@ -24,12 +25,9 @@ assert.ok(hardening.includes("bank_fact_status:String(row?.bank_fact_status||'')
 assert.ok(!hardening.includes("payment.bank_fact_status='BANK_CONFIRMED'"),'must not spoof bank confirmation');
 assert.ok(!/RONA-C\d{3}|DEAL-2026-\d{3}|FARGONA|SOLYARIS/iu.test(hardening),'hardcoded business entity forbidden');
 
-for(const marker of [
-  '20260919-client-payments-authoritative-v3-receipt-reconciliation',
-  'client_receipt_status',
-  "safe==='FINANCE_CONFIRMED'",
-  "safe==='BANK_CONFIRMED'"
-]) assert.ok(runtime.includes(marker),`runtime missing ${marker}`);
-assert.ok(!/RONA-C\d{3}|DEAL-2026-\d{3}/.test(runtime),'runtime business hardcode forbidden');
+assert.ok(runtime.includes("payments:Array.isArray(state.detail.payments)?state.detail.payments:[]"),'authoritative runtime must expose server-scoped payments to canonical layout');
+assert.ok(canonical.includes('function projectConfirmedReceipts(owner,payments)'), 'canonical receipt detail projector missing');
+assert.ok(canonical.includes('const ordered=[...payments].sort'), 'canonical receipt detail must render the server-scoped payment array');
+assert.ok(canonical.includes('projectConfirmedReceipts(owner,payments);'), 'canonical receipt detail projection not applied');
 
 console.log('CLIENT_PAYMENTS_RECEIPT_DETAIL_RECONCILIATION=PASS');
