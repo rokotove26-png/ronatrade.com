@@ -2,8 +2,14 @@
   'use strict';
   if (window.__RONA_G82_HOME_INLINE_AUTH_V2__) return;
   window.__RONA_G82_HOME_INLINE_AUTH_V2__ = true;
+  window.__RONA_G82_HOME_AUTH_FAILOVER__ = 'server-first-browser-direct-v1';
 
   const ENDPOINT = '/portal/auth/login';
+  const HANDOFF_ENDPOINT = '/portal/auth/handoff';
+  const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
+  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
+  const SERVER_LOGIN_TIMEOUT_MS = 5000;
+  const DIRECT_LOGIN_TIMEOUT_MS = 10000;
   const PLACEHOLDER = 'серверная авторизация будет подключена после утверждения дизайна';
   const PANEL_LABELS = ['личный кабинет', 'personal account', 'client portal'];
   const boundDocs = new WeakSet();
@@ -92,16 +98,89 @@
   function enableFields(identifier,password,button){for(const el of [identifier,password,button]){if(!el)continue;el.removeAttribute('aria-hidden');el.removeAttribute('inert');if('disabled'in el)el.disabled=false;if(el.tabIndex<0)el.tabIndex=0}if(identifier){try{identifier.type='text'}catch(_){}identifier.setAttribute('autocomplete','username');identifier.setAttribute('inputmode','text');identifier.setAttribute('aria-label','Логин')}if(password)password.setAttribute('autocomplete','current-password')}
   function preparePanel(doc,panel){if(!panel)return false;const{identifier,password,button}=fieldSet(panel);if(!identifier||!password||!button)return false;cleanLegacy(doc,panel);enableFields(identifier,password,button);panel.dataset.ronaInlineAuth='g82-v2';statusNode(doc,panel);return true;}
 
+  async function fetchBounded(url,init,timeoutMs){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);
+    try{return await fetch(url,{...init,signal:controller.signal})}finally{clearTimeout(timer)}
+  }
+  function directEmail(identifier){
+    const value=String(identifier||'').trim().toLowerCase();
+    if(value==='rokotove')return 'office_kg@ronaoil.com';
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)?value:null;
+  }
+  function targetForRoles(roles){
+    const list=Array.isArray(roles)?roles.map(String):[];
+    if(list.includes('ADMIN'))return '/portal/admin';
+    if(list.includes('RONA_OPERATOR'))return '/portal/staff';
+    if(list.includes('AGENT'))return '/portal/agent';
+    if(list.includes('CLIENT'))return '/portal/client';
+    return null;
+  }
+  async function directBrowserLogin(login,secret){
+    const email=directEmail(login);
+    if(!email)return{ok:false,code:'LOGIN_DIRECT_EMAIL_REQUIRED'};
+    const tokenResponse=await fetchBounded(SUPABASE_URL+'/auth/v1/token?grant_type=password',{
+      method:'POST',
+      cache:'no-store',
+      referrerPolicy:'no-referrer',
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({email,password:secret})
+    },DIRECT_LOGIN_TIMEOUT_MS);
+    const tokens=await tokenResponse.json().catch(()=>({}));
+    if(!tokenResponse.ok||!tokens?.access_token||!tokens?.refresh_token){
+      return{ok:false,code:tokenResponse.status===400||tokenResponse.status===401?'LOGIN_DENIED':'LOGIN_DIRECT_UPSTREAM',status:tokenResponse.status};
+    }
+    let target='/portal/';
+    try{
+      const meResponse=await fetchBounded(SUPABASE_URL+'/functions/v1/rona-portal-api/session/me',{
+        method:'GET',
+        cache:'no-store',
+        referrerPolicy:'no-referrer',
+        headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:'Bearer '+tokens.access_token,accept:'application/json'}
+      },5000);
+      const me=await meResponse.json().catch(()=>null);
+      if(meResponse.ok&&me?.ok&&me?.user){
+        const resolved=targetForRoles(me.user.roles);
+        if(resolved)target=resolved;
+      }
+    }catch(_){}
+    const handoff=await fetchBounded(HANDOFF_ENDPOINT,{
+      method:'POST',
+      credentials:'same-origin',
+      cache:'no-store',
+      referrerPolicy:'no-referrer',
+      headers:{'content-type':'application/json','accept':'application/json'},
+      body:JSON.stringify({access_token:tokens.access_token,refresh_token:tokens.refresh_token,expires_in:tokens.expires_in})
+    },3000);
+    const handed=await handoff.json().catch(()=>({}));
+    if(!handoff.ok||!handed?.ok)return{ok:false,code:'LOGIN_HANDOFF_FAILED',status:handoff.status};
+    return{ok:true,redirect:target,mode:'BROWSER_DIRECT_AUTH_FALLBACK_V1'};
+  }
+
   async function authenticate(doc,panel){
     if(!preparePanel(doc,panel)||busyPanels.has(panel))return;
     const{identifier,password,button}=fieldSet(panel);const login=String(identifier.value||'').trim();const secret=String(password.value||'');
     if(!login||!secret){setStatus(doc,panel,'Введите логин и пароль.');return}
     busyPanels.add(panel);setStatus(doc,panel,'');setLoading(button,true);
     try{
-      const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
-      const data=await r.json().catch(()=>({}));
-      if(!r.ok||!data?.ok){password.value='';const code=String(data?.code||'');if(r.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');else if(r.status===400||code==='LOGIN_INVALID')setStatus(doc,panel,'Введите корректный логин и пароль.');else if(r.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');return}
-      const target=localPortalTarget(data.redirect);if(!target){password.value='';setStatus(doc,panel,'Не удалось определить разрешённый кабинет. Повторите попытку.');return}
+      let r=null,data=null,serverUnavailable=false;
+      try{
+        r=await fetchBounded(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})},SERVER_LOGIN_TIMEOUT_MS);
+        data=await r.json().catch(()=>({}));
+        serverUnavailable=r.status>=500||String(data?.code||'')==='LOGIN_UPSTREAM_TIMEOUT';
+      }catch(_){serverUnavailable=true}
+      if(serverUnavailable){
+        try{data=await directBrowserLogin(login,secret);r={ok:Boolean(data?.ok),status:data?.code==='LOGIN_DENIED'?401:(data?.ok?200:503)}}catch(_){data={ok:false,code:'LOGIN_DIRECT_UPSTREAM'};r={ok:false,status:503}}
+      }
+      if(!r?.ok||!data?.ok){
+        password.value='';const code=String(data?.code||'');
+        if(r?.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');
+        else if(r?.status===400||code==='LOGIN_INVALID'||code==='LOGIN_DIRECT_EMAIL_REQUIRED')setStatus(doc,panel,'Введите корректный логин и пароль.');
+        else if(r?.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');
+        else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');
+        return
+      }
+      const target=localPortalTarget(data.redirect);
+      if(!target){password.value='';setStatus(doc,panel,'Не удалось определить разрешённый кабинет. Повторите попытку.');return}
       setStatus(doc,panel,'Вход выполнен. Открываем кабинет…',false);try{window.top.location.assign(target)}catch(_){window.location.assign(target)}
     }catch(_){password.value='';setStatus(doc,panel,'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{busyPanels.delete(panel);setLoading(button,false)}
   }
