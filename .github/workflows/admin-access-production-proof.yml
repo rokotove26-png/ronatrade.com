@@ -28,9 +28,16 @@ jobs:
           node --check functions/portal/admin-approved-analytics-v455-ui.js
           grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'" functions/portal/clients-agents-current-ui.js
-          grep -q "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-user-v6-20260828'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-agent-v7-20260919'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q "await mutate('/access/users',payload)" functions/portal/clients-agents-current-ui.js
+          ! grep -q 'Профиль агента' functions/portal/clients-agents-current-ui.js
+          ! grep -q 'agentScope' functions/portal/clients-agents-current-ui.js
+          grep -q 'Компании назначаются агентам отдельно' functions/portal/clients-agents-current-ui.js
+          grep -q 'AGENT_PERSON_IDENTITY_V2' supabase/functions/rona-admin-control-plane/index.ts
+          ! grep -q 'resolveAgentProfile' supabase/functions/rona-admin-control-plane/index.ts
+          grep -q 'company_assignment_created: false' supabase/functions/rona-admin-control-plane/index.ts
+          grep -q 'agent_legal_entity_key drop not null' supabase/migrations/20260919211000_agent_person_identity_decouple_v2.sql
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "x-rona-access-create-owner':'clients-agents-current-v5" functions/portal/clients-agents-current-ui.js

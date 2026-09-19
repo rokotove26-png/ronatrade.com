@@ -187,51 +187,177 @@ async function accessSnapshot() {
     if (u) u.bindings.push({ id: String(b.id), company: String(b.legal_name), clientId: String(b.client_id), contractId: String(b.contract_id), status: String(b.status), role: "Уполномоченный представитель", dealScopeMode: String(b.deal_scope_mode || "") });
   }
   const ab = await sql`
-    select b.id,b.user_id,b.status::text,ap.agent_person_id,ale.agent_legal_entity_id,ale.legal_name
+    select b.id,b.user_id,b.status::text,ap.agent_person_id,
+           coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) as agent_name,
+           ale.agent_legal_entity_id,ale.legal_name
     from portal_private.agent_user_bindings b
     join portal_private.agent_persons ap on ap.id=b.agent_person_key
-    join portal_private.agent_legal_entities ale on ale.id=b.agent_legal_entity_key
+    left join portal_private.agent_legal_entities ale on ale.id=b.agent_legal_entity_key
     order by b.created_at
   `;
   for (const b of ab) {
     const u = byUser.get(String(b.user_id));
-    if (u) u.bindings.push({ id: String(b.id), company: String(b.legal_name), clientId: String(b.agent_legal_entity_id), contractId: String(b.agent_person_id), status: String(b.status), role: "Агент", dealScopeMode: "AGENT_FIXED_SCOPE" });
+    if (u) u.bindings.push({
+      id: String(b.id),
+      company: b.legal_name ? String(b.legal_name) : String(b.agent_name || "Агент"),
+      clientId: b.agent_legal_entity_id ? String(b.agent_legal_entity_id) : null,
+      contractId: String(b.agent_person_id),
+      status: String(b.status),
+      role: "Агент",
+      dealScopeMode: b.agent_legal_entity_id ? "AGENT_ENTITY_SCOPE" : "AGENT_PERSON_SCOPE"
+    });
   }
   return [...byUser.values()];
 }
 
-async function availableProfiles() {
-  const rows = await sql`
-    select distinct ap.id agent_person_key,ap.agent_person_id,ap.display_alias,ap.full_name,
-           ale.id agent_legal_entity_key,ale.agent_legal_entity_id,ale.legal_name
+async function agentIdentities(db = sql) {
+  const rows = await db`
+    select ap.id as agent_person_key,ap.agent_person_id,ap.display_alias,ap.full_name,ap.contact_email,ap.contact_phone,
+           legacy.agent_legal_entity_key,legacy.agent_legal_entity_id,legacy.legal_name
     from portal_private.agent_persons ap
-    join portal_private.agent_client_assignments aca on aca.agent_person_key=ap.id
-    join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
+    left join lateral (
+      select ale.id as agent_legal_entity_key,ale.agent_legal_entity_id,ale.legal_name
+      from portal_private.agent_client_assignments aca
+      join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
+      where aca.agent_person_key=ap.id
+        and aca.agent_legal_entity_key is not null
+        and ale.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and ale.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+      order by (aca.status='ACTIVE'::portal_private.binding_status_enum) desc,aca.updated_at desc
+      limit 1
+    ) legacy on true
     where ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
-      and ale.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and ale.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
-      and aca.status='ACTIVE'::portal_private.binding_status_enum and aca.valid_from<=now() and (aca.valid_to is null or aca.valid_to>now())
-      and aca.authority_state='CONFIRMED'::portal_private.authority_state_enum and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-    order by ap.agent_person_id,ale.agent_legal_entity_id
+    order by ap.agent_person_id
   `;
-  const m = new Map();
-  for (const r of rows) {
-    const id = String(r.agent_person_id);
-    if (!m.has(id)) m.set(id, { agentPersonKey: String(r.agent_person_key), agentPersonId: id, displayAlias: String(r.display_alias || r.full_name || id), fullName: r.full_name ? String(r.full_name) : null, legalEntities: new Map() });
-    m.get(id).legalEntities.set(String(r.agent_legal_entity_id), { agentLegalEntityKey: String(r.agent_legal_entity_key), agentLegalEntityId: String(r.agent_legal_entity_id), legalName: String(r.legal_name) });
-  }
-  return [...m.values()].map((p) => ({ ...p, legalEntities: [...p.legalEntities.values()] }));
+  return rows.map((r) => ({
+    agentPersonKey: String(r.agent_person_key),
+    agentPersonId: String(r.agent_person_id),
+    displayAlias: String(r.display_alias || r.full_name || r.agent_person_id),
+    fullName: r.full_name ? String(r.full_name) : null,
+    contactEmail: r.contact_email ? String(r.contact_email) : null,
+    contactPhone: r.contact_phone ? String(r.contact_phone) : null,
+    legacyLegalEntity: r.agent_legal_entity_id ? {
+      agentLegalEntityKey: String(r.agent_legal_entity_key),
+      agentLegalEntityId: String(r.agent_legal_entity_id),
+      legalName: String(r.legal_name)
+    } : null
+  }));
 }
 
-async function resolveAgentProfile(name, scopeValue) {
-  const ps = await availableProfiles(), scope = String(scopeValue || "").trim(), n = normalizeName(name);
-  const matches = ps.filter((p) => scope ? p.agentPersonId === scope : [p.displayAlias, p.fullName].filter(Boolean).some((x) => normalizeName(x) === n));
-  if (!matches.length) throw Object.assign(new Error("AGENT_PROFILE_NOT_FOUND"), { status: 409 });
-  if (matches.length !== 1) throw Object.assign(new Error("AGENT_PROFILE_AMBIGUOUS"), { status: 409 });
-  const p = matches[0];
-  if (p.legalEntities.length !== 1) throw Object.assign(new Error("AGENT_LEGAL_ENTITY_AMBIGUOUS"), { status: 409 });
-  return { ...p, legalEntity: p.legalEntities[0] };
+async function matchAgentIdentity(db, name, email, phone) {
+  const identities = await agentIdentities(db);
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  const normalizedPhone = String(phone || "").replace(/[^0-9+]/g, "");
+  const byEmail = normalizedEmail
+    ? identities.filter((p) => String(p.contactEmail || "").trim().toLowerCase() === normalizedEmail)
+    : [];
+  if (byEmail.length > 1) throw Object.assign(new Error("AGENT_IDENTITY_AMBIGUOUS"), { status: 409 });
+  if (byEmail.length === 1) return byEmail[0];
+
+  const normalizedName = normalizeName(name);
+  const byName = identities.filter((p) =>
+    [p.displayAlias, p.fullName].filter(Boolean).some((v) => normalizeName(v) === normalizedName)
+  );
+  if (byName.length > 1) throw Object.assign(new Error("AGENT_IDENTITY_AMBIGUOUS"), { status: 409 });
+  if (byName.length === 1) {
+    const candidate = byName[0];
+    const existingEmail = String(candidate.contactEmail || "").trim().toLowerCase();
+    const existingPhone = String(candidate.contactPhone || "").replace(/[^0-9+]/g, "");
+    if ((existingEmail && normalizedEmail && existingEmail !== normalizedEmail) ||
+        (existingPhone && normalizedPhone && existingPhone !== normalizedPhone)) {
+      throw Object.assign(new Error("AGENT_IDENTITY_CONFLICT"), { status: 409 });
+    }
+    return candidate;
+  }
+  return null;
+}
+
+async function nextAgentPersonId(tx) {
+  await tx`select pg_advisory_xact_lock(hashtext('portal_private.agent_person_identity_v2'))`;
+  const year = String(new Date().getUTCFullYear());
+  const prefix = `AGP-${year}-`;
+  const rows = await tx`
+    select agent_person_id
+    from portal_private.agent_persons
+    where agent_person_id like ${prefix + "%"}
+  `;
+  let max = 0;
+  for (const row of rows) {
+    const value = String(row.agent_person_id || "");
+    const match = value.match(new RegExp("^AGP-" + year + "-([0-9]+)$"));
+    if (match) max = Math.max(max, Number(match[1]) || 0);
+  }
+  return prefix + String(max + 1).padStart(3, "0");
+}
+
+async function resolveOrCreateAgentIdentity(tx, name, email, phone) {
+  await tx`select pg_advisory_xact_lock(hashtext('portal_private.agent_identity_match_v2'))`;
+  const existing = await matchAgentIdentity(tx, name, email, phone);
+  if (existing) {
+    await tx`
+      update portal_private.agent_persons
+      set full_name=coalesce(full_name,${name}),
+          display_alias=coalesce(display_alias,${name}),
+          contact_email=coalesce(contact_email,${email}),
+          contact_phone=coalesce(contact_phone,${phone || null}),
+          updated_at=now()
+      where id=${existing.agentPersonKey}::uuid
+    `;
+    return { ...existing, created: false };
+  }
+  const agentPersonId = await nextAgentPersonId(tx);
+  const rows = await tx`
+    insert into portal_private.agent_persons(
+      agent_person_id,full_name,display_alias,contact_email,contact_phone,
+      source_system,source_version,source_timestamp,authority_state,lifecycle_state
+    ) values(
+      ${agentPersonId},${name},${name},${email},${phone || null},
+      'ADMIN_PORTAL','AGENT_PERSON_IDENTITY_V2',now(),
+      'CONFIRMED'::portal_private.authority_state_enum,
+      'ACTIVE'::portal_private.lifecycle_state_enum
+    )
+    returning id as agent_person_key,agent_person_id,display_alias,full_name,contact_email,contact_phone
+  `;
+  const row = rows[0];
+  return {
+    agentPersonKey: String(row.agent_person_key),
+    agentPersonId: String(row.agent_person_id),
+    displayAlias: String(row.display_alias || row.full_name || row.agent_person_id),
+    fullName: row.full_name ? String(row.full_name) : null,
+    contactEmail: row.contact_email ? String(row.contact_email) : null,
+    contactPhone: row.contact_phone ? String(row.contact_phone) : null,
+    legacyLegalEntity: null,
+    created: true
+  };
+}
+
+async function assertAgentPortalAccessAvailable(tx, agentPersonKey) {
+  const rows = await tx`
+    select 1
+    from portal_private.agent_user_bindings ub
+    join portal_private.portal_users u on u.id=ub.user_id
+    where ub.agent_person_key=${agentPersonKey}::uuid
+      and ub.status='ACTIVE'::portal_private.binding_status_enum
+      and ub.revoked_at is null
+      and u.status='ACTIVE'::portal_private.portal_user_status_enum
+      and exists(
+        select 1 from portal_private.portal_user_roles r
+        where r.user_id=u.id
+          and r.role='AGENT'::portal_private.portal_role_enum
+          and r.status='ACTIVE'::portal_private.binding_status_enum
+          and r.revoked_at is null
+      )
+      and not exists(
+        select 1 from portal_private.portal_user_roles ar
+        where ar.user_id=u.id
+          and ar.role='ADMIN'::portal_private.portal_role_enum
+          and ar.status='ACTIVE'::portal_private.binding_status_enum
+          and ar.revoked_at is null
+      )
+    limit 1
+  `;
+  if (rows.length) throw Object.assign(new Error("AGENT_PORTAL_USER_ALREADY_EXISTS"), { status: 409 });
 }
 
 async function assertLoginAvailable(login) {
@@ -303,34 +429,75 @@ async function createClientUser(ctx, req, b) {
 }
 
 async function createAgentUser(ctx, req, b) {
-  const name = requiredText(b.name, "NAME", 200), login = requiredText(b.login, "LOGIN", 160), email = requiredText(b.email, "EMAIL", 320).toLowerCase(), password = validatePassword(b.initialPassword);
+  const name = requiredText(b.name, "NAME", 200),
+        login = requiredText(b.login, "LOGIN", 160),
+        email = requiredText(b.email, "EMAIL", 320).toLowerCase(),
+        password = validatePassword(b.initialPassword),
+        phone = String(b.phone || "").trim().slice(0, 80);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw Object.assign(new Error("INVALID_EMAIL"), { status: 400 });
   await assertLoginAvailable(login);
-  const profile = await resolveAgentProfile(name, b.agentScope);
-  const exists = await sql`
-    select 1 from portal_private.agent_user_bindings ub join portal_private.portal_users u on u.id=ub.user_id
-    where ub.agent_person_key=${profile.agentPersonKey}::uuid and ub.agent_legal_entity_key=${profile.legalEntity.agentLegalEntityKey}::uuid
-      and ub.status='ACTIVE'::portal_private.binding_status_enum and ub.revoked_at is null and u.status='ACTIVE'::portal_private.portal_user_status_enum
-      and exists(select 1 from portal_private.portal_user_roles r where r.user_id=u.id and r.role='AGENT'::portal_private.portal_role_enum and r.status='ACTIVE'::portal_private.binding_status_enum and r.revoked_at is null)
-      and not exists(select 1 from portal_private.portal_user_roles ar where ar.user_id=u.id and ar.role='ADMIN'::portal_private.portal_role_enum and ar.status='ACTIVE'::portal_private.binding_status_enum and ar.revoked_at is null)
-    limit 1
-  `;
-  if (exists.length) throw Object.assign(new Error("AGENT_PORTAL_USER_ALREADY_EXISTS"), { status: 409 });
-  const authId = await createAuthUser(email, password, login, name, { rona_agent_person_id: profile.agentPersonId });
+
+  const authId = await createAuthUser(email, password, login, name);
   try {
     return await sql.begin(async (tx) => {
+      const identity = await resolveOrCreateAgentIdentity(tx, name, email, phone);
+      await assertAgentPortalAccessAvailable(tx, identity.agentPersonKey);
+
       const userId = crypto.randomUUID();
       await tx`
-        insert into portal_private.portal_users(id,auth_user_id,login_name,display_name,status,source_system,source_version,source_timestamp,authority_state,lifecycle_state,activated_at,last_auth_verified_at,must_change_password,password_change_required_at,password_changed_at)
-        values(${userId}::uuid,${authId}::uuid,${login},${name},'ACTIVE'::portal_private.portal_user_status_enum,'ADMIN_PORTAL','ADMIN_EXCLUSIVE_AGENT_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum,now(),null,false,null,now())
+        insert into portal_private.portal_users(
+          id,auth_user_id,login_name,display_name,status,source_system,source_version,source_timestamp,
+          authority_state,lifecycle_state,activated_at,last_auth_verified_at,must_change_password,
+          password_change_required_at,password_changed_at
+        )
+        values(
+          ${userId}::uuid,${authId}::uuid,${login},${name},
+          'ACTIVE'::portal_private.portal_user_status_enum,
+          'ADMIN_PORTAL','AGENT_PERSON_IDENTITY_V2',now(),
+          'CONFIRMED'::portal_private.authority_state_enum,
+          'ACTIVE'::portal_private.lifecycle_state_enum,
+          now(),null,false,null,now()
+        )
       `;
-      await tx`insert into portal_private.portal_user_roles(user_id,role,status,granted_by,reason) values(${userId}::uuid,'AGENT'::portal_private.portal_role_enum,'ACTIVE'::portal_private.binding_status_enum,${ctx.user}::uuid,'Administrator created Agent Portal account')`;
       await tx`
-        insert into portal_private.agent_user_bindings(user_id,agent_person_key,agent_legal_entity_key,status,valid_from,granted_by,granted_at,reason,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
-        values(${userId}::uuid,${profile.agentPersonKey}::uuid,${profile.legalEntity.agentLegalEntityKey}::uuid,'ACTIVE'::portal_private.binding_status_enum,now(),${ctx.user}::uuid,now(),'Admin Portal: fixed Agent Person access granted','ADMIN_PORTAL','ADMIN_EXCLUSIVE_AGENT_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)
+        insert into portal_private.portal_user_roles(user_id,role,status,granted_by,reason)
+        values(
+          ${userId}::uuid,
+          'AGENT'::portal_private.portal_role_enum,
+          'ACTIVE'::portal_private.binding_status_enum,
+          ${ctx.user}::uuid,
+          'Administrator created Agent Portal identity'
+        )
       `;
-      await audit(tx, ctx, "AGENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, { login, email, agent_person_id: profile.agentPersonId, agent_legal_entity_id: profile.legalEntity.agentLegalEntityId, password_admin_set: true, password_hash_verified: true });
-      return { userId, agentPersonId: profile.agentPersonId, agentLegalEntityId: profile.legalEntity.agentLegalEntityId };
+      await tx`
+        insert into portal_private.agent_user_bindings(
+          user_id,agent_person_key,agent_legal_entity_key,status,valid_from,granted_by,granted_at,reason,
+          source_system,source_version,source_timestamp,authority_state,lifecycle_state
+        )
+        values(
+          ${userId}::uuid,${identity.agentPersonKey}::uuid,null,
+          'ACTIVE'::portal_private.binding_status_enum,now(),${ctx.user}::uuid,now(),
+          'Admin Portal: Agent Person identity access; company scope is assigned separately',
+          'ADMIN_PORTAL','AGENT_PERSON_IDENTITY_V2',now(),
+          'CONFIRMED'::portal_private.authority_state_enum,
+          'ACTIVE'::portal_private.lifecycle_state_enum
+        )
+      `;
+      await audit(tx, ctx, "AGENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, {
+        login,
+        email,
+        agent_person_id: identity.agentPersonId,
+        agent_identity_created: identity.created === true,
+        company_assignment_created: false,
+        password_admin_set: true,
+        password_hash_verified: true
+      });
+      return {
+        userId,
+        agentPersonId: identity.agentPersonId,
+        agentIdentityCreated: identity.created === true,
+        companyAssignmentsCreated: 0
+      };
     });
   } catch (e) {
     try { await service.auth.admin.deleteUser(authId); } catch (_) {}
@@ -634,7 +801,7 @@ async function forwardContractActivation(req, path) {
 async function bootstrap(req) {
   const upstream = await forwardLegacy(req, "/bootstrap"), body = await upstream.json().catch(() => ({}));
   if (!upstream.ok || body?.ok === false) throw Object.assign(new Error(String(body?.code || "LEGACY_BOOTSTRAP_FAILED")), { status: upstream.status || 502 });
-  const data = body.data || {}, profiles = await availableProfiles();
+  const data = body.data || {}, identities = await agentIdentities();
   data.accessUsers = await accessSnapshot();
   data.adminControlPlane = {
     mode: "ADMIN_EXCLUSIVE",
@@ -643,7 +810,8 @@ async function bootstrap(req) {
     openWithoutContractCreatesPendingBinding: true,
     adminUploadActivatesContractAndPendingBindings: true,
     clientContractDownloadArchitecture: "CURRENT_CONFIRMED_PRIVATE_OBJECT_SHORT_LIVED_URL",
-    agentProfiles: profiles.map((p) => ({ agentPersonId: p.agentPersonId, displayAlias: p.displayAlias, legalEntityIds: p.legalEntities.map((x) => x.agentLegalEntityId) })),
+    agentIdentityModel: "AGENT_PERSON_INDEPENDENT_FROM_COMPANY_ASSIGNMENT_V2",
+    agents: identities.map((p) => ({ agentPersonId: p.agentPersonId, displayAlias: p.displayAlias })),
   };
   return { ok: true, data };
 }
@@ -656,8 +824,8 @@ Deno.serve(async (req) => {
   try {
     if (path === "/bootstrap" && req.method === "GET") return send(200, await bootstrap(req));
     if ((path === "/agent-readiness" || path === "/readiness") && req.method === "GET") {
-      const profiles = await availableProfiles();
-      return send(200, { ok: true, data: { matrixReady: profiles.length > 0, mode: "EXISTING_AGENT_PERSON_FIXED_SCOPE", profiles: profiles.map((p) => ({ agentPersonId: p.agentPersonId, displayAlias: p.displayAlias, legalEntityIds: p.legalEntities.map((x) => x.agentLegalEntityId) })) } });
+      const identities = await agentIdentities();
+      return send(200, { ok: true, data: { matrixReady: true, mode: "AGENT_PERSON_IDENTITY_V2", agents: identities.map((p) => ({ agentPersonId: p.agentPersonId, displayAlias: p.displayAlias })) } });
     }
     if (path === "/access/users" && req.method === "POST") return send(201, { ok: true, ...(await createAccessUser(ctx, req)) });
     const pw = path.match(/^\/access\/users\/([0-9a-f-]+)\/password$/i);

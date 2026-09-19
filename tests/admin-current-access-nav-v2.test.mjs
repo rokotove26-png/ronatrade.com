@@ -13,7 +13,9 @@ assert(source.includes("window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-cur
 assert(source.includes("'Создать пользователя'"),'Primary create-user action missing');
 assert(source.includes("new Option('Клиент','Клиент'),new Option('Агент','Агент')"),'Client/Agent role selector missing');
 assert(source.includes("role:isAgent?'Агент':'Клиент'"),'Role-aware access payload missing');
-assert(source.includes('payload.agentScope=scope'),'Agent profile binding missing');
+assert(!source.includes('agentScope'),'Legacy Agent profile/scope payload must be absent');
+assert(!source.includes('Профиль агента'),'Legacy Agent profile field must be absent');
+assert(source.includes("Компании назначаются агентам отдельно"),'Agent creation must state that company assignment is separate');
 assert(source.includes("contractIds:isAgent?[]:ids"),'Client/Agent contract policy missing');
 assert(source.includes("openWithoutContract:!isAgent&&openWithout.checked"),'Fail-closed pre-contract onboarding option missing');
 assert(source.includes("bindingRole:bindingRole.value"),'Client representation role payload missing');
@@ -28,7 +30,7 @@ assert(source.includes("'Сменить пароль'"),'Administrator password 
 assert(source.includes("['history','История и права']"),'History and rights view missing');
 assert(source.includes("const clientContract=kind===''||kind==='CLIENT_CONTRACT'"),'Agent bindings must not use Client contract mutation routes');
 assert(source.includes("dataset.ronaCreateAccess='primary'"),'Primary create access marker missing');
-assert(source.includes("'x-rona-access-create':'single-owner-create-user-v6'"),'Access-create response marker missing');
+assert(source.includes("'x-rona-access-create':'single-owner-create-agent-v7'"),'Access-create response marker missing');
 assert(source.includes("'x-rona-access-create-owner':'clients-agents-current-v5'"),'Access-create owner response marker missing');
 assert(source.includes("'x-rona-admin-nav-owner':'external-current-router-v2'"),'External navigation-owner contract missing');
 assert(source.includes("'x-rona-shell-mutation':'none'"),'No-global-shell-mutation contract missing');
