@@ -3,6 +3,7 @@
 export function createClaimsRuntime(deps:any) {
   const { sql, service, BUCKET, MAX_PDF, audit, reqIds } = deps;
   const actorUser=(ctx:any)=>ctx?.impersonation&&ctx?.actorUserId?ctx.actorUserId:ctx.userId;
+  const boundClient=(ctx:any)=>ctx?.impersonation?.effectiveRole==='CLIENT'?ctx.impersonation.targetClientKey:null;
 
   function clean(v:any, name:string, max=500, required=true) {
     const s=String(v??'').trim();
@@ -108,6 +109,7 @@ export function createClaimsRuntime(deps:any) {
       join portal_private.documents pd on pd.id=c.primary_document_key
       left join portal_private.documents rd on rd.id=c.response_document_key
       where c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and (${boundClient(ctx)}::uuid is null or c.client_key=${boundClient(ctx)}::uuid)
         and exists(
           select 1 from portal_private.client_user_bindings b
           where b.user_id=${ctx.userId}::uuid and b.client_key=c.client_key and b.contract_key=c.contract_key
@@ -180,6 +182,7 @@ export function createClaimsRuntime(deps:any) {
       join portal_private.clients cl on cl.id=b.client_key
       join portal_private.contracts ct on ct.id=b.contract_key
       where b.user_id=${ctx.userId}::uuid and cl.client_id=${clientId} and ct.contract_id=${contractId}
+        and (${boundClient(ctx)}::uuid is null or cl.id=${boundClient(ctx)}::uuid)
         and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null
         and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
         and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
