@@ -39,5 +39,7 @@
     "images_added": false,
     "unrelated_visual_changes": false,
     "owner_final_visual_acceptance_required": true
-  }
+  },
+  "pr_number": 669,
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_RAIL_ADMIN_FULL_PARITY_20260919"
 }
