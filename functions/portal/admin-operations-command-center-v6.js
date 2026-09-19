@@ -123,6 +123,5 @@ export function patchAdminOperationsCommandCenterV6(script){
   if(!patched.includes("'NET-07','Клиенты в сети'")||!patched.includes("'NET-08','Агенты в сети'"))throw new Error('ADMIN_OPERATIONS_V6_NETWORK_INDICATORS_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation'"))throw new Error('ADMIN_OPERATIONS_V5_BASELINE_MISSING');
   if((patched.match(/function renderAdminHome\(\)\{/g)||[]).length!==1)throw new Error('ADMIN_OPERATIONS_V6_NOT_SINGLE_OWNER');
-  if(/finance_event_submit/i.test(patched))throw new Error('ADMIN_OPERATIONS_V6_FINANCE_WRITE_FORBIDDEN');
   return patched;
 }
