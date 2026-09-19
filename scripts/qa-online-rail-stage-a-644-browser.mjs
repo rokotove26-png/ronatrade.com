@@ -241,6 +241,7 @@ try{
 
   await fetch(origin+'/qa/degrade').then(r=>r.json());
   await repairAndWait(page);
+  await page.waitForFunction(()=>window.__RONA_RAIL_CURRENT_SYNC_STATE__?.mode==='PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL'&&window.__RONA_RAIL_CURRENT_V4_ERROR__==='RAIL_READ_MODEL_DEGRADED',{timeout:3000});
   const afterDegradedRefresh=await page.evaluate(()=>({
     state:{...window.__RONA_RAIL_CURRENT_STATE__},
     text:document.querySelector('#page-monitoring')?.textContent||'',
