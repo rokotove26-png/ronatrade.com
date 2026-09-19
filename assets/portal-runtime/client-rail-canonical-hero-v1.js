@@ -113,44 +113,6 @@
     const style=document.createElement('style');
     style.id='rona-client-rail-canonical-hero-v1-style';
     style.textContent=`
-      ${HOST} .rona-rail-v4-root{
-        width:100%!important;
-        max-width:1584px!important;
-        margin-left:auto!important;
-        margin-right:auto!important;
-      }
-      ${HOST} .rona-rail-v4-hero{
-        display:flex!important;
-        align-items:flex-end!important;
-        justify-content:space-between!important;
-        gap:16px!important;
-        padding:var(--rona-rail-canon-pt,18px) var(--rona-rail-canon-pr,20px) var(--rona-rail-canon-pb,18px) var(--rona-rail-canon-pl,20px)!important;
-        margin:0 0 18px!important;
-        min-height:118px!important;
-        border:1px solid rgba(113,169,194,.18)!important;
-        border-radius:var(--rona-rail-canon-radius,16px)!important;
-        background:linear-gradient(135deg,rgba(10,31,43,.94),rgba(6,18,27,.9))!important;
-        box-shadow:0 14px 40px rgba(0,0,0,.18)!important;
-        color:#eaf4f8!important;
-        font-family:Inter,Arial,sans-serif!important;
-        box-sizing:border-box!important;
-      }
-      ${HOST} .rona-rail-v4-hero .rona-visual-kicker{
-        display:block!important;margin:0 0 6px!important;color:#71b9d2!important;
-        font-family:Inter,Arial,sans-serif!important;font-size:10px!important;font-weight:800!important;
-        letter-spacing:.14em!important;text-transform:uppercase!important;
-      }
-      ${HOST} .rona-rail-v4-hero .rona-visual-title{
-        display:block!important;margin:0!important;color:#eaf4f8!important;font-family:Inter,Arial,sans-serif!important;
-        font-size:var(--rona-rail-canon-title-size,28px)!important;
-        line-height:var(--rona-rail-canon-title-line,1.2)!important;
-        font-weight:var(--rona-rail-canon-title-weight,800)!important;
-        letter-spacing:var(--rona-rail-canon-title-spacing,normal)!important;
-      }
-      ${HOST} .rona-rail-v4-hero .rona-visual-sub{
-        display:block!important;margin:7px 0 0!important;color:#8ea6b2!important;font-family:Inter,Arial,sans-serif!important;
-        font-size:12px!important;line-height:1.5!important;font-weight:400!important;
-      }
       ${HOST} .rona-rail-v7-route-layer{display:block!important;visibility:visible!important;opacity:1!important;z-index:3!important}
       ${HOST} .rona-rail-v7-route-svg{display:block!important;visibility:visible!important;opacity:1!important}
       ${HOST} .rona-rail-v7-route-casing{fill:none!important;stroke:rgba(35,43,48,.42)!important;stroke-width:7!important;stroke-linecap:round!important;stroke-linejoin:round!important}
@@ -160,16 +122,6 @@
       ${HOST} .rona-rail-v7-route-actual-casing{fill:none!important;stroke:rgba(31,35,37,.52)!important;stroke-width:8!important;stroke-linecap:round!important;stroke-linejoin:round!important}
       ${HOST} .rona-rail-v7-route-actual{fill:none!important;stroke:#9f332f!important;stroke-width:4.2!important;stroke-linecap:round!important;stroke-linejoin:round!important}
       ${HOST} .rona-rail-v7-route-node{fill:#fff!important;stroke:#9f332f!important;stroke-width:2.2!important}
-      ${HOST} .rona-client-rail-hero-actions{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-end!important}
-      ${HOST} .rona-client-rail-hero-pill,${HOST} .rona-client-rail-hero-btn{
-        border:1px solid rgba(111,188,218,.25)!important;border-radius:999px!important;background:rgba(12,34,46,.72)!important;color:#b9d5df!important;
-        font-family:Inter,Arial,sans-serif!important;font-size:10px!important;font-weight:750!important;line-height:normal!important;white-space:nowrap!important;box-sizing:border-box!important;
-      }
-      ${HOST} .rona-client-rail-hero-pill{padding:7px 10px!important}
-      ${HOST} .rona-client-rail-hero-btn{padding:7px 11px!important;cursor:pointer!important}
-      ${HOST} .rona-client-rail-hero-btn:hover{background:rgba(19,54,70,.9)!important;color:#fff!important}
-      ${HOST} .rona-client-rail-hero-btn:disabled{opacity:.55!important;cursor:default!important}
-      @media(max-width:720px){${HOST} .rona-rail-v4-hero{align-items:flex-start!important;flex-direction:column!important}${HOST} .rona-client-rail-hero-actions{justify-content:flex-start!important}}
     `;
     document.head.appendChild(style);
   }
@@ -196,7 +148,6 @@
     applying=true;
     try{
       ensureStyle();
-      applyPaymentsCanon();
       const host=document.querySelector(HOST);if(!host)return false;
       const hero=host.querySelector('.rona-rail-v4-hero');if(!hero)return false;
       const kicker=hero.querySelector('.rona-visual-kicker'),title=hero.querySelector('.rona-visual-title'),subtitle=hero.querySelector('.rona-visual-sub');
@@ -240,6 +191,6 @@
   document.addEventListener('click',event=>{if(isRailNav(event.target)){schedule();setTimeout(canonicalize,140);setTimeout(canonicalize,420)}},true);
   window.addEventListener('pageshow',()=>{schedule();setTimeout(canonicalize,160)});
   window.addEventListener('focus',schedule);
-  window.addEventListener('resize',invalidatePaymentsCanon,{passive:true});
+  window.addEventListener('resize',schedule,{passive:true});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{ensureObserver();schedule();setTimeout(canonicalize,180)},{once:true});else{ensureObserver();schedule()}
 })();
