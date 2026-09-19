@@ -73,7 +73,7 @@ jobs:
             echo 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
             echo 'tests/client-rail-parity-670.test.mjs'
             echo 'functions/portal/api/[[path]].js'
-            echo 'supabase/functions/rona-portal-api-candidate-20260817/index.ts'
+            echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts'
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-canonical-projection-v1.mjs'
             echo 'tests/client-rail-isolated-backend-after-incident.test.mjs'
             echo '.github/workflows/client-rail-isolated-backend-after-incident.yml'
@@ -97,7 +97,7 @@ jobs:
           node --check supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
           node --test tests/client-rail-parity-670.test.mjs
           node --test tests/client-rail-isolated-backend-after-incident.test.mjs
-          deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/index.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts
           deno check --node-modules-dir=auto supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
           echo 'ISSUE670_SOURCE_AUTH_CONTRACT=PASS'
 
