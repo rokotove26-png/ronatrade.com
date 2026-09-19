@@ -37,6 +37,7 @@ function clearedResponse(status, location = null) {
   const h = new Headers(securityHeaders());
   h.append('set-cookie', clearCookie('rona_portal_at'));
   h.append('set-cookie', clearCookie('rona_portal_rt'));
+  h.append('set-cookie', clearCookie('rona_admin_imp'));
   if (location) h.set('location', location);
   return new Response(null, { status, headers: h });
 }
