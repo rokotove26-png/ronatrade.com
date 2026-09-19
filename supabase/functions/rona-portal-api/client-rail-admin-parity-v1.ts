@@ -84,15 +84,24 @@ async function authorizedDeals(c:any, context:any) {
   `;
 }
 
-async function exactDealReadModel(deal:any) {
-  // Authority has already been resolved above for the exact CLIENT user/context/deal.
-  // Generation uses the internal server-only core; the Admin wrapper is never invoked here.
+async function exactDealReadModel(c:any, context:any, deal:any) {
+  // Re-check the exact server-derived scope in the same SQL statement that invokes
+  // the internal core. The Admin wrapper is never invoked here.
   // The core is not executable by anon/authenticated roles.
   const rows = await sql`
     select portal_private.rona_rail_deal_map_read_model_core_v1(
-      ${deal.deal_key}::uuid,
-      ${deal.deal_id}::text
+      d.id,
+      d.deal_id
     ) as data
+    from portal_private.deals d
+    where d.id=${deal.deal_key}::uuid
+      and d.deal_id=${deal.deal_id}::text
+      and d.client_key=${context.client_key}::uuid
+      and d.contract_key=${context.contract_key}::uuid
+      and d.lifecycle_state='ACTIVE'
+      and portal_private.client_user_has_contract_access(${c.user}::uuid,d.contract_key,now())
+      and portal_private.client_user_has_deal_access(${c.user}::uuid,d.id,now())
+    limit 1
   `;
   const model = rows[0]?.data;
   const modelDeals = Array.isArray(model?.deals) ? model.deals : [];
@@ -135,7 +144,7 @@ async function clientRailCanonical(req:Request) {
   try {
     const deals = await authorizedDeals(c, context);
     const readModels:any[] = [];
-    for (const deal of deals) readModels.push(await exactDealReadModel(deal));
+    for (const deal of deals) readModels.push(await exactDealReadModel(c, context, deal));
 
     const data = projectClientRailCanonical({
       context: {
