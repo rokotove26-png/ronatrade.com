@@ -181,6 +181,7 @@ export function createAdminEntityControl(deps:{
     const correlationId=crypto.randomUUID();
     const expiresAt=new Date(Date.now()+IMPERSONATION_TTL_MS).toISOString();
     const row=await sql.begin(async(tx:any)=>{
+      await tx`select pg_advisory_xact_lock(hashtextextended('ADMIN_IMPERSONATION:'||${ctx.sid},0))`;
       await tx`
         update portal_private.admin_impersonation_sessions
         set status='REVOKED',ended_at=coalesce(ended_at,now()),end_reason='REPLACED_BY_NEW_SESSION',updated_at=now()
