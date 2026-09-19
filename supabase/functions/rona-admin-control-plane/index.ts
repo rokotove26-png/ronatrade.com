@@ -385,6 +385,205 @@ async function unblockUser(ctx, req, userId) {
   return { userId, status: "ACTIVE", pendingContractIds: pending };
 }
 
+function authDeleteAlreadyGone(error) {
+  const status = Number(error?.status || error?.statusCode || 0);
+  const message = String(error?.message || error || "").toLowerCase();
+  return status === 404 || message.includes("user not found") || message.includes("not found");
+}
+
+async function deleteUser(ctx, req, userId) {
+  if (!UUID_RE.test(userId)) throw Object.assign(new Error("INVALID_USER_ID"), { status: 400 });
+  if (userId === ctx.user) throw Object.assign(new Error("ADMIN_SELF_DELETE_DENIED"), { status: 409 });
+  const body = await jsonBody(req);
+  if (body.confirm !== true) throw Object.assign(new Error("DELETE_CONFIRMATION_REQUIRED"), { status: 400 });
+
+  const snapshot = await sql.begin(async (tx) => {
+    const rows = await tx`
+      select id,auth_user_id,login_name,display_name,status::text,lifecycle_state::text
+      from portal_private.portal_users
+      where id=${userId}::uuid
+      for update
+    `;
+    if (!rows.length) throw Object.assign(new Error("USER_NOT_FOUND"), { status: 404 });
+    const user = rows[0];
+
+    const adminRole = await tx`
+      select 1
+      from portal_private.portal_user_roles
+      where user_id=${userId}::uuid
+        and role='ADMIN'::portal_private.portal_role_enum
+        and status='ACTIVE'::portal_private.binding_status_enum
+        and revoked_at is null
+      limit 1
+    `;
+    if (adminRole.length) throw Object.assign(new Error("USER_NOT_FOUND_OR_ADMIN_PROTECTED"), { status: 404 });
+
+    const roleRows = await tx`
+      select role::text
+      from portal_private.portal_user_roles
+      where user_id=${userId}::uuid
+        and status='ACTIVE'::portal_private.binding_status_enum
+        and revoked_at is null
+      order by role::text
+    `;
+    const roles = roleRows.map((r) => String(r.role));
+
+    await tx`
+      update portal_private.portal_sessions_control
+      set status='REVOKED'::portal_private.binding_status_enum,
+          revoked_at=coalesce(revoked_at,now()),
+          revoked_by=coalesce(revoked_by,${ctx.user}::uuid),
+          reason='Admin Portal: user deleted',
+          updated_at=now()
+      where user_id=${userId}::uuid
+        and status<>'REVOKED'::portal_private.binding_status_enum
+    `;
+    await tx`
+      update portal_private.client_user_deal_grants
+      set status='REVOKED'::portal_private.binding_status_enum,
+          valid_to=coalesce(valid_to,now()),
+          revoked_at=coalesce(revoked_at,now()),
+          revoked_by=coalesce(revoked_by,${ctx.user}::uuid),
+          reason='Admin Portal: user deleted',
+          updated_at=now()
+      where user_id=${userId}::uuid
+        and status<>'REVOKED'::portal_private.binding_status_enum
+    `;
+    await tx`
+      update portal_private.client_user_bindings
+      set status='REVOKED'::portal_private.binding_status_enum,
+          valid_to=coalesce(valid_to,now()),
+          revoked_at=coalesce(revoked_at,now()),
+          revoked_by=coalesce(revoked_by,${ctx.user}::uuid),
+          reason='Admin Portal: user deleted',
+          updated_at=now()
+      where user_id=${userId}::uuid
+        and status<>'REVOKED'::portal_private.binding_status_enum
+    `;
+    await tx`
+      update portal_private.client_user_pending_company_bindings
+      set status='REVOKED'::portal_private.binding_status_enum,
+          revoked_at=coalesce(revoked_at,now()),
+          revoked_by=coalesce(revoked_by,${ctx.user}::uuid),
+          reason='Admin Portal: user deleted',
+          updated_at=now()
+      where user_id=${userId}::uuid
+        and status<>'REVOKED'::portal_private.binding_status_enum
+    `;
+    await tx`
+      update portal_private.agent_user_bindings
+      set status='REVOKED'::portal_private.binding_status_enum,
+          valid_to=coalesce(valid_to,now()),
+          revoked_at=coalesce(revoked_at,now()),
+          revoked_by=coalesce(revoked_by,${ctx.user}::uuid),
+          reason='Admin Portal: user deleted',
+          updated_at=now()
+      where user_id=${userId}::uuid
+        and status<>'REVOKED'::portal_private.binding_status_enum
+    `;
+    await tx`
+      update portal_private.portal_user_roles
+      set status='REVOKED'::portal_private.binding_status_enum,
+          revoked_at=coalesce(revoked_at,now()),
+          revoked_by=coalesce(revoked_by,${ctx.user}::uuid),
+          reason='Admin Portal: user deleted',
+          updated_at=now()
+      where user_id=${userId}::uuid
+        and status<>'REVOKED'::portal_private.binding_status_enum
+    `;
+    await tx`
+      update portal_private.portal_users
+      set status='REVOKED'::portal_private.portal_user_status_enum,
+          lifecycle_state='ARCHIVED'::portal_private.lifecycle_state_enum,
+          suspended_at=coalesce(suspended_at,now()),
+          updated_at=now()
+      where id=${userId}::uuid
+    `;
+
+    return {
+      userId,
+      authUserId: user.auth_user_id ? String(user.auth_user_id) : null,
+      login: user.login_name ? String(user.login_name) : null,
+      displayName: String(user.display_name || ""),
+      roles,
+    };
+  });
+
+  if (snapshot.authUserId) {
+    const { error } = await service.auth.admin.deleteUser(snapshot.authUserId);
+    if (error && !authDeleteAlreadyGone(error)) {
+      await sql.begin(async (tx) => {
+        await audit(tx, ctx, "PORTAL_USER_DELETE_AUTH_FAILED_BY_ADMIN", "PORTAL_USER", userId, req, {
+          login: snapshot.login,
+          display_name: snapshot.displayName,
+          roles: snapshot.roles,
+          auth_user_deleted: false,
+        });
+      });
+      throw Object.assign(new Error("AUTH_USER_DELETE_FAILED"), { status: 502 });
+    }
+  }
+
+  await sql.begin(async (tx) => {
+    await tx`
+      update portal_private.portal_users
+      set auth_user_id=null,
+          login_name=null,
+          display_name='Удалённый пользователь',
+          status='ARCHIVED'::portal_private.portal_user_status_enum,
+          lifecycle_state='ARCHIVED'::portal_private.lifecycle_state_enum,
+          must_change_password=false,
+          password_change_required_at=null,
+          updated_at=now()
+      where id=${userId}::uuid
+    `;
+    await audit(tx, ctx, "PORTAL_USER_DELETED_BY_ADMIN", "PORTAL_USER", userId, req, {
+      login: snapshot.login,
+      display_name: snapshot.displayName,
+      roles: snapshot.roles,
+      auth_user_deleted: true,
+      credentials_deleted: true,
+      audit_tombstone_retained: true,
+    });
+  });
+
+  const check = await sql`
+    select
+      u.id,
+      u.auth_user_id,
+      u.login_name,
+      u.status::text,
+      u.lifecycle_state::text,
+      exists(
+        select 1 from portal_private.portal_user_roles r
+        where r.user_id=u.id and r.status='ACTIVE'::portal_private.binding_status_enum and r.revoked_at is null
+      ) as active_role,
+      exists(
+        select 1 from portal_private.client_user_bindings b
+        where b.user_id=u.id and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null
+      ) as active_client_binding,
+      exists(
+        select 1 from portal_private.agent_user_bindings b
+        where b.user_id=u.id and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null
+      ) as active_agent_binding
+    from portal_private.portal_users u
+    where u.id=${userId}::uuid
+    limit 1
+  `;
+  const state = check[0];
+  if (!state || state.auth_user_id || state.login_name || state.status !== "ARCHIVED" || state.lifecycle_state !== "ARCHIVED" || state.active_role || state.active_client_binding || state.active_agent_binding) {
+    throw Object.assign(new Error("USER_DELETE_POSTCONDITION_FAILED"), { status: 500 });
+  }
+
+  return {
+    userId,
+    deleted: true,
+    credentialsDeleted: true,
+    accessDeleted: true,
+    auditTombstoneRetained: true,
+  };
+}
+
 function forwardedHeaders(req) {
   const headers = new Headers();
   for (const name of ["authorization","content-type","accept","x-request-id","x-correlation-id","x-idempotency-key","x-current-document-id"]) {
@@ -450,6 +649,8 @@ Deno.serve(async (req) => {
     if (block && req.method === "POST") return send(200, { ok: true, ...(await blockUser(ctx, req, block[1])) });
     const unblock = path.match(/^\/access\/users\/([0-9a-f-]+)\/unblock$/i);
     if (unblock && req.method === "POST") return send(200, { ok: true, ...(await unblockUser(ctx, req, unblock[1])) });
+    const remove = path.match(/^\/access\/users\/([0-9a-f-]+)\/delete$/i);
+    if (remove && req.method === "POST") return send(200, { ok: true, ...(await deleteUser(ctx, req, remove[1])) });
     if (/^\/contracts\/[^/]+\/signed-document\/attach$/.test(path) && req.method === "POST") return await forwardContractActivation(req, path);
     if (/^\/contracts\//.test(path) || /^\/documents\//.test(path) || /^\/access\/users\/[0-9a-f-]+\/contracts/.test(path)) return await forwardLegacy(req, path);
     return send(404, { ok: false, code: "ROUTE_NOT_FOUND" });
