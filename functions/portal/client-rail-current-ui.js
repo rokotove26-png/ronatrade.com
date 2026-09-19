@@ -59,7 +59,7 @@ function ensureClientRailMount(){
 }
 `;
 
-const CLIENT_API=String.raw\`
+const CLIENT_API=String.raw`
 function clientRailText(v){return v===null||v===undefined?'':String(v).trim()}
 function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}
 function clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}
@@ -75,25 +75,14 @@ async function api(path){
   if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');
   if(!data||!data.railReadModel||!data.railReadModel.modelVersion||!data.railReadModel.overlayMode)throw new Error('CLIENT_RAIL_READ_MODEL_UNAVAILABLE');
   var rail=Array.isArray(data.rail)?data.rail:[],deals=Array.isArray(data.deals)?data.deals:[],wagonCount=rail.reduce(function(sum,doc){return sum+(Array.isArray(doc&&doc.wagons)?doc.wagons.length:0)},0);
-  window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={
-    source:'AUTHORIZED_CLIENT_RAIL_READ_MODEL',
-    context_source:'RONA_CLIENT_CONTEXT',
-    client_id:clientRailText(context.client_id),
-    contract_id:clientRailText(context.contract_id),
-    projection_contract:data.projection_contract||'CLIENT_RAIL_ADMIN_PARITY_V1',
-    model_version:data.railReadModel.modelVersion,
-    deal_count:deals.length,
-    rail_document_count:rail.length,
-    wagon_count:wagonCount,
-    updated_at:new Date().toISOString()
-  };
+  window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__={source:'AUTHORIZED_CLIENT_RAIL_READ_MODEL',context_source:'RONA_CLIENT_CONTEXT',client_id:clientRailText(context.client_id),contract_id:clientRailText(context.contract_id),projection_contract:data.projection_contract||'CLIENT_RAIL_ADMIN_PARITY_V1',model_version:data.railReadModel.modelVersion,deal_count:deals.length,rail_document_count:rail.length,wagon_count:wagonCount,updated_at:new Date().toISOString()};
   document.documentElement.dataset.ronaClientRailSource='AUTHORIZED_CLIENT_RAIL_READ_MODEL';
   document.documentElement.dataset.ronaClientRailOperational='true';
   document.documentElement.dataset.ronaClientRailVisual='ADMIN_CURRENT_V81_CANONICAL';
   window.dispatchEvent(new CustomEvent('rona:client-rail:authority',{detail:window.__RONA_CLIENT_RAIL_AUTHORITY_STATE__}));
   return data
 }
-\`
+`;
 
 export async function onRequest(context){
   const response=await adminRailCurrent(context);
