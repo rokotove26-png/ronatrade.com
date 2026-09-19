@@ -100,11 +100,17 @@ async function clientScope(ctx) {
 }
 async function agentScope(ctx) {
   const rows = await sql`
-    select distinct aca.client_key,cl.client_id,cl.legal_name,ap.agent_person_id,ale.agent_legal_entity_id,ale.legal_name agent_legal_name
+    select distinct aca.client_key,cl.client_id,cl.legal_name,ap.agent_person_id,
+           ale.agent_legal_entity_id,ale.legal_name agent_legal_name
     from portal_private.agent_user_bindings aub
-    join portal_private.agent_client_assignments aca on aca.agent_person_key=aub.agent_person_key and aca.agent_legal_entity_key=aub.agent_legal_entity_key
-    join portal_private.agent_persons ap on ap.id=aca.agent_person_key
-    join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
+    join portal_private.agent_client_assignments aca
+      on aca.agent_person_key=aub.agent_person_key
+     and (
+       aub.agent_legal_entity_key is null
+       or aca.agent_legal_entity_key is not distinct from aub.agent_legal_entity_key
+     )
+    join portal_private.agent_persons ap on ap.id=aub.agent_person_key
+    left join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
     join portal_private.clients cl on cl.id=aca.client_key
     where aub.user_id=${ctx.userId}::uuid and aub.status='ACTIVE'::portal_private.binding_status_enum and aub.revoked_at is null
       and aub.valid_from<=now() and (aub.valid_to is null or aub.valid_to>now())
@@ -128,11 +134,20 @@ async function adminSnapshot() {
     order by cl.client_id`;
 
   const agents = await sql`
-    select distinct ap.agent_person_id,coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) agent_name,ale.agent_legal_entity_id,ale.legal_name agent_legal_name
+    select ap.agent_person_id,coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) agent_name,
+           legacy.agent_legal_entity_id,legacy.legal_name agent_legal_name
     from portal_private.agent_persons ap
-    join portal_private.agent_client_assignments aca on aca.agent_person_key=ap.id
-    join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
-    where ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    left join lateral (
+      select ale.agent_legal_entity_id,ale.legal_name
+      from portal_private.agent_client_assignments aca
+      join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
+      where aca.agent_person_key=ap.id
+        and aca.agent_legal_entity_key is not null
+      order by (aca.status='ACTIVE'::portal_private.binding_status_enum) desc,aca.updated_at desc
+      limit 1
+    ) legacy on true
+    where ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
     order by ap.agent_person_id`;
 
   const prices = await sql`
@@ -275,17 +290,59 @@ async function publishPrice(ctx, req, id) {
 
 async function setAgentAssignment(ctx, req, clientId) {
   const b=await jsonBody(req), agentPersonId=String(b.agentPersonId||'').trim();
-  const c=await sql`select id,client_id from portal_private.clients where client_id=${clientId} limit 1`; if(!c.length) throw Object.assign(new Error("CLIENT_NOT_FOUND"),{status:404});
-  let profile=null;
+  const clientRows=await sql`select id,client_id from portal_private.clients where client_id=${clientId} limit 1`;
+  if(!clientRows.length) throw Object.assign(new Error("CLIENT_NOT_FOUND"),{status:404});
+  let identity=null;
   if(agentPersonId){
-    const p=await sql`select ap.id agent_person_key,ap.agent_person_id,ale.id agent_legal_entity_key from portal_private.agent_persons ap join portal_private.agent_client_assignments aca on aca.agent_person_key=ap.id join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key where ap.agent_person_id=${agentPersonId} and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by aca.updated_at desc limit 1`;
-    if(!p.length) throw Object.assign(new Error("AGENT_PROFILE_NOT_FOUND"),{status:404}); profile=p[0];
+    const rows=await sql`
+      select ap.id agent_person_key,ap.agent_person_id,
+             legacy.agent_legal_entity_key
+      from portal_private.agent_persons ap
+      left join lateral (
+        select aca.agent_legal_entity_key
+        from portal_private.agent_client_assignments aca
+        where aca.agent_person_key=ap.id
+          and aca.agent_legal_entity_key is not null
+        order by (aca.status='ACTIVE'::portal_private.binding_status_enum) desc,aca.updated_at desc
+        limit 1
+      ) legacy on true
+      where ap.agent_person_id=${agentPersonId}
+        and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+      limit 1
+    `;
+    if(!rows.length) throw Object.assign(new Error("AGENT_IDENTITY_NOT_FOUND"),{status:404});
+    identity=rows[0];
   }
   return sql.begin(async tx=>{
-    await tx`update portal_private.agent_client_assignments set status='REVOKED'::portal_private.binding_status_enum,valid_to=now(),lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum,updated_at=now() where client_key=${c[0].id}::uuid and status='ACTIVE'::portal_private.binding_status_enum and valid_to is null`;
-    if(profile) await tx`insert into portal_private.agent_client_assignments(agent_person_key,agent_legal_entity_key,client_key,status,valid_from,assignment_reference,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${profile.agent_person_key}::uuid,${profile.agent_legal_entity_key}::uuid,${c[0].id}::uuid,'ACTIVE'::portal_private.binding_status_enum,now(),'Admin Portal owner acceptance assignment','ADMIN_PORTAL','OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
-    await audit(tx,ctx,'OWNER_AGENT_COMPANY_ASSIGNMENT_UPDATED','CLIENT',clientId,req,{agentPersonId:profile?String(profile.agent_person_id):null});
-    return {clientId,agentPersonId:profile?String(profile.agent_person_id):null};
+    await tx`
+      update portal_private.agent_client_assignments
+      set status='REVOKED'::portal_private.binding_status_enum,
+          valid_to=now(),
+          lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum,
+          updated_at=now()
+      where client_key=${clientRows[0].id}::uuid
+        and status='ACTIVE'::portal_private.binding_status_enum
+        and valid_to is null
+    `;
+    if(identity) await tx`
+      insert into portal_private.agent_client_assignments(
+        agent_person_key,agent_legal_entity_key,client_key,status,valid_from,assignment_reference,
+        source_system,source_version,source_timestamp,authority_state,lifecycle_state
+      ) values(
+        ${identity.agent_person_key}::uuid,${identity.agent_legal_entity_key}::uuid,${clientRows[0].id}::uuid,
+        'ACTIVE'::portal_private.binding_status_enum,now(),
+        'Admin Portal owner acceptance assignment',
+        'ADMIN_PORTAL','AGENT_PERSON_ASSIGNMENT_V2',now(),
+        'CONFIRMED'::portal_private.authority_state_enum,
+        'ACTIVE'::portal_private.lifecycle_state_enum
+      )
+    `;
+    await audit(tx,ctx,'OWNER_AGENT_COMPANY_ASSIGNMENT_UPDATED','CLIENT',clientId,req,{
+      agentPersonId:identity?String(identity.agent_person_id):null,
+      agentLegalEntityInherited:Boolean(identity?.agent_legal_entity_key)
+    });
+    return {clientId,agentPersonId:identity?String(identity.agent_person_id):null};
   });
 }
 
