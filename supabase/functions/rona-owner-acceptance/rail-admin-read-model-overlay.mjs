@@ -3,7 +3,8 @@ export function overlayRailReadModel(body, readModel) {
   const deals = Array.isArray(readModel?.deals) ? readModel.deals : [];
   if (!deals.length) return body;
 
-  const positionsByDocument = new Map();
+  const positionsByDocumentId = new Map();
+  const positionsByDocumentKey = new Map();
   const plannedRouteByDeal = {};
 
   for (const deal of deals) {
@@ -12,9 +13,15 @@ export function overlayRailReadModel(body, readModel) {
     const positions = Array.isArray(deal?.wagonPositions) ? deal.wagonPositions : [];
     for (const p of positions) {
       const railDocumentId = String(p?.railDocumentId || "");
-      if (!railDocumentId) continue;
-      if (!positionsByDocument.has(railDocumentId)) positionsByDocument.set(railDocumentId, []);
-      positionsByDocument.get(railDocumentId).push(p);
+      const railDocumentKey = String(p?.railDocumentKey || "");
+      if (railDocumentId) {
+        if (!positionsByDocumentId.has(railDocumentId)) positionsByDocumentId.set(railDocumentId, []);
+        positionsByDocumentId.get(railDocumentId).push(p);
+      }
+      if (railDocumentKey) {
+        if (!positionsByDocumentKey.has(railDocumentKey)) positionsByDocumentKey.set(railDocumentKey, []);
+        positionsByDocumentKey.get(railDocumentKey).push(p);
+      }
     }
     const plannedRoute = Array.isArray(deal?.plannedRoute) ? deal.plannedRoute : [];
     const selectedRoute = plannedRoute[0] || null;
@@ -33,7 +40,11 @@ export function overlayRailReadModel(body, readModel) {
   const rail = Array.isArray(body.data.rail) ? body.data.rail : [];
   body.data.rail = rail.map((doc) => {
     const railDocumentId = String(doc?.rail_document_id || "");
-    const currentPositions = positionsByDocument.get(railDocumentId) || [];
+    const railDocumentKey = String(doc?.rail_document_key || "");
+    const currentPositions =
+      (railDocumentKey && positionsByDocumentKey.get(railDocumentKey)) ||
+      (railDocumentId && positionsByDocumentId.get(railDocumentId)) ||
+      [];
     if (!currentPositions.length) return doc;
 
     const existing = Array.isArray(doc?.wagons) ? doc.wagons : [];
