@@ -32,7 +32,7 @@ const AI_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYS
 const BUSINESS_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS"]);
 const ENTITY_SCOPE = Object.freeze({
   OPERATIONS_DIRECTOR: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","DOCUMENT","PAYMENT","SHIPMENT","RAIL_DOCUMENT","PUBLICATION","TASK"]),
-  FINANCE: new Set(["CONTRACT","APPLICATION","DEAL","PAYMENT","TASK"]),
+  FINANCE: new Set(["CONTRACT","APPLICATION","DEAL","DOCUMENT","PAYMENT","TASK"]),
   LEGAL: new Set(["CONTRACT","DEAL","DOCUMENT","TASK"]),
   MARKET_ANALYST: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","PUBLICATION","TASK"]),
   COMMERCIAL_DIRECTOR: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","PUBLICATION","TASK"]),
@@ -357,4 +357,4 @@ async function wrappedRequest(handler, req) {
   return originalServe(...args);
 };
 
-await import("https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36727a94820e1e85e95d4abfc5d6aab8234c5c18/supabase/functions/rona-mcp-gateway/index.js");
+await import("./index.js");
