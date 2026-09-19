@@ -13,6 +13,14 @@ on:
       - functions/portal/admin-main-ui-current.js
       - assets/portal-runtime/client-rail-canonical-hero-v1.js
       - scripts/attach-client-rail-production-v1.mjs
+      - supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
+      - supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
+      - supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql
+      - scripts/qa-client-online-rail-670-real-integration.mjs
+      - tests/fixtures/issue670-client-rail-real-integration-base.sql
+      - tests/client-rail-parity-670.test.mjs
+      - .github/workflows/issue670-client-online-rail-parity.yml
+      - .github/workflows/issue670-client-rail-real-integration.yml
       - scripts/emit-client-runtime-cache-policy.mjs
       - assets/portal-runtime/client-content-responsive-v1.css
       - package.json
@@ -35,6 +43,7 @@ jobs:
           node --check assets/portal-runtime/client-rail-canonical-hero-v1.js
           node --check scripts/attach-client-rail-production-v1.mjs
           node --check scripts/emit-client-runtime-cache-policy.mjs
+          node --test tests/client-rail-parity-670.test.mjs
           test ! -e assets/portal-runtime/client-rail-production-v1.js
           test ! -e assets/portal-runtime/client-rail-movizor-gate-v1.js
           node --input-type=module <<'NODE'
@@ -49,10 +58,10 @@ jobs:
             "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260831-admin-canonical-v1'",
             'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
             'ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
-            '/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',
+            '/portal/api/v1/client/rail-canonical','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL',
             'ADMIN_CURRENT_V81_CANONICAL','admin-current-v81-client-authority-v1'
           ])if(!source.includes(marker))throw new Error('missing operational marker: '+marker);
-          for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки',".rona-rail-v4-hero{display:none!important}"])if(source.includes(forbidden))throw new Error('retired/divergent operational marker: '+forbidden);
+          for(const forbidden of ['/portal/owner-api','/admin/bootstrap','/portal/api/v1/client/shipments',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки',".rona-rail-v4-hero{display:none!important}"])if(source.includes(forbidden))throw new Error('retired/divergent operational marker: '+forbidden);
 
           const hero=fs.readFileSync('assets/portal-runtime/client-rail-canonical-hero-v1.js','utf8');
           for(const marker of [
@@ -61,7 +70,7 @@ jobs:
             "const TITLE='Онлайн ЖД'",
             "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
             'rona-client-rail-hero-actions','Автообновление · 30 с','Обновить',
-            'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS',
+            'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1',
             'width:100%!important','max-width:1584px!important','grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important','grid-template-rows:1fr 1fr!important','${HOST} .rona-rail-v4-hero .rona-visual-title','font-size:28px!important'
           ])if(!hero.includes(marker))throw new Error('Client canonical hero contract missing: '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(hero))throw new Error('canonical hero contains hardcoded business entity');
@@ -138,7 +147,7 @@ jobs:
           if(rail.visual_source_mode!=='CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER'||rail.static_title_owner!=='CLIENT_CANONICAL_HERO_RUNTIME_V1'||rail.static_legacy_dom_removed!==true||rail.runtime_replaces_legacy_page_dom!==false)throw new Error('Rail current-only ownership drifted');
           const hero=rail.canonical_hero;
           if(hero?.marker!=='20260831-client-rail-canonical-hero-v1'||hero?.kicker!=='RONA Trade · Operations'||hero?.title!=='Онлайн ЖД'||hero?.subtitle!=='Операционная картина железнодорожных отправок по данным клиентского контура.'||hero?.refresh_label!=='Автообновление · 30 с'||hero?.refresh_action!=='Обновить')throw new Error('canonical Client Rail hero metadata mismatch');
-          if(rail.client_data_source!=='/portal/api/v1/client/shipments'||rail.provider_state_source!=='/portal/api/v1/client/rail')throw new Error('wrong Client Rail data authority');
+          if(rail.client_data_source!=='/portal/api/v1/client/rail-canonical'||rail.client_authority!=='AUTHENTICATED_CLIENT_CONTRACT')throw new Error('wrong Client Rail data authority');
           console.log('CLIENT_RAIL_CANONICAL_HERO_BUILD=PASS host='+hostId+' removed_bytes='+rail.static_removed_bytes);
           NODE
 

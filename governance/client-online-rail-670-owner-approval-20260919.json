@@ -1,0 +1,44 @@
+{
+  "approval": "OWNER_GITHUB_ISSUE",
+  "authorized_at": "2026-09-19",
+  "issue_number": 670,
+  "issue_url": "https://github.com/rokotove26-png/ronatrade.com/issues/670",
+  "owner_login": "rokotove26-png",
+  "scope": "CLIENT_ONLINE_RAIL_PRODUCTION_PARITY_WITH_ADMIN",
+  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation.",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-rail-canonical-hero-v1.js",
+    "scripts/attach-client-rail-production-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
+      "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
+      "authorized_post_blob_sha": "0846e0b2ae751254f92e20fc6fa8b1f0c92a1887",
+      "required_marker": "CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY"
+    },
+    "scripts/attach-client-rail-production-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
+      "authorized_post_blob_sha": "090d2706ad7e938207b074747492db9a8b286d6a",
+      "required_marker": "client_data_source:'/portal/api/v1/client/rail-canonical'"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "scope_client_online_rail_only": true,
+    "mirror_admin_online_rail_visual_structure": true,
+    "preserve_authenticated_client_contract_authority": true,
+    "preserve_cross_client_fail_closed": true,
+    "preserve_admin_online_rail_business_logic": true,
+    "preserve_finance_payments_access_prices": true,
+    "business_data_changed": false,
+    "supabase_schema_changed": false,
+    "images_added": false,
+    "unrelated_visual_changes": false,
+    "system_admin_independent_qa_required": true,
+    "owner_visual_acceptance_required": true,
+    "merge": "HOLD",
+    "deploy": "HOLD"
+  }
+}
