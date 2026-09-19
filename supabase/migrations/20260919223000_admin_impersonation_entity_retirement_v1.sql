@@ -306,6 +306,211 @@ revoke all on function portal_private.server_admin_impersonated_client_submit_ap
   uuid,uuid,uuid,uuid,uuid,text,text,uuid,numeric,portal_private.price_mode_enum,numeric,character,text,text,date,date,text,uuid,uuid
 ) from public,anon,authenticated;
 
+create or replace function portal_private.server_admin_impersonated_submit_reverse_event(
+  p_impersonation_session_id uuid,
+  p_actor_admin_portal_user_id uuid,
+  p_actor_admin_auth_user_id uuid,
+  p_actor_admin_session_id uuid,
+  p_effective_portal_user_id uuid,
+  p_event_type text,
+  p_authority_domain text,
+  p_target_type text,
+  p_target_id text,
+  p_client_id text,
+  p_contract_id text,
+  p_deal_id text,
+  p_payload jsonb,
+  p_idempotency_key text,
+  p_request_id uuid default null,
+  p_correlation_id uuid default null
+)
+returns table(
+  event_key uuid,
+  event_id text,
+  processing_state text,
+  acknowledgement_state text,
+  created_at timestamptz,
+  reused boolean
+)
+language plpgsql
+security definer
+set search_path to 'pg_catalog','portal_private','auth'
+as $
+declare
+  v_role portal_private.portal_role_enum;
+  v_target_client uuid;
+  v_target_agent uuid;
+  v_client uuid;
+  v_contract uuid;
+  v_deal uuid;
+  v_allowed boolean:=false;
+  v_existing portal_private.portal_reverse_events%rowtype;
+  v_event_id text;
+  v_imp_correlation uuid;
+begin
+  if coalesce(btrim(p_event_type),'')=''
+     or coalesce(btrim(p_authority_domain),'')=''
+     or coalesce(btrim(p_target_type),'')=''
+     or coalesce(btrim(p_idempotency_key),'')='' then
+    raise exception 'reverse event required fields missing';
+  end if;
+
+  if p_event_type not in (
+    'CLIENT_APPLICATION_SUBMIT','CLIENT_CLAIM_SUBMIT','CLIENT_PAYMENT_PROOF_SUBMIT',
+    'CLIENT_MESSAGE_SUBMIT','CLIENT_DOCUMENT_ACK','AGENT_MESSAGE_SUBMIT','AGENT_NOTE_SUBMIT'
+  ) then
+    raise exception 'unsupported impersonated reverse event type';
+  end if;
+
+  select ais.effective_role,ais.target_client_key,ais.target_agent_person_key,ais.correlation_id
+    into v_role,v_target_client,v_target_agent,v_imp_correlation
+  from portal_private.admin_impersonation_sessions ais
+  join portal_private.portal_users effective on effective.id=ais.effective_portal_user_id
+  join portal_private.portal_user_roles er
+    on er.user_id=effective.id
+   and er.role=ais.effective_role
+   and er.status='ACTIVE'::portal_private.binding_status_enum
+   and er.revoked_at is null
+  where ais.id=p_impersonation_session_id
+    and ais.actor_admin_portal_user_id=p_actor_admin_portal_user_id
+    and ais.actor_admin_auth_user_id=p_actor_admin_auth_user_id
+    and ais.actor_admin_session_id=p_actor_admin_session_id
+    and ais.effective_portal_user_id=p_effective_portal_user_id
+    and ais.status='ACTIVE'
+    and ais.ended_at is null
+    and ais.expires_at>now()
+    and effective.status='ACTIVE'::portal_private.portal_user_status_enum
+    and effective.authority_state='CONFIRMED'::portal_private.authority_state_enum
+    and effective.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+  limit 1;
+
+  if v_role is null then raise exception 'impersonation session denied'; end if;
+
+  if p_client_id is not null then
+    select id into v_client from portal_private.clients where client_id=p_client_id;
+    if v_client is null then raise exception 'client target not found'; end if;
+  end if;
+  if p_contract_id is not null then
+    select id,client_key into v_contract,v_client
+    from portal_private.contracts where contract_id=p_contract_id;
+    if v_contract is null then raise exception 'contract target not found'; end if;
+  end if;
+  if p_deal_id is not null then
+    select id,client_key,contract_key into v_deal,v_client,v_contract
+    from portal_private.deals where deal_id=p_deal_id;
+    if v_deal is null then raise exception 'deal target not found'; end if;
+  end if;
+
+  if v_role='CLIENT'::portal_private.portal_role_enum and p_event_type like 'CLIENT_%' then
+    if v_target_client is null or v_client is distinct from v_target_client then
+      raise exception 'impersonated client context denied';
+    end if;
+    if v_deal is not null then
+      v_allowed:=portal_private.client_user_has_deal_access(p_effective_portal_user_id,v_deal,now());
+    elsif v_contract is not null then
+      v_allowed:=portal_private.client_user_has_contract_access(p_effective_portal_user_id,v_contract,now());
+    end if;
+  elsif v_role='AGENT'::portal_private.portal_role_enum and p_event_type like 'AGENT_%' then
+    if v_target_agent is null or not exists(
+      select 1
+      from portal_private.agent_user_bindings b
+      where b.user_id=p_effective_portal_user_id
+        and b.agent_person_key=v_target_agent
+        and b.status='ACTIVE'::portal_private.binding_status_enum
+        and b.revoked_at is null
+        and b.valid_from<=now()
+        and (b.valid_to is null or b.valid_to>now())
+        and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    ) then
+      raise exception 'impersonated agent context denied';
+    end if;
+    if v_deal is not null then
+      v_allowed:=portal_private.agent_user_has_deal_view_access(p_effective_portal_user_id,v_deal,now());
+    elsif v_client is not null then
+      v_allowed:=portal_private.agent_user_has_client_access(p_effective_portal_user_id,v_client,now());
+    end if;
+  end if;
+
+  if not v_allowed then raise exception 'reverse event scope denied'; end if;
+
+  select * into v_existing
+  from portal_private.portal_reverse_events e
+  where e.actor_user_id=p_effective_portal_user_id
+    and e.idempotency_key=p_idempotency_key;
+
+  if found then
+    if v_existing.event_type is distinct from p_event_type
+       or v_existing.authority_domain is distinct from p_authority_domain
+       or v_existing.authority_target_type is distinct from p_target_type
+       or v_existing.authority_target_id is distinct from p_target_id
+       or v_existing.client_key is distinct from v_client
+       or v_existing.contract_key is distinct from v_contract
+       or v_existing.deal_key is distinct from v_deal
+       or v_existing.payload is distinct from coalesce(p_payload,'{}'::jsonb) then
+      raise exception 'idempotency key reused for different event';
+    end if;
+    return query
+      select v_existing.id,v_existing.event_id,v_existing.processing_state,
+             v_existing.acknowledgement_state,v_existing.created_at,true;
+    return;
+  end if;
+
+  v_event_id:='PORTAL-EVT-'||replace(gen_random_uuid()::text,'-','');
+  insert into portal_private.portal_reverse_events(
+    event_id,idempotency_key,actor_user_id,actor_auth_user_id,actor_role,
+    client_key,contract_key,deal_key,event_type,authority_domain,
+    authority_target_type,authority_target_id,payload,processing_state,
+    acknowledgement_state,request_id,correlation_id,source_version,
+    source_timestamp,authority_state,lifecycle_state
+  ) values(
+    v_event_id,p_idempotency_key,p_effective_portal_user_id,p_actor_admin_auth_user_id,v_role,
+    v_client,v_contract,v_deal,p_event_type,p_authority_domain,
+    p_target_type,p_target_id,coalesce(p_payload,'{}'::jsonb),'RECEIVED',
+    'PENDING',p_request_id,coalesce(p_correlation_id,v_imp_correlation),
+    'ADMIN_IMPERSONATION_V1',now(),'SOURCE_RECEIVED','ACTIVE'
+  )
+  returning id,portal_reverse_events.event_id,portal_reverse_events.processing_state,
+            portal_reverse_events.acknowledgement_state,portal_reverse_events.created_at
+  into event_key,event_id,processing_state,acknowledgement_state,created_at;
+
+  insert into portal_private.portal_reverse_event_attempts(
+    event_key,attempt_number,processing_state,result,metadata
+  ) values(
+    event_key,1,'RECEIVED','STARTED',
+    jsonb_build_object(
+      'event_type',p_event_type,
+      'actor_role',v_role::text,
+      'impersonation_session_id',p_impersonation_session_id,
+      'actor_admin_portal_user_id',p_actor_admin_portal_user_id,
+      'effective_portal_user_id',p_effective_portal_user_id
+    )
+  );
+
+  insert into portal_private.audit_events(
+    actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata
+  ) values(
+    p_actor_admin_portal_user_id,'ADMIN','REVERSE_EVENT_SUBMIT_IMPERSONATED','PORTAL_REVERSE_EVENT',v_event_id,
+    coalesce(p_request_id,gen_random_uuid()),coalesce(p_correlation_id,v_imp_correlation),
+    jsonb_build_object(
+      'impersonation_session_id',p_impersonation_session_id,
+      'effective_portal_user_id',p_effective_portal_user_id,
+      'effective_role',v_role::text,
+      'target_client_key',v_target_client,
+      'target_agent_person_key',v_target_agent,
+      'event_type',p_event_type
+    )
+  );
+
+  reused:=false;
+  return next;
+end;
+$;
+
+revoke all on function portal_private.server_admin_impersonated_submit_reverse_event(
+  uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,text,jsonb,text,uuid,uuid
+) from public,anon,authenticated;
+
+
 comment on table portal_private.admin_impersonation_sessions is
   'Server-only Admin impersonation sessions. Real Admin actor identity is preserved separately from effective Client/Agent subject.';
 
