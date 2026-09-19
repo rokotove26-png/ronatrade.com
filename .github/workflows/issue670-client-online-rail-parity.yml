@@ -21,6 +21,10 @@ on:
       - '.github/workflows/client-rail-admin-canonical-qa.yml'
       - '.github/workflows/issue670-client-online-rail-parity.yml'
       - '.github/workflows/issue670-client-rail-real-integration.yml'
+      - 'functions/portal/api/[[path]].js'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/**'
+      - 'tests/client-rail-isolated-backend-after-incident.test.mjs'
+      - '.github/workflows/client-rail-isolated-backend-after-incident.yml'
   workflow_dispatch:
 
 permissions:
@@ -68,6 +72,11 @@ jobs:
             echo 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
             echo 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
             echo 'tests/client-rail-parity-670.test.mjs'
+            echo 'functions/portal/api/[[path]].js'
+            echo 'supabase/functions/rona-portal-api-candidate-20260817/index.ts'
+            echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-canonical-projection-v1.mjs'
+            echo 'tests/client-rail-isolated-backend-after-incident.test.mjs'
+            echo '.github/workflows/client-rail-isolated-backend-after-incident.yml'
           } | sort -u > /tmp/issue670-allowed.txt
           comm -23 /tmp/issue670-changed.txt /tmp/issue670-allowed.txt | tee /tmp/issue670-unexpected.txt
           if test -s /tmp/issue670-unexpected.txt; then
@@ -87,6 +96,8 @@ jobs:
           node --check scripts/qa-client-online-rail-670-real-integration.mjs
           node --check supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
           node --test tests/client-rail-parity-670.test.mjs
+          node --test tests/client-rail-isolated-backend-after-incident.test.mjs
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/index.ts
           deno check --node-modules-dir=auto supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
           echo 'ISSUE670_SOURCE_AUTH_CONTRACT=PASS'
 
