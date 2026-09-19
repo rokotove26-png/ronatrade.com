@@ -19,6 +19,8 @@ assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Navigation drift guard missing');
 assert(shell.includes("'rona:admin-pagechange'"),'Current router page-change event missing');
 assert(route.includes("'x-rona-admin-shell','current-only-v2'"),'Admin route must identify current-only v2 shell');
+assert(route.includes("'x-rona-admin-auth-resilience','dual-authority-v1'"),'Admin route dual-authority resilience marker missing');
+assert(route.includes('async function adminFallbackProbe(accessToken)'),'Admin auth fallback probe missing');
 assert(route.includes("'x-rona-admin-current-only','main-v2-shell-v2'"),'Admin route lifecycle marker missing');
 assert(build.includes("path: 'portal-src/current/admin.html'"));
 assert(build.includes('current-only-router-v2'),'Pages build must require authoritative current router');
