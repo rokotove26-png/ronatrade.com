@@ -15,8 +15,12 @@ on:
       - scripts/attach-client-rail-production-v1.mjs
       - supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts
       - supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
+      - supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql
+      - scripts/qa-client-online-rail-670-real-integration.mjs
+      - tests/fixtures/issue670-client-rail-real-integration-base.sql
       - tests/client-rail-parity-670.test.mjs
       - .github/workflows/issue670-client-online-rail-parity.yml
+      - .github/workflows/issue670-client-rail-real-integration.yml
       - scripts/emit-client-runtime-cache-policy.mjs
       - assets/portal-runtime/client-content-responsive-v1.css
       - package.json
