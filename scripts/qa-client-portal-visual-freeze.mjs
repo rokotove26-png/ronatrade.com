@@ -451,24 +451,30 @@ const applicationBusinessV2VisualExceptionAuthorized=
 const clientRailAdminMirrorExceptionAuthorized=
   clientRailAdminMirrorApproval?.approval==='OWNER_IN_CHAT'&&
   clientRailAdminMirrorApproval?.authorized_at==='2026-09-18'&&
-  clientRailAdminMirrorApproval?.scope==='CLIENT_RAIL_ADMIN_VISUAL_MIRROR_20260918'&&
-  Array.isArray(clientRailAdminMirrorApproval?.approved_protected_files)&&
-  clientRailAdminMirrorApproval.approved_protected_files.length===1&&
-  clientRailAdminMirrorApproval.approved_protected_files[0]==='assets/portal-runtime/client-rail-canonical-hero-v1.js'&&
+  clientRailAdminMirrorApproval?.extended_at==='2026-09-19'&&
+  clientRailAdminMirrorApproval?.scope==='CLIENT_RAIL_ADMIN_FULL_PARITY_20260919'&&
+  exactArray(clientRailAdminMirrorApproval?.approved_protected_files,[
+    'assets/portal-runtime/client-rail-canonical-hero-v1.js',
+    'scripts/attach-client-rail-production-v1.mjs'
+  ])&&
   clientRailAdminMirrorApproval?.requirements?.visual_freeze_remains_enabled===true&&
   clientRailAdminMirrorApproval?.requirements?.exact_file_enforcement_remains_active===true&&
   clientRailAdminMirrorApproval?.requirements?.wildcard_exception===false&&
   clientRailAdminMirrorApproval?.requirements?.scope_client_online_rail_only===true&&
   clientRailAdminMirrorApproval?.requirements?.mirror_admin_online_rail_geometry===true&&
-  clientRailAdminMirrorApproval?.requirements?.square_map===true&&
-  clientRailAdminMirrorApproval?.requirements?.aligned_left_frames===true&&
-  clientRailAdminMirrorApproval?.requirements?.expanded_shared_width===true&&
-  clientRailAdminMirrorApproval?.requirements?.preserve_client_authoritative_data_sources===true&&
-  clientRailAdminMirrorApproval?.requirements?.preserve_business_logic===true&&
+  clientRailAdminMirrorApproval?.requirements?.mirror_admin_online_rail_full_visual===true&&
+  clientRailAdminMirrorApproval?.requirements?.mirror_admin_online_rail_functionality===true&&
+  clientRailAdminMirrorApproval?.requirements?.mirror_admin_online_rail_automation===true&&
+  clientRailAdminMirrorApproval?.requirements?.admin_current_visual_owner_required===true&&
+  clientRailAdminMirrorApproval?.requirements?.client_specific_visual_owner_forbidden===true&&
+  clientRailAdminMirrorApproval?.requirements?.server_side_client_deal_scope_required===true&&
+  clientRailAdminMirrorApproval?.requirements?.cross_client_deal_visibility_forbidden===true&&
+  clientRailAdminMirrorApproval?.requirements?.future_client_deal_auto_discovery_required===true&&
   clientRailAdminMirrorApproval?.requirements?.business_data_changed===false&&
-  clientRailAdminMirrorApproval?.requirements?.auth_changed===false&&
+  clientRailAdminMirrorApproval?.requirements?.finance_payments_prices_access_changed===false&&
   clientRailAdminMirrorApproval?.requirements?.images_added===false&&
-  clientRailAdminMirrorApproval?.requirements?.unrelated_visual_changes===false;
+  clientRailAdminMirrorApproval?.requirements?.unrelated_visual_changes===false&&
+  clientRailAdminMirrorApproval?.requirements?.owner_final_visual_acceptance_required===true;
 
 const approvedModifiedFiles=new Set();
 const approvedNewRuntime=new Set();
@@ -642,7 +648,7 @@ for(const [path,expected] of Object.entries(protectedFiles)){
 }
 
 if(!clientRailAdminMirrorExceptionAuthorized)errors.push('CLIENT_RAIL_ADMIN_MIRROR_GOVERNANCE_NOT_AUTHORIZED');
-if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==1)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=1 actual=${clientRailAdminMirrorAppliedFiles}`);
+if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==clientRailAdminMirrorApproval.approved_protected_files.length)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=${clientRailAdminMirrorApproval.approved_protected_files.length} actual=${clientRailAdminMirrorAppliedFiles}`);
 if(!clientPostreleaseIssue430ExceptionAuthorized)errors.push('CLIENT_POSTRELEASE_ISSUE430_GOVERNANCE_NOT_AUTHORIZED');
 if(clientPostreleaseIssue430ExceptionAuthorized&&clientPostreleaseIssue430AppliedFiles!==CLIENT_POSTRELEASE_ISSUE430_FILES.length)errors.push(`CLIENT_POSTRELEASE_ISSUE430_EXACT_BLOB_COUNT expected=${CLIENT_POSTRELEASE_ISSUE430_FILES.length} actual=${clientPostreleaseIssue430AppliedFiles}`);
 const clientSectionTypography110EffectiveFiles=clientSectionTypography110AppliedFiles+clientPostreleaseIssue430AppliedFiles;
