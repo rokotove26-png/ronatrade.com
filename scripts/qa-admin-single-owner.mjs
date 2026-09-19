@@ -15,6 +15,9 @@ const operationsV5=read('functions/portal/admin-operations-command-center-v5.js'
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
+const deployWait=read('scripts/wait-cloudflare-commit.mjs');
+const materialize=read('scripts/materialize-admin-current-modules.mjs');
+const productionVerify=read('scripts/verify-admin-current-only-production.mjs');
 
 const failures=[];
 const need=(ok,msg)=>{if(!ok)failures.push(msg)};
@@ -27,6 +30,9 @@ need(has(admin,'data-page="agent-settlements"')&&has(admin,'id="page-agent-settl
 need(has(admin,'data-page="market-news"')&&has(admin,'id="page-market-news"'),'Market News route/page is missing');
 need(has(admin,'grid-template-columns:272px')&&has(admin,'min-height:48px')&&has(admin,'font-size:14.5px'),'Canonical desktop sidebar sizing is missing');
 need(has(admin,'current-only-router-v2')&&has(admin,'MutationObserver'),'Single current router guard is missing');
+need(has(admin,'/assets/portal-admin-shell-fast-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable fast shell');
+need(has(admin,'/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable Access runtime');
+need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable watchdog');
 
 need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owner shell marker is missing');
 need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules are not loaded');
@@ -91,6 +97,12 @@ need(has(accessMigration,'create or replace function public.owner_access_workspa
 need(has(accessHistoryHygiene,'join portal_private.portal_users eu on eu.id::text=ae.entity_id')&&has(accessHistoryHygiene,"left(lower(coalesce(eu.login_name,'')),3)<>'qa_'"),'Access history hygiene does not exclude QA identities');
 
 for(const forbidden of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','admin_externalized','BOOT_ERROR_LATCH_FINAL_CANDIDATE'])need(!has(admin,forbidden),'Forbidden legacy Admin marker in current shell: '+forbidden);
+
+need(has(deployWait,'pagesReady&&workerReady'),'Production deploy gate must require both Cloudflare Pages and ronatrade-com Worker');
+need(!has(deployWait,'WORKER_READY_PAGES_SIGNAL_NOT_REQUIRED')&&!has(deployWait,'PAGES_READY_WORKER_SIGNAL_NOT_REQUIRED'),'Production deploy gate still permits one-sided Cloudflare convergence');
+need(has(materialize,'/assets/portal-admin-shell-fast-v1.js')&&has(materialize,'X-Rona-Admin-Critical-Runtime: shell-stability-v3'),'Critical Admin shell runtime no-store headers missing');
+need(has(materialize,'/assets/portal-admin-runtime-watchdog-v1.js')&&has(materialize,'X-Rona-Admin-Critical-Runtime: watchdog-stability-v3'),'Critical Admin watchdog no-store headers missing');
+need(has(productionVerify,'CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN')&&has(productionVerify,"__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'"),'Production verifier does not reject stale Access static assets');
 
 if(failures.length){console.error('ADMIN_SINGLE_OWNER_QA=FAIL');for(const f of failures)console.error('- '+f);process.exit(1)}
 console.log('ADMIN_SINGLE_OWNER_QA=PASS');
