@@ -30,6 +30,7 @@ const ALLOWED_DOWNLOAD_HOST_SUFFIXES = Object.freeze([
   "oaiusercontent.com",
   "openai.com",
   "chatgpt.com",
+  "blob.core.windows.net",
 ]);
 
 export class RailXlsxIntakeError extends Error {
