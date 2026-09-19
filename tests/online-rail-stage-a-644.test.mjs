@@ -69,13 +69,14 @@ test('Route fit is one-time per deal and yields to user pan/zoom',()=>{
   assert.match(v81,/routeFitApplied:reason==='HOME'\?true:/);
 });
 
-test('Background refresh preserves the last authoritative Rail read model when the overlay degrades',()=>{
+test('Background refresh preserves the last authoritative Rail read model and fails closed before one exists',()=>{
   assert.match(v81,/function railReadModelReady\(data\)/);
-  assert.match(v81,/function railPreserveLastGood\(current,next\)/);
-  assert.match(v81,/railReadModelReady\(current\)&&!railReadModelReady\(next\)/);
+  assert.match(v81,/function railRefreshAcceptable\(next\)/);
+  assert.match(v81,/if\(!railRefreshAcceptable\(next\)\)/);
   assert.match(v81,/PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL/);
+  assert.match(v81,/WAIT_FOR_AUTHORITATIVE_READ_MODEL/);
   assert.match(v81,/RAIL_READ_MODEL_DEGRADED/);
-  assert.match(v81,/return false/);
+  assert.match(v81,/snapshot=railReadModelReady\(seed\)\?seed:null/);
 });
 
 test('Background rail sync is data-change-only and repair is viewport-safe',()=>{
