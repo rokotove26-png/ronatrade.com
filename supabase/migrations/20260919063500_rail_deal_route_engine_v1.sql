@@ -459,7 +459,6 @@ begin
     where p.lifecycle_state::text='ACTIVE'
       and v_deal_id=any(coalesce(p.candidate_deal_ids,array[]::text[]))
       and upper(coalesce(p.counterparty_name,'')) like '%КУЗМАШ%'
-      and upper(coalesce(p.counterparty_role,''))='SUPPLIER'
   ) then
     return jsonb_build_object('esrCode','151408','authority','OWNER_RULE_KUZMASH_WITH_FINANCE_EVIDENCE');
   end if;
