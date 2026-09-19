@@ -70,6 +70,7 @@ export function createAdminEntityControl(deps:{
         and b.valid_from<=now()
         and (b.valid_to is null or b.valid_to>now())
         and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and portal_private.client_user_has_contract_access(u.id,b.contract_key,now())
         and u.status='ACTIVE'::portal_private.portal_user_status_enum
         and u.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
         and u.authority_state='CONFIRMED'::portal_private.authority_state_enum
