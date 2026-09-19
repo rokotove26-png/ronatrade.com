@@ -12,6 +12,7 @@ assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-o
 assert(!watchdog.includes("window.__RONA_OWNER_ADMIN_READY__===true&&!n.querySelector(':scope > .current-loading')"),'Legacy false-positive Home readiness check must be removed');
 assert(watchdog.includes("if(p==='claims')return'claims'"),'Claims recovery mapping missing');
 assert(watchdog.includes("if(p==='access')return'clients-agents-current'"),'Access recovery mapping missing');
+assert(watchdog.includes("if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'Access stable workspace readiness missing');
 assert(watchdog.includes("if(p==='monitoring')return'rail'"),'Rail recovery mapping missing');
 assert(watchdog.includes("if(p==='analytics')return'analytics'"),'Analytics recovery mapping missing');
 assert(watchdog.includes("if(p==='market-news')return'market-news-current'"),'Dedicated Market News recovery mapping missing');
