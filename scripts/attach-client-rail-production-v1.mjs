@@ -61,9 +61,6 @@ for(const required of [
   "const KICKER='RONA Trade · Operations'",
   "const TITLE='Онлайн ЖД'",
   "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
-  'rona-client-rail-hero-actions',
-  'Автообновление · 30 с',
-  'Обновить',
   'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY',
   'CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2',
   "layout_override:'NONE_OPERATIONAL_BODY'",
@@ -174,7 +171,7 @@ integrity.client_runtime.rail_client_admin_canonical={
     kicker:'RONA Trade · Operations',
     title:'Онлайн ЖД',
     subtitle:'Операционная картина железнодорожных отправок по данным клиентского контура.',
-    refresh_label:'Автообновление · 30 с',
+    refresh_label:null,
     refresh_action:null
   },
   client_data_source:'/portal/api/v1/client/rail-canonical',
