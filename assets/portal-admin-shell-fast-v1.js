@@ -116,18 +116,18 @@ async function loadAnalytics(){
   if(ok)root.dataset.ronaAnalyticsOwner='analytics-v2';
   return ok
 }
-const accessReady=()=>!!window.__RONA_CLIENTS_AGENTS_CURRENT__&&!!document.querySelector('#page-access > #rona-ca4 [data-rona-create-access="primary"]');
+const accessHost=()=>document.querySelector('#page-access > #rona-ca4');
+const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost();
+async function waitAccessReady(timeout=14000){const deadline=Date.now()+timeout;while(Date.now()<deadline&&!accessReady())await sleep(100);return accessReady()}
 async function loadAccess(){
   if(accessReady()){root.dataset.ronaAccessOwner='clients-agents-current-v5';return true}
   if(window.__RONA_CLIENTS_AGENTS_CURRENT__){
-    const deadline=Date.now()+2500;
-    while(Date.now()<deadline&&!accessReady())await sleep(100);
-    if(accessReady()){root.dataset.ronaAccessOwner='clients-agents-current-v5';return true}
-    window.__RONA_CLIENTS_AGENTS_CURRENT__=null;
-    document.getElementById('rona-clients-agents-current-loader')?.remove();
-    document.getElementById('rona-single-access')?.remove();
+    try{if(typeof window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__==='function')window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__()}catch(e){recordError('access-repair',e)}
+    if(await waitAccessReady(14000)){root.dataset.ronaAccessOwner='clients-agents-current-v5';return true}
+    recordError('access-runtime-await','CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN');
+    return false
   }
-  const ok=await loadModule('access',MODULES.access.src,{attempts:3,ready:accessReady,timeout:14000});
+  const ok=await loadModule('access',MODULES.access.src,{attempts:3,ready:accessReady,timeout:16000});
   if(ok)root.dataset.ronaAccessOwner='clients-agents-current-v5';
   return ok
 }
@@ -158,9 +158,12 @@ window.addEventListener('rona:admin-pagechange',event=>{
 window.addEventListener('rona:admin-module-retry',event=>{
   const m=String(event?.detail?.module||''),p=String(event?.detail?.page||selectedPage());
   if(m==='clients-agents-current'){
-    const old=document.getElementById('rona-clients-agents-current-loader');if(old)old.remove();
+    if(window.__RONA_CLIENTS_AGENTS_CURRENT__){
+      try{if(typeof window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__==='function')window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__()}catch(e){recordError('clients-agents-current-repair',e)}
+      loadAccess().then(restoreSelectedPage).catch(e=>recordError('clients-agents-current-retry',e));return
+    }
+    document.getElementById('rona-clients-agents-current-loader')?.remove();
     document.getElementById('rona-single-access')?.remove();
-    window.__RONA_CLIENTS_AGENTS_CURRENT__=null;
     const st=window.__RONA_ADMIN_MODULES__.access;if(st){st.status='PENDING';st.promise=null}
     loadAccess().then(restoreSelectedPage).catch(e=>recordError('clients-agents-current-retry',e));return
   }

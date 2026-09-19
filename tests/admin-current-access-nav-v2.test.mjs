@@ -5,6 +5,8 @@ const source=fs.readFileSync('functions/portal/clients-agents-current-ui.js','ut
 const polish=fs.readFileSync('functions/portal/admin-approved-polish-ui.js','utf8');
 const analyticsCompat=fs.readFileSync('functions/portal/admin-approved-analytics-v455-ui.js','utf8');
 const shell=fs.readFileSync('portal-src/current/admin.html','utf8');
+const fastShell=fs.readFileSync('assets/portal-admin-shell-fast-v1.js','utf8');
+const watchdog=fs.readFileSync('assets/portal-admin-runtime-watchdog-v1.js','utf8');
 
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'"),'Current Clients/Agents v5 marker missing');
 assert(source.includes("window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'"),'Single access owner marker missing');
@@ -39,6 +41,16 @@ assert(!source.includes('installNavigationStability'),'Access page must not inst
 assert(!source.includes('installShellParity'),'Access page must not restyle the global shell');
 assert(shell.includes("window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2'"),'Navigation must be owned by current shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must live in shell');
+assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'"),'Access runtime boot lifecycle marker missing');
+assert(source.includes('window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair'),'Access runtime in-place repair hook missing');
+assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'"),'Access runtime must preserve last-good workspace on transient refresh failure');
+assert(source.includes('window.__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard'),'Access runtime root survival guard missing');
+assert(source.includes('if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&r&&accessRootHealthy())'),'Access refresh must preserve last-good DOM');
+assert(fastShell.includes('const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()'),'Fast shell must use stable access readiness');
+assert(fastShell.includes('waitAccessReady(14000)'),'Fast shell must allow bounded async access bootstrap without teardown');
+assert(fastShell.includes('CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN'),'Fast shell must fail non-destructively while access runtime is booting');
+assert(!fastShell.includes('window.__RONA_CLIENTS_AGENTS_CURRENT__=null'),'Fast shell must not clear a live Access runtime marker during recovery');
+assert(watchdog.includes("if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'Watchdog must use stable Access workspace readiness');
 
 const fnStart=source.indexOf('function currentUiRuntime(){');
 const fnEnd=source.indexOf("\nconst SCRIPT='('+currentUiRuntime.toString()+')();';");
