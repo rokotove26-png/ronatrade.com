@@ -409,6 +409,95 @@ function buildPricePdf(prices){const lines=['RONA Trade | Agent Price List',`Gen
 
 const claimsRuntime=createClaimsRuntime({sql,service,BUCKET,MAX_PDF,audit,reqIds});
 
+
+async function clientWorkflowBootstrap(ctx){
+  const scope=await clientScope(ctx);
+  const keys=[...new Set(scope.map(x=>String(x.client_key)))];
+  if(!keys.length)return{generatedAt:new Date().toISOString(),deals:[],documents:[]};
+  const deals=await sql`
+    select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
+           w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
+    from portal_private.deals d
+    join portal_private.clients cl on cl.id=d.client_key
+    left join portal_private.owner_deal_workflow w on w.deal_key=d.id
+    where d.client_key=any(${keys}::uuid[])
+      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+    order by d.created_at desc
+  `;
+  const documents=await sql`
+    select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
+    from portal_private.owner_deal_documents odd
+    join portal_private.deals d on d.id=odd.deal_key
+    join portal_private.documents doc on doc.id=odd.document_key
+    where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
+      and d.client_key=any(${keys}::uuid[])
+      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+    order by doc.created_at desc
+  `;
+  return{generatedAt:new Date().toISOString(),deals,documents};
+}
+
+async function clientAnalyticsFeed(){
+  const publications=await sql`
+    select p.id,p.publication_id,p.title,p.published_at
+    from portal_private.publications p
+    where p.publication_type::text='ANALYTICS'
+      and p.status::text='PUBLISHED'
+      and p.lifecycle_state::text='ACTIVE'
+      and p.authority_state::text in ('VERIFIED','CONFIRMED')
+      and upper(coalesce(p.audience,'INTERNAL'))<>'INTERNAL'
+    order by p.published_at desc
+  `;
+  const out=[];
+  for(const p of publications){
+    const items=await sql`
+      select pi.product,pi.basis,pi.headline,pi.content_text,pi.analytics_as_of,
+             pi.forecast_scenario,pi.actual_value,pi.forecast_value,pi.analytics_unit,
+             pi.metadata->'public_chart' public_chart
+      from portal_private.publication_items pi
+      where pi.publication_key=${p.id}::uuid
+        and pi.item_type::text='ANALYTICS'
+        and pi.lifecycle_state::text='ACTIVE'
+        and pi.authority_state::text in ('VERIFIED','CONFIRMED')
+        and pi.distribution_allowed=true
+        and upper(coalesce(pi.audience,'INTERNAL'))<>'INTERNAL'
+        and coalesce(pi.metadata->>'publication_layer','')='DERIVED_ANALYTICS'
+        and lower(coalesce(pi.metadata->>'public_chart_ready','false'))='true'
+        and pi.metadata ? 'public_chart'
+        and (pi.client_active_from is null or pi.client_active_from<=now())
+        and (pi.client_active_until is null or pi.client_active_until>now())
+      order by pi.item_order
+    `;
+    if(items.length)out.push({publication_id:p.publication_id,title:p.title,published_at:p.published_at,items});
+  }
+  return{generatedAt:new Date().toISOString(),publications:out,publicationGate:'PUBLISHED_DERIVED_DISTRIBUTION_ALLOWED_ONLY'};
+}
+
+async function clientMarkDownload(ctx,req,dealId){
+  const body=await jsonBody(req),kind=String(body.kind||'').trim().toUpperCase();
+  if(!['ADDENDUM','INVOICE'].includes(kind))throw Object.assign(new Error('INVALID_DOCUMENT_KIND'),{status:400});
+  const scope=await clientScope(ctx),keys=[...new Set(scope.map(x=>String(x.client_key)))];
+  if(!keys.length)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
+  const rows=await sql`
+    select d.id
+    from portal_private.deals d
+    where d.deal_id=${dealId}
+      and d.client_key=any(${keys}::uuid[])
+      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+    limit 1
+  `;
+  if(rows.length!==1)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
+  const dealKey=String(rows[0].id);
+  await sql.begin(async tx=>{
+    await tx`insert into portal_private.owner_deal_workflow(deal_key) values(${dealKey}::uuid) on conflict(deal_key) do nothing`;
+    if(kind==='ADDENDUM')await tx`update portal_private.owner_deal_workflow set client_addendum_downloaded_at=coalesce(client_addendum_downloaded_at,now()),updated_at=now() where deal_key=${dealKey}::uuid`;
+    else await tx`update portal_private.owner_deal_workflow set client_invoice_downloaded_at=coalesce(client_invoice_downloaded_at,now()),updated_at=now() where deal_key=${dealKey}::uuid`;
+    await audit(tx,ctx,'CLIENT_DEAL_DOCUMENT_DOWNLOAD_MARK','DEAL',dealId,req,{kind});
+  });
+  return{dealId,kind,marked:true};
+}
+
 Deno.serve(async req=>{
   const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:'PORTAL_ACCESS_DENIED'});const path=pathOf(req),method=req.method;
   if(ctx.impersonation){await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,method==='GET'?'PORTAL_READ':'PORTAL_MUTATION','AUTHORIZED_DISPATCH',{source:'RONA_OWNER_ACCEPTANCE'});}
@@ -424,6 +513,9 @@ Deno.serve(async req=>{
     m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
 
     if(path==='/client/bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientBootstrap(ctx)})}
+    if(path==='/client/workflow-bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientWorkflowBootstrap(ctx)})}
+    if(path==='/client/analytics-feed'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientAnalyticsFeed()})}
+    m=path.match(/^\/client\/deals\/([^/]+)\/mark-download$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientMarkDownload(ctx,req,decodeURIComponent(m[1]))})}
     if(path==='/client/claims'||path.startsWith('/client/claims/')){requireRole(ctx,'CLIENT');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
     m=path.match(/^\/client\/applications\/([^/]+)\/counter-offer\/(accept|decline)$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientCounterDecision(ctx,req,decodeURIComponent(m[1]),m[2])})}
     m=path.match(/^\/client\/deals\/([^/]+)\/signed-addendum$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),'SIGNED_ADDENDUM',true)})}
