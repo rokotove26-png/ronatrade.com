@@ -14,6 +14,9 @@ const analytics=read('functions/portal/analytics-v2-ui.js');
 const analyticsBase=read('functions/portal/analytics-v2-approved-base.js');
 const railSafe=read('functions/portal/rail-safe-fallback-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
+const workerShell=read('functions/portal/admin-shell-runtime-v3.js');
+const workerWatchdog=read('functions/portal/admin-watchdog-runtime-v3.js');
+const workerAccess=read('functions/portal/admin-access-runtime-v3.js');
 
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
@@ -21,6 +24,9 @@ assert(!admin.includes("u.pathname='/portal/admin.html';"),'Direct .html Static 
 for(const marker of ["'x-rona-admin-shell','current-only-v2'","'x-rona-admin-auth','server-verified-v1'","'x-rona-admin-auth-resilience','triple-authority-owner-v2'","'x-rona-admin-current-only','main-v2-shell-v2'",'async function adminFallbackProbe(accessToken)','async function authOwnerProbe(accessToken)','async function sessionProbe(accessToken)','async function ensureSession(request)'])assert(admin.includes(marker),`Admin route marker missing: ${marker}`);
 assert(!admin.includes('HTMLRewriter')&&!admin.includes('adminLoginGate')&&!admin.includes('rona-admin-auth-v3413'),'Legacy Admin route behavior returned');
 assert(admin.includes("if(!rolesOf(session.me).includes('ADMIN'))"),'Admin role must be verified server-side');
+assert(admin.includes("'x-rona-admin-runtime-delivery','worker-failsafe-v1'"),'Admin Worker failsafe delivery marker missing');
+for(const target of ['/portal/admin-shell-runtime-v3','/portal/admin-access-runtime-v3','/portal/admin-watchdog-runtime-v3'])assert(admin.includes(target),`Admin route runtime rewrite missing: ${target}`);
+assert(admin.includes('function rewriteAdminRuntimeSources(source)'),'Admin route must rewrite critical stale static runtime URLs in-place');
 assert(admin.includes("const fallback=await adminFallbackProbe(accessToken)"),'Primary Admin auth degradation must try the isolated Admin control-plane authority before recovery mode');
 assert(admin.includes("if(fallback.state!=='UNAVAILABLE')return fallback"),'Explicit control-plane fallback allow/deny must be honored before owner fallback');
 assert(admin.includes("const ownerFallback=await authOwnerProbe(accessToken)"),'Admin owner fallback must validate the bearer directly with Supabase Auth');
@@ -71,6 +77,14 @@ assert(watchdog.includes("if(p==='analytics')return !!n.querySelector('#rona-ana
 assert(watchdog.includes("if(p==='monitoring')return'rail'")&&watchdog.includes("if(p==='analytics')return'analytics'")&&watchdog.includes("if(p==='market-news')return'market-news-current'"),'Current recovery mappings missing');
 for(const marker of ["root.querySelector(':scope > .mn-masthead')","root.querySelector(':scope > .mn-toolbar')","root.querySelector(':scope > .mn-statusline')","root.querySelector(':scope > main')","activateMarketNews('watchdog-content-repair')"])assert(watchdog.includes(marker),`Market News content-health recovery missing: ${marker}`);
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
+
+assert(workerShell.includes('CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN'),'Worker shell failsafe does not embed the stable Access loader');
+assert(workerShell.includes("const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()"),'Worker shell failsafe embeds stale Access readiness');
+assert(!workerShell.includes('window.__RONA_CLIENTS_AGENTS_CURRENT__=null'),'Worker shell failsafe embeds destructive Access teardown');
+assert(workerWatchdog.includes("if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'Worker watchdog failsafe embeds stale Access readiness');
+assert(workerWatchdog.includes("'x-rona-admin-worker-runtime':'watchdog-stability-v3'"),'Worker watchdog delivery marker missing');
+assert(workerShell.includes("'x-rona-admin-worker-runtime':'shell-stability-v3'"),'Worker shell delivery marker missing');
+assert(workerAccess.trim()==="export { onRequest } from './clients-agents-current-ui.js';",'Worker Access failsafe must alias the current Access authority exactly');
 
 assert(remaining.includes("window.__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'"),'No-store Market News owner guard v6 missing');
 assert(remaining.includes("if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')"),'Market News empty-root repair missing');
