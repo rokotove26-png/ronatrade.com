@@ -21,11 +21,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check Admin control-plane source
+        run: deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/index.ts
       - name: Build current Admin artifact
         run: npm run build
       - name: Install Chromium runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Prove client and agent account creation with PDF contract gate
+      - name: Prove access creation and permanent user deletion
         run: node scripts/qa-admin-access-functional-browser.mjs
