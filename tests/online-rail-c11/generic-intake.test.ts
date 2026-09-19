@@ -1,4 +1,4 @@
-import { assert, assertEquals, assertRejects } from "jsr:@std/assert@1";
+import { assert, assertEquals, assertRejects, assertThrows } from "jsr:@std/assert@1";
 import * as XLSX from "npm:xlsx@0.18.5";
 import {
   RAIL_XLSX_SOURCE_ROW_SCHEMA,
@@ -7,6 +7,7 @@ import {
   canonicalRailStorageKey,
   parseRailWorkbookBytes,
   buildRailImportPreview,
+  normalizeChatFileParam,
 } from "../../supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js";
 
 const headers=[
@@ -28,6 +29,27 @@ function workbookBytes(sheetName="ANY-SHEET-2026", wagon="58214776", station="А
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(aoa),sheetName);
   return new Uint8Array(XLSX.write(wb,{type:"array",bookType:"xlsx",compression:true}));
 }
+
+Deno.test("file param accepts ChatGPT download host and keeps fail-closed host validation", ()=>{
+  const accepted=normalizeChatFileParam({
+    download_url:"https://chatgpt.com/backend-api/estuary/content?id=file_test&sig=test",
+    file_id:"file_test",
+    mime_type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    file_name:"owner.xlsx",
+  });
+  assertEquals(new URL(accepted.downloadUrl).hostname,"chatgpt.com");
+
+  const denied=assertThrows(
+    ()=>normalizeChatFileParam({
+      download_url:"https://example.com/file.xlsx",
+      file_id:"file_test",
+      file_name:"owner.xlsx",
+    }),
+    RailXlsxIntakeError,
+  ) as RailXlsxIntakeError;
+  assertEquals(denied.code,"RAIL_XLSX_FILE_URL_NOT_ALLOWED");
+  assertEquals(denied.detail,{hostname:"example.com"});
+});
 
 Deno.test("content identity ignores filename and sheet name", async()=>{
   const bytes=workbookBytes("not-dislocation-sheet");
