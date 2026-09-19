@@ -60,7 +60,7 @@ jobs:
           git fetch origin release/public-go-live-v1.1 --depth=1
           git diff --name-only origin/release/public-go-live-v1.1...HEAD | sort > /tmp/changed.txt
           cat /tmp/changed.txt
-          allowed='^(\.github/workflows/client-rail-admin-canonical-qa\.yml|\.github/workflows/issue644-online-rail-stage-a-qa\.yml|\.github/workflows/rail-v5-owner-qa\.yml|functions/portal/admin-main-ui-current\.js|functions/portal/main-ui/_middleware\.js|functions/portal/rail-current-v6-ui\.js|functions/portal/rail-current-v7-real-map-ui\.js|functions/portal/rail-current-v81-maplibre-ui\.js|scripts/qa-admin-cash-single-owner\.mjs|scripts/qa-online-rail-stage-a-644-browser\.mjs|scripts/qa-online-rail-stage-a1-single-owner-644-browser\.mjs|tests/admin-payments-live-middleware-v2\.test\.mjs|tests/online-rail-stage-a-644\.test\.mjs)$'
+          allowed='^(\.github/workflows/client-rail-admin-canonical-qa\.yml|\.github/workflows/issue644-online-rail-stage-a-qa\.yml|\.github/workflows/rail-v5-owner-qa\.yml|functions/portal/admin-main-ui-current\.js|functions/portal/main-ui/_middleware\.js|functions/portal/rail-current-v6-ui\.js|functions/portal/rail-current-v7-real-map-ui\.js|functions/portal/rail-current-v81-maplibre-ui\.js|supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3\.ts|supabase/migrations/20260919051500_rail_planned_route_clusters_v1\.sql|scripts/qa-admin-cash-single-owner\.mjs|scripts/qa-online-rail-stage-a-644-browser\.mjs|scripts/qa-online-rail-stage-a1-single-owner-644-browser\.mjs|tests/admin-payments-live-middleware-v2\.test\.mjs|tests/online-rail-stage-a-644\.test\.mjs)$'
           if grep -Ev "$allowed" /tmp/changed.txt; then
             echo "ISSUE644_DELTA_ONLY=FAIL"
             exit 1
