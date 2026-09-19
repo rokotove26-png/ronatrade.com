@@ -39,6 +39,14 @@ Deno.test("file param accepts ChatGPT download host and keeps fail-closed host v
   });
   assertEquals(new URL(accepted.downloadUrl).hostname,"chatgpt.com");
 
+  const azureAccepted=normalizeChatFileParam({
+    download_url:"https://oaisdmntprnortheu.blob.core.windows.net/chatgpt-uploads/file_test.xlsx?sig=test",
+    file_id:"file_test_azure",
+    mime_type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    file_name:"owner.xlsx",
+  });
+  assertEquals(new URL(azureAccepted.downloadUrl).hostname,"oaisdmntprnortheu.blob.core.windows.net");
+
   const denied=assertThrows(
     ()=>normalizeChatFileParam({
       download_url:"https://example.com/file.xlsx",
