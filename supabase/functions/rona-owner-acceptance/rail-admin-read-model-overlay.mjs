@@ -6,6 +6,27 @@ export function overlayRailReadModel(body, readModel) {
   const positionsByDocumentId = new Map();
   const positionsByDocumentKey = new Map();
   const plannedRouteByDeal = {};
+  const actualRouteByDeal = {};
+  const remainingRouteByDeal = {};
+  const routeProgressByDeal = {};
+  const routeStationsByDeal = {};
+  const routeAssignmentByDeal = {};
+
+  function publishByDeal(target, dealKey, dealId, value) {
+    if (!value) return;
+    if (dealKey) target[dealKey] = value;
+    if (dealId) target[dealId] = value;
+  }
+
+  function normalizeRoute(route, fallbackStatus) {
+    if (!route || typeof route !== "object") return null;
+    return {
+      status: route.status || fallbackStatus || "SOURCE_NOT_AVAILABLE",
+      points: Array.isArray(route.points) ? route.points : [],
+      geometry: route.geometry || null,
+      provenance: route.provenance || null,
+    };
+  }
 
   for (const deal of deals) {
     const dealId = String(deal?.dealId || "");
@@ -23,18 +44,14 @@ export function overlayRailReadModel(body, readModel) {
         positionsByDocumentKey.get(railDocumentKey).push(p);
       }
     }
+
     const plannedRoute = Array.isArray(deal?.plannedRoute) ? deal.plannedRoute : [];
-    const selectedRoute = plannedRoute[0] || null;
-    if (selectedRoute) {
-      const normalized = {
-        status: selectedRoute.status || "SOURCE_NOT_AVAILABLE",
-        points: Array.isArray(selectedRoute.points) ? selectedRoute.points : [],
-        geometry: selectedRoute.geometry || null,
-        provenance: selectedRoute.provenance || null,
-      };
-      if (dealKey) plannedRouteByDeal[dealKey] = normalized;
-      if (dealId) plannedRouteByDeal[dealId] = normalized;
-    }
+    publishByDeal(plannedRouteByDeal, dealKey, dealId, normalizeRoute(plannedRoute[0] || null, "SOURCE_NOT_AVAILABLE"));
+    publishByDeal(actualRouteByDeal, dealKey, dealId, normalizeRoute(deal?.actualRoute, "NO_OBSERVED_HISTORY"));
+    publishByDeal(remainingRouteByDeal, dealKey, dealId, normalizeRoute(deal?.remainingRoute, "ROUTE_REMAINDER_UNAVAILABLE"));
+    publishByDeal(routeProgressByDeal, dealKey, dealId, deal?.routeProgress && typeof deal.routeProgress === "object" ? deal.routeProgress : null);
+    publishByDeal(routeStationsByDeal, dealKey, dealId, Array.isArray(deal?.routeStations) ? deal.routeStations : null);
+    publishByDeal(routeAssignmentByDeal, dealKey, dealId, deal?.routeAssignment && typeof deal.routeAssignment === "object" ? deal.routeAssignment : null);
   }
 
   const rail = Array.isArray(body.data.rail) ? body.data.rail : [];
@@ -48,6 +65,7 @@ export function overlayRailReadModel(body, readModel) {
     if (!currentPositions.length) return doc;
 
     const existing = Array.isArray(doc?.wagons) ? doc.wagons : [];
+    const existingWagons = new Set(existing.map((w) => String(w?.wagonNumber || w?.wagon_number || "")));
     const byWagon = new Map(existing.map((w) => [String(w?.wagonNumber || w?.wagon_number || ""), { ...(w || {}) }]));
 
     for (const p of currentPositions) {
@@ -70,7 +88,7 @@ export function overlayRailReadModel(body, readModel) {
         sourceTimezoneStatus: p?.sourceTimezoneStatus ?? null,
         trustedCoordinates: p?.trustedCoordinates ?? null,
         provenance: p?.provenance ?? null,
-        displayProjectionOnly: !existing.some((w) => String(w?.wagonNumber || w?.wagon_number || "") === wagonNumber),
+        displayProjectionOnly: !existingWagons.has(wagonNumber),
       });
     }
 
@@ -78,11 +96,16 @@ export function overlayRailReadModel(body, readModel) {
   });
 
   body.data.plannedRouteByDeal = { ...(body.data.plannedRouteByDeal || {}), ...plannedRouteByDeal };
+  body.data.actualRouteByDeal = { ...(body.data.actualRouteByDeal || {}), ...actualRouteByDeal };
+  body.data.remainingRouteByDeal = { ...(body.data.remainingRouteByDeal || {}), ...remainingRouteByDeal };
+  body.data.routeProgressByDeal = { ...(body.data.routeProgressByDeal || {}), ...routeProgressByDeal };
+  body.data.routeStationsByDeal = { ...(body.data.routeStationsByDeal || {}), ...routeStationsByDeal };
+  body.data.routeAssignmentByDeal = { ...(body.data.routeAssignmentByDeal || {}), ...routeAssignmentByDeal };
   body.data.railReadModel = {
     modelVersion: readModel?.modelVersion || null,
     sourcePolicy: readModel?.sourcePolicy || null,
     generatedAt: readModel?.generatedAt || null,
-    overlayMode: "DISPLAY_ONLY_CURRENT_POSITION",
+    overlayMode: "DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1",
   };
   return body;
 }
