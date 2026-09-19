@@ -166,22 +166,26 @@ test('Compact wagon table is owned by the left control card and has only the app
 });
 
 
-test('Desktop map dimensions are invariant across deal selection and map title has no backing plate',()=>{
-  assert.match(v81,/RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT=810/);
+test('Desktop map captures the owner DEAL-2026-004 frame-bottom baseline once and freezes it across deal selection',()=>{
+  assert.match(v81,/RONA_RAIL_FALLBACK_DESKTOP_CARD_HEIGHT=960/);
+  assert.match(v81,/function railFrozenDesktopCardHeight\(left,right\)/);
+  assert.match(v81,/window\.__RONA_RAIL_FROZEN_DESKTOP_CARD_HEIGHT__/);
+  assert.match(v81,/selectedId==='DEAL-2026-004'/);
+  assert.match(v81,/leftRect\.bottom-rightRect\.top/);
+  assert.match(v81,/window\.__RONA_RAIL_FROZEN_DESKTOP_CARD_HEIGHT__=measured/);
+  assert.match(v81,/mode:'OWNER_FRAME_BOTTOM_FROZEN'/);
   assert.match(v81,/function alignRailMapHeightToOperations\(\)/);
-  assert.match(v81,/var fixedHeight=RONA_RAIL_FIXED_DESKTOP_CARD_HEIGHT/);
+  assert.match(v81,/var fixedHeight=railFrozenDesktopCardHeight\(left,right\)/);
   assert.match(v81,/right\.style\.setProperty\('height',fixedHeight\+'px','important'\)/);
   assert.match(v81,/right\.style\.setProperty\('min-height',fixedHeight\+'px','important'\)/);
   assert.match(v81,/right\.style\.setProperty\('max-height',fixedHeight\+'px','important'\)/);
-  assert.doesNotMatch(v81,/left\.getBoundingClientRect\(\)\.height/);
-  assert.match(v81,/mode:'FIXED_DESKTOP'/);
+  assert.match(v81,/mode:'FROZEN_OWNER_FRAME_BOTTOM'/);
   assert.match(v81,/scheduleRailMapHeightAlignment/);
   assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-title\{[^}]*background:transparent!important/);
   assert.match(v81,/border:0!important/);
   assert.match(v81,/box-shadow:none!important/);
   assert.match(v81,/aspect-ratio:auto!important/);
 });
-
 
 test('Read-model overlay publishes per-deal route engine products without mutating business records',()=>{
   const body={data:{rail:[{rail_document_key:'doc-1',rail_document_id:'R1',wagons:[]}]}};
