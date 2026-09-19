@@ -63,8 +63,8 @@ jobs:
       - name: Type-check Stage 2 authority modules
         run: |
           set -euo pipefail
-          deno check supabase/functions/_shared/admin-impersonation-authority-v1.ts
-          deno check supabase/functions/rona-admin-control-plane/admin-entity-control-v1.ts
+          deno check --node-modules-dir=auto supabase/functions/_shared/admin-impersonation-authority-v1.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/admin-entity-control-v1.ts
       - name: Build isolated authority database
         run: |
           set -euo pipefail
@@ -72,4 +72,4 @@ jobs:
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql
       - name: Prove full impersonation and safe retirement
         run: |
-          deno run --allow-env=TEST_DATABASE_URL --allow-net=127.0.0.1:5432 scripts/qa-admin-entity-control-stage2-real-integration.mjs
+          deno run --node-modules-dir=auto --allow-env=TEST_DATABASE_URL --allow-net=127.0.0.1:5432 scripts/qa-admin-entity-control-stage2-real-integration.mjs
