@@ -469,10 +469,10 @@ export async function onRequest(context) {
     return redirect(target, 303, tokenCookies(login.data));
   }
   if (path === '/portal/auth/logout' && request.method === 'POST') {
-    if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403, clearCookies());
+    if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403, [...clearCookies(),clearImpersonationCookie()]);
     const cookies = parseCookies(request.headers.get('cookie'));
     await authLogout(cookies[ACCESS_COOKIE] || '');
-    return redirect('/portal/login', 303, clearCookies());
+    return redirect('/portal/login', 303, [...clearCookies(),clearImpersonationCookie()]);
   }
   if (path.startsWith('/portal/admin-authority')) return proxyAdminAuthority(request);
   if (path.startsWith('/portal/api/')) {
