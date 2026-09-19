@@ -224,6 +224,7 @@ function rawText(cell) {
 function exactRequiredHeaderMap(sheet, rowIndexZeroBased, range) {
   const headers = [];
   const normalizedSeen = new Map();
+  const duplicateNormalizedHeaders = [];
   for (let c = range.s.c; c <= range.e.c; c += 1) {
     const address = XLSX.utils.encode_cell({ r: rowIndexZeroBased, c });
     const cell = sheet[address];
@@ -231,9 +232,10 @@ function exactRequiredHeaderMap(sheet, rowIndexZeroBased, range) {
     if (!raw) continue;
     const norm = normalizedHeader(raw);
     if (normalizedSeen.has(norm)) {
-      return { invalid: "DUPLICATE_NORMALIZED_HEADER", duplicate: norm };
+      duplicateNormalizedHeaders.push(norm);
+    } else {
+      normalizedSeen.set(norm, c + 1);
     }
-    normalizedSeen.set(norm, c + 1);
     headers.push({
       columnIndex: c + 1,
       header: raw,
@@ -243,6 +245,12 @@ function exactRequiredHeaderMap(sheet, rowIndexZeroBased, range) {
   const set = new Set(headers.map((h) => h.normalizedHeader));
   const hasRequired = REQUIRED_HEADERS.every((h) => set.has(h));
   if (!hasRequired) return null;
+  if (duplicateNormalizedHeaders.length) {
+    return {
+      invalid: "DUPLICATE_NORMALIZED_HEADER",
+      duplicate: duplicateNormalizedHeaders[0],
+    };
+  }
 
   const logical = {};
   for (const [key, aliases] of Object.entries(OPTIONAL_LOGICAL_HEADERS)) {
