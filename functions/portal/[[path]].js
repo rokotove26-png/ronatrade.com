@@ -3,6 +3,7 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const STAFF_WORKSPACE = `${SUPABASE_URL}/functions/v1/rona-staff-workspace`;
 const ADMIN_CONTROL_PLANE_API = `${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
+const PORTAL_SESSION_FALLBACK_RPC = `${SUPABASE_URL}/rest/v1/rpc/rona_portal_session_me_fallback_v1`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
 
@@ -85,21 +86,27 @@ function sameOriginPost(request) {
   try { return new URL(ref).origin === url.origin; } catch { return false; }
 }
 
+async function boundedFetch(url, init = {}, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort('RONA_UPSTREAM_TIMEOUT'), timeoutMs);
+  try { return await fetch(url, { ...init, signal: controller.signal }); }
+  finally { clearTimeout(timer); }
+}
 async function authPassword(email, password) {
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
+  const r = await boundedFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
     body: JSON.stringify({ email, password }),
-  });
+  }, 6000);
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
 async function authRefresh(refreshToken) {
-  const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+  const r = await boundedFetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: 'POST',
     headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
     body: JSON.stringify({ refresh_token: refreshToken }),
-  });
+  }, 6000);
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
@@ -113,10 +120,10 @@ function refreshFailureIsRetryable(result) {
 async function authLogout(accessToken) {
   if (!accessToken) return;
   try {
-    await fetch(`${SUPABASE_URL}/auth/v1/logout`, {
+    await boundedFetch(`${SUPABASE_URL}/auth/v1/logout`, {
       method: 'POST',
       headers: { apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}` },
-    });
+    }, 4000);
   } catch (_) {}
 }
 async function upstream(accessToken, path, request = null) {
@@ -131,12 +138,48 @@ async function upstream(accessToken, path, request = null) {
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   return fetch(`${PORTAL_API}${path}`, init);
 }
-const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000,2000,2500]);
-const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function sessionProbeViaRest(accessToken) {
+  try {
+    const r = await boundedFetch(PORTAL_SESSION_FALLBACK_RPC, {
+      method: 'POST',
+      headers: {
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+        accept: 'application/json'
+      },
+      body: '{}'
+    }, 3000);
+    if (r.status === 401 || r.status === 403) return { state:'INVALID', me:null, status:r.status, source:'POSTGREST' };
+    if (!r.ok) return { state:'UNAVAILABLE', me:null, status:r.status, source:'POSTGREST' };
+    const payload = await r.json().catch(() => null);
+    const row = Array.isArray(payload) ? payload[0] : payload;
+    if (!row?.session_allowed || !row?.portal_user_id || !Array.isArray(row?.roles)) {
+      return { state:'INVALID', me:null, status:403, source:'POSTGREST' };
+    }
+    return {
+      state:'VALID',
+      status:200,
+      source:'POSTGREST',
+      me:{ ok:true, user:{ portal_user_id:String(row.portal_user_id), display_name:String(row.display_name||''), roles:row.roles.map(String) } }
+    };
+  } catch (_) {
+    return { state:'UNAVAILABLE', me:null, status:503, source:'POSTGREST' };
+  }
+}
 async function sessionProbe(accessToken){
-  if(!accessToken)return{state:'INVALID',me:null,status:401};let lastStatus=503;
-  for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
-  return{state:'UNAVAILABLE',me:null,status:lastStatus};
+  if(!accessToken)return{state:'INVALID',me:null,status:401};
+  try {
+    const r=await boundedFetch(`${PORTAL_API}/session/me`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}
+    },3000);
+    if(r.ok){
+      const j=await r.json().catch(()=>null);
+      if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,source:'PORTAL_API'};
+    }
+    if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status,source:'PORTAL_API'};
+  } catch (_) {}
+  return await sessionProbeViaRest(accessToken);
 }
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie')),access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';

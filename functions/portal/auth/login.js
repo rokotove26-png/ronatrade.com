@@ -1,6 +1,7 @@
 const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
+const SESSION_FALLBACK_RPC = `${SUPABASE_URL}/rest/v1/rpc/rona_portal_session_me_fallback_v1`;
 const OWNER_ALIAS = 'rokotove';
 const OWNER_EMAIL = 'office_kg@ronaoil.com';
 const ACCESS_COOKIE = 'rona_portal_at';
@@ -40,8 +41,9 @@ function parseLocalNext(value){if(!value)return null;try{const u=new URL(value,'
 function targets(roles){const out=[];if(roles.includes('ADMIN'))out.push('/portal/admin');if(roles.includes('RONA_OPERATOR'))out.push('/portal/staff');if(roles.includes('AGENT'))out.push('/portal/agent');if(roles.includes('CLIENT'))out.push('/portal/client');return out;}
 function roleAllows(path,roles){if(path==='/portal/admin')return roles.includes('ADMIN');if(path==='/portal/staff')return roles.includes('RONA_OPERATOR');if(path==='/portal/agent')return roles.includes('AGENT');if(path==='/portal/client')return roles.includes('CLIENT');if(path==='/portal/select')return targets(roles).length>1;return false;}
 function emailForIdentifier(value){const id=String(value||'').trim();const lower=id.toLowerCase();if(lower===OWNER_ALIAS)return OWNER_EMAIL;if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(id))return lower;return 'invalid-login@invalid.rona.local';}
-async function authPassword(identifier,password){const email=emailForIdentifier(identifier);const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({email,password})});return {ok:r.ok,data:await r.json().catch(()=>({}))};}
-async function sessionMe(accessToken){for(let attempt=0;attempt<4;attempt++){try{const r=await fetch(`${PORTAL_API}/session/me`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}});if(r.ok){const j=await r.json();if(j?.ok&&j?.user)return j}}catch{}if(attempt<3)await new Promise(resolve=>setTimeout(resolve,400));}return null}
+async function authPassword(identifier,password){const email=emailForIdentifier(identifier),controller=new AbortController(),timer=setTimeout(()=>controller.abort('RONA_AUTH_TIMEOUT'),6000);try{const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({email,password}),signal:controller.signal});return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}finally{clearTimeout(timer)}}
+async function sessionMe(accessToken){for(let attempt=0;attempt<2;attempt++){const controller=new AbortController(),timer=setTimeout(()=>controller.abort('RONA_SESSION_TIMEOUT'),2500);try{const r=await fetch(`${PORTAL_API}/session/me`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},signal:controller.signal});if(r.ok){const j=await r.json();if(j?.ok&&j?.user)return j}if(r.status===401||r.status===403)return null}catch{}finally{clearTimeout(timer)}if(attempt<1)await new Promise(resolve=>setTimeout(resolve,200));}
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort('RONA_SESSION_FALLBACK_TIMEOUT'),3000);try{const r=await fetch(SESSION_FALLBACK_RPC,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,'content-type':'application/json',accept:'application/json'},body:'{}',signal:controller.signal});if(!r.ok)return null;const payload=await r.json().catch(()=>null);const row=Array.isArray(payload)?payload[0]:payload;if(!row?.session_allowed||!row?.portal_user_id||!Array.isArray(row?.roles))return null;return{ok:true,user:{portal_user_id:String(row.portal_user_id),display_name:String(row.display_name||''),roles:row.roles.map(String)}}}catch{return null}finally{clearTimeout(timer)}}
 async function logout(accessToken){try{await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`}})}catch(_){}}
 
 export async function onRequestPost({request}){
@@ -50,7 +52,7 @@ export async function onRequestPost({request}){
  if(ct.includes('application/json')){const body=await request.json().catch(()=>({}));identifier=String(body.identifier||body.email||'').trim();password=String(body.password||'');next=String(body.next||'');}
  else{const form=await request.formData();identifier=String(form.get('identifier')||form.get('email')||'').trim();password=String(form.get('password')||'');next=String(form.get('next')||'');}
  if(!identifier||!password||identifier.length>320||password.length>1024)return json({ok:false,code:'LOGIN_INVALID'},400,clearCookies());
- const login=await authPassword(identifier,password);
+ let login;try{login=await authPassword(identifier,password)}catch(_){return json({ok:false,code:'LOGIN_UPSTREAM_TIMEOUT',retryable:true},503)}
  if(!login.ok||!login.data?.access_token||!login.data?.refresh_token)return json({ok:false,code:'LOGIN_DENIED'},401,clearCookies());
  const me=await sessionMe(login.data.access_token);
  if(!me){await logout(login.data.access_token);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},403,clearCookies());}

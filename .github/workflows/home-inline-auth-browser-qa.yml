@@ -23,9 +23,14 @@ jobs:
           node-version: '24'
       - name: Build current public artifact
         run: npm run build
+      - name: Session convergence regression
+        run: node --test tests/admin-auth-session-convergence-639.test.mjs
       - name: Install Chromium runtime
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
       - name: Exercise direct compact-page inline login
         run: node scripts/qa-home-inline-auth-browser.mjs
+      - name: Probe production home auth endpoint contract
+        if: github.event_name == 'pull_request'
+        run: node scripts/qa-production-home-auth-endpoint.mjs
