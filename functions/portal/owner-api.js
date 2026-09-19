@@ -7,6 +7,7 @@ function qaRpcUpstream(){const env=globalThis.process?.env;if(env?.RONA_QA_RPC_M
 const RPC_UPSTREAM=qaRpcUpstream()||PROD_RPC_UPSTREAM;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
+const IMPERSONATION_COOKIE='rona_admin_imp';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
 const EXTERNAL_DEAL_DOCUMENT_KINDS=new Set(['ADDENDUM','SIGNED_ADDENDUM','INVOICE']);
 const AGENT_AMOUNT_VISIBLE_STAGES=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);
@@ -48,6 +49,7 @@ export async function onRequest(context){
   const url=new URL(request.url),path=String(url.searchParams.get('path')||'');
   if(!path.startsWith('/')||path.includes('..')||!allowedPath(path))return json({ok:false,code:'ROUTE_NOT_ALLOWED'},404);
   const cookies=parseCookies(request.headers.get('cookie'));
+  const impersonationToken=String(cookies[IMPERSONATION_COOKIE]||'').trim();
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}else return staleSessionResponse(next)}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401);
@@ -66,7 +68,7 @@ export async function onRequest(context){
     }
     return r1Response(response,setCookies)
   }
-  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
+  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}if(impersonationToken)h.set('x-rona-admin-impersonation-token',impersonationToken);const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
   const forwardReadResilient=async token=>{let r=await forward(token);if(request.method==='GET'&&[502,503,504].includes(r.status)){await r.arrayBuffer().catch(()=>{});await sleep(500);r=await forward(token)}return r};
   let response=await forwardReadResilient(access);
   if(response.status===401&&refresh){
