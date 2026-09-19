@@ -21,7 +21,7 @@ on:
       - '.github/workflows/client-rail-admin-canonical-qa.yml'
       - '.github/workflows/issue670-client-online-rail-parity.yml'
       - '.github/workflows/issue670-client-rail-real-integration.yml'
-      - 'functions/portal/api/[[path]].js'
+      - 'functions/portal/api/**'
       - 'supabase/functions/rona-portal-api-candidate-20260817/**'
       - 'tests/client-rail-isolated-backend-after-incident.test.mjs'
       - '.github/workflows/client-rail-isolated-backend-after-incident.yml'
