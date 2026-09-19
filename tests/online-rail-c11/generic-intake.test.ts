@@ -59,6 +59,30 @@ Deno.test("file param accepts ChatGPT download host and keeps fail-closed host v
   assertEquals(denied.detail,{hostname:"example.com"});
 });
 
+Deno.test("data rows with repeated values are not rejected as duplicate headers", async()=>{
+  const localHeaders=[
+    "номер вагона","код операции","дата операции",
+    "код станции совершения операции","станция совершения операции",
+    "код станции назначения вагона","наименование станции назначения",
+    "номер отправки","код грузоотправителя","код грузополучателя",
+  ];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet([
+      localHeaders,
+      ["58214776","V0057","1809260451","625501","Анисовка","742705","Киргили",0,0,0],
+    ]),
+    "дисл",
+  );
+  const bytes=new Uint8Array(XLSX.write(wb,{type:"array",bookType:"xlsx",compression:true}));
+  const parsed=await parseRailWorkbookBytes(bytes);
+  assertEquals(parsed.headerRowNumber,1);
+  assertEquals(parsed.rowCount,1);
+  assertEquals(parsed.rows[0].sourceRowNumber,2);
+  assertEquals(parsed.rows[0].wagonNumber,"58214776");
+});
+
 Deno.test("content identity ignores filename and sheet name", async()=>{
   const bytes=workbookBytes("not-dislocation-sheet");
   const shaA=await sha256HexBytes(bytes);
