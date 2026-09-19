@@ -13,12 +13,12 @@
   "exact_post_blobs": {
     "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
       "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
-      "authorized_post_blob_sha": "d1552dfb5f56665006f68f1ad1dd7dc89c494f23",
+      "authorized_post_blob_sha": "1e591b0432c897881e3bc765335979f287d12cbe",
       "required_marker": "CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "fd00721d485dabe2bd63da4c7eba212e08971235",
+      "authorized_post_blob_sha": "a374227b94836eec3bd24546083172bda3e96126",
       "required_marker": "20260919-admin-visual-parity-route-v2"
     }
   },
