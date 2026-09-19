@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const proxy=await readFile('functions/portal/api/[[path]].js','utf8');
-const candidate=await readFile('supabase/functions/rona-portal-api-candidate-20260817/index.ts','utf8');
+const candidate=await readFile('supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts','utf8');
 
 assert.ok(proxy.includes("path==='/v1/client/rail-canonical'"),'Cloudflare proxy must isolate Client Rail route');
 assert.ok(proxy.includes("CLIENT_RAIL_ISOLATED_BACKEND_V1"),'isolated Rail selector missing');
