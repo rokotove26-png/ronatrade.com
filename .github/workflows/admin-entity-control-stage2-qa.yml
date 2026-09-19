@@ -2,21 +2,8 @@ name: Admin entity control Stage 2 QA
 
 on:
   pull_request:
-    branches: [release/public-go-live-v1.1]
-    paths:
-      - 'functions/portal/clients-agents-current-ui.js'
-      - 'functions/portal/[[path]].js'
-      - 'functions/portal/owner-api.js'
-      - 'functions/portal/logout.js'
-      - 'supabase/functions/_shared/admin-impersonation-authority-v1.ts'
-      - 'supabase/functions/rona-admin-control-plane/**'
-      - 'supabase/functions/rona-portal-api/**'
-      - 'supabase/functions/rona-owner-acceptance/**'
-      - 'supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql'
-      - 'tests/admin-entity-control-stage2.test.mjs'
-      - 'tests/fixtures/admin-entity-control-stage2-base.sql'
-      - 'scripts/qa-admin-entity-control-stage2-real-integration.mjs'
-      - '.github/workflows/admin-entity-control-stage2-qa.yml'
+    branches:
+      - release/public-go-live-v1.1
 
 permissions:
   contents: read
@@ -28,7 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -66,7 +52,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
       - uses: denoland/setup-deno@v2
         with:
