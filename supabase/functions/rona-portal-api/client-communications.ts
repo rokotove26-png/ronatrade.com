@@ -7,6 +7,7 @@ function textValue(value:unknown,max:number):string|null{
 }
 
 async function currentContext(c:Ctx,clientId:string,contractId:string){
+  const bound=c.impersonation?.effectiveRole==="CLIENT"?c.impersonation.targetClientKey:null;
   const rows=await sql`
     select cl.id as client_key,ct.id as contract_key,b.id as binding_key,b.deal_scope_mode,
            ct.contract_status::text,ct.lifecycle_state::text,ct.effective_from,ct.effective_to
@@ -16,6 +17,7 @@ async function currentContext(c:Ctx,clientId:string,contractId:string){
      where b.user_id=${c.user}::uuid
        and cl.client_id=${clientId}
        and ct.contract_id=${contractId}
+       and (${bound}::uuid is null or cl.id=${bound}::uuid)
        and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now())
      limit 1`;
   return rows.length===1?rows[0]:null;
