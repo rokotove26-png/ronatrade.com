@@ -114,14 +114,16 @@ jobs:
 
       - name: Start exact candidate Edge handler
         shell: bash
-        env:
-          SUPABASE_DB_URL: ${{ env.ISSUE670_DB_URL }}
-          SUPABASE_URL: ${{ env.ISSUE670_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ env.ISSUE670_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ env.ISSUE670_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
-          deno run             --allow-env             --allow-net             --node-modules-dir=auto             --config=supabase/functions/rona-portal-api/deno.json             supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts             > /tmp/issue670-edge.log 2>&1 &
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
           echo $! > /tmp/issue670-edge.pid
           sleep 2
           kill -0 "$(cat /tmp/issue670-edge.pid)"
