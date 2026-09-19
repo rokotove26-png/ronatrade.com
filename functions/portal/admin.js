@@ -79,7 +79,7 @@ async function adminFallbackProbe(accessToken){
   const timer=setTimeout(()=>controller.abort(),3500);
   try{
     const r=await fetch(`${ADMIN_FALLBACK_API}/readiness`,{
-      headers:{authorization:`Bearer ${accessToken}`,accept:'application/json'},
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
       signal:controller.signal
     });
     if(r.ok){
