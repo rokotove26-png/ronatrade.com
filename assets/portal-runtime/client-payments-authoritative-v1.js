@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260919-client-payments-authoritative-v3-receipt-reconciliation';
+const MARK='20260902-client-payments-authoritative-v2-current-context';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -89,7 +89,7 @@ function aggregate(deals){
   return [...by.values()].map(a=>({...a,remaining:Math.max(0,a.obligation-a.received),percent:a.obligation>0?Math.max(0,Math.min(100,a.received/a.obligation*100)):0}));
 }
 function formatDate(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('ru-RU')}
-function confirmedPayment(p){const safe=upper(p?.client_receipt_status);if(safe==='BANK_CONFIRMED'||safe==='FINANCE_CONFIRMED')return true;return ['BANK_CONFIRMED','CONFIRMED','VERIFIED','PAID'].some(x=>upper(p?.bank_fact_status).includes(x))}
+function confirmedPayment(p){return ['BANK_CONFIRMED','CONFIRMED','VERIFIED','PAID'].some(x=>upper(p?.bank_fact_status).includes(x))}
 function render(detail,ctx){
   const root=paymentsRoot();if(!root)return false;
   installStyle();markLegacy(root);
