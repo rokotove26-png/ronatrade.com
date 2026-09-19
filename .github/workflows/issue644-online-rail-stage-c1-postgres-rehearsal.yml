@@ -1,0 +1,191 @@
+name: issue644 online rail stage C1 postgres rehearsal
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'supabase/functions/rona-mcp-gateway/index.js'
+      - 'tests/online-rail-c13/**'
+      - '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
+      - 'scripts/qa-online-rail-c1-postgres-rehearsal.py'
+      - 'tests/online-rail-c1/**'
+      - '.github/workflows/issue644-online-rail-stage-c1-postgres-rehearsal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-c1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_c1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_c1"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/rona_c1
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: rona_c1
+      C1_RESULT_PATH: /tmp/online-rail-c1-result.json
+      C1_MIGRATION_EXECUTION_RESULT: PASS
+      C1_MIGRATION_DRIFT_RESULT: PENDING_WORKFLOW_CHECK
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PostgreSQL client and Python rehearsal dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+          python -m pip install --disable-pip-version-check 'psycopg[binary]>=3.2,<4' 'openpyxl>=3.1,<4'
+
+      - name: CURRENT STATE and isolated environment proof
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          release_sha="$(git rev-parse origin/release/public-go-live-v1.1)"
+          echo "C1_RELEASE_SHA=$release_sha"
+          test "$release_sha" = "8be4acc7bd88d697c1b8a3396c1ef57f37cafd24"
+          echo "C1_PR_HEAD=$(git rev-parse HEAD)"
+          pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE"
+          server_version="$(psql -Atqc "show server_version")"
+          echo "C1_POSTGRES_VERSION=$server_version"
+          case "$server_version" in
+            17.6*) ;;
+            *) echo "Unexpected PostgreSQL version: $server_version"; exit 1 ;;
+          esac
+          echo "C1_NON_PROD_ENVIRONMENT=PASS"
+
+      - name: Build production-compatible dependency substrate
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c1/production-substrate.sql             > /tmp/c1-substrate.log 2>&1
+          echo "C1_PRODUCTION_COMPATIBLE_SUBSTRATE=PASS"
+
+      - name: First clean migration apply
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1             -f supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql             > /tmp/c1-migration-first.log 2>&1
+          echo "C1_MIGRATION_CLEAN_APPLY=PASS"
+
+      - name: Inspect B1 objects after first apply
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c1/object-inventory.sql             > /tmp/c1-object-inventory-first.log 2>&1
+          psql -Atq -v ON_ERROR_STOP=1 -f tests/online-rail-c1/schema-fingerprint.sql             > /tmp/c1-schema-fingerprint-before.txt
+          test -s /tmp/c1-schema-fingerprint-before.txt
+          echo "C1_OBJECT_INVENTORY=PASS"
+          echo "C1_SCHEMA_FINGERPRINT_BEFORE=$(cat /tmp/c1-schema-fingerprint-before.txt)"
+
+      - name: Execute PostgreSQL importer and negative matrix rehearsal
+        run: |
+          set -euo pipefail
+          python scripts/qa-online-rail-c1-postgres-rehearsal.py             | tee /tmp/c1-execution.log
+          test -s "$C1_RESULT_PATH"
+          python - <<'PY'
+          import json, os
+          path=os.environ["C1_RESULT_PATH"]
+          data=json.load(open(path,encoding="utf-8"))
+          if data["FINAL"] not in {"PASS","PASS_WITH_DELTA"}:
+              raise SystemExit(f"C1 execution failed: {data}")
+          if data["REFERENCE_XLSX_INGEST_RESULT"].get("evidenceRows") != 9:
+              raise SystemExit("C1 reference evidence count != 9")
+          if data["REFERENCE_XLSX_INGEST_RESULT"].get("railWagonsAutoCreated") != 0:
+              raise SystemExit("C1 reference ingest auto-created rail_wagons")
+          if data["REFERENCE_XLSX_INGEST_RESULT"].get("operationCodesKeptRawOnly") is not True:
+              raise SystemExit("C1 operation codes were not kept RAW_ONLY")
+          print("C1_EXECUTION_MATRIX=PASS")
+          print("C1_INTERIM_FINAL="+data["FINAL"])
+          PY
+
+      - name: Reapply migration and prove schema idempotency
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1             -f supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql             > /tmp/c1-migration-reapply.log 2>&1
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c1/object-inventory.sql             > /tmp/c1-object-inventory-reapply.log 2>&1
+          psql -Atq -v ON_ERROR_STOP=1 -f tests/online-rail-c1/schema-fingerprint.sql             > /tmp/c1-schema-fingerprint-after.txt
+          before="$(cat /tmp/c1-schema-fingerprint-before.txt)"
+          after="$(cat /tmp/c1-schema-fingerprint-after.txt)"
+          echo "C1_SCHEMA_FINGERPRINT_AFTER=$after"
+          test "$before" = "$after"
+          python - <<'PY'
+          import json, os
+          path=os.environ["C1_RESULT_PATH"]
+          data=json.load(open(path,encoding="utf-8"))
+          data["MIGRATION_DRIFT_RESULT"]="PASS"
+          data["MIGRATION_EXECUTION_RESULT"]="PASS"
+          with open(path,"w",encoding="utf-8") as f:
+              json.dump(data,f,ensure_ascii=False,indent=2,default=str)
+          PY
+          echo "C1_MIGRATION_REAPPLY=PASS"
+          echo "C1_MIGRATION_DRIFT=PASS"
+
+      - name: Rollback rehearsal
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f tests/online-rail-c1/rollback.sql             > /tmp/c1-rollback.log 2>&1
+          grep -q 'C1_ROLLBACK_REHEARSAL=PASS' /tmp/c1-rollback.log
+          echo "C1_ROLLBACK_STRATEGY=PASS"
+
+      - name: Final C1 summary
+        run: |
+          set -euo pipefail
+          python - <<'PY' | tee /tmp/c1-final-summary.txt
+          import json, os
+          data=json.load(open(os.environ["C1_RESULT_PATH"],encoding="utf-8"))
+          print("NON_PROD_ENVIRONMENT="+json.dumps(data["NON_PROD_ENVIRONMENT"],ensure_ascii=False))
+          print("MIGRATION_EXECUTION_RESULT="+data["MIGRATION_EXECUTION_RESULT"])
+          print("OBJECT_INVENTORY="+json.dumps(data["OBJECT_INVENTORY"],ensure_ascii=False))
+          print("REFERENCE_XLSX_INGEST_RESULT="+json.dumps(data["REFERENCE_XLSX_INGEST_RESULT"],ensure_ascii=False))
+          print("IDEMPOTENCY_RESULT="+json.dumps(data["IDEMPOTENCY_RESULT"],ensure_ascii=False))
+          print("NEGATIVE_TEST_MATRIX="+json.dumps(data["NEGATIVE_TEST_MATRIX"],ensure_ascii=False))
+          print("RLS_GRANTS_AUDIT="+json.dumps(data["RLS_GRANTS_AUDIT"],ensure_ascii=False))
+          print("MIGRATION_DRIFT_RESULT="+data["MIGRATION_DRIFT_RESULT"])
+          print("REHEARSAL_GAPS="+json.dumps(data["REHEARSAL_GAPS"],ensure_ascii=False))
+          print("FINAL="+data["FINAL"])
+          PY
+
+      - name: Upload C1 evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-rail-c1-postgres-rehearsal
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            /tmp/online-rail-c1-result.json
+            /tmp/c1-final-summary.txt
+            /tmp/c1-substrate.log
+            /tmp/c1-migration-first.log
+            /tmp/c1-object-inventory-first.log
+            /tmp/c1-schema-fingerprint-before.txt
+            /tmp/c1-execution.log
+            /tmp/c1-migration-reapply.log
+            /tmp/c1-object-inventory-reapply.log
+            /tmp/c1-schema-fingerprint-after.txt
+            /tmp/c1-rollback.log

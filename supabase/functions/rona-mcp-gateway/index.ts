@@ -1,8 +1,28 @@
 import postgres from "npm:postgres@3.4.7";
+import { createFinancePaymentsV7NativeHooks } from "./finance-payments-v7-extension.mjs";
+import { createRailXlsxIntakeHooks } from "./rail-xlsx-intake-extension.mjs";
+import { createRailXlsxResolutionHooks } from "./rail-xlsx-resolution-extension.mjs";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 if (!DB) throw new Error("MCP_RUNTIME_VARS_MISSING");
 const sql = postgres(DB, { prepare: false, max: 3 });
+const financeHooks = createFinancePaymentsV7NativeHooks({ sql });
+const railXlsxHooks = createRailXlsxIntakeHooks({
+  sql,
+  authContext,
+  rateAllowed,
+  recordMcpEvent,
+  requestIds,
+  sha256Hex,
+});
+const railXlsxResolutionHooks = createRailXlsxResolutionHooks({
+  sql,
+  authContext,
+  rateAllowed,
+  recordMcpEvent,
+  requestIds,
+  sha256Hex,
+});
 const originalServe = Deno.serve.bind(Deno);
 const encoder = new TextEncoder();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -12,7 +32,7 @@ const AI_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYS
 const BUSINESS_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS"]);
 const ENTITY_SCOPE = Object.freeze({
   OPERATIONS_DIRECTOR: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","DOCUMENT","PAYMENT","SHIPMENT","RAIL_DOCUMENT","PUBLICATION","TASK"]),
-  FINANCE: new Set(["CONTRACT","APPLICATION","DEAL","PAYMENT","TASK"]),
+  FINANCE: new Set(["CONTRACT","APPLICATION","DEAL","DOCUMENT","PAYMENT","TASK"]),
   LEGAL: new Set(["CONTRACT","DEAL","DOCUMENT","TASK"]),
   MARKET_ANALYST: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","PUBLICATION","TASK"]),
   COMMERCIAL_DIRECTOR: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","PUBLICATION","TASK"]),
@@ -305,8 +325,21 @@ async function wrappedRequest(handler, req) {
       if (direct) return direct;
     }
   }
+  const railResolutionDirect = await railXlsxResolutionHooks.toolCall(req, msg);
+  if (railResolutionDirect) return railResolutionDirect;
+  const railDirect = await railXlsxHooks.toolCall(req, msg);
+  if (railDirect) return railDirect;
+  if (name === "finance_event_submit") {
+    const direct = await financeHooks.toolCall(req, msg);
+    if (direct) return direct;
+  }
   let res = await handler(req);
-  if (msg?.method === "tools/list") res = await augmentToolsListResponse(res);
+  if (msg?.method === "tools/list") {
+    res = await augmentToolsListResponse(res);
+    res = await financeHooks.toolsList(req, res);
+    res = await railXlsxHooks.toolsList(req, res);
+    res = await railXlsxResolutionHooks.toolsList(req, res);
+  }
   if (name === "current_state") res = await compactCurrentStateResponse(res);
   return res;
 }
@@ -324,4 +357,4 @@ async function wrappedRequest(handler, req) {
   return originalServe(...args);
 };
 
-await import("https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36727a94820e1e85e95d4abfc5d6aab8234c5c18/supabase/functions/rona-mcp-gateway/index.js");
+await import("./index.js");

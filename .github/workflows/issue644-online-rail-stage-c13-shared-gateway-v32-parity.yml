@@ -1,0 +1,125 @@
+name: issue644 online rail stage C1.3 shared gateway live-v32 parity
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'supabase/functions/rona-mcp-gateway/index.js'
+      - 'supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs'
+      - 'tests/online-rail-c13/**'
+      - '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
+      - '.github/workflows/issue644-online-rail-stage-b1-qa.yml'
+      - '.github/workflows/issue644-online-rail-stage-c1-postgres-rehearsal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  c13-shared-gateway-v32-parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: CURRENT STATE / production release lock
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          release_sha="$(git rev-parse origin/release/public-go-live-v1.1)"
+          echo "C13_RELEASE_SHA=$release_sha"
+          echo "C13_HEAD_SHA=$(git rev-parse HEAD)"
+          test "$release_sha" = "8be4acc7bd88d697c1b8a3396c1ef57f37cafd24"
+          echo "C13_PRODUCTION_RELEASE_LOCK=PASS"
+
+      - name: DELTA ONLY from accepted C1.2 head
+        run: |
+          set -euo pipefail
+          git diff --name-only b394549c81c56d9671dc3e9fd950001ade883028...HEAD | sort -u > /tmp/c13-changed.txt
+          {
+            echo '.github/workflows/issue644-online-rail-stage-b1-qa.yml'
+            echo '.github/workflows/issue644-online-rail-stage-c1-postgres-rehearsal.yml'
+            echo '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
+            echo 'supabase/functions/rona-mcp-gateway/index.js'
+            echo 'supabase/functions/rona-mcp-gateway/index.ts'
+            echo 'tests/online-rail-c12/candidate-index-regression.test.mjs'
+            echo 'tests/online-rail-c13/live-v32-runtime-snapshot.json'
+            echo 'tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs'
+          } | sort -u > /tmp/c13-allowed.txt
+          echo '--- C1.3 changed files ---'
+          cat /tmp/c13-changed.txt
+          echo '--- C1.3 unexpected files ---'
+          comm -23 /tmp/c13-changed.txt /tmp/c13-allowed.txt | tee /tmp/c13-unexpected.txt
+          if test -s /tmp/c13-unexpected.txt; then
+            echo 'C13_DELTA_ONLY=FAIL'
+            exit 1
+          fi
+          echo 'C13_DELTA_ONLY=PASS'
+
+      - name: Execute live-v32 Finance and shared-gateway parity regression
+        run: |
+          set -euo pipefail
+          deno test --allow-read --allow-env --allow-run=git tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs | tee /tmp/c13-parity.log
+          echo 'C13_FINANCE_DOCUMENT_SCOPE=PASS'
+          echo 'C13_FINANCE_EXACT_8_TOOLS=PASS'
+          echo 'C13_DOCUMENT_RUNTIME_AUTH=PASS'
+          echo 'C13_NO_AUTHORITY_EXPANSION=PASS'
+          echo 'C13_SHARED_GATEWAY_ROLE_PARITY=PASS'
+          echo 'C13_RAIL_SCOPE_FROZEN=PASS'
+
+      - name: Full candidate gateway dependency and syntax check
+        run: |
+          set -euo pipefail
+          node --check supabase/functions/rona-mcp-gateway/index.js
+          deno cache --node-modules-dir=auto supabase/functions/rona-mcp-gateway/index.ts 2>&1 | tee /tmp/c13-index-dependency-check.log
+          deno check --node-modules-dir=auto             supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs             supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs             supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs             2>&1 | tee /tmp/c13-module-check.log
+          echo 'C13_FULL_CANDIDATE_GATEWAY=PASS'
+
+      - name: No production or Rail semantic write surface introduced
+        run: |
+          set -euo pipefail
+          ! git diff b394549c81c56d9671dc3e9fd950001ade883028...HEAD --             supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql             supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql             supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql             supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js             supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs             supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs             functions/portal/rail-current-v6-ui.js             functions/portal/rail-current-v7-real-map-ui.js             functions/portal/rail-current-v81-maplibre-ui.js             | grep -q .
+          echo 'C13_B15_C11_C12_STAGE_A_UNCHANGED=PASS'
+          echo 'C13_NO_PRODUCTION_WRITE=PASS'
+
+      - name: Final C1.3 summary
+        run: |
+          set -euo pipefail
+          {
+            echo 'PRODUCTION_RELEASE_LOCK=PASS'
+            echo 'DELTA_ONLY=PASS'
+            echo 'LIVE_V32_FINANCE_DOCUMENT_PARITY=PASS'
+            echo 'FINANCE_EXACT_8_TOOLS=PASS'
+            echo 'FINANCE_EVENT_SUBMIT_ABSENT=PASS'
+            echo 'FINANCE_RAIL_TOOLS_ABSENT=PASS'
+            echo 'DOCUMENT_RUNTIME_AUTH=PASS'
+            echo 'NO_AUTHORITY_EXPANSION=PASS'
+            echo 'SHARED_GATEWAY_ROLE_PARITY=PASS'
+            echo 'RAIL_SCOPE_FROZEN=PASS'
+            echo 'FULL_CANDIDATE_GATEWAY=PASS'
+            echo 'FINAL=PASS'
+          } | tee /tmp/c13-final-summary.txt
+
+      - name: Upload C1.3 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: online-rail-c13-shared-gateway-live-v32-parity
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            /tmp/c13-changed.txt
+            /tmp/c13-allowed.txt
+            /tmp/c13-unexpected.txt
+            /tmp/c13-parity.log
+            /tmp/c13-index-dependency-check.log
+            /tmp/c13-module-check.log
+            /tmp/c13-final-summary.txt

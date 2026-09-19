@@ -1,0 +1,158 @@
+name: issue644 online rail stage B1 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - '.github/workflows/issue644-online-rail-stage-b1-qa.yml'
+      - '.github/workflows/issue644-online-rail-stage-c1-postgres-rehearsal.yml'
+      - '.github/workflows/issue644-online-rail-stage-c11-generic-intake.yml'
+      - '.github/workflows/issue644-online-rail-stage-c12-resolution-bridge.yml'
+      - '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
+      - 'docs/online-rail-stage-b1-xlsx-dislocation.md'
+      - 'docs/online-rail-stage-c11-generic-xlsx-intake.md'
+      - 'docs/online-rail-stage-c12-resolution-bridge.md'
+      - 'scripts/qa-online-rail-c1-postgres-rehearsal.py'
+      - 'supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs'
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'supabase/functions/rona-mcp-gateway/index.js'
+      - 'supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs'
+      - 'supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs'
+      - 'supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js'
+      - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+      - 'supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql'
+      - 'supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql'
+      - 'tests/online-rail-c1/object-inventory.sql'
+      - 'tests/online-rail-c1/production-substrate.sql'
+      - 'tests/online-rail-c1/reference-source-confirmed.json'
+      - 'tests/online-rail-c1/rollback.sql'
+      - 'tests/online-rail-c1/schema-fingerprint.sql'
+      - 'tests/online-rail-c11/gateway-contract.test.mjs'
+      - 'tests/online-rail-c11/generic-intake.test.ts'
+      - 'tests/online-rail-c11/rollback.sql'
+      - 'tests/online-rail-c11/schema-fingerprint.sql'
+      - 'tests/online-rail-c11/source-registry.sql'
+      - 'tests/online-rail-c11/storage-substrate.sql'
+      - 'tests/online-rail-c12/authority-substrate.sql'
+      - 'tests/online-rail-c12/candidate-index-regression.test.mjs'
+      - 'tests/online-rail-c12/gateway-tool-list.test.ts'
+      - 'tests/online-rail-c12/resolution-bridge.sql'
+      - 'tests/online-rail-c12/rollback.sql'
+      - 'tests/online-rail-c12/schema-fingerprint.sql'
+      - 'tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs'
+      - 'tests/online-rail-c13/live-v32-runtime-snapshot.json'
+      - 'tests/online-rail-stage-b1-xlsx-dislocation.test.mjs'
+      - 'tests/online-rail-stage-b11-reference-dry-run.test.mjs'
+      - 'tests/online-rail-stage-b13-semantic.test.mjs'
+
+permissions:
+  contents: read
+
+jobs:
+  stage-b1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: DELTA ONLY cumulative #644 Rail scope guard
+        run: |
+          set -euo pipefail
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          git diff --name-only origin/release/public-go-live-v1.1...HEAD | sort -u > /tmp/changed.txt
+          {
+            echo '.github/workflows/issue644-online-rail-stage-b1-qa.yml'
+            echo '.github/workflows/issue644-online-rail-stage-c1-postgres-rehearsal.yml'
+            echo '.github/workflows/issue644-online-rail-stage-c11-generic-intake.yml'
+            echo '.github/workflows/issue644-online-rail-stage-c12-resolution-bridge.yml'
+            echo 'docs/online-rail-stage-b1-xlsx-dislocation.md'
+            echo 'docs/online-rail-stage-c11-generic-xlsx-intake.md'
+            echo 'docs/online-rail-stage-c12-resolution-bridge.md'
+            echo 'scripts/qa-online-rail-c1-postgres-rehearsal.py'
+            echo 'supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs'
+            echo 'supabase/functions/rona-mcp-gateway/index.ts'
+            echo 'supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs'
+            echo 'supabase/functions/rona-mcp-gateway/rail-xlsx-resolution-extension.mjs'
+            echo 'supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js'
+            echo 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+            echo 'supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql'
+            echo 'supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql'
+            echo 'tests/online-rail-c1/object-inventory.sql'
+            echo 'tests/online-rail-c1/production-substrate.sql'
+            echo 'tests/online-rail-c1/reference-source-confirmed.json'
+            echo 'tests/online-rail-c1/rollback.sql'
+            echo 'tests/online-rail-c1/schema-fingerprint.sql'
+            echo 'tests/online-rail-c11/gateway-contract.test.mjs'
+            echo 'tests/online-rail-c11/generic-intake.test.ts'
+            echo 'tests/online-rail-c11/rollback.sql'
+            echo 'tests/online-rail-c11/schema-fingerprint.sql'
+            echo 'tests/online-rail-c11/source-registry.sql'
+            echo 'tests/online-rail-c11/storage-substrate.sql'
+            echo 'tests/online-rail-c12/authority-substrate.sql'
+            echo 'tests/online-rail-c12/candidate-index-regression.test.mjs'
+            echo 'tests/online-rail-c12/gateway-tool-list.test.ts'
+            echo 'tests/online-rail-c12/resolution-bridge.sql'
+            echo 'tests/online-rail-c12/rollback.sql'
+            echo 'tests/online-rail-c12/schema-fingerprint.sql'
+            echo 'tests/online-rail-stage-b1-xlsx-dislocation.test.mjs'
+            echo 'tests/online-rail-stage-b11-reference-dry-run.test.mjs'
+            echo 'tests/online-rail-stage-b13-semantic.test.mjs'
+            echo '.github/workflows/issue644-online-rail-stage-c13-shared-gateway-v32-parity.yml'
+            echo 'supabase/functions/rona-mcp-gateway/index.js'
+            echo 'tests/online-rail-c13/live-v32-runtime-snapshot.json'
+            echo 'tests/online-rail-c13/shared-gateway-live-v32-parity.test.mjs'
+          } > /tmp/allowed.txt
+          sort -u -o /tmp/allowed.txt /tmp/allowed.txt
+          echo '--- changed files ---'
+          cat /tmp/changed.txt
+          echo '--- unexpected files ---'
+          comm -23 /tmp/changed.txt /tmp/allowed.txt | tee /tmp/unexpected.txt
+          if test -s /tmp/unexpected.txt; then
+            echo "ISSUE644_CUMULATIVE_DELTA_ONLY=FAIL"
+            exit 1
+          fi
+          echo "ISSUE644_CUMULATIVE_DELTA_ONLY=PASS"
+
+      - name: Stage B1.5 static architecture contract
+        run: |
+          set -euo pipefail
+          node --check tests/online-rail-stage-b1-xlsx-dislocation.test.mjs
+          node --check tests/online-rail-stage-b11-reference-dry-run.test.mjs
+          node --check tests/online-rail-stage-b13-semantic.test.mjs
+          node --test tests/online-rail-stage-b1-xlsx-dislocation.test.mjs
+          node --test tests/online-rail-stage-b11-reference-dry-run.test.mjs
+          node --test tests/online-rail-stage-b13-semantic.test.mjs
+
+      - name: Stage A / A.1 preservation
+        run: |
+          set -euo pipefail
+          node --check functions/portal/rail-current-v6-ui.js
+          node --check functions/portal/rail-current-v7-real-map-ui.js
+          node --check functions/portal/rail-current-v81-maplibre-ui.js
+          node --test tests/online-rail-stage-a-644.test.mjs
+
+      - name: B1.5 safety gates
+        run: |
+          set -euo pipefail
+          sql='supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
+          ! grep -Eiq 'cron\.schedule|provider_poll|publication_client_targets[[:space:]]*\(' "$sql"
+          ! grep -Eiq 'insert[[:space:]]+into[[:space:]]+portal_private\.rail_movement_events' "$sql"
+          ! grep -Eiq 'grant[[:space:]]+insert[[:space:]]+on[[:space:]]+table[[:space:]]+portal_private\.rail_xlsx_dislocation_events_v1' "$sql"
+          ! grep -Eiq "authority_type[[:space:]]*=[[:space:]]*'(SYSTEM_ADMIN|service_role)'" "$sql"
+          grep -Eq "CROSS_DOMAIN_AMBIGUOUS" "$sql"
+          grep -Eq "OWNER_EXPLICIT_INSTRUCTION" "$sql"
+          grep -Eq "RAIL_LOGISTICS_VERIFIED_DECISION" "$sql"
+          grep -Eq "OWNER_EXPLICIT_CORRECTION" "$sql"
+          grep -Eq "RAIL_LOGISTICS_VERIFIED_EXPEDITOR_CORRECTION" "$sql"
+          echo "ISSUE644_B15_NO_PROVIDER_ACTIVATION=PASS"
+          echo "ISSUE644_B15_NO_MOVIZOR_HISTORY_REUSE=PASS"
+          echo "ISSUE644_B15_DIRECT_EVIDENCE_INSERT_BLOCKED=PASS"
+          echo "ISSUE644_B15_CROSS_DOMAIN_FAIL_CLOSED=PASS"
+          echo "ISSUE644_B15_AUTHORITY_CLOSED_SET=PASS"
