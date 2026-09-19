@@ -1,0 +1,90 @@
+name: Admin entity control Stage 2 QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/clients-agents-current-ui.js'
+      - 'functions/portal/[[path]].js'
+      - 'functions/portal/owner-api.js'
+      - 'functions/portal/logout.js'
+      - 'supabase/functions/_shared/admin-impersonation-authority-v1.ts'
+      - 'supabase/functions/rona-admin-control-plane/**'
+      - 'supabase/functions/rona-portal-api/**'
+      - 'supabase/functions/rona-owner-acceptance/**'
+      - 'supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql'
+      - 'tests/admin-entity-control-stage2.test.mjs'
+      - 'tests/fixtures/admin-entity-control-stage2-base.sql'
+      - 'scripts/qa-admin-entity-control-stage2-real-integration.mjs'
+      - '.github/workflows/admin-entity-control-stage2-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact base and frozen Admin UI contract
+        env:
+          STAGE2_BASE_SHA: d3c457bb8b8334a0b8bda1e62970bb7d11aa4b1b
+        run: |
+          set -euo pipefail
+          node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/owner-api.js
+          node --check functions/portal/logout.js
+          node --check functions/portal/clients-agents-current-ui.js
+          node tests/admin-entity-control-stage2.test.mjs
+
+  isolated-real-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_stage2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_stage2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/rona_stage2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Type-check Stage 2 authority modules
+        run: |
+          set -euo pipefail
+          deno check supabase/functions/_shared/admin-impersonation-authority-v1.ts
+          deno check supabase/functions/rona-admin-control-plane/admin-entity-control-v1.ts
+      - name: Build isolated authority database
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/admin-entity-control-stage2-base.sql
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql
+      - name: Prove full impersonation and safe retirement
+        run: |
+          deno run --allow-env=TEST_DATABASE_URL --allow-net=127.0.0.1:5432 scripts/qa-admin-entity-control-stage2-real-integration.mjs
