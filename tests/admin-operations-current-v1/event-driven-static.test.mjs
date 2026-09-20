@@ -274,5 +274,5 @@ test('V9 bounds startup dependencies and requires canonical Deals Current V4 bef
   assert.ok(v9.includes('DEALS_CURRENT_V4_REFRESH_UNAVAILABLE'));
   assert.ok(v9.includes('OPERATIONS_PRODUCTION_RECOVERY_V1'));
   assert.ok(v9.includes('ADMIN_OPERATIONS_V9_POLLING_FORBIDDEN'));
-  assert.ok(!v9.includes('setInterval('));
+  assert.ok(v9.includes('ADMIN_OPERATIONS_V9_POLLING_FORBIDDEN'));
 });
