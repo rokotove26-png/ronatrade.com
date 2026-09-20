@@ -13,6 +13,9 @@ const background=await readFile('dist/assets/portal-canonical/background.png');
 const shellModule=await import(pathToFileURL(resolve('functions/portal/admin-approved-shell-v455-ui.js')).href+'?qa-sidebar-v14');
 const shellResponse=await shellModule.onRequest();
 const shellRuntime=await shellResponse.text();
+const ownerNavModule=await import(pathToFileURL(resolve('functions/portal/owner-ui-chunks/chunk14.js')).href+'?qa-sidebar-v15');
+const ownerNavRuntime=String(ownerNavModule.default||'');
+assert(ownerNavRuntime.includes("20260920-nav-descendant-safe-v15"),'late owner nav runtime safety marker missing');
 
 assert.equal(shellResponse.headers.get('x-rona-admin-shell-visual'),'sidebar-production-self-heal-v14');
 assert(!admin.toString('utf8').includes('RONA_ADMIN_COMMAND_NAVIGATION_V4'));
@@ -27,6 +30,7 @@ const server=http.createServer((req,res)=>{
   const url=new URL(req.url,'http://127.0.0.1');
   if(url.pathname==='/portal/admin')return send(res,200,admin,'text/html; charset=utf-8');
   if(url.pathname==='/portal/admin-approved-shell-v455-ui')return send(res,200,shellRuntime,'application/javascript; charset=utf-8');
+  if(url.pathname==='/qa-owner-nav-structure.js')return send(res,200,ownerNavRuntime,'application/javascript; charset=utf-8');
   if(url.pathname==='/assets/portal-canonical/logo.svg')return send(res,200,logo,'image/svg+xml');
   if(url.pathname==='/assets/portal-canonical/background.png')return send(res,200,background,'image/png');
   if(url.pathname.endsWith('.css'))return send(res,200,'','text/css; charset=utf-8');
@@ -99,6 +103,36 @@ try{
   assert.equal(proof.documentsDisplay,'none');
   assert.equal(proof.activePage,'home');
   assert.match(proof.activeIconBorder,/rgba?\(/);
+  const lateScript=await page.evaluate(()=>new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.src='/qa-owner-nav-structure.js';
+    s.onload=()=>resolve(true);
+    s.onerror=()=>reject(new Error('LATE_OWNER_NAV_RUNTIME_LOAD_FAILED'));
+    document.body.appendChild(s);
+  }));
+  assert.equal(lateScript,true);
+  await page.waitForFunction(()=>window.__RONA_VISUAL_V2_NAV_STRUCTURE__==='20260920-nav-descendant-safe-v15');
+  await page.waitForTimeout(1900);
+  const lateOwnerProof=await page.evaluate(()=>{
+    const nav=document.getElementById('nav');
+    const buttons=[...nav.querySelectorAll('button[data-page]')];
+    return {
+      marker:window.__RONA_VISUAL_V2_NAV_STRUCTURE__,
+      iconSlots:nav.querySelectorAll('button[data-page]>.nav-icon').length,
+      svgCount:nav.querySelectorAll('button[data-page]>.nav-icon>svg').length,
+      graphicCount:nav.querySelectorAll('button[data-page]>.nav-icon svg path,button[data-page]>.nav-icon svg circle,button[data-page]>.nav-icon svg rect').length,
+      missing:buttons.filter(b=>!b.querySelector(':scope>.nav-icon>svg')).map(b=>b.dataset.page),
+      labels:buttons.map(b=>({page:b.dataset.page,label:b.querySelector(':scope>.nav-label')?.textContent||''})),
+      diagnostic:window.__RONA_ADMIN_SIDEBAR_DIAGNOSTIC__
+    };
+  });
+  assert.equal(lateOwnerProof.marker,'20260920-nav-descendant-safe-v15');
+  assert.equal(lateOwnerProof.iconSlots,14,'late owner runtime deleted icon slots');
+  assert.equal(lateOwnerProof.svgCount,14,'late owner runtime deleted SVG icons');
+  assert(lateOwnerProof.graphicCount>=28,'late owner runtime deleted SVG graphic descendants');
+  assert.deepEqual(lateOwnerProof.missing,[],'late owner runtime left missing icons');
+  for(const item of lateOwnerProof.labels)assert(item.label.trim().length>0,item.page+': late owner runtime damaged nav label');
+
   for(const item of proof.centers){
     assert(item.hasSvg,item.page+': SVG missing');
     assert.equal(item.text,'',item.page+': legacy glyph/text remains');
@@ -129,11 +163,11 @@ try{
   assert(Number(attention.svgOpacity)>.99,'attention icon did not reach full opacity');
 
   await mkdir('artifacts',{recursive:true});
-  await page.screenshot({path:'artifacts/admin-sidebar-production-self-heal-v14.png',fullPage:false});
+  await page.screenshot({path:'artifacts/admin-sidebar-late-owner-overwrite-v15.png',fullPage:false});
   assert.equal(pageErrors.length,0,'page errors: '+pageErrors.join(' | '));
 
-  console.log('ADMIN_SIDEBAR_PRODUCTION_SELF_HEAL_VISUAL_BROWSER=PASS');
-  console.log(JSON.stringify({proof,attention},null,2));
+  console.log('ADMIN_SIDEBAR_LATE_OWNER_OVERWRITE_VISUAL_BROWSER=PASS');
+  console.log(JSON.stringify({proof,lateOwnerProof,attention},null,2));
 }finally{
   if(browser)await browser.close();
   await new Promise(done=>server.close(done));
