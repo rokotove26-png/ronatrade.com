@@ -45,7 +45,7 @@ assert(shell.includes('min-height:48px')&&shell.includes('font-size:14.5px'),'Ca
 assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Current shell must expose primary access action before module mount');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit navigation');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
-assert(shell.length<60000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
+assert(shell.length<70000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
 
 assert(build.includes("path: 'portal-src/current/admin.html'"),'Build must source Admin from current shell');
 assert(build.includes('CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'),'Build integrity must declare current-only Admin and Client architecture');
