@@ -1,4 +1,4 @@
-import { sql, type Ctx, uuid } from "./shared.ts";
+import { sql, type Ctx, uuid, isAdminEntityClient } from "./shared.ts";
 
 function textValue(value:unknown,max:number):string|null{
   if(value===null||value===undefined||typeof value!=="string")return null;
@@ -8,18 +8,26 @@ function textValue(value:unknown,max:number):string|null{
 
 async function currentContext(c:Ctx,clientId:string,contractId:string){
   const bound=c.impersonation?.effectiveRole==="CLIENT"?c.impersonation.targetClientKey:null;
-  const rows=await sql`
-    select cl.id as client_key,ct.id as contract_key,b.id as binding_key,b.deal_scope_mode,
-           ct.contract_status::text,ct.lifecycle_state::text,ct.effective_from,ct.effective_to
-      from portal_private.client_user_bindings b
-      join portal_private.clients cl on cl.id=b.client_key
-      join portal_private.contracts ct on ct.id=b.contract_key and ct.client_key=cl.id
-     where b.user_id=${c.user}::uuid
-       and cl.client_id=${clientId}
-       and ct.contract_id=${contractId}
-       and (${bound}::uuid is null or cl.id=${bound}::uuid)
-       and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now())
-     limit 1`;
+  const rows=isAdminEntityClient(c)
+    ?await sql`
+      select cl.id as client_key,ct.id as contract_key,null::uuid as binding_key,'ADMIN_ENTITY'::text as deal_scope_mode,
+             ct.contract_status::text,ct.lifecycle_state::text,ct.effective_from,ct.effective_to
+        from portal_private.clients cl
+        join portal_private.contracts ct on ct.client_key=cl.id
+       where cl.id=${bound}::uuid and cl.client_id=${clientId} and ct.contract_id=${contractId}
+       limit 1`
+    :await sql`
+      select cl.id as client_key,ct.id as contract_key,b.id as binding_key,b.deal_scope_mode,
+             ct.contract_status::text,ct.lifecycle_state::text,ct.effective_from,ct.effective_to
+        from portal_private.client_user_bindings b
+        join portal_private.clients cl on cl.id=b.client_key
+        join portal_private.contracts ct on ct.id=b.contract_key and ct.client_key=cl.id
+       where b.user_id=${c.user}::uuid
+         and cl.client_id=${clientId}
+         and ct.contract_id=${contractId}
+         and (${bound}::uuid is null or cl.id=${bound}::uuid)
+         and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now())
+       limit 1`;
   return rows.length===1?rows[0]:null;
 }
 
