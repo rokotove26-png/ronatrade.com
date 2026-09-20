@@ -35,13 +35,16 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7/V8/V8.1 baselines under V8.2 normalized action queue',()=>{
+test('Admin main UI keeps V7/V8/V8.1/V8.2 baselines under V8.3 action router',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
   const v82=read('functions/portal/admin-operations-command-center-v8-2.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV82/);
-  assert.match(main,/admin-operations-command-center-v8-2\.js/);
+  const v83=read('functions/portal/admin-operations-command-center-v8-3.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV83/);
+  assert.match(main,/admin-operations-command-center-v8-3\.js/);
+  assert.match(v83,/patchAdminOperationsCommandCenterV82 as patchV82/);
+  assert.match(v83,/let patched=patchV82\(script\)/);
   assert.match(v82,/patchAdminOperationsCommandCenterV81 as patchV81/);
   assert.match(v82,/let patched=patchV81\(script\)/);
   assert.match(v81,/patchAdminOperationsCommandCenterV8 as patchV8/);
@@ -145,4 +148,22 @@ test('V8.2 counts visible normalized action rows and deduplicates reverse events
   assert.match(v82,/const criticalCount=queueRows\.filter\(x=>x\?\.tone==='red'\)\.length/);
   assert.match(v82,/const attentionCount=queueRows\.length/);
   assert.match(v82,/ADMIN_OPERATIONS_V82_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.3 routes actionable queue rows into exact operational context without business mutation',()=>{
+  const v83=read('functions/portal/admin-operations-command-center-v8-3.js');
+  assert.match(v83,/function ronaOpsV83OpenQueueRow\(row\)/);
+  assert.match(v83,/action\.kind==='DEAL'.*ronaOpsV5OpenDeal\(action\.dealId\)/s);
+  assert.match(v83,/role==='RAIL_LOGISTICS'.*target:'monitoring'/s);
+  assert.match(v83,/domain==='FINANCE'.*target:'payments'/s);
+  assert.match(v83,/domain==='CONTRACT'.*target:'documents'/s);
+  assert.match(v83,/domain==='CLIENT_INTAKE'.*target:'applications'/s);
+  assert.match(v83,/domain==='PRICE_CALCULATION'.*target:'prices'/s);
+  assert.match(v83,/targetType==='APPLICATION'.*target:'applications'/s);
+  assert.match(v83,/function ronaOpsV83ShowDetail\(row,entity\)/);
+  assert.match(v83,/text:String\(entity\.description\)/);
+  assert.match(v83,/OPERATIONS_ACTION_ROUTER_V1/);
+  assert.match(v83,/ADMIN_OPERATIONS_V83_POLLING_FORBIDDEN/);
+  assert.doesNotMatch(v83,/\b(update|insert|delete|submit|mutate)\s*\(/i);
 });
