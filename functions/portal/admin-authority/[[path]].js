@@ -82,6 +82,31 @@ export function impersonationEnterPostAllowed(request) {
   const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
   return fetchSite === 'same-origin';
 }
+
+export function impersonationStartPostAllowed(request) {
+  const url = new URL(request.url);
+  if (!portalOriginAllowed(url)) return false;
+  if (String(request.headers.get('x-rona-admin-handoff') || '') !== 'clients-agents-v8') return false;
+  if (!String(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) return false;
+
+  const origin = request.headers.get('origin');
+  if (origin) {
+    try { if (new URL(origin).origin !== url.origin) return false; }
+    catch { return false; }
+  }
+  const ref = request.headers.get('referer');
+  if (ref) {
+    try { if (new URL(ref).origin !== url.origin) return false; }
+    catch { return false; }
+  }
+  const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
+  if (fetchSite && fetchSite !== 'same-origin') return false;
+
+  // The exact custom header makes cross-origin browser submission require CORS preflight.
+  // This route never grants CORS, and ADMIN session verification still follows below.
+  // Therefore missing Origin/Referer/Fetch-Metadata cannot recreate the form-navigation bug.
+  return true;
+}
 async function authRefresh(refreshToken) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: 'POST', headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
@@ -166,7 +191,9 @@ export async function onRequest(context) {
   const path = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
   const postAllowed = path === '/impersonation/enter'
     ? impersonationEnterPostAllowed(request)
-    : sameOriginPost(request);
+    : path === '/impersonation/start'
+      ? impersonationStartPostAllowed(request)
+      : sameOriginPost(request);
   if (request.method === 'POST' && !postAllowed) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
 
   let session;
@@ -253,6 +280,29 @@ export async function onRequest(context) {
   let upstream;
   try { upstream = await fetch(`${base}${path}${url.search}`, init); }
   catch (_) { return json({ ok:false, code:'ACCESS_UPSTREAM_UNAVAILABLE' }, 502, session.setCookies); }
+
+  // Canonical Admin -> Client/Agent handoff:
+  // browser JS receives only the safe target path + session id.
+  // The opaque impersonation credential is consumed here and persisted only
+  // as an HttpOnly SameSite=Strict cookie, never exposed to browser JS.
+  if (path === '/impersonation/start' && request.method === 'POST') {
+    const payload = await upstream.json().catch(() => null);
+    if (!upstream.ok || !payload?.ok || !payload?.data?.impersonationToken) {
+      return json(payload || { ok:false, code:'IMPERSONATION_START_FAILED' }, upstream.status || 502, session.setCookies);
+    }
+    const opaque = String(payload.data.impersonationToken);
+    const impersonation = payload.data?.impersonation || {};
+    const sessionId = String(impersonation.id || '');
+    const targetPath = String(payload.data?.targetPath || '');
+    if (!UUID_RE.test(sessionId) || !['/portal/client','/portal/agent'].includes(targetPath)) {
+      return json({ ok:false, code:'IMPERSONATION_START_FAILED' }, 502, session.setCookies);
+    }
+    delete payload.data.impersonationToken;
+    const expires = Date.parse(String(impersonation.expiresAt || ''));
+    const maxAge = Number.isFinite(expires) ? Math.max(1, Math.min(900, Math.floor((expires - Date.now()) / 1000))) : 720;
+    return json(payload, upstream.status, [...session.setCookies, impersonationCookie(opaque, maxAge)]);
+  }
+
   return path === '/bootstrap'
     ? normalizeBootstrapCompanyNames(upstream, session.setCookies)
     : secureUpstream(upstream, session.setCookies);

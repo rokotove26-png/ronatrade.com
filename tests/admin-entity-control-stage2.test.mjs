@@ -79,11 +79,17 @@ assertIncludes(shell,"x-rona-impersonation-tab",'tab consistency binding');
 assertIncludes(shell,"searchParams.get('impSession')",'tab-bound target validation');
 assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level impersonation handoff');
 assertIncludes(shell,"impersonationCookie(opaque,maxAge)",'top-level handoff owns opaque HttpOnly cookie');
-assertIncludes(ui,"form.action=AUTH+'/impersonation/enter'",'Admin UI uses top-level POST handoff');
+assertIncludes(ui,"await auth('/impersonation/start'",'Admin UI uses canonical JSON handoff');
+assertIncludes(ui,"'x-rona-admin-handoff':'clients-agents-v8'",'Admin UI sends explicit handoff intent');
+assertNotIncludes(ui,"form.action=AUTH+'/impersonation/enter'",'fragile browser form handoff retired');
 assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level shell handoff remains present');
 const authorityProxy=read('functions/portal/admin-authority/[[path]].js');
 assertIncludes(authorityProxy,"path === '/impersonation/enter'",'specific admin-authority route owns browser handoff');
 assertIncludes(authorityProxy,"PORTAL_ORIGIN_HOSTS",'portal canonical host normalization guard');
+assertIncludes(authorityProxy,"path === '/impersonation/start'",'specific admin-authority route owns JSON impersonation start');
+assertIncludes(authorityProxy,"impersonationStartPostAllowed(request)",'JSON start has dedicated CSRF guard');
+assertIncludes(authorityProxy,"x-rona-admin-handoff",'JSON start requires explicit custom handoff header');
+assertIncludes(authorityProxy,"delete payload.data.impersonationToken",'specific route strips opaque token before browser response');
 assertIncludes(authorityProxy,"impersonationCookie(opaque, maxAge)",'specific route sets opaque HttpOnly impersonation cookie');
 
 const noReferrerSameOrigin=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{
@@ -112,7 +118,7 @@ const nonCanonicalHost=new Request('https://evil.example/portal/admin-authority/
   headers:{'sec-fetch-site':'same-origin'}
 });
 assert.equal(impersonationEnterPostAllowed(nonCanonicalHost),false,'same-origin metadata on a non-canonical host must remain denied');
-assertNotIncludes(ui,"location.assign(targetPath+'?impSession='",'AJAX navigation handoff retired');
+assertIncludes(ui,"window.location.assign(targetPath+'?impSession='",'JSON handoff navigates only after server-owned cookie is set');
 assertIncludes(logout,"clearCookie('rona_admin_imp')",'logout clears impersonation');
 assertNotIncludes(shell,"request.headers.get('x-rona-admin-impersonation-token')",'browser must not supply trusted impersonation token');
 assertNotIncludes(ownerProxy,"request.headers.get('x-rona-admin-impersonation-token')",'owner proxy must not trust browser impersonation token');
