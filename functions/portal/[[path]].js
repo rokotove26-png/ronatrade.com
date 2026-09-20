@@ -481,6 +481,42 @@ async function proxyAdminAuthority(request) {
   const upstreamPath = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
   const cookies=parseCookies(request.headers.get('cookie'));
   const impersonationToken=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+
+  if(upstreamPath==='/impersonation/enter'&&request.method==='POST'){
+    const ct=request.headers.get('content-type')||'';
+    let body={};
+    try{
+      if(ct.includes('application/json'))body=await request.clone().json();
+      else{
+        const form=await request.clone().formData();
+        body={kind:String(form.get('kind')||''),entityId:String(form.get('entityId')||''),targetPortalUserId:String(form.get('targetPortalUserId')||'')||null};
+      }
+    }catch(_){return redirect('/portal/admin?accessView=companies&impersonationError=INVALID_REQUEST',303,session.setCookies)}
+    const kind=String(body?.kind||'').trim().toUpperCase();
+    const entityId=String(body?.entityId||'').trim();
+    const targetPortalUserId=String(body?.targetPortalUserId||'').trim()||null;
+    if(!['COMPANY','AGENT'].includes(kind)||!entityId)return redirect('/portal/admin?accessView=companies&impersonationError=INVALID_REQUEST',303,session.setCookies);
+    const start=await fetch(`${ADMIN_CONTROL_PLANE_API}/impersonation/start`,{
+      method:'POST',
+      headers:{authorization:`Bearer ${session.access}`,accept:'application/json','content-type':'application/json'},
+      body:JSON.stringify({kind,entityId,targetPortalUserId}),
+      cache:'no-store'
+    });
+    const payload=await start.json().catch(()=>null);
+    if(!start.ok||!payload?.ok||!payload?.data?.impersonationToken){
+      const code=encodeURIComponent(String(payload?.code||'IMPERSONATION_START_FAILED'));
+      return redirect('/portal/admin?accessView='+(kind==='AGENT'?'agents':'companies')+'&impersonationError='+code,303,session.setCookies);
+    }
+    const opaque=String(payload.data.impersonationToken);
+    const imp=payload.data?.impersonation||{};
+    const sessionId=String(imp.id||'');
+    const targetPath=String(payload.data?.targetPath||'');
+    if(!UUID_RE.test(sessionId)||!['/portal/client','/portal/agent'].includes(targetPath))return redirect('/portal/admin?accessView='+(kind==='AGENT'?'agents':'companies')+'&impersonationError=IMPERSONATION_START_FAILED',303,session.setCookies);
+    const expires=Date.parse(String(imp.expiresAt||''));
+    const maxAge=Number.isFinite(expires)?Math.max(1,Math.min(900,Math.floor((expires-Date.now())/1000))):720;
+    return redirect(targetPath+'?impSession='+encodeURIComponent(sessionId),303,[...session.setCookies,impersonationCookie(opaque,maxAge)]);
+  }
+
   const headers = new Headers({ authorization: `Bearer ${session.access}`, accept: 'application/json' });
   for (const name of ['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id']) {
     const value = request.headers.get(name);
