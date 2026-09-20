@@ -30,12 +30,13 @@ test('Operational Center refreshes only domains affected by a database change',(
   assert.match(v7,/record\?\.domain/);
 });
 
-test('Admin API exposes the read-only current operations RPC',()=>{
+test('Admin API keeps V1 rollback RPC and exposes canonical V2 RPC',()=>{
   const api=read('functions/portal/owner-api.js');
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
+  assert.match(api,/path==='\/admin\/operations-current-v2'.*rona_admin_operations_current_v2/s);
 });
 
-test('Admin main UI keeps V7-V9 baselines under V9.1 timeout resilience',()=>{
+test('Admin main UI activates V10 single-owner while retaining V7-V9.1 rollback modules',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -49,10 +50,13 @@ test('Admin main UI keeps V7-V9 baselines under V9.1 timeout resilience',()=>{
   const v89=read('functions/portal/admin-operations-command-center-v8-9.js');
   const v9=read('functions/portal/admin-operations-command-center-v9.js');
   const v91=read('functions/portal/admin-operations-command-center-v9-1.js');
-  assert.ok(main.includes('patchAdminOperationsCommandCenterV91'));
-  assert.ok(main.includes('admin-operations-command-center-v9-1.js'));
+  const v10=read('functions/portal/admin-operations-command-center-v10-clean.js');
+  assert.ok(main.includes('patchAdminOperationsCommandCenterV10Clean'));
+  assert.ok(main.includes('admin-operations-command-center-v10-clean.js'));
+  assert.ok(v10.includes('patchAdminOperationsCommandCenterV91 as patchLegacy'));
+  assert.ok(v10.includes("call('/admin/operations-current-v2'"));
+  assert.ok(v10.includes("window.__RONA_ADMIN_OPERATIONS_LEGACY_RUNTIME__='DISABLED_BY_V10'"));
   assert.ok(v91.includes('patchAdminOperationsCommandCenterV9 as patchV9'));
-  assert.ok(v91.includes('let patched=patchV9(script)'));
   assert.ok(v9.includes('patchAdminOperationsCommandCenterV89 as patchV89'));
   assert.ok(v89.includes('patchAdminOperationsCommandCenterV88 as patchV88'));
   assert.ok(v88.includes('patchAdminOperationsCommandCenterV87 as patchV87'));
