@@ -22,32 +22,29 @@ jobs:
           node --check assets/portal-admin-shell-fast-v1.js
           node --check assets/portal-admin-runtime-watchdog-v1.js
           node --check functions/portal/admin.js
-          node --check functions/portal/_owner-jwt-authority.js
           node --check functions/portal/_middleware.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check functions/portal/analytics-v2-ui.js
           node --check functions/portal/rail-safe-fallback-ui.js
           node --check functions/portal/remaining-sections-ui.js
           node --check scripts/build-pages-direct-canonical.mjs
-      - name: Verify Supabase asymmetric JWKS failover source
+      - name: Verify isolated owner JWT gateway is live and fail-closed
         run: |
           node --input-type=module - <<'NODE'
-          const url='https://sxawrwzeobaqwwmlkzws.supabase.co/auth/v1/.well-known/jwks.json';
+          const url='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-admin-control-plane/owner-auth-fallback';
           const controller=new AbortController();
           const timer=setTimeout(()=>controller.abort(),5000);
           try{
-            const r=await fetch(url,{headers:{accept:'application/json'},signal:controller.signal});
-            if(!r.ok)throw new Error('JWKS_HTTP_'+r.status);
-            const j=await r.json();
-            const supported=Array.isArray(j?.keys)&&j.keys.some(k=>k?.kid&&['EC','RSA','OKP'].includes(String(k.kty||'')));
-            if(!supported)throw new Error('JWKS_ASYMMETRIC_KEY_MISSING');
-            console.log('ADMIN_OWNER_JWKS_LIVE=PASS');
+            const r=await fetch(url,{headers:{apikey:'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL',authorization:'Bearer definitely-not-a-valid-jwt',accept:'application/json'},signal:controller.signal});
+            if(r.status!==401)throw new Error('OWNER_GATEWAY_EXPECTED_401_GOT_'+r.status);
+            console.log('ADMIN_OWNER_JWT_GATEWAY_LIVE_FAIL_CLOSED=PASS');
           }finally{clearTimeout(timer)}
           NODE
       - name: Run Admin current-only regression guards
         run: |
           node tests/admin-shell-resilience.test.mjs
           node tests/admin-auth-session-convergence-639.test.mjs
+          node tests/admin-owner-jwt-fallback-source.test.mjs
           node tests/admin-current-only-shell-contract.test.mjs
           node tests/admin-runtime-watchdog.test.mjs
           node tests/admin-current-access-nav-v2.test.mjs
