@@ -51,6 +51,7 @@ export function deriveOperationsDealCurrentRows(baseDeals,snapshot){
     d.resource_status=d?.product_confirmed_at&&d?.quantity_confirmed_at?'Подтверждено':'Требует подтверждения';
     d.delivery_status=dealRail.length?(wagons?'ЖД в работе':'ГУ-12 зарегистрирована'):'—';
     d.current_projection_source='DEALS_CURRENT_STATE_V1';
+    d.current_action_required=false;
 
     if(terminal(d)){
       d.stage=d?.business_status||d?.lifecycle_state||'—';
@@ -61,30 +62,37 @@ export function deriveOperationsDealCurrentRows(baseDeals,snapshot){
     if(!d?.product_confirmed_at){
       d.stage='Подтверждение продукта';
       d.next_action_text='Подтвердить продукт';
+      d.current_action_required=true;
     }else if(!d?.quantity_confirmed_at){
       d.stage='Подтверждение объёма';
       d.next_action_text='Подтвердить объём';
+      d.current_action_required=true;
     }else if(!String(d?.delivery_basis||'').trim()){
       d.stage='Коммерческие условия';
       d.next_action_text='Подтвердить базис поставки';
+      d.current_action_required=true;
     }else if(!hasSigned){
       d.stage='Документы';
       d.next_action_text='Получить подписанное доп. соглашение';
+      d.current_action_required=true;
     }else if(!hasInvoice){
       d.stage='Документы';
       d.next_action_text='Прикрепить инвойс';
+      d.current_action_required=true;
     }else if(remaining!==null&&remaining<=0){
       d.stage=dealRail.length?'Исполнение поставки':'Оплата закрыта';
       d.next_action_text=dealRail.length?'Контроль исполнения поставки':'Контроль исполнения сделки';
     }else if(handoff!=='SENT'&&expectation!=='ACTIVE'){
       d.stage='Передача в оплату';
       d.next_action_text='Передать в оплату';
+      d.current_action_required=true;
     }else if(expectation==='ACTIVE'&&(remaining===null||remaining>0)){
       d.stage='Оплата';
       d.next_action_text='Контроль поступления оплаты';
     }else if(['DUE','OVERDUE','PARTIALLY_PAID','PARTIAL','PAYMENT_DUE','AWAITING_PAYMENT'].includes(finance)){
       d.stage='Оплата';
       d.next_action_text='Сверить состояние оплаты';
+      d.current_action_required=true;
     }else{
       d.stage=d?.business_status||d?.lifecycle_state||'В работе';
       d.next_action_text=d?.next_action_text||d?.next_action||'Контроль исполнения сделки';
@@ -218,6 +226,27 @@ export function patchAdminOperationsCommandCenterV6(script){
 
   patched=replaceRequired(
     patched,
+    "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return ['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});",
+    "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return ['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});\n  const dealActionRows=activeDeals.filter(x=>x?.current_action_required===true);",
+    'deal-action-rows'
+  );
+
+  patched=replaceRequired(
+    patched,
+    "for(const x of paymentControl){const deal=dealById.get(String(x?.deal_id||'')),s=deal?.finance_status||x?.finance_status||x?.payment_status;queueRows.push({tone:ronaFdV5Tone(s),name:'Оплата · '+String(x?.deal_id||'Сделка'),meta:[x?.client_name||deal?.legal_name,ronaFdV5Text(s)].filter(Boolean).join(' · '),target:'payments'})}",
+    "for(const x of dealActionRows){queueRows.push({tone:'amber',name:'Сделка · '+String(x?.deal_id||'—'),meta:String(x?.next_action_text||'Требуется действие'),target:'deals',dealId:x?.deal_id||null})}",
+    'master-queue-action-only'
+  );
+
+  patched=replaceRequired(
+    patched,
+    "const attentionCount=conflicts.length+attentionApps.length+paymentControl.length+waitingWagons.length+uncheckedDocs.length+opsTasks.length+actionableReverse.length+materializerIssueCount+railIssueCount;",
+    "const attentionCount=conflicts.length+attentionApps.length+dealActionRows.length+waitingWagons.length+uncheckedDocs.length+opsTasks.length+actionableReverse.length+materializerIssueCount+railIssueCount;",
+    'action-kpi-separation'
+  );
+
+  patched=replaceRequired(
+    patched,
     "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button',onclick:()=>adminHomeNavigate(target)}",
     "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>adminHomeNavigate(target)}",
     'accessible-gauge'
@@ -233,6 +262,9 @@ export function patchAdminOperationsCommandCenterV6(script){
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COLOR_NETWORK__='v6-color-network-indicators'"))throw new Error('ADMIN_OPERATIONS_V6_MARKER_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT__='v1-authoritative-deals-snapshot'"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_MARKER_MISSING');
   if(!patched.includes("deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_READ_MODEL_MISSING');
+  if(!patched.includes("const dealActionRows=activeDeals.filter(x=>x?.current_action_required===true)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_ACTION_ROWS_MISSING');
+  if(!patched.includes("attentionApps.length+dealActionRows.length+waitingWagons.length"))throw new Error('ADMIN_OPERATIONS_V6_ACTION_KPI_SEPARATION_MISSING');
+  if(patched.includes("attentionApps.length+paymentControl.length+waitingWagons.length"))throw new Error('ADMIN_OPERATIONS_V6_PAYMENT_MONITORING_DOUBLE_COUNT');
   if(!patched.includes("'data-rona-color-network':'v6'"))throw new Error('ADMIN_OPERATIONS_V6_DOM_MARKER_MISSING');
   if(!patched.includes("'NET-07','Клиенты в сети'")||!patched.includes("'NET-08','Агенты в сети'"))throw new Error('ADMIN_OPERATIONS_V6_NETWORK_INDICATORS_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation'"))throw new Error('ADMIN_OPERATIONS_V5_BASELINE_MISSING');
