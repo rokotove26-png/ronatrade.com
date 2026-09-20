@@ -103,7 +103,8 @@ test('Automation health is event-driven and does not add read-model polling',()=
   assert.match(sql,/after update of status on cron\.job_run_details/i);
   assert.match(sql,/v_new_ok is distinct from v_prev_ok/);
   assert.match(sql,/new\.start_time-v_prev\.start_time > make_interval/);
-  assert.doesNotMatch(sql,/create trigger[\s\S]*on cron\.job\b/i);
+  assert.match(sql,/when insufficient_privilege then/);
+  assert.doesNotMatch(sql,/drop trigger if exists rona_admin_cron_health_transition_v1/);
   assert.match(v7,/ronaOpsV7ScheduleAutomationStaleCheck/);
   assert.match(v7,/setTimeout\(\(\)=>\{ronaOpsV7StaleTimer=0;if\(ronaOpsV7HomeVisible\(\)\)renderAdminHome\(\)\}/);
   assert.match(v7,/automationIssues=opsAutomation\.filter/);
