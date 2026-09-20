@@ -165,7 +165,7 @@ begin
 end
 $;
 
-do $$
+do $
 declare
   v_def text;
 begin
