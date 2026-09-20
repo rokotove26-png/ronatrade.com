@@ -39,7 +39,11 @@ jobs:
           assert(ds.includes("api('/admin/deals-current-v3')"),'Deals current v3 endpoint missing');
           assert(dr.headers.get('x-rona-deals-read-model')==='admin-deals-current-v3-finance-v8-rail-current','Deals V3 read-model header missing');
           assert(ds.includes('function needsPaymentHandoffAction(d)'),'payment-handoff action split missing');
-          assert(ds.includes("'Finance · остаток'"),'Finance remaining label missing');
+          assert(ds.includes("'Finance · оплачено / остаток'"),'Finance paid/remaining label missing');
+          assert(ds.includes("paidNode.title='Оплачено фактически'"),'Finance paid fact primary missing');
+          assert(ds.includes("'Осталось: '+(remaining===null?'—':money(remaining,c))"),'Finance remaining secondary missing');
+          assert(ds.includes('rona-current-fin-paid')&&ds.includes('rona-current-fin-remaining--open')&&ds.includes('rona-current-fin-remaining--danger')&&ds.includes('rona-current-fin-remaining--settled'),'Finance color indication missing');
+          assert(dr.headers.get('x-rona-deals-finance-cell')==='paid-vs-remaining-color-v1','Finance cell marker missing');
           assert(dr.headers.get('x-rona-deals-kpi')==='payment-expectation-action-split-v2','Deals KPI split marker missing');
           assert(ds.includes('function isolateDealsPage(root,host)'),'Deals underlay isolation missing');
           assert(ds.includes("host.dataset.ronaDealsOwner='current-v1.5'"),'exclusive owner marker missing');
