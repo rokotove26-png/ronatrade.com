@@ -35,15 +35,18 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3 baselines under V8.4 complete scroll',()=>{
+test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3/V8.4 baselines under V8.5 effective KPI',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
   const v82=read('functions/portal/admin-operations-command-center-v8-2.js');
   const v83=read('functions/portal/admin-operations-command-center-v8-3.js');
   const v84=read('functions/portal/admin-operations-command-center-v8-4.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV84/);
-  assert.match(main,/admin-operations-command-center-v8-4\.js/);
+  const v85=read('functions/portal/admin-operations-command-center-v8-5.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV85/);
+  assert.match(main,/admin-operations-command-center-v8-5\.js/);
+  assert.match(v85,/patchAdminOperationsCommandCenterV84 as patchV84/);
+  assert.match(v85,/let patched=patchV84\(script\)/);
   assert.match(v84,/patchAdminOperationsCommandCenterV83 as patchV83/);
   assert.match(v84,/let patched=patchV83\(script\)/);
   assert.match(v83,/patchAdminOperationsCommandCenterV82 as patchV82/);
@@ -183,4 +186,15 @@ test('V8.4 removes artificial row caps while preserving scroll containers',()=>{
   assert.match(base,/rona-fd-v5-queue\{max-height:/);
   assert.match(v84,/OPERATIONS_COMPLETE_SCROLL_V1/);
   assert.match(v84,/ADMIN_OPERATIONS_V84_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.5 action KPIs include automation-health rows visible in the exception queue',()=>{
+  const v85=read('functions/portal/admin-operations-command-center-v8-5.js');
+  assert.match(v85,/gauge\('CAUT-03','Требует действия',effectiveAttentionCount/);
+  assert.match(v85,/gauge\('WARN-06','Критические события',effectiveCriticalCount/);
+  assert.match(v85,/effectiveAttentionCount\?'amber':'green'/);
+  assert.match(v85,/effectiveCriticalCount\?'red':'green'/);
+  assert.match(v85,/OPERATIONS_EFFECTIVE_KPI_V1/);
+  assert.match(v85,/ADMIN_OPERATIONS_V85_POLLING_FORBIDDEN/);
 });
