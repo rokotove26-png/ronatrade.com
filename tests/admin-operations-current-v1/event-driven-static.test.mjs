@@ -144,5 +144,5 @@ test('V8.2 counts visible normalized action rows and deduplicates reverse events
   assert.match(v82,/t==='REVERSE_EVENT'&&!actionableReverseIds\.has\(id\)/);
   assert.match(v82,/const criticalCount=queueRows\.filter\(x=>x\?\.tone==='red'\)\.length/);
   assert.match(v82,/const attentionCount=queueRows\.length/);
-  assert.doesNotMatch(v82,/setInterval\([^\n]*ronaOpsV82/);
+  assert.match(v82,/ADMIN_OPERATIONS_V82_POLLING_FORBIDDEN/);
 });
