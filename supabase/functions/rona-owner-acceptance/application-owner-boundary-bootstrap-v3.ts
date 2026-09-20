@@ -3,8 +3,9 @@
 import { createClient } from "@supabase/supabase-js";
 import { overlayRailReadModel } from "./rail-admin-read-model-overlay.mjs";
 
-const SUPA_URL = Deno.env.get("SUPABASE_URL");
-if (!SUPA_URL) throw new Error("SUPABASE_URL_MISSING");
+const SUPA_URL_RAW = Deno.env.get("SUPABASE_URL");
+if (!SUPA_URL_RAW) throw new Error("SUPABASE_URL_MISSING");
+const SUPA_URL: string = SUPA_URL_RAW;
 
 function publicKey() {
   const legacy = Deno.env.get("SUPABASE_ANON_KEY");
