@@ -32,5 +32,7 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
+      - name: Prove Client impersonation boots with native tab binding
+        run: node scripts/qa-client-impersonation-tab-binding-browser-v1.mjs
       - name: Prove access creation and permanent user deletion
         run: node scripts/qa-admin-access-functional-browser.mjs
