@@ -60,6 +60,7 @@ const server=http.createServer(async(req,res)=>{
     return json(res,{ok:true,data:{kind:'COMPANY',entityId:clientId,users:[],subjectMode:'ADMIN_ENTITY',canImpersonate:true}})
   }
   if(req.method==='POST'&&u.pathname==='/portal/admin-authority/impersonation/start'){
+    if(String(req.headers['x-rona-admin-handoff']||'')!=='clients-agents-v8')return json(res,{ok:false,code:'HANDOFF_INTENT_MISSING'},403);
     const body=await readBody(req);let payload={};try{payload=JSON.parse(body.toString('utf8'))}catch{return json(res,{ok:false,code:'INVALID_JSON'},400)}
     impersonationStartRequests++;impersonationStartPayload=payload;
     return json(res,{ok:true,data:{impersonation:{id:impersonationSessionId,expiresAt:new Date(Date.now()+600000).toISOString()},targetPath:'/portal/client'}})
