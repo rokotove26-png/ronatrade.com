@@ -171,6 +171,8 @@ export function impersonationMetadata(actor:AdminActor,impersonation:AdminImpers
     actor_admin_session_id:actor.sessionId,
     effective_portal_user_id:impersonation.effectiveUserId,
     effective_role:impersonation.effectiveRole,
+    subject_mode:impersonation.subjectMode,
+    read_only:impersonation.readOnly,
     impersonation_session_id:impersonation.id,
     target_client_key:impersonation.targetClientKey,
     target_agent_person_key:impersonation.targetAgentPersonKey,
@@ -233,7 +235,7 @@ export async function recordImpersonationEvent(
       ${route},
       ${action},
       ${result},
-      ${db.json(metadata)}
+      ${db.json({subject_mode:impersonation.subjectMode,read_only:impersonation.readOnly,...metadata})}
     )
   `;
   return{requestId,correlationId};
