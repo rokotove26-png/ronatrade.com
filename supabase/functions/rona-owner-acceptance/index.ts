@@ -67,7 +67,9 @@ async function authContext(req) {
   if(!impersonation)return null;
   const tabId=String(req.headers.get("x-rona-impersonation-tab")||"").trim();
   if(tabId!==impersonation.id)return null;
-  const effective=await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;
+  const effective=impersonation.subjectMode==="ADMIN_ENTITY"&&impersonation.targetClientKey
+    ?await sql`select legal_name as display_name from portal_private.clients where id=${impersonation.targetClientKey}::uuid limit 1`
+    :await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;
   return{...base,userId:impersonation.effectiveUserId,displayName:String(effective[0]?.display_name||""),roles:[impersonation.effectiveRole],impersonation};
 }
 function requireRole(ctx, role) {
