@@ -73,3 +73,81 @@ jobs:
       - name: Prove full impersonation and safe retirement
         run: |
           deno run --node-modules-dir=auto --allow-env --allow-net=127.0.0.1:5432 scripts/qa-admin-entity-control-stage2-real-integration.mjs
+
+
+  current-production-client-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      STAGE2_BASE_SHA: 89628c19cc37f873f8b32ad37401344a59790ccf
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Build current production and Stage 2 candidate
+        run: |
+          set -euo pipefail
+          prod_root=/tmp/rona-stage2-prod-parity
+          candidate_root=/tmp/rona-stage2-candidate-parity
+          rm -rf "$prod_root" "$candidate_root"
+          git worktree add --detach "$prod_root" "$STAGE2_BASE_SHA"
+          git worktree add --detach "$candidate_root" "${{ github.event.pull_request.head.sha }}"
+          (cd "$prod_root" && npm run build)
+          (cd "$candidate_root" && npm run build)
+          {
+            echo "STAGE2_PROD_ROOT=$prod_root"
+            echo "STAGE2_CANDIDATE_ROOT=$candidate_root"
+          } >> "$GITHUB_ENV"
+      - name: Prove normal Client parity against current production
+        run: |
+          set -uo pipefail
+          prod_log="$GITHUB_WORKSPACE/stage2-prod-client-parity.log"
+          candidate_log="$GITHUB_WORKSPACE/stage2-candidate-client-parity.log"
+
+          cd "$STAGE2_PROD_ROOT"
+          set +e
+          RONA_OWNER_RETEST_LABEL="PROD_${STAGE2_BASE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" >"$prod_log" 2>&1
+          prod_rc=$?
+
+          cd "$STAGE2_CANDIDATE_ROOT"
+          RONA_OWNER_RETEST_LABEL="CANDIDATE_${{ github.event.pull_request.head.sha }}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" >"$candidate_log" 2>&1
+          candidate_rc=$?
+          set -e
+
+          cat "$prod_log"
+          cat "$candidate_log"
+
+          grep -oE '"code":"[^"]+"' "$prod_log" | sort -u > "$GITHUB_WORKSPACE/stage2-prod-client-codes.txt" || true
+          grep -oE '"code":"[^"]+"' "$candidate_log" | sort -u > "$GITHUB_WORKSPACE/stage2-candidate-client-codes.txt" || true
+          comm -13 "$GITHUB_WORKSPACE/stage2-prod-client-codes.txt" "$GITHUB_WORKSPACE/stage2-candidate-client-codes.txt" > "$GITHUB_WORKSPACE/stage2-client-added-codes.txt" || true
+
+          if [ "$prod_rc" -eq 0 ] && [ "$candidate_rc" -ne 0 ]; then
+            echo "STAGE2_CLIENT_PARITY=FAIL production=PASS candidate=FAIL"
+            exit 1
+          fi
+          if [ -s "$GITHUB_WORKSPACE/stage2-client-added-codes.txt" ]; then
+            echo "STAGE2_CLIENT_PARITY=FAIL candidate introduced new regression codes"
+            cat "$GITHUB_WORKSPACE/stage2-client-added-codes.txt"
+            exit 1
+          fi
+          echo "STAGE2_CLIENT_PARITY=PASS production_rc=$prod_rc candidate_rc=$candidate_rc"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage2-current-production-client-parity-${{ github.run_id }}
+          path: |
+            stage2-prod-client-parity.log
+            stage2-candidate-client-parity.log
+            stage2-prod-client-codes.txt
+            stage2-candidate-client-codes.txt
+            stage2-client-added-codes.txt
+          if-no-files-found: warn
