@@ -10,7 +10,7 @@ assert.match(preview,/^https:\/\/[a-f0-9]+\.rona-trade-public\.pages\.dev$/,'imm
 const source=await readFile('functions/portal/deals-current-state-ui.js','utf8');
 assert.match(source,/return !\(add\|\|signed\)\|\|!inv}/,'Documents must depend only on RONA addendum lineage + invoice');
 assert.match(source,/function hasClientSignedAddendum\(d\)\{return !!docKind\(d&&d\.deal_id,'SIGNED_ADDENDUM'\)}/,'signed addendum source missing');
-assert.match(source,/return hasClientSignedAddendum\(d\)\?'GO':'HOLD'/,'GO/HOLD must depend on signed client addendum');
+assert.match(source,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/,'GO/HOLD must preserve signed client addendum and structural blockers');
 assert.doesNotMatch(source,/NIK|SOLARIS|FARG|GAZON|DEAL-2026-00[3-9]/i,'implementation must not hardcode business entities');
 
 // Pages preview proves the exact PR commit was built. Protected Admin HTML redirects to login,
@@ -28,7 +28,7 @@ assert.equal(runtimeResponse.status,200,'Deals runtime response must be successf
 assert.equal(runtimeResponse.headers.get('x-rona-deal-indicators'),'documents-addendum-invoice-status-client-signed-v1','Deals runtime indicator marker missing');
 const runtime=await runtimeResponse.text();
 assert.match(runtime,/return !\(add\|\|signed\)\|\|!inv}/,'runtime Documents rule missing');
-assert.match(runtime,/return hasClientSignedAddendum\(d\)\?'GO':'HOLD'/,'runtime GO/HOLD rule missing');
+assert.match(runtime,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/,'runtime structural GO/HOLD rule missing');
 
 // Read-only production snapshot captured for this hotfix. Business identifiers are QA evidence only;
 // the implementation above remains universal and contains none of these identifiers.
@@ -36,12 +36,12 @@ const snapshot={
   generatedAt:'2026-09-10T10:00:00.000Z',
   deals:[
     {deal_id:'DEAL-2026-003',client_id:'RONA-QA-003',legal_name:'Общество с ограниченной ответственностью «PRODUCTION PETROL»',contract_id:'CTR-003',contract_status:'ACTIVE',business_status:'CANCELLED',lifecycle_state:'CLOSED',cancellation_state:'CANCELLED',source_product:'СУГ',source_quantity_tonnes:1,delivery_basis:'DAP',finance_status:'NOT_DUE',accounting_status:'CURRENT'},
-    {deal_id:'DEAL-2026-004',client_id:'RONA-QA-004',legal_name:'Общество с ограниченной ответственностью «FARG‘ONA GAZ TO‘LDIRISH STANSIYASI»',contract_id:'CTR-004',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-08-26T00:00:00Z',quantity_confirmed_at:'2026-08-26T00:00:00Z',finance_status:'PAID',accounting_status:'CURRENT'},
-    {deal_id:'DEAL-2026-005',client_id:'RONA-QA-005',legal_name:'Совместное предприятие Общество с ограниченной ответственностью «UNVERSAL SOLYARIS GRAND»',contract_id:'CTR-005',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-08-26T00:00:00Z',quantity_confirmed_at:'2026-08-26T00:00:00Z',finance_status:'NOT_DUE',accounting_status:'CURRENT'},
-    {deal_id:'DEAL-2026-006',client_id:'RONA-QA-006',legal_name:'Совместное предприятие Общество с ограниченной ответственностью «UNVERSAL SOLYARIS GRAND»',contract_id:'CTR-006',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-08-26T00:00:00Z',quantity_confirmed_at:'2026-08-26T00:00:00Z',finance_status:'NOT_DUE',accounting_status:'CURRENT'},
-    {deal_id:'DEAL-2026-007',client_id:'RONA-QA-007',legal_name:'Общество с ограниченной ответственностью Топливная компания «НИК-ОЙЛ»',contract_id:'CTR-007',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:250,delivery_basis:'DAP',product_confirmed_at:'2026-09-04T00:00:00Z',quantity_confirmed_at:'2026-09-04T00:00:00Z',finance_status:'NOT_DUE',accounting_status:'CURRENT',client_addendum_downloaded_at:'2026-09-04T21:10:00Z'},
-    {deal_id:'DEAL-2026-008',client_id:'RONA-QA-008',legal_name:'Общество с ограниченной ответственностью Топливная компания «НИК-ОЙЛ»',contract_id:'CTR-008',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:470,delivery_basis:'DAP',product_confirmed_at:'2026-09-04T00:00:00Z',quantity_confirmed_at:'2026-09-04T00:00:00Z',finance_status:'NOT_DUE',accounting_status:'CURRENT',client_addendum_downloaded_at:'2026-09-04T21:10:00Z'},
-    {deal_id:'DEAL-2026-009',client_id:'RONA-QA-009',legal_name:'Общество с ограниченной ответственностью «ГазОнэ»',contract_id:'CTR-009',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T00:00:00Z',quantity_confirmed_at:'2026-09-10T00:00:00Z',finance_status:'NOT_DUE',accounting_status:'CURRENT'}
+    {deal_id:'DEAL-2026-004',client_id:'RONA-QA-004',legal_name:'Общество с ограниченной ответственностью «FARG‘ONA GAZ TO‘LDIRISH STANSIYASI»',contract_id:'CTR-004',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-08-26T00:00:00Z',quantity_confirmed_at:'2026-08-26T00:00:00Z',obligation_amount:236250,received_amount:236250,client_remaining_amount:0,finance_currency:'USD',finance_status:'PAID',accounting_status:'CURRENT',payment_handoff_state:'READY',payment_expectation_state:'NOT_CREATED'},
+    {deal_id:'DEAL-2026-005',client_id:'RONA-QA-005',legal_name:'Совместное предприятие Общество с ограниченной ответственностью «UNVERSAL SOLYARIS GRAND»',contract_id:'CTR-005',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-08-26T00:00:00Z',quantity_confirmed_at:'2026-08-26T00:00:00Z',obligation_amount:672500,received_amount:201750,client_remaining_amount:470750,finance_currency:'USD',finance_status:'PARTIALLY_PAID',accounting_status:'CURRENT',payment_handoff_state:'READY',payment_expectation_state:'NOT_CREATED'},
+    {deal_id:'DEAL-2026-006',client_id:'RONA-QA-006',legal_name:'Совместное предприятие Общество с ограниченной ответственностью «UNVERSAL SOLYARIS GRAND»',contract_id:'CTR-006',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-08-26T00:00:00Z',quantity_confirmed_at:'2026-08-26T00:00:00Z',obligation_amount:164400,received_amount:49320,client_remaining_amount:115080,finance_currency:'USD',finance_status:'PARTIALLY_PAID',accounting_status:'CURRENT',payment_handoff_state:'READY',payment_expectation_state:'NOT_CREATED'},
+    {deal_id:'DEAL-2026-007',client_id:'RONA-QA-007',legal_name:'Общество с ограниченной ответственностью Топливная компания «НИК-ОЙЛ»',contract_id:'CTR-007',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:250,delivery_basis:'DAP',product_confirmed_at:'2026-09-04T00:00:00Z',quantity_confirmed_at:'2026-09-04T00:00:00Z',obligation_amount:100,received_amount:0,client_remaining_amount:100,finance_currency:'USD',finance_status:'DUE',accounting_status:'CURRENT',payment_handoff_state:'SENT',payment_expectation_state:'ACTIVE',payment_expectation_amount:100,client_addendum_downloaded_at:'2026-09-04T21:10:00Z'},
+    {deal_id:'DEAL-2026-008',client_id:'RONA-QA-008',legal_name:'Общество с ограниченной ответственностью Топливная компания «НИК-ОЙЛ»',contract_id:'CTR-008',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:470,delivery_basis:'DAP',product_confirmed_at:'2026-09-04T00:00:00Z',quantity_confirmed_at:'2026-09-04T00:00:00Z',obligation_amount:100,received_amount:0,client_remaining_amount:100,finance_currency:'USD',finance_status:'DUE',accounting_status:'CURRENT',payment_handoff_state:'SENT',payment_expectation_state:'ACTIVE',payment_expectation_amount:100,client_addendum_downloaded_at:'2026-09-04T21:10:00Z'},
+    {deal_id:'DEAL-2026-009',client_id:'RONA-QA-009',legal_name:'Общество с ограниченной ответственностью «ГазОнэ»',contract_id:'CTR-009',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T00:00:00Z',quantity_confirmed_at:'2026-09-10T00:00:00Z',obligation_amount:362600,received_amount:0,client_remaining_amount:362600,finance_currency:'USD',finance_status:'DUE',accounting_status:'CURRENT',payment_handoff_state:'SENT',payment_expectation_state:'ACTIVE',payment_expectation_amount:362600}
   ],
   documents:[
     {deal_id:'DEAL-2026-004',document_kind:'INVOICE',document_id:'QA-004-I',authoritative_filename:'invoice.pdf'},
@@ -97,8 +97,16 @@ async function assertIndicators(dealId,documents,status){
   assert.match(String(await cells.nth(8).textContent()),new RegExp(documents),`${dealId} Documents mismatch`);
   assert.equal(String(await cells.nth(10).textContent()).trim(),status,`${dealId} Status mismatch`);
 }
+async function kpiValue(title){
+  const card=page.locator('.rona-current-deal-kpi').filter({has:page.getByText(title,{exact:true})});
+  await card.waitFor({state:'visible',timeout:15000});
+  return String(await card.locator('.rona-owner-kpi').textContent()).trim();
+}
 async function proveActive(){
   await page.waitForFunction(()=>document.documentElement.classList.contains('rona-deals-current-ready'),null,{timeout:15000});
+  assert.equal(await kpiValue('В работе'),'6','active KPI must count six current deals');
+  assert.equal(await kpiValue('Требуют внимания'),'2','attention KPI must count payment-handoff actions, not payment queue');
+  assert.equal(await kpiValue('Ожидают оплаты'),'3','waiting KPI must count only ACTIVE payment expectations');
   await assertIndicators('DEAL-2026-004','Комплект актуален','GO');
   await assertIndicators('DEAL-2026-005','Комплект актуален','GO');
   await assertIndicators('DEAL-2026-006','Комплект актуален','GO');
@@ -117,7 +125,7 @@ try{
   await proveActive();
   assert.ok(bootstrapHits>=2,'reload must obtain the projection again');
   assert.deepEqual(pageErrors,[],'runtime must not throw browser errors');
-  console.log('ADMIN_DEAL_INDICATORS_BROWSER=PASS',JSON.stringify({preview,previewStaticArtifact:true,runtimeSource:'PR_CHECKOUT_ONREQUEST',existingDeals:['DEAL-2026-003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-007','DEAL-2026-008','DEAL-2026-009'],documents:{complete:6,requires:1},status:{GO:4,HOLD:2,NO_GO:1},nickOil:'ADDENDUM+INVOICE=>COMPLETE;NO_SIGNED=>HOLD',solarisGrand:'SIGNED_ADDENDUM=>GO',fargona:'PAID+SIGNED_ADDENDUM=>GO',gazone:'SIGNED_ADDENDUM=>GO',reload:true,bootstrapHits}));
+  console.log('ADMIN_DEAL_INDICATORS_BROWSER=PASS',JSON.stringify({preview,previewStaticArtifact:true,runtimeSource:'PR_CHECKOUT_ONREQUEST',kpi:{active:6,attention:2,waiting:3},existingDeals:['DEAL-2026-003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-007','DEAL-2026-008','DEAL-2026-009'],documents:{complete:6,requires:1},status:{GO:4,HOLD:2,NO_GO:1},nickOil:'ADDENDUM+INVOICE=>COMPLETE;NO_SIGNED=>HOLD',solarisGrand:'SIGNED_ADDENDUM=>GO',fargona:'PAID+SIGNED_ADDENDUM=>GO',gazone:'SIGNED_ADDENDUM=>GO',reload:true,bootstrapHits}));
 }finally{
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
