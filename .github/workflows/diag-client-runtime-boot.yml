@@ -19,6 +19,17 @@ jobs:
           node-version: '24'
       - run: node scripts/diag-client-runtime-boot.mjs
       - run: npm run build
+      - name: Inspect emitted Client runtime tags
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFile} from 'node:fs/promises';
+          const h=await readFile('dist/portal/client.html','utf8');
+          console.log('EMITTED_CLIENT_BYTES',Buffer.byteLength(h));
+          console.log('EMITTED_SCRIPT_SRCS',JSON.stringify([...h.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>m[1])));
+          console.log('EMITTED_CONTEXT_AUTHORITY_TAG',h.includes('client-context-selection-authority-v1.js'));
+          console.log('EMITTED_CONTEXT_AUTHORITY_INDEX',h.indexOf('client-context-selection-authority-v1.js'));
+          console.log('EMITTED_HEAD_CLOSE_INDEX',h.toLowerCase().indexOf('</head>'));
+          NODE
       - run: npm install --no-save --ignore-scripts playwright@1.54.2
       - run: npx playwright install --with-deps chromium
       - run: node scripts/diag-client-impersonation-real-browser.mjs
