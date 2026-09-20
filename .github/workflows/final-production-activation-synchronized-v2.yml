@@ -44,6 +44,9 @@ jobs:
           node tests/admin-runtime-watchdog.test.mjs
           node scripts/qa-admin-single-owner.mjs
           node scripts/qa-client-contract-authoritative-projection.mjs
+          node --check assets/g82/portal-home-inline-auth-v2.js
+          node --check scripts/qa-public-home-auth-boundary-browser.mjs
+          node tests/public-home-auth-boundary.test.mjs
 
           test "$(sha256sum 'portal-src/canonical/RONA_Trade_Agent_Portal_v0_4_3_EDITOR_SECURITY_STATUS_TYPOGRAPHY_FINAL_CANDIDATE_20260812.html' | awk '{print $1}')" = '4fc9de4e561c4e55cbba9507b5eb1122f77d1efa990bef2fb6a957b2b135484c'
           test "$(sha256sum 'portal-src/canonical/canonical_background.png' | awk '{print $1}')" = '9f0022d1651ddcf14fe2c6c66a4151b9074804f237c7b347793fd6cd20f505cc'
