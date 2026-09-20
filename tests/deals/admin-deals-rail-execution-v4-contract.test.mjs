@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const migration=fs.readFileSync('supabase/migrations/20260920144304_admin_deals_rail_execution_v4.sql','utf8');
-const timeoutFix=fs.readFileSync('supabase/migrations/20260920152000_admin_deals_rail_execution_v4_timeout_fix.sql','utf8');
+const timeoutFix=fs.readFileSync('supabase/migrations/20260920145340_admin_deals_rail_execution_v4_timeout_fix.sql','utf8');
 const api=fs.readFileSync('functions/portal/owner-api.js','utf8');
 const ui=fs.readFileSync('functions/portal/deals-current-state-ui.js','utf8');
 
