@@ -471,9 +471,42 @@ test('Silent resume miss is non-destructive',async()=>{
   assert.equal(response.headers.get('set-cookie'),null);
 });
 
-test('Public inline login silently probes existing owner session on load',()=>{
+test('Public inline login reuses the canonical protected Admin route for silent session recovery',()=>{
   assert.match(inlineAuth,/RONA_INLINE_RESUME_TIMEOUT/);
-  assert.match(inlineAuth,/JSON\.stringify\(\{resume:true,next:'\/portal\/admin'\}\)/);
-  assert.match(inlineAuth,/data\?\.recovered!==true/);
+  assert.match(inlineAuth,/fetch\('\/portal\/admin'/);
+  assert.match(inlineAuth,/method:'GET'/);
+  assert.match(inlineAuth,/redirect:'follow'/);
+  assert.match(inlineAuth,/target!=='\/portal\/admin'/);
   assert.match(inlineAuth,/Сессия восстановлена\. Открываем кабинет/);
+});
+
+test('Admin shell recovers a refresh-only session before rendering',async()=>{
+  let refreshCalls=0,sessionCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=refresh_token')){
+      refreshCalls++;
+      return jsonResponse({access_token:'access-rotated',refresh_token:'refresh-rotated',expires_in:3600},200);
+    }
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      sessionCalls++;
+      return jsonResponse({ok:true,user:{roles:['ADMIN']}},200);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',
+    headers:{cookie:'rona_portal_rt=refresh-only'}
+  });
+  const response=await portalRouter({
+    request,
+    next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})
+  });
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),'ADMIN_SHELL_OK');
+  assert.equal(refreshCalls,1);
+  assert.equal(sessionCalls,1);
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=access-rotated/);
+  assert.match(setCookie,/rona_portal_rt=refresh-rotated/);
 });
