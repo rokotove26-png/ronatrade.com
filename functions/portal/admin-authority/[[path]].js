@@ -82,6 +82,31 @@ export function impersonationEnterPostAllowed(request) {
   const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
   return fetchSite === 'same-origin';
 }
+
+export function impersonationStartPostAllowed(request) {
+  const url = new URL(request.url);
+  if (!portalOriginAllowed(url)) return false;
+  if (String(request.headers.get('x-rona-admin-handoff') || '') !== 'clients-agents-v8') return false;
+  if (!String(request.headers.get('content-type') || '').toLowerCase().includes('application/json')) return false;
+
+  const origin = request.headers.get('origin');
+  if (origin) {
+    try { if (new URL(origin).origin !== url.origin) return false; }
+    catch { return false; }
+  }
+  const ref = request.headers.get('referer');
+  if (ref) {
+    try { if (new URL(ref).origin !== url.origin) return false; }
+    catch { return false; }
+  }
+  const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
+  if (fetchSite && fetchSite !== 'same-origin') return false;
+
+  // The exact custom header makes cross-origin browser submission require CORS preflight.
+  // This route never grants CORS, and ADMIN session verification still follows below.
+  // Therefore missing Origin/Referer/Fetch-Metadata cannot recreate the form-navigation bug.
+  return true;
+}
 async function authRefresh(refreshToken) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: 'POST', headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
@@ -166,7 +191,9 @@ export async function onRequest(context) {
   const path = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
   const postAllowed = path === '/impersonation/enter'
     ? impersonationEnterPostAllowed(request)
-    : sameOriginPost(request);
+    : path === '/impersonation/start'
+      ? impersonationStartPostAllowed(request)
+      : sameOriginPost(request);
   if (request.method === 'POST' && !postAllowed) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
 
   let session;
