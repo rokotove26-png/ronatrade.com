@@ -12,9 +12,19 @@ function replaceRequired(source,from,to,label){
 }
 
 const EVENT_RUNTIME=String.raw`
-let ronaOpsV7Busy=false,ronaOpsV7Queued=false,ronaOpsV7Debounce=0,ronaOpsV7ReconnectTimer=0,ronaOpsV7HeartbeatTimer=0,ronaOpsV7ReconnectAttempt=0,ronaOpsV7Ref=1;const ronaOpsV7DirtyDomains=new Set();
+let ronaOpsV7Busy=false,ronaOpsV7Queued=false,ronaOpsV7Debounce=0,ronaOpsV7ReconnectTimer=0,ronaOpsV7HeartbeatTimer=0,ronaOpsV7StaleTimer=0,ronaOpsV7ReconnectAttempt=0,ronaOpsV7Ref=1;const ronaOpsV7DirtyDomains=new Set();
 function ronaOpsV7HomeVisible(){const p=page('home');return !!(p&&getComputedStyle(p).display!=='none')}
 function ronaOpsV7SetState(status,extra={}){window.__RONA_ADMIN_OPERATIONS_EVENT_STATE__={status,connected:status==='CONNECTED',updatedAt:Date.now(),...extra}}
+function ronaOpsV7ScheduleAutomationStaleCheck(rows){
+  if(ronaOpsV7StaleTimer){clearTimeout(ronaOpsV7StaleTimer);ronaOpsV7StaleTimer=0}
+  const now=Date.now(),deadlines=(Array.isArray(rows)?rows:[]).map(x=>{
+    const t=Date.parse(x?.last_start_time||''),age=Number(x?.max_age_seconds||0)*1000;
+    return Number.isFinite(t)&&age>0?t+age:NaN;
+  }).filter(Number.isFinite).filter(x=>x>now);
+  if(!deadlines.length)return;
+  const delay=Math.max(250,Math.min(...deadlines)-now+150);
+  ronaOpsV7StaleTimer=setTimeout(()=>{ronaOpsV7StaleTimer=0;if(ronaOpsV7HomeVisible())renderAdminHome()},delay);
+}
 function ronaOpsV7FocusMaster(){
   requestAnimationFrame(()=>{
     const node=document.querySelector('#page-home .rona-fd-v5__master');
@@ -42,6 +52,7 @@ async function ronaOpsV7RefreshCurrent(reason='EVENT'){
     if((domains.includes('DEALS')||domains.includes('RAIL')||domains.includes('DOCUMENTS'))&&typeof ownerAdminRefreshTick==='function')await ownerAdminRefreshTick(true);
     if(!next||next.version!=='OPERATIONS_CURRENT_V1')throw new Error('OPERATIONS_CURRENT_CONTRACT_MISMATCH');
     window.__RONA_ADMIN_OPERATIONS_CURRENT_V1__=next;
+    ronaOpsV7ScheduleAutomationStaleCheck(next.automationHealth);
     window.__RONA_ADMIN_OPERATIONS_CURRENT_ERROR__=null;
     window.__RONA_ADMIN_OPERATIONS_CURRENT_LAST_FETCH__={reason,at:Date.now(),signalVersion:Number(next.signal_version||0)};
     window.__RONA_ADMIN_OPERATIONS_DIRTY__=false;
@@ -153,7 +164,7 @@ export function patchAdminOperationsCommandCenterV7(script){
   patched=replaceRequired(
     patched,
     "const d=adminData||{},ops=d.operations||{},opsMetrics=ops.metrics||{},opsAlerts=Array.isArray(ops.alerts)?ops.alerts:[],networkClients=Array.isArray(d.clients)?d.clients:[],networkAgents=Array.isArray(d.agents)?d.agents:[],networkClientCount=new Set(networkClients.map(x=>String(x?.client_id||x?.client_key||x?.id||'').trim()).filter(Boolean)).size,networkAgentCount=new Set(networkAgents.map(x=>String(x?.agent_person_id||x?.agent_id||x?.id||'').trim()).filter(Boolean)).size;",
-    "const d=adminData||{},ops=window.__RONA_ADMIN_OPERATIONS_CURRENT_V1__||d.operations||{},opsMetrics=ops.metrics||{},opsAlerts=Array.isArray(ops.alerts)?ops.alerts:[],networkClients=Array.isArray(d.clients)?d.clients:[],networkAgents=Array.isArray(d.agents)?d.agents:[],networkClientFallback=new Set(networkClients.map(x=>String(x?.client_id||x?.client_key||x?.id||'').trim()).filter(Boolean)).size,networkAgentFallback=new Set(networkAgents.map(x=>String(x?.agent_person_id||x?.agent_id||x?.id||'').trim()).filter(Boolean)).size,networkClientCount=Number.isFinite(Number(opsMetrics?.clients_registered))?Number(opsMetrics.clients_registered):networkClientFallback,networkAgentCount=Number.isFinite(Number(opsMetrics?.agents_registered))?Number(opsMetrics.agents_registered):networkAgentFallback;",
+    "const d=adminData||{},ops=window.__RONA_ADMIN_OPERATIONS_CURRENT_V1__||d.operations||{},opsMetrics=ops.metrics||{},opsAlerts=Array.isArray(ops.alerts)?ops.alerts:[],opsAutomation=Array.isArray(ops.automationHealth)?ops.automationHealth:[],networkClients=Array.isArray(d.clients)?d.clients:[],networkAgents=Array.isArray(d.agents)?d.agents:[],networkClientFallback=new Set(networkClients.map(x=>String(x?.client_id||x?.client_key||x?.id||'').trim()).filter(Boolean)).size,networkAgentFallback=new Set(networkAgents.map(x=>String(x?.agent_person_id||x?.agent_id||x?.id||'').trim()).filter(Boolean)).size,networkClientCount=Number.isFinite(Number(opsMetrics?.clients_registered))?Number(opsMetrics.clients_registered):networkClientFallback,networkAgentCount=Number.isFinite(Number(opsMetrics?.agents_registered))?Number(opsMetrics.agents_registered):networkAgentFallback;",
     'operations-current-source'
   );
 
@@ -167,7 +178,7 @@ export function patchAdminOperationsCommandCenterV7(script){
   patched=replaceRequired(
     patched,
     "  const stateTone=criticalCount?'red':attentionCount?'amber':'green';\n  const stateCode=criticalCount?'MASTER WARNING':attentionCount?'MASTER CAUTION':'SYSTEM NORMAL';\n  const stateText=criticalCount?'Критические события: '+criticalCount:attentionCount?'Требует внимания: '+attentionCount:'Контур стабилен';",
-    "  const opsCurrentReady=ops?.version==='OPERATIONS_CURRENT_V1',opsEventConnected=window.__RONA_ADMIN_OPERATIONS_EVENT_STATE__?.connected===true,opsCurrentError=window.__RONA_ADMIN_OPERATIONS_CURRENT_ERROR__;\n  const stateTone=!opsCurrentReady||opsCurrentError||!opsEventConnected?'amber':criticalCount?'red':attentionCount?'amber':'green';\n  const stateCode=!opsCurrentReady||opsCurrentError?'DATA DEGRADED':!opsEventConnected?'EVENT LINK':criticalCount?'MASTER WARNING':attentionCount?'MASTER CAUTION':'SYSTEM NORMAL';\n  const stateText=!opsCurrentReady?'Операционный read model недоступен':opsCurrentError?'Ошибка read model: '+String(opsCurrentError):!opsEventConnected?'Канал событий переподключается':criticalCount?'Критические события: '+criticalCount:attentionCount?'Требует внимания: '+attentionCount:'Контур стабилен';",
+    "  const automationNow=Date.now(),automationIssues=opsAutomation.filter(x=>{const active=x?.active!==false,status=String(x?.last_status||'').toLowerCase(),t=Date.parse(x?.last_start_time||''),maxAge=Number(x?.max_age_seconds||0)*1000,stale=!Number.isFinite(t)||!(maxAge>0)||automationNow-t>maxAge;return !active||status!=='succeeded'||stale}),automationCritical=automationIssues.filter(x=>x?.active===false||String(x?.last_status||'').toLowerCase()==='failed'||!x?.jobid);\n  for(const x of automationIssues){const t=Date.parse(x?.last_start_time||''),maxAge=Number(x?.max_age_seconds||0)*1000,stale=!Number.isFinite(t)||!(maxAge>0)||automationNow-t>maxAge,hard=x?.active===false||String(x?.last_status||'').toLowerCase()==='failed'||!x?.jobid;queueRows.push({tone:hard?'red':'amber',name:'Автоматизация · '+String(x?.jobname||'неизвестный процесс'),meta:hard?('Состояние '+String(x?.health_state||x?.last_status||'FAILED')):(stale?'Нет подтверждённого запуска в допустимом интервале':'Требует проверки'),target:'home'})}\n  const effectiveCriticalCount=criticalCount+automationCritical.length,effectiveAttentionCount=attentionCount+automationIssues.length;\n  const opsCurrentReady=ops?.version==='OPERATIONS_CURRENT_V1',opsEventConnected=window.__RONA_ADMIN_OPERATIONS_EVENT_STATE__?.connected===true,opsCurrentError=window.__RONA_ADMIN_OPERATIONS_CURRENT_ERROR__;\n  const stateTone=!opsCurrentReady||opsCurrentError||!opsEventConnected?'amber':effectiveCriticalCount?'red':effectiveAttentionCount?'amber':'green';\n  const stateCode=!opsCurrentReady||opsCurrentError?'DATA DEGRADED':!opsEventConnected?'EVENT LINK':effectiveCriticalCount?'MASTER WARNING':effectiveAttentionCount?'MASTER CAUTION':'SYSTEM NORMAL';\n  const stateText=!opsCurrentReady?'Операционный read model недоступен':opsCurrentError?'Ошибка read model: '+String(opsCurrentError):!opsEventConnected?'Канал событий переподключается':effectiveCriticalCount?'Критические события: '+effectiveCriticalCount:effectiveAttentionCount?'Требует внимания: '+effectiveAttentionCount:'Контур стабилен';",
     'fail-closed-system-state'
   );
 
@@ -216,6 +227,8 @@ export function patchAdminOperationsCommandCenterV7(script){
     'master-queue-filter-count'
   );
 
+  if(!patched.includes("ronaOpsV7ScheduleAutomationStaleCheck(next.automationHealth)"))throw new Error('ADMIN_OPERATIONS_V7_AUTOMATION_HEALTH_MISSING');
+  if(!patched.includes("effectiveCriticalCount=criticalCount+automationCritical.length"))throw new Error('ADMIN_OPERATIONS_V7_AUTOMATION_STATE_MISSING');
   if(!patched.includes("ronaOpsV7GaugeAction(code,target)"))throw new Error('ADMIN_OPERATIONS_V7_GAUGE_ACTION_MISSING');
   if(!patched.includes("queueFilter==='CRITICAL'?queueRows.filter(row=>row.tone==='red'):queueRows"))throw new Error('ADMIN_OPERATIONS_V7_QUEUE_FILTER_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_EVENT_DRIVEN__='postgres-change-invalidation-v1-no-polling'"))throw new Error('ADMIN_OPERATIONS_V7_EVENT_MARKER_MISSING');
