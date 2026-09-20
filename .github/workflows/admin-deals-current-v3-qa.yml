@@ -39,9 +39,9 @@ jobs:
           const r=await m.onRequest();
           const s=await r.text();
           new Function(s);
-          if(r.headers.get('x-rona-deals-read-model')!=='admin-deals-current-v3-finance-v8-rail-current') throw new Error('READ_MODEL_HEADER_MISSING');
-          if(!s.includes("api('/admin/deals-current-v3')")) throw new Error('CURRENT_V3_ENDPOINT_MISSING');
+          if(r.headers.get('x-rona-deals-read-model')!=='admin-deals-current-v4-finance-v8-rail-execution-v4') throw new Error('READ_MODEL_HEADER_MISSING');
+          if(!s.includes("api('/admin/deals-current-v4')")) throw new Error('CURRENT_V4_ENDPOINT_MISSING');
           if(!s.includes("if(projection==='FINANCE_V8')return due!==null&&due>0")) throw new Error('DUE_NOW_RULE_MISSING');
-          if(!s.includes('route_resolution_state')) throw new Error('RAIL_CURRENT_RULE_MISSING');
+          if(!s.includes('route_resolution_state')||!s.includes('trusted_wagon_count')||!s.includes('position_groups')) throw new Error('RAIL_V4_RULE_MISSING');
           console.log('ADMIN_DEALS_CURRENT_V3_GENERATED_RUNTIME=PASS');
           NODE
