@@ -18,11 +18,14 @@ assert(shell.includes('min-height:48px')&&shell.includes('font-size:14.5px'),'Ca
 assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Source-level primary access entry missing');
 for(const marker of ['RONA_ADMIN_COMMAND_NAVIGATION_V4','RONA_ADMIN_COMMAND_NAVIGATION_V5_BRAND_ICONS','RONA_ADMIN_SIDEBAR_CANONICAL_VISUAL_V12'])assert(!shell.includes(marker),'Competing static sidebar visual owner returned: '+marker);
 assert(shell.includes('Sidebar visual styling is runtime-owned by admin-approved-shell-v455-ui.'),'Static shell must declare runtime sidebar ownership');
-assert(shellVisual.includes("const SIDEBAR_OWNER='shell-v455-command-v13'"),'Single sidebar owner marker missing');
+assert(shellVisual.includes("const SIDEBAR_OWNER='shell-v455-command-v14'"),'Single sidebar owner marker missing');
 assert(shellVisual.includes('function ensureNavIcons()'),'Real SVG icon installer missing');
+assert(shellVisual.includes("const NAV_LABELS=Object.freeze"),'Sidebar label recovery map missing');
+assert(shellVisual.includes("b.replaceChildren(slot,label)"),'Production self-heal structure repair missing');
+assert(shellVisual.includes("__RONA_ADMIN_SIDEBAR_DIAGNOSTIC__"),'Sidebar production diagnostic marker missing');
 assert(shellVisual.includes("slot.insertAdjacentHTML('afterbegin',svg)"),'Sidebar icons must be real DOM SVG elements');
 assert(shellVisual.includes('window.__RONA_ADMIN_SIDEBAR_OWNER__=SIDEBAR_OWNER'),'Runtime sidebar ownership exposure missing');
-assert(shellVisual.includes("'x-rona-admin-shell-visual':'sidebar-single-owner-v13'"),'Sidebar single-owner response marker missing');
+assert(shellVisual.includes("'x-rona-admin-shell-visual':'sidebar-production-self-heal-v14'"),'Sidebar single-owner response marker missing');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Selected Admin page must survive late runtime races');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Navigation drift guard missing');
 assert(shell.includes("'rona:admin-pagechange'"),'Current router page-change event missing');
