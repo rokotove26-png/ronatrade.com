@@ -17,123 +17,351 @@
     @media(max-width:900px){.app{grid-template-columns:82px minmax(0,1fr)}.sidebar{padding-inline:7px}.brand img{width:66px}.nav-group{font-size:0;margin:10px 0 4px}.nav-group::after{content:'·';font-size:12px}.nav-label{display:none}#nav button{justify-content:center;padding:9px}.nav-icon{width:19px;min-width:19px}.topbar{padding-inline:10px}.role-pill{display:none}}
     @media(max-width:620px){.app{grid-template-columns:1fr;grid-template-rows:54px auto minmax(0,1fr)}.sidebar{grid-row:2;grid-column:1;border-right:0;border-bottom:1px solid var(--shell-line);padding:6px;overflow-x:auto}.brand{display:none}#nav{flex-direction:row;min-width:max-content;padding:0}#nav .nav-group{display:none}#nav button{width:auto;min-width:44px}.topbar{grid-column:1;grid-row:1}.search{font-size:12px}main{grid-column:1;grid-row:3}.page{min-height:calc(100vh - 108px)}.current-access-entry{align-items:flex-start;flex-direction:column}}
 
-    /* RONA_ADMIN_SIDEBAR_VISUAL_V3 */
+    /* RONA_ADMIN_COMMAND_NAVIGATION_V4 — visual layer only */
     @media(min-width:901px){
-      body.admin-auth-server-verified .sidebar .brand{
-        height:78px!important;
-        margin:0 8px 12px!important;
-        padding-bottom:9px!important;
-        border-bottom:1px solid rgba(111,205,239,.12)!important;
+      body.admin-auth-server-verified>.app>.sidebar{
+        border-right:1px solid rgba(111,218,255,.20)!important;
+        background:
+          radial-gradient(240px 170px at 14% 2%,rgba(226,38,52,.075),transparent 68%),
+          radial-gradient(330px 360px at 105% 28%,rgba(56,190,236,.12),transparent 70%),
+          radial-gradient(300px 430px at -8% 76%,rgba(125,88,232,.10),transparent 72%),
+          linear-gradient(180deg,rgba(3,12,22,.992),rgba(5,16,28,.982) 48%,rgba(4,13,23,.992))!important;
+        box-shadow:
+          24px 0 70px rgba(0,0,0,.28),
+          8px 0 36px rgba(38,160,210,.07),
+          inset -1px 0 0 rgba(255,255,255,.018)!important;
+        backdrop-filter:blur(26px) saturate(132%)!important;
       }
-      body.admin-auth-server-verified .sidebar .brand img{
-        width:140px!important;
-        height:64px!important;
-        filter:drop-shadow(0 0 14px rgba(226,35,48,.08))!important;
+      body.admin-auth-server-verified>.app>.sidebar:before{
+        content:""!important;
+        position:absolute!important;
+        inset:0!important;
+        z-index:0!important;
+        pointer-events:none!important;
+        background:
+          linear-gradient(116deg,transparent 0 21%,rgba(84,210,255,.055) 21.15%,transparent 21.55% 47%,rgba(137,103,255,.045) 47.15%,transparent 47.55% 100%),
+          repeating-linear-gradient(180deg,rgba(123,199,228,.018) 0 1px,transparent 1px 42px)!important;
+        background-size:auto!important;
+        filter:none!important;
+        opacity:.82!important;
+        animation:none!important;
       }
-      body.admin-auth-server-verified .sidebar #nav{
+      body.admin-auth-server-verified>.app>.sidebar:after{
+        content:""!important;
+        position:absolute!important;
+        top:18px!important;
+        right:0!important;
+        bottom:18px!important;
+        width:1px!important;
+        z-index:4!important;
+        pointer-events:none!important;
+        background:linear-gradient(180deg,transparent,rgba(96,226,255,.58) 22%,rgba(95,170,255,.22) 56%,rgba(169,111,255,.20) 78%,transparent)!important;
+        box-shadow:0 0 16px rgba(88,211,255,.16)!important;
+        opacity:.72!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar .brand{
+        position:relative!important;
+        z-index:3!important;
+        height:82px!important;
+        margin:0 5px 10px!important;
+        padding:8px 12px 10px!important;
+        display:flex!important;
+        align-items:center!important;
+        justify-content:center!important;
+        border:1px solid rgba(120,190,218,.11)!important;
+        border-radius:16px!important;
+        background:
+          radial-gradient(120px 64px at 24% 30%,rgba(226,43,56,.07),transparent 72%),
+          linear-gradient(145deg,rgba(10,27,43,.66),rgba(4,15,25,.38))!important;
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.025),
+          0 12px 30px rgba(0,0,0,.11)!important;
+        overflow:hidden!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar .brand:before{
+        content:""!important;
+        position:absolute!important;
+        left:14px!important;
+        right:14px!important;
+        top:0!important;
+        height:1px!important;
+        background:linear-gradient(90deg,transparent,rgba(230,52,65,.40),rgba(100,220,255,.30),transparent)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar .brand:after{
+        content:""!important;
+        position:absolute!important;
+        left:24%!important;
+        right:24%!important;
+        bottom:0!important;
+        height:1px!important;
+        background:linear-gradient(90deg,transparent,rgba(96,219,255,.38),transparent)!important;
+        box-shadow:0 0 12px rgba(83,212,255,.16)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar .brand img{
+        position:relative!important;
+        z-index:2!important;
+        width:148px!important;
+        height:62px!important;
+        object-fit:contain!important;
+        filter:drop-shadow(0 0 16px rgba(226,40,52,.10))!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav{
+        position:relative!important;
+        z-index:3!important;
         gap:4px!important;
         padding:0 3px 20px!important;
       }
-      body.admin-auth-server-verified .sidebar #nav .nav-group{
-        display:flex!important;
-        align-items:center!important;
-        gap:9px!important;
-        margin:20px 9px 8px!important;
-        color:#91adbd!important;
-        font-size:10.4px!important;
-        line-height:1.2!important;
-        font-weight:850!important;
-        letter-spacing:.17em!important;
-        text-shadow:0 0 12px rgba(97,216,255,.08)!important;
-      }
-      body.admin-auth-server-verified .sidebar #nav .nav-group::after{
-        content:""!important;
-        flex:1 1 auto!important;
-        height:1px!important;
-        background:linear-gradient(90deg,rgba(104,194,228,.20),rgba(104,194,228,0))!important;
-      }
-      body.admin-auth-server-verified .sidebar #nav button{
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group{
+        --group-rgb:102,222,255;
         position:relative!important;
-        min-height:46px!important;
-        gap:11px!important;
-        padding:8px 10px 8px 8px!important;
-        border-radius:12px!important;
-        color:#bfd0da!important;
-        font-size:14.2px!important;
-        line-height:1.22!important;
-        font-weight:720!important;
-        letter-spacing:.002em!important;
-        transition:transform .14s ease,background .14s ease,border-color .14s ease,color .14s ease,box-shadow .14s ease!important;
+        display:grid!important;
+        grid-template-columns:auto 1fr!important;
+        align-items:center!important;
+        column-gap:9px!important;
+        min-height:20px!important;
+        margin:16px 8px 7px!important;
+        padding:0!important;
+        color:rgba(var(--group-rgb),.76)!important;
+        font-size:9.8px!important;
+        line-height:1.2!important;
+        font-weight:900!important;
+        letter-spacing:.19em!important;
+        text-transform:uppercase!important;
+        text-shadow:0 0 14px rgba(var(--group-rgb),.12)!important;
       }
-      body.admin-auth-server-verified .sidebar #nav .nav-icon{
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group:nth-of-type(2){--group-rgb:91,229,190}
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group:nth-of-type(3){--group-rgb:174,139,255}
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group:before{
+        content:""!important;
+        width:6px!important;
+        height:6px!important;
+        border:1px solid rgba(var(--group-rgb),.72)!important;
+        border-radius:2px!important;
+        background:rgba(var(--group-rgb),.13)!important;
+        box-shadow:0 0 10px rgba(var(--group-rgb),.22)!important;
+        transform:rotate(45deg)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group:after{
+        content:""!important;
+        height:1px!important;
+        background:linear-gradient(90deg,rgba(var(--group-rgb),.28),rgba(var(--group-rgb),0))!important;
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="home"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="prices"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="applications"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="deals"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="documents"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="payments"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="monitoring"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="accounting"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="claims"]{--nav-rgb:98,216,255}
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="access"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="agent-settlements"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="messages"]{--nav-rgb:91,229,190}
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="analytics"],
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="market-news"]{--nav-rgb:174,139,255}
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention){
+        position:relative!important;
+        min-height:44px!important;
+        gap:10px!important;
+        padding:6px 9px 6px 7px!important;
+        border:1px solid rgba(116,174,201,.075)!important;
+        border-radius:12px!important;
+        background:
+          linear-gradient(100deg,rgba(var(--nav-rgb),.018),rgba(7,21,35,.16))!important;
+        color:#bdced8!important;
+        text-align:left!important;
+        font-size:13.8px!important;
+        line-height:1.2!important;
+        font-weight:730!important;
+        letter-spacing:.002em!important;
+        box-shadow:inset 0 1px 0 rgba(255,255,255,.012)!important;
+        overflow:hidden!important;
+        transition:
+          transform .15s ease,
+          background .15s ease,
+          border-color .15s ease,
+          color .15s ease,
+          box-shadow .15s ease!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):before{
+        content:""!important;
+        position:absolute!important;
+        left:0!important;
+        top:9px!important;
+        bottom:9px!important;
+        width:2px!important;
+        border-radius:0 4px 4px 0!important;
+        background:linear-gradient(180deg,rgba(var(--nav-rgb),0),rgba(var(--nav-rgb),.46),rgba(var(--nav-rgb),0))!important;
+        opacity:.16!important;
+        transition:opacity .15s ease,box-shadow .15s ease!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):after{
+        content:""!important;
+        position:absolute!important;
+        right:-34px!important;
+        top:50%!important;
+        width:58px!important;
+        height:58px!important;
+        border-radius:50%!important;
+        background:radial-gradient(circle,rgba(var(--nav-rgb),.14),rgba(var(--nav-rgb),0) 68%)!important;
+        transform:translateY(-50%)!important;
+        opacity:0!important;
+        transition:opacity .16s ease,right .16s ease!important;
+        pointer-events:none!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention) .nav-icon{
+        position:relative!important;
+        z-index:2!important;
         display:grid!important;
         place-items:center!important;
-        width:29px!important;
-        min-width:29px!important;
-        height:29px!important;
-        border:1px solid rgba(111,176,204,.12)!important;
+        width:30px!important;
+        min-width:30px!important;
+        height:30px!important;
+        border:1px solid rgba(var(--nav-rgb),.15)!important;
         border-radius:9px!important;
-        background:linear-gradient(145deg,rgba(14,35,51,.86),rgba(7,22,36,.60))!important;
-        color:#88aabd!important;
-        font-size:16.5px!important;
-        line-height:1!important;
-        box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
-        transition:color .14s ease,border-color .14s ease,background .14s ease,box-shadow .14s ease!important;
-      }
-      body.admin-auth-server-verified .sidebar #nav button:hover{
-        transform:translateX(2px)!important;
-        background:linear-gradient(90deg,rgba(37,112,151,.16),rgba(15,48,76,.08))!important;
-        border-color:rgba(103,210,246,.16)!important;
-        color:#f5fbfe!important;
-        box-shadow:0 8px 18px rgba(0,0,0,.08)!important;
-      }
-      body.admin-auth-server-verified .sidebar #nav button:hover .nav-icon{
-        color:#b8ebfa!important;
-        border-color:rgba(101,211,247,.22)!important;
-        background:linear-gradient(145deg,rgba(18,61,82,.84),rgba(8,29,45,.68))!important;
-      }
-      body.admin-auth-server-verified .sidebar #nav button.active:not(.rona-nav-attention),
-      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"]:not(.rona-nav-attention){
-        transform:none!important;
         background:
-          radial-gradient(130px 60px at 8% 50%,rgba(75,216,255,.16),transparent 72%),
-          linear-gradient(100deg,rgba(25,93,133,.78),rgba(13,43,73,.62))!important;
-        border-color:rgba(101,218,255,.30)!important;
+          radial-gradient(30px 22px at 30% 20%,rgba(var(--nav-rgb),.10),transparent 76%),
+          linear-gradient(145deg,rgba(12,34,51,.88),rgba(6,20,33,.72))!important;
+        color:rgba(var(--nav-rgb),.76)!important;
+        font-size:16px!important;
+        line-height:1!important;
         box-shadow:
-          inset 3px 0 0 rgba(102,223,255,.98),
-          0 9px 22px rgba(0,0,0,.13),
-          0 0 22px rgba(66,190,234,.055),
-          inset 0 1px 0 rgba(255,255,255,.04)!important;
+          inset 0 1px 0 rgba(255,255,255,.026),
+          0 6px 14px rgba(0,0,0,.08)!important;
+        text-shadow:0 0 10px rgba(var(--nav-rgb),.18)!important;
+        transition:
+          transform .15s ease,
+          color .15s ease,
+          border-color .15s ease,
+          background .15s ease,
+          box-shadow .15s ease!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention) .nav-label{
+        position:relative!important;
+        z-index:2!important;
+        min-width:0!important;
+        transition:color .15s ease,text-shadow .15s ease!important;
+      }
+
+      @media(hover:hover) and (pointer:fine){
+        body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover{
+          transform:translateX(3px)!important;
+          border-color:rgba(var(--nav-rgb),.22)!important;
+          background:
+            radial-gradient(150px 56px at 6% 50%,rgba(var(--nav-rgb),.10),transparent 74%),
+            linear-gradient(100deg,rgba(var(--nav-rgb),.060),rgba(8,28,44,.32))!important;
+          color:#f7fbfd!important;
+          box-shadow:
+            0 10px 24px rgba(0,0,0,.11),
+            inset 0 1px 0 rgba(255,255,255,.025)!important;
+        }
+        body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover:before{
+          opacity:.72!important;
+          box-shadow:0 0 12px rgba(var(--nav-rgb),.18)!important;
+        }
+        body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover:after{
+          right:-20px!important;
+          opacity:.72!important;
+        }
+        body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover .nav-icon{
+          transform:translateY(-1px)!important;
+          color:rgba(var(--nav-rgb),.98)!important;
+          border-color:rgba(var(--nav-rgb),.34)!important;
+          background:
+            radial-gradient(34px 24px at 28% 18%,rgba(var(--nav-rgb),.18),transparent 76%),
+            linear-gradient(145deg,rgba(15,45,65,.92),rgba(7,25,39,.78))!important;
+          box-shadow:
+            0 0 18px rgba(var(--nav-rgb),.09),
+            inset 0 1px 0 rgba(255,255,255,.03)!important;
+        }
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention),
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention){
+        --nav-rgb:102,224,255!important;
+        transform:none!important;
+        border-color:rgba(103,225,255,.34)!important;
+        background:
+          radial-gradient(170px 70px at 2% 50%,rgba(80,218,255,.20),transparent 72%),
+          linear-gradient(96deg,rgba(23,92,132,.86),rgba(11,42,69,.70) 72%,rgba(8,28,47,.64))!important;
         color:#fff!important;
+        box-shadow:
+          inset 3px 0 0 rgba(103,229,255,.98),
+          inset 0 1px 0 rgba(255,255,255,.048),
+          0 10px 28px rgba(0,0,0,.16),
+          0 0 24px rgba(64,199,245,.065)!important;
       }
-      body.admin-auth-server-verified .sidebar #nav button.active:not(.rona-nav-attention) .nav-icon,
-      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-icon{
-        color:#75e4ff!important;
-        border-color:rgba(108,226,255,.34)!important;
-        background:linear-gradient(145deg,rgba(25,112,145,.48),rgba(8,42,62,.78))!important;
-        box-shadow:0 0 16px rgba(83,215,255,.12),inset 0 1px 0 rgba(255,255,255,.035)!important;
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention):before,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention):before{
+        top:6px!important;
+        bottom:6px!important;
+        width:3px!important;
+        background:linear-gradient(180deg,rgba(104,230,255,0),rgba(104,230,255,1),rgba(104,230,255,0))!important;
+        opacity:1!important;
+        box-shadow:0 0 15px rgba(93,222,255,.42)!important;
       }
-      body.admin-auth-server-verified .sidebar #nav button:focus-visible{
-        outline:2px solid rgba(111,224,255,.70)!important;
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention):after,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention):after{
+        right:-16px!important;
+        opacity:1!important;
+        background:radial-gradient(circle,rgba(88,220,255,.21),rgba(88,220,255,0) 68%)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention) .nav-icon,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-icon{
+        transform:none!important;
+        color:#a8f1ff!important;
+        border-color:rgba(111,232,255,.46)!important;
+        background:
+          radial-gradient(38px 28px at 30% 18%,rgba(113,234,255,.25),transparent 74%),
+          linear-gradient(145deg,rgba(25,103,137,.72),rgba(8,39,59,.90))!important;
+        box-shadow:
+          0 0 19px rgba(93,223,255,.14),
+          inset 0 1px 0 rgba(255,255,255,.045)!important;
+        text-shadow:0 0 12px rgba(111,232,255,.34)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention) .nav-label,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-label{
+        color:#fff!important;
+        font-weight:820!important;
+        text-shadow:0 0 14px rgba(95,220,255,.12)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):focus-visible{
+        outline:2px solid rgba(111,229,255,.78)!important;
         outline-offset:2px!important;
       }
     }
+
+    @media(max-width:1180px) and (min-width:901px){
+      body.admin-auth-server-verified>.app>.sidebar .brand{height:74px!important;margin-inline:3px!important}
+      body.admin-auth-server-verified>.app>.sidebar .brand img{width:132px!important;height:56px!important}
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group{margin:13px 6px 5px!important;font-size:9.2px!important}
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention){min-height:41px!important;padding:5px 7px 5px 6px!important;font-size:13px!important}
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention) .nav-icon{width:27px!important;min-width:27px!important;height:27px!important;border-radius:8px!important;font-size:14.5px!important}
+    }
+
     @media(max-width:900px) and (min-width:621px){
-      body.admin-auth-server-verified .sidebar #nav button.active:not(.rona-nav-attention),
-      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"]:not(.rona-nav-attention){
-        background:rgba(35,91,129,.62)!important;
-        border-color:rgba(97,216,255,.24)!important;
-        box-shadow:inset 3px 0 0 rgba(97,216,255,.94),0 0 18px rgba(66,190,234,.05)!important;
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention),
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention){
+        background:rgba(29,91,129,.66)!important;
+        border-color:rgba(100,224,255,.28)!important;
+        box-shadow:inset 3px 0 0 rgba(101,228,255,.96),0 0 20px rgba(66,198,239,.06)!important;
       }
-      body.admin-auth-server-verified .sidebar #nav button.active:not(.rona-nav-attention) .nav-icon,
-      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-icon{
-        color:#6fe0ff!important;
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention) .nav-icon,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-icon{
+        color:#7fe7ff!important;
       }
     }
+
     @media(prefers-reduced-motion:reduce){
-      body.admin-auth-server-verified .sidebar #nav button,
-      body.admin-auth-server-verified .sidebar #nav .nav-icon{transition:none!important}
-      body.admin-auth-server-verified .sidebar #nav button:hover{transform:none!important}
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention),
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):before,
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):after,
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention) .nav-icon,
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention) .nav-label{transition:none!important}
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover{transform:none!important}
     }
   </style>
 </head>
