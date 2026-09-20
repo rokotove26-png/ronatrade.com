@@ -60,11 +60,23 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y postgresql-client
-      - name: Type-check Stage 2 authority modules
+      - name: Type-check Stage 2 authority and production entrypoint chain
         run: |
           set -euo pipefail
           deno check --node-modules-dir=auto supabase/functions/_shared/admin-impersonation-authority-v1.ts
           deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/admin-entity-control-v1.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/owner-auth-fallback-wrapper.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api/payments-v8-production-hardening.ts
+          if grep -R "143a3244a94d3d7522cc3a57a14ddba22040c88a\|9e06e60358801c1600d087112855b39ced91f2a5\|5aceffe2725a904e8e0ded562e483f012e861085/supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts\|77588541119bb1a96375beed3e853e067ab1422f/supabase/functions/rona-portal-api/bootstrap.ts" \
+            supabase/functions/rona-admin-control-plane/owner-auth-fallback-wrapper.ts \
+            supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3.ts \
+            supabase/functions/rona-portal-api/payments-v8-production-hardening.ts \
+            supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts \
+            supabase/functions/rona-portal-api/stage21-bootstrap.ts; then
+            echo "STAGE2_PRODUCTION_ENTRYPOINT_PIN_DRIFT"
+            exit 1
+          fi
       - name: Build isolated authority database
         run: |
           set -euo pipefail
