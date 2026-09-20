@@ -71,16 +71,38 @@ export function impersonationEnterPostAllowed(request) {
   const url = new URL(request.url);
   if (!portalOriginAllowed(url)) return false;
 
-  // Prefer the existing explicit Origin/Referer validation whenever either header exists.
-  // The canonical portal sends Referrer-Policy: no-referrer, and some browser form POSTs
-  // may omit both Origin and Referer. In that narrow case, rely on the browser-controlled
-  // Fetch Metadata header and accept only an actual same-origin navigation.
+  // Legacy compatibility path only. The current UI uses the JSON /impersonation/start
+  // transport. Some already-open Admin tabs can still submit the retired HTML form.
+  // Do not fail those tabs on browser-dependent Origin/Referer omissions.
+  //
+  // CSRF remains fail-closed on explicit foreign evidence:
+  // - a foreign Origin/Referer is denied;
+  // - Sec-Fetch-Site: cross-site is denied.
+  //
+  // If browsers omit all three headers, the request may proceed to the real ADMIN
+  // session/role gate below. rona_portal_at / rona_portal_rt are host-only Path=/portal
+  // SameSite=Lax cookies, so a cross-site top-level POST does not carry the authenticated
+  // session. The legacy endpoint can only create a short-lived, server-bound internal
+  // impersonation session and only redirects to fixed /portal/client or /portal/agent.
   const origin = request.headers.get('origin');
+  if (origin) {
+    try {
+      const source = new URL(origin);
+      if (source.origin !== url.origin && !(portalOriginAllowed(source) && portalOriginAllowed(url))) return false;
+    } catch { return false; }
+  }
+
   const ref = request.headers.get('referer');
-  if (origin || ref) return sameOriginPost(request);
+  if (ref) {
+    try {
+      const source = new URL(ref);
+      if (source.origin !== url.origin && !(portalOriginAllowed(source) && portalOriginAllowed(url))) return false;
+    } catch { return false; }
+  }
 
   const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
-  return fetchSite === 'same-origin';
+  if (fetchSite === 'cross-site') return false;
+  return true;
 }
 
 export function impersonationStartPostAllowed(request) {
