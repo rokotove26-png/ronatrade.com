@@ -5,7 +5,7 @@ import {test} from 'node:test';
 const src=readFileSync(new URL('../supabase/functions/rona-ai-read-extras/telegram_ingest.js',import.meta.url),'utf8');
 
 test('run-status persists channel attempt observability',()=>{
-  assert.match(src,/const VERSION='1\\.1\\.1'/);
+  assert.match(src,/const VERSION='1\.1\.1'/);
   assert.match(src,/async function updateChannelRunObservability\(channels,errorCode,status\)/);
   assert.match(src,/last_attempt_at=now\(\)/);
   assert.match(src,/last_error_code=case when/);
