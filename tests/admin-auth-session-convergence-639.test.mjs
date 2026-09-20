@@ -316,6 +316,31 @@ test('Exact browser login preserves issued session during transient Portal autho
   assert.doesNotMatch(setCookie,/Max-Age=0/);
 });
 
+test('Owner login hands an issued session to the canonical protected Admin route when Portal authority is transiently unavailable',async()=>{
+  let sessionCalls=0,logoutCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({access_token:'access-owner-new',refresh_token:'refresh-owner-new',expires_in:3600},200);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){sessionCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/auth/v1/logout')){logoutCalls++;return jsonResponse({},200);}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/x-www-form-urlencoded',accept:'text/html'},
+    body:new URLSearchParams({identifier:'office_kg@ronaoil.com',password:'x',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,303);
+  assert.equal(response.headers.get('location'),'/portal/admin');
+  assert.equal(sessionCalls,3);
+  assert.equal(logoutCalls,0);
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=access-owner-new/);
+  assert.match(setCookie,/rona_portal_rt=refresh-owner-new/);
+  assert.doesNotMatch(setCookie,/Max-Age=0/);
+});
+
 
 test('Owner alias with ADMIN role bypasses generic multi-role selector and opens Admin directly',async()=>{
   globalThis.fetch=async(url)=>{
@@ -509,4 +534,48 @@ test('Admin shell recovers a refresh-only session before rendering',async()=>{
   const setCookie=response.headers.get('set-cookie')||'';
   assert.match(setCookie,/rona_portal_at=access-rotated/);
   assert.match(setCookie,/rona_portal_rt=refresh-rotated/);
+});
+
+test('Admin shell refreshes when the current access probe is unavailable but a refresh session is still recoverable',async()=>{
+  let oldPrimaryCalls=0,newPrimaryCalls=0,controlCalls=0,ownerProbeCalls=0,refreshCalls=0;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    const h=new Headers(init.headers||{});
+    const auth=h.get('authorization')||'';
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      if(auth.includes('access-old')){oldPrimaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+      if(auth.includes('access-new')){newPrimaryCalls++;return jsonResponse({ok:true,user:{roles:['ADMIN']}},200);}
+    }
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){
+      controlCalls++;
+      return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    }
+    if(u.includes('/auth/v1/user')){
+      ownerProbeCalls++;
+      return jsonResponse({message:'temporary unavailable'},503);
+    }
+    if(u.includes('/auth/v1/token?grant_type=refresh_token')){
+      refreshCalls++;
+      return jsonResponse({access_token:'access-new',refresh_token:'refresh-new',expires_in:3600},200);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u+' '+auth);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',
+    headers:{cookie:'rona_portal_at=access-old; rona_portal_rt=refresh-old'}
+  });
+  const response=await portalRouter({
+    request,
+    next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})
+  });
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),'ADMIN_SHELL_OK');
+  assert.equal(oldPrimaryCalls,6);
+  assert.equal(controlCalls,1);
+  assert.equal(ownerProbeCalls,1);
+  assert.equal(refreshCalls,1);
+  assert.equal(newPrimaryCalls,1);
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=access-new/);
+  assert.match(setCookie,/rona_portal_rt=refresh-new/);
 });
