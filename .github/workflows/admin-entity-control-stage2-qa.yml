@@ -30,6 +30,7 @@ jobs:
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/admin-authority/[[path]].js'
           node tests/admin-impersonation-json-handoff.test.mjs
+          node tests/admin-client-impersonation-early-bridge.test.mjs
           node tests/admin-entity-control-stage2.test.mjs
 
   isolated-real-integration:
