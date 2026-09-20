@@ -75,6 +75,9 @@ jobs:
           assert(ms.includes('deals:renderDealsCurrentShell,'),'navigation still owns legacy Deals renderer');
           assert(!ms.includes('deals:renderDeals,'),'legacy navigation Deals renderer remains active');
           assert(ms.includes('renderApplications();renderDealsCurrentShell();renderDocuments();'),'initial Admin render does not use current-only shell');
+          assert(ms.includes("__RONA_DEALS_SINGLE_OWNER_NOFLASH__='current-state-v1'"),'Deals no-flash ownership marker missing');
+          assert(!ms.includes("rona:finance-sync',()=>{try{renderDeals()}"),'legacy Deals finance-sync renderer remains wired');
+          assert(ms.includes("rona:finance-sync',()=>{try{renderDealsCurrentShell()}"),'finance-sync is not routed to current Deals shell');
           console.log('DEALS_CURRENT_ONLY_GENERATED_RUNTIME=PASS');
           NODE
       - name: Publish QA status (legacy best effort)
