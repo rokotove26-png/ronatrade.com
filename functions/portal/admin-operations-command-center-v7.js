@@ -21,9 +21,9 @@ async function ronaOpsV7RefreshCurrent(reason='EVENT'){
   const domains=[...ronaOpsV7DirtyDomains];ronaOpsV7DirtyDomains.clear();
   try{
     const next=await call('/admin/operations-current-v1');
-    if(domains.includes('DEALS')&&typeof window.__RONA_DEALS_CURRENT_STATE_REFRESH__==='function')await window.__RONA_DEALS_CURRENT_STATE_REFRESH__();
+    if((domains.includes('DEALS')||domains.includes('FINANCE'))&&typeof window.__RONA_DEALS_CURRENT_STATE_REFRESH__==='function')await window.__RONA_DEALS_CURRENT_STATE_REFRESH__();
     if(domains.includes('FINANCE')&&typeof window.__RONA_OWNER_AI_REFRESH__==='function')await window.__RONA_OWNER_AI_REFRESH__();
-    if((domains.includes('RAIL')||domains.includes('DOCUMENTS'))&&typeof ownerAdminRefreshTick==='function')await ownerAdminRefreshTick(true);
+    if((domains.includes('DEALS')||domains.includes('RAIL')||domains.includes('DOCUMENTS'))&&typeof ownerAdminRefreshTick==='function')await ownerAdminRefreshTick(true);
     if(!next||next.version!=='OPERATIONS_CURRENT_V1')throw new Error('OPERATIONS_CURRENT_CONTRACT_MISMATCH');
     window.__RONA_ADMIN_OPERATIONS_CURRENT_V1__=next;
     window.__RONA_ADMIN_OPERATIONS_CURRENT_ERROR__=null;
