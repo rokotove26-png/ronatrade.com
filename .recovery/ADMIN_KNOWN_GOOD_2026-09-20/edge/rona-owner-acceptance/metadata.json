@@ -1,0 +1,9 @@
+{
+  "slug": "rona-owner-acceptance",
+  "version": 18,
+  "status": "ACTIVE",
+  "verify_jwt": true,
+  "ezbr_sha256": "d3eb330808be5638403fe2d143fe356c2e84aaad454a923f8ec00cc61d98c2ed",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_48a544f8-d5db-480d-87d0-f54ce7fe0829_18/source/application-owner-boundary-bootstrap-v3.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_48a544f8-d5db-480d-87d0-f54ce7fe0829_18/source/deno.json"
+}
