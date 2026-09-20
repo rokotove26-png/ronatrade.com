@@ -3,6 +3,111 @@ import { patchAdminOperationsCommandCenterV5 as patchFunctionalBaseline } from '
 export const OPERATIONS_COMMAND_CENTER_VERSION='v6-color-network-indicators';
 export const OPERATIONS_VISUAL_BASELINE='v5-operational-automation:flightdeck-v5-full-rebuild';
 
+
+export function deriveOperationsDealCurrentRows(baseDeals,snapshot){
+  const base=Array.isArray(baseDeals)?baseDeals:[];
+  if(!snapshot||!Array.isArray(snapshot.deals))return base.slice();
+
+  const byId=new Map(snapshot.deals.map(row=>[String(row?.deal_id||''),row]));
+  const documents=Array.isArray(snapshot.documents)?snapshot.documents:[];
+  const rail=Array.isArray(snapshot.rail)?snapshot.rail:[];
+
+  const key=v=>String(v??'').trim().toUpperCase();
+  const num=v=>{
+    if(v===null||v===undefined||v==='')return null;
+    const n=Number(v);
+    return Number.isFinite(n)?n:null;
+  };
+  const terminal=d=>{
+    const business=key(d?.business_status);
+    const lifecycle=key(d?.lifecycle_state);
+    const cancellation=key(d?.cancellation_state);
+    return cancellation==='CANCELLED'
+      ||['CLOSED','COMPLETED','SETTLED','ARCHIVED','CANCELLED','CANCELED','TERMINATED','VOID'].includes(business)
+      ||['CLOSED','ARCHIVED','SUPERSEDED'].includes(lifecycle);
+  };
+
+  return base.map(original=>{
+    const id=String(original?.deal_id||'');
+    const current=byId.get(id);
+    if(!current)return original;
+
+    const d={...original,...current};
+    d.deal_id=original?.deal_id||current?.deal_id||null;
+    d.client_id=current?.client_id||original?.client_id||null;
+    d.legal_name=current?.legal_name||original?.legal_name||null;
+    d.contract_id=current?.contract_id||original?.contract_id||null;
+
+    const dealDocs=documents.filter(x=>String(x?.deal_id||'')===id);
+    const dealRail=rail.filter(x=>String(x?.deal_id||'')===id);
+    const hasSigned=dealDocs.some(x=>key(x?.document_kind)==='SIGNED_ADDENDUM');
+    const hasInvoice=dealDocs.some(x=>key(x?.document_kind)==='INVOICE');
+    const wagons=dealRail.reduce((n,x)=>n+(Array.isArray(x?.wagons)?x.wagons.length:0),0);
+    const remaining=num(d?.client_remaining_amount);
+    const expectation=key(d?.payment_expectation_state);
+    const handoff=key(d?.payment_handoff_state||'NOT_SENT');
+    const finance=key(d?.finance_status);
+
+    d.resource_status=d?.product_confirmed_at&&d?.quantity_confirmed_at?'Подтверждено':'Требует подтверждения';
+    d.delivery_status=dealRail.length?(wagons?'ЖД в работе':'ГУ-12 зарегистрирована'):'—';
+    d.current_projection_source='DEALS_CURRENT_STATE_V1';
+
+    if(terminal(d)){
+      d.stage=d?.business_status||d?.lifecycle_state||'—';
+      d.next_action_text='—';
+      return d;
+    }
+
+    if(!d?.product_confirmed_at){
+      d.stage='Подтверждение продукта';
+      d.next_action_text='Подтвердить продукт';
+    }else if(!d?.quantity_confirmed_at){
+      d.stage='Подтверждение объёма';
+      d.next_action_text='Подтвердить объём';
+    }else if(!String(d?.delivery_basis||'').trim()){
+      d.stage='Коммерческие условия';
+      d.next_action_text='Подтвердить базис поставки';
+    }else if(!hasSigned){
+      d.stage='Документы';
+      d.next_action_text='Получить подписанное доп. соглашение';
+    }else if(!hasInvoice){
+      d.stage='Документы';
+      d.next_action_text='Прикрепить инвойс';
+    }else if(remaining!==null&&remaining<=0){
+      d.stage=dealRail.length?'Исполнение поставки':'Оплата закрыта';
+      d.next_action_text=dealRail.length?'Контроль исполнения поставки':'Контроль исполнения сделки';
+    }else if(handoff!=='SENT'&&expectation!=='ACTIVE'){
+      d.stage='Передача в оплату';
+      d.next_action_text='Передать в оплату';
+    }else if(expectation==='ACTIVE'&&(remaining===null||remaining>0)){
+      d.stage='Оплата';
+      d.next_action_text='Контроль поступления оплаты';
+    }else if(['DUE','OVERDUE','PARTIALLY_PAID','PARTIAL','PAYMENT_DUE','AWAITING_PAYMENT'].includes(finance)){
+      d.stage='Оплата';
+      d.next_action_text='Сверить состояние оплаты';
+    }else{
+      d.stage=d?.business_status||d?.lifecycle_state||'В работе';
+      d.next_action_text=d?.next_action_text||d?.next_action||'Контроль исполнения сделки';
+    }
+    return d;
+  });
+}
+
+const DEAL_CURRENT_RUNTIME=String.raw\`
+\${deriveOperationsDealCurrentRows.toString()}
+function ensureAdminHomeDealCurrentV6(){
+  window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT__='v1-authoritative-deals-snapshot';
+  if(window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT_BOUND__)return;
+  window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT_BOUND__=true;
+  window.addEventListener('rona:deals-current-state',function(){
+    try{
+      const p=page('home');
+      if(p&&getComputedStyle(p).display!=='none')renderAdminHome();
+    }catch(_){}
+  });
+}
+\`;
+
 function replaceRequired(source,from,to,label){
   const first=source.indexOf(from);
   if(first<0)throw new Error('ADMIN_OPERATIONS_V6_COLOR_NETWORK_SOURCE_MISMATCH:'+label);
@@ -79,14 +184,14 @@ export function patchAdminOperationsCommandCenterV6(script){
   patched=replaceRequired(
     patched,
     'function renderAdminHome(){',
-    COLOR_NETWORK_RUNTIME+'\nfunction renderAdminHome(){',
+    COLOR_NETWORK_RUNTIME+'\n'+DEAL_CURRENT_RUNTIME+'\nfunction renderAdminHome(){',
     'color-runtime'
   );
 
   patched=replaceRequired(
     patched,
     "  ensureAdminGlobalSearchV5();\n  window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation';",
-    "  ensureAdminGlobalSearchV5();\n  ensureAdminHomeColorNetworkV6();\n  window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation';\n  window.__RONA_ADMIN_OPERATIONS_COLOR_NETWORK__='v6-color-network-indicators';",
+    "  ensureAdminGlobalSearchV5();\n  ensureAdminHomeColorNetworkV6();\n  ensureAdminHomeDealCurrentV6();\n  window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation';\n  window.__RONA_ADMIN_OPERATIONS_COLOR_NETWORK__='v6-color-network-indicators';\n  window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT__='v1-authoritative-deals-snapshot';",
     'runtime-marker'
   );
 
@@ -106,6 +211,13 @@ export function patchAdminOperationsCommandCenterV6(script){
 
   patched=replaceRequired(
     patched,
+    "const deals=Array.isArray(d.deals)?d.deals:[];",
+    "const deals=deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__);",
+    'authoritative-deal-current-read-model'
+  );
+
+  patched=replaceRequired(
+    patched,
     "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button',onclick:()=>adminHomeNavigate(target)}",
     "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>adminHomeNavigate(target)}",
     'accessible-gauge'
@@ -119,6 +231,8 @@ export function patchAdminOperationsCommandCenterV6(script){
   );
 
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COLOR_NETWORK__='v6-color-network-indicators'"))throw new Error('ADMIN_OPERATIONS_V6_MARKER_MISSING');
+  if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT__='v1-authoritative-deals-snapshot'"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_MARKER_MISSING');
+  if(!patched.includes("deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_READ_MODEL_MISSING');
   if(!patched.includes("'data-rona-color-network':'v6'"))throw new Error('ADMIN_OPERATIONS_V6_DOM_MARKER_MISSING');
   if(!patched.includes("'NET-07','Клиенты в сети'")||!patched.includes("'NET-08','Агенты в сети'"))throw new Error('ADMIN_OPERATIONS_V6_NETWORK_INDICATORS_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation'"))throw new Error('ADMIN_OPERATIONS_V5_BASELINE_MISSING');
