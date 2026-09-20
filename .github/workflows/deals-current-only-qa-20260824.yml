@@ -55,6 +55,10 @@ jobs:
           assert(ds.includes("'Базис поставки'"),'delivery basis column missing');
           assert(ds.includes('Incoterms\\s*2020'),'basis display cleanup missing');
           assert(ds.includes('ronaDealsLayoutV15'),'Deals layout style missing');
+          assert(ds.includes("left.append(commercial,logistics);right.append(finance,documents)"),'drawer independent card columns missing');
+          assert(ds.includes('.rona-current-deal-detail-column{display:grid'),'drawer independent column CSS missing');
+          assert(ds.includes('grid-template-columns:repeat(2,minmax(0,1fr))!important'),'drawer desktop two-column layout missing');
+          assert(ds.includes('@media(max-width:760px)')&&ds.includes('.rona-current-deal-detail-grid{grid-template-columns:1fr!important}'),'drawer mobile single-column fallback missing');
           assert(ds.includes('Скачать подписанное доп. соглашение'),'signed addendum action missing');
           assert(ds.includes('width:310px!important'),'company column expansion missing');
           assert(ds.includes('width:145px!important'),'basis column compaction missing');
