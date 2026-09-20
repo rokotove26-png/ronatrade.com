@@ -1,0 +1,22 @@
+name: Public trade form body cap QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'supabase/functions/rona-mail-auth-test/index.ts'
+      - 'tests/public-trade-form-body-cap.test.mjs'
+      - '.github/workflows/public-trade-form-body-cap-qa.yml'
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify public trade form request cap
+        run: node tests/public-trade-form-body-cap.test.mjs
