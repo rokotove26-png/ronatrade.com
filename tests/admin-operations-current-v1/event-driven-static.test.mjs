@@ -35,7 +35,7 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7-V8.6 baselines under reconciled V8.7 Finance action routing',()=>{
+test('Admin main UI keeps V7-V8.7 baselines under V8.8 mirrored event routing',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -45,10 +45,12 @@ test('Admin main UI keeps V7-V8.6 baselines under reconciled V8.7 Finance action
   const v85=read('functions/portal/admin-operations-command-center-v8-5.js');
   const v86=read('functions/portal/admin-operations-command-center-v8-6.js');
   const v87=read('functions/portal/admin-operations-command-center-v8-7.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV87/);
-  assert.match(main,/admin-operations-command-center-v8-7\.js/);
+  const v88=read('functions/portal/admin-operations-command-center-v8-8.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV88/);
+  assert.match(main,/admin-operations-command-center-v8-8\.js/);
+  assert.match(v88,/patchAdminOperationsCommandCenterV87 as patchV87/);
+  assert.match(v88,/let patched=patchV87\(script\)/);
   assert.match(v87,/patchAdminOperationsCommandCenterV86 as patchV86/);
-  assert.match(v87,/let patched=patchV86\(script\)/);
   assert.match(v86,/patchAdminOperationsCommandCenterV85 as patchV85/);
   assert.match(v85,/patchAdminOperationsCommandCenterV84 as patchV84/);
   assert.match(v84,/patchAdminOperationsCommandCenterV83 as patchV83/);
@@ -225,4 +227,17 @@ test('V8.7 routes canonical deal actions to their explicit operational section b
   assert.match(v87,/if\(dealId\)return\{kind:'DEAL',dealId,target:'deals'\}/);
   assert.match(v87,/OPERATIONS_FINANCE_ACTIONS_V1/);
   assert.match(v87,/ADMIN_OPERATIONS_V87_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.8 resolves mirrored portal-event tasks through the underlying reverse-event target',()=>{
+  const v88=read('functions/portal/admin-operations-command-center-v8-8.js');
+  assert.match(v88,/linkedReverse=source==='PORTAL_REVERSE_EVENT'/);
+  assert.match(v88,/source_object_id/);
+  assert.match(v88,/linkedTargetType==='APPLICATION'/);
+  assert.match(v88,/target:'applications'/);
+  assert.match(v88,/linkedTargetType==='DEAL'&&linkedTargetId/);
+  assert.match(v88,/dealId:linkedTargetId,target:'deals'/);
+  assert.match(v88,/OPERATIONS_MIRRORED_EVENT_ROUTING_V1/);
+  assert.match(v88,/ADMIN_OPERATIONS_V88_POLLING_FORBIDDEN/);
 });
