@@ -7,6 +7,7 @@ on:
     paths:
       - 'functions/portal/admin-operations-command-center-v8.js'
       - 'functions/portal/admin-operations-command-center-v8-1.js'
+      - 'functions/portal/admin-operations-command-center-v8-2.js'
       - 'functions/portal/admin-main-ui-current.js'
       - 'tests/admin-operations-mission-control-v8/**'
       - '.github/workflows/admin-operations-mission-control-v8-qa.yml'
@@ -28,6 +29,7 @@ jobs:
         run: |
           node --check functions/portal/admin-operations-command-center-v8.js
           node --check functions/portal/admin-operations-command-center-v8-1.js
+          node --check functions/portal/admin-operations-command-center-v8-2.js
           node --check functions/portal/admin-main-ui-current.js
       - name: Mission derivation tests
         run: node --test tests/admin-operations-mission-control-v8/mission-current.test.mjs
@@ -44,9 +46,12 @@ jobs:
           const r=await m.onRequest();
           const s=await r.text();
           new Function(s);
-          if(r.headers.get('x-rona-operations-center')!=='v8.1-readmodel-recovery-v1') throw new Error('OPERATIONS_V81_HEADER_MISSING');
+          if(r.headers.get('x-rona-operations-center')!=='v8.2-action-queue-normalized-v1') throw new Error('OPERATIONS_V82_HEADER_MISSING');
           if(!s.includes("DEALS_CURRENT_V4_MISSION_V1")) throw new Error('OPERATIONS_V8_MISSION_CONTRACT_MISSING');
           if(!s.includes("OPERATIONS_CURRENT_V1_RECOVERY_V1")) throw new Error('OPERATIONS_V81_RECOVERY_CONTRACT_MISSING');
+          if(!s.includes("OPERATIONS_ACTION_QUEUE_NORMALIZED_V1")) throw new Error('OPERATIONS_V82_ACTION_QUEUE_CONTRACT_MISSING');
+          if(!s.includes("taskSourceEventIds=new Set")) throw new Error('OPERATIONS_V82_REVERSE_DEDUP_MISSING');
+          if(!s.includes("const attentionCount=queueRows.length")) throw new Error('OPERATIONS_V82_VISIBLE_COUNT_MISSING');
           if(!s.includes("RECOVERY_RETRY")) throw new Error('OPERATIONS_V81_BOUNDED_RETRY_MISSING');
           if(!s.includes("DATA SYNC")) throw new Error('OPERATIONS_V81_SYNC_STATE_MISSING');
           if(!s.includes("Ошибка read model:")) throw new Error('OPERATIONS_V81_ERROR_DETAIL_MISSING');
@@ -55,5 +60,5 @@ jobs:
           if(!s.includes("onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'")) throw new Error('OPERATIONS_V8_DEAL_CONTROL_MISSING');
           if(!s.includes("onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)")) throw new Error('OPERATIONS_V8_NEXT_ACTION_MISSING');
           if(s.includes("setInterval(()=>ronaOpsV8")||s.includes("setInterval(()=>ronaOpsV81")) throw new Error('OPERATIONS_V81_POLLING_FORBIDDEN');
-          console.log('ADMIN_OPERATIONS_MISSION_CONTROL_V81=PASS');
+          console.log('ADMIN_OPERATIONS_MISSION_CONTROL_V82=PASS');
           NODE
