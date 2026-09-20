@@ -93,7 +93,7 @@ export function patchAdminOperationsCommandCenterV83(script){
 
   patched=replaceRequired(
     patched,
-    "row.target?e('button',{class:'rona-fd-v5-event__open',type:'button','aria-label':'Открыть раздел',onclick:()=>adminHomeNavigate(row.target),text:'›'}):e('span',{class:'rona-fd-v5-screen__count',text:'!'})",
+    "row.target?e('button',{class:'rona-fd-v5-event__open',type:'button','aria-label':'Открыть раздел',onclick:()=>ronaOpsV5Go(row.target,row.dealId),text:'›'}):e('span',{class:'rona-fd-v5-screen__count',text:'!'})",
     "e('button',{class:'rona-fd-v5-event__open',type:'button','aria-label':'Открыть действие',onclick:()=>ronaOpsV83OpenQueueRow(row),text:'›'})",
     'queue-action-button'
   );
