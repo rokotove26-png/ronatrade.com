@@ -97,6 +97,25 @@ async function assertIndicators(dealId,documents,status){
   assert.match(String(await cells.nth(8).textContent()),new RegExp(documents),`${dealId} Documents mismatch`);
   assert.equal(String(await cells.nth(10).textContent()).trim(),status,`${dealId} Status mismatch`);
 }
+function compactMoneyText(v){return String(v||'').replace(/[\s\u00a0\u202f]/g,'')}
+async function assertFinanceCell(dealId,paidExpected,remainingExpected,remainingTone){
+  const row=await activeRow(dealId);
+  const cell=row.locator('td').nth(6);
+  const paid=cell.locator('.rona-current-fin-paid');
+  const remaining=cell.locator('.rona-current-fin-remaining');
+  assert.equal(await paid.count(),1,`${dealId} must expose one paid fact`);
+  assert.equal(await remaining.count(),1,`${dealId} must expose one remaining balance`);
+  assert.equal(compactMoneyText(await paid.textContent()),paidExpected,`${dealId} paid fact mismatch`);
+  assert.equal(compactMoneyText(await remaining.textContent()),'Осталось:'+remainingExpected,`${dealId} remaining balance mismatch`);
+  assert.equal(await remaining.evaluate((el,cls)=>el.classList.contains(cls),remainingTone),true,`${dealId} remaining tone mismatch`);
+  if(remainingTone==='rona-current-fin-remaining--open'){
+    const colors=await cell.evaluate(el=>{
+      const a=el.querySelector('.rona-current-fin-paid'),b=el.querySelector('.rona-current-fin-remaining');
+      return [getComputedStyle(a).color,getComputedStyle(b).color];
+    });
+    assert.notEqual(colors[0],colors[1],`${dealId} paid and remaining colors must differ`);
+  }
+}
 async function kpiValue(title){
   const card=page.locator('.rona-current-deal-kpi').filter({has:page.getByText(title,{exact:true})});
   await card.waitFor({state:'visible',timeout:15000});
@@ -113,6 +132,9 @@ async function proveActive(){
   await assertIndicators('DEAL-2026-007','Комплект актуален','HOLD');
   await assertIndicators('DEAL-2026-008','Комплект актуален','HOLD');
   await assertIndicators('DEAL-2026-009','Комплект актуален','GO');
+  await assertFinanceCell('DEAL-2026-004','236250USD','0USD','rona-current-fin-remaining--settled');
+  await assertFinanceCell('DEAL-2026-005','201750USD','470750USD','rona-current-fin-remaining--open');
+  await assertFinanceCell('DEAL-2026-006','49320USD','115080USD','rona-current-fin-remaining--open');
 }
 
 try{
@@ -125,7 +147,7 @@ try{
   await proveActive();
   assert.ok(bootstrapHits>=2,'reload must obtain the projection again');
   assert.deepEqual(pageErrors,[],'runtime must not throw browser errors');
-  console.log('ADMIN_DEAL_INDICATORS_BROWSER=PASS',JSON.stringify({preview,previewStaticArtifact:true,runtimeSource:'PR_CHECKOUT_ONREQUEST',kpi:{active:6,attention:2,waiting:3},existingDeals:['DEAL-2026-003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-007','DEAL-2026-008','DEAL-2026-009'],documents:{complete:6,requires:1},status:{GO:4,HOLD:2,NO_GO:1},nickOil:'ADDENDUM+INVOICE=>COMPLETE;NO_SIGNED=>HOLD',solarisGrand:'SIGNED_ADDENDUM=>GO',fargona:'PAID+SIGNED_ADDENDUM=>GO',gazone:'SIGNED_ADDENDUM=>GO',reload:true,bootstrapHits}));
+  console.log('ADMIN_DEAL_INDICATORS_BROWSER=PASS',JSON.stringify({preview,previewStaticArtifact:true,runtimeSource:'PR_CHECKOUT_ONREQUEST',kpi:{active:6,attention:2,waiting:3},existingDeals:['DEAL-2026-003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-007','DEAL-2026-008','DEAL-2026-009'],documents:{complete:6,requires:1},status:{GO:4,HOLD:2,NO_GO:1},nickOil:'ADDENDUM+INVOICE=>COMPLETE;NO_SIGNED=>HOLD',solarisGrand:'SIGNED_ADDENDUM=>GO',fargona:'PAID+SIGNED_ADDENDUM=>GO',gazone:'SIGNED_ADDENDUM=>GO',financeCell:'PAID_PRIMARY+REMAINING_SECONDARY+COLOR',reload:true,bootstrapHits}));
 }finally{
   await browser.close();
   await new Promise(resolve=>server.close(resolve));
