@@ -6,8 +6,8 @@ const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',tim
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;";
 const API_FROM="function api(path){return fetch(API+'?path='+encodeURIComponent(path),{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j&&j.data||{}})})}";
 const WAIT_FROM="function waitAdminReady(){var n=0,t=setInterval(function(){n++;if(window.__RONA_OWNER_ADMIN_READY__===true){clearInterval(t);paint();return}if(n>200)clearInterval(t)},100)}";
-const START_FROM="function start(){ensureStyle();ensureV6Style();snapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__||null;paint();bind();sync();waitAdminReady();timer=setInterval(function(){var page=q('#page-monitoring');if(document.visibilityState==='visible'&&page&&page.classList.contains('active'))sync()},30000);document.addEventListener('visibilitychange',function(){var page=q('#page-monitoring');if(document.visibilityState==='visible'&&page&&page.classList.contains('active'))sync()},{passive:true})}";
-const START_TO="function start(){ensureClientCanonicalOwnerStyle();ensureStyle();ensureV6Style();if(!ensureClientRailMount())return;if(typeof ensureRailCompactDarkStyle==='function')ensureRailCompactDarkStyle();snapshot=null;paint();if(typeof ensureRailTariffPanel==='function')ensureRailTariffPanel();bind();sync();waitAdminReady();[120,420,900].forEach(function(ms){setTimeout(function(){if(typeof ensureRailTariffPanel==='function')ensureRailTariffPanel()},ms)});window.__RONA_CLIENT_RAIL_REFRESH__=function(){return sync()};timer=setInterval(sync,30000)}";
+const START_HEAD_FROM="function start(){ensureStyle();ensureV6Style();snapshot=window.__RONA_OWNER_ADMIN_SNAPSHOT__||null;paint();bind();sync();waitAdminReady();";
+const START_HEAD_TO="function start(){ensureClientCanonicalOwnerStyle();ensureStyle();ensureV6Style();if(!ensureClientRailMount())return;if(typeof ensureRailCompactDarkStyle==='function')ensureRailCompactDarkStyle();snapshot=null;paint();if(typeof ensureRailTariffPanel==='function')ensureRailTariffPanel();bind();sync();waitAdminReady();[120,420,900].forEach(function(ms){setTimeout(function(){if(typeof ensureRailTariffPanel==='function')ensureRailTariffPanel()},ms)});window.__RONA_CLIENT_RAIL_REFRESH__=function(){return sync()};";
 const LOCATION_FROM="if(location.pathname==='/portal/admin'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const LOCATION_TO="if(location.pathname==='/portal/client'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const BIND_FROM="function bind(){var nav=q('#nav button[data-page=\"monitoring\"]');if(nav&&!nav.__ronaRailV4Bound){nav.__ronaRailV4Bound=true;nav.addEventListener('click',function(){setTimeout(paint,0);setTimeout(paint,120);setTimeout(function(){sync()},350)})}}";
@@ -291,7 +291,7 @@ export async function onRequest(context){
   const response=await adminRailCurrent(context);
   let source=await response.text();
   const checks=[
-    ['ADMIN_MARKER',ADMIN_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_FROM',START_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],['ADMIN_SINGLE_TITLE_HIDDEN_HERO',ADMIN_SINGLE_TITLE_HIDDEN_HERO],
+    ['ADMIN_MARKER',ADMIN_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_HEAD_FROM',START_HEAD_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],['ADMIN_SINGLE_TITLE_HIDDEN_HERO',ADMIN_SINGLE_TITLE_HIDDEN_HERO],
     ['ROOT_CLASS','rona-rail-v4-root'],['WORK_CLASS','rona-rail-v4-work'],['SELECTOR_CLASS','rona-rail-v6-selector'],['WAGON_CLASS','rona-rail-v6-wagon-box'],['REAL_MAP_CLASS','rona-rail-v7-real'],['LOCAL_TILE','/portal/map-assets/osm/']
   ];
   const missing=checks.filter(([,marker])=>!source.includes(marker)).map(([name])=>name);
@@ -303,7 +303,7 @@ export async function onRequest(context){
     .replace(API_VAR_FROM,API_VAR_TO)
     .replace(API_FROM,CLIENT_API)
     .replace(WAIT_FROM,'function waitAdminReady(){}')
-    .replace(START_FROM,START_TO)
+    .replace(START_HEAD_FROM,START_HEAD_TO)
     .replace(BIND_FROM,BIND_TO)
     .replace(LOCATION_FROM,LOCATION_TO)
     .replace(ADMIN_SINGLE_TITLE_HIDDEN_HERO,'')
