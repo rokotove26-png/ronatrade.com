@@ -42,7 +42,7 @@ const SCRIPT=RAW
   )
   .replace(
     "kpi('Ожидают оплаты или действий',String(metrics.waiting),'Только текущее состояние действующих сделок','waiting')",
-    "kpi('Ожидают оплаты',String(metrics.waiting),'Сделки с подтверждённым непогашенным остатком платежа','waiting')"
+    "kpi('Ожидают оплаты',String(metrics.waiting),'Сделки с подтверждённой суммой к оплате сейчас','waiting')"
   )
   .replace(
     "function missingDocuments(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM');return !add||!inv||((d&&d.client_addendum_downloaded_at)&&!signed)}",
@@ -145,4 +145,4 @@ if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'operations-live-refresh-v1','x-rona-deals-read-model':'admin-deals-current-v3-finance-v8-rail-current'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'operations-live-refresh-v1','x-rona-deals-read-model':'admin-deals-current-v3-finance-v8-rail-current','x-rona-deals-payment-basis':'finance-v8-due-now-v1'}})}
