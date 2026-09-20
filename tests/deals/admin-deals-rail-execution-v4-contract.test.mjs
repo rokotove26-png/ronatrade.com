@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const migration=fs.readFileSync('supabase/migrations/20260920144304_admin_deals_rail_execution_v4.sql','utf8');
+const timeoutFix=fs.readFileSync('supabase/migrations/20260920152000_admin_deals_rail_execution_v4_timeout_fix.sql','utf8');
 const api=fs.readFileSync('functions/portal/owner-api.js','utf8');
 const ui=fs.readFileSync('functions/portal/deals-current-state-ui.js','utf8');
 
@@ -54,4 +55,15 @@ test('Stable Finance and readiness markers remain intact',()=>{
   assert.match(ui,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/);
   assert.match(ui,/send\.disabled=overall\(d\)!=='GO'/);
   assert.match(ui,/inFinance\?'В платежном контуре'/);
+});
+
+
+test('Deals Rail Execution V4 timeout fix materializes canonical Rail sets once',()=>{
+  assert.match(timeoutFix,/current_positions as materialized/i);
+  assert.match(timeoutFix,/current_audit as materialized/i);
+  assert.match(timeoutFix,/trusted_positions as materialized/i);
+  assert.equal((timeoutFix.match(/portal_private\.rail_xlsx_dislocation_current_position_v1/g)||[]).length,1);
+  assert.equal((timeoutFix.match(/portal_private\.rail_xlsx_dislocation_current_audit_v1/g)||[]).length,1);
+  assert.doesNotMatch(timeoutFix,/DEAL-2026-/);
+  assert.doesNotMatch(timeoutFix,/\b(insert|update|delete|truncate)\s+(into\s+)?portal_private\./i);
 });
