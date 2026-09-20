@@ -11,8 +11,8 @@ create schema auth;
 create schema portal_private;
 
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
-do $ begin create role authenticated nologin; exception when duplicate_object then null; end $;
-do $ begin create role service_role nologin; exception when duplicate_object then null; end $;
+do $stage3a_role$ begin create role authenticated nologin; exception when duplicate_object then null; end $stage3a_role$;
+do $stage3a_role$ begin create role service_role nologin; exception when duplicate_object then null; end $stage3a_role$;
 
 create type portal_private.portal_role_enum as enum ('ADMIN','RONA_OPERATOR','AGENT','CLIENT');
 create type portal_private.binding_status_enum as enum ('PENDING','ACTIVE','SUSPENDED','REVOKED','EXPIRED');
@@ -434,7 +434,7 @@ create table portal_private.audit_events(
 
 
 create or replace function portal_private.stage3a_fixture_application_intake()
-returns trigger language plpgsql set search_path='pg_catalog','portal_private' as $
+returns trigger language plpgsql set search_path='pg_catalog','portal_private' as $stage3a_app$
 declare i uuid; t uuid;
 begin
   if new.source_intake_key is not null then
@@ -453,13 +453,13 @@ begin
     values('OPERATIONS_DIRECTOR',false,new.id,'Application '||new.application_id) returning id into t;
   insert into portal_private.client_intake_task_links_v1(intake_id,staff_task_id) values(i,t);
   return new;
-end $;
+end $stage3a_app$;
 create trigger stage3a_fixture_application_intake_after_insert
 after insert on portal_private.client_applications
 for each row execute function portal_private.stage3a_fixture_application_intake();
 
 create or replace function portal_private.stage3a_fixture_reverse_intake()
-returns trigger language plpgsql set search_path='pg_catalog','portal_private' as $
+returns trigger language plpgsql set search_path='pg_catalog','portal_private' as $stage3a_reverse$
 declare i uuid; t uuid;
 begin
   if new.actor_role<>'CLIENT'::portal_private.portal_role_enum then return new; end if;
@@ -474,13 +474,13 @@ begin
     values('OPERATIONS_DIRECTOR',false,new.id,'Reverse event '||new.event_id) returning id into t;
   insert into portal_private.client_intake_task_links_v1(intake_id,staff_task_id) values(i,t);
   return new;
-end $;
+end $stage3a_reverse$;
 create trigger stage3a_fixture_reverse_intake_after_insert
 after insert on portal_private.portal_reverse_events
 for each row execute function portal_private.stage3a_fixture_reverse_intake();
 
 create or replace function portal_private.materialize_client_application_v2(p_intake_id uuid)
-returns text language plpgsql security definer set search_path='pg_catalog','portal_private' as $
+returns text language plpgsql security definer set search_path='pg_catalog','portal_private' as $stage3a_materialize$
 declare i portal_private.client_intake_v1; p jsonb; app_id text; app_key uuid; pub_item uuid; pub_key uuid;
 begin
   select * into i from portal_private.client_intake_v1 where intake_id=p_intake_id for update;
@@ -511,10 +511,10 @@ begin
     i.source_submitted_at,'SOURCE_RECEIVED','ACTIVE','REQUEST_DELIVERED_PRICE','SOURCE_INTAKE:'||i.intake_id::text
   );
   return app_id;
-end $;
+end $stage3a_materialize$;
 
 create or replace function portal_private.process_client_intake_outbox_v1(p_limit integer default 100)
-returns jsonb language sql volatile as $select jsonb_build_object('processed',0,'limit',p_limit)$;
+returns jsonb language sql volatile as $stage3a_sql$select jsonb_build_object('processed',0,'limit',p_limit)$stage3a_sql$;
 
 create sequence portal_private.test_application_seq;
 
