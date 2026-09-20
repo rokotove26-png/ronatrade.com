@@ -1,0 +1,9 @@
+{
+  "slug": "rona-admin-control-plane",
+  "version": 10,
+  "status": "ACTIVE",
+  "verify_jwt": true,
+  "ezbr_sha256": "520ad4b9b6bcf05801ac13ee5faa3f01266a62b496bc690fdb7c17d70aaec643",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_db414b3d-dfea-44b8-8cd6-42627cedefcd_10/source/owner-auth-fallback-wrapper.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_db414b3d-dfea-44b8-8cd6-42627cedefcd_10/source/deno.json"
+}
