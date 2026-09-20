@@ -179,6 +179,15 @@ function renderAdminHome(){
 }
 `;
 
+function stripLegacyRuntime(source){
+  const start='let ronaOpsV7Busy=';
+  const end='function deriveOperationsMissionCurrentRows';
+  const a=source.indexOf(start),b=source.indexOf(end);
+  if(a<0||b<0||b<=a)throw new Error('ADMIN_OPERATIONS_V10_LEGACY_RUNTIME_BOUNDARY_MISSING');
+  if(source.indexOf(start,a+start.length)>=0)throw new Error('ADMIN_OPERATIONS_V10_LEGACY_RUNTIME_START_NOT_UNIQUE');
+  return source.slice(0,a)+"window.__RONA_ADMIN_OPERATIONS_LEGACY_EVENT_RUNTIME_STRIPPED__='V7_V91';\n"+source.slice(b);
+}
+
 function replaceSectionRequired(source,start,end,replacement,label){
   const first=source.indexOf(start);
   if(first<0)throw new Error('ADMIN_OPERATIONS_V10_SECTION_START_MISSING:'+label);
@@ -189,7 +198,7 @@ function replaceSectionRequired(source,start,end,replacement,label){
 }
 
 export function patchAdminOperationsCommandCenterV10Clean(script){
-  let patched=patchLegacy(script);
+  let patched=stripLegacyRuntime(patchLegacy(script));
   patched=replaceSectionRequired(
     patched,
     'function renderAdminHome(){',
@@ -199,6 +208,9 @@ export function patchAdminOperationsCommandCenterV10Clean(script){
   );
 
   if(!patched.includes("call('/admin/operations-current-v2'"))throw new Error('ADMIN_OPERATIONS_V10_V2_SOURCE_MISSING');
+  if(patched.includes("call('/admin/operations-current-v1'"))throw new Error('ADMIN_OPERATIONS_V10_LEGACY_V1_CALL_REMAINS');
+  if(patched.includes("realtime:rona-admin-operations-current-v1"))throw new Error('ADMIN_OPERATIONS_V10_LEGACY_V1_SOCKET_REMAINS');
+  if(!patched.includes("__RONA_ADMIN_OPERATIONS_LEGACY_EVENT_RUNTIME_STRIPPED__='V7_V91'"))throw new Error('ADMIN_OPERATIONS_V10_LEGACY_EVENT_STRIP_MARKER_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_LEGACY_RUNTIME__='DISABLED_BY_V10'"))throw new Error('ADMIN_OPERATIONS_V10_LEGACY_DISABLE_MARKER_MISSING');
   if(!patched.includes("'Клиенты в сети'"))throw new Error('ADMIN_OPERATIONS_V10_CLIENT_ONLINE_LABEL_MISSING');
   if(!patched.includes("'Агенты в сети'"))throw new Error('ADMIN_OPERATIONS_V10_AGENT_ONLINE_LABEL_MISSING');
