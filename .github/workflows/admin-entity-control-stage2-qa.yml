@@ -21,7 +21,7 @@ jobs:
           node-version: '24'
       - name: Verify exact base and frozen Admin UI contract
         env:
-          STAGE2_BASE_SHA: 89628c19cc37f873f8b32ad37401344a59790ccf
+          STAGE2_BASE_SHA: a039967a6821cb0798f1654243c2d2c1a8a3273b
         run: |
           set -euo pipefail
           node --check 'functions/portal/[[path]].js'
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      STAGE2_BASE_SHA: 89628c19cc37f873f8b32ad37401344a59790ccf
+      STAGE2_BASE_SHA: a039967a6821cb0798f1654243c2d2c1a8a3273b
     steps:
       - uses: actions/checkout@v4
         with:

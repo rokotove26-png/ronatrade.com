@@ -1,0 +1,127 @@
+name: TRACK A Market Intelligence index QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - supabase/migrations/20260920153100_market_intelligence_source_candidate_partial_index_v1.sql
+      - tests/track-a-market-intelligence-index-v1.test.mjs
+      - .github/workflows/track-a-market-intelligence-index-v1-qa.yml
+      - docs/track-a-edge-retirement-db-workload-audit-20260920.md
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify migration scope
+        run: node tests/track-a-market-intelligence-index-v1.test.mjs
+
+  planner-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_track_a
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_track_a"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/rona_track_a
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Build synthetic current-query fixture
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+          create schema portal_private;
+
+          create table portal_private.telegram_market_documents(
+            id bigint generated always as identity primary key,
+            message_timestamp timestamptz not null,
+            extraction_state text not null,
+            extracted_text text,
+            sha256 text not null
+          );
+
+          create table portal_private.market_intelligence_processed_sources(
+            source_kind text not null,
+            source_id text not null,
+            source_fingerprint text not null,
+            processing_status text not null,
+            primary key(source_kind,source_id,source_fingerprint)
+          );
+
+          insert into portal_private.telegram_market_documents(
+            message_timestamp,extraction_state,extracted_text,sha256
+          )
+          select
+            now()-(g * interval '1 minute'),
+            'TEXT_EXTRACTED',
+            'ordinary unrelated market document '||g,
+            'sha-'||g
+          from generate_series(1,10000) g;
+
+          insert into portal_private.telegram_market_documents(
+            message_timestamp,extraction_state,extracted_text,sha256
+          ) values
+            (now()-interval '30 seconds','TEXT_EXTRACTED','Platts European Marketscan fixture','sha-match-1'),
+            (now()-interval '60 seconds','TEXT_AND_TABLES_EXTRACTED','Argus European Products fixture','sha-match-2');
+
+          analyze portal_private.telegram_market_documents;
+          SQL
+      - name: Apply candidate migration
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1             -f supabase/migrations/20260920153100_market_intelligence_source_candidate_partial_index_v1.sql
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1             -c "analyze portal_private.telegram_market_documents"
+      - name: Prove planner uses scoped partial index
+        run: |
+          set -euo pipefail
+          plan="$(psql "$TEST_DATABASE_URL" -At -v ON_ERROR_STOP=1 <<'SQL'
+          explain
+          select d.id,d.message_timestamp,d.extracted_text,d.sha256
+          from portal_private.telegram_market_documents d
+          where d.message_timestamp>=now()-(45*interval '1 day')
+            and d.extraction_state in ('TEXT_EXTRACTED','TEXT_AND_TABLES_EXTRACTED')
+            and (
+              coalesce(d.extracted_text,'') ilike '%Platts European Marketscan%'
+              or coalesce(d.extracted_text,'') ilike '%Евразийский рынок СУГ%'
+              or coalesce(d.extracted_text,'') ilike '%Petromarket Prices%'
+              or coalesce(d.extracted_text,'') ilike '%Argus European Products%'
+              or coalesce(d.extracted_text,'') ilike '%Eurobob oxy%'
+            )
+            and not exists (
+              select 1
+              from portal_private.market_intelligence_processed_sources p
+              where p.source_kind='TELEGRAM_MARKET_DOCUMENT'
+                and p.source_id=d.id::text
+                and p.source_fingerprint=d.sha256
+                and p.processing_status in ('INGESTED','NO_RELEVANT_DATA','UNVERIFIED')
+            )
+          order by d.message_timestamp desc
+          limit 1;
+          SQL
+          )"
+          printf '%s\n' "$plan"
+          printf '%s\n' "$plan" | grep -F 'telegram_market_documents_mi_candidate_time_idx'
