@@ -15,6 +15,22 @@ const EVENT_RUNTIME=String.raw`
 let ronaOpsV7Busy=false,ronaOpsV7Queued=false,ronaOpsV7Debounce=0,ronaOpsV7ReconnectTimer=0,ronaOpsV7HeartbeatTimer=0,ronaOpsV7ReconnectAttempt=0,ronaOpsV7Ref=1;const ronaOpsV7DirtyDomains=new Set();
 function ronaOpsV7HomeVisible(){const p=page('home');return !!(p&&getComputedStyle(p).display!=='none')}
 function ronaOpsV7SetState(status,extra={}){window.__RONA_ADMIN_OPERATIONS_EVENT_STATE__={status,connected:status==='CONNECTED',updatedAt:Date.now(),...extra}}
+function ronaOpsV7FocusMaster(){
+  requestAnimationFrame(()=>{
+    const node=document.querySelector('#page-home .rona-fd-v5__master');
+    if(node&&typeof node.scrollIntoView==='function')node.scrollIntoView({block:'nearest',behavior:'smooth'});
+  });
+}
+function ronaOpsV7GaugeAction(code,target){
+  if(code==='CAUT-03'||code==='WARN-06'){
+    window.__RONA_ADMIN_OPS_QUEUE_FILTER__=code==='WARN-06'?'CRITICAL':'ATTENTION';
+    renderAdminHome();
+    ronaOpsV7FocusMaster();
+    return;
+  }
+  window.__RONA_ADMIN_OPS_QUEUE_FILTER__='ATTENTION';
+  adminHomeNavigate(target);
+}
 async function ronaOpsV7RefreshCurrent(reason='EVENT'){
   if(ronaOpsV7Busy){ronaOpsV7Queued=true;return null}
   ronaOpsV7Busy=true;
@@ -179,6 +195,29 @@ export function patchAdminOperationsCommandCenterV7(script){
   patched=replaceRequired(patched,"gauge('NET-07','Клиенты в сети',networkClientCount,'Текущий реестр','access','emerald')","gauge('NET-07','Клиенты',networkClientCount,'Текущий реестр','access','emerald')",'clients-label');
   patched=replaceRequired(patched,"gauge('NET-08','Агенты в сети',networkAgentCount,'Активные профили','access','violet')","gauge('NET-08','Агенты',networkAgentCount,'Активные профили','access','violet')",'agents-label');
 
+  patched=replaceRequired(
+    patched,
+    "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>adminHomeNavigate(target)}",
+    "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>ronaOpsV7GaugeAction(code,target)}",
+    'functional-kpi-gauges'
+  );
+
+  patched=replaceRequired(
+    patched,
+    "  const queue=e('div',{class:'rona-fd-v5-queue'});\n  if(queueRows.length){for(const row of queueRows.slice(0,9))",
+    "  const queueFilter=String(window.__RONA_ADMIN_OPS_QUEUE_FILTER__||'ATTENTION'),queueVisible=queueFilter==='CRITICAL'?queueRows.filter(row=>row.tone==='red'):queueRows;\n  const queue=e('div',{class:'rona-fd-v5-queue','data-filter':queueFilter});\n  if(queueVisible.length){for(const row of queueVisible.slice(0,9))",
+    'master-queue-filter'
+  );
+
+  patched=replaceRequired(
+    patched,
+    "const masterScreen=ronaFdV5Screen('EXCEPTION CONTROL','Master caution / warning',queueRows.length,masterBody,'rona-fd-v5__master');",
+    "const masterScreen=ronaFdV5Screen('EXCEPTION CONTROL',queueFilter==='CRITICAL'?'Критические события':'Требует действия',queueVisible.length,masterBody,'rona-fd-v5__master');",
+    'master-queue-filter-count'
+  );
+
+  if(!patched.includes("ronaOpsV7GaugeAction(code,target)"))throw new Error('ADMIN_OPERATIONS_V7_GAUGE_ACTION_MISSING');
+  if(!patched.includes("queueFilter==='CRITICAL'?queueRows.filter(row=>row.tone==='red'):queueRows"))throw new Error('ADMIN_OPERATIONS_V7_QUEUE_FILTER_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_EVENT_DRIVEN__='postgres-change-invalidation-v1-no-polling'"))throw new Error('ADMIN_OPERATIONS_V7_EVENT_MARKER_MISSING');
   if(!patched.includes("call('/admin/operations-current-v1')"))throw new Error('ADMIN_OPERATIONS_V7_READ_MODEL_CALL_MISSING');
   if(!patched.includes("table:'rona_admin_operations_invalidation_v1'"))throw new Error('ADMIN_OPERATIONS_V7_REALTIME_SIGNAL_MISSING');
