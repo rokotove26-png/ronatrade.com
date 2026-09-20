@@ -1,0 +1,27 @@
+name: DIAG Client visual shell local
+
+on:
+  push:
+    branches:
+      - diag/client-live-impersonation-browser-v1
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact Client artifact
+        run: npm run build
+      - name: Install Playwright
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove visible Client shell after real built runtime boot
+        run: node scripts/diag-client-visual-shell-local-v1.mjs
