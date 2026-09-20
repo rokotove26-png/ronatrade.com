@@ -6,6 +6,7 @@ on:
       - 'release/public-go-live-v1.1'
     paths:
       - 'supabase/migrations/20260920040000_serialize_core_runtime_minute_jobs_v1.sql'
+      - 'supabase/migrations/20260920040800_core_runtime_minute_execute_hardening_v1.sql'
       - 'tests/runtime-cron-startup-pressure-v1.test.mjs'
       - '.github/workflows/runtime-cron-startup-pressure-qa.yml'
 
