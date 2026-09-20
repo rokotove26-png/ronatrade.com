@@ -148,6 +148,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 window.addEventListener('rona:admin-pagechange',event=>{
   const p=String(event?.detail?.page||'');
+  if(p==='deals')loadModule('deals',MODULES.deals.src);
+  if(p==='accounting')loadModule('cash',MODULES.cash.src);
+  if(p==='applications')loadModule('applications',MODULES.applications.src);
   if(p==='claims')loadModule('claims',MODULES.claims.src);
   if(['agent-settlements','messages','market-news'].includes(p))loadModule('remaining',MODULES.remaining.src);
   if(p==='analytics')loadAnalytics();
@@ -175,7 +178,16 @@ window.addEventListener('rona:admin-module-retry',event=>{
     const st=window.__RONA_ADMIN_MODULES__.analytics;if(st){st.status='PENDING';st.promise=null}
     loadAnalytics().then(restoreSelectedPage);return
   }
-  const key=p==='claims'?'claims':['agent-settlements','messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
+  if(['home','applications','payments'].includes(p)){
+    try{
+      if(typeof window.__RONA_OWNER_ADMIN_RENDER__==='function')window.__RONA_OWNER_ADMIN_RENDER__();
+      if(typeof window.__RONA_OWNER_ADMIN_REFRESH_TICK__==='function')window.__RONA_OWNER_ADMIN_REFRESH_TICK__(true).then?.(restoreSelectedPage);
+      else restoreSelectedPage()
+    }catch(e){recordError('main-owned-section-repair:'+p,e)}
+    if(p==='applications')loadModule('applications',MODULES.applications.src).then(restoreSelectedPage);
+    return
+  }
+  const key=p==='deals'?'deals':p==='accounting'?'cash':p==='claims'?'claims':['agent-settlements','messages','market-news'].includes(p)?'remaining':p==='prices'?'prices':'';
   if(key){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}loadModule(key,MODULES[key].src).then(restoreSelectedPage)}
 });
 
