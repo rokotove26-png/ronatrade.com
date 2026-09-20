@@ -16,6 +16,38 @@
     @media(max-width:1180px){.app{grid-template-columns:228px minmax(0,1fr)}#nav button{font-size:13.5px;min-height:45px}.sidebar{padding-inline:11px}.brand img{width:136px}}
     @media(max-width:900px){.app{grid-template-columns:82px minmax(0,1fr)}.sidebar{padding-inline:7px}.brand img{width:66px}.nav-group{font-size:0;margin:10px 0 4px}.nav-group::after{content:'·';font-size:12px}.nav-label{display:none}#nav button{justify-content:center;padding:9px}.nav-icon{width:19px;min-width:19px}.topbar{padding-inline:10px}.role-pill{display:none}}
     @media(max-width:620px){.app{grid-template-columns:1fr;grid-template-rows:54px auto minmax(0,1fr)}.sidebar{grid-row:2;grid-column:1;border-right:0;border-bottom:1px solid var(--shell-line);padding:6px;overflow-x:auto}.brand{display:none}#nav{flex-direction:row;min-width:max-content;padding:0}#nav .nav-group{display:none}#nav button{width:auto;min-width:44px}.topbar{grid-column:1;grid-row:1}.search{font-size:12px}main{grid-column:1;grid-row:3}.page{min-height:calc(100vh - 108px)}.current-access-entry{align-items:flex-start;flex-direction:column}}
+
+    /* RONA_ADMIN_SIDEBAR_VISUAL_V2 */
+    @media(min-width:901px){
+      body.admin-auth-server-verified .sidebar .brand{height:84px!important;margin-bottom:5px!important}
+      body.admin-auth-server-verified .sidebar .brand img{width:144px!important;height:70px!important}
+      body.admin-auth-server-verified .sidebar #nav{gap:3px!important;padding-bottom:18px!important}
+      body.admin-auth-server-verified .sidebar #nav .nav-group{margin:19px 10px 7px!important;color:#8da6b7!important;font-size:10.2px!important;line-height:1.2!important;font-weight:820!important;letter-spacing:.17em!important}
+      body.admin-auth-server-verified .sidebar #nav .nav-group:not(:first-child){margin-top:21px!important;padding-top:14px!important;border-top:1px solid rgba(126,184,213,.09)!important}
+      body.admin-auth-server-verified .sidebar #nav button{position:relative!important;min-height:44px!important;gap:11px!important;padding:9px 12px!important;border-radius:10px!important;color:#b4c6d1!important;font-size:14px!important;line-height:1.22!important;font-weight:690!important;letter-spacing:.004em!important}
+      body.admin-auth-server-verified .sidebar #nav button:hover{background:linear-gradient(90deg,rgba(62,175,221,.075),rgba(36,87,126,.035))!important;border-color:rgba(96,214,255,.12)!important;color:#f7fbfd!important}
+      body.admin-auth-server-verified .sidebar #nav .nav-icon{width:20px!important;min-width:20px!important;color:#7fa2b7!important;font-size:17px!important;line-height:1!important;opacity:.96!important;transition:color .14s ease,opacity .14s ease!important}
+      body.admin-auth-server-verified .sidebar #nav button:hover .nav-icon{color:#a9dff2!important;opacity:1!important}
+      body.admin-auth-server-verified .sidebar #nav button.active,
+      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"]{background:linear-gradient(110deg,rgba(28,86,126,.72),rgba(17,45,76,.58))!important;border-color:rgba(97,216,255,.24)!important;box-shadow:inset 3px 0 0 rgba(97,216,255,.92),0 8px 22px rgba(0,0,0,.10),inset 0 1px 0 rgba(255,255,255,.035)!important;color:#fff!important}
+      body.admin-auth-server-verified .sidebar #nav button.active .nav-icon,
+      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"] .nav-icon{color:#6fe0ff!important;opacity:1!important}
+      body.admin-auth-server-verified .sidebar #nav button:focus-visible{outline:2px solid rgba(111,224,255,.68)!important;outline-offset:2px!important}
+    }
+    body.admin-auth-server-verified .sidebar #nav button.rona-nav-attention:not(.active):not([aria-current="page"]){padding-right:29px!important;color:#dce7ed!important;border-color:rgba(229,58,70,.10)!important;background:linear-gradient(90deg,rgba(112,18,37,.045),rgba(229,49,70,.065),rgba(112,18,37,.018))!important;background-size:100% 100%!important;box-shadow:inset 2px 0 0 rgba(229,49,70,.32)!important;animation:none!important}
+    body.admin-auth-server-verified .sidebar #nav button.rona-nav-attention:before{top:50%!important;right:11px!important;width:6px!important;height:6px!important;transform:translateY(-50%)!important;background:#ef4255!important;box-shadow:0 0 10px rgba(239,66,85,.50)!important;animation:none!important;opacity:.94!important}
+    body.admin-auth-server-verified .sidebar #nav button.rona-nav-attention.active,
+    body.admin-auth-server-verified .sidebar #nav button.rona-nav-attention[aria-current="page"]{padding-right:29px!important;background:linear-gradient(110deg,rgba(28,86,126,.72),rgba(17,45,76,.58))!important;border-color:rgba(97,216,255,.24)!important;box-shadow:inset 3px 0 0 rgba(97,216,255,.92),0 8px 22px rgba(0,0,0,.10),inset 0 1px 0 rgba(255,255,255,.035)!important;color:#fff!important;animation:none!important}
+    @media(max-width:900px) and (min-width:621px){
+      body.admin-auth-server-verified .sidebar #nav button.active,
+      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"]{background:rgba(35,91,129,.56)!important;border-color:rgba(97,216,255,.22)!important;box-shadow:inset 3px 0 0 rgba(97,216,255,.92)!important}
+      body.admin-auth-server-verified .sidebar #nav button.active .nav-icon,
+      body.admin-auth-server-verified .sidebar #nav button[aria-current="page"] .nav-icon{color:#6fe0ff!important}
+    }
+    @media(prefers-reduced-motion:reduce){
+      body.admin-auth-server-verified .sidebar #nav button,
+      body.admin-auth-server-verified .sidebar #nav .nav-icon{transition:none!important}
+    }
   </style>
 </head>
 <body class="admin-auth-server-verified">
