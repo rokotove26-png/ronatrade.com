@@ -6,6 +6,8 @@ const CANDIDATE_API=`${SUPABASE_URL}/functions/v1/rona-portal-api-candidate-2026
 const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-temp-upload-order-20260816`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
+const IMPERSONATION_COOKIE='rona_admin_imp';
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PREVIEW_SELECTOR='PR431_PREVIEW_HOST_SELECTOR_V2_AUTHORITATIVE';
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
 const EXTERNAL_DOCUMENT_TYPES=new Set(['CONTRACT','КОНТРАКТ','ADDENDUM','SIGNED_ADDENDUM','INVOICE','CLOSING_DOCUMENT']);
@@ -53,6 +55,11 @@ export async function onRequest(context){
   if(!path.startsWith('/')||path.includes('..'))return json({ok:false,code:'ROUTE_NOT_ALLOWED'},404);
   const query=url.search||'';
   const cookies=parseCookies(request.headers.get('cookie'));
+  const targetRoleRoute=/^\/v1\/(client|agent)(\/|$)/.test(path)||path==='/v1/events';
+  const impersonationToken=targetRoleRoute?String(cookies[IMPERSONATION_COOKIE]||'').trim():'';
+  const impersonationTabHeader=String(request.headers.get('x-rona-impersonation-tab')||'').trim();
+  const impersonationTab=impersonationToken&&UUID_RE.test(impersonationTabHeader)?impersonationTabHeader:'';
+  if(impersonationToken&&!impersonationTab)return json({ok:false,code:'IMPERSONATION_TAB_INVALID',returnTo:'/portal/admin'},409);
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
@@ -73,6 +80,12 @@ export async function onRequest(context){
   const forward=async token=>{
     const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});
     for(const name of['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id','x-rona-client-source']){const v=request.headers.get(name);if(v)h.set(name,v)}
+    if(impersonationToken){
+      h.set('x-rona-admin-impersonation-token',impersonationToken);
+      h.set('x-rona-impersonation-tab',impersonationTab);
+      if(!h.has('x-request-id'))h.set('x-request-id',crypto.randomUUID());
+      if(!h.has('x-correlation-id'))h.set('x-correlation-id',crypto.randomUUID());
+    }
     const init={method:request.method,headers:h};
     if(uploadParts){
       h.delete('content-type');
@@ -87,6 +100,7 @@ export async function onRequest(context){
   };
   let response=await forward(access);
   if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;setCookies=tokenCookies(next.data);response=await forward(access)}}
+  if(impersonationToken&&response.status===401)return json({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'},409,setCookies);
   response=await sanitize(path,response);
   const h=secureHeaders(response.headers);
   if(isClientDealDocumentsPath(path)){
