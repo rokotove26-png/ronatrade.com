@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const portal=readFileSync('functions/portal/[[path]].js','utf8');
 const pkg=JSON.parse(readFileSync('package.json','utf8'));
-const runtime=readFileSync('assets/portal-runtime/client-admin-impersonation-return-v1.js','utf8');
+const nativeBinding=readFileSync('scripts/apply-client-impersonation-tab-binding-v1.mjs','utf8');
 
 assert.ok(portal.includes("headers.set('x-rona-client-impersonation-shell','static-unmodified-v1')"),
   'impersonated Client response must expose static-unmodified shell marker');
@@ -14,14 +14,13 @@ assert.ok(!clientBlock.includes("new HeadPrepend(bridge)"),
   'impersonated Client must not use server-side head HTMLRewriter');
 assert.ok(!clientBlock.includes(".on('head'"),
   'impersonated Client must not transform the document head');
-assert.ok(pkg.scripts.build.includes('attach-client-admin-impersonation-return-v1.mjs'),
-  'static Admin-return runtime must be attached during Client build');
+assert.ok(pkg.scripts.build.includes('apply-client-impersonation-tab-binding-v1.mjs'),
+  'native Client impersonation tab binding must remain in the canonical build');
 for(const token of [
-  'RONA_CLIENT_ADMIN_IMPERSONATION_RETURN_V1',
+  'RONA_CLIENT_IMPERSONATION_TAB_BINDING_V1',
   "new URLSearchParams(location.search).get('impSession')",
-  '/portal/admin-authority/impersonation/end',
-  "'x-rona-impersonation-tab':session"
-])assert.ok(runtime.includes(token),'static Client impersonation runtime missing '+token);
-assert.ok(!/RONA-C\d{3}|DEAL-2026-\d{3}/.test(runtime),'static Client impersonation runtime must be entity-generic');
+  "headers.set('x-rona-impersonation-tab',ronaImpersonationTab)",
+  "url.pathname.startsWith('/portal/api/')"
+])assert.ok(nativeBinding.includes(token),'native Client impersonation binding missing '+token);
 
-console.log('CLIENT_IMPERSONATION_STATIC_SHELL=PASS mode=NO_SERVER_HTML_REWRITE return_runtime=STATIC_EXTERNAL');
+console.log('CLIENT_IMPERSONATION_STATIC_SHELL=PASS mode=NO_SERVER_HTML_REWRITE native_tab_binding=CANONICAL_BUILD');
