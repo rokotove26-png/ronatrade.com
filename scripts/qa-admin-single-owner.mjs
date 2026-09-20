@@ -115,11 +115,14 @@ need(has(operations,"const start='function renderAdminHome(){'")&&has(operations
 need(!has(homeCompat,'chunk19.js')&&!has(homeCompat,'operationsCenterV3'),'Retired chunk17 re-enables the broken Operations Center override');
 need(!has(operations,'/portal/client')&&!has(operations,'client-deal-passport')&&!has(operations,'client-section-first-paint'),'Admin Operations Command Center reaches into frozen Client runtime');
 
-need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v11-core-page-recovery'"),'Page-aware watchdog marker is missing');
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
 need(has(watchdog,"if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness contract is missing');
 need(!has(watchdog,'location.reload(')&&!has(watchdog,'location.replace('),'Watchdog still performs destructive navigation/reload');
 need(has(watchdog,"p==='claims'")&&has(watchdog,"p==='agent-settlements'")&&has(watchdog,'rona:admin-module-retry'),'Watchdog does not recover Claims/Rewards in-place');
+need(has(watchdog,"if(p==='applications')return ownerPageReady('applications')")&&has(watchdog,"if(p==='deals')return !!n.querySelector")&&has(watchdog,"if(p==='payments')return ownerPageReady('payments')")&&has(watchdog,"if(p==='accounting')return !!n.querySelector('.rona-cash-r2-root')||ownerPageReady('accounting')"),'Watchdog does not recover core Admin sections');
+need(has(shell,"if(p==='applications')loadModule('applications'")&&has(shell,"if(p==='deals')Promise.allSettled([loadModule('deals'")&&has(shell,"if(p==='accounting')loadModule('cash'")&&has(shell,"window.__RONA_OWNER_ADMIN_REFRESH_TICK__"),'Fast shell does not retry core Admin sections');
+need(has(mainUi,'patchAdminSectionIsolation')&&has(mainUi,"window.__RONA_OWNER_ADMIN_RENDER_PAGE__=renderOwnedAdminPage")&&has(mainUi,"ownerAdminSafeRender('applications',renderApplications)")&&has(mainUi,"ownerAdminSafeRender('payments',renderPayments)"),'Admin main runtime does not isolate section renderer failures');
 need(has(watchdog,"if(p==='market-news')return'market-news-current'")&&has(watchdog,"root.querySelector(':scope > .mn-masthead')")&&has(watchdog,"activateMarketNews('watchdog-content-repair')"),'Watchdog does not repair an emptied current Market News owner');
 need(has(remaining,"__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health-v6'")&&has(remaining,"if(!healthy(root))emitRepair('market-news-owner-guard-v6-content-repair')"),'No-store Market News content-health guard is missing');
 
@@ -165,4 +168,4 @@ console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
 console.log('operations-command-center=v6-color-network-indicators; baseline=v5-operational-automation; visual=flightdeck-v5-full-rebuild');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
-console.log('watchdog=page-aware-v10-radio-payments-heading/non-destructive');
+console.log('watchdog=page-aware-v11-core-page-recovery/non-destructive');
