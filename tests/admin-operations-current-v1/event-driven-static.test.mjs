@@ -35,7 +35,7 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3/V8.4 baselines under V8.5 effective KPI',()=>{
+test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3/V8.4/V8.5 baselines under V8.6 canonical controls',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -43,8 +43,11 @@ test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3/V8.4 baselines under V8.5 effecti
   const v83=read('functions/portal/admin-operations-command-center-v8-3.js');
   const v84=read('functions/portal/admin-operations-command-center-v8-4.js');
   const v85=read('functions/portal/admin-operations-command-center-v8-5.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV85/);
-  assert.match(main,/admin-operations-command-center-v8-5\.js/);
+  const v86=read('functions/portal/admin-operations-command-center-v8-6.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV86/);
+  assert.match(main,/admin-operations-command-center-v8-6\.js/);
+  assert.match(v86,/patchAdminOperationsCommandCenterV85 as patchV85/);
+  assert.match(v86,/let patched=patchV85\(script\)/);
   assert.match(v85,/patchAdminOperationsCommandCenterV84 as patchV84/);
   assert.match(v85,/let patched=patchV84\(script\)/);
   assert.match(v84,/patchAdminOperationsCommandCenterV83 as patchV83/);
@@ -197,4 +200,20 @@ test('V8.5 action KPIs include automation-health rows visible in the exception q
   assert.match(v85,/effectiveCriticalCount\?'red':'green'/);
   assert.match(v85,/OPERATIONS_EFFECTIVE_KPI_V1/);
   assert.match(v85,/ADMIN_OPERATIONS_V85_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.6 Finance and Rail controls use Deals Current V4 canonical semantics',()=>{
+  const v86=read('functions/portal/admin-operations-command-center-v8-6.js');
+  assert.match(v86,/financeCurrentKnown=!!\(currentDealSnapshot&&Array\.isArray\(currentDealSnapshot\.deals\)\)/);
+  assert.match(v86,/currentDueDeals=.*Number\(x\?\.due_now\|\|0\)>0/);
+  assert.match(v86,/railGu12Count=.*gu12_count/);
+  assert.match(v86,/railTrustedCount=.*trusted_wagon_count/);
+  assert.match(v86,/railVerifyCount=.*unresolved_or_conflict_count/);
+  assert.match(v86,/gauge\('FIN-05','Платежи на контроле',financeCurrentKnown\?currentDueCount/);
+  assert.match(v86,/gauge\('RAIL-04','Вагоны на контроле',railCurrentKnown\?railControlCount/);
+  assert.match(v86,/String\(railGu12Count\)\+' ГУ-12/);
+  assert.match(v86,/Finance V8 · к оплате сейчас:/);
+  assert.match(v86,/OPERATIONS_CANONICAL_CONTROLS_V1/);
+  assert.match(v86,/ADMIN_OPERATIONS_V86_POLLING_FORBIDDEN/);
 });
