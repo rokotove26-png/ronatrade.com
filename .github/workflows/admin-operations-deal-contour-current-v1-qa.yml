@@ -1,0 +1,73 @@
+name: Admin Operations current deal contour QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-operations-command-center-v6.js'
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'tests/admin-operations-center-v6-color-network.test.mjs'
+      - 'tests/admin-operations-center-v5-production.test.mjs'
+      - '.github/workflows/admin-operations-deal-contour-current-v1-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-operations-command-center-v6.js'
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'tests/admin-operations-center-v6-color-network.test.mjs'
+      - 'tests/admin-operations-center-v5-production.test.mjs'
+      - '.github/workflows/admin-operations-deal-contour-current-v1-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  current-deal-contour:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          set -euo pipefail
+          node --check functions/portal/admin-operations-command-center-v6.js
+          node --check functions/portal/deals-current-state-ui.js
+          node --check tests/admin-operations-center-v6-color-network.test.mjs
+          node --check tests/admin-operations-center-v5-production.test.mjs
+      - name: Authoritative contour unit contract
+        run: |
+          set -euo pipefail
+          node --test tests/admin-operations-center-v6-color-network.test.mjs tests/admin-operations-center-v5-production.test.mjs
+      - name: Generated runtime contract
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {onRequest as mainUi} from './functions/portal/admin-main-ui-current.js';
+          import {onRequest as dealsUi} from './functions/portal/deals-current-state-ui.js';
+          const mainResponse=await mainUi();
+          const main=await mainResponse.text();
+          new Function(main);
+          assert.match(main,/v1-authoritative-deals-snapshot/);
+          assert.match(main,/deriveOperationsDealCurrentRows\(Array\.isArray\(d\.deals\)\?d\.deals:\[\],window\.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__\)/);
+          assert.match(main,/rona:deals-current-state/);
+          const dealsResponse=await dealsUi();
+          const deals=await dealsResponse.text();
+          new Function(deals);
+          assert.equal(dealsResponse.headers.get('x-rona-deals-event'),'operations-current-state-v1');
+          assert.match(deals,/window\.dispatchEvent\(new CustomEvent\('rona:deals-current-state'/);
+          console.log('ADMIN_OPERATIONS_CURRENT_DEAL_CONTOUR=PASS');
+          NODE
+      - name: Scope guard
+        if: github.event_name == 'pull_request'
+        run: |
+          set -euo pipefail
+          git diff --name-only origin/${{ github.base_ref }}...HEAD | tee /tmp/changed.txt
+          if grep -E '^(supabase/|.*\.sql$|functions/portal/owner-api\.js$)' /tmp/changed.txt; then
+            echo 'Backend or database mutation is outside this read-model correction.'
+            exit 1
+          fi
