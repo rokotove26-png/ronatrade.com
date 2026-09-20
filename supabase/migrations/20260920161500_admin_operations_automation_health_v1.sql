@@ -137,14 +137,33 @@ $function$;
 revoke all on function portal_private.rona_admin_cron_health_transition_v1()
 from public,anon,authenticated;
 
-drop trigger if exists rona_admin_cron_health_transition_v1
-on cron.job_run_details;
-
-create trigger rona_admin_cron_health_transition_v1
-after update of status on cron.job_run_details
-for each row
-when (old.status is distinct from new.status)
-execute function portal_private.rona_admin_cron_health_transition_v1();
+do $
+begin
+  if not exists (
+    select 1
+    from pg_trigger t
+    join pg_class c on c.oid=t.tgrelid
+    join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='cron'
+      and c.relname='job_run_details'
+      and t.tgname='rona_admin_cron_health_transition_v1'
+      and not t.tgisinternal
+  ) then
+    begin
+      execute $ddl$
+        create trigger rona_admin_cron_health_transition_v1
+        after update of status on cron.job_run_details
+        for each row
+        when (old.status is distinct from new.status)
+        execute function portal_private.rona_admin_cron_health_transition_v1()
+      $ddl$;
+    exception
+      when insufficient_privilege then
+        raise notice 'pg_cron relation ownership prevents transition trigger; local stale-deadline health remains active';
+    end;
+  end if;
+end
+$;
 
 do $$
 declare
