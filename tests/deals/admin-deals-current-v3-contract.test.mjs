@@ -31,5 +31,7 @@ test('Deals UI reads V3 and preserves readiness GO gate',()=>{
   assert.match(ui,/route_resolution_state/);
   assert.match(ui,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/);
   assert.match(ui,/send\.disabled=overall\(d\)!=='GO'/);
+  assert.match(ui,/finance_projection_version\|\|''\)\.toUpperCase\(\)==='FINANCE_V8'/);
+  assert.match(ui,/inFinance\?'В платежном контуре'/);
   assert.doesNotMatch(ui,/DEAL-2026-/);
 });
