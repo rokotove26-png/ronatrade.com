@@ -8,6 +8,93 @@ let ronaOpsV10Snapshot=null,ronaOpsV10Error=null,ronaOpsV10Promise=null,ronaOpsV
 function ronaOpsV10HomeVisible(){try{const p=page('home');return !!p&&getComputedStyle(p).display!=='none'}catch(_){return false}}
 function ronaOpsV10Ready(s=ronaOpsV10Snapshot){return !!s&&s.version==='OPERATIONS_CURRENT_V2'&&String(s?.readiness?.state||'').toUpperCase()==='READY'}
 function ronaOpsV10Num(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function ronaOpsV10Fingerprint(row,snap=ronaOpsV10Snapshot){
+  const id=String(row?.id||''),dealId=String(row?.dealId||'');
+  const deal=Array.isArray(snap?.deals)?snap.deals.find(x=>String(x?.dealId||'')===dealId):null;
+  return JSON.stringify([
+    'v1',id,String(row?.kind||''),String(row?.severity||''),String(row?.title||''),String(row?.meta||''),String(row?.target||''),dealId,String(row?.applicationId||''),
+    deal?Number(deal?.dueNow||0):null,deal?Number(deal?.verificationWagons||0):null,deal?Number(deal?.uncheckedDocuments||0):null,deal?String(deal?.nextAction||''):null
+  ]);
+}
+let ronaOpsV10SeenMap=new Map(),ronaOpsV10SeenReady=false,ronaOpsV10SeenError=null;
+function ronaOpsV10ApplySeen(data){
+  const rows=Array.isArray(data?.seen)?data.seen:[];
+  ronaOpsV10SeenMap=new Map(rows.map(x=>[String(x?.id||''),String(x?.fingerprint||'')]).filter(x=>x[0]));
+  ronaOpsV10SeenReady=true;ronaOpsV10SeenError=null;
+  window.__RONA_ADMIN_OPERATIONS_ATTENTION_SEEN__={ready:true,count:ronaOpsV10SeenMap.size,at:Date.now()};
+}
+function ronaOpsV10Unseen(actions,snap=ronaOpsV10Snapshot){
+  if(!ronaOpsV10SeenReady)return null;
+  return (Array.isArray(actions)?actions:[]).filter(row=>ronaOpsV10SeenMap.get(String(row?.id||''))!==ronaOpsV10Fingerprint(row,snap));
+}
+async function ronaOpsV10LoadSeen(signal){
+  try{
+    const seen=await call('/admin/operations-attention-seen-v1',signal?{signal}:{});
+    ronaOpsV10ApplySeen(seen||{});
+    return seen;
+  }catch(err){
+    ronaOpsV10SeenReady=false;
+    ronaOpsV10SeenError=String(err?.code||err?.message||err);
+    window.__RONA_ADMIN_OPERATIONS_ATTENTION_SEEN__={ready:false,error:ronaOpsV10SeenError,at:Date.now()};
+    return null;
+  }
+}
+async function ronaOpsV10Ack(actions,snap=ronaOpsV10Snapshot){
+  const items=(Array.isArray(actions)?actions:[]).map(row=>({id:String(row?.id||''),fingerprint:ronaOpsV10Fingerprint(row,snap)})).filter(x=>x.id);
+  if(!items.length){ronaOpsV10ApplySeen({seen:[]});return{acknowledged:0}}
+  const result=await post('/admin/operations-attention-ack-v1',{items});
+  for(const item of items)ronaOpsV10SeenMap.set(item.id,item.fingerprint);
+  ronaOpsV10SeenReady=true;ronaOpsV10SeenError=null;
+  window.__RONA_ADMIN_OPERATIONS_ATTENTION_SEEN__={ready:true,count:ronaOpsV10SeenMap.size,at:Date.now(),acknowledged:Number(result?.acknowledged||items.length)};
+  if(ronaOpsV10HomeVisible())renderAdminHome();
+  return result;
+}
+async function ronaOpsV10OpenAttention(){
+  const snap=window.__RONA_ADMIN_OPERATIONS_CURRENT_V2__||ronaOpsV10Snapshot,ready=ronaOpsV10Ready(snap),actions=ready&&Array.isArray(snap?.actions)?snap.actions:[];
+  document.querySelector('#ronaOpsV10AttentionDetail')?.remove();
+  const layer=e('div',{id:'ronaOpsV10AttentionDetail',role:'dialog','aria-modal':'true','aria-label':'Требует внимания'});
+  layer.style.cssText='position:fixed;inset:0;z-index:2147483643;background:rgba(2,7,17,.78);backdrop-filter:blur(4px);display:grid;place-items:center;padding:20px';
+  const panel=e('section',{});
+  panel.style.cssText='width:min(860px,100%);max-height:84vh;overflow:auto;border:1px solid rgba(255,209,106,.28);border-radius:14px;background:linear-gradient(160deg,#071521,#04101a);color:#edfaff;box-shadow:0 30px 90px rgba(0,0,0,.55);padding:18px';
+  const head=e('div',{});head.style.cssText='display:flex;align-items:flex-start;justify-content:space-between;gap:16px';
+  const identity=e('div',{});
+  const unseenBefore=ronaOpsV10Unseen(actions,snap);
+  const summary=e('div',{text:ready?('Открыто: '+actions.length+' · непросмотрено: '+(unseenBefore===null?'—':unseenBefore.length)):'Источник данных не готов'});
+  summary.style.cssText='margin-top:6px;font-size:12px;color:rgba(211,232,243,.68)';
+  identity.append(e('div',{text:'ОПЕРАЦИОННЫЕ ДЕЙСТВИЯ'}),e('h3',{text:'Требует внимания'}),summary);
+  const close=e('button',{type:'button',text:'Закрыть',onclick:()=>layer.remove()});
+  close.style.cssText='padding:8px 12px;border:1px solid rgba(110,231,255,.22);border-radius:8px;background:rgba(110,231,255,.04);color:inherit;cursor:pointer';
+  head.append(identity,close);panel.append(head);
+  const list=e('div',{});list.style.cssText='display:grid;gap:8px;margin-top:16px';
+  if(!ready){
+    const msg=e('div',{text:'Operations Current V2 ещё не готов.'});msg.style.cssText='padding:14px;border:1px solid rgba(255,209,106,.16);border-radius:9px';list.append(msg);
+  }else if(!actions.length){
+    const msg=e('div',{text:'Открытых элементов, требующих внимания, нет.'});msg.style.cssText='padding:14px;border:1px solid rgba(103,240,181,.16);border-radius:9px';list.append(msg);
+  }else{
+    for(const row of actions){
+      const item=e('div',{});item.style.cssText='display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border:1px solid rgba(110,231,255,.10);border-radius:9px;background:rgba(255,255,255,.018)';
+      const lamp=e('span',{});lamp.style.cssText='width:8px;height:8px;border-radius:50%;background:'+(String(row?.severity||'').toUpperCase()==='CRITICAL'?'#ff6f86':'#ffd16a')+';box-shadow:0 0 12px currentColor';
+      const info=e('div',{});
+      info.append(e('div',{text:String(row?.title||'Требуется действие')}),e('div',{text:String(row?.meta||'')}));
+      info.lastChild.style.cssText='margin-top:3px;font-size:11px;color:rgba(205,226,238,.62)';
+      const open=e('button',{type:'button',text:'Открыть',onclick:()=>{layer.remove();ronaOpsV10Open(row)}});
+      open.style.cssText='padding:7px 10px;border:1px solid rgba(110,231,255,.20);border-radius:7px;background:rgba(110,231,255,.04);color:inherit;cursor:pointer';
+      item.append(lamp,info,open);list.append(item);
+    }
+  }
+  panel.append(list);layer.append(panel);
+  layer.addEventListener('click',ev=>{if(ev.target===layer)layer.remove()});
+  const esc=ev=>{if(ev.key==='Escape'){layer.remove();document.removeEventListener('keydown',esc,true)}};document.addEventListener('keydown',esc,true);
+  document.body.append(layer);close.focus();
+  if(ready&&actions.length){
+    try{
+      await ronaOpsV10Ack(actions,snap);
+      summary.textContent='Открыто: '+actions.length+' · непросмотрено: 0';
+    }catch(err){
+      summary.textContent='Открыто: '+actions.length+' · не удалось сохранить просмотр';
+    }
+  }
+}
 function ronaOpsV10Open(row){
   const target=String(row?.target||'home'),dealId=String(row?.dealId||''),applicationId=String(row?.applicationId||'');
   if(target==='payments'){
