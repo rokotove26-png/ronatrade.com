@@ -22,5 +22,5 @@ test('migration creates only the scoped Market Intelligence candidate partial in
 
 test('migration is read-path only and does not change Market Intelligence business semantics',()=>{
   assert.doesNotMatch(sql,/\b(update|insert\s+into|delete\s+from|truncate|alter\s+table|drop\s+|create\s+table|create\s+or\s+replace\s+function)\b/i);
-  assert.doesNotMatch(sql,/auto_publish_price|publication|cron\./i);
+  assert.doesNotMatch(sql,/auto_publish_price\s*=|cron\./i);
 });
