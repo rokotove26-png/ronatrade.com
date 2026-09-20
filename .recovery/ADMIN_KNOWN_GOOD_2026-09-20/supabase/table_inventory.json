@@ -1,0 +1,1238 @@
+[
+  {
+    "name": "auth.users",
+    "rls_enabled": true,
+    "rows": 188,
+    "comment": "Auth: Stores user login data within a secure schema."
+  },
+  {
+    "name": "auth.refresh_tokens",
+    "rls_enabled": true,
+    "rows": 978,
+    "comment": "Auth: Store of tokens used to refresh JWT tokens once they expire."
+  },
+  {
+    "name": "auth.instances",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Auth: Manages users across multiple sites."
+  },
+  {
+    "name": "auth.audit_log_entries",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Auth: Audit trail for user actions."
+  },
+  {
+    "name": "auth.schema_migrations",
+    "rls_enabled": true,
+    "rows": 82,
+    "comment": "Auth: Manages updates to the auth system."
+  },
+  {
+    "name": "auth.identities",
+    "rls_enabled": true,
+    "rows": 187,
+    "comment": "Auth: Stores identities associated to a user."
+  },
+  {
+    "name": "auth.sessions",
+    "rls_enabled": true,
+    "rows": 459,
+    "comment": "Auth: Stores session data associated to a user."
+  },
+  {
+    "name": "auth.mfa_factors",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "auth: stores metadata about factors"
+  },
+  {
+    "name": "auth.mfa_challenges",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "auth: stores metadata about challenge requests made"
+  },
+  {
+    "name": "auth.mfa_amr_claims",
+    "rls_enabled": true,
+    "rows": 458,
+    "comment": "auth: stores authenticator method reference claims for multi factor authentication"
+  },
+  {
+    "name": "auth.sso_providers",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Auth: Manages SSO identity provider information; see saml_providers for SAML."
+  },
+  {
+    "name": "auth.sso_domains",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Auth: Manages SSO email address domain mapping to an SSO Identity Provider."
+  },
+  {
+    "name": "auth.saml_providers",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Auth: Manages SAML Identity Provider connections."
+  },
+  {
+    "name": "auth.saml_relay_states",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Auth: Contains SAML Relay State information for each Service Provider initiated login."
+  },
+  {
+    "name": "auth.flow_state",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Stores metadata for all OAuth/SSO login flows"
+  },
+  {
+    "name": "auth.one_time_tokens",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "auth.oauth_clients",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.oauth_authorizations",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.oauth_consents",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.oauth_client_states",
+    "rls_enabled": false,
+    "rows": 0,
+    "comment": "Stores OAuth states for third-party provider authentication flows where Supabase acts as the OAuth client."
+  },
+  {
+    "name": "auth.custom_oauth_providers",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.webauthn_credentials",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.webauthn_challenges",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "storage.migrations",
+    "rls_enabled": true,
+    "rows": 68
+  },
+  {
+    "name": "storage.buckets",
+    "rls_enabled": true,
+    "rows": 2
+  },
+  {
+    "name": "storage.objects",
+    "rls_enabled": true,
+    "rows": 1442
+  },
+  {
+    "name": "storage.s3_multipart_uploads",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "storage.s3_multipart_uploads_parts",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "storage.buckets_analytics",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "storage.buckets_vectors",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "storage.vector_indexes",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "public.rona_market_news",
+    "rls_enabled": true,
+    "rows": 472
+  },
+  {
+    "name": "public.rona_market_news_sync_state",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "public.rona_mail_messages",
+    "rls_enabled": true,
+    "rows": 524,
+    "comment": "RONA Trade server-side mail mirror. No anon/authenticated access; service_role only."
+  },
+  {
+    "name": "public.rona_mail_sync_state",
+    "rls_enabled": true,
+    "rows": 6,
+    "comment": "IMAP synchronization cursor/state for RONA Trade mail bridge."
+  },
+  {
+    "name": "public.rona_mail_outbox",
+    "rls_enabled": true,
+    "rows": 422,
+    "comment": "Server-side SMTP outbox for RONA Trade mail bridge. Messages are sent by the bridge worker."
+  },
+  {
+    "name": "public.rona_correspondence_register",
+    "rls_enabled": true,
+    "rows": 79
+  },
+  {
+    "name": "portal_private.portal_users",
+    "rls_enabled": true,
+    "rows": 189,
+    "comment": "Portal identity profile. auth_user_id remains nullable until a later Auth gate."
+  },
+  {
+    "name": "portal_private.portal_user_roles",
+    "rls_enabled": true,
+    "rows": 197,
+    "comment": "Server-authoritative role assignments; JWT/frontend claims are not the authority."
+  },
+  {
+    "name": "portal_private.portal_sessions_control",
+    "rls_enabled": true,
+    "rows": 1,
+    "comment": "Server-side revoke/block foundation; does not store passwords."
+  },
+  {
+    "name": "portal_private.clients",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.contracts",
+    "rls_enabled": true,
+    "rows": 8
+  },
+  {
+    "name": "portal_private.contract_external_references",
+    "rls_enabled": true,
+    "rows": 10,
+    "comment": "Append-preserving external contract references. Historical/payment references are never silently rewritten."
+  },
+  {
+    "name": "portal_private.deals",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.client_user_bindings",
+    "rls_enabled": true,
+    "rows": 132,
+    "comment": "Fail-closed User to Client to Contract authorization bindings. No binding means no access."
+  },
+  {
+    "name": "portal_private.client_user_deal_grants",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Optional explicit Deal-level restriction; Deal scope is normalized, never stored as an ID array."
+  },
+  {
+    "name": "portal_private.agent_persons",
+    "rls_enabled": true,
+    "rows": 2,
+    "comment": "Agent natural person authority. Never merged with the agent legal entity."
+  },
+  {
+    "name": "portal_private.agent_legal_entities",
+    "rls_enabled": true,
+    "rows": 2,
+    "comment": "Agent legal entity authority. Separate from natural-person identity."
+  },
+  {
+    "name": "portal_private.agent_user_bindings",
+    "rls_enabled": true,
+    "rows": 12
+  },
+  {
+    "name": "portal_private.agent_client_assignments",
+    "rls_enabled": true,
+    "rows": 18,
+    "comment": "Agent business assignment independent of Portal login: Agent Person + Agent Legal Entity -> Client."
+  },
+  {
+    "name": "portal_private.agent_deal_terms",
+    "rls_enabled": true,
+    "rows": 4,
+    "comment": "Server-authoritative commercial term scope for an assigned agent and Deal."
+  },
+  {
+    "name": "portal_private.documents",
+    "rls_enabled": true,
+    "rows": 53
+  },
+  {
+    "name": "portal_private.document_versions",
+    "rls_enabled": true,
+    "rows": 56,
+    "comment": "Versioned signed-document metadata. Hash/path/version/source fields are immutable after insert; only authority/current/effective lineage state may advance."
+  },
+  {
+    "name": "portal_private.payments",
+    "rls_enabled": true,
+    "rows": 27
+  },
+  {
+    "name": "portal_private.payment_references",
+    "rls_enabled": true,
+    "rows": 3,
+    "comment": "Append-preserved bank/contract/invoice/historical payment references."
+  },
+  {
+    "name": "portal_private.payment_allocations",
+    "rls_enabled": true,
+    "rows": 23
+  },
+  {
+    "name": "portal_private.shipments",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.rail_documents",
+    "rls_enabled": true,
+    "rows": 3,
+    "comment": "Rail document may exist without an authoritative Shipment; no automatic Shipment creation is implied."
+  },
+  {
+    "name": "portal_private.rail_wagons",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Client exposure must traverse an authoritative Shipment to Deal scope; unscoped rail records remain server-only."
+  },
+  {
+    "name": "portal_private.client_applications",
+    "rls_enabled": true,
+    "rows": 6,
+    "comment": "Application authority. Submission/acceptance never auto-creates a Deal; linked_deal_key is populated only after explicit Deal registration."
+  },
+  {
+    "name": "portal_private.publications",
+    "rls_enabled": true,
+    "rows": 1171
+  },
+  {
+    "name": "portal_private.publication_items",
+    "rls_enabled": true,
+    "rows": 6057
+  },
+  {
+    "name": "portal_private.news_reads",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Server-authoritative read state; unread is not sourced from browser localStorage."
+  },
+  {
+    "name": "portal_private.agent_settlements",
+    "rls_enabled": true,
+    "rows": 4,
+    "comment": "Settlement authority separates projected, verified, approved, payable-confirmed and paid states."
+  },
+  {
+    "name": "portal_private.agent_settlement_events",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Append-only settlement state evidence trail."
+  },
+  {
+    "name": "portal_private.import_batches",
+    "rls_enabled": true,
+    "rows": 1163,
+    "comment": "Idempotent, traceable canonical import batch authority. Phase 3 creates foundation only; no production canonical rows are imported."
+  },
+  {
+    "name": "portal_private.source_objects",
+    "rls_enabled": true,
+    "rows": 1660,
+    "comment": "Immutable source-object snapshot and provenance record."
+  },
+  {
+    "name": "portal_private.import_errors",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.audit_events",
+    "rls_enabled": true,
+    "rows": 2116,
+    "comment": "Append-only server audit trail; ordinary Admin workflows must never update or delete audit history."
+  },
+  {
+    "name": "portal_private.rail_monitoring_targets",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Server-only Movizor monitoring registry. A wagon may be monitored only after authoritative Wagon -> Shipment -> Deal -> Client binding; no cron is activated by this migration."
+  },
+  {
+    "name": "portal_private.rail_provider_sync_attempts",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.rail_provider_raw_responses",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Immutable raw provider response layer. Credentials and API keys must never be stored in request_metadata or payload columns."
+  },
+  {
+    "name": "portal_private.rail_movement_events",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Normalized RONA Rail movement events from MOVIZOR. These events never overwrite authoritative route, Shipment, Deal, Client, GU-12 or SMGS master-data."
+  },
+  {
+    "name": "portal_private.rail_authority_conflicts",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Provider/master-data conflicts are recorded as TO_VERIFY/HOLD and require reconciliation; silent overwrite is prohibited."
+  },
+  {
+    "name": "portal_private.storage_objects",
+    "rls_enabled": true,
+    "rows": 40,
+    "comment": "Server-authoritative metadata for the private rona-portal-private bucket. Browser users never receive direct table authority; object delivery is via server-authorized short-lived signed URLs."
+  },
+  {
+    "name": "portal_private.storage_access_events",
+    "rls_enabled": true,
+    "rows": 27,
+    "comment": "Append-only audit of Portal storage authorization and delivery actions."
+  },
+  {
+    "name": "portal_private.portal_api_request_events",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Append-only server API audit. Authorization tokens and provider secrets must never be written to metadata."
+  },
+  {
+    "name": "portal_private.rail_provider_runtime_control",
+    "rls_enabled": true,
+    "rows": 1,
+    "comment": "Fail-closed Movizor runtime gate. Credentials themselves are never stored here; only server-managed readiness state. Default is DISABLED."
+  },
+  {
+    "name": "public.rona_accounting_mail_attachment_outbox",
+    "rls_enabled": true,
+    "rows": 3
+  },
+  {
+    "name": "portal_private.agent_user_relation_control",
+    "rls_enabled": true,
+    "rows": 2,
+    "comment": "Server-only pre-auth/source relation state. NULL portal_user_id and NOT ESTABLISHED/TO_VERIFY are valid and grant no Portal access."
+  },
+  {
+    "name": "portal_private.portal_reverse_events",
+    "rls_enabled": true,
+    "rows": 16,
+    "comment": "Phase 5C server-side reverse Portal event inbox. Frontend actions become auditable requests and never mutate canonical authority fields directly."
+  },
+  {
+    "name": "portal_private.portal_reverse_event_attempts",
+    "rls_enabled": true,
+    "rows": 10,
+    "comment": "Append-only processing/retry history for reverse Portal events."
+  },
+  {
+    "name": "portal_private.staff_user_roles",
+    "rls_enabled": true,
+    "rows": 7
+  },
+  {
+    "name": "portal_private.staff_role_domain_permissions",
+    "rls_enabled": true,
+    "rows": 104
+  },
+  {
+    "name": "portal_private.staff_tasks",
+    "rls_enabled": true,
+    "rows": 24
+  },
+  {
+    "name": "portal_private.staff_task_history",
+    "rls_enabled": true,
+    "rows": 47
+  },
+  {
+    "name": "portal_private.staff_task_messages",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.staff_task_attachments",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.canonical_deltas",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.canonical_delta_events",
+    "rls_enabled": true,
+    "rows": 5
+  },
+  {
+    "name": "portal_private.application_id_counters",
+    "rls_enabled": true,
+    "rows": 5
+  },
+  {
+    "name": "portal_private.deal_id_counters",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.application_lines",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.deal_registrations",
+    "rls_enabled": true,
+    "rows": 9
+  },
+  {
+    "name": "portal_private.supplier_requests",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.supplier_responses",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.resource_decisions",
+    "rls_enabled": true,
+    "rows": 3
+  },
+  {
+    "name": "portal_private.publication_client_targets",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.ai_service_identities",
+    "rls_enabled": true,
+    "rows": 7
+  },
+  {
+    "name": "portal_private.ai_read_access_events",
+    "rls_enabled": true,
+    "rows": 5112
+  },
+  {
+    "name": "portal_private.mcp_gateway_config",
+    "rls_enabled": true,
+    "rows": 12,
+    "comment": "STEP 2B-1D role-bound remote MCP gateway config. Role is server-side and cannot be selected by tool arguments."
+  },
+  {
+    "name": "portal_private.mcp_gateway_owner_allowlist",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.mcp_oauth_clients",
+    "rls_enabled": true,
+    "rows": 34
+  },
+  {
+    "name": "portal_private.mcp_oauth_authorization_requests",
+    "rls_enabled": true,
+    "rows": 78
+  },
+  {
+    "name": "portal_private.mcp_oauth_authorization_codes",
+    "rls_enabled": true,
+    "rows": 28
+  },
+  {
+    "name": "portal_private.mcp_oauth_tokens",
+    "rls_enabled": true,
+    "rows": 3617
+  },
+  {
+    "name": "portal_private.mcp_gateway_request_events",
+    "rls_enabled": true,
+    "rows": 6721,
+    "comment": "Append-only MCP transport audit correlated with portal_private.ai_read_access_events by backend_request_id/correlation_id."
+  },
+  {
+    "name": "portal_private.mcp_oauth_authorize_trace",
+    "rls_enabled": true,
+    "rows": 36083
+  },
+  {
+    "name": "portal_private.ai_coordination_records",
+    "rls_enabled": true,
+    "rows": 1073
+  },
+  {
+    "name": "portal_private.ai_coordination_audit_events",
+    "rls_enabled": true,
+    "rows": 1373
+  },
+  {
+    "name": "portal_private.phase2b2_qa_guard",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.client_user_binding_profiles",
+    "rls_enabled": true,
+    "rows": 2,
+    "comment": "Administrator-controlled non-authoritative display/contact metadata for client access bindings. Access itself remains governed by client_user_bindings, portal_user_roles and server signed-contract gates."
+  },
+  {
+    "name": "portal_private.client_user_pending_company_bindings",
+    "rls_enabled": true,
+    "rows": 1,
+    "comment": "Administrator-created Client Portal company association pending a confirmed signed contract; grants no client data access by itself."
+  },
+  {
+    "name": "portal_private.owner_application_workflow",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.owner_deal_workflow",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.owner_payment_plan",
+    "rls_enabled": true,
+    "rows": 16
+  },
+  {
+    "name": "portal_private.owner_cash_snapshots",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.owner_radio_items",
+    "rls_enabled": true,
+    "rows": 4
+  },
+  {
+    "name": "portal_private.owner_price_snapshots",
+    "rls_enabled": true,
+    "rows": 221
+  },
+  {
+    "name": "portal_private.owner_deal_documents",
+    "rls_enabled": true,
+    "rows": 29
+  },
+  {
+    "name": "portal_private.ai_runtime_control",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.ai_runtime_queue",
+    "rls_enabled": true,
+    "rows": 6284
+  },
+  {
+    "name": "portal_private.ai_runtime_runs",
+    "rls_enabled": true,
+    "rows": 9169
+  },
+  {
+    "name": "portal_private.owner_rail_tariff_matrix",
+    "rls_enabled": true,
+    "rows": 9
+  },
+  {
+    "name": "portal_private.owner_agent_display_policies",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.voice_gateway_control",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.voice_calls",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.voice_call_events",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.voice_outbound_requests",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.canonical_prospect_exclusions",
+    "rls_enabled": true,
+    "rows": 12
+  },
+  {
+    "name": "portal_private.canonical_prospects",
+    "rls_enabled": true,
+    "rows": 82
+  },
+  {
+    "name": "portal_private.canonical_prospect_enrichment",
+    "rls_enabled": true,
+    "rows": 28
+  },
+  {
+    "name": "portal_private.ai_model_executor_control",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.ai_model_executor_runs",
+    "rls_enabled": true,
+    "rows": 5456
+  },
+  {
+    "name": "portal_private.owner_outgoing_payment_facts",
+    "rls_enabled": true,
+    "rows": 8
+  },
+  {
+    "name": "portal_private.owner_deal_finance_summary",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.telegram_market_channels",
+    "rls_enabled": true,
+    "rows": 3
+  },
+  {
+    "name": "portal_private.telegram_market_documents",
+    "rls_enabled": true,
+    "rows": 3057,
+    "comment": "Read-only Telegram market-source archive for Commercial Director analytics. Original files remain private and are never client-published by this table."
+  },
+  {
+    "name": "portal_private.telegram_market_ingest_runs",
+    "rls_enabled": true,
+    "rows": 1320
+  },
+  {
+    "name": "portal_private.owner_canonical_document_standards",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.owner_canonical_document_assets",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.public_market_news_ingest_runs",
+    "rls_enabled": true,
+    "rows": 2237
+  },
+  {
+    "name": "portal_private.owner_claims",
+    "rls_enabled": true,
+    "rows": 0,
+    "comment": "Authoritative Admin Portal claims registry. Legal AI analysis is carried through immutable ai_coordination_records; authoritative claim status remains ADMIN-controlled."
+  },
+  {
+    "name": "portal_private.owner_price_list_controls",
+    "rls_enabled": true,
+    "rows": 11
+  },
+  {
+    "name": "portal_private.owner_agent_commercial_proposals",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.owner_price_change_proposals",
+    "rls_enabled": true,
+    "rows": 12,
+    "comment": "Operations-originated price change proposals. No external price changes until the Admin owner applies the proposal."
+  },
+  {
+    "name": "portal_private.market_news_source_refs",
+    "rls_enabled": true,
+    "rows": 847
+  },
+  {
+    "name": "portal_private.market_news_versions",
+    "rls_enabled": true,
+    "rows": 1145
+  },
+  {
+    "name": "portal_private.commercial_director_market_news_control",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.commercial_director_market_news_runs",
+    "rls_enabled": true,
+    "rows": 9503
+  },
+  {
+    "name": "portal_private.commercial_director_market_news_processed_sources",
+    "rls_enabled": true,
+    "rows": 2738
+  },
+  {
+    "name": "portal_private.market_intelligence_source_documents",
+    "rls_enabled": true,
+    "rows": 43
+  },
+  {
+    "name": "portal_private.market_intelligence_facts",
+    "rls_enabled": true,
+    "rows": 327
+  },
+  {
+    "name": "portal_private.market_intelligence_rules",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.market_intelligence_forecast_snapshots",
+    "rls_enabled": true,
+    "rows": 12
+  },
+  {
+    "name": "portal_private.market_intelligence_control",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.market_intelligence_runs",
+    "rls_enabled": true,
+    "rows": 669
+  },
+  {
+    "name": "portal_private.market_intelligence_processed_sources",
+    "rls_enabled": true,
+    "rows": 2
+  },
+  {
+    "name": "portal_private.market_intelligence_source_processor_control",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.market_intelligence_source_processor_runs",
+    "rls_enabled": true,
+    "rows": 2105
+  },
+  {
+    "name": "portal_private.market_intelligence_watchdog_state",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.market_intelligence_watchdog_events",
+    "rls_enabled": true,
+    "rows": 1298
+  },
+  {
+    "name": "portal_private.owner_pricing_governance_rules",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.counterparty_document_sequences",
+    "rls_enabled": true,
+    "rows": 2
+  },
+  {
+    "name": "portal_private.payment_allocation_authority_history_v1",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.payment_business_attributions_v7",
+    "rls_enabled": true,
+    "rows": 24
+  },
+  {
+    "name": "portal_private.owner_payment_decision_audit_v7",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.deal_finance_authority_v7",
+    "rls_enabled": true,
+    "rows": 32
+  },
+  {
+    "name": "portal_private.admin_payments_v7_provider_readiness",
+    "rls_enabled": true,
+    "rows": 2,
+    "comment": "Infrastructure activation/readiness state for optional Admin Payments V7 providers. This is not a Deal or Payment lifecycle state."
+  },
+  {
+    "name": "portal_private.ai_role_state_checkpoints_v2",
+    "rls_enabled": true,
+    "rows": 7
+  },
+  {
+    "name": "portal_private.ai_role_state_history_v2",
+    "rls_enabled": true,
+    "rows": 5628
+  },
+  {
+    "name": "portal_private.finance_events_v7",
+    "rls_enabled": true,
+    "rows": 53
+  },
+  {
+    "name": "portal_private.payment_resource_chains_v7",
+    "rls_enabled": true,
+    "rows": 34
+  },
+  {
+    "name": "portal_private.finance_materializer_audit_v7",
+    "rls_enabled": true,
+    "rows": 72
+  },
+  {
+    "name": "portal_private.finance_materialization_jobs_v7",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.finance_materialization_attempts_v7",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.finance_materialization_maintenance_audit_v7",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.ai_role_global_policies_v1",
+    "rls_enabled": true,
+    "rows": 13
+  },
+  {
+    "name": "auth.scim_users",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.scim_tokens",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.mfa_recovery_code_sets",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "auth.mfa_recovery_codes",
+    "rls_enabled": false,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.payment_passport_finance_allocations_v7",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.client_intake_routing_registry_v1",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.client_intake_v1",
+    "rls_enabled": true,
+    "rows": 11
+  },
+  {
+    "name": "portal_private.client_intake_routing_outbox_v1",
+    "rls_enabled": true,
+    "rows": 11
+  },
+  {
+    "name": "portal_private.client_intake_task_links_v1",
+    "rls_enabled": true,
+    "rows": 3
+  },
+  {
+    "name": "portal_private.client_intake_corrections_v1",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.client_intake_audit_v1",
+    "rls_enabled": true,
+    "rows": 23
+  },
+  {
+    "name": "portal_private.client_application_policy_v2",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.client_application_number_reservations_v2",
+    "rls_enabled": true,
+    "rows": 2
+  },
+  {
+    "name": "portal_private.client_application_registry_v2",
+    "rls_enabled": true,
+    "rows": 11
+  },
+  {
+    "name": "portal_private.client_application_tombstones_v2",
+    "rls_enabled": true,
+    "rows": 5
+  },
+  {
+    "name": "portal_private.client_application_source_disposition_v2",
+    "rls_enabled": true,
+    "rows": 11
+  },
+  {
+    "name": "portal_private.client_application_jobs_v2",
+    "rls_enabled": true,
+    "rows": 11
+  },
+  {
+    "name": "portal_private.client_application_audit_v2",
+    "rls_enabled": true,
+    "rows": 18
+  },
+  {
+    "name": "portal_private.client_application_inventory_runs_v2",
+    "rls_enabled": true,
+    "rows": 2281
+  },
+  {
+    "name": "portal_private.client_application_submit_receipts_v2",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.client_application_bundle_receipts_v2",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.client_application_deal_provenance_v2",
+    "rls_enabled": true,
+    "rows": 3
+  },
+  {
+    "name": "portal_private.client_application_numbering_delegations_v2",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.client_application_legacy_inventory_v2",
+    "rls_enabled": true,
+    "rows": 9
+  },
+  {
+    "name": "portal_private.client_application_owner_actions_v2",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.finance_approved_change_jobs_v7",
+    "rls_enabled": true,
+    "rows": 4
+  },
+  {
+    "name": "portal_private.finance_signed_schedule_jobs_v8",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.finance_schedule_integrity_alerts_v8",
+    "rls_enabled": true,
+    "rows": 3
+  },
+  {
+    "name": "portal_private.finance_document_schedule_manifests_v8",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.deal_execution_resource_authority_v8",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.deal_execution_passport_allocations_v8",
+    "rls_enabled": true,
+    "rows": 10
+  },
+  {
+    "name": "portal_private.finance_reconciliation_difference_publications_v1",
+    "rls_enabled": true,
+    "rows": 1,
+    "comment": "Append-only Finance-owned publication channel for the already calculated reconciliation difference. This table stores Finance output only; it does not calculate the metric."
+  },
+  {
+    "name": "portal_private.finance_reconciliation_difference_components_v1",
+    "rls_enabled": true,
+    "rows": 2,
+    "comment": "Append-only source-locked primary currency breakdown for a Finance reconciliation difference publication. Components are published Finance facts; no cross-currency calculation occurs here."
+  },
+  {
+    "name": "portal_private.finance_mail_intake_control_v1",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.finance_mail_intake_v1",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.finance_mail_intake_alerts_v1",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.finance_cash_statement_sources_v1",
+    "rls_enabled": true,
+    "rows": 20,
+    "comment": "Append-only Finance-owned source projection of authoritative bank statement balances for Admin Cash. No deal/business data is mutated."
+  },
+  {
+    "name": "portal_private.finance_cash_operations_v1",
+    "rls_enabled": true,
+    "rows": 107,
+    "comment": "Append-only Finance-classified bank operation projection for Admin Cash. External inflow/payment are mutually exclusive; FX and own-account movements are separate."
+  },
+  {
+    "name": "portal_private.finance_counterparty_identities_v1",
+    "rls_enabled": true,
+    "rows": 10,
+    "comment": "Finance counterparty identity-resolution registry only. It does not create or mutate business master entities; each identity is anchored to authoritative Client/Payment/Contract/Bank source evidence."
+  },
+  {
+    "name": "portal_private.finance_counterparty_aliases_v1",
+    "rls_enabled": true,
+    "rows": 21
+  },
+  {
+    "name": "portal_private.finance_cash_operations_effective_cache_v1",
+    "rls_enabled": true,
+    "rows": 43
+  },
+  {
+    "name": "portal_private.finance_cash_effective_daily_cache_v1",
+    "rls_enabled": true,
+    "rows": 144
+  },
+  {
+    "name": "portal_private.finance_cash_statement_summary_cache_v1",
+    "rls_enabled": true,
+    "rows": 20
+  },
+  {
+    "name": "portal_private.finance_cash_statement_checkpoint_cache_v1",
+    "rls_enabled": true,
+    "rows": 20
+  },
+  {
+    "name": "portal_private.finance_cash_reversal_pairs_cache_v1",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.finance_cash_projection_cache_meta_v1",
+    "rls_enabled": true,
+    "rows": 1
+  },
+  {
+    "name": "portal_private.rail_xlsx_dislocation_events_v1",
+    "rls_enabled": true,
+    "rows": 9,
+    "comment": "Immutable source-locked XLSX dislocation evidence. source locator = source object + sheet + row. Separate from MOVIZOR history."
+  },
+  {
+    "name": "portal_private.rail_xlsx_resolution_decisions_v1",
+    "rls_enabled": true,
+    "rows": 9
+  },
+  {
+    "name": "portal_private.rail_xlsx_correction_decisions_v1",
+    "rls_enabled": true,
+    "rows": 0
+  },
+  {
+    "name": "portal_private.rail_xlsx_source_receipts_v1",
+    "rls_enabled": true,
+    "rows": 1,
+    "comment": "Append-only receipts for generic Rail AI XLSX source capture. Multiple filenames may reference one SHA-256 canonical source."
+  },
+  {
+    "name": "portal_private.rail_station_geo_directory_v1",
+    "rls_enabled": true,
+    "rows": 92
+  },
+  {
+    "name": "portal_private.rail_planned_route_waypoints_v1",
+    "rls_enabled": true,
+    "rows": 8
+  },
+  {
+    "name": "portal_private.rail_route_nodes_v1",
+    "rls_enabled": true,
+    "rows": 91
+  },
+  {
+    "name": "portal_private.rail_route_edges_v1",
+    "rls_enabled": true,
+    "rows": 91
+  },
+  {
+    "name": "portal_private.rail_station_aliases_v1",
+    "rls_enabled": true,
+    "rows": 6
+  },
+  {
+    "name": "portal_private.rail_deal_route_assignments_v1",
+    "rls_enabled": true,
+    "rows": 6
+  }
+]
