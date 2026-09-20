@@ -14,6 +14,7 @@ const operations=read('functions/portal/admin-operations-command-center-v4.js')+
 const operationsV5=read('functions/portal/admin-operations-command-center-v5.js');
 const operationsV6=read('functions/portal/admin-operations-command-center-v6.js');
 const operationsV7=read('functions/portal/admin-operations-command-center-v7.js');
+const operationsV8=read('functions/portal/admin-operations-command-center-v8.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -45,7 +46,13 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV7(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V7 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV8(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8 patch after source assembly');
+need(has(operationsV8,"OPERATIONS_COMMAND_CENTER_VERSION='v8-mission-control-current-v1'"),'Operations Command Center V8 version marker is missing');
+need(has(operationsV8,"patchAdminOperationsCommandCenterV7 as patchV7"),'Operations Command Center V8 does not preserve the V7 event-driven baseline');
+need(has(operationsV8,"DEALS_CURRENT_V4_MISSION_V1"),'Operations Command Center V8 current mission contract is missing');
+need(has(operationsV8,"wagon_positions")&&has(operationsV8,"rail_trusted_wagons"),'Operations Command Center V8 does not consume Rail V4 canonical positions');
+need(has(operationsV8,"onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'"),'Operations Command Center V8 exact Deal Control deeplink is missing');
+need(has(operationsV8,"onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)"),'Operations Command Center V8 NEXT ACTION is not functional');
 need(has(operationsV7,"OPERATIONS_COMMAND_CENTER_VERSION='v7-event-driven-current-v1'"),'Operations Command Center V7 version marker is missing');
 need(has(operationsV7,"patchAdminOperationsCommandCenterV6 as patchV6"),'Operations Command Center V7 does not preserve the V6 visual baseline');
 need(has(operationsV7,"postgres-change-invalidation-v1-no-polling"),'Operations Command Center V7 event-driven marker is missing');
