@@ -12,14 +12,18 @@ function replaceRequired(source,from,to,label){
 }
 
 const EVENT_RUNTIME=String.raw`
-let ronaOpsV7Busy=false,ronaOpsV7Queued=false,ronaOpsV7Debounce=0,ronaOpsV7ReconnectTimer=0,ronaOpsV7HeartbeatTimer=0,ronaOpsV7ReconnectAttempt=0,ronaOpsV7Ref=1;
+let ronaOpsV7Busy=false,ronaOpsV7Queued=false,ronaOpsV7Debounce=0,ronaOpsV7ReconnectTimer=0,ronaOpsV7HeartbeatTimer=0,ronaOpsV7ReconnectAttempt=0,ronaOpsV7Ref=1;const ronaOpsV7DirtyDomains=new Set();
 function ronaOpsV7HomeVisible(){const p=page('home');return !!(p&&getComputedStyle(p).display!=='none')}
 function ronaOpsV7SetState(status,extra={}){window.__RONA_ADMIN_OPERATIONS_EVENT_STATE__={status,connected:status==='CONNECTED',updatedAt:Date.now(),...extra}}
 async function ronaOpsV7RefreshCurrent(reason='EVENT'){
   if(ronaOpsV7Busy){ronaOpsV7Queued=true;return null}
   ronaOpsV7Busy=true;
+  const domains=[...ronaOpsV7DirtyDomains];ronaOpsV7DirtyDomains.clear();
   try{
     const next=await call('/admin/operations-current-v1');
+    if(domains.includes('DEALS')&&typeof window.__RONA_DEALS_CURRENT_STATE_REFRESH__==='function')await window.__RONA_DEALS_CURRENT_STATE_REFRESH__();
+    if(domains.includes('FINANCE')&&typeof window.__RONA_OWNER_AI_REFRESH__==='function')await window.__RONA_OWNER_AI_REFRESH__();
+    if((domains.includes('RAIL')||domains.includes('DOCUMENTS'))&&typeof ownerAdminRefreshTick==='function')await ownerAdminRefreshTick(true);
     if(!next||next.version!=='OPERATIONS_CURRENT_V1')throw new Error('OPERATIONS_CURRENT_CONTRACT_MISMATCH');
     window.__RONA_ADMIN_OPERATIONS_CURRENT_V1__=next;
     window.__RONA_ADMIN_OPERATIONS_CURRENT_ERROR__=null;
@@ -39,11 +43,12 @@ async function ronaOpsV7RefreshCurrent(reason='EVENT'){
     if(ronaOpsV7Queued){ronaOpsV7Queued=false;queueMicrotask(()=>ronaOpsV7RefreshCurrent('COALESCED'))}
   }
 }
-function ronaOpsV7Schedule(reason='DATABASE_CHANGE'){
+function ronaOpsV7Schedule(reason='DATABASE_CHANGE',domain='OPERATIONS'){
+  const d=String(domain||'OPERATIONS').toUpperCase();ronaOpsV7DirtyDomains.add(d);
   window.__RONA_ADMIN_OPERATIONS_DIRTY__=true;
   if(!ronaOpsV7HomeVisible())return;
   clearTimeout(ronaOpsV7Debounce);
-  ronaOpsV7Debounce=setTimeout(()=>ronaOpsV7RefreshCurrent(reason),180);
+  ronaOpsV7Debounce=setTimeout(()=>ronaOpsV7RefreshCurrent(reason+':'+d),180);
 }
 function ronaOpsV7ClearHeartbeat(){if(ronaOpsV7HeartbeatTimer){clearInterval(ronaOpsV7HeartbeatTimer);ronaOpsV7HeartbeatTimer=0}}
 function ronaOpsV7ScheduleReconnect(){
@@ -75,7 +80,7 @@ function ronaOpsV7Connect(isReconnect=false){
         window.__RONA_ADMIN_OPERATIONS_EVENT_EVER_CONNECTED__=true;
         ronaOpsV7ReconnectAttempt=0;
         ronaOpsV7SetState('CONNECTED',{joinedAt:Date.now()});
-        if(isReconnect&&hadConnection){window.__RONA_ADMIN_OPERATIONS_DIRTY__=true;if(ronaOpsV7HomeVisible())ronaOpsV7Schedule('RECONNECT_RECOVERY')}
+        if(isReconnect&&hadConnection){['OPERATIONS','DEALS','DOCUMENTS','FINANCE','RAIL','REGISTRY'].forEach(x=>ronaOpsV7DirtyDomains.add(x));window.__RONA_ADMIN_OPERATIONS_DIRTY__=true;if(ronaOpsV7HomeVisible())ronaOpsV7Schedule('RECONNECT_RECOVERY','OPERATIONS')}
       }else{
         ronaOpsV7SetState('ERROR',{reason:String(msg?.payload?.response?.reason||'JOIN_REJECTED')});
         try{ws.close()}catch(_e){}
@@ -83,7 +88,7 @@ function ronaOpsV7Connect(isReconnect=false){
       if(ronaOpsV7HomeVisible())renderAdminHome();
       return;
     }
-    if(msg?.event==='postgres_changes'){ronaOpsV7Schedule('DATABASE_CHANGE');return}
+    if(msg?.event==='postgres_changes'){const domain=msg?.payload?.data?.record?.domain||msg?.payload?.record?.domain||'OPERATIONS';ronaOpsV7Schedule('DATABASE_CHANGE',domain);return}
     if(msg?.event==='phx_error'||msg?.event==='phx_close'){
       ronaOpsV7SetState('DISCONNECTED',{reason:msg.event});
       if(ronaOpsV7HomeVisible())renderAdminHome();
@@ -103,6 +108,7 @@ function ensureAdminOperationsCurrentV7(){
   if(window.__RONA_ADMIN_OPERATIONS_EVENT_INIT__)return;
   window.__RONA_ADMIN_OPERATIONS_EVENT_INIT__=true;
   window.__RONA_ADMIN_OPERATIONS_DIRTY__=true;
+  ronaOpsV7DirtyDomains.add('OPERATIONS');
   ronaOpsV7RefreshCurrent('INITIAL');
   ronaOpsV7Connect(false);
   window.addEventListener('rona:admin-pagechange',()=>{if(ronaOpsV7HomeVisible()&&window.__RONA_ADMIN_OPERATIONS_DIRTY__)ronaOpsV7RefreshCurrent('PAGE_ACTIVATED')});
