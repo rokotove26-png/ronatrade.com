@@ -307,6 +307,10 @@ function selectorPage(roles) {
 }
 const STAFF_BRIDGE = `<script id="rona-g82-staff-same-origin-bridge">(()=>{'use strict';const f=window.fetch.bind(window);window.fetch=(input,init)=>{let u=typeof input==='string'?input:(input instanceof URL?input.href:(input&&input.url)||'');if(u.startsWith('/functions/v1/rona-portal-api/')){const next='/portal/api/'+u.slice('/functions/v1/rona-portal-api/'.length);return f(input instanceof Request?new Request(next,input):next,{...init,credentials:'same-origin'})}return f(input,{...init,credentials:init?.credentials||'same-origin'})};addEventListener('DOMContentLoaded',()=>{document.title='RONA Trade — Внутренний офис';const t=document.querySelector('.toolbar');if(t&&!document.getElementById('ronaLogout')){const b=document.createElement('button');b.id='ronaLogout';b.className='btn';b.textContent='Выйти';b.onclick=async()=>{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'});location.replace('/portal/login')};t.appendChild(b)}})})();</script>`;
 const AGENT_BRIDGE = `<script id="rona-g82-agent-same-origin-bridge">(()=>{'use strict';async function boot(){try{const r=await fetch('/portal/api/v1/agent/bootstrap',{credentials:'same-origin',headers:{accept:'application/json'}});if(r.status===401){location.replace('/portal/login?next=%2Fportal%2Fagent');return}const j=await r.json();if(!r.ok||!j?.data){window.RONA_AGENT_PORTAL?.failClosed?.(j?.code||'Серверный доступ агента не подтверждён.');return}window.RONA_AGENT_PORTAL?.boot?.(j.data)}catch(_e){window.RONA_AGENT_PORTAL?.failClosed?.('Не удалось получить подтверждённый серверный контекст.')}}addEventListener('DOMContentLoaded',boot)})();<\/script>`;
+function presenceBridge(role){
+  const safeRole=String(role||'').toUpperCase()==='AGENT'?'AGENT':'CLIENT';
+  return `<script id="rona-portal-presence-v1">(()=>{'use strict';if(window.__RONA_PORTAL_PRESENCE_V1__)return;window.__RONA_PORTAL_PRESENCE_V1__='${safeRole}';const role='${safeRole}',endpoint='/portal/owner-api?path=%2Fpresence%2Fheartbeat',connectionId=crypto.randomUUID(),intervalMs=25000;let timer=0,inflight=false,stopped=false;async function beat(online=true,keepalive=false){if(inflight&&online)return;inflight=online;try{await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store',keepalive,headers:{accept:'application/json','content-type':'application/json'},body:JSON.stringify({connectionId,role,online})})}catch(_e){}finally{inflight=false}}function start(){if(stopped)return;beat(true);if(!timer)timer=setInterval(()=>beat(true),intervalMs)}function stop(){stopped=true;if(timer){clearInterval(timer);timer=0}beat(false,true)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();window.addEventListener('pageshow',()=>{stopped=false;start()});window.addEventListener('focus',()=>beat(true));document.addEventListener('visibilitychange',()=>{if(!document.hidden)beat(true)},{passive:true});window.addEventListener('pagehide',stop,{once:true})})();<\/script>`;
+}
 class BodyAppend { constructor(value) { this.value = value; } element(el) { el.append(this.value, { html: true }); } }
 const ADMIN_SESSION_BRIDGE = `<script id="rona-admin-server-session-bridge">(()=>{'use strict';addEventListener('DOMContentLoaded',()=>{const b=document.getElementById('adminLogoutBtn');if(b){b.hidden=false;b.addEventListener('click',async e=>{e.preventDefault();try{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/portal/login')}})}})})();<\/script>`;
 const SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP = `<script id="rona-server-authenticated-admin-bootstrap">(()=>{'use strict';
@@ -417,10 +421,13 @@ async function serveStaticProtected(context, session, kind) {
   }
   const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||''),String(impersonation.data.id||'')):'';
   if(kind==='client'){
-    const transformed=bridge?new HTMLRewriter().on('body',new BodyAppend(bridge)).transform(response):response;
+    const clientPresence=impersonation?.data?'':presenceBridge('CLIENT');
+    const append=clientPresence+bridge;
+    const transformed=append?new HTMLRewriter().on('body',new BodyAppend(append)).transform(response):response;
     return secureResponse(transformed,session.setCookies,true);
   }
-  const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE+bridge)).transform(response);
+  const agentPresence=impersonation?.data?'':presenceBridge('AGENT');
+  const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE+agentPresence+bridge)).transform(response);
   return secureResponse(transformed, session.setCookies, true);
 }
 async function serveStaff(session) {
