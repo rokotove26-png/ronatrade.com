@@ -1,9 +1,6 @@
 name: Deals production browser proof
 
 on:
-  push:
-    branches:
-      - 'release/public-go-live-v1.1'
   pull_request:
     branches: [release/public-go-live-v1.1]
 

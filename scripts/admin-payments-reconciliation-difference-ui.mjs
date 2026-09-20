@@ -1,16 +1,14 @@
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_UI_CONTRACT = 'PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V7';
-export const PAYMENTS_RECONCILIATION_DIFFERENCE_REFRESH_MS = 30000;
+export const PAYMENTS_RECONCILIATION_DIFFERENCE_REFRESH_MS = 0;
 
 export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()=>{
   const contract='PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI_V7';
   const sourceContract='FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1';
-  const refreshMs=30000;
   const pageSelector='#page-payments';
   const tickerId='rona-payments-reconciliation-title-ticker';
   const tickerClass='rona-payments-reconciliation-title-ticker';
   const hostClass='rona-has-reconciliation-ticker';
   const styleId='rona-payments-reconciliation-title-ticker-style';
-  const bootstrapPath='/portal/api/v1/admin/bootstrap';
 
   function normalize(metric){
     const status=String(metric?.status||'').trim().toUpperCase();
@@ -126,18 +124,8 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     ticker.dataset.sourceVersion=normalized.sourceVersion;
   }
 
-  async function refresh(){
-    if(!document.querySelector(pageSelector))return;
-    try{
-      const response=await fetch(bootstrapPath,{method:'GET',credentials:'include',cache:'no-store',headers:{accept:'application/json'}});
-      if(!response.ok)throw new Error('FINANCE_RECONCILIATION_BOOTSTRAP_UNAVAILABLE');
-      const body=await response.json();
-      const metric=body?.data?.paymentsV7Projection?.finance_reconciliation_difference||null;
-      window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE__=metric;
-      renderMetric(metric);
-    }catch{
-      renderMetric(currentMetric());
-    }
+  function refresh(){
+    renderMetric(currentMetric());
   }
 
   function bindSingletonRuntime(){
@@ -191,7 +179,8 @@ export const PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME = String.raw`(()
     bindSingletonRuntime();
     renderMetric(currentMetric());
     if(window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__)clearInterval(window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__);
-    window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__=setInterval(refresh,refreshMs);
+    window.__RONA_PAYMENTS_RECONCILIATION_DIFFERENCE_TIMER__=null;
+    window.__RONA_PAYMENTS_RECONCILIATION_REFRESH_MODE__='OWNER_FINANCE_SYNC_EVENT_V1';
     setTimeout(refresh,0);
   }
 

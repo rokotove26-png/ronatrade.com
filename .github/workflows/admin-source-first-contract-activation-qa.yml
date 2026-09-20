@@ -3,8 +3,6 @@ name: Admin source-first contract activation QA
 on:
   pull_request:
     branches: [release/public-go-live-v1.1]
-  push:
-    branches: [release/public-go-live-v1.1]
 
 permissions:
   actions: read
