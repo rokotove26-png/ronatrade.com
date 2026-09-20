@@ -5,14 +5,16 @@ import { resolve } from 'node:path';
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
-const admin=await readFile('dist/portal/admin.html');
+const adminSource=(await readFile('dist/portal/admin.html')).toString('utf8');
+const admin=Buffer.from(adminSource.replace(/<button([^>]*)><span class="nav-icon" aria-hidden="true"><\/span><span class="nav-label">([^<]+)<\/span><\/button>/g,'<button$1>$2</button>'),'utf8');
+assert(!admin.toString('utf8').includes('class="nav-icon"'),'QA legacy-shell fixture must remove icon slots before runtime repair');
 const logo=await readFile('dist/assets/portal-canonical/logo.svg');
 const background=await readFile('dist/assets/portal-canonical/background.png');
-const shellModule=await import(pathToFileURL(resolve('functions/portal/admin-approved-shell-v455-ui.js')).href+'?qa-sidebar-v13');
+const shellModule=await import(pathToFileURL(resolve('functions/portal/admin-approved-shell-v455-ui.js')).href+'?qa-sidebar-v14');
 const shellResponse=await shellModule.onRequest();
 const shellRuntime=await shellResponse.text();
 
-assert.equal(shellResponse.headers.get('x-rona-admin-shell-visual'),'sidebar-single-owner-v13');
+assert.equal(shellResponse.headers.get('x-rona-admin-shell-visual'),'sidebar-production-self-heal-v14');
 assert(!admin.toString('utf8').includes('RONA_ADMIN_COMMAND_NAVIGATION_V4'));
 assert(!admin.toString('utf8').includes('RONA_ADMIN_COMMAND_NAVIGATION_V5_BRAND_ICONS'));
 assert(!admin.toString('utf8').includes('RONA_ADMIN_SIDEBAR_CANONICAL_VISUAL_V12'));
@@ -43,7 +45,7 @@ try{
   page.on('pageerror',e=>pageErrors.push(String(e.message||e)));
 
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.__RONA_ADMIN_SIDEBAR_OWNER__==='shell-v455-command-v13');
+  await page.waitForFunction(()=>window.__RONA_ADMIN_SIDEBAR_OWNER__==='shell-v455-command-v14');
   await page.waitForFunction(()=>document.querySelectorAll('#nav .nav-icon > svg').length===14);
 
   const proof=await page.evaluate(()=>{
@@ -72,6 +74,8 @@ try{
       owner:document.documentElement.dataset.ronaSidebarOwner,
       sideOwner:side?.dataset.ronaSidebarOwner,
       navOwner:nav?.dataset.ronaSidebarOwner,
+      diagnostic:window.__RONA_ADMIN_SIDEBAR_DIAGNOSTIC__,
+      repaired:visible.map(b=>({page:b.dataset.page,structure:b.dataset.ronaNavStructure,children:b.children.length,label:b.querySelector(':scope>.nav-label')?.textContent||''})),
       styles:document.querySelectorAll('#ronaShellV455Style').length,
       iconCount:nav.querySelectorAll('.nav-icon > svg').length,
       visibleCount:visible.length,
@@ -82,9 +86,13 @@ try{
     };
   });
 
-  assert.equal(proof.owner,'shell-v455-command-v13');
-  assert.equal(proof.sideOwner,'shell-v455-command-v13');
-  assert.equal(proof.navOwner,'shell-v455-command-v13');
+  assert.equal(proof.owner,'shell-v455-command-v14');
+  assert.equal(proof.sideOwner,'shell-v455-command-v14');
+  assert.equal(proof.navOwner,'shell-v455-command-v14');
+  assert.equal(proof.diagnostic?.owner,'shell-v455-command-v14');
+  assert.equal(proof.diagnostic?.icons,14,'runtime diagnostic must see 14 rendered icons');
+  assert.deepEqual(proof.diagnostic?.missing,[],'runtime diagnostic must report no missing icons');
+  for(const item of proof.repaired){assert.equal(item.structure,'shell-v455-command-v14',item.page+': self-heal structure marker missing');assert.equal(item.children,2,item.page+': repaired button must contain exactly icon and label');assert(item.label.trim().length>0,item.page+': repaired label missing')}
   assert.equal(proof.styles,1,'expected exactly one runtime shell style owner');
   assert.equal(proof.iconCount,14,'all 14 nav items must own a real SVG icon');
   assert.equal(proof.visibleCount,13,'Documents stays structurally hidden');
@@ -121,10 +129,10 @@ try{
   assert(Number(attention.svgOpacity)>.99,'attention icon did not reach full opacity');
 
   await mkdir('artifacts',{recursive:true});
-  await page.screenshot({path:'artifacts/admin-sidebar-single-owner-v13.png',fullPage:false});
+  await page.screenshot({path:'artifacts/admin-sidebar-production-self-heal-v14.png',fullPage:false});
   assert.equal(pageErrors.length,0,'page errors: '+pageErrors.join(' | '));
 
-  console.log('ADMIN_SIDEBAR_SINGLE_OWNER_VISUAL_BROWSER=PASS');
+  console.log('ADMIN_SIDEBAR_PRODUCTION_SELF_HEAL_VISUAL_BROWSER=PASS');
   console.log(JSON.stringify({proof,attention},null,2));
 }finally{
   if(browser)await browser.close();
