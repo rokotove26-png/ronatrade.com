@@ -102,15 +102,27 @@ async function audit(tx, ctx, action, entityType, entityId, req, metadata = {}) 
 
 async function clientScope(ctx) {
   const bound=ctx.impersonation?.effectiveRole==="CLIENT"?ctx.impersonation.targetClientKey:null;
-  const rows = await sql`
-    select distinct b.client_key,b.contract_key,cl.client_id,cl.legal_name,ct.contract_id,ct.current_signed_document_id
-    from portal_private.client_user_bindings b
-    join portal_private.clients cl on cl.id=b.client_key
-    join portal_private.contracts ct on ct.id=b.contract_key
-    where b.user_id=${ctx.userId}::uuid and (${bound}::uuid is null or b.client_key=${bound}::uuid) and b.status='ACTIVE'::portal_private.binding_status_enum
-      and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
-      and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-  `;
+  const adminEntity=ctx.impersonation?.subjectMode==="ADMIN_ENTITY"&&Boolean(bound);
+  const rows = adminEntity
+    ?await sql`
+      select distinct cl.id as client_key,ct.id as contract_key,cl.client_id,cl.legal_name,ct.contract_id,ct.current_signed_document_id
+      from portal_private.clients cl
+      join portal_private.contracts ct on ct.client_key=cl.id
+      where cl.id=${bound}::uuid
+        and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and cl.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and ct.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+        and ct.authority_state<>'REJECTED'::portal_private.authority_state_enum
+    `
+    :await sql`
+      select distinct b.client_key,b.contract_key,cl.client_id,cl.legal_name,ct.contract_id,ct.current_signed_document_id
+      from portal_private.client_user_bindings b
+      join portal_private.clients cl on cl.id=b.client_key
+      join portal_private.contracts ct on ct.id=b.contract_key
+      where b.user_id=${ctx.userId}::uuid and (${bound}::uuid is null or b.client_key=${bound}::uuid) and b.status='ACTIVE'::portal_private.binding_status_enum
+        and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
+        and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    `;
   return rows;
 }
 async function agentScope(ctx) {
@@ -386,7 +398,10 @@ async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode=
   const rows=await sql`select d.id,d.document_id,d.client_key,d.document_type,d.authoritative_filename,dv.storage_path,so.bucket_id from portal_private.documents d join portal_private.document_versions dv on dv.id=d.current_version_id and dv.document_key=d.id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where d.document_id=${documentId} and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective limit 1`;if(!rows.length)throw Object.assign(new Error('DOCUMENT_NOT_FOUND'),{status:404});const r=rows[0];if(mode!=='admin'&&!allowed.includes(String(r.client_key)))throw Object.assign(new Error('DOCUMENT_ACCESS_DENIED'),{status:403});const {data,error}=await service.storage.from(String(r.bucket_id||BUCKET)).createSignedUrl(String(r.storage_path),120,{download:String(r.authoritative_filename||'document.pdf')});if(error||!data?.signedUrl)throw Object.assign(new Error('SIGNED_URL_FAILED'),{status:502});return{documentId:String(r.document_id),filename:String(r.authoritative_filename),url:data.signedUrl,expiresIn:120}}
 
 async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scope.map(x=>String(x.client_key));if(!keys.length)return{companies:[],prices:[],applications:[],deals:[],documents:[],analytics:[],news:[],radio:[]};
-  const contracts=await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.client_user_bindings b join portal_private.clients cl on cl.id=b.client_key join portal_private.contracts ct on ct.id=b.contract_key left join portal_private.documents d on d.id=ct.current_signed_document_id where b.user_id=${ctx.userId}::uuid and b.client_key = any(${keys}::uuid[]) and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())`;
+  const adminEntity=ctx.impersonation?.subjectMode==="ADMIN_ENTITY";
+  const contracts=adminEntity
+    ?await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id left join portal_private.documents d on d.id=ct.current_signed_document_id where cl.id = any(${keys}::uuid[])`
+    :await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.client_user_bindings b join portal_private.clients cl on cl.id=b.client_key join portal_private.contracts ct on ct.id=b.contract_key left join portal_private.documents d on d.id=ct.current_signed_document_id where b.user_id=${ctx.userId}::uuid and b.client_key = any(${keys}::uuid[]) and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())`;
   const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_client=true and business_status='PUBLISHED' order by agreed_at desc`;
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,a.proposed_price,a.proposed_currency,d.deal_id,w.counter_price,w.counter_currency,w.client_counter_response from portal_private.client_applications a left join portal_private.deals d on d.id=a.linked_deal_key left join portal_private.owner_application_workflow w on w.application_key=a.id where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const deals=await sql`select d.deal_id,d.business_status,cl.legal_name,ct.contract_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key where d.client_key = any(${keys}::uuid[]) and d.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by d.updated_at desc`;
@@ -414,27 +429,49 @@ async function clientWorkflowBootstrap(ctx){
   const scope=await clientScope(ctx);
   const keys=[...new Set(scope.map(x=>String(x.client_key)))];
   if(!keys.length)return{generatedAt:new Date().toISOString(),deals:[],documents:[]};
-  const deals=await sql`
-    select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
-           w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
-    from portal_private.deals d
-    join portal_private.clients cl on cl.id=d.client_key
-    left join portal_private.owner_deal_workflow w on w.deal_key=d.id
-    where d.client_key=any(${keys}::uuid[])
-      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
-    order by d.created_at desc
-  `;
-  const documents=await sql`
-    select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
-    from portal_private.owner_deal_documents odd
-    join portal_private.deals d on d.id=odd.deal_key
-    join portal_private.documents doc on doc.id=odd.document_key
-    where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
-      and d.client_key=any(${keys}::uuid[])
-      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
-    order by doc.created_at desc
-  `;
+  const adminEntity=ctx.impersonation?.subjectMode==="ADMIN_ENTITY";
+  const deals=adminEntity
+    ?await sql`
+      select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
+             w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
+      from portal_private.deals d
+      join portal_private.clients cl on cl.id=d.client_key
+      left join portal_private.owner_deal_workflow w on w.deal_key=d.id
+      where d.client_key=any(${keys}::uuid[])
+      order by d.created_at desc
+    `
+    :await sql`
+      select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
+             w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
+      from portal_private.deals d
+      join portal_private.clients cl on cl.id=d.client_key
+      left join portal_private.owner_deal_workflow w on w.deal_key=d.id
+      where d.client_key=any(${keys}::uuid[])
+        and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+      order by d.created_at desc
+    `;
+  const documents=adminEntity
+    ?await sql`
+      select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
+      from portal_private.owner_deal_documents odd
+      join portal_private.deals d on d.id=odd.deal_key
+      join portal_private.documents doc on doc.id=odd.document_key
+      where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
+        and d.client_key=any(${keys}::uuid[])
+      order by doc.created_at desc
+    `
+    :await sql`
+      select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
+      from portal_private.owner_deal_documents odd
+      join portal_private.deals d on d.id=odd.deal_key
+      join portal_private.documents doc on doc.id=odd.document_key
+      where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
+        and d.client_key=any(${keys}::uuid[])
+        and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+      order by doc.created_at desc
+    `;
   return{generatedAt:new Date().toISOString(),deals,documents};
 }
 
@@ -500,6 +537,10 @@ async function clientMarkDownload(ctx,req,dealId){
 
 Deno.serve(async req=>{
   const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:'PORTAL_ACCESS_DENIED'});const path=pathOf(req),method=req.method;
+  if(ctx.impersonation?.subjectMode==='ADMIN_ENTITY'&&method!=='GET'&&path.startsWith('/client/')){
+    await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,'PORTAL_MUTATION','BLOCKED_ADMIN_ENTITY_READ_ONLY',{source:'RONA_OWNER_ACCEPTANCE',subject_mode:'ADMIN_ENTITY'});
+    return send(403,{ok:false,code:'ADMIN_ENTITY_PREVIEW_READ_ONLY'});
+  }
   if(ctx.impersonation){await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,method==='GET'?'PORTAL_READ':'PORTAL_MUTATION','AUTHORIZED_DISPATCH',{source:'RONA_OWNER_ACCEPTANCE'});}
   try{
     if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
