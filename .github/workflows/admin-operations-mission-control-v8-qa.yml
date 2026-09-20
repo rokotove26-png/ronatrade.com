@@ -63,6 +63,9 @@ jobs:
           if(!s.includes("Нулевые показатели не подставляются")) throw new Error('OPERATIONS_V10_FAIL_CLOSED_ZERO_MISSING');
           if(!s.includes("Operations Current V2 подтверждает отсутствие действий")) throw new Error('OPERATIONS_V10_NORMAL_STATE_GATE_MISSING');
           if(s.includes("ensureAdminOperationsCurrentV7();")) throw new Error('OPERATIONS_LEGACY_EVENT_RUNTIME_STILL_ACTIVE');
+          if(s.includes("call('/admin/operations-current-v1'")) throw new Error('OPERATIONS_LEGACY_V1_CALL_REMAINS');
+          if(s.includes("realtime:rona-admin-operations-current-v1")) throw new Error('OPERATIONS_LEGACY_V1_SOCKET_REMAINS');
+          if(!s.includes("__RONA_ADMIN_OPERATIONS_LEGACY_EVENT_RUNTIME_STRIPPED__='V7_V91'")) throw new Error('OPERATIONS_LEGACY_EVENT_STRIP_MARKER_MISSING');
           if(!s.includes("new AbortController()")) throw new Error('OPERATIONS_V10_ABORTABLE_FETCH_MISSING');
           console.log('ADMIN_OPERATIONS_CURRENT_V2_SINGLE_OWNER=PASS');
           NODE
