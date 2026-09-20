@@ -107,8 +107,9 @@ jobs:
           const cash=await fetchText('/portal/cash-r2-ui');
           const requiredMain=[
             "authority-change-only-v2",
-            "CHANGE_ONLY_60S",
-            "setInterval(()=>refreshAdmin(false),60000)",
+            "CHANGE_ONLY_5M_VISIBLE",
+            "window.__RONA_OWNER_AI_SYNC_POLL_MS__=300000",
+            "document.visibilityState==='visible'",
             "ownerAdminSnapshotSignature",
             "ownerAiStableSignature"
           ];
