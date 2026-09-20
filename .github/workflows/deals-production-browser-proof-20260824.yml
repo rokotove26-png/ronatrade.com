@@ -42,7 +42,9 @@ jobs:
           grep -q 'current-only-v1.5' functions/portal/admin-main-ui-current.js
           grep -q 'current-state-v2-operations-deeplink' functions/portal/deals-current-state-ui.js
           grep -q "replaceAll('waitsAction','waitsPayment')" functions/portal/deals-current-state-ui.js
-          grep -q "'PARTIALLY_PAID','PARTIAL','DUE'" functions/portal/deals-current-state-ui.js
+          grep -Fq "if(expectation!=='ACTIVE')return false" functions/portal/deals-current-state-ui.js
+          grep -q "function needsPaymentHandoffAction(d)" functions/portal/deals-current-state-ui.js
+          grep -q "payment-expectation-action-split-v2" functions/portal/deals-current-state-ui.js
           grep -q 'ronaDealsLayoutV15' functions/portal/deals-current-state-ui.js
           grep -q 'Скачать подписанное доп. соглашение' functions/portal/deals-current-state-ui.js
           grep -q 'width:310px!important' functions/portal/deals-current-state-ui.js
@@ -70,7 +72,9 @@ jobs:
           grep -q "host.dataset.ronaDealsOwner='current-v1.5'" /tmp/deals.js
           grep -q 'function waitsPayment(d)' /tmp/deals.js
           ! grep -q 'waitsAction' /tmp/deals.js
-          grep -q "'PARTIALLY_PAID','PARTIAL','DUE'" /tmp/deals.js
+          grep -Fq "if(expectation!=='ACTIVE')return false" /tmp/deals.js
+          grep -q "function needsPaymentHandoffAction(d)" /tmp/deals.js
+          grep -qi '^x-rona-deals-kpi: payment-expectation-action-split-v2' /tmp/deals.headers
           grep -q "kpi('Ожидают оплаты'" /tmp/deals.js
           grep -q "'Базис поставки'" /tmp/deals.js
           grep -q 'Скачать подписанное доп. соглашение' /tmp/deals.js
