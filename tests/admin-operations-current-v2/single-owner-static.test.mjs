@@ -15,6 +15,16 @@ test('Operations V10 has one canonical V2 source and fail-closed rendering',()=>
   assert.match(v10,/Клиенты в сети/);
   assert.match(v10,/Агенты в сети/);
   assert.match(v10,/Нулевые показатели не подставляются/);
+  assert.match(v10,/function ronaOpsV10PaymentTone\(row\)/);
+  assert.match(v10,/PARTIALLY_PAID/);
+  assert.match(v10,/OVERDUE/);
+  assert.match(v10,/FULLY_PAID/);
+  assert.match(v10,/NOT_DUE/);
+  assert.match(v10,/rona-fd-v5-strip__state--pay/);
+  assert.match(v10,/rona-fd-v5-strip__pay-code/);
+  assert.match(v10,/rona-fd-v5-strip__pay-value/);
+  assert.match(v10,/rona-fd-v5__status-cell--payment/);
+  assert.match(v10,/installAdminOperationsPayStatusColorV1Style\(\)/);
   assert.match(v10,/Operations Current V2 подтверждает отсутствие действий/);
   assert.doesNotMatch(v10,/ensureAdminOperationsCurrentV7\(\)/);
   assert.doesNotMatch(v10,/ownerAdminRefreshTick\(true\)/);
@@ -84,6 +94,10 @@ test('Generated V10 runtime strips retired Operations V1 event machinery',async(
   assert.doesNotMatch(script,/let ronaOpsV7Busy=/);
   assert.match(script,/__RONA_ADMIN_OPERATIONS_LEGACY_EVENT_RUNTIME_STRIPPED__='V7_V91'/);
   assert.match(script,/call\('\/admin\/operations-current-v2'/);
+  assert.match(script,/ronaOpsPayStatusColorV1Style/);
+  assert.match(script,/data-pay-tone/);
+  assert.match(script,/rona-fd-v5-strip__state--pay/);
+  assert.match(script,/rona-fd-v5__status-cell--payment/);
   new Function(script);
 });
 

@@ -8,6 +8,41 @@ let ronaOpsV10Snapshot=null,ronaOpsV10Error=null,ronaOpsV10Promise=null,ronaOpsV
 function ronaOpsV10HomeVisible(){try{const p=page('home');return !!p&&getComputedStyle(p).display!=='none'}catch(_){return false}}
 function ronaOpsV10Ready(s=ronaOpsV10Snapshot){return !!s&&s.version==='OPERATIONS_CURRENT_V2'&&String(s?.readiness?.state||'').toUpperCase()==='READY'}
 function ronaOpsV10Num(v){const n=Number(v);return Number.isFinite(n)?n:null}
+function ronaOpsV10PaymentTone(row){
+  const due=Number(row?.dueNow||0),future=Number(row?.futureConditional||0),k=ronaFdV5Key(row?.financeStatus||'');
+  if(['OVERDUE','DISPUTED','HOLD','NO-GO','BLOCKED','FAILED','ERROR','REJECTED'].includes(k))return'red';
+  if(['PAID','FULLY_PAID','SETTLED','CONFIRMED','COMPLETED'].includes(k)&&due<=0)return'green';
+  if(['PARTIAL','PARTIALLY_PAID','PARTIAL_PAYMENT'].includes(k))return'amber';
+  if(due>0||['DUE','PAYMENT_DUE','AWAITING_PAYMENT','PENDING_PAYMENT','WAITING_PAYMENT'].includes(k))return'amber';
+  if(future>0||['NOT_DUE','NO_PAYMENT_REQUIRED','NOT_REQUIRED'].includes(k))return'cyan';
+  return ronaFdV5Tone(k);
+}
+function installAdminOperationsPayStatusColorV1Style(){
+  if(q('#ronaOpsPayStatusColorV1Style'))return;
+  const s=e('style',{id:'ronaOpsPayStatusColorV1Style'});
+  s.textContent=
+    '#page-home .rona-fd-v5-strip__state--pay{gap:7px!important}' +
+    '#page-home .rona-fd-v5-strip__pay-code{display:inline-grid;place-items:center;min-width:34px;height:19px;padding:0 6px;border:1px solid rgba(110,231,255,.20);border-radius:999px;background:rgba(110,231,255,.045);font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:9px!important;font-weight:950!important;letter-spacing:.09em;line-height:1!important;color:rgba(188,230,247,.70);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}' +
+    '#page-home .rona-fd-v5-strip__state--pay .rona-fd-v5-strip__pay-value{font-weight:900!important;transition:color .16s ease,text-shadow .16s ease}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-green .rona-fd-v5-strip__pay-code{color:#83f2bd;border-color:rgba(103,240,181,.40);background:rgba(38,126,89,.16);box-shadow:0 0 12px rgba(103,240,181,.08),inset 0 1px 0 rgba(218,255,239,.035)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-green .rona-fd-v5-strip__pay-value{color:#bdf8db!important;text-shadow:0 0 10px rgba(103,240,181,.12)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-amber .rona-fd-v5-strip__pay-code{color:#ffd56f;border-color:rgba(255,209,106,.44);background:rgba(119,82,16,.17);box-shadow:0 0 12px rgba(255,209,106,.09),inset 0 1px 0 rgba(255,243,211,.03)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-amber .rona-fd-v5-strip__pay-value{color:#ffe0a0!important;text-shadow:0 0 10px rgba(255,209,106,.13)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-red .rona-fd-v5-strip__pay-code{color:#ff7d92;border-color:rgba(255,111,134,.48);background:rgba(124,29,47,.18);box-shadow:0 0 13px rgba(255,111,134,.11),inset 0 1px 0 rgba(255,226,232,.03)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-red .rona-fd-v5-strip__pay-value{color:#ffb4c0!important;text-shadow:0 0 11px rgba(255,111,134,.16)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-cyan .rona-fd-v5-strip__pay-code{color:#78e7ff;border-color:rgba(110,231,255,.38);background:rgba(22,101,133,.15);box-shadow:0 0 12px rgba(110,231,255,.08),inset 0 1px 0 rgba(224,250,255,.03)}' +
+    '#page-home .rona-fd-v5-strip__state--pay.is-cyan .rona-fd-v5-strip__pay-value{color:#aeefff!important;text-shadow:0 0 10px rgba(110,231,255,.11)}' +
+    '#page-home .rona-fd-v5__status-cell--payment{transition:border-color .16s ease,background .16s ease,box-shadow .16s ease}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-green{border-color:rgba(103,240,181,.26)!important;background:rgba(38,126,89,.075)!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-green .rona-fd-v5__status-value{color:#bdf8db!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-amber{border-color:rgba(255,209,106,.30)!important;background:rgba(119,82,16,.075)!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-amber .rona-fd-v5__status-value{color:#ffe0a0!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-red{border-color:rgba(255,111,134,.34)!important;background:rgba(124,29,47,.085)!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-red .rona-fd-v5__status-value{color:#ffb4c0!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-cyan{border-color:rgba(110,231,255,.22)!important;background:rgba(22,101,133,.065)!important}' +
+    '#page-home .rona-fd-v5__status-cell--payment.is-cyan .rona-fd-v5__status-value{color:#aeefff!important}';
+  document.head.appendChild(s);
+}
 function ronaOpsV10Open(row){
   const target=String(row?.target||'home'),dealId=String(row?.dealId||''),applicationId=String(row?.applicationId||'');
   if(target==='payments'){
@@ -78,6 +113,7 @@ function renderAdminHome(){
   installAdminExecutiveDashboardStyle();
   installAdminOperationsCommandCenterV4Style();
   installAdminOperationsMissionV8Style();
+  installAdminOperationsPayStatusColorV1Style();
   ensureAdminHomeColorNetworkV6();
   ensureAdminGlobalSearchV5();
   ronaOpsV10Start();
@@ -120,12 +156,12 @@ function renderAdminHome(){
     dealScroll.append(ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC',ronaOpsV10Error?'Не удалось подтвердить единый операционный снимок.':'Ожидаю Operations Current V2.'));
   }else if(deals.length){
     for(const x of deals){
-      const id=String(x?.dealId||''),stage=String(x?.stage||x?.businessStatus||'—'),payment=Number(x?.dueNow||0)>0?'DUE':String(x?.financeStatus||'—'),railCount=Number(x?.trustedWagons||0),gu12=Number(x?.gu12Count||0),docs=Number(x?.documentCount||0),isSelected=selected&&String(selected?.dealId||'')===id;
+      const id=String(x?.dealId||''),stage=String(x?.stage||x?.businessStatus||'—'),payment=Number(x?.dueNow||0)>0?'DUE':String(x?.financeStatus||'—'),paymentTone=ronaOpsV10PaymentTone(x),railCount=Number(x?.trustedWagons||0),gu12=Number(x?.gu12Count||0),docs=Number(x?.documentCount||0),isSelected=selected&&String(selected?.dealId||'')===id;
       const row=e('div',{class:'rona-fd-v5-strip '+(isSelected?'is-selected':''),role:'button',tabindex:'0','aria-label':'Выбрать '+(id||'сделку'),onclick:()=>{window.__RONA_ADMIN_OPS_SELECTED_DEAL__=id;renderAdminHome()},onkeydown:ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();window.__RONA_ADMIN_OPS_SELECTED_DEAL__=id;renderAdminHome()}}},
         e('div',{},e('div',{class:'rona-fd-v5-strip__id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5-strip__client',text:String(x?.clientName||x?.clientId||'—')})),
         e('div',{class:'rona-fd-v5-strip__states'},
           e('div',{class:'rona-fd-v5-strip__state'},e('span',{class:'rona-fd-v5-strip__signal is-'+ronaFdV5Tone(stage)}),e('span',{text:'STG'}),e('b',{text:ronaFdV5Text(stage)})),
-          e('div',{class:'rona-fd-v5-strip__state'},e('span',{class:'rona-fd-v5-strip__signal is-'+ronaFdV5Tone(payment)}),e('span',{text:'PAY'}),e('b',{text:ronaFdV5Text(payment)})),
+          e('div',{class:'rona-fd-v5-strip__state rona-fd-v5-strip__state--pay is-'+paymentTone,'data-pay-tone':paymentTone},e('span',{class:'rona-fd-v5-strip__signal is-'+paymentTone}),e('span',{class:'rona-fd-v5-strip__pay-code',text:'PAY'}),e('b',{class:'rona-fd-v5-strip__pay-value',text:ronaFdV5Text(payment)})),
           e('div',{class:'rona-fd-v5-strip__next',text:'NEXT · '+String(x?.nextAction||'Контроль исполнения сделки')})
         ),
         e('div',{class:'rona-fd-v5-strip__telemetry'},e('span',{class:'rona-fd-v5-strip__chip',text:railCount?String(railCount)+' WGN':gu12?String(gu12)+' GU12':'RAIL —'}),e('span',{class:'rona-fd-v5-strip__chip',text:String(docs)+' DOC'}))
@@ -140,15 +176,15 @@ function renderAdminHome(){
   if(!ready){
     mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC','Контур исполнения ожидает единый снимок.'));
   }else if(selected){
-    const id=String(selected?.dealId||''),stage=String(selected?.stage||selected?.businessStatus||'—'),payment=Number(selected?.dueNow||0)>0?('К оплате '+String(selected.dueNow)+' '+String(selected?.currency||'')):String(selected?.financeStatus||'—'),rail=Number(selected?.trustedWagons||0),docs=Number(selected?.documentCount||0),nextAction=String(selected?.nextAction||'Контроль исполнения сделки');
-    const steps=[['Ресурс','—','cyan'],['Договор','—','cyan'],['Оплата',ronaFdV5Text(payment),ronaFdV5Tone(payment)],['ЖД',rail?String(rail)+' вагонов':'—','teal'],['Доставка',ronaFdV5Text(stage),ronaFdV5Tone(stage)],['Документы',String(docs)+' документов','violet'],['Закрытие',ronaFdV5Text(selected?.businessStatus||'—'),ronaFdV5Tone(selected?.businessStatus||'—')]];
+    const id=String(selected?.dealId||''),stage=String(selected?.stage||selected?.businessStatus||'—'),payment=Number(selected?.dueNow||0)>0?('К оплате '+String(selected.dueNow)+' '+String(selected?.currency||'')):String(selected?.financeStatus||'—'),paymentTone=ronaOpsV10PaymentTone(selected),rail=Number(selected?.trustedWagons||0),docs=Number(selected?.documentCount||0),nextAction=String(selected?.nextAction||'Контроль исполнения сделки');
+    const steps=[['Ресурс','—','cyan'],['Договор','—','cyan'],['Оплата',ronaFdV5Text(payment),paymentTone],['ЖД',rail?String(rail)+' вагонов':'—','teal'],['Доставка',ronaFdV5Text(stage),ronaFdV5Tone(stage)],['Документы',String(docs)+' документов','violet'],['Закрытие',ronaFdV5Text(selected?.businessStatus||'—'),ronaFdV5Tone(selected?.businessStatus||'—')]];
     const vector=e('div',{class:'rona-fd-v5__vector'});
     for(const step of steps)vector.append(e('div',{class:'rona-fd-v5-stage','data-tone':step[2]},e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]})));
     mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},
       e('div',{class:'rona-fd-v5__mission-head'},e('div',{},e('div',{class:'rona-fd-v5__mission-kicker',text:'EXECUTION VECTOR · SELECTED FLIGHT'}),e('div',{class:'rona-fd-v5__mission-id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5__mission-client',text:String(selected?.clientName||selected?.clientId||'—')})),e('button',{class:'rona-fd-v5__mission-open',type:'button',onclick:()=>ronaOpsV10Open({target:'deals',dealId:id}),text:'Deal Control'})),
       e('div',{class:'rona-fd-v5__mission-status'},
         e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Current stage'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(stage)})),
-        e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Payment'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(payment)})),
+        e('div',{class:'rona-fd-v5__status-cell rona-fd-v5__status-cell--payment is-'+paymentTone,'data-pay-tone':paymentTone},e('div',{class:'rona-fd-v5__status-label',text:'Payment'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(payment)})),
         e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Documents'}),e('div',{class:'rona-fd-v5__status-value',text:String(docs)}))
       ),
       vector,
