@@ -78,6 +78,8 @@ function renderAdminHome(){
   installAdminExecutiveDashboardStyle();
   installAdminOperationsCommandCenterV4Style();
   installAdminOperationsMissionV8Style();
+  ensureAdminHomeColorNetworkV6();
+  ensureAdminGlobalSearchV5();
   ronaOpsV10Start();
 
   const snap=window.__RONA_ADMIN_OPERATIONS_CURRENT_V2__||ronaOpsV10Snapshot,ready=ronaOpsV10Ready(snap),k=ready?(snap.kpis||{}):{},actions=ready&&Array.isArray(snap.actions)?snap.actions:[],deals=ready&&Array.isArray(snap.deals)?snap.deals:[],systems=ready?(snap.systems||{}):{};
