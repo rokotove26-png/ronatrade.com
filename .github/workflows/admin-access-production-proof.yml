@@ -41,7 +41,8 @@ jobs:
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "x-rona-access-create-owner':'clients-agents-current-v5" functions/portal/clients-agents-current-ui.js
-          grep -q "await mutate('/impersonation/start'" functions/portal/clients-agents-current-ui.js
+          grep -q "await auth('/impersonation/start'" functions/portal/clients-agents-current-ui.js
+          grep -q "'x-rona-admin-handoff':'clients-agents-v8'" functions/portal/clients-agents-current-ui.js
           ! grep -q "form.action=AUTH+'/impersonation/enter'" functions/portal/clients-agents-current-ui.js
           node tests/admin-impersonation-json-handoff.test.mjs
           grep -q "x-rona-access-create-owner':'none" functions/portal/admin-approved-polish-ui.js
