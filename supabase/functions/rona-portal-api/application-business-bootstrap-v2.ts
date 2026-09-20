@@ -1,6 +1,6 @@
 // Production entrypoint: application business contract + Finance V7 client payments projection.
 // Non-payment behavior delegates to the exact verified production predecessor.
-import {sql,authenticate,apiRoute} from 'https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/77588541119bb1a96375beed3e853e067ab1422f/supabase/functions/rona-portal-api/shared.ts';
+import {sql,authenticate,apiRoute} from './shared.ts';
 import {createApplicationBusinessHandler} from '../_shared/client-application-business-v2/handler.mjs';
 import {applyClientPaymentAuthorityV7,failClosedClientPaymentV7} from './client-payments-v7.js';
 
@@ -82,4 +82,4 @@ const applicationNativeServe:any=Deno.serve.bind(Deno);
  const wrapped=createApplicationBusinessHandler(handler,{sql,authenticate,apiRoute});
  return options===undefined?applicationNativeServe(wrapped):applicationNativeServe(options,wrapped);
 };
-await import('https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/c4e93c8445a84aa987588558823533be2d1f4511/supabase/functions/rona-portal-api/stage24-bootstrap.ts');
+await import('./stage24-bootstrap.ts');
