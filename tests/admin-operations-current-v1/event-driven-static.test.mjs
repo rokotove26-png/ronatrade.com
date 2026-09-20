@@ -35,11 +35,14 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps the V7 event-driven baseline under V8 Mission Control',()=>{
+test('Admin main UI keeps the V7 event-driven baseline under V8.1 read-model recovery',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV8/);
-  assert.match(main,/admin-operations-command-center-v8\.js/);
+  const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV81/);
+  assert.match(main,/admin-operations-command-center-v8-1\.js/);
+  assert.match(v81,/patchAdminOperationsCommandCenterV8 as patchV8/);
+  assert.match(v81,/let patched=patchV8\(script\)/);
   assert.match(v8,/patchAdminOperationsCommandCenterV7 as patchV7/);
   assert.match(v8,/let patched=patchV7\(script\)/);
   assert.doesNotMatch(main,/patchAdminOperationsCommandCenterV6\(patchOperationsFunctionalRuntime/);
