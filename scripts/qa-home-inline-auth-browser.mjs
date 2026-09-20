@@ -10,7 +10,7 @@ const V1='<script id="rona-g82-real-auth-entry-loader-v1" src="/assets/g82/porta
 const V2='<script id="rona-g82-inline-auth-loader-v2" src="/assets/g82/portal-home-inline-auth-v2.js" defer></script>';
 const PLACEHOLDER='Серверная авторизация будет подключена после утверждения дизайна.';
 let authPosts=0;
-let lastAuthBody=null;
+const authBodies=[];
 
 function mime(path){const e=extname(path).toLowerCase();return e==='.html'?'text/html; charset=utf-8':e==='.js'?'application/javascript; charset=utf-8':e==='.css'?'text/css; charset=utf-8':e==='.svg'?'image/svg+xml':e==='.png'?'image/png':e==='.jpg'||e==='.jpeg'?'image/jpeg':'application/octet-stream'}
 function send(res,status,body,type='text/plain; charset=utf-8',headers={}){res.writeHead(status,{'content-type':type,'cache-control':'no-store',...headers});res.end(body)}
@@ -25,7 +25,8 @@ const server=http.createServer(async(req,res)=>{
   const u=new URL(req.url||'/', 'http://127.0.0.1');
   if(u.pathname==='/pages/home_compact'||u.pathname==='/pages/home_compact.html')return send(res,200,home,'text/html; charset=utf-8',{'x-rona-real-auth-entry':'g8.2-production-login-fix-v1','x-rona-inline-auth-entry':'g8.2-inline-auth-v2'});
   if(u.pathname==='/portal/auth/login'&&req.method==='POST'){
-    authPosts+=1;let body='';for await(const chunk of req)body+=chunk;try{lastAuthBody=JSON.parse(body)}catch{lastAuthBody=null}
+    authPosts+=1;let body='';for await(const chunk of req)body+=chunk;let parsed=null;try{parsed=JSON.parse(body)}catch{}authBodies.push(parsed);
+    if(parsed?.resume===true)return send(res,401,JSON.stringify({ok:false,code:'NO_RECOVERABLE_SESSION'}),'application/json; charset=utf-8');
     return send(res,401,JSON.stringify({ok:false,code:'LOGIN_DENIED'}),'application/json; charset=utf-8');
   }
   if(await serveStatic(res,u.pathname))return;
@@ -63,13 +64,16 @@ try{
   let button=frame.locator('button[type="submit"],input[type="submit"]').first();
   if(!(await button.count()))button=frame.getByRole('button',{name:/войти|login|sign in/i}).first();
   assert(await button.count(),'login button not found');
+  for(let i=0;i<30&&!authBodies.some(x=>x?.resume===true);i++)await page.waitForTimeout(100);
+  assert(authBodies.filter(x=>x?.resume===true).length===1,`expected exactly one silent resume probe, got ${authBodies.filter(x=>x?.resume===true).length}`);
   await id.fill('qa-inline@example.invalid');
   await pwd.fill('wrong-password');
   await button.click();
-  for(let i=0;i<30&&authPosts<1;i++)await page.waitForTimeout(100);
-  assert(authPosts===1,`expected exactly one POST /portal/auth/login, got ${authPosts}`);
-  assert(lastAuthBody?.identifier==='qa-inline@example.invalid','real auth identifier payload missing');
-  assert(lastAuthBody?.password==='wrong-password','real auth password payload missing');
+  for(let i=0;i<30&&!authBodies.some(x=>x?.identifier==='qa-inline@example.invalid');i++)await page.waitForTimeout(100);
+  const credentialBody=authBodies.find(x=>x?.identifier==='qa-inline@example.invalid');
+  assert(authPosts===2,`expected one resume probe plus one credential POST, got ${authPosts}`);
+  assert(credentialBody?.identifier==='qa-inline@example.invalid','real auth identifier payload missing');
+  assert(credentialBody?.password==='wrong-password','real auth password payload missing');
   await page.waitForTimeout(250);
   const text=await allText(page);
   assert(!text.includes(PLACEHOLDER),'legacy design-only auth placeholder became visible');
