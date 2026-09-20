@@ -86,3 +86,31 @@ test('Generated V10 runtime strips retired Operations V1 event machinery',async(
   assert.match(script,/call\('\/admin\/operations-current-v2'/);
   new Function(script);
 });
+
+
+test('V10 preserves the canonical Flightdeck V5 visual DOM while sourcing V2 data',async()=>{
+  const v10=read('functions/portal/admin-operations-command-center-v10-clean.js');
+  assert.match(v10,/data-rona-flightdeck':'v5-full-rebuild/);
+  assert.match(v10,/rona-fd-v5-gauge__top/);
+  assert.match(v10,/rona-fd-v5-gauge__rail/);
+  assert.match(v10,/ronaFdV5Screen\('ACTIVE FLIGHT SELECTOR','Активный контур сделок'/);
+  assert.match(v10,/rona-fd-v5__deals/);
+  assert.match(v10,/rona-fd-v5-strip__states/);
+  assert.match(v10,/rona-fd-v5-strip__telemetry/);
+  assert.match(v10,/rona-fd-v5__mission-head/);
+  assert.match(v10,/rona-fd-v5__vector/);
+  assert.match(v10,/ronaFdV5Screen\('EXCEPTION CONTROL','Master caution \/ warning'/);
+  assert.match(v10,/rona-fd-v5__systems/);
+  assert.doesNotMatch(v10,/const screen=\(code,title,count,body/);
+  assert.doesNotMatch(v10,/class:'rona-fd-v5-flight'/);
+
+  const mod=await import('../../functions/portal/admin-main-ui-current.js?ops-visual='+Date.now());
+  const response=await mod.onRequest();
+  const script=await response.text();
+  new Function(script);
+  assert.match(script,/rona-fd-v5-gauge__top/);
+  assert.match(script,/rona-fd-v5-gauge__rail/);
+  assert.match(script,/rona-fd-v5-screen__body/);
+  assert.match(script,/data-rona-flightdeck':'v5-full-rebuild/);
+  assert.match(script,/call\('\/admin\/operations-current-v2'/);
+});
