@@ -59,9 +59,9 @@ jobs:
 
           for(const token of [
             'CLIENT_RAIL_CURRENT_ONLY=PASS',
-            "visual_canon:'CLIENT_CANONICAL_RAIL_HERO_V1'",
-            "visual_contract:'CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY'",
-            "visual_source_mode:'CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER'",
+            "visual_canon:'ADMIN_CURRENT_V81_EXACT_OPERATIONAL_LAYOUT'",
+            "visual_contract:'ADMIN_CURRENT_V8_2_OPERATIONAL_BODY_PLUS_CLIENT_AUTHORITY'",
+            "visual_source_mode:'ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE'",
             "operational_body_canon:'/portal/rail-current-v81-maplibre-ui'",
             "legacy_client_visual_owner:false","separate_movizor_visual_gate:false"
           ])assert(attach.includes(token),`Rail attach ownership contract missing ${token}`);
