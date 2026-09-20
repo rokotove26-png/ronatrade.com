@@ -14,7 +14,8 @@ test('Operational Center V7 is event-driven and does not poll the read model',()
   assert.match(v7,/v7-event-driven-current-v1/);
   assert.match(runtime,/postgres-change-invalidation-v1-no-polling/);
   assert.match(runtime,/call\('\/admin\/operations-current-v1'\)/);
-  assert.match(runtime,/event:'postgres_changes'/);
+  assert.match(runtime,/postgres_changes/);
+  assert.match(runtime,/msg\?\.event==='postgres_changes'/);
   assert.match(runtime,/rona_admin_operations_invalidation_v1/);
   assert.match(runtime,/ronaOpsV7DirtyDomains/);
   assert.doesNotMatch(runtime,/setInterval\([^\n]*ronaOpsV7RefreshCurrent/);
