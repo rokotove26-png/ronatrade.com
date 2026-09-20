@@ -97,13 +97,25 @@
     const{identifier,password,button}=fieldSet(panel);const login=String(identifier.value||'').trim();const secret=String(password.value||'');
     if(!login||!secret){setStatus(doc,panel,'Введите логин и пароль.');return}
     busyPanels.add(panel);setStatus(doc,panel,'');setLoading(button,true);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_AUTH_TIMEOUT'),20000);
     try{
-      const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
+      const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
       const data=await r.json().catch(()=>({}));
-      if(!r.ok||!data?.ok){password.value='';const code=String(data?.code||'');if(r.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');else if(r.status===400||code==='LOGIN_INVALID')setStatus(doc,panel,'Введите корректный логин и пароль.');else if(r.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');return}
+      if(!r.ok||!data?.ok){
+        const code=String(data?.code||'');
+        const issued=data?.sessionIssued===true;
+        const recoveryTarget=localPortalTarget(data?.redirect);
+        if(r.status===503&&issued&&recoveryTarget){setStatus(doc,panel,'Сессия создана. Восстанавливаем кабинет…',false);try{window.top.location.assign(recoveryTarget)}catch(_){window.location.assign(recoveryTarget)}return}
+        password.value='';
+        if(r.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');
+        else if(r.status===400||code==='LOGIN_INVALID')setStatus(doc,panel,'Введите корректный логин и пароль.');
+        else if(r.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');
+        else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');
+        return
+      }
       const target=localPortalTarget(data.redirect);if(!target){password.value='';setStatus(doc,panel,'Не удалось определить разрешённый кабинет. Повторите попытку.');return}
       setStatus(doc,panel,'Вход выполнен. Открываем кабинет…',false);try{window.top.location.assign(target)}catch(_){window.location.assign(target)}
-    }catch(_){password.value='';setStatus(doc,panel,'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{busyPanels.delete(panel);setLoading(button,false)}
+    }catch(err){password.value='';setStatus(doc,panel,err?.name==='AbortError'?'Сервер входа не ответил вовремя. Повторите попытку.':'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{clearTimeout(timer);busyPanels.delete(panel);setLoading(button,false)}
   }
 
   function eventPanel(doc,target){const panel=findPanel(doc);if(!panel||!target)return null;return panel.contains(target)?panel:null}

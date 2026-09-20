@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { onRequest as ownerApi } from '../functions/portal/owner-api.js';
 import { onRequest as cashR2Ui } from '../functions/portal/cash-r2-ui.js';
 import { onRequest as portalRouter } from '../functions/portal/[[path]].js';
@@ -7,6 +8,7 @@ import { onRequestPost as portalLogin } from '../functions/portal/auth/login.js'
 
 const realFetch=globalThis.fetch;
 const cash=await (await cashR2Ui()).text();
+const inlineAuth=readFileSync(new URL('../assets/g82/portal-home-inline-auth-v2.js',import.meta.url),'utf8');
 
 function cashRequest(cookie='rona_portal_at=access-old; rona_portal_rt=refresh-old'){
   return new Request('https://ronaoil.com/portal/owner-api?path=/admin/cash-source',{
@@ -305,11 +307,36 @@ test('Exact browser login preserves issued session during transient Portal autho
   });
   const response=await portalLogin({request});
   assert.equal(response.status,503);
-  assert.equal(sessionCalls,4);
+  assert.equal(sessionCalls,3);
   assert.equal(logoutCalls,0);
   assert.match(await response.text(),/Восстанавливаю соединение/);
   const setCookie=response.headers.get('set-cookie')||'';
   assert.match(setCookie,/rona_portal_at=access-new/);
   assert.match(setCookie,/rona_portal_rt=refresh-new/);
   assert.doesNotMatch(setCookie,/Max-Age=0/);
+});
+
+
+test('Owner alias with ADMIN role bypasses generic multi-role selector and opens Admin directly',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({access_token:'access-owner',refresh_token:'refresh-owner',expires_in:3600},200);
+    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:true,user:{roles:['ADMIN','RONA_OPERATOR']}},200);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({identifier:'rokotove',password:'x'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin'});
+});
+
+test('Inline home login is bounded and can recover issued Admin session',()=>{
+  assert.match(inlineAuth,/new AbortController\(\)/);
+  assert.match(inlineAuth,/RONA_INLINE_AUTH_TIMEOUT/);
+  assert.match(inlineAuth,/sessionIssued===true/);
+  assert.match(inlineAuth,/Сессия создана\. Восстанавливаем кабинет/);
 });
