@@ -204,6 +204,9 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("railMapRequestDraw"));
   assert.ok(source.includes("railMapFitRoute"));
   assert.ok(source.includes("20260919-route-overlay-v3"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH__"));
+  assert.ok(source.includes("document.visibilityState==='visible'"),"Client Rail must preserve the current v8.1 visibility-gated polling contract");
+  assert.equal(source.includes("timer=setInterval(sync,30000)"),false,"Client adapter must not regress to unconditional legacy polling");
   assert.equal(source.includes("/portal/api/v1/client/shipments"),false);
   assert.equal(source.includes("/portal/api/v1/client/rail'"),false);
   assert.equal(/MOVIZOR|movement_publication|provider_live/i.test(source),false);

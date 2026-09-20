@@ -140,7 +140,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/qa-client-online-rail-670-real-integration.mjs | tee /tmp/issue670-real-integration.log
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
           grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
           test -s /tmp/issue670-real-integration-summary.json
 

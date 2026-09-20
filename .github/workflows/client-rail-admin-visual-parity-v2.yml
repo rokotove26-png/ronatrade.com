@@ -57,7 +57,7 @@ jobs:
       - name: Render Admin route geometry in Client
         run: |
           set -euo pipefail
-          node scripts/qa-client-online-rail-670-browser.mjs | tee /tmp/client-rail-admin-visual-parity-v3.log
+          node scripts/qa-client-online-rail-670-browser.mjs 2>&1 | tee /tmp/client-rail-admin-visual-parity-v3.log
           grep -Fq 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/client-rail-admin-visual-parity-v3.log
           grep -Fq 'ISSUE670_ROUTE_OVERLAY_V3_VISIBLE=PASS' /tmp/client-rail-admin-visual-parity-v3.log
           grep -Fq 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/client-rail-admin-visual-parity-v3.log
