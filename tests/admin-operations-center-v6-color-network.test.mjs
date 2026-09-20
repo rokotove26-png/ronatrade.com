@@ -95,3 +95,11 @@ test('Operations Center refreshes authoritative Deals facts and deep-links actio
   assert.match(generated,/onclick:\(\)=>ronaOpsV5Go\(row\.target,row\.dealId\)/);
   assert.match(generated,/function ronaOpsV5OpenDeal\(id\)/);
 });
+
+
+test('Operations global search uses the authoritative current deal projection', () => {
+  const generated=patchAdminOperationsCommandCenterV6(SOURCE);
+  assert.match(generated,/const currentDeals=deriveOperationsDealCurrentRows\(Array\.isArray\(d\.deals\)\?d\.deals:\[\],window\.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__\)/);
+  assert.match(generated,/for\(const x of currentDeals\)add\('Сделка '/);
+  assert.doesNotMatch(generated,/for\(const x of d\.deals\|\|\[\]\)add\('Сделка '/);
+});
