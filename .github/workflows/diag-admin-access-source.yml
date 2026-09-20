@@ -1,0 +1,37 @@
+name: Diagnose frozen Admin access wiring
+on:
+  push:
+    branches:
+      - 'diag/admin-access-source-20260819'
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Print bounded access-wiring snippets
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const p='portal-src/canonical/RONA_Trade_Admin_Portal_v3_4_13_BOOT_ERROR_LATCH_FINAL_CANDIDATE_20260812.html';
+          const s=fs.readFileSync(p,'utf8');
+          const needles=['page-agents','Создать агента','openModal(\'create-access\')','newRole','adminAgentProfiles','agentAccessRuntime','Управление агентами','Агенты','Агент — матрица прав не утверждена','createAccessUser'];
+          for(const n of needles){
+            let from=0,count=0;
+            while(count<8){
+              const i=s.indexOf(n,from); if(i<0) break;
+              const a=Math.max(0,i-1800),b=Math.min(s.length,i+Math.max(n.length,1)+2600);
+              console.log('\n=== '+n+' #'+(++count)+' @'+i+' ===\n'+s.slice(a,b).replace(/\r/g,''));
+              from=i+n.length;
+            }
+            if(!count) console.log('\n=== '+n+' NOT FOUND ===');
+          }
+          NODE
