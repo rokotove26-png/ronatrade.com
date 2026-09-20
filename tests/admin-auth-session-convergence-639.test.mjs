@@ -235,3 +235,81 @@ test('Issue 663 exact login session probe uses publishable key and returns Admin
   assert.match(setCookie,/rona_portal_at=access-new/);
   assert.match(setCookie,/rona_portal_rt=refresh-new/);
 });
+
+
+test('Exact browser login renders HTML instead of raw LOGIN_DENIED JSON',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({error:'invalid_grant'},400);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/x-www-form-urlencoded',accept:'text/html'},
+    body:new URLSearchParams({identifier:'qa-user@example.invalid',password:'x',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,401);
+  assert.match(response.headers.get('content-type')||'',/text\/html/);
+  const body=await response.text();
+  assert.match(body,/Неверный логин или пароль/);
+  assert.doesNotMatch(body,/"code":"LOGIN_DENIED"/);
+});
+
+test('Exact JSON login keeps LOGIN_DENIED for invalid credentials',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({error:'invalid_grant'},400);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({identifier:'qa-user@example.invalid',password:'x',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,401);
+  assert.deepEqual(await response.json(),{ok:false,code:'LOGIN_DENIED'});
+});
+
+test('Exact login classifies Auth service outage as retryable',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({message:'service unavailable'},503);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({identifier:'qa-user@example.invalid',password:'x',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,503);
+  assert.deepEqual(await response.json(),{ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true});
+  assert.equal(response.headers.get('set-cookie'),null);
+});
+
+test('Exact browser login preserves issued session during transient Portal authority outage',async()=>{
+  let sessionCalls=0,logoutCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({access_token:'access-new',refresh_token:'refresh-new',expires_in:3600},200);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){sessionCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/auth/v1/logout')){logoutCalls++;return jsonResponse({},200);}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/x-www-form-urlencoded',accept:'text/html'},
+    body:new URLSearchParams({identifier:'qa-user@example.invalid',password:'x',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,503);
+  assert.equal(sessionCalls,4);
+  assert.equal(logoutCalls,0);
+  assert.match(await response.text(),/Восстанавливаю соединение/);
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=access-new/);
+  assert.match(setCookie,/rona_portal_rt=refresh-new/);
+  assert.doesNotMatch(setCookie,/Max-Age=0/);
+});
