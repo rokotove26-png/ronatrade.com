@@ -15,6 +15,7 @@ test('Owner JWT fallback stays gateway-verified, owner-exact and DB-independent'
   assert.match(source,/payload\?\.app_metadata\?\.portal_identity/);
   assert.match(source,/Number\(payload\.exp\) > now/);
   assert.match(source,/session_id/);
-  assert.match(source,/5df1977520ade11fff60e3672d4d4b0b2e79d313/);
+  assert.match(source,/143a3244a94d3d7522cc3a57a14ddba22040c88a/);
+  assert.doesNotMatch(source,/5df1977520ade11fff60e3672d4d4b0b2e79d313/);
   assert.doesNotMatch(source,/createClient|postgres|execute_sql|service_role|SUPABASE_SERVICE_ROLE_KEY|from\(/);
 });

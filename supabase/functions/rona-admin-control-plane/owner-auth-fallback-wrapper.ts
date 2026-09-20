@@ -1,4 +1,4 @@
-// Emergency owner-auth fallback layered over exact production v9 control-plane core.
+// Emergency owner-auth fallback layered over the current production control-plane core.
 let capturedHandler: ((req: Request) => Response | Promise<Response>) | null = null;
 const originalServe = Deno.serve.bind(Deno);
 const captureServe = ((first: unknown, second?: unknown) => {
@@ -8,7 +8,7 @@ const captureServe = ((first: unknown, second?: unknown) => {
   return undefined as never;
 }) as typeof Deno.serve;
 (Deno as unknown as { serve: typeof Deno.serve }).serve = captureServe;
-await import('https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/5df1977520ade11fff60e3672d4d4b0b2e79d313/supabase/functions/rona-admin-control-plane/index.ts');
+await import('https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/143a3244a94d3d7522cc3a57a14ddba22040c88a/supabase/functions/rona-admin-control-plane/index.ts');
 (Deno as unknown as { serve: typeof Deno.serve }).serve = originalServe;
 if (!capturedHandler) throw new Error('ADMIN_CONTROL_PLANE_PRODUCTION_HANDLER_MISSING');
 
