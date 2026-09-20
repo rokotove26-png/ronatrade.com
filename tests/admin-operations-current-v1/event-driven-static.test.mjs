@@ -63,6 +63,10 @@ test('Invalidation ignores high-churn AI history and preserves intentional disab
   const sql=read('supabase/migrations/20260920154500_admin_operations_current_v1_event_driven.sql');
   const triggerBlock=sql.slice(sql.indexOf("from (values"),sql.indexOf(") as x(table_name,domain)"));
   assert.doesNotMatch(triggerBlock,/ai_runtime_queue/);
+  assert.match(sql,/TG_TABLE_NAME='staff_tasks'/);
+  assert.match(sql,/to_jsonb\(new\) - array\['updated_at','source_timestamp'\]/);
+  assert.match(sql,/TG_TABLE_NAME='rail_deal_route_assignments_v1'/);
+  assert.match(sql,/array\['resolved_at','refreshed_at'\]/);
   assert.match(sql,/upper\(mode\) <> 'DISABLED'/);
   assert.match(sql,/ai_history_excluded_from_action_kpi',true/);
 });
