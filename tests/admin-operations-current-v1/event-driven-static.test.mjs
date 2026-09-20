@@ -93,3 +93,21 @@ test('Missing read model or event connection cannot render SYSTEM NORMAL',()=>{
   assert.match(v7,/DATA DEGRADED/);
   assert.match(v7,/EVENT LINK/);
 });
+
+
+test('Automation health is event-driven and does not add read-model polling',()=>{
+  const v7=read('functions/portal/admin-operations-command-center-v7.js');
+  const sql=read('supabase/migrations/20260920161129_admin_operations_automation_health_v1.sql');
+  assert.match(sql,/rona_admin_automation_health_v1/);
+  assert.match(sql,/rona_admin_cron_health_transition_v1/);
+  assert.match(sql,/after update of status on cron\.job_run_details/i);
+  assert.match(sql,/v_new_ok is distinct from v_prev_ok/);
+  assert.match(sql,/new\.start_time-v_prev\.start_time > make_interval/);
+  assert.match(sql,/when insufficient_privilege then/);
+  assert.doesNotMatch(sql,/drop trigger if exists rona_admin_cron_health_transition_v1/);
+  assert.match(v7,/ronaOpsV7ScheduleAutomationStaleCheck/);
+  assert.match(v7,/setTimeout\(\(\)=>\{ronaOpsV7StaleTimer=0;if\(ronaOpsV7HomeVisible\(\)\)renderAdminHome\(\)\}/);
+  assert.match(v7,/automationIssues=opsAutomation\.filter/);
+  assert.match(v7,/effectiveCriticalCount=criticalCount\+automationCritical\.length/);
+  assert.doesNotMatch(v7,/setInterval\([^\n]*automation/i);
+});
