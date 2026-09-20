@@ -156,6 +156,10 @@ try{
   await handoffPage.getByRole('button',{name:'⋯ Опции'}).first().click();
   const optionsModal=handoffPage.locator('.ca-modal-backdrop').last();
   await optionsModal.waitFor({state:'visible'});
+  await handoffPage.waitForFunction(()=>{
+    const modal=[...document.querySelectorAll('.ca-modal-backdrop')].at(-1);
+    return !!modal && modal.textContent.includes('административном режиме просмотра');
+  },null,{timeout:10000});
   assert((await optionsModal.innerText()).includes('административном режиме просмотра'),'Company ADMIN_ENTITY preview must be available');
   await Promise.all([
     handoffPage.waitForURL(url=>url.pathname==='/portal/client'&&url.searchParams.get('impSession')===impersonationSessionId,{timeout:10000}),
