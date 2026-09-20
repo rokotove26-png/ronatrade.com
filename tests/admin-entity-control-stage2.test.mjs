@@ -108,7 +108,7 @@ for(const src of [imp,client,shared,portalApi,owner,claims]){
 }
 assertIncludes(control,'TARGET_PORTAL_USER_SELECTION_REQUIRED','multi-user deterministic Company entry');
 assertIncludes(control,'subjectMode:users.length?"PORTAL_USER":"ADMIN_ENTITY"','Company without Portal user receives explicit Admin entity preview');
-assertIncludes(control,'const adminEntity=kind==="COMPANY"&&users.length===0','Company no-user preview is deterministic');
+assertIncludes(control,'const adminEntity=users.length===0','Client or Agent no-user preview is deterministic');
 assertIncludes(control,'readOnly:adminEntity','Company no-user preview is read-only');
 assertIncludes(imp,'subjectMode: "PORTAL_USER" | "ADMIN_ENTITY"','impersonation subject mode is explicit');
 assertIncludes(imp,"coalesce(ais.metadata->>'subjectMode','PORTAL_USER')='ADMIN_ENTITY'",'resolver recognizes Admin entity preview');
@@ -116,7 +116,7 @@ assertIncludes(shared,'isAdminEntityClient','Portal read scope recognizes Admin 
 assertIncludes(shared,'isAdminEntityAgent','Portal read scope recognizes no-user Agent Admin entity preview');
 assertNotIncludes(shared,'targetClientKey\\n    ?await sql','Portal shared runtime must not contain escaped source newlines');
 assertIncludes(control,'canImpersonate:users.length<=1','Agent without Portal user remains enterable by Admin');
-assertIncludes(control,'const adminEntity=users.length===0','No-user Client or Agent uses explicit Admin entity mode');
+assertIncludes(control,'canImpersonate:true','Company without Portal user remains enterable by Admin');
 assertIncludes(ui,"Открытие кабинета агента в административном режиме просмотра.",'Agent no-user Admin preview is visible in UI');
 assertIncludes(agent,'isAdminEntityAgent','Agent read projection supports Admin entity preview');
 assertIncludes(portalApi,'route.startsWith("/v1/agent/")','Agent Admin entity mutations are fail-closed');
