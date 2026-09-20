@@ -6,7 +6,9 @@ on:
       - 'release/public-go-live-v1.1'
     paths:
       - 'supabase/migrations/20260920041200_client_application_price_trigger_search_path_hardening_v1.sql'
+      - 'supabase/migrations/20260920041600_drop_exact_duplicate_indexes_v1.sql'
       - 'tests/db-security-search-path-hardening-v1.test.mjs'
+      - 'tests/db-duplicate-index-cleanup-v1.test.mjs'
       - '.github/workflows/db-security-search-path-qa.yml'
 
 jobs:
@@ -19,4 +21,6 @@ jobs:
         with:
           node-version: '24'
       - name: Verify DB security hardening source contract
-        run: node tests/db-security-search-path-hardening-v1.test.mjs
+        run: |
+          node tests/db-security-search-path-hardening-v1.test.mjs
+          node tests/db-duplicate-index-cleanup-v1.test.mjs
