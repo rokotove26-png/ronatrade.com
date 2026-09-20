@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
 import { createClaimsRuntime } from "./claims.ts";
+import { resolveAdminImpersonation, recordImpersonationEvent, impersonationMetadata } from "../_shared/admin-impersonation-authority-v1.ts";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 const SUPA_URL = Deno.env.get("SUPABASE_URL");
@@ -57,7 +58,17 @@ async function authContext(req) {
     where a.session_allowed and (s.not_after is null or s.not_after>now())
   `;
   if (rows.length !== 1) return null;
-  return { authUserId: String(data.user.id), userId: String(rows[0].portal_user_id), displayName: String(rows[0].display_name || ""), roles: (rows[0].roles || []).map(String), sessionId: sid, authorization };
+  const actorUserId=String(rows[0].portal_user_id),actorRoles=(rows[0].roles||[]).map(String),actorName=String(rows[0].display_name||"");
+  const base={authUserId:String(data.user.id),userId:actorUserId,displayName:actorName,roles:actorRoles,sessionId:sid,authorization,actorAuthUserId:String(data.user.id),actorUserId,actorDisplayName:actorName,actorRoles,impersonation:null};
+  const impToken=String(req.headers.get("x-rona-admin-impersonation-token")||"").trim();
+  if(!impToken)return base;
+  if(!actorRoles.includes("ADMIN"))return null;
+  const impersonation=await resolveAdminImpersonation(sql,{authUserId:String(data.user.id),portalUserId:actorUserId,sessionId:sid,displayName:actorName,roles:actorRoles},impToken);
+  if(!impersonation)return null;
+  const tabId=String(req.headers.get("x-rona-impersonation-tab")||"").trim();
+  if(tabId!==impersonation.id)return null;
+  const effective=await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;
+  return{...base,userId:impersonation.effectiveUserId,displayName:String(effective[0]?.display_name||""),roles:[impersonation.effectiveRole],impersonation};
 }
 function requireRole(ctx, role) {
   if (!ctx?.roles?.includes(role)) throw Object.assign(new Error("ROLE_MISMATCH"), { status: 403 });
@@ -82,23 +93,28 @@ function reqIds(req) {
 }
 async function audit(tx, ctx, action, entityType, entityId, req, metadata = {}) {
   const { requestId, correlationId } = reqIds(req);
+  const actorUserId=ctx.actorUserId||ctx.userId;
+  const actorRole=ctx.impersonation?"ADMIN":ctx.roles.includes("ADMIN")?"ADMIN":ctx.roles.includes("CLIENT")?"CLIENT":ctx.roles.includes("AGENT")?"AGENT":"RONA_OPERATOR";
+  const provenance=ctx.impersonation?impersonationMetadata({authUserId:ctx.actorAuthUserId,portalUserId:actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation):{};
   await tx`insert into portal_private.audit_events(actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata)
-    values(${ctx.userId}::uuid,${ctx.roles.includes("ADMIN") ? "ADMIN" : ctx.roles.includes("CLIENT") ? "CLIENT" : ctx.roles.includes("AGENT") ? "AGENT" : "RONA_OPERATOR"},${action},${entityType},${entityId},${requestId}::uuid,${correlationId}::uuid,${sql.json(metadata)})`;
+    values(${actorUserId}::uuid,${actorRole},${action},${entityType},${entityId},${requestId}::uuid,${correlationId||ctx.impersonation?.correlationId||null}::uuid,${sql.json({...metadata,...provenance})})`;
 }
 
 async function clientScope(ctx) {
+  const bound=ctx.impersonation?.effectiveRole==="CLIENT"?ctx.impersonation.targetClientKey:null;
   const rows = await sql`
     select distinct b.client_key,b.contract_key,cl.client_id,cl.legal_name,ct.contract_id,ct.current_signed_document_id
     from portal_private.client_user_bindings b
     join portal_private.clients cl on cl.id=b.client_key
     join portal_private.contracts ct on ct.id=b.contract_key
-    where b.user_id=${ctx.userId}::uuid and b.status='ACTIVE'::portal_private.binding_status_enum
+    where b.user_id=${ctx.userId}::uuid and (${bound}::uuid is null or b.client_key=${bound}::uuid) and b.status='ACTIVE'::portal_private.binding_status_enum
       and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
       and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
   `;
   return rows;
 }
 async function agentScope(ctx) {
+  const bound=ctx.impersonation?.effectiveRole==="AGENT"?ctx.impersonation.targetAgentPersonKey:null;
   const rows = await sql`
     select distinct aca.client_key,cl.client_id,cl.legal_name,ap.agent_person_id,
            ale.agent_legal_entity_id,ale.legal_name agent_legal_name
@@ -112,7 +128,7 @@ async function agentScope(ctx) {
     join portal_private.agent_persons ap on ap.id=aub.agent_person_key
     left join portal_private.agent_legal_entities ale on ale.id=aca.agent_legal_entity_key
     join portal_private.clients cl on cl.id=aca.client_key
-    where aub.user_id=${ctx.userId}::uuid and aub.status='ACTIVE'::portal_private.binding_status_enum and aub.revoked_at is null
+    where aub.user_id=${ctx.userId}::uuid and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid) and aub.status='ACTIVE'::portal_private.binding_status_enum and aub.revoked_at is null
       and aub.valid_from<=now() and (aub.valid_to is null or aub.valid_to>now())
       and aca.status='ACTIVE'::portal_private.binding_status_enum and aca.valid_from<=now() and (aca.valid_to is null or aca.valid_to>now())
       and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
@@ -362,7 +378,7 @@ async function parsePdf(req){let form;try{form=await req.formData()}catch{throw 
 async function rawStorageObjectId(objectName){const rows=await sql`select id from storage.objects where bucket_id=${BUCKET} and name=${objectName} limit 1`;return rows[0]?.id?String(rows[0].id):null}
 async function uploadRaw(prefix,parsed){const objectName=`${prefix}/${crypto.randomUUID()}-${safeFilename(parsed.file.name)}`;const {error}=await service.storage.from(BUCKET).upload(objectName,new Uint8Array(parsed.bytes),{contentType:'application/pdf',upsert:false,cacheControl:'3600'});if(error)throw Object.assign(new Error('STORAGE_UPLOAD_FAILED'),{status:502});const rawId=await rawStorageObjectId(objectName);if(!rawId){await service.storage.from(BUCKET).remove([objectName]).catch(()=>{});throw Object.assign(new Error('STORAGE_OBJECT_ID_MISSING'),{status:502})}return{objectName,rawId}}
 async function registerDealPdf(ctx,req,dealId,kind,isClientUpload=false){const parsed=await parsePdf(req);const d=(await sql`select d.id deal_key,d.client_key,d.contract_key,d.deal_id,cl.client_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key where d.deal_id=${dealId} limit 1`)[0];if(!d)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});if(isClientUpload){const scope=await clientScope(ctx);if(!scope.some(x=>String(x.client_key)===String(d.client_key)))throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403})}
-  const raw=await uploadRaw(`deals/${d.client_id}/${dealId}/${kind.toLowerCase()}`,parsed);try{return await sql.begin(async tx=>{const docKey=crypto.randomUUID(),docId=`${dealId}-${kind}-${crypto.randomUUID().slice(0,8)}`,versionKey=crypto.randomUUID();await tx`insert into portal_private.documents(id,document_id,document_type,client_key,contract_key,deal_key,authoritative_filename,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${docKey}::uuid,${docId},${kind},${d.client_key}::uuid,${d.contract_key}::uuid,${d.deal_key}::uuid,${parsed.file.name},${isClientUpload?'CLIENT_PORTAL':'ADMIN_PORTAL'},'OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;await tx`insert into portal_private.document_versions(id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${versionKey}::uuid,${docKey}::uuid,1,${parsed.file.name},${parsed.sha256},${raw.objectName},${ctx.userId}::uuid,true,true,${isClientUpload?'CLIENT_PORTAL':'ADMIN_PORTAL'},'OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;await tx`insert into portal_private.storage_objects(bucket_id,object_name,storage_object_id,object_kind,client_key,contract_key,deal_key,document_version_key,content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at) values(${BUCKET},${raw.objectName},${raw.rawId}::uuid,'DOCUMENT',${d.client_key}::uuid,${d.contract_key}::uuid,${d.deal_key}::uuid,${versionKey}::uuid,'application/pdf',${parsed.file.size},${parsed.sha256},'VERIFIED',${ctx.userId}::uuid,${ctx.userId}::uuid,now())`;await tx`update portal_private.documents set current_version_id=${versionKey}::uuid,updated_at=now() where id=${docKey}::uuid`;await tx`insert into portal_private.owner_deal_documents(deal_key,document_key,document_kind) values(${d.deal_key}::uuid,${docKey}::uuid,${kind})`;if(kind==='SIGNED_ADDENDUM')await tx`insert into portal_private.owner_deal_workflow(deal_key,signed_supplement_document_key) values(${d.deal_key}::uuid,${docKey}::uuid) on conflict(deal_key) do update set signed_supplement_document_key=excluded.signed_supplement_document_key,updated_at=now()`;await audit(tx,ctx,`OWNER_${kind}_UPLOADED`,'DEAL',dealId,req,{documentId:docId,sha256:parsed.sha256});return{dealId,documentId:docId,kind,filename:parsed.file.name}})}catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}}
+  const raw=await uploadRaw(`deals/${d.client_id}/${dealId}/${kind.toLowerCase()}`,parsed);try{return await sql.begin(async tx=>{const docKey=crypto.randomUUID(),docId=`${dealId}-${kind}-${crypto.randomUUID().slice(0,8)}`,versionKey=crypto.randomUUID();await tx`insert into portal_private.documents(id,document_id,document_type,client_key,contract_key,deal_key,authoritative_filename,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${docKey}::uuid,${docId},${kind},${d.client_key}::uuid,${d.contract_key}::uuid,${d.deal_key}::uuid,${parsed.file.name},${isClientUpload?'CLIENT_PORTAL':'ADMIN_PORTAL'},'OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;await tx`insert into portal_private.document_versions(id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state) values(${versionKey}::uuid,${docKey}::uuid,1,${parsed.file.name},${parsed.sha256},${raw.objectName},${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid,true,true,${isClientUpload?'CLIENT_PORTAL':'ADMIN_PORTAL'},'OWNER_ACCEPTANCE_V1',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;await tx`insert into portal_private.storage_objects(bucket_id,object_name,storage_object_id,object_kind,client_key,contract_key,deal_key,document_version_key,content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at) values(${BUCKET},${raw.objectName},${raw.rawId}::uuid,'DOCUMENT',${d.client_key}::uuid,${d.contract_key}::uuid,${d.deal_key}::uuid,${versionKey}::uuid,'application/pdf',${parsed.file.size},${parsed.sha256},'VERIFIED',${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid,${ctx.impersonation?ctx.actorUserId:ctx.userId}::uuid,now())`;await tx`update portal_private.documents set current_version_id=${versionKey}::uuid,updated_at=now() where id=${docKey}::uuid`;await tx`insert into portal_private.owner_deal_documents(deal_key,document_key,document_kind) values(${d.deal_key}::uuid,${docKey}::uuid,${kind})`;if(kind==='SIGNED_ADDENDUM')await tx`insert into portal_private.owner_deal_workflow(deal_key,signed_supplement_document_key) values(${d.deal_key}::uuid,${docKey}::uuid) on conflict(deal_key) do update set signed_supplement_document_key=excluded.signed_supplement_document_key,updated_at=now()`;await audit(tx,ctx,`OWNER_${kind}_UPLOADED`,'DEAL',dealId,req,{documentId:docId,sha256:parsed.sha256});return{dealId,documentId:docId,kind,filename:parsed.file.name}})}catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}}
 
 async function paymentHandoff(ctx,req,dealId){const rows=await sql`select d.id deal_key,odd.document_key from portal_private.deals d left join portal_private.owner_deal_documents odd on odd.deal_key=d.id and odd.document_kind='SIGNED_ADDENDUM' where d.deal_id=${dealId} order by odd.updated_at desc nulls last limit 1`;if(!rows.length)throw Object.assign(new Error('DEAL_NOT_FOUND'),{status:404});if(!rows[0].document_key)throw Object.assign(new Error('SIGNED_ADDENDUM_REQUIRED'),{status:409});return sql.begin(async tx=>{await tx`insert into portal_private.owner_deal_workflow(deal_key,payment_handoff_state,payment_handoff_at,payment_handoff_by,signed_supplement_document_key,signed_supplement_checked_at,signed_supplement_checked_by) values(${rows[0].deal_key}::uuid,'SENT',now(),${ctx.userId}::uuid,${rows[0].document_key}::uuid,now(),${ctx.userId}::uuid) on conflict(deal_key) do update set payment_handoff_state='SENT',payment_handoff_at=now(),payment_handoff_by=${ctx.userId}::uuid,signed_supplement_document_key=${rows[0].document_key}::uuid,signed_supplement_checked_at=now(),signed_supplement_checked_by=${ctx.userId}::uuid,updated_at=now()`;await tx`update portal_private.owner_deal_documents set checked_by_admin=true,checked_at=now(),checked_by=${ctx.userId}::uuid,updated_at=now() where deal_key=${rows[0].deal_key}::uuid and document_key=${rows[0].document_key}::uuid and document_kind='SIGNED_ADDENDUM'`;await audit(tx,ctx,'OWNER_DEAL_SENT_TO_PAYMENTS','DEAL',dealId,req,{});return{dealId,status:'SENT'}})}
 
@@ -370,7 +386,7 @@ async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode=
   const rows=await sql`select d.id,d.document_id,d.client_key,d.document_type,d.authoritative_filename,dv.storage_path,so.bucket_id from portal_private.documents d join portal_private.document_versions dv on dv.id=d.current_version_id and dv.document_key=d.id join portal_private.storage_objects so on so.document_version_key=dv.id and so.storage_state='VERIFIED' where d.document_id=${documentId} and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum and dv.is_current and dv.is_effective limit 1`;if(!rows.length)throw Object.assign(new Error('DOCUMENT_NOT_FOUND'),{status:404});const r=rows[0];if(mode!=='admin'&&!allowed.includes(String(r.client_key)))throw Object.assign(new Error('DOCUMENT_ACCESS_DENIED'),{status:403});const {data,error}=await service.storage.from(String(r.bucket_id||BUCKET)).createSignedUrl(String(r.storage_path),120,{download:String(r.authoritative_filename||'document.pdf')});if(error||!data?.signedUrl)throw Object.assign(new Error('SIGNED_URL_FAILED'),{status:502});return{documentId:String(r.document_id),filename:String(r.authoritative_filename),url:data.signedUrl,expiresIn:120}}
 
 async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scope.map(x=>String(x.client_key));if(!keys.length)return{companies:[],prices:[],applications:[],deals:[],documents:[],analytics:[],news:[],radio:[]};
-  const contracts=await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.client_user_bindings b join portal_private.clients cl on cl.id=b.client_key join portal_private.contracts ct on ct.id=b.contract_key left join portal_private.documents d on d.id=ct.current_signed_document_id where b.user_id=${ctx.userId}::uuid and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())`;
+  const contracts=await sql`select cl.client_id,cl.legal_name,ct.contract_id,ct.current_external_contract_number,d.document_id contract_document_id,d.authoritative_filename contract_filename from portal_private.client_user_bindings b join portal_private.clients cl on cl.id=b.client_key join portal_private.contracts ct on ct.id=b.contract_key left join portal_private.documents d on d.id=ct.current_signed_document_id where b.user_id=${ctx.userId}::uuid and b.client_key = any(${keys}::uuid[]) and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())`;
   const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_client=true and business_status='PUBLISHED' order by agreed_at desc`;
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,a.proposed_price,a.proposed_currency,d.deal_id,w.counter_price,w.counter_currency,w.client_counter_response from portal_private.client_applications a left join portal_private.deals d on d.id=a.linked_deal_key left join portal_private.owner_application_workflow w on w.application_key=a.id where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const deals=await sql`select d.deal_id,d.business_status,cl.legal_name,ct.contract_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key where d.client_key = any(${keys}::uuid[]) and d.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by d.updated_at desc`;
@@ -393,8 +409,98 @@ function buildPricePdf(prices){const lines=['RONA Trade | Agent Price List',`Gen
 
 const claimsRuntime=createClaimsRuntime({sql,service,BUCKET,MAX_PDF,audit,reqIds});
 
+
+async function clientWorkflowBootstrap(ctx){
+  const scope=await clientScope(ctx);
+  const keys=[...new Set(scope.map(x=>String(x.client_key)))];
+  if(!keys.length)return{generatedAt:new Date().toISOString(),deals:[],documents:[]};
+  const deals=await sql`
+    select d.deal_id,cl.legal_name,coalesce(w.cancellation_state,'ACTIVE') cancellation_state,
+           w.client_addendum_downloaded_at,w.client_invoice_downloaded_at
+    from portal_private.deals d
+    join portal_private.clients cl on cl.id=d.client_key
+    left join portal_private.owner_deal_workflow w on w.deal_key=d.id
+    where d.client_key=any(${keys}::uuid[])
+      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+    order by d.created_at desc
+  `;
+  const documents=await sql`
+    select d.deal_id,odd.document_kind,doc.document_id,doc.authoritative_filename,doc.created_at
+    from portal_private.owner_deal_documents odd
+    join portal_private.deals d on d.id=odd.deal_key
+    join portal_private.documents doc on doc.id=odd.document_key
+    where doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and odd.document_kind in ('ADDENDUM','INVOICE','SIGNED_ADDENDUM')
+      and d.client_key=any(${keys}::uuid[])
+      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+    order by doc.created_at desc
+  `;
+  return{generatedAt:new Date().toISOString(),deals,documents};
+}
+
+async function clientAnalyticsFeed(){
+  const publications=await sql`
+    select p.id,p.publication_id,p.title,p.published_at
+    from portal_private.publications p
+    where p.publication_type::text='ANALYTICS'
+      and p.status::text='PUBLISHED'
+      and p.lifecycle_state::text='ACTIVE'
+      and p.authority_state::text in ('VERIFIED','CONFIRMED')
+      and upper(coalesce(p.audience,'INTERNAL'))<>'INTERNAL'
+    order by p.published_at desc
+  `;
+  const out=[];
+  for(const p of publications){
+    const items=await sql`
+      select pi.product,pi.basis,pi.headline,pi.content_text,pi.analytics_as_of,
+             pi.forecast_scenario,pi.actual_value,pi.forecast_value,pi.analytics_unit,
+             pi.metadata->'public_chart' public_chart
+      from portal_private.publication_items pi
+      where pi.publication_key=${p.id}::uuid
+        and pi.item_type::text='ANALYTICS'
+        and pi.lifecycle_state::text='ACTIVE'
+        and pi.authority_state::text in ('VERIFIED','CONFIRMED')
+        and pi.distribution_allowed=true
+        and upper(coalesce(pi.audience,'INTERNAL'))<>'INTERNAL'
+        and coalesce(pi.metadata->>'publication_layer','')='DERIVED_ANALYTICS'
+        and lower(coalesce(pi.metadata->>'public_chart_ready','false'))='true'
+        and pi.metadata ? 'public_chart'
+        and (pi.client_active_from is null or pi.client_active_from<=now())
+        and (pi.client_active_until is null or pi.client_active_until>now())
+      order by pi.item_order
+    `;
+    if(items.length)out.push({publication_id:p.publication_id,title:p.title,published_at:p.published_at,items});
+  }
+  return{generatedAt:new Date().toISOString(),publications:out,publicationGate:'PUBLISHED_DERIVED_DISTRIBUTION_ALLOWED_ONLY'};
+}
+
+async function clientMarkDownload(ctx,req,dealId){
+  const body=await jsonBody(req),kind=String(body.kind||'').trim().toUpperCase();
+  if(!['ADDENDUM','INVOICE'].includes(kind))throw Object.assign(new Error('INVALID_DOCUMENT_KIND'),{status:400});
+  const scope=await clientScope(ctx),keys=[...new Set(scope.map(x=>String(x.client_key)))];
+  if(!keys.length)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
+  const rows=await sql`
+    select d.id
+    from portal_private.deals d
+    where d.deal_id=${dealId}
+      and d.client_key=any(${keys}::uuid[])
+      and portal_private.client_user_has_deal_access(${ctx.userId}::uuid,d.id,now())
+    limit 1
+  `;
+  if(rows.length!==1)throw Object.assign(new Error('DEAL_ACCESS_DENIED'),{status:403});
+  const dealKey=String(rows[0].id);
+  await sql.begin(async tx=>{
+    await tx`insert into portal_private.owner_deal_workflow(deal_key) values(${dealKey}::uuid) on conflict(deal_key) do nothing`;
+    if(kind==='ADDENDUM')await tx`update portal_private.owner_deal_workflow set client_addendum_downloaded_at=coalesce(client_addendum_downloaded_at,now()),updated_at=now() where deal_key=${dealKey}::uuid`;
+    else await tx`update portal_private.owner_deal_workflow set client_invoice_downloaded_at=coalesce(client_invoice_downloaded_at,now()),updated_at=now() where deal_key=${dealKey}::uuid`;
+    await audit(tx,ctx,'CLIENT_DEAL_DOCUMENT_DOWNLOAD_MARK','DEAL',dealId,req,{kind});
+  });
+  return{dealId,kind,marked:true};
+}
+
 Deno.serve(async req=>{
   const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:'PORTAL_ACCESS_DENIED'});const path=pathOf(req),method=req.method;
+  if(ctx.impersonation){await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,method==='GET'?'PORTAL_READ':'PORTAL_MUTATION','AUTHORIZED_DISPATCH',{source:'RONA_OWNER_ACCEPTANCE'});}
   try{
     if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
     if(path==='/admin/claims'||path.startsWith('/admin/claims/')){requireRole(ctx,'ADMIN');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
@@ -407,6 +513,9 @@ Deno.serve(async req=>{
     m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
 
     if(path==='/client/bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientBootstrap(ctx)})}
+    if(path==='/client/workflow-bootstrap'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientWorkflowBootstrap(ctx)})}
+    if(path==='/client/analytics-feed'&&method==='GET'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientAnalyticsFeed()})}
+    m=path.match(/^\/client\/deals\/([^/]+)\/mark-download$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientMarkDownload(ctx,req,decodeURIComponent(m[1]))})}
     if(path==='/client/claims'||path.startsWith('/client/claims/')){requireRole(ctx,'CLIENT');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}
     m=path.match(/^\/client\/applications\/([^/]+)\/counter-offer\/(accept|decline)$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await clientCounterDecision(ctx,req,decodeURIComponent(m[1]),m[2])})}
     m=path.match(/^\/client\/deals\/([^/]+)\/signed-addendum$/);if(m&&method==='POST'){requireRole(ctx,'CLIENT');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),'SIGNED_ADDENDUM',true)})}

@@ -16,7 +16,7 @@ let capturedHandler:any=null;
   return {finished:Promise.resolve(),shutdown(){},ref(){},unref(){}};
 };
 
-await import('https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/5aceffe2725a904e8e0ded562e483f012e861085/supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts');
+await import('./application-business-bootstrap-v2.ts');
 (Deno as any).serve=nativeServe;
 if(typeof capturedHandler!=='function')throw new Error('PAYMENTS_V8_BASELINE_HANDLER_CAPTURE_FAILED');
 

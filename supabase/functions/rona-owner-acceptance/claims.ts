@@ -2,6 +2,8 @@
 
 export function createClaimsRuntime(deps:any) {
   const { sql, service, BUCKET, MAX_PDF, audit, reqIds } = deps;
+  const actorUser=(ctx:any)=>ctx?.impersonation&&ctx?.actorUserId?ctx.actorUserId:ctx.userId;
+  const boundClient=(ctx:any)=>ctx?.impersonation?.effectiveRole==='CLIENT'?ctx.impersonation.targetClientKey:null;
 
   function clean(v:any, name:string, max=500, required=true) {
     const s=String(v??'').trim();
@@ -51,9 +53,9 @@ export function createClaimsRuntime(deps:any) {
     await tx`insert into portal_private.documents(id,document_id,document_type,client_key,contract_key,deal_key,authoritative_filename,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
       values(${docKey}::uuid,${meta.documentId},${meta.documentType},${meta.clientKey}::uuid,${meta.contractKey}::uuid,${meta.dealKey||null}::uuid,${parsed.file.name},${sourceSystem},${sourceVersion},now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
     await tx`insert into portal_private.document_versions(id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
-      values(${versionKey}::uuid,${docKey}::uuid,1,${parsed.file.name},${parsed.sha256},${raw.objectName},${ctx.userId}::uuid,true,true,${sourceSystem},${sourceVersion},now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
+      values(${versionKey}::uuid,${docKey}::uuid,1,${parsed.file.name},${parsed.sha256},${raw.objectName},${actorUser(ctx)}::uuid,true,true,${sourceSystem},${sourceVersion},now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
     await tx`insert into portal_private.storage_objects(bucket_id,object_name,storage_object_id,object_kind,client_key,contract_key,deal_key,document_version_key,content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at)
-      values(${BUCKET},${raw.objectName},${raw.rawId}::uuid,'DOCUMENT',${meta.clientKey}::uuid,${meta.contractKey}::uuid,${meta.dealKey||null}::uuid,${versionKey}::uuid,'application/pdf',${parsed.file.size},${parsed.sha256},'VERIFIED',${ctx.userId}::uuid,${ctx.userId}::uuid,now())`;
+      values(${BUCKET},${raw.objectName},${raw.rawId}::uuid,'DOCUMENT',${meta.clientKey}::uuid,${meta.contractKey}::uuid,${meta.dealKey||null}::uuid,${versionKey}::uuid,'application/pdf',${parsed.file.size},${parsed.sha256},'VERIFIED',${actorUser(ctx)}::uuid,${actorUser(ctx)}::uuid,now())`;
     await tx`update portal_private.documents set current_version_id=${versionKey}::uuid,updated_at=now() where id=${docKey}::uuid`;
     return {docKey,documentId:meta.documentId,filename:parsed.file.name,sha256:parsed.sha256};
   }
@@ -107,6 +109,7 @@ export function createClaimsRuntime(deps:any) {
       join portal_private.documents pd on pd.id=c.primary_document_key
       left join portal_private.documents rd on rd.id=c.response_document_key
       where c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and (${boundClient(ctx)}::uuid is null or c.client_key=${boundClient(ctx)}::uuid)
         and exists(
           select 1 from portal_private.client_user_bindings b
           where b.user_id=${ctx.userId}::uuid and b.client_key=c.client_key and b.contract_key=c.contract_key
@@ -141,7 +144,7 @@ export function createClaimsRuntime(deps:any) {
     await sql.begin(async(tx:any)=>{
       await tx`insert into portal_private.ai_coordination_records(record_id,record_type,functional_role,identity_id,client_id,server_slug,tool_name,target_type,target_id,target_role,version,idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,correlation_id,mcp_request_id,qa_only)
         values(${recordId}::uuid,'HANDOFF_REQUEST','SYSTEM_ADMIN'::portal_private.ai_business_role_enum,'AI-SYSTEM-ADMIN','portal-client-claims','rona-owner-acceptance','claim_legal_handoff','CLAIM',${claimId},'LEGAL'::portal_private.ai_business_role_enum,${seq},${idemHash},${payloadHash},${sql.json(sourceRefs)},'[]'::jsonb,${sql.json(payload)},'REQUESTED',${correlationId}::uuid,${mcpRequestId}::uuid,false)`;
-      await tx`update portal_private.owner_claims set legal_handoff_record_id=${recordId}::uuid,updated_by=${ctx.userId}::uuid,updated_at=now() where claim_id=${claimId}`;
+      await tx`update portal_private.owner_claims set legal_handoff_record_id=${recordId}::uuid,updated_by=${actorUser(ctx)}::uuid,updated_at=now() where claim_id=${claimId}`;
       await audit(tx,ctx,'CLIENT_CLAIM_SENT_TO_LEGAL','CLAIM',claimId,req,{recordId,version:seq,claimSource:'CLIENT'});
     });
     return {claimId,recordId,status:'REQUESTED',version:seq};
@@ -164,7 +167,7 @@ export function createClaimsRuntime(deps:any) {
       await sql.begin(async(tx:any)=>{
         const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-OUT`,documentType:'CLAIM',clientKey:String(scope.client_key),contractKey:String(scope.contract_key),dealKey,sourceSystem:'ADMIN_PORTAL'});
         await tx`insert into portal_private.owner_claims(claim_id,claim_source,client_key,contract_key,deal_key,category,subject,description,status,primary_document_key,created_by,updated_by)
-          values(${claimId},'ADMIN',${scope.client_key}::uuid,${scope.contract_key}::uuid,${dealKey||null}::uuid,${category},${subject},${description||null},'REVIEW',${doc.docKey}::uuid,${ctx.userId}::uuid,${ctx.userId}::uuid)`;
+          values(${claimId},'ADMIN',${scope.client_key}::uuid,${scope.contract_key}::uuid,${dealKey||null}::uuid,${category},${subject},${description||null},'REVIEW',${doc.docKey}::uuid,${actorUser(ctx)}::uuid,${actorUser(ctx)}::uuid)`;
         await audit(tx,ctx,'OWNER_CLAIM_REGISTERED_FOR_CLIENT','CLAIM',claimId,req,{claimSource:'ADMIN',clientId,contractId,dealId:dealId||null,documentId:doc.documentId,sha256:doc.sha256,delivery:'CLIENT_PORTAL'});
       });
     }catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
@@ -179,6 +182,7 @@ export function createClaimsRuntime(deps:any) {
       join portal_private.clients cl on cl.id=b.client_key
       join portal_private.contracts ct on ct.id=b.contract_key
       where b.user_id=${ctx.userId}::uuid and cl.client_id=${clientId} and ct.contract_id=${contractId}
+        and (${boundClient(ctx)}::uuid is null or cl.id=${boundClient(ctx)}::uuid)
         and b.status='ACTIVE'::portal_private.binding_status_enum and b.revoked_at is null
         and b.valid_from<=now() and (b.valid_to is null or b.valid_to>now())
         and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
@@ -193,7 +197,7 @@ export function createClaimsRuntime(deps:any) {
       await sql.begin(async(tx:any)=>{
         const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-IN`,documentType:'CLAIM',clientKey:String(scope.client_key),contractKey:String(scope.contract_key),dealKey,sourceSystem:'CLIENT_PORTAL'});
         await tx`insert into portal_private.owner_claims(claim_id,claim_source,client_key,contract_key,deal_key,category,subject,description,status,primary_document_key,created_by,updated_by)
-          values(${claimId},'CLIENT',${scope.client_key}::uuid,${scope.contract_key}::uuid,${dealKey||null}::uuid,${category},${subject},${description||null},'REVIEW',${doc.docKey}::uuid,${ctx.userId}::uuid,${ctx.userId}::uuid)`;
+          values(${claimId},'CLIENT',${scope.client_key}::uuid,${scope.contract_key}::uuid,${dealKey||null}::uuid,${category},${subject},${description||null},'REVIEW',${doc.docKey}::uuid,${actorUser(ctx)}::uuid,${actorUser(ctx)}::uuid)`;
         await audit(tx,ctx,'CLIENT_CLAIM_REGISTERED','CLAIM',claimId,req,{claimSource:'CLIENT',clientId,contractId,dealId:dealId||null,documentId:doc.documentId,sha256:doc.sha256});
       });
     }catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
@@ -206,7 +210,7 @@ export function createClaimsRuntime(deps:any) {
     if(!c)throw Object.assign(new Error('CLAIM_NOT_FOUND'),{status:404});
     if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('RESPONSE_INCOMING_ONLY'),{status:409});
     const raw=await uploadRaw(`claims/${c.client_id}/${claimId}/response`,parsed);
-    try{return await sql.begin(async(tx:any)=>{const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-RESP-${crypto.randomUUID().slice(0,6).toUpperCase()}`,documentType:'CLAIM_RESPONSE',clientKey:String(c.client_key),contractKey:String(c.contract_key),dealKey:c.deal_key?String(c.deal_key):null,sourceSystem:'ADMIN_PORTAL'});await tx`update portal_private.owner_claims set response_document_key=${doc.docKey}::uuid,response_sent_at=null,response_sent_by=null,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_UPLOADED','CLAIM',claimId,req,{documentId:doc.documentId,sha256:doc.sha256});return{claimId,documentId:doc.documentId,filename:doc.filename,responseSentAt:null}})}catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
+    try{return await sql.begin(async(tx:any)=>{const doc=await createDocumentTx(tx,ctx,parsed,raw,{documentId:`${claimId}-RESP-${crypto.randomUUID().slice(0,6).toUpperCase()}`,documentType:'CLAIM_RESPONSE',clientKey:String(c.client_key),contractKey:String(c.contract_key),dealKey:c.deal_key?String(c.deal_key):null,sourceSystem:'ADMIN_PORTAL'});await tx`update portal_private.owner_claims set response_document_key=${doc.docKey}::uuid,response_sent_at=null,response_sent_by=null,updated_by=${actorUser(ctx)}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_UPLOADED','CLAIM',claimId,req,{documentId:doc.documentId,sha256:doc.sha256});return{claimId,documentId:doc.documentId,filename:doc.filename,responseSentAt:null}})}catch(e){await service.storage.from(BUCKET).remove([raw.objectName]).catch(()=>{});throw e}
   }
 
   async function sendResponse(ctx:any,req:Request,claimId:string) {
@@ -215,7 +219,7 @@ export function createClaimsRuntime(deps:any) {
     if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('RESPONSE_INCOMING_ONLY'),{status:409});
     if(!c.response_document_key)throw Object.assign(new Error('RESPONSE_PDF_REQUIRED'),{status:409});
     const sentAt=new Date().toISOString();
-    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set response_sent_at=${sentAt}::timestamptz,response_sent_by=${ctx.userId}::uuid,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_SENT','CLAIM',claimId,req,{claimSource:'CLIENT',documentId:c.document_id||null,sentAt})});
+    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set response_sent_at=${sentAt}::timestamptz,response_sent_by=${actorUser(ctx)}::uuid,updated_by=${actorUser(ctx)}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_RESPONSE_SENT','CLAIM',claimId,req,{claimSource:'CLIENT',documentId:c.document_id||null,sentAt})});
     return {claimId,documentId:c.document_id||null,responseSentAt:sentAt};
   }
 
@@ -227,7 +231,7 @@ export function createClaimsRuntime(deps:any) {
     if(String(c.claim_source)!=='CLIENT')throw Object.assign(new Error('CLAIM_DECISION_INCOMING_ONLY'),{status:409});
     if(status!=='REVIEW'&&!c.has_legal_conclusion)throw Object.assign(new Error('LEGAL_CONCLUSION_REQUIRED'),{status:409});
     if(status==='REJECTED'&&!c.response_document_key)throw Object.assign(new Error('RESPONSE_PDF_REQUIRED'),{status:409});
-    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set status=${status},decision_at=${status==='REVIEW'?null:new Date().toISOString()}::timestamptz,updated_by=${ctx.userId}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_STATUS_UPDATED','CLAIM',claimId,req,{from:String(c.status),to:status,claimSource:'CLIENT'})});
+    await sql.begin(async(tx:any)=>{await tx`update portal_private.owner_claims set status=${status},decision_at=${status==='REVIEW'?null:new Date().toISOString()}::timestamptz,updated_by=${actorUser(ctx)}::uuid,updated_at=now() where id=${c.id}::uuid`;await audit(tx,ctx,'OWNER_CLAIM_STATUS_UPDATED','CLAIM',claimId,req,{from:String(c.status),to:status,claimSource:'CLIENT'})});
     return {claimId,status};
   }
 

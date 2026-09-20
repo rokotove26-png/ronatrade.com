@@ -26,7 +26,9 @@ export async function reverseEvent(c:Ctx,req:Request){
     }
   }
   try{
-    const rows=await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},${eventType},${String(body.authority_domain||"PORTAL")},${String(body.authority_target_type||"REQUEST")},${body.authority_target_id||null},${body.client_id||null},${body.contract_id||null},${body.deal_id||null},${sql.json(body.payload||{})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
+    const rows=c.impersonation
+      ?await sql`select * from portal_private.server_admin_impersonated_submit_reverse_event(${c.impersonation.id}::uuid,${c.actorUser}::uuid,${c.actorAuth}::uuid,${c.sid}::uuid,${c.user}::uuid,${eventType},${String(body.authority_domain||"PORTAL")},${String(body.authority_target_type||"REQUEST")},${body.authority_target_id||null},${body.client_id||null},${body.contract_id||null},${body.deal_id||null},${sql.json(body.payload||{})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId||c.impersonation.correlationId}::uuid)`
+      :await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},${eventType},${String(body.authority_domain||"PORTAL")},${String(body.authority_target_type||"REQUEST")},${body.authority_target_id||null},${body.client_id||null},${body.contract_id||null},${body.deal_id||null},${sql.json(body.payload||{})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
     if(rows.length!==1)return[500,{ok:false,code:"EVENT_NOT_CREATED"}] as const;
     const row=rows[0];
     return[row.reused?200:201,{ok:true,created:!row.reused,reused:Boolean(row.reused),event:{event_id:String(row.event_id),processing_state:String(row.processing_state),acknowledgement_state:String(row.acknowledgement_state),created_at:row.created_at},request_id:requestId}] as const;

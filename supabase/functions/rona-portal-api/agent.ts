@@ -95,6 +95,7 @@ export async function agentPayment(c:Ctx,paymentId:string){
 }
 
 async function agentPricePublication(c:Ctx){
+  const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
   const rows=await sql`
     select distinct on (ops.source_publication_item_key)
       ops.source_publication_item_key as publication_item_id,
@@ -154,6 +155,7 @@ async function agentPricePublication(c:Ctx){
              or aca.agent_legal_entity_key is not distinct from aub.agent_legal_entity_key
            )
           where aub.user_id=${c.user}::uuid
+            and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
             and aub.status='ACTIVE'::portal_private.binding_status_enum
             and aub.revoked_at is null
             and aub.valid_from<=now()
@@ -211,6 +213,7 @@ async function agentPricePublication(c:Ctx){
 }
 
 export async function agentBootstrap(c:Ctx){
+  const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
   const bindings=await sql`
     select
       ub.agent_person_key,
@@ -223,6 +226,7 @@ export async function agentBootstrap(c:Ctx){
     join portal_private.agent_persons ap on ap.id=ub.agent_person_key
     left join portal_private.agent_legal_entities ale on ale.id=ub.agent_legal_entity_key
     where ub.user_id=${c.user}::uuid
+      and (${bound}::uuid is null or ub.agent_person_key=${bound}::uuid)
       and ub.status='ACTIVE'::portal_private.binding_status_enum
       and ub.revoked_at is null
       and ub.valid_from<=now()

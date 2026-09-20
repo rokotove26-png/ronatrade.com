@@ -8,7 +8,7 @@ const captureServe = ((first: unknown, second?: unknown) => {
   return undefined as never;
 }) as typeof Deno.serve;
 (Deno as unknown as { serve: typeof Deno.serve }).serve = captureServe;
-await import('https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/143a3244a94d3d7522cc3a57a14ddba22040c88a/supabase/functions/rona-admin-control-plane/index.ts');
+await import('./index.ts');
 (Deno as unknown as { serve: typeof Deno.serve }).serve = originalServe;
 if (!capturedHandler) throw new Error('ADMIN_CONTROL_PLANE_PRODUCTION_HANDLER_MISSING');
 

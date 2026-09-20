@@ -5,6 +5,7 @@ const STAFF_WORKSPACE = `${SUPABASE_URL}/functions/v1/rona-staff-workspace`;
 const ADMIN_CONTROL_PLANE_API = `${SUPABASE_URL}/functions/v1/rona-admin-control-plane`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
+const IMPERSONATION_COOKIE = 'rona_admin_imp';
 
 const SECURITY_HEADERS = Object.freeze({
   'cache-control': 'no-store, no-cache, must-revalidate',
@@ -40,6 +41,12 @@ function clearCookies() {
     `${ACCESS_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,
     `${REFRESH_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,
   ];
+}
+function impersonationCookie(token,maxAge=900){
+  return `${IMPERSONATION_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Strict`;
+}
+function clearImpersonationCookie(){
+  return `${IMPERSONATION_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Strict`;
 }
 function tokenCookies(tokens) {
   const expires = Math.min(Math.max(Number(tokens?.expires_in || 3600), 60), 7200);
@@ -119,13 +126,19 @@ async function authLogout(accessToken) {
     });
   } catch (_) {}
 }
-async function upstream(accessToken, path, request = null) {
+async function upstream(accessToken, path, request = null, impersonationToken = '', impersonationTab = '') {
   const headers = new Headers({ apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${accessToken}`, accept: 'application/json' });
   if (request) {
     for (const name of ['content-type', 'x-request-id', 'x-correlation-id', 'x-idempotency-key']) {
       const value = request.headers.get(name);
       if (value) headers.set(name, value);
     }
+  }
+  if(impersonationToken){
+    headers.set('x-rona-admin-impersonation-token',impersonationToken);
+    if(impersonationTab)headers.set('x-rona-impersonation-tab',impersonationTab);
+    if(!headers.has('x-request-id'))headers.set('x-request-id',crypto.randomUUID());
+    if(!headers.has('x-correlation-id'))headers.set('x-correlation-id',crypto.randomUUID());
   }
   const init = { method: request?.method || 'GET', headers };
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
@@ -330,9 +343,30 @@ class BootServerAuthenticatedAdminBody {
     el.append(ADMIN_SESSION_BRIDGE+SERVER_AUTHENTICATED_ADMIN_BOOTSTRAP,{html:true});
   }
 }
-async function requireRealClientContext(session) {
+async function resolveAdminImpersonationForRequest(request,session){
+  const cookies=parseCookies(request.headers.get('cookie'));
+  const token=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+  if(!token)return{state:'NONE',token:''};
+  const roles=rolesOf(session.me);
+  if(!roles.includes('ADMIN'))return{state:'INVALID',token};
+  try{
+    const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/impersonation/resolve`,{
+      headers:{authorization:`Bearer ${session.access}`,accept:'application/json','x-rona-admin-impersonation-token':token},
+      cache:'no-store'
+    });
+    const body=await r.json().catch(()=>null);
+    if(r.ok&&body?.ok&&body?.data)return{state:'VALID',token,data:body.data};
+    if([401,403,404,409].includes(r.status))return{state:'INVALID',token};
+    return{state:'UNAVAILABLE',token};
+  }catch(_){return{state:'UNAVAILABLE',token}}
+}
+function impersonationReturnBridge(returnView,sessionId){
+  const target='/portal/admin?accessView='+(returnView==='agents'?'agents':'companies');
+  return `<script id="rona-admin-impersonation-return">(()=>{'use strict';const TARGET=${JSON.stringify(target)},SESSION=${JSON.stringify(sessionId)};const nativeFetch=window.fetch.bind(window);window.fetch=async(input,init={})=>{let nextInput=input,nextInit=init;try{const raw=typeof input==='string'?input:(input&&input.url)||'',u=new URL(raw,location.href);if(u.origin===location.origin&&(u.pathname.startsWith('/portal/api/')||u.pathname==='/portal/owner-api')){const h=new Headers((init&&init.headers)||(input instanceof Request?input.headers:undefined));h.set('x-rona-impersonation-tab',SESSION);if(input instanceof Request){nextInput=new Request(input,{...init,headers:h});nextInit=undefined}else nextInit={...init,headers:h}}}catch(_e){}const r=await nativeFetch(nextInput,nextInit);if(r.headers.get('x-rona-impersonation-ended')==='1'){location.replace(TARGET)}return r};function bind(){if(document.getElementById('ronaReturnAdmin'))return;const candidates=[...document.querySelectorAll('button,a')];const logout=candidates.find(x=>/^(выход|выйти|logout)$/i.test(String(x.textContent||'').trim()))||document.querySelector('#logoutBtn,#ronaLogout,[data-action="logout"]');if(!logout)return;const b=document.createElement('button');b.id='ronaReturnAdmin';b.type='button';b.className=logout.className||'';b.textContent='Вернуться в раздел администратора';b.setAttribute('aria-label','Вернуться в раздел администратора');b.addEventListener('click',async e=>{e.preventDefault();b.disabled=true;try{await nativeFetch('/portal/admin-authority/impersonation/end',{method:'POST',credentials:'same-origin',headers:{accept:'application/json','x-rona-impersonation-tab':SESSION}})}finally{location.replace(TARGET)}});logout.parentNode?.insertBefore(b,logout)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else queueMicrotask(bind)})();<\/script>`;
+}
+async function requireRealClientContext(session,impersonationToken='',impersonationTab='') {
   try {
-    const r=await upstream(session.access,'/v1/client/bootstrap');
+    const r=await upstream(session.access,'/v1/client/bootstrap',null,impersonationToken,impersonationTab);
     const j=await r.json().catch(()=>null);
     const contexts=Array.isArray(j?.data?.contexts)?j.data.contexts:[];
     return { ok:r.ok && j?.ok===true && contexts.length>0, contexts };
@@ -342,12 +376,29 @@ async function requireRealClientContext(session) {
 async function serveStaticProtected(context, session, kind) {
   const roles = rolesOf(session.me);
   const expected = kind === 'admin' ? '/portal/admin' : kind === 'agent' ? '/portal/agent' : '/portal/client';
-  if (!roleAllows(expected, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, session.setCookies);
+  const normalAllowed=roleAllows(expected,roles);
+  let impersonation=null;
+  if(!normalAllowed&&kind!=='admin'&&roles.includes('ADMIN')){
+    impersonation=await resolveAdminImpersonationForRequest(context.request,session);
+    if(impersonation.state==='UNAVAILABLE')return html(unavailablePage(expected),503,session.setCookies);
+    const expectedRole=kind==='agent'?'AGENT':'CLIENT';
+    const tabSession=String(new URL(context.request.url).searchParams.get('impSession')||'');
+    if(impersonation.state!=='VALID'){
+      return redirect('/portal/admin?accessView='+(kind==='agent'?'agents':'companies'),303,[...session.setCookies,clearImpersonationCookie()]);
+    }
+    if(String(impersonation.data?.effectiveRole)!==expectedRole||tabSession!==String(impersonation.data?.id||'')){
+      return redirect('/portal/admin?accessView='+(kind==='agent'?'agents':'companies'),303,session.setCookies);
+    }
+    impersonation.tabSession=tabSession;
+  }
+  if(!normalAllowed&&!impersonation?.data)return html(deniedPage('ROLE_MISMATCH'),403,session.setCookies);
 
-  // CLIENT is fail-closed before any canonical standalone snapshot can be served.
   if (kind === 'client') {
-    const gate = await requireRealClientContext(session);
-    if (!gate.ok) return html(deniedPage('CLIENT_CONTEXT_NOT_AUTHORIZED'), 403, session.setCookies);
+    const gate = await requireRealClientContext(session,impersonation?.token||'',impersonation?.tabSession||'');
+    if (!gate.ok) {
+      if(impersonation?.data)return redirect('/portal/admin?accessView=companies',303,[...session.setCookies,clearImpersonationCookie()]);
+      return html(deniedPage('CLIENT_CONTEXT_NOT_AUTHORIZED'), 403, session.setCookies);
+    }
   }
 
   const response = await context.next();
@@ -356,7 +407,6 @@ async function serveStaticProtected(context, session, kind) {
   if (!contentType.toLowerCase().includes('text/html')) return secureResponse(response, session.setCookies, false);
 
   if (kind === 'admin') {
-    // Server session/role is authoritative. Remove only the frozen file's standalone local auth, then boot canonical application modules.
     const transformed = new HTMLRewriter()
       .on('body', new BootServerAuthenticatedAdminBody())
       .on('#adminLoginGate', new RemoveCanonicalLegacyAuthNode())
@@ -364,9 +414,12 @@ async function serveStaticProtected(context, session, kind) {
       .transform(response);
     return secureResponse(transformed, session.setCookies, true);
   }
-  if (kind === 'client') return secureResponse(response, session.setCookies, true);
-
-  const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE)).transform(response);
+  const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||''),String(impersonation.data.id||'')):'';
+  if(kind==='client'){
+    const transformed=bridge?new HTMLRewriter().on('body',new BodyAppend(bridge)).transform(response):response;
+    return secureResponse(transformed,session.setCookies,true);
+  }
+  const transformed = new HTMLRewriter().on('body', new BodyAppend(AGENT_BRIDGE+bridge)).transform(response);
   return secureResponse(transformed, session.setCookies, true);
 }
 async function serveStaff(session) {
@@ -383,22 +436,36 @@ async function proxyApi(request) {
   const cookies = parseCookies(request.headers.get('cookie'));
   let access = cookies[ACCESS_COOKIE] || '';
   const refresh = cookies[REFRESH_COOKIE] || '';
-  if (!access && !refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
+  const cookieImpersonation=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+  if (!access && !refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, [...clearCookies(),clearImpersonationCookie()]);
   const path = new URL(request.url).pathname.slice('/portal/api'.length) || '/';
-  let upstreamResponse = access ? await upstream(access, path, request) : null;
+  const targetRoute=/^\/v1\/(client|agent)(\/|$)/.test(path)||path==='/v1/events';
+  const impersonationToken=targetRoute?cookieImpersonation:'';
+  const tabHeader=String(request.headers.get('x-rona-impersonation-tab')||'').trim();
+  const impersonationTab=impersonationToken&&UUID_RE.test(tabHeader)?tabHeader:'';
+  if(impersonationToken&&!impersonationTab){
+    const h=withSecurity(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));
+    return new Response(JSON.stringify({ok:false,code:'IMPERSONATION_TAB_INVALID',returnTo:'/portal/admin'}),{status:409,headers:h});
+  }
+  let upstreamResponse = access ? await upstream(access, path, request, impersonationToken, impersonationTab) : null;
   let setCookies = [];
   if (!upstreamResponse || upstreamResponse.status === 401) {
-    if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, clearCookies());
+    if (!refresh) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401, [...clearCookies(),clearImpersonationCookie()]);
     let next;try{next=await authRefresh(refresh)}catch(_){return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503)}
-    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},409);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies())}
+    if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return json({ok:false,code:'PORTAL_SESSION_STALE',retryable:true},409);return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,[...clearCookies(),clearImpersonationCookie()])}
     access = next.data.access_token;
     setCookies = tokenCookies(next.data);
-    upstreamResponse = await upstream(access, path, request);
+    upstreamResponse = await upstream(access, path, request, impersonationToken, impersonationTab);
+  }
+  if(impersonationToken&&upstreamResponse.status===401){
+    const headers=withSecurity(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));
+    for(const cookie of setCookies)headers.append('set-cookie',cookie);
+    return new Response(JSON.stringify({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'}),{status:409,headers});
   }
   const headers = withSecurity(new Headers());
   const ct = upstreamResponse.headers.get('content-type'); if (ct) headers.set('content-type', ct);
   const requestId = upstreamResponse.headers.get('x-request-id'); if (requestId) headers.set('x-request-id', requestId);
-  for (const c of setCookies) headers.append('set-cookie', c);
+  for (const cookie of setCookies) headers.append('set-cookie', cookie);
   return new Response(upstreamResponse.body, { status: upstreamResponse.status, statusText: upstreamResponse.statusText, headers });
 }
 async function proxyAdminAuthority(request) {
@@ -406,20 +473,44 @@ async function proxyAdminAuthority(request) {
   if (request.method === 'POST' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
   const session=await ensureSession(request);
   if(session?.unavailable)return json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503,session.setCookies);
-  if(!session)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
+  if(!session)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,[...clearCookies(),clearImpersonationCookie()]);
   const roles=rolesOf(session.me);
   if (!roles.includes('ADMIN')) return json({ ok:false, code:'ROLE_MISMATCH' }, 403, session.setCookies);
   const url = new URL(request.url);
   const prefix = '/portal/admin-authority';
   const upstreamPath = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
+  const cookies=parseCookies(request.headers.get('cookie'));
+  const impersonationToken=String(cookies[IMPERSONATION_COOKIE]||'').trim();
   const headers = new Headers({ authorization: `Bearer ${session.access}`, accept: 'application/json' });
   for (const name of ['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id']) {
     const value = request.headers.get(name);
     if (value) headers.set(name, value);
   }
+  if((upstreamPath==='/impersonation/end'||upstreamPath==='/impersonation/resolve')&&impersonationToken){
+    headers.set('x-rona-admin-impersonation-token',impersonationToken);
+    const tabId=String(request.headers.get('x-rona-impersonation-tab')||'').trim();
+    if(upstreamPath==='/impersonation/end'&&UUID_RE.test(tabId))headers.set('x-rona-impersonation-tab',tabId);
+  }
   const init = { method: request.method, headers };
   if (!['GET','HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   const upstreamResponse = await fetch(`${ADMIN_CONTROL_PLANE_API}${upstreamPath}${url.search}`, init);
+
+  if(upstreamPath==='/impersonation/start'){
+    const payload=await upstreamResponse.json().catch(()=>null);
+    if(!upstreamResponse.ok||!payload?.ok||!payload?.data?.impersonationToken){
+      return json(payload||{ok:false,code:'IMPERSONATION_START_FAILED'},upstreamResponse.status,session.setCookies);
+    }
+    const opaque=String(payload.data.impersonationToken);
+    delete payload.data.impersonationToken;
+    const expires=Date.parse(String(payload.data?.impersonation?.expiresAt||''));
+    const maxAge=Number.isFinite(expires)?Math.max(1,Math.min(900,Math.floor((expires-Date.now())/1000))):720;
+    return json(payload,upstreamResponse.status,[...session.setCookies,impersonationCookie(opaque,maxAge)]);
+  }
+  if(upstreamPath==='/impersonation/end'){
+    const payload=await upstreamResponse.json().catch(()=>({ok:upstreamResponse.ok}));
+    const cookiesOut=upstreamResponse.ok&&payload?.ok?[...session.setCookies,clearImpersonationCookie()]:session.setCookies;
+    return json(payload,upstreamResponse.status,cookiesOut);
+  }
   return secureResponse(upstreamResponse, session.setCookies, false);
 }
 
@@ -453,10 +544,10 @@ export async function onRequest(context) {
     return redirect(target, 303, tokenCookies(login.data));
   }
   if (path === '/portal/auth/logout' && request.method === 'POST') {
-    if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403, clearCookies());
+    if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403, [...clearCookies(),clearImpersonationCookie()]);
     const cookies = parseCookies(request.headers.get('cookie'));
     await authLogout(cookies[ACCESS_COOKIE] || '');
-    return redirect('/portal/login', 303, clearCookies());
+    return redirect('/portal/login', 303, [...clearCookies(),clearImpersonationCookie()]);
   }
   if (path.startsWith('/portal/admin-authority')) return proxyAdminAuthority(request);
   if (path.startsWith('/portal/api/')) {

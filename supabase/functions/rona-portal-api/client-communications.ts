@@ -7,6 +7,7 @@ function textValue(value:unknown,max:number):string|null{
 }
 
 async function currentContext(c:Ctx,clientId:string,contractId:string){
+  const bound=c.impersonation?.effectiveRole==="CLIENT"?c.impersonation.targetClientKey:null;
   const rows=await sql`
     select cl.id as client_key,ct.id as contract_key,b.id as binding_key,b.deal_scope_mode,
            ct.contract_status::text,ct.lifecycle_state::text,ct.effective_from,ct.effective_to
@@ -16,6 +17,7 @@ async function currentContext(c:Ctx,clientId:string,contractId:string){
      where b.user_id=${c.user}::uuid
        and cl.client_id=${clientId}
        and ct.contract_id=${contractId}
+       and (${bound}::uuid is null or cl.id=${bound}::uuid)
        and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now())
      limit 1`;
   return rows.length===1?rows[0]:null;
@@ -61,7 +63,9 @@ export async function submitClientMessage(c:Ctx,req:Request){
   const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
   const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
   try{
-    const rows=await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
+    const rows=c.impersonation?.effectiveRole==="CLIENT"
+      ?await sql`select * from portal_private.server_admin_impersonated_submit_reverse_event(${c.impersonation.id}::uuid,${c.actorUser}::uuid,${c.actorAuth}::uuid,${c.sid}::uuid,${c.user}::uuid,'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId||c.impersonation.correlationId}::uuid)`
+      :await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
     if(rows.length!==1)return[500,{ok:false,code:"MESSAGE_NOT_CREATED",request_id:requestId}] as const;
     const row=rows[0];
     return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),processing_state:String(row.processing_state),acknowledgement_state:String(row.acknowledgement_state),created_at:row.created_at},request_id:requestId}] as const;

@@ -1,0 +1,165 @@
+name: Admin entity control Stage 2 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify exact base and frozen Admin UI contract
+        env:
+          STAGE2_BASE_SHA: 08f7b5b7b6cd810a212f24befd2aef5004b25694
+        run: |
+          set -euo pipefail
+          node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/owner-api.js
+          node --check functions/portal/logout.js
+          node --check functions/portal/clients-agents-current-ui.js
+          node tests/admin-entity-control-stage2.test.mjs
+
+  isolated-real-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_stage2
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_stage2"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/rona_stage2
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+      - name: Type-check Stage 2 authority and production entrypoint chain
+        run: |
+          set -euo pipefail
+          deno check --node-modules-dir=auto supabase/functions/_shared/admin-impersonation-authority-v1.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/admin-entity-control-v1.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-admin-control-plane/owner-auth-fallback-wrapper.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3.ts
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api/payments-v8-production-hardening.ts
+          if grep -R "143a3244a94d3d7522cc3a57a14ddba22040c88a\|9e06e60358801c1600d087112855b39ced91f2a5\|5aceffe2725a904e8e0ded562e483f012e861085/supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts\|77588541119bb1a96375beed3e853e067ab1422f/supabase/functions/rona-portal-api/bootstrap.ts" \
+            supabase/functions/rona-admin-control-plane/owner-auth-fallback-wrapper.ts \
+            supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3.ts \
+            supabase/functions/rona-portal-api/payments-v8-production-hardening.ts \
+            supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts \
+            supabase/functions/rona-portal-api/stage21-bootstrap.ts; then
+            echo "STAGE2_PRODUCTION_ENTRYPOINT_PIN_DRIFT"
+            exit 1
+          fi
+      - name: Build isolated authority database
+        run: |
+          set -euo pipefail
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/admin-entity-control-stage2-base.sql
+          psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql
+      - name: Prove full impersonation and safe retirement
+        run: |
+          deno run --node-modules-dir=auto --allow-env --allow-net=127.0.0.1:5432 scripts/qa-admin-entity-control-stage2-real-integration.mjs
+
+
+  current-production-client-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      STAGE2_BASE_SHA: 08f7b5b7b6cd810a212f24befd2aef5004b25694
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install Playwright Chromium
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install chromium
+      - name: Build current production and Stage 2 candidate
+        run: |
+          set -euo pipefail
+          prod_root=/tmp/rona-stage2-prod-parity
+          candidate_root=/tmp/rona-stage2-candidate-parity
+          rm -rf "$prod_root" "$candidate_root"
+          git worktree add --detach "$prod_root" "$STAGE2_BASE_SHA"
+          git worktree add --detach "$candidate_root" "${{ github.event.pull_request.head.sha }}"
+          (cd "$prod_root" && npm run build)
+          (cd "$candidate_root" && npm run build)
+          {
+            echo "STAGE2_PROD_ROOT=$prod_root"
+            echo "STAGE2_CANDIDATE_ROOT=$candidate_root"
+          } >> "$GITHUB_ENV"
+      - name: Prove normal Client parity against current production
+        run: |
+          set -uo pipefail
+          prod_log="$GITHUB_WORKSPACE/stage2-prod-client-parity.log"
+          candidate_log="$GITHUB_WORKSPACE/stage2-candidate-client-parity.log"
+
+          cd "$STAGE2_PROD_ROOT"
+          set +e
+          RONA_OWNER_RETEST_LABEL="PROD_${STAGE2_BASE_SHA}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" >"$prod_log" 2>&1
+          prod_rc=$?
+
+          cd "$STAGE2_CANDIDATE_ROOT"
+          RONA_OWNER_RETEST_LABEL="CANDIDATE_${{ github.event.pull_request.head.sha }}" node "$GITHUB_WORKSPACE/scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs" >"$candidate_log" 2>&1
+          candidate_rc=$?
+          set -e
+
+          cat "$prod_log"
+          cat "$candidate_log"
+
+          grep -oE '"code":"[^"]+"' "$prod_log" | sort -u > "$GITHUB_WORKSPACE/stage2-prod-client-codes.txt" || true
+          grep -oE '"code":"[^"]+"' "$candidate_log" | sort -u > "$GITHUB_WORKSPACE/stage2-candidate-client-codes.txt" || true
+          comm -13 "$GITHUB_WORKSPACE/stage2-prod-client-codes.txt" "$GITHUB_WORKSPACE/stage2-candidate-client-codes.txt" > "$GITHUB_WORKSPACE/stage2-client-added-codes.txt" || true
+
+          if [ "$prod_rc" -eq 0 ] && [ "$candidate_rc" -ne 0 ]; then
+            echo "STAGE2_CLIENT_PARITY=FAIL production=PASS candidate=FAIL"
+            exit 1
+          fi
+          if [ -s "$GITHUB_WORKSPACE/stage2-client-added-codes.txt" ]; then
+            echo "STAGE2_CLIENT_PARITY=FAIL candidate introduced new regression codes"
+            cat "$GITHUB_WORKSPACE/stage2-client-added-codes.txt"
+            exit 1
+          fi
+          echo "STAGE2_CLIENT_PARITY=PASS production_rc=$prod_rc candidate_rc=$candidate_rc"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stage2-current-production-client-parity-${{ github.run_id }}
+          path: |
+            stage2-prod-client-parity.log
+            stage2-candidate-client-parity.log
+            stage2-prod-client-codes.txt
+            stage2-candidate-client-codes.txt
+            stage2-client-added-codes.txt
+          if-no-files-found: warn

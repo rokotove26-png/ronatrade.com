@@ -7,6 +7,8 @@ function qaRpcUpstream(){const env=globalThis.process?.env;if(env?.RONA_QA_RPC_M
 const RPC_UPSTREAM=qaRpcUpstream()||PROD_RPC_UPSTREAM;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
+const IMPERSONATION_COOKIE='rona_admin_imp';
+const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SECURITY_HEADERS=Object.freeze({'cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','referrer-policy':'no-referrer','x-content-type-options':'nosniff','x-frame-options':'DENY','permissions-policy':'camera=(), microphone=(), geolocation=(), payment=()','cross-origin-opener-policy':'same-origin','cross-origin-resource-policy':'same-origin'});
 const EXTERNAL_DEAL_DOCUMENT_KINDS=new Set(['ADDENDUM','SIGNED_ADDENDUM','INVOICE']);
 const AGENT_AMOUNT_VISIBLE_STAGES=new Set(['APPROVED','PAYABLE_CONFIRMED','PAID']);
@@ -14,9 +16,11 @@ function parseCookies(header){const out={};for(const item of String(header||'').
 function accessCookie(token,maxAge=3600){return `${ACCESS_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
 function refreshCookie(token,maxAge=604800){return `${REFRESH_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`}
 function clearCookies(){return[`${ACCESS_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,`${REFRESH_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`]}
+function clearImpersonationCookie(){return`${IMPERSONATION_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Strict`}
 function tokenCookies(t){const e=Math.min(Math.max(Number(t?.expires_in||3600),60),7200);return[accessCookie(t.access_token,e),refreshCookie(t.refresh_token,604800)]}
 function headers(base=new Headers()){const h=new Headers(base);for(const[k,v]of Object.entries(SECURITY_HEADERS))h.set(k,v);h.delete('access-control-allow-origin');h.delete('access-control-allow-credentials');h.delete('content-length');h.delete('etag');return h}
 function json(body,status=200,cookies=[]){const h=headers(new Headers({'content-type':'application/json; charset=utf-8'}));for(const c of cookies)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
+function impersonationEnded(code='IMPERSONATION_SESSION_INVALID'){const h=headers(new Headers({'content-type':'application/json; charset=utf-8','x-rona-impersonation-ended':'1'}));return new Response(JSON.stringify({ok:false,code,returnTo:'/portal/admin'}),{status:409,headers:h})}
 function sameOriginPost(request){const url=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===url.origin;const ref=request.headers.get('referer');if(!ref)return false;try{return new URL(ref).origin===url.origin}catch{return false}}
 async function authRefresh(refreshToken){try{const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,status:r.status,data}}catch(_){return{ok:false,status:503,data:{}}}}
 function allowedPath(path){return /^\/(admin|client|agent)\//.test(path)||['/admin/bootstrap','/client/bootstrap','/agent/bootstrap','/agent/price-list.pdf','/admin/ai-sync','/agent/ai-sync'].includes(path)}
@@ -48,11 +52,17 @@ export async function onRequest(context){
   const url=new URL(request.url),path=String(url.searchParams.get('path')||'');
   if(!path.startsWith('/')||path.includes('..')||!allowedPath(path))return json({ok:false,code:'ROUTE_NOT_ALLOWED'},404);
   const cookies=parseCookies(request.headers.get('cookie'));
+  const cookieImpersonation=String(cookies[IMPERSONATION_COOKIE]||'').trim();
+  const targetPath=/^\/(client|agent)(\/|$)/.test(path);
+  const impersonationToken=targetPath?cookieImpersonation:'';
+  const tabHeader=String(request.headers.get('x-rona-impersonation-tab')||'').trim();
+  const impersonationTab=impersonationToken&&UUID_RE.test(tabHeader)?tabHeader:'';
+  if(impersonationToken&&!impersonationTab)return impersonationEnded('IMPERSONATION_TAB_INVALID');
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}else return staleSessionResponse(next)}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401);
   const body=request.method==='POST'?await request.clone().arrayBuffer():null;
-  const spec=r1Spec(path,request.method,parseJsonBytes(body));
+  const spec=impersonationToken?null:r1Spec(path,request.method,parseJsonBytes(body));
   if(spec){
     let response=await rpcCall(access,spec[0],spec[1]);
     if(refresh&&await rpcAuthFailure(response)){
@@ -66,7 +76,7 @@ export async function onRequest(context){
     }
     return r1Response(response,setCookies)
   }
-  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
+  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}if(impersonationToken){h.set('x-rona-admin-impersonation-token',impersonationToken);h.set('x-rona-impersonation-tab',impersonationTab);if(!h.has('x-request-id'))h.set('x-request-id',crypto.randomUUID());if(!h.has('x-correlation-id'))h.set('x-correlation-id',crypto.randomUUID())}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
   const forwardReadResilient=async token=>{let r=await forward(token);if(request.method==='GET'&&[502,503,504].includes(r.status)){await r.arrayBuffer().catch(()=>{});await sleep(500);r=await forward(token)}return r};
   let response=await forwardReadResilient(access);
   if(response.status===401&&refresh){
@@ -78,6 +88,7 @@ export async function onRequest(context){
       response=await forwardReadResilient(access);
     }else return staleSessionResponse(next)
   }
+  if(impersonationToken&&response.status===401)return impersonationEnded('IMPERSONATION_SESSION_INVALID');
   response=await sanitizeExternalProjection(path,response);
   const outHeaders=headers(response.headers);for(const c of setCookies)outHeaders.append('set-cookie',c);
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:outHeaders});
