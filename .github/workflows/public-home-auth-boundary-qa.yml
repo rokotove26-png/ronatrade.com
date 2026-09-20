@@ -14,14 +14,25 @@ permissions:
 jobs:
   public-home-auth-boundary:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Verify public site never auto-enters protected Admin
+      - name: Verify static public auth boundary
         run: |
           set -euo pipefail
           node --check assets/g82/portal-home-inline-auth-v2.js
+          node --check scripts/qa-public-home-auth-boundary-browser.mjs
           node tests/public-home-auth-boundary.test.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove public page cannot auto-enter protected portal
+        env:
+          TARGET_ORIGIN: ${{ github.event_name == 'push' && 'https://ronaoil.com' || '' }}
+        run: |
+          set -euo pipefail
+          node scripts/qa-public-home-auth-boundary-browser.mjs
