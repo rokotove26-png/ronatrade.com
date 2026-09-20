@@ -29,7 +29,9 @@ jobs:
           node --check functions/portal/deals-current-state-ui.js
           npm run build
           grep -q "return !(add||signed)||!inv" functions/portal/deals-current-state-ui.js
-          grep -q "return hasClientSignedAddendum(d)?'GO':'HOLD'" functions/portal/deals-current-state-ui.js
+          grep -Fq "if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'" functions/portal/deals-current-state-ui.js
+          grep -Fq "if(expectation!=='ACTIVE')return false" functions/portal/deals-current-state-ui.js
+          grep -q "function needsPaymentHandoffAction(d)" functions/portal/deals-current-state-ui.js
           grep -q "x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1'" functions/portal/deals-current-state-ui.js
           ! grep -Eqi 'NIK|SOLARIS|FARG|GAZON|DEAL-2026-00[3-9]' functions/portal/deals-current-state-ui.js
           echo 'ADMIN_DEAL_INDICATORS_SOURCE=PASS'
