@@ -21,6 +21,8 @@ jobs:
         run: npm run build
       - name: Verify live production Client runtime assets
         run: node scripts/diag-live-client-public-assets.mjs
+      - name: Verify exact live/local Client runtime hash parity
+        run: node scripts/diag-live-client-hash-parity.mjs
       - name: Install Playwright
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
