@@ -51,7 +51,7 @@ assert.doesNotMatch(fullyPatched, /renderPayments\(\);renderCash\(\)/,'Finance s
 assert.match(fullyPatched, /function ensureCashR2Host\(\)/,'Cash R2 host function missing');
 assert.match(fullyPatched, /'data-rona-cash-host':'r2'/,'Cash R2 host marker must remain exact');
 assert.match(fullyPatched, /accounting:ensureCashR2Host,/,'Accounting route must remain owned by Cash R2');
-assert.match(fullyPatched, /renderPayments\(\);ensureCashR2Host\(\);renderRailCurrentShell\(\);/,'Boot sequence must preserve Payments + Cash R2 + current Rail ownership');
+assert.match(fullyPatched, /ownerAdminSafeRender\('payments',renderPayments\);ownerAdminSafeRender\('accounting',ensureCashR2Host\);ownerAdminSafeRender\('monitoring',renderRailCurrentShell\);/,'Boot sequence must preserve isolated Payments + Cash R2 + current Rail ownership');
 assert.doesNotMatch(fullyPatched,/renderRail\(\);/,'Cash middleware must not revive legacy Rail owner');
 
 const middlewareSource = readFileSync('functions/portal/main-ui/_middleware.js','utf8');
