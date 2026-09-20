@@ -148,6 +148,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 window.addEventListener('rona:admin-pagechange',event=>{
   const p=String(event?.detail?.page||'');
+  if(p==='applications')loadModule('applications',MODULES.applications.src).then(()=>window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.('applications'));
+  if(p==='deals')Promise.allSettled([loadModule('deals',MODULES.deals.src),loadModule('dealsR11',MODULES.dealsR11.src)]).then(()=>window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.('deals'));
+  if(p==='accounting')loadModule('cash',MODULES.cash.src).then(()=>window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.('accounting'));
+  if(['home','documents','payments'].includes(p))queueMicrotask(()=>window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.(p));
   if(p==='claims')loadModule('claims',MODULES.claims.src);
   if(['agent-settlements','messages','market-news'].includes(p))loadModule('remaining',MODULES.remaining.src);
   if(p==='analytics')loadAnalytics();
@@ -166,6 +170,24 @@ window.addEventListener('rona:admin-module-retry',event=>{
     document.getElementById('rona-single-access')?.remove();
     const st=window.__RONA_ADMIN_MODULES__.access;if(st){st.status='PENDING';st.promise=null}
     loadAccess().then(restoreSelectedPage).catch(e=>recordError('clients-agents-current-retry',e));return
+  }
+  if(p==='applications'){
+    const st=window.__RONA_ADMIN_MODULES__.applications;if(st){st.status='PENDING';st.promise=null}
+    loadModule('applications',MODULES.applications.src).then(()=>{try{window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.('applications')}catch(e){recordError('owner-page:applications',e)}restoreSelectedPage()});return
+  }
+  if(p==='deals'){
+    for(const key of ['deals','dealsR11']){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}}
+    Promise.allSettled([loadModule('deals',MODULES.deals.src),loadModule('dealsR11',MODULES.dealsR11.src)]).then(()=>{try{window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.('deals')}catch(e){recordError('owner-page:deals',e)}restoreSelectedPage()});return
+  }
+  if(p==='accounting'){
+    const st=window.__RONA_ADMIN_MODULES__.cash;if(st){st.status='PENDING';st.promise=null}
+    loadModule('cash',MODULES.cash.src).then(()=>{try{window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.('accounting')}catch(e){recordError('owner-page:accounting',e)}restoreSelectedPage()});return
+  }
+  if(['home','documents','payments'].includes(p)){
+    Promise.resolve(typeof window.__RONA_OWNER_ADMIN_REFRESH_TICK__==='function'?window.__RONA_OWNER_ADMIN_REFRESH_TICK__(true):null)
+      .catch(e=>recordError('owner-refresh:'+p,e))
+      .finally(()=>{try{window.__RONA_OWNER_ADMIN_RENDER_PAGE__?.(p)}catch(e){recordError('owner-page:'+p,e)}restoreSelectedPage()});
+    return
   }
   if(p==='monitoring'){
     for(const key of ['rail','railFallback']){const st=window.__RONA_ADMIN_MODULES__[key];if(st){st.status='PENDING';st.promise=null}}
