@@ -5,6 +5,9 @@ const ADMIN_CONTROL_PLANE_API = `${SUPABASE_URL}/functions/v1/rona-admin-control
 const ADMIN_CLIENT_AUTHORITY_API = `${SUPABASE_URL}/functions/v1/rona-admin-client-authority`;
 const ACCESS_COOKIE = 'rona_portal_at';
 const REFRESH_COOKIE = 'rona_portal_rt';
+const IMPERSONATION_COOKIE = 'rona_admin_imp';
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const PORTAL_ORIGIN_HOSTS = new Set(['ronaoil.com','www.ronaoil.com']);
 
 function parseCookies(header) {
   const out = {};
@@ -23,13 +26,45 @@ function tokenCookies(tokens) {
   const expires = Math.min(Math.max(Number(tokens?.expires_in || 3600), 60), 7200);
   return [accessCookie(tokens.access_token, expires), refreshCookie(tokens.refresh_token, 604800)];
 }
+function impersonationCookie(token, maxAge = 900) {
+  return `${IMPERSONATION_COOKIE}=${token}; Max-Age=${Math.max(0, Number(maxAge) || 0)}; Path=/portal; Secure; HttpOnly; SameSite=Strict`;
+}
+function redirect(location, status = 303, cookies = []) {
+  const headers = new Headers({
+    location,
+    'cache-control': 'no-store',
+    'x-content-type-options': 'nosniff',
+    'referrer-policy': 'no-referrer',
+    'x-frame-options': 'DENY',
+  });
+  for (const cookie of cookies) headers.append('set-cookie', cookie);
+  return new Response(null, { status, headers });
+}
+function portalOriginAllowed(value) {
+  try {
+    const url = value instanceof URL ? value : new URL(value);
+    return url.protocol === 'https:' && (url.port === '' || url.port === '443') && PORTAL_ORIGIN_HOSTS.has(url.hostname.toLowerCase());
+  } catch { return false; }
+}
 function sameOriginPost(request) {
   const url = new URL(request.url);
   const origin = request.headers.get('origin');
-  if (origin) return origin === url.origin;
+  if (origin) {
+    try {
+      const source = new URL(origin);
+      if (source.origin === url.origin) return true;
+      const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
+      return (fetchSite === 'same-site' || fetchSite === 'same-origin') && portalOriginAllowed(source) && portalOriginAllowed(url);
+    } catch { return false; }
+  }
   const ref = request.headers.get('referer');
   if (!ref) return false;
-  try { return new URL(ref).origin === url.origin; } catch { return false; }
+  try {
+    const source = new URL(ref);
+    if (source.origin === url.origin) return true;
+    const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
+    return (fetchSite === 'same-site' || fetchSite === 'same-origin') && portalOriginAllowed(source) && portalOriginAllowed(url);
+  } catch { return false; }
 }
 async function authRefresh(refreshToken) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
@@ -120,6 +155,69 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const prefix = '/portal/admin-authority';
   const path = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
+
+  // Cloudflare Pages gives this more-specific route precedence over /portal/[[path]].
+  // Keep the top-level browser handoff here so the opaque impersonation token is never exposed to browser JS.
+  if (path === '/impersonation/enter' && request.method === 'POST') {
+    const contentType = request.headers.get('content-type') || '';
+    let body = {};
+    try {
+      if (contentType.includes('application/json')) body = await request.clone().json();
+      else {
+        const form = await request.clone().formData();
+        body = {
+          kind: String(form.get('kind') || ''),
+          entityId: String(form.get('entityId') || ''),
+          targetPortalUserId: String(form.get('targetPortalUserId') || '') || null,
+        };
+      }
+    } catch (_) {
+      return redirect('/portal/admin?accessView=companies&impersonationError=INVALID_REQUEST', 303, session.setCookies);
+    }
+
+    const kind = String(body?.kind || '').trim().toUpperCase();
+    const entityId = String(body?.entityId || '').trim();
+    const targetPortalUserId = String(body?.targetPortalUserId || '').trim() || null;
+    const returnView = kind === 'AGENT' ? 'agents' : 'companies';
+    if (!['COMPANY','AGENT'].includes(kind) || !entityId) {
+      return redirect('/portal/admin?accessView=' + returnView + '&impersonationError=INVALID_REQUEST', 303, session.setCookies);
+    }
+
+    let start;
+    try {
+      start = await fetch(`${ADMIN_CONTROL_PLANE_API}/impersonation/start`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+          authorization: `Bearer ${session.access}`,
+          accept: 'application/json',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ kind, entityId, targetPortalUserId }),
+        cache: 'no-store',
+      });
+    } catch (_) {
+      return redirect('/portal/admin?accessView=' + returnView + '&impersonationError=ACCESS_UPSTREAM_UNAVAILABLE', 303, session.setCookies);
+    }
+
+    const payload = await start.json().catch(() => null);
+    if (!start.ok || !payload?.ok || !payload?.data?.impersonationToken) {
+      const code = encodeURIComponent(String(payload?.code || 'IMPERSONATION_START_FAILED'));
+      return redirect('/portal/admin?accessView=' + returnView + '&impersonationError=' + code, 303, session.setCookies);
+    }
+
+    const opaque = String(payload.data.impersonationToken);
+    const impersonation = payload.data?.impersonation || {};
+    const sessionId = String(impersonation.id || '');
+    const targetPath = String(payload.data?.targetPath || '');
+    if (!UUID_RE.test(sessionId) || !['/portal/client','/portal/agent'].includes(targetPath)) {
+      return redirect('/portal/admin?accessView=' + returnView + '&impersonationError=IMPERSONATION_START_FAILED', 303, session.setCookies);
+    }
+    const expires = Date.parse(String(impersonation.expiresAt || ''));
+    const maxAge = Number.isFinite(expires) ? Math.max(1, Math.min(900, Math.floor((expires - Date.now()) / 1000))) : 720;
+    return redirect(targetPath + '?impSession=' + encodeURIComponent(sessionId), 303, [...session.setCookies, impersonationCookie(opaque, maxAge)]);
+  }
+
   const headers = new Headers({ apikey: SUPABASE_PUBLISHABLE_KEY, authorization: `Bearer ${session.access}`, accept: 'application/json' });
   for (const name of ['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id']) {
     const value = request.headers.get(name);
