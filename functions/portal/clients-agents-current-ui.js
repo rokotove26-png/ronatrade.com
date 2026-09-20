@@ -124,7 +124,7 @@ function currentUiRuntime(){
       enter.disabled=true;remove.disabled=true;
       status.textContent='Открываю кабинет…';
       try{
-        const started=await mutate('/impersonation/start',{kind,entityId,targetPortalUserId:targetPortalUserId||null});
+        const started=await auth('/impersonation/start',{method:'POST',headers:{'content-type':'application/json',accept:'application/json','x-rona-admin-handoff':'clients-agents-v8'},body:JSON.stringify({kind,entityId,targetPortalUserId:targetPortalUserId||null})});
         const sessionId=txt(started?.impersonation?.id);
         const targetPath=txt(started?.targetPath);
         if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)||!['/portal/client','/portal/agent'].includes(targetPath)){
