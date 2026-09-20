@@ -18,6 +18,8 @@ test('Operations V10 has one canonical V2 source and fail-closed rendering',()=>
   assert.match(v10,/Operations Current V2 подтверждает отсутствие действий/);
   assert.doesNotMatch(v10,/ensureAdminOperationsCurrentV7\(\)/);
   assert.doesNotMatch(v10,/ownerAdminRefreshTick\(true\)/);
+  assert.match(v10,/stripLegacyRuntime/);
+  assert.match(v10,/LEGACY_EVENT_RUNTIME_STRIPPED/);
   assert.doesNotMatch(v10,/__RONA_DEALS_CURRENT_STATE_REFRESH__/);
 });
 
@@ -70,4 +72,17 @@ test('Admin main UI activates V10 clean patch',()=>{
   assert.match(main,/patchAdminOperationsCommandCenterV10Clean/);
   assert.match(main,/admin-operations-command-center-v10-clean\.js/);
   assert.doesNotMatch(main,/patchAdminOperationsCommandCenterV91\(patchOperationsFunctionalRuntime/);
+});
+
+
+test('Generated V10 runtime strips retired Operations V1 event machinery',async()=>{
+  const mod=await import('../../functions/portal/admin-main-ui-current.js?ops-clean='+Date.now());
+  const response=await mod.onRequest();
+  const script=await response.text();
+  assert.doesNotMatch(script,/call\('\/admin\/operations-current-v1'/);
+  assert.doesNotMatch(script,/realtime:rona-admin-operations-current-v1/);
+  assert.doesNotMatch(script,/let ronaOpsV7Busy=/);
+  assert.match(script,/__RONA_ADMIN_OPERATIONS_LEGACY_EVENT_RUNTIME_STRIPPED__='V7_V91'/);
+  assert.match(script,/call\('\/admin\/operations-current-v2'/);
+  new Function(script);
 });
