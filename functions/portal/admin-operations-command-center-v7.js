@@ -123,7 +123,7 @@ export function patchAdminOperationsCommandCenterV7(script){
   patched=replaceRequired(
     patched,
     'function renderAdminHome(){',
-    EVENT_RUNTIME+'\\nfunction renderAdminHome(){',
+    EVENT_RUNTIME+'\nfunction renderAdminHome(){',
     'event-runtime'
   );
 
