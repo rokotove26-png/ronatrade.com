@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: '24'
       - run: node scripts/diag-client-runtime-boot.mjs
-      - run: npm ci
       - run: npm run build
+      - run: npm install --no-save --ignore-scripts playwright@1.54.2
       - run: npx playwright install --with-deps chromium
       - run: node scripts/diag-client-impersonation-real-browser.mjs
