@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { onRequest } from '../functions/portal/admin-authority/[[path]].js';
 
 const ui = readFileSync('functions/portal/clients-agents-current-ui.js','utf8');
-assert.ok(ui.includes("await mutate('/impersonation/start'"), 'UI must use same-origin JSON impersonation start');
+assert.ok(ui.includes("await auth('/impersonation/start'"), 'UI must use canonical JSON impersonation start');
+assert.ok(ui.includes("'x-rona-admin-handoff':'clients-agents-v8'"), 'UI must bind the handoff to an explicit non-form browser intent');
 assert.ok(ui.includes("window.location.assign(targetPath+'?impSession='"), 'UI must navigate only after server handoff succeeds');
 assert.ok(!ui.includes("form.action=AUTH+'/impersonation/enter'"), 'legacy browser form POST handoff must stay retired');
 
@@ -43,9 +44,8 @@ try {
   const request=new Request('https://ronaoil.com/portal/admin-authority/impersonation/start',{
     method:'POST',
     headers:{
-      origin:'https://ronaoil.com',
-      'sec-fetch-site':'same-origin',
       'content-type':'application/json',
+      'x-rona-admin-handoff':'clients-agents-v8',
       accept:'application/json',
       cookie:'rona_portal_at=valid-admin-access'
     },
@@ -71,6 +71,7 @@ try {
       origin:'https://evil.example',
       'sec-fetch-site':'cross-site',
       'content-type':'application/json',
+      'x-rona-admin-handoff':'clients-agents-v8',
       cookie:'rona_portal_at=valid-admin-access'
     },
     body:'{}'
