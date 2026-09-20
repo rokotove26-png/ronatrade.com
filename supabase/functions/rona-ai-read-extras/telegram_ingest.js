@@ -9,7 +9,7 @@ if(!DB||!SUPA_URL||!SERVICE_ROLE) throw new Error('TELEGRAM_INGEST_RUNTIME_VARS_
 const sql=postgres(DB,{prepare:false,max:2});
 const storage=createClient(SUPA_URL,SERVICE_ROLE,{auth:{persistSession:false,autoRefreshToken:false}});
 const BUCKET='market-source-private';
-const VERSION='1.1.0';
+const VERSION='1.1.1';
 const GH_ISSUER='https://token.actions.githubusercontent.com';
 const GH_AUDIENCE='rona-telegram-ingest';
 const GH_REPOSITORY='rokotove26-png/ronatrade.com';
