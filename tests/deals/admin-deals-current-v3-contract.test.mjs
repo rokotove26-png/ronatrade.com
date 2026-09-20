@@ -33,5 +33,12 @@ test('Deals UI reads V3 and preserves readiness GO gate',()=>{
   assert.match(ui,/send\.disabled=overall\(d\)!=='GO'/);
   assert.match(ui,/finance_projection_version\|\|''\)\.toUpperCase\(\)==='FINANCE_V8'/);
   assert.match(ui,/inFinance\?'В платежном контуре'/);
+  assert.match(ui,/paidNode\.title='Оплачено фактически'/);
+  assert.match(ui,/Осталось:/);
+  assert.match(ui,/rona-current-fin-paid/);
+  assert.match(ui,/rona-current-fin-remaining--open/);
+  assert.match(ui,/rona-current-fin-remaining--danger/);
+  assert.match(ui,/rona-current-fin-remaining--settled/);
+  assert.match(ui,/Finance · оплачено \/ остаток/);
   assert.doesNotMatch(ui,/DEAL-2026-/);
 });
