@@ -82,7 +82,8 @@ export async function onRequestPost({request}){
  const me=probe.me;
  const roles=Array.isArray(me.user.roles)?me.user.roles.map(String):[];const requested=parseLocalNext(next);
  if(requested&&!roleAllows(requested,roles))return json({ok:false,code:'ROLE_MISMATCH'},403,tokenCookies(login.data));
- const allowed=targets(roles);const target=requested||(allowed.length>1?'/portal/select':allowed[0]||null);
+ const allowed=targets(roles);const ownerLogin=emailForIdentifier(identifier)===OWNER_EMAIL&&roles.includes('ADMIN');
+ const target=requested||(ownerLogin?'/portal/admin':(allowed.length>1?'/portal/select':allowed[0]||null));
  if(!target){await logout(login.data.access_token);return json({ok:false,code:'ROLE_NOT_PORTAL_ENABLED'},403,clearCookies());}
  const cookies=tokenCookies(login.data);
  if(asJson)return json({ok:true,redirect:target},200,cookies);
