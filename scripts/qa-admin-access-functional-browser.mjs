@@ -153,7 +153,7 @@ try{
   const handoffPage=await context.newPage();
   await handoffPage.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
   await handoffPage.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-impersonation-json-v8-20260920'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
-  await handoffPage.getByRole('button',{name:'⋯ Опции'}).first().click();
+  await handoffPage.locator('[data-rona-entity-options]').first().click();
   const optionsModal=handoffPage.locator('.ca-modal-backdrop').last();
   await optionsModal.waitFor({state:'visible'});
   await handoffPage.waitForFunction(()=>{
