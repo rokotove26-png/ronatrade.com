@@ -62,16 +62,23 @@ async function authRefresh(refreshToken){try{const r=await fetchWithTimeout(`${S
 async function authUser(accessToken){try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},5000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_USER_FAILED'}}}}
 function retryableAuthFailure(result){const status=Number(result?.status||0);return status===429||status>=500||status===0;}
 function ownerAuthIdentity(data){return String(data?.email||'').toLowerCase()===OWNER_EMAIL&&String(data?.app_metadata?.portal_identity||'')==='OWNER_ADMIN';}
-async function recoverExistingOwnerSession(request,next){
+function tokenOwnerHint(token){try{const part=String(token||'').split('.')[1]||'';if(!part)return false;const normalized=part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=');const payload=JSON.parse(atob(normalized));return String(payload?.email||'').toLowerCase()===OWNER_EMAIL&&String(payload?.app_metadata?.portal_identity||'')==='OWNER_ADMIN'}catch{return false}}
+async function recoverExistingOwnerSession(request,next,identifier=''){
  const requested=parseLocalNext(next);
  if(requested&&requested!=='/portal/admin')return null;
  const cookies=parseCookies(request.headers.get('cookie'));
  const access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
+ const explicitOwner=Boolean(String(identifier||'').trim())&&emailForIdentifier(identifier)===OWNER_EMAIL;
+ let mayRefresh=explicitOwner;
  if(access){
    const current=await authUser(access);
-   if(current.ok&&ownerAuthIdentity(current.data))return {target:'/portal/admin',cookies:[],source:'ACCESS_COOKIE'};
+   if(current.ok){
+     if(ownerAuthIdentity(current.data))return {target:'/portal/admin',cookies:[],source:'ACCESS_COOKIE'};
+     return null;
+   }
+   mayRefresh=mayRefresh||tokenOwnerHint(access);
  }
- if(refresh){
+ if(refresh&&mayRefresh){
    const rotated=await authRefresh(refresh);
    if(rotated.ok&&rotated.data?.access_token&&rotated.data?.refresh_token){
      const current=await authUser(rotated.data.access_token);
@@ -89,7 +96,7 @@ export async function onRequestPost({request}){
  if(ct.includes('application/json')){const body=await request.json().catch(()=>({}));identifier=String(body.identifier||body.email||'').trim();password=String(body.password||'');next=String(body.next||'');resumeOnly=body.resume===true;}
  else{const form=await request.formData();identifier=String(form.get('identifier')||form.get('email')||'').trim();password=String(form.get('password')||'');next=String(form.get('next')||'');resumeOnly=String(form.get('resume')||'')==='1';}
  const asJson=wantsJson(request);
- const recovered=await recoverExistingOwnerSession(request,next);
+ const recovered=await recoverExistingOwnerSession(request,next,identifier);
  if(recovered)return asJson?json({ok:true,redirect:recovered.target,recovered:true,source:recovered.source},200,recovered.cookies):redirect(recovered.target,recovered.cookies);
  if(resumeOnly)return json({ok:false,code:'NO_RECOVERABLE_SESSION'},401);
  if(!identifier||!password||identifier.length>320||password.length>1024)return asJson?json({ok:false,code:'LOGIN_INVALID'},400,clearCookies()):response(loginHtml('Не удалось выполнить вход.'),400,'text/html; charset=utf-8',clearCookies());
