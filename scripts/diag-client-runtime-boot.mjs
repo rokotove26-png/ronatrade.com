@@ -39,3 +39,8 @@ scripts.slice(0,30).forEach((m,idx)=>{
   const net=/fetch\(|XMLHttpRequest|\/portal\/api|\/functions\/v1\/rona-portal-api|bootstrap/i.test(body);
   if(net) console.log('\n=== SCRIPT_NETWORK '+idx+' len='+body.length+' ===\n'+body.slice(0,6000).replace(/\s+/g,' '));
 });
+
+const externalScripts=[...source.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi)].map(m=>m[1]);
+console.log('EXTERNAL_SCRIPT_SRCS',JSON.stringify(externalScripts));
+const externalStyles=[...source.matchAll(/<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi)].map(m=>m[1]);
+console.log('EXTERNAL_LINK_HREFS',JSON.stringify(externalStyles));
