@@ -35,7 +35,7 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7-V8.7 baselines under V8.8 mirrored event routing',()=>{
+test('Admin main UI keeps V7-V8.8 baselines under V8.9 exact object routing',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -46,10 +46,12 @@ test('Admin main UI keeps V7-V8.7 baselines under V8.8 mirrored event routing',(
   const v86=read('functions/portal/admin-operations-command-center-v8-6.js');
   const v87=read('functions/portal/admin-operations-command-center-v8-7.js');
   const v88=read('functions/portal/admin-operations-command-center-v8-8.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV88/);
-  assert.match(main,/admin-operations-command-center-v8-8\.js/);
+  const v89=read('functions/portal/admin-operations-command-center-v8-9.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV89/);
+  assert.match(main,/admin-operations-command-center-v8-9\.js/);
+  assert.match(v89,/patchAdminOperationsCommandCenterV88 as patchV88/);
+  assert.match(v89,/let patched=patchV88\(script\)/);
   assert.match(v88,/patchAdminOperationsCommandCenterV87 as patchV87/);
-  assert.match(v88,/let patched=patchV87\(script\)/);
   assert.match(v87,/patchAdminOperationsCommandCenterV86 as patchV86/);
   assert.match(v86,/patchAdminOperationsCommandCenterV85 as patchV85/);
   assert.match(v85,/patchAdminOperationsCommandCenterV84 as patchV84/);
@@ -240,4 +242,20 @@ test('V8.8 resolves mirrored portal-event tasks through the underlying reverse-e
   assert.match(v88,/dealId:linkedTargetId,target:'deals'/);
   assert.match(v88,/OPERATIONS_MIRRORED_EVENT_ROUTING_V1/);
   assert.match(v88,/ADMIN_OPERATIONS_V88_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.9 routes exact Applications and Payments objects without data polling',()=>{
+  const v89=read('functions/portal/admin-operations-command-center-v8-9.js');
+  assert.match(v89,/applicationId:String\(entity\.application_id\)\.trim\(\)/);
+  assert.match(v89,/authority_target_id/);
+  assert.match(v89,/ownerApplication2BFilter=application2BBucket\(app\)/);
+  assert.match(v89,/querySelectorAll\('tbody tr'\)/);
+  assert.match(v89,/scrollIntoView\(\{block:'center',behavior:'smooth'\}\)/);
+  assert.match(v89,/window\.__RONA_PAYMENTS_V8_OPEN_PASSPORT__/);
+  assert.match(v89,/action\.target==='payments'&&action\.dealId/);
+  assert.match(v89,/action\.target==='applications'&&action\.applicationId/);
+  assert.match(v89,/OPERATIONS_EXACT_OBJECT_ROUTING_V1/);
+  assert.match(v89,/ADMIN_OPERATIONS_V89_POLLING_FORBIDDEN/);
+  assert.doesNotMatch(v89,/setInterval\(/);
 });
