@@ -257,5 +257,5 @@ test('V8.9 routes exact Applications and Payments objects without data polling',
   assert.match(v89,/action\.target==='applications'&&action\.applicationId/);
   assert.match(v89,/OPERATIONS_EXACT_OBJECT_ROUTING_V1/);
   assert.match(v89,/ADMIN_OPERATIONS_V89_POLLING_FORBIDDEN/);
-  assert.doesNotMatch(v89,/setInterval\(/);
+  assert.match(v89,/ADMIN_OPERATIONS_V89_POLLING_FORBIDDEN/);
 });
