@@ -16,6 +16,8 @@ export type AdminImpersonation = {
   correlationId: string;
   startedAt: string;
   expiresAt: string;
+  subjectMode: "PORTAL_USER" | "ADMIN_ENTITY";
+  readOnly: boolean;
 };
 
 const UUID_RE=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -46,10 +48,11 @@ export async function resolveAdminImpersonation(
       ais.return_view,
       ais.correlation_id,
       ais.started_at,
-      ais.expires_at
+      ais.expires_at,
+      coalesce(ais.metadata->>'subjectMode','PORTAL_USER') as subject_mode
     from portal_private.admin_impersonation_sessions ais
     join portal_private.portal_users effective on effective.id=ais.effective_portal_user_id
-    join portal_private.portal_user_roles er
+    left join portal_private.portal_user_roles er
       on er.user_id=effective.id
      and er.role=ais.effective_role
      and er.status='ACTIVE'::portal_private.binding_status_enum
@@ -66,57 +69,79 @@ export async function resolveAdminImpersonation(
       and effective.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and (
         (
-          ais.effective_role='CLIENT'::portal_private.portal_role_enum
+          coalesce(ais.metadata->>'subjectMode','PORTAL_USER')='ADMIN_ENTITY'
+          and ais.effective_role='CLIENT'::portal_private.portal_role_enum
+          and effective.id=ais.actor_admin_portal_user_id
           and exists(
             select 1
             from portal_private.clients cl
-            join portal_private.client_user_bindings b
-              on b.client_key=cl.id
-             and b.user_id=effective.id
             where cl.id=ais.target_client_key
               and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-              and cl.authority_state in (
-                'CONFIRMED'::portal_private.authority_state_enum,
-                'VERIFIED'::portal_private.authority_state_enum
+              and cl.authority_state not in (
+                'REJECTED'::portal_private.authority_state_enum,
+                'SUPERSEDED'::portal_private.authority_state_enum
               )
-              and b.status='ACTIVE'::portal_private.binding_status_enum
-              and b.revoked_at is null
-              and b.valid_from<=now()
-              and (b.valid_to is null or b.valid_to>now())
-              and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-              and portal_private.client_user_has_contract_access(effective.id,b.contract_key,now())
           )
         )
         or
         (
-          ais.effective_role='AGENT'::portal_private.portal_role_enum
-          and exists(
-            select 1
-            from portal_private.agent_persons ap
-            join portal_private.agent_user_bindings b
-              on b.agent_person_key=ap.id
-             and b.user_id=effective.id
-            where ap.id=ais.target_agent_person_key
-              and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-              and ap.authority_state not in (
-                'REJECTED'::portal_private.authority_state_enum,
-                'SUPERSEDED'::portal_private.authority_state_enum
+          coalesce(ais.metadata->>'subjectMode','PORTAL_USER')<>'ADMIN_ENTITY'
+          and er.user_id is not null
+          and (
+            (
+              ais.effective_role='CLIENT'::portal_private.portal_role_enum
+              and exists(
+                select 1
+                from portal_private.clients cl
+                join portal_private.client_user_bindings b
+                  on b.client_key=cl.id
+                 and b.user_id=effective.id
+                where cl.id=ais.target_client_key
+                  and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  and cl.authority_state in (
+                    'CONFIRMED'::portal_private.authority_state_enum,
+                    'VERIFIED'::portal_private.authority_state_enum
+                  )
+                  and b.status='ACTIVE'::portal_private.binding_status_enum
+                  and b.revoked_at is null
+                  and b.valid_from<=now()
+                  and (b.valid_to is null or b.valid_to>now())
+                  and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  and portal_private.client_user_has_contract_access(effective.id,b.contract_key,now())
               )
-              and b.status='ACTIVE'::portal_private.binding_status_enum
-              and b.revoked_at is null
-              and b.valid_from<=now()
-              and (b.valid_to is null or b.valid_to>now())
-              and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-              and (
-                select count(distinct b2.agent_person_key)
-                from portal_private.agent_user_bindings b2
-                where b2.user_id=effective.id
-                  and b2.status='ACTIVE'::portal_private.binding_status_enum
-                  and b2.revoked_at is null
-                  and b2.valid_from<=now()
-                  and (b2.valid_to is null or b2.valid_to>now())
-                  and b2.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-              )=1
+            )
+            or
+            (
+              ais.effective_role='AGENT'::portal_private.portal_role_enum
+              and exists(
+                select 1
+                from portal_private.agent_persons ap
+                join portal_private.agent_user_bindings b
+                  on b.agent_person_key=ap.id
+                 and b.user_id=effective.id
+                where ap.id=ais.target_agent_person_key
+                  and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  and ap.authority_state not in (
+                    'REJECTED'::portal_private.authority_state_enum,
+                    'SUPERSEDED'::portal_private.authority_state_enum
+                  )
+                  and b.status='ACTIVE'::portal_private.binding_status_enum
+                  and b.revoked_at is null
+                  and b.valid_from<=now()
+                  and (b.valid_to is null or b.valid_to>now())
+                  and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  and (
+                    select count(distinct b2.agent_person_key)
+                    from portal_private.agent_user_bindings b2
+                    where b2.user_id=effective.id
+                      and b2.status='ACTIVE'::portal_private.binding_status_enum
+                      and b2.revoked_at is null
+                      and b2.valid_from<=now()
+                      and (b2.valid_to is null or b2.valid_to>now())
+                      and b2.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  )=1
+              )
+            )
           )
         )
       )
@@ -133,7 +158,9 @@ export async function resolveAdminImpersonation(
     returnView:String(row.return_view)==="agents"?"agents":"companies",
     correlationId:String(row.correlation_id),
     startedAt:new Date(row.started_at).toISOString(),
-    expiresAt:new Date(row.expires_at).toISOString()
+    expiresAt:new Date(row.expires_at).toISOString(),
+    subjectMode:String(row.subject_mode)==="ADMIN_ENTITY"?"ADMIN_ENTITY":"PORTAL_USER",
+    readOnly:String(row.subject_mode)==="ADMIN_ENTITY"
   };
 }
 
