@@ -108,6 +108,7 @@
         if(r.status===503&&issued&&recoveryTarget){setStatus(doc,panel,'Сессия создана. Восстанавливаем кабинет…',false);try{window.top.location.assign(recoveryTarget)}catch(_){window.location.assign(recoveryTarget)}return}
         password.value='';
         if(r.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');
+        else if(r.status===429||code==='LOGIN_RATE_LIMITED')setStatus(doc,panel,'Слишком много попыток входа. Подождите минуту и повторите.');
         else if(r.status===400||code==='LOGIN_INVALID')setStatus(doc,panel,'Введите корректный логин и пароль.');
         else if(r.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');
         else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');
