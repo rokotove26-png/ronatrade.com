@@ -26,7 +26,10 @@ export async function authenticate(req:Request):Promise<Ctx|null>{
   if(!impersonation)return null;
   const tabId=String(req.headers.get("x-rona-impersonation-tab")||"").trim();
   if(tabId!==impersonation.id)return null;
-  const effective=impersonation.subjectMode==="ADMIN_ENTITY"&&impersonation.targetClientKey\n    ?await sql`select legal_name as display_name from portal_private.clients where id=${impersonation.targetClientKey}::uuid limit 1`\n    :await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;\n  return{...base,user:impersonation.effectiveUserId,name:String(effective[0]?.display_name||""),roles:[impersonation.effectiveRole],impersonation};
+  const effective=impersonation.subjectMode==="ADMIN_ENTITY"&&impersonation.targetClientKey
+    ?await sql`select legal_name as display_name from portal_private.clients where id=${impersonation.targetClientKey}::uuid limit 1`
+    :await sql`select display_name from portal_private.portal_users where id=${impersonation.effectiveUserId}::uuid limit 1`;
+  return{...base,user:impersonation.effectiveUserId,name:String(effective[0]?.display_name||""),roles:[impersonation.effectiveRole],impersonation};
 }
 export async function sessionScope(c:Ctx){
   const clients=new Set<string>(),contracts=new Set<string>(),deals=new Set<string>(),persons=new Set<string>(),legalEntities=new Set<string>();
