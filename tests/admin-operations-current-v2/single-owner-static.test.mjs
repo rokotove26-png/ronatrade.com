@@ -48,7 +48,7 @@ test('Client and Agent presence is injected only for real sessions, never admin 
   assert.match(router,/portal-presence-v1/);
   assert.match(router,/connectionId=crypto\.randomUUID\(\)/);
   assert.match(router,/\/portal\/owner-api\?path=%2Fpresence%2Fheartbeat/);
-  assert.match(router,/const clientPresence=impersonation\?\.data\?'':presenceBridge\('CLIENT'\)/);
+  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*HeadPrepend\(bridge\)[\s\S]*return secureResponse\(transformed,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
   assert.match(router,/const agentPresence=impersonation\?\.data\?'':presenceBridge\('AGENT'\)/);
 });
 
@@ -127,4 +127,39 @@ test('V10 preserves the canonical Flightdeck V5 visual DOM while sourcing V2 dat
   assert.match(script,/rona-fd-v5-screen__body/);
   assert.match(script,/data-rona-flightdeck':'v5-full-rebuild/);
   assert.match(script,/call\('\/admin\/operations-current-v2'/);
+});
+
+test('Attention viewer state is per-admin, persistent, and does not resolve business actions',()=>{
+  const sql=read('supabase/migrations/20260920203448_admin_operations_attention_seen_v1.sql');
+  assert.match(sql,/create table if not exists portal_private\.admin_operations_attention_seen_v1/i);
+  assert.match(sql,/primary key \(admin_portal_user_id,action_id\)/i);
+  assert.match(sql,/enable row level security/i);
+  assert.match(sql,/revoke all on portal_private\.admin_operations_attention_seen_v1 from public, anon, authenticated/i);
+  assert.match(sql,/rona_admin_operations_attention_seen_v1/i);
+  assert.match(sql,/rona_admin_operations_attention_ack_v1/i);
+  assert.match(sql,/owner_r1_actor\('ADMIN'\)/);
+  assert.match(sql,/action_fingerprint/);
+  assert.match(sql,/does not mutate task\/action business lifecycle/i);
+});
+
+test('Owner API exposes attention seen and acknowledgement RPCs only through authenticated Admin routes',()=>{
+  const api=read('functions/portal/owner-api.js');
+  assert.match(api,/\/admin\/operations-attention-seen-v1'.*rona_admin_operations_attention_seen_v1/s);
+  assert.match(api,/\/admin\/operations-attention-ack-v1'.*rona_admin_operations_attention_ack_v1/s);
+  assert.match(api,/p_items:Array\.isArray\(body\?\.items\)\?body\.items:\[\]/);
+});
+
+test('Attention card opens detail overlay and zeros only unseen count after view',()=>{
+  const v10=read('functions/portal/admin-operations-command-center-v10-clean.js');
+  assert.match(v10,/function ronaOpsV10Fingerprint/);
+  assert.match(v10,/function ronaOpsV10Unseen/);
+  assert.match(v10,/function ronaOpsV10OpenAttention/);
+  assert.match(v10,/post\('\/admin\/operations-attention-ack-v1'/);
+  assert.match(v10,/call\('\/admin\/operations-attention-seen-v1'/);
+  assert.match(v10,/code==='CAUT-03'\?ronaOpsV10OpenAttention\(\)/);
+  assert.match(v10,/gauge\('CAUT-03','Требует действия',unseenN===null\?'—':unseenN/);
+  assert.match(v10,/Непросмотренные · открыто всего:/);
+  assert.match(v10,/summary\.textContent='Открыто: '\+actions\.length\+' · непросмотрено: 0'/);
+  assert.match(v10,/const stateText=.*Открыто действий:.*actionN.*новых:.*unseenN/s);
+  assert.match(v10,/const masterScreen=ronaFdV5Screen\('EXCEPTION CONTROL','Master caution \/ warning',ready\?actions\.length:'—'/);
 });
