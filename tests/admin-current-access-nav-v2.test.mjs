@@ -50,6 +50,9 @@ assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'")
 assert(source.includes('window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair'),'Access runtime in-place repair hook missing');
 assert(source.includes("window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE'"),'Access runtime must preserve last-good workspace on transient refresh failure');
 assert(source.includes('window.__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard'),'Access runtime root survival guard missing');
+assert(source.includes("let s=q('#ronaCaCurrentStyleV5');if(!s)"),'Access style owner must refresh an existing style node instead of freezing stale CSS');
+assert(source.includes(".ca-modal .ca-btn.ca-danger"),'Modal destructive style missing');
+assert(source.includes("remove.dataset.ronaDangerAction='entity-delete'"),'Delete company inline destructive fallback missing');
 assert(source.includes('if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&r&&accessRootHealthy())'),'Access refresh must preserve last-good DOM');
 assert(fastShell.includes('const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()'),'Fast shell must use stable access readiness');
 assert(fastShell.includes('waitAccessReady(14000)'),'Fast shell must allow bounded async access bootstrap without teardown');
