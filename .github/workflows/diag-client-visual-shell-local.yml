@@ -19,6 +19,8 @@ jobs:
           node-version: '24'
       - name: Build exact Client artifact
         run: npm run build
+      - name: Verify live production Client runtime assets
+        run: node scripts/diag-live-client-public-assets.mjs
       - name: Install Playwright
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
