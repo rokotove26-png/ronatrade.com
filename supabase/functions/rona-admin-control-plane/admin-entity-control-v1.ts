@@ -144,10 +144,12 @@ export function createAdminEntityControl(deps:{
         kind,
         entity:entity[0],
         users,
-        canImpersonate:users.length===1,
+        canImpersonate:users.length<=1,
         invariantViolation:users.length>1,
         selectionRequired:false,
-        disabledReason:users.length===0?"TARGET_PORTAL_USER_NOT_FOUND":users.length>1?"AGENT_PORTAL_USER_INVARIANT_VIOLATION":null
+        subjectMode:users.length?"PORTAL_USER":"ADMIN_ENTITY",
+        readOnly:users.length===0,
+        disabledReason:users.length>1?"AGENT_PORTAL_USER_INVARIANT_VIOLATION":null
       };
     }
     fail("INVALID_ENTITY_KIND",400);
@@ -160,8 +162,8 @@ export function createAdminEntityControl(deps:{
     const returnView=kind==="AGENT"?"agents":"companies";
     const info=await targets(kind,entityId);
     const users=Array.isArray(info.users)?info.users:[];
-    const adminEntity=kind==="COMPANY"&&users.length===0;
-    if(kind==="AGENT"&&users.length!==1)fail(users.length===0?"TARGET_PORTAL_USER_NOT_FOUND":"AGENT_PORTAL_USER_INVARIANT_VIOLATION",409);
+    const adminEntity=users.length===0;
+    if(kind==="AGENT"&&users.length>1)fail("AGENT_PORTAL_USER_INVARIANT_VIOLATION",409);
     const requested=String(body.targetPortalUserId||"").trim();
     if(kind==="COMPANY"&&users.length>1&&!requested)fail("TARGET_PORTAL_USER_SELECTION_REQUIRED",409);
     const selected=adminEntity
@@ -169,7 +171,7 @@ export function createAdminEntityControl(deps:{
       :users.length===1?users[0]:users.find((u:any)=>String(u.portal_user_id)===requested);
     if(!selected)fail("TARGET_PORTAL_USER_NOT_FOUND",409);
     const subjectMode=adminEntity?"ADMIN_ENTITY":"PORTAL_USER";
-    if(kind==="AGENT"){
+    if(kind==="AGENT"&&!adminEntity){
       const activePersons=await sql`
         select count(distinct agent_person_key)::int n
         from portal_private.agent_user_bindings

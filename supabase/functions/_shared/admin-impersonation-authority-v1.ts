@@ -70,17 +70,35 @@ export async function resolveAdminImpersonation(
       and (
         (
           coalesce(ais.metadata->>'subjectMode','PORTAL_USER')='ADMIN_ENTITY'
-          and ais.effective_role='CLIENT'::portal_private.portal_role_enum
           and effective.id=ais.actor_admin_portal_user_id
-          and exists(
-            select 1
-            from portal_private.clients cl
-            where cl.id=ais.target_client_key
-              and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-              and cl.authority_state not in (
-                'REJECTED'::portal_private.authority_state_enum,
-                'SUPERSEDED'::portal_private.authority_state_enum
+          and (
+            (
+              ais.effective_role='CLIENT'::portal_private.portal_role_enum
+              and exists(
+                select 1
+                from portal_private.clients cl
+                where cl.id=ais.target_client_key
+                  and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  and cl.authority_state not in (
+                    'REJECTED'::portal_private.authority_state_enum,
+                    'SUPERSEDED'::portal_private.authority_state_enum
+                  )
               )
+            )
+            or
+            (
+              ais.effective_role='AGENT'::portal_private.portal_role_enum
+              and exists(
+                select 1
+                from portal_private.agent_persons ap
+                where ap.id=ais.target_agent_person_key
+                  and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+                  and ap.authority_state not in (
+                    'REJECTED'::portal_private.authority_state_enum,
+                    'SUPERSEDED'::portal_private.authority_state_enum
+                  )
+              )
+            )
           )
         )
         or

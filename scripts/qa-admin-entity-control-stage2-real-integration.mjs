@@ -22,6 +22,7 @@ const U={
   contractB:"00000000-0000-4000-8000-000000000202",
   contractC:"00000000-0000-4000-8000-000000000203",
   agentPerson:"00000000-0000-4000-8000-000000000301",
+  agentPersonNoUser:"00000000-0000-4000-8000-000000000302",
   dealA:"00000000-0000-4000-8000-000000000401",
   dealB:"00000000-0000-4000-8000-000000000402",
   dealC:"00000000-0000-4000-8000-000000000403",
@@ -118,8 +119,9 @@ async function seed(){
       (${U.client}::uuid,${U.companyB}::uuid,${U.contractB}::uuid)
   `;
   await sql`
-    insert into portal_private.agent_persons(id,agent_person_id,full_name,display_alias)
-    values(${U.agentPerson}::uuid,'RONA-A001','Agent Stage Two','Agent Stage Two')
+    insert into portal_private.agent_persons(id,agent_person_id,full_name,display_alias) values
+      (${U.agentPerson}::uuid,'RONA-A001','Agent Stage Two','Agent Stage Two'),
+      (${U.agentPersonNoUser}::uuid,'RONA-A002','Agent No User','Agent No User')
   `;
   await sql`
     insert into portal_private.agent_user_bindings(user_id,agent_person_key,agent_legal_entity_key)
@@ -363,6 +365,18 @@ async function main(){
   assert(impNoUser.impersonation.subjectMode==="ADMIN_ENTITY"&&impNoUser.impersonation.readOnly===true,"Admin entity preview is explicit and read-only");
   const resolvedNoUser=await service.resolve(ctx,request(null,{"x-rona-admin-impersonation-token":impNoUser.impersonationToken}));
   assert(resolvedNoUser.subjectMode==="ADMIN_ENTITY"&&resolvedNoUser.targetClientKey===U.companyC,"Admin entity preview resolves without Client Portal account");
+
+  // An Agent Person without an Agent Portal user is also enterable by Admin in hard-bound read-only entity mode.
+  const noUserAgentTargets=await service.targets("AGENT","RONA-A002");
+  assert(noUserAgentTargets.users.length===0,"Agent A002 has no Agent Portal user in fixture");
+  assert(noUserAgentTargets.canImpersonate===true&&noUserAgentTargets.subjectMode==="ADMIN_ENTITY"&&noUserAgentTargets.readOnly===true,"Agent no-user Admin entity preview advertised");
+  const impNoUserAgent=await service.start(ctx,request({kind:"AGENT",entityId:"RONA-A002"}));
+  assert(impNoUserAgent.impersonation.effectivePortalUserId===U.admin,"Agent Admin entity preview uses real Admin as technical subject");
+  assert(impNoUserAgent.impersonation.targetAgentPersonKey===U.agentPersonNoUser,"Agent Admin entity preview hard-binds Agent Person");
+  assert(impNoUserAgent.impersonation.subjectMode==="ADMIN_ENTITY"&&impNoUserAgent.impersonation.readOnly===true,"Agent Admin entity preview is explicit and read-only");
+  const resolvedNoUserAgent=await service.resolve(ctx,request(null,{"x-rona-admin-impersonation-token":impNoUserAgent.impersonationToken}));
+  assert(resolvedNoUserAgent.subjectMode==="ADMIN_ENTITY"&&resolvedNoUserAgent.targetAgentPersonKey===U.agentPersonNoUser,"Agent Admin entity preview resolves without Agent Portal account");
+  await service.end(ctx,request(null,{"x-rona-admin-impersonation-token":impNoUserAgent.impersonationToken,"x-rona-impersonation-tab":impNoUserAgent.impersonation.id}));
 
   // Active Deal Company delete is a hard blocker with zero mutation.
   const opBefore=await sql`select count(*)::int n from portal_private.admin_entity_retirement_operations where entity_key=${U.companyC}::uuid`;

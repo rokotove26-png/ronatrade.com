@@ -1,4 +1,4 @@
-import { sql, type Ctx } from "./shared.ts";
+import { sql, isAdminEntityAgent, type Ctx } from "./shared.ts";
 
 export type AgentDocumentView = {
   documentId:string;
@@ -27,6 +27,42 @@ function mapAgentDocument(row:any):AgentDocumentView{
 }
 
 async function agentDocumentRows(c:Ctx,documentId:string|null=null){
+  const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
+  if(isAdminEntityAgent(c))return await sql`
+    select
+      d.document_id,
+      d.document_type,
+      cl.client_id,
+      ct.contract_id,
+      x.deal_id,
+      d.authoritative_filename,
+      d.authority_state::text,
+      d.lifecycle_state::text,
+      d.updated_at
+    from portal_private.documents d
+    join portal_private.clients cl on cl.id=d.client_key
+    join portal_private.contracts ct on ct.id=d.contract_key
+    join portal_private.deals x on x.id=d.deal_key
+    where (${documentId}::text is null or d.document_id=${documentId}::text)
+      and d.deal_key is not null
+      and exists(
+        select 1
+        from portal_private.agent_deal_terms t
+        join portal_private.agent_client_assignments a on a.id=t.assignment_id
+        where a.agent_person_key=${bound}::uuid
+          and t.deal_key=d.deal_key
+          and a.status='ACTIVE'::portal_private.binding_status_enum
+          and a.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and t.status='ACTIVE'::portal_private.binding_status_enum
+          and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      )
+      and d.authority_state in (
+        'VERIFIED'::portal_private.authority_state_enum,
+        'CONFIRMED'::portal_private.authority_state_enum
+      )
+      and d.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by d.updated_at desc
+  `;
   return await sql`
     select
       d.document_id,
@@ -64,7 +100,35 @@ export async function agentDocument(c:Ctx,documentId:string):Promise<AgentDocume
 }
 
 export async function agentPayment(c:Ctx,paymentId:string){
-  const rows=await sql`
+  const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
+  const rows=isAdminEntityAgent(c)?await sql`
+    select
+      p.payment_id,
+      cl.client_id,
+      d.deal_id,
+      p.finance_status::text,
+      p.accounting_closure_status::text,
+      pa.allocation_status::text
+    from portal_private.payments p
+    join portal_private.payment_allocations pa on pa.payment_key=p.id
+    join portal_private.clients cl on cl.id=pa.client_key
+    join portal_private.deals d on d.id=pa.deal_key
+    where p.payment_id=${paymentId}
+      and pa.deal_key is not null
+      and exists(
+        select 1
+        from portal_private.agent_deal_terms t
+        join portal_private.agent_client_assignments a on a.id=t.assignment_id
+        where a.agent_person_key=${bound}::uuid
+          and t.deal_key=pa.deal_key
+          and a.status='ACTIVE'::portal_private.binding_status_enum
+          and a.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and t.status='ACTIVE'::portal_private.binding_status_enum
+          and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      )
+    order by pa.allocated_at desc nulls last,pa.created_at desc
+    limit 1
+  `:await sql`
     select
       p.payment_id,
       cl.client_id,
@@ -96,6 +160,7 @@ export async function agentPayment(c:Ctx,paymentId:string){
 
 async function agentPricePublication(c:Ctx){
   const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
+  const adminEntity=isAdminEntityAgent(c);
   const rows=await sql`
     select distinct on (ops.source_publication_item_key)
       ops.source_publication_item_key as publication_item_id,
@@ -148,18 +213,24 @@ async function agentPricePublication(c:Ctx){
           select 1
           from portal_private.publication_client_targets pct
           join portal_private.agent_client_assignments aca on aca.client_key=pct.client_key
-          join portal_private.agent_user_bindings aub
+          left join portal_private.agent_user_bindings aub
             on aub.agent_person_key=aca.agent_person_key
            and (
              aub.agent_legal_entity_key is null
              or aca.agent_legal_entity_key is not distinct from aub.agent_legal_entity_key
            )
-          where aub.user_id=${c.user}::uuid
-            and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
-            and aub.status='ACTIVE'::portal_private.binding_status_enum
-            and aub.revoked_at is null
-            and aub.valid_from<=now()
-            and (aub.valid_to is null or aub.valid_to>now())
+          where (
+              (${adminEntity}::boolean and aca.agent_person_key=${bound}::uuid)
+              or (
+                not ${adminEntity}::boolean
+                and aub.user_id=${c.user}::uuid
+                and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
+                and aub.status='ACTIVE'::portal_private.binding_status_enum
+                and aub.revoked_at is null
+                and aub.valid_from<=now()
+                and (aub.valid_to is null or aub.valid_to>now())
+              )
+            )
             and aca.status='ACTIVE'::portal_private.binding_status_enum
             and aca.authority_state='CONFIRMED'::portal_private.authority_state_enum
             and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
@@ -214,7 +285,22 @@ async function agentPricePublication(c:Ctx){
 
 export async function agentBootstrap(c:Ctx){
   const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
-  const bindings=await sql`
+  const bindings=isAdminEntityAgent(c)?await sql`
+    select
+      ap.id as agent_person_key,
+      null::uuid as agent_legal_entity_key,
+      ap.agent_person_id,
+      coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) as display_alias,
+      null::text as agent_legal_entity_id,
+      null::text as legal_name
+    from portal_private.agent_persons ap
+    where ap.id=${bound}::uuid
+      and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state not in (
+        'REJECTED'::portal_private.authority_state_enum,
+        'SUPERSEDED'::portal_private.authority_state_enum
+      )
+  `:await sql`
     select
       ub.agent_person_key,
       ub.agent_legal_entity_key,
@@ -252,7 +338,33 @@ export async function agentBootstrap(c:Ctx){
     order by cl.client_id
   `;
 
-  const viewDeals=await sql`
+  const viewDeals=isAdminEntityAgent(c)?await sql`
+    select
+      d.id as deal_key,
+      d.deal_id,
+      cl.client_id,
+      ct.contract_id,
+      d.business_status,
+      d.finance_status::text,
+      d.accounting_closure_status::text,
+      d.opened_at,
+      d.closed_at
+    from portal_private.deals d
+    join portal_private.clients cl on cl.id=d.client_key
+    join portal_private.contracts ct on ct.id=d.contract_key
+    where exists(
+      select 1
+      from portal_private.agent_deal_terms t
+      join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
+      where t.deal_key=d.id
+        and aa.agent_person_key=${bound}::uuid
+        and aa.status='ACTIVE'::portal_private.binding_status_enum
+        and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and t.status='ACTIVE'::portal_private.binding_status_enum
+        and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    )
+    order by d.created_at desc
+  `:await sql`
     select
       d.id as deal_key,
       d.deal_id,
@@ -270,7 +382,31 @@ export async function agentBootstrap(c:Ctx){
     order by d.created_at desc
   `;
 
-  const applications=await sql`
+  const applications=isAdminEntityAgent(c)?await sql`
+    select
+      a.application_id,
+      a.product,
+      a.quantity_tonnes,
+      a.status::text,
+      d.deal_id,
+      cl.client_id
+    from portal_private.client_applications a
+    join portal_private.deals d on d.id=a.linked_deal_key
+    join portal_private.clients cl on cl.id=a.client_key
+    where a.linked_deal_key is not null
+      and exists(
+        select 1
+        from portal_private.agent_deal_terms t
+        join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
+        where t.deal_key=d.id
+          and aa.agent_person_key=${bound}::uuid
+          and aa.status='ACTIVE'::portal_private.binding_status_enum
+          and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and t.status='ACTIVE'::portal_private.binding_status_enum
+          and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      )
+    order by a.created_at desc
+  `:await sql`
     select
       a.application_id,
       a.product,
@@ -286,7 +422,33 @@ export async function agentBootstrap(c:Ctx){
     order by a.created_at desc
   `;
 
-  const settlements=await sql`
+  const settlements=isAdminEntityAgent(c)?await sql`
+    select
+      s.settlement_id,
+      s.settlement_state::text,
+      s.amount,
+      s.currency,
+      s.calculation_basis,
+      d.deal_id,
+      cl.client_id,
+      s.payable_confirmed_at,
+      s.paid_at
+    from portal_private.agent_settlements s
+    join portal_private.deals d on d.id=s.deal_key
+    join portal_private.clients cl on cl.id=d.client_key
+    where exists(
+      select 1
+      from portal_private.agent_deal_terms t
+      join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
+      where t.deal_key=d.id
+        and aa.agent_person_key=${bound}::uuid
+        and aa.status='ACTIVE'::portal_private.binding_status_enum
+        and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and t.status='ACTIVE'::portal_private.binding_status_enum
+        and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    )
+    order by s.created_at desc
+  `:await sql`
     select
       s.settlement_id,
       s.settlement_state::text,

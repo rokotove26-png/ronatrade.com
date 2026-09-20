@@ -107,8 +107,10 @@ function currentUiRuntime(){
         targetHost.append(label('Пользователь кабинета',targetSelect));status.textContent='Выберите пользователя. Доступ останется жёстко ограничен этой компанией.';enter.disabled=false;
       }else if(usersList.length===1&&targetInfo?.canImpersonate!==false){
         targetSelect=el('select');const u=usersList[0];targetSelect.append(new Option(entityTargetLabel(u),txt(u.portal_user_id||u.id)));targetSelect.hidden=true;targetHost.append(targetSelect);status.textContent=kind==='AGENT'?'Вход будет выполнен с полномочиями этого Agent Person.':'Вход будет выполнен с полномочиями клиента только в контексте этой компании.';enter.disabled=false;
-      }else if(kind==='COMPANY'&&targetInfo?.subjectMode==='ADMIN_ENTITY'&&targetInfo?.canImpersonate!==false){
-        status.textContent='Открытие кабинета в административном режиме просмотра. Portal-учётная запись клиента для этого не требуется.';
+      }else if(targetInfo?.subjectMode==='ADMIN_ENTITY'&&targetInfo?.canImpersonate!==false){
+        status.textContent=kind==='AGENT'
+          ?'Открытие кабинета агента в административном режиме просмотра. Portal-учётная запись агента для этого не требуется.'
+          :'Открытие кабинета в административном режиме просмотра. Portal-учётная запись клиента для этого не требуется.';
         enter.disabled=false;
       }else{
         status.textContent=targetInfo?.disabledReason==='AGENT_PORTAL_USER_INVARIANT_VIOLATION'?'Вход закрыт: нарушена уникальность активной учётной записи Agent Person.':'Для этой сущности нет активной Portal-учётной записи.';
