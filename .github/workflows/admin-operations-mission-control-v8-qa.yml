@@ -29,6 +29,10 @@ jobs:
           node --check functions/portal/admin-main-ui-current.js
       - name: Mission derivation tests
         run: node --test tests/admin-operations-mission-control-v8/mission-current.test.mjs
+      - name: Preserve event-driven and Rail V4 contracts
+        run: |
+          node --test tests/admin-operations-current-v1/event-driven-static.test.mjs
+          node --test tests/deals/admin-deals-rail-execution-v4-contract.test.mjs
       - name: Generated Admin runtime compiles
         shell: bash
         run: |
