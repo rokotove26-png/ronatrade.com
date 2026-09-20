@@ -26,6 +26,7 @@ const operationsV88=read('functions/portal/admin-operations-command-center-v8-8.
 const operationsV89=read('functions/portal/admin-operations-command-center-v8-9.js');
 const operationsV9=read('functions/portal/admin-operations-command-center-v9.js');
 const operationsV91=read('functions/portal/admin-operations-command-center-v9-1.js');
+const operationsV10=read('functions/portal/admin-operations-command-center-v10-clean.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -57,7 +58,10 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV91(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V9.1 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV10Clean(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V10 clean patch after source assembly');
+need(has(operationsV10,"OPERATIONS_COMMAND_CENTER_VERSION='v10-operations-current-v2-single-owner'"),'Operations Command Center V10 version marker is missing');
+need(has(operationsV10,"call('/admin/operations-current-v2'")&&has(operationsV10,"DISABLED_BY_V10")&&has(operationsV10,"'Клиенты в сети'")&&has(operationsV10,"'Агенты в сети'"),'Operations Command Center V10 single-owner/current-presence contract is missing');
+need(has(operationsV10,"Нулевые показатели не подставляются")&&has(operationsV10,"Operations Current V2 подтверждает отсутствие действий"),'Operations Command Center V10 fail-closed queue contract is missing');
 need(has(operationsV91,"OPERATIONS_COMMAND_CENTER_VERSION='v9.1-readmodel-timeout-resilience-v1'"),'Operations Command Center V9.1 version marker is missing');
 need(has(operationsV91,"patchAdminOperationsCommandCenterV9 as patchV9"),'Operations Command Center V9.1 does not preserve V9 baseline');
 need(has(operationsV91,"call('/admin/operations-current-v1'),20000")&&has(operationsV91,"ronaOpsV91DealsPromise")&&has(operationsV91,"['succeeded','running'].includes(status)"),'Operations Command Center V9.1 timeout/parallel/health contract is missing');
@@ -175,6 +179,6 @@ console.log('ADMIN_SINGLE_OWNER_QA=PASS');
 console.log('routes=access,claims,agent-settlements,analytics,market-news');
 console.log('navigation=current-only-router-v2');
 console.log('runtime=single-owner-v5');
-console.log('operations-command-center=v9.1-readmodel-timeout-resilience-v1; baseline=v9-production-recovery-v1; visual=flightdeck-v5-full-rebuild');
+console.log('operations-command-center=v10-operations-current-v2-single-owner; legacy-runtime=disabled; source=OPERATIONS_CURRENT_V2; visual=flightdeck-v5-full-rebuild');
 console.log('access=clients-agents-current-v5/create-user-v6,password,history,signed-pdf-gate');
 console.log('watchdog=page-aware-v10-radio-payments-heading/non-destructive');
