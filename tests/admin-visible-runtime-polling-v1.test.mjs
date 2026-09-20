@@ -17,7 +17,7 @@ test('Deals R1.1 preserves cadence but suppresses hidden-tab polling and DOM syn
 });
 
 test('Claims keeps active-page semantics and also stops when document is hidden',()=>{
-  assert.match(claims,/document\.visibilityState==='visible'.*page-claims/s);
+  assert.match(claims,/function active\(\)\{var p=q\('#page-claims'\);return document\.visibilityState==='visible'&&!!\(p&&p\.classList\.contains\('active'\)\)\}/);
   assert.match(claims,/setInterval\(function\(\)\{if\(active\(\)&&!loading\)refresh\(false\)\},20000\)/);
   assert.match(claims,/visibilitychange/);
 });
