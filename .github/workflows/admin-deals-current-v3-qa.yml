@@ -5,7 +5,7 @@ on:
     branches:
       - release/public-go-live-v1.1
     paths:
-      - 'supabase/migrations/20260920143000_admin_deals_current_v3_execution_read_model.sql'
+      - 'supabase/migrations/20260920134402_admin_deals_current_v3_execution_read_model.sql'
       - 'functions/portal/owner-api.js'
       - 'functions/portal/deals-current-state-ui.js'
       - 'tests/deals/admin-deals-current-v3-contract.test.mjs'
