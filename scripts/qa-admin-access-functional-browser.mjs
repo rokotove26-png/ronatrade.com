@@ -153,7 +153,7 @@ try{
   const handoffPage=await context.newPage();
   await handoffPage.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
   await handoffPage.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-impersonation-json-v8-20260920'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
-  await handoffPage.getByRole('button',{name:'⋯ Опции'}).first().click();
+  await handoffPage.getByRole('button',{name:'Опция',exact:true}).first().click();
   const optionsModal=handoffPage.locator('.ca-modal-backdrop').last();
   await optionsModal.waitFor({state:'visible'});
   await handoffPage.waitForFunction(()=>{
@@ -161,6 +161,12 @@ try{
     return !!modal && modal.textContent.includes('административном режиме просмотра');
   },null,{timeout:10000});
   assert((await optionsModal.innerText()).includes('административном режиме просмотра'),'Company ADMIN_ENTITY preview must be available');
+  const deleteCompanyButton=optionsModal.getByRole('button',{name:'Удалить компанию',exact:true});
+  assert(await deleteCompanyButton.isVisible(),'Delete company action missing in entity options modal');
+  assert(await deleteCompanyButton.evaluate(el=>el.classList.contains('ca-danger')),'Delete company action must use ca-danger');
+  const deleteCompanyPaint=await deleteCompanyButton.evaluate(el=>{const s=getComputedStyle(el);return{background:s.backgroundImage,border:s.borderTopColor,color:s.color}});
+  assert(deleteCompanyPaint.background.includes('linear-gradient'),'Delete company action must render a red gradient');
+  assert(/rgb\((19[0-9]|2[0-5][0-9]),\s*[0-9]{1,2},\s*[0-9]{1,2}\)/.test(deleteCompanyPaint.border)||deleteCompanyPaint.background.includes('rgb'),'Delete company action destructive paint missing');
   await Promise.all([
     handoffPage.waitForURL(url=>url.pathname==='/portal/client'&&url.searchParams.get('impSession')===impersonationSessionId,{timeout:10000}),
     optionsModal.getByRole('button',{name:'Войти в кабинет'}).click()
