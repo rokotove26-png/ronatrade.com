@@ -95,12 +95,11 @@
     if(resumePanels.has(panel))return;resumePanels.add(panel);
     const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_RESUME_TIMEOUT'),8000);
     try{
-      const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({resume:true,next:'/portal/admin'})});
-      const data=await r.json().catch(()=>({}));
-      if(!r.ok||!data?.ok||data?.recovered!==true)return;
-      const target=localPortalTarget(data.redirect);if(!target)return;
+      const r=await fetch('/portal/admin',{method:'GET',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',redirect:'follow',signal:controller.signal,headers:{accept:'text/html'}});
+      const target=localPortalTarget(r.url);
+      if(!r.ok||target!=='/portal/admin')return;
       setStatus(doc,panel,'Сессия восстановлена. Открываем кабинет…',false);
-      try{window.top.location.assign(target)}catch(_){window.location.assign(target)}
+      try{window.top.location.assign('/portal/admin')}catch(_){window.location.assign('/portal/admin')}
     }catch(_){}finally{clearTimeout(timer)}
   }
   function preparePanel(doc,panel){if(!panel)return false;const{identifier,password,button}=fieldSet(panel);if(!identifier||!password||!button)return false;cleanLegacy(doc,panel);enableFields(identifier,password,button);panel.dataset.ronaInlineAuth='g82-v2';statusNode(doc,panel);resumeExisting(doc,panel);return true;}
