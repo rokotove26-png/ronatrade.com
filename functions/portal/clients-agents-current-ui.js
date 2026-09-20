@@ -22,8 +22,7 @@ function currentUiRuntime(){
 
   function page(){return q('#page-access')}
   function style(){
-    if(q('#ronaCaCurrentStyleV5'))return;
-    const s=el('style');s.id='ronaCaCurrentStyleV5';s.textContent=[
+    let s=q('#ronaCaCurrentStyleV5');if(!s){s=el('style');s.id='ronaCaCurrentStyleV5';document.head.appendChild(s)}s.textContent=[
       '#page-access>#rona-ca4{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;width:min(100%,1480px)!important;margin:0 auto!important;padding:clamp(18px,2.1vw,30px) clamp(12px,1.8vw,26px) 42px!important;gap:14px}',
       '#page-access>*:not(#rona-ca4){display:none!important}',
       '#rona-ca4 .ca-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin:0!important}#rona-ca4 .ca-hero-copy{min-width:260px;flex:1}#rona-ca4 .ca-hero-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}',
@@ -49,7 +48,7 @@ function currentUiRuntime(){
       '.rona-current-note{padding:12px 13px;border-left:3px solid #f3ca78;background:rgba(120,87,25,.18);border-radius:10px;font-size:12px;line-height:1.5;color:#eadfc9}.rona-current-note label{display:flex;align-items:flex-start;gap:8px;cursor:pointer}.rona-current-note input{margin-top:3px;accent-color:#e53a46}.rona-current-agent-note{padding:12px 13px;border:1px solid rgba(145,201,248,.20);border-radius:11px;background:rgba(48,91,129,.13);color:#c8d8e4;font-size:12px;line-height:1.5}',
       '.rona-current-summary{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.rona-current-summary span{padding:5px 8px;border:1px solid rgba(145,190,214,.16);border-radius:999px;font-size:10.5px;color:#a9bcc8}.rona-current-access-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid rgba(222,236,248,.14)}.rona-current-access-primary{height:42px;padding:0 15px;border:1px solid rgba(255,130,138,.50);border-radius:11px;background:rgba(202,34,47,.90);color:#fff;font-size:13px;font-weight:850;cursor:pointer}.rona-current-access-primary:hover{background:rgba(218,42,55,.96)}.rona-current-access-primary:disabled{opacity:.5;cursor:wait}.rona-current-access-status{font-size:11px;color:#9fb4c0;line-height:1.45}',
       '@media(max-width:980px){#rona-ca4 .ca-kpis{grid-template-columns:repeat(2,1fr)}}@media(max-width:900px){.rona-current-contract-grid,.rona-current-access-grid2{grid-template-columns:1fr}.rona-current-access-mask{padding:12px}.rona-current-access-modal{width:100%;max-height:calc(100vh - 24px)}}@media(max-width:680px){#rona-ca4 .ca-kpis,#rona-ca4 .ca-meta{grid-template-columns:1fr}#rona-ca4 .ca-grid{grid-template-columns:1fr}#rona-ca4 .ca-toolbar{display:grid}#rona-ca4 .ca-search{min-width:0;width:100%}#rona-ca4 .ca-tabs{display:grid;grid-template-columns:1fr}.ca-modal-actions{display:grid}.ca-modal-actions button{width:100%}#rona-ca4 .ca-hero-actions{width:100%}#rona-ca4 .ca-hero-actions button{width:100%}}'
-    ].join('');document.head.appendChild(s)
+    ].join('')
   }
 
   function ensureRoot(){const p=page();if(!p)return null;style();let r=q('#rona-ca4',p);if(!r){r=el('section','ca-current');r.id='rona-ca4';p.prepend(r)}r.style.removeProperty('display');r.removeAttribute('aria-hidden');for(const x of Array.from(p.children)){if(x!==r){x.style.setProperty('display','none','important');x.setAttribute('aria-hidden','true')}}return r}
@@ -97,6 +96,11 @@ function currentUiRuntime(){
   async function openEntityOptions(kind,entityId,displayName){
     if(!entityId)return notice(kind==='AGENT'?'Agent Person ID отсутствует.':'Client ID отсутствует.','Опции');
     const m=modal(displayName||entityId),identity=el('div','ca-id',entityId),status=el('div','ca-role-note','Проверяю доступ к кабинету…'),targetHost=el('div','ca-form'),actions=el('div','ca-modal-actions'),close=el('button','ca-btn','Закрыть'),enter=el('button','ca-primary','Войти в кабинет'),remove=el('button','ca-btn ca-danger',kind==='AGENT'?'Удалить агента':'Удалить компанию');
+    remove.dataset.ronaDangerAction='entity-delete';
+    remove.style.setProperty('border-color','rgba(255,92,106,.82)','important');
+    remove.style.setProperty('background','linear-gradient(135deg,rgba(209,30,48,.99),rgba(132,14,31,.99))','important');
+    remove.style.setProperty('color','#fff','important');
+    remove.style.setProperty('box-shadow','0 0 18px rgba(239,49,70,.18),inset 0 1px 0 rgba(255,255,255,.07)','important');
     close.type=enter.type=remove.type='button';enter.disabled=true;close.onclick=m.close;actions.append(close,enter,remove);m.box.append(identity,status,targetHost,actions);
     let targetInfo=null,targetSelect=null;
     try{
