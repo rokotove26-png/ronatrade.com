@@ -1,4 +1,4 @@
-import {applyBrowserImpersonation,browserImpersonationInvalid,readBrowserImpersonation} from '../../../_browser-impersonation.js';
+import {applyBrowserImpersonation,browserImpersonationInvalid,readBrowserImpersonation} from '../../_browser-impersonation.js';
 import {mergeClientCounterOffers} from '../../../client-counter-offer-projection.js';
 
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
