@@ -31,6 +31,31 @@ function jsonResponse(body,status=200){
   });
 }
 
+function base64url(value){
+  return Buffer.from(value).toString('base64url');
+}
+async function signedOwnerJwtFixture(){
+  const pair=await crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign','verify']);
+  const jwk=await crypto.subtle.exportKey('jwk',pair.publicKey);
+  Object.assign(jwk,{kid:'qa-owner-es256',alg:'ES256',use:'sig'});
+  const now=Math.floor(Date.now()/1000);
+  const header=base64url(JSON.stringify({typ:'JWT',alg:'ES256',kid:jwk.kid}));
+  const payload=base64url(JSON.stringify({
+    iss:'https://sxawrwzeobaqwwmlkzws.supabase.co/auth/v1',
+    sub:'c4a167ae-cd4f-4296-8f13-ef09ced41968',
+    aud:'authenticated',
+    role:'authenticated',
+    email:'office_kg@ronaoil.com',
+    session_id:'qa-owner-session',
+    app_metadata:{portal_identity:'OWNER_ADMIN'},
+    iat:now-1,
+    exp:now+600
+  }));
+  const input=header+'.'+payload;
+  const signature=await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},pair.privateKey,new TextEncoder().encode(input));
+  return{token:input+'.'+base64url(signature),jwk};
+}
+
 test.afterEach(()=>{globalThis.fetch=realFetch});
 
 test('Issue 639 refreshes and retries Cash RPC when authenticated RPC returns PORTAL_ACCESS_DENIED',async()=>{
@@ -157,6 +182,63 @@ test('Admin shell falls back to isolated Admin control-plane when primary sessio
   assert.equal(await response.text(),'ADMIN_SHELL_OK');
   assert.equal(primaryCalls,6);
   assert.equal(fallbackCalls,1);
+});
+
+test('Admin owner shell verifies signed owner JWT locally when Portal authority is transiently unavailable',async()=>{
+  const fixture=await signedOwnerJwtFixture();
+  let primaryCalls=0,jwksCalls=0,controlCalls=0,authCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+      primaryCalls++;
+      return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    }
+    if(u.includes('/auth/v1/.well-known/jwks.json')){
+      jwksCalls++;
+      return jsonResponse({keys:[fixture.jwk]},200);
+    }
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
+    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({message:'temporary unavailable'},503);}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',
+    headers:{cookie:'rona_portal_at='+fixture.token}
+  });
+  const response=await portalRouter({
+    request,
+    next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})
+  });
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),'ADMIN_SHELL_OK');
+  assert.equal(primaryCalls,1);
+  assert.equal(jwksCalls,1);
+  assert.equal(controlCalls,0);
+  assert.equal(authCalls,0);
+});
+
+test('Forged owner JWT never receives Admin access during authority outage',async()=>{
+  const fixture=await signedOwnerJwtFixture();
+  const parts=fixture.token.split('.');
+  const forged=parts[0]+'.'+parts[1]+'.'+parts[2].slice(0,-2)+(parts[2].endsWith('AA')?'BB':'AA');
+  let controlCalls=0,authCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    if(u.includes('/auth/v1/.well-known/jwks.json'))return jsonResponse({keys:[fixture.jwk]},200);
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
+    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({message:'temporary unavailable'},503);}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{
+    method:'GET',
+    headers:{cookie:'rona_portal_at='+forged}
+  });
+  const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED')});
+  assert.equal(response.status,503);
+  assert.match(await response.text(),/Восстанавливаю соединение/);
+  assert.equal(controlCalls,1);
+  assert.equal(authCalls,1);
 });
 
 test('Admin owner shell falls back to Supabase Auth owner identity when both Edge authorities are transiently unavailable',async()=>{

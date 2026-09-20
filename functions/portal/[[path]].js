@@ -1,3 +1,4 @@
+import { verifyOwnerAdminAccessToken } from './_owner-jwt-authority.js';
 const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
@@ -165,9 +166,38 @@ async function authOwnerProbe(accessToken){
   }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
 }
 async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
-  if(!accessToken)return{state:'INVALID',me:null,status:401};let lastStatus=503;
-  for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
+  if(!accessToken)return{state:'INVALID',me:null,status:401};
+  let lastStatus=503,signedOwnerChecked=false;
+  const signedOwnerFallback=async()=>{
+    if(!allowAdminFallback||signedOwnerChecked)return null;
+    signedOwnerChecked=true;
+    const verified=await verifyOwnerAdminAccessToken(accessToken);
+    if(!verified?.ok)return null;
+    return{state:'VALID',me:{user:{roles:['ADMIN'],auth_user_id:verified.claims.sub},authority:verified.authority},status:200,authority:verified.authority};
+  };
+  for(const delay of SESSION_RETRY_DELAYS_MS){
+    if(delay)await sleep(delay);
+    try{
+      const r=await upstream(accessToken,'/session/me');
+      lastStatus=r.status;
+      if(r.ok){
+        const j=await r.json().catch(()=>null);
+        if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};
+        continue;
+      }
+      if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
+      if(r.status===429||r.status>=500){
+        const signed=await signedOwnerFallback();if(signed)return signed;
+        continue;
+      }
+      return{state:'INVALID',me:null,status:r.status};
+    }catch(_){
+      lastStatus=503;
+      const signed=await signedOwnerFallback();if(signed)return signed;
+    }
+  }
   if(allowAdminFallback){
+    const signed=await signedOwnerFallback();if(signed)return signed;
     const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback;
     const ownerFallback=await authOwnerProbe(accessToken);if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback
   }
