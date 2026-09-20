@@ -512,6 +512,91 @@
 
     /* RONA_ADMIN_SIDEBAR_HIDDEN_SLOT_FIX_V1 */
     body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="documents"]{display:none!important}
+
+    /* RONA_ADMIN_SIDEBAR_FINE_TUNING_V6 — visual-only */
+    @media(min-width:901px){
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group{
+        color:#a8c9da!important;
+        font-size:10.7px!important;
+        font-weight:900!important;
+        letter-spacing:.18em!important;
+        text-shadow:0 0 12px rgba(105,218,255,.12)!important;
+        opacity:1!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group:before{
+        opacity:.96!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group:after{
+        background:linear-gradient(90deg,rgba(var(--group-rgb),.38),rgba(var(--group-rgb),.08),rgba(var(--group-rgb),0))!important;
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button .nav-icon{
+        color:transparent!important;
+        font-size:0!important;
+        line-height:0!important;
+        text-indent:-9999px!important;
+        text-shadow:none!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button .nav-icon::before{
+        text-indent:0!important;
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention) .nav-icon::before{
+        opacity:.70!important;
+        filter:drop-shadow(0 0 4px rgba(229,27,43,.13))!important;
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention) .nav-icon,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-icon{
+        border-color:rgba(103,229,255,.55)!important;
+        background:
+          radial-gradient(34px 25px at 28% 18%,rgba(98,220,255,.17),transparent 72%),
+          linear-gradient(145deg,rgba(14,52,78,.96),rgba(10,32,49,.92))!important;
+        box-shadow:
+          0 0 0 1px rgba(102,227,255,.17) inset,
+          0 0 18px rgba(83,215,255,.13),
+          inset 0 1px 0 rgba(255,255,255,.04)!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button.active:not(.rona-nav-attention) .nav-icon::before,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[aria-current="page"]:not(.rona-nav-attention) .nav-icon::before{
+        opacity:.96!important;
+        filter:drop-shadow(0 0 6px rgba(239,49,65,.30))!important;
+      }
+
+      @media(hover:hover) and (pointer:fine){
+        body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover .nav-icon::before{
+          opacity:.84!important;
+          filter:drop-shadow(0 0 5px rgba(239,49,65,.20))!important;
+        }
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button.rona-nav-attention .nav-icon::before{
+        opacity:1!important;
+        filter:drop-shadow(0 0 8px rgba(239,49,70,.50))!important;
+      }
+
+      body.admin-auth-server-verified>.app>.sidebar #nav button .nav-label{
+        line-height:1.28!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="market-news"] .nav-label,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="agent-settlements"] .nav-label{
+        line-height:1.36!important;
+      }
+    }
+
+    @media(max-width:1180px) and (min-width:901px){
+      body.admin-auth-server-verified>.app>.sidebar #nav .nav-group{
+        color:#a9cbdc!important;
+        font-size:10px!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button .nav-label{
+        line-height:1.27!important;
+      }
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="market-news"] .nav-label,
+      body.admin-auth-server-verified>.app>.sidebar #nav button[data-page="agent-settlements"] .nav-label{
+        line-height:1.34!important;
+      }
+    }
   </style>
 </head>
 <body class="admin-auth-server-verified">
