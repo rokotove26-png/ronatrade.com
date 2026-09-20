@@ -14,14 +14,19 @@ const calls=[];
 try {
   globalThis.fetch=async (input,init={})=>{
     const url=String(input);
-    calls.push({url,method:String(init?.method||'GET'),body:init?.body?String(init.body):''});
+    const bodyText=init?.body instanceof ArrayBuffer
+      ? new TextDecoder().decode(new Uint8Array(init.body))
+      : ArrayBuffer.isView(init?.body)
+        ? new TextDecoder().decode(init.body)
+        : init?.body ? String(init.body) : '';
+    calls.push({url,method:String(init?.method||'GET'),body:bodyText});
     if(url.endsWith('/functions/v1/rona-portal-api/session/me')){
       return new Response(JSON.stringify({ok:true,user:{id:'admin-user',roles:['ADMIN']}}),{
         status:200,headers:{'content-type':'application/json'}
       });
     }
     if(url.endsWith('/functions/v1/rona-admin-control-plane/impersonation/start')){
-      const requestBody=JSON.parse(String(init.body||'{}'));
+      const requestBody=JSON.parse(bodyText||'{}');
       assert.deepEqual(requestBody,{kind:'COMPANY',entityId:'RONA-C001',targetPortalUserId:null});
       return new Response(JSON.stringify({
         ok:true,
