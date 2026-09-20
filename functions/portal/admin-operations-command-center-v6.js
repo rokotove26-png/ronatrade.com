@@ -226,7 +226,7 @@ export function patchAdminOperationsCommandCenterV6(script){
 
   patched=replaceRequired(
     patched,
-    "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return ['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});",
+    "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});",
     "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return ['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});\n  const dealActionRows=activeDeals.filter(x=>x?.current_action_required===true);",
     'deal-action-rows'
   );
