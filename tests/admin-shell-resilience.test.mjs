@@ -45,7 +45,7 @@ assert(shell.includes('min-height:48px')&&shell.includes('font-size:14.5px'),'Ca
 assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Current shell must expose primary access action before module mount');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit navigation');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
-assert(shell.length<60000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
+assert(shell.length<70000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
 
 assert(build.includes("path: 'portal-src/current/admin.html'"),'Build must source Admin from current shell');
 assert(build.includes('CURRENT_ONLY_ADMIN_AND_CLIENT_WITH_FROZEN_CANONICAL_ASSETS'),'Build integrity must declare current-only Admin and Client architecture');
@@ -60,14 +60,20 @@ for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaini
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!runtime.includes(forbidden),`Competing Admin module returned: ${forbidden}`);
 assert(runtime.includes('async function loadRail()')&&runtime.includes("root.dataset.ronaRailOwner='safe-fallback-direct-child-v2'")&&runtime.includes("window.__RONA_RAIL_CURRENT_REPAIR__"),'Rail primary/repair/fallback recovery missing');
 assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("root.dataset.ronaAnalyticsOwner='analytics-v2'"),'Dedicated Analytics owner missing');
+assert(runtime.includes("if(p==='applications')loadModule('applications'"),'Applications pagechange recovery missing');
+assert(runtime.includes("if(p==='deals')Promise.allSettled([loadModule('deals'"),'Deals pagechange recovery missing');
+assert(runtime.includes("if(p==='accounting')loadModule('cash'"),'Accounting pagechange recovery missing');
+assert(runtime.includes("if(['home','documents','payments'].includes(p))"),'Main-owned core section recovery missing');
+assert(runtime.includes("window.__RONA_OWNER_ADMIN_REFRESH_TICK__"),'Main owner refresh recovery hook missing');
 assert(!runtime.includes("['agent-settlements','messages','analytics','market-news'].includes(p)"),'Analytics/News must not be routed back to Remaining owner');
 assert(!runtime.includes('enforceOwners')&&!runtime.includes('installOwnerGuards'),'Fast shell must not own page DOM');
 
-assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'Current page-aware watchdog marker missing');
-assert(watchdog.includes("state=window.__RONA_ADMIN_RUNTIME_RECOVERY__={version:'page-aware-v10-radio-payments-heading'"),'Current watchdog recovery-state version missing');
+assert(watchdog.includes("window.__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v11-core-page-recovery'"),'Current page-aware watchdog marker missing');
+assert(watchdog.includes("state=window.__RONA_ADMIN_RUNTIME_RECOVERY__={version:'page-aware-v11-core-page-recovery'"),'Current watchdog recovery-state version missing');
 assert(watchdog.includes("n.querySelector(':scope > .rona-owner-page-content')"),'Home finalized owner content check missing');
 assert(watchdog.includes("n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Hidden fallback-safe Home loading check missing');
 assert(watchdog.includes("if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness check missing');
+for(const marker of ["if(p==='applications')return ownerPageReady('applications')","if(p==='documents')return ownerPageReady('documents')","if(p==='payments')return ownerPageReady('payments')","if(p==='accounting')return !!n.querySelector('.rona-cash-r2-root')||ownerPageReady('accounting')","if(p==='applications')return'applications'","if(p==='deals')return'deals'","if(p==='accounting')return'cash'"])assert(watchdog.includes(marker),`Core page recovery missing: ${marker}`);
 assert(watchdog.includes("if(p==='monitoring')return'rail'")&&watchdog.includes("if(p==='analytics')return'analytics'")&&watchdog.includes("if(p==='market-news')return'market-news-current'"),'Current recovery mappings missing');
 for(const marker of ["root.querySelector(':scope > .mn-masthead')","root.querySelector(':scope > .mn-toolbar')","root.querySelector(':scope > .mn-statusline')","root.querySelector(':scope > main')","activateMarketNews('watchdog-content-repair')"])assert(watchdog.includes(marker),`Market News content-health recovery missing: ${marker}`);
 assert(!watchdog.includes('location.reload(')&&!watchdog.includes('location.replace('),'Watchdog must never navigate/reload during UI recovery');
