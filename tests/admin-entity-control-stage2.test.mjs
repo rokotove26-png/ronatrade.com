@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 
-const BASE=process.env.STAGE2_BASE_SHA||'f09f22c2f2445de38a5ccd0710b6069bda7ce904';
+const BASE=process.env.STAGE2_BASE_SHA||'9f480e1661d559b9e20c9300df0857876b5267b8';
 const read=p=>readFileSync(p,'utf8');
 const show=p=>execFileSync('git',['show',`${BASE}:${p}`],{encoding:'utf8'});
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();

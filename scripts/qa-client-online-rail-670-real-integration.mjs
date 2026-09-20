@@ -211,7 +211,7 @@ window.__qaSubscriber=null;
 window.RONA_CLIENT_CONTEXT={getCurrentContext(){return window.__qaCtx},async whenReady(){return window.__qaCtx},subscribe(fn){window.__qaSubscriber=fn;return()=>{}}};
 window.__qaSetContext=function(next){window.__qaCtx=next;if(window.__qaSubscriber)window.__qaSubscriber(next)};
 const nativeSetInterval=window.setInterval.bind(window);window.setInterval=function(fn,ms){return nativeSetInterval(fn,ms===30000?220:ms)};
-</script></head><body><section id="page-monitoring"><div class="rona-owner-page-content"></div></section><script src="/portal/client-rail-current-ui.js"></script></body></html>`;
+</script></head><body><section id="page-monitoring" class="active"><div class="rona-owner-page-content"></div></section><script src="/portal/client-rail-current-ui.js"></script></body></html>`;
 
 function send(res,status,body,type='text/plain; charset=utf-8'){res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(body)}
 const proxy=http.createServer(async(req,res)=>{

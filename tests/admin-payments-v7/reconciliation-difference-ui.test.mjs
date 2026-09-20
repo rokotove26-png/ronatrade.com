@@ -32,13 +32,16 @@ test('assembled Admin source gets only an appended reconciliation runtime', () =
   assert.match(patched,/const SCRIPT=\(patchExisting\(RAW\)\)\+/);
 });
 
-test('runtime reads only Finance publication payload and refreshes every 30s', () => {
+test('runtime reuses canonical Owner Finance sync without an independent network poll', () => {
   const source=PAYMENTS_RECONCILIATION_DIFFERENCE_BROWSER_RUNTIME;
   assert.match(source,/FINANCE_RECONCILIATION_DIFFERENCE_PUBLICATION_V1/);
   assert.match(source,/finance_reconciliation_difference/);
-  assert.match(source,/\/portal\/api\/v1\/admin\/bootstrap/);
-  assert.match(source,/setInterval\(refresh,refreshMs\)/);
-  assert.match(source,/const refreshMs=30000/);
+  assert.match(source,/__RONA_OWNER_AI_SYNC_SNAPSHOT__/);
+  assert.match(source,/OWNER_FINANCE_SYNC_EVENT_V1/);
+  assert.match(source,/rona:finance-sync/);
+  assert.doesNotMatch(source,/\/portal\/api\/v1\/admin\/bootstrap/);
+  assert.doesNotMatch(source,/setInterval\(refresh,refreshMs\)/);
+  assert.doesNotMatch(source,/const refreshMs=30000/);
   assert.match(source,/publisher==='AI-FINANCE'/);
   assert.match(source,/role==='FINANCE'/);
   assert.match(source,/source_locked===true/);

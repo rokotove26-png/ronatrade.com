@@ -35,7 +35,16 @@ jobs:
           assert(dr.headers.get('x-rona-deals-ui')==='current-state-v2-operations-deeplink','Deals runtime header');
           assert(ds.includes('function waitsPayment(d)'),'payment-only predicate missing');
           assert(!ds.includes('function waitsAction(d)'),'legacy waitsAction remains');
-          assert(ds.includes("'PARTIALLY_PAID','PARTIAL','DUE'"),'authoritative partial-payment rule missing');
+          assert(ds.includes("if(projection==='FINANCE_V8')return due!==null&&due>0"),'Finance V8 due-now rule missing');
+          assert(ds.includes("api('/admin/deals-current-v3')"),'Deals current v3 endpoint missing');
+          assert(dr.headers.get('x-rona-deals-read-model')==='admin-deals-current-v3-finance-v8-rail-current','Deals V3 read-model header missing');
+          assert(ds.includes('function needsPaymentHandoffAction(d)'),'payment-handoff action split missing');
+          assert(ds.includes("'Finance · оплачено / остаток'"),'Finance paid/remaining label missing');
+          assert(ds.includes("paidNode.title='Оплачено фактически'"),'Finance paid fact primary missing');
+          assert(ds.includes("'Осталось: '+(remaining===null?'—':money(remaining,c))"),'Finance remaining secondary missing');
+          assert(ds.includes('rona-current-fin-paid')&&ds.includes('rona-current-fin-remaining--open')&&ds.includes('rona-current-fin-remaining--danger')&&ds.includes('rona-current-fin-remaining--settled'),'Finance color indication missing');
+          assert(dr.headers.get('x-rona-deals-finance-cell')==='paid-vs-remaining-color-v1','Finance cell marker missing');
+          assert(dr.headers.get('x-rona-deals-kpi')==='payment-expectation-action-split-v2','Deals KPI split marker missing');
           assert(ds.includes('function isolateDealsPage(root,host)'),'Deals underlay isolation missing');
           assert(ds.includes("host.dataset.ronaDealsOwner='current-v1.5'"),'exclusive owner marker missing');
           assert(ds.includes("n.style.setProperty('display','none','important')"),'preserved underlay is not forcibly hidden');

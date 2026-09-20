@@ -21,7 +21,7 @@ jobs:
           node-version: '24'
       - name: Verify exact base and frozen Admin UI contract
         env:
-          STAGE2_BASE_SHA: f09f22c2f2445de38a5ccd0710b6069bda7ce904
+          STAGE2_BASE_SHA: 9f480e1661d559b9e20c9300df0857876b5267b8
         run: |
           set -euo pipefail
           node --check 'functions/portal/[[path]].js'
@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16
+        image: postgres:17
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

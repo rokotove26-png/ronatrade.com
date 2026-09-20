@@ -177,10 +177,48 @@ async function authOwnerProbe(accessToken){
     return{state:'UNAVAILABLE',me:null,status:r.status};
   }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
 }
+async function adminOwnerJwtGatewayProbe(accessToken){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort('RONA_ADMIN_OWNER_GATEWAY_TIMEOUT'),2500);
+  try{
+    const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/owner-auth-fallback`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
+      signal:controller.signal
+    });
+    if(r.ok){
+      const j=await r.json().catch(()=>null);
+      if(j?.ok===true&&j?.authority==='SUPABASE_EDGE_VERIFIED_OWNER'&&Array.isArray(j?.roles)&&j.roles.includes('ADMIN'))return{state:'VALID',me:{user:{roles:['ADMIN'],auth_user_id:j.auth_user_id||null},authority:j.authority},status:r.status,authority:j.authority};
+      return{state:'UNAVAILABLE',me:null,status:r.status||502};
+    }
+    if(r.status===401)return{state:'INVALID',me:null,status:r.status};
+    if(r.status===403)return{state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
+    if(r.status===429||r.status>=500)return{state:'UNAVAILABLE',me:null,status:r.status};
+    return{state:'UNAVAILABLE',me:null,status:r.status};
+  }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
+  finally{clearTimeout(timer)}
+}
 async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
-  if(!accessToken)return{state:'INVALID',me:null,status:401};let lastStatus=503;
-  for(const delay of SESSION_RETRY_DELAYS_MS){if(delay)await sleep(delay);try{const r=await upstream(accessToken,'/session/me');lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};if(r.status===429||r.status>=500)continue;return{state:'INVALID',me:null,status:r.status}}catch(_){lastStatus=503}}
+  if(!accessToken)return{state:'INVALID',me:null,status:401};
+  let lastStatus=503,ownerGatewayChecked=false;
+  const ownerGatewayFallback=async()=>{
+    if(!allowAdminFallback||ownerGatewayChecked)return null;
+    ownerGatewayChecked=true;
+    const gateway=await adminOwnerJwtGatewayProbe(accessToken);
+    return gateway.state==='UNAVAILABLE'?null:gateway;
+  };
+  for(const delay of SESSION_RETRY_DELAYS_MS){
+    if(delay)await sleep(delay);
+    try{
+      const r=await upstream(accessToken,'/session/me');
+      lastStatus=r.status;
+      if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}
+      if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
+      if(r.status===429||r.status>=500){const gateway=await ownerGatewayFallback();if(gateway)return gateway;continue}
+      return{state:'INVALID',me:null,status:r.status};
+    }catch(_){lastStatus=503;const gateway=await ownerGatewayFallback();if(gateway)return gateway}
+  }
   if(allowAdminFallback){
+    const gateway=await ownerGatewayFallback();if(gateway)return gateway;
     const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback;
     const ownerFallback=await authOwnerProbe(accessToken);if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback
   }
@@ -189,10 +227,26 @@ async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie')),access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
   const requestedPath=canonicalProtectedPath(new URL(request.url).pathname),allowAdminFallback=requestedPath==='/portal/admin';
-  if(access){const probe=await sessionProbe(access,{allowAdminFallback});if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};if(probe.state==='UNAVAILABLE')return{unavailable:true,access,refresh,me:null,setCookies:[]}}
-  if(!refresh)return null;let next;try{next=await authRefresh(refresh)}catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
-  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return{unavailable:true,access,refresh,me:null,setCookies:[],reason:'SESSION_REFRESH_CONVERGENCE'};return null}
-  const probe=await sessionProbe(next.data.access_token,{allowAdminFallback});if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};if(probe.state!=='VALID')return null;
+  let accessProbeUnavailable=false;
+  if(access){
+    const probe=await sessionProbe(access,{allowAdminFallback});
+    if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};
+    if(probe.state==='UNAVAILABLE'){
+      accessProbeUnavailable=true;
+      if(!refresh)return{unavailable:true,access,refresh,me:null,setCookies:[]};
+    }
+  }
+  if(!refresh)return null;
+  let next;
+  try{next=await authRefresh(refresh)}
+  catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
+  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){
+    if(refreshFailureIsRetryable(next)||accessProbeUnavailable)return{unavailable:true,access,refresh,me:null,setCookies:[],reason:'SESSION_REFRESH_CONVERGENCE'};
+    return null;
+  }
+  const probe=await sessionProbe(next.data.access_token,{allowAdminFallback});
+  if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};
+  if(probe.state!=='VALID')return null;
   return{access:next.data.access_token,refresh:next.data.refresh_token,me:probe.me,setCookies:tokenCookies(next.data)};
 }
 function rolesOf(me) { return Array.isArray(me?.user?.roles) ? me.user.roles.map(String) : []; }

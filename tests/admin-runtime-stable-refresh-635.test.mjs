@@ -16,8 +16,9 @@ assert.equal(adminResponse.status,200,admin.slice(0,240));
 test('Issue 635 removes unconditional Admin repaint and body-wide render observer',()=>{
   new Function(adminRaw);
   assert.ok(adminRaw.includes("window.__RONA_OWNER_ADMIN_AUTO_REFRESH__='authority-change-only-v2'"));
-  assert.ok(adminRaw.includes("window.__RONA_OWNER_AI_SYNC_POLL_MS__=60000"));
-  assert.ok(adminRaw.includes("setInterval(()=>refreshAdmin(false),60000)"));
+  assert.ok(adminRaw.includes("window.__RONA_OWNER_AI_SYNC_POLL_MS__=300000"));
+  assert.ok(adminRaw.includes("document.visibilityState==='visible'"));
+  assert.ok(adminRaw.includes("CHANGE_ONLY_5M_VISIBLE"));
   assert.ok(adminRaw.includes("ownerAdminSnapshotSignature"));
   assert.ok(adminRaw.includes("ownerAiStableSignature"));
   assert.doesNotMatch(adminRaw,/setInterval\(\(\)=>ownerAdminRefreshTick\(false\),30000\)/);

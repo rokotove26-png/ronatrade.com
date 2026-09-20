@@ -9,6 +9,8 @@ const TITLE_STYLE_TO='.rona-rail-v7-real .rona-rail-v4-map-title{color:#07141c!i
 const NOTE_STYLE_FROM='.rona-rail-v7-real .rona-rail-v4-map-note{color:#24343e!important;opacity:.82!important;font-weight:650}';
 const NOTE_STYLE_TO='.rona-rail-v7-real .rona-rail-v4-map-note{display:none!important}';
 const REPAIR_ANCHOR="function waitAdminReady(){";
+const POLL_FROM="timer=setInterval(sync,30000)";
+const POLL_TO="timer=setInterval(function(){var page=q('#page-monitoring');if(document.visibilityState==='visible'&&page&&page.classList.contains('active'))sync()},30000);document.addEventListener('visibilitychange',function(){var page=q('#page-monitoring');if(document.visibilityState==='visible'&&page&&page.classList.contains('active'))sync()},{passive:true})";
 const REPAIR_RUNTIME=String.raw`window.__RONA_RAIL_CURRENT_REPAIR_VERSION__='20260918-owner-v7-square-map-aligned';
 function ensureRailCompactDarkStyle(){
   var current=q('#ronaRailCompactDarkStyle');
@@ -214,6 +216,7 @@ export async function onRequest(context){
     !source.includes(TITLE_STYLE_FROM)||
     !source.includes(NOTE_STYLE_FROM)||
     !source.includes(REPAIR_ANCHOR)||
+    !source.includes(POLL_FROM)||
     !source.includes('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);')
   ){
     return new Response('RAIL_V82_SOURCE_MISMATCH',{status:500,headers:{
@@ -230,6 +233,7 @@ export async function onRequest(context){
     .replace(TITLE_STYLE_FROM,TITLE_STYLE_TO)
     .replace(NOTE_STYLE_FROM,NOTE_STYLE_TO)
     .replace(REPAIR_ANCHOR,REPAIR_RUNTIME)
+    .replace(POLL_FROM,POLL_TO)
     .replace('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);','host.replaceChildren(root);isolate(page,host);dedupeOnlineRail(host);if(typeof removeRailTariffPanel===\'function\')removeRailTariffPanel();if(typeof scheduleRailMapHeightAlignment===\'function\')scheduleRailMapHeightAlignment();');
   source=source.split('if(matrix)host.append(matrix);').join('if(matrix)matrix.remove();');
 

@@ -8,6 +8,7 @@
   const PANEL_LABELS = ['личный кабинет', 'personal account', 'client portal'];
   const boundDocs = new WeakSet();
   const busyPanels = new WeakSet();
+  const resumePanels = new WeakSet();
 
   const norm = v => String(v || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const hasPanelLabel = text => { const t = norm(text); return PANEL_LABELS.some(x => t.includes(x)); };
@@ -90,20 +91,44 @@
   function setStatus(doc,panel,message,error=true){const el=statusNode(doc,panel);el.textContent=message||'';el.style.display=message?'block':'none';el.style.color=error?'#8b1e2d':'#425466';}
   function setLoading(button,active){if(!button)return;if(active){if(!button.dataset.ronaOriginalLabel)button.dataset.ronaOriginalLabel=String(button.textContent||button.value||'Войти');if('disabled'in button)button.disabled=true;if(String(button.tagName).toUpperCase()==='INPUT')button.value='Вход…';else button.textContent='Вход…';button.setAttribute('aria-busy','true')}else{if('disabled'in button)button.disabled=false;const label=button.dataset.ronaOriginalLabel||'Войти';if(String(button.tagName).toUpperCase()==='INPUT')button.value=label;else button.textContent=label;button.removeAttribute('aria-busy')}}
   function enableFields(identifier,password,button){for(const el of [identifier,password,button]){if(!el)continue;el.removeAttribute('aria-hidden');el.removeAttribute('inert');if('disabled'in el)el.disabled=false;if(el.tabIndex<0)el.tabIndex=0}if(identifier){try{identifier.type='text'}catch(_){}identifier.setAttribute('autocomplete','username');identifier.setAttribute('inputmode','text');identifier.setAttribute('aria-label','Логин')}if(password)password.setAttribute('autocomplete','current-password')}
-  function preparePanel(doc,panel){if(!panel)return false;const{identifier,password,button}=fieldSet(panel);if(!identifier||!password||!button)return false;cleanLegacy(doc,panel);enableFields(identifier,password,button);panel.dataset.ronaInlineAuth='g82-v2';statusNode(doc,panel);return true;}
+  async function resumeExisting(doc,panel){
+    if(resumePanels.has(panel))return;resumePanels.add(panel);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_RESUME_TIMEOUT'),8000);
+    try{
+      const r=await fetch('/portal/admin',{method:'GET',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',redirect:'follow',signal:controller.signal,headers:{accept:'text/html'}});
+      const target=localPortalTarget(r.url);
+      if(!r.ok||target!=='/portal/admin')return;
+      setStatus(doc,panel,'Сессия восстановлена. Открываем кабинет…',false);
+      try{window.top.location.assign('/portal/admin')}catch(_){window.location.assign('/portal/admin')}
+    }catch(_){}finally{clearTimeout(timer)}
+  }
+  function preparePanel(doc,panel){if(!panel)return false;const{identifier,password,button}=fieldSet(panel);if(!identifier||!password||!button)return false;cleanLegacy(doc,panel);enableFields(identifier,password,button);panel.dataset.ronaInlineAuth='g82-v2';statusNode(doc,panel);resumeExisting(doc,panel);return true;}
 
   async function authenticate(doc,panel){
     if(!preparePanel(doc,panel)||busyPanels.has(panel))return;
     const{identifier,password,button}=fieldSet(panel);const login=String(identifier.value||'').trim();const secret=String(password.value||'');
     if(!login||!secret){setStatus(doc,panel,'Введите логин и пароль.');return}
     busyPanels.add(panel);setStatus(doc,panel,'');setLoading(button,true);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_AUTH_TIMEOUT'),20000);
     try{
-      const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
+      const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
       const data=await r.json().catch(()=>({}));
-      if(!r.ok||!data?.ok){password.value='';const code=String(data?.code||'');if(r.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');else if(r.status===400||code==='LOGIN_INVALID')setStatus(doc,panel,'Введите корректный логин и пароль.');else if(r.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');return}
+      if(!r.ok||!data?.ok){
+        const code=String(data?.code||'');
+        const issued=data?.sessionIssued===true;
+        const recoveryTarget=localPortalTarget(data?.redirect);
+        if(r.status===503&&issued&&recoveryTarget){setStatus(doc,panel,'Сессия создана. Восстанавливаем кабинет…',false);try{window.top.location.assign(recoveryTarget)}catch(_){window.location.assign(recoveryTarget)}return}
+        password.value='';
+        if(r.status===401||code==='LOGIN_DENIED')setStatus(doc,panel,'Неверный логин или пароль.');
+        else if(r.status===429||code==='LOGIN_RATE_LIMITED')setStatus(doc,panel,'Слишком много попыток входа. Подождите минуту и повторите.');
+        else if(r.status===400||code==='LOGIN_INVALID')setStatus(doc,panel,'Введите корректный логин и пароль.');
+        else if(r.status===403)setStatus(doc,panel,'Доступ к личному кабинету не разрешён.');
+        else setStatus(doc,panel,'Сервис входа временно недоступен. Повторите попытку.');
+        return
+      }
       const target=localPortalTarget(data.redirect);if(!target){password.value='';setStatus(doc,panel,'Не удалось определить разрешённый кабинет. Повторите попытку.');return}
       setStatus(doc,panel,'Вход выполнен. Открываем кабинет…',false);try{window.top.location.assign(target)}catch(_){window.location.assign(target)}
-    }catch(_){password.value='';setStatus(doc,panel,'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{busyPanels.delete(panel);setLoading(button,false)}
+    }catch(err){password.value='';setStatus(doc,panel,err?.name==='AbortError'?'Сервер входа не ответил вовремя. Повторите попытку.':'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{clearTimeout(timer);busyPanels.delete(panel);setLoading(button,false)}
   }
 
   function eventPanel(doc,target){const panel=findPanel(doc);if(!panel||!target)return null;return panel.contains(target)?panel:null}

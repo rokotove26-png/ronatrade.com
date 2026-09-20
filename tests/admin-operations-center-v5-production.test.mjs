@@ -17,6 +17,8 @@ test('production Operational Center exposes functional controls', () => {
   assert.match(center, /NET-08','Агенты в сети/);
   assert.match(center, /networkClientCount/);
   assert.match(center, /networkAgentCount/);
+  assert.match(center, /deriveOperationsDealCurrentRows/);
+  assert.match(center, /v1-authoritative-deals-snapshot/);
   assert.match(baseline, /v5-operational-automation/);
   assert.match(baseline, /__RONA_ADMIN_GLOBAL_SEARCH__/);
   assert.match(baseline, /ronaOpsV5OpenDeal/);
@@ -28,6 +30,7 @@ test('production Operational Center exposes functional controls', () => {
   assert.match(shell, /\.rona-admin-topbar-ticker-v2\{pointer-events:none!important;z-index:1!important\}/);
   assert.match(deals, /rona:deal-select/);
   assert.match(deals, /selected=null;window\.__RONA_DEALS_REQUESTED_ID__=null;unmountDealDrawer\(\)/);
+  assert.match(deals, /rona:deals-current-state/);
   assert.match(html, /data-page="documents"/);
   assert.doesNotMatch(html, /id="page-documents" class="page current-only-hidden-page"/);
   assert.match(html, /portal-admin-radio-final-v9\.js/);

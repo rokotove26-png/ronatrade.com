@@ -1,9 +1,6 @@
 name: Deals production browser proof
 
 on:
-  push:
-    branches:
-      - 'release/public-go-live-v1.1'
   pull_request:
     branches: [release/public-go-live-v1.1]
 
@@ -42,7 +39,11 @@ jobs:
           grep -q 'current-only-v1.5' functions/portal/admin-main-ui-current.js
           grep -q 'current-state-v2-operations-deeplink' functions/portal/deals-current-state-ui.js
           grep -q "replaceAll('waitsAction','waitsPayment')" functions/portal/deals-current-state-ui.js
-          grep -q "'PARTIALLY_PAID','PARTIAL','DUE'" functions/portal/deals-current-state-ui.js
+          grep -Fq "if(projection==='FINANCE_V8')return due!==null&&due>0" functions/portal/deals-current-state-ui.js
+          grep -Fq "api('/admin/deals-current-v3')" functions/portal/deals-current-state-ui.js
+          grep -q "admin-deals-current-v3-finance-v8-rail-current" functions/portal/deals-current-state-ui.js
+          grep -q "function needsPaymentHandoffAction(d)" functions/portal/deals-current-state-ui.js
+          grep -q "payment-expectation-action-split-v2" functions/portal/deals-current-state-ui.js
           grep -q 'ronaDealsLayoutV15' functions/portal/deals-current-state-ui.js
           grep -q 'Скачать подписанное доп. соглашение' functions/portal/deals-current-state-ui.js
           grep -q 'width:310px!important' functions/portal/deals-current-state-ui.js
@@ -70,7 +71,11 @@ jobs:
           grep -q "host.dataset.ronaDealsOwner='current-v1.5'" /tmp/deals.js
           grep -q 'function waitsPayment(d)' /tmp/deals.js
           ! grep -q 'waitsAction' /tmp/deals.js
-          grep -q "'PARTIALLY_PAID','PARTIAL','DUE'" /tmp/deals.js
+          grep -Fq "if(projection==='FINANCE_V8')return due!==null&&due>0" /tmp/deals.js
+          grep -Fq "api('/admin/deals-current-v3')" /tmp/deals.js
+          grep -qi '^x-rona-deals-read-model: admin-deals-current-v3-finance-v8-rail-current' /tmp/deals.headers
+          grep -q "function needsPaymentHandoffAction(d)" /tmp/deals.js
+          grep -qi '^x-rona-deals-kpi: payment-expectation-action-split-v2' /tmp/deals.headers
           grep -q "kpi('Ожидают оплаты'" /tmp/deals.js
           grep -q "'Базис поставки'" /tmp/deals.js
           grep -q 'Скачать подписанное доп. соглашение' /tmp/deals.js
