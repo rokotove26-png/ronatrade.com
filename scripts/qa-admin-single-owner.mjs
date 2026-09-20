@@ -23,6 +23,7 @@ const operationsV85=read('functions/portal/admin-operations-command-center-v8-5.
 const operationsV86=read('functions/portal/admin-operations-command-center-v8-6.js');
 const operationsV87=read('functions/portal/admin-operations-command-center-v8-7.js');
 const operationsV88=read('functions/portal/admin-operations-command-center-v8-8.js');
+const operationsV89=read('functions/portal/admin-operations-command-center-v8-9.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -54,7 +55,10 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV88(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.8 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV89(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.9 patch after source assembly');
+need(has(operationsV89,"OPERATIONS_COMMAND_CENTER_VERSION='v8.9-exact-object-routing-v1'"),'Operations Command Center V8.9 version marker is missing');
+need(has(operationsV89,"patchAdminOperationsCommandCenterV88 as patchV88"),'Operations Command Center V8.9 does not preserve the V8.8 mirrored-event baseline');
+need(has(operationsV89,"__RONA_PAYMENTS_V8_OPEN_PASSPORT__")&&has(operationsV89,"ownerApplication2BFilter=application2BBucket(app)"),'Operations Command Center V8.9 exact Payments/Application routing is missing');
 need(has(operationsV88,"OPERATIONS_COMMAND_CENTER_VERSION='v8.8-mirrored-event-routing-v1'"),'Operations Command Center V8.8 version marker is missing');
 need(has(operationsV88,"patchAdminOperationsCommandCenterV87 as patchV87"),'Operations Command Center V8.8 does not preserve the V8.7 Finance action baseline');
 need(has(operationsV88,"linkedReverse=source==='PORTAL_REVERSE_EVENT'")&&has(operationsV88,"linkedTargetType==='APPLICATION'"),'Operations Command Center V8.8 mirrored reverse-event routing is missing');
