@@ -28,6 +28,9 @@ const encoder = new TextEncoder();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:\/-]{7,159}$/;
 const SAFE_TEXT_RE = /^[^\u0000-\u001F\u007F]{1,4000}$/u;
+const DEFAULT_CURRENT_STATE_RAW_BUDGET_BYTES = 24000;
+const FINANCE_CURRENT_STATE_RAW_BUDGET_BYTES = 65536;
+const CURRENT_STATE_GZIP_MIN_BYTES = 8192;
 const AI_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN"]);
 const BUSINESS_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS"]);
 const ENTITY_SCOPE = Object.freeze({
@@ -111,6 +114,63 @@ function cloneHeaders(headers) {
   out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V2");
   out.set("x-rona-coordination-contract", "RONA_CROSS_ROLE_COORDINATION_V1");
   return out;
+}
+function currentStateRawBudgetBytes(role) {
+  return role === "FINANCE" ? FINANCE_CURRENT_STATE_RAW_BUDGET_BYTES : DEFAULT_CURRENT_STATE_RAW_BUDGET_BYTES;
+}
+function acceptsGzip(req) {
+  return /(^|[,\s])gzip(?:[,\s]|$)/i.test(req.headers.get("accept-encoding") || "");
+}
+function appendVary(headers, value) {
+  const existing = String(headers.get("vary") || "").split(",").map(x => x.trim()).filter(Boolean);
+  if (!existing.some(x => x.toLowerCase() === value.toLowerCase())) existing.push(value);
+  if (existing.length) headers.set("vary", existing.join(", "));
+}
+async function gzipBytes(text) {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function finalizeCurrentStateResponse(req, res, envelope, body, role) {
+  const rawBytes = encoder.encode(body);
+  const rawBudget = currentStateRawBudgetBytes(role);
+  if (rawBytes.length > rawBudget) {
+    console.error("role state v2 response budget exceeded", { role, raw_bytes: rawBytes.length, raw_budget: rawBudget });
+    return new Response(JSON.stringify({
+      jsonrpc: "2.0",
+      id: envelope?.id ?? null,
+      error: { code: -32603, message: "ROLE_STATE_V2_RESPONSE_BUDGET_EXCEEDED" },
+    }), { status: 500, headers: cloneHeaders(res.headers) });
+  }
+
+  const headers = cloneHeaders(res.headers);
+  headers.delete("content-length");
+  headers.set("x-rona-current-state-raw-bytes", String(rawBytes.length));
+  headers.set("x-rona-current-state-raw-budget-bytes", String(rawBudget));
+  headers.set("x-rona-current-state-transport", "IDENTITY");
+  headers.set("x-rona-current-state-wire-bytes", String(rawBytes.length));
+
+  // Preserve the full authoritative state. Egress optimization is transport-only:
+  // no Finance policy, task, checkpoint or coordination field is removed or summarized here.
+  if (
+    rawBytes.length >= CURRENT_STATE_GZIP_MIN_BYTES &&
+    acceptsGzip(req) &&
+    typeof CompressionStream === "function"
+  ) {
+    try {
+      const compressed = await gzipBytes(body);
+      if (compressed.length < rawBytes.length) {
+        headers.set("content-encoding", "gzip");
+        headers.set("x-rona-current-state-transport", "GZIP_V1");
+        headers.set("x-rona-current-state-wire-bytes", String(compressed.length));
+        appendVary(headers, "Accept-Encoding");
+        return new Response(compressed, { status: res.status, statusText: res.statusText, headers });
+      }
+    } catch (e) {
+      console.error("current state gzip failed; falling back to identity", String(e?.message || e));
+    }
+  }
+
+  return new Response(body, { status: res.status, statusText: res.statusText, headers });
 }
 function rpcToolResponse(id, body, isError = false, status = 200) {
   return new Response(JSON.stringify({
@@ -288,7 +348,7 @@ async function augmentToolsListResponse(res) {
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
-async function compactCurrentStateResponse(res) {
+async function compactCurrentStateResponse(res, req) {
   if (!res.ok) return res;
   let envelope;
   try { envelope = await res.clone().json(); } catch { return res; }
@@ -304,11 +364,7 @@ async function compactCurrentStateResponse(res) {
   toolPayload.data = rows[0].data;
   content[0].text = JSON.stringify(toolPayload);
   const body = JSON.stringify(envelope);
-  if (encoder.encode(body).length > 24000) {
-    console.error("role state v2 response budget exceeded");
-    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V2_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
-  }
-  return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
+  return finalizeCurrentStateResponse(req, res, envelope, body, toolPayload.role);
 }
 async function wrappedRequest(handler, req) {
   const msg = await inspectMcp(req);
@@ -340,7 +396,7 @@ async function wrappedRequest(handler, req) {
     res = await railXlsxHooks.toolsList(req, res);
     res = await railXlsxResolutionHooks.toolsList(req, res);
   }
-  if (name === "current_state") res = await compactCurrentStateResponse(res);
+  if (name === "current_state") res = await compactCurrentStateResponse(res, req);
   return res;
 }
 
