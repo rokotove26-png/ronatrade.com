@@ -35,7 +35,7 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7-V8.7 baselines under V8.8 mirrored event routing',()=>{
+test('Admin main UI keeps V7-V8.9 baselines under V9 production recovery',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -46,21 +46,25 @@ test('Admin main UI keeps V7-V8.7 baselines under V8.8 mirrored event routing',(
   const v86=read('functions/portal/admin-operations-command-center-v8-6.js');
   const v87=read('functions/portal/admin-operations-command-center-v8-7.js');
   const v88=read('functions/portal/admin-operations-command-center-v8-8.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV88/);
-  assert.match(main,/admin-operations-command-center-v8-8\.js/);
-  assert.match(v88,/patchAdminOperationsCommandCenterV87 as patchV87/);
-  assert.match(v88,/let patched=patchV87\(script\)/);
-  assert.match(v87,/patchAdminOperationsCommandCenterV86 as patchV86/);
-  assert.match(v86,/patchAdminOperationsCommandCenterV85 as patchV85/);
-  assert.match(v85,/patchAdminOperationsCommandCenterV84 as patchV84/);
-  assert.match(v84,/patchAdminOperationsCommandCenterV83 as patchV83/);
-  assert.match(v83,/patchAdminOperationsCommandCenterV82 as patchV82/);
-  assert.match(v82,/patchAdminOperationsCommandCenterV81 as patchV81/);
-  assert.match(v81,/patchAdminOperationsCommandCenterV8 as patchV8/);
-  assert.match(v8,/patchAdminOperationsCommandCenterV7 as patchV7/);
-  assert.doesNotMatch(main,/patchAdminOperationsCommandCenterV6\(patchOperationsFunctionalRuntime/);
+  const v89=read('functions/portal/admin-operations-command-center-v8-9.js');
+  const v9=read('functions/portal/admin-operations-command-center-v9.js');
+  assert.ok(main.includes('patchAdminOperationsCommandCenterV9'));
+  assert.ok(main.includes('admin-operations-command-center-v9.js'));
+  assert.ok(v9.includes('patchAdminOperationsCommandCenterV89 as patchV89'));
+  assert.ok(v9.includes('let patched=patchV89(script)'));
+  assert.ok(v89.includes('patchAdminOperationsCommandCenterV88 as patchV88'));
+  assert.ok(v89.includes('let patched=patchV88(script)'));
+  assert.ok(v88.includes('patchAdminOperationsCommandCenterV87 as patchV87'));
+  assert.ok(v87.includes('patchAdminOperationsCommandCenterV86 as patchV86'));
+  assert.ok(v86.includes('patchAdminOperationsCommandCenterV85 as patchV85'));
+  assert.ok(v85.includes('patchAdminOperationsCommandCenterV84 as patchV84'));
+  assert.ok(v84.includes('patchAdminOperationsCommandCenterV83 as patchV83'));
+  assert.ok(v83.includes('patchAdminOperationsCommandCenterV82 as patchV82'));
+  assert.ok(v82.includes('patchAdminOperationsCommandCenterV81 as patchV81'));
+  assert.ok(v81.includes('patchAdminOperationsCommandCenterV8 as patchV8'));
+  assert.ok(v8.includes('patchAdminOperationsCommandCenterV7 as patchV7'));
+  assert.ok(!main.includes('patchAdminOperationsCommandCenterV6(patchOperationsFunctionalRuntime'));
 });
-
 test('Signal table is tiny, RLS protected, and read-only for browser roles',()=>{
   const sql=read('supabase/migrations/20260920154500_admin_operations_current_v1_event_driven.sql');
   assert.match(sql,/enable row level security/i);
@@ -240,4 +244,35 @@ test('V8.8 resolves mirrored portal-event tasks through the underlying reverse-e
   assert.match(v88,/dealId:linkedTargetId,target:'deals'/);
   assert.match(v88,/OPERATIONS_MIRRORED_EVENT_ROUTING_V1/);
   assert.match(v88,/ADMIN_OPERATIONS_V88_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.9 routes exact Applications and Payments objects without data polling',()=>{
+  const v89=read('functions/portal/admin-operations-command-center-v8-9.js');
+  assert.match(v89,/applicationId:String\(entity\.application_id\)\.trim\(\)/);
+  assert.match(v89,/authority_target_id/);
+  assert.match(v89,/ownerApplication2BFilter=application2BBucket\(app\)/);
+  assert.match(v89,/querySelectorAll\('tbody tr'\)/);
+  assert.match(v89,/scrollIntoView\(\{block:'center',behavior:'smooth'\}\)/);
+  assert.match(v89,/window\.__RONA_PAYMENTS_V8_OPEN_PASSPORT__/);
+  assert.match(v89,/action\.target==='payments'&&action\.dealId/);
+  assert.match(v89,/action\.target==='applications'&&action\.applicationId/);
+  assert.match(v89,/OPERATIONS_EXACT_OBJECT_ROUTING_V1/);
+  assert.match(v89,/ADMIN_OPERATIONS_V89_POLLING_FORBIDDEN/);
+  assert.match(v89,/ADMIN_OPERATIONS_V89_POLLING_FORBIDDEN/);
+});
+
+
+test('V9 bounds startup dependencies and requires canonical Deals Current V4 before READY',()=>{
+  const v9=read('functions/portal/admin-operations-command-center-v9.js');
+  assert.ok(v9.includes('ronaOpsV90Bounded'));
+  assert.ok(v9.includes('OPERATIONS_READ_MODEL'));
+  assert.ok(v9.includes('DEALS_MODULE_LOAD'));
+  assert.ok(v9.includes('__RONA_ADMIN_LOAD_MODULE__'));
+  assert.ok(v9.includes("reason==='INITIAL'||reason==='RECOVERY_RETRY'"));
+  assert.ok(v9.includes('ADMIN_DEALS_CURRENT_V4'));
+  assert.ok(v9.includes('DEALS_CURRENT_V4_REFRESH_UNAVAILABLE'));
+  assert.ok(v9.includes('OPERATIONS_PRODUCTION_RECOVERY_V1'));
+  assert.ok(v9.includes('ADMIN_OPERATIONS_V9_POLLING_FORBIDDEN'));
+  assert.ok(v9.includes('ADMIN_OPERATIONS_V9_POLLING_FORBIDDEN'));
 });
