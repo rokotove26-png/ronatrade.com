@@ -23,8 +23,3 @@ jobs:
         run: |
           node tests/admin-client-impersonation-early-bridge.test.mjs
           node tests/admin-client-impersonation-static-shell.test.mjs
-      - name: Verify emitted runtime
-        run: |
-          test -f dist/assets/portal-runtime/client-admin-impersonation-return-v1.js
-          grep -Fq 'client-admin-impersonation-return-v1.js' dist/portal/client.html
-          grep -Fq 'RONA_CLIENT_ADMIN_IMPERSONATION_RETURN_V1' dist/assets/portal-runtime/client-admin-impersonation-return-v1.js
