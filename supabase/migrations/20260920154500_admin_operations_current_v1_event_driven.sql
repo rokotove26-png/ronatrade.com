@@ -48,8 +48,40 @@ CREATE OR REPLACE FUNCTION portal_private.rona_admin_operations_touch_v1()
 AS $function$
 declare
   v_domain text := coalesce(nullif(TG_ARGV[0],''),'OPERATIONS');
+  v_old_status text;
+  v_new_status text;
 begin
-  if TG_OP='UPDATE' and new is not distinct from old then
+  if TG_TABLE_NAME='staff_tasks' then
+    if TG_OP='INSERT' then
+      v_new_status := upper(coalesce(new.status::text,''));
+      if v_new_status in ('COMPLETED','CLOSED','REJECTED','CANCELLED','CANCELED','DONE') then
+        return new;
+      end if;
+    elsif TG_OP='DELETE' then
+      v_old_status := upper(coalesce(old.status::text,''));
+      if v_old_status in ('COMPLETED','CLOSED','REJECTED','CANCELLED','CANCELED','DONE') then
+        return old;
+      end if;
+    elsif TG_OP='UPDATE' then
+      v_old_status := upper(coalesce(old.status::text,''));
+      v_new_status := upper(coalesce(new.status::text,''));
+      if v_old_status in ('COMPLETED','CLOSED','REJECTED','CANCELLED','CANCELED','DONE')
+         and v_new_status in ('COMPLETED','CLOSED','REJECTED','CANCELLED','CANCELED','DONE') then
+        return new;
+      end if;
+      if (to_jsonb(new) - array['updated_at','source_timestamp']::text[])
+         is not distinct from
+         (to_jsonb(old) - array['updated_at','source_timestamp']::text[]) then
+        return new;
+      end if;
+    end if;
+  elsif TG_TABLE_NAME='rail_deal_route_assignments_v1' and TG_OP='UPDATE' then
+    if (to_jsonb(new) - array['resolved_at','refreshed_at']::text[])
+       is not distinct from
+       (to_jsonb(old) - array['resolved_at','refreshed_at']::text[]) then
+      return new;
+    end if;
+  elsif TG_OP='UPDATE' and new is not distinct from old then
     return new;
   end if;
 
