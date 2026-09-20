@@ -511,6 +511,408 @@ revoke all on function portal_private.server_admin_impersonated_submit_reverse_e
 ) from public,anon,authenticated;
 
 
+-- Application Business V2 impersonation completion.
+-- These server-only wrappers preserve the current atomic Client business commands while
+-- keeping the authenticated Admin actor separate from the effective Client subject.
+create or replace function portal_private.assert_admin_client_impersonation_business_v2(
+  p_impersonation_session_id uuid,
+  p_actor_admin_portal_user_id uuid,
+  p_actor_admin_auth_user_id uuid,
+  p_actor_admin_session_id uuid,
+  p_effective_portal_user_id uuid,
+  p_client_id text,
+  p_contract_id text
+)
+returns table(client_key uuid,contract_key uuid,correlation_id uuid)
+language plpgsql
+security definer
+set search_path to 'pg_catalog','portal_private','auth'
+as $
+begin
+  return query
+  select cl.id,ct.id,ais.correlation_id
+  from portal_private.admin_impersonation_sessions ais
+  join auth.sessions s
+    on s.id=ais.actor_admin_session_id
+   and s.user_id=ais.actor_admin_auth_user_id
+   and (s.not_after is null or s.not_after>now())
+  join portal_private.portal_users actor on actor.id=ais.actor_admin_portal_user_id
+  join portal_private.portal_user_roles ar
+    on ar.user_id=actor.id
+   and ar.role='ADMIN'::portal_private.portal_role_enum
+   and ar.status='ACTIVE'::portal_private.binding_status_enum
+   and ar.revoked_at is null
+  join portal_private.portal_users effective on effective.id=ais.effective_portal_user_id
+  join portal_private.portal_user_roles er
+    on er.user_id=effective.id
+   and er.role='CLIENT'::portal_private.portal_role_enum
+   and er.status='ACTIVE'::portal_private.binding_status_enum
+   and er.revoked_at is null
+  join portal_private.clients cl
+    on cl.id=ais.target_client_key
+   and cl.client_id=p_client_id
+  join portal_private.contracts ct
+    on ct.client_key=cl.id
+   and ct.contract_id=p_contract_id
+  join portal_private.client_user_bindings b
+    on b.user_id=effective.id
+   and b.client_key=cl.id
+   and b.contract_key=ct.id
+  where ais.id=p_impersonation_session_id
+    and ais.actor_admin_portal_user_id=p_actor_admin_portal_user_id
+    and ais.actor_admin_auth_user_id=p_actor_admin_auth_user_id
+    and ais.actor_admin_session_id=p_actor_admin_session_id
+    and ais.effective_portal_user_id=p_effective_portal_user_id
+    and ais.effective_role='CLIENT'::portal_private.portal_role_enum
+    and ais.status='ACTIVE'
+    and ais.ended_at is null
+    and ais.expires_at>now()
+    and actor.status='ACTIVE'::portal_private.portal_user_status_enum
+    and actor.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    and actor.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    and effective.status='ACTIVE'::portal_private.portal_user_status_enum
+    and effective.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    and effective.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    and cl.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    and ct.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    and ct.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    and b.status='ACTIVE'::portal_private.binding_status_enum
+    and b.revoked_at is null
+    and b.valid_from<=now()
+    and (b.valid_to is null or b.valid_to>now())
+    and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    and b.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    and portal_private.client_user_has_contract_access(effective.id,ct.id,now())
+  limit 1;
+
+  if not found then
+    raise exception 'APPLICATION_IMPERSONATION_AUTHORITY_DENIED';
+  end if;
+end;
+$;
+
+create or replace function portal_private.submit_admin_impersonated_client_application_bundle_v2(
+  p_impersonation_session_id uuid,
+  p_actor_admin_portal_user_id uuid,
+  p_actor_admin_auth_user_id uuid,
+  p_actor_admin_session_id uuid,
+  p_effective_portal_user_id uuid,
+  p_body jsonb,
+  p_request_id uuid,
+  p_correlation_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'pg_catalog','portal_private'
+as $
+declare
+  app record;
+  ev record;
+  authz record;
+  key text;
+  fp text;
+  details jsonb;
+  previous portal_private.client_application_bundle_receipts_v2;
+  i record;
+  corr uuid;
+  supplied_client_key text;
+begin
+  perform portal_private.application_operations_authority_v2();
+  perform set_config('rona.application_atomic_bundle','on',true);
+
+  if jsonb_typeof(p_body) is distinct from 'object'
+     or jsonb_typeof(p_body->'applicationDetails') is distinct from 'object'
+  then raise exception 'APPLICATION_DETAILS_REQUIRED'; end if;
+
+  key:=btrim(coalesce(p_body->>'idempotencyKey',''));
+  if key='' or length(key)>150 then raise exception 'IDEMPOTENCY_REQUIRED'; end if;
+
+  select * into authz
+  from portal_private.assert_admin_client_impersonation_business_v2(
+    p_impersonation_session_id,p_actor_admin_portal_user_id,p_actor_admin_auth_user_id,
+    p_actor_admin_session_id,p_effective_portal_user_id,p_body->>'clientId',p_body->>'contractId'
+  );
+  corr:=coalesce(p_correlation_id,authz.correlation_id);
+
+  supplied_client_key:=coalesce(nullif(btrim(p_body->>'client_key'),''),nullif(btrim(p_body->>'clientKey'),''));
+  if supplied_client_key is not null and supplied_client_key<>authz.client_key::text
+    then raise exception 'IMPERSONATION_TARGET_CLIENT_KEY_MISMATCH'; end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('APPLICATION_BUNDLE:'||authz.client_key::text||':'||authz.contract_key::text||':'||key,0));
+  fp:=encode(extensions.digest((p_body-'requestId'-'correlationId')::text,'sha256'),'hex');
+
+  select * into previous
+  from portal_private.client_application_bundle_receipts_v2 b
+  where b.client_key=authz.client_key and b.contract_key=authz.contract_key and b.idempotency_key=key;
+
+  if found then
+    if previous.request_fingerprint<>fp then raise exception 'APPLICATION_IDEMPOTENCY_PAYLOAD_CONFLICT'; end if;
+    if not exists(select 1 from portal_private.client_applications where application_id=previous.application_id)
+      then raise exception 'APPLICATION_RETIRED_NO_RESUBMISSION'; end if;
+    select ci.intake_id,ci.durable_id,ci.source_record_id,ci.source_submitted_at,ci.routing_state into i
+    from portal_private.client_intake_v1 ci
+    join portal_private.client_applications a on a.id=ci.application_key
+    where a.application_id=previous.application_id and ci.source_kind='CLIENT_APPLICATION'
+    limit 1;
+    if i.intake_id is null then raise exception 'APPLICATION_DURABILITY_OR_ROUTING_MISSING'; end if;
+    return jsonb_build_object(
+      'application_id',previous.application_id,'intake_id',i.intake_id,'durable_id',i.durable_id,
+      'source_id',i.source_record_id,'submitted_at',i.source_submitted_at,'routing_state',i.routing_state,
+      'bundle_complete',true,'business_contract','RONA_APPLICATION_BUSINESS_V2'
+    );
+  end if;
+
+  details:=p_body->'applicationDetails';
+  if details->>'message_type' is distinct from 'APPLICATION_DETAILS_V5'
+     or details->>'client_id' is distinct from p_body->>'clientId'
+     or details->>'contract_id' is distinct from p_body->>'contractId'
+     or (details->>'quantity_tonnes')::numeric is distinct from (p_body->>'quantityTonnes')::numeric
+     or details#>>'{reference,publication_item_id}' is distinct from p_body->>'publicationItemId'
+  then raise exception 'APPLICATION_DETAILS_SOURCE_CONFLICT'; end if;
+
+  select * into app
+  from portal_private.server_admin_impersonated_client_submit_application_v12(
+    p_impersonation_session_id,p_actor_admin_portal_user_id,p_actor_admin_auth_user_id,p_actor_admin_session_id,
+    p_effective_portal_user_id,p_body->>'clientId',p_body->>'contractId',(p_body->>'publicationItemId')::uuid,
+    (p_body->>'quantityTonnes')::numeric,(p_body->>'priceMode')::portal_private.price_mode_enum,
+    nullif(p_body->>'proposedPrice','')::numeric,nullif(p_body->>'proposedCurrency','')::char(3),
+    p_body->>'destinationCountry',p_body->>'destinationStation',
+    nullif(p_body->>'deliveryPeriodFrom','')::timestamptz::date,
+    nullif(p_body->>'deliveryPeriodTo','')::timestamptz::date,
+    key,p_request_id,corr
+  );
+
+  if nullif(details->>'application_id','') is not null
+     and details->>'application_id'<>app.application_id
+  then raise exception 'APPLICATION_DETAILS_TARGET_CONFLICT'; end if;
+
+  details:=details||jsonb_build_object('application_id',app.application_id);
+  select * into ev
+  from portal_private.server_admin_impersonated_submit_reverse_event(
+    p_impersonation_session_id,p_actor_admin_portal_user_id,p_actor_admin_auth_user_id,p_actor_admin_session_id,
+    p_effective_portal_user_id,'CLIENT_MESSAGE_SUBMIT','APPLICATION','APPLICATION',app.application_id,
+    p_body->>'clientId',p_body->>'contractId',null,details,'APPLICATION-DETAILS:'||app.application_id,
+    p_request_id,corr
+  );
+
+  insert into portal_private.client_application_bundle_receipts_v2(
+    client_key,contract_key,idempotency_key,request_fingerprint,application_id,details_event_id
+  ) values(authz.client_key,authz.contract_key,key,fp,app.application_id,ev.event_id);
+
+  select ci.intake_id,ci.durable_id,ci.source_record_id,ci.source_submitted_at,ci.routing_state into i
+  from portal_private.client_intake_v1 ci
+  join portal_private.client_applications a on a.id=ci.application_key
+  where a.application_id=app.application_id and ci.source_kind='CLIENT_APPLICATION'
+  limit 1;
+  if i.intake_id is null
+     or not exists(select 1 from portal_private.client_intake_task_links_v1 l where l.intake_id=i.intake_id)
+  then raise exception 'APPLICATION_DURABILITY_OR_ROUTING_MISSING'; end if;
+
+  insert into portal_private.audit_events(
+    actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata
+  ) values(
+    p_actor_admin_portal_user_id,'ADMIN','APPLICATION_BUSINESS_V2_SUBMIT_IMPERSONATED','APPLICATION',
+    app.application_id,coalesce(p_request_id,gen_random_uuid()),corr,
+    jsonb_build_object(
+      'impersonation_session_id',p_impersonation_session_id,
+      'actor_admin_auth_user_id',p_actor_admin_auth_user_id,
+      'actor_admin_portal_user_id',p_actor_admin_portal_user_id,
+      'actor_admin_session_id',p_actor_admin_session_id,
+      'effective_portal_user_id',p_effective_portal_user_id,
+      'effective_role','CLIENT',
+      'target_client_key',authz.client_key,
+      'client_id',p_body->>'clientId',
+      'contract_id',p_body->>'contractId',
+      'action_type','APPLICATION_CREATE',
+      'resulting_application_id',app.application_id
+    )
+  );
+
+  return jsonb_build_object(
+    'application_id',app.application_id,'intake_id',i.intake_id,'durable_id',i.durable_id,
+    'source_id',i.source_record_id,'submitted_at',i.source_submitted_at,'routing_state',i.routing_state,
+    'bundle_complete',true,'business_contract','RONA_APPLICATION_BUSINESS_V2'
+  );
+end;
+$;
+
+create or replace function portal_private.submit_admin_impersonated_delivered_application_bundle_v2(
+  p_impersonation_session_id uuid,
+  p_actor_admin_portal_user_id uuid,
+  p_actor_admin_auth_user_id uuid,
+  p_actor_admin_session_id uuid,
+  p_effective_portal_user_id uuid,
+  p_body jsonb,
+  p_request_id uuid,
+  p_correlation_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path to 'pg_catalog','portal_private'
+as $
+declare
+  ev record;
+  i portal_private.client_intake_v1;
+  app text;
+  payload jsonb;
+  authz record;
+  key text;
+  fp text;
+  previous portal_private.client_application_bundle_receipts_v2;
+  corr uuid;
+  supplied_client_key text;
+begin
+  perform portal_private.application_operations_authority_v2();
+  perform set_config('rona.application_atomic_bundle','on',true);
+
+  payload:=p_body->'payload';
+  key:=nullif(btrim(p_body->>'idempotency_key'),'');
+  if key is null or length(key)>150
+     or p_body->>'role' is distinct from 'CLIENT'
+     or p_body->>'event_type' is distinct from 'CLIENT_MESSAGE_SUBMIT'
+     or p_body->>'authority_domain' is distinct from 'PRICE_CALCULATION'
+     or p_body->>'authority_target_type' is distinct from 'PUBLICATION_ITEM'
+     or payload->>'message_type' is distinct from 'DELIVERED_PRICE_CALCULATION_REQUEST_V1'
+     or payload->>'client_id' is distinct from p_body->>'client_id'
+     or payload->>'contract_id' is distinct from p_body->>'contract_id'
+     or payload#>>'{reference,publication_item_id}' is distinct from p_body->>'authority_target_id'
+     or jsonb_typeof(payload->'quantity_tonnes') is distinct from 'number'
+  then raise exception 'APPLICATION_DELIVERED_SOURCE_CONFLICT'; end if;
+
+  select * into authz
+  from portal_private.assert_admin_client_impersonation_business_v2(
+    p_impersonation_session_id,p_actor_admin_portal_user_id,p_actor_admin_auth_user_id,
+    p_actor_admin_session_id,p_effective_portal_user_id,p_body->>'client_id',p_body->>'contract_id'
+  );
+  corr:=coalesce(p_correlation_id,authz.correlation_id);
+
+  supplied_client_key:=coalesce(nullif(btrim(p_body->>'client_key'),''),nullif(btrim(p_body->>'clientKey'),''));
+  if supplied_client_key is not null and supplied_client_key<>authz.client_key::text
+    then raise exception 'IMPERSONATION_TARGET_CLIENT_KEY_MISMATCH'; end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('APPLICATION_BUNDLE:'||authz.client_key::text||':'||authz.contract_key::text||':'||key,0));
+  fp:=encode(extensions.digest((p_body-'requestId'-'correlationId')::text,'sha256'),'hex');
+
+  select * into previous
+  from portal_private.client_application_bundle_receipts_v2 b
+  where b.client_key=authz.client_key and b.contract_key=authz.contract_key and b.idempotency_key=key;
+
+  if found then
+    if previous.request_fingerprint<>fp then raise exception 'APPLICATION_IDEMPOTENCY_PAYLOAD_CONFLICT'; end if;
+    if not exists(select 1 from portal_private.client_applications where application_id=previous.application_id)
+      then raise exception 'APPLICATION_RETIRED_NO_RESUBMISSION'; end if;
+    select * into i
+    from portal_private.client_intake_v1
+    where source_kind='PORTAL_REVERSE_EVENT' and source_record_id=previous.details_event_id
+    limit 1;
+    if i.intake_id is null then raise exception 'APPLICATION_DURABILITY_OR_ROUTING_MISSING'; end if;
+    return jsonb_build_object(
+      'application_id',previous.application_id,'event_id',previous.details_event_id,
+      'intake_id',i.intake_id,'durable_id',i.durable_id,'source_id',i.source_record_id,
+      'submitted_at',i.source_submitted_at,'bundle_complete',true,
+      'business_contract','RONA_APPLICATION_BUSINESS_V2'
+    );
+  end if;
+
+  if not exists(
+    select 1
+    from portal_private.publication_items pi
+    join portal_private.publications pub on pub.id=pi.publication_key
+    where pi.id=(p_body->>'authority_target_id')::uuid
+      and pi.product=payload->>'product'
+      and pub.status::text='PUBLISHED'
+      and pi.item_type::text='PRICE'
+      and pi.distribution_allowed
+      and pub.audience in ('ALL_CLIENTS','SELECTED_CLIENTS','PUBLIC')
+      and pi.audience in ('ALL_CLIENTS','SELECTED_CLIENTS','PUBLIC')
+      and (pi.valid_from is null or pi.valid_from<=now())
+      and (pi.valid_to is null or pi.valid_to>=now())
+      and (
+        (pub.audience<>'SELECTED_CLIENTS' and pi.audience<>'SELECTED_CLIENTS')
+        or exists(
+          select 1 from portal_private.publication_client_targets pt
+          where pt.publication_key=pub.id
+            and pt.client_key=authz.client_key
+            and (pt.target_scope='PUBLICATION' or (pt.target_scope='ITEM' and pt.publication_item_key=pi.id))
+        )
+      )
+  ) then raise exception 'CLIENT_PRICE_CONTEXT_DENIED'; end if;
+
+  select * into ev
+  from portal_private.server_admin_impersonated_submit_reverse_event(
+    p_impersonation_session_id,p_actor_admin_portal_user_id,p_actor_admin_auth_user_id,p_actor_admin_session_id,
+    p_effective_portal_user_id,p_body->>'event_type',p_body->>'authority_domain',
+    p_body->>'authority_target_type',p_body->>'authority_target_id',
+    p_body->>'client_id',p_body->>'contract_id',null,payload,key,p_request_id,corr
+  );
+
+  select * into i
+  from portal_private.client_intake_v1
+  where source_kind='PORTAL_REVERSE_EVENT' and source_record_id=ev.event_id
+  limit 1;
+  if i.intake_id is null then raise exception 'APPLICATION_DURABILITY_OR_ROUTING_MISSING'; end if;
+
+  app:=portal_private.materialize_client_application_v2(i.intake_id);
+  perform portal_private.process_client_intake_outbox_v1(100);
+
+  if app is null or not exists(select 1 from portal_private.client_applications where application_id=app)
+    then raise exception 'APPLICATION_RETIRED_NO_RESUBMISSION'; end if;
+  if not exists(
+    select 1
+    from portal_private.client_intake_task_links_v1 l
+    join portal_private.staff_tasks t on t.id=l.staff_task_id
+    where l.intake_id=i.intake_id
+      and t.assigned_functional_role::text='OPERATIONS_DIRECTOR'
+      and t.qa_only=false
+  ) then raise exception 'APPLICATION_DURABILITY_OR_ROUTING_MISSING'; end if;
+
+  insert into portal_private.client_application_bundle_receipts_v2(
+    client_key,contract_key,idempotency_key,request_fingerprint,application_id,details_event_id
+  ) values(authz.client_key,authz.contract_key,key,fp,app,ev.event_id);
+
+  insert into portal_private.audit_events(
+    actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata
+  ) values(
+    p_actor_admin_portal_user_id,'ADMIN','APPLICATION_BUSINESS_V2_DELIVERED_PRICE_IMPERSONATED','APPLICATION',
+    app,coalesce(p_request_id,gen_random_uuid()),corr,
+    jsonb_build_object(
+      'impersonation_session_id',p_impersonation_session_id,
+      'actor_admin_auth_user_id',p_actor_admin_auth_user_id,
+      'actor_admin_portal_user_id',p_actor_admin_portal_user_id,
+      'actor_admin_session_id',p_actor_admin_session_id,
+      'effective_portal_user_id',p_effective_portal_user_id,
+      'effective_role','CLIENT',
+      'target_client_key',authz.client_key,
+      'client_id',p_body->>'client_id',
+      'contract_id',p_body->>'contract_id',
+      'action_type','DELIVERED_PRICE_REQUEST',
+      'resulting_application_id',app,
+      'source_event_id',ev.event_id
+    )
+  );
+
+  return jsonb_build_object(
+    'application_id',app,'event_id',ev.event_id,'intake_id',i.intake_id,'durable_id',i.durable_id,
+    'source_id',i.source_record_id,'submitted_at',i.source_submitted_at,'bundle_complete',true,
+    'business_contract','RONA_APPLICATION_BUSINESS_V2'
+  );
+end;
+$;
+
+revoke all on function portal_private.assert_admin_client_impersonation_business_v2(
+  uuid,uuid,uuid,uuid,uuid,text,text
+) from public,anon,authenticated,service_role;
+revoke all on function portal_private.submit_admin_impersonated_client_application_bundle_v2(
+  uuid,uuid,uuid,uuid,uuid,jsonb,uuid,uuid
+) from public,anon,authenticated,service_role;
+revoke all on function portal_private.submit_admin_impersonated_delivered_application_bundle_v2(
+  uuid,uuid,uuid,uuid,uuid,jsonb,uuid,uuid
+) from public,anon,authenticated,service_role;
+
+
 comment on table portal_private.admin_impersonation_sessions is
   'Server-only Admin impersonation sessions. Real Admin actor identity is preserved separately from effective Client/Agent subject.';
 

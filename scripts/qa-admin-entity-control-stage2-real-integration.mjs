@@ -178,6 +178,25 @@ async function seed(){
   `;
 }
 
+
+async function applicationMutationCounts(){
+  const rows=await sql`
+    select
+      (select count(*)::int from portal_private.client_applications) applications,
+      (select count(*)::int from portal_private.application_lines) lines,
+      (select count(*)::int from portal_private.portal_reverse_events) reverse_events,
+      (select count(*)::int from portal_private.client_application_bundle_receipts_v2) bundle_receipts,
+      (select count(*)::int from portal_private.audit_events) audit_events
+  `;
+  return rows[0];
+}
+async function expectApplicationZeroMutation(fn,code){
+  const before=await applicationMutationCounts();
+  await expectCode(fn,code);
+  const after=await applicationMutationCounts();
+  assert(JSON.stringify(before)===JSON.stringify(after),`zero mutation for ${code}`);
+}
+
 async function main(){
   await seed();
 
@@ -197,43 +216,80 @@ async function main(){
   assert(impA.impersonation.targetClientKey===U.companyA,"Company A hard-bound context");
   const resolvedA=await service.resolve(ctx,request(null,{"x-rona-admin-impersonation-token":impA.impersonationToken}));
   assert(resolvedA.targetClientKey===U.companyA,"refresh/resolve keeps Company A bound");
+  await expectCode(()=>service.resolve(ctx,request(null,{})),"IMPERSONATION_SESSION_INVALID");
 
   const appReq=crypto.randomUUID(),appCorr=crypto.randomUUID();
-  const app=await sql`
-    select * from portal_private.server_admin_impersonated_client_submit_application_v12(
+  const standardBody={
+    clientId:'RONA-C101',contractId:'CTR-A',publicationItemId:U.priceItem,quantityTonnes:100,
+    priceMode:'ACCEPT_PUBLISHED_PRICE',proposedPrice:null,proposedCurrency:null,
+    destinationCountry:'Kyrgyzstan',destinationStation:'Bishkek',
+    deliveryPeriodFrom:'2026-09-20',deliveryPeriodTo:'2026-09-30',idempotencyKey:'stage3a-client-application',
+    applicationDetails:{message_type:'APPLICATION_DETAILS_V5',client_id:'RONA-C101',contract_id:'CTR-A',
+      quantity_tonnes:100,reference:{publication_item_id:U.priceItem},comment:'Stage3A atomic application'}
+  };
+  const appRows=await sql`
+    select portal_private.submit_admin_impersonated_client_application_bundle_v2(
       ${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,
-      'RONA-C101','CTR-A',${U.priceItem}::uuid,100::numeric,'ACCEPT_PUBLISHED_PRICE'::portal_private.price_mode_enum,
-      null::numeric,null::char(3),'Kyrgyzstan','Bishkek',current_date,current_date+10,
-      'stage2-client-application',${appReq}::uuid,${appCorr}::uuid
-    )
+      ${sql.json(standardBody)}::jsonb,${appReq}::uuid,${appCorr}::uuid
+    ) receipt
   `;
-  assert(app.length===1&&String(app[0].status)==="SUBMITTED","Client mutation succeeds with actual effective authority");
-  const appId=String(app[0].application_id);
+  const appReceipt=appRows[0].receipt;
+  assert(appReceipt?.bundle_complete===true&&appReceipt?.business_contract==='RONA_APPLICATION_BUSINESS_V2',"APPLICATION_IMPERSONATED_CREATE");
+  const appId=String(appReceipt.application_id);
+  const appSubject=await sql`select client_key::text,contract_key::text,status::text from portal_private.client_applications where application_id=${appId}`;
+  assert(String(appSubject[0].client_key)===U.companyA&&String(appSubject[0].contract_key)===U.contractA,"APPLICATION_EFFECTIVE_CLIENT_SUBJECT");
+  const appDetailEvent=await sql`select actor_user_id::text,actor_auth_user_id::text,actor_role::text,client_key::text from portal_private.portal_reverse_events where authority_domain='APPLICATION' and authority_target_id=${appId} limit 1`;
+  assert(String(appDetailEvent[0].actor_user_id)===U.client&&String(appDetailEvent[0].actor_auth_user_id)===U.adminAuth&&String(appDetailEvent[0].actor_role)==='CLIENT',"application details use effective Client subject");
+  const appAudit=await sql`select actor_user_id::text,actor_role,metadata,request_id::text,correlation_id::text from portal_private.audit_events where action='APPLICATION_BUSINESS_V2_SUBMIT_IMPERSONATED' and entity_id=${appId} limit 1`;
+  assert(String(appAudit[0].actor_user_id)===U.admin&&String(appAudit[0].actor_role)==='ADMIN',"APPLICATION_REAL_ADMIN_AUDIT");
+  assert(String(appAudit[0].metadata.effective_portal_user_id)===U.client&&String(appAudit[0].metadata.target_client_key)===U.companyA,"application audit preserves effective Client and target Company");
+  assert(String(appAudit[0].request_id)===appReq&&String(appAudit[0].correlation_id)===appCorr,"application audit preserves request/correlation ids");
 
-  const appAudit=await sql`
-    select actor_user_id::text,actor_role,metadata
-    from portal_private.audit_events
-    where action='APPLICATION_SUBMIT_V12_IMPERSONATED' and entity_id=${appId}
-    order by created_at desc limit 1
-  `;
-  assert(String(appAudit[0].actor_user_id)===U.admin,"Client mutation audit actor is real Admin");
-  assert(String(appAudit[0].metadata.effective_portal_user_id)===U.client,"Client mutation audit retains effective target");
-  assert(String(appAudit[0].metadata.impersonation_session_id)===impA.impersonation.id,"Client mutation audit retains impersonation session");
-
-  await expectCode(()=>sql`
-    select * from portal_private.server_admin_impersonated_client_submit_application_v12(
+  const deliveredReq=crypto.randomUUID(),deliveredCorr=crypto.randomUUID();
+  const deliveredBody={role:'CLIENT',event_type:'CLIENT_MESSAGE_SUBMIT',authority_domain:'PRICE_CALCULATION',
+    authority_target_type:'PUBLICATION_ITEM',authority_target_id:U.priceItem,client_id:'RONA-C101',contract_id:'CTR-A',
+    payload:{message_type:'DELIVERED_PRICE_CALCULATION_REQUEST_V1',client_id:'RONA-C101',contract_id:'CTR-A',
+      product:'DIESEL',quantity_tonnes:75,destination:{station:'Bishkek'},reference:{publication_item_id:U.priceItem},
+      shipment:{source_basis:'FCA'},commercial:{payment_terms:'TO_BE_AGREED'}},idempotency_key:'stage3a-delivered-price'};
+  const deliveredRows=await sql`
+    select portal_private.submit_admin_impersonated_delivered_application_bundle_v2(
       ${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,
-      'RONA-C102','CTR-B',${U.priceItem}::uuid,100::numeric,'ACCEPT_PUBLISHED_PRICE'::portal_private.price_mode_enum,
-      null::numeric,null::char(3),'Kyrgyzstan','Osh',current_date,current_date+10,
-      'stage2-forged-company',${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid
-    )
-  `,"CLIENT_PRICE_CONTEXT_DENIED");
+      ${sql.json(deliveredBody)}::jsonb,${deliveredReq}::uuid,${deliveredCorr}::uuid
+    ) receipt
+  `;
+  const deliveredReceipt=deliveredRows[0].receipt;
+  assert(deliveredReceipt?.bundle_complete===true,"APPLICATION_IMPERSONATED_DELIVERED_PRICE_WRITE");
+  const deliveredId=String(deliveredReceipt.application_id);
+  const deliveredApp=await sql`select client_key::text,contract_key::text,price_mode::text from portal_private.client_applications where application_id=${deliveredId}`;
+  assert(String(deliveredApp[0].client_key)===U.companyA&&String(deliveredApp[0].price_mode)==='REQUEST_DELIVERED_PRICE',"delivered-price application is Company A effective Client business row");
 
-  // Close the integration-created application so the later Company retirement preview is allowed.
-  await sql`update portal_private.client_applications set status='CLOSED',lifecycle_state='ARCHIVED',updated_at=now() where application_id=${appId}`;
+  const secondCompanyBody={...standardBody,clientId:'RONA-C102',contractId:'CTR-B',idempotencyKey:'stage3a-second-company',applicationDetails:{...standardBody.applicationDetails,client_id:'RONA-C102',contract_id:'CTR-B'}};
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json(secondCompanyBody)}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+  const forgedKeyBody={...standardBody,idempotencyKey:'stage3a-forged-key',client_key:U.companyB};
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json(forgedKeyBody)}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`IMPERSONATION_TARGET_CLIENT_KEY_MISMATCH`);
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.client}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-admin-mismatch'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.agent}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-effective-mismatch'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+
+  await sql`update portal_private.client_user_bindings set status='SUSPENDED' where user_id=${U.client}::uuid and client_key=${U.companyA}::uuid`;
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-binding-inactive'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+  await sql`update portal_private.client_user_bindings set status='ACTIVE' where user_id=${U.client}::uuid and client_key=${U.companyA}::uuid`;
+  await sql`update portal_private.portal_user_roles set status='SUSPENDED' where user_id=${U.client}::uuid and role='CLIENT'`;
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-client-authority-inactive'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+  await sql`update portal_private.portal_user_roles set status='ACTIVE' where user_id=${U.client}::uuid and role='CLIENT'`;
+  await sql`update portal_private.admin_impersonation_sessions set expires_at=now()-interval '1 second' where id=${impA.impersonation.id}::uuid`;
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-expired'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+  await sql`update portal_private.admin_impersonation_sessions set expires_at=now()+interval '12 minutes' where id=${impA.impersonation.id}::uuid`;
+  await sql`update portal_private.admin_impersonation_sessions set status='REVOKED',ended_at=now(),end_reason='TEST_REVOKED' where id=${impA.impersonation.id}::uuid`;
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-revoked'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,`APPLICATION_IMPERSONATION_AUTHORITY_DENIED`);
+  await sql`update portal_private.admin_impersonation_sessions set status='ACTIVE',ended_at=null,end_reason=null where id=${impA.impersonation.id}::uuid`;
+
+  // Close integration-created applications so later Company retirement preview remains eligible.
+  await sql`update portal_private.client_applications set status='CLOSED',lifecycle_state='ARCHIVED',updated_at=now() where application_id in (${appId},${deliveredId})`;
+
 
   // New impersonation deterministically revokes the old one.
   const impB=await service.start(ctx,request({kind:"COMPANY",entityId:"RONA-C102"}));
+  await expectApplicationZeroMutation(()=>sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${impA.impersonation.id}::uuid,${U.admin}::uuid,${U.adminAuth}::uuid,${U.adminSession}::uuid,${U.client}::uuid,${sql.json({...standardBody,idempotencyKey:'stage3a-replaced'})}::jsonb,${crypto.randomUUID()}::uuid,${crypto.randomUUID()}::uuid)`,"APPLICATION_IMPERSONATION_AUTHORITY_DENIED");
   const oldState=await sql`select status from portal_private.admin_impersonation_sessions where id=${impA.impersonation.id}::uuid`;
   assert(String(oldState[0].status)==="REVOKED","new impersonation revokes old session");
   await expectCode(()=>service.resolve(ctx,request(null,{"x-rona-admin-impersonation-token":impA.impersonationToken})),"IMPERSONATION_SESSION_INVALID");
@@ -407,7 +463,16 @@ async function main(){
     SHARED_USER_PROTECTION:"PASS",
     AGENT_PERSON_V2_PRESERVED:"PASS",
     PARALLEL_TABS:"PASS",
-    EXPIRED_REVOKED_FAIL_CLOSED:"PASS"
+    EXPIRED_REVOKED_FAIL_CLOSED:"PASS",
+    APPLICATION_IMPERSONATED_CREATE:"PASS",
+    APPLICATION_IMPERSONATED_DELIVERED_PRICE_WRITE:"PASS",
+    APPLICATION_REAL_ADMIN_AUDIT:"PASS",
+    APPLICATION_EFFECTIVE_CLIENT_SUBJECT:"PASS",
+    APPLICATION_COMPANY_HARD_BOUND:"PASS",
+    APPLICATION_SHARED_USER_SECOND_COMPANY_DENIED:"PASS",
+    APPLICATION_EXPIRED_SESSION_DENIED:"PASS",
+    APPLICATION_REVOKED_SESSION_DENIED:"PASS",
+    APPLICATION_PARTIAL_WRITE_ZERO:"PASS"
   };
   console.log(JSON.stringify({stage:"ADMIN_ENTITY_CONTROL_STAGE2_REAL_INTEGRATION",matrix,deletedAuthUsers},null,2));
 }

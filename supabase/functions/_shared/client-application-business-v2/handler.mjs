@@ -46,10 +46,17 @@ export function createApplicationBusinessHandler(delegate,{sql,authenticate,apiR
    if(!body||!key||key!==(kind==='STANDARD'?body.idempotencyKey:body.idempotency_key))return response({ok:false,code:'APPLICATION_INTENT_KEY_MISMATCH'},400);
    if(kind==='STANDARD'&&(!body.applicationDetails||typeof body.applicationDetails!=='object'))return response({ok:false,code:'ATOMIC_APPLICATION_DETAILS_REQUIRED'},400);
    try{
-    const ids=[requestId(request,'x-request-id'),requestId(request,'x-correlation-id')];
+    const correlationHeader=request.headers.get('x-correlation-id');
+    const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:(ctx?.impersonation?.correlationId||crypto.randomUUID());
+    const ids=[requestId(request,'x-request-id'),correlationId];
+    const impersonated=ctx?.impersonation?.effectiveRole==='CLIENT';
     const rows=kind==='STANDARD'?
-     await sql`select portal_private.submit_client_application_bundle_v2(${ctx.auth}::uuid,${ctx.sid}::uuid,${sql.json(body)}::jsonb,${ids[0]}::uuid,${ids[1]}::uuid) as receipt`:
-     await sql`select portal_private.submit_delivered_application_bundle_v2(${ctx.auth}::uuid,${ctx.sid}::uuid,${sql.json(body)}::jsonb,${ids[0]}::uuid,${ids[1]}::uuid) as receipt`;
+     impersonated?
+      await sql`select portal_private.submit_admin_impersonated_client_application_bundle_v2(${ctx.impersonation.id}::uuid,${ctx.actorUser}::uuid,${ctx.actorAuth}::uuid,${ctx.sid}::uuid,${ctx.user}::uuid,${sql.json(body)}::jsonb,${ids[0]}::uuid,${ids[1]}::uuid) as receipt`:
+      await sql`select portal_private.submit_client_application_bundle_v2(${ctx.auth}::uuid,${ctx.sid}::uuid,${sql.json(body)}::jsonb,${ids[0]}::uuid,${ids[1]}::uuid) as receipt`:
+     impersonated?
+      await sql`select portal_private.submit_admin_impersonated_delivered_application_bundle_v2(${ctx.impersonation.id}::uuid,${ctx.actorUser}::uuid,${ctx.actorAuth}::uuid,${ctx.sid}::uuid,${ctx.user}::uuid,${sql.json(body)}::jsonb,${ids[0]}::uuid,${ids[1]}::uuid) as receipt`:
+      await sql`select portal_private.submit_delivered_application_bundle_v2(${ctx.auth}::uuid,${ctx.sid}::uuid,${sql.json(body)}::jsonb,${ids[0]}::uuid,${ids[1]}::uuid) as receipt`;
     const receipt=rows[0]?.receipt;
     if(rows.length!==1||!businessId.test(receipt?.application_id||'')||receipt?.bundle_complete!==true||!receipt.intake_id||!receipt.durable_id)throw new Error('APPLICATION_COMMIT_CONTRACT_MISSING');
     return response({ok:true,...receipt,application:receipt,...(kind==='DELIVERED'?{event:receipt}:{})});

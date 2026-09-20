@@ -11,7 +11,7 @@ create schema auth;
 create schema portal_private;
 
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
-do $$ begin create role authenticated nologin; exception when duplicate_object then null; end $$;
+do $ begin create role authenticated nologin; exception when duplicate_object then null; end $;\ndo $ begin create role service_role nologin; exception when duplicate_object then null; end $;
 
 create type portal_private.portal_role_enum as enum ('ADMIN','RONA_OPERATOR','AGENT','CLIENT');
 create type portal_private.binding_status_enum as enum ('PENDING','ACTIVE','SUSPENDED','REVOKED','EXPIRED');
@@ -19,7 +19,7 @@ create type portal_private.lifecycle_state_enum as enum ('DRAFT','ACTIVE','SUSPE
 create type portal_private.authority_state_enum as enum ('DRAFT','SOURCE_RECEIVED','VERIFIED','CONFIRMED','SUPERSEDED','REJECTED');
 create type portal_private.portal_user_status_enum as enum ('PENDING','ACTIVE','SUSPENDED','REVOKED','ARCHIVED');
 create type portal_private.application_status_enum as enum ('DRAFT','SUBMITTED','UNDER_REVIEW','ACCEPTED_AWAITING_DEAL_REGISTRATION','REJECTED','DEAL_REGISTERED','CANCELLED','CLOSED');
-create type portal_private.price_mode_enum as enum ('ACCEPT_PUBLISHED_PRICE','CLIENT_PROPOSED_PRICE');
+create type portal_private.price_mode_enum as enum ('ACCEPT_PUBLISHED_PRICE','CLIENT_PROPOSED_PRICE','REQUEST_DELIVERED_PRICE');
 
 create table auth.users(
   id uuid primary key,
@@ -338,6 +338,50 @@ create table portal_private.client_application_tombstones_v2(
   application_snapshot jsonb not null
 );
 
+create table portal_private.client_application_bundle_receipts_v2(
+  client_key uuid not null references portal_private.clients(id),
+  contract_key uuid not null references portal_private.contracts(id),
+  idempotency_key text not null,
+  request_fingerprint text not null,
+  application_id text not null,
+  details_event_id text not null,
+  created_at timestamptz not null default now(),
+  primary key(client_key,contract_key,idempotency_key)
+);
+
+create table portal_private.client_intake_v1(
+  intake_id uuid primary key default gen_random_uuid(),
+  durable_id uuid not null default gen_random_uuid(),
+  source_kind text not null,
+  source_internal_key uuid,
+  source_record_id text not null,
+  actionable_type text,
+  effective_payload jsonb not null default '{}'::jsonb,
+  client_key uuid references portal_private.clients(id),
+  contract_key uuid references portal_private.contracts(id),
+  application_key uuid references portal_private.client_applications(id),
+  source_submitted_at timestamptz not null default now(),
+  routing_state text not null default 'ROUTED'
+);
+
+create table portal_private.staff_tasks(
+  id uuid primary key default gen_random_uuid(),
+  assigned_functional_role text not null default 'OPERATIONS_DIRECTOR',
+  qa_only boolean not null default false,
+  application_key uuid references portal_private.client_applications(id),
+  source_reverse_event_key uuid,
+  status text not null default 'NEW',
+  title text,
+  description text,
+  created_at timestamptz not null default now()
+);
+
+create table portal_private.client_intake_task_links_v1(
+  intake_id uuid not null references portal_private.client_intake_v1(intake_id),
+  staff_task_id uuid not null references portal_private.staff_tasks(id),
+  primary key(intake_id,staff_task_id)
+);
+
 create table portal_private.portal_reverse_events(
   id uuid primary key default gen_random_uuid(),
   event_id text not null unique,
@@ -386,6 +430,90 @@ create table portal_private.audit_events(
   metadata jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+
+create or replace function portal_private.stage3a_fixture_application_intake()
+returns trigger language plpgsql set search_path='pg_catalog','portal_private' as $
+declare i uuid; t uuid;
+begin
+  if new.source_intake_key is not null then
+    update portal_private.client_intake_v1 set application_key=new.id where intake_id=new.source_intake_key;
+    return new;
+  end if;
+  insert into portal_private.client_intake_v1(
+    source_kind,source_internal_key,source_record_id,actionable_type,effective_payload,
+    client_key,contract_key,application_key,source_submitted_at,routing_state
+  ) values(
+    'CLIENT_APPLICATION',new.id,new.application_id,'CLIENT_APPLICATION_SUBMIT',
+    jsonb_build_object('application_id',new.application_id),new.client_key,new.contract_key,new.id,
+    coalesce(new.submitted_at,now()),'ROUTED'
+  ) returning intake_id into i;
+  insert into portal_private.staff_tasks(assigned_functional_role,qa_only,application_key,title)
+    values('OPERATIONS_DIRECTOR',false,new.id,'Application '||new.application_id) returning id into t;
+  insert into portal_private.client_intake_task_links_v1(intake_id,staff_task_id) values(i,t);
+  return new;
+end $;
+create trigger stage3a_fixture_application_intake_after_insert
+after insert on portal_private.client_applications
+for each row execute function portal_private.stage3a_fixture_application_intake();
+
+create or replace function portal_private.stage3a_fixture_reverse_intake()
+returns trigger language plpgsql set search_path='pg_catalog','portal_private' as $
+declare i uuid; t uuid;
+begin
+  if new.actor_role<>'CLIENT'::portal_private.portal_role_enum then return new; end if;
+  insert into portal_private.client_intake_v1(
+    source_kind,source_internal_key,source_record_id,actionable_type,effective_payload,
+    client_key,contract_key,source_submitted_at,routing_state
+  ) values(
+    'PORTAL_REVERSE_EVENT',new.id,new.event_id,coalesce(new.payload->>'message_type',new.event_type),
+    new.payload,new.client_key,new.contract_key,new.created_at,'ROUTED'
+  ) returning intake_id into i;
+  insert into portal_private.staff_tasks(assigned_functional_role,qa_only,source_reverse_event_key,title)
+    values('OPERATIONS_DIRECTOR',false,new.id,'Reverse event '||new.event_id) returning id into t;
+  insert into portal_private.client_intake_task_links_v1(intake_id,staff_task_id) values(i,t);
+  return new;
+end $;
+create trigger stage3a_fixture_reverse_intake_after_insert
+after insert on portal_private.portal_reverse_events
+for each row execute function portal_private.stage3a_fixture_reverse_intake();
+
+create or replace function portal_private.materialize_client_application_v2(p_intake_id uuid)
+returns text language plpgsql security definer set search_path='pg_catalog','portal_private' as $
+declare i portal_private.client_intake_v1; p jsonb; app_id text; app_key uuid; pub_item uuid; pub_key uuid;
+begin
+  select * into i from portal_private.client_intake_v1 where intake_id=p_intake_id for update;
+  if not found then raise exception 'APPLICATION_SOURCE_INTAKE_MISSING'; end if;
+  if i.source_kind<>'PORTAL_REVERSE_EVENT' or i.actionable_type<>'DELIVERED_PRICE_CALCULATION_REQUEST_V1' then return null; end if;
+  select application_id into app_id from portal_private.client_applications where source_intake_key=i.intake_id;
+  if found then return app_id; end if;
+  p:=i.effective_payload;
+  if jsonb_typeof(p->'quantity_tonnes') is distinct from 'number'
+     or (p->>'quantity_tonnes')::numeric<=0
+     or nullif(btrim(p->>'product'),'') is null
+     or nullif(btrim(p#>>'{destination,station}'),'') is null
+  then raise exception 'APPLICATION_SOURCE_FACTS_INCOMPLETE'; end if;
+  pub_item:=nullif(p#>>'{reference,publication_item_id}','')::uuid;
+  select publication_key into pub_key from portal_private.publication_items where id=pub_item;
+  if not found then raise exception 'APPLICATION_SOURCE_PUBLICATION_MISSING'; end if;
+  app_key:=gen_random_uuid();
+  app_id:=portal_private.next_application_business_id(i.client_key);
+  insert into portal_private.client_applications(
+    id,application_id,client_key,contract_key,source_intake_key,source_publication_id,source_publication_item_id,
+    product,quantity_tonnes,delivery_basis,destination,delivery_method,payment_terms,price_mode,status,submitted_at,
+    source_system,source_version,source_timestamp,authority_state,lifecycle_state,source_price_mode,source_submission_state
+  ) values(
+    app_key,app_id,i.client_key,i.contract_key,i.intake_id,pub_key,pub_item,p->>'product',(p->>'quantity_tonnes')::numeric,
+    p#>>'{shipment,source_basis}',p#>>'{destination,station}','TO_BE_CONFIRMED',
+    coalesce(nullif(p#>>'{commercial,payment_terms}',''),'TO_BE_AGREED'),
+    'REQUEST_DELIVERED_PRICE','SUBMITTED',i.source_submitted_at,'CLIENT_INTAKE','APPLICATION_BUSINESS_V2',
+    i.source_submitted_at,'SOURCE_RECEIVED','ACTIVE','REQUEST_DELIVERED_PRICE','SOURCE_INTAKE:'||i.intake_id::text
+  );
+  return app_id;
+end $;
+
+create or replace function portal_private.process_client_intake_outbox_v1(p_limit integer default 100)
+returns jsonb language sql volatile as $select jsonb_build_object('processed',0,'limit',p_limit)$;
 
 create sequence portal_private.test_application_seq;
 

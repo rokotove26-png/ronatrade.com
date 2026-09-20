@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
 
-const BASE=process.env.STAGE2_BASE_SHA||'ad79f650e04cfa15464a46bab882e20357ec002d';
+const BASE=process.env.STAGE2_BASE_SHA||'f09f22c2f2445de38a5ccd0710b6069bda7ce904';
 const read=p=>readFileSync(p,'utf8');
 const show=p=>execFileSync('git',['show',`${BASE}:${p}`],{encoding:'utf8'});
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8'}).trim();
@@ -28,7 +28,7 @@ const events=read('supabase/functions/rona-portal-api/events.ts');
 const agent=read('supabase/functions/rona-portal-api/agent.ts');
 const portalApi=read('supabase/functions/rona-portal-api/index.ts');
 const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
-const claims=read('supabase/functions/rona-owner-acceptance/claims.ts');
+const claims=read('supabase/functions/rona-owner-acceptance/claims.ts');\nconst appBusiness=read('supabase/functions/_shared/client-application-business-v2/handler.mjs');
 const migration=read('supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql');
 
 // Absolute visual freeze: the existing CSS payload and Admin shell stay byte-for-byte unchanged.
@@ -117,6 +117,24 @@ assertIncludes(migration,"'APPLICATION_SUBMIT_V12_IMPERSONATED'",'Client applica
 assertIncludes(migration,"'REVERSE_EVENT_SUBMIT_IMPERSONATED'",'Client/Agent event Admin audit');
 assertIncludes(claims,'actorUser(ctx)','claim actor attribution');
 assertIncludes(owner,'ctx.impersonation?ctx.actorUserId:ctx.userId','document upload Admin actor attribution');
+
+// Application Business V2 impersonation writes stay atomic and server-only.
+assertIncludes(appBusiness,'submit_admin_impersonated_client_application_bundle_v2','atomic impersonated Application Business create');
+assertIncludes(appBusiness,'submit_admin_impersonated_delivered_application_bundle_v2','atomic impersonated delivered-price command');
+assertIncludes(appBusiness,"ctx?.impersonation?.effectiveRole==='CLIENT'",'effective Client write switch');
+assertNotIncludes(appBusiness,'APPLICATION_IMPERSONATION_WORKFLOW_OUT_OF_STAGE3_SCOPE','temporary Stage 3 gap removed');
+for(const marker of [
+  'assert_admin_client_impersonation_business_v2',
+  'submit_admin_impersonated_client_application_bundle_v2',
+  'submit_admin_impersonated_delivered_application_bundle_v2',
+  'APPLICATION_BUSINESS_V2_SUBMIT_IMPERSONATED',
+  'APPLICATION_BUSINESS_V2_DELIVERED_PRICE_IMPERSONATED',
+  'APPLICATION_IMPERSONATION_AUTHORITY_DENIED',
+  'IMPERSONATION_TARGET_CLIENT_KEY_MISMATCH'
+]) assertIncludes(migration,marker,'Application Business V2 impersonation completion');
+assertIncludes(migration,"from public,anon,authenticated,service_role",'server-only Application Business authority');
+assertIncludes(migration,"target_client_key',authz.client_key",'hard Company audit provenance');
+assertIncludes(migration,"'effective_portal_user_id',p_effective_portal_user_id",'effective Client audit provenance');
 
 // Retirement is fail-closed, atomic, non-destructive to historical business data.
 for(const state of ['PREFLIGHT','RETIRING','AUTH_CLEANUP_PENDING','VERIFYING','COMPLETED','FAILED_RETRYABLE']){
