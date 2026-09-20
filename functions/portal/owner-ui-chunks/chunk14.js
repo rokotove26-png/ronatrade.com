@@ -1,6 +1,6 @@
 export default `(()=>{'use strict';
 if(window.__RONA_VISUAL_V2_NAV_STRUCTURE__)return;
-window.__RONA_VISUAL_V2_NAV_STRUCTURE__=true;
+window.__RONA_VISUAL_V2_NAV_STRUCTURE__='20260920-nav-descendant-safe-v15';
 if(location.pathname!=='/portal/admin')return;
 function textNodes(el){const out=[];const walk=n=>{for(const c of n.childNodes){if(c.nodeType===3){if(String(c.textContent||'').trim())out.push(c)}else if(c.nodeType===1&&!c.classList?.contains('rona-owner-attention-badge'))walk(c)}};walk(el);return out}
 function setLabel(button,label){if(!button)return;const labelEl=button.querySelector('.label,.nav-label');if(labelEl){if(String(labelEl.textContent||'').trim()!==label)labelEl.textContent=label;return}const nodes=textNodes(button).filter(n=>/[A-Za-zА-Яа-яЁё]{2}/.test(String(n.textContent||'')));if(nodes.length){if(String(nodes[0].textContent||'').trim()!==label)nodes[0].textContent=' '+label;for(const n of nodes.slice(1))if(String(n.textContent||'').trim())n.textContent=''}else button.append(document.createTextNode(label))}
@@ -50,7 +50,7 @@ function removeObsoleteSystemSection(nav){
   while(walker.nextNode())texts.push(walker.currentNode);
   for(const node of texts){if(navNorm(node.textContent)!=='система')continue;const parent=node.parentElement;if(parent?.closest('button,a,[role="button"]'))continue;node.textContent=''}
   for(const el of Array.from(nav.querySelectorAll('*')).reverse()){
-    if(el.matches('button,a,[role="button"]'))continue;
+    if(el.closest('button,a,[role="button"]'))continue;
     if(el.querySelector('button,a,[role="button"],input,select,textarea'))continue;
     if(navNorm(el.textContent)===''&&!el.children.length)el.remove();
   }
