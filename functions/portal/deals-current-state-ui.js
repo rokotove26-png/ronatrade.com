@@ -29,6 +29,10 @@ const SCRIPT=RAW
     "var logistics=card('ЖД / исполнение'),rx=railsFor(d.deal_id),rr=rx[0]||null;if(!rr)logistics.append(el('div','rona-owner-muted','ЖД-состояние по сделке ещё не сформировано.'));else{logistics.append(detailRow('Состояние ЖД',pill(String(rr.rail_state||'NOT_STARTED'),String(rr.rail_state||'')==='WAGONS_ACTIVE'?'success':String(rr.route_resolution_state||'')==='RESOLVED'?'info':'neutral')),detailRow('Маршрут',String(rr.origin_esr_code||'—')+' → '+String(rr.destination_esr_code||'—')),detailRow('ГУ-12',Number(rr.gu12_count||0)?String(rr.gu12_count):'Не назначена'),detailRow('Вагоны',String(Number(rr.wagon_count||0))));if(rr.latest_station_name)logistics.append(detailRow('Последняя станция',String(rr.latest_station_name)+(rr.latest_station_code?' ('+rr.latest_station_code+')':'')));if(rr.latest_operation)logistics.append(detailRow('Последняя операция',String(rr.latest_operation)));if(rr.latest_movement_at)logistics.append(detailRow('Последнее движение',String(rr.latest_movement_at)));var docsRail=Array.isArray(rr.gu12_documents)?rr.gu12_documents:[];docsRail.forEach(function(g){logistics.append(detailRow('ГУ-12 №',String(g.gu12Number||g.documentNumber||g.railDocumentId||'—')))});}logistics.append(detailRow('Исполнение',pill(String(d.business_status||'—'),'info')),detailRow('Управленческий статус',statusPill(overall(d))));"
   )
   .replace(
+    "function financeNeedsAction(d){var fs=String(d&&d.finance_status||'').toUpperCase();return String(d&&d.cancellation_state||'').toUpperCase()==='FINANCIAL_HOLD'||['OVERDUE','DISPUTED'].includes(fs)||String(d&&d.payment_handoff_state||'').toUpperCase()==='FAILED'}",
+    "function financeNeedsAction(d){if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false;var fs=String(d&&d.finance_status||'').toUpperCase();return String(d&&d.cancellation_state||'').toUpperCase()==='FINANCIAL_HOLD'||['OVERDUE','DISPUTED'].includes(fs)||String(d&&d.payment_handoff_state||'').toUpperCase()==='FAILED'}"
+  )
+  .replace(
     "function contractNeedsAction(d){var s=String(d&&d.contract_status||'').toUpperCase();return contractConflict(d)||(s&&!['ACTIVE','SIGNED','EFFECTIVE'].includes(s))}",
     "function contractNeedsAction(d){var s=String(d&&d.contract_status||'').toUpperCase();return contractConflict(d)||!['ACTIVE','SIGNED','EFFECTIVE'].includes(s)}"
   )
@@ -73,8 +77,12 @@ const SCRIPT=RAW
     "function readiness(d){var id=d&&d.deal_id,add=docKind(id,'ADDENDUM'),inv=docKind(id,'INVOICE'),signed=docKind(id,'SIGNED_ADDENDUM'),finance=d&&d.obligation_amount!==null&&d.obligation_amount!==undefined&&String(d.finance_currency||'').trim()!=='';return{ready:!!(d&&d.product_confirmed_at&&d.quantity_confirmed_at&&(add||signed)&&inv&&signed&&!contractConflict(d)),add:add,inv:inv,signed:signed,finance:finance}}"
   )
   .replace(
+    "var send=button(String(d.payment_handoff_state||'')==='SENT'?'Передано в оплату':'Отправить в оплату','rona-current-deal-primary',function(){sendToPayments(d.deal_id)});",
+    "var inFinance=String(d.finance_projection_version||'').toUpperCase()==='FINANCE_V8',send=button(inFinance?'В платежном контуре':String(d.payment_handoff_state||'')==='SENT'?'Передано в оплату':'Отправить в оплату','rona-current-deal-primary',function(){sendToPayments(d.deal_id)});"
+  )
+  .replace(
     "send.disabled=!r.ready||String(d.payment_handoff_state||'')==='SENT';",
-    "send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||paymentAlreadySettled(d);"
+    "send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||String(d.finance_projection_version||'').toUpperCase()==='FINANCE_V8'||paymentAlreadySettled(d);"
   )
   .replace(
     "if(!r.ready&&isActive(d))documents.append(el('div','rona-current-deal-note','Передача в оплату доступна после подтверждения продукта и объёма, комплекта документов и финансового обязательства.'));",
@@ -123,7 +131,9 @@ if(!SCRIPT.includes("return structuralIssue(d)||needsPaymentHandoffAction(d)"))t
 if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
 if(!SCRIPT.includes("function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}"))throw new Error('DEALS_CLIENT_SIGNED_ADDENDUM_STATUS_SOURCE_MISSING');
 if(!SCRIPT.includes("if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'"))throw new Error('DEALS_STRUCTURAL_GO_HOLD_RULE_MISSING');
-if(!SCRIPT.includes("send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||paymentAlreadySettled(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_GO_GATE_MISSING');
+if(!SCRIPT.includes("send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||String(d.finance_projection_version||'').toUpperCase()==='FINANCE_V8'||paymentAlreadySettled(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_GO_GATE_MISSING');
+if(!SCRIPT.includes("if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false"))throw new Error('DEALS_GO_READINESS_FREEZE_AFTER_FINANCE_MISSING');
+if(!SCRIPT.includes("inFinance?'В платежном контуре'"))throw new Error('DEALS_FINANCE_HANDOFF_REPLAY_GUARD_MISSING');
 if(!SCRIPT.includes("'Finance · остаток'"))throw new Error('DEALS_FINANCE_REMAINING_HEADER_MISSING');
 if(!SCRIPT.includes("window.dispatchEvent(new CustomEvent('rona:deals-current-state'"))throw new Error('DEALS_CURRENT_STATE_EVENT_MISSING');
 if(!SCRIPT.includes("window.__RONA_DEALS_CURRENT_STATE_REFRESH__=function(){return refresh(true)}"))throw new Error('DEALS_CURRENT_STATE_REFRESH_BRIDGE_MISSING');
