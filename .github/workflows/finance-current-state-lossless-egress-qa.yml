@@ -1,0 +1,28 @@
+name: Finance current-state lossless egress QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'tests/role-state/finance-current-state-lossless-egress-v1.test.mjs'
+      - '.github/workflows/finance-current-state-lossless-egress-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Validate gateway syntax
+        run: node --check supabase/functions/rona-mcp-gateway/index.ts
+      - name: Lock Finance current-state lossless transport contract
+        run: node --test tests/role-state/finance-current-state-lossless-egress-v1.test.mjs
