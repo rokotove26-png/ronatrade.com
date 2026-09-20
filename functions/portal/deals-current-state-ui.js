@@ -127,8 +127,13 @@ const SCRIPT=RAW
   .replace(
     "function start(){ensureStyle();installDealsLayoutV15();bindNavigation();var mounted=false",
     "function start(){ensureStyle();installDealsLayoutV15();bindNavigation();window.__RONA_DEALS_CURRENT_STATE_REFRESH__=function(){return refresh(true)};var mounted=false"
+  )
+  .replace(
+    "refresh(true);setInterval(function(){refresh(false)},15000)",
+    "window.__RONA_DEALS_CURRENT_REFRESH_MODE__='ON_DEMAND_NO_INTERVAL_V1';refresh(true)"
   );
 
+if(SCRIPT.includes("setInterval(function(){refresh(false)},15000)"))throw new Error('DEALS_LEGACY_15S_POLLING_REMAINS');
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
 if(!SCRIPT.includes("if(projection==='FINANCE_V8')return due!==null&&due>0"))throw new Error('DEALS_FINANCE_V8_DUE_NOW_RULE_MISSING');
 if(!SCRIPT.includes("api('/admin/deals-current-v4')"))throw new Error('DEALS_CURRENT_V4_ENDPOINT_MISSING');
@@ -160,4 +165,4 @@ if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'operations-live-refresh-v1','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'on-demand-no-interval-v1','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1'}})}
