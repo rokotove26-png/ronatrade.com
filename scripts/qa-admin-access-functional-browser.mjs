@@ -16,6 +16,9 @@ const deleteUserId='11111111-1111-4111-8111-111111111111';
 let uploadRequests=0;
 let deleteRequests=0;
 let deleted=false;
+let impersonationStartRequests=0;
+let impersonationStartPayload=null;
+const impersonationSessionId='22222222-2222-4222-8222-222222222222';
 const authority=()=>({
   contracts:[{contractId,id:contractId,clientId,contractStatus:'ACTIVE',status:'ACTIVE',companyName:'QA Client LLC',externalContractNumber:'QA-001'}],
   signedContractGate:{contracts:[{contractId,clientId,bilateralSignedConfirmed:pdfReady,serverConfirmed:pdfReady,documentId:pdfReady?'DOC-QA-001':''}]},
@@ -53,6 +56,15 @@ const server=http.createServer(async(req,res)=>{
   if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/bootstrap')return json(res,{ok:true,data:business});
   if(u.pathname==='/portal/owner-api'&&u.searchParams.get('path')==='/admin/access-workspace')return json(res,{ok:true,data:{users:deleted?[]:[{id:deleteUserId,name:'QA Delete User',login:'qa.delete.user',role:'Клиент',status:'ACTIVE',bindings:[{id:'BIND-QA-DELETE',company:'QA Client LLC',clientId,contractId,status:'ACTIVE',representationRole:'Уполномоченный представитель',rights:'ALL_CONTRACT_DEALS',kind:'CLIENT_CONTRACT'}]}],events:[],rightsModel:{clientRoles:['Уполномоченный представитель','Директор','Бухгалтер','Логистика']}}});
   if(u.pathname==='/portal/admin-authority/bootstrap')return json(res,{ok:true,data:authority()});
+  if(req.method==='GET'&&u.pathname===`/portal/admin-authority/impersonation/targets/company/${encodeURIComponent(clientId)}`){
+    return json(res,{ok:true,data:{kind:'COMPANY',entityId:clientId,users:[],subjectMode:'ADMIN_ENTITY',canImpersonate:true}})
+  }
+  if(req.method==='POST'&&u.pathname==='/portal/admin-authority/impersonation/start'){
+    const body=await readBody(req);let payload={};try{payload=JSON.parse(body.toString('utf8'))}catch{return json(res,{ok:false,code:'INVALID_JSON'},400)}
+    impersonationStartRequests++;impersonationStartPayload=payload;
+    return json(res,{ok:true,data:{impersonation:{id:impersonationSessionId,expiresAt:new Date(Date.now()+600000).toISOString()},targetPath:'/portal/client'}})
+  }
+  if(u.pathname==='/portal/client')return send(res,200,'<!doctype html><title>QA Client Cabinet</title><h1>QA Client Cabinet</h1>','text/html; charset=utf-8');
   if(req.method==='POST'&&u.pathname===`/portal/admin-authority/contracts/${encodeURIComponent(contractId)}/signed-document/attach`){
     const body=await readBody(req);uploadRequests++;
     if(!String(req.headers['content-type']||'').includes('multipart/form-data'))return json(res,{ok:false,code:'PDF_TYPE_INVALID'},400);
@@ -137,10 +149,28 @@ try{
   assert(deleteRequests===1,'expected one delete request');
   assert(await page.getByText('QA Delete User',{exact:true}).count()===0,'deleted user remained in access workspace');
 
+  const handoffPage=await context.newPage();
+  await handoffPage.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
+  await handoffPage.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-impersonation-json-v8-20260920'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
+  await handoffPage.getByRole('button',{name:'⋯ Опции'}).first().click();
+  const optionsModal=handoffPage.locator('.ca-modal-backdrop').last();
+  await optionsModal.waitFor({state:'visible'});
+  assert((await optionsModal.innerText()).includes('административном режиме просмотра'),'Company ADMIN_ENTITY preview must be available');
+  await Promise.all([
+    handoffPage.waitForURL(url=>url.pathname==='/portal/client'&&url.searchParams.get('impSession')===impersonationSessionId,{timeout:10000}),
+    optionsModal.getByRole('button',{name:'Войти в кабинет'}).click()
+  ]);
+  assert(impersonationStartRequests===1,'browser must call impersonation start exactly once');
+  assert(impersonationStartPayload?.kind==='COMPANY','browser impersonation kind mismatch');
+  assert(impersonationStartPayload?.entityId===clientId,'browser impersonation entity mismatch');
+  assert(impersonationStartPayload?.targetPortalUserId===null,'ADMIN_ENTITY handoff must not fabricate a Portal user');
+  await handoffPage.close();
+
   assert(errors.length===0,'browser errors: '+errors.join(' | '));
   console.log('ADMIN_ACCESS_DELETE_USER_UI=PASS');
   console.log('ADMIN_ACCESS_DELETE_USER_AUTH_CONTRACT=PASS');
+  console.log('ADMIN_ACCESS_IMPERSONATION_JSON_BROWSER=PASS');
   console.log('ADMIN_ACCESS_SINGLE_OWNER_FUNCTIONAL_BROWSER_QA=PASS');
-  console.log(JSON.stringify({uploadRequests,deleteRequests,created:created.map(x=>({role:x.role,login:x.login,email:x.email,phone:x.phone,contractIds:x.contractIds,hasAgentScope:Object.prototype.hasOwnProperty.call(x,'agentScope'),hasInitialPassword:!!x.initialPassword})),errors}));
+  console.log(JSON.stringify({uploadRequests,deleteRequests,impersonationStartRequests,impersonationStartPayload,created:created.map(x=>({role:x.role,login:x.login,email:x.email,phone:x.phone,contractIds:x.contractIds,hasAgentScope:Object.prototype.hasOwnProperty.call(x,'agentScope'),hasInitialPassword:!!x.initialPassword})),errors}));
   await context.close();
 }catch(e){console.error('ADMIN_ACCESS_SINGLE_OWNER_FUNCTIONAL_BROWSER_QA=FAIL',e?.stack||e);process.exitCode=1}finally{if(browser)await browser.close().catch(()=>{});await new Promise(resolve=>server.close(resolve))}
