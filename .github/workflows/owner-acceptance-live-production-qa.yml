@@ -36,6 +36,9 @@ jobs:
           node --check functions/portal/owner-api.js
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/owner-acceptance-api/[[path]].js'
+          node --check assets/g82/portal-home-inline-auth-v2.js
+          node --check scripts/qa-public-home-auth-boundary-browser.mjs
+          node tests/public-home-auth-boundary.test.mjs
           test ! -e functions/portal/client.js
           grep -q "import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
           grep -q "x-rona-application-deal-handoff','approved-to-deal-v1" functions/portal/main-ui/index.js
