@@ -64,7 +64,10 @@ jobs:
           const deals=await dealsResponse.text();
           new Function(deals);
           assert.equal(dealsResponse.headers.get('x-rona-deals-event'),'operations-current-state-v1');
+          assert.equal(dealsResponse.headers.get('x-rona-deals-refresh'),'operations-live-refresh-v1');
           assert.match(deals,/window\.dispatchEvent\(new CustomEvent\('rona:deals-current-state'/);
+          assert.match(deals,/window\.__RONA_DEALS_CURRENT_STATE_REFRESH__=function\(\)\{return refresh\(true\)\}/);
+          assert.match(main,/onclick:\(\)=>ronaOpsV5Go\(row\.target,row\.dealId\)/);
           console.log('ADMIN_OPERATIONS_CURRENT_DEAL_CONTOUR=PASS');
           NODE
       - name: Scope guard

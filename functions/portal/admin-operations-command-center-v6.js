@@ -247,6 +247,20 @@ export function patchAdminOperationsCommandCenterV6(script){
 
   patched=replaceRequired(
     patched,
+    "onclick:async()=>{try{await ownerAdminRefreshTick(true);renderAdminHome()}catch(err){window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=String(err?.message||err);renderAdminHome();notify(err?.message||String(err),'Ошибка обновления')}}",
+    "onclick:async()=>{try{const dealRefresh=window.__RONA_DEALS_CURRENT_STATE_REFRESH__;await ownerAdminRefreshTick(true);if(typeof dealRefresh==='function')await dealRefresh();renderAdminHome()}catch(err){window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=String(err?.message||err);renderAdminHome();notify(err?.message||String(err),'Ошибка обновления')}}",
+    'authoritative-deals-refresh'
+  );
+
+  patched=replaceRequired(
+    patched,
+    "row.target?e('button',{class:'rona-fd-v5-event__open',type:'button','aria-label':'Открыть раздел',onclick:()=>adminHomeNavigate(row.target),text:'›'})",
+    "row.target?e('button',{class:'rona-fd-v5-event__open',type:'button','aria-label':'Открыть раздел',onclick:()=>ronaOpsV5Go(row.target,row.dealId),text:'›'})",
+    'master-queue-deal-deeplink'
+  );
+
+  patched=replaceRequired(
+    patched,
     "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button',onclick:()=>adminHomeNavigate(target)}",
     "const gauge=(code,label,value,foot,target,tone)=>e('button',{class:'rona-fd-v5-gauge is-'+(tone||'cyan'),type:'button','data-code':code,'aria-label':label+': '+String(value),onclick:()=>adminHomeNavigate(target)}",
     'accessible-gauge'
@@ -264,6 +278,8 @@ export function patchAdminOperationsCommandCenterV6(script){
   if(!patched.includes("deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_READ_MODEL_MISSING');
   if(!patched.includes("const dealActionRows=activeDeals.filter(x=>x?.current_action_required===true)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_ACTION_ROWS_MISSING');
   if(!patched.includes("attentionApps.length+dealActionRows.length+waitingWagons.length"))throw new Error('ADMIN_OPERATIONS_V6_ACTION_KPI_SEPARATION_MISSING');
+  if(!patched.includes("const dealRefresh=window.__RONA_DEALS_CURRENT_STATE_REFRESH__"))throw new Error('ADMIN_OPERATIONS_V6_AUTHORITATIVE_REFRESH_MISSING');
+  if(!patched.includes("onclick:()=>ronaOpsV5Go(row.target,row.dealId)"))throw new Error('ADMIN_OPERATIONS_V6_QUEUE_DEEPLINK_MISSING');
   if(patched.includes("attentionApps.length+paymentControl.length+waitingWagons.length"))throw new Error('ADMIN_OPERATIONS_V6_PAYMENT_MONITORING_DOUBLE_COUNT');
   if(!patched.includes("'data-rona-color-network':'v6'"))throw new Error('ADMIN_OPERATIONS_V6_DOM_MARKER_MISSING');
   if(!patched.includes("'NET-07','Клиенты в сети'")||!patched.includes("'NET-08','Агенты в сети'"))throw new Error('ADMIN_OPERATIONS_V6_NETWORK_INDICATORS_MISSING');
