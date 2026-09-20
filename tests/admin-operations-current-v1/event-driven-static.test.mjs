@@ -35,14 +35,17 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7/V8/V8.1/V8.2 baselines under V8.3 action router',()=>{
+test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3 baselines under V8.4 complete scroll',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
   const v82=read('functions/portal/admin-operations-command-center-v8-2.js');
   const v83=read('functions/portal/admin-operations-command-center-v8-3.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV83/);
-  assert.match(main,/admin-operations-command-center-v8-3\.js/);
+  const v84=read('functions/portal/admin-operations-command-center-v8-4.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV84/);
+  assert.match(main,/admin-operations-command-center-v8-4\.js/);
+  assert.match(v84,/patchAdminOperationsCommandCenterV83 as patchV83/);
+  assert.match(v84,/let patched=patchV83\(script\)/);
   assert.match(v83,/patchAdminOperationsCommandCenterV82 as patchV82/);
   assert.match(v83,/let patched=patchV82\(script\)/);
   assert.match(v82,/patchAdminOperationsCommandCenterV81 as patchV81/);
@@ -166,4 +169,18 @@ test('V8.3 routes actionable queue rows into exact operational context without b
   assert.match(v83,/OPERATIONS_ACTION_ROUTER_V1/);
   assert.match(v83,/ADMIN_OPERATIONS_V83_POLLING_FORBIDDEN/);
   assert.doesNotMatch(v83,/\b(update|insert|delete|submit|mutate)\s*\(/i);
+});
+
+
+test('V8.4 removes artificial row caps while preserving scroll containers',()=>{
+  const v84=read('functions/portal/admin-operations-command-center-v8-4.js');
+  const base=read('functions/portal/admin-operations-command-center-v4-base.js');
+  assert.match(v84,/activeDeals\.slice\(0,10\)/);
+  assert.match(v84,/queueVisible\.slice\(0,9\)/);
+  assert.match(v84,/if\(activeDeals\.length\)\{for\(const x of activeDeals\)\{/);
+  assert.match(v84,/if\(queueVisible\.length\)\{for\(const row of queueVisible\)/);
+  assert.match(base,/rona-fd-v5-list\{max-height:/);
+  assert.match(base,/rona-fd-v5-queue\{max-height:/);
+  assert.match(v84,/OPERATIONS_COMPLETE_SCROLL_V1/);
+  assert.match(v84,/ADMIN_OPERATIONS_V84_POLLING_FORBIDDEN/);
 });
