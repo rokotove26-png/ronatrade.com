@@ -1,0 +1,1722 @@
+[
+  {
+    "version": "20260811175445",
+    "name": "create_market_news_sync_layer"
+  },
+  {
+    "version": "20260811235214",
+    "name": "create_rona_mail_bridge_tables_v0_1"
+  },
+  {
+    "version": "20260811235650",
+    "name": "enable_pg_net_for_mail_bridge_tests"
+  },
+  {
+    "version": "20260812000003",
+    "name": "create_private_mail_setup_tokens"
+  },
+  {
+    "version": "20260812001728",
+    "name": "create_mail_bridge_internal_token"
+  },
+  {
+    "version": "20260812001740",
+    "name": "create_mail_bridge_internal_invoker"
+  },
+  {
+    "version": "20260812002118",
+    "name": "schedule_mail_inbox_sync"
+  },
+  {
+    "version": "20260812002202",
+    "name": "extend_mail_bridge_invoker_payload"
+  },
+  {
+    "version": "20260812010900",
+    "name": "create_secretary_readonly_mail_sql_gateway"
+  },
+  {
+    "version": "20260812014007",
+    "name": "enable_secretary_approved_outbound_mail"
+  },
+  {
+    "version": "20260812014230",
+    "name": "add_executive_director_approved_mail_send"
+  },
+  {
+    "version": "20260812015044",
+    "name": "add_accounting_mail_outbound_functions"
+  },
+  {
+    "version": "20260812092244",
+    "name": "create_correspondence_register"
+  },
+  {
+    "version": "20260812161315",
+    "name": "add_analyst_role_mailbox_functions"
+  },
+  {
+    "version": "20260812161756",
+    "name": "role_mailboxes_operational_bridge_v1"
+  },
+  {
+    "version": "20260812161806",
+    "name": "connect_accounting_finance_mailbox"
+  },
+  {
+    "version": "20260812161915",
+    "name": "schedule_accounting_finance_mail_sync"
+  },
+  {
+    "version": "20260812161924",
+    "name": "role_mailboxes_public_access_wrappers_v1"
+  },
+  {
+    "version": "20260812162132",
+    "name": "harden_accounting_mail_access_and_remove_duplicate_sync"
+  },
+  {
+    "version": "20260812162514",
+    "name": "fix_role_mail_address_validation"
+  },
+  {
+    "version": "20260812163055",
+    "name": "secure_correspondence_register_rls"
+  },
+  {
+    "version": "20260812170119",
+    "name": "rail_spec_canonical_mail_standard_20260812"
+  },
+  {
+    "version": "20260812170134",
+    "name": "enforce_analyst_canonical_email_signature"
+  },
+  {
+    "version": "20260812170558",
+    "name": "enforce_assistant_cc_on_external_role_mail"
+  },
+  {
+    "version": "20260812170611",
+    "name": "enforce_assistant_cc_on_external_mail"
+  },
+  {
+    "version": "20260812170635",
+    "name": "enforce_assistant_cc_on_external_role_mail"
+  },
+  {
+    "version": "20260812172709",
+    "name": "add_rail_spec_internal_mail_send"
+  },
+  {
+    "version": "20260812200820",
+    "name": "fix_analyst_internal_mail_domain_validation_20260812"
+  },
+  {
+    "version": "20260812215302",
+    "name": "backend_g5_phase2_restrict_secdef_rpc_execute"
+  },
+  {
+    "version": "20260812232845",
+    "name": "portal_phase3_01_schema_base"
+  },
+  {
+    "version": "20260812232859",
+    "name": "portal_phase3_02_iam"
+  },
+  {
+    "version": "20260812232916",
+    "name": "portal_phase3_03_clients_contracts_deals"
+  },
+  {
+    "version": "20260812232931",
+    "name": "portal_phase3_04_access_bindings"
+  },
+  {
+    "version": "20260812232950",
+    "name": "portal_phase3_05_agents"
+  },
+  {
+    "version": "20260812233007",
+    "name": "portal_phase3_06_documents"
+  },
+  {
+    "version": "20260812233024",
+    "name": "portal_phase3_07_payments"
+  },
+  {
+    "version": "20260812233043",
+    "name": "portal_phase3_08_logistics"
+  },
+  {
+    "version": "20260812233057",
+    "name": "portal_phase3_09_applications"
+  },
+  {
+    "version": "20260812233118",
+    "name": "portal_phase3_10_publications_news_analytics"
+  },
+  {
+    "version": "20260812233133",
+    "name": "portal_phase3_11_agent_settlements"
+  },
+  {
+    "version": "20260812233155",
+    "name": "portal_phase3_12_imports_audit"
+  },
+  {
+    "version": "20260812233219",
+    "name": "portal_phase3_13_grants_security"
+  },
+  {
+    "version": "20260812234439",
+    "name": "movizor_rail_architecture_foundation"
+  },
+  {
+    "version": "20260812235236",
+    "name": "portal_phase4_auth_activation"
+  },
+  {
+    "version": "20260812235312",
+    "name": "portal_phase4_storage_foundation"
+  },
+  {
+    "version": "20260812235348",
+    "name": "portal_phase4_server_api_foundation"
+  },
+  {
+    "version": "20260812235415",
+    "name": "portal_phase4_movizor_runtime_gate"
+  },
+  {
+    "version": "20260813000351",
+    "name": "portal_phase4_session_gate_hardening"
+  },
+  {
+    "version": "20260813001233",
+    "name": "portal_phase4_rls_defense_in_depth_closure"
+  },
+  {
+    "version": "20260813001933",
+    "name": "portal_phase4_rls_restrictive_server_policy_closure"
+  },
+  {
+    "version": "20260813130116",
+    "name": "rail_spec_external_signature_add_official_website_20260813"
+  },
+  {
+    "version": "20260813144408",
+    "name": "accounting_mail_attachment_outbox_20260813"
+  },
+  {
+    "version": "20260813144509",
+    "name": "accounting_mail_attachment_outbox_relax_grant_20260813"
+  },
+  {
+    "version": "20260813144549",
+    "name": "accounting_attachment_noop_20260813"
+  },
+  {
+    "version": "20260813144558",
+    "name": "accounting_attachment_noop2_20260813"
+  },
+  {
+    "version": "20260813145010",
+    "name": "accounting_attachment_staging_rpcs_20260813"
+  },
+  {
+    "version": "20260813151311",
+    "name": "accounting_attachment_stage_append_encoded"
+  },
+  {
+    "version": "20260813151907",
+    "name": "invoke_accounting_payment_task_generator"
+  },
+  {
+    "version": "20260813171824",
+    "name": "add_accounting_statement_intake_invoker"
+  },
+  {
+    "version": "20260813180011",
+    "name": "analyst_external_signature_ronaoil_site"
+  },
+  {
+    "version": "20260813181030",
+    "name": "agent_business_identity_decoupling_pre_auth"
+  },
+  {
+    "version": "20260813190556",
+    "name": "phase5b_application_source_price_mode"
+  },
+  {
+    "version": "20260813190648",
+    "name": "phase5b_application_submission_state_column"
+  },
+  {
+    "version": "20260813190657",
+    "name": "phase5b_application_submission_constraint"
+  },
+  {
+    "version": "20260813192005",
+    "name": "phase5b_market_source_semantics_columns"
+  },
+  {
+    "version": "20260813192023",
+    "name": "phase5b_internal_publication_constraints"
+  },
+  {
+    "version": "20260813192145",
+    "name": "phase5b_internal_forecast_items"
+  },
+  {
+    "version": "20260813213658",
+    "name": "portal_phase5c_reverse_event_foundation"
+  },
+  {
+    "version": "20260813220458",
+    "name": "phase5c_reverse_event_authorization"
+  },
+  {
+    "version": "20260813221011",
+    "name": "phase5c_qa_fixture_cleanup_v2"
+  },
+  {
+    "version": "20260814093837",
+    "name": "update_rail_spec_external_signature_full_name"
+  },
+  {
+    "version": "20260814195213",
+    "name": "phase5d_staff_iam_workspace"
+  },
+  {
+    "version": "20260814195249",
+    "name": "phase5d_canonical_delta_exchange"
+  },
+  {
+    "version": "20260814195357",
+    "name": "data_contract_v12_core"
+  },
+  {
+    "version": "20260814195441",
+    "name": "phase5d_publication_client_targets"
+  },
+  {
+    "version": "20260814195532",
+    "name": "data_contract_v12_client_submit"
+  },
+  {
+    "version": "20260814195554",
+    "name": "data_contract_v12_executive_lifecycle"
+  },
+  {
+    "version": "20260814195621",
+    "name": "data_contract_v12_supplier_resource"
+  },
+  {
+    "version": "20260814195646",
+    "name": "phase5d_reverse_events_read_model"
+  },
+  {
+    "version": "20260814195701",
+    "name": "phase5d_security_grants"
+  },
+  {
+    "version": "20260814195709",
+    "name": "pre_g6_accounting_outbox_rls"
+  },
+  {
+    "version": "20260814200222",
+    "name": "data_contract_v12_applied_delta_atomicity"
+  },
+  {
+    "version": "20260814201358",
+    "name": "phase5d_runtime_indexes"
+  },
+  {
+    "version": "20260814201515",
+    "name": "phase5d_system_admin_event_ack"
+  },
+  {
+    "version": "20260814212137",
+    "name": "phase5d_staff_audit_actor_role_bridge"
+  },
+  {
+    "version": "20260815235858",
+    "name": "owner_password_change_gate"
+  },
+  {
+    "version": "20260816000010",
+    "name": "owner_bootstrap_runtime_secret"
+  },
+  {
+    "version": "20260817122510",
+    "name": "staff_task_write_audit_events"
+  },
+  {
+    "version": "20260817125955",
+    "name": "portal_reverse_event_submission_audit"
+  },
+  {
+    "version": "20260818011426",
+    "name": "20260818_ai_read_only_contour"
+  },
+  {
+    "version": "20260818013422",
+    "name": "mcp_role_bound_gateway_20260818"
+  },
+  {
+    "version": "20260818114750",
+    "name": "20260818_mcp_single_click_consent_continuation"
+  },
+  {
+    "version": "20260818160904",
+    "name": "phase_2b2_controlled_write_interrole_foundation"
+  },
+  {
+    "version": "20260818171749",
+    "name": "mcp_oauth_refresh_rotation_family"
+  },
+  {
+    "version": "20260818192557",
+    "name": "operations_write_pilot_connector"
+  },
+  {
+    "version": "20260818203701",
+    "name": "all_business_role_coordinate_pilots"
+  },
+  {
+    "version": "20260818231826",
+    "name": "mcp_refresh_session_sliding_180d_v1"
+  },
+  {
+    "version": "20260818232326",
+    "name": "mcp_oauth_persistent_refresh_sessions"
+  },
+  {
+    "version": "20260818233224",
+    "name": "mcp_refresh_trigger_dedup"
+  },
+  {
+    "version": "20260819011055",
+    "name": "client_binding_signed_contract_gate_alignment"
+  },
+  {
+    "version": "20260819015943",
+    "name": "admin_portal_client_onboarding_metadata"
+  },
+  {
+    "version": "20260819021005",
+    "name": "admin_onboarding_server_helpers"
+  },
+  {
+    "version": "20260819202009",
+    "name": "admin_client_open_without_contract_pending_binding"
+  },
+  {
+    "version": "20260819202735",
+    "name": "admin_pending_company_binding_audit_materialization_and_promotion"
+  },
+  {
+    "version": "20260819203311",
+    "name": "admin_pending_company_binding_mirror_and_promotion_fix"
+  },
+  {
+    "version": "20260821210358",
+    "name": "owner_acceptance_business_workflow"
+  },
+  {
+    "version": "20260821210410",
+    "name": "owner_acceptance_business_views"
+  },
+  {
+    "version": "20260821222948",
+    "name": "owner_acceptance_price_publication_flags"
+  },
+  {
+    "version": "20260822202857",
+    "name": "ai_staff_communication_runtime_v1_2"
+  },
+  {
+    "version": "20260822203115",
+    "name": "ai_staff_communication_runtime_ack_v1_2"
+  },
+  {
+    "version": "20260822204402",
+    "name": "ai_staff_runtime_wakeup_backpressure_v1_2_1"
+  },
+  {
+    "version": "20260822205028",
+    "name": "ai_staff_runtime_db_native_v1_2_2"
+  },
+  {
+    "version": "20260822213822",
+    "name": "lk_ai_materialization_v1_3"
+  },
+  {
+    "version": "20260822223117",
+    "name": "client_shipment_access_authority_hardening_20260823"
+  },
+  {
+    "version": "20260822223427",
+    "name": "client_deal_projection_internal_status_hardening_20260823"
+  },
+  {
+    "version": "20260822225725",
+    "name": "rona_voice_gateway_v1"
+  },
+  {
+    "version": "20260822231736",
+    "name": "rona_voice_plivo_adapter_v1_1"
+  },
+  {
+    "version": "20260822232809",
+    "name": "rona_voice_twilio_adapter_v1_2"
+  },
+  {
+    "version": "20260823000132",
+    "name": "c002_signed_contract_asset_reconcile_v4_20260823"
+  },
+  {
+    "version": "20260823000227",
+    "name": "c002_signed_contract_storage_relink_20260823"
+  },
+  {
+    "version": "20260823000256",
+    "name": "c003_client_filename_neutralization_20260823"
+  },
+  {
+    "version": "20260823000348",
+    "name": "c002_duplicate_contract_document_cleanup_20260823"
+  },
+  {
+    "version": "20260823001603",
+    "name": "rona_voice_zadarma_kg_v1_3"
+  },
+  {
+    "version": "20260823004512",
+    "name": "add_canonical_prospect_exclusions"
+  },
+  {
+    "version": "20260823011036",
+    "name": "restore_canonical_prospect_registry_20260823"
+  },
+  {
+    "version": "20260823011835",
+    "name": "canonical_prospect_enrichment_afghanistan_20260823"
+  },
+  {
+    "version": "20260823011911",
+    "name": "extend_canonical_prospect_research_statuses_20260823"
+  },
+  {
+    "version": "20260823012243",
+    "name": "afghan_prospect_operational_views_20260823"
+  },
+  {
+    "version": "20260823012509",
+    "name": "ai_model_executor_foundation_v1_3"
+  },
+  {
+    "version": "20260823012614",
+    "name": "ai_model_executor_commit_gate_v1_3"
+  },
+  {
+    "version": "20260823022513",
+    "name": "ai_model_executor_groq_provider_v1_4"
+  },
+  {
+    "version": "20260823022520",
+    "name": "ai_model_executor_groq_provider_v1_4"
+  },
+  {
+    "version": "20260823022529",
+    "name": "ai_model_executor_groq_provider_v1_4_runtime_marker"
+  },
+  {
+    "version": "20260823022536",
+    "name": "ai_model_executor_groq_provider_v1_4_runtime_control_safety"
+  },
+  {
+    "version": "20260823022544",
+    "name": "ai_model_executor_groq_provider_v1_4_noop_guard"
+  },
+  {
+    "version": "20260823022550",
+    "name": "ai_model_executor_groq_provider_v1_4_noop_guard_2"
+  },
+  {
+    "version": "20260823022557",
+    "name": "ai_model_executor_groq_provider_v1_4_noop_guard_3"
+  },
+  {
+    "version": "20260823034216",
+    "name": "commercial_director_appointment"
+  },
+  {
+    "version": "20260823132921",
+    "name": "archive_application_after_deal_registration_20260823"
+  },
+  {
+    "version": "20260823133138",
+    "name": "single_current_deal_document_kind_20260823"
+  },
+  {
+    "version": "20260823142259",
+    "name": "owner_finance_fragment_1a_projection"
+  },
+  {
+    "version": "20260823161429",
+    "name": "owner_deal_r1_workflow_state"
+  },
+  {
+    "version": "20260823161539",
+    "name": "owner_deal_r1_document_replace_audit"
+  },
+  {
+    "version": "20260823161603",
+    "name": "owner_deal_r1_client_document_state"
+  },
+  {
+    "version": "20260823161957",
+    "name": "owner_deal_r1_rpc_workflow"
+  },
+  {
+    "version": "20260823162055",
+    "name": "owner_deal_r1_single_active_document_trigger"
+  },
+  {
+    "version": "20260823162356",
+    "name": "owner_deal_r1_addendum_resign_gate"
+  },
+  {
+    "version": "20260823162408",
+    "name": "owner_deal_r1_payment_document_gates"
+  },
+  {
+    "version": "20260823162743",
+    "name": "owner_deal_r1_application_cancel_consistency"
+  },
+  {
+    "version": "20260823162810",
+    "name": "owner_deal_r1_application_workflow_cancel_status"
+  },
+  {
+    "version": "20260823162911",
+    "name": "owner_deal_r1_cancel_handoff_constraint"
+  },
+  {
+    "version": "20260823162945",
+    "name": "owner_deal_r1_financial_hold_allowed_status"
+  },
+  {
+    "version": "20260823163023",
+    "name": "owner_deal_r1_ai_event_routing"
+  },
+  {
+    "version": "20260823163116",
+    "name": "owner_deal_r1_payment_plan_expected_status"
+  },
+  {
+    "version": "20260823163208",
+    "name": "fix_existing_single_current_document_trigger"
+  },
+  {
+    "version": "20260823173405",
+    "name": "owner_r1_2_normalized_deal_producer_projection"
+  },
+  {
+    "version": "20260823173441",
+    "name": "owner_r1_2_deal_view_producer_projection"
+  },
+  {
+    "version": "20260823194327",
+    "name": "telegram_market_ingest_v1"
+  },
+  {
+    "version": "20260823210329",
+    "name": "archive_cancelled_applications_from_active_projection"
+  },
+  {
+    "version": "20260823213454",
+    "name": "deals_current_projection_rail"
+  },
+  {
+    "version": "20260824165149",
+    "name": "owner_canonical_document_standard_v1"
+  },
+  {
+    "version": "20260824172102",
+    "name": "owner_analytics_publication_gate"
+  },
+  {
+    "version": "20260824182450",
+    "name": "market_news_internal_publication_bridge_v1"
+  },
+  {
+    "version": "20260824182935",
+    "name": "public_market_news_ingest_audit_v1"
+  },
+  {
+    "version": "20260824210001",
+    "name": "owner_claims_legal_workflow"
+  },
+  {
+    "version": "20260824214433",
+    "name": "owner_claims_bidirectional"
+  },
+  {
+    "version": "20260824233922",
+    "name": "owner_analytics_bootstrap_market_news_feed"
+  },
+  {
+    "version": "20260825151326",
+    "name": "admin_prices_ops_current_workspace"
+  },
+  {
+    "version": "20260825154148",
+    "name": "owner_price_update_gate_v1"
+  },
+  {
+    "version": "20260825154453",
+    "name": "add_spbt_campaign_invoker_20260825"
+  },
+  {
+    "version": "20260825154614",
+    "name": "owner_price_update_gate_anon_hardening"
+  },
+  {
+    "version": "20260825154706",
+    "name": "owner_price_update_gate_indexes"
+  },
+  {
+    "version": "20260825155544",
+    "name": "owner_prices_owner_approval_current_v2"
+  },
+  {
+    "version": "20260825155716",
+    "name": "add_spbt_campaign_sync_runner_20260825"
+  },
+  {
+    "version": "20260825160725",
+    "name": "remove_spbt_campaign_temp_helpers_20260825"
+  },
+  {
+    "version": "20260825170130",
+    "name": "owner_price_update_rpc_anon_hardening_v3"
+  },
+  {
+    "version": "20260825171142",
+    "name": "fix_owner_price_updates_bootstrap_document_projection"
+  },
+  {
+    "version": "20260825181331",
+    "name": "support_owner_approval_for_new_price_route_rows"
+  },
+  {
+    "version": "20260825183819",
+    "name": "owner_agent_cp_pdf_delivery_v1"
+  },
+  {
+    "version": "20260825184641",
+    "name": "owner_agent_cp_private_storage_delivery_v2"
+  },
+  {
+    "version": "20260825185118",
+    "name": "agent_cp_upload_staging_once"
+  },
+  {
+    "version": "20260825192359",
+    "name": "agent_cp_owner_gate_current_projection_20260825"
+  },
+  {
+    "version": "20260825192411",
+    "name": "agent_cp_owner_gate_staged_pdf_20260825"
+  },
+  {
+    "version": "20260825192422",
+    "name": "prices_cp_current_only_projection_20260825"
+  },
+  {
+    "version": "20260825201953",
+    "name": "fix_agent_cp_preview_pgcrypto_digest_schema"
+  },
+  {
+    "version": "20260825210423",
+    "name": "bind_agent_cp_preview_asset_to_coordination_record"
+  },
+  {
+    "version": "20260825221149",
+    "name": "limit_postgres_idle_sessions_for_edge_pool_resilience"
+  },
+  {
+    "version": "20260825225617",
+    "name": "agent_cp_direct_source_storage_preview_v1"
+  },
+  {
+    "version": "20260825235010",
+    "name": "remove_agent_cp_pdf_flow_use_standard_agent_price_list"
+  },
+  {
+    "version": "20260826144757",
+    "name": "owner_access_workspace_bootstrap_v1"
+  },
+  {
+    "version": "20260826145643",
+    "name": "owner_access_workspace_history_hygiene_v2"
+  },
+  {
+    "version": "20260826173826",
+    "name": "ai_runtime_technical_feedback_loop_guard_20260826"
+  },
+  {
+    "version": "20260826174825",
+    "name": "mcp_oauth_completion_idempotency_v2_20260826"
+  },
+  {
+    "version": "20260826175852",
+    "name": "ai_model_executor_openai_gpt_5_6_sol_20260826"
+  },
+  {
+    "version": "20260826184016",
+    "name": "ai_model_executor_groq_free_restore_20260826"
+  },
+  {
+    "version": "20260826184240",
+    "name": "ai_model_executor_technical_settlement_v1_6_1_20260826"
+  },
+  {
+    "version": "20260826222408",
+    "name": "ai_runtime_settle_pre_executor_legacy_queue_v2_20260827"
+  },
+  {
+    "version": "20260826222413",
+    "name": "staff_role_add_operations_director_20260827"
+  },
+  {
+    "version": "20260826222423",
+    "name": "canonical_operations_staff_routing_20260827"
+  },
+  {
+    "version": "20260826222449",
+    "name": "reconcile_closed_deal003_reverse_event_20260827"
+  },
+  {
+    "version": "20260826222907",
+    "name": "add_ai_commercial_director_role"
+  },
+  {
+    "version": "20260826223131",
+    "name": "ai_runtime_function_search_path_hardening_20260827"
+  },
+  {
+    "version": "20260826231655",
+    "name": "normalize_operations_director_legacy_role_sources"
+  },
+  {
+    "version": "20260826232314",
+    "name": "market_news_auto_all_lk_v11_schema"
+  },
+  {
+    "version": "20260826232339",
+    "name": "market_news_auto_all_lk_v11_archive_window_fix"
+  },
+  {
+    "version": "20260826232357",
+    "name": "market_news_auto_all_lk_v11_backfill"
+  },
+  {
+    "version": "20260826232550",
+    "name": "market_news_all_lk_feed_rpc_v1"
+  },
+  {
+    "version": "20260826233140",
+    "name": "add_staff_commercial_director_role"
+  },
+  {
+    "version": "20260826233205",
+    "name": "cutover_commercial_director_runtime_v11"
+  },
+  {
+    "version": "20260826233503",
+    "name": "commercial_director_runtime_cutover_v2"
+  },
+  {
+    "version": "20260826235119",
+    "name": "allow_commercial_director_executor_handoff"
+  },
+  {
+    "version": "20260826235136",
+    "name": "market_news_version_history_v11"
+  },
+  {
+    "version": "20260826235211",
+    "name": "commercial_director_market_news_upsert_v1"
+  },
+  {
+    "version": "20260826235434",
+    "name": "commercial_director_market_news_hourly_runtime_v1"
+  },
+  {
+    "version": "20260827001223",
+    "name": "final_runtime_and_staff_registry_reconciliation_20260827"
+  },
+  {
+    "version": "20260827002633",
+    "name": "route_commercial_director_market_news_via_read_extras"
+  },
+  {
+    "version": "20260827004801",
+    "name": "commercial_director_market_news_production_completion_v1_2"
+  },
+  {
+    "version": "20260827004850",
+    "name": "commercial_director_market_news_v1_2_sequence_sync"
+  },
+  {
+    "version": "20260827004937",
+    "name": "commercial_director_market_news_v1_2_selftest_auth_fix"
+  },
+  {
+    "version": "20260827021609",
+    "name": "owner_analytics_bootstrap_current_verified_v1"
+  },
+  {
+    "version": "20260827143243",
+    "name": "enable_open_web_market_ingest"
+  },
+  {
+    "version": "20260827143657",
+    "name": "enable_http_extension_for_market_ingest"
+  },
+  {
+    "version": "20260827143907",
+    "name": "add_db_native_public_market_collector"
+  },
+  {
+    "version": "20260827144247",
+    "name": "accept_serialized_json_market_news_payload"
+  },
+  {
+    "version": "20260827145247",
+    "name": "strengthen_public_market_source_dedup"
+  },
+  {
+    "version": "20260827145341",
+    "name": "add_temporary_market_news_backlog_drain"
+  },
+  {
+    "version": "20260827150302",
+    "name": "market_news_russian_language_gate"
+  },
+  {
+    "version": "20260827151010",
+    "name": "validate_market_news_russian_language_gate"
+  },
+  {
+    "version": "20260828212511",
+    "name": "client_storage_signed_url_id_compat"
+  },
+  {
+    "version": "20260828233851",
+    "name": "owner_price_update_semantic_guard_v4"
+  },
+  {
+    "version": "20260828233945",
+    "name": "repair_price_publication_r6_to_r7"
+  },
+  {
+    "version": "20260829001441",
+    "name": "market_intelligence_auto_contour_v1_schema"
+  },
+  {
+    "version": "20260829001828",
+    "name": "market_intelligence_auto_contour_v1_seed_sources_rules"
+  },
+  {
+    "version": "20260829001845",
+    "name": "market_intelligence_auto_contour_v1_seed_platts_physical"
+  },
+  {
+    "version": "20260829001905",
+    "name": "market_intelligence_auto_contour_v1_seed_current_sources"
+  },
+  {
+    "version": "20260829001945",
+    "name": "market_intelligence_auto_contour_v1_seed_forwards_forecast"
+  },
+  {
+    "version": "20260829002140",
+    "name": "market_intelligence_auto_contour_v1_refresh_publish"
+  },
+  {
+    "version": "20260829002158",
+    "name": "market_intelligence_publication_metadata_support"
+  },
+  {
+    "version": "20260829002222",
+    "name": "analytics_forecast_scenario_regional_indicative"
+  },
+  {
+    "version": "20260829002447",
+    "name": "market_intelligence_source_processor_v1_schema"
+  },
+  {
+    "version": "20260829002600",
+    "name": "market_intelligence_source_processor_use_existing_edge"
+  },
+  {
+    "version": "20260829002734",
+    "name": "market_intelligence_source_processor_slot_alias"
+  },
+  {
+    "version": "20260829003138",
+    "name": "publication_supersede_timestamp_guard"
+  },
+  {
+    "version": "20260829003349",
+    "name": "market_intelligence_auto_forecast_input_snapshots_v1"
+  },
+  {
+    "version": "20260829003425",
+    "name": "market_intelligence_source_fingerprint_dedupe_v1"
+  },
+  {
+    "version": "20260829003521",
+    "name": "analytics_admin_bootstrap_auto_gate_status"
+  },
+  {
+    "version": "20260829003611",
+    "name": "market_intelligence_public_text_russian_gate_v1"
+  },
+  {
+    "version": "20260829004038",
+    "name": "market_intelligence_cbr_fx_collector_v1"
+  },
+  {
+    "version": "20260829004116",
+    "name": "market_intelligence_cbr_fx_collector_v1_fix"
+  },
+  {
+    "version": "20260829004230",
+    "name": "market_intelligence_extended_inputs_and_public_controls_v1"
+  },
+  {
+    "version": "20260829004308",
+    "name": "market_intelligence_watchdog_v1"
+  },
+  {
+    "version": "20260829004335",
+    "name": "market_intelligence_watchdog_v1_fix_ambiguity"
+  },
+  {
+    "version": "20260829005721",
+    "name": "fix_market_intelligence_watchdog_issue_variable"
+  },
+  {
+    "version": "20260829010447",
+    "name": "market_intelligence_current_fact_mtd_forward_publication_v2"
+  },
+  {
+    "version": "20260829010520",
+    "name": "fix_market_intelligence_lpg_weekly_change_metadata"
+  },
+  {
+    "version": "20260829010544",
+    "name": "market_intelligence_russian_analytics_wording_cleanup"
+  },
+  {
+    "version": "20260829010643",
+    "name": "market_intelligence_remove_raw_wording_from_public_text"
+  },
+  {
+    "version": "20260829101044",
+    "name": "ai_commercial_director_runtime_alias_reconciliation"
+  },
+  {
+    "version": "20260829101929",
+    "name": "ai_commercial_director_repaired_attempts_reset"
+  },
+  {
+    "version": "20260829102127",
+    "name": "ai_executor_conclusion_reason_fallback"
+  },
+  {
+    "version": "20260829102215",
+    "name": "ai_executor_functional_conclusion_alias_fix"
+  },
+  {
+    "version": "20260829102321",
+    "name": "ai_executor_self_handoff_settle"
+  },
+  {
+    "version": "20260829102524",
+    "name": "ai_executor_incomplete_handoff_settle"
+  },
+  {
+    "version": "20260829102957",
+    "name": "client_authoritative_access_gate"
+  },
+  {
+    "version": "20260829111823",
+    "name": "owner_pricing_governance_rules_v1"
+  },
+  {
+    "version": "20260829172026",
+    "name": "admin_analytics_canonical_daily_payload_v1"
+  },
+  {
+    "version": "20260829193405",
+    "name": "application_archive_on_resource_confirmation"
+  },
+  {
+    "version": "20260830123132",
+    "name": "deal_resource_authority_and_payment_prerequisite_v1"
+  },
+  {
+    "version": "20260830123307",
+    "name": "materialize_legacy_executing_resource_confirmations_v2"
+  },
+  {
+    "version": "20260830230744",
+    "name": "portal_reverse_event_ai_coordination_closed_loop_v1"
+  },
+  {
+    "version": "20260830230811",
+    "name": "portal_reverse_event_closed_loop_state_alignment_v1"
+  },
+  {
+    "version": "20260830231731",
+    "name": "portal_client_reverse_event_result_projection_v1"
+  },
+  {
+    "version": "20260831151120",
+    "name": "source_first_client_contract_onboarding_v1"
+  },
+  {
+    "version": "20260831151221",
+    "name": "fix_source_first_onboarding_allocator_ambiguity_v1"
+  },
+  {
+    "version": "20260831151242",
+    "name": "materialize_pending_clients_nik_gazone_20260831_v2"
+  },
+  {
+    "version": "20260831151914",
+    "name": "admin_client_contract_source_onboarding_api_v1"
+  },
+  {
+    "version": "20260831170539",
+    "name": "auto_supersede_stale_price_blockers_v1"
+  },
+  {
+    "version": "20260831171116",
+    "name": "limit_owner_price_decision_history_to_three"
+  },
+  {
+    "version": "20260831225044",
+    "name": "fix_market_forecast_risk_format_specifier"
+  },
+  {
+    "version": "20260831225752",
+    "name": "fix_market_analytics_calendar_rollover"
+  },
+  {
+    "version": "20260902140732",
+    "name": "client_market_intelligence_safe_feed_v1"
+  },
+  {
+    "version": "20260902162142",
+    "name": "counterparty_contract_materialization_v1"
+  },
+  {
+    "version": "20260902162308",
+    "name": "counterparty_document_materializer_fix_v1"
+  },
+  {
+    "version": "20260902165124",
+    "name": "allow_system_admin_coordinate_pilot_config"
+  },
+  {
+    "version": "20260902234211",
+    "name": "client_communication_admin_gate_v1"
+  },
+  {
+    "version": "20260902234501",
+    "name": "client_message_admin_response_v1"
+  },
+  {
+    "version": "20260903180028",
+    "name": "operations_director_canonical_compat_v12"
+  },
+  {
+    "version": "20260903235809",
+    "name": "resolve_portal_auth_uuid_session_compat"
+  },
+  {
+    "version": "20260904004829",
+    "name": "client_application_details_under_review_transition"
+  },
+  {
+    "version": "20260904013953",
+    "name": "client_application_projection_price_resource_v1"
+  },
+  {
+    "version": "20260904014803",
+    "name": "client_application_effective_price_projection"
+  },
+  {
+    "version": "20260904032506",
+    "name": "application_resource_confirmation_stage_v1"
+  },
+  {
+    "version": "20260904034735",
+    "name": "normalize_application_resource_confirmation_stage"
+  },
+  {
+    "version": "20260904160607",
+    "name": "approved_application_deal_registration_bridge_v1"
+  },
+  {
+    "version": "20260904160633",
+    "name": "deal_registration_mode_operations_alignment_v1"
+  },
+  {
+    "version": "20260910165616",
+    "name": "owner_r1_payment_signed_addendum_lineage_v1"
+  },
+  {
+    "version": "20260910190515",
+    "name": "owner_r1_payment_handoff_no_finance_preblock_v1"
+  },
+  {
+    "version": "20260910220516",
+    "name": "owner_r1_payment_finance_materialization_v1"
+  },
+  {
+    "version": "20260910220540",
+    "name": "owner_r1_payment_plan_percent_reconcile_v1"
+  },
+  {
+    "version": "20260912150045",
+    "name": "finance_payment_authoritative_v1"
+  },
+  {
+    "version": "20260912223043",
+    "name": "payment_allocation_fresh_authority_materialization_v1"
+  },
+  {
+    "version": "20260912223055",
+    "name": "payment_allocation_authority_exclusivity_v1"
+  },
+  {
+    "version": "20260913160703",
+    "name": "admin_payments_v7_stage3a_authority_core"
+  },
+  {
+    "version": "20260913160742",
+    "name": "admin_payments_v7_stage3a_validation_function"
+  },
+  {
+    "version": "20260913160902",
+    "name": "admin_payments_v7_stage3a_immutability"
+  },
+  {
+    "version": "20260913160927",
+    "name": "admin_payments_v7_stage3a_owner_audit"
+  },
+  {
+    "version": "20260913161026",
+    "name": "admin_payments_v7_stage3a_finance_authority"
+  },
+  {
+    "version": "20260913161057",
+    "name": "admin_payments_v7_stage3d_shape"
+  },
+  {
+    "version": "20260913161140",
+    "name": "admin_payments_v7_stage3d_reader_role"
+  },
+  {
+    "version": "20260913161204",
+    "name": "admin_payments_v7_stage3d_revoke_attribution"
+  },
+  {
+    "version": "20260913161257",
+    "name": "admin_payments_v7_stage3d1_provider_readiness"
+  },
+  {
+    "version": "20260913161623",
+    "name": "admin_payments_v7_stage4a_seed_fee_000009"
+  },
+  {
+    "version": "20260913161909",
+    "name": "admin_payments_v7_stage4a_function_search_path_hardening"
+  },
+  {
+    "version": "20260913182849",
+    "name": "admin_payments_v7_stage4b_owner_persistence_delta"
+  },
+  {
+    "version": "20260913220148",
+    "name": "admin_payments_v7_reader_rls_select_fix"
+  },
+  {
+    "version": "20260913232654",
+    "name": "admin_payments_v7_reader_rls_visibility"
+  },
+  {
+    "version": "20260914002125",
+    "name": "recover_admin_prices_owner_gate_20260914"
+  },
+  {
+    "version": "20260914012605",
+    "name": "owner_full_price_handoff_apply_v1_20260914"
+  },
+  {
+    "version": "20260914012619",
+    "name": "route_operations_full_price_handoff_20260914"
+  },
+  {
+    "version": "20260914012841",
+    "name": "materialize_operations_full_price_handoff_v4_20260914"
+  },
+  {
+    "version": "20260914012929",
+    "name": "gate_full_price_handoff_on_operations_decision_20260914"
+  },
+  {
+    "version": "20260914140335",
+    "name": "admin_prices_operations_handoff_v2"
+  },
+  {
+    "version": "20260914140356",
+    "name": "admin_prices_source_handoff_metadata_safety"
+  },
+  {
+    "version": "20260914153732",
+    "name": "rona_role_state_recovery_v2"
+  },
+  {
+    "version": "20260914154204",
+    "name": "rona_role_state_recovery_v2_checkpoint_alignment"
+  },
+  {
+    "version": "20260914163327",
+    "name": "operations_price_admin_handoff_guard_v3"
+  },
+  {
+    "version": "20260914163336",
+    "name": "operations_price_admin_handoff_delivery_period_v2"
+  },
+  {
+    "version": "20260914163946",
+    "name": "operations_price_admin_queue_atomic_assert_v3"
+  },
+  {
+    "version": "20260914165427",
+    "name": "price_updates_bootstrap_current_period_v3"
+  },
+  {
+    "version": "20260914195726",
+    "name": "admin_payments_v7_finance_controlled_write"
+  },
+  {
+    "version": "20260914195734",
+    "name": "admin_payments_v7_finance_current_authority_hardening"
+  },
+  {
+    "version": "20260915002248",
+    "name": "admin_payments_v7_server_materializer"
+  },
+  {
+    "version": "20260915002317",
+    "name": "admin_payments_v7_auto_materialization"
+  },
+  {
+    "version": "20260915003021",
+    "name": "admin_payments_v7_materialization_maintenance"
+  },
+  {
+    "version": "20260915031427",
+    "name": "finance_global_payment_semantics_v1"
+  },
+  {
+    "version": "20260915032100",
+    "name": "finance_global_policy_effective_at_activation_fix"
+  },
+  {
+    "version": "20260915094343",
+    "name": "admin_payments_v7_funding_side_reader"
+  },
+  {
+    "version": "20260915202408",
+    "name": "admin_payments_v7_finance_execution_authority"
+  },
+  {
+    "version": "20260915232928",
+    "name": "admin_payments_v7_finance_settlement_allocation"
+  },
+  {
+    "version": "20260916084857",
+    "name": "p1_remote_migration_loader_v1"
+  },
+  {
+    "version": "20260916085325",
+    "name": "p1_remote_migration_loader_cleanup_v1"
+  },
+  {
+    "version": "20260916085455",
+    "name": "client_intake_ack_convergence_fix_v1"
+  },
+  {
+    "version": "20260916182304",
+    "name": "client_application_request_price_mode_v2"
+  },
+  {
+    "version": "20260916182339",
+    "name": "client_application_business_registry_v2"
+  },
+  {
+    "version": "20260916182513",
+    "name": "client_application_lifecycle_executor_v2"
+  },
+  {
+    "version": "20260916182550",
+    "name": "client_application_atomic_submission_v2"
+  },
+  {
+    "version": "20260916182624",
+    "name": "client_application_canonical_projection_v2"
+  },
+  {
+    "version": "20260916182643",
+    "name": "client_application_agreement_and_corrections_v2"
+  },
+  {
+    "version": "20260916182721",
+    "name": "client_application_review_lifecycle_v2"
+  },
+  {
+    "version": "20260916182755",
+    "name": "client_application_review_contract_v2"
+  },
+  {
+    "version": "20260916182833",
+    "name": "client_application_review_authority_v2"
+  },
+  {
+    "version": "20260916182911",
+    "name": "client_application_owner_business_authority_v2"
+  },
+  {
+    "version": "20260916183630",
+    "name": "client_application_legacy_terminal_authority_v2"
+  },
+  {
+    "version": "20260916183854",
+    "name": "validate_client_application_registry_deal_fk_v2"
+  },
+  {
+    "version": "20260916194827",
+    "name": "client_application_resource_projection_authority_v3"
+  },
+  {
+    "version": "20260916200548",
+    "name": "finance_v7_registered_deal_bootstrap_bridge"
+  },
+  {
+    "version": "20260916213357",
+    "name": "payments_v7_owner_confirmed_receipts"
+  },
+  {
+    "version": "20260916213422",
+    "name": "payments_v7_payment_event_sequence_reconcile"
+  },
+  {
+    "version": "20260916213438",
+    "name": "payments_v7_owner_receipt_event_types"
+  },
+  {
+    "version": "20260916213721",
+    "name": "finance_v7_approved_change_auto_executor"
+  },
+  {
+    "version": "20260916213814",
+    "name": "finance_v7_approved_change_auto_executor_jsonb_count_fix"
+  },
+  {
+    "version": "20260916215910",
+    "name": "finance_v7_schedule_authority_auto_executor"
+  },
+  {
+    "version": "20260916220237",
+    "name": "finance_v7_schedule_executor_repo_marker"
+  },
+  {
+    "version": "20260916220242",
+    "name": "finance_v7_schedule_executor_grants"
+  },
+  {
+    "version": "20260916220249",
+    "name": "finance_v7_schedule_executor_security_hardening"
+  },
+  {
+    "version": "20260916220254",
+    "name": "finance_v7_schedule_trigger_security_hardening"
+  },
+  {
+    "version": "20260916222331",
+    "name": "payments_v8_signed_document_schedule_substrate"
+  },
+  {
+    "version": "20260916222414",
+    "name": "payments_v8_signed_document_schedule_materializer"
+  },
+  {
+    "version": "20260916222451",
+    "name": "payments_v8_schedule_reconciliation_watchdog"
+  },
+  {
+    "version": "20260916223425",
+    "name": "payments_v8_signed_document_version_auto_enqueue"
+  },
+  {
+    "version": "20260916223441",
+    "name": "payments_v8_transient_ai_runtime_recovery"
+  },
+  {
+    "version": "20260916223722",
+    "name": "payments_v8_finance_runtime_payload_contract"
+  },
+  {
+    "version": "20260916223732",
+    "name": "payments_v8_materializer_accept_executor_json_string"
+  },
+  {
+    "version": "20260916223741",
+    "name": "payments_v8_autonomous_action_failure_recovery"
+  },
+  {
+    "version": "20260916230308",
+    "name": "finance_v8_runtime_resilience_v2"
+  },
+  {
+    "version": "20260916230815",
+    "name": "finance_v8_executor_private_read_bridge_v1"
+  },
+  {
+    "version": "20260916230920",
+    "name": "ai_executor_read_token_clock_skew_v1"
+  },
+  {
+    "version": "20260916230955",
+    "name": "ai_executor_read_token_base64_fix_v1"
+  },
+  {
+    "version": "20260916231243",
+    "name": "finance_v8_transient_recovery_trigger_scope_v2"
+  },
+  {
+    "version": "20260916231359",
+    "name": "payments_v8_owner_policy_auto_gate_v1"
+  },
+  {
+    "version": "20260916231531",
+    "name": "payments_v8_hold_and_watchdog_v1"
+  },
+  {
+    "version": "20260916231719",
+    "name": "payments_v8_versioned_payment_plan_uniqueness_v1"
+  },
+  {
+    "version": "20260916231732",
+    "name": "payments_v8_job_error_status_guard_v1"
+  },
+  {
+    "version": "20260916232040",
+    "name": "payments_v8_job_task_settlement_v1"
+  },
+  {
+    "version": "20260916232423",
+    "name": "payments_v8_queue_terminal_settlement_v2"
+  },
+  {
+    "version": "20260916232643",
+    "name": "payments_v8_fail_closed_finance_read_view_v1"
+  },
+  {
+    "version": "20260916233312",
+    "name": "payments_v8_signed_schedule_manifest_cache_v1"
+  },
+  {
+    "version": "20260916233406",
+    "name": "payments_v8_exact_hash_manifest_reuse_v1"
+  },
+  {
+    "version": "20260916233549",
+    "name": "payments_v8_dedicated_finance_document_worker_v1"
+  },
+  {
+    "version": "20260916233608",
+    "name": "payments_v8_dedicated_worker_queue_ownership_v1"
+  },
+  {
+    "version": "20260916233732",
+    "name": "payments_v8_dedicated_worker_scheduler_v1"
+  },
+  {
+    "version": "20260916233935",
+    "name": "payments_v8_executor_priority_v1"
+  },
+  {
+    "version": "20260916234018",
+    "name": "payments_v8_stale_executor_queue_recovery_v1"
+  },
+  {
+    "version": "20260916234648",
+    "name": "payments_v8_signed_document_review_reenqueue_v1"
+  },
+  {
+    "version": "20260916234702",
+    "name": "payments_v8_remove_inactive_worker_experiment_v1"
+  },
+  {
+    "version": "20260916235526",
+    "name": "payments_v8_repo_baseline_schema_v1"
+  },
+  {
+    "version": "20260916235706",
+    "name": "payments_v8_repo_baseline_runtime_core_v1"
+  },
+  {
+    "version": "20260916235848",
+    "name": "payments_v8_repo_baseline_runtime_safety_v1"
+  },
+  {
+    "version": "20260917000016",
+    "name": "payments_v8_repo_baseline_executor_support_v1"
+  },
+  {
+    "version": "20260917000050",
+    "name": "payments_v8_contour_health_v1"
+  },
+  {
+    "version": "20260917014750",
+    "name": "payments_v8_atomic_canonical_state_executor_v1"
+  },
+  {
+    "version": "20260917014808",
+    "name": "payments_v8_atomic_canonical_state_event_type_v1"
+  },
+  {
+    "version": "20260917014833",
+    "name": "payments_v8_health_accept_atomic_canonical_state_v1"
+  },
+  {
+    "version": "20260917152846",
+    "name": "commercial_market_news_rate_limit_recovery_20260917"
+  },
+  {
+    "version": "20260917175127",
+    "name": "payments_v8_execution_resource_chain_reconciliation"
+  },
+  {
+    "version": "20260917203346",
+    "name": "finance_reconciliation_difference_publication_v1"
+  },
+  {
+    "version": "20260918130000",
+    "name": "finance_admin_cash_source_projection_v1"
+  },
+  {
+    "version": "20260918132500",
+    "name": "finance_admin_cash_cumulative_ledger_v2"
+  },
+  {
+    "version": "20260918145020",
+    "name": "finance_admin_cash_canonical_counterparty_identity_v1"
+  },
+  {
+    "version": "20260918145331",
+    "name": "finance_admin_cash_canonical_counterparty_identity_v1_patch"
+  },
+  {
+    "version": "20260918165540",
+    "name": "finance_cash_reversal_effective_payment_v1"
+  },
+  {
+    "version": "20260918171000",
+    "name": "finance_cash_counterparty_identity_v1"
+  },
+  {
+    "version": "20260918183252",
+    "name": "finance_cash_projection_cache_v1"
+  },
+  {
+    "version": "20260918184500",
+    "name": "finance_cash_stable_entity_identity_hold_629"
+  },
+  {
+    "version": "20260918190802",
+    "name": "portal_private_rls_security_hardening_v1"
+  },
+  {
+    "version": "20260918195000",
+    "name": "finance_cash_reversal_effective_payment_v1"
+  },
+  {
+    "version": "20260919003522",
+    "name": "rail_xlsx_dislocation_history_b1"
+  },
+  {
+    "version": "20260919003526",
+    "name": "rail_xlsx_source_intake_c11"
+  },
+  {
+    "version": "20260919003528",
+    "name": "rail_xlsx_resolution_bridge_c12"
+  },
+  {
+    "version": "20260919020451",
+    "name": "rail_station_geo_directory_v1"
+  },
+  {
+    "version": "20260919022816",
+    "name": "rail_planned_route_clusters_v1"
+  },
+  {
+    "version": "20260919034017",
+    "name": "rail_deal_route_engine_v1"
+  },
+  {
+    "version": "20260919034109",
+    "name": "rail_deal_route_destination_fix_v1"
+  },
+  {
+    "version": "20260919034210",
+    "name": "rail_station_alias_kirgili_fix_v1"
+  },
+  {
+    "version": "20260919034433",
+    "name": "rail_route_engine_security_hardening_v1"
+  },
+  {
+    "version": "20260919034710",
+    "name": "rail_sem_inarskaya_geo_v1"
+  },
+  {
+    "version": "20260919121025",
+    "name": "admin_session_postgrest_fallback_v1"
+  },
+  {
+    "version": "20260919180628",
+    "name": "client_rail_internal_read_model_core_v1"
+  },
+  {
+    "version": "20260919211143",
+    "name": "admin_user_delete_lifecycle_unlink_v1"
+  },
+  {
+    "version": "20260919211956",
+    "name": "agent_person_identity_decouple_v2"
+  }
+]
