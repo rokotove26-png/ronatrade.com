@@ -11,6 +11,7 @@ on:
       - 'functions/portal/admin-operations-command-center-v8-3.js'
       - 'functions/portal/admin-operations-command-center-v8-4.js'
       - 'functions/portal/admin-operations-command-center-v8-5.js'
+      - 'functions/portal/admin-operations-command-center-v8-6.js'
       - 'functions/portal/admin-main-ui-current.js'
       - 'tests/admin-operations-mission-control-v8/**'
       - '.github/workflows/admin-operations-mission-control-v8-qa.yml'
@@ -36,6 +37,7 @@ jobs:
           node --check functions/portal/admin-operations-command-center-v8-3.js
           node --check functions/portal/admin-operations-command-center-v8-4.js
           node --check functions/portal/admin-operations-command-center-v8-5.js
+          node --check functions/portal/admin-operations-command-center-v8-6.js
           node --check functions/portal/admin-main-ui-current.js
       - name: Mission derivation tests
         run: node --test tests/admin-operations-mission-control-v8/mission-current.test.mjs
@@ -52,13 +54,17 @@ jobs:
           const r=await m.onRequest();
           const s=await r.text();
           new Function(s);
-          if(r.headers.get('x-rona-operations-center')!=='v8.5-effective-kpi-v1') throw new Error('OPERATIONS_V85_HEADER_MISSING');
+          if(r.headers.get('x-rona-operations-center')!=='v8.6-canonical-controls-v1') throw new Error('OPERATIONS_V86_HEADER_MISSING');
           if(!s.includes("DEALS_CURRENT_V4_MISSION_V1")) throw new Error('OPERATIONS_V8_MISSION_CONTRACT_MISSING');
           if(!s.includes("OPERATIONS_CURRENT_V1_RECOVERY_V1")) throw new Error('OPERATIONS_V81_RECOVERY_CONTRACT_MISSING');
           if(!s.includes("OPERATIONS_ACTION_QUEUE_NORMALIZED_V1")) throw new Error('OPERATIONS_V82_ACTION_QUEUE_CONTRACT_MISSING');
           if(!s.includes("OPERATIONS_ACTION_ROUTER_V1")) throw new Error('OPERATIONS_V83_ACTION_ROUTER_CONTRACT_MISSING');
           if(!s.includes("OPERATIONS_COMPLETE_SCROLL_V1")) throw new Error('OPERATIONS_V84_COMPLETE_SCROLL_CONTRACT_MISSING');
           if(!s.includes("OPERATIONS_EFFECTIVE_KPI_V1")) throw new Error('OPERATIONS_V85_EFFECTIVE_KPI_CONTRACT_MISSING');
+          if(!s.includes("OPERATIONS_CANONICAL_CONTROLS_V1")) throw new Error('OPERATIONS_V86_CANONICAL_CONTROLS_CONTRACT_MISSING');
+          if(!s.includes("gauge('FIN-05','Платежи на контроле',financeCurrentKnown?currentDueCount")) throw new Error('OPERATIONS_V86_FINANCE_CURRENT_MISSING');
+          if(!s.includes("gauge('RAIL-04','Вагоны на контроле',railCurrentKnown?railControlCount")) throw new Error('OPERATIONS_V86_RAIL_CURRENT_MISSING');
+          if(s.includes("railKnown?(String(rail.length)+' ГУ-12")) throw new Error('OPERATIONS_V86_FALSE_GU12_SEMANTICS_REMAINS');
           if(!s.includes("gauge('CAUT-03','Требует действия',effectiveAttentionCount")) throw new Error('OPERATIONS_V85_ATTENTION_KPI_MISSING');
           if(!s.includes("gauge('WARN-06','Критические события',effectiveCriticalCount")) throw new Error('OPERATIONS_V85_CRITICAL_KPI_MISSING');
           if(s.includes("activeDeals.slice(0,10)")) throw new Error('OPERATIONS_V84_DEAL_CAP_REMAINS');
@@ -75,5 +81,5 @@ jobs:
           if(!s.includes("onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'")) throw new Error('OPERATIONS_V8_DEAL_CONTROL_MISSING');
           if(!s.includes("onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)")) throw new Error('OPERATIONS_V8_NEXT_ACTION_MISSING');
           if(s.includes("setInterval(()=>ronaOpsV8")||s.includes("setInterval(()=>ronaOpsV81")) throw new Error('OPERATIONS_V81_POLLING_FORBIDDEN');
-          console.log('ADMIN_OPERATIONS_MISSION_CONTROL_V85=PASS');
+          console.log('ADMIN_OPERATIONS_MISSION_CONTROL_V86=PASS');
           NODE
