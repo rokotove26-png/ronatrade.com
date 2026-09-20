@@ -422,16 +422,16 @@ async function serveStaticProtected(context, session, kind) {
   }
   const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||''),String(impersonation.data.id||'')):'';
   if(kind==='client'){
-    // The impersonation tab bridge MUST execute before any canonical Client script.
-    // The Client runtime can request /portal/api/v1/client/bootstrap while HTML is still
-    // being parsed. If the bridge is appended at </body>, that first request has no
-    // x-rona-impersonation-tab header and proxyApi correctly rejects it as
-    // IMPERSONATION_TAB_INVALID, leaving the canonical shell visually blank.
+    // Impersonated Client must receive the canonical static artifact byte stream without
+    // a server-side HTMLRewriter. The canonical Client context runtime now owns
+    // x-rona-impersonation-tab natively from the validated impSession URL parameter,
+    // and the Admin-return control is attached as a static external runtime at build time.
+    // This removes the only production-only document transformation from Client boot.
     if(impersonation?.data){
-      const transformed=new HTMLRewriter()
-        .on('head',new HeadPrepend(bridge))
-        .transform(response);
-      return secureResponse(transformed,session.setCookies,true);
+      const headers=new Headers(response.headers);
+      headers.set('x-rona-client-impersonation-shell','static-unmodified-v1');
+      const direct=new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+      return secureResponse(direct,session.setCookies,true);
     }
     const clientPresence=presenceBridge('CLIENT');
     const transformed=new HTMLRewriter().on('body',new BodyAppend(clientPresence)).transform(response);
