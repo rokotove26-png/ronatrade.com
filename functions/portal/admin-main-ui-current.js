@@ -1,4 +1,4 @@
-import { patchAdminOperationsCommandCenterV5, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v5.js';
+import { patchAdminOperationsCommandCenterV6, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v6.js';
 import c0 from './owner-ui-chunks/chunk0.js';
 import c1 from './owner-ui-chunks/chunk1.js';
 import c2 from './owner-ui-chunks/chunk2.js';
@@ -153,7 +153,7 @@ function patchRailSingleOwner(script){
 }
 
 
-const SCRIPT=(patchRailSingleOwner(patchAdminOperationsCommandCenterV5(patchOperationsFunctionalRuntime(patchPayments(RAW
+const SCRIPT=(patchRailSingleOwner(patchAdminOperationsCommandCenterV6(patchOperationsFunctionalRuntime(patchPayments(RAW
   .replace('function renderOwnedAdminPage(id){',DEALS_SHELL+PRICES_SHELL+RAIL_SHELL+'function renderOwnedAdminPage(id){')
   .replace('prices:renderPrices,','prices:renderPricesCurrentShell,')
   .replace('deals:renderDeals,','deals:renderDealsCurrentShell,')
