@@ -1,4 +1,3 @@
-import { verifyOwnerAdminAccessToken } from './_owner-jwt-authority.js';
 const SUPABASE_URL = 'https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const PORTAL_API = `${SUPABASE_URL}/functions/v1/rona-portal-api`;
@@ -165,39 +164,48 @@ async function authOwnerProbe(accessToken){
     return{state:'UNAVAILABLE',me:null,status:r.status};
   }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
 }
+async function adminOwnerJwtGatewayProbe(accessToken){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort('RONA_ADMIN_OWNER_GATEWAY_TIMEOUT'),2500);
+  try{
+    const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/owner-auth-fallback`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
+      signal:controller.signal
+    });
+    if(r.ok){
+      const j=await r.json().catch(()=>null);
+      if(j?.ok===true&&j?.authority==='SUPABASE_EDGE_VERIFIED_OWNER'&&Array.isArray(j?.roles)&&j.roles.includes('ADMIN'))return{state:'VALID',me:{user:{roles:['ADMIN'],auth_user_id:j.auth_user_id||null},authority:j.authority},status:r.status,authority:j.authority};
+      return{state:'UNAVAILABLE',me:null,status:r.status||502};
+    }
+    if(r.status===401)return{state:'INVALID',me:null,status:r.status};
+    if(r.status===403)return{state:'UNAVAILABLE',me:null,status:r.status,reason:'VALID_NON_OWNER_IDENTITY'};
+    if(r.status===429||r.status>=500)return{state:'UNAVAILABLE',me:null,status:r.status};
+    return{state:'UNAVAILABLE',me:null,status:r.status};
+  }catch(_){return{state:'UNAVAILABLE',me:null,status:503}}
+  finally{clearTimeout(timer)}
+}
 async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
   if(!accessToken)return{state:'INVALID',me:null,status:401};
-  let lastStatus=503,signedOwnerChecked=false;
-  const signedOwnerFallback=async()=>{
-    if(!allowAdminFallback||signedOwnerChecked)return null;
-    signedOwnerChecked=true;
-    const verified=await verifyOwnerAdminAccessToken(accessToken);
-    if(!verified?.ok)return null;
-    return{state:'VALID',me:{user:{roles:['ADMIN'],auth_user_id:verified.claims.sub},authority:verified.authority},status:200,authority:verified.authority};
+  let lastStatus=503,ownerGatewayChecked=false;
+  const ownerGatewayFallback=async()=>{
+    if(!allowAdminFallback||ownerGatewayChecked)return null;
+    ownerGatewayChecked=true;
+    const gateway=await adminOwnerJwtGatewayProbe(accessToken);
+    return gateway.state==='UNAVAILABLE'?null:gateway;
   };
   for(const delay of SESSION_RETRY_DELAYS_MS){
     if(delay)await sleep(delay);
     try{
       const r=await upstream(accessToken,'/session/me');
       lastStatus=r.status;
-      if(r.ok){
-        const j=await r.json().catch(()=>null);
-        if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};
-        continue;
-      }
+      if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}
       if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
-      if(r.status===429||r.status>=500){
-        const signed=await signedOwnerFallback();if(signed)return signed;
-        continue;
-      }
+      if(r.status===429||r.status>=500){const gateway=await ownerGatewayFallback();if(gateway)return gateway;continue}
       return{state:'INVALID',me:null,status:r.status};
-    }catch(_){
-      lastStatus=503;
-      const signed=await signedOwnerFallback();if(signed)return signed;
-    }
+    }catch(_){lastStatus=503;const gateway=await ownerGatewayFallback();if(gateway)return gateway}
   }
   if(allowAdminFallback){
-    const signed=await signedOwnerFallback();if(signed)return signed;
+    const gateway=await ownerGatewayFallback();if(gateway)return gateway;
     const fallback=await adminControlPlaneProbe(accessToken);if(fallback.state!=='UNAVAILABLE')return fallback;
     const ownerFallback=await authOwnerProbe(accessToken);if(ownerFallback.state!=='UNAVAILABLE')return ownerFallback
   }
