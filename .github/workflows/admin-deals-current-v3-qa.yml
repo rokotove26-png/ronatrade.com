@@ -1,0 +1,47 @@
+name: Admin Deals current v3 contract QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/20260920134402_admin_deals_current_v3_execution_read_model.sql'
+      - 'functions/portal/owner-api.js'
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'tests/deals/admin-deals-current-v3-contract.test.mjs'
+      - '.github/workflows/admin-deals-current-v3-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          node --check functions/portal/owner-api.js
+          node --check functions/portal/deals-current-state-ui.js
+      - name: Generic read-model contract
+        run: node --test tests/deals/admin-deals-current-v3-contract.test.mjs
+      - name: Generated Deals runtime compiles
+        shell: bash
+        run: |
+          printf '%s\n' '{"type":"module"}' > functions/portal/package.json
+          node --input-type=module <<'NODE'
+          const m=await import('./functions/portal/deals-current-state-ui.js?qa='+Date.now());
+          const r=await m.onRequest();
+          const s=await r.text();
+          new Function(s);
+          if(r.headers.get('x-rona-deals-read-model')!=='admin-deals-current-v3-finance-v8-rail-current') throw new Error('READ_MODEL_HEADER_MISSING');
+          if(!s.includes("api('/admin/deals-current-v3')")) throw new Error('CURRENT_V3_ENDPOINT_MISSING');
+          if(!s.includes("if(projection==='FINANCE_V8')return due!==null&&due>0")) throw new Error('DUE_NOW_RULE_MISSING');
+          if(!s.includes('route_resolution_state')) throw new Error('RAIL_CURRENT_RULE_MISSING');
+          console.log('ADMIN_DEALS_CURRENT_V3_GENERATED_RUNTIME=PASS');
+          NODE

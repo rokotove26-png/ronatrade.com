@@ -10,7 +10,7 @@ assert.match(preview,/^https:\/\/[a-f0-9]+\.rona-trade-public\.pages\.dev$/,'exa
 
 const source=await readFile('functions/portal/deals-current-state-ui.js','utf8');
 const migration=await readFile('supabase/migrations/20260910153000_owner_r1_payment_signed_addendum_lineage_v1.sql','utf8');
-assert.match(source,/send\.disabled=overall\(d\)!=='GO'\|\|String\(d\.payment_handoff_state\|\|''\)==='SENT'\|\|paymentAlreadySettled\(d\)/,'payment handoff must be gated by current Status GO and settled balance');
+assert.match(source,/send\.disabled=overall\(d\)!=='GO'.*finance_projection_version.*FINANCE_V8.*paymentAlreadySettled\(d\)/,'payment handoff must be gated by readiness GO, Finance handoff state and settled balance');
 assert.match(source,/function syncDealDrawer\(d\)/,'right-side deal drawer runtime is required');
 assert.match(source,/host\.replaceChildren\(owned\);syncDealDrawer\(sel\)/,'selected detail must route to drawer');
 assert.match(source,/rona-current-deal-doc-download/,'drawer document actions must use one button family');
@@ -23,7 +23,7 @@ const runtimeResponse=await getDealsRuntime();
 assert.equal(runtimeResponse.status,200,'Deals runtime response must be successful');
 assert.equal(runtimeResponse.headers.get('x-rona-deal-drawer'),'right-overlay-go-gated-owner-uat-v2','Owner UAT drawer marker missing');
 const runtime=await runtimeResponse.text();
-assert.match(runtime,/send\.disabled=overall\(d\)!=='GO'\|\|String\(d\.payment_handoff_state\|\|''\)==='SENT'\|\|paymentAlreadySettled\(d\)/,'emitted runtime must gate payment handoff by GO and settled balance');
+assert.match(runtime,/send\.disabled=overall\(d\)!=='GO'.*finance_projection_version.*FINANCE_V8.*paymentAlreadySettled\(d\)/,'emitted runtime must gate payment handoff by GO, Finance contour and settled balance');
 assert.doesNotMatch(runtime,/send\.disabled=!r\.ready/,'legacy readiness gate must not control payment handoff');
 assert.match(runtime,/postJson\('\/admin\/deals\/'\+encodeURIComponent\(id\)\+'\/send-to-payments',\{\}\)/,'existing send-to-payments browser handoff must remain unchanged');
 assert.match(runtime,/rona-current-deal-drawer-layer/,'emitted runtime must contain drawer presentation');
@@ -35,7 +35,8 @@ const snapshot={
   deals:[
     {deal_id:'QA-GO',client_id:'QA-C1',legal_name:'QA Client GO',contract_id:'QA-CTR1',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:100,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:12500,client_remaining_amount:12500,finance_currency:'USD',finance_status:'NOT_DUE',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT',payment_expectation_state:'NOT_CREATED'},
     {deal_id:'QA-HOLD',client_id:'QA-C2',legal_name:'QA Client HOLD',contract_id:'QA-CTR2',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:120,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:25000,client_remaining_amount:25000,finance_currency:'USD',finance_status:'PAID',accounting_status:'OPEN',payment_handoff_state:'NOT_SENT',payment_expectation_state:'NOT_CREATED'},
-    {deal_id:'QA-PAID',client_id:'QA-C3',legal_name:'QA Client Paid',contract_id:'QA-CTR3',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:80,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:10000,client_remaining_amount:0,finance_currency:'USD',finance_status:'PAID',accounting_status:'OPEN',payment_handoff_state:'READY',payment_expectation_state:'NOT_CREATED'}
+    {deal_id:'QA-PAID',client_id:'QA-C3',legal_name:'QA Client Paid',contract_id:'QA-CTR3',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:80,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:10000,client_remaining_amount:0,finance_currency:'USD',finance_status:'PAID',accounting_status:'OPEN',payment_handoff_state:'READY',payment_expectation_state:'NOT_CREATED'},
+    {deal_id:'QA-V8',client_id:'QA-C4',legal_name:'QA Client Finance V8',contract_id:'QA-CTR4',contract_status:'ACTIVE',business_status:'EXECUTING',lifecycle_state:'ACTIVE',cancellation_state:'ACTIVE',source_product:'СУГ',source_quantity_tonnes:90,delivery_basis:'DAP',product_confirmed_at:'2026-09-10T09:00:00Z',quantity_confirmed_at:'2026-09-10T09:00:00Z',obligation_amount:15000,received_amount:5000,client_remaining_amount:10000,due_now:10000,expected_not_due:0,future_conditional:0,finance_currency:'USD',finance_status:'OVERDUE',finance_projection_version:'FINANCE_V8',actual_spend:4000,remaining_execution:1000,execution_currency:'USD',accounting_status:'OPEN',payment_handoff_state:'READY',payment_expectation_state:'ACTIVE'}
   ],
   documents:[
     {deal_id:'QA-GO',document_kind:'SIGNED_ADDENDUM',document_id:'QA-GO-S',authoritative_filename:'signed.pdf'},
@@ -43,7 +44,9 @@ const snapshot={
     {deal_id:'QA-HOLD',document_kind:'ADDENDUM',document_id:'QA-HOLD-A',authoritative_filename:'addendum.pdf'},
     {deal_id:'QA-HOLD',document_kind:'INVOICE',document_id:'QA-HOLD-I',authoritative_filename:'invoice.pdf'},
     {deal_id:'QA-PAID',document_kind:'SIGNED_ADDENDUM',document_id:'QA-PAID-S',authoritative_filename:'signed.pdf'},
-    {deal_id:'QA-PAID',document_kind:'INVOICE',document_id:'QA-PAID-I',authoritative_filename:'invoice.pdf'}
+    {deal_id:'QA-PAID',document_kind:'INVOICE',document_id:'QA-PAID-I',authoritative_filename:'invoice.pdf'},
+    {deal_id:'QA-V8',document_kind:'SIGNED_ADDENDUM',document_id:'QA-V8-S',authoritative_filename:'signed.pdf'},
+    {deal_id:'QA-V8',document_kind:'INVOICE',document_id:'QA-V8-I',authoritative_filename:'invoice.pdf'}
   ],
   rail:[],
   dataConflicts:[]
@@ -55,10 +58,10 @@ function rpcJson(data,status=200){return new Response(JSON.stringify(data),{stat
 const nativeFetch=globalThis.fetch;
 globalThis.fetch=async(input,init={})=>{
   const url=String(typeof input==='string'?input:input?.url||input);
-  if(url.includes('/rest/v1/rpc/owner_r1_admin_bootstrap')){
+  if(url.includes('/rest/v1/rpc/owner_deals_current_v3')){
     bootstrapHits++;
     snapshot.generatedAt=new Date().toISOString();
-    rpcCalls.push({name:'owner_r1_admin_bootstrap',method:String(init.method||'GET').toUpperCase()});
+    rpcCalls.push({name:'owner_deals_current_v3',method:String(init.method||'GET').toUpperCase()});
     return rpcJson(snapshot);
   }
   if(url.includes('/rest/v1/rpc/owner_r1_send_to_payments')){
@@ -137,7 +140,7 @@ async function openDeal(dealId){
   assert.ok(geometry.width<geometry.viewport,'drawer must overlay, not replace, the whole desktop page');
   return drawer;
 }
-async function sendButton(){return page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:/Отправить в оплату|Передано в оплату/})}
+async function sendButton(){return page.locator('#ronaCurrentDealDrawer .rona-current-deal-actions button').filter({hasText:/Отправить в оплату|Передано в оплату|В платежном контуре/})}
 async function closeDrawerAndAssertScroll(expectedY){
   await page.locator('#ronaCurrentDealDrawer .rona-current-deal-drawer-close').evaluate(el=>el.click());
   await page.locator('#ronaCurrentDealDrawer').waitFor({state:'detached',timeout:5000});
@@ -184,6 +187,13 @@ try{
   assert.match(String(await page.locator('#ronaCurrentDealDrawer .rona-current-deal-note').textContent()),/полностью закрыта/i,'settled payment explanation must be visible');
   await closeDrawerAndAssertScroll(beforeOpen);
 
+  await openDeal('QA-V8');
+  send=await sendButton();
+  assert.equal(await send.isDisabled(),true,'Finance V8 deal must never replay the handoff action');
+  assert.match(String(await send.textContent()),/В платежном контуре/,'Finance V8 deal must show that it is already in Payments');
+  assert.match(String(await page.locator('#ronaCurrentDealDrawer').textContent()),/GO/,'post-handoff Finance status must not retroactively change the readiness GO snapshot');
+  await closeDrawerAndAssertScroll(beforeOpen);
+
   await openDeal('QA-GO');
   send=await sendButton();
   const dialogStart=dialogs.length;
@@ -212,9 +222,9 @@ try{
   send=await sendButton();
   assert.equal(await send.isDisabled(),true,'HOLD gate must survive reload');
 
-  assert.ok(bootstrapHits>=3,'actual owner-api projection must refresh on initial load, send and reload');
+  assert.ok(bootstrapHits>=3,'actual Deals V3 owner-api projection must refresh on initial load, send and reload');
   assert.deepEqual(pageErrors,[],'drawer runtime must not throw browser errors');
-  console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',signedAddendumActionLabel:'REPLACE',bottomDetail:false,scrollRestore:true,goFinanceStatusIgnored:true,holdDisabled:true,settledPaymentDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,bootstrapHits}));
+  console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',signedAddendumActionLabel:'REPLACE',bottomDetail:false,scrollRestore:true,goFinanceStatusIgnored:true,holdDisabled:true,settledPaymentDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,financeV8GoFrozen:true,financeV8ReplayGuard:true,bootstrapHits}));
 }finally{
   await browser.close();
   globalThis.fetch=nativeFetch;

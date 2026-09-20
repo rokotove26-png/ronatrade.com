@@ -35,7 +35,9 @@ jobs:
           assert(dr.headers.get('x-rona-deals-ui')==='current-state-v2-operations-deeplink','Deals runtime header');
           assert(ds.includes('function waitsPayment(d)'),'payment-only predicate missing');
           assert(!ds.includes('function waitsAction(d)'),'legacy waitsAction remains');
-          assert(ds.includes("if(expectation!=='ACTIVE')return false"),'active payment-expectation rule missing');
+          assert(ds.includes("if(projection==='FINANCE_V8')return due!==null&&due>0"),'Finance V8 due-now rule missing');
+          assert(ds.includes("api('/admin/deals-current-v3')"),'Deals current v3 endpoint missing');
+          assert(dr.headers.get('x-rona-deals-read-model')==='admin-deals-current-v3-finance-v8-rail-current','Deals V3 read-model header missing');
           assert(ds.includes('function needsPaymentHandoffAction(d)'),'payment-handoff action split missing');
           assert(ds.includes("'Finance · остаток'"),'Finance remaining label missing');
           assert(dr.headers.get('x-rona-deals-kpi')==='payment-expectation-action-split-v2','Deals KPI split marker missing');
