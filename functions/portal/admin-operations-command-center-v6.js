@@ -226,6 +226,13 @@ export function patchAdminOperationsCommandCenterV6(script){
 
   patched=replaceRequired(
     patched,
+    "for(const x of d.deals||[])add('Сделка '",
+    "const currentDeals=deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__);for(const x of currentDeals)add('Сделка '",
+    'global-search-current-deals'
+  );
+
+  patched=replaceRequired(
+    patched,
     "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});",
     "const executionDeals=activeDeals.filter(x=>{const a=ronaFdV5Key(x?.business_status||x?.status),b=ronaFdV5Key(x?.stage||x?.deal_stage||x?.current_stage||x?.lifecycle_state);return ['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(a)||['EXECUTING','IN_PROGRESS','EXECUTION','CONTRACT_EXECUTION','CONTRACT_AND_EXECUTION'].includes(b)});\n  const dealActionRows=activeDeals.filter(x=>x?.current_action_required===true);",
     'deal-action-rows'
@@ -276,6 +283,7 @@ export function patchAdminOperationsCommandCenterV6(script){
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COLOR_NETWORK__='v6-color-network-indicators'"))throw new Error('ADMIN_OPERATIONS_V6_MARKER_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT__='v1-authoritative-deals-snapshot'"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_MARKER_MISSING');
   if(!patched.includes("deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_CURRENT_READ_MODEL_MISSING');
+  if(!patched.includes("const currentDeals=deriveOperationsDealCurrentRows(Array.isArray(d.deals)?d.deals:[],window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__)"))throw new Error('ADMIN_OPERATIONS_V6_SEARCH_CURRENT_DEALS_MISSING');
   if(!patched.includes("const dealActionRows=activeDeals.filter(x=>x?.current_action_required===true)"))throw new Error('ADMIN_OPERATIONS_V6_DEAL_ACTION_ROWS_MISSING');
   if(!patched.includes("attentionApps.length+dealActionRows.length+waitingWagons.length"))throw new Error('ADMIN_OPERATIONS_V6_ACTION_KPI_SEPARATION_MISSING');
   if(!patched.includes("const dealRefresh=window.__RONA_DEALS_CURRENT_STATE_REFRESH__"))throw new Error('ADMIN_OPERATIONS_V6_AUTHORITATIVE_REFRESH_MISSING');
