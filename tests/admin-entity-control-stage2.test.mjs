@@ -110,8 +110,14 @@ const foreignOrigin=new Request('https://ronaoil.com/portal/admin-authority/impe
 });
 assert.equal(impersonationEnterPostAllowed(foreignOrigin),false,'foreign origin must remain denied');
 
+const explicitCrossSite=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{
+  method:'POST',
+  headers:{'sec-fetch-site':'cross-site'}
+});
+assert.equal(impersonationEnterPostAllowed(explicitCrossSite),false,'explicit cross-site legacy form POST must remain denied');
+
 const absentFetchMetadata=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{method:'POST'});
-assert.equal(impersonationEnterPostAllowed(absentFetchMetadata),false,'headerless POST must remain denied');
+assert.equal(impersonationEnterPostAllowed(absentFetchMetadata),true,'legacy authenticated form POST may omit Origin/Referer/Fetch Metadata and must reach the ADMIN session gate');
 
 const nonCanonicalHost=new Request('https://evil.example/portal/admin-authority/impersonation/enter',{
   method:'POST',
