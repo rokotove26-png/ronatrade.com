@@ -73,6 +73,16 @@ test('Registry indicators use registry semantics rather than claiming presence',
   assert.match(v7,/gauge\('NET-08','Агенты',networkAgentCount/);
 });
 
+test('Action and warning gauges control the exception queue instead of navigating back to Home',()=>{
+  const v7=read('functions/portal/admin-operations-command-center-v7.js');
+  assert.match(v7,/function ronaOpsV7GaugeAction\(code,target\)/);
+  assert.match(v7,/code==='CAUT-03'\|\|code==='WARN-06'/);
+  assert.match(v7,/__RONA_ADMIN_OPS_QUEUE_FILTER__=code==='WARN-06'\?'CRITICAL':'ATTENTION'/);
+  assert.match(v7,/onclick:\(\)=>ronaOpsV7GaugeAction\(code,target\)/);
+  assert.match(v7,/queueVisible=queueFilter==='CRITICAL'\?queueRows\.filter\(row=>row\.tone==='red'\):queueRows/);
+  assert.match(v7,/queueFilter==='CRITICAL'\?'Критические события':'Требует действия'/);
+});
+
 test('Missing read model or event connection cannot render SYSTEM NORMAL',()=>{
   const v7=read('functions/portal/admin-operations-command-center-v7.js');
   assert.match(v7,/!opsCurrentReady\|\|opsCurrentError\|\|!opsEventConnected\?'amber'/);
