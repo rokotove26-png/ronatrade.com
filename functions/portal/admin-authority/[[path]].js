@@ -253,6 +253,29 @@ export async function onRequest(context) {
   let upstream;
   try { upstream = await fetch(`${base}${path}${url.search}`, init); }
   catch (_) { return json({ ok:false, code:'ACCESS_UPSTREAM_UNAVAILABLE' }, 502, session.setCookies); }
+
+  // Canonical Admin -> Client/Agent handoff:
+  // browser JS receives only the safe target path + session id.
+  // The opaque impersonation credential is consumed here and persisted only
+  // as an HttpOnly SameSite=Strict cookie, never exposed to browser JS.
+  if (path === '/impersonation/start' && request.method === 'POST') {
+    const payload = await upstream.json().catch(() => null);
+    if (!upstream.ok || !payload?.ok || !payload?.data?.impersonationToken) {
+      return json(payload || { ok:false, code:'IMPERSONATION_START_FAILED' }, upstream.status || 502, session.setCookies);
+    }
+    const opaque = String(payload.data.impersonationToken);
+    const impersonation = payload.data?.impersonation || {};
+    const sessionId = String(impersonation.id || '');
+    const targetPath = String(payload.data?.targetPath || '');
+    if (!UUID_RE.test(sessionId) || !['/portal/client','/portal/agent'].includes(targetPath)) {
+      return json({ ok:false, code:'IMPERSONATION_START_FAILED' }, 502, session.setCookies);
+    }
+    delete payload.data.impersonationToken;
+    const expires = Date.parse(String(impersonation.expiresAt || ''));
+    const maxAge = Number.isFinite(expires) ? Math.max(1, Math.min(900, Math.floor((expires - Date.now()) / 1000))) : 720;
+    return json(payload, upstream.status, [...session.setCookies, impersonationCookie(opaque, maxAge)]);
+  }
+
   return path === '/bootstrap'
     ? normalizeBootstrapCompanyNames(upstream, session.setCookies)
     : secureUpstream(upstream, session.setCookies);
