@@ -35,7 +35,7 @@ const BRIDGE_SCRIPT = `<script id="rona-controlled-form-transport-v1-1">
 })();
 </script>`;
 
-const PORTAL_ENTRY_SCRIPT = `<script id="rona-home-inline-auth-loader-g82-v2" src="/assets/g82/portal-home-inline-auth-v2.js"></script>`;
+const PORTAL_ENTRY_SCRIPT = `<script id="rona-home-inline-auth-loader-g82-v2" src="/assets/g82/portal-home-inline-auth-v2.js?v=20260920-security-no-auto-resume-v1"></script>`;
 const MOBILE_RUNTIME = `<script id="rona-mobile-remediation-loader-v2" src="/assets/mobile/rona-mobile-remediation-v2.js" defer></script><script id="rona-mobile-design-lock-loader-v2" src="/assets/mobile/rona-mobile-design-lock-v2.js" defer></script>`;
 const MOBILE_HOME_STYLE = `<link id="rona-mobile-home-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-home-v2.css">`;
 const MOBILE_CONTACTS_STYLE = `<link id="rona-mobile-contacts-underlay-style-v2" rel="stylesheet" href="/assets/mobile/rona-mobile-contacts-underlay-v2.css">`;
@@ -78,7 +78,7 @@ export async function onRequest(context){
   const headers=new Headers(transformed.headers);
   headers.delete('content-length');headers.delete('etag');
   if(needsFormBridge)headers.set('x-rona-form-transport','controlled-v1.1');
-  if(needsPortalEntry)headers.set('x-rona-portal-entry','g8.2-home-inline-auth-v2');
+  if(needsPortalEntry)headers.set('x-rona-portal-entry','g8.2-home-inline-auth-v2-no-auto-resume-v1');
   if(needsMobileRuntime)headers.set('x-rona-mobile-remediation','v2-design-lock-v2');
   if(needsContactsInnerStyle)headers.set('x-rona-mobile-contacts-underlay','inner-v2');
   return new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
