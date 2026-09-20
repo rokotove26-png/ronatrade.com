@@ -4,8 +4,10 @@
 Extends V2 with a credential-free binary fallback through two independently
 validated public RSSHub instances whose /telegram/media route streams the
 original Telegram document via MTProto. Telegram public preview remains the
-source of channel/message metadata. Bytes are accepted only after V2 file-magic
-validation and continue through the existing private SHA-256/extraction ingest.
+preferred source of channel/message metadata; when that preview exposes no
+posts, the same RSSHub mirrors may supply feed metadata for report documents.
+Bytes are accepted only after V2 file-magic validation and continue through the
+existing private SHA-256/extraction ingest.
 """
 
 from __future__ import annotations
