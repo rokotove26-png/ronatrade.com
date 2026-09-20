@@ -6,6 +6,7 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'supabase/migrations/20260920144304_admin_deals_rail_execution_v4.sql'
+      - 'supabase/migrations/20260920145340_admin_deals_rail_execution_v4_timeout_fix.sql'
       - 'functions/portal/owner-api.js'
       - 'functions/portal/deals-current-state-ui.js'
       - 'tests/deals/admin-deals-rail-execution-v4-contract.test.mjs'
