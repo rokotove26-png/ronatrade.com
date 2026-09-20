@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
 import {readFileSync} from 'node:fs';
+import {impersonationEnterPostAllowed} from '../functions/portal/admin-authority/[[path]].js';
 
 const BASE=process.env.STAGE2_BASE_SHA||'08f7b5b7b6cd810a212f24befd2aef5004b25694';
 const read=p=>readFileSync(p,'utf8');
@@ -84,6 +85,33 @@ const authorityProxy=read('functions/portal/admin-authority/[[path]].js');
 assertIncludes(authorityProxy,"path === '/impersonation/enter'",'specific admin-authority route owns browser handoff');
 assertIncludes(authorityProxy,"PORTAL_ORIGIN_HOSTS",'portal canonical host normalization guard');
 assertIncludes(authorityProxy,"impersonationCookie(opaque, maxAge)",'specific route sets opaque HttpOnly impersonation cookie');
+
+const noReferrerSameOrigin=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{
+  method:'POST',
+  headers:{'sec-fetch-site':'same-origin'}
+});
+assert.equal(impersonationEnterPostAllowed(noReferrerSameOrigin),true,'same-origin form POST without Origin/Referer must be accepted');
+
+const explicitSameOrigin=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{
+  method:'POST',
+  headers:{origin:'https://ronaoil.com','sec-fetch-site':'same-origin'}
+});
+assert.equal(impersonationEnterPostAllowed(explicitSameOrigin),true,'explicit same-origin POST must be accepted');
+
+const foreignOrigin=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{
+  method:'POST',
+  headers:{origin:'https://example.com','sec-fetch-site':'cross-site'}
+});
+assert.equal(impersonationEnterPostAllowed(foreignOrigin),false,'foreign origin must remain denied');
+
+const absentFetchMetadata=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{method:'POST'});
+assert.equal(impersonationEnterPostAllowed(absentFetchMetadata),false,'headerless POST must remain denied');
+
+const nonCanonicalHost=new Request('https://evil.example/portal/admin-authority/impersonation/enter',{
+  method:'POST',
+  headers:{'sec-fetch-site':'same-origin'}
+});
+assert.equal(impersonationEnterPostAllowed(nonCanonicalHost),false,'same-origin metadata on a non-canonical host must remain denied');
 assertNotIncludes(ui,"location.assign(targetPath+'?impSession='",'AJAX navigation handoff retired');
 assertIncludes(logout,"clearCookie('rona_admin_imp')",'logout clears impersonation');
 assertNotIncludes(shell,"request.headers.get('x-rona-admin-impersonation-token')",'browser must not supply trusted impersonation token');

@@ -66,6 +66,22 @@ function sameOriginPost(request) {
     return (fetchSite === 'same-site' || fetchSite === 'same-origin') && portalOriginAllowed(source) && portalOriginAllowed(url);
   } catch { return false; }
 }
+
+export function impersonationEnterPostAllowed(request) {
+  const url = new URL(request.url);
+  if (!portalOriginAllowed(url)) return false;
+
+  // Prefer the existing explicit Origin/Referer validation whenever either header exists.
+  // The canonical portal sends Referrer-Policy: no-referrer, and some browser form POSTs
+  // may omit both Origin and Referer. In that narrow case, rely on the browser-controlled
+  // Fetch Metadata header and accept only an actual same-origin navigation.
+  const origin = request.headers.get('origin');
+  const ref = request.headers.get('referer');
+  if (origin || ref) return sameOriginPost(request);
+
+  const fetchSite = String(request.headers.get('sec-fetch-site') || '').toLowerCase();
+  return fetchSite === 'same-origin';
+}
 async function authRefresh(refreshToken) {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
     method: 'POST', headers: { apikey: SUPABASE_PUBLISHABLE_KEY, 'content-type': 'application/json' },
@@ -144,17 +160,21 @@ function clientAuthorityTarget(path) {
 export async function onRequest(context) {
   const request = context.request;
   if (!['GET','POST'].includes(request.method)) return json({ ok:false, code:'METHOD_NOT_ALLOWED' }, 405);
-  if (request.method === 'POST' && !sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
+
+  const url = new URL(request.url);
+  const prefix = '/portal/admin-authority';
+  const path = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
+  const postAllowed = path === '/impersonation/enter'
+    ? impersonationEnterPostAllowed(request)
+    : sameOriginPost(request);
+  if (request.method === 'POST' && !postAllowed) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
+
   let session;
   try { session = await ensureSession(request); }
   catch (_) { return json({ ok:false, code:'PORTAL_SESSION_UPSTREAM_UNAVAILABLE' }, 503); }
   if (!session) return json({ ok:false, code:'PORTAL_ACCESS_DENIED' }, 401);
   const roles = Array.isArray(session.me?.user?.roles) ? session.me.user.roles.map(String) : [];
   if (!roles.includes('ADMIN')) return json({ ok:false, code:'ROLE_MISMATCH' }, 403, session.setCookies);
-
-  const url = new URL(request.url);
-  const prefix = '/portal/admin-authority';
-  const path = url.pathname.startsWith(prefix) ? (url.pathname.slice(prefix.length) || '/') : '/';
 
   // Cloudflare Pages gives this more-specific route precedence over /portal/[[path]].
   // Keep the top-level browser handoff here so the opaque impersonation token is never exposed to browser JS.
