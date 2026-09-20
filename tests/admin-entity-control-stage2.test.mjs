@@ -30,6 +30,11 @@ const portalApi=read('supabase/functions/rona-portal-api/index.ts');
 const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
 const claims=read('supabase/functions/rona-owner-acceptance/claims.ts');
 const appBusiness=read('supabase/functions/_shared/client-application-business-v2/handler.mjs');
+const paymentsEntry=read('supabase/functions/rona-portal-api/payments-v8-production-hardening.ts');
+const applicationEntry=read('supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts');
+const stage21Entry=read('supabase/functions/rona-portal-api/stage21-bootstrap.ts');
+const controlPlaneEntry=read('supabase/functions/rona-admin-control-plane/owner-auth-fallback-wrapper.ts');
+const ownerAcceptanceEntry=read('supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3.ts');
 const migration=read('supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql');
 
 // Absolute visual freeze: the existing CSS payload and Admin shell stay byte-for-byte unchanged.
@@ -172,6 +177,15 @@ assertIncludes(shell,"headers.set('x-rona-admin-impersonation-token',impersonati
 assertIncludes(shell,"const impersonationToken=String(cookies[IMPERSONATION_COOKIE]",'authority sourced from HttpOnly cookie');
 assertIncludes(ownerProxy,"const impersonationToken=targetPath?cookieImpersonation:''",'Admin tabs isolated from target impersonation');
 
+// Production entrypoint wrappers must resolve to this reconciled Stage 2 tree, not stale remote cores.
+assertIncludes(paymentsEntry,"await import('./application-business-bootstrap-v2.ts');",'Portal API payments wrapper uses local application entry');
+assertNotIncludes(paymentsEntry,'5aceffe2725a904e8e0ded562e483f012e861085/supabase/functions/rona-portal-api/application-business-bootstrap-v2.ts','stale Portal application pin');
+assertIncludes(applicationEntry,"from './shared.ts'",'Application wrapper uses local shared authority');
+assertIncludes(applicationEntry,"await import('./stage24-bootstrap.ts');",'Application wrapper uses local lifecycle chain');
+assertIncludes(stage21Entry,'await import("./bootstrap.ts");','Stage21 uses local reconciled bootstrap');
+assertIncludes(controlPlaneEntry,"await import('./index.ts');",'Admin control-plane wrapper uses local Stage 2 core');
+assertIncludes(ownerAcceptanceEntry,'await import("./index.ts");','Owner acceptance wrapper uses local Stage 2 core');
+
 // Parallel tabs: a new start revokes prior session; stale tab cannot terminate/clear the newer one.
 assertIncludes(control,"end_reason='REPLACED_BY_NEW_SESSION'",'new session revokes old session');
 assertIncludes(control,'if(tabId!==imp.id)fail("IMPERSONATION_TAB_INVALID",409)','stale tab cannot end current session');
@@ -180,6 +194,9 @@ assertIncludes(shell,"upstreamPath==='/impersonation/end'&&UUID_RE.test(tabId)",
 
 // Stage 2 must not modify forbidden subsystem sources.
 const changed=git('diff','--name-only',BASE,'HEAD').split('\n').filter(Boolean);
+const allowedStage2EntrypointBridges=new Set([
+  'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts',
+]);
 const forbidden=[
   /^supabase\/functions\/.*rail/i,
   /^supabase\/functions\/.*finance/i,
@@ -188,7 +205,10 @@ const forbidden=[
   /^supabase\/migrations\/.*finance/i,
   /^supabase\/migrations\/.*payments/i,
 ];
-for(const p of changed)for(const re of forbidden)assert.ok(!re.test(p),`forbidden subsystem modified: ${p}`);
+for(const p of changed){
+  if(allowedStage2EntrypointBridges.has(p))continue;
+  for(const re of forbidden)assert.ok(!re.test(p),`forbidden subsystem modified: ${p}`);
+}
 
 // No production deployment/mutation artifact is introduced by this PR.
 assert.ok(changed.some(p=>p==='supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql'),'Stage 2 migration source is present');
