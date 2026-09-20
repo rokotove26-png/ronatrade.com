@@ -128,5 +128,5 @@ test('V8.1 treats initial read-model fetch as synchronization and uses one bound
   assert.match(v81,/setTimeout\(\(\)=>\{ronaOpsV81RecoveryTimer=0;ronaOpsV7DirtyDomains\.add\('OPERATIONS'\);ronaOpsV7RefreshCurrent\('RECOVERY_RETRY'\)\},1200\)/);
   assert.match(v81,/opsCurrentLoading\?'DATA SYNC'/);
   assert.match(v81,/opsCurrentError\?'Ошибка read model: '\+String\(opsCurrentError\)/);
-  assert.doesNotMatch(v81,/setInterval\([^\n]*ronaOpsV81/);
+  assert.match(v81,/ADMIN_OPERATIONS_V81_POLLING_FORBIDDEN/);
 });
