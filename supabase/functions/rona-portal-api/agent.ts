@@ -160,6 +160,7 @@ export async function agentPayment(c:Ctx,paymentId:string){
 
 async function agentPricePublication(c:Ctx){
   const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
+  const adminEntity=isAdminEntityAgent(c);
   const rows=await sql`
     select distinct on (ops.source_publication_item_key)
       ops.source_publication_item_key as publication_item_id,
@@ -212,18 +213,24 @@ async function agentPricePublication(c:Ctx){
           select 1
           from portal_private.publication_client_targets pct
           join portal_private.agent_client_assignments aca on aca.client_key=pct.client_key
-          join portal_private.agent_user_bindings aub
+          left join portal_private.agent_user_bindings aub
             on aub.agent_person_key=aca.agent_person_key
            and (
              aub.agent_legal_entity_key is null
              or aca.agent_legal_entity_key is not distinct from aub.agent_legal_entity_key
            )
-          where aub.user_id=${c.user}::uuid
-            and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
-            and aub.status='ACTIVE'::portal_private.binding_status_enum
-            and aub.revoked_at is null
-            and aub.valid_from<=now()
-            and (aub.valid_to is null or aub.valid_to>now())
+          where (
+              (${adminEntity}::boolean and aca.agent_person_key=${bound}::uuid)
+              or (
+                not ${adminEntity}::boolean
+                and aub.user_id=${c.user}::uuid
+                and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
+                and aub.status='ACTIVE'::portal_private.binding_status_enum
+                and aub.revoked_at is null
+                and aub.valid_from<=now()
+                and (aub.valid_to is null or aub.valid_to>now())
+              )
+            )
             and aca.status='ACTIVE'::portal_private.binding_status_enum
             and aca.authority_state='CONFIRMED'::portal_private.authority_state_enum
             and aca.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
