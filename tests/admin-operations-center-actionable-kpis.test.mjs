@@ -1,17 +1,20 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { patchAdminOperationsCommandCenterV6 } from '../functions/portal/admin-operations-command-center-v6.js';
 
 const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 
-test('Operational Center action KPIs exclude historical technical backlog and double counting', () => {
-  const ui = read('functions/portal/admin-operations-command-center-v5.js');
+test('Operational Center action KPIs exclude historical technical backlog and passive payment monitoring', () => {
+  const ui = patchAdminOperationsCommandCenterV6('function renderAdminHome(){}\nfunction renderPrices(){}');
 
   assert.doesNotMatch(ui, /queueRows\.length\+Number\(opsMetrics\.attention_total/);
   assert.match(ui, /if\(t==='AI_RUNTIME'\)return false/);
   assert.match(ui, /t==='FINANCE_MATERIALIZER'&&!\['CRITICAL','ERROR'\]\.includes\(sev\)/);
   assert.match(ui, /ronaFdV5Key\(r\?\.mode\)!=='DISABLED'/);
-  assert.match(ui, /const attentionCount=conflicts\.length\+attentionApps\.length\+paymentControl\.length\+waitingWagons\.length\+uncheckedDocs\.length\+opsTasks\.length\+actionableReverse\.length\+materializerIssueCount\+railIssueCount/);
+  assert.match(ui, /const dealActionRows=activeDeals\.filter\(x=>x\?\.current_action_required===true\)/);
+  assert.match(ui, /const attentionCount=conflicts\.length\+attentionApps\.length\+dealActionRows\.length\+waitingWagons\.length\+uncheckedDocs\.length\+opsTasks\.length\+actionableReverse\.length\+materializerIssueCount\+railIssueCount/);
+  assert.doesNotMatch(ui, /const attentionCount=.*paymentControl\.length/);
 });
 
 test('Admin bootstrap compatibility boundary publishes current-actionable KPI scope', () => {
