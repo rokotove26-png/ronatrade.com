@@ -309,8 +309,7 @@ begin
 
   return v_out;
 end
-$function$
-
+$function$;
 
 revoke all on function public.owner_deals_rail_execution_v4(text) from public;
 revoke all on function public.owner_deals_rail_execution_v4(text) from anon;
