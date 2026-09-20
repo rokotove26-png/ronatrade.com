@@ -86,3 +86,12 @@ test('Operations Center separates manual actions from payment monitoring', () =>
   assert.doesNotMatch(generated,/for\(const x of paymentControl\)\{const deal=.*queueRows\.push/);
   assert.match(generated,/FIN-05','Платежи на контроле',financeKnown\?paymentControl\.length/,'payment monitoring stays visible in its dedicated gauge');
 });
+
+
+test('Operations Center refreshes authoritative Deals facts and deep-links actionable deal rows', () => {
+  const generated=patchAdminOperationsCommandCenterV6(SOURCE);
+  assert.match(generated,/const dealRefresh=window\.__RONA_DEALS_CURRENT_STATE_REFRESH__/);
+  assert.match(generated,/if\(typeof dealRefresh==='function'\)await dealRefresh\(\)/);
+  assert.match(generated,/onclick:\(\)=>ronaOpsV5Go\(row\.target,row\.dealId\)/);
+  assert.match(generated,/function ronaOpsV5OpenDeal\(id\)/);
+});
