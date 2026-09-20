@@ -14,6 +14,7 @@ const analytics=read('functions/portal/analytics-v2-ui.js');
 const analyticsBase=read('functions/portal/analytics-v2-approved-base.js');
 const railSafe=read('functions/portal/rail-safe-fallback-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
+const approvedShellVisual=read('functions/portal/admin-approved-shell-v455-ui.js');
 
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
@@ -43,6 +44,11 @@ for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временны�
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must be owned by the current shell');
 assert(shell.includes('min-height:48px')&&shell.includes('font-size:14.5px'),'Canonical navigation sizing missing');
 assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Current shell must expose primary access action before module mount');
+for(const marker of ['RONA_ADMIN_COMMAND_NAVIGATION_V4','RONA_ADMIN_COMMAND_NAVIGATION_V5_BRAND_ICONS','RONA_ADMIN_SIDEBAR_CANONICAL_VISUAL_V12'])assert(!shell.includes(marker),'Static sidebar visual competitor returned: '+marker);
+assert(approvedShellVisual.includes("window.__RONA_ADMIN_SHELL_V455__='20260920-sidebar-single-owner-v13'"),'Sidebar runtime build marker missing');
+assert(approvedShellVisual.includes("const SIDEBAR_OWNER='shell-v455-command-v13'"),'Sidebar owner marker missing');
+assert(approvedShellVisual.includes('function ensureNavIcons()'),'Sidebar DOM icon installer missing');
+assert(approvedShellVisual.includes('data-page=\"documents\"]{display:none!important}'),'Hidden Documents slot must remain collapsed in runtime owner');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit navigation');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
 assert(shell.length<60000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
