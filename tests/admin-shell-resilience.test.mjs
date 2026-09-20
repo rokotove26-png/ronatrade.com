@@ -48,7 +48,7 @@ for(const marker of ['RONA_ADMIN_COMMAND_NAVIGATION_V4','RONA_ADMIN_COMMAND_NAVI
 assert(approvedShellVisual.includes("window.__RONA_ADMIN_SHELL_V455__='20260920-sidebar-single-owner-v13'"),'Sidebar runtime build marker missing');
 assert(approvedShellVisual.includes("const SIDEBAR_OWNER='shell-v455-command-v13'"),'Sidebar owner marker missing');
 assert(approvedShellVisual.includes('function ensureNavIcons()'),'Sidebar DOM icon installer missing');
-assert(approvedShellVisual.includes('data-page=\"documents\"]{display:none!important}'),'Hidden Documents slot must remain collapsed in runtime owner');
+assert(approvedShellVisual.includes('data-page=\\\"documents\\\"]{display:none!important}'),'Hidden Documents slot must remain collapsed in runtime owner');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit navigation');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
 assert(shell.length<60000,'Current Admin shell must remain structural, not a bundled legacy cabinet');
