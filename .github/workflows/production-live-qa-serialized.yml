@@ -16,7 +16,11 @@ permissions:
   statuses: write
 
 jobs:
+  public-home-auth-boundary:
+    uses: ./.github/workflows/public-home-auth-boundary-qa.yml
+
   owner-acceptance-live:
+    needs: public-home-auth-boundary
     uses: ./.github/workflows/owner-acceptance-live-production-qa.yml
 
   g82-real-browser-qa:

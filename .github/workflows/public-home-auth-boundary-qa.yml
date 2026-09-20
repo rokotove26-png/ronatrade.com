@@ -1,6 +1,7 @@
 name: Public home auth boundary QA
 
 on:
+  workflow_call:
   pull_request:
     branches:
       - release/public-go-live-v1.1
