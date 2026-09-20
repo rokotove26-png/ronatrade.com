@@ -10,6 +10,7 @@ on:
       - 'functions/portal/owner-api.js'
       - 'functions/portal/deals-current-state-ui.js'
       - 'supabase/migrations/20260920194500_admin_operations_current_v2_single_owner.sql'
+      - 'supabase/migrations/20260920203448_admin_operations_attention_seen_v1.sql'
       - 'tests/admin-operations-current-v1/**'
       - 'tests/admin-operations-current-v2/**'
       - 'tests/admin-operations-mission-control-v8/**'
@@ -67,5 +68,10 @@ jobs:
           if(s.includes("realtime:rona-admin-operations-current-v1")) throw new Error('OPERATIONS_LEGACY_V1_SOCKET_REMAINS');
           if(!s.includes("__RONA_ADMIN_OPERATIONS_LEGACY_EVENT_RUNTIME_STRIPPED__='V7_V91'")) throw new Error('OPERATIONS_LEGACY_EVENT_STRIP_MARKER_MISSING');
           if(!s.includes("new AbortController()")) throw new Error('OPERATIONS_V10_ABORTABLE_FETCH_MISSING');
+          if(!s.includes("call('/admin/operations-attention-seen-v1'")) throw new Error('OPERATIONS_ATTENTION_SEEN_SOURCE_MISSING');
+          if(!s.includes("post('/admin/operations-attention-ack-v1'")) throw new Error('OPERATIONS_ATTENTION_ACK_MISSING');
+          if(!s.includes("function ronaOpsV10OpenAttention()")) throw new Error('OPERATIONS_ATTENTION_DIALOG_MISSING');
+          if(!s.includes("code==='CAUT-03'?ronaOpsV10OpenAttention()")) throw new Error('OPERATIONS_ATTENTION_CARD_CLICK_MISSING');
+          if(!s.includes("Непросмотренные · открыто всего:")) throw new Error('OPERATIONS_ATTENTION_UNSEEN_SEMANTICS_MISSING');
           console.log('ADMIN_OPERATIONS_CURRENT_V2_SINGLE_OWNER=PASS');
           NODE
