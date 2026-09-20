@@ -16,7 +16,7 @@ const releaseBase=process.env.STAGE2_CURRENT_RELEASE_BASE_SHA||git('merge-base',
 const showRelease=p=>execFileSync('git',['show',`${releaseBase}:${p}`],{encoding:'utf8'});
 
 const ui=read('functions/portal/clients-agents-current-ui.js');
-const baseUi=show('functions/portal/clients-agents-current-ui.js');
+const baseUi=showRelease('functions/portal/clients-agents-current-ui.js');
 const shell=read('functions/portal/[[path]].js');
 const ownerProxy=read('functions/portal/owner-api.js');
 const logout=read('functions/portal/logout.js');
