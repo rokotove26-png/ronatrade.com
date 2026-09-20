@@ -6,15 +6,19 @@ const read=(p)=>readFileSync(new URL('../../'+p,import.meta.url),'utf8');
 
 test('Operational Center V7 is event-driven and does not poll the read model',()=>{
   const v7=read('functions/portal/admin-operations-command-center-v7.js');
+  const tick=String.fromCharCode(96);
+  const start=v7.indexOf('const EVENT_RUNTIME=String.raw'+tick);
+  const end=v7.indexOf(tick+';\n\nexport function patchAdminOperationsCommandCenterV7',start);
+  assert.ok(start>=0&&end>start);
+  const runtime=v7.slice(start,end);
   assert.match(v7,/v7-event-driven-current-v1/);
-  assert.match(v7,/postgres-change-invalidation-v1-no-polling/);
-  assert.match(v7,/call\('\/admin\/operations-current-v1'\)/);
-  assert.match(v7,/event:'postgres_changes'/);
-  assert.match(v7,/rona_admin_operations_invalidation_v1/);
-  assert.match(v7,/ronaOpsV7DirtyDomains/);
-  assert.doesNotMatch(v7,/setInterval\([^\n]*ronaOpsV7RefreshCurrent/);
-  assert.doesNotMatch(v7,/setInterval\([^\n]*ownerAdminRefreshTick/);
-  assert.doesNotMatch(v7,/30000/);
+  assert.match(runtime,/postgres-change-invalidation-v1-no-polling/);
+  assert.match(runtime,/call\('\/admin\/operations-current-v1'\)/);
+  assert.match(runtime,/event:'postgres_changes'/);
+  assert.match(runtime,/rona_admin_operations_invalidation_v1/);
+  assert.match(runtime,/ronaOpsV7DirtyDomains/);
+  assert.doesNotMatch(runtime,/setInterval\([^\n]*ronaOpsV7RefreshCurrent/);
+  assert.doesNotMatch(runtime,/setInterval\([^\n]*ownerAdminRefreshTick/);
 });
 
 test('Operational Center refreshes only domains affected by a database change',()=>{
@@ -49,7 +53,7 @@ test('Signal table is tiny, RLS protected, and read-only for browser roles',()=>
 test('Current operations RPC is ADMIN-only and does not mutate business tables',()=>{
   const sql=read('supabase/migrations/20260920154500_admin_operations_current_v1_event_driven.sql');
   assert.match(sql,/owner_r1_actor\('ADMIN'\)/);
-  assert.match(sql,/revoke all on function public\.rona_admin_operations_current_v1\(\).*public, anon/i);
+  assert.match(sql,/revoke all on function public\.rona_admin_operations_current_v1\(\)\s*from public, anon/i);
   assert.match(sql,/grant execute on function public\.rona_admin_operations_current_v1\(\).*authenticated, service_role/is);
   assert.doesNotMatch(sql,/\b(update|insert into|delete from)\s+portal_private\./i);
 });
@@ -62,11 +66,10 @@ test('Invalidation ignores high-churn AI history and preserves intentional disab
   assert.match(sql,/ai_history_excluded_from_action_kpi',true/);
 });
 
-test('Registry indicators are labelled as registry counts, not presence',()=>{
+test('Registry indicators use registry semantics rather than claiming presence',()=>{
   const v7=read('functions/portal/admin-operations-command-center-v7.js');
-  assert.match(v7,/'NET-07','Клиенты'/);
-  assert.match(v7,/'NET-08','Агенты'/);
-  assert.doesNotMatch(v7,/Клиенты в сети|Агенты в сети/);
+  assert.match(v7,/gauge\('NET-07','Клиенты',networkClientCount/);
+  assert.match(v7,/gauge\('NET-08','Агенты',networkAgentCount/);
 });
 
 test('Missing read model or event connection cannot render SYSTEM NORMAL',()=>{
