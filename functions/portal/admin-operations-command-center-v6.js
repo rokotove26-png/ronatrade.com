@@ -93,8 +93,8 @@ export function deriveOperationsDealCurrentRows(baseDeals,snapshot){
   });
 }
 
-const DEAL_CURRENT_RUNTIME=String.raw\`
-\${deriveOperationsDealCurrentRows.toString()}
+const DEAL_CURRENT_RUNTIME=String.raw`
+${deriveOperationsDealCurrentRows.toString()}
 function ensureAdminHomeDealCurrentV6(){
   window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT__='v1-authoritative-deals-snapshot';
   if(window.__RONA_ADMIN_OPERATIONS_DEAL_CURRENT_BOUND__)return;
@@ -106,7 +106,7 @@ function ensureAdminHomeDealCurrentV6(){
     }catch(_){}
   });
 }
-\`;
+`;
 
 function replaceRequired(source,from,to,label){
   const first=source.indexOf(from);
