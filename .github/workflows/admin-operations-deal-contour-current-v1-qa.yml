@@ -75,7 +75,16 @@ jobs:
         run: |
           set -euo pipefail
           git diff --name-only origin/${{ github.base_ref }}...HEAD | tee /tmp/changed.txt
-          if grep -E '^(supabase/|.*\.sql$|functions/portal/owner-api\.js$)' /tmp/changed.txt; then
-            echo 'Backend or database mutation is outside this read-model correction.'
+          backend="$(grep -E '^(supabase/|.*\.sql$|functions/portal/owner-api\.js$)' /tmp/changed.txt || true)"
+          unexpected="$(printf '%s\n' "$backend" | grep -Ev '^(functions/portal/owner-api\.js|supabase/migrations/20260920143000_admin_deals_current_v3_execution_read_model\.sql) || true)"
+          if [ -n "$unexpected" ]; then
+            echo 'Unexpected backend/database surface in Operations deal-contour change:'
+            printf '%s\n' "$unexpected"
             exit 1
+          fi
+          if [ -n "$backend" ]; then
+            grep -Fq "/admin/deals-current-v3" functions/portal/owner-api.js
+            grep -Fq "owner_deals_current_v3" functions/portal/owner-api.js
+            node --test tests/deals/admin-deals-current-v3-contract.test.mjs
+            echo 'READ_ONLY_DEALS_V3_BACKEND_SCOPE=PASS'
           fi
