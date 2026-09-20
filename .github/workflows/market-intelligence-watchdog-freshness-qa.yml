@@ -1,0 +1,22 @@
+name: Market intelligence watchdog freshness QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'supabase/migrations/20260920044800_market_intelligence_watchdog_no_change_freshness_v1.sql'
+      - 'tests/market-intelligence-watchdog-freshness-v1.test.mjs'
+      - '.github/workflows/market-intelligence-watchdog-freshness-qa.yml'
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify watchdog freshness contract
+        run: node tests/market-intelligence-watchdog-freshness-v1.test.mjs
