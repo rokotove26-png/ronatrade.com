@@ -640,6 +640,32 @@
         filter:drop-shadow(0 0 4px rgba(229,27,43,.15))!important;
       }
     }
+
+    /* RONA_ADMIN_SIDEBAR_ICON_CENTERING_V8 — optical centering only */
+    body.admin-auth-server-verified>.app>.sidebar #nav button .nav-icon{
+      display:grid!important;
+      place-items:center!important;
+      align-items:center!important;
+      justify-items:center!important;
+    }
+    body.admin-auth-server-verified>.app>.sidebar #nav button .nav-icon::before{
+      display:block!important;
+      position:static!important;
+      place-self:center!important;
+      align-self:center!important;
+      justify-self:center!important;
+      margin:0!important;
+      inset:auto!important;
+      vertical-align:middle!important;
+      transform:translate3d(0,0,0)!important;
+      transform-origin:50% 50%!important;
+    }
+    @media(hover:hover) and (pointer:fine){
+      body.admin-auth-server-verified>.app>.sidebar #nav button:not(.rona-nav-attention):hover .nav-icon::before{
+        transform:scale(1.04)!important;
+        transform-origin:50% 50%!important;
+      }
+    }
   </style>
 </head>
 <body class="admin-auth-server-verified">
