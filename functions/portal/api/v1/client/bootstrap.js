@@ -1,4 +1,4 @@
-import {applyBrowserImpersonation,browserImpersonationInvalid,readBrowserImpersonation} from '../../../_browser-impersonation.js';
+import {applyBrowserImpersonation,browserImpersonationInvalid,readBrowserImpersonation} from '../../_browser-impersonation.js';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 const MAIN_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
