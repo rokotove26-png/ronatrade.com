@@ -1,0 +1,27 @@
+name: Public home auth boundary QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+  push:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  public-home-auth-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify public site never auto-enters protected Admin
+        run: |
+          set -euo pipefail
+          node --check assets/g82/portal-home-inline-auth-v2.js
+          node tests/public-home-auth-boundary.test.mjs
