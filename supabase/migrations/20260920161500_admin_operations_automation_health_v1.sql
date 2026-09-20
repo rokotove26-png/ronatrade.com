@@ -137,7 +137,7 @@ $function$;
 revoke all on function portal_private.rona_admin_cron_health_transition_v1()
 from public,anon,authenticated;
 
-do $
+do $$
 begin
   if not exists (
     select 1
@@ -163,9 +163,9 @@ begin
     end;
   end if;
 end
-$;
+$$;
 
-do $
+do $$
 declare
   v_def text;
 begin
