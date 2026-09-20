@@ -117,3 +117,16 @@ test('Automation health is event-driven and does not add read-model polling',()=
   assert.match(v7,/effectiveCriticalCount=criticalCount\+automationCritical\.length/);
   assert.doesNotMatch(v7,/setInterval\([^\n]*automation/i);
 });
+
+
+test('V8.1 treats initial read-model fetch as synchronization and uses one bounded recovery retry',()=>{
+  const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
+  assert.match(v81,/__RONA_ADMIN_OPERATIONS_CURRENT_STATUS__='LOADING'/);
+  assert.match(v81,/__RONA_ADMIN_OPERATIONS_CURRENT_STATUS__='READY'/);
+  assert.match(v81,/__RONA_ADMIN_OPERATIONS_CURRENT_STATUS__='ERROR'/);
+  assert.match(v81,/reason!=='RECOVERY_RETRY'/);
+  assert.match(v81,/setTimeout\(\(\)=>\{ronaOpsV81RecoveryTimer=0;ronaOpsV7DirtyDomains\.add\('OPERATIONS'\);ronaOpsV7RefreshCurrent\('RECOVERY_RETRY'\)\},1200\)/);
+  assert.match(v81,/opsCurrentLoading\?'DATA SYNC'/);
+  assert.match(v81,/opsCurrentError\?'Ошибка read model: '\+String\(opsCurrentError\)/);
+  assert.doesNotMatch(v81,/setInterval\([^\n]*ronaOpsV81/);
+});
