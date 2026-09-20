@@ -8,7 +8,6 @@ on:
       - 'functions/portal/admin-operations-command-center-v10-clean.js'
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/owner-api.js'
-      - 'functions/portal/[[path]].js'
       - 'functions/portal/deals-current-state-ui.js'
       - 'supabase/migrations/20260920194500_admin_operations_current_v2_single_owner.sql'
       - 'tests/admin-operations-current-v1/**'
