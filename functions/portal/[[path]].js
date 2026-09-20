@@ -176,10 +176,26 @@ async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
 async function ensureSession(request){
   const cookies=parseCookies(request.headers.get('cookie')),access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
   const requestedPath=canonicalProtectedPath(new URL(request.url).pathname),allowAdminFallback=requestedPath==='/portal/admin';
-  if(access){const probe=await sessionProbe(access,{allowAdminFallback});if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};if(probe.state==='UNAVAILABLE')return{unavailable:true,access,refresh,me:null,setCookies:[]}}
-  if(!refresh)return null;let next;try{next=await authRefresh(refresh)}catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
-  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){if(refreshFailureIsRetryable(next))return{unavailable:true,access,refresh,me:null,setCookies:[],reason:'SESSION_REFRESH_CONVERGENCE'};return null}
-  const probe=await sessionProbe(next.data.access_token,{allowAdminFallback});if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};if(probe.state!=='VALID')return null;
+  let accessProbeUnavailable=false;
+  if(access){
+    const probe=await sessionProbe(access,{allowAdminFallback});
+    if(probe.state==='VALID')return{access,refresh,me:probe.me,setCookies:[]};
+    if(probe.state==='UNAVAILABLE'){
+      accessProbeUnavailable=true;
+      if(!refresh)return{unavailable:true,access,refresh,me:null,setCookies:[]};
+    }
+  }
+  if(!refresh)return null;
+  let next;
+  try{next=await authRefresh(refresh)}
+  catch(_){return{unavailable:true,access,refresh,me:null,setCookies:[]}}
+  if(!next.ok||!next.data?.access_token||!next.data?.refresh_token){
+    if(refreshFailureIsRetryable(next)||accessProbeUnavailable)return{unavailable:true,access,refresh,me:null,setCookies:[],reason:'SESSION_REFRESH_CONVERGENCE'};
+    return null;
+  }
+  const probe=await sessionProbe(next.data.access_token,{allowAdminFallback});
+  if(probe.state==='UNAVAILABLE')return{unavailable:true,access:next.data.access_token,refresh:next.data.refresh_token,me:null,setCookies:tokenCookies(next.data)};
+  if(probe.state!=='VALID')return null;
   return{access:next.data.access_token,refresh:next.data.refresh_token,me:probe.me,setCookies:tokenCookies(next.data)};
 }
 function rolesOf(me) { return Array.isArray(me?.user?.roles) ? me.user.roles.map(String) : []; }

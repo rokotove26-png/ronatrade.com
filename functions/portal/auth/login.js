@@ -109,6 +109,11 @@ export async function onRequestPost({request}){
  const probe=await sessionMe(login.data.access_token);
  if(probe.state==='UNAVAILABLE'){
    const target=parseLocalNext(next)||'/portal/admin';
+   const ownerAdminHandoff=target==='/portal/admin'&&emailForIdentifier(identifier)===OWNER_EMAIL;
+   if(ownerAdminHandoff){
+     const cookies=tokenCookies(login.data);
+     return asJson?json({ok:true,redirect:'/portal/admin',sessionIssued:true,deferredAuthority:true},200,cookies):redirect('/portal/admin',cookies);
+   }
    return asJson?json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true,sessionIssued:true,redirect:target},503,tokenCookies(login.data)):response(unavailableHtml(target),503,'text/html; charset=utf-8',tokenCookies(login.data));
  }
  if(probe.state!=='VALID'){await logout(login.data.access_token);return asJson?json({ok:false,code:'PORTAL_ACCESS_DENIED'},403,clearCookies()):response(loginHtml('Доступ к порталу не активирован.'),403,'text/html; charset=utf-8',clearCookies());}
