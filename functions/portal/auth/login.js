@@ -21,6 +21,7 @@ function accessCookie(token,maxAge=3600){return `${ACCESS_COOKIE}=${token}; Max-
 function refreshCookie(token,maxAge=604800){return `${REFRESH_COOKIE}=${token}; Max-Age=${Math.max(0,Number(maxAge)||0)}; Path=/portal; Secure; HttpOnly; SameSite=Lax`;}
 function clearCookies(){return [`${ACCESS_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`,`${REFRESH_COOKIE}=; Max-Age=0; Path=/portal; Secure; HttpOnly; SameSite=Lax`];}
 function tokenCookies(tokens){const expires=Math.min(Math.max(Number(tokens?.expires_in||3600),60),7200);return [accessCookie(tokens.access_token,expires),refreshCookie(tokens.refresh_token,604800)];}
+function parseCookies(header){const out={};for(const item of String(header||'').split(';')){const i=item.indexOf('=');if(i<1)continue;const key=item.slice(0,i).trim(),value=item.slice(i+1).trim();if(key)out[key]=value;}return out;}
 function response(body,status,contentType,cookies=[],location=''){const h=headers({'content-type':contentType});if(location)h.set('location',location);for(const c of cookies)h.append('set-cookie',c);return new Response(body,{status,headers:h});}
 function json(body,status=200,cookies=[]){return response(JSON.stringify(body),status,'application/json; charset=utf-8',cookies);}
 function redirect(location,cookies=[]){return response(null,303,'text/plain; charset=utf-8',cookies,location);}
@@ -57,19 +58,51 @@ async function fetchWithTimeout(url,init={},timeoutMs=7000){
  finally{clearTimeout(timer)}
 }
 async function authPassword(identifier,password){const email=emailForIdentifier(identifier);try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({email,password})},7000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_FETCH_FAILED'}}}}
+async function authRefresh(refreshToken){try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})},7000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_REFRESH_FAILED'}}}}
+async function authUser(accessToken){try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},5000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_USER_FAILED'}}}}
 function retryableAuthFailure(result){const status=Number(result?.status||0);return status===429||status>=500||status===0;}
+function ownerAuthIdentity(data){return String(data?.email||'').toLowerCase()===OWNER_EMAIL&&String(data?.app_metadata?.portal_identity||'')==='OWNER_ADMIN';}
+function tokenOwnerHint(token){try{const part=String(token||'').split('.')[1]||'';if(!part)return false;const normalized=part.replace(/-/g,'+').replace(/_/g,'/').padEnd(Math.ceil(part.length/4)*4,'=');const payload=JSON.parse(atob(normalized));return String(payload?.email||'').toLowerCase()===OWNER_EMAIL&&String(payload?.app_metadata?.portal_identity||'')==='OWNER_ADMIN'}catch{return false}}
+async function recoverExistingOwnerSession(request,next,identifier=''){
+ const requested=parseLocalNext(next);
+ if(requested&&requested!=='/portal/admin')return null;
+ const cookies=parseCookies(request.headers.get('cookie'));
+ const access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'';
+ const explicitOwner=Boolean(String(identifier||'').trim())&&emailForIdentifier(identifier)===OWNER_EMAIL;
+ let mayRefresh=explicitOwner;
+ if(access){
+   const current=await authUser(access);
+   if(current.ok){
+     if(ownerAuthIdentity(current.data))return {target:'/portal/admin',cookies:[],source:'ACCESS_COOKIE'};
+     return null;
+   }
+   mayRefresh=mayRefresh||tokenOwnerHint(access);
+ }
+ if(refresh&&mayRefresh){
+   const rotated=await authRefresh(refresh);
+   if(rotated.ok&&rotated.data?.access_token&&rotated.data?.refresh_token){
+     const current=await authUser(rotated.data.access_token);
+     if(current.ok&&ownerAuthIdentity(current.data))return {target:'/portal/admin',cookies:tokenCookies(rotated.data),source:'REFRESH_COOKIE'};
+   }
+ }
+ return null;
+}
 async function sessionMe(accessToken){let lastStatus=503;for(let attempt=0;attempt<3;attempt++){try{const r=await fetchWithTimeout(`${PORTAL_API}/session/me`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},4000);lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return {state:'VALID',me:j,status:r.status};}else if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};else if(r.status!==429&&r.status<500)return {state:'INVALID',me:null,status:r.status};}catch{lastStatus=503}if(attempt<2)await new Promise(resolve=>setTimeout(resolve,300));}return {state:'UNAVAILABLE',me:null,status:lastStatus}}
 async function logout(accessToken){try{await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`}})}catch(_){}}
 
 export async function onRequestPost({request}){
  if(!sameOrigin(request))return json({ok:false,code:'ORIGIN_DENIED'},403,clearCookies());
- const ct=request.headers.get('content-type')||'';let identifier='',password='',next='';
- if(ct.includes('application/json')){const body=await request.json().catch(()=>({}));identifier=String(body.identifier||body.email||'').trim();password=String(body.password||'');next=String(body.next||'');}
- else{const form=await request.formData();identifier=String(form.get('identifier')||form.get('email')||'').trim();password=String(form.get('password')||'');next=String(form.get('next')||'');}
+ const ct=request.headers.get('content-type')||'';let identifier='',password='',next='',resumeOnly=false;
+ if(ct.includes('application/json')){const body=await request.json().catch(()=>({}));identifier=String(body.identifier||body.email||'').trim();password=String(body.password||'');next=String(body.next||'');resumeOnly=body.resume===true;}
+ else{const form=await request.formData();identifier=String(form.get('identifier')||form.get('email')||'').trim();password=String(form.get('password')||'');next=String(form.get('next')||'');resumeOnly=String(form.get('resume')||'')==='1';}
  const asJson=wantsJson(request);
+ const recovered=await recoverExistingOwnerSession(request,next,identifier);
+ if(recovered)return asJson?json({ok:true,redirect:recovered.target,recovered:true,source:recovered.source},200,recovered.cookies):redirect(recovered.target,recovered.cookies);
+ if(resumeOnly)return json({ok:false,code:'NO_RECOVERABLE_SESSION'},401);
  if(!identifier||!password||identifier.length>320||password.length>1024)return asJson?json({ok:false,code:'LOGIN_INVALID'},400,clearCookies()):response(loginHtml('Не удалось выполнить вход.'),400,'text/html; charset=utf-8',clearCookies());
  const login=await authPassword(identifier,password);
  if(!login.ok||!login.data?.access_token||!login.data?.refresh_token){
+   if(Number(login.status)===429)return asJson?json({ok:false,code:'LOGIN_RATE_LIMITED',retryable:true},429):response(loginHtml('Слишком много попыток входа. Подождите и повторите.'),429,'text/html; charset=utf-8');
    if(retryableAuthFailure(login))return asJson?json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503):response(unavailableHtml(parseLocalNext(next)||'/portal/admin'),503,'text/html; charset=utf-8');
    return asJson?json({ok:false,code:'LOGIN_DENIED'},401,clearCookies()):response(loginHtml('Неверный логин или пароль.'),401,'text/html; charset=utf-8',clearCookies());
  }
