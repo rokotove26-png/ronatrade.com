@@ -16,6 +16,7 @@ const operationsV6=read('functions/portal/admin-operations-command-center-v6.js'
 const operationsV7=read('functions/portal/admin-operations-command-center-v7.js');
 const operationsV8=read('functions/portal/admin-operations-command-center-v8.js');
 const operationsV81=read('functions/portal/admin-operations-command-center-v8-1.js');
+const operationsV82=read('functions/portal/admin-operations-command-center-v8-2.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -47,7 +48,10 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV81(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.1 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV82(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.2 patch after source assembly');
+need(has(operationsV82,"OPERATIONS_COMMAND_CENTER_VERSION='v8.2-action-queue-normalized-v1'"),'Operations Command Center V8.2 version marker is missing');
+need(has(operationsV82,"patchAdminOperationsCommandCenterV81 as patchV81"),'Operations Command Center V8.2 does not preserve the V8.1 recovery baseline');
+need(has(operationsV82,"taskSourceEventIds=new Set")&&has(operationsV82,"const attentionCount=queueRows.length"),'Operations Command Center V8.2 normalized action queue is missing');
 need(has(operationsV81,"OPERATIONS_COMMAND_CENTER_VERSION='v8.1-readmodel-recovery-v1'"),'Operations Command Center V8.1 version marker is missing');
 need(has(operationsV81,"patchAdminOperationsCommandCenterV8 as patchV8"),'Operations Command Center V8.1 does not preserve the V8 Mission baseline');
 need(has(operationsV81,"RECOVERY_RETRY")&&has(operationsV81,"DATA SYNC"),'Operations Command Center V8.1 bounded read-model recovery is missing');
