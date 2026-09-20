@@ -41,6 +41,7 @@ jobs:
           node tests/public-home-auth-boundary.test.mjs
           node tests/admin-impersonation-json-handoff.test.mjs
           node tests/admin-client-impersonation-early-bridge.test.mjs
+          node tests/admin-client-impersonation-static-shell.test.mjs
           test ! -e functions/portal/client.js
           grep -q "import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
           grep -q "x-rona-application-deal-handoff','approved-to-deal-v1" functions/portal/main-ui/index.js

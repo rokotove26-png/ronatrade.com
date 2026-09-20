@@ -41,12 +41,12 @@ try {
 
     if(url.endsWith('/functions/v1/rona-portal-api/v1/client/bootstrap')){
       assert.equal(headers.get('x-rona-admin-impersonation-token'),'opaque-impersonation-token');
-      assert.equal(headers.get('x-rona-impersonation-tab'),sessionId,'server-side Client gate must be tab-bound');
+      assert.equal(headers.get('x-rona-impersonation-tab'),sessionId,'server-side Client gate must remain tab-bound');
       return new Response(JSON.stringify({
         ok:true,
         data:{
-          contexts:[{client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001'}],
-          selected_context:{client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001'}
+          contexts:[{client_id:'RONA-QA-CLIENT',contract_id:'RONA-QA-CTR'}],
+          selected_context:{client_id:'RONA-QA-CLIENT',contract_id:'RONA-QA-CTR'}
         }
       }),{status:200,headers:{'content-type':'application/json'}});
     }
@@ -54,30 +54,27 @@ try {
     throw new Error('UNEXPECTED_FETCH '+url);
   };
 
+  const source='<!doctype html><html><head><script>window.__CANONICAL_CLIENT_BOOT__=true</script></head><body><main>canonical-client-shell</main></body></html>';
   const request=new Request('https://ronaoil.com/portal/client?impSession='+sessionId,{
     method:'GET',
-    headers:{
-      cookie:'rona_portal_at=valid-admin-access; rona_admin_imp=opaque-impersonation-token'
-    }
+    headers:{cookie:'rona_portal_at=valid-admin-access; rona_admin_imp=opaque-impersonation-token'}
   });
   const response=await onRequest({
     request,
-    next:async()=>new Response('<!doctype html><html><head><script>window.__EARLY_CLIENT_BOOT__=true</script></head><body><main>client</main></body></html>',{
+    next:async()=>new Response(source,{
       status:200,
       headers:{'content-type':'text/html; charset=utf-8'}
     })
   });
 
   assert.equal(response.status,200,'impersonated Client shell must be served');
-  const head=registrations.find(x=>x.selector==='head');
-  assert.ok(head,'impersonation bridge must be installed through the head rewriter');
-  assert.equal(head.handlerName,'HeadPrepend','bridge must prepend before canonical Client scripts');
-  assert.match(head.value,/rona-admin-impersonation-return/,'early bridge must be the Admin impersonation bridge');
-  assert.match(head.value,/x-rona-impersonation-tab/,'early bridge must attach the tab-bound header');
-  assert.ok(!registrations.some(x=>x.selector==='body'&&x.value.includes('rona-admin-impersonation-return')),
-    'impersonation bridge must not be appended after canonical Client boot');
+  assert.equal(response.headers.get('x-rona-client-impersonation-shell'),'static-unmodified-v1');
+  assert.equal(registrations.length,0,'impersonated Client document must not be passed through HTMLRewriter');
+  const body=await response.text();
+  assert.equal(body,source,'canonical Client byte stream must remain unmodified by the portal server');
+  assert.match(response.headers.get('content-security-policy')||'',/script-src 'self' 'unsafe-inline'/);
 
-  console.log('ADMIN_CLIENT_IMPERSONATION_EARLY_BRIDGE=PASS');
+  console.log('ADMIN_CLIENT_IMPERSONATION_STATIC_SHELL=PASS legacy_head_bridge=retired native_tab_binding=preserved');
 } finally {
   globalThis.fetch=originalFetch;
   if(originalRewriter===undefined) delete globalThis.HTMLRewriter;
