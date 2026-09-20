@@ -35,12 +35,15 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps the V7 event-driven baseline under V8.1 read-model recovery',()=>{
+test('Admin main UI keeps V7/V8/V8.1 baselines under V8.2 normalized action queue',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV81/);
-  assert.match(main,/admin-operations-command-center-v8-1\.js/);
+  const v82=read('functions/portal/admin-operations-command-center-v8-2.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV82/);
+  assert.match(main,/admin-operations-command-center-v8-2\.js/);
+  assert.match(v82,/patchAdminOperationsCommandCenterV81 as patchV81/);
+  assert.match(v82,/let patched=patchV81\(script\)/);
   assert.match(v81,/patchAdminOperationsCommandCenterV8 as patchV8/);
   assert.match(v81,/let patched=patchV8\(script\)/);
   assert.match(v8,/patchAdminOperationsCommandCenterV7 as patchV7/);
@@ -129,4 +132,17 @@ test('V8.1 treats initial read-model fetch as synchronization and uses one bound
   assert.match(v81,/opsCurrentLoading\?'DATA SYNC'/);
   assert.match(v81,/opsCurrentError\?'Ошибка read model: '\+String\(opsCurrentError\)/);
   assert.match(v81,/ADMIN_OPERATIONS_V81_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.2 counts visible normalized action rows and deduplicates reverse events mirrored by tasks',()=>{
+  const v82=read('functions/portal/admin-operations-command-center-v8-2.js');
+  assert.match(v82,/ACKNOWLEDGED','COMPLETED','CLOSED'/);
+  assert.match(v82,/taskSourceEventIds=new Set/);
+  assert.match(v82,/pending&&!taskSourceEventIds\.has\(eventId\)/);
+  assert.match(v82,/t==='STAFF_TASK'&&!taskIds\.has\(id\)/);
+  assert.match(v82,/t==='REVERSE_EVENT'&&!actionableReverseIds\.has\(id\)/);
+  assert.match(v82,/const criticalCount=queueRows\.filter\(x=>x\?\.tone==='red'\)\.length/);
+  assert.match(v82,/const attentionCount=queueRows\.length/);
+  assert.doesNotMatch(v82,/setInterval\([^\n]*ronaOpsV82/);
 });
