@@ -1,0 +1,24 @@
+name: Telegram channel run observability QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'supabase/functions/rona-ai-read-extras/telegram_ingest.js'
+      - 'tests/telegram-channel-run-observability-v1.test.mjs'
+      - '.github/workflows/telegram-channel-run-observability-qa.yml'
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax check Telegram ingest module
+        run: node --check supabase/functions/rona-ai-read-extras/telegram_ingest.js
+      - name: Verify Telegram channel observability contract
+        run: node tests/telegram-channel-run-observability-v1.test.mjs
