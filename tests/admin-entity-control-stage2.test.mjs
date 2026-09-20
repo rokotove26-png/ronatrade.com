@@ -28,7 +28,8 @@ const events=read('supabase/functions/rona-portal-api/events.ts');
 const agent=read('supabase/functions/rona-portal-api/agent.ts');
 const portalApi=read('supabase/functions/rona-portal-api/index.ts');
 const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
-const claims=read('supabase/functions/rona-owner-acceptance/claims.ts');\nconst appBusiness=read('supabase/functions/_shared/client-application-business-v2/handler.mjs');
+const claims=read('supabase/functions/rona-owner-acceptance/claims.ts');
+const appBusiness=read('supabase/functions/_shared/client-application-business-v2/handler.mjs');
 const migration=read('supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql');
 
 // Absolute visual freeze: the existing CSS payload and Admin shell stay byte-for-byte unchanged.
