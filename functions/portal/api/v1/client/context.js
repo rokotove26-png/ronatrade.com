@@ -1,3 +1,4 @@
+import {applyBrowserImpersonation,browserImpersonationInvalid,readBrowserImpersonation} from '../../../_browser-impersonation.js';
 import {mergeClientCounterOffers} from '../../../client-counter-offer-projection.js';
 
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
@@ -42,23 +43,23 @@ async function authRefresh(refreshToken){
   const data=await r.json().catch(()=>({}));
   return{ok:r.ok,status:r.status,data};
 }
-async function callContext(target,accessToken,request){
+async function callContext(target,accessToken,request,impersonation){
   const source=new URL(request.url),url=new URL(target);
   url.search=source.search;
-  const headers=new Headers({authorization:`Bearer ${accessToken}`,accept:'application/json'});
-  for(const name of ['x-request-id','x-correlation-id']){const value=request.headers.get(name);if(value)headers.set(name,value)}
+  const headers=applyBrowserImpersonation(new Headers({authorization:`Bearer ${accessToken}`,accept:'application/json'}),impersonation);
+  for(const name of ['x-request-id','x-correlation-id','x-rona-client-source']){const value=request.headers.get(name);if(value)headers.set(name,value)}
   return fetch(url,{method:'GET',headers});
 }
-async function callCounterOfferSource(accessToken,request){
-  const headers=new Headers({authorization:`Bearer ${accessToken}`,accept:'application/json'});
-  for(const name of ['x-request-id','x-correlation-id']){const value=request.headers.get(name);if(value)headers.set(name,value)}
+async function callCounterOfferSource(accessToken,request,impersonation){
+  const headers=applyBrowserImpersonation(new Headers({authorization:`Bearer ${accessToken}`,accept:'application/json'}),impersonation);
+  for(const name of ['x-request-id','x-correlation-id','x-rona-client-source']){const value=request.headers.get(name);if(value)headers.set(name,value)}
   return fetch(COUNTER_OFFER_SOURCE_API,{method:'GET',headers});
 }
-async function enrichCounterOfferProjection(response,accessToken,request){
+async function enrichCounterOfferProjection(response,accessToken,request,impersonation){
   if(!response.ok||!String(response.headers.get('content-type')||'').includes('application/json'))return response;
   const payload=await response.clone().json().catch(()=>null);
   if(!payload?.data||!Array.isArray(payload.data.applications))return response;
-  const sourceResponse=await callCounterOfferSource(accessToken,request).catch(()=>null);
+  const sourceResponse=await callCounterOfferSource(accessToken,request,impersonation).catch(()=>null);
   if(!sourceResponse?.ok)return response;
   const sourcePayload=await sourceResponse.json().catch(()=>null);
   const workflowApplications=Array.isArray(sourcePayload?.data?.applications)?sourcePayload.data.applications:[];
@@ -77,6 +78,8 @@ function isPr429Preview(request){
 export async function onRequest(context){
   const {request}=context;
   if(request.method!=='GET')return secured(new Response(JSON.stringify({ok:false,code:'METHOD_NOT_ALLOWED'}),{status:405,headers:{'content-type':'application/json; charset=utf-8'}}));
+  const impersonation=readBrowserImpersonation(request);
+  if(browserImpersonationInvalid(impersonation))return secured(new Response(JSON.stringify({ok:false,code:'IMPERSONATION_TAB_INVALID',returnTo:'/portal/admin'}),{status:409,headers:{'content-type':'application/json; charset=utf-8'}}));
   const preview=isPr429Preview(request),target=preview?PR429_PREVIEW_CONTEXT_API:MAIN_CONTEXT_API;
   const cookies=parseCookies(request.headers.get('cookie'));
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
@@ -86,13 +89,14 @@ export async function onRequest(context){
     else if(next&&next.status!==429&&Number(next.status||0)<500)return secured(new Response(JSON.stringify({ok:false,code:'PORTAL_ACCESS_DENIED'}),{status:401,headers:{'content-type':'application/json; charset=utf-8'}}),clearCookies(),preview);
   }
   if(!access)return secured(new Response(JSON.stringify({ok:false,code:'PORTAL_ACCESS_DENIED'}),{status:401,headers:{'content-type':'application/json; charset=utf-8'}}),[],preview);
-  let response=await callContext(target,access,request);
+  let response=await callContext(target,access,request,impersonation);
   if(response.status===401&&refresh){
     const next=await authRefresh(refresh).catch(()=>null);
     if(next?.ok&&next.data?.access_token&&next.data?.refresh_token){
-      access=next.data.access_token;setCookies=tokenCookies(next.data);response=await callContext(target,access,request);
+      access=next.data.access_token;setCookies=tokenCookies(next.data);response=await callContext(target,access,request,impersonation);
     }else if(next&&next.status!==429&&Number(next.status||0)<500)setCookies=clearCookies();
   }
-  response=await enrichCounterOfferProjection(response,access,request);
+  if(impersonation.active&&response.status===401)return secured(new Response(JSON.stringify({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'}),{status:409,headers:{'content-type':'application/json; charset=utf-8'}}),setCookies,preview);
+  response=await enrichCounterOfferProjection(response,access,request,impersonation);
   return secured(response,setCookies,preview);
 }
