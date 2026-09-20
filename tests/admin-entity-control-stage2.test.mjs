@@ -11,6 +11,8 @@ const assertNotIncludes=(src,needle,label)=>assert.ok(!src.includes(needle),`${l
 
 const head=git('rev-parse','HEAD');
 assert.equal(git('merge-base',head,BASE),BASE,'feature branch must descend from exact Stage 2 base');
+const releaseBase=process.env.STAGE2_CURRENT_RELEASE_BASE_SHA||git('merge-base',head,'origin/release/public-go-live-v1.1');
+const showRelease=p=>execFileSync('git',['show',`${releaseBase}:${p}`],{encoding:'utf8'});
 
 const ui=read('functions/portal/clients-agents-current-ui.js');
 const baseUi=show('functions/portal/clients-agents-current-ui.js');
@@ -50,7 +52,7 @@ for(const p of [
   'assets/portal-admin-shell-fast-v1.js',
   'assets/portal-admin-runtime-watchdog-v1.js'
 ]){
-  assert.equal(read(p),show(p),`${p} must remain visually frozen`);
+  assert.equal(read(p),showRelease(p),`${p} must remain unchanged from current release base`);
 }
 
 // Only the canonical .ca-head receives the compact Options control.
@@ -77,6 +79,11 @@ assertIncludes(shell,"searchParams.get('impSession')",'tab-bound target validati
 assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level impersonation handoff');
 assertIncludes(shell,"impersonationCookie(opaque,maxAge)",'top-level handoff owns opaque HttpOnly cookie');
 assertIncludes(ui,"form.action=AUTH+'/impersonation/enter'",'Admin UI uses top-level POST handoff');
+assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level shell handoff remains present');
+const authorityProxy=read('functions/portal/admin-authority/[[path]].js');
+assertIncludes(authorityProxy,"path === '/impersonation/enter'",'specific admin-authority route owns browser handoff');
+assertIncludes(authorityProxy,"PORTAL_ORIGIN_HOSTS",'portal canonical host normalization guard');
+assertIncludes(authorityProxy,"impersonationCookie(opaque, maxAge)",'specific route sets opaque HttpOnly impersonation cookie');
 assertNotIncludes(ui,"location.assign(targetPath+'?impSession='",'AJAX navigation handoff retired');
 assertIncludes(logout,"clearCookie('rona_admin_imp')",'logout clears impersonation');
 assertNotIncludes(shell,"request.headers.get('x-rona-admin-impersonation-token')",'browser must not supply trusted impersonation token');
