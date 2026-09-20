@@ -7,7 +7,7 @@ on:
       - 'functions/portal/admin-operations-command-center-v6.js'
       - 'functions/portal/deals-current-state-ui.js'
       - 'tests/admin-operations-center-v6-color-network.test.mjs'
-      - 'tests/admin-operations-center-v5-production.test.mjs'
+      - 'tests/admin-operations-center-v5-production.test.mjs'      - 'tests/admin-operations-center-actionable-kpis.test.mjs'
       - '.github/workflows/admin-operations-deal-contour-current-v1-qa.yml'
   push:
     branches: [release/public-go-live-v1.1]
@@ -40,10 +40,11 @@ jobs:
           node --check functions/portal/deals-current-state-ui.js
           node --check tests/admin-operations-center-v6-color-network.test.mjs
           node --check tests/admin-operations-center-v5-production.test.mjs
+          node --check tests/admin-operations-center-actionable-kpis.test.mjs
       - name: Authoritative contour unit contract
         run: |
           set -euo pipefail
-          node --test tests/admin-operations-center-v6-color-network.test.mjs tests/admin-operations-center-v5-production.test.mjs
+          node --test tests/admin-operations-center-v6-color-network.test.mjs tests/admin-operations-center-v5-production.test.mjs tests/admin-operations-center-actionable-kpis.test.mjs
       - name: Generated runtime contract
         run: |
           set -euo pipefail
