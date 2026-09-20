@@ -77,6 +77,11 @@ assertIncludes(shell,"searchParams.get('impSession')",'tab-bound target validati
 assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level impersonation handoff');
 assertIncludes(shell,"impersonationCookie(opaque,maxAge)",'top-level handoff owns opaque HttpOnly cookie');
 assertIncludes(ui,"form.action=AUTH+'/impersonation/enter'",'Admin UI uses top-level POST handoff');
+assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level shell handoff remains present');
+const authorityProxy=read('functions/portal/admin-authority/[[path]].js');
+assertIncludes(authorityProxy,"path === '/impersonation/enter'",'specific admin-authority route owns browser handoff');
+assertIncludes(authorityProxy,"PORTAL_ORIGIN_HOSTS",'portal canonical host normalization guard');
+assertIncludes(authorityProxy,"impersonationCookie(opaque, maxAge)",'specific route sets opaque HttpOnly impersonation cookie');
 assertNotIncludes(ui,"location.assign(targetPath+'?impSession='",'AJAX navigation handoff retired');
 assertIncludes(logout,"clearCookie('rona_admin_imp')",'logout clears impersonation');
 assertNotIncludes(shell,"request.headers.get('x-rona-admin-impersonation-token')",'browser must not supply trusted impersonation token');
