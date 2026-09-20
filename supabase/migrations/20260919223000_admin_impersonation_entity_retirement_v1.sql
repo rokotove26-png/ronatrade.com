@@ -527,7 +527,7 @@ returns table(client_key uuid,contract_key uuid,correlation_id uuid)
 language plpgsql
 security definer
 set search_path to 'pg_catalog','portal_private','auth'
-as $
+as $stage3a_auth$
 begin
   return query
   select cl.id,ct.id,ais.correlation_id
@@ -590,7 +590,7 @@ begin
     raise exception 'APPLICATION_IMPERSONATION_AUTHORITY_DENIED';
   end if;
 end;
-$;
+$stage3a_auth$;
 
 create or replace function portal_private.submit_admin_impersonated_client_application_bundle_v2(
   p_impersonation_session_id uuid,
@@ -606,7 +606,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path to 'pg_catalog','portal_private'
-as $
+as $stage3a_submit$
 declare
   app record;
   ev record;
@@ -736,7 +736,7 @@ begin
     'bundle_complete',true,'business_contract','RONA_APPLICATION_BUSINESS_V2'
   );
 end;
-$;
+$stage3a_submit$;
 
 create or replace function portal_private.submit_admin_impersonated_delivered_application_bundle_v2(
   p_impersonation_session_id uuid,
@@ -752,7 +752,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path to 'pg_catalog','portal_private'
-as $
+as $stage3a_delivered$
 declare
   ev record;
   i portal_private.client_intake_v1;
@@ -900,7 +900,7 @@ begin
     'business_contract','RONA_APPLICATION_BUSINESS_V2'
   );
 end;
-$;
+$stage3a_delivered$;
 
 revoke all on function portal_private.assert_admin_client_impersonation_business_v2(
   uuid,uuid,uuid,uuid,uuid,text,text
