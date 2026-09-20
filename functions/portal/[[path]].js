@@ -369,7 +369,8 @@ async function requireRealClientContext(session,impersonationToken='',impersonat
     const r=await upstream(session.access,'/v1/client/bootstrap',null,impersonationToken,impersonationTab);
     const j=await r.json().catch(()=>null);
     const contexts=Array.isArray(j?.data?.contexts)?j.data.contexts:[];
-    return { ok:r.ok && j?.ok===true && contexts.length>0, contexts };
+    const adminEntityPreview=j?.data?.admin_entity_preview===true&&j?.data?.read_only===true;
+    return { ok:r.ok && j?.ok===true && (contexts.length>0||adminEntityPreview), contexts, adminEntityPreview };
   } catch (_) { return { ok:false, contexts:[] }; }
 }
 
