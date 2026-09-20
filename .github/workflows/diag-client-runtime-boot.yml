@@ -1,0 +1,20 @@
+name: DIAG Client runtime boot
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: node scripts/diag-client-runtime-boot.mjs
