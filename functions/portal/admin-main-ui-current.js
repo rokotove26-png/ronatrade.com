@@ -117,7 +117,7 @@ function patchOperationsFunctionalRuntime(script){
     ],
     [
       "function startAdmin(){renderAdmin();refreshAdmin();setInterval(refreshAdmin,60000);new MutationObserver(renderAdmin).observe(document.body,{childList:true,subtree:true})}",
-      "function startAdmin(){window.__RONA_OWNER_AI_SYNC_POLL_MS__=60000;window.__RONA_OWNER_AI_REFRESH__=refreshAdmin;refreshAdmin(true);setInterval(()=>refreshAdmin(false),60000)}"
+      "function startAdmin(){window.__RONA_OWNER_AI_SYNC_POLL_MS__=300000;window.__RONA_OWNER_AI_REFRESH__=refreshAdmin;window.__RONA_OWNER_AI_LAST_REFRESH__=Date.now();refreshAdmin(true);setInterval(()=>{if(document.visibilityState==='visible'){window.__RONA_OWNER_AI_LAST_REFRESH__=Date.now();refreshAdmin(false)}},300000);document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&Date.now()-Number(window.__RONA_OWNER_AI_LAST_REFRESH__||0)>=300000){window.__RONA_OWNER_AI_LAST_REFRESH__=Date.now();refreshAdmin(false)}},{passive:true})}"
     ]
   ];
   for(const [from,to] of replacements){if(!script.includes(from))throw new Error('OPERATIONS_FUNCTIONAL_PATCH_SOURCE_MISMATCH');script=script.replace(from,to)}

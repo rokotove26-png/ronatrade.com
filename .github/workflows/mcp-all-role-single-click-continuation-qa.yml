@@ -3,7 +3,6 @@ name: MCP all-role single-click continuation QA
 on:
   push:
     branches:
-      - release/public-go-live-v1.1
       - hotfix/mcp-all-role-single-click-continuation-20260818
   workflow_dispatch:
 

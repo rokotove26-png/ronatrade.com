@@ -3,7 +3,6 @@ name: MCP All Role Coordinate Pilots QA
 on:
   push:
     branches:
-      - release/public-go-live-v1.1
       - rollout/all-role-coordinate-pilots-20260818
   pull_request:
     branches:

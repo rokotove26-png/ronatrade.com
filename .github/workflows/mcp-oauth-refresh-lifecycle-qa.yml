@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - hotfix/phase-2b2-token-lifecycle-20260818
-      - release/public-go-live-v1.1
   pull_request:
     branches:
       - release/public-go-live-v1.1

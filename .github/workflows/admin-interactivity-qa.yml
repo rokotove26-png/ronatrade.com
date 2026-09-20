@@ -3,8 +3,6 @@ name: Admin authenticated interactivity gate
 on:
   pull_request:
     branches: [release/public-go-live-v1.1]
-  push:
-    branches: [release/public-go-live-v1.1]
 
 permissions:
   actions: read
