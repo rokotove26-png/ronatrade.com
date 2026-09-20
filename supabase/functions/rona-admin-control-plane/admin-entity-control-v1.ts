@@ -122,9 +122,11 @@ export function createAdminEntityControl(deps:{
         kind,
         entity:entity[0],
         users,
-        canImpersonate:users.length>0,
+        canImpersonate:true,
         selectionRequired:users.length>1,
-        disabledReason:users.length===0?"TARGET_PORTAL_USER_NOT_FOUND":null
+        subjectMode:users.length?"PORTAL_USER":"ADMIN_ENTITY",
+        readOnly:users.length===0,
+        disabledReason:null
       };
     }
     if(kind==="AGENT"){
@@ -158,12 +160,15 @@ export function createAdminEntityControl(deps:{
     const returnView=kind==="AGENT"?"agents":"companies";
     const info=await targets(kind,entityId);
     const users=Array.isArray(info.users)?info.users:[];
-    if(!users.length)fail("TARGET_PORTAL_USER_NOT_FOUND",409);
-    if(kind==="AGENT"&&users.length!==1)fail("AGENT_PORTAL_USER_INVARIANT_VIOLATION",409);
+    const adminEntity=kind==="COMPANY"&&users.length===0;
+    if(kind==="AGENT"&&users.length!==1)fail(users.length===0?"TARGET_PORTAL_USER_NOT_FOUND":"AGENT_PORTAL_USER_INVARIANT_VIOLATION",409);
     const requested=String(body.targetPortalUserId||"").trim();
     if(kind==="COMPANY"&&users.length>1&&!requested)fail("TARGET_PORTAL_USER_SELECTION_REQUIRED",409);
-    const selected=users.length===1?users[0]:users.find((u:any)=>String(u.portal_user_id)===requested);
+    const selected=adminEntity
+      ?{portal_user_id:ctx.user,display_name:ctx.name,login_name:null}
+      :users.length===1?users[0]:users.find((u:any)=>String(u.portal_user_id)===requested);
     if(!selected)fail("TARGET_PORTAL_USER_NOT_FOUND",409);
+    const subjectMode=adminEntity?"ADMIN_ENTITY":"PORTAL_USER";
     if(kind==="AGENT"){
       const activePersons=await sql`
         select count(distinct agent_person_key)::int n
@@ -208,7 +213,7 @@ export function createAdminEntityControl(deps:{
           ${selected.portal_user_id}::uuid,${kind==="AGENT"?"AGENT":"CLIENT"}::portal_private.portal_role_enum,
           ${targetClientKey}::uuid,${targetAgentPersonKey}::uuid,
           ${returnView},${correlationId}::uuid,${expiresAt}::timestamptz,
-          ${tx.json({entityId})}
+          ${tx.json({entityId,subjectMode,readOnly:adminEntity})}
         )
         returning id::text,effective_portal_user_id::text,effective_role::text,target_client_key::text,target_agent_person_key::text,
                   return_view,correlation_id::text,started_at,expires_at
@@ -219,7 +224,9 @@ export function createAdminEntityControl(deps:{
         effective_role:String(inserted[0].effective_role),
         target_client_key:inserted[0].target_client_key?String(inserted[0].target_client_key):null,
         target_agent_person_key:inserted[0].target_agent_person_key?String(inserted[0].target_agent_person_key):null,
-        correlation_id:String(inserted[0].correlation_id)
+        correlation_id:String(inserted[0].correlation_id),
+        subject_mode:subjectMode,
+        read_only:adminEntity
       });
       return inserted[0];
     });
@@ -234,7 +241,9 @@ export function createAdminEntityControl(deps:{
         returnView:String(row.return_view),
         correlationId:String(row.correlation_id),
         startedAt:new Date(row.started_at).toISOString(),
-        expiresAt:new Date(row.expires_at).toISOString()
+        expiresAt:new Date(row.expires_at).toISOString(),
+        subjectMode,
+        readOnly:adminEntity
       },
       targetPath:kind==="AGENT"?"/portal/agent":"/portal/client"
     };
@@ -252,7 +261,9 @@ export function createAdminEntityControl(deps:{
       returnView:imp.returnView,
       correlationId:imp.correlationId,
       startedAt:imp.startedAt,
-      expiresAt:imp.expiresAt
+      expiresAt:imp.expiresAt,
+      subjectMode:imp.subjectMode,
+      readOnly:imp.readOnly
     };
   }
 

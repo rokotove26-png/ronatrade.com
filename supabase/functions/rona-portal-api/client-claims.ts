@@ -1,9 +1,26 @@
-import { sql, type Ctx } from "./shared.ts";
+import { sql, type Ctx, isAdminEntityClient } from "./shared.ts";
 
 export async function clientClaims(c:Ctx,clientId:string,contractId:string){
   const bound=c.impersonation?.effectiveRole==="CLIENT"?c.impersonation.targetClientKey:null;
-  const context=await sql`select cl.id as client_key,ct.id as contract_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and (${bound}::uuid is null or cl.id=${bound}::uuid) and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;
+  const adminEntity=isAdminEntityClient(c);
+  const context=adminEntity
+    ?await sql`select cl.id as client_key,ct.id as contract_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and cl.id=${bound}::uuid limit 1`
+    :await sql`select cl.id as client_key,ct.id as contract_key from portal_private.clients cl join portal_private.contracts ct on ct.client_key=cl.id where cl.client_id=${clientId} and ct.contract_id=${contractId} and (${bound}::uuid is null or cl.id=${bound}::uuid) and portal_private.client_user_has_contract_access(${c.user}::uuid,ct.id,now()) limit 1`;
   if(context.length!==1)return null;
+  if(adminEntity)return await sql`
+    select
+      oc.claim_id,oc.category,oc.subject,oc.description,oc.status,d.deal_id,
+      pd.document_id as primary_document_id,rd.document_id as response_document_id,
+      oc.received_at,oc.decision_at,oc.response_sent_at,oc.lifecycle_state::text,oc.updated_at
+    from portal_private.owner_claims oc
+    left join portal_private.deals d on d.id=oc.deal_key
+    left join portal_private.documents pd on pd.id=oc.primary_document_key
+    left join portal_private.documents rd on rd.id=oc.response_document_key
+    where oc.client_key=${bound}::uuid
+      and oc.contract_key=${context[0].contract_key}::uuid
+      and oc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by oc.received_at desc,oc.updated_at desc
+  `;
   return await sql`
     select
       oc.claim_id,

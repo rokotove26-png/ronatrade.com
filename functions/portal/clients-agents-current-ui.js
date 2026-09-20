@@ -107,22 +107,27 @@ function currentUiRuntime(){
         targetHost.append(label('Пользователь кабинета',targetSelect));status.textContent='Выберите пользователя. Доступ останется жёстко ограничен этой компанией.';enter.disabled=false;
       }else if(usersList.length===1&&targetInfo?.canImpersonate!==false){
         targetSelect=el('select');const u=usersList[0];targetSelect.append(new Option(entityTargetLabel(u),txt(u.portal_user_id||u.id)));targetSelect.hidden=true;targetHost.append(targetSelect);status.textContent=kind==='AGENT'?'Вход будет выполнен с полномочиями этого Agent Person.':'Вход будет выполнен с полномочиями клиента только в контексте этой компании.';enter.disabled=false;
+      }else if(kind==='COMPANY'&&targetInfo?.subjectMode==='ADMIN_ENTITY'&&targetInfo?.canImpersonate!==false){
+        status.textContent='Открытие кабинета в административном режиме просмотра. Portal-учётная запись клиента для этого не требуется.';
+        enter.disabled=false;
       }else{
         status.textContent=targetInfo?.disabledReason==='AGENT_PORTAL_USER_INVARIANT_VIOLATION'?'Вход закрыт: нарушена уникальность активной учётной записи Agent Person.':'Для этой сущности нет активной Portal-учётной записи.';
         enter.disabled=true;
       }
     }catch(e){status.textContent=errorText(e?.code||e?.message);enter.disabled=true}
 
-    enter.onclick=async()=>{
+    enter.onclick=()=>{
       if(enter.disabled)return;
       const targetPortalUserId=txt(targetSelect?.value);
       enter.disabled=true;remove.disabled=true;
-      try{
-        const out=await mutate('/impersonation/start',{kind,entityId,targetPortalUserId:targetPortalUserId||null});
-        const sessionId=txt(out?.impersonation?.id),targetPath=txt(out?.targetPath);
-        if(!sessionId||!targetPath)throw Object.assign(new Error('IMPERSONATION_START_FAILED'),{code:'IMPERSONATION_START_FAILED'});
-        location.assign(targetPath+'?impSession='+encodeURIComponent(sessionId));
-      }catch(e){await notice(errorText(e?.code||e?.message),'Вход в кабинет');enter.disabled=false;remove.disabled=false}
+      const form=document.createElement('form');
+      form.method='POST';
+      form.action=AUTH+'/impersonation/enter';
+      form.style.display='none';
+      const add=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=String(value??'');form.append(input)};
+      add('kind',kind);add('entityId',entityId);if(targetPortalUserId)add('targetPortalUserId',targetPortalUserId);
+      document.body.append(form);
+      form.submit();
     };
 
     remove.onclick=async()=>{
