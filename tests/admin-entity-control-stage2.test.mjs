@@ -79,13 +79,16 @@ assertIncludes(shell,"x-rona-impersonation-tab",'tab consistency binding');
 assertIncludes(shell,"searchParams.get('impSession')",'tab-bound target validation');
 assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level impersonation handoff');
 assertIncludes(shell,"impersonationCookie(opaque,maxAge)",'top-level handoff owns opaque HttpOnly cookie');
-assertIncludes(ui,"await mutate('/impersonation/start'",'Admin UI uses canonical same-origin JSON handoff');
+assertIncludes(ui,"await auth('/impersonation/start'",'Admin UI uses canonical JSON handoff');
+assertIncludes(ui,"'x-rona-admin-handoff':'clients-agents-v8'",'Admin UI sends explicit handoff intent');
 assertNotIncludes(ui,"form.action=AUTH+'/impersonation/enter'",'fragile browser form handoff retired');
 assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level shell handoff remains present');
 const authorityProxy=read('functions/portal/admin-authority/[[path]].js');
 assertIncludes(authorityProxy,"path === '/impersonation/enter'",'specific admin-authority route owns browser handoff');
 assertIncludes(authorityProxy,"PORTAL_ORIGIN_HOSTS",'portal canonical host normalization guard');
 assertIncludes(authorityProxy,"path === '/impersonation/start'",'specific admin-authority route owns JSON impersonation start');
+assertIncludes(authorityProxy,"impersonationStartPostAllowed(request)",'JSON start has dedicated CSRF guard');
+assertIncludes(authorityProxy,"x-rona-admin-handoff",'JSON start requires explicit custom handoff header');
 assertIncludes(authorityProxy,"delete payload.data.impersonationToken",'specific route strips opaque token before browser response');
 assertIncludes(authorityProxy,"impersonationCookie(opaque, maxAge)",'specific route sets opaque HttpOnly impersonation cookie');
 
