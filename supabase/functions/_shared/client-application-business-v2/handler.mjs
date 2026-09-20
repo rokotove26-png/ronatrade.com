@@ -20,6 +20,34 @@ function failure(error,base){
  return response({ok:false,code,business_contract:APPLICATION_BUSINESS_CONTRACT},
   code.includes('SESSION')?401:code.includes('SCOPE')?403:code.includes('RETIRED')?410:code.includes('CONFLICT')?409:503,base);
 }
+async function applicationProjection(sql,ctx,client,clientId,contractId){
+ const impersonation=ctx?.impersonation;
+ const adminEntityClient=Boolean(
+  client&&impersonation?.effectiveRole==='CLIENT'&&
+  impersonation?.subjectMode==='ADMIN_ENTITY'&&impersonation?.readOnly===true
+ );
+ if(!adminEntityClient){
+  return sql`select portal_private.application_business_authorized_v2(${ctx.auth}::uuid,${ctx.sid}::uuid,${client?'CLIENT':'ADMIN'},${clientId},${contractId}) as projection`;
+ }
+ const targetClientKey=String(impersonation?.targetClientKey||'').trim();
+ if(!uuid.test(targetClientKey))throw new Error('APPLICATION_SCOPE_DENIED');
+ const scope=await sql`
+  select 1
+    from portal_private.clients cl
+    join portal_private.contracts ct on ct.client_key=cl.id
+   where cl.id=${targetClientKey}::uuid
+     and cl.client_id=${clientId}
+     and ct.contract_id=${contractId}
+     and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+     and cl.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+     and ct.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+     and ct.authority_state<>'REJECTED'::portal_private.authority_state_enum
+   limit 1
+ `;
+ if(scope.length!==1)throw new Error('APPLICATION_SCOPE_DENIED');
+ return sql`select portal_private.application_business_projection_v2('CLIENT',${clientId},${contractId}) as projection`;
+}
+
 export function createApplicationBusinessHandler(delegate,{sql,authenticate,apiRoute}){
  return async function applicationBusinessHandler(request,info){
   const url=new URL(request.url),route=apiRoute(url);
@@ -67,7 +95,7 @@ export function createApplicationBusinessHandler(delegate,{sql,authenticate,apiR
   const clientId=client?url.searchParams.get('clientId'):null,contractId=client?url.searchParams.get('contractId'):null;
   if(client&&(!clientId||!contractId))return response({ok:false,code:'APPLICATION_CLIENT_SCOPE_MISSING'},400,base);
   try{
-   const rows=await sql`select portal_private.application_business_authorized_v2(${ctx.auth}::uuid,${ctx.sid}::uuid,${client?'CLIENT':'ADMIN'},${clientId},${contractId}) as projection`;
+   const rows=await applicationProjection(sql,ctx,client,clientId,contractId);
    if(rows.length!==1)throw new Error('APPLICATION_PROJECTION_MISSING');
    const projection=rows[0].projection;
    if(passport){

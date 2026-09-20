@@ -34,6 +34,8 @@ jobs:
         run: node --test tests/browser-api-impersonation-gateway-functional.test.mjs
       - name: Verify specific Client route impersonation behavior
         run: node --test tests/specific-client-route-impersonation.test.mjs
+      - name: Verify Admin entity application business read scope
+        run: node --test tests/admin-entity-application-business-read.test.mjs
       - name: Build current Admin artifact
         run: npm run build
       - name: Install Chromium runtime
