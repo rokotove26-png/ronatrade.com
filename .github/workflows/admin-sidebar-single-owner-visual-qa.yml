@@ -1,0 +1,42 @@
+name: Admin sidebar single-owner visual QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [release/public-go-live-v1.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sidebar-visual-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current Admin artifact
+        run: npm run build
+      - name: Verify source ownership contracts
+        run: |
+          node tests/admin-current-only-shell-contract.test.mjs
+          node tests/admin-shell-resilience.test.mjs
+          node --check functions/portal/admin-approved-shell-v455-ui.js
+          node --check scripts/qa-admin-sidebar-visual-browser.mjs
+      - name: Install Chromium runtime
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove rendered sidebar ownership, icons, centering and states
+        run: node scripts/qa-admin-sidebar-visual-browser.mjs
+      - name: Upload rendered sidebar proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-sidebar-single-owner-v13
+          path: artifacts/admin-sidebar-single-owner-v13.png
+          if-no-files-found: ignore
