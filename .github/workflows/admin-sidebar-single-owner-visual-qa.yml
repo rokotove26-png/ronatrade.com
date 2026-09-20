@@ -1,4 +1,4 @@
-name: Admin sidebar production self-heal visual QA
+name: Admin sidebar late-owner overwrite visual QA
 
 on:
   pull_request:
@@ -31,12 +31,12 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Prove production text-only shell self-heals icons, centering and states
+      - name: Prove late owner runtime cannot delete sidebar icons or styling
         run: node scripts/qa-admin-sidebar-visual-browser.mjs
       - name: Upload rendered sidebar proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-sidebar-production-self-heal-v14
-          path: artifacts/admin-sidebar-production-self-heal-v14.png
+          name: admin-sidebar-late-owner-overwrite-v15
+          path: artifacts/admin-sidebar-late-owner-overwrite-v15.png
           if-no-files-found: ignore
