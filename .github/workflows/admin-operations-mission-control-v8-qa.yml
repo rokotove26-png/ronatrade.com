@@ -1,0 +1,49 @@
+name: Admin Operations Mission Control V8 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/admin-operations-command-center-v8.js'
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'tests/admin-operations-mission-control-v8/**'
+      - '.github/workflows/admin-operations-mission-control-v8-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mission-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          node --check functions/portal/admin-operations-command-center-v8.js
+          node --check functions/portal/admin-main-ui-current.js
+      - name: Mission derivation tests
+        run: node --test tests/admin-operations-mission-control-v8/mission-current.test.mjs
+      - name: Generated Admin runtime compiles
+        shell: bash
+        run: |
+          printf '%s\n' '{"type":"module"}' > functions/portal/package.json
+          node --input-type=module <<'NODE'
+          const m=await import('./functions/portal/admin-main-ui-current.js?qa='+Date.now());
+          const r=await m.onRequest();
+          const s=await r.text();
+          new Function(s);
+          if(r.headers.get('x-rona-operations-center')!=='v8-mission-control-current-v1') throw new Error('OPERATIONS_V8_HEADER_MISSING');
+          if(!s.includes("DEALS_CURRENT_V4_MISSION_V1")) throw new Error('OPERATIONS_V8_MISSION_CONTRACT_MISSING');
+          if(!s.includes("wagon_positions")) throw new Error('OPERATIONS_V8_RAIL_V4_POSITIONS_MISSING');
+          if(!s.includes("rail_trusted_wagons")) throw new Error('OPERATIONS_V8_RAIL_TRUSTED_COUNT_MISSING');
+          if(!s.includes("onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'")) throw new Error('OPERATIONS_V8_DEAL_CONTROL_MISSING');
+          if(!s.includes("onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)")) throw new Error('OPERATIONS_V8_NEXT_ACTION_MISSING');
+          if(s.includes("setInterval(()=>ronaOpsV8")) throw new Error('OPERATIONS_V8_POLLING_FORBIDDEN');
+          console.log('ADMIN_OPERATIONS_MISSION_CONTROL_V8=PASS');
+          NODE
