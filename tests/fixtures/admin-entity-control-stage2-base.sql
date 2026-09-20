@@ -11,7 +11,8 @@ create schema auth;
 create schema portal_private;
 
 do $$ begin create role anon nologin; exception when duplicate_object then null; end $$;
-do $ begin create role authenticated nologin; exception when duplicate_object then null; end $;\ndo $ begin create role service_role nologin; exception when duplicate_object then null; end $;
+do $ begin create role authenticated nologin; exception when duplicate_object then null; end $;
+do $ begin create role service_role nologin; exception when duplicate_object then null; end $;
 
 create type portal_private.portal_role_enum as enum ('ADMIN','RONA_OPERATOR','AGENT','CLIENT');
 create type portal_private.binding_status_enum as enum ('PENDING','ACTIVE','SUSPENDED','REVOKED','EXPIRED');
