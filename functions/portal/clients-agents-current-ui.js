@@ -5,7 +5,7 @@ function currentUiRuntime(){
   window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=false;
   window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING';
   window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5';
-  window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-agent-v7-20260919';
+  window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-impersonation-json-v8-20260920';
   if(location.pathname!=='/portal/admin')return;
 
   const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority';
@@ -118,18 +118,23 @@ function currentUiRuntime(){
       }
     }catch(e){status.textContent=errorText(e?.code||e?.message);enter.disabled=true}
 
-    enter.onclick=()=>{
+    enter.onclick=async()=>{
       if(enter.disabled)return;
       const targetPortalUserId=txt(targetSelect?.value);
       enter.disabled=true;remove.disabled=true;
-      const form=document.createElement('form');
-      form.method='POST';
-      form.action=AUTH+'/impersonation/enter';
-      form.style.display='none';
-      const add=(name,value)=>{const input=document.createElement('input');input.type='hidden';input.name=name;input.value=String(value??'');form.append(input)};
-      add('kind',kind);add('entityId',entityId);if(targetPortalUserId)add('targetPortalUserId',targetPortalUserId);
-      document.body.append(form);
-      form.submit();
+      status.textContent='Открываю кабинет…';
+      try{
+        const started=await mutate('/impersonation/start',{kind,entityId,targetPortalUserId:targetPortalUserId||null});
+        const sessionId=txt(started?.impersonation?.id);
+        const targetPath=txt(started?.targetPath);
+        if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sessionId)||!['/portal/client','/portal/agent'].includes(targetPath)){
+          throw Object.assign(new Error('IMPERSONATION_START_FAILED'),{code:'IMPERSONATION_START_FAILED'});
+        }
+        window.location.assign(targetPath+'?impSession='+encodeURIComponent(sessionId));
+      }catch(e){
+        status.textContent=errorText(e?.code||e?.message);
+        enter.disabled=false;remove.disabled=false;
+      }
     };
 
     remove.onclick=async()=>{
@@ -215,7 +220,7 @@ function currentUiRuntime(){
 
   function bodyView(){return S.view==='agents'?agentsView():S.view==='users'?usersView():S.view==='history'?historyView():companiesView()}
   function drawBody(){const r=ensureRoot();if(!r||!business||!authority)return;const old=q('#ca-current-body',r);if(!old)return;old.replaceChildren(bodyView())}
-  function render(){const r=ensureRoot();if(!r)return;if(!business||!authority){r.replaceChildren(hero(),card('Загрузка',el('div','rona-owner-muted','Получаю актуальные данные…')));window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='LOADING';return}const body=el('div');body.id='ca-current-body';body.append(bodyView());r.replaceChildren(hero(),kpis(),toolbar(),body);delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=true;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';window.__RONA_CLIENTS_AGENTS_V4_READY__=true;document.documentElement.dataset.ronaAccessOwner='clients-agents-current-v5';document.documentElement.dataset.ronaAccessCreateOwner='clients-agents-current-v5';document.documentElement.dataset.ronaAccessFunctionalBuild='single-owner-create-agent-v7-20260919';installRootGuard()}
+  function render(){const r=ensureRoot();if(!r)return;if(!business||!authority){r.replaceChildren(hero(),card('Загрузка',el('div','rona-owner-muted','Получаю актуальные данные…')));window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='LOADING';return}const body=el('div');body.id='ca-current-body';body.append(bodyView());r.replaceChildren(hero(),kpis(),toolbar(),body);delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=true;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';window.__RONA_CLIENTS_AGENTS_V4_READY__=true;document.documentElement.dataset.ronaAccessOwner='clients-agents-current-v5';document.documentElement.dataset.ronaAccessCreateOwner='clients-agents-current-v5';document.documentElement.dataset.ronaAccessFunctionalBuild='single-owner-impersonation-json-v8-20260920';installRootGuard()}
   async function refresh(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{try{window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__=window.__RONA_CLIENTS_AGENTS_CURRENT_READY__?'REFRESHING_READY':'LOADING';await loadAll();render();window.__RONA_CLIENTS_AGENTS_CURRENT_LAST_ERROR__=null;return true}catch(e){const r=ensureRoot(),message=errorText(e.code||e.message);window.__RONA_CLIENTS_AGENTS_CURRENT_LAST_ERROR__={message,at:new Date().toISOString()};if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&r&&accessRootHealthy()){r.dataset.ronaAccessDegraded='true';window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE';installRootGuard();return false}if(r)r.replaceChildren(hero(),card('Раздел временно недоступен',el('div','rona-owner-danger',message)));window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='DEGRADED';installRootGuard();return false}finally{refreshPromise=null}})();return refreshPromise}
   function repair(){const r=ensureRoot();if(!r)return false;if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&accessRootHealthy()){delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';installRootGuard();return true}void refresh();return true}
   window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair;
@@ -224,4 +229,4 @@ function currentUiRuntime(){
   window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='access')repair()});
 }
 const SCRIPT='('+currentUiRuntime.toString()+')();';
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-clients-agents-ui':'single-owner-v5','x-rona-access-create':'single-owner-create-agent-v7','x-rona-access-create-owner':'clients-agents-current-v5','x-rona-admin-nav-owner':'external-current-router-v2','x-rona-shell-mutation':'none','x-rona-legacy-dependency':'none'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-clients-agents-ui':'single-owner-v5','x-rona-access-create':'single-owner-impersonation-json-v8','x-rona-access-create-owner':'clients-agents-current-v5','x-rona-admin-nav-owner':'external-current-router-v2','x-rona-shell-mutation':'none','x-rona-legacy-dependency':'none'}})}
