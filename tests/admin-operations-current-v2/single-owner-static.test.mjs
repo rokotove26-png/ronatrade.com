@@ -147,6 +147,6 @@ test('Attention card opens detail overlay and zeros only unseen count after view
   assert.match(v10,/gauge\('CAUT-03','Требует действия',unseenN===null\?'—':unseenN/);
   assert.match(v10,/Непросмотренные · открыто всего:/);
   assert.match(v10,/summary\.textContent='Открыто: '\+actions\.length\+' · непросмотрено: 0'/);
-  assert.match(v10,/const stateText=.*Требует внимания:.*actionN/s);
+  assert.match(v10,/const stateText=.*Открыто действий:.*actionN.*новых:.*unseenN/s);
   assert.match(v10,/const masterScreen=ronaFdV5Screen\('EXCEPTION CONTROL','Master caution \/ warning',ready\?actions\.length:'—'/);
 });
