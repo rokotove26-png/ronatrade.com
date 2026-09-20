@@ -13,6 +13,7 @@ const mainUi=read('functions/portal/admin-main-ui-current.js');
 const operations=read('functions/portal/admin-operations-command-center-v4.js')+'\n'+read('functions/portal/admin-operations-command-center-v4-base.js');
 const operationsV5=read('functions/portal/admin-operations-command-center-v5.js');
 const operationsV6=read('functions/portal/admin-operations-command-center-v6.js');
+const operationsV7=read('functions/portal/admin-operations-command-center-v7.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -44,7 +45,12 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV6(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V6 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV7(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V7 patch after source assembly');
+need(has(operationsV7,"OPERATIONS_COMMAND_CENTER_VERSION='v7-event-driven-current-v1'"),'Operations Command Center V7 version marker is missing');
+need(has(operationsV7,"patchAdminOperationsCommandCenterV6 as patchV6"),'Operations Command Center V7 does not preserve the V6 visual baseline');
+need(has(operationsV7,"postgres-change-invalidation-v1-no-polling"),'Operations Command Center V7 event-driven marker is missing');
+need(has(operationsV7,"call('/admin/operations-current-v1')"),'Operations Command Center V7 current read model is missing');
+need(has(operationsV7,"'NET-07','Клиенты'")&&has(operationsV7,"'NET-08','Агенты'"),'Operations Command Center V7 registry labels are missing');
 need(has(mainUi,"'x-rona-operations-center':OPERATIONS_COMMAND_CENTER_VERSION"),'Operations Command Center response marker is missing');
 need(has(operationsV6,"OPERATIONS_COMMAND_CENTER_VERSION='v6-color-network-indicators'"),'Operations Command Center V6 version marker is missing');
 need(has(operationsV6,"patchAdminOperationsCommandCenterV5 as patchFunctionalBaseline"),'Operations Command Center V6 does not preserve the V5 functional baseline');
