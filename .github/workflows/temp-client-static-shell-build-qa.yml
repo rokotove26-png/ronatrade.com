@@ -1,0 +1,30 @@
+name: TEMP Client static-shell build QA
+
+on:
+  push:
+    branches:
+      - hotfix/client-impersonation-static-shell-v1-20260921
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact branch
+        run: npm run build
+      - name: Static shell source tests
+        run: |
+          node tests/admin-client-impersonation-early-bridge.test.mjs
+          node tests/admin-client-impersonation-static-shell.test.mjs
+      - name: Verify emitted runtime
+        run: |
+          test -f dist/assets/portal-runtime/client-admin-impersonation-return-v1.js
+          grep -Fq 'client-admin-impersonation-return-v1.js' dist/portal/client.html
+          grep -Fq 'RONA_CLIENT_ADMIN_IMPERSONATION_RETURN_V1' dist/assets/portal-runtime/client-admin-impersonation-return-v1.js
