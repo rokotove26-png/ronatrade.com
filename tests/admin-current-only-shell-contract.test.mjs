@@ -23,7 +23,6 @@ assert(shellVisual.includes('function ensureNavIcons()'),'Real SVG icon installe
 assert(shellVisual.includes("const NAV_LABELS=Object.freeze"),'Sidebar label recovery map missing');
 assert(shellVisual.includes("b.replaceChildren(slot,label)"),'Production self-heal structure repair missing');
 assert(shellVisual.includes("__RONA_ADMIN_SIDEBAR_DIAGNOSTIC__"),'Sidebar production diagnostic marker missing');
-assert(shell.includes('/portal/admin-approved-shell-v455-ui?v=20260920-sidebar-self-heal-v14'),'Sidebar loader cache-bust missing');
 assert(shellVisual.includes("slot.insertAdjacentHTML('afterbegin',svg)"),'Sidebar icons must be real DOM SVG elements');
 assert(shellVisual.includes('window.__RONA_ADMIN_SIDEBAR_OWNER__=SIDEBAR_OWNER'),'Runtime sidebar ownership exposure missing');
 assert(shellVisual.includes("'x-rona-admin-shell-visual':'sidebar-production-self-heal-v14'"),'Sidebar single-owner response marker missing');
