@@ -1,0 +1,50 @@
+name: Admin Deals Rail Execution V4 QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/20260920174500_admin_deals_rail_execution_v4.sql'
+      - 'functions/portal/owner-api.js'
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'tests/deals/admin-deals-rail-execution-v4-contract.test.mjs'
+      - '.github/workflows/admin-deals-rail-execution-v4-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax
+        run: |
+          node --check functions/portal/owner-api.js
+          node --check functions/portal/deals-current-state-ui.js
+      - name: V4 read-model contract
+        run: node --test tests/deals/admin-deals-rail-execution-v4-contract.test.mjs
+      - name: Generated Deals runtime compiles
+        shell: bash
+        run: |
+          printf '%s\n' '{"type":"module"}' > functions/portal/package.json
+          node --input-type=module <<'NODE'
+          const m=await import('./functions/portal/deals-current-state-ui.js?qa='+Date.now());
+          const r=await m.onRequest();
+          const s=await r.text();
+          new Function(s);
+          if(r.headers.get('x-rona-deals-read-model')!=='admin-deals-current-v4-finance-v8-rail-execution-v4') throw new Error('READ_MODEL_HEADER_MISSING');
+          if(!s.includes("api('/admin/deals-current-v4')")) throw new Error('CURRENT_V4_ENDPOINT_MISSING');
+          if(!s.includes('trusted_wagon_count')||!s.includes('position_groups')) throw new Error('RAIL_V4_FIELDS_MISSING');
+          if(!s.includes('Нет подтверждённых данных о дислокации')) throw new Error('RAIL_FAIL_CLOSED_COPY_MISSING');
+          if(!s.includes('локальное время источника')) throw new Error('RAIL_LOCAL_TIME_COPY_MISSING');
+          if(!s.includes("paidNode.title='Оплачено фактически'")) throw new Error('FINANCE_PAID_REGRESSION');
+          if(!s.includes("'Finance · оплачено / остаток'")) throw new Error('FINANCE_REMAINING_REGRESSION');
+          console.log('ADMIN_DEALS_RAIL_EXECUTION_V4_RUNTIME=PASS');
+          NODE
