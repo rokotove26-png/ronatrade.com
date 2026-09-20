@@ -1,4 +1,4 @@
-name: Admin sidebar single-owner visual QA
+name: Admin sidebar production self-heal visual QA
 
 on:
   pull_request:
@@ -31,12 +31,12 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
-      - name: Prove rendered sidebar ownership, icons, centering and states
+      - name: Prove production text-only shell self-heals icons, centering and states
         run: node scripts/qa-admin-sidebar-visual-browser.mjs
       - name: Upload rendered sidebar proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-sidebar-single-owner-v13
-          path: artifacts/admin-sidebar-single-owner-v13.png
+          name: admin-sidebar-production-self-heal-v14
+          path: artifacts/admin-sidebar-production-self-heal-v14.png
           if-no-files-found: ignore

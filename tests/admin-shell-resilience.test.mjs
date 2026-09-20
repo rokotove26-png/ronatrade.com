@@ -45,9 +45,12 @@ assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Ho
 assert(shell.includes('min-height:48px')&&shell.includes('font-size:14.5px'),'Canonical navigation sizing missing');
 assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Current shell must expose primary access action before module mount');
 for(const marker of ['RONA_ADMIN_COMMAND_NAVIGATION_V4','RONA_ADMIN_COMMAND_NAVIGATION_V5_BRAND_ICONS','RONA_ADMIN_SIDEBAR_CANONICAL_VISUAL_V12'])assert(!shell.includes(marker),'Static sidebar visual competitor returned: '+marker);
-assert(approvedShellVisual.includes("window.__RONA_ADMIN_SHELL_V455__='20260920-sidebar-single-owner-v13'"),'Sidebar runtime build marker missing');
-assert(approvedShellVisual.includes("const SIDEBAR_OWNER='shell-v455-command-v13'"),'Sidebar owner marker missing');
+assert(approvedShellVisual.includes("window.__RONA_ADMIN_SHELL_V455__='20260920-sidebar-production-self-heal-v14'"),'Sidebar runtime build marker missing');
+assert(approvedShellVisual.includes("const SIDEBAR_OWNER='shell-v455-command-v14'"),'Sidebar owner marker missing');
 assert(approvedShellVisual.includes('function ensureNavIcons()'),'Sidebar DOM icon installer missing');
+assert(approvedShellVisual.includes("if(!slot){slot=el('span','nav-icon')"),'Sidebar must recreate missing icon slot');
+assert(approvedShellVisual.includes("if(!label){label=el('span','nav-label',labelText)"),'Sidebar must recreate missing label wrapper');
+assert(approvedShellVisual.includes("b.dataset.ronaNavStructure=SIDEBAR_OWNER"),'Sidebar repaired-structure marker missing');
 assert(approvedShellVisual.includes('data-page=\\\"documents\\\"]{display:none!important}'),'Hidden Documents slot must remain collapsed in runtime owner');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit navigation');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
