@@ -30,6 +30,8 @@ jobs:
         run: node tests/admin-client-impersonation-static-shell.test.mjs
       - name: Verify browser API impersonation gateway contract
         run: node --test tests/browser-api-impersonation-gateway.test.mjs
+      - name: Verify browser API impersonation gateway behavior
+        run: node --test tests/browser-api-impersonation-gateway-functional.test.mjs
       - name: Build current Admin artifact
         run: npm run build
       - name: Install Chromium runtime
