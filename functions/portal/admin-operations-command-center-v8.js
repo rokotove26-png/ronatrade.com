@@ -279,21 +279,35 @@ const MISSION_BLOCK=String.raw`  let mission;
   if(selected){
     const id=String(selected?.deal_id||''),summary=financeMap.get(id),dealDocs=ronaFdV5DocsForDeal(id,docs),stage=ronaFdV5Stage(selected),payment=ronaFdV5PaymentStatus(selected,summary),nextAction=ronaFdV5NextAction(selected),steps=ronaOpsV8MissionSteps(selected);
     const vector=e('div',{class:'rona-fd-v5__vector'});
-    for(const step of steps)vector.append(e('button',{class:'rona-fd-v5-stage',type:'button','data-tone':step[2],'aria-label':step[0]+': '+step[1],onclick:()=>ronaOpsV8OpenTarget(step[3],id)},e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]})));
-    mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},
-      e('div',{class:'rona-fd-v5__mission-head'},
-        e('div',{},e('div',{class:'rona-fd-v5__mission-kicker',text:'EXECUTION VECTOR · SELECTED FLIGHT'}),e('div',{class:'rona-fd-v5__mission-id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5__mission-client',text:selected?.legal_name||selected?.client_name||selected?.client_id||'—'})),
-        e('button',{class:'rona-fd-v5__mission-open',type:'button',onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'})
-      ),
-      e('div',{class:'rona-fd-v5__mission-status'},
-        e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Current stage'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(stage)})),
-        e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Payment'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(payment)})),
-        e('div',{class:'rona-fd-v5__status-cell'},e('div',{class:'rona-fd-v5__status-label',text:'Documents'}),e('div',{class:'rona-fd-v5__status-value',text:selected?.mission_document_status?ronaFdV5Text(selected.mission_document_status):String(dealDocs.length)))
-      ),
-      vector,
-      e('button',{class:'rona-fd-v5__next-action',type:'button','data-action-kind':selected?.next_action_kind||'MONITOR','aria-label':'Следующее действие: '+String(nextAction),onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)},e('span',{class:'rona-fd-v5__next-label',text:'NEXT ACTION'}),e('span',{class:'rona-fd-v5__next-value',text:String(nextAction)}))
-    );
-  }else mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty('NO SELECTED FLIGHT','Когда появится сделка, здесь будет показана подтверждённая фактическая цепочка исполнения.'));
+    for(const step of steps){
+      const stageButton=e('button',{class:'rona-fd-v5-stage',type:'button','data-tone':step[2],'aria-label':step[0]+': '+step[1],onclick:()=>ronaOpsV8OpenTarget(step[3],id)});
+      stageButton.append(e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]}));
+      vector.append(stageButton);
+    }
+    const missionHead=e('div',{class:'rona-fd-v5__mission-head'});
+    const identity=e('div',{});
+    identity.append(e('div',{class:'rona-fd-v5__mission-kicker',text:'EXECUTION VECTOR · SELECTED FLIGHT'}),e('div',{class:'rona-fd-v5__mission-id',text:id||'Сделка'}),e('div',{class:'rona-fd-v5__mission-client',text:selected?.legal_name||selected?.client_name||selected?.client_id||'—'}));
+    missionHead.append(identity,e('button',{class:'rona-fd-v5__mission-open',type:'button',onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'}));
+
+    const missionStatus=e('div',{class:'rona-fd-v5__mission-status'});
+    const stageStatus=e('div',{class:'rona-fd-v5__status-cell'});
+    stageStatus.append(e('div',{class:'rona-fd-v5__status-label',text:'Current stage'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(stage)}));
+    const paymentStatus=e('div',{class:'rona-fd-v5__status-cell'});
+    paymentStatus.append(e('div',{class:'rona-fd-v5__status-label',text:'Payment'}),e('div',{class:'rona-fd-v5__status-value',text:ronaFdV5Text(payment)}));
+    const docsStatus=e('div',{class:'rona-fd-v5__status-cell'});
+    const docsStatusText=selected?.mission_document_status?ronaFdV5Text(selected.mission_document_status):String(dealDocs.length);
+    docsStatus.append(e('div',{class:'rona-fd-v5__status-label',text:'Documents'}),e('div',{class:'rona-fd-v5__status-value',text:docsStatusText}));
+    missionStatus.append(stageStatus,paymentStatus,docsStatus);
+
+    const nextButton=e('button',{class:'rona-fd-v5__next-action',type:'button','data-action-kind':selected?.next_action_kind||'MONITOR','aria-label':'Следующее действие: '+String(nextAction),onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)});
+    nextButton.append(e('span',{class:'rona-fd-v5__next-label',text:'NEXT ACTION'}),e('span',{class:'rona-fd-v5__next-value',text:String(nextAction)}));
+
+    mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'});
+    mission.append(missionHead,missionStatus,vector,nextButton);
+  }else{
+    mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'});
+    mission.append(e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty('NO SELECTED FLIGHT','Когда появится сделка, здесь будет показана подтверждённая фактическая цепочка исполнения.'));
+  }
 `;
 
 export function patchAdminOperationsCommandCenterV8(script){
