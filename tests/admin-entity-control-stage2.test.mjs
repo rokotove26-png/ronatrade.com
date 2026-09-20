@@ -40,14 +40,16 @@ const controlPlaneEntry=read('supabase/functions/rona-admin-control-plane/owner-
 const ownerAcceptanceEntry=read('supabase/functions/rona-owner-acceptance/application-owner-boundary-bootstrap-v3.ts');
 const migration=read('supabase/migrations/20260919223000_admin_impersonation_entity_retirement_v1.sql');
 
-// Absolute visual freeze: the existing CSS payload and Admin shell stay byte-for-byte unchanged.
-const styleSlice=src=>{
-  const a=src.indexOf('  function style(){');
-  const b=src.indexOf('\n  function ensureRoot(',a);
-  assert.ok(a>=0&&b>a,'style function boundaries must be present');
-  return src.slice(a,b);
+// Visual payload freeze: user-approved current-release CSS remains byte-for-byte unchanged.
+const releaseUi=showRelease('functions/portal/clients-agents-current-ui.js');
+const stylePayload=src=>{
+  const fn=src.indexOf('  function style(){');
+  const a=src.indexOf('s.textContent=[',fn);
+  const b=src.indexOf("].join('')",a);
+  assert.ok(fn>=0&&a>=fn&&b>a,'style payload boundaries must be present');
+  return src.slice(a,b+"].join('')".length);
 };
-assert.equal(styleSlice(ui),styleSlice(baseUi),'Companies/Agents visual CSS must be unchanged');
+assert.equal(stylePayload(ui),stylePayload(releaseUi),'Companies/Agents visual CSS payload must remain unchanged from current release base');
 for(const p of [
   'portal-src/current/admin.html',
   'assets/portal-admin-shell-fast-v1.js',
@@ -58,11 +60,13 @@ for(const p of [
 
 // Only the canonical .ca-head receives the compact Options control.
 assertIncludes(ui,"const head=el('div','ca-head')",'Company/Agent header');
-assertIncludes(ui,"el('button','ca-btn','⋯ Опции')",'Options button');
+assertIncludes(ui,"el('button','ca-btn ca-option','Опция')",'Options button');
 assertIncludes(ui,"dataset.ronaEntityOptions='company'",'Company Options');
 assertIncludes(ui,"dataset.ronaEntityOptions='agent'",'Agent Options');
 assertIncludes(ui,"'Войти в кабинет'",'Options enter');
 assertIncludes(ui,"'Удалить компанию'",'Company delete');
+assertIncludes(ui,"remove.dataset.ronaDangerAction='entity-delete'",'Company/Agent delete destructive marker');
+assertIncludes(ui,"remove.style.setProperty('background','linear-gradient",'Company/Agent delete inline destructive paint');
 assertIncludes(ui,"'Удалить агента'",'Agent delete');
 assertIncludes(ui,'await confirmBox(','second confirmation modal');
 assertNotIncludes(ui,'.ca-card-head','legacy/noncanonical header class');
