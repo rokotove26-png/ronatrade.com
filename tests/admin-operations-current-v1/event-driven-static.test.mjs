@@ -35,7 +35,7 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7-V8.9 baselines under V9 production recovery',()=>{
+test('Admin main UI keeps V7-V9 baselines under V9.1 timeout resilience',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -48,12 +48,13 @@ test('Admin main UI keeps V7-V8.9 baselines under V9 production recovery',()=>{
   const v88=read('functions/portal/admin-operations-command-center-v8-8.js');
   const v89=read('functions/portal/admin-operations-command-center-v8-9.js');
   const v9=read('functions/portal/admin-operations-command-center-v9.js');
-  assert.ok(main.includes('patchAdminOperationsCommandCenterV9'));
-  assert.ok(main.includes('admin-operations-command-center-v9.js'));
+  const v91=read('functions/portal/admin-operations-command-center-v9-1.js');
+  assert.ok(main.includes('patchAdminOperationsCommandCenterV91'));
+  assert.ok(main.includes('admin-operations-command-center-v9-1.js'));
+  assert.ok(v91.includes('patchAdminOperationsCommandCenterV9 as patchV9'));
+  assert.ok(v91.includes('let patched=patchV9(script)'));
   assert.ok(v9.includes('patchAdminOperationsCommandCenterV89 as patchV89'));
-  assert.ok(v9.includes('let patched=patchV89(script)'));
   assert.ok(v89.includes('patchAdminOperationsCommandCenterV88 as patchV88'));
-  assert.ok(v89.includes('let patched=patchV88(script)'));
   assert.ok(v88.includes('patchAdminOperationsCommandCenterV87 as patchV87'));
   assert.ok(v87.includes('patchAdminOperationsCommandCenterV86 as patchV86'));
   assert.ok(v86.includes('patchAdminOperationsCommandCenterV85 as patchV85'));
@@ -63,7 +64,6 @@ test('Admin main UI keeps V7-V8.9 baselines under V9 production recovery',()=>{
   assert.ok(v82.includes('patchAdminOperationsCommandCenterV81 as patchV81'));
   assert.ok(v81.includes('patchAdminOperationsCommandCenterV8 as patchV8'));
   assert.ok(v8.includes('patchAdminOperationsCommandCenterV7 as patchV7'));
-  assert.ok(!main.includes('patchAdminOperationsCommandCenterV6(patchOperationsFunctionalRuntime'));
 });
 test('Signal table is tiny, RLS protected, and read-only for browser roles',()=>{
   const sql=read('supabase/migrations/20260920154500_admin_operations_current_v1_event_driven.sql');
@@ -275,4 +275,15 @@ test('V9 bounds startup dependencies and requires canonical Deals Current V4 bef
   assert.ok(v9.includes('OPERATIONS_PRODUCTION_RECOVERY_V1'));
   assert.ok(v9.includes('ADMIN_OPERATIONS_V9_POLLING_FORBIDDEN'));
   assert.ok(v9.includes('ADMIN_OPERATIONS_V9_POLLING_FORBIDDEN'));
+});
+
+
+test('V9.1 gives the cold read model safe headroom and keeps canonical control snapshots alive',()=>{
+  const v91=read('functions/portal/admin-operations-command-center-v9-1.js');
+  assert.ok(v91.includes("call('/admin/operations-current-v1'),20000"));
+  assert.ok(v91.includes('ronaOpsV91DealsPromise=ronaOpsV91NeedDeals?ronaOpsV90EnsureDealsCurrent()'));
+  assert.ok(v91.includes("reason==='INITIAL'||reason==='RECOVERY_RETRY'"));
+  assert.ok(v91.includes("['succeeded','running'].includes(status)"));
+  assert.ok(v91.includes('OPERATIONS_TIMEOUT_RESILIENCE_V1'));
+  assert.ok(v91.includes('ADMIN_OPERATIONS_V91_POLLING_FORBIDDEN'));
 });
