@@ -169,6 +169,143 @@ const COLOR_NETWORK_CSS=String.raw`
 #page-home .rona-fd-v5__systems .rona-fd-v5-system:nth-child(3){border-color:rgba(196,140,255,.2);box-shadow:inset 2px 0 0 rgba(196,140,255,.48)}
 #page-home .rona-fd-v5__systems .rona-fd-v5-system:nth-child(3) .rona-fd-v5-system__code{color:rgba(196,140,255,.78)}
 #page-home .rona-fd-v5__next-label{color:var(--fd-v6-gold)}
+
+/* Visual-only master-caution dock: Active deal contour on the left, Deal Control + compact warning stack on the right. */
+#page-home .rona-flightdeck-v5 .rona-fd-v5__workspace{
+  display:grid!important;
+  grid-template-columns:minmax(0,1.16fr) minmax(360px,.84fr)!important;
+  grid-template-areas:
+    "deals mission"
+    "deals master"!important;
+  grid-template-rows:minmax(0,1fr) auto!important;
+  gap:10px!important;
+  align-items:stretch!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__deals{
+  grid-area:deals!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  align-self:stretch!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__mission{
+  grid-area:mission!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:0!important;
+  height:100%!important;
+  align-self:stretch!important;
+  display:grid!important;
+  grid-template-rows:auto auto minmax(0,1fr) auto!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master{
+  grid-area:master!important;
+  grid-column:auto!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  min-height:0!important;
+  max-height:148px!important;
+  height:auto!important;
+  align-self:stretch!important;
+  overflow:hidden!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-screen__head{
+  min-height:40px!important;
+  padding:7px 10px 6px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-screen__code{
+  font-size:8.5px!important;
+  letter-spacing:.12em!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-screen__title{
+  margin-top:3px!important;
+  font-size:13px!important;
+  line-height:1.15!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-screen__count{
+  min-width:28px!important;
+  height:26px!important;
+  padding:0 7px!important;
+  font-size:10px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-screen__body{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:5px!important;
+  min-height:0!important;
+  padding:6px 8px 8px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master-banner{
+  width:100%!important;
+  min-height:38px!important;
+  margin:0!important;
+  padding:6px 8px!important;
+  gap:7px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master-code{
+  font-size:8px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master-text{
+  margin-top:2px!important;
+  font-size:10.5px!important;
+  line-height:1.2!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-queue{
+  width:100%!important;
+  max-width:none!important;
+  max-height:52px!important;
+  overflow:auto!important;
+  padding:0!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-event{
+  min-height:44px!important;
+  padding:6px 7px!important;
+  gap:7px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-event__name{
+  font-size:10px!important;
+  line-height:1.2!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-event__meta{
+  margin-top:2px!important;
+  font-size:8.5px!important;
+  line-height:1.25!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-empty{
+  min-height:46px!important;
+  padding:5px 8px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-empty__lamp{
+  width:8px!important;
+  height:8px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-empty__title{
+  margin-top:4px!important;
+  font-size:9.5px!important;
+}
+#page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-empty__meta{
+  max-width:none!important;
+  margin-top:2px!important;
+  font-size:8px!important;
+  line-height:1.2!important;
+}
+@media(max-width:980px){
+  #page-home .rona-flightdeck-v5 .rona-fd-v5__workspace{
+    grid-template-columns:1fr!important;
+    grid-template-areas:"deals" "mission" "master"!important;
+    grid-template-rows:auto!important;
+    align-items:start!important;
+  }
+  #page-home .rona-flightdeck-v5 .rona-fd-v5__deals,
+  #page-home .rona-flightdeck-v5 .rona-fd-v5__mission,
+  #page-home .rona-flightdeck-v5 .rona-fd-v5__master{
+    height:auto!important;
+    max-height:none!important;
+  }
+  #page-home .rona-flightdeck-v5 .rona-fd-v5__master .rona-fd-v5-queue{max-height:170px!important}
+}
 @media(max-width:1180px){#page-home .rona-fd-v5__instruments{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){#page-home .rona-fd-v5__instruments{grid-template-columns:1fr}}
 `;
@@ -183,6 +320,7 @@ function ensureAdminHomeColorNetworkV6(){
     document.head.append(style);
   }
   window.__RONA_ADMIN_OPERATIONS_COLOR_NETWORK__='v6-color-network-indicators';
+  window.__RONA_ADMIN_OPERATIONS_MASTER_DOCK__='v1-deal-control-stack';
 }
 `;
 
