@@ -80,7 +80,7 @@ try{
   const page=await context.newPage();
   const errors=[];page.on('pageerror',e=>errors.push('pageerror:'+String(e.message||e)));page.on('console',m=>{if(m.type()==='error')errors.push('console:'+m.text())});
   await page.goto(origin+'/portal/admin',{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-create-agent-v7-20260919'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
+  await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-impersonation-json-v8-20260920'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
   assert(await page.locator('.rona-canonical-access-mask,.rona-approved-access-mask').count()===0,'legacy access overlay present before open');
 
   await page.getByRole('button',{name:'Создать пользователя'}).first().click();
