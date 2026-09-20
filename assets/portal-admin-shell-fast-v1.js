@@ -91,7 +91,7 @@ const MODULES=Object.freeze({
   remaining:{src:'/portal/remaining-sections-ui?v=20260826-single-owner'},
   analytics:{src:'/portal/analytics-v2-ui?v=20260826-approved-analytics'},
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
-  access:{src:'/portal/clients-agents-current-ui?v=20260920-impersonation-json-v9'}
+  access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}
 });
 const railPrimaryReady=()=>!!window.__RONA_RAIL_CURRENT_V81__&&!!document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root]');
 const railFallbackReady=()=>!!window.__RONA_RAIL_SAFE_FALLBACK__&&!!document.querySelector('[data-rail-current-root="ready"]');
