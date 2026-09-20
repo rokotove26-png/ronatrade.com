@@ -13,8 +13,21 @@ create table if not exists portal_private.portal_presence_connections_v1 (
 create index if not exists portal_presence_connections_v1_role_seen_idx
   on portal_private.portal_presence_connections_v1(portal_role,last_seen_at desc,portal_user_id);
 
+create index if not exists portal_presence_connections_v1_user_idx
+  on portal_private.portal_presence_connections_v1(portal_user_id);
+
 alter table portal_private.portal_presence_connections_v1 enable row level security;
 revoke all on portal_private.portal_presence_connections_v1 from public, anon, authenticated;
+
+drop policy if exists portal_presence_connections_no_direct_access_v1
+  on portal_private.portal_presence_connections_v1;
+
+create policy portal_presence_connections_no_direct_access_v1
+  on portal_private.portal_presence_connections_v1
+  for all
+  to authenticated
+  using (false)
+  with check (false);
 
 CREATE OR REPLACE FUNCTION public.rona_portal_presence_heartbeat_v1(p_connection_id uuid, p_portal_role text, p_online boolean DEFAULT true)
  RETURNS jsonb
