@@ -29,7 +29,7 @@ const SCRIPT=RAW
   )
   .replace(
     "function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(contractConflict(d))return'HOLD';if(needsAttention(d)||waitsPayment(d))return'HOLD';return'GO'}",
-    "function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}function paymentAlreadySettled(d){var remaining=knownRemaining(d);return remaining!==null&&remaining<=0}function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(structuralIssue(d))return'HOLD';return'GO'}"
+    "function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}function paymentAlreadySettled(d){var remaining=knownRemaining(d);return remaining!==null&&remaining<=0}function overall(d){if(isCancelled(d))return'NO-GO';if(isArchived(d))return'ARCHIVE';if(isCompleted(d))return'COMPLETE';if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'}"
   )
   .replace(
     "function totalAmount(ds){var scope=ds.filter(includedForTotals),missing=false,totals={};scope.forEach(function(d){var raw=d&&d.obligation_amount,c=String(d&&d.finance_currency||'').trim();if(raw===null||raw===undefined||raw===''||!c){missing=true;return}var n=Number(raw);if(!Number.isFinite(n)){missing=true;return}totals[c]=(totals[c]||0)+n});var entries=Object.entries(totals);if(missing)return{value:'—',caption:'Есть сделки без подтверждённой суммы'};if(!entries.length)return{value:'—',caption:'Подтверждённые суммы не сформированы'};return{value:entries.map(function(p){return money(p[1],p[0])}).join(' · '),caption:'Без отменённых, удалённых и архивных сделок'}}",
@@ -98,7 +98,7 @@ if(!SCRIPT.includes("function needsPaymentHandoffAction(d)"))throw new Error('DE
 if(!SCRIPT.includes("return structuralIssue(d)||needsPaymentHandoffAction(d)"))throw new Error('DEALS_ATTENTION_ACTION_SPLIT_MISSING');
 if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
 if(!SCRIPT.includes("function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}"))throw new Error('DEALS_CLIENT_SIGNED_ADDENDUM_STATUS_SOURCE_MISSING');
-if(!SCRIPT.includes("if(structuralIssue(d))return'HOLD';return'GO'"))throw new Error('DEALS_STRUCTURAL_GO_HOLD_RULE_MISSING');
+if(!SCRIPT.includes("if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'"))throw new Error('DEALS_STRUCTURAL_GO_HOLD_RULE_MISSING');
 if(!SCRIPT.includes("send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||paymentAlreadySettled(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_GO_GATE_MISSING');
 if(!SCRIPT.includes("'Finance · остаток'"))throw new Error('DEALS_FINANCE_REMAINING_HEADER_MISSING');
 if(!SCRIPT.includes("function syncDealDrawer(d)"))throw new Error('DEALS_RIGHT_DRAWER_RUNTIME_MISSING');
