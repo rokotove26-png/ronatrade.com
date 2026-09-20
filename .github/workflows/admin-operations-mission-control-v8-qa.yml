@@ -1,25 +1,19 @@
-name: Admin Operations Mission Control V9.1 QA
+name: Admin Operations Current V2 Single Owner QA
 
 on:
   pull_request:
     branches:
       - release/public-go-live-v1.1
     paths:
-      - 'functions/portal/admin-operations-command-center-v8.js'
-      - 'functions/portal/admin-operations-command-center-v8-1.js'
-      - 'functions/portal/admin-operations-command-center-v8-2.js'
-      - 'functions/portal/admin-operations-command-center-v8-3.js'
-      - 'functions/portal/admin-operations-command-center-v8-4.js'
-      - 'functions/portal/admin-operations-command-center-v8-5.js'
-      - 'functions/portal/admin-operations-command-center-v8-6.js'
-      - 'functions/portal/admin-operations-command-center-v8-7.js'
-      - 'functions/portal/admin-operations-command-center-v8-8.js'
-      - 'functions/portal/admin-operations-command-center-v8-9.js'
-      - 'functions/portal/admin-operations-command-center-v9.js'
-      - 'functions/portal/admin-operations-command-center-v9-1.js'
+      - 'functions/portal/admin-operations-command-center-v10-clean.js'
       - 'functions/portal/admin-main-ui-current.js'
-      - 'tests/admin-operations-mission-control-v8/**'
+      - 'functions/portal/owner-api.js'
+      - 'functions/portal/deals-current-state-ui.js'
+      - 'supabase/migrations/20260920194500_admin_operations_current_v2_single_owner.sql'
       - 'tests/admin-operations-current-v1/**'
+      - 'tests/admin-operations-current-v2/**'
+      - 'tests/admin-operations-mission-control-v8/**'
+      - 'scripts/qa-admin-single-owner.mjs'
       - '.github/workflows/admin-operations-mission-control-v8-qa.yml'
   workflow_dispatch:
 
@@ -27,7 +21,7 @@ permissions:
   contents: read
 
 jobs:
-  mission-control:
+  operations-v2:
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -37,26 +31,20 @@ jobs:
           node-version: '24'
       - name: Syntax
         run: |
-          node --check functions/portal/admin-operations-command-center-v8.js
-          node --check functions/portal/admin-operations-command-center-v8-1.js
-          node --check functions/portal/admin-operations-command-center-v8-2.js
-          node --check functions/portal/admin-operations-command-center-v8-3.js
-          node --check functions/portal/admin-operations-command-center-v8-4.js
-          node --check functions/portal/admin-operations-command-center-v8-5.js
-          node --check functions/portal/admin-operations-command-center-v8-6.js
-          node --check functions/portal/admin-operations-command-center-v8-7.js
-          node --check functions/portal/admin-operations-command-center-v8-8.js
-          node --check functions/portal/admin-operations-command-center-v8-9.js
-          node --check functions/portal/admin-operations-command-center-v9.js
-          node --check functions/portal/admin-operations-command-center-v9-1.js
+          node --check functions/portal/admin-operations-command-center-v10-clean.js
           node --check functions/portal/admin-main-ui-current.js
-      - name: Mission derivation tests
-        run: node --test tests/admin-operations-mission-control-v8/mission-current.test.mjs
-      - name: Preserve event-driven and Rail V4 contracts
+          node --check functions/portal/owner-api.js
+          node --check 'functions/portal/[[path]].js'
+          node --check functions/portal/deals-current-state-ui.js
+          node --check scripts/qa-admin-single-owner.mjs
+      - name: V2 single-owner contracts
         run: |
+          node --test tests/admin-operations-current-v2/single-owner-static.test.mjs
           node --test tests/admin-operations-current-v1/event-driven-static.test.mjs
-          node --test tests/deals/admin-deals-rail-execution-v4-contract.test.mjs
-      - name: Generated Admin runtime compiles
+          node --test tests/admin-operations-mission-control-v8/mission-current.test.mjs
+      - name: Single-owner Admin QA
+        run: node scripts/qa-admin-single-owner.mjs
+      - name: Generated Admin runtime compiles and owns Operations
         shell: bash
         run: |
           printf '%s\n' '{"type":"module"}' > functions/portal/package.json
@@ -65,49 +53,16 @@ jobs:
           const r=await m.onRequest();
           const s=await r.text();
           new Function(s);
-          if(r.headers.get('x-rona-operations-center')!=='v9.1-readmodel-timeout-resilience-v1') throw new Error('OPERATIONS_V91_HEADER_MISSING');
-          if(!s.includes("DEALS_CURRENT_V4_MISSION_V1")) throw new Error('OPERATIONS_V8_MISSION_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_CURRENT_V1_RECOVERY_V1")) throw new Error('OPERATIONS_V81_RECOVERY_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_ACTION_QUEUE_NORMALIZED_V1")) throw new Error('OPERATIONS_V82_ACTION_QUEUE_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_ACTION_ROUTER_V1")) throw new Error('OPERATIONS_V83_ACTION_ROUTER_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_COMPLETE_SCROLL_V1")) throw new Error('OPERATIONS_V84_COMPLETE_SCROLL_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_EFFECTIVE_KPI_V1")) throw new Error('OPERATIONS_V85_EFFECTIVE_KPI_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_CANONICAL_CONTROLS_V1")) throw new Error('OPERATIONS_V86_CANONICAL_CONTROLS_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_FINANCE_ACTIONS_V1")) throw new Error('OPERATIONS_V87_FINANCE_ACTIONS_CONTRACT_MISSING');
-          if(!s.includes("OPERATIONS_MIRRORED_EVENT_ROUTING_V1")) throw new Error('OPERATIONS_V88_MIRRORED_EVENT_ROUTING_MISSING');
-          if(!s.includes("OPERATIONS_EXACT_OBJECT_ROUTING_V1")) throw new Error('OPERATIONS_V89_EXACT_OBJECT_ROUTING_MISSING');
-          if(!s.includes("OPERATIONS_PRODUCTION_RECOVERY_V1")) throw new Error('OPERATIONS_V9_PRODUCTION_RECOVERY_MISSING');
-          if(!s.includes("OPERATIONS_TIMEOUT_RESILIENCE_V1")) throw new Error('OPERATIONS_V91_TIMEOUT_RESILIENCE_MISSING');
-          if(!s.includes("call('/admin/operations-current-v1'),20000")) throw new Error('OPERATIONS_V91_READMODEL_BUDGET_MISSING');
-          if(!s.includes("ronaOpsV91DealsPromise=ronaOpsV91NeedDeals?ronaOpsV90EnsureDealsCurrent()")) throw new Error('OPERATIONS_V91_PARALLEL_DEALS_MISSING');
-          if(!s.includes("['succeeded','running'].includes(status)")) throw new Error('OPERATIONS_V91_RUNNING_HEALTH_MISSING');
-          if(!s.includes("ronaOpsV90Bounded('OPERATIONS_READ_MODEL'")) throw new Error('OPERATIONS_V9_TIMEOUT_MISSING');
-          if(!s.includes("window.__RONA_ADMIN_LOAD_MODULE__('deals',ronaOpsV90DealsModuleSrc)")) throw new Error('OPERATIONS_V9_DEALS_MODULE_RECOVERY_MISSING');
-          if(!s.includes("DEALS_CURRENT_V4_REFRESH_UNAVAILABLE")) throw new Error('OPERATIONS_V9_DEALS_V4_GATE_MISSING');
-          if(!s.includes("ownerApplication2BFilter=application2BBucket(app)")) throw new Error('OPERATIONS_V89_APPLICATION_BUCKET_MISSING');
-          if(!s.includes("window.__RONA_PAYMENTS_V8_OPEN_PASSPORT__")) throw new Error('OPERATIONS_V89_PAYMENT_PASSPORT_MISSING');
-          if(!s.includes("linkedReverse=source==='PORTAL_REVERSE_EVENT'")) throw new Error('OPERATIONS_V88_LINKED_EVENT_LOOKUP_MISSING');
-          if(!s.includes("linkedTargetType==='APPLICATION'")) throw new Error('OPERATIONS_V88_APPLICATION_ROUTE_MISSING');
-          if(!s.includes("actionDomain==='PAYMENT'?'Оплата'")) throw new Error('OPERATIONS_V87_FINANCE_LABEL_MISSING');
-          if(!s.includes("direct&&direct!=='home'&&direct!=='deals'")) throw new Error('OPERATIONS_V87_SECTION_PRIORITY_MISSING');
-          if(!s.includes("gauge('FIN-05','Платежи на контроле',financeCurrentKnown?currentDueCount")) throw new Error('OPERATIONS_V86_FINANCE_CURRENT_MISSING');
-          if(!s.includes("gauge('RAIL-04','Вагоны на контроле',railCurrentKnown?railControlCount")) throw new Error('OPERATIONS_V86_RAIL_CURRENT_MISSING');
-          if(s.includes("railKnown?(String(rail.length)+' ГУ-12")) throw new Error('OPERATIONS_V86_FALSE_GU12_SEMANTICS_REMAINS');
-          if(!s.includes("gauge('CAUT-03','Требует действия',effectiveAttentionCount")) throw new Error('OPERATIONS_V85_ATTENTION_KPI_MISSING');
-          if(!s.includes("gauge('WARN-06','Критические события',effectiveCriticalCount")) throw new Error('OPERATIONS_V85_CRITICAL_KPI_MISSING');
-          if(s.includes("activeDeals.slice(0,10)")) throw new Error('OPERATIONS_V84_DEAL_CAP_REMAINS');
-          if(s.includes("queueVisible.slice(0,9)")) throw new Error('OPERATIONS_V84_QUEUE_CAP_REMAINS');
-          if(!s.includes("ronaOpsV83OpenQueueRow")) throw new Error('OPERATIONS_V83_ROUTER_MISSING');
-          if(!s.includes("ronaOpsV5OpenDeal(action.dealId)")) throw new Error('OPERATIONS_V83_DEAL_DEEPLINK_MISSING');
-          if(!s.includes("taskSourceEventIds=new Set")) throw new Error('OPERATIONS_V82_REVERSE_DEDUP_MISSING');
-          if(!s.includes("const attentionCount=queueRows.length")) throw new Error('OPERATIONS_V82_VISIBLE_COUNT_MISSING');
-          if(!s.includes("RECOVERY_RETRY")) throw new Error('OPERATIONS_V81_BOUNDED_RETRY_MISSING');
-          if(!s.includes("DATA SYNC")) throw new Error('OPERATIONS_V81_SYNC_STATE_MISSING');
-          if(!s.includes("Ошибка read model:")) throw new Error('OPERATIONS_V81_ERROR_DETAIL_MISSING');
-          if(!s.includes("wagon_positions")) throw new Error('OPERATIONS_V8_RAIL_V4_POSITIONS_MISSING');
-          if(!s.includes("rail_trusted_wagons")) throw new Error('OPERATIONS_V8_RAIL_TRUSTED_COUNT_MISSING');
-          if(!s.includes("onclick:()=>ronaOpsV5OpenDeal(id),text:'Deal Control'")) throw new Error('OPERATIONS_V8_DEAL_CONTROL_MISSING');
-          if(!s.includes("onclick:()=>ronaOpsV8OpenTarget(selected?.next_action_target||'deals',id)")) throw new Error('OPERATIONS_V8_NEXT_ACTION_MISSING');
-          if(s.includes("setInterval(()=>ronaOpsV8")||s.includes("setInterval(()=>ronaOpsV81")) throw new Error('OPERATIONS_V81_POLLING_FORBIDDEN');
-          console.log('ADMIN_OPERATIONS_MISSION_CONTROL_V91=PASS');
+          if(r.headers.get('x-rona-operations-center')!=='v10-operations-current-v2-single-owner') throw new Error('OPERATIONS_V10_HEADER_MISSING');
+          if(!s.includes("window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v10-operations-current-v2-single-owner'")) throw new Error('OPERATIONS_V10_RUNTIME_MARKER_MISSING');
+          if(!s.includes("window.__RONA_ADMIN_OPERATIONS_LEGACY_RUNTIME__='DISABLED_BY_V10'")) throw new Error('OPERATIONS_V10_LEGACY_DISABLE_MISSING');
+          if(!s.includes("call('/admin/operations-current-v2'")) throw new Error('OPERATIONS_V10_V2_SOURCE_MISSING');
+          if(!s.includes("OPERATIONS_CURRENT_V2")) throw new Error('OPERATIONS_V10_CONTRACT_MISSING');
+          if(!s.includes("'Клиенты в сети'")) throw new Error('OPERATIONS_V10_CLIENTS_ONLINE_MISSING');
+          if(!s.includes("'Агенты в сети'")) throw new Error('OPERATIONS_V10_AGENTS_ONLINE_MISSING');
+          if(!s.includes("Нулевые показатели не подставляются")) throw new Error('OPERATIONS_V10_FAIL_CLOSED_ZERO_MISSING');
+          if(!s.includes("Operations Current V2 подтверждает отсутствие действий")) throw new Error('OPERATIONS_V10_NORMAL_STATE_GATE_MISSING');
+          if(s.includes("ensureAdminOperationsCurrentV7();")) throw new Error('OPERATIONS_LEGACY_EVENT_RUNTIME_STILL_ACTIVE');
+          if(!s.includes("new AbortController()")) throw new Error('OPERATIONS_V10_ABORTABLE_FETCH_MISSING');
+          console.log('ADMIN_OPERATIONS_CURRENT_V2_SINGLE_OWNER=PASS');
           NODE
