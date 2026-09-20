@@ -21,6 +21,7 @@ const operationsV83=read('functions/portal/admin-operations-command-center-v8-3.
 const operationsV84=read('functions/portal/admin-operations-command-center-v8-4.js');
 const operationsV85=read('functions/portal/admin-operations-command-center-v8-5.js');
 const operationsV86=read('functions/portal/admin-operations-command-center-v8-6.js');
+const operationsV87=read('functions/portal/admin-operations-command-center-v8-7.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -52,7 +53,10 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV86(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.6 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV87(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.7 patch after source assembly');
+need(has(operationsV87,"OPERATIONS_COMMAND_CENTER_VERSION='v8.7-finance-actions-v1'"),'Operations Command Center V8.7 version marker is missing');
+need(has(operationsV87,"patchAdminOperationsCommandCenterV86 as patchV86"),'Operations Command Center V8.7 does not preserve the V8.6 canonical controls baseline');
+need(has(operationsV87,"actionDomain==='PAYMENT'?'Оплата'")&&has(operationsV87,"direct&&direct!=='home'&&direct!=='deals'"),'Operations Command Center V8.7 Finance action routing is missing');
 need(has(operationsV86,"OPERATIONS_COMMAND_CENTER_VERSION='v8.6-canonical-controls-v1'"),'Operations Command Center V8.6 version marker is missing');
 need(has(operationsV86,"patchAdminOperationsCommandCenterV85 as patchV85"),'Operations Command Center V8.6 does not preserve the V8.5 effective KPI baseline');
 need(has(operationsV86,"financeCurrentKnown?currentDueCount")&&has(operationsV86,"railCurrentKnown?railControlCount"),'Operations Command Center V8.6 canonical Finance/Rail controls are missing');

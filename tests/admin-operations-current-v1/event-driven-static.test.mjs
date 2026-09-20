@@ -35,7 +35,7 @@ test('Admin API exposes the read-only current operations RPC',()=>{
   assert.match(api,/path==='\/admin\/operations-current-v1'.*rona_admin_operations_current_v1/s);
 });
 
-test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3/V8.4/V8.5 baselines under V8.6 canonical controls',()=>{
+test('Admin main UI keeps V7-V8.6 baselines under reconciled V8.7 Finance action routing',()=>{
   const main=read('functions/portal/admin-main-ui-current.js');
   const v8=read('functions/portal/admin-operations-command-center-v8.js');
   const v81=read('functions/portal/admin-operations-command-center-v8-1.js');
@@ -44,22 +44,18 @@ test('Admin main UI keeps V7/V8/V8.1/V8.2/V8.3/V8.4/V8.5 baselines under V8.6 ca
   const v84=read('functions/portal/admin-operations-command-center-v8-4.js');
   const v85=read('functions/portal/admin-operations-command-center-v8-5.js');
   const v86=read('functions/portal/admin-operations-command-center-v8-6.js');
-  assert.match(main,/patchAdminOperationsCommandCenterV86/);
-  assert.match(main,/admin-operations-command-center-v8-6\.js/);
+  const v87=read('functions/portal/admin-operations-command-center-v8-7.js');
+  assert.match(main,/patchAdminOperationsCommandCenterV87/);
+  assert.match(main,/admin-operations-command-center-v8-7\.js/);
+  assert.match(v87,/patchAdminOperationsCommandCenterV86 as patchV86/);
+  assert.match(v87,/let patched=patchV86\(script\)/);
   assert.match(v86,/patchAdminOperationsCommandCenterV85 as patchV85/);
-  assert.match(v86,/let patched=patchV85\(script\)/);
   assert.match(v85,/patchAdminOperationsCommandCenterV84 as patchV84/);
-  assert.match(v85,/let patched=patchV84\(script\)/);
   assert.match(v84,/patchAdminOperationsCommandCenterV83 as patchV83/);
-  assert.match(v84,/let patched=patchV83\(script\)/);
   assert.match(v83,/patchAdminOperationsCommandCenterV82 as patchV82/);
-  assert.match(v83,/let patched=patchV82\(script\)/);
   assert.match(v82,/patchAdminOperationsCommandCenterV81 as patchV81/);
-  assert.match(v82,/let patched=patchV81\(script\)/);
   assert.match(v81,/patchAdminOperationsCommandCenterV8 as patchV8/);
-  assert.match(v81,/let patched=patchV8\(script\)/);
   assert.match(v8,/patchAdminOperationsCommandCenterV7 as patchV7/);
-  assert.match(v8,/let patched=patchV7\(script\)/);
   assert.doesNotMatch(main,/patchAdminOperationsCommandCenterV6\(patchOperationsFunctionalRuntime/);
 });
 
@@ -216,4 +212,17 @@ test('V8.6 Finance and Rail controls use Deals Current V4 canonical semantics',(
   assert.match(v86,/Finance V8 · к оплате сейчас:/);
   assert.match(v86,/OPERATIONS_CANONICAL_CONTROLS_V1/);
   assert.match(v86,/ADMIN_OPERATIONS_V86_POLLING_FORBIDDEN/);
+});
+
+
+test('V8.7 routes canonical deal actions to their explicit operational section before generic deal deeplink',()=>{
+  const v87=read('functions/portal/admin-operations-command-center-v8-7.js');
+  assert.match(v87,/actionTarget=String\(x\?\.next_action_target\|\|'deals'\)/);
+  assert.match(v87,/actionDomain==='PAYMENT'\?'Оплата'/);
+  assert.match(v87,/target:actionTarget,dealId:x\?\.deal_id\|\|null/);
+  assert.match(v87,/direct&&direct!=='home'&&direct!=='deals'/);
+  assert.match(v87,/return\{kind:'SECTION',target:direct,dealId:dealId\|\|null\}/);
+  assert.match(v87,/if\(dealId\)return\{kind:'DEAL',dealId,target:'deals'\}/);
+  assert.match(v87,/OPERATIONS_FINANCE_ACTIONS_V1/);
+  assert.match(v87,/ADMIN_OPERATIONS_V87_POLLING_FORBIDDEN/);
 });
