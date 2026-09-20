@@ -97,7 +97,7 @@ test('Missing read model or event connection cannot render SYSTEM NORMAL',()=>{
 
 test('Automation health is event-driven and does not add read-model polling',()=>{
   const v7=read('functions/portal/admin-operations-command-center-v7.js');
-  const sql=read('supabase/migrations/20260920161500_admin_operations_automation_health_v1.sql');
+  const sql=read('supabase/migrations/20260920161129_admin_operations_automation_health_v1.sql');
   assert.match(sql,/rona_admin_automation_health_v1/);
   assert.match(sql,/rona_admin_cron_health_transition_v1/);
   assert.match(sql,/after update of status on cron\.job_run_details/i);
