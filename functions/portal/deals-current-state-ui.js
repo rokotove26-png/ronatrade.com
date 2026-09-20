@@ -136,6 +136,8 @@ if(!SCRIPT.includes("finance_projection_version"))throw new Error('DEALS_FINANCE
 if(!SCRIPT.includes("route_resolution_state")||!SCRIPT.includes("trusted_wagon_count")||!SCRIPT.includes("position_groups"))throw new Error('DEALS_RAIL_EXECUTION_V4_MARKER_MISSING');
 if(!SCRIPT.includes('Нет подтверждённых данных о дислокации'))throw new Error('DEALS_RAIL_MISSING_SOURCE_FAIL_CLOSED_MISSING');
 if(!SCRIPT.includes('локальное время источника'))throw new Error('DEALS_RAIL_LOCAL_TIME_SEMANTICS_MISSING');
+if(!SCRIPT.includes("left.append(commercial,logistics);right.append(finance,documents)"))throw new Error('DEALS_DRAWER_INDEPENDENT_COLUMNS_MISSING');
+if(!SCRIPT.includes('.rona-current-deal-detail-column{display:grid'))throw new Error('DEALS_DRAWER_COLUMN_LAYOUT_MISSING');
 if(!SCRIPT.includes("function needsPaymentHandoffAction(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_ACTION_RULE_MISSING');
 if(!SCRIPT.includes("return structuralIssue(d)||needsPaymentHandoffAction(d)"))throw new Error('DEALS_ATTENTION_ACTION_SPLIT_MISSING');
 if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
