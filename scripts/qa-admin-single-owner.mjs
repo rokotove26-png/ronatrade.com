@@ -19,6 +19,7 @@ const operationsV81=read('functions/portal/admin-operations-command-center-v8-1.
 const operationsV82=read('functions/portal/admin-operations-command-center-v8-2.js');
 const operationsV83=read('functions/portal/admin-operations-command-center-v8-3.js');
 const operationsV84=read('functions/portal/admin-operations-command-center-v8-4.js');
+const operationsV85=read('functions/portal/admin-operations-command-center-v8-5.js');
 const homeCompat=read('functions/portal/owner-ui-chunks/chunk17.js');
 const accessMigration=read('supabase/migrations/20260826144757_owner_access_workspace_bootstrap_v1.sql');
 const accessHistoryHygiene=read('supabase/migrations/20260826145643_owner_access_workspace_history_hygiene_v2.sql');
@@ -50,7 +51,10 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV84(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.4 patch after source assembly');
+need(has(mainUi,"patchAdminOperationsCommandCenterV85(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V8.5 patch after source assembly');
+need(has(operationsV85,"OPERATIONS_COMMAND_CENTER_VERSION='v8.5-effective-kpi-v1'"),'Operations Command Center V8.5 version marker is missing');
+need(has(operationsV85,"patchAdminOperationsCommandCenterV84 as patchV84"),'Operations Command Center V8.5 does not preserve the V8.4 complete scroll baseline');
+need(has(operationsV85,"effectiveAttentionCount")&&has(operationsV85,"effectiveCriticalCount"),'Operations Command Center V8.5 effective KPI binding is missing');
 need(has(operationsV84,"OPERATIONS_COMMAND_CENTER_VERSION='v8.4-complete-scroll-v1'"),'Operations Command Center V8.4 version marker is missing');
 need(has(operationsV84,"patchAdminOperationsCommandCenterV83 as patchV83"),'Operations Command Center V8.4 does not preserve the V8.3 action router baseline');
 need(has(operationsV84,"activeDeals.slice(0,10)")&&has(operationsV84,"queueVisible.slice(0,9)"),'Operations Command Center V8.4 source guards for truncation removal are missing');
