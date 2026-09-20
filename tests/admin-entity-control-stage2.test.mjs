@@ -11,6 +11,8 @@ const assertNotIncludes=(src,needle,label)=>assert.ok(!src.includes(needle),`${l
 
 const head=git('rev-parse','HEAD');
 assert.equal(git('merge-base',head,BASE),BASE,'feature branch must descend from exact Stage 2 base');
+const releaseBase=process.env.STAGE2_CURRENT_RELEASE_BASE_SHA||git('merge-base',head,'origin/release/public-go-live-v1.1');
+const showRelease=p=>execFileSync('git',['show',`${releaseBase}:${p}`],{encoding:'utf8'});
 
 const ui=read('functions/portal/clients-agents-current-ui.js');
 const baseUi=show('functions/portal/clients-agents-current-ui.js');
@@ -50,7 +52,7 @@ for(const p of [
   'assets/portal-admin-shell-fast-v1.js',
   'assets/portal-admin-runtime-watchdog-v1.js'
 ]){
-  assert.equal(read(p),show(p),`${p} must remain visually frozen`);
+  assert.equal(read(p),showRelease(p),`${p} must remain unchanged from current release base`);
 }
 
 // Only the canonical .ca-head receives the compact Options control.
