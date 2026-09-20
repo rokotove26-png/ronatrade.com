@@ -159,6 +159,43 @@ test('Admin shell falls back to isolated Admin control-plane when primary sessio
   assert.equal(fallbackCalls,1);
 });
 
+test('Admin owner shell uses Supabase JWT-gateway fallback after the first retryable primary authority failure',async()=>{
+  let primaryCalls=0,gatewayCalls=0,controlCalls=0,authCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me')){primaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:true,authority:'SUPABASE_EDGE_VERIFIED_OWNER',roles:['ADMIN'],auth_user_id:'c4a167ae-cd4f-4296-8f13-ef09ced41968'},200);}
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
+    if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({message:'temporary unavailable'},503);}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=access-owner-valid'}});
+  const response=await portalRouter({request,next:async()=>new Response('ADMIN_SHELL_OK',{status:200,headers:{'content-type':'text/plain'}})});
+  assert.equal(response.status,200);
+  assert.equal(await response.text(),'ADMIN_SHELL_OK');
+  assert.equal(primaryCalls,1);
+  assert.equal(gatewayCalls,1);
+  assert.equal(controlCalls,0);
+  assert.equal(authCalls,0);
+});
+
+test('JWT-gateway non-owner result cannot elevate a user to Admin',async()=>{
+  let gatewayCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:false,code:'OWNER_IDENTITY_REQUIRED'},403);}
+    if(u.includes('/functions/v1/rona-admin-control-plane/readiness'))return jsonResponse({ok:false},503);
+    if(u.includes('/auth/v1/user'))return jsonResponse({id:'regular-user',app_metadata:{}},200);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/admin',{method:'GET',headers:{cookie:'rona_portal_at=access-non-owner'}});
+  const response=await portalRouter({request,next:async()=>new Response('SHOULD_NOT_BE_REACHED')});
+  assert.equal(response.status,503);
+  assert.match(await response.text(),/Восстанавливаю соединение/);
+  assert.equal(gatewayCalls,1);
+});
+
 test('Admin owner shell falls back to Supabase Auth owner identity when both Edge authorities are transiently unavailable',async()=>{
   let primaryCalls=0,controlCalls=0,authCalls=0;
   globalThis.fetch=async(url)=>{
