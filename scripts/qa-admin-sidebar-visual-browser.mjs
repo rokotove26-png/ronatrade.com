@@ -102,6 +102,7 @@ try{
 
   await page.evaluate(()=>window.RONA_NAV_ATTENTION.set('agent-settlements',true,'QA attention proof'));
   await page.waitForFunction(()=>document.querySelector('#nav button[data-page="agent-settlements"]')?.classList.contains('rona-nav-attention'));
+  await page.waitForFunction(()=>Number(getComputedStyle(document.querySelector('#nav button[data-page="agent-settlements"] .nav-icon svg')).opacity)>.99);
   const attention=await page.evaluate(()=>{
     const b=document.querySelector('#nav button[data-page="agent-settlements"]');
     const icon=b.querySelector('.nav-icon');
@@ -117,7 +118,7 @@ try{
   assert(attention.className.includes('rona-nav-attention'));
   assert(attention.bg.includes('linear-gradient'));
   assert.notEqual(attention.shadow,'none');
-  assert.equal(attention.svgOpacity,'1');
+  assert(Number(attention.svgOpacity)>.99,'attention icon did not reach full opacity');
 
   await mkdir('artifacts',{recursive:true});
   await page.screenshot({path:'artifacts/admin-sidebar-single-owner-v13.png',fullPage:false});
