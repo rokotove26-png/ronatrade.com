@@ -28,7 +28,7 @@ jobs:
           node --check functions/portal/admin-approved-analytics-v455-ui.js
           grep -q "window.__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'" functions/portal/clients-agents-current-ui.js
           grep -q "window.__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'" functions/portal/clients-agents-current-ui.js
-          grep -q "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-create-agent-v7-20260919'" functions/portal/clients-agents-current-ui.js
+          grep -q "window.__RONA_ACCESS_FUNCTIONAL_BUILD__='single-owner-impersonation-json-v8-20260920'" functions/portal/clients-agents-current-ui.js
           grep -q "dataset.ronaCreateAccess='primary'" functions/portal/clients-agents-current-ui.js
           grep -q "await mutate('/access/users',payload)" functions/portal/clients-agents-current-ui.js
           ! grep -q 'Профиль агента' functions/portal/clients-agents-current-ui.js
@@ -41,6 +41,9 @@ jobs:
           grep -q 'История и права' functions/portal/clients-agents-current-ui.js
           grep -q 'Сменить пароль' functions/portal/clients-agents-current-ui.js
           grep -q "x-rona-access-create-owner':'clients-agents-current-v5" functions/portal/clients-agents-current-ui.js
+          grep -q "await mutate('/impersonation/start'" functions/portal/clients-agents-current-ui.js
+          ! grep -q "form.action=AUTH+'/impersonation/enter'" functions/portal/clients-agents-current-ui.js
+          node tests/admin-impersonation-json-handoff.test.mjs
           grep -q "x-rona-access-create-owner':'none" functions/portal/admin-approved-polish-ui.js
           grep -q "x-rona-access-loader':'none" functions/portal/admin-approved-analytics-v455-ui.js
           test ! -e functions/portal/admin-canonical-create-access-v441-ui.js
