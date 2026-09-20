@@ -52,8 +52,8 @@ jobs:
           for(const token of [
             "window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",
             'RONA_CLIENT_CONTEXT','clientRailCurrentContext','CLIENT_CONTRACT_CONTEXT_REQUIRED','clientRailContextQuery',
-            "'?clientId='","'&contractId='","'/portal/api/v1/client/shipments'+query","'/portal/api/v1/client/rail'+query",
-            'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS','ADMIN_CURRENT_V81_CANONICAL'
+            "'?clientId='","'&contractId='","'/portal/api/v1/client/rail-canonical'+query",
+            'CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD','CLIENT_RAIL_CANONICAL_READ_MODEL_DEGRADED','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','ADMIN_CURRENT_V81_CANONICAL'
           ])assert(client.includes(token),`Client Rail CURRENT_CONTEXT contract missing ${token}`);
           for(const pattern of [/\bRONA-C\d{3,}\b/u,/\bDEAL-2026-\d{3,}\b/u,/UNIVERSAL\s+SOLYARIS/iu,/FARGONA/iu])assert(!pattern.test(client+hero),`hardcoded Client Rail business entity ${pattern}`);
 
@@ -80,18 +80,18 @@ jobs:
           const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const bridge=integrity?.client_runtime?.rail_client_admin_canonical;
-          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260831-admin-canonical-v1','Client Rail integrity record missing');
-          assert(bridge.visual_canon==='CLIENT_CANONICAL_RAIL_HERO_V1','Client Rail canonical hero ownership changed');
-          assert(bridge.visual_contract==='CLIENT_CANONICAL_HERO_V1_WITH_ADMIN_CURRENT_V8_2_OPERATIONAL_BODY','Client Rail visual contract changed');
-          assert(bridge.visual_source_mode==='CLIENT_CANONICAL_HERO_RUNTIME_PLUS_ADMIN_OPERATIONAL_BODY_ADAPTER','Client Rail source mode changed');
+          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260919-route-overlay-v3','Client Rail integrity record missing');
+          assert(bridge.visual_canon==='ADMIN_CURRENT_V81_EXACT_OPERATIONAL_LAYOUT','Client Rail visual canon changed');
+          assert(bridge.visual_contract==='ADMIN_CURRENT_V8_2_OPERATIONAL_BODY_PLUS_CLIENT_AUTHORITY','Client Rail visual contract changed');
+          assert(bridge.visual_source_mode==='ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE','Client Rail source mode changed');
           assert(bridge.operational_body_canon==='/portal/rail-current-v81-maplibre-ui','Client Rail Admin operational body changed');
-          assert(bridge.client_data_source==='/portal/api/v1/client/shipments'&&bridge.provider_state_source==='/portal/api/v1/client/rail'&&bridge.authoritative_refresh_ms===30000&&bridge.auto_refresh===true,'Client Rail server-source metadata missing');
+          assert(bridge.client_data_source==='/portal/api/v1/client/rail-canonical'&&bridge.client_authority==='AUTHENTICATED_CLIENT_CONTRACT'&&bridge.authoritative_refresh_ms===30000&&bridge.auto_refresh===true&&bridge.movement_publication==='SERVER_SCOPED_CANONICAL_READ_MODEL','Client Rail server-source metadata missing');
           assert(bridge.legacy_client_visual_owner===false&&bridge.separate_movizor_visual_gate===false&&bridge.business_data_changed===false&&bridge.hardcoded_business_entities===false,'Client Rail isolation metadata invalid');
 
           const response=await clientRail({});
           assert(response.status===200,'Client Rail adapter endpoint '+response.status);
           const src=await response.text();
-          for(const token of ["window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/shipments','/portal/api/v1/client/rail','AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS'])assert(src.includes(token),`built Client Rail marker missing ${token}`);
+          for(const token of ["window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/rail-canonical','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'])assert(src.includes(token),`built Client Rail marker missing ${token}`);
           for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker'])assert(!src.includes(forbidden),`retired/divergent built Client Rail output remains ${forbidden}`);
           assert(response.headers.get('x-rona-client-rail-visual-canon')==='/portal/rail-current-v81-maplibre-ui','Admin operational-body header changed');
           console.log('ONLINE_RAIL_CURRENT_OWNER_BUILD=PASS context=CURRENT_CONTEXT visual=CLIENT_CANONICAL_HERO_V1 admin_body=V8_2');
