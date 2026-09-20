@@ -339,7 +339,7 @@ export async function agentBootstrap(c:Ctx){
   `;
 
   const viewDeals=isAdminEntityAgent(c)?await sql`
-    select distinct
+    select
       d.id as deal_key,
       d.deal_id,
       cl.client_id,
@@ -349,16 +349,20 @@ export async function agentBootstrap(c:Ctx){
       d.accounting_closure_status::text,
       d.opened_at,
       d.closed_at
-    from portal_private.agent_deal_terms t
-    join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
-    join portal_private.deals d on d.id=t.deal_key
+    from portal_private.deals d
     join portal_private.clients cl on cl.id=d.client_key
     join portal_private.contracts ct on ct.id=d.contract_key
-    where aa.agent_person_key=${bound}::uuid
-      and aa.status='ACTIVE'::portal_private.binding_status_enum
-      and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and t.status='ACTIVE'::portal_private.binding_status_enum
-      and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    where exists(
+      select 1
+      from portal_private.agent_deal_terms t
+      join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
+      where t.deal_key=d.id
+        and aa.agent_person_key=${bound}::uuid
+        and aa.status='ACTIVE'::portal_private.binding_status_enum
+        and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and t.status='ACTIVE'::portal_private.binding_status_enum
+        and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    )
     order by d.created_at desc
   `:await sql`
     select
@@ -379,7 +383,7 @@ export async function agentBootstrap(c:Ctx){
   `;
 
   const applications=isAdminEntityAgent(c)?await sql`
-    select distinct
+    select
       a.application_id,
       a.product,
       a.quantity_tonnes,
@@ -389,14 +393,18 @@ export async function agentBootstrap(c:Ctx){
     from portal_private.client_applications a
     join portal_private.deals d on d.id=a.linked_deal_key
     join portal_private.clients cl on cl.id=a.client_key
-    join portal_private.agent_deal_terms t on t.deal_key=d.id
-    join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
     where a.linked_deal_key is not null
-      and aa.agent_person_key=${bound}::uuid
-      and aa.status='ACTIVE'::portal_private.binding_status_enum
-      and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and t.status='ACTIVE'::portal_private.binding_status_enum
-      and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and exists(
+        select 1
+        from portal_private.agent_deal_terms t
+        join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
+        where t.deal_key=d.id
+          and aa.agent_person_key=${bound}::uuid
+          and aa.status='ACTIVE'::portal_private.binding_status_enum
+          and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and t.status='ACTIVE'::portal_private.binding_status_enum
+          and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      )
     order by a.created_at desc
   `:await sql`
     select
@@ -415,7 +423,7 @@ export async function agentBootstrap(c:Ctx){
   `;
 
   const settlements=isAdminEntityAgent(c)?await sql`
-    select distinct
+    select
       s.settlement_id,
       s.settlement_state::text,
       s.amount,
@@ -428,13 +436,17 @@ export async function agentBootstrap(c:Ctx){
     from portal_private.agent_settlements s
     join portal_private.deals d on d.id=s.deal_key
     join portal_private.clients cl on cl.id=d.client_key
-    join portal_private.agent_deal_terms t on t.deal_key=d.id
-    join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
-    where aa.agent_person_key=${bound}::uuid
-      and aa.status='ACTIVE'::portal_private.binding_status_enum
-      and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and t.status='ACTIVE'::portal_private.binding_status_enum
-      and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    where exists(
+      select 1
+      from portal_private.agent_deal_terms t
+      join portal_private.agent_client_assignments aa on aa.id=t.assignment_id
+      where t.deal_key=d.id
+        and aa.agent_person_key=${bound}::uuid
+        and aa.status='ACTIVE'::portal_private.binding_status_enum
+        and aa.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and t.status='ACTIVE'::portal_private.binding_status_enum
+        and t.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    )
     order by s.created_at desc
   `:await sql`
     select
