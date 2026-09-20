@@ -90,6 +90,10 @@ const SCRIPT=RAW
   .replace(
     "state=next;window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__=state;render();window.__RONA_DEALS_CURRENT_STATE_ERROR__=null",
     "state=next;window.__RONA_DEALS_CURRENT_STATE_SNAPSHOT__=state;var requested=window.__RONA_DEALS_REQUESTED_ID__;if(requested){var found=deals().find(function(d){return String(d.deal_id||'')===String(requested)});if(found){filter='ACTIVE';selected=String(found.deal_id)}}render();window.dispatchEvent(new CustomEvent('rona:deals-current-state',{detail:{generatedAt:state.generatedAt||null,count:deals().length,source:'owner_r1_admin_bootstrap'}}));window.__RONA_DEALS_CURRENT_STATE_ERROR__=null"
+  )
+  .replace(
+    "function start(){ensureStyle();installDealsLayoutV15();bindNavigation();var mounted=false",
+    "function start(){ensureStyle();installDealsLayoutV15();bindNavigation();window.__RONA_DEALS_CURRENT_STATE_REFRESH__=function(){return refresh(true)};var mounted=false"
   );
 
 if(/\bwaitsAction\b/.test(SCRIPT))throw new Error('DEALS_LEGACY_WAITS_ACTION_REFERENCE');
@@ -102,6 +106,7 @@ if(!SCRIPT.includes("if(structuralIssue(d)||!hasClientSignedAddendum(d))return'H
 if(!SCRIPT.includes("send.disabled=overall(d)!=='GO'||String(d.payment_handoff_state||'')==='SENT'||paymentAlreadySettled(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_GO_GATE_MISSING');
 if(!SCRIPT.includes("'Finance · остаток'"))throw new Error('DEALS_FINANCE_REMAINING_HEADER_MISSING');
 if(!SCRIPT.includes("window.dispatchEvent(new CustomEvent('rona:deals-current-state'"))throw new Error('DEALS_CURRENT_STATE_EVENT_MISSING');
+if(!SCRIPT.includes("window.__RONA_DEALS_CURRENT_STATE_REFRESH__=function(){return refresh(true)}"))throw new Error('DEALS_CURRENT_STATE_REFRESH_BRIDGE_MISSING');
 if(!SCRIPT.includes("function syncDealDrawer(d)"))throw new Error('DEALS_RIGHT_DRAWER_RUNTIME_MISSING');
 if(!SCRIPT.includes("selected=null;window.__RONA_DEALS_REQUESTED_ID__=null;unmountDealDrawer()"))throw new Error('DEALS_DEEPLINK_CLOSE_RESET_MISSING');
 if(!SCRIPT.includes("rona-current-deal-doc-download"))throw new Error('DEALS_DRAWER_DOCUMENT_ACTION_FAMILY_MISSING');
@@ -110,4 +115,4 @@ if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'operations-live-refresh-v1'}})}
