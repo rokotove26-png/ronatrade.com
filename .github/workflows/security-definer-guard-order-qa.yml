@@ -1,0 +1,22 @@
+name: Security definer guard order QA
+
+on:
+  pull_request:
+    branches:
+      - 'release/public-go-live-v1.1'
+    paths:
+      - 'supabase/migrations/20260920130000_owner_apply_price_guard_order_v1.sql'
+      - 'tests/security-definer-owner-price-guard-order.test.mjs'
+      - '.github/workflows/security-definer-guard-order-qa.yml'
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify SECURITY DEFINER guard ordering
+        run: node tests/security-definer-owner-price-guard-order.test.mjs
