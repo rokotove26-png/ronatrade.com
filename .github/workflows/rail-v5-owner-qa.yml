@@ -65,7 +65,7 @@ jobs:
             "operational_body_canon:'/portal/rail-current-v81-maplibre-ui'",
             "legacy_client_visual_owner:false","separate_movizor_visual_gate:false"
           ])assert(attach.includes(token),`Rail attach ownership contract missing ${token}`);
-          for(const token of ['20260831-client-rail-canonical-hero-v1','RONA Trade · Operations','Онлайн ЖД','Автообновление · 30 с','CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY'])assert(hero.includes(token),`Client Rail canonical hero missing ${token}`);
+          for(const token of ['20260919-client-rail-admin-visual-parity-v2','RONA Trade · Operations','Онлайн ЖД','CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'])assert(hero.includes(token),`Client Rail canonical hero missing ${token}`);
           for(const token of ["window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",'/portal/map-assets/osm/','mountRealRailMap','Интерактивная ЖД-карта'])assert(admin.includes(token),`Admin Rail operational body missing ${token}`);
           assert(cache.includes('/portal/client-rail-current-ui'),'Client Rail cache route missing');
           assert(!cache.includes('/assets/portal-runtime/client-rail-production-v1.js')&&!cache.includes('/assets/portal-runtime/client-rail-movizor-gate-v1.js'),'retired Client Rail cache owner remains');
