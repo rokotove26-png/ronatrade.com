@@ -51,7 +51,7 @@ export function patchAdminOperationsCommandCenterV81(script){
   patched=replaceRequired(
     patched,
     "  window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v8-mission-control-current-v1';",
-    "  window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v8.1-readmodel-recovery-v1';",
+    "  window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v8.1-readmodel-recovery-v1';\n  window.__RONA_ADMIN_OPERATIONS_READMODEL_RECOVERY__='OPERATIONS_CURRENT_V1_RECOVERY_V1';",
     'browser-version'
   );
 
@@ -60,6 +60,7 @@ export function patchAdminOperationsCommandCenterV81(script){
   if(!patched.includes("opsCurrentLoading?'DATA SYNC'"))throw new Error('ADMIN_OPERATIONS_V81_SYNC_STATE_MISSING');
   if(!patched.includes("opsCurrentError?'Ошибка read model: '+String(opsCurrentError)"))throw new Error('ADMIN_OPERATIONS_V81_ERROR_DETAIL_MISSING');
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v8.1-readmodel-recovery-v1'"))throw new Error('ADMIN_OPERATIONS_V81_VERSION_MISSING');
+  if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_READMODEL_RECOVERY__='OPERATIONS_CURRENT_V1_RECOVERY_V1'"))throw new Error('ADMIN_OPERATIONS_V81_RECOVERY_MARKER_MISSING');
   if(patched.includes("setInterval(()=>ronaOpsV81"))throw new Error('ADMIN_OPERATIONS_V81_POLLING_FORBIDDEN');
   return patched;
 }
