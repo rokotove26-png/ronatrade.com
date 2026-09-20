@@ -24,7 +24,7 @@ function base(){
 function req(){
   return new Request('https://ronaoil.com/functions/v1/rona-portal-api/v1/client/context?clientId=RONA-C001&contractId=RONA-C001-CTR-2026-001',{method:'GET'});
 }
-const apiRoute=url=>url.pathname.slice(url.pathname.indexOf('/v1/'));
+const apiRoute=url=>{const marker='/rona-portal-api';const at=url.pathname.indexOf(marker);return at>=0?(url.pathname.slice(at+marker.length)||'/'):url.pathname;};
 
 test('Admin entity Client read uses target-bound projection instead of real Client role RPC',async()=>{
   const sql=makeSql();
