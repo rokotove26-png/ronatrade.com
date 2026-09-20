@@ -15,6 +15,7 @@ const analyticsBase=read('functions/portal/analytics-v2-approved-base.js');
 const railSafe=read('functions/portal/rail-safe-fallback-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 const approvedShellVisual=read('functions/portal/admin-approved-shell-v455-ui.js');
+const ownerNavStructure=read('functions/portal/owner-ui-chunks/chunk14.js');
 
 assert(admin.includes('ASSETS?.fetch'),'Admin route must serve the static current shell through the asset binding');
 assert(admin.includes("u.pathname='/portal/admin';"),'Cloudflare Static Assets must receive the Admin pretty pathname');
@@ -51,6 +52,9 @@ assert(approvedShellVisual.includes('function ensureNavIcons()'),'Sidebar DOM ic
 assert(approvedShellVisual.includes("if(!slot){slot=el('span','nav-icon')"),'Sidebar must recreate missing icon slot');
 assert(approvedShellVisual.includes("if(!label){label=el('span','nav-label',labelText)"),'Sidebar must recreate missing label wrapper');
 assert(approvedShellVisual.includes("b.dataset.ronaNavStructure=SIDEBAR_OWNER"),'Sidebar repaired-structure marker missing');
+assert(ownerNavStructure.includes("window.__RONA_VISUAL_V2_NAV_STRUCTURE__='20260920-nav-descendant-safe-v15'"),'Late owner nav safety build marker missing');
+assert(ownerNavStructure.includes("if(el.closest('button,a,[role=\"button\"]'))continue;"),'Late owner nav cleanup must not descend into navigation controls');
+assert(!ownerNavStructure.includes("if(el.matches('button,a,[role=\"button\"]'))continue;"),'Unsafe descendant cleanup guard returned');
 assert(approvedShellVisual.includes('data-page=\\\"documents\\\"]{display:none!important}'),'Hidden Documents slot must remain collapsed in runtime owner');
 assert(shell.includes("sessionStorage.setItem('rona.admin.currentPage',page)"),'Current shell must preserve explicit navigation');
 assert(shell.includes('new MutationObserver(scheduleGuard)'),'Current shell must guard against late navigation resets');
