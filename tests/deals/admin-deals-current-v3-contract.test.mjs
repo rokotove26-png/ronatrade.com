@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const migration=fs.readFileSync('supabase/migrations/20260920143000_admin_deals_current_v3_execution_read_model.sql','utf8');
+const migration=fs.readFileSync('supabase/migrations/20260920134402_admin_deals_current_v3_execution_read_model.sql','utf8');
 const api=fs.readFileSync('functions/portal/owner-api.js','utf8');
 const ui=fs.readFileSync('functions/portal/deals-current-state-ui.js','utf8');
 
