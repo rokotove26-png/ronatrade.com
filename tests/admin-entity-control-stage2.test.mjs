@@ -74,7 +74,10 @@ assertIncludes(shell,"impersonationReturnBridge",'Admin-only return bridge');
 assertIncludes(shell,'Вернуться в раздел администратора','return label');
 assertIncludes(shell,"x-rona-impersonation-tab",'tab consistency binding');
 assertIncludes(shell,"searchParams.get('impSession')",'tab-bound target validation');
-assertIncludes(ui,"'?impSession='",'tab-bound target navigation');
+assertIncludes(shell,"upstreamPath==='/impersonation/enter'",'top-level impersonation handoff');
+assertIncludes(shell,"impersonationCookie(opaque,maxAge)",'top-level handoff owns opaque HttpOnly cookie');
+assertIncludes(ui,"form.action=AUTH+'/impersonation/enter'",'Admin UI uses top-level POST handoff');
+assertNotIncludes(ui,"location.assign(targetPath+'?impSession='",'AJAX navigation handoff retired');
 assertIncludes(logout,"clearCookie('rona_admin_imp')",'logout clears impersonation');
 assertNotIncludes(shell,"request.headers.get('x-rona-admin-impersonation-token')",'browser must not supply trusted impersonation token');
 assertNotIncludes(ownerProxy,"request.headers.get('x-rona-admin-impersonation-token')",'owner proxy must not trust browser impersonation token');
@@ -104,7 +107,13 @@ for(const src of [imp,client,shared,portalApi,owner,claims]){
   assertIncludes(src,'targetClientKey','hard-bound Client context');
 }
 assertIncludes(control,'TARGET_PORTAL_USER_SELECTION_REQUIRED','multi-user deterministic Company entry');
-assertIncludes(control,'TARGET_PORTAL_USER_NOT_FOUND','Company no-user fail closed');
+assertIncludes(control,'subjectMode:users.length?"PORTAL_USER":"ADMIN_ENTITY"','Company without Portal user receives explicit Admin entity preview');
+assertIncludes(control,'const adminEntity=kind==="COMPANY"&&users.length===0','Company no-user preview is deterministic');
+assertIncludes(control,'readOnly:adminEntity','Company no-user preview is read-only');
+assertIncludes(imp,'subjectMode: "PORTAL_USER" | "ADMIN_ENTITY"','impersonation subject mode is explicit');
+assertIncludes(imp,"coalesce(ais.metadata->>'subjectMode','PORTAL_USER')='ADMIN_ENTITY'",'resolver recognizes Admin entity preview');
+assertIncludes(shared,'isAdminEntityClient','Portal read scope recognizes Admin entity preview');
+assertIncludes(portalApi,'ADMIN_ENTITY_PREVIEW_READ_ONLY','Admin entity mutations fail closed');
 assertIncludes(owner,'b.client_key = any(${keys}::uuid[])','owner Client bootstrap Company bound');
 assertIncludes(claims,'boundClient(ctx)','claims Company bound');
 
