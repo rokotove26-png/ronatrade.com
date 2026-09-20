@@ -64,6 +64,50 @@ try {
   assert.match(setCookie,/SameSite=Strict/,'impersonation cookie must be SameSite=Strict');
   assert.equal(calls.filter(x=>x.url.includes('/impersonation/start')).length,1,'control-plane start must run exactly once');
 
+  // Backward compatibility for already-open Admin tabs that still hold the retired form handler.
+  globalThis.fetch=async (input,init={})=>{
+    const url=String(input);
+    const bodyText=init?.body instanceof ArrayBuffer
+      ? new TextDecoder().decode(new Uint8Array(init.body))
+      : ArrayBuffer.isView(init?.body)
+        ? new TextDecoder().decode(init.body)
+        : init?.body ? String(init.body) : '';
+    if(url.endsWith('/functions/v1/rona-portal-api/session/me')){
+      return new Response(JSON.stringify({ok:true,user:{id:'admin-user',roles:['ADMIN']}}),{
+        status:200,headers:{'content-type':'application/json'}
+      });
+    }
+    if(url.endsWith('/functions/v1/rona-admin-control-plane/impersonation/start')){
+      const requestBody=JSON.parse(bodyText||'{}');
+      assert.deepEqual(requestBody,{kind:'COMPANY',entityId:'RONA-C001',targetPortalUserId:null});
+      return new Response(JSON.stringify({
+        ok:true,
+        data:{
+          impersonationToken:'opaque-legacy-secret',
+          impersonation:{id:sessionId,expiresAt:new Date(Date.now()+600000).toISOString()},
+          targetPath:'/portal/client'
+        }
+      }),{status:200,headers:{'content-type':'application/json'}});
+    }
+    throw new Error('UNEXPECTED_LEGACY_FETCH '+url);
+  };
+  const form=new URLSearchParams({kind:'COMPANY',entityId:'RONA-C001',targetPortalUserId:''});
+  const legacyRequest=new Request('https://ronaoil.com/portal/admin-authority/impersonation/enter',{
+    method:'POST',
+    headers:{
+      'content-type':'application/x-www-form-urlencoded',
+      cookie:'rona_portal_at=valid-admin-access'
+    },
+    body:form.toString()
+  });
+  const legacyResponse=await onRequest({request:legacyRequest});
+  assert.equal(legacyResponse.status,303,'already-open legacy form must reach authenticated server handoff even when browser omits origin metadata');
+  assert.equal(legacyResponse.headers.get('location'),'/portal/client?impSession='+encodeURIComponent(sessionId));
+  const legacyCookie=legacyResponse.headers.get('set-cookie')||'';
+  assert.match(legacyCookie,/rona_admin_imp=opaque-legacy-secret/,'legacy handoff must still keep opaque token server-side');
+  assert.match(legacyCookie,/HttpOnly/);
+  assert.match(legacyCookie,/SameSite=Strict/);
+
   globalThis.fetch=async()=>{throw new Error('foreign-origin request reached upstream')};
   const foreign=new Request('https://ronaoil.com/portal/admin-authority/impersonation/start',{
     method:'POST',
