@@ -428,3 +428,52 @@ test('Public inline login names the rate-limit state',()=>{
   assert.match(inlineAuth,/LOGIN_RATE_LIMITED/);
   assert.match(inlineAuth,/Слишком много попыток входа/);
 });
+
+
+test('Silent resume probe restores owner Admin session without credentials',async()=>{
+  let passwordCalls=0;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/user')){
+      const h=new Headers(init.headers||{});
+      assert.match(h.get('authorization')||'',/Bearer access-owner/);
+      return jsonResponse({email:'office_kg@ronaoil.com',app_metadata:{portal_identity:'OWNER_ADMIN'}},200);
+    }
+    if(u.includes('/auth/v1/token?grant_type=password')){passwordCalls++;return jsonResponse({error:'should_not_call'},500)}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{
+      origin:'https://ronaoil.com',
+      'content-type':'application/json',
+      accept:'application/json',
+      cookie:'rona_portal_at=access-owner; rona_portal_rt=refresh-owner'
+    },
+    body:JSON.stringify({resume:true,next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin',recovered:true,source:'ACCESS_COOKIE'});
+  assert.equal(passwordCalls,0);
+});
+
+test('Silent resume miss is non-destructive',async()=>{
+  globalThis.fetch=async(url)=>{throw new Error('UNEXPECTED_FETCH '+String(url))};
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({resume:true,next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,401);
+  assert.deepEqual(await response.json(),{ok:false,code:'NO_RECOVERABLE_SESSION'});
+  assert.equal(response.headers.get('set-cookie'),null);
+});
+
+test('Public inline login silently probes existing owner session on load',()=>{
+  assert.match(inlineAuth,/RONA_INLINE_RESUME_TIMEOUT/);
+  assert.match(inlineAuth,/JSON\.stringify\(\{resume:true,next:'\/portal\/admin'\}\)/);
+  assert.match(inlineAuth,/data\?\.recovered!==true/);
+  assert.match(inlineAuth,/Сессия восстановлена\. Открываем кабинет/);
+});
