@@ -58,10 +58,10 @@ function rpcJson(data,status=200){return new Response(JSON.stringify(data),{stat
 const nativeFetch=globalThis.fetch;
 globalThis.fetch=async(input,init={})=>{
   const url=String(typeof input==='string'?input:input?.url||input);
-  if(url.includes('/rest/v1/rpc/owner_deals_current_v3')){
+  if(url.includes('/rest/v1/rpc/owner_deals_current_v4')){
     bootstrapHits++;
     snapshot.generatedAt=new Date().toISOString();
-    rpcCalls.push({name:'owner_deals_current_v3',method:String(init.method||'GET').toUpperCase()});
+    rpcCalls.push({name:'owner_deals_current_v4',method:String(init.method||'GET').toUpperCase()});
     return rpcJson(snapshot);
   }
   if(url.includes('/rest/v1/rpc/owner_r1_send_to_payments')){
@@ -222,7 +222,7 @@ try{
   send=await sendButton();
   assert.equal(await send.isDisabled(),true,'HOLD gate must survive reload');
 
-  assert.ok(bootstrapHits>=3,'actual Deals V3 owner-api projection must refresh on initial load, send and reload');
+  assert.ok(bootstrapHits>=3,'actual Deals V4 owner-api projection must refresh on initial load, send and reload');
   assert.deepEqual(pageErrors,[],'drawer runtime must not throw browser errors');
   console.log('ADMIN_DEAL_DRAWER_GO_PAYMENT_OWNER_UAT=PASS',JSON.stringify({preview,route:'ACTUAL_OWNER_API',rpc:'owner_r1_send_to_payments',drawer:'RIGHT_OVERLAY_POLISHED',documentButtons:'ONE_FAMILY',signedAddendumActionLabel:'REPLACE',bottomDetail:false,scrollRestore:true,goFinanceStatusIgnored:true,holdDisabled:true,settledPaymentDisabled:true,signedSuccessorNoReattach:true,oneClickPayments:true,reload:true,financeV8GoFrozen:true,financeV8ReplayGuard:true,bootstrapHits}));
 }finally{

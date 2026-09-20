@@ -24,7 +24,7 @@ test('Owner API exposes only a read RPC for Deals V3',()=>{
   assert.match(api,/return\['owner_deals_current_v3',\{\}\]/);
 });
 
-test('Deals UI reads V3 and preserves readiness GO gate',()=>{
+test('Deals UI reads V4 while preserving readiness GO gate',()=>{
   assert.match(ui,/api\('\/admin\/deals-current-v3'\)/);
   assert.match(ui,/projection==='FINANCE_V8'\)return due!==null&&due>0/);
   assert.match(ui,/finance_projection_version/);
