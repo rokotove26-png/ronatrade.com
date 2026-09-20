@@ -156,7 +156,7 @@ function renderAdminHome(){
   const queue=e('div',{class:'rona-fd-v5-queue'});
   if(!ready)queue.append(ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC',ronaOpsV10Error?'Не удалось подтвердить единый операционный снимок.':'Ожидаю Operations Current V2. Нулевые показатели не подставляются.'));
   else if(actions.length){
-    for(const a of actions)queue.append(e('div',{class:'rona-fd-v5-event'},e('span',{class:'rona-fd-v5-event__signal is-'+(String(a?.severity||'ATTENTION').toUpperCase()==='CRITICAL'?'red':'amber')}),e('div',{},e('div',{class:'rona-fd-v5-event__name',text:String(a?.title||'Требуется действие')}),e('div',{class:'rona-fd-v5-event__meta',text:String(a?.meta||'')})),e('button',{class:'rona-fd-v5-event__open',type:'button',onclick:()=>ronaOpsV10Open(a),text:'›'}));
+    for(const a of actions)queue.append(e('div',{class:'rona-fd-v5-event'},e('span',{class:'rona-fd-v5-event__signal is-'+(String(a?.severity||'ATTENTION').toUpperCase()==='CRITICAL'?'red':'amber')}),e('div',{},e('div',{class:'rona-fd-v5-event__name',text:String(a?.title||'Требуется действие')}),e('div',{class:'rona-fd-v5-event__meta',text:String(a?.meta||'')})),e('button',{class:'rona-fd-v5-event__open',type:'button',onclick:()=>ronaOpsV10Open(a),text:'›'})));
   }else queue.append(ronaFdV5Empty('ALL SYSTEMS NORMAL','Operations Current V2 подтверждает отсутствие действий, требующих вмешательства.'));
   queueBody.append(queue);
   const actionScreen=screen('EXCEPTION CONTROL','Требует действия',ready?actions.length:'—',queueBody,'rona-fd-v5__master');
