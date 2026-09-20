@@ -340,3 +340,91 @@ test('Inline home login is bounded and can recover issued Admin session',()=>{
   assert.match(inlineAuth,/sessionIssued===true/);
   assert.match(inlineAuth,/Сессия создана\. Восстанавливаем кабинет/);
 });
+
+
+test('Owner login recovers an already-valid Admin access cookie before password grant',async()=>{
+  let passwordCalls=0,userCalls=0;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password')){passwordCalls++;return jsonResponse({error:'should_not_call'},500)}
+    if(u.includes('/auth/v1/user')){
+      userCalls++;
+      const h=new Headers(init.headers||{});
+      assert.match(h.get('authorization')||'',/Bearer access-owner/);
+      return jsonResponse({email:'office_kg@ronaoil.com',app_metadata:{portal_identity:'OWNER_ADMIN'}},200);
+    }
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{
+      origin:'https://ronaoil.com',
+      'content-type':'application/json',
+      accept:'application/json',
+      cookie:'rona_portal_at=access-owner; rona_portal_rt=refresh-owner'
+    },
+    body:JSON.stringify({identifier:'office_kg@ronaoil.com',password:'ignored'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin',recovered:true,source:'ACCESS_COOKIE'});
+  assert.equal(passwordCalls,0);
+  assert.equal(userCalls,1);
+});
+
+test('Owner login rotates an existing refresh cookie before password grant when access is stale',async()=>{
+  let refreshCalls=0,passwordCalls=0;
+  globalThis.fetch=async(url,init={})=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/user')){
+      const h=new Headers(init.headers||{});
+      if((h.get('authorization')||'').includes('access-stale'))return jsonResponse({message:'invalid token'},401);
+      if((h.get('authorization')||'').includes('access-rotated'))return jsonResponse({email:'office_kg@ronaoil.com',app_metadata:{portal_identity:'OWNER_ADMIN'}},200);
+    }
+    if(u.includes('/auth/v1/token?grant_type=refresh_token')){
+      refreshCalls++;
+      return jsonResponse({access_token:'access-rotated',refresh_token:'refresh-rotated',expires_in:3600},200);
+    }
+    if(u.includes('/auth/v1/token?grant_type=password')){passwordCalls++;return jsonResponse({error:'should_not_call'},500)}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{
+      origin:'https://ronaoil.com',
+      'content-type':'application/json',
+      accept:'application/json',
+      cookie:'rona_portal_at=access-stale; rona_portal_rt=refresh-existing'
+    },
+    body:JSON.stringify({identifier:'office_kg@ronaoil.com',password:'ignored'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin',recovered:true,source:'REFRESH_COOKIE'});
+  assert.equal(refreshCalls,1);
+  assert.equal(passwordCalls,0);
+  const setCookie=response.headers.get('set-cookie')||'';
+  assert.match(setCookie,/rona_portal_at=access-rotated/);
+  assert.match(setCookie,/rona_portal_rt=refresh-rotated/);
+});
+
+test('Password grant rate limiting is reported separately from backend outage',async()=>{
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({code:'over_request_rate_limit'},429);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({identifier:'qa-user@example.invalid',password:'x'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,429);
+  assert.deepEqual(await response.json(),{ok:false,code:'LOGIN_RATE_LIMITED',retryable:true});
+});
+
+test('Public inline login names the rate-limit state',()=>{
+  assert.match(inlineAuth,/LOGIN_RATE_LIMITED/);
+  assert.match(inlineAuth,/Слишком много попыток входа/);
+});
