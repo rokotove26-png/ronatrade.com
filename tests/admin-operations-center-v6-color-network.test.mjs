@@ -63,6 +63,9 @@ test('Operations Center active deal contour enriches only Admin-authorized deals
   assert.equal(rows.find(x=>x.deal_id==='DEAL-011').current_projection_source,'DEALS_CURRENT_STATE_V1');
   assert.equal(rows.find(x=>x.deal_id==='DEAL-004').stage,'Исполнение поставки');
   assert.equal(rows.find(x=>x.deal_id==='DEAL-004').delivery_status,'ГУ-12 зарегистрирована');
+  assert.deepEqual(rows.filter(x=>x.current_action_required===true).map(x=>x.deal_id),['DEAL-005','DEAL-006']);
+  assert.equal(rows.find(x=>x.deal_id==='DEAL-009').current_action_required,false,'active payment expectation is monitoring, not a duplicate manual action');
+  assert.equal(rows.find(x=>x.deal_id==='DEAL-004').current_action_required,false,'settled deal is not a manual payment action');
 });
 
 test('Operations Center generated runtime listens for authoritative Deals refreshes', () => {
@@ -71,4 +74,15 @@ test('Operations Center generated runtime listens for authoritative Deals refres
   assert.match(generated,/rona:deals-current-state/);
   assert.match(generated,/v1-authoritative-deals-snapshot/);
   assert.doesNotMatch(generated,/DEAL-2026-|RONA-C00|FARG|SOLYARIS|НИК-ОЙЛ|GAZON/i);
+});
+
+
+test('Operations Center separates manual actions from payment monitoring', () => {
+  const generated=patchAdminOperationsCommandCenterV6(SOURCE);
+  assert.match(generated,/const dealActionRows=activeDeals\.filter\(x=>x\?\.current_action_required===true\)/);
+  assert.match(generated,/attentionApps\.length\+dealActionRows\.length\+waitingWagons\.length/);
+  assert.doesNotMatch(generated,/attentionApps\.length\+paymentControl\.length\+waitingWagons\.length/);
+  assert.match(generated,/for\(const x of dealActionRows\)\{queueRows\.push\(\{tone:'amber',name:'Сделка · '/);
+  assert.doesNotMatch(generated,/for\(const x of paymentControl\)\{const deal=.*queueRows\.push/);
+  assert.match(generated,/FIN-05','Платежи на контроле',financeKnown\?paymentControl\.length/,'payment monitoring stays visible in its dedicated gauge');
 });
