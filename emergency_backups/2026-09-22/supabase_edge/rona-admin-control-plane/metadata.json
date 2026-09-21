@@ -1,0 +1,12 @@
+{
+  "slug": "rona-admin-control-plane",
+  "name": "rona-admin-control-plane",
+  "status": "ACTIVE",
+  "version": 21,
+  "verify_jwt": true,
+  "ezbr_sha256": "c49dec3fed23f1d93b3ceca5a424fed2c9351a7bba0d6f8320f65c80c6069917",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_db414b3d-dfea-44b8-8cd6-42627cedefcd_21/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_db414b3d-dfea-44b8-8cd6-42627cedefcd_21/source/deno.json",
+  "created_at": 1787158590742,
+  "updated_at": 1789927952947
+}
