@@ -21,7 +21,10 @@ assert.match(client,/const previous=new Map/,'keyed canonical application reconc
 assert.match(client,/list\.replaceChildren\(\.\.\.nodes\)/,'canonical row reconciliation commit missing');
 assert.match(client,/nextKey!==state\.contextKey/,'context-key boundary missing');
 assert.match(client,/state\.openPassportId===id\?"Скрыть":"Открыть"/,'open passport presentation state missing');
-assert.match(client,/state\.timer=setInterval\(\(\)=>load\(false\),REFRESH_MS\)/,'bounded canonical TTL refresh contract missing');
+assert.doesNotMatch(client,/\bsetInterval\s*\(/,'recurring application refresh interval must be absent');
+assert.doesNotMatch(client,/REFRESH_MS/,'application runtime must not own a recurring refresh interval');
+assert.match(client,/refreshCurrentProjection\('applications-canonical'\)/,'mutation-driven application refresh path missing');
+assert.match(client,/window\.addEventListener\('rona:client-current-projection'/,'current projection invalidation listener missing');
 // Active/Completed are first-class section controls above the card list, never a synthetic row inside it.
 assert.match(client,/data-rona-application-business-sections/,'application section navigation missing');
 assert.match(client,/list\.before\(nav\)/,'application section navigation must be a sibling above the list');
@@ -49,5 +52,5 @@ for(const file of ['assets/portal-runtime/client-application-intent-v2.js','asse
 }
 const hashes={};for(const [name,text]of Object.entries({admin,client,payments:payments(current)}))hashes[name]=createHash('sha256').update(text).digest('hex');
 fs.writeFileSync(root+'/emitted-admin.js',admin);fs.writeFileSync(root+'/emitted-client.js',client);fs.writeFileSync(root+'/emitted-sha256.json',JSON.stringify(hashes,null,2));
-console.log('APPLICATION_PROJECTION_CONVERGENCE=PASS shared_owner=true keyed_rows=true open_passport=true pageshow_fanout=false bounded_ttl=true sections_above_list=true counter_offer_inline=true');
+console.log('APPLICATION_PROJECTION_CONVERGENCE=PASS shared_owner=true keyed_rows=true open_passport=true pageshow_fanout=false recurring_polling=false event_driven=true sections_above_list=true counter_offer_inline=true');
 console.log('ACTUAL_BUILD_SCOPE=PASS Payments_byte_identity=true Client_real_path=true Admin_real_path=true freeze_negatives=true');
