@@ -87,8 +87,8 @@ function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queu
 function start(){
   apply();
   new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','data-rona-client-canonical-logout','data-rona-logout-bound']});
-  window.addEventListener('pageshow',schedule);
-  setInterval(()=>{if(document.visibilityState==='visible')apply()},1500);
+  window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('focus',schedule,{passive:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
