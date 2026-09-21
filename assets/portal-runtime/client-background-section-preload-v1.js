@@ -5,10 +5,8 @@
   if(window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__===MARK)return;
   window.__RONA_CLIENT_BACKGROUND_SECTION_PRELOAD__=MARK;
 
-  // Kept as source-contract metadata for the existing production attachment/QA.
-  // No interval is scheduled by this hotfix runtime; section data remains lazy.
-  const REFRESH_MS=30000;
-  const state={version:MARK,mode:'LAZY_BY_SECTION',running:false,cycle:0,lastStartedAt:null,lastCompletedAt:null,lastReason:null,currentContext:null,cache:{},sections:{},errors:[],unsubscribe:null,lazyRoutes:{},legacyRefreshMs:REFRESH_MS};
+  const REFRESH_POLICY='OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST';
+  const state={version:MARK,mode:'LAZY_ROUTE_MANIFEST',refreshPolicy:REFRESH_POLICY,running:false,cycle:0,lastStartedAt:null,lastCompletedAt:null,lastReason:null,currentContext:null,cache:{},sections:{},errors:[],unsubscribe:null,lazyRoutes:{}};
   window.__RONA_CLIENT_BACKGROUND_STATE__=state;
   window.__RONA_CLIENT_BACKGROUND_CACHE__=state.cache;
 
