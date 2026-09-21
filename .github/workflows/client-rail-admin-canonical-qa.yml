@@ -55,7 +55,7 @@ jobs:
           if(response.status!==200)throw new Error(`adapter status ${response.status}: ${source}`);
           if(response.headers.get('x-rona-client-rail-visual-canon')!=='/portal/rail-current-v81-maplibre-ui')throw new Error('operational-body source header drifted');
           for(const marker of [
-            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260921-premium-map-markers-v4'",
+            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3'",
             'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
             'ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
             '/portal/api/v1/client/rail-canonical','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL',
@@ -65,11 +65,11 @@ jobs:
 
           const hero=fs.readFileSync('assets/portal-runtime/client-rail-canonical-hero-v1.js','utf8');
           for(const marker of [
-            '20260921-client-rail-premium-map-markers-v3',
+            '20260919-client-rail-admin-visual-parity-v2',
             "const KICKER='RONA Trade · Operations'",
             "const TITLE='Онлайн ЖД'",
             "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
-            'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2','CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1',
+            'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1',
             "layout_override:'NONE_OPERATIONAL_BODY'",'.rona-rail-v7-route-layer','.rona-rail-v7-route-svg','.rona-rail-v7-route-actual','.rona-rail-v7-route-remaining'
           ])if(!hero.includes(marker))throw new Error('Client canonical hero contract missing: '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(hero))throw new Error('canonical hero contains hardcoded business entity');
@@ -81,8 +81,8 @@ jobs:
             "visual_contract:'ADMIN_CURRENT_V8_2_OPERATIONAL_BODY_PLUS_CLIENT_AUTHORITY'",
             "visual_source_mode:'ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE'",
             "static_title_owner:'CLIENT_CANONICAL_HERO_RUNTIME_V1'",
-            'client-rail-canonical-hero-v1.js?v=20260921-premium-map-markers-v3',
-            '/portal/client-rail-current-ui?v=20260921-premium-map-markers-v4',
+            'client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2',
+            '/portal/client-rail-current-ui?v=20260919-route-overlay-v3',
             'CLIENT_RAIL_CURRENT_ONLY_STYLE_REGRESSION_AFTER_EMIT'
           ])if(!attach.includes(marker))throw new Error('current-only/canonical hero guard missing: '+marker);
 
