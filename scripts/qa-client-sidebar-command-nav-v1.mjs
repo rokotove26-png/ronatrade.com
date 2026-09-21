@@ -59,7 +59,9 @@ try{
         dy:a&&s?Math.abs((a.top+a.height/2)-(s.top+s.height/2)):999,
         iconColor:slot?getComputedStyle(slot).color:'',
         labelFont:Number.parseFloat(getComputedStyle(b.querySelector(':scope>.nav-label')).fontSize),
-        labelLine:Number.parseFloat(getComputedStyle(b.querySelector(':scope>.nav-label')).lineHeight)
+        labelLine:Number.parseFloat(getComputedStyle(b.querySelector(':scope>.nav-label')).lineHeight),
+        buttonOverflow:b.scrollWidth-b.clientWidth,
+        labelOverflow:b.querySelector(':scope>.nav-label').scrollWidth-b.querySelector(':scope>.nav-label').clientWidth
       };
     });
     const active=buttons.find(b=>b.classList.contains('active')||b.getAttribute('aria-current')==='page');
@@ -92,6 +94,9 @@ try{
     assert(item.dx<=0.75,item.page+': SVG not horizontally centered');
     assert(item.dy<=0.75,item.page+': SVG not vertically centered');
     assert(item.labelFont>=14,item.page+': label typography too small at 1160px viewport');
+    assert(item.buttonOverflow<=1,item.page+': sidebar button overflows horizontally');
+    assert(item.labelOverflow<=1,item.page+': sidebar label overflows horizontally');
+    if(['payments','closing','market-news'].includes(item.page))assert(item.labelLine>=18,item.page+': long-label line-height too tight');
   }
 
   await page.evaluate(()=>{
