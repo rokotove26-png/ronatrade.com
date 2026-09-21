@@ -6,6 +6,10 @@ on:
     branches: ['fix/client-context-universal-modules-v1','release/public-go-live-v1.1']
 permissions:
   contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   client-payments-authoritative:
     runs-on: ubuntu-latest
