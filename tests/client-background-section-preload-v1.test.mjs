@@ -9,7 +9,8 @@ const requiredRuntime=[
   "20260902-client-background-section-preload-current-context-v6",
   "if(location.pathname!=='/portal/client')return",
   "cycle('open')",
-  'REFRESH_MS=30000',
+  "REFRESH_POLICY='OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST'",
+  "mode:'LAZY_ROUTE_MANIFEST'",
   'RONA_CLIENT_CONTEXT',
   'getCurrentContext',
   'selectionRequired',
@@ -29,10 +30,10 @@ const requiredRuntime=[
   "emit('rona:client:background-sections'"
 ];
 for(const marker of requiredRuntime)if(!runtime.includes(marker))throw new Error('background preload marker missing: '+marker);
-for(const forbidden of ["read('/v1/client/bootstrap')","read('/v1/client/market')",'getAuthorizedContexts','state.contexts.map(preloadContext)',"method:'POST'",'method:"POST"',"fetch(API+'/v1/events'", "fetch(API+'/v1/client/applications'"]){
+for(const forbidden of ["read('/v1/client/bootstrap')","read('/v1/client/market')",'getAuthorizedContexts','state.contexts.map(preloadContext)',"method:'POST'",'method:"POST"',"fetch(API+'/v1/events'", "fetch(API+'/v1/client/applications'",'setInterval(','REFRESH_MS=30000','legacyRefreshMs','fetch(']){
   if(runtime.includes(forbidden))throw new Error('background preload current-context/read-only contract violated: '+forbidden);
 }
-if(!attach.includes("scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'")||!attach.includes("context_source:'RONA_CLIENT_CONTEXT_AUTHORITY'")||!attach.includes("authorized_context_catalog:'NOT_CONSUMED_BY_MODULE'")||!attach.includes("'/portal/api/v1/client/market'")||!attach.includes('global:[]')||!attach.includes('visibility_independent:true')||!attach.includes('business_mutation:false'))throw new Error('background preload integrity contract missing');
+if(!attach.includes("mode:'LAZY_ROUTE_MANIFEST'")||!attach.includes("refresh_ms:null")||!attach.includes("refresh_policy:'OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST'")||!attach.includes("periodic_polling:false")||!attach.includes("network_preload:false")||!attach.includes("scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'")||!attach.includes("context_source:'RONA_CLIENT_CONTEXT_AUTHORITY'")||!attach.includes("authorized_context_catalog:'NOT_CONSUMED_BY_MODULE'")||!attach.includes("'/portal/api/v1/client/market'")||!attach.includes('global:[]')||!attach.includes('business_mutation:false'))throw new Error('background preload integrity contract missing');
 if(!pkg.scripts?.build?.includes('attach-client-background-section-preload-v1.mjs'))throw new Error('background preloader not attached by production build');
 if(!cachePolicy.includes('/assets/portal-runtime/client-background-section-preload-v1.js'))throw new Error('background preloader no-store policy missing');
-console.log('CLIENT_BACKGROUND_SECTION_PRELOAD_CONTRACT=PASS selected-current-context market+shipments+rail only');
+console.log('CLIENT_BACKGROUND_SECTION_PRELOAD_CONTRACT=PASS lazy-manifest selected-current-context routes only; polling absent; network preload absent');

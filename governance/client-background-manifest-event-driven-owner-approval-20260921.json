@@ -1,0 +1,44 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_V1",
+  "owner_instruction": "Продолжай работу в рамках CLIENT_END_TO_END_OPTIMIZATION_AUDIT_20260921: нет изменения данных -> нет фонового запроса; сохранить текущую архитектуру и визуализацию.",
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_V1",
+  "production_revalidated_at_change": "916757f685ac313f3125b7586df8243debeb20c0",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-background-section-preload-v1.js",
+    "scripts/attach-client-background-section-preload-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-background-section-preload-v1.js": {
+      "visual_freeze_baseline_blob_sha": "7d9260043e31d685d224d13e5e0442d4e9e796f3",
+      "production_parent_blob_sha": "86be180df3c669a54aeb5b951c30d650cef4c0a9",
+      "authorized_post_blob_sha": "b7c697e393ff89974ef21ef3b6b20e2cb6631b94",
+      "required_marker": "OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST"
+    },
+    "scripts/attach-client-background-section-preload-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "f4b95bbaf2ac1e15f5e593f5d35d79600e228b96",
+      "production_parent_blob_sha": "f4b95bbaf2ac1e15f5e593f5d35d79600e228b96",
+      "authorized_post_blob_sha": "b9e86bbdf10d0b993941ed8a003e81d8965fae68",
+      "required_marker": "LAZY_ROUTE_MANIFEST"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_change": false,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "periodic_polling_absent": true,
+    "background_network_preload_absent": true,
+    "refresh_policy": "OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST",
+    "current_context_authority_preserved": true,
+    "lazy_route_manifest_only": true,
+    "images_added": false,
+    "unrelated_visual_changes": false,
+    "architect_pr_810_runtime_files_changed": false
+  }
+}

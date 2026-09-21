@@ -111,13 +111,14 @@ assert.doesNotMatch(firstPaint,/\bfetch\s*\(/);
 assert.doesNotMatch(firstPaint,/PRELOAD_LOADER_RE|runBackgroundPreloaders|__RONA_LOAD_CLIENT_|__RONA_REFRESH_CLIENT_/);
 assert.doesNotMatch(firstPaint,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
 
-// Existing build/QA still recognizes the legacy route contract. The hotfix keeps
-// those routes as inert lazy-route metadata only; this runtime must not fetch or
-// schedule an interval itself during initial load.
+// Background ownership is a lazy route manifest only. It must not fetch, poll,
+// or retain the historical 30-second refresh contract.
 assert.doesNotMatch(background,/\bfetch\s*\(/);
 assert.doesNotMatch(background,/setInterval\s*\(/);
 assert.doesNotMatch(background,/setTimeout\s*\([^\n]*(?:marketPath|shipmentsPath|railPath)/);
-assert.match(background,/mode:'LAZY_BY_SECTION'/);
+assert.doesNotMatch(background,/REFRESH_MS\s*=\s*30000|legacyRefreshMs/);
+assert.match(background,/mode:'LAZY_ROUTE_MANIFEST'/);
+assert.match(background,/OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST/);
 assert.match(background,/function lazyRouteManifest/);
 assert.match(background,/shipments:shipmentsPath\(current\)/);
 assert.match(background,/rail:railPath\(current\)/);

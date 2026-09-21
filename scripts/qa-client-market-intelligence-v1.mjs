@@ -21,8 +21,8 @@ for(const token of [
 ])must(html,token,'built client');
 forbid(html,'portal-market-news-current-v1.js','built client competing news runtime');
 
-for(const token of ['20260902-client-background-section-preload-current-context-v6','REFRESH_MS=30000','RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe','/v1/client/context','/v1/client/prices','/v1/client/market','/v1/client/shipments','/v1/client/rail','rona:client:background-sections'])must(preload,token,'core background preload');
-for(const token of ['/v1/client/bootstrap','getAuthorizedContexts','state.contexts.map(preloadContext)','/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'", "markSection('market_news'"])forbid(preload,token,'core background preload');
+for(const token of ['20260902-client-background-section-preload-current-context-v6',"REFRESH_POLICY='OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST'","mode:'LAZY_ROUTE_MANIFEST'",'RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe','/v1/client/context','/v1/client/prices','/v1/client/market','/v1/client/shipments','/v1/client/rail','rona:client:background-sections'])must(preload,token,'core background manifest');
+for(const token of ['/v1/client/bootstrap','getAuthorizedContexts','state.contexts.map(preloadContext)','/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'", "markSection('market_news'",'REFRESH_MS=30000','legacyRefreshMs','setInterval(','fetch('])forbid(preload,token,'core background manifest');
 
 for(const token of ["REFRESH_POLICY='OPEN_CONTEXT_CHANGE_INVALIDATION'","load('open')",'/v1/client/market-intelligence','RONA_CLIENT_MARKET_INTELLIGENCE_V1','public_chart',"rona:client:context-changed",'rona:client-market-intelligence-invalidated'])must(analytics,token,'analytics runtime');
 for(const token of ['rona:client:background-sections','__RONA_CLIENT_BACKGROUND_CACHE__','background-cache','background-event','REFRESH_MS=','setInterval('])forbid(analytics,token,'analytics runtime');
@@ -41,10 +41,10 @@ const universal=[analytics,news,spacing,preload,endpoint,migration].join('\n');
 for(const pattern of [/\bRONA-C\d{3,}\b/iu,/НИК-ОЙЛ|NIK[- ]OIL/iu,/UNIVERSAL\s+SOLYARIS/iu,/GAZONE/iu])if(pattern.test(universal))throw new Error(`CLIENT_MARKET_INTELLIGENCE_CLIENT_HARDCODE_FORBIDDEN: ${pattern}`);
 
 const bg=integrity.client_runtime?.background_section_preload;
-if(bg?.refresh_ms!==30000||bg?.market_intelligence_owned!==false)throw new Error('background preload isolation metadata invalid');
+if(bg?.mode!=='LAZY_ROUTE_MANIFEST'||bg?.refresh_ms!==null||bg?.refresh_policy!=='OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST'||bg?.periodic_polling!==false||bg?.network_preload!==false||bg?.market_intelligence_owned!==false)throw new Error('background manifest isolation metadata invalid');
 if(bg?.context_source!=='RONA_CLIENT_CONTEXT_AUTHORITY'||bg?.scope!=='CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY'||bg?.authorized_context_catalog!=='NOT_CONSUMED_BY_MODULE')throw new Error('background preload current-context authority metadata invalid');
-if(bg?.global?.includes('/portal/api/v1/client/market-intelligence'))throw new Error('30s background preload still owns Market Intelligence');
-if(bg?.covered_sections?.includes('analytics')||bg?.covered_sections?.includes('market_news'))throw new Error('30s background preload still covers Market Intelligence sections');
+if(bg?.global?.includes('/portal/api/v1/client/market-intelligence'))throw new Error('background manifest still owns Market Intelligence');
+if(bg?.covered_sections?.includes('analytics')||bg?.covered_sections?.includes('market_news'))throw new Error('background manifest still covers Market Intelligence sections');
 if(!bg?.excluded_sections?.includes('analytics')||!bg?.excluded_sections?.includes('market_news'))throw new Error('background preload explicit exclusions missing');
 const mi=integrity.client_runtime?.market_intelligence;
 if(mi?.trigger!=='PORTAL_OPEN'||mi?.refresh_ms!==null||mi?.refresh_policy!=='OPEN_CONTEXT_CHANGE_INVALIDATION'||!Array.isArray(mi?.invalidation_events)||!mi.invalidation_events.includes('rona:client-market-intelligence-invalidated')||!mi.invalidation_events.includes('rona:client-market-news-invalidated'))throw new Error('Market Intelligence event-driven metadata invalid');
