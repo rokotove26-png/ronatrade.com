@@ -6,6 +6,7 @@ on:
       - release/public-go-live-v1.1
     paths:
       - 'assets/portal-runtime/client-shell-guard-v3.js'
+      - 'assets/portal-runtime/client-logout-visual-v1.js'
       - 'assets/portal-runtime/client-price-sync-v1.js'
       - 'assets/portal-runtime/client-price-conditions-v1.js'
       - 'tests/client-event-driven-refresh-v1.test.mjs'
