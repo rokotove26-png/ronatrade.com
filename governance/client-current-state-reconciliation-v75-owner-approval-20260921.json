@@ -42,8 +42,8 @@
     },
     "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
       "visual_freeze_baseline_blob_sha": "4e7ffaf5018893d6159413d9aa57c8c4d45e28e4",
-      "authorized_post_blob_sha": "f839e9c68e15c69663acf40117965abf2db49502",
-      "required_marker": "CURRENT_APPLICATION_BUSINESS_FIXTURE_ID_B1"
+      "authorized_post_blob_sha": "9c468d0c129083688b2eb32026385a484ac095cd",
+      "required_marker": "CURRENT_APPLICATION_BUSINESS_PASSPORT_FIXTURE"
     }
   },
   "requirements": {
