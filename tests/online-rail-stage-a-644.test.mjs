@@ -114,6 +114,12 @@ test('Admin single-owner rail shell remains intact and neighboring owners are un
   assert.match(admin,/prices:renderPricesCurrentShell,/);
   assert.match(admin,/payments/);
   assert.match(admin,/authority-change-only-v2/);
+  assert.match(admin,/__RONA_RAIL_MAIN_UI_FALLBACK_SELF_HEAL__='20260921-dynamic-v1'/);
+  assert.match(admin,/\[data-rail-safe-fallback\]/);
+  assert.match(admin,/:not\(\[data-rail-safe-fallback\]\)/);
+  assert.match(admin,/fallback\.remove\(\)/);
+  assert.match(admin,/current-v81-main-ui-self-healed/);
+  assert.match(admin,/OWNER_MAIN_CURRENT_SHELL_SELF_HEAL/);
 });
 
 
