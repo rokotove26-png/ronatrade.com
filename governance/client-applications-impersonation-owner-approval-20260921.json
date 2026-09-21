@@ -1,0 +1,24 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_APPLICATIONS_PROJECTION_IMPERSONATION_V1",
+  "owner_instruction": "Продолжай работу в рамках CLIENT_END_TO_END_OPTIMIZATION_AUDIT_20260921 и унификации specialized Client routes.",
+  "stacked_dependency_pr": 815,
+  "stacked_dependency_branch": "fix/client-market-intelligence-impersonation-v1-20260921",
+  "production_revalidated_at_change": "bbd6c489c53fa0b8378c2764d982b2fc0e3c0124",
+  "requirements": {
+    "canonical_client_gateway": "rona-portal-api",
+    "specific_route": "/portal/api/v1/client/applications-projection",
+    "effective_edge_route": "/v1/client/applications-projection",
+    "admin_entity_impersonation_target_scoped": true,
+    "ordinary_client_contract_and_deal_access_preserved": true,
+    "direct_browser_rpc_authority_removed": true,
+    "application_business_contract_preserved": "RONA_APPLICATION_BUSINESS_V2",
+    "fail_closed": true,
+    "read_only": true,
+    "business_data_changed": false,
+    "schema_or_rls_changed": false,
+    "visual_change": false,
+    "architect_pr_810_files_changed": false
+  }
+}
