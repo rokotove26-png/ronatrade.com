@@ -35,5 +35,7 @@
     "single_owner_projection_preserved": true,
     "images_added": false,
     "unrelated_visual_changes": false
-  }
+  },
+  "stacked_dependency_pr": 813,
+  "stacked_dependency_branch": "fix/client-market-event-driven-refresh-v1-20260921"
 }
