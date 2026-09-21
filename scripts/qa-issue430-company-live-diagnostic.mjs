@@ -7,6 +7,14 @@ const C005_USER='724ff368-5ba3-449a-bd19-665ee487ee6f';
 const C005={client_id:'RONA-C005',contract_id:'RONA-C005-CTR-2026-001'};
 const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function waitEval(page,fn,arg=null,timeout=15000,interval=80){
+  const started=Date.now();
+  while(Date.now()-started<timeout){
+    try{if(await page.evaluate(fn,arg))return true}catch{}
+    await sleep(interval);
+  }
+  return false;
+}
 async function oidc(){const base=process.env.ACTIONS_ID_TOKEN_REQUEST_URL,token=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;if(!base||!token)throw new Error('GITHUB_OIDC_ENV_MISSING');const r=await fetch(base+(base.includes('?')?'&':'?')+'audience='+encodeURIComponent(AUDIENCE),{headers:{authorization:`Bearer ${token}`}});const j=await r.json();if(!r.ok||!j?.value)throw new Error(`OIDC_${r.status}`);return j.value}
 async function call(path,body){const jwt=await oidc();const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${jwt}`,'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json().catch(()=>null);if(!r.ok||!j?.ok)throw new Error(`ISSUER_${path}_${r.status}_${j?.code||'UNKNOWN'}`);return j}
 const session=await call('/issue',{portalUserId:C005_USER});
@@ -41,8 +49,10 @@ try{
   await page.route('**/portal/api/v1/client/context**',async route=>{if(delayedContext){delayedContext=false;await sleep(700)}await route.continue()});
   await page.goto(ORIGIN+'/portal/client?_qa_company_delayed_diag='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
   const nav=page.locator('#nav button[data-page="companies"]');await nav.waitFor({state:'attached',timeout:15000});await page.evaluate(()=>{const b=document.querySelector('#nav button[data-page="companies"]');if(!b)throw new Error('COMPANIES_NAV_MISSING');b.click()});
-  await page.waitForFunction(()=>{const n=document.getElementById('clientCompanyGrid');if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return !n.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0},null,{timeout:10000});
-  await page.waitForFunction(()=>Boolean(document.querySelector('#clientCompanyGrid article.company-switch-card[data-rona-company-directory-hydration="loading"],#clientCompanyGrid article.company-switch-card[data-rona-company-directory-hydration="error"]')),null,{timeout:15000});
+  const gridVisible=await waitEval(page,()=>{const n=document.getElementById('clientCompanyGrid');if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return !n.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0},null,10000);
+  if(!gridVisible)throw new Error('COMPANIES_GRID_NOT_VISIBLE');
+  const initialHydration=await waitEval(page,()=>Boolean(document.querySelector('#clientCompanyGrid article.company-switch-card[data-rona-company-directory-hydration="loading"],#clientCompanyGrid article.company-switch-card[data-rona-company-directory-hydration="error"]')),null,15000);
+  if(!initialHydration)throw new Error('COMPANIES_INITIAL_HYDRATION_STATE_MISSING');
   const before=await page.evaluate(()=>window.__issue430Snap?.('before-public-refresh'));
   const refresh=await page.evaluate(async({source})=>{const api=window.RONA_CLIENT_CONTEXT;if(!api?.refreshCompanyDirectory)throw new Error('CANONICAL_COMPANY_DIRECTORY_REFRESH_API_MISSING');const payload=await api.refreshCompanyDirectory(source);const row=payload?.data?.company_directory?.[0]||null;return{source:payload?.data?.company_directory_source||null,count:Array.isArray(payload?.data?.company_directory)?payload.data.company_directory.length:null,row:row?{client_id:row.client_id,contract_id:row.contract_id,applications_total:row.applications_total,deals_total:row.deals_total,documents_total:row.documents_total}:null}}, {source:'issue430-owner-browser-delayed-recovery'});
   if(refresh.source!==DIRECTORY_SOURCE||refresh.count!==1)throw new Error(`DELAYED_DIAGNOSTIC_REFRESH_INVALID:${JSON.stringify(refresh)}`);
