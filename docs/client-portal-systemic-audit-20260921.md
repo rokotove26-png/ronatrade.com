@@ -309,3 +309,20 @@ The invalidation layer should be added only after the current duplicate polling 
 Повторный source-level scan production HEAD выявил еще один активный perpetual network owner, отсутствовавший в первоначальном перечне: `client-contract-download-v3.js`. Build напрямую подключает v3, поэтому его 30-секундный visibility-gated interval относится к фактическому Client runtime, а не только к legacy debt.
 
 Также подтверждено, что `client-home-command-center-v2.js` использует короткий bounded retry interval только после пользовательского действия «Открыть сделку» (до 25 попыток по 120 ms). Это не background polling и может быть сохранено до отдельной замены на точное DOM/event acknowledgement.
+
+
+## 11. SYSTEM_ADMIN remediation status — 2026-09-21
+
+Current-state recheck after CI/gate reconciliation:
+
+- production `release/public-go-live-v1.1` remains unchanged at `8ac74e36bd78ba7ae4e470a945c9c536bb2149bf`;
+- #811 remains Draft; its shell / logout / price-condition event-driven scope is green. Remaining red checks were traced to stale Issue430 base-SHA guards, cross-domain DELTA_ONLY allowlists, global MCP/auth assumptions and the independent Applications DOM/projection defect. No polling was restored;
+- #812 remains Draft; Client Rail scoped parity, real integration, visual freeze, premium markers and idle-no-polling/event-driven contracts are green. Admin Rail remains unchanged;
+- #813 remains Draft; Client Analytics/Market News now use portal-open + Client Context change + explicit invalidation. Focused Market QA and Client visual freeze are green; hourly polling is absent;
+- #815 remains Draft; the specialized `/portal/api/v1/client/market-intelligence` path is corrected in the candidate to use effective Client authority during Admin -> Client impersonation. Focused impersonation, fail-closed tab binding and tenant isolation checks are green;
+- #817 is the current Client Contract refresh candidate. It removes the active 30-second `client-contract-download-v3.js` timer and removes generic click/change network refresh ownership while preserving initial/context/pageshow refresh plus current-projection and explicit invalidation events. The target contract is `OPEN_CONTEXT_PROJECTION_PAGESHOW_INVALIDATION`. Because #813 already changes the additive visual-freeze governance script, #817 is logically stacked on #813; it is temporarily targeted at the production release only to obtain the release-scoped CI matrix and must be returned to the #813 base before any merge;
+- the isolated branch `fix/client-applications-event-driven-refresh-v1-20260921` changes only the canonical Applications runtime. It is **HOLD / NOT MERGEABLE AS A COMPLETE FIX** because #810 still owns the Applications materializer and currently requires the 30-second interval in its build contract;
+- `deal-documents/state` impersonation normalization remains unresolved and inside #810-owned overlap. No parallel edit is permitted until the Architect delta is reconciled;
+- Client request telemetry and the final five-minute idle-network production acceptance remain pending.
+
+No Draft Client remediation PR listed above has been merged as part of this audit cycle.
