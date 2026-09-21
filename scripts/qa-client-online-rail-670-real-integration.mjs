@@ -111,8 +111,8 @@ insert into portal_private.rail_documents(id,deal_key,rail_document_id,gu12_numb
 ${deals.map(d=>`('${d.doc}'::uuid,'${d.key}'::uuid,'RAIL-${d.id}','GU12-${d.id}','DOC-${d.id}',current_date,'${d.o} -> ${d.d}','ISSUE670_REAL_INTEGRATION','v1',now(),'ACTIVE')`).join(',\n')};
 insert into portal_private.rail_xlsx_dislocation_current_position_v1(effective_deal_key,wagon_number,current_rail_document_key,current_station_name,current_station_code,current_operation,current_event_at,current_event_at_local,current_raw_timestamp,current_source_timezone,current_source_timezone_status,current_source_time_domain,current_comparison_domain,position_status,comparison_domain_count,candidate_observation_count,effective_resolution_status,source_policy,source_contract_version,source_system_snapshot,source_object_type_snapshot,source_version_snapshot,source_object_id,source_received_at,resolution_authority_type,resolution_actor_ref,source_provenance) values
 ${deals.map(d=>`('${d.key}'::uuid,'${d.wagon}','${d.doc}'::uuid,'${d.dn}','${d.d}','ARRIVED',now(),now()::timestamp,'2026-09-19 12:30','UTC','RESOLVED','UTC','UTC','TRUSTED',1,1,'MATCHED','EXPEDITOR_XLSX_VIA_RAIL_AI','v1','ISSUE670_REAL_INTEGRATION','XLSX','v1','ROW-${d.id}',now(),'FIXTURE','ISSUE670','{}'::jsonb)`).join(',\n')};
-insert into portal_private.rail_xlsx_dislocation_effective_v1(effective_deal_key,station_code,station_name,parsed_event_at,event_at_local,source_received_at,position_status,is_superseded) values
-${deals.map(d=>`('${d.key}'::uuid,'${d.d}','${d.dn}',now(),now()::timestamp,now(),'TRUSTED',false)`).join(',\n')};
+insert into portal_private.rail_xlsx_dislocation_effective_v1(effective_deal_key,wagon_number,station_code,station_name,parsed_event_at,event_at_local,source_received_at,position_status,is_superseded) values
+${deals.map(d=>`('${d.key}'::uuid,'${d.wagon}','${d.d}','${d.dn}',now(),now()::timestamp,now(),'TRUSTED',false)`).join(',\n')};
 insert into portal_private.rail_deal_route_assignments_v1(deal_key,origin_esr_code,destination_esr_code,origin_authority,destination_authority,resolution_state,route_nodes,route_hop_count,route_source_refs,resolved_at,refreshed_at) values
 ${deals.map(d=>`('${d.key}'::uuid,'${d.o}','${d.d}','FIXTURE','FIXTURE','RESOLVED','${routeNodes(d)}'::jsonb,1,'[{"source":"ISSUE670_REAL_INTEGRATION"}]'::jsonb,now(),now())`).join(',\n')};
 commit;`;
@@ -130,8 +130,8 @@ insert into portal_private.rail_documents(id,deal_key,rail_document_id,gu12_numb
 values ('40000000-0000-4000-8000-000000000005'::uuid,'${DEAL_A3}'::uuid,'RAIL-${DEAL_A3_ID}','GU12-${DEAL_A3_ID}','DOC-${DEAL_A3_ID}',current_date,'555551 -> 555552','ISSUE670_REAL_INTEGRATION','v1',now(),'ACTIVE');
 insert into portal_private.rail_xlsx_dislocation_current_position_v1(effective_deal_key,wagon_number,current_rail_document_key,current_station_name,current_station_code,current_operation,current_event_at,current_event_at_local,current_raw_timestamp,current_source_timezone,current_source_timezone_status,current_source_time_domain,current_comparison_domain,position_status,comparison_domain_count,candidate_observation_count,effective_resolution_status,source_policy,source_contract_version,source_system_snapshot,source_object_type_snapshot,source_version_snapshot,source_object_id,source_received_at,resolution_authority_type,resolution_actor_ref,source_provenance)
 values ('${DEAL_A3}'::uuid,'90000005','40000000-0000-4000-8000-000000000005'::uuid,'Station A3','555552','ARRIVED',now(),now()::timestamp,'2026-09-19 13:00','UTC','RESOLVED','UTC','UTC','TRUSTED',1,1,'MATCHED','EXPEDITOR_XLSX_VIA_RAIL_AI','v1','ISSUE670_REAL_INTEGRATION','XLSX','v1','ROW-${DEAL_A3_ID}',now(),'FIXTURE','ISSUE670','{}'::jsonb);
-insert into portal_private.rail_xlsx_dislocation_effective_v1(effective_deal_key,station_code,station_name,parsed_event_at,event_at_local,source_received_at,position_status,is_superseded)
-values ('${DEAL_A3}'::uuid,'555552','Station A3',now(),now()::timestamp,now(),'TRUSTED',false);
+insert into portal_private.rail_xlsx_dislocation_effective_v1(effective_deal_key,wagon_number,station_code,station_name,parsed_event_at,event_at_local,source_received_at,position_status,is_superseded)
+values ('${DEAL_A3}'::uuid,'90000005','555552','Station A3',now(),now()::timestamp,now(),'TRUSTED',false);
 insert into portal_private.rail_deal_route_assignments_v1(deal_key,origin_esr_code,destination_esr_code,origin_authority,destination_authority,resolution_state,route_nodes,route_hop_count,route_source_refs,resolved_at,refreshed_at)
 values ('${DEAL_A3}'::uuid,'555551','555552','FIXTURE','FIXTURE','RESOLVED','[{"sequence":1,"stationCode":"555551","station":"Origin A3","lat":48.1,"lng":35.1,"waypointRole":"ORIGIN"},{"sequence":2,"stationCode":"555552","station":"Station A3","lat":47.1,"lng":36.1,"waypointRole":"DESTINATION"}]'::jsonb,1,'[{"source":"ISSUE670_REAL_INTEGRATION"}]'::jsonb,now(),now());
 commit;`;
@@ -160,14 +160,16 @@ const adminAuth=await createAuthenticatedUser(ADMIN_EMAIL,ADMIN_PASSWORD);
 execSql(seedSql(auth.authUserId,adminAuth.authUserId));
 await waitForEdge(auth.accessToken);
 
-assert(execSql("select has_function_privilege('authenticated','portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)','EXECUTE');")==='f','CORE_EXECUTE_NOT_REVOKED_FROM_AUTHENTICATED');
+assert(execSql("select has_function_privilege('authenticated','portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)','EXECUTE');")==='f','CORE_EXECUTE_NOT_REVOKED_FROM_AUTHENTICATED');
 
 let own=await edgeGet(auth.accessToken,CLIENT_A,CONTRACT_A);
 assert(own.response.status===200,'AUTHORIZED_CONTEXT_NOT_200 '+own.response.status+' '+JSON.stringify(own.body));
 assert(own.body?.ok===true,'AUTHORIZED_CONTEXT_NOT_OK');
 assert(own.body?.data?.railReadModel?.modelVersion==='RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4','CANONICAL_MODEL_VERSION_MISMATCH');
 assert(own.body?.data?.railReadModel?.sourcePolicy==='PUBLIC_SOURCE_ROUTE_GRAPH_PLUS_TRUSTED_DISLOCATION_HISTORY_V1','CANONICAL_SOURCE_POLICY_MISMATCH');
+assert(own.body?.data?.railReadModel?.routeCohortContractVersion==='RAIL_ROUTE_COHORTS_V1','ROUTE_COHORT_CONTRACT_MISSING');
 assert(Array.isArray(own.body?.data?.deals)&&own.body.data.deals.length===2,'AUTHORIZED_DEAL_DISCOVERY_MISMATCH');
+assert(Array.isArray(own.body?.data?.routeCohortsByDeal?.[DEAL_A1])&&own.body.data.routeCohortsByDeal[DEAL_A1].length===1,'AUTHORIZED_ROUTE_COHORT_MISSING');
 assert(!JSON.stringify(own.body).includes(DEAL_U1_ID),'UNAUTHORIZED_DEAL_LEAKED');
 
 const dealTamper=await edgeGet(auth.accessToken,CLIENT_A,CONTRACT_A,'&dealId='+encodeURIComponent(DEAL_U1_ID));
@@ -190,7 +192,7 @@ assert(adminAllowed.response.ok,'ADMIN_V4_REJECTED_REAL_ADMIN '+adminAllowed.res
 assert(adminAllowed.body?.modelVersion==='RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4','ADMIN_V4_MODEL_VERSION_CHANGED');
 assert(Array.isArray(adminAllowed.body?.deals)&&adminAllowed.body.deals.length===1&&adminAllowed.body.deals[0]?.dealId===DEAL_A1_ID,'ADMIN_V4_SCOPE_CHANGED');
 
-const coreRpc=await jsonFetch(apiUrl+'/rest/v1/rpc/rona_rail_deal_map_read_model_core_v1',{
+const coreRpc=await jsonFetch(apiUrl+'/rest/v1/rpc/rona_rail_deal_map_read_model_core_v2',{
   method:'POST',headers:{apikey:anonKey,authorization:'Bearer '+auth.accessToken,'content-type':'application/json'},
   body:JSON.stringify({p_deal_key:DEAL_A1,p_deal_id:DEAL_A1_ID})
 });
