@@ -149,6 +149,7 @@ jobs:
             "sourcePolicy:'EXPEDITOR_XLSX_VIA_RAIL_AI'",
             "productionPolling:false",
             "mode:'DATA_CHANGE_ONLY'",
+            "20260921-dominant-cohort-v1",
             "rona-rail-v6-select-label','Сделка'",
             "function railMapActualRoutePoints(context)",
             "function railMapRemainingRoutePoints(context)",
