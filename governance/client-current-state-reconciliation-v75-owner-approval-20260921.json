@@ -44,8 +44,8 @@
     },
     "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
       "visual_freeze_baseline_blob_sha": "4e7ffaf5018893d6159413d9aa57c8c4d45e28e4",
-      "authorized_post_blob_sha": "afcf2480db2f4f16e62addc55f8f587bb323a166",
-      "required_marker": "bPassportOpened"
+      "authorized_post_blob_sha": "f125efe6f82d62bca01bec36da2533bd47e1f2dc",
+      "required_marker": "stablePageEvaluate"
     },
     "assets/portal-runtime/client-deal-canonical-visual-v2.js": {
       "visual_freeze_baseline_blob_sha": "4b32da936b5cf214b985ac03c6b1494db9ef4b18",
@@ -82,6 +82,7 @@
     "deploy": "HOLD",
     "owner_retest_fixture_current_application_business_v2": true,
     "deal_state_strip_current_runtime_stability": true,
-    "deal_visual_cache_buster_current": true
+    "deal_visual_cache_buster_current": true,
+    "owner_retest_transient_context_resilience": true
   }
 }
