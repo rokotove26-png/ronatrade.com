@@ -16,8 +16,8 @@ let runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(COHERENCE_MARK)){
   runtime=replaceOnce(
     runtime,
-    "const state={contexts:[],selected:null,seed:null,ready:false,loading:null,refreshingDirectory:null,observer:null,queued:false,syncing:false,autoRefreshTimer:0,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},directory:{snapshot:null,error:null,generation:0},callerMap:[]};",
-    `const PROJECTION_MAX_AGE_MS=${PROJECTION_MAX_AGE_MS};\nconst MUTATION_METHODS=new Set(['POST','PUT','PATCH','DELETE']);\nconst COHERENCE_MARK='${COHERENCE_MARK}';\nconst state={contexts:[],selected:null,seed:null,ready:false,loading:null,refreshingDirectory:null,observer:null,queued:false,syncing:false,autoRefreshTimer:0,projectionGeneration:0,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0,generation:0},directory:{snapshot:null,error:null,generation:0},callerMap:[]};`,
+    "const state={contexts:[],selected:null,seed:null,ready:false,loading:null,refreshingDirectory:null,observer:null,queued:false,syncing:false,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},directory:{snapshot:null,error:null,generation:0},callerMap:[]};",
+    `const PROJECTION_MAX_AGE_MS=${PROJECTION_MAX_AGE_MS};\nconst MUTATION_METHODS=new Set(['POST','PUT','PATCH','DELETE']);\nconst COHERENCE_MARK='${COHERENCE_MARK}';\nconst state={contexts:[],selected:null,seed:null,ready:false,loading:null,refreshingDirectory:null,observer:null,queued:false,syncing:false,projectionGeneration:0,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0,generation:0},directory:{snapshot:null,error:null,generation:0},callerMap:[]};`,
     'ISSUE432_STATE'
   );
 
