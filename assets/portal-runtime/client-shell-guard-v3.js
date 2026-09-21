@@ -1,16 +1,34 @@
 (()=>{'use strict';
-const MARK='20260829-client-single-logout-v3-bounded';
+const MARK='20260921-client-single-logout-v4-event-driven';
 if(window.__RONA_CLIENT_SINGLE_LOGOUT_V3__===MARK)return;
 window.__RONA_CLIENT_SINGLE_LOGOUT_V3__=MARK;
 window.__RONA_CLIENT_SINGLE_LOGOUT_V2__=MARK;
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
-let signingOut=false,queued=false;
+let signingOut=false,queued=false,observer=null;
 function visible(el){if(!el||!el.isConnected)return false;const s=getComputedStyle(el);if(s.display==='none'||s.visibility==='hidden'||Number(s.opacity)===0)return false;const r=el.getBoundingClientRect();return r.width>0&&r.height>0}
 function candidates(){const selector='#clientLogoutBtn,#ronaLogout,#logoutBtn,[data-rona-logout-bound="true"],[data-action="logout"],[data-logout],a[href="/portal/logout"],a[href="/portal/auth/logout"],form[action="/portal/logout"] button,form[action="/portal/auth/logout"] button,button,a,[role="button"]';const out=[];for(const el of document.querySelectorAll(selector)){if(!visible(el))continue;const t=norm(el.textContent),href=String(el.getAttribute?.('href')||''),action=String(el.closest?.('form')?.getAttribute?.('action')||'');const explicit=el.id==='clientLogoutBtn'||el.id==='ronaLogout'||el.id==='logoutBtn'||el.dataset?.ronaLogoutBound==='true'||el.hasAttribute?.('data-logout')||el.getAttribute?.('data-action')==='logout'||/\/portal\/(auth\/)?logout$/.test(href)||/\/portal\/(auth\/)?logout$/.test(action);if(explicit||t==='выход'||t==='выйти'||t==='logout')out.push(el)}return[...new Set(out)]}
 function score(el){let s=0;if(el.dataset?.ronaLogoutBound==='true')s+=1500;if(el.id==='clientLogoutBtn')s+=1200;if(el.id==='ronaLogout'||el.id==='logoutBtn')s+=900;if(el.getAttribute?.('data-action')==='logout'||el.hasAttribute?.('data-logout'))s+=800;if(el.closest?.('header,.topbar,[class*="topbar"],[class*="header"],[data-user-menu],.user-menu,.user-actions,.header-actions,.topbar-actions'))s+=500;if(norm(el.textContent)==='выход')s+=100;const r=el.getBoundingClientRect();s+=Math.max(0,240-r.top);return s}
 async function signOut(event){event?.preventDefault?.();event?.stopImmediatePropagation?.();if(signingOut)return;signingOut=true;const c=event?.currentTarget;if(c&&'disabled'in c)c.disabled=true;try{await fetch('/portal/auth/logout',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}})}catch{}finally{window.location.replace('/')}}
 function normalizeLogout(){const list=candidates();if(!list.length){document.documentElement.dataset.ronaClientLogoutCount='0';return}list.sort((a,b)=>score(b)-score(a));const keep=list[0];for(const el of list.slice(1))if(el!==keep)el.remove();keep.textContent='Выход';keep.setAttribute('aria-label','Выход');keep.dataset.ronaLogoutBound='true';keep.dataset.ronaClientCanonicalLogout='true';if(keep.dataset.ronaSingleLogoutV3Bound!=='true'){keep.dataset.ronaSingleLogoutV3Bound='true';keep.addEventListener('click',signOut,true)}document.documentElement.dataset.ronaClientLogoutCount='1'}
 function schedule(){if(queued)return;queued=true;setTimeout(()=>{queued=false;normalizeLogout()},120)}
-function start(){normalizeLogout();document.addEventListener('click',schedule,true);document.addEventListener('change',schedule,true);window.addEventListener('pageshow',normalizeLogout);setInterval(()=>{if(document.visibilityState==='visible')normalizeLogout()},5000)}
+function mutationTouchesShell(records){
+  const selector='#clientLogoutBtn,#ronaLogout,#logoutBtn,[data-rona-logout-bound="true"],[data-action="logout"],[data-logout],a[href="/portal/logout"],a[href="/portal/auth/logout"],header,.topbar,[class*="topbar"],[class*="header"],[data-user-menu],.user-menu,.user-actions,.header-actions,.topbar-actions';
+  for(const record of records||[]){
+    for(const node of [...(record.addedNodes||[]),...(record.removedNodes||[])]){
+      if(node?.nodeType!==Node.ELEMENT_NODE)continue;
+      if(node.matches?.(selector)||node.querySelector?.(selector))return true;
+      const text=norm(node.textContent);if(text==='выход'||text==='выйти'||text==='logout')return true;
+    }
+  }
+  return false;
+}
+function start(){
+  normalizeLogout();
+  document.addEventListener('click',schedule,true);
+  document.addEventListener('change',schedule,true);
+  window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('rona:client-context-changed',schedule,{passive:true});
+  if(!observer&&document.body){observer=new MutationObserver(records=>{if(mutationTouchesShell(records))schedule()});observer.observe(document.body,{childList:true,subtree:true})}
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
