@@ -11,6 +11,7 @@ export function overlayRailReadModel(body, readModel) {
   const routeProgressByDeal = {};
   const routeStationsByDeal = {};
   const routeAssignmentByDeal = {};
+  const routeCohortsByDeal = {};
 
   function publishByDeal(target, dealKey, dealId, value) {
     if (!value) return;
@@ -52,6 +53,7 @@ export function overlayRailReadModel(body, readModel) {
     publishByDeal(routeProgressByDeal, dealKey, dealId, deal?.routeProgress && typeof deal.routeProgress === "object" ? deal.routeProgress : null);
     publishByDeal(routeStationsByDeal, dealKey, dealId, Array.isArray(deal?.routeStations) ? deal.routeStations : null);
     publishByDeal(routeAssignmentByDeal, dealKey, dealId, deal?.routeAssignment && typeof deal.routeAssignment === "object" ? deal.routeAssignment : null);
+    publishByDeal(routeCohortsByDeal, dealKey, dealId, Array.isArray(deal?.routeCohorts) ? deal.routeCohorts : []);
   }
 
   const rail = Array.isArray(body.data.rail) ? body.data.rail : [];
@@ -101,11 +103,13 @@ export function overlayRailReadModel(body, readModel) {
   body.data.routeProgressByDeal = { ...(body.data.routeProgressByDeal || {}), ...routeProgressByDeal };
   body.data.routeStationsByDeal = { ...(body.data.routeStationsByDeal || {}), ...routeStationsByDeal };
   body.data.routeAssignmentByDeal = { ...(body.data.routeAssignmentByDeal || {}), ...routeAssignmentByDeal };
+  body.data.routeCohortsByDeal = { ...(body.data.routeCohortsByDeal || {}), ...routeCohortsByDeal };
   body.data.railReadModel = {
     modelVersion: readModel?.modelVersion || null,
     sourcePolicy: readModel?.sourcePolicy || null,
     generatedAt: readModel?.generatedAt || null,
     overlayMode: "DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1",
+    routeCohortContractVersion: readModel?.routeCohortContractVersion || null,
   };
   return body;
 }
