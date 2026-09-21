@@ -3,9 +3,9 @@
   "authorized_at": "2026-09-21",
   "scope": "CLIENT_APPLICATIONS_PROJECTION_IMPERSONATION_V1",
   "owner_instruction": "Продолжай работу в рамках CLIENT_END_TO_END_OPTIMIZATION_AUDIT_20260921 и унификации specialized Client routes.",
-  "stacked_dependency_pr": 815,
-  "stacked_dependency_branch": "fix/client-market-intelligence-impersonation-v1-20260921",
-  "production_revalidated_at_change": "bbd6c489c53fa0b8378c2764d982b2fc0e3c0124",
+  "stacked_dependency_pr": null,
+  "stacked_dependency_branch": null,
+  "production_revalidated_at_change": "613169a8ee410e84d8e6edab3d32803a66902166",
   "requirements": {
     "canonical_client_gateway": "rona-portal-api",
     "specific_route": "/portal/api/v1/client/applications-projection",
@@ -20,5 +20,12 @@
     "schema_or_rls_changed": false,
     "visual_change": false,
     "architect_pr_810_files_changed": false
+  },
+  "current_production_rebuild": {
+    "combined_with_market_route": true,
+    "telemetry_preserved": true,
+    "portal_api_version_at_rebuild": 72,
+    "source_market_pr": 815,
+    "source_applications_pr": 818
   }
 }
