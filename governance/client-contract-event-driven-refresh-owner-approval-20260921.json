@@ -38,6 +38,14 @@
     "supersedes_legacy_exact_visual_blob_only": true,
     "legacy_visual_semantics_preserved": true
   },
-  "stacked_dependency_pr": 813,
-  "stacked_dependency_branch": "fix/client-market-event-driven-refresh-v1-20260921"
+  "stacked_dependency_pr": null,
+  "stacked_dependency_branch": null,
+  "production_revalidated_at_change": "187c7246aeeb233ac676b35ca6d34b7d8fe84e7e",
+  "current_production_rebuild": {
+    "source_pr": 817,
+    "source_head": "ba1abcd642e6f45d650aa39386644c1cf699acab",
+    "production_parent": "187c7246aeeb233ac676b35ca6d34b7d8fe84e7e",
+    "architect_runtime_files_changed": false,
+    "business_data_changed": false
+  }
 }
