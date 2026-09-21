@@ -1,0 +1,139 @@
+name: Emergency Offsite Backup
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  backup:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ops/emergency-backup-export-20260922-3be92ae'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build full Admin and Client emergency recovery set
+        shell: bash
+        env:
+          PROJECT_REF: sxawrwzeobaqwwmlkzws
+        run: |
+          set -euo pipefail
+          BASE_SHA='3be92ae58cbab02045e2e85f8491dfee6ffcfc9a'
+          SHORT_SHA='3be92ae'
+          BACKUP_BRANCH='backup/emergency-admin-client-20260922-3be92ae'
+          mkdir -p backup/source backup/edge backup/database/tables backup/database/schema-meta backup/storage/rona-portal-private backup/manifests
+
+          git fetch origin "$BACKUP_BRANCH":"refs/remotes/origin/$BACKUP_BRANCH"
+          git archive --format=tar.gz -o "backup/source/ronatrade-production-$SHORT_SHA.tar.gz" "$BASE_SHA"
+          git bundle create backup/source/ronatrade-complete.bundle --all
+          git archive --format=tar.gz -o "backup/edge/supabase-edge-snapshot-$SHORT_SHA.tar.gz" "refs/remotes/origin/$BACKUP_BRANCH" emergency_backups/2026-09-22
+          git show -s --format='%H%n%cI%n%s' "$BASE_SHA" > backup/manifests/production-commit.txt
+
+          python3 - <<'PY'
+          import os, json, time, urllib.request, urllib.parse, shutil, pathlib
+
+          project=os.environ['PROJECT_REF']
+          api=f'https://{project}.supabase.co/functions/v1/rona-remote-import-probe-20260818'
+          audience='rona-emergency-offsite-backup-20260922'
+          token_cache={'value':None,'at':0.0}
+
+          def get_oidc():
+              now=time.time()
+              if token_cache['value'] and now-token_cache['at'] < 120:
+                  return token_cache['value']
+              base=os.environ['ACTIONS_ID_TOKEN_REQUEST_URL']
+              sep='&' if '?' in base else '?'
+              req=urllib.request.Request(base+sep+'audience='+urllib.parse.quote(audience),headers={'Authorization':'Bearer '+os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']})
+              with urllib.request.urlopen(req,timeout=20) as r:
+                  value=json.load(r)['value']
+              token_cache.update(value=value,at=now)
+              return value
+
+          def api_bytes(path,timeout=60):
+              req=urllib.request.Request(api+path,headers={'Authorization':'Bearer '+get_oidc(),'Accept':'application/json'})
+              with urllib.request.urlopen(req,timeout=timeout) as r:
+                  return r.read()
+
+          def api_json(path,timeout=60):
+              return json.loads(api_bytes(path,timeout).decode('utf-8'))
+
+          manifest=api_json('/manifest',90)
+          pathlib.Path('backup/database/manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
+
+          step=500
+          total_rows=0
+          for entry in manifest['tables']:
+              table=entry['backup_table']
+              count=int(entry['row_count'])
+              total_rows+=count
+              out=pathlib.Path('backup/database/tables')/(table+'.ndjson')
+              with out.open('wb') as f:
+                  for offset in range(0,count,step):
+                      path='/table?table='+urllib.parse.quote(table)+'&offset='+str(offset)+'&limit='+str(step)
+                      f.write(api_bytes(path,90))
+          print('DATABASE_TABLES_EXPORTED='+str(len(manifest['tables'])))
+          print('DATABASE_ROWS_EXPORTED='+str(total_rows))
+
+          for kind in ['columns','constraints','indexes','policies','functions','triggers','views','matviews','enums','sequences']:
+              data=api_json('/schema-meta?kind='+kind,90)
+              pathlib.Path('backup/database/schema-meta/'+kind+'.json').write_text(json.dumps(data,ensure_ascii=False,indent=2),encoding='utf-8')
+
+          objects=manifest.get('objects',[])
+          total_bytes=0
+          for idx,obj in enumerate(objects,1):
+              name=obj['name']
+              signed=api_json('/sign-storage?name='+urllib.parse.quote(name,safe=''),60)
+              dest=pathlib.Path('backup/storage/rona-portal-private')/name
+              dest.parent.mkdir(parents=True,exist_ok=True)
+              req=urllib.request.Request(signed['url'],headers={'Accept':'application/octet-stream'})
+              with urllib.request.urlopen(req,timeout=120) as r, dest.open('wb') as f:
+                  shutil.copyfileobj(r,f,1024*1024)
+              total_bytes+=dest.stat().st_size
+              if idx%10==0 or idx==len(objects):
+                  print(f'STORAGE_PROGRESS={idx}/{len(objects)}')
+          print('PORTAL_STORAGE_OBJECTS_EXPORTED='+str(len(objects)))
+          print('PORTAL_STORAGE_BYTES_EXPORTED='+str(total_bytes))
+          PY
+
+          cat > backup/RECOVERY_README.txt <<'EOF'
+          RONA Trade emergency recovery package — Admin + Client Cabinet
+          Recovery point source commit: 3be92ae58cbab02045e2e85f8491dfee6ffcfc9a
+          Supabase project reference: sxawrwzeobaqwwmlkzws
+
+          Included:
+          - exact production source archive
+          - complete Git repository bundle
+          - live Supabase Edge Function source snapshot used by Admin/Client recovery
+          - off-site export of the protected database snapshot schema
+          - application schema metadata: columns, constraints, indexes, policies, functions, triggers, views, enums, sequences
+          - Auth recovery data captured in the protected snapshot
+          - rona-portal-private Storage metadata and object bytes
+          - SHA-256 checksums
+
+          The database snapshot was created inside Supabase before this off-site export.
+          Restore into an isolated/test project first. Do not overwrite production blindly.
+          Runtime secrets, API secret keys, SMTP/OAuth provider secrets and DNS credentials are intentionally not embedded in this archive.
+          Existing access/refresh sessions should not be restored as a disaster-recovery dependency; users can re-authenticate.
+          EOF
+
+          (cd backup && find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt)
+          tar -C backup -czf "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz" .
+          sha256sum "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz" > "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz.sha256"
+          ls -lh "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Trade-Admin-Client-Full-Recovery-2026-09-22
+          path: |
+            RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.tar.gz
+            RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 90
