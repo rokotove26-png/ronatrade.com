@@ -8,8 +8,8 @@ const adminCanonPath='functions/portal/rail-current-v81-maplibre-ui.js';
 const adminBasePath='functions/portal/rail-current-v4-ui.js';
 const heroRuntimePath='dist/assets/portal-runtime/client-rail-canonical-hero-v1.js';
 const id='rona-client-rail-admin-canonical-v1';
-const src='/portal/client-rail-current-ui?v=20260919-route-overlay-v3';
-const marker='20260919-route-overlay-v3';
+const src='/portal/client-rail-current-ui?v=20260921-admin-canonical-route-inherit-v1';
+const marker='20260921-admin-canonical-route-inherit-v1';
 const heroId='rona-client-rail-canonical-hero-v1';
 const heroSrc='/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2';
 const heroMarker='20260919-client-rail-admin-visual-parity-v2';
@@ -27,12 +27,12 @@ for(const required of [
   "admin-current-v81-client-authority-v1",
   "AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1",
   "CLIENT_ADMIN_ROUTE_PARITY_V2",
-  "CLIENT_ADMIN_ROUTE_PARITY_V3",
-  "CLIENT_RAIL_ROUTE_OVERLAY_V3",
+  "CLIENT_ADMIN_ROUTE_PARITY_V5_CANONICAL_RENDERER",
+  "CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1",
+  "ADMIN_CURRENT_V81_INHERITED_V1",
+  "20260921-final-destination-v3",
   "CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2",
   "OPEN_CONTEXT_CHANGE_INVALIDATION",
-  "clientRailRenderAuthoritativeRouteOverlay",
-  "clientRailPatchRouteDraw",
   "clientRailNormalizeRouteParity",
   "clientRailRepairMapParity",
   "x-rona-client-rail-visual-canon",
@@ -46,6 +46,9 @@ for(const required of [
   if(!adapter.includes(required))throw new Error(`CLIENT_RAIL_ADMIN_OPERATIONAL_ADAPTER_MISSING: ${required}`);
 }
 if(/RONA-C\d{3}|DEAL-2026-\d{3}|UNIVERSAL\s+SOLYARIS|FARGONA/iu.test(adapter))throw new Error('CLIENT_RAIL_ADMIN_OPERATIONAL_ADAPTER_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
+for(const forbidden of ['clientRailRenderAuthoritativeRouteOverlay','clientRailPatchRouteDraw','clientRailRouteOverlayPolyline','CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS']){
+  if(adapter.includes(forbidden))throw new Error(`CLIENT_RAIL_DUPLICATE_ROUTE_RENDERER_FORBIDDEN: ${forbidden}`);
+}
 
 const adminCanon=await readFile(adminCanonPath,'utf8');
 for(const required of [
