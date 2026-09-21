@@ -32,18 +32,19 @@ function dataFor(clientId,contractId){
     deal_key:d.key,
     wagons:[{wagonNumber:'9000000'+(i+1),station:d.station,stationCode:d.code,operation:'RAW_ONLY',status:'TRUSTED',positionStatus:'TRUSTED',effectiveResolutionStatus:'MATCHED',eventAtLocal:'2026-09-19T12:30:00',lastPositionAt:'2026-09-19T12:30:00',trustedCoordinates:{lat:53+i,lng:27+i,trusted:true,stationCode:d.code}}]
   }));
-  const plannedRouteByDeal={},actualRouteByDeal={},remainingRouteByDeal={},routeProgressByDeal={},routeStationsByDeal={},routeAssignmentByDeal={};
+  const plannedRouteByDeal={},actualRouteByDeal={},remainingRouteByDeal={},routeProgressByDeal={},routeStationsByDeal={},routeAssignmentByDeal={},routeCohortsByDeal={};
   for(const [i,d] of defs.entries()){
     const planned=route([{lat:54+i,lng:26+i,station:'Origin',stationCode:'010101'},{lat:53+i,lng:27+i,station:d.station,stationCode:d.code}], 'PUBLIC_SOURCE_ROUTE_RESOLVED');
     const actual=route([{lat:54+i,lng:26+i,station:'Origin',stationCode:'010101'},{lat:53.5+i,lng:26.5+i,station:'Observed',stationCode:'020202'}], 'OBSERVED_HISTORY');
     const remaining=route([{lat:53.5+i,lng:26.5+i,station:'Observed',stationCode:'020202'},{lat:53+i,lng:27+i,station:d.station,stationCode:d.code}], 'ROUTE_REMAINDER');
-    for(const key of [d.key,d.id]){plannedRouteByDeal[key]=planned;actualRouteByDeal[key]=actual;remainingRouteByDeal[key]=remaining;routeProgressByDeal[key]={state:'OBSERVED_AND_MATCHED'};routeStationsByDeal[key]=planned.points;routeAssignmentByDeal[key]={resolutionState:'RESOLVED'}}
+    const cohort=[{cohortKey:'COHORT-'+d.id,wagonCount:1,wagonNumbers:['9000000'+(i+1)],observationSignature:'010101>'+d.code,observations:[{station:'Origin',stationCode:'010101',lat:54+i,lng:26+i},{station:d.station,stationCode:d.code,lat:53+i,lng:27+i}],segments:[{geometryStatus:'OBSERVED_ENDPOINTS_PATH_UNRESOLVED',points:[{station:'Origin',stationCode:'010101',lat:54+i,lng:26+i},{station:d.station,stationCode:d.code,lat:53+i,lng:27+i}],borderTransition:{fromCountry:'QA1',toCountry:'QA2',status:'EXACT_CROSSING_UNRESOLVED',crossingPoints:[]}}]}];
+    for(const key of [d.key,d.id]){plannedRouteByDeal[key]=planned;actualRouteByDeal[key]=actual;remainingRouteByDeal[key]=remaining;routeProgressByDeal[key]={state:'OBSERVED_AND_MATCHED'};routeStationsByDeal[key]=planned.points;routeAssignmentByDeal[key]={resolutionState:'RESOLVED'};routeCohortsByDeal[key]=cohort}
   }
   return {
     contract:'RONA_CLIENT_RAIL_ADMIN_PARITY_V1',
     generatedAt:new Date().toISOString(),deals,rail,
     exchange:{active_targets:defs.length,conflicts:0,by_deal:{}},
-    plannedRouteByDeal,actualRouteByDeal,remainingRouteByDeal,routeProgressByDeal,routeStationsByDeal,routeAssignmentByDeal,
+    plannedRouteByDeal,actualRouteByDeal,remainingRouteByDeal,routeProgressByDeal,routeStationsByDeal,routeAssignmentByDeal,routeCohortsByDeal,
     railReadModel:{modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',sourcePolicy:'PUBLIC_SOURCE_ROUTE_GRAPH_PLUS_TRUSTED_DISLOCATION_HISTORY_V1',generatedAt:new Date().toISOString(),overlayMode:'DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1',authorityScope:'AUTHENTICATED_CLIENT_CONTRACT',clientId,contractId},
     clientRailAuthority:{scope:'AUTHENTICATED_CLIENT_CONTRACT',serverDerived:true,queryValuesUsedAsAuthorization:false}
   };
@@ -100,8 +101,9 @@ try{
   assert(view.authority.source==='AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','wrong client authority source');
   assert(view.routeParity.version==='CLIENT_ADMIN_ROUTE_PARITY_V2'&&view.routeParity.routeReadyDeals===2,'route parity normalization missing '+JSON.stringify(view.routeParity));
   assert(view.mapParity.version==='CLIENT_ADMIN_ROUTE_PARITY_V4'&&view.mapParity.plannedPoints>=2,'map route parity state missing '+JSON.stringify(view.mapParity));
-  assert(view.overlay.version==='CLIENT_RAIL_ROUTE_OVERLAY_V4'&&view.overlay.renderedPointCount>=2,'production route overlay state missing '+JSON.stringify(view.overlay));
-  assert(view.routeLines>=2&&view.visibleRouteLines>=2,'Admin route geometry was not visibly rendered '+JSON.stringify(view));
+  assert(view.overlay.version==='CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS'&&view.overlay.renderedPointCount>=2,'production route overlay state missing '+JSON.stringify(view.overlay));
+  assert(view.routeLines>=4&&view.visibleRouteLines>=4,'Admin route and cohort geometry were not visibly rendered '+JSON.stringify(view));
+  assert(view.overlay.routeCohortCount===1,'route cohort overlay missing '+JSON.stringify(view.overlay));
   assert(view.routePins>=2&&view.legacyRouteNodes===0,'premium route pins were not rendered '+JSON.stringify(view));
   assert(view.pinRoles.includes('origin')&&view.pinRoles.includes('destination'),'premium endpoint roles missing '+JSON.stringify(view));
   assert(view.wagonMarker&&view.wagonMarker.height==='24px'&&view.wagonMarker.borderRadius==='7px','wagon marker did not leave circular legacy style '+JSON.stringify(view));
