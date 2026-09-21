@@ -12,8 +12,8 @@
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
       "visual_freeze_baseline_blob_sha": "863c7046edae829f93c26426421af1275d45e2f6",
-      "authorized_post_blob_sha": "52b58829ecc7f3eca21b4e9918bb9625d5f38446",
-      "required_marker": "20260921-premium-terms-v4-event-driven"
+      "authorized_post_blob_sha": "3a8fbd32ea3e7d40d3d813f01b34d70ec4acd6fa",
+      "required_marker": "isPriceInteraction"
     },
     "assets/portal-runtime/client-shell-guard-v3.js": {
       "visual_freeze_baseline_blob_sha": "1309b4a644b8dc394106eef9ad440c59974c09da",
