@@ -26,7 +26,7 @@ assert.ok(!hardening.includes("payment.bank_fact_status='BANK_CONFIRMED'"),'must
 assert.ok(!/RONA-C\d{3}|DEAL-2026-\d{3}|FARGONA|SOLYARIS/iu.test(hardening),'hardcoded business entity forbidden');
 
 assert.ok(runtime.includes("payments:Array.isArray(state.detail.payments)?state.detail.payments:[]"),'authoritative runtime must expose server-scoped payments to canonical layout');
-for(const marker of ['client_receipt_status','FINANCE_CONFIRMED','BANK_CONFIRMED','payment_due_now','К оплате сейчас','x-rona-client-force-refresh'])assert.ok(runtime.includes(marker),`authoritative runtime missing current-state receipt marker: ${marker}`);
+for(const marker of ['client_receipt_status','FINANCE_CONFIRMED','BANK_CONFIRMED','payment_due_now','К оплате сейчас','x-rona-client-force-refresh','rona:client-current-projection','setInterval(()=>load(false),REFRESH_MS)',"pageshow',()=>load(false)","visibilityState==='visible')load(false)"])assert.ok(runtime.includes(marker),`authoritative runtime missing current-state receipt marker: ${marker}`);
 assert.ok(runtime.includes("Finance подтверждено; банк ожидается"),'Finance-confirmed pending-bank receipts must be explicit in Client payments');
 assert.ok(canonical.includes('function projectConfirmedReceipts(owner,payments)'), 'canonical receipt detail projector missing');
 assert.ok(canonical.includes('const ordered=[...payments].sort'), 'canonical receipt detail must render the server-scoped payment array');
