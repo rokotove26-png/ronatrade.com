@@ -30,9 +30,16 @@ let lifecycle=await readFile(lifecyclePath,'utf8');
 if(!lifecycle.includes(PRIOR_MARK))throw new Error('ISSUE432_PRIOR_CONSUMER_GUARD_MISSING');
 if(!lifecycle.includes(MARK)){
   lifecycle=replaceOnce(lifecycle,`const ${PRIOR_MARK}='${PRIOR_MARK}';`,`const ${PRIOR_MARK}='${PRIOR_MARK}';\nconst ${MARK}='${MARK}';`,'ISSUE432_CONSUMER_MARK');
-  lifecycle=replaceOnce(lifecycle,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await authority.whenCurrentProjection('client-application-lifecycle-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_CONSUMER_CONTEXT_READ');
+  if(!lifecycle.includes("whenCurrentProjection?.('application-lifecycle')")){
+    lifecycle=replaceOnce(lifecycle,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await authority.whenCurrentProjection('client-application-lifecycle-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_CONSUMER_CONTEXT_READ');
+  }
 }
-await validateAndWrite(lifecycle,lifecyclePath,'ISSUE432_CONSUMER',[MARK,"authority.whenCurrentProjection('client-application-lifecycle-v1')",'state.reloadRequested=true','queueMicrotask(()=>loadAuthoritativeState(true))'],"request('/v1/client/context?clientId='");
+const lifecycleCentral=
+  lifecycle.includes("authority?.whenCurrentProjection?.('application-lifecycle')")&&
+  lifecycle.includes("authority.refreshCurrentProjection('application-lifecycle')")&&
+  lifecycle.includes('queueMicrotask(()=>loadAuthoritativeState(queuedForce))');
+if(!lifecycleCentral&&!lifecycle.includes("authority.whenCurrentProjection('client-application-lifecycle-v1')"))throw new Error('ISSUE432_CONSUMER_CENTRAL_PROJECTION_MISSING');
+await validateAndWrite(lifecycle,lifecyclePath,'ISSUE432_CONSUMER',[MARK,'state.reloadRequested=true'],"request('/v1/client/context?clientId='");
 
 let applications=await readFile(applicationsPath,'utf8');
 if(!applications.includes(APPLICATIONS_MARK)){
@@ -50,10 +57,19 @@ await validateAndWrite(contract,contractPath,'ISSUE432_CONTRACT',[CONTRACT_MARK,
 
 let payments=await readFile(paymentsPath,'utf8');
 if(!payments.includes(PAYMENTS_MARK)){
-  payments=replaceOnce(payments,"const API='/portal/api',REFRESH_MS=30000;",`const API='/portal/api',REFRESH_MS=30000,${PAYMENTS_MARK}='${PAYMENTS_MARK}';`,'ISSUE432_PAYMENTS_MARK');
-  payments=replaceOnce(payments,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await authority.whenCurrentProjection('client-payments-authoritative-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_PAYMENTS_CONTEXT_READ');
+  if(payments.includes("authority.whenCurrentProjection?.('payments-authoritative')")&&payments.includes("authority.refreshCurrentProjection('payments-authoritative')")){
+    payments=replaceOnce(payments,"const API='/portal/api';",`const API='/portal/api';\nconst ${PAYMENTS_MARK}='${PAYMENTS_MARK}';`,'ISSUE432_PAYMENTS_RECONCILED_MARK');
+  }else{
+    payments=replaceOnce(payments,"const API='/portal/api',REFRESH_MS=30000;",`const API='/portal/api',REFRESH_MS=30000,${PAYMENTS_MARK}='${PAYMENTS_MARK}';`,'ISSUE432_PAYMENTS_MARK');
+    payments=replaceOnce(payments,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await authority.whenCurrentProjection('client-payments-authoritative-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_PAYMENTS_CONTEXT_READ');
+  }
 }
-await validateAndWrite(payments,paymentsPath,'ISSUE432_PAYMENTS',[PAYMENTS_MARK,"authority.whenCurrentProjection('client-payments-authoritative-v1')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
+const paymentsCentral=
+  payments.includes("authority.whenCurrentProjection?.('payments-authoritative')")&&
+  payments.includes("authority.refreshCurrentProjection('payments-authoritative')")&&
+  !payments.includes("request('/v1/client/context?clientId='");
+if(!paymentsCentral&&!payments.includes("authority.whenCurrentProjection('client-payments-authoritative-v1')"))throw new Error('ISSUE432_PAYMENTS_CENTRAL_PROJECTION_MISSING');
+await validateAndWrite(payments,paymentsPath,'ISSUE432_PAYMENTS',[PAYMENTS_MARK,'RONA_CLIENT_CONTEXT'], "request('/v1/client/context?clientId='");
 
 let dealDocuments=await readFile(dealDocumentsPath,'utf8');
 if(!dealDocuments.includes(DEAL_DOCUMENTS_MARK)){
@@ -64,4 +80,4 @@ if(!dealDocuments.includes(DEAL_DOCUMENTS_MARK)){
 }
 await validateAndWrite(dealDocuments,dealDocumentsPath,'ISSUE432_DEAL_DOCUMENTS',[DEAL_DOCUMENTS_MARK,"authority.whenCurrentProjection('client-deal-documents-v5')"],'/v1/client/context?clientId=');
 
-console.log(`CLIENT_CONTEXT_COHERENCE_432_CONSUMER=PASS marker=${MARK} lifecycle=CENTRAL applications=${APPLICATIONS_MARK} contract=${CONTRACT_MARK} payments=${PAYMENTS_MARK} deal_documents=${DEAL_DOCUMENTS_MARK} direct_current_context_fetches=absent poll_ms=30000 visual_delta=none`);
+console.log(`CLIENT_CONTEXT_COHERENCE_432_CONSUMER=PASS marker=${MARK} lifecycle=CENTRAL applications=${APPLICATIONS_MARK} contract=${CONTRACT_MARK} payments=${PAYMENTS_MARK} deal_documents=${DEAL_DOCUMENTS_MARK} direct_current_context_fetches=absent reconciled_event_driven_consumers=accepted visual_delta=none`);
