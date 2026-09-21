@@ -40,7 +40,7 @@ try{
   await page.route('**/portal/api/v1/client/bootstrap**',async route=>{if(delayedBootstrap){delayedBootstrap=false;await sleep(900)}await route.continue()});
   await page.route('**/portal/api/v1/client/context**',async route=>{if(delayedContext){delayedContext=false;await sleep(700)}await route.continue()});
   await page.goto(ORIGIN+'/portal/client?_qa_company_delayed_diag='+Date.now(),{waitUntil:'domcontentloaded',timeout:30000});
-  const nav=page.locator('#nav button[data-page="companies"]');await nav.waitFor({state:'visible',timeout:15000});await nav.click();
+  const nav=page.locator('#nav button[data-page="companies"]');await nav.waitFor({state:'attached',timeout:15000});await page.evaluate(()=>{const b=document.querySelector('#nav button[data-page="companies"]');if(!b)throw new Error('COMPANIES_NAV_MISSING');b.click()});
   await page.waitForFunction(()=>{const n=document.getElementById('clientCompanyGrid');if(!n)return false;const s=getComputedStyle(n),r=n.getBoundingClientRect();return !n.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0},null,{timeout:10000});
   await page.waitForFunction(()=>Boolean(document.querySelector('#clientCompanyGrid article.company-switch-card[data-rona-company-directory-hydration="loading"],#clientCompanyGrid article.company-switch-card[data-rona-company-directory-hydration="error"]')),null,{timeout:15000});
   const before=await page.evaluate(()=>window.__issue430Snap?.('before-public-refresh'));
