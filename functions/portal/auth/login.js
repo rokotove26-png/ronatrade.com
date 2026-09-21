@@ -57,8 +57,28 @@ async function fetchWithTimeout(url,init={},timeoutMs=7000){
  try{return await fetch(url,{...init,signal:controller.signal})}
  finally{clearTimeout(timer)}
 }
-async function authPassword(identifier,password){const email=emailForIdentifier(identifier);try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({email,password})},7000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_FETCH_FAILED'}}}}
-async function authRefresh(refreshToken){try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})},7000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_REFRESH_FAILED'}}}}
+const AUTH_PASSWORD_TIMEOUTS_MS=Object.freeze([18000,9000]);
+const AUTH_REFRESH_TIMEOUTS_MS=Object.freeze([15000,8000]);
+const AUTH_TRANSIENT_RETRY_DELAY_MS=450;
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function authGrant(grantType,payload,timeouts,failureCode){
+ let last={ok:false,status:503,data:{code:failureCode}};
+ for(let attempt=0;attempt<timeouts.length;attempt++){
+  try{
+   const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/token?grant_type=${grantType}`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify(payload)},timeouts[attempt]);
+   const result={ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))};
+   if(result.ok)return result;
+   if(result.status===429||result.status<500)return result;
+   last=result;
+  }catch{
+   last={ok:false,status:503,data:{code:failureCode}};
+  }
+  if(attempt<timeouts.length-1)await sleep(AUTH_TRANSIENT_RETRY_DELAY_MS);
+ }
+ return last;
+}
+async function authPassword(identifier,password){return authGrant('password',{email:emailForIdentifier(identifier),password},AUTH_PASSWORD_TIMEOUTS_MS,'AUTH_FETCH_FAILED')}
+async function authRefresh(refreshToken){return authGrant('refresh_token',{refresh_token:refreshToken},AUTH_REFRESH_TIMEOUTS_MS,'AUTH_REFRESH_FAILED')}
 async function authUser(accessToken){try{const r=await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/user`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},5000);return {ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))}}catch{return {ok:false,status:503,data:{code:'AUTH_USER_FAILED'}}}}
 function retryableAuthFailure(result){const status=Number(result?.status||0);return status===429||status>=500||status===0;}
 function ownerAuthIdentity(data){return String(data?.email||'').toLowerCase()===OWNER_EMAIL&&String(data?.app_metadata?.portal_identity||'')==='OWNER_ADMIN';}

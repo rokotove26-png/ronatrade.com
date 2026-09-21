@@ -97,7 +97,7 @@
     const{identifier,password,button}=fieldSet(panel);const login=String(identifier.value||'').trim();const secret=String(password.value||'');
     if(!login||!secret){setStatus(doc,panel,'Введите логин и пароль.');return}
     busyPanels.add(panel);setStatus(doc,panel,'');setLoading(button,true);
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_AUTH_TIMEOUT'),20000);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_AUTH_TIMEOUT'),45000);
     try{
       const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
       const data=await r.json().catch(()=>({}));

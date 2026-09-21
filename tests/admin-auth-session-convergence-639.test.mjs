@@ -399,10 +399,34 @@ test('Owner alias with ADMIN role bypasses generic multi-role selector and opens
 test('Inline home login is bounded and can recover issued Admin session',()=>{
   assert.match(inlineAuth,/new AbortController\(\)/);
   assert.match(inlineAuth,/RONA_INLINE_AUTH_TIMEOUT/);
+  assert.match(inlineAuth,/45000/);
   assert.match(inlineAuth,/sessionIssued===true/);
   assert.match(inlineAuth,/Сессия создана\. Восстанавливаем кабинет/);
 });
 
+
+test('Exact login retries one transient Supabase Auth failure before denying availability',async()=>{
+  let passwordCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/token?grant_type=password')){
+      passwordCalls++;
+      if(passwordCalls===1)return jsonResponse({message:'temporary unavailable'},503);
+      return jsonResponse({access_token:'access-retry-ok',refresh_token:'refresh-retry-ok',expires_in:3600},200);
+    }
+    if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN']}},200);
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+    body:JSON.stringify({identifier:'qa-user@example.invalid',password:'x',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin'});
+  assert.equal(passwordCalls,2);
+});
 
 test('Owner login recovers an already-valid Admin access cookie before password grant',async()=>{
   let passwordCalls=0,userCalls=0;
