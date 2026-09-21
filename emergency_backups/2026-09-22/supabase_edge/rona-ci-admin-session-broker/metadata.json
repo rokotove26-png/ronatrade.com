@@ -1,0 +1,12 @@
+{
+  "slug": "rona-ci-admin-session-broker",
+  "name": "rona-ci-admin-session-broker",
+  "status": "ACTIVE",
+  "version": 10,
+  "verify_jwt": false,
+  "ezbr_sha256": "bca4d15cc259d9399f027c22871cd3fe03427547e4b342eeeba2c6cb9c77428a",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_2e91d8ed-1336-4101-829f-0f4b790f6770_10/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_2e91d8ed-1336-4101-829f-0f4b790f6770_10/source/deno.json",
+  "created_at": 1786931247808,
+  "updated_at": 1788042249888
+}
