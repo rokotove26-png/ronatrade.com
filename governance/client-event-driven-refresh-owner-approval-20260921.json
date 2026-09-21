@@ -6,7 +6,8 @@
   "approved_protected_files": [
     "assets/portal-runtime/client-price-conditions-v1.js",
     "assets/portal-runtime/client-shell-guard-v3.js",
-    "assets/portal-runtime/client-logout-visual-v1.js"
+    "assets/portal-runtime/client-logout-visual-v1.js",
+    "scripts/attach-client-logout-visual-v1.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -23,6 +24,11 @@
       "visual_freeze_baseline_blob_sha": "2dc6eceae13334ce9c3fc020afc06bd95a8decb4",
       "authorized_post_blob_sha": "99286fa037d7d6c306a0c6e64e3198628c397b0d",
       "required_marker": "20260830-client-logout-force-red-v2"
+    },
+    "scripts/attach-client-logout-visual-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
+      "authorized_post_blob_sha": "ca8c4e6c433133894a5b6b87923d545129cca473",
+      "required_marker": "MUTATION_FOCUS_PAGESHOW"
     }
   },
   "requirements": {
