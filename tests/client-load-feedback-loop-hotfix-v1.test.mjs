@@ -34,8 +34,10 @@ for(const forbidden of [
 ])assert.doesNotMatch(context,new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
 assert.doesNotMatch(context,/FARG(?:[‘'ʼ])?ONA/iu);
 
-// Deals consumes the already coordinated current projection. It must never own a
-// /context request and every current-projection event replaces state.payload.
+// Deals normally consumes the already coordinated current projection. Deal Passport
+// open is the one explicit freshness boundary: it invalidates through the central
+// context authority and asks that authority to re-read the same scoped projection.
+// Deals still never owns a direct /context request or any periodic refresh loop.
 assert.match(deals,/getCurrentProjection/);
 assert.match(deals,/function currentProjection/);
 assert.match(deals,/function adoptCurrentProjection/);
@@ -43,7 +45,9 @@ assert.match(deals,/state\.payload=projection/);
 assert.match(deals,/rona:client-current-projection/);
 assert.match(deals,/RONA_CLIENT_CONTEXT_CURRENT_PROJECTION/);
 assert.doesNotMatch(deals,/\/v1\/client\/context/);
-assert.doesNotMatch(deals,/whenCurrentProjection\s*\(/);
+assert.match(deals,/a\.invalidateCurrentProjection\(\);const \[freshProjection,workflow\]=await Promise\.all\(\[a\.whenCurrentProjection\('deal-passport-open'\)/);
+assert.equal((deals.match(/whenCurrentProjection\s*\(/g)||[]).length,1,'Deals may refresh current projection only at Deal Passport open');
+assert.equal((deals.match(/invalidateCurrentProjection\s*\(/g)||[]).length,1,'Deals may invalidate current projection only at Deal Passport open');
 assert.doesNotMatch(deals,/observe\(document\.documentElement/);
 assert.doesNotMatch(deals,/attributeFilter:\[[^\]]*(?:hidden|aria-hidden)/s);
 assert.doesNotMatch(deals,/setInterval\([^\n]*refresh/);
@@ -171,6 +175,7 @@ assert.doesNotMatch(home,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])
 console.log('CLIENT_LOAD_FEEDBACK_LOOP_HOTFIX_V1=PASS');
 console.log('DEALS_CONTEXT_SOURCE=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION');
 console.log('DEALS_OWN_CONTEXT_FETCH=NONE');
+console.log('DEAL_PASSPORT_FRESHNESS=INVALIDATE_THEN_CENTRAL_NO_STORE_ON_OPEN');
 console.log('DEAL_PASSPORT_BINDING=EXACT_NATIVE_DRAWER_PLUS_EXPLICIT_SLOTS');
 console.log('DEAL_WORKFLOW_BINDING=EXACT_CLIENT_CONTRACT_DEAL');
 console.log('DEAL_LIFECYCLE_OWNER=PRODUCTION_CLIENT_DEAL_LIFECYCLE_V1');

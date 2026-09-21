@@ -7,8 +7,10 @@ on:
       - 'supabase/functions/rona-portal-api/client-deal-economics-projection.ts'
       - 'supabase/functions/rona-portal-api/client.ts'
       - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'scripts/attach-client-deals-authoritative-v1.mjs'
       - 'scripts/repair-client-deals-first-paint-v1.mjs'
       - 'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs'
+      - 'tests/client-load-feedback-loop-hotfix-v1.test.mjs'
       - '.github/workflows/client-deal-passport-authoritative-economics-qa.yml'
   workflow_dispatch:
 
@@ -36,11 +38,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git cat-file -e "$BASELINE_SHA^{commit}"
+          base_sha='${{ github.event.pull_request.base.sha }}'
+          if [ -z "$base_sha" ]; then base_sha="$BASELINE_SHA"; fi
+          git cat-file -e "$base_sha^{commit}"
           head_sha='${{ github.event.pull_request.head.sha }}'
           if [ -z "$head_sha" ]; then head_sha="$GITHUB_SHA"; fi
+          echo "BASELINE_SHA=$base_sha" >> "$GITHUB_ENV"
           echo "PR_HEAD_SHA=$head_sha" >> "$GITHUB_ENV"
-          echo "BASELINE_SHA=$BASELINE_SHA"
+          echo "BASELINE_SHA=$base_sha"
           echo "CANDIDATE_HEAD_SHA=$head_sha"
 
       - name: Existing economics regression proof
