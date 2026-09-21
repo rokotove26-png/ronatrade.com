@@ -11,6 +11,16 @@ function replaceOnce(source,from,to,label){
   if(source.indexOf(from)!==source.lastIndexOf(from))throw new Error(`${label}_TARGET_NOT_UNIQUE`);
   return source.replace(from,to);
 }
+function replaceBounded(source,start,end,to,label,required=[]){
+  const first=source.indexOf(start);
+  if(first<0)throw new Error(`${label}_START_MISSING`);
+  if(source.indexOf(start,first+start.length)>=0)throw new Error(`${label}_START_NOT_UNIQUE`);
+  const last=source.indexOf(end,first+start.length);
+  if(last<0)throw new Error(`${label}_END_MISSING`);
+  const block=source.slice(first,last);
+  for(const token of required)if(!block.includes(token))throw new Error(`${label}_CURRENT_CONTRACT_MISSING:${token}`);
+  return source.slice(0,first)+to+source.slice(last);
+}
 
 let runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(COHERENCE_MARK)){
@@ -30,11 +40,25 @@ if(!runtime.includes(COHERENCE_MARK)){
 
   const loadFrom="async function loadCurrentProjection(source='client-context-selection-authority-v1:coordinator'){const ctx=state.selected;if(!ctx)return null;const wanted=key(ctx),p=state.projection;if(p.key===wanted&&p.text&&p.status>=200&&p.status<300)return cloneProjection();if(p.key===wanted&&p.promise){recordCaller(new URL(`${CONTEXT_ROUTE}?clientId=${encodeURIComponent(ctx.client_id)}&contractId=${encodeURIComponent(ctx.contract_id)}`,location.origin),source,'join');await p.promise;return cloneProjection()}invalidateProjection();p.key=wanted;const url=new URL(CONTEXT_ROUTE,location.origin);url.searchParams.set('clientId',ctx.client_id);url.searchParams.set('contractId',ctx.contract_id);recordCaller(url,source,'network');p.promise=(async()=>{const response=await nativeFetch(url.pathname+url.search,taggedInit(url.pathname+url.search,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},source));const text=await response.text();const body=JSON.parse(text||'null');if(!response.ok)throw new Error(String(body?.code||`HTTP_${response.status}`));validateProjection(body,ctx);if(key(state.selected)!==wanted)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_PROJECTION');p.text=text;p.json=body;p.status=response.status;p.statusText=response.statusText;p.headers=[...response.headers.entries()];p.loadedAt=Date.now();syncAndRenderLegacyContext();syncVisualContext();exposeSelection();window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,source,loaded_at:new Date(p.loadedAt).toISOString()}}))})().catch(error=>{if(p.key===wanted)invalidateProjection();throw error}).finally(()=>{if(p.key===wanted)p.promise=null});await p.promise;return cloneProjection()}";
   const loadTo="async function loadCurrentProjection(source='client-context-selection-authority-v1:coordinator',options={}){const ctx=state.selected;if(!ctx)return null;const wanted=key(ctx),p=state.projection,forceFresh=options?.forceFresh===true;if(p.key===wanted&&p.promise&&p.generation===state.projectionGeneration){recordCaller(new URL(`${CONTEXT_ROUTE}?clientId=${encodeURIComponent(ctx.client_id)}&contractId=${encodeURIComponent(ctx.contract_id)}`,location.origin),source,'join');try{await p.promise}catch(error){if(key(state.selected)===wanted&&String(error?.message||'').includes('CLIENT_CONTEXT_PROJECTION_STALE_RESPONSE'))return loadCurrentProjection(source,{forceFresh:true});throw error}if(projectionFresh(wanted))return cloneProjection();return loadCurrentProjection(source,{forceFresh:true})}if(!forceFresh&&projectionFresh(wanted)){recordCaller(new URL(`${CONTEXT_ROUTE}?clientId=${encodeURIComponent(ctx.client_id)}&contractId=${encodeURIComponent(ctx.contract_id)}`,location.origin),source,'memory');return cloneProjection()}const generation=invalidateProjection(forceFresh?'explicit-fresh-read':'ttl-revalidate');p.key=wanted;p.generation=generation;const url=new URL(CONTEXT_ROUTE,location.origin);url.searchParams.set('clientId',ctx.client_id);url.searchParams.set('contractId',ctx.contract_id);recordCaller(url,source,'network');let requestPromise;requestPromise=(async()=>{const response=await nativeFetch(url.pathname+url.search,taggedInit(url.pathname+url.search,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}},source));const text=await response.text();const body=JSON.parse(text||'null');if(!response.ok)throw new Error(String(body?.code||`HTTP_${response.status}`));validateProjection(body,ctx);if(state.projectionGeneration!==generation||p.generation!==generation||p.key!==wanted||key(state.selected)!==wanted)throw new Error('CLIENT_CONTEXT_PROJECTION_STALE_RESPONSE');p.text=text;p.json=body;p.status=response.status;p.statusText=response.statusText;p.headers=[...response.headers.entries()];p.loadedAt=Date.now();syncAndRenderLegacyContext();syncVisualContext();exposeSelection();window.dispatchEvent(new CustomEvent('rona:client-current-projection',{detail:{client_id:ctx.client_id,contract_id:ctx.contract_id,source,loaded_at:new Date(p.loadedAt).toISOString(),generation}}))})().catch(error=>{if(p.generation===generation&&p.key===wanted){Object.assign(p,{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0,generation:state.projectionGeneration})}throw error}).finally(()=>{if(p.generation===generation&&p.key===wanted&&p.promise===requestPromise)p.promise=null});p.promise=requestPromise;await requestPromise;if(!projectionFresh(wanted))throw new Error('CLIENT_CONTEXT_PROJECTION_NOT_CURRENT');return cloneProjection()}";
-  runtime=replaceOnce(runtime,loadFrom,loadTo,'ISSUE432_LOAD_CURRENT_PROJECTION');
+  runtime=replaceBounded(
+    runtime,
+    'async function loadCurrentProjection(',
+    'function primeProjection',
+    loadTo,
+    'ISSUE432_LOAD_CURRENT_PROJECTION',
+    ['CLIENT_CONTEXT_CHANGED_DURING_PROJECTION','nativeFetch','CONTEXT_ROUTE','recordCaller','rona:client-current-projection']
+  );
 
   const fetchFrom="async function scopedBootstrapResponse(response){try{if(!response?.ok)return response;const body=await response.clone().json();if(body?.ok===false)return response;const rawContexts=body?.data?.contexts;captureCompanyDirectory(body?.data,rawContexts,'wrapped-bootstrap-capture');if(!publish(rawContexts,'bootstrap-capture',authoritativeHint(body?.data)))return response;const selected=state.selected?{...state.selected}:null;const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)})}catch{return response}}\nwindow.fetch=async function(input,init){const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);const source=callerSource(input,init);if(url.pathname===BOOT){recordCaller(url,source,'request');const response=await nativeFetch(input,taggedInit(input,init,source));return scopedBootstrapResponse(response)}const contextual=url.searchParams.has('clientId')||url.searchParams.has('contractId')||pathRequiresContext(url.pathname);if(!contextual)return nativeFetch(input,init);await ensure();if(!state.selected)throw new Error('CLIENT_CONTEXT_SELECTION_REQUIRED');url.searchParams.set('clientId',state.selected.client_id);url.searchParams.set('contractId',state.selected.contract_id);recordCaller(url,source,'request');if(url.pathname===CONTEXT_ROUTE&&(init?.method===undefined||String(init.method).toUpperCase()==='GET'))return loadCurrentProjection(source);const response=await nativeFetch(nextUrl(raw,url),taggedInit(input,init,source));recordCaller(url,source,'network');if(String(init?.method||'GET').toUpperCase()!=='GET'&&response.ok)invalidateProjection();return response}";
   const fetchTo="async function scopedBootstrapResponse(response){try{if(!response?.ok)return response;const body=await response.clone().json();if(body?.ok===false)return response;const rawContexts=body?.data?.contexts;captureCompanyDirectory(body?.data,rawContexts,'wrapped-bootstrap-capture');if(!publish(rawContexts,'bootstrap-capture',authoritativeHint(body?.data)))return response;const selected=state.selected?{...state.selected}:null;const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)})}catch{return response}}\nwindow.fetch=async function(input,init){const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);const source=callerSource(input,init),method=requestMethod(input,init);if(url.pathname===BOOT&&method==='GET'){recordCaller(url,source,'request');const response=await nativeFetch(input,taggedInit(input,init,source));return scopedBootstrapResponse(response)}const mutation=MUTATION_METHODS.has(method),contextual=mutation||url.searchParams.has('clientId')||url.searchParams.has('contractId')||pathRequiresContext(url.pathname);if(!contextual)return nativeFetch(input,init);await ensure();if(!state.selected)throw new Error('CLIENT_CONTEXT_SELECTION_REQUIRED');url.searchParams.set('clientId',state.selected.client_id);url.searchParams.set('contractId',state.selected.contract_id);recordCaller(url,source,'request');if(url.pathname===CONTEXT_ROUTE&&method==='GET')return loadCurrentProjection(source,{forceFresh:explicitFreshRead(input,init)});const rewritten=input instanceof Request?new Request(nextUrl(raw,url),input):nextUrl(raw,url),response=await nativeFetch(rewritten,taggedInit(input,init,source));recordCaller(url,source,'network');if(mutation&&response.ok)invalidateProjection(`mutation:${method}:${url.pathname}`);return response}";
-  runtime=replaceOnce(runtime,fetchFrom,fetchTo,'ISSUE432_FETCH_INTERCEPTOR');
+  runtime=replaceBounded(
+    runtime,
+    'window.fetch=async function(input,init){',
+    'function onChange',
+    fetchTo,
+    'ISSUE432_FETCH_INTERCEPTOR',
+    ['clientUrl(raw)','CONTEXT_ROUTE','nativeFetch','taggedInit','invalidateProjection']
+  );
 }
 
 for(const token of [
@@ -65,24 +89,36 @@ await writeFile(runtimePath,runtime,'utf8');
 
 let consumer=await readFile(consumerPath,'utf8');
 if(!consumer.includes(CONSUMER_MARK)){
-  consumer=replaceOnce(
-    consumer,
-    "const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};",
-    `const ${CONSUMER_MARK}='${CONSUMER_MARK}';\nconst state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,reloadRequested:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};`,
-    'ISSUE432_CONSUMER_STATE'
-  );
-  consumer=replaceOnce(
-    consumer,
-    "async function loadAuthoritativeState(force=false){\n  if(state.loading)return;",
-    "async function loadAuthoritativeState(force=false){\n  if(state.loading){if(force)state.reloadRequested=true;return}",
-    'ISSUE432_CONSUMER_LOAD_QUEUE'
-  );
-  consumer=replaceOnce(
-    consumer,
-    "  finally{state.loading=false}\n}",
-    "  finally{state.loading=false;if(state.reloadRequested){state.reloadRequested=false;queueMicrotask(()=>loadAuthoritativeState(true))}}\n}",
-    'ISSUE432_CONSUMER_FINALLY_QUEUE'
-  );
+  const reconciledState="const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,reloadRequested:false,reloadForce:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};";
+  const reconciledQueue="if(state.loading){state.reloadRequested=true;state.reloadForce=state.reloadForce||force;return;}";
+  const reconciledFinally="finally{state.loading=false;if(state.reloadRequested){const queuedForce=state.reloadForce;state.reloadRequested=false;state.reloadForce=false;queueMicrotask(()=>loadAuthoritativeState(queuedForce))}}";
+  if(consumer.includes(reconciledState)&&consumer.includes(reconciledQueue)&&consumer.includes(reconciledFinally)){
+    consumer=replaceOnce(
+      consumer,
+      reconciledState,
+      `const ${CONSUMER_MARK}='${CONSUMER_MARK}';\n${reconciledState}`,
+      'ISSUE432_CONSUMER_RECONCILED_STATE'
+    );
+  }else{
+    consumer=replaceOnce(
+      consumer,
+      "const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};",
+      `const ${CONSUMER_MARK}='${CONSUMER_MARK}';\nconst state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,reloadRequested:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};`,
+      'ISSUE432_CONSUMER_STATE'
+    );
+    consumer=replaceOnce(
+      consumer,
+      "async function loadAuthoritativeState(force=false){\n  if(state.loading)return;",
+      "async function loadAuthoritativeState(force=false){\n  if(state.loading){if(force)state.reloadRequested=true;return}",
+      'ISSUE432_CONSUMER_LOAD_QUEUE'
+    );
+    consumer=replaceOnce(
+      consumer,
+      "  finally{state.loading=false}\n}",
+      "  finally{state.loading=false;if(state.reloadRequested){state.reloadRequested=false;queueMicrotask(()=>loadAuthoritativeState(true))}}\n}",
+      'ISSUE432_CONSUMER_FINALLY_QUEUE'
+    );
+  }
 }
 if(!consumer.includes(CONSUMER_MARK)||!consumer.includes('reloadRequested:true')&&!consumer.includes('reloadRequested=false')){
   if(!consumer.includes(CONSUMER_MARK)||!consumer.includes('state.reloadRequested=true'))throw new Error('ISSUE432_CONSUMER_QUEUE_CONTRACT_MISSING');
