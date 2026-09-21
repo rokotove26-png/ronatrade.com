@@ -1,6 +1,6 @@
 import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js';
 
-const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260921-premium-map-markers-v4';";
+const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
@@ -16,6 +16,7 @@ const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
+window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V3 CLIENT_RAIL_ROUTE_OVERLAY_V3';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
 function clientRailOuter(){
   var selectors=['#page-rail','#page-monitoring','[data-page-panel="rail"]','[data-page-panel="monitoring"]','[data-page-id="rail"]','[data-page-id="monitoring"]'];
@@ -34,7 +35,20 @@ function ensureClientCanonicalOwnerStyle(){
     '.rona-owner-original-hidden{display:none!important}',
     '.rona-owner-page-content{display:block!important}',
     '#page-rail>[data-rona-client-rail-admin-canonical-mount],#page-monitoring[data-rona-client-rail-admin-canonical-mount]{width:100%;min-width:0;max-width:none}',
-    '#page-rail .rona-rail-v4-root,#page-monitoring .rona-rail-v4-root{font-family:inherit}'
+    '#page-rail .rona-rail-v4-root,#page-monitoring .rona-rail-v4-root{font-family:inherit}',
+    '#page-rail .rona-rail-v7-route-casing,#page-monitoring .rona-rail-v7-route-casing{stroke:rgba(4,24,36,.56)!important;stroke-width:7.2!important}',
+    '#page-rail .rona-rail-v7-route-line,#page-monitoring .rona-rail-v7-route-line{stroke:#63d8ff!important;stroke-width:3.6!important;filter:drop-shadow(0 1px 3px rgba(28,175,222,.26))!important}',
+    '#page-rail .rona-rail-v7-route-remaining-casing,#page-monitoring .rona-rail-v7-route-remaining-casing{stroke:rgba(5,28,39,.48)!important;stroke-width:6.4!important}',
+    '#page-rail .rona-rail-v7-route-remaining,#page-monitoring .rona-rail-v7-route-remaining{stroke:rgba(83,166,196,.78)!important;stroke-width:2.8!important;stroke-dasharray:6 6!important}',
+    '#page-rail .rona-rail-v7-route-actual-casing,#page-monitoring .rona-rail-v7-route-actual-casing{stroke:rgba(3,20,31,.64)!important;stroke-width:8.4!important}',
+    '#page-rail .rona-rail-v7-route-actual,#page-monitoring .rona-rail-v7-route-actual{stroke:#25cfc0!important;stroke-width:4.2!important;filter:drop-shadow(0 1px 3px rgba(37,207,192,.28))!important}',
+    '#page-rail .rona-rail-v7-route-node,#page-monitoring .rona-rail-v7-route-node{display:none!important}',
+    '#page-rail .rona-client-rail-route-pin,#page-monitoring .rona-client-rail-route-pin{shape-rendering:geometricPrecision!important}',
+    '#page-rail .rona-rail-v7-marker,#page-monitoring .rona-rail-v7-marker{min-width:30px!important;width:auto!important;height:24px!important;margin:-12px 0 0 -15px!important;padding:0 8px!important;border:1px solid rgba(121,226,244,.55)!important;border-radius:7px!important;background:linear-gradient(180deg,rgba(8,35,49,.98),rgba(5,24,36,.98))!important;box-shadow:0 6px 16px rgba(1,14,23,.32),0 0 0 1px rgba(95,211,233,.10),0 0 14px rgba(99,216,255,.16)!important;color:#dffbff!important;font-size:10.5px!important;font-weight:850!important;letter-spacing:.01em!important}',
+    '#page-rail .rona-rail-v7-marker::before,#page-monitoring .rona-rail-v7-marker::before{content:""!important;display:inline-block!important;width:5px!important;height:5px!important;margin-right:5px!important;border-radius:1.5px!important;background:#5ee7d5!important;box-shadow:0 0 8px rgba(94,231,213,.72)!important;vertical-align:1px!important}',
+    '#page-rail .rona-rail-v7-marker::after,#page-monitoring .rona-rail-v7-marker::after{display:none!important;content:none!important}',
+    '#page-rail .rona-rail-v7-marker-label,#page-monitoring .rona-rail-v7-marker-label{left:50%!important;top:-10px!important;transform:translate(-50%,-100%)!important;padding:7px 9px!important;border:1px solid rgba(110,214,232,.22)!important;border-radius:8px!important;background:rgba(4,20,31,.96)!important;color:#e9fbff!important;box-shadow:0 10px 24px rgba(0,0,0,.30)!important;font-size:10.5px!important;font-weight:720!important}',
+    '#page-rail .rona-rail-v7-marker:hover,#page-monitoring .rona-rail-v7-marker:hover,#page-rail .rona-rail-v7-marker.is-open,#page-monitoring .rona-rail-v7-marker.is-open{transform:translateY(-1px)!important;border-color:rgba(151,239,252,.86)!important;box-shadow:0 8px 20px rgba(1,14,23,.38),0 0 18px rgba(99,216,255,.22)!important}'
   ].join('');document.head.appendChild(s)
 }
 function ensureClientRailMount(){
