@@ -25,6 +25,10 @@ assert.match(priceConditions,/rona:client-context-changed/);
 assert.match(logoutVisual,/20260830-client-logout-force-red-v2/);
 assert.doesNotMatch(logoutVisual,/setInterval\s*\(/);
 assert.match(logoutVisual,/window\.addEventListener\('focus',schedule/);
+assert.match(logoutVisual,/EVENT_DRIVEN_FILTERED_MUTATION_V1/);
+assert.match(logoutVisual,/mutationTouchesLogout/);
+assert.match(logoutVisual,/\.observe\(document\.body/);
+assert.doesNotMatch(logoutVisual,/\.observe\(document\.documentElement/);
 
 console.log('CLIENT_EVENT_DRIVEN_REFRESH_V1=PASS');
 console.log('PERPETUAL_CLIENT_POLLING_REMOVED=SHELL_PRICE_CONDITIONS_LOGOUT_VISUAL');
