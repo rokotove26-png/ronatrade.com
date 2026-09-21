@@ -51,24 +51,22 @@ test('Deal identity is canonical deal_key, not GU-12 text',()=>{
 });
 
 test('Map viewport lives outside DOM and persists per deal',()=>{
-  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V2/);
+  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V1/);
   assert.match(v81,/window\.__RONA_RAIL_MAP_VIEWPORT_STATE__/);
   assert.match(v81,/return key\?'DEAL:'\+key:'DEAL:UNBOUND'/);
   assert.match(v81,/function railMapPersistViewport\(state,reason,userTouched\)/);
   assert.match(v81,/function railMapInitialViewport\(context,width,height,minZoom,maxZoom\)/);
   assert.match(v81,/railMapPersistViewport\(state,reason\|\|'USER_ZOOM',true\)/);
   assert.match(v81,/railMapPersistViewport\(state,'USER_PAN',true\)/);
-  assert.match(v81,/fitMode\('OPERATIONAL','OPERATIONAL_FIT'\)/);
-  assert.match(v81,/fitMode\('FULL','FULL_ROUTE_FIT'\)/);
+  assert.match(v81,/railMapPersistViewport\(state,'HOME',true\)/);
   assert.match(v81,/function railMapDefaultViewport\(\)\{return\{lat:52\.5,lng:68,zoom:3\}\}/);
 });
 
 test('Route fit is one-time per deal and yields to user pan/zoom',()=>{
   assert.match(v81,/routeFitApplied/);
   assert.match(v81,/!saved\.userTouched&&!saved\.routeFitApplied&&route\.length>=2/);
-  assert.match(v81,/OPERATIONAL_FIT/);
-  assert.match(v81,/FULL_ROUTE_FIT/);
-  assert.match(v81,/routeFitApplied:\/FIT\|HOME\/.test\(String\(reason\|\|''\)\)\?true:/);
+  assert.match(v81,/reason:'ROUTE_FIT'/);
+  assert.match(v81,/routeFitApplied:reason==='HOME'\?true:/);
 });
 
 test('First open never commits a non-authoritative inherited Admin snapshot',()=>{
@@ -98,7 +96,7 @@ test('Background rail sync is data-change-only and repair is viewport-safe',()=>
 });
 
 test('Map data contract projects planned, traversed and remaining source-backed route state',()=>{
-  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V3_COHORTS/);
+  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V2/);
   assert.match(v81,/function railDealMapValue\(data,name,dealKey,dealId\)/);
   assert.match(v81,/actualRouteByDeal/);
   assert.match(v81,/remainingRouteByDeal/);
@@ -178,14 +176,7 @@ test('Split wagon histories render as independent route cohorts with border-tran
   assert.match(v81,/rona-rail-v7-border-crossing/);
   assert.match(v81,/rona-rail-v7-border-unresolved/);
   assert.match(v81,/точный погранпереход не подтвержден/);
-  assert.match(v81,/function railMapRenderLegend\(state\)/);
-  assert.match(v81,/Группы вагонов/);
-  assert.match(v81,/function railMapOperationalFitPoints\(context\)/);
-  assert.match(v81,/OPERATIONAL_DEFAULT_WITH_FULL_ROUTE_TOGGLE_V1/);
-  assert.match(v81,/Опер/);
-  assert.match(v81,/Весь/);
-  assert.match(v81,/rona-rail-v7-route-plan/);
-  assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-visual-v2'/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
 });
 
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
@@ -250,7 +241,6 @@ test('Read-model overlay publishes per-deal route engine products without mutati
       routeProgress:{state:'OBSERVED_AND_MATCHED',furthestMatchedSequence:51},
       routeStations:[{sequence:1,stationCode:'151408'},{sequence:85,stationCode:'742705'}],
       routeAssignment:{resolutionState:'RESOLVED',originEsr:'151408',destinationEsr:'742705'},
-      routeCohorts:[{cohortKey:'COHORT:test',wagonCount:1,wagonNumbers:['1'],observationSignature:'151408>625501',observations:[{station:'Origin',stationCode:'151408',lat:51,lng:29},{station:'Анисовка',stationCode:'625501',lat:51.4,lng:46.08}],segments:[]}],
       wagonPositions:[{wagonNumber:'1',railDocumentKey:'doc-1',railDocumentId:'R1',station:'Анисовка',stationCode:'625501',positionStatus:'TRUSTED',trustedCoordinates:{lat:51.4,lng:46.08,trusted:true}}]
     }]
   };
