@@ -21,6 +21,8 @@ assert.match(priceConditions,/20260921-premium-terms-v4-event-driven/);
 assert.doesNotMatch(priceConditions,/setInterval\s*\(/);
 assert.match(priceConditions,/rona:client-prices-updated/);
 assert.match(priceConditions,/rona:client-context-changed/);
+assert.match(priceConditions,/function isPriceInteraction/);
+assert.doesNotMatch(priceConditions,/document\.addEventListener\('change'/);
 
 assert.match(logoutVisual,/20260830-client-logout-force-red-v2/);
 assert.doesNotMatch(logoutVisual,/setInterval\s*\(/);
