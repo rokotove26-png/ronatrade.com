@@ -1,0 +1,45 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_SIDEBAR_COMMAND_NAV_VISUAL_V1",
+  "owner_instruction": "Выполняй. Реализуй сразу решение без риска последующих правок или нулевых результатов",
+  "approved_new_runtime": [
+    "assets/portal-runtime/client-sidebar-command-nav-v1.js"
+  ],
+  "approved_support_files": [
+    "scripts/attach-portal-canonical-button-hover-v1.mjs",
+    "scripts/qa-client-sidebar-command-nav-v1.mjs",
+    ".github/workflows/client-sidebar-command-nav-v1.yml",
+    "scripts/qa-client-sidebar-dom-inspect-v1.mjs",
+    ".github/workflows/client-sidebar-dom-inspect-v1.yml",
+    "scripts/qa-client-portal-visual-freeze.mjs",
+    "governance/client-sidebar-command-nav-owner-approval-20260921.json"
+  ],
+  "exact_new_runtime_blob_sha": "860b1d2f4df167c2238ce93340a900e2bc056d3d",
+  "required_marker": "20260921-client-sidebar-command-nav-v1",
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "sidebar_only": true,
+    "canonical_client_source_changed": false,
+    "sidebar_width_changed": false,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "auth_changed": false,
+    "router_changed": false,
+    "navigation_click_behavior_changed": false,
+    "supabase_changed": false,
+    "finance_changed": false,
+    "rail_business_logic_changed": false,
+    "images_added": false,
+    "real_inline_svg_icons": true,
+    "legacy_glyph_icons_removed_from_rendered_sidebar": true,
+    "active_state_cyan_red_icon": true,
+    "attention_state_neon_red": true,
+    "explicit_attention_only": true,
+    "late_overwrite_self_heal": true,
+    "chromium_visual_proof_required": true,
+    "production_runtime_marker_required": true
+  }
+}
