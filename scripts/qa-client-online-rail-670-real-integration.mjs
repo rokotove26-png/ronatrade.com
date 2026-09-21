@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 import { onRequest as clientRailRequest } from '../functions/portal/client-rail-current-ui.js';
 
+const ROUTE_COHORT_QA_CONTRACT='RAIL_ROUTE_COHORTS_V1';
 const apiUrl=String(process.env.ISSUE670_SUPABASE_URL||'').replace(/\/$/,'');
 const anonKey=String(process.env.ISSUE670_ANON_KEY||'');
 const serviceKey=String(process.env.ISSUE670_SERVICE_ROLE_KEY||'');
@@ -167,7 +168,7 @@ assert(own.response.status===200,'AUTHORIZED_CONTEXT_NOT_200 '+own.response.stat
 assert(own.body?.ok===true,'AUTHORIZED_CONTEXT_NOT_OK');
 assert(own.body?.data?.railReadModel?.modelVersion==='RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4','CANONICAL_MODEL_VERSION_MISMATCH');
 assert(own.body?.data?.railReadModel?.sourcePolicy==='PUBLIC_SOURCE_ROUTE_GRAPH_PLUS_TRUSTED_DISLOCATION_HISTORY_V1','CANONICAL_SOURCE_POLICY_MISMATCH');
-assert(own.body?.data?.railReadModel?.routeCohortContractVersion==='RAIL_ROUTE_COHORTS_V1','ROUTE_COHORT_CONTRACT_MISSING');
+assert(own.body?.data?.railReadModel?.routeCohortContractVersion===ROUTE_COHORT_QA_CONTRACT,'ROUTE_COHORT_CONTRACT_MISSING');
 assert(Array.isArray(own.body?.data?.deals)&&own.body.data.deals.length===2,'AUTHORIZED_DEAL_DISCOVERY_MISMATCH');
 assert(Array.isArray(own.body?.data?.routeCohortsByDeal?.[DEAL_A1])&&own.body.data.routeCohortsByDeal[DEAL_A1].length===1,'AUTHORIZED_ROUTE_COHORT_MISSING');
 assert(!JSON.stringify(own.body).includes(DEAL_U1_ID),'UNAUTHORIZED_DEAL_LEAKED');
