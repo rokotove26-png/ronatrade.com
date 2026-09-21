@@ -18,8 +18,8 @@
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "edf62557af4b24fa8f88dc7741d8e857b717a17a",
-      "required_marker": "OPEN_CONTEXT_CHANGE_INVALIDATION"
+      "authorized_post_blob_sha": "2904205ddac0fc204184d5998a92c6ab3206d570",
+      "required_marker": "20260921-admin-canonical-route-inherit-v1"
     }
   },
   "requirements": {
@@ -103,5 +103,24 @@
     ],
     "invalidation_event": "rona:client-rail-invalidated",
     "target_policy": "OPEN_OR_DATA_CHANGE_ONLY"
+  },
+  "corrective_owner_context_v6": {
+    "authorized_in_chat": true,
+    "authorized_at": "2026-09-21",
+    "evidence": "OWNER_IN_CHAT_APPLY_COMPLETED_ADMIN_ONLINE_RAIL_LOGIC_TO_ANALOGOUS_CLIENT_ONLINE_RAIL_AFTER_AUDIT",
+    "production_baseline": "d97a84b672426dc090914078e8dbb00ef7faa6d3",
+    "scope": "CLIENT_RAIL_ADMIN_CANONICAL_ROUTE_RENDERER_INHERIT_V1",
+    "client_only": true,
+    "implementation_owner": "functions/portal/client-rail-current-ui.js",
+    "retire_client_route_overlay": true,
+    "inherit_admin_canonical_route_renderer": true,
+    "preserve_authenticated_client_contract_authority": true,
+    "preserve_cross_client_fail_closed": true,
+    "preserve_client_visual_shell": true,
+    "admin_business_logic_single_owner": true,
+    "business_data_mutation_forbidden": true,
+    "supabase_schema_or_rls_change": false,
+    "auth_change": false,
+    "paid_resources_forbidden": true
   }
 }

@@ -145,49 +145,56 @@ test('Stage A markers are exposed without removing prior current owner markers',
 
 
 
-test('Current wagon clusters remain factual marker overlays while the visual route follows the dominant cohort',()=>{
+test('Current wagon clusters remain factual marker overlays while one visual route rejoins the base corridor',()=>{
   assert.match(v81,/function railMapPlannedRoutePoints\(context\)/);
   assert.match(v81,/function railMapObservedRoutePoints\(context\)/);
   assert.match(v81,/waypointRole:'OBSERVED_CURRENT'/);
   assert.match(v81,/sourceKind:'OBSERVED_CURRENT'/);
   assert.match(v81,/function railMapDominantCohort\(context\)/);
-  assert.match(v81,/function railMapDominantVisualRoute\(context\)/);
+  assert.match(v81,/function railMapDominantVisualRoutePlan\(context\)/);
+  assert.match(v81,/function railMapContinuationTargetIndex\(context,dominant,planned,minIndex\)/);
+  assert.match(v81,/function railMapNearestPlannedIndex\(planned,point,minIndex,maxIndex\)/);
   assert.match(v81,/__RONA_RAIL_SINGLE_VISUAL_ROUTE__='20260921-dominant-cohort-v1'/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_REJOIN__='20260921-dominant-rejoin-v2'/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_DESTINATION_CONTINUATION__='20260921-final-destination-v3'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_TOPOLOGY__='20260921-current-markers-independent-v1'/);
   assert.doesNotMatch(v81,/function railMapSegmentProjection\(point,a,b\)/);
   assert.doesNotMatch(v81,/buckets\[best\.segment\]\.push/);
 });
 
-test('Online Rail draws one canonical visual route and keeps separate factual wagon markers',()=>{
+test('Online Rail draws one continuous route from the dominant cohort back to the base route and onward to the final destination',()=>{
   assert.match(v81,/function railMapClusterKey\(w,coord\)/);
   assert.match(v81,/groups=new Map\(\)/);
   assert.match(v81,/el\('button','rona-rail-v7-marker',String\(g\.wagons\.length\)\)/);
   assert.match(v81,/g\.station\+': '\+g\.wagons\.length\+' вагонов'/);
-  assert.match(v81,/route=railMapDominantVisualRoute\(context\)/);
+  assert.match(v81,/plan=railMapDominantVisualRoutePlan\(context\)/);
+  assert.match(v81,/railMapAppendUniquePoints\(out,branch\)/);
+  assert.match(v81,/railMapAppendUniquePoints\(out,planned\.slice\(rejoin,end\+1\)\)/);
   assert.match(v81,/railMapSvgPolyline\(svg,route,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual'\)/);
   assert.match(v81,/branchesDrawn:0/);
-  assert.match(v81,/routeMode:'DOMINANT_COHORT_SINGLE_VISUAL_ROUTE'/);
+  assert.match(v81,/routeMode:plan\.mode/);
+  assert.match(v81,/rejoinPlannedIndex:plan\.rejoinPlannedIndex/);
+  assert.match(v81,/targetPlannedIndex:plan\.targetPlannedIndex/);
   assert.doesNotMatch(v81,/count\+=railMapCohortDraw\(svg,context,left,top,z\)/);
   assert.doesNotMatch(v81,/Плановый маршрут/);
   assert.doesNotMatch(v81,/GPS_TRACK_CONFIRMED|actualTrack/);
-  assert.match(v81,/\.rona-rail-v7-map-status\{display:none!important\}/);
-  assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-note\{display:none!important\}/);
 });
 
-test('The largest wagon cohort becomes the single visual route without deleting cohort evidence',()=>{
+test('The dominant five-wagon-style cohort is a detour while the route still terminates at the canonical destination',()=>{
   assert.match(v81,/function railMapRouteCohorts\(context\)/);
-  assert.match(v81,/function railMapCohortSegments\(context\)/);
   assert.match(v81,/function railMapDominantCohort\(context\)/);
   assert.match(v81,/if\(bw!==aw\)return bw-aw/);
-  assert.match(v81,/Array\.isArray\(dominant\.segments\)/);
-  assert.match(v81,/Array\.isArray\(dominant\.observations\)/);
-  assert.match(v81,/dominantWagonCount:Number\(dominant&&dominant\.wagonCount\|\|0\)/);
-  assert.match(v81,/routeMode:'DOMINANT_COHORT_SINGLE_VISUAL_ROUTE'/);
+  assert.match(v81,/context&&context\.mapData&&context\.mapData\.routeAssignment/);
+  assert.match(v81,/assignment\.destinationEsr/);
+  assert.match(v81,/railMapPlannedStationIndex\(planned,code,lo,planned\.length-1\)/);
+  assert.match(v81,/rejoinMin=Math\.min\(planned\.length-1,Math\.max\(diverge\+1,0\)\)/);
+  assert.match(v81,/rejoinMax=Math\.max\(rejoinMin,Math\.min\(target,planned\.length-1\)\)/);
+  assert.match(v81,/mode:'DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION'/);
+  assert.match(v81,/version:'20260921-single-canonical-route-destination-v3'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
-  assert.match(v81,/__RONA_RAIL_SINGLE_VISUAL_ROUTE__='20260921-dominant-cohort-v1'/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_REJOIN__='20260921-dominant-rejoin-v2'/);
   assert.doesNotMatch(v81,/function railMapRenderLegend\(state\)/);
   assert.doesNotMatch(v81,/Группы вагонов/);
-  assert.doesNotMatch(v81,/OPERATIONAL_DEFAULT_WITH_FULL_ROUTE_TOGGLE_V1/);
 });
 
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{

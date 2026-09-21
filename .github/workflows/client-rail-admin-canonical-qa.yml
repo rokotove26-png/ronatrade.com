@@ -55,13 +55,14 @@ jobs:
           if(response.status!==200)throw new Error(`adapter status ${response.status}: ${source}`);
           if(response.headers.get('x-rona-client-rail-visual-canon')!=='/portal/rail-current-v81-maplibre-ui')throw new Error('operational-body source header drifted');
           for(const marker of [
-            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3'",
+            "window.__RONA_CLIENT_RAIL_PRODUCTION__='20260921-admin-canonical-route-inherit-v1'",
             'rona-rail-v4-root','rona-rail-v4-work','rona-rail-v6-selector','rona-rail-v6-wagon-box','rona-rail-v7-real',
             'ЖД-контур','Операционная картина ЖД','Позиции вагонов','/portal/map-assets/osm/',
             '/portal/api/v1/client/rail-canonical','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL',
-            'ADMIN_CURRENT_V81_CANONICAL','admin-current-v81-client-authority-v1','CLIENT_ADMIN_ROUTE_PARITY_V4','CLIENT_RAIL_ROUTE_OVERLAY_V4','rona-client-rail-route-pin','clientRailRenderAuthoritativeRouteOverlay','clientRailPatchRouteDraw'
+            'ADMIN_CURRENT_V81_CANONICAL','admin-current-v81-client-authority-v1','CLIENT_ADMIN_ROUTE_PARITY_V5_CANONICAL_RENDERER','CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1','ADMIN_CURRENT_V81_INHERITED_V1','DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION'
           ])if(!source.includes(marker))throw new Error('missing operational marker: '+marker);
           for(const forbidden of ['/portal/owner-api','/admin/bootstrap','/portal/api/v1/client/shipments',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker','Онлайн ЖД не введён в эксплуатацию','Железнодорожные отправки',".rona-rail-v4-hero{display:none!important}"])if(source.includes(forbidden))throw new Error('retired/divergent operational marker: '+forbidden);
+          for(const retired of ['function clientRailRenderAuthoritativeRouteOverlay','function clientRailPatchRouteDraw','clientRailRouteOverlayPolyline','CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS'])if(source.includes(retired))throw new Error('duplicate Client route renderer survived: '+retired);
 
           const hero=fs.readFileSync('assets/portal-runtime/client-rail-canonical-hero-v1.js','utf8');
           for(const marker of [
@@ -82,7 +83,7 @@ jobs:
             "visual_source_mode:'ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE'",
             "static_title_owner:'CLIENT_CANONICAL_HERO_RUNTIME_V1'",
             'client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2',
-            '/portal/client-rail-current-ui?v=20260919-route-overlay-v3',
+            '/portal/client-rail-current-ui?v=20260921-admin-canonical-route-inherit-v1',
             'CLIENT_RAIL_CURRENT_ONLY_STYLE_REGRESSION_AFTER_EMIT'
           ])if(!attach.includes(marker))throw new Error('current-only/canonical hero guard missing: '+marker);
 
@@ -99,7 +100,7 @@ jobs:
           set -euo pipefail
           npm run build
           grep -q 'id="rona-client-rail-admin-canonical-v1"' dist/portal/client.html
-          grep -q '/portal/client-rail-current-ui?v=20260919-route-overlay-v3' dist/portal/client.html
+          grep -q '/portal/client-rail-current-ui?v=20260921-admin-canonical-route-inherit-v1' dist/portal/client.html
           grep -q 'id="rona-client-rail-canonical-hero-v1"' dist/portal/client.html
           grep -q '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2' dist/portal/client.html
           grep -q 'data-rona-client-rail-current-only="current-only-v2"' dist/portal/client.html

@@ -21,13 +21,20 @@ test('passport presents business recipient and bank routing as separate fields',
   assert.doesNotMatch(source, /recipient=text\(item\?\.(?:bank_beneficiary_name|beneficiary_name)\)/);
 });
 
-test('canonical V8 disables the legacy V7 passport capture runtime', () => {
+test('canonical V8 disables legacy capture but never silently drops a passport click', () => {
   assert.match(source, /LEGACY_PASSPORT_MODAL_ID='ronaPaymentsV7PassportDesignerModal'/);
   assert.match(source, /document\.__ronaPaymentsV7PassportOwnerTableV2Handler/);
   assert.match(source, /removeEventListener\('click',handler,true\)/);
   assert.match(source, /\.rona-payments-v7-passport-trigger,\.rona-payments-v7-passport > summary/);
   assert.match(source, /__RONA_PAYMENTS_V8_OPEN_PASSPORT__/);
   assert.match(source, /__RONA_PAYMENTS_V8_LEGACY_PASSPORT_DISABLED__/);
+  assert.match(source, /function adoptWindowProjection\(reason='passport-open'\)/);
+  assert.match(source, /load\('passport-open-reconcile'\)/);
+  assert.match(source, /PAYMENTS_V8_PASSPORT_DEAL_NOT_FOUND_AFTER_REFRESH/);
+  assert.match(source, /function openPassportUnavailable\(dealId,code\)/);
+  assert.match(source, /__RONA_PAYMENTS_V8_PASSPORT_ROUTING__='SELF_HEAL_V1'/);
+  assert.match(source, /document\.__ronaPaymentsV8PassportClickHandler/);
+  assert.doesNotMatch(source, /if\(projection\)return openPassport\(id\)/);
 });
 
 test('multi-currency passport shows native debit and deal-accounting amount together', () => {

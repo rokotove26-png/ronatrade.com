@@ -182,7 +182,7 @@ test("real integration harness uses real Auth, candidate Edge and PostgreSQL rat
   assert.ok(source.includes("fetch(edgeUrl+'/v1/client/rail-canonical'+u.search"),"browser proxy must forward to candidate Edge handler");
 });
 
-test("Client adapter consumes only canonical endpoint and inherits degraded preservation",async()=>{
+test("Client adapter consumes only canonical endpoint and inherits the Admin canonical route renderer",async()=>{
   const response=await clientRailAdapter({});
   assert.equal(response.status,200);
   const source=await response.text();
@@ -193,24 +193,28 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL"));
   assert.ok(source.includes("RAIL_READ_MODEL_DEGRADED"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V2"));
-  assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V4"));
-  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS"));
+  assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V5_CANONICAL_RENDERER"));
+  assert.ok(source.includes("CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_CANONICAL_ROUTE_RENDERER__='ADMIN_CURRENT_V81_INHERITED_V1'"));
+  assert.ok(source.includes("window.__RONA_RAIL_ROUTE_DESTINATION_CONTINUATION__='20260921-final-destination-v3'"));
+  assert.ok(source.includes("DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION"));
+  assert.ok(source.includes("branchesDrawn:0"));
   assert.ok(source.includes("clientRailNormalizeRouteParity"));
   assert.ok(source.includes("clientRailRepairMapParity"));
-  assert.ok(source.includes("clientRailRenderAuthoritativeRouteOverlay"));
-  assert.ok(source.includes("clientRailPatchRouteDraw"));
   assert.ok(source.includes("railMapRequestDraw"));
   assert.ok(source.includes("railMapFitRoute"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1'"));
   assert.ok(source.includes("routeCohortsByDeal"));
-  assert.ok(source.includes("railMapCohortDraw"));
-  assert.ok(source.includes("rona-client-rail-route-pin"));
-  assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
-  assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));
+  assert.ok(source.includes("routeAssignmentByDeal"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH__"));
   assert.ok(source.includes("CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION'"));
   assert.ok(source.includes("rona:client-rail-invalidated"));
+  assert.equal(source.includes("function clientRailRenderAuthoritativeRouteOverlay"),false,"Client must not own route geometry");
+  assert.equal(source.includes("function clientRailPatchRouteDraw"),false,"Client must not wrap canonical railMapRequestDraw");
+  assert.equal(source.includes("clientRailRouteOverlayPolyline"),false,"Client split-route overlay must be retired");
+  assert.equal(source.includes("railMapCohortDraw(svg,{mapData:mapData},left,top,z)"),false,"Client must not redraw cohort branches");
+  assert.equal(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS"),false,"legacy Client route overlay state must be retired");
   assert.equal(source.includes("document.visibilityState==='visible'"),false,"Client Rail must not keep visibility-gated periodic polling");
   assert.equal(source.includes("timer=setInterval(sync,30000)"),false,"Client adapter must not regress to unconditional legacy polling");
   assert.equal(source.includes("timer=setInterval(function(){var page=q('#page-monitoring')"),false,"Client adapter must strip inherited v8.1 30-second polling");

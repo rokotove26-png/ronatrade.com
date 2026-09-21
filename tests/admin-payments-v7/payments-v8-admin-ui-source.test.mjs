@@ -23,7 +23,7 @@ test('Admin Payments V8 renderer reads only the canonical authenticated bootstra
 
 test('current-only main UI loads the V8 bootstrap as a data/passport bridge while V7 remains visual owner', () => {
   assert.match(mainUiMiddleware, /PAYMENTS_V8_BOOTSTRAP_OWNER='payments-v8-bootstrap-v1'/);
-  assert.match(mainUiMiddleware, /\/portal\/payments-v8-ui\?v=20260917-v1/);
+  assert.match(mainUiMiddleware, /\/portal\/payments-v8-ui\?v=20260921-passport-selfheal-v1/);
   assert.match(mainUiMiddleware, /canonical-v8-bootstrap/);
   assert.match(mainUiMiddleware, /x-rona-payments-current-runtime','due-now-conditional-v3/);
   assert.match(ui, /DATA_AND_PASSPORT_BRIDGE/);

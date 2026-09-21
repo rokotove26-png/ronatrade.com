@@ -1,8 +1,9 @@
 import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js';
 
-const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
-const ROUTE_OVERLAY_COMPAT_MARKER="window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_COMPAT__='CLIENT_RAIL_ROUTE_OVERLAY_V4';";
+const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260921-admin-canonical-route-inherit-v1';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
+const CANONICAL_ROUTE_RENDERER_MARKER="window.__RONA_CLIENT_RAIL_CANONICAL_ROUTE_RENDERER__='ADMIN_CURRENT_V81_INHERITED_V1';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
+const ADMIN_ROUTE_MARKER="window.__RONA_RAIL_ROUTE_DESTINATION_CONTINUATION__='20260921-final-destination-v3';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const API_FROM="function api(path){return fetch(API+'?path='+encodeURIComponent(path),{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j&&j.data||{}})})}";
@@ -20,8 +21,8 @@ const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
-${ROUTE_OVERLAY_COMPAT_MARKER}
-window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V3 CLIENT_RAIL_ROUTE_OVERLAY_V3 CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2';
+${CANONICAL_ROUTE_RENDERER_MARKER}
+window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V5 CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1 CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2';
 window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
 function clientRailOuter(){
@@ -149,118 +150,6 @@ function clientRailNormalizeRouteParity(payload){
   document.documentElement.dataset.ronaClientRailRouteParity=ready>0?'READY':'NO_ROUTE';
   return payload
 }
-function clientRailRouteCss(node,stroke,width,opacity){
-  if(!node||!node.style)return;
-  node.style.setProperty('display','block','important');
-  node.style.setProperty('visibility','visible','important');
-  node.style.setProperty('opacity',String(opacity===undefined?1:opacity),'important');
-  node.style.setProperty('fill','none','important');
-  node.style.setProperty('stroke',stroke,'important');
-  node.style.setProperty('stroke-width',String(width),'important');
-  node.style.setProperty('stroke-linecap','round','important');
-  node.style.setProperty('stroke-linejoin','round','important')
-}
-function clientRailRouteOverlayPolyline(svg,points,left,top,z,casingClass,lineClass,casingStroke,casingWidth,lineStroke,lineWidth,lineOpacity){
-  if(!svg||!Array.isArray(points)||points.length<2||typeof railMapProject!=='function')return 0;
-  var coords=[];
-  points.forEach(function(pt){
-    var p=railMapProject(pt.lat,pt.lng,z);
-    if(Number.isFinite(p&&p.x)&&Number.isFinite(p&&p.y))coords.push((p.x-left)+','+(p.y-top))
-  });
-  if(coords.length<2)return 0;
-  var casing=document.createElementNS('http://www.w3.org/2000/svg','polyline');
-  casing.setAttribute('class',casingClass);
-  casing.setAttribute('points',coords.join(' '));
-  clientRailRouteCss(casing,casingStroke,casingWidth,1);
-  svg.append(casing);
-  var line=document.createElementNS('http://www.w3.org/2000/svg','polyline');
-  line.setAttribute('class',lineClass);
-  line.setAttribute('points',coords.join(' '));
-  clientRailRouteCss(line,lineStroke,lineWidth,lineOpacity);
-  svg.append(line);
-  return coords.length
-}
-function clientRailRenderAuthoritativeRouteOverlay(state){
-  try{
-    var mapData=window.__RONA_RAIL_MAP_DATA__||state&&state.context&&state.context.mapData;
-    if(!state||!state.viewport||!state.routePane||!mapData||typeof railMapProject!=='function'||typeof railMapWorld!=='function')return 0;
-    var planned=mapData.plannedRoute&&Array.isArray(mapData.plannedRoute.points)?mapData.plannedRoute.points.map(clientRailRoutePoint).filter(Boolean):[],
-        actual=mapData.actualRoute&&Array.isArray(mapData.actualRoute.points)?mapData.actualRoute.points.map(clientRailRoutePoint).filter(Boolean):[],
-        remaining=mapData.remainingRoute&&Array.isArray(mapData.remainingRoute.points)?mapData.remainingRoute.points.map(clientRailRoutePoint).filter(Boolean):[],
-        cohortCount=Array.isArray(mapData.routeCohorts)?mapData.routeCohorts.length:0;
-    if(planned.length<2&&actual.length<2&&remaining.length<2&&cohortCount===0)return 0;
-    var rect=state.viewport.getBoundingClientRect(),width=Math.max(320,Math.round(rect.width||900)),height=Math.max(260,Math.round(rect.height||440)),z=Number(state.zoom)||3,
-        center=railMapProject(Number(state.lat)||52.5,Number(state.lng)||68,z),left=center.x-width/2,top=center.y-height/2,
-        svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),count=0,hasSplit=actual.length>=2||remaining.length>=2;
-    svg.setAttribute('class','rona-rail-v7-route-svg rona-client-rail-route-overlay-v3');
-    svg.setAttribute('viewBox','0 0 '+width+' '+height);
-    svg.setAttribute('aria-hidden','true');
-    svg.style.setProperty('display','block','important');
-    svg.style.setProperty('visibility','visible','important');
-    svg.style.setProperty('opacity','1','important');
-    svg.style.setProperty('position','absolute','important');
-    svg.style.setProperty('inset','0','important');
-    svg.style.setProperty('width','100%','important');
-    svg.style.setProperty('height','100%','important');
-    svg.style.setProperty('overflow','visible','important');
-    state.routePane.style.setProperty('display','block','important');
-    state.routePane.style.setProperty('visibility','visible','important');
-    state.routePane.style.setProperty('opacity','1','important');
-    state.routePane.style.setProperty('z-index','3','important');
-    state.routePane.replaceChildren();
-    if(hasSplit){
-      count+=clientRailRouteOverlayPolyline(svg,remaining,left,top,z,'rona-rail-v7-route-remaining-casing','rona-rail-v7-route-remaining','rgba(5,28,39,.48)',6.4,'rgba(83,166,196,.78)',2.8,1);
-      count+=clientRailRouteOverlayPolyline(svg,actual,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual','rgba(3,20,31,.64)',8.4,'#25cfc0',4.2,1)
-    }else{
-      count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line','rgba(4,24,36,.56)',7.2,'#63d8ff',3.6,1)
-    }
-    if(typeof railMapCohortDraw==='function'){
-      count+=railMapCohortDraw(svg,{mapData:mapData},left,top,z)
-    }
-    var nodes=planned.length?planned:(actual.length?actual:remaining);
-    nodes.forEach(function(pt,idx){
-      var endpoint=idx===0||idx===nodes.length-1,important=endpoint||!!pt.borderRole||pt.waypointRole==='ORIGIN'||pt.waypointRole==='DESTINATION';
-      if(!important)return;
-      var p=railMapProject(pt.lat,pt.lng,z),x=p.x-left,y=p.y-top;
-      if(x<-20||x>width+20||y<-20||y>height+20)return;
-      var role=idx===0||pt.waypointRole==='ORIGIN'?'origin':(idx===nodes.length-1||pt.waypointRole==='DESTINATION'?'destination':(pt.borderRole?'border':'waypoint')),
-          size=endpoint?11:(pt.borderRole?8:7),
-          half=size/2,
-          marker=document.createElementNS('http://www.w3.org/2000/svg','rect');
-      marker.setAttribute('class','rona-client-rail-route-pin rona-client-rail-route-pin--'+role);
-      marker.setAttribute('x',String(x-half));marker.setAttribute('y',String(y-half));
-      marker.setAttribute('width',String(size));marker.setAttribute('height',String(size));
-      marker.setAttribute('rx',endpoint?'2.4':'1.8');marker.setAttribute('ry',endpoint?'2.4':'1.8');
-      marker.setAttribute('transform','rotate(45 '+x+' '+y+')');
-      marker.setAttribute('data-route-role',role);
-      marker.style.setProperty('display','block','important');
-      marker.style.setProperty('fill',role==='origin'?'#63d8ff':role==='destination'?'#5ee7d5':role==='border'?'#ffc86a':'#9be9ff','important');
-      marker.style.setProperty('stroke','#06202b','important');
-      marker.style.setProperty('stroke-width',endpoint?'2':'1.6','important');
-      marker.style.setProperty('filter','drop-shadow(0 2px 3px rgba(2,15,24,.42))','important');
-      svg.append(marker)
-    });
-    state.routePane.append(svg);
-    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,routeCohortCount:cohortCount,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
-    document.documentElement.dataset.ronaClientRailRouteOverlay=count>=2?'PREMIUM_MARKERS_V1':'EMPTY';
-    return count
-  }catch(e){
-    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_ERROR__=String(e&&e.message||e);
-    return 0
-  }
-}
-function clientRailPatchRouteDraw(){
-  if(window.__RONA_CLIENT_RAIL_ROUTE_DRAW_PATCHED__===true)return true;
-  if(typeof railMapRequestDraw!=='function')return false;
-  var baseRequest=railMapRequestDraw;
-  railMapRequestDraw=function(state){
-    var out=baseRequest(state);
-    requestAnimationFrame(function(){clientRailRenderAuthoritativeRouteOverlay(state)});
-    return out
-  };
-  window.__RONA_CLIENT_RAIL_ROUTE_DRAW_PATCHED__=true;
-  return true
-}
 function clientRailRepairMapParity(){
   try{
     var mapData=window.__RONA_RAIL_MAP_DATA__,page=document.querySelector('#page-monitoring'),canvas=page&&page.querySelector('.rona-rail-v4-map-canvas'),state=canvas&&canvas.__ronaRailMapState;
@@ -287,11 +176,20 @@ function clientRailRepairMapParity(){
         }
       }
     }
-    clientRailPatchRouteDraw();
     if(typeof railMapRequestDraw==='function')railMapRequestDraw(state);
-    requestAnimationFrame(function(){clientRailRenderAuthoritativeRouteOverlay(state)});
-    document.documentElement.dataset.ronaClientRailMapParity='ADMIN_ROUTE_ACTIVE';
-    window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__={version:'CLIENT_ADMIN_ROUTE_PARITY_V4',plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,routeCohortCount:cohortCount,dealKey:state.context&&state.context.dealKey||null,updatedAt:new Date().toISOString()};
+    document.documentElement.dataset.ronaClientRailMapParity='ADMIN_CANONICAL_RENDERER_ACTIVE';
+    document.documentElement.dataset.ronaClientRailRouteOverlay='RETIRED';
+    window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__={
+      version:'CLIENT_ADMIN_ROUTE_PARITY_V5_CANONICAL_RENDERER',
+      renderer:'ADMIN_CURRENT_V81_CANONICAL',
+      routeMode:window.__RONA_RAIL_ROUTE_COHORT_RENDER__&&window.__RONA_RAIL_ROUTE_COHORT_RENDER__.routeMode||null,
+      plannedPoints:planned.length,
+      actualPoints:actual.length,
+      remainingPoints:remaining.length,
+      routeCohortCount:cohortCount,
+      dealKey:state.context&&state.context.dealKey||null,
+      updatedAt:new Date().toISOString()
+    };
     return true
   }catch(e){
     window.__RONA_CLIENT_RAIL_MAP_PARITY_ERROR__=String(e&&e.message||e);
@@ -331,7 +229,7 @@ export async function onRequest(context){
   const response=await adminRailCurrent(context);
   let source=await response.text();
   const checks=[
-    ['ADMIN_MARKER',ADMIN_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_HEAD_FROM',START_HEAD_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],['ADMIN_SINGLE_TITLE_HIDDEN_HERO',ADMIN_SINGLE_TITLE_HIDDEN_HERO],
+    ['ADMIN_MARKER',ADMIN_MARKER],['ADMIN_ROUTE_MARKER',ADMIN_ROUTE_MARKER],['API_VAR_FROM',API_VAR_FROM],['API_FROM',API_FROM],['WAIT_FROM',WAIT_FROM],['START_HEAD_FROM',START_HEAD_FROM],['LOCATION_FROM',LOCATION_FROM],['BIND_FROM',BIND_FROM],['ADMIN_SINGLE_TITLE_HIDDEN_HERO',ADMIN_SINGLE_TITLE_HIDDEN_HERO],
     ['ROOT_CLASS','rona-rail-v4-root'],['WORK_CLASS','rona-rail-v4-work'],['SELECTOR_CLASS','rona-rail-v6-selector'],['WAGON_CLASS','rona-rail-v6-wagon-box'],['REAL_MAP_CLASS','rona-rail-v7-real'],['LOCAL_TILE','/portal/map-assets/osm/']
   ];
   const missing=checks.filter(([,marker])=>!source.includes(marker)).map(([name])=>name);
