@@ -129,11 +129,10 @@ function apply(){
 function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(apply)}
 function start(){
   installStyle();schedule();
-  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true});
   window.addEventListener('resize',schedule,{passive:true});
   window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('rona:client-payments-rendered',schedule,{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')schedule()});
-  window.setInterval(schedule,1000);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
