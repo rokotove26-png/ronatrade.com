@@ -18,8 +18,8 @@
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "c44a8578217541e66c3771f098332a64dcd3dc1e",
-      "required_marker": "20260919-route-overlay-v3"
+      "authorized_post_blob_sha": "edf62557af4b24fa8f88dc7741d8e857b717a17a",
+      "required_marker": "OPEN_CONTEXT_CHANGE_INVALIDATION"
     }
   },
   "requirements": {
@@ -82,5 +82,26 @@
     "business_data_mutation_forbidden": true,
     "route_geometry_must_remain_authoritative": true,
     "paid_resources_forbidden": true
+  },
+  "corrective_owner_context_v5": {
+    "authorized_in_chat": true,
+    "authorized_at": "2026-09-21",
+    "evidence": "OWNER_END_TO_END_CLIENT_AUDIT_EVENT_DRIVEN_REFRESH_INSTRUCTION",
+    "production_baseline": "16db5dcd2964974ddb0a35dd96d88ff4c7170187",
+    "scope": "CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2_CURRENT_PRODUCTION",
+    "client_only": true,
+    "admin_rail_source_files_must_remain_unchanged": true,
+    "business_data_mutation_forbidden": true,
+    "visual_change": false,
+    "preserve_route_cohorts_and_vyazma_path": true,
+    "remove_periodic_30s_refresh": true,
+    "refresh_triggers": [
+      "INITIAL_OPEN",
+      "SECTION_OPEN",
+      "CLIENT_CONTEXT_CHANGE",
+      "EXPLICIT_INVALIDATION"
+    ],
+    "invalidation_event": "rona:client-rail-invalidated",
+    "target_policy": "OPEN_OR_DATA_CHANGE_ONLY"
   }
 }
