@@ -56,6 +56,12 @@ replaceTextOnce(
   'AUTHORITATIVE_COMPANY_DIRECTORY_BOOTSTRAP'
 );
 
+replaceTextOnce(
+  "const c=u.searchParams.get('clientId')||'',k=u.searchParams.get('contractId')||'',name=nameFor(c,k),f=FIX[name],r=RAW[name];let b;if(u.pathname==='/portal/api/v1/client/bootstrap')",
+  "const c=u.searchParams.get('clientId')||'',k=u.searchParams.get('contractId')||'',name=nameFor(c,k),f=FIX[name],r=RAW[name];let b;const passport=u.pathname.match(/^\\/portal\\/api\\/v1\\/client\\/applications\\/([^/]+)\\/passport$/);if(passport){const id=decodeURIComponent(passport[1]),app=r.applications.find(row=>String(row.application_id||'')===id);b=app?{ok:true,data:{application:app,business_contract:'RONA_APPLICATION_BUSINESS_V2'}}:{ok:false,code:'APPLICATION_NOT_FOUND'}}else if(u.pathname==='/portal/api/v1/client/bootstrap')",
+  'CURRENT_APPLICATION_BUSINESS_PASSPORT_FIXTURE'
+);
+
 const companyAssertion=String.raw`
 await nav(page,'companies');await sleep(650);
 const directoryReady=await wait(page,()=>{const cards=[...document.querySelectorAll('article.company-switch-card[data-rona-client-id][data-rona-client-contract-id]')];return cards.length===2&&cards.every(card=>card.dataset.ronaCompanyDirectoryHydration==='ready'&&card.dataset.ronaCompanyDirectorySource==='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB'&&card.dataset.ronaCompanyDirectoryDocumentsPredicate==='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY'&&!/действий/iu.test(card.innerText||'')&&card.querySelector('button[data-rona-company-contract-download],button[data-rona-contract-download-v3]'))},null,5000);
