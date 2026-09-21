@@ -11,7 +11,8 @@ function currentUiRuntime(){
   const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority';
   const requestedAccessView=new URL(location.href).searchParams.get('accessView');
   const S={view:requestedAccessView==='agents'?'agents':'companies',search:''};
-  let business=null,authority=null,workspace=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false;
+  let business=null,authority=null,workspace=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
+  const AUTO_REPAIR_COOLDOWN_MS=60000;
   const q=(s,r=document)=>r.querySelector(s);
   const qa=(s,r=document)=>Array.from(r.querySelectorAll(s));
   const el=(t,c,x)=>{const n=document.createElement(t);if(c)n.className=c;if(x!==undefined&&x!==null)n.textContent=String(x);return n};
@@ -61,8 +62,10 @@ function currentUiRuntime(){
   async function json(url,opts={}){const init={credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'},...opts},r=await fetch(url,init),raw=await r.text(),j=(()=>{try{return raw?JSON.parse(raw):{}}catch{return{}}})();if(!r.ok||j?.ok===false){const code=txt(j?.code)||('ACCESS_HTTP_'+r.status+(raw&&!j?.code?'_NON_JSON':'')),e=new Error(code);e.code=code;e.status=r.status;e.payload=j;throw e}return j?.data??j}
   const owner=(path,opts={})=>json(OWNER_API+'?path='+encodeURIComponent(path),opts),auth=(path,opts={})=>json(AUTH+path,opts);
 
-  async function loadAll(){
-    const [b,a,w]=await Promise.all([owner('/admin/bootstrap'),auth('/bootstrap'),owner('/admin/access-workspace').catch(()=>null)]);
+  async function loadAll(reason='manual'){
+    const source=String(reason||'manual').toUpperCase().replace(/[^A-Z0-9_-]+/g,'_').slice(0,48);
+    const headers={accept:'application/json','x-rona-client-source':'ADMIN_ACCESS_REFRESH','x-rona-client-refresh-reason':'ADMIN_ACCESS_'+source};
+    const [b,a,w]=await Promise.all([owner('/admin/bootstrap',{headers}),auth('/bootstrap',{headers}),owner('/admin/access-workspace',{headers}).catch(()=>null)]);
     business=b||{};authority=a||{};workspace=w&&typeof w==='object'?w:null;
     window.__RONA_OWNER_ADMIN_SNAPSHOT__=business;
     window.__RONA_ADMIN_LIVE_SNAPSHOT__={...(window.__RONA_ADMIN_LIVE_SNAPSHOT__||{}),authority,accessWorkspace:workspace,at:new Date().toISOString()};
@@ -225,10 +228,11 @@ function currentUiRuntime(){
   function bodyView(){return S.view==='agents'?agentsView():S.view==='users'?usersView():S.view==='history'?historyView():companiesView()}
   function drawBody(){const r=ensureRoot();if(!r||!business||!authority)return;const old=q('#ca-current-body',r);if(!old)return;old.replaceChildren(bodyView())}
   function render(){const r=ensureRoot();if(!r)return;if(!business||!authority){r.replaceChildren(hero(),card('Загрузка',el('div','rona-owner-muted','Получаю актуальные данные…')));window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='LOADING';return}const body=el('div');body.id='ca-current-body';body.append(bodyView());r.replaceChildren(hero(),kpis(),toolbar(),body);delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_READY__=true;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';window.__RONA_CLIENTS_AGENTS_V4_READY__=true;document.documentElement.dataset.ronaAccessOwner='clients-agents-current-v5';document.documentElement.dataset.ronaAccessCreateOwner='clients-agents-current-v5';document.documentElement.dataset.ronaAccessFunctionalBuild='single-owner-impersonation-json-v8-20260920';installRootGuard()}
-  async function refresh(){if(refreshPromise)return refreshPromise;refreshPromise=(async()=>{try{window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__=window.__RONA_CLIENTS_AGENTS_CURRENT_READY__?'REFRESHING_READY':'LOADING';await loadAll();render();window.__RONA_CLIENTS_AGENTS_CURRENT_LAST_ERROR__=null;return true}catch(e){const r=ensureRoot(),message=errorText(e.code||e.message);window.__RONA_CLIENTS_AGENTS_CURRENT_LAST_ERROR__={message,at:new Date().toISOString()};if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&r&&accessRootHealthy()){r.dataset.ronaAccessDegraded='true';window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE';installRootGuard();return false}if(r)r.replaceChildren(hero(),card('Раздел временно недоступен',el('div','rona-owner-danger',message)));window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='DEGRADED';installRootGuard();return false}finally{refreshPromise=null}})();return refreshPromise}
-  function repair(){const r=ensureRoot();if(!r)return false;if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&accessRootHealthy()){delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';installRootGuard();return true}void refresh();return true}
+  async function refresh(reason='manual'){if(refreshPromise)return refreshPromise;if(reason==='auto-repair'&&lastRefreshAt&&Date.now()-lastRefreshAt<AUTO_REPAIR_COOLDOWN_MS)return true;refreshPromise=(async()=>{try{window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__=window.__RONA_CLIENTS_AGENTS_CURRENT_READY__?'REFRESHING_READY':'LOADING';await loadAll(reason);lastRefreshAt=Date.now();render();window.__RONA_CLIENTS_AGENTS_CURRENT_LAST_ERROR__=null;return true}catch(e){const r=ensureRoot(),message=errorText(e.code||e.message);window.__RONA_CLIENTS_AGENTS_CURRENT_LAST_ERROR__={message,at:new Date().toISOString()};if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&r&&accessRootHealthy()){r.dataset.ronaAccessDegraded='true';window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY_STALE';installRootGuard();return false}if(r)r.replaceChildren(hero(),card('Раздел временно недоступен',el('div','rona-owner-danger',message)));window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='DEGRADED';installRootGuard();return false}finally{refreshPromise=null}})();return refreshPromise}
+  function repair(){const r=ensureRoot();if(!r)return false;if(window.__RONA_CLIENTS_AGENTS_CURRENT_READY__&&accessRootHealthy()){delete r.dataset.ronaAccessDegraded;window.__RONA_CLIENTS_AGENTS_CURRENT_STATE__='READY';installRootGuard();return true}void refresh('auto-repair');return true}
+  window.__RONA_CLIENTS_AGENTS_TRAFFIC_POLICY__={version:'ADMIN_TRAFFIC_STABILIZATION_V1',autoRepairCooldownMs:AUTO_REPAIR_COOLDOWN_MS,source:'ADMIN_ACCESS_REFRESH'};
   window.__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair;
-  async function boot(){for(let i=0;i<80&&!page();i++)await sleep(50);await refresh()}
+  async function boot(){for(let i=0;i<80&&!page();i++)await sleep(50);await refresh('boot')}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('rona:admin-pagechange',e=>{if(String(e?.detail?.page||'')==='access')repair()});
 }
