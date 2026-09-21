@@ -7,6 +7,7 @@ on:
     paths:
       - 'functions/portal/**'
       - 'supabase/functions/rona-portal-api/client.ts'
+      - 'supabase/functions/rona-portal-api/index.ts'
       - 'supabase/functions/rona-portal-api/phase5d.ts'
       - '.github/workflows/client-tenant-isolation-qa.yml'
   pull_request:
@@ -15,6 +16,7 @@ on:
     paths:
       - 'functions/portal/**'
       - 'supabase/functions/rona-portal-api/client.ts'
+      - 'supabase/functions/rona-portal-api/index.ts'
       - 'supabase/functions/rona-portal-api/phase5d.ts'
       - '.github/workflows/client-tenant-isolation-qa.yml'
 
