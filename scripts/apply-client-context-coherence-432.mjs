@@ -55,7 +55,7 @@ if(!runtime.includes(COHERENCE_MARK)){
     runtime,
     'window.fetch=async function(input,init){',
     'function onChange',
-    fetchTo,
+    fetchTo+';\n',
     'ISSUE432_FETCH_INTERCEPTOR',
     ['clientUrl(raw)','CONTEXT_ROUTE','nativeFetch','taggedInit','invalidateProjection']
   );
