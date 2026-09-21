@@ -252,12 +252,9 @@ try{
   const afterRecreate=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
   assert(afterRecreate.zoom===userView.zoom&&close(afterRecreate.lat,userView.lat)&&close(afterRecreate.lng,userView.lng),'DOM recreation did not restore persisted viewport');
 
-  await page.getByRole('button',{name:'Показать весь плановый маршрут'}).click();
-  const fullRouteView=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
-  assert(fullRouteView.focusMode==='FULL'&&fullRouteView.reason==='FULL_ROUTE_FIT','full-route control did not switch explicit map mode');
-  await page.getByRole('button',{name:'Операционный фокус по фактическим группам вагонов'}).click();
-  const operationalView=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
-  assert(operationalView.focusMode==='OPERATIONAL'&&operationalView.reason==='OPERATIONAL_FIT','operational control did not restore operational map mode');
+  await page.getByRole('button',{name:'Показать Россию и СНГ'}).click();
+  const homeView=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
+  assert(homeView.zoom===3&&close(homeView.lat,52.5)&&close(homeView.lng,68),'СНГ/Home did not explicitly reset default viewport');
 
   await selector.selectOption(DEAL_B);
   await page.waitForFunction(key=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey===key&&window.__RONA_RAIL_MAP_ACTIVE_VIEW__?.dealKey===key,DEAL_B,{timeout:5000});
@@ -270,7 +267,7 @@ try{
   assert(dealB.state.railCount===1&&dealB.state.wagonCount===0,'deal B context did not own rail KPIs');
   assert(dealB.text.includes('QA-GU12-B1')&&!dealB.text.includes('QA-GU12-A1'),'deal B document scope incorrect');
   const bStore=dealB.store.views['DEAL:'+DEAL_B];
-  assert(bStore?.routeFitApplied===true&&bStore?.reason==='OPERATIONAL_FIT'&&bStore?.focusMode==='OPERATIONAL','new deal did not receive one-time operational fit');
+  assert(bStore?.routeFitApplied===true&&bStore?.reason==='ROUTE_FIT','new deal did not receive one-time planned-route fit');
   assert(dealB.view.zoom!==3||!close(dealB.view.lat,52.5)||!close(dealB.view.lng,68),'route fit fell back to global default despite plannedRoute source');
 
   await page.getByRole('button',{name:'Приблизить карту'}).click();
@@ -311,11 +308,11 @@ try{
   console.log('ISSUE644_MAP_PERSIST_3_REFRESH=PASS');
   console.log('ISSUE644_NAVIGATION_RESTORE=PASS');
   console.log('ISSUE644_DOM_RECREATE_RESTORE=PASS');
-  console.log('ISSUE644_MAP_MODE_TOGGLE=PASS');
-  console.log('ISSUE644_ONE_TIME_OPERATIONAL_FIT=PASS');
+  console.log('ISSUE644_HOME_RESET=PASS');
+  console.log('ISSUE644_ONE_TIME_ROUTE_FIT=PASS');
   console.log('ISSUE644_MAP_DATA_CONTRACT=PASS');
   console.log('ISSUE644_DEGRADED_READ_MODEL_PRESERVE=PASS');
-  console.log(JSON.stringify({bootstrapRequests,initialState:initial.state,userView,afterThreeRefresh,afterRecreate,fullRouteView,operationalView,dealBState:dealB.state,dealBUser,dealBAfter}));
+  console.log(JSON.stringify({bootstrapRequests,initialState:initial.state,userView,afterThreeRefresh,afterRecreate,homeView,dealBState:dealB.state,dealBUser,dealBAfter}));
   await context.close();
 }catch(error){
   console.error('ISSUE644_STAGE_A_BROWSER_QA=FAIL',error?.stack||error);
