@@ -1,0 +1,31 @@
+name: Client idle network legacy scan v1
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'scripts/qa-client-idle-network-legacy-scan-v1.mjs'
+      - '.github/workflows/client-idle-network-legacy-scan-v1.yml'
+      - 'assets/portal-runtime/**'
+      - 'scripts/attach-client-**'
+      - 'scripts/apply-client-**'
+      - 'scripts/materialize-portal-client-**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  idle-network-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build exact Client artifact
+        run: npm run build
+      - name: Scan emitted Client runtime for recurring network owners
+        run: node scripts/qa-client-idle-network-legacy-scan-v1.mjs
