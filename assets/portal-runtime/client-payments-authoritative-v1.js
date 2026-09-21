@@ -4,7 +4,7 @@ if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
+const API='/portal/api';
 const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,observer:null,scheduled:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
@@ -126,7 +126,7 @@ async function load(force=false){
   if(!ctx){clearForContext(null);renderLoadingError('Выберите компанию и договор для отображения платежей.');ready(true);return}
   const key=contextKey(ctx);
   if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx);ready(true);return}
+  if(!force&&state.detail){render(state.detail,ctx);ready(true);return}
   state.loading=true;
   try{
     const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
@@ -143,10 +143,7 @@ function start(){
   if(!authority){renderLoadingError('Контекст клиента временно недоступен.');ready(false);return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';const changed=key!==state.activeKey;if(changed)clearForContext(ctx);schedule(true)});
   schedule(true);
-  state.timer=window.setInterval(()=>load(true),REFRESH_MS);
-  if(!state.observer){state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true})}
-  window.addEventListener('pageshow',()=>load(true),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(true)});
+  window.addEventListener('pageshow',()=>load(false),{passive:true});
   document.addEventListener('click',e=>{const t=norm(e.target?.textContent);if(t.includes('Платежи'))setTimeout(()=>load(true),120)},true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
