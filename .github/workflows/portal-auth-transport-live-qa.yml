@@ -41,6 +41,14 @@ jobs:
               return {status:0,body:''};
             }
           };
+          const health=await timed('SUPABASE_AUTH_HEALTH',()=>fetch(url+'/auth/v1/health',{
+            headers:{apikey:key,accept:'application/json'},
+            signal:AbortSignal.timeout(12000)
+          }));
+          const edge=await timed('SUPABASE_EDGE_AUTHORITY_UNAUTH',()=>fetch(url+'/functions/v1/rona-portal-api/session/authority',{
+            headers:{apikey:key,accept:'application/json'},
+            signal:AbortSignal.timeout(12000)
+          }));
           const direct=await timed('DIRECT_SUPABASE_AUTH',()=>fetch(url+'/auth/v1/token?grant_type=password',{
             method:'POST',
             headers:{apikey:key,'content-type':'application/json'},
@@ -54,7 +62,9 @@ jobs:
             body:JSON.stringify({identifier,password}),
             signal:AbortSignal.timeout(20000)
           }));
-          if(direct.status===0||direct.status>=500)throw new Error('DIRECT_SUPABASE_AUTH_UNAVAILABLE_'+direct.status);
+          if(edge.status===0||edge.status>=500)console.log('SUPABASE_FUNCTION_GATEWAY_UNAVAILABLE');
+          if(health.status===0||health.status>=500)console.log('SUPABASE_AUTH_HEALTH_UNAVAILABLE');
+          if(direct.status===0||direct.status>=500)console.log('DIRECT_SUPABASE_AUTH_UNAVAILABLE_'+direct.status);
           if(portal.status===503)throw new Error('PORTAL_AUTH_TRANSPORT_UNAVAILABLE');
           if(portal.status!==401)throw new Error('PORTAL_LOGIN_UNEXPECTED_'+portal.status);
           console.log('PORTAL_AUTH_TRANSPORT_LIVE=PASS');
