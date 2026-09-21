@@ -23,11 +23,9 @@ function secureHeaders(){const h=new Headers({'content-type':'application/json; 
 function json(body,status=200,cookies=[]){const h=secureHeaders();for(const c of cookies)h.append('set-cookie',c);return new Response(JSON.stringify(body),{status,headers:h})}
 function sameOrigin(request){const u=new URL(request.url),origin=request.headers.get('origin');if(origin)return origin===u.origin;const ref=request.headers.get('referer');if(!ref)return request.method==='GET';try{return new URL(ref).origin===u.origin}catch{return false}}
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
-async function feedRpc(token){return fetch(`${SUPABASE_URL}/rest/v1/rpc/owner_client_market_intelligence_feed_v1`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,accept:'application/json','content-type':'application/json'},body:'{}',cache:'no-store'})}
-async function loadWithRefresh(access,refresh){let cookies=[];let response=await feedRpc(access);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;cookies=tokenCookies(next.data);response=await feedRpc(access)}}return{response,cookies}}
 async function effectiveClientFeed(access,request,impersonation){
   const headers=applyBrowserImpersonation(new Headers({authorization:`Bearer ${access}`,accept:'application/json'}),impersonation);
-  for(const name of ['x-request-id','x-correlation-id','x-rona-client-source']){const value=request.headers.get(name);if(value)headers.set(name,value)}
+  for(const name of ['x-request-id','x-correlation-id','x-rona-client-source','x-rona-client-refresh-reason']){const value=request.headers.get(name);if(value)headers.set(name,value)}
   return fetch(EFFECTIVE_CLIENT_FEED_API,{method:'GET',headers,cache:'no-store'});
 }
 function valid(payload){
@@ -47,27 +45,20 @@ export async function onRequest(context){
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
-  if(impersonation.active){
-    let response=await effectiveClientFeed(access,request,impersonation);
-    if(response.status===401&&refresh){
-      const next=await authRefresh(refresh);
-      if(next.ok&&next.data?.access_token&&next.data?.refresh_token){
-        access=next.data.access_token;setCookies=tokenCookies(next.data);
-        response=await effectiveClientFeed(access,request,impersonation);
-      }
+  let response=await effectiveClientFeed(access,request,impersonation);
+  if(response.status===401&&refresh){
+    const next=await authRefresh(refresh);
+    if(next.ok&&next.data?.access_token&&next.data?.refresh_token){
+      access=next.data.access_token;setCookies=tokenCookies(next.data);
+      response=await effectiveClientFeed(access,request,impersonation);
     }
-    if(response.status===401)return json({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'},409,setCookies);
-    const payload=await response.json().catch(()=>null);
-    if(!response.ok||payload?.ok===false)return json(payload&&typeof payload==='object'?payload:{ok:false,code:'CLIENT_MARKET_FEED_FAILED'},response.status,setCookies);
-    if(!valid(payload?.data))return json({ok:false,code:'CLIENT_MARKET_FEED_INVALID'},502,setCookies);
-    return json({ok:true,data:payload.data},200,setCookies);
   }
-  const loaded=await loadWithRefresh(access,refresh);
-  if(loaded.cookies.length)setCookies=loaded.cookies;
-  const response=loaded.response;
-  if(response.status===401)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,setCookies.length?setCookies:clearCookies());
-  if(!response.ok){const raw=await response.text().catch(()=>''),denied=response.status===403||response.status===400&&/PORTAL_ACCESS_DENIED|42501/i.test(raw);return json({ok:false,code:denied?'CLIENT_MARKET_ACCESS_DENIED':'CLIENT_MARKET_FEED_FAILED'},denied?403:502,setCookies)}
-  const data=await response.json().catch(()=>null);
-  if(!valid(data))return json({ok:false,code:'CLIENT_MARKET_FEED_INVALID'},502,setCookies);
-  return json({ok:true,data},200,setCookies);
+  if(response.status===401){
+    if(impersonation.active)return json({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'},409,setCookies);
+    return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,setCookies.length?setCookies:clearCookies());
+  }
+  const payload=await response.json().catch(()=>null);
+  if(!response.ok||payload?.ok===false)return json(payload&&typeof payload==='object'?payload:{ok:false,code:'CLIENT_MARKET_FEED_FAILED'},response.status||502,setCookies);
+  if(!valid(payload?.data))return json({ok:false,code:'CLIENT_MARKET_FEED_INVALID'},502,setCookies);
+  return json({ok:true,data:payload.data},200,setCookies);
 }
