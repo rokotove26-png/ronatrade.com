@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 jobs:
-  valid-auth-password-proof:
+  valid-client-auth-route-proof:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -19,14 +19,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Prove valid temporary account password grant and cleanup
+      - name: Prove valid temporary Client session through authority and live portal
         shell: bash
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
           const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
           const AUDIENCE='rona-issue430-owner-uat-browser-v2';
           const SOURCE_PORTAL_USER='724ff368-5ba3-449a-bd19-665ee487ee6f';
+          const source=readFileSync('functions/portal/auth/login.js','utf8');
+          const publishable=(source.match(/const SUPABASE_PUBLISHABLE_KEY = '([^']+)'/)||[])[1];
+          if(!publishable)throw new Error('PUBLISHABLE_KEY_MISSING');
+
           async function oidc(){
             const base=process.env.ACTIONS_ID_TOKEN_REQUEST_URL,token=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
             if(!base||!token)throw new Error('GITHUB_OIDC_ENV_MISSING');
@@ -36,23 +41,50 @@ jobs:
             if(!r.ok||!j?.value)throw new Error('GITHUB_OIDC_'+r.status);
             return j.value;
           }
-          async function call(path,body){
+          async function issuer(path,body){
             const jwt=await oidc(),started=Date.now();
-            const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:'Bearer '+jwt,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+            const r=await fetch(ISSUER+path,{
+              method:'POST',
+              headers:{authorization:'Bearer '+jwt,'content-type':'application/json','cache-control':'no-store'},
+              body:JSON.stringify(body),
+              signal:AbortSignal.timeout(60000)
+            });
             const j=await r.json().catch(()=>null);
-            console.log(path+' '+JSON.stringify({status:r.status,ms:Date.now()-started,code:j?.code||null,ok:j?.ok===true,mode:j?.mode||null}));
+            console.log('ISSUER '+path+' '+JSON.stringify({status:r.status,ms:Date.now()-started,ok:j?.ok===true,mode:j?.mode||null,code:j?.code||null}));
             return {r,j};
           }
+
           let issued=null;
           try{
-            const out=await call('/issue',{portalUserId:SOURCE_PORTAL_USER});
+            const out=await issuer('/issue',{portalUserId:SOURCE_PORTAL_USER});
             if(!out.r.ok||!out.j?.ok)throw new Error('ISSUE_FAILED_'+out.r.status+'_'+String(out.j?.code||'UNKNOWN'));
             issued=out.j;
-            if(!issued.auth_user_id||!issued.access_token)throw new Error('ISSUE_SESSION_MISSING');
+            if(!issued.access_token||!issued.refresh_token||!issued.auth_user_id)throw new Error('ISSUE_SESSION_MISSING');
             console.log('VALID_TEMP_PASSWORD_GRANT=PASS');
+
+            const authorityStarted=Date.now();
+            const authority=await fetch('https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-portal-api/session/authority',{
+              headers:{apikey:publishable,authorization:'Bearer '+issued.access_token,accept:'application/json'},
+              signal:AbortSignal.timeout(15000)
+            });
+            const authorityJson=await authority.json().catch(()=>null);
+            console.log('SESSION_AUTHORITY '+JSON.stringify({status:authority.status,ms:Date.now()-authorityStarted,ok:authorityJson?.ok===true,authority:authorityJson?.authority||null,roles:authorityJson?.user?.roles||[]}));
+            if(!authority.ok||!authorityJson?.ok||authorityJson?.authority!=='PORTAL_SESSION_AUTHORITY_V1'||!Array.isArray(authorityJson?.user?.roles)||!authorityJson.user.roles.includes('CLIENT'))throw new Error('SESSION_AUTHORITY_CLIENT_FAILED');
+
+            const clientStarted=Date.now();
+            const client=await fetch('https://ronaoil.com/portal/client',{
+              method:'GET',
+              redirect:'manual',
+              headers:{cookie:'rona_portal_at='+issued.access_token+'; rona_portal_rt='+issued.refresh_token,accept:'text/html'},
+              signal:AbortSignal.timeout(30000)
+            });
+            const clientBody=await client.text();
+            console.log('LIVE_PORTAL_CLIENT '+JSON.stringify({status:client.status,ms:Date.now()-clientStarted,contentType:client.headers.get('content-type'),bytes:clientBody.length,location:client.headers.get('location')}));
+            if(client.status!==200||!String(client.headers.get('content-type')||'').includes('text/html')||clientBody.length<1000)throw new Error('LIVE_PORTAL_CLIENT_FAILED_'+client.status);
+            console.log('POST_RESTART_CLIENT_ROUTE=PASS');
           } finally {
             if(issued?.auth_user_id){
-              const rev=await call('/revoke',{accessToken:issued.access_token,sessionId:issued.session_id,authUserId:issued.auth_user_id});
+              const rev=await issuer('/revoke',{accessToken:issued.access_token,sessionId:issued.session_id,authUserId:issued.auth_user_id});
               if(!rev.r.ok||!rev.j?.revoked||!rev.j?.session_absent)throw new Error('REVOKE_NOT_PROVEN');
               console.log('VALID_TEMP_SESSION_CLEANUP=PASS');
             }
