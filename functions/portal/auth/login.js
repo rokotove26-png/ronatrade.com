@@ -87,7 +87,7 @@ async function recoverExistingOwnerSession(request,next,identifier=''){
  }
  return null;
 }
-async function sessionMe(accessToken){let lastStatus=503;const timeouts=[12000,6000];for(let attempt=0;attempt<timeouts.length;attempt++){try{const r=await fetchWithTimeout(`${PORTAL_API}/session/me`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},timeouts[attempt]);lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return {state:'VALID',me:j,status:r.status};}else if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};else if(r.status!==429&&r.status<500)return {state:'INVALID',me:null,status:r.status};}catch{lastStatus=503}if(attempt<timeouts.length-1)await new Promise(resolve=>setTimeout(resolve,500));}return {state:'UNAVAILABLE',me:null,status:lastStatus}}
+async function sessionAuthority(accessToken){let lastStatus=503;const timeouts=[5000,4000];for(let attempt=0;attempt<timeouts.length;attempt++){try{const r=await fetchWithTimeout(`${PORTAL_API}/session/authority`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},timeouts[attempt]);lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user&&j?.authority==='PORTAL_SESSION_AUTHORITY_V1')return {state:'VALID',me:j,status:r.status};}else if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};else if(r.status!==429&&r.status<500)return {state:'INVALID',me:null,status:r.status};}catch{lastStatus=503}if(attempt<timeouts.length-1)await new Promise(resolve=>setTimeout(resolve,350));}return {state:'UNAVAILABLE',me:null,status:lastStatus}}
 async function logout(accessToken){try{await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`}})}catch(_){}}
 
 export async function onRequestPost({request}){
@@ -106,7 +106,7 @@ export async function onRequestPost({request}){
    if(retryableAuthFailure(login))return asJson?json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',retryable:true},503):response(unavailableHtml(parseLocalNext(next)||'/portal/admin'),503,'text/html; charset=utf-8');
    return asJson?json({ok:false,code:'LOGIN_DENIED'},401,clearCookies()):response(loginHtml('Неверный логин или пароль.'),401,'text/html; charset=utf-8',clearCookies());
  }
- const probe=await sessionMe(login.data.access_token);
+ const probe=await sessionAuthority(login.data.access_token);
  if(probe.state==='UNAVAILABLE'){
    const target=parseLocalNext(next)||'/portal/admin';
    const ownerAdminHandoff=target==='/portal/admin'&&emailForIdentifier(identifier)===OWNER_EMAIL;
