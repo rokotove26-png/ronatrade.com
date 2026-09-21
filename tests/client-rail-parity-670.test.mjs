@@ -51,6 +51,7 @@ function model(scope,{station,wagons=1,unresolved=0}={}){
       routeProgress:{state:"OBSERVED_AND_MATCHED",actualPoints:[{lat:54,lng:26,stationCode:"111111"},{lat:53.5,lng:26.5,stationCode:"121212"}],remainingPoints:[{lat:53.5,lng:26.5,stationCode:"121212"},{lat:53,lng:27,stationCode:"222222"}]},
       routeStations:[{lat:54,lng:26,sequence:1,stationCode:"111111"},{lat:53,lng:27,sequence:2,stationCode:"222222"}],
       routeAssignment:{resolutionState:"RESOLVED"},
+      routeCohorts:[{cohortKey:`COHORT-${scope.deal_id}`,wagonCount:wagons,wagonNumbers:positions.map(p=>p.wagonNumber),observationSignature:"111111>222222",observations:[],segments:[]}],
       wagonPositions:positions,
       unresolvedOrConflictCount:unresolved,
     }],
@@ -86,6 +87,7 @@ test("client projection is Admin-compatible and deal-isolated",()=>{
   assert.equal(data.plannedRouteByDeal[DEAL_A].status,"PUBLIC_SOURCE_ROUTE_RESOLVED");
   assert.equal(data.actualRouteByDeal["DEAL-QA-A"].status,"OBSERVED_HISTORY");
   assert.equal(data.remainingRouteByDeal["DEAL-QA-B"].status,"ROUTE_REMAINDER");
+  assert.equal(data.routeCohortsByDeal[DEAL_A][0].cohortKey,"COHORT-DEAL-QA-A");
   assert.equal(data.exchange.active_targets,2);
   assert.equal(data.exchange.conflicts,1);
 });
@@ -121,7 +123,7 @@ test("production wrapper preserves v56 and authorizes before the internal Rail c
     "client_user_has_contract_access",
     "client_user_has_deal_access",
     "d.lifecycle_state='ACTIVE'",
-    "rona_rail_deal_map_read_model_core_v1",
+    "rona_rail_deal_map_read_model_core_v2",
     "${deal.deal_key}::uuid",
     "${deal.deal_id}::text",
     'route === "/v1/client/rail-canonical"',
@@ -141,27 +143,23 @@ test("production wrapper preserves v56 and authorizes before the internal Rail c
 });
 
 test("internal core is private and Admin V4 keeps the ADMIN gate",()=>{
-  const migration=fs.readFileSync("supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql","utf8");
-  assert.ok(migration.includes("create or replace function portal_private.rona_rail_deal_map_read_model_core_v1("));
-  const coreStart=migration.indexOf("create or replace function portal_private.rona_rail_deal_map_read_model_core_v1(");
-  const coreEnd=migration.indexOf("comment on function portal_private.rona_rail_deal_map_read_model_core_v1",coreStart);
+  const migration=fs.readFileSync("supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql","utf8");
+  assert.ok(migration.includes("create or replace function portal_private.rona_rail_deal_map_read_model_core_v2("));
+  const coreStart=migration.indexOf("create or replace function portal_private.rona_rail_deal_map_read_model_core_v2(");
+  const coreEnd=migration.indexOf("revoke all on function portal_private.rona_rail_deal_map_read_model_core_v2",coreStart);
   assert.ok(coreStart>=0&&coreEnd>coreStart,"core function segment missing");
   const core=migration.slice(coreStart,coreEnd);
-  assert.match(core,/security invoker/i);
+  assert.doesNotMatch(core,/security definer/i);
   assert.equal(/owner_r1_actor\s*\(/i.test(core),false,"internal generation core must not make an authority decision");
-  assert.ok(migration.includes("revoke all on function portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)\nfrom public,anon,authenticated;"));
-  assert.ok(migration.includes("grant execute on function portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)\nto service_role;"));
-  assert.equal(/grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v1\(uuid,text\)[\s\S]{0,80}authenticated/i.test(migration),false);
+  assert.match(migration,/revoke all on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)\s+from public,anon,authenticated;/i);
+  assert.match(migration,/grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)\s+to service_role;/i);
+  assert.equal(/grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)[\s\S]{0,80}authenticated/i.test(migration),false);
 
-  const adminPrivate=migration.indexOf("create or replace function portal_private.rona_admin_rail_deal_map_read_model_v4");
   const adminPublic=migration.indexOf("create or replace function public.rona_admin_rail_deal_map_read_model_v4");
-  assert.ok(adminPrivate>coreEnd&&adminPublic>adminPrivate,"Admin wrappers missing");
-  const privateBody=migration.slice(adminPrivate,adminPublic);
+  assert.ok(adminPublic>coreEnd,"Admin wrapper missing");
   const publicBody=migration.slice(adminPublic);
-  for(const body of [privateBody,publicBody]){
-    assert.ok(body.includes("owner_r1_actor('ADMIN')"),"Admin V4 lost ADMIN actor gate");
-    assert.ok(body.includes("rona_rail_deal_map_read_model_core_v1"),"Admin V4 must delegate canonical generation to shared core");
-  }
+  assert.ok(publicBody.includes("owner_r1_actor('ADMIN')"),"Admin V4 lost ADMIN actor gate");
+  assert.ok(publicBody.includes("rona_rail_deal_map_read_model_core_v2"),"Admin V4 must delegate canonical generation to cohort-aware core");
 });
 
 test("real integration harness uses real Auth, candidate Edge and PostgreSQL rather than a mocked canonical endpoint",()=>{
@@ -175,7 +173,7 @@ test("real integration harness uses real Auth, candidate Edge and PostgreSQL rat
     "authorization:'Bearer '+accessToken",
     "edgeUrl+'/v1/client/rail-canonical",
     "rona_admin_rail_deal_map_read_model_v4",
-    "rona_rail_deal_map_read_model_core_v1",
+    "rona_rail_deal_map_read_model_core_v2",
     "CLIENT_RAIL_CANONICAL_READ_MODEL_UNAVAILABLE",
     "DEGRADED_REFRESH_DID_NOT_PRESERVE_LAST_GOOD",
   ]) assert.ok(source.includes(required),required);
@@ -196,7 +194,7 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("RAIL_READ_MODEL_DEGRADED"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V2"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V4"));
-  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V4"));
+  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS"));
   assert.ok(source.includes("clientRailNormalizeRouteParity"));
   assert.ok(source.includes("clientRailRepairMapParity"));
   assert.ok(source.includes("clientRailRenderAuthoritativeRouteOverlay"));
@@ -204,6 +202,8 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("railMapRequestDraw"));
   assert.ok(source.includes("railMapFitRoute"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1'"));
+  assert.ok(source.includes("routeCohortsByDeal"));
+  assert.ok(source.includes("railMapCohortDraw"));
   assert.ok(source.includes("rona-client-rail-route-pin"));
   assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));

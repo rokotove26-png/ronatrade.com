@@ -89,7 +89,7 @@ async function exactDealReadModel(c:any, context:any, deal:any) {
   // the internal core. The Admin wrapper is never invoked here.
   // The core is not executable by anon/authenticated roles.
   const rows = await sql`
-    select portal_private.rona_rail_deal_map_read_model_core_v1(
+    select portal_private.rona_rail_deal_map_read_model_core_v2(
       d.id,
       d.deal_id
     ) as data

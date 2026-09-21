@@ -80,6 +80,7 @@ create table portal_private.rail_station_geo_directory_v1(
   id uuid primary key,
   esr_code text not null unique,
   canonical_station_name text not null,
+  country_code text,
   latitude numeric,
   longitude numeric,
   authority_state text not null default 'CONFIRMED',
@@ -128,12 +129,15 @@ create table portal_private.rail_xlsx_dislocation_current_position_v1(
 );
 
 create table portal_private.rail_xlsx_dislocation_effective_v1(
+  id uuid primary key default gen_random_uuid(),
   effective_deal_key uuid not null,
+  wagon_number text,
   station_code text,
   station_name text,
   parsed_event_at timestamptz,
   event_at_local timestamp,
   source_received_at timestamptz,
+  source_checksum_sha256 text,
   position_status text,
   is_superseded boolean not null default false
 );

@@ -1,6 +1,7 @@
 import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js';
 
 const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
+const ROUTE_OVERLAY_COMPAT_MARKER="window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_COMPAT__='CLIENT_RAIL_ROUTE_OVERLAY_V4';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
@@ -16,6 +17,7 @@ const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
+${ROUTE_OVERLAY_COMPAT_MARKER}
 window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V3 CLIENT_RAIL_ROUTE_OVERLAY_V3';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
 function clientRailOuter(){
@@ -105,6 +107,7 @@ function clientRailNormalizeRouteParity(payload){
       progress=payload.routeProgressByDeal&&typeof payload.routeProgressByDeal==='object'?payload.routeProgressByDeal:{},
       stations=payload.routeStationsByDeal&&typeof payload.routeStationsByDeal==='object'?payload.routeStationsByDeal:{},
       assignments=payload.routeAssignmentByDeal&&typeof payload.routeAssignmentByDeal==='object'?payload.routeAssignmentByDeal:{},
+      cohorts=payload.routeCohortsByDeal&&typeof payload.routeCohortsByDeal==='object'?payload.routeCohortsByDeal:{},
       ready=0,totalPoints=0;
   deals.forEach(function(d){
     if(!d)return;
@@ -114,7 +117,8 @@ function clientRailNormalizeRouteParity(payload){
         r=clientRailRouteProjection(remaining[key]||remaining[id]||null,'ROUTE_REMAINDER_UNAVAILABLE'),
         prog=progress[key]||progress[id]||null,
         routeStations=stations[key]||stations[id]||null,
-        assignment=assignments[key]||assignments[id]||null;
+        assignment=assignments[key]||assignments[id]||null,
+        routeCohorts=cohorts[key]||cohorts[id]||[];
     if(p.points.length<2&&Array.isArray(routeStations)){
       var routePoints=routeStations.map(clientRailRoutePoint).filter(Boolean);
       if(routePoints.length>=2)p={status:assignment&&assignment.resolutionState==='RESOLVED'?'PUBLIC_SOURCE_ROUTE_RESOLVED':'SOURCE_NOT_AVAILABLE',points:routePoints,geometry:null,provenance:{source:'ROUTE_STATIONS_FALLBACK'}}
@@ -130,11 +134,13 @@ function clientRailNormalizeRouteParity(payload){
     clientRailRouteAlias(planned,key,id,p);
     clientRailRouteAlias(actual,key,id,a);
     clientRailRouteAlias(remaining,key,id,r);
+    clientRailRouteAlias(cohorts,key,id,Array.isArray(routeCohorts)?routeCohorts:[]);
     if(p.points.length>=2){ready++;totalPoints+=p.points.length}
   });
   payload.plannedRouteByDeal=planned;
   payload.actualRouteByDeal=actual;
   payload.remainingRouteByDeal=remaining;
+  payload.routeCohortsByDeal=cohorts;
   window.__RONA_CLIENT_RAIL_ROUTE_PARITY__={version:'CLIENT_ADMIN_ROUTE_PARITY_V2',dealCount:deals.length,routeReadyDeals:ready,plannedPointCount:totalPoints,normalizedAt:new Date().toISOString()};
   document.documentElement.dataset.ronaClientRailRouteParity=ready>0?'READY':'NO_ROUTE';
   return payload
@@ -176,8 +182,9 @@ function clientRailRenderAuthoritativeRouteOverlay(state){
     if(!state||!state.viewport||!state.routePane||!mapData||typeof railMapProject!=='function'||typeof railMapWorld!=='function')return 0;
     var planned=mapData.plannedRoute&&Array.isArray(mapData.plannedRoute.points)?mapData.plannedRoute.points.map(clientRailRoutePoint).filter(Boolean):[],
         actual=mapData.actualRoute&&Array.isArray(mapData.actualRoute.points)?mapData.actualRoute.points.map(clientRailRoutePoint).filter(Boolean):[],
-        remaining=mapData.remainingRoute&&Array.isArray(mapData.remainingRoute.points)?mapData.remainingRoute.points.map(clientRailRoutePoint).filter(Boolean):[];
-    if(planned.length<2&&actual.length<2&&remaining.length<2)return 0;
+        remaining=mapData.remainingRoute&&Array.isArray(mapData.remainingRoute.points)?mapData.remainingRoute.points.map(clientRailRoutePoint).filter(Boolean):[],
+        cohortCount=Array.isArray(mapData.routeCohorts)?mapData.routeCohorts.length:0;
+    if(planned.length<2&&actual.length<2&&remaining.length<2&&cohortCount===0)return 0;
     var rect=state.viewport.getBoundingClientRect(),width=Math.max(320,Math.round(rect.width||900)),height=Math.max(260,Math.round(rect.height||440)),z=Number(state.zoom)||3,
         center=railMapProject(Number(state.lat)||52.5,Number(state.lng)||68,z),left=center.x-width/2,top=center.y-height/2,
         svg=document.createElementNS('http://www.w3.org/2000/svg','svg'),count=0,hasSplit=actual.length>=2||remaining.length>=2;
@@ -203,6 +210,9 @@ function clientRailRenderAuthoritativeRouteOverlay(state){
     }else{
       count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line','rgba(4,24,36,.56)',7.2,'#63d8ff',3.6,1)
     }
+    if(typeof railMapCohortDraw==='function'){
+      count+=railMapCohortDraw(svg,{mapData:mapData},left,top,z)
+    }
     var nodes=planned.length?planned:(actual.length?actual:remaining);
     nodes.forEach(function(pt,idx){
       var endpoint=idx===0||idx===nodes.length-1,important=endpoint||!!pt.borderRole||pt.waypointRole==='ORIGIN'||pt.waypointRole==='DESTINATION';
@@ -227,7 +237,7 @@ function clientRailRenderAuthoritativeRouteOverlay(state){
       svg.append(marker)
     });
     state.routePane.append(svg);
-    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V4',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
+    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,routeCohortCount:cohortCount,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
     document.documentElement.dataset.ronaClientRailRouteOverlay=count>=2?'PREMIUM_MARKERS_V1':'EMPTY';
     return count
   }catch(e){
@@ -253,8 +263,9 @@ function clientRailRepairMapParity(){
     if(!mapData||!state)return false;
     var planned=mapData.plannedRoute&&Array.isArray(mapData.plannedRoute.points)?mapData.plannedRoute.points:[],
         actual=mapData.actualRoute&&Array.isArray(mapData.actualRoute.points)?mapData.actualRoute.points:[],
-        remaining=mapData.remainingRoute&&Array.isArray(mapData.remainingRoute.points)?mapData.remainingRoute.points:[];
-    if(planned.length<2&&actual.length<2&&remaining.length<2)return false;
+        remaining=mapData.remainingRoute&&Array.isArray(mapData.remainingRoute.points)?mapData.remainingRoute.points:[],
+        cohortCount=Array.isArray(mapData.routeCohorts)?mapData.routeCohorts.length:0;
+    if(planned.length<2&&actual.length<2&&remaining.length<2&&cohortCount===0)return false;
     state.context=Object.assign({},state.context||{},{
       dealKey:window.__RONA_RAIL_SELECTED_DEAL_KEY__||mapData.dealKey||null,
       dealId:window.__RONA_RAIL_SELECTED_DEAL_ID__||mapData.dealId||null,
@@ -276,7 +287,7 @@ function clientRailRepairMapParity(){
     if(typeof railMapRequestDraw==='function')railMapRequestDraw(state);
     requestAnimationFrame(function(){clientRailRenderAuthoritativeRouteOverlay(state)});
     document.documentElement.dataset.ronaClientRailMapParity='ADMIN_ROUTE_ACTIVE';
-    window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__={version:'CLIENT_ADMIN_ROUTE_PARITY_V4',plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,dealKey:state.context&&state.context.dealKey||null,updatedAt:new Date().toISOString()};
+    window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__={version:'CLIENT_ADMIN_ROUTE_PARITY_V4',plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,routeCohortCount:cohortCount,dealKey:state.context&&state.context.dealKey||null,updatedAt:new Date().toISOString()};
     return true
   }catch(e){
     window.__RONA_CLIENT_RAIL_MAP_PARITY_ERROR__=String(e&&e.message||e);

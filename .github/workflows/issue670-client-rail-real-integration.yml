@@ -8,6 +8,8 @@ on:
       - 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
       - 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
       - 'supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
+      - 'supabase/migrations/20260921134500_rail_route_cohorts_v1.sql'
+      - 'supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql'
       - 'functions/portal/client-rail-current-ui.js'
       - 'tests/fixtures/issue670-client-rail-real-integration-base.sql'
       - 'scripts/qa-client-online-rail-670-real-integration.mjs'
@@ -49,6 +51,8 @@ jobs:
           echo "ISSUE670_REAL_BASE_SHA=$base"
           echo "ISSUE670_REAL_HEAD_SHA=$(git rev-parse HEAD)"
           test -s supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql
+          test -s supabase/migrations/20260921134500_rail_route_cohorts_v1.sql
+          test -s supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql
           test -s tests/fixtures/issue670-client-rail-real-integration-base.sql
           test -s scripts/qa-client-online-rail-670-real-integration.mjs
           node --check scripts/qa-client-online-rail-670-real-integration.mjs
@@ -74,6 +78,8 @@ jobs:
           mkdir -p supabase/migrations
           cp "$GITHUB_WORKSPACE/tests/fixtures/issue670-client-rail-real-integration-base.sql" supabase/migrations/20260919170000_issue670_fixture.sql
           cp "$GITHUB_WORKSPACE/supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql" supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql
+          cp "$GITHUB_WORKSPACE/supabase/migrations/20260921134500_rail_route_cohorts_v1.sql" supabase/migrations/20260921134500_rail_route_cohorts_v1.sql
+          cp "$GITHUB_WORKSPACE/supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql" supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql
           supabase start
           supabase status -o env > /tmp/issue670-supabase.env
           set -a
@@ -100,17 +106,355 @@ jobs:
         run: |
           set -euo pipefail
           docker exec -i "$ISSUE670_DB_CONTAINER" psql -v ON_ERROR_STOP=1 -U postgres -d postgres -At <<'SQL' | tee /tmp/issue670-db-boundary.log
-          select 'CORE_EXISTS='||(to_regprocedure('portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)') is not null);
-          select 'CORE_AUTHENTICATED_EXECUTE='||has_function_privilege('authenticated','portal_private.rona_rail_deal_map_read_model_core_v1(uuid,text)','EXECUTE');
+          select 'CORE_V2_EXISTS='||(to_regprocedure('portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)') is not null);
+          select 'CORE_V2_AUTHENTICATED_EXECUTE='||has_function_privilege('authenticated','portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)','EXECUTE');
+          select 'ROUTE_COHORTS_EXISTS='||(to_regprocedure('portal_private.rail_deal_route_cohorts_v1(uuid)') is not null);
           select 'ADMIN_PUBLIC_HAS_GATE='||(position('owner_r1_actor(''ADMIN'')' in pg_get_functiondef('public.rona_admin_rail_deal_map_read_model_v4(text)'::regprocedure))>0);
           select 'ADMIN_PRIVATE_HAS_GATE='||(position('owner_r1_actor(''ADMIN'')' in pg_get_functiondef('portal_private.rona_admin_rail_deal_map_read_model_v4(text)'::regprocedure))>0);
-          select 'ADMIN_PUBLIC_USES_CORE='||(position('rona_rail_deal_map_read_model_core_v1' in pg_get_functiondef('public.rona_admin_rail_deal_map_read_model_v4(text)'::regprocedure))>0);
+          select 'ADMIN_PUBLIC_USES_CORE_V2='||(position('rona_rail_deal_map_read_model_core_v2' in pg_get_functiondef('public.rona_admin_rail_deal_map_read_model_v4(text)'::regprocedure))>0);
           SQL
-          grep -q '^CORE_EXISTS=true$' /tmp/issue670-db-boundary.log
-          grep -q '^CORE_AUTHENTICATED_EXECUTE=false$' /tmp/issue670-db-boundary.log
-          grep -q '^ADMIN_PUBLIC_HAS_GATE=true$' /tmp/issue670-db-boundary.log
-          grep -q '^ADMIN_PRIVATE_HAS_GATE=true$' /tmp/issue670-db-boundary.log
-          grep -q '^ADMIN_PUBLIC_USES_CORE=true$' /tmp/issue670-db-boundary.log
+          grep -q '^CORE_V2_EXISTS=true
+
+      - name: Start exact candidate Edge handler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
+          echo $! > /tmp/issue670-edge.pid
+          sleep 2
+          kill -0 "$(cat /tmp/issue670-edge.pid)"
+          echo "ISSUE670_CANDIDATE_EDGE=STARTED"
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Client -> real candidate Edge -> real PostgreSQL integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
+          grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
+          test -s /tmp/issue670-real-integration-summary.json
+
+      - name: Upload real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-rail-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue670-db-boundary.log
+            /tmp/issue670-edge.log
+            /tmp/issue670-real-integration.log
+            /tmp/issue670-real-integration-summary.json
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -f /tmp/issue670-edge.pid; then kill "$(cat /tmp/issue670-edge.pid)" 2>/dev/null || true; fi
+          if test -d /tmp/issue670-supabase; then
+            cd /tmp/issue670-supabase
+            supabase stop --no-backup || true
+          fi
+ /tmp/issue670-db-boundary.log
+          grep -q '^CORE_V2_AUTHENTICATED_EXECUTE=false
+
+      - name: Start exact candidate Edge handler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
+          echo $! > /tmp/issue670-edge.pid
+          sleep 2
+          kill -0 "$(cat /tmp/issue670-edge.pid)"
+          echo "ISSUE670_CANDIDATE_EDGE=STARTED"
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Client -> real candidate Edge -> real PostgreSQL integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
+          grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
+          test -s /tmp/issue670-real-integration-summary.json
+
+      - name: Upload real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-rail-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue670-db-boundary.log
+            /tmp/issue670-edge.log
+            /tmp/issue670-real-integration.log
+            /tmp/issue670-real-integration-summary.json
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -f /tmp/issue670-edge.pid; then kill "$(cat /tmp/issue670-edge.pid)" 2>/dev/null || true; fi
+          if test -d /tmp/issue670-supabase; then
+            cd /tmp/issue670-supabase
+            supabase stop --no-backup || true
+          fi
+ /tmp/issue670-db-boundary.log
+          grep -q '^ROUTE_COHORTS_EXISTS=true
+
+      - name: Start exact candidate Edge handler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
+          echo $! > /tmp/issue670-edge.pid
+          sleep 2
+          kill -0 "$(cat /tmp/issue670-edge.pid)"
+          echo "ISSUE670_CANDIDATE_EDGE=STARTED"
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Client -> real candidate Edge -> real PostgreSQL integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
+          grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
+          test -s /tmp/issue670-real-integration-summary.json
+
+      - name: Upload real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-rail-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue670-db-boundary.log
+            /tmp/issue670-edge.log
+            /tmp/issue670-real-integration.log
+            /tmp/issue670-real-integration-summary.json
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -f /tmp/issue670-edge.pid; then kill "$(cat /tmp/issue670-edge.pid)" 2>/dev/null || true; fi
+          if test -d /tmp/issue670-supabase; then
+            cd /tmp/issue670-supabase
+            supabase stop --no-backup || true
+          fi
+ /tmp/issue670-db-boundary.log
+          grep -q '^ADMIN_PUBLIC_HAS_GATE=true
+
+      - name: Start exact candidate Edge handler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
+          echo $! > /tmp/issue670-edge.pid
+          sleep 2
+          kill -0 "$(cat /tmp/issue670-edge.pid)"
+          echo "ISSUE670_CANDIDATE_EDGE=STARTED"
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Client -> real candidate Edge -> real PostgreSQL integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
+          grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
+          test -s /tmp/issue670-real-integration-summary.json
+
+      - name: Upload real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-rail-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue670-db-boundary.log
+            /tmp/issue670-edge.log
+            /tmp/issue670-real-integration.log
+            /tmp/issue670-real-integration-summary.json
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -f /tmp/issue670-edge.pid; then kill "$(cat /tmp/issue670-edge.pid)" 2>/dev/null || true; fi
+          if test -d /tmp/issue670-supabase; then
+            cd /tmp/issue670-supabase
+            supabase stop --no-backup || true
+          fi
+ /tmp/issue670-db-boundary.log
+          grep -q '^ADMIN_PRIVATE_HAS_GATE=true
+
+      - name: Start exact candidate Edge handler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
+          echo $! > /tmp/issue670-edge.pid
+          sleep 2
+          kill -0 "$(cat /tmp/issue670-edge.pid)"
+          echo "ISSUE670_CANDIDATE_EDGE=STARTED"
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Client -> real candidate Edge -> real PostgreSQL integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
+          grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
+          test -s /tmp/issue670-real-integration-summary.json
+
+      - name: Upload real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-rail-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue670-db-boundary.log
+            /tmp/issue670-edge.log
+            /tmp/issue670-real-integration.log
+            /tmp/issue670-real-integration-summary.json
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -f /tmp/issue670-edge.pid; then kill "$(cat /tmp/issue670-edge.pid)" 2>/dev/null || true; fi
+          if test -d /tmp/issue670-supabase; then
+            cd /tmp/issue670-supabase
+            supabase stop --no-backup || true
+          fi
+ /tmp/issue670-db-boundary.log
+          grep -q '^ADMIN_PUBLIC_USES_CORE_V2=true
+
+      - name: Start exact candidate Edge handler
+        shell: bash
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$ISSUE670_DB_URL" \
+          SUPABASE_URL="$ISSUE670_SUPABASE_URL" \
+          SUPABASE_ANON_KEY="$ISSUE670_ANON_KEY" \
+          SUPABASE_SERVICE_ROLE_KEY="$ISSUE670_SERVICE_ROLE_KEY" \
+          deno run --allow-env --allow-net --node-modules-dir=auto \
+            --config=supabase/functions/rona-portal-api/deno.json \
+            supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts \
+            > /tmp/issue670-edge.log 2>&1 &
+          echo $! > /tmp/issue670-edge.pid
+          sleep 2
+          kill -0 "$(cat /tmp/issue670-edge.pid)"
+          echo "ISSUE670_CANDIDATE_EDGE=STARTED"
+
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+
+      - name: Authenticated Client -> real candidate Edge -> real PostgreSQL integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/qa-client-online-rail-670-real-integration.mjs 2>&1 | tee /tmp/issue670-real-integration.log
+          grep -q '^ISSUE670_REAL_INTEGRATION=PASS$' /tmp/issue670-real-integration.log
+          test -s /tmp/issue670-real-integration-summary.json
+
+      - name: Upload real integration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue670-client-rail-real-integration
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            /tmp/issue670-db-boundary.log
+            /tmp/issue670-edge.log
+            /tmp/issue670-real-integration.log
+            /tmp/issue670-real-integration-summary.json
+
+      - name: Stop isolated Supabase
+        if: always()
+        shell: bash
+        run: |
+          if test -f /tmp/issue670-edge.pid; then kill "$(cat /tmp/issue670-edge.pid)" 2>/dev/null || true; fi
+          if test -d /tmp/issue670-supabase; then
+            cd /tmp/issue670-supabase
+            supabase stop --no-backup || true
+          fi
+ /tmp/issue670-db-boundary.log
 
       - name: Start exact candidate Edge handler
         shell: bash

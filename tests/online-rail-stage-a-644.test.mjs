@@ -139,14 +139,16 @@ test('Stage A markers are exposed without removing prior current owner markers',
 
 
 
-test('Operational route line is forced through trusted current wagon stations',()=>{
+test('Current wagon clusters remain marker overlays and never rewrite route topology',()=>{
   assert.match(v81,/function railMapPlannedRoutePoints\(context\)/);
   assert.match(v81,/function railMapObservedRoutePoints\(context\)/);
   assert.match(v81,/waypointRole:'OBSERVED_CURRENT'/);
   assert.match(v81,/sourceKind:'OBSERVED_CURRENT'/);
-  assert.match(v81,/function railMapSegmentProjection\(point,a,b\)/);
-  assert.match(v81,/buckets\[best\.segment\]\.push/);
-  assert.match(v81,/out\.push\(x\.point\)/);
+  assert.match(v81,/function railMapRoutePoints\(context\)\{return railMapPlannedRoutePoints\(context\)\}/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_TOPOLOGY__='20260921-current-markers-independent-v1'/);
+  assert.doesNotMatch(v81,/function railMapSegmentProjection\(point,a,b\)/);
+  assert.doesNotMatch(v81,/buckets\[best\.segment\]\.push/);
+  assert.doesNotMatch(v81,/out\.push\(x\.point\)/);
 });
 
 test('Route is split into observed traversal and remaining corridor without fake GPS semantics',()=>{
@@ -163,6 +165,18 @@ test('Route is split into observed traversal and remaining corridor without fake
   assert.doesNotMatch(v81,/GPS_TRACK_CONFIRMED|actualTrack/);
   assert.match(v81,/\.rona-rail-v7-map-status\{display:none!important\}/);
   assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-note\{display:none!important\}/);
+});
+
+test('Split wagon histories render as independent route cohorts with border-transition semantics',()=>{
+  assert.match(v81,/function railMapRouteCohorts\(context\)/);
+  assert.match(v81,/function railMapCohortSegments\(context\)/);
+  assert.match(v81,/function railMapCohortDraw\(svg,context,left,top,z\)/);
+  assert.match(v81,/OBSERVED_ENDPOINTS_PATH_UNRESOLVED/);
+  assert.match(v81,/rona-rail-v7-cohort-line/);
+  assert.match(v81,/rona-rail-v7-border-crossing/);
+  assert.match(v81,/rona-rail-v7-border-unresolved/);
+  assert.match(v81,/точный погранпереход не подтвержден/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
 });
 
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
@@ -237,5 +251,6 @@ test('Read-model overlay publishes per-deal route engine products without mutati
   assert.equal(out.data.remainingRouteByDeal['DEAL-1'].points.length,2);
   assert.equal(out.data.routeProgressByDeal['deal-key-1'].furthestMatchedSequence,51);
   assert.equal(out.data.routeAssignmentByDeal['DEAL-1'].destinationEsr,'742705');
+  assert.equal(out.data.routeCohortsByDeal['deal-key-1'][0].cohortKey,'COHORT:test');
   assert.equal(out.data.rail[0].wagons[0].stationCode,'625501');
 });
