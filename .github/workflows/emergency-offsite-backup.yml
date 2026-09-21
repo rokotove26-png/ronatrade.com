@@ -128,12 +128,40 @@ jobs:
           tar -C backup -czf "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz" .
           sha256sum "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz" > "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz.sha256"
           ls -lh "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz"
+          split -b 75m -d -a 1 "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.tar.gz" "RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.part-"
+          ls -lh RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_$SHORT_SHA.part-*
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RONA-Trade-Admin-Client-Full-Recovery-2026-09-22
-          path: |
-            RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.tar.gz
-            RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.tar.gz.sha256
+          name: RONA-Trade-Recovery-part-0
+          path: RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.part-0
+          if-no-files-found: error
+          retention-days: 90
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Trade-Recovery-part-1
+          path: RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.part-1
+          if-no-files-found: error
+          retention-days: 90
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Trade-Recovery-part-2
+          path: RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.part-2
+          if-no-files-found: error
+          retention-days: 90
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Trade-Recovery-part-3
+          path: RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.part-3
+          if-no-files-found: error
+          retention-days: 90
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Trade-Recovery-checksum
+          path: RONA_Trade_Admin_Client_Full_Recovery_2026-09-22_3be92ae.tar.gz.sha256
           if-no-files-found: error
           retention-days: 90
