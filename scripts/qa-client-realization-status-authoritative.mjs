@@ -6,11 +6,12 @@ const deals=await readFile('assets/portal-runtime/client-deals-authoritative-v1.
 const backend=await readFile('supabase/functions/rona-client-deal-documents/index.ts','utf8');
 const contextBackend=await readFile('supabase/functions/rona-portal-api/index.ts','utf8');
 const attach=await readFile('scripts/attach-client-deal-documents.mjs','utf8');
+const stateProxy=await readFile('functions/portal/api/v1/client/deal-documents/state.js','utf8');
 const resourceGuard=await readFile('supabase/migrations/20260830122500_deal_resource_authority_and_payment_prerequisite_v1.sql','utf8');
 const legacyNormalization=await readFile('supabase/migrations/20260830122600_materialize_legacy_executing_resource_confirmations_v2.sql','utf8');
 
 for(const required of [
-  '20260905-client-deal-realization-status-v6-strict-authoritative-context','Статус реализации','SERVER_AUTHORITATIVE_REALIZATION_V1',
+  '20260921-client-deal-realization-status-v7-current-state-refresh','Статус реализации','SERVER_AUTHORITATIVE_REALIZATION_V1',
   'RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','/v1/client/deal-documents/state?clientId=','Требует решения',
   "const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v6-strict-context'",
   'data-rona-authoritative-deal-id','data-rona-authoritative-context','rootIsAuthoritative','contextKey(currentContext())',
@@ -34,13 +35,22 @@ for(const required of [
   'Оплачено ${pct}% · осталось ${100-pct}%','Ресурс пока не подтверждён','Отгрузка ещё не начата',
 ]) if(!backend.includes(required))throw new Error(`REALIZATION_BACKEND_REQUIRED_MISSING:${required}`);
 
+for(const required of [
+  'function paymentProjection(deal)','function logisticsProjection(row)','function closureProjection(row)',
+  "status==='NOT_DUE'","state:'PENDING',detail:label||'Срок оплаты ещё не наступил'",
+  "if(!status)return{key:'logistics',state:'PENDING',detail:'Отгрузка ещё не начата'}",
+  'patchRealization(row?.realization_status,resource,authoritative,row)',
+  "current_stage_key:stages.find(s=>s.state==='CURRENT')?.key||null",
+]) if(!stateProxy.includes(required))throw new Error(`REALIZATION_CURRENT_STATE_PROXY_MISSING:${required}`);
+if(stateProxy.includes("if(!stages.some(s=>s.state==='CURRENT'||s.state==='BLOCKED'))"))throw new Error('REALIZATION_SYNTHETIC_CURRENT_FALLBACK_FORBIDDEN');
+if(!runtime.includes("pending=stages.find(s=>s.state==='PENDING')")||!runtime.includes('Ожидается:'))throw new Error('REALIZATION_PENDING_SUMMARY_MISSING');
 for(const required of ['resolve_deal_resource_state','RESOURCE_CONFIRMATION_REQUIRED_BEFORE_PAYMENT','RESOURCE_CONFIRMATION_REQUIRED_BEFORE_FINANCE_RECEIPT','EXECUTING alone is never treated as resource confirmation'])
   if(!resourceGuard.includes(required))throw new Error(`RESOURCE_AUTHORITY_GUARD_MISSING:${required}`);
 for(const required of ['CANONICAL_LEGACY_RESOURCE_MATERIALIZATION','RESOURCE_CONFIRMATION_REQUIRED_BEFORE_EXECUTING',"d.source_system like 'SOURCE_FREEZE_V5%'"])
   if(!legacyNormalization.includes(required))throw new Error(`RESOURCE_LEGACY_NORMALIZATION_MISSING:${required}`);
 
 for(const required of [
-  "lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY'",'20260905-strict-context-v6',"retired_local_realization_renderer:'PHYSICALLY_REMOVED'",'lifecycle_single_owner:true',"lifecycle_host_owner:'SERVER_AUTHORITATIVE_V6_STRICT_CONTEXT'", "context_source:'RONA_CLIENT_CONTEXT_AUTHORITY'","lifecycle_refresh:'AUTHORITATIVE_DETAIL_CONTEXT_FOCUS_VISIBILITY'",
+  "lifecycle_data_policy:'SERVER_AUTHORITATIVE_DEAL_STATE_ONLY'",'20260921-current-state-refresh-v7',"retired_local_realization_renderer:'PHYSICALLY_REMOVED'",'lifecycle_single_owner:true',"lifecycle_host_owner:'SERVER_AUTHORITATIVE_V6_STRICT_CONTEXT'", "context_source:'RONA_CLIENT_CONTEXT_AUTHORITY'","lifecycle_refresh:'AUTHORITATIVE_DETAIL_CONTEXT_AUTO_REFRESH_VISIBILITY'",
   'client-deal-passport-v1.js?v=20260831-status-center-v2',"passportMarker='20260831-client-deal-passport-v2-centered-status'",
 ]) if(!attach.includes(required))throw new Error(`REALIZATION_INTEGRITY_POLICY_MISSING:${required}`);
 if(attach.includes('client-deal-command-center-v3.js'))throw new Error('RETIRED_COMMAND_CENTER_REFERENCE_REMAINS_IN_ATTACH');
@@ -51,4 +61,4 @@ if(contextBackend.includes("['RESOURCE_CONFIRMED','EXECUTING','CLOSED','COMPLETE
 for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-009','RONA-C005','FARGONA GAZ','UNIVERSAL SOLYARIS']){
   if(runtime.includes(forbidden)||passport.includes(forbidden)||deals.includes(forbidden)||backend.includes(forbidden)||contextBackend.includes(forbidden)||resourceGuard.includes(forbidden)||legacyNormalization.includes(forbidden))throw new Error(`REALIZATION_HARDCODING_FORBIDDEN:${forbidden}`);
 }
-console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS single-owner=SERVER_AUTHORITATIVE_V6_STRICT_CONTEXT canonical-resource-resolver=PASS passport-timeline-single-workflow-authority=PASS context-authority=PASS periodic-polling=absent retired-local-renderer=absent');
+console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS single-owner=SERVER_AUTHORITATIVE_V6_STRICT_CONTEXT canonical-resource-resolver=PASS current-payment-projection=PASS pending-is-not-current=PASS passport-auto-refresh=current-projection retired-local-renderer=absent');
