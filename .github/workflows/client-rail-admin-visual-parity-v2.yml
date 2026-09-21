@@ -39,7 +39,7 @@ jobs:
           grep -Fq 'CLIENT_ADMIN_ROUTE_PARITY_V4' functions/portal/client-rail-current-ui.js
           grep -Fq 'CLIENT_RAIL_ROUTE_OVERLAY_V4' functions/portal/client-rail-current-ui.js
           grep -Fq 'rona-client-rail-route-pin' functions/portal/client-rail-current-ui.js
-          grep -Fq 'CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1' assets/portal-runtime/client-rail-canonical-hero-v1.js
+          grep -Fq "window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1'" functions/portal/client-rail-current-ui.js
           grep -Fq 'clientRailRenderAuthoritativeRouteOverlay' functions/portal/client-rail-current-ui.js
           grep -Fq "layout_override:'NONE_OPERATIONAL_BODY'" assets/portal-runtime/client-rail-canonical-hero-v1.js
           ! grep -Fq 'grid-template-rows:1fr 1fr!important' assets/portal-runtime/client-rail-canonical-hero-v1.js
@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          grep -Fq '/portal/client-rail-current-ui?v=20260921-premium-map-markers-v4' dist/portal/client.html
-          grep -Fq '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260921-premium-map-markers-v3' dist/portal/client.html
+          grep -Fq '/portal/client-rail-current-ui?v=20260919-route-overlay-v3' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2' dist/portal/client.html
           echo 'CLIENT_RAIL_ADMIN_VISUAL_BUILD=PASS'
       - name: Install Playwright Chromium
         run: |
