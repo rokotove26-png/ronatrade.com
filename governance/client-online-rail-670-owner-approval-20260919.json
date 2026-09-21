@@ -18,8 +18,8 @@
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "c44a8578217541e66c3771f098332a64dcd3dc1e",
-      "required_marker": "20260919-route-overlay-v3"
+      "authorized_post_blob_sha": "143ffbf8ff69d06a9d3cdd62dceec4c17d921895",
+      "required_marker": "OPEN_CONTEXT_CHANGE_INVALIDATION"
     }
   },
   "requirements": {
@@ -82,5 +82,23 @@
     "business_data_mutation_forbidden": true,
     "route_geometry_must_remain_authoritative": true,
     "paid_resources_forbidden": true
+  },
+  "corrective_owner_context_v5": {
+    "authorized_in_chat": true,
+    "authorized_at": "2026-09-21",
+    "evidence": "OWNER_END_TO_END_CLIENT_AUDIT_EVENT_DRIVEN_REFRESH_INSTRUCTION",
+    "scope": "CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V1",
+    "client_only": true,
+    "admin_rail_source_files_must_remain_unchanged": true,
+    "business_data_mutation_forbidden": true,
+    "visual_change": false,
+    "remove_periodic_30s_refresh": true,
+    "refresh_triggers": [
+      "INITIAL_OPEN",
+      "SECTION_OPEN",
+      "CLIENT_CONTEXT_CHANGE",
+      "EXPLICIT_INVALIDATION"
+    ],
+    "invalidation_event": "rona:client-rail-invalidated"
   }
 }
