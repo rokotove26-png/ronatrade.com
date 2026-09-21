@@ -1,0 +1,32 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_APPLICATION_LIFECYCLE_EVENT_DRIVEN_V1",
+  "owner_instruction": "Провести полный сквозной аудит клиентского кабинета; выявить ненужные циклы обновления каждые 30 секунд и перевести обновления на открытие/изменение данных.",
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_APPLICATION_LIFECYCLE_EVENT_DRIVEN_V1",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-application-lifecycle-v1.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-application-lifecycle-v1.js": {
+      "visual_freeze_baseline_blob_sha": "73e94188bff36e57a7f269a516ae655b2556ea2a",
+      "authorized_parent_blob_sha": "aacb8fde011ed2f0c0c2f5db44d209081e77bab2",
+      "authorized_post_blob_sha": "2020b3487d674ccbd4b1d3737ce17afcace083a7",
+      "required_marker": "20260921-client-application-lifecycle-v10-event-driven-projection"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_change": false,
+    "business_data_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "periodic_refresh_removed": true,
+    "current_projection_owner": "RONA_CLIENT_CONTEXT",
+    "direct_context_fetch": "FALLBACK_ONLY_IF_CONTEXT_AUTHORITY_LACKS_PROJECTION_API",
+    "refresh_policy": "OPEN_CONTEXT_PROJECTION_MUTATION",
+    "no_background_polling_when_idle": true
+  }
+}
