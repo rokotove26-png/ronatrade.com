@@ -12,7 +12,8 @@
     "assets/portal-runtime/client-payments-authoritative-v1.js",
     "assets/portal-runtime/client-payments-canonical-layout-v1.js",
     "scripts/attach-client-application-lifecycle.mjs",
-    "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs"
+    "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs",
+    "assets/portal-runtime/client-deal-canonical-visual-v2.js"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-context-selection-authority-v1.js": {
@@ -44,6 +45,11 @@
       "visual_freeze_baseline_blob_sha": "4e7ffaf5018893d6159413d9aa57c8c4d45e28e4",
       "authorized_post_blob_sha": "afcf2480db2f4f16e62addc55f8f587bb323a166",
       "required_marker": "bPassportOpened"
+    },
+    "assets/portal-runtime/client-deal-canonical-visual-v2.js": {
+      "visual_freeze_baseline_blob_sha": "4b32da936b5cf214b985ac03c6b1494db9ef4b18",
+      "authorized_post_blob_sha": "218792ff06ec517a6b33ded9b1f5f771eced21b8",
+      "required_marker": "data-rona-deal-state-strip^=\"authoritative-v\""
     }
   },
   "requirements": {
@@ -67,6 +73,7 @@
     "final_idle_acceptance_required": true,
     "merge": "HOLD",
     "deploy": "HOLD",
-    "owner_retest_fixture_current_application_business_v2": true
+    "owner_retest_fixture_current_application_business_v2": true,
+    "deal_state_strip_current_runtime_stability": true
   }
 }
