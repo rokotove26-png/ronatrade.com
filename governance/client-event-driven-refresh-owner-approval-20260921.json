@@ -5,7 +5,8 @@
   "owner_instruction": "Провести полный сквозной аудит клиентского кабинета; выявить ненужные циклы обновления и привести обновления к модели только при открытии или изменении данных. После актуализации current state — приступить.",
   "approved_protected_files": [
     "assets/portal-runtime/client-price-conditions-v1.js",
-    "assets/portal-runtime/client-shell-guard-v3.js"
+    "assets/portal-runtime/client-shell-guard-v3.js",
+    "assets/portal-runtime/client-logout-visual-v1.js"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -17,6 +18,11 @@
       "visual_freeze_baseline_blob_sha": "1309b4a644b8dc394106eef9ad440c59974c09da",
       "authorized_post_blob_sha": "d8e1e918c2a6603cf50d49199338250e547e742a",
       "required_marker": "20260921-client-single-logout-v4-event-driven"
+    },
+    "assets/portal-runtime/client-logout-visual-v1.js": {
+      "visual_freeze_baseline_blob_sha": "2dc6eceae13334ce9c3fc020afc06bd95a8decb4",
+      "authorized_post_blob_sha": "99286fa037d7d6c306a0c6e64e3198628c397b0d",
+      "required_marker": "20260830-client-logout-force-red-v2"
     }
   },
   "requirements": {
