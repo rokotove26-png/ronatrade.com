@@ -399,7 +399,7 @@ test('Owner alias with ADMIN role bypasses generic multi-role selector and opens
 test('Inline home login is bounded and can recover issued Admin session',()=>{
   assert.match(inlineAuth,/new AbortController\(\)/);
   assert.match(inlineAuth,/RONA_INLINE_AUTH_TIMEOUT/);
-  assert.match(inlineAuth,/45000/);
+  assert.match(inlineAuth,/60000/);
   assert.match(inlineAuth,/sessionIssued===true/);
   assert.match(inlineAuth,/Сессия создана\. Восстанавливаем кабинет/);
 });
@@ -449,7 +449,7 @@ test('Owner login recovers an already-valid Admin access cookie before password 
       accept:'application/json',
       cookie:'rona_portal_at=access-owner; rona_portal_rt=refresh-owner'
     },
-    body:JSON.stringify({identifier:'office_kg@ronaoil.com',password:'ignored'})
+    body:JSON.stringify({identifier:'office_kg@ronaoil.com',resume:true})
   });
   const response=await portalLogin({request});
   assert.equal(response.status,200);
@@ -482,7 +482,7 @@ test('Owner login rotates an existing refresh cookie before password grant when 
       accept:'application/json',
       cookie:'rona_portal_at=access-stale; rona_portal_rt=refresh-existing'
     },
-    body:JSON.stringify({identifier:'office_kg@ronaoil.com',password:'ignored'})
+    body:JSON.stringify({identifier:'office_kg@ronaoil.com',resume:true})
   });
   const response=await portalLogin({request});
   assert.equal(response.status,200);
@@ -492,6 +492,30 @@ test('Owner login rotates an existing refresh cookie before password grant when 
   const setCookie=response.headers.get('set-cookie')||'';
   assert.match(setCookie,/rona_portal_at=access-rotated/);
   assert.match(setCookie,/rona_portal_rt=refresh-rotated/);
+});
+
+test('Explicit owner credentials bypass stale session recovery and go straight to password grant',async()=>{
+  let passwordCalls=0,userCalls=0,refreshCalls=0,authorityCalls=0;
+  globalThis.fetch=async(url)=>{
+    const u=String(url);
+    if(u.includes('/auth/v1/user')){userCalls++;return jsonResponse({message:'must_not_probe_stale_cookie'},500)}
+    if(u.includes('/auth/v1/token?grant_type=refresh_token')){refreshCalls++;return jsonResponse({message:'must_not_refresh_stale_cookie'},500)}
+    if(u.includes('/auth/v1/token?grant_type=password')){passwordCalls++;return jsonResponse({access_token:'access-explicit-owner',refresh_token:'refresh-explicit-owner',expires_in:3600},200)}
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){authorityCalls++;return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN']}},200)}
+    throw new Error('UNEXPECTED_FETCH '+u);
+  };
+  const request=new Request('https://ronaoil.com/portal/auth/login',{
+    method:'POST',
+    headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json',cookie:'rona_portal_at=stale-access; rona_portal_rt=stale-refresh'},
+    body:JSON.stringify({identifier:'office_kg@ronaoil.com',password:'entered-password',next:'/portal/admin'})
+  });
+  const response=await portalLogin({request});
+  assert.equal(response.status,200);
+  assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin'});
+  assert.equal(userCalls,0);
+  assert.equal(refreshCalls,0);
+  assert.equal(passwordCalls,1);
+  assert.equal(authorityCalls,1);
 });
 
 test('Password grant rate limiting is reported separately from backend outage',async()=>{
