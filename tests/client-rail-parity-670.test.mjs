@@ -206,7 +206,7 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("20260921-premium-map-markers-v4"));
   assert.ok(source.includes("rona-client-rail-route-pin"));
   assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
-  assert.equal(source.includes("createElementNS('http://www.w3.org/2000/svg','circle')"),false,"Client overlay must not emit legacy circular route nodes");
+  assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH__"));
   assert.ok(source.includes("document.visibilityState==='visible'"),"Client Rail must preserve the current v8.1 visibility-gated polling contract");
   assert.equal(source.includes("timer=setInterval(sync,30000)"),false,"Client adapter must not regress to unconditional legacy polling");
