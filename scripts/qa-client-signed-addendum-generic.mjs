@@ -84,7 +84,7 @@ must(bridge?.passport_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_P
 must(bridge?.lifecycle_single_owner===true,'DEAL_LIFECYCLE_SINGLE_OWNER_MISSING');
 must(bridge?.lifecycle_host_owner==='SERVER_AUTHORITATIVE_V6_STRICT_CONTEXT','DEAL_LIFECYCLE_HOST_OWNER_INVALID');
 must(bridge?.lifecycle_scope==='CURRENT_AUTHORIZED_CLIENT_CONTEXT','DEAL_LIFECYCLE_SCOPE_NOT_CURRENT_CONTEXT');
-must(bridge?.lifecycle_refresh==='AUTHORITATIVE_DETAIL_CONTEXT_FOCUS_VISIBILITY','DEAL_LIFECYCLE_REFRESH_POLICY_INVALID');
+must(bridge?.lifecycle_refresh==='AUTHORITATIVE_DETAIL_CONTEXT_AUTO_REFRESH_VISIBILITY','DEAL_LIFECYCLE_REFRESH_POLICY_INVALID');
 must(bridge?.retired_local_realization_renderer==='PHYSICALLY_REMOVED','RETIRED_LOCAL_REALIZATION_RENDERER_NOT_REMOVED');
 
 console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=CURRENT_AUTHORIZED_CLIENT_CONTEXT; context authority=RONA_CLIENT_CONTEXT; retired deal realization renderer physically absent; passport presentation-only; authoritative lifecycle strict-context single owner; native close untouched; no client/deal hardcoding; no-store cache policy');
