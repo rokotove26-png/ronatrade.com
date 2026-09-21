@@ -46,7 +46,7 @@ jobs:
           grep -Fq 'CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS' issue430-canonical-build.log
           grep -Fq 'PR431_SYSTEM_ADMIN_ONE_SHOT_EMITTED_QA=PASS' issue430-canonical-build.log
           grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260911-company-directory-canonical-claim-v12' dist/portal/client.html
-          grep -Fq '/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260921-authoritative-v12-fresh-on-open-existing-context-api' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260921-authoritative-v13-existing-data-first' dist/portal/client.html
           test "$(grep -o 'portal-client-company-directory-authority-v1.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           node --check scripts/qa-issue430-resource-company-browser-v1.mjs
           echo 'ISSUE430_CANONICAL_BUILD=PASS'
