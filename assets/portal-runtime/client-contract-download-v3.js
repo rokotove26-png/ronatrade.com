@@ -8,7 +8,7 @@ window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V3__=MARK;
 window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V2__=MARK;
 window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__=MARK;
 
-const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';
+const API='/portal/api',STALE_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';
 const state={entry:null,loading:false,pendingImmediate:false,lastLoad:0,renderTimer:0,currentKey:'',observer:null,rendering:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU');
@@ -100,7 +100,7 @@ function publishState(){
   window.__RONA_CLIENT_CONTRACT_DOWNLOAD_STATE__={version:MARK,previous:PREVIOUS_MARK,compat:COMPAT_MARK,current_contract_id:ctx?.contract_id||null,context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',scope:'CURRENT_CONTEXT_ONLY',entries:entry?[{client_id:ctx.client_id||null,legal_name:ctx.legal_name||null,contract_id:ctx.contract_id||null,current_external_contract_number:ctx.current_external_contract_number||null,contract_status:ctx.contract_status||null,document_id:entry.document?.document_id||null,storage_object_id:entry.document?.storage_object_id||null,applications:metrics.applications,deals:metrics.deals,documents:metrics.documents,metrics_ready:metrics.ready,metrics_source:metrics.source,documents_predicate:metrics.documents_predicate,current:true}]:[],loadedAt:new Date().toISOString()};
 }
 async function refresh(force=false){
-  if(state.loading){if(force)state.pendingImmediate=true;return}if(!force&&Date.now()-state.lastLoad<REFRESH_MS){render();return}state.loading=true;
+  if(state.loading){if(force)state.pendingImmediate=true;return}if(!force&&Date.now()-state.lastLoad<STALE_MS){render();return}state.loading=true;
   try{
     const authority=await waitForAuthority(),current=authority.getCurrentContext();
     if(!current){state.entry=null;state.currentKey='';state.lastLoad=Date.now();publishState();render();return}
@@ -245,10 +245,10 @@ async function start(){
   let authority;try{authority=await waitForAuthority()}catch(error){console.error('RONA contract download: context authority unavailable',error);return}
   primeFromAuthority(authority);
   if(typeof authority.subscribe==='function')state.unsubscribe=authority.subscribe(()=>{primeFromAuthority(authority);refresh(true)});
-  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-company-directory-ready',()=>scheduleRender(0));
+  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-company-directory-ready',()=>scheduleRender(0));window.addEventListener('rona:client-company-directory-invalidated',()=>refresh(true),{passive:true});
   refresh(true);[120,350,900,1800,3200].forEach(delay=>refreshCompanyDirectoryNow(authority,delay));
   document.addEventListener('click',()=>scheduleRender(140),true);document.addEventListener('click',()=>refreshCompanyDirectoryNow(authority,90),true);document.addEventListener('change',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)},true);
-  window.addEventListener('pageshow',()=>{scheduleRender(0);refreshCompanyDirectoryNow(authority,0);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});window.addEventListener('hashchange',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});setInterval(()=>{if(document.visibilityState==='visible')refresh(true)},REFRESH_MS);
+  window.addEventListener('pageshow',()=>{scheduleRender(0);refreshCompanyDirectoryNow(authority,0);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});window.addEventListener('hashchange',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 const OWNER_TYPO_MARK='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED';
