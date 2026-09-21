@@ -1,0 +1,25 @@
+name: Client request telemetry QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/functions/rona-portal-api/request-telemetry-v1.ts'
+      - 'supabase/functions/rona-portal-api/shared.ts'
+      - 'supabase/functions/rona-portal-api/index.ts'
+      - 'tests/client-request-telemetry-authority.test.mjs'
+      - '.github/workflows/client-request-telemetry-qa.yml'
+      - 'governance/client-request-telemetry-owner-approval-20260921.json'
+  workflow_dispatch:
+
+jobs:
+  request-telemetry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Request telemetry source contract
+        run: node --test tests/client-request-telemetry-authority.test.mjs
