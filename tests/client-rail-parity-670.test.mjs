@@ -208,8 +208,12 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH__"));
-  assert.ok(source.includes("document.visibilityState==='visible'"),"Client Rail must preserve the current v8.1 visibility-gated polling contract");
+  assert.ok(source.includes("CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V1"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION'"));
+  assert.ok(source.includes("rona:client-rail-invalidated"));
+  assert.equal(source.includes("document.visibilityState==='visible'"),false,"Client Rail must not keep visibility-gated periodic polling");
   assert.equal(source.includes("timer=setInterval(sync,30000)"),false,"Client adapter must not regress to unconditional legacy polling");
+  assert.equal(source.includes("timer=setInterval(function(){var page=q('#page-monitoring')"),false,"Client adapter must strip inherited v8.1 30-second polling");
   assert.equal(source.includes("/portal/api/v1/client/shipments"),false);
   assert.equal(source.includes("/portal/api/v1/client/rail'"),false);
   assert.equal(/MOVIZOR|movement_publication|provider_live/i.test(source),false);
@@ -225,6 +229,9 @@ test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   }
   assert.ok(attach.includes("client_data_source:'/portal/api/v1/client/rail-canonical'"));
   assert.ok(attach.includes("client_authority:'AUTHENTICATED_CLIENT_CONTRACT'"));
+  assert.ok(attach.includes("authoritative_refresh_ms:null"));
+  assert.ok(attach.includes("auto_refresh:false"));
+  assert.ok(attach.includes("refresh_policy:'OPEN_CONTEXT_CHANGE_INVALIDATION'"));
   assert.ok(hero.includes("AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1"));
   assert.ok(hero.includes("CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"));
   assert.ok(adapter.includes("border-radius:7px!important"));
