@@ -8,11 +8,11 @@ const adminCanonPath='functions/portal/rail-current-v81-maplibre-ui.js';
 const adminBasePath='functions/portal/rail-current-v4-ui.js';
 const heroRuntimePath='dist/assets/portal-runtime/client-rail-canonical-hero-v1.js';
 const id='rona-client-rail-admin-canonical-v1';
-const src='/portal/client-rail-current-ui?v=20260921-premium-map-markers-v4';
-const marker='20260921-premium-map-markers-v4';
+const src='/portal/client-rail-current-ui?v=20260919-route-overlay-v3';
+const marker='20260919-route-overlay-v3';
 const heroId='rona-client-rail-canonical-hero-v1';
-const heroSrc='/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260921-premium-map-markers-v3';
-const heroMarker='20260921-client-rail-premium-map-markers-v3';
+const heroSrc='/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2';
+const heroMarker='20260919-client-rail-admin-visual-parity-v2';
 const staticHostMarker='current-only-v2';
 const staticStyleId='rona-client-rail-current-only-v2-style';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
@@ -27,9 +27,8 @@ for(const required of [
   "admin-current-v81-client-authority-v1",
   "AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1",
   "CLIENT_ADMIN_ROUTE_PARITY_V2",
-  "CLIENT_ADMIN_ROUTE_PARITY_V4",
-  "CLIENT_RAIL_ROUTE_OVERLAY_V4",
-  "rona-client-rail-route-pin",
+  "CLIENT_ADMIN_ROUTE_PARITY_V3",
+  "CLIENT_RAIL_ROUTE_OVERLAY_V3",
   "clientRailRenderAuthoritativeRouteOverlay",
   "clientRailPatchRouteDraw",
   "clientRailNormalizeRouteParity",
@@ -68,7 +67,6 @@ for(const required of [
   "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
   'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY',
   'CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2',
-  'CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1',
   "layout_override:'NONE_OPERATIONAL_BODY'",
   'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'
 ]){
