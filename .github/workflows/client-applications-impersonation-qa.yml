@@ -1,0 +1,27 @@
+name: Client applications impersonation QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+      - fix/client-market-intelligence-impersonation-v1-20260921
+    paths:
+      - 'functions/portal/api/v1/client/applications-projection.js'
+      - 'supabase/functions/rona-portal-api/index.ts'
+      - 'supabase/functions/rona-portal-api/client-applications-effective-client-v1.ts'
+      - 'tests/client-applications-impersonation-authority.test.mjs'
+      - '.github/workflows/client-applications-impersonation-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  applications-impersonation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Applications effective authority source contract
+        run: node --test tests/client-applications-impersonation-authority.test.mjs
+      - name: Specific Pages route syntax
+        run: node --check functions/portal/api/v1/client/applications-projection.js
