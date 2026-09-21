@@ -1,6 +1,6 @@
 (()=>{'use strict';
 if(window.__RONA_CLIENT_PRICE_CONDITIONS_V1__)return;
-window.__RONA_CLIENT_PRICE_CONDITIONS_V1__='20260828-premium-terms-v3';
+window.__RONA_CLIENT_PRICE_CONDITIONS_V1__='20260921-premium-terms-v4-event-driven';
 
 const BLOCK_ID='ronaClientPriceConditionsV1';
 const STYLE_ID='ronaClientPriceConditionsPremiumV2';
@@ -128,7 +128,7 @@ function render(){
   fixHeaderStatus();
   const state=currentState();
   const table=findPriceTable();
-  if(!state?.prices?.length||!table)return false;
+  if(!state?.prices?.length||!table){document.getElementById(BLOCK_ID)?.remove();return false;}
   ensureStyle();
   const data=termsFrom(state.prices);
   const sig=signature(state.prices);
@@ -176,5 +176,7 @@ function tryRender(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tryRender,{once:true});else queueMicrotask(tryRender);
 document.addEventListener('click',()=>setTimeout(render,250),true);
 document.addEventListener('change',()=>setTimeout(render,250),true);
-setInterval(()=>{if(document.visibilityState==='visible')render()},4000);
+window.addEventListener('rona:client-prices-updated',()=>queueMicrotask(render),{passive:true});
+window.addEventListener('rona:client-context-changed',()=>queueMicrotask(render),{passive:true});
+window.addEventListener('pageshow',()=>queueMicrotask(render),{passive:true});
 })();
