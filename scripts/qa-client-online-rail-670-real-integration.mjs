@@ -210,7 +210,6 @@ window.__qaCtx={client_id:'${CLIENT_A}',contract_id:'${CONTRACT_A}'};
 window.__qaSubscriber=null;
 window.RONA_CLIENT_CONTEXT={getCurrentContext(){return window.__qaCtx},async whenReady(){return window.__qaCtx},subscribe(fn){window.__qaSubscriber=fn;return()=>{}}};
 window.__qaSetContext=function(next){window.__qaCtx=next;if(window.__qaSubscriber)window.__qaSubscriber(next)};
-const nativeSetInterval=window.setInterval.bind(window);window.setInterval=function(fn,ms){return nativeSetInterval(fn,ms===30000?220:ms)};
 </script></head><body><section id="page-monitoring" class="active"><div class="rona-owner-page-content"></div></section><script src="/portal/client-rail-current-ui.js"></script></body></html>`;
 
 function send(res,status,body,type='text/plain; charset=utf-8'){res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(body)}
@@ -237,7 +236,7 @@ const proxy=http.createServer(async(req,res)=>{
 await new Promise((resolve,reject)=>{proxy.once('error',reject);proxy.listen(0,'127.0.0.1',resolve)});
 const origin='http://127.0.0.1:'+proxy.address().port;
 
-const evidence={authenticated:true,sessionId:auth.sessionId,authorizedHttp200:true,adminV4ClientDenied:true,adminV4AdminAllowed:true,internalCoreClientDenied:true,crossClientFailClosed:true,dealQueryTamperFailClosed:true,autoDealDiscovery:true,hardReloadReady:false,dealSwitchIsolation:false,backgroundRefresh:false,contextSwitchClears:false,degradedHttp503:false,degradedRefreshPreservesLastGood:false,tariffMatrixAbsent:false};
+const evidence={authenticated:true,sessionId:auth.sessionId,authorizedHttp200:true,adminV4ClientDenied:true,adminV4AdminAllowed:true,internalCoreClientDenied:true,crossClientFailClosed:true,dealQueryTamperFailClosed:true,autoDealDiscovery:true,hardReloadReady:false,dealSwitchIsolation:false,idleNoPolling:false,eventDrivenRefresh:false,contextSwitchClears:false,degradedHttp503:false,degradedRefreshPreservesLastGood:false,tariffMatrixAbsent:false};
 let browser;
 try{
   browser=await chromium.launch({headless:true});
@@ -265,11 +264,20 @@ try{
   evidence.tariffMatrixAbsent=!view.text.includes('Матрица ЖД-тарифов');
   assert(evidence.tariffMatrixAbsent,'TARIFF_MATRIX_RETURNED');
 
-  const before=(await fetch(origin+'/qa/state').then(r=>r.json())).proxyRequests;
+  const beforeIdle=(await fetch(origin+'/qa/state').then(r=>r.json())).proxyRequests;
   await sleep(650);
-  const after=(await fetch(origin+'/qa/state').then(r=>r.json())).proxyRequests;
-  assert(after>before,'REAL_BACKGROUND_REFRESH_NOT_RUNNING');
-  evidence.backgroundRefresh=true;
+  const afterIdle=(await fetch(origin+'/qa/state').then(r=>r.json())).proxyRequests;
+  assert(afterIdle===beforeIdle,'REAL_IDLE_CLIENT_RAIL_POLLED_WITHOUT_CHANGE');
+  evidence.idleNoPolling=true;
+
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('rona:client-rail-invalidated')));
+  let afterInvalidation=afterIdle;
+  for(let attempt=0;attempt<30&&afterInvalidation===afterIdle;attempt++){
+    await sleep(50);
+    afterInvalidation=(await fetch(origin+'/qa/state').then(r=>r.json())).proxyRequests;
+  }
+  assert(afterInvalidation===afterIdle+1,'REAL_EVENT_DRIVEN_REFRESH_NOT_EXACTLY_ONCE');
+  evidence.eventDrivenRefresh=true;
 
   await page.evaluate(({clientId,contractId})=>window.__qaSetContext({client_id:clientId,contract_id:contractId}),{clientId:CLIENT_U,contractId:CONTRACT_U});
   await sleep(500);
