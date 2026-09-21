@@ -58,15 +58,17 @@ test('Map viewport lives outside DOM and persists per deal',()=>{
   assert.match(v81,/function railMapInitialViewport\(context,width,height,minZoom,maxZoom\)/);
   assert.match(v81,/railMapPersistViewport\(state,reason\|\|'USER_ZOOM',true\)/);
   assert.match(v81,/railMapPersistViewport\(state,'USER_PAN',true\)/);
-  assert.match(v81,/railMapPersistViewport\(state,'HOME',true\)/);
+  assert.match(v81,/fitMode\('OPERATIONAL','OPERATIONAL_FIT'\)/);
+  assert.match(v81,/fitMode\('FULL','FULL_ROUTE_FIT'\)/);
   assert.match(v81,/function railMapDefaultViewport\(\)\{return\{lat:52\.5,lng:68,zoom:3\}\}/);
 });
 
 test('Route fit is one-time per deal and yields to user pan/zoom',()=>{
   assert.match(v81,/routeFitApplied/);
   assert.match(v81,/!saved\.userTouched&&!saved\.routeFitApplied&&route\.length>=2/);
-  assert.match(v81,/reason:'ROUTE_FIT'/);
-  assert.match(v81,/routeFitApplied:reason==='HOME'\?true:/);
+  assert.match(v81,/OPERATIONAL_FIT/);
+  assert.match(v81,/FULL_ROUTE_FIT/);
+  assert.match(v81,/routeFitApplied:\/FIT\|HOME\/.test\(String\(reason\|\|''\)\)\?true:/);
 });
 
 test('First open never commits a non-authoritative inherited Admin snapshot',()=>{
@@ -96,7 +98,7 @@ test('Background rail sync is data-change-only and repair is viewport-safe',()=>
 });
 
 test('Map data contract projects planned, traversed and remaining source-backed route state',()=>{
-  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V2/);
+  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V3_COHORTS/);
   assert.match(v81,/function railDealMapValue\(data,name,dealKey,dealId\)/);
   assert.match(v81,/actualRouteByDeal/);
   assert.match(v81,/remainingRouteByDeal/);
