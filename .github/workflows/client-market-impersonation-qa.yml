@@ -21,12 +21,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
       - name: Specific Client route impersonation
         run: node --test tests/specific-client-route-impersonation.test.mjs
       - name: Market authority source contract
         run: node --test tests/client-market-impersonation-authority.test.mjs
-      - name: Effective Client projection TypeScript check
-        run: deno check --config supabase/functions/rona-portal-api/deno.json --node-modules-dir=auto supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts
+      - name: Specific Pages route syntax
+        run: node --check functions/portal/api/v1/client/market-intelligence.js
