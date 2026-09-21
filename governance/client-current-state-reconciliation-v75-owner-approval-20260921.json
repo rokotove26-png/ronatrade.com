@@ -11,7 +11,8 @@
     "assets/portal-runtime/client-application-lifecycle-v1.js",
     "assets/portal-runtime/client-payments-authoritative-v1.js",
     "assets/portal-runtime/client-payments-canonical-layout-v1.js",
-    "scripts/attach-client-application-lifecycle.mjs"
+    "scripts/attach-client-application-lifecycle.mjs",
+    "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-context-selection-authority-v1.js": {
@@ -38,6 +39,11 @@
       "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
       "authorized_post_blob_sha": "deb3ee662cd4c49a4e879d0532f7b563349155fa",
       "required_marker": "20260921-current-state-event-driven-v4"
+    },
+    "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
+      "visual_freeze_baseline_blob_sha": "4e7ffaf5018893d6159413d9aa57c8c4d45e28e4",
+      "authorized_post_blob_sha": "f839e9c68e15c69663acf40117965abf2db49502",
+      "required_marker": "CURRENT_APPLICATION_BUSINESS_FIXTURE_ID_B1"
     }
   },
   "requirements": {
@@ -60,6 +66,7 @@
     "authenticated_client_verification_required": true,
     "final_idle_acceptance_required": true,
     "merge": "HOLD",
-    "deploy": "HOLD"
+    "deploy": "HOLD",
+    "owner_retest_fixture_current_application_business_v2": true
   }
 }
