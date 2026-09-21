@@ -26,7 +26,6 @@ jobs:
           HEAD='4a2d2cd72d658be3d38a6be96988a2da20381758'
           mkdir -p overlay
           git diff --binary "$BASE" "$HEAD" > overlay/RONA_current_source_overlay_3be92ae_to_4a2d2cd.patch
-          git bundle create overlay/RONA_current_source_overlay_4a2d2cd.bundle "$HEAD" "^$BASE"
           git diff --name-status "$BASE" "$HEAD" > overlay/CHANGED_FILES.txt
           git show -s --format='%H%n%cI%n%s' "$HEAD" > overlay/CURRENT_PRODUCTION_HEAD.txt
           cat > overlay/README.txt <<'EOF'
