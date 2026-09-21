@@ -54,7 +54,6 @@ window.__qaCtx={client_id:'CLIENT-A',contract_id:'CONTRACT-A'};
 window.__qaSubscriber=null;
 window.RONA_CLIENT_CONTEXT={getCurrentContext(){return window.__qaCtx},async whenReady(){return window.__qaCtx},subscribe(fn){window.__qaSubscriber=fn;return()=>{}}};
 window.__qaSetContext=function(next){window.__qaCtx=next;if(window.__qaSubscriber)window.__qaSubscriber(next)};
-const __nativeSetInterval=window.setInterval.bind(window);window.setInterval=function(fn,ms){return __nativeSetInterval(fn,ms===30000?180:ms)};
 </script></head><body><section id="page-monitoring" class="active"><div class="rona-owner-page-content"></div></section><script src="/portal/client-rail-current-ui.js"></script></body></html>`;
 
 function send(res,status,body,type='text/plain; charset=utf-8'){res.writeHead(status,{'content-type':type,'cache-control':'no-store'});res.end(body)}
@@ -117,10 +116,19 @@ try{
   assert(view.text.includes('GU12-DEAL-QA-B')&&!view.text.includes('GU12-DEAL-QA-A'),'deal switch inherited another deal');
   assert(view.mapParity.dealKey===DEAL_B&&view.overlay.dealKey===DEAL_B&&view.routeLines>=2,'route geometry did not follow deal switch '+JSON.stringify(view));
 
-  const beforeAuto=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
+  const beforeIdle=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
   await sleep(520);
-  const afterAuto=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
-  assert(afterAuto>beforeAuto,'30s auto-refresh source did not schedule recurring canonical reload');
+  const afterIdle=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
+  assert(afterIdle===beforeIdle,'idle Client Rail performed an unexpected recurring canonical reload');
+
+  const beforeInvalidation=afterIdle;
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('rona:client-rail-invalidated')));
+  let afterInvalidation=beforeInvalidation;
+  for(let attempt=0;attempt<30&&afterInvalidation===beforeInvalidation;attempt++){
+    await sleep(40);
+    afterInvalidation=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
+  }
+  assert(afterInvalidation===beforeInvalidation+1,'explicit Rail invalidation did not schedule exactly one canonical reload');
 
   await fetch(origin+'/qa/degrade');
   const beforeDegraded=await page.locator('#page-monitoring').textContent();
@@ -151,7 +159,8 @@ try{
   console.log('ISSUE670_PREMIUM_MAP_MARKERS=PASS');
   console.log('ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS');
   console.log('ISSUE670_DEAL_SWITCH_ISOLATION=PASS');
-  console.log('ISSUE670_BACKGROUND_REFRESH=PASS');
+  console.log('ISSUE670_IDLE_NO_POLLING=PASS');
+  console.log('ISSUE670_EVENT_DRIVEN_REFRESH=PASS');
   console.log('ISSUE670_DEGRADED_REFRESH_PRESERVE=PASS');
   console.log('ISSUE670_CONTEXT_SWITCH_NO_INHERITANCE=PASS');
   console.log('ISSUE670_TAMPER_FAIL_CLOSED=PASS');
