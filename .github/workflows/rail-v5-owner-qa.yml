@@ -80,7 +80,7 @@ jobs:
           const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const bridge=integrity?.client_runtime?.rail_client_admin_canonical;
-          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260919-route-overlay-v3','Client Rail integrity record missing');
+          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260921-admin-canonical-route-inherit-v1','Client Rail integrity record missing');
           assert(bridge.visual_canon==='ADMIN_CURRENT_V81_EXACT_OPERATIONAL_LAYOUT','Client Rail visual canon changed');
           assert(bridge.visual_contract==='ADMIN_CURRENT_V8_2_OPERATIONAL_BODY_PLUS_CLIENT_AUTHORITY','Client Rail visual contract changed');
           assert(bridge.visual_source_mode==='ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE','Client Rail source mode changed');
@@ -91,7 +91,8 @@ jobs:
           const response=await clientRail({});
           assert(response.status===200,'Client Rail adapter endpoint '+response.status);
           const src=await response.text();
-          for(const token of ["window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/rail-canonical','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'])assert(src.includes(token),`built Client Rail marker missing ${token}`);
+          for(const token of ["window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1'",'RONA_CLIENT_CONTEXT','CLIENT_CONTRACT_CONTEXT_REQUIRED','/portal/api/v1/client/rail-canonical','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1','CLIENT_ADMIN_ROUTE_PARITY_V5_CANONICAL_RENDERER','ADMIN_CURRENT_V81_INHERITED_V1','DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION'])assert(src.includes(token),`built Client Rail marker missing ${token}`);
+          for(const retired of ['function clientRailRenderAuthoritativeRouteOverlay','function clientRailPatchRouteDraw','clientRailRouteOverlayPolyline','CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS'])assert(!src.includes(retired),`duplicate Client route renderer remains ${retired}`);
           for(const forbidden of ['/portal/owner-api','/admin/bootstrap',"location.pathname==='/portal/admin'",'rona-rail-ws','rona-movizor-blocker'])assert(!src.includes(forbidden),`retired/divergent built Client Rail output remains ${forbidden}`);
           assert(response.headers.get('x-rona-client-rail-visual-canon')==='/portal/rail-current-v81-maplibre-ui','Admin operational-body header changed');
           console.log('ONLINE_RAIL_CURRENT_OWNER_BUILD=PASS context=CURRENT_CONTEXT visual=CLIENT_CANONICAL_HERO_V1 admin_body=V8_2');
