@@ -68,13 +68,16 @@ jobs:
           manifest=api_json('/manifest',90)
           pathlib.Path('backup/database/manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding='utf-8')
 
-          step=500
+          step=1000
           total_rows=0
           for entry in manifest['tables']:
               table=entry['backup_table']
               count=int(entry['row_count'])
               total_rows+=count
               out=pathlib.Path('backup/database/tables')/(table+'.ndjson')
+              if count == 0:
+                  out.write_bytes(b'')
+                  continue
               with out.open('wb') as f:
                   for offset in range(0,count,step):
                       path='/table?table='+urllib.parse.quote(table)+'&offset='+str(offset)+'&limit='+str(step)
