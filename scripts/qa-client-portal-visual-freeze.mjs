@@ -479,12 +479,7 @@ const CLIENT_EVENT_DRIVEN_REFRESH_FILES=[
   'assets/portal-runtime/client-price-conditions-v1.js',
   'assets/portal-runtime/client-shell-guard-v3.js',
   'assets/portal-runtime/client-logout-visual-v1.js',
-  'scripts/attach-client-logout-visual-v1.mjs',
-  'assets/portal-runtime/client-applications-live-render-v1.js',
-  'assets/portal-runtime/client-market-intelligence-v1.js',
-  'assets/portal-runtime/client-market-news-admin-parity-v1.js',
-  'assets/portal-runtime/client-application-lifecycle-v1.js',
-  'assets/portal-runtime/client-contract-download-v3.js'
+  'scripts/attach-client-logout-visual-v1.mjs'
 ];
 const clientEventDrivenRefreshExceptionAuthorized=
   clientEventDrivenRefreshApproval?.approval==='OWNER_IN_CHAT'&&
@@ -576,7 +571,6 @@ let ownerVisualDeltaAppliedFiles=0;
 let clientMultiContext430AppliedFiles=0;
 let clientSectionTypography110AppliedFiles=0;
 let clientPostreleaseIssue430AppliedFiles=0;
-let clientPostreleaseIssue430SupersededByEventRefresh=0;
 let pr431TwoBugScopedAppliedFiles=0;
 let pr431DirectFixExactFiles=0;
 let pr431TypographyQaWiringExactFiles=0;
@@ -732,7 +726,7 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientPostreleaseIssue430&&CLIENT_POSTRELEASE_ISSUE430_FILES.includes(path))clientPostreleaseIssue430AppliedFiles+=1;
     if(exactClientRailAdminMirror)clientRailAdminMirrorAppliedFiles+=1;
     if(exactClientRail670)clientRail670AppliedFiles+=1;
-    if(exactClientEventDrivenRefresh){clientEventDrivenRefreshAppliedFiles+=1;if(CLIENT_POSTRELEASE_ISSUE430_FILES.includes(path))clientPostreleaseIssue430SupersededByEventRefresh+=1;}
+    if(exactClientEventDrivenRefresh)clientEventDrivenRefreshAppliedFiles+=1;
     if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
@@ -746,9 +740,8 @@ if(clientRail670ExceptionAuthorized&&clientRail670AppliedFiles!==CLIENT_RAIL_670
 if(!clientEventDrivenRefreshExceptionAuthorized)errors.push('CLIENT_EVENT_DRIVEN_REFRESH_GOVERNANCE_NOT_AUTHORIZED');
 if(clientEventDrivenRefreshExceptionAuthorized&&clientEventDrivenRefreshAppliedFiles!==CLIENT_EVENT_DRIVEN_REFRESH_FILES.length)errors.push(`CLIENT_EVENT_DRIVEN_REFRESH_EXACT_BLOB_COUNT expected=${CLIENT_EVENT_DRIVEN_REFRESH_FILES.length} actual=${clientEventDrivenRefreshAppliedFiles}`);
 if(!clientPostreleaseIssue430ExceptionAuthorized)errors.push('CLIENT_POSTRELEASE_ISSUE430_GOVERNANCE_NOT_AUTHORIZED');
-const clientPostreleaseIssue430EffectiveFiles=clientPostreleaseIssue430AppliedFiles+clientPostreleaseIssue430SupersededByEventRefresh;
-if(clientPostreleaseIssue430ExceptionAuthorized&&clientPostreleaseIssue430EffectiveFiles!==CLIENT_POSTRELEASE_ISSUE430_FILES.length)errors.push(`CLIENT_POSTRELEASE_ISSUE430_EXACT_BLOB_COUNT expected=${CLIENT_POSTRELEASE_ISSUE430_FILES.length} actual=${clientPostreleaseIssue430EffectiveFiles}`);
-const clientSectionTypography110EffectiveFiles=clientSectionTypography110AppliedFiles+clientPostreleaseIssue430EffectiveFiles;
+if(clientPostreleaseIssue430ExceptionAuthorized&&clientPostreleaseIssue430AppliedFiles!==CLIENT_POSTRELEASE_ISSUE430_FILES.length)errors.push(`CLIENT_POSTRELEASE_ISSUE430_EXACT_BLOB_COUNT expected=${CLIENT_POSTRELEASE_ISSUE430_FILES.length} actual=${clientPostreleaseIssue430AppliedFiles}`);
+const clientSectionTypography110EffectiveFiles=clientSectionTypography110AppliedFiles+clientPostreleaseIssue430AppliedFiles;
 if(clientSectionTypography110ExceptionAuthorized&&clientSectionTypography110EffectiveFiles!==CLIENT_SECTION_TYPOGRAPHY_110_FILES.length){
   errors.push(`CLIENT_SECTION_TYPOGRAPHY_110_EXACT_BLOB_COUNT expected=${CLIENT_SECTION_TYPOGRAPHY_110_FILES.length} actual=${clientSectionTypography110EffectiveFiles}`);
 }
