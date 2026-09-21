@@ -1,0 +1,12 @@
+{
+  "slug": "rona-admin-contract-activation",
+  "name": "rona-admin-contract-activation",
+  "status": "ACTIVE",
+  "version": 9,
+  "verify_jwt": true,
+  "ezbr_sha256": "3532d045a065812713bf0536f91ee572cbd0cd50837e1d0b333ca2911c3ab4d5",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_055e4f7b-5890-48c3-804a-2518d94a046b_9/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_055e4f7b-5890-48c3-804a-2518d94a046b_9/source/deno.json",
+  "created_at": 1787180200998,
+  "updated_at": 1788190270576
+}
