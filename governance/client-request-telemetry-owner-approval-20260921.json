@@ -1,0 +1,53 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_REQUEST_TELEMETRY_V1",
+  "owner_instruction": "Продолжай работу по CLIENT_END_TO_END_OPTIMIZATION_AUDIT_20260921 и включи observability без изменения business data.",
+  "production_revalidated_at_change": "bbd6c489c53fa0b8378c2764d982b2fc0e3c0124",
+  "stacked_dependency_pr": 818,
+  "stacked_dependency_branch": "fix/client-applications-projection-impersonation-v1-20260921",
+  "requirements": {
+    "existing_table_reused": "portal_private.portal_api_request_events",
+    "existing_writer_reused": "recordApiEvent",
+    "schema_changed": false,
+    "rls_changed": false,
+    "business_data_changed": false,
+    "visual_change": false,
+    "auth_semantics_changed": false,
+    "nonblocking_write": true,
+    "response_path": "EdgeRuntime.waitUntil",
+    "telemetry_contract": "PORTAL_API_REQUEST_TELEMETRY_V1",
+    "metadata_fields": [
+      "caller_runtime",
+      "refresh_reason",
+      "client_id",
+      "contract_id",
+      "transport",
+      "request_cache",
+      "latency_ms"
+    ],
+    "base_event_fields": [
+      "request_id",
+      "auth_user_id",
+      "portal_user_id",
+      "method",
+      "route",
+      "result",
+      "http_status",
+      "correlation_id",
+      "user_agent"
+    ],
+    "secrets_excluded": [
+      "authorization",
+      "cookies",
+      "access_token",
+      "refresh_token",
+      "api_keys"
+    ],
+    "client_context_from_query_only": true,
+    "caller_runtime_from_safe_header": "x-rona-client-source",
+    "refresh_reason_header_optional": "x-rona-client-refresh-reason",
+    "network_cache_classification": "transport=NETWORK; request_cache=request.cache",
+    "pre_auth_failures_not_instrumented_in_v1": true
+  }
+}
