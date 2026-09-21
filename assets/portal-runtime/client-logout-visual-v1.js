@@ -2,8 +2,10 @@
 const MARK='20260830-client-logout-force-red-v2';
 if(window.__RONA_CLIENT_LOGOUT_VISUAL_V1__===MARK)return;
 window.__RONA_CLIENT_LOGOUT_VISUAL_V1__=MARK;
+window.__RONA_CLIENT_LOGOUT_VISUAL_REFRESH_POLICY__='EVENT_DRIVEN_FILTERED_MUTATION_V1';
 const STYLE_ID='rona-client-logout-force-red-v2-style';
 const ATTR='data-rona-logout-visual-v1';
+const EXPLICIT_SELECTOR='#clientLogoutBtn,#ronaLogout,#logoutBtn,[data-rona-client-canonical-logout="true"],[data-rona-logout-bound="true"],[data-action="logout"],[data-logout]';
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim().toLocaleLowerCase('ru-RU');
 const RED_BG='linear-gradient(110deg,#6b0710 0%,#b70d1b 22%,#f52237 43%,#ff5a69 50%,#f52237 57%,#b70d1b 78%,#65060f 100%)';
 function ensureStyle(){
@@ -71,10 +73,13 @@ function forceInline(el){
   important(el,'box-shadow','0 0 0 1px rgba(255,65,80,.24), 0 0 13px rgba(236,24,43,.46), inset 0 1px 0 rgba(255,255,255,.2)');
   important(el,'text-shadow','0 1px 1px rgba(45,0,5,.78)');
 }
+function isLogoutCandidate(el){
+  return Boolean(el&&el.nodeType===Node.ELEMENT_NODE&&(el.matches?.(EXPLICIT_SELECTOR)||norm(el.textContent)==='выход'));
+}
 function apply(){
   ensureStyle();
-  const selector='#clientLogoutBtn,#ronaLogout,#logoutBtn,[data-rona-client-canonical-logout="true"],[data-rona-logout-bound="true"],[data-action="logout"],[data-logout],button,a,[role="button"]';
-  const list=[...document.querySelectorAll(selector)].filter(el=>visible(el)&&(el.id==='clientLogoutBtn'||el.id==='ronaLogout'||el.id==='logoutBtn'||el.dataset?.ronaClientCanonicalLogout==='true'||el.dataset?.ronaLogoutBound==='true'||el.getAttribute?.('data-action')==='logout'||el.hasAttribute?.('data-logout')||norm(el.textContent)==='выход'));
+  const selector=EXPLICIT_SELECTOR+',button,a,[role="button"]';
+  const list=[...document.querySelectorAll(selector)].filter(el=>visible(el)&&isLogoutCandidate(el));
   if(!list.length)return;
   list.sort((a,b)=>score(b)-score(a));
   const keep=list[0];
@@ -84,9 +89,23 @@ function apply(){
 }
 let queued=false;
 function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;apply()})}
+function mutationTouchesLogout(records){
+  for(const record of records||[]){
+    if(record.type==='attributes'&&isLogoutCandidate(record.target))return true;
+    for(const node of [...(record.addedNodes||[]),...(record.removedNodes||[])]){
+      if(node?.nodeType===Node.TEXT_NODE){if(isLogoutCandidate(node.parentElement))return true;continue}
+      if(node?.nodeType!==Node.ELEMENT_NODE)continue;
+      if(isLogoutCandidate(node))return true;
+      const explicit=node.querySelectorAll?.(EXPLICIT_SELECTOR)||[];
+      for(const el of explicit)if(isLogoutCandidate(el))return true;
+      for(const el of node.querySelectorAll?.('button,a,[role="button"]')||[])if(norm(el.textContent)==='выход')return true;
+    }
+  }
+  return false;
+}
 function start(){
   apply();
-  new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','data-rona-client-canonical-logout','data-rona-logout-bound']});
+  if(document.body)new MutationObserver(records=>{if(mutationTouchesLogout(records))schedule()}).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','hidden','data-rona-client-canonical-logout','data-rona-logout-bound']});
   window.addEventListener('pageshow',schedule,{passive:true});
   window.addEventListener('focus',schedule,{passive:true});
 }
