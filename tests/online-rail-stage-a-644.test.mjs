@@ -51,7 +51,7 @@ test('Deal identity is canonical deal_key, not GU-12 text',()=>{
 });
 
 test('Map viewport lives outside DOM and persists per deal',()=>{
-  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V1/);
+  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V2/);
   assert.match(v81,/window\.__RONA_RAIL_MAP_VIEWPORT_STATE__/);
   assert.match(v81,/return key\?'DEAL:'\+key:'DEAL:UNBOUND'/);
   assert.match(v81,/function railMapPersistViewport\(state,reason,userTouched\)/);
@@ -176,7 +176,14 @@ test('Split wagon histories render as independent route cohorts with border-tran
   assert.match(v81,/rona-rail-v7-border-crossing/);
   assert.match(v81,/rona-rail-v7-border-unresolved/);
   assert.match(v81,/точный погранпереход не подтвержден/);
-  assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
+  assert.match(v81,/function railMapRenderLegend\(state\)/);
+  assert.match(v81,/Группы вагонов/);
+  assert.match(v81,/function railMapOperationalFitPoints\(context\)/);
+  assert.match(v81,/OPERATIONAL_DEFAULT_WITH_FULL_ROUTE_TOGGLE_V1/);
+  assert.match(v81,/Опер/);
+  assert.match(v81,/Весь/);
+  assert.match(v81,/rona-rail-v7-route-plan/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-visual-v2'/);
 });
 
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
