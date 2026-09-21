@@ -1,0 +1,165 @@
+name: Supabase Project Restart One Shot
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  restart-production-project:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ops/supabase-project-restart-20260922'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_REF: sxawrwzeobaqwwmlkzws
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || secrets.SUPABASE_MANAGEMENT_TOKEN || secrets.SUPABASE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify management credential and exact project
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "SUPABASE_MANAGEMENT_TOKEN_MISSING"
+            exit 2
+          fi
+          http_code="$(curl -sS --max-time 20 -o project.json -w '%{http_code}' \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H 'Accept: application/json' \
+            "https://api.supabase.com/v1/projects/${PROJECT_REF}")"
+          if [ "$http_code" != "200" ]; then
+            echo "SUPABASE_PROJECT_PREFLIGHT_HTTP=${http_code}"
+            exit 3
+          fi
+          python3 - <<'PY'
+          import json
+          with open('project.json','r',encoding='utf-8') as f:
+              data=json.load(f)
+          ref=str(data.get('ref') or data.get('id') or '')
+          name=str(data.get('name') or '')
+          status=str(data.get('status') or '')
+          if ref != 'sxawrwzeobaqwwmlkzws':
+              raise SystemExit('PROJECT_REF_MISMATCH:'+ref)
+          if name != 'RONA Trade':
+              raise SystemExit('PROJECT_NAME_MISMATCH:'+name)
+          print('SUPABASE_RESTART_PREFLIGHT=PASS status='+status)
+          PY
+          rm -f project.json
+
+      - name: Restart exact RONA Trade project
+        shell: bash
+        run: |
+          set -euo pipefail
+          http_code="$(curl -sS --max-time 30 -o restart.json -w '%{http_code}' \
+            -X POST \
+            -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            -H 'Accept: application/json' \
+            "https://api.supabase.com/v1/projects/${PROJECT_REF}/restart")"
+          echo "SUPABASE_RESTART_HTTP=${http_code}"
+          rm -f restart.json
+          if [ "$http_code" != "200" ]; then
+            exit 4
+          fi
+          echo "SUPABASE_RESTART_REQUEST=ACCEPTED"
+
+      - name: Wait for project to return ACTIVE_HEALTHY
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for attempt in $(seq 1 90); do
+            sleep 10
+            body="$(mktemp)"
+            http_code="$(curl -sS --max-time 15 -o "$body" -w '%{http_code}' \
+              -H "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+              -H 'Accept: application/json' \
+              "https://api.supabase.com/v1/projects/${PROJECT_REF}" || true)"
+            if [ "$http_code" = "200" ]; then
+              status="$(python3 - "$body" <<'PY'
+          import json,sys
+          try:
+              with open(sys.argv[1],'r',encoding='utf-8') as f:
+                  d=json.load(f)
+              print(str(d.get('status') or 'UNKNOWN'))
+          except Exception:
+              print('UNKNOWN')
+          PY
+          )"
+              echo "SUPABASE_RESTART_POLL attempt=${attempt} status=${status}"
+              if [ "$status" = "ACTIVE_HEALTHY" ]; then
+                ok=1
+                rm -f "$body"
+                break
+              fi
+            else
+              echo "SUPABASE_RESTART_POLL attempt=${attempt} http=${http_code}"
+            fi
+            rm -f "$body"
+          done
+          if [ "$ok" != "1" ]; then
+            echo "SUPABASE_RESTART_RECOVERY=TIMEOUT"
+            exit 5
+          fi
+          echo "SUPABASE_RESTART_RECOVERY=ACTIVE_HEALTHY"
+
+      - name: Verify direct Auth and RONA login transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          sleep 15
+          key="$(python3 - <<'PY'
+          import re
+          s=open('functions/portal/auth/login.js','r',encoding='utf-8').read()
+          m=re.search(r"const SUPABASE_PUBLISHABLE_KEY = '([^']+)'",s)
+          if not m:
+              raise SystemExit('PUBLISHABLE_KEY_NOT_FOUND')
+          print(m.group(1))
+          PY
+          )"
+          probe_email="qa-restart-probe-$(date +%s)@example.invalid"
+          payload="$(python3 - "$probe_email" <<'PY'
+          import json,sys
+          print(json.dumps({'email':sys.argv[1],'password':'invalid-restart-probe'},separators=(',',':')))
+          PY
+          )"
+          direct_code="$(curl -sS --max-time 20 -o direct-auth.json -w '%{http_code}' \
+            -X POST \
+            -H "apikey: ${key}" \
+            -H 'Content-Type: application/json' \
+            --data "$payload" \
+            "https://${PROJECT_REF}.supabase.co/auth/v1/token?grant_type=password" || true)"
+          echo "DIRECT_SUPABASE_AUTH_POST_RESTART_HTTP=${direct_code}"
+          if [ "$direct_code" != "400" ]; then
+            rm -f direct-auth.json
+            exit 6
+          fi
+          rm -f direct-auth.json
+
+          portal_payload="$(python3 - "$probe_email" <<'PY'
+          import json,sys
+          print(json.dumps({'identifier':sys.argv[1],'password':'invalid-restart-probe'},separators=(',',':')))
+          PY
+          )"
+          portal_code="$(curl -sS --max-time 65 -o portal-login.json -w '%{http_code}' \
+            -X POST \
+            -H 'Origin: https://ronaoil.com' \
+            -H 'Accept: application/json' \
+            -H 'Content-Type: application/json' \
+            --data "$portal_payload" \
+            'https://ronaoil.com/portal/auth/login' || true)"
+          echo "RONA_PORTAL_LOGIN_POST_RESTART_HTTP=${portal_code}"
+          if [ "$portal_code" != "401" ]; then
+            rm -f portal-login.json
+            exit 7
+          fi
+          if ! grep -q '"LOGIN_DENIED"' portal-login.json; then
+            rm -f portal-login.json
+            exit 8
+          fi
+          rm -f portal-login.json
+          echo "POST_RESTART_AUTH_TRANSPORT=PASS"
