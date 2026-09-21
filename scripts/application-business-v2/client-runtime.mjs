@@ -67,6 +67,12 @@ function counterOfferMarkup(app){
  const actions=active?'<div class="rona-counter-offer-actions"><button type="button" class="rona-counter-offer-action" data-rona-counter-offer-decision="accept" data-application-id="'+esc(app.application_id)+'" data-decision="accept">\u041f\u0440\u0438\u043d\u044f\u0442\u044c</button><button type="button" class="rona-counter-offer-action" data-rona-counter-offer-decision="decline" data-application-id="'+esc(app.application_id)+'" data-decision="decline">\u041e\u0442\u043a\u043b\u043e\u043d\u0438\u0442\u044c</button></div>':'';
  return '<div class="rona-counter-offer-panel" data-rona-counter-offer-panel="v2" data-rona-counter-offer-active="'+String(active)+'"><div class="rona-counter-offer-copy"><span>\u0412\u0441\u0442\u0440\u0435\u0447\u043d\u043e\u0435 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u0435 RONA Trade</span>'+separator+'<strong class="rona-counter-offer-price" data-rona-counter-offer-price="true">'+amount+'</strong>'+(responseText?separator+'<span class="rona-counter-offer-state">'+responseText+'</span>':'')+'</div>'+actions+'</div>';
 }
+async function applicationPassportRequest(path){
+ const response=await fetch('/portal/api'+path,{method:'GET',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+ const payload=await response.json().catch(()=>null);
+ if(!response.ok||payload?.ok===false)throw new Error(String(payload?.code||('HTTP_'+response.status)));
+ return payload;
+}
 async function openCanonicalApplicationPassport(button){
  if(button.disabled)return;
  const id=norm(button.getAttribute('data-rona-open-application')),ctx=authority()?.getCurrentContext?.(),key=contextKey(ctx);
@@ -74,7 +80,7 @@ async function openCanonicalApplicationPassport(button){
  if(state.openPassportId===id){state.openPassportId=null;render();return}
  button.disabled=true;
  try{
-  const result=await request('/v1/client/applications/'+encodeURIComponent(id)+'/passport?clientId='+encodeURIComponent(ctx.client_id)+'&contractId='+encodeURIComponent(ctx.contract_id));
+  const result=await applicationPassportRequest('/v1/client/applications/'+encodeURIComponent(id)+'/passport?clientId='+encodeURIComponent(ctx.client_id)+'&contractId='+encodeURIComponent(ctx.contract_id));
   if(contextKey(authority()?.getCurrentContext?.())!==key)return;
   const app=result?.data?.application;
   if(result?.data?.business_contract!=='RONA_APPLICATION_BUSINESS_V2'||app?.application_id!==id||app?.client_id!==ctx.client_id||app?.contract_id!==ctx.contract_id)throw new Error('APPLICATION_PASSPORT_SCOPE_INVALID');
