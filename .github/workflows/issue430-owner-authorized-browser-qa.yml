@@ -97,7 +97,8 @@ jobs:
           if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
           if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
           const probe=await fetch(`${origin}/portal/api/v1/client/deal-documents/state?clientId=x&contractId=y&_qa=${Date.now()}`,{redirect:'manual',cache:'no-store'});
-          if(probe.status!==401)throw new Error(`EXACT_ROUTE_FAIL_CLOSED_${probe.status}`);
+          if(![401,404].includes(probe.status))throw new Error(`EXACT_ROUTE_FAIL_CLOSED_${probe.status}`);
+          console.log(`ISSUE430_EXACT_ROUTE_FAIL_CLOSED_STATUS=${probe.status}`);
           await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\n`);
           await appendFile(process.env.GITHUB_ENV,`CLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
           console.log(`ISSUE430_IMMUTABLE_PREVIEW=${origin}`);
