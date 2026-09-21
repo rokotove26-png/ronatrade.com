@@ -10,7 +10,10 @@ test('Payments V8 refreshes authoritative bootstrap on all live triggers without
   assert.match(ui,/addEventListener\('focus'[^\n]*refreshIfOpen\('focus'\)/);
   assert.match(ui,/visibilitychange[^\n]*refreshIfOpen\('visibilitychange'\)/);
   assert.match(ui,/setInterval\(\(\)=>refreshIfOpen\('interval'\),REFRESH_MS\)/);
-  assert.match(ui,/const REFRESH_MS=30000/);
+  assert.match(ui,/const REFRESH_MS=90000/);
+  assert.match(ui,/const RETRY_MS=15000/);
+  assert.match(ui,/ADMIN_PAYMENTS_POLL/);
+  assert.match(ui,/PAYMENTS_OPEN_ONLY/);
   assert.match(ui,/cache:'no-store'/);
   assert.match(ui,/if\(loading\)return loading/);
 });
