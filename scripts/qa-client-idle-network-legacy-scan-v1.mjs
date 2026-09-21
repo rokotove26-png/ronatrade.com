@@ -3,14 +3,7 @@ import path from 'node:path';
 
 const HTML_PATH='dist/portal/client.html';
 const MARK='CLIENT_IDLE_NETWORK_SCAN_V1';
-const ARCHITECT_DEFERRED=new Set([
-  'client-context-selection-authority-v1.js',
-  'client-application-lifecycle-v1.js',
-  'client-deal-lifecycle-v1.js',
-  'client-payments-authoritative-v1.js',
-  'client-payments-canonical-layout-v1.js',
-  'portal-client-applications-canonical-v1.js'
-]);
+const ARCHITECT_DEFERRED=new Set();
 
 const html=await readFile(HTML_PATH,'utf8');
 const srcs=[...html.matchAll(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/giu)]
@@ -69,7 +62,7 @@ console.log(MARK+'=REPORT '+JSON.stringify({
 }));
 
 if(all.some(x=>x.missing))throw new Error('CLIENT_IDLE_NETWORK_SCAN_ACTIVE_ASSET_MISSING');
-if(blocking.length){
-  throw new Error('CLIENT_IDLE_NETWORK_SCAN_NON_ARCHITECT_RECURRING_NETWORK='+blocking.map(x=>x.base).join(','));
+if(recurringNetwork.length){
+  throw new Error('CLIENT_IDLE_NETWORK_SCAN_RECURRING_NETWORK='+recurringNetwork.map(x=>x.base).join(','));
 }
-console.log(MARK+'=PASS non_architect_recurring_network=0 architect_deferred='+deferred.length+' active_runtime_scripts='+all.length);
+console.log(MARK+'=PASS recurring_network=0 architect_deferred=0 active_runtime_scripts='+all.length);
