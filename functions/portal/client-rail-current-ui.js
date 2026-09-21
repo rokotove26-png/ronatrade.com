@@ -1,6 +1,7 @@
 import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js';
 
 const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
+const ROUTE_OVERLAY_COMPAT_MARKER="window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_COMPAT__='CLIENT_RAIL_ROUTE_OVERLAY_V4';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
