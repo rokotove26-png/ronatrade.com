@@ -1,0 +1,42 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_REFRESH_V1",
+  "owner_instruction": "Продолжай работу в рамках полной сквозной оптимизации Client Portal: при отсутствии изменения данных не выполнять периодические сетевые запросы.",
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_REFRESH_V1",
+  "approved_protected_files": [
+    "assets/portal-runtime/portal-client-company-directory-authority-v1.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/portal-client-company-directory-authority-v1.js": {
+      "visual_freeze_baseline_blob_sha": "6b8759bb9a33dabd2e6a291b6f15d1aecd03b167",
+      "authorized_post_blob_sha": "c11f18e86dd2d98c928d6206b323f73e22bda43f",
+      "required_marker": "OPEN_DIRECTORY_EVENT_CONTEXT_PAGESHOW_INVALIDATION"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_change": false,
+    "css_theme_typography_layout_changed": false,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "periodic_refresh_removed": true,
+    "refresh_policy": "OPEN_DIRECTORY_EVENT_CONTEXT_PAGESHOW_INVALIDATION",
+    "invalidation_event": "rona:client-company-directory-invalidated",
+    "authorized_directory_event_preserved": true,
+    "pageshow_refresh_preserved": true,
+    "context_selection_authority_preserved": true,
+    "signed_contract_download_preserved": true,
+    "pr431_card_factory_visual_semantics_preserved": true,
+    "architect_pr_810_files_changed": false
+  },
+  "ci_retrigger": {
+    "reason": "PR_BODY_OWNER_VISUAL_APPROVAL_MARKER_WAS_ADDED_AFTER_PREVIOUS_SYNCHRONIZE_EVENT",
+    "previous_visual_freeze_source_contract": "PASS",
+    "retry_expected_pr_body_marker": "OWNER_VISUAL_APPROVAL: CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_REFRESH_V1"
+  }
+}
