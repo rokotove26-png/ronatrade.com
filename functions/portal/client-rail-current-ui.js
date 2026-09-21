@@ -12,15 +12,11 @@ const LOCATION_FROM="if(location.pathname==='/portal/admin'){if(document.readySt
 const LOCATION_TO="if(location.pathname==='/portal/client'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const BIND_FROM="function bind(){var nav=q('#nav button[data-page=\"monitoring\"]');if(nav&&!nav.__ronaRailV4Bound){nav.__ronaRailV4Bound=true;nav.addEventListener('click',function(){setTimeout(paint,0);setTimeout(paint,120);setTimeout(function(){sync()},350)})}}";
 const BIND_TO="function bind(){if(document.documentElement.dataset.ronaClientRailNavBound==='true')return;document.documentElement.dataset.ronaClientRailNavBound='true';document.addEventListener('click',function(ev){var n=ev.target&&ev.target.closest?ev.target.closest('button,a,[role=\"button\"]'):null;if(!n)return;var key=String(n.getAttribute('data-page')||n.getAttribute('data-section')||n.getAttribute('data-target')||'').toLowerCase(),label=String(n.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();if(key!=='rail'&&key!=='monitoring'&&label!=='онлайн жд')return;setTimeout(function(){ensureClientRailMount();paint()},0);setTimeout(paint,120);setTimeout(function(){sync()},350)},true)}";
-const CLIENT_TIMER_FROM=";timer=setInterval(sync,30000)";
-const CLIENT_TIMER_TO="";
-
 const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important}',";
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
-window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V3 CLIENT_RAIL_ROUTE_OVERLAY_V3 CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V1';
-window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION';
+window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V3 CLIENT_RAIL_ROUTE_OVERLAY_V3';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
 function clientRailOuter(){
   var selectors=['#page-rail','#page-monitoring','[data-page-panel="rail"]','[data-page-panel="monitoring"]','[data-page-id="rail"]','[data-page-id="monitoring"]'];
@@ -296,7 +292,7 @@ function clientRailProviderBody(payload){return payload&&payload.data&&typeof pa
 async function clientRailFetch(url){var r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}}),j=await r.json().catch(function(){return{}});if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j||{}}
 function clientRailContextKey(ctx){return clientRailText(ctx&&ctx.client_id)+'|'+clientRailText(ctx&&ctx.contract_id)}
 function clientRailAuthority(){return window.RONA_CLIENT_CONTEXT||null}
-function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;lastRailSignature='';selected='';window.__RONA_RAIL_SELECTED_DEAL_KEY__=null;window.__RONA_RAIL_SELECTED_DEAL_ID__=null;window.__RONA_RAIL_MAP_DATA__=null;if(typeof renderShell==='function')renderShell();if(typeof sync==='function')setTimeout(function(){sync()},0)});window.addEventListener('rona:client-rail-invalidated',function(){if(typeof sync==='function')sync()},{passive:true})}
+function clientRailBindContext(){var authority=clientRailAuthority();if(!authority||typeof authority.subscribe!=='function'||window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__===true)return;window.__RONA_CLIENT_RAIL_CONTEXT_BOUND__=true;var initial=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=clientRailContextKey(initial);window.__RONA_CLIENT_RAIL_CONTEXT_UNSUBSCRIBE__=authority.subscribe(function(ctx){var next=clientRailContextKey(ctx),prev=clientRailText(window.__RONA_CLIENT_RAIL_CONTEXT_KEY__);window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=next;if(!prev||!next||next===prev)return;snapshot=null;lastRailSignature='';selected='';window.__RONA_RAIL_SELECTED_DEAL_KEY__=null;window.__RONA_RAIL_SELECTED_DEAL_ID__=null;window.__RONA_RAIL_MAP_DATA__=null;if(typeof renderShell==='function')renderShell();if(typeof sync==='function')setTimeout(function(){sync()},0)})}
 async function clientRailCurrentContext(){var authority=clientRailAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');clientRailBindContext();var ctx=typeof authority.getCurrentContext==='function'?authority.getCurrentContext():null;if(!ctx&&typeof authority.whenReady==='function')ctx=await authority.whenReady();if(!ctx||!clientRailText(ctx.client_id)||!clientRailText(ctx.contract_id))throw new Error('CLIENT_CONTRACT_CONTEXT_REQUIRED');return ctx}
 function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clientRailText(ctx&&ctx.client_id))+'&contractId='+encodeURIComponent(clientRailText(ctx&&ctx.contract_id))}
 async function api(path){
@@ -334,15 +330,11 @@ export async function onRequest(context){
     .replace(WAIT_FROM,'function waitAdminReady(){}')
     .replace(START_HEAD_FROM,START_HEAD_TO)
     .replace(BIND_FROM,BIND_TO)
-    .replace(CLIENT_TIMER_FROM,CLIENT_TIMER_TO)
     .replace(LOCATION_FROM,LOCATION_TO)
     .replace(ADMIN_SINGLE_TITLE_HIDDEN_HERO,'')
     .split("'/admin/bootstrap'").join("'/client/rail-canonical'");
   if(source.includes(ADMIN_SINGLE_TITLE_HIDDEN_HERO)){
     return new Response('CLIENT_RAIL_TITLE_HIDDEN_AFTER_ADAPT',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
-  }
-  if(source.includes(CLIENT_TIMER_FROM)||source.includes('timer=setInterval(sync,30000)')){
-    return new Response('CLIENT_RAIL_PERIODIC_REFRESH_REMAINS',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
   if(source.includes("/portal/owner-api")||source.includes("/admin/bootstrap")||source.includes("location.pathname==='/portal/admin'")){
     return new Response('CLIENT_RAIL_ADMIN_AUTHORITY_LEAK',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
