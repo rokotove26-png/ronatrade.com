@@ -173,9 +173,14 @@ function tryRender(){
   if(attempts++<40)setTimeout(tryRender,500);
 }
 
+function isPriceInteraction(target){
+  const el=target?.closest?.('a,button,[role="button"],[role="tab"],[data-page],[data-page-id]');
+  if(!el)return false;
+  const text=[norm(el.textContent),norm(el.getAttribute?.('aria-label')),norm(el.getAttribute?.('title')),norm(el.getAttribute?.('data-page')),norm(el.getAttribute?.('data-page-id'))].join(' ').toLocaleLowerCase('ru-RU');
+  return text.includes('цены')||text.includes('прайс')||text.includes('price');
+}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tryRender,{once:true});else queueMicrotask(tryRender);
-document.addEventListener('click',()=>setTimeout(render,250),true);
-document.addEventListener('change',()=>setTimeout(render,250),true);
+document.addEventListener('click',event=>{if(isPriceInteraction(event.target))setTimeout(render,250)},true);
 window.addEventListener('rona:client-prices-updated',()=>queueMicrotask(render),{passive:true});
 window.addEventListener('rona:client-context-changed',()=>queueMicrotask(render),{passive:true});
 window.addEventListener('pageshow',()=>queueMicrotask(render),{passive:true});
