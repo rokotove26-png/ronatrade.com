@@ -26,13 +26,16 @@ async function oidc(){
 }
 async function issuerCall(path,body,{waitForActive=false}={}){
   let last='';
-  for(let attempt=0;attempt<(waitForActive?60:1);attempt++){
+  const maxAttempts=waitForActive?60:(path==='/issue'?8:1);
+  for(let attempt=0;attempt<maxAttempts;attempt++){
     const jwt=await oidc();
     const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${jwt}`,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body)});
     const j=await r.json().catch(()=>null);
     if(r.ok&&j?.ok)return j;
     last=`${r.status}:${j?.code||'UNKNOWN'}`;
     if(waitForActive&&r.status===410){await sleep(5000);continue}
+    const transientIssue=path==='/issue'&&([429,500,502,503,504,546].includes(r.status)||['WORKER_RESOURCE_LIMIT','QA_AUTH_USER_CREATE_TIMEOUT','QA_AUTH_USER_CREATE_FAILED','QA_SESSION_CREATE_TIMEOUT','QA_SESSION_CREATE_FAILED'].includes(String(j?.code||'')));
+    if(transientIssue&&attempt<maxAttempts-1){await sleep(Math.min(15000,2000*(attempt+1)));continue}
     throw new Error(`ISSUER_${path}_${last}`);
   }
   throw new Error(`ISSUER_ACTIVE_TIMEOUT:${last}`);
