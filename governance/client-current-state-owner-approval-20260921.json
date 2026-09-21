@@ -1,0 +1,89 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "pr_number": 810,
+  "branch": "fix/client-current-state-authoritative-refresh-v2",
+  "base_commit": "8ac74e36bd78ba7ae4e470a945c9c536bb2149bf",
+  "scope": "CLIENT_CURRENT_STATE_DEALS_PASSPORT_PAYMENTS_SAFE_CORRECTION_V1",
+  "owner_instruction": "«приступай к безопасному исправлению» — после аудита сбоев функциональности, автоматического обновления и согласованности данных в разделах «Сделки», «Паспорт сделки» и «Платежи и взаиморасчёты».",
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_CURRENT_STATE_DEALS_PASSPORT_PAYMENTS_SAFE_CORRECTION_V1",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-context-selection-authority-v1.js",
+    "assets/portal-runtime/client-deal-lifecycle-v1.js",
+    "assets/portal-runtime/client-payments-authoritative-v1.js",
+    "assets/portal-runtime/client-payments-canonical-layout-v1.js",
+    "scripts/attach-client-application-lifecycle.mjs",
+    "scripts/attach-client-deal-documents.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-context-selection-authority-v1.js": {
+      "visual_freeze_baseline_blob_sha": "c1fd9b665a3f9b59c4e7f3430076bd3a7eda75b3",
+      "production_parent_blob_sha": "abe541dbd6162dd7cc03462e1b37ba23d6fb5b60",
+      "authorized_post_blob_sha": "57f8c96c6925f364ae3443311a12c18030ff089b",
+      "required_marker": "PROJECTION_TTL_MS=15000"
+    },
+    "assets/portal-runtime/client-deal-lifecycle-v1.js": {
+      "visual_freeze_baseline_blob_sha": "e5ecddce2c3d4e595f2f42d53802a01ca5aeae58",
+      "production_parent_blob_sha": "4489f890aed2b993d5dc682a54677d2f12f74568",
+      "authorized_post_blob_sha": "0799716ce2d91767da5e5151a1a260e825f6ee92",
+      "required_marker": "20260921-client-deal-realization-status-v7-current-state-refresh"
+    },
+    "assets/portal-runtime/client-payments-authoritative-v1.js": {
+      "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
+      "production_parent_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
+      "authorized_post_blob_sha": "a576060f363aade89712951ff1ec5d66da721b9e",
+      "required_marker": "20260921-client-payments-authoritative-v3-current-state-refresh"
+    },
+    "assets/portal-runtime/client-payments-canonical-layout-v1.js": {
+      "visual_freeze_baseline_blob_sha": "4f5fc870355edd947c20b8d377cf0f3a5df2003c",
+      "production_parent_blob_sha": "4f5fc870355edd947c20b8d377cf0f3a5df2003c",
+      "authorized_post_blob_sha": "da1f1a5bfa7dad3cc17050bbaf945026436aaa0e",
+      "required_marker": "20260921-client-payments-canonical-layout-v4-current-receipt-status"
+    },
+    "scripts/attach-client-application-lifecycle.mjs": {
+      "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
+      "production_parent_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
+      "authorized_post_blob_sha": "28820bc33dfbd61de1e6bc420cc7fe09109fdf14",
+      "required_marker": "20260921-current-state-refresh-v3"
+    },
+    "scripts/attach-client-deal-documents.mjs": {
+      "visual_freeze_baseline_blob_sha": "bd439510d86b147f43be22541b5a4ab51cf63a0a",
+      "production_parent_blob_sha": "46fb60fbd1c01b3ca3fba46344e8e17b378c1cdb",
+      "authorized_post_blob_sha": "e455d6a46b3a3bfdd3a50914728911f79ac8db52",
+      "required_marker": "20260921-current-state-refresh-v7"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "exact_blob_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "scope_client_deals_passport_payments_only": true,
+    "preserve_existing_layout": true,
+    "css_changed": false,
+    "theme_typography_geometry_changed": false,
+    "images_added": false,
+    "client_payment_labels_may_change_only_to_match_authoritative_semantics": true,
+    "current_context_ttl_ms": 15000,
+    "automatic_refresh_ms": 30000,
+    "force_refresh_supported": true,
+    "not_due_must_not_render_as_awaiting_payment": true,
+    "due_now_drives_payable_now_kpi": true,
+    "finance_confirmed_receipt_must_not_be_reclassified_as_bank_confirmed": true,
+    "pending_stage_must_not_be_promoted_to_current_without_process_fact": true,
+    "no_shipment_fact_means_logistics_pending": true,
+    "business_data_changed": false,
+    "production_business_data_mutation": false,
+    "supabase_schema_or_rls_changed": false,
+    "auth_changed": false,
+    "admin_portal_changed": false,
+    "rail_changed": false,
+    "production_edge_function_deployed": false,
+    "production_changed": false,
+    "full_green_ci_required_before_merge": true,
+    "system_admin_independent_qa_required": true,
+    "authenticated_client_verification_required": true,
+    "merge": "HOLD",
+    "deploy": "HOLD"
+  }
+}
