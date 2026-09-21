@@ -14,7 +14,7 @@ const passportId='rona-client-deal-passport-v1';
 const lifecycleId='rona-client-deal-lifecycle-v1';
 const legacyPreemptId='rona-client-deal-documents-legacy-preempt';
 const docsSrc='/assets/portal-runtime/client-deal-documents-v5.js?v=20260902-current-context-v9';
-const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260830-single-owner-prepaint-v8';
+const visualSrc='/assets/portal-runtime/client-deal-canonical-visual-v2.js?v=20260921-current-runtime-state-strip-v10';
 const passportSrc='/assets/portal-runtime/client-deal-passport-v1.js?v=20260831-status-center-v2';
 const lifecycleSrc='/assets/portal-runtime/client-deal-lifecycle-v1.js?v=20260921-current-state-refresh-v7';
 const docsMarker='20260902-client-deal-documents-v7-current-context';
