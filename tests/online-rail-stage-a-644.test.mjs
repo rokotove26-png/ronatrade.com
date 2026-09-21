@@ -96,7 +96,7 @@ test('Background rail sync is data-change-only and repair is viewport-safe',()=>
 });
 
 test('Map data contract projects planned, traversed and remaining source-backed route state',()=>{
-  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V2/);
+  assert.match(v81,/RAIL_MAP_DATA_CONTRACT_V3_COHORTS/);
   assert.match(v81,/function railDealMapValue\(data,name,dealKey,dealId\)/);
   assert.match(v81,/actualRouteByDeal/);
   assert.match(v81,/remainingRouteByDeal/);
@@ -167,16 +167,19 @@ test('Route is split into observed traversal and remaining corridor without fake
   assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-note\{display:none!important\}/);
 });
 
-test('Split wagon histories render as independent route cohorts with border-transition semantics',()=>{
+test('Split wagon histories keep the legacy route line visual while preserving cohort geometry',()=>{
   assert.match(v81,/function railMapRouteCohorts\(context\)/);
   assert.match(v81,/function railMapCohortSegments\(context\)/);
   assert.match(v81,/function railMapCohortDraw\(svg,context,left,top,z\)/);
-  assert.match(v81,/OBSERVED_ENDPOINTS_PATH_UNRESOLVED/);
-  assert.match(v81,/rona-rail-v7-cohort-line/);
+  assert.match(v81,/railMapSvgPolyline\(svg,item\.points,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual'\)/);
   assert.match(v81,/rona-rail-v7-border-crossing/);
   assert.match(v81,/rona-rail-v7-border-unresolved/);
   assert.match(v81,/точный погранпереход не подтвержден/);
   assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
+  assert.match(v81,/__RONA_RAIL_COHORT_VISUAL_STYLE__='LEGACY_ROUTE_LINE_V1'/);
+  assert.doesNotMatch(v81,/function railMapRenderLegend\(state\)/);
+  assert.doesNotMatch(v81,/Группы вагонов/);
+  assert.doesNotMatch(v81,/OPERATIONAL_DEFAULT_WITH_FULL_ROUTE_TOGGLE_V1/);
 });
 
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
@@ -241,6 +244,7 @@ test('Read-model overlay publishes per-deal route engine products without mutati
       routeProgress:{state:'OBSERVED_AND_MATCHED',furthestMatchedSequence:51},
       routeStations:[{sequence:1,stationCode:'151408'},{sequence:85,stationCode:'742705'}],
       routeAssignment:{resolutionState:'RESOLVED',originEsr:'151408',destinationEsr:'742705'},
+      routeCohorts:[{cohortKey:'COHORT:test',wagonCount:1,wagonNumbers:['1'],observationSignature:'151408>625501',observations:[{station:'Origin',stationCode:'151408',lat:51,lng:29},{station:'Анисовка',stationCode:'625501',lat:51.4,lng:46.08}],segments:[]}],
       wagonPositions:[{wagonNumber:'1',railDocumentKey:'doc-1',railDocumentId:'R1',station:'Анисовка',stationCode:'625501',positionStatus:'TRUSTED',trustedCoordinates:{lat:51.4,lng:46.08,trusted:true}}]
     }]
   };
