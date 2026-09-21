@@ -125,21 +125,21 @@ async function load(reason='manual'){
   return loading;
 }
 function paymentsOpen(){const page=document.getElementById('page-payments');if(!page)return false;if(page.hidden||page.getAttribute('aria-hidden')==='true')return false;try{return getComputedStyle(page).display!=='none'&&getComputedStyle(page).visibility!=='hidden'}catch{return true}}
-function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTimer=null;if(paymentsOpen()||(!projection&&document.visibilityState==='visible'))load('retry')},RETRY_MS)}
+function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTimer=null;if(paymentsOpen())load('retry')},RETRY_MS)}
 function refreshIfOpen(reason){if(paymentsOpen())return load(reason);return Promise.resolve(projection)}
 function scheduleRefresh(reason){setTimeout(()=>load(reason),0)}
-window.__RONA_PAYMENTS_V8_REFRESH_POLICY__={version:'ADMIN_TRAFFIC_STABILIZATION_V1',pollMs:REFRESH_MS,retryMs:RETRY_MS,scope:'PAYMENTS_OPEN_ONLY'};
+window.__RONA_PAYMENTS_V8_REFRESH_POLICY__={version:'ADMIN_TRAFFIC_STABILIZATION_V2',pollMs:REFRESH_MS,retryMs:RETRY_MS,scope:'PAYMENTS_OPEN_ONLY',startup:'NO_BACKGROUND_BOOTSTRAP',retry:'OPEN_PAGE_ONLY'};
 window.__RONA_PAYMENTS_V8_OPEN_PASSPORT__=openCanonicalPassport;
 disableLegacyPassportRuntime();
 const paymentsV8PassportClickHandler=event=>{const legacy=event.target?.closest?.('.rona-payments-v7-passport-trigger,.rona-payments-v7-passport > summary');if(legacy){event.preventDefault();event.stopImmediatePropagation();event.stopPropagation();openCanonicalPassportForLegacyTrigger(legacy);return}const passport=event.target?.closest?.('[data-payments-v8-passport-deal]');if(passport){event.preventDefault();event.stopImmediatePropagation();openCanonicalPassport(passport.dataset.paymentsV8PassportDeal);return}if(event.target?.closest?.('[data-payments-v8-passport-close]')||event.target?.id===PASSPORT_MODAL_ID){event.preventDefault();closePassport();return}const b=event.target?.closest?.('#nav button[data-page="payments"],[data-page="payments"]');if(b)scheduleRefresh('navigation')};
 const previousPassportHandler=document.__ronaPaymentsV8PassportClickHandler;if(typeof previousPassportHandler==='function')document.removeEventListener('click',previousPassportHandler,true);document.__ronaPaymentsV8PassportClickHandler=paymentsV8PassportClickHandler;document.addEventListener('click',paymentsV8PassportClickHandler,true);window.__RONA_PAYMENTS_V8_PASSPORT_ROUTING__='SELF_HEAL_V1';
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.getElementById(PASSPORT_MODAL_ID)){event.preventDefault();event.stopImmediatePropagation();closePassport()}},true);
-window.addEventListener('rona:admin-app-ready',()=>scheduleRefresh('admin-app-ready'));
+window.addEventListener('rona:admin-app-ready',()=>refreshIfOpen('admin-app-ready'));
 window.addEventListener('rona:finance-sync',event=>{if(publishing||event?.detail?.source===OWNER)return;refreshIfOpen('finance-sync')});
 window.addEventListener('focus',()=>refreshIfOpen('focus'));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshIfOpen('visibilitychange')});
 refreshTimer=setInterval(()=>refreshIfOpen('interval'),REFRESH_MS);
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{disableLegacyPassportRuntime();load('initial')},{once:true});else{disableLegacyPassportRuntime();load('initial')}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{disableLegacyPassportRuntime();refreshIfOpen('initial-visible')},{once:true});else{disableLegacyPassportRuntime();refreshIfOpen('initial-visible')}
 
 })();`;
 
