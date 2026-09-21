@@ -163,26 +163,27 @@ jobs:
           grep -F 'ISSUE670_ROUTE_OVERLAY_V4_VISIBLE=PASS' /tmp/issue670-frontend-fixture-browser.log
           grep -F 'ISSUE670_PREMIUM_MAP_MARKERS=PASS' /tmp/issue670-frontend-fixture-browser.log
           grep -F 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/issue670-frontend-fixture-browser.log
+          grep -F 'ISSUE670_IDLE_NO_POLLING=PASS' /tmp/issue670-frontend-fixture-browser.log
+          grep -F 'ISSUE670_EVENT_DRIVEN_REFRESH=PASS' /tmp/issue670-frontend-fixture-browser.log
           echo 'ISSUE670_MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
 
-      - name: Admin Rail visual-pair boundary / unrelated-domain guard
+      - name: Frozen Admin Rail / unrelated-domain guard
         shell: bash
         run: |
           set -euo pipefail
           base="$(git merge-base origin/release/public-go-live-v1.1 HEAD)"
           for path in \
             functions/portal/rail-current-v6-ui.js \
+            functions/portal/rail-current-v7-real-map-ui.js \
+            functions/portal/rail-current-v81-maplibre-ui.js \
             supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs; do
-            test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_NONVISUAL_FROZEN=FAIL $path"; exit 1; }
+            test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_FROZEN=FAIL $path"; exit 1; }
           done
-          test -n "$(git diff "$base"...HEAD -- functions/portal/rail-current-v7-real-map-ui.js)" || { echo 'ISSUE670_ADMIN_RAIL_VISUAL_PAIR=FAIL v7'; exit 1; }
-          test -n "$(git diff "$base"...HEAD -- functions/portal/rail-current-v81-maplibre-ui.js)" || { echo 'ISSUE670_ADMIN_RAIL_VISUAL_PAIR=FAIL v81'; exit 1; }
           if git diff --name-only "$base"...HEAD | grep -E '(^|/)(finance|payments|prices|access)(/|\.|-)'; then
             echo 'ISSUE670_UNRELATED_DOMAIN_CHANGE=FAIL'
             exit 1
           fi
-          echo 'ISSUE670_ADMIN_RAIL_NONVISUAL_FROZEN=PASS'
-          echo 'ISSUE670_ADMIN_RAIL_VISUAL_PAIR=PASS'
+          echo 'ISSUE670_ADMIN_RAIL_FROZEN=PASS'
           echo 'ISSUE670_UNRELATED_DOMAINS_FROZEN=PASS'
 
       - name: Final #670 summary
@@ -202,12 +203,12 @@ jobs:
             echo 'ROUTE_OVERLAY_V4_VISIBLE=PASS'
             echo 'PREMIUM_MAP_MARKERS=PASS'
             echo 'ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS'
-            echo 'BACKGROUND_REFRESH=PASS'
+            echo 'IDLE_NO_POLLING=PASS'
+            echo 'EVENT_DRIVEN_REFRESH=PASS'
             echo 'DEGRADED_REFRESH_PRESERVE=PASS'
             echo 'CONTEXT_TAMPER_FAIL_CLOSED=PASS'
             echo 'NO_TARIFF_MATRIX=PASS'
-            echo 'ADMIN_RAIL_NONVISUAL_FROZEN=PASS'
-            echo 'ADMIN_RAIL_VISUAL_PAIR=PASS'
+            echo 'ADMIN_RAIL_FROZEN=PASS'
             echo 'NO_BUSINESS_DATA_WRITE=PASS'
             echo 'FINAL=PASS'
           } | tee /tmp/issue670-final.txt
