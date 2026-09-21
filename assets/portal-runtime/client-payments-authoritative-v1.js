@@ -147,10 +147,11 @@ function start(){
   if(!authority){renderLoadingError('Контекст клиента временно недоступен.');ready(false);return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';const changed=key!==state.activeKey;if(changed)clearForContext(ctx);schedule(true)});
   schedule(true);
-  state.timer=window.setInterval(()=>load(true),REFRESH_MS);
+  state.timer=window.setInterval(()=>load(false),REFRESH_MS);
   if(!state.observer){state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true})}
-  window.addEventListener('pageshow',()=>load(true),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(true)});
+  window.addEventListener('rona:client-current-projection',()=>schedule(false),{passive:true});
+  window.addEventListener('pageshow',()=>load(false),{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(false)});
   document.addEventListener('click',e=>{const t=norm(e.target?.textContent);if(t.includes('Платежи'))setTimeout(()=>load(true),120)},true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
