@@ -20,8 +20,8 @@ try {
     const url=String(input);
     const headers=new Headers(init?.headers||{});
 
-    if(url.endsWith('/functions/v1/rona-portal-api/session/me')){
-      return new Response(JSON.stringify({ok:true,user:{id:'admin-user',roles:['ADMIN']}}),{
+    if(url.endsWith('/functions/v1/rona-portal-api/session/authority')){
+      return new Response(JSON.stringify({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{id:'admin-user',roles:['ADMIN']}}),{
         status:200,headers:{'content-type':'application/json'}
       });
     }

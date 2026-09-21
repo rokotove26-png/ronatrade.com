@@ -144,8 +144,19 @@ async function upstream(accessToken, path, request = null, impersonationToken = 
   if (request && !['GET', 'HEAD'].includes(request.method)) init.body = await request.clone().arrayBuffer();
   return fetch(`${PORTAL_API}${path}`, init);
 }
-const SESSION_RETRY_DELAYS_MS=Object.freeze([0,250,500,1000,2000,2500]);
+const SESSION_AUTHORITY_TIMEOUTS_MS=Object.freeze([5000,4000]);
+const SESSION_AUTHORITY_RETRY_DELAY_MS=350;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function sessionAuthorityRequest(accessToken,timeoutMs){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort('RONA_SESSION_AUTHORITY_TIMEOUT'),timeoutMs);
+  try{
+    return await fetch(`${PORTAL_API}/session/authority`,{
+      headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'},
+      signal:controller.signal
+    });
+  }finally{clearTimeout(timer)}
+}
 async function adminControlPlaneProbe(accessToken){
   try{
     const r=await fetch(`${ADMIN_CONTROL_PLANE_API}/readiness`,{
@@ -206,16 +217,23 @@ async function sessionProbe(accessToken,{allowAdminFallback=false}={}){
     const gateway=await adminOwnerJwtGatewayProbe(accessToken);
     return gateway.state==='UNAVAILABLE'?null:gateway;
   };
-  for(const delay of SESSION_RETRY_DELAYS_MS){
-    if(delay)await sleep(delay);
+  for(let attempt=0;attempt<SESSION_AUTHORITY_TIMEOUTS_MS.length;attempt++){
+    if(attempt)await sleep(SESSION_AUTHORITY_RETRY_DELAY_MS);
     try{
-      const r=await upstream(accessToken,'/session/me');
+      const r=await sessionAuthorityRequest(accessToken,SESSION_AUTHORITY_TIMEOUTS_MS[attempt]);
       lastStatus=r.status;
-      if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_API'};continue}
+      if(r.ok){
+        const j=await r.json().catch(()=>null);
+        if(j?.ok&&j?.user&&j?.authority==='PORTAL_SESSION_AUTHORITY_V1')return{state:'VALID',me:j,status:r.status,authority:'PRIMARY_PORTAL_AUTHORITY'};
+        continue;
+      }
       if(r.status===401||r.status===403)return{state:'INVALID',me:null,status:r.status};
       if(r.status===429||r.status>=500){const gateway=await ownerGatewayFallback();if(gateway)return gateway;continue}
       return{state:'INVALID',me:null,status:r.status};
-    }catch(_){lastStatus=503;const gateway=await ownerGatewayFallback();if(gateway)return gateway}
+    }catch(_){
+      lastStatus=503;
+      const gateway=await ownerGatewayFallback();if(gateway)return gateway;
+    }
   }
   if(allowAdminFallback){
     const gateway=await ownerGatewayFallback();if(gateway)return gateway;

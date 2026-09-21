@@ -2,7 +2,7 @@
 // Keeps the exact current production portal handler and adds only server-side aggregate/version projection
 // plus a client-safe receipt-detail overlay sourced from the same Finance authorities used by Client Payments.
 import { buildConfirmedFundingAggregate, buildPaymentsCurrencyAggregates } from '../_shared/admin-payments-v7/confirmed-funding-aggregate.mjs';
-import { sql, apiRoute } from './shared.ts';
+import { sql, apiRoute, authenticate, send } from './shared.ts';
 
 const BASELINE='5aceffe2725a904e8e0ded562e483f012e861085';
 const CLIENT_RECEIPT_DETAIL_CONTRACT='CLIENT_RECEIPT_DETAIL_RECONCILIATION_V1';
@@ -19,6 +19,18 @@ let capturedHandler:any=null;
 await import('./application-business-bootstrap-v2.ts');
 (Deno as any).serve=nativeServe;
 if(typeof capturedHandler!=='function')throw new Error('PAYMENTS_V8_BASELINE_HANDLER_CAPTURE_FAILED');
+
+async function sessionAuthority(req:Request){
+  if(req.method!=='GET'||apiRoute(new URL(req.url))!=='/session/authority')return null;
+  const ctx=await authenticate(req);
+  if(!ctx)return send(req.headers.get('origin'),401,{ok:false,code:'PORTAL_ACCESS_DENIED'});
+  return send(req.headers.get('origin'),200,{
+    ok:true,
+    authority:'PORTAL_SESSION_AUTHORITY_V1',
+    user:{portal_user_id:ctx.user,display_name:ctx.name,roles:ctx.roles},
+    session:{id:ctx.sid,state:'ACTIVE',expires_at:ctx.exp}
+  });
+}
 
 function isAdminBootstrap(req:Request){
   return req.method==='GET' && new URL(req.url).pathname.endsWith('/v1/admin/bootstrap');
@@ -203,6 +215,8 @@ async function hardenClientReceiptDetails(req:Request,response:Response){
 }
 
 nativeServe(async(req:Request,info:any)=>{
+  const authority=await sessionAuthority(req);
+  if(authority)return authority;
   const base:Response=await capturedHandler(req,info);
   const adminHardened:Response=await hardenBootstrap(req,base);
   try{
