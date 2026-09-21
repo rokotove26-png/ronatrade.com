@@ -17,6 +17,7 @@ const CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_APPROVAL_PATH='governance/client-com
 const CLIENT_MARKET_EVENT_DRIVEN_APPROVAL_PATH='governance/client-market-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
+const CLIENT_CURRENT_STATE_RECONCILIATION_V75_APPROVAL_PATH='governance/client-current-state-reconciliation-v75-owner-approval-20260921.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
@@ -33,6 +34,7 @@ const clientCompanyDirectoryEventDrivenApproval=JSON.parse(await readFile(CLIENT
 const clientMarketEventDrivenApproval=JSON.parse(await readFile(CLIENT_MARKET_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
+const clientCurrentStateReconciliationV75Approval=JSON.parse(await readFile(CLIENT_CURRENT_STATE_RECONCILIATION_V75_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -623,6 +625,43 @@ const clientBackgroundManifestEventDrivenExceptionAuthorized=
   clientBackgroundManifestEventDrivenApproval?.requirements?.unrelated_visual_changes===false&&
   clientBackgroundManifestEventDrivenApproval?.requirements?.architect_pr_810_runtime_files_changed===false;
 
+const CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES=[
+  'assets/portal-runtime/client-context-selection-authority-v1.js',
+  'assets/portal-runtime/client-application-lifecycle-v1.js',
+  'assets/portal-runtime/client-payments-authoritative-v1.js',
+  'assets/portal-runtime/client-payments-canonical-layout-v1.js',
+  'scripts/attach-client-application-lifecycle.mjs'
+];
+const clientCurrentStateReconciliationV75ExceptionAuthorized=
+  clientCurrentStateReconciliationV75Approval?.approval==='OWNER_IN_CHAT_HANDOFF_V74'&&
+  clientCurrentStateReconciliationV75Approval?.authorized_at==='2026-09-21'&&
+  clientCurrentStateReconciliationV75Approval?.pr_number===836&&
+  clientCurrentStateReconciliationV75Approval?.branch==='client-current-state-reconcile-v75'&&
+  clientCurrentStateReconciliationV75Approval?.base_commit==='2d8300df4dc7e8333635121397142b0e07d0adb4'&&
+  clientCurrentStateReconciliationV75Approval?.scope==='CLIENT_CURRENT_STATE_RECONCILIATION_V75_EVENT_DRIVEN'&&
+  Array.isArray(clientCurrentStateReconciliationV75Approval?.approved_protected_files)&&
+  clientCurrentStateReconciliationV75Approval.approved_protected_files.length===CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES.length&&
+  CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES.every(path=>clientCurrentStateReconciliationV75Approval.approved_protected_files.includes(path))&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.wildcard_exception===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.visual_change===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.css_changed===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.business_data_changed===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.auth_changed===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.supabase_schema_or_rls_changed===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.admin_portal_changed===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.rail_changed===false&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.current_production_event_driven_governance_preserved===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.recurring_client_network_owners_target===0&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.payments_one_second_dom_loop_removed===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.applications_projection_to_dom_required===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.full_green_ci_required_before_merge===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.authenticated_client_verification_required===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.final_idle_acceptance_required===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.merge==='HOLD'&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.deploy==='HOLD';
+
 const CLIENT_RAIL_670_FILES=[
   'assets/portal-runtime/client-rail-canonical-hero-v1.js',
   'scripts/attach-client-rail-production-v1.mjs'
@@ -698,6 +737,7 @@ let clientEventDrivenRefreshAppliedFiles=0;
 let clientMarketEventDrivenAppliedFiles=0;
 let clientContractEventDrivenAppliedFiles=0;
 let clientBackgroundManifestEventDrivenAppliedFiles=0;
+let clientCurrentStateReconciliationV75AppliedFiles=0;
 
 const functionalRuntimeVisualGuardPaths=['assets/portal-runtime/portal-client-company-directory-authority-v1.js'];
 for(const path of functionalRuntimeVisualGuardPaths){
@@ -749,6 +789,16 @@ if(!pr431DirectFixGovernanceAuthorized){
         companyDirectoryEventDrivenEntry.required_marker.length>0&&
         source.includes(companyDirectoryEventDrivenEntry.required_marker)
       );
+      const currentStateReconciliationEntry=clientCurrentStateReconciliationV75ExceptionAuthorized?clientCurrentStateReconciliationV75Approval?.exact_post_blobs?.[path]:null;
+      const currentStateReconciliationExact=Boolean(
+        path==='assets/portal-runtime/client-context-selection-authority-v1.js'&&
+        currentStateReconciliationEntry&&
+        currentStateReconciliationEntry.visual_freeze_baseline_blob_sha===entry?.authorized_post_blob_sha&&
+        currentStateReconciliationEntry.authorized_post_blob_sha===actual&&
+        typeof currentStateReconciliationEntry.required_marker==='string'&&
+        currentStateReconciliationEntry.required_marker.length>0&&
+        source.includes(currentStateReconciliationEntry.required_marker)
+      );
       const postreleaseQaEntry=clientPostreleaseIssue430ExceptionAuthorized?clientPostreleaseIssue430Approval?.exact_post_remediation_blobs?.[path]:null;
       const postreleaseQaWiringExact=Boolean(
         CLIENT_POSTRELEASE_ISSUE430_QA_WIRING_FILES.includes(path)&&
@@ -759,7 +809,7 @@ if(!pr431DirectFixGovernanceAuthorized){
         postreleaseQaEntry.required_marker.length>0&&
         source.includes(postreleaseQaEntry.required_marker)
       );
-      if(!directFixExact&&!typographyQaWiringExact&&!postreleaseQaWiringExact&&!companyDirectoryEventDrivenExact){
+      if(!directFixExact&&!typographyQaWiringExact&&!postreleaseQaWiringExact&&!companyDirectoryEventDrivenExact&&!currentStateReconciliationExact){
         errors.push(`PR431_DIRECT_FIX_EXACT_BLOB ${path} expected=${entry?.authorized_post_blob_sha||'missing'} actual=${actual}`);
       }else{
         pr431DirectFixExactFiles+=1;
@@ -869,6 +919,15 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientContractEventDrivenEntry.required_marker.length>0&&
       body.toString('utf8').includes(clientContractEventDrivenEntry.required_marker)
     );
+    const clientCurrentStateReconciliationEntry=clientCurrentStateReconciliationV75ExceptionAuthorized?clientCurrentStateReconciliationV75Approval?.exact_post_blobs?.[path]:null;
+    const exactClientCurrentStateReconciliationV75=Boolean(
+      clientCurrentStateReconciliationEntry&&
+      clientCurrentStateReconciliationEntry.visual_freeze_baseline_blob_sha===expected&&
+      clientCurrentStateReconciliationEntry.authorized_post_blob_sha===actual&&
+      typeof clientCurrentStateReconciliationEntry.required_marker==='string'&&
+      clientCurrentStateReconciliationEntry.required_marker.length>0&&
+      body.toString('utf8').includes(clientCurrentStateReconciliationEntry.required_marker)
+    );
     const clientBackgroundManifestEventDrivenEntry=clientBackgroundManifestEventDrivenExceptionAuthorized?clientBackgroundManifestEventDrivenApproval?.exact_post_blobs?.[path]:null;
     const exactClientBackgroundManifestEventDriven=Boolean(
       clientBackgroundManifestEventDrivenEntry&&
@@ -889,12 +948,15 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientMarketEventDriven)clientMarketEventDrivenAppliedFiles+=1;
     if(exactClientContractEventDriven)clientContractEventDrivenAppliedFiles+=1;
     if(exactClientBackgroundManifestEventDriven)clientBackgroundManifestEventDrivenAppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientMarketEventDriven&&!exactClientContractEventDriven&&!exactClientBackgroundManifestEventDriven)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(exactClientCurrentStateReconciliationV75)clientCurrentStateReconciliationV75AppliedFiles+=1;
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientEventDrivenRefresh&&!exactClientMarketEventDriven&&!exactClientContractEventDriven&&!exactClientBackgroundManifestEventDriven&&!exactClientCurrentStateReconciliationV75)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
 }
 
+if(!clientCurrentStateReconciliationV75ExceptionAuthorized)errors.push('CLIENT_CURRENT_STATE_RECONCILIATION_V75_GOVERNANCE_NOT_AUTHORIZED');
+if(clientCurrentStateReconciliationV75ExceptionAuthorized&&clientCurrentStateReconciliationV75AppliedFiles!==CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES.length)errors.push(`CLIENT_CURRENT_STATE_RECONCILIATION_V75_EXACT_BLOB_COUNT expected=${CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES.length} actual=${clientCurrentStateReconciliationV75AppliedFiles}`);
 if(!clientRailAdminMirrorExceptionAuthorized)errors.push('CLIENT_RAIL_ADMIN_MIRROR_GOVERNANCE_NOT_AUTHORIZED');
 if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==1&&!clientRailAdminMirrorSupersededBy670)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=1 actual=${clientRailAdminMirrorAppliedFiles}`);
 if(!clientRail670ExceptionAuthorized)errors.push('CLIENT_RAIL_670_GOVERNANCE_NOT_AUTHORIZED');
