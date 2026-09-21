@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260830-client-payments-canonical-layout-v3';
+const MARK='20260921-client-payments-canonical-layout-v4-current-receipt-status';
 if(window.__RONA_CLIENT_PAYMENTS_CANONICAL_LAYOUT__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_CANONICAL_LAYOUT__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -10,6 +10,7 @@ const esc=v=>norm(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const formatDate=v=>{if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('ru-RU')};
 const money=(v,c)=>{const n=num(v);if(n===null)return'—';return n.toLocaleString('ru-RU',{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2})+(c?' '+norm(c):'')};
+const receiptStatus=p=>norm(p?.client_receipt_status).toUpperCase()==='FINANCE_CONFIRMED'?'Finance подтверждено · банк ожидается':'Банк подтверждён';
 
 function paymentsRoot(){
   for(const selector of ['#page-payments','#paymentsPage','[data-page-panel="payments"]','[data-page-id="payments"]']){const el=document.querySelector(selector);if(el)return el}
@@ -95,13 +96,13 @@ function confirmedEventsHost(owner){
 }
 function projectConfirmedReceipts(owner,payments){
   const host=confirmedEventsHost(owner);if(!host)return;
-  if(!payments.length)return;
+  if(!payments.length){if(host.getAttribute('data-rona-payment-events-signature')!=='empty'){host.innerHTML='<div class="rona-payments-empty">Подтверждённых поступлений по выбранному договору пока нет.</div>';host.setAttribute('data-rona-payment-events-signature','empty')}return;}
   const ordered=[...payments].sort((a,b)=>new Date(b?.received_at||b?.payment_at||b?.bank_confirmed_at||0)-new Date(a?.received_at||a?.payment_at||a?.bank_confirmed_at||0));
-  const signature=ordered.map(p=>[norm(p?.payment_id),norm(p?.deal_id),norm(p?.received_at||p?.payment_at||p?.bank_confirmed_at),String(p?.amount??''),norm(p?.currency)].join('|')).join('||');
+  const signature=ordered.map(p=>[norm(p?.payment_id),norm(p?.deal_id),norm(p?.received_at||p?.payment_at||p?.bank_confirmed_at),String(p?.amount??''),norm(p?.currency),norm(p?.client_receipt_status),norm(p?.bank_fact_status)].join('|')).join('||');
   if(host.getAttribute('data-rona-payment-events-signature')===signature)return;
   host.innerHTML=ordered.map(p=>{
     const at=p?.received_at||p?.payment_at||p?.bank_confirmed_at;
-    return `<div class="rona-payments-event" data-rona-payment-event="authoritative"><div><b>${esc(p?.deal_id||'Платёж')}</b><div>${esc(p?.payment_id||'')}</div></div><time>Дата поступления: ${esc(formatDate(at))}</time><b>${esc(money(p?.amount,p?.currency))}</b></div>`;
+    return `<div class="rona-payments-event" data-rona-payment-event="authoritative"><div><b>${esc(p?.deal_id||'Платёж')}</b><div>${esc(p?.payment_id||'')} · ${esc(receiptStatus(p))}</div></div><time>Дата поступления: ${esc(formatDate(at))}</time><b>${esc(money(p?.amount,p?.currency))}</b></div>`;
   }).join('');
   host.setAttribute('data-rona-payment-events-signature',signature);
 }
@@ -129,11 +130,10 @@ function apply(){
 function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(apply)}
 function start(){
   installStyle();schedule();
-  new MutationObserver(schedule).observe(document.body,{childList:true,subtree:true,characterData:true});
   window.addEventListener('resize',schedule,{passive:true});
   window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('rona:client-payments-rendered',schedule,{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')schedule()});
-  window.setInterval(schedule,1000);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

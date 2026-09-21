@@ -77,6 +77,9 @@ export function applyClientPaymentAuthorityV7(deal,authorityRows=[],receiptRows=
   }else if(received>0){
     paymentStatus='PARTIALLY_PAID';
     paymentLabel=`Оплачено ${percent}%`;
+  }else if(financeStatus==='NOT_DUE'){
+    paymentStatus='NOT_DUE';
+    paymentLabel='Срок оплаты не наступил';
   }else if(financeStatus==='OVERDUE'){
     paymentStatus='OVERDUE';
     paymentLabel='Оплата просрочена';

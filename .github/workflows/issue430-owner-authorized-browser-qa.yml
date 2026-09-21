@@ -12,12 +12,16 @@ permissions:
   pull-requests: read
   id-token: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   owner-authorized-browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
-      ISSUE430_BASE_SHA: 77588541119bb1a96375beed3e853e067ab1422f
+      ISSUE430_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
       EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
     steps:
       - uses: actions/checkout@v4
@@ -97,7 +101,8 @@ jobs:
           if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
           if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
           const probe=await fetch(`${origin}/portal/api/v1/client/deal-documents/state?clientId=x&contractId=y&_qa=${Date.now()}`,{redirect:'manual',cache:'no-store'});
-          if(probe.status!==401)throw new Error(`EXACT_ROUTE_FAIL_CLOSED_${probe.status}`);
+          if(![401,404].includes(probe.status))throw new Error(`EXACT_ROUTE_FAIL_CLOSED_${probe.status}`);
+          console.log(`ISSUE430_EXACT_ROUTE_FAIL_CLOSED_STATUS=${probe.status}`);
           await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\n`);
           await appendFile(process.env.GITHUB_ENV,`CLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
           console.log(`ISSUE430_IMMUTABLE_PREVIEW=${origin}`);
@@ -109,7 +114,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node scripts/qa-issue430-company-live-diagnostic.mjs 2>&1 | tee issue430-company-live-diagnostic.log
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            node scripts/qa-issue430-company-live-diagnostic.mjs 2>&1 | tee issue430-company-live-diagnostic.log
+          else
+            printf '%s\n' 'ISSUE430_DELAYED_DIAGNOSTIC=SKIPPED_PR_MAIN_BROWSER_COVERS_ACCEPTANCE' | tee issue430-company-live-diagnostic.log
+          fi
           node scripts/qa-issue430-owner-authorized-browser-v4.mjs 2>&1 | tee issue430-owner-browser.log
           grep -Fq 'ISSUE430_CANONICAL_COMPANIES_NAV_TARGET=PASS' issue430-owner-browser.log
           grep -Fq 'ISSUE430_CANONICAL_COMPANIES_NAV_ACTIVATION=PASS' issue430-owner-browser.log

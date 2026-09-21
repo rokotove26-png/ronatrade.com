@@ -1,0 +1,88 @@
+{
+  "approval": "OWNER_IN_CHAT_HANDOFF_V74",
+  "authorized_at": "2026-09-21",
+  "pr_number": 836,
+  "branch": "client-current-state-reconcile-v75",
+  "base_commit": "84ef156c4b36bb8340127db73118b00982580a06",
+  "scope": "CLIENT_CURRENT_STATE_RECONCILIATION_V75_EVENT_DRIVEN",
+  "owner_instruction": "Proceed from SYSTEM_ADMIN CURRENT STATE v74; reconcile stale Architect PR #810 onto current production, remove the remaining recurring Client network owners and Payments 1-second loop, fix Applications projection-to-DOM, preserve current production architecture and business semantics.",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-context-selection-authority-v1.js",
+    "assets/portal-runtime/client-application-lifecycle-v1.js",
+    "assets/portal-runtime/client-payments-authoritative-v1.js",
+    "assets/portal-runtime/client-payments-canonical-layout-v1.js",
+    "scripts/attach-client-application-lifecycle.mjs",
+    "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs",
+    "assets/portal-runtime/client-deal-canonical-visual-v2.js",
+    "scripts/attach-client-deal-documents.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-context-selection-authority-v1.js": {
+      "visual_freeze_baseline_blob_sha": "abe541dbd6162dd7cc03462e1b37ba23d6fb5b60",
+      "authorized_post_blob_sha": "2f587f10b1e23bdeb13c798baa4fa0381d3a298e",
+      "required_marker": "PROJECTION_TTL_MS=15000"
+    },
+    "assets/portal-runtime/client-application-lifecycle-v1.js": {
+      "visual_freeze_baseline_blob_sha": "73e94188bff36e57a7f269a516ae655b2556ea2a",
+      "authorized_post_blob_sha": "d46b1062ea8711a61ef7eac05e0c2b01830066c6",
+      "required_marker": "refreshCurrentProjection('application-lifecycle')"
+    },
+    "assets/portal-runtime/client-payments-authoritative-v1.js": {
+      "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
+      "authorized_post_blob_sha": "77a400242cbebf56b643bf4405e55b4ec0d217ca",
+      "required_marker": "20260921-client-payments-authoritative-v3-current-state-refresh"
+    },
+    "assets/portal-runtime/client-payments-canonical-layout-v1.js": {
+      "visual_freeze_baseline_blob_sha": "4f5fc870355edd947c20b8d377cf0f3a5df2003c",
+      "authorized_post_blob_sha": "845e55d476adfc8191ecd61976b29dbdd800e54c",
+      "required_marker": "20260921-client-payments-canonical-layout-v4-current-receipt-status"
+    },
+    "scripts/attach-client-application-lifecycle.mjs": {
+      "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
+      "authorized_post_blob_sha": "deb3ee662cd4c49a4e879d0532f7b563349155fa",
+      "required_marker": "20260921-current-state-event-driven-v4"
+    },
+    "scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs": {
+      "visual_freeze_baseline_blob_sha": "4e7ffaf5018893d6159413d9aa57c8c4d45e28e4",
+      "authorized_post_blob_sha": "f125efe6f82d62bca01bec36da2533bd47e1f2dc",
+      "required_marker": "stablePageEvaluate"
+    },
+    "assets/portal-runtime/client-deal-canonical-visual-v2.js": {
+      "visual_freeze_baseline_blob_sha": "4b32da936b5cf214b985ac03c6b1494db9ef4b18",
+      "authorized_post_blob_sha": "218792ff06ec517a6b33ded9b1f5f771eced21b8",
+      "required_marker": "data-rona-deal-state-strip^=\"authoritative-v\""
+    },
+    "scripts/attach-client-deal-documents.mjs": {
+      "visual_freeze_baseline_blob_sha": "bd439510d86b147f43be22541b5a4ab51cf63a0a",
+      "authorized_post_blob_sha": "287b14db711fdb4e6873b67bc706273dfb1aa415",
+      "required_marker": "20260921-current-runtime-state-strip-v10",
+      "visual_freeze_policy_baseline_rebound": true
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_change": false,
+    "css_changed": false,
+    "images_added": false,
+    "business_data_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "admin_portal_changed": false,
+    "rail_changed": false,
+    "current_production_event_driven_governance_preserved": true,
+    "recurring_client_network_owners_target": 0,
+    "payments_one_second_dom_loop_removed": true,
+    "applications_projection_to_dom_required": true,
+    "full_green_ci_required_before_merge": true,
+    "authenticated_client_verification_required": true,
+    "final_idle_acceptance_required": true,
+    "merge": "HOLD",
+    "deploy": "HOLD",
+    "owner_retest_fixture_current_application_business_v2": true,
+    "deal_state_strip_current_runtime_stability": true,
+    "deal_visual_cache_buster_current": true,
+    "owner_retest_transient_context_resilience": true
+  }
+}

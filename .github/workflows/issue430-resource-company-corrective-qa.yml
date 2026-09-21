@@ -11,12 +11,16 @@ permissions:
   checks: read
   pull-requests: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   corrective-proof:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      ISSUE430_BASE_SHA: 77588541119bb1a96375beed3e853e067ab1422f
+      ISSUE430_BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,7 +50,18 @@ jobs:
           grep -Fq 'CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS' issue430-canonical-build.log
           grep -Fq 'PR431_SYSTEM_ADMIN_ONE_SHOT_EMITTED_QA=PASS' issue430-canonical-build.log
           grep -Fq '/assets/portal-runtime/client-contract-download-v3.js?v=20260911-company-directory-canonical-claim-v12' dist/portal/client.html
-          grep -Fq '/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260911-authoritative-v10-canonical-resource' dist/portal/client.html
+          node --input-type=module <<'NODE'
+          import {readFile} from 'node:fs/promises';
+          const attach=await readFile('scripts/attach-client-deals-authoritative-v1.mjs','utf8');
+          const html=await readFile('dist/portal/client.html','utf8');
+          const source=await readFile('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
+          const src=attach.match(/const src='([^']+)'/)?.[1]||'';
+          if(!src||!src.startsWith('/assets/portal-runtime/client-deals-authoritative-v1.js?v='))throw new Error('ISSUE430_DEALS_RUNTIME_SRC_MISSING');
+          if(!html.includes(src))throw new Error('ISSUE430_DEALS_RUNTIME_NOT_EMITTED');
+          if(!source.includes("__RONA_CLIENT_DEAL_PASSPORT_FRESHNESS__"))throw new Error('ISSUE430_DEALS_FRESHNESS_CONTRACT_MISSING');
+          if(!source.includes("data-rona-deal-state-strip"))throw new Error('ISSUE430_DEALS_STATE_STRIP_CONTRACT_MISSING');
+          console.log('ISSUE430_DEALS_RUNTIME_CURRENT=PASS '+src);
+          NODE
           test "$(grep -o 'portal-client-company-directory-authority-v1.js' dist/portal/client.html | wc -l | tr -d ' ')" = "1"
           node --check scripts/qa-issue430-resource-company-browser-v1.mjs
           echo 'ISSUE430_CANONICAL_BUILD=PASS'

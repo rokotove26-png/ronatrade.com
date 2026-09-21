@@ -1,7 +1,7 @@
 function line(source,prefix,next){const start=source.indexOf(prefix);if(start<0||source.indexOf(prefix,start+prefix.length)>=0)throw new Error('CLIENT_APPLICATION_ANCHOR_INVALID:'+prefix);const end=source.indexOf('\n',start);if(end<0)throw new Error('CLIENT_APPLICATION_LINE_END_MISSING');return source.slice(0,start)+next+source.slice(end)}
 export function wireClientBusinessRuntime(source,validator){
  if(source.includes('RONA_CLIENT_APPLICATION_BUSINESS_CONSUMER_V2'))return source;
- let s=source.replace("const state={apps:[]","const state={kpi:null,bucket:'ACTIVE',openPassportId:null,reloadRequested:0,error:null,apps:[]");
+ let s=source.replace("const state={apps:[],contextKey:'',loading:false,reloadRequested:false,reloadForce:false","const state={kpi:null,bucket:'ACTIVE',openPassportId:null,reloadRequested:0,reloadForce:false,error:null,apps:[],contextKey:'',loading:false");
  s=s.replace("(()=>{'use strict';","(()=>{'use strict';\nconst BUSINESS_CONSUMER='RONA_CLIENT_APPLICATION_BUSINESS_CONSUMER_V2';\nconst validateBusinessProjection=(()=>{\n"+validator.replace(/export /g,'')+"\nreturn validateApplicationProjection;})();\n");
  s=s.replace("c=norm(a?.application_currency||'USD')","c=norm(a?.application_currency)");
  s=s.replace('${esc(priceText(app))}</div><button', '${applicationPriceMarkup(app)}</div><button');
@@ -22,27 +22,26 @@ export function wireClientBusinessRuntime(source,validator){
  list.replaceChildren(...nodes);retireLegacyApplicationsPresentation(r);updateCounter(r,state.kpi.total);r.dataset.ronaApplicationsLiveRender='ready';scheduleAlign();window.dispatchEvent(new CustomEvent('rona:client-applications-rendered'));return true;
 }`);
  s=line(s,'async function load(force=false){',String.raw`async function load(force=false){
- if(state.loading){state.reloadRequested=Math.max(state.reloadRequested,force?2:1);return}
+ if(state.loading){state.reloadRequested=Math.max(state.reloadRequested,force?2:1);state.reloadForce=state.reloadForce||force;return}
  const ctx=await currentContext().catch(()=>null);if(!ctx){state.apps=[];state.kpi=null;state.error='CONTEXT_UNAVAILABLE';render();return}
  const key=contextKey(ctx);if(!key||key==='|')return;
- if(!force&&state.contextKey===key&&Date.now()-state.lastLoad<REFRESH_MS){render();return}
  state.loading=true;
  try{
   const a=authority();if(!a?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');
-  const detail=await a.whenCurrentProjection('applications-canonical');
-  if(contextKey(authority()?.getCurrentContext?.())!==key){state.reloadRequested=Math.max(state.reloadRequested,2);return}
+  const detail=force&&a.refreshCurrentProjection?await a.refreshCurrentProjection('applications-canonical'):await a.whenCurrentProjection('applications-canonical');
+  if(contextKey(authority()?.getCurrentContext?.())!==key){state.reloadRequested=Math.max(state.reloadRequested,2);state.reloadForce=true;return}
   validateBusinessProjection({contract:detail?.application_business_contract,applications:detail?.applications,application_kpi:detail?.application_kpi},{clientId:norm(ctx.client_id),contractId:norm(ctx.contract_id)});
   state.apps=detail.applications;state.kpi=detail.application_kpi;state.error=null;state.contextKey=key;state.lastLoad=Date.now();render();
  }catch(error){const message=String(error?.message||'APPLICATION_PROJECTION_UNAVAILABLE');if(contextKey(authority()?.getCurrentContext?.())===key&&/CLIENT_CONTEXT_(?:PROJECTION_STALE_RESPONSE|CHANGED_DURING_PROJECTION|PROJECTION_UNAVAILABLE)/.test(message)){state.reloadRequested=Math.max(state.reloadRequested,1);return}state.apps=[];state.kpi=null;state.error=message;render();const r=root();if(r)r.dataset.ronaApplicationsLiveRender='error'}
- finally{state.loading=false;const retry=state.reloadRequested;state.reloadRequested=0;if(retry)setTimeout(()=>load(retry===2),50)}
+ finally{state.loading=false;const retry=state.reloadRequested,forceRetry=state.reloadForce;state.reloadRequested=0;state.reloadForce=false;if(retry)queueMicrotask(()=>load(forceRetry||retry===2))}
 }`);
  // The previous Open handler only disclosed a cached row; resolve fresh, scoped canonical data instead.
  const start=s.indexOf("const id=button.getAttribute('data-rona-open-application'),r=root(),detail="),end=s.indexOf('},true);window.addEventListener',start);
  if(start<0||end<0)throw new Error('CLIENT_PASSPORT_HANDLER_MISSING');
  s=s.slice(0,start)+'openCanonicalApplicationPassport(button)'+s.slice(end);
- s=s.replace("state.apps=[];state.contextKey='';state.lastLoad=0;load(true)","const next=a.getCurrentContext?.(),nextKey=contextKey(next),changed=!!nextKey&&nextKey!=='|'&&nextKey!==state.contextKey;if(changed){state.apps=[];state.kpi=null;state.openPassportId=null;state.contextKey='';state.lastLoad=0;render()}load(true)");
+ s=s.replace("state.apps=[];state.contextKey='';state.lastLoad=0;load(false)","const next=a.getCurrentContext?.(),nextKey=contextKey(next),changed=!!nextKey&&nextKey!=='|'&&nextKey!==state.contextKey;if(changed){state.apps=[];state.kpi=null;state.openPassportId=null;state.contextKey='';state.lastLoad=0;render()}load(false)");
  // RONA_CLIENT_CONTEXT is the only projection authority. Pageshow and counter-offer presentation never launch a second collection fetch.
- s=s.replace("window.addEventListener('pageshow',()=>{load(true);scheduleAlign();setTimeout(observeLayout,0)},{passive:true})","window.addEventListener('pageshow',()=>{render();scheduleAlign();setTimeout(observeLayout,0)},{passive:true})");
+ s=s.replace("window.addEventListener('pageshow',()=>{load(false);scheduleAlign();setTimeout(observeLayout,0)},{passive:true})","window.addEventListener('pageshow',()=>{render();scheduleAlign();setTimeout(observeLayout,0)},{passive:true})");
  s=s.replace("setTimeout(queueDecorate,180);setTimeout(queueDecorate,980)","");
  s=s.replace("window.addEventListener('rona:client-applications-rendered',queueDecorate);","window.addEventListener('rona:client-applications-rendered',ensureCounterStyle);");
  s=s.replace("window.addEventListener('rona:client-application-submitted',queueDecorate);","window.addEventListener('rona:client-application-submitted',ensureCounterStyle);");
@@ -68,6 +67,12 @@ function counterOfferMarkup(app){
  const actions=active?'<div class="rona-counter-offer-actions"><button type="button" class="rona-counter-offer-action" data-rona-counter-offer-decision="accept" data-application-id="'+esc(app.application_id)+'" data-decision="accept">\u041f\u0440\u0438\u043d\u044f\u0442\u044c</button><button type="button" class="rona-counter-offer-action" data-rona-counter-offer-decision="decline" data-application-id="'+esc(app.application_id)+'" data-decision="decline">\u041e\u0442\u043a\u043b\u043e\u043d\u0438\u0442\u044c</button></div>':'';
  return '<div class="rona-counter-offer-panel" data-rona-counter-offer-panel="v2" data-rona-counter-offer-active="'+String(active)+'"><div class="rona-counter-offer-copy"><span>\u0412\u0441\u0442\u0440\u0435\u0447\u043d\u043e\u0435 \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u0435 RONA Trade</span>'+separator+'<strong class="rona-counter-offer-price" data-rona-counter-offer-price="true">'+amount+'</strong>'+(responseText?separator+'<span class="rona-counter-offer-state">'+responseText+'</span>':'')+'</div>'+actions+'</div>';
 }
+async function applicationPassportRequest(path){
+ const response=await fetch('/portal/api'+path,{method:'GET',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+ const payload=await response.json().catch(()=>null);
+ if(!response.ok||payload?.ok===false)throw new Error(String(payload?.code||('HTTP_'+response.status)));
+ return payload;
+}
 async function openCanonicalApplicationPassport(button){
  if(button.disabled)return;
  const id=norm(button.getAttribute('data-rona-open-application')),ctx=authority()?.getCurrentContext?.(),key=contextKey(ctx);
@@ -75,7 +80,7 @@ async function openCanonicalApplicationPassport(button){
  if(state.openPassportId===id){state.openPassportId=null;render();return}
  button.disabled=true;
  try{
-  const result=await request('/v1/client/applications/'+encodeURIComponent(id)+'/passport?clientId='+encodeURIComponent(ctx.client_id)+'&contractId='+encodeURIComponent(ctx.contract_id));
+  const result=await applicationPassportRequest('/v1/client/applications/'+encodeURIComponent(id)+'/passport?clientId='+encodeURIComponent(ctx.client_id)+'&contractId='+encodeURIComponent(ctx.contract_id));
   if(contextKey(authority()?.getCurrentContext?.())!==key)return;
   const app=result?.data?.application;
   if(result?.data?.business_contract!=='RONA_APPLICATION_BUSINESS_V2'||app?.application_id!==id||app?.client_id!==ctx.client_id||app?.contract_id!==ctx.contract_id)throw new Error('APPLICATION_PASSPORT_SCOPE_INVALID');
@@ -89,6 +94,7 @@ document.addEventListener('click',event=>{const button=event.target?.closest?.('
 `;
  s=s.replace('function observeLayout()',helpers+'\nfunction observeLayout()');
  if(s.includes("if(force)a.invalidateCurrentProjection?.()"))throw new Error('CLIENT_APPLICATION_RUNTIME_FORCE_INVALIDATION_NOT_RETIRED');
+ if(s.includes('REFRESH_MS')||s.includes('setInterval('))throw new Error('CLIENT_APPLICATION_RUNTIME_RECURRING_REFRESH_NOT_RETIRED');
  if(s.includes("window.addEventListener('pageshow',()=>{load(true)"))throw new Error('CLIENT_APPLICATION_RUNTIME_PAGESHOW_FETCH_NOT_RETIRED');
  if(s.includes("window.addEventListener('pageshow',queueDecorate"))throw new Error('CLIENT_COUNTER_OFFER_PAGESHOW_FETCH_NOT_RETIRED');
  if(s.includes("window.addEventListener('rona:client-applications-rendered',queueDecorate)"))throw new Error('CLIENT_COUNTER_OFFER_ASYNC_DECORATOR_NOT_RETIRED');

@@ -13,6 +13,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   client-payments-canonical-layout:
     runs-on: ubuntu-latest
@@ -33,14 +37,16 @@ jobs:
           const fs=require('fs');
           const runtime=fs.readFileSync('assets/portal-runtime/client-payments-canonical-layout-v1.js','utf8');
           for(const marker of [
-            '20260830-client-payments-canonical-layout-v3',
+            '20260921-client-payments-canonical-layout-v4-current-receipt-status',
             'data-rona-payments-canonical-width',
             'title-frame-context',
             'title-frame-owner',
             'Платежи и взаиморасчёты',
             'Выбрана компания',
             'Дата поступления:',
-            '__RONA_CLIENT_PAYMENTS_STATE__'
+            '__RONA_CLIENT_PAYMENTS_STATE__',
+            'client_receipt_status',
+            'Finance подтверждено · банк ожидается'
           ])if(!runtime.includes(marker))throw new Error('missing canonical payments marker '+marker);
           if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(runtime))throw new Error('hardcoded client/deal found in canonical payments runtime');
           const attach=fs.readFileSync('scripts/attach-client-application-lifecycle.mjs','utf8');
@@ -48,7 +54,7 @@ jobs:
           NODE
           npm run build
           grep -q 'id="rona-client-payments-canonical-layout-v1"' dist/portal/client.html
-          grep -q '/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v3' dist/portal/client.html
+          grep -q '/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260921-current-receipt-event-driven-v5' dist/portal/client.html
           node -e "const i=require('./dist/canonical-visual-integrity.json');const x=i.client_runtime?.payments_canonical_layout;if(x?.width_reference!=='PAYMENTS_TITLE_FRAME_ONLY'||x?.receipt_date_source!=='CLIENT_CONTEXT_FILTERED_PAYMENT_AT'||x?.hardcoded_business_entities!==false)process.exit(1)"
 
       - name: Install browser harness

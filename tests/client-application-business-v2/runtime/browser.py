@@ -70,6 +70,10 @@ with sync_playwright() as p:
         row(page,aid).locator('[data-rona-open-application]').click()
         expect(row(page,aid).locator('[data-rona-application-details]')).to_be_visible()
         check('Client Open resolves its exact canonical passport',aid in row(page,aid).inner_text())
+        page.evaluate("aid=>{window.__RONA_QA_APPLICATION_ROW__=document.querySelector('[data-rona-live-application-id=\\\"'+CSS.escape(aid)+'\\\"]');window.dispatchEvent(new CustomEvent('rona:client-current-projection'))}",aid)
+        expect(row(page,aid)).to_be_visible()
+        expect(row(page,aid).locator('[data-rona-application-details]')).to_be_visible()
+        check('current projection refresh preserves the same visible canonical row and open passport',page.evaluate("aid=>document.querySelector('[data-rona-live-application-id=\\\"'+CSS.escape(aid)+'\\\"]')===window.__RONA_QA_APPLICATION_ROW__",aid))
         page.screenshot(path=str(OUT/'client-canonical-passport.png'),full_page=True)
         # The actual server commits, but the first response never reaches the actual browser form.
         lost={'done':False,'id':None}
