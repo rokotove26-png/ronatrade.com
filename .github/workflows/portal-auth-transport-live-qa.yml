@@ -1,0 +1,61 @@
+name: Portal auth transport live QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  portal-auth-transport-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Probe live Cloudflare login transport and direct Supabase Auth
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const source=readFileSync('functions/portal/auth/login.js','utf8');
+          const url=(source.match(/const SUPABASE_URL = '([^']+)'/)||[])[1];
+          const key=(source.match(/const SUPABASE_PUBLISHABLE_KEY = '([^']+)'/)||[])[1];
+          if(!url||!key)throw new Error('AUTH_SOURCE_CONSTANTS_MISSING');
+          const identifier='qa-transport-'+Date.now()+'@example.invalid';
+          const password='invalid-transport-probe';
+          const timed=async(label,fn)=>{
+            const started=Date.now();
+            try{
+              const r=await fn();
+              const body=await r.text();
+              console.log(label+' '+JSON.stringify({status:r.status,ms:Date.now()-started,body:body.slice(0,500)}));
+              return {status:r.status,body};
+            }catch(error){
+              console.log(label+' '+JSON.stringify({status:0,ms:Date.now()-started,error:String(error?.message||error)}));
+              return {status:0,body:''};
+            }
+          };
+          const direct=await timed('DIRECT_SUPABASE_AUTH',()=>fetch(url+'/auth/v1/token?grant_type=password',{
+            method:'POST',
+            headers:{apikey:key,'content-type':'application/json'},
+            body:JSON.stringify({email:identifier,password}),
+            signal:AbortSignal.timeout(15000)
+          }));
+          const portal=await timed('PORTAL_LOGIN',()=>fetch('https://ronaoil.com/portal/auth/login',{
+            method:'POST',
+            redirect:'manual',
+            headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+            body:JSON.stringify({identifier,password}),
+            signal:AbortSignal.timeout(20000)
+          }));
+          if(direct.status===0||direct.status>=500)throw new Error('DIRECT_SUPABASE_AUTH_UNAVAILABLE_'+direct.status);
+          if(portal.status===503)throw new Error('PORTAL_AUTH_TRANSPORT_UNAVAILABLE');
+          if(portal.status!==401)throw new Error('PORTAL_LOGIN_UNEXPECTED_'+portal.status);
+          console.log('PORTAL_AUTH_TRANSPORT_LIVE=PASS');
+          NODE
