@@ -114,12 +114,13 @@ jobs:
           grep -q '53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts' "$file"
           grep -q 'client_user_has_contract_access' "$file"
           grep -q 'client_user_has_deal_access' "$file"
-          grep -q 'rona_rail_deal_map_read_model_core_v1' "$file"
+          grep -q 'rona_rail_deal_map_read_model_core_v2' "$file"
           ! grep -q 'rona_admin_rail_deal_map_read_model_v4' "$file"
-          migration='supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
-          grep -q 'create or replace function portal_private.rona_rail_deal_map_read_model_core_v1' "$migration"
+          migration='supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql'
+          grep -q 'create or replace function portal_private.rona_rail_deal_map_read_model_core_v2' "$migration"
           grep -q "owner_r1_actor('ADMIN')" "$migration"
-          grep -qi 'security invoker' "$migration"
+          grep -Eqi 'revoke all on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)[[:space:]]+from public,anon,authenticated' "$migration"
+          grep -Eqi 'grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)[[:space:]]+to service_role' "$migration"
           grep -q 'return await liveV56Handler(req, info)' "$file"
           ! grep -Eiq '(insert|update|delete)[[:space:]]+portal_private\.' "$file"
           echo 'ISSUE670_LIVE_V56_DELEGATION=PASS'
