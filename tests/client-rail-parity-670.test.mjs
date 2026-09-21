@@ -219,6 +219,7 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
 test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   const attach=fs.readFileSync("scripts/attach-client-rail-production-v1.mjs","utf8");
   const hero=fs.readFileSync("assets/portal-runtime/client-rail-canonical-hero-v1.js","utf8");
+  const adapter=fs.readFileSync("functions/portal/client-rail-current-ui.js","utf8");
   for(const source of [attach,hero]) {
     assert.equal(source.includes("AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS"),false);
   }
@@ -226,8 +227,8 @@ test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   assert.ok(attach.includes("client_authority:'AUTHENTICATED_CLIENT_CONTRACT'"));
   assert.ok(hero.includes("AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1"));
   assert.ok(hero.includes("CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"));
-  assert.ok(source.includes("border-radius:7px!important"));
-  assert.ok(source.includes("rona-rail-v7-marker::before"));
+  assert.ok(adapter.includes("border-radius:7px!important"));
+  assert.ok(adapter.includes("rona-rail-v7-marker::before"));
   assert.ok(hero.includes("layout_override:'NONE_OPERATIONAL_BODY'"));
   assert.equal(hero.includes("grid-template-rows:1fr 1fr!important"),false,"Client-only equal-height Rail layout must not return");
   assert.equal(hero.includes("grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important"),false,"Client-only Rail work-grid override must not return");
