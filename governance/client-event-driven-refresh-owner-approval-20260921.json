@@ -22,13 +22,13 @@
     },
     "assets/portal-runtime/client-logout-visual-v1.js": {
       "visual_freeze_baseline_blob_sha": "2dc6eceae13334ce9c3fc020afc06bd95a8decb4",
-      "authorized_post_blob_sha": "99286fa037d7d6c306a0c6e64e3198628c397b0d",
-      "required_marker": "20260830-client-logout-force-red-v2"
+      "authorized_post_blob_sha": "5eb780d2229a1f4c3b39530ca9e2560abaecdaac",
+      "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
     },
     "scripts/attach-client-logout-visual-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
-      "authorized_post_blob_sha": "ca8c4e6c433133894a5b6b87923d545129cca473",
-      "required_marker": "MUTATION_FOCUS_PAGESHOW"
+      "authorized_post_blob_sha": "e445b137da05823f791896a54019156b516cc1d7",
+      "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
     }
   },
   "requirements": {
