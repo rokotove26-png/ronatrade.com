@@ -156,12 +156,13 @@ test('Current wagon clusters remain factual marker overlays while one visual rou
   assert.match(v81,/function railMapNearestPlannedIndex\(planned,point,minIndex,maxIndex\)/);
   assert.match(v81,/__RONA_RAIL_SINGLE_VISUAL_ROUTE__='20260921-dominant-cohort-v1'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_REJOIN__='20260921-dominant-rejoin-v2'/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_DESTINATION_CONTINUATION__='20260921-final-destination-v3'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_TOPOLOGY__='20260921-current-markers-independent-v1'/);
   assert.doesNotMatch(v81,/function railMapSegmentProjection\(point,a,b\)/);
   assert.doesNotMatch(v81,/buckets\[best\.segment\]\.push/);
 });
 
-test('Online Rail draws one continuous route from the dominant cohort back to the base route and onward to the other current group',()=>{
+test('Online Rail draws one continuous route from the dominant cohort back to the base route and onward to the final destination',()=>{
   assert.match(v81,/function railMapClusterKey\(w,coord\)/);
   assert.match(v81,/groups=new Map\(\)/);
   assert.match(v81,/el\('button','rona-rail-v7-marker',String\(g\.wagons\.length\)\)/);
@@ -179,17 +180,17 @@ test('Online Rail draws one continuous route from the dominant cohort back to th
   assert.doesNotMatch(v81,/GPS_TRACK_CONFIRMED|actualTrack/);
 });
 
-test('The dominant five-wagon-style cohort is a detour inside one route, not a terminal branch',()=>{
+test('The dominant five-wagon-style cohort is a detour while the route still terminates at the canonical destination',()=>{
   assert.match(v81,/function railMapRouteCohorts\(context\)/);
   assert.match(v81,/function railMapDominantCohort\(context\)/);
   assert.match(v81,/if\(bw!==aw\)return bw-aw/);
-  assert.match(v81,/function railMapDominantCurrentStationCode\(dominant\)/);
-  assert.match(v81,/code===dominantCode/);
-  assert.match(v81,/railMapPlannedStationIndex\(planned,code/);
+  assert.match(v81,/context&&context\.mapData&&context\.mapData\.routeAssignment/);
+  assert.match(v81,/assignment\.destinationEsr/);
+  assert.match(v81,/railMapPlannedStationIndex\(planned,code,lo,planned\.length-1\)/);
   assert.match(v81,/rejoinMin=Math\.min\(planned\.length-1,Math\.max\(diverge\+1,0\)\)/);
   assert.match(v81,/rejoinMax=Math\.max\(rejoinMin,Math\.min\(target,planned\.length-1\)\)/);
-  assert.match(v81,/mode:'DOMINANT_COHORT_REJOIN_BASE_TO_CURRENT'/);
-  assert.match(v81,/version:'20260921-single-canonical-route-rejoin-v2'/);
+  assert.match(v81,/mode:'DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION'/);
+  assert.match(v81,/version:'20260921-single-canonical-route-destination-v3'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
   assert.match(v81,/__RONA_RAIL_ROUTE_REJOIN__='20260921-dominant-rejoin-v2'/);
   assert.doesNotMatch(v81,/function railMapRenderLegend\(state\)/);
