@@ -1,9 +1,9 @@
-name: Client Rail Admin visual parity v3
+name: Client Rail premium map visual parity v4
 
 on:
   push:
     branches:
-      - fix/client-rail-route-overlay-v3
+      - fix/client-rail-premium-map-markers-v1-20260921
   pull_request:
     branches:
       - release/public-go-live-v1.1
@@ -36,8 +36,10 @@ jobs:
           node --check scripts/attach-client-rail-production-v1.mjs
           node --check scripts/qa-client-online-rail-670-browser.mjs
           node --test tests/client-rail-parity-670.test.mjs
-          grep -Fq 'CLIENT_ADMIN_ROUTE_PARITY_V3' functions/portal/client-rail-current-ui.js
-          grep -Fq 'CLIENT_RAIL_ROUTE_OVERLAY_V3' functions/portal/client-rail-current-ui.js
+          grep -Fq 'CLIENT_ADMIN_ROUTE_PARITY_V4' functions/portal/client-rail-current-ui.js
+          grep -Fq 'CLIENT_RAIL_ROUTE_OVERLAY_V4' functions/portal/client-rail-current-ui.js
+          grep -Fq 'rona-client-rail-route-pin' functions/portal/client-rail-current-ui.js
+          grep -Fq 'CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1' assets/portal-runtime/client-rail-canonical-hero-v1.js
           grep -Fq 'clientRailRenderAuthoritativeRouteOverlay' functions/portal/client-rail-current-ui.js
           grep -Fq "layout_override:'NONE_OPERATIONAL_BODY'" assets/portal-runtime/client-rail-canonical-hero-v1.js
           ! grep -Fq 'grid-template-rows:1fr 1fr!important' assets/portal-runtime/client-rail-canonical-hero-v1.js
@@ -47,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
           npm run build
-          grep -Fq '/portal/client-rail-current-ui?v=20260919-route-overlay-v3' dist/portal/client.html
-          grep -Fq '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260919-admin-visual-parity-v2' dist/portal/client.html
+          grep -Fq '/portal/client-rail-current-ui?v=20260921-premium-map-markers-v4' dist/portal/client.html
+          grep -Fq '/assets/portal-runtime/client-rail-canonical-hero-v1.js?v=20260921-premium-map-markers-v3' dist/portal/client.html
           echo 'CLIENT_RAIL_ADMIN_VISUAL_BUILD=PASS'
       - name: Install Playwright Chromium
         run: |
@@ -57,15 +59,15 @@ jobs:
       - name: Render Admin route geometry in Client
         run: |
           set -euo pipefail
-          node scripts/qa-client-online-rail-670-browser.mjs 2>&1 | tee /tmp/client-rail-admin-visual-parity-v3.log
+          node scripts/qa-client-online-rail-670-browser.mjs 2>&1 | tee /tmp/client-rail-premium-map-v4.log
           grep -Fq 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/client-rail-admin-visual-parity-v3.log
-          grep -Fq 'ISSUE670_ROUTE_OVERLAY_V3_VISIBLE=PASS' /tmp/client-rail-admin-visual-parity-v3.log
+          grep -Fq 'ISSUE670_ROUTE_OVERLAY_V4_VISIBLE=PASS' /tmp/client-rail-admin-visual-parity-v3.log
           grep -Fq 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/client-rail-admin-visual-parity-v3.log
           grep -Fq 'ISSUE670_DEAL_SWITCH_ISOLATION=PASS' /tmp/client-rail-admin-visual-parity-v3.log
-          echo 'CLIENT_RAIL_ADMIN_VISUAL_PARITY_V3=PASS'
+          echo 'CLIENT_RAIL_PREMIUM_MAP_VISUAL_PARITY_V4=PASS'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: client-rail-admin-visual-parity-v3
+          name: client-rail-premium-map-v4
           path: /tmp/client-rail-admin-visual-parity-v3.log
           if-no-files-found: warn
