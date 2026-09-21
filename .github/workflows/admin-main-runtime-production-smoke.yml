@@ -40,8 +40,9 @@ jobs:
           grep -q '__RONA_OWNER_ADMIN_READY__' /tmp/main.body
 
           curl -fsS -D /tmp/visual.headers -o /tmp/visual.body "https://ronaoil.com/portal/admin-approved-shell-v455-ui?_qa=${nonce}"
-          grep -qi '^x-rona-admin-shell-visual: approved-v4.5.5' /tmp/visual.headers
+          grep -qi '^x-rona-admin-shell-visual: sidebar-production-self-heal-v14' /tmp/visual.headers
           grep -q 'rona-topbar-premium' /tmp/visual.body
+          grep -q '20260920-sidebar-production-self-heal-v14' /tmp/visual.body
           grep -q '/assets/portal-canonical/background.png' /tmp/visual.body
 
           status=$(curl -sS -o /dev/null -D /tmp/admin.headers -w '%{http_code}' "https://ronaoil.com/portal/admin?_qa=${nonce}")
