@@ -75,7 +75,7 @@ for(const required of [
 assert.ok(!emitted.includes("call('/admin/workflow-bootstrap')"),'emitted runtime must consume already-materialized server snapshot');
 
 const server=await readFile('functions/portal/admin-completed-bootstrap.js','utf8');
-for(const required of ['owner_r1_admin_bootstrap','mergeAdminCompletedApplications','x-rona-admin-completed-restored'])assert.ok(server.includes(required),`server materialization missing ${required}`);
+for(const required of ['application-business-contract-v2.js','applyCanonicalApplications','projectionFromData','x-rona-application-business','ADMIN_MAIN_COMPLETED_BOOTSTRAP'])assert.ok(server.includes(required),`server materialization missing ${required}`);
 
 const passport=await readFile('functions/portal/main-ui/application-passport-runtime.js','utf8');
 for(const required of [
