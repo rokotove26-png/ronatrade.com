@@ -67,6 +67,7 @@ export function portalApiReply(
         client_id:clientId,
         contract_id:contractId,
         transport:"NETWORK",
+        cache_network:"NETWORK_REQUEST",
         request_cache:String(req.cache||"default"),
         latency_ms:latencyMs,
       },
