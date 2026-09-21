@@ -1,6 +1,6 @@
 (()=>{
 'use strict';
-const MARK='20260905-client-deal-realization-status-v6-strict-authoritative-context';
+const MARK='20260921-client-deal-realization-status-v7-current-state-refresh';
 if(window.__RONA_CLIENT_DEAL_LIFECYCLE__===MARK)return;
 window.__RONA_CLIENT_DEAL_LIFECYCLE__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -95,10 +95,10 @@ function render(root){
   if(!rootIsAuthoritative(root)){root.querySelector(`#${FLOW_ID}`)?.remove();return}
   installStyle();const flow=ensureFlow(root),id=dealId(root),status=stateByDeal.get(id),stages=validatedStages(status);
   if(!stages){renderNotice(flow,loadError?'Актуальный статус реализации временно недоступен':loadedOnce?'Актуальный жизненный цикл сделки временно недоступен':'Загрузка актуального статуса реализации…');return}
-  const done=stages.filter(s=>s.state==='DONE').length,current=stages.find(s=>s.state==='CURRENT'),blocked=stages.find(s=>s.state==='BLOCKED'),progress=Math.round(done/stages.length*100);
+  const done=stages.filter(s=>s.state==='DONE').length,current=stages.find(s=>s.state==='CURRENT'),blocked=stages.find(s=>s.state==='BLOCKED'),pending=stages.find(s=>s.state==='PENDING'),progress=Math.round(done/stages.length*100);
   const sig=JSON.stringify({context:activeContextKey,id,source:status.source,done,current:current?.key||null,blocked:blocked?.key||null,stages});if(flow.dataset.lifecycleSignature===sig&&flow.classList.contains('rona-deal-lifecycle-v1'))return;
   flow.dataset.lifecycleSignature=sig;flow.className='rona-deal-lifecycle-v1';flow.setAttribute('aria-label','Статус реализации');
-  const summary=blocked?`Требует решения: ${STAGE_NAMES[blocked.key]}`:current?`В работе: ${STAGE_NAMES[current.key]}`:'Все этапы завершены';
+  const summary=blocked?`Требует решения: ${STAGE_NAMES[blocked.key]}`:current?`В работе: ${STAGE_NAMES[current.key]}`:pending?`Ожидается: ${STAGE_NAMES[pending.key]}`:'Все этапы завершены';
   flow.innerHTML=`<div class="rona-deal-lifecycle-v1__head"><div><div class="rona-deal-lifecycle-v1__eyebrow">Deal status</div><div class="rona-deal-lifecycle-v1__title">Статус реализации</div></div><div class="rona-deal-lifecycle-v1__summary">Выполнено ${done} из ${stages.length}<br>${esc(summary)}</div></div><div class="rona-deal-lifecycle-v1__progress" aria-label="Выполнено ${done} из ${stages.length}"><span style="width:${progress}%"></span></div><div class="rona-deal-lifecycle-v1__list">${stages.map(s=>`<article class="rona-deal-lifecycle-v1__item is-${s.state.toLowerCase()}" data-lifecycle-stage="${s.key}"><div class="rona-deal-lifecycle-v1__rail"><span class="rona-deal-lifecycle-v1__node">${ICONS[s.key]}</span></div><div class="rona-deal-lifecycle-v1__body"><div class="rona-deal-lifecycle-v1__top"><div class="rona-deal-lifecycle-v1__name">${esc(s.name)}</div><span class="rona-deal-lifecycle-v1__badge">${BADGES[s.state]}</span></div><div class="rona-deal-lifecycle-v1__detail">${esc(s.detail)}</div></div></article>`).join('')}</div>`;
 }
 function scan(){scheduled=false;for(const root of document.querySelectorAll(`.${ROOT_CLASS}`))if(visible(root))render(root)}
@@ -106,5 +106,6 @@ function schedule(){if(scheduled)return;scheduled=true;requestAnimationFrame(sca
 const authority=contextAuthority();if(authority)authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==activeContextKey){activeContextKey=key;clearState()}schedule()});else console.error('RONA realization status: context authority unavailable');
 window.addEventListener('rona:client:deal-authoritative-detail',event=>{const detail=event?.detail||{},ctx=currentContext(),key=contextKey(ctx);if(norm(detail.context)!==key||!DEAL_RE.test(norm(detail.dealId)))return;schedule();setTimeout(()=>refresh('authoritative-detail'),0)});
 window.addEventListener('rona:client:deals-rendered',schedule,{passive:true});
+window.addEventListener('rona:client-current-projection',()=>{schedule();setTimeout(()=>refresh('current-projection'),0)},{passive:true});
 setTimeout(schedule,0);
 })();
