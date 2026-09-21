@@ -15,6 +15,9 @@ assert.deepEqual(
 );
 assert.equal(deal009.payment_expected_not_due,9300690);
 assert.equal(deal009.payment_future_conditional,21701610);
+assert.equal(deal009.payment_status,'NOT_DUE');
+assert.equal(deal009.payment_label,'Срок оплаты не наступил');
+assert.equal(deal009.payment_due_now,0);
 
 const finance004={id:'v7-004',total_to_receive:'236250',obligation_currency:'USD',finance_status:'PAID',documentary_status:'CONFIRMED',due_now:'0',expected_not_due:'0',future_conditional:'0'};
 const deal004={deal_id:'DEAL-2026-004'};

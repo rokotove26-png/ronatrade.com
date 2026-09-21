@@ -10,6 +10,18 @@ const policy=`/portal/client
 /assets/portal-runtime/client-home-current-only-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
+/assets/portal-runtime/client-context-selection-authority-v1.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/assets/portal-runtime/client-payments-authoritative-v1.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/assets/portal-runtime/client-payments-canonical-layout-v1.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/assets/portal-runtime/client-payments-sanitation-v1.js
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
 /assets/portal-runtime/client-background-section-preload-v1.js
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
 
@@ -55,4 +67,4 @@ for(const route of requiredAdminRoutes){
   if(!merged.includes(`${route}\n  Content-Type: application/javascript; charset=utf-8`))throw new Error(`ADMIN_RUNTIME_CONTENT_TYPE_LOST: ${route}`);
 }
 await writeFile(TARGET,merged,'utf8');
-console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS admin-runtime-headers=preserved route=/portal/client + Client Home current-only runtime + background all-section preload + Client Rail canonical hero + Admin-derived operational body + current deal passport/lifecycle/section-first-paint runtimes + canonical button hover=no-store');
+console.log('CLIENT_RUNTIME_CACHE_POLICY=PASS admin-runtime-headers=preserved route=/portal/client + Client Home/current-context/payments runtimes + background all-section preload + Client Rail canonical hero + Admin-derived operational body + current deal passport/lifecycle/section-first-paint runtimes + canonical button hover=no-store');
