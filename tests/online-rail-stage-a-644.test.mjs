@@ -171,12 +171,13 @@ test('Split wagon histories keep the legacy route line visual while preserving c
   assert.match(v81,/function railMapRouteCohorts\(context\)/);
   assert.match(v81,/function railMapCohortSegments\(context\)/);
   assert.match(v81,/function railMapCohortDraw\(svg,context,left,top,z\)/);
-  assert.match(v81,/railMapSvgPolyline\(svg,item\.points,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual'\)/);
+  assert.match(v81,/railMapSvgPolyline\(svg,item\.points,left,top,z,'rona-rail-v7-cohort-casing',lineClass\)/);
+  assert.match(v81,/\.rona-rail-v7-cohort-line\{[^}]*stroke:#9f332f;stroke-width:4\.2/);
+  assert.match(v81,/\.rona-rail-v7-cohort-line\.is-unresolved\{stroke:#9f332f;stroke-dasharray:none;opacity:1\}/);
   assert.match(v81,/rona-rail-v7-border-crossing/);
   assert.match(v81,/rona-rail-v7-border-unresolved/);
   assert.match(v81,/точный погранпереход не подтвержден/);
   assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
-  assert.match(v81,/__RONA_RAIL_COHORT_VISUAL_STYLE__='LEGACY_ROUTE_LINE_V1'/);
   assert.doesNotMatch(v81,/function railMapRenderLegend\(state\)/);
   assert.doesNotMatch(v81,/Группы вагонов/);
   assert.doesNotMatch(v81,/OPERATIONAL_DEFAULT_WITH_FULL_ROUTE_TOGGLE_V1/);
