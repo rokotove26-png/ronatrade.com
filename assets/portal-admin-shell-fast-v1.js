@@ -5,6 +5,7 @@ window.__RONA_ADMIN_RUNTIME_OWNER__='single-owner-v3';
 window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__=[];
 window.__RONA_ADMIN_MODULES__=Object.create(null);
 window.__RONA_ADMIN_SESSION_STATE__='CHECKING';
+window.__RONA_ADMIN_TRAFFIC_POLICY__={...(window.__RONA_ADMIN_TRAFFIC_POLICY__||{}),version:'ADMIN_TRAFFIC_STABILIZATION_V1',authorityBootstrap:'RETRY_ONLY_ON_FAILURE',authoritySource:'ADMIN_SHELL_BOOT'};
 const LOGIN='/portal/login?next='+encodeURIComponent('/portal/admin');
 const root=document.documentElement;
 root.dataset.ronaAdminRuntimeOwner='single-owner-v3';
@@ -200,7 +201,7 @@ if(!window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__){
   window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__='single-owner-v3';
   const BASE='/portal/admin-authority';let authorityBusy=false;
   async function call(path,options){const init=Object.assign({credentials:'same-origin',cache:'no-store',headers:{}},options||{});const r=await fetch(BASE+path,init);const j=await r.json().catch(()=>({}));if(!r.ok||j?.ok===false){const e=new Error(String(j?.code||('HTTP_'+r.status)));e.code=String(j?.code||'REQUEST_FAILED');e.status=r.status;e.payload=j;throw e}return j}
-  async function coreBootstrap(){const r=await fetch('/portal/api/v1/admin/bootstrap',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok)throw new Error(String(j?.code||'ADMIN_BOOTSTRAP_FAILED'));return j.data}
+  async function coreBootstrap(){const r=await fetch('/portal/api/v1/admin/bootstrap',{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-source':'ADMIN_SHELL_BOOT','x-rona-client-refresh-reason':'ADMIN_SHELL_AUTHORITY_REFRESH'}});const j=await r.json().catch(()=>({}));if(!r.ok||!j?.ok)throw new Error(String(j?.code||'ADMIN_BOOTSTRAP_FAILED'));return j.data}
   async function refreshAuthority(){if(authorityBusy)return window.__RONA_ADMIN_LIVE_SNAPSHOT__||null;authorityBusy=true;try{const [core,a]=await Promise.all([coreBootstrap(),call('/bootstrap')]);let readiness=null;try{readiness=(await call('/agent-readiness')).data||null}catch(e){recordError('agent-readiness',e)}window.__RONA_ADMIN_AGENT_ACCESS_READY__=readiness?.matrixReady===true;window.__RONA_ADMIN_LIVE_SNAPSHOT__={core,authority:a.data||{},agentAccessReadiness:readiness,at:new Date().toISOString()};window.__RONA_ADMIN_LIVE_READY__=true;window.__RONA_ADMIN_LIVE_ERROR__=null;return window.__RONA_ADMIN_LIVE_SNAPSHOT__}catch(e){window.__RONA_ADMIN_LIVE_READY__=false;window.__RONA_ADMIN_LIVE_ERROR__=String(e?.code||e?.message||e);recordError('authority-refresh',e);return null}finally{authorityBusy=false}}
   function formForSigned(req){const fd=new FormData();fd.set('clientId',String(req.clientId||''));fd.set('adminClaimsBilateralSigned',String(req.adminClaimsBilateralSigned===true));fd.set('adminAttestation',JSON.stringify(req.adminAttestation||{}));fd.set('file',req.signedContractFile);return fd}
   async function attachSignedContractToExistingContract(req){const j=await call('/contracts/'+encodeURIComponent(req.contractId)+'/signed-document/attach',{method:'POST',body:formForSigned(req)});await refreshAuthority();return j}
@@ -220,7 +221,7 @@ if(!window.__RONA_ADMIN_LIVE_AUTHORITY_ADAPTER__){
     syncCanonical:async()=>{await refreshAuthority();return{ok:true,status:'SERVER_READ_REFRESHED'}}
   });
   window.__RONA_ADMIN_REFRESH_AUTHORITY__=refreshAuthority;
-  [400,1800,5000].forEach(ms=>setTimeout(()=>{if(window.__RONA_ADMIN_SESSION_STATE__!=='DENIED')refreshAuthority()},ms));
+  (async()=>{for(const delay of [400,1800,5000]){if(delay)await sleep(delay);if(window.__RONA_ADMIN_SESSION_STATE__==='DENIED')return;const snapshot=await refreshAuthority();if(snapshot)return}})();
 }
 
 (function installLogout(){

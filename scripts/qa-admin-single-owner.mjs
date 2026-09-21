@@ -9,6 +9,8 @@ const polish=read('functions/portal/admin-approved-polish-ui.js');
 const analyticsCompat=read('functions/portal/admin-approved-analytics-v455-ui.js');
 const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
+const portalApi=read('functions/portal/api/[[path]].js');
+const paymentsV8=read('functions/portal/payments-v8-ui.js');
 const mainUi=read('functions/portal/admin-main-ui-current.js');
 const operations=read('functions/portal/admin-operations-command-center-v4.js')+'\n'+read('functions/portal/admin-operations-command-center-v4-base.js');
 const operationsV5=read('functions/portal/admin-operations-command-center-v5.js');
@@ -50,6 +52,8 @@ need(has(admin,'/portal/clients-agents-current-ui?v=20260919-admin-access-stabil
 need(has(admin,'/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3'),'Admin shell does not cache-bust the stable watchdog');
 
 need(has(shell,"__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3'"),'Single-owner shell marker is missing');
+need(has(shell,"ADMIN_SHELL_BOOT")&&has(shell,"RETRY_ONLY_ON_FAILURE")&&has(shell,"const snapshot=await refreshAuthority();if(snapshot)return")&&!has(shell,"[400,1800,5000].forEach"),'Admin authority bootstrap still performs unconditional triple refresh');
+
 need(has(shell,"'/portal/claims-r2-ui")&&has(shell,"'/portal/remaining-sections-ui")&&has(shell,"'/portal/prices-current-ui")&&has(shell,"'/portal/analytics-v2-ui"),'Required current modules are not loaded');
 need(has(shell,"access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}"),'Clients/Agents current runtime is not managed by the fast shell');
 need(has(shell,"const accessReady=()=>window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!accessHost()")&&has(shell,"async function loadAccess()"),'Clients/Agents stable access readiness/self-heal contract is missing');
@@ -60,6 +64,8 @@ need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell s
 
 need(has(mainUi,"patchAdminOperationsCommandCenterV10Clean(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V10 clean patch after source assembly');
 need(has(operationsV10,"OPERATIONS_COMMAND_CENTER_VERSION='v10-operations-current-v2-single-owner'"),'Operations Command Center V10 version marker is missing');
+need(has(operationsV10,"RONA_OPS_AUTO_REFRESH_MS=60000")&&has(operationsV10,"ADMIN_OPERATIONS_SYNC")&&has(operationsV10,"document.visibilityState==='visible'&&ronaOpsV10HomeVisible()"),'Operations traffic stabilization contract is missing');
+
 need(has(operationsV10,"call('/admin/operations-current-v2'")&&has(operationsV10,"DISABLED_BY_V10")&&has(operationsV10,"'Клиенты в сети'")&&has(operationsV10,"'Агенты в сети'"),'Operations Command Center V10 single-owner/current-presence contract is missing');
 need(has(operationsV10,"Нулевые показатели не подставляются")&&has(operationsV10,"Operations Current V2 подтверждает отсутствие действий"),'Operations Command Center V10 fail-closed queue contract is missing');
 need(has(operationsV91,"OPERATIONS_COMMAND_CENTER_VERSION='v9.1-readmodel-timeout-resilience-v1'"),'Operations Command Center V9.1 version marker is missing');
@@ -132,6 +138,8 @@ need(!has(homeCompat,'chunk19.js')&&!has(homeCompat,'operationsCenterV3'),'Retir
 need(!has(operations,'/portal/client')&&!has(operations,'client-deal-passport')&&!has(operations,'client-section-first-paint'),'Admin Operations Command Center reaches into frozen Client runtime');
 
 need(has(watchdog,"__RONA_ADMIN_RUNTIME_WATCHDOG__='page-aware-v10-radio-payments-heading'"),'Page-aware watchdog marker is missing');
+need(has(watchdog,"retryCooldownMs:60000")&&has(watchdog,"autoRetryLimit:3")&&has(watchdog,"WATCHDOG_AUTO_COOLDOWN_V1"),'Admin watchdog traffic cooldown/limit contract is missing');
+
 need(has(watchdog,"n.querySelector(':scope > .rona-owner-page-content')")&&has(watchdog,"n.querySelector(':scope > .current-loading:not(.rona-owner-original-hidden)')"),'Home hidden-fallback-safe readiness contract is missing');
 need(has(watchdog,"if(p==='analytics')return !!n.querySelector('#rona-analytics-v2 .an2-head')&&!!n.querySelector('#rona-analytics-v2 .an2-controls')&&!!n.querySelector('#rona-analytics-v2 .an2-main')"),'Analytics rendered readiness contract is missing');
 need(!has(watchdog,'location.reload(')&&!has(watchdog,'location.replace('),'Watchdog still performs destructive navigation/reload');
@@ -141,6 +149,8 @@ need(has(remaining,"__RONA_MARKET_NEWS_OWNER_GUARD_V6__='20260827-content-health
 
 need(has(access,"__RONA_CLIENTS_AGENTS_CURRENT__='20260828-single-owner-v5'"),'Current Clients/Agents workspace owner marker is missing');
 need(has(access,"__RONA_CLIENTS_AGENTS_CURRENT_STATE__='BOOTING'")&&has(access,"__RONA_CLIENTS_AGENTS_CURRENT_REPAIR__=repair"),'Clients/Agents lifecycle/repair contract is missing');
+need(has(access,"AUTO_REPAIR_COOLDOWN_MS=60000")&&has(access,"ADMIN_ACCESS_REFRESH")&&has(access,"refresh('auto-repair')"),'Clients/Agents recovery cooldown/source contract is missing');
+
 need(has(access,"READY_STALE")&&has(access,"__RONA_CLIENTS_AGENTS_CURRENT_ROOT_GUARD__=rootGuard"),'Clients/Agents last-good/root survival contract is missing');
 need(has(watchdog,"if(p==='access')return window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true&&!!n.querySelector(':scope > #rona-ca4')"),'Watchdog Access readiness is still tied to transient child DOM');
 need(has(access,"__RONA_ACCESS_CURRENT_OWNER__='clients-agents-current-v5'"),'Current access creation owner marker is missing');
@@ -154,6 +164,10 @@ need(has(access,"await mutate('/access/users',payload)"),'Access creation must u
 need(has(access,"'/signed-document/attach'")&&has(access,'BILATERAL_SIGNED_CONTRACT_ATTESTATION'),'Signed PDF attach/gate path is missing');
 for(const forbidden of ['openCanonicalAccessModal','installCanonicalAccessCreate','approved-canonical-v3.4.13','admin-canonical-create-access-v441-ui','rona-approved-access-mask','rona-canonical-access-mask'])need(!has(access,forbidden),'Competing access owner remains in current module: '+forbidden);
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
+need(has(ownerApi,"'x-rona-client-source','x-rona-client-refresh-reason'"),'Owner API does not preserve admin source telemetry headers');
+need(has(portalApi,"'x-rona-client-source','x-rona-client-refresh-reason'"),'Portal API does not preserve admin refresh reason telemetry header');
+need(has(paymentsV8,"REFRESH_MS=90000")&&has(paymentsV8,"RETRY_MS=15000")&&has(paymentsV8,"ADMIN_PAYMENTS_POLL")&&has(paymentsV8,"PAYMENTS_OPEN_ONLY"),'Payments V8 traffic stabilization contract is missing');
+
 need(has(access,"'x-rona-shell-mutation':'none'")&&has(access,"'x-rona-access-create-owner':'clients-agents-current-v5'"),'Page-scoped single-owner contract is missing');
 
 need(has(polish,"__RONA_ADMIN_APPROVED_POLISH__='20260918-access-applications-visual-v5'"),'Approved polish current visual marker is missing');

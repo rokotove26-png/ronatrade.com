@@ -5,6 +5,7 @@ export const OPERATIONS_CURRENT_V2_CONTRACT='OPERATIONS_CURRENT_V2_SINGLE_OWNER_
 
 const CLEAN_RUNTIME=String.raw`
 let ronaOpsV10Snapshot=null,ronaOpsV10Error=null,ronaOpsV10Promise=null,ronaOpsV10Timer=0,ronaOpsV10Started=false;
+const RONA_OPS_AUTO_REFRESH_MS=60000;
 function ronaOpsV10HomeVisible(){try{const p=page('home');return !!p&&getComputedStyle(p).display!=='none'}catch(_){return false}}
 function ronaOpsV10Ready(s=ronaOpsV10Snapshot){return !!s&&s.version==='OPERATIONS_CURRENT_V2'&&String(s?.readiness?.state||'').toUpperCase()==='READY'}
 function ronaOpsV10Num(v){const n=Number(v);return Number.isFinite(n)?n:null}
@@ -157,7 +158,7 @@ async function ronaOpsV10Refresh(reason='SYNC'){
   ronaOpsV10Promise=(async()=>{
     try{
       const seenPromise=ronaOpsV10LoadSeen(controller.signal);
-      const next=await call('/admin/operations-current-v2',{signal:controller.signal});
+      const next=await call('/admin/operations-current-v2',{signal:controller.signal,headers:{'x-rona-client-source':'ADMIN_OPERATIONS_SYNC','x-rona-client-refresh-reason':String(reason||'SYNC')}});
       if(!ronaOpsV10Ready(next))throw new Error('OPERATIONS_CURRENT_V2_CONTRACT_MISMATCH');
       await seenPromise;
       ronaOpsV10Snapshot=next;
@@ -189,10 +190,10 @@ function ronaOpsV10Start(){
   if(ronaOpsV10Started)return;
   ronaOpsV10Started=true;
   queueMicrotask(()=>ronaOpsV10Refresh('INITIAL'));
-  ronaOpsV10Timer=setInterval(()=>{if(document.visibilityState==='visible')ronaOpsV10Refresh('SYNC')},15000);
-  window.addEventListener('pageshow',()=>ronaOpsV10Refresh('PAGE_SHOW'));
-  window.addEventListener('focus',()=>ronaOpsV10Refresh('FOCUS'));
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)ronaOpsV10Refresh('VISIBLE')},{passive:true});
+  ronaOpsV10Timer=setInterval(()=>{if(document.visibilityState==='visible'&&ronaOpsV10HomeVisible())ronaOpsV10Refresh('SYNC')},RONA_OPS_AUTO_REFRESH_MS);
+  window.addEventListener('pageshow',()=>{if(ronaOpsV10HomeVisible())ronaOpsV10Refresh('PAGE_SHOW')});
+  window.addEventListener('focus',()=>{if(ronaOpsV10HomeVisible())ronaOpsV10Refresh('FOCUS')});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&ronaOpsV10HomeVisible())ronaOpsV10Refresh('VISIBLE')},{passive:true});
   window.addEventListener('rona:admin-pagechange',ev=>{if(String(ev?.detail?.page||'')==='home')ronaOpsV10Refresh('HOME_ACTIVE')});
 }
 `;

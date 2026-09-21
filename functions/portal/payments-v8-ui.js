@@ -15,7 +15,8 @@ let loading=null;
 let publishing=false;
 let retryTimer=null;
 let refreshTimer=null;
-const REFRESH_MS=30000;
+const REFRESH_MS=90000;
+const RETRY_MS=15000;
 
 function asArray(v){return Array.isArray(v)?v:[]}
 function text(v){return String(v==null?'':v).trim()}
@@ -102,7 +103,7 @@ function extract(payload){const direct=payload?.data?.paymentsV7Projection||payl
 async function load(reason='manual'){
   if(loading)return loading;
   loading=(async()=>{try{
-    const r=await fetch(ENDPOINT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','cache-control':'no-store'}});
+    const r=await fetch(ENDPOINT,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','cache-control':'no-store','x-rona-client-source':'ADMIN_PAYMENTS_POLL','x-rona-client-refresh-reason':String(reason||'manual')}});
     const j=await r.json().catch(()=>null);
     if(!r.ok)throw new Error('PAYMENTS_V8_BOOTSTRAP_HTTP_'+r.status);
     const next=extract(j);
@@ -124,9 +125,10 @@ async function load(reason='manual'){
   return loading;
 }
 function paymentsOpen(){const page=document.getElementById('page-payments');if(!page)return false;if(page.hidden||page.getAttribute('aria-hidden')==='true')return false;try{return getComputedStyle(page).display!=='none'&&getComputedStyle(page).visibility!=='hidden'}catch{return true}}
-function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTimer=null;if(!projection||paymentsOpen())load('retry')},3000)}
+function scheduleRetry(){if(retryTimer)return;retryTimer=setTimeout(()=>{retryTimer=null;if(paymentsOpen()||(!projection&&document.visibilityState==='visible'))load('retry')},RETRY_MS)}
 function refreshIfOpen(reason){if(paymentsOpen())return load(reason);return Promise.resolve(projection)}
 function scheduleRefresh(reason){setTimeout(()=>load(reason),0)}
+window.__RONA_PAYMENTS_V8_REFRESH_POLICY__={version:'ADMIN_TRAFFIC_STABILIZATION_V1',pollMs:REFRESH_MS,retryMs:RETRY_MS,scope:'PAYMENTS_OPEN_ONLY'};
 window.__RONA_PAYMENTS_V8_OPEN_PASSPORT__=openCanonicalPassport;
 disableLegacyPassportRuntime();
 const paymentsV8PassportClickHandler=event=>{const legacy=event.target?.closest?.('.rona-payments-v7-passport-trigger,.rona-payments-v7-passport > summary');if(legacy){event.preventDefault();event.stopImmediatePropagation();event.stopPropagation();openCanonicalPassportForLegacyTrigger(legacy);return}const passport=event.target?.closest?.('[data-payments-v8-passport-deal]');if(passport){event.preventDefault();event.stopImmediatePropagation();openCanonicalPassport(passport.dataset.paymentsV8PassportDeal);return}if(event.target?.closest?.('[data-payments-v8-passport-close]')||event.target?.id===PASSPORT_MODAL_ID){event.preventDefault();closePassport();return}const b=event.target?.closest?.('#nav button[data-page="payments"],[data-page="payments"]');if(b)scheduleRefresh('navigation')};

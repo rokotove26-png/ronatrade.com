@@ -76,7 +76,7 @@ export async function onRequest(context){
     }
     return r1Response(response,setCookies)
   }
-  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id']){const v=request.headers.get(name);if(v)h.set(name,v)}if(impersonationToken){h.set('x-rona-admin-impersonation-token',impersonationToken);h.set('x-rona-impersonation-tab',impersonationTab);if(!h.has('x-request-id'))h.set('x-request-id',crypto.randomUUID());if(!h.has('x-correlation-id'))h.set('x-correlation-id',crypto.randomUUID())}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
+  const forward=async token=>{const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});for(const name of['content-type','x-request-id','x-correlation-id','x-rona-client-source','x-rona-client-refresh-reason']){const v=request.headers.get(name);if(v)h.set(name,v)}if(impersonationToken){h.set('x-rona-admin-impersonation-token',impersonationToken);h.set('x-rona-impersonation-tab',impersonationTab);if(!h.has('x-request-id'))h.set('x-request-id',crypto.randomUUID());if(!h.has('x-correlation-id'))h.set('x-correlation-id',crypto.randomUUID())}const init={method:request.method,headers:h};if(body!==null)init.body=body;return fetch(upstreamFor(path),init)};
   const forwardReadResilient=async token=>{let r=await forward(token);if(request.method==='GET'&&[502,503,504].includes(r.status)){await r.arrayBuffer().catch(()=>{});await sleep(500);r=await forward(token)}return r};
   let response=await forwardReadResilient(access);
   if(response.status===401&&refresh){
