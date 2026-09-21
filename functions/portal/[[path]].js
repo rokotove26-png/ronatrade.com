@@ -580,25 +580,49 @@ export async function onRequest(context) {
   if (path === '/portal/auth/login' && request.method === 'POST') {
     if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403);
     const ct = request.headers.get('content-type') || '';
+    const jsonMode = ct.includes('application/json');
     let email = '', password = '', next = '';
-    if (ct.includes('application/json')) {
-      const body = await request.json().catch(() => ({})); email = String(body.email || '').trim(); password = String(body.password || ''); next = String(body.next || '');
+    if (jsonMode) {
+      const body = await request.json().catch(() => ({}));
+      email = String(body.email || body.identifier || '').trim();
+      password = String(body.password || '');
+      next = String(body.next || '');
     } else {
-      const form = await request.formData(); email = String(form.get('email') || '').trim(); password = String(form.get('password') || ''); next = String(form.get('next') || '');
+      const form = await request.formData();
+      email = String(form.get('email') || form.get('identifier') || '').trim();
+      password = String(form.get('password') || '');
+      next = String(form.get('next') || '');
     }
-    if (!email || !password || email.length > 320 || password.length > 1024) return html(loginPage('Не удалось выполнить вход.'), 400);
+    if (!email || !password || email.length > 320 || password.length > 1024) {
+      return jsonMode ? json({ok:false,code:'LOGIN_INVALID'},400) : html(loginPage('Не удалось выполнить вход.'), 400);
+    }
     const login = await authPassword(email, password);
-    if (!login.ok || !login.data?.access_token || !login.data?.refresh_token) return html(loginPage('Неверные данные входа или доступ неактивен.'), 401, clearCookies());
+    if (!login.ok || !login.data?.access_token || !login.data?.refresh_token) {
+      return jsonMode ? json({ok:false,code:'LOGIN_DENIED'},401,clearCookies()) : html(loginPage('Неверные данные входа или доступ неактивен.'), 401, clearCookies());
+    }
     const loginProbe=await sessionProbe(login.data.access_token);
-    if(loginProbe.state==='UNAVAILABLE')return html(unavailablePage(parseLocalNext(next)||'/portal/'),503,tokenCookies(login.data));
-    if(loginProbe.state!=='VALID'){await authLogout(login.data.access_token);return html(loginPage('Доступ к порталу не активирован.'),403,clearCookies());}
+    const recoveryTarget=parseLocalNext(next)||'/portal/';
+    if(loginProbe.state==='UNAVAILABLE'){
+      return jsonMode
+        ? json({ok:false,code:'PORTAL_AUTH_BACKEND_UNAVAILABLE',sessionIssued:true,redirect:recoveryTarget},503,tokenCookies(login.data))
+        : html(unavailablePage(recoveryTarget),503,tokenCookies(login.data));
+    }
+    if(loginProbe.state!=='VALID'){
+      await authLogout(login.data.access_token);
+      return jsonMode ? json({ok:false,code:'PORTAL_ACCESS_DENIED'},403,clearCookies()) : html(loginPage('Доступ к порталу не активирован.'),403,clearCookies());
+    }
     const me=loginProbe.me;
     const roles=rolesOf(me);
     const requested = parseLocalNext(next);
-    if (requested && !roleAllows(requested, roles)) return html(deniedPage('ROLE_MISMATCH'), 403, tokenCookies(login.data));
+    if (requested && !roleAllows(requested, roles)) {
+      return jsonMode ? json({ok:false,code:'ROLE_MISMATCH'},403,tokenCookies(login.data)) : html(deniedPage('ROLE_MISMATCH'), 403, tokenCookies(login.data));
+    }
     const target = requested || defaultTarget(roles);
-    if (!target) { await authLogout(login.data.access_token); return html(deniedPage('ROLE_NOT_PORTAL_ENABLED'), 403, clearCookies()); }
-    return redirect(target, 303, tokenCookies(login.data));
+    if (!target) {
+      await authLogout(login.data.access_token);
+      return jsonMode ? json({ok:false,code:'ROLE_NOT_PORTAL_ENABLED'},403,clearCookies()) : html(deniedPage('ROLE_NOT_PORTAL_ENABLED'), 403, clearCookies());
+    }
+    return jsonMode ? json({ok:true,redirect:target},200,tokenCookies(login.data)) : redirect(target, 303, tokenCookies(login.data));
   }
   if (path === '/portal/auth/logout' && request.method === 'POST') {
     if (!sameOriginPost(request)) return json({ ok:false, code:'ORIGIN_DENIED' }, 403, [...clearCookies(),clearImpersonationCookie()]);
