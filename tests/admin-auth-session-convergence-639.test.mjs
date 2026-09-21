@@ -405,13 +405,13 @@ test('Inline home login is bounded and can recover issued Admin session',()=>{
 });
 
 
-test('Exact login retries one transient Supabase Auth failure before denying availability',async()=>{
+test('Exact login survives two transient Supabase Auth failures within the bounded recovery window',async()=>{
   let passwordCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/auth/v1/token?grant_type=password')){
       passwordCalls++;
-      if(passwordCalls===1)return jsonResponse({message:'temporary unavailable'},503);
+      if(passwordCalls<=2)return jsonResponse({message:'temporary unavailable'},503);
       return jsonResponse({access_token:'access-retry-ok',refresh_token:'refresh-retry-ok',expires_in:3600},200);
     }
     if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN']}},200);
@@ -425,7 +425,7 @@ test('Exact login retries one transient Supabase Auth failure before denying ava
   const response=await portalLogin({request});
   assert.equal(response.status,200);
   assert.deepEqual(await response.json(),{ok:true,redirect:'/portal/admin'});
-  assert.equal(passwordCalls,2);
+  assert.equal(passwordCalls,3);
 });
 
 test('Owner login recovers an already-valid Admin access cookie before password grant',async()=>{

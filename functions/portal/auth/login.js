@@ -57,8 +57,8 @@ async function fetchWithTimeout(url,init={},timeoutMs=7000){
  try{return await fetch(url,{...init,signal:controller.signal})}
  finally{clearTimeout(timer)}
 }
-const AUTH_PASSWORD_TIMEOUTS_MS=Object.freeze([18000,9000]);
-const AUTH_REFRESH_TIMEOUTS_MS=Object.freeze([15000,8000]);
+const AUTH_PASSWORD_TIMEOUTS_MS=Object.freeze([18000,9000,12000]);
+const AUTH_REFRESH_TIMEOUTS_MS=Object.freeze([15000,8000,10000]);
 const AUTH_TRANSIENT_RETRY_DELAY_MS=450;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function authGrant(grantType,payload,timeouts,failureCode){
