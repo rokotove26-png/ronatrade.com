@@ -19,7 +19,7 @@
     "assets/portal-runtime/client-context-selection-authority-v1.js": {
       "visual_freeze_baseline_blob_sha": "c1fd9b665a3f9b59c4e7f3430076bd3a7eda75b3",
       "production_parent_blob_sha": "abe541dbd6162dd7cc03462e1b37ba23d6fb5b60",
-      "authorized_post_blob_sha": "57f8c96c6925f364ae3443311a12c18030ff089b",
+      "authorized_post_blob_sha": "a07791551fbd92c508ad0124b9e53cd205185210",
       "required_marker": "PROJECTION_TTL_MS=15000"
     },
     "assets/portal-runtime/client-deal-lifecycle-v1.js": {
@@ -84,6 +84,8 @@
     "system_admin_independent_qa_required": true,
     "authenticated_client_verification_required": true,
     "merge": "HOLD",
-    "deploy": "HOLD"
+    "deploy": "HOLD",
+    "pageshow_visibility_refresh_respects_fresh_ttl": true,
+    "periodic_timer_forces_network_refresh": true
   }
 }
