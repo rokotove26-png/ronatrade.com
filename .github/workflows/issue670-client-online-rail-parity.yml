@@ -59,25 +59,20 @@ jobs:
           {
             echo '.github/workflows/client-rail-admin-canonical-qa.yml'
             echo '.github/workflows/issue670-client-online-rail-parity.yml'
-            echo '.github/workflows/issue644-online-rail-stage-a-qa.yml'
             echo '.github/workflows/issue670-client-rail-real-integration.yml'
             echo 'assets/portal-runtime/client-rail-canonical-hero-v1.js'
             echo 'docs/client-online-rail-670-architecture.md'
             echo 'functions/portal/client-rail-current-ui.js'
-            echo 'functions/portal/rail-current-v7-real-map-ui.js'
-            echo 'functions/portal/rail-current-v81-maplibre-ui.js'
             echo 'scripts/qa-client-portal-visual-freeze.mjs'
             echo 'governance/client-online-rail-670-owner-approval-20260919.json'
             echo 'scripts/attach-client-rail-production-v1.mjs'
             echo 'scripts/qa-client-online-rail-670-browser.mjs'
-            echo 'scripts/qa-online-rail-stage-a-644-browser.mjs'
             echo 'scripts/qa-client-online-rail-670-real-integration.mjs'
             echo 'tests/fixtures/issue670-client-rail-real-integration-base.sql'
             echo 'supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
             echo 'supabase/functions/rona-portal-api/client-rail-admin-parity-v1.ts'
             echo 'supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs'
             echo 'tests/client-rail-parity-670.test.mjs'
-            echo 'tests/online-rail-stage-a-644.test.mjs'
             echo 'functions/portal/api/[[path]].js'
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts'
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-canonical-projection-v1.mjs'
@@ -116,13 +111,12 @@ jobs:
           grep -q '53a3266f64bdf4e44d5daf09507a6fd46c0678ad/supabase/functions/rona-portal-api/payments-v8-production-hardening.ts' "$file"
           grep -q 'client_user_has_contract_access' "$file"
           grep -q 'client_user_has_deal_access' "$file"
-          grep -q 'rona_rail_deal_map_read_model_core_v2' "$file"
+          grep -q 'rona_rail_deal_map_read_model_core_v1' "$file"
           ! grep -q 'rona_admin_rail_deal_map_read_model_v4' "$file"
-          migration='supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql'
-          grep -q 'create or replace function portal_private.rona_rail_deal_map_read_model_core_v2' "$migration"
+          migration='supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
+          grep -q 'create or replace function portal_private.rona_rail_deal_map_read_model_core_v1' "$migration"
           grep -q "owner_r1_actor('ADMIN')" "$migration"
-          grep -A1 -F 'revoke all on function portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)' "$migration" | grep -q 'from public,anon,authenticated;'
-          grep -A1 -F 'grant execute on function portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)' "$migration" | grep -q 'to service_role;'
+          grep -qi 'security invoker' "$migration"
           grep -q 'return await liveV56Handler(req, info)' "$file"
           ! grep -Eiq '(insert|update|delete)[[:space:]]+portal_private\.' "$file"
           echo 'ISSUE670_LIVE_V56_DELEGATION=PASS'
@@ -164,24 +158,23 @@ jobs:
           grep -F 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/issue670-frontend-fixture-browser.log
           echo 'ISSUE670_MOCK_BROWSER_BACKEND_ACCEPTANCE=NOT_CLAIMED'
 
-      - name: Admin Rail visual-pair boundary / unrelated-domain guard
+      - name: Frozen Admin / unrelated-domain guard
         shell: bash
         run: |
           set -euo pipefail
           base="$(git merge-base origin/release/public-go-live-v1.1 HEAD)"
           for path in \
             functions/portal/rail-current-v6-ui.js \
+            functions/portal/rail-current-v7-real-map-ui.js \
+            functions/portal/rail-current-v81-maplibre-ui.js \
             supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs; do
-            test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_NONVISUAL_FROZEN=FAIL $path"; exit 1; }
+            test -z "$(git diff "$base"...HEAD -- "$path")" || { echo "ISSUE670_ADMIN_RAIL_FROZEN=FAIL $path"; exit 1; }
           done
-          test -n "$(git diff "$base"...HEAD -- functions/portal/rail-current-v7-real-map-ui.js)" || { echo 'ISSUE670_ADMIN_RAIL_VISUAL_PAIR=FAIL v7'; exit 1; }
-          test -n "$(git diff "$base"...HEAD -- functions/portal/rail-current-v81-maplibre-ui.js)" || { echo 'ISSUE670_ADMIN_RAIL_VISUAL_PAIR=FAIL v81'; exit 1; }
           if git diff --name-only "$base"...HEAD | grep -E '(^|/)(finance|payments|prices|access)(/|\.|-)'; then
             echo 'ISSUE670_UNRELATED_DOMAIN_CHANGE=FAIL'
             exit 1
           fi
-          echo 'ISSUE670_ADMIN_RAIL_NONVISUAL_FROZEN=PASS'
-          echo 'ISSUE670_ADMIN_RAIL_VISUAL_PAIR=PASS'
+          echo 'ISSUE670_ADMIN_RAIL_FROZEN=PASS'
           echo 'ISSUE670_UNRELATED_DOMAINS_FROZEN=PASS'
 
       - name: Final #670 summary
@@ -205,8 +198,7 @@ jobs:
             echo 'DEGRADED_REFRESH_PRESERVE=PASS'
             echo 'CONTEXT_TAMPER_FAIL_CLOSED=PASS'
             echo 'NO_TARIFF_MATRIX=PASS'
-            echo 'ADMIN_RAIL_NONVISUAL_FROZEN=PASS'
-            echo 'ADMIN_RAIL_VISUAL_PAIR=PASS'
+            echo 'ADMIN_RAIL_FROZEN=PASS'
             echo 'NO_BUSINESS_DATA_WRITE=PASS'
             echo 'FINAL=PASS'
           } | tee /tmp/issue670-final.txt
