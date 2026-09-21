@@ -4,8 +4,8 @@ if(window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__===MARK)return;
 window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__=MARK;
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
-const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};
+const API='/portal/api';
+const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,reloadRequested:false,reloadForce:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0};
 const APP_ID_RE=/\bRONA-C\d{3}-IN-\d{4}-\d{3,}\b/g;
@@ -55,26 +55,26 @@ function applicationIsActive(app){
 }
 function clearAuthoritativeState(ctx=null){state.activeIds=new Set();state.dealStates=new Map();state.ready=false;state.lastLoad=0;state.contextKey=contextKey(ctx)}
 async function loadAuthoritativeState(force=false){
-  if(state.loading)return;
+  if(state.loading){state.reloadRequested=true;state.reloadForce=state.reloadForce||force;return;}
   let ctx=null;
   try{ctx=await currentContext()}catch(error){console.error('RONA client operations context authority',error);clearAuthoritativeState();apply();markAuthoritativeError();return}
   if(!ctx){clearAuthoritativeState();state.ready=true;apply();markAuthoritativeReady();return}
   const key=contextKey(ctx);
   if(state.contextKey&&state.contextKey!==key)clearAuthoritativeState(ctx);else state.contextKey=key;
-  if(!force&&state.ready&&Date.now()-state.lastLoad<REFRESH_MS){apply();markAuthoritativeReady();return}
   state.loading=true;
   try{
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+    const authority=contextAuthority();const detail=force&&authority?.refreshCurrentProjection?await authority.refreshCurrentProjection('application-lifecycle'):await authority?.whenCurrentProjection?.('application-lifecycle');
     if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
+    if(!detail)throw new Error('CLIENT_CURRENT_PROJECTION_UNAVAILABLE');
     const active=new Set(),deals=new Map();
-    for(const app of Array.isArray(detail?.data?.applications)?detail.data.applications:[]){const id=norm(app?.application_id||app?.applicationId||app?.id);if(id&&applicationIsActive(app))active.add(id)}
-    for(const raw of Array.isArray(detail?.data?.deals)?detail.data.deals:[]){const deal=dealFromServer(raw);deals.set(deal.dealId,deal)}
+    for(const app of Array.isArray(detail?.applications)?detail.applications:[]){const id=norm(app?.application_id||app?.applicationId||app?.id);if(id&&applicationIsActive(app))active.add(id)}
+    for(const raw of Array.isArray(detail?.deals)?detail.deals:[]){const deal=dealFromServer(raw);deals.set(deal.dealId,deal)}
     state.activeIds=active;state.dealStates=deals;state.ready=true;state.lastLoad=Date.now();state.contextKey=key;
     window.__RONA_CLIENT_APPLICATION_ACTIVE_STATE__={version:MARK,source:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_application_ids:[...active],loaded_at:new Date().toISOString()};
     window.__RONA_CLIENT_DEAL_OPERATIONS_STATE__={version:MARK,source:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_SERVER_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:[...deals.values()],loaded_at:new Date().toISOString()};
     apply();markAuthoritativeReady();
   }catch(error){console.error('RONA client authoritative projection',error);state.ready=false;apply();markAuthoritativeError()}
-  finally{state.loading=false}
+  finally{state.loading=false;if(state.reloadRequested){const queuedForce=state.reloadForce;state.reloadRequested=false;state.reloadForce=false;queueMicrotask(()=>loadAuthoritativeState(queuedForce))}}
 }
 function applicationsRoot(){
   for(const selector of ['#page-applications','#applicationsPage','[data-page-panel="applications"]','[data-page-id="applications"]']){const el=document.querySelector(selector);if(el)return el}
@@ -120,12 +120,13 @@ function scheduleAndLoad(delay=0,force=false){schedule(delay);setTimeout(()=>loa
 function start(){
   installStyle();apply();const authority=contextAuthority();if(!authority){markAuthoritativeError();return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==state.contextKey)clearAuthoritativeState(ctx);scheduleAndLoad(0,true)});
-  loadWhenNeeded(true);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true});setInterval(()=>loadWhenNeeded(false),REFRESH_MS)
+  loadWhenNeeded(false);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true})
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
-document.addEventListener('click',()=>scheduleAndLoad(40,false),true);
-document.addEventListener('change',()=>scheduleAndLoad(40,false),true);
+document.addEventListener('click',()=>schedule(40),true);
+document.addEventListener('change',()=>schedule(40),true);
 window.addEventListener('pageshow',()=>scheduleAndLoad(0,false),{passive:true});
 window.addEventListener('hashchange',()=>scheduleAndLoad(20,false),{passive:true});
+window.addEventListener('rona:client-current-projection',()=>{if(operationsPageVisible())loadAuthoritativeState(false)},{passive:true});
 window.addEventListener('rona:client-application-submitted',()=>setTimeout(()=>loadAuthoritativeState(true),150));
 })();
