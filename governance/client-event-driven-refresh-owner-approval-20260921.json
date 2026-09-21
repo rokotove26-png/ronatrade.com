@@ -1,0 +1,60 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1",
+  "owner_instruction": "Провести полный сквозной аудит клиентского кабинета; выявить ненужные циклы обновления и привести обновления к модели только при открытии или изменении данных. После актуализации current state — приступить.",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-price-conditions-v1.js",
+    "assets/portal-runtime/client-shell-guard-v3.js",
+    "assets/portal-runtime/client-logout-visual-v1.js",
+    "scripts/attach-client-logout-visual-v1.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-price-conditions-v1.js": {
+      "visual_freeze_baseline_blob_sha": "863c7046edae829f93c26426421af1275d45e2f6",
+      "authorized_post_blob_sha": "3a8fbd32ea3e7d40d3d813f01b34d70ec4acd6fa",
+      "required_marker": "isPriceInteraction"
+    },
+    "assets/portal-runtime/client-shell-guard-v3.js": {
+      "visual_freeze_baseline_blob_sha": "1309b4a644b8dc394106eef9ad440c59974c09da",
+      "authorized_post_blob_sha": "d8e1e918c2a6603cf50d49199338250e547e742a",
+      "required_marker": "20260921-client-single-logout-v4-event-driven"
+    },
+    "assets/portal-runtime/client-logout-visual-v1.js": {
+      "visual_freeze_baseline_blob_sha": "2dc6eceae13334ce9c3fc020afc06bd95a8decb4",
+      "authorized_post_blob_sha": "5eb780d2229a1f4c3b39530ca9e2560abaecdaac",
+      "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
+    },
+    "scripts/attach-client-logout-visual-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
+      "authorized_post_blob_sha": "e445b137da05823f791896a54019156b516cc1d7",
+      "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_redesign": false,
+    "css_theme_typography_layout_changed": false,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "finance_changed": false,
+    "rail_changed": false,
+    "images_added": false,
+    "unrelated_refactor": false,
+    "perpetual_timer_removed": true,
+    "event_driven_refresh_required": true,
+    "refresh_triggers": [
+      "INITIAL_MOUNT",
+      "USER_INTERACTION",
+      "CONTEXT_CHANGE",
+      "AUTHORITATIVE_DATA_CHANGE",
+      "PAGESHOW"
+    ],
+    "no_background_polling_when_idle": true
+  },
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1"
+}
