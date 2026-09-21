@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import assert from 'node:assert/strict';
 
 const read=p=>readFile(p,'utf8');
-const [context,deals,firstPaint,background,messages,prices,dealDocs,lifecycle,home,passport]=await Promise.all([
+const [context,deals,firstPaint,background,messages,prices,dealDocs,lifecycle,home,passport,applicationAttach]=await Promise.all([
   read('assets/portal-runtime/client-context-selection-authority-v1.js'),
   read('assets/portal-runtime/client-deals-authoritative-v1.js'),
   read('assets/portal-runtime/client-section-first-paint-v1.js'),
@@ -12,7 +12,8 @@ const [context,deals,firstPaint,background,messages,prices,dealDocs,lifecycle,ho
   read('assets/portal-runtime/client-deal-documents-v5.js'),
   read('assets/portal-runtime/client-deal-lifecycle-v1.js'),
   read('assets/portal-runtime/client-home-command-center-v2.js'),
-  read('assets/portal-runtime/client-deal-passport-v1.js')
+  read('assets/portal-runtime/client-deal-passport-v1.js'),
+  read('scripts/attach-client-application-lifecycle.mjs')
 ]);
 
 assert.match(context,/loadCurrentProjection/);
@@ -171,6 +172,11 @@ assert.doesNotMatch(home,/setInterval\([^\n]*schedule\(true\)/);
 assert.doesNotMatch(home,/addEventListener\('focus'/);
 assert.doesNotMatch(home,/visibilitychange/);
 assert.doesNotMatch(home,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
+assert.match(applicationAttach,/rona-client-home-command-center-preload-v1/);
+assert.match(applicationAttach,/rel="preload" as="script" href="\$\{homeSrc\}" fetchpriority="high"/);
+assert.match(applicationAttach,/<script id="\$\{homeId\}" src="\$\{homeSrc\}" defer fetchpriority="high"><\/script>/);
+assert.match(applicationAttach,/<script id="\$\{connectionId\}" src="\$\{connectionSrc\}" async><\/script>/);
+assert.ok(applicationAttach.indexOf('<script id="${homeId}"')<applicationAttach.indexOf('<script id="${connectionId}"'),'Client Home must be emitted before non-critical connection indicator');
 
 console.log('CLIENT_LOAD_FEEDBACK_LOOP_HOTFIX_V1=PASS');
 console.log('DEALS_CONTEXT_SOURCE=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION');
