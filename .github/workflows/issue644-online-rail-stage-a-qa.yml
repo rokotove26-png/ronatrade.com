@@ -143,7 +143,7 @@ jobs:
             "20260918-deal-owned-map-state-v1",
             "20260918-deal-map-persistence-v1",
             "RAIL_MAP_VIEWPORT_STATE_V1",
-            "RAIL_MAP_DATA_CONTRACT_V2",
+            "RAIL_MAP_DATA_CONTRACT_V3_COHORTS",
             "EXPEDITOR_XLSX_VIA_RAIL_AI",
             "selectionKey:'deal_key'",
             "sourcePolicy:'EXPEDITOR_XLSX_VIA_RAIL_AI'",
@@ -160,6 +160,8 @@ jobs:
           if(rail.includes("filters.append(filterBtn('Все ГУ-12'"))throw new Error('GU12_TOP_LEVEL_SELECTOR_PRESENT');
           if(!main.includes('monitoring:renderRailCurrentShell,'))throw new Error('CURRENT_RAIL_OWNER_MISSING');
           if(!main.includes("__RONA_RAIL_SINGLE_OWNER__='stage-a1-current-only-v1'"))throw new Error('RAIL_STAGE_A1_SINGLE_OWNER_MARKER_MISSING');
+          if(!main.includes("__RONA_RAIL_MAIN_UI_FALLBACK_SELF_HEAL__='20260921-dynamic-v1'"))throw new Error('RAIL_DYNAMIC_SELF_HEAL_MARKER_MISSING');
+          if(!main.includes('current-v81-main-ui-self-healed'))throw new Error('RAIL_DYNAMIC_SELF_HEAL_OWNER_MISSING');
           if(main.includes('function renderRail(){'))throw new Error('LEGACY_RAIL_FUNCTION_PRESENT');
           if(main.includes("replacePage('monitoring',"))throw new Error('LEGACY_RAIL_REPLACE_PRESENT');
           if(main.includes('renderRail();'))throw new Error('LEGACY_RAIL_DIRECT_CALL_PRESENT');
