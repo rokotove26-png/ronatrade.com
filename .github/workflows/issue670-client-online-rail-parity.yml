@@ -134,7 +134,7 @@ jobs:
           set -euo pipefail
           npm run build
           test -s dist/portal/client.html
-          grep -q '/portal/client-rail-current-ui?v=20260919-route-overlay-v3' dist/portal/client.html
+          grep -q '/portal/client-rail-current-ui?v=20260921-admin-canonical-route-inherit-v1' dist/portal/client.html
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
@@ -160,7 +160,7 @@ jobs:
           set -euo pipefail
           node scripts/qa-client-online-rail-670-browser.mjs 2>&1 | tee /tmp/issue670-frontend-fixture-browser.log
           grep -F 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/issue670-frontend-fixture-browser.log
-          grep -F 'ISSUE670_ROUTE_OVERLAY_V4_VISIBLE=PASS' /tmp/issue670-frontend-fixture-browser.log
+          grep -F 'ISSUE670_ADMIN_CANONICAL_ROUTE_INHERIT=PASS' /tmp/issue670-frontend-fixture-browser.log
           grep -F 'ISSUE670_PREMIUM_MAP_MARKERS=PASS' /tmp/issue670-frontend-fixture-browser.log
           grep -F 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/issue670-frontend-fixture-browser.log
           grep -F 'ISSUE670_IDLE_NO_POLLING=PASS' /tmp/issue670-frontend-fixture-browser.log
@@ -200,7 +200,7 @@ jobs:
             echo 'HARD_RELOAD_READY=PASS'
             echo 'DEAL_SWITCH_ISOLATION=PASS'
             echo 'ADMIN_ROUTE_GEOMETRY=PASS'
-            echo 'ROUTE_OVERLAY_V4_VISIBLE=PASS'
+            echo 'ADMIN_CANONICAL_ROUTE_INHERIT=PASS'
             echo 'PREMIUM_MAP_MARKERS=PASS'
             echo 'ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS'
             echo 'IDLE_NO_POLLING=PASS'
