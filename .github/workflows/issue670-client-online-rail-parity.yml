@@ -120,8 +120,8 @@ jobs:
           migration='supabase/migrations/20260921134600_rail_route_cohorts_read_model_v1.sql'
           grep -q 'create or replace function portal_private.rona_rail_deal_map_read_model_core_v2' "$migration"
           grep -q "owner_r1_actor('ADMIN')" "$migration"
-          grep -Eqi 'revoke all on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)[[:space:]]+from public,anon,authenticated' "$migration"
-          grep -Eqi 'grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)[[:space:]]+to service_role' "$migration"
+          grep -A1 -F 'revoke all on function portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)' "$migration" | grep -q 'from public,anon,authenticated;'
+          grep -A1 -F 'grant execute on function portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)' "$migration" | grep -q 'to service_role;'
           grep -q 'return await liveV56Handler(req, info)' "$file"
           ! grep -Eiq '(insert|update|delete)[[:space:]]+portal_private\.' "$file"
           echo 'ISSUE670_LIVE_V56_DELEGATION=PASS'
