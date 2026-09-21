@@ -12,7 +12,8 @@
     "assets/portal-runtime/client-market-intelligence-v1.js",
     "assets/portal-runtime/client-market-news-admin-parity-v1.js",
     "assets/portal-runtime/client-application-lifecycle-v1.js",
-    "assets/portal-runtime/client-contract-download-v3.js"
+    "assets/portal-runtime/client-contract-download-v3.js",
+    "scripts/attach-client-market-intelligence-v1.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -61,6 +62,11 @@
       "authorized_parent_blob_sha": "7668e879bff5dfcb5dac71222ed09fe94eb35b51",
       "authorized_post_blob_sha": "5ed14d37c53eea4684d4128ed3e5c05161734dd0",
       "required_marker": "rona:client-company-directory-invalidated"
+    },
+    "scripts/attach-client-market-intelligence-v1.mjs": {
+      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
+      "authorized_post_blob_sha": "713116fa0e63a58c48850c20ea3afdea42f5a77b",
+      "required_marker": "OPEN_SECTION_CONTEXT_INVALIDATION"
     }
   },
   "requirements": {
