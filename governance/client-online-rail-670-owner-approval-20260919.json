@@ -13,7 +13,7 @@
   "exact_post_blobs": {
     "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
       "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
-      "authorized_post_blob_sha": "ad332df20c5893148376a55db12a8f055c385ec2",
+      "authorized_post_blob_sha": "227c2d5071be8b59b24832d3a626bf17068576f3",
       "required_marker": "CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1"
     },
     "scripts/attach-client-rail-production-v1.mjs": {
