@@ -1,0 +1,12 @@
+{
+  "slug": "rona-owner-acceptance",
+  "name": "rona-owner-acceptance",
+  "status": "ACTIVE",
+  "version": 29,
+  "verify_jwt": true,
+  "ezbr_sha256": "c368fedec02bb362e950fb8dbb2ab98285264e02d10d679a0ce161d819e7f9ff",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_48a544f8-d5db-480d-87d0-f54ce7fe0829_29/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_48a544f8-d5db-480d-87d0-f54ce7fe0829_29/source/deno.json",
+  "created_at": 1787352091097,
+  "updated_at": 1789987099598
+}
