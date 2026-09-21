@@ -9,6 +9,12 @@ const targets=[
 const id='rona-portal-canonical-button-hover-v1';
 const src='/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1';
 const marker='20260830-portal-canonical-button-hover-v1';
+const clientSidebar={
+  path:'dist/assets/portal-runtime/client-sidebar-command-nav-v1.js',
+  id:'rona-client-sidebar-command-nav-v1',
+  src:'/assets/portal-runtime/client-sidebar-command-nav-v1.js?v=20260921-command-nav-v1',
+  marker:'20260921-client-sidebar-command-nav-v1',
+};
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -17,6 +23,12 @@ for(const token of [marker,':hover','brightness(1.11)','drop-shadow','prefers-re
 }
 if(/fetch\s*\(|XMLHttpRequest|location\.|history\.|localStorage|sessionStorage/.test(runtime))throw new Error('CANONICAL_BUTTON_HOVER_MUST_BE_PRESENTATION_ONLY');
 
+const clientSidebarRuntime=await readFile(clientSidebar.path,'utf8');
+for(const token of [clientSidebar.marker,"const OWNER='command-nav-v1'","ronaClientSidebarCommandNavV1Style",'data-rona-client-nav-svg','RONA_CLIENT_NAV_ATTENTION']){
+  if(!clientSidebarRuntime.includes(token))throw new Error(`CLIENT_SIDEBAR_COMMAND_NAV_CONTRACT_MISSING: ${token}`);
+}
+if(/fetch\s*\(|XMLHttpRequest|localStorage|sessionStorage|history\.|location\.(?:assign|replace|href)/.test(clientSidebarRuntime))throw new Error('CLIENT_SIDEBAR_COMMAND_NAV_MUST_BE_PRESENTATION_ONLY');
+
 const emitted={};
 for(const target of targets){
   let html=await readFile(target.path,'utf8');
@@ -24,7 +36,9 @@ for(const target of targets){
   const close=html.toLowerCase().lastIndexOf('</body>');
   if(close<0)throw new Error(`CANONICAL_BUTTON_HOVER_BODY_CLOSE_MISSING: ${target.kind}`);
   const bridge=`<script id="${id}" src="${src}" defer></script>`;
-  html=html.slice(0,close)+bridge+html.slice(close);
+  const clientSidebarBridge=target.kind==='client'?`<script id="${clientSidebar.id}" src="${clientSidebar.src}" defer></script>`:'';
+  if(target.kind==='client'&&(html.includes(clientSidebar.id)||html.includes('client-sidebar-command-nav-v1.js')))throw new Error('CLIENT_SIDEBAR_COMMAND_NAV_ALREADY_PRESENT');
+  html=html.slice(0,close)+bridge+clientSidebarBridge+html.slice(close);
   await writeFile(target.path,html,'utf8');
   const bytes=Buffer.from(html,'utf8');
   emitted[target.kind]={sha256:sha256(bytes),bytes:bytes.length};
@@ -38,6 +52,17 @@ integrity.admin_runtime.canonical_button_hover={id,src,marker,scope:'ALL_ADMIN_B
 integrity.client_runtime.emitted_sha256=emitted.client.sha256;
 integrity.client_runtime.emitted_bytes=emitted.client.bytes;
 integrity.client_runtime.canonical_button_hover={id,src,marker,scope:'ALL_CLIENT_BUTTON_CONTROLS',presentation_only:true};
+integrity.client_runtime.sidebar_command_navigation={
+  id:clientSidebar.id,
+  src:clientSidebar.src,
+  marker:clientSidebar.marker,
+  scope:'CLIENT_SIDEBAR_ONLY',
+  presentation_only:true,
+  navigation_behavior_changed:false,
+  business_logic_changed:false,
+  real_inline_svg_icons:true,
+  self_healing_late_runtime_guard:true,
+};
 integrity.canonical_button_hover={
   rule:'ON_HOVER_SLIGHTLY_INCREASE_BRIGHTNESS_AND_GLOW',
   portals:['admin','client'],
@@ -50,5 +75,9 @@ await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 for(const target of targets){
   const html=await readFile(target.path,'utf8');
   if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error(`CANONICAL_BUTTON_HOVER_BRIDGE_MISSING: ${target.kind}`);
+  if(target.kind==='client'){
+    if(!html.includes(`id="${clientSidebar.id}"`)||!html.includes(clientSidebar.src))throw new Error('CLIENT_SIDEBAR_COMMAND_NAV_BRIDGE_MISSING');
+    if((html.match(/client-sidebar-command-nav-v1\.js/g)||[]).length!==1)throw new Error('CLIENT_SIDEBAR_COMMAND_NAV_BRIDGE_NOT_SINGLE_OWNER');
+  }
 }
 console.log(`PORTAL_CANONICAL_BUTTON_HOVER=PASS admin=${emitted.admin.sha256}/${emitted.admin.bytes} client=${emitted.client.sha256}/${emitted.client.bytes}`);
