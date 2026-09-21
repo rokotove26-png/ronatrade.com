@@ -326,3 +326,21 @@ Current-state recheck after CI/gate reconciliation:
 - Client request telemetry and the final five-minute idle-network production acceptance remain pending.
 
 No Draft Client remediation PR listed above has been merged as part of this audit cycle.
+
+
+## 12. Production baseline delta during audit
+
+At 2026-09-21T10:56Z, while the Client audit was still in progress, Rail PR #816 was merged independently into `release/public-go-live-v1.1`.
+
+New production HEAD:
+
+`bbd6c489c53fa0b8378c2764d982b2fc0e3c0124`
+
+The previous Client audit baseline `8ac74e36bd78ba7ae4e470a945c9c536bb2149bf` is therefore superseded as the current production reference. The intervening production delta is Rail-specific (Rail source-stream / topology / read-model and related QA files); it does not itself close or supersede the open Client refresh/impersonation work.
+
+Consequences for the Client workstream:
+
+- all open Client PRs created from the previous release baseline remain Draft until reconciled/rebased against the new production HEAD;
+- #817 Client Contract refresh validation was completed against the prior release CI matrix before this Rail merge, but its files do not overlap the Rail production delta; it remains stacked on #813 and is not merge-ready;
+- #818 Applications projection impersonation work is being validated against the new release HEAD before it is returned to its stacked parent #815;
+- the final five-minute Client idle-network acceptance must use the then-current production HEAD, not the historical `8ac74e36...` baseline.
