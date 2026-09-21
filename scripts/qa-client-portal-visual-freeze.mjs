@@ -630,7 +630,8 @@ const CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES=[
   'assets/portal-runtime/client-application-lifecycle-v1.js',
   'assets/portal-runtime/client-payments-authoritative-v1.js',
   'assets/portal-runtime/client-payments-canonical-layout-v1.js',
-  'scripts/attach-client-application-lifecycle.mjs'
+  'scripts/attach-client-application-lifecycle.mjs',
+  'scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs'
 ];
 const clientCurrentStateReconciliationV75ExceptionAuthorized=
   clientCurrentStateReconciliationV75Approval?.approval==='OWNER_IN_CHAT_HANDOFF_V74'&&
@@ -656,6 +657,7 @@ const clientCurrentStateReconciliationV75ExceptionAuthorized=
   clientCurrentStateReconciliationV75Approval?.requirements?.recurring_client_network_owners_target===0&&
   clientCurrentStateReconciliationV75Approval?.requirements?.payments_one_second_dom_loop_removed===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.applications_projection_to_dom_required===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.owner_retest_fixture_current_application_business_v2===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.full_green_ci_required_before_merge===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.authenticated_client_verification_required===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.final_idle_acceptance_required===true&&
@@ -791,7 +793,7 @@ if(!pr431DirectFixGovernanceAuthorized){
       );
       const currentStateReconciliationEntry=clientCurrentStateReconciliationV75ExceptionAuthorized?clientCurrentStateReconciliationV75Approval?.exact_post_blobs?.[path]:null;
       const currentStateReconciliationExact=Boolean(
-        path==='assets/portal-runtime/client-context-selection-authority-v1.js'&&
+        CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES.includes(path)&&
         currentStateReconciliationEntry&&
         currentStateReconciliationEntry.visual_freeze_baseline_blob_sha===entry?.authorized_post_blob_sha&&
         currentStateReconciliationEntry.authorized_post_blob_sha===actual&&
