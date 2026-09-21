@@ -1,0 +1,42 @@
+name: Client sidebar Command Navigation v1
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  push:
+    branches: [release/public-go-live-v1.1]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-sidebar-visual-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Build current portal with visual freeze active
+        run: npm run build
+      - name: Verify sidebar runtime and attachment syntax
+        run: |
+          node --check assets/portal-runtime/client-sidebar-command-nav-v1.js
+          node --check scripts/attach-portal-canonical-button-hover-v1.mjs
+          node --check scripts/qa-client-sidebar-command-nav-v1.mjs
+          node scripts/qa-client-portal-visual-freeze.mjs
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove rendered sidebar, click preservation, attention and late self-heal
+        run: node scripts/qa-client-sidebar-command-nav-v1.mjs
+      - name: Upload rendered proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-sidebar-command-nav-v1
+          path: artifacts/client-sidebar-command-nav-v1.png
+          if-no-files-found: ignore
