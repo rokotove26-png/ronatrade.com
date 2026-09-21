@@ -5,7 +5,7 @@
   "issue_url": "https://github.com/rokotove26-png/ronatrade.com/issues/670",
   "owner_login": "rokotove26-png",
   "scope": "CLIENT_ONLINE_RAIL_PRODUCTION_PARITY_WITH_ADMIN",
-  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation. Corrective owner instruction after live production comparison: remove Client-only Rail layout divergence and restore the same route rendering/geometry visible in Admin Online Rail. Owner production screenshot series 6 confirms that the route polyline is still not visible in Client Online Rail although wagon positions render; apply a Client-only route-overlay correction without changing Admin Rail or business data.",
+  "owner_instruction": "Develop and production-launch Client Portal -> Online Rail so it is visually and functionally equivalent to current Admin Online Rail, while preserving authenticated client/company/contract isolation. Corrective owner instruction after live production comparison: remove Client-only Rail layout divergence and restore the same route rendering/geometry visible in Admin Online Rail. Owner production screenshot series 6 confirms that the route polyline is still not visible in Client Online Rail although wagon positions render; apply a Client-only route-overlay correction without changing Admin Rail or business data. Corrective owner instruction on 2026-09-21: «Исправить визуал карты в клиентском кабинете RONA Trade: заменить уродливые кружки на аккуратные фирменные маркеры и привести отображение маршрута к премиальному стилю интерфейса.» Scope is Client Online Rail map markers/route styling only; Admin Rail and business data remain unchanged.",
   "approved_protected_files": [
     "assets/portal-runtime/client-rail-canonical-hero-v1.js",
     "scripts/attach-client-rail-production-v1.mjs"
@@ -13,13 +13,13 @@
   "exact_post_blobs": {
     "assets/portal-runtime/client-rail-canonical-hero-v1.js": {
       "visual_freeze_baseline_blob_sha": "4ee7c5eb23d2be47048b53728b7b8a8a5e388fd4",
-      "authorized_post_blob_sha": "1e591b0432c897881e3bc765335979f287d12cbe",
-      "required_marker": "CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"
+      "authorized_post_blob_sha": "ad332df20c5893148376a55db12a8f055c385ec2",
+      "required_marker": "CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1"
     },
     "scripts/attach-client-rail-production-v1.mjs": {
       "visual_freeze_baseline_blob_sha": "6e2cfbd44bb9136025279a031894a7290a29d775",
-      "authorized_post_blob_sha": "c44a8578217541e66c3771f098332a64dcd3dc1e",
-      "required_marker": "20260919-route-overlay-v3"
+      "authorized_post_blob_sha": "c14daa94c2b21169c487ea9fd33365360b3408fc",
+      "required_marker": "20260921-premium-map-markers-v4"
     }
   },
   "requirements": {
@@ -64,6 +64,21 @@
     "admin_backend_must_remain_unchanged": true,
     "admin_rail_source_files_must_remain_unchanged": true,
     "business_data_mutation_forbidden": true,
+    "paid_resources_forbidden": true
+  },
+  "corrective_owner_context_v4": {
+    "authorized_in_chat": true,
+    "authorized_at": "2026-09-21",
+    "evidence": "OWNER_SCREENSHOT_CLIENT_ONLINE_RAIL_MAP_CIRCULAR_MARKERS_VISUALLY_REJECTED",
+    "production_baseline": "e9c3adce7d5afc8109b2633a902bcc45e2be06ca",
+    "scope": "CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1",
+    "client_only": true,
+    "replace_circular_route_nodes": true,
+    "premium_marker_visual_required": true,
+    "premium_route_visual_required": true,
+    "admin_rail_source_files_must_remain_unchanged": true,
+    "business_data_mutation_forbidden": true,
+    "route_geometry_must_remain_authoritative": true,
     "paid_resources_forbidden": true
   }
 }
