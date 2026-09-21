@@ -25,7 +25,7 @@ must(count(html,/client-deal-lifecycle-v1\.js/giu)===1,'DEAL_LIFECYCLE_NOT_SINGL
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
 must(html.includes('20260902-current-context-v9'),'SIGNED_ADDENDUM_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
 must(html.includes('20260831-status-center-v2'),'DEAL_PASSPORT_CACHE_BUSTER_MISSING');
-must(html.includes('20260905-strict-context-v6'),'DEAL_LIFECYCLE_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
+must(html.includes('20260921-current-state-refresh'),'DEAL_LIFECYCLE_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
 for(const marker of ['__RONA_CLIENT_DEAL_DOCUMENTS_V1__','__RONA_CLIENT_DEAL_DOCUMENTS_V2__','__RONA_CLIENT_DEAL_DOCUMENTS_V3__','__RONA_CLIENT_DEAL_DOCUMENTS_V4__'])
   must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
 
@@ -49,7 +49,7 @@ for(const forbidden of ['Схема реализации сделки','Конт
 for(const forbidden of ['position:fixed!important','transform:translate(-50%,-50%)','width:min(1180px','height:min(800px'])
   must(!passport.includes(forbidden),`DEAL_PASSPORT_NATIVE_RIGHT_DRAWER_GEOMETRY_OVERRIDDEN:${forbidden}`);
 
-for(const marker of ['20260905-client-deal-realization-status-v6-strict-authoritative-context','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','SERVER_AUTHORITATIVE_REALIZATION_V1',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v6-strict-context'",'data-rona-authoritative-deal-id','data-rona-authoritative-context','Статус реализации'])
+for(const marker of ['20260921-client-deal-realization-status-v7-current-state-refresh','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','SERVER_AUTHORITATIVE_REALIZATION_V1',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v6-strict-context'",'data-rona-authoritative-deal-id','data-rona-authoritative-context','Статус реализации'])
   must(lifecycle.includes(marker),`DEAL_LIFECYCLE_MARKER_MISSING:${marker}`);
 must(!lifecycle.includes('/v1/client/bootstrap'),'DEAL_LIFECYCLE_PARALLEL_BOOTSTRAP_FORBIDDEN');
 for(const forbidden of ['Статусы формируются из текущей карточки сделки','function stageData(','function renderFlow(','REFRESH_MS=7000','setInterval(()=>refresh','[data-rona-command-heading]'])
