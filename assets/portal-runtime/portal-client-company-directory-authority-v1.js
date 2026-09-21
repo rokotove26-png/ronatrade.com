@@ -4,7 +4,7 @@ const MATERIALIZATION_MARK='PR431_SERVER_DRIVEN_CARD_MATERIALIZATION_V1';
 const LEGACY_CONTRACT_MARK='20260906-client-contract-v11-authoritative-company-metrics';
 const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
 const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
-const REFRESH_MS=30000;
+const DIRECTORY_STALE_MS=30000;
 if(window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__===MARK)return;
 window.__RONA_PORTAL_CLIENT_COMPANY_DIRECTORY_RUNTIME__=MARK;
 const state={base:null,directory:[],validated:false,active:false,loading:null,lastLoad:0,rendering:false,observer:null,timer:0,generation:0,renderedGeneration:0,template:null,templateIdentity:null};
@@ -81,7 +81,7 @@ function validateCompleteDirectory(body){
 }
 async function loadDirectory(force=false){
   if(state.loading)return state.loading;
-  if(!force&&state.validated&&Date.now()-state.lastLoad<REFRESH_MS)return state.directory;
+  if(!force&&state.validated&&Date.now()-state.lastLoad<DIRECTORY_STALE_MS)return state.directory;
   state.loading=(async()=>{
     await state.base.whenReady();
     const body=force?await state.base.refreshCompanyDirectory('pr431-company-directory-runtime'):await state.base.whenCompanyDirectory();
@@ -402,8 +402,10 @@ async function start(){
   window.addEventListener('rona:client-authorized-directory',()=>loadDirectory(false).catch(()=>{}));
   window.addEventListener('pageshow',()=>loadDirectory(true).catch(()=>{}));
   window.addEventListener('rona:client-context-changed',()=>state.active?syncCurrentMarkers():scheduleRender(0));
+  window.addEventListener('rona:client-company-directory-invalidated',()=>loadDirectory(true).catch(()=>{}),{passive:true});
+  window.addEventListener('rona:client-application-submitted',()=>loadDirectory(true).catch(()=>{}),{passive:true});
+  window.addEventListener('rona:client-current-projection',()=>state.active?syncCurrentMarkers():scheduleRender(0),{passive:true});
   await loadDirectory(false).catch(()=>{});
-  setInterval(()=>{if(document.visibilityState==='visible')loadDirectory(false).catch(()=>{})},REFRESH_MS);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
