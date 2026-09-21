@@ -4,7 +4,6 @@ on:
   pull_request:
     branches:
       - release/public-go-live-v1.1
-      - fix/client-market-intelligence-impersonation-v1-20260921
     paths:
       - 'functions/portal/api/v1/client/applications-projection.js'
       - 'supabase/functions/rona-portal-api/index.ts'
