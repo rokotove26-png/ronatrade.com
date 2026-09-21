@@ -1,10 +1,11 @@
 (()=>{'use strict';
-const MARK='20260921-client-applications-live-render-v2-event-driven';
+const MARK='20260904-client-applications-live-render-v1';
 if(window.__RONA_CLIENT_APPLICATIONS_LIVE_RENDER__===MARK)return;
 window.__RONA_CLIENT_APPLICATIONS_LIVE_RENDER__=MARK;
 if(location.pathname!=='/portal/client')return;
 
 const API='/portal/api';
+const REFRESH_MS=30000;
 const TERMINAL=new Set(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED','CLOSED']);
 const STATUS_LABELS=Object.freeze({
   DRAFT:'Черновик',
@@ -16,7 +17,7 @@ const STATUS_LABELS=Object.freeze({
   CANCELLED:'Отменена',
   CLOSED:'Закрыта'
 });
-const state={apps:[],contextKey:'',loading:false,lastLoad:0,unsubscribe:null};
+const state={apps:[],contextKey:'',loading:false,lastLoad:0,timer:0,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
@@ -29,9 +30,7 @@ const isActive=a=>!TERMINAL.has(statusCode(a))&&!norm(a?.deal_id);
 const contextKey=ctx=>`${norm(ctx?.client_id)}|${norm(ctx?.contract_id)}`;
 function authority(){return window.RONA_CLIENT_CONTEXT||null}
 async function currentContext(){const a=authority();if(!a)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return a.getCurrentContext?.()||await a.whenReady?.()}
-function currentProjection(){return authority()?.getCurrentProjection?.()||null}
-function projectionMatches(detail,ctx){if(!detail||!ctx)return false;const clientId=norm(ctx.client_id),contractId=norm(ctx.contract_id),context=detail.context||{},client=detail.client||{},contract=detail.contract||{};const clientIds=[detail.client_id,context.client_id,client.client_id,contract.client_id].map(norm).filter(Boolean),contractIds=[detail.contract_id,context.contract_id,contract.contract_id].map(norm).filter(Boolean);return clientIds.length>0&&contractIds.length>0&&clientIds.every(v=>v===clientId)&&contractIds.every(v=>v===contractId)}
-async function request(path){const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','x-rona-client-source':'client-applications-live-render-v2'}});const j=await r.json().catch(()=>null);if(!r.ok||j?.ok===false)throw new Error(String(j?.code||j?.error?.code||('HTTP_'+r.status)));return j}
+async function request(path){const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});const j=await r.json().catch(()=>null);if(!r.ok||j?.ok===false)throw new Error(String(j?.code||j?.error?.code||('HTTP_'+r.status)));return j}
 
 function root(){
   return document.getElementById('page-applications')||
@@ -140,31 +139,26 @@ function render(){
   r.setAttribute('data-rona-applications-live-render','ready');
   return true;
 }
-async function load(force=false,reason='open'){
+async function load(force=false){
   if(state.loading)return;
-  const a=authority(),ctx=await currentContext().catch(()=>null);if(!ctx)return;
+  const ctx=await currentContext().catch(()=>null);if(!ctx)return;
   const key=contextKey(ctx);if(!key||key==='|')return;
+  if(!force&&state.contextKey===key&&Date.now()-state.lastLoad<REFRESH_MS){render();return}
   state.loading=true;
   try{
-    let detail=currentProjection();
-    if(force&&a?.refreshCurrentProjection)detail=await a.refreshCurrentProjection('client-applications-live-render-v2:'+reason);
-    else if(!detail&&a?.whenCurrentProjection)detail=await a.whenCurrentProjection('client-applications-live-render-v2:'+reason);
-    if(!detail){
-      const response=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
-      detail=response?.data||null;
-    }
-    if(contextKey(authority()?.getCurrentContext?.())!==key||!projectionMatches(detail,ctx))return;
-    state.apps=Array.isArray(detail?.applications)?detail.applications:[];
+    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+    if(contextKey(authority()?.getCurrentContext?.())!==key)return;
+    state.apps=Array.isArray(detail?.data?.applications)?detail.data.applications:[];
     state.contextKey=key;state.lastLoad=Date.now();
     render();
   }catch(error){console.error('RONA client live applications render',error);const r=root();if(r)r.setAttribute('data-rona-applications-live-render','error')}
   finally{state.loading=false}
 }
 function start(){
-  ensureStyle();load(false,'open');
+  ensureStyle();load(true);
   const a=authority();
-  if(a?.subscribe)state.unsubscribe=a.subscribe(()=>{state.apps=[];state.contextKey='';state.lastLoad=0;load(false,'context-change')});
-  window.addEventListener('rona:client-current-projection',()=>load(false,'projection-event'),{passive:true});
+  if(a?.subscribe)state.unsubscribe=a.subscribe(()=>{state.apps=[];state.contextKey='';state.lastLoad=0;load(true)});
+  state.timer=setInterval(()=>load(false),REFRESH_MS);
   document.addEventListener('input',e=>{const r=root();if(r&&r.contains(e.target)&&e.target===searchInput(r))render()},true);
   document.addEventListener('change',e=>{const r=root();if(r&&r.contains(e.target)&&(e.target===searchInput(r)||e.target===statusSelect(r)))render()},true);
   document.addEventListener('click',e=>{
@@ -172,8 +166,8 @@ function start(){
     const id=button.getAttribute('data-rona-open-application'),r=root(),detail=r?.querySelector(`[data-rona-application-details="${CSS.escape(id)}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;button.setAttribute('aria-expanded',String(open));button.textContent=open?'Скрыть':'Открыть';
   },true);
-  window.addEventListener('rona:client-application-submitted',()=>{setTimeout(()=>load(true,'application-submitted'),120)});
-  window.addEventListener('pageshow',()=>load(false,'pageshow'),{passive:true});
+  window.addEventListener('rona:client-application-submitted',()=>{setTimeout(()=>load(true),120);setTimeout(()=>load(true),900)});
+  window.addEventListener('pageshow',()=>load(true),{passive:true});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
