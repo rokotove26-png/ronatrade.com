@@ -1,0 +1,47 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1",
+  "owner_instruction": "Провести полный сквозной аудит клиентского кабинета; выявить ненужные циклы обновления и привести обновления к модели только при открытии или изменении данных. После актуализации current state — приступить.",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-price-conditions-v1.js",
+    "assets/portal-runtime/client-shell-guard-v3.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-price-conditions-v1.js": {
+      "visual_freeze_baseline_blob_sha": "863c7046edae829f93c26426421af1275d45e2f6",
+      "authorized_post_blob_sha": "52b58829ecc7f3eca21b4e9918bb9625d5f38446",
+      "required_marker": "20260921-premium-terms-v4-event-driven"
+    },
+    "assets/portal-runtime/client-shell-guard-v3.js": {
+      "visual_freeze_baseline_blob_sha": "1309b4a644b8dc394106eef9ad440c59974c09da",
+      "authorized_post_blob_sha": "d8e1e918c2a6603cf50d49199338250e547e742a",
+      "required_marker": "20260921-client-single-logout-v4-event-driven"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_redesign": false,
+    "css_theme_typography_layout_changed": false,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "finance_changed": false,
+    "rail_changed": false,
+    "images_added": false,
+    "unrelated_refactor": false,
+    "perpetual_timer_removed": true,
+    "event_driven_refresh_required": true,
+    "refresh_triggers": [
+      "INITIAL_MOUNT",
+      "USER_INTERACTION",
+      "CONTEXT_CHANGE",
+      "AUTHORITATIVE_DATA_CHANGE",
+      "PAGESHOW"
+    ],
+    "no_background_polling_when_idle": true
+  }
+}
