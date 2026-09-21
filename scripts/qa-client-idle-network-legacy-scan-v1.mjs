@@ -5,6 +5,7 @@ const HTML_PATH='dist/portal/client.html';
 const MARK='CLIENT_IDLE_NETWORK_SCAN_V1';
 const ARCHITECT_DEFERRED=new Set([
   'client-context-selection-authority-v1.js',
+  'client-application-lifecycle-v1.js',
   'client-deal-lifecycle-v1.js',
   'client-payments-authoritative-v1.js',
   'client-payments-canonical-layout-v1.js',
