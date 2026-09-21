@@ -106,7 +106,7 @@ test('Issue 639 Cash UI retries stale-session races through existing bounded tra
 test('Issue 663 top-level Admin shell preserves cookies during concurrent refresh-token rotation',async()=>{
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
       return jsonResponse({ok:false,code:'PORTAL_ACCESS_DENIED'},401);
     }
     if(u.includes('/auth/v1/token?grant_type=refresh_token')){
@@ -134,7 +134,7 @@ test('Admin shell falls back to isolated Admin control-plane when primary sessio
   let primaryCalls=0,fallbackCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
       primaryCalls++;
       return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
     }
@@ -155,7 +155,7 @@ test('Admin shell falls back to isolated Admin control-plane when primary sessio
   });
   assert.equal(response.status,200);
   assert.equal(await response.text(),'ADMIN_SHELL_OK');
-  assert.equal(primaryCalls,6);
+  assert.equal(primaryCalls,2);
   assert.equal(fallbackCalls,1);
 });
 
@@ -163,7 +163,7 @@ test('Admin owner shell uses Supabase JWT-gateway fallback after the first retry
   let primaryCalls=0,gatewayCalls=0,controlCalls=0,authCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){primaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){primaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
     if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:true,authority:'SUPABASE_EDGE_VERIFIED_OWNER',roles:['ADMIN'],auth_user_id:'c4a167ae-cd4f-4296-8f13-ef09ced41968'},200);}
     if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){controlCalls++;return jsonResponse({ok:false},503);}
     if(u.includes('/auth/v1/user')){authCalls++;return jsonResponse({message:'temporary unavailable'},503);}
@@ -183,7 +183,7 @@ test('JWT-gateway non-owner result cannot elevate a user to Admin',async()=>{
   let gatewayCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
+    if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
     if(u.includes('/functions/v1/rona-admin-control-plane/owner-auth-fallback')){gatewayCalls++;return jsonResponse({ok:false,code:'OWNER_IDENTITY_REQUIRED'},403);}
     if(u.includes('/functions/v1/rona-admin-control-plane/readiness'))return jsonResponse({ok:false},503);
     if(u.includes('/auth/v1/user'))return jsonResponse({id:'regular-user',app_metadata:{}},200);
@@ -200,7 +200,7 @@ test('Admin owner shell falls back to Supabase Auth owner identity when both Edg
   let primaryCalls=0,controlCalls=0,authCalls=0;
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
       primaryCalls++;
       return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);
     }
@@ -225,7 +225,7 @@ test('Admin owner shell falls back to Supabase Auth owner identity when both Edg
   });
   assert.equal(response.status,200);
   assert.equal(await response.text(),'ADMIN_SHELL_OK');
-  assert.equal(primaryCalls,6);
+  assert.equal(primaryCalls,2);
   assert.equal(controlCalls,1);
   assert.equal(authCalls,1);
 });
@@ -233,7 +233,7 @@ test('Admin owner shell falls back to Supabase Auth owner identity when both Edg
 test('Admin direct Auth fallback does not elevate a valid non-owner identity',async()=>{
   globalThis.fetch=async(url)=>{
     const u=String(url);
-    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:false},503);
+    if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:false},503);
     if(u.includes('/functions/v1/rona-admin-control-plane/readiness'))return jsonResponse({ok:false},503);
     if(u.includes('/auth/v1/user'))return jsonResponse({id:'regular-user',app_metadata:{}},200);
     throw new Error('UNEXPECTED_FETCH '+u);
@@ -253,10 +253,10 @@ test('Issue 663 exact login session probe uses publishable key and returns Admin
     if(u.includes('/auth/v1/token?grant_type=password')){
       return jsonResponse({access_token:'access-new',refresh_token:'refresh-new',expires_in:3600},200);
     }
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
       const h=new Headers(init.headers||{});
       sawApiKey=Boolean(h.get('apikey'));
-      return jsonResponse({ok:true,user:{roles:['ADMIN']}},200);
+      return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN']}},200);
     }
     throw new Error('UNEXPECTED_FETCH '+u);
   };
@@ -333,7 +333,7 @@ test('Exact browser login preserves issued session during transient Portal autho
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({access_token:'access-new',refresh_token:'refresh-new',expires_in:3600},200);
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){sessionCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){sessionCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
     if(u.includes('/auth/v1/logout')){logoutCalls++;return jsonResponse({},200);}
     throw new Error('UNEXPECTED_FETCH '+u);
   };
@@ -344,7 +344,7 @@ test('Exact browser login preserves issued session during transient Portal autho
   });
   const response=await portalLogin({request});
   assert.equal(response.status,503);
-  assert.equal(sessionCalls,3);
+  assert.equal(sessionCalls,2);
   assert.equal(logoutCalls,0);
   assert.match(await response.text(),/Восстанавливаю соединение/);
   const setCookie=response.headers.get('set-cookie')||'';
@@ -358,7 +358,7 @@ test('Owner login hands an issued session to the canonical protected Admin route
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({access_token:'access-owner-new',refresh_token:'refresh-owner-new',expires_in:3600},200);
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){sessionCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){sessionCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
     if(u.includes('/auth/v1/logout')){logoutCalls++;return jsonResponse({},200);}
     throw new Error('UNEXPECTED_FETCH '+u);
   };
@@ -370,7 +370,7 @@ test('Owner login hands an issued session to the canonical protected Admin route
   const response=await portalLogin({request});
   assert.equal(response.status,303);
   assert.equal(response.headers.get('location'),'/portal/admin');
-  assert.equal(sessionCalls,3);
+  assert.equal(sessionCalls,2);
   assert.equal(logoutCalls,0);
   const setCookie=response.headers.get('set-cookie')||'';
   assert.match(setCookie,/rona_portal_at=access-owner-new/);
@@ -383,7 +383,7 @@ test('Owner alias with ADMIN role bypasses generic multi-role selector and opens
   globalThis.fetch=async(url)=>{
     const u=String(url);
     if(u.includes('/auth/v1/token?grant_type=password'))return jsonResponse({access_token:'access-owner',refresh_token:'refresh-owner',expires_in:3600},200);
-    if(u.includes('/functions/v1/rona-portal-api/session/me'))return jsonResponse({ok:true,user:{roles:['ADMIN','RONA_OPERATOR']}},200);
+    if(u.includes('/functions/v1/rona-portal-api/session/authority'))return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN','RONA_OPERATOR']}},200);
     throw new Error('UNEXPECTED_FETCH '+u);
   };
   const request=new Request('https://ronaoil.com/portal/auth/login',{
@@ -533,13 +533,11 @@ test('Silent resume miss is non-destructive',async()=>{
   assert.equal(response.headers.get('set-cookie'),null);
 });
 
-test('Public inline login reuses the canonical protected Admin route for silent session recovery',()=>{
-  assert.match(inlineAuth,/RONA_INLINE_RESUME_TIMEOUT/);
-  assert.match(inlineAuth,/fetch\('\/portal\/admin'/);
-  assert.match(inlineAuth,/method:'GET'/);
-  assert.match(inlineAuth,/redirect:'follow'/);
-  assert.match(inlineAuth,/target!=='\/portal\/admin'/);
-  assert.match(inlineAuth,/Сессия восстановлена\. Открываем кабинет/);
+test('Public inline login does not issue a speculative protected Admin probe before credentials',()=>{
+  assert.doesNotMatch(inlineAuth,/RONA_INLINE_RESUME_TIMEOUT/);
+  assert.doesNotMatch(inlineAuth,/fetch\('\/portal\/admin'/);
+  assert.match(inlineAuth,/const ENDPOINT = '\/portal\/auth\/login'/);
+  assert.match(inlineAuth,/body:JSON\.stringify\(\{identifier:login,password:secret\}\)/);
 });
 
 test('Admin shell recovers a refresh-only session before rendering',async()=>{
@@ -550,9 +548,9 @@ test('Admin shell recovers a refresh-only session before rendering',async()=>{
       refreshCalls++;
       return jsonResponse({access_token:'access-rotated',refresh_token:'refresh-rotated',expires_in:3600},200);
     }
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
       sessionCalls++;
-      return jsonResponse({ok:true,user:{roles:['ADMIN']}},200);
+      return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN']}},200);
     }
     throw new Error('UNEXPECTED_FETCH '+u);
   };
@@ -579,9 +577,9 @@ test('Admin shell refreshes when the current access probe is unavailable but a r
     const u=String(url);
     const h=new Headers(init.headers||{});
     const auth=h.get('authorization')||'';
-    if(u.includes('/functions/v1/rona-portal-api/session/me')){
+    if(u.includes('/functions/v1/rona-portal-api/session/authority')){
       if(auth.includes('access-old')){oldPrimaryCalls++;return jsonResponse({ok:false,code:'TEMPORARY_BACKEND_UNAVAILABLE'},503);}
-      if(auth.includes('access-new')){newPrimaryCalls++;return jsonResponse({ok:true,user:{roles:['ADMIN']}},200);}
+      if(auth.includes('access-new')){newPrimaryCalls++;return jsonResponse({ok:true,authority:'PORTAL_SESSION_AUTHORITY_V1',user:{roles:['ADMIN']}},200);}
     }
     if(u.includes('/functions/v1/rona-admin-control-plane/readiness')){
       controlCalls++;
