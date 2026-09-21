@@ -477,7 +477,8 @@ const clientRailAdminMirrorExceptionAuthorized=
 const CLIENT_EVENT_DRIVEN_REFRESH_FILES=[
   'assets/portal-runtime/client-price-conditions-v1.js',
   'assets/portal-runtime/client-shell-guard-v3.js',
-  'assets/portal-runtime/client-logout-visual-v1.js'
+  'assets/portal-runtime/client-logout-visual-v1.js',
+  'scripts/attach-client-logout-visual-v1.mjs'
 ];
 const clientEventDrivenRefreshExceptionAuthorized=
   clientEventDrivenRefreshApproval?.approval==='OWNER_IN_CHAT'&&
