@@ -28,6 +28,8 @@ jobs:
           const key=(source.match(/const SUPABASE_PUBLISHABLE_KEY = '([^']+)'/)||[])[1];
           if(!url||!key)throw new Error('AUTH_SOURCE_CONSTANTS_MISSING');
           const identifier='qa-transport-'+Date.now()+'@example.invalid';
+          const aliasIdentifier='rokotove';
+          const ownerEmail='office_kg@ronaoil.com';
           const password='invalid-transport-probe';
           const timed=async(label,fn)=>{
             const started=Date.now();
@@ -43,6 +45,20 @@ jobs:
           };
           const asset=await timed('LIVE_INLINE_AUTH_ASSET',()=>fetch('https://ronaoil.com/assets/g82/portal-home-inline-auth-v2.js?_qa='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(12000)}));
           if(asset.status!==200||!asset.body.includes("controller.abort('RONA_INLINE_AUTH_TIMEOUT'),60000")||!asset.body.includes("err==='RONA_INLINE_AUTH_TIMEOUT'"))throw new Error('LIVE_INLINE_AUTH_V5_NOT_DEPLOYED');
+          const aliasProbe=await timed('PORTAL_ALIAS_INVALID_PASSWORD',()=>fetch('https://ronaoil.com/portal/auth/login',{
+            method:'POST',
+            redirect:'manual',
+            headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+            body:JSON.stringify({identifier:aliasIdentifier,password:'definitely-invalid-qa-password'}),
+            signal:AbortSignal.timeout(60000)
+          }));
+          const ownerEmailProbe=await timed('PORTAL_OWNER_EMAIL_INVALID_PASSWORD',()=>fetch('https://ronaoil.com/portal/auth/login',{
+            method:'POST',
+            redirect:'manual',
+            headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+            body:JSON.stringify({identifier:ownerEmail,password:'definitely-invalid-qa-password'}),
+            signal:AbortSignal.timeout(60000)
+          }));
           const portal=await timed('PORTAL_LOGIN',()=>fetch('https://ronaoil.com/portal/auth/login',{
             method:'POST',
             redirect:'manual',
