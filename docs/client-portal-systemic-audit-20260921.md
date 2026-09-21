@@ -249,3 +249,49 @@ Client Portal считается доведенным до целевого со
 - no perpetual DOM timer для визуального выравнивания;
 - CI failures отражают текущий PR, а не исторические base-SHA guards;
 - production release проходит real-client + impersonation E2E.
+
+
+## 8. Current-state recheck after parallel remediation
+
+Recheck against the current draft branches confirmed:
+
+- #810 no longer contains the proposed global 30-second `RONA_CLIENT_CONTEXT` interval. The Context owner now uses lifecycle/open/online triggers with TTL and single-flight.
+- #810 still contains the 30-second Payments network interval, the 1-second Payments layout interval, the canonical Applications 30-second interval requirement, and a deal-documents exact route without browser impersonation authority.
+- #811 owns non-business DOM timer cleanup: shell guard, logout visual and price conditions.
+- #812 owns Client-only Rail polling removal; Admin Rail remains unchanged.
+- #813 owns Market Intelligence / Market News refresh scheduling and removes the hourly timers.
+- #815 owns the independent Market Intelligence impersonation defect; it keeps the normal real-Client RPC path unchanged and routes Admin->Client preview through effective Client authority.
+
+This split is deliberate: overlapping changes are not to be merged independently without rebase and current-state review.
+
+## 9. Remote data change semantics after polling removal
+
+Eliminating periodic polling creates one architectural requirement that must be explicit: a Client tab that remains open cannot know about a staff-side or server-side change unless one of the following happens:
+
+1. the user opens/reopens the affected section;
+2. the browser receives a server-side invalidation signal;
+3. a Client mutation already known to the browser invalidates the local projection.
+
+The target architecture should therefore use **invalidation, not data streaming**, for live remote changes:
+
+- one authenticated Client invalidation channel per session/current context;
+- event payload contains only domain/context/version metadata, not business payload;
+- browser validates that the invalidation belongs to the currently authorized Client + Contract;
+- invalidation is coalesced/single-flight;
+- only the visible affected section refetches its authoritative projection;
+- hidden sections remain idle;
+- page/section open remains a safe fallback if the push channel is unavailable.
+
+A generic timer must not be reintroduced as a fallback. Fallback is section-open/pageshow revalidation.
+
+### Suggested invalidation domains
+
+- `CURRENT_CONTEXT` — deal/resource/payment summary changed;
+- `APPLICATIONS` — application status/counter-offer changed;
+- `PAYMENTS` — Finance/bank-confirmed state changed;
+- `DEAL_DOCUMENTS` — authoritative document/workflow state changed;
+- `RAIL` — canonical rail read-model changed;
+- `MARKET_INTELLIGENCE` — a new eligible publication was published;
+- `MESSAGES` — Client/Admin mediated message state changed.
+
+The invalidation layer should be added only after the current duplicate polling owners are removed, otherwise it would create a second refresh path rather than replace the first one.
