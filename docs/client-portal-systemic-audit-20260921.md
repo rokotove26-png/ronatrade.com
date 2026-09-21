@@ -73,6 +73,11 @@ Core routes `/v1/client/bootstrap` и `/v1/client/context` используют 
 
 5. Draft #810 добавлял еще один глобальный 30s refresh current projection с TTL 15s. Это создавало бы дополнительного owner поверх уже существующих Applications / Payments / Rail. На #810 оставлен coordination note: не merge polling в таком виде.
 
+6. `client-contract-download-v3.js`  
+   `REFRESH_MS=30000` + visibility-gated `setInterval(...refresh(true),REFRESH_MS)`. Это активный v3 runtime, который build напрямую подключает в Client Portal. Его нужно перевести на context/company-directory/pageshow/explicit invalidation без фонового poll.
+
+7. Legacy `client-contract-download-v1.js` и `v2.js` также содержат периодические циклы (v1 — 12s, v2 — `REFRESH_MS`). До удаления нужен emitted-manifest proof, что они не подключаются в production HTML.
+
 **Целевой контракт:** нет периодического GET только потому, что вкладка открыта. Обновление выполняется при:
 - первом открытии нужного раздела;
 - смене Client Context;
@@ -190,6 +195,8 @@ Network fanout не должен запускаться непосредстве
    - Payments canonical 1s DOM poll.
 4. Убрать 30s polling из canonical Applications materializer/runtime.
 5. Убрать 30s `client-application-lifecycle` fetch и перевести на shared current projection + events.
+6. Убрать 30s poll из активного `client-contract-download-v3.js`; оставить refresh на Client Context/company-directory change, pageshow и explicit invalidation.
+7. После emitted-manifest proof удалить неиспользуемые `client-contract-download-v1/v2` либо исключить их из production artifact.
 
 ### Phase B — унифицировать specialized Client routes
 1. Ввести единый helper/authority для browser impersonation.
@@ -295,3 +302,10 @@ A generic timer must not be reintroduced as a fallback. Fallback is section-open
 - `MESSAGES` — Client/Admin mediated message state changed.
 
 The invalidation layer should be added only after the current duplicate polling owners are removed, otherwise it would create a second refresh path rather than replace the first one.
+
+
+## 10. Дополнительный refresh recheck
+
+Повторный source-level scan production HEAD выявил еще один активный perpetual network owner, отсутствовавший в первоначальном перечне: `client-contract-download-v3.js`. Build напрямую подключает v3, поэтому его 30-секундный visibility-gated interval относится к фактическому Client runtime, а не только к legacy debt.
+
+Также подтверждено, что `client-home-command-center-v2.js` использует короткий bounded retry interval только после пользовательского действия «Открыть сделку» (до 25 попыток по 120 ms). Это не background polling и может быть сохранено до отдельной замены на точное DOM/event acknowledgement.
