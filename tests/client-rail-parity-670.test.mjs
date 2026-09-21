@@ -51,6 +51,7 @@ function model(scope,{station,wagons=1,unresolved=0}={}){
       routeProgress:{state:"OBSERVED_AND_MATCHED",actualPoints:[{lat:54,lng:26,stationCode:"111111"},{lat:53.5,lng:26.5,stationCode:"121212"}],remainingPoints:[{lat:53.5,lng:26.5,stationCode:"121212"},{lat:53,lng:27,stationCode:"222222"}]},
       routeStations:[{lat:54,lng:26,sequence:1,stationCode:"111111"},{lat:53,lng:27,sequence:2,stationCode:"222222"}],
       routeAssignment:{resolutionState:"RESOLVED"},
+      routeCohorts:[{cohortKey:`COHORT-${scope.deal_id}`,wagonCount:wagons,wagonNumbers:positions.map(p=>p.wagonNumber),observationSignature:"111111>222222",observations:[],segments:[]}],
       wagonPositions:positions,
       unresolvedOrConflictCount:unresolved,
     }],
