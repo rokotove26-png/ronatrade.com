@@ -150,8 +150,8 @@ test("internal core is private and Admin V4 keeps the ADMIN gate",()=>{
   const core=migration.slice(coreStart,coreEnd);
   assert.doesNotMatch(core,/security definer/i);
   assert.equal(/owner_r1_actor\s*\(/i.test(core),false,"internal generation core must not make an authority decision");
-  assert.ok(migration.includes("revoke all on function portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)\nfrom public,anon,authenticated;"));
-  assert.ok(migration.includes("grant execute on function portal_private.rona_rail_deal_map_read_model_core_v2(uuid,text)\nto service_role;"));
+  assert.match(migration,/revoke all on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)\s+from public,anon,authenticated;/i);
+  assert.match(migration,/grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)\s+to service_role;/i);
   assert.equal(/grant execute on function portal_private\.rona_rail_deal_map_read_model_core_v2\(uuid,text\)[\s\S]{0,80}authenticated/i.test(migration),false);
 
   const adminPublic=migration.indexOf("create or replace function public.rona_admin_rail_deal_map_read_model_v4");
