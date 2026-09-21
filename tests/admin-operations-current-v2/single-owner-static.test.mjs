@@ -48,7 +48,7 @@ test('Client and Agent presence is injected only for real sessions, never admin 
   assert.match(router,/portal-presence-v1/);
   assert.match(router,/connectionId=crypto\.randomUUID\(\)/);
   assert.match(router,/\/portal\/owner-api\?path=%2Fpresence%2Fheartbeat/);
-  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*HeadPrepend\(bridge\)[\s\S]*return secureResponse\(transformed,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
+  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*x-rona-client-impersonation-shell'[\s\S]*static-unmodified-v1[\s\S]*return secureResponse\(direct,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
   assert.match(router,/const agentPresence=impersonation\?\.data\?'':presenceBridge\('AGENT'\)/);
 });
 
