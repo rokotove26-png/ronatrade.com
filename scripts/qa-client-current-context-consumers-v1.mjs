@@ -19,7 +19,7 @@ const forbidAll=(name,tokens)=>{for(const token of tokens)if(source[name].includ
 
 requireAll('authority',['20260903-client-context-selection-authority-v4-header-current-context','window.RONA_CLIENT_CONTEXT=publicApi','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','rona:client-context-changed','CLIENT_CONTEXT_SELECTION_REQUIRED','PROJECTION_TTL_MS=15000','refreshCurrentProjection','x-rona-client-force-refresh' ,'refreshProjectionOnLifecycleEvent']);
 requireAll('home',['20260902-client-home-command-center-v3-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
-requireAll('payments',['20260902-client-payments-authoritative-v2-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
+requireAll('payments',['20260921-client-payments-authoritative-v3-current-state-refresh','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('prices',['20260902-authoritative-price-current-context-server-projection','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe','SERVER_AUTHORITATIVE_PRICE_PROJECTION']);
 requireAll('dealDocuments',['20260902-client-deal-documents-v7-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('dealLifecycle',['20260921-client-deal-realization-status-v7-current-state-refresh','RONA_CLIENT_CONTEXT','getCurrentContext','authority.subscribe','contextKey(currentContext())']);
