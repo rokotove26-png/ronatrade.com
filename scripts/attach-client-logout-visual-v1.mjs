@@ -5,15 +5,16 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-logout-visual-v1.js';
 const id='rona-client-logout-visual-v1';
-const src='/assets/portal-runtime/client-logout-visual-v1.js?v=20260830-force-red-v2';
+const src='/assets/portal-runtime/client-logout-visual-v1.js?v=20260921-event-driven-v3';
 const marker='20260830-client-logout-force-red-v2';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_LOGOUT_VISUAL_MARKER_MISSING: ${marker}`);
-for(const required of ['justify-content:center!important','linear-gradient(110deg','ronaClientLogoutRedFlowV2','data-rona-logout-visual-v1',"style.setProperty(prop,value,'important')",'setInterval(()=>{if(document.visibilityState===\'visible\')apply()},1500)']){
+for(const required of ['justify-content:center!important','linear-gradient(110deg','ronaClientLogoutRedFlowV2','data-rona-logout-visual-v1',"style.setProperty(prop,value,'important')","window.addEventListener('focus',schedule"]){
   if(!runtime.includes(required))throw new Error(`CLIENT_LOGOUT_VISUAL_CONTRACT_MISSING: ${required}`);
 }
+if(/setInterval\s*\(/.test(runtime))throw new Error('CLIENT_LOGOUT_VISUAL_PERIODIC_POLLING_FORBIDDEN');
 if(/\/portal\/auth\/logout|fetch\s*\(/.test(runtime))throw new Error('CLIENT_LOGOUT_VISUAL_MUST_NOT_OWN_LOGOUT_BEHAVIOR');
 
 let html=await readFile(htmlPath,'utf8');
@@ -37,9 +38,11 @@ integrity.client_runtime.logout_visual={
   enforcement:'INLINE_IMPORTANT_PLUS_SCOPED_STYLESHEET',
   layout_changed:false,
   logout_behavior_changed:false,
-  business_logic_changed:false
+  business_logic_changed:false,
+  refresh_policy:'MUTATION_FOCUS_PAGESHOW',
+  periodic_polling:false
 };
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 
 if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error('CLIENT_LOGOUT_VISUAL_BRIDGE_MISSING_AFTER_WRITE');
-console.log(`Client logout visual PASS: ${id} attached; forced red gradient + centered label; behavior unchanged.`);
+console.log(`Client logout visual PASS: ${id} attached; forced red gradient + centered label; event-driven visual enforcement; behavior unchanged.`);
