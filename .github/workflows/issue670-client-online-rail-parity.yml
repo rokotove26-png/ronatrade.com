@@ -79,7 +79,6 @@ jobs:
             echo 'tests/client-rail-isolated-backend-after-incident.test.mjs'
             echo '.github/workflows/client-rail-isolated-backend-after-incident.yml'
             echo '.github/workflows/client-rail-admin-visual-parity-v2.yml'
-            echo '.github/workflows/rail-v5-owner-qa.yml'
           } | sort -u > /tmp/issue670-allowed.txt
           comm -23 /tmp/issue670-changed.txt /tmp/issue670-allowed.txt | tee /tmp/issue670-unexpected.txt
           if test -s /tmp/issue670-unexpected.txt; then
@@ -128,7 +127,7 @@ jobs:
           set -euo pipefail
           npm run build
           test -s dist/portal/client.html
-          grep -q '/portal/client-rail-current-ui?v=20260921-premium-map-markers-v4' dist/portal/client.html
+          grep -q '/portal/client-rail-current-ui?v=20260919-route-overlay-v3' dist/portal/client.html
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
