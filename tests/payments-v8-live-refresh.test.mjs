@@ -10,10 +10,17 @@ test('Payments V8 refreshes authoritative bootstrap on all live triggers without
   assert.match(ui,/addEventListener\('focus'[^\n]*refreshIfOpen\('focus'\)/);
   assert.match(ui,/visibilitychange[^\n]*refreshIfOpen\('visibilitychange'\)/);
   assert.match(ui,/setInterval\(\(\)=>refreshIfOpen\('interval'\),REFRESH_MS\)/);
+  assert.match(ui,/rona:admin-app-ready[^\n]*refreshIfOpen\('admin-app-ready'\)/);
+  assert.match(ui,/refreshIfOpen\('initial-visible'\)/);
   assert.match(ui,/const REFRESH_MS=90000/);
   assert.match(ui,/const RETRY_MS=15000/);
   assert.match(ui,/ADMIN_PAYMENTS_POLL/);
   assert.match(ui,/PAYMENTS_OPEN_ONLY/);
+  assert.match(ui,/NO_BACKGROUND_BOOTSTRAP/);
+  assert.match(ui,/OPEN_PAGE_ONLY/);
+  assert.match(ui,/function scheduleRetry\(\)\{[^\n]*if\(paymentsOpen\(\)\)load\('retry'\)/);
+  assert.doesNotMatch(ui,/!projection&&document\.visibilityState==='visible'/);
+  assert.doesNotMatch(ui,/rona:admin-app-ready[^\n]*scheduleRefresh\('admin-app-ready'\)/);
   assert.match(ui,/cache:'no-store'/);
   assert.match(ui,/if\(loading\)return loading/);
 });
