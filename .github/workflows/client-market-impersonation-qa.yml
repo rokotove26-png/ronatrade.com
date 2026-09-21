@@ -28,5 +28,5 @@ jobs:
         run: node --test tests/specific-client-route-impersonation.test.mjs
       - name: Market authority source contract
         run: node --test tests/client-market-impersonation-authority.test.mjs
-      - name: Edge TypeScript check
-        run: deno check --node-modules-dir=auto supabase/functions/rona-portal-api/index.ts
+      - name: Effective Client projection TypeScript check
+        run: deno check --config supabase/functions/rona-portal-api/deno.json --node-modules-dir=auto supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts
