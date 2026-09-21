@@ -65,6 +65,7 @@ jobs:
             echo 'docs/client-online-rail-670-architecture.md'
             echo 'functions/portal/client-rail-current-ui.js'
             echo 'functions/portal/rail-current-v7-real-map-ui.js'
+            echo 'functions/portal/rail-current-v81-maplibre-ui.js'
             echo 'scripts/qa-client-portal-visual-freeze.mjs'
             echo 'governance/client-online-rail-670-owner-approval-20260919.json'
             echo 'scripts/attach-client-rail-production-v1.mjs'
