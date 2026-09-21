@@ -116,9 +116,11 @@ export async function onRequestPost({request}){
  if(ct.includes('application/json')){const body=await request.json().catch(()=>({}));identifier=String(body.identifier||body.email||'').trim();password=String(body.password||'');next=String(body.next||'');resumeOnly=body.resume===true;}
  else{const form=await request.formData();identifier=String(form.get('identifier')||form.get('email')||'').trim();password=String(form.get('password')||'');next=String(form.get('next')||'');resumeOnly=String(form.get('resume')||'')==='1';}
  const asJson=wantsJson(request);
- const recovered=await recoverExistingOwnerSession(request,next,identifier);
- if(recovered)return asJson?json({ok:true,redirect:recovered.target,recovered:true,source:recovered.source},200,recovered.cookies):redirect(recovered.target,recovered.cookies);
- if(resumeOnly)return json({ok:false,code:'NO_RECOVERABLE_SESSION'},401);
+ if(resumeOnly){
+   const recovered=await recoverExistingOwnerSession(request,next,identifier);
+   if(recovered)return asJson?json({ok:true,redirect:recovered.target,recovered:true,source:recovered.source},200,recovered.cookies):redirect(recovered.target,recovered.cookies);
+   return json({ok:false,code:'NO_RECOVERABLE_SESSION'},401);
+ }
  if(!identifier||!password||identifier.length>320||password.length>1024)return asJson?json({ok:false,code:'LOGIN_INVALID'},400,clearCookies()):response(loginHtml('Не удалось выполнить вход.'),400,'text/html; charset=utf-8',clearCookies());
  const login=await authPassword(identifier,password);
  if(!login.ok||!login.data?.access_token||!login.data?.refresh_token){
