@@ -1,0 +1,12 @@
+{
+  "slug": "rona-admin-authority",
+  "name": "rona-admin-authority",
+  "status": "ACTIVE",
+  "version": 3,
+  "verify_jwt": true,
+  "ezbr_sha256": "81ab0cd52b4688e03d99387a42aca21b038be3f6bd2a6f8b6d452ca3b66fc084",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_ff2ec526-17e3-4324-80fc-4a98ffd76de3_1/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_ff2ec526-17e3-4324-80fc-4a98ffd76de3_1/source/deno.json",
+  "created_at": 1787107068092,
+  "updated_at": 1787107068092
+}
