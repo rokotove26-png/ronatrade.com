@@ -32,5 +32,13 @@
     ],
     "no_background_polling_when_idle": true,
     "background_preload_dependency": false
+  },
+  "production_revalidated_at_change": "187c7246aeeb233ac676b35ca6d34b7d8fe84e7e",
+  "current_production_rebuild": {
+    "source_pr": 813,
+    "source_head": "ec36097db4138f3525ff8cc35353d53798fb9f18",
+    "production_parent": "187c7246aeeb233ac676b35ca6d34b7d8fe84e7e",
+    "architect_runtime_files_changed": false,
+    "business_data_changed": false
   }
 }
