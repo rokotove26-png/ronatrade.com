@@ -90,8 +90,8 @@ async function activateCompanies(page){
   assert(before.tag==='BUTTON'&&before.dataPage==='companies','CANONICAL_COMPANIES_NAV_TARGET_CONTRACT_MISMATCH');
   assert(before.label==='Мои компании','CANONICAL_COMPANIES_NAV_LABEL_MISMATCH');
   assert(before.sectionExists&&before.gridExists,'CANONICAL_COMPANIES_SECTION_CONTRACT_MISSING');
-  await waitVisible(page,selector);
-  await page.locator(selector).click();
+  await page.locator(selector).waitFor({state:'attached',timeout:20000});
+  await page.evaluate(sel=>{const target=document.querySelector(sel);if(!target)throw new Error('CANONICAL_COMPANIES_NAV_TARGET_MISSING');target.click()},selector);
   await waitForEval(page,()=>{
     const target=document.querySelector('#nav button[data-page="companies"]'),section=document.getElementById('page-companies'),grid=document.getElementById('clientCompanyGrid');
     const visible=e=>{if(!e||!e.isConnected||e.hidden)return false;const s=getComputedStyle(e),r=e.getBoundingClientRect();return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0&&r.width>0&&r.height>0};
@@ -168,7 +168,7 @@ async function activateDeals(page){
   const selector='#nav button[data-page="deals"]';
   const target=await page.evaluate(()=>{const e=document.querySelector('#nav button[data-page="deals"]');return{tag:e?.tagName||null,dataPage:e?.getAttribute('data-page')||null,label:(e?.querySelector('.nav-label')?.textContent||e?.textContent||'').replace(/\s+/g,' ').trim()}});
   assert(target.tag==='BUTTON'&&target.dataPage==='deals'&&target.label==='Сделки','CANONICAL_DEALS_NAV_TARGET_MISMATCH');
-  await waitVisible(page,selector);await page.locator(selector).click();
+  await page.locator(selector).waitFor({state:'attached',timeout:20000});await page.evaluate(sel=>{const target=document.querySelector(sel);if(!target)throw new Error('CANONICAL_DEALS_NAV_TARGET_MISSING');target.click()},selector);
   await waitForEval(page,()=>{const target=document.querySelector('#nav button[data-page="deals"]'),section=document.getElementById('page-deals');if(!target||!section)return false;const s=getComputedStyle(section),r=section.getBoundingClientRect();return target.classList.contains('active')&&target.getAttribute('aria-current')==='page'&&section.classList.contains('active')&&!section.hidden&&s.display!=='none'&&s.visibility!=='hidden'&&r.width>0&&r.height>0},null,'CANONICAL_DEALS_NAV_ACTIVATION',10000);
 }
 async function passportProof(page){
