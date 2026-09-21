@@ -24,6 +24,7 @@
       "contract_id",
       "transport",
       "request_cache",
+      "cache_network",
       "latency_ms"
     ],
     "base_event_fields": [
@@ -47,7 +48,7 @@
     "client_context_from_query_only": true,
     "caller_runtime_from_safe_header": "x-rona-client-source",
     "refresh_reason_header_optional": "x-rona-client-refresh-reason",
-    "network_cache_classification": "transport=NETWORK; request_cache=request.cache",
+    "network_cache_classification": "cache_network=NETWORK_REQUEST for every persisted Edge event; request_cache is supplemental request mode; in-memory/cache-only Client reads create no Edge event",
     "pre_auth_failures_not_instrumented_in_v1": true
   },
   "release_matrix_validation_base": "bbd6c489c53fa0b8378c2764d982b2fc0e3c0124",
