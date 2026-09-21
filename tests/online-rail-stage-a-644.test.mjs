@@ -139,14 +139,16 @@ test('Stage A markers are exposed without removing prior current owner markers',
 
 
 
-test('Operational route line is forced through trusted current wagon stations',()=>{
+test('Current wagon clusters remain marker overlays and never rewrite route topology',()=>{
   assert.match(v81,/function railMapPlannedRoutePoints\(context\)/);
   assert.match(v81,/function railMapObservedRoutePoints\(context\)/);
   assert.match(v81,/waypointRole:'OBSERVED_CURRENT'/);
   assert.match(v81,/sourceKind:'OBSERVED_CURRENT'/);
-  assert.match(v81,/function railMapSegmentProjection\(point,a,b\)/);
-  assert.match(v81,/buckets\[best\.segment\]\.push/);
-  assert.match(v81,/out\.push\(x\.point\)/);
+  assert.match(v81,/function railMapRoutePoints\(context\)\{return railMapPlannedRoutePoints\(context\)\}/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_TOPOLOGY__='20260921-current-markers-independent-v1'/);
+  assert.doesNotMatch(v81,/function railMapSegmentProjection\(point,a,b\)/);
+  assert.doesNotMatch(v81,/buckets\[best\.segment\]\.push/);
+  assert.doesNotMatch(v81,/out\.push\(x\.point\)/);
 });
 
 test('Route is split into observed traversal and remaining corridor without fake GPS semantics',()=>{
