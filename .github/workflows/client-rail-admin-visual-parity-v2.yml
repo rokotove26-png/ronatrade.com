@@ -60,14 +60,15 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/qa-client-online-rail-670-browser.mjs 2>&1 | tee /tmp/client-rail-premium-map-v4.log
-          grep -Fq 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/client-rail-admin-visual-parity-v3.log
-          grep -Fq 'ISSUE670_ROUTE_OVERLAY_V4_VISIBLE=PASS' /tmp/client-rail-admin-visual-parity-v3.log
-          grep -Fq 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/client-rail-admin-visual-parity-v3.log
-          grep -Fq 'ISSUE670_DEAL_SWITCH_ISOLATION=PASS' /tmp/client-rail-admin-visual-parity-v3.log
+          grep -Fq 'ISSUE670_ADMIN_ROUTE_GEOMETRY=PASS' /tmp/client-rail-premium-map-v4.log
+          grep -Fq 'ISSUE670_ROUTE_OVERLAY_V4_VISIBLE=PASS' /tmp/client-rail-premium-map-v4.log
+          grep -Fq 'ISSUE670_PREMIUM_MAP_MARKERS=PASS' /tmp/client-rail-premium-map-v4.log
+          grep -Fq 'ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS' /tmp/client-rail-premium-map-v4.log
+          grep -Fq 'ISSUE670_DEAL_SWITCH_ISOLATION=PASS' /tmp/client-rail-premium-map-v4.log
           echo 'CLIENT_RAIL_PREMIUM_MAP_VISUAL_PARITY_V4=PASS'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: client-rail-premium-map-v4
-          path: /tmp/client-rail-admin-visual-parity-v3.log
+          path: /tmp/client-rail-premium-map-v4.log
           if-no-files-found: warn
