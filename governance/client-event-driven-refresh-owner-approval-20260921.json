@@ -7,13 +7,7 @@
     "assets/portal-runtime/client-price-conditions-v1.js",
     "assets/portal-runtime/client-shell-guard-v3.js",
     "assets/portal-runtime/client-logout-visual-v1.js",
-    "scripts/attach-client-logout-visual-v1.mjs",
-    "assets/portal-runtime/client-applications-live-render-v1.js",
-    "assets/portal-runtime/client-market-intelligence-v1.js",
-    "assets/portal-runtime/client-market-news-admin-parity-v1.js",
-    "assets/portal-runtime/client-application-lifecycle-v1.js",
-    "assets/portal-runtime/client-contract-download-v3.js",
-    "scripts/attach-client-market-intelligence-v1.mjs"
+    "scripts/attach-client-logout-visual-v1.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -35,38 +29,6 @@
       "visual_freeze_baseline_blob_sha": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
       "authorized_post_blob_sha": "e445b137da05823f791896a54019156b516cc1d7",
       "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
-    },
-    "assets/portal-runtime/client-applications-live-render-v1.js": {
-      "visual_freeze_baseline_blob_sha": "f5a4e9f0952d0c0f4ac0d4bc3c8e072251f3af93",
-      "authorized_post_blob_sha": "3c9d5055f8b8c859482a6d55435664c79b5ae5d5",
-      "required_marker": "20260921-client-applications-live-render-v2-event-driven"
-    },
-    "assets/portal-runtime/client-market-intelligence-v1.js": {
-      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
-      "authorized_post_blob_sha": "7102e3d8a47a94362984dddb57b684567baa048a",
-      "required_marker": "20260921-client-market-intelligence-v3-event-driven"
-    },
-    "assets/portal-runtime/client-market-news-admin-parity-v1.js": {
-      "visual_freeze_baseline_blob_sha": "731c9fbbfa0a430d892cd9ca3598bad410b51c79",
-      "authorized_post_blob_sha": "78c3f5ed280e10e3340e177abe2300e0e0207cfe",
-      "required_marker": "rona:client-market-intelligence-invalidated"
-    },
-    "assets/portal-runtime/client-application-lifecycle-v1.js": {
-      "visual_freeze_baseline_blob_sha": "73e94188bff36e57a7f269a516ae655b2556ea2a",
-      "authorized_parent_blob_sha": "aacb8fde011ed2f0c0c2f5db44d209081e77bab2",
-      "authorized_post_blob_sha": "fc8826e3679e4932290fecb6f82993d2aa7bcb06",
-      "required_marker": "rona:client-current-projection"
-    },
-    "assets/portal-runtime/client-contract-download-v3.js": {
-      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
-      "authorized_parent_blob_sha": "7668e879bff5dfcb5dac71222ed09fe94eb35b51",
-      "authorized_post_blob_sha": "5ed14d37c53eea4684d4128ed3e5c05161734dd0",
-      "required_marker": "rona:client-company-directory-invalidated"
-    },
-    "scripts/attach-client-market-intelligence-v1.mjs": {
-      "visual_freeze_baseline_blob_sha": "97329dce56f119fbad39ab73caff1c0ad6836a0a",
-      "authorized_post_blob_sha": "713116fa0e63a58c48850c20ea3afdea42f5a77b",
-      "required_marker": "OPEN_SECTION_CONTEXT_INVALIDATION"
     }
   },
   "requirements": {
@@ -92,19 +54,7 @@
       "AUTHORITATIVE_DATA_CHANGE",
       "PAGESHOW"
     ],
-    "no_background_polling_when_idle": true,
-    "market_intelligence_periodic_refresh": false,
-    "applications_periodic_refresh": false,
-    "company_directory_periodic_refresh": false
+    "no_background_polling_when_idle": true
   },
-  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1",
-  "additional_functional_files": {
-    "assets/portal-runtime/portal-client-company-directory-authority-v1.js": {
-      "baseline_blob_sha": "6b8759bb9a33dabd2e6a291b6f15d1aecd03b167",
-      "authorized_post_blob_sha": "f0fd00a969ae0aa4f4a513df542d8f00dde8f959",
-      "required_marker": "rona:client-company-directory-invalidated",
-      "visual_change": false
-    }
-  },
-  "supersedes_refresh_policy_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_MARKET_INTELLIGENCE_OPEN_AND_HOURLY_20260902"
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1"
 }
