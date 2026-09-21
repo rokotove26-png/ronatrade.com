@@ -813,6 +813,7 @@ if(!pr431DirectFixGovernanceAuthorized){
         errors.push(`PR431_DIRECT_FIX_EXACT_BLOB ${path} expected=${entry?.authorized_post_blob_sha||'missing'} actual=${actual}`);
       }else{
         pr431DirectFixExactFiles+=1;
+        if(currentStateReconciliationExact)clientCurrentStateReconciliationV75AppliedFiles+=1;
         if(typographyQaWiringExact||postreleaseQaWiringExact)pr431TypographyQaWiringExactFiles+=1;
       }
     }catch(error){errors.push(`PR431_DIRECT_FIX_EXACT_BLOB_MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`)}
