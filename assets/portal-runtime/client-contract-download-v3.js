@@ -9,6 +9,7 @@ window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V2__=MARK;
 window.__RONA_CLIENT_CONTRACT_DOWNLOAD_V1__=MARK;
 
 const API='/portal/api',REFRESH_MS=30000,STYLE_ID='ronaClientContractDownloadV3Style';
+const CLIENT_CONTRACT_REFRESH_POLICY='OPEN_CONTEXT_PROJECTION_PAGESHOW_INVALIDATION';
 const state={entry:null,loading:false,pendingImmediate:false,lastLoad:0,renderTimer:0,currentKey:'',observer:null,rendering:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const low=v=>norm(v).toLocaleLowerCase('ru-RU');
@@ -238,17 +239,20 @@ function render(){
 }
 function scheduleRender(delay=120){clearTimeout(state.renderTimer);state.renderTimer=setTimeout(render,delay)}
 function primeFromAuthority(authority){if(authoritativeCompanyDirectoryOwnsCards())return false;const current=authority?.getCurrentContext?.();return current?primeCompanyDirectory(current):false}
-function refreshCompanyDirectoryNow(authority,delay=0){setTimeout(()=>{if(!primeFromAuthority(authority))return;refresh(true)},delay)}
+function primeCompanyDirectoryLater(authority,delay=0){setTimeout(()=>{if(!primeFromAuthority(authority))return;scheduleRender(0)},delay)}
+function consumeProjectionEvent(authority,event){const current=authority?.getCurrentContext?.(),detail=event?.detail||{};if(!current)return;const clientId=norm(detail.client_id),contractId=norm(detail.contract_id);if(clientId&&clientId!==norm(current.client_id))return;if(contractId&&contractId!==norm(current.contract_id))return;state.lastLoad=0;refresh(false)}
+function refreshFromExplicitInvalidation(authority){if(typeof authority?.invalidateCurrentProjection==='function')authority.invalidateCurrentProjection();state.lastLoad=0;refresh(true)}
 function startObserver(){if(state.observer||!document.documentElement)return;state.observer=new MutationObserver(records=>{if(state.rendering)return;if(records.some(r=>r.type==='childList'||r.type==='characterData'))scheduleRender(80)});state.observer.observe(document.documentElement,{subtree:true,childList:true,characterData:true})}
 async function start(){
   startObserver();
   let authority;try{authority=await waitForAuthority()}catch(error){console.error('RONA contract download: context authority unavailable',error);return}
   primeFromAuthority(authority);
   if(typeof authority.subscribe==='function')state.unsubscribe=authority.subscribe(()=>{primeFromAuthority(authority);refresh(true)});
-  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-company-directory-ready',()=>scheduleRender(0));
-  refresh(true);[120,350,900,1800,3200].forEach(delay=>refreshCompanyDirectoryNow(authority,delay));
-  document.addEventListener('click',()=>scheduleRender(140),true);document.addEventListener('click',()=>refreshCompanyDirectoryNow(authority,90),true);document.addEventListener('change',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)},true);
-  window.addEventListener('pageshow',()=>{scheduleRender(0);refreshCompanyDirectoryNow(authority,0);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});window.addEventListener('hashchange',()=>{scheduleRender(80);refreshCompanyDirectoryNow(authority,20)});setInterval(()=>{if(document.visibilityState==='visible')refresh(true)},REFRESH_MS);
+  window.addEventListener('rona:client-context-ready',()=>{primeFromAuthority(authority);refresh(true)});window.addEventListener('rona:client-context-changed',()=>{primeFromAuthority(authority);refresh(true)});
+  window.addEventListener('rona:client-current-projection',event=>consumeProjectionEvent(authority,event));window.addEventListener('rona:client-contract-download-invalidated',()=>refreshFromExplicitInvalidation(authority));window.addEventListener('rona:client-company-directory-ready',()=>{primeFromAuthority(authority);scheduleRender(0)});
+  refresh(true);[120,350,900,1800,3200].forEach(delay=>primeCompanyDirectoryLater(authority,delay));
+  document.addEventListener('click',()=>scheduleRender(140),true);document.addEventListener('change',()=>scheduleRender(80),true);
+  window.addEventListener('pageshow',()=>{scheduleRender(0);primeFromAuthority(authority);if(Date.now()-state.lastLoad>10000)refresh(true)});window.addEventListener('popstate',()=>{scheduleRender(80);primeFromAuthority(authority)});window.addEventListener('hashchange',()=>{scheduleRender(80);primeFromAuthority(authority)});
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 const OWNER_TYPO_MARK='RONA_CLIENT_OWNER_TYPOGRAPHY_110_V3_COMPUTED';
