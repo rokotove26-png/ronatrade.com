@@ -10,8 +10,6 @@
     "scripts/attach-portal-canonical-button-hover-v1.mjs",
     "scripts/qa-client-sidebar-command-nav-v1.mjs",
     ".github/workflows/client-sidebar-command-nav-v1.yml",
-    "scripts/qa-client-sidebar-dom-inspect-v1.mjs",
-    ".github/workflows/client-sidebar-dom-inspect-v1.yml",
     "scripts/qa-client-portal-visual-freeze.mjs",
     "governance/client-sidebar-command-nav-owner-approval-20260921.json"
   ],
