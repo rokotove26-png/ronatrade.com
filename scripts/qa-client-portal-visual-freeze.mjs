@@ -12,6 +12,7 @@ const CLIENT_POSTRELEASE_ISSUE430_APPROVAL_PATH='governance/client-postrelease-i
 const APPLICATION_BUSINESS_V2_SCOPE_PATH='governance/client-application-business-v2-owner-scope.json';
 const CLIENT_RAIL_ADMIN_MIRROR_APPROVAL_PATH='governance/client-rail-admin-mirror-owner-approval-20260918.json';
 const CLIENT_RAIL_670_APPROVAL_PATH='governance/client-online-rail-670-owner-approval-20260919.json';
+const CLIENT_APPLICATION_LIFECYCLE_EVENT_APPROVAL_PATH='governance/client-application-lifecycle-event-driven-owner-approval-20260921.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
 const dealsLoaderApproval=JSON.parse(await readFile(DEALS_LOADER_APPROVAL_PATH,'utf8'));
@@ -23,6 +24,7 @@ const clientPostreleaseIssue430Approval=JSON.parse(await readFile(CLIENT_POSTREL
 const applicationBusinessV2Scope=JSON.parse(await readFile(APPLICATION_BUSINESS_V2_SCOPE_PATH,'utf8'));
 const clientRailAdminMirrorApproval=JSON.parse(await readFile(CLIENT_RAIL_ADMIN_MIRROR_APPROVAL_PATH,'utf8'));
 const clientRail670Approval=JSON.parse(await readFile(CLIENT_RAIL_670_APPROVAL_PATH,'utf8'));
+const clientApplicationLifecycleEventApproval=JSON.parse(await readFile(CLIENT_APPLICATION_LIFECYCLE_EVENT_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
@@ -472,6 +474,27 @@ const clientRailAdminMirrorExceptionAuthorized=
   clientRailAdminMirrorApproval?.requirements?.images_added===false&&
   clientRailAdminMirrorApproval?.requirements?.unrelated_visual_changes===false;
 
+const CLIENT_APPLICATION_LIFECYCLE_EVENT_FILES=[
+  'assets/portal-runtime/client-application-lifecycle-v1.js'
+];
+const clientApplicationLifecycleEventExceptionAuthorized=
+  clientApplicationLifecycleEventApproval?.approval==='OWNER_IN_CHAT'&&
+  clientApplicationLifecycleEventApproval?.authorized_at==='2026-09-21'&&
+  clientApplicationLifecycleEventApproval?.scope==='CLIENT_APPLICATION_LIFECYCLE_EVENT_DRIVEN_V1'&&
+  Array.isArray(clientApplicationLifecycleEventApproval?.approved_protected_files)&&
+  clientApplicationLifecycleEventApproval.approved_protected_files.length===CLIENT_APPLICATION_LIFECYCLE_EVENT_FILES.length&&
+  CLIENT_APPLICATION_LIFECYCLE_EVENT_FILES.every(path=>clientApplicationLifecycleEventApproval.approved_protected_files.includes(path))&&
+  clientApplicationLifecycleEventApproval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientApplicationLifecycleEventApproval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientApplicationLifecycleEventApproval?.requirements?.wildcard_exception===false&&
+  clientApplicationLifecycleEventApproval?.requirements?.visual_change===false&&
+  clientApplicationLifecycleEventApproval?.requirements?.business_data_changed===false&&
+  clientApplicationLifecycleEventApproval?.requirements?.auth_changed===false&&
+  clientApplicationLifecycleEventApproval?.requirements?.supabase_schema_or_rls_changed===false&&
+  clientApplicationLifecycleEventApproval?.requirements?.periodic_refresh_removed===true&&
+  clientApplicationLifecycleEventApproval?.requirements?.current_projection_owner==='RONA_CLIENT_CONTEXT'&&
+  clientApplicationLifecycleEventApproval?.requirements?.no_background_polling_when_idle===true;
+
 const CLIENT_RAIL_670_FILES=[
   'assets/portal-runtime/client-rail-canonical-hero-v1.js',
   'scripts/attach-client-rail-production-v1.mjs'
@@ -543,6 +566,7 @@ let pr431DirectFixExactFiles=0;
 let pr431TypographyQaWiringExactFiles=0;
 let clientRailAdminMirrorAppliedFiles=0;
 let clientRail670AppliedFiles=0;
+let clientApplicationLifecycleEventAppliedFiles=0;
 
 const functionalRuntimeVisualGuardPaths=['assets/portal-runtime/portal-client-company-directory-authority-v1.js'];
 for(const path of functionalRuntimeVisualGuardPaths){
@@ -676,6 +700,15 @@ for(const [path,expected] of Object.entries(protectedFiles)){
       clientRail670Entry.required_marker.length>0&&
       body.toString('utf8').includes(clientRail670Entry.required_marker)
     );
+    const clientApplicationLifecycleEventEntry=clientApplicationLifecycleEventExceptionAuthorized?clientApplicationLifecycleEventApproval?.exact_post_blobs?.[path]:null;
+    const exactClientApplicationLifecycleEvent=Boolean(
+      clientApplicationLifecycleEventEntry&&
+      clientApplicationLifecycleEventEntry.visual_freeze_baseline_blob_sha===expected&&
+      clientApplicationLifecycleEventEntry.authorized_post_blob_sha===actual&&
+      typeof clientApplicationLifecycleEventEntry.required_marker==='string'&&
+      clientApplicationLifecycleEventEntry.required_marker.length>0&&
+      body.toString('utf8').includes(clientApplicationLifecycleEventEntry.required_marker)
+    );
     if(exactOwnerVisualPost)ownerVisualDeltaAppliedFiles+=1;
     if(exactIssue430Post)clientMultiContext430AppliedFiles+=1;
     if(exactTypographyPost)clientSectionTypography110AppliedFiles+=1;
@@ -683,7 +716,8 @@ for(const [path,expected] of Object.entries(protectedFiles)){
     if(exactClientPostreleaseIssue430&&CLIENT_POSTRELEASE_ISSUE430_FILES.includes(path))clientPostreleaseIssue430AppliedFiles+=1;
     if(exactClientRailAdminMirror)clientRailAdminMirrorAppliedFiles+=1;
     if(exactClientRail670)clientRail670AppliedFiles+=1;
-    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
+    if(exactClientApplicationLifecycleEvent)clientApplicationLifecycleEventAppliedFiles+=1;
+    if(actual!==expected&&!approvedModifiedFiles.has(path)&&!exactOwnerVisualPost&&!exactIssue430Post&&!exactTypographyPost&&!exactPr431TwoBugScopedPost&&!exactClientPostreleaseIssue430&&!exactClientRailAdminMirror&&!exactClientRail670&&!exactClientApplicationLifecycleEvent)errors.push(`MODIFIED ${path} expected=${expected} actual=${actual}`);
   }catch(error){
     errors.push(`MISSING ${path} ${error?.code||error?.message||'READ_ERROR'}`);
   }
@@ -693,6 +727,8 @@ if(!clientRailAdminMirrorExceptionAuthorized)errors.push('CLIENT_RAIL_ADMIN_MIRR
 if(clientRailAdminMirrorExceptionAuthorized&&clientRailAdminMirrorAppliedFiles!==1&&!clientRailAdminMirrorSupersededBy670)errors.push(`CLIENT_RAIL_ADMIN_MIRROR_EXACT_BLOB_COUNT expected=1 actual=${clientRailAdminMirrorAppliedFiles}`);
 if(!clientRail670ExceptionAuthorized)errors.push('CLIENT_RAIL_670_GOVERNANCE_NOT_AUTHORIZED');
 if(clientRail670ExceptionAuthorized&&clientRail670AppliedFiles!==CLIENT_RAIL_670_FILES.length)errors.push(`CLIENT_RAIL_670_EXACT_BLOB_COUNT expected=${CLIENT_RAIL_670_FILES.length} actual=${clientRail670AppliedFiles}`);
+if(!clientApplicationLifecycleEventExceptionAuthorized)errors.push('CLIENT_APPLICATION_LIFECYCLE_EVENT_GOVERNANCE_NOT_AUTHORIZED');
+if(clientApplicationLifecycleEventExceptionAuthorized&&clientApplicationLifecycleEventAppliedFiles!==CLIENT_APPLICATION_LIFECYCLE_EVENT_FILES.length)errors.push(`CLIENT_APPLICATION_LIFECYCLE_EVENT_EXACT_BLOB_COUNT expected=${CLIENT_APPLICATION_LIFECYCLE_EVENT_FILES.length} actual=${clientApplicationLifecycleEventAppliedFiles}`);
 if(!clientPostreleaseIssue430ExceptionAuthorized)errors.push('CLIENT_POSTRELEASE_ISSUE430_GOVERNANCE_NOT_AUTHORIZED');
 if(clientPostreleaseIssue430ExceptionAuthorized&&clientPostreleaseIssue430AppliedFiles!==CLIENT_POSTRELEASE_ISSUE430_FILES.length)errors.push(`CLIENT_POSTRELEASE_ISSUE430_EXACT_BLOB_COUNT expected=${CLIENT_POSTRELEASE_ISSUE430_FILES.length} actual=${clientPostreleaseIssue430AppliedFiles}`);
 const clientSectionTypography110EffectiveFiles=clientSectionTypography110AppliedFiles+clientPostreleaseIssue430AppliedFiles;
