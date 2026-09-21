@@ -16,7 +16,8 @@ test('specific market route delegates active impersonation to canonical Edge aut
   assert.match(route,/\/v1\/client\/market-intelligence/);
   assert.match(route,/if\(impersonation\.active\)/);
   assert.match(route,/IMPERSONATION_SESSION_INVALID/);
-  assert.match(route,/owner_client_market_intelligence_feed_v1/);
+  assert.doesNotMatch(route,/owner_client_market_intelligence_feed_v1/);
+  assert.match(route,/x-rona-client-refresh-reason/);
 });
 
 test('canonical Edge owns effective Client market-intelligence dispatch',()=>{
