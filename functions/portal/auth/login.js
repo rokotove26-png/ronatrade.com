@@ -33,7 +33,7 @@ function loginHtml(message=''){
 }
 function unavailableHtml(next='/portal/admin'){
  const target=parseLocalNext(next)||'/portal/admin';
- return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta http-equiv="refresh" content="2;url=${escapeHtml(target)}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Восстановление соединения</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif}.box{max-width:540px;padding:28px;border:1px solid #29404e;border-radius:16px;background:#0b151d}.muted{color:#93a8b3}</style></head><body><main class="box"><h1>Восстанавливаю соединение</h1><p class="muted">Данные входа приняты. Сервер авторизации временно недоступен; повторная проверка выполняется автоматически.</p></main></body></html>`;
+ return `<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta http-equiv="refresh" content="8;url=${escapeHtml(target)}"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RONA Trade — Восстановление соединения</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#05090d;color:#eef4f7;font:16px Inter,Arial,sans-serif}.box{max-width:540px;padding:28px;border:1px solid #29404e;border-radius:16px;background:#0b151d}.muted{color:#93a8b3}</style></head><body><main class="box"><h1>Восстанавливаю соединение</h1><p class="muted">Данные входа приняты. Сервер авторизации временно недоступен; повторная проверка выполняется автоматически.</p></main></body></html>`;
 }
 function sameOrigin(request){
  const u=new URL(request.url),o=request.headers.get('origin');
@@ -87,7 +87,7 @@ async function recoverExistingOwnerSession(request,next,identifier=''){
  }
  return null;
 }
-async function sessionMe(accessToken){let lastStatus=503;for(let attempt=0;attempt<3;attempt++){try{const r=await fetchWithTimeout(`${PORTAL_API}/session/me`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},4000);lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return {state:'VALID',me:j,status:r.status};}else if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};else if(r.status!==429&&r.status<500)return {state:'INVALID',me:null,status:r.status};}catch{lastStatus=503}if(attempt<2)await new Promise(resolve=>setTimeout(resolve,300));}return {state:'UNAVAILABLE',me:null,status:lastStatus}}
+async function sessionMe(accessToken){let lastStatus=503;const timeouts=[12000,6000];for(let attempt=0;attempt<timeouts.length;attempt++){try{const r=await fetchWithTimeout(`${PORTAL_API}/session/me`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`,accept:'application/json'}},timeouts[attempt]);lastStatus=r.status;if(r.ok){const j=await r.json().catch(()=>null);if(j?.ok&&j?.user)return {state:'VALID',me:j,status:r.status};}else if(r.status===401||r.status===403)return {state:'INVALID',me:null,status:r.status};else if(r.status!==429&&r.status<500)return {state:'INVALID',me:null,status:r.status};}catch{lastStatus=503}if(attempt<timeouts.length-1)await new Promise(resolve=>setTimeout(resolve,500));}return {state:'UNAVAILABLE',me:null,status:lastStatus}}
 async function logout(accessToken){try{await fetch(`${SUPABASE_URL}/auth/v1/logout`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${accessToken}`}})}catch(_){}}
 
 export async function onRequestPost({request}){
