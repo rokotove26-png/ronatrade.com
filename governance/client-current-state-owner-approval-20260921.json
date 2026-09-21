@@ -31,7 +31,7 @@
     "assets/portal-runtime/client-payments-authoritative-v1.js": {
       "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
       "production_parent_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
-      "authorized_post_blob_sha": "a576060f363aade89712951ff1ec5d66da721b9e",
+      "authorized_post_blob_sha": "d712028dbcf9ce31fe4f5cd9c86351dc487424f7",
       "required_marker": "20260921-client-payments-authoritative-v3-current-state-refresh"
     },
     "assets/portal-runtime/client-payments-canonical-layout-v1.js": {
@@ -86,6 +86,9 @@
     "merge": "HOLD",
     "deploy": "HOLD",
     "pageshow_visibility_refresh_respects_fresh_ttl": true,
-    "periodic_timer_forces_network_refresh": true
+    "periodic_timer_forces_network_refresh": true,
+    "client_projection_is_single_automatic_network_refresh_owner": true,
+    "payments_pageshow_visibility_refresh_respects_fresh_context": true,
+    "payments_manual_open_may_force_refresh": true
   }
 }
