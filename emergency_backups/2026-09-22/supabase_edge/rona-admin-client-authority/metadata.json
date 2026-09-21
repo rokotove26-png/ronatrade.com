@@ -1,0 +1,12 @@
+{
+  "slug": "rona-admin-client-authority",
+  "name": "rona-admin-client-authority",
+  "status": "ACTIVE",
+  "version": 3,
+  "verify_jwt": true,
+  "ezbr_sha256": "644b636e49a99aac94340594ca4b759fac90e3bfdc3b49a4540856f80ae92e19",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_688b98c0-3bb7-4a96-aa04-b490555ad6e0_1/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_688b98c0-3bb7-4a96-aa04-b490555ad6e0_1/source/deno.json",
+  "created_at": 1787177372783,
+  "updated_at": 1787177372783
+}
