@@ -1,0 +1,65 @@
+{
+  "approval": "OWNER_IN_CHAT_HANDOFF_V74",
+  "authorized_at": "2026-09-21",
+  "pr_number": 836,
+  "branch": "client-current-state-reconcile-v75",
+  "base_commit": "2d8300df4dc7e8333635121397142b0e07d0adb4",
+  "scope": "CLIENT_CURRENT_STATE_RECONCILIATION_V75_EVENT_DRIVEN",
+  "owner_instruction": "Proceed from SYSTEM_ADMIN CURRENT STATE v74; reconcile stale Architect PR #810 onto current production, remove the remaining recurring Client network owners and Payments 1-second loop, fix Applications projection-to-DOM, preserve current production architecture and business semantics.",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-context-selection-authority-v1.js",
+    "assets/portal-runtime/client-application-lifecycle-v1.js",
+    "assets/portal-runtime/client-payments-authoritative-v1.js",
+    "assets/portal-runtime/client-payments-canonical-layout-v1.js",
+    "scripts/attach-client-application-lifecycle.mjs"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-context-selection-authority-v1.js": {
+      "visual_freeze_baseline_blob_sha": "abe541dbd6162dd7cc03462e1b37ba23d6fb5b60",
+      "authorized_post_blob_sha": "2f587f10b1e23bdeb13c798baa4fa0381d3a298e",
+      "required_marker": "PROJECTION_TTL_MS=15000"
+    },
+    "assets/portal-runtime/client-application-lifecycle-v1.js": {
+      "visual_freeze_baseline_blob_sha": "73e94188bff36e57a7f269a516ae655b2556ea2a",
+      "authorized_post_blob_sha": "d46b1062ea8711a61ef7eac05e0c2b01830066c6",
+      "required_marker": "refreshCurrentProjection('application-lifecycle')"
+    },
+    "assets/portal-runtime/client-payments-authoritative-v1.js": {
+      "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
+      "authorized_post_blob_sha": "77a400242cbebf56b643bf4405e55b4ec0d217ca",
+      "required_marker": "20260921-client-payments-authoritative-v3-current-state-refresh"
+    },
+    "assets/portal-runtime/client-payments-canonical-layout-v1.js": {
+      "visual_freeze_baseline_blob_sha": "4f5fc870355edd947c20b8d377cf0f3a5df2003c",
+      "authorized_post_blob_sha": "845e55d476adfc8191ecd61976b29dbdd800e54c",
+      "required_marker": "20260921-client-payments-canonical-layout-v4-current-receipt-status"
+    },
+    "scripts/attach-client-application-lifecycle.mjs": {
+      "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
+      "authorized_post_blob_sha": "1188d18d52ba92be48eefc2a190692f44effe823",
+      "required_marker": "20260921-current-state-event-driven-v4"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_change": false,
+    "css_changed": false,
+    "images_added": false,
+    "business_data_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "admin_portal_changed": false,
+    "rail_changed": false,
+    "current_production_event_driven_governance_preserved": true,
+    "recurring_client_network_owners_target": 0,
+    "payments_one_second_dom_loop_removed": true,
+    "applications_projection_to_dom_required": true,
+    "full_green_ci_required_before_merge": true,
+    "authenticated_client_verification_required": true,
+    "final_idle_acceptance_required": true,
+    "merge": "HOLD",
+    "deploy": "HOLD"
+  }
+}
