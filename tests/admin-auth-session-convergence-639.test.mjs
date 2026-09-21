@@ -605,7 +605,7 @@ test('Admin shell refreshes when the current access probe is unavailable but a r
   });
   assert.equal(response.status,200);
   assert.equal(await response.text(),'ADMIN_SHELL_OK');
-  assert.equal(oldPrimaryCalls,6);
+  assert.equal(oldPrimaryCalls,2);
   assert.equal(controlCalls,1);
   assert.equal(ownerProbeCalls,1);
   assert.equal(refreshCalls,1);
