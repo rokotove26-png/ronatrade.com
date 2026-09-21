@@ -33,5 +33,10 @@
     "signed_contract_download_preserved": true,
     "pr431_card_factory_visual_semantics_preserved": true,
     "architect_pr_810_files_changed": false
+  },
+  "ci_retrigger": {
+    "reason": "PR_BODY_OWNER_VISUAL_APPROVAL_MARKER_WAS_ADDED_AFTER_PREVIOUS_SYNCHRONIZE_EVENT",
+    "previous_visual_freeze_source_contract": "PASS",
+    "retry_expected_pr_body_marker": "OWNER_VISUAL_APPROVAL: CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_REFRESH_V1"
   }
 }
