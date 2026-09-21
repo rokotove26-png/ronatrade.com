@@ -167,6 +167,18 @@ test('Route is split into observed traversal and remaining corridor without fake
   assert.match(v81,/\.rona-rail-v7-real \.rona-rail-v4-map-note\{display:none!important\}/);
 });
 
+test('Split wagon histories render as independent route cohorts with border-transition semantics',()=>{
+  assert.match(v81,/function railMapRouteCohorts\(context\)/);
+  assert.match(v81,/function railMapCohortSegments\(context\)/);
+  assert.match(v81,/function railMapCohortDraw\(svg,context,left,top,z\)/);
+  assert.match(v81,/OBSERVED_ENDPOINTS_PATH_UNRESOLVED/);
+  assert.match(v81,/rona-rail-v7-cohort-line/);
+  assert.match(v81,/rona-rail-v7-border-crossing/);
+  assert.match(v81,/rona-rail-v7-border-unresolved/);
+  assert.match(v81,/точный погранпереход не подтвержден/);
+  assert.match(v81,/__RONA_RAIL_ROUTE_COHORTS__='20260921-route-cohorts-v1'/);
+});
+
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
   assert.match(v81,/Array\.isArray\(data&&data\.deals\)\?data\.deals:\[\]/);
   assert.match(v81,/life==='CLOSED'\|\|business==='CANCELLED'/);
@@ -239,5 +251,6 @@ test('Read-model overlay publishes per-deal route engine products without mutati
   assert.equal(out.data.remainingRouteByDeal['DEAL-1'].points.length,2);
   assert.equal(out.data.routeProgressByDeal['deal-key-1'].furthestMatchedSequence,51);
   assert.equal(out.data.routeAssignmentByDeal['DEAL-1'].destinationEsr,'742705');
+  assert.equal(out.data.routeCohortsByDeal['deal-key-1'][0].cohortKey,'COHORT:test');
   assert.equal(out.data.rail[0].wagons[0].stationCode,'625501');
 });
