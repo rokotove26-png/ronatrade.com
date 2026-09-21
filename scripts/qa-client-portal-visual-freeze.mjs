@@ -631,7 +631,8 @@ const CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES=[
   'assets/portal-runtime/client-payments-authoritative-v1.js',
   'assets/portal-runtime/client-payments-canonical-layout-v1.js',
   'scripts/attach-client-application-lifecycle.mjs',
-  'scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs'
+  'scripts/qa-client-owner-retest-authoritative-company-metrics-v5.mjs',
+  'assets/portal-runtime/client-deal-canonical-visual-v2.js'
 ];
 const clientCurrentStateReconciliationV75ExceptionAuthorized=
   clientCurrentStateReconciliationV75Approval?.approval==='OWNER_IN_CHAT_HANDOFF_V74'&&
@@ -658,6 +659,7 @@ const clientCurrentStateReconciliationV75ExceptionAuthorized=
   clientCurrentStateReconciliationV75Approval?.requirements?.payments_one_second_dom_loop_removed===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.applications_projection_to_dom_required===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.owner_retest_fixture_current_application_business_v2===true&&
+  clientCurrentStateReconciliationV75Approval?.requirements?.deal_state_strip_current_runtime_stability===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.full_green_ci_required_before_merge===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.authenticated_client_verification_required===true&&
   clientCurrentStateReconciliationV75Approval?.requirements?.final_idle_acceptance_required===true&&
