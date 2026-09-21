@@ -17,6 +17,7 @@ const CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_APPROVAL_PATH='governance/client-com
 const CLIENT_MARKET_EVENT_DRIVEN_APPROVAL_PATH='governance/client-market-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH='governance/client-contract-event-driven-refresh-owner-approval-20260921.json';
 const CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH='governance/client-background-manifest-event-driven-owner-approval-20260921.json';
+const CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH='governance/client-sidebar-command-nav-owner-approval-20260921.json';
 const CLIENT_CURRENT_STATE_RECONCILIATION_V75_APPROVAL_PATH='governance/client-current-state-reconciliation-v75-owner-approval-20260921.json';
 const policy=JSON.parse(await readFile(POLICY_PATH,'utf8'));
 const applicationsApproval=JSON.parse(await readFile(APPLICATIONS_APPROVAL_PATH,'utf8'));
@@ -34,12 +35,45 @@ const clientCompanyDirectoryEventDrivenApproval=JSON.parse(await readFile(CLIENT
 const clientMarketEventDrivenApproval=JSON.parse(await readFile(CLIENT_MARKET_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientContractEventDrivenApproval=JSON.parse(await readFile(CLIENT_CONTRACT_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
 const clientBackgroundManifestEventDrivenApproval=JSON.parse(await readFile(CLIENT_BACKGROUND_MANIFEST_EVENT_DRIVEN_APPROVAL_PATH,'utf8'));
+const clientSidebarCommandNavApproval=JSON.parse(await readFile(CLIENT_SIDEBAR_COMMAND_NAV_APPROVAL_PATH,'utf8'));
 const clientCurrentStateReconciliationV75Approval=JSON.parse(await readFile(CLIENT_CURRENT_STATE_RECONCILIATION_V75_APPROVAL_PATH,'utf8'));
 
 if(policy.policy!=='RONA_CLIENT_PORTAL_VISUAL_FREEZE_V1')throw new Error('CLIENT_VISUAL_FREEZE_POLICY_ID_MISMATCH');
 if(policy.status!=='FROZEN')throw new Error('CLIENT_VISUAL_FREEZE_NOT_ACTIVE');
 if(policy.owner_instruction_required!==true)throw new Error('CLIENT_VISUAL_FREEZE_OWNER_GATE_DISABLED');
 if(!policy.approval_marker||!String(policy.approval_marker).startsWith('OWNER_VISUAL_APPROVAL:'))throw new Error('CLIENT_VISUAL_FREEZE_APPROVAL_MARKER_INVALID');
+
+const CLIENT_SIDEBAR_COMMAND_NAV_RUNTIME='assets/portal-runtime/client-sidebar-command-nav-v1.js';
+const clientSidebarCommandNavExceptionAuthorized=
+  clientSidebarCommandNavApproval?.approval==='OWNER_IN_CHAT'&&
+  clientSidebarCommandNavApproval?.authorized_at==='2026-09-21'&&
+  clientSidebarCommandNavApproval?.scope==='CLIENT_SIDEBAR_COMMAND_NAV_VISUAL_V1'&&
+  Array.isArray(clientSidebarCommandNavApproval?.approved_new_runtime)&&
+  clientSidebarCommandNavApproval.approved_new_runtime.length===1&&
+  clientSidebarCommandNavApproval.approved_new_runtime[0]===CLIENT_SIDEBAR_COMMAND_NAV_RUNTIME&&
+  clientSidebarCommandNavApproval?.required_marker==='20260921-client-sidebar-command-nav-v1'&&
+  clientSidebarCommandNavApproval?.requirements?.visual_freeze_remains_enabled===true&&
+  clientSidebarCommandNavApproval?.requirements?.exact_file_enforcement_remains_active===true&&
+  clientSidebarCommandNavApproval?.requirements?.wildcard_exception===false&&
+  clientSidebarCommandNavApproval?.requirements?.sidebar_only===true&&
+  clientSidebarCommandNavApproval?.requirements?.canonical_client_source_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.sidebar_width_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.business_data_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.business_logic_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.auth_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.router_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.navigation_click_behavior_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.supabase_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.finance_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.rail_business_logic_changed===false&&
+  clientSidebarCommandNavApproval?.requirements?.images_added===false&&
+  clientSidebarCommandNavApproval?.requirements?.real_inline_svg_icons===true&&
+  clientSidebarCommandNavApproval?.requirements?.legacy_glyph_icons_removed_from_rendered_sidebar===true&&
+  clientSidebarCommandNavApproval?.requirements?.active_state_cyan_red_icon===true&&
+  clientSidebarCommandNavApproval?.requirements?.attention_state_neon_red===true&&
+  clientSidebarCommandNavApproval?.requirements?.explicit_attention_only===true&&
+  clientSidebarCommandNavApproval?.requirements?.late_overwrite_self_heal===true&&
+  clientSidebarCommandNavApproval?.requirements?.chromium_visual_proof_required===true;
 
 const applicationExceptionAuthorized=
   applicationsApproval?.approval==='OWNER_IN_CHAT'&&
@@ -728,8 +762,18 @@ if(applicationBusinessV2VisualExceptionAuthorized){
   if(actual===expected&&body.toString('utf8').includes('RONA_APPLICATION_BUSINESS_V2')) approvedNewRuntime.add('client-application-intent-v2.js');
 }
 
+if(clientSidebarCommandNavExceptionAuthorized){
+  const body=await readFile(CLIENT_SIDEBAR_COMMAND_NAV_RUNTIME);
+  const actual=createHash('sha1').update(Buffer.from(`blob ${body.length}\0`)).update(body).digest('hex');
+  if(actual===clientSidebarCommandNavApproval.exact_new_runtime_blob_sha&&body.toString('utf8').includes(clientSidebarCommandNavApproval.required_marker)){
+    approvedNewRuntime.add('client-sidebar-command-nav-v1.js');
+  }
+}
+
 const protectedFiles=policy.protected_files||{};
 const errors=[];
+if(!clientSidebarCommandNavExceptionAuthorized)errors.push('CLIENT_SIDEBAR_COMMAND_NAV_GOVERNANCE_NOT_AUTHORIZED');
+if(clientSidebarCommandNavExceptionAuthorized&&!approvedNewRuntime.has('client-sidebar-command-nav-v1.js'))errors.push('CLIENT_SIDEBAR_COMMAND_NAV_EXACT_RUNTIME_NOT_AUTHORIZED');
 let ownerVisualDeltaAppliedFiles=0;
 let clientMultiContext430AppliedFiles=0;
 let clientSectionTypography110AppliedFiles=0;
@@ -1019,5 +1063,5 @@ if(errors.length){
   process.exit(1);
 }
 
-console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} client_section_typography_qa_wiring_exact_files=${pr431TypographyQaWiringExactFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass application_business_v2_owner_scope=${applicationBusinessV2VisualExceptionAuthorized?'approved':'none'} client_rail_admin_mirror=${clientRailAdminMirrorExceptionAuthorized?'approved':'none'} client_rail_admin_mirror_applied_files=${clientRailAdminMirrorAppliedFiles} client_rail_670=${clientRail670ExceptionAuthorized?'approved':'none'} client_rail_670_applied_files=${clientRail670AppliedFiles} client_event_driven_refresh=${clientEventDrivenRefreshExceptionAuthorized?'approved':'none'} client_event_driven_refresh_applied_files=${clientEventDrivenRefreshAppliedFiles} client_market_event_driven=${clientMarketEventDrivenExceptionAuthorized?'approved':'none'} client_market_event_driven_applied_files=${clientMarketEventDrivenAppliedFiles} client_contract_event_driven=${clientContractEventDrivenExceptionAuthorized?'approved':'none'} client_contract_event_driven_applied_files=${clientContractEventDrivenAppliedFiles} client_contract_legacy_visual_supersession=${clientContractEventDrivenSupersedesLegacyContractVisualBlob?'approved':'none'} client_background_manifest_event_driven=${clientBackgroundManifestEventDrivenExceptionAuthorized?'approved':'none'} client_background_manifest_event_driven_applied_files=${clientBackgroundManifestEventDrivenAppliedFiles} client_company_directory_event_driven=${clientCompanyDirectoryEventDrivenExceptionAuthorized?'approved':'none'} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
+console.log(`CLIENT_PORTAL_VISUAL_FREEZE=PASS baseline=${policy.baseline_release_commit} protected=${Object.keys(protectedFiles).length} applications_owner_exception=${applicationExceptionAuthorized?'approved':'none'} deals_loader_owner_exception=${dealsLoaderExceptionAuthorized?'approved':'none'} client_load_hotfix_pr429_exception=${clientLoadHotfixExceptionAuthorized?'approved':'none'} owner_visual_delta_exception=${ownerVisualDeltaExceptionAuthorized?'approved':'none'} owner_visual_delta_applied_files=${ownerVisualDeltaAppliedFiles} client_multicontext_430_exception=${clientMultiContext430ExceptionAuthorized?'approved':'none'} client_multicontext_430_applied_files=${clientMultiContext430AppliedFiles} client_section_typography_110_exception=${clientSectionTypography110ExceptionAuthorized?'approved':'none'} client_section_typography_110_applied_files=${clientSectionTypography110AppliedFiles} client_section_typography_qa_wiring_exact_files=${pr431TypographyQaWiringExactFiles} pr431_two_bug_scoped_freeze_exception=${pr431TwoBugScopedFreezeExceptionAuthorized?'approved':'none'} pr431_two_bug_scoped_applied_files=${pr431TwoBugScopedAppliedFiles} pr431_direct_fix_governance=${pr431DirectFixGovernanceAuthorized?'approved':'none'} pr431_direct_fix_exact_files=${pr431DirectFixExactFiles} deals_functional_runtime=${approvedNewRuntime.size?'approved':'none'} selected_context_delta=${clientLoadHotfixApproval?.authorized_delta||'none'} home_stale_fail_open_delta=${clientLoadHotfixApproval?.authorized_home_delta||'none'} functional_runtime_visual_guard=pass application_business_v2_owner_scope=${applicationBusinessV2VisualExceptionAuthorized?'approved':'none'} client_rail_admin_mirror=${clientRailAdminMirrorExceptionAuthorized?'approved':'none'} client_rail_admin_mirror_applied_files=${clientRailAdminMirrorAppliedFiles} client_rail_670=${clientRail670ExceptionAuthorized?'approved':'none'} client_rail_670_applied_files=${clientRail670AppliedFiles} client_event_driven_refresh=${clientEventDrivenRefreshExceptionAuthorized?'approved':'none'} client_event_driven_refresh_applied_files=${clientEventDrivenRefreshAppliedFiles} client_market_event_driven=${clientMarketEventDrivenExceptionAuthorized?'approved':'none'} client_market_event_driven_applied_files=${clientMarketEventDrivenAppliedFiles} client_contract_event_driven=${clientContractEventDrivenExceptionAuthorized?'approved':'none'} client_contract_event_driven_applied_files=${clientContractEventDrivenAppliedFiles} client_contract_legacy_visual_supersession=${clientContractEventDrivenSupersedesLegacyContractVisualBlob?'approved':'none'} client_background_manifest_event_driven=${clientBackgroundManifestEventDrivenExceptionAuthorized?'approved':'none'} client_background_manifest_event_driven_applied_files=${clientBackgroundManifestEventDrivenAppliedFiles} client_company_directory_event_driven=${clientCompanyDirectoryEventDrivenExceptionAuthorized?'approved':'none'} client_sidebar_command_nav=${clientSidebarCommandNavExceptionAuthorized&&approvedNewRuntime.has('client-sidebar-command-nav-v1.js')?'approved':'none'} visual_css_change=${ownerVisualDeltaAppliedFiles?'OWNER_APPROVED_EXACT':'none'}`);
 console.log('VISUAL_FREEZE_EXACT_EXCEPTION=PASS');
