@@ -4,7 +4,7 @@ if(window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__===MARK)return;
 window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__=MARK;
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
+const API='/portal/api',STALE_MS=30000;
 const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0};
@@ -61,7 +61,7 @@ async function loadAuthoritativeState(force=false){
   if(!ctx){clearAuthoritativeState();state.ready=true;apply();markAuthoritativeReady();return}
   const key=contextKey(ctx);
   if(state.contextKey&&state.contextKey!==key)clearAuthoritativeState(ctx);else state.contextKey=key;
-  if(!force&&state.ready&&Date.now()-state.lastLoad<REFRESH_MS){apply();markAuthoritativeReady();return}
+  if(!force&&state.ready&&Date.now()-state.lastLoad<STALE_MS){apply();markAuthoritativeReady();return}
   state.loading=true;
   try{
     const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
@@ -120,7 +120,7 @@ function scheduleAndLoad(delay=0,force=false){schedule(delay);setTimeout(()=>loa
 function start(){
   installStyle();apply();const authority=contextAuthority();if(!authority){markAuthoritativeError();return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==state.contextKey)clearAuthoritativeState(ctx);scheduleAndLoad(0,true)});
-  loadWhenNeeded(true);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true});setInterval(()=>loadWhenNeeded(false),REFRESH_MS)
+  loadWhenNeeded(true);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true})
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 document.addEventListener('click',()=>scheduleAndLoad(40,false),true);
@@ -128,4 +128,5 @@ document.addEventListener('change',()=>scheduleAndLoad(40,false),true);
 window.addEventListener('pageshow',()=>scheduleAndLoad(0,false),{passive:true});
 window.addEventListener('hashchange',()=>scheduleAndLoad(20,false),{passive:true});
 window.addEventListener('rona:client-application-submitted',()=>setTimeout(()=>loadAuthoritativeState(true),150));
+window.addEventListener('rona:client-current-projection',()=>loadWhenNeeded(true),{passive:true});
 })();
