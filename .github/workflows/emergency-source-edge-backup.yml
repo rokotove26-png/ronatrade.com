@@ -1,0 +1,51 @@
+name: Emergency Source Edge Backup
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ops/emergency-backup-export-20260922-3be92ae'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build exact production source and Edge recovery package
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE_SHA='3be92ae58cbab02045e2e85f8491dfee6ffcfc9a'
+          SHORT_SHA='3be92ae'
+          BACKUP_BRANCH='backup/emergency-admin-client-20260922-3be92ae'
+          mkdir -p out/source out/edge-snapshot out/manifests
+
+          git fetch origin "$BACKUP_BRANCH":"refs/remotes/origin/$BACKUP_BRANCH"
+          git archive --format=tar.gz -o "out/source/ronatrade-production-$SHORT_SHA.tar.gz" "$BASE_SHA"
+          git bundle create out/source/ronatrade-complete.bundle --all
+          git archive --format=tar.gz -o "out/edge-snapshot/supabase-edge-snapshot-$SHORT_SHA.tar.gz" "refs/remotes/origin/$BACKUP_BRANCH" emergency_backups/2026-09-22
+
+          git show -s --format='%H%n%cI%n%s' "$BASE_SHA" > out/manifests/production-commit.txt
+          printf '%s\n' "$BACKUP_BRANCH" > out/manifests/backup-branch.txt
+          (
+            cd out
+            find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          )
+          tar -C out -czf "RONA_Source_Edge_Recovery_2026-09-22_$SHORT_SHA.tar.gz" .
+          sha256sum "RONA_Source_Edge_Recovery_2026-09-22_$SHORT_SHA.tar.gz" > "RONA_Source_Edge_Recovery_2026-09-22_$SHORT_SHA.tar.gz.sha256"
+          ls -lh "RONA_Source_Edge_Recovery_2026-09-22_$SHORT_SHA.tar.gz"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Source-Edge-Recovery-2026-09-22
+          path: |
+            RONA_Source_Edge_Recovery_2026-09-22_3be92ae.tar.gz
+            RONA_Source_Edge_Recovery_2026-09-22_3be92ae.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 90
