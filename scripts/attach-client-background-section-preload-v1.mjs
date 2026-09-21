@@ -14,10 +14,10 @@ if(!runtime.includes(marker))throw new Error(`CLIENT_BACKGROUND_PRELOAD_MARKER_M
 for(const required of [
   'RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe','marketPath(current)','shipmentsPath(current)','railPath(current)',
   '/v1/client/market','/v1/client/shipments','/v1/client/rail','/v1/client/context','/v1/client/prices',
-  "cycle('open')",'REFRESH_MS=30000','rona:client:background-sections','window.__RONA_CLIENT_BACKGROUND_CACHE__=state.cache'
+  "cycle('open')","REFRESH_POLICY='OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST'","mode:'LAZY_ROUTE_MANIFEST'",'rona:client:background-sections','window.__RONA_CLIENT_BACKGROUND_CACHE__=state.cache'
 ])if(!runtime.includes(required))throw new Error(`CLIENT_BACKGROUND_PRELOAD_CONTRACT_MISSING: ${required}`);
 for(const forbidden of [
-  '/v1/client/bootstrap','getAuthorizedContexts','state.contexts.map(preloadContext)','/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'","markSection('market_news'",'method:\'POST\'','method:"POST"','/v1/client/applications\'','/v1/events\'',"read('/v1/client/market')"
+  '/v1/client/bootstrap','getAuthorizedContexts','state.contexts.map(preloadContext)','/v1/client/market-intelligence','MARKET_INTELLIGENCE_REFRESH_MS','readMarketIntelligence',"markSection('analytics'","markSection('market_news'",'method:\'POST\'','method:"POST"','/v1/client/applications\'','/v1/events\'',"read('/v1/client/market')",'setInterval(','REFRESH_MS=30000','legacyRefreshMs','fetch('
 ])if(runtime.includes(forbidden))throw new Error(`CLIENT_BACKGROUND_PRELOAD_FORBIDDEN: ${forbidden}`);
 
 let html=await readFile(htmlPath,'utf8');
@@ -30,7 +30,7 @@ const emitted=Buffer.from(html,'utf8');
 const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.emitted_sha256=sha256(emitted);integrity.client_runtime.emitted_bytes=emitted.length;
 integrity.client_runtime.background_section_preload={
-  id,src,marker,mode:'CORE_CLIENT_SECTIONS_BACKGROUND_PRELOAD',trigger:'PORTAL_OPEN_PLUS_CURRENT_CONTEXT_CHANGE',refresh_ms:30000,visibility_independent:true,
+  id,src,marker,mode:'LAZY_ROUTE_MANIFEST',trigger:'PORTAL_OPEN_PLUS_CURRENT_CONTEXT_CHANGE_PLUS_PAGESHOW',refresh_ms:null,refresh_policy:'OPEN_CONTEXT_CHANGE_PAGESHOW_LAZY_MANIFEST',periodic_polling:false,network_preload:false,
   scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ONLY',context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',authorized_context_catalog:'NOT_CONSUMED_BY_MODULE',read_only:true,
   current_context:['/portal/api/v1/client/context','/portal/api/v1/client/prices','/portal/api/v1/client/market','/portal/api/v1/client/shipments','/portal/api/v1/client/rail'],
   global:[],
@@ -39,4 +39,4 @@ integrity.client_runtime.background_section_preload={
 };
 await writeFile(integrityPath,JSON.stringify(integrity),'utf8');
 if(!html.includes(`id="${id}"`)||!html.includes(src))throw new Error('CLIENT_BACKGROUND_PRELOAD_BRIDGE_MISSING_AFTER_WRITE');
-console.log('CLIENT_BACKGROUND_SECTION_PRELOAD=PASS selected CURRENT_CONTEXT only; market is selected-context scoped');
+console.log('CLIENT_BACKGROUND_SECTION_PRELOAD=PASS lazy route manifest only; selected CURRENT_CONTEXT; periodic polling absent; background network preload absent');
