@@ -1,0 +1,12 @@
+{
+  "slug": "rona-admin-agent-access",
+  "name": "rona-admin-agent-access",
+  "status": "ACTIVE",
+  "version": 3,
+  "verify_jwt": true,
+  "ezbr_sha256": "880628c9435d5aa078b8a7ab7fd37300c8ac51e8d4f5022b7471766d2cfccf4f",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_f0148ca4-0c78-4e36-b521-84344bf58664_1/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_f0148ca4-0c78-4e36-b521-84344bf58664_1/source/deno.json",
+  "created_at": 1787145731190,
+  "updated_at": 1787145731190
+}
