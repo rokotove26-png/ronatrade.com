@@ -53,11 +53,11 @@ if(!runtime.includes(COHERENCE_MARK)){
   const fetchTo="async function scopedBootstrapResponse(response){try{if(!response?.ok)return response;const body=await response.clone().json();if(body?.ok===false)return response;const rawContexts=body?.data?.contexts;captureCompanyDirectory(body?.data,rawContexts,'wrapped-bootstrap-capture');if(!publish(rawContexts,'bootstrap-capture',authoritativeHint(body?.data)))return response;const selected=state.selected?{...state.selected}:null;const data={...(body.data||{}),contexts:selected?[selected]:[],requires_context_selection:state.contexts.length>1&&!selected,selected_context:selected};return new Response(JSON.stringify({...body,data}),{status:response.status,statusText:response.statusText,headers:responseHeaders(response)})}catch{return response}}\nwindow.fetch=async function(input,init){const raw=rawInput(input),url=clientUrl(raw);if(!url)return nativeFetch(input,init);const source=callerSource(input,init),method=requestMethod(input,init);if(url.pathname===BOOT&&method==='GET'){recordCaller(url,source,'request');const response=await nativeFetch(input,taggedInit(input,init,source));return scopedBootstrapResponse(response)}const mutation=MUTATION_METHODS.has(method),contextual=mutation||url.searchParams.has('clientId')||url.searchParams.has('contractId')||pathRequiresContext(url.pathname);if(!contextual)return nativeFetch(input,init);await ensure();if(!state.selected)throw new Error('CLIENT_CONTEXT_SELECTION_REQUIRED');url.searchParams.set('clientId',state.selected.client_id);url.searchParams.set('contractId',state.selected.contract_id);recordCaller(url,source,'request');if(url.pathname===CONTEXT_ROUTE&&method==='GET')return loadCurrentProjection(source,{forceFresh:explicitFreshRead(input,init)});const rewritten=input instanceof Request?new Request(nextUrl(raw,url),input):nextUrl(raw,url),response=await nativeFetch(rewritten,taggedInit(input,init,source));recordCaller(url,source,'network');if(mutation&&response.ok)invalidateProjection(`mutation:${method}:${url.pathname}`);return response}";
   runtime=replaceBounded(
     runtime,
-    'window.fetch=async function(input,init){',
+    'async function scopedBootstrapResponse(response){',
     'function onChange',
     fetchTo+';\n',
     'ISSUE432_FETCH_INTERCEPTOR',
-    ['clientUrl(raw)','CONTEXT_ROUTE','nativeFetch','taggedInit','invalidateProjection']
+    ['window.fetch=async function(input,init){','clientUrl(raw)','CONTEXT_ROUTE','nativeFetch','taggedInit','invalidateProjection']
   );
 }
 
