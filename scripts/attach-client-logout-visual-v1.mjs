@@ -11,7 +11,7 @@ const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
 if(!runtime.includes(marker))throw new Error(`CLIENT_LOGOUT_VISUAL_MARKER_MISSING: ${marker}`);
-for(const required of ['justify-content:center!important','linear-gradient(110deg','ronaClientLogoutRedFlowV2','data-rona-logout-visual-v1',"style.setProperty(prop,value,'important')","window.addEventListener('focus',schedule"]){
+for(const required of ['justify-content:center!important','linear-gradient(110deg','ronaClientLogoutRedFlowV2','data-rona-logout-visual-v1',"style.setProperty(prop,value,'important')","window.addEventListener('focus',schedule",'EVENT_DRIVEN_FILTERED_MUTATION_V1','mutationTouchesLogout']){
   if(!runtime.includes(required))throw new Error(`CLIENT_LOGOUT_VISUAL_CONTRACT_MISSING: ${required}`);
 }
 if(/setInterval\s*\(/.test(runtime))throw new Error('CLIENT_LOGOUT_VISUAL_PERIODIC_POLLING_FORBIDDEN');
