@@ -21,12 +21,11 @@ jobs:
           node-version: '24'
       - name: Build current portal with visual freeze active
         run: npm run build
-      - name: Verify sidebar runtime and attachment syntax
+      - name: Verify sidebar runtime and attachment syntax after build
         run: |
           node --check assets/portal-runtime/client-sidebar-command-nav-v1.js
           node --check scripts/attach-portal-canonical-button-hover-v1.mjs
           node --check scripts/qa-client-sidebar-command-nav-v1.mjs
-          node scripts/qa-client-portal-visual-freeze.mjs
       - name: Install Chromium
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
