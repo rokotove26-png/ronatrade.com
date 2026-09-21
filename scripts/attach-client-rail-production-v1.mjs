@@ -27,8 +27,9 @@ for(const required of [
   "admin-current-v81-client-authority-v1",
   "AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1",
   "CLIENT_ADMIN_ROUTE_PARITY_V2",
-  "CLIENT_ADMIN_ROUTE_PARITY_V3",
-  "CLIENT_RAIL_ROUTE_OVERLAY_V3",
+  "CLIENT_ADMIN_ROUTE_PARITY_V4",
+  "CLIENT_RAIL_ROUTE_OVERLAY_V4",
+  "rona-client-rail-route-pin",
   "clientRailRenderAuthoritativeRouteOverlay",
   "clientRailPatchRouteDraw",
   "clientRailNormalizeRouteParity",
@@ -67,6 +68,7 @@ for(const required of [
   "const SUBTITLE='Операционная картина железнодорожных отправок по данным клиентского контура.'",
   'CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY',
   'CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2',
+  'CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1',
   "layout_override:'NONE_OPERATIONAL_BODY'",
   'AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'
 ]){
