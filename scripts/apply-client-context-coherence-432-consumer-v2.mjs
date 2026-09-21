@@ -51,9 +51,9 @@ await validateAndWrite(contract,contractPath,'ISSUE432_CONTRACT',[CONTRACT_MARK,
 let payments=await readFile(paymentsPath,'utf8');
 if(!payments.includes(PAYMENTS_MARK)){
   payments=replaceOnce(payments,"const API='/portal/api',REFRESH_MS=30000;",`const API='/portal/api',REFRESH_MS=30000,${PAYMENTS_MARK}='${PAYMENTS_MARK}';`,'ISSUE432_PAYMENTS_MARK');
-  payments=replaceOnce(payments,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await authority.whenCurrentProjection('client-payments-authoritative-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_PAYMENTS_CONTEXT_READ');
+  payments=replaceOnce(payments,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)),force);","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=force&&authority.refreshCurrentProjection?await authority.refreshCurrentProjection('client-payments-authoritative-v1'):await authority.whenCurrentProjection('client-payments-authoritative-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_PAYMENTS_CONTEXT_READ');
 }
-await validateAndWrite(payments,paymentsPath,'ISSUE432_PAYMENTS',[PAYMENTS_MARK,"authority.whenCurrentProjection('client-payments-authoritative-v1')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
+await validateAndWrite(payments,paymentsPath,'ISSUE432_PAYMENTS',[PAYMENTS_MARK,"authority.whenCurrentProjection('client-payments-authoritative-v1')","authority.refreshCurrentProjection('client-payments-authoritative-v1')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
 
 let dealDocuments=await readFile(dealDocumentsPath,'utf8');
 if(!dealDocuments.includes(DEAL_DOCUMENTS_MARK)){
