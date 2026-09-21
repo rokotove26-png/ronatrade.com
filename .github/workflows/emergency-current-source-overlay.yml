@@ -1,0 +1,51 @@
+name: Emergency Current Source Overlay
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'ops/emergency-source-overlay-20260922-4a2d2cd'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Package exact current source overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='3be92ae58cbab02045e2e85f8491dfee6ffcfc9a'
+          HEAD='4a2d2cd72d658be3d38a6be96988a2da20381758'
+          mkdir -p overlay
+          git diff --binary "$BASE" "$HEAD" > overlay/RONA_current_source_overlay_3be92ae_to_4a2d2cd.patch
+          git bundle create overlay/RONA_current_source_overlay_4a2d2cd.bundle "$HEAD" "^$BASE"
+          git diff --name-status "$BASE" "$HEAD" > overlay/CHANGED_FILES.txt
+          git show -s --format='%H%n%cI%n%s' "$HEAD" > overlay/CURRENT_PRODUCTION_HEAD.txt
+          cat > overlay/README.txt <<'EOF'
+          This overlay advances the full emergency recovery source baseline
+          from 3be92ae58cbab02045e2e85f8491dfee6ffcfc9a
+          to   4a2d2cd72d658be3d38a6be96988a2da20381758.
+
+          No Supabase migrations, Edge Functions, database schema files, or DB data were changed between these commits.
+          Apply after restoring the full 3be92ae recovery archive, or fetch the incremental bundle.
+          EOF
+          (cd overlay && sha256sum * > SHA256SUMS.txt)
+          tar -C overlay -czf RONA_Current_Source_Overlay_2026-09-22_4a2d2cd.tar.gz .
+          sha256sum RONA_Current_Source_Overlay_2026-09-22_4a2d2cd.tar.gz > RONA_Current_Source_Overlay_2026-09-22_4a2d2cd.tar.gz.sha256
+          ls -lh RONA_Current_Source_Overlay_2026-09-22_4a2d2cd.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RONA-Current-Source-Overlay-4a2d2cd
+          path: |
+            RONA_Current_Source_Overlay_2026-09-22_4a2d2cd.tar.gz
+            RONA_Current_Source_Overlay_2026-09-22_4a2d2cd.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 90
