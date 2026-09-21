@@ -1,11 +1,11 @@
 (()=>{'use strict';
-const MARK='20260902-client-admin-authoritative-deal-projection-v9-current-context';
+const MARK='20260921-client-application-lifecycle-v10-event-driven-projection';
 if(window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__===MARK)return;
 window.__RONA_CLIENT_APPLICATION_RESOURCE_ARCHIVE__=MARK;
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
-const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null};
+const API='/portal/api';
+const state={activeIds:new Set(),dealStates:new Map(),ready:false,loading:false,lastLoad:0,timer:0,observer:null,contextKey:'',unsubscribe:null,projectionGeneration:0};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const visible=el=>{if(!el||!el.isConnected)return false;const s=getComputedStyle(el);return s.display!=='none'&&s.visibility!=='hidden'&&Number(s.opacity)!==0};
 const APP_ID_RE=/\bRONA-C\d{3}-IN-\d{4}-\d{3,}\b/g;
@@ -39,6 +39,8 @@ async function request(path){
 function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
 function contextKey(ctx){return norm(ctx?.client_id)+'|'+norm(ctx?.contract_id)}
 async function currentContext(){const authority=contextAuthority();if(!authority)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');return authority.getCurrentContext()||await authority.whenReady()}
+function currentProjection(){return contextAuthority()?.getCurrentProjection?.()||null}
+function projectionMatches(detail,ctx){if(!detail||!ctx)return false;const clientId=norm(ctx.client_id),contractId=norm(ctx.contract_id),context=detail.context||{},client=detail.client||{},contract=detail.contract||{};const clients=[detail.client_id,context.client_id,client.client_id,contract.client_id].map(norm).filter(Boolean),contracts=[detail.contract_id,context.contract_id,contract.contract_id].map(norm).filter(Boolean);return clients.length>0&&contracts.length>0&&clients.every(v=>v===clientId)&&contracts.every(v=>v===contractId)}
 function markAuthoritativeReady(){document.documentElement.setAttribute('data-rona-client-operations-state','ready');document.documentElement.setAttribute('data-rona-client-operations-ready','true')}
 function markAuthoritativeError(){document.documentElement.setAttribute('data-rona-client-operations-state','error');document.documentElement.removeAttribute('data-rona-client-operations-ready')}
 function dealFromServer(row){
@@ -54,25 +56,34 @@ function applicationIsActive(app){
   if(linkedDeal)return false;if(['DEAL_REGISTERED','ARCHIVED','CANCELLED','REJECTED'].includes(status))return false;return true;
 }
 function clearAuthoritativeState(ctx=null){state.activeIds=new Set();state.dealStates=new Map();state.ready=false;state.lastLoad=0;state.contextKey=contextKey(ctx)}
-async function loadAuthoritativeState(force=false){
+function adoptProjection(detail,ctx,reason='projection'){
+  const key=contextKey(ctx);if(!projectionMatches(detail,ctx)||contextKey(contextAuthority()?.getCurrentContext())!==key)return false;
+  const active=new Set(),deals=new Map();
+  for(const app of Array.isArray(detail?.applications)?detail.applications:[]){const id=norm(app?.application_id||app?.applicationId||app?.id);if(id&&applicationIsActive(app))active.add(id)}
+  for(const raw of Array.isArray(detail?.deals)?detail.deals:[]){const deal=dealFromServer(raw);deals.set(deal.dealId,deal)}
+  state.activeIds=active;state.dealStates=deals;state.ready=true;state.lastLoad=Date.now();state.contextKey=key;state.projectionGeneration+=1;
+  window.__RONA_CLIENT_APPLICATION_ACTIVE_STATE__={version:MARK,source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',reason,client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_application_ids:[...active],loaded_at:new Date().toISOString()};
+  window.__RONA_CLIENT_DEAL_OPERATIONS_STATE__={version:MARK,source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',reason,client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:[...deals.values()],loaded_at:new Date().toISOString()};
+  apply();markAuthoritativeReady();return true
+}
+async function loadAuthoritativeState(force=false,reason='open'){
   if(state.loading)return;
   let ctx=null;
   try{ctx=await currentContext()}catch(error){console.error('RONA client operations context authority',error);clearAuthoritativeState();apply();markAuthoritativeError();return}
   if(!ctx){clearAuthoritativeState();state.ready=true;apply();markAuthoritativeReady();return}
   const key=contextKey(ctx);
   if(state.contextKey&&state.contextKey!==key)clearAuthoritativeState(ctx);else state.contextKey=key;
-  if(!force&&state.ready&&Date.now()-state.lastLoad<REFRESH_MS){apply();markAuthoritativeReady();return}
   state.loading=true;
   try{
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
-    if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
-    const active=new Set(),deals=new Map();
-    for(const app of Array.isArray(detail?.data?.applications)?detail.data.applications:[]){const id=norm(app?.application_id||app?.applicationId||app?.id);if(id&&applicationIsActive(app))active.add(id)}
-    for(const raw of Array.isArray(detail?.data?.deals)?detail.data.deals:[]){const deal=dealFromServer(raw);deals.set(deal.dealId,deal)}
-    state.activeIds=active;state.dealStates=deals;state.ready=true;state.lastLoad=Date.now();state.contextKey=key;
-    window.__RONA_CLIENT_APPLICATION_ACTIVE_STATE__={version:MARK,source:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),active_application_ids:[...active],loaded_at:new Date().toISOString()};
-    window.__RONA_CLIENT_DEAL_OPERATIONS_STATE__={version:MARK,source:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_SERVER_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:[...deals.values()],loaded_at:new Date().toISOString()};
-    apply();markAuthoritativeReady();
+    const authority=contextAuthority();
+    let detail=currentProjection();
+    if(force&&authority?.refreshCurrentProjection)detail=await authority.refreshCurrentProjection('client-application-lifecycle-v10:'+reason);
+    else if(!detail&&authority?.whenCurrentProjection)detail=await authority.whenCurrentProjection('client-application-lifecycle-v10:'+reason);
+    if(!detail){
+      const response=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+      detail=response?.data||null;
+    }
+    if(!adoptProjection(detail,ctx,reason))throw new Error('CLIENT_OPERATIONS_PROJECTION_SCOPE_MISMATCH');
   }catch(error){console.error('RONA client authoritative projection',error);state.ready=false;apply();markAuthoritativeError()}
   finally{state.loading=false}
 }
@@ -120,12 +131,13 @@ function scheduleAndLoad(delay=0,force=false){schedule(delay);setTimeout(()=>loa
 function start(){
   installStyle();apply();const authority=contextAuthority();if(!authority){markAuthoritativeError();return}
   state.unsubscribe=authority.subscribe(ctx=>{const key=contextKey(ctx);if(key!==state.contextKey)clearAuthoritativeState(ctx);scheduleAndLoad(0,true)});
-  loadWhenNeeded(true);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true});setInterval(()=>loadWhenNeeded(false),REFRESH_MS)
+  loadWhenNeeded(false);state.observer=new MutationObserver(()=>schedule(30));state.observer.observe(document.body,{childList:true,subtree:true})
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 document.addEventListener('click',()=>scheduleAndLoad(40,false),true);
 document.addEventListener('change',()=>scheduleAndLoad(40,false),true);
 window.addEventListener('pageshow',()=>scheduleAndLoad(0,false),{passive:true});
 window.addEventListener('hashchange',()=>scheduleAndLoad(20,false),{passive:true});
-window.addEventListener('rona:client-application-submitted',()=>setTimeout(()=>loadAuthoritativeState(true),150));
+window.addEventListener('rona:client-current-projection',()=>{const ctx=contextAuthority()?.getCurrentContext?.(),detail=currentProjection();if(ctx&&detail)adoptProjection(detail,ctx,'current-projection-event')},{passive:true});
+window.addEventListener('rona:client-application-submitted',()=>setTimeout(()=>loadAuthoritativeState(true,'application-submitted'),150));
 })();
