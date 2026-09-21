@@ -97,7 +97,7 @@
     const{identifier,password,button}=fieldSet(panel);const login=String(identifier.value||'').trim();const secret=String(password.value||'');
     if(!login||!secret){setStatus(doc,panel,'Введите логин и пароль.');return}
     busyPanels.add(panel);setStatus(doc,panel,'');setLoading(button,true);
-    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_AUTH_TIMEOUT'),45000);
+    const controller=new AbortController();const timer=setTimeout(()=>controller.abort('RONA_INLINE_AUTH_TIMEOUT'),60000);
     try{
       const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',referrerPolicy:'no-referrer',signal:controller.signal,headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({identifier:login,password:secret})});
       const data=await r.json().catch(()=>({}));
@@ -116,7 +116,7 @@
       }
       const target=localPortalTarget(data.redirect);if(!target){password.value='';setStatus(doc,panel,'Не удалось определить разрешённый кабинет. Повторите попытку.');return}
       setStatus(doc,panel,'Вход выполнен. Открываем кабинет…',false);try{window.top.location.assign(target)}catch(_){window.location.assign(target)}
-    }catch(err){password.value='';setStatus(doc,panel,err?.name==='AbortError'?'Сервер входа не ответил вовремя. Повторите попытку.':'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{clearTimeout(timer);busyPanels.delete(panel);setLoading(button,false)}
+    }catch(err){password.value='';const timedOut=err?.name==='AbortError'||err==='RONA_INLINE_AUTH_TIMEOUT'||controller.signal.reason==='RONA_INLINE_AUTH_TIMEOUT';setStatus(doc,panel,timedOut?'Сервер входа не ответил вовремя. Повторите попытку.':'Нет связи с сервером авторизации. Проверьте соединение и повторите попытку.')}finally{clearTimeout(timer);busyPanels.delete(panel);setLoading(button,false)}
   }
 
   function eventPanel(doc,target){const panel=findPanel(doc);if(!panel||!target)return null;return panel.contains(target)?panel:null}
