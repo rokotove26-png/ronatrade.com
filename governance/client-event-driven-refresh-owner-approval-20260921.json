@@ -43,5 +43,6 @@
       "PAGESHOW"
     ],
     "no_background_polling_when_idle": true
-  }
+  },
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1"
 }
