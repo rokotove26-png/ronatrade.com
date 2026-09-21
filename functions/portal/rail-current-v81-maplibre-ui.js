@@ -69,7 +69,7 @@ function ensureRailCompactDarkStyle(){
     '.rona-rail-v7-legend-title{margin-bottom:4px!important;color:#88b9c9!important;font-size:8px!important}',
     '.rona-rail-v7-legend-row{grid-template-columns:24px minmax(0,1fr)!important;gap:6px!important;margin-top:4px!important}',
     '.rona-rail-v7-legend-main{color:#f1fbff!important;font-size:9px!important}',
-    '.rona-rail-v7-legend-sub{color:#9ebbc6!important;font-size:8px!important}'
+    '.rona-rail-v7-legend-sub{color:#9ebbc6!important;font-size:8px!important}',
     '.rona-rail-v7-map-status{display:none!important}',
     '.rona-rail-v7-attribution{right:3px!important;bottom:2px!important;padding:1px 4px!important;background:rgba(255,255,255,.70)!important;color:#60727b!important;font-size:7.5px!important;border-radius:4px!important}',
     '.rona-rail-v7-attribution a{color:#60727b!important}',
