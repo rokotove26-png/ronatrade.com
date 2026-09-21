@@ -7,7 +7,10 @@
     "assets/portal-runtime/client-price-conditions-v1.js",
     "assets/portal-runtime/client-shell-guard-v3.js",
     "assets/portal-runtime/client-logout-visual-v1.js",
-    "scripts/attach-client-logout-visual-v1.mjs"
+    "scripts/attach-client-logout-visual-v1.mjs",
+    "assets/portal-runtime/client-applications-live-render-v1.js",
+    "assets/portal-runtime/client-market-intelligence-v1.js",
+    "assets/portal-runtime/client-market-news-admin-parity-v1.js"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -29,6 +32,21 @@
       "visual_freeze_baseline_blob_sha": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
       "authorized_post_blob_sha": "e445b137da05823f791896a54019156b516cc1d7",
       "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
+    },
+    "assets/portal-runtime/client-applications-live-render-v1.js": {
+      "visual_freeze_baseline_blob_sha": "f5a4e9f0952d0c0f4ac0d4bc3c8e072251f3af93",
+      "authorized_post_blob_sha": "3c9d5055f8b8c859482a6d55435664c79b5ae5d5",
+      "required_marker": "20260921-client-applications-live-render-v2-event-driven"
+    },
+    "assets/portal-runtime/client-market-intelligence-v1.js": {
+      "visual_freeze_baseline_blob_sha": "5ad749a28f96a5130d646c9f00b5665aa0146e9e",
+      "authorized_post_blob_sha": "7102e3d8a47a94362984dddb57b684567baa048a",
+      "required_marker": "20260921-client-market-intelligence-v3-event-driven"
+    },
+    "assets/portal-runtime/client-market-news-admin-parity-v1.js": {
+      "visual_freeze_baseline_blob_sha": "731c9fbbfa0a430d892cd9ca3598bad410b51c79",
+      "authorized_post_blob_sha": "78c3f5ed280e10e3340e177abe2300e0e0207cfe",
+      "required_marker": "rona:client-market-intelligence-invalidated"
     }
   },
   "requirements": {
@@ -54,7 +72,19 @@
       "AUTHORITATIVE_DATA_CHANGE",
       "PAGESHOW"
     ],
-    "no_background_polling_when_idle": true
+    "no_background_polling_when_idle": true,
+    "market_intelligence_periodic_refresh": false,
+    "applications_periodic_refresh": false,
+    "company_directory_periodic_refresh": false
   },
-  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1"
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1",
+  "additional_functional_files": {
+    "assets/portal-runtime/portal-client-company-directory-authority-v1.js": {
+      "baseline_blob_sha": "6b8759bb9a33dabd2e6a291b6f15d1aecd03b167",
+      "authorized_post_blob_sha": "f0fd00a969ae0aa4f4a513df542d8f00dde8f959",
+      "required_marker": "rona:client-company-directory-invalidated",
+      "visual_change": false
+    }
+  },
+  "supersedes_refresh_policy_marker": "OWNER_FUNCTIONAL_APPROVAL: CLIENT_MARKET_INTELLIGENCE_OPEN_AND_HOURLY_20260902"
 }
