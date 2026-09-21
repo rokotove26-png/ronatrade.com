@@ -11,6 +11,7 @@ const remaining=read('functions/portal/remaining-sections-ui.js');
 const ownerApi=read('functions/portal/owner-api.js');
 const portalApi=read('functions/portal/api/[[path]].js');
 const paymentsV8=read('functions/portal/payments-v8-ui.js');
+const completedBootstrap=read('functions/portal/admin-completed-bootstrap.js');
 const mainUi=read('functions/portal/admin-main-ui-current.js');
 const operations=read('functions/portal/admin-operations-command-center-v4.js')+'\n'+read('functions/portal/admin-operations-command-center-v4-base.js');
 const operationsV5=read('functions/portal/admin-operations-command-center-v5.js');
@@ -62,7 +63,9 @@ need(has(shell,"CURRENT_RUNTIME_NOT_READY_WITHOUT_TEARDOWN")&&has(shell,"window.
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])need(!has(shell,forbidden),'Competing/legacy Admin module still loaded: '+forbidden);
 need(!has(shell,'enforceOwners')&&!has(shell,'installOwnerGuards'),'Fast shell still owns page DOM');
 
-need(has(mainUi,"patchAdminOperationsCommandCenterV10Clean(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply Operations Command Center V10 clean patch after source assembly');
+need(has(mainUi,"patchAdminBootstrapTelemetry(patchDealsCurrentOnlyNoFlash(patchRailSingleOwner(patchAdminOperationsCommandCenterV10Clean(patchOperationsFunctionalRuntime(patchPayments(RAW"),'Canonical Admin runtime does not apply bootstrap telemetry and Operations V10 patches after source assembly');
+need(has(mainUi,"ADMIN_BOOTSTRAP_RESIDUAL_V1")&&has(mainUi,"ADMIN_MAIN_REFRESH_TICK")&&has(mainUi,"ADMIN_MAIN_BOOT"),'Admin main bootstrap residual telemetry contract is missing');
+need(has(completedBootstrap,"ADMIN_MAIN_COMPLETED_BOOTSTRAP")&&has(completedBootstrap,"x-rona-client-refresh-reason")&&has(completedBootstrap,"readSet(access,source,reason)"),'Completed Admin bootstrap does not propagate source telemetry upstream');
 need(has(operationsV10,"OPERATIONS_COMMAND_CENTER_VERSION='v10-operations-current-v2-single-owner'"),'Operations Command Center V10 version marker is missing');
 need(has(operationsV10,"RONA_OPS_AUTO_REFRESH_MS=60000")&&has(operationsV10,"ADMIN_OPERATIONS_SYNC")&&has(operationsV10,"document.visibilityState==='visible'&&ronaOpsV10HomeVisible()"),'Operations traffic stabilization contract is missing');
 
@@ -166,7 +169,7 @@ for(const forbidden of ['openCanonicalAccessModal','installCanonicalAccessCreate
 need(!has(access,'installShellParity')&&!has(access,'installNavigationStability'),'Clients/Agents module still mutates global shell/navigation');
 need(has(ownerApi,"'x-rona-client-source','x-rona-client-refresh-reason'"),'Owner API does not preserve admin source telemetry headers');
 need(has(portalApi,"'x-rona-client-source','x-rona-client-refresh-reason'"),'Portal API does not preserve admin refresh reason telemetry header');
-need(has(paymentsV8,"REFRESH_MS=90000")&&has(paymentsV8,"RETRY_MS=15000")&&has(paymentsV8,"ADMIN_PAYMENTS_POLL")&&has(paymentsV8,"PAYMENTS_OPEN_ONLY"),'Payments V8 traffic stabilization contract is missing');
+need(has(paymentsV8,"REFRESH_MS=90000")&&has(paymentsV8,"RETRY_MS=15000")&&has(paymentsV8,"ADMIN_PAYMENTS_POLL")&&has(paymentsV8,"PAYMENTS_OPEN_ONLY")&&has(paymentsV8,"NO_BACKGROUND_BOOTSTRAP")&&has(paymentsV8,"OPEN_PAGE_ONLY")&&has(paymentsV8,"refreshIfOpen('initial-visible')")&&!has(paymentsV8,"!projection&&document.visibilityState==='visible'"),'Payments V8 traffic stabilization/open-page-only contract is missing');
 
 need(has(access,"'x-rona-shell-mutation':'none'")&&has(access,"'x-rona-access-create-owner':'clients-agents-current-v5'"),'Page-scoped single-owner contract is missing');
 
