@@ -248,6 +248,7 @@ test('Read-model overlay publishes per-deal route engine products without mutati
       routeProgress:{state:'OBSERVED_AND_MATCHED',furthestMatchedSequence:51},
       routeStations:[{sequence:1,stationCode:'151408'},{sequence:85,stationCode:'742705'}],
       routeAssignment:{resolutionState:'RESOLVED',originEsr:'151408',destinationEsr:'742705'},
+      routeCohorts:[{cohortKey:'COHORT:test',wagonCount:1,wagonNumbers:['1'],observationSignature:'151408>625501',observations:[{station:'Origin',stationCode:'151408',lat:51,lng:29},{station:'Анисовка',stationCode:'625501',lat:51.4,lng:46.08}],segments:[]}],
       wagonPositions:[{wagonNumber:'1',railDocumentKey:'doc-1',railDocumentId:'R1',station:'Анисовка',stationCode:'625501',positionStatus:'TRUSTED',trustedCoordinates:{lat:51.4,lng:46.08,trusted:true}}]
     }]
   };
