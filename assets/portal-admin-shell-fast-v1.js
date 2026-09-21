@@ -71,7 +71,7 @@ async function loadModule(name,src,{attempts=3,ready=null,timeout=14000}={}){
           if(!ready())throw new Error('MODULE_NOT_READY:'+name)
         }
         state.status='READY';state.readyAt=new Date().toISOString();restoreSelectedPage();return true
-      }catch(e){state.status='RETRY';state.error=String(e?.message||e);recordError('module:'+name+':'+attempt,e);if(attempt<attempts)await sleep(350*attempt)}
+      }catch(e){state.status='RETRY';state.error=String(e?.message||e);recordError('module:'+name+':'+attempt,e);const stale=document.getElementById('rona-single-'+name);if(stale)stale.remove();if(attempt<attempts)await sleep(350*attempt)}
     }
     state.status='FAILED';state.failedAt=new Date().toISOString();return false
   })().finally(()=>{state.promise=null});
@@ -84,7 +84,7 @@ const MODULES=Object.freeze({
   deals:{src:'/portal/deals-current-state-ui?v=20260826-single-owner'},
   dealsR11:{src:'/portal/deals-r1-r11-ui?v=20260826-single-owner'},
   cash:{src:'/portal/cash-r2-ui?v=20260826-single-owner'},
-  rail:{src:'/portal/rail-current-v81-maplibre-ui?v=20260918-rail-owner-v1'},
+  rail:{src:'/portal/rail-current-v81-maplibre-ui?v=20260921-primary-selfheal-v1'},
   railFallback:{src:'/portal/rail-safe-fallback-ui?v=20260826-rail-safe-fallback'},
   applications:{src:'/portal/applications-total-kpi-ui?v=20260826-single-owner'},
   claims:{src:'/portal/claims-r2-ui?v=20260826-single-owner'},
@@ -93,9 +93,26 @@ const MODULES=Object.freeze({
   prices:{src:'/portal/prices-current-ui?v=20260826-single-owner'},
   access:{src:'/portal/clients-agents-current-ui?v=20260919-self-heal-v1'}
 });
-const railPrimaryReady=()=>!!window.__RONA_RAIL_CURRENT_V81__&&!!document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root]');
-const railFallbackReady=()=>!!window.__RONA_RAIL_SAFE_FALLBACK__&&!!document.querySelector('[data-rail-current-root="ready"]');
+const railPrimaryRoot=()=>document.querySelector('[data-rail-current-v4="ready"],[data-rail-current-root="ready"]:not([data-rail-safe-fallback])');
+const railFallbackRoot=()=>document.querySelector('[data-rail-safe-fallback]');
+const railPrimaryReady=()=>!!window.__RONA_RAIL_CURRENT_V81__&&!!railPrimaryRoot();
+const railFallbackReady=()=>!!window.__RONA_RAIL_SAFE_FALLBACK__&&!!railFallbackRoot();
+function clearRailFallback(){
+  const fallback=railFallbackRoot();
+  if(fallback)fallback.remove();
+  const state=window.__RONA_ADMIN_MODULES__&&window.__RONA_ADMIN_MODULES__.railFallback;
+  if(state){state.status='PENDING';state.promise=null}
+}
 async function loadRail(){
+  if(railFallbackRoot()&&window.__RONA_RAIL_CURRENT_V81__&&typeof window.__RONA_RAIL_CURRENT_REPAIR__==='function'){
+    try{
+      clearRailFallback();
+      window.__RONA_RAIL_CURRENT_REPAIR__();
+      const repairDeadline=Date.now()+1800;
+      while(Date.now()<repairDeadline&&!railPrimaryReady())await sleep(80);
+      if(railPrimaryReady()){root.dataset.ronaRailOwner='current-v81-self-healed';return true}
+    }catch(e){recordError('rail-fallback-self-heal',e)}
+  }
   if(!railPrimaryReady()&&window.__RONA_RAIL_CURRENT_V81__&&typeof window.__RONA_RAIL_CURRENT_REPAIR__==='function'){
     try{
       window.__RONA_RAIL_CURRENT_REPAIR__();
