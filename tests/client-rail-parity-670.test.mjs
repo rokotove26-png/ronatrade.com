@@ -195,15 +195,18 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("PRESERVE_LAST_GOOD_ON_DEGRADED_READ_MODEL"));
   assert.ok(source.includes("RAIL_READ_MODEL_DEGRADED"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V2"));
-  assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V3"));
-  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V3"));
+  assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V4"));
+  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V4"));
   assert.ok(source.includes("clientRailNormalizeRouteParity"));
   assert.ok(source.includes("clientRailRepairMapParity"));
   assert.ok(source.includes("clientRailRenderAuthoritativeRouteOverlay"));
   assert.ok(source.includes("clientRailPatchRouteDraw"));
   assert.ok(source.includes("railMapRequestDraw"));
   assert.ok(source.includes("railMapFitRoute"));
-  assert.ok(source.includes("20260919-route-overlay-v3"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1'"));
+  assert.ok(source.includes("rona-client-rail-route-pin"));
+  assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
+  assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_REFRESH__"));
   assert.ok(source.includes("document.visibilityState==='visible'"),"Client Rail must preserve the current v8.1 visibility-gated polling contract");
   assert.equal(source.includes("timer=setInterval(sync,30000)"),false,"Client adapter must not regress to unconditional legacy polling");
@@ -216,6 +219,7 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
 test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   const attach=fs.readFileSync("scripts/attach-client-rail-production-v1.mjs","utf8");
   const hero=fs.readFileSync("assets/portal-runtime/client-rail-canonical-hero-v1.js","utf8");
+  const adapter=fs.readFileSync("functions/portal/client-rail-current-ui.js","utf8");
   for(const source of [attach,hero]) {
     assert.equal(source.includes("AUTHORITATIVE_SERVER_CLIENT_SHIPMENTS"),false);
   }
@@ -223,6 +227,8 @@ test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   assert.ok(attach.includes("client_authority:'AUTHENTICATED_CLIENT_CONTRACT'"));
   assert.ok(hero.includes("AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1"));
   assert.ok(hero.includes("CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"));
+  assert.ok(adapter.includes("border-radius:7px!important"));
+  assert.ok(adapter.includes("rona-rail-v7-marker::before"));
   assert.ok(hero.includes("layout_override:'NONE_OPERATIONAL_BODY'"));
   assert.equal(hero.includes("grid-template-rows:1fr 1fr!important"),false,"Client-only equal-height Rail layout must not return");
   assert.equal(hero.includes("grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important"),false,"Client-only Rail work-grid override must not return");

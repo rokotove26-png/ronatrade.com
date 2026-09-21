@@ -1,6 +1,6 @@
 import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js';
 
-const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3';";
+const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260919-route-overlay-v3';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
 const API_VAR_TO="var snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
@@ -16,6 +16,7 @@ const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important
 
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
+window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V3 CLIENT_RAIL_ROUTE_OVERLAY_V3';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
 function clientRailOuter(){
   var selectors=['#page-rail','#page-monitoring','[data-page-panel="rail"]','[data-page-panel="monitoring"]','[data-page-id="rail"]','[data-page-id="monitoring"]'];
@@ -34,7 +35,20 @@ function ensureClientCanonicalOwnerStyle(){
     '.rona-owner-original-hidden{display:none!important}',
     '.rona-owner-page-content{display:block!important}',
     '#page-rail>[data-rona-client-rail-admin-canonical-mount],#page-monitoring[data-rona-client-rail-admin-canonical-mount]{width:100%;min-width:0;max-width:none}',
-    '#page-rail .rona-rail-v4-root,#page-monitoring .rona-rail-v4-root{font-family:inherit}'
+    '#page-rail .rona-rail-v4-root,#page-monitoring .rona-rail-v4-root{font-family:inherit}',
+    '#page-rail .rona-rail-v7-route-casing,#page-monitoring .rona-rail-v7-route-casing{stroke:rgba(4,24,36,.56)!important;stroke-width:7.2!important}',
+    '#page-rail .rona-rail-v7-route-line,#page-monitoring .rona-rail-v7-route-line{stroke:#63d8ff!important;stroke-width:3.6!important;filter:drop-shadow(0 1px 3px rgba(28,175,222,.26))!important}',
+    '#page-rail .rona-rail-v7-route-remaining-casing,#page-monitoring .rona-rail-v7-route-remaining-casing{stroke:rgba(5,28,39,.48)!important;stroke-width:6.4!important}',
+    '#page-rail .rona-rail-v7-route-remaining,#page-monitoring .rona-rail-v7-route-remaining{stroke:rgba(83,166,196,.78)!important;stroke-width:2.8!important;stroke-dasharray:6 6!important}',
+    '#page-rail .rona-rail-v7-route-actual-casing,#page-monitoring .rona-rail-v7-route-actual-casing{stroke:rgba(3,20,31,.64)!important;stroke-width:8.4!important}',
+    '#page-rail .rona-rail-v7-route-actual,#page-monitoring .rona-rail-v7-route-actual{stroke:#25cfc0!important;stroke-width:4.2!important;filter:drop-shadow(0 1px 3px rgba(37,207,192,.28))!important}',
+    '#page-rail .rona-rail-v7-route-node,#page-monitoring .rona-rail-v7-route-node{display:none!important}',
+    '#page-rail .rona-client-rail-route-pin,#page-monitoring .rona-client-rail-route-pin{shape-rendering:geometricPrecision!important}',
+    '#page-rail .rona-rail-v7-marker,#page-monitoring .rona-rail-v7-marker{min-width:30px!important;width:auto!important;height:24px!important;margin:-12px 0 0 -15px!important;padding:0 8px!important;border:1px solid rgba(121,226,244,.55)!important;border-radius:7px!important;background:linear-gradient(180deg,rgba(8,35,49,.98),rgba(5,24,36,.98))!important;box-shadow:0 6px 16px rgba(1,14,23,.32),0 0 0 1px rgba(95,211,233,.10),0 0 14px rgba(99,216,255,.16)!important;color:#dffbff!important;font-size:10.5px!important;font-weight:850!important;letter-spacing:.01em!important}',
+    '#page-rail .rona-rail-v7-marker::before,#page-monitoring .rona-rail-v7-marker::before{content:""!important;display:inline-block!important;width:5px!important;height:5px!important;margin-right:5px!important;border-radius:1.5px!important;background:#5ee7d5!important;box-shadow:0 0 8px rgba(94,231,213,.72)!important;vertical-align:1px!important}',
+    '#page-rail .rona-rail-v7-marker::after,#page-monitoring .rona-rail-v7-marker::after{display:none!important;content:none!important}',
+    '#page-rail .rona-rail-v7-marker-label,#page-monitoring .rona-rail-v7-marker-label{left:50%!important;top:-10px!important;transform:translate(-50%,-100%)!important;padding:7px 9px!important;border:1px solid rgba(110,214,232,.22)!important;border-radius:8px!important;background:rgba(4,20,31,.96)!important;color:#e9fbff!important;box-shadow:0 10px 24px rgba(0,0,0,.30)!important;font-size:10.5px!important;font-weight:720!important}',
+    '#page-rail .rona-rail-v7-marker:hover,#page-monitoring .rona-rail-v7-marker:hover,#page-rail .rona-rail-v7-marker.is-open,#page-monitoring .rona-rail-v7-marker.is-open{transform:translateY(-1px)!important;border-color:rgba(151,239,252,.86)!important;box-shadow:0 8px 20px rgba(1,14,23,.38),0 0 18px rgba(99,216,255,.22)!important}'
   ].join('');document.head.appendChild(s)
 }
 function ensureClientRailMount(){
@@ -184,26 +198,37 @@ function clientRailRenderAuthoritativeRouteOverlay(state){
     state.routePane.style.setProperty('z-index','3','important');
     state.routePane.replaceChildren();
     if(hasSplit){
-      count+=clientRailRouteOverlayPolyline(svg,remaining,left,top,z,'rona-rail-v7-route-remaining-casing','rona-rail-v7-route-remaining','rgba(39,45,48,.28)',6,'rgba(126,82,76,.82)',3.2,1);
-      count+=clientRailRouteOverlayPolyline(svg,actual,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual','rgba(31,35,37,.52)',8,'#9f332f',4.6,1)
+      count+=clientRailRouteOverlayPolyline(svg,remaining,left,top,z,'rona-rail-v7-route-remaining-casing','rona-rail-v7-route-remaining','rgba(5,28,39,.48)',6.4,'rgba(83,166,196,.78)',2.8,1);
+      count+=clientRailRouteOverlayPolyline(svg,actual,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual','rgba(3,20,31,.64)',8.4,'#25cfc0',4.2,1)
     }else{
-      count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line','rgba(35,43,48,.42)',7,'#a93d38',3.8,1)
+      count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line','rgba(4,24,36,.56)',7.2,'#63d8ff',3.6,1)
     }
     var nodes=planned.length?planned:(actual.length?actual:remaining);
     nodes.forEach(function(pt,idx){
-      var important=idx===0||idx===nodes.length-1||!!pt.borderRole||pt.waypointRole==='ORIGIN'||pt.waypointRole==='DESTINATION';
+      var endpoint=idx===0||idx===nodes.length-1,important=endpoint||!!pt.borderRole||pt.waypointRole==='ORIGIN'||pt.waypointRole==='DESTINATION';
       if(!important)return;
       var p=railMapProject(pt.lat,pt.lng,z),x=p.x-left,y=p.y-top;
       if(x<-20||x>width+20||y<-20||y>height+20)return;
-      var node=document.createElementNS('http://www.w3.org/2000/svg','circle');
-      node.setAttribute('class','rona-rail-v7-route-node');
-      node.setAttribute('cx',String(x));node.setAttribute('cy',String(y));node.setAttribute('r',idx===0||idx===nodes.length-1?'5':'3.6');
-      node.style.setProperty('display','block','important');node.style.setProperty('fill','#fff','important');node.style.setProperty('stroke','#9f332f','important');node.style.setProperty('stroke-width','2.2','important');
-      svg.append(node)
+      var role=idx===0||pt.waypointRole==='ORIGIN'?'origin':(idx===nodes.length-1||pt.waypointRole==='DESTINATION'?'destination':(pt.borderRole?'border':'waypoint')),
+          size=endpoint?11:(pt.borderRole?8:7),
+          half=size/2,
+          marker=document.createElementNS('http://www.w3.org/2000/svg','rect');
+      marker.setAttribute('class','rona-client-rail-route-pin rona-client-rail-route-pin--'+role);
+      marker.setAttribute('x',String(x-half));marker.setAttribute('y',String(y-half));
+      marker.setAttribute('width',String(size));marker.setAttribute('height',String(size));
+      marker.setAttribute('rx',endpoint?'2.4':'1.8');marker.setAttribute('ry',endpoint?'2.4':'1.8');
+      marker.setAttribute('transform','rotate(45 '+x+' '+y+')');
+      marker.setAttribute('data-route-role',role);
+      marker.style.setProperty('display','block','important');
+      marker.style.setProperty('fill',role==='origin'?'#63d8ff':role==='destination'?'#5ee7d5':role==='border'?'#ffc86a':'#9be9ff','important');
+      marker.style.setProperty('stroke','#06202b','important');
+      marker.style.setProperty('stroke-width',endpoint?'2':'1.6','important');
+      marker.style.setProperty('filter','drop-shadow(0 2px 3px rgba(2,15,24,.42))','important');
+      svg.append(marker)
     });
     state.routePane.append(svg);
-    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V3',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
-    document.documentElement.dataset.ronaClientRailRouteOverlay=count>=2?'VISIBLE':'EMPTY';
+    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V4',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
+    document.documentElement.dataset.ronaClientRailRouteOverlay=count>=2?'PREMIUM_MARKERS_V1':'EMPTY';
     return count
   }catch(e){
     window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_ERROR__=String(e&&e.message||e);
@@ -251,7 +276,7 @@ function clientRailRepairMapParity(){
     if(typeof railMapRequestDraw==='function')railMapRequestDraw(state);
     requestAnimationFrame(function(){clientRailRenderAuthoritativeRouteOverlay(state)});
     document.documentElement.dataset.ronaClientRailMapParity='ADMIN_ROUTE_ACTIVE';
-    window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__={version:'CLIENT_ADMIN_ROUTE_PARITY_V3',plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,dealKey:state.context&&state.context.dealKey||null,updatedAt:new Date().toISOString()};
+    window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__={version:'CLIENT_ADMIN_ROUTE_PARITY_V4',plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,dealKey:state.context&&state.context.dealKey||null,updatedAt:new Date().toISOString()};
     return true
   }catch(e){
     window.__RONA_CLIENT_RAIL_MAP_PARITY_ERROR__=String(e&&e.message||e);
