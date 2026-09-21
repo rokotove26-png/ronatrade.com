@@ -1,0 +1,39 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_CONTRACT_EVENT_DRIVEN_REFRESH_V1",
+  "owner_instruction": "Продолжай работу в рамках ранее заданной полной сквозной оптимизации Client Portal: нет изменения данных -> нет запроса.",
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_CONTRACT_EVENT_DRIVEN_REFRESH_V1",
+  "approved_protected_files": [
+    "assets/portal-runtime/client-contract-download-v3.js"
+  ],
+  "exact_post_blobs": {
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "authorized_post_blob_sha": "af6fa41946cd14b432f4b1f360a3a5c0d2489f46",
+      "required_marker": "OPEN_CONTEXT_PROJECTION_PAGESHOW_INVALIDATION"
+    }
+  },
+  "requirements": {
+    "visual_freeze_remains_enabled": true,
+    "exact_file_enforcement_remains_active": true,
+    "wildcard_exception": false,
+    "visual_change": false,
+    "business_data_changed": false,
+    "business_logic_changed": false,
+    "auth_changed": false,
+    "supabase_schema_or_rls_changed": false,
+    "periodic_refresh_removed": true,
+    "generic_click_network_refresh_removed": true,
+    "refresh_policy": "OPEN_CONTEXT_PROJECTION_PAGESHOW_INVALIDATION",
+    "invalidation_events": [
+      "rona:client-current-projection",
+      "rona:client-contract-download-invalidated"
+    ],
+    "no_background_polling_when_idle": true,
+    "current_context_authority_preserved": true,
+    "single_owner_projection_preserved": true,
+    "images_added": false,
+    "unrelated_visual_changes": false
+  }
+}
