@@ -344,3 +344,41 @@ Consequences for the Client workstream:
 - #817 Client Contract refresh validation was completed against the prior release CI matrix before this Rail merge, but its files do not overlap the Rail production delta; it remains stacked on #813 and is not merge-ready;
 - #818 Applications projection impersonation work is being validated against the new release HEAD before it is returned to its stacked parent #815;
 - the final five-minute Client idle-network acceptance must use the then-current production HEAD, not the historical `8ac74e36...` baseline.
+
+
+## 13. Production recheck after Rail visual merge and telemetry candidate
+
+CURRENT_STATE_FIRST was repeated after the gate reconciliation work.
+
+Current production release:
+
+`029cd4adcd60c2468b6434fd057de5f40e850795`
+
+This is the merge result of PR #820 `Rail map: operational cohort visualization and border clarity`, which was merged after PR #816. The prior production references `8ac74e36...` and `bbd6c489...` are therefore historical baselines only.
+
+Concurrency implications:
+
+- #810 / #811 / #813 / #815 were created from the earlier `8ac74e36...` release baseline;
+- #812 materially overlaps the later production Rail delta and must be reconciled/rebased before any merge, even though its own event-driven Rail acceptance was green on its candidate head;
+- #817 remains stacked on #813;
+- #818 remains stacked on #815;
+- no active Client remediation PR should be merged solely because its focused checks are green until its base is reconciled against current production.
+
+The specialized Client route work is now split into active candidates:
+
+- #815 — Market Intelligence impersonation-aware authority;
+- #818 — Applications projection through the same impersonation-aware Client gateway;
+- `deal-documents/state` remains inside #810-owned overlap and is not edited in parallel.
+
+A separate telemetry candidate now exists as PR #819:
+
+- contract: `PORTAL_API_REQUEST_TELEMETRY_V1`;
+- reuses `portal_private.portal_api_request_events`;
+- records route/result/status/correlation plus bounded safe metadata such as runtime/source, refresh reason, Client Context IDs, latency, transport classification and Request cache mode;
+- explicitly excludes Authorization, cookies, tokens, API keys and request/response bodies;
+- persistence is nonblocking through Edge `waitUntil`;
+- no schema/RLS/business-data mutation is introduced.
+
+PR #819 is still Draft and contains the stacked #815/#818 route-authority work in its branch history. Its focused telemetry acceptance must therefore be interpreted separately from unrelated historical/global CI failures. Current production overlap scan shows no file overlap between the #819 delta and the later #820 production Rail visual merge, but rebase/current-base validation is still mandatory before merge.
+
+The final five-minute zero-idle-network production acceptance remains blocked until the active Client refresh/auth candidates are reconciled and merged into the then-current production release.
