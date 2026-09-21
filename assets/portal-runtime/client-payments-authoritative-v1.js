@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20260902-client-payments-authoritative-v2-current-context';
+const MARK='20260921-client-payments-authoritative-v3-current-state-refresh';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 if(location.pathname!=='/portal/client')return;
@@ -37,8 +37,9 @@ function installStyle(){
   `;
   document.head.appendChild(style);
 }
-async function request(path){
-  const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+async function request(path,force=false){
+  const headers={accept:'application/json'};if(force)headers['x-rona-client-force-refresh']='true';
+  const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers});
   const b=await r.json().catch(()=>null);
   if(!r.ok||b?.ok===false)throw new Error(String(b?.code||b?.error?.code||('HTTP_'+r.status)));
   return b;
@@ -70,9 +71,10 @@ function markLegacy(root){
   }
 }
 function money(v,c){const n=num(v);if(n===null)return'—';return n.toLocaleString('ru-RU',{minimumFractionDigits:Number.isInteger(n)?0:2,maximumFractionDigits:2})+(c?' '+c:'')}
-function percentOf(deal){
+function percentOf(deal,receivedOverride=null){
+  const o=num(deal?.payment_obligation_amount),override=num(receivedOverride);if(override!==null&&o!==null&&o>0)return Math.max(0,Math.min(100,override/o*100));
   const p=num(deal?.payment_percent);if(p!==null)return Math.max(0,Math.min(100,p));
-  const r=num(deal?.payment_received_amount),o=num(deal?.payment_obligation_amount);return r!==null&&o!==null&&o>0?Math.max(0,Math.min(100,r/o*100)):0;
+  const r=num(deal?.payment_received_amount);return r!==null&&o!==null&&o>0?Math.max(0,Math.min(100,r/o*100)):0;
 }
 function resourceConfirmed(deal){return upper(deal?.resource_status).includes('CONFIRMED')}
 function paymentTone(deal){const code=upper(deal?.payment_status);if(!resourceConfirmed(deal))return'waiting';if(code.includes('VERIFY')||code.includes('CHECK')||code.includes('ERROR'))return'check';return code.includes('PAID')||code.includes('PART')||percentOf(deal)>0?'ok':'waiting'}
@@ -80,16 +82,18 @@ function paymentLabel(deal){
   if(!resourceConfirmed(deal))return'Ожидается подтверждение ресурса';
   return norm(deal?.payment_label)||norm(deal?.payment_status)||'Статус оплаты уточняется';
 }
-function aggregate(deals){
-  const by=new Map();
+function aggregate(deals,payments){
+  const receipts=receiptMap(payments),by=new Map();
   for(const d of deals){
-    const c=norm(d?.payment_currency)||'—',o=num(d?.payment_obligation_amount)||0,r=num(d?.payment_received_amount)||0;
-    if(!by.has(c))by.set(c,{currency:c,obligation:0,received:0});const a=by.get(c);a.obligation+=o;a.received+=r;
+    const c=norm(d?.payment_currency)||'—',o=num(d?.payment_obligation_amount)||0,due=num(d?.payment_due_now)||0,hit=receipts.get(norm(d?.deal_id)),base=num(d?.payment_received_amount)||0,r=hit?Math.max(base,hit.total):base,bank=hit?.bank||0,finance=hit?.finance||0;
+    if(!by.has(c))by.set(c,{currency:c,obligation:0,due:0,received:0,bank:0,finance:0});const a=by.get(c);a.obligation+=o;a.due+=due;a.received+=r;a.bank+=bank;a.finance+=finance;
   }
   return [...by.values()].map(a=>({...a,remaining:Math.max(0,a.obligation-a.received),percent:a.obligation>0?Math.max(0,Math.min(100,a.received/a.obligation*100)):0}));
 }
 function formatDate(v){if(!v)return'—';const d=new Date(v);return Number.isNaN(d.getTime())?'—':d.toLocaleDateString('ru-RU')}
-function confirmedPayment(p){return ['BANK_CONFIRMED','CONFIRMED','VERIFIED','PAID'].some(x=>upper(p?.bank_fact_status).includes(x))}
+function receiptStatus(p){const explicit=upper(p?.client_receipt_status);if(explicit==='FINANCE_CONFIRMED'||explicit==='BANK_CONFIRMED')return explicit;return upper(p?.bank_fact_status)==='BANK_CONFIRMED'?'BANK_CONFIRMED':''}
+function confirmedPayment(p){return Boolean(receiptStatus(p))}
+function receiptMap(payments){const map=new Map();for(const p of payments){const id=norm(p?.deal_id),status=receiptStatus(p),amount=num(p?.amount);if(!id||!status||amount===null)continue;if(!map.has(id))map.set(id,{bank:0,finance:0,total:0});const row=map.get(id);if(status==='BANK_CONFIRMED')row.bank+=amount;else row.finance+=amount;row.total+=amount}return map}
 function render(detail,ctx){
   const root=paymentsRoot();if(!root)return false;
   installStyle();markLegacy(root);
@@ -98,13 +102,13 @@ function render(detail,ctx){
   host.removeAttribute('data-rona-payments-legacy-hidden');
   const deals=Array.isArray(detail?.deals)?detail.deals:[];
   const payments=(Array.isArray(detail?.payments)?detail.payments:[]).filter(confirmedPayment);
-  const totals=aggregate(deals);
-  const totalBlock=totals.length?totals.map(a=>`<div class="rona-payments-kpi"><span>К оплате</span><b>${esc(money(a.obligation,a.currency==='—'?'':a.currency))}</b><small>По сделкам выбранного договора</small></div><div class="rona-payments-kpi"><span>Получено</span><b>${esc(money(a.received,a.currency==='—'?'':a.currency))}</b><small>Подтверждённые поступления</small></div><div class="rona-payments-kpi"><span>Остаток</span><b>${esc(money(a.remaining,a.currency==='—'?'':a.currency))}</b><small>До полного исполнения</small></div><div class="rona-payments-kpi"><span>Прогресс</span><b>${Math.round(a.percent)}%</b><small>${esc(a.currency==='—'?'':a.currency)}</small></div>`).join(''):`<div class="rona-payments-empty">По выбранному договору нет сделок с платёжными обязательствами.</div>`;
+  const receipts=receiptMap(payments),totals=aggregate(deals,payments);
+  const totalBlock=totals.length?totals.map(a=>`<div class="rona-payments-kpi"><span>К оплате сейчас</span><b>${esc(money(a.due,a.currency==='—'?'':a.currency))}</b><small>Только наступившие обязательства</small></div><div class="rona-payments-kpi"><span>Получено</span><b>${esc(money(a.received,a.currency==='—'?'':a.currency))}</b><small>${a.finance>0?`Finance подтверждено; банк ожидается ${esc(money(a.finance,a.currency==='—'?'':a.currency))}`:'Подтверждённые поступления'}</small></div><div class="rona-payments-kpi"><span>Остаток</span><b>${esc(money(a.remaining,a.currency==='—'?'':a.currency))}</b><small>До полного исполнения обязательств</small></div><div class="rona-payments-kpi"><span>Прогресс</span><b>${Math.round(a.percent)}%</b><small>${esc(a.currency==='—'?'':a.currency)}</small></div>`).join(''):`<div class="rona-payments-empty">По выбранному договору нет сделок с платёжными обязательствами.</div>`;
   const dealRows=deals.length?deals.map(d=>{
-    const c=norm(d?.payment_currency),o=num(d?.payment_obligation_amount),r=num(d?.payment_received_amount),remaining=o!==null?Math.max(0,o-(r||0)):null,p=percentOf(d),tone=paymentTone(d);
-    return `<article class="rona-payments-deal" data-deal-id="${esc(d?.deal_id)}"><div><div class="rona-payments-deal-id">${esc(d?.deal_id||'Сделка')}</div><div class="rona-payments-deal-state">${esc(resourceConfirmed(d)?'Ресурс подтверждён':'Ресурс не подтверждён')}</div></div><div><span class="rona-payments-pill" data-tone="${tone}">${esc(paymentLabel(d))}</span></div><div class="rona-payments-amount">Получено <b>${esc(money(r,c))}</b> из ${esc(money(o,c))} · остаток ${esc(money(remaining,c))}<div class="rona-payments-progress" aria-label="Оплачено ${Math.round(p)}%"><i style="width:${p.toFixed(2)}%"></i></div></div></article>`;
+    const c=norm(d?.payment_currency),o=num(d?.payment_obligation_amount),base=num(d?.payment_received_amount)||0,hit=receipts.get(norm(d?.deal_id)),r=hit?Math.max(base,hit.total):base,remaining=o!==null?Math.max(0,o-r):null,p=percentOf(d,r),tone=paymentTone(d),financeNote=hit?.finance>0?` · Finance подтверждено, банк ожидается ${money(hit.finance,c)}`:'';
+    return `<article class="rona-payments-deal" data-deal-id="${esc(d?.deal_id)}"><div><div class="rona-payments-deal-id">${esc(d?.deal_id||'Сделка')}</div><div class="rona-payments-deal-state">${esc(resourceConfirmed(d)?'Ресурс подтверждён':'Ресурс не подтверждён')}</div></div><div><span class="rona-payments-pill" data-tone="${tone}">${esc(paymentLabel(d))}</span></div><div class="rona-payments-amount">Получено <b>${esc(money(r,c))}</b> из ${esc(money(o,c))} · остаток ${esc(money(remaining,c))}${esc(financeNote)}<div class="rona-payments-progress" aria-label="Исполнено ${Math.round(p)}%"><i style="width:${p.toFixed(2)}%"></i></div></div></article>`;
   }).join(''):`<div class="rona-payments-empty">Активных сделок по выбранному договору нет.</div>`;
-  const events=payments.length?payments.sort((a,b)=>new Date(b?.received_at||b?.payment_at||0)-new Date(a?.received_at||a?.payment_at||0)).map(p=>`<div class="rona-payments-event"><div><b>${esc(p?.deal_id||'Платёж')}</b><div>${esc(p?.payment_id||'')}</div></div><time>${esc(formatDate(p?.received_at||p?.payment_at||p?.bank_confirmed_at))}</time><b>${esc(money(p?.amount,p?.currency))}</b></div>`).join(''):`<div class="rona-payments-empty">Подтверждённых банковских поступлений по выбранному договору пока нет.</div>`;
+  const events=payments.length?payments.sort((a,b)=>new Date(b?.received_at||b?.payment_at||0)-new Date(a?.received_at||a?.payment_at||0)).map(p=>{const status=receiptStatus(p)==='FINANCE_CONFIRMED'?'Finance подтверждено · банк ожидается':'Банк подтверждён';return `<div class="rona-payments-event"><div><b>${esc(p?.deal_id||'Платёж')}</b><div>${esc(p?.payment_id||'')} · ${esc(status)}</div></div><time>${esc(formatDate(p?.received_at||p?.payment_at||p?.bank_confirmed_at))}</time><b>${esc(money(p?.amount,p?.currency))}</b></div>`}).join(''):`<div class="rona-payments-empty">Подтверждённых поступлений по выбранному договору пока нет.</div>`;
   host.innerHTML=`<section data-rona-payments-card><div class="rona-payments-head"><strong>Платёжный статус</strong><span class="rona-payments-source">Finance · подтверждённые поступления · автообновление</span></div><div class="rona-payments-kpis">${totalBlock}</div><div class="rona-payments-deals">${dealRows}</div></section><section data-rona-payments-card><div class="rona-payments-head"><strong>Подтверждённые поступления</strong><span class="rona-payments-source">${esc(norm(ctx?.current_external_contract_number)||norm(ctx?.contract_id))}</span></div><div class="rona-payments-events">${events}</div></section>`;
   root.setAttribute('data-rona-payments-runtime','finance-authoritative-v1');
   return true;
@@ -129,7 +133,7 @@ async function load(force=false){
   if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx);ready(true);return}
   state.loading=true;
   try{
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)),force);
     if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
     state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
     window.__RONA_CLIENT_PAYMENTS_STATE__={version:MARK,source:'CURRENT_CONTEXT_FINANCE_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:Array.isArray(state.detail.deals)?state.detail.deals:[],payments:Array.isArray(state.detail.payments)?state.detail.payments:[],loaded_at:new Date().toISOString()};
