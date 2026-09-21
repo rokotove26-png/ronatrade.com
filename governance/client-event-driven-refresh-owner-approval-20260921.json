@@ -10,7 +10,9 @@
     "scripts/attach-client-logout-visual-v1.mjs",
     "assets/portal-runtime/client-applications-live-render-v1.js",
     "assets/portal-runtime/client-market-intelligence-v1.js",
-    "assets/portal-runtime/client-market-news-admin-parity-v1.js"
+    "assets/portal-runtime/client-market-news-admin-parity-v1.js",
+    "assets/portal-runtime/client-application-lifecycle-v1.js",
+    "assets/portal-runtime/client-contract-download-v3.js"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -47,6 +49,18 @@
       "visual_freeze_baseline_blob_sha": "731c9fbbfa0a430d892cd9ca3598bad410b51c79",
       "authorized_post_blob_sha": "78c3f5ed280e10e3340e177abe2300e0e0207cfe",
       "required_marker": "rona:client-market-intelligence-invalidated"
+    },
+    "assets/portal-runtime/client-application-lifecycle-v1.js": {
+      "visual_freeze_baseline_blob_sha": "73e94188bff36e57a7f269a516ae655b2556ea2a",
+      "authorized_parent_blob_sha": "aacb8fde011ed2f0c0c2f5db44d209081e77bab2",
+      "authorized_post_blob_sha": "fc8826e3679e4932290fecb6f82993d2aa7bcb06",
+      "required_marker": "rona:client-current-projection"
+    },
+    "assets/portal-runtime/client-contract-download-v3.js": {
+      "visual_freeze_baseline_blob_sha": "2f420990529e37d0feae88dd33f0753a79b9cc4e",
+      "authorized_parent_blob_sha": "7668e879bff5dfcb5dac71222ed09fe94eb35b51",
+      "authorized_post_blob_sha": "5ed14d37c53eea4684d4128ed3e5c05161734dd0",
+      "required_marker": "rona:client-company-directory-invalidated"
     }
   },
   "requirements": {
