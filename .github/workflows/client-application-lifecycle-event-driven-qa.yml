@@ -1,0 +1,26 @@
+name: Client application lifecycle event-driven QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'assets/portal-runtime/client-application-lifecycle-v1.js'
+      - 'governance/client-application-lifecycle-event-driven-owner-approval-20260921.json'
+      - 'scripts/qa-client-portal-visual-freeze.mjs'
+      - 'tests/client-application-lifecycle-event-driven-v1.test.mjs'
+      - '.github/workflows/client-application-lifecycle-event-driven-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  lifecycle-event-driven:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify Client lifecycle has no periodic owner
+        run: node tests/client-application-lifecycle-event-driven-v1.test.mjs
+      - name: Verify Client visual freeze governance
+        run: node scripts/qa-client-portal-visual-freeze.mjs
