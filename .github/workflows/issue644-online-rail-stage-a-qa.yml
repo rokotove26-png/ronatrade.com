@@ -150,6 +150,7 @@ jobs:
             "productionPolling:false",
             "mode:'DATA_CHANGE_ONLY'",
             "20260921-dominant-cohort-v1",
+            "20260921-dominant-rejoin-v2",
             "rona-rail-v6-select-label','Сделка'",
             "function railMapActualRoutePoints(context)",
             "function railMapRemainingRoutePoints(context)",
