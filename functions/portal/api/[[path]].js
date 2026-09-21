@@ -79,7 +79,7 @@ export async function onRequest(context){
   const selection=backendSelection(context,url,path,request.method);
   const forward=async token=>{
     const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});
-    for(const name of['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id','x-rona-client-source']){const v=request.headers.get(name);if(v)h.set(name,v)}
+    for(const name of['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id','x-rona-client-source','x-rona-client-refresh-reason']){const v=request.headers.get(name);if(v)h.set(name,v)}
     if(impersonationToken){
       h.set('x-rona-admin-impersonation-token',impersonationToken);
       h.set('x-rona-impersonation-tab',impersonationTab);
