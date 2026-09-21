@@ -53,9 +53,10 @@
       "required_marker": "data-rona-deal-state-strip^=\"authoritative-v\""
     },
     "scripts/attach-client-deal-documents.mjs": {
-      "visual_freeze_baseline_blob_sha": "46fb60fbd1c01b3ca3fba46344e8e17b378c1cdb",
+      "visual_freeze_baseline_blob_sha": "bd439510d86b147f43be22541b5a4ab51cf63a0a",
       "authorized_post_blob_sha": "287b14db711fdb4e6873b67bc706273dfb1aa415",
-      "required_marker": "20260921-current-runtime-state-strip-v10"
+      "required_marker": "20260921-current-runtime-state-strip-v10",
+      "visual_freeze_policy_baseline_rebound": true
     }
   },
   "requirements": {
