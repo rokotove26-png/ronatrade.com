@@ -21,6 +21,9 @@ assert.match(client,/const previous=new Map/,'keyed canonical application reconc
 assert.match(client,/list\.replaceChildren\(\.\.\.nodes\)/,'canonical row reconciliation commit missing');
 assert.match(client,/nextKey!==state\.contextKey/,'context-key boundary missing');
 assert.match(client,/state\.openPassportId===id\?"Скрыть":"Открыть"/,'open passport presentation state missing');
+assert.match(client,/async function applicationPassportRequest\(path\)/,'scoped canonical passport request helper missing');
+assert.match(client,/await applicationPassportRequest\('\/v1\/client\/applications\/'/,'canonical passport request is not wired');
+assert.doesNotMatch(client,/await request\('\/v1\/client\/applications\/'/,'undefined legacy passport request helper must not be emitted');
 assert.doesNotMatch(client,/\bsetInterval\s*\(/,'recurring application refresh interval must be absent');
 assert.doesNotMatch(client,/REFRESH_MS/,'application runtime must not own a recurring refresh interval');
 assert.match(client,/refreshCurrentProjection\('applications-canonical'\)/,'mutation-driven application refresh path missing');
