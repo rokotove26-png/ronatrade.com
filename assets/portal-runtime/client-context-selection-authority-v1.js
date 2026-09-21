@@ -14,7 +14,6 @@ const LEGACY_PENDING_KEY='__RONA_AUTHORITY_PENDING__';
 const DIRECTORY_SOURCE='AUTHORITATIVE_AUTHORIZED_CONTEXT_DIRECTORY_DB';
 const DOCUMENTS_PREDICATE='CURRENT_EFFECTIVE_CONTRACTUAL_ONLY';
 const PROJECTION_TTL_MS=15000;
-const AUTO_REFRESH_MS=30000;
 const REQUIRED_CONTEXT_ROUTES=new Set([
   CONTEXT_ROUTE,'/portal/api/v1/client/prices','/portal/api/v1/client/market','/portal/api/v1/client/deals','/portal/api/v1/client/documents',
   '/portal/api/v1/client/payments','/portal/api/v1/client/claims','/portal/api/v1/client/messages','/portal/api/v1/client/archive',
@@ -25,7 +24,7 @@ const DIAG_ROUTES=new Set([CONTEXT_ROUTE,'/portal/api/v1/client/messages','/port
 const nativeFetch=window.fetch.bind(window);
 const d=document.documentElement;
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
-const state={contexts:[],selected:null,seed:null,ready:false,loading:null,refreshingDirectory:null,observer:null,queued:false,syncing:false,autoRefreshTimer:0,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},directory:{snapshot:null,error:null,generation:0},callerMap:[]};
+const state={contexts:[],selected:null,seed:null,ready:false,loading:null,refreshingDirectory:null,observer:null,queued:false,syncing:false,projection:{key:'',promise:null,text:'',json:null,status:0,statusText:'',headers:[],loadedAt:0},directory:{snapshot:null,error:null,generation:0},callerMap:[]};
 window.__RONA_CLIENT_CALLER_MAP__=state.callerMap;
 
 function clean(c){return c&&typeof c==='object'?{client_id:norm(c.client_id),legal_name:norm(c.legal_name),registration_country:norm(c.registration_country),contract_id:norm(c.contract_id),current_external_contract_number:norm(c.current_external_contract_number),contract_status:norm(c.contract_status),effective_from:norm(c.effective_from),effective_to:norm(c.effective_to)}:null}
@@ -128,8 +127,8 @@ const publicApi=Object.freeze({version:MARK,whenReady:async()=>{await ensure();r
 window.RONA_CLIENT_CONTEXT=publicApi;
 window.getCurrentClientContext=publicApi.getCurrentContext;
 function startObserver(){if(state.observer||!document.body)return;state.observer=new MutationObserver(()=>scheduleSync());state.observer.observe(document.body,{childList:true,subtree:true});scheduleSync()}
-function scheduleAutomaticProjectionRefresh(reason='timer',force=false){if(!state.selected||document.visibilityState==='hidden')return;loadCurrentProjection(`client-context-selection-authority-v1:auto-${reason}`,force).catch(error=>console.error('RONA automatic current-context refresh',error))}
-function start(){state.seed=legacySeed();document.addEventListener('change',onChange,true);window.addEventListener('pageshow',()=>{scheduleSync();scheduleAutomaticProjectionRefresh('pageshow',false)},{passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')scheduleAutomaticProjectionRefresh('visible',false)},{passive:true});window.addEventListener('rona:client-server-context-ready',()=>ensure().then(()=>{scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:server-ready')}).catch(()=>{}));startObserver();ensure().then(()=>{syncAndRenderLegacyContext();startObserver();scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:startup');if(!state.autoRefreshTimer)state.autoRefreshTimer=window.setInterval(()=>scheduleAutomaticProjectionRefresh('timer',true),AUTO_REFRESH_MS)}).catch(error=>console.error('RONA client context selection authority',error))}
+function refreshProjectionOnLifecycleEvent(reason='lifecycle',force=false){if(!state.selected||document.visibilityState==='hidden')return;loadCurrentProjection(`client-context-selection-authority-v1:event-${reason}`,force).catch(error=>console.error('RONA event-driven current-context refresh',error))}
+function start(){state.seed=legacySeed();document.addEventListener('change',onChange,true);window.addEventListener('pageshow',()=>{scheduleSync();refreshProjectionOnLifecycleEvent('pageshow',false)},{passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshProjectionOnLifecycleEvent('visible',false)},{passive:true});window.addEventListener('online',()=>refreshProjectionOnLifecycleEvent('online',true),{passive:true});window.addEventListener('rona:client-server-context-ready',()=>ensure().then(()=>{scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:server-ready')}).catch(()=>{}));startObserver();ensure().then(()=>{syncAndRenderLegacyContext();startObserver();scheduleSync();if(state.selected)primeProjection('client-context-selection-authority-v1:startup')}).catch(error=>console.error('RONA client context selection authority',error))}
 void LEGACY_CONTEXT_LABEL;
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
