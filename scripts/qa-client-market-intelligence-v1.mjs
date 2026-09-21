@@ -33,8 +33,8 @@ for(const token of ['rona:client:background-sections','consumeBackground','refre
 for(const token of ['20260902-client-analytics-forecast-inner-spacing-v2','.an2-market-forecast',"PADDING='16px 18px'",'contentDocument','style.setProperty(\'padding\',PADDING,\'important\')','ronaClientForecastSpacing'])must(spacing,token,'forecast spacing runtime');
 for(const token of ['#page-market-news>.rona-market-news-current','.mn-masthead','.mn-front','.mn-grid','.mn-dialog']){must(adminNews,token,'Admin News canonical source');must(news,token,'Client News parity')}
 
-for(const token of ['owner_client_market_intelligence_feed_v1',"ACCESS_COOKIE='rona_portal_at'", "REFRESH_COOKIE='rona_portal_rt'", "if(request.method!=='GET')",'CLIENT_MARKET_FEED_INVALID'])must(endpoint,token,'client endpoint');
-for(const token of ['owner_analytics_admin_bootstrap','service_role','SUPABASE_SERVICE_ROLE'])forbid(endpoint,token,'client endpoint');
+for(const token of ['EFFECTIVE_CLIENT_FEED_API','/functions/v1/rona-portal-api/v1/client/market-intelligence','readBrowserImpersonation','applyBrowserImpersonation','x-rona-client-refresh-reason',"ACCESS_COOKIE='rona_portal_at'", "REFRESH_COOKIE='rona_portal_rt'", "if(request.method!=='GET')",'CLIENT_MARKET_FEED_INVALID'])must(endpoint,token,'client endpoint');
+for(const token of ['owner_client_market_intelligence_feed_v1','owner_analytics_admin_bootstrap','service_role','SUPABASE_SERVICE_ROLE'])forbid(endpoint,token,'client endpoint');
 for(const token of ["owner_r1_actor('CLIENT')", "p.status::text='PUBLISHED'",'between (v_server_date-6) and v_server_date','distinct on (coalesce(nullif(duplicate_group'])must(migration,token,'safe feed migration');
 
 const universal=[analytics,news,spacing,preload,endpoint,migration].join('\n');

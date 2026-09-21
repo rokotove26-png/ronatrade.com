@@ -1,0 +1,29 @@
+name: Client market impersonation QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'functions/portal/api/v1/client/market-intelligence.js'
+      - 'supabase/functions/rona-portal-api/index.ts'
+      - 'supabase/functions/rona-portal-api/client-market-intelligence-effective-client-v1.ts'
+      - 'tests/specific-client-route-impersonation.test.mjs'
+      - 'tests/client-market-impersonation-authority.test.mjs'
+      - '.github/workflows/client-market-impersonation-qa.yml'
+  workflow_dispatch:
+
+jobs:
+  market-impersonation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Specific Client route impersonation
+        run: node --test tests/specific-client-route-impersonation.test.mjs
+      - name: Market authority source contract
+        run: node --test tests/client-market-impersonation-authority.test.mjs
+      - name: Specific Pages route syntax
+        run: node --check functions/portal/api/v1/client/market-intelligence.js
