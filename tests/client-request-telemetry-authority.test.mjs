@@ -23,6 +23,8 @@ test('telemetry contract contains operational diagnostics without secrets',()=>{
     'contract_id',
     'transport',
     'NETWORK',
+    'cache_network',
+    'NETWORK_REQUEST',
     'request_cache',
     'latency_ms',
     'EdgeRuntime',
