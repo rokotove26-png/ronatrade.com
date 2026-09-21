@@ -95,7 +95,8 @@ const CLIENT_LOAD_HOTFIX_WIRING_FILES=[
 ];
 const OWNER_VISUAL_DELTA_FILES=[
   'assets/portal-runtime/client-content-responsive-v1.css',
-  'assets/portal-runtime/client-contract-download-v3.js'
+  'assets/portal-runtime/client-contract-download-v3.js',
+  'scripts/attach-client-market-intelligence-v1.mjs'
 ];
 const CLIENT_MULTI_CONTEXT_430_FILES=[
   'assets/portal-runtime/client-contract-download-v3.js'
