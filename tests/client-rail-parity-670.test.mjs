@@ -203,7 +203,7 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("clientRailPatchRouteDraw"));
   assert.ok(source.includes("railMapRequestDraw"));
   assert.ok(source.includes("railMapFitRoute"));
-  assert.ok(source.includes("20260921-premium-map-markers-v4"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1'"));
   assert.ok(source.includes("rona-client-rail-route-pin"));
   assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));
@@ -226,9 +226,8 @@ test("build and hero contracts no longer advertise legacy Rail authority",()=>{
   assert.ok(attach.includes("client_authority:'AUTHENTICATED_CLIENT_CONTRACT'"));
   assert.ok(hero.includes("AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1"));
   assert.ok(hero.includes("CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2"));
-  assert.ok(hero.includes("CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1"));
-  assert.ok(hero.includes(".rona-client-rail-route-pin--origin"));
-  assert.ok(hero.includes(".rona-rail-v7-marker::before"));
+  assert.ok(source.includes("border-radius:7px!important"));
+  assert.ok(source.includes("rona-rail-v7-marker::before"));
   assert.ok(hero.includes("layout_override:'NONE_OPERATIONAL_BODY'"));
   assert.equal(hero.includes("grid-template-rows:1fr 1fr!important"),false,"Client-only equal-height Rail layout must not return");
   assert.equal(hero.includes("grid-template-columns:minmax(430px,1fr) minmax(650px,1.55fr)!important"),false,"Client-only Rail work-grid override must not return");
