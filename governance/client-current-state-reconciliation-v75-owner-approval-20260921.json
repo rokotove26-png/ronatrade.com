@@ -3,7 +3,7 @@
   "authorized_at": "2026-09-21",
   "pr_number": 836,
   "branch": "client-current-state-reconcile-v75",
-  "base_commit": "2d8300df4dc7e8333635121397142b0e07d0adb4",
+  "base_commit": "84ef156c4b36bb8340127db73118b00982580a06",
   "scope": "CLIENT_CURRENT_STATE_RECONCILIATION_V75_EVENT_DRIVEN",
   "owner_instruction": "Proceed from SYSTEM_ADMIN CURRENT STATE v74; reconcile stale Architect PR #810 onto current production, remove the remaining recurring Client network owners and Payments 1-second loop, fix Applications projection-to-DOM, preserve current production architecture and business semantics.",
   "approved_protected_files": [
@@ -36,7 +36,7 @@
     },
     "scripts/attach-client-application-lifecycle.mjs": {
       "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
-      "authorized_post_blob_sha": "1188d18d52ba92be48eefc2a190692f44effe823",
+      "authorized_post_blob_sha": "deb3ee662cd4c49a4e879d0532f7b563349155fa",
       "required_marker": "20260921-current-state-event-driven-v4"
     }
   },
