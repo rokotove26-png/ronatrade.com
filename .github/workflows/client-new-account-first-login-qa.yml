@@ -59,7 +59,7 @@ jobs:
           assert(rail.includes('c.roles.includes("CLIENT")'),'client rail CLIENT role gate missing');
           assert(rail.includes('CLIENT_CONTRACT_CONTEXT_REQUIRED'),'client rail context requirement missing');
           assert(rail.includes('portal_private.client_user_has_contract_access'),'client rail server access gate missing');
-          assert(rail.includes('send(origin,200'),'client rail safe 200 projection missing');
+          assert(/(?:send\(origin,200|reply\(200)/.test(rail),'client rail safe 200 projection missing');
           for(const token of ['status:"EMPTY"','rail:[]','rail_documents:[]','wagons:[]'])assert(rail.includes(token),`client rail empty-state contract missing ${token}`);
 
           assert(!/MOVIZOR|client\/rail/i.test(client),'Client bootstrap must not depend on rail provider availability');
