@@ -41,6 +41,13 @@ jobs:
               return {status:0,body:''};
             }
           };
+          const portal=await timed('PORTAL_LOGIN',()=>fetch('https://ronaoil.com/portal/auth/login',{
+            method:'POST',
+            redirect:'manual',
+            headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
+            body:JSON.stringify({identifier,password}),
+            signal:AbortSignal.timeout(45000)
+          }));
           const health=await timed('SUPABASE_AUTH_HEALTH',()=>fetch(url+'/auth/v1/health',{
             headers:{apikey:key,accept:'application/json'},
             signal:AbortSignal.timeout(12000)
@@ -54,13 +61,6 @@ jobs:
             headers:{apikey:key,'content-type':'application/json'},
             body:JSON.stringify({email:identifier,password}),
             signal:AbortSignal.timeout(15000)
-          }));
-          const portal=await timed('PORTAL_LOGIN',()=>fetch('https://ronaoil.com/portal/auth/login',{
-            method:'POST',
-            redirect:'manual',
-            headers:{origin:'https://ronaoil.com','content-type':'application/json',accept:'application/json'},
-            body:JSON.stringify({identifier,password}),
-            signal:AbortSignal.timeout(20000)
           }));
           if(edge.status===0||edge.status>=500)console.log('SUPABASE_FUNCTION_GATEWAY_UNAVAILABLE');
           if(health.status===0||health.status>=500)console.log('SUPABASE_AUTH_HEALTH_UNAVAILABLE');
