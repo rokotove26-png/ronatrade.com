@@ -1,0 +1,12 @@
+{
+  "slug": "rona-portal-api",
+  "name": "rona-portal-api",
+  "status": "ACTIVE",
+  "version": 74,
+  "verify_jwt": true,
+  "ezbr_sha256": "00b7e85418e5d331dc0b1aaca405072fc115a90b135eefcba73f589263d59d81",
+  "entrypoint_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_e63b60a3-2d8e-4288-ab94-b7a7e1532ec4_74/source/index.ts",
+  "import_map_path": "/tmp/user_fn_sxawrwzeobaqwwmlkzws_e63b60a3-2d8e-4288-ab94-b7a7e1532ec4_74/source/deno.json",
+  "created_at": 1786579059689,
+  "updated_at": 1790021788433
+}
