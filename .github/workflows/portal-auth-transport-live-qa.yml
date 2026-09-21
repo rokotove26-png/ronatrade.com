@@ -41,6 +41,8 @@ jobs:
               return {status:0,body:''};
             }
           };
+          const asset=await timed('LIVE_INLINE_AUTH_ASSET',()=>fetch('https://ronaoil.com/assets/g82/portal-home-inline-auth-v2.js?_qa='+Date.now(),{cache:'no-store',signal:AbortSignal.timeout(12000)}));
+          if(asset.status!==200||!asset.body.includes("controller.abort('RONA_INLINE_AUTH_TIMEOUT'),60000")||!asset.body.includes("err==='RONA_INLINE_AUTH_TIMEOUT'"))throw new Error('LIVE_INLINE_AUTH_V5_NOT_DEPLOYED');
           const portal=await timed('PORTAL_LOGIN',()=>fetch('https://ronaoil.com/portal/auth/login',{
             method:'POST',
             redirect:'manual',
