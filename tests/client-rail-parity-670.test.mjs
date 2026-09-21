@@ -194,7 +194,7 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("RAIL_READ_MODEL_DEGRADED"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V2"));
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V4"));
-  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V6_COHORT_VISUAL"));
+  assert.ok(source.includes("CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS"));
   assert.ok(source.includes("clientRailNormalizeRouteParity"));
   assert.ok(source.includes("clientRailRepairMapParity"));
   assert.ok(source.includes("clientRailRenderAuthoritativeRouteOverlay"));
@@ -204,8 +204,6 @@ test("Client adapter consumes only canonical endpoint and inherits degraded pres
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1'"));
   assert.ok(source.includes("routeCohortsByDeal"));
   assert.ok(source.includes("railMapCohortDraw"));
-  assert.ok(source.includes("rona-rail-v7-route-plan"));
-  assert.ok(source.includes("cohortCount>0"));
   assert.ok(source.includes("rona-client-rail-route-pin"));
   assert.ok(source.includes("createElementNS('http://www.w3.org/2000/svg','rect')"));
   assert.ok(source.includes("marker=document.createElementNS('http://www.w3.org/2000/svg','rect')"));

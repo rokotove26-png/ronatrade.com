@@ -204,14 +204,14 @@ function clientRailRenderAuthoritativeRouteOverlay(state){
     state.routePane.style.setProperty('opacity','1','important');
     state.routePane.style.setProperty('z-index','3','important');
     state.routePane.replaceChildren();
-    if(cohortCount>0){
-      count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-plan-casing','rona-rail-v7-route-plan','rgba(255,255,255,.72)',5.2,'rgba(83,104,116,.68)',1.9,1);
-      if(typeof railMapCohortDraw==='function')count+=railMapCohortDraw(svg,{mapData:mapData},left,top,z)
-    }else if(hasSplit){
-      count+=clientRailRouteOverlayPolyline(svg,remaining,left,top,z,'rona-rail-v7-route-remaining-casing','rona-rail-v7-route-remaining','rgba(67,84,94,.16)',5,'rgba(105,124,135,.56)',2,1);
-      count+=clientRailRouteOverlayPolyline(svg,actual,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual','rgba(54,65,72,.22)',6,'rgba(99,111,118,.76)',2.8,1)
+    if(hasSplit){
+      count+=clientRailRouteOverlayPolyline(svg,remaining,left,top,z,'rona-rail-v7-route-remaining-casing','rona-rail-v7-route-remaining','rgba(5,28,39,.48)',6.4,'rgba(83,166,196,.78)',2.8,1);
+      count+=clientRailRouteOverlayPolyline(svg,actual,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual','rgba(3,20,31,.64)',8.4,'#25cfc0',4.2,1)
     }else{
-      count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line','rgba(70,88,99,.18)',5,'rgba(94,116,128,.72)',2,1)
+      count+=clientRailRouteOverlayPolyline(svg,planned,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line','rgba(4,24,36,.56)',7.2,'#63d8ff',3.6,1)
+    }
+    if(typeof railMapCohortDraw==='function'){
+      count+=railMapCohortDraw(svg,{mapData:mapData},left,top,z)
     }
     var nodes=planned.length?planned:(actual.length?actual:remaining);
     nodes.forEach(function(pt,idx){
@@ -237,7 +237,7 @@ function clientRailRenderAuthoritativeRouteOverlay(state){
       svg.append(marker)
     });
     state.routePane.append(svg);
-    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V6_COHORT_VISUAL',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,routeCohortCount:cohortCount,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
+    window.__RONA_CLIENT_RAIL_ROUTE_OVERLAY_STATE__={version:'CLIENT_RAIL_ROUTE_OVERLAY_V5_COHORTS',dealKey:mapData.dealKey||window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,plannedPoints:planned.length,actualPoints:actual.length,remainingPoints:remaining.length,routeCohortCount:cohortCount,renderedPointCount:count,svgPolylineCount:svg.querySelectorAll('polyline').length,updatedAt:new Date().toISOString()};
     document.documentElement.dataset.ronaClientRailRouteOverlay=count>=2?'PREMIUM_MARKERS_V1':'EMPTY';
     return count
   }catch(e){
