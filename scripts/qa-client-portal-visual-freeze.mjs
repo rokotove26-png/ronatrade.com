@@ -637,7 +637,7 @@ const clientCurrentStateReconciliationV75ExceptionAuthorized=
   clientCurrentStateReconciliationV75Approval?.authorized_at==='2026-09-21'&&
   clientCurrentStateReconciliationV75Approval?.pr_number===836&&
   clientCurrentStateReconciliationV75Approval?.branch==='client-current-state-reconcile-v75'&&
-  clientCurrentStateReconciliationV75Approval?.base_commit==='2d8300df4dc7e8333635121397142b0e07d0adb4'&&
+  clientCurrentStateReconciliationV75Approval?.base_commit==='84ef156c4b36bb8340127db73118b00982580a06'&&
   clientCurrentStateReconciliationV75Approval?.scope==='CLIENT_CURRENT_STATE_RECONCILIATION_V75_EVENT_DRIVEN'&&
   Array.isArray(clientCurrentStateReconciliationV75Approval?.approved_protected_files)&&
   clientCurrentStateReconciliationV75Approval.approved_protected_files.length===CLIENT_CURRENT_STATE_RECONCILIATION_V75_FILES.length&&
