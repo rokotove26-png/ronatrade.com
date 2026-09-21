@@ -1,5 +1,7 @@
+import {applyBrowserImpersonation,browserImpersonationInvalid,readBrowserImpersonation} from '../../_browser-impersonation.js';
 const SUPABASE_URL='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
+const EFFECTIVE_CLIENT_FEED_API=`${SUPABASE_URL}/functions/v1/rona-portal-api/v1/client/market-intelligence`;
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const SECURITY_HEADERS=Object.freeze({
@@ -23,6 +25,11 @@ function sameOrigin(request){const u=new URL(request.url),origin=request.headers
 async function authRefresh(refreshToken){const r=await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,'content-type':'application/json'},body:JSON.stringify({refresh_token:refreshToken})});const data=await r.json().catch(()=>({}));return{ok:r.ok,data}}
 async function feedRpc(token){return fetch(`${SUPABASE_URL}/rest/v1/rpc/owner_client_market_intelligence_feed_v1`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:`Bearer ${token}`,accept:'application/json','content-type':'application/json'},body:'{}',cache:'no-store'})}
 async function loadWithRefresh(access,refresh){let cookies=[];let response=await feedRpc(access);if(response.status===401&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;cookies=tokenCookies(next.data);response=await feedRpc(access)}}return{response,cookies}}
+async function effectiveClientFeed(access,request,impersonation){
+  const headers=applyBrowserImpersonation(new Headers({authorization:`Bearer ${access}`,accept:'application/json'}),impersonation);
+  for(const name of ['x-request-id','x-correlation-id','x-rona-client-source']){const value=request.headers.get(name);if(value)headers.set(name,value)}
+  return fetch(EFFECTIVE_CLIENT_FEED_API,{method:'GET',headers,cache:'no-store'});
+}
 function valid(payload){
   if(!payload||payload.version!=='RONA_CLIENT_MARKET_INTELLIGENCE_V1'||!Array.isArray(payload.analytics)||!Array.isArray(payload.news))return false;
   if(String(payload.timezone||'')!=='Europe/Moscow')return false;
@@ -34,10 +41,27 @@ export async function onRequest(context){
   const request=context.request;
   if(request.method!=='GET')return json({ok:false,code:'METHOD_NOT_ALLOWED'},405);
   if(!sameOrigin(request))return json({ok:false,code:'ORIGIN_DENIED'},403);
+  const impersonation=readBrowserImpersonation(request);
+  if(browserImpersonationInvalid(impersonation))return json({ok:false,code:'IMPERSONATION_TAB_INVALID',returnTo:'/portal/admin'},409);
   const cookies=parseCookies(request.headers.get('cookie'));
   let access=cookies[ACCESS_COOKIE]||'',refresh=cookies[REFRESH_COOKIE]||'',setCookies=[];
   if(!access&&refresh){const next=await authRefresh(refresh);if(next.ok&&next.data?.access_token&&next.data?.refresh_token){access=next.data.access_token;refresh=next.data.refresh_token;setCookies=tokenCookies(next.data)}}
   if(!access)return json({ok:false,code:'PORTAL_ACCESS_DENIED'},401,clearCookies());
+  if(impersonation.active){
+    let response=await effectiveClientFeed(access,request,impersonation);
+    if(response.status===401&&refresh){
+      const next=await authRefresh(refresh);
+      if(next.ok&&next.data?.access_token&&next.data?.refresh_token){
+        access=next.data.access_token;setCookies=tokenCookies(next.data);
+        response=await effectiveClientFeed(access,request,impersonation);
+      }
+    }
+    if(response.status===401)return json({ok:false,code:'IMPERSONATION_SESSION_INVALID',returnTo:'/portal/admin'},409,setCookies);
+    const payload=await response.json().catch(()=>null);
+    if(!response.ok||payload?.ok===false)return json(payload&&typeof payload==='object'?payload:{ok:false,code:'CLIENT_MARKET_FEED_FAILED'},response.status,setCookies);
+    if(!valid(payload?.data))return json({ok:false,code:'CLIENT_MARKET_FEED_INVALID'},502,setCookies);
+    return json({ok:true,data:payload.data},200,setCookies);
+  }
   const loaded=await loadWithRefresh(access,refresh);
   if(loaded.cookies.length)setCookies=loaded.cookies;
   const response=loaded.response;
