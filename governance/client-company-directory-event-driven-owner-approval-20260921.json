@@ -1,0 +1,33 @@
+{
+  "approval": "OWNER_IN_CHAT",
+  "authorized_at": "2026-09-21",
+  "scope": "CLIENT_COMPANY_DIRECTORY_EVENT_DRIVEN_V1",
+  "owner_instruction": "Продолжай полную сквозную оптимизацию Client Portal: убрать ненужные циклы обновления; при отсутствии изменения данных фонового обновления не выполнять.",
+  "production_revalidated_at_change": "5980e7f9e414062cd51014463a14bb0121938dbd",
+  "refresh_policy": "OPEN_AUTHORIZED_DIRECTORY_CONTEXT_PAGESHOW_INVALIDATION",
+  "source_files": {
+    "assets/portal-runtime/portal-client-company-directory-authority-v1.js": {
+      "production_parent_blob_sha": "00323cf85f30e6ccc6b38e84b9774f63f57609a0",
+      "authorized_post_blob_sha": "1b6d06311d6948fcec619154e5bf330308bbaaa1"
+    },
+    "scripts/attach-pr431-client-company-directory-v1.mjs": {
+      "production_parent_blob_sha": "3a824b426e6ab43cf7bc3624d346333798a81298",
+      "authorized_post_blob_sha": "f4751723239903501d87380e3e46aaafafd9107d"
+    }
+  },
+  "requirements": {
+    "periodic_refresh_removed": true,
+    "refresh_ms_30000_removed": true,
+    "normal_authorized_directory_event_uses_in_memory_snapshot": true,
+    "pageshow_explicit_refresh_preserved": true,
+    "explicit_invalidation_event": "rona:client-company-directory-invalidated",
+    "context_change_marker_sync_preserved": true,
+    "canonical_card_factory_preserved": true,
+    "signed_contract_download_preserved": true,
+    "visual_change": false,
+    "business_data_changed": false,
+    "auth_changed": false,
+    "schema_or_rls_changed": false,
+    "architect_pr_810_runtime_overlap": false
+  }
+}
