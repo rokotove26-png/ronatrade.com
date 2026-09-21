@@ -15,9 +15,10 @@ test('Payments V8 refreshes authoritative bootstrap on all live triggers without
   assert.match(ui,/if\(loading\)return loading/);
 });
 
-test('refresh is version-gated and preserves last confirmed snapshot on failure',()=>{
+test('refresh is version-gated, adopts every successful no-store snapshot, and preserves last confirmed snapshot on failure',()=>{
   assert.match(ui,/previousKey=versionKeyOf\(previous\),nextKey=versionKeyOf\(next\),changed=!previous\|\|previousKey!==nextKey/);
-  assert.match(ui,/projection=changed\?next:\(previous\|\|next\)/);
+  assert.match(ui,/projection=next/);
+  assert.match(ui,/ADOPT_EVERY_SUCCESSFUL_NO_STORE_BOOTSTRAP_V1/);
   assert.match(ui,/catch\(error\)[\s\S]*return projection/);
   assert.doesNotMatch(ui,/catch\(error\)[\s\S]{0,300}projection=null/);
 });
