@@ -9,6 +9,7 @@ on:
       - 'assets/portal-runtime/client-logout-visual-v1.js'
       - 'assets/portal-runtime/client-price-sync-v1.js'
       - 'assets/portal-runtime/client-price-conditions-v1.js'
+      - 'scripts/attach-client-logout-visual-v1.mjs'
       - 'tests/client-event-driven-refresh-v1.test.mjs'
       - '.github/workflows/client-event-driven-refresh-qa.yml'
   workflow_dispatch:
