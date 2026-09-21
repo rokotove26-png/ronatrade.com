@@ -70,6 +70,7 @@ jobs:
             echo 'governance/client-online-rail-670-owner-approval-20260919.json'
             echo 'scripts/attach-client-rail-production-v1.mjs'
             echo 'scripts/qa-client-online-rail-670-browser.mjs'
+            echo 'scripts/qa-online-rail-stage-a-644-browser.mjs'
             echo 'scripts/qa-client-online-rail-670-real-integration.mjs'
             echo 'tests/fixtures/issue670-client-rail-real-integration-base.sql'
             echo 'supabase/migrations/20260919182000_client_rail_internal_read_model_core_v1.sql'
