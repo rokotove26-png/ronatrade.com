@@ -34,7 +34,9 @@
     "current_context_authority_preserved": true,
     "single_owner_projection_preserved": true,
     "images_added": false,
-    "unrelated_visual_changes": false
+    "unrelated_visual_changes": false,
+    "supersedes_legacy_exact_visual_blob_only": true,
+    "legacy_visual_semantics_preserved": true
   },
   "stacked_dependency_pr": 813,
   "stacked_dependency_branch": "fix/client-market-event-driven-refresh-v1-20260921"
