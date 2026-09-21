@@ -65,7 +65,7 @@ jobs:
             "operational_body_canon:'/portal/rail-current-v81-maplibre-ui'",
             "legacy_client_visual_owner:false","separate_movizor_visual_gate:false"
           ])assert(attach.includes(token),`Rail attach ownership contract missing ${token}`);
-          for(const token of ['20260919-client-rail-admin-visual-parity-v2','RONA Trade · Operations','Онлайн ЖД','CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'])assert(hero.includes(token),`Client Rail canonical hero missing ${token}`);
+          for(const token of ['20260921-client-rail-premium-map-markers-v3','RONA Trade · Operations','Онлайн ЖД','CLIENT_CANONICAL_HERO_V1_ADMIN_OPERATIONAL_BODY','CLIENT_ADMIN_RAIL_VISUAL_PARITY_V2','CLIENT_RAIL_PREMIUM_MAP_MARKERS_V1','AUTHORITATIVE_CLIENT_RAIL_CANONICAL_READ_MODEL_V1'])assert(hero.includes(token),`Client Rail canonical hero missing ${token}`);
           for(const token of ["window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2'",'/portal/map-assets/osm/','mountRealRailMap','Интерактивная ЖД-карта'])assert(admin.includes(token),`Admin Rail operational body missing ${token}`);
           assert(cache.includes('/portal/client-rail-current-ui'),'Client Rail cache route missing');
           assert(!cache.includes('/assets/portal-runtime/client-rail-production-v1.js')&&!cache.includes('/assets/portal-runtime/client-rail-movizor-gate-v1.js'),'retired Client Rail cache owner remains');
@@ -80,7 +80,7 @@ jobs:
           const assert=(ok,msg)=>{if(!ok)throw new Error(msg)};
           const integrity=JSON.parse(fs.readFileSync('dist/canonical-visual-integrity.json','utf8'));
           const bridge=integrity?.client_runtime?.rail_client_admin_canonical;
-          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260919-route-overlay-v3','Client Rail integrity record missing');
+          assert(bridge?.id==='rona-client-rail-admin-canonical-v1'&&bridge?.marker==='20260921-premium-map-markers-v4','Client Rail integrity record missing');
           assert(bridge.visual_canon==='ADMIN_CURRENT_V81_EXACT_OPERATIONAL_LAYOUT','Client Rail visual canon changed');
           assert(bridge.visual_contract==='ADMIN_CURRENT_V8_2_OPERATIONAL_BODY_PLUS_CLIENT_AUTHORITY','Client Rail visual contract changed');
           assert(bridge.visual_source_mode==='ADMIN_OPERATIONAL_LAYOUT_INHERITED_NO_CLIENT_LAYOUT_OVERRIDE','Client Rail source mode changed');
