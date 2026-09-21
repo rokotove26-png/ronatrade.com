@@ -5,7 +5,7 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260921-authoritative-v12-fresh-on-open-existing-context-api';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260921-authoritative-v13-existing-data-first';
 const marker='20260905-client-deals-authoritative-live-render-v9-native-passport-strict';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -15,7 +15,7 @@ for(const required of [
   '/v1/client/deal-documents/state?clientId=',
   'data-rona-deals-authoritative-list','data-rona-deals-authoritative-rendered','data-rona-canonical-deal-id','data-open-deal',
   'authoritative-v9','classList.contains(\'active\')','function visible(','function canonicalIn(r,id)',
-  'function openAuthoritativeDeal(id)','invalidateCurrentProjection','whenCurrentProjection','deal-passport-open','fresh-on-open-v2','20260921-fresh-on-open-v2-existing-context-api','RONA_CLIENT_CONTEXT_FRESH_ON_PASSPORT_OPEN','function effectiveResource(d)','function workflowResource(workflow)','ronaResourceAuthority','function drawerFor(id,key)',
+  'function openAuthoritativeDeal(id)','invalidateCurrentProjection','whenCurrentProjection','deal-passport-open','fresh-on-open-v3-existing-data-first','20260921-fresh-on-open-v3-existing-data-first','RONA_CLIENT_CONTEXT_FRESH_ON_PASSPORT_OPEN','function effectiveResource(d)','function workflowResource(workflow)','ronaResourceAuthority','function drawerFor(id,key)',
   'function contextMatchesPayload(data,ctx,deal)','function workflowRowValid(workflow,id)','function passportSlotsReady(r)',
   'function clearDrawerBinding(drawer','function renderExplicitContextSlots(r,data,ctx)','function waitForExactDrawer(id,key,token',
   'ronaAuthoritativeClientId','ronaAuthoritativeContractId','current-context-v8','unauthorized-deal','authoritative-binding','state.payload=projection',
@@ -48,8 +48,8 @@ integrity.client_runtime.deals_authoritative_renderer={
   source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',
   projection_network_owner:'RONA_CLIENT_CONTEXT',
   own_context_fetch:false,
-  current_projection_adopted_on_open:true,
-  passport_projection_freshness:'FORCE_FRESH_ON_EVERY_OPEN',
+  current_projection_adopted_on_open:false,
+  passport_projection_freshness:'FRESH_EXISTING_DATA_BEFORE_BIND',
   passport_projection_refresh_authority:'RONA_CLIENT_CONTEXT.invalidateCurrentProjection+whenCurrentProjection',
   current_projection_event_replaces_state_payload:true,
   detail_source:'CURRENT_CONTEXT_PLUS_SERVER_AUTHORITATIVE_REALIZATION_V2',
@@ -66,6 +66,7 @@ integrity.client_runtime.deals_authoritative_renderer={
   exact_visible_native_drawer_required:true,
   unbound_drawer_fallback:false,
   pre_workflow_bind:false,
+  fresh_projection_before_drawer_bind:true,
   passport_field_binding:'EXPLICIT_PRODUCTION_FIELD_SLOTS_ONLY',
   passport_context_binding:'EXPLICIT_CURRENT_CONTEXT_SLOTS_ONLY',
   lifecycle_owner:'client-deal-lifecycle-v1',
@@ -80,4 +81,4 @@ const emitted=Buffer.from(html,'utf8');
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; source=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION; passport-freshness=INVALIDATE_THEN_NO_STORE_ON_EVERY_OPEN; own_context_fetch=false; exact_native_passport=true; unbound_fallback=false; pre_workflow_bind=false; explicit_field_slots=true; lifecycle_owner=client-deal-lifecycle-v1; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; visual_css_changed=false; sha256=${integrity.client_runtime.emitted_sha256}`);
+console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; source=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION; passport-freshness=FRESH_EXISTING_DATA_BEFORE_BIND; own_context_fetch=false; exact_native_passport=true; unbound_fallback=false; pre_workflow_bind=false; explicit_field_slots=true; lifecycle_owner=client-deal-lifecycle-v1; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; visual_css_changed=false; sha256=${integrity.client_runtime.emitted_sha256}`);
