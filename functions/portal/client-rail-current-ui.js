@@ -12,8 +12,9 @@ const LOCATION_FROM="if(location.pathname==='/portal/admin'){if(document.readySt
 const LOCATION_TO="if(location.pathname==='/portal/client'){if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start()}";
 const BIND_FROM="function bind(){var nav=q('#nav button[data-page=\"monitoring\"]');if(nav&&!nav.__ronaRailV4Bound){nav.__ronaRailV4Bound=true;nav.addEventListener('click',function(){setTimeout(paint,0);setTimeout(paint,120);setTimeout(function(){sync()},350)})}}";
 const BIND_TO="function bind(){if(document.documentElement.dataset.ronaClientRailNavBound==='true')return;document.documentElement.dataset.ronaClientRailNavBound='true';document.addEventListener('click',function(ev){var n=ev.target&&ev.target.closest?ev.target.closest('button,a,[role=\"button\"]'):null;if(!n)return;var key=String(n.getAttribute('data-page')||n.getAttribute('data-section')||n.getAttribute('data-target')||'').toLowerCase(),label=String(n.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();if(key!=='rail'&&key!=='monitoring'&&label!=='онлайн жд')return;setTimeout(function(){ensureClientRailMount();paint()},0);setTimeout(paint,120);setTimeout(function(){sync()},350)},true)}";
-const CLIENT_TIMER_FROM=";timer=setInterval(sync,30000)";
-const CLIENT_TIMER_TO="";
+const CLIENT_LEGACY_TIMER_FROM=";timer=setInterval(sync,30000)";
+const CLIENT_V81_POLL_FROM="timer=setInterval(function(){var page=q('#page-monitoring');if(document.visibilityState==='visible'&&page&&page.classList.contains('active'))sync()},30000);document.addEventListener('visibilitychange',function(){var page=q('#page-monitoring');if(document.visibilityState==='visible'&&page&&page.classList.contains('active'))sync()},{passive:true})";
+const CLIENT_POLL_TO="timer=null";
 
 const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important}',";
 
@@ -334,14 +335,15 @@ export async function onRequest(context){
     .replace(WAIT_FROM,'function waitAdminReady(){}')
     .replace(START_HEAD_FROM,START_HEAD_TO)
     .replace(BIND_FROM,BIND_TO)
-    .replace(CLIENT_TIMER_FROM,CLIENT_TIMER_TO)
+    .replace(CLIENT_V81_POLL_FROM,CLIENT_POLL_TO)
+    .replace(CLIENT_LEGACY_TIMER_FROM,'')
     .replace(LOCATION_FROM,LOCATION_TO)
     .replace(ADMIN_SINGLE_TITLE_HIDDEN_HERO,'')
     .split("'/admin/bootstrap'").join("'/client/rail-canonical'");
   if(source.includes(ADMIN_SINGLE_TITLE_HIDDEN_HERO)){
     return new Response('CLIENT_RAIL_TITLE_HIDDEN_AFTER_ADAPT',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
-  if(source.includes(CLIENT_TIMER_FROM)||source.includes('timer=setInterval(sync,30000)')){
+  if(source.includes(CLIENT_V81_POLL_FROM)||source.includes(CLIENT_LEGACY_TIMER_FROM)||source.includes("timer=setInterval(function(){var page=q('#page-monitoring')")||source.includes('timer=setInterval(sync,30000)')){
     return new Response('CLIENT_RAIL_PERIODIC_REFRESH_REMAINS',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   }
   if(source.includes("/portal/owner-api")||source.includes("/admin/bootstrap")||source.includes("location.pathname==='/portal/admin'")){
