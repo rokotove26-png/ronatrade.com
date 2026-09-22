@@ -196,6 +196,11 @@ test("Client adapter consumes only canonical endpoint and inherits the Admin can
   assert.ok(source.includes("CLIENT_ADMIN_ROUTE_PARITY_V5_CANONICAL_RENDERER"));
   assert.ok(source.includes("CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1"));
   assert.ok(source.includes("window.__RONA_CLIENT_RAIL_CANONICAL_ROUTE_RENDERER__='ADMIN_CURRENT_V81_INHERITED_V1'"));
+  assert.ok(source.includes("window.__RONA_CLIENT_RAIL_ROUTE_LAYER_FIX__='20260922-overlay-position-v1'"));
+  assert.ok(source.includes("#page-rail .rona-rail-v7-map-viewport>.rona-rail-v7-tiles,#page-monitoring .rona-rail-v7-map-viewport>.rona-rail-v7-tiles{position:absolute!important;inset:0!important;z-index:1!important}"));
+  assert.ok(source.includes("#page-rail .rona-rail-v7-map-viewport>.rona-rail-v7-route-layer,#page-monitoring .rona-rail-v7-map-viewport>.rona-rail-v7-route-layer{position:absolute!important;inset:0!important;z-index:3!important;pointer-events:none!important;overflow:visible!important}"));
+  assert.ok(source.includes("#page-rail .rona-rail-v7-route-layer>.rona-rail-v7-route-svg,#page-monitoring .rona-rail-v7-route-layer>.rona-rail-v7-route-svg{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;overflow:visible!important}"));
+  assert.ok(source.includes("#page-rail .rona-rail-v7-map-viewport>.rona-rail-v7-markers,#page-monitoring .rona-rail-v7-map-viewport>.rona-rail-v7-markers{position:absolute!important;inset:0!important;z-index:4!important}"));
   assert.ok(source.includes("window.__RONA_RAIL_ROUTE_DESTINATION_CONTINUATION__='20260921-final-destination-v3'"));
   assert.ok(source.includes("DOMINANT_COHORT_REJOIN_BASE_TO_DESTINATION"));
   assert.ok(source.includes("branchesDrawn:0"));

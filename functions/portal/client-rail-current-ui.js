@@ -2,6 +2,7 @@ import { onRequest as adminRailCurrent } from './rail-current-v81-maplibre-ui.js
 
 const CLIENT_MARKER="window.__RONA_CLIENT_RAIL_PRODUCTION__='20260921-admin-canonical-route-inherit-v1';window.__RONA_CLIENT_RAIL_PREMIUM_MAP__='20260921-premium-markers-v1';";
 const CANONICAL_ROUTE_RENDERER_MARKER="window.__RONA_CLIENT_RAIL_CANONICAL_ROUTE_RENDERER__='ADMIN_CURRENT_V81_INHERITED_V1';";
+const ROUTE_LAYER_FIX_MARKER="window.__RONA_CLIENT_RAIL_ROUTE_LAYER_FIX__='20260922-overlay-position-v1';";
 const ADMIN_MARKER="window.__RONA_RAIL_CURRENT_V81__='20260825-raster-first-v8.2';";
 const ADMIN_ROUTE_MARKER="window.__RONA_RAIL_ROUTE_DESTINATION_CONTINUATION__='20260921-final-destination-v3';";
 const API_VAR_FROM="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
@@ -22,6 +23,7 @@ const ADMIN_SINGLE_TITLE_HIDDEN_HERO="'.rona-rail-v4-hero{display:none!important
 const CLIENT_PREAMBLE=String.raw`
 ${CLIENT_MARKER}
 ${CANONICAL_ROUTE_RENDERER_MARKER}
+${ROUTE_LAYER_FIX_MARKER}
 window.__RONA_CLIENT_RAIL_COMPAT__='CLIENT_ADMIN_ROUTE_PARITY_V5 CLIENT_RAIL_CANONICAL_ROUTE_INHERIT_V1 CLIENT_RAIL_EVENT_DRIVEN_REFRESH_V2';
 window.__RONA_CLIENT_RAIL_REFRESH_POLICY__='OPEN_CONTEXT_CHANGE_INVALIDATION';
 window.__RONA_CLIENT_RAIL_CURRENT_CONTEXT__='20260903-client-contract-v1';
@@ -43,6 +45,10 @@ function ensureClientCanonicalOwnerStyle(){
     '.rona-owner-page-content{display:block!important}',
     '#page-rail>[data-rona-client-rail-admin-canonical-mount],#page-monitoring[data-rona-client-rail-admin-canonical-mount]{width:100%;min-width:0;max-width:none}',
     '#page-rail .rona-rail-v4-root,#page-monitoring .rona-rail-v4-root{font-family:inherit}',
+    '#page-rail .rona-rail-v7-map-viewport>.rona-rail-v7-tiles,#page-monitoring .rona-rail-v7-map-viewport>.rona-rail-v7-tiles{position:absolute!important;inset:0!important;z-index:1!important}',
+    '#page-rail .rona-rail-v7-map-viewport>.rona-rail-v7-route-layer,#page-monitoring .rona-rail-v7-map-viewport>.rona-rail-v7-route-layer{position:absolute!important;inset:0!important;z-index:3!important;pointer-events:none!important;overflow:visible!important}',
+    '#page-rail .rona-rail-v7-route-layer>.rona-rail-v7-route-svg,#page-monitoring .rona-rail-v7-route-layer>.rona-rail-v7-route-svg{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;overflow:visible!important}',
+    '#page-rail .rona-rail-v7-map-viewport>.rona-rail-v7-markers,#page-monitoring .rona-rail-v7-map-viewport>.rona-rail-v7-markers{position:absolute!important;inset:0!important;z-index:4!important}',
     '#page-rail .rona-rail-v7-route-casing,#page-monitoring .rona-rail-v7-route-casing{stroke:rgba(4,24,36,.56)!important;stroke-width:7.2!important}',
     '#page-rail .rona-rail-v7-route-line,#page-monitoring .rona-rail-v7-route-line{stroke:#63d8ff!important;stroke-width:3.6!important;filter:drop-shadow(0 1px 3px rgba(28,175,222,.26))!important}',
     '#page-rail .rona-rail-v7-route-remaining-casing,#page-monitoring .rona-rail-v7-route-remaining-casing{stroke:rgba(5,28,39,.48)!important;stroke-width:6.4!important}',
