@@ -154,8 +154,8 @@ async function contractCandidate(contractId) {
   `;
   if (!rows.length) return null;
   const r = rows[0];
-  if (["ARCHIVED","SUPERSEDED"].includes(String(r.contract_lifecycle)) || String(r.contract_authority) === "REJECTED") return null;
-  if (["ARCHIVED","SUPERSEDED"].includes(String(r.client_lifecycle)) || String(r.client_authority) === "REJECTED") return null;
+  if (["ARCHIVED","SUPERSEDED"].includes(String(r.contract_lifecycle)) || ["REJECTED","SUPERSEDED"].includes(String(r.contract_authority))) return null;
+  if (String(r.client_lifecycle) !== "ACTIVE" || ["REJECTED","SUPERSEDED"].includes(String(r.client_authority))) return null;
   return r;
 }
 
@@ -435,7 +435,6 @@ async function createClientUser(ctx, req, b) {
   await assertLoginAvailable(login);
   const requested = Array.isArray(b.contractIds) ? [...new Set(b.contractIds.map(String).filter(Boolean))] : [];
   if (!requested.length) throw Object.assign(new Error("COMPANY_REQUIRED"), { status: 400 });
-  const openWithout = b.openWithoutContract === true;
   const eligible = [], pending = [];
   for (const id of requested) {
     const ready = await bindingEligible(id);
@@ -446,8 +445,6 @@ async function createClientUser(ctx, req, b) {
       pending.push(candidate);
     }
   }
-  if (pending.length && !openWithout) throw Object.assign(new Error("SIGNED_CONTRACT_GATE_NOT_SATISFIED"), { status: 409 });
-
   const authId = await createAuthUser(email, password, login, name);
   try {
     return await sql.begin(async (tx) => {
@@ -466,11 +463,11 @@ async function createClientUser(ctx, req, b) {
       for (const c of pending) {
         await tx`
           insert into portal_private.client_user_bindings(user_id,client_key,contract_key,status,granted_by,reason,source_system,source_version,source_timestamp,authority_state,lifecycle_state,deal_scope_mode)
-          values(${userId}::uuid,${c.client_key}::uuid,${c.contract_key}::uuid,'PENDING'::portal_private.binding_status_enum,${ctx.user}::uuid,'Admin Portal: opened without confirmed signed contract; data access fail-closed','ADMIN_PORTAL','ADMIN_EXCLUSIVE_CLIENT_V2',now(),'DRAFT'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum,'ALL_CONTRACT_DEALS')
+          values(${userId}::uuid,${c.client_key}::uuid,${c.contract_key}::uuid,'PENDING'::portal_private.binding_status_enum,${ctx.user}::uuid,'Admin Portal: account created before signed-contract confirmation; company data access remains fail-closed','ADMIN_PORTAL','ADMIN_EXCLUSIVE_CLIENT_V2',now(),'DRAFT'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum,'ALL_CONTRACT_DEALS')
         `;
       }
       await audit(tx, ctx, "CLIENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, {
-        login, email, requested_contract_ids: requested, linked_contract_ids: eligible.map((x) => String(x.contract_id)), pending_contract_ids: pending.map((x) => String(x.contract_id)), password_admin_set: true, password_hash_verified: true, open_without_contract: openWithout,
+        login, email, requested_contract_ids: requested, linked_contract_ids: eligible.map((x) => String(x.contract_id)), pending_contract_ids: pending.map((x) => String(x.contract_id)), password_admin_set: true, password_hash_verified: true, account_creation_independent_from_signed_pdf: true, pending_contract_access_fail_closed: true,
       });
       return { userId, linkedContractIds: eligible.map((x) => String(x.contract_id)), pendingContractIds: pending.map((x) => String(x.contract_id)) };
     });
@@ -859,7 +856,8 @@ async function bootstrap(req) {
     mode: "ADMIN_EXCLUSIVE",
     passwordOwner: "ADMINISTRATOR",
     accountCreationIndependentFromContract: true,
-    openWithoutContractCreatesPendingBinding: true,
+    accountCreationIndependentFromSignedPdfGate: true,
+    pendingContractAccessFailClosed: true,
     adminUploadActivatesContractAndPendingBindings: true,
     clientContractDownloadArchitecture: "CURRENT_CONFIRMED_PRIVATE_OBJECT_SHORT_LIVED_URL",
     agentIdentityModel: "AGENT_PERSON_INDEPENDENT_FROM_COMPANY_ASSIGNMENT_V2",

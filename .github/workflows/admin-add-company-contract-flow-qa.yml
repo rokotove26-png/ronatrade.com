@@ -24,7 +24,10 @@ jobs:
         run: |
           node --check functions/portal/clients-agents-current-ui.js
           node --check 'functions/portal/admin-authority/[[path]].js'
-      - name: Check Admin client authority
-        run: deno check --node-modules-dir=auto --config supabase/functions/rona-admin-client-authority/deno.json supabase/functions/rona-admin-client-authority/index.ts
-      - name: Verify add-company contract
+      - name: Check Admin authority functions
+        run: |
+          deno check --node-modules-dir=auto --config supabase/functions/rona-admin-client-authority/deno.json supabase/functions/rona-admin-client-authority/index.ts
+          deno check --node-modules-dir=auto --config supabase/functions/rona-admin-control-plane/deno.json supabase/functions/rona-admin-control-plane/index.ts
+          deno check --node-modules-dir=auto --config supabase/functions/rona-admin-authority/deno.json supabase/functions/rona-admin-authority/index.ts
+      - name: Verify Admin company and user contract
         run: node --test tests/admin-add-company-contract-flow-v1.test.mjs
