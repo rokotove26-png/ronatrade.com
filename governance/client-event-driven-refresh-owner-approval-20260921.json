@@ -7,7 +7,9 @@
     "assets/portal-runtime/client-price-conditions-v1.js",
     "assets/portal-runtime/client-shell-guard-v3.js",
     "assets/portal-runtime/client-logout-visual-v1.js",
-    "scripts/attach-client-logout-visual-v1.mjs"
+    "scripts/attach-client-logout-visual-v1.mjs",
+    "assets/portal-runtime/client-payments-authoritative-v1.js",
+    "scripts/attach-client-application-lifecycle.mjs"
   ],
   "exact_post_blobs": {
     "assets/portal-runtime/client-price-conditions-v1.js": {
@@ -29,6 +31,16 @@
       "visual_freeze_baseline_blob_sha": "61ed0e2569517323e3ac21a61eb1a2f64d4395c2",
       "authorized_post_blob_sha": "e445b137da05823f791896a54019156b516cc1d7",
       "required_marker": "EVENT_DRIVEN_FILTERED_MUTATION_V1"
+    },
+    "assets/portal-runtime/client-payments-authoritative-v1.js": {
+      "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
+      "authorized_post_blob_sha": "0930b047c433b9e29c486240c271f020fd401143",
+      "required_marker": "20260922-client-payments-authoritative-v3-event-driven"
+    },
+    "scripts/attach-client-application-lifecycle.mjs": {
+      "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
+      "authorized_post_blob_sha": "5742a826ef70160d990d67e07431cf6e39dbee01",
+      "required_marker": "EVENT_DRIVEN_NO_POLLING"
     }
   },
   "requirements": {
@@ -54,7 +66,12 @@
       "AUTHORITATIVE_DATA_CHANGE",
       "PAGESHOW"
     ],
-    "no_background_polling_when_idle": true
+    "no_background_polling_when_idle": true,
+    "payments_periodic_refresh_removed": true,
+    "payments_refresh_policy": "PAYMENTS_OPEN_CONTEXT_PAGESHOW_VISIBLE_EVENT_ONLY",
+    "payments_current_finance_projection_preserved": true
   },
-  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1"
+  "owner_visual_approval_marker": "OWNER_VISUAL_APPROVAL: CLIENT_EVENT_DRIVEN_REFRESH_CLEANUP_V1",
+  "extended_at": "2026-09-22",
+  "owner_instruction_20260922": "Клиентский раздел платежей не должен обновляться каждые 30 секунд, потому что это перегружает запросы на Supabase. Использовать событийное обновление без фонового polling."
 }
