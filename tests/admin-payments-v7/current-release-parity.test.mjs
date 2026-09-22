@@ -26,7 +26,9 @@ test('locked release includes the Admin Add Company signed-contract workflow', (
   assert.match(access, /ИНН/);
   assert.match(access, /Страна регистрации/);
   assert.match(access, /Прикрепить договор/);
-  assert.doesNotMatch(access, /void choosePdf\(row,up\)/);\n  assert.match(access, /реестра ИИ операционного директора/);\n  assert.match(access, /Реестр подтверждён:/);
+  assert.doesNotMatch(access, /void choosePdf\(row,up\)/);
+  assert.match(access, /реестра ИИ операционного директора/);
+  assert.match(access, /Реестр подтверждён:/);
 });
 
 test('current release UI layers remain byte-identical through Payments V7 recovery', () => {
