@@ -16,6 +16,10 @@ test('Operations V10 has one canonical V2 source and fail-closed rendering',()=>
   assert.match(v10,/Агенты в сети/);
   assert.match(v10,/Нулевые показатели не подставляются/);
   assert.match(v10,/function ronaOpsV10PaymentTone\(row\)/);
+  assert.match(v10,/function ronaOpsV10ContractTone\(row\)/);
+  assert.match(v10,/contractSigned/);
+  assert.match(v10,/contractStatus/);
+  assert.match(v10,/ОЖИДАЕТ ПОДПИСИ/);
   assert.match(v10,/PARTIALLY_PAID/);
   assert.match(v10,/OVERDUE/);
   assert.match(v10,/FULLY_PAID/);
@@ -60,6 +64,10 @@ test('V2 migration uses authoritative sources and private entity-level presence'
   assert.match(sql,/resolve_portal_auth\(auth\.uid\(\),v_session\)/);
   assert.match(sql,/'ADMIN'=any\(v_roles\) or 'RONA_OPERATOR'=any\(v_roles\)/);
   assert.match(sql,/deal_finance_authority_payments_v8_read_v1/);
+  assert.match(sql,/ct\.current_signed_document_id/);
+  assert.match(sql,/ct\.signed_contract_confirmed_at/);
+  assert.match(sql,/not b\.contract_signed then 'Получить подписанный контракт'/);
+  assert.match(sql,/'contractSigned',d\.contract_signed/);
   assert.match(sql,/rail_xlsx_dislocation_current_position_v1/);
   assert.match(sql,/doc\.lifecycle_state::text='ACTIVE'/);
   assert.match(sql,/count\(distinct cub\.client_key\)/);
