@@ -9,6 +9,7 @@ const sql = postgres(DB, { prepare: false, max: 1 });
 const BUCKET = "rona-portal-private";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PDF_MAX = 50 * 1024 * 1024;
+const CIS_COUNTRIES = new Set(["Россия","Беларусь","Казахстан","Армения","Азербайджан","Кыргызстан","Таджикистан","Узбекистан","Туркменистан","Молдова"]);
 
 function runtimeKey(kind) {
   const legacy = kind === "pub" ? Deno.env.get("SUPABASE_ANON_KEY") : Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -176,6 +177,92 @@ async function createClientUser(ctx, req) {
   } catch (e) { try { await service.auth.admin.deleteUser(authId); } catch {} throw e; }
 }
 
+async function createCompany(ctx, req) {
+  const b = await jsonBody(req);
+  const legalName = requiredText(b.legalName, "LEGAL_NAME", 320);
+  const taxIdentifier = requiredText(b.taxIdentifier, "TAX_IDENTIFIER", 80).replace(/\s+/g, "");
+  const registrationCountry = requiredText(b.registrationCountry, "REGISTRATION_COUNTRY", 80);
+  if (!CIS_COUNTRIES.has(registrationCountry)) throw Object.assign(new Error("REGISTRATION_COUNTRY_NOT_ALLOWED"), { status: 400 });
+  if (!/^[0-9A-Za-zА-Яа-яЁё-]{4,80}$/.test(taxIdentifier)) throw Object.assign(new Error("INVALID_TAX_IDENTIFIER"), { status: 400 });
+
+  return await sql.begin(async tx => {
+    await tx`select pg_advisory_xact_lock(hashtext('RONA_CLIENT_ID_ALLOCATOR_V1'))`;
+
+    const duplicateTax = await tx`
+      select client_id from portal_private.clients
+      where lower(coalesce(tax_identifier,''))=lower(${taxIdentifier})
+        and authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+      limit 1
+    `;
+    if (duplicateTax.length) throw Object.assign(new Error("CLIENT_TAX_IDENTIFIER_ALREADY_EXISTS"), { status: 409 });
+
+    const duplicateName = await tx`
+      select client_id from portal_private.clients
+      where lower(btrim(legal_name))=lower(btrim(${legalName}))
+        and authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+      limit 1
+    `;
+    if (duplicateName.length) throw Object.assign(new Error("CLIENT_ALREADY_EXISTS"), { status: 409 });
+
+    const nextRows = await tx`
+      select coalesce(max((regexp_match(client_id,'^RONA-C([0-9]+)$'))[1]::integer),0)+1 as next_no
+      from portal_private.clients
+      where client_id ~ '^RONA-C[0-9]+$'
+    `;
+    const yearRows = await tx`select extract(year from current_date)::int as year`;
+    const clientId = 'RONA-C' + String(Number(nextRows[0]?.next_no || 1)).padStart(3,'0');
+    const year = Number(yearRows[0]?.year || new Date().getUTCFullYear());
+    const contractId = clientId + '-CTR-' + String(year) + '-001';
+    const clientKey = crypto.randomUUID();
+    const contractKey = crypto.randomUUID();
+
+    await tx`
+      insert into portal_private.clients(
+        id,client_id,legal_name,tax_identifier,registration_country,
+        source_system,source_version,source_timestamp,authority_state,lifecycle_state
+      ) values(
+        ${clientKey}::uuid,${clientId},${legalName},${taxIdentifier},${registrationCountry},
+        'ADMIN_PORTAL','ADMIN_ADD_COMPANY_V1',now(),
+        'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum
+      )
+    `;
+    await tx`
+      insert into portal_private.contracts(
+        id,contract_id,client_key,current_external_contract_number,contract_status,effective_from,
+        source_system,source_version,source_timestamp,authority_state,lifecycle_state
+      ) values(
+        ${contractKey}::uuid,${contractId},${clientKey}::uuid,${contractId},'PENDING_SIGNATURE',null,
+        'ADMIN_PORTAL','ADMIN_ADD_COMPANY_V1',now(),
+        'SOURCE_RECEIVED'::portal_private.authority_state_enum,'DRAFT'::portal_private.lifecycle_state_enum
+      )
+    `;
+    await tx`
+      insert into portal_private.contract_external_references(
+        contract_key,reference_value,reference_type,effective_from,source_note,authority_state,created_by
+      ) values(
+        ${contractKey}::uuid,${contractId},'CURRENT',null,
+        'Canonical contract number allocated by Admin Add Company workflow; signed-document authority remains gated',
+        'SOURCE_RECEIVED'::portal_private.authority_state_enum,${ctx.user}::uuid
+      )
+    `;
+    await audit(tx, ctx, "ADMIN_CLIENT_COMPANY_CREATED", "CLIENT", clientId, req, {
+      contract_id: contractId,
+      registration_country: registrationCountry,
+      signed_document_required: true,
+      contract_status: "PENDING_SIGNATURE"
+    });
+    return {
+      clientId,
+      contractId,
+      externalContractNumber: contractId,
+      contractStatus: "PENDING_SIGNATURE",
+      signedDocumentRequired: true
+    };
+  });
+}
+
 async function parseSignedPdfForm(req) {
   let form; try { form = await req.formData(); } catch { throw Object.assign(new Error("INVALID_MULTIPART"), { status: 400 }); }
   const file = form.get("file");
@@ -277,6 +364,7 @@ Deno.serve(async req => {
   const path = pathOf(req);
   try {
     if (path === "/access/users") return send(201, { ok: true, ...(await createClientUser(ctx, req)) });
+    if (path === "/companies") return send(201, { ok: true, company: await createCompany(ctx, req) });
     const attach = path.match(/^\/contracts\/([^/]+)\/signed-document\/attach$/);
     if (attach) return send(200, { ok: true, document: await attachAndActivateContract(ctx, req, decodeURIComponent(attach[1])) });
     return send(404, { ok: false, code: "ROUTE_NOT_FOUND" });
