@@ -13,7 +13,7 @@ for(const required of [
   '20260922-client-deal-realization-status-v7-canonical-deal-state','Статус реализации','CLIENT_DEAL_STATE_V1','RONA_CLIENT_DEAL_STATE_V1',
   'RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','function acceptCanonicalDetail(detail)','deal_state','Требует решения',
   "const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='client-deal-state-v1'",
-  'data-rona-authoritative-deal-id','data-rona-authoritative-context','rootIsAuthoritative','contextKey(currentContext())',
+  'data-rona-authoritative-deal-id','data-rona-authoritative-context','rootIsAuthoritative','contextKey(ctx)',
 ]) if(!runtime.includes(required))throw new Error(`REALIZATION_RUNTIME_REQUIRED_MISSING:${required}`);
 for(const forbidden of ['/v1/client/deal-documents/state','/v1/client/bootstrap','async function getJson','fetch(','ctx.map(','REFRESH_MS=7000','setInterval(()=>refresh','setTimeout(()=>refresh'])
   if(runtime.includes(forbidden))throw new Error(`REALIZATION_PARALLEL_OR_PERIODIC_SOURCE_FORBIDDEN:${forbidden}`);
