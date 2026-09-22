@@ -26,7 +26,7 @@ assert(watchdog.includes("root.querySelector(':scope > main')"),'Market News con
 assert(watchdog.includes("activateMarketNews('watchdog-content-repair')"),'Market News in-place content repair missing');
 assert(watchdog.includes("window.dispatchEvent(new CustomEvent('rona:admin-module-retry'"),'In-place module retry event missing');
 assert(watchdog.includes("btn.textContent='Повторить загрузку'"),'Explicit retry control missing');
-assert(watchdog.includes('(state.pageAttempts[p]||0)>=3'),'Recovery must be bounded before terminal inline state');
+assert(watchdog.includes("(state.pageAttempts[p]||0)>=state.autoRetryLimit"),'Recovery must be bounded by the configured auto-retry limit before terminal inline state');
 assert(!watchdog.includes('location.reload('),'Watchdog must not hard reload');
 assert(!watchdog.includes('location.replace('),'Watchdog must not navigate to another page');
 assert(!watchdog.includes('hardReloadOnce'),'Legacy destructive recovery must be removed');
