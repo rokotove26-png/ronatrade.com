@@ -3,8 +3,8 @@ import { readFile, access } from 'node:fs/promises';
 const runtime=await readFile('assets/portal-runtime/client-deal-lifecycle-v1.js','utf8');
 const passport=await readFile('assets/portal-runtime/client-deal-passport-v1.js','utf8');
 const deals=await readFile('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
-const gateway=await readFile('supabase/functions/rona-portal-api/client-deal-state-gateway-v1.ts','utf8');
-const projector=await readFile('supabase/functions/rona-portal-api/client-deal-state-v1.mjs','utf8');
+const gateway=await readFile('supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts','utf8');
+const projector=await readFile('supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs','utf8');
 const attach=await readFile('scripts/attach-client-deal-documents.mjs','utf8');
 const resourceGuard=await readFile('supabase/migrations/20260830122500_deal_resource_authority_and_payment_prerequisite_v1.sql','utf8');
 const legacyNormalization=await readFile('supabase/migrations/20260830122600_materialize_legacy_executing_resource_confirmations_v2.sql','utf8');
@@ -31,14 +31,14 @@ for(const forbidden of ['Схема реализации сделки','Конт
 try{await access('assets/portal-runtime/client-deal-command-center-v3.js');throw new Error('RETIRED_COMMAND_CENTER_FILE_STILL_PRESENT')}catch(error){if(error?.message==='RETIRED_COMMAND_CENTER_FILE_STILL_PRESENT')throw error;if(error?.code!=='ENOENT')throw error}
 
 for(const required of [
-  "route==='/v1/client/deal-state'","/v1/client/context",'CLIENT_DEAL_STATE_V1','resolve_deal_resource_state','rona_rail_deal_map_read_model_core_v2',
+  "route==='/v1/client/deal-state'","proxy(req,'/v1/client/context'",'CLIENT_DEAL_STATE_V1','resolve_deal_resource_state','rona_rail_deal_map_read_model_core_v1',
   'signed_documents_confirmed','projectClientCanonicalDealState','CLIENT_DEAL_STATE_RAIL_OPTIONAL_UNAVAILABLE',
-  'dd8f9c561727d79d8134851677db3d22e84e18c8'
+  'CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1','x-rona-admin-impersonation-token'
 ]) if(!gateway.includes(required))throw new Error(`DEAL_STATE_GATEWAY_REQUIRED_MISSING:${required}`);
 for(const required of [
   "CLIENT_DEAL_STATE_CONTRACT='RONA_CLIENT_DEAL_STATE_V1'","CLIENT_DEAL_LIFECYCLE_SOURCE='CLIENT_DEAL_STATE_V1'",
   "status='NOT_DUE';label='Срок оплаты ещё не наступил'","railDocuments.length>0||wagonPositions.length>0||actualPoints.length>0",
-  "return'Отгрузка ещё не начата'","return'ЖД-данные появятся после начала отгрузки'",
+  "return'Отгрузка ещё не начата'","return'ЖД-данные появятся после начала отгрузки'","if(!rail.available)return'Актуальные ЖД-данные временно недоступны'",
   "current_stage_key:currentKey",'facts:{','payment,','rail'
 ]) if(!projector.includes(required))throw new Error(`DEAL_STATE_PROJECTOR_REQUIRED_MISSING:${required}`);
 
