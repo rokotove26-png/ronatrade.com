@@ -14,7 +14,8 @@ const QA_CLIENT_B='a2a0b91e-4c2a-4d3e-8f11-2a2a00000003';
 const C002={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',foreign_deal:'DEAL-2026-009'};
 const C005={client_id:'RONA-C005',contract_id:'RONA-C005-CTR-2026-001'};
 const CLIENT_RUNTIME_BLOB='f3c49ac46cc32ee0cd92eefadb905f8ac52778ca';
-const RADIO_VISUAL_BLOB='1e32655109534962580e96057def98208f69eaa4';
+const RADIO_FINAL_VISUAL_BLOB='89391945e49e49570e22e6cbfecd5a6e7e46b40c';
+const RADIO_WIDE_VISUAL_BLOB='1e32655109534962580e96057def98208f69eaa4';
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const assert=(v,m)=>{if(!v)throw new Error(m)};
@@ -175,15 +176,17 @@ try{
   await adminPage.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
   const nav=adminPage.locator('[data-page="messages"]').first();
   await nav.waitFor({state:'visible',timeout:20000});await nav.click();
-  const form=adminPage.locator('#page-messages .rona-owner-form');
-  await form.waitFor({state:'visible',timeout:15000});
-  const selects=form.locator('select');
+  const radioRoot=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
+  await radioRoot.waitFor({state:'visible',timeout:20000});
+  await adminPage.waitForFunction(()=>Boolean(document.querySelector('#page-messages > .rona-rs-root[data-kind="radio"] .rf-compose,#page-messages > .rona-rs-root[data-kind="radio"] .radio-compose-panel')),null,{timeout:10000});
+  const selects=radioRoot.locator('select');
   assert(await selects.count()===3,'ADMIN_RADIO_COMPOSER_SELECT_COUNT_CHANGED');
   assert(await selects.nth(0).inputValue()==='MESSAGE','ADMIN_RADIO_DEFAULT_KIND_CHANGED');
   assert(await selects.nth(1).inputValue()==='ALL_CLIENTS','ADMIN_RADIO_DEFAULT_SCOPE_CHANGED');
-  assert(await selects.nth(2).evaluate(el=>el.classList.contains('rona-owner-hide')),'ADMIN_RADIO_INITIAL_TARGET_VISIBILITY_CHANGED');
+  assert(await selects.nth(2).isDisabled(),'ADMIN_RADIO_INITIAL_TARGET_STATE_CHANGED');
+  proof.visual={adminRadioInitial:{kind:'MESSAGE',scope:'ALL_CLIENTS',targetDisabled:true},visualDelta:0};
   await selects.nth(1).selectOption('CLIENT');
-  await adminPage.waitForFunction(eventId=>[...document.querySelectorAll('#page-messages .rona-owner-form select')][2]?.querySelector(`option[value="${CSS.escape(eventId)}"]`),rowA.event_id,{timeout:20000});
+  await adminPage.waitForFunction(eventId=>[...document.querySelectorAll('#page-messages > .rona-rs-root[data-kind="radio"] select')][2]?.querySelector(`option[value="${CSS.escape(eventId)}"]`),rowA.event_id,{timeout:20000});
   await selects.nth(2).selectOption(rowA.event_id);
 
   const intake=await contextApi(adminContext,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
@@ -191,8 +194,8 @@ try{
   const intakeRow=(intake.body?.data?.client_intake||[]).find(x=>x.event_id===rowA.event_id);
   assert(intakeRow?.task_id,'ADMIN_INTAKE_SOURCE_TASK_MISSING');
 
-  await form.locator('textarea').fill(responseA);
-  await form.getByRole('button',{name:'Отправить',exact:true}).click();
+  await radioRoot.locator('textarea').fill(responseA);
+  await radioRoot.getByRole('button',{name:'Отправить',exact:true}).click();
 
   const published=await waitUntil(async()=>{
     const r=await contextApi(aContext,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C002.contract_id));
@@ -226,32 +229,45 @@ try{
 
   await selectClientContext(aPage,C005);await openMessages(aPage);
   await aPage.getByText(subjectC005,{exact:true}).first().waitFor({state:'visible',timeout:20000});
-  const c003Text=norm(await aPage.locator('#page-messages').innerText());
-  assert(!c003Text.includes(subjectA),'C002_MESSAGE_LEAKED_INTO_C005_CONTEXT');
+  const c005Text=norm(await aPage.locator('#page-messages').innerText());
+  assert(!c005Text.includes(subjectA),'C002_MESSAGE_LEAKED_INTO_C005_CONTEXT');
   await selectClientContext(aPage,C002);await openMessages(aPage);
   await aPage.getByText(subjectA,{exact:true}).first().waitFor({state:'visible',timeout:20000});
   const c002Text=norm(await aPage.locator('#page-messages').innerText());
   assert(!c002Text.includes(subjectC005),'C005_MESSAGE_LEAKED_INTO_C002_CONTEXT');
-  proof.contextSwitch={c002Event:rowA.event_id,c003Event:rowC005.event_id,crossContextLeak:false};
+  proof.contextSwitch={c002Event:rowA.event_id,c005Event:rowC005.event_id,crossContextLeak:false};
 
-  const radioState=await adminPage.evaluate(()=>({
+  const radioState=await adminPage.evaluate(()=>{const root=document.querySelector('#page-messages > .rona-rs-root[data-kind="radio"]'),selects=root?[...root.querySelectorAll('select')]:[];return{
     bridge:window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__||null,
-    kind:[...document.querySelectorAll('#page-messages .rona-owner-form select')][0]?.value||null,
-    options:Array.from(document.querySelectorAll('#page-messages .rona-owner-form select')[0]?.querySelectorAll('option')||[]).map(o=>o.value),
-    formClass:document.querySelector('#page-messages .rona-owner-form')?.className||null,
-    sectionTitle:[...document.querySelectorAll('#page-messages .rona-owner-section-title')].map(x=>x.textContent.trim()),
-    tableHeaders:[...document.querySelectorAll('#page-messages .rona-owner-table th')].map(x=>x.textContent.trim())
-  }));
-  assert(radioState.bridge==='STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V1','ADMIN_RADIO_STAGE2A_MARKER_MISSING');
-  assert(JSON.stringify(radioState.options)===JSON.stringify(['MESSAGE','NOTIFICATION','ANNOUNCEMENT']),'RADIO_KIND_OPTIONS_CHANGED');
-  assert(radioState.formClass.includes('rona-owner-form'),'RADIO_FORM_CLASS_CHANGED');
-  assert(radioState.sectionTitle.includes('Активные сообщения'),'RADIO_SECTION_TITLE_CHANGED');
-  assert(JSON.stringify(radioState.tableHeaders)===JSON.stringify(['Тип','Кому','Сообщение','Дата']),'RADIO_TABLE_GEOMETRY_CHANGED');
-  proof.visual={adminRadio:radioState,visualDelta:0};
+    kind:selects[0]?.value||null,
+    kindOptions:Array.from(selects[0]?.querySelectorAll('option')||[]).map(o=>o.value),
+    scope:selects[1]?.value||null,
+    rootKind:root?.dataset.kind||null,
+    finalV9:root?.dataset.radioFinalV9||null,
+    cleanHead:Boolean(document.querySelector('#page-messages > .rona-radio-clean-head')),
+    finalDom:{
+      main:Boolean(root?.querySelector('.rf-main')),
+      compose:Boolean(root?.querySelector('.rf-compose')),
+      network:Boolean(root?.querySelector('.rf-network')),
+      bottom:Boolean(root?.querySelector('.rf-bottom')),
+      feed:Boolean(root?.querySelector('.rf-feed')),
+      routing:Boolean(root?.querySelector('.rf-routing'))
+    },
+    activeTitle:[...root?.querySelectorAll('.rf-panel-title,.radio-panel-head h2')||[]].map(x=>x.textContent.trim()).includes('Активные сообщения')
+  }});
+  assert(radioState.bridge==='STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V2_CURRENT_OWNER','ADMIN_RADIO_STAGE2A_CURRENT_OWNER_MARKER_MISSING');
+  assert(JSON.stringify(radioState.kindOptions)===JSON.stringify(['MESSAGE','NOTIFICATION','ANNOUNCEMENT']),'RADIO_KIND_OPTIONS_CHANGED');
+  assert(radioState.rootKind==='radio','RADIO_CURRENT_OWNER_ROOT_MISSING');
+  assert(radioState.finalV9==='1','RADIO_FINAL_V9_POLISH_NOT_APPLIED');
+  assert(radioState.cleanHead,'RADIO_CLEAN_HEADER_MISSING');
+  assert(Object.values(radioState.finalDom).every(Boolean),'RADIO_FINAL_V9_DOM_CHANGED');
+  assert(radioState.activeTitle,'RADIO_ACTIVE_TITLE_MISSING');
+  proof.visual.adminRadioFinal=radioState;
 
   const clientAsset=await liveBlob('/assets/portal-runtime/client-messages-archive-v1.js',CLIENT_RUNTIME_BLOB);
-  const radioAsset=await liveBlob('/assets/portal-admin-radio-wide-v10.js',RADIO_VISUAL_BLOB);
-  proof.assets={client:clientAsset,adminRadio:radioAsset};
+  const radioFinalAsset=await liveBlob('/assets/portal-admin-radio-final-v9.js',RADIO_FINAL_VISUAL_BLOB);
+  const radioWideAsset=await liveBlob('/assets/portal-admin-radio-wide-v10.js',RADIO_WIDE_VISUAL_BLOB);
+  proof.assets={client:clientAsset,adminRadioFinal:radioFinalAsset,adminRadioWide:radioWideAsset};
 
   proof.isolation={
     clientBSeesClientA:false,

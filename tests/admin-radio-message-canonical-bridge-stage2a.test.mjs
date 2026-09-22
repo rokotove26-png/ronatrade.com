@@ -6,38 +6,59 @@ import { test } from 'node:test';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex')};
 
-test('Stage 2A bridges only MESSAGE to canonical Client intake and response routes',()=>{
-  const bridge=read('functions/portal/admin-radio-message-canonical-bridge-v1.js');
-  assert.match(bridge,/CLIENT_MESSAGE_SUBMIT/);
-  assert.match(bridge,/\/v1\/admin\/bootstrap/);
-  assert.match(bridge,/\/v1\/admin\/client-intake\//);
-  assert.match(bridge,/\/respond/);
-  assert.match(bridge,/source_task_id/);
-  assert.match(bridge,/if\(kind\.value==='MESSAGE'\)/);
-  assert.match(bridge,/await post\('\/admin\/radio',\{kind:kind\.value/);
-  assert.match(bridge,/\['MESSAGE','Сообщение'\],\['NOTIFICATION','Уведомление'\],\['ANNOUNCEMENT','Объявление'\]/);
-  assert.doesNotMatch(bridge,/document\.createElement\(['"]style/);
-  assert.doesNotMatch(bridge,/scope\.value='CLIENT'/);
-  assert.match(bridge,/target\.classList\.toggle\('rona-owner-hide',scope\.value!=='CLIENT'\)/);
-  assert.doesNotMatch(bridge,/owner_radio_items/);
-  assert.doesNotMatch(bridge,/CREATE TABLE|create table/i);
+test('Stage 2A canonical MESSAGE bridge lives in the current Radio single owner',()=>{
+  const radio=read('functions/portal/remaining-sections-ui.js');
+  assert.match(radio,/RADIO_DIRECT_RENDER/);
+  assert.match(radio,/STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V2_CURRENT_OWNER/);
+  assert.match(radio,/CLIENT_MESSAGE_SUBMIT/);
+  assert.match(radio,/\/v1\/admin\/bootstrap/);
+  assert.match(radio,/\/v1\/admin\/client-intake\//);
+  assert.match(radio,/\/respond/);
+  assert.match(radio,/source_task_id/);
+  assert.match(radio,/if\(kind\.value==='MESSAGE'\)/);
+  assert.match(radio,/await post\('\/admin\/radio',\{kind:kind\.value/);
+  assert.match(radio,/\['MESSAGE','Сообщение'\],\['NOTIFICATION','Уведомление'\],\['ANNOUNCEMENT','Объявление'\]/);
+  assert.match(radio,/\['ALL_CLIENTS','Все клиенты'\],\['CLIENT','Клиент'\],\['ALL_AGENTS','Все агенты'\],\['AGENT','Агент'\]/);
+  assert.match(radio,/target\.disabled=scope\.value!=='CLIENT'/);
+  assert.doesNotMatch(radio,/scope\.value='CLIENT'/);
+  assert.doesNotMatch(radio,/owner_radio_items/);
+  assert.doesNotMatch(radio,/CREATE TABLE|create table/i);
 });
 
-test('Admin runtime activates the MESSAGE bridge without changing Radio visual asset',async()=>{
-  const main=read('functions/portal/admin-main-ui-current.js');
-  assert.match(main,/patchAdminRadioMessageCanonicalBridgeV1/);
-  assert.match(main,/x-rona-admin-radio-message/);
-  const mod=await import('../functions/portal/admin-main-ui-current.js?radio-stage2a='+Date.now());
+test('Current Radio runtime preserves the established visual DOM while changing MESSAGE transport only',async()=>{
+  const radio=read('functions/portal/remaining-sections-ui.js');
+  for(const token of [
+    "radio-command-bar",
+    "radio-kpi-grid",
+    "radio-workspace",
+    "radio-compose-panel",
+    "radio-compose-controls",
+    "radio-link-panel",
+    "radio-active-panel",
+    "radio-active-list",
+    "radio-active-row",
+    "radio-send",
+    "Активные сообщения"
+  ]) assert.ok(radio.includes(token),`current Radio visual DOM token missing: ${token}`);
+
+  const mod=await import('../functions/portal/remaining-sections-ui.js?radio-stage2a-current-owner='+Date.now());
   const response=await mod.onRequest();
   const script=await response.text();
-  assert.match(script,/STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V1/);
+  assert.match(script,/STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V2_CURRENT_OWNER/);
   assert.match(script,/CLIENT_MESSAGE_SUBMIT/);
   assert.match(script,/\/v1\/admin\/client-intake\//);
+  assert.match(script,/x-rona-client-source/);
   assert.match(script,/await post\('\/admin\/radio',\{kind:kind\.value/);
-  assert.match(script,/class:'rona-owner-form'/);
-  assert.match(script,/class:'rona-owner-section-title',text:'Активные сообщения'/);
-  assert.match(script,/tbl\(\['Тип','Кому','Сообщение','Дата'\]/);
+  assert.match(script,/radio-compose-panel/);
+  assert.match(script,/radio-active-panel/);
   new Function(script);
+});
+
+test('Non-owner Admin main no longer carries a parallel Radio MESSAGE bridge',()=>{
+  const main=read('functions/portal/admin-main-ui-current.js');
+  assert.doesNotMatch(main,/patchAdminRadioMessageCanonicalBridgeV1/);
+  assert.doesNotMatch(main,/ADMIN_RADIO_MESSAGE_CANONICAL_BRIDGE_VERSION/);
+  assert.doesNotMatch(main,/x-rona-admin-radio-message/);
 });
 
 test('Backend preserves existing publish function and enforces source event/task + staff role authority',()=>{
@@ -57,25 +78,31 @@ test('Backend preserves existing publish function and enforces source event/task
   assert.match(migration,/to service_role/);
 });
 
-test('Admin Radio visual asset stays byte-for-byte frozen',()=>{
+test('Frozen Admin Radio polish and Client canonical message assets stay byte-for-byte unchanged',()=>{
+  assert.equal(
+    gitBlobSha('assets/portal-admin-radio-final-v9.js'),
+    '89391945e49e49570e22e6cbfecd5a6e7e46b40c'
+  );
   assert.equal(
     gitBlobSha('assets/portal-admin-radio-wide-v10.js'),
     '1e32655109534962580e96057def98208f69eaa4'
   );
-});
-
-test('Client canonical message runtime stays byte-for-byte frozen',()=>{
   assert.equal(
     gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),
     'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca'
   );
 });
 
-test('Stage 2A contains no NOTIFICATION or ANNOUNCEMENT backend rewrite',()=>{
-  const bridge=read('functions/portal/admin-radio-message-canonical-bridge-v1.js');
+test('MESSAGE cannot fall through to owner radio; NOTIFICATION and ANNOUNCEMENT keep legacy route',()=>{
+  const radio=read('functions/portal/remaining-sections-ui.js');
+  const branch=radio.indexOf("if(kind.value==='MESSAGE')");
+  const legacyPost=radio.indexOf("await post('/admin/radio',{kind:kind.value",branch);
+  assert.ok(branch>=0&&legacyPost>branch,'MESSAGE branch / legacy publication ordering missing');
+  const segment=radio.slice(branch,legacyPost+120);
+  assert.match(segment,/renderRadio\(\);return}await post\('\/admin\/radio'/);
+  assert.match(radio,/NOTIFICATION/);
+  assert.match(radio,/ANNOUNCEMENT/);
   const comm=read('supabase/functions/rona-portal-api/client-communications.ts');
-  assert.match(bridge,/NOTIFICATION/);
-  assert.match(bridge,/ANNOUNCEMENT/);
   assert.doesNotMatch(comm,/owner_radio_items/);
   assert.doesNotMatch(comm,/NOTIFICATION/);
   assert.doesNotMatch(comm,/ANNOUNCEMENT/);

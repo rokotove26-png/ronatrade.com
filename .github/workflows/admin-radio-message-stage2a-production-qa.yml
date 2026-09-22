@@ -5,7 +5,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin-main-ui-current.js'
-      - 'functions/portal/admin-radio-message-canonical-bridge-v1.js'
+      - 'functions/portal/remaining-sections-ui.js'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
       - 'scripts/qa-admin-radio-message-stage2a-production.mjs'
