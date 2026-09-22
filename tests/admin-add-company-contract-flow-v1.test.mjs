@@ -26,12 +26,18 @@ test('company creation is isolated from user creation and preserves signed contr
   assert.match(ui,/Договор прикрепляется в карточке компании/);
 });
 
-test('same Admin authority boundary routes company creation and existing attachment',()=>{
+test('Add Company takes Contract ID and external contract number from the authoritative registry',()=>{
   assert.match(proxy,/path === '\/companies'/);
   assert.match(proxy,/signed-document\\\/attach/);
   assert.match(authority,/path === "\/companies"/);
-  assert.match(authority,/ADMIN_CLIENT_COMPANY_CREATED/);
-  assert.match(authority,/RONA-C.*CTR-/s);
+  assert.match(authority,/ADMIN_CLIENT_LINKED_TO_REGISTERED_CONTRACT/);
+  assert.match(authority,/current_external_contract_number/);
+  assert.match(authority,/contractIdentityOrigin: "OPERATIONS_CONTRACT_REGISTRY"/);
+  assert.match(authority,/synthetic_contract_allocation: false/);
+  assert.doesNotMatch(authority,/RONA_CLIENT_ID_ALLOCATOR_V1/);
+  assert.doesNotMatch(authority,/const contractId = clientId \+ '-CTR-'/);
+  assert.match(ui,/registeredContractLinked!==true/);
+  assert.match(ui,/Реестр подтверждён:/);
 });
 
 test('existing verified signed-document chain remains the client download authority',()=>{
