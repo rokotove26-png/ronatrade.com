@@ -260,3 +260,5 @@ function currentUiRuntime(){
 }
 const SCRIPT='('+currentUiRuntime.toString()+')();';
 export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-clients-agents-ui':'single-owner-v5','x-rona-access-create':'single-owner-impersonation-json-v8','x-rona-access-create-owner':'clients-agents-current-v5','x-rona-admin-nav-owner':'external-current-router-v2','x-rona-shell-mutation':'none','x-rona-legacy-dependency':'none'}})}
+
+// RONA_DEPLOY_RETRIGGER_20260922_ADMIN_ADD_COMPANY_V1: no functional delta; forces current production materialization.
