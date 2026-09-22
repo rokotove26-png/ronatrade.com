@@ -84,6 +84,18 @@ async function sha256Hex(bytes) {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
+async function assertSignedPdfSourceNotRevoked(contractId, sha256, query = sql) {
+  const rows = await query`
+    select 1
+    from portal_private.audit_events ae
+    where ae.action='SIGNED_CONTRACT_AUTHORITY_REVOKED_SOURCE_MISMATCH'
+      and ae.entity_type='CONTRACT'
+      and ae.entity_id=${String(contractId)}
+      and lower(coalesce(ae.metadata->>'sha256',''))=lower(${String(sha256)})
+    limit 1
+  `;
+  if (rows.length) throw Object.assign(new Error("SIGNED_PDF_SOURCE_REVOKED"), { status: 409 });
+}
 
 async function resolveSourceCandidate(selectionId, clientIdHint = "") {
   const id = requiredText(selectionId, "CONTRACT_ID", 160), client = String(clientIdHint || "").trim();
@@ -251,6 +263,7 @@ async function createCompany(ctx, req) {
     const distinctClients = new Set(resolved.map(x => String(x.client_id)));
     if (distinctContracts.size !== 1 || distinctClients.size !== 1) throw Object.assign(new Error("REGISTERED_CONTRACT_AMBIGUOUS"), { status: 409 });
 
+    await assertSignedPdfSourceNotRevoked(String(canonical.contract_id), signedPdfSha256, tx);
     const registeredNumber = String(canonical.current_external_contract_number || "").trim();
     if (!registeredNumber) throw Object.assign(new Error("REGISTERED_CONTRACT_NUMBER_MISSING"), { status: 409 });
 
@@ -409,6 +422,7 @@ async function activatePendingBindings(tx, ctx, req, contract) {
 async function attachAndActivateContract(ctx, req, selectionId) {
   const parsed = await parseSignedPdfForm(req);
   const contract = await resolveSourceCandidate(selectionId, parsed.clientId);
+  await assertSignedPdfSourceNotRevoked(String(contract.contract_id), parsed.sha256);
   if (await alreadyConfirmed(contract)) throw Object.assign(new Error("SIGNED_PDF_ALREADY_CONFIRMED"), { status: 409 });
   const raw = await uploadRawPdf(contract, parsed);
   try {
