@@ -174,10 +174,12 @@ try{
   adminContext=await browserContext(browser,adminSession);
   const adminPage=await adminContext.newPage();
   await adminPage.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
+  await adminPage.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,null,{timeout:60000});
+  await adminPage.waitForFunction(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY',null,{timeout:90000});
   const nav=adminPage.locator('[data-page="messages"]').first();
   await nav.waitFor({state:'visible',timeout:20000});await nav.click();
   const radioRoot=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
-  await radioRoot.waitFor({state:'visible',timeout:20000});
+  await radioRoot.waitFor({state:'visible',timeout:30000});
   await adminPage.waitForFunction(()=>Boolean(document.querySelector('#page-messages > .rona-rs-root[data-kind="radio"] .rf-compose,#page-messages > .rona-rs-root[data-kind="radio"] .radio-compose-panel')),null,{timeout:10000});
   const selects=radioRoot.locator('select');
   assert(await selects.count()===3,'ADMIN_RADIO_COMPOSER_SELECT_COUNT_CHANGED');
