@@ -58,16 +58,17 @@ test('Client and Agent presence is injected only for real sessions, never admin 
 
 test('V2 migration uses authoritative sources and private entity-level presence',()=>{
   const sql=read('supabase/migrations/20260920194500_admin_operations_current_v2_single_owner.sql');
+  const contractAuthority=read('supabase/migrations/20260922193000_admin_operations_contract_authority_v1.sql');
   assert.match(sql,/create table if not exists portal_private\.portal_presence_connections_v1/i);
   assert.match(sql,/enable row level security/i);
   assert.match(sql,/revoke all on portal_private\.portal_presence_connections_v1 from public, anon, authenticated/i);
   assert.match(sql,/resolve_portal_auth\(auth\.uid\(\),v_session\)/);
   assert.match(sql,/'ADMIN'=any\(v_roles\) or 'RONA_OPERATOR'=any\(v_roles\)/);
   assert.match(sql,/deal_finance_authority_payments_v8_read_v1/);
-  assert.match(sql,/ct\.current_signed_document_id/);
-  assert.match(sql,/ct\.signed_contract_confirmed_at/);
-  assert.match(sql,/not b\.contract_signed then 'Получить подписанный контракт'/);
-  assert.match(sql,/'contractSigned',d\.contract_signed/);
+  assert.match(contractAuthority,/ct\.current_signed_document_id/);
+  assert.match(contractAuthority,/ct\.signed_contract_confirmed_at/);
+  assert.match(contractAuthority,/not b\.contract_signed then 'Получить подписанный контракт'/);
+  assert.match(contractAuthority,/'contractSigned',d\.contract_signed/);
   assert.match(sql,/rail_xlsx_dislocation_current_position_v1/);
   assert.match(sql,/doc\.lifecycle_state::text='ACTIVE'/);
   assert.match(sql,/count\(distinct cub\.client_key\)/);
