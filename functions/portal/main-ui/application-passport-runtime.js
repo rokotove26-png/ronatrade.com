@@ -1,4 +1,5 @@
 import applicationPassportRuntimeBase from './application-passport-runtime-base.js';
+import adminApplicationsTerminalBucketV1 from './admin-applications-terminal-bucket-v1.js';
 import adminApplicationsPassportActionV2 from './admin-applications-passport-action-v2.js';
 import adminApplicationsPremiumRuntime from './admin-applications-premium-v1.js';
 import adminApplicationsReadabilityV5 from './admin-applications-readability-v5.js';
@@ -31,6 +32,7 @@ import {
  */
 
 export default applicationPassportRuntimeBase
+  + adminApplicationsTerminalBucketV1
   + adminApplicationsPassportActionV2
   + adminApplicationsPremiumRuntime
   + adminApplicationsReadabilityV5
