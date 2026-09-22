@@ -19,7 +19,7 @@ const forbidAll=(name,tokens)=>{for(const token of tokens)if(source[name].includ
 
 requireAll('authority',['20260903-client-context-selection-authority-v4-header-current-context','window.RONA_CLIENT_CONTEXT=publicApi','getCurrentContext','getAuthorizedContexts','selectionRequired','subscribe','scopedBootstrapResponse','rona:client-context-changed','CLIENT_CONTEXT_SELECTION_REQUIRED']);
 requireAll('home',['20260902-client-home-command-center-v3-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
-requireAll('payments',['20260922-client-payments-authoritative-v3-event-driven','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe',"mode:'EVENT_DRIVEN'",'polling:false']);
+requireAll('payments',['20260922-client-payments-authoritative-v3-event-driven','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe',"mode:'EVENT_DRIVEN'",'polling:false','ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1','invalidateCurrentProjection',"whenCurrentProjection('client-payments-authoritative-v1:"]);
 requireAll('prices',['20260902-authoritative-price-current-context-server-projection','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe','SERVER_AUTHORITATIVE_PRICE_PROJECTION']);
 requireAll('dealDocuments',['20260902-client-deal-documents-v7-current-context','RONA_CLIENT_CONTEXT','getCurrentContext','whenReady','authority.subscribe']);
 requireAll('dealLifecycle',['20260922-client-deal-realization-status-v7-canonical-deal-state','RONA_CLIENT_CONTEXT','getCurrentContext','authority.subscribe','CLIENT_DEAL_STATE_V1','function acceptCanonicalDetail(detail)','contextKey(ctx)']);
@@ -31,7 +31,7 @@ requireAll('contract',['20260902-client-contract-v4-current-context-authority','
 requireAll('background',['20260902-client-background-section-preload-current-context-v6','RONA_CLIENT_CONTEXT','getCurrentContext','selectionRequired','authority.subscribe']);
 
 for(const name of ['home','payments','prices','dealDocuments','dealLifecycle','applicationLifecycle','contract','background'])forbidAll(name,['/v1/client/bootstrap','getAuthorizedContexts','chooseContext(','contextFromSelect(','Promise.all(contexts.map','state.contexts']);
-forbidAll('payments',['REFRESH_MS=30000','setInterval(()=>load(true)','new MutationObserver(()=>schedule(false)']);
+forbidAll('payments',['REFRESH_MS=30000','setInterval(()=>load(true)','new MutationObserver(()=>schedule(false)','/v1/client/context?clientId=']);
 forbidAll('prices',['priceAuthority','owner_price_snapshots','chooseContext(','domContextHint(','currentControlTexts(','data.contexts','prefetchPrices(']);
 forbidAll('applicationForm',['PRODUCER_BY_PRODUCT','Мозырский НПЗ','state?.context?.client_id','state?.context?.contract_id']);
 forbidAll('dealDocuments',['Promise.all(contexts.map']);
