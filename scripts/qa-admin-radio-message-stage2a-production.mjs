@@ -81,16 +81,26 @@ async function browserContext(browser,session){
   return context;
 }
 async function selectClientContext(page,target){
-  await page.waitForFunction(()=>Boolean(window.RONA_CLIENT_CONTEXT?.whenReady),null,{timeout:30000});
+  await waitUntil(
+    ()=>page.evaluate(()=>Boolean(window.RONA_CLIENT_CONTEXT?.whenReady)),
+    'CLIENT_CONTEXT_RUNTIME_READY',
+    30000,
+    250
+  );
   await page.evaluate(async({clientId,contractId})=>{
     const api=window.RONA_CLIENT_CONTEXT;
     await api.whenReady();
     api.select(clientId,contractId);
   },{clientId:target.client_id,contractId:target.contract_id});
-  await page.waitForFunction(({clientId,contractId})=>{
-    const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();
-    return c?.client_id===clientId&&c?.contract_id===contractId;
-  },{clientId:target.client_id,contractId:target.contract_id},{timeout:15000});
+  await waitUntil(
+    ()=>page.evaluate(({clientId,contractId})=>{
+      const current=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();
+      return current?.client_id===clientId&&current?.contract_id===contractId;
+    },{clientId:target.client_id,contractId:target.contract_id}),
+    'CLIENT_CONTEXT_SELECTION',
+    15000,
+    250
+  );
 }
 async function openMessages(page){
   const nav=page.locator('[data-page="messages"]').first();
@@ -174,13 +184,23 @@ try{
   adminContext=await browserContext(browser,adminSession);
   const adminPage=await adminContext.newPage();
   await adminPage.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
-  await adminPage.waitForFunction(()=>window.__RONA_OWNER_ADMIN_READY__===true,null,{timeout:60000});
-  await adminPage.waitForFunction(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY',null,{timeout:90000});
+  await waitUntil(
+    ()=>adminPage.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),
+    'ADMIN_OWNER_RUNTIME_READY',
+    60000,
+    250
+  );
+  await waitUntil(
+    ()=>adminPage.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),
+    'ADMIN_REMAINING_SECTIONS_READY',
+    90000,
+    250
+  );
   const nav=adminPage.locator('[data-page="messages"]').first();
   await nav.waitFor({state:'visible',timeout:20000});await nav.click();
   const radioRoot=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
   await radioRoot.waitFor({state:'visible',timeout:30000});
-  await adminPage.waitForFunction(()=>Boolean(document.querySelector('#page-messages > .rona-rs-root[data-kind="radio"] .rf-compose,#page-messages > .rona-rs-root[data-kind="radio"] .radio-compose-panel')),null,{timeout:10000});
+  await radioRoot.locator('.rf-compose,.radio-compose-panel').first().waitFor({state:'visible',timeout:10000});
   const selects=radioRoot.locator('select');
   assert(await selects.count()===3,'ADMIN_RADIO_COMPOSER_SELECT_COUNT_CHANGED');
   assert(await selects.nth(0).inputValue()==='MESSAGE','ADMIN_RADIO_DEFAULT_KIND_CHANGED');
@@ -188,8 +208,7 @@ try{
   assert(await selects.nth(2).isDisabled(),'ADMIN_RADIO_INITIAL_TARGET_STATE_CHANGED');
   proof.visual={adminRadioInitial:{kind:'MESSAGE',scope:'ALL_CLIENTS',targetDisabled:true},visualDelta:0};
   await selects.nth(1).selectOption('CLIENT');
-  await adminPage.waitForFunction(eventId=>[...document.querySelectorAll('#page-messages > .rona-rs-root[data-kind="radio"] select')][2]?.querySelector(`option[value="${CSS.escape(eventId)}"]`),rowA.event_id,{timeout:20000});
-  await selects.nth(2).selectOption(rowA.event_id);
+  await selects.nth(2).selectOption({value:rowA.event_id},{timeout:20000});
 
   const intake=await contextApi(adminContext,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
   assert(intake.status===200,'ADMIN_CANONICAL_BOOTSTRAP_FAILED');
