@@ -49,7 +49,8 @@ async function projectClientPaymentsV7(req:Request,response:Response){
         and upper(newer.lifecycle_state) not in ('SUPERSEDED','REJECTED','REVERSED','ARCHIVED','INACTIVE'))
     order by d.deal_id,a.effective_at desc,a.created_at desc`;
   const receipts=await sql`
-   select d.deal_id,trim(p.currency::text) as currency,sum(pa.allocated_amount) as amount,jsonb_agg(distinct p.payment_id) as payment_ids
+   select d.deal_id,trim(p.currency::text) as currency,sum(pa.allocated_amount) as amount,
+          jsonb_agg(distinct p.payment_id) filter (where p.bank_fact_status::text='BANK_CONFIRMED') as payment_ids
      from portal_private.payment_allocations pa
      join portal_private.payments p on p.id=pa.payment_key
      join portal_private.deals d on d.id=pa.deal_key
@@ -57,9 +58,28 @@ async function projectClientPaymentsV7(req:Request,response:Response){
      join portal_private.contracts ct on ct.id=d.contract_key
     where cl.client_id=${clientId} and ct.contract_id=${contractId}
       and d.deal_id in (select value from jsonb_array_elements_text(${sql.json(dealIds)}::jsonb))
-      and p.bank_fact_status::text='BANK_CONFIRMED' and p.payment_direction::text='INCOMING' and p.payment_kind::text='CLIENT_PAYMENT'
+      and p.payment_direction::text='INCOMING' and p.payment_kind::text='CLIENT_PAYMENT'
       and p.authority_state::text in ('VERIFIED','CONFIRMED') and p.lifecycle_state::text='ACTIVE'
-      and pa.allocation_status::text='VERIFIED' and pa.authority_state::text in ('VERIFIED','CONFIRMED') and pa.lifecycle_state::text='ACTIVE'
+      and pa.authority_state::text in ('VERIFIED','CONFIRMED') and pa.lifecycle_state::text='ACTIVE'
+      and (
+        (p.bank_fact_status::text='BANK_CONFIRMED' and pa.allocation_status::text='VERIFIED')
+        or (
+          p.bank_fact_status::text='RECEIVED_UNVERIFIED'
+          and p.finance_verification_status::text='VERIFIED'
+          and p.source_system='OWNER_CONFIRMED_FINANCE_AI_V7'
+          and pa.source_system='OWNER_CONFIRMED_FINANCE_AI_V7'
+          and pa.allocation_status::text in ('ALLOCATED','VERIFIED')
+          and exists (
+            select 1
+              from portal_private.finance_events_v7 fe
+             where fe.payment_key=p.id
+               and fe.event_type='OWNER_CONFIRMED_RECEIPT_MATERIALIZED'
+               and fe.actor_id='AI-FINANCE'
+               and fe.actor_role='FINANCE'
+               and coalesce((fe.result_snapshot->>'accepted')::boolean,false)=true
+          )
+        )
+      )
     group by d.deal_id,trim(p.currency::text) order by d.deal_id,trim(p.currency::text)`;
   const authorityByDeal=new Map<string,any[]>(),receiptByDeal=new Map<string,any[]>(),allowedPaymentIds=new Set<string>();
   for(const row of authorities){const id=String(row?.deal_id||'').trim();if(!id)continue;const list=authorityByDeal.get(id)||[];list.push(row);authorityByDeal.set(id,list)}
