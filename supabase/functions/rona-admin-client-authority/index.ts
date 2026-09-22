@@ -186,11 +186,56 @@ async function createCompany(ctx, req) {
   if (!/^[0-9A-Za-zА-Яа-яЁё-]{4,80}$/.test(taxIdentifier)) throw Object.assign(new Error("INVALID_TAX_IDENTIFIER"), { status: 400 });
 
   return await sql.begin(async tx => {
-    await tx`select pg_advisory_xact_lock(hashtext('RONA_CLIENT_ID_ALLOCATOR_V1'))`;
+    await tx`select pg_advisory_xact_lock(hashtext('RONA_ADMIN_REGISTERED_CONTRACT_LINK_V1'))`;
+
+    // Contract identity is owned by the canonical Operations/contract registry.
+    // Admin Add Company may enrich the company card, but must never mint a new
+    // Contract ID or external contract number.
+    const candidates = await tx`
+      select cl.id client_key,cl.client_id,cl.legal_name,cl.tax_identifier,cl.registration_country,
+             ct.id contract_key,ct.contract_id,ct.current_external_contract_number,ct.contract_status,
+             ct.authority_state::text contract_authority,ct.lifecycle_state::text contract_lifecycle,
+             ct.source_system contract_source_system,ct.source_version contract_source_version
+      from portal_private.clients cl
+      join portal_private.contracts ct on ct.client_key=cl.id
+      where (
+          lower(coalesce(cl.tax_identifier,''))=lower(${taxIdentifier})
+          or lower(regexp_replace(btrim(cl.legal_name),'\\s+',' ','g'))=
+             lower(regexp_replace(btrim(${legalName}),'\\s+',' ','g'))
+        )
+        and cl.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and cl.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+        and ct.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and ct.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+        and coalesce(btrim(ct.current_external_contract_number),'')<>''
+        and ct.contract_status not in ('CANCELLED','EXPIRED','REVOKED','ARCHIVED')
+        and ct.contract_id ~ '^RONA-C[0-9]+-CTR-'
+      order by
+        case when lower(coalesce(cl.tax_identifier,''))=lower(${taxIdentifier}) and coalesce(cl.tax_identifier,'')<>'' then 0 else 1 end,
+        case when ct.contract_status='ACTIVE' then 0 else 1 end,
+        ct.updated_at desc
+      limit 3
+      for update of cl,ct
+    `;
+
+    if (!candidates.length) throw Object.assign(new Error("REGISTERED_CONTRACT_NOT_FOUND"), { status: 409 });
+    const canonical = candidates[0];
+    const distinctContracts = new Set(candidates.map(x => String(x.contract_id)));
+    const distinctClients = new Set(candidates.map(x => String(x.client_id)));
+    if (distinctContracts.size !== 1 || distinctClients.size !== 1) throw Object.assign(new Error("REGISTERED_CONTRACT_AMBIGUOUS"), { status: 409 });
+
+    const registeredNumber = String(canonical.current_external_contract_number || "").trim();
+    if (!registeredNumber) throw Object.assign(new Error("REGISTERED_CONTRACT_NUMBER_MISSING"), { status: 409 });
+
+    const existingTax = String(canonical.tax_identifier || "").replace(/\s+/g, "");
+    if (existingTax && existingTax.toLocaleLowerCase("ru-RU") !== taxIdentifier.toLocaleLowerCase("ru-RU")) {
+      throw Object.assign(new Error("REGISTERED_CLIENT_IDENTITY_CONFLICT"), { status: 409 });
+    }
 
     const duplicateTax = await tx`
       select client_id from portal_private.clients
-      where lower(coalesce(tax_identifier,''))=lower(${taxIdentifier})
+      where id<>${canonical.client_key}::uuid
+        and lower(coalesce(tax_identifier,''))=lower(${taxIdentifier})
         and authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
         and lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
       limit 1
@@ -199,65 +244,43 @@ async function createCompany(ctx, req) {
 
     const duplicateName = await tx`
       select client_id from portal_private.clients
-      where lower(btrim(legal_name))=lower(btrim(${legalName}))
+      where id<>${canonical.client_key}::uuid
+        and lower(regexp_replace(btrim(legal_name),'\\s+',' ','g'))=
+            lower(regexp_replace(btrim(${legalName}),'\\s+',' ','g'))
         and authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
         and lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
       limit 1
     `;
     if (duplicateName.length) throw Object.assign(new Error("CLIENT_ALREADY_EXISTS"), { status: 409 });
 
-    const nextRows = await tx`
-      select coalesce(max((regexp_match(client_id,'^RONA-C([0-9]+)$'))[1]::integer),0)+1 as next_no
-      from portal_private.clients
-      where client_id ~ '^RONA-C[0-9]+$'
+    // Only fill missing company metadata. Canonical identifiers and registry
+    // provenance remain unchanged.
+    await tx`
+      update portal_private.clients
+      set tax_identifier=case when coalesce(btrim(tax_identifier),'')='' then ${taxIdentifier} else tax_identifier end,
+          registration_country=case when coalesce(btrim(registration_country),'')='' then ${registrationCountry} else registration_country end,
+          updated_at=now()
+      where id=${canonical.client_key}::uuid
     `;
-    const yearRows = await tx`select extract(year from current_date)::int as year`;
-    const clientId = 'RONA-C' + String(Number(nextRows[0]?.next_no || 1)).padStart(3,'0');
-    const year = Number(yearRows[0]?.year || new Date().getUTCFullYear());
-    const contractId = clientId + '-CTR-' + String(year) + '-001';
-    const clientKey = crypto.randomUUID();
-    const contractKey = crypto.randomUUID();
 
-    await tx`
-      insert into portal_private.clients(
-        id,client_id,legal_name,tax_identifier,registration_country,
-        source_system,source_version,source_timestamp,authority_state,lifecycle_state
-      ) values(
-        ${clientKey}::uuid,${clientId},${legalName},${taxIdentifier},${registrationCountry},
-        'ADMIN_PORTAL','ADMIN_ADD_COMPANY_V1',now(),
-        'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum
-      )
-    `;
-    await tx`
-      insert into portal_private.contracts(
-        id,contract_id,client_key,current_external_contract_number,contract_status,effective_from,
-        source_system,source_version,source_timestamp,authority_state,lifecycle_state
-      ) values(
-        ${contractKey}::uuid,${contractId},${clientKey}::uuid,${contractId},'PENDING_SIGNATURE',null,
-        'ADMIN_PORTAL','ADMIN_ADD_COMPANY_V1',now(),
-        'SOURCE_RECEIVED'::portal_private.authority_state_enum,'DRAFT'::portal_private.lifecycle_state_enum
-      )
-    `;
-    await tx`
-      insert into portal_private.contract_external_references(
-        contract_key,reference_value,reference_type,effective_from,source_note,authority_state,created_by
-      ) values(
-        ${contractKey}::uuid,${contractId},'CURRENT',null,
-        'Canonical contract number allocated by Admin Add Company workflow; signed-document authority remains gated',
-        'SOURCE_RECEIVED'::portal_private.authority_state_enum,${ctx.user}::uuid
-      )
-    `;
-    await audit(tx, ctx, "ADMIN_CLIENT_COMPANY_CREATED", "CLIENT", clientId, req, {
-      contract_id: contractId,
+    await audit(tx, ctx, "ADMIN_CLIENT_LINKED_TO_REGISTERED_CONTRACT", "CLIENT", String(canonical.client_id), req, {
+      contract_id: String(canonical.contract_id),
+      external_contract_number: registeredNumber,
+      registry_source_system: String(canonical.contract_source_system || ""),
+      registry_source_version: String(canonical.contract_source_version || ""),
       registration_country: registrationCountry,
-      signed_document_required: true,
-      contract_status: "PENDING_SIGNATURE"
+      tax_identifier_added: !existingTax,
+      contract_identity_origin: "OPERATIONS_CONTRACT_REGISTRY",
+      synthetic_contract_allocation: false
     });
+
     return {
-      clientId,
-      contractId,
-      externalContractNumber: contractId,
-      contractStatus: "PENDING_SIGNATURE",
+      clientId: String(canonical.client_id),
+      contractId: String(canonical.contract_id),
+      externalContractNumber: registeredNumber,
+      contractStatus: String(canonical.contract_status),
+      registeredContractLinked: true,
+      contractIdentityOrigin: "OPERATIONS_CONTRACT_REGISTRY",
       signedDocumentRequired: true
     };
   });
