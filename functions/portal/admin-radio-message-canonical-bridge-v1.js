@@ -103,7 +103,7 @@ function renderRadio(){
   c.append(f,e('h3',{class:'rona-owner-section-title',text:'Активные сообщения'}),list);
   replacePage('messages',c);
   syncTargets();
-  void ronaRadioLoadCanonicalMessages(false).then(()=>{const p=page('messages');if(p?.classList?.contains('active'))renderRadio()});
+  if(!ronaRadioMessageBridgeState.loadedAt||Date.now()-ronaRadioMessageBridgeState.loadedAt>=15000)void ronaRadioLoadCanonicalMessages(false).then(()=>{const p=page('messages');if(p?.classList?.contains('active'))renderRadio()});
 }
 `;
 
