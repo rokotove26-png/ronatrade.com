@@ -138,14 +138,9 @@ try{
   await page.getByLabel('Повторите пароль').fill('Qa!Password1');
   await modal.locator('.rona-current-contract-card input[type="checkbox"]').check();
 
-  await modal.getByRole('button',{name:'Создать единую учётную запись'}).click();
-  const gateNotice=page.locator('.ca-modal-backdrop').last();await gateNotice.waitFor({state:'visible'});assert((await gateNotice.innerText()).includes('нет подтверждённого PDF'),'missing-PDF gate did not block creation');await gateNotice.getByRole('button',{name:'Закрыть'}).click();
-  assert(created.length===0,'client user was created before PDF confirmation');
-
-  const chooserPromise=page.waitForEvent('filechooser');await modal.getByRole('button',{name:'Закрепить PDF'}).click();const chooser=await chooserPromise;await chooser.setFiles({name:'qa-contract.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\n% RONA QA\n1 0 obj<<>>endobj\n%%EOF')});
-  const confirm=page.locator('.ca-modal-backdrop').last();await confirm.waitFor({state:'visible'});await confirm.getByRole('button',{name:'Подтвердить'}).click();
-  const uploadDone=page.locator('.ca-modal-backdrop').last();await uploadDone.waitFor({state:'visible'});assert((await uploadDone.innerText()).includes('PDF договора закреплён'),'PDF attach success notice missing');await uploadDone.getByRole('button',{name:'Закрыть'}).click();
-  assert(uploadRequests===1,'expected one PDF upload, got '+uploadRequests);await page.waitForFunction(()=>document.querySelector('.rona-current-contract-card')?.textContent?.includes('PDF подтверждён'));
+  assert(pdfReady===true,'company-level signed PDF must be confirmed before Client user creation');
+  assert(uploadRequests===1,'company flow must own the only signed PDF upload');
+  assert(await modal.getByRole('button',{name:'Закрепить PDF'}).count()===0,'Create User must not expose signed-PDF upload');
 
   await modal.getByRole('button',{name:'Создать единую учётную запись'}).click();
   const clientDone=page.locator('.ca-modal-backdrop').last();await clientDone.waitFor({state:'visible'});assert((await clientDone.innerText()).includes('Доступ клиента создан'),'client creation success missing');
