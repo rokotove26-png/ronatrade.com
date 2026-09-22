@@ -18,6 +18,13 @@ function ronaOpsV10PaymentTone(row){
   if(future>0||['NOT_DUE','NO_PAYMENT_REQUIRED','NOT_REQUIRED'].includes(k))return'cyan';
   return ronaFdV5Tone(k);
 }
+function ronaOpsV10ContractTone(row){
+  if(row?.contractSigned===true)return'green';
+  const k=ronaFdV5Key(row?.contractStatus||'');
+  if(['PENDING_SIGNATURE','PENDING','DRAFT','AWAITING_SIGNATURE','TO_SIGN'].includes(k))return'amber';
+  if(['BLOCKED','REJECTED','CANCELLED','CANCELED','VOID','TERMINATED'].includes(k))return'red';
+  return row?.contractSigned===false?'amber':ronaFdV5Tone(k);
+}
 function installAdminOperationsPayStatusColorV1Style(){
   if(q('#ronaOpsPayStatusColorV1Style'))return;
   const s=e('style',{id:'ronaOpsPayStatusColorV1Style'});
@@ -268,8 +275,8 @@ function renderAdminHome(){
   if(!ready){
     mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},e('div',{class:'rona-fd-v5-screen__head'},e('div',{},e('div',{class:'rona-fd-v5-screen__code',text:'EXECUTION VECTOR'}),e('div',{class:'rona-fd-v5-screen__title',text:'Контур исполнения'}))),ronaFdV5Empty(ronaOpsV10Error?'DATA DEGRADED':'DATA SYNC','Контур исполнения ожидает единый снимок.'));
   }else if(selected){
-    const id=String(selected?.dealId||''),stage=String(selected?.stage||selected?.businessStatus||'—'),payment=Number(selected?.dueNow||0)>0?('К оплате '+String(selected.dueNow)+' '+String(selected?.currency||'')):String(selected?.financeStatus||'—'),paymentTone=ronaOpsV10PaymentTone(selected),rail=Number(selected?.trustedWagons||0),docs=Number(selected?.documentCount||0),nextAction=String(selected?.nextAction||'Контроль исполнения сделки');
-    const steps=[['Ресурс','—','cyan'],['Договор','—','cyan'],['Оплата',ronaFdV5Text(payment),paymentTone],['ЖД',rail?String(rail)+' вагонов':'—','teal'],['Доставка',ronaFdV5Text(stage),ronaFdV5Tone(stage)],['Документы',String(docs)+' документов','violet'],['Закрытие',ronaFdV5Text(selected?.businessStatus||'—'),ronaFdV5Tone(selected?.businessStatus||'—')]];
+    const id=String(selected?.dealId||''),stage=String(selected?.stage||selected?.businessStatus||'—'),payment=Number(selected?.dueNow||0)>0?('К оплате '+String(selected.dueNow)+' '+String(selected?.currency||'')):String(selected?.financeStatus||'—'),paymentTone=ronaOpsV10PaymentTone(selected),contractStatus=String(selected?.contractStatus||'—'),contractSigned=selected?.contractSigned===true,contractTone=ronaOpsV10ContractTone(selected),contractValue=contractSigned?'ПОДПИСАН':(contractStatus==='PENDING_SIGNATURE'?'ОЖИДАЕТ ПОДПИСИ':ronaFdV5Text(contractStatus)),rail=Number(selected?.trustedWagons||0),docs=Number(selected?.documentCount||0),nextAction=String(selected?.nextAction||'Контроль исполнения сделки');
+    const steps=[['Ресурс','—','cyan'],['Договор',contractValue,contractTone],['Оплата',ronaFdV5Text(payment),paymentTone],['ЖД',rail?String(rail)+' вагонов':'—','teal'],['Доставка',ronaFdV5Text(stage),ronaFdV5Tone(stage)],['Документы',String(docs)+' документов','violet'],['Закрытие',ronaFdV5Text(selected?.businessStatus||'—'),ronaFdV5Tone(selected?.businessStatus||'—')]];
     const vector=e('div',{class:'rona-fd-v5__vector'});
     for(const step of steps)vector.append(e('div',{class:'rona-fd-v5-stage','data-tone':step[2]},e('span',{class:'rona-fd-v5-stage__lamp'}),e('div',{class:'rona-fd-v5-stage__label',text:step[0]}),e('div',{class:'rona-fd-v5-stage__value',text:step[1]})));
     mission=e('section',{class:'rona-fd-v5-screen rona-fd-v5__mission'},
@@ -344,6 +351,8 @@ export function patchAdminOperationsCommandCenterV10Clean(script){
   if(!patched.includes("window.__RONA_ADMIN_OPERATIONS_LEGACY_RUNTIME__='DISABLED_BY_V10'"))throw new Error('ADMIN_OPERATIONS_V10_LEGACY_DISABLE_MARKER_MISSING');
   if(!patched.includes("'Клиенты в сети'"))throw new Error('ADMIN_OPERATIONS_V10_CLIENT_ONLINE_LABEL_MISSING');
   if(!patched.includes("'Агенты в сети'"))throw new Error('ADMIN_OPERATIONS_V10_AGENT_ONLINE_LABEL_MISSING');
+  if(!patched.includes("function ronaOpsV10ContractTone(row)"))throw new Error('ADMIN_OPERATIONS_V10_CONTRACT_TONE_MISSING');
+  if(!patched.includes("'ОЖИДАЕТ ПОДПИСИ'"))throw new Error('ADMIN_OPERATIONS_V10_CONTRACT_SIGNATURE_STATE_MISSING');
   if(!patched.includes("Operations Current V2 подтверждает отсутствие действий"))throw new Error('ADMIN_OPERATIONS_V10_FAIL_CLOSED_QUEUE_MISSING');
   if(patched.includes("function renderAdminHome(){\ninstallAdminExecutiveDashboardStyle();\ninstallAdminOperationsCommandCenterV4Style();\nensureAdminHomeAutoRefresh()"))throw new Error('ADMIN_OPERATIONS_V10_LEGACY_RENDER_STILL_ACTIVE');
   return patched;
