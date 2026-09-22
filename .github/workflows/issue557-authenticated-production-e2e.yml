@@ -1,0 +1,51 @@
+name: Issue 557 Authenticated Production E2E
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'scripts/qa-issue557-production-e2e.mjs'
+      - '.github/workflows/issue557-authenticated-production-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-read-only-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EXPECTED_RELEASE_SHA: 92f8d5e381e34e84b7c14aa3f6d7480a60eae24c
+      RONA_ADMIN_SESSION_SECRET: ${{ secrets.RONA_ADMIN_SESSION_SECRET }}
+      RONA_RUNTIME_ADMIN_SECRET: ${{ secrets.RONA_RUNTIME_ADMIN_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify exact QA head and release base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+          git fetch origin release/public-go-live-v1.1 --depth=1
+          test "$(git rev-parse FETCH_HEAD)" = "$EXPECTED_RELEASE_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.55.0
+          npx playwright install --with-deps chromium
+      - name: Authenticated production Payments E2E — READ ONLY
+        run: node scripts/qa-issue557-production-e2e.mjs
+      - name: Upload sanitized production evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue557-authenticated-production-e2e-${{ github.run_id }}
+          path: artifacts/issue557-production-e2e/
+          if-no-files-found: error
+          retention-days: 14
