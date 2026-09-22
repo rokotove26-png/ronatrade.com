@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const ORIGIN=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 const HEAD=String(process.env.EXPECTED_HEAD||'');
 const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
-const AUDIENCE='rona-issue430-owner-uat-browser-v2';
+const AUDIENCE='rona-radio-stage2a-production-v1';
 
 const QA_ADMIN='a2a0b91e-4c2a-4d3e-8f11-2a2a00000001';
 const QA_CLIENT_A='a2a0b91e-4c2a-4d3e-8f11-2a2a00000002';
