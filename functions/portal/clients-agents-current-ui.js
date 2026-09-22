@@ -10,7 +10,8 @@ function currentUiRuntime(){
 
   const OWNER_API='/portal/owner-api',AUTH='/portal/admin-authority';
   const requestedAccessView=new URL(location.href).searchParams.get('accessView');
-  const S={view:requestedAccessView==='agents'?'agents':'companies',search:''};
+  const accessViews=new Set(['companies','agents','users','history']);
+  const S={view:accessViews.has(requestedAccessView)?requestedAccessView:'companies',search:''};
   let business=null,authority=null,workspace=null,refreshPromise=null,rootGuard=null,rootRepairQueued=false,lastRefreshAt=0;
   const AUTO_REPAIR_COOLDOWN_MS=60000;
   const q=(s,r=document)=>r.querySelector(s);
@@ -85,7 +86,7 @@ function currentUiRuntime(){
   function hero(){const h=el('section','rona-visual-hero ca-hero'),c=el('div','ca-hero-copy'),a=el('div','ca-hero-actions');c.append(el('div','rona-visual-kicker','RONA TRADE · CLIENTS'),el('h1','rona-visual-title','Клиенты и агенты'),el('div','rona-visual-sub','Компании, агенты, пользователи, договорные права и история изменений доступа.'));const addCompany=el('button','ca-primary','Добавить компанию'),b=el('button','ca-primary','Создать пользователя');addCompany.type='button';addCompany.dataset.ronaAddCompany='primary';addCompany.onclick=openCompanyModal;b.type='button';b.dataset.ronaCreateAccess='primary';b.onclick=openAccessModal;a.append(addCompany,b);h.append(c,a);return h}
   function cell(l,v){const c=el('div','ca-cell');c.append(el('span','',l),el('strong','',v||'—'));return c}
   function kpis(){const cs=clients(),as=agents(),us=users(),assigned=cs.filter(x=>String(x.agent_person_id||'').trim()).length,active=us.filter(x=>String(x.status||'').toUpperCase()==='ACTIVE').length,g=el('div','ca-kpis');[['Компаний',cs.length,'Текущий контур'],['Агентов',as.length,'Зарегистрированные агенты'],['С агентом',assigned,'Закрепление по компании'],['Активных доступов',active,'Серверная авторизация']].forEach(([t,v,s])=>g.append(card(t,el('div','rona-owner-kpi',v),el('div','rona-owner-muted',s))));return g}
-  function toolbar(){const b=card(''),row=el('div','ca-toolbar'),search=el('input','ca-search');search.type='search';search.placeholder='Поиск по компании, Client ID, договору, агенту, пользователю или истории';search.value=S.search;search.oninput=()=>{S.search=search.value;drawBody()};const tabs=el('div','ca-tabs');[['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']].forEach(([v,t])=>{const x=el('button','',t);x.type='button';x.setAttribute('aria-pressed',String(S.view===v));x.onclick=()=>{S.view=v;render()};tabs.append(x)});const reload=el('button','ca-btn','Обновить');reload.type='button';reload.onclick=refresh;row.append(search,tabs,reload);b.append(row);return b}
+  function toolbar(){const b=card(''),row=el('div','ca-toolbar'),search=el('input','ca-search');search.type='search';search.placeholder='Поиск по компании, Client ID, договору, агенту, пользователю или истории';search.value=S.search;search.oninput=()=>{S.search=search.value;drawBody()};const tabs=el('div','ca-tabs');[['companies','Компании'],['agents','Агенты'],['users','Пользователи и доступы'],['history','История и права']].forEach(([v,t])=>{const x=el('button','',t);x.type='button';x.setAttribute('aria-pressed',String(S.view===v));x.onclick=()=>{S.view=v;const u=new URL(location.href);u.searchParams.set('accessView',v);history.replaceState(history.state,'',u);render()};tabs.append(x)});const reload=el('button','ca-btn','Обновить');reload.type='button';reload.onclick=refresh;row.append(search,tabs,reload);b.append(row);return b}
 
   function companyCard(x){const head=el('div','ca-head'),left=el('div'),right=el('div','ca-hero-actions'),assigned=String(x.agent_person_id||'').trim(),contract=companyRows().find(r=>txt(r.client_id)===txt(x.client_id)||txt(r.contract_id)===txt(x.contract_id))||null;left.append(el('div','ca-name',x.legal_name||'Компания'),el('div','ca-id',x.client_id||'—'));const options=el('button','ca-btn ca-option','Опция');options.type='button';options.dataset.ronaEntityOptions='company';options.onclick=()=>openEntityOptions('COMPANY',String(x.client_id||''),String(x.legal_name||x.client_id||'Компания'));right.append(pill(assigned?'Агент назначен':'Без агента',assigned?'success':'neutral'),options);head.append(left,right);const meta=el('div','ca-meta');meta.append(cell('Договор',x.current_external_contract_number||x.contract_id||contract?.external||'—'),cell('Contract ID',x.contract_id||contract?.contract_id||'—'));const row=el('div','ca-actions'),sel=el('select');sel.append(new Option('Без агента',''));for(const a of agents())sel.append(new Option(a.agent_name||a.display_name||a.full_name||a.agent_person_id||'Агент',a.agent_person_id||a.id||''));sel.value=x.agent_person_id||'';const save=el('button','ca-primary','Сохранить');save.type='button';save.onclick=async()=>{save.disabled=true;try{await owner('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{method:'POST',headers:{'content-type':'application/json',accept:'application/json'},body:JSON.stringify({agentPersonId:sel.value||null})});await refresh();await notice('Закрепление агента сохранено.')}catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};row.append(sel,save);if(contract){const contractState=el('span','rona-current-state '+(contract.ready?'ready':contract.attached?'wait':'missing'),contract.ready?'Договор доступен клиенту':contract.attached?'PDF ожидает подтверждения':'Договор не прикреплён');row.append(contractState);if(!contract.ready){const attach=el('button','ca-btn','Прикрепить договор');attach.type='button';attach.dataset.ronaCompanyContractAttach='true';attach.onclick=()=>void pickCompanyPdf(contract,attach);row.append(attach)}}return card('',head,meta,row)}
   function companiesView(){const s=norm(S.search),xs=clients().filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,x.agent_name].join(' ')).includes(s)),g=el('div','ca-grid');if(!xs.length)return el('div','ca-empty','По выбранному фильтру компаний нет.');xs.forEach(x=>g.append(companyCard(x)));return g}
@@ -230,11 +231,63 @@ function currentUiRuntime(){
   function addContractModal(u){const m=modal('Добавить договор пользователю'),select=el('select');select.multiple=true;const existing=new Set((u.bindings||[]).filter(b=>String(b.status||'').toUpperCase()==='ACTIVE').map(b=>String(b.contractId||'')));for(const c of activeContracts()){const id=String(c.contractId||c.id||'');if(id&&!existing.has(id))select.append(new Option(contractLabel(c),id))}const actions=el('div','ca-modal-actions'),cancel=el('button','ca-btn','Отмена'),save=el('button','ca-primary','Добавить');cancel.type=save.type='button';cancel.onclick=m.close;save.onclick=async()=>{const ids=Array.from(select.selectedOptions).map(o=>o.value).filter(Boolean);if(!ids.length)return notice('Выберите договор.','Проверка');save.disabled=true;try{await mutate('/access/users/'+encodeURIComponent(u.id)+'/contracts',{contractIds:ids});m.close();await refresh()}catch(e){await notice(errorText(e.code||e.message),'Ошибка')}finally{save.disabled=false}};m.box.append(label('Договоры',select),actions);actions.append(cancel,save)}
 
   function usersView(){
-    const s=norm(S.search),xs=users().filter(u=>!s||norm([u.name,u.login,roleOf(u),(u.bindings||[]).map(b=>[b.company,b.contractId,b.representationRole,b.rights].join(' ')).join(' ')].join(' ')).includes(s)),wrap=card('Пользователи и доступы'),top=el('div','ca-actions'),create=el('button','ca-primary','Создать пользователя');
+    const s=norm(S.search);
+    const xs=users().filter(u=>!s||norm([
+      u.name,u.login,roleOf(u),
+      u.deletionPending?'удаление не завершено повторить удаление':'',
+      (u.bindings||[]).map(b=>[b.company,b.contractId,b.representationRole,b.rights].join(' ')).join(' ')
+    ].join(' ')).includes(s));
+    const wrap=card('Пользователи и доступы'),top=el('div','ca-actions'),create=el('button','ca-primary','Создать пользователя');
     create.type='button';create.onclick=openAccessModal;top.append(create);wrap.append(top);
     if(!xs.length){wrap.append(el('div','ca-empty','Пользователи по выбранному фильтру не найдены.'));return wrap}
-    const w=el('div','ca-users'),t=document.createElement('table'),thead=document.createElement('thead'),hr=document.createElement('tr');['Пользователь','Роль','Логин','Статус','Договоры / права','Действия'].forEach(x=>hr.append(el('th','',x)));thead.append(hr);const tb=document.createElement('tbody');
-    for(const u of xs){const tr=document.createElement('tr'),bindings=el('div','ca-bindings');(u.bindings||[]).forEach(b=>bindings.append(bindingControl(u,b)));if(!bindings.childNodes.length)bindings.append(el('div','ca-copy','Нет договорных привязок'));const actions=el('div','ca-actions'),roleText=roleOf(u);if(!norm(roleText).includes('агент')){const add=el('button','ca-btn','Добавить договор');add.type='button';add.onclick=()=>addContractModal(u);actions.append(add)}const password=el('button','ca-btn','Сменить пароль');password.type='button';password.onclick=async()=>{password.disabled=true;try{await setPasswordFor(u);await refresh();await notice('Пароль пользователя обновлён сервером.')}catch(e){if(String(e?.code||e?.message)!=='ADMIN_PASSWORD_CANCELLED')await notice(errorText(e.code||e.message),'Ошибка')}finally{password.disabled=false}};actions.append(password);const remove=el('button','ca-btn ca-danger','Удалить');remove.type='button';remove.onclick=async()=>{const label=txt(u.name||u.login||'пользователя'),ok=await confirmBox('Удалить пользователя «'+label+'»? Учётная запись, пароль и все права доступа будут удалены. Компании, договоры и бизнес-данные останутся без изменений.','Удаление пользователя');if(!ok)return;remove.disabled=true;try{await mutate('/access/users/'+encodeURIComponent(u.id)+'/delete',{confirm:true});await refresh();await notice('Пользователь, пароль и права доступа удалены.','Пользователь удалён')}catch(e){await notice(errorText(e.code||e.message),'Ошибка удаления')}finally{remove.disabled=false}};actions.append(remove);const cells=[el('strong','',u.name||'—'),roleText,u.login||'—',bindingStatus(u.status),bindings,actions];for(const v of cells){const td=document.createElement('td');td.append(v?.nodeType?v:document.createTextNode(String(v)));tr.append(td)}tb.append(tr)}
+    const w=el('div','ca-users'),t=document.createElement('table'),thead=document.createElement('thead'),hr=document.createElement('tr');
+    ['Пользователь','Роль','Логин','Статус','Договоры / права','Действия'].forEach(x=>hr.append(el('th','',x)));
+    thead.append(hr);
+    const tb=document.createElement('tbody');
+    for(const u of xs){
+      const tr=document.createElement('tr'),bindings=el('div','ca-bindings');
+      (u.bindings||[]).forEach(b=>bindings.append(bindingControl(u,b)));
+      if(!bindings.childNodes.length)bindings.append(el('div','ca-copy','Нет договорных привязок'));
+      const actions=el('div','ca-actions'),roleText=roleOf(u),pendingDelete=u?.deletionPending===true;
+      if(!pendingDelete){
+        if(!norm(roleText).includes('агент')){
+          const add=el('button','ca-btn','Добавить договор');
+          add.type='button';add.onclick=()=>addContractModal(u);actions.append(add);
+        }
+        const password=el('button','ca-btn','Сменить пароль');
+        password.type='button';
+        password.onclick=async()=>{
+          password.disabled=true;
+          try{await setPasswordFor(u);await refresh();await notice('Пароль пользователя обновлён сервером.')}
+          catch(e){if(String(e?.code||e?.message)!=='ADMIN_PASSWORD_CANCELLED')await notice(errorText(e.code||e.message),'Ошибка')}
+          finally{password.disabled=false}
+        };
+        actions.append(password);
+      }
+      const remove=el('button','ca-btn ca-danger',pendingDelete?'Повторить удаление':'Удалить');
+      remove.type='button';
+      remove.onclick=async()=>{
+        const label=txt(u.name||u.login||'пользователя');
+        const message=pendingDelete
+          ? 'Повторить окончательное удаление пользователя «'+label+'»? Доступ уже отозван; операция удалит оставшуюся Auth-учётную запись и сохранит исторические записи.'
+          : 'Удалить пользователя «'+label+'»? Учётная запись, пароль и все права доступа будут удалены. Компании, договоры и бизнес-данные останутся без изменений.';
+        const ok=await confirmBox(message,pendingDelete?'Завершение удаления':'Удаление пользователя');
+        if(!ok)return;
+        remove.disabled=true;
+        try{
+          await mutate('/access/users/'+encodeURIComponent(u.id)+'/delete',{confirm:true});
+          await refresh();
+          await notice('Пользователь, пароль и права доступа удалены.','Пользователь удалён');
+        }catch(e){
+          await notice(errorText(e.code||e.message),'Ошибка удаления');
+        }finally{remove.disabled=false}
+      };
+      actions.append(remove);
+      const status=pendingDelete?pill('Удаление не завершено','warn'):bindingStatus(u.status);
+      const cells=[el('strong','',u.name||'—'),roleText,u.login||'—',status,bindings,actions];
+      for(const v of cells){const td=document.createElement('td');td.append(v?.nodeType?v:document.createTextNode(String(v)));tr.append(td)}
+      tb.append(tr);
+    }
     t.append(thead,tb);w.append(t);wrap.append(w);return wrap
   }
 
