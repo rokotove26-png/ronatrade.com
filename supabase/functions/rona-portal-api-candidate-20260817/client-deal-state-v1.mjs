@@ -200,8 +200,10 @@ export function projectClientCanonicalDealState({context,deal,application,meta,r
   const nextStep=nextStepFor(currentKey,{payment,rail,resource,documentsSigned,closed});
   const app=application||{};
   const quantity=positive(deal?.confirmed_quantity_tonnes)??positive(app?.quantity_tonnes);
-  const unitPrice=positive(deal?.passport_unit_price)??positive(app?.proposed_price);
-  const currencyCode=upper(deal?.passport_currency||app?.proposed_currency)||null;
+  // Deal economics are fail-closed. A missing canonical deal price must not be
+  // repopulated from an older application proposal.
+  const unitPrice=positive(deal?.passport_unit_price);
+  const currencyCode=upper(deal?.passport_currency)||null;
   const amount=positive(deal?.passport_amount);
 
   return{
