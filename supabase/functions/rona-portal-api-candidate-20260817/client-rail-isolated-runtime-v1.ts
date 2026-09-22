@@ -9,7 +9,7 @@ if(!DB)throw new Error("SUPABASE_DB_URL missing");
 const sql=postgres(DB,{prepare:false,max:2,idle_timeout:1,connect_timeout:3,max_lifetime:15});
 const PROD=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const SLUG='rona-portal-api-candidate-20260817';
-const VERSION='CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1';
+const VERSION='CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1_COHORT_ROUTE_V1';
 const SOURCE='SERVER_AUTHORITATIVE_REALIZATION_V2_CURRENT_PROJECTION';
 const QA_AUDIENCE='rona-issue430-postrelease-proof';
 const QA_WORKFLOW='/ronatrade.com/.github/workflows/client-postrelease-state-consistency-qa.yml@';
@@ -72,7 +72,7 @@ async function clientRailCanonical(req:Request,u:URL){
     const readModels:any[]=[];
     for(const deal of deals){
       const rows=await sql`
-        select portal_private.rona_rail_deal_map_read_model_core_v1(d.id,d.deal_id) as data
+        select portal_private.rona_rail_deal_map_read_model_core_v2(d.id,d.deal_id) as data
         from portal_private.deals d
         where d.id=${deal.deal_key}::uuid
           and d.deal_id=${deal.deal_id}::text
