@@ -42,6 +42,8 @@ test('Add Company takes Contract ID and external contract number from the author
   assert.match(authority,/signedPdfSha256/);
   assert.match(authority,/pdf_hash_match/);
   assert.match(authority,/signed_pdf_sha256/);
+  assert.match(authority,/companyIdentity/);
+  assert.match(authority,/REGISTERED_CLIENT_IDENTITY_CONFLICT/);
   assert.match(ui,/Реестр подтверждён:/);
 });
 
