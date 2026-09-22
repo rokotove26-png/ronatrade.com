@@ -1,11 +1,12 @@
 (()=>{'use strict';
-const MARK='20260902-client-payments-authoritative-v2-current-context';
+const MARK='20260922-client-payments-authoritative-v3-event-driven';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
+window.__RONA_CLIENT_PAYMENTS_REFRESH_POLICY__={mode:'EVENT_DRIVEN',polling:false,events:['PAYMENTS_OPEN','CONTEXT_CHANGE','PAGE_SHOW','VISIBLE_WHILE_OPEN']};
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
-const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,observer:null,scheduled:false,unsubscribe:null};
+const ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1='ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1';
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
@@ -37,11 +38,13 @@ function installStyle(){
   `;
   document.head.appendChild(style);
 }
-async function request(path){
-  const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-  const b=await r.json().catch(()=>null);
-  if(!r.ok||b?.ok===false)throw new Error(String(b?.code||b?.error?.code||('HTTP_'+r.status)));
-  return b;
+async function freshCurrentProjection(reason){
+  const authority=contextAuthority();
+  if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');
+  authority.invalidateCurrentProjection?.();
+  const projected=await authority.whenCurrentProjection('client-payments-authoritative-v1:'+norm(reason||'event'));
+  if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');
+  return projected;
 }
 function paymentsRoot(){
   for(const selector of ['#page-payments','#paymentsPage','[data-page-panel="payments"]','[data-page-id="payments"]']){const el=document.querySelector(selector);if(el)return el}
@@ -51,6 +54,11 @@ function paymentsRoot(){
     if(!best||t.length<norm(best.textContent).length)best=el;
   }
   return best;
+}
+function paymentsOpen(){
+  const root=paymentsRoot();if(!root||!root.isConnected||root.hidden||root.getAttribute('aria-hidden')==='true')return false;
+  const style=getComputedStyle(root);
+  return style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)!==0;
 }
 function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
 function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
@@ -126,10 +134,10 @@ async function load(force=false){
   if(!ctx){clearForContext(null);renderLoadingError('Выберите компанию и договор для отображения платежей.');ready(true);return}
   const key=contextKey(ctx);
   if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx);ready(true);return}
+  if(!force&&state.detail){render(state.detail,ctx);ready(true);return}
   state.loading=true;
   try{
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+    const detail={data:await freshCurrentProjection(force?'fresh-event':'reuse-event')};
     if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
     state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
     window.__RONA_CLIENT_PAYMENTS_STATE__={version:MARK,source:'CURRENT_CONTEXT_FINANCE_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:Array.isArray(state.detail.deals)?state.detail.deals:[],payments:Array.isArray(state.detail.payments)?state.detail.payments:[],loaded_at:new Date().toISOString()};
@@ -141,13 +149,18 @@ function start(){
   installStyle();
   const authority=contextAuthority();
   if(!authority){renderLoadingError('Контекст клиента временно недоступен.');ready(false);return}
-  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';const changed=key!==state.activeKey;if(changed)clearForContext(ctx);schedule(true)});
-  schedule(true);
-  state.timer=window.setInterval(()=>load(true),REFRESH_MS);
-  if(!state.observer){state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true})}
-  window.addEventListener('pageshow',()=>load(true),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(true)});
-  document.addEventListener('click',e=>{const t=norm(e.target?.textContent);if(t.includes('Платежи'))setTimeout(()=>load(true),120)},true);
+  state.unsubscribe=authority.subscribe(ctx=>{
+    const key=ctx?contextKey(ctx):'',changed=key!==state.activeKey;
+    if(changed)clearForContext(ctx);
+    if(paymentsOpen())schedule(true);
+  });
+  if(paymentsOpen())schedule(true);
+  window.addEventListener('pageshow',()=>{if(paymentsOpen())load(true)},{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&paymentsOpen())load(true)});
+  document.addEventListener('click',e=>{
+    const t=norm(e.target?.textContent);
+    if(t.includes('Платежи'))setTimeout(()=>{if(paymentsOpen())load(true)},120);
+  },true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();

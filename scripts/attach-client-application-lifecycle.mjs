@@ -25,14 +25,14 @@ const connectionSrc='/assets/portal-runtime/client-server-connection-v1.js?v=202
 const homeSrc='/assets/portal-runtime/client-home-command-center-v2.js?v=20260902-current-context-v3';
 const homeVisualSrc='/assets/portal-runtime/client-home-tablet-visual-v3.js?v=20260830-tablet-dashboard-v3';
 const paymentsSanitationSrc='/assets/portal-runtime/client-payments-sanitation-v1.js?v=20260830-current-only-v1';
-const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260902-current-context-v2';
+const paymentsSrc='/assets/portal-runtime/client-payments-authoritative-v1.js?v=20260922-event-driven-v3';
 const paymentsCanonicalSrc='/assets/portal-runtime/client-payments-canonical-layout-v1.js?v=20260830-title-frame-canonical-v3';
 const marker='20260902-client-admin-authoritative-deal-projection-v9-current-context';
 const connectionMarker='20260830-client-server-connection-v1';
 const homeMarker='20260902-client-home-command-center-v3-current-context';
 const homeVisualMarker='20260830-client-home-tablet-visual-v3';
 const paymentsSanitationMarker='20260830-client-payments-sanitation-v1';
-const paymentsMarker='20260902-client-payments-authoritative-v2-current-context';
+const paymentsMarker='20260922-client-payments-authoritative-v3-event-driven';
 const paymentsCanonicalMarker='20260830-client-payments-canonical-layout-v3';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
@@ -59,8 +59,8 @@ if(!paymentsSanitationRuntime.includes('data-rona-payments-sanitation')||!paymen
 if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(paymentsSanitationRuntime))throw new Error('CLIENT_PAYMENTS_SANITATION_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 const paymentsRuntime=await readFile(paymentsRuntimePath,'utf8');
 if(!paymentsRuntime.includes(paymentsMarker))throw new Error(`CLIENT_PAYMENTS_MARKER_MISSING: ${paymentsMarker}`);
-if(!paymentsRuntime.includes("source:'CURRENT_CONTEXT_FINANCE_PROJECTION'")||!paymentsRuntime.includes('RONA_CLIENT_CONTEXT')||!paymentsRuntime.includes('authority.subscribe'))throw new Error('CLIENT_PAYMENTS_FINANCE_CURRENT_CONTEXT_SOURCE_MISSING');
-if(paymentsRuntime.includes('/v1/client/bootstrap')||!paymentsRuntime.includes('/v1/client/context?clientId='))throw new Error('CLIENT_PAYMENTS_CURRENT_CONTEXT_SERVER_CONTRACT_INVALID');
+if(!paymentsRuntime.includes("source:'CURRENT_CONTEXT_FINANCE_PROJECTION'")||!paymentsRuntime.includes('RONA_CLIENT_CONTEXT')||!paymentsRuntime.includes('authority.subscribe')||!paymentsRuntime.includes("mode:'EVENT_DRIVEN'")||!paymentsRuntime.includes('polling:false')||!paymentsRuntime.includes('ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1')||!paymentsRuntime.includes('invalidateCurrentProjection')||!paymentsRuntime.includes("whenCurrentProjection('client-payments-authoritative-v1:"))throw new Error('CLIENT_PAYMENTS_FINANCE_CURRENT_CONTEXT_SOURCE_MISSING');
+if(paymentsRuntime.includes('/v1/client/bootstrap')||paymentsRuntime.includes('/v1/client/context?clientId=')||paymentsRuntime.includes('setInterval(()=>load(true)')||paymentsRuntime.includes('REFRESH_MS=30000')||paymentsRuntime.includes('new MutationObserver(()=>schedule(false)'))throw new Error('CLIENT_PAYMENTS_CURRENT_CONTEXT_SERVER_CONTRACT_INVALID');
 if(/RONA-C\d{3}|DEAL-2026-\d{3}/.test(paymentsRuntime))throw new Error('CLIENT_PAYMENTS_HARDCODED_BUSINESS_ENTITY_FORBIDDEN');
 const paymentsCanonicalRuntime=await readFile(paymentsCanonicalRuntimePath,'utf8');
 if(!paymentsCanonicalRuntime.includes(paymentsCanonicalMarker))throw new Error(`CLIENT_PAYMENTS_CANONICAL_LAYOUT_MARKER_MISSING: ${paymentsCanonicalMarker}`);
@@ -97,7 +97,7 @@ integrity.client_runtime.application_lifecycle_bridge={id,src,marker,source:'CUR
 integrity.client_runtime.home_bridge={id:homeId,src:homeSrc,marker:homeMarker,source:'CURRENT_CONTEXT_HOME_PROJECTION',scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',mode:'COMMAND_CENTER_DASHBOARD_V2',zones:['LIVE_STATUS','KPI_RIBBON','ACTIVE_DEALS','ATTENTION','FINANCE','QUICK_ACTIONS'],active_deals:'SERVER_DEAL_STATUS',active_volume:'SUM_OF_SERVER_LINKED_APPLICATION_QUANTITY',commercial_context:'SERVER_LINKED_APPLICATION',payment_summary:'SERVER_RESOLVED_FINANCE',payment_events:'SERVER_FILTERED_CLIENT_PAYMENTS',resource_status:'SERVER_RESOLVED_RESOURCE_STATE',refresh_ms:30000,context_switch:'AUTHORITY_EVENT_DRIVEN',duplicates_removed:true,hardcoded_business_entities:false,first_paint_guard:{id:homeGuardId,mode:'HOME_BOUNDED_FAIL_OPEN',shielding:'OPAQUE_OVERLAY_WITH_BOUNDED_RELEASE',fail_closed:false,max_block_ms:5000,canonical_fallback:true}};
 integrity.client_runtime.home_visual={id:homeVisualId,src:homeVisualSrc,marker:homeVisualMarker,mode:'TABLET_DASHBOARD_VISUAL_V3',data_source:'UNCHANGED_SERVER_AUTHORITATIVE_HOME_V2',visual_changes:['LARGER_TYPOGRAPHY','ASYMMETRIC_KPI_MOSAIC','DISTINCT_PANEL_HIERARCHY','LARGER_TOUCH_TARGETS','FINANCE_PROGRESS_EMPHASIS','QUICK_ACTION_TILES'],images_added:false,business_logic_changed:false,hardcoded_business_entities:false};
 integrity.client_runtime.payments_sanitation={id:paymentsSanitationId,src:paymentsSanitationSrc,marker:paymentsSanitationMarker,mode:'CURRENT_ONLY_REMOVE_LEGACY_PAYMENT_PLACEHOLDERS',navigation_prepaint_reset:true,hardcoded_business_entities:false};
-integrity.client_runtime.payments_bridge={id:paymentsId,src:paymentsSrc,marker:paymentsMarker,source:'CURRENT_CONTEXT_FINANCE_PROJECTION',scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',payment_fact:'BANK_CONFIRMED_CLIENT_SAFE',deal_summary:'SERVER_RESOLVED_FINANCE_SUMMARY',resource_prerequisite:'SERVER_RESOLVED_RESOURCE_STATE',refresh_ms:30000,context_switch:'AUTHORITY_EVENT_DRIVEN',hardcoded_business_entities:false,first_paint_guard:{id:paymentsGuardId,mode:'PAYMENTS_FAIL_CLOSED',shielding:'OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE',fail_closed:true}};
+integrity.client_runtime.payments_bridge={id:paymentsId,src:paymentsSrc,marker:paymentsMarker,source:'CURRENT_CONTEXT_FINANCE_PROJECTION',scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT',context_source:'RONA_CLIENT_CONTEXT_AUTHORITY',payment_fact:'BANK_CONFIRMED_CLIENT_SAFE',deal_summary:'SERVER_RESOLVED_FINANCE_SUMMARY',resource_prerequisite:'SERVER_RESOLVED_RESOURCE_STATE',refresh_mode:'EVENT_DRIVEN_NO_POLLING',refresh_events:['PAYMENTS_OPEN','CONTEXT_CHANGE','PAGE_SHOW','VISIBLE_WHILE_OPEN'],context_switch:'AUTHORITY_EVENT_DRIVEN',hardcoded_business_entities:false,first_paint_guard:{id:paymentsGuardId,mode:'PAYMENTS_FAIL_CLOSED',shielding:'OPAQUE_OVERLAY_RUNTIME_DOM_REMAINS_MEASURABLE',fail_closed:true}};
 integrity.client_runtime.payments_canonical_layout={id:paymentsCanonicalId,src:paymentsCanonicalSrc,marker:paymentsCanonicalMarker,width_reference:'PAYMENTS_TITLE_FRAME_ONLY',aligned_frames:['CONTEXT','PAYMENT_STATUS','CONFIRMED_RECEIPTS'],receipt_date_source:'CLIENT_CONTEXT_FILTERED_PAYMENT_AT',confirmed_receipts_projection:'SERVER_FILTERED_CLIENT_CONTEXT_PAYMENTS',hardcoded_business_entities:false};
 await writeFile(integrityPath,JSON.stringify(integrity));
 
