@@ -1,0 +1,58 @@
+name: Admin Radio MESSAGE Stage 2A QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/admin-radio-message-canonical-bridge-v1.js'
+      - 'supabase/functions/rona-portal-api/client-communications.ts'
+      - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
+      - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
+      - 'tests/admin-operations-current-v2/single-owner-static.test.mjs'
+      - '.github/workflows/admin-radio-message-stage2a-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/admin-radio-message-canonical-bridge-v1.js'
+      - 'supabase/functions/rona-portal-api/client-communications.ts'
+      - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
+      - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
+      - 'tests/admin-operations-current-v2/single-owner-static.test.mjs'
+      - '.github/workflows/admin-radio-message-stage2a-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage2a:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Stage 2A MESSAGE canonical bridge contract
+        run: node --test tests/admin-radio-message-canonical-bridge-stage2a.test.mjs
+      - name: Existing Client messages/archive canonical contract
+        run: node scripts/qa-client-messages-archive-v1.mjs
+      - name: Frozen Client visual baseline
+        run: node scripts/qa-client-portal-visual-freeze.mjs
+      - name: Operations current baseline regression
+        run: node --test tests/admin-operations-current-v2/single-owner-static.test.mjs
+      - name: Scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only ${{ github.event.pull_request.base.sha || github.event.before }} HEAD > /tmp/changed.txt || true
+          cat /tmp/changed.txt
+          if grep -E '^(assets/portal-runtime/client-messages-archive-v1\.js|assets/portal-admin-radio-wide-v10\.js|functions/portal/deals-current-state-ui\.js|functions/portal/admin-payments|supabase/functions/.*/rail)' /tmp/changed.txt; then
+            echo 'STAGE2A_SCOPE_GUARD=FAIL' >&2
+            exit 1
+          fi
+          echo 'STAGE2A_SCOPE_GUARD=PASS'
