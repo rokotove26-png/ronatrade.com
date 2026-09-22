@@ -176,7 +176,7 @@ async function createClientUser(ctx, req) {
   } catch (e) { try { await service.auth.admin.deleteUser(authId); } catch {} throw e; }
 }
 
-async function parseSignedPdfForm(req) {
+async function parseSignedPdfForm(req, opts = {}) {
   let form; try { form = await req.formData(); } catch { throw Object.assign(new Error("INVALID_MULTIPART"), { status: 400 }); }
   const file = form.get("file");
   if (!(file instanceof File)) throw Object.assign(new Error("PDF_REQUIRED"), { status: 400 });
@@ -184,11 +184,11 @@ async function parseSignedPdfForm(req) {
   if (!/\.pdf$/i.test(file.name || "") || (file.type && file.type !== "application/pdf")) throw Object.assign(new Error("PDF_TYPE_INVALID"), { status: 400 });
   const bytes = await file.arrayBuffer();
   if (new TextDecoder().decode(bytes.slice(0,5)) !== "%PDF-") throw Object.assign(new Error("PDF_SIGNATURE_INVALID"), { status: 400 });
-  const clientId = requiredText(form.get("clientId"), "CLIENT_ID", 80);
+  const clientId = opts.requireClientId === false ? String(form.get("clientId") || "").trim() : requiredText(form.get("clientId"), "CLIENT_ID", 80);
   const claimsSigned = String(form.get("adminClaimsBilateralSigned") || "").toLowerCase() === "true";
   let attestation = {}; try { attestation = JSON.parse(String(form.get("adminAttestation") || "{}")); } catch { throw Object.assign(new Error("ATTESTATION_INVALID"), { status: 400 }); }
   if (!claimsSigned || attestation?.confirmed !== true || String(attestation?.type || "") !== "BILATERAL_SIGNED_CONTRACT_ATTESTATION") throw Object.assign(new Error("BILATERAL_ATTESTATION_REQUIRED"), { status: 400 });
-  return { file, bytes, clientId, attestation, sha256: await sha256Hex(bytes) };
+  return { form, file, bytes, clientId, attestation, sha256: await sha256Hex(bytes) };
 }
 async function rawStorageObjectId(objectName) {
   const rows = await sql`select id from storage.objects where bucket_id=${BUCKET} and name=${objectName} limit 1`;
@@ -232,6 +232,132 @@ async function activatePendingBindings(tx, ctx, req, contract) {
   if (activated) await audit(tx, ctx, "PENDING_CLIENT_ACCESS_ACTIVATED_AFTER_CONTRACT", "CONTRACT", String(contract.contract_id), req, { activated_bindings: activated });
   return activated;
 }
+const CIS_COUNTRIES = new Set(["Россия","Беларусь","Казахстан","Армения","Азербайджан","Кыргызстан","Таджикистан","Узбекистан","Молдова","Туркменистан"]);
+
+async function createCompanyWithSignedContract(ctx, req) {
+  const parsed = await parseSignedPdfForm(req, { requireClientId: false });
+  const legalName = requiredText(parsed.form.get("legalName"), "LEGAL_NAME", 320);
+  const taxIdentifier = requiredText(parsed.form.get("taxIdentifier"), "TAX_IDENTIFIER", 80);
+  const registrationCountry = requiredText(parsed.form.get("registrationCountry"), "REGISTRATION_COUNTRY", 80);
+  if (!CIS_COUNTRIES.has(registrationCountry)) throw Object.assign(new Error("INVALID_REGISTRATION_COUNTRY"), { status: 400 });
+
+  const rawObjectName = `contracts/pending/${crypto.randomUUID()}-${safeFilename(parsed.file.name)}`;
+  const { error: uploadError } = await service.storage.from(BUCKET).upload(rawObjectName, new Uint8Array(parsed.bytes), {
+    contentType: "application/pdf", upsert: false, cacheControl: "3600"
+  });
+  if (uploadError) throw Object.assign(new Error("STORAGE_UPLOAD_FAILED"), { status: 502 });
+  const rawId = await rawStorageObjectId(rawObjectName);
+  if (!rawId) {
+    try { await service.storage.from(BUCKET).remove([rawObjectName]); } catch {}
+    throw Object.assign(new Error("STORAGE_OBJECT_ID_MISSING"), { status: 502 });
+  }
+
+  try {
+    return await sql.begin(async tx => {
+      await tx`select pg_advisory_xact_lock(hashtext('RONA_ADMIN_COMPANY_CREATE_V1'))`;
+
+      const duplicate = await tx`
+        select client_id from portal_private.clients
+        where lower(btrim(coalesce(tax_identifier,'')))=lower(btrim(${taxIdentifier}))
+          and authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+          and lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+        limit 1
+      `;
+      if (duplicate.length) throw Object.assign(new Error("COMPANY_TAX_IDENTIFIER_EXISTS"), { status: 409 });
+
+      const seqRows = await tx`
+        select coalesce(max((regexp_match(client_id,'^RONA-C([0-9]{3,})$'))[1]::integer),0) as max_seq
+        from portal_private.clients
+        where client_id ~ '^RONA-C[0-9]{3,}$'
+      `;
+      const nextSeq = Number(seqRows[0]?.max_seq || 0) + 1;
+      const clientId = `RONA-C${String(nextSeq).padStart(3,"0")}`;
+      const contractId = `${clientId}-CTR-${new Date().getUTCFullYear()}-001`;
+      const clientKey = crypto.randomUUID();
+      const contractKey = crypto.randomUUID();
+      const documentKey = crypto.randomUUID();
+      const versionKey = crypto.randomUUID();
+      const documentId = contractId;
+
+      await tx`
+        insert into portal_private.clients(
+          id,client_id,legal_name,tax_identifier,registration_country,
+          source_system,source_version,source_timestamp,authority_state,lifecycle_state
+        ) values(
+          ${clientKey}::uuid,${clientId},${legalName},${taxIdentifier},${registrationCountry},
+          'ADMIN_PORTAL','ADMIN_COMPANY_CREATE_V1',now(),
+          'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum
+        )
+      `;
+
+      await tx`
+        insert into portal_private.contracts(
+          id,contract_id,client_key,current_external_contract_number,contract_status,effective_from,signed_at,
+          source_system,source_version,source_timestamp,authority_state,lifecycle_state,
+          current_signed_document_id,signed_contract_confirmed_at,signed_contract_confirmed_by
+        ) values(
+          ${contractKey}::uuid,${contractId},${clientKey}::uuid,null,'ACTIVE',current_date,now(),
+          'ADMIN_PORTAL','ADMIN_COMPANY_CREATE_V1',now(),
+          'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum,
+          ${documentKey}::uuid,now(),${ctx.user}::uuid
+        )
+      `;
+
+      await tx`
+        insert into portal_private.documents(
+          id,document_id,document_type,client_key,contract_key,authoritative_filename,current_version_id,
+          source_system,source_version,source_timestamp,authority_state,lifecycle_state
+        ) values(
+          ${documentKey}::uuid,${documentId},'КОНТРАКТ',${clientKey}::uuid,${contractKey}::uuid,
+          ${parsed.file.name},${versionKey}::uuid,'ADMIN_PORTAL','ADMIN_COMPANY_CREATE_V1',now(),
+          'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum
+        )
+      `;
+
+      await tx`
+        insert into portal_private.document_versions(
+          id,document_key,version_number,authoritative_filename,sha256,storage_path,uploaded_by,
+          is_current,is_effective,source_system,source_version,source_timestamp,authority_state,lifecycle_state
+        ) values(
+          ${versionKey}::uuid,${documentKey}::uuid,1,${parsed.file.name},${parsed.sha256},${rawObjectName},${ctx.user}::uuid,
+          true,true,'ADMIN_PORTAL','ADMIN_SIGNED_CONTRACT_V1',now(),
+          'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum
+        )
+      `;
+
+      await tx`
+        insert into portal_private.storage_objects(
+          bucket_id,object_name,storage_object_id,object_kind,client_key,contract_key,document_version_key,
+          content_type,byte_size,sha256,storage_state,created_by,verified_by,verified_at
+        ) values(
+          ${BUCKET},${rawObjectName},${rawId}::uuid,'DOCUMENT',${clientKey}::uuid,${contractKey}::uuid,${versionKey}::uuid,
+          'application/pdf',${parsed.file.size},${parsed.sha256},'VERIFIED',${ctx.user}::uuid,${ctx.user}::uuid,now()
+        )
+      `;
+
+      await audit(tx, ctx, "ADMIN_COMPANY_CREATED", "CLIENT", clientId, req, {
+        client_id: clientId, contract_id: contractId, legal_name: legalName,
+        tax_identifier: taxIdentifier, registration_country: registrationCountry
+      });
+      await audit(tx, ctx, "BILATERAL_CONTRACT_ATTACH_CONFIRMED", "CONTRACT", contractId, req, {
+        document_id: documentId, sha256: parsed.sha256, storage_verified: true, source_first_activation: true
+      });
+      await audit(tx, ctx, "SIGNED_CONTRACT_STORAGE_REGISTERED", "DOCUMENT", documentId, req, {
+        contract_id: contractId, client_id: clientId, sha256: parsed.sha256,
+        object_name: rawObjectName, attestation_type: parsed.attestation.type
+      });
+
+      return {
+        clientId, contractId, documentId, version: "1", sha256: parsed.sha256,
+        serverConfirmed: true, bilateralSignedConfirmed: true, clientDownloadAllowed: true
+      };
+    });
+  } catch (e) {
+    try { await service.storage.from(BUCKET).remove([rawObjectName]); } catch {}
+    throw e;
+  }
+}
+
 async function attachAndActivateContract(ctx, req, selectionId) {
   const parsed = await parseSignedPdfForm(req);
   const contract = await resolveSourceCandidate(selectionId, parsed.clientId);
@@ -277,6 +403,7 @@ Deno.serve(async req => {
   const path = pathOf(req);
   try {
     if (path === "/access/users") return send(201, { ok: true, ...(await createClientUser(ctx, req)) });
+    if (path === "/companies") return send(201, { ok: true, ...(await createCompanyWithSignedContract(ctx, req)) });
     const attach = path.match(/^\/contracts\/([^/]+)\/signed-document\/attach$/);
     if (attach) return send(200, { ok: true, document: await attachAndActivateContract(ctx, req, decodeURIComponent(attach[1])) });
     return send(404, { ok: false, code: "ROUTE_NOT_FOUND" });
