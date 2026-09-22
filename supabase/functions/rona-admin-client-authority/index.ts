@@ -140,7 +140,6 @@ async function createClientUser(ctx, req) {
   const phone = String(b.phone || "").trim() || null;
   const requestedRaw = Array.isArray(b.contractIds) ? [...new Set(b.contractIds.map(String).filter(Boolean))] : [];
   if (!requestedRaw.length) throw Object.assign(new Error("COMPANY_REQUIRED"), { status: 400 });
-  const openWithout = b.openWithoutContract === true;
   const requested = [], eligible = [], pending = [];
   for (const raw of requestedRaw) {
     const c = await resolveSourceCandidate(raw);
@@ -150,7 +149,6 @@ async function createClientUser(ctx, req) {
     const ready = await bindingEligible(String(c.contract_id));
     if (ready) eligible.push(ready); else pending.push(c);
   }
-  if (pending.length && !openWithout) throw Object.assign(new Error("SIGNED_CONTRACT_REQUIRED"), { status: 409 });
   await assertLoginAvailable(login);
   const { data, error } = await service.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { rona_portal_login: login, rona_portal_display_name: name } });
   if (error || !data?.user?.id) throw Object.assign(new Error("AUTH_USER_CREATE_FAILED"), { status: 502 });
@@ -172,9 +170,9 @@ async function createClientUser(ctx, req) {
         if (seenClients.has(clientKey)) continue;
         seenClients.add(clientKey);
         await tx`insert into portal_private.client_user_pending_company_bindings(user_id,client_key,requested_contract_key,status,representation_role,contact_email,contact_phone,granted_by,reason,source_system,source_version,source_timestamp,authority_state,lifecycle_state)
-          values(${userId}::uuid,${clientKey}::uuid,${c.contract_key}::uuid,'PENDING'::portal_private.binding_status_enum,${String(b.bindingRole || "Уполномоченный представитель")},${email},${phone},${ctx.user}::uuid,'Admin Portal: opened without confirmed contract','ADMIN_PORTAL','ADMIN_EXCLUSIVE_CLIENT_V2',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
+          values(${userId}::uuid,${clientKey}::uuid,${c.contract_key}::uuid,'PENDING'::portal_private.binding_status_enum,${String(b.bindingRole || "Уполномоченный представитель")},${email},${phone},${ctx.user}::uuid,'Admin Portal: account created before signed-contract confirmation; company data access remains fail-closed','ADMIN_PORTAL','ADMIN_EXCLUSIVE_CLIENT_V2',now(),'CONFIRMED'::portal_private.authority_state_enum,'ACTIVE'::portal_private.lifecycle_state_enum)`;
       }
-      await audit(tx, ctx, "CLIENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, { login, email, requested_contract_ids: requested.map(x=>String(x.contract_id)), linked_contract_ids: eligible.map(x=>String(x.contract_id)), pending_contract_ids: pending.map(x=>String(x.contract_id)), open_without_contract: openWithout, password_admin_set: true });
+      await audit(tx, ctx, "CLIENT_PORTAL_USER_CREATED_BY_ADMIN", "PORTAL_USER", userId, req, { login, email, requested_contract_ids: requested.map(x=>String(x.contract_id)), linked_contract_ids: eligible.map(x=>String(x.contract_id)), pending_contract_ids: pending.map(x=>String(x.contract_id)), password_admin_set: true, account_creation_independent_from_signed_pdf: true, pending_contract_access_fail_closed: true });
       return { userId, linkedContractIds: eligible.map(x=>String(x.contract_id)), pendingContractIds: pending.map(x=>String(x.contract_id)) };
     });
   } catch (e) { try { await service.auth.admin.deleteUser(authId); } catch {} throw e; }
@@ -352,6 +350,40 @@ async function alreadyConfirmed(contract) {
   return rows.length === 1;
 }
 async function activatePendingBindings(tx, ctx, req, contract) {
+  let activated = 0;
+
+  const direct = await tx`
+    select b.id,b.user_id
+    from portal_private.client_user_bindings b
+    join portal_private.portal_users u on u.id=b.user_id
+    where b.client_key=${contract.client_key}::uuid
+      and b.contract_key=${contract.contract_key}::uuid
+      and b.status='PENDING'::portal_private.binding_status_enum
+      and b.revoked_at is null
+      and u.status='ACTIVE'::portal_private.portal_user_status_enum
+      and u.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and exists(
+        select 1 from portal_private.portal_user_roles r
+        where r.user_id=u.id
+          and r.role='CLIENT'::portal_private.portal_role_enum
+          and r.status='ACTIVE'::portal_private.binding_status_enum
+          and r.revoked_at is null
+      )
+    for update of b
+  `;
+  for (const b of direct) {
+    await tx`
+      update portal_private.client_user_bindings
+      set status='ACTIVE'::portal_private.binding_status_enum,
+          authority_state='CONFIRMED'::portal_private.authority_state_enum,
+          lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum,
+          reason='Activated after Administrator confirmed signed contract',
+          updated_at=now()
+      where id=${b.id}::uuid
+    `;
+    activated++;
+  }
+
   const rows = await tx`
     select p.id,p.user_id,p.representation_role
     from portal_private.client_user_pending_company_bindings p
@@ -362,7 +394,6 @@ async function activatePendingBindings(tx, ctx, req, contract) {
       and exists(select 1 from portal_private.portal_user_roles r where r.user_id=u.id and r.role='CLIENT'::portal_private.portal_role_enum and r.status='ACTIVE'::portal_private.binding_status_enum and r.revoked_at is null)
     for update of p
   `;
-  let activated = 0;
   for (const p of rows) {
     const live = await tx`select id from portal_private.client_user_bindings where user_id=${p.user_id}::uuid and client_key=${contract.client_key}::uuid and contract_key=${contract.contract_key}::uuid and status in ('PENDING'::portal_private.binding_status_enum,'ACTIVE'::portal_private.binding_status_enum,'SUSPENDED'::portal_private.binding_status_enum) limit 1`;
     if (!live.length) {
@@ -372,7 +403,7 @@ async function activatePendingBindings(tx, ctx, req, contract) {
     }
     await tx`update portal_private.client_user_pending_company_bindings set status='ACTIVE'::portal_private.binding_status_enum,reason='Activated after Administrator confirmed signed contract',updated_at=now() where id=${p.id}::uuid`;
   }
-  if (activated) await audit(tx, ctx, "PENDING_CLIENT_ACCESS_ACTIVATED_AFTER_CONTRACT", "CONTRACT", String(contract.contract_id), req, { activated_bindings: activated });
+  if (activated) await audit(tx, ctx, "PENDING_CLIENT_ACCESS_ACTIVATED_AFTER_CONTRACT", "CONTRACT", String(contract.contract_id), req, { activated_bindings: activated, direct_pending_bindings_supported: true });
   return activated;
 }
 async function attachAndActivateContract(ctx, req, selectionId) {
