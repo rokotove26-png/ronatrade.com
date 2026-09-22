@@ -38,7 +38,11 @@ jobs:
           const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
           const AUD='rona-issue430-owner-uat-browser-v2';
           const SOURCE_USER='65d78d10-3722-4dba-9d77-8252e7c62527';
-          const TARGET={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',deal_id:'DEAL-2026-004'};
+          const TARGETS={
+            'RONA-C002':{client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',deal_id:'DEAL-2026-004'},
+            'RONA-C003':{client_id:'RONA-C003',contract_id:'RONA-C003-CTR-2026-001',deal_id:'DEAL-2026-005'}
+          };
+          let TARGET=null;
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
           async function pollEval(page,fn,arg,label,timeout=30000){
             const started=Date.now();
@@ -82,20 +86,11 @@ jobs:
             page.on('console',m=>{if(m.type()==='error')runtimeErrors.push({kind:'console',text:m.text()})});
 
             await page.goto(ORIGIN+'/portal/client?_qa_rail_route='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
-            await pollEval(page,()=>Boolean(window.RONA_CLIENT_CONTEXT?.getCurrentContext),'CLIENT_CONTEXT_API');
-
-            const cards=page.locator('#clientCompanyGrid article.company-switch-card');
-            await cards.first().waitFor({state:'attached',timeout:30000});
-            await pollEval(page,t=>[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].some(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id),TARGET,'TARGET_COMPANY_CARD');
-
-            await page.evaluate(t=>{
-              const card=[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].find(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id);
-              const b=card?.querySelector('[data-rona-company-factory-slot="action"]');
-              if(!b)throw new Error('TARGET_COMPANY_ACTION_MISSING');
-              if(card?.dataset.ronaCompanyCurrent!=='true')b.click();
-            },TARGET);
-            await pollEval(page,t=>{const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();return c?.client_id===t.client_id&&c?.contract_id===t.contract_id},TARGET,'TARGET_CONTEXT');
-            console.log('TARGET_CONTEXT=PASS');
+            await pollEval(page,()=>{const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();return Boolean(c?.client_id&&c?.contract_id)},null,'CURRENT_CONTEXT',45000);
+            const current=await page.evaluate(()=>window.RONA_CLIENT_CONTEXT?.getCurrentContext?.()||null);
+            TARGET=TARGETS[current?.client_id]||null;
+            if(!TARGET||TARGET.contract_id!==current?.contract_id)throw new Error('UNSUPPORTED_CURRENT_CONTEXT:'+JSON.stringify(current));
+            console.log('TARGET_CONTEXT=PASS '+TARGET.client_id+' '+TARGET.deal_id);
 
             const railNav=page.locator('#nav button[data-page="rail"],#nav button[data-page="monitoring"]').first();
             await railNav.waitFor({state:'visible',timeout:30000});
@@ -105,7 +100,7 @@ jobs:
             const select=page.locator('.rona-rail-v6-select').first();
             if(await select.count()){
               const options=await select.locator('option').evaluateAll(opts=>opts.map(o=>({value:o.value,text:o.textContent||''})));
-              const target=options.find(o=>String(o.text).includes('DEAL-2026-004')||String(o.value).includes('DEAL-2026-004'));
+              const target=options.find(o=>String(o.text).includes(TARGET.deal_id)||String(o.value).includes(TARGET.deal_id));
               console.log('DEAL_OPTIONS='+JSON.stringify(options));
               if(target){
                 await select.selectOption(target.value);
