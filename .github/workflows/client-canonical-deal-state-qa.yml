@@ -9,8 +9,9 @@ on:
       - 'scripts/attach-client-deal-documents.mjs'
       - 'scripts/qa-client-realization-status-authoritative.mjs'
       - 'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs'
-      - 'supabase/functions/rona-portal-api/client-deal-state-v1.mjs'
-      - 'supabase/functions/rona-portal-api/client-deal-state-gateway-v1.ts'
+      - 'functions/portal/api/[[path]].js'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts'
       - 'tests/client-deal-state-v1.test.mjs'
       - '.github/workflows/client-canonical-deal-state-qa.yml'
   workflow_dispatch:
