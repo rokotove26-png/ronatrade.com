@@ -1,0 +1,60 @@
+name: Admin Radio MESSAGE Stage 2A production QA
+
+on:
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/admin-main-ui-current.js'
+      - 'functions/portal/admin-radio-message-canonical-bridge-v1.js'
+      - 'supabase/functions/rona-portal-api/client-communications.ts'
+      - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
+      - 'scripts/qa-admin-radio-message-stage2a-production.mjs'
+      - '.github/workflows/admin-radio-message-stage2a-production-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+  checks: read
+
+jobs:
+  production-round-trip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      TARGET_ORIGIN: https://ronaoil.com
+      EXPECTED_HEAD: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bind exact release head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          echo "RADIO_STAGE2A_RELEASE_HEAD=$EXPECTED_HEAD"
+      - name: Wait for exact Cloudflare production deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Real production Admin ↔ Client MESSAGE round-trip
+        run: node scripts/qa-admin-radio-message-stage2a-production.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-radio-message-stage2a-production-${{ github.run_id }}
+          path: admin-radio-message-stage2a-production-proof.json
+          if-no-files-found: warn
+          retention-days: 14
