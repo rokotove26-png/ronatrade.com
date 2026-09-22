@@ -80,9 +80,9 @@ test('Create User lists only current companies and pending access remains fail-c
   assert.match(legacyAuthority,/cl\.authority_state not in \('REJECTED'/);
   assert.match(legacyAuthority,/ct\.authority_state not in \('REJECTED'/);
   assert.match(control,/String\(r\.client_lifecycle\) !== "ACTIVE"/);
-  assert.match(control,/status='PENDING'::portal_private\.binding_status_enum/);
+  assert.match(control,/'PENDING'::portal_private\.binding_status_enum/);
   assert.match(control,/company data access remains fail-closed/);
   assert.match(authority,/direct_pending_bindings_supported: true/);
-  assert.match(authority,/status='PENDING'::portal_private\.binding_status_enum/);
+  assert.match(authority,/'PENDING'::portal_private\.binding_status_enum/);
   assert.match(authority,/Activated after Administrator confirmed signed contract/);
 });
