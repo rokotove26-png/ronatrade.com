@@ -1,0 +1,30 @@
+name: Admin add-company signed-contract QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check portal source syntax
+        run: |
+          node --check functions/portal/clients-agents-current-ui.js
+          node --check 'functions/portal/admin-authority/[[path]].js'
+      - name: Check Admin client authority
+        run: deno check --node-modules-dir=auto --config supabase/functions/rona-admin-client-authority/deno.json supabase/functions/rona-admin-client-authority/index.ts
+      - name: Verify add-company contract
+        run: node --test tests/admin-add-company-contract-flow-v1.test.mjs

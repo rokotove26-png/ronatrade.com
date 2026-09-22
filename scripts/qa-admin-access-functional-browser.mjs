@@ -14,6 +14,8 @@ let pdfReady=false;
 const created=[];
 const deleteUserId='11111111-1111-4111-8111-111111111111';
 let uploadRequests=0;
+let companyCreateRequests=0;
+let companyCreatePayload=null;
 let deleteRequests=0;
 let deleted=false;
 let impersonationStartRequests=0;
@@ -66,6 +68,11 @@ const server=http.createServer(async(req,res)=>{
     return json(res,{ok:true,data:{impersonation:{id:impersonationSessionId,expiresAt:new Date(Date.now()+600000).toISOString()},targetPath:'/portal/client'}})
   }
   if(u.pathname==='/portal/client')return send(res,200,'<!doctype html><title>QA Client Cabinet</title><h1>QA Client Cabinet</h1>','text/html; charset=utf-8');
+  if(req.method==='POST'&&u.pathname==='/portal/admin-authority/companies'){
+    const body=await readBody(req);let payload={};try{payload=JSON.parse(body.toString('utf8'))}catch{return json(res,{ok:false,code:'INVALID_JSON'},400)}
+    companyCreateRequests++;companyCreatePayload=payload;
+    return json(res,{ok:true,company:{clientId,contractId,externalContractNumber:contractId,contractStatus:'PENDING_SIGNATURE',signedDocumentRequired:true}},201)
+  }
   if(req.method==='POST'&&u.pathname===`/portal/admin-authority/contracts/${encodeURIComponent(contractId)}/signed-document/attach`){
     const body=await readBody(req);uploadRequests++;
     if(!String(req.headers['content-type']||'').includes('multipart/form-data'))return json(res,{ok:false,code:'PDF_TYPE_INVALID'},400);
@@ -96,13 +103,32 @@ try{
   await page.waitForFunction(()=>window.__RONA_ACCESS_FUNCTIONAL_BUILD__==='single-owner-impersonation-json-v8-20260920'&&window.__RONA_CLIENTS_AGENTS_CURRENT_READY__===true);
   assert(await page.locator('.rona-canonical-access-mask,.rona-approved-access-mask').count()===0,'legacy access overlay present before open');
 
+  await page.getByRole('button',{name:'Добавить компанию'}).first().click();
+  const companyModal=page.locator('.rona-current-access-modal');await companyModal.waitFor({state:'visible'});
+  assert((await companyModal.innerText()).includes('Название компании'),'company name field missing');
+  assert((await companyModal.innerText()).includes('ИНН'),'company tax id field missing');
+  assert((await companyModal.innerText()).includes('Страна регистрации'),'company country field missing');
+  await page.getByLabel('Название компании').fill('QA Client LLC');
+  await page.getByLabel('ИНН').fill('1234567890');
+  await page.getByLabel('Страна регистрации').selectOption('Россия');
+  const chooserPromise=page.waitForEvent('filechooser');await companyModal.getByRole('button',{name:'Прикрепить договор'}).click();const chooser=await chooserPromise;await chooser.setFiles({name:'qa-contract.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\\n% RONA QA\\n1 0 obj<<>>endobj\\n%%EOF')});
+  await companyModal.getByRole('button',{name:'Добавить компанию'}).click();
+  const companyConfirm=page.locator('.ca-modal-backdrop').last();await companyConfirm.waitFor({state:'visible'});await companyConfirm.getByRole('button',{name:'Подтвердить'}).click();
+  const companyDone=page.locator('.ca-modal-backdrop').last();await companyDone.waitFor({state:'visible'});assert((await companyDone.innerText()).includes('Компания добавлена'),'company creation success notice missing');await companyDone.getByRole('button',{name:'Закрыть'}).click();
+  assert(companyCreateRequests===1,'expected one company create request, got '+companyCreateRequests);
+  assert(companyCreatePayload?.legalName==='QA Client LLC','company legal name payload missing');
+  assert(companyCreatePayload?.taxIdentifier==='1234567890','company tax id payload missing');
+  assert(companyCreatePayload?.registrationCountry==='Россия','company country payload missing');
+  assert(uploadRequests===1,'expected one PDF upload from company flow, got '+uploadRequests);
+
   await page.getByRole('button',{name:'Создать пользователя'}).first().click();
   const modal=page.locator('.rona-current-access-modal');await modal.waitFor({state:'visible'});
   assert(await page.locator('.rona-current-access-mask').count()===1,'single owner must render exactly one access mask');
   assert(await page.locator('.rona-canonical-access-mask,.rona-approved-access-mask').count()===0,'legacy access overlay rendered');
   assert(await page.getByLabel('Единый логин',{exact:true}).count()===1,'Единый логин must exist exactly once');
   assert(await page.getByLabel('Электронная почта',{exact:true}).count()===1,'Электронная почта must exist exactly once');
-  for(const marker of ['Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Телефон','Пароль','Повторите пароль','Разрешённые компании / контракты','PDF не закреплён','Закрепить PDF'])assert((await modal.innerText()).includes(marker),'client modal marker missing: '+marker);
+  for(const marker of ['Тип доступа','Роль пользователя','Ф.И.О. пользователя','Единый логин','Электронная почта','Телефон','Пароль','Повторите пароль','Разрешённые компании / контракты','PDF подтверждён','Договор прикрепляется в карточке компании'])assert((await modal.innerText()).includes(marker),'client modal marker missing: '+marker);
+  assert(!(await modal.innerText()).includes('Закрепить PDF'),'Create User must not own signed-contract upload');
 
   await page.getByLabel('Ф.И.О. пользователя').fill('QA Client User');
   await page.getByLabel('Единый логин').fill('qa.client');
@@ -111,14 +137,10 @@ try{
   await page.getByLabel('Пароль',{exact:true}).fill('Qa!Password1');
   await page.getByLabel('Повторите пароль').fill('Qa!Password1');
   await modal.locator('.rona-current-contract-card input[type="checkbox"]').check();
-  await modal.getByRole('button',{name:'Создать единую учётную запись'}).click();
-  const gateNotice=page.locator('.ca-modal-backdrop').last();await gateNotice.waitFor({state:'visible'});assert((await gateNotice.innerText()).includes('нет подтверждённого PDF'),'missing-PDF gate did not block creation');await gateNotice.getByRole('button',{name:'Закрыть'}).click();
-  assert(created.length===0,'client user was created before PDF confirmation');
 
-  const chooserPromise=page.waitForEvent('filechooser');await modal.getByRole('button',{name:'Закрепить PDF'}).click();const chooser=await chooserPromise;await chooser.setFiles({name:'qa-contract.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\n% RONA QA\n1 0 obj<<>>endobj\n%%EOF')});
-  const confirm=page.locator('.ca-modal-backdrop').last();await confirm.waitFor({state:'visible'});await confirm.getByRole('button',{name:'Подтвердить'}).click();
-  const uploadDone=page.locator('.ca-modal-backdrop').last();await uploadDone.waitFor({state:'visible'});assert((await uploadDone.innerText()).includes('PDF договора закреплён'),'PDF attach success notice missing');await uploadDone.getByRole('button',{name:'Закрыть'}).click();
-  assert(uploadRequests===1,'expected one PDF upload, got '+uploadRequests);await page.waitForFunction(()=>document.querySelector('.rona-current-contract-card')?.textContent?.includes('PDF подтверждён'));
+  assert(pdfReady===true,'company-level signed PDF must be confirmed before Client user creation');
+  assert(uploadRequests===1,'company flow must own the only signed PDF upload');
+  assert(await modal.getByRole('button',{name:'Закрепить PDF'}).count()===0,'Create User must not expose signed-PDF upload');
 
   await modal.getByRole('button',{name:'Создать единую учётную запись'}).click();
   const clientDone=page.locator('.ca-modal-backdrop').last();await clientDone.waitFor({state:'visible'});assert((await clientDone.innerText()).includes('Доступ клиента создан'),'client creation success missing');
