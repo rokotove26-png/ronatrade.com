@@ -86,3 +86,14 @@ test('Create User lists only current companies and pending access remains fail-c
   assert.match(authority,/'PENDING'::portal_private\.binding_status_enum/);
   assert.match(authority,/Activated after Administrator confirmed signed contract/);
 });
+
+test('audited revoked signed-contract source hashes cannot be reactivated',()=>{
+  assert.match(authority,/SIGNED_CONTRACT_AUTHORITY_REVOKED_SOURCE_MISMATCH/);
+  assert.match(authority,/SIGNED_PDF_SOURCE_REVOKED/);
+  assert.match(authority,/assertSignedPdfSourceNotRevoked\(String\(canonical\.contract_id\), signedPdfSha256, tx\)/);
+  assert.match(authority,/assertSignedPdfSourceNotRevoked\(String\(contract\.contract_id\), parsed\.sha256\)/);
+  assert.match(legacyAuthority,/SIGNED_CONTRACT_AUTHORITY_REVOKED_SOURCE_MISMATCH/);
+  assert.match(legacyAuthority,/SIGNED_PDF_SOURCE_REVOKED/);
+  assert.doesNotMatch(authority,/424e75c53da8d8fb72a5418adca69e3923d55e9c5881175b902fd01504a1879b/);
+  assert.doesNotMatch(authority,/RONA-C003-CTR-2026-001/);
+});
