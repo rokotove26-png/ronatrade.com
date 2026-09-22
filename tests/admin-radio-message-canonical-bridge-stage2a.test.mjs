@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const sha256=p=>createHash('sha256').update(readFileSync(new URL('../'+p,import.meta.url))).digest('hex');
+const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\\0`)).update(bytes).digest('hex')};
 
 test('Stage 2A bridges only MESSAGE to canonical Client intake and response routes',()=>{
   const bridge=read('functions/portal/admin-radio-message-canonical-bridge-v1.js');
@@ -53,7 +53,7 @@ test('Backend preserves existing publish function and enforces source event/task
 
 test('Client canonical message runtime stays byte-for-byte frozen',()=>{
   assert.equal(
-    sha256('assets/portal-runtime/client-messages-archive-v1.js'),
+    gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),
     'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca'
   );
 });
