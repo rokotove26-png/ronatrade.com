@@ -34,10 +34,9 @@ for(const forbidden of [
 ])assert.doesNotMatch(context,new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
 assert.doesNotMatch(context,/FARG(?:[‘'ʼ])?ONA/iu);
 
-// Deals normally consumes the already coordinated current projection. Deal Passport
-// open is the one explicit freshness boundary: it invalidates through the central
-// context authority and asks that authority to re-read the same scoped projection.
-// Deals still never owns a direct /context request or any periodic refresh loop.
+// Deals cards consume the coordinated current projection. Deal Passport detail has
+// one explicit freshness boundary: a single no-store canonical deal-state endpoint.
+// The passport never performs a second context/workflow/lifecycle fetch.
 assert.match(deals,/getCurrentProjection/);
 assert.match(deals,/function currentProjection/);
 assert.match(deals,/function adoptCurrentProjection/);
@@ -45,9 +44,11 @@ assert.match(deals,/state\.payload=projection/);
 assert.match(deals,/rona:client-current-projection/);
 assert.match(deals,/RONA_CLIENT_CONTEXT_CURRENT_PROJECTION/);
 assert.doesNotMatch(deals,/\/v1\/client\/context/);
-assert.match(deals,/a\.invalidateCurrentProjection\(\);const \[freshProjection,workflow\]=await Promise\.all\(\[a\.whenCurrentProjection\('deal-passport-open'\)/);
-assert.equal((deals.match(/whenCurrentProjection\s*\(/g)||[]).length,1,'Deals may refresh current projection only at Deal Passport open');
-assert.equal((deals.match(/invalidateCurrentProjection\s*\(/g)||[]).length,1,'Deals may invalidate current projection only at Deal Passport open');
+assert.match(deals,/\/v1\/client\/deal-state\?clientId=/);
+assert.match(deals,/RONA_CLIENT_DEAL_STATE_V1/);
+assert.match(deals,/canonical-deal-state-v1-fresh-on-open/);
+assert.equal((deals.match(/\/v1\/client\/deal-state\?clientId=/g)||[]).length,1,'Deal Passport must own exactly one canonical detail endpoint');
+assert.doesNotMatch(deals,/whenCurrentProjection\('deal-passport-open'\)|invalidateCurrentProjection\(\)/);
 assert.doesNotMatch(deals,/observe\(document\.documentElement/);
 assert.doesNotMatch(deals,/attributeFilter:\[[^\]]*(?:hidden|aria-hidden)/s);
 assert.doesNotMatch(deals,/setInterval\([^\n]*refresh/);
@@ -59,7 +60,7 @@ assert.match(deals,/!pair\.clientIds\.length\|\|!pair\.contractIds\.length/);
 
 // The production passport owns the modal structure and visual system. The hotfix
 // only binds explicit production field/context slots after the native drawer has
-// opened for the exact requested deal and the exact workflow row has been loaded.
+// opened for the exact requested deal and canonical state has been validated.
 assert.match(passport,/20260831-client-deal-passport-v2-centered-status/);
 assert.match(passport,/const ROOT_CLASS='rona-deal-command-center-v3'/);
 assert.match(passport,/data-rona-command-field-value/);
@@ -73,11 +74,11 @@ assert.match(deals,/const exact=all\.filter\(r=>drawerId\(r\)===id/);
 assert.match(deals,/return exact\.length===1\?exact\[0\]:null/);
 assert.match(deals,/function passportSlotsReady/);
 assert.match(deals,/function waitForExactDrawer/);
-assert.match(deals,/function workflowRowValid/);
-assert.match(deals,/SERVER_AUTHORITATIVE_REALIZATION_V1/);
+assert.match(deals,/function canonicalStateValid\(canonical,id,ctx\)/);
+assert.match(deals,/CLIENT_DEAL_STATE_V1/);
 assert.match(deals,/function clearDrawerBinding/);
 assert.match(deals,/data-rona-current-context-slot/);
-assert.match(deals,/setData\(r,'ronaAuthoritativeBinding','authoritative-binding'\)/);
+assert.match(deals,/setData\(r,'ronaAuthoritativeBinding','canonical-deal-state-binding'\)/);
 assert.doesNotMatch(deals,/return unbound\.length===1/);
 assert.doesNotMatch(deals,/scheduleDrawerBind\(id,null/);
 assert.doesNotMatch(deals,/function rewriteTextNodes|function exactLeafs|function fieldContainer|function setCompanyContext|function setLegal/);
@@ -88,17 +89,18 @@ assert.doesNotMatch(deals,/function drawerCloseControl|function backdropDrawer|f
 assert.match(deals,/\.rona-deal-command-center-v3,\[data-rona-deal-passport\]/);
 assert.doesNotMatch(deals,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])?ONA/iu);
 
-// The approved production lifecycle visual contract remains intact. The binder
-// clears an old lifecycle before a new deal is loaded, then the lifecycle owner
-// recreates it from authoritative realization_status for the bound deal/context.
+// The approved lifecycle visual contract remains intact. The lifecycle owner is
+// event-only and renders realization_status from the same canonical passport state.
 assert.match(lifecycle,/const FLOW_ID='rona-deal-realization-flow-v3'/);
-assert.match(lifecycle,/SERVER_AUTHORITATIVE_REALIZATION_V1/);
+assert.match(lifecycle,/CLIENT_DEAL_STATE_V1/);
 assert.match(lifecycle,/data-lifecycle-stage/);
 assert.match(lifecycle,/rona-deal-lifecycle-v1__progress/);
 assert.match(lifecycle,/rona-deal-lifecycle-v1__node/);
 assert.match(lifecycle,/Выполнено \$\{done\} из \$\{stages\.length\}/);
 assert.match(lifecycle,/rootIsAuthoritative/);
 assert.match(lifecycle,/rona:client:deal-authoritative-detail/);
+assert.match(lifecycle,/function acceptCanonicalDetail\(detail\)/);
+assert.doesNotMatch(lifecycle,/\/v1\/client\/deal-documents\/state|async function getJson|\bfetch\s*\(/);
 assert.match(deals,/drawer\.querySelector\('#rona-deal-realization-flow-v3'\)\?\.remove\(\)/);
 assert.doesNotMatch(deals,/function resetDrawer/);
 
@@ -175,9 +177,9 @@ assert.doesNotMatch(home,/RONA-C004|DEAL-2026-007|DEAL-2026-008|FARG(?:[‘'ʼ])
 console.log('CLIENT_LOAD_FEEDBACK_LOOP_HOTFIX_V1=PASS');
 console.log('DEALS_CONTEXT_SOURCE=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION');
 console.log('DEALS_OWN_CONTEXT_FETCH=NONE');
-console.log('DEAL_PASSPORT_FRESHNESS=INVALIDATE_THEN_CENTRAL_NO_STORE_ON_OPEN');
+console.log('DEAL_PASSPORT_FRESHNESS=CANONICAL_DEAL_STATE_NO_STORE_ON_OPEN');
 console.log('DEAL_PASSPORT_BINDING=EXACT_NATIVE_DRAWER_PLUS_EXPLICIT_SLOTS');
-console.log('DEAL_WORKFLOW_BINDING=EXACT_CLIENT_CONTRACT_DEAL');
+console.log('DEAL_STATE_BINDING=EXACT_CLIENT_CONTRACT_DEAL');
 console.log('DEAL_LIFECYCLE_OWNER=PRODUCTION_CLIENT_DEAL_LIFECYCLE_V1');
 console.log('FIRST_PAINT_PROJECTION_CACHE_BRIDGE=NO_FETCH');
 console.log('VISUAL_CONTEXT_BINDING=DIRECT_SELECTED_CONTEXT_SLOTS');
