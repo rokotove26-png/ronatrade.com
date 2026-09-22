@@ -37,6 +37,11 @@ test('Add Company takes Contract ID and external contract number from the author
   assert.doesNotMatch(authority,/RONA_CLIENT_ID_ALLOCATOR_V1/);
   assert.doesNotMatch(authority,/const contractId = clientId \+ '-CTR-'/);
   assert.match(ui,/registeredContractLinked!==true/);
+  assert.match(ui,/signedPdfSha256/);
+  assert.match(ui,/crypto\.subtle\.digest\('SHA-256'/);
+  assert.match(authority,/signedPdfSha256/);
+  assert.match(authority,/pdf_hash_match/);
+  assert.match(authority,/signed_pdf_sha256/);
   assert.match(ui,/Реестр подтверждён:/);
 });
 
