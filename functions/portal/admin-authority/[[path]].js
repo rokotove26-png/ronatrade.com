@@ -201,7 +201,7 @@ async function normalizeBootstrapCompanyNames(response, cookies = []) {
   return json(payload, response.status, cookies);
 }
 function clientAuthorityTarget(path) {
-  return /^\/contracts\/[^/]+\/signed-document\/attach$/.test(path);
+  return path === '/companies' || /^\/contracts\/[^/]+\/signed-document\/attach$/.test(path);
 }
 
 export async function onRequest(context) {
