@@ -55,6 +55,13 @@ test('Backend preserves existing publish function and enforces source event/task
   assert.match(migration,/to service_role/);
 });
 
+test('Admin Radio visual asset stays byte-for-byte frozen',()=>{
+  assert.equal(
+    gitBlobSha('assets/portal-admin-radio-wide-v10.js'),
+    '1e32655109534962580e96057def98208f69eaa4'
+  );
+});
+
 test('Client canonical message runtime stays byte-for-byte frozen',()=>{
   assert.equal(
     gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),
