@@ -24,6 +24,11 @@ test('Stage 2A canonical MESSAGE bridge lives in the current Radio single owner'
   assert.match(radio,/syncAndRefreshMessageTargets/);
   assert.match(radio,/scope\.onchange=syncAndRefreshMessageTargets/);
   assert.match(radio,/kind\.onchange=syncAndRefreshMessageTargets/);
+  assert.match(radio,/window\.__RONA_ADMIN_RADIO_MESSAGE_REFRESH__=radioRefreshCanonicalNow/);
+  assert.match(radio,/STAGE_2A_MESSAGE_CANONICAL_REFRESH_V1/);
+  assert.match(radio,/rona:admin-pagechange/);
+  assert.match(radio,/radioRefreshCanonicalNow\('pagechange'\)/);
+  assert.match(radio,/radioRefreshCanonicalNow\('message-client-scope'\)/);
   assert.match(radio,/radioLoadCanonical\(true\)\.then\(result=>\{if\(result\.changed\)renderRadio\(\)\}\)/);
   assert.match(radio,/radioLoadCanonical\(false\)\.then\(result=>\{if\(result\.changed\)renderRadio\(\)\}\)/);
   assert.doesNotMatch(radio,/result\.changed&&p\?\.classList\.contains\('active'\)/);
