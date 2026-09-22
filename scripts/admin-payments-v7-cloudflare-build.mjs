@@ -21,7 +21,6 @@ const OPERATIONS_CENTER_OVERRIDES = [
 
 const CURRENT_PAYMENTS_RUNTIME_OVERRIDES = [
   'scripts/admin-payments-v7-live-runtime-current.mjs',
-  'scripts/admin-payments-reconciliation-difference-ui.mjs',
 ];
 
 function run(command, args, options = {}) {
@@ -100,7 +99,7 @@ try {
   // Feed that build the current canonical runtime sources instead of
   // pre-patching admin-main-ui-current.js and causing a second declaration.
   console.log('PAYMENTS_V7_CURRENT_RUNTIME_SOURCE_OVERRIDE=READY');
-  console.log('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_SOURCE_OVERRIDE=READY');
+  console.log('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_SOURCE=RELEASE_CURRENT');
 
   run(npmBin, ['run', 'build'], { cwd: worktree });
 
