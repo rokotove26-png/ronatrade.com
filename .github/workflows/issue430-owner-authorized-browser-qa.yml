@@ -40,6 +40,14 @@ jobs:
           const SOURCE_USER='65d78d10-3722-4dba-9d77-8252e7c62527';
           const TARGET={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',deal_id:'DEAL-2026-004'};
           const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function pollEval(page,fn,arg,label,timeout=30000){
+            const started=Date.now();
+            while(Date.now()-started<timeout){
+              try{if(await page.evaluate(fn,arg))return true}catch{}
+              await sleep(100);
+            }
+            throw new Error(label+'_TIMEOUT');
+          }
 
           async function oidc(){
             const base=process.env.ACTIONS_ID_TOKEN_REQUEST_URL,token=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
@@ -74,11 +82,11 @@ jobs:
             page.on('console',m=>{if(m.type()==='error')runtimeErrors.push({kind:'console',text:m.text()})});
 
             await page.goto(ORIGIN+'/portal/client?_qa_rail_route='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
-            await page.waitForFunction(()=>window.RONA_CLIENT_CONTEXT?.getCurrentContext,{timeout:30000});
+            await pollEval(page,()=>Boolean(window.RONA_CLIENT_CONTEXT?.getCurrentContext),'CLIENT_CONTEXT_API');
 
             const cards=page.locator('#clientCompanyGrid article.company-switch-card');
             await cards.first().waitFor({state:'attached',timeout:30000});
-            await page.waitForFunction(t=>[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].some(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id),TARGET,{timeout:30000});
+            await pollEval(page,t=>[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].some(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id),TARGET,'TARGET_COMPANY_CARD');
 
             await page.evaluate(t=>{
               const card=[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].find(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id);
@@ -86,7 +94,7 @@ jobs:
               if(!b)throw new Error('TARGET_COMPANY_ACTION_MISSING');
               if(card?.dataset.ronaCompanyCurrent!=='true')b.click();
             },TARGET);
-            await page.waitForFunction(t=>{const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();return c?.client_id===t.client_id&&c?.contract_id===t.contract_id},TARGET,{timeout:30000});
+            await pollEval(page,t=>{const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();return c?.client_id===t.client_id&&c?.contract_id===t.contract_id},TARGET,'TARGET_CONTEXT');
             console.log('TARGET_CONTEXT=PASS');
 
             const railNav=page.locator('#nav button[data-page="rail"],#nav button[data-page="monitoring"]').first();
