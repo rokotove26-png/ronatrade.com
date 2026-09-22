@@ -207,13 +207,33 @@ try{
   assert(await selects.nth(1).inputValue()==='ALL_CLIENTS','ADMIN_RADIO_DEFAULT_SCOPE_CHANGED');
   assert(await selects.nth(2).isDisabled(),'ADMIN_RADIO_INITIAL_TARGET_STATE_CHANGED');
   proof.visual={adminRadioInitial:{kind:'MESSAGE',scope:'ALL_CLIENTS',targetDisabled:true},visualDelta:0};
-  await selects.nth(1).selectOption('CLIENT');
-  await selects.nth(2).selectOption({value:rowA.event_id},{timeout:20000});
 
   const intake=await contextApi(adminContext,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
   assert(intake.status===200,'ADMIN_CANONICAL_BOOTSTRAP_FAILED');
   const intakeRow=(intake.body?.data?.client_intake||[]).find(x=>x.event_id===rowA.event_id);
   assert(intakeRow?.task_id,'ADMIN_INTAKE_SOURCE_TASK_MISSING');
+
+  await selects.nth(1).selectOption('CLIENT');
+  try{
+    await selects.nth(2).selectOption({value:rowA.event_id},{timeout:30000});
+  }catch(error){
+    const diagnostics=await adminPage.evaluate(()=>({
+      bridge:window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__||null,
+      refreshBound:window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_BOUND__||null,
+      refreshState:window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_STATE__||null,
+      canonicalError:window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_ERROR__||null,
+      canonicalIntake:(window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_INTAKE__||[]).map(x=>({
+        event_id:x?.event_id||null,task_id:x?.task_id||null,event_type:x?.event_type||null
+      })),
+      remainingReady:window.__RONA_REMAINING_SECTIONS_READY__||null,
+      remainingModule:window.__RONA_ADMIN_MODULES__?.remaining||null,
+      page:document.documentElement.dataset.ronaAdminPage||null,
+      targetOptions:Array.from(document.querySelectorAll('#page-messages > .rona-rs-root[data-kind="radio"] select')[2]?.options||[]).map(o=>({value:o.value,text:o.textContent})),
+      shellErrors:window.__RONA_ADMIN_SHELL_OPTIONAL_ERRORS__||[]
+    }));
+    proof.adminDiagnostics=diagnostics;
+    throw new Error('ADMIN_CANONICAL_TARGET_MISSING:'+JSON.stringify(diagnostics));
+  }
 
   await radioRoot.locator('textarea').fill(responseA);
   await radioRoot.getByRole('button',{name:'Отправить',exact:true}).click();
