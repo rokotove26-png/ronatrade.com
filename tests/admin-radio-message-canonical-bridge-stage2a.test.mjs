@@ -20,6 +20,13 @@ test('Stage 2A canonical MESSAGE bridge lives in the current Radio single owner'
   assert.match(radio,/\['MESSAGE','Сообщение'\],\['NOTIFICATION','Уведомление'\],\['ANNOUNCEMENT','Объявление'\]/);
   assert.match(radio,/\['ALL_CLIENTS','Все клиенты'\],\['CLIENT','Клиент'\],\['ALL_AGENTS','Все агенты'\],\['AGENT','Агент'\]/);
   assert.match(radio,/target\.disabled=scope\.value!=='CLIENT'/);
+  assert.match(radio,/function radioHasRenderedRoot\(\)/);
+  assert.match(radio,/syncAndRefreshMessageTargets/);
+  assert.match(radio,/scope\.onchange=syncAndRefreshMessageTargets/);
+  assert.match(radio,/kind\.onchange=syncAndRefreshMessageTargets/);
+  assert.match(radio,/radioLoadCanonical\(true\)\.then\(result=>\{if\(result\.changed\)renderRadio\(\)\}\)/);
+  assert.match(radio,/radioLoadCanonical\(false\)\.then\(result=>\{if\(result\.changed\)renderRadio\(\)\}\)/);
+  assert.doesNotMatch(radio,/result\.changed&&p\?\.classList\.contains\('active'\)/);
   assert.doesNotMatch(radio,/scope\.value='CLIENT'/);
   assert.doesNotMatch(radio,/owner_radio_items/);
   assert.doesNotMatch(radio,/CREATE TABLE|create table/i);
