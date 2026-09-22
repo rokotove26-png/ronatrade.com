@@ -5,7 +5,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin-main-ui-current.js'
-      - 'functions/portal/admin-radio-message-canonical-bridge-v1.js'
+      - 'functions/portal/remaining-sections-ui.js'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
       - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
@@ -16,7 +16,7 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/admin-main-ui-current.js'
-      - 'functions/portal/admin-radio-message-canonical-bridge-v1.js'
+      - 'functions/portal/remaining-sections-ui.js'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
       - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
@@ -55,7 +55,7 @@ jobs:
           set -euo pipefail
           git diff --name-only ${{ github.event.pull_request.base.sha || github.event.before }} HEAD > /tmp/changed.txt || true
           cat /tmp/changed.txt
-          if grep -E '^(assets/portal-runtime/client-messages-archive-v1\.js|assets/portal-admin-radio-wide-v10\.js|functions/portal/deals-current-state-ui\.js|functions/portal/admin-payments|supabase/functions/.*/rail)' /tmp/changed.txt; then
+          if grep -E '^(assets/portal-runtime/client-messages-archive-v1\.js|assets/portal-admin-radio-wide-v10\.js|assets/portal-admin-radio-final-v9\.js|functions/portal/deals-current-state-ui\.js|functions/portal/admin-payments|supabase/functions/.*/rail)' /tmp/changed.txt; then
             echo 'STAGE2A_SCOPE_GUARD=FAIL' >&2
             exit 1
           fi
