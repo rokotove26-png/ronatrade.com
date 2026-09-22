@@ -9,7 +9,7 @@ import {
   recoverLiveAdminWorkspace,
 } from '../../scripts/admin-payments-v7-final-live-source.mjs';
 
-const CURRENT_RELEASE_HEAD = '2109e8be8e2e82503efa4201619eaa4b80f8c8ac';
+const CURRENT_RELEASE_HEAD = '7bdf2bae0e0bb54a66d5e4df4d01993b70f79159';
 const show = (path) => execFileSync('git', ['show', `${FINAL_LIVE_ADMIN_SOURCE_COMMIT}:${path}`], {
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
@@ -17,6 +17,16 @@ const show = (path) => execFileSync('git', ['show', `${FINAL_LIVE_ADMIN_SOURCE_C
 
 test('Payments V7 materializes from the exact current release head', () => {
   assert.equal(FINAL_LIVE_ADMIN_SOURCE_COMMIT, CURRENT_RELEASE_HEAD);
+});
+
+test('locked release includes the Admin Add Company signed-contract workflow', () => {
+  const access = show('functions/portal/clients-agents-current-ui.js');
+  assert.match(access, /Добавить компанию/);
+  assert.match(access, /Название компании/);
+  assert.match(access, /ИНН/);
+  assert.match(access, /Страна регистрации/);
+  assert.match(access, /Прикрепить договор/);
+  assert.doesNotMatch(access, /void choosePdf\(row,up\)/);
 });
 
 test('current release UI layers remain byte-identical through Payments V7 recovery', () => {
