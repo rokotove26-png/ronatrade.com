@@ -15,6 +15,14 @@ assert.deepEqual(
 );
 assert.equal(deal009.payment_expected_not_due,9300690);
 assert.equal(deal009.payment_future_conditional,21701610);
+assert.equal(deal009.payment_status,'NOT_DUE');
+assert.equal(deal009.payment_label,'Срок оплаты ещё не наступил');
+
+const financeDue={id:'v7-due',total_to_receive:'1000',obligation_currency:'USD',finance_status:'DUE',documentary_status:'TO_VERIFY',due_now:'1000',expected_not_due:'0',future_conditional:'0'};
+const dealDue={deal_id:'DEAL-2099-001'};
+applyClientPaymentAuthorityV7(dealDue,[financeDue],[]);
+assert.equal(dealDue.payment_status,'DUE');
+assert.equal(dealDue.payment_label,'Ожидается оплата');
 
 const finance004={id:'v7-004',total_to_receive:'236250',obligation_currency:'USD',finance_status:'PAID',documentary_status:'CONFIRMED',due_now:'0',expected_not_due:'0',future_conditional:'0'};
 const deal004={deal_id:'DEAL-2026-004'};
