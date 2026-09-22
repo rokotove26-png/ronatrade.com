@@ -17,6 +17,8 @@ test('Stage 2A bridges only MESSAGE to canonical Client intake and response rout
   assert.match(bridge,/await post\('\/admin\/radio',\{kind:kind\.value/);
   assert.match(bridge,/\['MESSAGE','Сообщение'\],\['NOTIFICATION','Уведомление'\],\['ANNOUNCEMENT','Объявление'\]/);
   assert.doesNotMatch(bridge,/document\.createElement\(['"]style/);
+  assert.doesNotMatch(bridge,/scope\.value='CLIENT'/);
+  assert.match(bridge,/target\.classList\.toggle\('rona-owner-hide',scope\.value!=='CLIENT'\)/);
   assert.doesNotMatch(bridge,/owner_radio_items/);
   assert.doesNotMatch(bridge,/CREATE TABLE|create table/i);
 });
