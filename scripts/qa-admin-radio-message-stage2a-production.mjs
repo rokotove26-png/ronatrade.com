@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises';
 const ORIGIN=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 const HEAD=String(process.env.EXPECTED_HEAD||'');
 const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
-const AUDIENCE='rona-radio-stage2a-production-v1';
+const AUDIENCE='rona-issue430-owner-uat-browser-v2';
 
 const QA_ADMIN='a2a0b91e-4c2a-4d3e-8f11-2a2a00000001';
 const QA_CLIENT_A='a2a0b91e-4c2a-4d3e-8f11-2a2a00000002';
@@ -33,15 +33,21 @@ async function oidc(){
   if(!r.ok||!j?.value)throw new Error(`GITHUB_OIDC_${r.status}`);
   return j.value;
 }
-async function issuerCall(path,body){
-  const token=await oidc();
-  const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body)});
-  const j=await r.json().catch(()=>null);
-  if(!r.ok||!j?.ok)throw new Error(`ISSUER_${path}_${r.status}_${j?.code||'UNKNOWN'}`);
-  return j;
+async function issuerCall(path,body,{waitForActive=false}={}){
+  let last='';
+  for(let attempt=0;attempt<(waitForActive?60:1);attempt++){
+    const token=await oidc();
+    const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body)});
+    const j=await r.json().catch(()=>null);
+    if(r.ok&&j?.ok)return j;
+    last=`${r.status}:${j?.code||'UNKNOWN'}`;
+    if(waitForActive&&r.status===410){await sleep(5000);continue}
+    throw new Error(`ISSUER_${path}_${last}`);
+  }
+  throw new Error(`ISSUER_ACTIVE_TIMEOUT:${last}`);
 }
 async function issueSession(portalUserId){
-  const j=await issuerCall('/issue',{portalUserId});
+  const j=await issuerCall('/issue',{portalUserId},{waitForActive:true});
   assert(j.access_token&&j.session_id&&j.auth_user_id,'ISSUER_SESSION_RESPONSE_INVALID');
   return{portalUserId,accessToken:j.access_token,sessionId:j.session_id,authUserId:j.auth_user_id};
 }
