@@ -8,58 +8,17 @@ on:
 
 permissions:
   contents: read
-  checks: read
-  pull-requests: read
   id-token: write
 
 jobs:
-  owner-authorized-browser:
+  client-rail-route-diagnostic:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    env:
-      ISSUE430_BASE_SHA: 77588541119bb1a96375beed3e853e067ab1422f
-      EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-
-      - name: Bind exact corrective head and current release base
-        shell: bash
-        run: |
-          set -euo pipefail
-          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
-          git fetch --no-tags origin "${GITHUB_BASE_REF}"
-          test "$(git merge-base "origin/${GITHUB_BASE_REF}" HEAD)" = "$ISSUE430_BASE_SHA"
-          echo "ISSUE430_EXACT_BASE=$ISSUE430_BASE_SHA"
-          echo "ISSUE430_EXACT_HEAD=$EXPECTED_HEAD"
-
-      - name: Build and verify narrow corrective source contract
-        shell: bash
-        run: |
-          set -euo pipefail
-          npm run build | tee issue430-owner-build.log
-          grep -Fq 'ISSUE430_COMPANY_METRIC_PLACEHOLDER_REPAIR=PASS' issue430-owner-build.log
-          node --check functions/portal/api/v1/client/deal-documents/state.js
-          node --check scripts/repair-issue430-company-metrics-v2.mjs
-          node --check scripts/qa-issue430-owner-authorized-browser-v2.mjs
-          node --check scripts/qa-issue430-owner-authorized-browser-v4.mjs
-          node --check scripts/qa-issue430-company-live-diagnostic.mjs
-          grep -Fq "PORTAL_CONTEXT_CANONICAL_RESOURCE_V1" functions/portal/api/v1/client/deal-documents/state.js
-          grep -Fq "resolve_deal_resource_state" supabase/functions/rona-portal-api/index.ts
-          grep -Fq "|---|…|" scripts/repair-issue430-company-metrics-v2.mjs
-          if grep -E 'DEAL-2026-009|RONA-C005|RONA-C005-CTR-2026-001' functions/portal/api/v1/client/deal-documents/state.js scripts/repair-issue430-company-metrics-v2.mjs; then
-            echo 'ISSUE430_FUNCTIONAL_HARDCODE=FAIL'
-            exit 1
-          fi
-          echo 'ISSUE430_FUNCTIONAL_HARDCODE=ABSENT'
-          echo 'ISSUE430_NARROW_SOURCE_CONTRACT=PASS'
-
       - name: Install Playwright Chromium
         shell: bash
         run: |
@@ -67,70 +26,202 @@ jobs:
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
 
-      - name: Resolve immutable exact-head Cloudflare preview
+      - name: Diagnose live Client Rail route render for DEAL-2026-004
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RONA_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          node --input-type=module <<'NODE'
-          import {appendFile} from 'node:fs/promises';
-          const token=process.env.GH_TOKEN,head=process.env.EXPECTED_HEAD,repo=process.env.RONA_REPO;
-          const headers={accept:'application/vnd.github+json',authorization:`Bearer ${token}`,'x-github-api-version':'2022-11-28'};
-          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-          let check=null;
-          for(let i=0;i<120;i++){
-            const r=await fetch(`https://api.github.com/repos/${repo}/commits/${head}/check-runs?per_page=100`,{headers});
-            if(!r.ok)throw new Error(`CHECK_RUNS_HTTP_${r.status}`);
-            const body=await r.json(),runs=Array.isArray(body?.check_runs)?body.check_runs:[];
-            check=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion==='success'&&x?.app?.slug==='cloudflare-workers-and-pages')||null;
-            if(check)break;
-            const failed=runs.find(x=>x?.name==='Cloudflare Pages'&&x?.head_sha===head&&x?.status==='completed'&&x?.conclusion&&x.conclusion!=='success');
-            if(failed)throw new Error(`CLOUDFLARE_PREVIEW_${failed.conclusion}`);
-            await sleep(5000);
-          }
-          if(!check)throw new Error('CLOUDFLARE_PREVIEW_TIMEOUT');
-          const urls=[...new Set([...String(check?.output?.summary||'').matchAll(/https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev/ig)].map(m=>m[0].toLowerCase()))];
-          let origin=urls.length===1?urls[0]:'';
-          const external=String(check?.external_id||'').trim().toLowerCase();
-          if(!origin&&/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(external))origin=`https://${external.slice(0,8)}.rona-trade-public.pages.dev`;
-          if(!/^https:\/\/[0-9a-f]{8}\.rona-trade-public\.pages\.dev$/i.test(origin))throw new Error(`IMMUTABLE_ORIGIN_INVALID_${origin}`);
-          const probe=await fetch(`${origin}/portal/api/v1/client/deal-documents/state?clientId=x&contractId=y&_qa=${Date.now()}`,{redirect:'manual',cache:'no-store'});
-          if(probe.status!==401)throw new Error(`EXACT_ROUTE_FAIL_CLOSED_${probe.status}`);
-          await appendFile(process.env.GITHUB_ENV,`TARGET_ORIGIN=${origin}\n`);
-          await appendFile(process.env.GITHUB_ENV,`CLOUDFLARE_CHECK_RUN_ID=${check.id}\n`);
-          console.log(`ISSUE430_IMMUTABLE_PREVIEW=${origin}`);
-          console.log(`ISSUE430_CLOUDFLARE_CHECK_RUN_ID=${check.id}`);
-          console.log('ISSUE430_EXACT_ROUTE_FAIL_CLOSED=PASS');
-          NODE
+          node --input-type=module <<'NODE' 2>&1 | tee client-rail-route-diagnostic.log
+          import {chromium} from 'playwright';
+          import {writeFile} from 'node:fs/promises';
 
-      - name: Owner-authorized exact-head real browser proof
-        shell: bash
-        run: |
-          set -euo pipefail
-          node scripts/qa-issue430-company-live-diagnostic.mjs 2>&1 | tee issue430-company-live-diagnostic.log
-          node scripts/qa-issue430-owner-authorized-browser-v4.mjs 2>&1 | tee issue430-owner-browser.log
-          grep -Fq 'ISSUE430_CANONICAL_COMPANIES_NAV_TARGET=PASS' issue430-owner-browser.log
-          grep -Fq 'ISSUE430_CANONICAL_COMPANIES_NAV_ACTIVATION=PASS' issue430-owner-browser.log
-          grep -Fq 'ISSUE430_AUTHORIZED_BROWSER_PROOF=PASS' issue430-owner-browser.log
-          grep -Fq 'RESOURCE_PASSPORT_TIMELINE=PASS' issue430-owner-browser.log
-          grep -Fq 'COMPANY_KPI_1_1_3=PASS' issue430-owner-browser.log
-          grep -Fq 'COMPANY_CARD_GEOMETRY_STABLE=PASS' issue430-owner-browser.log
-          grep -Fq 'COLD_LOAD=PASS' issue430-owner-browser.log
-          grep -Fq 'HARD_REFRESH=PASS' issue430-owner-browser.log
-          grep -Fq 'DELAYED_RECOVERY=PASS' issue430-owner-browser.log
-          grep -Fq 'A_B_A_CONTEXT_ISOLATION=PASS' issue430-owner-browser.log
-          grep -Fq 'QA_SESSION_CLEANUP=PASS' issue430-owner-browser.log
+          const ORIGIN='https://ronaoil.com';
+          const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
+          const AUD='rona-issue430-owner-uat-browser-v2';
+          const SOURCE_USER='65d78d10-3722-4dba-9d77-8252e7c62527';
+          const TARGET={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',deal_id:'DEAL-2026-004'};
+          const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+          async function pollEval(page,fn,arg,label,timeout=30000){
+            const started=Date.now();
+            while(Date.now()-started<timeout){
+              try{if(await page.evaluate(fn,arg))return true}catch{}
+              await sleep(100);
+            }
+            throw new Error(label+'_TIMEOUT');
+          }
+
+          async function oidc(){
+            const base=process.env.ACTIONS_ID_TOKEN_REQUEST_URL,token=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+            if(!base||!token)throw new Error('GITHUB_OIDC_ENV_MISSING');
+            const url=base+(base.includes('?')?'&':'?')+'audience='+encodeURIComponent(AUD);
+            const r=await fetch(url,{headers:{authorization:'Bearer '+token}});
+            const j=await r.json().catch(()=>null);
+            if(!r.ok||!j?.value)throw new Error('GITHUB_OIDC_'+r.status);
+            return j.value;
+          }
+          async function issuer(path,body){
+            const jwt=await oidc();
+            const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:'Bearer '+jwt,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body),signal:AbortSignal.timeout(60000)});
+            const j=await r.json().catch(()=>null);
+            if(!r.ok||!j?.ok)throw new Error('ISSUER_'+path+'_'+r.status+'_'+String(j?.code||'UNKNOWN'));
+            return j;
+          }
+
+          let issued=null,browser=null,context=null;
+          try{
+            issued=await issuer('/issue',{portalUserId:SOURCE_USER});
+            console.log('TEMP_CLIENT_SESSION=PASS');
+            browser=await chromium.launch({headless:true});
+            context=await browser.newContext({viewport:{width:1920,height:1080}});
+            await context.addCookies([
+              {name:'rona_portal_at',value:issued.access_token,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'},
+              {name:'rona_portal_rt',value:issued.refresh_token,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'}
+            ]);
+            const page=await context.newPage();
+            const runtimeErrors=[];
+            page.on('pageerror',e=>runtimeErrors.push({kind:'pageerror',text:String(e?.message||e)}));
+            page.on('console',m=>{if(m.type()==='error')runtimeErrors.push({kind:'console',text:m.text()})});
+
+            await page.goto(ORIGIN+'/portal/client?_qa_rail_route='+Date.now(),{waitUntil:'domcontentloaded',timeout:60000});
+            await pollEval(page,()=>Boolean(window.RONA_CLIENT_CONTEXT?.getCurrentContext),'CLIENT_CONTEXT_API');
+
+            const cards=page.locator('#clientCompanyGrid article.company-switch-card');
+            await cards.first().waitFor({state:'attached',timeout:30000});
+            await pollEval(page,t=>[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].some(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id),TARGET,'TARGET_COMPANY_CARD');
+
+            await page.evaluate(t=>{
+              const card=[...document.querySelectorAll('#clientCompanyGrid article.company-switch-card')].find(c=>c.dataset.ronaClientId===t.client_id&&c.dataset.ronaClientContractId===t.contract_id);
+              const b=card?.querySelector('[data-rona-company-factory-slot="action"]');
+              if(!b)throw new Error('TARGET_COMPANY_ACTION_MISSING');
+              if(card?.dataset.ronaCompanyCurrent!=='true')b.click();
+            },TARGET);
+            await pollEval(page,t=>{const c=window.RONA_CLIENT_CONTEXT?.getCurrentContext?.();return c?.client_id===t.client_id&&c?.contract_id===t.contract_id},TARGET,'TARGET_CONTEXT');
+            console.log('TARGET_CONTEXT=PASS');
+
+            const railNav=page.locator('#nav button[data-page="rail"],#nav button[data-page="monitoring"]').first();
+            await railNav.waitFor({state:'visible',timeout:30000});
+            await railNav.click();
+            await page.locator('.rona-rail-v7-map-viewport').first().waitFor({state:'visible',timeout:45000});
+
+            const select=page.locator('.rona-rail-v6-select').first();
+            if(await select.count()){
+              const options=await select.locator('option').evaluateAll(opts=>opts.map(o=>({value:o.value,text:o.textContent||''})));
+              const target=options.find(o=>String(o.text).includes('DEAL-2026-004')||String(o.value).includes('DEAL-2026-004'));
+              console.log('DEAL_OPTIONS='+JSON.stringify(options));
+              if(target){
+                await select.selectOption(target.value);
+                await sleep(1200);
+              }
+            }
+
+            const canonical=await page.evaluate(async t=>{
+              const url='/portal/api/v1/client/rail-canonical?clientId='+encodeURIComponent(t.client_id)+'&contractId='+encodeURIComponent(t.contract_id)+'&_qa='+Date.now();
+              const r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
+              const j=await r.json().catch(()=>null);
+              const d=j?.data||{};
+              const pick=(obj,id,key)=>obj?.[id]||obj?.[key]||null;
+              const deal=(d.deals||[]).find(x=>x.deal_id===t.deal_id)||null;
+              const planned=pick(d.plannedRouteByDeal,t.deal_id,deal?.deal_key);
+              const actual=pick(d.actualRouteByDeal,t.deal_id,deal?.deal_key);
+              const remaining=pick(d.remainingRouteByDeal,t.deal_id,deal?.deal_key);
+              const cohorts=pick(d.routeCohortsByDeal,t.deal_id,deal?.deal_key);
+              return {
+                status:r.status,ok:j?.ok===true,contract:j?.projection_contract||null,
+                deal,
+                plannedPoints:Array.isArray(planned?.points)?planned.points.length:null,
+                actualPoints:Array.isArray(actual?.points)?actual.points.length:null,
+                remainingPoints:Array.isArray(remaining?.points)?remaining.points.length:null,
+                cohortCount:Array.isArray(cohorts)?cohorts.length:null,
+                topKeys:Object.keys(d).sort()
+              };
+            },TARGET);
+            console.log('CANONICAL='+JSON.stringify(canonical));
+
+            await page.waitForTimeout(1500);
+            const dom=await page.evaluate(t=>{
+              const canvas=document.querySelector('#page-monitoring .rona-rail-v4-map-canvas,#page-rail .rona-rail-v4-map-canvas');
+              const state=canvas?.__ronaRailMapState||null;
+              const routePane=canvas?.querySelector('.rona-rail-v7-route-layer');
+              const tilePane=canvas?.querySelector('.rona-rail-v7-tiles');
+              const svg=routePane?.querySelector('.rona-rail-v7-route-svg');
+              const polylines=[...(svg?.querySelectorAll('polyline')||[])].map(p=>({
+                className:p.getAttribute('class'),
+                pointsCount:String(p.getAttribute('points')||'').trim().split(/\s+/).filter(Boolean).length,
+                stroke:getComputedStyle(p).stroke,
+                strokeWidth:getComputedStyle(p).strokeWidth,
+                opacity:getComputedStyle(p).opacity,
+                display:getComputedStyle(p).display,
+                visibility:getComputedStyle(p).visibility
+              }));
+              const md=window.__RONA_RAIL_MAP_DATA__||{};
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,top:r.top,left:r.left,right:r.right,bottom:r.bottom}};
+              const css=e=>e?{zIndex:getComputedStyle(e).zIndex,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,opacity:getComputedStyle(e).opacity,position:getComputedStyle(e).position,width:getComputedStyle(e).width,height:getComputedStyle(e).height,overflow:getComputedStyle(e).overflow}:null;
+              const matched=[];
+              const visit=rules=>{for(const rule of rules||[]){try{if(rule.cssRules)visit(rule.cssRules);else{const txt=String(rule.cssText||'');if(txt.includes('.rona-rail-v7-route-layer')||txt.includes('.rona-rail-v7-route-svg')||txt.includes('.rona-rail-v7-tiles'))matched.push(txt)}}catch{}}};
+              for(const sheet of [...document.styleSheets]){try{visit(sheet.cssRules)}catch{}}
+              return {
+                target:t,
+                currentContext:window.RONA_CLIENT_CONTEXT?.getCurrentContext?.()||null,
+                selectedDeal:window.__RONA_RAIL_SELECTED_DEAL_KEY__||null,
+                mapData:{
+                  dealKey:md.dealKey||null,dealId:md.dealId||null,
+                  plannedPoints:Array.isArray(md.plannedRoute?.points)?md.plannedRoute.points.length:null,
+                  actualPoints:Array.isArray(md.actualRoute?.points)?md.actualRoute.points.length:null,
+                  remainingPoints:Array.isArray(md.remainingRoute?.points)?md.remainingRoute.points.length:null,
+                  cohortCount:Array.isArray(md.routeCohorts)?md.routeCohorts.length:null,
+                  wagonPositions:Array.isArray(md.wagonPositions)?md.wagonPositions.length:null
+                },
+                state:{
+                  exists:!!state,
+                  dealKey:state?.context?.dealKey||null,
+                  dealId:state?.context?.dealId||null,
+                  stateMapDataDealId:state?.context?.mapData?.dealId||null,
+                  statePlannedPoints:Array.isArray(state?.context?.mapData?.plannedRoute?.points)?state.context.mapData.plannedRoute.points.length:null,
+                  stateActualPoints:Array.isArray(state?.context?.mapData?.actualRoute?.points)?state.context.mapData.actualRoute.points.length:null,
+                  wagons:Array.isArray(state?.wagons)?state.wagons.length:null
+                },
+                viewport:{rect:rect(canvas?.querySelector('.rona-rail-v7-map-viewport')),style:css(canvas?.querySelector('.rona-rail-v7-map-viewport'))},
+                routePane:{children:routePane?.children.length||0,style:css(routePane),rect:rect(routePane),inlineStyle:routePane?.getAttribute('style')||null},
+                tilePane:{children:tilePane?.children.length||0,style:css(tilePane),rect:rect(tilePane),inlineStyle:tilePane?.getAttribute('style')||null},
+                svg:{exists:!!svg,style:css(svg),rect:rect(svg),polylineCount:polylines.length,viewBox:svg?.getAttribute('viewBox')||null},
+                matchedRules:matched,
+                polylines,
+                markerCount:canvas?.querySelectorAll('.rona-rail-v7-marker').length||0,
+                routeRender:window.__RONA_RAIL_ROUTE_COHORT_RENDER__||null,
+                clientRenderer:window.__RONA_CLIENT_RAIL_CANONICAL_ROUTE_RENDERER__||null,
+                clientProduction:window.__RONA_CLIENT_RAIL_PRODUCTION__||null,
+                routeLayerFix:window.__RONA_CLIENT_RAIL_ROUTE_LAYER_FIX__||null,
+                errors:window.__RONA_CLIENT_RAIL_LAST_ERROR__||null
+              };
+            },TARGET);
+            console.log('DOM='+JSON.stringify(dom));
+            console.log('RUNTIME_ERRORS='+JSON.stringify(runtimeErrors));
+            const px=Number(dom?.routePane?.style?.zIndex),tx=Number(dom?.tilePane?.style?.zIndex);
+            if(dom?.routeLayerFix!=='20260922-overlay-position-v1')throw new Error('ROUTE_LAYER_FIX_MARKER_MISSING:'+String(dom?.routeLayerFix));
+            if(dom?.routePane?.style?.position!=='absolute')throw new Error('ROUTE_PANE_NOT_ABSOLUTE:'+JSON.stringify(dom?.routePane));
+            if(dom?.svg?.style?.position!=='absolute')throw new Error('ROUTE_SVG_NOT_ABSOLUTE:'+JSON.stringify(dom?.svg));
+            if(dom?.tilePane?.style?.position!=='absolute')throw new Error('TILE_PANE_NOT_ABSOLUTE:'+JSON.stringify(dom?.tilePane));
+            if(!(Number.isFinite(px)&&Number.isFinite(tx)&&px>tx))throw new Error('ROUTE_Z_ORDER_INVALID:'+JSON.stringify({route:px,tile:tx}));
+            if(!(dom?.svg?.polylineCount>=2&&dom?.polylines?.every(p=>p.display!=='none'&&p.visibility!=='hidden'&&Number(p.opacity)>0&&Number.parseFloat(p.strokeWidth)>0)))throw new Error('ROUTE_POLYLINE_NOT_VISIBLE:'+JSON.stringify(dom?.polylines));
+            console.log('CLIENT_RAIL_ROUTE_OVERLAY_POSTFIX=PASS');
+            await page.screenshot({path:'client-rail-route-diagnostic.png',fullPage:true});
+            await writeFile('client-rail-route-diagnostic.json',JSON.stringify({canonical,dom,runtimeErrors},null,2));
+          } finally {
+            if(context)await context.close().catch(()=>{});
+            if(browser)await browser.close().catch(()=>{});
+            if(issued?.auth_user_id){
+              const rev=await issuer('/revoke',{accessToken:issued.access_token,sessionId:issued.session_id,authUserId:issued.auth_user_id});
+              console.log('TEMP_CLIENT_CLEANUP='+(rev?.revoked&&rev?.session_absent?'PASS':'FAIL'));
+            }
+          }
+          NODE
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: issue430-owner-authorized-browser-${{ github.run_id }}
+          name: client-rail-route-diagnostic-${{ github.run_id }}
           path: |
-            issue430-owner-build.log
-            issue430-company-live-diagnostic.log
-            issue430-owner-browser.log
-            issue430-owner-authorized-browser-proof.json
+            client-rail-route-diagnostic.log
+            client-rail-route-diagnostic.json
+            client-rail-route-diagnostic.png
           if-no-files-found: warn
           retention-days: 7
