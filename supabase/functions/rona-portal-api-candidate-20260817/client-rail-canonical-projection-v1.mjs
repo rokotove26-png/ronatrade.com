@@ -105,6 +105,7 @@ export function projectClientRailCanonical({context,deals,readModels}){
   const routeProgressByDeal={};
   const routeStationsByDeal={};
   const routeAssignmentByDeal={};
+  const routeCohortsByDeal={};
   const exchangeByDeal={};
   let activeTargets=0;
   let conflicts=0;
@@ -148,6 +149,7 @@ export function projectClientRailCanonical({context,deals,readModels}){
     publishByDeal(routeProgressByDeal,scope,object(deal.routeProgress));
     publishByDeal(routeStationsByDeal,scope,array(deal.routeStations));
     publishByDeal(routeAssignmentByDeal,scope,object(deal.routeAssignment));
+    publishByDeal(routeCohortsByDeal,scope,array(deal.routeCohorts));
     exchangeByDeal[text(scope.deal_key)]={
       active_targets:trusted>0?1:0,
       conflicts:unresolved,
@@ -171,10 +173,12 @@ export function projectClientRailCanonical({context,deals,readModels}){
     routeProgressByDeal,
     routeStationsByDeal,
     routeAssignmentByDeal,
+    routeCohortsByDeal,
     railReadModel:{
       modelVersion,
       sourcePolicy,
       generatedAt,
+      routeCohortContractVersion:"RAIL_ROUTE_COHORTS_V1",
       overlayMode:CLIENT_RAIL_OVERLAY_MODE,
       authorityScope:"AUTHENTICATED_CLIENT_CONTRACT",
       clientId:text(context.client_id),
