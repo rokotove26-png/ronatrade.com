@@ -34,12 +34,12 @@
     },
     "assets/portal-runtime/client-payments-authoritative-v1.js": {
       "visual_freeze_baseline_blob_sha": "63a03da68bfce4ed43da236a3f66cbfadec3bdd9",
-      "authorized_post_blob_sha": "0930b047c433b9e29c486240c271f020fd401143",
+      "authorized_post_blob_sha": "482b1876593ac5fcb3b034c9735e86e2078bd3fa",
       "required_marker": "20260922-client-payments-authoritative-v3-event-driven"
     },
     "scripts/attach-client-application-lifecycle.mjs": {
       "visual_freeze_baseline_blob_sha": "91e7a806781915d134bb9e682dac59a2ae886d63",
-      "authorized_post_blob_sha": "5742a826ef70160d990d67e07431cf6e39dbee01",
+      "authorized_post_blob_sha": "2e626323ede4b4f72a17d32a025df8f694328555",
       "required_marker": "EVENT_DRIVEN_NO_POLLING"
     }
   },
