@@ -72,7 +72,7 @@ async function exactMeta(clientId:string,contractId:string,dealId:string){
         select 1
         from portal_private.documents doc
         where doc.deal_key=d.id
-          and upper(doc.document_type) in ('SIGNED_ADDENDUM','SIGNED_SUPPLEMENT','ПОДПИСАННОЕ ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ')
+          and upper(doc.document_type::text) in ('SIGNED_ADDENDUM','SIGNED_SUPPLEMENT','ПОДПИСАННОЕ ДОПОЛНИТЕЛЬНОЕ СОГЛАШЕНИЕ')
           and doc.authority_state::text in ('CONFIRMED','VERIFIED')
           and doc.lifecycle_state::text='ACTIVE'
       ) as signed_documents_confirmed
