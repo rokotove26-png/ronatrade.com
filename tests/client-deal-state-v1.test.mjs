@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {projectClientCanonicalDealState,CLIENT_DEAL_STATE_CONTRACT} from '../supabase/functions/rona-portal-api/client-deal-state-v1.mjs';
+import {projectClientCanonicalDealState,CLIENT_DEAL_STATE_CONTRACT} from '../supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs';
 
 const context={client_id:'QA-CLIENT',contract_id:'QA-CONTRACT',legal_name:'QA Client',current_external_contract_number:'QA-EXT'};
 const application={application_id:'QA-APP',deal_id:'DEAL-2099-101',product:'QA Product',quantity_tonnes:100,delivery_basis:'CPT',destination:'QA Station',proposed_price:10,proposed_currency:'USD'};
@@ -61,11 +61,28 @@ test('early deal remains valid when Finance and Rail facts do not exist yet',()=
   };
   const app={...application,application_id:'QA-APP-3',deal_id:'DEAL-2099-103',quantity_tonnes:25};
   const meta={...resource,signed_documents_confirmed:false};
-  const state=projectClientCanonicalDealState({context,deal,application:app,meta,railModel:null});
+  const railModel={modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',generatedAt:'2099-01-02T00:00:00Z',sourcePolicy:'QA_RAIL',deals:[{dealId:'DEAL-2099-103',railDocuments:[],wagonPositions:[],actualRoute:{points:[]},remainingRoute:{points:[]},routeAssignment:{resolutionState:'UNRESOLVED'}}]};
+  const state=projectClientCanonicalDealState({context,deal,application:app,meta,railModel});
   assert.equal(state.facts.payment.status,'TO_VERIFY');
   assert.equal(state.facts.rail.available,false);
   assert.equal(state.realization_status.current_stage_key,'documents');
   assert.equal(state.realization_status.stages.find(x=>x.key==='documents').state,'CURRENT');
   assert.equal(state.realization_status.stages.find(x=>x.key==='logistics').detail,'ЖД-данные появятся после начала отгрузки');
   assert.equal(state.next_step,'Ожидается подписание документов');
+});
+
+
+test('Rail source outage is not misreported as no shipment',()=>{
+  const deal={
+    deal_id:'DEAL-2099-104',business_status:'EXECUTING',confirmed_quantity_tonnes:25,
+    passport_unit_price:30,passport_amount:750,passport_currency:'USD',
+    payment_authority_state:'AUTHORITATIVE',payment_obligation_amount:750,payment_received_amount:750,payment_remaining_amount:0,payment_currency:'USD',payment_percent:100,
+    payment_finance_status:'PAID',payment_due_now:0,payment_expected_not_due:0,payment_future_conditional:0
+  };
+  const app={...application,application_id:'QA-APP-4',deal_id:'DEAL-2099-104',quantity_tonnes:25};
+  const state=projectClientCanonicalDealState({context,deal,application:app,meta:resource,railModel:null});
+  assert.equal(state.facts.rail.available,false);
+  assert.equal(state.realization_status.current_stage_key,'logistics');
+  assert.equal(state.realization_status.stages.find(x=>x.key==='logistics').state,'CURRENT');
+  assert.equal(state.next_step,'Актуальные ЖД-данные временно недоступны');
 });
