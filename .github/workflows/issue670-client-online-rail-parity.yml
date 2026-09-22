@@ -81,6 +81,7 @@ jobs:
             echo 'functions/portal/api/[[path]].js'
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts'
             echo 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-canonical-projection-v1.mjs'
+            echo 'supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs'
             echo 'tests/client-rail-isolated-backend-after-incident.test.mjs'
             echo '.github/workflows/client-rail-isolated-backend-after-incident.yml'
             echo '.github/workflows/client-rail-admin-visual-parity-v2.yml'
@@ -103,6 +104,7 @@ jobs:
           node --check scripts/qa-client-online-rail-670-browser.mjs
           node --check scripts/qa-client-online-rail-670-real-integration.mjs
           node --check supabase/functions/rona-portal-api/client-rail-canonical-projection-v1.mjs
+          node --check supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs
           node --test tests/client-rail-parity-670.test.mjs
           node --test tests/client-rail-isolated-backend-after-incident.test.mjs
           deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts
