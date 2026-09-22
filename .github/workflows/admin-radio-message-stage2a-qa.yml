@@ -37,6 +37,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Stage 2A production proof syntax
+        run: node --check scripts/qa-admin-radio-message-stage2a-production.mjs
       - name: Stage 2A MESSAGE canonical bridge contract
         run: node --test tests/admin-radio-message-canonical-bridge-stage2a.test.mjs
       - name: Existing Client messages/archive canonical contract

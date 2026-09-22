@@ -235,7 +235,7 @@ try{
   const radioState=await adminPage.evaluate(()=>({
     bridge:window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__||null,
     kind:[...document.querySelectorAll('#page-messages .rona-owner-form select')][0]?.value||null,
-    options:[...document.querySelectorAll('#page-messages .rona-owner-form select')][0]?.querySelectorAll('option')].map(o=>o.value),
+    options:Array.from(document.querySelectorAll('#page-messages .rona-owner-form select')[0]?.querySelectorAll('option')||[]).map(o=>o.value),
     formClass:document.querySelector('#page-messages .rona-owner-form')?.className||null,
     sectionTitle:[...document.querySelectorAll('#page-messages .rona-owner-section-title')].map(x=>x.textContent.trim()),
     tableHeaders:[...document.querySelectorAll('#page-messages .rona-owner-table th')].map(x=>x.textContent.trim())
