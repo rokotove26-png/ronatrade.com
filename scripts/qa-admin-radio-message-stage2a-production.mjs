@@ -56,13 +56,15 @@ async function revokeSession(s){
   assert(j.revoked===true&&j.session_absent===true,'QA_SESSION_REVOKE_NOT_PROVEN');
   return true;
 }
-function authHeaders(session,extra={}){
-  return{authorization:`Bearer ${session.accessToken}`,cookie:`rona_portal_at=${session.accessToken}`,'cache-control':'no-store',accept:'application/json',...extra};
-}
-async function portal(session,path,{method='GET',body=null,headers={}}={}){
-  const r=await fetch(ORIGIN+path,{method,headers:authHeaders(session,body?{'content-type':'application/json',...headers}:headers),body:body?JSON.stringify(body):undefined,redirect:'manual'});
+async function contextApi(context,path,{method='GET',body=null,headers={},referer='/portal/client'}={}){
+  const r=await context.request.fetch(ORIGIN+path,{
+    method,
+    headers:{accept:'application/json',origin:ORIGIN,referer:ORIGIN+referer,'cache-control':'no-store',...headers},
+    data:body??undefined,
+    failOnStatusCode:false
+  });
   const j=await r.json().catch(()=>null);
-  return{status:r.status,body:j,headers:r.headers};
+  return{status:r.status(),body:j,headers:r.headers()};
 }
 async function waitUntil(fn,label,timeout=30000,interval=300){
   const started=Date.now();let last=null;
@@ -155,14 +157,14 @@ try{
   const rowA=await clientSubmitUi(aPage,C002,subjectA,messageA);
   proof.clientA={eventId:rowA.event_id,subject:subjectA,context:C002};
 
-  const foreignDeal=await portal(aSession,'/portal/api/v1/client/messages',{
+  const foreignDeal=await contextApi(aContext,'/portal/api/v1/client/messages',{
     method:'POST',
     headers:{'x-idempotency-key':crypto.randomUUID()},
     body:{clientId:C002.client_id,contractId:C002.contract_id,dealId:C002.foreign_deal,subject:'QA foreign deal',message:'must fail',idempotencyKey:crypto.randomUUID()}
   });
   assert(foreignDeal.status===404,'FOREIGN_DEAL_SCOPE_NOT_DENIED');
 
-  const crossContract=await portal(aSession,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C005.contract_id));
+  const crossContract=await contextApi(aContext,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C005.contract_id));
   assert(crossContract.status===404,'CROSS_CONTRACT_SUBSTITUTION_NOT_DENIED');
 
   const subjectC005=`QA STAGE2A C005 ${tag}`;
@@ -184,7 +186,7 @@ try{
   await adminPage.waitForFunction(eventId=>[...document.querySelectorAll('#page-messages .rona-owner-form select')][2]?.querySelector(`option[value="${CSS.escape(eventId)}"]`),rowA.event_id,{timeout:20000});
   await selects.nth(2).selectOption(rowA.event_id);
 
-  const intake=await portal(adminSession,'/portal/api/v1/admin/bootstrap');
+  const intake=await contextApi(adminContext,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
   assert(intake.status===200,'ADMIN_CANONICAL_BOOTSTRAP_FAILED');
   const intakeRow=(intake.body?.data?.client_intake||[]).find(x=>x.event_id===rowA.event_id);
   assert(intakeRow?.task_id,'ADMIN_INTAKE_SOURCE_TASK_MISSING');
@@ -193,16 +195,16 @@ try{
   await form.getByRole('button',{name:'Отправить',exact:true}).click();
 
   const published=await waitUntil(async()=>{
-    const r=await portal(aSession,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C002.contract_id));
+    const r=await contextApi(aContext,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C002.contract_id));
     const row=(r.body?.messages||[]).find(x=>x.event_id===rowA.event_id);
     return r.status===200&&row?.client_response_text===responseA&&row?.client_response_published_at?row:null;
   },'CLIENT_A_RESPONSE_PUBLISH',45000,500);
   proof.admin={eventId:rowA.event_id,sourceTaskId:intakeRow.task_id,uiReply:true};
   proof.clientA.response={text:published.client_response_text,publishedAt:published.client_response_published_at};
 
-  const duplicateSame=await portal(adminSession,'/portal/api/v1/admin/client-intake/'+encodeURIComponent(rowA.event_id)+'/respond',{method:'POST',body:{response:responseA,source_task_id:intakeRow.task_id}});
+  const duplicateSame=await contextApi(adminContext,'/portal/api/v1/admin/client-intake/'+encodeURIComponent(rowA.event_id)+'/respond',{method:'POST',body:{response:responseA,source_task_id:intakeRow.task_id},referer:'/portal/admin'});
   assert(duplicateSame.status===200&&duplicateSame.body?.response?.reused===true,'IDENTICAL_DUPLICATE_NOT_IDEMPOTENT');
-  const duplicateConflict=await portal(adminSession,'/portal/api/v1/admin/client-intake/'+encodeURIComponent(rowA.event_id)+'/respond',{method:'POST',body:{response:responseA+' CONFLICT',source_task_id:intakeRow.task_id}});
+  const duplicateConflict=await contextApi(adminContext,'/portal/api/v1/admin/client-intake/'+encodeURIComponent(rowA.event_id)+'/respond',{method:'POST',body:{response:responseA+' CONFLICT',source_task_id:intakeRow.task_id},referer:'/portal/admin'});
   assert(duplicateConflict.status===403,'CONFLICTING_DUPLICATE_NOT_DENIED');
   proof.duplicate={samePayloadStatus:duplicateSame.status,samePayloadReused:true,conflictingStatus:duplicateConflict.status};
 
@@ -210,7 +212,7 @@ try{
   const bPage=await bContext.newPage();
   await bPage.goto(ORIGIN+'/portal/client?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
   await selectClientContext(bPage,C002);await openMessages(bPage);
-  const bMessages=await portal(bSession,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C002.contract_id));
+  const bMessages=await contextApi(bContext,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C002.contract_id));
   assert(bMessages.status===200,'CLIENT_B_MESSAGE_ROUTE_FAILED');
   assert(!(bMessages.body?.messages||[]).some(x=>x.event_id===rowA.event_id),'CLIENT_B_CAN_SEE_CLIENT_A_MESSAGE');
   assert(!(await bPage.locator('#page-messages').innerText()).includes(subjectA),'CLIENT_B_DOM_CAN_SEE_CLIENT_A_MESSAGE');
