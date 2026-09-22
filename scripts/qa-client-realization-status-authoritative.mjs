@@ -31,7 +31,7 @@ for(const forbidden of ['Схема реализации сделки','Конт
 try{await access('assets/portal-runtime/client-deal-command-center-v3.js');throw new Error('RETIRED_COMMAND_CENTER_FILE_STILL_PRESENT')}catch(error){if(error?.message==='RETIRED_COMMAND_CENTER_FILE_STILL_PRESENT')throw error;if(error?.code!=='ENOENT')throw error}
 
 for(const required of [
-  "route==='/v1/client/deal-state'","proxy(req,'/v1/client/context'",'CLIENT_DEAL_STATE_V1','resolve_deal_resource_state','rona_rail_deal_map_read_model_core_v1',
+  "route==='/v1/client/deal-state'","proxy(req,'/v1/client/context'",'CLIENT_DEAL_STATE_CONTRACT','resolve_deal_resource_state','rona_rail_deal_map_read_model_core_v1',
   'signed_documents_confirmed','projectClientCanonicalDealState','CLIENT_DEAL_STATE_RAIL_OPTIONAL_UNAVAILABLE',
   'CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1','x-rona-admin-impersonation-token'
 ]) if(!gateway.includes(required))throw new Error(`DEAL_STATE_GATEWAY_REQUIRED_MISSING:${required}`);
