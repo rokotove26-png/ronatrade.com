@@ -80,6 +80,12 @@ export function applyClientPaymentAuthorityV7(deal,authorityRows=[],receiptRows=
   }else if(financeStatus==='OVERDUE'){
     paymentStatus='OVERDUE';
     paymentLabel='Оплата просрочена';
+  }else if(financeStatus==='NOT_DUE'||(dueNow===0&&(expectedNotDue>0||futureConditional>0))){
+    paymentStatus='NOT_DUE';
+    paymentLabel='Срок оплаты ещё не наступил';
+  }else if(financeStatus==='DUE'||financeStatus==='PAYMENT_DUE'||dueNow>0){
+    paymentStatus='DUE';
+    paymentLabel='Ожидается оплата';
   }
 
   Object.assign(deal,{
