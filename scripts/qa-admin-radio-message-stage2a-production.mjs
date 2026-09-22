@@ -11,8 +11,8 @@ const QA_ADMIN='a2a0b91e-4c2a-4d3e-8f11-2a2a00000001';
 const QA_CLIENT_A='a2a0b91e-4c2a-4d3e-8f11-2a2a00000002';
 const QA_CLIENT_B='a2a0b91e-4c2a-4d3e-8f11-2a2a00000003';
 
-const C002={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',foreign_deal:'DEAL-2026-005'};
-const C003={client_id:'RONA-C003',contract_id:'RONA-C003-CTR-2026-001'};
+const C002={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',foreign_deal:'DEAL-2026-009'};
+const C005={client_id:'RONA-C005',contract_id:'RONA-C005-CTR-2026-001'};
 const CLIENT_RUNTIME_BLOB='f3c49ac46cc32ee0cd92eefadb905f8ac52778ca';
 const RADIO_VISUAL_BLOB='1e32655109534962580e96057def98208f69eaa4';
 
@@ -162,11 +162,11 @@ try{
   });
   assert(foreignDeal.status===404,'FOREIGN_DEAL_SCOPE_NOT_DENIED');
 
-  const crossContract=await portal(aSession,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C003.contract_id));
+  const crossContract=await portal(aSession,'/portal/api/v1/client/messages?clientId='+encodeURIComponent(C002.client_id)+'&contractId='+encodeURIComponent(C005.contract_id));
   assert(crossContract.status===404,'CROSS_CONTRACT_SUBSTITUTION_NOT_DENIED');
 
-  const subjectC003=`QA STAGE2A C003 ${tag}`;
-  const rowC003=await clientSubmitUi(aPage,C003,subjectC003,`Context C003 message ${tag}`);
+  const subjectC005=`QA STAGE2A C005 ${tag}`;
+  const rowC005=await clientSubmitUi(aPage,C005,subjectC005,`Context C005 message ${tag}`);
 
   adminContext=await browserContext(browser,adminSession);
   const adminPage=await adminContext.newPage();
@@ -222,15 +222,15 @@ try{
   await aPage.getByText(responseA,{exact:true}).first().waitFor({state:'visible',timeout:20000});
   proof.reload={publishedResponsePersisted:true};
 
-  await selectClientContext(aPage,C003);await openMessages(aPage);
-  await aPage.getByText(subjectC003,{exact:true}).first().waitFor({state:'visible',timeout:20000});
+  await selectClientContext(aPage,C005);await openMessages(aPage);
+  await aPage.getByText(subjectC005,{exact:true}).first().waitFor({state:'visible',timeout:20000});
   const c003Text=norm(await aPage.locator('#page-messages').innerText());
-  assert(!c003Text.includes(subjectA),'C002_MESSAGE_LEAKED_INTO_C003_CONTEXT');
+  assert(!c003Text.includes(subjectA),'C002_MESSAGE_LEAKED_INTO_C005_CONTEXT');
   await selectClientContext(aPage,C002);await openMessages(aPage);
   await aPage.getByText(subjectA,{exact:true}).first().waitFor({state:'visible',timeout:20000});
   const c002Text=norm(await aPage.locator('#page-messages').innerText());
-  assert(!c002Text.includes(subjectC003),'C003_MESSAGE_LEAKED_INTO_C002_CONTEXT');
-  proof.contextSwitch={c002Event:rowA.event_id,c003Event:rowC003.event_id,crossContextLeak:false};
+  assert(!c002Text.includes(subjectC005),'C005_MESSAGE_LEAKED_INTO_C002_CONTEXT');
+  proof.contextSwitch={c002Event:rowA.event_id,c003Event:rowC005.event_id,crossContextLeak:false};
 
   const radioState=await adminPage.evaluate(()=>({
     bridge:window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__||null,
