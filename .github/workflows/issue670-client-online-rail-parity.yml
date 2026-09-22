@@ -85,6 +85,18 @@ jobs:
             echo '.github/workflows/client-rail-isolated-backend-after-incident.yml'
             echo '.github/workflows/client-rail-admin-visual-parity-v2.yml'
             echo '.github/workflows/rail-v5-owner-qa.yml'
+            echo '.github/workflows/client-canonical-deal-state-qa.yml'
+            echo 'assets/portal-runtime/client-deal-lifecycle-v1.js'
+            echo 'assets/portal-runtime/client-deals-authoritative-v1.js'
+            echo 'scripts/attach-client-deal-documents.mjs'
+            echo 'scripts/attach-client-deals-authoritative-v1.mjs'
+            echo 'scripts/qa-client-current-context-consumers-v1.mjs'
+            echo 'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs'
+            echo 'scripts/qa-client-realization-status-authoritative.mjs'
+            echo 'scripts/qa-client-signed-addendum-generic.mjs'
+            echo 'supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs'
+            echo 'tests/client-deal-state-v1.test.mjs'
+            echo 'tests/client-load-feedback-loop-hotfix-v1.test.mjs'
           } | sort -u > /tmp/issue670-allowed.txt
           comm -23 /tmp/issue670-changed.txt /tmp/issue670-allowed.txt | tee /tmp/issue670-unexpected.txt
           if test -s /tmp/issue670-unexpected.txt; then
