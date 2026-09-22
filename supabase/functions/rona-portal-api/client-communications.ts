@@ -84,6 +84,49 @@ export async function submitClientMessage(c:Ctx,req:Request){
   }
 }
 
+async function ensureAdminCanonicalStaffResponse(c:Ctx,eventId:string,sourceTaskId:string,response:string){
+  const rows=await sql`
+    select t.id as task_key,t.assigned_functional_role::text as assigned_functional_role,
+           e.client_response_published_at,e.client_response_text
+      from portal_private.portal_reverse_events e
+      join portal_private.staff_tasks t on t.source_reverse_event_key=e.id
+     where e.event_id=${eventId}
+       and e.actor_role='CLIENT'::portal_private.portal_role_enum
+       and e.event_type='CLIENT_MESSAGE_SUBMIT'
+       and e.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+       and t.task_id=${sourceTaskId}
+       and t.qa_only=false
+     limit 1`;
+  if(rows.length!==1)throw new Error("source staff task not found");
+  const task=rows[0],role=String(task.assigned_functional_role||"").trim();
+  if(!role)throw new Error("source staff task role missing");
+  const authorized=await sql`
+    select 1
+      from portal_private.staff_user_roles r
+     where r.user_id=${c.user}::uuid
+       and r.functional_role::text=${role}
+       and r.status='ACTIVE'::portal_private.binding_status_enum
+     limit 1`;
+  if(authorized.length!==1)throw new Error("admin staff role denied");
+  if(task.client_response_published_at)return;
+  const existing=await sql`
+    select 1
+      from portal_private.staff_task_messages m
+     where m.task_key=${task.task_key}::uuid
+       and m.author_user_id=${c.user}::uuid
+       and m.author_functional_role::text=${role}
+       and m.internal_only=true
+       and btrim(m.message_text)=${response}
+     limit 1`;
+  if(existing.length)return;
+  await sql`
+    insert into portal_private.staff_task_messages(
+      task_key,author_user_id,author_functional_role,message_text,internal_only
+    ) values(
+      ${task.task_key}::uuid,${c.user}::uuid,${role}::portal_private.staff_functional_role_enum,${response},true
+    )`;
+}
+
 export async function adminPublishClientResponse(c:Ctx,req:Request,eventId:string){
   let body:any;
   try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
@@ -95,12 +138,13 @@ export async function adminPublishClientResponse(c:Ctx,req:Request,eventId:strin
   const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
   const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
   try{
+    await ensureAdminCanonicalStaffResponse(c,eventId,sourceTaskId,response);
     const rows=await sql`select * from portal_private.server_admin_publish_client_response(${c.user}::uuid,${eventId},${response},${sourceTaskId},${requestId}::uuid,${correlationId}::uuid)`;
     if(rows.length!==1)return[404,{ok:false,code:"CLIENT_MESSAGE_NOT_FOUND",request_id:requestId}] as const;
     return[200,{ok:true,response:rows[0],request_id:requestId}] as const;
   }catch(error){
     const raw=String((error as any)?.message||error||"");
-    const denied=/admin role|required|not client message|not found|staff response missing|already published|rejected/i.test(raw);
+    const denied=/admin role|required|not client message|not found|staff response missing|staff role denied|staff task role missing|already published|rejected/i.test(raw);
     return[denied?403:500,{ok:false,code:denied?"CLIENT_RESPONSE_PUBLISH_DENIED":"CLIENT_RESPONSE_SERVER_ERROR",request_id:requestId}] as const;
   }
 }
