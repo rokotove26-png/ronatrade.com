@@ -145,6 +145,7 @@ function nextStepFor(key,{payment,rail,resource,documentsSigned,closed}){
     return payment.label;
   }
   if(key==='logistics'){
+    if(!rail.available)return'Актуальные ЖД-данные временно недоступны';
     if(rail.started){
       const station=text(rail.latest_position?.station);
       return station?`Отгрузка выполняется · ${station}`:'Отгрузка выполняется';
@@ -179,9 +180,11 @@ export function projectClientCanonicalDealState({context,deal,application,meta,r
     :stage('payment','PENDING',payment.label);
   let logisticsStage=closed
     ?stage('logistics','DONE','Поставка завершена')
-    :rail.started
-      ?stage('logistics','CURRENT',nextStepFor('logistics',{payment,rail,resource,documentsSigned,closed}))
-      :stage('logistics','PENDING','ЖД-данные появятся после начала отгрузки');
+    :!rail.available
+      ?stage('logistics','PENDING','Актуальные ЖД-данные временно недоступны')
+      :rail.started
+        ?stage('logistics','CURRENT',nextStepFor('logistics',{payment,rail,resource,documentsSigned,closed}))
+        :stage('logistics','PENDING','ЖД-данные появятся после начала отгрузки');
   const closeStage=closed
     ?stage('close','DONE','Сделка завершена')
     :stage('close','PENDING','Закрывающие документы ещё не сформированы');
@@ -189,8 +192,8 @@ export function projectClientCanonicalDealState({context,deal,application,meta,r
   if(currentKey==='documents'&&documentsStage.state==='PENDING')documentsStage={...documentsStage,state:'CURRENT'};
   if(currentKey==='resource'&&resourceStage.state==='PENDING')resourceStage={...resourceStage,state:'CURRENT'};
   if(currentKey==='payment'&&paymentStage.state==='PENDING')paymentStage={...paymentStage,state:'CURRENT'};
-  if(currentKey==='logistics'&&!rail.started&&logisticsStage.state==='PENDING'){
-    logisticsStage={...logisticsStage,state:'CURRENT',detail:'Отгрузка ещё не начата'};
+  if(currentKey==='logistics'&&logisticsStage.state==='PENDING'){
+    logisticsStage={...logisticsStage,state:'CURRENT',detail:rail.available?'Отгрузка ещё не начата':'Актуальные ЖД-данные временно недоступны'};
   }
 
   const stages=[contractStage,documentsStage,resourceStage,paymentStage,logisticsStage,closeStage];
