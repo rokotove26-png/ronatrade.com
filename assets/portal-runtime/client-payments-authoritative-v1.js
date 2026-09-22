@@ -1,11 +1,12 @@
 (()=>{'use strict';
-const MARK='20260902-client-payments-authoritative-v2-current-context';
+const MARK='20260922-client-payments-authoritative-v3-event-driven';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
+window.__RONA_CLIENT_PAYMENTS_REFRESH_POLICY__={mode:'EVENT_DRIVEN',polling:false,events:['PAYMENTS_OPEN','CONTEXT_CHANGE','PAGE_SHOW','VISIBLE_WHILE_OPEN']};
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api',REFRESH_MS=30000;
-const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,timer:0,observer:null,scheduled:false,unsubscribe:null};
+const API='/portal/api';
+const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
 const num=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
@@ -51,6 +52,11 @@ function paymentsRoot(){
     if(!best||t.length<norm(best.textContent).length)best=el;
   }
   return best;
+}
+function paymentsOpen(){
+  const root=paymentsRoot();if(!root||!root.isConnected||root.hidden||root.getAttribute('aria-hidden')==='true')return false;
+  const style=getComputedStyle(root);
+  return style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)!==0;
 }
 function contextKey(c){return norm(c?.client_id)+'|'+norm(c?.contract_id)}
 function contextAuthority(){return window.RONA_CLIENT_CONTEXT||null}
@@ -126,7 +132,7 @@ async function load(force=false){
   if(!ctx){clearForContext(null);renderLoadingError('Выберите компанию и договор для отображения платежей.');ready(true);return}
   const key=contextKey(ctx);
   if(state.activeKey&&state.activeKey!==key)clearForContext(ctx);else state.ctx=ctx;
-  if(!force&&state.detail&&Date.now()-state.lastLoad<REFRESH_MS){render(state.detail,ctx);ready(true);return}
+  if(!force&&state.detail){render(state.detail,ctx);ready(true);return}
   state.loading=true;
   try{
     const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
@@ -141,13 +147,18 @@ function start(){
   installStyle();
   const authority=contextAuthority();
   if(!authority){renderLoadingError('Контекст клиента временно недоступен.');ready(false);return}
-  state.unsubscribe=authority.subscribe(ctx=>{const key=ctx?contextKey(ctx):'';const changed=key!==state.activeKey;if(changed)clearForContext(ctx);schedule(true)});
-  schedule(true);
-  state.timer=window.setInterval(()=>load(true),REFRESH_MS);
-  if(!state.observer){state.observer=new MutationObserver(()=>schedule(false));state.observer.observe(document.body,{childList:true,subtree:true,characterData:true})}
-  window.addEventListener('pageshow',()=>load(true),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')load(true)});
-  document.addEventListener('click',e=>{const t=norm(e.target?.textContent);if(t.includes('Платежи'))setTimeout(()=>load(true),120)},true);
+  state.unsubscribe=authority.subscribe(ctx=>{
+    const key=ctx?contextKey(ctx):'',changed=key!==state.activeKey;
+    if(changed)clearForContext(ctx);
+    if(paymentsOpen())schedule(true);
+  });
+  if(paymentsOpen())schedule(true);
+  window.addEventListener('pageshow',()=>{if(paymentsOpen())load(true)},{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&paymentsOpen())load(true)});
+  document.addEventListener('click',e=>{
+    const t=norm(e.target?.textContent);
+    if(t.includes('Платежи'))setTimeout(()=>{if(paymentsOpen())load(true)},120);
+  },true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
