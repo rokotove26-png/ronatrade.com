@@ -5,7 +5,7 @@ window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 window.__RONA_CLIENT_PAYMENTS_REFRESH_POLICY__={mode:'EVENT_DRIVEN',polling:false,events:['PAYMENTS_OPEN','CONTEXT_CHANGE','PAGE_SHOW','VISIBLE_WHILE_OPEN']};
 if(location.pathname!=='/portal/client')return;
 
-const API='/portal/api';
+const ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1='ISSUE432_PAYMENTS_CENTRAL_PROJECTION_V1';
 const state={activeKey:'',detail:null,ctx:null,loading:false,lastLoad:0,scheduled:false,unsubscribe:null};
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const upper=v=>norm(v).toUpperCase();
@@ -38,11 +38,13 @@ function installStyle(){
   `;
   document.head.appendChild(style);
 }
-async function request(path){
-  const r=await fetch(API+path,{credentials:'same-origin',cache:'no-store',headers:{accept:'application/json'}});
-  const b=await r.json().catch(()=>null);
-  if(!r.ok||b?.ok===false)throw new Error(String(b?.code||b?.error?.code||('HTTP_'+r.status)));
-  return b;
+async function freshCurrentProjection(reason){
+  const authority=contextAuthority();
+  if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');
+  authority.invalidateCurrentProjection?.();
+  const projected=await authority.whenCurrentProjection('client-payments-authoritative-v1:'+norm(reason||'event'));
+  if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');
+  return projected;
 }
 function paymentsRoot(){
   for(const selector of ['#page-payments','#paymentsPage','[data-page-panel="payments"]','[data-page-id="payments"]']){const el=document.querySelector(selector);if(el)return el}
@@ -135,7 +137,7 @@ async function load(force=false){
   if(!force&&state.detail){render(state.detail,ctx);ready(true);return}
   state.loading=true;
   try{
-    const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));
+    const detail={data:await freshCurrentProjection(force?'fresh-event':'reuse-event')};
     if(contextKey(contextAuthority()?.getCurrentContext())!==key)return;
     state.activeKey=key;state.detail=detail?.data||{};state.ctx=ctx;state.lastLoad=Date.now();
     window.__RONA_CLIENT_PAYMENTS_STATE__={version:MARK,source:'CURRENT_CONTEXT_FINANCE_PROJECTION',client_id:norm(ctx.client_id),contract_id:norm(ctx.contract_id),deals:Array.isArray(state.detail.deals)?state.detail.deals:[],payments:Array.isArray(state.detail.payments)?state.detail.payments:[],loaded_at:new Date().toISOString()};
