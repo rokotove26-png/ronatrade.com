@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 export const FINAL_PAYMENTS_ROUTE_OWNER = 'admin-payments-v7-native';
-export const FINAL_LIVE_ADMIN_SOURCE_COMMIT = '7bdf2bae0e0bb54a66d5e4df4d01993b70f79159';
+export const FINAL_LIVE_ADMIN_SOURCE_COMMIT = 'b6964fd77c569f8749662eb9956663c24e8a4476';
 export const FINAL_LIVE_OWNER_API = 'functions/portal/owner-api.js';
 
 function currentReleasePortalFiles() {

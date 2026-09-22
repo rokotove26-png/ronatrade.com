@@ -9,7 +9,7 @@ import {
   recoverLiveAdminWorkspace,
 } from '../../scripts/admin-payments-v7-final-live-source.mjs';
 
-const CURRENT_RELEASE_HEAD = '7bdf2bae0e0bb54a66d5e4df4d01993b70f79159';
+const CURRENT_RELEASE_HEAD = 'b6964fd77c569f8749662eb9956663c24e8a4476';
 const show = (path) => execFileSync('git', ['show', `${FINAL_LIVE_ADMIN_SOURCE_COMMIT}:${path}`], {
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
@@ -27,6 +27,8 @@ test('locked release includes the Admin Add Company signed-contract workflow', (
   assert.match(access, /Страна регистрации/);
   assert.match(access, /Прикрепить договор/);
   assert.doesNotMatch(access, /void choosePdf\(row,up\)/);
+  assert.match(access, /реестра ИИ операционного директора/);
+  assert.match(access, /Реестр подтверждён:/);
 });
 
 test('current release UI layers remain byte-identical through Payments V7 recovery', () => {
