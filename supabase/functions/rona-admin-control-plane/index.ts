@@ -161,20 +161,71 @@ async function contractCandidate(contractId) {
 
 async function accessSnapshot() {
   const users = await sql`
+    with pending_delete as (
+      select distinct on (ae.entity_id)
+             ae.entity_id::uuid as user_id,
+             true as deletion_pending
+      from portal_private.audit_events ae
+      where ae.entity_type='PORTAL_USER'
+        and ae.action='PORTAL_USER_DELETE_AUTH_FAILED_BY_ADMIN'
+        and not exists(
+          select 1
+          from portal_private.audit_events ok
+          where ok.entity_type='PORTAL_USER'
+            and ok.entity_id=ae.entity_id
+            and ok.action='PORTAL_USER_DELETED_BY_ADMIN'
+            and ok.event_at>ae.event_at
+        )
+      order by ae.entity_id,ae.event_at desc
+    )
     select u.id,u.login_name,u.display_name,u.status::text,u.last_auth_verified_at,
+           coalesce(pd.deletion_pending,false) deletion_pending,
            coalesce(array_agg(distinct r.role::text) filter(where r.role is not null),'{}') roles
     from portal_private.portal_users u
-    left join portal_private.portal_user_roles r on r.user_id=u.id and r.status='ACTIVE'::portal_private.binding_status_enum and r.revoked_at is null
-    where left(coalesce(u.source_system,''),3)<>'QA_' and left(lower(coalesce(u.login_name,'')),3)<>'qa_' and left(lower(coalesce(u.login_name,'')),4)<>'g81_'
-      and exists(select 1 from portal_private.portal_user_roles xr where xr.user_id=u.id and xr.role in ('CLIENT'::portal_private.portal_role_enum,'AGENT'::portal_private.portal_role_enum) and xr.status='ACTIVE'::portal_private.binding_status_enum and xr.revoked_at is null)
-      and not exists(select 1 from portal_private.portal_user_roles ar where ar.user_id=u.id and ar.role='ADMIN'::portal_private.portal_role_enum and ar.status='ACTIVE'::portal_private.binding_status_enum and ar.revoked_at is null)
-    group by u.id,u.login_name,u.display_name,u.status,u.last_auth_verified_at
-    order by u.login_name nulls last
+    left join pending_delete pd on pd.user_id=u.id
+    left join portal_private.portal_user_roles r
+      on r.user_id=u.id
+     and r.status='ACTIVE'::portal_private.binding_status_enum
+     and r.revoked_at is null
+    where left(coalesce(u.source_system,''),3)<>'QA_'
+      and left(lower(coalesce(u.login_name,'')),3)<>'qa_'
+      and left(lower(coalesce(u.login_name,'')),4)<>'g81_'
+      and (
+        coalesce(pd.deletion_pending,false)
+        or exists(
+          select 1
+          from portal_private.portal_user_roles xr
+          where xr.user_id=u.id
+            and xr.role in ('CLIENT'::portal_private.portal_role_enum,'AGENT'::portal_private.portal_role_enum)
+            and xr.status='ACTIVE'::portal_private.binding_status_enum
+            and xr.revoked_at is null
+        )
+      )
+      and not exists(
+        select 1
+        from portal_private.portal_user_roles ar
+        where ar.user_id=u.id
+          and ar.role='ADMIN'::portal_private.portal_role_enum
+          and ar.status='ACTIVE'::portal_private.binding_status_enum
+          and ar.revoked_at is null
+      )
+    group by u.id,u.login_name,u.display_name,u.status,u.last_auth_verified_at,pd.deletion_pending
+    order by coalesce(pd.deletion_pending,false) desc,u.login_name nulls last
   `;
   const byUser = new Map();
   for (const u of users) {
     const roles = (u.roles || []).map(String);
-    byUser.set(String(u.id), { id: String(u.id), name: String(u.display_name || ""), login: String(u.login_name || ""), role: roles.includes("AGENT") ? "Агент" : "Клиент", status: String(u.status), online: false, last: u.last_auth_verified_at || null, bindings: [] });
+    byUser.set(String(u.id), {
+      id: String(u.id),
+      name: String(u.display_name || ""),
+      login: String(u.login_name || ""),
+      role: roles.includes("AGENT") ? "Агент" : "Клиент",
+      status: String(u.status),
+      deletionPending: u.deletion_pending === true,
+      online: false,
+      last: u.last_auth_verified_at || null,
+      bindings: []
+    });
   }
   const cb = await sql`
     select b.id,b.user_id,cl.client_id,cl.legal_name,ct.contract_id,b.status::text,b.deal_scope_mode
