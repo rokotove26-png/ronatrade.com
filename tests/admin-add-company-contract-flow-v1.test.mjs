@@ -5,6 +5,8 @@ import fs from 'node:fs';
 const ui=fs.readFileSync('functions/portal/clients-agents-current-ui.js','utf8');
 const proxy=fs.readFileSync('functions/portal/admin-authority/[[path]].js','utf8');
 const authority=fs.readFileSync('supabase/functions/rona-admin-client-authority/index.ts','utf8');
+const control=fs.readFileSync('supabase/functions/rona-admin-control-plane/index.ts','utf8');
+const legacyAuthority=fs.readFileSync('supabase/functions/rona-admin-authority/index.ts','utf8');
 const clientDirectory=fs.readFileSync('assets/portal-runtime/portal-client-company-directory-authority-v1.js','utf8');
 
 test('Admin Clients/Agents exposes Add Company with CIS fields and signed PDF',()=>{
@@ -54,4 +56,33 @@ test('existing verified signed-document chain remains the client download author
   assert.match(clientDirectory,/current_signed_contract/);
   assert.match(clientDirectory,/\/v1\/client\/storage\//);
   assert.match(clientDirectory,/signed-url/);
+});
+
+
+test('Create User has no pre-PDF toggle and account creation no longer depends on that flag',()=>{
+  assert.doesNotMatch(ui,/Открыть учётную запись до подтверждения PDF/);
+  assert.doesNotMatch(ui,/openWithout/);
+  assert.doesNotMatch(ui,/openWithoutContract/);
+  assert.match(ui,/Учётная запись создаётся независимо от статуса PDF/);
+  assert.match(control,/accountCreationIndependentFromSignedPdfGate: true/);
+  assert.match(control,/pendingContractAccessFailClosed: true/);
+  assert.doesNotMatch(control,/openWithoutContract/);
+  assert.doesNotMatch(control,/pending\.length && !openWithout/);
+  assert.match(control,/account_creation_independent_from_signed_pdf: true/);
+  assert.doesNotMatch(authority,/openWithoutContract/);
+  assert.match(authority,/account_creation_independent_from_signed_pdf: true/);
+});
+
+test('Create User lists only current companies and pending access remains fail-closed until PDF confirmation',()=>{
+  assert.match(ui,/for\(const c of activeContracts\(\)\)/);
+  assert.doesNotMatch(ui,/for\(const cl of clients\(\)\)/);
+  assert.match(legacyAuthority,/cl\.lifecycle_state='ACTIVE'/);
+  assert.match(legacyAuthority,/cl\.authority_state not in \('REJECTED'/);
+  assert.match(legacyAuthority,/ct\.authority_state not in \('REJECTED'/);
+  assert.match(control,/String\(r\.client_lifecycle\) !== "ACTIVE"/);
+  assert.match(control,/status='PENDING'::portal_private\.binding_status_enum/);
+  assert.match(control,/company data access remains fail-closed/);
+  assert.match(authority,/direct_pending_bindings_supported: true/);
+  assert.match(authority,/status='PENDING'::portal_private\.binding_status_enum/);
+  assert.match(authority,/Activated after Administrator confirmed signed contract/);
 });
