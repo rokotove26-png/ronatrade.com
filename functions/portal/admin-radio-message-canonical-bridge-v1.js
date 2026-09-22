@@ -60,10 +60,11 @@ function renderRadio(){
   const syncTargets=()=>{
     target.replaceChildren(e('option',{value:'',text:'Получатель'}));
     if(kind.value==='MESSAGE'){
-      scope.value='CLIENT';
-      const rows=ronaRadioCanonicalMessages().filter(x=>!x?.client_response_published_at&&String(x?.acknowledgement_state||'')!=='REJECTED'&&x?.task_id);
-      rows.forEach(x=>target.append(e('option',{value:String(x.event_id),text:ronaRadioMessageOptionText(x)})));
-      target.classList.toggle('rona-owner-hide',false);
+      if(scope.value==='CLIENT'){
+        const rows=ronaRadioCanonicalMessages().filter(x=>!x?.client_response_published_at&&String(x?.acknowledgement_state||'')!=='REJECTED'&&x?.task_id);
+        rows.forEach(x=>target.append(e('option',{value:String(x.event_id),text:ronaRadioMessageOptionText(x)})));
+      }
+      target.classList.toggle('rona-owner-hide',scope.value!=='CLIENT');
       return;
     }
     if(scope.value==='CLIENT')(adminData?.clients||[]).forEach(x=>target.append(e('option',{value:x.client_id,text:x.legal_name})));
@@ -75,6 +76,7 @@ function renderRadio(){
   const send=e('button',{text:'Отправить',onclick:async()=>{
     try{
       if(kind.value==='MESSAGE'){
+        if(scope.value!=='CLIENT')return notify('Для ответа выберите адресный scope «Клиент».');
         const eventId=String(target.value||'');
         const item=ronaRadioCanonicalMessages().find(x=>String(x?.event_id||'')===eventId);
         if(!item)return notify('Выберите входящее сообщение клиента.');
