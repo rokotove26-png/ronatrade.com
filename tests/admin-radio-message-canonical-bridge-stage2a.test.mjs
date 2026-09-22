@@ -40,15 +40,19 @@ test('Admin runtime activates the MESSAGE bridge without changing Radio visual a
 
 test('Backend preserves existing publish function and enforces source event/task + staff role authority',()=>{
   const source=read('supabase/functions/rona-portal-api/client-communications.ts');
-  assert.match(source,/ensureAdminCanonicalStaffResponse/);
-  assert.match(source,/e\.event_type='CLIENT_MESSAGE_SUBMIT'/);
-  assert.match(source,/t\.task_id=\$\{sourceTaskId\}/);
-  assert.match(source,/r\.user_id=\$\{c\.user\}::uuid/);
-  assert.match(source,/r\.functional_role::text=\$\{role\}/);
-  assert.match(source,/r\.status='ACTIVE'/);
-  assert.match(source,/insert into portal_private\.staff_task_messages/);
+  const migration=read('supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql');
+  assert.match(source,/server_admin_radio_prepare_client_response_v1/);
   assert.match(source,/server_admin_publish_client_response/);
-  assert.match(source,/client response already published|already published/);
+  assert.doesNotMatch(source,/staff_task_messages/);
+  assert.match(migration,/e\.event_type<>'CLIENT_MESSAGE_SUBMIT'/);
+  assert.match(migration,/t\.task_id=p_source_task_id/);
+  assert.match(migration,/r\.user_id=p_actor/);
+  assert.match(migration,/r\.functional_role=v_role/);
+  assert.match(migration,/r\.status='ACTIVE'/);
+  assert.match(migration,/task\.assigned_user_id is not null and task\.assigned_user_id<>p_actor/);
+  assert.match(migration,/insert into portal_private\.staff_task_messages/);
+  assert.match(migration,/revoke all on function portal_private\.server_admin_radio_prepare_client_response_v1/);
+  assert.match(migration,/to service_role/);
 });
 
 test('Client canonical message runtime stays byte-for-byte frozen',()=>{
