@@ -1,0 +1,45 @@
+name: Client canonical deal state QA
+
+on:
+  pull_request:
+    paths:
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'assets/portal-runtime/client-deal-lifecycle-v1.js'
+      - 'scripts/attach-client-deals-authoritative-v1.mjs'
+      - 'scripts/attach-client-deal-documents.mjs'
+      - 'scripts/qa-client-realization-status-authoritative.mjs'
+      - 'scripts/qa-client-deal-passport-authoritative-economics-v1.mjs'
+      - 'functions/portal/api/[[path]].js'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs'
+      - 'supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts'
+      - 'tests/client-deal-state-v1.test.mjs'
+      - '.github/workflows/client-canonical-deal-state-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-deal-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Parse Client runtimes
+        run: |
+          node --check assets/portal-runtime/client-deals-authoritative-v1.js
+          node --check assets/portal-runtime/client-deal-lifecycle-v1.js
+          node --check scripts/attach-client-deals-authoritative-v1.mjs
+          node --check scripts/attach-client-deal-documents.mjs
+          node --check supabase/functions/rona-portal-api-candidate-20260817/client-deal-state-v1.mjs
+          deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts
+      - name: Test canonical deal state projector
+        run: node --test tests/client-deal-state-v1.test.mjs
+      - name: Verify canonical realization ownership
+        run: node scripts/qa-client-realization-status-authoritative.mjs

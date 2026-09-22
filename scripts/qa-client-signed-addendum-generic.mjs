@@ -25,7 +25,7 @@ must(count(html,/client-deal-lifecycle-v1\.js/giu)===1,'DEAL_LIFECYCLE_NOT_SINGL
 must(html.includes('rona-client-deal-documents-legacy-preempt'),'SIGNED_ADDENDUM_LEGACY_PREEMPT_MISSING');
 must(html.includes('20260902-current-context-v9'),'SIGNED_ADDENDUM_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
 must(html.includes('20260831-status-center-v2'),'DEAL_PASSPORT_CACHE_BUSTER_MISSING');
-must(html.includes('20260905-strict-context-v6'),'DEAL_LIFECYCLE_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
+must(html.includes('20260922-canonical-deal-state-v7'),'DEAL_LIFECYCLE_CURRENT_CONTEXT_CACHE_BUSTER_MISSING');
 for(const marker of ['__RONA_CLIENT_DEAL_DOCUMENTS_V1__','__RONA_CLIENT_DEAL_DOCUMENTS_V2__','__RONA_CLIENT_DEAL_DOCUMENTS_V3__','__RONA_CLIENT_DEAL_DOCUMENTS_V4__'])
   must(html.includes(marker),`SIGNED_ADDENDUM_PREPAINT_GUARD_MISSING:${marker}`);
 
@@ -49,9 +49,9 @@ for(const forbidden of ['Схема реализации сделки','Конт
 for(const forbidden of ['position:fixed!important','transform:translate(-50%,-50%)','width:min(1180px','height:min(800px'])
   must(!passport.includes(forbidden),`DEAL_PASSPORT_NATIVE_RIGHT_DRAWER_GEOMETRY_OVERRIDDEN:${forbidden}`);
 
-for(const marker of ['20260905-client-deal-realization-status-v6-strict-authoritative-context','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','SERVER_AUTHORITATIVE_REALIZATION_V1',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='server-authoritative-v6-strict-context'",'data-rona-authoritative-deal-id','data-rona-authoritative-context','Статус реализации'])
+for(const marker of ['20260922-client-deal-realization-status-v7-canonical-deal-state','RONA_CLIENT_CONTEXT','function currentContext()','authority.subscribe','CLIENT_DEAL_STATE_V1','RONA_CLIENT_DEAL_STATE_V1','function acceptCanonicalDetail(detail)',"const STAGE_ORDER=['contract','documents','resource','payment','logistics','close']",'function ensureFlow(root)',"ronaRealizationOwner='client-deal-state-v1'",'data-rona-authoritative-deal-id','data-rona-authoritative-context','Статус реализации'])
   must(lifecycle.includes(marker),`DEAL_LIFECYCLE_MARKER_MISSING:${marker}`);
-must(!lifecycle.includes('/v1/client/bootstrap'),'DEAL_LIFECYCLE_PARALLEL_BOOTSTRAP_FORBIDDEN');
+for(const forbidden of ['/v1/client/bootstrap','/v1/client/deal-documents/state','async function getJson','fetch('])must(!lifecycle.includes(forbidden),`DEAL_LIFECYCLE_PARALLEL_SOURCE_FORBIDDEN:${forbidden}`);
 for(const forbidden of ['Статусы формируются из текущей карточки сделки','function stageData(','function renderFlow(','REFRESH_MS=7000','setInterval(()=>refresh','[data-rona-command-heading]'])
   must(!lifecycle.includes(forbidden),`DEAL_LIFECYCLE_LOCAL_INFERENCE_FORBIDDEN:${forbidden}`);
 
@@ -77,14 +77,14 @@ must(bridge?.client_specific_hardcoding===false,'SIGNED_ADDENDUM_HARDCODING_GUAR
 must(bridge?.prepaint_single_owner===true,'SIGNED_ADDENDUM_PREPAINT_SINGLE_OWNER_MISSING');
 must(bridge?.replacement_semantics==='SIGNED_ADDENDUM_SUPERSEDES_CURRENT_UNSIGNED_ADDENDUM','SIGNED_ADDENDUM_REPLACEMENT_SEMANTICS_MISSING');
 must(bridge?.passport_scope==='ALL_AUTHORIZED_CLIENT_DEAL_DRAWERS','DEAL_PASSPORT_SCOPE_NOT_GENERIC');
-must(bridge?.passport_data_policy==='PRESENTATION_ONLY_FROM_CURRENT_RENDERED_SERVER_PROJECTION','DEAL_PASSPORT_DATA_POLICY_INVALID');
+must(bridge?.passport_data_policy==='PRESENTATION_ONLY_FROM_RONA_CLIENT_DEAL_STATE_V1','DEAL_PASSPORT_DATA_POLICY_INVALID');
 must(bridge?.passport_marker==='20260831-client-deal-passport-v2-centered-status','DEAL_PASSPORT_INTEGRITY_MARKER_MISSING');
 must(bridge?.passport_layout==='NATIVE_RIGHT_DRAWER_PRESERVED','DEAL_PASSPORT_RIGHT_LAYOUT_POLICY_MISSING');
 must(bridge?.passport_close_behavior==='NATIVE_DRAWER_CONTROL_UNTOUCHED','DEAL_PASSPORT_NATIVE_CLOSE_POLICY_MISSING');
 must(bridge?.lifecycle_single_owner===true,'DEAL_LIFECYCLE_SINGLE_OWNER_MISSING');
-must(bridge?.lifecycle_host_owner==='SERVER_AUTHORITATIVE_V6_STRICT_CONTEXT','DEAL_LIFECYCLE_HOST_OWNER_INVALID');
+must(bridge?.lifecycle_host_owner==='CLIENT_DEAL_STATE_V1','DEAL_LIFECYCLE_HOST_OWNER_INVALID');
 must(bridge?.lifecycle_scope==='CURRENT_AUTHORIZED_CLIENT_CONTEXT','DEAL_LIFECYCLE_SCOPE_NOT_CURRENT_CONTEXT');
-must(bridge?.lifecycle_refresh==='AUTHORITATIVE_DETAIL_CONTEXT_FOCUS_VISIBILITY','DEAL_LIFECYCLE_REFRESH_POLICY_INVALID');
+must(bridge?.lifecycle_refresh==='PASSPORT_OPEN_EVENT_ONLY','DEAL_LIFECYCLE_REFRESH_POLICY_INVALID');
 must(bridge?.retired_local_realization_renderer==='PHYSICALLY_REMOVED','RETIRED_LOCAL_REALIZATION_RENDERER_NOT_REMOVED');
 
-console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=CURRENT_AUTHORIZED_CLIENT_CONTEXT; context authority=RONA_CLIENT_CONTEXT; retired deal realization renderer physically absent; passport presentation-only; authoritative lifecycle strict-context single owner; native close untouched; no client/deal hardcoding; no-store cache policy');
+console.log('CLIENT_SIGNED_ADDENDUM_GENERIC_QA=PASS scope=CURRENT_AUTHORIZED_CLIENT_CONTEXT; context authority=RONA_CLIENT_CONTEXT; passport=RONA_CLIENT_DEAL_STATE_V1; lifecycle=CANONICAL_EVENT_ONLY; native close untouched; no client/deal hardcoding; no-store cache policy');

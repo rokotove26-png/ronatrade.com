@@ -28,6 +28,7 @@ function isCandidateOverlayRead(path,method){return method==='GET'&&(path==='/v1
 function backendSelection(_context,url,path,method){
   const overlayRead=isCandidateOverlayRead(path,method),host=url?.hostname||'';
   if(method==='GET'&&path==='/v1/client/rail-canonical')return{slot:'candidate',fn:'rona-portal-api-candidate-20260817',base:CANDIDATE_API,selector:'CLIENT_RAIL_ISOLATED_BACKEND_V1'};
+  if(method==='GET'&&path==='/v1/client/deal-state')return{slot:'candidate',fn:'rona-portal-api-candidate-20260817',base:CANDIDATE_API,selector:'CLIENT_DEAL_STATE_CANONICAL_V1'};
   if(overlayRead&&isPreviewHost(host))return{slot:'candidate',fn:'rona-portal-api-candidate-20260817',base:CANDIDATE_API,selector:PREVIEW_SELECTOR};
   return{slot:'production',fn:'rona-portal-api',base:PORTAL_API,selector:isProductionHost(host)?'PRODUCTION_HOST_PIN':'PRODUCTION_DEFAULT'};
 }
