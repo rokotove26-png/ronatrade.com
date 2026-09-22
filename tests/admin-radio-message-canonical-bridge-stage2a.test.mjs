@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
-const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\\0`)).update(bytes).digest('hex')};
+const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex')};
 
 test('Stage 2A bridges only MESSAGE to canonical Client intake and response routes',()=>{
   const bridge=read('functions/portal/admin-radio-message-canonical-bridge-v1.js');
