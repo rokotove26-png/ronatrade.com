@@ -64,7 +64,8 @@ test('early deal remains valid when Finance and Rail facts do not exist yet',()=
   const railModel={modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',generatedAt:'2099-01-02T00:00:00Z',sourcePolicy:'QA_RAIL',deals:[{dealId:'DEAL-2099-103',railDocuments:[],wagonPositions:[],actualRoute:{points:[]},remainingRoute:{points:[]},routeAssignment:{resolutionState:'UNRESOLVED'}}]};
   const state=projectClientCanonicalDealState({context,deal,application:app,meta,railModel});
   assert.equal(state.facts.payment.status,'TO_VERIFY');
-  assert.equal(state.facts.rail.available,false);
+  assert.equal(state.facts.rail.available,true);
+  assert.equal(state.facts.rail.operational_data_present,false);
   assert.equal(state.realization_status.current_stage_key,'documents');
   assert.equal(state.realization_status.stages.find(x=>x.key==='documents').state,'CURRENT');
   assert.equal(state.realization_status.stages.find(x=>x.key==='logistics').detail,'ЖД-данные появятся после начала отгрузки');
@@ -85,4 +86,20 @@ test('Rail source outage is not misreported as no shipment',()=>{
   assert.equal(state.realization_status.current_stage_key,'logistics');
   assert.equal(state.realization_status.stages.find(x=>x.key==='logistics').state,'CURRENT');
   assert.equal(state.next_step,'Актуальные ЖД-данные временно недоступны');
+});
+
+
+test('missing canonical deal price does not fall back to application proposal',()=>{
+  const deal={
+    deal_id:'DEAL-2099-105',business_status:'REGISTERED',confirmed_quantity_tonnes:25,
+    passport_unit_price:null,passport_amount:null,passport_currency:null,
+    passport_amount_source:'FINALIZED_COUNTEROFFER_NOT_ACCEPTED',
+    payment_status:'TO_VERIFY',payment_authority_state:'TO_VERIFY'
+  };
+  const app={...application,application_id:'QA-APP-5',deal_id:'DEAL-2099-105',proposed_price:999,proposed_currency:'EUR'};
+  const state=projectClientCanonicalDealState({context,deal,application:app,meta:resource,railModel:null});
+  assert.equal(state.deal.unit_price,null);
+  assert.equal(state.deal.amount,null);
+  assert.equal(state.deal.currency,null);
+  assert.equal(state.deal.economics_source,'FINALIZED_COUNTEROFFER_NOT_ACCEPTED');
 });
