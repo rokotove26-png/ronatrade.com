@@ -101,7 +101,7 @@ export async function adminPublishClientResponse(c:Ctx,req:Request,eventId:strin
     return[200,{ok:true,response:rows[0],request_id:requestId}] as const;
   }catch(error){
     const raw=String((error as any)?.message||error||"");
-    const denied=/admin role|required|not client message|not found|staff response missing|staff role denied|staff task role missing|already published|rejected/i.test(raw);
+    const denied=/admin role|required|not client message|not found|staff response missing|staff role denied|staff user scope denied|staff task role missing|already published|rejected/i.test(raw);
     return[denied?403:500,{ok:false,code:denied?"CLIENT_RESPONSE_PUBLISH_DENIED":"CLIENT_RESPONSE_SERVER_ERROR",request_id:requestId}] as const;
   }
 }
