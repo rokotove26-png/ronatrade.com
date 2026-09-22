@@ -153,7 +153,11 @@ jobs:
                 visibility:getComputedStyle(p).visibility
               }));
               const md=window.__RONA_RAIL_MAP_DATA__||{};
-              const css=e=>e?{zIndex:getComputedStyle(e).zIndex,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,opacity:getComputedStyle(e).opacity,position:getComputedStyle(e).position}:null;
+              const rect=e=>{if(!e)return null;const r=e.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height,top:r.top,left:r.left,right:r.right,bottom:r.bottom}};
+              const css=e=>e?{zIndex:getComputedStyle(e).zIndex,display:getComputedStyle(e).display,visibility:getComputedStyle(e).visibility,opacity:getComputedStyle(e).opacity,position:getComputedStyle(e).position,width:getComputedStyle(e).width,height:getComputedStyle(e).height,overflow:getComputedStyle(e).overflow}:null;
+              const matched=[];
+              const visit=rules=>{for(const rule of rules||[]){try{if(rule.cssRules)visit(rule.cssRules);else{const txt=String(rule.cssText||'');if(txt.includes('.rona-rail-v7-route-layer')||txt.includes('.rona-rail-v7-route-svg')||txt.includes('.rona-rail-v7-tiles'))matched.push(txt)}}catch{}}};
+              for(const sheet of [...document.styleSheets]){try{visit(sheet.cssRules)}catch{}}
               return {
                 target:t,
                 currentContext:window.RONA_CLIENT_CONTEXT?.getCurrentContext?.()||null,
@@ -175,9 +179,11 @@ jobs:
                   stateActualPoints:Array.isArray(state?.context?.mapData?.actualRoute?.points)?state.context.mapData.actualRoute.points.length:null,
                   wagons:Array.isArray(state?.wagons)?state.wagons.length:null
                 },
-                routePane:{children:routePane?.children.length||0,style:css(routePane)},
-                tilePane:{children:tilePane?.children.length||0,style:css(tilePane)},
-                svg:{exists:!!svg,style:css(svg),polylineCount:polylines.length},
+                viewport:{rect:rect(canvas?.querySelector('.rona-rail-v7-map-viewport')),style:css(canvas?.querySelector('.rona-rail-v7-map-viewport'))},
+                routePane:{children:routePane?.children.length||0,style:css(routePane),rect:rect(routePane),inlineStyle:routePane?.getAttribute('style')||null},
+                tilePane:{children:tilePane?.children.length||0,style:css(tilePane),rect:rect(tilePane),inlineStyle:tilePane?.getAttribute('style')||null},
+                svg:{exists:!!svg,style:css(svg),rect:rect(svg),polylineCount:polylines.length,viewBox:svg?.getAttribute('viewBox')||null},
+                matchedRules:matched,
                 polylines,
                 markerCount:canvas?.querySelectorAll('.rona-rail-v7-marker').length||0,
                 routeRender:window.__RONA_RAIL_ROUTE_COHORT_RENDER__||null,
