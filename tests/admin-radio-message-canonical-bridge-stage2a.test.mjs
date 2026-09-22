@@ -46,7 +46,7 @@ test('Backend preserves existing publish function and enforces source event/task
   assert.match(source,/server_admin_radio_prepare_client_response_v1/);
   assert.match(source,/server_admin_publish_client_response/);
   assert.doesNotMatch(source,/staff_task_messages/);
-  assert.match(migration,/e\.event_type<>'CLIENT_MESSAGE_SUBMIT'/);
+  assert.match(migration,/e\.event_type\s*<>\s*'CLIENT_MESSAGE_SUBMIT'/);
   assert.match(migration,/t\.task_id=p_source_task_id/);
   assert.match(migration,/r\.user_id=p_actor/);
   assert.match(migration,/r\.functional_role=v_role/);
