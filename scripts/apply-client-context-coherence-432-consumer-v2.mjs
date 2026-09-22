@@ -49,11 +49,16 @@ if(!contract.includes(CONTRACT_MARK)){
 await validateAndWrite(contract,contractPath,'ISSUE432_CONTRACT',[CONTRACT_MARK,"authority.whenCurrentProjection('client-contract-download-v3')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
 
 let payments=await readFile(paymentsPath,'utf8');
-if(!payments.includes(PAYMENTS_MARK)){
-  payments=replaceOnce(payments,"const API='/portal/api',REFRESH_MS=30000;",`const API='/portal/api',REFRESH_MS=30000,${PAYMENTS_MARK}='${PAYMENTS_MARK}';`,'ISSUE432_PAYMENTS_MARK');
-  payments=replaceOnce(payments,"const detail=await request('/v1/client/context?clientId='+encodeURIComponent(norm(ctx.client_id))+'&contractId='+encodeURIComponent(norm(ctx.contract_id)));","const authority=contextAuthority();if(!authority?.whenCurrentProjection)throw new Error('CLIENT_CONTEXT_AUTHORITY_UNAVAILABLE');const projected=await authority.whenCurrentProjection('client-payments-authoritative-v1');if(!projected)throw new Error('CLIENT_CONTEXT_PROJECTION_UNAVAILABLE');const detail={data:projected};",'ISSUE432_PAYMENTS_CONTEXT_READ');
+await validateAndWrite(
+  payments,
+  paymentsPath,
+  'ISSUE432_PAYMENTS',
+  [PAYMENTS_MARK,'20260922-client-payments-authoritative-v3-event-driven',"mode:'EVENT_DRIVEN'",'polling:false','invalidateCurrentProjection',"whenCurrentProjection('client-payments-authoritative-v1:"],
+  "/v1/client/context?clientId="
+);
+for(const retired of ['REFRESH_MS=30000','setInterval(()=>load(true)','new MutationObserver(()=>schedule(false)']){
+  if(payments.includes(retired))throw new Error(`ISSUE432_PAYMENTS_PERIODIC_REFRESH_FORBIDDEN:${retired}`);
 }
-await validateAndWrite(payments,paymentsPath,'ISSUE432_PAYMENTS',[PAYMENTS_MARK,"authority.whenCurrentProjection('client-payments-authoritative-v1')",'REFRESH_MS=30000'],"request('/v1/client/context?clientId='");
 
 let dealDocuments=await readFile(dealDocumentsPath,'utf8');
 if(!dealDocuments.includes(DEAL_DOCUMENTS_MARK)){
@@ -64,4 +69,4 @@ if(!dealDocuments.includes(DEAL_DOCUMENTS_MARK)){
 }
 await validateAndWrite(dealDocuments,dealDocumentsPath,'ISSUE432_DEAL_DOCUMENTS',[DEAL_DOCUMENTS_MARK,"authority.whenCurrentProjection('client-deal-documents-v5')"],'/v1/client/context?clientId=');
 
-console.log(`CLIENT_CONTEXT_COHERENCE_432_CONSUMER=PASS marker=${MARK} lifecycle=CENTRAL applications=${APPLICATIONS_MARK} contract=${CONTRACT_MARK} payments=${PAYMENTS_MARK} deal_documents=${DEAL_DOCUMENTS_MARK} direct_current_context_fetches=absent poll_ms=30000 visual_delta=none`);
+console.log(`CLIENT_CONTEXT_COHERENCE_432_CONSUMER=PASS marker=${MARK} lifecycle=CENTRAL applications=${APPLICATIONS_MARK} contract=${CONTRACT_MARK} payments=${PAYMENTS_MARK} deal_documents=${DEAL_DOCUMENTS_MARK} direct_current_context_fetches=absent payments_refresh=EVENT_DRIVEN_NO_POLLING visual_delta=none`);
