@@ -9,7 +9,7 @@ import {
   recoverLiveAdminWorkspace,
 } from '../../scripts/admin-payments-v7-final-live-source.mjs';
 
-const CURRENT_RELEASE_HEAD = 'b6964fd77c569f8749662eb9956663c24e8a4476';
+const CURRENT_RELEASE_HEAD = 'a45be4eb65d07794c3d7d848c8a222631d99c7ad';
 const show = (path) => execFileSync('git', ['show', `${FINAL_LIVE_ADMIN_SOURCE_COMMIT}:${path}`], {
   encoding: 'utf8',
   maxBuffer: 64 * 1024 * 1024,
@@ -29,6 +29,20 @@ test('locked release includes the Admin Add Company signed-contract workflow', (
   assert.doesNotMatch(access, /void choosePdf\(row,up\)/);
   assert.match(access, /реестра ИИ операционного директора/);
   assert.match(access, /Реестр подтверждён:/);
+});
+
+test('locked release Create User has no pre-PDF toggle and lists only current companies', () => {
+  const access = show('functions/portal/clients-agents-current-ui.js');
+  const control = show('supabase/functions/rona-admin-control-plane/index.ts');
+  const authority = show('supabase/functions/rona-admin-authority/index.ts');
+  assert.doesNotMatch(access, /Открыть учётную запись до подтверждения PDF/);
+  assert.doesNotMatch(access, /openWithoutContract/);
+  assert.match(access, /Учётная запись создаётся независимо от статуса PDF/);
+  assert.match(access, /for\(const c of activeContracts\(\)\)/);
+  assert.doesNotMatch(access, /for\(const cl of clients\(\)\)/);
+  assert.match(control, /accountCreationIndependentFromSignedPdfGate: true/);
+  assert.match(control, /pendingContractAccessFailClosed: true/);
+  assert.match(authority, /cl\.lifecycle_state='ACTIVE'/);
 });
 
 test('current release UI layers remain byte-identical through Payments V7 recovery', () => {
