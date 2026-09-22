@@ -6,8 +6,6 @@ import {
   FINAL_LIVE_ADMIN_SOURCE_COMMIT,
   recoverLiveAdminWorkspace,
 } from './admin-payments-v7-final-live-source.mjs';
-import { patchAdminPaymentsRuntimeCurrentSource } from './admin-payments-v7-live-runtime-current.mjs';
-import { patchAdminPaymentsReconciliationDifferenceSource } from './admin-payments-reconciliation-difference-ui.mjs';
 import { stripOwnerBuildIndicator } from './admin-owner-production-diagnostics-policy.mjs';
 
 const ROOT = process.cwd();
@@ -19,6 +17,11 @@ const OPERATIONS_CENTER_OVERRIDES = [
   'functions/portal/admin-approved-shell-v455-ui.js',
   'functions/portal/deals-current-state-ui.js',
   'portal-src/current/admin.html',
+];
+
+const CURRENT_PAYMENTS_RUNTIME_OVERRIDES = [
+  'scripts/admin-payments-v7-live-runtime-current.mjs',
+  'scripts/admin-payments-reconciliation-difference-ui.mjs',
 ];
 
 function run(command, args, options = {}) {
@@ -71,6 +74,15 @@ try {
   }
   console.log('OPERATIONS_CENTER_V5_OVERRIDES=READY');
 
+  for (const path of CURRENT_PAYMENTS_RUNTIME_OVERRIDES) {
+    const source = join(ROOT, path);
+    const destination = join(worktree, path);
+    if (!existsSync(source)) throw new Error(`CURRENT_PAYMENTS_RUNTIME_OVERRIDE_MISSING:${path}`);
+    mkdirSync(dirname(destination), { recursive: true });
+    cpSync(source, destination, { force: true });
+  }
+  console.log('CURRENT_PAYMENTS_RUNTIME_OVERRIDES=READY');
+
   // Production owner portals must never expose the internal build/data badge.
   // Enforce this against the pinned prepaint runtime before bundling. If the
   // upstream runtime changes shape, fail the build instead of shipping a new
@@ -84,16 +96,11 @@ try {
   console.log('OWNER_PRODUCTION_BUILD_INDICATOR=DISABLED');
 
   // The release worktree is intentionally pinned, but Payments must not be.
-  // Always derive the browser renderer from the current canonical runtime so
-  // new Finance/read-model semantics are reflected without per-deal UI fixes.
-  const adminMainPath = join(worktree, 'functions/portal/admin-main-ui-current.js');
-  const adminMainSource = readFileSync(adminMainPath, 'utf8');
-  const patchedAdminMainSource = patchAdminPaymentsReconciliationDifferenceSource(
-    patchAdminPaymentsRuntimeCurrentSource(adminMainSource),
-  );
-  writeFileSync(adminMainPath, patchedAdminMainSource);
-  console.log('PAYMENTS_V7_CURRENT_RUNTIME_PATCH=READY');
-  console.log('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_UI=READY');
+  // The current release already applies Payments V8 during its own build.
+  // Feed that build the current canonical runtime sources instead of
+  // pre-patching admin-main-ui-current.js and causing a second declaration.
+  console.log('PAYMENTS_V7_CURRENT_RUNTIME_SOURCE_OVERRIDE=READY');
+  console.log('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_SOURCE_OVERRIDE=READY');
 
   run(npmBin, ['run', 'build'], { cwd: worktree });
 
