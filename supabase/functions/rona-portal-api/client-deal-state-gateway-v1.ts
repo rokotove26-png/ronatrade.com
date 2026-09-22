@@ -4,7 +4,6 @@
 
 import {
   sql,
-  authenticate,
   apiRoute,
   send,
   origins,
@@ -112,10 +111,8 @@ async function dealState(req:Request,info:any){
   if(origin&&!origins.has(origin))return send(null,403,{ok:false,code:'ORIGIN_DENIED'});
   if(req.method!=='GET')return send(origin,405,{ok:false,code:'METHOD_NOT_ALLOWED'});
 
-  const auth=await authenticate(req);
-  if(!auth)return send(origin,401,{ok:false,code:'PORTAL_ACCESS_DENIED'});
-  // Effective Client authorization (including Admin Client impersonation) is enforced by the
-  // delegated production /v1/client/context handler below. Do not duplicate that role model here.
+  // Authentication, effective Client role and Admin Client impersonation are enforced once by
+  // the delegated production /v1/client/context handler below. Avoid a second auth round-trip here.
 
   const url=new URL(req.url);
   const clientId=clean(url.searchParams.get('clientId'),160);
