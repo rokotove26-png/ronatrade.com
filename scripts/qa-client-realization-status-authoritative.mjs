@@ -38,7 +38,7 @@ for(const required of [
 for(const required of [
   "CLIENT_DEAL_STATE_CONTRACT='RONA_CLIENT_DEAL_STATE_V1'","CLIENT_DEAL_LIFECYCLE_SOURCE='CLIENT_DEAL_STATE_V1'",
   "status='NOT_DUE';label='Срок оплаты ещё не наступил'","railDocuments.length>0||wagonPositions.length>0||actualPoints.length>0",
-  "return'Отгрузка ещё не начата'","return'ЖД-данные появятся после начала отгрузки'","if(!rail.available)return'Актуальные ЖД-данные временно недоступны'",
+  "return'Отгрузка ещё не начата'","'ЖД-данные появятся после начала отгрузки'","if(!rail.available)return'Актуальные ЖД-данные временно недоступны'",
   "current_stage_key:currentKey",'facts:{','payment,','rail'
 ]) if(!projector.includes(required))throw new Error(`DEAL_STATE_PROJECTOR_REQUIRED_MISSING:${required}`);
 
