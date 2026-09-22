@@ -114,7 +114,8 @@ async function dealState(req:Request,info:any){
 
   const auth=await authenticate(req);
   if(!auth)return send(origin,401,{ok:false,code:'PORTAL_ACCESS_DENIED'});
-  if(!auth.roles.includes('CLIENT'))return send(origin,403,{ok:false,code:'ROLE_MISMATCH'});
+  // Effective Client authorization (including Admin Client impersonation) is enforced by the
+  // delegated production /v1/client/context handler below. Do not duplicate that role model here.
 
   const url=new URL(req.url);
   const clientId=clean(url.searchParams.get('clientId'),160);
