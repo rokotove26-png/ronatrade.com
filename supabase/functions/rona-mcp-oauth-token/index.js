@@ -143,8 +143,10 @@ async function refreshGrant(form,cfg,client,segment){
     const row=locked[0];
     if(row.revoked_at||row.refresh_used_at){
       if(row.revoked_reason==='REFRESH_ROTATED'||row.refresh_used_at||row.rotated_to_token_id){
-        await tx`update portal_private.mcp_oauth_tokens set revoked_at=coalesce(revoked_at,now()),revoked_reason='REFRESH_REUSE_DETECTED' where token_family_id=${row.token_family_id}::uuid and server_slug=${cfg.server_slug} and functional_role=${cfg.business_role}::portal_private.ai_business_role_enum`;
-        return {kind:'replay'};
+        // Reject a stale already-rotated refresh token without revoking the active descendant.
+        // ChatGPT may have concurrent connector sessions/tabs; a stale retry must not kill
+        // the whole valid family. No token is issued from the stale credential.
+        return {kind:'stale_rotated'};
       }
       return {kind:'invalid'};
     }
@@ -157,9 +159,9 @@ async function refreshGrant(form,cfg,client,segment){
     await tx`update portal_private.mcp_oauth_tokens set refresh_used_at=now(),revoked_at=now(),revoked_reason='REFRESH_ROTATED',rotated_to_token_id=${nextId}::uuid where token_id=${row.token_id}::uuid and revoked_at is null`;
     return {kind:'ok',tokenId:nextId};
   });
-  if(result.kind==='replay'){
-    audit('RONA_OAUTH_REFRESH_REUSE_DETECTED',segment,form,400,'REPLAY_FAMILY_REVOKED');
-    return oauthError('invalid_grant','refresh token reuse detected');
+  if(result.kind==='stale_rotated'){
+    audit('RONA_OAUTH_REFRESH_STALE_REUSE_REJECTED',segment,form,400,'STALE_ROTATED_TOKEN_REJECTED_FAMILY_PRESERVED');
+    return oauthError('invalid_grant','refresh token already rotated');
   }
   if(result.kind!=='ok')return oauthError('invalid_grant','refresh token expired or invalid');
   audit('RONA_OAUTH_TOKEN_V2_RESULT',segment,form,200,'REFRESHED',{refresh_issued:true,rotation:true});

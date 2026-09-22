@@ -39,7 +39,9 @@ jobs:
           function assert(x,m){if(!x)throw new Error(m)}
           assert(svc.includes("client.grant_types") && svc.includes("includes('refresh_token')"),'DCR refresh grant controls issuance');
           assert(svc.includes('token_family_id') && svc.includes('parent_token_id') && svc.includes('rotated_to_token_id'),'refresh family lineage');
-          assert(svc.includes('REFRESH_REUSE_DETECTED'),'refresh replay family revocation');
+          assert(svc.includes('RONA_OAUTH_REFRESH_STALE_REUSE_REJECTED'),'stale rotated refresh is rejected explicitly');
+          assert(svc.includes('STALE_ROTATED_TOKEN_REJECTED_FAMILY_PRESERVED'),'stale refresh must preserve active family');
+          assert(!svc.includes("revoked_reason='REFRESH_REUSE_DETECTED' where token_family_id"),'stale refresh must not revoke the active family');
           assert(svc.includes("scope elevation denied"),'no refresh scope elevation');
           assert(svc.includes("functional_role=${cfg.business_role}::portal_private.ai_business_role_enum") && svc.includes("client_id=${client.client_id}"),'role and client binding');
           assert(svc.includes("OAUTH_REVOKE_FAMILY"),'family revoke');
