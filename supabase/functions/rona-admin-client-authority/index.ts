@@ -182,8 +182,10 @@ async function createCompany(ctx, req) {
   const legalName = requiredText(b.legalName, "LEGAL_NAME", 320);
   const taxIdentifier = requiredText(b.taxIdentifier, "TAX_IDENTIFIER", 80).replace(/\s+/g, "");
   const registrationCountry = requiredText(b.registrationCountry, "REGISTRATION_COUNTRY", 80);
+  const signedPdfSha256 = requiredText(b.signedPdfSha256, "SIGNED_PDF_SHA256", 64).toLowerCase();
   if (!CIS_COUNTRIES.has(registrationCountry)) throw Object.assign(new Error("REGISTRATION_COUNTRY_NOT_ALLOWED"), { status: 400 });
   if (!/^[0-9A-Za-zА-Яа-яЁё-]{4,80}$/.test(taxIdentifier)) throw Object.assign(new Error("INVALID_TAX_IDENTIFIER"), { status: 400 });
+  if (!/^[0-9a-f]{64}$/.test(signedPdfSha256)) throw Object.assign(new Error("INVALID_SIGNED_PDF_SHA256"), { status: 400 });
 
   return await sql.begin(async tx => {
     await tx`select pg_advisory_xact_lock(hashtext('RONA_ADMIN_REGISTERED_CONTRACT_LINK_V1'))`;
@@ -195,7 +197,16 @@ async function createCompany(ctx, req) {
       select cl.id client_key,cl.client_id,cl.legal_name,cl.tax_identifier,cl.registration_country,
              ct.id contract_key,ct.contract_id,ct.current_external_contract_number,ct.contract_status,
              ct.authority_state::text contract_authority,ct.lifecycle_state::text contract_lifecycle,
-             ct.source_system contract_source_system,ct.source_version contract_source_version
+             ct.source_system contract_source_system,ct.source_version contract_source_version,
+             exists(
+               select 1
+               from portal_private.documents d
+               join portal_private.document_versions dv on dv.document_key=d.id
+               where d.contract_key=ct.id
+                 and lower(coalesce(dv.sha256,''))=${signedPdfSha256}
+                 and dv.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+                 and dv.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
+             ) pdf_hash_match
       from portal_private.clients cl
       join portal_private.contracts ct on ct.client_key=cl.id
       where (
@@ -211,6 +222,12 @@ async function createCompany(ctx, req) {
         and ct.contract_status not in ('CANCELLED','EXPIRED','REVOKED','ARCHIVED')
         and ct.contract_id ~ '^RONA-C[0-9]+-CTR-'
       order by
+        case when exists(
+          select 1
+          from portal_private.documents d
+          join portal_private.document_versions dv on dv.document_key=d.id
+          where d.contract_key=ct.id and lower(coalesce(dv.sha256,''))=${signedPdfSha256}
+        ) then 0 else 1 end,
         case when lower(coalesce(cl.tax_identifier,''))=lower(${taxIdentifier}) and coalesce(cl.tax_identifier,'')<>'' then 0 else 1 end,
         case when ct.contract_status='ACTIVE' then 0 else 1 end,
         ct.updated_at desc
@@ -219,9 +236,11 @@ async function createCompany(ctx, req) {
     `;
 
     if (!candidates.length) throw Object.assign(new Error("REGISTERED_CONTRACT_NOT_FOUND"), { status: 409 });
-    const canonical = candidates[0];
-    const distinctContracts = new Set(candidates.map(x => String(x.contract_id)));
-    const distinctClients = new Set(candidates.map(x => String(x.client_id)));
+    const hashMatched = candidates.filter(x => x.pdf_hash_match === true);
+    const resolved = hashMatched.length ? hashMatched : candidates;
+    const canonical = resolved[0];
+    const distinctContracts = new Set(resolved.map(x => String(x.contract_id)));
+    const distinctClients = new Set(resolved.map(x => String(x.client_id)));
     if (distinctContracts.size !== 1 || distinctClients.size !== 1) throw Object.assign(new Error("REGISTERED_CONTRACT_AMBIGUOUS"), { status: 409 });
 
     const registeredNumber = String(canonical.current_external_contract_number || "").trim();
@@ -271,6 +290,8 @@ async function createCompany(ctx, req) {
       registration_country: registrationCountry,
       tax_identifier_added: !existingTax,
       contract_identity_origin: "OPERATIONS_CONTRACT_REGISTRY",
+      signed_pdf_sha256: signedPdfSha256,
+      pdf_hash_matched: canonical.pdf_hash_match === true,
       synthetic_contract_allocation: false
     });
 
