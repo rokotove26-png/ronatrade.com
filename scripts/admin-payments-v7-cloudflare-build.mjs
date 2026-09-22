@@ -12,7 +12,6 @@ const ROOT = process.cwd();
 const LIVE_COMMIT = FINAL_LIVE_ADMIN_SOURCE_COMMIT;
 const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const OPERATIONS_CENTER_OVERRIDES = [
-  'functions/portal/admin-operations-command-center-v5.js',
   'functions/portal/admin-approved-shell-v455-ui.js',
   'functions/portal/deals-current-state-ui.js',
   'portal-src/current/admin.html',
@@ -66,7 +65,7 @@ try {
     mkdirSync(dirname(destination), { recursive: true });
     cpSync(source, destination, { force: true });
   }
-  console.log('OPERATIONS_CENTER_V5_OVERRIDES=READY admin-main-ui-current=RELEASE_CURRENT');
+  console.log('OPERATIONS_CENTER_V5_OVERRIDES=READY admin-main-ui-current=RELEASE_CURRENT operations-v5=RELEASE_CURRENT');
 
   // Production owner portals must never expose the internal build/data badge.
   // Enforce this against the pinned prepaint runtime before bundling. If the
