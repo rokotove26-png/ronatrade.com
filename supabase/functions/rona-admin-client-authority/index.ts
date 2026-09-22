@@ -67,6 +67,9 @@ function requiredText(v, name, max = 240) {
   if (typeof v !== "string" || !v.trim() || v.length > max) throw Object.assign(new Error(`INVALID_${name}`), { status: 400 });
   return v.trim();
 }
+function companyIdentity(v) {
+  return (String(v || "").toLocaleLowerCase("ru-RU").match(/[\p{L}\p{N}]+/gu) || []).join("");
+}
 function validatePassword(v) {
   const p = requiredText(v, "INITIAL_PASSWORD", 128);
   if (p.length < 10 || !/[a-zа-яё]/.test(p) || !/[A-ZА-ЯЁ]/.test(p) || !/[0-9]/.test(p) || !/[^A-Za-zА-Яа-яЁё0-9]/.test(p)) throw Object.assign(new Error("PASSWORD_POLICY_FAILED"), { status: 400 });
@@ -210,9 +213,16 @@ async function createCompany(ctx, req) {
       from portal_private.clients cl
       join portal_private.contracts ct on ct.client_key=cl.id
       where (
-          lower(coalesce(cl.tax_identifier,''))=lower(${taxIdentifier})
-          or lower(regexp_replace(btrim(cl.legal_name),'\\s+',' ','g'))=
-             lower(regexp_replace(btrim(${legalName}),'\\s+',' ','g'))
+          exists(
+            select 1
+            from portal_private.documents d
+            join portal_private.document_versions dv on dv.document_key=d.id
+            where d.contract_key=ct.id
+              and lower(coalesce(dv.sha256,''))=${signedPdfSha256}
+          )
+          or lower(coalesce(cl.tax_identifier,''))=lower(${taxIdentifier})
+          or lower(regexp_replace(btrim(cl.legal_name),'[^[:alnum:]]','','g'))=
+             lower(regexp_replace(btrim(${legalName}),'[^[:alnum:]]','','g'))
         )
         and cl.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
         and cl.lifecycle_state not in ('ARCHIVED'::portal_private.lifecycle_state_enum,'SUPERSEDED'::portal_private.lifecycle_state_enum)
@@ -247,7 +257,9 @@ async function createCompany(ctx, req) {
     if (!registeredNumber) throw Object.assign(new Error("REGISTERED_CONTRACT_NUMBER_MISSING"), { status: 409 });
 
     const existingTax = String(canonical.tax_identifier || "").replace(/\s+/g, "");
-    if (existingTax && existingTax.toLocaleLowerCase("ru-RU") !== taxIdentifier.toLocaleLowerCase("ru-RU")) {
+    const taxMatches = !!existingTax && existingTax.toLocaleLowerCase("ru-RU") === taxIdentifier.toLocaleLowerCase("ru-RU");
+    const nameMatches = companyIdentity(canonical.legal_name) === companyIdentity(legalName);
+    if ((existingTax && !taxMatches) || (!taxMatches && !nameMatches)) {
       throw Object.assign(new Error("REGISTERED_CLIENT_IDENTITY_CONFLICT"), { status: 409 });
     }
 
