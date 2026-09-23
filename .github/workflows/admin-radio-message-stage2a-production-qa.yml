@@ -13,6 +13,7 @@ on:
       - 'supabase/functions/rona-portal-api/agent.ts'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/functions/rona-portal-api/index.ts'
+      - 'supabase/functions/rona-g82-github-oidc-browser-qa-20260816/**'
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
       - 'supabase/migrations/20260924010000_admin_radio_stage2a_qa_identity_provisioning_v1.sql'
