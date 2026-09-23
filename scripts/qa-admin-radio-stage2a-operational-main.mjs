@@ -49,11 +49,15 @@ try{
   await wait(()=>adminPage.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),'ADMIN_REMAINING_SECTIONS_READY',90000,250);
 
   let boot=await adminBoot(adminContext);assert(boot.status===200,'ADMIN_RADIO_BOOTSTRAP_FAILED');
-  const historical=(boot.body?.data?.radio_messages||[]).filter(v=>norm(v?.payload?.subject).startsWith('QA STAGE2A')||norm(v?.payload?.message).startsWith('QA STAGE2A')).map(v=>v.event_id);
+  const qaPrefix=v=>/^QA STAGE2[AB]\b/.test(norm(v?.payload?.subject))||/^QA STAGE2[AB]\b/.test(norm(v?.payload?.message));
+  const historical=(boot.body?.data?.radio_messages||[]).filter(qaPrefix).map(v=>v.event_id);
   if(historical.length){
     const r=await retire(adminContext,historical);assert(r.status===200&&Number(r.body?.retired_events)===historical.length,'HISTORICAL_QA_RETIRE_FAILED');
     proof.cleanup.push({historicalEventIds:historical,retiredEvents:r.body.retired_events,retiredTasks:r.body.retired_tasks});
   }
+  const afterHistorical=await directory();
+  assert(Number(afterHistorical.qa?.visible_client_messages||0)===0,'HISTORICAL_QA_CLIENT_MESSAGES_REMAIN');
+  assert(Number(afterHistorical.qa?.visible_agent_messages||0)===0,'HISTORICAL_QA_AGENT_MESSAGES_REMAIN');
   boot=await adminBoot(adminContext);assert(boot.status===200,'ADMIN_RADIO_BOOTSTRAP_AFTER_CLEANUP_FAILED');
   const beforeBroadcasts=broadcastSignature(boot.body?.data||{});
   assert(sameSet((boot.body?.data?.radio_clients||[]).map(x=>x.client_id),CLIENT_IDS),'REAL_CLIENT_API_DIRECTORY_MISMATCH');

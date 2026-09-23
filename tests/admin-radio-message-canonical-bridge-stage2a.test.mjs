@@ -151,6 +151,31 @@ test('Client company MESSAGE target no longer depends on Portal identity or sign
   assert.match(fn,/v_client,v_contract,null,null,'ADMIN_CLIENT_MESSAGE_SUBMIT'/);
 });
 
+test('Same-origin Agent bootstrap sanitizer preserves canonical identity, scope, and message projection',()=>{
+  const proxy=read('functions/portal/api/[[path]].js');
+  const start=proxy.indexOf('function safeAgentBootstrap(data)');
+  const end=proxy.indexOf('function safeAgentPayment',start);
+  assert.ok(start>=0&&end>start,'safeAgentBootstrap block missing');
+  const block=proxy.slice(start,end);
+  for(const token of [
+    'userId:data?.userId',
+    'agentPersonId:data?.agentPersonId',
+    'displayAlias:data?.displayAlias',
+    'legalEntity:legal',
+    'dataUpdatedAt:data?.dataUpdatedAt',
+    'clients,',
+    'deals,',
+    'applications,',
+    'safeAgentSettlement',
+    'safeAgentDocument',
+    'safeAgentMessage'
+  ])assert.ok(block.includes(token),`Agent bootstrap canonical field missing: ${token}`);
+  assert.match(block,/messages:\(Array\.isArray\(data\?\.messages\)\?data\.messages:\[\]\)\.map\(safeAgentMessage\)\.filter\(Boolean\)/);
+  assert.doesNotMatch(block,/\bmessages\s*:\s*\[\]\s*[,}]/);
+  assert.doesNotMatch(block,/assignedClients:/);
+  assert.match(proxy,/path==='\/v1\/agent\/bootstrap'\)payload\.data=safeAgentBootstrap\(payload\.data\)/);
+});
+
 test('Agent Portal frozen page is functionally bound by the server bridge without visual source mutation',()=>{
   const bridge=read('functions/portal/[[path]].js');
   assert.match(bridge,/AGENT_ADMIN_CANONICAL_MESSAGE_V1/);
