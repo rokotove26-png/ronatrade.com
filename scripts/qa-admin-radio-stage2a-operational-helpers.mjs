@@ -53,12 +53,13 @@ async function oidc(){
 }
 export async function issuerCall(path,body={},waitForActive=false){
   let last='';
-  const maxAttempts=waitForActive?60:6;
+  const maxAttempts=waitForActive?12:6;
+  const requestTimeoutMs=path==='/issue'?90000:45000;
   for(let attempt=0;attempt<maxAttempts;attempt++){
     const token=await oidc();
     let r,j;
     try{
-      r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store','x-region':ISSUER_REGION},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+      r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store','x-region':ISSUER_REGION},body:JSON.stringify(body),signal:AbortSignal.timeout(requestTimeoutMs)});
       j=await r.json().catch(()=>null);
     }catch(error){
       last='NETWORK_OR_TIMEOUT';
