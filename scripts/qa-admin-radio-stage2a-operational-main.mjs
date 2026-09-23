@@ -17,6 +17,47 @@ const sessions=[],contexts=[],qaEvents=[];
 let browserRef=null,adminContext=null,qaRetired=false;
 
 async function save(){await writeFile('admin-radio-message-stage2a-production-proof.json',JSON.stringify(proof,null,2))}
+async function waitAdminBackendHealthy(c,label){
+  const started=Date.now();
+  let lastStatus=null;
+  while(Date.now()-started<120000){
+    const r=await api(c,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
+    lastStatus=r.status;
+    if(r.status===200)return r;
+    if([401,403].includes(r.status))throw new Error(label+'_AUTH_'+r.status);
+    if(![500,502,503,504,520,522,524,546].includes(r.status))throw new Error(label+'_BACKEND_HTTP_'+r.status);
+    await new Promise(resolve=>setTimeout(resolve,5000));
+  }
+  throw new Error(label+'_BACKEND_HEALTH_TIMEOUT_'+String(lastStatus??'NONE'));
+}
+async function loadAdminReady(page,c,label,{navigate=true}={}){
+  const attempts=[];
+  for(let attempt=1;attempt<=3;attempt++){
+    const health=await waitAdminBackendHealthy(c,label+'_ATTEMPT_'+attempt);
+    const pageErrors=[];
+    const onError=e=>pageErrors.push(String(e?.message||e));
+    page.on('pageerror',onError);
+    try{
+      if(navigate)await page.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a_operational='+HEAD+'&_ready_attempt='+attempt,{waitUntil:'domcontentloaded',timeout:30000});
+      else await page.reload({waitUntil:'domcontentloaded',timeout:30000});
+      await wait(()=>page.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),label+'_OWNER_READY',45000,500);
+      await wait(()=>page.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),label+'_REMAINING_READY',60000,500);
+      attempts.push({attempt,backendStatus:health.status,pageErrors,ready:true});
+      proof.adminRuntimeAttempts=(proof.adminRuntimeAttempts||[]).concat(attempts);
+      return true;
+    }catch(error){
+      attempts.push({attempt,backendStatus:health.status,pageErrors,ready:false,error:String(error?.message||error)});
+      if(attempt===3){
+        proof.adminRuntimeAttempts=(proof.adminRuntimeAttempts||[]).concat(attempts);
+        throw error;
+      }
+      await new Promise(r=>setTimeout(r,5000));
+      navigate=false;
+    }finally{
+      page.off('pageerror',onError);
+    }
+  }
+}
 async function cleanupFailure(){
   if(!qaRetired&&adminContext&&qaEvents.length){
     try{
@@ -47,9 +88,7 @@ try{
   const adminSession=await issue(QA.admin);sessions.push(adminSession);
   browserRef=await browser();adminContext=await context(browserRef,adminSession);contexts.push(adminContext);
   const adminPage=await adminContext.newPage();
-  await adminPage.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a_operational='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
-  await wait(()=>adminPage.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_OWNER_RUNTIME_READY',60000,250);
-  await wait(()=>adminPage.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),'ADMIN_REMAINING_SECTIONS_READY',90000,250);
+  await loadAdminReady(adminPage,adminContext,'ADMIN_INITIAL_READY');
 
   let boot=await adminBoot(adminContext);assert(boot.status===200,'ADMIN_RADIO_BOOTSTRAP_FAILED');
   const qaPrefix=v=>/^QA STAGE2[AB]\b/.test(norm(v?.payload?.subject))||/^QA STAGE2[AB]\b/.test(norm(v?.payload?.message));
@@ -115,8 +154,7 @@ try{
   assert(Number(post.qa?.active_client_bindings||0)===0,'POST_CLEANUP_QA_CLIENT_BINDINGS_ACTIVE');
   assert(Number(post.qa?.active_agent_bindings||0)===0,'POST_CLEANUP_QA_AGENT_BINDINGS_ACTIVE');
 
-  await adminPage.reload({waitUntil:'domcontentloaded',timeout:30000});
-  await wait(()=>adminPage.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_POST_CLEANUP_READY',60000,250);
+  await loadAdminReady(adminPage,adminContext,'ADMIN_POST_CLEANUP_READY',{navigate:false});
   ui=await adminDirectories(adminPage);
   assert(sameSet(ui.clients.map(x=>x.value),CLIENT_IDS),'POST_QA_CLEANUP_CLIENT_DIRECTORY_UI_MISMATCH');
   assert(sameSet(ui.agents.map(x=>x.value),AGENT_IDS),'POST_QA_CLEANUP_AGENT_DIRECTORY_UI_MISMATCH');
