@@ -243,8 +243,10 @@ test('Stage 2A QA issuer is transient-resilient and performs stale-identity clea
   assert.match(helpers,/AbortSignal\.timeout\(20000\)/);
   assert.match(helpers,/export async function cleanupQa\(\)\{return issuerCall\('\/cleanup'\)\}/);
 
-  assert.match(main,/const preflightCleanup=await cleanupQa\(\)/);
+  assert.match(main,/try\{\s*const preflightCleanup=await cleanupQa\(\)/);
   assert.match(main,/preflightQaCleanup:true/);
+  assert.match(main,/preflightQaCleanup:false/);
+  assert.match(main,/const pre=await directory\(\)/);
   assert.match(main,/globalQaCleanup:true/);
   assert.match(main,/PREEXISTING_QA_ACTIVE_USERS/);
   assert.match(main,/PREEXISTING_QA_CLIENT_BINDINGS/);
