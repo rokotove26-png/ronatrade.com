@@ -37,17 +37,29 @@ async function oidc(){
 }
 export async function issuerCall(path,body={},waitForActive=false){
   let last='';
-  for(let attempt=0;attempt<(waitForActive?60:1);attempt++){
+  const maxAttempts=waitForActive?60:6;
+  for(let attempt=0;attempt<maxAttempts;attempt++){
     const token=await oidc();
-    const r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body)});
-    const j=await r.json().catch(()=>null);
+    let r,j;
+    try{
+      r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+      j=await r.json().catch(()=>null);
+    }catch(error){
+      last='NETWORK_OR_TIMEOUT';
+      if(attempt<maxAttempts-1){await sleep(Math.min(1000*(attempt+1),5000));continue}
+      throw new Error(`ISSUER_${path}_${last}`);
+    }
     if(r.ok&&j?.ok)return j;
     last=`${r.status}:${j?.code||'UNKNOWN'}`;
-    if(waitForActive&&r.status===410){await sleep(5000);continue}
+    const transient=[429,500,502,503,504,520,522,524,546].includes(r.status)||/TIMEOUT|RESOURCE_LIMIT|TEMPORAR|OVERLOAD/i.test(String(j?.code||''));
+    if((waitForActive&&r.status===410)||transient){
+      if(attempt<maxAttempts-1){await sleep(waitForActive&&r.status===410?5000:Math.min(1000*(attempt+1),5000));continue}
+    }
     throw new Error(`ISSUER_${path}_${last}`);
   }
   throw new Error(`ISSUER_ACTIVE_TIMEOUT:${last}`);
 }
+export async function cleanupQa(){return issuerCall('/cleanup')}
 export async function directory(){return (await issuerCall('/directory')).directory}
 export async function issue(portalUserId){
   const j=await issuerCall('/issue',{portalUserId},true);
