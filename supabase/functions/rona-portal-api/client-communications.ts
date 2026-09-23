@@ -37,17 +37,18 @@ export async function clientMessages(c:Ctx,clientId:string,contractId:string){
   return await sql`
     select e.event_id,e.event_type,e.actor_role::text as actor_role,
            case when e.actor_role='ADMIN'::portal_private.portal_role_enum then 'ADMIN_TO_CLIENT' else 'CLIENT_TO_ADMIN' end as direction,
-           d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
+           ct.contract_id,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
            e.client_response_text,e.client_response_published_at,e.created_at,e.updated_at,e.lifecycle_state::text
       from portal_private.portal_reverse_events e
+      join portal_private.contracts ct on ct.id=e.contract_key
       left join portal_private.deals d on d.id=e.deal_key
      where e.client_key=${ctx.client_key}::uuid
-       and e.contract_key=${ctx.contract_key}::uuid
        and e.authority_domain='CLIENT_COMMUNICATION'
        and e.authority_target_type='MESSAGE'
        and e.event_type in ('CLIENT_MESSAGE_SUBMIT','ADMIN_CLIENT_MESSAGE_SUBMIT')
        and e.actor_role in ('CLIENT'::portal_private.portal_role_enum,'ADMIN'::portal_private.portal_role_enum)
        and e.lifecycle_state in ('ACTIVE'::portal_private.lifecycle_state_enum,'CLOSED'::portal_private.lifecycle_state_enum)
+       and portal_private.client_user_has_archive_contract_access(${c.user}::uuid,e.contract_key,now())
        and (e.deal_key is null or portal_private.client_user_has_archive_deal_access(${c.user}::uuid,e.deal_key,now()))
      order by e.created_at desc`;
 }
@@ -150,6 +151,17 @@ export async function adminPublishClientResponse(c:Ctx,req:Request,eventId:strin
   const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
   const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
   try{
+    const eligible=await sql`
+      select e.event_id
+      from portal_private.portal_reverse_events e
+      where e.event_id=${eventId}
+        and e.actor_role='CLIENT'::portal_private.portal_role_enum
+        and e.event_type='CLIENT_MESSAGE_SUBMIT'
+        and e.authority_domain='CLIENT_COMMUNICATION'
+        and e.authority_target_type='MESSAGE'
+        and e.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      limit 1`;
+    if(eligible.length!==1)return[403,{ok:false,code:"CLIENT_RESPONSE_PUBLISH_DENIED",request_id:requestId}] as const;
     await sql`select * from portal_private.server_admin_radio_prepare_client_response_v1(${c.user}::uuid,${eventId},${sourceTaskId},${response},${requestId}::uuid,${correlationId}::uuid)`;
     const rows=await sql`select * from portal_private.server_admin_publish_client_response(${c.user}::uuid,${eventId},${response},${sourceTaskId},${requestId}::uuid,${correlationId}::uuid)`;
     if(rows.length!==1)return[404,{ok:false,code:"CLIENT_MESSAGE_NOT_FOUND",request_id:requestId}] as const;
