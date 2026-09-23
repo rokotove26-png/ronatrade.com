@@ -78,7 +78,7 @@ function radioStyle(){['rona-admin-radio-icc-v1-style','rona-admin-radio-mission
 function radioState(title,caption,tone){const n=el('div','radio-command-state '+(tone||'')),i=el('i'),c=el('div');c.append(el('b','',title),el('span','',caption));n.append(i,c);return n}
 function radioField(labelText,control){const w=el('label','radio-field');w.append(el('span','',labelText),control);return w}
 function radioTypeName(v){v=String(v||'').toUpperCase();return v==='MESSAGE'?'Сообщение':v==='NOTIFICATION'?'Уведомление':v==='ANNOUNCEMENT'?'Объявление':'Запись'}
-window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER';
+window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP';
 let radioCanonicalState={items:[],clients:[],loading:false,loadedAt:0,error:null,signature:''};
 function radioCanonicalItems(){return Array.isArray(radioCanonicalState.items)?radioCanonicalState.items:[]}
 function radioCanonicalClients(){return Array.isArray(radioCanonicalState.clients)?radioCanonicalState.clients:[]}
@@ -99,7 +99,12 @@ async function radioLoadCanonical(force=false){
   if(!force&&radioCanonicalState.loadedAt&&Date.now()-radioCanonicalState.loadedAt<15000)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients()};
   radioCanonicalState.loading=true;
   try{
-    const payload=await radioCanonicalRequest('/v1/admin/bootstrap');
+    let payload=null,lastError=null;
+    for(let attempt=1;attempt<=3;attempt++){
+      try{payload=await radioCanonicalRequest('/v1/admin/radio/bootstrap');lastError=null;break}
+      catch(error){lastError=error;if(!(Number(error?.status)>=500||Number(error?.status)===429)||attempt===3)throw error;await new Promise(resolve=>setTimeout(resolve,attempt===1?250:650))}
+    }
+    if(lastError)throw lastError;
     const items=Array.isArray(payload?.data?.radio_messages)?payload.data.radio_messages:[];
     const clients=Array.isArray(payload?.data?.radio_clients)?payload.data.radio_clients:[];
     const signature=radioCanonicalSignature(items,clients),changed=signature!==radioCanonicalState.signature;
@@ -206,6 +211,6 @@ window.addEventListener('pageshow',schedule,{passive:true});if(document.readySta
   if(forbidden.some(token=>source.includes(token)))return new Response('REMAINING_CANONICAL_SPLIT_FAILED',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
 
   const headers=new Headers(response.headers);
-  headers.set('cache-control','no-store, no-cache, must-revalidate');headers.set('pragma','no-cache');headers.set('expires','0');headers.set('x-rona-remaining-sections','r2-radio-clean-header-command-body-v4');headers.set('x-rona-radio-owner','clean-header-direct-body-v4');headers.set('x-rona-radio-message-bridge','stage2a-corrective-client-chat-v2');headers.set('x-rona-market-news-owner','dedicated-current-content-health-v6');headers.delete('content-length');headers.delete('etag');
+  headers.set('cache-control','no-store, no-cache, must-revalidate');headers.set('pragma','no-cache');headers.set('expires','0');headers.set('x-rona-remaining-sections','r2-radio-clean-header-command-body-v4');headers.set('x-rona-radio-owner','clean-header-direct-body-v4');headers.set('x-rona-radio-message-bridge','stage2a-corrective-client-chat-v3-dedicated-bootstrap');headers.set('x-rona-market-news-owner','dedicated-current-content-health-v6');headers.delete('content-length');headers.delete('etag');
   return new Response(source,{status:response.status,statusText:response.statusText,headers});
 }
