@@ -233,6 +233,24 @@ test('Stage 2A production deploy gate permits only exact head or fail-closed QA-
   ]) assert.ok(!gate.includes(`'${forbidden}'`),`Runtime path must not be allow-listed for deployment equivalence: ${forbidden}`);
 });
 
+test('Stage 2A production proof waits for a quiet release branch and cancels superseded future runs',()=>{
+  const workflow=read('.github/workflows/admin-radio-message-stage2a-production-qa.yml');
+  const gate=read('scripts/qa-admin-radio-stage2a-production-quiet-gate.mjs');
+
+  assert.match(workflow,/group: admin-radio-stage2a-production-\$\{\{ github\.ref \}\}/);
+  assert.match(workflow,/cancel-in-progress: true/);
+  assert.match(workflow,/timeout-minutes: 50/);
+  assert.match(workflow,/Wait for release production quiet window/);
+  assert.match(workflow,/node scripts\/qa-admin-radio-stage2a-production-quiet-gate\.mjs/);
+
+  assert.match(gate,/RELEASE_HEAD_CHANGED/);
+  assert.match(gate,/Number\(run\.id\)!==runId/);
+  assert.match(gate,/String\(run\.status\)!=='completed'/);
+  assert.match(gate,/PRODUCTION_QUIET_GATE=PASS/);
+  assert.match(gate,/25\*60\*1000/);
+  assert.match(gate,/await sleep\(15000\)/);
+});
+
 test('Stage 2A GitHub OIDC token acquisition retries only transient transport/server failures',()=>{
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   assert.match(helpers,/async function oidc\(\)/);
