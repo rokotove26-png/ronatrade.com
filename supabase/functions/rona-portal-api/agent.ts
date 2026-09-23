@@ -1,4 +1,4 @@
-import { sql, isAdminEntityAgent, type Ctx } from "./shared.ts";
+import { sql, uuid, isAdminEntityAgent, type Ctx } from "./shared.ts";
 
 export type AgentDocumentView = {
   documentId:string;
@@ -283,6 +283,125 @@ async function agentPricePublication(c:Ctx){
   };
 }
 
+function agentMessageText(value:unknown,max:number):string|null{
+  if(value===null||value===undefined||typeof value!=="string")return null;
+  const out=value.trim();
+  return out&&out.length<=max?out:null;
+}
+
+async function agentMessageIdentity(c:Ctx){
+  const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
+  const rows=isAdminEntityAgent(c)?await sql`
+    select ap.id as agent_person_key,ap.agent_person_id
+    from portal_private.agent_persons ap
+    where ap.id=${bound}::uuid
+      and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state in (
+        'SOURCE_RECEIVED'::portal_private.authority_state_enum,
+        'VERIFIED'::portal_private.authority_state_enum,
+        'CONFIRMED'::portal_private.authority_state_enum
+      )
+    limit 1
+  `:await sql`
+    select distinct ap.id as agent_person_key,ap.agent_person_id
+    from portal_private.agent_user_bindings ub
+    join portal_private.agent_persons ap on ap.id=ub.agent_person_key
+    join portal_private.portal_user_roles pr on pr.user_id=ub.user_id
+    where ub.user_id=${c.user}::uuid
+      and (${bound}::uuid is null or ub.agent_person_key=${bound}::uuid)
+      and ub.status='ACTIVE'::portal_private.binding_status_enum
+      and ub.revoked_at is null
+      and ub.valid_from<=now()
+      and (ub.valid_to is null or ub.valid_to>now())
+      and ub.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ub.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+      and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state in (
+        'SOURCE_RECEIVED'::portal_private.authority_state_enum,
+        'VERIFIED'::portal_private.authority_state_enum,
+        'CONFIRMED'::portal_private.authority_state_enum
+      )
+      and pr.role='AGENT'::portal_private.portal_role_enum
+      and pr.status='ACTIVE'::portal_private.binding_status_enum
+      and pr.revoked_at is null
+    limit 2
+  `;
+  return rows.length===1?rows[0]:null;
+}
+
+export async function agentMessages(c:Ctx){
+  const identity=await agentMessageIdentity(c);
+  if(!identity)return null;
+  const rows=await sql`
+    select e.event_id,e.event_type,e.actor_role::text as actor_role,
+           case when e.actor_role='ADMIN'::portal_private.portal_role_enum then 'ADMIN_TO_AGENT' else 'AGENT_TO_ADMIN' end as direction,
+           e.payload,e.processing_state,e.acknowledgement_state,e.created_at,e.updated_at
+    from portal_private.portal_reverse_events e
+    where e.agent_person_key=${identity.agent_person_key}::uuid
+      and e.client_key is null
+      and e.contract_key is null
+      and e.deal_key is null
+      and e.authority_domain='AGENT_COMMUNICATION'
+      and e.authority_target_type='MESSAGE'
+      and e.event_type in ('AGENT_MESSAGE_SUBMIT','ADMIN_AGENT_MESSAGE_SUBMIT')
+      and e.actor_role in ('AGENT'::portal_private.portal_role_enum,'ADMIN'::portal_private.portal_role_enum)
+      and e.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by e.created_at desc
+  `;
+  return rows.map((row:any)=>({
+    eventId:String(row.event_id),
+    agentPersonId:String(identity.agent_person_id),
+    subject:String(row.payload?.subject||"").trim()||"Сообщение",
+    text:String(row.payload?.message||"").trim(),
+    relatedObject:String(row.payload?.related_object||"").trim()||null,
+    direction:String(row.direction),
+    processingState:String(row.processing_state),
+    acknowledgementState:String(row.acknowledgement_state),
+    createdAt:row.created_at,
+    updatedAt:row.updated_at
+  }));
+}
+
+export async function submitAgentMessage(c:Ctx,req:Request){
+  if(c.impersonation)return[403,{ok:false,code:"ADMIN_ENTITY_PREVIEW_READ_ONLY"}] as const;
+  let body:any;
+  try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
+  const message=agentMessageText(body?.message,8000);
+  const subject=agentMessageText(body?.subject,240);
+  const relatedObject=agentMessageText(body?.relatedObject??body?.related_object,160);
+  const idempotencyKey=agentMessageText(req.headers.get("x-idempotency-key")??body?.idempotencyKey??body?.idempotency_key,160);
+  if(!message)return[400,{ok:false,code:"MESSAGE_REQUIRED"}] as const;
+  if(!idempotencyKey)return[400,{ok:false,code:"IDEMPOTENCY_REQUIRED"}] as const;
+  const identity=await agentMessageIdentity(c);
+  if(!identity)return[403,{ok:false,code:"AGENT_MESSAGE_SCOPE_DENIED"}] as const;
+  if(relatedObject){
+    const deal=await sql`
+      select d.id
+      from portal_private.deals d
+      where d.deal_id=${relatedObject}
+        and portal_private.agent_user_has_deal_view_access(${c.user}::uuid,d.id,now())
+      limit 1
+    `;
+    if(deal.length!==1)return[403,{ok:false,code:"AGENT_RELATED_OBJECT_DENIED"}] as const;
+  }
+  const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id");
+  const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
+  const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
+  try{
+    const rows=await sql`select * from portal_private.server_agent_submit_radio_message_v1(
+      ${c.user}::uuid,${subject},${message},${relatedObject},${idempotencyKey},
+      ${requestId}::uuid,${correlationId}::uuid
+    )`;
+    if(rows.length!==1)return[500,{ok:false,code:"AGENT_MESSAGE_NOT_CREATED",request_id:requestId}] as const;
+    const row=rows[0];
+    return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),created_at:row.created_at},request_id:requestId}] as const;
+  }catch(error){
+    const raw=String((error as any)?.message||error||"");
+    const denied=/agent role|binding|scope|related|idempotency|required|not current/i.test(raw);
+    return[denied?403:500,{ok:false,code:denied?"AGENT_MESSAGE_SCOPE_DENIED":"AGENT_MESSAGE_SERVER_ERROR",request_id:requestId}] as const;
+  }
+}
+
 export async function agentBootstrap(c:Ctx){
   const bound=c.impersonation?.effectiveRole==="AGENT"?c.impersonation.targetAgentPersonKey:null;
   const bindings=isAdminEntityAgent(c)?await sql`
@@ -467,6 +586,8 @@ export async function agentBootstrap(c:Ctx){
   `;
 
   const documents=await agentDocuments(c);
+  const messages=await agentMessages(c);
+  if(messages===null)return null;
   const pricePublication=await agentPricePublication(c);
   const dealsByClient=new Map<string,string[]>();
   for(const row of assignedClients)dealsByClient.set(String(row.client_id),[]);
@@ -520,7 +641,7 @@ export async function agentBootstrap(c:Ctx){
     })),
     economics:[],
     documents,
-    messages:[],
+    messages,
     pricePublication
   };
 }
