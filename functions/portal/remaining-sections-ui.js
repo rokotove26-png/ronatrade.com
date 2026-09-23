@@ -171,7 +171,7 @@ export async function onRequest(context){
   if(start<0||end<=start)return new Response('REMAINING_CANONICAL_SPLIT_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   source=source.slice(0,start)+source.slice(end);
 
-  const radioStart=source.indexOf('function renderRadio(){');
+  const radioStart=source.indexOf("window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__=");
   const radioEnd=source.indexOf('function renderAgents(){',radioStart);
   if(radioStart<0||radioEnd<=radioStart)return new Response('RADIO_DIRECT_RENDER_SOURCE_MISMATCH',{status:500,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   source=source.slice(0,radioStart)+RADIO_DIRECT_RENDER+source.slice(radioEnd);
