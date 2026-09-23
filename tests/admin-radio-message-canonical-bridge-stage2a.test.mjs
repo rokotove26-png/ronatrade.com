@@ -171,7 +171,7 @@ test('Same-origin Agent bootstrap sanitizer preserves canonical identity, scope,
     'safeAgentMessage'
   ])assert.ok(block.includes(token),`Agent bootstrap canonical field missing: ${token}`);
   assert.match(block,/messages:\(Array\.isArray\(data\?\.messages\)\?data\.messages:\[\]\)\.map\(safeAgentMessage\)\.filter\(Boolean\)/);
-  assert.doesNotMatch(block,/messages:\[\]/);
+  assert.doesNotMatch(block,/\bmessages\s*:\s*\[\]\s*[,}]/);
   assert.doesNotMatch(block,/assignedClients:/);
   assert.match(proxy,/path==='\/v1\/agent\/bootstrap'\)payload\.data=safeAgentBootstrap\(payload\.data\)/);
 });
