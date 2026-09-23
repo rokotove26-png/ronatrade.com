@@ -62,6 +62,26 @@ async function adminRadioClients(){
     ) ct on true
     where cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
       and cl.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+      and exists (
+        select 1
+        from portal_private.client_user_bindings b
+        join portal_private.portal_users pu on pu.id=b.user_id
+        join portal_private.portal_user_roles pr on pr.user_id=pu.id
+        where b.client_key=cl.id
+          and b.contract_key=ct.id
+          and b.status='ACTIVE'::portal_private.binding_status_enum
+          and b.revoked_at is null
+          and b.valid_from<=now()
+          and (b.valid_to is null or b.valid_to>now())
+          and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and b.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+          and pu.status='ACTIVE'::portal_private.portal_user_status_enum
+          and pu.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and pu.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+          and pr.role='CLIENT'::portal_private.portal_role_enum
+          and pr.status='ACTIVE'::portal_private.binding_status_enum
+          and pr.revoked_at is null
+      )
     order by cl.legal_name,cl.client_id
   `;
 }
