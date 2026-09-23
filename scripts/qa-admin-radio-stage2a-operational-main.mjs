@@ -20,8 +20,17 @@ async function save(){await writeFile('admin-radio-message-stage2a-production-pr
 async function waitAdminBackendHealthy(c,label){
   const started=Date.now();
   let lastStatus=null;
-  while(Date.now()-started<120000){
-    const r=await api(c,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
+  while(Date.now()-started<240000){
+    let r;
+    try{
+      r=await api(c,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin',timeoutMs:90000});
+    }catch(error){
+      const message=String(error?.message||error);
+      if(!/TimeoutError|apiRequestContext\.fetch: Timeout/i.test(message))throw error;
+      lastStatus='TRANSPORT_TIMEOUT';
+      await new Promise(resolve=>setTimeout(resolve,5000));
+      continue;
+    }
     lastStatus=r.status;
     if(r.status===200)return r;
     if([401,403].includes(r.status))throw new Error(label+'_AUTH_'+r.status);
