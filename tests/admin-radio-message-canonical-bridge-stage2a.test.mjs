@@ -239,7 +239,8 @@ test('Stage 2A GitHub OIDC token acquisition retries only transient transport/se
   assert.match(helpers,/for\(let attempt=0;attempt<6;attempt\+\+\)/);
   assert.match(helpers,/AbortSignal\.timeout\(15000\)/);
   assert.match(helpers,/\[429,500,502,503,504,520,522,524\]\.includes\(r\.status\)/);
-  assert.match(helpers,/GITHUB_OIDC_NETWORK_OR_TIMEOUT/);
+  assert.match(helpers,/last='NETWORK_OR_TIMEOUT'/);
+  assert.match(helpers,/GITHUB_OIDC_\$\{last\}/);
   assert.match(helpers,/if\(r\.ok&&j\?\.value\)return j\.value/);
 });
 
