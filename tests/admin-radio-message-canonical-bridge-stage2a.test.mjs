@@ -288,6 +288,23 @@ test('Stage 2A QA issuer is transient-resilient and performs stale-identity clea
   assert.match(main,/PREEXISTING_QA_AGENT_BINDINGS/);
 });
 
+test('Stage 2A QA directory and identity provisioning are transactional, service-role-only infrastructure',()=>{
+  const migration=read('supabase/migrations/20260924010000_admin_radio_stage2a_qa_identity_provisioning_v1.sql');
+  assert.match(migration,/radio_stage2a_operational_directory_v1/);
+  assert.match(migration,/radio_stage2a_provision_identity_v1/);
+  assert.match(migration,/security invoker/g);
+  assert.doesNotMatch(migration,/security definer/i);
+  assert.match(migration,/QA_GITHUB_OIDC_RADIO_STAGE2A/);
+  assert.match(migration,/AGP-2026-001/);
+  assert.match(migration,/AGP-2026-002/);
+  assert.match(migration,/RONA-C002/);
+  assert.match(migration,/RONA-C005/);
+  assert.match(migration,/revoke all on function portal_private\.radio_stage2a_operational_directory_v1\(\) from public/);
+  assert.match(migration,/grant execute on function portal_private\.radio_stage2a_operational_directory_v1\(\) to service_role/);
+  assert.match(migration,/revoke all on function portal_private\.radio_stage2a_provision_identity_v1\(uuid,uuid,uuid,text,text\) from authenticated/);
+  assert.match(migration,/grant execute on function portal_private\.radio_stage2a_provision_identity_v1\(uuid,uuid,uuid,text,text\) to service_role/);
+});
+
 test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin bootstrap with bounded reloads',()=>{
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
