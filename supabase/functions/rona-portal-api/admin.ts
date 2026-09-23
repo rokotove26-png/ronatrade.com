@@ -37,6 +37,96 @@ async function adminClientApplications(){
   `;
 }
 
+async function adminRadioClients(){
+  return await sql`
+    select
+      cl.client_id,
+      cl.legal_name,
+      ct.contract_id,
+      ct.current_external_contract_number,
+      'COMPANY'::text as recipient_scope
+    from portal_private.clients cl
+    join lateral (
+      select c.id,c.contract_id,c.current_external_contract_number,c.effective_from,c.updated_at
+      from portal_private.contracts c
+      where c.client_key=cl.id
+        and c.contract_status='ACTIVE'
+        and c.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and c.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+        and c.signed_contract_confirmed_at is not null
+        and nullif(btrim(c.current_external_contract_number),'') is not null
+        and (c.effective_from is null or c.effective_from<=current_date)
+        and (c.effective_to is null or c.effective_to>=current_date)
+      order by c.effective_from desc nulls last,c.updated_at desc,c.id
+      limit 1
+    ) ct on true
+    where cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and cl.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+      and exists (
+        select 1
+        from portal_private.client_user_bindings b
+        join portal_private.portal_users pu on pu.id=b.user_id
+        join portal_private.portal_user_roles pr on pr.user_id=pu.id
+        where b.client_key=cl.id
+          and b.contract_key=ct.id
+          and b.status='ACTIVE'::portal_private.binding_status_enum
+          and b.revoked_at is null
+          and b.valid_from<=now()
+          and (b.valid_to is null or b.valid_to>now())
+          and b.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and b.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+          and pu.status='ACTIVE'::portal_private.portal_user_status_enum
+          and pu.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+          and pu.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+          and pr.role='CLIENT'::portal_private.portal_role_enum
+          and pr.status='ACTIVE'::portal_private.binding_status_enum
+          and pr.revoked_at is null
+      )
+    order by cl.legal_name,cl.client_id
+  `;
+}
+
+async function adminRadioMessages(){
+  return await sql`
+    select
+      e.event_id,
+      e.event_type,
+      e.actor_role::text as actor_role,
+      case when e.actor_role='ADMIN'::portal_private.portal_role_enum then 'ADMIN_TO_CLIENT' else 'CLIENT_TO_ADMIN' end as direction,
+      cl.client_id,
+      cl.legal_name,
+      ct.contract_id,
+      ct.current_external_contract_number,
+      d.deal_id,
+      e.payload,
+      e.processing_state,
+      e.acknowledgement_state,
+      e.created_at,
+      e.updated_at,
+      t.task_id,
+      t.status::text as staff_task_status,
+      e.client_response_text,
+      e.client_response_published_at,
+      case
+        when e.actor_role='ADMIN'::portal_private.portal_role_enum then 'DELIVERED'
+        when e.client_response_published_at is not null then 'RESPONDED'
+        else 'AWAITING_ADMIN'
+      end as chat_status
+    from portal_private.portal_reverse_events e
+    join portal_private.clients cl on cl.id=e.client_key
+    left join portal_private.contracts ct on ct.id=e.contract_key
+    left join portal_private.deals d on d.id=e.deal_key
+    left join portal_private.staff_tasks t on t.source_reverse_event_key=e.id
+    where e.authority_domain='CLIENT_COMMUNICATION'
+      and e.authority_target_type='MESSAGE'
+      and e.event_type in ('CLIENT_MESSAGE_SUBMIT','ADMIN_CLIENT_MESSAGE_SUBMIT')
+      and e.actor_role in ('CLIENT'::portal_private.portal_role_enum,'ADMIN'::portal_private.portal_role_enum)
+      and e.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+    order by e.created_at desc
+    limit 500
+  `;
+}
+
 async function adminClientIntake(){
   return await sql`
     select
@@ -77,9 +167,11 @@ async function adminClientIntake(){
 export async function adminBootstrap(){
   const data:any=await baseAdminBootstrap();
   const dealIds=[...new Set((Array.isArray(data?.deals)?data.deals:[]).map((row:any)=>String(row?.deal_id||"")).filter(Boolean))];
-  const [applications,clientIntake,financeRows]=await Promise.all([
+  const [applications,clientIntake,radioClients,radioMessages,financeRows]=await Promise.all([
     adminClientApplications(),
     adminClientIntake(),
+    adminRadioClients(),
+    adminRadioMessages(),
     dealIds.length?sql`
       select distinct on (deal_id)
         deal_id,obligation_amount,received_amount,currency,client_remaining_amount,
@@ -122,7 +214,10 @@ export async function adminBootstrap(){
     deals,
     applications,
     client_intake:clientIntake,
+    radio_clients:radioClients,
+    radio_messages:radioMessages,
     client_communication_projection_contract:"CLIENT_ADMIN_INTAKE_V1",
+    radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1",
     finance_projection_contract:"OWNER_DEAL_FINANCE_SUMMARY_V1"
   };
 }
