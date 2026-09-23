@@ -41,6 +41,9 @@ jobs:
           assert(svc.includes('token_family_id') && svc.includes('parent_token_id') && svc.includes('rotated_to_token_id'),'refresh family lineage');
           assert(svc.includes('REFRESH_CONCURRENT_GRACE_MS=5*60*1000'),'bounded concurrent refresh grace');
           assert(svc.includes('REFRESH_CONCURRENT_MAX_CHILDREN=3'),'bounded sibling cap');
+          assert(svc.includes('REFRESH_ONE_TIME_RECOVERY_MS=2*60*60*1000'),'bounded one-time stale parent recovery window');
+          assert(svc.includes("revoked_reason='REFRESH_RECOVERY_CONSUMED'"),'one-time recovery is consumed atomically');
+          assert(svc.includes('RONA_OAUTH_REFRESH_ONE_TIME_RECOVERY_ISSUED'),'one-time recovery is audited explicitly');
           assert(svc.includes('RONA_OAUTH_REFRESH_STALE_REUSE_GRACE_ISSUED'),'concurrent stale refresh may recover inside bounded grace');
           assert(svc.includes('CONCURRENT_REFRESH_GRACE_ISSUED'),'grace recovery is audited explicitly');
           assert(svc.includes('RONA_OAUTH_REFRESH_STALE_REUSE_REJECTED'),'stale rotated refresh outside grace is rejected explicitly');
