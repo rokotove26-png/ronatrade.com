@@ -4,6 +4,8 @@ import { createHash } from 'node:crypto';
 export const ORIGIN=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 export const HEAD=String(process.env.EXPECTED_HEAD||'');
 export const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
+export const DIRECT_PORTAL_API='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-portal-api';
+export const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 export const AUDIENCE='rona-radio-stage2a-production-v1';
 export const QA={admin:'a2a0b91e-4c2a-4d3e-8f11-2a2a00000001',clientA:'a2a0b91e-4c2a-4d3e-8f11-2a2a00000002',clientB:'a2a0b91e-4c2a-4d3e-8f11-2a2a00000003',clientA2:'a2a0b91e-4c2a-4d3e-8f11-2a2a00000004',agentA:'a2a0b91e-4c2a-4d3e-8f11-2a2a00000005',agentB:'a2a0b91e-4c2a-4d3e-8f11-2a2a00000006'};
 export const CLIENT_IDS=['RONA-C002','RONA-C003','RONA-C004','RONA-C005'];
@@ -67,6 +69,16 @@ export async function api(c,path,{method='GET',body=null,headers={},referer='/po
   const r=await c.request.fetch(ORIGIN+path,{method,headers:{accept:'application/json',origin:ORIGIN,referer:ORIGIN+referer,'cache-control':'no-store',...headers},data:body??undefined,failOnStatusCode:false});
   return{status:r.status(),body:await r.json().catch(()=>null)};
 }
+export async function directAgentBootstrap(session){
+  const r=await fetch(DIRECT_PORTAL_API+'/v1/agent/bootstrap',{headers:{
+    authorization:`Bearer ${session.accessToken}`,
+    apikey:SUPABASE_PUBLISHABLE_KEY,
+    accept:'application/json',
+    'cache-control':'no-store'
+  }});
+  return{status:r.status,body:await r.json().catch(()=>null)};
+}
+export const proxyAgentBootstrap=c=>api(c,'/portal/api/v1/agent/bootstrap',{referer:'/portal/agent'});
 export async function wait(fn,label,timeout=30000,interval=300){
   const started=Date.now();let last=null;
   while(Date.now()-started<timeout){try{last=await fn();if(last)return last}catch(e){last=e}await sleep(interval)}
