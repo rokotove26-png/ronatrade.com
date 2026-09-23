@@ -8,6 +8,9 @@ on:
       - 'supabase/migrations/20260919010000_rail_xlsx_dislocation_history_b1.sql'
       - 'supabase/migrations/20260919020000_rail_xlsx_source_intake_c11.sql'
       - 'supabase/migrations/20260919030000_rail_xlsx_resolution_bridge_c12.sql'
+      - 'supabase/migrations/20260923082500_rail_xlsx_unresolved_observability_v1.sql'
+      - 'supabase/functions/rona-owner-acceptance/rail-admin-read-model-overlay.mjs'
+      - 'functions/portal/rail-current-v6-ui.js'
       - 'supabase/functions/rona-mcp-gateway/index.ts'
       - 'supabase/functions/rona-mcp-gateway/rail_xlsx_intake.js'
       - 'supabase/functions/rona-mcp-gateway/rail-xlsx-intake-extension.mjs'
@@ -68,7 +71,7 @@ jobs:
           release_sha="$(git rev-parse origin/release/public-go-live-v1.1)"
           echo "C12_RELEASE_SHA=$release_sha"
           echo "C12_PR_HEAD=$(git rev-parse HEAD)"
-          test "$release_sha" = "8be4acc7bd88d697c1b8a3396c1ef57f37cafd24"
+          test "$release_sha" = "132acd045c3551ff4ee9310b4894e8eb944cdda0"
           server_version="$(psql -Atqc 'show server_version')"
           case "$server_version" in 17.6*) ;; *) echo "Unexpected PostgreSQL version: $server_version"; exit 1 ;; esac
           echo "C12_NON_PROD_ENVIRONMENT=PASS"
@@ -105,6 +108,12 @@ jobs:
           deno test --node-modules-dir=auto --allow-env --allow-read tests/online-rail-c12/gateway-tool-list.test.ts | tee /tmp/c12-tool-list.log
           echo "C12_ROLE_TOOL_LIST=PASS"
           echo "C12_CONTEXTUAL_MATCHING_FORBIDDEN=PASS"
+
+      - name: Unresolved XLSX observability regression
+        run: |
+          set -euo pipefail
+          node --test tests/online-rail-c12/unresolved-observability.test.mjs | tee /tmp/c12-unresolved-observability.log
+          echo "C12_UNRESOLVED_OBSERVABILITY=PASS"
 
       - name: Full candidate gateway package regression
         run: |
@@ -194,6 +203,7 @@ jobs:
             /tmp/c12-migration.log
             /tmp/c12-resolution-e2e.log
             /tmp/c12-tool-list.log
+            /tmp/c12-unresolved-observability.log
             /tmp/c12-index-regression.log
             /tmp/c12-full-gateway-deno-check.log
             /tmp/c12-fingerprint-before.txt
