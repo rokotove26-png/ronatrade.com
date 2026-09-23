@@ -110,6 +110,17 @@ test('Static materializer cannot silently regress Stage 2B owner',()=>{
   assert.match(build,/STATIC_RADIO_STALE_OWNER_MARKER/);
 });
 
+test('Stage 2B production QA retries transient bootstrap reads without retrying writes',()=>{
+  const qa=read('scripts/qa-admin-radio-stage2b-production.mjs');
+  assert.match(qa,/async function retryTransientRead\(fn,label/);
+  assert.match(qa,/last\.status<500&&last\.status!==429/);
+  assert.match(qa,/RADIO_BOOTSTRAP_TRANSIENT_EXHAUSTED|label\+'_TRANSIENT_EXHAUSTED'/);
+  assert.match(qa,/return retryTransientRead\(/);
+  assert.match(qa,/\/portal\/api\/v1\/admin\/radio\/bootstrap/);
+  assert.match(qa,/\/client\/bootstrap/);
+  assert.doesNotMatch(qa,/retryTransientRead\([\s\S]{0,500}\/admin\/radio[^\n]*method:'POST'/);
+});
+
 test('Frozen Radio visual assets remain byte-for-byte unchanged',()=>{
   assert.equal(gitBlobSha('assets/portal-admin-radio-final-v9.js'),'89391945e49e49570e22e6cbfecd5a6e7e46b40c');
   assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
