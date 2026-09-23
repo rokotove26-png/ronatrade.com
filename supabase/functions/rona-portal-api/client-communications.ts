@@ -40,7 +40,7 @@ export async function clientMessages(c:Ctx,clientId:string,contractId:string){
            ct.contract_id,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
            e.client_response_text,e.client_response_published_at,e.created_at,e.updated_at,e.lifecycle_state::text
       from portal_private.portal_reverse_events e
-      join portal_private.contracts ct on ct.id=e.contract_key
+      left join portal_private.contracts ct on ct.id=e.contract_key
       left join portal_private.deals d on d.id=e.deal_key
      where e.client_key=${ctx.client_key}::uuid
        and e.authority_domain='CLIENT_COMMUNICATION'
@@ -96,7 +96,7 @@ export async function adminSendClientMessage(c:Ctx,req:Request){
   const subject=textValue(body?.subject,240);
   const replyToEventId=textValue(body?.replyToEventId??body?.reply_to_event_id,160);
   const idempotencyKey=textValue(req.headers.get("x-idempotency-key")??body?.idempotencyKey??body?.idempotency_key,160);
-  if(!clientId||!contractId)return[400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"}] as const;
+  if(!clientId)return[400,{ok:false,code:"CLIENT_TARGET_REQUIRED"}] as const;
   if(!message)return[400,{ok:false,code:"MESSAGE_REQUIRED"}] as const;
   if(!idempotencyKey)return[400,{ok:false,code:"IDEMPOTENCY_REQUIRED"}] as const;
   const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id");
@@ -114,6 +114,35 @@ export async function adminSendClientMessage(c:Ctx,req:Request){
     const raw=String((error as any)?.message||error||"");
     const denied=/admin role|client .*not|contract .*not|inactive|archived|superseded|rejected|retired|scope|reply|idempotency|required/i.test(raw);
     return[denied?403:500,{ok:false,code:denied?"ADMIN_MESSAGE_SCOPE_DENIED":"ADMIN_MESSAGE_SERVER_ERROR",request_id:requestId}] as const;
+  }
+}
+
+export async function adminSendAgentMessage(c:Ctx,req:Request){
+  let body:any;
+  try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
+  const agentPersonId=textValue(body?.agentPersonId??body?.agent_person_id,80);
+  const message=textValue(body?.message,8000);
+  const subject=textValue(body?.subject,240);
+  const replyToEventId=textValue(body?.replyToEventId??body?.reply_to_event_id,160);
+  const idempotencyKey=textValue(req.headers.get("x-idempotency-key")??body?.idempotencyKey??body?.idempotency_key,160);
+  if(!agentPersonId)return[400,{ok:false,code:"AGENT_TARGET_REQUIRED"}] as const;
+  if(!message)return[400,{ok:false,code:"MESSAGE_REQUIRED"}] as const;
+  if(!idempotencyKey)return[400,{ok:false,code:"IDEMPOTENCY_REQUIRED"}] as const;
+  const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id");
+  const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
+  const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
+  try{
+    const rows=await sql`select * from portal_private.server_admin_submit_agent_radio_message_v1(
+      ${c.user}::uuid,${agentPersonId},${subject},${message},${replyToEventId},
+      ${idempotencyKey},${requestId}::uuid,${correlationId}::uuid
+    )`;
+    if(rows.length!==1)return[500,{ok:false,code:"AGENT_MESSAGE_NOT_CREATED",request_id:requestId}] as const;
+    const row=rows[0];
+    return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),created_at:row.created_at},request_id:requestId}] as const;
+  }catch(error){
+    const raw=String((error as any)?.message||error||"");
+    const denied=/admin role|agent .*not|inactive|archived|superseded|rejected|scope|reply|idempotency|required/i.test(raw);
+    return[denied?403:500,{ok:false,code:denied?"ADMIN_AGENT_MESSAGE_SCOPE_DENIED":"ADMIN_AGENT_MESSAGE_SERVER_ERROR",request_id:requestId}] as const;
   }
 }
 

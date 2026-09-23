@@ -35,37 +35,42 @@ function sourceName(v){const s=String(v||'');if(s.includes('PLATTS'))return'Plat
 function entry(x,kind){const a=el('article','rona-rs-entry'),head=el('div','rona-rs-entry-head'),meta=el('div','rona-rs-entry-meta',dt(x.created_at)),status=pill(kind==='news'?(x.priority||'Сигнал'):(x.status||'Заключение'),kind==='news'&&x.priority==='HIGH'?'warn':x.status==='HOLD'?'warn':'info');head.append(meta,status);a.append(head);const title=x.subject||x.title||((kind==='news'?'Рыночный сигнал':'Аналитическое заключение')+' · '+(x.target_id||''));a.append(el('div','rona-rs-entry-title',title));const body=x.summary||x.requested_check||x.reason||'—',short=body.length>1050?body.slice(0,1050).trim()+'…':body;a.append(el('div','rona-rs-entry-text',short));if(body.length>1050){const d=el('details','rona-rs-details'),sm=el('summary','','Показать полностью');d.append(sm,el('div','rona-rs-entry-text',body));a.append(d)}const ts=el('div','rona-rs-tags');tagsFor(x).forEach(t=>ts.append(el('span','rona-rs-tag',t)));a.append(ts);const refs=Array.isArray(x.source_refs)?x.source_refs.slice(0,6):[];if(refs.length){const ss=el('div','rona-rs-sources');refs.forEach(v=>{const n=el('span','rona-rs-source',sourceName(v));n.title=String(v);ss.append(n)});a.append(ss)}return a}
 function renderClients(){const d=snap();if(!d)return;const cs=Array.isArray(d.clients)?d.clients:[],as=Array.isArray(d.agents)?d.agents:[],r=root('clients','Клиенты и агенты','Клиенты, договоры и закрепление агентов в действующем контуре.');if(!r)return;const assigned=cs.filter(x=>String(x.agent_person_id||'').trim()).length,contracts=new Set(cs.map(x=>String(x.contract_id||'')).filter(Boolean)).size;r.append(grid(kpi('Клиенты',cs.length,'Подтверждённые клиентские записи','info'),kpi('Договоры',contracts,'Договоры в текущей проекции','success'),kpi('С агентом',assigned,'Клиенты с назначенным агентом',assigned?'success':'info'),kpi('Без агента',Math.max(0,cs.length-assigned),'Требуют назначения при необходимости',cs.length-assigned?'warn':'success')));const draw=()=>{q('[data-rs-client-list]',r)?.remove();const s=norm(S.clients.search),rows=cs.filter(x=>!s||norm([x.legal_name,x.client_id,x.contract_id,x.current_external_contract_number,x.agent_name].join(' ')).includes(s)).map(x=>{const sel=el('select');sel.append(new Option('Без агента',''));as.forEach(a=>sel.append(new Option(a.agent_name||a.display_name||a.agent_person_id||'—',a.agent_person_id||a.id||'')));sel.value=x.agent_person_id||'';const save=el('button','','Сохранить');save.onclick=async()=>{save.disabled=true;try{await post('/admin/clients/'+encodeURIComponent(x.client_id)+'/agent',{agentPersonId:sel.value||null});await refresh();renderClients()}catch(e){notice(e.message||e)}finally{save.disabled=false}};const ctl=el('div','rona-rs-controls');ctl.append(sel,save);return[x.legal_name||'—',x.client_id||'—',x.contract_id||'—',x.current_external_contract_number||'—',x.agent_name||'—',ctl]});const c=card('Реестр клиентов и закрепление агентов',rows.length?table(['Компания','Client ID','Contract ID','Внешний №','Текущий агент','Назначение'],rows):el('div','rona-owner-muted','По выбранному фильтру записей нет.'));c.dataset.rsClientList='1';r.append(c)};r.append(searchBox('clients','Компания / Client ID / Contract ID',draw));draw();preserve(r,'clients','Дополнительные настройки доступа')}
 window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER';
+window.__RONA_ADMIN_RADIO_OPERATIONAL_MESSAGE__='STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1';
 window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__='STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER';
-let radioCanonicalState={items:[],clients:[],audienceClients:[],audienceAgents:[],broadcasts:[],broadcastProjectionAvailable:false,loading:false,loadedAt:0,error:null,signature:''},radioDraftState=null;
+window.__RONA_ADMIN_RADIO_BROADCAST_OWNER__='ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1';
+let radioCanonicalState={items:[],clients:[],agents:[],audienceClients:[],audienceAgents:[],broadcasts:[],broadcastProjectionAvailable:false,loading:false,loadedAt:0,error:null,signature:''},radioDraftState=null;
 function radioCaptureDraft(){
   const r=q('#page-messages > .rona-rs-root[data-kind="radio"]');
   if(!r)return null;
   const selects=qa('select',r),body=q('textarea',r);
-  return{kind:String(selects[0]?.value||'MESSAGE'),scope:String(selects[1]?.value||'ALL_CLIENTS'),target:String(selects[2]?.value||''),body:String(body?.value||'')};
+  return{kind:String(selects[0]?.value||'MESSAGE'),scope:String(selects[1]?.value||'CLIENT'),target:String(selects[2]?.value||''),body:String(body?.value||'')};
 }
 function radioSetIfOption(select,value){if(select&&Array.from(select.options||[]).some(o=>String(o.value)===String(value)))select.value=String(value)}
 function radioCanonicalItems(){return Array.isArray(radioCanonicalState.items)?radioCanonicalState.items:[]}
 function radioCanonicalClients(){return Array.isArray(radioCanonicalState.clients)?radioCanonicalState.clients:[]}
+function radioCanonicalAgents(){return Array.isArray(radioCanonicalState.agents)?radioCanonicalState.agents:[]}
 function radioCanonicalAudienceClients(){return Array.isArray(radioCanonicalState.audienceClients)?radioCanonicalState.audienceClients:[]}
 function radioCanonicalAudienceAgents(){return Array.isArray(radioCanonicalState.audienceAgents)?radioCanonicalState.audienceAgents:[]}
 function radioCanonicalBroadcasts(){return Array.isArray(radioCanonicalState.broadcasts)?radioCanonicalState.broadcasts:[]}
-function radioCanonicalPendingInbound(clientId){return radioCanonicalItems().filter(x=>String(x?.actor_role||'')==='CLIENT'&&String(x?.client_id||'')===String(clientId||'')&&!x?.client_response_published_at&&String(x?.acknowledgement_state||'')!=='REJECTED'&&x?.task_id)}
-function radioCanonicalSignature(items,clients,audienceClients,audienceAgents,broadcasts){return [...(items||[]).map(x=>[x?.event_id,x?.updated_at,x?.processing_state,x?.acknowledgement_state,x?.client_response_published_at,x?.task_id].join(':')),...(clients||[]).map(x=>[x?.client_id,x?.contract_id,x?.legal_name].join(':')),...(audienceClients||[]).map(x=>[x?.client_id,x?.legal_name].join(':')),...(audienceAgents||[]).map(x=>[x?.agent_person_id,x?.agent_name].join(':')),...(broadcasts||[]).map(x=>[x?.id,x?.item_kind,x?.target_scope,x?.target_id,x?.body_text,x?.active_from,x?.active_until,x?.updated_at].join(':'))].join('|')}
+function radioCanonicalPendingInbound(clientId){return radioCanonicalItems().filter(x=>String(x?.authority_domain||'')==='CLIENT_COMMUNICATION'&&String(x?.actor_role||'')==='CLIENT'&&String(x?.client_id||'')===String(clientId||'')&&!x?.client_response_published_at&&String(x?.acknowledgement_state||'')!=='REJECTED'&&x?.task_id)}
+function radioCanonicalSignature(items,clients,agents,audienceClients,audienceAgents,broadcasts){return [...(items||[]).map(x=>[x?.event_id,x?.updated_at,x?.processing_state,x?.acknowledgement_state,x?.client_response_published_at,x?.task_id,x?.recipient_type,x?.recipient_id].join(':')),...(clients||[]).map(x=>[x?.client_id,x?.contract_id,x?.legal_name,x?.has_active_portal_recipient].join(':')),...(agents||[]).map(x=>[x?.agent_person_id,x?.agent_name,x?.has_active_portal_recipient].join(':')),...(audienceClients||[]).map(x=>[x?.client_id,x?.legal_name].join(':')),...(audienceAgents||[]).map(x=>[x?.agent_person_id,x?.agent_name].join(':')),...(broadcasts||[]).map(x=>[x?.id,x?.item_kind,x?.target_scope,x?.target_id,x?.body_text,x?.active_from,x?.active_until,x?.updated_at].join(':'))].join('|')}
 function radioCanonicalPayload(x){return x&&typeof x.payload==='object'&&x.payload?x.payload:{}}
 function radioCanonicalBody(x){const p=radioCanonicalPayload(x),subject=String(p.subject||'').trim(),message=String(p.message||'').trim()||'—';return subject?subject+' · '+message:message}
 function radioCanonicalClientText(x){return [String(x?.legal_name||'Клиент'),String(x?.client_id||'')].filter(Boolean).join(' · ')}
 function radioCanonicalAgentText(x){return [String(x?.agent_name||'Агент'),String(x?.agent_person_id||'')].filter(Boolean).join(' · ')}
+function radioCanonicalDirectionText(x){const d=String(x?.direction||'');if(d==='ADMIN_TO_CLIENT')return'Admin → Клиент';if(d==='CLIENT_TO_ADMIN')return'Клиент → Admin';if(d==='ADMIN_TO_AGENT')return'Admin → Агент';if(d==='AGENT_TO_ADMIN')return'Агент → Admin';return'Сообщение'}
+function radioCanonicalTargetText(x){return String(x?.recipient_name||x?.legal_name||x?.agent_name||x?.recipient_id||x?.client_id||x?.agent_person_id||'Получатель')}
 function radioBroadcastTargetText(x){const scope=String(x?.target_scope||'');if(scope==='ALL_CLIENTS')return'Все клиенты';if(scope==='ALL_AGENTS')return'Все агенты';if(scope==='CLIENT'){const v=radioCanonicalAudienceClients().find(y=>String(y?.client_id||'')===String(x?.target_id||''));return v?radioCanonicalClientText(v):String(x?.target_id||'Клиент')}if(scope==='AGENT'){const v=radioCanonicalAudienceAgents().find(y=>String(y?.agent_person_id||'')===String(x?.target_id||''));return v?radioCanonicalAgentText(v):String(x?.target_id||'Агент')}return scope||'—'}
 async function radioCanonicalRequest(path,init={}){
-  const headers={accept:'application/json','x-rona-client-source':'ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1',...(init.headers||{})};
+  const headers={accept:'application/json','x-rona-client-source':'ADMIN_RADIO_STAGE2A_OPERATIONAL_MESSAGE_V1',...(init.headers||{})};
   const response=await fetch('/portal/api'+path,{credentials:'same-origin',cache:'no-store',...init,headers});
   const payload=await response.json().catch(()=>null);
   if(!response.ok||payload?.ok===false){const e=new Error(String(payload?.code||payload?.error?.code||('HTTP_'+response.status)));e.code=String(payload?.code||payload?.error?.code||'REQUEST_FAILED');e.status=response.status;throw e}
   return payload
 }
 async function radioLoadCanonical(force=false){
-  if(radioCanonicalState.loading)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),broadcasts:radioCanonicalBroadcasts()};
-  if(!force&&radioCanonicalState.loadedAt&&Date.now()-radioCanonicalState.loadedAt<15000)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),broadcasts:radioCanonicalBroadcasts()};
+  if(radioCanonicalState.loading)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),agents:radioCanonicalAgents(),broadcasts:radioCanonicalBroadcasts()};
+  if(!force&&radioCanonicalState.loadedAt&&Date.now()-radioCanonicalState.loadedAt<15000)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),agents:radioCanonicalAgents(),broadcasts:radioCanonicalBroadcasts()};
   radioCanonicalState.loading=true;
   try{
     let payload=null,lastError=null;
@@ -76,27 +81,99 @@ async function radioLoadCanonical(force=false){
     if(lastError)throw lastError;
     const items=Array.isArray(payload?.data?.radio_messages)?payload.data.radio_messages:[];
     const clients=Array.isArray(payload?.data?.radio_clients)?payload.data.radio_clients:[];
+    const agents=Array.isArray(payload?.data?.radio_agents)?payload.data.radio_agents:[];
     const broadcastProjectionAvailable=Array.isArray(payload?.data?.radio_broadcasts);
     const fallback=snap()||{};
     const audienceClients=Array.isArray(payload?.data?.radio_audience_clients)?payload.data.radio_audience_clients:(Array.isArray(fallback.clients)?fallback.clients:[]);
     const audienceAgents=Array.isArray(payload?.data?.radio_audience_agents)?payload.data.radio_audience_agents:(Array.isArray(fallback.agents)?fallback.agents:[]);
     const broadcasts=broadcastProjectionAvailable?payload.data.radio_broadcasts:(Array.isArray(fallback.radio)?fallback.radio.filter(x=>['NOTIFICATION','ANNOUNCEMENT'].includes(String(x?.item_kind||'').toUpperCase())):[]);
-    const signature=radioCanonicalSignature(items,clients,audienceClients,audienceAgents,broadcasts),changed=signature!==radioCanonicalState.signature;
-    radioCanonicalState.items=items;radioCanonicalState.clients=clients;radioCanonicalState.audienceClients=audienceClients;radioCanonicalState.audienceAgents=audienceAgents;radioCanonicalState.broadcasts=broadcasts;radioCanonicalState.broadcastProjectionAvailable=broadcastProjectionAvailable;radioCanonicalState.loadedAt=Date.now();radioCanonicalState.error=null;radioCanonicalState.signature=signature;
+    const signature=radioCanonicalSignature(items,clients,agents,audienceClients,audienceAgents,broadcasts),changed=signature!==radioCanonicalState.signature;
+    radioCanonicalState.items=items;radioCanonicalState.clients=clients;radioCanonicalState.agents=agents;radioCanonicalState.audienceClients=audienceClients;radioCanonicalState.audienceAgents=audienceAgents;radioCanonicalState.broadcasts=broadcasts;radioCanonicalState.broadcastProjectionAvailable=broadcastProjectionAvailable;radioCanonicalState.loadedAt=Date.now();radioCanonicalState.error=null;radioCanonicalState.signature=signature;
     window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_INTAKE__=items;
     window.__RONA_ADMIN_RADIO_CLIENT_DIRECTORY__=clients;
+    window.__RONA_ADMIN_RADIO_AGENT_DIRECTORY__=agents;
     window.__RONA_ADMIN_RADIO_AUDIENCE_CLIENTS__=audienceClients;
     window.__RONA_ADMIN_RADIO_AUDIENCE_AGENTS__=audienceAgents;
     window.__RONA_ADMIN_RADIO_BROADCASTS__=broadcasts;
     window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_ERROR__=null;
-    return{changed,items,clients,broadcasts}
+    return{changed,items,clients,agents,broadcasts}
   }catch(error){
     radioCanonicalState.error=String(error?.code||error?.message||error);
     window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_ERROR__=radioCanonicalState.error;
-    return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),broadcasts:radioCanonicalBroadcasts()}
+    return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),agents:radioCanonicalAgents(),broadcasts:radioCanonicalBroadcasts()}
   }finally{radioCanonicalState.loading=false}
 }
-function renderRadio(){const d=snap();if(!d)return;const canonical=radioCanonicalItems(),broadcasts=radioCanonicalBroadcasts(),canonicalRows=canonical.map(x=>({item_kind:String(x?.direction||'')==='ADMIN_TO_CLIENT'?'Admin → Клиент':'Клиент → Admin',target_id:x.legal_name||x.client_id||'Клиент',body_text:radioCanonicalBody(x),created_at:x.created_at})),broadcastRows=broadcasts.map(x=>({item_kind:String(x?.item_kind||'').toUpperCase(),target_id:radioBroadcastTargetText(x),target_scope:x?.target_scope||null,body_text:x?.body_text||'—',created_at:x?.created_at||x?.active_from})),activeRows=[...canonicalRows,...broadcastRows],r=root('radio','Радиорубка','Оперативные сообщения, уведомления и объявления клиентам и агентам.');if(!r)return;const count=k=>k==='MESSAGE'?canonical.length:broadcasts.filter(x=>String(x?.item_kind||'').toUpperCase()===k).length;r.append(grid(kpi('Всего активно',activeRows.length,'Текущие записи радиорубки','info'),kpi('Сообщения',count('MESSAGE'),'Оперативные сообщения','info'),kpi('Уведомления',count('NOTIFICATION'),'Уведомления','warn'),kpi('Объявления',count('ANNOUNCEMENT'),'Объявления','success')));const f=el('div','rona-rs-form'),kind=el('select'),scope=el('select'),target=el('select'),body=el('textarea'),send=el('button','','Отправить');[['MESSAGE','Сообщение'],['NOTIFICATION','Уведомление'],['ANNOUNCEMENT','Объявление']].forEach(a=>kind.append(new Option(a[1],a[0])));[['ALL_CLIENTS','Все клиенты'],['CLIENT','Клиент'],['ALL_AGENTS','Все агенты'],['AGENT','Агент']].forEach(a=>scope.append(new Option(a[1],a[0])));body.placeholder='Текст сообщения';const draft=radioDraftState;radioDraftState=null;if(draft){radioSetIfOption(kind,draft.kind);radioSetIfOption(scope,draft.scope);body.value=draft.body}const sync=()=>{target.replaceChildren(new Option('Получатель',''));if(kind.value==='MESSAGE'){if(scope.value==='CLIENT')radioCanonicalClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));target.disabled=scope.value!=='CLIENT';return}if(scope.value==='CLIENT')radioCanonicalAudienceClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));if(scope.value==='AGENT')radioCanonicalAudienceAgents().forEach(x=>target.append(new Option(radioCanonicalAgentText(x),String(x.agent_person_id||''))));target.disabled=!['CLIENT','AGENT'].includes(scope.value)};const syncAndRefresh=()=>{sync();void radioLoadCanonical(true).then(()=>sync())};scope.onchange=syncAndRefresh;kind.onchange=syncAndRefresh;send.onclick=async()=>{if(!body.value.trim())return notice('Введите сообщение.');send.disabled=true;try{if(kind.value==='MESSAGE'){if(scope.value!=='CLIENT')return notice('Для сообщения выберите аудиторию «Клиент».');const clientId=String(target.value||''),client=radioCanonicalClients().find(x=>String(x?.client_id||'')===clientId);if(!client)return notice('Выберите клиента.');const pending=radioCanonicalPendingInbound(clientId).sort((a,b)=>new Date(b?.created_at||0)-new Date(a?.created_at||0))[0];if(pending?.task_id){await radioCanonicalRequest('/v1/admin/client-intake/'+encodeURIComponent(String(pending.event_id))+'/respond',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:body.value.trim(),source_task_id:String(pending.task_id)})})}else{const idempotencyKey=crypto.randomUUID();await radioCanonicalRequest('/v1/admin/radio/messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify({clientId:String(client.client_id),contractId:String(client.contract_id),message:body.value.trim(),idempotencyKey})})}body.value='';await radioLoadCanonical(true);renderRadio();return}const targetId=['CLIENT','AGENT'].includes(scope.value)?String(target.value||''):null;if(['CLIENT','AGENT'].includes(scope.value)&&!targetId)return notice(scope.value==='CLIENT'?'Выберите клиента.':'Выберите агента.');const idempotencyKey=crypto.randomUUID();await post('/admin/radio',{kind:kind.value,scope:scope.value,targetId,body:body.value.trim(),idempotencyKey});body.value='';await radioLoadCanonical(true);renderRadio()}catch(e){notice(e.code||e.message||e)}finally{send.disabled=false}};f.append(kind,scope,target,body,send);sync();if(draft?.target)radioSetIfOption(target,draft.target);r.append(card('Новое сообщение',f));const rows=activeRows.map(x=>[String(x.item_kind||'—'),x.target_id||x.target_scope||'—',x.body_text||'—',date(x.created_at)]);r.append(card('Активные сообщения',rows.length?table(['Тип','Кому','Сообщение','Дата'],rows):el('div','rona-owner-muted','Активных сообщений нет.')));if(!radioCanonicalState.loadedAt||Date.now()-radioCanonicalState.loadedAt>=15000)void radioLoadCanonical(false).then(result=>{if(result.changed){radioDraftState=radioCaptureDraft();renderRadio()}})}
+function renderRadio(){
+  const d=snap();if(!d)return;
+  const canonical=radioCanonicalItems(),broadcasts=radioCanonicalBroadcasts(),
+    canonicalRows=canonical.map(x=>({item_kind:radioCanonicalDirectionText(x),target_id:radioCanonicalTargetText(x),body_text:radioCanonicalBody(x),created_at:x.created_at})),
+    broadcastRows=broadcasts.map(x=>({item_kind:String(x?.item_kind||'').toUpperCase(),target_id:radioBroadcastTargetText(x),target_scope:x?.target_scope||null,body_text:x?.body_text||'—',created_at:x?.created_at||x?.active_from})),
+    activeRows=[...canonicalRows,...broadcastRows],
+    r=root('radio','Радиорубка','Оперативные сообщения, уведомления и объявления клиентам и агентам.');
+  if(!r)return;
+  const count=k=>k==='MESSAGE'?canonical.length:broadcasts.filter(x=>String(x?.item_kind||'').toUpperCase()===k).length;
+  r.append(grid(kpi('Всего активно',activeRows.length,'Текущие записи радиорубки','info'),kpi('Сообщения',count('MESSAGE'),'Оперативные сообщения','info'),kpi('Уведомления',count('NOTIFICATION'),'Уведомления','warn'),kpi('Объявления',count('ANNOUNCEMENT'),'Объявления','success')));
+  const f=el('div','rona-rs-form'),kind=el('select'),scope=el('select'),target=el('select'),body=el('textarea'),send=el('button','','Отправить');
+  [['MESSAGE','Сообщение'],['NOTIFICATION','Уведомление'],['ANNOUNCEMENT','Объявление']].forEach(a=>kind.append(new Option(a[1],a[0])));
+  [['ALL_CLIENTS','Все клиенты'],['CLIENT','Клиент'],['ALL_AGENTS','Все агенты'],['AGENT','Агент']].forEach(a=>scope.append(new Option(a[1],a[0])));
+  body.placeholder='Текст сообщения';
+  const draft=radioDraftState;radioDraftState=null;
+  if(draft){radioSetIfOption(kind,draft.kind);radioSetIfOption(scope,draft.scope);body.value=draft.body}
+  const sync=()=>{
+    const message=kind.value==='MESSAGE';
+    Array.from(scope.options).forEach(o=>{o.disabled=message&&['ALL_CLIENTS','ALL_AGENTS'].includes(String(o.value))});
+    if(message&&!['CLIENT','AGENT'].includes(scope.value))scope.value='CLIENT';
+    target.replaceChildren(new Option('Получатель',''));
+    if(message){
+      if(scope.value==='CLIENT')radioCanonicalClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));
+      if(scope.value==='AGENT')radioCanonicalAgents().forEach(x=>target.append(new Option(radioCanonicalAgentText(x),String(x.agent_person_id||''))));
+      target.disabled=!['CLIENT','AGENT'].includes(scope.value);
+      return;
+    }
+    if(scope.value==='CLIENT')radioCanonicalAudienceClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));
+    if(scope.value==='AGENT')radioCanonicalAudienceAgents().forEach(x=>target.append(new Option(radioCanonicalAgentText(x),String(x.agent_person_id||''))));
+    target.disabled=!['CLIENT','AGENT'].includes(scope.value)
+  };
+  const syncAndRefresh=()=>{sync();void radioLoadCanonical(true).then(()=>sync())};
+  scope.onchange=syncAndRefresh;kind.onchange=syncAndRefresh;
+  send.onclick=async()=>{
+    if(!body.value.trim())return notice('Введите сообщение.');
+    send.disabled=true;
+    try{
+      if(kind.value==='MESSAGE'){
+        if(scope.value==='CLIENT'){
+          const clientId=String(target.value||''),client=radioCanonicalClients().find(x=>String(x?.client_id||'')===clientId);
+          if(!client)return notice('Выберите клиента.');
+          const pending=radioCanonicalPendingInbound(clientId).sort((a,b)=>new Date(b?.created_at||0)-new Date(a?.created_at||0))[0];
+          if(pending?.task_id){
+            await radioCanonicalRequest('/v1/admin/client-intake/'+encodeURIComponent(String(pending.event_id))+'/respond',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:body.value.trim(),source_task_id:String(pending.task_id)})})
+          }else{
+            const idempotencyKey=crypto.randomUUID(),payload={clientId:String(client.client_id),message:body.value.trim(),idempotencyKey};
+            if(client.contract_id)payload.contractId=String(client.contract_id);
+            await radioCanonicalRequest('/v1/admin/radio/messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify(payload)})
+          }
+        }else if(scope.value==='AGENT'){
+          const agentId=String(target.value||''),agent=radioCanonicalAgents().find(x=>String(x?.agent_person_id||'')===agentId);
+          if(!agent)return notice('Выберите агента.');
+          const idempotencyKey=crypto.randomUUID();
+          await radioCanonicalRequest('/v1/admin/radio/agent-messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify({agentPersonId:String(agent.agent_person_id),message:body.value.trim(),idempotencyKey})})
+        }else return notice('Для сообщения выберите конкретного клиента или агента.');
+        body.value='';await radioLoadCanonical(true);renderRadio();return
+      }
+      const targetId=['CLIENT','AGENT'].includes(scope.value)?String(target.value||''):null;
+      if(['CLIENT','AGENT'].includes(scope.value)&&!targetId)return notice(scope.value==='CLIENT'?'Выберите клиента.':'Выберите агента.');
+      const idempotencyKey=crypto.randomUUID();
+      await post('/admin/radio',{kind:kind.value,scope:scope.value,targetId,body:body.value.trim(),idempotencyKey});
+      body.value='';await radioLoadCanonical(true);renderRadio()
+    }catch(e){notice(e.code||e.message||e)}finally{send.disabled=false}
+  };
+  f.append(kind,scope,target,body,send);sync();if(draft?.target)radioSetIfOption(target,draft.target);
+  r.append(card('Новое сообщение',f));
+  const rows=activeRows.map(x=>[String(x.item_kind||'—'),x.target_id||x.target_scope||'—',x.body_text||'—',date(x.created_at)]);
+  r.append(card('Активные сообщения',rows.length?table(['Тип','Кому','Сообщение','Дата'],rows):el('div','rona-owner-muted','Активных сообщений нет.')));
+  if(!radioCanonicalState.loadedAt||Date.now()-radioCanonicalState.loadedAt>=15000)void radioLoadCanonical(false).then(result=>{if(result.changed){radioDraftState=radioCaptureDraft();renderRadio()}})
+}
+
 function publicationCard(){const pubs=M&&Array.isArray(M.currentPublications)?M.currentPublications:[],p=pubs[0];if(!p)return card('Текущий коммерческий ориентир',el('div','rona-rs-empty','Опубликованный коммерческий ориентир в текущем контуре отсутствует.'));const wrap=el('div'),meta=el('div','rona-owner-muted',(p.title||p.publication_id||'Публикация')+' · '+dt(p.published_at||p.prepared_at));wrap.append(meta);const g=el('div','rona-rs-publication');(Array.isArray(p.items)?p.items:[]).forEach(x=>{const n=el('div','rona-rs-price');n.append(el('strong','',x.product||'—'),el('span','',(x.basis||'—')+' · '+money(x.price,x.currency)));g.append(n)});wrap.append(g);return card('Текущий опубликованный ориентир RONA Trade',wrap)}
 function renderAnalytics(){const r=root('analytics','Аналитика','Текущие рыночные выводы Коммерческого директора. FACT / CALCULATION / FORECAST не смешиваются.');if(!r)return;r.append(sourceBar());if(!M||M.error){r.append(card('Состояние данных',el('div','rona-rs-empty','Контур Коммерческого директора временно недоступен. Старые данные вместо него не подставляются.')));return}const xs=Array.isArray(M.analytics)?M.analytics:[],ns=Array.isArray(M.news)?M.news:[],latest=xs[0],classified=xs.filter(x=>tagsFor(x).some(t=>t==='MARKET_FACT'||t==='MARKET_CALCULATION'||t==='MARKET_FORECAST')).length;r.append(grid(kpi('Выводов',xs.length,'Текущие заключения Коммерческого директора','info'),kpi('Рыночных сигналов',ns.length,'Актуальная лента наблюдений','info'),kpi('Структурировано',classified,'С явным FACT / CALCULATION / FORECAST','success'),kpi('Последний анализ',latest?date(latest.created_at):'—','Источник: AI-MARKET-ANALYST',latest?'success':'warn')));const g=el('div','rona-rs-market-grid'),feed=el('div','rona-rs-feed');xs.slice(0,8).forEach(x=>feed.append(entry(x,'analytics')));g.append(card('Аналитическая лента',feed.childNodes.length?feed:el('div','rona-rs-empty','Актуальных аналитических заключений нет.')),publicationCard());r.append(g)}
 function renderNews(){const r=root('news','Новости топливного рынка СНГ','Оперативные рыночные сигналы из контура Коммерческого директора с датой и источниками.');if(!r)return;r.append(sourceBar());if(!M||M.error){r.append(card('Состояние данных',el('div','rona-rs-empty','Контур Коммерческого директора временно недоступен. Новостная лента не заменяется устаревшей копией.')));return}if(!S.news)S.news={search:'',filter:'ALL'};const xs=Array.isArray(M.news)?M.news:[],latest=xs[0],high=xs.filter(x=>String(x.priority||'').toUpperCase()==='HIGH').length,sources=new Set(xs.flatMap(x=>Array.isArray(x.source_refs)?x.source_refs.map(sourceName):[]));r.append(grid(kpi('Сигналов',xs.length,'Актуальные рыночные записи','info'),kpi('Высокий приоритет',high,'Требуют внимания в коммерческом контуре',high?'warn':'success'),kpi('Источников',sources.size,'Уникальные источники в текущей ленте','info'),kpi('Последнее обновление',latest?dt(latest.created_at):'—','AI-MARKET-ANALYST',latest?'success':'warn')));const draw=()=>{q('[data-rs-news-list]',r)?.remove();const s=norm(S.news.search),v=xs.filter(x=>!s||norm([x.subject,x.requested_check,x.reason,(x.source_refs||[]).join(' ')].join(' ')).includes(s)),feed=el('div','rona-rs-feed');v.forEach(x=>feed.append(entry(x,'news')));const c=card('Лента рынка',feed.childNodes.length?feed:el('div','rona-rs-empty','По выбранному фильтру рыночных сигналов нет.'));c.dataset.rsNewsList='1';r.append(c)};r.append(searchBox('news','Поиск по событию / источнику / рынку',draw));draw()}

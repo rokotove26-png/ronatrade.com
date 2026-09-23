@@ -15,7 +15,10 @@ test('Stage 2A production Radio owner is the static materialized R2 base and use
   assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
+  assert.match(radio,/radio_agents/);
   assert.match(radio,/radioCanonicalClients/);
+  assert.match(radio,/radioCanonicalAgents/);
+  assert.match(radio,/STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1/);
   assert.match(radio,/legal_name/);
   assert.match(radio,/client_id/);
   assert.match(radio,/\/v1\/admin\/radio\/bootstrap/);
@@ -51,7 +54,7 @@ test('Radio read path uses a dedicated lightweight server projection',()=>{
   const index=read('supabase/functions/rona-portal-api/index.ts');
   const radio=read('functions/portal/remaining-sections-ui.js');
   assert.match(admin,/export async function adminRadioBootstrap\(\)/);
-  assert.match(admin,/Promise\.all\(\[\s*adminRadioClients\(\),\s*adminRadioMessages\(\)/);
+  assert.match(admin,/Promise\.all\(\[\s*adminRadioClients\(\),\s*adminRadioAgents\(\),\s*adminRadioMessages\(\)/);
   assert.match(index,/adminBootstrap, adminRadioBootstrap/);
   assert.match(index,/route==="\/v1\/admin\/radio\/bootstrap"/);
   assert.match(radio,/radioCanonicalRequest\('\/v1\/admin\/radio\/bootstrap'\)/);
@@ -65,7 +68,7 @@ test('Radio history and KPI consume chat-only projection',()=>{
   assert.match(admin,/authority_target_type='MESSAGE'/);
   assert.match(admin,/ADMIN_CLIENT_MESSAGE_SUBMIT/);
   assert.match(admin,/CLIENT_MESSAGE_SUBMIT/);
-  assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"/);
+  assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V2_CLIENT_AGENT"/);
   assert.match(admin,/radio_clients:radioClients/);
   assert.match(admin,/radio_messages:radioMessages/);
   const radio=read('functions/portal/remaining-sections-r2-base.js');
@@ -103,27 +106,68 @@ test('Corrective migration creates no third message store and preserves audit hi
   assert.match(migration,/revoke all on function portal_private\.server_admin_retire_radio_qa_artifacts_v1/);
 });
 
-test('Server-side recipient authority rejects non-current/non-deliverable contexts',()=>{
-  const migration=read('supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql');
-  for(const token of [
-    "cl.lifecycle_state='ACTIVE'",
-    "cl.authority_state in",
-    "ct.contract_status='ACTIVE'",
-    "ct.lifecycle_state='ACTIVE'",
-    "ct.signed_contract_confirmed_at is not null",
-    "b.status='ACTIVE'",
-    "pu.status='ACTIVE'",
-    "pr.role='CLIENT'"
-  ]) assert.ok(migration.includes(token),`recipient authority token missing: ${token}`);
-  assert.match(migration,/reply target is not an active client radio message/);
+test('Operational MESSAGE directories are entity-authoritative and delivery readiness is non-filtering metadata',()=>{
+  const admin=read('supabase/functions/rona-portal-api/admin.ts');
+  const clients=admin.slice(admin.indexOf('async function adminRadioClients(){'),admin.indexOf('async function adminRadioAgents(){'));
+  const agents=admin.slice(admin.indexOf('async function adminRadioAgents(){'),admin.indexOf('async function adminRadioAudienceClients(){'));
+  assert.match(clients,/from portal_private\.clients cl/);
+  assert.match(clients,/left join lateral/);
+  assert.match(clients,/has_active_portal_recipient/);
+  assert.doesNotMatch(clients,/join portal_private\.client_user_bindings b\s+on/i);
+  assert.doesNotMatch(clients,/signed_contract_confirmed_at/);
+  assert.doesNotMatch(clients,/contract_status='ACTIVE'/);
+  assert.match(agents,/SOURCE_RECEIVED/);
+  assert.match(agents,/has_active_portal_recipient/);
+  assert.match(admin,/radio_agents:radioAgents/);
+});
+
+test('Canonical Agent chat uses Agent Person scope without fake Client scope',()=>{
+  const migration=read('supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql');
+  const agent=read('supabase/functions/rona-portal-api/agent.ts');
+  const index=read('supabase/functions/rona-portal-api/index.ts');
+  assert.match(migration,/add column if not exists agent_person_key uuid/);
+  assert.match(migration,/ADMIN_AGENT_MESSAGE_SUBMIT/);
+  assert.match(migration,/AGENT_MESSAGE_SUBMIT/);
+  assert.match(migration,/AGENT_COMMUNICATION/);
+  assert.match(migration,/thread_scope','AGENT_PERSON'/);
+  assert.match(migration,/server_admin_submit_agent_radio_message_v1/);
+  assert.match(migration,/server_agent_submit_radio_message_v1/);
+  assert.match(migration,/agent_person_key is null\s+or \(client_key is null and contract_key is null and deal_key is null\)/);
+  assert.match(agent,/e\.agent_person_key=/);
+  assert.match(agent,/AGENT_COMMUNICATION/);
+  assert.match(agent,/server_agent_submit_radio_message_v1/);
+  assert.match(index,/\/v1\/agent\/messages/);
+  assert.match(index,/\/v1\/admin\/radio\/agent-messages/);
+});
+
+test('Client company MESSAGE target no longer depends on Portal identity or signed PDF',()=>{
+  const migration=read('supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql');
+  const fn=migration.slice(migration.indexOf('create or replace function portal_private.server_admin_submit_radio_message_v1'),migration.indexOf('create or replace function portal_private.server_admin_submit_agent_radio_message_v1'));
+  assert.match(fn,/cl\.lifecycle_state='ACTIVE'/);
+  assert.match(fn,/cl\.authority_state in/);
+  assert.doesNotMatch(fn,/client target has no active portal recipient/);
+  assert.doesNotMatch(fn,/signed_contract_confirmed_at/);
+  assert.doesNotMatch(fn,/contract_status='ACTIVE'/);
+  assert.match(fn,/v_client,v_contract,null,null,'ADMIN_CLIENT_MESSAGE_SUBMIT'/);
+});
+
+test('Agent Portal frozen page is functionally bound by the server bridge without visual source mutation',()=>{
+  const bridge=read('functions/portal/[[path]].js');
+  assert.match(bridge,/AGENT_ADMIN_CANONICAL_MESSAGE_V1/);
+  assert.match(bridge,/\/portal\/api\/v1\/agent\/messages/);
+  assert.match(bridge,/#page-messages \.actions \.btn/);
+  const canonical=read('portal-src/canonical-transfer-v1_1/agent_externalized.html');
+  assert.match(canonical,/Фактическая отправка станет доступна после серверного подключения\./);
 });
 
 test('Admin static materializer cannot silently emit the stale full-bootstrap Radio owner',()=>{
   const build=read('scripts/materialize-admin-current-modules.mjs');
   assert.match(build,/materialized Radio owner/);
   assert.match(build,/STATIC_RADIO_STALE_OWNER_MARKER/);
-  assert.match(build,/radioMessageOwner=STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
+  assert.match(build,/radioMessageOwner=STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1/);
   assert.match(build,/radioRead=\/v1\/admin\/radio\/bootstrap/);
+  assert.match(build,/radio_agents/);
+  assert.match(build,/radio\/agent-messages/);
 });
 
 test('Dynamic Radio wrapper remains source-compatible with the frozen visual geometry',async()=>{
@@ -155,4 +199,8 @@ test('Frozen Admin Radio polish assets remain byte-for-byte unchanged',()=>{
 
 test('Frozen Client Messages visual/runtime asset remains byte-for-byte unchanged',()=>{
   assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
+});
+
+test('Frozen Agent Portal visual source remains byte-for-byte unchanged',()=>{
+  assert.equal(gitBlobSha('portal-src/canonical-transfer-v1_1/agent_externalized.html'),'6fefc0cc53d21b94855800b7fbde249214e41b95');
 });
