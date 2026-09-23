@@ -120,7 +120,7 @@ async function retireQa(context,eventIds){
 }
 
 const proof={suite:'RADIO_ROOM_ADMIN_CLIENT_STAGE2A_CORRECTIVE_PRODUCTION',releaseHead:HEAD,origin:ORIGIN,sessions:[],historicalCleanup:null,adminInitiated:null,clientInitiated:null,companyRecipient:null,isolation:null,businessIsolation:null,security:null,reload:null,visual:null,assets:null,cleanup:[],pass:false};
-const sessions=[];let browser;const contexts=[];
+const sessions=[];let browser;const contexts=[];let adminContextRef=null;let qaRetired=false;
 let currentQaEventIds=[];
 try{
   const [adminSession,aSession,a2Session,bSession]=await Promise.all([issueSession(QA_ADMIN),issueSession(QA_CLIENT_A),issueSession(QA_CLIENT_A2),issueSession(QA_CLIENT_B)]);
@@ -128,7 +128,7 @@ try{
 
   browser=await chromium.launch({headless:true});
   const adminContext=await browserContext(browser,adminSession),aContext=await browserContext(browser,aSession),a2Context=await browserContext(browser,a2Session),bContext=await browserContext(browser,bSession);
-  contexts.push(adminContext,aContext,a2Context,bContext);
+  adminContextRef=adminContext;contexts.push(adminContext,aContext,a2Context,bContext);
   const adminPage=await adminContext.newPage(),aPage=await aContext.newPage(),a2Page=await a2Context.newPage(),bPage=await bContext.newPage();
 
   await adminPage.goto(ORIGIN+'/portal/admin?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
@@ -161,11 +161,21 @@ try{
   // Scenario A: Admin starts a message with the company before any client message.
   const tag=Date.now().toString(36),adminMessage=`QA STAGE2A ADMIN INIT ${tag}`;
   await selects.nth(2).selectOption(C005.client_id);await radioRoot.locator('textarea').fill(adminMessage);await radioRoot.getByRole('button',{name:'Отправить',exact:true}).click();
+  const adminEvent=await waitUntil(async()=>{
+    const r=await adminBootstrap(adminContext);
+    if(r.status!==200)return null;
+    return (r.body?.data?.radio_messages||[]).find(x=>norm(x?.payload?.message)===adminMessage&&x?.direction==='ADMIN_TO_CLIENT')||null;
+  },'ADMIN_INITIATED_CANONICAL_EVENT',30000,350);
+  assert(adminEvent?.event_id,'ADMIN_INITIATED_CANONICAL_EVENT_MISSING');currentQaEventIds.push(adminEvent.event_id);
   await aPage.goto(ORIGIN+'/portal/client?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
   await selectClientContext(aPage,C005);await openMessages(aPage);
+  const aAfterAdmin=await waitUntil(async()=>{
+    const r=await clientMessages(aContext,C005);
+    const row=(r.body?.messages||[]).find(x=>x.event_id===adminEvent.event_id);
+    return r.status===200&&row?{response:r,row}:null;
+  },'ADMIN_INITIATED_CLIENT_PROJECTION',30000,350);
+  assert(aAfterAdmin.row?.direction==='ADMIN_TO_CLIENT','ADMIN_INITIATED_DIRECTION_MISMATCH');
   await aPage.getByText(adminMessage,{exact:true}).first().waitFor({state:'visible',timeout:30000});
-  const aAfterAdmin=await clientMessages(aContext,C005),adminEvent=(aAfterAdmin.body?.messages||[]).find(x=>norm(x?.payload?.message)===adminMessage);
-  assert(adminEvent?.event_id&&adminEvent?.direction==='ADMIN_TO_CLIENT','ADMIN_INITIATED_CANONICAL_EVENT_MISSING');currentQaEventIds.push(adminEvent.event_id);
 
   // A second portal user of the same company must see the same company thread.
   await a2Page.goto(ORIGIN+'/portal/client?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
@@ -214,7 +224,7 @@ try{
   proof.businessIsolation={businessLeak:0,radioMessageCount:radioMessages.length};
 
   const radioState=await adminPage.evaluate(()=>{const root=document.querySelector('#page-messages > .rona-rs-root[data-kind="radio"]'),selects=root?[...root.querySelectorAll('select')]:[];return{bridge:window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__||null,kindOptions:Array.from(selects[0]?.querySelectorAll('option')||[]).map(o=>o.value),targetOptions:Array.from(selects[2]?.querySelectorAll('option')||[]).map(o=>({value:o.value,text:o.textContent})),rootKind:root?.dataset.kind||null,finalV9:root?.dataset.radioFinalV9||null,cleanHead:Boolean(document.querySelector('#page-messages > .rona-radio-clean-head')),finalDom:{main:Boolean(root?.querySelector('.rf-main')),compose:Boolean(root?.querySelector('.rf-compose')),network:Boolean(root?.querySelector('.rf-network')),bottom:Boolean(root?.querySelector('.rf-bottom')),feed:Boolean(root?.querySelector('.rf-feed')),routing:Boolean(root?.querySelector('.rf-routing'))},activeTitle:[...root?.querySelectorAll('.rf-panel-title,.radio-panel-head h2')||[]].map(x=>x.textContent.trim()).includes('Активные сообщения')}});
-  assert(radioState.bridge==='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V1_LIVE_OWNER','ADMIN_RADIO_CORRECTIVE_OWNER_MARKER_MISSING');
+  assert(radioState.bridge==='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER','ADMIN_RADIO_CORRECTIVE_OWNER_MARKER_MISSING');
   assert(JSON.stringify(radioState.kindOptions)===JSON.stringify(['MESSAGE','NOTIFICATION','ANNOUNCEMENT']),'RADIO_KIND_OPTIONS_CHANGED');
   assert(radioState.targetOptions.every(x=>!String(x.value).startsWith('PORTAL-EVT-')&&!String(x.text).includes('PORTAL-EVT-')),'EVENT_ID_RECIPIENT_OPTION_VISIBLE');
   assert(radioState.rootKind==='radio'&&radioState.finalV9==='1'&&Object.values(radioState.finalDom).every(Boolean)&&radioState.activeTitle,'RADIO_VISUAL_FREEZE_CHANGED');
@@ -232,6 +242,7 @@ try{
   const retired=await retireQa(adminContext,currentQaEventIds);
   assert(retired.status===200&&retired.body?.retired_events===new Set(currentQaEventIds).size,'CURRENT_QA_RETIRE_FAILED');
   proof.cleanup.push({eventIds:[...new Set(currentQaEventIds)],retiredEvents:retired.body.retired_events,retiredTasks:retired.body.retired_tasks});
+  qaRetired=true;
   boot=await adminBootstrap(adminContext);
   assert(!(boot.body?.data?.radio_messages||[]).some(x=>currentQaEventIds.includes(x.event_id)),'QA_EVENT_STILL_IN_ADMIN_RADIO');
   const afterCleanup=await clientMessages(aContext,C005);
@@ -260,6 +271,15 @@ try{
   console.log('ANNOUNCEMENT_CHANGED=false');
   console.log('VISUAL_DELTA=0');
 }finally{
+  if(!qaRetired&&adminContextRef&&currentQaEventIds.length){
+    try{
+      const cleanup=await retireQa(adminContextRef,currentQaEventIds);
+      proof.cleanup.push({eventIds:[...new Set(currentQaEventIds)],retiredEvents:Number(cleanup.body?.retired_events||0),retiredTasks:Number(cleanup.body?.retired_tasks||0),failurePath:true});
+      qaRetired=cleanup.status===200;
+    }catch(error){
+      proof.cleanup.push({eventIds:[...new Set(currentQaEventIds)],failurePath:true,error:String(error?.message||error)});
+    }
+  }
   for(const ctx of contexts)await ctx.close().catch(()=>{});
   if(browser)await browser.close().catch(()=>{});
   for(const s of sessions){
