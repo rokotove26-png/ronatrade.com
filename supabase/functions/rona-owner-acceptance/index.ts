@@ -242,7 +242,7 @@ async function adminSnapshot() {
     select 'SHIPMENT',s.shipment_id,s.shipment_status::text,s.updated_at from portal_private.shipments s where upper(s.shipment_status::text) in ('HOLD','STOPPED','BLOCKED','CONFLICT')
     order by occurred_at desc`;
 
-  const radio = await sql`select id,item_kind,target_scope,target_id,delivery_channel,body_text,active_from,active_until,created_at from portal_private.owner_radio_items where active_until is null or active_until>now() order by created_at desc limit 100`;
+  const radio = await sql`select id,item_kind,target_scope,target_id,delivery_channel,body_text,active_from,active_until,created_at from portal_private.owner_radio_items where item_kind in ('NOTIFICATION','ANNOUNCEMENT') and active_from<=now() and (active_until is null or active_until>now()) order by created_at desc limit 100`;
 
   const analytics = await sql`
     select p.publication_id,p.title,p.prepared_at,p.published_at,pi.id item_id,pi.product,pi.basis,pi.analytics_as_of,pi.analytics_period_from,pi.analytics_period_to,pi.actual_value,pi.forecast_value,pi.analytics_unit,pi.forecast_scenario,pi.content_text,pi.metadata
@@ -376,14 +376,84 @@ async function setAgentAssignment(ctx, req, clientId) {
   });
 }
 
+async function validateRadioPublicationTarget(scope,targetId){
+  if(scope==='CLIENT'){
+    const rows=await sql`
+      select cl.client_id
+      from portal_private.clients cl
+      where cl.client_id=${targetId}
+        and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and cl.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+      limit 1`;
+    if(rows.length!==1)throw Object.assign(new Error('RADIO_CLIENT_TARGET_NOT_CURRENT'),{status:409});
+  }else if(scope==='AGENT'){
+    const rows=await sql`
+      select ap.agent_person_id
+      from portal_private.agent_persons ap
+      where ap.agent_person_id=${targetId}
+        and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+        and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+      limit 1`;
+    if(rows.length!==1)throw Object.assign(new Error('RADIO_AGENT_TARGET_NOT_CURRENT'),{status:409});
+  }
+}
 async function postRadio(ctx, req) {
-  const b=await jsonBody(req), kind=text(b.kind,'KIND',32).toUpperCase(), scope=text(b.scope,'SCOPE',32).toUpperCase(), body=text(b.body,'BODY',5000), targetId=String(b.targetId||'').trim()||null;
-  if(!['MESSAGE','NOTIFICATION','ANNOUNCEMENT'].includes(kind)) throw Object.assign(new Error('INVALID_KIND'),{status:400});
-  if(!['CLIENT','AGENT','ALL_CLIENTS','ALL_AGENTS'].includes(scope)) throw Object.assign(new Error('INVALID_SCOPE'),{status:400});
-  if(['CLIENT','AGENT'].includes(scope)&&!targetId) throw Object.assign(new Error('TARGET_REQUIRED'),{status:400});
-  const rows=await sql`insert into portal_private.owner_radio_items(item_kind,target_scope,target_id,body_text,created_by) values(${kind},${scope},${targetId},${body},${ctx.userId}::uuid) returning id`;
-  await sql.begin(async tx=>audit(tx,ctx,'OWNER_RADIO_ITEM_CREATED','RADIO',String(rows[0].id),req,{kind,scope,targetId}));
-  return {id:String(rows[0].id)};
+  const b=await jsonBody(req),
+    kind=text(b.kind,'KIND',32).toUpperCase(),
+    scope=text(b.scope,'SCOPE',32).toUpperCase(),
+    body=text(b.body,'BODY',5000),
+    targetId=String(b.targetId||'').trim()||null,
+    rawIdempotency=String(b.idempotencyKey||b.idempotency_key||'').trim(),
+    idempotencyKey=rawIdempotency||crypto.randomUUID(),
+    {requestId,correlationId}=reqIds(req);
+  if(kind==='MESSAGE')throw Object.assign(new Error('RADIO_MESSAGE_CANONICAL_ROUTE_REQUIRED'),{status:409});
+  if(!['NOTIFICATION','ANNOUNCEMENT'].includes(kind))throw Object.assign(new Error('INVALID_KIND'),{status:400});
+  if(!['CLIENT','AGENT','ALL_CLIENTS','ALL_AGENTS'].includes(scope))throw Object.assign(new Error('INVALID_SCOPE'),{status:400});
+  if(idempotencyKey.length>160)throw Object.assign(new Error('INVALID_IDEMPOTENCY_KEY'),{status:400});
+  if(['CLIENT','AGENT'].includes(scope)&&!targetId)throw Object.assign(new Error('TARGET_REQUIRED'),{status:400});
+  if(['ALL_CLIENTS','ALL_AGENTS'].includes(scope)&&targetId)throw Object.assign(new Error('TARGET_FORBIDDEN_FOR_BROADCAST'),{status:400});
+  await validateRadioPublicationTarget(scope,targetId);
+  const existing=await sql`
+    select id,item_kind,target_scope,target_id,body_text,active_from,active_until
+    from portal_private.owner_radio_items
+    where created_by=${ctx.userId}::uuid and idempotency_key=${idempotencyKey}
+    limit 1`;
+  if(existing.length){
+    const row=existing[0];
+    if(String(row.item_kind)!==kind||String(row.target_scope)!==scope||String(row.target_id||'')!==String(targetId||'')||String(row.body_text)!==body)
+      throw Object.assign(new Error('RADIO_IDEMPOTENCY_CONFLICT'),{status:409});
+    return {id:String(row.id),reused:true,kind,scope,targetId,activeFrom:row.active_from,activeUntil:row.active_until};
+  }
+  const rows=await sql`
+    insert into portal_private.owner_radio_items(
+      item_kind,target_scope,target_id,delivery_channel,body_text,created_by,
+      source_system,idempotency_key,request_id,correlation_id
+    ) values(
+      ${kind},${scope},${targetId},'PORTAL',${body},${ctx.userId}::uuid,
+      'ADMIN_PORTAL_RADIO_STAGE2B',${idempotencyKey},${requestId}::uuid,${correlationId}::uuid
+    )
+    returning id,active_from,active_until`;
+  await sql.begin(async tx=>audit(tx,ctx,`OWNER_RADIO_${kind}_CREATED`,'RADIO',String(rows[0].id),req,{kind,scope,targetId,deliveryChannel:'PORTAL',idempotencyKey}));
+  return {id:String(rows[0].id),reused:false,kind,scope,targetId,activeFrom:rows[0].active_from,activeUntil:rows[0].active_until};
+}
+async function expireRadio(ctx,req,itemId){
+  if(!UUID_RE.test(itemId))throw Object.assign(new Error('INVALID_RADIO_ITEM_ID'),{status:400});
+  const rows=await sql`
+    select id,item_kind,target_scope,target_id,active_until
+    from portal_private.owner_radio_items
+    where id=${itemId}::uuid
+    limit 1`;
+  if(rows.length!==1)throw Object.assign(new Error('RADIO_ITEM_NOT_FOUND'),{status:404});
+  const row=rows[0],kind=String(row.item_kind||'');
+  if(!['NOTIFICATION','ANNOUNCEMENT'].includes(kind))throw Object.assign(new Error('RADIO_ITEM_KIND_NOT_EXPIRABLE_HERE'),{status:409});
+  const changed=await sql`
+    update portal_private.owner_radio_items
+       set active_until=case when active_until is null or active_until>now() then now() else active_until end,
+           updated_at=now()
+     where id=${itemId}::uuid
+     returning id,active_until`;
+  await sql.begin(async tx=>audit(tx,ctx,'OWNER_RADIO_ITEM_EXPIRED','RADIO',itemId,req,{kind,targetScope:String(row.target_scope),targetId:row.target_id||null}));
+  return{id:itemId,kind,activeUntil:changed[0].active_until};
 }
 
 function safeFilename(name){const base=String(name||'document.pdf').split(/[\\/]/).pop()||'document.pdf';const clean=base.replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,120);return clean.toLowerCase().endsWith('.pdf')?clean:`${clean||'document'}.pdf`}
@@ -408,7 +478,7 @@ async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scop
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,a.proposed_price,a.proposed_currency,d.deal_id,w.counter_price,w.counter_currency,w.client_counter_response from portal_private.client_applications a left join portal_private.deals d on d.id=a.linked_deal_key left join portal_private.owner_application_workflow w on w.application_key=a.id where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const deals=await sql`select d.deal_id,d.business_status,cl.legal_name,ct.contract_id from portal_private.deals d join portal_private.clients cl on cl.id=d.client_key join portal_private.contracts ct on ct.id=d.contract_key where d.client_key = any(${keys}::uuid[]) and d.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by d.updated_at desc`;
   const documents=await sql`select d.deal_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  const ids=scope.map(x=>String(x.client_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
+  const ids=scope.map(x=>String(x.client_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where item_kind in ('NOTIFICATION','ANNOUNCEMENT') and active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_CLIENTS' or (target_scope='CLIENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
   return{companies:contracts,prices,applications,deals,documents,analytics:[],news:[],radio};
 }
 
@@ -416,7 +486,7 @@ async function agentBootstrap(ctx){const scope=await agentScope(ctx),keys=scope.
   if(!keys.length)return{companies:[],prices,applications:[],documents:[],radio:[]};
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,d.deal_id,cl.client_id,cl.legal_name from portal_private.client_applications a join portal_private.clients cl on cl.id=a.client_key left join portal_private.deals d on d.id=a.linked_deal_key where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const documents=await sql`select d.deal_id,cl.client_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.clients cl on cl.id=d.client_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  const ids=scope.map(x=>String(x.agent_person_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
+  const ids=scope.map(x=>String(x.agent_person_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where item_kind in ('NOTIFICATION','ANNOUNCEMENT') and active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
   return{companies:scope,prices,applications,documents,radio};
 }
 
@@ -550,7 +620,7 @@ Deno.serve(async req=>{
     let m=path.match(/^\/admin\/applications\/([^/]+)\/(accept|reject|counter-offer|supplier-approved|cancel)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await updateApplication(ctx,req,decodeURIComponent(m[1]),m[2])})}
     m=path.match(/^\/admin\/prices\/([0-9a-f-]+)\/publication$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await publishPrice(ctx,req,m[1])})}
     m=path.match(/^\/admin\/clients\/([^/]+)\/agent$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await setAgentAssignment(ctx,req,decodeURIComponent(m[1]))})}
-    if(path==='/admin/radio'&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await postRadio(ctx,req)})}
+    if(path==='/admin/radio'&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await postRadio(ctx,req)})}m=path.match(/^\/admin\/radio\/([0-9a-f-]+)\/expire$/i);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await expireRadio(ctx,req,m[1])})}
     m=path.match(/^\/admin\/deals\/([^/]+)\/(addendum|invoice)$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await registerDealPdf(ctx,req,decodeURIComponent(m[1]),m[2]==='addendum'?'ADDENDUM':'INVOICE',false)})}
     m=path.match(/^\/admin\/deals\/([^/]+)\/send-to-payments$/);if(m&&method==='POST'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await paymentHandoff(ctx,req,decodeURIComponent(m[1]))})}
     m=path.match(/^\/admin\/documents\/([^/]+)\/download$/);if(m&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await signedUrlForDocument(ctx,decodeURIComponent(m[1]),'admin')})}
