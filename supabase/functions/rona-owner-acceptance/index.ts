@@ -93,13 +93,16 @@ function reqIds(req) {
   const r = req.headers.get("x-request-id"), c = req.headers.get("x-correlation-id");
   return { requestId: r && UUID_RE.test(r) ? r : crypto.randomUUID(), correlationId: c && UUID_RE.test(c) ? c : null };
 }
-async function audit(tx, ctx, action, entityType, entityId, req, metadata = {}) {
-  const { requestId, correlationId } = reqIds(req);
+async function auditWithIds(tx, ctx, action, entityType, entityId, requestId, correlationId, metadata = {}) {
   const actorUserId=ctx.actorUserId||ctx.userId;
   const actorRole=ctx.impersonation?"ADMIN":ctx.roles.includes("ADMIN")?"ADMIN":ctx.roles.includes("CLIENT")?"CLIENT":ctx.roles.includes("AGENT")?"AGENT":"RONA_OPERATOR";
   const provenance=ctx.impersonation?impersonationMetadata({authUserId:ctx.actorAuthUserId,portalUserId:actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation):{};
   await tx`insert into portal_private.audit_events(actor_user_id,actor_role,action,entity_type,entity_id,request_id,correlation_id,metadata)
     values(${actorUserId}::uuid,${actorRole},${action},${entityType},${entityId},${requestId}::uuid,${correlationId||ctx.impersonation?.correlationId||null}::uuid,${sql.json({...metadata,...provenance})})`;
+}
+async function audit(tx, ctx, action, entityType, entityId, req, metadata = {}) {
+  const { requestId, correlationId } = reqIds(req);
+  return auditWithIds(tx,ctx,action,entityType,entityId,requestId,correlationId,metadata);
 }
 
 async function clientScope(ctx) {
@@ -432,8 +435,21 @@ async function postRadio(ctx, req) {
       ${kind},${scope},${targetId},'PORTAL',${body},${ctx.userId}::uuid,
       'ADMIN_PORTAL_RADIO_STAGE2B',${idempotencyKey},${requestId}::uuid,${correlationId}::uuid
     )
+    on conflict (created_by,idempotency_key) where idempotency_key is not null do nothing
     returning id,active_from,active_until`;
-  await sql.begin(async tx=>audit(tx,ctx,`OWNER_RADIO_${kind}_CREATED`,'RADIO',String(rows[0].id),req,{kind,scope,targetId,deliveryChannel:'PORTAL',idempotencyKey}));
+  if(!rows.length){
+    const raced=await sql`
+      select id,item_kind,target_scope,target_id,body_text,active_from,active_until
+      from portal_private.owner_radio_items
+      where created_by=${ctx.userId}::uuid and idempotency_key=${idempotencyKey}
+      limit 1`;
+    if(raced.length!==1)throw Object.assign(new Error('RADIO_IDEMPOTENCY_RESOLUTION_FAILED'),{status:409});
+    const row=raced[0];
+    if(String(row.item_kind)!==kind||String(row.target_scope)!==scope||String(row.target_id||'')!==String(targetId||'')||String(row.body_text)!==body)
+      throw Object.assign(new Error('RADIO_IDEMPOTENCY_CONFLICT'),{status:409});
+    return {id:String(row.id),reused:true,kind,scope,targetId,activeFrom:row.active_from,activeUntil:row.active_until};
+  }
+  await sql.begin(async tx=>auditWithIds(tx,ctx,`OWNER_RADIO_${kind}_CREATED`,'RADIO',String(rows[0].id),requestId,correlationId,{kind,scope,targetId,deliveryChannel:'PORTAL',idempotencyKey}));
   return {id:String(rows[0].id),reused:false,kind,scope,targetId,activeFrom:rows[0].active_from,activeUntil:rows[0].active_until};
 }
 async function expireRadio(ctx,req,itemId){
