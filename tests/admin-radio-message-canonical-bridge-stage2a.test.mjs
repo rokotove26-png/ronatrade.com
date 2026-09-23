@@ -255,7 +255,10 @@ test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
   assert.match(main,/api\(c,'\/portal\/api\/v1\/admin\/bootstrap'/);
   assert.match(main,/\[401,403\]\.includes\(r\.status\)/);
-  assert.match(main,/BACKEND_HEALTH',120000,5000/);
+  assert.match(main,/Date\.now\(\)-started<120000/);
+  assert.match(main,/\[500,502,503,504,520,522,524,546\]\.includes\(r\.status\)/);
+  assert.match(main,/setTimeout\(resolve,5000\)/);
+  assert.match(main,/BACKEND_HEALTH_TIMEOUT_/);
   assert.match(main,/for\(let attempt=1;attempt<=3;attempt\+\+\)/);
   assert.match(main,/window\.__RONA_OWNER_ADMIN_READY__===true/);
   assert.match(main,/__RONA_REMAINING_SECTIONS_READY__/);
