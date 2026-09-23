@@ -9,7 +9,8 @@ const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));
 test('Stage 2A corrective lives in the actual production Radio owner wrapper',()=>{
   const radio=read('functions/portal/remaining-sections-ui.js');
   assert.match(radio,/import \{ onRequest as baseRemaining \} from '\.\/remaining-sections-r2-base\.js'/);
-  assert.match(radio,/source\.indexOf\("window\.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__="/);\n  assert.match(radio,/source\.slice\(0,radioStart\)\+RADIO_DIRECT_RENDER\+source\.slice\(radioEnd\)/);
+  assert.match(radio,/source\.indexOf\("window\.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__="/);
+  assert.match(radio,/source\.slice\(0,radioStart\)\+RADIO_DIRECT_RENDER\+source\.slice\(radioEnd\)/);
   assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER/);
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
