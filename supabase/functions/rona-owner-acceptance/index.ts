@@ -383,7 +383,7 @@ async function validateRadioPublicationTarget(scope,targetId){
       from portal_private.clients cl
       where cl.client_id=${targetId}
         and cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and cl.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and cl.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
       limit 1`;
     if(rows.length!==1)throw Object.assign(new Error('RADIO_CLIENT_TARGET_NOT_CURRENT'),{status:409});
   }else if(scope==='AGENT'){
@@ -392,7 +392,7 @@ async function validateRadioPublicationTarget(scope,targetId){
       from portal_private.agent_persons ap
       where ap.agent_person_id=${targetId}
         and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and ap.authority_state not in ('REJECTED'::portal_private.authority_state_enum,'SUPERSEDED'::portal_private.authority_state_enum)
+        and ap.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
       limit 1`;
     if(rows.length!==1)throw Object.assign(new Error('RADIO_AGENT_TARGET_NOT_CURRENT'),{status:409});
   }
