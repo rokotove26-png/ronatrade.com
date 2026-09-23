@@ -15,6 +15,7 @@ on:
       - 'supabase/functions/rona-portal-api/index.ts'
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
+      - 'supabase/migrations/20260924010000_admin_radio_stage2a_qa_identity_provisioning_v1.sql'
       - 'scripts/qa-admin-radio-message-stage2a-production.mjs'
       - 'scripts/qa-admin-radio-stage2a-deployment-equivalence.mjs'
       - 'scripts/qa-admin-radio-stage2a-production-quiet-gate.mjs'
