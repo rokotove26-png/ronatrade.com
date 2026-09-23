@@ -30,6 +30,7 @@ const TOKEN_FIELDS=new Set(['grant_type','client_id','code','redirect_uri','code
 const REVOKE_FIELDS=new Set(['token','token_type_hint','client_id']);
 const REFRESH_CONCURRENT_GRACE_MS=5*60*1000;
 const REFRESH_CONCURRENT_MAX_CHILDREN=3;
+const REFRESH_ONE_TIME_RECOVERY_MS=2*60*60*1000;
 
 function json(body,status=200){
   return new Response(JSON.stringify(body),{status,headers:{
@@ -156,6 +157,17 @@ async function refreshGrant(form,cfg,client,segment){
             return {kind:'grace',tokenId:inserted[0].token_id,activeSiblings};
           }
         }
+        const withinRecovery=row.revoked_reason==='REFRESH_ROTATED'&&usedAt>0&&(Date.now()-usedAt)>=0&&(Date.now()-usedAt)<=REFRESH_ONE_TIME_RECOVERY_MS;
+        if(withinRecovery&&expiresAt>Date.now()&&row.rotated_to_token_id){
+          const activeChild=await tx`select token_id from portal_private.mcp_oauth_tokens where token_id=${row.rotated_to_token_id}::uuid and token_family_id=${row.token_family_id}::uuid and server_slug=${cfg.server_slug} and functional_role=${cfg.business_role}::portal_private.ai_business_role_enum and client_id=${client.client_id} and revoked_at is null and refresh_expires_at>now() limit 1`;
+          if(activeChild.length===1){
+            const claimed=await tx`update portal_private.mcp_oauth_tokens set revoked_reason='REFRESH_RECOVERY_CONSUMED' where token_id=${row.token_id}::uuid and revoked_reason='REFRESH_ROTATED' returning token_id`;
+            if(claimed.length===1){
+              const inserted=await tx`insert into portal_private.mcp_oauth_tokens(server_slug,functional_role,identity_id,client_id,owner_portal_user_id,scope,resource,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at,token_family_id,parent_token_id) values(${cfg.server_slug},${cfg.business_role}::portal_private.ai_business_role_enum,${cfg.identity_id},${client.client_id},${row.owner_portal_user_id}::uuid,${row.scope},${boundResource},${material.accessHash},${material.refreshHash},now()+interval '15 minutes',${row.refresh_expires_at},${row.token_family_id}::uuid,${row.token_id}::uuid) returning token_id`;
+              return {kind:'recovery',tokenId:inserted[0].token_id};
+            }
+          }
+        }
         return {kind:'stale_rotated'};
       }
       return {kind:'invalid'};
@@ -171,6 +183,10 @@ async function refreshGrant(form,cfg,client,segment){
   });
   if(result.kind==='grace'){
     audit('RONA_OAUTH_REFRESH_STALE_REUSE_GRACE_ISSUED',segment,form,200,'CONCURRENT_REFRESH_GRACE_ISSUED',{grace_ms:REFRESH_CONCURRENT_GRACE_MS,active_siblings_before:Number(result.activeSiblings||0),max_children:REFRESH_CONCURRENT_MAX_CHILDREN});
+    return json({access_token:material.access,token_type:'Bearer',expires_in:900,scope:boundScope,refresh_token:material.refresh});
+  }
+  if(result.kind==='recovery'){
+    audit('RONA_OAUTH_REFRESH_ONE_TIME_RECOVERY_ISSUED',segment,form,200,'STALE_PARENT_ONE_TIME_RECOVERY_ISSUED',{recovery_ms:REFRESH_ONE_TIME_RECOVERY_MS});
     return json({access_token:material.access,token_type:'Bearer',expires_in:900,scope:boundScope,refresh_token:material.refresh});
   }
   if(result.kind==='stale_rotated'){
