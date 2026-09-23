@@ -82,6 +82,10 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
   assert.match(radio,/radio_audience_clients/);
   assert.match(radio,/radio_audience_agents/);
   assert.match(radio,/idempotencyKey/);
+  assert.match(radio,/function radioCaptureDraft\(\)/);
+  assert.match(radio,/function radioSetIfOption\(select,value\)/);
+  assert.match(radio,/radioDraftState=radioCaptureDraft\(\);renderRadio\(\)/);
+  assert.match(radio,/if\(draft\?\.target\)radioSetIfOption\(target,draft\.target\)/);
   assert.match(radio,/await post\('\/admin\/radio'/);
   assert.match(radio,/activeRows=\[\.\.\.canonicalRows,\.\.\.broadcastRows\]/);
   for(const token of [
