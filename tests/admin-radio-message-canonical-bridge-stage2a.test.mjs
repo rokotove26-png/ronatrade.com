@@ -324,6 +324,36 @@ test('Stage 2A QA issuer bypasses PostgREST schema cache for new QA-only RPCs',(
   assert.match(deployGate,/supabase\/functions\/rona-g82-github-oidc-browser-qa-20260816\/deno\.json/);
 });
 
+test('Stage 2A QA Auth issuance is retry-idempotent and Stage2A cleanup avoids PostgREST',()=>{
+  const issuer=read('supabase/functions/rona-g82-github-oidc-browser-qa-20260816/index.ts');
+
+  assert.match(issuer,/async function createRadioStage2AAuth/);
+  assert.match(issuer,/RONA_RADIO_STAGE2A_AUTH_V1:/);
+  assert.match(issuer,/crypto\.subtle\.sign\("HMAC"/);
+  assert.match(issuer,/qa-radio-stage2a-"\+runId\+"-"\+selectorKey/);
+  assert.match(issuer,/const existing=await radioStage2ASignIn/);
+  assert.match(issuer,/const signed=await radioStage2ASignIn/);
+  assert.match(issuer,/QA_STAGE2A_AUTH_NOT_READY/);
+  assert.match(issuer,/const selectorKey=identitySelector\.replaceAll\("-",""\)\.slice\(0,12\)/);
+  assert.doesNotMatch(issuer,/const nonce=crypto\.randomUUID\(\)\.replaceAll\("-",""\)\.slice\(0,12\);\s*const login="qa_radio_stage2a_/);
+
+  assert.match(issuer,/async function radioStage2ARetireDirect/);
+  assert.match(issuer,/db\.begin\(async sql=>/);
+  assert.match(issuer,/select id::text,auth_user_id::text from portal_private\.portal_users where source_system=\$\{RADIO_STAGE2A_SOURCE\}/);
+  assert.match(issuer,/await radioStage2ARetireDirect\(String\(rows\[0\]\.id\),authId/);
+
+  const cleanupStart=issuer.indexOf('async function cleanupRadioStage2AAll');
+  const directoryStart=issuer.indexOf('async function radioStage2AOperationalDirectory',cleanupStart);
+  const cleanupBlock=issuer.slice(cleanupStart,directoryStart);
+  assert.doesNotMatch(cleanupBlock,/pvt\(/);
+
+  const revokeStart=issuer.indexOf('async function revokeRadioStage2A');
+  const revoke430Start=issuer.indexOf('async function revoke430',revokeStart);
+  const revokeBlock=issuer.slice(revokeStart,revoke430Start);
+  assert.doesNotMatch(revokeBlock,/pvt\(/);
+  assert.match(revokeBlock,/check\.error&&String\(check\.error\?\.status\|\|""\)!=="404"/);
+});
+
 test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin bootstrap with bounded reloads',()=>{
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
