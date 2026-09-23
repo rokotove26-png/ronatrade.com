@@ -35,7 +35,7 @@ test('Stage 2B provides audit-safe expiry instead of deleting radio evidence',()
   assert.match(owner,/async function expireRadio/);
   assert.match(owner,/OWNER_RADIO_ITEM_EXPIRED/);
   assert.match(owner,/active_until=case when active_until is null or active_until>now\(\) then now\(\)/);
-  assert.match(owner,/\/admin\/radio\/\(\[0-9a-f-\]\+\)\\\/expire/);
+  assert.ok(owner.includes("m=path.match(/^\\/admin\\/radio\\/([0-9a-f-]+)\\/expire$/i)"),'expire route missing');
   assert.doesNotMatch(owner,/delete\s+from\s+portal_private\.owner_radio_items/i);
 });
 
