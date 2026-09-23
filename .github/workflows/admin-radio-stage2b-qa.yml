@@ -1,0 +1,64 @@
+name: Admin Radio Notification Announcement Stage 2B QA
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/remaining-sections-r2-base.js'
+      - 'scripts/materialize-admin-current-modules.mjs'
+      - 'supabase/functions/rona-portal-api/admin.ts'
+      - 'supabase/functions/rona-owner-acceptance/index.ts'
+      - 'supabase/migrations/20260923164500_admin_radio_stage2b_notification_announcement_v1.sql'
+      - 'tests/admin-radio-stage2b-notification-announcement.test.mjs'
+      - 'scripts/qa-admin-radio-stage2b-production.mjs'
+      - '.github/workflows/admin-radio-stage2b-qa.yml'
+      - '.github/workflows/admin-radio-stage2b-production-qa.yml'
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/remaining-sections-r2-base.js'
+      - 'scripts/materialize-admin-current-modules.mjs'
+      - 'supabase/functions/rona-portal-api/admin.ts'
+      - 'supabase/functions/rona-owner-acceptance/index.ts'
+      - 'supabase/migrations/20260923164500_admin_radio_stage2b_notification_announcement_v1.sql'
+      - 'tests/admin-radio-stage2b-notification-announcement.test.mjs'
+      - 'scripts/qa-admin-radio-stage2b-production.mjs'
+      - '.github/workflows/admin-radio-stage2b-qa.yml'
+      - '.github/workflows/admin-radio-stage2b-production-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stage2b:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Stage 2B production proof syntax
+        run: node --check scripts/qa-admin-radio-stage2b-production.mjs
+      - name: Stage 2B publication authority contract
+        run: node --test tests/admin-radio-stage2b-notification-announcement.test.mjs
+      - name: Stage 2A MESSAGE non-regression
+        run: node --test tests/admin-radio-message-canonical-bridge-stage2a.test.mjs
+      - name: Materialized production owner gate
+        run: node scripts/materialize-admin-current-modules.mjs
+      - name: Client visual freeze non-regression
+        run: node scripts/qa-client-portal-visual-freeze.mjs
+      - name: Scope guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only ${{ github.event.pull_request.base.sha || github.event.before }} HEAD > /tmp/changed.txt || true
+          cat /tmp/changed.txt
+          if grep -E '^(assets/portal-runtime/client-messages-archive-v1\.js|assets/portal-admin-radio-wide-v10\.js|assets/portal-admin-radio-final-v9\.js|functions/portal/deals-current-state-ui\.js|functions/portal/admin-payments|supabase/functions/.*/rail)' /tmp/changed.txt; then
+            echo 'STAGE2B_SCOPE_GUARD=FAIL' >&2
+            exit 1
+          fi
+          echo 'STAGE2B_SCOPE_GUARD=PASS'

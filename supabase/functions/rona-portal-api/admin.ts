@@ -86,6 +86,42 @@ async function adminRadioClients(){
   `;
 }
 
+async function adminRadioAudienceClients(){
+  return await sql`
+    select cl.client_id,cl.legal_name,'CLIENT'::text as audience_scope
+    from portal_private.clients cl
+    where cl.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and cl.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    order by cl.legal_name,cl.client_id
+  `;
+}
+
+async function adminRadioAudienceAgents(){
+  return await sql`
+    select ap.agent_person_id,
+           coalesce(ap.display_alias,ap.full_name,ap.agent_person_id) as agent_name,
+           'AGENT'::text as audience_scope
+    from portal_private.agent_persons ap
+    where ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+    order by agent_name,ap.agent_person_id
+  `;
+}
+
+async function adminRadioBroadcasts(){
+  return await sql`
+    select id::text as id,item_kind,target_scope,target_id,delivery_channel,body_text,
+           active_from,active_until,created_at,updated_at,source_system
+    from portal_private.owner_radio_items
+    where item_kind in ('NOTIFICATION','ANNOUNCEMENT')
+      and delivery_channel='PORTAL'
+      and active_from<=now()
+      and (active_until is null or active_until>now())
+    order by created_at desc
+    limit 500
+  `;
+}
+
 async function adminRadioMessages(){
   return await sql`
     select
@@ -165,15 +201,22 @@ async function adminClientIntake(){
 }
 
 export async function adminRadioBootstrap(){
-  const [radioClients,radioMessages]=await Promise.all([
+  const [radioClients,radioMessages,radioAudienceClients,radioAudienceAgents,radioBroadcasts]=await Promise.all([
     adminRadioClients(),
-    adminRadioMessages()
+    adminRadioMessages(),
+    adminRadioAudienceClients(),
+    adminRadioAudienceAgents(),
+    adminRadioBroadcasts()
   ]);
   return{
     generated_at:new Date().toISOString(),
     radio_clients:radioClients,
     radio_messages:radioMessages,
-    radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"
+    radio_audience_clients:radioAudienceClients,
+    radio_audience_agents:radioAudienceAgents,
+    radio_broadcasts:radioBroadcasts,
+    radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1",
+    radio_broadcast_projection_contract:"RADIO_NOTIFICATION_ANNOUNCEMENT_V1"
   };
 }
 

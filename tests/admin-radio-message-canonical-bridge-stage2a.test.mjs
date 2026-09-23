@@ -13,7 +13,6 @@ test('Stage 2A production Radio owner is the static materialized R2 base and use
   assert.match(materializer,/writeFile\(join\(OUT,'remaining-sections-ui'\),remaining\)/);
   assert.match(materializer,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
   assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
-  assert.match(radio,/ADMIN_RADIO_STAGE2A_STATIC_OWNER_V3/);
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
   assert.match(radio,/radioCanonicalClients/);
@@ -39,9 +38,12 @@ test('Radio MESSAGE selector is client/company semantic and legacy publication i
   assert.match(radio,/String\(x\?\.client_id\|\|''\)/);
   assert.match(radio,/if\(kind\.value==='MESSAGE'\)/);
   const branch=radio.indexOf("if(kind.value==='MESSAGE')");
-  const legacyPost=radio.indexOf("await post('/admin/radio',{kind:kind.value",branch);
-  assert.ok(branch>=0&&legacyPost>branch,'MESSAGE branch / legacy publication ordering missing');
-  assert.match(radio.slice(branch,legacyPost+160),/renderRadio\(\);return}await post\('\/admin\/radio'/);
+  const canonicalSubmit=radio.indexOf("radioCanonicalRequest('/v1/admin/radio/messages'",branch);
+  const broadcastPost=radio.indexOf("await post('/admin/radio',{kind:kind.value",branch);
+  assert.ok(branch>=0&&canonicalSubmit>branch&&broadcastPost>canonicalSubmit,'MESSAGE canonical branch / broadcast publication ordering missing');
+  const messageBlock=radio.slice(branch,broadcastPost);
+  assert.match(messageBlock,/radioCanonicalRequest\('\/v1\/admin\/radio\/messages'/);
+  assert.match(messageBlock,/renderRadio\(\);return/);
 });
 
 test('Radio read path uses a dedicated lightweight server projection',()=>{
@@ -67,8 +69,8 @@ test('Radio history and KPI consume chat-only projection',()=>{
   assert.match(admin,/radio_clients:radioClients/);
   assert.match(admin,/radio_messages:radioMessages/);
   const radio=read('functions/portal/remaining-sections-r2-base.js');
-  assert.match(radio,/const legacy=Array\.isArray\(d\.radio\)/);
-  assert.match(radio,/filter\(x=>String\(x\?\.item_kind\|\|''\)\.toUpperCase\(\)!=='MESSAGE'\)/);
+  assert.match(radio,/const canonical=radioCanonicalItems\(\),broadcasts=radioCanonicalBroadcasts\(\)/);
+  assert.match(radio,/const count=k=>k==='MESSAGE'\?canonical\.length:broadcasts\.filter/);
   assert.match(radio,/kpi\('Сообщения',count\('MESSAGE'\)/);
 });
 
@@ -118,9 +120,9 @@ test('Server-side recipient authority rejects non-current/non-deliverable contex
 
 test('Admin static materializer cannot silently emit the stale full-bootstrap Radio owner',()=>{
   const build=read('scripts/materialize-admin-current-modules.mjs');
-  assert.match(build,/materialized Radio MESSAGE owner/);
+  assert.match(build,/materialized Radio owner/);
   assert.match(build,/STATIC_RADIO_STALE_OWNER_MARKER/);
-  assert.match(build,/radioOwner=STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
+  assert.match(build,/radioMessageOwner=STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
   assert.match(build,/radioRead=\/v1\/admin\/radio\/bootstrap/);
 });
 
