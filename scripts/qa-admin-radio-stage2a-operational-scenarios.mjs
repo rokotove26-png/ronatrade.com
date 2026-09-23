@@ -10,6 +10,18 @@ const AGENT_MESSAGE_FORBIDDEN_KEYS=['payload','actorUserId','actor_user_id','act
 const canonicalAgentMessage=m=>Object.fromEntries(AGENT_MESSAGE_KEYS.map(k=>[k,m?.[k]??null]));
 const orderedMessages=xs=>(Array.isArray(xs)?xs:[]).map(canonicalAgentMessage).sort((a,b)=>String(a.eventId).localeCompare(String(b.eventId)));
 
+async function selectAdminRecipient(ui,scope,value,label){
+  const scopeSelect=ui.selects.nth(1),recipientSelect=ui.selects.nth(2);
+  const current=await scopeSelect.inputValue().catch(()=>null);
+  if(current!==scope)await scopeSelect.selectOption(scope);
+  await wait(async()=>{
+    const values=await recipientSelect.locator('option').evaluateAll(os=>os.map(o=>o.value));
+    return values.includes(value);
+  },label+'_OPTION_READY',30000,100);
+  await recipientSelect.selectOption(value);
+  assert(await recipientSelect.inputValue()===value,label+'_SELECTION_MISMATCH');
+}
+
 async function proveAgentBootstrapParity(session,ctx,label,expectedAgentPersonId){
   const direct=await directAgentBootstrap(session),proxy=await proxyAgentBootstrap(ctx);
   assert(direct.status===200,label+'_DIRECT_BOOT_HTTP_'+direct.status);
@@ -44,7 +56,7 @@ export async function runRoundTrips(x){
 
   // A. Admin -> Client plus company-scope and cross-client isolation.
   let ui=await adminDirectories(adminPage);
-  await ui.selects.nth(1).selectOption('CLIENT');await ui.selects.nth(2).selectOption(C005.client_id);
+  await selectAdminRecipient(ui,'CLIENT',C005.client_id,'ADMIN_TO_CLIENT_RECIPIENT');
   const adminClientMessage=`QA STAGE2A ADMIN CLIENT ${tag}`;await ui.root.locator('textarea').fill(adminClientMessage);
   const acWait=adminPage.waitForResponse(r=>r.url().includes('/portal/api/v1/admin/radio/messages')&&r.request().method()==='POST',{timeout:20000});
   await ui.root.getByRole('button',{name:'Отправить',exact:true}).click();
@@ -76,12 +88,12 @@ export async function runRoundTrips(x){
   await wait(()=>adminPage.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_RELOAD_READY',60000,250);
   ui=await adminDirectories(adminPage);
   await wait(async()=>norm(await ui.root.innerText()).includes(subject),'CLIENT_TO_ADMIN_ADMIN_UI');
-  await ui.selects.nth(1).selectOption('CLIENT');await ui.selects.nth(2).selectOption(C005.client_id);await ui.root.locator('textarea').fill(reply);await ui.root.getByRole('button',{name:'Отправить',exact:true}).click();
+  await selectAdminRecipient(ui,'CLIENT',C005.client_id,'CLIENT_REPLY_RECIPIENT');await ui.root.locator('textarea').fill(reply);await ui.root.getByRole('button',{name:'Отправить',exact:true}).click();
   const replied=await wait(async()=>{const r=await clientMessages(clientAContext,C005),v=(r.body?.messages||[]).find(z=>z.event_id===clientEvent.event_id);return v?.client_response_text===reply?v:null},'CLIENT_REPLY_PERSIST',45000,400);
   proof.clientToAdmin={eventId:clientEvent.event_id,responsePublishedAt:replied.client_response_published_at};
 
   // C. Admin -> Agent.
-  ui=await adminDirectories(adminPage);await ui.selects.nth(1).selectOption('AGENT');await ui.selects.nth(2).selectOption(A001.agent_person_id);
+  ui=await adminDirectories(adminPage);await selectAdminRecipient(ui,'AGENT',A001.agent_person_id,'ADMIN_TO_AGENT_RECIPIENT');
   const adminAgentMessage=`QA STAGE2A ADMIN AGENT ${tag}`;await ui.root.locator('textarea').fill(adminAgentMessage);
   const aaWait=adminPage.waitForResponse(r=>r.url().includes('/portal/api/v1/admin/radio/agent-messages')&&r.request().method()==='POST',{timeout:20000});
   await ui.root.getByRole('button',{name:'Отправить',exact:true}).click();
