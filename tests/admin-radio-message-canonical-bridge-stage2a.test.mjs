@@ -248,10 +248,11 @@ test('Stage 2A QA issuer is transient-resilient and performs stale-identity clea
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
 
-  assert.match(helpers,/const maxAttempts=waitForActive\?60:6/);
+  assert.match(helpers,/const maxAttempts=waitForActive\?12:6/);
+  assert.match(helpers,/const requestTimeoutMs=path==='\/issue'\?90000:45000/);
   assert.match(helpers,/\[429,500,502,503,504,520,522,524,546\]\.includes\(r\.status\)/);
   assert.match(helpers,/RESOURCE_LIMIT/);
-  assert.match(helpers,/AbortSignal\.timeout\(20000\)/);
+  assert.match(helpers,/AbortSignal\.timeout\(requestTimeoutMs\)/);
   assert.match(helpers,/ISSUER_REGION='eu-central-1'/);
   assert.match(helpers,/'x-region':ISSUER_REGION/);
   assert.match(helpers,/export async function cleanupQa\(\)\{return issuerCall\('\/cleanup'\)\}/);
