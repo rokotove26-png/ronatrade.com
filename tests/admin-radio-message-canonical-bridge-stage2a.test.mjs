@@ -305,6 +305,25 @@ test('Stage 2A QA directory and identity provisioning are transactional, service
   assert.match(migration,/grant execute on function portal_private\.radio_stage2a_provision_identity_v1\(uuid,uuid,uuid,text,text\) to service_role/);
 });
 
+test('Stage 2A QA issuer bypasses PostgREST schema cache for new QA-only RPCs',()=>{
+  const issuer=read('supabase/functions/rona-g82-github-oidc-browser-qa-20260816/index.ts');
+  const deno=read('supabase/functions/rona-g82-github-oidc-browser-qa-20260816/deno.json');
+  const workflow=read('.github/workflows/admin-radio-message-stage2a-production-qa.yml');
+  const deployGate=read('scripts/qa-admin-radio-stage2a-deployment-equivalence.mjs');
+
+  assert.match(issuer,/import postgres from "postgres"/);
+  assert.match(issuer,/Deno\.env\.get\("SUPABASE_DB_URL"\)/);
+  assert.match(issuer,/postgres\(QA_DB_URL,\{prepare:false,max:1,idle_timeout:1,connect_timeout:10,max_lifetime:30\}\)/);
+  assert.match(issuer,/select portal_private\.radio_stage2a_operational_directory_v1\(\) as data/);
+  assert.match(issuer,/select portal_private\.radio_stage2a_provision_identity_v1\(/);
+  assert.doesNotMatch(issuer,/\.rpc\("radio_stage2a_operational_directory_v1"/);
+  assert.doesNotMatch(issuer,/\.rpc\("radio_stage2a_provision_identity_v1"/);
+  assert.match(deno,/npm:postgres@3\.4\.7/);
+  assert.match(workflow,/supabase\/functions\/rona-g82-github-oidc-browser-qa-20260816\/\*\*/);
+  assert.match(deployGate,/supabase\/functions\/rona-g82-github-oidc-browser-qa-20260816\/index\.ts/);
+  assert.match(deployGate,/supabase\/functions\/rona-g82-github-oidc-browser-qa-20260816\/deno\.json/);
+});
+
 test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin bootstrap with bounded reloads',()=>{
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
