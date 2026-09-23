@@ -4,6 +4,7 @@ const PORTAL_API=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const CANDIDATE_API=`${SUPABASE_URL}/functions/v1/rona-portal-api-candidate-20260817`;
 // Existing production slot hosts the canonical Client deal-document service while the project Edge Function quota is full.
 const CLIENT_DEAL_DOCUMENTS_API=`${SUPABASE_URL}/functions/v1/rona-temp-upload-order-20260816`;
+const EDGE_REGION='eu-central-1';
 const ACCESS_COOKIE='rona_portal_at';
 const REFRESH_COOKIE='rona_portal_rt';
 const IMPERSONATION_COOKIE='rona_admin_imp';
@@ -102,7 +103,7 @@ export async function onRequest(context){
   }else if(!['GET','HEAD'].includes(request.method))body=await request.clone().arrayBuffer();
   const selection=backendSelection(context,url,path,request.method);
   const forward=async token=>{
-    const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json'});
+    const h=new Headers({authorization:`Bearer ${token}`,accept:request.headers.get('accept')||'application/json','x-region':EDGE_REGION});
     for(const name of['content-type','x-request-id','x-correlation-id','x-idempotency-key','x-current-document-id','x-rona-client-source','x-rona-client-refresh-reason']){const v=request.headers.get(name);if(v)h.set(name,v)}
     if(impersonationToken){
       h.set('x-rona-admin-impersonation-token',impersonationToken);
