@@ -22,6 +22,10 @@ test('Stage 2A canonical MESSAGE bridge lives in the actual production Radio own
   assert.match(radio,/syncAndRefresh/);
   assert.match(radio,/radioLoadCanonical\(true\)/);
   assert.match(radio,/radioLoadCanonical\(false\)/);
+  assert.match(radio,/radioCanonicalOpenItems\(\)\.filter\(x=>x\?\.task_id\)/);
+  assert.match(radio,/radioLoadCanonical\(true\)\.then\(\(\)=>sync\(\)\)/);
+  assert.match(radio,/item=radioCanonicalOpenItems\(\)\.find/);
+  assert.doesNotMatch(radio,/radioLoadCanonical\(true\)\.then\(result=>\{if\(result\.changed\)renderRadio\(\)\}\)/);
   assert.doesNotMatch(radio,/scope\.value='CLIENT'/);
   assert.doesNotMatch(radio,/owner_radio_items/);
   assert.doesNotMatch(radio,/CREATE TABLE|create table/i);
