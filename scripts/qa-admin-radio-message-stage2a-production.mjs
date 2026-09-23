@@ -160,7 +160,12 @@ try{
 
   // Scenario A: Admin starts a message with the company before any client message.
   const tag=Date.now().toString(36),adminMessage=`QA STAGE2A ADMIN INIT ${tag}`;
-  await selects.nth(2).selectOption(C005.client_id);await radioRoot.locator('textarea').fill(adminMessage);await radioRoot.getByRole('button',{name:'Отправить',exact:true}).click();
+  await selects.nth(2).selectOption(C005.client_id);await radioRoot.locator('textarea').fill(adminMessage);
+  const adminSendWait=adminPage.waitForResponse(r=>r.url().includes('/portal/api/v1/admin/radio/messages')&&r.request().method()==='POST',{timeout:20000});
+  await radioRoot.getByRole('button',{name:'Отправить',exact:true}).click();
+  const adminSendResponse=await adminSendWait,adminSendBody=await adminSendResponse.json().catch(()=>null);
+  console.log('ADMIN_INIT_SEND_RESPONSE',adminSendResponse.status(),JSON.stringify(adminSendBody));
+  assert(adminSendResponse.status()===201||adminSendResponse.status()===200,`ADMIN_INIT_SEND_FAILED_${adminSendResponse.status()}_${JSON.stringify(adminSendBody)}`);
   await aPage.goto(ORIGIN+'/portal/client?_qa_radio_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
   await selectClientContext(aPage,C005);await openMessages(aPage);
   await aPage.getByText(adminMessage,{exact:true}).first().waitFor({state:'visible',timeout:30000});
