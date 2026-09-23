@@ -22,7 +22,9 @@ const qaOnlyPaths=new Set([
   'scripts/qa-admin-radio-stage2a-operational-main.mjs',
   'scripts/qa-admin-radio-stage2a-operational-scenarios.mjs',
   'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs',
-  'supabase/migrations/20260924010000_admin_radio_stage2a_qa_identity_provisioning_v1.sql'
+  'supabase/migrations/20260924010000_admin_radio_stage2a_qa_identity_provisioning_v1.sql',
+  'supabase/functions/rona-g82-github-oidc-browser-qa-20260816/index.ts',
+  'supabase/functions/rona-g82-github-oidc-browser-qa-20260816/deno.json'
 ]);
 
 async function checkRuns(commit){
