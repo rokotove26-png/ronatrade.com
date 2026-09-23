@@ -9,8 +9,8 @@ const AUDIENCE='rona-radio-stage2a-production-v1';
 
 const QA_ADMIN='a2a0b91e-4c2a-4d3e-8f11-2a2a00000001';
 const QA_CLIENT_A='a2a0b91e-4c2a-4d3e-8f11-2a2a00000002';
-const QA_CLIENT_A2='a2a0b91e-4c2a-4d3e-8f11-2a2a00000003';
-const QA_CLIENT_B='a2a0b91e-4c2a-4d3e-8f11-2a2a00000004';
+const QA_CLIENT_A2='a2a0b91e-4c2a-4d3e-8f11-2a2a00000004';
+const QA_CLIENT_B='a2a0b91e-4c2a-4d3e-8f11-2a2a00000003';
 
 const C002={client_id:'RONA-C002',contract_id:'RONA-C002-CTR-2026-001',foreign_deal:'DEAL-2026-009'};
 const C003={client_id:'RONA-C003',contract_id:'RONA-C003-CTR-2026-001'};
