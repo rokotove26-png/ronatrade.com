@@ -15,6 +15,10 @@ test('Stage 2A corrective lives in the actual production Radio owner wrapper',()
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
   assert.match(radio,/radioCanonicalClients/);
+  assert.match(radio,/radioCanonicalSeed/);
+  assert.match(radio,/snapshot\.radio_messages/);
+  assert.match(radio,/snapshot\.radio_clients/);
+  assert.match(radio,/radioCanonicalSeed\(d\)/);
   assert.match(radio,/legal_name/);
   assert.match(radio,/client_id/);
   assert.match(radio,/\/v1\/admin\/radio\/messages/);
@@ -112,6 +116,8 @@ test('Actual production Radio wrapper preserves visual DOM geometry while functi
   const response=await mod.onRequest();
   const script=await response.text();
   assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER/);
+  assert.match(script,/radioCanonicalSeed/);
+  assert.match(script,/snapshot\.radio_messages/);
   assert.match(script,/radio-workspace/);
   assert.match(script,/radio-compose-panel/);
   assert.match(script,/radio-active-panel/);
