@@ -35,15 +35,18 @@ export async function clientMessages(c:Ctx,clientId:string,contractId:string){
   const ctx=await currentContext(c,clientId,contractId);
   if(!ctx)return null;
   return await sql`
-    select e.event_id,e.event_type,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
+    select e.event_id,e.event_type,e.actor_role::text as actor_role,
+           case when e.actor_role='ADMIN'::portal_private.portal_role_enum then 'ADMIN_TO_CLIENT' else 'CLIENT_TO_ADMIN' end as direction,
+           d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
            e.client_response_text,e.client_response_published_at,e.created_at,e.updated_at,e.lifecycle_state::text
       from portal_private.portal_reverse_events e
       left join portal_private.deals d on d.id=e.deal_key
      where e.client_key=${ctx.client_key}::uuid
        and e.contract_key=${ctx.contract_key}::uuid
-       and e.actor_user_id=${c.user}::uuid
-       and e.actor_role='CLIENT'::portal_private.portal_role_enum
-       and e.event_type='CLIENT_MESSAGE_SUBMIT'
+       and e.authority_domain='CLIENT_COMMUNICATION'
+       and e.authority_target_type='MESSAGE'
+       and e.event_type in ('CLIENT_MESSAGE_SUBMIT','ADMIN_CLIENT_MESSAGE_SUBMIT')
+       and e.actor_role in ('CLIENT'::portal_private.portal_role_enum,'ADMIN'::portal_private.portal_role_enum)
        and e.lifecycle_state in ('ACTIVE'::portal_private.lifecycle_state_enum,'CLOSED'::portal_private.lifecycle_state_enum)
        and (e.deal_key is null or portal_private.client_user_has_archive_deal_access(${c.user}::uuid,e.deal_key,now()))
      order by e.created_at desc`;
@@ -72,8 +75,8 @@ export async function submitClientMessage(c:Ctx,req:Request){
   const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
   try{
     const rows=c.impersonation?.effectiveRole==="CLIENT"
-      ?await sql`select * from portal_private.server_admin_impersonated_submit_reverse_event(${c.impersonation.id}::uuid,${c.actorUser}::uuid,${c.actorAuth}::uuid,${c.sid}::uuid,${c.user}::uuid,'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId||c.impersonation.correlationId}::uuid)`
-      :await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
+      ?await sql`select * from portal_private.server_admin_impersonated_submit_reverse_event(${c.impersonation.id}::uuid,${c.actorUser}::uuid,${c.actorAuth}::uuid,${c.sid}::uuid,${c.user}::uuid,'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject,channel:"RADIO_CHAT",thread_scope:"CLIENT_CONTRACT",thread_id:`RADIO:${clientId}:${contractId}`})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId||c.impersonation.correlationId}::uuid)`
+      :await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject,channel:"RADIO_CHAT",thread_scope:"CLIENT_CONTRACT",thread_id:`RADIO:${clientId}:${contractId}`})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
     if(rows.length!==1)return[500,{ok:false,code:"MESSAGE_NOT_CREATED",request_id:requestId}] as const;
     const row=rows[0];
     return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),processing_state:String(row.processing_state),acknowledgement_state:String(row.acknowledgement_state),created_at:row.created_at},request_id:requestId}] as const;
@@ -81,6 +84,58 @@ export async function submitClientMessage(c:Ctx,req:Request){
     const raw=String((error as any)?.message||error||"");
     const denied=/denied|not found|required|unsupported|idempotency/i.test(raw);
     return[denied?403:500,{ok:false,code:denied?"MESSAGE_SCOPE_DENIED":"MESSAGE_SERVER_ERROR",request_id:requestId}] as const;
+  }
+}
+
+export async function adminSendClientMessage(c:Ctx,req:Request){
+  let body:any;
+  try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
+  const clientId=textValue(body?.clientId??body?.client_id,80);
+  const contractId=textValue(body?.contractId??body?.contract_id,120);
+  const message=textValue(body?.message,8000);
+  const subject=textValue(body?.subject,240);
+  const replyToEventId=textValue(body?.replyToEventId??body?.reply_to_event_id,160);
+  const idempotencyKey=textValue(req.headers.get("x-idempotency-key")??body?.idempotencyKey??body?.idempotency_key,160);
+  if(!clientId||!contractId)return[400,{ok:false,code:"CLIENT_CONTRACT_CONTEXT_REQUIRED"}] as const;
+  if(!message)return[400,{ok:false,code:"MESSAGE_REQUIRED"}] as const;
+  if(!idempotencyKey)return[400,{ok:false,code:"IDEMPOTENCY_REQUIRED"}] as const;
+  const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id");
+  const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
+  const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
+  try{
+    const rows=await sql`select * from portal_private.server_admin_submit_radio_message_v1(
+      ${c.user}::uuid,${clientId},${contractId},${subject},${message},${replyToEventId},
+      ${idempotencyKey},${requestId}::uuid,${correlationId}::uuid
+    )`;
+    if(rows.length!==1)return[500,{ok:false,code:"MESSAGE_NOT_CREATED",request_id:requestId}] as const;
+    const row=rows[0];
+    return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),created_at:row.created_at},request_id:requestId}] as const;
+  }catch(error){
+    const raw=String((error as any)?.message||error||"");
+    const denied=/admin role|client .*not|contract .*not|inactive|archived|superseded|rejected|retired|scope|reply|idempotency|required/i.test(raw);
+    return[denied?403:500,{ok:false,code:denied?"ADMIN_MESSAGE_SCOPE_DENIED":"ADMIN_MESSAGE_SERVER_ERROR",request_id:requestId}] as const;
+  }
+}
+
+export async function adminRetireRadioQaArtifacts(c:Ctx,req:Request){
+  let body:any;
+  try{body=await req.json()}catch{return[400,{ok:false,code:"INVALID_JSON"}] as const}
+  const rawIds=Array.isArray(body?.eventIds??body?.event_ids)?(body.eventIds??body.event_ids):[];
+  const eventIds=[...new Set(rawIds.map((v:any)=>String(v||"").trim()).filter((v:string)=>/^PORTAL-EVT-[0-9a-f]+$/i.test(v)))].slice(0,200);
+  if(!eventIds.length)return[400,{ok:false,code:"QA_EVENT_IDS_REQUIRED"}] as const;
+  const requestHeader=req.headers.get("x-request-id"),correlationHeader=req.headers.get("x-correlation-id");
+  const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
+  const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
+  try{
+    const rows=await sql`select * from portal_private.server_admin_retire_radio_qa_artifacts_v1(
+      ${c.user}::uuid,${sql.json(eventIds)}::jsonb,${requestId}::uuid,${correlationId}::uuid
+    )`;
+    const row=rows[0]||{};
+    return[200,{ok:true,retired_events:Number(row.retired_events||0),retired_tasks:Number(row.retired_tasks||0),request_id:requestId}] as const;
+  }catch(error){
+    const raw=String((error as any)?.message||error||"");
+    const denied=/admin role|required|qa artifact|non-qa|scope|event/i.test(raw);
+    return[denied?403:500,{ok:false,code:denied?"QA_RETIRE_DENIED":"QA_RETIRE_SERVER_ERROR",request_id:requestId}] as const;
   }
 }
 
@@ -157,15 +212,18 @@ export async function clientArchive(c:Ctx,clientId:string,contractId:string){
      order by p.updated_at desc`;
 
   const messages=await sql`
-    select e.event_id,ct.contract_id,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
+    select e.event_id,e.event_type,e.actor_role::text as actor_role,
+           case when e.actor_role='ADMIN'::portal_private.portal_role_enum then 'ADMIN_TO_CLIENT' else 'CLIENT_TO_ADMIN' end as direction,
+           ct.contract_id,d.deal_id,e.payload,e.processing_state,e.acknowledgement_state,
            e.client_response_text,e.client_response_published_at,e.created_at,e.updated_at,e.lifecycle_state::text
       from portal_private.portal_reverse_events e
       join portal_private.contracts ct on ct.id=e.contract_key
       left join portal_private.deals d on d.id=e.deal_key
      where e.client_key=${ctx.client_key}::uuid
-       and e.actor_user_id=${c.user}::uuid
-       and e.actor_role='CLIENT'::portal_private.portal_role_enum
-       and e.event_type='CLIENT_MESSAGE_SUBMIT'
+       and e.authority_domain='CLIENT_COMMUNICATION'
+       and e.authority_target_type='MESSAGE'
+       and e.event_type in ('CLIENT_MESSAGE_SUBMIT','ADMIN_CLIENT_MESSAGE_SUBMIT')
+       and e.actor_role in ('CLIENT'::portal_private.portal_role_enum,'ADMIN'::portal_private.portal_role_enum)
        and portal_private.client_user_has_archive_contract_access(${c.user}::uuid,e.contract_key,now())
        and (e.deal_key is null or portal_private.client_user_has_archive_deal_access(${c.user}::uuid,e.deal_key,now()))
        and (e.lifecycle_state='CLOSED'::portal_private.lifecycle_state_enum or (d.id is not null and (d.lifecycle_state::text<>'ACTIVE' or d.business_status::text in ('CANCELLED','CLOSED','COMPLETED','DONE','RESOURCE_DENIED'))))
