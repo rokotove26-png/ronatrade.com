@@ -237,6 +237,12 @@ test('Stage 2A QA issuer is transient-resilient and performs stale-identity clea
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
 
+  assert.match(helpers,/for\(let attempt=0;attempt<6;attempt\+\+\)/);
+  assert.match(helpers,/\[429,500,502,503,504\]\.includes\(r\.status\)/);
+  assert.match(helpers,/r\.headers\.get\('retry-after'\)/);
+  assert.match(helpers,/AbortSignal\.timeout\(15000\)/);
+  assert.match(helpers,/GITHUB_OIDC_NETWORK_OR_TIMEOUT/);
+
   assert.match(helpers,/const maxAttempts=waitForActive\?60:6/);
   assert.match(helpers,/\[429,500,502,503,504,520,522,524,546\]\.includes\(r\.status\)/);
   assert.match(helpers,/RESOURCE_LIMIT/);
