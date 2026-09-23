@@ -6,9 +6,12 @@ import { test } from 'node:test';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex')};
 
-test('Stage 2A corrective lives in the actual production Radio owner',()=>{
-  const radio=read('functions/portal/remaining-sections-r2-base.js');
-  assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V1_LIVE_OWNER/);
+test('Stage 2A corrective lives in the actual production Radio owner wrapper',()=>{
+  const radio=read('functions/portal/remaining-sections-ui.js');
+  assert.match(radio,/import \{ onRequest as baseRemaining \} from '\.\/remaining-sections-r2-base\.js'/);
+  assert.match(radio,/source\.indexOf\("window\.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__="/);
+  assert.match(radio,/source\.slice\(0,radioStart\)\+RADIO_DIRECT_RENDER\+source\.slice\(radioEnd\)/);
+  assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER/);
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
   assert.match(radio,/radioCanonicalClients/);
@@ -24,7 +27,7 @@ test('Stage 2A corrective lives in the actual production Radio owner',()=>{
 });
 
 test('Radio MESSAGE selector is client/company semantic and legacy publication is not used for MESSAGE',()=>{
-  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const radio=read('functions/portal/remaining-sections-ui.js');
   assert.match(radio,/radioCanonicalClients\(\)\.forEach/);
   assert.match(radio,/radioCanonicalClientText/);
   assert.match(radio,/String\(x\?\.client_id\|\|''\)/);
@@ -44,7 +47,7 @@ test('Radio history and KPI consume chat-only projection',()=>{
   assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"/);
   assert.match(admin,/radio_clients:radioClients/);
   assert.match(admin,/radio_messages:radioMessages/);
-  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const radio=read('functions/portal/remaining-sections-ui.js');
   assert.match(radio,/const legacy=Array\.isArray\(d\.radio\)/);
   assert.match(radio,/filter\(x=>String\(x\?\.item_kind\|\|''\)\.toUpperCase\(\)!=='MESSAGE'\)/);
   assert.match(radio,/kpi\('Сообщения',count\('MESSAGE'\)/);
@@ -94,20 +97,24 @@ test('Server-side recipient authority rejects non-current/non-deliverable contex
   assert.match(migration,/reply target is not an active client radio message/);
 });
 
-test('Live Radio visual DOM geometry tokens remain unchanged',async()=>{
-  const radio=read('functions/portal/remaining-sections-r2-base.js');
+test('Actual production Radio wrapper preserves visual DOM geometry while functional semantics change',async()=>{
+  const radio=read('functions/portal/remaining-sections-ui.js');
   for(const token of [
-    "root('radio','Радиорубка'",
-    "rona-rs-form",
-    "card('Новое сообщение'",
-    "card('Активные сообщения'",
-    "['Тип','Кому','Сообщение','Дата']"
+    "radio-workspace",
+    "radio-compose-panel",
+    "radio-link-panel",
+    "radio-active-panel",
+    "radio-compose-controls",
+    "radio-send",
+    "Активные сообщения"
   ]) assert.ok(radio.includes(token),`live Radio visual DOM token missing: ${token}`);
-  const mod=await import('../functions/portal/remaining-sections-r2-base.js?radio-stage2a-corrective='+Date.now());
+  const mod=await import('../functions/portal/remaining-sections-ui.js?radio-stage2a-corrective='+Date.now());
   const response=await mod.onRequest();
   const script=await response.text();
-  assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V1_LIVE_OWNER/);
-  assert.match(script,/rona-rs-form/);
+  assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER/);
+  assert.match(script,/radio-workspace/);
+  assert.match(script,/radio-compose-panel/);
+  assert.match(script,/radio-active-panel/);
   assert.match(script,/Активные сообщения/);
   new Function(script);
 });
