@@ -164,6 +164,19 @@ async function adminClientIntake(){
   `;
 }
 
+export async function adminRadioBootstrap(){
+  const [radioClients,radioMessages]=await Promise.all([
+    adminRadioClients(),
+    adminRadioMessages()
+  ]);
+  return{
+    generated_at:new Date().toISOString(),
+    radio_clients:radioClients,
+    radio_messages:radioMessages,
+    radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"
+  };
+}
+
 export async function adminBootstrap(){
   const data:any=await baseAdminBootstrap();
   const dealIds=[...new Set((Array.isArray(data?.deals)?data.deals:[]).map((row:any)=>String(row?.deal_id||"")).filter(Boolean))];
