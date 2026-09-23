@@ -54,7 +54,7 @@ test('Radio read path uses a dedicated lightweight server projection',()=>{
   const index=read('supabase/functions/rona-portal-api/index.ts');
   const radio=read('functions/portal/remaining-sections-ui.js');
   assert.match(admin,/export async function adminRadioBootstrap\(\)/);
-  assert.match(admin,/Promise\.all\(\[\s*adminRadioClients\(\),\s*adminRadioMessages\(\)/);
+  assert.match(admin,/Promise\.all\(\[\s*adminRadioClients\(\),\s*adminRadioAgents\(\),\s*adminRadioMessages\(\)/);
   assert.match(index,/adminBootstrap, adminRadioBootstrap/);
   assert.match(index,/route==="\/v1\/admin\/radio\/bootstrap"/);
   assert.match(radio,/radioCanonicalRequest\('\/v1\/admin\/radio\/bootstrap'\)/);
