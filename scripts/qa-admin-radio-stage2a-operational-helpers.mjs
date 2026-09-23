@@ -103,7 +103,8 @@ export async function directAgentBootstrap(session){
     authorization:`Bearer ${session.accessToken}`,
     apikey:SUPABASE_PUBLISHABLE_KEY,
     accept:'application/json',
-    'cache-control':'no-store'
+    'cache-control':'no-store',
+    'x-region':ISSUER_REGION
   }});
   return{status:r.status,body:await r.json().catch(()=>null)};
 }

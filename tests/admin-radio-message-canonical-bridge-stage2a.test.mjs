@@ -174,6 +174,8 @@ test('Same-origin Agent bootstrap sanitizer preserves canonical identity, scope,
   assert.doesNotMatch(block,/\bmessages\s*:\s*\[\]\s*[,}]/);
   assert.doesNotMatch(block,/assignedClients:/);
   assert.match(proxy,/path==='\/v1\/agent\/bootstrap'\)payload\.data=safeAgentBootstrap\(payload\.data\)/);
+  assert.ok(proxy.includes("const EDGE_REGION='eu-central-1'"));
+  assert.ok(proxy.includes("'x-region':EDGE_REGION"));
 });
 
 test('Production /portal/api Agent bootstrap owner and direct/proxy parity gate are source-locked',()=>{
@@ -190,6 +192,7 @@ test('Production /portal/api Agent bootstrap owner and direct/proxy parity gate 
   assert.match(helpers,/DIRECT_PORTAL_API='https:\/\/sxawrwzeobaqwwmlkzws\.supabase\.co\/functions\/v1\/rona-portal-api'/);
   assert.match(helpers,/directAgentBootstrap\(session\)/);
   assert.match(helpers,/authorization:\`Bearer \$\{session\.accessToken\}\`/);
+  assert.ok(helpers.includes("'x-region':ISSUER_REGION"));
   assert.match(helpers,/proxyAgentBootstrap=c=>api\(c,'\/portal\/api\/v1\/agent\/bootstrap'/);
 
   for(const token of [
