@@ -100,9 +100,13 @@ export async function runRoundTrips(x){
   },'AGENT_A_BOOT',30000,250);
   proof.agentBootstrapParity=proof.agentBootstrapParity||{};
   proof.agentBootstrapParity.agentA=await proveAgentBootstrapParity(agentASession,agentAContext,'AGENT_A','AGP-2026-001');
-  await openMessages(agentAPage);await agentAPage.getByText(adminAgentMessage,{exact:true}).first().waitFor({state:'visible',timeout:30000});
+  await openMessages(agentAPage);
+  const agentMessageNotice=agentAPage.locator('#page-messages .panel-body .notice').filter({hasText:adminAgentMessage}).first();
+  await agentMessageNotice.waitFor({state:'visible',timeout:30000});
+  const agentMessageUiText=norm(await agentMessageNotice.innerText());
+  assert(agentMessageUiText.includes(adminAgentMessage),'ADMIN_TO_AGENT_UI_MESSAGE_TEXT_MISSING');
   const agentARead=await agentMessages(agentAContext);assert(agentARead.status===200&&(agentARead.body?.messages||[]).some(v=>v.eventId===adminAgentEvent),'ADMIN_TO_AGENT_API_NOT_VISIBLE');
-  proof.adminToAgent={eventId:adminAgentEvent,visible:true};
+  proof.adminToAgent={eventId:adminAgentEvent,visible:true,uiText:agentMessageUiText};
 
   // E. Cross-Agent isolation before Agent A writes anything.
   agentBPage.on('pageerror',error=>proof.agentBootDiagnostics.agentB.pageErrors.push(String(error?.message||error)));
