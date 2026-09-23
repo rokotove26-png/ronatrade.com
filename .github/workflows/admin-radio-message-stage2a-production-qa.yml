@@ -6,6 +6,7 @@ on:
     paths:
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/remaining-sections-r2-base.js'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql'
       - 'scripts/qa-admin-radio-message-stage2a-production.mjs'
