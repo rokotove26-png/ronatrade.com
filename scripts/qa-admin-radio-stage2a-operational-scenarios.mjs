@@ -54,15 +54,30 @@ export async function runRoundTrips(x){
   const aaResp=await aaWait,aaBody=await aaResp.json().catch(()=>null);assert([200,201].includes(aaResp.status()),'ADMIN_TO_AGENT_SEND_FAILED');
   const adminAgentEvent=String(aaBody?.message?.event_id||'');assert(adminAgentEvent.startsWith('PORTAL-EVT-'),'ADMIN_TO_AGENT_EVENT_MISSING');qaEvents.push(adminAgentEvent);
 
+  proof.agentBootDiagnostics={agentA:{pageErrors:[]},agentB:{pageErrors:[]}};
+  agentAPage.on('pageerror',error=>proof.agentBootDiagnostics.agentA.pageErrors.push(String(error?.message||error)));
   await agentAPage.goto(ORIGIN+'/portal/agent?_qa_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
-  await wait(()=>agentAPage.evaluate(()=>window.RONA_AGENT_PORTAL?.getAgentId?.()==='AGP-2026-001'),'AGENT_A_BOOT',60000,250);
+  await wait(async()=>{
+    const state=await agentAPage.evaluate(()=>({agentId:window.RONA_AGENT_PORTAL?.getAgentId?.()||null,diag:window.__RONA_AGENT_BOOT_DIAGNOSTIC__||null,portalVersion:window.RONA_AGENT_PORTAL?.version||null}));
+    proof.agentBootDiagnostics.agentA.state=state;
+    if(state.agentId==='AGP-2026-001')return true;
+    if(state.diag?.finished)throw new Error('AGENT_A_BOOT_DIAGNOSTIC:'+JSON.stringify(state));
+    return false
+  },'AGENT_A_BOOT',30000,250);
   await openMessages(agentAPage);await agentAPage.getByText(adminAgentMessage,{exact:true}).first().waitFor({state:'visible',timeout:30000});
   const agentARead=await agentMessages(agentAContext);assert(agentARead.status===200&&(agentARead.body?.messages||[]).some(v=>v.eventId===adminAgentEvent),'ADMIN_TO_AGENT_API_NOT_VISIBLE');
   proof.adminToAgent={eventId:adminAgentEvent,visible:true};
 
   // E. Cross-Agent isolation before Agent A writes anything.
+  agentBPage.on('pageerror',error=>proof.agentBootDiagnostics.agentB.pageErrors.push(String(error?.message||error)));
   await agentBPage.goto(ORIGIN+'/portal/agent?_qa_stage2a='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});
-  await wait(()=>agentBPage.evaluate(()=>window.RONA_AGENT_PORTAL?.getAgentId?.()==='AGP-2026-002'),'AGENT_B_BOOT',60000,250);await openMessages(agentBPage);
+  await wait(async()=>{
+    const state=await agentBPage.evaluate(()=>({agentId:window.RONA_AGENT_PORTAL?.getAgentId?.()||null,diag:window.__RONA_AGENT_BOOT_DIAGNOSTIC__||null,portalVersion:window.RONA_AGENT_PORTAL?.version||null}));
+    proof.agentBootDiagnostics.agentB.state=state;
+    if(state.agentId==='AGP-2026-002')return true;
+    if(state.diag?.finished)throw new Error('AGENT_B_BOOT_DIAGNOSTIC:'+JSON.stringify(state));
+    return false
+  },'AGENT_B_BOOT',30000,250);await openMessages(agentBPage);
   const agentBRead=await agentMessages(agentBContext);assert(agentBRead.status===200&&!(agentBRead.body?.messages||[]).some(v=>v.eventId===adminAgentEvent),'CROSS_AGENT_MESSAGE_LEAK');
 
   // D. Agent -> Admin through the existing Agent Messages form.
