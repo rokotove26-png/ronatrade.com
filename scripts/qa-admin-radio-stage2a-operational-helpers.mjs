@@ -94,8 +94,8 @@ export async function context(browser,session){
   await c.addCookies([{name:'rona_portal_at',value:session.accessToken,url:ORIGIN+'/portal',httpOnly:true,secure:true,sameSite:'Lax'}]);
   return c;
 }
-export async function api(c,path,{method='GET',body=null,headers={},referer='/portal/admin'}={}){
-  const r=await c.request.fetch(ORIGIN+path,{method,headers:{accept:'application/json',origin:ORIGIN,referer:ORIGIN+referer,'cache-control':'no-store',...headers},data:body??undefined,failOnStatusCode:false});
+export async function api(c,path,{method='GET',body=null,headers={},referer='/portal/admin',timeoutMs=30000}={}){
+  const r=await c.request.fetch(ORIGIN+path,{method,headers:{accept:'application/json',origin:ORIGIN,referer:ORIGIN+referer,'cache-control':'no-store',...headers},data:body??undefined,failOnStatusCode:false,timeout:timeoutMs});
   return{status:r.status(),body:await r.json().catch(()=>null)};
 }
 export async function directAgentBootstrap(session){
