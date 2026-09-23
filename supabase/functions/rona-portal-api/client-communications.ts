@@ -48,7 +48,6 @@ export async function clientMessages(c:Ctx,clientId:string,contractId:string){
        and e.event_type in ('CLIENT_MESSAGE_SUBMIT','ADMIN_CLIENT_MESSAGE_SUBMIT')
        and e.actor_role in ('CLIENT'::portal_private.portal_role_enum,'ADMIN'::portal_private.portal_role_enum)
        and e.lifecycle_state in ('ACTIVE'::portal_private.lifecycle_state_enum,'CLOSED'::portal_private.lifecycle_state_enum)
-       and portal_private.client_user_has_archive_contract_access(${c.user}::uuid,e.contract_key,now())
        and (e.deal_key is null or portal_private.client_user_has_archive_deal_access(${c.user}::uuid,e.deal_key,now()))
      order by e.created_at desc`;
 }
@@ -76,8 +75,8 @@ export async function submitClientMessage(c:Ctx,req:Request){
   const correlationId=correlationHeader&&uuid.test(correlationHeader)?correlationHeader:null;
   try{
     const rows=c.impersonation?.effectiveRole==="CLIENT"
-      ?await sql`select * from portal_private.server_admin_impersonated_submit_reverse_event(${c.impersonation.id}::uuid,${c.actorUser}::uuid,${c.actorAuth}::uuid,${c.sid}::uuid,${c.user}::uuid,'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject,channel:"RADIO_CHAT",thread_scope:"CLIENT_CONTRACT",thread_id:`RADIO:${clientId}:${contractId}`})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId||c.impersonation.correlationId}::uuid)`
-      :await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject,channel:"RADIO_CHAT",thread_scope:"CLIENT_CONTRACT",thread_id:`RADIO:${clientId}:${contractId}`})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
+      ?await sql`select * from portal_private.server_admin_impersonated_submit_reverse_event(${c.impersonation.id}::uuid,${c.actorUser}::uuid,${c.actorAuth}::uuid,${c.sid}::uuid,${c.user}::uuid,'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject,channel:"RADIO_CHAT",thread_scope:"CLIENT_COMPANY",thread_id:`RADIO:${clientId}`})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId||c.impersonation.correlationId}::uuid)`
+      :await sql`select * from portal_private.server_submit_reverse_event(${c.auth}::uuid,${c.sid},'CLIENT_MESSAGE_SUBMIT','CLIENT_COMMUNICATION','MESSAGE',null,${clientId},${contractId},${dealId},${sql.json({message,subject,channel:"RADIO_CHAT",thread_scope:"CLIENT_COMPANY",thread_id:`RADIO:${clientId}`})}::jsonb,${idempotencyKey},${requestId}::uuid,${correlationId}::uuid)`;
     if(rows.length!==1)return[500,{ok:false,code:"MESSAGE_NOT_CREATED",request_id:requestId}] as const;
     const row=rows[0];
     return[row.reused?200:201,{ok:true,created:!Boolean(row.reused),reused:Boolean(row.reused),message:{event_id:String(row.event_id),processing_state:String(row.processing_state),acknowledgement_state:String(row.acknowledgement_state),created_at:row.created_at},request_id:requestId}] as const;
