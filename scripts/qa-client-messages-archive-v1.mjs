@@ -27,7 +27,11 @@ for(const token of [
 ])assert(module.includes(token),`messages/archive server scope missing ${token}`);
 assert(!module.includes('staff_task_messages'),'Client-facing module must not read internal staff messaging');
 assert(!module.includes('create table')&&!module.includes('client_messages'),'Messages/archive must not create a parallel business table');
-assert(module.includes("e.actor_user_id=${c.user}::uuid"),'Client message ownership scope missing');
+assert(module.includes("e.client_key=${ctx.client_key}::uuid"),'Client company message scope missing');
+assert(module.includes("e.authority_domain='CLIENT_COMMUNICATION'"),'Positive chat authority domain missing');
+assert(module.includes("e.authority_target_type='MESSAGE'"),'Positive chat target discriminator missing');
+assert(module.includes("e.event_type in ('CLIENT_MESSAGE_SUBMIT','ADMIN_CLIENT_MESSAGE_SUBMIT')"),'Bidirectional company chat event contract missing');
+assert(!module.includes("and e.actor_user_id=${c.user}::uuid\n       and e.actor_role='CLIENT'"),'Legacy actor-user-only chat ownership must not remain');
 
 for(const token of [
   "new.actor_role = 'CLIENT'::portal_private.portal_role_enum",
@@ -72,4 +76,4 @@ for(const pattern of [/RONA-C\d{3,}/,/RONA-C\d{3,}-CTR-/,/DEAL-2026-\d{3,}/]){
   assert(!pattern.test(runtime),`runtime hardcoded business identifier ${pattern}`);
 }
 
-console.log('CLIENT_MESSAGES_ARCHIVE_QA=PASS context=client+contract client-to-admin=true admin-to-client=true staff-direct=false archive=projection-only historical-iam=canonical-bindings frozen-dom=true');
+console.log('CLIENT_MESSAGES_ARCHIVE_QA=PASS context=client-company client-to-admin=true admin-to-client=true company-thread=true staff-direct=false archive=projection-only historical-iam=canonical-bindings frozen-dom=true');
