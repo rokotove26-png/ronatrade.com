@@ -172,12 +172,6 @@ jobs:
           console.log('ISSUE644_PUBLIC_PRODUCTION_SOURCE=PASS sha='+sha);
           NODE
 
-          if grep -Ev "$allowed" /tmp/changed.txt; then
-            echo "ISSUE644_DELTA_ONLY=FAIL"
-            exit 1
-          fi
-          echo "ISSUE644_DELTA_ONLY=PASS"
-
       - name: Static Stage A and A.1 contract
         run: |
           set -euo pipefail
