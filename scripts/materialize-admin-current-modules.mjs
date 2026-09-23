@@ -48,7 +48,8 @@ for(const marker of [
   "STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER",
   "ADMIN_RADIO_STAGE2A_STATIC_OWNER_V3",
   "radioCanonicalRequest('/v1/admin/radio/bootstrap')",
-  "authority_target_type"
+  "radioCanonicalPendingInbound",
+  "radio_messages"
 ])requireMarker(remaining,marker,'materialized Radio MESSAGE owner');
 for(const forbidden of [
   "STAGE_2A_CORRECTIVE_CLIENT_CHAT_V1_LIVE_OWNER",
