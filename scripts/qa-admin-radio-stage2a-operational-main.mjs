@@ -10,7 +10,7 @@ const proof={
   suite:'RADIO_STAGE2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_PRODUCTION',
   releaseHead:HEAD,origin:ORIGIN,preIdentity:null,preRecipientUi:null,
   directories:null,adminToClient:null,clientToAdmin:null,adminToAgent:null,agentToAdmin:null,
-  companySecurity:null,agentSecurity:null,domainIsolation:null,businessIsolation:null,
+  agentBootstrapParity:null,companySecurity:null,agentSecurity:null,domainIsolation:null,businessIsolation:null,
   cleanup:[],postCleanup:null,visual:null,assets:null,pass:false
 };
 const sessions=[],contexts=[],qaEvents=[];
@@ -87,7 +87,7 @@ try{
   contexts.push(clientAContext,clientA2Context,clientBContext,agentAContext,agentBContext);
   const clientAPage=await clientAContext.newPage(),clientA2Page=await clientA2Context.newPage(),clientBPage=await clientBContext.newPage(),agentAPage=await agentAContext.newPage(),agentBPage=await agentBContext.newPage();
 
-  await runRoundTrips({adminContext,adminPage,clientAContext,clientA2Context,clientBContext,agentAContext,agentBContext,clientAPage,clientA2Page,clientBPage,agentAPage,agentBPage,qaEvents,beforeBroadcasts,proof});
+  await runRoundTrips({adminContext,adminPage,clientAContext,clientA2Context,clientBContext,agentAContext,agentBContext,agentASession,agentBSession,clientAPage,clientA2Page,clientBPage,agentAPage,agentBPage,qaEvents,beforeBroadcasts,proof});
 
   // Audit-retire all current-run Client + Agent message events before identity revocation.
   const eventIds=[...new Set(qaEvents.filter(x=>String(x).startsWith('PORTAL-EVT-')))];
@@ -137,6 +137,7 @@ try{
     'POST_QA_CLEANUP_CLIENT_DIRECTORY_VISIBLE=PASS','POST_QA_CLEANUP_AGENT_DIRECTORY_VISIBLE=PASS',
     'ADMIN_TO_CLIENT_MESSAGE=PASS','CLIENT_TO_ADMIN_MESSAGE=PASS',
     'ADMIN_TO_AGENT_MESSAGE=PASS','AGENT_TO_ADMIN_MESSAGE=PASS',
+    'AGENT_A_BOOT=PASS','AGENT_B_BOOT=PASS','AGENT_BOOTSTRAP_DIRECT_PROXY_PARITY=PASS',
     'COMPANY_SCOPE_SECURITY=PASS','AGENT_SCOPE_SECURITY=PASS',
     'CROSS_CLIENT_ISOLATION=PASS','CROSS_AGENT_ISOLATION=PASS','CLIENT_AGENT_DOMAIN_ISOLATION=PASS',
     'NO_QA_IDENTITY_DEPENDENCY=PASS','BUSINESS_EVENTS_EXCLUDED_FROM_RADIO=PASS',
