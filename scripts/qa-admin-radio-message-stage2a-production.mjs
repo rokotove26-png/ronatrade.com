@@ -207,6 +207,11 @@ try{
   // Scenario B: Client starts chat; Admin sees company/text (never event ID), then replies.
   const clientSubject=`QA STAGE2A CLIENT ${tag}`,clientMessage=`QA STAGE2A CLIENT BODY ${tag}`,adminReply=`QA STAGE2A REPLY ${tag}`;
   const clientEvent=await clientSubmitUi(aPage,C005,clientSubject,clientMessage);currentQaEventIds.push(clientEvent.event_id);
+  const adminProjectionAfterClient=await adminBootstrap(adminContext);
+  assert(adminProjectionAfterClient.status===200,'ADMIN_BOOTSTRAP_AFTER_CLIENT_MESSAGE_FAILED');
+  const projectedClientEvent=(adminProjectionAfterClient.body?.data?.radio_messages||[]).find(x=>x?.event_id===clientEvent.event_id);
+  console.log('ADMIN_CLIENT_MESSAGE_PROJECTION',JSON.stringify(projectedClientEvent?{event_id:projectedClientEvent.event_id,client_id:projectedClientEvent.client_id,legal_name:projectedClientEvent.legal_name,direction:projectedClientEvent.direction}:null));
+  assert(projectedClientEvent?.event_id===clientEvent.event_id&&projectedClientEvent?.direction==='CLIENT_TO_ADMIN','ADMIN_CLIENT_MESSAGE_PROJECTION_MISSING');
   await adminPage.reload({waitUntil:'domcontentloaded',timeout:30000});
   await waitUntil(()=>adminPage.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_RELOAD_READY',60000,250);
   await adminPage.locator('[data-page="messages"]').first().click();radioRoot=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');await radioRoot.waitFor({state:'visible',timeout:30000});
@@ -215,7 +220,7 @@ try{
   const selects2=radioRoot.locator('select');await selects2.nth(1).selectOption('CLIENT');await selects2.nth(2).selectOption(C005.client_id);
   await radioRoot.locator('textarea').fill(adminReply);await radioRoot.getByRole('button',{name:'Отправить',exact:true}).click();
   const replied=await waitUntil(async()=>{const r=await clientMessages(aContext,C005),row=(r.body?.messages||[]).find(x=>x.event_id===clientEvent.event_id);return row?.client_response_text===adminReply&&row?.client_response_published_at?row:null},'CLIENT_REPLY_PERSIST',45000,500);
-  proof.clientInitiated={eventId:clientEvent.event_id,adminSawCompany:true,eventIdHidden:true,responsePublishedAt:replied.client_response_published_at};
+  proof.clientInitiated={eventId:clientEvent.event_id,adminApiProjected:true,adminSawCompany:true,eventIdHidden:true,responsePublishedAt:replied.client_response_published_at};
 
   await aPage.reload({waitUntil:'domcontentloaded',timeout:30000});await selectClientContext(aPage,C005);await openMessages(aPage);
   await aPage.getByText(adminReply,{exact:true}).first().waitFor({state:'visible',timeout:20000});proof.reload={clientResponsePersisted:true};
