@@ -18,12 +18,17 @@ let browserRef=null,adminContext=null,qaRetired=false;
 
 async function save(){await writeFile('admin-radio-message-stage2a-production-proof.json',JSON.stringify(proof,null,2))}
 async function waitAdminBackendHealthy(c,label){
-  return wait(async()=>{
+  const started=Date.now();
+  let lastStatus=null;
+  while(Date.now()-started<120000){
     const r=await api(c,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'});
+    lastStatus=r.status;
     if(r.status===200)return r;
     if([401,403].includes(r.status))throw new Error(label+'_AUTH_'+r.status);
-    return null;
-  },label+'_BACKEND_HEALTH',120000,5000);
+    if(![500,502,503,504,520,522,524,546].includes(r.status))throw new Error(label+'_BACKEND_HTTP_'+r.status);
+    await new Promise(resolve=>setTimeout(resolve,5000));
+  }
+  throw new Error(label+'_BACKEND_HEALTH_TIMEOUT_'+String(lastStatus??'NONE'));
 }
 async function loadAdminReady(page,c,label,{navigate=true}={}){
   const attempts=[];
