@@ -200,7 +200,9 @@ test('The dominant five-wagon-style cohort is a detour while the route still ter
 test('All active deals drive the selector and monitoring state comes from trusted current positions',()=>{
   assert.match(v81,/Array\.isArray\(data&&data\.deals\)\?data\.deals:\[\]/);
   assert.match(v81,/life==='CLOSED'\|\|business==='CANCELLED'/);
-  assert.match(v81,/function railDealMonitoringState\(dealWagons\)/);
+  assert.match(v81,/function railDealMonitoringState\(dealWagons,unresolvedEvidenceCount\)/);
+  assert.match(v81,/data\.railUnresolvedByDeal/);
+  assert.match(v81,/attention=missing\+unresolved/);
   assert.match(v81,/active=monitorState\.count/);
   assert.match(v81,/attention=monitorState\.attention/);
   assert.match(v81,/Мониторинг активен/);
