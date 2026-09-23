@@ -233,6 +233,16 @@ test('Stage 2A production deploy gate permits only exact head or fail-closed QA-
   ]) assert.ok(!gate.includes(`'${forbidden}'`),`Runtime path must not be allow-listed for deployment equivalence: ${forbidden}`);
 });
 
+test('Stage 2A GitHub OIDC token acquisition retries only transient transport/server failures',()=>{
+  const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
+  assert.match(helpers,/async function oidc\(\)/);
+  assert.match(helpers,/for\(let attempt=0;attempt<6;attempt\+\+\)/);
+  assert.match(helpers,/AbortSignal\.timeout\(15000\)/);
+  assert.match(helpers,/\[429,500,502,503,504,520,522,524\]\.includes\(r\.status\)/);
+  assert.match(helpers,/GITHUB_OIDC_NETWORK_OR_TIMEOUT/);
+  assert.match(helpers,/if\(r\.ok&&j\?\.value\)return j\.value/);
+});
+
 test('Stage 2A QA issuer is transient-resilient and performs stale-identity cleanup without touching business identities',()=>{
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
