@@ -204,6 +204,82 @@ async function createAuth(login,email,displayName,metadata){
   return {authId,session};
 }
 
+async function radioStage2ASignIn(email,password,publicKey){
+  let response;
+  try{
+    response=await fetch(SUPA_URL+"/auth/v1/token?grant_type=password",{
+      method:"POST",
+      headers:{apikey:publicKey,"content-type":"application/json"},
+      body:JSON.stringify({email,password}),
+      signal:AbortSignal.timeout(30000)
+    });
+  }catch(error){
+    return {session:null,status:503,transient:true};
+  }
+  const session=await response.json().catch(()=>null);
+  return {session:response.ok&&session?.access_token?session:null,status:response.status,transient:[429,500,502,503,504].includes(response.status)};
+}
+
+async function createRadioStage2AAuth(runId,identitySelector,login,displayName,metadata){
+  const secretKey=runtimeKey("secret"),publicKey=runtimeKey("pub");
+  const selectorKey=String(identitySelector).replaceAll("-","");
+  const email="qa-radio-stage2a-"+runId+"-"+selectorKey+"@example.invalid";
+  const hmacKey=await crypto.subtle.importKey("raw",new TextEncoder().encode(secretKey),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const digest=new Uint8Array(await crypto.subtle.sign("HMAC",hmacKey,new TextEncoder().encode("RONA_RADIO_STAGE2A_AUTH_V1:"+runId+":"+identitySelector)));
+  const password="Qa2!"+Array.from(digest).map(x=>x.toString(16).padStart(2,"0")).join("");
+
+  const existing=await radioStage2ASignIn(email,password,publicKey);
+  if(existing.session){
+    const authId=String(existing.session?.user?.id||"");
+    if(!UUID_RE.test(authId))throw Object.assign(new Error("QA_EXISTING_SESSION_USER_INVALID"),{status:503});
+    return {authId,session:existing.session};
+  }
+
+  let createStatus=503,createdId="";
+  try{
+    const createdResp=await fetch(SUPA_URL+"/auth/v1/admin/users",{
+      method:"POST",
+      headers:{authorization:"Bearer "+secretKey,apikey:secretKey,"content-type":"application/json"},
+      body:JSON.stringify({email,password,email_confirm:true,user_metadata:Object.assign({
+        rona_portal_login:login,
+        rona_portal_display_name:displayName
+      },metadata||{})}),
+      signal:AbortSignal.timeout(30000)
+    });
+    createStatus=createdResp.status;
+    const created=await createdResp.json().catch(()=>null);
+    createdId=String(created?.id||created?.user?.id||"");
+    if(!createdResp.ok&&!([409,422,429,500,502,503,504].includes(createdResp.status))){
+      throw Object.assign(new Error("QA_AUTH_USER_CREATE_FAILED_"+createdResp.status),{status:createdResp.status});
+    }
+  }catch(error){
+    if(Number(error?.status)>=400&&Number(error?.status)<500)throw error;
+  }
+
+  const signed=await radioStage2ASignIn(email,password,publicKey);
+  if(signed.session){
+    const authId=String(signed.session?.user?.id||createdId||"");
+    if(!UUID_RE.test(authId))throw Object.assign(new Error("QA_SESSION_USER_INVALID"),{status:503});
+    return {authId,session:signed.session};
+  }
+
+  throw Object.assign(new Error("QA_STAGE2A_AUTH_NOT_READY"),{status:signed.status===429||createStatus===429?429:503});
+}
+
+async function radioStage2ARetireDirect(portalId,authId,reason){
+  if(!UUID_RE.test(String(portalId||"")))return;
+  const db=requireQaSql(),ts=nowIso();
+  await db.begin(async sql=>{
+    await sql`update portal_private.client_user_deal_grants set status='REVOKED',revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
+    await sql`update portal_private.client_user_bindings set status='REVOKED',revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
+    await sql`update portal_private.agent_user_bindings set status='REVOKED',valid_to=${ts}::timestamptz,revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
+    await sql`update portal_private.portal_user_roles set status='REVOKED',revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
+    await sql`update portal_private.staff_user_roles set status='REVOKED',revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
+    await sql`update portal_private.portal_users set status='REVOKED',lifecycle_state='ARCHIVED',revoked_at=${ts}::timestamptz,suspended_at=null,auth_user_id=null,updated_at=${ts}::timestamptz where id=${portalId}::uuid and source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE'`;
+  });
+  await deleteAuthUser(authId);
+}
+
 async function issueLegacy(claims){
   const runId=String(claims.run_id||"");
   if(!/^\d{5,20}$/.test(runId)) throw Object.assign(new Error("OIDC_RUN_ID_INVALID"),{status:403});
@@ -329,10 +405,9 @@ async function issueRadioStage2A(claims,identitySelector){
 
   const role=identitySelector==="a2a0b91e-4c2a-4d3e-8f11-2a2a00000001"?"ADMIN":
     (identitySelector==="a2a0b91e-4c2a-4d3e-8f11-2a2a00000005"||identitySelector==="a2a0b91e-4c2a-4d3e-8f11-2a2a00000006")?"AGENT":"CLIENT";
-  const nonce=crypto.randomUUID().replaceAll("-","").slice(0,12);
-  const login="qa_radio_stage2a_"+runId+"_"+nonce;
-  const email="qa-radio-stage2a-"+runId+"-"+nonce+"@example.invalid";
-  const auth=await createAuth(login,email,"RONA Radio Stage2A QA · "+role,{
+  const selectorKey=identitySelector.replaceAll("-","").slice(0,12);
+  const login="qa_radio_stage2a_"+runId+"_"+selectorKey;
+  const auth=await createRadioStage2AAuth(runId,identitySelector,login,"RONA Radio Stage2A QA · "+role,{
     rona_qa_head:String(claims.sha),
     rona_qa_identity_selector:identitySelector,
     rona_qa_scope:"RADIO_STAGE2A"
@@ -355,16 +430,16 @@ async function issueRadioStage2A(claims,identitySelector){
       role
     };
   }catch(error){
-    await retireUser(portalId,auth.authId,RADIO_STAGE2A_SOURCE,"Radio Stage2A failed issuance cleanup").catch(()=>{});
+    await radioStage2ARetireDirect(portalId,auth.authId,"Radio Stage2A failed issuance cleanup").catch(()=>{});
     throw error;
   }
 }
 
 async function cleanupRadioStage2AAll(){
-  const rows=await pvt("portal_users").select("id,auth_user_id").eq("source_system",RADIO_STAGE2A_SOURCE).eq("status","ACTIVE");
-  if(rows.error) throw rows.error;
-  for(const row of rows.data||[]) await retireUser(String(row.id),String(row.auth_user_id||""),RADIO_STAGE2A_SOURCE,"Radio Stage2A GitHub OIDC QA preflight cleanup");
-  return (rows.data||[]).length;
+  const db=requireQaSql();
+  const rows=await db`select id::text,auth_user_id::text from portal_private.portal_users where source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE'`;
+  for(const row of rows||[])await radioStage2ARetireDirect(String(row.id),String(row.auth_user_id||""),"Radio Stage2A GitHub OIDC QA preflight cleanup");
+  return (rows||[]).length;
 }
 
 async function radioStage2AOperationalDirectory(){
@@ -377,19 +452,19 @@ async function radioStage2AOperationalDirectory(){
 async function revokeRadioStage2A(claims,body){
   const authId=String(body?.authUserId||"");
   if(!UUID_RE.test(authId)) throw Object.assign(new Error("AUTH_USER_ID_INVALID"),{status:400});
-  const runId=String(claims.run_id);
-  const rows=await pvt("portal_users").select("id,auth_user_id,source_version")
-    .eq("auth_user_id",authId).eq("source_system",RADIO_STAGE2A_SOURCE).eq("status","ACTIVE")
-    .like("source_version","RUN_"+runId+"%").limit(1);
-  if(rows.error) throw rows.error;
-  if((rows.data||[]).length)
-    await retireUser(String(rows.data[0].id),authId,RADIO_STAGE2A_SOURCE,"Radio Stage2A GitHub OIDC QA revoke");
+  const runId=String(claims.run_id),db=requireQaSql();
+  const rows=await db`select id::text,auth_user_id::text,source_version from portal_private.portal_users where auth_user_id=${authId}::uuid and source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE' and source_version like ${"RUN_"+runId+"%"} limit 1`;
+  if((rows||[]).length)await radioStage2ARetireDirect(String(rows[0].id),authId,"Radio Stage2A GitHub OIDC QA revoke");
   let absent=false;
   for(let attempt=0;attempt<12;attempt++){
     const check=await service.auth.admin.getUserById(authId);
+    if(check.error&&String(check.error?.status||"")!=="404"){
+      await new Promise(r=>setTimeout(r,500));
+      continue;
+    }
     absent=Boolean(check.error)||!check.data?.user;
     if(absent)break;
-    await new Promise(r=>setTimeout(r,100));
+    await new Promise(r=>setTimeout(r,500));
   }
   return {revoked:true,session_absent:absent};
 }
