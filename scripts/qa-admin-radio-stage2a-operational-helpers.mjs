@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 export const ORIGIN=String(process.env.TARGET_ORIGIN||'https://ronaoil.com').replace(/\/$/,'');
 export const HEAD=String(process.env.EXPECTED_HEAD||'');
 export const ISSUER='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-g82-github-oidc-browser-qa-20260816';
+export const ISSUER_REGION='eu-central-1';
 export const DIRECT_PORTAL_API='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-portal-api';
 export const SUPABASE_PUBLISHABLE_KEY='sb_publishable_W2MxTx00ILiugSyZKp8uyQ_zBzcyorL';
 export const AUDIENCE='rona-radio-stage2a-production-v1';
@@ -57,7 +58,7 @@ export async function issuerCall(path,body={},waitForActive=false){
     const token=await oidc();
     let r,j;
     try{
-      r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store'},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
+      r=await fetch(ISSUER+path,{method:'POST',headers:{authorization:`Bearer ${token}`,'content-type':'application/json','cache-control':'no-store','x-region':ISSUER_REGION},body:JSON.stringify(body),signal:AbortSignal.timeout(20000)});
       j=await r.json().catch(()=>null);
     }catch(error){
       last='NETWORK_OR_TIMEOUT';

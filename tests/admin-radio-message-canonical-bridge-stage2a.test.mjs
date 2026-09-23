@@ -252,6 +252,8 @@ test('Stage 2A QA issuer is transient-resilient and performs stale-identity clea
   assert.match(helpers,/\[429,500,502,503,504,520,522,524,546\]\.includes\(r\.status\)/);
   assert.match(helpers,/RESOURCE_LIMIT/);
   assert.match(helpers,/AbortSignal\.timeout\(20000\)/);
+  assert.match(helpers,/ISSUER_REGION='eu-central-1'/);
+  assert.match(helpers,/'x-region':ISSUER_REGION/);
   assert.match(helpers,/export async function cleanupQa\(\)\{return issuerCall\('\/cleanup'\)\}/);
 
   assert.match(main,/try\{\s*const preflightCleanup=await cleanupQa\(\)/);
