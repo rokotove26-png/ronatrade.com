@@ -37,6 +37,7 @@ function renderClients(){const d=snap();if(!d)return;const cs=Array.isArray(d.cl
 window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER';
 window.__RONA_ADMIN_RADIO_OPERATIONAL_MESSAGE__='STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1';
 window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__='STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER';
+window.__RONA_ADMIN_RADIO_BROADCAST_OWNER__='ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1';
 let radioCanonicalState={items:[],clients:[],agents:[],audienceClients:[],audienceAgents:[],broadcasts:[],broadcastProjectionAvailable:false,loading:false,loadedAt:0,error:null,signature:''},radioDraftState=null;
 function radioCaptureDraft(){
   const r=q('#page-messages > .rona-rs-root[data-kind="radio"]');
