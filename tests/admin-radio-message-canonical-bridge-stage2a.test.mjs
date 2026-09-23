@@ -233,6 +233,24 @@ test('Stage 2A production deploy gate permits only exact head or fail-closed QA-
   ]) assert.ok(!gate.includes(`'${forbidden}'`),`Runtime path must not be allow-listed for deployment equivalence: ${forbidden}`);
 });
 
+test('Stage 2A QA issuer is transient-resilient and performs stale-identity cleanup without touching business identities',()=>{
+  const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
+  const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
+
+  assert.match(helpers,/const maxAttempts=waitForActive\?60:6/);
+  assert.match(helpers,/\[429,500,502,503,504,520,522,524,546\]\.includes\(r\.status\)/);
+  assert.match(helpers,/RESOURCE_LIMIT/);
+  assert.match(helpers,/AbortSignal\.timeout\(20000\)/);
+  assert.match(helpers,/export async function cleanupQa\(\)\{return issuerCall\('\/cleanup'\)\}/);
+
+  assert.match(main,/const preflightCleanup=await cleanupQa\(\)/);
+  assert.match(main,/preflightQaCleanup:true/);
+  assert.match(main,/globalQaCleanup:true/);
+  assert.match(main,/PREEXISTING_QA_ACTIVE_USERS/);
+  assert.match(main,/PREEXISTING_QA_CLIENT_BINDINGS/);
+  assert.match(main,/PREEXISTING_QA_AGENT_BINDINGS/);
+});
+
 test('Agent Portal frozen page is functionally bound by the server bridge without visual source mutation',()=>{
   const bridge=read('functions/portal/[[path]].js');
   assert.match(bridge,/AGENT_ADMIN_CANONICAL_MESSAGE_V1/);
