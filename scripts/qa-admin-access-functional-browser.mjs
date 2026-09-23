@@ -71,7 +71,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='POST'&&u.pathname==='/portal/admin-authority/companies'){
     const body=await readBody(req);let payload={};try{payload=JSON.parse(body.toString('utf8'))}catch{return json(res,{ok:false,code:'INVALID_JSON'},400)}
     companyCreateRequests++;companyCreatePayload=payload;
-    return json(res,{ok:true,company:{clientId,contractId,externalContractNumber:contractId,contractStatus:'PENDING_SIGNATURE',signedDocumentRequired:true}},201)
+    return json(res,{ok:true,company:{clientId,contractId,externalContractNumber:'QA-001',contractStatus:'PENDING_SIGNATURE',registeredContractLinked:true,contractIdentityOrigin:'OPERATIONS_CONTRACT_REGISTRY',signedDocumentRequired:true}},201)
   }
   if(req.method==='POST'&&u.pathname===`/portal/admin-authority/contracts/${encodeURIComponent(contractId)}/signed-document/attach`){
     const body=await readBody(req);uploadRequests++;
