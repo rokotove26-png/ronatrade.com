@@ -97,7 +97,7 @@ const proof={
   preexisting:null,targetedNotification:null,broadcastAnnouncement:null,
   idempotency:null,security:null,visual:null,assets:null,cleanup:[],pass:false
 };
-const sessions=[];const contexts=[];let browser=null,adminContextRef=null;const qaIds=new Set();
+const sessions=[];const contexts=[];let browser=null,adminContextRef=null;const qaIds=new Set(),qaBodies=new Set();
 try{
   const [adminSession,c005Session,c002Session]=await Promise.all([issueSession(QA_ADMIN),issueSession(QA_CLIENT_C005),issueSession(QA_CLIENT_C002)]);
   sessions.push(adminSession,c005Session,c002Session);proof.sessions=sessions.map(s=>({portalUserId:s.portalUserId,issued:true}));
@@ -124,7 +124,7 @@ try{
   assert(await selects.count()===3,'RADIO_COMPOSER_SELECT_COUNT_CHANGED');
 
   // Targeted client notification through the actual Admin UI.
-  const tag=Date.now().toString(36),notificationBody=`QA STAGE2B TARGETED NOTIFICATION ${tag}`;
+  const tag=Date.now().toString(36),notificationBody=`QA STAGE2B TARGETED NOTIFICATION ${tag}`;qaBodies.add(notificationBody);
   await selects.nth(0).selectOption('NOTIFICATION');
   await selects.nth(1).selectOption('CLIENT');
   await waitUntil(async()=>{const values=await selects.nth(2).locator('option').evaluateAll(opts=>opts.map(o=>({value:o.value,text:o.textContent})));return values.some(x=>x.value===C005)&&values.every(x=>!String(x.text).includes('PORTAL-EVT-'))?values:null},'NOTIFICATION_CLIENT_DIRECTORY',30000,300);
@@ -142,7 +142,7 @@ try{
 
   // All-client announcement through the same existing composer.
   root=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');selects=root.locator('select');
-  const announcementBody=`QA STAGE2B ALL CLIENTS ANNOUNCEMENT ${tag}`;
+  const announcementBody=`QA STAGE2B ALL CLIENTS ANNOUNCEMENT ${tag}`;qaBodies.add(announcementBody);
   await selects.nth(0).selectOption('ANNOUNCEMENT');
   await selects.nth(1).selectOption('ALL_CLIENTS');
   assert(await selects.nth(2).isDisabled(),'ALL_CLIENTS_TARGET_MUST_BE_DISABLED');
@@ -166,11 +166,12 @@ try{
   proof.security={legacyMessageStatus:legacyMessage.status,badClientStatus:badTarget.status,badAgentStatus:badAgent.status};
 
   // Idempotency is durable for broadcast publication.
-  const idem=randomUUID(),idemBody=`QA STAGE2B IDEMPOTENCY ${tag}`;
+  const idem=randomUUID(),idemBody=`QA STAGE2B IDEMPOTENCY ${tag}`;qaBodies.add(idemBody);
   const first=await ownerApi(adminContext,'/admin/radio',{method:'POST',body:{kind:'NOTIFICATION',scope:'ALL_CLIENTS',targetId:null,body:idemBody,idempotencyKey:idem}});
   const second=await ownerApi(adminContext,'/admin/radio',{method:'POST',body:{kind:'NOTIFICATION',scope:'ALL_CLIENTS',targetId:null,body:idemBody,idempotencyKey:idem}});
   assert(first.status===200&&second.status===200,'IDEMPOTENCY_REQUEST_FAILED');
   assert(first.body?.data?.id&&second.body?.data?.id&&first.body.data.id===second.body.data.id,'IDEMPOTENCY_DUPLICATE_CREATED');
+  assert(second.body?.data?.reused===true,'IDEMPOTENCY_REUSE_NOT_REPORTED');
   qaIds.add(String(first.body.data.id));
   proof.idempotency={id:String(first.body.data.id),secondReused:Boolean(second.body?.data?.reused)};
 
@@ -217,7 +218,11 @@ try{
   console.log('CLIENT_VISUAL_FREEZE=PASS');
   console.log('VISUAL_DELTA=0');
 }finally{
-  if(adminContextRef&&qaIds.size){
+  if(adminContextRef){
+    try{
+      const current=await radioBootstrap(adminContextRef);
+      for(const row of radioRows(current))if(qaBodies.has(norm(row?.body_text)))qaIds.add(String(row.id));
+    }catch{}
     for(const id of qaIds){
       try{await ownerApi(adminContextRef,`/admin/radio/${encodeURIComponent(id)}/expire`,{method:'POST',body:{}})}catch{}
     }
