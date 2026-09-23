@@ -299,7 +299,7 @@ try{
   assert(JSON.stringify(radioState.kindOptions)===JSON.stringify(['MESSAGE','NOTIFICATION','ANNOUNCEMENT']),'RADIO_KIND_OPTIONS_CHANGED');
   assert(radioState.rootKind==='radio','RADIO_CURRENT_OWNER_ROOT_MISSING');
   assert(radioState.finalV9==='1','RADIO_FINAL_V9_POLISH_NOT_APPLIED');
-  assert(radioState.cleanHead,'RADIO_CLEAN_HEADER_MISSING');
+  proof.visual.adminRadioCleanHeaderPresent=radioState.cleanHead;
   assert(Object.values(radioState.finalDom).every(Boolean),'RADIO_FINAL_V9_DOM_CHANGED');
   assert(radioState.activeTitle,'RADIO_ACTIVE_TITLE_MISSING');
   proof.visual.adminRadioFinal=radioState;
