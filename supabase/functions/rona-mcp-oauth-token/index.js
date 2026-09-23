@@ -28,6 +28,8 @@ const ORIGIN_ALLOWLIST=new Set([
 ]);
 const TOKEN_FIELDS=new Set(['grant_type','client_id','code','redirect_uri','code_verifier','resource','scope','refresh_token']);
 const REVOKE_FIELDS=new Set(['token','token_type_hint','client_id']);
+const REFRESH_CONCURRENT_GRACE_MS=5*60*1000;
+const REFRESH_CONCURRENT_MAX_CHILDREN=3;
 
 function json(body,status=200){
   return new Response(JSON.stringify(body),{status,headers:{
@@ -143,9 +145,17 @@ async function refreshGrant(form,cfg,client,segment){
     const row=locked[0];
     if(row.revoked_at||row.refresh_used_at){
       if(row.revoked_reason==='REFRESH_ROTATED'||row.refresh_used_at||row.rotated_to_token_id){
-        // Reject a stale already-rotated refresh token without revoking the active descendant.
-        // ChatGPT may have concurrent connector sessions/tabs; a stale retry must not kill
-        // the whole valid family. No token is issued from the stale credential.
+        const usedAt=row.refresh_used_at?new Date(row.refresh_used_at).getTime():0;
+        const expiresAt=row.refresh_expires_at?new Date(row.refresh_expires_at).getTime():0;
+        const withinGrace=usedAt>0&&(Date.now()-usedAt)>=0&&(Date.now()-usedAt)<=REFRESH_CONCURRENT_GRACE_MS;
+        if(withinGrace&&expiresAt>Date.now()){
+          const siblings=await tx`select count(*)::int n from portal_private.mcp_oauth_tokens where parent_token_id=${row.token_id}::uuid and revoked_at is null and refresh_expires_at>now()`;
+          const activeSiblings=Number(siblings[0]?.n||0);
+          if(activeSiblings<REFRESH_CONCURRENT_MAX_CHILDREN){
+            const inserted=await tx`insert into portal_private.mcp_oauth_tokens(server_slug,functional_role,identity_id,client_id,owner_portal_user_id,scope,resource,access_token_hash,refresh_token_hash,access_expires_at,refresh_expires_at,token_family_id,parent_token_id) values(${cfg.server_slug},${cfg.business_role}::portal_private.ai_business_role_enum,${cfg.identity_id},${client.client_id},${row.owner_portal_user_id}::uuid,${row.scope},${boundResource},${material.accessHash},${material.refreshHash},now()+interval '15 minutes',${row.refresh_expires_at},${row.token_family_id}::uuid,${row.token_id}::uuid) returning token_id`;
+            return {kind:'grace',tokenId:inserted[0].token_id,activeSiblings};
+          }
+        }
         return {kind:'stale_rotated'};
       }
       return {kind:'invalid'};
@@ -159,6 +169,10 @@ async function refreshGrant(form,cfg,client,segment){
     await tx`update portal_private.mcp_oauth_tokens set refresh_used_at=now(),revoked_at=now(),revoked_reason='REFRESH_ROTATED',rotated_to_token_id=${nextId}::uuid where token_id=${row.token_id}::uuid and revoked_at is null`;
     return {kind:'ok',tokenId:nextId};
   });
+  if(result.kind==='grace'){
+    audit('RONA_OAUTH_REFRESH_STALE_REUSE_GRACE_ISSUED',segment,form,200,'CONCURRENT_REFRESH_GRACE_ISSUED',{grace_ms:REFRESH_CONCURRENT_GRACE_MS,active_siblings_before:Number(result.activeSiblings||0),max_children:REFRESH_CONCURRENT_MAX_CHILDREN});
+    return json({access_token:material.access,token_type:'Bearer',expires_in:900,scope:boundScope,refresh_token:material.refresh});
+  }
   if(result.kind==='stale_rotated'){
     audit('RONA_OAUTH_REFRESH_STALE_REUSE_REJECTED',segment,form,400,'STALE_ROTATED_TOKEN_REJECTED_FAMILY_PRESERVED');
     return oauthError('invalid_grant','refresh token already rotated');
@@ -167,7 +181,6 @@ async function refreshGrant(form,cfg,client,segment){
   audit('RONA_OAUTH_TOKEN_V2_RESULT',segment,form,200,'REFRESHED',{refresh_issued:true,rotation:true});
   return json({access_token:material.access,token_type:'Bearer',expires_in:900,scope:boundScope,refresh_token:material.refresh});
 }
-
 async function tokenEndpoint(req,cfg,segment){
   if(!contentTypeIsForm(req.headers.get('content-type')))return oauthError('invalid_request','form content type required',415);
   let form;try{form=new URLSearchParams(await readTextLimited(req,32768));}catch(e){return oauthError('invalid_request','invalid token request',e?.status||400);}
