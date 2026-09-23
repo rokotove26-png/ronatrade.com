@@ -30,10 +30,25 @@ async function oidc(){
   const base=process.env.ACTIONS_ID_TOKEN_REQUEST_URL,token=process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
   if(!base||!token)throw new Error('GITHUB_OIDC_ENV_MISSING');
   const url=base+(base.includes('?')?'&':'?')+'audience='+encodeURIComponent(AUDIENCE);
-  const r=await fetch(url,{headers:{authorization:`Bearer ${token}`}});
-  const j=await r.json().catch(()=>null);
-  if(!r.ok||!j?.value)throw new Error(`GITHUB_OIDC_${r.status}`);
-  return j.value;
+  let last='UNKNOWN';
+  for(let attempt=0;attempt<6;attempt++){
+    let r,j;
+    try{
+      r=await fetch(url,{headers:{authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});
+      j=await r.json().catch(()=>null);
+    }catch(error){
+      last='NETWORK_OR_TIMEOUT';
+      if(attempt<5){await sleep(Math.min(1000*(attempt+1),5000));continue}
+      throw new Error(`GITHUB_OIDC_${last}`);
+    }
+    if(r.ok&&j?.value)return j.value;
+    last=String(r.status);
+    if([429,500,502,503,504,520,522,524].includes(r.status)&&attempt<5){
+      await sleep(Math.min(1000*(attempt+1),5000));continue
+    }
+    throw new Error(`GITHUB_OIDC_${last}`);
+  }
+  throw new Error(`GITHUB_OIDC_${last}`);
 }
 export async function issuerCall(path,body={},waitForActive=false){
   let last='';
