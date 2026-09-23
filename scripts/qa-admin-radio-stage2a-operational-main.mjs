@@ -73,9 +73,13 @@ async function cleanupFailure(){
 }
 
 try{
-  // Phase 0: retire any stale QA identity from prior failed attempts, then prove real directories.
-  const preflightCleanup=await cleanupQa();
-  proof.cleanup.push({preflightQaCleanup:true,retired:Number(preflightCleanup?.retired||0)});
+  // Phase 0: attempt stale-QA cleanup, but acceptance is governed by the authoritative observed QA state.
+  try{
+    const preflightCleanup=await cleanupQa();
+    proof.cleanup.push({preflightQaCleanup:true,retired:Number(preflightCleanup?.retired||0)});
+  }catch(error){
+    proof.cleanup.push({preflightQaCleanup:false,error:String(error?.message||error)});
+  }
   const pre=await directory();
   assert(sameSet((pre.clients||[]).map(x=>x.client_id),CLIENT_IDS),'PRE_IDENTITY_REAL_CLIENT_DIRECTORY_MISMATCH');
   assert(sameSet((pre.agents||[]).map(x=>x.agent_person_id),AGENT_IDS),'PRE_IDENTITY_REAL_AGENT_DIRECTORY_MISMATCH');
