@@ -200,3 +200,7 @@ test('Frozen Admin Radio polish assets remain byte-for-byte unchanged',()=>{
 test('Frozen Client Messages visual/runtime asset remains byte-for-byte unchanged',()=>{
   assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
 });
+
+test('Frozen Agent Portal visual source remains byte-for-byte unchanged',()=>{
+  assert.equal(gitBlobSha('portal-src/canonical-transfer-v1_1/agent_externalized.html'),'6fefc0cc53d21b94855800b7fbde249214e41b95');
+});
