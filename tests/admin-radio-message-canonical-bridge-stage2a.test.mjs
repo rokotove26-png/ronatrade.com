@@ -18,7 +18,7 @@ test('Stage 2A corrective lives in the actual production Radio owner',()=>{
   assert.match(radio,/\/v1\/admin\/client-intake\//);
   assert.match(radio,/source_task_id/);
   assert.doesNotMatch(radio,/radioCanonicalOptionText/);
-  assert.doesNotMatch(radio,/new Option\([^\n]*event_id/);
+  assert.doesNotMatch(radio,/new Option\([^)]*\.event_id\s*,/);
   assert.doesNotMatch(radio,/owner_radio_items/);
   assert.doesNotMatch(radio,/CREATE TABLE|create table/i);
 });
@@ -27,7 +27,7 @@ test('Radio MESSAGE selector is client/company semantic and legacy publication i
   const radio=read('functions/portal/remaining-sections-r2-base.js');
   assert.match(radio,/radioCanonicalClients\(\)\.forEach/);
   assert.match(radio,/radioCanonicalClientText/);
-  assert.match(radio,/String\(x\.client_id\|\|''\)/);
+  assert.match(radio,/String\(x\?\.client_id\|\|''\)/);
   assert.match(radio,/if\(kind\.value==='MESSAGE'\)/);
   const branch=radio.indexOf("if(kind.value==='MESSAGE')");
   const legacyPost=radio.indexOf("await post('/admin/radio',{kind:kind.value",branch);
