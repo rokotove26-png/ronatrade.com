@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import {
   ORIGIN,HEAD,QA,CLIENT_IDS,AGENT_IDS,C003,A001,A002,
-  assert,sameSet,norm,issue,revoke,directory,browser,context,api,wait,
+  assert,sameSet,norm,issue,revoke,cleanupQa,directory,browser,context,api,wait,
   adminBoot,adminDirectories,retire,clientMessages,agentMessages,broadcastSignature
 } from './qa-admin-radio-stage2a-operational-helpers.mjs';
 import { runRoundTrips } from './qa-admin-radio-stage2a-operational-scenarios.mjs';
@@ -25,13 +25,16 @@ async function cleanupFailure(){
     }catch(e){proof.cleanup.push({failurePath:true,error:String(e?.message||e)})}
   }
   for(const s of sessions)if(!s.revoked){try{await revoke(s);proof.cleanup.push({portalUserId:s.portalUserId,sessionRevoked:true,failurePath:true})}catch(e){proof.cleanup.push({portalUserId:s.portalUserId,sessionRevoked:false,failurePath:true,error:String(e?.message||e)})}}
+  try{const r=await cleanupQa();proof.cleanup.push({globalQaCleanup:true,retired:Number(r?.retired||0),failurePath:true})}catch(e){proof.cleanup.push({globalQaCleanup:false,failurePath:true,error:String(e?.message||e)})}
   for(const c of contexts)await c.close().catch(()=>{});
   if(browserRef)await browserRef.close().catch(()=>{});
   await save().catch(()=>{});
 }
 
 try{
-  // Phase 0: prove real entity directories before creating any QA identity.
+  // Phase 0: retire any stale QA identity from prior failed attempts, then prove real directories.
+  const preflightCleanup=await cleanupQa();
+  proof.cleanup.push({preflightQaCleanup:true,retired:Number(preflightCleanup?.retired||0)});
   const pre=await directory();
   assert(sameSet((pre.clients||[]).map(x=>x.client_id),CLIENT_IDS),'PRE_IDENTITY_REAL_CLIENT_DIRECTORY_MISMATCH');
   assert(sameSet((pre.agents||[]).map(x=>x.agent_person_id),AGENT_IDS),'PRE_IDENTITY_REAL_AGENT_DIRECTORY_MISMATCH');
