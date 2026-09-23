@@ -31,11 +31,11 @@ function renderMessages(){
   panel.textContent='';const head=node('div','panel-head');head.append(node('strong','','Переписка'));panel.append(head);
   if(!state.messages.length)panel.append(empty('Сообщений пока нет','Здесь будут отображаться только фактически отправленные и полученные сообщения выбранной компании.'));
   else for(const item of state.messages){
-    const p=payload(item),adminToClient=norm(item.direction)==='ADMIN_TO_CLIENT',subject=norm(p.subject)||(adminToClient?'RONA Trade':'Сообщение'),message=norm(p.message)||'—';
+    const p=payload(item),subject=norm(p.subject)||'Сообщение',message=norm(p.message)||'—';
     const processing=norm(item.processing_state),ack=norm(item.acknowledgement_state);
-    const stage=adminToClient?'RONA Trade → Клиент':item.client_response_published_at?'Клиент → RONA Trade · Ответ опубликован':ack==='REJECTED'?'Клиент → RONA Trade · Отклонено':processing==='APPLIED'?'Клиент → RONA Trade · Обработано':'Клиент → RONA Trade · Передано администратору';
+    const stage=item.client_response_published_at?'Ответ опубликован':ack==='REJECTED'?'Отклонено':processing==='APPLIED'?'Обработано':'Передано администратору';
     panel.append(row(subject,message,`${stage} · ${dateText(item.created_at)}`));
-    if(norm(item.client_response_text))panel.append(row('Ответ RONA Trade',norm(item.client_response_text),`RONA Trade → Клиент · ${dateText(item.client_response_published_at)}`));
+    if(norm(item.client_response_text))panel.append(row('Ответ RONA Trade',norm(item.client_response_text),dateText(item.client_response_published_at)));
   }
   panel.dataset.ronaMessagesSignature=signature;return true;
 }
