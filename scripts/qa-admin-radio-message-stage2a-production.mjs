@@ -112,7 +112,7 @@ async function liveBlob(path,expected){
   return{path,bytes:bytes.length,gitBlobSha:sha};
 }
 const isQa=x=>norm(x?.payload?.subject).startsWith('QA STAGE2A')||norm(x?.payload?.message).startsWith('QA STAGE2A');
-async function adminBootstrap(context){return await contextApi(context,'/portal/api/v1/admin/bootstrap',{referer:'/portal/admin'})}
+async function adminRadioBootstrap(context){return await contextApi(context,'/portal/api/v1/admin/radio/bootstrap',{referer:'/portal/admin',headers:{'x-rona-client-source':'ADMIN_RADIO_STAGE2A_PRODUCTION_QA'}})}
 async function retireQa(context,eventIds){
   const ids=[...new Set((eventIds||[]).filter(Boolean))];
   if(!ids.length)return{status:200,body:{ok:true,retired_events:0,retired_tasks:0}};
@@ -138,14 +138,14 @@ try{
   let radioRoot=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');await radioRoot.waitFor({state:'visible',timeout:30000});
 
   // One-time audit-safe retirement of historical Stage 2A QA artifacts.
-  let boot=await adminBootstrap(adminContext);assert(boot.status===200,'ADMIN_BOOTSTRAP_FAILED');
+  let boot=await adminRadioBootstrap(adminContext);assert(boot.status===200,'ADMIN_RADIO_BOOTSTRAP_FAILED');
   const historical=(boot.body?.data?.radio_messages||[]).filter(isQa).map(x=>x.event_id);
   if(historical.length){
     const retired=await retireQa(adminContext,historical);
     assert(retired.status===200&&retired.body?.retired_events===historical.length,'HISTORICAL_QA_RETIRE_FAILED');
     proof.historicalCleanup={requested:historical.length,retiredEvents:retired.body.retired_events,retiredTasks:retired.body.retired_tasks};
   }else proof.historicalCleanup={requested:0,retiredEvents:0,retiredTasks:0};
-  boot=await adminBootstrap(adminContext);assert((boot.body?.data?.radio_messages||[]).filter(isQa).length===0,'HISTORICAL_QA_STILL_VISIBLE');
+  boot=await adminRadioBootstrap(adminContext);assert((boot.body?.data?.radio_messages||[]).filter(isQa).length===0,'HISTORICAL_QA_STILL_VISIBLE');
 
   const selects=radioRoot.locator('select');
   assert(await selects.count()===3,'ADMIN_RADIO_COMPOSER_SELECT_COUNT_CHANGED');
@@ -168,7 +168,7 @@ try{
   assert(adminSendResponse.status()===201||adminSendResponse.status()===200,`ADMIN_INIT_SEND_FAILED_${adminSendResponse.status()}_${JSON.stringify(adminSendBody)}`);
   const sentEventId=String(adminSendBody?.message?.event_id||'');assert(sentEventId.startsWith('PORTAL-EVT-'),'ADMIN_INIT_SEND_EVENT_ID_MISSING');
   const adminEvent=await waitUntil(async()=>{
-    const r=await adminBootstrap(adminContext);
+    const r=await adminRadioBootstrap(adminContext);
     if(r.status!==200)return null;
     return (r.body?.data?.radio_messages||[]).find(x=>x?.event_id===sentEventId&&norm(x?.payload?.message)===adminMessage&&x?.direction==='ADMIN_TO_CLIENT')||null;
   },'ADMIN_INITIATED_CANONICAL_EVENT',30000,350);
@@ -221,7 +221,7 @@ try{
   await aPage.getByText(adminReply,{exact:true}).first().waitFor({state:'visible',timeout:20000});proof.reload={clientResponsePersisted:true};
 
   // Scenario D: business workflow reverse events are not Radio MESSAGE entities/KPIs.
-  boot=await adminBootstrap(adminContext);assert(boot.status===200,'ADMIN_BOOTSTRAP_POST_CHAT_FAILED');
+  boot=await adminRadioBootstrap(adminContext);assert(boot.status===200,'ADMIN_RADIO_BOOTSTRAP_POST_CHAT_FAILED');
   const radioMessages=boot.body?.data?.radio_messages||[];
   const businessLeak=radioMessages.filter(x=>['CLIENT_PRICE_APPLICATION','CLIENT_PRICE_CALCULATION_REQUEST'].includes(norm(x?.payload?.source))||['APPLICATION_DETAILS_V5','DELIVERED_PRICE_CALCULATION_REQUEST_V1'].includes(norm(x?.payload?.message_type)));
   assert(businessLeak.length===0,'BUSINESS_EVENT_LEAKED_INTO_RADIO');
@@ -248,7 +248,7 @@ try{
   assert(retired.status===200&&retired.body?.retired_events===new Set(currentQaEventIds).size,'CURRENT_QA_RETIRE_FAILED');
   proof.cleanup.push({eventIds:[...new Set(currentQaEventIds)],retiredEvents:retired.body.retired_events,retiredTasks:retired.body.retired_tasks});
   qaRetired=true;
-  boot=await adminBootstrap(adminContext);
+  boot=await adminRadioBootstrap(adminContext);
   assert(!(boot.body?.data?.radio_messages||[]).some(x=>currentQaEventIds.includes(x.event_id)),'QA_EVENT_STILL_IN_ADMIN_RADIO');
   const afterCleanup=await clientMessages(aContext,C005);
   assert(!(afterCleanup.body?.messages||[]).some(x=>currentQaEventIds.includes(x.event_id)),'QA_EVENT_STILL_IN_CLIENT_MESSAGES');
