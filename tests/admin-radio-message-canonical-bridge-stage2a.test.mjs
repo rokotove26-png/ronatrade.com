@@ -176,6 +176,37 @@ test('Same-origin Agent bootstrap sanitizer preserves canonical identity, scope,
   assert.match(proxy,/path==='\/v1\/agent\/bootstrap'\)payload\.data=safeAgentBootstrap\(payload\.data\)/);
 });
 
+test('Production /portal/api Agent bootstrap owner and direct/proxy parity gate are source-locked',()=>{
+  const proxy=read('functions/portal/api/[[path]].js');
+  const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
+  const scenarios=read('scripts/qa-admin-radio-stage2a-operational-scenarios.mjs');
+  const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
+
+  assert.match(proxy,/const prefix='\/portal\/api'/);
+  assert.match(proxy,/path=url\.pathname\.startsWith\(prefix\)\?url\.pathname\.slice\(prefix\.length\):''/);
+  assert.match(proxy,/const PORTAL_API=\`\$\{SUPABASE_URL\}\/functions\/v1\/rona-portal-api\`/);
+  assert.match(proxy,/path==='\/v1\/agent\/bootstrap'\)payload\.data=safeAgentBootstrap\(payload\.data\)/);
+
+  assert.match(helpers,/DIRECT_PORTAL_API='https:\/\/sxawrwzeobaqwwmlkzws\.supabase\.co\/functions\/v1\/rona-portal-api'/);
+  assert.match(helpers,/directAgentBootstrap\(session\)/);
+  assert.match(helpers,/authorization:\`Bearer \$\{session\.accessToken\}\`/);
+  assert.match(helpers,/proxyAgentBootstrap=c=>api\(c,'\/portal\/api\/v1\/agent\/bootstrap'/);
+
+  for(const token of [
+    "d.agentPersonId===p.agentPersonId",
+    "d.userId===p.userId",
+    "d.displayAlias===p.displayAlias",
+    "d.legalEntity.id===p.legalEntity.id",
+    "MESSAGE_PROJECTION_PARITY",
+    "MESSAGE_SENSITIVE_FIELD_EXPOSED",
+    "STALE_ASSIGNED_CLIENTS_PRESENT"
+  ]) assert.ok(scenarios.includes(token),`Agent direct/proxy parity guard missing: ${token}`);
+
+  assert.match(main,/AGENT_A_BOOT=PASS/);
+  assert.match(main,/AGENT_B_BOOT=PASS/);
+  assert.match(main,/AGENT_BOOTSTRAP_DIRECT_PROXY_PARITY=PASS/);
+});
+
 test('Agent Portal frozen page is functionally bound by the server bridge without visual source mutation',()=>{
   const bridge=read('functions/portal/[[path]].js');
   assert.match(bridge,/AGENT_ADMIN_CANONICAL_MESSAGE_V1/);

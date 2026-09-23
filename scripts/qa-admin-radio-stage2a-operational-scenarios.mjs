@@ -1,11 +1,45 @@
 import {
   ORIGIN,HEAD,C002,C005,A001,A002,VISUAL,assert,norm,wait,
   adminDirectories,adminBoot,clientMessages,agentMessages,
-  selectClient,openMessages,clientSubmit,agentSubmit,api,liveBlob,broadcastSignature
+  selectClient,openMessages,clientSubmit,agentSubmit,api,liveBlob,broadcastSignature,
+  directAgentBootstrap,proxyAgentBootstrap
 } from './qa-admin-radio-stage2a-operational-helpers.mjs';
 
+const AGENT_MESSAGE_KEYS=['eventId','agentPersonId','subject','text','relatedObject','direction','processingState','acknowledgementState','createdAt','updatedAt'];
+const AGENT_MESSAGE_FORBIDDEN_KEYS=['payload','actorUserId','actor_user_id','actorRole','actor_role','requestId','request_id','correlationId','correlation_id','agentPersonKey','agent_person_key','clientKey','client_key','contractKey','contract_key','dealKey','deal_key','authorityDomain','authority_domain','authorityTargetType','authority_target_type','sourceSystem','source_system','sourceVersion','source_version'];
+const canonicalAgentMessage=m=>Object.fromEntries(AGENT_MESSAGE_KEYS.map(k=>[k,m?.[k]??null]));
+const orderedMessages=xs=>(Array.isArray(xs)?xs:[]).map(canonicalAgentMessage).sort((a,b)=>String(a.eventId).localeCompare(String(b.eventId)));
+
+async function proveAgentBootstrapParity(session,ctx,label,expectedAgentPersonId){
+  const direct=await directAgentBootstrap(session),proxy=await proxyAgentBootstrap(ctx);
+  assert(direct.status===200,label+'_DIRECT_BOOT_HTTP_'+direct.status);
+  assert(proxy.status===200,label+'_PROXY_BOOT_HTTP_'+proxy.status);
+  const d=direct.body?.data,p=proxy.body?.data;
+  assert(d&&p,label+'_BOOT_DATA_MISSING');
+  assert(d.agentPersonId===expectedAgentPersonId&&p.agentPersonId===expectedAgentPersonId,label+'_AGENT_PERSON_ID_UNEXPECTED');
+  assert(d.agentPersonId===p.agentPersonId,label+'_AGENT_PERSON_ID_PARITY');
+  assert(d.userId===p.userId,label+'_USER_ID_PARITY');
+  assert(d.displayAlias===p.displayAlias,label+'_DISPLAY_ALIAS_PARITY');
+  assert(d.legalEntity?.id&&p.legalEntity?.id&&d.legalEntity.id===p.legalEntity.id,label+'_LEGAL_ENTITY_ID_PARITY');
+  assert(Array.isArray(p.clients)&&Array.isArray(p.deals)&&Array.isArray(p.applications)&&Array.isArray(p.settlements)&&Array.isArray(p.economics)&&Array.isArray(p.documents)&&Array.isArray(p.messages),label+'_CANONICAL_ARRAY_CONTRACT_MISSING');
+  assert(!Object.prototype.hasOwnProperty.call(p,'assignedClients'),label+'_STALE_ASSIGNED_CLIENTS_PRESENT');
+  for(const m of p.messages){
+    assert(Object.keys(m).every(k=>AGENT_MESSAGE_KEYS.includes(k)),label+'_MESSAGE_ALLOWLIST_DRIFT');
+    assert(!AGENT_MESSAGE_FORBIDDEN_KEYS.some(k=>Object.prototype.hasOwnProperty.call(m,k)),label+'_MESSAGE_SENSITIVE_FIELD_EXPOSED');
+    assert(m.agentPersonId===expectedAgentPersonId,label+'_MESSAGE_AGENT_SCOPE_DRIFT');
+    assert(['ADMIN_TO_AGENT','AGENT_TO_ADMIN'].includes(String(m.direction)),label+'_MESSAGE_DIRECTION_DRIFT');
+  }
+  const dm=orderedMessages(d.messages),pm=orderedMessages(p.messages);
+  assert(JSON.stringify(dm)===JSON.stringify(pm),label+'_MESSAGE_PROJECTION_PARITY');
+  return{
+    directHttp:direct.status,proxyHttp:proxy.status,
+    agentPersonId:p.agentPersonId,userId:p.userId,displayAlias:p.displayAlias,
+    legalEntityId:p.legalEntity.id,messageCount:pm.length,messageEventIds:pm.map(x=>x.eventId)
+  };
+}
+
 export async function runRoundTrips(x){
-  const {adminContext,adminPage,clientAContext,clientA2Context,clientBContext,agentAContext,agentBContext,clientAPage,clientA2Page,clientBPage,agentAPage,agentBPage,qaEvents,beforeBroadcasts,proof}=x;
+  const {adminContext,adminPage,clientAContext,clientA2Context,clientBContext,agentAContext,agentBContext,agentASession,agentBSession,clientAPage,clientA2Page,clientBPage,agentAPage,agentBPage,qaEvents,beforeBroadcasts,proof}=x;
   const tag=Date.now().toString(36);
 
   // A. Admin -> Client plus company-scope and cross-client isolation.
@@ -64,6 +98,8 @@ export async function runRoundTrips(x){
     if(state.diag?.finished)throw new Error('AGENT_A_BOOT_DIAGNOSTIC:'+JSON.stringify(state));
     return false
   },'AGENT_A_BOOT',30000,250);
+  proof.agentBootstrapParity=proof.agentBootstrapParity||{};
+  proof.agentBootstrapParity.agentA=await proveAgentBootstrapParity(agentASession,agentAContext,'AGENT_A','AGP-2026-001');
   await openMessages(agentAPage);await agentAPage.getByText(adminAgentMessage,{exact:true}).first().waitFor({state:'visible',timeout:30000});
   const agentARead=await agentMessages(agentAContext);assert(agentARead.status===200&&(agentARead.body?.messages||[]).some(v=>v.eventId===adminAgentEvent),'ADMIN_TO_AGENT_API_NOT_VISIBLE');
   proof.adminToAgent={eventId:adminAgentEvent,visible:true};
@@ -77,7 +113,9 @@ export async function runRoundTrips(x){
     if(state.agentId==='AGP-2026-002')return true;
     if(state.diag?.finished)throw new Error('AGENT_B_BOOT_DIAGNOSTIC:'+JSON.stringify(state));
     return false
-  },'AGENT_B_BOOT',30000,250);await openMessages(agentBPage);
+  },'AGENT_B_BOOT',30000,250);
+  proof.agentBootstrapParity.agentB=await proveAgentBootstrapParity(agentBSession,agentBContext,'AGENT_B','AGP-2026-002');
+  await openMessages(agentBPage);
   const agentBRead=await agentMessages(agentBContext);assert(agentBRead.status===200&&!(agentBRead.body?.messages||[]).some(v=>v.eventId===adminAgentEvent),'CROSS_AGENT_MESSAGE_LEAK');
 
   // D. Agent -> Admin through the existing Agent Messages form.
