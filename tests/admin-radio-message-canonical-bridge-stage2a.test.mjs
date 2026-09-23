@@ -207,6 +207,32 @@ test('Production /portal/api Agent bootstrap owner and direct/proxy parity gate 
   assert.match(main,/AGENT_BOOTSTRAP_DIRECT_PROXY_PARITY=PASS/);
 });
 
+test('Stage 2A production deploy gate permits only exact head or fail-closed QA-only runtime equivalence',()=>{
+  const workflow=read('.github/workflows/admin-radio-message-stage2a-production-qa.yml');
+  const gate=read('scripts/qa-admin-radio-stage2a-deployment-equivalence.mjs');
+
+  assert.match(workflow,/Prove exact or QA-only runtime-equivalent Cloudflare deployment/);
+  assert.match(workflow,/node scripts\/qa-admin-radio-stage2a-deployment-equivalence\.mjs/);
+  assert.doesNotMatch(workflow,/run: node scripts\/wait-cloudflare-commit\.mjs/);
+
+  assert.match(gate,/CLOUDFLARE_DEPLOYMENT_AUTHORITY=EXACT_HEAD/);
+  assert.match(gate,/CLOUDFLARE_DEPLOYMENT_AUTHORITY=QA_ONLY_RUNTIME_EQUIVALENCE/);
+  assert.match(gate,/Workers Builds: ronatrade-com/);
+  assert.match(gate,/Cloudflare Pages/);
+  assert.match(gate,/forbidden=changed\.filter\(path=>!qaOnlyPaths\.has\(path\)\)/);
+  assert.match(gate,/PAGES_NOT_EXACT_AND_RUNTIME_DELTA_PRESENT/);
+  assert.match(gate,/NO_SUCCESSFUL_PAGES_ANCESTOR/);
+  assert.match(gate,/git',\['diff','--name-only'/);
+
+  for(const forbidden of [
+    "functions/portal/api/[[path]].js",
+    "functions/portal/[[path]].js",
+    "supabase/functions/rona-portal-api/agent.ts",
+    "portal-src/canonical-transfer-v1_1/agent_externalized.html",
+    "assets/portal-admin-radio-final-v9.js"
+  ]) assert.ok(!gate.includes(`'${forbidden}'`),`Runtime path must not be allow-listed for deployment equivalence: ${forbidden}`);
+});
+
 test('Agent Portal frozen page is functionally bound by the server bridge without visual source mutation',()=>{
   const bridge=read('functions/portal/[[path]].js');
   assert.match(bridge,/AGENT_ADMIN_CANONICAL_MESSAGE_V1/);
