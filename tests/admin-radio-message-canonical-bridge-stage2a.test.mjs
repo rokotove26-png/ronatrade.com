@@ -6,12 +6,14 @@ import { test } from 'node:test';
 const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const gitBlobSha=p=>{const bytes=readFileSync(new URL('../'+p,import.meta.url));return createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex')};
 
-test('Stage 2A corrective lives in the actual production Radio owner wrapper',()=>{
-  const radio=read('functions/portal/remaining-sections-ui.js');
-  assert.match(radio,/import \{ onRequest as baseRemaining \} from '\.\/remaining-sections-r2-base\.js'/);
-  assert.match(radio,/source\.indexOf\("window\.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__="/);
-  assert.match(radio,/source\.slice\(0,radioStart\)\+RADIO_DIRECT_RENDER\+source\.slice\(radioEnd\)/);
-  assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP/);
+test('Stage 2A production Radio owner is the static materialized R2 base and uses dedicated chat bootstrap',()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const materializer=read('scripts/materialize-admin-current-modules.mjs');
+  assert.match(materializer,/extractRawScript\(await read\('functions\/portal\/remaining-sections-r2-base\.js'/);
+  assert.match(materializer,/writeFile\(join\(OUT,'remaining-sections-ui'\),remaining\)/);
+  assert.match(materializer,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
+  assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
+  assert.match(radio,/ADMIN_RADIO_STAGE2A_STATIC_OWNER_V3/);
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
   assert.match(radio,/radioCanonicalClients/);
@@ -23,14 +25,15 @@ test('Stage 2A corrective lives in the actual production Radio owner wrapper',()
   assert.match(radio,/Number\(error\?\.status\)>=500/);
   assert.match(radio,/\/v1\/admin\/client-intake\//);
   assert.match(radio,/source_task_id/);
-  assert.doesNotMatch(radio,/radioCanonicalOptionText/);
+  assert.doesNotMatch(radio,/radioCanonicalRequest\('\/v1\/admin\/bootstrap'\)/);
+  assert.doesNotMatch(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V1_LIVE_OWNER/);
   assert.doesNotMatch(radio,/new Option\([^)]*\.event_id\s*,/);
   assert.doesNotMatch(radio,/owner_radio_items/);
   assert.doesNotMatch(radio,/CREATE TABLE|create table/i);
 });
 
 test('Radio MESSAGE selector is client/company semantic and legacy publication is not used for MESSAGE',()=>{
-  const radio=read('functions/portal/remaining-sections-ui.js');
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
   assert.match(radio,/radioCanonicalClients\(\)\.forEach/);
   assert.match(radio,/radioCanonicalClientText/);
   assert.match(radio,/String\(x\?\.client_id\|\|''\)/);
@@ -63,7 +66,7 @@ test('Radio history and KPI consume chat-only projection',()=>{
   assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"/);
   assert.match(admin,/radio_clients:radioClients/);
   assert.match(admin,/radio_messages:radioMessages/);
-  const radio=read('functions/portal/remaining-sections-ui.js');
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
   assert.match(radio,/const legacy=Array\.isArray\(d\.radio\)/);
   assert.match(radio,/filter\(x=>String\(x\?\.item_kind\|\|''\)\.toUpperCase\(\)!=='MESSAGE'\)/);
   assert.match(radio,/kpi\('Сообщения',count\('MESSAGE'\)/);
@@ -113,7 +116,15 @@ test('Server-side recipient authority rejects non-current/non-deliverable contex
   assert.match(migration,/reply target is not an active client radio message/);
 });
 
-test('Actual production Radio wrapper preserves visual DOM geometry while functional semantics change',async()=>{
+test('Admin static materializer cannot silently emit the stale full-bootstrap Radio owner',()=>{
+  const build=read('scripts/materialize-admin-current-modules.mjs');
+  assert.match(build,/materialized Radio MESSAGE owner/);
+  assert.match(build,/STATIC_RADIO_STALE_OWNER_MARKER/);
+  assert.match(build,/radioOwner=STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
+  assert.match(build,/radioRead=\/v1\/admin\/radio\/bootstrap/);
+});
+
+test('Dynamic Radio wrapper remains source-compatible with the frozen visual geometry',async()=>{
   const radio=read('functions/portal/remaining-sections-ui.js');
   for(const token of [
     "radio-workspace",
