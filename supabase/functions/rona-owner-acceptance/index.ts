@@ -416,60 +416,64 @@ async function postRadio(ctx, req) {
   if(['CLIENT','AGENT'].includes(scope)&&!targetId)throw Object.assign(new Error('TARGET_REQUIRED'),{status:400});
   if(['ALL_CLIENTS','ALL_AGENTS'].includes(scope)&&targetId)throw Object.assign(new Error('TARGET_FORBIDDEN_FOR_BROADCAST'),{status:400});
   await validateRadioPublicationTarget(scope,targetId);
-  const existing=await sql`
-    select id,item_kind,target_scope,target_id,body_text,active_from,active_until
-    from portal_private.owner_radio_items
-    where created_by=${ctx.userId}::uuid and idempotency_key=${idempotencyKey}
-    limit 1`;
-  if(existing.length){
-    const row=existing[0];
-    if(String(row.item_kind)!==kind||String(row.target_scope)!==scope||String(row.target_id||'')!==String(targetId||'')||String(row.body_text)!==body)
-      throw Object.assign(new Error('RADIO_IDEMPOTENCY_CONFLICT'),{status:409});
-    return {id:String(row.id),reused:true,kind,scope,targetId,activeFrom:row.active_from,activeUntil:row.active_until};
-  }
-  const rows=await sql`
-    insert into portal_private.owner_radio_items(
-      item_kind,target_scope,target_id,delivery_channel,body_text,created_by,
-      source_system,idempotency_key,request_id,correlation_id
-    ) values(
-      ${kind},${scope},${targetId},'PORTAL',${body},${ctx.userId}::uuid,
-      'ADMIN_PORTAL_RADIO_STAGE2B',${idempotencyKey},${requestId}::uuid,${correlationId}::uuid
-    )
-    on conflict (created_by,idempotency_key) where idempotency_key is not null do nothing
-    returning id,active_from,active_until`;
-  if(!rows.length){
-    const raced=await sql`
+  return sql.begin(async tx=>{
+    const existing=await tx`
       select id,item_kind,target_scope,target_id,body_text,active_from,active_until
       from portal_private.owner_radio_items
       where created_by=${ctx.userId}::uuid and idempotency_key=${idempotencyKey}
       limit 1`;
-    if(raced.length!==1)throw Object.assign(new Error('RADIO_IDEMPOTENCY_RESOLUTION_FAILED'),{status:409});
-    const row=raced[0];
-    if(String(row.item_kind)!==kind||String(row.target_scope)!==scope||String(row.target_id||'')!==String(targetId||'')||String(row.body_text)!==body)
-      throw Object.assign(new Error('RADIO_IDEMPOTENCY_CONFLICT'),{status:409});
-    return {id:String(row.id),reused:true,kind,scope,targetId,activeFrom:row.active_from,activeUntil:row.active_until};
-  }
-  await sql.begin(async tx=>auditWithIds(tx,ctx,`OWNER_RADIO_${kind}_CREATED`,'RADIO',String(rows[0].id),requestId,correlationId,{kind,scope,targetId,deliveryChannel:'PORTAL',idempotencyKey}));
-  return {id:String(rows[0].id),reused:false,kind,scope,targetId,activeFrom:rows[0].active_from,activeUntil:rows[0].active_until};
+    if(existing.length){
+      const row=existing[0];
+      if(String(row.item_kind)!==kind||String(row.target_scope)!==scope||String(row.target_id||'')!==String(targetId||'')||String(row.body_text)!==body)
+        throw Object.assign(new Error('RADIO_IDEMPOTENCY_CONFLICT'),{status:409});
+      return {id:String(row.id),reused:true,kind,scope,targetId,activeFrom:row.active_from,activeUntil:row.active_until};
+    }
+    const rows=await tx`
+      insert into portal_private.owner_radio_items(
+        item_kind,target_scope,target_id,delivery_channel,body_text,created_by,
+        source_system,idempotency_key,request_id,correlation_id
+      ) values(
+        ${kind},${scope},${targetId},'PORTAL',${body},${ctx.userId}::uuid,
+        'ADMIN_PORTAL_RADIO_STAGE2B',${idempotencyKey},${requestId}::uuid,${correlationId}::uuid
+      )
+      on conflict (created_by,idempotency_key) where idempotency_key is not null do nothing
+      returning id,active_from,active_until`;
+    if(!rows.length){
+      const raced=await tx`
+        select id,item_kind,target_scope,target_id,body_text,active_from,active_until
+        from portal_private.owner_radio_items
+        where created_by=${ctx.userId}::uuid and idempotency_key=${idempotencyKey}
+        limit 1`;
+      if(raced.length!==1)throw Object.assign(new Error('RADIO_IDEMPOTENCY_RESOLUTION_FAILED'),{status:409});
+      const row=raced[0];
+      if(String(row.item_kind)!==kind||String(row.target_scope)!==scope||String(row.target_id||'')!==String(targetId||'')||String(row.body_text)!==body)
+        throw Object.assign(new Error('RADIO_IDEMPOTENCY_CONFLICT'),{status:409});
+      return {id:String(row.id),reused:true,kind,scope,targetId,activeFrom:row.active_from,activeUntil:row.active_until};
+    }
+    await auditWithIds(tx,ctx,`OWNER_RADIO_${kind}_CREATED`,'RADIO',String(rows[0].id),requestId,correlationId,{kind,scope,targetId,deliveryChannel:'PORTAL',idempotencyKey});
+    return {id:String(rows[0].id),reused:false,kind,scope,targetId,activeFrom:rows[0].active_from,activeUntil:rows[0].active_until};
+  });
 }
 async function expireRadio(ctx,req,itemId){
   if(!UUID_RE.test(itemId))throw Object.assign(new Error('INVALID_RADIO_ITEM_ID'),{status:400});
-  const rows=await sql`
-    select id,item_kind,target_scope,target_id,active_until
-    from portal_private.owner_radio_items
-    where id=${itemId}::uuid
-    limit 1`;
-  if(rows.length!==1)throw Object.assign(new Error('RADIO_ITEM_NOT_FOUND'),{status:404});
-  const row=rows[0],kind=String(row.item_kind||'');
-  if(!['NOTIFICATION','ANNOUNCEMENT'].includes(kind))throw Object.assign(new Error('RADIO_ITEM_KIND_NOT_EXPIRABLE_HERE'),{status:409});
-  const changed=await sql`
-    update portal_private.owner_radio_items
-       set active_until=case when active_until is null or active_until>now() then now() else active_until end,
-           updated_at=now()
-     where id=${itemId}::uuid
-     returning id,active_until`;
-  await sql.begin(async tx=>audit(tx,ctx,'OWNER_RADIO_ITEM_EXPIRED','RADIO',itemId,req,{kind,targetScope:String(row.target_scope),targetId:row.target_id||null}));
-  return{id:itemId,kind,activeUntil:changed[0].active_until};
+  return sql.begin(async tx=>{
+    const rows=await tx`
+      select id,item_kind,target_scope,target_id,active_until
+      from portal_private.owner_radio_items
+      where id=${itemId}::uuid
+      for update`;
+    if(rows.length!==1)throw Object.assign(new Error('RADIO_ITEM_NOT_FOUND'),{status:404});
+    const row=rows[0],kind=String(row.item_kind||'');
+    if(!['NOTIFICATION','ANNOUNCEMENT'].includes(kind))throw Object.assign(new Error('RADIO_ITEM_KIND_NOT_EXPIRABLE_HERE'),{status:409});
+    const changed=await tx`
+      update portal_private.owner_radio_items
+         set active_until=case when active_until is null or active_until>now() then now() else active_until end,
+             updated_at=now()
+       where id=${itemId}::uuid
+       returning id,active_until`;
+    await audit(tx,ctx,'OWNER_RADIO_ITEM_EXPIRED','RADIO',itemId,req,{kind,targetScope:String(row.target_scope),targetId:row.target_id||null});
+    return{id:itemId,kind,activeUntil:changed[0].active_until};
+  });
 }
 
 function safeFilename(name){const base=String(name||'document.pdf').split(/[\\/]/).pop()||'document.pdf';const clean=base.replace(/[^A-Za-z0-9._-]+/g,'_').slice(0,120);return clean.toLowerCase().endsWith('.pdf')?clean:`${clean||'document'}.pdf`}
