@@ -67,11 +67,27 @@ async function contextApi(context,path,{method='GET',body=null,headers={},refere
 async function ownerApi(context,path,{method='GET',body=null,referer='/portal/admin'}={}){
   return contextApi(context,'/portal/owner-api?path='+encodeURIComponent(path),{method,body,referer});
 }
+async function retryTransientRead(fn,label,{attempts=4,baseDelay=250}={}){
+  let last=null;
+  for(let attempt=1;attempt<=attempts;attempt++){
+    last=await fn();
+    if(last.status<500&&last.status!==429)return last;
+    if(attempt<attempts)await sleep(baseDelay*attempt);
+  }
+  console.error(label+'_TRANSIENT_EXHAUSTED',JSON.stringify({status:last?.status,code:last?.body?.code||last?.body?.error?.code||null}));
+  return last;
+}
 async function radioBootstrap(context){
-  return contextApi(context,'/portal/api/v1/admin/radio/bootstrap',{referer:'/portal/admin',headers:{'x-rona-client-source':'ADMIN_RADIO_STAGE2B_PRODUCTION_QA'}});
+  return retryTransientRead(
+    ()=>contextApi(context,'/portal/api/v1/admin/radio/bootstrap',{referer:'/portal/admin',headers:{'x-rona-client-source':'ADMIN_RADIO_STAGE2B_PRODUCTION_QA'}}),
+    'RADIO_BOOTSTRAP'
+  );
 }
 async function clientBootstrap(context){
-  return ownerApi(context,'/client/bootstrap',{referer:'/portal/client'});
+  return retryTransientRead(
+    ()=>ownerApi(context,'/client/bootstrap',{referer:'/portal/client'}),
+    'CLIENT_BOOTSTRAP'
+  );
 }
 async function waitUntil(fn,label,timeout=45000,interval=350){
   const started=Date.now();let last=null;
