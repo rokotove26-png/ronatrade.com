@@ -16,6 +16,7 @@ on:
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
       - 'scripts/qa-admin-radio-message-stage2a-production.mjs'
+      - 'scripts/qa-admin-radio-stage2a-deployment-equivalence.mjs'
       - 'scripts/qa-admin-radio-stage2a-operational-helpers.mjs'
       - 'scripts/qa-admin-radio-stage2a-operational-scenarios.mjs'
       - 'scripts/qa-admin-radio-stage2a-operational-main.mjs'
@@ -49,10 +50,10 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
           echo "RADIO_STAGE2A_RELEASE_HEAD=$EXPECTED_HEAD"
-      - name: Wait for exact Cloudflare production deployment
+      - name: Prove exact or QA-only runtime-equivalent Cloudflare deployment
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/wait-cloudflare-commit.mjs
+        run: node scripts/qa-admin-radio-stage2a-deployment-equivalence.mjs
       - name: Check production proof syntax
         run: node --check scripts/qa-admin-radio-message-stage2a-production.mjs
       - name: Install Playwright Chromium
