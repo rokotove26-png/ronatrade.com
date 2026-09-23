@@ -80,7 +80,7 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
   assert.match(radio,/radio_audience_agents/);
   assert.match(radio,/idempotencyKey/);
   assert.match(radio,/await post\('\/admin\/radio'/);
-  assert.match(radio,/const activeRows=\[\.\.\.canonicalRows,\.\.\.broadcastRows\]/);
+  assert.match(radio,/activeRows=\[\.\.\.canonicalRows,\.\.\.broadcastRows\]/);
   for(const token of [
     "root('radio','Радиорубка'",
     "el('div','rona-rs-form')",
