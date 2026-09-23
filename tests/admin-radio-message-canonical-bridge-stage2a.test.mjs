@@ -286,10 +286,15 @@ test('Stage 2A QA issuer is transient-resilient and performs stale-identity clea
 });
 
 test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin bootstrap with bounded reloads',()=>{
+  const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   const main=read('scripts/qa-admin-radio-stage2a-operational-main.mjs');
-  assert.match(main,/api\(c,'\/portal\/api\/v1\/admin\/bootstrap'/);
+  assert.match(helpers,/timeoutMs=30000/);
+  assert.match(helpers,/timeout:timeoutMs/);
+  assert.match(main,/api\(c,'\/portal\/api\/v1\/admin\/bootstrap',\{referer:'\/portal\/admin',timeoutMs:90000\}\)/);
+  assert.match(main,/Date\.now\(\)-started<240000/);
+  assert.match(main,/TRANSPORT_TIMEOUT/);
+  assert.match(main,/TimeoutError\|apiRequestContext\\\.fetch: Timeout/);
   assert.match(main,/\[401,403\]\.includes\(r\.status\)/);
-  assert.match(main,/Date\.now\(\)-started<120000/);
   assert.match(main,/\[500,502,503,504,520,522,524,546\]\.includes\(r\.status\)/);
   assert.match(main,/setTimeout\(resolve,5000\)/);
   assert.match(main,/BACKEND_HEALTH_TIMEOUT_/);
