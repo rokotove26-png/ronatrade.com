@@ -59,7 +59,7 @@ test('Non-live wrappers do not define the production authority for this test',()
 
 test('Backend preserves existing publish function and exact event task staff authority',()=>{
   const source=read('supabase/functions/rona-portal-api/client-communications.ts');
-  const migration=read('supabase/migrations/20260922211500_admin_radio_message_response_prepare_v1.sql');
+  const migration=read('supabase/migrations/20260922183801_admin_radio_message_response_prepare_v1.sql');
   assert.match(source,/server_admin_radio_prepare_client_response_v1/);
   assert.match(source,/server_admin_publish_client_response/);
   assert.doesNotMatch(source,/staff_task_messages/);
