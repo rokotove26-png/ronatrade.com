@@ -16,6 +16,9 @@ test('Stage 2B keeps MESSAGE on the canonical chat path and narrows owner radio 
   assert.match(owner,/delivery_channel,body_text,created_by/);
   assert.match(owner,/'ADMIN_PORTAL_RADIO_STAGE2B'/);
   assert.match(owner,/idempotency_key/);
+  assert.match(owner,/on conflict \(created_by,idempotency_key\) where idempotency_key is not null do nothing/);
+  assert.match(owner,/RADIO_IDEMPOTENCY_RESOLUTION_FAILED/);
+  assert.match(owner,/auditWithIds\(tx,ctx,\`OWNER_RADIO_\$\{kind\}_CREATED\`/);
   assert.match(owner,/OWNER_RADIO_\$\{kind\}_CREATED/);
   assert.doesNotMatch(owner,/\['MESSAGE','NOTIFICATION','ANNOUNCEMENT'\]\.includes\(kind\)/);
 });
