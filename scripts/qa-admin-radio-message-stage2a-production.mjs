@@ -200,7 +200,7 @@ try{
   await nav.waitFor({state:'visible',timeout:20000});await nav.click();
   const radioRoot=adminPage.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
   await radioRoot.waitFor({state:'visible',timeout:30000});
-  await radioRoot.locator('.rf-compose,.radio-compose-panel').first().waitFor({state:'visible',timeout:10000});
+  await radioRoot.locator('.rona-rs-form,.rf-compose,.radio-compose-panel').first().waitFor({state:'visible',timeout:10000});
   const selects=radioRoot.locator('select');
   assert(await selects.count()===3,'ADMIN_RADIO_COMPOSER_SELECT_COUNT_CHANGED');
   assert(await selects.nth(0).inputValue()==='MESSAGE','ADMIN_RADIO_DEFAULT_KIND_CHANGED');
@@ -219,8 +219,7 @@ try{
   }catch(error){
     const diagnostics=await adminPage.evaluate(()=>({
       bridge:window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__||null,
-      refreshBound:window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_BOUND__||null,
-      refreshState:window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_STATE__||null,
+      liveOwner:window.__RONA_REMAINING_SECTIONS_R2__||null,
       canonicalError:window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_ERROR__||null,
       canonicalIntake:(window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_INTAKE__||[]).map(x=>({
         event_id:x?.event_id||null,task_id:x?.task_id||null,event_type:x?.event_type||null
@@ -296,7 +295,7 @@ try{
     },
     activeTitle:[...root?.querySelectorAll('.rf-panel-title,.radio-panel-head h2')||[]].map(x=>x.textContent.trim()).includes('Активные сообщения')
   }});
-  assert(radioState.bridge==='STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V2_CURRENT_OWNER','ADMIN_RADIO_STAGE2A_CURRENT_OWNER_MARKER_MISSING');
+  assert(radioState.bridge==='STAGE_2A_MESSAGE_CANONICAL_BRIDGE_V3_LIVE_OWNER','ADMIN_RADIO_STAGE2A_LIVE_OWNER_MARKER_MISSING');
   assert(JSON.stringify(radioState.kindOptions)===JSON.stringify(['MESSAGE','NOTIFICATION','ANNOUNCEMENT']),'RADIO_KIND_OPTIONS_CHANGED');
   assert(radioState.rootKind==='radio','RADIO_CURRENT_OWNER_ROOT_MISSING');
   assert(radioState.finalV9==='1','RADIO_FINAL_V9_POLISH_NOT_APPLIED');
