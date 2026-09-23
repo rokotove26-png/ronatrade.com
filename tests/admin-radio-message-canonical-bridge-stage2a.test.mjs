@@ -11,13 +11,16 @@ test('Stage 2A corrective lives in the actual production Radio owner wrapper',()
   assert.match(radio,/import \{ onRequest as baseRemaining \} from '\.\/remaining-sections-r2-base\.js'/);
   assert.match(radio,/source\.indexOf\("window\.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__="/);
   assert.match(radio,/source\.slice\(0,radioStart\)\+RADIO_DIRECT_RENDER\+source\.slice\(radioEnd\)/);
-  assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER/);
+  assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP/);
   assert.match(radio,/radio_clients/);
   assert.match(radio,/radio_messages/);
   assert.match(radio,/radioCanonicalClients/);
   assert.match(radio,/legal_name/);
   assert.match(radio,/client_id/);
+  assert.match(radio,/\/v1\/admin\/radio\/bootstrap/);
   assert.match(radio,/\/v1\/admin\/radio\/messages/);
+  assert.match(radio,/attempt<=3/);
+  assert.match(radio,/Number\(error\?\.status\)>=500/);
   assert.match(radio,/\/v1\/admin\/client-intake\//);
   assert.match(radio,/source_task_id/);
   assert.doesNotMatch(radio,/radioCanonicalOptionText/);
@@ -36,6 +39,19 @@ test('Radio MESSAGE selector is client/company semantic and legacy publication i
   const legacyPost=radio.indexOf("await post('/admin/radio',{kind:kind.value",branch);
   assert.ok(branch>=0&&legacyPost>branch,'MESSAGE branch / legacy publication ordering missing');
   assert.match(radio.slice(branch,legacyPost+160),/renderRadio\(\);return}await post\('\/admin\/radio'/);
+});
+
+test('Radio read path uses a dedicated lightweight server projection',()=>{
+  const admin=read('supabase/functions/rona-portal-api/admin.ts');
+  const index=read('supabase/functions/rona-portal-api/index.ts');
+  const radio=read('functions/portal/remaining-sections-ui.js');
+  assert.match(admin,/export async function adminRadioBootstrap\(\)/);
+  assert.match(admin,/Promise\.all\(\[\s*adminRadioClients\(\),\s*adminRadioMessages\(\)/);
+  assert.match(index,/adminBootstrap, adminRadioBootstrap/);
+  assert.match(index,/route==="\/v1\/admin\/radio\/bootstrap"/);
+  assert.match(radio,/radioCanonicalRequest\('\/v1\/admin\/radio\/bootstrap'\)/);
+  const directBlock=radio.slice(radio.indexOf('async function radioLoadCanonical'),radio.indexOf('function radioCaptureDraft'));
+  assert.doesNotMatch(directBlock,/radioCanonicalRequest\('\/v1\/admin\/bootstrap'\)/);
 });
 
 test('Radio history and KPI consume chat-only projection',()=>{
@@ -111,7 +127,7 @@ test('Actual production Radio wrapper preserves visual DOM geometry while functi
   const mod=await import('../functions/portal/remaining-sections-ui.js?radio-stage2a-corrective='+Date.now());
   const response=await mod.onRequest();
   const script=await response.text();
-  assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V2_LIVE_OWNER/);
+  assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP/);
   assert.match(script,/radio-workspace/);
   assert.match(script,/radio-compose-panel/);
   assert.match(script,/radio-active-panel/);
