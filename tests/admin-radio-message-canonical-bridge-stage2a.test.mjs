@@ -117,15 +117,6 @@ test('Frozen Admin Radio polish assets remain byte-for-byte unchanged',()=>{
   assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
 });
 
-test('Client Messages keeps existing DOM structure while adding direction semantics',()=>{
-  const client=read('assets/portal-runtime/client-messages-archive-v1.js');
-  for(const token of [
-    "function messagesPanel()",
-    "panel.textContent=''",
-    "panel.append(head)",
-    "panel.append(row(",
-    "Ответ RONA Trade",
-    "RONA Trade → Клиент",
-    "Клиент → RONA Trade"
-  ]) assert.ok(client.includes(token),`client Messages structural token missing: ${token}`);
+test('Frozen Client Messages visual/runtime asset remains byte-for-byte unchanged',()=>{
+  assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
 });
