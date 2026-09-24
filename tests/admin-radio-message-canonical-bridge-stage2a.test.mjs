@@ -394,7 +394,12 @@ test('Stage 2A directory proof reacquires live Radio controls across canonical r
   assert.match(helpers,/page\.locator\('#page-messages > \.rona-rs-root\[data-kind="radio"\]'\)/);
   assert.match(helpers,/if\(!await root\.isVisible\(\)\.catch\(\(\)=>false\)\)return null/);
   assert.match(helpers,/if\(await selects\.count\(\)!==3\)return null/);
-  assert.match(helpers,/if\(await selects\.nth\(1\)\.inputValue\(\)!==scope\)await selects\.nth\(1\)\.selectOption\(scope\)/);
+  assert.match(helpers,/page\.waitForResponse\(/);
+  assert.match(helpers,/\/portal\/api\/v1\/admin\/radio\/bootstrap/);
+  assert.match(helpers,/r\.request\(\)\.method\(\)==='GET'/);
+  assert.match(helpers,/if\(!response\|\|response\.status\(\)!==200\)return null/);
+  assert.match(helpers,/await page\.waitForTimeout\(0\)/);
+  assert.match(helpers,/if\(await selects\.nth\(1\)\.inputValue\(\)!==scope\)return null/);
   assert.match(helpers,/options\.length===expected\?\{root,selects,options\}:null/);
   assert.match(helpers,/radioDirectoryPhase\(page,'CLIENT',4,'REAL_CLIENT_UI_DIRECTORY'\)/);
   assert.match(helpers,/radioDirectoryPhase\(page,'AGENT',2,'REAL_AGENT_UI_DIRECTORY'\)/);
