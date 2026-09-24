@@ -59,32 +59,60 @@ for(let attempt=1;attempt<=40;attempt++){
     console.log(`CLOUDFLARE_DEPLOYMENT_AUTHORITY=EXACT_HEAD sha=${sha} pages=${pages.id} worker=${worker.id}`);
     process.exit(0);
   }
-  if(worker?.status==='completed'&&worker.conclusion==='success')break;
-  if(attempt===40)throw new Error(`CURRENT_WORKER_NOT_READY ${JSON.stringify({pages:state(pages),worker:state(worker)})}`);
+  if(
+    pages?.status==='completed'&&pages.conclusion==='success'
+    || worker?.status==='completed'&&worker.conclusion==='success'
+  ) break;
+  if(attempt===40)throw new Error(`CURRENT_CLOUDFLARE_SIGNAL_NOT_READY ${JSON.stringify({pages:state(pages),worker:state(worker)})}`);
   await sleep(3000);
 }
 
 const currentPages=latest(currentRuns,'Cloudflare Pages');
 const currentWorker=latest(currentRuns,'Workers Builds: ronatrade-com');
-if(!(currentWorker?.status==='completed'&&currentWorker.conclusion==='success')){
-  throw new Error(`CURRENT_WORKER_NOT_SUCCESS ${JSON.stringify(state(currentWorker))}`);
+for(const x of [currentPages,currentWorker]){
+  if(x?.status==='completed'&&x.conclusion!=='success')throw new Error(`${x.name}_DEPLOYMENT_${x.conclusion}`);
 }
 
-let deployedBase=null,deployedPages=null;
-for(const ancestor of firstParentAncestors(sha)){
-  const runs=await checkRuns(ancestor);
-  const pages=latest(runs,'Cloudflare Pages');
-  if(pages?.status==='completed'&&pages.conclusion==='success'){
-    deployedBase=ancestor;deployedPages=pages;break;
+const exactPages=currentPages?.status==='completed'&&currentPages.conclusion==='success';
+const exactWorker=currentWorker?.status==='completed'&&currentWorker.conclusion==='success';
+if(exactPages&&exactWorker){
+  console.log(`CLOUDFLARE_DEPLOYMENT_AUTHORITY=EXACT_HEAD sha=${sha} pages=${currentPages.id} worker=${currentWorker.id}`);
+  process.exit(0);
+}
+
+async function successfulAncestor(name){
+  for(const ancestor of firstParentAncestors(sha)){
+    const runs=await checkRuns(ancestor);
+    const check=latest(runs,name);
+    if(check?.status==='completed'&&check.conclusion==='success')return{sha:ancestor,check};
   }
+  return null;
 }
-if(!deployedBase)throw new Error('NO_SUCCESSFUL_PAGES_ANCESTOR');
-
-const changed=changedFiles(deployedBase,sha);
-const forbidden=changed.filter(path=>!qaOnlyPaths.has(path));
-if(forbidden.length){
-  throw new Error(`PAGES_NOT_EXACT_AND_RUNTIME_DELTA_PRESENT base=${deployedBase} current=${sha} forbidden=${JSON.stringify(forbidden)} pages=${JSON.stringify(state(currentPages))}`);
+function proveQaOnly(base,label,currentState){
+  const changed=changedFiles(base,sha);
+  const forbidden=changed.filter(path=>!qaOnlyPaths.has(path));
+  if(forbidden.length){
+    throw new Error(`${label}_NOT_EXACT_AND_RUNTIME_DELTA_PRESENT base=${base} current=${sha} forbidden=${JSON.stringify(forbidden)} current=${JSON.stringify(currentState)}`);
+  }
+  return changed;
 }
 
-console.log(`CLOUDFLARE_DEPLOYMENT_AUTHORITY=QA_ONLY_RUNTIME_EQUIVALENCE current=${sha} deployed_pages_sha=${deployedBase} deployed_pages_check=${deployedPages.id} current_worker=${currentWorker.id}`);
+const pagesAuthority=exactPages
+  ?{mode:'EXACT',sha,check:currentPages,changed:[]}
+  :await (async()=>{
+    const ancestor=await successfulAncestor('Cloudflare Pages');
+    if(!ancestor)throw new Error('NO_SUCCESSFUL_PAGES_ANCESTOR');
+    return{mode:'QA_ONLY_EQUIVALENT',sha:ancestor.sha,check:ancestor.check,changed:proveQaOnly(ancestor.sha,'PAGES',state(currentPages))};
+  })();
+
+const workerAuthority=exactWorker
+  ?{mode:'EXACT',sha,check:currentWorker,changed:[]}
+  :await (async()=>{
+    const ancestor=await successfulAncestor('Workers Builds: ronatrade-com');
+    if(!ancestor)throw new Error('NO_SUCCESSFUL_WORKER_ANCESTOR');
+    return{mode:'QA_ONLY_EQUIVALENT',sha:ancestor.sha,check:ancestor.check,changed:proveQaOnly(ancestor.sha,'WORKER',state(currentWorker))};
+  })();
+
+const changed=[...new Set([...pagesAuthority.changed,...workerAuthority.changed])].sort();
+console.log(`CLOUDFLARE_DEPLOYMENT_AUTHORITY=QA_ONLY_RUNTIME_EQUIVALENCE current=${sha} pages_mode=${pagesAuthority.mode} pages_sha=${pagesAuthority.sha} pages_check=${pagesAuthority.check.id} worker_mode=${workerAuthority.mode} worker_sha=${workerAuthority.sha} worker_check=${workerAuthority.check.id}`);
 console.log(`CLOUDFLARE_RUNTIME_EQUIVALENCE_FILES=${JSON.stringify(changed)}`);
