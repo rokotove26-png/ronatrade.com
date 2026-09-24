@@ -130,17 +130,26 @@ export async function retire(c,ids){
   if(!eventIds.length)return{status:200,body:{ok:true,retired_events:0,retired_tasks:0}};
   return api(c,'/portal/api/v1/admin/radio/qa-retire',{method:'POST',body:{eventIds},referer:'/portal/admin'});
 }
+async function radioDirectoryPhase(page,scope,expected,label){
+  return wait(async()=>{
+    const root=page.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
+    if(!await root.isVisible().catch(()=>false))return null;
+    const selects=root.locator('select');
+    if(await selects.count()!==3)return null;
+    if(await selects.nth(0).inputValue()!=='MESSAGE')await selects.nth(0).selectOption('MESSAGE');
+    if(await selects.nth(1).inputValue()!==scope)await selects.nth(1).selectOption(scope);
+    const options=await selects.nth(2).locator('option').evaluateAll(os=>os.map(o=>({value:o.value,text:o.textContent||''})).filter(o=>o.value));
+    return options.length===expected?{root,selects,options}:null;
+  },label,45000,300);
+}
 export async function adminDirectories(page){
   const n=page.locator('[data-page="messages"]').first();await n.waitFor({state:'visible',timeout:20000});await n.click();
-  const root=page.locator('#page-messages > .rona-rs-root[data-kind="radio"]');await root.waitFor({state:'visible',timeout:30000});
-  const s=root.locator('select');assert(await s.count()===3,'ADMIN_RADIO_COMPOSER_SELECT_COUNT_CHANGED');
-  await s.nth(0).selectOption('MESSAGE');await s.nth(1).selectOption('CLIENT');
-  const clients=await wait(async()=>{const x=await s.nth(2).locator('option').evaluateAll(os=>os.map(o=>({value:o.value,text:o.textContent||''})).filter(o=>o.value));return x.length===4?x:null},'REAL_CLIENT_UI_DIRECTORY');
-  await s.nth(1).selectOption('AGENT');
-  const agents=await wait(async()=>{const x=await s.nth(2).locator('option').evaluateAll(os=>os.map(o=>({value:o.value,text:o.textContent||''})).filter(o=>o.value));return x.length===2?x:null},'REAL_AGENT_UI_DIRECTORY');
+  const clientPhase=await radioDirectoryPhase(page,'CLIENT',4,'REAL_CLIENT_UI_DIRECTORY');
+  const agentPhase=await radioDirectoryPhase(page,'AGENT',2,'REAL_AGENT_UI_DIRECTORY');
+  const clients=clientPhase.options,agents=agentPhase.options;
   const values=[...clients,...agents].map(x=>x.value+' '+x.text).join(' ');
   assert(!/PORTAL-EVT-|TASK-|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(values),'INTERNAL_ID_VISIBLE_IN_DIRECTORY');
-  return{root,selects:s,clients,agents};
+  return{root:agentPhase.root,selects:agentPhase.selects,clients,agents};
 }
 export async function clientSubmit(page,target,subject,message){
   await selectClient(page,target);await openMessages(page);await page.locator('#msgSubject').fill(subject);await page.locator('#msgText').fill(message);await page.locator('#sendMessage').click();
