@@ -136,9 +136,9 @@ export async function runRoundTrips(x){
 
   // D. Agent -> Admin through the existing Agent Messages form.
   const agentSubject=`QA STAGE2A AGENT ${tag}`,agentBody=`QA STAGE2A AGENT BODY ${tag}`;
-  await agentSubmit(agentAPage,agentSubject,agentBody);
-  const agentEvent=await wait(async()=>{const r=await agentMessages(agentAContext);return(r.body?.messages||[]).find(v=>norm(v?.subject)===agentSubject&&v.direction==='AGENT_TO_ADMIN')||null},'AGENT_TO_ADMIN_EVENT');
-  qaEvents.push(String(agentEvent.eventId));
+  const agentPostedEventId=await agentSubmit(agentAPage,agentSubject,agentBody);
+  qaEvents.push(agentPostedEventId);
+  const agentEvent=await wait(async()=>{const r=await agentMessages(agentAContext);return(r.body?.messages||[]).find(v=>v.eventId===agentPostedEventId&&norm(v?.subject)===agentSubject&&v.direction==='AGENT_TO_ADMIN')||null},'AGENT_TO_ADMIN_EVENT');
   const inbound=await wait(async()=>{const r=await adminBoot(adminContext);return(r.body?.data?.radio_messages||[]).find(v=>v.event_id===agentEvent.eventId&&v.direction==='AGENT_TO_ADMIN')||null},'AGENT_TO_ADMIN_ADMIN_PROJECTION');
   assert(inbound.agent_person_id===A001.agent_person_id,'AGENT_TO_ADMIN_IDENTITY_MISMATCH');
   await adminPage.reload({waitUntil:'domcontentloaded',timeout:30000});await wait(()=>adminPage.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_AGENT_RELOAD_READY',60000,250);

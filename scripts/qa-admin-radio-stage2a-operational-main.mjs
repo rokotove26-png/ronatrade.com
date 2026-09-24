@@ -68,10 +68,24 @@ async function loadAdminReady(page,c,label,{navigate=true}={}){
   }
 }
 async function cleanupFailure(){
-  if(!qaRetired&&adminContext&&qaEvents.length){
+  if(!qaRetired&&adminContext){
+    const qaPrefix=v=>/^QA STAGE2[AB]\b/.test(norm(v?.payload?.subject))||/^QA STAGE2[AB]\b/.test(norm(v?.payload?.message));
+    const ids=[...new Set(qaEvents.filter(x=>String(x).startsWith('PORTAL-EVT-')))];
     try{
-      const ids=[...new Set(qaEvents.filter(x=>String(x).startsWith('PORTAL-EVT-')))];
-      if(ids.length){const r=await retire(adminContext,ids);proof.cleanup.push({failurePath:true,eventIds:ids,retiredEvents:Number(r.body?.retired_events||0),retiredTasks:Number(r.body?.retired_tasks||0)})}
+      const observed=await adminBoot(adminContext);
+      if(observed.status===200){
+        for(const event of observed.body?.data?.radio_messages||[]){
+          if(qaPrefix(event)&&String(event.event_id||'').startsWith('PORTAL-EVT-'))ids.push(event.event_id);
+        }
+      }
+    }catch(e){proof.cleanup.push({failurePath:true,discoveryError:String(e?.message||e)})}
+    try{
+      const uniqueIds=[...new Set(ids)];
+      if(uniqueIds.length){
+        const r=await retire(adminContext,uniqueIds);
+        assert(r.status===200&&Number(r.body?.retired_events||0)===uniqueIds.length,'FAILURE_QA_RETIRE_INCOMPLETE');
+        proof.cleanup.push({failurePath:true,eventIds:uniqueIds,retiredEvents:Number(r.body?.retired_events||0),retiredTasks:Number(r.body?.retired_tasks||0)});
+      }
     }catch(e){proof.cleanup.push({failurePath:true,error:String(e?.message||e)})}
   }
   for(const s of sessions)if(!s.revoked){try{await revoke(s);proof.cleanup.push({portalUserId:s.portalUserId,sessionRevoked:true,failurePath:true})}catch(e){proof.cleanup.push({portalUserId:s.portalUserId,sessionRevoked:false,failurePath:true,error:String(e?.message||e)})}}
