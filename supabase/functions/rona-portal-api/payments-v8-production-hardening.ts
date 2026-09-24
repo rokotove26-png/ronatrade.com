@@ -3,6 +3,7 @@
 // plus a client-safe receipt-detail overlay sourced from the same Finance authorities used by Client Payments.
 import { buildConfirmedFundingAggregate, buildPaymentsCurrencyAggregates } from '../_shared/admin-payments-v7/confirmed-funding-aggregate.mjs';
 import { sql, apiRoute, authenticate, send } from './shared.ts';
+import { isAuthDbUnavailable } from './auth-db-connect-recovery.mjs';
 
 const BASELINE='5aceffe2725a904e8e0ded562e483f012e861085';
 const CLIENT_RECEIPT_DETAIL_CONTRACT='CLIENT_RECEIPT_DETAIL_RECONCILIATION_V1';
@@ -215,9 +216,16 @@ async function hardenClientReceiptDetails(req:Request,response:Response){
 }
 
 nativeServe(async(req:Request,info:any)=>{
-  const authority=await sessionAuthority(req);
-  if(authority)return authority;
-  const base:Response=await capturedHandler(req,info);
+  let base:Response;
+  try {
+    const authority=await sessionAuthority(req);
+    if(authority)return authority;
+    base=await capturedHandler(req,info);
+  } catch(error) {
+    if(isAuthDbUnavailable(error))
+      return send(req.headers.get('origin'),503,{ok:false,code:'AUTH_BACKEND_UNAVAILABLE',request_id:(error as {requestId:string}).requestId});
+    throw error;
+  }
   const adminHardened:Response=await hardenBootstrap(req,base);
   try{
     return await hardenClientReceiptDetails(req,adminHardened);

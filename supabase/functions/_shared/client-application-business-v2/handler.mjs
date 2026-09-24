@@ -110,7 +110,11 @@ export function createApplicationBusinessHandler(delegate,{sql,authenticate,apiR
   const origin=request.headers.get('origin');
   if(origin&&!origins.has(origin))return response({ok:false,code:'ORIGIN_DENIED'},403);
   let ctx;
-  try{ctx=await authenticate(request)}catch{return response({ok:false,code:'APPLICATION_SESSION_DENIED'},401)}
+  try{ctx=await authenticate(request)}catch(error){
+   if(error?.code==='AUTH_BACKEND_UNAVAILABLE')
+    return response({ok:false,code:'AUTH_BACKEND_UNAVAILABLE',request_id:error.requestId},503);
+   return response({ok:false,code:'APPLICATION_SESSION_DENIED'},401);
+  }
   if(!ctx?.auth||!ctx?.sid)return response({ok:false,code:'APPLICATION_SESSION_DENIED'},401);
   const client=capabilities||kind||passport?.[1]==='client'||route==='/v1/client/context';
   if(!ctx?.roles?.includes(client?'CLIENT':'ADMIN'))return response({ok:false,code:'APPLICATION_SCOPE_DENIED'},403);
