@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import postgres from "postgres";
+import { withAuthDbConnectRecovery } from "./auth-db-connect-recovery.mjs";
 import { resolveAdminImpersonation, impersonationMetadata, type AdminImpersonation } from "../_shared/admin-impersonation-authority-v1.ts";
 export const DB=Deno.env.get("SUPABASE_DB_URL");export const SUPA_URL=Deno.env.get("SUPABASE_URL");if(!DB||!SUPA_URL)throw new Error("runtime vars missing");export const sql=postgres(DB,{prepare:false,max:1,idle_timeout:1,connect_timeout:3,max_lifetime:15});export const origins=new Set(["https://ronaoil.com","https://www.ronaoil.com"]);export const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;export type Ctx={auth:string;user:string;name:string;roles:string[];sid:string;exp:string|null;actorAuth:string;actorUser:string;actorName:string;actorRoles:string[];impersonation:AdminImpersonation|null};
 export function isAdminEntityClient(c:Ctx){return c.impersonation?.effectiveRole==="CLIENT"&&c.impersonation.subjectMode==="ADMIN_ENTITY"&&Boolean(c.impersonation.targetClientKey)}
@@ -15,7 +16,12 @@ export async function authenticate(req:Request):Promise<Ctx|null>{
   if(error||!data.user)return null;
   const sid=claims(token).session_id;
   if(typeof sid!=="string"||!uuid.test(sid))return null;
-  const rows=await sql`select a.portal_user_id,a.display_name,a.roles,s.not_after from portal_private.resolve_portal_auth(${data.user.id}::uuid,${sid}) a join auth.sessions s on s.id=${sid}::uuid and s.user_id=${data.user.id}::uuid where a.session_allowed and (s.not_after is null or s.not_after>now())`;
+  const requestHeader=req.headers.get("x-request-id");
+  const requestId=requestHeader&&uuid.test(requestHeader)?requestHeader:crypto.randomUUID();
+  const rows=await withAuthDbConnectRecovery(
+    ()=>sql`select a.portal_user_id,a.display_name,a.roles,s.not_after from portal_private.resolve_portal_auth(${data.user.id}::uuid,${sid}) a join auth.sessions s on s.id=${sid}::uuid and s.user_id=${data.user.id}::uuid where a.session_allowed and (s.not_after is null or s.not_after>now())`,
+    {requestId,runtimeRegion:Deno.env.get("SB_REGION")||"unknown"}
+  );
   if(rows.length!==1)return null;
   const actorRoles=(rows[0].roles||[]).map(String);
   const actorUser=String(rows[0].portal_user_id),actorName=String(rows[0].display_name||"");
