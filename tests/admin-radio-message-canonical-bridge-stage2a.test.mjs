@@ -380,6 +380,19 @@ test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin
   assert.match(main,/await loadAdminReady\(adminPage,adminContext,'ADMIN_POST_CLEANUP_READY'/);
 });
 
+test('Stage 2A directory proof reacquires live Radio controls across canonical rerenders',()=>{
+  const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
+  assert.match(helpers,/async function radioDirectoryPhase\(page,scope,expected,label\)/);
+  assert.match(helpers,/page\.locator\('#page-messages > \.rona-rs-root\[data-kind="radio"\]'\)/);
+  assert.match(helpers,/if\(!await root\.isVisible\(\)\.catch\(\(\)=>false\)\)return null/);
+  assert.match(helpers,/if\(await selects\.count\(\)!==3\)return null/);
+  assert.match(helpers,/if\(await selects\.nth\(1\)\.inputValue\(\)!==scope\)await selects\.nth\(1\)\.selectOption\(scope\)/);
+  assert.match(helpers,/options\.length===expected\?\{root,selects,options\}:null/);
+  assert.match(helpers,/radioDirectoryPhase\(page,'CLIENT',4,'REAL_CLIENT_UI_DIRECTORY'\)/);
+  assert.match(helpers,/radioDirectoryPhase\(page,'AGENT',2,'REAL_AGENT_UI_DIRECTORY'\)/);
+  assert.match(helpers,/return\{root:agentPhase\.root,selects:agentPhase\.selects,clients,agents\}/);
+});
+
 test('Agent Portal frozen page is functionally bound by the server bridge without visual source mutation',()=>{
   const bridge=read('functions/portal/[[path]].js');
   assert.match(bridge,/AGENT_ADMIN_CANONICAL_MESSAGE_V1/);
