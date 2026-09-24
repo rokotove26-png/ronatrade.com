@@ -332,7 +332,11 @@ test('Stage 2A QA Auth issuance is retry-idempotent and Stage2A cleanup avoids P
   assert.match(issuer,/crypto\.subtle\.sign\("HMAC"/);
   assert.match(issuer,/qa-radio-stage2a-"\+runId\+"-"\+selectorKey/);
   assert.match(issuer,/const existing=await radioStage2ASignIn/);
-  assert.match(issuer,/const signed=await radioStage2ASignIn/);
+  assert.match(issuer,/let signed=await radioStage2ASignIn/);
+  assert.match(issuer,/for\(let recoveryAttempt=0;recoveryAttempt<8;recoveryAttempt\+\+\)/);
+  assert.match(issuer,/Math\.min\(3000\*\(recoveryAttempt\+1\),12000\)/);
+  assert.match(issuer,/signed=await radioStage2ASignIn\(email,password,publicKey\)/);
+  assert.match(issuer,/if\(!signed\.transient&&!\[400,401,404\]\.includes/);
   assert.match(issuer,/QA_STAGE2A_AUTH_NOT_READY/);
   assert.match(issuer,/const selectorKey=identitySelector\.replaceAll\("-",""\)\.slice\(0,12\)/);
   assert.doesNotMatch(issuer,/const nonce=crypto\.randomUUID\(\)\.replaceAll\("-",""\)\.slice\(0,12\);\s*const login="qa_radio_stage2a_/);

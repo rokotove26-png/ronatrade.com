@@ -256,11 +256,26 @@ async function createRadioStage2AAuth(runId,identitySelector,login,displayName,m
     if(Number(error?.status)>=400&&Number(error?.status)<500)throw error;
   }
 
-  const signed=await radioStage2ASignIn(email,password,publicKey);
+  let signed=await radioStage2ASignIn(email,password,publicKey);
   if(signed.session){
     const authId=String(signed.session?.user?.id||createdId||"");
     if(!UUID_RE.test(authId))throw Object.assign(new Error("QA_SESSION_USER_INVALID"),{status:503});
     return {authId,session:signed.session};
+  }
+
+  // Auth user creation may commit after the admin/users request times out under DB pressure.
+  // Do not amplify that write with immediate outer retries. Recover the deterministic account
+  // by polling password sign-in only; authorization is still provisioned separately by the
+  // OIDC-validated portal RPC after a valid Auth session exists.
+  for(let recoveryAttempt=0;recoveryAttempt<8;recoveryAttempt++){
+    await new Promise(resolve=>setTimeout(resolve,Math.min(3000*(recoveryAttempt+1),12000)));
+    signed=await radioStage2ASignIn(email,password,publicKey);
+    if(signed.session){
+      const authId=String(signed.session?.user?.id||createdId||"");
+      if(!UUID_RE.test(authId))throw Object.assign(new Error("QA_SESSION_USER_INVALID"),{status:503});
+      return {authId,session:signed.session};
+    }
+    if(!signed.transient&&![400,401,404].includes(Number(signed.status||0)))break;
   }
 
   throw Object.assign(new Error("QA_STAGE2A_AUTH_NOT_READY"),{status:signed.status===429||createStatus===429?429:503});
