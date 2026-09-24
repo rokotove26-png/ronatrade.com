@@ -420,7 +420,7 @@ async function issueRadioStage2A(claims,identitySelector){
 
   const role=identitySelector==="a2a0b91e-4c2a-4d3e-8f11-2a2a00000001"?"ADMIN":
     (identitySelector==="a2a0b91e-4c2a-4d3e-8f11-2a2a00000005"||identitySelector==="a2a0b91e-4c2a-4d3e-8f11-2a2a00000006")?"AGENT":"CLIENT";
-  const selectorKey=identitySelector.replaceAll("-","").slice(0,12);
+  const selectorKey=identitySelector.replaceAll("-","");
   const login="qa_radio_stage2a_"+runId+"_"+selectorKey;
   const auth=await createRadioStage2AAuth(runId,identitySelector,login,"RONA Radio Stage2A QA · "+role,{
     rona_qa_head:String(claims.sha),
