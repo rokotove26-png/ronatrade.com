@@ -132,15 +132,29 @@ export async function retire(c,ids){
 }
 async function radioDirectoryPhase(page,scope,expected,label){
   return wait(async()=>{
-    const root=page.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
+    let root=page.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
     if(!await root.isVisible().catch(()=>false))return null;
-    const selects=root.locator('select');
+    let selects=root.locator('select');
     if(await selects.count()!==3)return null;
     if(await selects.nth(0).inputValue()!=='MESSAGE')await selects.nth(0).selectOption('MESSAGE');
-    if(await selects.nth(1).inputValue()!==scope)await selects.nth(1).selectOption(scope);
+    if(await selects.nth(1).inputValue()!==scope){
+      const refresh=page.waitForResponse(
+        r=>r.url().includes('/portal/api/v1/admin/radio/bootstrap')&&r.request().method()==='GET',
+        {timeout:20000}
+      ).catch(()=>null);
+      await selects.nth(1).selectOption(scope);
+      const response=await refresh;
+      if(!response||response.status()!==200)return null;
+      await page.waitForTimeout(0);
+      root=page.locator('#page-messages > .rona-rs-root[data-kind="radio"]');
+      if(!await root.isVisible().catch(()=>false))return null;
+      selects=root.locator('select');
+      if(await selects.count()!==3)return null;
+      if(await selects.nth(1).inputValue()!==scope)return null;
+    }
     const options=await selects.nth(2).locator('option').evaluateAll(os=>os.map(o=>({value:o.value,text:o.textContent||''})).filter(o=>o.value));
     return options.length===expected?{root,selects,options}:null;
-  },label,45000,300);
+  },label,60000,300);
 }
 export async function adminDirectories(page){
   const n=page.locator('[data-page="messages"]').first();await n.waitFor({state:'visible',timeout:20000});await n.click();
