@@ -338,7 +338,8 @@ test('Stage 2A QA Auth issuance is retry-idempotent and Stage2A cleanup avoids P
   assert.match(issuer,/signed=await radioStage2ASignIn\(email,password,publicKey\)/);
   assert.match(issuer,/if\(!signed\.transient&&!\[400,401,404\]\.includes/);
   assert.match(issuer,/QA_STAGE2A_AUTH_NOT_READY/);
-  assert.match(issuer,/const selectorKey=identitySelector\.replaceAll\("-",""\)\.slice\(0,12\)/);
+  assert.match(issuer,/const selectorKey=identitySelector\.replaceAll\("-",""\);/);
+  assert.doesNotMatch(issuer,/identitySelector\.replaceAll\("-",""\)\.slice\(0,12\)/);
   assert.doesNotMatch(issuer,/const nonce=crypto\.randomUUID\(\)\.replaceAll\("-",""\)\.slice\(0,12\);\s*const login="qa_radio_stage2a_/);
 
   assert.match(issuer,/async function radioStage2ARetireDirect/);
