@@ -223,8 +223,16 @@ test('Stage 2A production deploy gate permits only exact head or fail-closed QA-
   assert.match(gate,/Workers Builds: ronatrade-com/);
   assert.match(gate,/Cloudflare Pages/);
   assert.match(gate,/forbidden=changed\.filter\(path=>!qaOnlyPaths\.has\(path\)\)/);
-  assert.match(gate,/PAGES_NOT_EXACT_AND_RUNTIME_DELTA_PRESENT/);
+  assert.match(gate,/\$\{label\}_NOT_EXACT_AND_RUNTIME_DELTA_PRESENT/);
   assert.match(gate,/NO_SUCCESSFUL_PAGES_ANCESTOR/);
+  assert.match(gate,/NO_SUCCESSFUL_WORKER_ANCESTOR/);
+  assert.match(gate,/const pagesAuthority=exactPages/);
+  assert.match(gate,/const workerAuthority=exactWorker/);
+  assert.match(gate,/successfulAncestor\('Workers Builds: ronatrade-com'\)/);
+  assert.match(gate,/pages_mode=\$\{pagesAuthority\.mode\}/);
+  assert.match(gate,/worker_mode=\$\{workerAuthority\.mode\}/);
+  assert.doesNotMatch(gate,/CURRENT_WORKER_NOT_READY/);
+  assert.doesNotMatch(gate,/CURRENT_WORKER_NOT_SUCCESS/);
   assert.match(gate,/git',\['diff','--name-only'/);
 
   for(const forbidden of [
