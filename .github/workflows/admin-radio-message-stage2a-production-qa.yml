@@ -13,6 +13,10 @@ on:
       - 'supabase/functions/rona-portal-api/agent.ts'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/functions/rona-portal-api/index.ts'
+      - 'supabase/functions/rona-portal-api/shared.ts'
+      - 'supabase/functions/rona-portal-api/auth-db-connect-recovery.mjs'
+      - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+      - 'supabase/functions/_shared/client-application-business-v2/handler.mjs'
       - 'supabase/functions/rona-g82-github-oidc-browser-qa-20260816/**'
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
@@ -67,6 +71,8 @@ jobs:
         run: node scripts/qa-admin-radio-stage2a-production-quiet-gate.mjs
       - name: Check production proof syntax
         run: node --check scripts/qa-admin-radio-message-stage2a-production.mjs
+      - name: Authentication DB connection boundary
+        run: node --test tests/auth-db-connect-recovery.test.mjs tests/authenticate-source-boundary.test.mjs
       - name: Install Playwright Chromium
         shell: bash
         run: |
