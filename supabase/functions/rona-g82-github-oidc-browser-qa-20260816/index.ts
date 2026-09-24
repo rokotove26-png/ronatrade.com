@@ -290,7 +290,7 @@ async function radioStage2ARetireDirect(portalId,authId,reason){
     await sql`update portal_private.agent_user_bindings set status='REVOKED',valid_to=${ts}::timestamptz,revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
     await sql`update portal_private.portal_user_roles set status='REVOKED',revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
     await sql`update portal_private.staff_user_roles set status='REVOKED',revoked_at=${ts}::timestamptz,reason=${reason},updated_at=${ts}::timestamptz where user_id=${portalId}::uuid and status='ACTIVE'`;
-    await sql`update portal_private.portal_users set status='REVOKED',lifecycle_state='ARCHIVED',revoked_at=${ts}::timestamptz,suspended_at=null,auth_user_id=null,updated_at=${ts}::timestamptz where id=${portalId}::uuid and source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE'`;
+    await sql`update portal_private.portal_users set login_name=case when login_name like 'qa_radio_stage2a_%' and login_name not like '%__archived_%' then login_name||'__archived_'||left(replace(id::text,'-',''),12) else login_name end,status='REVOKED',lifecycle_state='ARCHIVED',revoked_at=${ts}::timestamptz,suspended_at=null,auth_user_id=null,updated_at=${ts}::timestamptz where id=${portalId}::uuid and source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE'`;
   });
   await deleteAuthUser(authId);
 }
@@ -454,6 +454,15 @@ async function cleanupRadioStage2AAll(){
   const db=requireQaSql();
   const rows=await db`select id::text,auth_user_id::text from portal_private.portal_users where source_system=${RADIO_STAGE2A_SOURCE} and status='ACTIVE'`;
   for(const row of rows||[])await radioStage2ARetireDirect(String(row.id),String(row.auth_user_id||""),"Radio Stage2A GitHub OIDC QA preflight cleanup");
+  // Re-runs of the same GitHub run_id intentionally reuse the deterministic QA login.
+  // Archived QA rows preserve audit history but must not keep that unique login reserved.
+  await db`update portal_private.portal_users
+    set login_name=login_name||'__archived_'||left(replace(id::text,'-',''),12),updated_at=clock_timestamp()
+    where source_system=${RADIO_STAGE2A_SOURCE}
+      and status='REVOKED'
+      and lifecycle_state='ARCHIVED'
+      and login_name like 'qa_radio_stage2a_%'
+      and login_name not like '%__archived_%'`;
   return (rows||[]).length;
 }
 

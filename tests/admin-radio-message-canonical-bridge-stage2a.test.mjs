@@ -354,11 +354,16 @@ test('Stage 2A QA Auth issuance is retry-idempotent and Stage2A cleanup avoids P
   assert.match(issuer,/db\.begin\(async sql=>/);
   assert.match(issuer,/select id::text,auth_user_id::text from portal_private\.portal_users where source_system=\$\{RADIO_STAGE2A_SOURCE\}/);
   assert.match(issuer,/await radioStage2ARetireDirect\(String\(rows\[0\]\.id\),authId/);
+  assert.match(issuer,/login_name=case when login_name like 'qa_radio_stage2a_%'/);
+  assert.match(issuer,/login_name\|\|'__archived_'\|\|left\(replace\(id::text,'-',''\),12\)/);
 
   const cleanupStart=issuer.indexOf('async function cleanupRadioStage2AAll');
   const directoryStart=issuer.indexOf('async function radioStage2AOperationalDirectory',cleanupStart);
   const cleanupBlock=issuer.slice(cleanupStart,directoryStart);
   assert.doesNotMatch(cleanupBlock,/pvt\(/);
+  assert.match(cleanupBlock,/status='REVOKED'/);
+  assert.match(cleanupBlock,/lifecycle_state='ARCHIVED'/);
+  assert.match(cleanupBlock,/login_name not like '%__archived_%'/);
 
   const revokeStart=issuer.indexOf('async function revokeRadioStage2A');
   const revoke430Start=issuer.indexOf('async function revoke430',revokeStart);
