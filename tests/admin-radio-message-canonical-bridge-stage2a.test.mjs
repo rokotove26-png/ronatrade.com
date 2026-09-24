@@ -383,7 +383,7 @@ test('Stage 2A Admin browser proof is fail-closed behind healthy canonical Admin
 test('Stage 2A directory proof reacquires live Radio controls across canonical rerenders',()=>{
   const helpers=read('scripts/qa-admin-radio-stage2a-operational-helpers.mjs');
   assert.match(helpers,/async function radioDirectoryPhase\(page,scope,expected,label\)/);
-  assert.match(helpers,/page\.locator\('#page-messages > \\.rona-rs-root\[data-kind="radio"\]'\)/);
+  assert.match(helpers,/page\.locator\('#page-messages > \.rona-rs-root\[data-kind="radio"\]'\)/);
   assert.match(helpers,/if\(!await root\.isVisible\(\)\.catch\(\(\)=>false\)\)return null/);
   assert.match(helpers,/if\(await selects\.count\(\)!==3\)return null/);
   assert.match(helpers,/if\(await selects\.nth\(1\)\.inputValue\(\)!==scope\)await selects\.nth\(1\)\.selectOption\(scope\)/);
