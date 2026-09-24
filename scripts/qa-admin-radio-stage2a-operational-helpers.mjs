@@ -170,8 +170,17 @@ export async function clientSubmit(page,target,subject,message){
   await page.locator('#page-messages .message-grid').getByText(subject,{exact:true}).first().waitFor({state:'visible',timeout:20000});
 }
 export async function agentSubmit(page,subject,message){
-  await openMessages(page);const r=page.locator('#page-messages');await r.locator('.card-body input').fill(subject);await r.locator('.card-body textarea').fill(message);await r.locator('.actions .btn').click();
-  await r.getByText(subject,{exact:true}).first().waitFor({state:'visible',timeout:30000});
+  await openMessages(page);
+  const r=page.locator('#page-messages');
+  await r.locator('.card-body input').fill(subject);
+  await r.locator('.card-body textarea').fill(message);
+  const submitted=page.waitForResponse(v=>v.url().includes('/portal/api/v1/agent/messages')&&v.request().method()==='POST',{timeout:30000});
+  await r.locator('.actions .btn').click();
+  const response=await submitted,body=await response.json().catch(()=>null);
+  assert([200,201].includes(response.status()),'AGENT_TO_ADMIN_SEND_FAILED_'+response.status());
+  const eventId=String(body?.message?.event_id||'');
+  assert(/^PORTAL-EVT-[0-9a-f]+$/i.test(eventId),'AGENT_TO_ADMIN_EVENT_MISSING');
+  return eventId;
 }
 export async function liveBlob(path,expected){
   const r=await fetch(ORIGIN+path+(path.includes('?')?'&':'?')+'_qa='+Date.now(),{headers:{'cache-control':'no-cache'}});
