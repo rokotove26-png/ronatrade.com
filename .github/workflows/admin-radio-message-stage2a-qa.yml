@@ -13,6 +13,10 @@ on:
       - 'supabase/functions/rona-portal-api/agent.ts'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/functions/rona-portal-api/index.ts'
+      - 'supabase/functions/rona-portal-api/shared.ts'
+      - 'supabase/functions/rona-portal-api/auth-db-connect-recovery.mjs'
+      - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+      - 'supabase/functions/_shared/client-application-business-v2/handler.mjs'
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
       - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
@@ -36,6 +40,10 @@ on:
       - 'supabase/functions/rona-portal-api/agent.ts'
       - 'supabase/functions/rona-portal-api/client-communications.ts'
       - 'supabase/functions/rona-portal-api/index.ts'
+      - 'supabase/functions/rona-portal-api/shared.ts'
+      - 'supabase/functions/rona-portal-api/auth-db-connect-recovery.mjs'
+      - 'supabase/functions/rona-portal-api/payments-v8-production-hardening.ts'
+      - 'supabase/functions/_shared/client-application-business-v2/handler.mjs'
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
       - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
@@ -65,6 +73,8 @@ jobs:
           node-version: '24'
       - name: Stage 2A production proof syntax
         run: node --check scripts/qa-admin-radio-message-stage2a-production.mjs
+      - name: Authentication DB connection boundary
+        run: node --test tests/auth-db-connect-recovery.test.mjs tests/authenticate-source-boundary.test.mjs
       - name: Stage 2A MESSAGE canonical bridge contract
         run: node --test tests/admin-radio-message-canonical-bridge-stage2a.test.mjs
       - name: Existing Client messages/archive canonical contract
