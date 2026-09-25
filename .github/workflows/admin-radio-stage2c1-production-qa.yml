@@ -1,0 +1,74 @@
+name: Admin Radio Stage 2C.1 production QA
+
+on:
+  push:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/remaining-sections-r2-base.js'
+      - 'functions/portal/[[path]].js'
+      - 'assets/portal-runtime/portal-radio-broadcast-v1.js'
+      - 'supabase/functions/rona-owner-acceptance/index.ts'
+      - 'scripts/qa-admin-radio-stage2c1-production.mjs'
+      - 'scripts/qa-admin-radio-stage2a-operational-helpers.mjs'
+      - 'scripts/qa-admin-radio-stage2a-operational-scenarios.mjs'
+      - 'scripts/qa-admin-radio-stage2a-operational-main.mjs'
+      - '.github/workflows/admin-radio-stage2c1-production-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+  checks: read
+
+concurrency:
+  group: admin-radio-stage2c1-production-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-round-trip:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    env:
+      TARGET_ORIGIN: https://ronaoil.com
+      EXPECTED_HEAD: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Bind exact release head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          echo "RADIO_STAGE2C1_RELEASE_HEAD=$EXPECTED_HEAD"
+      - name: Wait for exact Cloudflare production deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/wait-cloudflare-commit.mjs
+      - name: Check Stage 2C.1 proof syntax
+        run: node --check scripts/qa-admin-radio-stage2c1-production.mjs
+      - name: Install Playwright Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Real production Notification modal and Announcement ticker round-trip
+        run: node scripts/qa-admin-radio-stage2c1-production.mjs
+      - name: MESSAGE Client and Agent non-regression
+        run: node scripts/qa-admin-radio-stage2a-operational-main.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-radio-stage2c1-production-${{ github.run_id }}
+          path: |
+            admin-radio-stage2c1-production-proof.json
+            admin-radio-message-stage2a-production-proof.json
+          if-no-files-found: warn
+          retention-days: 14
