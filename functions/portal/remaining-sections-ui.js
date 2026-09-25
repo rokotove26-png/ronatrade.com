@@ -78,25 +78,35 @@ function radioStyle(){['rona-admin-radio-icc-v1-style','rona-admin-radio-mission
 function radioState(title,caption,tone){const n=el('div','radio-command-state '+(tone||'')),i=el('i'),c=el('div');c.append(el('b','',title),el('span','',caption));n.append(i,c);return n}
 function radioField(labelText,control){const w=el('label','radio-field');w.append(el('span','',labelText),control);return w}
 function radioTypeName(v){v=String(v||'').toUpperCase();return v==='MESSAGE'?'Сообщение':v==='NOTIFICATION'?'Уведомление':v==='ANNOUNCEMENT'?'Объявление':'Запись'}
-window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP';
-let radioCanonicalState={items:[],clients:[],loading:false,loadedAt:0,error:null,signature:''};
+window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER';
+window.__RONA_ADMIN_RADIO_OPERATIONAL_MESSAGE__='STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1';
+window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__='STAGE_2C1_NOTIFICATION_ANNOUNCEMENT_V1';
+window.__RONA_ADMIN_RADIO_BROADCAST_OWNER__='ADMIN_RADIO_STAGE2C1_SINGLE_OWNER_V1';
+let radioCanonicalState={items:[],clients:[],agents:[],audienceClients:[],audienceAgents:[],broadcasts:[],loading:false,loadedAt:0,error:null,signature:''};
 function radioCanonicalItems(){return Array.isArray(radioCanonicalState.items)?radioCanonicalState.items:[]}
 function radioCanonicalClients(){return Array.isArray(radioCanonicalState.clients)?radioCanonicalState.clients:[]}
+function radioCanonicalAgents(){return Array.isArray(radioCanonicalState.agents)?radioCanonicalState.agents:[]}
+function radioCanonicalAudienceClients(){return Array.isArray(radioCanonicalState.audienceClients)?radioCanonicalState.audienceClients:[]}
+function radioCanonicalAudienceAgents(){return Array.isArray(radioCanonicalState.audienceAgents)?radioCanonicalState.audienceAgents:[]}
+function radioCanonicalBroadcasts(){return Array.isArray(radioCanonicalState.broadcasts)?radioCanonicalState.broadcasts:[]}
 function radioCanonicalPendingInbound(clientId){return radioCanonicalItems().filter(x=>String(x?.actor_role||'')==='CLIENT'&&String(x?.client_id||'')===String(clientId||'')&&!x?.client_response_published_at&&String(x?.acknowledgement_state||'')!=='REJECTED'&&x?.task_id)}
-function radioCanonicalSignature(items,clients){return [...(items||[]).map(x=>[x?.event_id,x?.updated_at,x?.processing_state,x?.acknowledgement_state,x?.client_response_published_at,x?.task_id].join(':')),...(clients||[]).map(x=>[x?.client_id,x?.contract_id,x?.legal_name].join(':'))].join('|')}
+function radioCanonicalSignature(items,clients,agents,audienceClients,audienceAgents,broadcasts){return [...(items||[]).map(x=>[x?.event_id,x?.updated_at,x?.processing_state,x?.acknowledgement_state,x?.client_response_published_at,x?.task_id,x?.recipient_type,x?.recipient_id].join(':')),...(clients||[]).map(x=>[x?.client_id,x?.contract_id,x?.legal_name,x?.has_active_portal_recipient].join(':')),...(agents||[]).map(x=>[x?.agent_person_id,x?.agent_name,x?.has_active_portal_recipient].join(':')),...(audienceClients||[]).map(x=>[x?.client_id,x?.legal_name].join(':')),...(audienceAgents||[]).map(x=>[x?.agent_person_id,x?.agent_name].join(':')),...(broadcasts||[]).map(x=>[x?.id,x?.item_kind,x?.target_scope,x?.target_id,x?.body_text,x?.active_from,x?.active_until,x?.updated_at].join(':'))].join('|')}
 function radioCanonicalPayload(x){return x&&typeof x.payload==='object'&&x.payload?x.payload:{}}
 function radioCanonicalBody(x){const p=radioCanonicalPayload(x),subject=String(p.subject||'').trim(),message=String(p.message||'').trim()||'—';return subject?subject+' · '+message:message}
 function radioCanonicalClientText(x){return [String(x?.legal_name||'Клиент'),String(x?.client_id||'')].filter(Boolean).join(' · ')}
+function radioCanonicalAgentText(x){return [String(x?.agent_name||'Агент'),String(x?.agent_person_id||'')].filter(Boolean).join(' · ')}
+function radioCanonicalTargetText(x){return String(x?.recipient_name||x?.legal_name||x?.agent_name||x?.recipient_id||x?.client_id||x?.agent_person_id||'Получатель')}
+function radioBroadcastTargetText(x){const scope=String(x?.target_scope||'');if(scope==='ALL_CLIENTS')return'Все клиенты';if(scope==='ALL_AGENTS')return'Все агенты';if(scope==='CLIENT'){const v=radioCanonicalAudienceClients().find(y=>String(y?.client_id||'')===String(x?.target_id||''));return v?radioCanonicalClientText(v):String(x?.target_id||'Клиент')}if(scope==='AGENT'){const v=radioCanonicalAudienceAgents().find(y=>String(y?.agent_person_id||'')===String(x?.target_id||''));return v?radioCanonicalAgentText(v):String(x?.target_id||'Агент')}return scope||'—'}
 async function radioCanonicalRequest(path,init={}){
-  const headers={accept:'application/json','x-rona-client-source':'ADMIN_RADIO_STAGE2A_CORRECTIVE_LIVE_OWNER',...(init.headers||{})};
+  const headers={accept:'application/json','x-rona-client-source':'ADMIN_RADIO_STAGE2C1_SINGLE_OWNER_V1',...(init.headers||{})};
   const response=await fetch('/portal/api'+path,{credentials:'same-origin',cache:'no-store',...init,headers});
   const payload=await response.json().catch(()=>null);
   if(!response.ok||payload?.ok===false){const e=new Error(String(payload?.code||payload?.error?.code||('HTTP_'+response.status)));e.code=String(payload?.code||payload?.error?.code||'REQUEST_FAILED');e.status=response.status;throw e}
   return payload
 }
 async function radioLoadCanonical(force=false){
-  if(radioCanonicalState.loading)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients()};
-  if(!force&&radioCanonicalState.loadedAt&&Date.now()-radioCanonicalState.loadedAt<15000)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients()};
+  if(radioCanonicalState.loading)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),agents:radioCanonicalAgents(),broadcasts:radioCanonicalBroadcasts()};
+  if(!force&&radioCanonicalState.loadedAt&&Date.now()-radioCanonicalState.loadedAt<15000)return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),agents:radioCanonicalAgents(),broadcasts:radioCanonicalBroadcasts()};
   radioCanonicalState.loading=true;
   try{
     let payload=null,lastError=null;
@@ -107,16 +117,24 @@ async function radioLoadCanonical(force=false){
     if(lastError)throw lastError;
     const items=Array.isArray(payload?.data?.radio_messages)?payload.data.radio_messages:[];
     const clients=Array.isArray(payload?.data?.radio_clients)?payload.data.radio_clients:[];
-    const signature=radioCanonicalSignature(items,clients),changed=signature!==radioCanonicalState.signature;
-    radioCanonicalState.items=items;radioCanonicalState.clients=clients;radioCanonicalState.loadedAt=Date.now();radioCanonicalState.error=null;radioCanonicalState.signature=signature;
+    const agents=Array.isArray(payload?.data?.radio_agents)?payload.data.radio_agents:[];
+    const audienceClients=Array.isArray(payload?.data?.radio_audience_clients)?payload.data.radio_audience_clients:[];
+    const audienceAgents=Array.isArray(payload?.data?.radio_audience_agents)?payload.data.radio_audience_agents:[];
+    const broadcasts=Array.isArray(payload?.data?.radio_broadcasts)?payload.data.radio_broadcasts:[];
+    const signature=radioCanonicalSignature(items,clients,agents,audienceClients,audienceAgents,broadcasts),changed=signature!==radioCanonicalState.signature;
+    Object.assign(radioCanonicalState,{items,clients,agents,audienceClients,audienceAgents,broadcasts,loadedAt:Date.now(),error:null,signature});
     window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_INTAKE__=items;
     window.__RONA_ADMIN_RADIO_CLIENT_DIRECTORY__=clients;
+    window.__RONA_ADMIN_RADIO_AGENT_DIRECTORY__=agents;
+    window.__RONA_ADMIN_RADIO_AUDIENCE_CLIENTS__=audienceClients;
+    window.__RONA_ADMIN_RADIO_AUDIENCE_AGENTS__=audienceAgents;
+    window.__RONA_ADMIN_RADIO_BROADCASTS__=broadcasts;
     window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_ERROR__=null;
-    return{changed,items,clients}
+    return{changed,items,clients,agents,broadcasts}
   }catch(error){
     radioCanonicalState.error=String(error?.code||error?.message||error);
     window.__RONA_ADMIN_RADIO_MESSAGE_CANONICAL_ERROR__=radioCanonicalState.error;
-    return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients()}
+    return{changed:false,items:radioCanonicalItems(),clients:radioCanonicalClients(),agents:radioCanonicalAgents(),broadcasts:radioCanonicalBroadcasts()}
   }finally{radioCanonicalState.loading=false}
 }
 function radioCaptureDraft(){
@@ -138,7 +156,7 @@ async function radioRefreshCanonicalNow(reason='runtime'){
 }
 window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH__=radioRefreshCanonicalNow;
 if(!window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_BOUND__){
-  window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_BOUND__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_REFRESH_V2';
+  window.__RONA_ADMIN_RADIO_MESSAGE_REFRESH_BOUND__='STAGE_2C1_RADIO_REFRESH_V1';
   window.addEventListener('rona:admin-pagechange',ev=>{
     if(String(ev?.detail?.page||'')!=='messages')return;
     queueMicrotask(()=>{void radioRefreshCanonicalNow('pagechange')})
@@ -152,13 +170,65 @@ function radioEnsureCanonicalPoller(){
   },30000)
 }
 function radioRoot(){const p=page('radio');if(!p)return null;style();let r=q(':scope>.rona-rs-root[data-kind="radio"]',p);if(!r){r=el('div','rona-rs-root');r.dataset.kind='radio';p.append(r)}let head=q(':scope>.rona-radio-clean-head',p);if(!head){head=el('div','rona-radio-clean-head');head.append(el('h1','rona-radio-clean-title','Радиорубка'),el('div','rona-radio-clean-sub','Оперативные сообщения, уведомления и объявления клиентам и агентам.'));p.insertBefore(head,r)}r.replaceChildren();p.classList.remove('rona-rs-gated');q(':scope>.rona-rs-loading',p)?.remove();qa(':scope>*',p).forEach(n=>{if(n===r||n===head){n.style.removeProperty('display');n.removeAttribute('aria-hidden');return}n.style.setProperty('display','none','important');n.setAttribute('aria-hidden','true')});qa('.rona-visual-hero,[data-rona-remaining-r2]',p).forEach(n=>{if(!r.contains(n)&&!head.contains(n)){n.style.setProperty('display','none','important');n.setAttribute('aria-hidden','true')}});if(head.nextElementSibling!==r)head.after(r);return r}
-function renderRadio(){const d=snap();if(!d)return;const draft=radioCaptureDraft();radioStyle();const legacy=Array.isArray(d.radio)?d.radio:[],xs=legacy.filter(x=>String(x?.item_kind||'').toUpperCase()!=='MESSAGE'),canonical=radioCanonicalItems(),canonicalRows=canonical.map(x=>({item_kind:'MESSAGE',target_id:x.legal_name||x.client_id||'Клиент',body_text:radioCanonicalBody(x),created_at:x.created_at,__canonical_event_id:x.event_id})),activeRows=[...canonicalRows,...xs],r=radioRoot();if(!r)return;r.classList.add('rona-radio-command');const count=k=>k==='MESSAGE'?canonical.length:xs.filter(x=>String(x.item_kind||'').toUpperCase()===k).length;
-const bar=el('div','radio-command-bar');bar.append(radioState('Контур связи готов','Передача сообщений доступна',''),radioState('Маршрутизация активна','Клиенты и агенты в едином канале','blue'),radioState(activeRows.length?'В эфире '+activeRows.length:'Эфир свободен',activeRows.length?'Есть активные записи':'Очередь сообщений пуста','amber'));r.append(bar);
-const kg=grid(kpi('Всего активно',activeRows.length,'Текущие записи радиорубки','info'),kpi('Сообщения',count('MESSAGE'),'Оперативные сообщения','info'),kpi('Уведомления',count('NOTIFICATION'),'Служебные уведомления','warn'),kpi('Объявления',count('ANNOUNCEMENT'),'Публичные объявления','success'));kg.classList.add('radio-kpi-grid');const cards=Array.from(kg.children);['radio-kpi-cyan','radio-kpi-blue','radio-kpi-violet','radio-kpi-amber'].forEach((c,i)=>cards[i]?.classList.add(c));r.append(kg);
-const workspace=el('div','radio-workspace'),compose=el('section','radio-compose-panel'),chead=el('div','radio-panel-head');chead.append(el('h2','','Новое сообщение'),el('span','radio-ready','Готово к передаче'));const cbody=el('div','radio-compose-body'),controls=el('div','radio-compose-controls'),kind=el('select'),scope=el('select'),target=el('select'),body=el('textarea'),send=el('button','radio-send','Отправить'),counter=el('span','','0 символов');[['MESSAGE','Сообщение'],['NOTIFICATION','Уведомление'],['ANNOUNCEMENT','Объявление']].forEach(a=>kind.append(new Option(a[1],a[0])));[['ALL_CLIENTS','Все клиенты'],['CLIENT','Клиент'],['ALL_AGENTS','Все агенты'],['AGENT','Агент']].forEach(a=>scope.append(new Option(a[1],a[0])));body.placeholder='Введите полный текст сообщения';controls.append(radioField('Тип',kind),radioField('Аудитория',scope),radioField('Получатель',target));const messageField=radioField('Текст сообщения',body),meta=el('div','radio-message-meta');meta.append(el('span','','Многострочный редактор сообщения'),counter);const actions=el('div','radio-compose-actions'),hint=el('div','radio-compose-hint','Отправка через действующий контур Радиорубки.');actions.append(send,hint);cbody.append(controls,messageField,meta,actions);compose.append(chead,cbody);
-const link=el('aside','radio-link-panel'),lhead=el('div','radio-panel-head');lhead.append(el('h2','','Состояние каналов'),el('span','radio-ready','Связь установлена'));const lbody=el('div','radio-link-body'),radar=el('div','radio-radar');['n1','n2','n3'].forEach(c=>radar.append(el('i','radio-radar-node '+c)));const lcopy=el('div','radio-link-copy');lcopy.append(el('strong','','Международный контур'),el('span','','Канал готов к адресной и массовой передаче сообщений.'));const bars=el('div','radio-signal-bars');[12,21,15,29,23,34,18,30,25,32,17,27,20,13].forEach(h=>{const x=el('i');x.style.height=h+'px';bars.append(x)});lbody.append(radar,lcopy,bars);link.append(lhead,lbody);workspace.append(compose,link);r.append(workspace);
-const sync=()=>{target.replaceChildren(new Option('Не требуется',''));if(kind.value==='MESSAGE'){if(scope.value==='CLIENT')radioCanonicalClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));target.disabled=scope.value!=='CLIENT';return}if(scope.value==='CLIENT')(d.clients||[]).forEach(x=>target.append(new Option(x.legal_name||x.client_id,x.client_id)));if(scope.value==='AGENT')(d.agents||[]).forEach(x=>target.append(new Option(x.agent_name||x.agent_person_id,x.agent_person_id)));target.disabled=!['CLIENT','AGENT'].includes(scope.value)};const syncAndRefreshMessageTargets=()=>{sync();if(kind.value==='MESSAGE'&&scope.value==='CLIENT')void radioLoadCanonical(true).then(()=>{sync();if([...target.options].some(o=>o.value===draft.target))target.value=draft.target})};scope.onchange=syncAndRefreshMessageTargets;kind.onchange=syncAndRefreshMessageTargets;body.oninput=()=>{counter.textContent=body.value.length+' символов'};if([...kind.options].some(o=>o.value===draft.kind))kind.value=draft.kind;if([...scope.options].some(o=>o.value===draft.scope))scope.value=draft.scope;sync();if([...target.options].some(o=>o.value===draft.target))target.value=draft.target;body.value=draft.body;counter.textContent=body.value.length+' символов';send.onclick=async()=>{if(!body.value.trim())return notice('Введите сообщение.');send.disabled=true;try{if(kind.value==='MESSAGE'){if(scope.value!=='CLIENT')return notice('Для сообщения выберите аудиторию «Клиент».');const clientId=String(target.value||''),client=radioCanonicalClients().find(x=>String(x?.client_id||'')===clientId);if(!client)return notice('Выберите клиента.');const pending=radioCanonicalPendingInbound(clientId).sort((a,b)=>new Date(b?.created_at||0)-new Date(a?.created_at||0))[0];if(pending?.task_id){await radioCanonicalRequest('/v1/admin/client-intake/'+encodeURIComponent(String(pending.event_id))+'/respond',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:body.value.trim(),source_task_id:String(pending.task_id)})})}else{const idempotencyKey=crypto.randomUUID();await radioCanonicalRequest('/v1/admin/radio/messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify({clientId:String(client.client_id),contractId:String(client.contract_id),message:body.value.trim(),idempotencyKey})})}body.value='';counter.textContent='0 символов';await Promise.all([refresh(),radioLoadCanonical(true)]);renderRadio();return}await post('/admin/radio',{kind:kind.value,scope:scope.value,targetId:target.value||null,body:body.value.trim()});body.value='';counter.textContent='0 символов';await refresh();renderRadio()}catch(e){notice(e.code||e.message||e)}finally{send.disabled=false}};
-const active=el('section','radio-active-panel'),ahead=el('div','radio-panel-head');ahead.append(el('h2','','Активные сообщения'),el('span','radio-ready',activeRows.length?activeRows.length+' в эфире':'Эфир свободен'));const abody=el('div','radio-active-body');if(activeRows.length){const list=el('div','radio-active-list');activeRows.forEach(x=>{const row=el('div','radio-active-row');row.append(el('span','radio-type-pill',radioTypeName(x.item_kind)),el('span','radio-target',x.target_id||x.target_scope||'Все получатели'),el('div','radio-body-copy',x.body_text||'—'),el('span','radio-date',date(x.created_at)));list.append(row)});abody.append(list)}else{const empty=el('div','radio-empty'),pulse=el('div','radio-empty-pulse'),copy=el('div','radio-empty-copy');copy.append(el('strong','','Активных сообщений нет'),el('span','','Контур находится в режиме ожидания передачи.'));empty.append(pulse,copy);abody.append(empty)}active.append(ahead,abody);r.append(active);radioEnsureCanonicalPoller();if(!radioCanonicalState.loadedAt||Date.now()-radioCanonicalState.loadedAt>=15000)void radioLoadCanonical(false).then(result=>{if(result.changed)renderRadio()})}
+function renderRadio(){
+  const d=snap();if(!d)return;
+  const draft=radioCaptureDraft();radioStyle();
+  const canonical=radioCanonicalItems(),broadcasts=radioCanonicalBroadcasts();
+  const canonicalRows=canonical.map(x=>({item_kind:'MESSAGE',target_id:radioCanonicalTargetText(x),body_text:radioCanonicalBody(x),created_at:x.created_at,__canonical_event_id:x.event_id}));
+  const broadcastRows=broadcasts.map(x=>({item_kind:String(x?.item_kind||'').toUpperCase(),target_id:radioBroadcastTargetText(x),target_scope:x?.target_scope||null,body_text:x?.body_text||'—',created_at:x?.created_at||x?.active_from}));
+  const activeRows=[...canonicalRows,...broadcastRows],r=radioRoot();if(!r)return;r.classList.add('rona-radio-command');
+  const count=k=>k==='MESSAGE'?canonical.length:broadcasts.filter(x=>String(x?.item_kind||'').toUpperCase()===k).length;
+  const bar=el('div','radio-command-bar');bar.append(radioState('Контур связи готов','Передача сообщений доступна',''),radioState('Маршрутизация активна','Клиенты и агенты в едином канале','blue'),radioState(activeRows.length?'В эфире '+activeRows.length:'Эфир свободен',activeRows.length?'Есть активные записи':'Очередь сообщений пуста','amber'));r.append(bar);
+  const kg=grid(kpi('Всего активно',activeRows.length,'Текущие записи радиорубки','info'),kpi('Сообщения',count('MESSAGE'),'Оперативные сообщения','info'),kpi('Уведомления',count('NOTIFICATION'),'Служебные уведомления','warn'),kpi('Объявления',count('ANNOUNCEMENT'),'Публичные объявления','success'));kg.classList.add('radio-kpi-grid');const cards=Array.from(kg.children);['radio-kpi-cyan','radio-kpi-blue','radio-kpi-violet','radio-kpi-amber'].forEach((c,i)=>cards[i]?.classList.add(c));r.append(kg);
+  const workspace=el('div','radio-workspace'),compose=el('section','radio-compose-panel'),chead=el('div','radio-panel-head');chead.append(el('h2','','Новое сообщение'),el('span','radio-ready','Готово к передаче'));const cbody=el('div','radio-compose-body'),controls=el('div','radio-compose-controls'),kind=el('select'),scope=el('select'),target=el('select'),body=el('textarea'),send=el('button','radio-send','Отправить'),counter=el('span','','0 символов');
+  [['MESSAGE','Сообщение'],['NOTIFICATION','Уведомление'],['ANNOUNCEMENT','Объявление']].forEach(a=>kind.append(new Option(a[1],a[0])));
+  [['ALL_CLIENTS','Все клиенты'],['CLIENT','Клиент'],['ALL_AGENTS','Все агенты'],['AGENT','Агент']].forEach(a=>scope.append(new Option(a[1],a[0])));
+  body.placeholder='Введите полный текст сообщения';controls.append(radioField('Тип',kind),radioField('Аудитория',scope),radioField('Получатель',target));const messageField=radioField('Текст сообщения',body),meta=el('div','radio-message-meta');meta.append(el('span','','Многострочный редактор сообщения'),counter);const actions=el('div','radio-compose-actions'),hint=el('div','radio-compose-hint','Отправка через действующий контур Радиорубки.');actions.append(send,hint);cbody.append(controls,messageField,meta,actions);compose.append(chead,cbody);
+  const link=el('aside','radio-link-panel'),lhead=el('div','radio-panel-head');lhead.append(el('h2','','Состояние каналов'),el('span','radio-ready','Связь установлена'));const lbody=el('div','radio-link-body'),radar=el('div','radio-radar');['n1','n2','n3'].forEach(c=>radar.append(el('i','radio-radar-node '+c)));const lcopy=el('div','radio-link-copy');lcopy.append(el('strong','','Международный контур'),el('span','','Канал готов к адресной и массовой передаче сообщений.'));const bars=el('div','radio-signal-bars');[12,21,15,29,23,34,18,30,25,32,17,27,20,13].forEach(h=>{const x=el('i');x.style.height=h+'px';bars.append(x)});lbody.append(radar,lcopy,bars);link.append(lhead,lbody);workspace.append(compose,link);r.append(workspace);
+  const sync=()=>{
+    const allowed=kind.value==='MESSAGE'?['CLIENT','AGENT']:kind.value==='NOTIFICATION'?['CLIENT','ALL_CLIENTS']:['CLIENT','ALL_CLIENTS','AGENT','ALL_AGENTS'];
+    Array.from(scope.options).forEach(o=>{o.disabled=!allowed.includes(String(o.value))});
+    if(!allowed.includes(scope.value))scope.value=allowed[0];
+    target.replaceChildren(new Option('Не требуется',''));
+    if(kind.value==='MESSAGE'){
+      if(scope.value==='CLIENT')radioCanonicalClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));
+      if(scope.value==='AGENT')radioCanonicalAgents().forEach(x=>target.append(new Option(radioCanonicalAgentText(x),String(x.agent_person_id||''))));
+    }else{
+      if(scope.value==='CLIENT')radioCanonicalAudienceClients().forEach(x=>target.append(new Option(radioCanonicalClientText(x),String(x.client_id||''))));
+      if(scope.value==='AGENT')radioCanonicalAudienceAgents().forEach(x=>target.append(new Option(radioCanonicalAgentText(x),String(x.agent_person_id||''))));
+    }
+    target.disabled=!['CLIENT','AGENT'].includes(scope.value)
+  };
+  const syncAndRefresh=()=>{sync();void radioLoadCanonical(true).then(()=>{sync();if([...target.options].some(o=>o.value===draft.target))target.value=draft.target})};scope.onchange=syncAndRefresh;kind.onchange=syncAndRefresh;body.oninput=()=>{counter.textContent=body.value.length+' символов'};
+  if([...kind.options].some(o=>o.value===draft.kind))kind.value=draft.kind;if([...scope.options].some(o=>o.value===draft.scope))scope.value=draft.scope;sync();if([...target.options].some(o=>o.value===draft.target))target.value=draft.target;body.value=draft.body;counter.textContent=body.value.length+' символов';
+  send.onclick=async()=>{
+    if(!body.value.trim())return notice('Введите сообщение.');
+    send.disabled=true;
+    try{
+      if(kind.value==='MESSAGE'){
+        if(scope.value==='CLIENT'){
+          const clientId=String(target.value||''),client=radioCanonicalClients().find(x=>String(x?.client_id||'')===clientId);if(!client)return notice('Выберите клиента.');
+          const pending=radioCanonicalPendingInbound(clientId).sort((a,b)=>new Date(b?.created_at||0)-new Date(a?.created_at||0))[0];
+          if(pending?.task_id)await radioCanonicalRequest('/v1/admin/client-intake/'+encodeURIComponent(String(pending.event_id))+'/respond',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({response:body.value.trim(),source_task_id:String(pending.task_id)})});
+          else{const idempotencyKey=crypto.randomUUID(),payload={clientId:String(client.client_id),message:body.value.trim(),idempotencyKey};if(client.contract_id)payload.contractId=String(client.contract_id);await radioCanonicalRequest('/v1/admin/radio/messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify(payload)})}
+        }else if(scope.value==='AGENT'){
+          const agentId=String(target.value||''),agent=radioCanonicalAgents().find(x=>String(x?.agent_person_id||'')===agentId);if(!agent)return notice('Выберите агента.');
+          const idempotencyKey=crypto.randomUUID();await radioCanonicalRequest('/v1/admin/radio/agent-messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify({agentPersonId:String(agent.agent_person_id),message:body.value.trim(),idempotencyKey})})
+        }else return notice('Для сообщения выберите конкретного клиента или агента.');
+      }else{
+        const targetId=['CLIENT','AGENT'].includes(scope.value)?String(target.value||''):null;
+        if(['CLIENT','AGENT'].includes(scope.value)&&!targetId)return notice(scope.value==='CLIENT'?'Выберите клиента.':'Выберите агента.');
+        const idempotencyKey=crypto.randomUUID();await post('/admin/radio',{kind:kind.value,scope:scope.value,targetId,body:body.value.trim(),idempotencyKey})
+      }
+      body.value='';counter.textContent='0 символов';await Promise.all([refresh(),radioLoadCanonical(true)]);renderRadio()
+    }catch(e){notice(e.code||e.message||e)}finally{send.disabled=false}
+  };
+  const active=el('section','radio-active-panel'),ahead=el('div','radio-panel-head');ahead.append(el('h2','','Активные сообщения'),el('span','radio-ready',activeRows.length?activeRows.length+' в эфире':'Эфир свободен'));const abody=el('div','radio-active-body');
+  if(activeRows.length){const list=el('div','radio-active-list');activeRows.forEach(x=>{const row=el('div','radio-active-row');row.append(el('span','radio-type-pill',radioTypeName(x.item_kind)),el('span','radio-target',x.target_id||x.target_scope||'Все получатели'),el('div','radio-body-copy',x.body_text||'—'),el('span','radio-date',date(x.created_at)));list.append(row)});abody.append(list)}
+  else{const empty=el('div','radio-empty'),pulse=el('div','radio-empty-pulse'),copy=el('div','radio-empty-copy');copy.append(el('strong','','Активных сообщений нет'),el('span','','Контур находится в режиме ожидания передачи.'));empty.append(pulse,copy);abody.append(empty)}
+  active.append(ahead,abody);r.append(active);radioEnsureCanonicalPoller();if(!radioCanonicalState.loadedAt||Date.now()-radioCanonicalState.loadedAt>=15000)void radioLoadCanonical(false).then(result=>{if(result.changed)renderRadio()})
+}
+
 
 `;
 
