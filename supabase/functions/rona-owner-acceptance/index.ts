@@ -395,7 +395,11 @@ async function validateRadioPublicationTarget(scope,targetId){
       from portal_private.agent_persons ap
       where ap.agent_person_id=${targetId}
         and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and ap.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+        and ap.authority_state in (
+          'SOURCE_RECEIVED'::portal_private.authority_state_enum,
+          'VERIFIED'::portal_private.authority_state_enum,
+          'CONFIRMED'::portal_private.authority_state_enum
+        )
       limit 1`;
     if(rows.length!==1)throw Object.assign(new Error('RADIO_AGENT_TARGET_NOT_CURRENT'),{status:409});
   }
