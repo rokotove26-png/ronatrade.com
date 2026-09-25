@@ -25,8 +25,9 @@ test('Stage 2B keeps MESSAGE on the canonical chat path and narrows owner radio 
 
 test('Client and Agent publication reads exclude legacy MESSAGE rows',()=>{
   const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
-  const filtered=(owner.match(/item_kind in \('NOTIFICATION','ANNOUNCEMENT'\)/g)||[]).length;
-  assert.ok(filtered>=3,`expected Admin, Client, Agent broadcast filters; found ${filtered}`);
+  const clientAndAdminFiltered=(owner.match(/item_kind in \('NOTIFICATION','ANNOUNCEMENT'\)/g)||[]).length;
+  assert.ok(clientAndAdminFiltered>=2,`expected Admin and Client broadcast filters; found ${clientAndAdminFiltered}`);
+  assert.match(owner,/item_kind='ANNOUNCEMENT'/);
   assert.match(owner,/target_scope='ALL_CLIENTS'/);
   assert.match(owner,/target_scope='CLIENT'/);
   assert.match(owner,/target_scope='ALL_AGENTS'/);
