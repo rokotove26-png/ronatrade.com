@@ -80,8 +80,9 @@ function radioField(labelText,control){const w=el('label','radio-field');w.appen
 function radioTypeName(v){v=String(v||'').toUpperCase();return v==='MESSAGE'?'Сообщение':v==='NOTIFICATION'?'Уведомление':v==='ANNOUNCEMENT'?'Объявление':'Запись'}
 window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER';
 window.__RONA_ADMIN_RADIO_OPERATIONAL_MESSAGE__='STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1';
-window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__='STAGE_2C1_NOTIFICATION_ANNOUNCEMENT_V1';
-window.__RONA_ADMIN_RADIO_BROADCAST_OWNER__='ADMIN_RADIO_STAGE2C1_SINGLE_OWNER_V1';
+window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__='STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER';
+window.__RONA_ADMIN_RADIO_BROADCAST_OWNER__='ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1';
+window.__RONA_ADMIN_RADIO_STAGE2C1__='NOTIFICATION_MODAL_ANNOUNCEMENT_TICKER_V1';
 let radioCanonicalState={items:[],clients:[],agents:[],audienceClients:[],audienceAgents:[],broadcasts:[],loading:false,loadedAt:0,error:null,signature:''};
 function radioCanonicalItems(){return Array.isArray(radioCanonicalState.items)?radioCanonicalState.items:[]}
 function radioCanonicalClients(){return Array.isArray(radioCanonicalState.clients)?radioCanonicalState.clients:[]}
