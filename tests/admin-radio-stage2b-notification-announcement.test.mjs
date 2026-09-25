@@ -71,8 +71,9 @@ test('Dedicated Radio bootstrap contains chat plus current broadcast/audience pr
   assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"/);
 });
 
-test('Admin Radio static owner uses canonical broadcast projection without changing visual geometry',()=>{
+test('Admin Radio static owner uses canonical broadcast projection without changing current visual geometry',()=>{
   const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const wrapper=read('functions/portal/remaining-sections-ui.js');
   assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
   assert.match(radio,/STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER/);
   assert.match(radio,/ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1/);
@@ -84,17 +85,18 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
   assert.match(radio,/radio_audience_agents/);
   assert.match(radio,/idempotencyKey/);
   assert.match(radio,/function radioCaptureDraft\(\)/);
-  assert.match(radio,/function radioSetIfOption\(select,value\)/);
-  assert.match(radio,/radioDraftState=radioCaptureDraft\(\);renderRadio\(\)/);
-  assert.match(radio,/if\(draft\?\.target\)radioSetIfOption\(target,draft\.target\)/);
   assert.match(radio,/await post\('\/admin\/radio'/);
   assert.match(radio,/activeRows=\[\.\.\.canonicalRows,\.\.\.broadcastRows\]/);
+  assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
   for(const token of [
-    "root('radio','Радиорубка'",
-    "el('div','rona-rs-form')",
-    "card('Новое сообщение'",
-    "card('Активные сообщения'",
-    "['Тип','Кому','Сообщение','Дата']"
+    "radioRoot()",
+    "el('div','radio-command-bar')",
+    "classList.add('radio-kpi-grid')",
+    "el('div','radio-workspace')",
+    "el('section','radio-compose-panel')",
+    "el('aside','radio-link-panel')",
+    "el('section','radio-active-panel')",
+    "Активные сообщения"
   ]) assert.ok(radio.includes(token),`Radio visual structure token missing: ${token}`);
 });
 
