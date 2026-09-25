@@ -52,7 +52,7 @@ test('Radio MESSAGE selector is client/company semantic and legacy publication i
 test('Radio read path uses a dedicated lightweight server projection',()=>{
   const admin=read('supabase/functions/rona-portal-api/admin.ts');
   const index=read('supabase/functions/rona-portal-api/index.ts');
-  const radio=read('functions/portal/remaining-sections-ui.js');
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
   assert.match(admin,/export async function adminRadioBootstrap\(\)/);
   assert.match(admin,/Promise\.all\(\[\s*adminRadioClients\(\),\s*adminRadioAgents\(\),\s*adminRadioMessages\(\)/);
   assert.match(index,/adminBootstrap, adminRadioBootstrap/);
@@ -430,8 +430,9 @@ test('Admin static materializer cannot silently emit the stale full-bootstrap Ra
   assert.match(build,/radio\/agent-messages/);
 });
 
-test('Dynamic Radio wrapper remains source-compatible with the frozen visual geometry',async()=>{
-  const radio=read('functions/portal/remaining-sections-ui.js');
+test('Dynamic Radio wrapper preserves the single canonical base owner and frozen visual geometry',async()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const wrapper=read('functions/portal/remaining-sections-ui.js');
   for(const token of [
     "radio-workspace",
     "radio-compose-panel",
@@ -440,11 +441,14 @@ test('Dynamic Radio wrapper remains source-compatible with the frozen visual geo
     "radio-compose-controls",
     "radio-send",
     "Активные сообщения"
-  ]) assert.ok(radio.includes(token),`live Radio visual DOM token missing: ${token}`);
-  const mod=await import('../functions/portal/remaining-sections-ui.js?radio-stage2a-corrective='+Date.now());
+  ]) assert.ok(radio.includes(token),`canonical Radio visual DOM token missing: ${token}`);
+  assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
+  assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER_SOURCE_MISMATCH/);
+  const mod=await import('../functions/portal/remaining-sections-ui.js?radio-stage2c1-single-owner='+Date.now());
   const response=await mod.onRequest();
   const script=await response.text();
-  assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP/);
+  assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
+  assert.match(script,/STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER/);
   assert.match(script,/radio-workspace/);
   assert.match(script,/radio-compose-panel/);
   assert.match(script,/radio-active-panel/);
