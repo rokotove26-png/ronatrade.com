@@ -5,11 +5,16 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/remaining-sections-r2-base.js'
+      - 'functions/portal/remaining-sections-ui.js'
+      - 'functions/portal/[[path]].js'
+      - 'assets/portal-runtime/portal-radio-broadcast-v1.js'
       - 'scripts/materialize-admin-current-modules.mjs'
       - 'supabase/functions/rona-portal-api/admin.ts'
       - 'supabase/functions/rona-owner-acceptance/index.ts'
       - 'supabase/migrations/20260923164500_admin_radio_stage2b_notification_announcement_v1.sql'
       - 'tests/admin-radio-stage2b-notification-announcement.test.mjs'
+      - 'tests/admin-radio-stage2c1-real-activation.test.mjs'
+      - 'scripts/qa-admin-radio-stage2c1-production.mjs'
       - 'scripts/qa-admin-radio-stage2b-production.mjs'
       - '.github/workflows/admin-radio-stage2b-qa.yml'
       - '.github/workflows/admin-radio-stage2b-production-qa.yml'
@@ -22,6 +27,8 @@ on:
       - 'supabase/functions/rona-owner-acceptance/index.ts'
       - 'supabase/migrations/20260923164500_admin_radio_stage2b_notification_announcement_v1.sql'
       - 'tests/admin-radio-stage2b-notification-announcement.test.mjs'
+      - 'tests/admin-radio-stage2c1-real-activation.test.mjs'
+      - 'scripts/qa-admin-radio-stage2c1-production.mjs'
       - 'scripts/qa-admin-radio-stage2b-production.mjs'
       - '.github/workflows/admin-radio-stage2b-qa.yml'
       - '.github/workflows/admin-radio-stage2b-production-qa.yml'
@@ -45,6 +52,12 @@ jobs:
         run: node --check scripts/qa-admin-radio-stage2b-production.mjs
       - name: Stage 2B publication authority contract
         run: node --test tests/admin-radio-stage2b-notification-announcement.test.mjs
+      - name: Stage 2C.1 real activation contract
+        run: node --test tests/admin-radio-stage2c1-real-activation.test.mjs
+      - name: Stage 2C.1 runtime syntax
+        run: |
+          node --check assets/portal-runtime/portal-radio-broadcast-v1.js
+          node --check scripts/qa-admin-radio-stage2c1-production.mjs
       - name: Stage 2A MESSAGE non-regression
         run: node --test tests/admin-radio-message-canonical-bridge-stage2a.test.mjs
       - name: Materialized production owner gate
