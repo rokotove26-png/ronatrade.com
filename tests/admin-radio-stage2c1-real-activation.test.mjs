@@ -30,7 +30,7 @@ test('Agent broadcast projection is binding-scoped and supports ALL_AGENTS witho
 test('Admin Radio visual owner keeps geometry while reconnecting Stage 2C.1 canonical broadcast data',()=>{
   const ui=read('functions/portal/remaining-sections-ui.js');
   for(const token of [
-    "STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER",
+    "STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP",
     "STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1",
     "STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER",
     "NOTIFICATION_MODAL_ANNOUNCEMENT_TICKER_V1",
