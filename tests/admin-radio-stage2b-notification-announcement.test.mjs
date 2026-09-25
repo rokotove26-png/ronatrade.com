@@ -100,6 +100,34 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
   ]) assert.ok(radio.includes(token),`Radio visual structure token missing: ${token}`);
 });
 
+test('Stage 2C.1 activates client notification modal and client/agent announcement ticker through server-isolated projections',()=>{
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+  const runtime=read('assets/portal-runtime/portal-radio-broadcast-v1.js');
+  const shell=read('functions/portal/[[path]].js');
+  assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);
+  assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
+  const agentStart=owner.indexOf('async function agentBootstrap(ctx)');
+  const agentEnd=owner.indexOf('function ascii(',agentStart);
+  assert.ok(agentStart>=0&&agentEnd>agentStart,'agentBootstrap block missing');
+  const agentBlock=owner.slice(agentStart,agentEnd);
+  assert.match(agentBlock,/const identities=await sql/);
+  assert.match(agentBlock,/item_kind='ANNOUNCEMENT'/);
+  assert.ok(agentBlock.indexOf('const radio=')<agentBlock.indexOf("if(!keys.length)return"),'ALL_AGENTS projection must not depend on client assignment');
+  for(const token of [
+    "id='ronaRadioAnnouncementTicker'",
+    "id='ronaRadioNotificationOverlay'",
+    "animation:ronaRadioTickerRun",
+    "if(role!=='CLIENT')",
+    "upper(x?.item_kind)==='ANNOUNCEMENT'",
+    "upper(x?.item_kind)==='NOTIFICATION'",
+    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'"
+  ])assert.ok(runtime.includes(token),`Stage 2C.1 runtime marker missing: ${token}`);
+  assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
+  assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
+});
+
 test('Static materializer cannot silently regress Stage 2B owner',()=>{
   const build=read('scripts/materialize-admin-current-modules.mjs');
   for(const token of [
