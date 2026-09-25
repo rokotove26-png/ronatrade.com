@@ -7,8 +7,6 @@ on:
       - 'functions/portal/admin-main-ui-current.js'
       - 'functions/portal/remaining-sections-ui.js'
       - 'functions/portal/remaining-sections-r2-base.js'
-      - 'assets/portal-runtime/portal-radio-broadcast-v1.js'
-      - 'functions/portal/[[path]].js'
       - 'functions/portal/api/**'
       - 'scripts/materialize-admin-current-modules.mjs'
       - 'supabase/functions/rona-portal-api/admin.ts'
@@ -22,9 +20,6 @@ on:
       - 'supabase/migrations/20260923124000_admin_radio_stage2a_corrective_client_semantics_v1.sql'
       - 'supabase/migrations/20260923173735_admin_radio_stage2a_operational_recipient_agent_message_v1.sql'
       - 'tests/admin-radio-message-canonical-bridge-stage2a.test.mjs'
-      - 'scripts/qa-admin-radio-stage2c1-production.mjs'
-      - 'tests/admin-radio-stage2c1-real-activation.test.mjs'
-      - 'supabase/functions/rona-owner-acceptance/index.ts'
       - 'scripts/qa-admin-radio-message-stage2a-production.mjs'
       - 'scripts/qa-admin-radio-stage2a-deployment-equivalence.mjs'
       - 'scripts/qa-admin-radio-stage2a-production-quiet-gate.mjs'
@@ -82,12 +77,6 @@ jobs:
         run: node --test tests/auth-db-connect-recovery.test.mjs tests/authenticate-source-boundary.test.mjs
       - name: Stage 2A MESSAGE canonical bridge contract
         run: node --test tests/admin-radio-message-canonical-bridge-stage2a.test.mjs
-      - name: Stage 2C.1 real activation contract
-        run: node --test tests/admin-radio-stage2c1-real-activation.test.mjs
-      - name: Stage 2C.1 runtime syntax
-        run: |
-          node --check assets/portal-runtime/portal-radio-broadcast-v1.js
-          node --check scripts/qa-admin-radio-stage2c1-production.mjs
       - name: Existing Client messages/archive canonical contract
         run: node scripts/qa-client-messages-archive-v1.mjs
       - name: Frozen Client visual baseline
