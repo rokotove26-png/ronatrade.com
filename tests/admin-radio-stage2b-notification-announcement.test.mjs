@@ -25,8 +25,9 @@ test('Stage 2B keeps MESSAGE on the canonical chat path and narrows owner radio 
 
 test('Client and Agent publication reads exclude legacy MESSAGE rows',()=>{
   const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
-  const filtered=(owner.match(/item_kind in \('NOTIFICATION','ANNOUNCEMENT'\)/g)||[]).length;
-  assert.ok(filtered>=3,`expected Admin, Client, Agent broadcast filters; found ${filtered}`);
+  const clientAndAdminFiltered=(owner.match(/item_kind in \('NOTIFICATION','ANNOUNCEMENT'\)/g)||[]).length;
+  assert.ok(clientAndAdminFiltered>=2,`expected Admin and Client broadcast filters; found ${clientAndAdminFiltered}`);
+  assert.match(owner,/item_kind='ANNOUNCEMENT'/);
   assert.match(owner,/target_scope='ALL_CLIENTS'/);
   assert.match(owner,/target_scope='CLIENT'/);
   assert.match(owner,/target_scope='ALL_AGENTS'/);
@@ -68,10 +69,13 @@ test('Dedicated Radio bootstrap contains chat plus current broadcast/audience pr
   assert.match(admin,/radio_broadcasts:radioBroadcasts/);
   assert.match(admin,/radio_broadcast_projection_contract:"RADIO_NOTIFICATION_ANNOUNCEMENT_V1"/);
   assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"/);
+  const audienceAgents=admin.slice(admin.indexOf('async function adminRadioAudienceAgents(){'),admin.indexOf('async function adminRadioBroadcasts(){'));
+  assert.match(audienceAgents,/SOURCE_RECEIVED/);
 });
 
-test('Admin Radio static owner uses canonical broadcast projection without changing visual geometry',()=>{
+test('Admin Radio static owner uses canonical broadcast projection without changing current visual geometry',()=>{
   const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const wrapper=read('functions/portal/remaining-sections-ui.js');
   assert.match(radio,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
   assert.match(radio,/STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER/);
   assert.match(radio,/ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1/);
@@ -83,18 +87,80 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
   assert.match(radio,/radio_audience_agents/);
   assert.match(radio,/idempotencyKey/);
   assert.match(radio,/function radioCaptureDraft\(\)/);
-  assert.match(radio,/function radioSetIfOption\(select,value\)/);
-  assert.match(radio,/radioDraftState=radioCaptureDraft\(\);renderRadio\(\)/);
-  assert.match(radio,/if\(draft\?\.target\)radioSetIfOption\(target,draft\.target\)/);
   assert.match(radio,/await post\('\/admin\/radio'/);
   assert.match(radio,/activeRows=\[\.\.\.canonicalRows,\.\.\.broadcastRows\]/);
+  assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
   for(const token of [
-    "root('radio','Радиорубка'",
-    "el('div','rona-rs-form')",
-    "card('Новое сообщение'",
-    "card('Активные сообщения'",
-    "['Тип','Кому','Сообщение','Дата']"
+    "radioRoot()",
+    "el('div','radio-command-bar')",
+    "classList.add('radio-kpi-grid')",
+    "el('div','radio-workspace')",
+    "el('section','radio-compose-panel')",
+    "el('aside','radio-link-panel')",
+    "el('section','radio-active-panel')",
+    "Активные сообщения"
   ]) assert.ok(radio.includes(token),`Radio visual structure token missing: ${token}`);
+});
+
+test('Stage 2C.1 activates client notification modal and client/agent announcement ticker through server-isolated projections',()=>{
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+  const runtime=read('assets/portal-runtime/portal-radio-broadcast-v1.js');
+  const shell=read('functions/portal/[[path]].js');
+  assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);
+  assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
+  const agentStart=owner.indexOf('async function agentBootstrap(ctx)');
+  const agentEnd=owner.indexOf('function ascii(',agentStart);
+  assert.ok(agentStart>=0&&agentEnd>agentStart,'agentBootstrap block missing');
+  const agentBlock=owner.slice(agentStart,agentEnd);
+  assert.match(agentBlock,/const identities=await sql/);
+  assert.match(agentBlock,/item_kind='ANNOUNCEMENT'/);
+  assert.ok(agentBlock.indexOf('const radio=')<agentBlock.indexOf("if(!keys.length)return"),'ALL_AGENTS projection must not depend on client assignment');
+  for(const token of [
+    "id='ronaRadioAnnouncementTicker'",
+    "id='ronaRadioNotificationOverlay'",
+    "animation:ronaRadioTickerRun",
+    "if(role!=='CLIENT')",
+    "upper(x?.item_kind)==='ANNOUNCEMENT'",
+    "upper(x?.item_kind)==='NOTIFICATION'",
+    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'"
+  ])assert.ok(runtime.includes(token),`Stage 2C.1 runtime marker missing: ${token}`);
+  assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
+  assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
+});
+
+test('Stage 2C.1 presentation wiring is source-locked to the server-isolated broadcast projection',()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const runtime=read('assets/portal-runtime/portal-radio-broadcast-v1.js');
+  const shell=read('functions/portal/[[path]].js');
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+
+  assert.match(radio,/const RADIO_STYLE_TEXT=/);
+  assert.match(radio,/function radioStyle\(\)/);
+  assert.match(radio,/s\.textContent=RADIO_STYLE_TEXT/);
+
+  assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
+  assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);
+  const targetValidation=owner.slice(owner.indexOf('async function validateRadioPublicationTarget'),owner.indexOf('async function postRadio'));
+  assert.match(targetValidation,/SOURCE_RECEIVED/);
+  assert.match(owner,/from portal_private\.agent_user_bindings aub/);
+  assert.match(owner,/item_kind='ANNOUNCEMENT'/);
+
+  for(const token of [
+    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'",
+    "id='ronaRadioAnnouncementTicker'",
+    "id='ronaRadioNotificationOverlay'",
+    "animation:ronaRadioTickerRun",
+    "if(role!=='CLIENT')",
+    "upper(x?.item_kind)==='ANNOUNCEMENT'",
+    "upper(x?.item_kind)==='NOTIFICATION'"
+  ]) assert.ok(runtime.includes(token),`Stage 2C.1 portal runtime marker missing: ${token}`);
+
+  assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
+  assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.match(shell,/AGENT_BRIDGE\+RADIO_BROADCAST_RUNTIME/);
 });
 
 test('Static materializer cannot silently regress Stage 2B owner',()=>{
