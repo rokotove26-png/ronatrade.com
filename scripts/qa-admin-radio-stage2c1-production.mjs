@@ -108,29 +108,45 @@ try{
   await waitUntil(()=>agentAPage.evaluate(()=>window.__RONA_PORTAL_RADIO_BROADCAST_V1__==='20260925-stage2c1-v1'),'AGENT_RUNTIME',30000,300);
 
   const tag=Date.now().toString(36);
-  const scenarios=[
-    {key:'N_CLIENT',kind:'NOTIFICATION',scope:'CLIENT',target:CLIENT_A,body:'QA2C1 N CLIENT '+tag},
-    {key:'N_ALL_CLIENTS',kind:'NOTIFICATION',scope:'ALL_CLIENTS',body:'QA2C1 N ALL CLIENTS '+tag},
+  const publishScenario=async scenario=>{
+    qaBodies.add(scenario.body);
+    await uiPublish(root,scenario);
+    const row=await waitUntil(async()=>{
+      const b=await radioBootstrap(adminCtx);
+      return broadcastRows(b).find(x=>norm(x.body_text)===scenario.body)||null
+    },'PERSIST_'+scenario.key,45000,500);
+    qaIds.add(String(row.id));
+    proof.scenarios[scenario.key]={id:String(row.id),kind:row.item_kind,scope:row.target_scope,target:row.target_id||null};
+    return row
+  };
+
+  const nClient={key:'N_CLIENT',kind:'NOTIFICATION',scope:'CLIENT',target:CLIENT_A,body:'QA2C1 N CLIENT '+tag};
+  await publishScenario(nClient);
+  await waitText(clientAPage,'#ronaRadioNotificationOverlay',nClient.body,true);
+  await waitText(clientBPage,'#ronaRadioNotificationOverlay',nClient.body,false);
+  assert(!(await portalText(agentAPage,'body')).includes(nClient.body),'AGENT_SEES_CLIENT_NOTIFICATION');
+  proof.scenarios.N_CLIENT.clientA_modal=true;proof.scenarios.N_CLIENT.clientB_isolated=true;
+  const nClientExpired=await ownerApi(adminCtx,'/admin/radio/'+encodeURIComponent(proof.scenarios.N_CLIENT.id)+'/expire',{method:'POST',body:{}});
+  assert(nClientExpired.status===200,'N_CLIENT_EXPIRY_FAILED');
+  qaIds.delete(String(proof.scenarios.N_CLIENT.id));
+  await clientAPage.reload({waitUntil:'domcontentloaded'});
+  await waitText(clientAPage,'#ronaRadioNotificationOverlay',nClient.body,false);
+  proof.scenarios.N_CLIENT.expiry=true;
+
+  const nAll={key:'N_ALL_CLIENTS',kind:'NOTIFICATION',scope:'ALL_CLIENTS',body:'QA2C1 N ALL CLIENTS '+tag};
+  await publishScenario(nAll);
+  await clientAPage.reload({waitUntil:'domcontentloaded'});await waitText(clientAPage,'#ronaRadioNotificationOverlay',nAll.body,true);
+  await clientBPage.reload({waitUntil:'domcontentloaded'});await waitText(clientBPage,'#ronaRadioNotificationOverlay',nAll.body,true);
+  assert(!(await portalText(agentAPage,'body')).includes(nAll.body),'AGENT_SEES_ALL_CLIENT_NOTIFICATION');
+  proof.scenarios.N_ALL_CLIENTS.allClientsModal=true;
+
+  const announcementScenarios=[
     {key:'A_CLIENT',kind:'ANNOUNCEMENT',scope:'CLIENT',target:CLIENT_A,body:'QA2C1 A CLIENT '+tag},
     {key:'A_ALL_CLIENTS',kind:'ANNOUNCEMENT',scope:'ALL_CLIENTS',body:'QA2C1 A ALL CLIENTS '+tag},
     {key:'A_AGENT',kind:'ANNOUNCEMENT',scope:'AGENT',target:AGENT_A,body:'QA2C1 A AGENT '+tag},
     {key:'A_ALL_AGENTS',kind:'ANNOUNCEMENT',scope:'ALL_AGENTS',body:'QA2C1 A ALL AGENTS '+tag}
   ];
-  for(const s of scenarios){
-    qaBodies.add(s.body);await uiPublish(root,s);
-    const row=await waitUntil(async()=>{const b=await radioBootstrap(adminCtx);return broadcastRows(b).find(x=>norm(x.body_text)===s.body)||null},'PERSIST_'+s.key,45000,500);
-    qaIds.add(String(row.id));proof.scenarios[s.key]={id:String(row.id),kind:row.item_kind,scope:row.target_scope,target:row.target_id||null};
-  }
-
-  await waitText(clientAPage,'#ronaRadioNotificationOverlay','QA2C1 N CLIENT '+tag,true);
-  await waitText(clientBPage,'#ronaRadioNotificationOverlay','QA2C1 N CLIENT '+tag,false);
-  assert(!(await portalText(agentAPage,'body')).includes('QA2C1 N CLIENT '+tag),'AGENT_SEES_CLIENT_NOTIFICATION');
-  proof.scenarios.N_CLIENT.clientA_modal=true;proof.scenarios.N_CLIENT.clientB_isolated=true;
-
-  await clientAPage.reload({waitUntil:'domcontentloaded'});await waitText(clientAPage,'#ronaRadioNotificationOverlay','QA2C1 N ALL CLIENTS '+tag,true);
-  await clientBPage.reload({waitUntil:'domcontentloaded'});await waitText(clientBPage,'#ronaRadioNotificationOverlay','QA2C1 N ALL CLIENTS '+tag,true);
-  assert(!(await portalText(agentAPage,'body')).includes('QA2C1 N ALL CLIENTS '+tag),'AGENT_SEES_ALL_CLIENT_NOTIFICATION');
-  proof.scenarios.N_ALL_CLIENTS.allClientsModal=true;
+  for(const scenario of announcementScenarios)await publishScenario(scenario);
 
   await waitText(clientAPage,'#ronaRadioAnnouncementTicker','QA2C1 A CLIENT '+tag,true);
   await waitText(clientBPage,'#ronaRadioAnnouncementTicker','QA2C1 A CLIENT '+tag,false);
