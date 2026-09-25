@@ -78,7 +78,7 @@ function radioStyle(){['rona-admin-radio-icc-v1-style','rona-admin-radio-mission
 function radioState(title,caption,tone){const n=el('div','radio-command-state '+(tone||'')),i=el('i'),c=el('div');c.append(el('b','',title),el('span','',caption));n.append(i,c);return n}
 function radioField(labelText,control){const w=el('label','radio-field');w.append(el('span','',labelText),control);return w}
 function radioTypeName(v){v=String(v||'').toUpperCase();return v==='MESSAGE'?'Сообщение':v==='NOTIFICATION'?'Уведомление':v==='ANNOUNCEMENT'?'Объявление':'Запись'}
-window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER';
+window.__RONA_ADMIN_RADIO_MESSAGE_BRIDGE__='STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP';
 window.__RONA_ADMIN_RADIO_OPERATIONAL_MESSAGE__='STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1';
 window.__RONA_ADMIN_RADIO_BROADCAST_BRIDGE__='STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER';
 window.__RONA_ADMIN_RADIO_BROADCAST_OWNER__='ADMIN_RADIO_STAGE2B_STATIC_OWNER_V1';
