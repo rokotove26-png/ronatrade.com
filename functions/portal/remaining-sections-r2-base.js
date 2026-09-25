@@ -1,3 +1,4 @@
+// Stage 2C.1: single canonical Radio owner; MESSAGE semantics remain frozen.
 const RADIO_CSS=String.raw`
 #page-messages{background:radial-gradient(900px 430px at 84% -7%,rgba(53,170,221,.13),transparent 68%),radial-gradient(640px 340px at 5% 92%,rgba(113,77,204,.08),transparent 70%),linear-gradient(180deg,#030a12,#05111d)!important;background-image:radial-gradient(900px 430px at 84% -7%,rgba(53,170,221,.13),transparent 68%),radial-gradient(640px 340px at 5% 92%,rgba(113,77,204,.08),transparent 70%),linear-gradient(180deg,#030a12,#05111d)!important}
 #page-messages:before,#page-messages:after{display:none!important;content:none!important}
