@@ -245,6 +245,7 @@ function renderRadio(){
           const agentId=String(target.value||''),agent=radioCanonicalAgents().find(x=>String(x?.agent_person_id||'')===agentId);if(!agent)return notice('Выберите агента.');
           const idempotencyKey=crypto.randomUUID();await radioCanonicalRequest('/v1/admin/radio/agent-messages',{method:'POST',headers:{'content-type':'application/json','x-idempotency-key':idempotencyKey},body:JSON.stringify({agentPersonId:String(agent.agent_person_id),message:body.value.trim(),idempotencyKey})})
         }else return notice('Для сообщения выберите конкретного клиента или агента.');
+        body.value='';counter.textContent='0 символов';await Promise.all([refresh(),radioLoadCanonical(true)]);renderRadio();return
       }else{
         const targetId=['CLIENT','AGENT'].includes(scope.value)?String(target.value||''):null;
         if(['CLIENT','AGENT'].includes(scope.value)&&!targetId)return notice(scope.value==='CLIENT'?'Выберите клиента.':'Выберите агента.');
