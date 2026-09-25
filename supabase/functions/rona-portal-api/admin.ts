@@ -136,7 +136,11 @@ async function adminRadioAudienceAgents(){
            'AGENT'::text as audience_scope
     from portal_private.agent_persons ap
     where ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-      and ap.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+      and ap.authority_state in (
+        'SOURCE_RECEIVED'::portal_private.authority_state_enum,
+        'VERIFIED'::portal_private.authority_state_enum,
+        'CONFIRMED'::portal_private.authority_state_enum
+      )
     order by agent_name,ap.agent_person_id
   `;
 }
