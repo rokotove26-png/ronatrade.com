@@ -27,10 +27,11 @@ test('Agent broadcast projection is binding-scoped and supports ALL_AGENTS witho
   assert.ok(block.indexOf('const radio=')<block.indexOf("if(!keys.length)return"),'ALL_AGENTS projection must be resolved before empty client-assignment return');
 });
 
-test('Admin Radio visual owner keeps geometry while reconnecting Stage 2C.1 canonical broadcast data',()=>{
-  const ui=read('functions/portal/remaining-sections-ui.js');
+test('Admin Radio has one canonical owner with frozen visual geometry and Stage 2C.1 broadcast data',()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const wrapper=read('functions/portal/remaining-sections-ui.js');
   for(const token of [
-    "STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_DEDICATED_BOOTSTRAP",
+    "STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER",
     "STAGE_2A_OPERATIONAL_CLIENT_AGENT_MESSAGE_V1",
     "STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER",
     "NOTIFICATION_MODAL_ANNOUNCEMENT_TICKER_V1",
@@ -46,8 +47,10 @@ test('Admin Radio visual owner keeps geometry while reconnecting Stage 2C.1 cano
     "classList.add('radio-kpi-grid')",
     "el('div','radio-workspace')",
     "el('section','radio-active-panel')"
-  ]) assert.ok(ui.includes(token),'Stage 2C.1 Admin marker missing: '+token);
-  assert.doesNotMatch(ui,/const legacy=Array\.isArray\(d\.radio\)/);
+  ]) assert.ok(radio.includes(token),'Stage 2C.1 canonical Radio marker missing: '+token);
+  assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
+  assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER_SOURCE_MISMATCH/);
+  assert.doesNotMatch(radio,/const legacy=Array\.isArray\(d\.radio\)/);
 });
 
 test('Client and Agent portal runtime presents central notification modal and top running ticker from server-isolated owner projection',()=>{
