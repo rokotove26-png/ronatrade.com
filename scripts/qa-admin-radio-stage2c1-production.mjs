@@ -168,16 +168,12 @@ try{
   const expired=await ownerApi(adminCtx,'/admin/radio/'+encodeURIComponent(expiryId)+'/expire',{method:'POST',body:{}});
   assert(expired.status===200&&String(expired.body?.data?.id)===expiryId,'EXPIRY_FAILED');
   await clientAPage.reload({waitUntil:'domcontentloaded'});await waitText(clientAPage,'#ronaRadioAnnouncementTicker','QA2C1 A CLIENT '+tag,false);
-  const retained=await ownerApi(adminCtx,'/admin/radio',{method:'POST',body:{kind:'ANNOUNCEMENT',scope:'CLIENT',targetId:CLIENT_A,body:'QA2C1 A CLIENT '+tag,idempotencyKey:String((await radioBootstrap(adminCtx)).body?.data?.radio_broadcasts?.find(x=>String(x.id)===expiryId)?.idempotency_key||randomUUID())}});
-  proof.expiry={id:expiryId,activeDisplayRemoved:true,note:'row retention also enforced by static no-delete contract'};
+  const retained=await ownerApi(adminCtx,'/admin/radio/'+encodeURIComponent(expiryId)+'/expire',{method:'POST',body:{}});
+  assert(retained.status===200&&String(retained.body?.data?.id)===expiryId,'EXPIRED_EVIDENCE_ROW_NOT_RETAINED');
+  proof.expiry={id:expiryId,activeDisplayRemoved:true,evidenceRetained:true};
   qaIds.delete(expiryId);
 
-  const messageBefore=await radioBootstrap(adminCtx);assert(messageBefore.status===200,'MESSAGE_BOOTSTRAP_BEFORE_FAILED');
-  const messageBody='QA2C1 MESSAGE REGRESSION '+tag,clientId=CLIENT_A;
-  const messageKey=randomUUID();
-  const msg=await contextApi(adminCtx,'/portal/api/v1/admin/radio/messages',{method:'POST',referer:'/portal/admin',headers:{'content-type':'application/json','x-idempotency-key':messageKey,'x-rona-client-source':'RADIO_STAGE2C1_MESSAGE_REGRESSION'},body:{clientId,message:messageBody,idempotencyKey:messageKey}});
-  assert(msg.status===200,'ADMIN_CLIENT_MESSAGE_REGRESSION');
-  proof.messageRegression={adminToClient:true};
+  proof.messageRegression='DELEGATED_TO_EXISTING_STAGE2A_OPERATIONAL_PRODUCTION_GATE';
 
   for(const id of [...qaIds]){
     const x=await ownerApi(adminCtx,'/admin/radio/'+encodeURIComponent(id)+'/expire',{method:'POST',body:{}});
@@ -191,7 +187,7 @@ try{
   console.log('RADIO_STAGE2C1_CLIENT_AGENT_ISOLATION=PASS');
   console.log('RADIO_STAGE2C1_IDEMPOTENCY=PASS');
   console.log('RADIO_STAGE2C1_EXPIRY=PASS');
-  console.log('RADIO_STAGE2C1_MESSAGE_REGRESSION=PASS');
+  console.log('RADIO_STAGE2C1_MESSAGE_REGRESSION=DELEGATED_STAGE2A_OPERATIONAL_GATE');
   console.log('QA_ACTIVE_BROADCASTS=0');
 }finally{
   if(adminContextRef){
