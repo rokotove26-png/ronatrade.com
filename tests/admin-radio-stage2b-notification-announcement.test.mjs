@@ -128,6 +128,37 @@ test('Stage 2C.1 activates client notification modal and client/agent announceme
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
 });
 
+test('Stage 2C.1 presentation wiring is source-locked to the server-isolated broadcast projection',()=>{
+  const radio=read('functions/portal/remaining-sections-r2-base.js');
+  const runtime=read('assets/portal-runtime/portal-radio-broadcast-v1.js');
+  const shell=read('functions/portal/[[path]].js');
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+
+  assert.match(radio,/const RADIO_STYLE_TEXT=/);
+  assert.match(radio,/function radioStyle\(\)/);
+  assert.match(radio,/s\.textContent=RADIO_STYLE_TEXT/);
+
+  assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
+  assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);
+  assert.match(owner,/from portal_private\.agent_user_bindings aub/);
+  assert.match(owner,/item_kind='ANNOUNCEMENT'/);
+
+  for(const token of [
+    "role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap'",
+    "id='ronaRadioAnnouncementTicker'",
+    "id='ronaRadioNotificationOverlay'",
+    "animation:ronaRadioTickerRun",
+    "if(role!=='CLIENT')",
+    "upper(x?.item_kind)==='ANNOUNCEMENT'",
+    "upper(x?.item_kind)==='NOTIFICATION'"
+  ]) assert.ok(runtime.includes(token),`Stage 2C.1 portal runtime marker missing: ${token}`);
+
+  assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
+  assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
+  assert.match(shell,/AGENT_BRIDGE\+RADIO_BROADCAST_RUNTIME/);
+});
+
 test('Static materializer cannot silently regress Stage 2B owner',()=>{
   const build=read('scripts/materialize-admin-current-modules.mjs');
   for(const token of [
