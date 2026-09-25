@@ -69,6 +69,8 @@ test('Dedicated Radio bootstrap contains chat plus current broadcast/audience pr
   assert.match(admin,/radio_broadcasts:radioBroadcasts/);
   assert.match(admin,/radio_broadcast_projection_contract:"RADIO_NOTIFICATION_ANNOUNCEMENT_V1"/);
   assert.match(admin,/radio_chat_projection_contract:"RADIO_CHAT_MESSAGE_V1"/);
+  const audienceAgents=admin.slice(admin.indexOf('async function adminRadioAudienceAgents(){'),admin.indexOf('async function adminRadioBroadcasts(){'));
+  assert.match(audienceAgents,/SOURCE_RECEIVED/);
 });
 
 test('Admin Radio static owner uses canonical broadcast projection without changing current visual geometry',()=>{
@@ -140,6 +142,8 @@ test('Stage 2C.1 presentation wiring is source-locked to the server-isolated bro
 
   assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
   assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);
+  const targetValidation=owner.slice(owner.indexOf('async function validateRadioPublicationTarget'),owner.indexOf('async function postRadio'));
+  assert.match(targetValidation,/SOURCE_RECEIVED/);
   assert.match(owner,/from portal_private\.agent_user_bindings aub/);
   assert.match(owner,/item_kind='ANNOUNCEMENT'/);
 
