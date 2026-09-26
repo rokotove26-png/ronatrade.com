@@ -13,11 +13,26 @@ const headers={
 };
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const deadline=Date.now()+25*60*1000;
+const staleWrapperGraceMs=2*60*1000;
 
 async function getJson(url){
   const r=await fetch(url,{headers,signal:AbortSignal.timeout(15000)});
   if(!r.ok)throw new Error(`GITHUB_HTTP_${r.status}`);
   return r.json();
+}
+async function blockingRun(run){
+  if(String(run.status)==='completed')return null;
+  const created=Date.parse(String(run.created_at||0));
+  const oldEnough=Number.isFinite(created)&&Date.now()-created>=staleWrapperGraceMs;
+  if(oldEnough){
+    const jobsData=await getJson(`https://api.github.com/repos/${repo}/actions/runs/${run.id}/jobs?per_page=100`);
+    const jobs=Array.isArray(jobsData?.jobs)?jobsData.jobs:[];
+    if(jobs.length&&jobs.every(job=>String(job.status)==='completed')){
+      console.log(`PRODUCTION_QUIET_GATE=STALE_RUN_IGNORED run_id=${run.id} name=${JSON.stringify(run.name)} jobs=${jobs.length}`);
+      return null;
+    }
+  }
+  return {id:run.id,name:run.name,status:run.status,head_sha:run.head_sha,created_at:run.created_at};
 }
 
 for(let attempt=1;;attempt++){
@@ -26,9 +41,12 @@ for(let attempt=1;;attempt++){
   if(current!==sha)throw new Error(`RELEASE_HEAD_CHANGED expected=${sha} current=${current||'MISSING'}`);
 
   const data=await getJson(`https://api.github.com/repos/${repo}/actions/runs?branch=${encodeURIComponent(branch)}&per_page=100`);
-  const active=(data.workflow_runs||[])
-    .filter(run=>Number(run.id)!==runId&&String(run.status)!=='completed')
-    .map(run=>({id:run.id,name:run.name,status:run.status,head_sha:run.head_sha,created_at:run.created_at}));
+  const active=[];
+  for(const run of (data.workflow_runs||[])){
+    if(Number(run.id)===runId||String(run.status)==='completed')continue;
+    const blocker=await blockingRun(run);
+    if(blocker)active.push(blocker);
+  }
 
   if(!active.length){
     console.log(`PRODUCTION_QUIET_GATE=PASS head=${sha} run_id=${runId} attempts=${attempt}`);
