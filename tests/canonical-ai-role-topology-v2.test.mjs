@@ -27,12 +27,14 @@ test('client payment proof belongs to Finance Director',()=>{
   assert.doesNotMatch(intake,/CLIENT_PAYMENT_PROOF_SUBMIT_V1[^\n]*responsible_role:'ACCOUNTING'/);
 });
 
-test('gateway consumes topology V4 and role-state V5',()=>{
-  assert.match(gateway,/ai_role_routing_contract_v4/);
+test('gateway projects topology V4 and role-state V5 without requiring new DB functions',()=>{
+  assert.match(gateway,/ai_role_routing_contract_v3/);
   assert.match(gateway,/canonical_ai_handoff_targets/);
-  assert.match(gateway,/ai_role_state_current_v5/);
+  assert.match(gateway,/ai_role_state_current_v4/);
+  assert.match(gateway,/RONA_ROLE_ROUTING_CONTRACT_V4/);
   assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V5/);
   assert.match(gateway,/ROLE_STATE_V5_RESPONSE_BUDGET_EXCEEDED/);
+  assert.match(gateway,/nonexistentRoles/);
 });
 
 test('rollback point never restores nonexistent roles',()=>{
