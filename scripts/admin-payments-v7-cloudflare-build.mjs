@@ -14,6 +14,7 @@ const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const OPERATIONS_CENTER_OVERRIDES = [
   'functions/portal/admin-approved-shell-v455-ui.js',
   'functions/portal/deals-current-state-ui.js',
+  'functions/portal/admin-operations-command-center-v11-owner-ai.js',
   'portal-src/current/admin.html',
 ];
 
@@ -65,7 +66,15 @@ try {
     mkdirSync(dirname(destination), { recursive: true });
     cpSync(source, destination, { force: true });
   }
-  console.log('OPERATIONS_CENTER_V5_OVERRIDES=READY admin-main-ui-current=RELEASE_CURRENT operations-v5=RELEASE_CURRENT');
+  const adminMainPath = join(worktree, 'functions/portal/admin-main-ui-current.js');
+  const adminMainSource = readFileSync(adminMainPath, 'utf8');
+  const v10Import = "import { patchAdminOperationsCommandCenterV10Clean, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v10-clean.js';";
+  const v11Import = "import { patchAdminOperationsCommandCenterV11 as patchAdminOperationsCommandCenterV10Clean, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v11-owner-ai.js';";
+  if (!adminMainSource.includes(v10Import)) {
+    throw new Error('OWNER_AI_COMMAND_CENTER_V11_IMPORT_SOURCE_MISMATCH');
+  }
+  writeFileSync(adminMainPath, adminMainSource.replace(v10Import, v11Import));
+  console.log('OPERATIONS_CENTER_V11_OWNER_AI=READY base=v10-clean owner-ai=post-v10-adapter');
 
   // Production owner portals must never expose the internal build/data badge.
   // Enforce this against the pinned prepaint runtime before bundling. If the
