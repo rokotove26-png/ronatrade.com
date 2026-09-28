@@ -1,15 +1,22 @@
 -- ROLLBACK ONLY — AI Office Control Plane V3
 -- Reverts topology/runtime wrappers to the V2/V3 behavior without touching business facts.
 
-do $$
+do $
+declare
+  v_jobid bigint;
 begin
-  if exists(select 1 from cron.job where jobname='rona-core-runtime-minute-v1') then
-    update cron.job
-    set command='select portal_private.run_core_runtime_minute_v4();'
-    where jobname='rona-core-runtime-minute-v1';
+  select jobid into v_jobid
+  from cron.job
+  where jobname='rona-core-runtime-minute-v1'
+  limit 1;
+  if v_jobid is not null then
+    perform cron.alter_job(
+      v_jobid,
+      command => 'select portal_private.run_core_runtime_minute_v4();'
+    );
   end if;
 end
-$$;
+$;
 
 drop function if exists portal_private.ai_role_state_current_v4(portal_private.ai_business_role_enum,integer,integer);
 drop function if exists portal_private.run_core_runtime_minute_v5();
