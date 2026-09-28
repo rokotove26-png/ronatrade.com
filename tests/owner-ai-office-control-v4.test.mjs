@@ -37,7 +37,7 @@ test('owner operations backend treats technical task roles as AI, not employees'
 test('owner UI explicitly exposes owner plus treasury human model',()=>{
   assert.match(ui,/OWNER AI COMMAND CENTER/);
   assert.match(ui,/Центр собственника/);
-  assert.match(ui,/люди: собственник и казначей/);
+  assert.match(ui,/OWNER \+ TREASURY · HUMAN/);
   assert.match(ui,/Активные ИИ-роли/);
   assert.match(ui,/Решение человека/);
   assert.match(ui,/ИИ-офис/);
