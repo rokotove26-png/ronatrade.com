@@ -58,7 +58,7 @@ export function patchAdminOperationsCommandCenterV11(script){
   patched=replaceRequired(
     patched,
     "system('DOCUMENT CONTROL','Документы',documentsN===null?'—':documentsN,ready?(String(documentsAttentionN||0)+' требуют контроля'):'Источник не готов','documents',ready&&(documentsAttentionN||0)>0?'amber':ready?'green':'cyan')\n  );",
-    "system('DOCUMENT CONTROL','Документы',documentsN===null?'—':documentsN,ready?(String(documentsAttentionN||0)+' требуют контроля'):'Источник не готов','documents',ready&&(documentsAttentionN||0)>0?'amber':ready?'green':'cyan'),\n    system('AI OFFICE','ИИ-офис',activeAiN,'gaps: '+String(aiGapN)+' · dependencies: '+String(openDependencyN)+' · exceptions: '+String(aiExceptionN),'home',(aiGapN||aiExceptionN)?'amber':'green')\n  );",
+    "system('DOCUMENT CONTROL','Документы',documentsN===null?'—':documentsN,ready?(String(documentsAttentionN||0)+' требуют контроля'):'Источник не готов','documents',ready&&(documentsAttentionN||0)>0?'amber':ready?'green':'cyan'),\n    system('AI OFFICE','Активные ИИ-роли',activeAiN,'ИИ-офис · gaps: '+String(aiGapN)+' · dependencies: '+String(openDependencyN)+' · exceptions: '+String(aiExceptionN),'home',(aiGapN||aiExceptionN)?'amber':'green')\n  );",
     'ai-office-system-card'
   );
 
@@ -79,6 +79,6 @@ export function patchAdminOperationsCommandCenterV11(script){
   if(!patched.includes("window.__RONA_OWNER_AI_OFFICE__='RONA_OWNER_AI_OFFICE_V1'"))throw new Error('ADMIN_OPERATIONS_V11_MARKER_MISSING');
   if(!patched.includes("'Решение человека'"))throw new Error('ADMIN_OPERATIONS_V11_HUMAN_DECISION_MISSING');
   if(!patched.includes("'OWNER + TREASURY · HUMAN'"))throw new Error('ADMIN_OPERATIONS_V11_HUMAN_TOPOLOGY_MISSING');
-  if(!patched.includes("'ИИ-офис'"))throw new Error('ADMIN_OPERATIONS_V11_AI_OFFICE_MISSING');
+  if(!patched.includes("'Активные ИИ-роли'")||!patched.includes("'ИИ-офис · gaps: '"))throw new Error('ADMIN_OPERATIONS_V11_AI_OFFICE_MISSING');
   return patched;
 }
