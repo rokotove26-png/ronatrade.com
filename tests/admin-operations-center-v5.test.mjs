@@ -6,11 +6,11 @@ const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf
 
 test('Cloudflare build overlays only Operational Center files', () => {
   const source = read('scripts/admin-payments-v7-cloudflare-build.mjs');
-  assert.match(source, /OPERATIONS_CENTER_V5_OVERRIDES=READY/);
+  assert.match(source, /OPERATIONS_CENTER_V11_OWNER_AI=READY/);
   const match = source.match(/const OPERATIONS_CENTER_OVERRIDES = \[([\s\S]*?)\];/);
   assert.ok(match);
   assert.doesNotMatch(match[1], /payments|finance/i);
-  assert.match(match[1], /admin-operations-command-center-v5\.js/);
+  assert.match(match[1], /admin-operations-command-center-v11-owner-ai\.js/);
 });
 
 test('Operational Center UI exposes functional controls', () => {
