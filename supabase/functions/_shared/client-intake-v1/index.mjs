@@ -12,7 +12,7 @@ export const DEFAULT_CLIENT_INTAKE_ROUTING_REGISTRY=Object.freeze([
   {policy_key:'COMMERCIAL_TERMS_REQUEST_V1',source_kind:'PORTAL_REVERSE_EVENT',actionable_type:'COMMERCIAL_TERMS_REQUEST_V1',responsible_role:'OPERATIONS_DIRECTOR',task_required:true,client_visible:true,admin_visible:true,acknowledgement_required:true,priority:110},
   {policy_key:'CLIENT_MESSAGE_SUBMIT_V1',source_kind:'PORTAL_REVERSE_EVENT',actionable_type:'CLIENT_MESSAGE_SUBMIT',responsible_role:'OPERATIONS_DIRECTOR',task_required:true,client_visible:true,admin_visible:true,acknowledgement_required:true,priority:50},
   {policy_key:'CLIENT_CLAIM_SUBMIT_V1',source_kind:'PORTAL_REVERSE_EVENT',actionable_type:'CLIENT_CLAIM_SUBMIT',responsible_role:'LEGAL',task_required:true,client_visible:true,admin_visible:true,acknowledgement_required:true,priority:100},
-  {policy_key:'CLIENT_PAYMENT_PROOF_SUBMIT_V1',source_kind:'PORTAL_REVERSE_EVENT',actionable_type:'CLIENT_PAYMENT_PROOF_SUBMIT',responsible_role:'ACCOUNTING',task_required:true,client_visible:true,admin_visible:true,acknowledgement_required:true,priority:100},
+  {policy_key:'CLIENT_PAYMENT_PROOF_SUBMIT_V1',source_kind:'PORTAL_REVERSE_EVENT',actionable_type:'CLIENT_PAYMENT_PROOF_SUBMIT',responsible_role:'FINANCE',task_required:true,client_visible:true,admin_visible:true,acknowledgement_required:true,priority:100},
   {policy_key:'CLIENT_DOCUMENT_ACK_V1',source_kind:'PORTAL_REVERSE_EVENT',actionable_type:'CLIENT_DOCUMENT_ACK',responsible_role:'LEGAL',task_required:true,client_visible:true,admin_visible:true,acknowledgement_required:true,priority:90},
 ]);
 
