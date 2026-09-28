@@ -24,7 +24,7 @@ declare
 begin
   v_asset_preflight:=portal_private.owner_document_standard_v2_preflight_v1();
 
-  select standard_key,version,status,scope,title,master_filename,master_sha256,source_ref,rules
+  select *
     into v_standard
   from portal_private.owner_canonical_document_standards
   where standard_key='RONA-DOC-STANDARD'
