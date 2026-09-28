@@ -1,0 +1,128 @@
+name: rail GEO consistency QA
+
+on:
+  pull_request:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/*rail_station_geo*.sql'
+      - 'tests/rail-geo-*.test.mjs'
+      - 'functions/portal/rail-current-v7-real-map-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - '.github/workflows/rail-geo-consistency-qa.yml'
+  push:
+    branches:
+      - release/public-go-live-v1.1
+    paths:
+      - 'supabase/migrations/*rail_station_geo*.sql'
+      - 'tests/rail-geo-*.test.mjs'
+      - 'functions/portal/rail-current-v7-real-map-ui.js'
+      - 'functions/portal/rail-current-v81-maplibre-ui.js'
+      - '.github/workflows/rail-geo-consistency-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rail-geo:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: rona_rail_geo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d rona_rail_geo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: rona_rail_geo
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Current-state non-production gate
+        run: |
+          set -euo pipefail
+          echo "RAIL_GEO_QA_ENVIRONMENT=NON_PRODUCTION"
+          test "$PGDATABASE" = "rona_rail_geo"
+          node --check tests/rail-geo-missing-wagons.test.mjs
+          node --check tests/rail-geo-saryagash-698305.test.mjs
+
+      - name: Build minimal station GEO substrate
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 <<'SQL'
+          create schema portal_private;
+          create table portal_private.rail_station_geo_directory_v1 (
+            id bigserial primary key,
+            esr_code text not null unique,
+            canonical_station_name text not null,
+            aliases text[] not null default '{}',
+            country_code text,
+            latitude double precision not null,
+            longitude double precision not null,
+            authority_state text not null,
+            source_system text,
+            source_url text,
+            corroboration_refs jsonb not null default '[]'::jsonb,
+            source_retrieved_at timestamptz,
+            provenance jsonb not null default '{}'::jsonb
+          );
+          SQL
+          echo "RAIL_GEO_SUBSTRATE=PASS"
+
+      - name: Apply Saryagash GEO migration twice
+        run: |
+          set -euo pipefail
+          sql='supabase/migrations/20260928140000_rail_station_geo_saryagash_698305_v1.sql'
+          psql -v ON_ERROR_STOP=1 -f "$sql"
+          psql -v ON_ERROR_STOP=1 -f "$sql"
+          echo "RAIL_SARYAGASH_MIGRATION_REAPPLY=PASS"
+
+      - name: Verify source-locked row
+        run: |
+          set -euo pipefail
+          result="$(psql -Atq -v ON_ERROR_STOP=1 -c "
+            select esr_code||'|'||canonical_station_name||'|'||
+                   latitude::text||'|'||longitude::text||'|'||
+                   authority_state||'|'||source_system
+            from portal_private.rail_station_geo_directory_v1
+            where esr_code='698305';
+          ")"
+          echo "RAIL_SARYAGASH_ROW=$result"
+          test "$result" = "698305|Сарыагаш|41.466347|69.147477|CONFIRMED|ALTA_SOFT"
+          echo "RAIL_SARYAGASH_SOURCE_LOCK=PASS"
+
+      - name: Map regression tests
+        run: |
+          set -euo pipefail
+          node --test tests/rail-geo-missing-wagons.test.mjs tests/rail-geo-saryagash-698305.test.mjs
+          echo "RAIL_GEO_MAP_REGRESSION=PASS"
+
+      - name: Safety boundary
+        run: |
+          set -euo pipefail
+          sql='supabase/migrations/20260928140000_rail_station_geo_saryagash_698305_v1.sql'
+          ! grep -Eiq 'insert[[:space:]]+into[[:space:]]+portal_private\.(deals|rail_wagons|rail_movement_events|payments|contracts)' "$sql"
+          ! grep -Eiq 'update[[:space:]]+portal_private\.(deals|rail_wagons|rail_movement_events|payments|contracts)' "$sql"
+          ! grep -Eiq 'delete[[:space:]]+from[[:space:]]+portal_private\.(deals|rail_wagons|rail_movement_events|payments|contracts)' "$sql"
+          grep -q "STATION_MARKER_NOT_WAGON_POSITION" "$sql"
+          grep -q "RAIL_SARYAGASH_698305_GEO_SOURCE_CONFLICT" "$sql"
+          echo "RAIL_GEO_BUSINESS_MUTATION=FALSE"
+          echo "RAIL_GEO_SAFETY=PASS"
