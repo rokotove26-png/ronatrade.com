@@ -1,7 +1,7 @@
 -- ROLLBACK ONLY — AI Office Control Plane V3
 -- Reverts topology/runtime wrappers to the V2/V3 behavior without touching business facts.
 
-do $
+do $$
 declare
   v_jobid bigint;
 begin
@@ -16,7 +16,7 @@ begin
     );
   end if;
 end
-$;
+$$;
 
 drop function if exists portal_private.ai_role_state_current_v4(portal_private.ai_business_role_enum,integer,integer);
 drop function if exists portal_private.run_core_runtime_minute_v5();
