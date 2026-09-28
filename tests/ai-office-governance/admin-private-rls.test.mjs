@@ -17,13 +17,13 @@ const tables = [
 
 test('all four Admin-private tables enable RLS', () => {
   for (const table of tables) {
-    assert.match(sql, new RegExp(`alter table portal_private\\\\.${table} enable row level security`, 'i'));
+    assert.match(sql, new RegExp(`alter table portal_private\\.${table} enable row level security`, 'i'));
   }
 });
 
 test('direct client/API roles retain zero table grants', () => {
   for (const table of tables) {
-    assert.match(sql, new RegExp(`revoke all on portal_private\\\\.${table} from public, anon, authenticated, service_role`, 'i'));
+    assert.match(sql, new RegExp(`revoke all on portal_private\\.${table} from public, anon, authenticated, service_role`, 'i'));
   }
 });
 
