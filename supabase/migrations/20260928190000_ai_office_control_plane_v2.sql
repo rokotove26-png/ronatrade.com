@@ -192,6 +192,7 @@ begin
     );
   return v_state
     || jsonb_build_object(
+      'data_contract','RONA_ROLE_STATE_RECOVERY_V3',
       'routing_capabilities',portal_private.ai_role_routing_contract_v2(),
       'exception_cockpit_summary',coalesce(v_cockpit->'counts','{}'::jsonb),
       'dependency_graph',portal_private.ai_task_dependency_graph_v1(p_role),
