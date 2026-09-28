@@ -112,3 +112,25 @@ Required remaining action before final acceptance:
 6. separately confirm whether SYSTEM_ADMIN requires a corporate role mailbox; do not invent one.
 
 No automatic OAuth connection, plugin installation, mailbox creation, credential mutation or legacy-connection revocation is performed by this acceptance step.
+
+
+## ChatGPT OAuth builder reproduction — 2026-09-29
+
+ChatGPT custom-app creation against `https://ronaoil.com/system-admin-pilot/mcp` reproduced:
+`MCP server ... does not implement OAuth`.
+
+Callback shown by ChatGPT:
+`https://chatgpt.com/connector/oauth/LIEOsYVTtSvE`.
+
+The callback itself is valid and already appears on the legacy System Admin OAuth client lineage. The failure occurs earlier, during OAuth discovery.
+
+Current gateway runtime implements authorization code + PKCE, DCR, refresh tokens and the required Pilot scopes internally, but the ChatGPT builder cannot discover them reliably from the current public MCP challenge/metadata surface.
+
+Repository Stage D.3 fix now:
+- returns an OAuth `401 WWW-Authenticate` challenge for unauthenticated MCP GET instead of presenting only a non-auth 405 surface;
+- advertises a reachable role-relative protected-resource metadata URL;
+- supports role-relative and RFC-style well-known resource/authorization metadata routes;
+- advertises DCR `registration_endpoint`, PKCE `S256`, refresh-token grant and Pilot scopes;
+- adds per-tool OAuth `securitySchemes` to the final tool catalog.
+
+Production deployment remains separately Owner-gated.
