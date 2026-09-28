@@ -4,7 +4,20 @@
 -- Historical enum labels are retained only for backward-compatible storage/history.
 -- No commercial, financial amount, price, payment, deal, client, shipment or legal fact is changed.
 
-delete from portal_private.ai_role_authority_registry_v2
+update portal_private.ai_role_authority_registry_v2
+set lifecycle_state='LEGACY',
+    actor_kind='LEGACY_AI',
+    ai_materialized=false,
+    human_materialized=false,
+    staff_materialized=false,
+    handoff_target_enabled=false,
+    legacy_alias_of=case role_key
+      when 'ACCOUNTING' then 'FINANCE'
+      when 'EXECUTIVE_DIRECTOR' then 'OPERATIONS_DIRECTOR'
+      else legacy_alias_of
+    end,
+    source_ref='OWNER_INSTRUCTION:2026-09-28:CANONICAL_AI_ROLE_TOPOLOGY_V2',
+    updated_at=clock_timestamp()
 where role_key in ('ACCOUNTING','EXECUTIVE_DIRECTOR');
 
 update portal_private.ai_role_authority_registry_v2
