@@ -32,3 +32,12 @@ test('gateway consumes registry-driven routing and current state v4',()=>{
   assert.match(gateway,/ai_role_state_current_v4/);
   assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V4/);
 });
+
+
+test('oversized role state compacts policies but preserves exact detail retrieval',()=>{
+  assert.match(gateway,/name: "global_policy_detail"/);
+  assert.match(gateway,/READ_EACH_GLOBAL_POLICY_DETAIL_BY_ID/);
+  assert.match(gateway,/global_policy_details_embedded/);
+  assert.match(gateway,/ai_role_global_policies_current_v1/);
+  assert.match(gateway,/ROLE_STATE_V4_RESPONSE_BUDGET_EXCEEDED/);
+});
