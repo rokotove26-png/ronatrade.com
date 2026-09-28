@@ -29,7 +29,8 @@ async function runtimeToken() {
   const rows = await sql<{token:string}[]>`select token from private.rona_mail_bridge_runtime_secret where singleton=true limit 1`;
   return rows[0]?.token ?? "";
 }
-async function accountingRuntimeToken(){const rows=await sql<{token:string}[]>`select token from private.rona_accounting_mail_bridge_runtime_secret where singleton=true limit 1`;return rows[0]?.token??"";}\nfunction safeEqual(a:string,b:string){const aa=enc.encode(a),bb=enc.encode(b);if(aa.length!==bb.length)return false;let d=0;for(let i=0;i<aa.length;i++)d|=aa[i]^bb[i];return d===0;}
+async function accountingRuntimeToken(){const rows=await sql<{token:string}[]>`select token from private.rona_accounting_mail_bridge_runtime_secret where singleton=true limit 1`;return rows[0]?.token??"";}
+function safeEqual(a:string,b:string){const aa=enc.encode(a),bb=enc.encode(b);if(aa.length!==bb.length)return false;let d=0;for(let i=0;i<aa.length;i++)d|=aa[i]^bb[i];return d===0;}
 function mailboxOf(body:any){const m=String(body?.mailbox??"").toLowerCase();if(!ALLOWED.has(m))throw new Error("mailbox not allowed");return m;}
 async function writeLine(c:Deno.Conn,s:string){await c.write(enc.encode(s+"\r\n"));}
 async function writeRaw(c:Deno.Conn,s:string){await c.write(enc.encode(s));}
