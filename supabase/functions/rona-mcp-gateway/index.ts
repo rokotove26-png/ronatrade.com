@@ -10,6 +10,123 @@ const encoder = new TextEncoder();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:\/-]{7,159}$/;
 const SAFE_TEXT_RE = /^[^\u0000-\u001F\u007F]{1,4000}$/u;
+const PUBLIC_ORIGIN = "https://ronaoil.com";
+const MCP_ROLE_SEGMENTS = new Set([
+  "operations","operations-pilot",
+  "finance","finance-pilot",
+  "legal","legal-pilot",
+  "market-analyst","market-analyst-pilot",
+  "rail-logistics","rail-logistics-pilot",
+  "system-admin","system-admin-pilot",
+]);
+
+function roleSegmentFromRequest(req) {
+  const pathname = new URL(req.url).pathname;
+  const marker = "/functions/v1/rona-mcp-gateway/";
+  const rest = pathname.includes(marker)
+    ? pathname.slice(pathname.indexOf(marker) + marker.length)
+    : pathname.replace(/^\/+/, "");
+  const first = rest.split("/")[0] || "";
+  return MCP_ROLE_SEGMENTS.has(first) ? first : null;
+}
+function oauthScopesForSegment(segment) {
+  return String(segment || "").endsWith("-pilot")
+    ? ["mcp:read","mcp:coordinate","offline_access"]
+    : ["mcp:read","offline_access"];
+}
+function publicRoleBase(segment) {
+  return `${PUBLIC_ORIGIN}/${segment}`;
+}
+function publicMcpResourceForSegment(segment) {
+  return `${publicRoleBase(segment)}/mcp`;
+}
+function oauthProtectedMetadataForSegment(segment) {
+  return {
+    resource: publicMcpResourceForSegment(segment),
+    authorization_servers: [publicRoleBase(segment)],
+    scopes_supported: oauthScopesForSegment(segment),
+    bearer_methods_supported: ["header"],
+    resource_documentation: "https://ronaoil.com",
+  };
+}
+function oauthAuthorizationMetadataForSegment(segment) {
+  const issuer = publicRoleBase(segment);
+  return {
+    issuer,
+    authorization_endpoint: `${issuer}/authorize`,
+    token_endpoint: `${issuer}/token`,
+    registration_endpoint: `${issuer}/register`,
+    revocation_endpoint: `${issuer}/revoke`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code","refresh_token"],
+    token_endpoint_auth_methods_supported: ["none"],
+    code_challenge_methods_supported: ["S256"],
+    scopes_supported: oauthScopesForSegment(segment),
+    authorization_response_iss_parameter_supported: false,
+    client_id_metadata_document_supported: false,
+    service_documentation: "https://ronaoil.com",
+  };
+}
+function oauthMetadataResponse(body) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store, no-cache, must-revalidate",
+      "pragma": "no-cache",
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+function oauthDiscoveryResponse(req) {
+  if (req.method !== "GET") return null;
+  const pathname = new URL(req.url).pathname;
+  const marker = "/functions/v1/rona-mcp-gateway/";
+  const rest = pathname.includes(marker)
+    ? pathname.slice(pathname.indexOf(marker) + marker.length)
+    : pathname.replace(/^\/+/, "");
+
+  for (const segment of MCP_ROLE_SEGMENTS) {
+    if (rest === `${segment}/.well-known/oauth-protected-resource`) {
+      return oauthMetadataResponse(oauthProtectedMetadataForSegment(segment));
+    }
+    if (rest === `${segment}/.well-known/oauth-authorization-server`) {
+      return oauthMetadataResponse(oauthAuthorizationMetadataForSegment(segment));
+    }
+    if (rest === `.well-known/oauth-protected-resource/${segment}/mcp`) {
+      return oauthMetadataResponse(oauthProtectedMetadataForSegment(segment));
+    }
+    if (rest === `.well-known/oauth-authorization-server/${segment}`) {
+      return oauthMetadataResponse(oauthAuthorizationMetadataForSegment(segment));
+    }
+  }
+  return null;
+}
+function oauthUnauthorizedResponse(segment) {
+  const scope = String(segment || "").endsWith("-pilot")
+    ? "mcp:read mcp:coordinate"
+    : "mcp:read";
+  return new Response(JSON.stringify({ error: "invalid_token" }), {
+    status: 401,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store, no-cache, must-revalidate",
+      "pragma": "no-cache",
+      "www-authenticate": `Bearer resource_metadata="${publicRoleBase(segment)}/.well-known/oauth-protected-resource", scope="${scope}"`,
+      "x-content-type-options": "nosniff",
+    },
+  });
+}
+function normalizeOauthChallenge(res, segment) {
+  if (!segment || res.status !== 401) return res;
+  const headers = cloneHeaders(res.headers);
+  const scope = segment.endsWith("-pilot") ? "mcp:read mcp:coordinate" : "mcp:read";
+  headers.set(
+    "www-authenticate",
+    `Bearer resource_metadata="${publicRoleBase(segment)}/.well-known/oauth-protected-resource", scope="${scope}"`,
+  );
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
 const AI_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN"]);
 const CANONICAL_AI_HANDOFF_TARGETS = Object.freeze(["COMMERCIAL_DIRECTOR","FINANCE","LEGAL","OPERATIONS_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN"]);
 const CANONICAL_AI_HANDOFF_TARGET_SET = new Set(CANONICAL_AI_HANDOFF_TARGETS);
@@ -407,6 +524,32 @@ async function coordinationDetail(ctx, req, msg) {
   await recordMcpEvent(ctx, ids, "coordination_detail", "SUCCESS", 200, { coordination_record_id: recordId, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
   return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: rows[0] });
 }
+function addOAuthSecuritySchemesToTools(envelope) {
+  const tools = envelope?.result?.tools;
+  if (!Array.isArray(tools)) return envelope;
+  for (const tool of tools) {
+    if (!tool || typeof tool !== "object") continue;
+    const readOnly = tool?.annotations?.readOnlyHint === true;
+    tool.securitySchemes = [{
+      type: "oauth2",
+      scopes: readOnly ? ["mcp:read"] : ["mcp:coordinate"],
+    }];
+  }
+  return envelope;
+}
+async function addOAuthSecuritySchemesResponse(res) {
+  if (!res.ok) return res;
+  let envelope;
+  try { envelope = await res.clone().json(); } catch { return res; }
+  if (!Array.isArray(envelope?.result?.tools)) return res;
+  addOAuthSecuritySchemesToTools(envelope);
+  return new Response(JSON.stringify(envelope), {
+    status: res.status,
+    statusText: res.statusText,
+    headers: cloneHeaders(res.headers),
+  });
+}
+
 async function augmentToolsListResponse(res, ctx) {
   if (!res.ok) return res;
   let envelope;
@@ -477,6 +620,19 @@ async function compactCurrentStateResponse(res) {
   return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
 async function wrappedRequest(handler, req) {
+  const discovery = oauthDiscoveryResponse(req);
+  if (discovery) return discovery;
+
+  const segment = roleSegmentFromRequest(req);
+  if (
+    segment &&
+    req.method === "GET" &&
+    new URL(req.url).pathname.endsWith(`/${segment}/mcp`) &&
+    !readBearer(req)
+  ) {
+    return oauthUnauthorizedResponse(segment);
+  }
+
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
   const needsCtx = msg?.method === "tools/list" || ["handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
@@ -509,9 +665,11 @@ async function wrappedRequest(handler, req) {
     if (direct) return direct;
   }
   let res = await handler(req);
+  res = normalizeOauthChallenge(res, segment);
   if (msg?.method === "tools/list") {
     res = await augmentToolsListResponse(res, ctx);
     res = await financeHooks.toolsList(req, res);
+    res = await addOAuthSecuritySchemesResponse(res);
   }
   if (name === "current_state") res = await compactCurrentStateResponse(res);
   return res;
