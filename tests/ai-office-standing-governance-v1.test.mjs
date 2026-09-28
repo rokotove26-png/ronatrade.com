@@ -37,3 +37,14 @@ test('Pilot gateway serves V6 current_state with sufficient response budget',()=
   assert.match(gateway,/length > 96000/);
   assert.doesNotMatch(gateway,/ROLE_STATE_V5_RESPONSE_BUDGET_EXCEEDED/);
 });
+
+
+test('Finance dual official title is one employee and one canonical FINANCE role',()=>{
+  const dual=readFileSync(new URL('../supabase/migrations/20260929010400_finance_dual_official_title_v1.sql',import.meta.url),'utf8');
+  assert.match(dual,/official_title='Финансовый директор'/);
+  assert.match(dual,/jsonb_build_array\('Главный бухгалтер'\)/);
+  assert.match(dual,/staff_key='FINANCE'/);
+  assert.match(dual,/canonical_ai_role='FINANCE'/);
+  assert.match(dual,/additional_titles/);
+  assert.doesNotMatch(dual,/ACCOUNTING'::portal_private\.ai_business_role_enum/);
+});
