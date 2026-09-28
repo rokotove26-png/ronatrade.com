@@ -33,7 +33,7 @@ function renderAdminHome(){
   ensureAdminHomeFinanceListenerV5();
   ensureAdminGlobalSearchV5();
   window.__RONA_ADMIN_OPERATIONS_COMMAND_CENTER__='v5-operational-automation';
-  const d=adminData||{},ops=d.operations||{},opsMetrics=ops.metrics||{},opsAlerts=Array.isArray(ops.alerts)?ops.alerts:[],railRuntime=Array.isArray(ops.railRuntime)?ops.railRuntime:[],aiOffice=ops.aiOffice||{},aiTopology=aiOffice.topology||{},aiMetrics=aiOffice.metrics||{},aiDependencies=Array.isArray(aiOffice.dependencies)?aiOffice.dependencies:[],humanInterventions=Array.isArray(aiOffice.humanInterventions)?aiOffice.humanInterventions:[],aiCockpits=Array.isArray(aiOffice.cockpits)?aiOffice.cockpits:[];
+  const d=adminData||{},ops=d.operations||{},opsMetrics=ops.metrics||{},opsAlerts=Array.isArray(ops.alerts)?ops.alerts:[],railRuntime=Array.isArray(ops.railRuntime)?ops.railRuntime:[];
   const conflicts=Array.isArray(d.operationalConflicts)?d.operationalConflicts:[];
   const apps=Array.isArray(d.applications)?d.applications:[];
   const deals=Array.isArray(d.deals)?d.deals:[];
@@ -64,12 +64,12 @@ function renderAdminHome(){
   const selectedRequested=String(window.__RONA_ADMIN_OPS_SELECTED_DEAL__||'');
   let selected=activeDeals.find(x=>String(x?.deal_id||'')===selectedRequested)||activeDeals[0]||deals[0]||null;
   if(selected?.deal_id)window.__RONA_ADMIN_OPS_SELECTED_DEAL__=String(selected.deal_id);
-  const root=e('div',{class:'rona-ops-v4','data-rona-operations-command-center':'v6-ai-office','data-rona-single-owner':'true','data-rona-human-topology':'owner-treasury-only'});
+  const root=e('div',{class:'rona-ops-v4','data-rona-operations-command-center':'v5','data-rona-single-owner':'true'});
   const refreshError=String(window.__RONA_OWNER_ADMIN_REFRESH_ERROR__||'');
   const stateTone=refreshError||criticalCount?'red':attentionCount?'amber':'green';
   const stateText=refreshError?'Ошибка обновления: '+refreshError:criticalCount?'Критические события: '+criticalCount:attentionCount?'Требует внимания: '+attentionCount:'Контур стабилен';
   const now=new Date(),timeText=now.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
-  const top=e('header',{class:'rona-ops-v4__commandbar'},e('div',{},e('div',{class:'rona-ops-v4__brand',text:'RONA TRADE · OWNER AI OFFICE CONTROL'}),e('h1',{class:'rona-ops-v4__title',text:'Операционный центр собственника'}),e('div',{class:'rona-ops-v4__sub',text:'Человеческий контур: Собственник + Казначей · остальные исполнители: ИИ · серверная read model · обновление каждые 30 секунд'})),e('div',{class:'rona-ops-v4__controls'},e('div',{class:'rona-ops-v4__state is-'+stateTone},e('span',{class:'rona-ops-v4__dot'}),e('span',{text:stateText})),e('button',{class:'rona-ops-v4__refresh',type:'button',onclick:async()=>{try{await ownerAdminRefreshTick(true);renderAdminHome()}catch(err){window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=String(err?.message||err);renderAdminHome();notify(err?.message||String(err),'Ошибка обновления')}}},e('span',{text:'↻'}),e('span',{text:'Обновить'}))));
+  const top=e('header',{class:'rona-ops-v4__commandbar'},e('div',{},e('div',{class:'rona-ops-v4__brand',text:'RONA TRADE · OPERATIONS COMMAND CENTER'}),e('h1',{class:'rona-ops-v4__title',text:'Операционный центр'}),e('div',{class:'rona-ops-v4__sub',text:'LIVE CONTROL SURFACE · серверная read model · автоматическое обновление каждые 30 секунд'})),e('div',{class:'rona-ops-v4__controls'},e('div',{class:'rona-ops-v4__state is-'+stateTone},e('span',{class:'rona-ops-v4__dot'}),e('span',{text:stateText})),e('button',{class:'rona-ops-v4__refresh',type:'button',onclick:async()=>{try{await ownerAdminRefreshTick(true);renderAdminHome()}catch(err){window.__RONA_OWNER_ADMIN_REFRESH_ERROR__=String(err?.message||err);renderAdminHome();notify(err?.message||String(err),'Ошибка обновления')}}},e('span',{text:'↻'}),e('span',{text:'Обновить'}))));
   const metrics=e('section',{class:'rona-ops-v4__metrics','aria-label':'Операционные показатели'});
   const metric=(label,value,foot,target,tone)=>e('button',{class:'rona-ops-v4-metric '+(tone?'is-'+tone:''),type:'button',onclick:()=>adminHomeNavigate(target)},e('div',{class:'rona-ops-v4-metric__label',text:label}),e('div',{class:'rona-ops-v4-metric__value',text:String(value)}),e('div',{class:'rona-ops-v4-metric__foot',text:foot}));
   const railEnabled=railRuntime.some(x=>x?.production_polling_enabled===true&&ronaOpsV5Key(x?.mode)!=='DISABLED'),railMetric=railEnabled?allWagons.length:'—',railFoot=railRuntime.length&&!railEnabled?'Провайдер не подключён':railKnown?'ЖД-контур':'Нет снимка';
@@ -88,19 +88,10 @@ function renderAdminHome(){
   const moduleCard=(code,title,value,meta,target)=>e('button',{class:'rona-ops-v4-module',type:'button',onclick:()=>adminHomeNavigate(target)},e('div',{},e('div',{class:'rona-ops-v4-module__code',text:code}),e('div',{class:'rona-ops-v4-module__title',text:title}),e('div',{class:'rona-ops-v4-module__meta',text:meta})),e('div',{class:'rona-ops-v4-module__value',text:String(value)}));
   const overdueCount=paymentControl.filter(x=>{const deal=dealById.get(String(x?.deal_id||''));return ronaOpsV5Key(deal?.finance_status||x?.finance_status||x?.payment_status)==='OVERDUE'}).length;
   const automationIssues=Number(opsMetrics.automation_issues||0),taskCount=Number(opsMetrics.open_tasks||0),reverseCount=Number(opsMetrics.pending_reverse_events||0);
-  const activeAiRoles=Number(aiMetrics.active_ai_roles||0),openDeps=Number(aiMetrics.open_dependencies||0),humanQueue=Number(aiMetrics.human_interventions||0),aiActionNow=Number(aiMetrics.ai_action_now||0),aiStale=Number(aiMetrics.ai_stale||0);
-  modules.append(
-    moduleCard('RAIL CONTROL','Онлайн ЖД',railMetric,railRuntime.length&&!railEnabled?'Провайдер отключён · учёт не выдаётся за ноль':railKnown?(String(rail.length)+' ГУ-12 · '+String(waitingWagons.length)+' позиций требуют проверки'):'ЖД-снимок не получен','monitoring'),
-    moduleCard('FINANCE CONTROL','Платежи',financeKnown?paymentControl.length:'—',financeKnown?(String(financeRows.length)+' сделок в финансовом снимке · просрочено: '+String(overdueCount)):'Финансовый снимок не получен','payments'),
-    moduleCard('DOCUMENT CONTROL','Документы',docsKnown?docs.length:'—',docsKnown?(String(uncheckedDocs.length)+' требуют контроля'):'Снимок документов не получен','documents'),
-    moduleCard('AUTOMATION CONTROL','Автоматизация',automationIssues,taskCount+' открытых задач · '+reverseCount+' обратных событий','home'),
-    moduleCard('AI OFFICE','ИИ-исполнители',activeAiRoles,String(aiActionNow)+' требуют действия · stale: '+String(aiStale),'home'),
-    moduleCard('DEPENDENCY GRAPH','Зависимости',openDeps,String(aiDependencies.length)+' materialized · только source-locked связи','home'),
-    moduleCard('HUMAN CONTROL','Собственник / Казначей',humanQueue,humanQueue?'Есть решения, ожидающие человека':'Ручное вмешательство не требуется','home')
-  );
+  modules.append(moduleCard('RAIL CONTROL','Онлайн ЖД',railMetric,railRuntime.length&&!railEnabled?'Провайдер отключён · учёт не выдаётся за ноль':railKnown?(String(rail.length)+' ГУ-12 · '+String(waitingWagons.length)+' позиций требуют проверки'):'ЖД-снимок не получен','monitoring'),moduleCard('FINANCE CONTROL','Платежи',financeKnown?paymentControl.length:'—',financeKnown?(String(financeRows.length)+' сделок в финансовом снимке · просрочено: '+String(overdueCount)):'Финансовый снимок не получен','payments'),moduleCard('DOCUMENT CONTROL','Документы',docsKnown?docs.length:'—',docsKnown?(String(uncheckedDocs.length)+' требуют контроля'):'Снимок документов не получен','documents'),moduleCard('AUTOMATION CONTROL','Автоматизация',automationIssues,taskCount+' открытых задач · '+reverseCount+' обратных событий','home'));
   const generated=d.generated_at||d.generatedAt||d.as_of||null;
   const sourceAsOf=ops?.freshness?.source_as_of||ops?.freshness?.deals||generated;
-  const footer=e('footer',{class:'rona-ops-v4__foot'},e('span',{},'Источник: ',e('strong',{text:'серверная операционная read model + AI Office Control Plane'}),' · люди: только Собственник и Казначей · остальные роли контура: ИИ'),e('span',{text:sourceAsOf?'Source as of: '+String(sourceAsOf):'Интерфейс обновлён: '+timeText}));
+  const footer=e('footer',{class:'rona-ops-v4__foot'},e('span',{},'Источник: ',e('strong',{text:'серверная операционная read model'}),' · бизнес- и финансовые значения не изменяются'),e('span',{text:sourceAsOf?'Source as of: '+String(sourceAsOf):'Интерфейс обновлён: '+timeText}));
   root.append(top,metrics,main,timeline,modules,footer);
   replacePage('home',root);
 }
