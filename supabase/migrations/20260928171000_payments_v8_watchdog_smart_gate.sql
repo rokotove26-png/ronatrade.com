@@ -2,6 +2,7 @@
 -- Candidate write #11, 2026-09-28.
 -- Keeps five-minute supervision via core runtime, preserves the existing watchdog,
 -- and performs a full watchdog sweep hourly or immediately when concrete work exists.
+-- Existing payments-v8-stale-executor-recovery remains unchanged and active.
 
 create or replace function portal_private.finance_signed_schedule_watchdog_smart_tick_v8()
 returns jsonb
