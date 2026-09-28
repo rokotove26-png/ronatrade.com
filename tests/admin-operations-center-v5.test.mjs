@@ -20,6 +20,12 @@ test('Operational Center UI exposes functional controls', () => {
   const deals = read('functions/portal/deals-current-state-ui.js');
   const html = read('portal-src/current/admin.html');
   assert.match(center, /v5-operational-automation/);
+  assert.match(center, /data-rona-human-topology':'owner-treasury-only/);
+  assert.match(center, /OWNER AI OFFICE CONTROL/);
+  assert.match(center, /Собственник \+ Казначей/);
+  assert.match(center, /AI OFFICE/);
+  assert.match(center, /DEPENDENCY GRAPH/);
+  assert.match(center, /HUMAN CONTROL/);
   assert.match(center, /__RONA_ADMIN_GLOBAL_SEARCH__/);
   assert.match(center, /ronaOpsV5OpenDeal/);
   assert.match(center, /operations\?\.freshness|ops\?\.freshness/);
@@ -44,7 +50,10 @@ test('server read model is read-only and document review is audited', () => {
   assert.match(index, /OWNER_DOCUMENT_REVIEWED/);
   assert.match(index, /OWNER_DOCUMENT_REVIEW_CLEARED/);
   assert.match(index, /\^\\\/admin\\\/documents\\\/\(\[\^\/\]\+\)\\\/review\$/);
-  assert.match(operations, /OPERATIONS_CENTER_V5/);
+  assert.match(operations, /OPERATIONS_CENTER_V6_AI_OFFICE/);
+  assert.match(operations, /ai_role_routing_contract_v3/);
+  assert.match(operations, /ai_task_dependencies_v1/);
+  assert.match(operations, /humanInterventions/);
   assert.doesNotMatch(operations, /\b(insert|update|delete|truncate|alter|drop)\b/i);
 });
 
