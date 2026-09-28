@@ -14,6 +14,7 @@ const npmBin = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const OPERATIONS_CENTER_OVERRIDES = [
   'functions/portal/admin-approved-shell-v455-ui.js',
   'functions/portal/deals-current-state-ui.js',
+  'functions/portal/admin-operations-command-center-v5.js',
   'portal-src/current/admin.html',
 ];
 
