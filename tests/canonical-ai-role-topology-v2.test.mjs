@@ -14,7 +14,7 @@ test('canonical AI topology contains exactly the intended operational roles',()=
   for(const role of ['FINANCE','OPERATIONS_DIRECTOR','COMMERCIAL_DIRECTOR','LEGAL','RAIL_LOGISTICS','SYSTEM_ADMIN']){
     assert.match(migration,new RegExp("'"+role+"'"));
   }
-  assert.match(migration,/delete from portal_private\.ai_role_authority_registry_v2[\s\S]*ACCOUNTING[\s\S]*EXECUTIVE_DIRECTOR/);
+  assert.match(migration,/lifecycle_state='LEGACY'[\s\S]*ACCOUNTING[\s\S]*EXECUTIVE_DIRECTOR/);
   assert.match(migration,/nonexistent_roles/);
   assert.match(migration,/ACCOUNTING','FINANCE/);
   assert.match(migration,/EXECUTIVE_DIRECTOR','OPERATIONS_DIRECTOR/);
