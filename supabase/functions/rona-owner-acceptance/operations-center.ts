@@ -100,6 +100,45 @@ export async function buildOperationsCenter(sql) {
     from portal_private.rail_provider_runtime_control
     order by provider`;
 
+  const aiTopologyRows = await sql`
+    select portal_private.ai_role_routing_contract_v3() topology`;
+
+  const aiCockpits = await sql`
+    select i.business_role::text role,
+           portal_private.ai_role_exception_cockpit_v1(i.business_role) cockpit
+    from portal_private.ai_service_identities i
+    where i.status::text='ACTIVE'
+      and i.revoked_at is null
+    order by i.business_role::text`;
+
+  const aiDependencies = await sql`
+    select d.dependency_id,d.task_id,d.dependency_type,d.depends_on_task_id,d.depends_on_role,
+           d.depends_on_entity_type,d.depends_on_entity_id,d.required_state,d.status,
+           d.source_ref,d.details,d.created_at,d.updated_at,
+           t.title task_title,t.status::text task_status,t.assigned_functional_role::text assigned_role,
+           t.priority::text task_priority
+    from portal_private.ai_task_dependencies_v1 d
+    join portal_private.staff_tasks t on t.task_id=d.task_id
+    where t.qa_only=false
+      and t.status::text not in ('COMPLETED','CLOSED','REJECTED')
+      and d.status in ('OPEN','SATISFIED')
+    order by case d.status when 'OPEN' then 0 else 1 end,t.updated_at desc,d.updated_at desc
+    limit 200`;
+
+  const humanInterventions = await sql`
+    select d.dependency_id,d.task_id,d.depends_on_role human_role,d.dependency_type,d.required_state,
+           d.source_ref,d.details,d.updated_at,t.title task_title,t.priority::text task_priority,
+           t.assigned_functional_role::text assigned_ai_role
+    from portal_private.ai_task_dependencies_v1 d
+    join portal_private.staff_tasks t on t.task_id=d.task_id
+    where t.qa_only=false
+      and t.status::text not in ('COMPLETED','CLOSED','REJECTED')
+      and d.status='OPEN'
+      and d.depends_on_role in ('OWNER','TREASURY')
+    order by case upper(t.priority::text) when 'CRITICAL' then 0 when 'URGENT' then 1 when 'HIGH' then 2 else 3 end,
+             d.updated_at desc
+    limit 100`;
+
   const freshnessRows = await sql`
     select 'deals' source,max(updated_at) source_as_of from portal_private.deals
     union all select 'applications',max(updated_at) from portal_private.client_applications
@@ -169,6 +208,18 @@ export async function buildOperationsCenter(sql) {
     }
   }
 
+  let aiActionNow = 0;
+  let aiStale = 0;
+  let aiBlocked = 0;
+  let aiStateConflicts = 0;
+  for (const row of aiCockpits) {
+    const counts = row?.cockpit?.counts || {};
+    aiActionNow += count(counts.action_now);
+    aiStale += count(counts.stale);
+    aiBlocked += count(counts.blocked);
+    aiStateConflicts += count(counts.state_conflicts);
+  }
+
   let railIssues = 0;
   for (const runtime of railRuntime) {
     const disabled = upper(runtime.mode) === "DISABLED" || !runtime.production_polling_enabled ||
@@ -188,8 +239,23 @@ export async function buildOperationsCenter(sql) {
   }
   freshness.source_as_of = sourceAsOf;
 
+  const aiTopology = aiTopologyRows[0]?.topology || {};
+  const openDependencies = aiDependencies.filter((x) => upper(x.status) === "OPEN").length;
+
+  for (const item of humanInterventions) {
+    attentionTotal += 1;
+    alerts.push({
+      severity: upper(item.task_priority) === "CRITICAL" ? "CRITICAL" : "WARNING",
+      title: `Человеческое решение · ${item.human_role}`,
+      meta: [item.task_id,item.task_title,item.required_state].filter(Boolean).join(" · "),
+      target: "home",
+      entity_type: "HUMAN_INTERVENTION",
+      entity_id: String(item.dependency_id),
+    });
+  }
+
   return {
-    version: "OPERATIONS_CENTER_V5",
+    version: "OPERATIONS_CENTER_V6_AI_OFFICE",
     generated_at: new Date().toISOString(),
     tasks,
     reverseEvents,
@@ -198,12 +264,34 @@ export async function buildOperationsCenter(sql) {
     railRuntime,
     freshness,
     alerts,
+    aiOffice: {
+      topology: aiTopology,
+      cockpits: aiCockpits,
+      dependencies: aiDependencies,
+      humanInterventions,
+      metrics: {
+        active_ai_roles: Array.isArray(aiTopology?.active_ai_roles) ? aiTopology.active_ai_roles.length : 0,
+        human_actors: Array.isArray(aiTopology?.human_actors) ? aiTopology.human_actors.length : 0,
+        ai_action_now: aiActionNow,
+        ai_stale: aiStale,
+        ai_blocked: aiBlocked,
+        ai_state_conflicts: aiStateConflicts,
+        open_dependencies: openDependencies,
+        human_interventions: humanInterventions.length,
+      },
+    },
     metrics: {
       open_tasks: tasks.length,
       pending_reverse_events: reverseEvents.length,
       ai_issues: aiIssues,
       finance_materializer_issues: materializerIssues,
       rail_issues: railIssues,
+      ai_action_now: aiActionNow,
+      ai_stale: aiStale,
+      ai_blocked: aiBlocked,
+      ai_state_conflicts: aiStateConflicts,
+      open_dependencies: openDependencies,
+      human_interventions: humanInterventions.length,
       automation_issues: aiIssues + materializerIssues + railIssues + reverseEvents.length,
       attention_total: attentionTotal,
       critical_total: criticalTotal,
