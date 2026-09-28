@@ -560,7 +560,7 @@ begin
 
   perform cron.alter_job(
     v_jobid,
-    schedule=>' * * * * *',
+    schedule=>'* * * * *',
     command=>'select portal_private.run_core_runtime_minute_v6();',
     active=>true
   );
