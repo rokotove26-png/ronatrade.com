@@ -17,7 +17,7 @@ set search_path='pg_catalog','portal_private','extensions'
 as $function$
 declare
   v_asset_preflight jsonb;
-  v_standard record;
+  v_standard portal_private.owner_canonical_document_standards%rowtype;
   v_assets jsonb;
   v_issues jsonb:='[]'::jsonb;
   v_kind text:=nullif(btrim(coalesce(p_document_kind,'')),'');
