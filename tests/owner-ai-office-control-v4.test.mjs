@@ -6,7 +6,7 @@ const read=(p)=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
 const migration=read('supabase/migrations/20260928200500_owner_ai_office_control_v4.sql');
 const operations=read('supabase/functions/rona-owner-acceptance/operations-center.ts');
-const ui=read('functions/portal/admin-operations-command-center-v5.js');
+const ui=read('functions/portal/admin-operations-command-center-v11-owner-ai.js');
 
 test('human topology is owner and treasury only',()=>{
   assert.match(migration,/ONLY_OWNER_AND_TREASURY_ARE_HUMAN/);
