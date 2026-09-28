@@ -449,7 +449,7 @@ begin
 end
 $function$;
 
-do $
+do $$
 declare
   v_jobid bigint;
 begin
@@ -464,7 +464,7 @@ begin
     );
   end if;
 end
-$;
+$$;
 
 create or replace function portal_private.ai_role_state_current_v4(
   p_role portal_private.ai_business_role_enum,
