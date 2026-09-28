@@ -35,6 +35,49 @@ const COORDINATION_DETAIL_TOOL = {
   },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
+const EXCEPTION_COCKPIT_TOOL = {
+  name: "exception_cockpit",
+  title: "Операционные исключения",
+  description: "Получить exception-first cockpit текущей фиксированной роли: ACTION_NOW, WAITING_EXTERNAL, BLOCKED, STALE, STATE_CONFLICTS и semantic reconciliation candidates.",
+  inputSchema: { type: "object", additionalProperties: false },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+const TASK_COMPLETE_TOOL = {
+  name: "task_complete",
+  title: "Завершить назначенную задачу",
+  description: "Перевести назначенную фиксированной роли задачу в COMPLETED только при текущем APPROVED+confirmed functional conclusion без mandatory conditions и с evidence refs.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", minLength: 1, maxLength: 160 },
+      conclusion_record_id: { type: "string", format: "uuid" },
+      note: { type: "string", minLength: 1, maxLength: 4000 },
+      evidence_refs: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, minItems: 1, maxItems: 20 },
+      idempotency_key: { type: "string", minLength: 8, maxLength: 160 },
+    },
+    required: ["task_id","conclusion_record_id","note","evidence_refs","idempotency_key"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+const TASK_CLOSE_TOOL = {
+  name: "task_close",
+  title: "Закрыть неактуальную задачу",
+  description: "Административно закрыть назначенную задачу только по перечисленному основанию SUPERSEDED, DUPLICATE, OBSOLETE_SOURCE или NO_LONGER_APPLICABLE. Не означает бизнес-выполнение.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", minLength: 1, maxLength: 160 },
+      closure_basis: { type: "string", enum: ["SUPERSEDED","DUPLICATE","OBSOLETE_SOURCE","NO_LONGER_APPLICABLE"] },
+      note: { type: "string", minLength: 1, maxLength: 4000 },
+      evidence_refs: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, minItems: 1, maxItems: 20 },
+      idempotency_key: { type: "string", minLength: 8, maxLength: 160 },
+    },
+    required: ["task_id","closure_basis","note","evidence_refs","idempotency_key"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
 
 function roleCanUseEntity(role, type) {
   return ENTITY_SCOPE[role]?.has(type) === true;
@@ -244,6 +287,107 @@ async function createCrossRoleHandoff(ctx, req, msg, normalized) {
   await coordAudit(ctx, ids, "handoff_request_submit", { targetType: normalized.type, targetId: normalized.id, idemHash, payloadHash, result: "SUCCESS", record: inserted, metadata: { notification_only: true, authority_granted: false, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" } });
   return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, record_id: inserted.record_id, record_type: inserted.record_type, status: inserted.status, version: inserted.version, idempotent_replay: false, notification_only: true, authority_granted: false });
 }
+async function exceptionCockpit(ctx, req, msg) {
+  const ids = requestIds(req);
+  if (!await rateAllowed(ctx)) return null;
+  const args = msg?.params?.arguments ?? {};
+  if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).length !== 0) {
+    await recordMcpEvent(ctx, ids, "exception_cockpit", "DENIED", 200, { code: "INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok: false, code: "INVALID_ARGUMENTS", status: 403 }, true);
+  }
+  const rows = await sql`select portal_private.ai_role_exception_cockpit_v1(${ctx.role}::portal_private.ai_business_role_enum) as data`;
+  await recordMcpEvent(ctx, ids, "exception_cockpit", "SUCCESS", 200, { contract: "RONA_EXCEPTION_FIRST_COCKPIT_V1" });
+  return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: rows[0]?.data ?? null });
+}
+
+async function taskTerminalAction(ctx, req, msg, terminalStatus) {
+  const ids = requestIds(req);
+  const tool = terminalStatus === "COMPLETED" ? "task_complete" : "task_close";
+  if (!await rateAllowed(ctx)) return null;
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !String(ctx.server_slug || "").endsWith("-pilot")) return null;
+  const args = msg?.params?.arguments ?? {};
+  const allowed = terminalStatus === "COMPLETED"
+    ? new Set(["task_id","conclusion_record_id","note","evidence_refs","idempotency_key"])
+    : new Set(["task_id","closure_basis","note","evidence_refs","idempotency_key"]);
+  if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).some(k => !allowed.has(k) || FORBIDDEN_ROLE_KEYS.has(k))) {
+    await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok: false, code: "INVALID_ARGUMENTS", status: 403 }, true);
+  }
+  const taskId = cleanText(args.task_id,160);
+  const note = cleanText(args.note,4000);
+  const evidence = validateRefs(args.evidence_refs);
+  const idem = typeof args.idempotency_key === "string" && IDEMPOTENCY_RE.test(args.idempotency_key) ? args.idempotency_key : null;
+  const conclusionId = terminalStatus === "COMPLETED" && UUID_RE.test(String(args.conclusion_record_id || "")) ? String(args.conclusion_record_id) : null;
+  const closureBasis = terminalStatus === "CLOSED" ? String(args.closure_basis || "").toUpperCase() : null;
+  if (!taskId || !note || !evidence || evidence.length === 0 || !idem
+      || (terminalStatus === "COMPLETED" && !conclusionId)
+      || (terminalStatus === "CLOSED" && !["SUPERSEDED","DUPLICATE","OBSOLETE_SOURCE","NO_LONGER_APPLICABLE"].includes(closureBasis))) {
+    await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok: false, code: "INVALID_ARGUMENTS", status: 403 }, true);
+  }
+  if (terminalStatus === "CLOSED" && !["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role)) {
+    await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "TASK_CLOSE_ROLE_DENIED" });
+    return rpcToolResponse(msg.id, { ok: false, code: "TASK_CLOSE_ROLE_DENIED", status: 403 }, true);
+  }
+  const taskRows = await sql`select task_id,status::text,assigned_functional_role::text as assigned_role,authority_domain from portal_private.staff_tasks where task_id=${taskId} and qa_only=false limit 1`;
+  if (taskRows.length !== 1 || taskRows[0].assigned_role !== ctx.role) {
+    await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "TASK_NOT_ASSIGNED_TO_ROLE" });
+    return rpcToolResponse(msg.id, { ok: false, code: "TASK_NOT_ASSIGNED_TO_ROLE", status: 403 }, true);
+  }
+  const payload = terminalStatus === "COMPLETED"
+    ? { terminal_status: "COMPLETED", conclusion_record_id: conclusionId, note }
+    : { terminal_status: "CLOSED", closure_basis: closureBasis, note };
+  const idemHash = await sha256Hex(idem);
+  const payloadHash = await sha256Hex(stableStringify({ task_id: taskId, ...payload, evidence_refs: evidence }));
+  const existing = await sql`select * from portal_private.ai_coordination_records where identity_id=${ctx.identity_id} and tool_name=${tool} and idempotency_key_hash=${idemHash} limit 1`;
+  if (existing.length) {
+    if (existing[0].payload_hash !== payloadHash) {
+      await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "IDEMPOTENCY_CONFLICT" });
+      await coordAudit(ctx, ids, tool, { targetType:"TASK", targetId:taskId, idemHash, payloadHash, result:"CONFLICT", denialCode:"IDEMPOTENCY_CONFLICT" });
+      return rpcToolResponse(msg.id, { ok:false, code:"IDEMPOTENCY_CONFLICT", status:409 }, true);
+    }
+    const r=existing[0];
+    return rpcToolResponse(msg.id, { ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId, record_id:r.record_id, status:r.status, version:r.version, idempotent_replay:true });
+  }
+  let inserted;
+  try {
+    inserted = await sql.begin(async tx => {
+      await tx`select pg_advisory_xact_lock(hashtextextended(${`${ctx.identity_id}|${tool}|${idemHash}`},0))`;
+      const again = await tx`select * from portal_private.ai_coordination_records where identity_id=${ctx.identity_id} and tool_name=${tool} and idempotency_key_hash=${idemHash} limit 1`;
+      if (again.length) return again[0];
+      const rows = await tx`insert into portal_private.ai_coordination_records(
+        record_type,functional_role,identity_id,token_id,client_id,server_slug,tool_name,
+        target_type,target_id,target_role,parent_record_id,version,supersedes_id,
+        idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,
+        correlation_id,mcp_request_id,qa_only
+      ) values(
+        'TASK_TERMINAL_ACTION',${ctx.role}::portal_private.ai_business_role_enum,${ctx.identity_id},
+        ${ctx.token_id}::uuid,${ctx.client_id},${ctx.server_slug},${tool},
+        'TASK',${taskId},${ctx.role}::portal_private.ai_business_role_enum,null,1,null,
+        ${idemHash},${payloadHash},
+        ${sql.json(terminalStatus === "COMPLETED" ? [`FUNCTIONAL_CONCLUSION:${conclusionId}`] : [`TASK:${taskId}`])}::jsonb,
+        ${sql.json(evidence)}::jsonb,${sql.json(payload)}::jsonb,${terminalStatus},
+        ${ids.correlationId}::uuid,${ids.mcpRequestId}::uuid,false
+      ) returning *`;
+      return rows[0];
+    });
+  } catch (e) {
+    const code=String(e?.message || e).slice(0,200);
+    await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code });
+    await coordAudit(ctx, ids, tool, { targetType:"TASK", targetId:taskId, idemHash, payloadHash, result:"DENIED", denialCode:code });
+    return rpcToolResponse(msg.id, { ok:false, code, status:409 }, true);
+  }
+  await recordMcpEvent(ctx, ids, tool, "SUCCESS", 200, { coordination_record_id:inserted.record_id, terminal_status:terminalStatus });
+  await coordAudit(ctx, ids, tool, { targetType:"TASK", targetId:taskId, idemHash, payloadHash, result:"SUCCESS", record:inserted, metadata:{ terminal_status:terminalStatus } });
+  const state = await sql`select status::text as status from portal_private.staff_tasks where task_id=${taskId} limit 1`;
+  return rpcToolResponse(msg.id, {
+    ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
+    record_id:inserted.record_id, record_type:inserted.record_type,
+    requested_terminal_status:terminalStatus, task_status:state[0]?.status ?? null,
+    idempotent_replay:false
+  });
+}
+
 async function coordinationDetail(ctx, req, msg) {
   const ids = requestIds(req);
   if (!await rateAllowed(ctx)) return null;
@@ -253,7 +397,7 @@ async function coordinationDetail(ctx, req, msg) {
     return rpcToolResponse(msg.id, { ok: false, code: "INVALID_ARGUMENTS", status: 403 }, true);
   }
   const recordId = String(args.record_id);
-  const rows = await sql`select record_id,record_type,functional_role::text as from_role,target_role::text,target_type,target_id,parent_record_id,version,supersedes_id,status,payload,source_refs,evidence_refs,created_at from portal_private.ai_coordination_records where record_id=${recordId}::uuid and qa_only=false and (functional_role=${ctx.role}::portal_private.ai_business_role_enum or target_role=${ctx.role}::portal_private.ai_business_role_enum or (${ctx.role}='OPERATIONS_DIRECTOR' and record_type in ('FUNCTIONAL_CONCLUSION','HANDOFF_REQUEST','BUSINESS_CHANGE_PROPOSAL','OPERATIONS_INTERNAL_DECISION') and target_type<>'SYSTEM')) limit 1`;
+  const rows = await sql`select record_id,record_type,functional_role::text as from_role,target_role::text,target_type,target_id,parent_record_id,version,supersedes_id,status,payload,source_refs,evidence_refs,created_at from portal_private.ai_coordination_records where record_id=${recordId}::uuid and qa_only=false and (functional_role=${ctx.role}::portal_private.ai_business_role_enum or target_role=${ctx.role}::portal_private.ai_business_role_enum or (${ctx.role}='OPERATIONS_DIRECTOR' and record_type in ('FUNCTIONAL_CONCLUSION','HANDOFF_REQUEST','BUSINESS_CHANGE_PROPOSAL','OPERATIONS_INTERNAL_DECISION','TASK_TERMINAL_ACTION') and target_type<>'SYSTEM')) limit 1`;
   if (rows.length !== 1) {
     await recordMcpEvent(ctx, ids, "coordination_detail", "DENIED", 200, { code: "COORDINATION_RECORD_NOT_VISIBLE" });
     return rpcToolResponse(msg.id, { ok: false, code: "COORDINATION_RECORD_NOT_VISIBLE", status: 403 }, true);
@@ -261,13 +405,30 @@ async function coordinationDetail(ctx, req, msg) {
   await recordMcpEvent(ctx, ids, "coordination_detail", "SUCCESS", 200, { coordination_record_id: recordId, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
   return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: rows[0] });
 }
-async function augmentToolsListResponse(res) {
+async function augmentToolsListResponse(res, ctx) {
   if (!res.ok) return res;
   let envelope;
   try { envelope = await res.clone().json(); } catch { return res; }
   const tools = envelope?.result?.tools;
   if (!Array.isArray(tools)) return res;
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
+  if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
+
+  try {
+    const routing = await sql`select portal_private.ai_role_routing_contract_v2() as data`;
+    const targets = routing[0]?.data?.canonical_handoff_targets;
+    const handoff = tools.find(t => t?.name === "handoff_request_submit");
+    if (handoff?.inputSchema?.properties?.target_role && Array.isArray(targets) && targets.length) {
+      handoff.inputSchema.properties.target_role.enum = targets;
+    }
+  } catch (e) {
+    console.error("routing contract v2 projection failed", String(e?.message || e));
+  }
+
+  if (ctx && scopeHas(ctx.scope,"mcp:coordinate") && String(ctx.server_slug || "").endsWith("-pilot")) {
+    if (!tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
+    if (["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role) && !tools.some(t => t?.name === "task_close")) tools.push(TASK_CLOSE_TOOL);
+  }
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
 async function compactCurrentStateResponse(res) {
@@ -280,8 +441,8 @@ async function compactCurrentStateResponse(res) {
   try { toolPayload = JSON.parse(content[0].text); } catch { return res; }
   if (toolPayload?.ok !== true || typeof toolPayload?.role !== "string") return res;
   let rows;
-  try { rows = await sql`select portal_private.ai_role_state_current_v2(${toolPayload.role}::portal_private.ai_business_role_enum, 10, 20) as data`; }
-  catch (e) { console.error("role state v2 projection failed", String(e?.message || e)); return res; }
+  try { rows = await sql`select portal_private.ai_role_state_current_v3(${toolPayload.role}::portal_private.ai_business_role_enum, 10, 20) as data`; }
+  catch (e) { console.error("role state v3 projection failed", String(e?.message || e)); return res; }
   if (!rows?.[0]?.data) return res;
   toolPayload.data = rows[0].data;
   content[0].text = JSON.stringify(toolPayload);
@@ -295,9 +456,22 @@ async function compactCurrentStateResponse(res) {
 async function wrappedRequest(handler, req) {
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const ctx = (name === "handoff_request_submit" || name === "coordination_detail") ? await authContext(req) : null;
+  const needsCtx = msg?.method === "tools/list" || ["handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
+  const ctx = needsCtx ? await authContext(req) : null;
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
+    if (direct) return direct;
+  }
+  if (name === "exception_cockpit" && ctx && scopeHas(ctx.scope, "mcp:read")) {
+    const direct = await exceptionCockpit(ctx, req, msg);
+    if (direct) return direct;
+  }
+  if (name === "task_complete" && ctx) {
+    const direct = await taskTerminalAction(ctx, req, msg, "COMPLETED");
+    if (direct) return direct;
+  }
+  if (name === "task_close" && ctx) {
+    const direct = await taskTerminalAction(ctx, req, msg, "CLOSED");
     if (direct) return direct;
   }
   if (name === "handoff_request_submit" && ctx) {
@@ -313,7 +487,7 @@ async function wrappedRequest(handler, req) {
   }
   let res = await handler(req);
   if (msg?.method === "tools/list") {
-    res = await augmentToolsListResponse(res);
+    res = await augmentToolsListResponse(res, ctx);
     res = await financeHooks.toolsList(req, res);
   }
   if (name === "current_state") res = await compactCurrentStateResponse(res);
