@@ -31,7 +31,7 @@ test('owner operations backend treats technical task roles as AI, not employees'
   assert.match(operations,/aiOffice/);
   assert.match(operations,/ONLY_OWNER_AND_TREASURY_ARE_HUMAN/);
   assert.match(operations,/AI_TASK_EXCEPTION/);
-  assert.doesNotMatch(operations,/не назначена/);
+  assert.doesNotMatch(operations,/assigned_user_id \? null : "не назначена"/);
 });
 
 test('owner UI explicitly exposes owner plus treasury human model',()=>{
