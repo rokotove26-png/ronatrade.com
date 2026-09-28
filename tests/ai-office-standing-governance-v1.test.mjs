@@ -5,6 +5,7 @@ import { test } from 'node:test';
 const staff=readFileSync(new URL('../supabase/migrations/20260929010000_ai_office_staff_directory_v1.sql',import.meta.url),'utf8');
 const governance=readFileSync(new URL('../supabase/migrations/20260929010100_ai_office_competence_governance_v1.sql',import.meta.url),'utf8');
 const state=readFileSync(new URL('../supabase/migrations/20260929010200_ai_office_role_state_v6.sql',import.meta.url),'utf8');
+const gateway=readFileSync(new URL('../supabase/functions/rona-mcp-gateway/index.ts',import.meta.url),'utf8');
 
 test('AI Office staff directory preserves canonical topology',()=>{
   assert.match(staff,/ai_staff_directory_v1/);
@@ -27,4 +28,12 @@ test('role recovery V6 carries persistent office context',()=>{
     assert.match(state,new RegExp(key));
   }
   assert.match(state,/DO_NOT_INVENT_REPORT_TYPES/);
+});
+
+
+test('Pilot gateway serves V6 current_state with sufficient response budget',()=>{
+  assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V6/);
+  assert.match(gateway,/ai_role_state_current_v6/);
+  assert.match(gateway,/length > 96000/);
+  assert.doesNotMatch(gateway,/ROLE_STATE_V5_RESPONSE_BUDGET_EXCEEDED/);
 });
