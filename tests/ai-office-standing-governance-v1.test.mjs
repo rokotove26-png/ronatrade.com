@@ -18,6 +18,7 @@ test('competence gate is mandatory and fail closed',()=>{
   assert.match(governance,/DO_NOT_ACCEPT_OR_EXECUTE/);
   assert.match(governance,/HELPFUL_OVERRIDE_PROHIBITED/);
   assert.match(governance,/MARKET_ANALYST','COMMERCIAL_DIRECTOR/);
+  assert.match(governance,/RONA_AI_OFFICE_STANDING_GOVERNANCE_V1:'\|\|r\.role_name/);
 });
 
 test('role recovery V6 carries persistent office context',()=>{
