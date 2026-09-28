@@ -69,7 +69,7 @@ jobs:
       - name: Cloudflare build-command parity
         run: npm run build
       - name: AI Office Control Plane V2 contract tests
-        run: node --test tests/ai-office-control-plane-v2*.test.mjs
+        run: node --test tests/ai-office-control-plane-v*.test.mjs
       - name: A-BD plus final data-truth, Owner-cycle and projection regression suite
         run: npm run test:payments-v7
       - name: Final live-shell executive responsive and data-driven browser proof
