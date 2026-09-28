@@ -26,9 +26,11 @@ test('administrative close remains restricted',()=>{
   assert.match(gateway,/NO_LONGER_APPLICABLE/);
 });
 
-test('gateway consumes registry-driven routing and current state v5',()=>{
-  assert.match(gateway,/ai_role_routing_contract_v4/);
+test('gateway projects canonical topology V4 over production role-state V4',()=>{
+  assert.match(gateway,/ai_role_routing_contract_v3/);
   assert.match(gateway,/canonical_ai_handoff_targets/);
-  assert.match(gateway,/ai_role_state_current_v5/);
+  assert.match(gateway,/ai_role_state_current_v4/);
+  assert.match(gateway,/RONA_ROLE_ROUTING_CONTRACT_V4/);
   assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V5/);
+  assert.match(gateway,/nonexistentRoles/);
 });
