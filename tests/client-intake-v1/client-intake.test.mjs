@@ -20,7 +20,7 @@ test('space-separated number is rejected',()=>assert.equal(normalizeDomQuantity(
 test('delivered-price message type derives correctly',()=>assert.equal(deriveActionableType(reverse()),'DELIVERED_PRICE_CALCULATION_REQUEST_V1'));
 test('delivered-price routes to Operations Director',()=>assert.equal(selectRoutingPolicy(reverse())?.responsible_role,'OPERATIONS_DIRECTOR'));
 test('claim routes to Legal',()=>assert.equal(selectRoutingPolicy(reverse({source_event_type:'CLIENT_CLAIM_SUBMIT',payload:{}}))?.responsible_role,'LEGAL'));
-test('payment proof routes to Accounting',()=>assert.equal(selectRoutingPolicy(reverse({source_event_type:'CLIENT_PAYMENT_PROOF_SUBMIT',payload:{}}))?.responsible_role,'ACCOUNTING'));
+test('payment proof routes to Finance Director',()=>assert.equal(selectRoutingPolicy(reverse({source_event_type:'CLIENT_PAYMENT_PROOF_SUBMIT',payload:{}}))?.responsible_role,'FINANCE'));
 
 test('same source is idempotent',()=>{const e=createClientIntakeEngine(),s=reverse(),a=e.ingest(s),b=e.ingest(s);assert.equal(a.intake_id,b.intake_id);assert.equal(e.snapshot().intakes.length,1)});
 test('same source produces one outbox',()=>{const e=createClientIntakeEngine(),s=reverse();e.ingest(s);e.ingest(s);assert.equal(e.snapshot().outbox.length,1)});

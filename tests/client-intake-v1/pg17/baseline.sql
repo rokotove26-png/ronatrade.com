@@ -120,7 +120,7 @@ returns portal_private.staff_functional_role_enum
 language sql immutable set search_path='pg_catalog','portal_private' as $$
   select case
     when p_event_type='CLIENT_CLAIM_SUBMIT' then 'LEGAL'::portal_private.staff_functional_role_enum
-    when p_event_type='CLIENT_PAYMENT_PROOF_SUBMIT' then 'ACCOUNTING'::portal_private.staff_functional_role_enum
+    when p_event_type='CLIENT_PAYMENT_PROOF_SUBMIT' then 'FINANCE'::portal_private.staff_functional_role_enum
     else 'OPERATIONS_DIRECTOR'::portal_private.staff_functional_role_enum
   end
 $$;
