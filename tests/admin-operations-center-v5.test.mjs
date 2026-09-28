@@ -6,29 +6,29 @@ const read = (path) => readFileSync(new URL('../' + path, import.meta.url), 'utf
 
 test('Cloudflare build overlays only Operational Center files', () => {
   const source = read('scripts/admin-payments-v7-cloudflare-build.mjs');
-  assert.match(source, /OPERATIONS_CENTER_V5_OVERRIDES=READY/);
+  assert.match(source, /OPERATIONS_CENTER_AI_OFFICE_OVERRIDES=READY/);
   const match = source.match(/const OPERATIONS_CENTER_OVERRIDES = \[([\s\S]*?)\];/);
   assert.ok(match);
   assert.doesNotMatch(match[1], /payments|finance/i);
-  assert.match(match[1], /admin-operations-command-center-v5\.js/);
+  assert.match(match[1], /admin-operations-command-center-v10-clean\.js/);
 });
 
 test('Operational Center UI exposes functional controls', () => {
-  const center = read('functions/portal/admin-operations-command-center-v5.js');
+  const center = read('functions/portal/admin-operations-command-center-v10-clean.js');
   const main = read('functions/portal/admin-main-ui-current.js');
   const shell = read('functions/portal/admin-approved-shell-v455-ui.js');
   const deals = read('functions/portal/deals-current-state-ui.js');
   const html = read('portal-src/current/admin.html');
-  assert.match(center, /v5-operational-automation/);
+  assert.match(center, /v10-owner-ai-office-v1/);
   assert.match(center, /data-rona-human-topology':'owner-treasury-only/);
-  assert.match(center, /OWNER AI OFFICE CONTROL/);
-  assert.match(center, /Собственник \+ Казначей/);
+  assert.match(center, /OWNER AI OFFICE FLIGHTDECK/);
+  assert.match(center, /ЛЮДИ: СОБСТВЕННИК \+ КАЗНАЧЕЙ · ОСТАЛЬНОЙ КОНТУР: ИИ/);
+  assert.match(center, /adminData\?\.operations\?\.aiOffice/);
+  assert.match(center, /RONA_ROLE_ROUTING_CONTRACT_V3/);
   assert.match(center, /AI OFFICE/);
   assert.match(center, /DEPENDENCY GRAPH/);
   assert.match(center, /HUMAN CONTROL/);
-  assert.match(center, /__RONA_ADMIN_GLOBAL_SEARCH__/);
-  assert.match(center, /ronaOpsV5OpenDeal/);
-  assert.match(center, /operations\?\.freshness|ops\?\.freshness/);
+  assert.match(main, /admin-operations-command-center-v10-clean\.js/);
   assert.match(main, /\/admin\/documents\/'\+encodeURIComponent\(x\.document_id\)\+'\/review/);
   assert.match(main, /authority-v1-30s-safe/);
   assert.match(shell, /__RONA_ADMIN_GLOBAL_SEARCH__/);
@@ -59,7 +59,7 @@ test('server read model is read-only and document review is audited', () => {
 
 test('no Finance event submit or browser financial calculation is introduced', () => {
   const paths = [
-    'functions/portal/admin-operations-command-center-v5.js',
+    'functions/portal/admin-operations-command-center-v10-clean.js',
     'functions/portal/admin-main-ui-current.js',
     'functions/portal/admin-approved-shell-v455-ui.js',
     'functions/portal/deals-current-state-ui.js',
