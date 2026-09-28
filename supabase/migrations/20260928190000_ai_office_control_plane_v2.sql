@@ -134,30 +134,35 @@ language sql
 stable security definer
 set search_path='portal_private','pg_catalog'
 as $function$
-  select coalesce(jsonb_agg(
-    jsonb_build_object(
-      'task_id',t.task_id,
-      'task_status',t.status::text,
-      'dependency_id',d.dependency_id,
-      'dependency_type',d.dependency_type,
-      'depends_on_task_id',d.depends_on_task_id,
-      'depends_on_role',d.depends_on_role,
-      'depends_on_entity_type',d.depends_on_entity_type,
-      'depends_on_entity_id',d.depends_on_entity_id,
-      'required_state',d.required_state,
-      'dependency_status',d.status,
-      'source_ref',d.source_ref,
-      'details',d.details,
-      'updated_at',d.updated_at
-    )
+  select coalesce(jsonb_agg(x.obj order by x.task_updated_at desc,x.dependency_updated_at desc),'[]'::jsonb)
+  from (
+    select
+      t.updated_at as task_updated_at,
+      d.updated_at as dependency_updated_at,
+      jsonb_build_object(
+        'task_id',t.task_id,
+        'task_status',t.status::text,
+        'dependency_id',d.dependency_id,
+        'dependency_type',d.dependency_type,
+        'depends_on_task_id',d.depends_on_task_id,
+        'depends_on_role',d.depends_on_role,
+        'depends_on_entity_type',d.depends_on_entity_type,
+        'depends_on_entity_id',d.depends_on_entity_id,
+        'required_state',d.required_state,
+        'dependency_status',d.status,
+        'source_ref',d.source_ref,
+        'details',d.details,
+        'updated_at',d.updated_at
+      ) obj
+    from portal_private.staff_tasks t
+    join portal_private.ai_task_dependencies_v1 d on d.task_id=t.task_id
+    where t.qa_only=false
+      and t.assigned_functional_role::text=p_role::text
+      and t.status::text not in ('COMPLETED','REJECTED','CLOSED')
+      and d.status in ('OPEN','SATISFIED')
     order by t.updated_at desc,d.updated_at desc
-  ),'[]'::jsonb)
-  from portal_private.staff_tasks t
-  join portal_private.ai_task_dependencies_v1 d on d.task_id=t.task_id
-  where t.qa_only=false
-    and t.assigned_functional_role::text=p_role::text
-    and t.status::text not in ('COMPLETED','REJECTED','CLOSED')
-    and d.status in ('OPEN','SATISFIED')
+    limit 20
+  ) x
 $function$;
 
 revoke all on function portal_private.ai_task_dependency_graph_v1(portal_private.ai_business_role_enum) from public, anon, authenticated, service_role;
@@ -175,8 +180,10 @@ as $function$
 declare
   v_state jsonb;
   v_bootstrap jsonb;
+  v_cockpit jsonb;
 begin
   v_state:=portal_private.ai_role_state_current_v2(p_role,p_task_limit,p_coord_limit);
+  v_cockpit:=portal_private.ai_role_exception_cockpit_v1(p_role);
   v_bootstrap:=coalesce(v_state->'bootstrap','{}'::jsonb)
     || jsonb_build_object(
       'routing_contract','RONA_ROLE_ROUTING_CONTRACT_V2',
@@ -186,7 +193,7 @@ begin
   return v_state
     || jsonb_build_object(
       'routing_capabilities',portal_private.ai_role_routing_contract_v2(),
-      'exception_cockpit',portal_private.ai_role_exception_cockpit_v1(p_role),
+      'exception_cockpit_summary',coalesce(v_cockpit->'counts','{}'::jsonb),
       'dependency_graph',portal_private.ai_task_dependency_graph_v1(p_role),
       'bootstrap',v_bootstrap
     );
