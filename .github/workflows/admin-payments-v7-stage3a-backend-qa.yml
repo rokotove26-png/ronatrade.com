@@ -66,6 +66,10 @@ jobs:
           deno check --config supabase/functions/rona-mcp-gateway/deno.json \
             supabase/functions/rona-mcp-gateway/index.ts \
             supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs
+          deno check --config supabase/functions/rona-owner-acceptance/deno.json \
+            supabase/functions/rona-owner-acceptance/index.ts \
+            supabase/functions/rona-owner-acceptance/operations-center.ts \
+            supabase/functions/rona-owner-acceptance/claims.ts
       - name: Cloudflare build-command parity
         run: npm run build
       - name: AI Office Control Plane contract tests
