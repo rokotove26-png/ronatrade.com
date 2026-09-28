@@ -47,3 +47,19 @@ test('autonomous executor uses canonical six-role topology and competence gate',
   assert.match(executor,/Never use helpfulness as a reason to cross role boundaries/);
   assert.match(executor,/SYSTEM_ADMIN:"Own technical infrastructure/);
 });
+
+
+test('System Admin safe autonomous coordination is enabled without autonomous system writes',()=>{
+  const sys=readFileSync(new URL('../supabase/migrations/20260929010600_system_admin_autonomy_stage_c_v1.sql',import.meta.url),'utf8');
+  assert.match(sys,/when 'SYSTEM_ADMIN' then upper\(p_type\)=any\(array\['TASK','SYSTEM'\]\)/);
+  assert.match(sys,/rona_ai_executor_claim_v2/);
+  assert.match(sys,/rona_ai_executor_issue_read_token_v2/);
+  assert.match(sys,/rona_ai_executor_commit_system_action_v1/);
+  assert.match(sys,/SYSTEM_ADMIN_AUTONOMOUS_ACTION_UNSUPPORTED/);
+  assert.match(sys,/autonomous_system_write',false/);
+  assert.match(sys,/run_core_runtime_minute_v6/);
+  assert.match(sys,/command=>'select portal_private\.run_core_runtime_minute_v6\(\);'/);
+  assert.match(executor,/rona_ai_executor_claim_v2/);
+  assert.match(executor,/rona_ai_executor_issue_read_token_v2/);
+  assert.match(executor,/rona_ai_executor_commit_system_action_v1/);
+});
