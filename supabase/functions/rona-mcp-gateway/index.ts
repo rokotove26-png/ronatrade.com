@@ -133,7 +133,7 @@ function cloneHeaders(headers) {
   const out = new Headers(headers);
   out.set("cache-control", "no-store, no-cache, must-revalidate");
   out.set("pragma", "no-cache");
-  out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V2");
+  out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V3");
   out.set("x-rona-coordination-contract", "RONA_CROSS_ROLE_COORDINATION_V1");
   return out;
 }
@@ -449,7 +449,7 @@ async function compactCurrentStateResponse(res) {
   const body = JSON.stringify(envelope);
   if (encoder.encode(body).length > 24000) {
     console.error("role state v2 response budget exceeded");
-    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V2_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V3_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
   }
   return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
