@@ -140,8 +140,7 @@ begin
     'worker_version', 'CORE_RUNTIME_MINUTE_V1'
   );
 end
-$function$
-
+$function$;
 
 comment on function portal_private.run_core_runtime_minute_v1()
   is 'Core runtime minute worker. Stage2: SLA escalation enqueue is gated to 5-minute cadence; all other minute duties remain unchanged.';
