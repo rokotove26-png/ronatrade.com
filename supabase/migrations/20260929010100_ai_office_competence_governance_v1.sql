@@ -117,7 +117,7 @@ select
   'GLOBAL_'||r.role_name||'_ROLE',
   false,
   'OWNER_INSTRUCTION',
-  'OWNER_INSTRUCTION:2026-09-29:RONA_AI_OFFICE_STANDING_GOVERNANCE_V1',
+  'OWNER_INSTRUCTION:2026-09-29:RONA_AI_OFFICE_STANDING_GOVERNANCE_V1:'||r.role_name,
   clock_timestamp(),
   null,
   jsonb_build_object(
@@ -127,6 +127,7 @@ select
     'scope','GLOBAL_'||r.role_name||'_ROLE',
     'task_scoped',false,
     'authority','OWNER_INSTRUCTION',
+    'owner_instruction_family','OWNER_INSTRUCTION:2026-09-29:RONA_AI_OFFICE_STANDING_GOVERNANCE_V1',
     'rules',jsonb_build_object(
       'CURRENT_STATE_FIRST',true,
       'COMPETENCE_GATE','MANDATORY_BEFORE_ACCEPTING_OWNER_TASK',
