@@ -88,6 +88,7 @@ export async function buildOperationsCenter(sql) {
            ai_materialized,human_materialized,staff_materialized,handoff_target_enabled,
            legacy_alias_of,entity_scopes,source_ref,updated_at
     from portal_private.ai_role_authority_registry_v2
+    where role_key not in ('ACCOUNTING','EXECUTIVE_DIRECTOR')
     order by role_key`;
 
   const dependencyRows = await sql`
