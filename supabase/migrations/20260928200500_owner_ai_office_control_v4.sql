@@ -468,10 +468,11 @@ begin
       'select portal_private.run_core_runtime_minute_v5();'
     );
   else
-    update cron.job
-    set command='select portal_private.run_core_runtime_minute_v5();',
-        active=true
-    where jobid=v_jobid;
+    perform cron.alter_job(
+      v_jobid,
+      command => 'select portal_private.run_core_runtime_minute_v5();',
+      active => true
+    );
   end if;
 end
 $do$;
