@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const migrationPath = path.resolve(__dirname, '../../supabase/migrations/20260928191800_admin_private_rls_hardening_v1.sql');
+const migrationPath = path.resolve(__dirname, '../../supabase/migrations/20260928151912_admin_private_rls_hardening_v1.sql');
 const sql = fs.readFileSync(migrationPath, 'utf8');
 
 const tables = [
@@ -17,13 +17,13 @@ const tables = [
 
 test('all four Admin-private tables enable RLS', () => {
   for (const table of tables) {
-    assert.match(sql, new RegExp(`alter table portal_private\\.${table} enable row level security`, 'i'));
+    assert.match(sql, new RegExp(`alter table portal_private\\\\.${table} enable row level security`, 'i'));
   }
 });
 
 test('direct client/API roles retain zero table grants', () => {
   for (const table of tables) {
-    assert.match(sql, new RegExp(`revoke all on portal_private\\.${table} from public, anon, authenticated, service_role`, 'i'));
+    assert.match(sql, new RegExp(`revoke all on portal_private\\\\.${table} from public, anon, authenticated, service_role`, 'i'));
   }
 });
 
