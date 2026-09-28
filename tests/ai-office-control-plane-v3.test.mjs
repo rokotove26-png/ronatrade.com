@@ -29,7 +29,8 @@ test('dependency materializer is source-locked and non-business-mutating',()=>{
 test('core runtime integrates dependency materialization without new cron fanout',()=>{
   assert.match(migration,/run_core_runtime_minute_v5/);
   assert.match(migration,/FIVE_MINUTE_CORE_GATE/);
-  assert.match(migration,/set command='select portal_private\.run_core_runtime_minute_v5\(\);'/);
+  assert.match(migration,/cron\.alter_job/);
+  assert.match(migration,/run_core_runtime_minute_v5/);
 });
 
 test('rollback returns core runtime to v4 and removes v3-only objects',()=>{
