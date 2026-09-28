@@ -133,7 +133,7 @@ function cloneHeaders(headers) {
   const out = new Headers(headers);
   out.set("cache-control", "no-store, no-cache, must-revalidate");
   out.set("pragma", "no-cache");
-  out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V3");
+  out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V4");
   out.set("x-rona-coordination-contract", "RONA_CROSS_ROLE_COORDINATION_V1");
   return out;
 }
@@ -415,8 +415,8 @@ async function augmentToolsListResponse(res, ctx) {
   if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
 
   try {
-    const routing = await sql`select portal_private.ai_role_routing_contract_v2() as data`;
-    const targets = routing[0]?.data?.canonical_handoff_targets;
+    const routing = await sql`select portal_private.ai_role_routing_contract_v3() as data`;
+    const targets = routing[0]?.data?.canonical_ai_handoff_targets;
     const handoff = tools.find(t => t?.name === "handoff_request_submit");
     if (handoff?.inputSchema?.properties?.target_role && Array.isArray(targets) && targets.length) {
       handoff.inputSchema.properties.target_role.enum = targets;
@@ -441,15 +441,15 @@ async function compactCurrentStateResponse(res) {
   try { toolPayload = JSON.parse(content[0].text); } catch { return res; }
   if (toolPayload?.ok !== true || typeof toolPayload?.role !== "string") return res;
   let rows;
-  try { rows = await sql`select portal_private.ai_role_state_current_v3(${toolPayload.role}::portal_private.ai_business_role_enum, 10, 20) as data`; }
-  catch (e) { console.error("role state v3 projection failed", String(e?.message || e)); return res; }
+  try { rows = await sql`select portal_private.ai_role_state_current_v4(${toolPayload.role}::portal_private.ai_business_role_enum, 10, 20) as data`; }
+  catch (e) { console.error("role state v4 projection failed", String(e?.message || e)); return res; }
   if (!rows?.[0]?.data) return res;
   toolPayload.data = rows[0].data;
   content[0].text = JSON.stringify(toolPayload);
   const body = JSON.stringify(envelope);
   if (encoder.encode(body).length > 24000) {
     console.error("role state v2 response budget exceeded");
-    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V3_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V4_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
   }
   return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
