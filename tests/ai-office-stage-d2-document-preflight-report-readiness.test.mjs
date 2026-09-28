@@ -8,7 +8,7 @@ const rollback=readFileSync(new URL('../supabase/rollback/20260929010800_documen
 test('Stage D.2 document generation is fail-closed on active V2 and exact Stage D.1 asset preflight',()=>{
   assert.match(migration,/owner_document_generation_preflight_v1/);
   assert.match(migration,/owner_document_standard_v2_preflight_v1\(\)/);
-  assert.match(migration,/select \\*\\s+into v_standard[\\s\\S]{0,160}owner_canonical_document_standards/);
+  assert.match(migration,/select \*\s+into v_standard[\s\S]{0,160}owner_canonical_document_standards/);
   assert.match(migration,/ACTIVE_DOCUMENT_STANDARD_NOT_V2/);
   assert.match(migration,/CANONICAL_ASSET_PREFLIGHT_NOT_READY/);
   assert.match(migration,/CANONICAL_ASSET_SET_INCOMPLETE/);
