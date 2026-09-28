@@ -15,7 +15,7 @@ test('human topology is owner plus treasury only',()=>{
 
 test('technical staff role taxonomy is explicitly not human headcount',()=>{
   assert.match(migration,/TECHNICAL_ROLE_TAXONOMY_NOT_HUMAN_HEADCOUNT/);
-  assert.match(migration,/staff_materialized.*does NOT mean a human employee exists/i);
+  assert.match(migration,/staff_materialized[\s\S]*does NOT mean a human employee exists/i);
 });
 
 test('dependency materializer is source-locked and non-business-mutating',()=>{
