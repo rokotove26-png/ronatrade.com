@@ -35,6 +35,18 @@ const COORDINATION_DETAIL_TOOL = {
   },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
+const GLOBAL_POLICY_DETAIL_TOOL = {
+  name: "global_policy_detail",
+  title: "Детали глобальной политики",
+  description: "Получить полный payload одной текущей глобальной политики фиксированной AI-роли по policy_id. Используется, когда current_state возвращает компактный policy manifest.",
+  inputSchema: {
+    type: "object",
+    properties: { policy_id: { type: "string", minLength: 1, maxLength: 200 } },
+    required: ["policy_id"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
 const EXCEPTION_COCKPIT_TOOL = {
   name: "exception_cockpit",
   title: "Операционные исключения",
@@ -133,7 +145,7 @@ function cloneHeaders(headers) {
   const out = new Headers(headers);
   out.set("cache-control", "no-store, no-cache, must-revalidate");
   out.set("pragma", "no-cache");
-  out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V3");
+  out.set("x-rona-role-state-contract", "RONA_ROLE_STATE_RECOVERY_V4");
   out.set("x-rona-coordination-contract", "RONA_CROSS_ROLE_COORDINATION_V1");
   return out;
 }
@@ -287,6 +299,36 @@ async function createCrossRoleHandoff(ctx, req, msg, normalized) {
   await coordAudit(ctx, ids, "handoff_request_submit", { targetType: normalized.type, targetId: normalized.id, idemHash, payloadHash, result: "SUCCESS", record: inserted, metadata: { notification_only: true, authority_granted: false, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" } });
   return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, record_id: inserted.record_id, record_type: inserted.record_type, status: inserted.status, version: inserted.version, idempotent_replay: false, notification_only: true, authority_granted: false });
 }
+async function globalPolicyDetail(ctx, req, msg) {
+  const ids = requestIds(req);
+  if (!await rateAllowed(ctx)) return null;
+  const args = msg?.params?.arguments ?? {};
+  const policyId = cleanText(args?.policy_id, 200);
+  if (!policyId || Object.keys(args || {}).some(k => k !== "policy_id")) {
+    await recordMcpEvent(ctx, ids, "global_policy_detail", "DENIED", 200, { code: "INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok: false, code: "INVALID_ARGUMENTS", status: 403 }, true);
+  }
+  const rows = await sql`
+    select x.item as data
+    from jsonb_array_elements(
+      portal_private.ai_role_global_policies_current_v1(${ctx.role}::portal_private.ai_business_role_enum)
+    ) x(item)
+    where x.item->>'policy_id'=${policyId}
+    limit 1`;
+  if (rows.length !== 1) {
+    await recordMcpEvent(ctx, ids, "global_policy_detail", "DENIED", 200, { code: "GLOBAL_POLICY_NOT_CURRENT_OR_NOT_VISIBLE", policy_id: policyId });
+    return rpcToolResponse(msg.id, { ok: false, code: "GLOBAL_POLICY_NOT_CURRENT_OR_NOT_VISIBLE", status: 404 }, true);
+  }
+  await recordMcpEvent(ctx, ids, "global_policy_detail", "SUCCESS", 200, { policy_id: policyId });
+  return rpcToolResponse(msg.id, {
+    ok: true,
+    role: ctx.role,
+    identity_id: ctx.identity_id,
+    correlation_id: ids.correlationId,
+    data: rows[0].data
+  });
+}
+
 async function exceptionCockpit(ctx, req, msg) {
   const ids = requestIds(req);
   if (!await rateAllowed(ctx)) return null;
@@ -412,11 +454,12 @@ async function augmentToolsListResponse(res, ctx) {
   const tools = envelope?.result?.tools;
   if (!Array.isArray(tools)) return res;
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
+  if (!tools.some(t => t?.name === "global_policy_detail")) tools.push(GLOBAL_POLICY_DETAIL_TOOL);
   if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
 
   try {
-    const routing = await sql`select portal_private.ai_role_routing_contract_v2() as data`;
-    const targets = routing[0]?.data?.canonical_handoff_targets;
+    const routing = await sql`select portal_private.ai_role_routing_contract_v3() as data`;
+    const targets = routing[0]?.data?.canonical_ai_handoff_targets;
     const handoff = tools.find(t => t?.name === "handoff_request_submit");
     if (handoff?.inputSchema?.properties?.target_role && Array.isArray(targets) && targets.length) {
       handoff.inputSchema.properties.target_role.enum = targets;
@@ -441,25 +484,71 @@ async function compactCurrentStateResponse(res) {
   try { toolPayload = JSON.parse(content[0].text); } catch { return res; }
   if (toolPayload?.ok !== true || typeof toolPayload?.role !== "string") return res;
   let rows;
-  try { rows = await sql`select portal_private.ai_role_state_current_v3(${toolPayload.role}::portal_private.ai_business_role_enum, 10, 20) as data`; }
-  catch (e) { console.error("role state v3 projection failed", String(e?.message || e)); return res; }
+  try { rows = await sql`select portal_private.ai_role_state_current_v4(${toolPayload.role}::portal_private.ai_business_role_enum, 10, 20) as data`; }
+  catch (e) { console.error("role state v4 projection failed", String(e?.message || e)); return res; }
   if (!rows?.[0]?.data) return res;
   toolPayload.data = rows[0].data;
-  content[0].text = JSON.stringify(toolPayload);
-  const body = JSON.stringify(envelope);
+
+  let body = JSON.stringify(envelope);
   if (encoder.encode(body).length > 24000) {
-    console.error("role state v2 response budget exceeded");
-    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V3_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
+    const data = toolPayload.data && typeof toolPayload.data === "object" ? toolPayload.data : {};
+    const policies = Array.isArray(data.global_role_policies) ? data.global_role_policies : [];
+    data.global_role_policies = policies.map(p => ({
+      policy_id: p?.policy_id ?? p?.policy?.policy_id ?? null,
+      policy_key: p?.policy_key ?? p?.policy?.policy_key ?? null,
+      version: p?.version ?? p?.policy?.version ?? null,
+      effective_at: p?.effective_at ?? null,
+      authority_kind: p?.authority_kind ?? null,
+      owner_instruction_ref: p?.owner_instruction_ref ?? null,
+      scope: p?.scope ?? p?.policy?.scope ?? null,
+      task_scoped: p?.task_scoped ?? p?.policy?.task_scoped ?? false,
+      detail_required: true
+    }));
+    data.bootstrap = {
+      ...(data.bootstrap || {}),
+      global_policy_details_embedded: false,
+      global_policy_detail_tool: "global_policy_detail",
+      global_policy_detail_required_before_task: policies.length > 0,
+      procedure: [
+        "READ_THIS_COMPACT_STATE",
+        "READ_GLOBAL_ROLE_POLICY_MANIFEST",
+        "READ_EACH_GLOBAL_POLICY_DETAIL_BY_ID",
+        "APPLY_GLOBAL_ROLE_POLICIES_BEFORE_ACTIVE_TASK",
+        "CONTINUE_FROM_LAST_CONFIRMED_CHECKPOINT",
+        "DRILL_DOWN_ONLY_ACTIVE_OBJECTS",
+        "NEVER_RECONSTRUCT_FROM_CHAT_MEMORY_IF_CANONICAL_STATE_EXISTS"
+      ]
+    };
+    if (data.coordination?.records && Array.isArray(data.coordination.records) && data.coordination.records.length > 10) {
+      data.coordination.records = data.coordination.records.slice(0, 10);
+      data.coordination.max_records = 10;
+      data.coordination.response_compacted = true;
+    }
+    toolPayload.data = data;
+    content[0].text = JSON.stringify(toolPayload);
+    body = JSON.stringify(envelope);
+  } else {
+    content[0].text = JSON.stringify(toolPayload);
+    body = JSON.stringify(envelope);
+  }
+
+  if (encoder.encode(body).length > 24000) {
+    console.error("role state v4 response budget exceeded after compaction");
+    return new Response(JSON.stringify({ jsonrpc: "2.0", id: envelope?.id ?? null, error: { code: -32603, message: "ROLE_STATE_V4_RESPONSE_BUDGET_EXCEEDED" } }), { status: 500, headers: cloneHeaders(res.headers) });
   }
   return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
 async function wrappedRequest(handler, req) {
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || ["handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || ["handoff_request_submit","coordination_detail","global_policy_detail","exception_cockpit","task_complete","task_close"].includes(name);
   const ctx = needsCtx ? await authContext(req) : null;
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
+    if (direct) return direct;
+  }
+  if (name === "global_policy_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
+    const direct = await globalPolicyDetail(ctx, req, msg);
     if (direct) return direct;
   }
   if (name === "exception_cockpit" && ctx && scopeHas(ctx.scope, "mcp:read")) {
