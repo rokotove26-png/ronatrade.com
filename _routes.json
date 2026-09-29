@@ -21,7 +21,8 @@
     "/market-analyst-pilot/*",
     "/rail-logistics/*",
     "/rail-logistics-pilot/*",
-    "/system-admin/*"
+    "/system-admin/*",
+    "/system-admin-pilot/*"
   ],
   "exclude": [
     "/assets/*",
