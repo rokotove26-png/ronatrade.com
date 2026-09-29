@@ -193,6 +193,12 @@ export async function proxyRoleRequest(context,segment){
   const path=pathname.slice(prefix.length)||'/';
   if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));
   if(path==='/mcp'&&request.method!=='POST'){
+    if(request.method==='GET'&&segment==='system-admin-pilot'){
+      return json({error:'invalid_token'},401,{
+        'www-authenticate':`Bearer resource_metadata="${protectedMetadataUrl(segment)}", scope="${challengeScope(segment)}"`,
+        ...corsFor(request),
+      });
+    }
     if(request.method==='GET')return json({error:'SSE_NOT_SUPPORTED'},405,{allow:'POST, OPTIONS',...corsFor(request)});
     return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'POST, OPTIONS',...corsFor(request)});
   }
