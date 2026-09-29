@@ -133,7 +133,7 @@ if(primaryTechnicalAdmin(cfg)){
   });
 }
 return common;}
-function toolsFor(cfg,auth){return [...readTools(cfg),...(auth&&coordinationEnabled(cfg)&&scopeHas(auth.scope,'mcp:coordinate')?writeTools(cfg):[])];}
+function toolsFor(cfg,auth){return [...readTools(cfg),...(auth&&coordinationEnabled(cfg)&&(primaryTechnicalAdmin(cfg)||scopeHas(auth.scope,'mcp:coordinate'))?writeTools(cfg):[])];}
 
 const COMMERCIAL_MAILBOX='analyst@ronaoil.com';
 const OPERATIONS_MAILBOX='exec_director@ronaoil.com';

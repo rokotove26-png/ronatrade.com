@@ -16,7 +16,7 @@ const primary={server_slug:'rona-mcp-system-admin',business_role:'SYSTEM_ADMIN',
 base.c.cfg=primary;
 assert.equal(base.run('coordinationEnabled(cfg)'),true);
 assert.deepEqual(Array.from(base.run('gatewayScopes(cfg.server_slug)')),['mcp:read','mcp:coordinate','offline_access']);
-assert.equal(base.run("toolsFor(cfg,{scope:'mcp:read'}).filter(t=>!t.annotations.readOnlyHint).length"),0);
+assert.equal(base.run("toolsFor(cfg,{scope:'mcp:read'}).filter(t=>!t.annotations.readOnlyHint).length"),4);
 assert.deepEqual(Array.from(base.run("toolsFor(cfg,{scope:'mcp:read mcp:coordinate'}).filter(t=>!t.annotations.readOnlyHint).map(t=>t.name)")),['task_acknowledge','task_progress_submit','functional_conclusion_submit','handoff_request_submit']);
 for(const [slug,role,identity] of [['rona-mcp-finance-pilot','FINANCE','AI-FINANCE'],['rona-mcp-finance','FINANCE','AI-FINANCE']]){
  base.c.cfg={server_slug:slug,business_role:role,identity_id:identity};original.c.cfg=base.c.cfg;
@@ -25,7 +25,7 @@ for(const [slug,role,identity] of [['rona-mcp-finance-pilot','FINANCE','AI-FINAN
 base.c.cfg={...primary,server_slug:'rona-mcp-system-admin-pilot'};
 const pilotTools=Array.from(base.run("toolsFor(cfg,{scope:'mcp:read mcp:coordinate'}).filter(t=>!t.annotations.readOnlyHint).map(t=>t.name)"));
 assert.deepEqual(pilotTools,['task_acknowledge','task_progress_submit','functional_conclusion_submit','handoff_request_submit']);
-assert.equal(base.run("toolsFor(cfg,{scope:'mcp:read'}).filter(t=>!t.annotations.readOnlyHint).length"),0);
+assert.equal(base.run("toolsFor(cfg,{scope:'mcp:read'}).filter(t=>!t.annotations.readOnlyHint).length"),4);
 base.c.cfg={...primary,identity_id:'AI-FINANCE'};
 assert.equal(base.run('coordinationEnabled(cfg)'),false);
 base.c.cfg=primary;

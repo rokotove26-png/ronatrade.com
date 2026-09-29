@@ -609,7 +609,7 @@ async function augmentToolsListResponse(res, ctx) {
     handoff.inputSchema.properties.target_role.enum = [...CANONICAL_AI_HANDOFF_TARGETS];
   }
 
-  if (ctx && scopeHas(ctx.scope,"mcp:coordinate") && coordinateContext(ctx)) {
+  if (ctx && coordinateContext(ctx) && (primaryTechnicalCtx(ctx) || scopeHas(ctx.scope,"mcp:coordinate"))) {
     if (!tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
     if (["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role) && !tools.some(t => t?.name === "task_close")) tools.push(TASK_CLOSE_TOOL);
   }
