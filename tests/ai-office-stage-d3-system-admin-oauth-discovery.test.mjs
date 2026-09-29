@@ -42,3 +42,20 @@ test('Tool catalog declares per-tool OAuth security schemes',()=>{
   assert.match(gateway,/readOnly \? \["mcp:read"\] : \["mcp:coordinate"\]/);
   assert.match(gateway,/addOAuthSecuritySchemesResponse/);
 });
+
+
+test('public Cloudflare transport exposes SYSTEM_ADMIN Pilot OAuth discovery',()=>{
+  const routes=readFileSync(new URL('../_routes.json',import.meta.url),'utf8');
+  const transport=readFileSync(new URL('../functions/_mcp_transport.js',import.meta.url),'utf8');
+  const pilot=readFileSync(new URL('../functions/system-admin-pilot/[[path]].js',import.meta.url),'utf8');
+  const build=readFileSync(new URL('../scripts/admin-payments-v7-cloudflare-build.mjs',import.meta.url),'utf8');
+  assert.match(routes,/\/system-admin-pilot\/\*/);
+  assert.match(transport,/system-admin-pilot/);
+  assert.match(transport,/COORDINATE_SEGMENTS[\s\S]{0,300}system-admin-pilot/);
+  assert.match(transport,/oauth-protected-resource[\s\S]{0,500}system-admin-pilot/);
+  assert.match(transport,/oauth-authorization-server[\s\S]{0,500}system-admin-pilot/);
+  assert.match(pilot,/proxyOAuthTokenIfApplicable\(context,'system-admin-pilot'\)/);
+  assert.match(pilot,/proxyBoundRoleRequest\(context,'system-admin-pilot'\)/);
+  assert.match(build,/MCP_OAUTH_COMPATIBILITY_OVERRIDES/);
+  assert.match(build,/SYSTEM_ADMIN_PILOT_PUBLIC_OAUTH_DISCOVERY=READY/);
+});
