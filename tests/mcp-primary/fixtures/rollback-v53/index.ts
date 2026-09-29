@@ -615,35 +615,7 @@ async function augmentToolsListResponse(res, ctx) {
   }
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
-function executionRecovery(data, ctx) {
-  const coordinate = scopeHas(ctx.scope, "mcp:coordinate");
-  const records = Array.isArray(data.coordination?.records) ? data.coordination.records : [];
-  const tasks = Array.isArray(data.active_tasks) ? data.active_tasks : [];
-  return {
-    contract: "RONA_SYSTEM_ADMIN_EXECUTION_RECOVERY_V1",
-    authority_sources: ["global_role_policies", "competence_contract"],
-    transport: { server_slug: ctx.server_slug, functional_role: ctx.role, identity_id: ctx.identity_id, scope: ctx.scope },
-    write_scope_granted: coordinate,
-    write_tools: coordinate ? ["task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete","task_close"] : [],
-    active_task_ids: tasks.map(t => t.task_id || t.id).filter(Boolean),
-    checkpoint_is_historical: true,
-    latest_coordination_record_id: records[0]?.record_id || null,
-    incoming_handoff_record_ids: records.filter(r => r.record_type === "HANDOFF_REQUEST" && r.target_role === ctx.role && r.status === "REQUESTED").map(r => r.record_id),
-    resume_procedure: [
-      "Apply canonical policies and competence gate to the current owner instruction.",
-      "Read coordination_detail for the latest relevant record before reconstructing work from an older checkpoint.",
-      "An empty active_tasks list is not a blocker to an authorized owner instruction. Do not invent a task_id.",
-      "For an assigned task acknowledge then execute and record evidence-backed progress; apply existing terminal gates.",
-      "For technical SYSTEM work without a task_id execute authorized checks and persist an evidence-backed functional conclusion.",
-      "Keep HOLD work on HOLD until its existing gate is satisfied; do not turn historical pending_actions into new authorization.",
-      "After an instruction to execute, perform the next available tool action in the same turn. Report actual result or a specific blocker, not readiness or a repeated plan.",
-      "Do not claim verification or mutation without a tool result. Tool availability is not proof of execution.",
-      "Chat execution is interactive. A 15-minute heartbeat or event-driven worker requires separately verified deployed runtime."
-    ]
-  };
-}
-
-async function compactCurrentStateResponse(res, ctx) {
+async function compactCurrentStateResponse(res) {
   if (!res.ok) return res;
   let envelope;
   try { envelope = await res.clone().json(); } catch { return res; }
@@ -683,7 +655,6 @@ async function compactCurrentStateResponse(res, ctx) {
     canonical_role_topology: "OWNER_INSTRUCTION:2026-09-28:CANONICAL_AI_ROLE_TOPOLOGY_V2",
     nonexistent_roles: nonexistentRoles,
   };
-  if (ctx && primaryTechnicalCtx(ctx)) data.execution_recovery = executionRecovery(data, ctx);
   toolPayload.data = data;
   content[0].text = JSON.stringify(toolPayload);
   const body = JSON.stringify(envelope);
@@ -709,7 +680,7 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || ["current_state","handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || ["handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
   const ctx = needsCtx ? await authContext(req) : null;
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
@@ -746,7 +717,7 @@ async function wrappedRequest(handler, req) {
     res = await financeHooks.toolsList(req, res);
     res = await addOAuthSecuritySchemesResponse(res);
   }
-  if (name === "current_state") res = await compactCurrentStateResponse(res, ctx);
+  if (name === "current_state") res = await compactCurrentStateResponse(res);
   return res;
 }
 
