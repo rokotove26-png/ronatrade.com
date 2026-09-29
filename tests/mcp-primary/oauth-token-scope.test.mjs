@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import {readFileSync} from 'node:fs';
+const source=readFileSync(new URL('../../supabase/functions/rona-mcp-oauth-token/index.js',import.meta.url),'utf8');
+const declarations=source.match(/const COORDINATE_PILOT_SLUGS=.*?;/)[0]+'\n'+source.match(/function scopeAllowed\(cfg,scope\)\{[^\n]+/)[0];
+const allowed=vm.runInNewContext(declarations+';scopeAllowed');
+const primary={server_slug:'rona-mcp-system-admin',business_role:'SYSTEM_ADMIN',identity_id:'AI-SYSTEM-ADMIN'};
+assert.equal(allowed(primary,'mcp:read mcp:coordinate'),true);
+assert.equal(allowed({...primary,identity_id:'OTHER'},'mcp:read mcp:coordinate'),false);
+assert.equal(allowed({...primary,business_role:'FINANCE'},'mcp:read mcp:coordinate'),false);
+assert.equal(allowed({server_slug:'rona-mcp-finance'},'mcp:read mcp:coordinate'),false);
+assert.equal(allowed({server_slug:'rona-mcp-finance-pilot'},'mcp:read mcp:coordinate'),true);
+assert.equal(allowed({server_slug:'rona-mcp-system-admin-pilot'},'mcp:read mcp:coordinate'),true);
+assert.equal(allowed({...primary,identity_id:'OTHER'},'mcp:read'),true);
+console.log('PASS: token scope identity/role and existing pilot/read regressions');

@@ -1,4 +1,3 @@
-import { SYSTEM_ADMIN_DETAIL_TOOLS, createSystemAdminDetails } from "./system-admin-details.mjs";
 import postgres from "npm:postgres@3.4.7";
 import { createFinancePaymentsV7NativeHooks } from "./finance-payments-v7-extension.mjs";
 
@@ -30,11 +29,8 @@ function roleSegmentFromRequest(req) {
   const first = rest.split("/")[0] || "";
   return MCP_ROLE_SEGMENTS.has(first) ? first : null;
 }
-function coordinateSegment(segment) { return segment === "system-admin" || String(segment || "").endsWith("-pilot"); }
-function primaryTechnicalCtx(ctx) { return ["rona-mcp-system-admin","rona-mcp-system-admin-pilot"].includes(ctx?.server_slug) && ctx?.role === "SYSTEM_ADMIN" && ctx?.identity_id === "AI-SYSTEM-ADMIN"; }
-function coordinateContext(ctx) { return primaryTechnicalCtx(ctx) || String(ctx?.server_slug || "").endsWith("-pilot"); }
 function oauthScopesForSegment(segment) {
-  return coordinateSegment(segment)
+  return String(segment || "").endsWith("-pilot")
     ? ["mcp:read","mcp:coordinate","offline_access"]
     : ["mcp:read","offline_access"];
 }
@@ -107,7 +103,7 @@ function oauthDiscoveryResponse(req) {
   return null;
 }
 function oauthUnauthorizedResponse(segment) {
-  const scope = coordinateSegment(segment)
+  const scope = String(segment || "").endsWith("-pilot")
     ? "mcp:read mcp:coordinate"
     : "mcp:read";
   return new Response(JSON.stringify({ error: "invalid_token" }), {
@@ -124,7 +120,7 @@ function oauthUnauthorizedResponse(segment) {
 function normalizeOauthChallenge(res, segment) {
   if (!segment || res.status !== 401) return res;
   const headers = cloneHeaders(res.headers);
-  const scope = coordinateSegment(segment) ? "mcp:read mcp:coordinate" : "mcp:read";
+  const scope = segment.endsWith("-pilot") ? "mcp:read mcp:coordinate" : "mcp:read";
   headers.set(
     "www-authenticate",
     `Bearer resource_metadata="${publicRoleBase(segment)}/.well-known/oauth-protected-resource", scope="${scope}"`,
@@ -347,8 +343,8 @@ async function entityExists(type, id) {
   }
 }
 function syntacticallyValidCrossRoleHandoff(ctx, args) {
-  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !coordinateContext(ctx)) return null;
-  if ((!BUSINESS_ROLES.has(ctx.role) && !primaryTechnicalCtx(ctx)) || !args || typeof args !== "object" || Array.isArray(args)) return null;
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !String(ctx.server_slug || "").endsWith("-pilot")) return null;
+  if (!BUSINESS_ROLES.has(ctx.role) || !args || typeof args !== "object" || Array.isArray(args)) return null;
   if (Object.keys(args).some(k => !HANDOFF_KEYS.has(k) || FORBIDDEN_ROLE_KEYS.has(k))) return null;
   const targetRole = String(args.target_role || "");
   const type = String(args.entity_type || "").toUpperCase();
@@ -361,7 +357,7 @@ function syntacticallyValidCrossRoleHandoff(ctx, args) {
   const idem = typeof args.idempotency_key === "string" && IDEMPOTENCY_RE.test(args.idempotency_key) ? args.idempotency_key : null;
   if (!BUSINESS_ROLES.has(targetRole) || !CANONICAL_AI_HANDOFF_TARGET_SET.has(targetRole) || !id || !subject || !check || !reason || !["LOW","NORMAL","HIGH","CRITICAL"].includes(priority) || !refs || !idem) return null;
   if (!roleCanUseEntity(ctx.role, type)) return null;
-  if (!primaryTechnicalCtx(ctx) && roleCanUseEntity(targetRole, type)) return null;
+  if (roleCanUseEntity(targetRole, type)) return null;
   return { targetRole, type, id, subject, check, reason, priority, refs, idem };
 }
 async function createCrossRoleHandoff(ctx, req, msg, normalized) {
@@ -371,13 +367,6 @@ async function createCrossRoleHandoff(ctx, req, msg, normalized) {
     await recordMcpEvent(ctx, ids, "handoff_request_submit", "DENIED", 200, { code: "TARGET_NOT_FOUND_OR_OUT_OF_SCOPE", coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
     await coordAudit(ctx, ids, "handoff_request_submit", { targetType: normalized.type, targetId: normalized.id, result: "DENIED", denialCode: "TARGET_NOT_FOUND_OR_OUT_OF_SCOPE", metadata: { coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" } });
     return rpcToolResponse(msg.id, { ok: false, code: "TARGET_NOT_FOUND_OR_OUT_OF_SCOPE", status: 403 }, true);
-  }
-  if (primaryTechnicalCtx(ctx) && normalized.type === "TASK") {
-    const rows = await sql`select assigned_functional_role::text as assigned_role,authority_domain from portal_private.staff_tasks where task_id=${normalized.id} limit 1`;
-    if (rows.length !== 1 || rows[0].assigned_role !== "SYSTEM_ADMIN" || !["TECHNICAL","SYSTEM","SECURITY"].includes(String(rows[0].authority_domain).toUpperCase())) {
-      await recordMcpEvent(ctx, ids, "handoff_request_submit", "DENIED", 200, { code: "TASK_ROLE_SCOPE_DENIED" });
-      return rpcToolResponse(msg.id, { ok: false, code: "TASK_ROLE_SCOPE_DENIED", status: 403 }, true);
-    }
   }
   const payload = { target_role: normalized.targetRole, entity_type: normalized.type, entity_id: normalized.id, subject: normalized.subject, requested_check: normalized.check, reason: normalized.reason, priority: normalized.priority, source_refs: normalized.refs, idempotency_key: normalized.idem };
   const idemHash = await sha256Hex(normalized.idem);
@@ -434,7 +423,7 @@ async function taskTerminalAction(ctx, req, msg, terminalStatus) {
   const ids = requestIds(req);
   const tool = terminalStatus === "COMPLETED" ? "task_complete" : "task_close";
   if (!await rateAllowed(ctx)) return null;
-  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !coordinateContext(ctx)) return null;
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !String(ctx.server_slug || "").endsWith("-pilot")) return null;
   const args = msg?.params?.arguments ?? {};
   const allowed = terminalStatus === "COMPLETED"
     ? new Set(["task_id","conclusion_record_id","note","evidence_refs","idempotency_key"])
@@ -460,7 +449,7 @@ async function taskTerminalAction(ctx, req, msg, terminalStatus) {
     return rpcToolResponse(msg.id, { ok: false, code: "TASK_CLOSE_ROLE_DENIED", status: 403 }, true);
   }
   const taskRows = await sql`select task_id,status::text,assigned_functional_role::text as assigned_role,authority_domain from portal_private.staff_tasks where task_id=${taskId} and qa_only=false limit 1`;
-  if (taskRows.length !== 1 || taskRows[0].assigned_role !== ctx.role || (primaryTechnicalCtx(ctx) && !["TECHNICAL","SYSTEM","SECURITY"].includes(String(taskRows[0].authority_domain).toUpperCase()))) {
+  if (taskRows.length !== 1 || taskRows[0].assigned_role !== ctx.role) {
     await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "TASK_NOT_ASSIGNED_TO_ROLE" });
     return rpcToolResponse(msg.id, { ok: false, code: "TASK_NOT_ASSIGNED_TO_ROLE", status: 403 }, true);
   }
@@ -533,7 +522,7 @@ async function coordinationDetail(ctx, req, msg) {
     return rpcToolResponse(msg.id, { ok: false, code: "COORDINATION_RECORD_NOT_VISIBLE", status: 403 }, true);
   }
   await recordMcpEvent(ctx, ids, "coordination_detail", "SUCCESS", 200, { coordination_record_id: recordId, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
-  return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: primaryTechnicalCtx(ctx) ? { ...rows[0], type: rows[0].record_type, owner: rows[0].payload?.owner ?? null, gate: rows[0].payload?.gate ?? null, dependency: rows[0].payload?.dependency ?? null, required_action: rows[0].payload?.required_action ?? rows[0].payload?.requested_check ?? rows[0].payload?.recommendation ?? null } : rows[0] });
+  return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: rows[0] });
 }
 function addOAuthSecuritySchemesToTools(envelope) {
   const tools = envelope?.result?.tools;
@@ -605,50 +594,18 @@ async function augmentToolsListResponse(res, ctx) {
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
   if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
 
-  if (ctx && primaryTechnicalCtx(ctx) && scopeHas(ctx.scope, "mcp:read")) {
-    for (const tool of SYSTEM_ADMIN_DETAIL_TOOLS) if (!tools.some(t => t?.name === tool.name)) tools.push(tool);
-  }
-
   const handoff = tools.find(t => t?.name === "handoff_request_submit");
   if (handoff?.inputSchema?.properties?.target_role) {
     handoff.inputSchema.properties.target_role.enum = [...CANONICAL_AI_HANDOFF_TARGETS];
   }
 
-  if (ctx && coordinateContext(ctx) && (primaryTechnicalCtx(ctx) || scopeHas(ctx.scope,"mcp:coordinate"))) {
+  if (ctx && scopeHas(ctx.scope,"mcp:coordinate") && String(ctx.server_slug || "").endsWith("-pilot")) {
     if (!tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
     if (["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role) && !tools.some(t => t?.name === "task_close")) tools.push(TASK_CLOSE_TOOL);
   }
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
-function executionRecovery(data, ctx) {
-  const coordinate = scopeHas(ctx.scope, "mcp:coordinate");
-  const records = Array.isArray(data.coordination?.records) ? data.coordination.records : [];
-  const tasks = Array.isArray(data.active_tasks) ? data.active_tasks : [];
-  return {
-    contract: "RONA_SYSTEM_ADMIN_EXECUTION_RECOVERY_V1",
-    authority_sources: ["global_role_policies", "competence_contract"],
-    transport: { server_slug: ctx.server_slug, functional_role: ctx.role, identity_id: ctx.identity_id, scope: ctx.scope },
-    write_scope_granted: coordinate,
-    write_tools: coordinate ? ["task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete","task_close"] : [],
-    active_task_ids: tasks.map(t => t.task_id || t.id).filter(Boolean),
-    checkpoint_is_historical: true,
-    latest_coordination_record_id: records[0]?.record_id || null,
-    incoming_handoff_record_ids: records.filter(r => r.record_type === "HANDOFF_REQUEST" && r.target_role === ctx.role && r.status === "REQUESTED").map(r => r.record_id),
-    resume_procedure: [
-      "Apply canonical policies and competence gate to the current owner instruction.",
-      "Read coordination_detail for the latest relevant record before reconstructing work from an older checkpoint.",
-      "An empty active_tasks list is not a blocker to an authorized owner instruction. Do not invent a task_id.",
-      "For an assigned task acknowledge then execute and record evidence-backed progress; apply existing terminal gates.",
-      "For technical SYSTEM work without a task_id execute authorized checks and persist an evidence-backed functional conclusion.",
-      "Keep HOLD work on HOLD until its existing gate is satisfied; do not turn historical pending_actions into new authorization.",
-      "After an instruction to execute, perform the next available tool action in the same turn. Report actual result or a specific blocker, not readiness or a repeated plan.",
-      "Do not claim verification or mutation without a tool result. Tool availability is not proof of execution.",
-      "Chat execution is interactive. A 15-minute heartbeat or event-driven worker requires separately verified deployed runtime."
-    ]
-  };
-}
-
-async function compactCurrentStateResponse(res, ctx) {
+async function compactCurrentStateResponse(res) {
   if (!res.ok) return res;
   let envelope;
   try { envelope = await res.clone().json(); } catch { return res; }
@@ -688,7 +645,6 @@ async function compactCurrentStateResponse(res, ctx) {
     canonical_role_topology: "OWNER_INSTRUCTION:2026-09-28:CANONICAL_AI_ROLE_TOPOLOGY_V2",
     nonexistent_roles: nonexistentRoles,
   };
-  if (ctx && primaryTechnicalCtx(ctx)) data.execution_recovery = executionRecovery(data, ctx);
   toolPayload.data = data;
   content[0].text = JSON.stringify(toolPayload);
   const body = JSON.stringify(envelope);
@@ -698,8 +654,6 @@ async function compactCurrentStateResponse(res, ctx) {
   }
   return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
-const systemAdminDetails = createSystemAdminDetails({ sql, isAdmin: primaryTechnicalCtx, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse });
-
 async function wrappedRequest(handler, req) {
   const discovery = oauthDiscoveryResponse(req);
   if (discovery) return discovery;
@@ -716,12 +670,8 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || ["current_state","handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || ["handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
   const ctx = needsCtx ? await authContext(req) : null;
-  if (SYSTEM_ADMIN_DETAIL_TOOLS.some(t => t.name === name) && ctx) {
-    const direct = await systemAdminDetails(ctx, req, msg);
-    if (direct) return direct;
-  }
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
     if (direct) return direct;
@@ -757,7 +707,7 @@ async function wrappedRequest(handler, req) {
     res = await financeHooks.toolsList(req, res);
     res = await addOAuthSecuritySchemesResponse(res);
   }
-  if (name === "current_state") res = await compactCurrentStateResponse(res, ctx);
+  if (name === "current_state") res = await compactCurrentStateResponse(res);
   return res;
 }
 
@@ -774,5 +724,4 @@ async function wrappedRequest(handler, req) {
   return originalServe(...args);
 };
 
-await import("./gateway-base.mjs");
-
+await import("https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36727a94820e1e85e95d4abfc5d6aab8234c5c18/supabase/functions/rona-mcp-gateway/index.js");

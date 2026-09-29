@@ -1,4 +1,3 @@
-import { SYSTEM_ADMIN_DETAIL_TOOLS, createSystemAdminDetails } from "./system-admin-details.mjs";
 import postgres from "npm:postgres@3.4.7";
 import { createFinancePaymentsV7NativeHooks } from "./finance-payments-v7-extension.mjs";
 
@@ -533,7 +532,7 @@ async function coordinationDetail(ctx, req, msg) {
     return rpcToolResponse(msg.id, { ok: false, code: "COORDINATION_RECORD_NOT_VISIBLE", status: 403 }, true);
   }
   await recordMcpEvent(ctx, ids, "coordination_detail", "SUCCESS", 200, { coordination_record_id: recordId, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
-  return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: primaryTechnicalCtx(ctx) ? { ...rows[0], type: rows[0].record_type, owner: rows[0].payload?.owner ?? null, gate: rows[0].payload?.gate ?? null, dependency: rows[0].payload?.dependency ?? null, required_action: rows[0].payload?.required_action ?? rows[0].payload?.requested_check ?? rows[0].payload?.recommendation ?? null } : rows[0] });
+  return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: rows[0] });
 }
 function addOAuthSecuritySchemesToTools(envelope) {
   const tools = envelope?.result?.tools;
@@ -604,10 +603,6 @@ async function augmentToolsListResponse(res, ctx) {
   if (!Array.isArray(tools)) return res;
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
   if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
-
-  if (ctx && primaryTechnicalCtx(ctx) && scopeHas(ctx.scope, "mcp:read")) {
-    for (const tool of SYSTEM_ADMIN_DETAIL_TOOLS) if (!tools.some(t => t?.name === tool.name)) tools.push(tool);
-  }
 
   const handoff = tools.find(t => t?.name === "handoff_request_submit");
   if (handoff?.inputSchema?.properties?.target_role) {
@@ -698,8 +693,6 @@ async function compactCurrentStateResponse(res, ctx) {
   }
   return new Response(body, { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
-const systemAdminDetails = createSystemAdminDetails({ sql, isAdmin: primaryTechnicalCtx, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse });
-
 async function wrappedRequest(handler, req) {
   const discovery = oauthDiscoveryResponse(req);
   if (discovery) return discovery;
@@ -716,12 +709,8 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || ["current_state","handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || ["current_state","handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close"].includes(name);
   const ctx = needsCtx ? await authContext(req) : null;
-  if (SYSTEM_ADMIN_DETAIL_TOOLS.some(t => t.name === name) && ctx) {
-    const direct = await systemAdminDetails(ctx, req, msg);
-    if (direct) return direct;
-  }
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
     if (direct) return direct;
@@ -775,4 +764,3 @@ async function wrappedRequest(handler, req) {
 };
 
 await import("./gateway-base.mjs");
-
