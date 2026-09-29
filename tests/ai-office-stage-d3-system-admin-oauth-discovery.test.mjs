@@ -54,7 +54,7 @@ test('public Cloudflare transport exposes SYSTEM_ADMIN Pilot OAuth discovery',()
   assert.match(transport,/COORDINATE_SEGMENTS[\s\S]{0,300}system-admin-pilot/);
   assert.match(transport,/oauth-protected-resource[\s\S]{0,500}system-admin-pilot/);
   assert.match(transport,/oauth-authorization-server[\s\S]{0,500}system-admin-pilot/);
-  assert.match(pilot,/proxyOAuthTokenIfApplicable\(context,'system-admin-pilot'\)/);
+  assert.doesNotMatch(pilot,/proxyOAuthTokenIfApplicable/);
   assert.match(pilot,/proxyBoundRoleRequest\(context,'system-admin-pilot'\)/);
   assert.match(build,/MCP_OAUTH_COMPATIBILITY_OVERRIDES/);
   assert.match(build,/SYSTEM_ADMIN_PILOT_PUBLIC_OAUTH_DISCOVERY=READY/);
