@@ -18,10 +18,14 @@ assert.equal(base.run('coordinationEnabled(cfg)'),true);
 assert.deepEqual(Array.from(base.run('gatewayScopes(cfg.server_slug)')),['mcp:read','mcp:coordinate','offline_access']);
 assert.equal(base.run("toolsFor(cfg,{scope:'mcp:read'}).filter(t=>!t.annotations.readOnlyHint).length"),0);
 assert.deepEqual(Array.from(base.run("toolsFor(cfg,{scope:'mcp:read mcp:coordinate'}).filter(t=>!t.annotations.readOnlyHint).map(t=>t.name)")),['task_acknowledge','task_progress_submit','functional_conclusion_submit','handoff_request_submit']);
-for(const [slug,role,identity] of [['rona-mcp-system-admin-pilot','SYSTEM_ADMIN','AI-SYSTEM-ADMIN'],['rona-mcp-finance-pilot','FINANCE','AI-FINANCE'],['rona-mcp-finance','FINANCE','AI-FINANCE']]){
+for(const [slug,role,identity] of [['rona-mcp-finance-pilot','FINANCE','AI-FINANCE'],['rona-mcp-finance','FINANCE','AI-FINANCE']]){
  base.c.cfg={server_slug:slug,business_role:role,identity_id:identity};original.c.cfg=base.c.cfg;
  assert.equal(base.run("JSON.stringify(toolsFor(cfg,{scope:'mcp:read mcp:coordinate'}))"),original.run("JSON.stringify(toolsFor(cfg,{scope:'mcp:read mcp:coordinate'}))"));
 }
+base.c.cfg={...primary,server_slug:'rona-mcp-system-admin-pilot'};
+const pilotTools=Array.from(base.run("toolsFor(cfg,{scope:'mcp:read mcp:coordinate'}).filter(t=>!t.annotations.readOnlyHint).map(t=>t.name)"));
+assert.deepEqual(pilotTools,['task_acknowledge','task_progress_submit','functional_conclusion_submit','handoff_request_submit']);
+assert.equal(base.run("toolsFor(cfg,{scope:'mcp:read'}).filter(t=>!t.annotations.readOnlyHint).length"),0);
 base.c.cfg={...primary,identity_id:'AI-FINANCE'};
 assert.equal(base.run('coordinationEnabled(cfg)'),false);
 base.c.cfg=primary;
@@ -37,8 +41,10 @@ assert.deepEqual(Array.from(wrapper.run("oauthScopesForSegment('finance')")),['m
 assert.deepEqual(Array.from(wrapper.run("oauthScopesForSegment('system-admin-pilot')")),['mcp:read','mcp:coordinate','offline_access']);
 wrapper.c.args={target_role:'OPERATIONS_DIRECTOR',entity_type:'SYSTEM',entity_id:'MCP',subject:'test',requested_check:'test',reason:'test',priority:'NORMAL',source_refs:[],idempotency_key:'test-key-4'};
 assert.equal(wrapper.run('syntacticallyValidCrossRoleHandoff(ctx,args)').type,'SYSTEM');
+wrapper.c.ctx.server_slug='rona-mcp-system-admin-pilot';
+assert.equal(wrapper.run('syntacticallyValidCrossRoleHandoff(ctx,args)').type,'SYSTEM');
 wrapper.c.args.entity_type='PAYMENT';
 assert.equal(wrapper.run('syntacticallyValidCrossRoleHandoff(ctx,args)'),null);
 wrapper.c.args.entity_type='SYSTEM';wrapper.c.ctx.scope='mcp:read';
 assert.equal(wrapper.run('syntacticallyValidCrossRoleHandoff(ctx,args)'),null);
-console.log('PASS: primary scope + four write contracts; scope, identity and business-domain denials; Pilot and other roles unchanged; wrapper handoff gates.');
+console.log('PASS: primary scope + four write contracts; scope, identity and business-domain denials; Pilot write parity and other roles unchanged; wrapper handoff gates.');

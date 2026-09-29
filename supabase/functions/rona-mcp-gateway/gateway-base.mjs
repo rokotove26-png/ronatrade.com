@@ -69,7 +69,7 @@ async function readTextLimited(req,max){if(!contentLengthOk(req,max))throw Objec
 function redirectUriAllowed(uri){try{const u=new URL(uri);if(u.protocol!=='https:'||u.username||u.password||u.hash)return false;const h=u.hostname.toLowerCase();return h==='chatgpt.com'||h.endsWith('.chatgpt.com')||h==='openai.com'||h.endsWith('.openai.com');}catch{return false;}}
 function exactScope(scope){const values=new Set(String(scope||'').trim().split(/\s+/).filter(Boolean));if(!values.has('mcp:read'))return null;for(const s of values)if(!['mcp:read','mcp:coordinate','offline_access'].includes(s))return null;return ['mcp:read','mcp:coordinate','offline_access'].filter(s=>values.has(s)).join(' ');}
 function scopeHas(scope,value){return new Set(String(scope||'').split(/\s+/).filter(Boolean)).has(value);}
-function primaryTechnicalAdmin(cfg){return cfg?.server_slug==='rona-mcp-system-admin'&&cfg?.business_role==='SYSTEM_ADMIN'&&cfg?.identity_id==='AI-SYSTEM-ADMIN';}
+function primaryTechnicalAdmin(cfg){return ['rona-mcp-system-admin','rona-mcp-system-admin-pilot'].includes(cfg?.server_slug)&&cfg?.business_role==='SYSTEM_ADMIN'&&cfg?.identity_id==='AI-SYSTEM-ADMIN';}
 function coordinationEnabled(cfg){const b=COORDINATE_PILOT_BINDINGS[cfg?.server_slug];return Boolean(b&&cfg?.business_role===b[0]&&cfg?.identity_id===b[1]);}
 function scopeAllowed(cfg,scope){return !scopeHas(scope,'mcp:coordinate')||coordinationEnabled(cfg);}
 function gatewayScopes(slug){return COORDINATE_PILOT_BINDINGS[slug]?['mcp:read','mcp:coordinate','offline_access']:['mcp:read','offline_access'];}

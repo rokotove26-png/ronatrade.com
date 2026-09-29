@@ -30,7 +30,7 @@ function roleSegmentFromRequest(req) {
   return MCP_ROLE_SEGMENTS.has(first) ? first : null;
 }
 function coordinateSegment(segment) { return segment === "system-admin" || String(segment || "").endsWith("-pilot"); }
-function primaryTechnicalCtx(ctx) { return ctx?.server_slug === "rona-mcp-system-admin" && ctx?.role === "SYSTEM_ADMIN" && ctx?.identity_id === "AI-SYSTEM-ADMIN"; }
+function primaryTechnicalCtx(ctx) { return ["rona-mcp-system-admin","rona-mcp-system-admin-pilot"].includes(ctx?.server_slug) && ctx?.role === "SYSTEM_ADMIN" && ctx?.identity_id === "AI-SYSTEM-ADMIN"; }
 function coordinateContext(ctx) { return primaryTechnicalCtx(ctx) || String(ctx?.server_slug || "").endsWith("-pilot"); }
 function oauthScopesForSegment(segment) {
   return coordinateSegment(segment)
