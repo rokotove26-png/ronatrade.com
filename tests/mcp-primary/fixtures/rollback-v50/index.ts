@@ -29,11 +29,8 @@ function roleSegmentFromRequest(req) {
   const first = rest.split("/")[0] || "";
   return MCP_ROLE_SEGMENTS.has(first) ? first : null;
 }
-function coordinateSegment(segment) { return segment === "system-admin" || String(segment || "").endsWith("-pilot"); }
-function primaryTechnicalCtx(ctx) { return ctx?.server_slug === "rona-mcp-system-admin" && ctx?.role === "SYSTEM_ADMIN" && ctx?.identity_id === "AI-SYSTEM-ADMIN"; }
-function coordinateContext(ctx) { return primaryTechnicalCtx(ctx) || String(ctx?.server_slug || "").endsWith("-pilot"); }
 function oauthScopesForSegment(segment) {
-  return coordinateSegment(segment)
+  return String(segment || "").endsWith("-pilot")
     ? ["mcp:read","mcp:coordinate","offline_access"]
     : ["mcp:read","offline_access"];
 }
@@ -106,7 +103,7 @@ function oauthDiscoveryResponse(req) {
   return null;
 }
 function oauthUnauthorizedResponse(segment) {
-  const scope = coordinateSegment(segment)
+  const scope = String(segment || "").endsWith("-pilot")
     ? "mcp:read mcp:coordinate"
     : "mcp:read";
   return new Response(JSON.stringify({ error: "invalid_token" }), {
@@ -123,7 +120,7 @@ function oauthUnauthorizedResponse(segment) {
 function normalizeOauthChallenge(res, segment) {
   if (!segment || res.status !== 401) return res;
   const headers = cloneHeaders(res.headers);
-  const scope = coordinateSegment(segment) ? "mcp:read mcp:coordinate" : "mcp:read";
+  const scope = segment.endsWith("-pilot") ? "mcp:read mcp:coordinate" : "mcp:read";
   headers.set(
     "www-authenticate",
     `Bearer resource_metadata="${publicRoleBase(segment)}/.well-known/oauth-protected-resource", scope="${scope}"`,
@@ -346,8 +343,8 @@ async function entityExists(type, id) {
   }
 }
 function syntacticallyValidCrossRoleHandoff(ctx, args) {
-  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !coordinateContext(ctx)) return null;
-  if ((!BUSINESS_ROLES.has(ctx.role) && !primaryTechnicalCtx(ctx)) || !args || typeof args !== "object" || Array.isArray(args)) return null;
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !String(ctx.server_slug || "").endsWith("-pilot")) return null;
+  if (!BUSINESS_ROLES.has(ctx.role) || !args || typeof args !== "object" || Array.isArray(args)) return null;
   if (Object.keys(args).some(k => !HANDOFF_KEYS.has(k) || FORBIDDEN_ROLE_KEYS.has(k))) return null;
   const targetRole = String(args.target_role || "");
   const type = String(args.entity_type || "").toUpperCase();
@@ -360,7 +357,7 @@ function syntacticallyValidCrossRoleHandoff(ctx, args) {
   const idem = typeof args.idempotency_key === "string" && IDEMPOTENCY_RE.test(args.idempotency_key) ? args.idempotency_key : null;
   if (!BUSINESS_ROLES.has(targetRole) || !CANONICAL_AI_HANDOFF_TARGET_SET.has(targetRole) || !id || !subject || !check || !reason || !["LOW","NORMAL","HIGH","CRITICAL"].includes(priority) || !refs || !idem) return null;
   if (!roleCanUseEntity(ctx.role, type)) return null;
-  if (!primaryTechnicalCtx(ctx) && roleCanUseEntity(targetRole, type)) return null;
+  if (roleCanUseEntity(targetRole, type)) return null;
   return { targetRole, type, id, subject, check, reason, priority, refs, idem };
 }
 async function createCrossRoleHandoff(ctx, req, msg, normalized) {
@@ -370,13 +367,6 @@ async function createCrossRoleHandoff(ctx, req, msg, normalized) {
     await recordMcpEvent(ctx, ids, "handoff_request_submit", "DENIED", 200, { code: "TARGET_NOT_FOUND_OR_OUT_OF_SCOPE", coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
     await coordAudit(ctx, ids, "handoff_request_submit", { targetType: normalized.type, targetId: normalized.id, result: "DENIED", denialCode: "TARGET_NOT_FOUND_OR_OUT_OF_SCOPE", metadata: { coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" } });
     return rpcToolResponse(msg.id, { ok: false, code: "TARGET_NOT_FOUND_OR_OUT_OF_SCOPE", status: 403 }, true);
-  }
-  if (primaryTechnicalCtx(ctx) && normalized.type === "TASK") {
-    const rows = await sql`select assigned_functional_role::text as assigned_role,authority_domain from portal_private.staff_tasks where task_id=${normalized.id} limit 1`;
-    if (rows.length !== 1 || rows[0].assigned_role !== "SYSTEM_ADMIN" || !["TECHNICAL","SYSTEM","SECURITY"].includes(String(rows[0].authority_domain).toUpperCase())) {
-      await recordMcpEvent(ctx, ids, "handoff_request_submit", "DENIED", 200, { code: "TASK_ROLE_SCOPE_DENIED" });
-      return rpcToolResponse(msg.id, { ok: false, code: "TASK_ROLE_SCOPE_DENIED", status: 403 }, true);
-    }
   }
   const payload = { target_role: normalized.targetRole, entity_type: normalized.type, entity_id: normalized.id, subject: normalized.subject, requested_check: normalized.check, reason: normalized.reason, priority: normalized.priority, source_refs: normalized.refs, idempotency_key: normalized.idem };
   const idemHash = await sha256Hex(normalized.idem);
@@ -433,7 +423,7 @@ async function taskTerminalAction(ctx, req, msg, terminalStatus) {
   const ids = requestIds(req);
   const tool = terminalStatus === "COMPLETED" ? "task_complete" : "task_close";
   if (!await rateAllowed(ctx)) return null;
-  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !coordinateContext(ctx)) return null;
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !String(ctx.server_slug || "").endsWith("-pilot")) return null;
   const args = msg?.params?.arguments ?? {};
   const allowed = terminalStatus === "COMPLETED"
     ? new Set(["task_id","conclusion_record_id","note","evidence_refs","idempotency_key"])
@@ -459,7 +449,7 @@ async function taskTerminalAction(ctx, req, msg, terminalStatus) {
     return rpcToolResponse(msg.id, { ok: false, code: "TASK_CLOSE_ROLE_DENIED", status: 403 }, true);
   }
   const taskRows = await sql`select task_id,status::text,assigned_functional_role::text as assigned_role,authority_domain from portal_private.staff_tasks where task_id=${taskId} and qa_only=false limit 1`;
-  if (taskRows.length !== 1 || taskRows[0].assigned_role !== ctx.role || (primaryTechnicalCtx(ctx) && !["TECHNICAL","SYSTEM","SECURITY"].includes(String(taskRows[0].authority_domain).toUpperCase()))) {
+  if (taskRows.length !== 1 || taskRows[0].assigned_role !== ctx.role) {
     await recordMcpEvent(ctx, ids, tool, "DENIED", 200, { code: "TASK_NOT_ASSIGNED_TO_ROLE" });
     return rpcToolResponse(msg.id, { ok: false, code: "TASK_NOT_ASSIGNED_TO_ROLE", status: 403 }, true);
   }
@@ -609,7 +599,7 @@ async function augmentToolsListResponse(res, ctx) {
     handoff.inputSchema.properties.target_role.enum = [...CANONICAL_AI_HANDOFF_TARGETS];
   }
 
-  if (ctx && scopeHas(ctx.scope,"mcp:coordinate") && coordinateContext(ctx)) {
+  if (ctx && scopeHas(ctx.scope,"mcp:coordinate") && String(ctx.server_slug || "").endsWith("-pilot")) {
     if (!tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
     if (["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role) && !tools.some(t => t?.name === "task_close")) tools.push(TASK_CLOSE_TOOL);
   }
@@ -734,4 +724,4 @@ async function wrappedRequest(handler, req) {
   return originalServe(...args);
 };
 
-await import("./gateway-base.mjs");
+await import("https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36727a94820e1e85e95d4abfc5d6aab8234c5c18/supabase/functions/rona-mcp-gateway/index.js");
