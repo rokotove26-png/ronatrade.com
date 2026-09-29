@@ -17,6 +17,11 @@ const OPERATIONS_CENTER_OVERRIDES = [
   'functions/portal/admin-operations-command-center-v11-owner-ai.js',
   'portal-src/current/admin.html',
 ];
+const MCP_OAUTH_COMPATIBILITY_OVERRIDES = [
+  '_routes.json',
+  'functions/_mcp_transport.js',
+  'functions/system-admin-pilot/[[path]].js',
+];
 
 function run(command, args, options = {}) {
   return execFileSync(command, args, {
@@ -66,6 +71,14 @@ try {
     mkdirSync(dirname(destination), { recursive: true });
     cpSync(source, destination, { force: true });
   }
+  for (const path of MCP_OAUTH_COMPATIBILITY_OVERRIDES) {
+    const source = join(ROOT, path);
+    const destination = join(worktree, path);
+    if (!existsSync(source)) throw new Error(`MCP_OAUTH_COMPATIBILITY_OVERRIDE_MISSING:${path}`);
+    mkdirSync(dirname(destination), { recursive: true });
+    cpSync(source, destination, { force: true });
+  }
+  console.log('SYSTEM_ADMIN_PILOT_PUBLIC_OAUTH_DISCOVERY=READY');
   const adminMainPath = join(worktree, 'functions/portal/admin-main-ui-current.js');
   const adminMainSource = readFileSync(adminMainPath, 'utf8');
   const v10Import = "import { patchAdminOperationsCommandCenterV10Clean, OPERATIONS_COMMAND_CENTER_VERSION } from './admin-operations-command-center-v10-clean.js';";
