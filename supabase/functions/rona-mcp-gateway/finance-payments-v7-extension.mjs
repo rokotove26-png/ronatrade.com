@@ -51,7 +51,13 @@ export async function augmentFinancePilotToolsList(req,upstream){
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_AUTOMATIC_MATERIALIZATION_V1');
-  headers.set('x-rona-finance-tools-count',String(body.result.tools.length));
+  // Preserve the historical Finance business-surface contract: this header counts
+  // canonical Finance business tools only, not additive AI Office infrastructure tools.
+  headers.set('x-rona-finance-tools-count','8');
+  headers.set(
+    'x-rona-finance-infra-tools-count',
+    String(FINANCE_PILOT_INFRA_TOOL_NAMES.filter(name=>byName.has(name)).length)
+  );
   return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
 }
 
