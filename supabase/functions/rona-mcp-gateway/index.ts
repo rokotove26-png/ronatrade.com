@@ -169,6 +169,38 @@ const EXCEPTION_COCKPIT_TOOL = {
   inputSchema: { type: "object", additionalProperties: false },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
+
+const EXECUTION_CHECKPOINT_READ_TOOL = {
+  name: "execution_checkpoint_read",
+  title: "Восстановить рабочий контекст роли",
+  description: "Прочитать server-side execution workstreams фиксированной роли. Использовать после current_state, когда пользователь говорит «продолжай/восстанови», после длинной работы или при любой неопределенности контекста. Не просить пользователя повторять задачу, пока не проверены эти checkpoints.",
+  inputSchema: { type: "object", additionalProperties: false },
+  annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+const EXECUTION_CHECKPOINT_SUBMIT_TOOL = {
+  name: "execution_checkpoint_submit",
+  title: "Сохранить рабочий checkpoint роли",
+  description: "Сохранить/обновить host-independent execution checkpoint крупной работы: цель, последний подтвержденный этап и следующий шаг. Это recovery state, не business fact и не завершение задачи. Использовать в начале длинной owner-инструкции и после существенных переходов.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      workstream_id: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$" },
+      title: { type: "string", minLength: 1, maxLength: 240 },
+      objective: { type: "string", minLength: 1, maxLength: 1200 },
+      status: { type: "string", enum: ["ACTIVE","BLOCKED","PAUSED","COMPLETED"] },
+      last_completed: { type: "string", minLength: 1, maxLength: 1600 },
+      next_action: { type: "string", minLength: 1, maxLength: 1600 },
+      blockers: { type: "array", items: { type: "string", minLength: 1, maxLength: 300 }, maxItems: 10 },
+      source_refs: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, maxItems: 20 },
+      task_id: { type: "string", minLength: 1, maxLength: 160 },
+      idempotency_key: { type: "string", minLength: 8, maxLength: 160 }
+    },
+    required: ["workstream_id","title","objective","status","last_completed","next_action","blockers","source_refs","idempotency_key"],
+    additionalProperties: false
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+
 const TASK_COMPLETE_TOOL = {
   name: "task_complete",
   title: "Завершить назначенную задачу",
@@ -421,6 +453,143 @@ async function createCrossRoleHandoff(ctx, req, msg, normalized) {
   await coordAudit(ctx, ids, "handoff_request_submit", { targetType: normalized.type, targetId: normalized.id, idemHash, payloadHash, result: "SUCCESS", record: inserted, metadata: { notification_only: true, authority_granted: false, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" } });
   return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, record_id: inserted.record_id, record_type: inserted.record_type, status: inserted.status, version: inserted.version, idempotent_replay: false, notification_only: true, authority_granted: false });
 }
+
+const EXECUTION_WORKSTREAM_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,159}$/;
+function validateTextArray(v, maxItems, maxLen) {
+  if (!Array.isArray(v) || v.length > maxItems) return null;
+  const out = [];
+  for (const x of v) {
+    const s = cleanText(x, maxLen);
+    if (!s) return null;
+    out.push(s);
+  }
+  return out;
+}
+function normalizedExecutionWorkstreams(metadata) {
+  const rows = Array.isArray(metadata?.execution_workstreams) ? metadata.execution_workstreams : [];
+  return rows
+    .filter(x => x && typeof x === "object" && typeof x.workstream_id === "string")
+    .sort((a,b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
+    .slice(0,6);
+}
+async function executionCheckpointRead(ctx, req, msg) {
+  const ids = requestIds(req);
+  if (!await rateAllowed(ctx)) return null;
+  const args = msg?.params?.arguments ?? {};
+  if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).length !== 0) {
+    await recordMcpEvent(ctx, ids, "execution_checkpoint_read", "DENIED", 200, { code: "INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok:false, code:"INVALID_ARGUMENTS", status:403 }, true);
+  }
+  const rows = await sql`
+    select state_version, metadata
+      from portal_private.ai_role_state_checkpoints_v2
+     where functional_role=${ctx.role}::portal_private.ai_business_role_enum
+     limit 1`;
+  const row = rows[0] || { state_version:0, metadata:{} };
+  const workstreams = normalizedExecutionWorkstreams(row.metadata || {});
+  await recordMcpEvent(ctx, ids, "execution_checkpoint_read", "SUCCESS", 200, {
+    contract:"RONA_AI_EXECUTION_RESUME_V1", workstream_count:workstreams.length
+  });
+  return rpcToolResponse(msg.id, {
+    ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
+    contract:"RONA_AI_EXECUTION_RESUME_V1", state_version:Number(row.state_version || 0),
+    workstreams,
+    recovery_rule:"Match the current owner request to the most recent relevant ACTIVE/BLOCKED/PAUSED workstream. If one matches, resume from next_action without asking the owner to repeat prior context. Completed workstreams are history only."
+  });
+}
+async function executionCheckpointSubmit(ctx, req, msg) {
+  const ids = requestIds(req);
+  if (!await rateAllowed(ctx)) return null;
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !coordinateContext(ctx)) return null;
+  const args = msg?.params?.arguments ?? {};
+  const allowed = new Set(["workstream_id","title","objective","status","last_completed","next_action","blockers","source_refs","task_id","idempotency_key"]);
+  if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).some(k => !allowed.has(k) || FORBIDDEN_ROLE_KEYS.has(k))) {
+    await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok:false, code:"INVALID_ARGUMENTS", status:403 }, true);
+  }
+  const workstreamId = typeof args.workstream_id === "string" && EXECUTION_WORKSTREAM_ID_RE.test(args.workstream_id) ? args.workstream_id : null;
+  const title = cleanText(args.title,240);
+  const objective = cleanText(args.objective,1200);
+  const status = ["ACTIVE","BLOCKED","PAUSED","COMPLETED"].includes(String(args.status || "")) ? String(args.status) : null;
+  const lastCompleted = cleanText(args.last_completed,1600);
+  const nextAction = cleanText(args.next_action,1600);
+  const blockers = validateTextArray(args.blockers,10,300);
+  const sourceRefs = validateRefs(args.source_refs);
+  const taskId = args.task_id == null ? null : cleanText(args.task_id,160);
+  const idem = typeof args.idempotency_key === "string" && IDEMPOTENCY_RE.test(args.idempotency_key) ? args.idempotency_key : null;
+  if (!workstreamId || !title || !objective || !status || !lastCompleted || !nextAction || !blockers || !sourceRefs || !idem || (args.task_id != null && !taskId)) {
+    await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"INVALID_ARGUMENTS" });
+    return rpcToolResponse(msg.id, { ok:false, code:"INVALID_ARGUMENTS", status:403 }, true);
+  }
+  const idemHash = await sha256Hex(idem);
+  const payloadCore = {
+    workstream_id:workstreamId, title, objective, status, last_completed:lastCompleted,
+    next_action:nextAction, blockers, source_refs:sourceRefs, task_id:taskId
+  };
+  const payloadHash = await sha256Hex(stableStringify(payloadCore));
+  for (let attempt=0; attempt<2; attempt++) {
+    const rows = await sql`
+      select state_version, metadata
+        from portal_private.ai_role_state_checkpoints_v2
+       where functional_role=${ctx.role}::portal_private.ai_business_role_enum
+       limit 1`;
+    const current = rows[0] || { state_version:0, metadata:{} };
+    const metadata = current.metadata && typeof current.metadata === "object" ? current.metadata : {};
+    const workstreams = normalizedExecutionWorkstreams(metadata);
+    const prior = workstreams.find(x => x.workstream_id === workstreamId);
+    if (prior?.idempotency_key_hash === idemHash) {
+      if (prior.payload_hash !== payloadHash) {
+        await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"IDEMPOTENCY_CONFLICT", workstream_id:workstreamId });
+        return rpcToolResponse(msg.id, { ok:false, code:"IDEMPOTENCY_CONFLICT", status:409 }, true);
+      }
+      return rpcToolResponse(msg.id, {
+        ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
+        contract:"RONA_AI_EXECUTION_RESUME_V1", state_version:Number(current.state_version || 0),
+        workstream:prior, idempotent_replay:true
+      });
+    }
+    const now = new Date().toISOString();
+    const entry = {
+      contract:"RONA_AI_EXECUTION_RESUME_V1", ...payloadCore,
+      idempotency_key_hash:idemHash, payload_hash:payloadHash,
+      updated_at:now, correlation_id:ids.correlationId
+    };
+    const merged = [entry, ...workstreams.filter(x => x.workstream_id !== workstreamId)]
+      .sort((a,b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
+      .slice(0,6);
+    const nextMetadata = {
+      ...metadata,
+      execution_resume_contract:"RONA_AI_EXECUTION_RESUME_V1",
+      execution_resume_updated_at:now,
+      execution_workstreams:merged
+    };
+    const patch = { metadata: nextMetadata };
+    const written = await sql`
+      select portal_private.ai_role_state_write_v2(
+        ${ctx.role}::portal_private.ai_business_role_enum,
+        ${Number(current.state_version || 0)}::bigint,
+        ${sql.json(patch)}::jsonb,
+        ${ctx.identity_id}
+      ) as data`;
+    const out = written[0]?.data || {};
+    if (out.ok === true) {
+      const version = Number(out.checkpoint?.state_version || 0);
+      await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "SUCCESS", 200, {
+        contract:"RONA_AI_EXECUTION_RESUME_V1", workstream_id:workstreamId, status, state_version:version
+      });
+      return rpcToolResponse(msg.id, {
+        ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
+        contract:"RONA_AI_EXECUTION_RESUME_V1", state_version:version, workstream:entry, idempotent_replay:false
+      });
+    }
+    if (out.code === "STALE_STATE" && attempt === 0) continue;
+    await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:out.code || "CHECKPOINT_WRITE_FAILED" });
+    return rpcToolResponse(msg.id, { ok:false, code:out.code || "CHECKPOINT_WRITE_FAILED", status:409, refresh_required:Boolean(out.refresh_required) }, true);
+  }
+  await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"STALE_STATE" });
+  return rpcToolResponse(msg.id, { ok:false, code:"STALE_STATE", status:409, refresh_required:true }, true);
+}
+
 async function exceptionCockpit(ctx, req, msg) {
   const ids = requestIds(req);
   if (!await rateAllowed(ctx)) return null;
@@ -608,6 +777,10 @@ async function augmentToolsListResponse(res, ctx) {
   if (!Array.isArray(tools)) return res;
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
   if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
+  if (ctx && scopeHas(ctx.scope,"mcp:read") && !tools.some(t => t?.name === "execution_checkpoint_read")) tools.push(EXECUTION_CHECKPOINT_READ_TOOL);
+  if (ctx && coordinateContext(ctx) && (primaryTechnicalCtx(ctx) || scopeHas(ctx.scope,"mcp:coordinate")) && !tools.some(t => t?.name === "execution_checkpoint_submit")) tools.push(EXECUTION_CHECKPOINT_SUBMIT_TOOL);
+  const currentStateTool = tools.find(t => t?.name === "current_state");
+  if (currentStateTool) currentStateTool.description = "Обязательный preflight для любой работы RONA: получить актуальное role-scoped state. Также вызывать немедленно, когда пользователь говорит «продолжай/восстанови», после длинной работы или при неопределенности контекста; server-side execution workstreams не зависят от памяти чата.";
 
   if (ctx && primaryTechnicalCtx(ctx) && scopeHas(ctx.scope, "mcp:read")) {
     for (const tool of SYSTEM_ADMIN_DETAIL_TOOLS) if (!tools.some(t => t?.name === tool.name)) tools.push(tool);
@@ -628,12 +801,21 @@ function roleExecutionRecovery(data, ctx) {
   const coordinate = scopeHas(ctx.scope, "mcp:coordinate");
   const records = Array.isArray(data.coordination?.records) ? data.coordination.records : [];
   const tasks = Array.isArray(data.active_tasks) ? data.active_tasks : [];
+  const workstreams = normalizedExecutionWorkstreams(data?.checkpoint?.metadata || {});
   const writeTools = coordinate
-    ? ["task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete"]
+    ? ["execution_checkpoint_submit","task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete"]
     : [];
   if (coordinate && ["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role)) writeTools.push("task_close");
   return {
-    contract: "RONA_AI_OFFICE_EXECUTION_RECOVERY_V2",
+    contract: "RONA_AI_OFFICE_EXECUTION_RECOVERY_V3",
+    execution_resume: {
+      contract:"RONA_AI_EXECUTION_RESUME_V1",
+      workstreams,
+      checkpoint_tool:"execution_checkpoint_submit",
+      read_tool:"execution_checkpoint_read",
+      host_independent:true,
+      selection_rule:"On uncertain chat context, match the current owner request to the most recent relevant non-COMPLETED workstream and resume from next_action."
+    },
     authority_sources: ["global_role_policies", "competence_contract"],
     transport: { server_slug: ctx.server_slug, functional_role: ctx.role, identity_id: ctx.identity_id, scope: ctx.scope },
     write_scope_granted: coordinate,
@@ -644,6 +826,8 @@ function roleExecutionRecovery(data, ctx) {
     latest_coordination_record_id: records[0]?.record_id || null,
     incoming_handoff_record_ids: records.filter(r => r.record_type === "HANDOFF_REQUEST" && r.target_role === ctx.role && r.status === "REQUESTED").map(r => r.record_id),
     resume_procedure: [
+      "If chat context is uncertain, do not ask the owner to repeat the task before checking execution_resume workstreams. Resume the matching workstream from next_action.",
+      "For a new substantial owner instruction without a durable task_id, create/update an execution checkpoint before long multi-tool work and after material stage transitions.",
       "Apply canonical policies and the competence gate to the current owner instruction.",
       "Use current_state only as the compact projection; when bootstrap.next is present, perform that exact read in the same turn.",
       "An empty active_tasks list is not a blocker to an owner instruction that is within role competence. Do not invent a task_id.",
@@ -815,6 +999,14 @@ async function dispatchWrappedRequest(handler, req, msg, name, ctx, segment) {
   }
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
+    if (direct) return direct;
+  }
+  if (name === "execution_checkpoint_read" && ctx && scopeHas(ctx.scope, "mcp:read")) {
+    const direct = await executionCheckpointRead(ctx, req, msg);
+    if (direct) return direct;
+  }
+  if (name === "execution_checkpoint_submit" && ctx) {
+    const direct = await executionCheckpointSubmit(ctx, req, msg);
     if (direct) return direct;
   }
   if (name === "exception_cockpit" && ctx && scopeHas(ctx.scope, "mcp:read")) {
