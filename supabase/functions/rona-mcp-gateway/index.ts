@@ -1,3 +1,5 @@
+// Historical production lineage before the v61 in-repo sync: https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/36727a94820e1e85e95d4abfc5d6aab8234c5c18/supabase/functions/rona-mcp-gateway/index.js
+// Lineage only. Current runtime authority is this self-contained in-repo source; no remote runtime import is performed.
 import { SYSTEM_ADMIN_DETAIL_TOOLS, createSystemAdminDetails } from "./system-admin-details.mjs";
 import { observeRuntimeResponse } from "./runtime-continuity.mjs";
 import { buildRegistryContract, compactEnvelope, stateErrorEnvelope, addStateDetail, identityError } from "./state-projection.mjs";
