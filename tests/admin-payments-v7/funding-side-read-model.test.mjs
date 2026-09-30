@@ -422,13 +422,11 @@ test('18 aggregate groups compatible funding currencies only', () => {
   assert.deepEqual(groups.map((g) => g.currency).sort(), ['EUR', 'USD']);
 });
 
-test('19 Stage A introduces no browser consumer or financial arithmetic for funding passport V2', () => {
-  const browserRoot = path.join(ROOT, 'functions', 'portal', 'main-ui');
-  const files = fs.existsSync(browserRoot)
-    ? fs.readdirSync(browserRoot).filter((name) => /\.(?:js|mjs)$/.test(name)).map((name) => path.join(browserRoot, name))
-    : [];
-  const consumers = files.filter((file) => fs.readFileSync(file, 'utf8').includes('ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2'));
-  assert.deepEqual(consumers, []);
+test('19 Stage A funding-side model remains server-only after later UI stages', () => {
+  const modelFile = path.join(ROOT, 'supabase', 'functions', '_shared', 'admin-payments-v7', 'funding-side-read-model.mjs');
+  const source = fs.readFileSync(modelFile, 'utf8');
+  assert.match(source, /ADMIN_PAYMENTS_V7_FUNDING_PAYMENT_PASSPORT_V2/);
+  assert.doesNotMatch(source, /\b(?:window|document|HTMLElement|customElements)\b/);
 });
 
 // Blocking-correction regressions.
