@@ -150,6 +150,15 @@ const ENTITY_SCOPE = Object.freeze({
 });
 const HANDOFF_KEYS = new Set(["target_role","entity_type","entity_id","subject","requested_check","reason","priority","source_refs","idempotency_key"]);
 const FORBIDDEN_ROLE_KEYS = new Set(["role","business_role","identity_id","ai_identity_id","functional_role","server_slug","token_id","owner_admin"]);
+const SYSTEM_ADMIN_COORDINATE_TOOLS = new Set([
+  "execution_checkpoint_submit",
+  "task_acknowledge",
+  "task_progress_submit",
+  "functional_conclusion_submit",
+  "handoff_request_submit",
+  "task_complete",
+  "task_close",
+]);
 const COORDINATION_DETAIL_TOOL = {
   name: "coordination_detail",
   title: "Детали координации",
@@ -310,6 +319,27 @@ function rpcToolResponse(id, body, isError = false, status = 200) {
       "x-content-type-options": "nosniff",
       "x-rona-role-state-contract": "RONA_ROLE_STATE_RECOVERY_V6",
       "x-rona-coordination-contract": "RONA_CROSS_ROLE_COORDINATION_V1",
+    },
+  });
+}
+function oauthScopeUpgradeToolResponse(id, segment) {
+  const metadataUrl = `${PUBLIC_ORIGIN}/.well-known/oauth-protected-resource/${segment}/mcp`;
+  const challenge = `Bearer resource_metadata="${metadataUrl}", scope="mcp:read mcp:coordinate", error="insufficient_scope", error_description="SYSTEM_ADMIN write tools require mcp:coordinate"`;
+  return new Response(JSON.stringify({
+    jsonrpc: "2.0",
+    id: id ?? null,
+    result: {
+      isError: true,
+      content: [{ type: "text", text: JSON.stringify({ ok: false, code: "COORDINATION_SCOPE_REQUIRED", status: 401 }) }],
+      _meta: { "mcp/www_authenticate": [challenge] },
+    },
+  }), {
+    status: 200,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store, no-cache, must-revalidate",
+      "pragma": "no-cache",
+      "x-content-type-options": "nosniff",
     },
   });
 }
@@ -980,7 +1010,7 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || (name === "history" && msg?.params?.arguments?.domain === "tasks") || ["current_state","handoff_request_submit","coordination_detail","execution_checkpoint_read","execution_checkpoint_submit","exception_cockpit","task_complete","task_close","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || (name === "history" && msg?.params?.arguments?.domain === "tasks") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail"].includes(name);
   let ctx;
   try { ctx = needsCtx ? await authContext(req) : null; }
   catch (e) {
@@ -991,6 +1021,15 @@ async function wrappedRequest(handler, req) {
       : {jsonrpc:"2.0",id:msg?.id ?? null,error:{code:-32603,message:code}};
     const response = new Response(JSON.stringify(envelope),{status:200,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
     return observeRuntimeResponse(response,{msg,ctx:null,segment});
+  }
+  if (
+    ctx?.server_slug === "rona-mcp-system-admin" &&
+    msg?.method === "tools/call" &&
+    SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) &&
+    !scopeHas(ctx.scope, "mcp:coordinate")
+  ) {
+    const response = oauthScopeUpgradeToolResponse(msg.id, "system-admin");
+    return observeRuntimeResponse(response, { msg, ctx, segment });
   }
   const response = await dispatchWrappedRequest(handler, req, msg, name, ctx, segment);
   return observeRuntimeResponse(response, { msg, ctx, segment });
