@@ -1023,13 +1023,12 @@ async function wrappedRequest(handler, req) {
     return observeRuntimeResponse(response,{msg,ctx:null,segment});
   }
   if (
-    segment === "system-admin" &&
+    ctx?.server_slug === "rona-mcp-system-admin" &&
     msg?.method === "tools/call" &&
     SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) &&
-    ctx &&
     !scopeHas(ctx.scope, "mcp:coordinate")
   ) {
-    const response = oauthScopeUpgradeToolResponse(msg.id, segment);
+    const response = oauthScopeUpgradeToolResponse(msg.id, "system-admin");
     return observeRuntimeResponse(response, { msg, ctx, segment });
   }
   const response = await dispatchWrappedRequest(handler, req, msg, name, ctx, segment);
