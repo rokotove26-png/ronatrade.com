@@ -1037,7 +1037,8 @@ async function dispatchWrappedRequest(handler, req, msg, name, ctx, segment) {
     if (direct) return direct;
   }
   let res = await handler(req);
-  res = await directSystemAdminPilotConsentResponse(req, segment, res);
+  // System Admin Pilot must use the same canonical authorize POST path as the other Pilot roles.
+  // Do not rewrite the consent form action to an internal Supabase URL.
   res = normalizeOauthChallenge(res, segment);
   if (msg?.method === "tools/list") {
     res = await augmentToolsListResponse(res, ctx);
