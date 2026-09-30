@@ -465,36 +465,60 @@ function validateTextArray(v, maxItems, maxLen) {
   }
   return out;
 }
-function normalizedExecutionWorkstreams(metadata) {
-  const rows = Array.isArray(metadata?.execution_workstreams) ? metadata.execution_workstreams : [];
-  return rows
-    .filter(x => x && typeof x === "object" && typeof x.workstream_id === "string")
-    .sort((a,b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
-    .slice(0,6);
+function publicExecutionWorkstream(value, observedAt = null) {
+  if (!value || typeof value !== "object" || !EXECUTION_WORKSTREAM_ID_RE.test(String(value.workstream_id || ""))) return null;
+  return {
+    contract:"RONA_AI_EXECUTION_RESUME_V1",
+    workstream_id:String(value.workstream_id),
+    title:String(value.title || ""),
+    objective:String(value.objective || ""),
+    status:String(value.status || ""),
+    last_completed:String(value.last_completed || ""),
+    next_action:String(value.next_action || ""),
+    blockers:Array.isArray(value.blockers) ? value.blockers : [],
+    source_refs:Array.isArray(value.source_refs) ? value.source_refs : [],
+    task_id:value.task_id ?? null,
+    updated_at:value.updated_at || observedAt,
+    correlation_id:value.correlation_id || null
+  };
+}
+async function loadExecutionWorkstreams(ctx) {
+  const rows = await sql`
+    select event_at, correlation_id, metadata
+      from portal_private.mcp_gateway_request_events
+     where functional_role=${ctx.role}::portal_private.ai_business_role_enum
+       and identity_id=${ctx.identity_id}
+       and tool_name='execution_checkpoint_submit'
+       and result='SUCCESS'
+     order by event_at desc
+     limit 50`;
+  const seen = new Set();
+  const out = [];
+  for (const row of rows) {
+    const w = publicExecutionWorkstream(row?.metadata?.workstream, row?.event_at);
+    if (!w || seen.has(w.workstream_id)) continue;
+    seen.add(w.workstream_id);
+    out.push(w);
+    if (out.length >= 6) break;
+  }
+  return out;
 }
 async function executionCheckpointRead(ctx, req, msg) {
   const ids = requestIds(req);
   if (!await rateAllowed(ctx)) return null;
   const args = msg?.params?.arguments ?? {};
   if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).length !== 0) {
-    await recordMcpEvent(ctx, ids, "execution_checkpoint_read", "DENIED", 200, { code: "INVALID_ARGUMENTS" });
+    await recordMcpEvent(ctx, ids, "execution_checkpoint_read", "DENIED", 200, { code:"INVALID_ARGUMENTS" });
     return rpcToolResponse(msg.id, { ok:false, code:"INVALID_ARGUMENTS", status:403 }, true);
   }
-  const rows = await sql`
-    select state_version, metadata
-      from portal_private.ai_role_state_checkpoints_v2
-     where functional_role=${ctx.role}::portal_private.ai_business_role_enum
-     limit 1`;
-  const row = rows[0] || { state_version:0, metadata:{} };
-  const workstreams = normalizedExecutionWorkstreams(row.metadata || {});
+  const workstreams = await loadExecutionWorkstreams(ctx);
   await recordMcpEvent(ctx, ids, "execution_checkpoint_read", "SUCCESS", 200, {
-    contract:"RONA_AI_EXECUTION_RESUME_V1", workstream_count:workstreams.length
+    contract:"RONA_AI_EXECUTION_RESUME_V1", storage:"MCP_REQUEST_AUDIT", workstream_count:workstreams.length
   });
   return rpcToolResponse(msg.id, {
     ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
-    contract:"RONA_AI_EXECUTION_RESUME_V1", state_version:Number(row.state_version || 0),
-    workstreams,
-    recovery_rule:"Match the current owner request to the most recent relevant ACTIVE/BLOCKED/PAUSED workstream. If one matches, resume from next_action without asking the owner to repeat prior context. Completed workstreams are history only."
+    contract:"RONA_AI_EXECUTION_RESUME_V1", storage:"MCP_REQUEST_AUDIT", workstreams,
+    recovery_rule:"Match the current owner request to the most recent relevant ACTIVE/BLOCKED/PAUSED workstream. If one matches, resume from next_action without asking the owner to repeat prior context. COMPLETED workstreams are history only."
   });
 }
 async function executionCheckpointSubmit(ctx, req, msg) {
@@ -527,67 +551,46 @@ async function executionCheckpointSubmit(ctx, req, msg) {
     next_action:nextAction, blockers, source_refs:sourceRefs, task_id:taskId
   };
   const payloadHash = await sha256Hex(stableStringify(payloadCore));
-  for (let attempt=0; attempt<2; attempt++) {
-    const rows = await sql`
-      select state_version, metadata
-        from portal_private.ai_role_state_checkpoints_v2
-       where functional_role=${ctx.role}::portal_private.ai_business_role_enum
-       limit 1`;
-    const current = rows[0] || { state_version:0, metadata:{} };
-    const metadata = current.metadata && typeof current.metadata === "object" ? current.metadata : {};
-    const workstreams = normalizedExecutionWorkstreams(metadata);
-    const prior = workstreams.find(x => x.workstream_id === workstreamId);
-    if (prior?.idempotency_key_hash === idemHash) {
-      if (prior.payload_hash !== payloadHash) {
-        await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"IDEMPOTENCY_CONFLICT", workstream_id:workstreamId });
-        return rpcToolResponse(msg.id, { ok:false, code:"IDEMPOTENCY_CONFLICT", status:409 }, true);
-      }
-      return rpcToolResponse(msg.id, {
-        ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
-        contract:"RONA_AI_EXECUTION_RESUME_V1", state_version:Number(current.state_version || 0),
-        workstream:prior, idempotent_replay:true
-      });
+  const priorRows = await sql`
+    select metadata
+      from portal_private.mcp_gateway_request_events
+     where functional_role=${ctx.role}::portal_private.ai_business_role_enum
+       and identity_id=${ctx.identity_id}
+       and tool_name='execution_checkpoint_submit'
+       and result='SUCCESS'
+       and metadata->>'idempotency_key_hash'=${idemHash}
+     order by event_at desc
+     limit 1`;
+  if (priorRows.length) {
+    const priorMeta = priorRows[0].metadata || {};
+    if (priorMeta.payload_hash !== payloadHash) {
+      await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"IDEMPOTENCY_CONFLICT", workstream_id:workstreamId });
+      return rpcToolResponse(msg.id, { ok:false, code:"IDEMPOTENCY_CONFLICT", status:409 }, true);
     }
-    const now = new Date().toISOString();
-    const entry = {
-      contract:"RONA_AI_EXECUTION_RESUME_V1", ...payloadCore,
-      idempotency_key_hash:idemHash, payload_hash:payloadHash,
-      updated_at:now, correlation_id:ids.correlationId
-    };
-    const merged = [entry, ...workstreams.filter(x => x.workstream_id !== workstreamId)]
-      .sort((a,b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")))
-      .slice(0,6);
-    const nextMetadata = {
-      ...metadata,
-      execution_resume_contract:"RONA_AI_EXECUTION_RESUME_V1",
-      execution_resume_updated_at:now,
-      execution_workstreams:merged
-    };
-    const patch = { metadata: nextMetadata };
-    const written = await sql`
-      select portal_private.ai_role_state_write_v2(
-        ${ctx.role}::portal_private.ai_business_role_enum,
-        ${Number(current.state_version || 0)}::bigint,
-        ${sql.json(patch)}::jsonb,
-        ${ctx.identity_id}
-      ) as data`;
-    const out = written[0]?.data || {};
-    if (out.ok === true) {
-      const version = Number(out.checkpoint?.state_version || 0);
-      await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "SUCCESS", 200, {
-        contract:"RONA_AI_EXECUTION_RESUME_V1", workstream_id:workstreamId, status, state_version:version
-      });
-      return rpcToolResponse(msg.id, {
-        ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
-        contract:"RONA_AI_EXECUTION_RESUME_V1", state_version:version, workstream:entry, idempotent_replay:false
-      });
-    }
-    if (out.code === "STALE_STATE" && attempt === 0) continue;
-    await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:out.code || "CHECKPOINT_WRITE_FAILED" });
-    return rpcToolResponse(msg.id, { ok:false, code:out.code || "CHECKPOINT_WRITE_FAILED", status:409, refresh_required:Boolean(out.refresh_required) }, true);
+    return rpcToolResponse(msg.id, {
+      ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
+      contract:"RONA_AI_EXECUTION_RESUME_V1", storage:"MCP_REQUEST_AUDIT",
+      workstream:publicExecutionWorkstream(priorMeta.workstream), idempotent_replay:true
+    });
   }
-  await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "DENIED", 200, { code:"STALE_STATE" });
-  return rpcToolResponse(msg.id, { ok:false, code:"STALE_STATE", status:409, refresh_required:true }, true);
+  const now = new Date().toISOString();
+  const entry = {
+    contract:"RONA_AI_EXECUTION_RESUME_V1", ...payloadCore,
+    updated_at:now, correlation_id:ids.correlationId
+  };
+  await recordMcpEvent(ctx, ids, "execution_checkpoint_submit", "SUCCESS", 200, {
+    contract:"RONA_AI_EXECUTION_RESUME_V1",
+    storage:"MCP_REQUEST_AUDIT",
+    workstream_id:workstreamId,
+    idempotency_key_hash:idemHash,
+    payload_hash:payloadHash,
+    workstream:entry
+  });
+  return rpcToolResponse(msg.id, {
+    ok:true, role:ctx.role, identity_id:ctx.identity_id, correlation_id:ids.correlationId,
+    contract:"RONA_AI_EXECUTION_RESUME_V1", storage:"MCP_REQUEST_AUDIT",
+    workstream:entry, idempotent_replay:false
+  });
 }
 
 async function exceptionCockpit(ctx, req, msg) {
@@ -797,11 +800,11 @@ async function augmentToolsListResponse(res, ctx) {
   }
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
-function roleExecutionRecovery(data, ctx) {
+async function roleExecutionRecovery(data, ctx) {
   const coordinate = scopeHas(ctx.scope, "mcp:coordinate");
   const records = Array.isArray(data.coordination?.records) ? data.coordination.records : [];
   const tasks = Array.isArray(data.active_tasks) ? data.active_tasks : [];
-  const workstreams = normalizedExecutionWorkstreams(data?.checkpoint?.metadata || {});
+  const workstreams = await loadExecutionWorkstreams(ctx);
   const writeTools = coordinate
     ? ["execution_checkpoint_submit","task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete"]
     : [];
@@ -814,6 +817,7 @@ function roleExecutionRecovery(data, ctx) {
       checkpoint_tool:"execution_checkpoint_submit",
       read_tool:"execution_checkpoint_read",
       host_independent:true,
+      storage:"MCP_REQUEST_AUDIT",
       selection_rule:"On uncertain chat context, match the current owner request to the most recent relevant non-COMPLETED workstream and resume from next_action."
     },
     authority_sources: ["global_role_policies", "competence_contract"],
@@ -899,7 +903,7 @@ async function loadCanonicalRoleState(ctx) {
     canonical_role_topology: "OWNER_INSTRUCTION:2026-09-28:CANONICAL_AI_ROLE_TOPOLOGY_V2",
     nonexistent_roles: nonexistentRoles,
   };
-  if (ctx) data.execution_recovery = roleExecutionRecovery(data, ctx);
+  if (ctx) data.execution_recovery = await roleExecutionRecovery(data, ctx);
   if (ctx && primaryTechnicalCtx(ctx)) data.technical_live_sources = await liveTechnicalSources(data);
   return data;
 }
@@ -976,7 +980,7 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || (name === "history" && msg?.params?.arguments?.domain === "tasks") || ["current_state","handoff_request_submit","coordination_detail","exception_cockpit","task_complete","task_close","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || (name === "history" && msg?.params?.arguments?.domain === "tasks") || ["current_state","handoff_request_submit","coordination_detail","execution_checkpoint_read","execution_checkpoint_submit","exception_cockpit","task_complete","task_close","object_detail","pr_detail","review_detail"].includes(name);
   let ctx;
   try { ctx = needsCtx ? await authContext(req) : null; }
   catch (e) {
