@@ -10,13 +10,10 @@ export const FINANCE_PILOT_LEGACY_TOOL_NAMES=Object.freeze([
   'handoff_request_submit',
   'business_change_proposal_submit'
 ]);
-export const FINANCE_PILOT_INFRA_TOOL_NAMES=Object.freeze([
+
+const FINANCE_PILOT_INFRA_TOOL_NAMES=Object.freeze([
   'execution_checkpoint_read',
   'execution_checkpoint_submit'
-]);
-export const FINANCE_PILOT_TOOL_NAMES=Object.freeze([
-  ...FINANCE_PILOT_LEGACY_TOOL_NAMES,
-  ...FINANCE_PILOT_INFRA_TOOL_NAMES
 ]);
 
 function isFinancePilotMcpRoute(req){
@@ -26,30 +23,35 @@ function isFinancePilotMcpRoute(req){
   }catch{return false}
 }
 
-// Compatibility normalization only. Payments V7 business tools remain the legacy eight.
-// Two cross-office execution checkpoint tools are additive infrastructure recovery tools;
-// they do not create Finance business facts or expand Finance authority.
+// Compatibility normalization only. The canonical Finance business surface remains the
+// unchanged legacy eight. The shared AI Office may additionally advertise only the two
+// explicitly allowlisted host-independent execution-recovery tools below; they do not
+// create Finance business facts or expand Finance authority.
 export async function augmentFinancePilotToolsList(req,upstream){
   if(!isFinancePilotMcpRoute(req)||!upstream.ok)return upstream;
   let body;try{body=await upstream.clone().json()}catch{return upstream}
   const tools=body?.result?.tools;
   if(!Array.isArray(tools))return upstream;
 
+  const allowedNames=[...FINANCE_PILOT_LEGACY_TOOL_NAMES,...FINANCE_PILOT_INFRA_TOOL_NAMES];
   const byName=new Map();
   for(const tool of tools){
     const name=String(tool?.name||'');
-    if(FINANCE_PILOT_TOOL_NAMES.includes(name)&&!byName.has(name))byName.set(name,tool);
+    if(allowedNames.includes(name)&&!byName.has(name))byName.set(name,tool);
   }
-  if(FINANCE_PILOT_TOOL_NAMES.some(name=>!byName.has(name)))return upstream;
+  if(FINANCE_PILOT_LEGACY_TOOL_NAMES.some(name=>!byName.has(name)))return upstream;
 
-  body.result.tools=FINANCE_PILOT_TOOL_NAMES.map(name=>byName.get(name));
+  body.result.tools=[
+    ...FINANCE_PILOT_LEGACY_TOOL_NAMES.map(name=>byName.get(name)),
+    ...FINANCE_PILOT_INFRA_TOOL_NAMES.map(name=>byName.get(name)).filter(Boolean),
+  ];
   const serialized=JSON.stringify(body);
   const headers=new Headers(upstream.headers);
   headers.set('content-length',String(encoder.encode(serialized).length));
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_AUTOMATIC_MATERIALIZATION_V1');
-  headers.set('x-rona-finance-tools-count',String(FINANCE_PILOT_TOOL_NAMES.length));
+  headers.set('x-rona-finance-tools-count',String(body.result.tools.length));
   return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
 }
 
