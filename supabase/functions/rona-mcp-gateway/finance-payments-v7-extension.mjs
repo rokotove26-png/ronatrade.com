@@ -10,6 +10,14 @@ export const FINANCE_PILOT_LEGACY_TOOL_NAMES=Object.freeze([
   'handoff_request_submit',
   'business_change_proposal_submit'
 ]);
+export const FINANCE_PILOT_INFRA_TOOL_NAMES=Object.freeze([
+  'execution_checkpoint_read',
+  'execution_checkpoint_submit'
+]);
+export const FINANCE_PILOT_TOOL_NAMES=Object.freeze([
+  ...FINANCE_PILOT_LEGACY_TOOL_NAMES,
+  ...FINANCE_PILOT_INFRA_TOOL_NAMES
+]);
 
 function isFinancePilotMcpRoute(req){
   try{
@@ -18,8 +26,9 @@ function isFinancePilotMcpRoute(req){
   }catch{return false}
 }
 
-// Compatibility normalization only. Payments V7 writes are now server-side and automatic
-// after the existing proposal + conclusion flow, so Finance Pilot exposes only its legacy eight tools.
+// Compatibility normalization only. Payments V7 business tools remain the legacy eight.
+// Two cross-office execution checkpoint tools are additive infrastructure recovery tools;
+// they do not create Finance business facts or expand Finance authority.
 export async function augmentFinancePilotToolsList(req,upstream){
   if(!isFinancePilotMcpRoute(req)||!upstream.ok)return upstream;
   let body;try{body=await upstream.clone().json()}catch{return upstream}
@@ -29,18 +38,18 @@ export async function augmentFinancePilotToolsList(req,upstream){
   const byName=new Map();
   for(const tool of tools){
     const name=String(tool?.name||'');
-    if(FINANCE_PILOT_LEGACY_TOOL_NAMES.includes(name)&&!byName.has(name))byName.set(name,tool);
+    if(FINANCE_PILOT_TOOL_NAMES.includes(name)&&!byName.has(name))byName.set(name,tool);
   }
-  if(FINANCE_PILOT_LEGACY_TOOL_NAMES.some(name=>!byName.has(name)))return upstream;
+  if(FINANCE_PILOT_TOOL_NAMES.some(name=>!byName.has(name)))return upstream;
 
-  body.result.tools=FINANCE_PILOT_LEGACY_TOOL_NAMES.map(name=>byName.get(name));
+  body.result.tools=FINANCE_PILOT_TOOL_NAMES.map(name=>byName.get(name));
   const serialized=JSON.stringify(body);
   const headers=new Headers(upstream.headers);
   headers.set('content-length',String(encoder.encode(serialized).length));
   headers.set('cache-control','no-store, no-cache, must-revalidate');
   headers.set('pragma','no-cache');
   headers.set('x-rona-finance-payments-contract','ADMIN_PAYMENTS_V7_AUTOMATIC_MATERIALIZATION_V1');
-  headers.set('x-rona-finance-tools-count','8');
+  headers.set('x-rona-finance-tools-count',String(FINANCE_PILOT_TOOL_NAMES.length));
   return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
 }
 
