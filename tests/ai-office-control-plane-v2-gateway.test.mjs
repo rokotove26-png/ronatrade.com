@@ -26,10 +26,10 @@ test('administrative close remains restricted',()=>{
   assert.match(gateway,/NO_LONGER_APPLICABLE/);
 });
 
-test('gateway advertises canonical handoff routing and current state v5',()=>{
+test('gateway advertises canonical handoff routing and current state v6',()=>{
   assert.match(gateway,/CANONICAL_AI_HANDOFF_TARGETS/);
   assert.match(gateway,/CANONICAL_AI_HANDOFF_TARGET_SET/);
   assert.match(gateway,/canonical_ai_handoff_targets/);
   assert.match(gateway,/ai_role_state_current_v4/);
-  assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V5/);
+  assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V6/);
 });
