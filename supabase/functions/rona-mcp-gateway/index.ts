@@ -23,6 +23,7 @@ const MCP_ROLE_SEGMENTS = new Set([
   "market-analyst","market-analyst-pilot",
   "rail-logistics","rail-logistics-pilot",
   "system-admin","system-admin-pilot",
+  "assistant",
 ]);
 
 function roleSegmentFromRequest(req) {
@@ -34,9 +35,9 @@ function roleSegmentFromRequest(req) {
   const first = rest.split("/")[0] || "";
   return MCP_ROLE_SEGMENTS.has(first) ? first : null;
 }
-function coordinateSegment(segment) { return segment === "system-admin" || String(segment || "").endsWith("-pilot"); }
+function coordinateSegment(segment) { return segment === "system-admin" || segment === "assistant" || String(segment || "").endsWith("-pilot"); }
 function primaryTechnicalCtx(ctx) { return ["rona-mcp-system-admin","rona-mcp-system-admin-pilot"].includes(ctx?.server_slug) && ctx?.role === "SYSTEM_ADMIN" && ctx?.identity_id === "AI-SYSTEM-ADMIN"; }
-function coordinateContext(ctx) { return primaryTechnicalCtx(ctx) || String(ctx?.server_slug || "").endsWith("-pilot"); }
+function coordinateContext(ctx) { return primaryTechnicalCtx(ctx) || ctx?.server_slug === "rona-mcp-assistant" || String(ctx?.server_slug || "").endsWith("-pilot"); }
 function oauthScopesForSegment(segment) {
   return coordinateSegment(segment)
     ? ["mcp:read","mcp:coordinate","offline_access"]
@@ -135,7 +136,7 @@ function normalizeOauthChallenge(res, segment) {
   );
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
 }
-const AI_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN"]);
+const AI_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN","ASSISTANT"]);
 const CANONICAL_AI_HANDOFF_TARGETS = Object.freeze(["COMMERCIAL_DIRECTOR","FINANCE","LEGAL","OPERATIONS_DIRECTOR","RAIL_LOGISTICS","SYSTEM_ADMIN"]);
 const CANONICAL_AI_HANDOFF_TARGET_SET = new Set(CANONICAL_AI_HANDOFF_TARGETS);
 const BUSINESS_ROLES = new Set(["OPERATIONS_DIRECTOR","FINANCE","LEGAL","MARKET_ANALYST","COMMERCIAL_DIRECTOR","RAIL_LOGISTICS"]);
@@ -147,6 +148,7 @@ const ENTITY_SCOPE = Object.freeze({
   COMMERCIAL_DIRECTOR: new Set(["CLIENT","CONTRACT","APPLICATION","DEAL","PUBLICATION","TASK"]),
   RAIL_LOGISTICS: new Set(["DEAL","SHIPMENT","RAIL_DOCUMENT","TASK"]),
   SYSTEM_ADMIN: new Set(["TASK","SYSTEM"]),
+  ASSISTANT: new Set(["DOCUMENT","TASK"]),
 });
 const HANDOFF_KEYS = new Set(["target_role","entity_type","entity_id","subject","requested_check","reason","priority","source_refs","idempotency_key"]);
 const FORBIDDEN_ROLE_KEYS = new Set(["role","business_role","identity_id","ai_identity_id","functional_role","server_slug","token_id","owner_admin"]);
