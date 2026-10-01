@@ -269,7 +269,7 @@ insert into public.rona_correspondence_register(
   source_authority,priority,functional_owner,response_required,status,registry_note
 )
 select
-  'EXTERNAL','INBOUND',m.mailbox,m.rfc_message_id,m.imap_uid,
+  'EXTERNAL','INBOUND',m.mailbox,coalesce(m.rfc_message_id,'imap:'||m.uid_validity::text||':'||m.imap_uid::text),m.imap_uid,
   coalesce(m.received_at,m.sent_at,m.synced_at),m.from_addr,
   coalesce(m.to_addrs,'[]'::jsonb),coalesce(m.cc_addrs,'[]'::jsonb),m.subject,
   coalesce(m.has_attachments,false),coalesce(m.attachments,'[]'::jsonb),
@@ -283,5 +283,5 @@ where lower(m.mailbox)='office_kg@ronaoil.com'
     select 1 from public.rona_correspondence_register r
     where lower(r.mailbox)=lower(m.mailbox)
       and r.direction='INBOUND'
-      and r.imap_uid=m.imap_uid
+      and r.source_message_id=coalesce(m.rfc_message_id,'imap:'||m.uid_validity::text||':'||m.imap_uid::text)
   );
