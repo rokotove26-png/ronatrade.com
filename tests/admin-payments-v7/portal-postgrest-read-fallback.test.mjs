@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import {
   OWNER_POSTGREST_READ_FALLBACK_NAMES,
   PRICE_POSTGREST_READ_FALLBACK_NAMES,
+  PRICE_POSTGREST_WRITE_FALLBACK_NAMES,
   patchOwnerApiSource,
   patchPriceUpdatesApiSource,
 } from '../../scripts/portal-postgrest-read-fallback.mjs';
@@ -47,21 +48,25 @@ test('owner fallback is limited to explicit read RPCs and preserves write fail-c
   }
 });
 
-test('price fallback restores only read bootstraps, not publication mutations', () => {
+test('price fallback keeps reads separate and allows only the canonical publication write', () => {
   const out = patchPriceUpdatesApiSource(priceFixture);
   assert.match(out, /rona-owner-rpc-read-fallback/);
+  assert.match(out, /rona-owner-price-publication-write-fallback/);
   assert.deepEqual(PRICE_POSTGREST_READ_FALLBACK_NAMES, [
     'owner_price_updates_bootstrap',
     'owner_prices_admin_workspace',
   ]);
+  assert.deepEqual(PRICE_POSTGREST_WRITE_FALLBACK_NAMES, [
+    'owner_set_price_publication_audience',
+  ]);
   for (const name of [
     'owner_apply_price_change_proposal',
     'owner_reject_price_change_proposal',
-    'owner_set_price_publication_audience',
     'owner_decide_received_price_list',
     'owner_agent_cp_materialize_and_send',
   ]) {
     assert.equal(PRICE_POSTGREST_READ_FALLBACK_NAMES.includes(name), false, `${name} must never use read fallback`);
+    assert.equal(PRICE_POSTGREST_WRITE_FALLBACK_NAMES.includes(name), false, `${name} must remain fail-closed on PostgREST`);
   }
 });
 
@@ -76,4 +81,21 @@ test('edge fallback is static, authenticated and contains no mutation statements
   assert.doesNotMatch(source, /delete\s+from/i);
   assert.doesNotMatch(source, /update\s+[a-z0-9_.]+\s+set/i);
   assert.doesNotMatch(source, /truncate\s+/i);
+});
+
+
+test('price publication write fallback is dedicated, authenticated and delegates only to canonical RPC', () => {
+  const source = readFileSync('supabase/functions/rona-owner-price-publication-write-fallback/index.ts', 'utf8');
+  assert.match(source, /auth\.getUser\(token\)/);
+  assert.match(source, /resolve_portal_auth/);
+  assert.match(source, /ctx\.roles\.includes\("ADMIN"\)/);
+  assert.match(source, /owner_set_price_publication_audience/);
+  assert.match(source, /set_config\('request\.jwt\.claims'/);
+  assert.doesNotMatch(source, /owner_apply_price_change_proposal/);
+  assert.doesNotMatch(source, /owner_reject_price_change_proposal/);
+  assert.doesNotMatch(source, /owner_decide_received_price_list/);
+  assert.doesNotMatch(source, /owner_agent_cp_materialize_and_send/);
+  assert.doesNotMatch(source, /insert\s+into\s+portal_private/i);
+  assert.doesNotMatch(source, /update\s+portal_private/i);
+  assert.doesNotMatch(source, /delete\s+from\s+portal_private/i);
 });

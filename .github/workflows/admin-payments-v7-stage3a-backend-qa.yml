@@ -68,6 +68,8 @@ jobs:
             supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs
           deno check --config supabase/functions/rona-owner-rpc-read-fallback/deno.json \
             supabase/functions/rona-owner-rpc-read-fallback/index.ts
+          deno check --config supabase/functions/rona-owner-price-publication-write-fallback/deno.json \
+            supabase/functions/rona-owner-price-publication-write-fallback/index.ts
       - name: Cloudflare build-command parity
         run: npm run build
       - name: AI Office control-plane contract tests

@@ -20,7 +20,12 @@ export const PRICE_POSTGREST_READ_FALLBACK_NAMES = Object.freeze([
   'owner_prices_admin_workspace',
 ]);
 
+export const PRICE_POSTGREST_WRITE_FALLBACK_NAMES = Object.freeze([
+  'owner_set_price_publication_audience',
+]);
+
 const FALLBACK_PATH = '/functions/v1/rona-owner-rpc-read-fallback';
+const PRICE_WRITE_FALLBACK_PATH = '/functions/v1/rona-owner-price-publication-write-fallback';
 
 function replaceBetween(source, startMarker, endMarker, replacement, label) {
   const start = source.indexOf(startMarker);
@@ -57,9 +62,12 @@ export function patchOwnerApiSource(source) {
 }
 
 export function patchPriceUpdatesApiSource(source) {
-  const setName = 'RONA_PRICE_POSTGREST_READ_FALLBACK_NAMES';
-  const replacement = commonFallbackRuntime(setName, PRICE_POSTGREST_READ_FALLBACK_NAMES) +
-    `async function rpc(token,name,args={}){const primary=await fetch(\`\${RPC}/\${encodeURIComponent(name)}\`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:\`Bearer \${token}\`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify(args)});if(!${setName}.has(name)||!(await ronaPostgrestReadUnavailable(primary)))return primary;const fallback=await ronaPostgrestReadFallback(token,name,args);if(fallback&&(fallback.ok||fallback.status===401||fallback.status===403))return fallback;return primary}
+  const readSetName = 'RONA_PRICE_POSTGREST_READ_FALLBACK_NAMES';
+  const writeSetName = 'RONA_PRICE_POSTGREST_WRITE_FALLBACK_NAMES';
+  const replacement = commonFallbackRuntime(readSetName, PRICE_POSTGREST_READ_FALLBACK_NAMES) +
+    `const ${writeSetName}=new Set(${JSON.stringify(PRICE_POSTGREST_WRITE_FALLBACK_NAMES)});
+async function ronaPricePublicationWriteFallback(token,name,args){try{return await fetch(\`\${SUPABASE_URL}${PRICE_WRITE_FALLBACK_PATH}\`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:\`Bearer \${token}\`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify({name,args:args||{}})})}catch(_){return null}}
+async function rpc(token,name,args={}){const primary=await fetch(\`\${RPC}/\${encodeURIComponent(name)}\`,{method:'POST',headers:{apikey:SUPABASE_PUBLISHABLE_KEY,authorization:\`Bearer \${token}\`,'content-type':'application/json',accept:'application/json'},body:JSON.stringify(args)});if(!(await ronaPostgrestReadUnavailable(primary)))return primary;if(${readSetName}.has(name)){const fallback=await ronaPostgrestReadFallback(token,name,args);if(fallback&&(fallback.ok||fallback.status===401||fallback.status===403))return fallback;return primary}if(${writeSetName}.has(name)){const fallback=await ronaPricePublicationWriteFallback(token,name,args);if(fallback&&(fallback.ok||fallback.status===400||fallback.status===401||fallback.status===403||fallback.status===409))return fallback;return primary}return primary}
 `;
   const out = replaceBetween(
     source,
@@ -68,7 +76,7 @@ export function patchPriceUpdatesApiSource(source) {
     replacement,
     'PRICE_API',
   );
-  if (!out.includes(FALLBACK_PATH)) {
+  if (!out.includes(FALLBACK_PATH) || !out.includes(PRICE_WRITE_FALLBACK_PATH)) {
     throw new Error('POSTGREST_READ_FALLBACK_PRICE_API_CONTRACT_INVALID');
   }
   return out;
@@ -88,5 +96,6 @@ export function applyPortalPostgrestReadFallback(root) {
     contract: 'RONA_POSTGREST_READ_FALLBACK_V1',
     ownerReadFallbackNames: [...OWNER_POSTGREST_READ_FALLBACK_NAMES],
     priceReadFallbackNames: [...PRICE_POSTGREST_READ_FALLBACK_NAMES],
+    priceWriteFallbackNames: [...PRICE_POSTGREST_WRITE_FALLBACK_NAMES],
   };
 }
