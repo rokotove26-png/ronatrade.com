@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 
 const source=readFileSync('functions/assistant/[[path]].js','utf8');
 const authorize=readFileSync('functions/assistant/authorize.js','utf8');
+const authorizeModule=await import('../functions/assistant/authorize.js');
 const routes=JSON.parse(readFileSync('_routes.json','utf8'));
 
 test('Assistant public proxy uses fixed canonical upstream',()=>{
@@ -38,4 +39,9 @@ test('Assistant exact authorize handler owns GET and POST consent traffic',()=>{
   assert.match(authorize,/request\.arrayBuffer\(\)/);
   assert.match(authorize,/text\/html; charset=utf-8/);
   assert.match(authorize,/headers:returnedHeaders\(upstream\.headers,request\.method,upstream\.status\)/);
+});
+
+
+test('Assistant exact authorize handler module loads',()=>{
+  assert.equal(typeof authorizeModule.onRequest,'function');
 });
