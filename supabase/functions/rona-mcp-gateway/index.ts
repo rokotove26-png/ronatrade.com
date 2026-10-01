@@ -1074,7 +1074,7 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || name === "history" || name.startsWith("assistant_") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || name === "history" || name.startsWith("assistant_") || name.startsWith("mail_") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail"].includes(name);
   let ctx;
   try { ctx = needsCtx ? await authContext(req) : null; }
   catch (e) {
@@ -1106,7 +1106,7 @@ async function dispatchWrappedRequest(handler, req, msg, name, ctx, segment) {
   if (ctx?.role === "ASSISTANT" && name === "history") {
     return await assistantHistory(ctx,req,msg);
   }
-  if (ctx?.role === "ASSISTANT" && name.startsWith("assistant_")) {
+  if (ctx?.role === "ASSISTANT" && (name.startsWith("assistant_") || name.startsWith("mail_"))) {
     const direct = await assistantAdminRuntime(ctx,req,msg);
     if (direct) return direct;
   }
