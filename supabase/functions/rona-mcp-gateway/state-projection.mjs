@@ -89,6 +89,14 @@ export function compactState(data,ctx,registry) {
     'competence_contract','routing_capabilities','state_conflicts','execution_recovery','technical_live_sources',
   ]);
   const records = Array.isArray(data.coordination?.records) ? data.coordination.records : [];
+  if (data.competence_contract && typeof data.competence_contract === 'object') {
+    projected.competence_contract = select(data.competence_contract,[
+      'contract','canonical_role','gate_required_before_accepting_owner_task','allowed_results',
+      'in_scope_action','mixed_scope_action','out_of_scope_action',
+      'helpful_override_prohibited','authority_expansion_prohibited','owned_domains'
+    ]);
+    projected.competence_contract.office_routing_in_detail = true;
+  }
   projected.data_contract = COMPACT_STATE_CONTRACT;
   projected.source_data_contract = data.data_contract;
   projected.global_role_policies = (data.global_role_policies || []).map(p => ({
