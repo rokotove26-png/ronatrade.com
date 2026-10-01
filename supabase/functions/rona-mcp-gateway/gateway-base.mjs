@@ -135,7 +135,7 @@ if(primaryTechnicalAdmin(cfg)){
   });
 }
 if(cfg.business_role==='ASSISTANT'){
-  const allowed=new Set(['task_acknowledge','task_progress_submit','handoff_request_submit','mail_send']);
+  const allowed=new Set(['task_acknowledge','task_progress_submit','mail_send']);
   return common.filter(t=>allowed.has(t.name)).map(t=>{
     if(t.name==='handoff_request_submit'){
       t.description='Создать audited административный handoff в профильную AI-роль по зарегистрированному DOCUMENT или назначенной TASK. Не создаёт профильное решение.';
