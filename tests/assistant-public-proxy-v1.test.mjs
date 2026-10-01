@@ -32,3 +32,9 @@ test('Assistant authorize page is forced to HTML at the public proxy',()=>{
   assert.match(source,/headers\.set\('content-type','text\/html; charset=utf-8'\)/);
   assert.match(source,/headers\.delete\('content-disposition'\)/);
 });
+
+
+test('Assistant public proxy buffers POST bodies before upstream forwarding',()=>{
+  assert.match(source,/init\.body=await request\.arrayBuffer\(\)/);
+  assert.doesNotMatch(source,/init\.body=request\.body/);
+});
