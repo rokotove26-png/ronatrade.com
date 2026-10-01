@@ -20,3 +20,8 @@ test('Assistant public proxy forwards request methods and keeps redirects manual
 test('Assistant public route is included in Cloudflare Pages Functions routing',()=>{
   assert.ok(routes.include.includes('/assistant/*'));
 });
+
+
+test('Assistant proxy normalizes MCP-relative metadata discovery',()=>{
+  assert.match(source,/suffix=suffix\.replace\(\/\^\\\/mcp\(\?=\\\/\\\.well-known\\\/\)\//);
+});

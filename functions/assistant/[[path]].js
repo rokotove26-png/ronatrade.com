@@ -4,7 +4,8 @@ function upstreamUrl(requestUrl){
   const url=new URL(requestUrl);
   const prefix='/assistant';
   if(url.pathname!==prefix&&!url.pathname.startsWith(prefix+'/'))return null;
-  const suffix=url.pathname.slice(prefix.length)||'/';
+  let suffix=url.pathname.slice(prefix.length)||'/';
+  suffix=suffix.replace(/^\/mcp(?=\/\.well-known\/)/,'');
   const target=new URL(UPSTREAM_BASE+(suffix.startsWith('/')?suffix:'/'+suffix));
   target.search=url.search;
   return target;
