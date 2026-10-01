@@ -16,6 +16,13 @@ const FINANCE_PILOT_INFRA_TOOL_NAMES=Object.freeze([
   'execution_checkpoint_submit'
 ]);
 
+export const FINANCE_PILOT_MAIL_READ_TOOL_NAMES=Object.freeze([
+  'mail_sync_status',
+  'mail_recent',
+  'mail_search',
+  'mail_read'
+]);
+
 function isFinancePilotMcpRoute(req){
   try{
     const path=new URL(req.url).pathname.replace(/\/+$/,'');
@@ -24,16 +31,16 @@ function isFinancePilotMcpRoute(req){
 }
 
 // Compatibility normalization only. The canonical Finance business surface remains the
-// unchanged legacy eight. The shared AI Office may additionally advertise only the two
-// explicitly allowlisted host-independent execution-recovery tools below; they do not
-// create Finance business facts or expand Finance authority.
+// unchanged legacy eight. The shared AI Office may additionally advertise only explicitly
+// allowlisted host-independent execution-recovery tools and read-only corporate mailbox
+// tools. These additions do not create Finance business facts or expand Finance write authority.
 export async function augmentFinancePilotToolsList(req,upstream){
   if(!isFinancePilotMcpRoute(req)||!upstream.ok)return upstream;
   let body;try{body=await upstream.clone().json()}catch{return upstream}
   const tools=body?.result?.tools;
   if(!Array.isArray(tools))return upstream;
 
-  const allowedNames=[...FINANCE_PILOT_LEGACY_TOOL_NAMES,...FINANCE_PILOT_INFRA_TOOL_NAMES];
+  const allowedNames=[...FINANCE_PILOT_LEGACY_TOOL_NAMES,...FINANCE_PILOT_INFRA_TOOL_NAMES,...FINANCE_PILOT_MAIL_READ_TOOL_NAMES];
   const byName=new Map();
   for(const tool of tools){
     const name=String(tool?.name||'');
@@ -44,6 +51,7 @@ export async function augmentFinancePilotToolsList(req,upstream){
   body.result.tools=[
     ...FINANCE_PILOT_LEGACY_TOOL_NAMES.map(name=>byName.get(name)),
     ...FINANCE_PILOT_INFRA_TOOL_NAMES.map(name=>byName.get(name)).filter(Boolean),
+    ...FINANCE_PILOT_MAIL_READ_TOOL_NAMES.map(name=>byName.get(name)).filter(Boolean),
   ];
   const serialized=JSON.stringify(body);
   const headers=new Headers(upstream.headers);
@@ -57,6 +65,10 @@ export async function augmentFinancePilotToolsList(req,upstream){
   headers.set(
     'x-rona-finance-infra-tools-count',
     String(FINANCE_PILOT_INFRA_TOOL_NAMES.filter(name=>byName.has(name)).length)
+  );
+  headers.set(
+    'x-rona-finance-mail-read-tools-count',
+    String(FINANCE_PILOT_MAIL_READ_TOOL_NAMES.filter(name=>byName.has(name)).length)
   );
   return new Response(serialized,{status:upstream.status,statusText:upstream.statusText,headers});
 }
