@@ -827,7 +827,7 @@ async function augmentToolsListResponse(res, ctx) {
   }
 
   if (ctx && coordinateContext(ctx) && (primaryTechnicalCtx(ctx) || scopeHas(ctx.scope,"mcp:coordinate"))) {
-    if (!tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
+    if (ctx.role !== "ASSISTANT" && !tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
     if (["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role) && !tools.some(t => t?.name === "task_close")) tools.push(TASK_CLOSE_TOOL);
   }
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
@@ -838,7 +838,9 @@ async function roleExecutionRecovery(data, ctx) {
   const tasks = Array.isArray(data.active_tasks) ? data.active_tasks : [];
   const workstreams = await loadExecutionWorkstreams(ctx);
   const writeTools = coordinate
-    ? ["execution_checkpoint_submit","task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete"]
+    ? (ctx.role === "ASSISTANT"
+      ? ["execution_checkpoint_submit","task_acknowledge","task_progress_submit","mail_send","assistant_document_register","assistant_document_version_add","assistant_correspondence_update","assistant_route_submit"]
+      : ["execution_checkpoint_submit","task_acknowledge","task_progress_submit","functional_conclusion_submit","handoff_request_submit","task_complete"])
     : [];
   if (coordinate && ["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role)) writeTools.push("task_close");
   return {
