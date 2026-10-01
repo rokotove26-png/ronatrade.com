@@ -131,15 +131,43 @@ function normalizeOperationsPayload(body: any) {
 async function railReadModel(req: Request) {
   const authorization = req.headers.get("authorization");
   if (!authorization?.startsWith("Bearer ")) return null;
-  const userClient = createClient(SUPA_URL, publicKey(), {
+  const key = publicKey();
+  const userClient = createClient(SUPA_URL, key, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: { headers: { Authorization: authorization } },
   });
   const { data, error } = await userClient.rpc("rona_admin_rail_deal_map_read_model_v4", {
     p_deal_id: null,
   });
-  if (error) return null;
-  return data;
+  if (!error) return data;
+
+  const code = String((error as any)?.code || "");
+  const detail = String((error as any)?.message || (error as any)?.details || "");
+  const postgrestUnavailable =
+    code === "PGRST000" ||
+    code === "PGRST002" ||
+    /schema cache|database connection error|retrying|peer authentication failed/i.test(detail);
+  if (!postgrestUnavailable) return null;
+
+  try {
+    const fallback = await fetch(`${SUPA_URL}/functions/v1/rona-owner-rpc-read-fallback`, {
+      method: "POST",
+      headers: {
+        apikey: key,
+        authorization,
+        "content-type": "application/json",
+        accept: "application/json",
+      },
+      body: JSON.stringify({
+        name: "rona_admin_rail_deal_map_read_model_v4",
+        args: { p_deal_id: null },
+      }),
+    });
+    if (!fallback.ok) return null;
+    return await fallback.json();
+  } catch {
+    return null;
+  }
 }
 
 async function normalizeAdminBootstrapResponse(req: Request, response: Response) {
