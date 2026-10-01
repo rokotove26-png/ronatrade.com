@@ -36,6 +36,9 @@ const ADMIN_READS = new Set([
   "owner_deals_current_v4",
   "owner_deals_current_v3",
   "owner_access_workspace_bootstrap",
+  "rona_admin_operations_current_v2",
+  "rona_admin_operations_current_v1",
+  "rona_admin_operations_attention_seen_v1",
   "rona_admin_rail_deal_map_read_model_v4",
 ]);
 
@@ -142,6 +145,12 @@ async function executeRead(tx: any, name: string, args: Record<string, unknown>)
       const limit = boundedLimit(args.p_limit);
       return (await tx`select public.owner_access_workspace_bootstrap(${limit}::integer) as data`)[0]?.data ?? null;
     }
+    case "rona_admin_operations_current_v2":
+      return (await tx`select public.rona_admin_operations_current_v2() as data`)[0]?.data ?? null;
+    case "rona_admin_operations_current_v1":
+      return (await tx`select public.rona_admin_operations_current_v1() as data`)[0]?.data ?? null;
+    case "rona_admin_operations_attention_seen_v1":
+      return (await tx`select public.rona_admin_operations_attention_seen_v1() as data`)[0]?.data ?? null;
     case "owner_r1_client_bootstrap":
       return (await tx`select public.owner_r1_client_bootstrap() as data`)[0]?.data ?? null;
     case "owner_analytics_client_feed":
