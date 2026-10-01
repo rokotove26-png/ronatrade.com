@@ -34,9 +34,25 @@ export async function onRequest({request}){
   }
 
   const upstream=await fetch(target.toString(),init);
+  const headers=returnedHeaders(upstream.headers,request.method,upstream.status);
+
+  if(request.method==='GET'&&upstream.status===200){
+    let html=await upstream.text();
+    html=html.replace(
+      '<form method="post" action="authorize">',
+      '<form method="post" action="/assistant/authorize" novalidate>'
+    );
+    html=html.replaceAll(' required>','>');
+    return new Response(html,{
+      status:upstream.status,
+      statusText:upstream.statusText,
+      headers,
+    });
+  }
+
   return new Response(upstream.body,{
     status:upstream.status,
     statusText:upstream.statusText,
-    headers:returnedHeaders(upstream.headers,request.method,upstream.status),
+    headers,
   });
 }
