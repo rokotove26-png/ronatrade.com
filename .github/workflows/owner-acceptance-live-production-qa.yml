@@ -44,6 +44,8 @@ jobs:
           node tests/admin-client-impersonation-static-shell.test.mjs
           node tests/live-postgrest-read-fallback-ops-rail.test.mjs
           node tests/live-price-publication-write-fallback.test.mjs
+          node --check 'functions/assistant/[[path]].js'
+          node --test tests/assistant-public-proxy-v1.test.mjs
           test ! -e functions/portal/client.js
           grep -q "import { onRequest as serveCurrentAdminUi } from '../admin-main-ui-current.js'" functions/portal/main-ui/index.js
           grep -q "x-rona-application-deal-handoff','approved-to-deal-v1" functions/portal/main-ui/index.js
