@@ -8,6 +8,9 @@ export const OWNER_POSTGREST_READ_FALLBACK_NAMES = Object.freeze([
   'owner_deals_current_v4',
   'owner_deals_current_v3',
   'owner_access_workspace_bootstrap',
+  'rona_admin_operations_current_v2',
+  'rona_admin_operations_current_v1',
+  'rona_admin_operations_attention_seen_v1',
   'owner_r1_client_bootstrap',
   'owner_analytics_client_feed',
 ]);
