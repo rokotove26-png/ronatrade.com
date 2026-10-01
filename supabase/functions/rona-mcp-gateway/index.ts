@@ -427,7 +427,7 @@ function syntacticallyValidCrossRoleHandoff(ctx, args) {
   const idem = typeof args.idempotency_key === "string" && IDEMPOTENCY_RE.test(args.idempotency_key) ? args.idempotency_key : null;
   if (!BUSINESS_ROLES.has(targetRole) || !CANONICAL_AI_HANDOFF_TARGET_SET.has(targetRole) || !id || !subject || !check || !reason || !["LOW","NORMAL","HIGH","CRITICAL"].includes(priority) || !refs || !idem) return null;
   if (!roleCanUseEntity(ctx.role, type)) return null;
-  if (!primaryTechnicalCtx(ctx) && roleCanUseEntity(targetRole, type)) return null;
+  if (!primaryTechnicalCtx(ctx) && !roleCanUseEntity(targetRole, type)) return null;
   return { targetRole, type, id, subject, check, reason, priority, refs, idem };
 }
 async function createCrossRoleHandoff(ctx, req, msg, normalized) {
