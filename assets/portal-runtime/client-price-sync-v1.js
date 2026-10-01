@@ -118,8 +118,9 @@ function start(){
   observePriceMount();
   const authority=contextAuthority();
   if(!authority){console.error('RONA client price sync: context authority unavailable');return}
-  state.unsubscribe=authority.subscribe(ctx=>{const changed=contextKey(state.context)!==contextKey(ctx);state.context=ctx||null;if(changed){state.priceSeq++;clearPriceState()}queueRender()});
+  state.unsubscribe=authority.subscribe(ctx=>{const changed=contextKey(state.context)!==contextKey(ctx);state.context=ctx||null;if(changed){state.priceSeq++;clearPriceState();if(ctx)scheduleRefresh(true)}queueRender()});
   const current=authority.getCurrentContext?.();if(current)state.context=current;
+  scheduleRefresh(true);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else queueMicrotask(start);
 document.addEventListener('click',maybeRefresh,true);
