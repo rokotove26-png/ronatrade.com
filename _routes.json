@@ -22,7 +22,8 @@
     "/rail-logistics/*",
     "/rail-logistics-pilot/*",
     "/system-admin/*",
-    "/system-admin-pilot/*"
+    "/system-admin-pilot/*",
+    "/assistant/*"
   ],
   "exclude": [
     "/assets/*",
