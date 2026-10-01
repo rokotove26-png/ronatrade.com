@@ -23,9 +23,10 @@ test('live price publication fallback is limited to canonical audience mutation'
 
 test('write fallback activates only after confirmed PostgREST availability failure', () => {
   const primary = source.indexOf('const primary=await fetch(`${RPC}/${encodeURIComponent(name)}`');
-  const unavailable = source.indexOf('ronaPostgrestReadUnavailable(primary)');
-  const writeFallback = source.indexOf('ronaPricePublicationWriteFallback(token,name,args)');
-  assert.ok(primary >= 0 && unavailable > primary && writeFallback > unavailable, 'fallback ordering invalid');
+  const unavailable = source.indexOf('ronaPostgrestReadUnavailable(primary)', primary);
+  const writeGate = source.indexOf('RONA_PRICE_POSTGREST_WRITE_FALLBACK_NAMES.has(name)', unavailable);
+  const writeFallback = source.indexOf('const fallback=await ronaPricePublicationWriteFallback(token,name,args)', writeGate);
+  assert.ok(primary >= 0 && unavailable > primary && writeGate > unavailable && writeFallback > writeGate, 'fallback ordering invalid');
   assert.match(source, /response\.status!==503/);
   assert.match(source, /PGRST000/);
   assert.match(source, /PGRST002/);
