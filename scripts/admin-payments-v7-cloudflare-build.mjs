@@ -7,6 +7,7 @@ import {
   recoverLiveAdminWorkspace,
 } from './admin-payments-v7-final-live-source.mjs';
 import { stripOwnerBuildIndicator } from './admin-owner-production-diagnostics-policy.mjs';
+import { applyPortalPostgrestReadFallback } from './portal-postgrest-read-fallback.mjs';
 
 const ROOT = process.cwd();
 const LIVE_COMMIT = FINAL_LIVE_ADMIN_SOURCE_COMMIT;
@@ -58,6 +59,9 @@ try {
   const recovered = recoverLiveAdminWorkspace(worktree);
   console.log(`PAYMENTS_V7_CLOUDFLARE_BASE=${LIVE_COMMIT}`);
   console.log(`PAYMENTS_V7_CLOUDFLARE_PRESENTATION=${recovered.presentation}`);
+
+  const postgrestFallback = applyPortalPostgrestReadFallback(worktree);
+  console.log(`PORTAL_POSTGREST_READ_FALLBACK=${postgrestFallback.contract}`);
 
   for (const path of OPERATIONS_CENTER_OVERRIDES) {
     const source = join(ROOT, path);
