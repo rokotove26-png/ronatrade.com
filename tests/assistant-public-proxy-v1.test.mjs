@@ -25,3 +25,10 @@ test('Assistant public route is included in Cloudflare Pages Functions routing',
 test('Assistant proxy normalizes MCP-relative metadata discovery',()=>{
   assert.match(source,/suffix=suffix\.replace\(\/\^\\\/mcp\(\?=\\\/\\\.well-known\\\/\)\//);
 });
+
+
+test('Assistant authorize page is forced to HTML at the public proxy',()=>{
+  assert.match(source,/pathname==='\/assistant\/authorize'/);
+  assert.match(source,/headers\.set\('content-type','text\/html; charset=utf-8'\)/);
+  assert.match(source,/headers\.delete\('content-disposition'\)/);
+});

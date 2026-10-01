@@ -19,10 +19,15 @@ function forwardHeaders(source){
   return headers;
 }
 
-function responseHeaders(source){
+function responseHeaders(source,requestUrl,method,status){
   const headers=new Headers(source);
   headers.delete('content-length');
   headers.delete('content-encoding');
+  const pathname=new URL(requestUrl).pathname;
+  if(method==='GET'&&status===200&&pathname==='/assistant/authorize'){
+    headers.set('content-type','text/html; charset=utf-8');
+    headers.delete('content-disposition');
+  }
   return headers;
 }
 
@@ -42,6 +47,6 @@ export async function onRequest(context){
   return new Response(upstream.body,{
     status:upstream.status,
     statusText:upstream.statusText,
-    headers:responseHeaders(upstream.headers),
+    headers:responseHeaders(upstream.headers,request.url,request.method,upstream.status),
   });
 }
