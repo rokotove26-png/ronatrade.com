@@ -1,0 +1,32 @@
+name: Assistant Runtime V1 QA
+
+on:
+  push:
+    branches:
+      - feat/assistant-runtime-v1
+    paths:
+      - "supabase/functions/rona-mcp-gateway/**"
+      - "supabase/migrations/20261001181*.sql"
+      - "tests/assistant-runtime-v1.test.mjs"
+      - ".github/workflows/assistant-runtime-v1.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/rona-mcp-gateway/**"
+      - "supabase/migrations/20261001181*.sql"
+      - "tests/assistant-runtime-v1.test.mjs"
+
+jobs:
+  assistant-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Assistant contract tests
+        run: node --test tests/assistant-runtime-v1.test.mjs
+      - name: Gateway import graph
+        run: deno check --config=supabase/functions/rona-mcp-gateway/deno.json supabase/functions/rona-mcp-gateway/index.ts
