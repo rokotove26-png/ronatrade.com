@@ -70,7 +70,7 @@ set app_name=excluded.app_name,
     updated_at=now();
 
 update portal_private.ai_staff_directory_v1
-set canonical_ai_role='ASSISTANT'::portal_private.ai_business_role_enum,
+set canonical_ai_role=null,
     identity_id='AI-ASSISTANT',
     pilot_server_slug='rona-mcp-assistant',
     pilot_app_name='RONA Assistant',
