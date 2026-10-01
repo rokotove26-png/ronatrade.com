@@ -105,10 +105,10 @@ test('response_required rejects non-booleans', () => {
 });
 
 
-test('Assistant OAuth canonical origin is the direct Supabase gateway until public proxy is provisioned', () => {
-  assert.match(gateway, /ASSISTANT_DIRECT_ORIGIN = "https:\/\/sxawrwzeobaqwwmlkzws\.supabase\.co\/functions\/v1\/rona-mcp-gateway"/);
-  assert.match(gateway, /segment === "assistant" \? `\$\{ASSISTANT_DIRECT_ORIGIN\}\/assistant`/);
-  assert.match(base, /slug==='rona-mcp-assistant'\?baseFor\(slug\):/);
+test('Assistant OAuth canonical origin matches the existing public RONA role pattern', () => {
+  assert.doesNotMatch(gateway, /ASSISTANT_DIRECT_ORIGIN/);
+  assert.match(gateway, /function publicRoleBase\(segment\) \{\s*return `\$\{PUBLIC_ORIGIN\}\/\$\{segment\}`;\s*\}/);
+  assert.match(base, /function publicBaseFor\(slug\)\{return `\$\{PUBLIC_ORIGIN\}\/\$\{segmentFor\(slug\)\}`;\}/);
 });
 
 test('Assistant OAuth discovery supports ChatGPT MCP-relative metadata probes', () => {

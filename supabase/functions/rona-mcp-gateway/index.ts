@@ -17,7 +17,6 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:\/-]{7,159}$/;
 const SAFE_TEXT_RE = /^[^\u0000-\u001F\u007F]{1,4000}$/u;
 const PUBLIC_ORIGIN = "https://ronaoil.com";
-const ASSISTANT_DIRECT_ORIGIN = "https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-mcp-gateway";
 const MCP_ROLE_SEGMENTS = new Set([
   "operations","operations-pilot",
   "finance","finance-pilot",
@@ -46,7 +45,7 @@ function oauthScopesForSegment(segment) {
     : ["mcp:read","offline_access"];
 }
 function publicRoleBase(segment) {
-  return segment === "assistant" ? `${ASSISTANT_DIRECT_ORIGIN}/assistant` : `${PUBLIC_ORIGIN}/${segment}`;
+  return `${PUBLIC_ORIGIN}/${segment}`;
 }
 function publicMcpResourceForSegment(segment) {
   return `${publicRoleBase(segment)}/mcp`;
