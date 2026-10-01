@@ -104,6 +104,12 @@ function oauthDiscoveryResponse(req) {
     if (rest === `${segment}/.well-known/oauth-authorization-server`) {
       return oauthMetadataResponse(oauthAuthorizationMetadataForSegment(segment));
     }
+    if (rest === `${segment}/mcp/.well-known/oauth-protected-resource`) {
+      return oauthMetadataResponse(oauthProtectedMetadataForSegment(segment));
+    }
+    if (rest === `${segment}/mcp/.well-known/oauth-authorization-server`) {
+      return oauthMetadataResponse(oauthAuthorizationMetadataForSegment(segment));
+    }
     if (rest === `.well-known/oauth-protected-resource/${segment}/mcp`) {
       return oauthMetadataResponse(oauthProtectedMetadataForSegment(segment));
     }
