@@ -44,6 +44,9 @@ for(const name of universalNames)for(const re of hardcoded)if(re.test(source[nam
 
 if(source.prices.includes('/v1/client/bootstrap')||source.prices.includes('priceAuthority'))throw new Error('PRICE_BROWSER_AUTHORITY_DUPLICATION_FORBIDDEN');
 if(!source.prices.includes('/v1/client/prices?clientId='))throw new Error('PRICE_CURRENT_CONTEXT_SERVER_PROJECTION_MISSING');
+if(!source.prices.includes('clearPriceState();if(ctx)scheduleRefresh(true)'))throw new Error('PRICE_CONTEXT_CHANGE_REFRESH_MISSING');
+if(!source.prices.includes('scheduleRefresh(true);'))throw new Error('PRICE_STARTUP_REFRESH_MISSING');
+if(source.prices.includes('setInterval('))throw new Error('PRICE_POLLING_FORBIDDEN');
 if(!source.contract.includes('state.entry={context,document:currentContractDocument(data.documents)}'))throw new Error('CONTRACT_CURRENT_CONTEXT_DETAIL_MISSING');
 if(source.contract.includes('getAuthorizedContexts'))throw new Error('CONTRACT_AUTHORIZED_CONTEXT_CATALOG_FORBIDDEN');
 
