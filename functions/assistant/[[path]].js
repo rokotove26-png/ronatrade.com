@@ -41,7 +41,9 @@ export async function onRequest(context){
     headers:forwardHeaders(request.headers),
     redirect:'manual',
   };
-  if(request.method!=='GET'&&request.method!=='HEAD')init.body=request.body;
+  if(request.method!=='GET'&&request.method!=='HEAD'){
+    init.body=await request.arrayBuffer();
+  }
 
   const upstream=await fetch(target.toString(),init);
   return new Response(upstream.body,{
