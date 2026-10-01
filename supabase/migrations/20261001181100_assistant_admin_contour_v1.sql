@@ -283,5 +283,8 @@ where lower(m.mailbox)='office_kg@ronaoil.com'
     select 1 from public.rona_correspondence_register r
     where lower(r.mailbox)=lower(m.mailbox)
       and r.direction='INBOUND'
-      and r.source_message_id=coalesce(m.rfc_message_id,'imap:'||m.uid_validity::text||':'||m.imap_uid::text)
+      and (
+        r.source_message_id=coalesce(m.rfc_message_id,'imap:'||m.uid_validity::text||':'||m.imap_uid::text)
+        or (r.source_message_id is null and r.imap_uid=m.imap_uid)
+      )
   );
