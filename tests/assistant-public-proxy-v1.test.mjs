@@ -45,3 +45,10 @@ test('Assistant exact authorize handler owns GET and POST consent traffic',()=>{
 test('Assistant exact authorize handler module loads',()=>{
   assert.equal(typeof authorizeModule.onRequest,'function');
 });
+
+
+test('Assistant consent form is browser-safe but still server-validated',()=>{
+  assert.match(authorize,/action="\/assistant\/authorize" novalidate/);
+  assert.match(authorize,/replaceAll\(' required>','>'\)/);
+  assert.match(authorize,/request\.method==='GET'&&upstream\.status===200/);
+});
