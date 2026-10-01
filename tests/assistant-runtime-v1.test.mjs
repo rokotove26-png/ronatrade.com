@@ -56,7 +56,7 @@ test('Assistant authority remains administrative and non-domain-decisional', () 
 
 test('Assistant profile, mailbox and Drive provenance are materialized', () => {
   assert.match(profile, /staff_key='ASSISTANT'/);
-  assert.match(profile, /office_kg@ronaoil\.com/);
+  assert.match(contour, /office_kg@ronaoil\.com/);
   assert.match(config, /assistant_runtime_config_v1/);
   assert.match(config, /GOOGLE_DRIVE/);
   assert.match(config, /RONA Trade — Канонические документы/);
@@ -81,4 +81,25 @@ test('Document register rejects years outside sequence bounds', () => {
   const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
   assert.match(admin, /Number\(date\.slice\(0,4\)\)<2020/);
   assert.match(admin, /Number\(date\.slice\(0,4\)\)>2100/);
+});
+
+
+test('Assistant mail identity is epoch-aware end to end', () => {
+  const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
+  assert.match(gateway, /required:\["uid_validity","uid"\]/);
+  assert.match(admin, /select uid_validity,imap_uid/);
+  assert.match(admin, /uid_validity=\$2 and imap_uid=\$3/);
+  assert.match(admin, /MAIL_MESSAGE_BODY_UNAVAILABLE_FOR_HISTORICAL_UIDVALIDITY/);
+});
+
+test('Mail idempotency includes reply-thread headers', () => {
+  const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
+  assert.match(admin, /String\(r\.reply_to\?\?""\)===String\(replyTo\?\?""\)/);
+  assert.match(admin, /String\(r\.in_reply_to\?\?""\)===String\(inReplyTo\?\?""\)/);
+  assert.match(admin, /String\(r\.references_header\?\?""\)===String\(refsHead\?\?""\)/);
+});
+
+test('response_required rejects non-booleans', () => {
+  const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
+  assert.match(admin, /typeof args\.response_required!==["']boolean["']/);
 });
