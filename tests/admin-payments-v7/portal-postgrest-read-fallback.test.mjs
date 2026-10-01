@@ -32,6 +32,10 @@ test('owner fallback is limited to explicit read RPCs and preserves write fail-c
   assert.match(out, /PGRST002/);
   assert.match(out, /RONA_OWNER_POSTGREST_READ_FALLBACK_NAMES\.has\(name\)/);
 
+  for (const name of ['rona_admin_operations_current_v2','rona_admin_operations_current_v1','rona_admin_operations_attention_seen_v1']) {
+    assert.equal(OWNER_POSTGREST_READ_FALLBACK_NAMES.includes(name), true, `${name} must use authenticated read fallback`);
+  }
+
   for (const name of [
     'owner_r1_application_business_action_v2',
     'owner_r1_send_to_payments',
