@@ -103,3 +103,10 @@ test('response_required rejects non-booleans', () => {
   const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
   assert.match(admin, /typeof args\.response_required!==["']boolean["']/);
 });
+
+
+test('Assistant OAuth canonical origin is the direct Supabase gateway until public proxy is provisioned', () => {
+  assert.match(gateway, /ASSISTANT_DIRECT_ORIGIN = "https:\/\/sxawrwzeobaqwwmlkzws\.supabase\.co\/functions\/v1\/rona-mcp-gateway"/);
+  assert.match(gateway, /segment === "assistant" \? `\$\{ASSISTANT_DIRECT_ORIGIN\}\/assistant`/);
+  assert.match(base, /slug==='rona-mcp-assistant'\?baseFor\(slug\):/);
+});
