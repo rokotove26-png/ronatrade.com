@@ -5,6 +5,7 @@ import { observeRuntimeResponse } from "./runtime-continuity.mjs";
 import { buildRegistryContract, compactEnvelope, stateErrorEnvelope, addStateDetail, identityError } from "./state-projection.mjs";
 import postgres from "npm:postgres@3.4.7";
 import { createFinancePaymentsV7NativeHooks } from "./finance-payments-v7-extension.mjs";
+import { ASSISTANT_ADMIN_TOOLS, createAssistantAdminRuntime } from "./assistant-admin-tools.mjs";
 
 const DB = Deno.env.get("SUPABASE_DB_URL");
 if (!DB) throw new Error("MCP_RUNTIME_VARS_MISSING");
@@ -814,6 +815,14 @@ async function augmentToolsListResponse(res, ctx) {
   if (!tools.some(t => t?.name === "exception_cockpit")) tools.push(EXCEPTION_COCKPIT_TOOL);
   if (ctx && scopeHas(ctx.scope,"mcp:read") && !tools.some(t => t?.name === "execution_checkpoint_read")) tools.push(EXECUTION_CHECKPOINT_READ_TOOL);
   if (ctx && coordinateContext(ctx) && (primaryTechnicalCtx(ctx) || scopeHas(ctx.scope,"mcp:coordinate")) && !tools.some(t => t?.name === "execution_checkpoint_submit")) tools.push(EXECUTION_CHECKPOINT_SUBMIT_TOOL);
+  if (ctx?.role === "ASSISTANT") {
+    for (const tool of ASSISTANT_ADMIN_TOOLS) {
+      const readOnly = tool?.annotations?.readOnlyHint === true;
+      const allowed = readOnly ? scopeHas(ctx.scope,"mcp:read") : scopeHas(ctx.scope,"mcp:coordinate");
+      if (allowed && !tools.some(t => t?.name === tool.name)) tools.push(structuredClone(tool));
+    }
+  }
+
   const currentStateTool = tools.find(t => t?.name === "current_state");
   if (currentStateTool) currentStateTool.description = "Обязательный preflight для любой работы RONA: получить актуальное role-scoped state. Также вызывать немедленно, когда пользователь говорит «продолжай/восстанови», после длинной работы или при неопределенности контекста; server-side execution workstreams не зависят от памяти чата.";
 
@@ -996,6 +1005,57 @@ async function historyStateDetails(res, ctx) {
   envelope.result.content[0].text = JSON.stringify(payload);
   return stateResponse(envelope,res);
 }
+async function assistantCurrentState(ctx, req, msg) {
+  const ids = requestIds(req);
+  if (!await rateAllowed(ctx)) return rpcToolResponse(msg.id,{ok:false,code:"RATE_LIMITED",status:429},true);
+  const args = msg?.params?.arguments ?? {};
+  if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).length !== 0) {
+    await recordMcpEvent(ctx,ids,"current_state","DENIED",200,{code:"INVALID_ARGUMENTS"});
+    return rpcToolResponse(msg.id,{ok:false,code:"INVALID_ARGUMENTS",status:403},true);
+  }
+  try {
+    const data = await loadCanonicalRoleState(ctx);
+    const registry = await gatewayRegistry(ctx,req);
+    const payload = {ok:true,role:ctx.role,identity_id:ctx.identity_id,correlation_id:ids.correlationId,data};
+    const envelope = {jsonrpc:"2.0",id:msg.id ?? null,result:{content:[{type:"text",text:JSON.stringify(payload)}]}};
+    const compact = compactEnvelope(envelope,payload,ctx,registry);
+    await recordMcpEvent(ctx,ids,"current_state","SUCCESS",200,{contract:"RONA_ROLE_STATE_COMPACT_V1"});
+    return stateResponse(compact,new Response(null,{status:200,headers:{"content-type":"application/json; charset=utf-8"}}));
+  } catch (e) {
+    await recordMcpEvent(ctx,ids,"current_state","DENIED",200,{code:"ASSISTANT_CURRENT_STATE_UNAVAILABLE"});
+    return rpcToolResponse(msg.id,{ok:false,code:"ASSISTANT_CURRENT_STATE_UNAVAILABLE",status:503},true);
+  }
+}
+
+async function assistantHistory(ctx, req, msg) {
+  const ids = requestIds(req);
+  if (!await rateAllowed(ctx)) return rpcToolResponse(msg.id,{ok:false,code:"RATE_LIMITED",status:429},true);
+  const args = msg?.params?.arguments ?? {};
+  const domain = typeof args?.domain === "string" ? args.domain : "";
+  if (!["tasks","documents","audit"].includes(domain) || Object.keys(args).some(k => k !== "domain")) {
+    await recordMcpEvent(ctx,ids,"history","DENIED",200,{code:"INVALID_ARGUMENTS"});
+    return rpcToolResponse(msg.id,{ok:false,code:"INVALID_ARGUMENTS",status:403},true);
+  }
+  try {
+    let rows;
+    if (domain === "tasks") {
+      rows = await sql.unsafe("select task_id,title,status::text,priority::text,authority_domain,assigned_functional_role::text,source_type,source_object_id,qa_only,created_at,updated_at from portal_private.staff_tasks where assigned_functional_role='ASSISTANT'::portal_private.staff_functional_role_enum order by updated_at desc limit 250");
+    } else if (domain === "documents") {
+      rows = await sql.unsafe("select registry_number,document_type,direction,document_date,title,external_number,counterparty,counterparty_code,authoritative_filename,drive_file_id,drive_url,drive_revision_id,mime_type,sha256,linked_entity_type,linked_entity_id,functional_owner::text,status,source_ref,created_at,updated_at from portal_private.assistant_document_register_v1 order by updated_at desc limit 250");
+    } else {
+      rows = await sql.unsafe("select id,event_type,tool_name,identity_id,registry_id,correspondence_id,correlation_id,result,created_at from portal_private.assistant_admin_audit_v1 order by created_at desc limit 250");
+    }
+    let payload = {ok:true,role:ctx.role,identity_id:ctx.identity_id,correlation_id:ids.correlationId,data:rows};
+    if (domain === "tasks") payload = addStateDetail(payload,await loadCanonicalRoleState(ctx),ctx);
+    await recordMcpEvent(ctx,ids,"history","SUCCESS",200,{domain,assistant_admin_contour:true});
+    return rpcToolResponse(msg.id,payload);
+  } catch (e) {
+    await recordMcpEvent(ctx,ids,"history","DENIED",200,{code:"ASSISTANT_HISTORY_UNAVAILABLE",domain});
+    return rpcToolResponse(msg.id,{ok:false,code:"ASSISTANT_HISTORY_UNAVAILABLE",status:503},true);
+  }
+}
+
+const assistantAdminRuntime = createAssistantAdminRuntime({ sql, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse });
 const systemAdminDetails = createSystemAdminDetails({ sql, isAdmin: primaryTechnicalCtx, scopeHas, requestIds, rateAllowed, recordMcpEvent, rpcToolResponse });
 
 async function wrappedRequest(handler, req) {
@@ -1014,7 +1074,7 @@ async function wrappedRequest(handler, req) {
 
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const needsCtx = msg?.method === "tools/list" || (name === "history" && msg?.params?.arguments?.domain === "tasks") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail"].includes(name);
+  const needsCtx = msg?.method === "tools/list" || name === "history" || name.startsWith("assistant_") || SYSTEM_ADMIN_COORDINATE_TOOLS.has(name) || ["current_state","coordination_detail","execution_checkpoint_read","exception_cockpit","object_detail","pr_detail","review_detail"].includes(name);
   let ctx;
   try { ctx = needsCtx ? await authContext(req) : null; }
   catch (e) {
@@ -1040,6 +1100,16 @@ async function wrappedRequest(handler, req) {
 }
 
 async function dispatchWrappedRequest(handler, req, msg, name, ctx, segment) {
+  if (ctx?.role === "ASSISTANT" && name === "current_state") {
+    return await assistantCurrentState(ctx,req,msg);
+  }
+  if (ctx?.role === "ASSISTANT" && name === "history") {
+    return await assistantHistory(ctx,req,msg);
+  }
+  if (ctx?.role === "ASSISTANT" && name.startsWith("assistant_")) {
+    const direct = await assistantAdminRuntime(ctx,req,msg);
+    if (direct) return direct;
+  }
   if (SYSTEM_ADMIN_DETAIL_TOOLS.some(t => t.name === name) && ctx) {
     const direct = await systemAdminDetails(ctx, req, msg);
     if (direct) return direct;
