@@ -97,6 +97,9 @@ jobs:
       - name: Verify authoritative contract projection guard
         run: node scripts/qa-client-contract-authoritative-projection.mjs
 
+      - name: Verify current-context consumers
+        run: node scripts/qa-client-current-context-consumers-v1.mjs
+
       - name: Verify server-authoritative deal state projection
         run: node scripts/qa-client-deal-server-projection.mjs
 
