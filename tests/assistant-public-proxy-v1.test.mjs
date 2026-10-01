@@ -38,7 +38,8 @@ test('Assistant exact authorize handler owns GET and POST consent traffic',()=>{
   assert.match(authorize,/redirect:'manual'/);
   assert.match(authorize,/request\.arrayBuffer\(\)/);
   assert.match(authorize,/text\/html; charset=utf-8/);
-  assert.match(authorize,/headers:returnedHeaders\(upstream\.headers,request\.method,upstream\.status\)/);
+  assert.match(authorize,/const headers=returnedHeaders\(upstream\.headers,request\.method,upstream\.status\)/);
+  assert.match(authorize,/headers,/);
 });
 
 
