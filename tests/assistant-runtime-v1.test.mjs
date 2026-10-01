@@ -110,3 +110,8 @@ test('Assistant OAuth canonical origin is the direct Supabase gateway until publ
   assert.match(gateway, /segment === "assistant" \? `\$\{ASSISTANT_DIRECT_ORIGIN\}\/assistant`/);
   assert.match(base, /slug==='rona-mcp-assistant'\?baseFor\(slug\):/);
 });
+
+test('Assistant OAuth discovery supports ChatGPT MCP-relative metadata probes', () => {
+  assert.match(gateway, /\$\{segment\}\/mcp\/\.well-known\/oauth-protected-resource/);
+  assert.match(gateway, /\$\{segment\}\/mcp\/\.well-known\/oauth-authorization-server/);
+});
