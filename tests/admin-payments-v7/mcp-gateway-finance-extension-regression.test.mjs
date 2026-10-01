@@ -5,6 +5,7 @@ import {
   augmentFinancePilotToolsList,
   createFinancePaymentsV7NativeHooks,
   FINANCE_PILOT_LEGACY_TOOL_NAMES,
+  FINANCE_PILOT_MAIL_READ_TOOL_NAMES,
 } from '../../supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs';
 
 const gateway = readFileSync('supabase/functions/rona-mcp-gateway/index.ts', 'utf8');
@@ -43,19 +44,24 @@ test('MCP gateway keeps the canonical single Deno.serve owner', () => {
   assert.match(gateway, /36727a94820e1e85e95d4abfc5d6aab8234c5c18\/supabase\/functions\/rona-mcp-gateway\/index\.js/);
 });
 
-test('Finance Pilot tools/list is exactly the unchanged legacy eight', async () => {
+test('Finance Pilot tools/list preserves legacy business tools and admits only allowlisted recovery/mail reads', async () => {
   assert.equal(FINANCE_PILOT_LEGACY_TOOL_NAMES.length, 8);
   const legacy = FINANCE_PILOT_LEGACY_TOOL_NAMES.map((name, i) => tool(name, `legacy-${i}`));
-  const upstream = toolsResponse([...legacy, tool('coordination_detail', 'upstream-helper'), tool('future-helper', 'future')]);
+  const infraNames = ['execution_checkpoint_read','execution_checkpoint_submit'];
+  const infra = infraNames.map(name => tool(name, name));
+  const mail = FINANCE_PILOT_MAIL_READ_TOOL_NAMES.map(name => tool(name, name));
+  const upstream = toolsResponse([...legacy, ...infra, ...mail, tool('mail_send', 'must-filter'), tool('coordination_detail', 'upstream-helper'), tool('future-helper', 'future')]);
 
   const response = await augmentFinancePilotToolsList(mcpRequest('finance-pilot'), upstream);
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('x-rona-finance-tools-count'), '8');
+  assert.equal(response.headers.get('x-rona-finance-infra-tools-count'), '2');
+  assert.equal(response.headers.get('x-rona-finance-mail-read-tools-count'), '4');
 
   const body = await response.json();
   const names = body.result.tools.map(t => t.name);
-  assert.deepEqual(names, FINANCE_PILOT_LEGACY_TOOL_NAMES);
-  assert.equal(body.result.tools.length, 8);
+  assert.deepEqual(names, [...FINANCE_PILOT_LEGACY_TOOL_NAMES, ...infraNames, ...FINANCE_PILOT_MAIL_READ_TOOL_NAMES]);
+  assert.ok(!names.includes('mail_send'));
 
   for (let i = 0; i < legacy.length; i += 1) {
     assert.deepEqual(body.result.tools[i], legacy[i], `legacy tool changed: ${legacy[i].name}`);
