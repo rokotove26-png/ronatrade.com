@@ -33,3 +33,11 @@ test('gateway advertises canonical handoff routing and current state v6',()=>{
   assert.match(gateway,/ai_role_state_current_v6/);
   assert.match(gateway,/RONA_ROLE_STATE_RECOVERY_V6/);
 });
+
+
+test('cross-role handoff requires target role to support the entity type',()=>{
+  assert.match(gateway,/if \(!primaryTechnicalCtx\(ctx\) && !roleCanUseEntity\(targetRole, type\)\) return null;/);
+  assert.doesNotMatch(gateway,/if \(!primaryTechnicalCtx\(ctx\) && roleCanUseEntity\(targetRole, type\)\) return null;/);
+  assert.match(gateway,/OPERATIONS_DIRECTOR: new Set\(\["CLIENT","CONTRACT","APPLICATION","DEAL","DOCUMENT","PAYMENT","SHIPMENT","RAIL_DOCUMENT","PUBLICATION","TASK"\]\)/);
+  assert.match(gateway,/RAIL_LOGISTICS: new Set\(\["DEAL","SHIPMENT","RAIL_DOCUMENT","TASK"\]\)/);
+});
