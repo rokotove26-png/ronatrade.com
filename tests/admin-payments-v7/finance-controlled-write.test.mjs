@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { FINANCE_PILOT_LEGACY_TOOL_NAMES } from '../../supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs';
+import { FINANCE_PILOT_LEGACY_TOOL_NAMES, FINANCE_PILOT_MAIL_READ_TOOL_NAMES } from '../../supabase/functions/rona-mcp-gateway/finance-payments-v7-extension.mjs';
 
 const migration=readFileSync('supabase/migrations/20260914210000_admin_payments_v7_finance_controlled_write.sql','utf8');
 const materializer=readFileSync('supabase/migrations/20260915010000_admin_payments_v7_server_materializer.sql','utf8');
@@ -19,12 +19,15 @@ const LEGACY_EIGHT=[
  'current_state','history','document_read','task_acknowledge','task_progress_submit','functional_conclusion_submit','handoff_request_submit','business_change_proposal_submit'
 ];
 
-test('Finance Pilot remains the existing eight-tool source-lock surface with no Payments write tool',()=>{
+test('Finance Pilot keeps the legacy eight business tools and adds only read-only corporate mailbox tools',()=>{
  assert.deepEqual([...FINANCE_PILOT_LEGACY_TOOL_NAMES],LEGACY_EIGHT);
  assert.equal(FINANCE_PILOT_LEGACY_TOOL_NAMES.length,8);
+ assert.deepEqual([...FINANCE_PILOT_MAIL_READ_TOOL_NAMES],['mail_sync_status','mail_recent','mail_search','mail_read']);
+ assert.ok(!FINANCE_PILOT_MAIL_READ_TOOL_NAMES.includes('mail_send'));
  assert.doesNotMatch(extension,/name:\s*['"]finance_event_submit['"]/);
  assert.doesNotMatch(extension,/persist_finance_event_v7/);
  assert.match(extension,/x-rona-finance-tools-count','8'/);
+ assert.match(extension,/x-rona-finance-mail-read-tools-count/);
  assert.doesNotMatch(extension,/window\.|localStorage|sessionStorage|document\./i);
 });
 
