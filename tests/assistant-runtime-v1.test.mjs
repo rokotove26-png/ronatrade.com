@@ -61,3 +61,24 @@ test('Assistant profile, mailbox and Drive provenance are materialized', () => {
   assert.match(config, /GOOGLE_DRIVE/);
   assert.match(config, /RONA Trade — Канонические документы/);
 });
+
+
+test('Generic cross-role handoff cannot target the administrative Assistant', () => {
+  assert.match(base, /const CANONICAL_AI_HANDOFF_ROLES=Object\.freeze\(\['OPERATIONS_DIRECTOR','FINANCE','LEGAL','MARKET_ANALYST','COMMERCIAL_DIRECTOR','RAIL_LOGISTICS','SYSTEM_ADMIN'\]\)/);
+  assert.match(base, /target_role:\{type:'string',enum:CANONICAL_AI_HANDOFF_ROLES\}/);
+  assert.match(base, /!CANONICAL_AI_HANDOFF_ROLES\.includes\(targetRole\)/);
+});
+
+test('Inbound correspondence dedupe survives IMAP UIDVALIDITY changes', () => {
+  const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
+  const identity = readFileSync('supabase/migrations/20261001181500_assistant_correspondence_identity_v1.sql','utf8');
+  assert.match(admin, /'imap:'\|\|m\.uid_validity::text\|\|':'\|\|m\.imap_uid::text/);
+  assert.match(admin, /r\.source_message_id=coalesce\(m\.rfc_message_id/);
+  assert.match(identity, /rona_correspondence_inbound_message_identity_uq/);
+});
+
+test('Document register rejects years outside sequence bounds', () => {
+  const admin = readFileSync('supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs','utf8');
+  assert.match(admin, /Number\(date\.slice\(0,4\)\)<2020/);
+  assert.match(admin, /Number\(date\.slice\(0,4\)\)>2100/);
+});
