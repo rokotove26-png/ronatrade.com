@@ -49,7 +49,7 @@ function publicSupabaseKey(){const legacy=Deno.env.get('SUPABASE_ANON_KEY');if(l
 function segmentFor(slug){const seg=SEGMENT_BY_SLUG[slug];if(!seg)throw new Error('MCP_ROLE_ROUTE_INVALID');return seg;}
 function baseFor(slug){return `${String(SUPA_URL).replace(/\/$/,'')}/functions/v1/${GATEWAY_FUNCTION}/${segmentFor(slug)}`;}
 function mcpResource(slug){return `${baseFor(slug)}/mcp`;}
-function publicBaseFor(slug){return `${PUBLIC_ORIGIN}/${segmentFor(slug)}`;}
+function publicBaseFor(slug){return slug==='rona-mcp-assistant'?baseFor(slug):`${PUBLIC_ORIGIN}/${segmentFor(slug)}`;}
 function publicMcpResource(slug){return `${publicBaseFor(slug)}/mcp`;}
 function normalizeResource(slug,value){const v=String(value||'');return v===publicMcpResource(slug)||v===mcpResource(slug)?publicMcpResource(slug):null;}
 function routeContext(req){const p=new URL(req.url).pathname,marker=`/${GATEWAY_FUNCTION}/`,i=p.indexOf(marker);if(i<0)return null;const rest=p.slice(i+marker.length),slash=rest.indexOf('/'),segment=slash<0?rest:rest.slice(0,slash),slug=SLUG_BY_SEGMENT[segment];if(!slug)return null;return{slug,path:slash<0?'/':(rest.slice(slash)||'/')};}
