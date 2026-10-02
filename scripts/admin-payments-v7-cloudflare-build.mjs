@@ -57,6 +57,11 @@ try {
   worktreeAdded = true;
 
   const recovered = recoverLiveAdminWorkspace(worktree);
+  // Materialize the Assistant public role route from the proven System Admin route.
+  const assistantSourceDir = join(worktree, 'functions/system-admin');
+  const assistantTargetDir = join(worktree, 'functions/assistant');
+  rmSync(assistantTargetDir, { recursive: true, force: true });
+  cpSync(assistantSourceDir, assistantTargetDir, { recursive: true });
   console.log(`PAYMENTS_V7_CLOUDFLARE_BASE=${LIVE_COMMIT}`);
   console.log(`PAYMENTS_V7_CLOUDFLARE_PRESENTATION=${recovered.presentation}`);
 
