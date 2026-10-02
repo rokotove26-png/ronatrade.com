@@ -18,6 +18,9 @@ jobs:
       PROJECT_REF: sxawrwzeobaqwwmlkzws
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+      SUPABASE_TOKEN: ${{ secrets.SUPABASE_TOKEN }}
+      SUPABASE_API_TOKEN: ${{ secrets.SUPABASE_API_TOKEN }}
+      SB_ACCESS_TOKEN: ${{ secrets.SB_ACCESS_TOKEN }}
     steps:
       - name: Select management token without exposing it
         id: token
@@ -32,6 +35,15 @@ jobs:
           elif [ -n "${SUPABASE_MANAGEMENT_TOKEN:-}" ]; then
             TOKEN="$SUPABASE_MANAGEMENT_TOKEN"
             SOURCE="SUPABASE_MANAGEMENT_TOKEN"
+          elif [ -n "${SUPABASE_TOKEN:-}" ]; then
+            TOKEN="$SUPABASE_TOKEN"
+            SOURCE="SUPABASE_TOKEN"
+          elif [ -n "${SUPABASE_API_TOKEN:-}" ]; then
+            TOKEN="$SUPABASE_API_TOKEN"
+            SOURCE="SUPABASE_API_TOKEN"
+          elif [ -n "${SB_ACCESS_TOKEN:-}" ]; then
+            TOKEN="$SB_ACCESS_TOKEN"
+            SOURCE="SB_ACCESS_TOKEN"
           fi
           if [ -z "$TOKEN" ]; then
             echo "token_present=false" >> "$GITHUB_OUTPUT"
