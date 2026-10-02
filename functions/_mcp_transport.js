@@ -191,8 +191,14 @@ export async function proxyRoleRequest(context,segment){
   const prefix=`/${segment}`;
   if(!pathname.startsWith(prefix))return json({error:'ROLE_ROUTE_NOT_FOUND'},404,corsFor(request));
   const path=pathname.slice(prefix.length)||'/';
-  if(path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource')return json(protectedResourceMetadata(segment),200,corsFor(request));
-  if(path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server')return json(authorizationServerMetadata(segment),200,corsFor(request));
+  const relativeProtectedDiscovery=path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource';
+  const relativeAuthorizationDiscovery=path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server';
+  if(relativeProtectedDiscovery||relativeAuthorizationDiscovery){
+    if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, OPTIONS',...corsFor(request)});
+    return relativeProtectedDiscovery
+      ? json(protectedResourceMetadata(segment),200,corsFor(request))
+      : json(authorizationServerMetadata(segment),200,corsFor(request));
+  }
   if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));
   if(path==='/mcp'&&request.method!=='POST'){
     if(request.method==='GET')return json({error:'SSE_NOT_SUPPORTED'},405,{allow:'POST, OPTIONS',...corsFor(request)});
