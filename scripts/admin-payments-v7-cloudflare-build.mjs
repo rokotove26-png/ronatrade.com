@@ -57,6 +57,40 @@ try {
   worktreeAdded = true;
 
   const recovered = recoverLiveAdminWorkspace(worktree);
+  // Materialize the Assistant public role route from the proven System Admin route.
+  const assistantSourceDir = join(worktree, 'functions/system-admin');
+  const assistantTargetDir = join(worktree, 'functions/assistant');
+  rmSync(assistantTargetDir, { recursive: true, force: true });
+  cpSync(assistantSourceDir, assistantTargetDir, { recursive: true });
+  for (const relativePath of ['[[path]].js', 'authorize/prepare.js', 'authorize/complete.js']) {
+    const assistantPath = join(assistantTargetDir, relativePath);
+    const assistantSource = readFileSync(assistantPath, 'utf8');
+    if (!assistantSource.includes('system-admin')) {
+      throw new Error(`ASSISTANT_ROUTE_SOURCE_MISMATCH:${relativePath}`);
+    }
+    writeFileSync(assistantPath, assistantSource.replaceAll('system-admin', 'assistant'));
+  }
+
+  const transportPath = join(worktree, 'functions/_mcp_transport.js');
+  let transportSource = readFileSync(transportPath, 'utf8');
+  transportSource = transportSource
+    .replace("'rail-logistics-pilot','system-admin']);", "'rail-logistics-pilot','system-admin','assistant']);")
+    .replace("'rail-logistics-pilot']);", "'rail-logistics-pilot','assistant']);")
+    .replaceAll('rail-logistics-pilot|rail-logistics|system-admin)', 'rail-logistics-pilot|rail-logistics|system-admin|assistant)');
+  if (!transportSource.includes("'assistant'")) {
+    throw new Error('ASSISTANT_TRANSPORT_MATERIALIZATION_FAILED');
+  }
+  writeFileSync(transportPath, transportSource);
+
+  for (const sharedPath of ['functions/_mcp_consent_bridge.js', 'functions/_mcp_oauth_token_bridge.js']) {
+    const path = join(worktree, sharedPath);
+    let source = readFileSync(path, 'utf8');
+    source = source.replace("'rail-logistics-pilot','system-admin']);", "'rail-logistics-pilot','system-admin','assistant']);");
+    if (!source.includes("'assistant'")) {
+      throw new Error(`ASSISTANT_SHARED_ROUTE_MATERIALIZATION_FAILED:${sharedPath}`);
+    }
+    writeFileSync(path, source);
+  }
   console.log(`PAYMENTS_V7_CLOUDFLARE_BASE=${LIVE_COMMIT}`);
   console.log(`PAYMENTS_V7_CLOUDFLARE_PRESENTATION=${recovered.presentation}`);
 

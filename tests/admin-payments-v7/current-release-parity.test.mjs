@@ -116,3 +116,13 @@ test('Cloudflare materialization starts from the locked release worktree rather 
   assert.match(build, /FINAL_LIVE_ADMIN_SOURCE_COMMIT/);
   assert.match(build, /worktree', 'add', '--detach', worktree, LIVE_COMMIT/);
 });
+
+test('Cloudflare recovery materializes the Assistant public MCP route from the proven role proxy', () => {
+  const build = readFileSync('scripts/admin-payments-v7-cloudflare-build.mjs', 'utf8');
+  assert.match(build, /functions\/assistant/);
+  assert.match(build, /assistantSourceDir/);
+  assert.match(build, /replaceAll\('system-admin', 'assistant'\)/);
+  assert.match(build, /TRANSPORT_MATERIALIZATION_FAILED|assistant'\]\)/);
+  assert.match(build, /_mcp_consent_bridge\.js/);
+  assert.match(build, /_mcp_oauth_token_bridge\.js/);
+});
