@@ -119,15 +119,30 @@ test('Cloudflare materialization starts from the locked release worktree rather 
 
 test('Cloudflare recovery materializes the Assistant public MCP route from the proven role proxy', () => {
   const build = readFileSync('scripts/admin-payments-v7-cloudflare-build.mjs', 'utf8');
-  assert.ok(build.indexOf("run(npmBin, ['run', 'build'], { cwd: worktree });") < build.indexOf('assistantSourceDir'));
+  const innerBuild = build.indexOf("run(npmBin, ['run', 'build'], { cwd: worktree });");
+  const assistantMaterialization = build.indexOf('assistantSourceDir');
+  assert.notEqual(innerBuild, -1);
+  assert.notEqual(assistantMaterialization, -1);
+  assert.ok(innerBuild < assistantMaterialization);
   assert.match(build, /functions\/assistant/);
   assert.match(build, /assistantSourceDir/);
   assert.match(build, /replaceAll\('system-admin', 'assistant'\)/);
   assert.match(build, /TRANSPORT_MATERIALIZATION_FAILED|assistant'\]\)/);
+  assert.match(build, /SYSTEM_ADMIN_COORDINATE_SCOPE_MATERIALIZATION_FAILED/);
+  assert.match(build, /ASSISTANT_RELATIVE_DISCOVERY_MATERIALIZATION_FAILED/);
   assert.match(build, /_mcp_consent_bridge\.js/);
   assert.match(build, /_mcp_oauth_token_bridge\.js/);
 });
 
+
+test('Cloudflare public transport preserves coordinate scope and MCP-relative discovery', () => {
+  const transport = readFileSync('functions/_mcp_transport.js', 'utf8');
+  assert.match(transport, /COORDINATE_SEGMENTS=new Set\([^\n]*'system-admin'[^\n]*'assistant'/);
+  assert.match(transport, /path==='\/mcp\/\.well-known\/oauth-protected-resource'/);
+  assert.match(transport, /path==='\/mcp\/\.well-known\/oauth-authorization-server'/);
+  assert.match(transport, /protectedResourceMetadata\(segment\)/);
+  assert.match(transport, /authorizationServerMetadata\(segment\)/);
+});
 
 test('repository source contains the Assistant Cloudflare Pages function tree before build', () => {
   const transport = readFileSync('functions/_mcp_transport.js', 'utf8');
