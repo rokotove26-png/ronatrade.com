@@ -1,8 +1,8 @@
 const PUBLIC_ORIGIN='https://ronaoil.com';
 const UPSTREAM_ORIGIN='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const UPSTREAM_BASE=`${UPSTREAM_ORIGIN}/functions/v1/rona-mcp-gateway`;
-const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin','system-admin-pilot']);
-const COORDINATE_SEGMENTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot','system-admin-pilot']);
+const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin','system-admin-pilot','assistant']);
+const COORDINATE_SEGMENTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot','system-admin','system-admin-pilot','assistant']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
@@ -175,9 +175,9 @@ export async function handleWellKnown(context){
   if(request.method==='OPTIONS')return preflight(request);
   if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, OPTIONS',...corsFor(request)});
   const p=new URL(request.url).pathname;
-  let m=p.match(/^\/\.well-known\/oauth-protected-resource\/(operations-pilot|operations|finance-pilot|finance|legal-pilot|legal|market-analyst-pilot|market-analyst|rail-logistics-pilot|rail-logistics|system-admin-pilot|system-admin)\/mcp\/?$/);
+  let m=p.match(/^\/\.well-known\/oauth-protected-resource\/(operations-pilot|operations|finance-pilot|finance|legal-pilot|legal|market-analyst-pilot|market-analyst|rail-logistics-pilot|rail-logistics|system-admin-pilot|system-admin|assistant)\/mcp\/?$/);
   if(m)return json(protectedResourceMetadata(m[1]),200,corsFor(request));
-  m=p.match(/^\/\.well-known\/oauth-authorization-server\/(operations-pilot|operations|finance-pilot|finance|legal-pilot|legal|market-analyst-pilot|market-analyst|rail-logistics-pilot|rail-logistics|system-admin-pilot|system-admin)\/?$/);
+  m=p.match(/^\/\.well-known\/oauth-authorization-server\/(operations-pilot|operations|finance-pilot|finance|legal-pilot|legal|market-analyst-pilot|market-analyst|rail-logistics-pilot|rail-logistics|system-admin-pilot|system-admin|assistant)\/?$/);
   if(m)return json(authorizationServerMetadata(m[1]),200,corsFor(request));
   return json({error:'NOT_FOUND'},404,corsFor(request));
 }
@@ -191,6 +191,14 @@ export async function proxyRoleRequest(context,segment){
   const prefix=`/${segment}`;
   if(!pathname.startsWith(prefix))return json({error:'ROLE_ROUTE_NOT_FOUND'},404,corsFor(request));
   const path=pathname.slice(prefix.length)||'/';
+  const relativeProtectedDiscovery=path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource';
+  const relativeAuthorizationDiscovery=path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server';
+  if(relativeProtectedDiscovery||relativeAuthorizationDiscovery){
+    if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, OPTIONS',...corsFor(request)});
+    return relativeProtectedDiscovery
+      ? json(protectedResourceMetadata(segment),200,corsFor(request))
+      : json(authorizationServerMetadata(segment),200,corsFor(request));
+  }
   if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));
   if(path==='/mcp'&&request.method!=='POST'){
     if(request.method==='GET'&&segment==='system-admin-pilot'){
