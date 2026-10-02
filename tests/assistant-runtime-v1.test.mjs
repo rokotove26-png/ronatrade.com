@@ -8,7 +8,6 @@ const base = readFileSync('supabase/functions/rona-mcp-gateway/gateway-base.mjs'
 const contour = readFileSync('supabase/migrations/20261001181100_assistant_admin_contour_v1.sql','utf8');
 const profile = readFileSync('supabase/migrations/20261001181200_assistant_profile_mailbox_v1.sql','utf8');
 const config = readFileSync('supabase/migrations/20261001181400_assistant_runtime_config_v1.sql','utf8');
-const consentBridge = readFileSync('supabase/functions/rona-mcp-consent-bridge/index.js','utf8');
 const tokenBridge = readFileSync('supabase/functions/rona-mcp-oauth-token/index.js','utf8');
 
 test('Assistant MCP route is coordinate-enabled and fixed to AI-ASSISTANT', () => {
@@ -119,17 +118,17 @@ test('Assistant OAuth discovery supports ChatGPT MCP-relative metadata probes', 
 });
 
 
-test('Assistant is wired into the canonical consent and token bridges', () => {
-  assert.match(consentBridge, /'assistant':'ASSISTANT'/);
+test('Assistant remains wired into the shared token bridge', () => {
   assert.match(tokenBridge, /assistant:'rona-mcp-assistant'/);
   assert.match(tokenBridge, /COORDINATE_PILOT_SLUGS=new Set\([^\n]*'rona-mcp-assistant'/);
 });
 
-test('Assistant consent uses the shared prepare and complete continuation flow', () => {
-  assert.match(base, /cfg\.server_slug==='rona-mcp-assistant'/);
-  assert.match(base, /action="authorize\/prepare"/);
-  assert.match(base, /authorize\/complete\?nonce=/);
-  assert.match(base, /rona-mcp-consent-bridge/);
+test('Assistant authorization uses the same native gateway POST form as working roles', () => {
+  assert.match(base, /<form method="post" action="authorize">/);
+  assert.match(base, /if\(ctx\.path==='\/authorize'&&req\.method==='POST'\)return await authorizePost\(req,cfg\)/);
+  assert.doesNotMatch(base, /action="authorize\/prepare"/);
+  assert.doesNotMatch(base, /authorize\/complete\?nonce=/);
+  assert.doesNotMatch(base, /AUTH_PREPARE_FAILED/);
 });
 
 test('Assistant token and revoke endpoints are routed through the shared token bridge', () => {
