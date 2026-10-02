@@ -146,3 +146,14 @@ test('repository source contains the Assistant Cloudflare Pages function tree be
   assert.match(prepare, /'assistant'/);
   assert.match(complete, /'assistant'/);
 });
+
+
+test('Cloudflare routes manifest includes the Assistant OAuth and MCP contour', () => {
+  const sourceRoutes = JSON.parse(readFileSync('_routes.json', 'utf8'));
+  assert.ok(sourceRoutes.include.includes('/assistant/*'));
+  assert.ok(!sourceRoutes.exclude.includes('/assistant/*'));
+  const build = readFileSync('scripts/admin-payments-v7-cloudflare-build.mjs', 'utf8');
+  assert.match(build, /ASSISTANT_CLOUDFLARE_ROUTES=READY/);
+  assert.match(build, /ASSISTANT_DEPLOYED_ROUTE_MISSING/);
+  assert.match(build, /\/assistant\/\*/);
+});

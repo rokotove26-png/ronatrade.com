@@ -98,6 +98,17 @@ try {
   console.log('PAYMENTS_V7_RUNTIME_SOURCE=RELEASE_CURRENT');
   console.log('PAYMENTS_FINANCE_RECONCILIATION_DIFFERENCE_SOURCE=RELEASE_CURRENT');
 
+  const routesPath = join(worktree, '_routes.json');
+  let routesSource = readFileSync(routesPath, 'utf8');
+  const routesConfig = JSON.parse(routesSource);
+  if (!Array.isArray(routesConfig.include)) throw new Error('CLOUDFLARE_ROUTES_INCLUDE_MISSING');
+  if (!routesConfig.include.includes('/assistant/*')) routesConfig.include.push('/assistant/*');
+  if (Array.isArray(routesConfig.exclude) && routesConfig.exclude.some((route) => route === '/assistant/*' || route === '/assistant/authorize*')) {
+    throw new Error('ASSISTANT_ROUTE_EXCLUDED');
+  }
+  writeFileSync(routesPath, JSON.stringify(routesConfig, null, 2) + '\n');
+  console.log('ASSISTANT_CLOUDFLARE_ROUTES=READY');
+
   run(npmBin, ['run', 'build'], { cwd: worktree });
 
   // Materialize the Assistant public role route from the proven System Admin route.
@@ -133,6 +144,12 @@ try {
       throw new Error(`ASSISTANT_SHARED_ROUTE_MATERIALIZATION_FAILED:${sharedPath}`);
     }
     writeFileSync(path, source);
+  }
+
+  const builtRoutesPath = join(worktree, 'dist', '_routes.json');
+  const builtRoutes = JSON.parse(readFileSync(builtRoutesPath, 'utf8'));
+  if (!Array.isArray(builtRoutes.include) || !builtRoutes.include.includes('/assistant/*')) {
+    throw new Error('ASSISTANT_DEPLOYED_ROUTE_MISSING');
   }
 
   const builtDist = join(worktree, 'dist');
