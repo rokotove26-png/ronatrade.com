@@ -6,12 +6,16 @@ on:
       - feat/assistant-runtime-v1
     paths:
       - "supabase/functions/rona-mcp-gateway/**"
+      - "supabase/functions/rona-mcp-consent-bridge/**"
+      - "supabase/functions/rona-mcp-oauth-token/**"
       - "supabase/migrations/20261001181*.sql"
       - "tests/assistant-runtime-v1.test.mjs"
       - ".github/workflows/assistant-runtime-v1.yml"
   pull_request:
     paths:
       - "supabase/functions/rona-mcp-gateway/**"
+      - "supabase/functions/rona-mcp-consent-bridge/**"
+      - "supabase/functions/rona-mcp-oauth-token/**"
       - "supabase/migrations/20261001181*.sql"
       - "tests/assistant-runtime-v1.test.mjs"
 
@@ -30,3 +34,5 @@ jobs:
         run: node --test tests/assistant-runtime-v1.test.mjs
       - name: Gateway import graph
         run: deno check --config=supabase/functions/rona-mcp-gateway/deno.json supabase/functions/rona-mcp-gateway/index.ts
+      - name: OAuth bridge import graphs
+        run: deno check --config=supabase/functions/rona-mcp-gateway/deno.json supabase/functions/rona-mcp-consent-bridge/index.js supabase/functions/rona-mcp-oauth-token/index.js
