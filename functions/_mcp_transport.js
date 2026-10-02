@@ -2,7 +2,7 @@ const PUBLIC_ORIGIN='https://ronaoil.com';
 const UPSTREAM_ORIGIN='https://sxawrwzeobaqwwmlkzws.supabase.co';
 const UPSTREAM_BASE=`${UPSTREAM_ORIGIN}/functions/v1/rona-mcp-gateway`;
 const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin','assistant']);
-const COORDINATE_SEGMENTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot','assistant']);
+const COORDINATE_SEGMENTS=new Set(['operations-pilot','finance-pilot','legal-pilot','market-analyst-pilot','rail-logistics-pilot','system-admin','assistant']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
@@ -191,6 +191,8 @@ export async function proxyRoleRequest(context,segment){
   const prefix=`/${segment}`;
   if(!pathname.startsWith(prefix))return json({error:'ROLE_ROUTE_NOT_FOUND'},404,corsFor(request));
   const path=pathname.slice(prefix.length)||'/';
+  if(path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource')return json(protectedResourceMetadata(segment),200,corsFor(request));
+  if(path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server')return json(authorizationServerMetadata(segment),200,corsFor(request));
   if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));
   if(path==='/mcp'&&request.method!=='POST'){
     if(request.method==='GET')return json({error:'SSE_NOT_SUPPORTED'},405,{allow:'POST, OPTIONS',...corsFor(request)});
