@@ -129,10 +129,20 @@ try {
   let transportSource = readFileSync(transportPath, 'utf8');
   transportSource = transportSource
     .replace("'rail-logistics-pilot','system-admin']);", "'rail-logistics-pilot','system-admin','assistant']);")
-    .replace("'rail-logistics-pilot']);", "'rail-logistics-pilot','assistant']);")
-    .replaceAll('rail-logistics-pilot|rail-logistics|system-admin)', 'rail-logistics-pilot|rail-logistics|system-admin|assistant)');
+    .replace("'rail-logistics-pilot']);", "'rail-logistics-pilot','system-admin','assistant']);")
+    .replaceAll('rail-logistics-pilot|rail-logistics|system-admin)', 'rail-logistics-pilot|rail-logistics|system-admin|assistant)')
+    .replace(
+      "  const path=pathname.slice(prefix.length)||'/';\n  if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));",
+      "  const path=pathname.slice(prefix.length)||'/';\n  if(path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource')return json(protectedResourceMetadata(segment),200,corsFor(request));\n  if(path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server')return json(authorizationServerMetadata(segment),200,corsFor(request));\n  if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));"
+    );
   if (!transportSource.includes("'assistant'")) {
     throw new Error('ASSISTANT_TRANSPORT_MATERIALIZATION_FAILED');
+  }
+  if (!transportSource.includes("'system-admin','assistant'")) {
+    throw new Error('SYSTEM_ADMIN_COORDINATE_SCOPE_MATERIALIZATION_FAILED');
+  }
+  if (!transportSource.includes("/mcp/.well-known/oauth-protected-resource") || !transportSource.includes("/mcp/.well-known/oauth-authorization-server")) {
+    throw new Error('ASSISTANT_RELATIVE_DISCOVERY_MATERIALIZATION_FAILED');
   }
   writeFileSync(transportPath, transportSource);
 
