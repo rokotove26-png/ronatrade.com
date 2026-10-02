@@ -23,6 +23,7 @@
     "/rail-logistics-pilot/*",
     "/system-admin/*",
     "/system-admin-pilot/*",
+    "/assistant",
     "/assistant/*"
   ],
   "exclude": [
