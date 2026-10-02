@@ -35,4 +35,4 @@ jobs:
       - name: Gateway import graph
         run: deno check --config=supabase/functions/rona-mcp-gateway/deno.json supabase/functions/rona-mcp-gateway/index.ts
       - name: OAuth bridge import graphs
-        run: deno check supabase/functions/rona-mcp-consent-bridge/index.js supabase/functions/rona-mcp-oauth-token/index.js
+        run: deno check --config=supabase/functions/rona-mcp-gateway/deno.json supabase/functions/rona-mcp-consent-bridge/index.js supabase/functions/rona-mcp-oauth-token/index.js
