@@ -1,5 +1,5 @@
 const UPSTREAM='https://sxawrwzeobaqwwmlkzws.supabase.co/functions/v1/rona-mcp-oauth-token';
-const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin']);
+const SEGMENTS=new Set(['operations','operations-pilot','finance','finance-pilot','legal','legal-pilot','market-analyst','market-analyst-pilot','rail-logistics','rail-logistics-pilot','system-admin','assistant']);
 const ALLOWED_ORIGINS=new Set([
   'https://chatgpt.com','https://chat.openai.com','https://openai.com','https://platform.openai.com',
   'https://ronaoil.com','https://www.ronaoil.com'
