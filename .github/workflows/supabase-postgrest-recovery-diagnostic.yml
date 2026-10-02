@@ -1,0 +1,69 @@
+name: Supabase PostgREST recovery diagnostic
+
+on:
+  push:
+    branches:
+      - ops/supabase-postgrest-recovery-20261002
+    paths:
+      - ".github/workflows/supabase-postgrest-recovery-diagnostic.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PROJECT_REF: sxawrwzeobaqwwmlkzws
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_MANAGEMENT_TOKEN: ${{ secrets.SUPABASE_MANAGEMENT_TOKEN }}
+    steps:
+      - name: Select management token without exposing it
+        id: token
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN=""
+          SOURCE=""
+          if [ -n "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            TOKEN="$SUPABASE_ACCESS_TOKEN"
+            SOURCE="SUPABASE_ACCESS_TOKEN"
+          elif [ -n "${SUPABASE_MANAGEMENT_TOKEN:-}" ]; then
+            TOKEN="$SUPABASE_MANAGEMENT_TOKEN"
+            SOURCE="SUPABASE_MANAGEMENT_TOKEN"
+          fi
+          if [ -z "$TOKEN" ]; then
+            echo "token_present=false" >> "$GITHUB_OUTPUT"
+            echo "MANAGEMENT_TOKEN_PRESENT=false"
+            exit 0
+          fi
+          echo "::add-mask::$TOKEN"
+          echo "token_present=true" >> "$GITHUB_OUTPUT"
+          echo "token_source=$SOURCE" >> "$GITHUB_OUTPUT"
+          echo "MANAGEMENT_TOKEN_PRESENT=true"
+          echo "$TOKEN" > "$RUNNER_TEMP/supabase_management_token"
+
+      - name: Read managed service health
+        if: steps.token.outputs.token_present == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(cat "$RUNNER_TEMP/supabase_management_token")"
+          code="$(curl -sS -o "$RUNNER_TEMP/health.json" -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/health?services=db,rest,auth,storage,realtime")"
+          echo "HEALTH_HTTP_STATUS=$code"
+          jq -c 'if type=="array" then map({name,status,healthy,error}) else . end' "$RUNNER_TEMP/health.json" 2>/dev/null || cat "$RUNNER_TEMP/health.json"
+
+      - name: Read managed PostgREST config
+        if: steps.token.outputs.token_present == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN="$(cat "$RUNNER_TEMP/supabase_management_token")"
+          code="$(curl -sS -o "$RUNNER_TEMP/postgrest.json" -w "%{http_code}" \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/postgrest")"
+          echo "POSTGREST_CONFIG_HTTP_STATUS=$code"
+          jq -c '.' "$RUNNER_TEMP/postgrest.json" 2>/dev/null || cat "$RUNNER_TEMP/postgrest.json"
