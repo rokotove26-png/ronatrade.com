@@ -127,3 +127,22 @@ test('Cloudflare recovery materializes the Assistant public MCP route from the p
   assert.match(build, /_mcp_consent_bridge\.js/);
   assert.match(build, /_mcp_oauth_token_bridge\.js/);
 });
+
+
+test('repository source contains the Assistant Cloudflare Pages function tree before build', () => {
+  const transport = readFileSync('functions/_mcp_transport.js', 'utf8');
+  const roleEntry = readFileSync('functions/_mcp_role_entry.js', 'utf8');
+  const consent = readFileSync('functions/_mcp_consent_bridge.js', 'utf8');
+  const token = readFileSync('functions/_mcp_oauth_token_bridge.js', 'utf8');
+  const assistant = readFileSync('functions/assistant/[[path]].js', 'utf8');
+  const prepare = readFileSync('functions/assistant/authorize/prepare.js', 'utf8');
+  const complete = readFileSync('functions/assistant/authorize/complete.js', 'utf8');
+  assert.match(transport, /'assistant'/);
+  assert.match(transport, /system-admin\|assistant/);
+  assert.match(roleEntry, /proxyBoundRoleRequest/);
+  assert.match(consent, /'assistant'/);
+  assert.match(token, /'assistant'/);
+  assert.match(assistant, /'assistant'/);
+  assert.match(prepare, /'assistant'/);
+  assert.match(complete, /'assistant'/);
+});
