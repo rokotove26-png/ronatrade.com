@@ -130,16 +130,21 @@ test('Cloudflare recovery materializes the Assistant public MCP route from the p
   assert.match(build, /TRANSPORT_MATERIALIZATION_FAILED|assistant'\]\)/);
   assert.match(build, /SYSTEM_ADMIN_COORDINATE_SCOPE_MATERIALIZATION_FAILED/);
   assert.match(build, /ASSISTANT_RELATIVE_DISCOVERY_MATERIALIZATION_FAILED/);
+  assert.match(build, /ASSISTANT_RELATIVE_DISCOVERY_METHOD_GATE_MATERIALIZATION_FAILED/);
   assert.match(build, /_mcp_consent_bridge\.js/);
   assert.match(build, /_mcp_oauth_token_bridge\.js/);
 });
 
 
-test('Cloudflare public transport preserves coordinate scope and MCP-relative discovery', () => {
+test('Cloudflare public transport preserves coordinate scope and GET-only MCP-relative discovery', () => {
   const transport = readFileSync('functions/_mcp_transport.js', 'utf8');
   assert.match(transport, /COORDINATE_SEGMENTS=new Set\([^\n]*'system-admin'[^\n]*'assistant'/);
+  assert.match(transport, /relativeProtectedDiscovery/);
+  assert.match(transport, /relativeAuthorizationDiscovery/);
   assert.match(transport, /path==='\/mcp\/\.well-known\/oauth-protected-resource'/);
   assert.match(transport, /path==='\/mcp\/\.well-known\/oauth-authorization-server'/);
+  assert.match(transport, /request\.method!=='GET'/);
+  assert.match(transport, /allow:'GET, OPTIONS'/);
   assert.match(transport, /protectedResourceMetadata\(segment\)/);
   assert.match(transport, /authorizationServerMetadata\(segment\)/);
 });

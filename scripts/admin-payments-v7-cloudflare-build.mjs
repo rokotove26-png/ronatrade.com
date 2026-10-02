@@ -133,7 +133,7 @@ try {
     .replaceAll('rail-logistics-pilot|rail-logistics|system-admin)', 'rail-logistics-pilot|rail-logistics|system-admin|assistant)')
     .replace(
       "  const path=pathname.slice(prefix.length)||'/';\n  if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));",
-      "  const path=pathname.slice(prefix.length)||'/';\n  if(path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource')return json(protectedResourceMetadata(segment),200,corsFor(request));\n  if(path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server')return json(authorizationServerMetadata(segment),200,corsFor(request));\n  if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));"
+      "  const path=pathname.slice(prefix.length)||'/';\n  const relativeProtectedDiscovery=path==='/.well-known/oauth-protected-resource'||path==='/mcp/.well-known/oauth-protected-resource';\n  const relativeAuthorizationDiscovery=path==='/.well-known/oauth-authorization-server'||path==='/mcp/.well-known/oauth-authorization-server';\n  if(relativeProtectedDiscovery||relativeAuthorizationDiscovery){\n    if(request.method!=='GET')return json({error:'METHOD_NOT_ALLOWED'},405,{allow:'GET, OPTIONS',...corsFor(request)});\n    return relativeProtectedDiscovery\n      ? json(protectedResourceMetadata(segment),200,corsFor(request))\n      : json(authorizationServerMetadata(segment),200,corsFor(request));\n  }\n  if(!allowedRolePath(path))return json({error:'NOT_FOUND'},404,corsFor(request));"
     );
   if (!transportSource.includes("'assistant'")) {
     throw new Error('ASSISTANT_TRANSPORT_MATERIALIZATION_FAILED');
@@ -143,6 +143,9 @@ try {
   }
   if (!transportSource.includes("/mcp/.well-known/oauth-protected-resource") || !transportSource.includes("/mcp/.well-known/oauth-authorization-server")) {
     throw new Error('ASSISTANT_RELATIVE_DISCOVERY_MATERIALIZATION_FAILED');
+  }
+  if (!transportSource.includes("relativeProtectedDiscovery") || !transportSource.includes("allow:'GET, OPTIONS'")) {
+    throw new Error('ASSISTANT_RELATIVE_DISCOVERY_METHOD_GATE_MATERIALIZATION_FAILED');
   }
   writeFileSync(transportPath, transportSource);
 
