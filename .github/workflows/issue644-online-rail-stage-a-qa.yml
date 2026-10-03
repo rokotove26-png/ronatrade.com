@@ -163,7 +163,7 @@ jobs:
           const requiredRail=[
             "20260918-deal-owned-map-state-v1",
             "20260918-deal-map-persistence-v1",
-            "RAIL_MAP_VIEWPORT_STATE_V1",
+            "RAIL_MAP_VIEWPORT_STATE_V2_FULL_PLANNED_ROUTE",
             "RAIL_MAP_DATA_CONTRACT_V3_COHORTS",
             "EXPEDITOR_XLSX_VIA_RAIL_AI",
             "selectionKey:'deal_key'",
@@ -173,6 +173,7 @@ jobs:
             "20260921-dominant-cohort-v1",
             "20260921-dominant-rejoin-v2",
             "20260921-final-destination-v3",
+            "20261003-full-planned-route-base-v4",
             "rona-rail-v6-select-label','Сделка'",
             "function railMapActualRoutePoints(context)",
             "function railMapRemainingRoutePoints(context)",

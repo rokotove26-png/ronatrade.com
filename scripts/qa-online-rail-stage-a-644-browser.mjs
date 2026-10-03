@@ -189,7 +189,9 @@ try{
     selected:window.__RONA_RAIL_SELECTED_DEAL_KEY__,
     text:document.querySelector('#page-monitoring')?.textContent||'',
     contract:window.__RONA_RAIL_MAP_DATA_CONTRACT__,
-    map:window.__RONA_RAIL_MAP_ACTIVE_VIEW__
+    map:window.__RONA_RAIL_MAP_ACTIVE_VIEW__,
+    viewportStore:window.__RONA_RAIL_MAP_VIEWPORT_STATE__?{...window.__RONA_RAIL_MAP_VIEWPORT_STATE__}:null,
+    routeRender:window.__RONA_RAIL_ROUTE_COHORT_RENDER__?{...window.__RONA_RAIL_ROUTE_COHORT_RENDER__}:null
   }));
   assert(initial.selected===DEAL_A,'initial selected deal key mismatch');
   assert(initial.state.railCount===2,'deal A must aggregate two GU-12 documents');
@@ -199,6 +201,9 @@ try{
   assert(initial.contract?.selectionKey==='deal_key','map contract does not use canonical deal key');
   assert(initial.contract?.wagonPositions?.sourcePolicy==='EXPEDITOR_XLSX_VIA_RAIL_AI','wrong wagon-position source policy');
   assert(initial.contract?.wagonPositions?.productionPolling===false,'production polling must remain disabled');
+  assert(initial.viewportStore?.version==='RAIL_MAP_VIEWPORT_STATE_V2_FULL_PLANNED_ROUTE','map viewport store is not on full planned-route contract');
+  assert(initial.routeRender?.plannedRouteBase===true,'full planned route is not the base map geometry');
+  assert(initial.routeRender?.plannedRoutePointCount===3,'planned route base did not preserve the complete fixture route');
   const firstAuthoritative=await page.evaluate(()=>({
     authority:window.__RONA_RAIL_FIRST_PAINT_AUTHORITY__?{...window.__RONA_RAIL_FIRST_PAINT_AUTHORITY__}:null,
     route:JSON.parse(JSON.stringify(window.__RONA_RAIL_MAP_DATA__?.plannedRoute||null))
@@ -254,7 +259,7 @@ try{
 
   await page.getByRole('button',{name:'Показать Россию и СНГ'}).click();
   const homeView=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
-  assert(homeView.zoom===3&&close(homeView.lat,52.5)&&close(homeView.lng,68),'СНГ/Home did not explicitly reset default viewport');
+  assert(homeView.zoom===initial.map.zoom&&close(homeView.lat,initial.map.lat)&&close(homeView.lng,initial.map.lng)&&homeView.userTouched===false,'СНГ/Home did not refit to the complete planned route');
 
   await selector.selectOption(DEAL_B);
   await page.waitForFunction(key=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey===key&&window.__RONA_RAIL_MAP_ACTIVE_VIEW__?.dealKey===key,DEAL_B,{timeout:5000});
