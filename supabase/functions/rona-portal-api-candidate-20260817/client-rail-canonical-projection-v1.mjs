@@ -134,7 +134,7 @@ export function projectClientRailCanonical({context,deals,readModels}){
     const completedAt=scope.rail_monitoring_completed_at??scope.completed_at??null;
     const completionWagonCount=Number(scope.rail_monitoring_completion_wagon_count??0)||0;
     if(trusted>0&&!monitoringCompleted)activeTargets+=1;
-    conflicts+=unresolved;
+    conflicts+=monitoringCompleted?0:unresolved;
 
     projectedDeals.push({
       deal_key:text(scope.deal_key),
