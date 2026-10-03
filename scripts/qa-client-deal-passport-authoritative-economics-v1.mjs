@@ -36,7 +36,7 @@ for(const required of ['20260922-deal-state-v1-fresh-on-open','pending-canonical
 const openBlock=runtimeSource.slice(runtimeSource.indexOf('async function openAuthoritativeDeal'),runtimeSource.indexOf('function observeDealsRoot'));
 assert.ok(openBlock.includes('/v1/client/deal-state?clientId='),'passport open must use the single canonical deal-state endpoint');
 for(const forbidden of ['/v1/client/deal-documents/state',"whenCurrentProjection('deal-passport-open')",'invalidateCurrentProjection()'])assert.equal(openBlock.includes(forbidden),false,`passport open still has a parallel/stale source: ${forbidden}`);
-assert.ok(attachDealsSource.includes('20260922-authoritative-v13-canonical-deal-state'),'Client deals runtime cache key was not bumped for canonical deal-state');
+assert.ok(attachDealsSource.includes('20261003-authoritative-v14-lifecycle-tabs'),'Client deals runtime cache key must match the current lifecycle-tabs attachment');
 assert.ok(attachDealsSource.includes("passport_projection_freshness:'CANONICAL_DEAL_STATE_NO_STORE_ON_EVERY_OPEN'"),'Client deals integrity does not declare canonical no-store fresh-on-open policy');
 for(const required of ['passport_unit_price','passport_amount','passport_currency','confirmed_quantity_tonnes'])assert.ok(dealStateGatewaySource.includes("proxy(req,'/v1/client/context'")||dealStateSource.includes(required),`canonical deal-state economics chain missing: ${required}`);
 for(const required of ['unit_price:unitPrice','amount,','quantity_tonnes:quantity','economics_source:'])assert.ok(dealStateSource.includes(required),`canonical deal-state projector does not expose economics: ${required}`);
