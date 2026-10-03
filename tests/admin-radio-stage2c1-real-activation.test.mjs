@@ -73,10 +73,15 @@ test('Client and Agent portal runtime presents central notification modal and to
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
     "credentials:'same-origin'",
+    "const MARK='20261003-stage2c1-v3-inline-ticker'",
+    "function tickerHost()",
+    "function mountTicker(root)",
+    "position:relative;z-index:20;width:100%",
     'POLL_MS=60000',
     'MAX_POLLS=10'
   ]) assert.ok(runtime.includes(token),'Portal runtime marker missing: '+token);
   assert.doesNotMatch(runtime,/\/client\/bootstrap|\/agent\/bootstrap/);
+  assert.doesNotMatch(runtime,/#ronaRadioAnnouncementTicker\{position:fixed|top:0;z-index:2147482500|document\.body\.prepend\(root\)/);
   assert.match(runtime,/window\.addEventListener\('rona:radio-refresh'/);
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
 });
