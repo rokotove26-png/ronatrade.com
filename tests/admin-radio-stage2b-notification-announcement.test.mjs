@@ -91,15 +91,13 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
   assert.match(radio,/activeRows=\[\.\.\.canonicalRows,\.\.\.broadcastRows\]/);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
   for(const token of [
-    "radioRoot()",
-    "el('div','radio-command-bar')",
-    "classList.add('radio-kpi-grid')",
-    "el('div','radio-workspace')",
-    "el('section','radio-compose-panel')",
-    "el('aside','radio-link-panel')",
-    "el('section','radio-active-panel')",
-    "Активные сообщения"
-  ]) assert.ok(radio.includes(token),`Radio visual structure token missing: ${token}`);
+    "root('radio','Радиорубка'",
+    "el('div','rona-rs-form')",
+    "card('Новое сообщение'",
+    "card('Активные сообщения'",
+    "['Тип','Кому','Сообщение','Дата']"
+  ]) assert.ok(radio.includes(token),`Canonical Radio visual structure token missing: ${token}`);
+  assert.doesNotMatch(radio,/radioRoot\(\)|radio-command-bar|radio-kpi-grid|radio-workspace|radio-compose-panel|radio-link-panel|radio-active-panel/);
 });
 
 test('Stage 2C.1 activates client notification modal and client/agent announcement ticker through server-isolated projections',()=>{
@@ -139,9 +137,9 @@ test('Stage 2C.1 presentation wiring is source-locked to the server-isolated bro
   const shell=read('functions/portal/[[path]].js');
   const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
 
-  assert.match(radio,/const RADIO_STYLE_TEXT=/);
-  assert.match(radio,/function radioStyle\(\)/);
-  assert.match(radio,/s\.textContent=RADIO_STYLE_TEXT/);
+  assert.doesNotMatch(radio,/const RADIO_STYLE_TEXT=|function radioStyle\(|s\.textContent=RADIO_STYLE_TEXT/);
+  assert.match(radio,/root\('radio','Радиорубка'/);
+  assert.match(radio,/card\('Активные сообщения'/);
 
   assert.match(owner,/kind==='NOTIFICATION'&&!\['CLIENT','ALL_CLIENTS'\]\.includes\(scope\)/);
   assert.match(owner,/RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED/);

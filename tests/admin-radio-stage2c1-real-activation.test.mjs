@@ -49,14 +49,16 @@ test('Admin Radio has one canonical owner with frozen visual geometry and Stage 
     'radio_audience_agents',
     "radioCanonicalRequest('/v1/admin/radio/agent-messages'",
     "await post('/admin/radio',{kind:kind.value,scope:scope.value,targetId,body:body.value.trim(),idempotencyKey})",
-    "kind.value==='NOTIFICATION'?['CLIENT','ALL_CLIENTS']",
-    "classList.add('radio-kpi-grid')",
-    "el('div','radio-workspace')",
-    "el('section','radio-active-panel')"
+    "root('radio','Радиорубка'",
+    "el('div','rona-rs-form')",
+    "card('Новое сообщение'",
+    "card('Активные сообщения'"
   ]) assert.ok(radio.includes(token),'Stage 2C.1 canonical Radio marker missing: '+token);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER_SOURCE_MISMATCH/);
-  assert.doesNotMatch(radio,/const legacy=Array\.isArray\(d\.radio\)/);
+  assert.doesNotMatch(radio,/radioRoot\(\)|radio-command-bar|radio-kpi-grid|radio-workspace|radio-compose-panel|radio-link-panel|radio-active-panel/);
+  assert.match(radio,/broadcastProjectionAvailable=Array\.isArray\(payload\?\.data\?\.radio_broadcasts\)/);
+  assert.match(radio,/fallback=snap\(\)\|\|\{\}/);
 });
 
 test('Client and Agent portal runtime presents central notification modal and top running ticker from server-isolated owner projection',()=>{
@@ -79,14 +81,16 @@ test('Client and Agent portal runtime presents central notification modal and to
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
 });
 
-test('Portal shell injects Stage 2C.1 broadcast runtime for real Client and Agent sessions without rewriting the canonical Client artifact',()=>{
+test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonated Client plus Agent sessions',()=>{
   const shell=read('functions/portal/[[path]].js');
   assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
   assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/AGENT_BRIDGE\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/x-rona-client-impersonation-shell/);
-  assert.match(shell,/static-unmodified-v1/);
+  assert.match(shell,/static-plus-radio-runtime-v1/);
+  assert.match(shell,/if\(impersonation\?\.data\)\{\s*const transformed=new HTMLRewriter\(\)\s*\.on\('body',new BodyAppend\(RADIO_BROADCAST_RUNTIME\)\)/);
+  assert.doesNotMatch(shell,/static-unmodified-v1/);
 });
 
 test('Stage 2C.1 does not mutate frozen Client message or Admin Radio visual assets',()=>{

@@ -443,16 +443,17 @@ async function serveStaticProtected(context, session, kind) {
   }
   const bridge=impersonation?.data?impersonationReturnBridge(String(impersonation.data.returnView||''),String(impersonation.data.id||'')):'';
   if(kind==='client'){
-    // Impersonated Client must receive the canonical static artifact byte stream without
-    // a server-side HTMLRewriter. The canonical Client context runtime now owns
-    // x-rona-impersonation-tab natively from the validated impSession URL parameter,
-    // and the Admin-return control is attached as a static external runtime at build time.
-    // This removes the only production-only document transformation from Client boot.
+    // Keep the canonical Client artifact intact while appending only the bounded Radio runtime
+    // required for Owner visual acceptance through Admin impersonation.
+    // The existing impersonation bridge/header propagation remains authoritative for client-scoped reads.
     if(impersonation?.data){
-      const headers=new Headers(response.headers);
-      headers.set('x-rona-client-impersonation-shell','static-unmodified-v1');
-      const direct=new Response(response.body,{status:response.status,statusText:response.statusText,headers});
-      return secureResponse(direct,session.setCookies,true);
+      const transformed=new HTMLRewriter()
+        .on('body',new BodyAppend(RADIO_BROADCAST_RUNTIME))
+        .transform(response);
+      const headers=new Headers(transformed.headers);
+      headers.set('x-rona-client-impersonation-shell','static-plus-radio-runtime-v1');
+      const withMarker=new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
+      return secureResponse(withMarker,session.setCookies,true);
     }
     const clientPresence=presenceBridge('CLIENT');
     const transformed=new HTMLRewriter()
