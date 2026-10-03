@@ -12,8 +12,12 @@ const SCRIPT=RAW
   )
   .replaceAll('waitsAction','waitsPayment')
   .replace(
-    "function buildMetrics(ds){var active=ds.filter(isActive).length,attention=ds.filter(needsAttention).length,waiting=ds.filter(waitsPayment).length,completed=ds.filter(isCompleted).length,annulled=ds.filter(isCancelled).length,amount=totalAmount(ds);return{active:active,attention:attention,waiting:waiting,completed:completed,annulled:annulled,volume:totalVolume(ds),amount:amount}}function visibleDeals(ds){if(filter==='ATTENTION')return ds.filter(needsAttention);if(filter==='COMPLETED')return ds.filter(isCompleted);if(filter==='ANNULLED')return ds.filter(isCancelled);return ds.filter(isActive)}",
-    "function buildMetrics(ds){var active=ds.filter(isExecutionMonitoringActive).length,attention=ds.filter(needsAttention).length,waiting=ds.filter(waitsPayment).length,completed=ds.filter(isCompleted).length,annulled=ds.filter(isCancelled).length,amount=totalAmount(ds);return{active:active,attention:attention,waiting:waiting,completed:completed,annulled:annulled,volume:totalVolume(ds),amount:amount}}function visibleDeals(ds){if(filter==='ATTENTION')return ds.filter(needsAttention);if(filter==='COMPLETED')return ds.filter(isCompleted);if(filter==='ANNULLED')return ds.filter(isCancelled);return ds.filter(isExecutionMonitoringActive)}"
+    "function buildMetrics(ds){var active=ds.filter(isActive).length,attention=ds.filter(needsAttention).length,waiting=ds.filter(waitsPayment).length,completed=ds.filter(isCompleted).length,annulled=ds.filter(isCancelled).length,amount=totalAmount(ds);return{active:active,attention:attention,waiting:waiting,completed:completed,annulled:annulled,volume:totalVolume(ds),amount:amount}}",
+    "function buildMetrics(ds){var active=ds.filter(isExecutionMonitoringActive).length,attention=ds.filter(needsAttention).length,waiting=ds.filter(waitsPayment).length,completed=ds.filter(isCompleted).length,annulled=ds.filter(isCancelled).length,amount=totalAmount(ds);return{active:active,attention:attention,waiting:waiting,completed:completed,annulled:annulled,volume:totalVolume(ds),amount:amount}}"
+  )
+  .replace(
+    "function visibleDeals(ds){if(filter==='ATTENTION')return ds.filter(needsAttention);if(filter==='COMPLETED')return ds.filter(isCompleted);if(filter==='ANNULLED')return ds.filter(isCancelled);return ds.filter(isActive)}",
+    "function visibleDeals(ds){if(filter==='ATTENTION')return ds.filter(needsAttention);if(filter==='COMPLETED')return ds.filter(isCompleted);if(filter==='ANNULLED')return ds.filter(isCancelled);return ds.filter(isExecutionMonitoringActive)}"
   )
   .replace("api('/admin/workflow-bootstrap')","api('/admin/deals-current-v4')")
   .replace(
