@@ -441,7 +441,7 @@ async function serveStaticProtected(context, session, kind) {
       .transform(response);
     const headers=new Headers(transformed.headers);
     headers.set('x-rona-admin-radio-visual-owner','canonical-v11');
-    headers.set('x-rona-admin-radio-specific-stop','v1');
+    headers.set('x-rona-admin-radio-specific-stop','v1.1');
     const marked=new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
     return secureResponse(marked, session.setCookies, true);
   }
