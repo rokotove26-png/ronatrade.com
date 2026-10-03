@@ -448,10 +448,11 @@ async function serveStaticProtected(context, session, kind) {
     // The existing impersonation bridge/header propagation remains authoritative for client-scoped reads.
     if(impersonation?.data){
       const transformed=new HTMLRewriter()
+        .on('head',new HeadPrepend(bridge))
         .on('body',new BodyAppend(RADIO_BROADCAST_RUNTIME))
         .transform(response);
       const headers=new Headers(transformed.headers);
-      headers.set('x-rona-client-impersonation-shell','static-plus-radio-runtime-v1');
+      headers.set('x-rona-client-impersonation-shell','static-plus-radio-runtime-and-header-bridge-v2');
       const withMarker=new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
       return secureResponse(withMarker,session.setCookies,true);
     }
