@@ -17,10 +17,10 @@ let degraded=false;
 function route(points,status){return{status,points,geometry:null,provenance:{source:'ISSUE670_QA_FIXTURE'}}}
 function dataFor(clientId,contractId){
   const defs=clientId==='CLIENT-B'?[{key:DEAL_C,id:'DEAL-QA-C',station:'Context C',code:'300003'}]:[
-    {key:DEAL_A,id:'DEAL-QA-A',station:'Context A',code:'100001'},
-    {key:DEAL_B,id:'DEAL-QA-B',station:'Context B',code:'200002'}
+    {key:DEAL_A,id:'DEAL-QA-A',station:'Context A',code:'100001',monitoringState:'ACTIVE'},
+    {key:DEAL_B,id:'DEAL-QA-B',station:'Context B',code:'200002',monitoringState:'COMPLETED',completedAt:'2026-10-03T18:30:24.998Z'}
   ];
-  const deals=defs.map(d=>({deal_key:d.key,deal_id:d.id,business_status:'DEAL',lifecycle_state:'ACTIVE',client_id:clientId,contract_id:contractId}));
+  const deals=defs.map(d=>({deal_key:d.key,deal_id:d.id,dealKey:d.key,dealId:d.id,business_status:'DEAL',lifecycle_state:'ACTIVE',monitoring_state:d.monitoringState||'ACTIVE',monitoringState:d.monitoringState||'ACTIVE',completionReady:false,completedAt:d.completedAt||null,wagonCount:1,trustedCount:1,atDestinationCount:d.monitoringState==='COMPLETED'?1:0,client_id:clientId,contract_id:contractId}));
   const rail=defs.map((d,i)=>({
     rail_document_key:(i===0?'aaaaaaaa':'bbbbbbbb')+'-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
     rail_document_id:'RAIL-'+d.id,
@@ -43,7 +43,7 @@ function dataFor(clientId,contractId){
   return {
     contract:'RONA_CLIENT_RAIL_ADMIN_PARITY_V1',
     generatedAt:new Date().toISOString(),deals,rail,
-    exchange:{active_targets:defs.length,conflicts:0,by_deal:{}},
+    exchange:{active_targets:defs.filter(d=>(d.monitoringState||'ACTIVE')!=='COMPLETED').length,conflicts:0,by_deal:Object.fromEntries(defs.map(d=>[d.key,{active_targets:(d.monitoringState||'ACTIVE')==='COMPLETED'?0:1,conflicts:0,trusted_positions:1,monitoring_state:d.monitoringState||'ACTIVE',completed_at:d.completedAt||null}]))},
     plannedRouteByDeal,actualRouteByDeal,remainingRouteByDeal,routeProgressByDeal,routeStationsByDeal,routeAssignmentByDeal,routeCohortsByDeal,
     railReadModel:{modelVersion:'RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4',sourcePolicy:'PUBLIC_SOURCE_ROUTE_GRAPH_PLUS_TRUSTED_DISLOCATION_HISTORY_V1',generatedAt:new Date().toISOString(),overlayMode:'DISPLAY_ROUTE_HISTORY_AND_CURRENT_POSITION_V1',authorityScope:'AUTHENTICATED_CLIENT_CONTRACT',clientId,contractId},
     clientRailAuthority:{scope:'AUTHENTICATED_CLIENT_CONTRACT',serverDerived:true,queryValuesUsedAsAuthorization:false}
@@ -116,6 +116,7 @@ try{
   await page.waitForFunction(key=>window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__?.dealKey===key&&window.__RONA_RAIL_ROUTE_COHORT_RENDER__?.branchesDrawn===0&&document.querySelectorAll('.rona-rail-v7-route-svg .rona-rail-v7-route-actual').length>=1,DEAL_B,{timeout:5000});
   view=await page.evaluate(()=>({state:{...window.__RONA_RAIL_CURRENT_STATE__},text:document.querySelector('#page-monitoring')?.textContent||'',map:{...window.__RONA_RAIL_MAP_ACTIVE_VIEW__},mapParity:{...window.__RONA_CLIENT_RAIL_MAP_PARITY_STATE__},canonicalRoute:{...window.__RONA_RAIL_ROUTE_COHORT_RENDER__},routeLines:document.querySelectorAll('.rona-rail-v7-route-svg polyline').length,clientOverlayCount:document.querySelectorAll('.rona-client-rail-route-overlay-v3').length}));
   assert(view.text.includes('GU12-DEAL-QA-B')&&!view.text.includes('GU12-DEAL-QA-A'),'deal switch inherited another deal');
+  assert(view.text.includes('Мониторинг завершен'),'completed Client Rail deal did not render completed status');
   assert(view.mapParity.dealKey===DEAL_B&&view.canonicalRoute.branchesDrawn===0&&view.routeLines>=2&&view.clientOverlayCount===0,'canonical route geometry did not follow deal switch '+JSON.stringify(view));
 
   const beforeIdle=(await fetch(origin+'/qa/state').then(r=>r.json())).requests;
@@ -162,6 +163,7 @@ try{
   console.log('ISSUE670_PREMIUM_MAP_MARKERS=PASS');
   console.log('ISSUE670_ADMIN_OPERATIONAL_LAYOUT_INHERITED=PASS');
   console.log('ISSUE670_DEAL_SWITCH_ISOLATION=PASS');
+  console.log('ISSUE670_CLIENT_MONITORING_COMPLETED_PARITY=PASS');
   console.log('ISSUE670_IDLE_NO_POLLING=PASS');
   console.log('ISSUE670_EVENT_DRIVEN_REFRESH=PASS');
   console.log('ISSUE670_DEGRADED_REFRESH_PRESERVE=PASS');
