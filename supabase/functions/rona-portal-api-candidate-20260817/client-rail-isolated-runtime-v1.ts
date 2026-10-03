@@ -146,7 +146,7 @@ async function canonicalDealRail(meta:any,dealId:string){
   if(!meta?.deal_key)return null;
   try{
     const rows=await sql`
-      select portal_private.rona_rail_deal_map_read_model_core_v2(
+      select portal_private.rona_rail_deal_map_read_model_core_v1(
         ${meta.deal_key}::uuid,
         ${dealId}::text
       ) as data
@@ -203,7 +203,7 @@ async function clientDealState(req:Request,u:URL){
   const response=send(200,{ok:true,data:state,projection_contract:CLIENT_DEAL_STATE_CONTRACT});
   const h=new Headers(response.headers);
   h.set('x-rona-client-deal-state',CLIENT_DEAL_STATE_CONTRACT);
-  h.set('x-rona-client-deal-state-source','PRODUCTION_CONTEXT_FINANCE_V8_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1');
+  h.set('x-rona-client-deal-state-source','PRODUCTION_CONTEXT_FINANCE_V7_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1');
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
 }
 async function verifyQa(req:Request){const auth=norm(req.headers.get('authorization'));if(!auth.startsWith('Bearer '))throw new Error('QA_OIDC_REQUIRED');const {payload}=await jwtVerify(auth.slice(7).trim(),GH_JWKS,{issuer:'https://token.actions.githubusercontent.com',audience:QA_AUDIENCE});if(payload.repository!=='rokotove26-png/ronatrade.com'||payload.event_name!=='pull_request'||!String(payload.workflow_ref||'').includes(QA_WORKFLOW))throw new Error('QA_IDENTITY_DENIED')}
