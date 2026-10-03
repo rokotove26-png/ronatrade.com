@@ -49,16 +49,16 @@ test('Admin Radio has one canonical owner with frozen visual geometry and Stage 
     'radio_audience_agents',
     "radioCanonicalRequest('/v1/admin/radio/agent-messages'",
     "await post('/admin/radio',{kind:kind.value,scope:scope.value,targetId,body:body.value.trim(),idempotencyKey})",
-    "kind.value==='NOTIFICATION'?['CLIENT','ALL_CLIENTS']",
-    "classList.add('radio-kpi-grid')",
-    "el('div','radio-workspace')",
-    "el('section','radio-active-panel')"
+    "root('radio','Радиорубка'",
+    "el('div','rona-rs-form')",
+    "card('Новое сообщение'",
+    "card('Активные сообщения'"
   ]) assert.ok(radio.includes(token),'Stage 2C.1 canonical Radio marker missing: '+token);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER_SOURCE_MISMATCH/);
-  assert.doesNotMatch(radio,/const legacy=Array\.isArray\(d\.radio\)/);
-  assert.match(radio,/const snapshotBroadcasts=\(Array\.isArray\(d\?\.radio\)\?d\.radio:\[\]\)\.filter/);
-  assert.match(radio,/const effectiveBroadcasts=\[\.\.\.broadcastById\.values\(\)\]/);
+  assert.doesNotMatch(radio,/radioRoot\(\)|radio-command-bar|radio-kpi-grid|radio-workspace|radio-compose-panel|radio-link-panel|radio-active-panel/);
+  assert.match(radio,/broadcastProjectionAvailable=Array\.isArray\(payload\?\.data\?\.radio_broadcasts\)/);
+  assert.match(radio,/fallback=snap\(\)\|\|\{\}/);
 });
 
 test('Client and Agent portal runtime presents central notification modal and top running ticker from server-isolated owner projection',()=>{
