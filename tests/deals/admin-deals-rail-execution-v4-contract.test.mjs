@@ -52,7 +52,7 @@ test('Stable Finance and readiness markers remain intact',()=>{
   assert.match(ui,/paidNode\.title='Оплачено фактически'/);
   assert.match(ui,/Осталось:/);
   assert.match(ui,/Finance · оплачено \/ остаток/);
-  assert.match(ui,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/);
+  assert.match(ui,/post_rail_completion_attention===true\|\|structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/);
   assert.match(ui,/send\.disabled=overall\(d\)!=='GO'/);
   assert.match(ui,/inFinance\?'В платежном контуре'/);
 });

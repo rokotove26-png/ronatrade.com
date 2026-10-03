@@ -10,7 +10,7 @@ assert.match(preview,/^https:\/\/[a-f0-9]+\.rona-trade-public\.pages\.dev$/,'imm
 const source=await readFile('functions/portal/deals-current-state-ui.js','utf8');
 assert.match(source,/return !\(add\|\|signed\)\|\|!inv}/,'Documents must depend only on RONA addendum lineage + invoice');
 assert.match(source,/function hasClientSignedAddendum\(d\)\{return !!docKind\(d&&d\.deal_id,'SIGNED_ADDENDUM'\)}/,'signed addendum source missing');
-assert.match(source,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/,'GO/HOLD must preserve signed client addendum and structural blockers');
+assert.match(source,/post_rail_completion_attention===true\|\|structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/,'GO/HOLD must preserve post-Rail attention, signed client addendum and structural blockers');
 assert.doesNotMatch(source,/NIK|SOLARIS|FARG|GAZON|DEAL-2026-00[3-9]/i,'implementation must not hardcode business entities');
 
 // Pages preview proves the exact PR commit was built. Protected Admin HTML redirects to login,
@@ -28,7 +28,7 @@ assert.equal(runtimeResponse.status,200,'Deals runtime response must be successf
 assert.equal(runtimeResponse.headers.get('x-rona-deal-indicators'),'documents-addendum-invoice-status-client-signed-v1','Deals runtime indicator marker missing');
 const runtime=await runtimeResponse.text();
 assert.match(runtime,/return !\(add\|\|signed\)\|\|!inv}/,'runtime Documents rule missing');
-assert.match(runtime,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/,'runtime structural GO/HOLD rule missing');
+assert.match(runtime,/post_rail_completion_attention===true\|\|structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/,'runtime post-Rail/structural GO/HOLD rule missing');
 
 // Read-only production snapshot captured for this hotfix. Business identifiers are QA evidence only;
 // the implementation above remains universal and contains none of these identifiers.

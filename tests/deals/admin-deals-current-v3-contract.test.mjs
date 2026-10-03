@@ -25,11 +25,11 @@ test('Owner API exposes only a read RPC for Deals V3',()=>{
 });
 
 test('Deals UI reads V4 while preserving readiness GO gate',()=>{
-  assert.match(ui,/api\('\/admin\/deals-current-v3'\)/);
+  assert.match(ui,/api\('\/admin\/deals-current-v4'\)/);
   assert.match(ui,/projection==='FINANCE_V8'\)return due!==null&&due>0/);
   assert.match(ui,/finance_projection_version/);
   assert.match(ui,/route_resolution_state/);
-  assert.match(ui,/if\(structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/);
+  assert.match(ui,/post_rail_completion_attention===true\|\|structuralIssue\(d\)\|\|!hasClientSignedAddendum\(d\)\)return'HOLD';return'GO'/);
   assert.match(ui,/send\.disabled=overall\(d\)!=='GO'/);
   assert.match(ui,/finance_projection_version\|\|''\)\.toUpperCase\(\)==='FINANCE_V8'/);
   assert.match(ui,/inFinance\?'В платежном контуре'/);
