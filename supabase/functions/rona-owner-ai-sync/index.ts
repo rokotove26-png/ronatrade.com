@@ -8,6 +8,7 @@ import {
   readOwnerConfirmedReceiptsV7,
 } from './owner-confirmed-receipt-projection.mjs';
 import { applyFinanceAuthorityProjectionV8 } from './finance-authority-projection-v8.mjs';
+import { applyAdminPaymentsExecutionMonitoringScope } from './execution-monitoring-scope-v1.mjs';
 
 const nativeServe = Deno.serve.bind(Deno);
 const DB = Deno.env.get('SUPABASE_DB_URL');
@@ -52,6 +53,25 @@ async function persistOwnerDecision({ envelope }) {
   return rows[0];
 }
 
+async function readPostExecutionAttentionCandidateDealKeys() {
+  // Exact lifecycle precursor for the closing-documents stage:
+  // Rail monitoring was manually completed and the current terminal Finance V8 authority is locked and paid.
+  // The projection layer below still verifies authoritative total/received/remaining money before exclusion.
+  const rows=await v7Sql`
+    select distinct f.deal_key::text as deal_key
+      from portal_private.deal_finance_authority_payments_v8_read_v1 f
+      join portal_private.rail_deal_monitoring_control_v1 c on c.deal_key=f.deal_key
+     where upper(c.monitoring_state)='COMPLETED'
+       and upper(f.finance_status)='PAID'
+       and upper(f.authority_state)='AUTHORITATIVE'
+       and upper(f.lifecycle_state)='CURRENT'
+       and f.source_locked=true
+       and f.is_terminal=true
+       and coalesce(f.total_to_receive,0)>0
+  `;
+  return rows.map((row)=>String(row?.deal_key||'')).filter(Boolean);
+}
+
 async function readPaymentsV8FinanceAuthorityGate() {
   // Safety overlay: if a current confirmed signed document has not yet produced a MATERIALIZED V8
   // schedule, receivable amounts are deliberately NULL/TO_VERIFY instead of exposing stale legacy
@@ -75,17 +95,27 @@ async function readPaymentsV8FinanceAuthorityGate() {
 const readBaseRawSources = createAdminPaymentsV7TruthSourceReader(v7Sql);
 async function readRawSources() {
   const raw = await readBaseRawSources();
-  const [ownerConfirmedReceipts, gatedFinanceAuthorities] = await Promise.all([
+  const [ownerConfirmedReceipts, gatedFinanceAuthorities, postExecutionAttentionCandidateDealKeys] = await Promise.all([
     readOwnerConfirmedReceiptsV7(v7Sql, raw?.sourceAsOf || null),
     readPaymentsV8FinanceAuthorityGate(),
+    readPostExecutionAttentionCandidateDealKeys(),
   ]);
-  return { ...raw, dealFinanceAuthorities: gatedFinanceAuthorities, ownerConfirmedReceipts };
+  return {
+    ...raw,
+    dealFinanceAuthorities: gatedFinanceAuthorities,
+    ownerConfirmedReceipts,
+    postExecutionAttentionCandidateDealKeys,
+  };
 }
 
 function buildProjection(raw) {
   const base = buildAdminPaymentsV7FromRawSources(raw);
   const receipts = applyOwnerConfirmedReceiptsV7(base, raw?.ownerConfirmedReceipts || []);
-  return applyFinanceAuthorityProjectionV8(receipts, raw?.dealFinanceAuthorities || []);
+  const finance = applyFinanceAuthorityProjectionV8(receipts, raw?.dealFinanceAuthorities || []);
+  return applyAdminPaymentsExecutionMonitoringScope(
+    finance,
+    raw?.postExecutionAttentionCandidateDealKeys || [],
+  );
 }
 
 nativeServe(createRonaOwnerAiSyncV7Handler({
