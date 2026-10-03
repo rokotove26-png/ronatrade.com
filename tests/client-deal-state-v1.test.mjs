@@ -151,6 +151,7 @@ test('candidate deal-state runtime passes authoritative Rail monitoring control 
   assert.match(source,/rail_monitoring_state:meta\.rail_monitoring_state/);
   assert.match(source,/rail_monitoring_completion_wagon_count:meta\.rail_monitoring_completion_wagon_count/);
   assert.match(source,/rail_monitoring_completion_destination_esr_code:meta\.rail_monitoring_completion_destination_esr_code/);
-  assert.match(source,/rona_rail_deal_map_read_model_core_v2/);
-  assert.match(source,/PRODUCTION_CONTEXT_FINANCE_V8_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1/);
+  const dealRailBlock=source.slice(source.indexOf('async function canonicalDealRail'),source.indexOf('async function clientDealState'));
+  assert.match(dealRailBlock,/rona_rail_deal_map_read_model_core_v1/);
+  assert.match(source,/PRODUCTION_CONTEXT_FINANCE_V7_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1/);
 });
