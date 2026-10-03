@@ -94,6 +94,7 @@ jobs:
           }
           console.log('ADMIN_AGENT_SOURCE_PLUS_APPROVED_BUILD_ATTACHMENTS=PASS');
           NODE
+          set -x
           test "$(stat -c%s dist/portal/admin.html)" -lt 60000
           ! grep -q 'adminLoginGate' dist/portal/admin.html
           ! grep -q 'rona-admin-auth-v3413' dist/portal/admin.html
