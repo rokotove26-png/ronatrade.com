@@ -211,7 +211,7 @@ const MONITOR_LIFECYCLE_RAIL_OPTIONS_TO="var d=railDealForDoc(doc,data),key=d&&S
 const MONITOR_LIFECYCLE_STATUS_FROM="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws);if(!m.active)return pill('Мониторинг не запущен','warn');if(m.attention>0)return pill('Требуют внимания','warn');return pill('Мониторинг активен','success')}";
 const MONITOR_LIFECYCLE_STATUS_TO="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws),life=railMonitoringSelectedLifecycle();if(!m.active)return pill('Мониторинг не запущен','warn');if(m.attention>0)return pill('Требуют внимания','warn');if(life&&life.completionReady===true)return railMonitoringCompleteButton(life);return pill('Мониторинг активен','success')}";
 const MONITOR_LIFECYCLE_SYNC_FROM="async function sync(){try{var next=await api('/admin/bootstrap');";
-const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle')]);var next=pair[0];railMonitoringLifecycle=pair[1]||{deals:[]};";
+const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle').catch(function(){return{deals:[]}})]);var next=pair[0];railMonitoringLifecycle=pair[1]||{deals:[]};";
 const MONITOR_LIFECYCLE_HELPER_ANCHOR="function railDealOptions(data,rail){";
 const MONITOR_LIFECYCLE_HELPERS=String.raw`var railMonitoringLifecycle={deals:[]};
 function railMonitoringRows(){return Array.isArray(railMonitoringLifecycle&&railMonitoringLifecycle.deals)?railMonitoringLifecycle.deals:[]}
