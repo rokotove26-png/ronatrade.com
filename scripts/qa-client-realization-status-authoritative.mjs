@@ -33,13 +33,16 @@ try{await access('assets/portal-runtime/client-deal-command-center-v3.js');throw
 for(const required of [
   "route==='/v1/client/deal-state'","proxy(req,'/v1/client/context'",'CLIENT_DEAL_STATE_CONTRACT','resolve_deal_resource_state','rona_rail_deal_map_read_model_core_v1',
   'signed_documents_confirmed','projectClientCanonicalDealState','CLIENT_DEAL_STATE_RAIL_OPTIONAL_UNAVAILABLE',
-  'CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1','x-rona-admin-impersonation-token'
+  'CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1_COHORT_ROUTE_V1_MONITORING_PARITY_V3',
+  'rail_deal_monitoring_control_v1','rail_monitoring_state:meta.rail_monitoring_state',
+  'x-rona-admin-impersonation-token'
 ]) if(!gateway.includes(required))throw new Error(`DEAL_STATE_GATEWAY_REQUIRED_MISSING:${required}`);
 for(const required of [
   "CLIENT_DEAL_STATE_CONTRACT='RONA_CLIENT_DEAL_STATE_V1'","CLIENT_DEAL_LIFECYCLE_SOURCE='CLIENT_DEAL_STATE_V1'",
   "status='NOT_DUE';label='Срок оплаты ещё не наступил'","railDocuments.length>0||wagonPositions.length>0||actualPoints.length>0",
   "return'Отгрузка ещё не начата'","'ЖД-данные появятся после начала отгрузки'","if(!rail.available)return'Актуальные ЖД-данные временно недоступны'",
-  "current_stage_key:currentKey",'facts:{','payment,','rail'
+  "current_stage_key:currentKey","if(rail.completed)return'close'","?stage('logistics','DONE',railCompletionDetail(rail))",
+  "'ЖД-мониторинг завершён. Ожидаются закрывающие документы и завершение сделки'",'facts:{','payment,','rail'
 ]) if(!projector.includes(required))throw new Error(`DEAL_STATE_PROJECTOR_REQUIRED_MISSING:${required}`);
 
 for(const required of ['resolve_deal_resource_state','RESOURCE_CONFIRMATION_REQUIRED_BEFORE_PAYMENT','RESOURCE_CONFIRMATION_REQUIRED_BEFORE_FINANCE_RECEIPT','EXECUTING alone is never treated as resource confirmation'])
@@ -64,4 +67,4 @@ for(const forbidden of ['/v1/client/deal-documents/state','invalidateCurrentProj
 for(const forbidden of ['RONA-C003','DEAL-2026-004','DEAL-2026-005','DEAL-2026-006','DEAL-2026-009','RONA-C005','FARGONA GAZ','UNIVERSAL SOLYARIS']){
   if(runtime.includes(forbidden)||passport.includes(forbidden)||deals.includes(forbidden)||gateway.includes(forbidden)||projector.includes(forbidden)||resourceGuard.includes(forbidden)||legacyNormalization.includes(forbidden))throw new Error(`REALIZATION_HARDCODING_FORBIDDEN:${forbidden}`);
 }
-console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS source=RONA_CLIENT_DEAL_STATE_V1 single-detail-endpoint=true payment=FINANCE_V7 rail=RAIL_V4 early-missing-facts=valid lifecycle-network-fetch=absent');
+console.log('CLIENT_REALIZATION_STATUS_AUTHORITATIVE_QA=PASS source=RONA_CLIENT_DEAL_STATE_V1 single-detail-endpoint=true payment=FINANCE_V7 rail=RAIL_V4 monitoring-control=AUTHORITATIVE_COMPLETION_TO_CLOSE_STAGE early-missing-facts=valid lifecycle-network-fetch=absent');

@@ -82,24 +82,39 @@ function latestPosition(positions){
   };
 }
 
-function railFacts(railModel,dealId){
+function railCompletionFacts(meta){
+  const monitoringState=upper(meta?.rail_monitoring_state)||null;
+  return{
+    monitoring_state:monitoringState,
+    completed:monitoringState==='COMPLETED',
+    completed_at:meta?.rail_monitoring_completed_at||null,
+    completion_wagon_count:numberOrNull(meta?.rail_monitoring_completion_wagon_count),
+    completion_destination_esr_code:text(meta?.rail_monitoring_completion_destination_esr_code)||null,
+    completion_source_authority:text(meta?.rail_monitoring_source_authority)||null
+  };
+}
+
+function railFacts(railModel,dealId,meta){
+  const completion=railCompletionFacts(meta);
   const model=object(railModel);
   const deals=array(model?.deals);
   const row=deals.find(d=>text(d?.dealId||d?.deal_id)===dealId)||null;
   if(!model||!row){
     return{
-      available:false,operational_data_present:false,started:false,
+      available:false,operational_data_present:completion.completed,started:completion.completed,
       rail_document_count:0,wagon_count:0,actual_route_points:0,remaining_route_points:0,
       latest_position:null,route_resolution:null,generated_at:model?.generatedAt??model?.generated_at??null,
       model_version:text(model?.modelVersion||model?.model_version)||null,
-      source_policy:text(model?.sourcePolicy||model?.source_policy)||null
+      source_policy:text(model?.sourcePolicy||model?.source_policy)||null,
+      ...completion
     };
   }
   const railDocuments=array(row?.railDocuments||row?.rail_documents);
   const wagonPositions=array(row?.wagonPositions||row?.wagon_positions);
   const actualPoints=array(row?.actualRoute?.points||row?.actual_route?.points);
   const remainingPoints=array(row?.remainingRoute?.points||row?.remaining_route?.points);
-  const started=railDocuments.length>0||wagonPositions.length>0||actualPoints.length>0;
+  const observedStarted=railDocuments.length>0||wagonPositions.length>0||actualPoints.length>0;
+  const started=completion.completed||observedStarted;
   return{
     available:true,
     operational_data_present:started,
@@ -112,10 +127,19 @@ function railFacts(railModel,dealId){
     route_resolution:text(row?.routeAssignment?.resolutionState||row?.route_assignment?.resolution_state)||null,
     generated_at:model?.generatedAt??model?.generated_at??null,
     model_version:text(model?.modelVersion||model?.model_version)||null,
-    source_policy:text(model?.sourcePolicy||model?.source_policy)||null
+    source_policy:text(model?.sourcePolicy||model?.source_policy)||null,
+    ...completion
   };
 }
 
+function railCompletionDetail(rail){
+  const wagons=numberOrNull(rail?.completion_wagon_count);
+  const destination=text(rail?.completion_destination_esr_code);
+  const parts=['ЖД-мониторинг завершён'];
+  if(wagons!==null)parts.push(`${wagons} ваг.`);
+  if(destination)parts.push(`станция назначения ${destination}`);
+  return parts.join(' · ');
+}
 function resourceFacts(meta,deal){
   const status=upper(meta?.resource_status||deal?.resource_status);
   const source=text(meta?.resource_source||deal?.resource_source)||null;
@@ -127,6 +151,7 @@ function resourceFacts(meta,deal){
 
 function primaryCurrentKey({closed,documentsSigned,resource,payment,rail}){
   if(closed)return null;
+  if(rail.completed)return'close';
   if(rail.started)return'logistics';
   if(['PARTIALLY_PAID','DUE','OVERDUE','NOT_DUE','AWAITING_PAYMENT'].includes(payment.status))return'payment';
   if(resource.status==='RESOURCE_DENIED'||resource.status==='RESOURCE_PENDING')return'resource';
@@ -152,7 +177,7 @@ function nextStepFor(key,{payment,rail,resource,documentsSigned,closed}){
     }
     return'Отгрузка ещё не начата';
   }
-  if(key==='close')return'Ожидаются закрывающие документы';
+  if(key==='close')return rail.completed?'Ожидаются закрывающие документы и завершение сделки':'Ожидаются закрывающие документы';
   return'Актуальный следующий шаг ещё не сформирован';
 }
 
@@ -164,7 +189,7 @@ export function projectClientCanonicalDealState({context,deal,application,meta,r
   const accountingStatus=upper(deal?.accounting_closure_status);
   const closed=['CLOSED','COMPLETED','DONE'].includes(businessStatus)||['CLOSED','COMPLETED','DONE'].includes(accountingStatus)||Boolean(deal?.closed_at);
   const payment=paymentFacts(deal);
-  const rail=railFacts(railModel,dealId);
+  const rail=railFacts(railModel,dealId,meta);
   const resource=resourceFacts(meta,deal);
   const currentKey=primaryCurrentKey({closed,documentsSigned,resource,payment,rail});
 
@@ -180,14 +205,18 @@ export function projectClientCanonicalDealState({context,deal,application,meta,r
     :stage('payment','PENDING',payment.label);
   let logisticsStage=closed
     ?stage('logistics','DONE','Поставка завершена')
-    :!rail.available
-      ?stage('logistics','PENDING','Актуальные ЖД-данные временно недоступны')
-      :rail.started
-        ?stage('logistics','CURRENT',nextStepFor('logistics',{payment,rail,resource,documentsSigned,closed}))
-        :stage('logistics','PENDING','ЖД-данные появятся после начала отгрузки');
-  const closeStage=closed
+    :rail.completed
+      ?stage('logistics','DONE',railCompletionDetail(rail))
+      :!rail.available
+        ?stage('logistics','PENDING','Актуальные ЖД-данные временно недоступны')
+        :rail.started
+          ?stage('logistics','CURRENT',nextStepFor('logistics',{payment,rail,resource,documentsSigned,closed}))
+          :stage('logistics','PENDING','ЖД-данные появятся после начала отгрузки');
+  let closeStage=closed
     ?stage('close','DONE','Сделка завершена')
-    :stage('close','PENDING','Закрывающие документы ещё не сформированы');
+    :rail.completed
+      ?stage('close','CURRENT','ЖД-мониторинг завершён. Ожидаются закрывающие документы и завершение сделки')
+      :stage('close','PENDING','Закрывающие документы ещё не сформированы');
 
   if(currentKey==='documents'&&documentsStage.state==='PENDING')documentsStage={...documentsStage,state:'CURRENT'};
   if(currentKey==='resource'&&resourceStage.state==='PENDING')resourceStage={...resourceStage,state:'CURRENT'};
