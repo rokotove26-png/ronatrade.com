@@ -40,13 +40,13 @@ begin
       a.effective_deal_key as deal_key,
       count(*) filter (where nullif(trim(a.wagon_number),'') is not null)::int as wagon_count,
       count(*) filter (
-        where a.current_position_status='TRUSTED'
+        where a.position_status='TRUSTED'
       )::int as trusted_count,
       count(*) filter (
-        where a.current_position_status='TRUSTED'
-          and nullif(trim(a.station_code),'') is not null
+        where a.position_status='TRUSTED'
+          and nullif(trim(a.current_station_code),'') is not null
       )::int as trusted_with_station_count
-    from portal_private.rail_xlsx_dislocation_current_audit_v1 a
+    from portal_private.rail_xlsx_dislocation_current_position_v1 a
     where a.effective_deal_key is not null
     group by a.effective_deal_key
   ),
@@ -59,10 +59,10 @@ begin
       coalesce(w.trusted_count,0) as trusted_count,
       coalesce((
         select count(*)::int
-        from portal_private.rail_xlsx_dislocation_current_audit_v1 a2
+        from portal_private.rail_xlsx_dislocation_current_position_v1 a2
         where a2.effective_deal_key=d.id
-          and a2.current_position_status='TRUSTED'
-          and nullif(trim(a2.station_code),'')=nullif(trim(r.destination_esr_code),'')
+          and a2.position_status='TRUSTED'
+          and nullif(trim(a2.current_station_code),'')=nullif(trim(r.destination_esr_code),'')
       ),0) as at_destination_count,
       coalesce(w.wagon_count,0)-coalesce(w.trusted_count,0) as unresolved_count,
       coalesce(c.monitoring_state,'ACTIVE') as monitoring_state,
@@ -75,10 +75,10 @@ begin
         and coalesce(w.wagon_count,0)=coalesce(w.trusted_count,0)
         and coalesce(w.wagon_count,0)=coalesce((
           select count(*)::int
-          from portal_private.rail_xlsx_dislocation_current_audit_v1 a3
+          from portal_private.rail_xlsx_dislocation_current_position_v1 a3
           where a3.effective_deal_key=d.id
-            and a3.current_position_status='TRUSTED'
-            and nullif(trim(a3.station_code),'')=nullif(trim(r.destination_esr_code),'')
+            and a3.position_status='TRUSTED'
+            and nullif(trim(a3.current_station_code),'')=nullif(trim(r.destination_esr_code),'')
         ),0)
       ) as completion_ready
     from portal_private.rail_deal_route_assignments_v1 r
@@ -147,13 +147,13 @@ begin
 
   select
     count(*) filter (where nullif(trim(a.wagon_number),'') is not null)::int,
-    count(*) filter (where a.current_position_status='TRUSTED')::int,
+    count(*) filter (where a.position_status='TRUSTED')::int,
     count(*) filter (
-      where a.current_position_status='TRUSTED'
-        and nullif(trim(a.station_code),'')=v_destination
+      where a.position_status='TRUSTED'
+        and nullif(trim(a.current_station_code),'')=v_destination
     )::int
   into v_total, v_trusted, v_at_destination
-  from portal_private.rail_xlsx_dislocation_current_audit_v1 a
+  from portal_private.rail_xlsx_dislocation_current_position_v1 a
   where a.effective_deal_key=v_deal_key;
 
   if coalesce(v_total,0)=0 then
