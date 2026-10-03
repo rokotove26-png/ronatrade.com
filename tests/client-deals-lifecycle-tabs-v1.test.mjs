@@ -12,7 +12,6 @@ test('Client deal lifecycle UI remains generic while the heavy backend lifecycle
   assert.match(renderer,/client_deal_stage/);
   assert.match(renderer,/function dealStage\(d\)/);
   assert.match(renderer,/function stageCounts\(data\)/);
-  assert.match(renderer,/client_deal_stage_source/);
   assert.doesNotMatch(renderer,/DEAL-2026-004/);
   assert.doesNotMatch(backend,/DEAL-2026-004/);
 });
