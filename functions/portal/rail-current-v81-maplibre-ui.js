@@ -209,11 +209,14 @@ const MONITOR_LIFECYCLE_OPTIONS_TO="var key=String(d.deal_key||d.deal_id||'');if
 const MONITOR_LIFECYCLE_RAIL_OPTIONS_FROM="var d=railDealForDoc(doc,data),key=d&&String(d.deal_key||d.deal_id||'');if(!key||seen[key])return;";
 const MONITOR_LIFECYCLE_RAIL_OPTIONS_TO="var d=railDealForDoc(doc,data),key=d&&String(d.deal_key||d.deal_id||'');if(!key||railMonitoringIsCompleted(key,String(d&&d.deal_id||doc&&doc.deal_id||key))||seen[key])return;";
 const MONITOR_LIFECYCLE_STATUS_FROM="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws);if(!m.active)return pill('Мониторинг не запущен','warn');if(m.attention>0)return pill('Требуют внимания','warn');return pill('Мониторинг активен','success')}";
-const MONITOR_LIFECYCLE_STATUS_TO="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws),life=railMonitoringSelectedLifecycle();if(!m.active)return pill('Мониторинг не запущен','warn');if(life&&life.completionReady===true)return railMonitoringCompleteButton(life);if(m.attention>0)return pill('Требуют внимания','warn');return pill('Мониторинг активен','success')}";
+const MONITOR_LIFECYCLE_STATUS_TO="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws),life=railMonitoringSelectedLifecycle();if(!railMonitoringLifecycleReady)return pill('Статус мониторинга недоступен','warn');if(!m.active)return pill('Мониторинг не запущен','warn');if(life&&life.completionReady===true)return railMonitoringCompleteButton(life);if(m.attention>0)return pill('Требуют внимания','warn');return pill('Мониторинг активен','success')}";
 const MONITOR_LIFECYCLE_SYNC_FROM="async function sync(){try{var next=await api('/admin/bootstrap');";
-const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle').catch(function(){return{deals:[]}})]);var next=pair[0];railMonitoringLifecycle=pair[1]||{deals:[]};";
+const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle').then(function(x){railMonitoringApplyLifecycle(x);return x}).catch(function(e){railMonitoringMarkLifecycleError(e);return null})]);var next=pair[0];";
 const MONITOR_LIFECYCLE_STATE_ANCHOR="var API='/portal/owner-api',snapshot=null,selected='ALL',timer=null,matrixNode=null;var lastRailSignature='';";
-const MONITOR_LIFECYCLE_HELPERS=String.raw`var railMonitoringLifecycle={deals:[]};
+const MONITOR_LIFECYCLE_HELPERS=String.raw`var railMonitoringLifecycle={deals:[]},railMonitoringLifecycleReady=false,lastRailLifecycleSignature='';
+function railMonitoringSignature(payload){var rows=Array.isArray(payload&&payload.deals)?payload.deals:[];return JSON.stringify(rows.map(function(x){return[String(x&&x.dealKey||''),String(x&&x.dealId||''),String(x&&x.monitoringState||''),x&&x.completionReady===true?1:0,Number(x&&x.wagonCount||0),Number(x&&x.trustedCount||0),Number(x&&x.atDestinationCount||0),String(x&&x.completedAt||'')]}))}
+function railMonitoringApplyLifecycle(payload){var next=payload&&Array.isArray(payload.deals)?payload:{deals:[]},sig=railMonitoringSignature(next),changed=!railMonitoringLifecycleReady||sig!==lastRailLifecycleSignature;railMonitoringLifecycle=next;railMonitoringLifecycleReady=true;lastRailLifecycleSignature=sig;window.__RONA_RAIL_MONITORING_LIFECYCLE_ERROR__=null;window.__RONA_RAIL_MONITORING_LIFECYCLE_STATE__={ready:true,signature:sig,dealCount:next.deals.length,updatedAt:Date.now()};if(changed)lastRailSignature='';return changed}
+function railMonitoringMarkLifecycleError(e){window.__RONA_RAIL_MONITORING_LIFECYCLE_ERROR__=String(e&&e.message||e||'RAIL_MONITORING_LIFECYCLE_READ_FAILED');window.__RONA_RAIL_MONITORING_LIFECYCLE_STATE__={ready:railMonitoringLifecycleReady,signature:lastRailLifecycleSignature,dealCount:railMonitoringRows().length,error:window.__RONA_RAIL_MONITORING_LIFECYCLE_ERROR__,updatedAt:Date.now()};return false}
 function railMonitoringRows(){return Array.isArray(railMonitoringLifecycle&&railMonitoringLifecycle.deals)?railMonitoringLifecycle.deals:[]}
 function railMonitoringLifecycleFor(dealKey,dealId){var key=String(dealKey||''),id=String(dealId||'');return railMonitoringRows().find(function(x){return String(x&&x.dealKey||'')===key||String(x&&x.dealId||'')===id})||null}
 function railMonitoringIsCompleted(dealKey,dealId){var x=railMonitoringLifecycleFor(dealKey,dealId);return !!(x&&String(x.monitoringState||'').toUpperCase()==='COMPLETED')}
@@ -283,7 +286,7 @@ export async function onRequest(context){
   headers.set('expires','0');
   headers.set('x-rona-rail-ui','current-v8.13-no-tariff-matrix');headers.set('x-rona-rail-map-size','frozen-owner-frame-bottom-v2');headers.set('x-rona-rail-tariff-matrix','removed');
   headers.set('x-rona-rail-stage-a','deal-owned-map-persistence-v1');
-  headers.set('x-rona-rail-monitoring-lifecycle','manual-admin-completion-v1');
+  headers.set('x-rona-rail-monitoring-lifecycle','manual-admin-completion-v2-timeout-safe');
   headers.delete('content-length');
   headers.delete('etag');
   return new Response(source,{status:response.status,statusText:response.statusText,headers});
