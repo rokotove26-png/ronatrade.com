@@ -7,6 +7,52 @@ import { isAuthDbUnavailable } from './auth-db-connect-recovery.mjs';
 
 const BASELINE='5aceffe2725a904e8e0ded562e483f012e861085';
 const CLIENT_RECEIPT_DETAIL_CONTRACT='CLIENT_RECEIPT_DETAIL_RECONCILIATION_V1';
+const EXECUTION_MONITORING_SCOPE='ADMIN_PAYMENTS_EXECUTION_ACTIVE_ONLY_V1';
+
+function paymentMoneyAmount(value:any){
+  const raw=value&&typeof value==='object'&&'amount' in value?value.amount:value;
+  const n=Number(raw);
+  return Number.isFinite(n)?n:null;
+}
+function paymentMoneyAuthority(value:any){
+  return String(value&&typeof value==='object'?value.status||'':'').trim().toUpperCase();
+}
+function paymentDealExitedExecutionMonitoring(deal:any,railCompletedDealIds:Set<string>){
+  const dealId=String(deal?.deal_id||'').trim();
+  if(!dealId||!railCompletedDealIds.has(dealId))return false;
+  const total=paymentMoneyAmount(deal?.total_to_receive);
+  const received=paymentMoneyAmount(deal?.verified_received);
+  const remaining=paymentMoneyAmount(deal?.remaining_to_receive);
+  return String(deal?.financial_status||'').trim().toUpperCase()==='PAID'
+    && paymentMoneyAuthority(deal?.total_to_receive)==='AUTHORITATIVE'
+    && paymentMoneyAuthority(deal?.verified_received)==='AUTHORITATIVE'
+    && paymentMoneyAuthority(deal?.remaining_to_receive)==='AUTHORITATIVE'
+    && total!==null && total>0
+    && remaining!==null && Math.abs(remaining)<=0.01
+    && received!==null && received+0.01>=total;
+}
+async function railCompletedDealIds(){
+  const rows=await sql`
+    select distinct d.deal_id
+    from portal_private.rail_deal_monitoring_control_v1 c
+    join portal_private.deals d on d.id=c.deal_key
+    where upper(c.monitoring_state)='COMPLETED'
+  `;
+  return new Set<string>(rows.map((row:any)=>String(row?.deal_id||'').trim()).filter(Boolean));
+}
+async function excludeDealsExitedExecutionMonitoring(projection:any){
+  const completed=await railCompletedDealIds();
+  const excluded:string[]=[];
+  projection.deals=projection.deals.filter((deal:any)=>{
+    if(!paymentDealExitedExecutionMonitoring(deal,completed))return true;
+    excluded.push(String(deal?.deal_id||'').trim());
+    return false;
+  });
+  projection.execution_monitoring_scope=EXECUTION_MONITORING_SCOPE;
+  projection.execution_monitoring_excluded_deal_ids=excluded.sort();
+  projection.execution_monitoring_excluded_count=excluded.length;
+  return projection;
+}
 const nativeServe=Deno.serve.bind(Deno);
 let capturedHandler:any=null;
 
@@ -55,6 +101,7 @@ async function hardenBootstrap(req:Request,response:Response){
   const payload=await response.clone().json().catch(()=>null);
   const projection=payload?.data?.paymentsV7Projection;
   if(!projection||projection.contract!=='ADMIN_PAYMENTS_V7'||!Array.isArray(projection.deals))return response;
+  await excludeDealsExitedExecutionMonitoring(projection);
   projection.currency_aggregates=buildPaymentsCurrencyAggregates(projection.deals);
   projection.funding_aggregate=buildConfirmedFundingAggregate(projection.deals);
   projection.projection_version_key=projectionVersionKey(projection);
@@ -62,7 +109,7 @@ async function hardenBootstrap(req:Request,response:Response){
   headers.delete('content-length');
   headers.set('content-type','application/json; charset=utf-8');
   headers.set('cache-control','no-store');
-  headers.set('x-rona-payments-v8-hardening','server-aggregates-live-refresh-v1');
+  headers.set('x-rona-payments-v8-hardening','server-aggregates-live-refresh-v2-execution-scope');
   return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
 }
 

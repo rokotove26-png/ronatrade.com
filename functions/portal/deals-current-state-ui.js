@@ -8,9 +8,17 @@ const RAW=[c0,c1,c2,c3,c4].join('');
 const SCRIPT=RAW
   .replace(
     "function waitsAction(d){if(!isActive(d))return false;return Number(d&&d.client_remaining_amount||0)>0||String(d&&d.payment_expectation_state||'').toUpperCase()==='ACTIVE'||needsAttention(d)}",
-    "function numericValue(v){if(v===null||v===undefined||v==='')return null;var n=Number(v);return Number.isFinite(n)?n:null}function knownRemaining(d){return numericValue(d&&d.client_remaining_amount)}function waitsPayment(d){if(!isActive(d))return false;var due=numericValue(d&&d.due_now),projection=String(d&&d.finance_projection_version||'').toUpperCase();if(projection==='FINANCE_V8')return due!==null&&due>0;var expectation=String(d&&d.payment_expectation_state||'').toUpperCase(),remaining=knownRemaining(d),expected=numericValue(d&&d.payment_expectation_amount);if(expectation!=='ACTIVE')return false;if(remaining!==null)return remaining>0;if(expected!==null)return expected>0;return true}"
+    "function numericValue(v){if(v===null||v===undefined||v==='')return null;var n=Number(v);return Number.isFinite(n)?n:null}function knownRemaining(d){return numericValue(d&&d.client_remaining_amount)}function waitsPayment(d){if(!isExecutionMonitoringActive(d))return false;var due=numericValue(d&&d.due_now),projection=String(d&&d.finance_projection_version||'').toUpperCase();if(projection==='FINANCE_V8')return due!==null&&due>0;var expectation=String(d&&d.payment_expectation_state||'').toUpperCase(),remaining=knownRemaining(d),expected=numericValue(d&&d.payment_expectation_amount);if(expectation!=='ACTIVE')return false;if(remaining!==null)return remaining>0;if(expected!==null)return expected>0;return true}"
   )
   .replaceAll('waitsAction','waitsPayment')
+  .replace(
+    "function buildMetrics(ds){var active=ds.filter(isActive).length,attention=ds.filter(needsAttention).length,waiting=ds.filter(waitsPayment).length,completed=ds.filter(isCompleted).length,annulled=ds.filter(isCancelled).length,amount=totalAmount(ds);return{active:active,attention:attention,waiting:waiting,completed:completed,annulled:annulled,volume:totalVolume(ds),amount:amount}}",
+    "function buildMetrics(ds){var active=ds.filter(isExecutionMonitoringActive).length,attention=ds.filter(needsAttention).length,waiting=ds.filter(waitsPayment).length,completed=ds.filter(isCompleted).length,annulled=ds.filter(isCancelled).length,amount=totalAmount(ds);return{active:active,attention:attention,waiting:waiting,completed:completed,annulled:annulled,volume:totalVolume(ds),amount:amount}}"
+  )
+  .replace(
+    "function visibleDeals(ds){if(filter==='ATTENTION')return ds.filter(needsAttention);if(filter==='COMPLETED')return ds.filter(isCompleted);if(filter==='ANNULLED')return ds.filter(isCancelled);return ds.filter(isActive)}",
+    "function visibleDeals(ds){if(filter==='ATTENTION')return ds.filter(needsAttention);if(filter==='COMPLETED')return ds.filter(isCompleted);if(filter==='ANNULLED')return ds.filter(isCancelled);return ds.filter(isExecutionMonitoringActive)}"
+  )
   .replace("api('/admin/workflow-bootstrap')","api('/admin/deals-current-v4')")
   .replace(
     "function financeCell(d){var box=el('div','rona-current-deal-cell');if(d&&d.client_remaining_amount!==null&&d.client_remaining_amount!==undefined)box.append(el('span','rona-current-deal-main',money(d.client_remaining_amount,d.finance_currency)));else box.append(el('span','rona-current-deal-main','—'));box.append(financePill(d&&d.finance_status));return box}",
@@ -41,8 +49,12 @@ const SCRIPT=RAW
     "function contractNeedsAction(d){var s=String(d&&d.contract_status||'').toUpperCase();return contractConflict(d)||!['ACTIVE','SIGNED','EFFECTIVE'].includes(s)}"
   )
   .replace(
+    "function isActive(d){return !isCancelled(d)&&!isArchived(d)&&!isCompleted(d)}",
+    "function isActive(d){return !isCancelled(d)&&!isArchived(d)&&!isCompleted(d)}function isPostExecutionAttention(d){return !!(d&&d.post_rail_completion_attention===true)}function isExecutionMonitoringActive(d){return isActive(d)&&!isPostExecutionAttention(d)}"
+  )
+  .replace(
     "function needsAttention(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}",
-    "function structuralIssue(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}function needsPaymentHandoffAction(d){if(!isActive(d)||structuralIssue(d))return false;if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false;var remaining=knownRemaining(d),handoff=String(d&&d.payment_handoff_state||'NOT_SENT').toUpperCase(),expectation=String(d&&d.payment_expectation_state||'NOT_CREATED').toUpperCase();if(remaining!==null&&remaining<=0)return false;return handoff!=='SENT'&&expectation!=='ACTIVE'}function needsAttention(d){if(!isActive(d))return false;return !!(d&&d.post_rail_completion_attention===true)||structuralIssue(d)||needsPaymentHandoffAction(d)}"
+    "function structuralIssue(d){if(!isExecutionMonitoringActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}function needsPaymentHandoffAction(d){if(!isExecutionMonitoringActive(d)||structuralIssue(d))return false;if(String(d&&d.finance_projection_version||'').toUpperCase()==='FINANCE_V8')return false;var remaining=knownRemaining(d),handoff=String(d&&d.payment_handoff_state||'NOT_SENT').toUpperCase(),expectation=String(d&&d.payment_expectation_state||'NOT_CREATED').toUpperCase();if(remaining!==null&&remaining<=0)return false;return handoff!=='SENT'&&expectation!=='ACTIVE'}function needsAttention(d){if(isPostExecutionAttention(d))return true;if(!isExecutionMonitoringActive(d))return false;return structuralIssue(d)||needsPaymentHandoffAction(d)}"
   )
   .replace(
     "kpi('Ожидают оплаты или действий',String(metrics.waiting),'Только текущее состояние действующих сделок','waiting')",
@@ -144,7 +156,11 @@ if(!SCRIPT.includes('локальное время источника'))throw ne
 if(!SCRIPT.includes("left.append(commercial,logistics);right.append(finance,documents)"))throw new Error('DEALS_DRAWER_INDEPENDENT_COLUMNS_MISSING');
 if(!SCRIPT.includes('.rona-current-deal-detail-column{display:grid'))throw new Error('DEALS_DRAWER_COLUMN_LAYOUT_MISSING');
 if(!SCRIPT.includes("function needsPaymentHandoffAction(d)"))throw new Error('DEALS_PAYMENT_HANDOFF_ACTION_RULE_MISSING');
-if(!SCRIPT.includes("return !!(d&&d.post_rail_completion_attention===true)||structuralIssue(d)||needsPaymentHandoffAction(d)"))throw new Error('DEALS_POST_RAIL_PAID_ATTENTION_RULE_MISSING');
+if(!SCRIPT.includes("function isPostExecutionAttention(d){return !!(d&&d.post_rail_completion_attention===true)}"))throw new Error('DEALS_POST_EXECUTION_ATTENTION_CLASSIFIER_MISSING');
+if(!SCRIPT.includes("function isExecutionMonitoringActive(d){return isActive(d)&&!isPostExecutionAttention(d)}"))throw new Error('DEALS_EXECUTION_MONITORING_SCOPE_MISSING');
+if(!SCRIPT.includes("var active=ds.filter(isExecutionMonitoringActive).length"))throw new Error('DEALS_ACTIVE_EXCLUSIVITY_MISSING');
+if(!SCRIPT.includes("return ds.filter(isExecutionMonitoringActive)"))throw new Error('DEALS_ACTIVE_FILTER_EXCLUSIVITY_MISSING');
+if(!SCRIPT.includes("function needsAttention(d){if(isPostExecutionAttention(d))return true;if(!isExecutionMonitoringActive(d))return false;return structuralIssue(d)||needsPaymentHandoffAction(d)}"))throw new Error('DEALS_POST_RAIL_PAID_ATTENTION_RULE_MISSING');
 if(!SCRIPT.includes('return !(add||signed)||!inv'))throw new Error('DEALS_RONA_DOCUMENT_PAIR_RULE_MISSING');
 if(!SCRIPT.includes("function hasClientSignedAddendum(d){return !!docKind(d&&d.deal_id,'SIGNED_ADDENDUM')}"))throw new Error('DEALS_CLIENT_SIGNED_ADDENDUM_STATUS_SOURCE_MISSING');
 if(!SCRIPT.includes("if(d&&d.post_rail_completion_attention===true||structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'"))throw new Error('DEALS_POST_RAIL_PAID_HOLD_RULE_MISSING');
@@ -165,4 +181,4 @@ if(!SCRIPT.includes("kpi('Подтверждённая сумма сделок'"
 if(!SCRIPT.includes('Incoterms\\s*2020'))throw new Error('DEALS_BASIS_DISPLAY_CLEANUP_MISSING');
 if(!SCRIPT.includes('Скачать подписанное доп. соглашение'))throw new Error('DEALS_SIGNED_ADDENDUM_ACTION_MISSING');
 
-export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'on-demand-no-interval-v1','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1'}})}
+export async function onRequest(){return new Response(SCRIPT,{status:200,headers:{'content-type':'application/javascript; charset=utf-8','cache-control':'no-store, no-cache, must-revalidate','pragma':'no-cache','expires':'0','x-content-type-options':'nosniff','x-rona-deals-ui':'current-state-v2-operations-deeplink','x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1','x-rona-deal-drawer':'right-overlay-go-gated-owner-uat-v2','x-rona-deal-deeplink':'operations-center-v1','x-rona-deals-kpi':'payment-expectation-action-split-v2','x-rona-deals-event':'operations-current-state-v1','x-rona-deals-refresh':'on-demand-no-interval-v1','x-rona-deals-read-model':'admin-deals-current-v4-finance-v8-rail-execution-v4','x-rona-deals-payment-basis':'finance-v8-due-now-v1','x-rona-deals-finance-cell':'paid-vs-remaining-color-v1','x-rona-deals-execution-scope':'post-rail-paid-attention-exclusive-v1'}})}
