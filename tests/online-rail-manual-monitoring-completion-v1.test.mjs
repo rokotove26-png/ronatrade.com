@@ -19,7 +19,7 @@ assert.match(migration,/monitoring_state='COMPLETED'/);
 
 assert.match(performanceMigration,/route_scope as materialized/i);
 assert.match(performanceMigration,/current_positions as materialized/i);
-assert.equal((performanceMigration.match(/rail_operational_current_position_v1/g)||[]).length,1,'lifecycle performance migration must expand current-position authority once');
+assert.equal((performanceMigration.match(/from portal_private\.rail_operational_current_position_v1/g)||[]).length,1,'lifecycle performance migration must expand current-position authority once');
 assert.doesNotMatch(performanceMigration,/\ba2\b|\ba3\b/,'correlated repeat scans must not return');
 
 assert.match(ownerApi,/\/admin\/rail-monitoring-lifecycle/);
