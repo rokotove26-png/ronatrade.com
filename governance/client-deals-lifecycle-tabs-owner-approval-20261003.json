@@ -5,8 +5,8 @@
   "owner_instruction": "В клиентском кабинете в разделе Сделки также нужно добавить разделы Активные, Требуют внимание, Завершенные. Разделы Закрывающие документы нужно удалить.",
   "approved_exact_blobs": {
     "assets/portal-runtime/client-deals-authoritative-v1.js": {
-      "sha": "0d1e748a9dcd8e97a14e0dcd9b906dca731d177f",
-      "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
+      "sha": "37e768f18ad2c28daf9ffa239a8f98bbdfd616dc",
+      "required_marker": "20261004-client-deals-visual-hierarchy-v12"
     },
     "assets/portal-runtime/client-sidebar-command-nav-v1.js": {
       "sha": "da54a5d853c9930a0faf17f90c0f569ec2f0ee11",
@@ -38,6 +38,13 @@
     "sidebar_width_changed": false,
     "images_added": false,
     "hardcoded_deal_ids": false,
-    "unrelated_visual_change": false
-  }
+    "unrelated_visual_change": false,
+    "visual_hierarchy_correction": true,
+    "lifecycle_tabs_business_logic_unchanged": true,
+    "backend_lifecycle_query_changed": false,
+    "state_strip_visual_contract_restored": "authoritative-v8"
+  },
+  "owner_instruction_current": "Такое кривое размещение разделов и их визуальное качество не пойдет.",
+  "visual_correction_authorized_at": "2026-10-04",
+  "visual_correction_scope": "CLIENT_DEALS_VISUAL_HIERARCHY_V12"
 }
