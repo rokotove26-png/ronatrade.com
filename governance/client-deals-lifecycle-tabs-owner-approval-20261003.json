@@ -5,8 +5,8 @@
   "owner_instruction": "В клиентском кабинете в разделе Сделки также нужно добавить разделы Активные, Требуют внимание, Завершенные. Разделы Закрывающие документы нужно удалить.",
   "approved_exact_blobs": {
     "assets/portal-runtime/client-deals-authoritative-v1.js": {
-      "sha": "37e768f18ad2c28daf9ffa239a8f98bbdfd616dc",
-      "required_marker": "20261004-client-deals-visual-hierarchy-v12"
+      "sha": "ab3ac90a2f6a5ae2078944b6269aed1aa296a150",
+      "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
     },
     "assets/portal-runtime/client-sidebar-command-nav-v1.js": {
       "sha": "da54a5d853c9930a0faf17f90c0f569ec2f0ee11",
@@ -19,6 +19,10 @@
     "scripts/attach-portal-canonical-button-hover-v1.mjs": {
       "sha": "8166f2d7d367c78ead4f33d36ea46562a3ebb559",
       "required_marker": "20261003-client-sidebar-command-nav-v2-no-closing-page"
+    },
+    "assets/portal-runtime/client-content-responsive-v1.css": {
+      "sha": "7f4a5677b4de6738a28c01d3737b4306c2a323a6",
+      "required_marker": "RONA_CLIENT_DEALS_VISUAL_HIERARCHY_V12"
     }
   },
   "requirements": {
