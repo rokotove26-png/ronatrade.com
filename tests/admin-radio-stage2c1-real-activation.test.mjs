@@ -120,6 +120,9 @@ test('Stage 2C.1 keeps Client messages frozen and Admin Radio on one canonical v
   assert.match(visual,/data-radio-canonical-v11/);
   assert.doesNotMatch(visual,/setTimeout\(boot|setTimeout\(apply|cleanupOld/);
   assert.match(admin,/portal-admin-radio-canonical-v11\.js\?v=20261003-single-visual-owner-v11/);
+  const polish=read('functions/portal/admin-approved-polish-ui.js');
+  assert.doesNotMatch(polish,/page-messages\.rona-radio-single-owner-ready[^\n]*visibility:visible/);
+  assert.doesNotMatch(polish,/current\.style\.removeProperty\('display'\)/);
   for(const legacy of [
     'assets/portal-admin-radio-compact-v4.js',
     'assets/portal-admin-radio-designer-v5.js',
