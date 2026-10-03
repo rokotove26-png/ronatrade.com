@@ -41,7 +41,7 @@ assert.ok(!railUi.includes("catch(function(){return{deals:[]}})"),'lifecycle rea
 const generatedResponse=await generateRailV81({});
 assert.equal(generatedResponse.status,200,'Online Rail generated runtime must return HTTP 200');
 const generated=await generatedResponse.text();
-assert.match(generated,/var railMonitoringLifecycle=\{deals:\[\]\};/,'generated runtime lost lifecycle state');
+assert.match(generated,/var railMonitoringLifecycle=\{deals:\[\]\},railMonitoringLifecycleReady=false/,'generated runtime lost lifecycle state/readiness');
 assert.match(generated,/function railMonitoringIsCompleted\(/,'generated runtime lost completed-deal filter');
 assert.match(generated,/function railMonitoringCompleteButton\(/,'generated runtime lost completion action');
 assert.match(generated,/api\('\/admin\/rail-monitoring-lifecycle'\)/,'generated runtime lost lifecycle read');
