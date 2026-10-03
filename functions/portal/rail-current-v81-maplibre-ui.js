@@ -203,6 +203,25 @@ window.__RONA_RAIL_CURRENT_REPAIR__=function(){
 };
 function waitAdminReady(){`;
 
+
+const MONITOR_LIFECYCLE_OPTIONS_FROM="var key=String(d.deal_key||d.deal_id||'');if(!key||seen[key])return;";
+const MONITOR_LIFECYCLE_OPTIONS_TO="var key=String(d.deal_key||d.deal_id||'');if(!key||railMonitoringIsCompleted(key,String(d.deal_id||key))||seen[key])return;";
+const MONITOR_LIFECYCLE_RAIL_OPTIONS_FROM="var d=railDealForDoc(doc,data),key=d&&String(d.deal_key||d.deal_id||'');if(!key||seen[key])return;";
+const MONITOR_LIFECYCLE_RAIL_OPTIONS_TO="var d=railDealForDoc(doc,data),key=d&&String(d.deal_key||d.deal_id||'');if(!key||railMonitoringIsCompleted(key,String(d&&d.deal_id||doc&&doc.deal_id||key))||seen[key])return;";
+const MONITOR_LIFECYCLE_STATUS_FROM="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws);if(!m.active)return pill('Мониторинг не запущен','warn');if(m.attention>0)return pill('Требуют внимания','warn');return pill('Мониторинг активен','success')}";
+const MONITOR_LIFECYCLE_STATUS_TO="function status(x,exchange){var ws=Array.isArray(x&&x.wagons)?x.wagons:[],m=railDealMonitoringState(ws),life=railMonitoringSelectedLifecycle();if(!m.active)return pill('Мониторинг не запущен','warn');if(m.attention>0)return pill('Требуют внимания','warn');if(life&&life.completionReady===true)return railMonitoringCompleteButton(life);return pill('Мониторинг активен','success')}";
+const MONITOR_LIFECYCLE_SYNC_FROM="async function sync(){try{var next=await api('/admin/bootstrap');";
+const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle')]);var next=pair[0];railMonitoringLifecycle=pair[1]||{deals:[]};";
+const MONITOR_LIFECYCLE_HELPER_ANCHOR="function railDealOptions(data,rail){";
+const MONITOR_LIFECYCLE_HELPERS=String.raw\`var railMonitoringLifecycle={deals:[]};
+function railMonitoringRows(){return Array.isArray(railMonitoringLifecycle&&railMonitoringLifecycle.deals)?railMonitoringLifecycle.deals:[]}
+function railMonitoringLifecycleFor(dealKey,dealId){var key=String(dealKey||''),id=String(dealId||'');return railMonitoringRows().find(function(x){return String(x&&x.dealKey||'')===key||String(x&&x.dealId||'')===id})||null}
+function railMonitoringIsCompleted(dealKey,dealId){var x=railMonitoringLifecycleFor(dealKey,dealId);return !!(x&&String(x.monitoringState||'').toUpperCase()==='COMPLETED')}
+function railMonitoringSelectedLifecycle(){return railMonitoringLifecycleFor(window.__RONA_RAIL_SELECTED_DEAL_KEY__||'',window.__RONA_RAIL_SELECTED_DEAL_ID__||'')}
+function railMonitoringPost(path){return fetch(API+'?path='+encodeURIComponent(path),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','content-type':'application/json'},body:'{}'}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j&&j.data||{}})})}
+function railMonitoringCompleteButton(life){var b=el('button','rona-rail-v4-filter rona-rail-monitoring-complete-btn','Завершить мониторинг');b.type='button';b.setAttribute('data-rail-monitoring-complete','true');b.onclick=function(ev){if(ev){ev.preventDefault();ev.stopPropagation()}var dealId=String(life&&life.dealId||window.__RONA_RAIL_SELECTED_DEAL_ID__||'');if(!dealId)return;if(!window.confirm('Завершить мониторинг по сделке '+dealId+'? Сделка будет убрана из раздела «Онлайн ЖД».'))return;b.disabled=true;b.textContent='Завершение…';railMonitoringPost('/admin/rail-monitoring/'+encodeURIComponent(dealId)+'/complete').then(function(){return sync()}).catch(function(e){b.disabled=false;b.textContent='Завершить мониторинг';window.alert('Не удалось завершить мониторинг: '+String(e&&e.message||e))})};return b}
+\`;
+
 export async function onRequest(context){
   const response=await baseRailV7(context);
   let source=await response.text();
@@ -217,6 +236,11 @@ export async function onRequest(context){
     !source.includes(NOTE_STYLE_FROM)||
     !source.includes(REPAIR_ANCHOR)||
     !source.includes(POLL_FROM)||
+    !source.includes(MONITOR_LIFECYCLE_OPTIONS_FROM)||
+    !source.includes(MONITOR_LIFECYCLE_RAIL_OPTIONS_FROM)||
+    !source.includes(MONITOR_LIFECYCLE_STATUS_FROM)||
+    !source.includes(MONITOR_LIFECYCLE_SYNC_FROM)||
+    !source.includes(MONITOR_LIFECYCLE_HELPER_ANCHOR)||
     !source.includes('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);')
   ){
     return new Response('RAIL_V82_SOURCE_MISMATCH',{status:500,headers:{
@@ -234,6 +258,11 @@ export async function onRequest(context){
     .replace(NOTE_STYLE_FROM,NOTE_STYLE_TO)
     .replace(REPAIR_ANCHOR,REPAIR_RUNTIME)
     .replace(POLL_FROM,POLL_TO)
+    .replace(MONITOR_LIFECYCLE_HELPER_ANCHOR,MONITOR_LIFECYCLE_HELPERS+MONITOR_LIFECYCLE_HELPER_ANCHOR)
+    .replace(MONITOR_LIFECYCLE_OPTIONS_FROM,MONITOR_LIFECYCLE_OPTIONS_TO)
+    .replace(MONITOR_LIFECYCLE_RAIL_OPTIONS_FROM,MONITOR_LIFECYCLE_RAIL_OPTIONS_TO)
+    .replace(MONITOR_LIFECYCLE_STATUS_FROM,MONITOR_LIFECYCLE_STATUS_TO)
+    .replace(MONITOR_LIFECYCLE_SYNC_FROM,MONITOR_LIFECYCLE_SYNC_TO)
     .replace('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);','host.replaceChildren(root);isolate(page,host);dedupeOnlineRail(host);if(typeof removeRailTariffPanel===\'function\')removeRailTariffPanel();if(typeof scheduleRailMapHeightAlignment===\'function\')scheduleRailMapHeightAlignment();');
   source=source.split('if(matrix)host.append(matrix);').join('if(matrix)matrix.remove();');
 
@@ -243,6 +272,7 @@ export async function onRequest(context){
   headers.set('expires','0');
   headers.set('x-rona-rail-ui','current-v8.13-no-tariff-matrix');headers.set('x-rona-rail-map-size','frozen-owner-frame-bottom-v2');headers.set('x-rona-rail-tariff-matrix','removed');
   headers.set('x-rona-rail-stage-a','deal-owned-map-persistence-v1');
+  headers.set('x-rona-rail-monitoring-lifecycle','manual-admin-completion-v1');
   headers.delete('content-length');
   headers.delete('etag');
   return new Response(source,{status:response.status,statusText:response.statusText,headers});
