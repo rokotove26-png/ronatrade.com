@@ -17,16 +17,16 @@
       "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
     },
     "scripts/attach-portal-canonical-button-hover-v1.mjs": {
-      "sha": "ff1aa909ab334a045960f0bfdd20325d5258cfe0",
-      "required_marker": "20261004-client-deals-button-v14"
+      "sha": "30ab3b0f31f448ed2d439bf8abc75d789fd4b483",
+      "required_marker": "20261004-client-deals-button-v15"
     },
     "assets/portal-runtime/client-content-responsive-v1.css": {
       "sha": "7f4a5677b4de6738a28c01d3737b4306c2a323a6",
       "required_marker": "RONA_CLIENT_DEALS_VISUAL_HIERARCHY_V12"
     },
     "assets/portal-runtime/portal-canonical-button-hover-v1.js": {
-      "sha": "be5de028f3adaa28e4b92d528aa2fe27e659eaa7",
-      "required_marker": "20261004-client-deals-title-frame-align-v14"
+      "sha": "c6bf9a409e6b8c8b8bb03d771cf56e1ac4463241",
+      "required_marker": "20261004-client-deals-outer-title-frame-align-v15"
     },
     "scripts/attach-client-content-responsive-v1.mjs": {
       "sha": "b51bec5d1b01cd45881471a0be6e5460a4e49f1c",
@@ -63,9 +63,12 @@
     "company_context_frame_title_alignment": true,
     "filter_frame_title_alignment": true,
     "authoritative_deal_list_title_frame_alignment": true,
-    "dynamic_title_frame_geometry": true
+    "dynamic_title_frame_geometry": true,
+    "outer_title_frame_is_alignment_authority": true,
+    "nested_title_decoration_must_not_control_width": true,
+    "left_and_right_edges_match_outer_title_frame": true
   },
-  "owner_instruction_current": "Все рамки раздела должны быть строго выровнены по ширине рамки заголовка.",
+  "owner_instruction_current": "Все разделы и рамки должны быть выровнены по ширине границ рамки заголовка.",
   "visual_correction_authorized_at": "2026-10-04",
-  "visual_correction_scope": "CLIENT_DEALS_ALL_FRAMES_TITLE_ALIGNMENT_V14"
+  "visual_correction_scope": "CLIENT_DEALS_ALL_FRAMES_OUTER_TITLE_ALIGNMENT_V15"
 }

@@ -39,10 +39,12 @@ test('Client Deals renderer has three exclusive lifecycle tabs',()=>{
 
 test('Client Deals stage controls are explicit buttons aligned to the title frame',()=>{
   assert.match(buttonVisual,/#page-deals \[data-rona-deal-stage-tabs\]/);
-  assert.match(buttonVisual,/DEALS_ALIGN_MARK='20261004-client-deals-title-frame-align-v14'/);
+  assert.match(buttonVisual,/DEALS_ALIGN_MARK='20261004-client-deals-outer-title-frame-align-v15'/);
   assert.match(buttonVisual,/--rona-client-deals-frame-width/);
   assert.match(buttonVisual,/--rona-client-deals-frame-left/);
   assert.match(buttonVisual,/data-rona-deals-frame-alignment/);
+  assert.match(buttonVisual,/return directDealsChild\(root,heading\)/);
+  assert.doesNotMatch(buttonVisual,/hasFrame=.*backgroundImage/s);
   assert.match(buttonVisual,/min-height:54px!important/);
   assert.match(buttonVisual,/border:1px solid rgba\(96,187,226,\.42\)!important/);
   assert.match(buttonVisual,/\[aria-selected="true"\]/);

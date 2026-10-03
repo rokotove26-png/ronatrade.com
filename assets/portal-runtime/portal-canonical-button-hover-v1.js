@@ -25,7 +25,7 @@ html body :is(button,input[type="button"],input[type="submit"],input[type="reset
   grid-template-columns:repeat(3,minmax(0,1fr))!important;
   gap:12px!important;
 }
-#page-deals[data-rona-deals-frame-alignment="title-frame-v14"] > [data-rona-deals-frame-aligned="true"]{
+#page-deals[data-rona-deals-frame-alignment="outer-title-frame-v15"] > [data-rona-deals-frame-aligned="true"]{
   width:var(--rona-client-deals-frame-width)!important;
   max-width:var(--rona-client-deals-frame-width)!important;
   margin-left:var(--rona-client-deals-frame-left)!important;
@@ -60,7 +60,7 @@ html body :is(button,input[type="button"],input[type="submit"],input[type="reset
 `;
 document.head.appendChild(style);
 
-const DEALS_ALIGN_MARK='20261004-client-deals-title-frame-align-v14';
+const DEALS_ALIGN_MARK='20261004-client-deals-outer-title-frame-align-v15';
 const DEALS_ALIGN_ATTR='data-rona-deals-frame-alignment';
 const normDealsText=v=>String(v??'').replace(/\s+/gu,' ').trim();
 let alignQueued=false;
@@ -78,21 +78,9 @@ function dealsTitleFrame(root){
   const heading=[...root.querySelectorAll('h1,h2,h3,h4,[role="heading"]')]
     .find(node=>normDealsText(node.textContent)==='Сделки');
   if(!heading)return null;
-  const rootRect=root.getBoundingClientRect();
-  let node=heading;
-  while(node&&node!==root){
-    const rect=node.getBoundingClientRect();
-    if(rect.width>0&&rect.width<=rootRect.width+1){
-      const s=getComputedStyle(node);
-      const hasFrame=(parseFloat(s.borderTopWidth)||0)>0||
-        (parseFloat(s.borderRightWidth)||0)>0||
-        (parseFloat(s.borderBottomWidth)||0)>0||
-        (parseFloat(s.borderLeftWidth)||0)>0||
-        (s.backgroundImage&&s.backgroundImage!=='none');
-      if(hasFrame)return node;
-    }
-    node=node.parentElement;
-  }
+  // The alignment authority is the OUTER page-level title frame, not a nested
+  // decorative title/content wrapper. Using the first bordered/background
+  // ancestor caused V14 to collapse every Deals frame to the inner title width.
   return directDealsChild(root,heading);
 }
 function watchDealsFrames(root,anchor){
@@ -113,7 +101,7 @@ function alignDealsFrames(){
   const list=root.querySelector(':scope > [data-rona-deals-authoritative-list]');
   const anchor=dealsTitleFrame(root);
   if(!anchor||!anchor.isConnected)return;
-  const anchorTop=directDealsChild(root,anchor)||anchor;
+  const anchorTop=anchor;
   const rootRect=root.getBoundingClientRect();
   const anchorRect=anchor.getBoundingClientRect();
   const rootStyle=getComputedStyle(root);
@@ -139,7 +127,7 @@ function alignDealsFrames(){
   }
   root.style.setProperty('--rona-client-deals-frame-left',left.toFixed(2)+'px');
   root.style.setProperty('--rona-client-deals-frame-width',width.toFixed(2)+'px');
-  root.setAttribute(DEALS_ALIGN_ATTR,'title-frame-v14');
+  root.setAttribute(DEALS_ALIGN_ATTR,'outer-title-frame-v15');
   anchor.setAttribute('data-rona-deals-frame-anchor','title');
   for(const target of targets)target.setAttribute('data-rona-deals-frame-aligned','true');
   document.documentElement.dataset.ronaClientDealsFrameAlignment=DEALS_ALIGN_MARK;

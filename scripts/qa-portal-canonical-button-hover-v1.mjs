@@ -7,7 +7,7 @@ for(const token of ['20260830-portal-canonical-button-hover-v1','brightness(1.11
 for(const [name,path] of [['admin','dist/portal/admin.html'],['client','dist/portal/client.html']]){
   const html=await readFile(path,'utf8');
   if(!html.includes('id="rona-portal-canonical-button-hover-v1"'))throw new Error(`CANONICAL_BUTTON_HOVER_QA_BRIDGE_MISSING: ${name}`);
-  if(!html.includes('/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20261004-client-deals-button-v14'))throw new Error(`CANONICAL_BUTTON_HOVER_QA_SRC_MISSING: ${name}`);
+  if(!html.includes('/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20261004-client-deals-button-v15'))throw new Error(`CANONICAL_BUTTON_HOVER_QA_SRC_MISSING: ${name}`);
 }
 const headers=await readFile('dist/_headers','utf8');
 if(!headers.includes('/assets/portal-runtime/portal-canonical-button-hover-v1.js'))throw new Error('CANONICAL_BUTTON_HOVER_QA_CACHE_POLICY_MISSING');
