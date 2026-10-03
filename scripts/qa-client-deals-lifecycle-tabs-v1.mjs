@@ -20,10 +20,11 @@ const html=`<!doctype html><html><head><meta charset="utf-8"><style>
 body{background:#06111c;color:#fff;margin:0}.active{display:block}.rona-deal-card-v5{padding:8px;margin:4px;border:1px solid #345}[hidden]{display:none!important}
 #page-deals{width:1100px;padding:0 20px;box-sizing:border-box}
 .qa-title-frame{width:80%;margin-left:auto;border:1px solid #456;border-radius:12px;padding:14px;box-sizing:border-box}
+.qa-title-inner{width:32%;border:1px solid #678;background:linear-gradient(180deg,#10283b,#091726);padding:4px 8px;box-sizing:border-box}
 .qa-company-frame,.qa-filter-frame{width:100%;border:1px solid #345;box-sizing:border-box;margin-top:12px;padding:8px}
 </style><link rel="stylesheet" href="/client-content-responsive-v1.css"></head><body>
 <section id="page-deals" class="active">
-  <section class="qa-title-frame"><h1>Сделки</h1></section>
+  <section class="qa-title-frame"><div class="qa-title-inner"><h1>Сделки</h1></div></section>
   <div class="qa-company-frame">Выбрана компания · QA Client</div>
   <div class="qa-filter-frame"><input placeholder="ИД сделки / товар / станция"><select><option>Все этапы</option></select><button>Сбросить</button></div>
 </section>
@@ -57,7 +58,7 @@ try{
   await page.goto(origin+'/portal/client',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>document.querySelectorAll('[data-rona-deal-stage-tab]').length===3);
   await page.waitForFunction(()=>document.querySelectorAll('[data-rona-deals-authoritative-rendered]').length===3);
-  await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsFrameAlignment==='20261004-client-deals-title-frame-align-v14');
+  await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsFrameAlignment==='20261004-client-deals-outer-title-frame-align-v15');
 
   async function visibleIds(){
     return page.evaluate(()=>[...document.querySelectorAll('[data-rona-deals-authoritative-rendered]')].filter(x=>!x.hidden).map(x=>x.dataset.ronaCanonicalDealId));
@@ -93,13 +94,21 @@ try{
 
   const frameAlignment=await page.evaluate(()=>{
     const title=document.querySelector('.qa-title-frame').getBoundingClientRect();
+    const inner=document.querySelector('.qa-title-inner').getBoundingClientRect();
     const selectors=['.qa-company-frame','.qa-filter-frame','[data-rona-deal-stage-tabs]','[data-rona-deals-authoritative-list]'];
     const rects=selectors.map(selector=>{
       const node=document.querySelector(selector),rect=node?.getBoundingClientRect();
       return {selector,aligned:node?.getAttribute('data-rona-deals-frame-aligned'),left:rect?.left||0,right:rect?.right||0,width:rect?.width||0};
     });
-    return{title:{left:title.left,right:title.right,width:title.width},rects};
+    return{
+      title:{left:title.left,right:title.right,width:title.width},
+      inner:{left:inner.left,right:inner.right,width:inner.width},
+      anchorClass:document.querySelector('[data-rona-deals-frame-anchor="title"]')?.className||'',
+      rects
+    };
   });
+  assert.ok(frameAlignment.inner.width<frameAlignment.title.width*.5,'fixture must contain a deliberately narrower decorated inner title wrapper');
+  assert.match(String(frameAlignment.anchorClass),/qa-title-frame/,'outer title frame must be the alignment authority, never the nested decoration');
   for(const rect of frameAlignment.rects){
     assert.equal(rect.aligned,'true',rect.selector+' must be owned by title-frame alignment');
     assert.ok(Math.abs(rect.left-frameAlignment.title.left)<=1.5,rect.selector+' left edge must match title frame '+JSON.stringify(frameAlignment));
