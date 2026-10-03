@@ -7,6 +7,7 @@ on:
       - 'functions/portal/api/**'
       - 'supabase/functions/rona-portal-api-candidate-20260817/**'
       - 'tests/client-rail-isolated-backend-after-incident.test.mjs'
+      - 'tests/client-deal-state-v1.test.mjs'
       - '.github/workflows/client-rail-isolated-backend-after-incident.yml'
 jobs:
   verify:
@@ -20,4 +21,5 @@ jobs:
         with:
           deno-version: v2.x
       - run: node tests/client-rail-isolated-backend-after-incident.test.mjs
+      - run: node --test tests/client-deal-state-v1.test.mjs
       - run: deno check --node-modules-dir=auto supabase/functions/rona-portal-api-candidate-20260817/client-rail-isolated-runtime-v1.ts
