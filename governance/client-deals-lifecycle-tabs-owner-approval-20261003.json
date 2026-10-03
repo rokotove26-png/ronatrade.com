@@ -5,7 +5,7 @@
   "owner_instruction": "В клиентском кабинете в разделе Сделки также нужно добавить разделы Активные, Требуют внимание, Завершенные. Разделы Закрывающие документы нужно удалить.",
   "approved_exact_blobs": {
     "assets/portal-runtime/client-deals-authoritative-v1.js": {
-      "sha": "e6e544f6fc452912f3dada776c095a726bbb311e",
+      "sha": "0d1e748a9dcd8e97a14e0dcd9b906dca731d177f",
       "required_marker": "20261003-client-deals-authoritative-lifecycle-tabs-v11"
     },
     "assets/portal-runtime/client-sidebar-command-nav-v1.js": {
@@ -25,7 +25,11 @@
     "visual_freeze_remains_enabled": true,
     "exact_file_enforcement_remains_active": true,
     "wildcard_exception": false,
-    "client_deal_tabs": ["ACTIVE", "ATTENTION", "COMPLETED"],
+    "client_deal_tabs": [
+      "ACTIVE",
+      "ATTENTION",
+      "COMPLETED"
+    ],
     "standalone_closing_documents_removed": true,
     "deal_documents_preserved": true,
     "internal_deal_closing_stage_preserved": true,
