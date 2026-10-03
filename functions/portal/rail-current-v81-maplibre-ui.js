@@ -269,7 +269,9 @@ export async function onRequest(context){
     .replace('host.replaceChildren(root);if(matrix)host.append(matrix);isolate(page,host);dedupeOnlineRail(host);','host.replaceChildren(root);isolate(page,host);dedupeOnlineRail(host);if(typeof removeRailTariffPanel===\'function\')removeRailTariffPanel();if(typeof scheduleRailMapHeightAlignment===\'function\')scheduleRailMapHeightAlignment();');
   source=source.split('if(matrix)host.append(matrix);').join('if(matrix)matrix.remove();');
   if(
-    !source.includes('var railMonitoringLifecycle={deals:[]};')||
+    !source.includes('railMonitoringLifecycleReady=false')||
+    !source.includes('function railMonitoringApplyLifecycle(')||
+    !source.includes('function railMonitoringMarkLifecycleError(')||
     !source.includes('function railMonitoringIsCompleted(')||
     !source.includes('function railMonitoringCompleteButton(')||
     !source.includes("api('/admin/rail-monitoring-lifecycle')")
