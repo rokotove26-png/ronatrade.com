@@ -8,6 +8,7 @@ import { isAuthDbUnavailable } from './auth-db-connect-recovery.mjs';
 const BASELINE='5aceffe2725a904e8e0ded562e483f012e861085';
 const CLIENT_RECEIPT_DETAIL_CONTRACT='CLIENT_RECEIPT_DETAIL_RECONCILIATION_V1';
 const EXECUTION_MONITORING_SCOPE='ADMIN_PAYMENTS_EXECUTION_ACTIVE_ONLY_V1';
+const CLIENT_DEAL_EXECUTION_EXIT_CONTRACT='CLIENT_DEAL_RAIL_COMPLETION_ATTENTION_AND_PAYMENTS_EXIT_V1';
 
 function paymentMoneyAmount(value:any){
   const raw=value&&typeof value==='object'&&'amount' in value?value.amount:value;
@@ -120,6 +121,91 @@ function clientContract(payload:any,route:string){
 function clientPaymentsArray(payload:any,route:string){
   if(route==='/v1/client/context')return Array.isArray(payload?.data?.payments)?payload.data.payments:null;
   return Array.isArray(payload?.payments)?payload.payments:null;
+}
+function clientDealsArray(payload:any,route:string){
+  if(route==='/v1/client/context')return Array.isArray(payload?.data?.deals)?payload.data.deals:null;
+  return Array.isArray(payload?.deals)?payload.deals:null;
+}
+function clientDealTerminal(deal:any){
+  const business=String(deal?.business_status||deal?.current_status||'').trim().toUpperCase();
+  const accounting=String(deal?.accounting_closure_status||'').trim().toUpperCase();
+  const lifecycle=String(deal?.lifecycle_state||'').trim().toUpperCase();
+  return ['CLOSED','COMPLETED','DONE','CANCELLED','RESOURCE_DENIED','REJECTED'].includes(business)
+    || ['CLOSED','COMPLETED','DONE'].includes(accounting)
+    || ['ARCHIVED','SUPERSEDED'].includes(lifecycle)
+    || Boolean(deal?.closed_at);
+}
+function clientFullyPaidAuthoritative(deal:any){
+  const total=paymentMoneyAmount(deal?.payment_obligation_amount);
+  const received=paymentMoneyAmount(deal?.payment_received_amount);
+  const remaining=paymentMoneyAmount(deal?.payment_remaining_amount);
+  return String(deal?.payment_source||'').trim().toUpperCase()==='FINANCE_V7_AUTHORITATIVE'
+    && String(deal?.payment_authority_state||'').trim().toUpperCase()==='AUTHORITATIVE'
+    && String(deal?.payment_status||'').trim().toUpperCase()==='PAID'
+    && total!==null && total>0
+    && remaining!==null && Math.abs(remaining)<=0.01
+    && received!==null && received+0.01>=total;
+}
+async function hardenClientExecutionExit(req:Request,response:Response){
+  if(req.method!=='GET'||apiRoute(new URL(req.url))!=='/v1/client/context'||!response.ok||!(response.headers.get('content-type')||'').includes('application/json'))return response;
+
+  const url=new URL(req.url);
+  const requestedClientId=String(url.searchParams.get('clientId')||'').trim();
+  const requestedContractId=String(url.searchParams.get('contractId')||'').trim();
+  if(!requestedClientId||!requestedContractId)return response;
+
+  const payload=await response.clone().json().catch(()=>null);
+  if(!payload)return response;
+  const contract=clientContract(payload,'/v1/client/context');
+  const responseClientId=String(contract?.client_id||'').trim();
+  const responseContractId=String(contract?.contract_id||'').trim();
+  if(responseClientId!==requestedClientId||responseContractId!==requestedContractId)return response;
+
+  const deals=clientDealsArray(payload,'/v1/client/context');
+  if(!deals)return response;
+  const dealIds=[...new Set(deals.map((deal:any)=>String(deal?.deal_id||'').trim()).filter(Boolean))];
+  if(!dealIds.length)return response;
+
+  const rows=await sql`
+    select
+      d.deal_id,
+      coalesce(mc.monitoring_state,'ACTIVE') as rail_monitoring_state,
+      mc.completed_at as rail_monitoring_completed_at
+    from portal_private.deals d
+    join portal_private.clients cl on cl.id=d.client_key
+    join portal_private.contracts ct on ct.id=d.contract_key
+    left join portal_private.rail_deal_monitoring_control_v1 mc on mc.deal_key=d.id
+    where cl.client_id=${responseClientId}
+      and ct.contract_id=${responseContractId}
+      and d.deal_id in (select value from jsonb_array_elements_text(${sql.json(dealIds)}::jsonb))
+    order by d.deal_id
+  `;
+  const railByDeal=new Map(rows.map((row:any)=>[String(row?.deal_id||'').trim(),row]));
+
+  for(const deal of deals){
+    const dealId=String(deal?.deal_id||'').trim();
+    const rail:any=railByDeal.get(dealId);
+    const railCompleted=String(rail?.rail_monitoring_state||'').trim().toUpperCase()==='COMPLETED';
+    const terminal=clientDealTerminal(deal);
+    deal.rail_monitoring_completed_at=rail?.rail_monitoring_completed_at||null;
+    deal.post_rail_completion_attention=railCompleted&&!terminal;
+    if(railCompleted&&!terminal){
+      deal.client_deal_stage='ATTENTION';
+      deal.client_deal_stage_label='Требует внимания';
+      deal.client_deal_stage_source='RAIL_MONITORING_COMPLETED_OWNER_RULE_V1';
+    }
+    const paymentsExit=railCompleted&&clientFullyPaidAuthoritative(deal);
+    deal.client_payments_monitoring_active=!paymentsExit;
+    deal.client_payments_monitoring_exclusion_reason=paymentsExit?'RAIL_COMPLETED_AND_100_PERCENT_PAID':null;
+    deal.client_payments_monitoring_source=CLIENT_DEAL_EXECUTION_EXIT_CONTRACT;
+  }
+
+  const headers=new Headers(response.headers);
+  headers.delete('content-length');
+  headers.set('content-type','application/json; charset=utf-8');
+  headers.set('cache-control','no-store');
+  headers.set('x-rona-client-deal-execution-exit',CLIENT_DEAL_EXECUTION_EXIT_CONTRACT);
+  return new Response(JSON.stringify(payload),{status:response.status,statusText:response.statusText,headers});
 }
 async function hardenClientReceiptDetails(req:Request,response:Response){
   const route=clientPaymentRoute(req);
@@ -274,10 +360,16 @@ nativeServe(async(req:Request,info:any)=>{
     throw error;
   }
   const adminHardened:Response=await hardenBootstrap(req,base);
+  let clientHardened:Response=adminHardened;
   try{
-    return await hardenClientReceiptDetails(req,adminHardened);
+    clientHardened=await hardenClientExecutionExit(req,adminHardened);
+  }catch(error){
+    console.error('CLIENT_DEAL_EXECUTION_EXIT_PROJECTION_FAIL',error);
+  }
+  try{
+    return await hardenClientReceiptDetails(req,clientHardened);
   }catch(error){
     console.error('CLIENT_RECEIPT_DETAIL_RECONCILIATION_FAIL',error);
-    return adminHardened;
+    return clientHardened;
   }
 });
