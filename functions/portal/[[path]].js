@@ -442,6 +442,7 @@ async function serveStaticProtected(context, session, kind) {
     const headers=new Headers(transformed.headers);
     headers.set('x-rona-admin-radio-visual-owner','canonical-v11');
     headers.set('x-rona-admin-radio-specific-stop','v1');
+    // Deployment retry marker for the precise Radio stop runtime.
     const marked=new Response(transformed.body,{status:transformed.status,statusText:transformed.statusText,headers});
     return secureResponse(marked, session.setCookies, true);
   }
