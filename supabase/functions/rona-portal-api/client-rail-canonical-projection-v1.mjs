@@ -126,16 +126,30 @@ export function projectClientRailCanonical({context,deals,readModels}){
 
     const deal=dealReadModel(model,scope);
     const positions=array(deal.wagonPositions);
+    const wagonCount=positions.filter(p=>text(p?.wagonNumber||p?.wagon_number)).length;
     const trusted=positions.filter(p=>text(p?.positionStatus||p?.position_status).toUpperCase()==="TRUSTED").length;
     const unresolved=Number(deal.unresolvedOrConflictCount??deal.unresolved_or_conflict_count??0)||0;
-    if(trusted>0)activeTargets+=1;
-    conflicts+=unresolved;
+    const monitoringState=text(scope.rail_monitoring_state||scope.monitoring_state).toUpperCase()||"ACTIVE";
+    const monitoringCompleted=monitoringState==="COMPLETED";
+    const completedAt=scope.rail_monitoring_completed_at??scope.completed_at??null;
+    const completionWagonCount=Number(scope.rail_monitoring_completion_wagon_count??0)||0;
+    if(trusted>0&&!monitoringCompleted)activeTargets+=1;
+    conflicts+=monitoringCompleted?0:unresolved;
 
     projectedDeals.push({
       deal_key:text(scope.deal_key),
       deal_id:text(scope.deal_id),
+      dealKey:text(scope.deal_key),
+      dealId:text(scope.deal_id),
       business_status:scope.business_status??null,
       lifecycle_state:scope.lifecycle_state??"ACTIVE",
+      monitoring_state:monitoringState,
+      monitoringState,
+      completionReady:false,
+      completedAt,
+      wagonCount,
+      trustedCount:trusted,
+      atDestinationCount:monitoringCompleted?completionWagonCount:0,
       client_id:text(context.client_id),
       contract_id:text(context.contract_id),
     });
@@ -151,9 +165,11 @@ export function projectClientRailCanonical({context,deals,readModels}){
     publishByDeal(routeAssignmentByDeal,scope,object(deal.routeAssignment));
     publishByDeal(routeCohortsByDeal,scope,array(deal.routeCohorts));
     exchangeByDeal[text(scope.deal_key)]={
-      active_targets:trusted>0?1:0,
-      conflicts:unresolved,
+      active_targets:trusted>0&&!monitoringCompleted?1:0,
+      conflicts:monitoringCompleted?0:unresolved,
       trusted_positions:trusted,
+      monitoring_state:monitoringState,
+      completed_at:completedAt,
     };
   });
 

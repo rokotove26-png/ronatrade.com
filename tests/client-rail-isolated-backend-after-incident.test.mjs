@@ -15,9 +15,14 @@ assert.ok(candidate.includes("clientRailCanonical(req:Request,u:URL)"),'candidat
 assert.ok(candidate.includes("proxy(req,'/v1/client/context'"),'Rail authority must delegate to stable production Client context');
 assert.ok(candidate.includes("responseClientId!==clientId||responseContractId!==contractId"),'exact authorized context match required');
 assert.ok(candidate.includes("rona_rail_deal_map_read_model_core_v2"),'cohort-aware server-only canonical Rail core missing');
-assert.ok(candidate.includes("CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1_COHORT_ROUTE_V1"),'cohort route backend version marker missing');
+assert.ok(candidate.includes("CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1_COHORT_ROUTE_V1_MONITORING_PARITY_V2"),'cohort route backend version marker missing');
 assert.ok(candidate.includes("RONA_ADMIN_RAIL_DEAL_MAP_READ_MODEL_V4"),'canonical Admin V4 compatibility check missing');
 assert.ok(candidate.includes("CLIENT_RAIL_CANONICAL_READ_MODEL_UNAVAILABLE"),'degraded fail-closed response missing');
+assert.ok(candidate.includes("rail_deal_monitoring_control_v1"),'Client Rail must read the canonical monitoring completion authority');
+assert.ok(candidate.includes("rail_monitoring_state"),'Client Rail monitoring state projection missing');
+assert.ok(projection.includes('monitoringState'),'Client Rail canonical payload must expose monitoringState');
+assert.ok(projection.includes('completedAt'),'Client Rail canonical payload must expose completedAt');
+assert.ok(projection.includes('active_targets:trusted>0&&!monitoringCompleted?1:0'),'completed monitoring must not remain active in Client KPI');
 assert.ok(projection.includes('const routeCohortsByDeal={}'),'Client Rail cohort projection collection missing');
 assert.ok(projection.includes('publishByDeal(routeCohortsByDeal,scope,array(deal.routeCohorts))'),'Client Rail must publish route cohorts per deal');
 assert.ok(projection.includes('routeCohortContractVersion:"RAIL_ROUTE_COHORTS_V1"'),'Client Rail cohort contract marker missing');
