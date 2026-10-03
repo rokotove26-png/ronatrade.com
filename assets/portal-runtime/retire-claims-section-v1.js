@@ -50,6 +50,15 @@ function prune(){
       node.remove();
     }
   });
+  document.querySelectorAll('h1,h2,h3,h4,.section-title,.card-title').forEach(title=>{
+    const label=String(title.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+    if(label!=='претензии'&&label!=='claims')return;
+    const container=title.closest('section,.page,.card,.panel,[data-section],[data-card],[data-view]');
+    if(container&&container!==document.body&&container!==document.documentElement){
+      if(isActive(container))activeRemoved=true;
+      container.remove();
+    }
+  });
   clearStoredClaimsRoute();
   document.documentElement.dataset.ronaClaimsSection='retired-v1';
   window.__RONA_CLAIMS_SECTION_RETIRED_STATE__={retired:true,checkedAt:new Date().toISOString()};
