@@ -75,6 +75,9 @@ async function waitText(page,selector,text,present=true,timeout=45000){
 async function openPortal(context,path){
   const page=await context.newPage();await page.goto(ORIGIN+path+'?_qa_radio_stage2c1='+HEAD,{waitUntil:'domcontentloaded',timeout:30000});return page;
 }
+async function refreshRadioPages(...pages){
+  for(const page of pages)await page.evaluate(()=>window.dispatchEvent(new Event('rona:radio-refresh')));
+}
 async function adminComposer(page){
   await waitUntil(()=>page.evaluate(()=>window.__RONA_OWNER_ADMIN_READY__===true),'ADMIN_OWNER_READY',60000,300);
   await waitUntil(()=>page.evaluate(()=>Boolean(window.__RONA_REMAINING_SECTIONS_READY__)||window.__RONA_ADMIN_MODULES__?.remaining?.status==='READY'),'ADMIN_REMAINING_READY',90000,300);
@@ -122,6 +125,7 @@ try{
 
   const nClient={key:'N_CLIENT',kind:'NOTIFICATION',scope:'CLIENT',target:CLIENT_A,body:'QA2C1 N CLIENT '+tag};
   await publishScenario(nClient);
+  await refreshRadioPages(clientAPage,clientBPage,agentAPage);
   await waitText(clientAPage,'#ronaRadioNotificationOverlay',nClient.body,true);
   await waitText(clientBPage,'#ronaRadioNotificationOverlay',nClient.body,false);
   assert(!(await portalText(agentAPage,'body')).includes(nClient.body),'AGENT_SEES_CLIENT_NOTIFICATION');
@@ -147,6 +151,7 @@ try{
     {key:'A_ALL_AGENTS',kind:'ANNOUNCEMENT',scope:'ALL_AGENTS',body:'QA2C1 A ALL AGENTS '+tag}
   ];
   for(const scenario of announcementScenarios)await publishScenario(scenario);
+  await refreshRadioPages(clientAPage,clientBPage,agentAPage,agentBPage);
 
   await waitText(clientAPage,'#ronaRadioAnnouncementTicker','QA2C1 A CLIENT '+tag,true);
   await waitText(clientBPage,'#ronaRadioAnnouncementTicker','QA2C1 A CLIENT '+tag,false);
