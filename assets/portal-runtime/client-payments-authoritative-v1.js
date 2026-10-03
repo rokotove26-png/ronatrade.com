@@ -1,5 +1,6 @@
 (()=>{'use strict';
-const MARK='20261004-client-payments-authoritative-v4-execution-exit';
+const MARK='20260922-client-payments-authoritative-v3-event-driven';
+const EXECUTION_EXIT_MARK='20261004-client-payments-authoritative-v4-execution-exit';
 if(window.__RONA_CLIENT_PAYMENTS_RUNTIME__===MARK)return;
 window.__RONA_CLIENT_PAYMENTS_RUNTIME__=MARK;
 window.__RONA_CLIENT_PAYMENTS_REFRESH_POLICY__={mode:'EVENT_DRIVEN',polling:false,events:['PAYMENTS_OPEN','CONTEXT_CHANGE','PAGE_SHOW','VISIBLE_WHILE_OPEN']};
