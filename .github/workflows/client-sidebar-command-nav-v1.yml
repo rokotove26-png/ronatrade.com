@@ -30,6 +30,10 @@ jobs:
         run: |
           npm install --no-save --ignore-scripts playwright@1.54.2
           npx playwright install --with-deps chromium
+      - name: Prove Client Deals lifecycle tabs
+        run: |
+          node --test tests/client-deals-lifecycle-tabs-v1.test.mjs
+          node scripts/qa-client-deals-lifecycle-tabs-v1.mjs
       - name: Prove rendered sidebar, click preservation, attention and late self-heal
         run: node scripts/qa-client-sidebar-command-nav-v1.mjs
       - name: Upload rendered proof

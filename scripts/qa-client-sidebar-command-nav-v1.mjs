@@ -43,7 +43,7 @@ try{
   const page=await context.newPage();
   await page.goto(origin+'/portal/client',{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__?.owner==='command-nav-v1');
-  await page.waitForFunction(()=>window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__?.icons===13);
+  await page.waitForFunction(()=>window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__?.icons===12&&window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__?.closingRemoved===true);
 
   const proof=await page.evaluate(()=>{
     const nav=document.querySelector('aside.sidebar #nav');
@@ -77,15 +77,23 @@ try{
       activeIconColor:active?getComputedStyle(active.querySelector('.nav-icon')).color:'',
       footerColor:getComputedStyle(document.querySelector('aside.sidebar .sidebar-foot')).color,
       iconProof,
+      closing:!!nav.querySelector(':scope>button[data-page="closing"]'),
+      claims:!!nav.querySelector(':scope>button[data-page="claims"]'),
+      closingPage:!!document.querySelector('#page-closing,#closingPage,[data-page-panel="closing"],[data-page-id="closing"]'),
       diagnostic:window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__
     };
   });
   assert.equal(proof.owner,'command-nav-v1');
   assert.equal(proof.sideOwner,'command-nav-v1');
   assert.equal(proof.styles,1,'exactly one sidebar visual style owner required');
-  assert.equal(proof.buttons,13);
-  assert.equal(proof.icons,13);
+  assert.equal(proof.buttons,12);
+  assert.equal(proof.icons,12);
+  assert.equal(proof.diagnostic.closingRemoved,true,'standalone Closing Documents nav must be removed');
+  assert.equal(proof.diagnostic.claimsPresent,true,'Claims nav must remain');
   assert.deepEqual(proof.diagnostic.missing,[]);
+  assert.equal(proof.closing,false,'Closing Documents nav button remains');
+  assert.equal(proof.closingPage,false,'standalone Closing Documents page remains');
+  assert.equal(proof.claims,true,'Claims nav was removed unexpectedly');
   assert.deepEqual(proof.groups.map(x=>x.text),['Операции','Рынок']);
   assert(proof.activeBackground.includes('linear-gradient'),'active row must use premium gradient');
   for(const item of proof.iconProof){
@@ -96,7 +104,7 @@ try{
     assert(item.labelFont>=14,item.page+': label typography too small at 1160px viewport');
     assert(item.buttonOverflow<=1,item.page+': sidebar button overflows horizontally');
     assert(item.labelOverflow<=1,item.page+': sidebar label overflows horizontally');
-    if(['payments','closing','market-news'].includes(item.page))assert(item.labelLine>=18,item.page+': long-label line-height too tight');
+    if(['payments','market-news'].includes(item.page))assert(item.labelLine>=18,item.page+': long-label line-height too tight');
   }
 
   await page.evaluate(()=>{
@@ -123,12 +131,12 @@ try{
   assert.equal(attention.reason,'QA attention');
 
   await page.evaluate(()=>{
-    const old={home:'⌂',companies:'▦',prices:'◈',applications:'▤',deals:'◆',payments:'▣',monitoring:'⇄',closing:'▥',archive:'◇',claims:'□',messages:'◉',analytics:'⌁','market-news':'◌'};
+    const old={home:'⌂',companies:'▦',prices:'◈',applications:'▤',deals:'◆',payments:'▣',monitoring:'⇄',archive:'◇',claims:'□',messages:'◉',analytics:'⌁','market-news':'◌'};
     for(const b of document.querySelectorAll('#nav button[data-page]')){
       const slot=b.querySelector(':scope>.nav-icon');if(slot)slot.textContent=old[b.dataset.page]||'?';
     }
   });
-  await page.waitForFunction(()=>document.querySelectorAll('#nav button[data-page]>.nav-icon>svg').length===13);
+  await page.waitForFunction(()=>document.querySelectorAll('#nav button[data-page]>.nav-icon>svg').length===12);
   await page.waitForTimeout(2400);
   const heal=await page.evaluate(()=>({
     icons:document.querySelectorAll('#nav button[data-page]>.nav-icon>svg').length,
@@ -136,7 +144,7 @@ try{
     styles:document.querySelectorAll('#ronaClientSidebarCommandNavV1Style').length,
     missing:window.__RONA_CLIENT_SIDEBAR_DIAGNOSTIC__?.missing||[]
   }));
-  assert.equal(heal.icons,13,'late overwrite self-heal failed');
+  assert.equal(heal.icons,12,'late overwrite self-heal failed');
   assert.equal(heal.glyphs,0,'late overwrite restored legacy glyphs');
   assert.equal(heal.styles,1,'duplicate sidebar style owner appeared');
   assert.deepEqual(heal.missing,[]);

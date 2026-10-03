@@ -1,0 +1,52 @@
+name: Client Deals lifecycle tabs v1
+
+on:
+  pull_request:
+    branches: [release/public-go-live-v1.1]
+    paths:
+      - 'assets/portal-runtime/client-deals-authoritative-v1.js'
+      - 'assets/portal-runtime/client-sidebar-command-nav-v1.js'
+      - 'scripts/attach-client-deals-authoritative-v1.mjs'
+      - 'scripts/attach-portal-canonical-button-hover-v1.mjs'
+      - 'scripts/qa-client-deals-lifecycle-tabs-v1.mjs'
+      - 'scripts/qa-client-sidebar-command-nav-v1.mjs'
+      - 'functions/portal/api/[[path]].js'
+      - 'supabase/functions/rona-portal-api/index.ts'
+      - 'tests/client-deals-lifecycle-tabs-v1.test.mjs'
+      - '.github/workflows/client-deals-lifecycle-tabs-v1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  client-deals-lifecycle-tabs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Source contracts
+        run: |
+          node --check assets/portal-runtime/client-deals-authoritative-v1.js
+          node --check assets/portal-runtime/client-sidebar-command-nav-v1.js
+          node --check scripts/attach-client-deals-authoritative-v1.mjs
+          node --check scripts/attach-portal-canonical-button-hover-v1.mjs
+          node --test tests/client-deals-lifecycle-tabs-v1.test.mjs
+      - name: Backend type check
+        run: deno check --config supabase/functions/rona-portal-api/deno.json supabase/functions/rona-portal-api/index.ts
+      - name: Build canonical Client portal
+        run: npm run build
+      - name: Install Chromium
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.54.2
+          npx playwright install --with-deps chromium
+      - name: Prove lifecycle tabs
+        run: node scripts/qa-client-deals-lifecycle-tabs-v1.mjs
+      - name: Prove Closing Documents navigation removed
+        run: node scripts/qa-client-sidebar-command-nav-v1.mjs
