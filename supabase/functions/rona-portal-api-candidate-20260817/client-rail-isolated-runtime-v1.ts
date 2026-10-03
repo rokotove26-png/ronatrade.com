@@ -9,7 +9,7 @@ if(!DB)throw new Error("SUPABASE_DB_URL missing");
 const sql=postgres(DB,{prepare:false,max:2,idle_timeout:1,connect_timeout:3,max_lifetime:15});
 const PROD=`${SUPABASE_URL}/functions/v1/rona-portal-api`;
 const SLUG='rona-portal-api-candidate-20260817';
-const VERSION='CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1_COHORT_ROUTE_V1_MONITORING_PARITY_V2';
+const VERSION='CLIENT_RAIL_ISOLATED_V1_PLUS_CANONICAL_DEAL_STATE_V1_COHORT_ROUTE_V1_MONITORING_PARITY_V3';
 const SOURCE='SERVER_AUTHORITATIVE_REALIZATION_V2_CURRENT_PROJECTION';
 const QA_AUDIENCE='rona-issue430-postrelease-proof';
 const QA_WORKFLOW='/ronatrade.com/.github/workflows/client-postrelease-state-consistency-qa.yml@';
@@ -117,6 +117,11 @@ async function canonicalDealMeta(clientId:string,contractId:string,dealId:string
       r.resource_status,
       r.resource_source,
       r.resource_confirmed_at,
+      coalesce(mc.monitoring_state,'ACTIVE') as rail_monitoring_state,
+      mc.completed_at as rail_monitoring_completed_at,
+      mc.completion_wagon_count as rail_monitoring_completion_wagon_count,
+      mc.completion_destination_esr_code as rail_monitoring_completion_destination_esr_code,
+      mc.source_authority as rail_monitoring_source_authority,
       exists(
         select 1
         from portal_private.documents doc
@@ -129,6 +134,7 @@ async function canonicalDealMeta(clientId:string,contractId:string,dealId:string
     join portal_private.clients cl on cl.id=d.client_key
     join portal_private.contracts ct on ct.id=d.contract_key
     cross join lateral portal_private.resolve_deal_resource_state(d.id) r
+    left join portal_private.rail_deal_monitoring_control_v1 mc on mc.deal_key=d.id
     where cl.client_id=${clientId}
       and ct.contract_id=${contractId}
       and d.deal_id=${dealId}
@@ -140,7 +146,7 @@ async function canonicalDealRail(meta:any,dealId:string){
   if(!meta?.deal_key)return null;
   try{
     const rows=await sql`
-      select portal_private.rona_rail_deal_map_read_model_core_v1(
+      select portal_private.rona_rail_deal_map_read_model_core_v2(
         ${meta.deal_key}::uuid,
         ${dealId}::text
       ) as data
@@ -184,7 +190,12 @@ async function clientDealState(req:Request,u:URL){
       resource_source:meta.resource_source,
       resource_confirmed_at:meta.resource_confirmed_at,
       signed_documents_confirmed:meta.signed_documents_confirmed===true,
-      documents_source:'CURRENT_ACTIVE_CONFIRMED_DEAL_DOCUMENTS'
+      documents_source:'CURRENT_ACTIVE_CONFIRMED_DEAL_DOCUMENTS',
+      rail_monitoring_state:meta.rail_monitoring_state,
+      rail_monitoring_completed_at:meta.rail_monitoring_completed_at,
+      rail_monitoring_completion_wagon_count:meta.rail_monitoring_completion_wagon_count,
+      rail_monitoring_completion_destination_esr_code:meta.rail_monitoring_completion_destination_esr_code,
+      rail_monitoring_source_authority:meta.rail_monitoring_source_authority
     },
     railModel,
     generatedAt:new Date().toISOString()
@@ -192,7 +203,7 @@ async function clientDealState(req:Request,u:URL){
   const response=send(200,{ok:true,data:state,projection_contract:CLIENT_DEAL_STATE_CONTRACT});
   const h=new Headers(response.headers);
   h.set('x-rona-client-deal-state',CLIENT_DEAL_STATE_CONTRACT);
-  h.set('x-rona-client-deal-state-source','PRODUCTION_CONTEXT_FINANCE_V7_RESOURCE_RAIL_V4');
+  h.set('x-rona-client-deal-state-source','PRODUCTION_CONTEXT_FINANCE_V8_RESOURCE_RAIL_V4_MONITORING_CONTROL_V1');
   return new Response(response.body,{status:response.status,statusText:response.statusText,headers:h});
 }
 async function verifyQa(req:Request){const auth=norm(req.headers.get('authorization'));if(!auth.startsWith('Bearer '))throw new Error('QA_OIDC_REQUIRED');const {payload}=await jwtVerify(auth.slice(7).trim(),GH_JWKS,{issuer:'https://token.actions.githubusercontent.com',audience:QA_AUDIENCE});if(payload.repository!=='rokotove26-png/ronatrade.com'||payload.event_name!=='pull_request'||!String(payload.workflow_ref||'').includes(QA_WORKFLOW))throw new Error('QA_IDENTITY_DENIED')}
