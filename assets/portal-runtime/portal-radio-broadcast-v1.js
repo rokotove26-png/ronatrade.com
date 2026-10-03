@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20261003-stage2c1-v5-read-on-display';
+const MARK='20261003-stage2c1-v6-close-dismiss';
 if(window.__RONA_PORTAL_RADIO_BROADCAST_V1__===MARK)return;
 const role=location.pathname==='/portal/agent'?'AGENT':(location.pathname==='/portal/client'?'CLIENT':'');
 if(!role)return;
@@ -9,7 +9,6 @@ const READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/ra
 const POLL_MS=60000;
 const MAX_POLLS=10;
 const dismissed=new Set();
-const displayed=new Set();
 const persisted=new Set();
 const state={role,loading:false,radio:[],lastLoadedAt:0,error:null,timer:0,pollCount:0,requestSeq:0};
 window.__RONA_PORTAL_RADIO_BROADCAST_STATE__=state;
@@ -118,11 +117,18 @@ async function persistServerRead(id){
   }
 }
 async function closeModal(id){
+  const root=document.getElementById('ronaRadioNotificationOverlay');
+  const close=root?.querySelector('.rona-radio-modal-close');
   if(id){
+    if(close){close.disabled=true;close.textContent='Закрываем…'}
+    const saved=await persistServerRead(id);
+    if(!saved){
+      if(close){close.disabled=false;close.textContent='Повторить'}
+      return;
+    }
     dismissed.add(String(id));
-    await persistServerRead(id);
   }
-  document.getElementById('ronaRadioNotificationOverlay')?.remove();
+  root?.remove();
   queueMicrotask(renderModal);
 }
 function renderModal(){
@@ -148,7 +154,6 @@ function renderModal(){
   const body=document.createElement('div');body.className='rona-radio-modal-body';body.textContent=norm(item.body_text)||'—';
   const meta=document.createElement('div');meta.className='rona-radio-modal-meta';meta.textContent=item.active_from?'Опубликовано: '+new Date(item.active_from).toLocaleString('ru-RU'):'';
   card.append(head,body,meta);root.append(card);document.body.append(root);
-  if(id&&!displayed.has(id)){displayed.add(id);void persistServerRead(id)}
   queueMicrotask(()=>close.focus({preventScroll:true}));
 }
 function render(){renderTicker();renderModal();state.lastRenderedAt=Date.now()}
