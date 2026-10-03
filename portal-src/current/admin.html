@@ -35,7 +35,6 @@
       <button type="button" data-page="payments"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Платежи</span></button>
       <button type="button" data-page="monitoring"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Онлайн ЖД</span></button>
       <button type="button" data-page="accounting"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Касса</span></button>
-      <button type="button" data-page="claims"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Претензии</span></button>
       <div class="nav-group">Клиенты</div>
       <button type="button" data-page="access"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Клиенты и агенты</span></button>
       <button type="button" data-page="agent-settlements"><span class="nav-icon" aria-hidden="true"></span><span class="nav-label">Вознаграждения агентов</span></button>
@@ -46,7 +45,7 @@
     </nav>
   </aside>
   <header class="topbar">
-    <input class="search" type="search" placeholder="Поиск: ID сделки, ИД заявки, ИД претензии, контрагент, документ" aria-label="Поиск">
+    <input class="search" type="search" placeholder="Поиск: ID сделки, ИД заявки, контрагент, документ" aria-label="Поиск">
     <span class="role-pill">Администратор</span>
     <button type="button" class="logout" data-action="logout">Выход</button>
   </header>
@@ -62,7 +61,6 @@
     <section id="page-messages" class="page"></section>
     <section id="page-access" class="page"><div class="current-loading" data-rona-access-fallback><div class="current-loading-card current-access-entry"><div><div class="current-loading-title">Клиенты и агенты</div><div class="current-loading-sub">Создание и управление доступом клиентов и агентов.</div></div><button type="button" class="current-primary-action" data-action="create-access">Создать доступ</button></div></div></section>
     <section id="page-agent-settlements" class="page"><div class="current-loading"><div class="current-loading-card"><div class="current-loading-title">Вознаграждения агентов</div><div class="current-loading-sub">Загрузка актуальных расчётов…</div></div></div></section>
-    <section id="page-claims" class="page"><div class="current-loading"><div class="current-loading-card"><div class="current-loading-title">Претензии</div><div class="current-loading-sub">Загрузка реестра претензий…</div></div></div></section>
     <section id="page-analytics" class="page"></section>
     <section id="page-market-news" class="page"></section>
   </main>
@@ -97,7 +95,6 @@ window.__RONA_ADMIN_CURRENT_ROUTER__='current-only-router-v2';
 <script id="rona-clients-agents-current-loader" src="/portal/clients-agents-current-ui?v=20260919-admin-access-stability-v3" defer></script>
 <script id="rona-admin-approved-polish-loader" src="/portal/admin-approved-polish-ui?v=20260826-claims-access-approved-v1" defer></script>
 <script id="rona-admin-approved-shell-v455-loader" src="/portal/admin-approved-shell-v455-ui?v=20260827-v455" defer></script>
-<script id="rona-admin-approved-claims-v455-loader" src="/portal/admin-approved-claims-v455-ui?v=20260827-v455" defer></script>
 <script id="rona-admin-approved-analytics-v455-loader" src="/portal/admin-approved-analytics-v455-ui?v=20260827-v455" defer></script>
 <script id="rona-admin-radio-canonical-v11-direct" src="/assets/portal-admin-radio-canonical-v11.js?v=20261003-single-visual-owner-v11" defer></script>
 <script id="rona-admin-runtime-watchdog-loader" src="/assets/portal-admin-runtime-watchdog-v1.js?v=20260919-admin-access-stability-v3" defer></script>
