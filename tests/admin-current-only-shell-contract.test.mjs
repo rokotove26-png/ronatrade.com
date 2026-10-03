@@ -6,8 +6,9 @@ const build=fs.readFileSync('scripts/build-pages-direct-canonical.mjs','utf8');
 const route=fs.readFileSync('functions/portal/admin.js','utf8');
 const shellVisual=fs.readFileSync('functions/portal/admin-approved-shell-v455-ui.js','utf8');
 
-const requiredPages=['home','prices','applications','deals','payments','accounting','monitoring','messages','access','agent-settlements','claims','analytics','market-news'];
+const requiredPages=['home','prices','applications','deals','payments','accounting','monitoring','messages','access','agent-settlements','analytics','market-news'];
 for(const id of requiredPages){assert(shell.includes(`data-page="${id}"`),`Admin nav missing ${id}`);assert(shell.includes(`id="page-${id}"`),`Admin page host missing ${id}`)}
+assert(!shell.includes('data-page="claims"')&&!shell.includes('id="page-claims"'),'Claims section must stay retired from current Admin shell');
 for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','canonical-transfer-v1_1/admin_externalized.html','RONA_Trade_Admin_Portal_v3_4_13']){assert(!shell.includes(marker),`Legacy marker in current shell: ${marker}`);assert(!route.includes(marker),`Legacy marker in current Admin route: ${marker}`)}
 assert(shell.includes('rona-admin-shell" content="current-only-v2"'),'Admin shell v2 meta marker missing');
 assert(shell.includes('data-rona-admin-shell="current-only-v2"'),'Admin shell v2 runtime marker missing');
