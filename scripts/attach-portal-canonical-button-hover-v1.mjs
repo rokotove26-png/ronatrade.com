@@ -7,7 +7,7 @@ const targets=[
   {kind:'client',path:'dist/portal/client.html'},
 ];
 const id='rona-portal-canonical-button-hover-v1';
-const src='/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20260830-canonical-hover-v1';
+const src='/assets/portal-runtime/portal-canonical-button-hover-v1.js?v=20261004-client-deals-button-v13';
 const marker='20260830-portal-canonical-button-hover-v1';
 const clientSidebar={
   path:'dist/assets/portal-runtime/client-sidebar-command-nav-v1.js',
