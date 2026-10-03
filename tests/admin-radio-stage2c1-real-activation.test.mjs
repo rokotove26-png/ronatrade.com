@@ -100,6 +100,7 @@ test('Client and Agent portal runtime presents central notification modal and to
 test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonated Client plus Agent sessions',()=>{
   const shell=read('functions/portal/[[path]].js');
   assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
+  assert.ok(shell.includes('/assets/portal-runtime/portal-radio-broadcast-v1.js?v=20261003-stage2c1-v5-read-on-display'));
   assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/AGENT_BRIDGE\+RADIO_BROADCAST_RUNTIME/);
