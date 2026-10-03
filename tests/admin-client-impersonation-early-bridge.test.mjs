@@ -68,13 +68,18 @@ try {
   });
 
   assert.equal(response.status,200,'impersonated Client shell must be served');
-  assert.equal(response.headers.get('x-rona-client-impersonation-shell'),'static-unmodified-v1');
-  assert.equal(registrations.length,0,'impersonated Client document must not be passed through HTMLRewriter');
+  assert.equal(response.headers.get('x-rona-client-impersonation-shell'),'static-plus-radio-runtime-and-header-bridge-v2');
+  const selectors=new Set(registrations.map(x=>x.selector));
+  assert.ok(selectors.has('head'),'impersonated Client shell must prepend the bounded Admin return bridge');
+  assert.ok(selectors.has('body'),'impersonated Client shell must append the bounded Radio/claims-retire runtime');
+  for(const selector of ['[data-page="claims"]','#page-claims','[data-section="claims"]','script[src*="claims"]','script[id*="claims"]','link[href*="claims"]']){
+    assert.ok(selectors.has(selector),'retired Claims surface must be removed from impersonated Client shell: '+selector);
+  }
   const body=await response.text();
-  assert.equal(body,source,'canonical Client byte stream must remain unmodified by the portal server');
+  assert.equal(body,source,'fake HTMLRewriter transport must preserve fixture bytes while proving the registered transformation contract');
   assert.match(response.headers.get('content-security-policy')||'',/script-src 'self' 'unsafe-inline'/);
 
-  console.log('ADMIN_CLIENT_IMPERSONATION_STATIC_SHELL=PASS legacy_head_bridge=retired native_tab_binding=preserved');
+  console.log('ADMIN_CLIENT_IMPERSONATION_STATIC_SHELL=PASS radio_runtime=bounded header_bridge=v2 claims=retired native_tab_binding=preserved');
 } finally {
   globalThis.fetch=originalFetch;
   if(originalRewriter===undefined) delete globalThis.HTMLRewriter;
