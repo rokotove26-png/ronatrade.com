@@ -213,14 +213,14 @@ const MONITOR_LIFECYCLE_STATUS_TO="function status(x,exchange){var ws=Array.isAr
 const MONITOR_LIFECYCLE_SYNC_FROM="async function sync(){try{var next=await api('/admin/bootstrap');";
 const MONITOR_LIFECYCLE_SYNC_TO="async function sync(){try{var pair=await Promise.all([api('/admin/bootstrap'),api('/admin/rail-monitoring-lifecycle')]);var next=pair[0];railMonitoringLifecycle=pair[1]||{deals:[]};";
 const MONITOR_LIFECYCLE_HELPER_ANCHOR="function railDealOptions(data,rail){";
-const MONITOR_LIFECYCLE_HELPERS=String.raw\`var railMonitoringLifecycle={deals:[]};
+const MONITOR_LIFECYCLE_HELPERS=String.raw`var railMonitoringLifecycle={deals:[]};
 function railMonitoringRows(){return Array.isArray(railMonitoringLifecycle&&railMonitoringLifecycle.deals)?railMonitoringLifecycle.deals:[]}
 function railMonitoringLifecycleFor(dealKey,dealId){var key=String(dealKey||''),id=String(dealId||'');return railMonitoringRows().find(function(x){return String(x&&x.dealKey||'')===key||String(x&&x.dealId||'')===id})||null}
 function railMonitoringIsCompleted(dealKey,dealId){var x=railMonitoringLifecycleFor(dealKey,dealId);return !!(x&&String(x.monitoringState||'').toUpperCase()==='COMPLETED')}
 function railMonitoringSelectedLifecycle(){return railMonitoringLifecycleFor(window.__RONA_RAIL_SELECTED_DEAL_KEY__||'',window.__RONA_RAIL_SELECTED_DEAL_ID__||'')}
 function railMonitoringPost(path){return fetch(API+'?path='+encodeURIComponent(path),{method:'POST',credentials:'same-origin',cache:'no-store',headers:{accept:'application/json','content-type':'application/json'},body:'{}'}).then(function(r){return r.json().catch(function(){return{}}).then(function(j){if(!r.ok||j&&j.ok===false)throw new Error(String(j&&j.code||'HTTP_'+r.status));return j&&j.data||{}})})}
 function railMonitoringCompleteButton(life){var b=el('button','rona-rail-v4-filter rona-rail-monitoring-complete-btn','Завершить мониторинг');b.type='button';b.setAttribute('data-rail-monitoring-complete','true');b.onclick=function(ev){if(ev){ev.preventDefault();ev.stopPropagation()}var dealId=String(life&&life.dealId||window.__RONA_RAIL_SELECTED_DEAL_ID__||'');if(!dealId)return;if(!window.confirm('Завершить мониторинг по сделке '+dealId+'? Сделка будет убрана из раздела «Онлайн ЖД».'))return;b.disabled=true;b.textContent='Завершение…';railMonitoringPost('/admin/rail-monitoring/'+encodeURIComponent(dealId)+'/complete').then(function(){lastRailSignature='';return sync()}).catch(function(e){b.disabled=false;b.textContent='Завершить мониторинг';window.alert('Не удалось завершить мониторинг: '+String(e&&e.message||e))})};return b}
-\`;
+`;
 
 export async function onRequest(context){
   const response=await baseRailV7(context);
