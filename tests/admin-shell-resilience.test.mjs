@@ -40,8 +40,9 @@ assert(middleware.includes("if(url.pathname!=='/portal/client')return response;"
 const clientOnly=middleware.indexOf("if(url.pathname!=='/portal/client')return response;"),text=middleware.indexOf('response.text()');
 assert(clientOnly>=0&&(text<0||clientOnly<text),'Non-Client routes must bypass response buffering');
 
-for(const marker of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','current-only-router-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-agent-settlements"','id="page-claims"','id="page-market-news"','portal-admin-shell-fast-v1.js','clients-agents-current-ui'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
+for(const marker of ['rona-admin-shell" content="current-only-v2','data-rona-admin-shell="current-only-v2','current-only-router-v2','id="nav"','id="page-home"','id="page-prices"','id="page-access"','id="page-agent-settlements"','id="page-market-news"','portal-admin-shell-fast-v1.js','clients-agents-current-ui'])assert(shell.includes(marker),`Current Admin shell missing ${marker}`);
 for(const marker of ['adminLoginGate','rona-admin-auth-v3413','Временный автономный вход','admin_externalized','BOOT_ERROR_LATCH_FINAL_CANDIDATE'])assert(!shell.includes(marker),`Legacy Admin marker returned: ${marker}`);
+assert(!shell.includes('data-page="claims"')&&!shell.includes('id="page-claims"'),'Claims section must remain retired from current Admin shell');
 assert(shell.includes('grid-template-columns:272px minmax(0,1fr)'),'Canonical Home-scale sidebar must be owned by the current shell');
 assert(shell.includes('min-height:48px')&&shell.includes('font-size:14.5px'),'Canonical navigation sizing missing');
 assert(shell.includes('data-action="create-access">Создать доступ</button>'),'Current shell must expose primary access action before module mount');
@@ -69,7 +70,8 @@ assert(runtime.includes("window.__RONA_ADMIN_SHELL_RESILIENCE__='single-owner-v3
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='CHECKING'"),'Async session state missing');
 assert(runtime.includes("if(r.status===401||r.status===403)"),'Only explicit auth denial may redirect');
 assert(runtime.includes("window.__RONA_ADMIN_SESSION_STATE__='DEGRADED_BACKEND'"),'Transient backend degradation state missing');
-for(const required of ['/portal/main-ui','/portal/claims-r2-ui','/portal/remaining-sections-ui','/portal/prices-current-ui','/portal/analytics-v2-ui','/portal/rail-current-v81-maplibre-ui','/portal/rail-safe-fallback-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
+for(const required of ['/portal/main-ui','/portal/remaining-sections-ui','/portal/prices-current-ui','/portal/analytics-v2-ui','/portal/rail-current-v81-maplibre-ui','/portal/rail-safe-fallback-ui'])assert(runtime.includes(required),`Required current module missing: ${required}`);
+assert(!runtime.includes('/portal/claims-r2-ui'),'Claims runtime must remain retired from active Admin shell');
 for(const forbidden of ['clients-agents-v4-ui','clients-agents-canonical-guard-ui','remaining-sections-final-polish-ui','remaining-sections-functional-preserve-v2-ui','owner-layout-polish-ui','admin-access-ui','title-visual-rollback-ui','claims-title-hotfix'])assert(!runtime.includes(forbidden),`Competing Admin module returned: ${forbidden}`);
 assert(runtime.includes('async function loadRail()')&&runtime.includes("root.dataset.ronaRailOwner='safe-fallback-direct-child-v2'")&&runtime.includes("window.__RONA_RAIL_CURRENT_REPAIR__"),'Rail primary/repair/fallback recovery missing');
 assert(runtime.includes('async function loadAnalytics()')&&runtime.includes("root.dataset.ronaAnalyticsOwner='analytics-v2'"),'Dedicated Analytics owner missing');
