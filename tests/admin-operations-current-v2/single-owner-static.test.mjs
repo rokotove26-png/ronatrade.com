@@ -46,13 +46,15 @@ test('Owner API routes V2 and authenticated presence heartbeat',()=>{
   assert.match(api,/p_online/);
 });
 
-test('Client and Agent presence is injected only for real sessions, never admin impersonation',()=>{
+test('Client and Agent presence stays real-session-only while impersonated Client may receive bounded Radio runtime',()=>{
   const router=read('functions/portal/[[path]].js');
   assert.match(router,/function presenceBridge\(role\)/);
   assert.match(router,/portal-presence-v1/);
   assert.match(router,/connectionId=crypto\.randomUUID\(\)/);
   assert.match(router,/\/portal\/owner-api\?path=%2Fpresence%2Fheartbeat/);
-  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*x-rona-client-impersonation-shell'[\s\S]*static-unmodified-v1[\s\S]*return secureResponse\(direct,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
+  assert.match(router,/if\(impersonation\?\.data\)\{[\s\S]*BodyAppend\(RADIO_BROADCAST_RUNTIME\)[\s\S]*x-rona-client-impersonation-shell','static-plus-radio-runtime-v1'[\s\S]*return secureResponse\(withMarker,session\.setCookies,true\);[\s\S]*const clientPresence=presenceBridge\('CLIENT'\);/);
+  const clientImpersonation=router.slice(router.indexOf("if(impersonation?.data){",router.indexOf("if(kind==='client')")),router.indexOf("const clientPresence=presenceBridge('CLIENT')"));
+  assert.doesNotMatch(clientImpersonation,/presenceBridge\('CLIENT'\)/);
   assert.match(router,/const agentPresence=impersonation\?\.data\?'':presenceBridge\('AGENT'\)/);
 });
 
