@@ -258,4 +258,4 @@ const nativeServe: any = Deno.serve.bind(Deno);
 };
 
 // #685 Agent Person identity creation remains independent from company assignment.
-await import("./index.ts");
+await import("https://raw.githubusercontent.com/rokotove26-png/ronatrade.com/7efabfaf042bb672ac2f2241909b26cd819f1836/supabase/functions/rona-owner-acceptance/index.ts");
