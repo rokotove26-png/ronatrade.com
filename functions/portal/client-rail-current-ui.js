@@ -229,7 +229,7 @@ function clientRailContextQuery(ctx){return'?clientId='+encodeURIComponent(clien
 async function api(path){
   var context=await clientRailCurrentContext(),contextKey=clientRailContextKey(context),query=clientRailContextQuery(context);
   window.__RONA_CLIENT_RAIL_CONTEXT_KEY__=contextKey;
-  var envelope=await clientRailFetch('/portal/api/v1/client/rail-canonical'+query),payload=clientRailNormalizeRouteParity(clientRailProviderBody(envelope));
+  var slot=window.__RONA_CLIENT_RAIL_CANONICAL_INFLIGHT__,requestPromise;if(slot&&slot.key===contextKey&&slot.promise){requestPromise=slot.promise}else{requestPromise=clientRailFetch('/portal/api/v1/client/rail-canonical'+query);window.__RONA_CLIENT_RAIL_CANONICAL_INFLIGHT__={key:contextKey,promise:requestPromise};requestPromise.finally(function(){var current=window.__RONA_CLIENT_RAIL_CANONICAL_INFLIGHT__;if(current&&current.promise===requestPromise)window.__RONA_CLIENT_RAIL_CANONICAL_INFLIGHT__=null}).catch(function(){})}var envelope=await requestPromise,payload=clientRailNormalizeRouteParity(clientRailProviderBody(envelope));
   var activeAuthority=clientRailAuthority(),activeContext=activeAuthority&&typeof activeAuthority.getCurrentContext==='function'?activeAuthority.getCurrentContext():null;
   if(clientRailContextKey(activeContext)!==contextKey)throw new Error('CLIENT_CONTEXT_CHANGED_DURING_RAIL_LOAD');
   if(!payload||!payload.railReadModel||!clientRailText(payload.railReadModel.modelVersion)||!clientRailText(payload.railReadModel.overlayMode))throw new Error('CLIENT_RAIL_CANONICAL_READ_MODEL_DEGRADED');
