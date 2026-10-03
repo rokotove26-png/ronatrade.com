@@ -565,7 +565,7 @@ async function markClientRadioNotificationRead(ctx,req,itemId){
       readVia
     });
   });
-  return{id:itemId,read:true,readVia};
+  return{id:itemId,read:true,dismissed:true,readVia};
 }
 
 async function agentRadio(ctx){
@@ -737,13 +737,18 @@ async function clientMarkDownload(ctx,req,dealId){
   return{dealId,kind,marked:true};
 }
 
+function isAdminEntityClientReadStateMutation(path:string,method:string){
+  return method==='POST'&&/^\/client\/radio\/[0-9a-f-]+\/read$/i.test(path);
+}
+
 Deno.serve(async req=>{
   const ctx=await authContext(req);if(!ctx)return send(401,{ok:false,code:'PORTAL_ACCESS_DENIED'});const path=pathOf(req),method=req.method;
-  if(ctx.impersonation?.subjectMode==='ADMIN_ENTITY'&&method!=='GET'&&path.startsWith('/client/')){
+  const adminEntityReadStateMutation=ctx.impersonation?.subjectMode==='ADMIN_ENTITY'&&isAdminEntityClientReadStateMutation(path,method);
+  if(ctx.impersonation?.subjectMode==='ADMIN_ENTITY'&&method!=='GET'&&path.startsWith('/client/')&&!adminEntityReadStateMutation){
     await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,'PORTAL_MUTATION','BLOCKED_ADMIN_ENTITY_READ_ONLY',{source:'RONA_OWNER_ACCEPTANCE',subject_mode:'ADMIN_ENTITY'});
     return send(403,{ok:false,code:'ADMIN_ENTITY_PREVIEW_READ_ONLY'});
   }
-  if(ctx.impersonation){await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,method==='GET'?'PORTAL_READ':'PORTAL_MUTATION','AUTHORIZED_DISPATCH',{source:'RONA_OWNER_ACCEPTANCE'});}
+  if(ctx.impersonation){await recordImpersonationEvent(sql,{authUserId:ctx.actorAuthUserId,portalUserId:ctx.actorUserId,sessionId:ctx.sessionId,displayName:ctx.actorDisplayName,roles:ctx.actorRoles},ctx.impersonation,req,path,adminEntityReadStateMutation?'PORTAL_READ_STATE_MUTATION':(method==='GET'?'PORTAL_READ':'PORTAL_MUTATION'),'AUTHORIZED_DISPATCH',{source:'RONA_OWNER_ACCEPTANCE',read_state_mutation:adminEntityReadStateMutation});}
   try{
     if(path==='/admin/bootstrap'&&method==='GET'){requireRole(ctx,'ADMIN');return send(200,{ok:true,data:await adminSnapshot()})}
     if(path==='/admin/claims'||path.startsWith('/admin/claims/')){requireRole(ctx,'ADMIN');const cr=await claimsRuntime.handle(ctx,req,path,method);if(cr)return send(cr.status,cr.body)}

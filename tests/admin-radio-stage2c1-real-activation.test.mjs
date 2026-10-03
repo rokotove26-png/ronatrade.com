@@ -76,7 +76,7 @@ test('Client and Agent portal runtime presents central notification modal and to
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
     "credentials:'same-origin'",
-    "const MARK='20261003-stage2c1-v5-read-on-display'",
+    "const MARK='20261003-stage2c1-v6-close-dismiss'",
     "READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/radio/'",
     "async function persistServerRead(id)",
     "method:'POST'",
@@ -90,8 +90,8 @@ test('Client and Agent portal runtime presents central notification modal and to
   assert.doesNotMatch(runtime,/#ronaRadioAnnouncementTicker\{position:fixed|top:0;z-index:2147482500|document\.body\.prepend\(root\)/);
   assert.match(runtime,/window\.addEventListener\('rona:radio-refresh'/);
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
-  assert.match(runtime,/async function closeModal\(id\)\{[\s\S]*dismissed\.add\(String\(id\)\)[\s\S]*await persistServerRead\(id\)/);
-  assert.match(runtime,/if\(id&&!displayed\.has\(id\)\)\{displayed\.add\(id\);void persistServerRead\(id\)\}/);
+  assert.match(runtime,/async function closeModal\(id\)\{[\s\S]*const saved=await persistServerRead\(id\)[\s\S]*if\(!saved\)[\s\S]*return[\s\S]*dismissed\.add\(String\(id\)\)/);
+  assert.doesNotMatch(runtime,/displayed\.has|void persistServerRead\(id\)/);
   assert.match(runtime,/if\(persisted\.has\(String\(id\)\)\)return true/);
   assert.doesNotMatch(runtime,/localStorage|sessionStorage/);
   assert.match(runtime,/const rows=currentRows\(\)\.filter\(x=>upper\(x\?\.item_kind\)==='NOTIFICATION'&&!dismissed\.has\(String\(x\?\.id\|\|''\)\)\)/);
@@ -100,7 +100,7 @@ test('Client and Agent portal runtime presents central notification modal and to
 test('Portal shell injects Stage 2C.1 broadcast runtime for real and impersonated Client plus Agent sessions',()=>{
   const shell=read('functions/portal/[[path]].js');
   assert.match(shell,/const RADIO_BROADCAST_RUNTIME = '<script id="rona-portal-radio-broadcast-v1"/);
-  assert.ok(shell.includes('/assets/portal-runtime/portal-radio-broadcast-v1.js?v=20261003-stage2c1-v5-read-on-display'));
+  assert.ok(shell.includes('/assets/portal-runtime/portal-radio-broadcast-v1.js?v=20261003-stage2c1-v6-close-dismiss'));
   assert.match(shell,/clientPresence\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/AGENT_BRIDGE\+agentPresence\+RADIO_BROADCAST_RUNTIME/);
   assert.match(shell,/AGENT_BRIDGE\+RADIO_BROADCAST_RUNTIME/);
@@ -117,6 +117,16 @@ test('Stage 2C.1 does not mutate frozen Client message or Admin Radio visual ass
   assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
 });
 
+
+test('ADMIN_ENTITY Client preview stays read-only except notification dismissal read-state',()=>{
+  const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
+  assert.match(owner,/function isAdminEntityClientReadStateMutation\(path:string,method:string\)/);
+  assert.match(owner,/return method==='POST'&&\/\^\\\/client\\\/radio\\\/\[0-9a-f-\]\+\\\/read\$\/i\.test\(path\)/);
+  assert.match(owner,/&&path\.startsWith\('\/client\/'\)&&!adminEntityReadStateMutation/);
+  assert.match(owner,/PORTAL_READ_STATE_MUTATION/);
+  assert.match(owner,/ADMIN_ENTITY_PREVIEW_READ_ONLY/);
+  assert.match(owner,/return\{id:itemId,read:true,dismissed:true,readVia\}/);
+});
 
 test('Client notification read receipt migration is durable and scoped by portal user plus client context',()=>{
   const migration=read('supabase/migrations/20261003035000_owner_radio_notification_reads_v1.sql');
