@@ -84,7 +84,7 @@ test('Portal shell injects Stage 2C.1 broadcast runtime for real Client and Agen
 });
 
 test('Stage 2C.1 does not mutate frozen Client message or Admin Radio visual assets',()=>{
-  assert.equal(gitBlobSha('assets/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
+  assert.equal(gitBlobSha('assets/portal-runtime/client-messages-archive-v1.js'),'f3c49ac46cc32ee0cd92eefadb905f8ac52778ca');
   assert.equal(gitBlobSha('assets/portal-admin-radio-final-v9.js'),'89391945e49e49570e22e6cbfecd5a6e7e46b40c');
   assert.equal(gitBlobSha('assets/portal-admin-radio-wide-v10.js'),'1e32655109534962580e96057def98208f69eaa4');
 });
