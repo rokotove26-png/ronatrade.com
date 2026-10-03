@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 
 const runtime=await readFile('dist/assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
+const responsiveCss=await readFile('dist/assets/portal-runtime/client-content-responsive-v1.css','utf8');
 const projection={
   contract:{client_id:'RONA-QA-CLIENT',contract_id:'RONA-QA-CONTRACT',legal_name:'QA Client'},
   applications:[],
@@ -14,7 +15,7 @@ const projection={
     {deal_id:'DEAL-2098-104',business_status:'CANCELLED',current_status:'CANCELLED',client_deal_stage:'ARCHIVED',client_deal_stage_source:'CANONICAL_DEAL_EXECUTION_LIFECYCLE_V1',closed_at:'2098-03-02T00:00:00Z'}
   ]
 };
-const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{background:#06111c;color:#fff}.active{display:block}.rona-deal-card-v5{padding:8px;margin:4px;border:1px solid #345}[hidden]{display:none!important}</style></head><body>
+const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{background:#06111c;color:#fff}.active{display:block}.rona-deal-card-v5{padding:8px;margin:4px;border:1px solid #345}[hidden]{display:none!important}</style><link rel="stylesheet" href="/client-content-responsive-v1.css"></head><body>
 <section id="page-deals" class="active"><input placeholder="ИД сделки / товар / станция"><select><option>Все этапы</option></select></section>
 <script>
 const projection=${JSON.stringify(projection)};
@@ -32,6 +33,7 @@ window.RONA_CLIENT_CONTEXT={
 const server=http.createServer((req,res)=>{
   if(req.url==='/portal/client'){res.writeHead(200,{'content-type':'text/html; charset=utf-8'});res.end(html);return}
   if(req.url==='/client-deals-authoritative-v1.js'){res.writeHead(200,{'content-type':'application/javascript; charset=utf-8'});res.end(runtime);return}
+  if(req.url==='/client-content-responsive-v1.css'){res.writeHead(200,{'content-type':'text/css; charset=utf-8'});res.end(responsiveCss);return}
   res.writeHead(404);res.end('not found');
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
