@@ -65,11 +65,12 @@ jobs:
             body{display:flex}.sidebar{width:260px;flex:0 0 260px}.workspace{flex:1 1 auto;padding:24px;box-sizing:border-box}
             [id^="page-"]{width:100%;margin:0 0 20px}.rona-cc-kpis{display:grid;grid-template-columns:1.18fr 1fr 1fr}.rona-cc-main,.rona-cc-bottom{display:grid;grid-template-columns:minmax(0,1.82fr) minmax(300px,.82fr);gap:16px}.rona-cc-panel{min-width:0}
             .rona-deal-card-v5__summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px}.rona-deal-card-v5__summary-main{grid-column:1}.rona-deal-card-v5__amount{grid-column:2}.rona-deal-card-v5__open{grid-column:3}
+            .qa-title-frame{width:80%;margin-left:auto;border:1px solid #456;padding:12px;box-sizing:border-box}.qa-title-inner{width:32%;border:1px solid #678;background:linear-gradient(180deg,#10283b,#091726);padding:4px 8px;box-sizing:border-box}.qa-company-frame,.qa-filter-frame{width:100%;border:1px solid #345;box-sizing:border-box;margin-top:10px;padding:8px}
             .rona-payments-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}.rona-payments-deal{display:grid;grid-template-columns:minmax(170px,1.1fr) minmax(150px,1fr) minmax(220px,2fr);gap:12px}
             .rona-rail-v4-work{display:grid;grid-template-columns:minmax(360px,.9fr) minmax(480px,1.35fr);gap:12px}.rona-rail-v4-map{min-height:365px}.rona-rail-v4-card{min-width:0}
           </style></head><body><aside class="sidebar"></aside><main class="workspace">
             <section id="page-home"><section data-rona-client-home-owner="command-center-v2" data-rona-home-visual="tablet-v3" data-rona-home-night="v4"><div class="rona-cc-kpis"><div></div><div></div><div></div></div><div class="rona-cc-main"><div class="rona-cc-panel"></div><div class="rona-cc-panel"></div></div><div class="rona-cc-bottom"><div></div><div></div></div></section></section>
-            <section id="page-deals"><article class="rona-deal-card-v5"><div class="rona-deal-card-v5__summary"><div class="rona-deal-card-v5__summary-main">Deal</div><div class="rona-deal-card-v5__amount">Amount</div><button class="rona-deal-card-v5__open">Open</button><div data-rona-deal-state-strip="authoritative-v8">State</div></div></article></section>
+            <section id="page-deals"><section class="qa-title-frame"><div class="qa-title-inner"><h1>Сделки</h1></div></section><div class="qa-company-frame">Company</div><div class="qa-filter-frame">Filters</div><article class="rona-deal-card-v5"><div class="rona-deal-card-v5__summary"><div class="rona-deal-card-v5__summary-main">Deal</div><div class="rona-deal-card-v5__amount">Amount</div><button class="rona-deal-card-v5__open">Open</button><div data-rona-deal-state-strip="authoritative-v8">State</div></div></article></section>
             <section id="page-payments"><section data-rona-client-payments-owner="finance-authoritative-v1" data-rona-payments-canonical-width><div class="rona-payments-kpis"><div></div><div></div><div></div><div></div></div><div class="rona-payments-deal"><div></div><div></div><div></div></div></section></section>
             <section id="page-rail"><div class="rona-rail-v4-root"><div class="rona-rail-v4-work"><div class="rona-rail-v4-card"></div><div class="rona-rail-v4-map"></div></div></div></section>
           </main></body></html>`;
@@ -78,6 +79,8 @@ jobs:
             const page=await browser.newPage({viewport:{width:1366,height:768}});
             await page.setContent(fixture,{waitUntil:'domcontentloaded'});
             await page.addStyleTag({path:path.resolve('assets/portal-runtime/client-content-responsive-v1.css')});
+            await page.addScriptTag({path:path.resolve('assets/portal-runtime/portal-canonical-button-hover-v1.js')});
+            await page.waitForFunction(()=>document.documentElement.dataset.ronaClientDealsFrameAlignment==='20261004-client-deals-outer-title-frame-align-v15');
             await page.waitForTimeout(50);
             const r=await page.evaluate(()=>{
               const q=s=>document.querySelector(s),cols=s=>getComputedStyle(q(s)).gridTemplateColumns.trim().split(/\s+/).length;
@@ -93,9 +96,19 @@ jobs:
                 bodyOverflow:document.documentElement.scrollWidth-document.documentElement.clientWidth,
                 workspaceOverflow:workspace.scrollWidth-workspace.clientWidth,
                 railOverflow:rail.scrollWidth-rail.clientWidth,
-                dealsOverflow:deals.scrollWidth-deals.clientWidth
+                dealsOverflow:deals.scrollWidth-deals.clientWidth,
+                dealsFrame:(()=>{
+                  const title=q('.qa-title-frame').getBoundingClientRect(),inner=q('.qa-title-inner').getBoundingClientRect();
+                  const nodes=['.qa-company-frame','.qa-filter-frame','.rona-deal-card-v5'].map(s=>q(s).getBoundingClientRect());
+                  return{title:{left:title.left,right:title.right,width:title.width},inner:{left:inner.left,right:inner.right,width:inner.width},nodes:nodes.map(x=>({left:x.left,right:x.right,width:x.width})),anchor:q('[data-rona-deals-frame-anchor="title"]')?.className||''};
+                })()
               };
             });
+            assert(r.dealsFrame.inner.width<r.dealsFrame.title.width*.5,'nested decorated title fixture is not narrow enough '+JSON.stringify(r));
+            assert(String(r.dealsFrame.anchor).includes('qa-title-frame'),'Deals alignment did not select the outer title frame '+JSON.stringify(r));
+            for(const x of r.dealsFrame.nodes){
+              assert(Math.abs(x.left-r.dealsFrame.title.left)<=1.5&&Math.abs(x.right-r.dealsFrame.title.right)<=1.5,'Deals frame does not match outer title bounds '+JSON.stringify(r));
+            }
             assert(r.viewport===1366,'unexpected viewport '+JSON.stringify(r));
             assert(r.home<1220&&r.home>900,'fixture must model 14-inch content pane '+JSON.stringify(r));
             assert(r.homeMainCols===1,'Home did not stack from content width '+JSON.stringify(r));
