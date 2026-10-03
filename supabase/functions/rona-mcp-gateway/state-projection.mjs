@@ -11,6 +11,25 @@ const encoder = new TextEncoder();
 const hasScope = (ctx,scope) => String(ctx?.scope || '').split(/\s+/).includes(scope);
 const names = tools => [...new Set(tools.map(t => t.name))].sort();
 const select = (obj,keys) => Object.fromEntries(keys.filter(k => Object.hasOwn(obj || {},k)).map(k => [k,obj[k]]));
+const EXECUTION_WORKSTREAM_SUMMARY_LIMIT = 10;
+function compactExecutionRecovery(value) {
+  if (!value || typeof value !== 'object') return value;
+  const resume = value.execution_resume && typeof value.execution_resume === 'object' ? value.execution_resume : {};
+  const workstreams = Array.isArray(resume.workstreams) ? resume.workstreams : [];
+  return {
+    ...value,
+    execution_resume:{
+      ...resume,
+      workstreams:workstreams.slice(0,EXECUTION_WORKSTREAM_SUMMARY_LIMIT).map(w => ({
+        ...select(w,['workstream_id','title','status','task_id','updated_at']),detail_required:true,
+      })),
+      workstreams_projection:'SUMMARY',
+      source_workstream_count:workstreams.length,
+      workstreams_truncated:workstreams.length > EXECUTION_WORKSTREAM_SUMMARY_LIMIT,
+      full_detail_tool:'execution_checkpoint_read',
+    },
+  };
+}
 
 export function identityError(payload,ctx) {
   if (!ctx || !hasScope(ctx,'mcp:read')) return 'TOOL_NOT_AUTHORIZED';
@@ -86,7 +105,7 @@ export function bootstrapV2(data,ctx,registry) {
 export function compactState(data,ctx,registry) {
   const projected = select(data,[
     'functional_role','generated_at','identity_profile','checkpoint','active_tasks',
-    'competence_contract','routing_capabilities','state_conflicts','execution_recovery','technical_live_sources',
+    'competence_contract','routing_capabilities','state_conflicts','technical_live_sources',
   ]);
   const records = Array.isArray(data.coordination?.records) ? data.coordination.records : [];
   if (data.competence_contract && typeof data.competence_contract === 'object') {
@@ -108,6 +127,7 @@ export function compactState(data,ctx,registry) {
     records:records.slice(0,3).map(r => select(r,['record_id','record_type','status','version','functional_role','target_role','target_type','target_id','created_at'])),
     detail_required:records.length > 0,
   };
+  if (data.execution_recovery) projected.execution_recovery = compactExecutionRecovery(data.execution_recovery);
   projected.runtime_status = {
     contract:'RONA_AI_OFFICE_RUNTIME_CONTINUITY_V1',
     identity:'MATCH',

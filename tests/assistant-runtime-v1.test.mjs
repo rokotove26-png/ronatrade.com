@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ASSISTANT_ADMIN_TOOLS } from '../supabase/functions/rona-mcp-gateway/assistant-admin-tools.mjs';
+import { compactState } from '../supabase/functions/rona-mcp-gateway/state-projection.mjs';
 
 const gateway = readFileSync('supabase/functions/rona-mcp-gateway/index.ts','utf8');
 const base = readFileSync('supabase/functions/rona-mcp-gateway/gateway-base.mjs','utf8');
@@ -143,4 +144,41 @@ test('Assistant administrative writes preserve JSONB object and array shapes', (
 test('Assistant token and revoke endpoints are routed through the shared token bridge', () => {
   assert.match(base, /rona-mcp-oauth-token','assistant','token'/);
   assert.match(base, /rona-mcp-oauth-token','assistant','revoke'/);
+});
+
+
+test('current_state bounds execution recovery workstreams to metadata summaries', () => {
+  const large = 'x'.repeat(5000);
+  const data = {
+    functional_role:'SYSTEM_ADMIN',
+    generated_at:'2026-10-03T00:00:00Z',
+    identity_profile:{identity_id:'AI-SYSTEM-ADMIN'},
+    checkpoint:{state_version:103},
+    active_tasks:[],
+    competence_contract:{contract:'RONA_AI_COMPETENCE_GATE_V1',canonical_role:'SYSTEM_ADMIN'},
+    routing_capabilities:{},
+    state_conflicts:[],
+    global_role_policies:[{scope:'GLOBAL_SYSTEM_ADMIN_ROLE',policy_id:'P1'}],
+    coordination:{records:[]},
+    bootstrap:{procedure:['READ_CURRENT_STATE']},
+    execution_recovery:{
+      contract:'RONA_AI_OFFICE_EXECUTION_RECOVERY_V3',
+      execution_resume:{
+        contract:'RONA_AI_EXECUTION_RESUME_V1',
+        workstreams:Array.from({length:12},(_,i)=>({
+          workstream_id:'WS-'+i,title:'Workstream '+i,status:'ACTIVE',task_id:null,
+          updated_at:'2026-10-03T00:00:00Z',objective:large,last_completed:large,next_action:large,
+          blockers:[large],source_refs:[large]
+        }))
+      }
+    }
+  };
+  const out = compactState(data,{role:'SYSTEM_ADMIN',identity_id:'AI-SYSTEM-ADMIN',server_slug:'rona-mcp-system-admin-pilot'},null);
+  assert.equal(out.execution_recovery.execution_resume.source_workstream_count,12);
+  assert.equal(out.execution_recovery.execution_resume.workstreams.length,10);
+  assert.equal(out.execution_recovery.execution_resume.workstreams_truncated,true);
+  assert.equal(out.execution_recovery.execution_resume.full_detail_tool,'execution_checkpoint_read');
+  assert.equal(out.execution_recovery.execution_resume.workstreams[0].detail_required,true);
+  assert.equal('objective' in out.execution_recovery.execution_resume.workstreams[0],false);
+  assert.ok(Buffer.byteLength(JSON.stringify(out),'utf8') < 24000);
 });
