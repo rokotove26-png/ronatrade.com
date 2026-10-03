@@ -16,7 +16,7 @@ test('Client deal moves to ATTENTION immediately after authoritative Rail comple
   assert.match(hardening,/deal\.client_deal_stage_label='Требует внимания'/);
   assert.match(hardening,/RAIL_MONITORING_COMPLETED_OWNER_RULE_V1/);
   assert.match(dealsRuntime,/if\(\['ACTIVE','ATTENTION','COMPLETED','ARCHIVED'\]\.includes\(explicit\)\)return explicit/);
-  assert.match(dealsRuntime,/\['ATTENTION','Требует внимания'/);
+  assert.match(dealsRuntime,/stage==='ATTENTION'\?'Требует внимания':'Завершена'/);
 });
 
 test('Client Payments exits a deal only after Rail completion and authoritative 100 percent payment',()=>{
