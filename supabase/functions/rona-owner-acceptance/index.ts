@@ -496,8 +496,8 @@ async function signedUrlForDocument(ctx,documentId,mode){let allowed=[];if(mode=
 
 async function clientRadio(ctx,scopeInput=null){
   const scope=Array.isArray(scopeInput)?scopeInput:await clientScope(ctx);
-  const ids=scope.map(x=>String(x.client_id));
-  const clientKeys=scope.map(x=>String(x.client_key));
+  const ids=[...new Set(scope.map(x=>String(x.client_id)))];
+  const clientKeys=[...new Set(scope.map(x=>String(x.client_key)))];
   if(!ids.length)return{radio:[]};
   const viewerUserId=ctx.userId;
   const radio=await sql`
@@ -525,8 +525,8 @@ async function clientRadio(ctx,scopeInput=null){
 async function markClientRadioNotificationRead(ctx,req,itemId){
   if(!UUID_RE.test(itemId))throw Object.assign(new Error('INVALID_RADIO_ITEM_ID'),{status:400});
   const scope=await clientScope(ctx);
-  const ids=scope.map(x=>String(x.client_id));
-  const clientKeys=scope.map(x=>String(x.client_key));
+  const ids=[...new Set(scope.map(x=>String(x.client_id)))];
+  const clientKeys=[...new Set(scope.map(x=>String(x.client_key)))];
   if(!ids.length)throw Object.assign(new Error('CLIENT_CONTEXT_NOT_AUTHORIZED'),{status:403});
   const rows=await sql`
     select id,item_kind,target_scope,target_id
