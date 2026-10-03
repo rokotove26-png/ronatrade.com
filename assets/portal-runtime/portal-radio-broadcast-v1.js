@@ -7,7 +7,20 @@ window.__RONA_PORTAL_RADIO_BROADCAST_V1__=MARK;
 const OWNER='/portal/owner-api?path='+encodeURIComponent(role==='CLIENT'?'/client/radio':'/agent/radio');
 const POLL_MS=60000;
 const MAX_POLLS=10;
-const dismissed=new Set();
+const READ_KEY='rona_radio_notification_read_v1';
+function loadRead(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(READ_KEY)||'[]');
+    return new Set(Array.isArray(raw)?raw.map(String):[]);
+  }catch{return new Set()}
+}
+function persistRead(set){
+  try{
+    const rows=[...set].slice(-500);
+    localStorage.setItem(READ_KEY,JSON.stringify(rows));
+  }catch{}
+}
+const dismissed=loadRead();
 const state={role,loading:false,radio:[],lastLoadedAt:0,error:null,timer:0,pollCount:0,requestSeq:0};
 window.__RONA_PORTAL_RADIO_BROADCAST_STATE__=state;
 const norm=v=>String(v??'').trim();
@@ -94,7 +107,10 @@ function renderTicker(){
   win.appendChild(track);
 }
 function closeModal(id){
-  if(id)dismissed.add(String(id));
+  if(id){
+    dismissed.add(String(id));
+    persistRead(dismissed);
+  }
   document.getElementById('ronaRadioNotificationOverlay')?.remove();
   queueMicrotask(renderModal);
 }
