@@ -1,13 +1,14 @@
 (()=>{'use strict';
-const MARK='20260925-stage2c1-v1';
+const MARK='20261003-stage2c1-v2';
 if(window.__RONA_PORTAL_RADIO_BROADCAST_V1__===MARK)return;
 const role=location.pathname==='/portal/agent'?'AGENT':(location.pathname==='/portal/client'?'CLIENT':'');
 if(!role)return;
 window.__RONA_PORTAL_RADIO_BROADCAST_V1__=MARK;
-const OWNER='/portal/owner-api?path='+encodeURIComponent(role==='CLIENT'?'/client/bootstrap':'/agent/bootstrap');
-const POLL_MS=30000;
+const OWNER='/portal/owner-api?path='+encodeURIComponent(role==='CLIENT'?'/client/radio':'/agent/radio');
+const POLL_MS=60000;
+const MAX_POLLS=10;
 const dismissed=new Set();
-const state={role,loading:false,radio:[],lastLoadedAt:0,error:null,timer:0,requestSeq:0};
+const state={role,loading:false,radio:[],lastLoadedAt:0,error:null,timer:0,pollCount:0,requestSeq:0};
 window.__RONA_PORTAL_RADIO_BROADCAST_STATE__=state;
 const norm=v=>String(v??'').trim();
 const upper=v=>norm(v).toUpperCase();
@@ -115,12 +116,23 @@ async function refresh(reason='poll'){
   }catch(error){state.error=String(error?.message||error||'RADIO_BROADCAST_LOAD_FAILED')}
   finally{state.loading=false}
 }
+function stopPolling(){if(state.timer){clearInterval(state.timer);state.timer=0}}
+function startPolling(){
+  if(state.timer)return;
+  state.pollCount=0;
+  state.timer=setInterval(()=>{
+    if(document.visibilityState!=='visible')return;
+    if(state.pollCount>=MAX_POLLS){stopPolling();return}
+    state.pollCount+=1;void refresh('poll');
+  },POLL_MS);
+}
+function wake(reason){stopPolling();startPolling();void refresh(reason)}
 function start(){
-  ensureStyle();void refresh('start');
-  if(!state.timer)state.timer=setInterval(()=>{if(document.visibilityState==='visible')void refresh('poll')},POLL_MS);
-  window.addEventListener('focus',()=>void refresh('focus'),{passive:true});
-  window.addEventListener('pageshow',()=>void refresh('pageshow'),{passive:true});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)void refresh('visible')},{passive:true});
+  ensureStyle();void refresh('start');startPolling();
+  window.addEventListener('focus',()=>wake('focus'),{passive:true});
+  window.addEventListener('pageshow',()=>wake('pageshow'),{passive:true});
+  window.addEventListener('rona:radio-refresh',()=>wake('event'),{passive:true});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake('visible')},{passive:true});
   document.addEventListener('keydown',event=>{if(event.key==='Escape'){const root=document.getElementById('ronaRadioNotificationOverlay');if(root)closeModal(root.dataset.itemId||'')}})
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
