@@ -5,6 +5,8 @@ on:
     branches: [release/public-go-live-v1.1]
     paths:
       - 'functions/portal/deals-current-state-ui.js'
+      - 'supabase/migrations/20261003171500_admin_deal_attention_after_rail_completed_and_paid_v1.sql'
+      - 'tests/admin-deal-attention-after-rail-paid-v1.test.mjs'
       - 'scripts/qa-admin-deal-indicators-browser-v1.mjs'
       - '.github/workflows/admin-deal-document-status-indicators-qa.yml'
   workflow_dispatch:
@@ -29,7 +31,7 @@ jobs:
           node --check functions/portal/deals-current-state-ui.js
           npm run build
           grep -q "return !(add||signed)||!inv" functions/portal/deals-current-state-ui.js
-          grep -Fq "if(structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'" functions/portal/deals-current-state-ui.js
+          grep -Fq "if(d&&d.post_rail_completion_attention===true||structuralIssue(d)||!hasClientSignedAddendum(d))return'HOLD';return'GO'" functions/portal/deals-current-state-ui.js
           grep -Fq "if(expectation!=='ACTIVE')return false" functions/portal/deals-current-state-ui.js
           grep -q "function needsPaymentHandoffAction(d)" functions/portal/deals-current-state-ui.js
           grep -q "x-rona-deal-indicators':'documents-addendum-invoice-status-client-signed-v1'" functions/portal/deals-current-state-ui.js
