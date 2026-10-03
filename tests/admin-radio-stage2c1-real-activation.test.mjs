@@ -76,7 +76,7 @@ test('Client and Agent portal runtime presents central notification modal and to
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
     "credentials:'same-origin'",
-    "const MARK='20261003-stage2c1-v4-durable-read'",
+    "const MARK='20261003-stage2c1-v5-read-on-display'",
     "READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/radio/'",
     "async function persistServerRead(id)",
     "method:'POST'",
@@ -91,6 +91,8 @@ test('Client and Agent portal runtime presents central notification modal and to
   assert.match(runtime,/window\.addEventListener\('rona:radio-refresh'/);
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
   assert.match(runtime,/async function closeModal\(id\)\{[\s\S]*dismissed\.add\(String\(id\)\)[\s\S]*await persistServerRead\(id\)/);
+  assert.match(runtime,/if\(id&&!displayed\.has\(id\)\)\{displayed\.add\(id\);void persistServerRead\(id\)\}/);
+  assert.match(runtime,/if\(persisted\.has\(String\(id\)\)\)return true/);
   assert.doesNotMatch(runtime,/localStorage|sessionStorage/);
   assert.match(runtime,/const rows=currentRows\(\)\.filter\(x=>upper\(x\?\.item_kind\)==='NOTIFICATION'&&!dismissed\.has\(String\(x\?\.id\|\|''\)\)\)/);
 });

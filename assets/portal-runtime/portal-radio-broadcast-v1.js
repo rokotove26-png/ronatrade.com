@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const MARK='20261003-stage2c1-v4-durable-read';
+const MARK='20261003-stage2c1-v5-read-on-display';
 if(window.__RONA_PORTAL_RADIO_BROADCAST_V1__===MARK)return;
 const role=location.pathname==='/portal/agent'?'AGENT':(location.pathname==='/portal/client'?'CLIENT':'');
 if(!role)return;
@@ -9,6 +9,8 @@ const READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/ra
 const POLL_MS=60000;
 const MAX_POLLS=10;
 const dismissed=new Set();
+const displayed=new Set();
+const persisted=new Set();
 const state={role,loading:false,radio:[],lastLoadedAt:0,error:null,timer:0,pollCount:0,requestSeq:0};
 window.__RONA_PORTAL_RADIO_BROADCAST_STATE__=state;
 const norm=v=>String(v??'').trim();
@@ -96,6 +98,7 @@ function renderTicker(){
 }
 async function persistServerRead(id){
   if(role!=='CLIENT'||!id)return false;
+  if(persisted.has(String(id)))return true;
   try{
     const response=await fetch(READ_ENDPOINT(id),{
       method:'POST',
@@ -107,6 +110,7 @@ async function persistServerRead(id){
     });
     const body=await response.json().catch(()=>null);
     if(!response.ok||body?.ok===false)throw new Error(String(body?.code||('HTTP_'+response.status)));
+    persisted.add(String(id));
     return true;
   }catch(error){
     state.error=String(error?.message||error||'RADIO_NOTIFICATION_READ_PERSIST_FAILED');
@@ -143,7 +147,9 @@ function renderModal(){
   head.append(title,close);
   const body=document.createElement('div');body.className='rona-radio-modal-body';body.textContent=norm(item.body_text)||'—';
   const meta=document.createElement('div');meta.className='rona-radio-modal-meta';meta.textContent=item.active_from?'Опубликовано: '+new Date(item.active_from).toLocaleString('ru-RU'):'';
-  card.append(head,body,meta);root.append(card);document.body.append(root);queueMicrotask(()=>close.focus({preventScroll:true}));
+  card.append(head,body,meta);root.append(card);document.body.append(root);
+  if(id&&!displayed.has(id)){displayed.add(id);void persistServerRead(id)}
+  queueMicrotask(()=>close.focus({preventScroll:true}));
 }
 function render(){renderTicker();renderModal();state.lastRenderedAt=Date.now()}
 async function refresh(reason='poll'){
