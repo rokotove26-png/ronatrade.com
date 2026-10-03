@@ -48,5 +48,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Prove lifecycle tabs
         run: node scripts/qa-client-deals-lifecycle-tabs-v1.mjs
-      - name: Prove Closing Documents navigation removed
+      - name: Prove retired Client sections removed
         run: node scripts/qa-client-sidebar-command-nav-v1.mjs
