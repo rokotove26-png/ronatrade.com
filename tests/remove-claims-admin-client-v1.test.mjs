@@ -18,6 +18,13 @@ test('Admin portal no longer exposes or loads Claims',()=>{
   assert.doesNotMatch(fast,/loadModule\(['"]claims['"]/);
   assert.doesNotMatch(fast,/MODULES\.claims/);
 
+  const build=read('scripts/build-pages-direct-canonical.mjs');
+  const materialize=read('scripts/materialize-admin-current-modules.mjs');
+  const watchdog=read('assets/portal-admin-runtime-watchdog-v1.js');
+  assert.match(build,/CURRENT_ADMIN_RETIRED_CLAIMS_MARKER_PRESENT/);
+  assert.doesNotMatch(materialize,/writeFile\(join\(OUT,'claims-r2-ui'\)/);
+  assert.doesNotMatch(watchdog,/if\(p==='claims'\)/);
+
   assert.doesNotMatch(shell,/claims:'Претензии'/);
   assert.doesNotMatch(shell,/data-page=\\?"claims\\?"/);
   assert.doesNotMatch(shell,/['"]claims['"]\]\.forEach\(a\)/);
