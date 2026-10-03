@@ -73,7 +73,7 @@ test('Radio history and KPI consume chat-only projection',()=>{
   assert.match(admin,/radio_messages:radioMessages/);
   const radio=read('functions/portal/remaining-sections-r2-base.js');
   assert.match(radio,/const canonical=radioCanonicalItems\(\),broadcasts=radioCanonicalBroadcasts\(\)/);
-  assert.match(radio,/const count=k=>k==='MESSAGE'\?canonical\.length:effectiveBroadcasts\.filter/);
+  assert.match(radio,/const count=k=>k==='MESSAGE'\?canonical\.length:broadcasts\.filter/);
   assert.match(radio,/kpi\('Сообщения',count\('MESSAGE'\)/);
 });
 
@@ -434,14 +434,13 @@ test('Dynamic Radio wrapper preserves the single canonical base owner and frozen
   const radio=read('functions/portal/remaining-sections-r2-base.js');
   const wrapper=read('functions/portal/remaining-sections-ui.js');
   for(const token of [
-    "radio-workspace",
-    "radio-compose-panel",
-    "radio-link-panel",
-    "radio-active-panel",
-    "radio-compose-controls",
-    "radio-send",
-    "Активные сообщения"
+    "root('radio','Радиорубка'",
+    "el('div','rona-rs-form')",
+    "card('Новое сообщение'",
+    "card('Активные сообщения'",
+    "['Тип','Кому','Сообщение','Дата']"
   ]) assert.ok(radio.includes(token),`canonical Radio visual DOM token missing: ${token}`);
+  assert.doesNotMatch(radio,/radioRoot\(\)|radio-command-bar|radio-kpi-grid|radio-workspace|radio-compose-panel|radio-link-panel|radio-active-panel/);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER/);
   assert.doesNotMatch(wrapper,/RADIO_DIRECT_RENDER_SOURCE_MISMATCH/);
   const mod=await import('../functions/portal/remaining-sections-ui.js?radio-stage2c1-single-owner='+Date.now());
@@ -449,10 +448,10 @@ test('Dynamic Radio wrapper preserves the single canonical base owner and frozen
   const script=await response.text();
   assert.match(script,/STAGE_2A_CORRECTIVE_CLIENT_CHAT_V3_STATIC_OWNER/);
   assert.match(script,/STAGE_2B_NOTIFICATION_ANNOUNCEMENT_V1_STATIC_OWNER/);
-  assert.match(script,/radio-workspace/);
-  assert.match(script,/radio-compose-panel/);
-  assert.match(script,/radio-active-panel/);
-  assert.match(script,/Активные сообщения/);
+  assert.match(script,/root\('radio','Радиорубка'/);
+  assert.match(script,/rona-rs-form/);
+  assert.match(script,/card\('Активные сообщения'/);
+  assert.doesNotMatch(script,/radio-command-bar|radio-workspace|radio-compose-panel|radio-active-panel/);
   new Function(script);
 });
 
