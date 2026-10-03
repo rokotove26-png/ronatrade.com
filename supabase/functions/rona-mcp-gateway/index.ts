@@ -56,6 +56,43 @@ const COORDINATION_DETAIL_TOOL = {
   },
   annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
 };
+const TASK_COMPLETE_TOOL = {
+  name: "task_complete",
+  title: "Завершить назначенную задачу",
+  description: "Явно завершить задачу своей фиксированной роли. Требует текущего APPROVED+confirmed функционального заключения без обязательных условий и непустых evidence_refs. Functional conclusion сам по себе задачу не закрывает.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", minLength: 1, maxLength: 160 },
+      conclusion_record_id: { type: "string", pattern: "^[0-9a-fA-F-]{36}$" },
+      note: { type: "string", minLength: 1, maxLength: 4000 },
+      evidence_refs: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, minItems: 1, maxItems: 20 },
+      idempotency_key: { type: "string", minLength: 8, maxLength: 160 },
+    },
+    required: ["task_id","conclusion_record_id","note","evidence_refs","idempotency_key"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+const TASK_CLOSE_TOOL = {
+  name: "task_close",
+  title: "Закрыть назначенную задачу",
+  description: "Административно закрыть назначенную своей роли задачу как superseded, duplicate, obsolete source или no longer applicable. Доступно Operations/System Admin; требует явного основания и evidence_refs; business state не изменяет.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      task_id: { type: "string", minLength: 1, maxLength: 160 },
+      closure_basis: { type: "string", enum: ["SUPERSEDED","DUPLICATE","OBSOLETE_SOURCE","NO_LONGER_APPLICABLE"] },
+      note: { type: "string", minLength: 1, maxLength: 4000 },
+      evidence_refs: { type: "array", items: { type: "string", minLength: 1, maxLength: 200 }, minItems: 1, maxItems: 20 },
+      idempotency_key: { type: "string", minLength: 8, maxLength: 160 },
+    },
+    required: ["task_id","closure_basis","note","evidence_refs","idempotency_key"],
+    additionalProperties: false,
+  },
+  annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+};
+
 
 function roleCanUseEntity(role, type) {
   return ENTITY_SCOPE[role]?.has(type) === true;
@@ -339,13 +376,136 @@ async function coordinationDetail(ctx, req, msg) {
   await recordMcpEvent(ctx, ids, "coordination_detail", "SUCCESS", 200, { coordination_record_id: recordId, coordination_policy: "RONA_CROSS_ROLE_COORDINATION_V1" });
   return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, data: rows[0] });
 }
-async function augmentToolsListResponse(res) {
+
+async function taskLifecycleCall(ctx, req, msg, name) {
+  const ids = requestIds(req);
+  const args = msg?.params?.arguments ?? {};
+  const deny = async (code, taskId = null, idemHash = null, payloadHash = null) => {
+    await recordMcpEvent(ctx, ids, name, "DENIED", 200, { code, task_lifecycle_contract: "RONA_AI_TASK_LIFECYCLE_V1" });
+    await coordAudit(ctx, ids, name, { targetType: "TASK", targetId: taskId, idemHash, payloadHash, result: "DENIED", denialCode: code, metadata: { task_lifecycle_contract: "RONA_AI_TASK_LIFECYCLE_V1" } });
+    return rpcToolResponse(msg.id, { ok: false, code, status: 403 }, true);
+  };
+  if (!ctx || !scopeHas(ctx.scope, "mcp:coordinate") || !String(ctx.server_slug || "").endsWith("-pilot")) return null;
+  if (!AI_ROLES.has(ctx.role)) return deny("ROLE_AUTHORITY_DENIED");
+  if (!args || typeof args !== "object" || Array.isArray(args) || Object.keys(args).some(k => FORBIDDEN_ROLE_KEYS.has(k))) return deny("INVALID_ARGUMENTS");
+  if (!await rateAllowed(ctx)) return deny("RATE_LIMITED");
+
+  const taskId = cleanText(args.task_id, 160);
+  const note = cleanText(args.note, 4000);
+  const evidence = validateRefs(args.evidence_refs);
+  const idem = typeof args.idempotency_key === "string" && IDEMPOTENCY_RE.test(args.idempotency_key) ? args.idempotency_key : null;
+  if (!taskId || !note || !evidence || evidence.length < 1 || !idem) return deny("INVALID_ARGUMENTS", taskId);
+
+  const allowedKeys = name === "task_complete"
+    ? new Set(["task_id","conclusion_record_id","note","evidence_refs","idempotency_key"])
+    : new Set(["task_id","closure_basis","note","evidence_refs","idempotency_key"]);
+  if (Object.keys(args).some(k => !allowedKeys.has(k))) return deny("INVALID_ARGUMENTS", taskId);
+
+  let conclusionId = null;
+  let closureBasis = null;
+  if (name === "task_complete") {
+    conclusionId = String(args.conclusion_record_id || "");
+    if (!UUID_RE.test(conclusionId)) return deny("INVALID_ARGUMENTS", taskId);
+  } else {
+    if (!["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role)) return deny("TASK_CLOSE_ROLE_DENIED", taskId);
+    closureBasis = String(args.closure_basis || "");
+    if (!["SUPERSEDED","DUPLICATE","OBSOLETE_SOURCE","NO_LONGER_APPLICABLE"].includes(closureBasis)) return deny("INVALID_ARGUMENTS", taskId);
+  }
+
+  const payload = name === "task_complete"
+    ? { task_id: taskId, terminal_status: "COMPLETED", conclusion_record_id: conclusionId, note, evidence_refs: evidence }
+    : { task_id: taskId, terminal_status: "CLOSED", closure_basis: closureBasis, note, evidence_refs: evidence };
+  const idemHash = await sha256Hex(idem);
+  const payloadHash = await sha256Hex(stableStringify(payload));
+
+  const existing = await sql`select * from portal_private.ai_coordination_records where identity_id=${ctx.identity_id} and tool_name=${name} and idempotency_key_hash=${idemHash} limit 1`;
+  if (existing.length) {
+    if (existing[0].payload_hash !== payloadHash) return deny("IDEMPOTENCY_CONFLICT", taskId, idemHash, payloadHash);
+    const taskRows = await sql`select status::text status from portal_private.staff_tasks where task_id=${taskId} limit 1`;
+    const r = existing[0];
+    await recordMcpEvent(ctx, ids, name, "SUCCESS", 200, { coordination_record_id: r.record_id, idempotent_replay: true, materialized_task_status: taskRows[0]?.status ?? null, task_lifecycle_contract: "RONA_AI_TASK_LIFECYCLE_V1" });
+    await coordAudit(ctx, ids, name, { targetType: "TASK", targetId: taskId, idemHash, payloadHash, result: "IDEMPOTENT_REPLAY", record: r, metadata: { task_lifecycle_contract: "RONA_AI_TASK_LIFECYCLE_V1" } });
+    return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, record_id: r.record_id, record_type: r.record_type, status: r.status, materialized_task_status: taskRows[0]?.status ?? null, idempotent_replay: true });
+  }
+
+  const taskRows = await sql`select task_id,status::text status,authority_domain,assigned_functional_role::text assigned_role,qa_only from portal_private.staff_tasks where task_id=${taskId} limit 1`;
+  if (taskRows.length !== 1) return deny("TASK_NOT_FOUND", taskId, idemHash, payloadHash);
+  const task = taskRows[0];
+  if (task.qa_only) return deny("TASK_QA_TARGET_DENIED", taskId, idemHash, payloadHash);
+  if (task.assigned_role !== ctx.role) return deny("TASK_ROLE_SCOPE_DENIED", taskId, idemHash, payloadHash);
+  if (["DECIDED","COMPLETED","REJECTED","CLOSED"].includes(task.status)) return deny("TASK_FINAL_STATE", taskId, idemHash, payloadHash);
+  if (name === "task_close" && ctx.role === "SYSTEM_ADMIN" && !["TECHNICAL","SYSTEM","SECURITY"].includes(String(task.authority_domain || "").toUpperCase())) return deny("SYSTEM_ADMIN_BUSINESS_WRITE_BLOCKED", taskId, idemHash, payloadHash);
+
+  if (name === "task_complete") {
+    const c = await sql`
+      select c.record_id
+      from portal_private.ai_coordination_records c
+      where c.record_id=${conclusionId}::uuid
+        and c.qa_only=false
+        and c.record_type='FUNCTIONAL_CONCLUSION'
+        and c.functional_role=${ctx.role}::portal_private.ai_business_role_enum
+        and c.target_type='TASK'
+        and c.target_id=${taskId}
+        and c.status='APPROVED'
+        and coalesce((c.payload->>'confirmed')::boolean,false)=true
+        and coalesce(jsonb_array_length(c.payload->'mandatory_conditions'),0)=0
+        and not exists(select 1 from portal_private.ai_coordination_records n where n.qa_only=false and n.supersedes_id=c.record_id)
+        and c.version=(select max(x.version) from portal_private.ai_coordination_records x where x.qa_only=false and x.record_type='FUNCTIONAL_CONCLUSION' and x.functional_role=${ctx.role}::portal_private.ai_business_role_enum and x.target_type='TASK' and x.target_id=${taskId})
+      limit 1`;
+    if (c.length !== 1) return deny("TASK_COMPLETION_APPROVED_CONCLUSION_REQUIRED", taskId, idemHash, payloadHash);
+  }
+
+  const sourceRefs = name === "task_complete" ? [`AI_COORDINATION:${conclusionId}`, ...evidence] : evidence;
+  let inserted;
+  try {
+    inserted = await sql.begin(async tx => {
+      await tx`select pg_advisory_xact_lock(hashtextextended(${ctx.identity_id + "|" + name + "|" + idemHash},0))`;
+      const again = await tx`select * from portal_private.ai_coordination_records where identity_id=${ctx.identity_id} and tool_name=${name} and idempotency_key_hash=${idemHash} limit 1`;
+      if (again.length) {
+        if (again[0].payload_hash !== payloadHash) throw new Error("IDEMPOTENCY_CONFLICT");
+        return again[0];
+      }
+      const rows = await tx`
+        insert into portal_private.ai_coordination_records(
+          record_type,functional_role,identity_id,token_id,client_id,server_slug,tool_name,
+          target_type,target_id,target_role,parent_record_id,version,supersedes_id,
+          idempotency_key_hash,payload_hash,source_refs,evidence_refs,payload,status,
+          correlation_id,mcp_request_id,qa_only
+        ) values(
+          'TASK_TERMINAL_ACTION',${ctx.role}::portal_private.ai_business_role_enum,${ctx.identity_id},
+          ${ctx.token_id}::uuid,${ctx.client_id},${ctx.server_slug},${name},
+          'TASK',${taskId},${ctx.role}::portal_private.ai_business_role_enum,null,1,null,
+          ${idemHash},${payloadHash},${sql.json(sourceRefs)}::jsonb,${sql.json(evidence)}::jsonb,
+          ${sql.json(payload)}::jsonb,${name === "task_complete" ? "COMPLETED" : "CLOSED"},
+          ${ids.correlationId}::uuid,${ids.mcpRequestId}::uuid,${Boolean(ctx.qaOnly)}
+        ) returning *`;
+      return rows[0];
+    });
+  } catch (e) {
+    const code = String(e?.message || "").includes("IDEMPOTENCY_CONFLICT") ? "IDEMPOTENCY_CONFLICT" : "TASK_TERMINAL_SETTLEMENT_FAILED";
+    console.error("task lifecycle write failed", String(e?.message || e));
+    return deny(code, taskId, idemHash, payloadHash);
+  }
+
+  const settled = await sql`select status::text status,decision,decision_at from portal_private.staff_tasks where task_id=${taskId} limit 1`;
+  const expected = name === "task_complete" ? "COMPLETED" : "CLOSED";
+  if (settled[0]?.status !== expected) return deny("TASK_TERMINAL_NOT_MATERIALIZED", taskId, idemHash, payloadHash);
+
+  await recordMcpEvent(ctx, ids, name, "SUCCESS", 200, { coordination_record_id: inserted.record_id, materialized_task_status: settled[0].status, task_lifecycle_contract: "RONA_AI_TASK_LIFECYCLE_V1" });
+  await coordAudit(ctx, ids, name, { targetType: "TASK", targetId: taskId, idemHash, payloadHash, result: "SUCCESS", record: inserted, metadata: { materialized_task_status: settled[0].status, task_lifecycle_contract: "RONA_AI_TASK_LIFECYCLE_V1", business_mutation: false } });
+  return rpcToolResponse(msg.id, { ok: true, role: ctx.role, identity_id: ctx.identity_id, correlation_id: ids.correlationId, record_id: inserted.record_id, record_type: inserted.record_type, status: inserted.status, materialized_task_status: settled[0].status, idempotent_replay: false });
+}
+async function augmentToolsListResponse(res, ctx = null) {
   if (!res.ok) return res;
   let envelope;
   try { envelope = await res.clone().json(); } catch { return res; }
   const tools = envelope?.result?.tools;
   if (!Array.isArray(tools)) return res;
   if (!tools.some(t => t?.name === "coordination_detail")) tools.push(COORDINATION_DETAIL_TOOL);
+  if (ctx && scopeHas(ctx.scope, "mcp:coordinate") && String(ctx.server_slug || "").endsWith("-pilot")) {
+    if (AI_ROLES.has(ctx.role) && !tools.some(t => t?.name === "task_complete")) tools.push(TASK_COMPLETE_TOOL);
+    if (["OPERATIONS_DIRECTOR","SYSTEM_ADMIN"].includes(ctx.role) && !tools.some(t => t?.name === "task_close")) tools.push(TASK_CLOSE_TOOL);
+  }
   return new Response(JSON.stringify(envelope), { status: res.status, statusText: res.statusText, headers: cloneHeaders(res.headers) });
 }
 async function compactCurrentStateResponse(res, req) {
@@ -369,7 +529,11 @@ async function compactCurrentStateResponse(res, req) {
 async function wrappedRequest(handler, req) {
   const msg = await inspectMcp(req);
   const name = msg?.method === "tools/call" ? String(msg?.params?.name || "") : "";
-  const ctx = (name === "handoff_request_submit" || name === "coordination_detail") ? await authContext(req) : null;
+  const ctx = (msg?.method === "tools/list" || name === "handoff_request_submit" || name === "coordination_detail" || name === "task_complete" || name === "task_close") ? await authContext(req) : null;
+  if ((name === "task_complete" || name === "task_close") && ctx) {
+    const direct = await taskLifecycleCall(ctx, req, msg, name);
+    if (direct) return direct;
+  }
   if (name === "coordination_detail" && ctx && scopeHas(ctx.scope, "mcp:read")) {
     const direct = await coordinationDetail(ctx, req, msg);
     if (direct) return direct;
@@ -391,7 +555,7 @@ async function wrappedRequest(handler, req) {
   }
   let res = await handler(req);
   if (msg?.method === "tools/list") {
-    res = await augmentToolsListResponse(res);
+    res = await augmentToolsListResponse(res, ctx);
     res = await financeHooks.toolsList(req, res);
     res = await railXlsxHooks.toolsList(req, res);
     res = await railXlsxResolutionHooks.toolsList(req, res);

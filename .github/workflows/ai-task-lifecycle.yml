@@ -1,0 +1,25 @@
+name: AI Task Lifecycle QA
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/*ai_task_lifecycle*'
+      - 'supabase/migrations/*ai_task_progress_settlement*'
+      - 'supabase/functions/rona-mcp-gateway/index.ts'
+      - 'tests/ai-task-lifecycle/**'
+      - '.github/workflows/ai-task-lifecycle.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Task lifecycle contract tests
+        run: node --test tests/ai-task-lifecycle/*.test.mjs
