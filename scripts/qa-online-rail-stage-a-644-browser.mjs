@@ -259,7 +259,7 @@ try{
 
   await page.getByRole('button',{name:'Показать Россию и СНГ'}).click();
   const homeView=await page.evaluate(()=>({...window.__RONA_RAIL_MAP_ACTIVE_VIEW__}));
-  assert(homeView.zoom===3&&close(homeView.lat,52.5)&&close(homeView.lng,68),'СНГ/Home did not explicitly reset default viewport');
+  assert(homeView.zoom===initial.map.zoom&&close(homeView.lat,initial.map.lat)&&close(homeView.lng,initial.map.lng)&&homeView.userTouched===false,'СНГ/Home did not refit to the complete planned route');
 
   await selector.selectOption(DEAL_B);
   await page.waitForFunction(key=>window.__RONA_RAIL_CURRENT_STATE__?.selectedDealKey===key&&window.__RONA_RAIL_MAP_ACTIVE_VIEW__?.dealKey===key,DEAL_B,{timeout:5000});
