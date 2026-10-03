@@ -10,6 +10,10 @@ const SCRIPT=RAW
     "function waitsAction(d){if(!isActive(d))return false;return Number(d&&d.client_remaining_amount||0)>0||String(d&&d.payment_expectation_state||'').toUpperCase()==='ACTIVE'||needsAttention(d)}",
     "function numericValue(v){if(v===null||v===undefined||v==='')return null;var n=Number(v);return Number.isFinite(n)?n:null}function knownRemaining(d){return numericValue(d&&d.client_remaining_amount)}function waitsPayment(d){if(!isActive(d))return false;var due=numericValue(d&&d.due_now),projection=String(d&&d.finance_projection_version||'').toUpperCase();if(projection==='FINANCE_V8')return due!==null&&due>0;var expectation=String(d&&d.payment_expectation_state||'').toUpperCase(),remaining=knownRemaining(d),expected=numericValue(d&&d.payment_expectation_amount);if(expectation!=='ACTIVE')return false;if(remaining!==null)return remaining>0;if(expected!==null)return expected>0;return true}"
   )
+  .replace(
+    "function needsAttention(d){if(!isActive(d))return false;return contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}",
+    "function needsAttention(d){if(!isActive(d))return false;return !!(d&&d.post_rail_completion_attention===true)||contractNeedsAction(d)||financeNeedsAction(d)||!d.product_confirmed_at||!d.quantity_confirmed_at||!String(d.delivery_basis||'').trim()||missingDocuments(d)}"
+  )
   .replaceAll('waitsAction','waitsPayment')
   .replace("api('/admin/workflow-bootstrap')","api('/admin/deals-current-v4')")
   .replace(
