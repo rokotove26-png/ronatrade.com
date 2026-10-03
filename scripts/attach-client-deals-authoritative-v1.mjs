@@ -5,8 +5,8 @@ const htmlPath='dist/portal/client.html';
 const integrityPath='dist/canonical-visual-integrity.json';
 const runtimePath='dist/assets/portal-runtime/client-deals-authoritative-v1.js';
 const scriptId='rona-client-deals-authoritative-v1';
-const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20260922-authoritative-v13-canonical-deal-state';
-const marker='20260922-client-deals-authoritative-canonical-deal-state-v10';
+const src='/assets/portal-runtime/client-deals-authoritative-v1.js?v=20261003-authoritative-v14-lifecycle-tabs';
+const marker='20261003-client-deals-authoritative-lifecycle-tabs-v11';
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 
 const runtime=await readFile(runtimePath,'utf8');
@@ -18,7 +18,8 @@ for(const required of [
   'function openAuthoritativeDeal(id)','canonical-deal-state-v1-fresh-on-open','20260922-deal-state-v1-fresh-on-open','pending-canonical-deal-state','function canonicalStateValid(canonical,id,ctx)','function renderCanonicalContextSlots(r,canonical,ctx)','ronaResourceAuthority','function drawerFor(id,key)',
   'function contextMatchesPayload(data,ctx,deal)','function passportSlotsReady(r)','function clearDrawerBinding(drawer','function waitForExactDrawer(id,key,token',
   'ronaAuthoritativeClientId','ronaAuthoritativeContractId','deal-state-v1','unauthorized-deal','canonical-deal-state-binding','state.payload=projection',
-  'data-rona-current-context-slot','deal_state:canonical'
+  'data-rona-current-context-slot','deal_state:canonical',
+  'data-rona-deal-stage-tabs','data-rona-deal-stage-tab','Активные','Требуют внимания','Завершенные','function dealStage(d)','function authorizedDealFor(data,id)'
 ]){
   if(!runtime.includes(required))throw new Error(`CLIENT_DEALS_AUTHORITATIVE_RENDER_CONTRACT_MISSING:${required}`);
 }
@@ -44,7 +45,7 @@ await writeFile(htmlPath,html,'utf8');
 const integrity=JSON.parse(await readFile(integrityPath,'utf8'));
 integrity.client_runtime.deals_authoritative_renderer={
   id:scriptId,src,marker,
-  scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_ACTIVE_DEALS_SECTION',
+  scope:'CURRENT_AUTHORIZED_CLIENT_CONTEXT_LIFECYCLE_DEALS_SECTION',
   source:'RONA_CLIENT_CONTEXT_CURRENT_PROJECTION',
   projection_network_owner:'RONA_CLIENT_CONTEXT',
   own_context_fetch:false,
@@ -55,7 +56,7 @@ integrity.client_runtime.deals_authoritative_renderer={
   detail_source:'RONA_CLIENT_DEAL_STATE_V1',
   detail_scope_key:'CLIENT_ID_CONTRACT_ID_DEAL_ID',
   role:'FUNCTIONAL_RENDER_AND_NATIVE_PASSPORT_BINDER_ONLY',
-  visual_css_changed:false,
+  visual_css_changed:true,
   canonical_visual_owner:'client-deal-canonical-visual-v2',
   native_passport_owner:'client-deal-passport-v1',
   active_root_required:true,
@@ -81,4 +82,4 @@ const emitted=Buffer.from(html,'utf8');
 integrity.client_runtime.emitted_sha256=sha256(emitted);
 integrity.client_runtime.emitted_bytes=emitted.length;
 await writeFile(integrityPath,JSON.stringify(integrity));
-console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; cards=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION; passport=RONA_CLIENT_DEAL_STATE_V1; passport-freshness=SINGLE_NO_STORE_DEAL_STATE_ON_EVERY_OPEN; exact_native_passport=true; lifecycle_owner=client-deal-lifecycle-v1; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; visual_css_changed=false; sha256=${integrity.client_runtime.emitted_sha256}`);
+console.log(`CLIENT_DEALS_AUTHORITATIVE_RENDER=PASS marker=${marker}; active_root=true; cards=RONA_CLIENT_CONTEXT_CURRENT_PROJECTION; stage_tabs=ACTIVE_ATTENTION_COMPLETED; passport=RONA_CLIENT_DEAL_STATE_V1; passport-freshness=SINGLE_NO_STORE_DEAL_STATE_ON_EVERY_OPEN; exact_native_passport=true; lifecycle_owner=client-deal-lifecycle-v1; detail_scope=CLIENT_ID_CONTRACT_ID_DEAL_ID; visual_css_changed=true; sha256=${integrity.client_runtime.emitted_sha256}`);
