@@ -75,10 +75,6 @@ test('Client and Agent portal runtime presents central notification modal and to
     "if(role!=='CLIENT')",
     "upper(x?.item_kind)==='ANNOUNCEMENT'",
     "upper(x?.item_kind)==='NOTIFICATION'",
-    "const READ_KEY='rona_radio_notification_read_v1'",
-    "localStorage.getItem(READ_KEY)",
-    "localStorage.setItem(READ_KEY,JSON.stringify(rows))",
-    "persistRead(dismissed)",
     "credentials:'same-origin'",
     "const MARK='20261003-stage2c1-v4-durable-read'",
     "READ_ENDPOINT=id=>'/portal/owner-api?path='+encodeURIComponent('/client/radio/'",
@@ -94,7 +90,8 @@ test('Client and Agent portal runtime presents central notification modal and to
   assert.doesNotMatch(runtime,/#ronaRadioAnnouncementTicker\{position:fixed|top:0;z-index:2147482500|document\.body\.prepend\(root\)/);
   assert.match(runtime,/window\.addEventListener\('rona:radio-refresh'/);
   assert.doesNotMatch(runtime,/DELETE|delete\s+from/i);
-  assert.match(runtime,/async function closeModal\(id\)\{[\s\S]*dismissed\.add\(String\(id\)\)[\s\S]*persistRead\(dismissed\)[\s\S]*await persistServerRead\(id\)/);
+  assert.match(runtime,/async function closeModal\(id\)\{[\s\S]*dismissed\.add\(String\(id\)\)[\s\S]*await persistServerRead\(id\)/);
+  assert.doesNotMatch(runtime,/localStorage|sessionStorage/);
   assert.match(runtime,/const rows=currentRows\(\)\.filter\(x=>upper\(x\?\.item_kind\)==='NOTIFICATION'&&!dismissed\.has\(String\(x\?\.id\|\|''\)\)\)/);
 });
 
