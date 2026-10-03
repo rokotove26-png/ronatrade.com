@@ -76,14 +76,14 @@ test('Deal identity is canonical deal_key, not GU-12 text',()=>{
 });
 
 test('Map viewport lives outside DOM and persists per deal',()=>{
-  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V1/);
+  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V2_FULL_PLANNED_ROUTE/);
   assert.match(v81,/window\.__RONA_RAIL_MAP_VIEWPORT_STATE__/);
   assert.match(v81,/return key\?'DEAL:'\+key:'DEAL:UNBOUND'/);
   assert.match(v81,/function railMapPersistViewport\(state,reason,userTouched\)/);
   assert.match(v81,/function railMapInitialViewport\(context,width,height,minZoom,maxZoom\)/);
   assert.match(v81,/railMapPersistViewport\(state,reason\|\|'USER_ZOOM',true\)/);
   assert.match(v81,/railMapPersistViewport\(state,'USER_PAN',true\)/);
-  assert.match(v81,/railMapPersistViewport\(state,'HOME',true\)/);
+  assert.match(v81,/railMapPersistViewport\(state,'HOME',false\)/);
   assert.match(v81,/function railMapDefaultViewport\(\)\{return\{lat:52\.5,lng:68,zoom:3\}\}/);
 });
 
@@ -92,6 +92,12 @@ test('Route fit is one-time per deal and yields to user pan/zoom',()=>{
   assert.match(v81,/!saved\.userTouched&&!saved\.routeFitApplied&&route\.length>=2/);
   assert.match(v81,/reason:'ROUTE_FIT'/);
   assert.match(v81,/routeFitApplied:reason==='HOME'\?true:/);
+});
+
+test('Map fit and Home are anchored to the complete planned route, not stale route progress',()=>{
+  assert.match(v81,/function railMapFitPoints\(context\)\{var planned=railMapPlannedRoutePoints\(context\),route=planned\.length>=2\?planned:railMapDominantVisualRoute\(context\)/);
+  assert.match(v81,/home\.onclick=function\(ev\)\{ev\.preventDefault\(\);ev\.stopPropagation\(\);var rect=state\.viewport\.getBoundingClientRect\(\),fit=railMapFitRoute\(railMapFitPoints\(state\.context\|\|\{\}\)/);
+  assert.match(v81,/RAIL_MAP_VIEWPORT_STATE_V2_FULL_PLANNED_ROUTE/);
 });
 
 test('First open never commits a non-authoritative inherited Admin snapshot',()=>{
@@ -195,7 +201,11 @@ test('Online Rail draws one continuous route from the dominant cohort back to th
   assert.match(v81,/plan=railMapDominantVisualRoutePlan\(context\)/);
   assert.match(v81,/railMapAppendUniquePoints\(out,branch\)/);
   assert.match(v81,/railMapAppendUniquePoints\(out,planned\.slice\(rejoin,end\+1\)\)/);
+  assert.match(v81,/base=planned\.length>=2\?planned:route/);
+  assert.match(v81,/railMapSvgPolyline\(svg,base,left,top,z,'rona-rail-v7-route-casing','rona-rail-v7-route-line'\)/);
   assert.match(v81,/railMapSvgPolyline\(svg,route,left,top,z,'rona-rail-v7-route-actual-casing','rona-rail-v7-route-actual'\)/);
+  assert.match(v81,/plannedRouteBase:true/);
+  assert.match(v81,/version:'20261003-full-planned-route-base-v4'/);
   assert.match(v81,/branchesDrawn:0/);
   assert.match(v81,/routeMode:plan\.mode/);
   assert.match(v81,/rejoinPlannedIndex:plan\.rejoinPlannedIndex/);
