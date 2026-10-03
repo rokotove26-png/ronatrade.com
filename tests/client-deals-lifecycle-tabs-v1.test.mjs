@@ -6,21 +6,13 @@ const backend=readFileSync('supabase/functions/rona-portal-api/index.ts','utf8')
 const gateway=readFileSync('functions/portal/api/[[path]].js','utf8');
 const renderer=readFileSync('assets/portal-runtime/client-deals-authoritative-v1.js','utf8');
 const nav=readFileSync('assets/portal-runtime/client-sidebar-command-nav-v1.js','utf8');
+const buttonVisual=readFileSync('assets/portal-runtime/portal-canonical-button-hover-v1.js','utf8');
 
-test('Client deal lifecycle projection is functional and canonical, not deal-specific',()=>{
-  assert.match(backend,/function clientDealStage\(row:any,lifecycle:any\)/);
-  assert.match(backend,/CANONICAL_DEAL_EXECUTION_LIFECYCLE_V1/);
-  assert.match(backend,/rail_deal_monitoring_control_v1/);
-  assert.match(backend,/deal_finance_authority_payments_v8_read_v1/);
-  assert.match(backend,/owner_deal_finance_summary/);
-  assert.match(backend,/upper\(coalesce\(c\.monitoring_state,''\)\)='COMPLETED'/);
-  assert.match(backend,/upper\(coalesce\(f\.finance_status,''\)\)='PAID'/);
-  assert.match(backend,/upper\(coalesce\(f\.authority_state,''\)\)='AUTHORITATIVE'/);
-  assert.match(backend,/upper\(coalesce\(f\.lifecycle_state,''\)\)='CURRENT'/);
-  assert.match(backend,/coalesce\(f\.source_locked,false\)=true/);
-  assert.match(backend,/coalesce\(f\.is_terminal,false\)=true/);
-  assert.match(backend,/client_remaining_amount/);
-  assert.match(backend,/received_amount/);
+test('Client deal lifecycle UI remains generic while the heavy backend lifecycle query is held',()=>{
+  assert.match(renderer,/client_deal_stage/);
+  assert.match(renderer,/function dealStage\(d\)/);
+  assert.match(renderer,/function stageCounts\(data\)/);
+  assert.doesNotMatch(renderer,/DEAL-2026-004/);
   assert.doesNotMatch(backend,/DEAL-2026-004/);
 });
 
@@ -43,6 +35,15 @@ test('Client Deals renderer has three exclusive lifecycle tabs',()=>{
   assert.match(renderer,/function authorizedDealFor\(data,id\)/);
   assert.doesNotMatch(renderer,/function activeDeals\(data\)/);
   assert.doesNotMatch(renderer,/DEAL-2026-004/);
+});
+
+test('Client Deals stage controls are explicit buttons aligned to the title frame',()=>{
+  assert.match(buttonVisual,/#page-deals \[data-rona-deal-stage-tabs\]/);
+  assert.match(buttonVisual,/width:80%!important/);
+  assert.match(buttonVisual,/margin:18px 0 20px auto!important/);
+  assert.match(buttonVisual,/min-height:54px!important/);
+  assert.match(buttonVisual,/border:1px solid rgba\(96,187,226,\.42\)!important/);
+  assert.match(buttonVisual,/\[aria-selected="true"\]/);
 });
 
 test('standalone Closing Documents is removed but Claims remains',()=>{

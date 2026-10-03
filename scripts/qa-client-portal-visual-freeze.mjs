@@ -749,6 +749,7 @@ if(clientDealsStageTabsExceptionAuthorized){
   const required=[
     'assets/portal-runtime/client-deals-authoritative-v1.js',
     'assets/portal-runtime/client-sidebar-command-nav-v1.js',
+    'assets/portal-runtime/client-content-responsive-v1.css',
     'scripts/attach-client-deals-authoritative-v1.mjs',
     'scripts/attach-portal-canonical-button-hover-v1.mjs'
   ];
@@ -764,6 +765,7 @@ if(clientDealsStageTabsExceptionAuthorized){
     approvedNewRuntime.add('client-deals-authoritative-v1.js');
     approvedNewRuntime.add('client-sidebar-command-nav-v1.js');
     approvedNewAttach.add('attach-client-deals-authoritative-v1.mjs');
+    approvedModifiedFiles.add('assets/portal-runtime/client-content-responsive-v1.css');
   }
 }
 
