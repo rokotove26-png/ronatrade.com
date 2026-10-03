@@ -395,7 +395,11 @@ async function validateRadioPublicationTarget(scope,targetId){
       from portal_private.agent_persons ap
       where ap.agent_person_id=${targetId}
         and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
-        and ap.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+        and ap.authority_state in (
+          'SOURCE_RECEIVED'::portal_private.authority_state_enum,
+          'VERIFIED'::portal_private.authority_state_enum,
+          'CONFIRMED'::portal_private.authority_state_enum
+        )
       limit 1`;
     if(rows.length!==1)throw Object.assign(new Error('RADIO_AGENT_TARGET_NOT_CURRENT'),{status:409});
   }
@@ -412,6 +416,7 @@ async function postRadio(ctx, req) {
   if(kind==='MESSAGE')throw Object.assign(new Error('RADIO_MESSAGE_CANONICAL_ROUTE_REQUIRED'),{status:409});
   if(!['NOTIFICATION','ANNOUNCEMENT'].includes(kind))throw Object.assign(new Error('INVALID_KIND'),{status:400});
   if(!['CLIENT','AGENT','ALL_CLIENTS','ALL_AGENTS'].includes(scope))throw Object.assign(new Error('INVALID_SCOPE'),{status:400});
+  if(kind==='NOTIFICATION'&&!['CLIENT','ALL_CLIENTS'].includes(scope))throw Object.assign(new Error('RADIO_NOTIFICATION_CLIENT_SCOPE_REQUIRED'),{status:400});
   if(idempotencyKey.length>160)throw Object.assign(new Error('INVALID_IDEMPOTENCY_KEY'),{status:400});
   if(['CLIENT','AGENT'].includes(scope)&&!targetId)throw Object.assign(new Error('TARGET_REQUIRED'),{status:400});
   if(['ALL_CLIENTS','ALL_AGENTS'].includes(scope)&&targetId)throw Object.assign(new Error('TARGET_FORBIDDEN_FOR_BROADCAST'),{status:400});
@@ -502,11 +507,36 @@ async function clientBootstrap(ctx){const scope=await clientScope(ctx),keys=scop
   return{companies:contracts,prices,applications,deals,documents,analytics:[],news:[],radio};
 }
 
-async function agentBootstrap(ctx){const scope=await agentScope(ctx),keys=scope.map(x=>String(x.client_key));const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_agent=true and business_status='PUBLISHED' order by agreed_at desc`;
-  if(!keys.length)return{companies:[],prices,applications:[],documents:[],radio:[]};
+async function agentBootstrap(ctx){
+  const scope=await agentScope(ctx),keys=scope.map(x=>String(x.client_key));
+  const prices=await sql`select id,product,producer,basis,final_station,sale_price,currency,payment_terms,commercial_terms,agreed_at from portal_private.owner_price_snapshots where publish_agent=true and business_status='PUBLISHED' order by agreed_at desc`;
+  const bound=ctx.impersonation?.effectiveRole==="AGENT"?ctx.impersonation.targetAgentPersonKey:null;
+  const identities=await sql`
+    select distinct ap.agent_person_id
+    from portal_private.agent_user_bindings aub
+    join portal_private.agent_persons ap on ap.id=aub.agent_person_key
+    where aub.user_id=${ctx.userId}::uuid
+      and (${bound}::uuid is null or aub.agent_person_key=${bound}::uuid)
+      and aub.status='ACTIVE'::portal_private.binding_status_enum
+      and aub.revoked_at is null
+      and aub.valid_from<=now() and (aub.valid_to is null or aub.valid_to>now())
+      and aub.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and aub.authority_state in ('CONFIRMED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum)
+      and ap.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum
+      and ap.authority_state in ('SOURCE_RECEIVED'::portal_private.authority_state_enum,'VERIFIED'::portal_private.authority_state_enum,'CONFIRMED'::portal_private.authority_state_enum)
+  `;
+  const ids=identities.map(x=>String(x.agent_person_id));
+  const radio=ids.length?await sql`
+    select id,item_kind,target_scope,target_id,body_text,active_from,active_until
+    from portal_private.owner_radio_items
+    where item_kind='ANNOUNCEMENT'
+      and active_from<=now() and (active_until is null or active_until>now())
+      and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[])))
+    order by created_at desc
+  `:[];
+  if(!keys.length)return{companies:[],prices,applications:[],documents:[],radio};
   const applications=await sql`select a.application_id,a.product,a.quantity_tonnes,a.status::text,d.deal_id,cl.client_id,cl.legal_name from portal_private.client_applications a join portal_private.clients cl on cl.id=a.client_key left join portal_private.deals d on d.id=a.linked_deal_key where a.client_key = any(${keys}::uuid[]) and a.lifecycle_state<>'ARCHIVED'::portal_private.lifecycle_state_enum order by a.updated_at desc`;
   const documents=await sql`select d.deal_id,cl.client_id,doc.document_id,doc.authoritative_filename,odd.document_kind from portal_private.owner_deal_documents odd join portal_private.deals d on d.id=odd.deal_key join portal_private.clients cl on cl.id=d.client_key join portal_private.documents doc on doc.id=odd.document_key where d.client_key = any(${keys}::uuid[]) and doc.lifecycle_state='ACTIVE'::portal_private.lifecycle_state_enum order by odd.updated_at desc`;
-  const ids=scope.map(x=>String(x.agent_person_id));const radio=await sql`select id,item_kind,target_scope,target_id,body_text,active_from,active_until from portal_private.owner_radio_items where item_kind in ('NOTIFICATION','ANNOUNCEMENT') and active_from<=now() and (active_until is null or active_until>now()) and (target_scope='ALL_AGENTS' or (target_scope='AGENT' and target_id = any(${ids}::text[]))) order by created_at desc`;
   return{companies:scope,prices,applications,documents,radio};
 }
 
