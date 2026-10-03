@@ -95,7 +95,7 @@ test('Admin Radio static owner uses canonical broadcast projection without chang
     "el('div','rona-rs-form')",
     "card('Новое сообщение'",
     "card('Активные сообщения'",
-    "['Тип','Кому','Сообщение','Дата','Действие']"
+    "['Тип','Кому','Сообщение','Дата']"
   ]) assert.ok(radio.includes(token),`Canonical Radio visual structure token missing: ${token}`);
   assert.doesNotMatch(radio,/radioRoot\(\)|radio-command-bar|radio-kpi-grid|radio-workspace|radio-compose-panel|radio-link-panel|radio-active-panel/);
 });
@@ -193,7 +193,9 @@ test('Admin Radio stops one selected announcement without deleting history',()=>
   assert.match(radio,/rona-rs-radio-stop/);
   assert.match(radio,/String\(x\.item_kind\|\|'\'\)\.toUpperCase\(\)==='ANNOUNCEMENT'&&x\.id/);
   assert.match(radio,/post\('\/admin\/radio\/'\+encodeURIComponent\(String\(x\.id\)\)\+'\/expire',\{\}\)/);
-  assert.match(radio,/\['Тип','Кому','Сообщение','Дата','Действие'\]/);
+  assert.match(radio,/rona-rs-radio-date-action/);
+  assert.match(radio,/wrap\.append\(stamp,stop\);dateCell=wrap/);
+  assert.match(radio,/\['Тип','Кому','Сообщение','Дата'\]/);
   const owner=read('supabase/functions/rona-owner-acceptance/index.ts');
   assert.match(owner,/async function expireRadio/);
   assert.match(owner,/OWNER_RADIO_ITEM_EXPIRED/);
